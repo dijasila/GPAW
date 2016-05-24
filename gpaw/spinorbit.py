@@ -78,12 +78,12 @@ def get_radial_potential(calc, a, ai):
     return f_sg[:] / r_g
 
     
-def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
+def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
                               return_wfs=False, scale=1.0,
                               theta=0.0, phi=0.0):
     
     if bands is None:
-        bands = range(calc.get_number_of_bands())
+        bands = np.arange(calc.get_number_of_bands())
 
     # Rotation matrix
     Ry_vv = np.array([[np.cos(theta), 0.0, -np.sin(theta)],
@@ -99,7 +99,12 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
     Ns = calc.wfs.nspins
     Nn = len(bands)
     if Ns == 1:
-        e_kn = [calc.get_eigenvalues(kpt=k)[bands] for k in range(Nk)]
+        if gw_kn is None:
+            e_kn = [calc.get_eigenvalues(kpt=k)[bands] for k in range(Nk)]
+        else:
+            assert Nk == len(gw_kn)
+            assert Nn == len(gw_kn.T)
+            e_kn = gw_kn
         e_skn = np.array([e_kn, e_kn])
     else:
         e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)[bands]
@@ -149,8 +154,10 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
     # The even indices in H_mm are spin up along z
     for k in range(Nk):
         H_mm = np.zeros((2 * Nn, 2 * Nn), complex)
-        H_mm[:2 * Nn:2, :2 * Nn:2] += e_skn[0, k, :]
-        H_mm[1:2 * Nn:2, 1:2 * Nn:2] += e_skn[1, k, :]
+        i1 = np.arange(0, 2 * Nn, 2)
+        i2 = np.arange(1, 2 * Nn, 2)
+        H_mm[i1, i1] += e_skn[0, k, :]
+        H_mm[i2, i2] += e_skn[1, k, :]
         for ai in range(Na):
             P_sni = [calc.wfs.kpt_u[k + s * Nk].P_ani[ai][bands]
                      for s in range(Ns)]
@@ -220,7 +227,7 @@ def set_calculator(calc, e_km, v_knm=None, width=None):
     
 
 def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
-                           inversion_center=[0, 0, 0], deg_tol=1.0e-6):
+                           inversion_center=[0, 0, 0], deg_tol=1.0e-6, tol=1.0e-6):
     '''Calculates parity eigenvalues at time-reversal invariant k-points.
     Only works in plane wave mode.
     '''
@@ -292,7 +299,7 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
             Ppsit_nG[:] *= phase_G
             P_nn = np.dot(psit_nG[n_n].conj(), np.array(Ppsit_nG).T)
         P_eig = np.linalg.eigh(P_nn)[0]
-        if np.allclose(np.abs(P_eig), 1):
+        if np.allclose(np.abs(P_eig), 1, tol):
             P_n = np.sign(P_eig).astype(int).tolist()
             if spin_orbit:
                 # Only include one of the degenerate pair of eigenvalues

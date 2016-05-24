@@ -53,7 +53,7 @@ If you use the :ref:`df_tutorial`, please cite also:
 
    __ http://link.aps.org/doi/10.1103/PhysRevB.83.245122
 
-If you use the :ref:`gw_tutorial`, please cite also:
+If you use the :ref:`gw tutorial`, please cite also:
 
    | F. Hüser, T. Olsen, and K. S. Thygesen
    | `Quasiparticle GW calculations for solids, molecules, and two-dimensional materials`__
@@ -124,33 +124,6 @@ then you should set the Fermi temperature to a low value.
 
 You can also try to set the number of grid points to be divisible by 8.
 Consult the :ref:`poisson_performance` page.
-
-
-How to switch between several GPAW versions
-===========================================
-
-For each GPAW installation use a separate, modified submit tool:
-:git:`~doc/documentation/parallel_runs/gpaw-qsub`.
-
-Assuming that your :ref:`developer installation` is under
-:file:`~/gpaw.test`, and the :command:`gpaw-python` under
-:file:`~/gpaw.test/build/bin.linux-x86_64-2.3/`, modify the submit
-tool: :git:`~doc/documentation/parallel_runs/gpaw-qsub`:
-
-* set the :envvar:`PYTHONPATH` and :envvar:`PATH` passed to :command:`mpirun`::
-
-   ...
-   'export PYTHONPATH=${HOME}/gpaw.test:${PYTHONPATH} && ' +
-   'export PATH=${HOME}/gpaw.test/build/bin.linux-x86_64-2.3:${PATH} && ' +
-   'mpirun')
-
-* make sure that the corresponding :command:`gpaw-python` is used::
-
-   os.system('%s gpaw-python JOB' % (mpirun))
-
-Alternatively, instead of modifying
-:git:`~doc/documentation/parallel_runs/gpaw-qsub`
-create a bash function - see :ref:`Niflheim` for details.
 
 
 Tests fail!

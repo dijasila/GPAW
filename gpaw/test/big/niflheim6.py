@@ -21,28 +21,28 @@ class NiflheimCluster(Cluster):
             if job.ncpus < 4:
                 ppn = '%d:opteron4' % job.ncpus
                 nodes = 1
-                arch = 'linux-x86_64-x3455-2.6'
+                arch = 'linux-x86_64-x3455-el6'
             elif job.ncpus % 16 == 0:
                 ppn = '16:xeon16'
                 nodes = job.ncpus // 16
-                arch = 'linux-x86_64-sl230s-2.6'
+                arch = 'linux-x86_64-sl230s-el6'
             elif job.ncpus % 8 == 0:
                 ppn = '8:xeon8'
                 nodes = job.ncpus // 8
-                arch = 'linux-x86_64-dl160g6-2.6'
+                arch = 'linux-x86_64-dl160g6-el6'
             else:
                 assert job.ncpus % 4 == 0
                 ppn = '4:opteron4'
                 nodes = job.ncpus // 4
-                arch = 'linux-x86_64-x3455-2.6'
+                arch = 'linux-x86_64-x3455-el6'
             queueopts = '-l nodes=%d:ppn=%s' % (nodes, ppn)
         else:
             queueopts = job.queueopts
             # the oldest, hopefully (?) common platform
-            arch = 'linux-x86_64-x3455-2.6'
+            arch = 'linux-x86_64-x3455-el6'
 
         gpaw_python = os.path.join(dir, 'gpaw', 'build',
-                                   'bin.' + arch, 'gpaw-python')
+                                   'bin.' + arch + '-2.6', 'gpaw-python')
 
         submit_pythonpath = ':'.join([
             self.asepath,

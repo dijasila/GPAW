@@ -34,7 +34,7 @@ keyword             type               default value       description
                                                            always an approximation to the infinite integral, but the
                                                            max frequency determines the distribution of frequencies.
 ``frequency_scale`` ``float``          2.0 (eV)            The frequency scale sets the density of frequency
-                                                           points near :math:`\omega = 0`.
+                                                           points near `\omega = 0`.
 ``frequencies``     ``numpy.ndarray``  None                Specifies frequency points used to integrate the
                                                            correlation integrand.
                                                            Ex: numpy.linspace(0,20,201). If None, the Gauss-legendre
@@ -42,7 +42,7 @@ keyword             type               default value       description
 ``weights``         ``numpy.ndarray``  None                Should be used in conjunction with frequencies (e.i.
                                                            when not using the Gauss-Legendre integration). For example
                                                            np.array([0.5,1,1,...,1,1,0.5] gives a trapezoid integration
-``skip_gamma``      ``bool``           False               For metals the :math:`\mathbf{q} = 0` point can give rise
+``skip_gamma``      ``bool``           False               For metals the `\mathbf{q} = 0` point can give rise
                                                            to divergent contributions and it may be faster to converge
                                                            the k-point sampling if this point is excluded.
 ``nblocks``         ``int``            1                   **G**-vector parallelization. Default parallelization scheme is over

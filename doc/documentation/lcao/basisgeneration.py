@@ -20,4 +20,4 @@ basis = bm.generate(zetacount=2, polarizationcount=0,
                     energysplit=0.1, jvalues=[0, 1, 2],
                     rcutmax=12.0)
 
-basis.write_xml() # Dump to file 'Au.special.basis'
+basis.write_xml() # Dump to file 'Au.special.dz.basis'

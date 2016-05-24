@@ -1,8 +1,8 @@
 .. _spinorbit:
 
-=========================================================
-Calculating band structures with spin-orbit coupling
-=========================================================
+===================
+Spin-orbit coupling
+===================
 
 The spin-orbit module calculates spin-orbit band structures non-
 selfconsistently. The input is a standard converged GPAW calculation and the
@@ -85,8 +85,8 @@ are degenerate along the entire `\Gamma-X` line without spin-orbit coupling,
 but the degeneracy is lifted when spin-orbit coupling is included.
 
 
-Band structure of monolayer `\text{WS}_2`
-=========================================
+Band structure of monolayer WS2
+===============================
 
 Things become even more interesting when we consider systems without inversion
 symmetry, where the spin-orbit coupling may lift the spin-degeneracy. An
@@ -118,13 +118,76 @@ reversed at the two valleys.
 Band structure of bulk Fe
 =========================
 
-The last example is bcc Fe. Here the spin-orbit coupling breaks the symmetry
-between Brillouin zone points that are otherwise equivalent. We thus consider
-two different `\Gamma-H` paths. One along the spin projection axis and one
-orthogonal to it. The scripts for the groundstate :download:`Fe_gs.py`
+As another example we consider bcc Fe. Here the spin-orbit coupling breaks the
+symmetry between Brillouin zone points that are otherwise equivalent. We thus
+consider two different `\Gamma-H` paths. One along the spin projection axis
+and one orthogonal to it. The scripts for the groundstate :download:`Fe_gs.py`,
 bandstructure :download:`Fe_bands.py` and plotting
 :download:`plot_Fe_bands.py` are similar to the previous examples. The result
 is shown below.
 
 .. image:: Fe_bands.png
            :height: 500 px
+
+Topological index of Bi2Se3
+===========================
+
+Time-reversal invariant band insulators fall in two distinct
+topological classes, which can be distinguished by the so-called `\text{Z}_2`
+index `\nu`. In general, the calculation of the `\text{Z}_2` index is a complicated
+task, but for materials with an inversion center is is easily expressed in
+terms ofthe parity eigenvalues of occupied states at the parity invariant
+points in the Brillouin zone. It is given by [#Kane]_
+
+.. math::
+    
+    (-1)^{\nu}=\prod_a\prod_m\xi_m(\Lambda_a)
+
+where `\xi_m` are the parity eigenvalues of Kramers pairs of occupied bands at
+the parity invariant points `\Lambda_a`.
+
+As an example we consider the topological insulator `\text{Bi}_2\text{Se}_3`.
+Again the scripts for the groundstate :download:`gs_Bi2Se3.py`,
+bandstructure :download:`Bi2Se3_bands.py` and plotting
+:download:`plot_Bi2Se3_bands.py` are similar to the previous examples. The
+band structure is shown below
+
+.. image:: Bi2Se3_bands.png
+           :height: 500 px
+
+Note the "band inversion" at the `\Gamma` point. The spin-orbit coupling
+essentially bring the bottom of the conduction band below the top of the
+valence band and opens a gap a the band crossings. We will now calculate the
+parity eigenvalues at the parity invariant points. In 3D there is 8 such points,
+but in the present case only 4 are inequivalent. These are calcaluted with
+the script :download:`high_sym.py` and the parity eigenvalues are
+obtained with :download:`parity.py`. Note that the product of parity
+eigenvalues at `\Gamma` changes from -1 to 1 when spin-orbit coupling is added
+and the `\nu` thus changes from 0 to 1.
+
+
+Magnetic anisotropy of hcp Co
+=============================
+
+As a final application of the spinorbit module we will calculate the magnetic
+anisotropy of hcp Co. The idea is that the direction of spin polarization
+before spin-orbit coupling is added, can set by the polar and azimutal angles
+`\theta` and `\phi`. To leading order the spin-orbit induced change in energy
+as a function of direction is given by the change of occupied eigenvalues.
+The anisotropy energy per unit cell is typically measured in `\mu eV` and for
+metals, the states close to the Fermi level will be very important. For this
+reason, we need quite high k-point sampling to converge the calculation. The
+following script generates the ground state of hcp Co with a dense k-point
+sampling :download:`gs_Co.py`. The script :download:`anisotropy.py`
+calculates the ground state energy when `\theta` takes values on a path from
+`0.0` to `\pi` (easy to hard to easy axes). The results are shown below and
+was generated with the script :download:`plot_anisotropy.py`. The curve
+exhibits a maximum at `\theta=\pi/2`, which is the hard axis. The magnetic
+anisotropy energy is `\sim 60 \mu eV` per unit cell, which agrees well with
+the experimental value of `70 \mu eV`.
+
+.. image:: anisotropy.png
+           :height: 500 px
+
+.. [#Kane] M. Z. Hasan and C. L. Kane,
+           *Rev. Mod. Phys.* **82**, 3045 (2010)

@@ -1,8 +1,9 @@
+import numpy as np
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.lrtddft import LrTDDFT
 from gpaw.inducedfield.inducedfield_lrtddft import LrTDDFTInducedField
-import numpy as np
+from gpaw.test import equal
 
 # 1) Ground state calculation with empty states
 atoms = Atoms(symbols='Na2',
@@ -34,7 +35,6 @@ ind.calculate_induced_field(gridrefinement=2, from_density='comp',
                             poisson_eps=2e-10)
 
 # Test
-from gpaw.test import equal
 tol = 0.0001
 val1 = ind.fieldgd.integrate(ind.Ffe_wg[0])
 val2 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[0][0]))
@@ -44,11 +44,12 @@ val5 = ind.fieldgd.integrate(ind.Ffe_wg[1])
 val6 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[1][0]))
 val7 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[1][1]))
 val8 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[1][2]))
-equal(val1, 3175.76177761, tol)
-equal(val2, 1700.43442519, tol)
-equal(val3, 1187.26249225, tol)
-equal(val4, 1187.26249225, tol)
-equal(val5, 10956.9813196, tol)
-equal(val6, 6574.58868754, tol)
-equal(val7, 4589.74440108, tol)
-equal(val8, 4589.74440108, tol)
+
+equal(val1, 3175.76308, tol)
+equal(val2, 1700.43520, tol)
+equal(val3, 1187.26303, tol)
+equal(val4, 1187.26303, tol)
+equal(val5, 10957.02783, tol)
+equal(val6, 6574.61686, tol)
+equal(val7, 4589.76405, tol)
+equal(val8, 4589.76405, tol)

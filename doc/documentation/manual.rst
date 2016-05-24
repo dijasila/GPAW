@@ -46,14 +46,14 @@ In Python code, it looks like this:
     
 If the above code was executed, a calculation for a single `\rm{H}_2`
 molecule would be started.  The calculation would be done using a
-supercell of size :math:`6.0 \times 6.0 \times 6.0` Å with cluster
+supercell of size `6.0 \times 6.0 \times 6.0` Å with cluster
 boundary conditions.  The parameters for the PAW calculation are:
 
 * 2 electronic bands.
 * Local density approximation (LDA)\ [#LDA]_ for the
   exchange-correlation functional.
 * Spin-paired calculation.
-* :math:`32 \times 32 \times 32` grid points.
+* `32 \times 32 \times 32` grid points.
 
 The values of these parameters can be found in the text output file:
 :download:`h2.txt`.
@@ -538,7 +538,7 @@ In words:
   should be less than 0.001 electrons per valence electron.
 
 * The integrated value of the square of the residuals of the Kohn-Sham
-  equations should be less than :math:`4.0 \times 10^{-8}
+  equations should be less than `4.0 \times 10^{-8}
   \mathrm{eV}^2` per valence electron (FD mode only).
 
 * The maximum change in the magnitude of the vector representing the

@@ -49,6 +49,7 @@ def write_input(calc,
                 dis_num_iter=200,
                 dis_froz_max=0.1,
                 dis_mix_ratio=0.5,
+                search_shells=None,
                 spinors=False):
     
     if seed is None:
@@ -110,6 +111,9 @@ def write_input(calc,
     print(file=f)
     print('num_bands       = %d' % len(bands), file=f)
 
+    if search_shells is not None:
+        print("search_shells = {0}".format(search_shells), file=f)
+
     maxn = max(bands)
     if maxn + 1 != len(bands):
         diffn = maxn - len(bands)
@@ -133,7 +137,7 @@ def write_input(calc,
         ef = calc.get_fermi_level()
         if hasattr(ef, 'dtype'):
             ef = (ef[0] + ef[1]) / 2
-        print('# Fermi level: %2.3f' % ef, file=f)
+        print('fermi_energy  = %2.3f' % ef, file=f)
         print('dis_froz_max  = %2.3f' % (ef + dis_froz_max), file=f)
         print('dis_num_iter  = %d' % dis_num_iter, file=f)
         print('dis_mix_ratio = %1.1f' % dis_mix_ratio, file=f)

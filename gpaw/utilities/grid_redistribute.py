@@ -385,8 +385,11 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
 
     """
     assert src_xg.dtype == dst_xg.dtype
-    src_xg = src_xg.reshape(-1, *src_xg.shape[-3:])
-    dst_xg = dst_xg.reshape(-1, *dst_xg.shape[-3:])
+    # Reshaping as arr.reshape(-1, *shape) fails when some dimensions are zero.
+    # Also, make sure datatype is correct even for 0-length tuples:
+    nx = np.prod(src_xg.shape[:-3], dtype=int)
+    src_xg = src_xg.reshape(nx, *src_xg.shape[-3:])
+    dst_xg = dst_xg.reshape(nx, *dst_xg.shape[-3:])
     assert src_xg.shape[0] == dst_xg.shape[0]
     assert behavior in ['overwrite', 'add']
 

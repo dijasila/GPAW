@@ -117,6 +117,7 @@ PyObject* libvdwxc_create(PyObject *self, PyObject *args);
 PyObject* libvdwxc_has(PyObject* self, PyObject *args);
 PyObject* libvdwxc_init_serial(PyObject *self, PyObject *args);
 PyObject* libvdwxc_calculate(PyObject *self, PyObject *args);
+PyObject* libvdwxc_tostring(PyObject *self, PyObject *args);
 PyObject* libvdwxc_free(PyObject* self, PyObject* args);
 PyObject* libvdwxc_init_mpi(PyObject* self, PyObject* args);
 PyObject* libvdwxc_init_pfft(PyObject* self, PyObject* args);
@@ -231,6 +232,7 @@ static PyMethodDef functions[] = {
     {"libvdwxc_has", libvdwxc_has, METH_VARARGS, 0},
     {"libvdwxc_init_serial", libvdwxc_init_serial, METH_VARARGS, 0},
     {"libvdwxc_calculate", libvdwxc_calculate, METH_VARARGS, 0},
+    {"libvdwxc_tostring", libvdwxc_tostring, METH_VARARGS, 0},
     {"libvdwxc_free", libvdwxc_free, METH_VARARGS, 0},
     {"libvdwxc_init_mpi", libvdwxc_init_mpi, METH_VARARGS, 0},
     {"libvdwxc_init_pfft", libvdwxc_init_pfft, METH_VARARGS, 0},

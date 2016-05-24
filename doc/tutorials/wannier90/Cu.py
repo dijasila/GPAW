@@ -1,13 +1,9 @@
-from ase import *
-from ase.lattice import bulk
-#from ase.dft import monkhorst_pack
-from gpaw import *
-from gpaw.wavefunctions.pw import PW
+from ase.build import bulk
+from gpaw import GPAW, FermiDirac, PW
 
 a = bulk('Cu', 'fcc')
 
-calc = GPAW(#h=0.16,
-            mode=PW(600),
+calc = GPAW(mode=PW(600),
             xc='PBE',
             occupations=FermiDirac(width=0.1),
             kpts=(12, 12, 12),
@@ -15,12 +11,12 @@ calc = GPAW(#h=0.16,
 a.set_calculator(calc)
 a.get_potential_energy()
 
-calc.set(kpts={'size': (4, 4, 4), 'gamma': True}, 
-         nbands=12,
+calc.set(kpts={'size': (4, 4, 4), 'gamma': True},
+         nbands=30,
          symmetry='off',
-         fixdensity=True, 
+         fixdensity=True,
          txt='Cu_nscf.txt',
-         convergence={'bands': 9})
+         convergence={'bands': 20})
 calc.get_potential_energy()
 
 calc.write('Cu.gpw', mode='all')

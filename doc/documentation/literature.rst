@@ -24,38 +24,33 @@ Links to guides and manual pages
 Reports, presentations, and theses using gpaw
 ---------------------------------------------
 
-* Summer-school 2014 talk about `PAW and GPAW`_
+* Summer-school 2014 talk about PAW, GPAW and ASE: :download:`ss14.pdf`
 
 * A short note on the basics of PAW: :download:`paw_note.pdf`
 
 * A master thesis on the inclusion of non-local exact exchange in the
-  PAW formalism, and the implementation in gpaw: `exact exchange`_
+  PAW formalism, and the implementation in gpaw:
+  :download:`rostgaard_master.pdf`
 
 * A master thesis on the inclusion of a localized basis in the PAW
-  formalism, plus implementation and test results in GPAW: `lcao`_
+  formalism, plus implementation and test results in GPAW:
+  :download:`marco_master.pdf`
 
 * A master thesis on the inclusion of localized basis sets in the PAW
   formalism, focusing on basis set generation and force calculations:
-  `localized basis sets`_
+  :download:`askhl_master.pdf`
 
 * A course report on a project involving the optimization of the
-  setups (equivalent of pseudopotentials) in gpaw: `setup
-  optimization`_
+  setups (equivalent of pseudopotentials) in gpaw:
+  :download:`askhl_10302_report.pdf`
 
-* Slides from a talk about PAW: `introduction to PAW slides`_
+* Slides from a talk about PAW: :download:`mortensen_paw.pdf`
 
-* Slides from a talk about GPAW development: `gpaw for developers`_
+* Slides from a talk about GPAW development:
+  :download:`mortensen_gpaw-dev.pdf`
 
-* Slides from a mini symposium during early development stage: `early gpaw`_
-
-.. _exact exchange: ../_static/rostgaard_master.pdf
-.. _lcao: ../_static/marco_master.pdf
-.. _localized basis sets: ../_static/askhl_master.pdf
-.. _setup optimization: ../_static/askhl_10302_report.pdf
-.. _introduction to PAW slides: ../_static/mortensen_paw.pdf
-.. _gpaw for developers: ../_static/mortensen_gpaw-dev.pdf
-.. _early gpaw: ../_static/mortensen_mini2003talk.pdf
-.. _PAW and GPAW: ../_static/ss14.pdf
+* Slides from a mini symposium during early development stage:
+  :download:`mortensen_mini2003talk.pdf`
 
 
 .. _paw_papers:

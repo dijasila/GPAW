@@ -36,6 +36,8 @@ Specialized tutorials
    :maxdepth: 2
 
    band_gap/band_gap
+   unfold/unfold
+   spinorbit/spinorbit
    dipole_correction/dipole
    hubbardu/hubbardu
    jellium/jellium
@@ -48,11 +50,12 @@ Specialized tutorials
    pbe0/pbe0
    xas/xas
    dielectric_response/dielectric_response
+   gw_tutorial/gw_tutorial
+   bse_tutorial/bse_tutorial
    rpa/rpa_tut
    fxc_correlation/rapbe_tut
    rangerpa/rangerpa_tut
    H2/ensembles
-   gw_tutorial/gw_tutorial
-   spinorbit/spinorbit
    continuum_solvent_model/continuum_solvent_model
    ofdft/ofdft
+   wannier90/wannier90_tutorial

@@ -2,7 +2,7 @@
 Dipole corrections in GPAW
 ==========================
 
-As an example system, a 2 layer :math:`2\times2` slab of fcc (100) Al
+As an example system, a 2 layer `2\times2` slab of fcc (100) Al
 is constructed with a single Na adsorbed on one side of the surface.
 
 .. literalinclude:: dipole.py
@@ -10,7 +10,7 @@ is constructed with a single Na adsorbed on one side of the surface.
 
 .. image:: slab.png
 
-The :func:`ase.lattice.surface.fcc100` function will create a slab
+The :func:`ase.build.fcc100` function will create a slab
 with periodic boundary conditions in the xy-plane only and GPAW will
 therefore use zeros boundary conditions for the the wave functions and
 the electrostatic potential in the z-direction as shown here:

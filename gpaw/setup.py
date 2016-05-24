@@ -155,9 +155,15 @@ class BaseSetup:
                         c = min(degeneracy_j[j] - f, -charge)
                         f_j[j] += c
                         charge += c
-            if charge != 0:
+            if charge != 0 and c != 0:
                 correct_for_charge(f_j, charge, degeneracy_j, True)
-
+            elif charge != 0 and c == 0:
+                #print('Stopping electron distribution, ran out of projector functions to fill.')
+                # Then there are more electrons in the 
+                # calculation than can be distributed over the
+                # atomic projector functions. Leave remaining density
+                # undistributed.
+                return
         # distribute the charge to the radial orbitals
         if nspins == 1:
             assert magmom == 0.0

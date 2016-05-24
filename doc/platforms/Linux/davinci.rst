@@ -46,7 +46,7 @@ where :file:`submit.sh` looks like this::
   # Script to submit an mpi job
 
   # ----------------------------
-  # Replace these with the name of the executable 
+  # Replace these with the name of the executable
   # and the parameters it needs
 
   export home=/home/haiping
@@ -87,17 +87,17 @@ where :file:`submit.sh` looks like this::
 
   #  Mail to user at beginning/end/abort/on suspension
   ####$ -m beas
-  #  By default, mail is sent to the submitting user 
-  #  Use  $ -M username    to direct mail to another userid 
+  #  By default, mail is sent to the submitting user
+  #  Use  $ -M username    to direct mail to another userid
 
   # Execute the job from the current working directory
   # Job output will appear in this directory
   #$ -cwd
-  #   can use -o dirname to redirect stdout 
+  #   can use -o dirname to redirect stdout
   #   can use -e dirname to redirect stderr
 
   #  Export these environment variables
-  #$ -v PATH 
+  #$ -v PATH
   #$ -v MPI_HOME
   #$ -v LD_LIBRARY_PATH
   #$ -v GPAW_SETUP_PATH
@@ -127,10 +127,9 @@ where :file:`submit.sh` looks like this::
   seconds=$((seconds-60*minutes))
   hours=$((minutes/60))
   minutes=$((minutes-60*hours))
-  echo =========================================================   
-  echo SGE job: finished   date = `date`   
+  echo =========================================================
+  echo SGE job: finished   date = `date`
   echo Total run time : $hours Hours $minutes Minutes $seconds Seconds
-  echo ========================================================= 
+  echo =========================================================
 
-It's convenient to customize as in :file:`gpaw-qsub.py` which can be
-found at :ref:`parallel_runs`
+It's convenient to customize as described on the :ref:`parallel_runs` page.

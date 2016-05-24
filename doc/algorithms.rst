@@ -28,7 +28,7 @@ Quick links to all features:
       - :ref:`Keldysh GF-transport ... <keldyshgf>`
     * - :ref:`RPA-correlation <rpa>`
       - :ref:`GW <gw_theory>`
-      - :ref:`BSE <bse>`
+      - :ref:`BSE <bse theory>`
     * - :ref:`Parallelization <parallel_runs>`
       - :ref:`Continuum Solvent Model <continuum_solvent_model>`
       -
@@ -60,7 +60,7 @@ Pseudo wave functions can be described in three ways:
 Finite-difference (FD):
     Uniform real-space orthorhombic grids.  Two kinds of grids are involved
     in the calculations: A coarse grid used for the wave functions and a fine
-    grid (:math:`2^3=8` times higher grid point density) used for densities and
+    grid (`2^3=8` times higher grid point density) used for densities and
     potentials.  The pseudo electron density is first calculated on the coarse
     grid from the wave functions, and then interpolated to the fine grid, where
     compensation charges are added for achieving normalization.  The effective
@@ -93,7 +93,7 @@ Compensation charges
 
 Compensation charges
 are expanded to give correct multipole moments up to angular momentum
-number :math:`\ell=2`.
+number `\ell=2`.
 
 
 Boundary conditions

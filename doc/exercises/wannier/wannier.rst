@@ -33,7 +33,7 @@ bands?  The script also produces two :file:`.cube` files. One contains
 the wavefunction of the Highest Occupied Molecular Orbital (HOMO) and
 the other contains a wannier function centered between a Carbon and a
 Hydrogen atom. Study these with :program:`VMD` and determine which
-type of orbitals they represent (:math:`\sigma` or :math:`\pi`).
+type of orbitals they represent (`\sigma` or `\pi`).
 
 Now repeat the wannier function analysis on the following molecules
 
