@@ -401,13 +401,8 @@ class WaveFunctions(EmptyWaveFunctions):
 
         if (self.kd.comm.rank == kpt_rank and
             self.band_comm.rank == band_rank):
-            if periodic:
-                psit_G = self._get_wave_function_array(u, myn, realspace, 1)
-            else:
-                psit_G = self._get_wave_function_array(u, myn, realspace)
-            if realspace:
-                psit_G = self.gd.collect(psit_G)
-
+            psit_G = self._get_wave_function_array(u, myn, realspace, periodic)
+                
             if rank == 0:
                 return psit_G
             

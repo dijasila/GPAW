@@ -585,26 +585,21 @@ class PWWaveFunctions(FDPWWaveFunctions):
                      self.pd.fft(dedtaut_R * a_R, kpt.q),
                      Htpsit_G)
 
-    def _get_wave_function_array(self, u, n, realspace=True, phase=None):
-        psit_G = FDPWWaveFunctions._get_wave_function_array(self, u, n,
-                                                            realspace)
+    def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
+        psit_G = self.kpt_u[u].psit_nG[n]
+
         if not realspace:
             zeropadded_G = np.zeros(self.pd.ngmax, complex)
             zeropadded_G[:len(psit_G)] = psit_G
             return zeropadded_G
 
         kpt = self.kpt_u[u]
-        if self.kd.gamma:
-            return self.pd.ifft(psit_G)
-        else:
-            if phase is None:
-                N_c = self.gd.N_c
-                k_c = self.kd.ibzk_kc[kpt.k]
-                eikr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T,
-                                                 k_c / N_c).T)
-            else:
-                eikr_R = phase
-            return self.pd.ifft(psit_G, kpt.q) * eikr_R
+        if self.kd.gamma or periodic:
+            return self.pd.ifft(psit_G, kpt.q)
+
+        k_c = self.kd.ibzk_kc[kpt.k]
+        eikr_R = self.gd.plane_wave(k_c)
+        return self.pd.ifft(psit_G, kpt.q) * eikr_R
 
     def get_wave_function_array(self, n, k, s, realspace=True,
                                 cut=True, periodic=False):
