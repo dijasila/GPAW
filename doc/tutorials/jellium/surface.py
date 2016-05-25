@@ -23,9 +23,7 @@ surf.calc = GPAW(background_charge=jellium,
                  charge=-ne,
                  kpts=[k, k, 1],
                  h=h,
-                 maxiter=300,
                  convergence={'density': 0.001},
-                 mixer=Mixer(0.03, 7, 100),
                  nbands=int(ne / 2) + 15,
                  txt='surface.txt')
 e = surf.get_potential_energy()
