@@ -19,12 +19,11 @@ The band structure can be calculated like this:
 
 .. literalinclude:: gaps.py
 
-.. csv-table:: gaps.csv
-    :header: **k**-points,
-             `\Delta E_{PBE}(\Gamma, \Gamma)`,
-             `\Delta E_{PBE}(\Gamma, X)`,
-             `\Delta E_{PBE0}(\Gamma, \Gamma)`,
-             `\Delta E_{PBE0}(\Gamma, X)`
+These are the resulting `\Gamma\Gamma` and `\Gamma X` gaps for PBE and PBE0 in eV:
+    
+.. csv-table::
+    :file: si-gaps.csv
+    :header: **k**-points, PBE(GG), PBE(GX), PBE0(GG), PBE0(GX)
              
 
 Lattice constant and bulk modulus
@@ -33,5 +32,9 @@ Lattice constant and bulk modulus
 Here is how to calculate the lattice constant:
     
 .. literalinclude:: eos.py
+
+Plot the results like this:
+    
+.. literalinclude:: plot_a.py
 
 .. image:: a.png

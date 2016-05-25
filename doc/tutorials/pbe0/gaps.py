@@ -8,7 +8,7 @@ from gpaw import GPAW, PW
 a = 5.43
 si = bulk('Si', 'diamond', a)
 
-fd = paropen('gaps.csv', 'w')
+fd = paropen('si-gaps.csv', 'w')
 
 for k in range(2, 9, 2):
     name = 'Si-{0}'.format(k)

@@ -361,7 +361,6 @@ tests = [
     'potential.py',                         # duration unknown
     'lcao/pair_and_coulomb.py',             # duration unknown
     'ase_features/asewannier.py',           # duration unknown
-    'exx/q.py',                             # duration unknown
     'pw/davidson_pw.py',                    # duration unknown
     'ase_features/neb.py',                  # duration unknown
     'utilities/wannier_ethylene.py',        # duration unknown
