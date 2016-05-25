@@ -5,7 +5,7 @@ def agts(queue):
               creates='bse_Si.png')
 
     gs_mos2 = queue.add('gs_MoS2.py', ncpus=4, walltime=100)
-    bse_mos2 = queue.add('pol_MoS2.py', ncpus=16, walltime=6000, deps=gs_mos2)
+    bse_mos2 = queue.add('pol_MoS2.py', ncpus=64, walltime=2000, deps=gs_mos2)
     queue.add('plot_MoS2.py', ncpus=1, walltime=10, deps=bse_mos2,
               creates='bse_MoS2.png')
 
