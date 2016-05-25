@@ -8,8 +8,8 @@ from gpaw import GPAW, PW, FermiDirac
 a0 = 5.43
 si = bulk('Si', 'diamond', a)
 
-for k in range(2, 9):
-    name = 'Si-{0:.2f}-{1}'.format(a, k)
+for k in range(2, 9, 2):
+    name = 'Si-{0}'.format(k)
     si.calc = GPAW(kpts={'size': (k, k, k), 'gamma': True},
                    mode=PW(300),
                    xc='PBE',
@@ -17,7 +17,17 @@ for k in range(2, 9):
                    txt=name + '.txt')
     si.get_potential_energy()
     si.calc.write(name, mode='all')
+    
+    ibzkpts = si.calc.get_ibz_k_points()
+    n1 = 3
+    n2 = 5
+    kpt_indices = []
+    for kpt in [(0, 0, 0), (0.5, 0.5, 0)]:
+        # Find k-point index:
+        i = abs(ibzkpts - kpt).sum(1).argmin()
+        kpt_indices.append(i)
         
+        eps_kn.append(atoms.calc.get_eigenvalues(k)[n - 1:n + 1])
         eig_pbe_n = si.calc.get_eigenvalues(0)[:5]  # Gamma point
         deig_pbe_n = vxc(si.calc, 'PBE')[0, 0, :5]
         
