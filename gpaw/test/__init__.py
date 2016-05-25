@@ -251,13 +251,11 @@ tests = [
     'inducedfield_td.py',                   # ~9s
     'tddft/ehrenfest_nacl.py',              # ~9s
     'lcao/fd2lcao_restart.py',              # ~9s
-    'response/gw_method.py',                # ~9s
     'ext_potential/constant_e_field.py',    # ~9s
     'complex.py',                           # ~9s
     'vdw/quick.py',                         # ~9s
     'lrtddft/Al2_lrtddft.py',               # ~10s
     'ralda/ralda_energy_N2.py',             # ~10s
-    'response/gw_ppa.py',                   # ~10s
     'parallel/lcao_complicated.py',         # ~10s
     'generic/bulk.py',                      # ~10s
     'sic/scfsic_h2.py',                     # ~10s

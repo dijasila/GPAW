@@ -293,7 +293,7 @@ class VDWFunctionalBase:
                     print('VDW: using', filename)
                 return
                 
-        if sys.version_info.major == 2:
+        if sys.version_info[0] == 2:
             oldname = name[:-3] + 'pckl'
             for dir in dirs:
                 filename = os.path.join(dir, oldname)
