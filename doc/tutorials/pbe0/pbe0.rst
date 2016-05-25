@@ -30,6 +30,8 @@ The band structure can be calculated like this:
 Lattice constant and bulk modulus
 =================================
 
+Here is how to calculate the lattice constant:
+    
 .. literalinclude:: eos.py
 
 .. image:: a.png

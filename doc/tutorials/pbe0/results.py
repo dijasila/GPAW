@@ -23,28 +23,8 @@ for k in K:
     E0 = [row.epbe0 for row in rows]
     A.append(lattice_constant(V, E))
     A0.append(lattice_constant(V, E0))
-
-
-LDA = dict(
-    a=5.4037,
-    B=95.1,
-    eGX=0.52)
-PBE = dict(
-    a=5.469,
-    B=87.8,
-    eGG=2.56,
-    eGX=0.71,
-    eGL=1.54,
-    eI=0.47,  # indirect
-    ea=4.556)
-PBE0 = dict(
-    a=5.433,
-    B=99.0,
-    eGG=3.96,
-    eGX=1.93,
-    eGL=2.87,
-    eI=1.74,
-    ea=4.555)
+    
+print(K, A, A0)
 
 plt.plot(K, A, label='PBE')
 plt.plot(K, A0, label='PBE0')
