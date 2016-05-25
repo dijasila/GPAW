@@ -373,6 +373,7 @@ class PAWTextOutput:
                     header = header[:l2] + 'Force  ' + header[l2:]
                 t(header)
 
+            nvalence = self.wfs.nvalence
             T = time.localtime()
 
             if eigerr == 0.0:
