@@ -111,6 +111,7 @@ class G0W0(PairDensity):
             necuts = 3
             ecut_e = ecut * (1 + (1. / pct - 1) * np.arange(necuts) /
                              (necuts - 1))**(-2 / 3)
+            print(ecut_e)
             assert not savew
         elif isinstance(ecut_extrapolation, (list, np.ndarray)):
             ecut_e = np.array(np.sort(ecut_extrapolation)[::-1])
@@ -616,10 +617,10 @@ class G0W0(PairDensity):
             self.Ga = chi0.Ga
             self.Gb = chi0.Gb
             pdi = pd
-            nw = chi0_wGG.shape[0]
+            nw = len(self.omega_w)
             mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
             if self.blockcomm.size > 1:
-                A1_x = chi0_wGG.ravel()
+                #A1_x = chi0_wGG.ravel()
                 chi0_wGG = chi0.redistribute(chi0_wGG, A2_x)
                 wa = min(self.blockcomm.rank * mynw, nw)
                 wb = min(wa + mynw, nw)
@@ -652,16 +653,17 @@ class G0W0(PairDensity):
             self.Gb = min(self.Ga + mynG, nG)
             nw = len(self.omega_w)
             mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
+           
+            G2G = pdi.map(pd, q=0) # why should it by q=0 ???
+            chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
+
             if self.blockcomm.size > 1:
-                A1_x = chi0_wGG.ravel()
                 wa = min(self.blockcomm.rank * mynw, nw)
                 wb = min(wa + mynw, nw)
             else:
                 wa = 0
                 wb = nw
-            G2G = pdi.map(pd, q=0)
-            chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
-
+                
             if self.chi0_wxvG is not None:
                 chi0_wxvG = self.chi0_wxvG.copy()
                 chi0_wvv = self.chi0_wvv.copy()
@@ -673,7 +675,7 @@ class G0W0(PairDensity):
             if self.Q_aGii_ie0 is not None:
                 for a, Q_Gii in enumerate(self.Q_aGii_ie0):
                     self.Q_aGii[a] = Q_Gii.take(G2G, axis=0)
-
+        
         if self.integrate_gamma != 0:
             if self.integrate_gamma == 2:
                 reduced = True
