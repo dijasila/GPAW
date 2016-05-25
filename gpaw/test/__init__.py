@@ -214,7 +214,6 @@ tests = [
     'corehole/h2o_recursion.py',            # ~5s
     'xc/nonselfconsistent.py',              # ~5s
     'spin/spinpol.py',                      # ~5s
-    'exx/acdf.py',                          # ~5s
     'eigen/cg.py',                          # ~5s
     'parallel/kptpar.py',                   # ~5s
     'utilities/elf.py',                     # ~5s
@@ -266,7 +265,6 @@ tests = [
     'generic/2Al.py',                       # ~11s
     'lrtddft/kssingles_Be.py',              # ~11s
     'generic/relax.py',                     # ~11s
-    'pw/mgo_hybrids.py',                    # ~11s
     'solvation/adm12.py',                   # ~11s
     'dscf/dscf_lcao.py',                    # ~12s
     'generic/8Si.py',                       # ~12s
@@ -307,7 +305,6 @@ tests = [
     'lrtddft/1.py',                         # ~20s
     'gllb/spin.py',                         # ~21s
     'parallel/fd_parallel_kpt.py',          # ~21s
-    'pw/hyb.py',                            # ~21s
     'generic/Cu.py',                        # ~21s
     'vdw/ts09.py',                          # ~21s
     'response/na_plasmon.py',               # ~22s
@@ -325,7 +322,6 @@ tests = [
     'mgga/nsc_MGGA.py',                     # ~32s
     'solvation/spinpol.py',                 # ~32s
     'gllb/diamond.py',                      # ~33s
-    'exx/MgO_fd_vs_pw.py',                  # ~37s
     'vdw/quick_spin.py',                    # ~37s
     'pw/expert_diag.py',                    # ~37s
     'parallel/ut_hsops.py',                 # ~41s
@@ -334,7 +330,6 @@ tests = [
     'response/au02_absorption.py',          # ~44s
     'ext_potential/point_charge.py',
     'ase_features/wannierk.py',             # ~45s
-    'response/aluminum_testcell.py',        # ~46s
     'ut_tddft.py',                          # ~49s
     'response/pair.py',                     # ~50s
     'rpa/rpa_energy_N2.py',                 # ~52s
