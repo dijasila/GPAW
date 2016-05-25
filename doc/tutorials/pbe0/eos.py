@@ -1,18 +1,30 @@
-import sys
-import pickle
+import ase.db
+from ase.build import bulk
 import numpy as np
-from gpaw.xc.hybridk import HybridXC
-from gpaw import GPAW
-from si_pbe import groundstate
+from gpaw.xc.exx import EXX
+from gpaw import GPAW, PW
+
 a0 = 5.43
-A = np.linspace(a0 - 0.06, a0 + 0.06, 5)
-k = int(sys.argv[1])
-eos = np.zeros((3, 5))
-for i, a in enumerate(A):
-    si = groundstate(a, k)
-    epbe = si.get_potential_energy()
-    elda = epbe + si.calc.get_xc_difference('LDA')
-    pbe0 = HybridXC('PBE0', alpha=5.0)
-    epbe0 = epbe + si.calc.get_xc_difference(pbe0)
-    eos[:, i] = epbe, elda, epbe0
-pickle.dump((A, eos), open('eos-%d.pckl' % k, 'w'))
+
+con = ase.db.connect('si.db')
+
+for k in range(2, 9):
+    for a in np.linspace(a0 - 0.04, a0 + 0.04, 5):
+        id = con.reserve(a=a, k=k)
+        if id is None:
+            continue
+        si = bulk('Si', 'diamond', a)
+        si.calc = GPAW(kpts=(k, k, k),
+                       mode=PW(400),
+                       xc='PBE',
+                       parallel={'domain': 1, 'band': 1},
+                       txt=None)
+        si.get_potential_energy()
+        name = 'si-{0:.2f}-{1}'.format(a, k)
+        si.calc.write(name, mode='all')
+        pbe0 = EXX(name, 'PBE0', txt=name + '.pbe0.txt')
+        pbe0.calculate()
+        epbe0 = pbe0.get_total_energy()
+        
+        con.write(si, a=a, k=k, epbe0=epbe0)
+        del con[id]

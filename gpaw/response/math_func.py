@@ -1,38 +1,10 @@
-from math import sqrt, pi
+from math import pi
 
 import numpy as np
 from scipy.special.specfun import sphj
 
-from gpaw.utilities.blas import gemmdot
 from gpaw.gaunt import nabla, gaunt
 from gpaw.spherical_harmonics import Y
-
-
-def delta_function(x0, dx, Nx, sigma):
-
-    deltax = np.zeros(Nx)
-    for i in range(Nx):
-        deltax[i] = np.exp(-(i * dx - x0)**2 / (4. * sigma))
-    return deltax / (2. * sqrt(pi * sigma))
-
-
-def hilbert_transform(specfunc_wGG, w_w, Nw, dw, eta, fullresponse=False):
-
-    NwS = specfunc_wGG.shape[0]
-    tmp_ww = np.zeros((Nw, NwS), dtype=complex)
-    ww_w = np.linspace(0., (NwS - 1) * dw, NwS)
-
-    for iw in range(Nw):
-        if fullresponse is False:
-            tmp_ww[iw] = (1. / (w_w[iw] - ww_w + 1j * eta)
-                          - 1. / (w_w[iw] + ww_w + 1j * eta))
-        else:
-            tmp_ww[iw] = (1. / (w_w[iw] - ww_w + 1j * eta)
-                          - 1. / (w_w[iw] + ww_w - 1j * eta))
-
-    chi0_wGG = gemmdot(tmp_ww, specfunc_wGG, beta=0.)
-
-    return chi0_wGG * dw
 
 
 def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
