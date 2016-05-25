@@ -2,8 +2,7 @@ import ase.db
 from ase.build import bulk
 import numpy as np
 from gpaw.xc.exx import EXX
-from gpaw.xc.tools import vxc
-from gpaw import GPAW, PW, FermiDirac
+from gpaw import GPAW, PW
 
 a0 = 5.43
 
@@ -21,9 +20,8 @@ for k in range(2, 9):
                        parallel={'domain': 1, 'band': 1},
                        txt=None)
         si.get_potential_energy()
-        name = 'Si-{0:.2f}-{1}'.format(a, k)
+        name = 'si-{0:.2f}-{1}'.format(a, k)
         si.calc.write(name, mode='all')
-        
         pbe0 = EXX(name, 'PBE0', txt=name + '.pbe0.txt')
         pbe0.calculate()
         epbe0 = pbe0.get_total_energy()
