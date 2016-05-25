@@ -32,7 +32,8 @@ class G0W0(PairDensity):
                  domega0=0.025, omega2=10.0, anisotropy_correction=False,
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
-                 world=mpi.world, ecut_extrapolation=False):
+                 world=mpi.world, ecut_extrapolation=False,
+                 gate_voltage=None):
 
         """G0W0 calculator.
         
@@ -89,6 +90,9 @@ class G0W0(PairDensity):
         omega2: float
             Control parameter for the non-linear frequency grid, equal to the
             frequency where the grid spacing has doubled in size.
+        gate_voltage: float
+            Shift Fermi level of ground state calculation by the
+            specified amount.
         """
 
         if world.rank != 0:
@@ -120,9 +124,10 @@ class G0W0(PairDensity):
         else:
             ecut_e = np.array([ecut])
         self.ecut_e = ecut_e / Hartree
+        self.gate_voltage = gate_voltage
 
         PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
-                             txt=txt)
+                             gate_voltage=gate_voltage, txt=txt)
 
         ecut /= Hartree
 
@@ -518,6 +523,7 @@ class G0W0(PairDensity):
                     timer=self.timer,
                     keep_occupied_states=True,
                     nblocks=self.blockcomm.size,
+                    gate_voltage=self.gate_voltage,
                     **parameters)
 
         if self.truncation == 'wigner-seitz':
