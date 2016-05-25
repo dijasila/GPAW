@@ -340,7 +340,7 @@ class PAWTextOutput:
         # Output from each iteration:
         t = self.text
 
-        nvalence = self.wfs.setups.nvalence - self.input_parameters.charge
+        nvalence = self.wfs.nvalence
         if nvalence > 0:
             eigerr = self.scf.eigenstates_error * Hartree**2 / nvalence
         else:
@@ -373,7 +373,6 @@ class PAWTextOutput:
                     header = header[:l2] + 'Force  ' + header[l2:]
                 t(header)
 
-            nvalence = self.wfs.nvalence
             T = time.localtime()
 
             if eigerr == 0.0:
