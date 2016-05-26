@@ -382,7 +382,6 @@ if mpi.size > 1:
     exclude += ['ase_features/asewannier.py',
                 'coreeig.py',
                 'ext_potential/stark_shift.py',
-                'exx/q.py',
                 'spinorbit_Kr.py',
                 'fd_ops/laplace.py',
                 'potential.py',
