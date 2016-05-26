@@ -7,7 +7,7 @@ from gpaw import GPAW
 
 hli = Atoms('HLi', positions=[[0, 0, 0], [0, 0, 1.6]])
 hli.center(vacuum=2.5)
-hli.set_calculator(GPAW(txt='hli.txt'))
+hli.set_calculator(GPAW(txt='hli.txt', mode='fd'))
 hli.get_potential_energy()
 
 # Transformer:
