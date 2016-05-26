@@ -186,7 +186,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         assert realspace
         kpt = self.kpt_u[u]
         psit_G = kpt.psit_nG[n]
-        if periodic:
+        if periodic and self.dtype == complex:
             k_c = self.kd.ibzk_kc[kpt.k]
             return self.gd.plane_wave(-k_c) * psit_G
         return psit_G

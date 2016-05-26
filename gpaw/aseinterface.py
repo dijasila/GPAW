@@ -460,6 +460,7 @@ class GPAW(PAW):
                 return
             else:
                 return self.wfs.gd.zero_pad(psit_G)
+
         psit_G = self.wfs.get_wave_function_array(band, kpt, spin,
                                                   periodic=periodic)
         if broadcast:

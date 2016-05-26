@@ -880,7 +880,7 @@ class LCAOWaveFunctions(WaveFunctions):
         if realspace:
             psit_G = self.gd.zeros(dtype=self.dtype)
             self.basis_functions.lcao_to_grid(C_M, psit_G, kpt.q)
-            if periodic:
+            if periodic and self.dtype == complex:
                 k_c = self.kd.ibzk_kc[kpt.k]
                 return self.gd.plane_wave(-k_c) * psit_G
             return psit_G

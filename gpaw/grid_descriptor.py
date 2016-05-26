@@ -556,7 +556,7 @@ class GridDescriptor(Domain):
         gshape = a_xg.shape[-3:]
         padding_c = 1 - self.pbc_c
         if global_array:
-            assert (gshape == self.N_c - padding_c).all()
+            assert (gshape == self.N_c - padding_c).all(), gshape
             bshape = tuple(self.N_c)
         else:
             assert (gshape == self.n_c).all()

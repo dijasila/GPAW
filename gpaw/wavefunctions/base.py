@@ -345,7 +345,7 @@ class WaveFunctions(EmptyWaveFunctions):
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
 
         natoms = self.atom_partition.natoms
-        nproj = sum([setup.ni for setup in self.setups])
+        nproj = sum(setup.ni for setup in self.setups)
 
         if self.world.rank == 0:
             if kpt_rank == 0:
@@ -402,6 +402,9 @@ class WaveFunctions(EmptyWaveFunctions):
         if (self.kd.comm.rank == kpt_rank and
             self.band_comm.rank == band_rank):
             psit_G = self._get_wave_function_array(u, myn, realspace, periodic)
+                
+            if realspace:
+                psit_G = self.gd.collect(psit_G)
                 
             if rank == 0:
                 return psit_G
