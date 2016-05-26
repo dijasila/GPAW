@@ -2,7 +2,7 @@ import time
 
 import ase.db
 import ase.optimize
-from ase.collection import g2
+from ase.collections import g2
 
 from gpaw import GPAW, Mixer
 

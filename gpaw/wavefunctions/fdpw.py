@@ -181,12 +181,6 @@ class FDPWWaveFunctions(WaveFunctions):
         if self.bd.comm.rank == 0:
             self.kd.comm.sum(F_av, 0)
 
-    def _get_wave_function_array(self, u, n, realspace=True):
-        psit_nG = self.kpt_u[u].psit_nG
-        if psit_nG is None:
-            raise RuntimeError('This calculator has no wave functions!')
-        return psit_nG[n][:]  # dereference possible tar-file content
-
     def estimate_memory(self, mem):
         gridbytes = self.bytes_per_wave_function()
         n = len(self.kpt_u) * self.bd.mynbands

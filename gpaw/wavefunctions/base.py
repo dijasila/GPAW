@@ -377,7 +377,7 @@ class WaveFunctions(EmptyWaveFunctions):
                 if a in P_ani:
                     self.world.ssend(P_ani[a], 0, 1303 + a)
 
-    def get_wave_function_array(self, n, k, s, realspace=True):
+    def get_wave_function_array(self, n, k, s, realspace=True, periodic=False):
         """Return pseudo-wave-function array on master.
         
         n: int
@@ -401,10 +401,8 @@ class WaveFunctions(EmptyWaveFunctions):
 
         if (self.kd.comm.rank == kpt_rank and
             self.band_comm.rank == band_rank):
-            psit_G = self._get_wave_function_array(u, myn, realspace)
-            if realspace:
-                psit_G = self.gd.collect(psit_G)
-
+            psit_G = self._get_wave_function_array(u, myn, realspace, periodic)
+                
             if rank == 0:
                 return psit_G
             
