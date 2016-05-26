@@ -24,7 +24,7 @@ from gpaw.arraydict import ArrayDict
 class NullBackgroundCharge:
     charge = 0.0
     def set_grid_descriptor(self, gd): pass
-    def add_to(self, rhot_g): pass
+    def add_charge_to(self, rhot_g): pass
 
 
 class Density(object):
@@ -643,7 +643,7 @@ class RealSpaceDensity(Density):
         self.nt_g = self.nt_sg[:self.nspins].sum(axis=0)
         self.rhot_g = self.nt_g.copy()
         self.ghat.add(self.rhot_g, self.Q_aL)
-        self.background_charge.add_to(self.rhot_g)
+        self.background_charge.add_charge_to(self.rhot_g)
 
         if debug:
             charge = self.finegd.integrate(self.rhot_g) + self.charge

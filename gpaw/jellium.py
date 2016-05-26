@@ -34,11 +34,9 @@ class Jellium():
 
         return self.gd.zeros() + 1.0
 
-    def add_to(self, rhot_g):
+    def add_charge_to(self, rhot_g):
         """ Add Jellium background charge to pseudo charge density rhot_g"""
         rhot_g -= self.mask_g * (self.charge / self.volume)
-        return rhot_g
-
 
 class JelliumSlab(Jellium):
     """ The Jellium slab object """
