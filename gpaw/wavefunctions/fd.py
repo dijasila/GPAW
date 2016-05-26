@@ -182,6 +182,15 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.kd = kd
         self.kpt_u = kpt_u
 
+    def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
+        assert realspace
+        kpt = self.kpt_u[u]
+        psit_G = kpt.psit_nG[n]
+        if periodic:
+            k_c = self.kd.ibzk_kc[kpt.k]
+            return self.gd.plane_wave(-k_c) * psit_G
+        return psit_G
+
     def write(self, writer, write_wave_functions=False):
         writer['Mode'] = 'fd'
 

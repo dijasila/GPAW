@@ -868,7 +868,7 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.stop('Wait for sum')
         self.timer.stop('LCAO forces')
 
-    def _get_wave_function_array(self, u, n, realspace=True):
+    def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
         # XXX Taking kpt is better than taking u
         kpt = self.kpt_u[u]
         if kpt.C_nM is None:
@@ -880,6 +880,9 @@ class LCAOWaveFunctions(WaveFunctions):
         if realspace:
             psit_G = self.gd.zeros(dtype=self.dtype)
             self.basis_functions.lcao_to_grid(C_M, psit_G, kpt.q)
+            if periodic:
+                k_c = self.kd.ibzk_kc[kpt.k]
+                return self.gd.plane_wave(-k_c) * psit_G
             return psit_G
         else:
             return C_M
