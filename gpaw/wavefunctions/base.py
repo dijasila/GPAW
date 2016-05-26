@@ -406,9 +406,6 @@ class WaveFunctions(EmptyWaveFunctions):
             if realspace:
                 psit_G = self.gd.collect(psit_G)
                 
-            if realspace:
-                psit_G = self.gd.collect(psit_G)
-                
             if rank == 0:
                 return psit_G
             
