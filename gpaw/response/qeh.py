@@ -89,9 +89,10 @@ class Heterostructure:
                     chi_dipole.append(np.array(chid[:qindex, :windex]))
                     drho_dipole.append(np.array(drhod[:qindex]))
                 self.z.append(np.array(zi))
-
+                n -= n_rep
             else:
                 n = namelist.index(name)
+                n_rep += 1
 
             layer_indices = np.append(layer_indices, n)
         self.layer_indices = np.array(layer_indices, dtype=int)
@@ -323,6 +324,8 @@ class Heterostructure:
             kernel_ij = self.kernel_qij[iq].copy()
             np.fill_diagonal(kernel_ij, 0)  # Diagonal is set to zero
             for iw in range(0, len(self.frequencies)):
+                #print(chi_m_iqw.shape)
+                #print(self.layer_indices)
                 chi_intra_i = chi_m_iqw[self.layer_indices, iq, iw]
                 if self.chi_dipole is not None:
                     chi_intra_i = np.insert(chi_intra_i, np.arange(Nls) + 1,
@@ -1003,8 +1006,6 @@ class BuildingBlock():
                                                         add_intraband
                                                         )
             print('calculated chi!', file=self.fd)
-            q, omega_w, chiM_qw, chiD_qw, z, drhoM_qz, drhoD_qz = \
-                get_chi_2D(self.omega_w, pd, chi_collected)
 
             nw = len(self.omega_w)
             world = self.df.chi0.world
