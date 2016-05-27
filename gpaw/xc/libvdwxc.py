@@ -466,7 +466,7 @@ class CXGGAKernel:
         s_5 = s_4 * s_1
         s_6 = s_5 * s_1
 
-        fs_rPW86 = (1.0 + a * s_2 + b * s_4 + c * s_6)**(1./15.)
+        fs_rPW86 = (1.0 + a * s_2 + b * s_4 + c * s_6)**(1. / 15.)
 
         if self.just_kidding:
             fs = fs_rPW86
@@ -484,15 +484,15 @@ class CXGGAKernel:
             df_ds = df_rPW86_ds  # XXXXXXXXXXXXXXXXXXXX
         else:
             df_ds = 1. / (1. + alp * s_6)**2 \
-                * (2.0 * mu_LM * s_1 * (1. + alp * s_6)
-                   - 6.0 * alp * s_5 * (1. + mu_LM * s_2)) \
+                * (2.0 * mu_LM * s_1 * (1. + alp * s_6) -
+                   6.0 * alp * s_5 * (1. + mu_LM * s_2)) \
                 + alp * s_6 / (beta + alp * s_6) * df_rPW86_ds \
                 + 6.0 * alp * s_5 * fs_rPW86 / (beta + alp * s_6) \
                 * (1. - alp * s_6 / (beta + alp * s_6))
 
         # de/dn.  This is the partial derivative of sx wrt. n, for s constant
-        v1x[:] += Ax * four_thirds * (rho**(1. / 3.) * fs
-                                      - grad_rho / (s_prefactor * rho) * df_ds)
+        v1x[:] += Ax * four_thirds * (rho**(1. / 3.) * fs -
+                                      grad_rho / (s_prefactor * rho) * df_ds)
         # de/d(nabla n).  The other partial derivative
         v2x[:] += 0.5 * Ax * df_ds / (s_prefactor * grad_rho)
         # (We may or may not understand what that grad_rho is doing here.)

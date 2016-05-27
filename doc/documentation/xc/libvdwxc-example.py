@@ -1,4 +1,4 @@
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw import GPAW
 from gpaw.xc.libvdwxc import vdw_df_cx
 

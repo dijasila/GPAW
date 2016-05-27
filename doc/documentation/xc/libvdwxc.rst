@@ -21,7 +21,7 @@ git and install manually.
 
 Run a calculation as follows:
 
-.. literalinclude: libvdwxc-example.py
+.. literalinclude:: libvdwxc-example.py
 
 libvdwxc will automatically parallelize with as many cores as are
 available for domain decomposition.  If you parallelize over *k*-points
@@ -31,7 +31,7 @@ cores including those for *k*-point and band parallelization.
 
 Here is a more complex example:
 
-.. literalinclude: libvdwxc-pfft-example.py
+.. literalinclude:: libvdwxc-pfft-example.py
 
 Normally you should probably not bother to set pfft_grid as it is
 chosen automatically.
