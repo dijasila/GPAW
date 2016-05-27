@@ -35,7 +35,7 @@ The :func:`ase.dft.kpoints.get_bandpath` provides in addition to the
 actual k-points information which is useful for plotting.
 
 .. literalinclude:: bandstructure.py
-    :lines: 43-61
+    :lines: 42-64
 
 .. figure:: bandstructure.png
 
