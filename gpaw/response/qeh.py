@@ -77,11 +77,11 @@ class Heterostructure:
                 if qmax is not None:
                     qindex = np.argmin(abs(q - qmax * Bohr)) + 1
                 else:
-                    qindex = -1
+                    qindex = None
                 if wmax is not None:
                     windex = np.argmin(abs(w - wmax / Hartree)) + 1
                 else:
-                    windex = -1
+                    windex = None
                 chi_monopole.append(np.array(chim[:qindex, :windex]))
                 drho_monopole.append(np.array(drhom[:qindex]))
                 if include_dipole:
@@ -1094,7 +1094,7 @@ class BuildingBlock():
         """
 
         from scipy.interpolate import RectBivariateSpline
-        from scipy.interpolate import interp2d
+        from scipy.interpolate import interp1d, interp2d
         if not self.complete:
             self.calculate_building_block()
         q_grid *= Bohr
@@ -1112,12 +1112,13 @@ class BuildingBlock():
         self.chiM_qw = self.chiM_qw[sort]
         
         omit_q0 = False
-        if np.isclose(q_abs[0], 0) and not np.isclose(self.chiM_qw[0,0]):
+        if np.isclose(q_abs[0], 0) and not np.isclose(self.chiM_qw[0,0], 0):
             omit_q0 = True # omit q=0 from interpolation
-            chi0_w = self.chiM_qw[0]
-            self.chiM_qw = np.delete(self.chiM_qw[0], 0, axis=0)
-            q_abs = np.delete(q_abs, 0)
-            
+            q0_abs = q_abs[0].copy()
+            q_abs[0] = 0.
+            chi0_w = self.chiM_qw[0].copy()
+            self.chiM_qw[0] = np.zeros_like(chi0_w)
+
         yr = RectBivariateSpline(q_abs, self.omega_w, 
                                  self.chiM_qw.real,
                                  s=0)
@@ -1127,7 +1128,12 @@ class BuildingBlock():
 
         self.chiM_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
         if omit_q0:
-            self.chiM_qw = np.insert(self.chiM_qw, 0, chi0_w, axis=0)
+            yr = interp1d(self.omega_w,chi0_w.real)
+            yi = interp1d(self.omega_w,chi0_w.imag)
+            chi0_w = yr(w_grid) + 1j * yi(w_grid)
+            q_abs[0] = q0_abs            
+            if np.isclose(q_grid[0], 0):
+                self.chiM_qw[0] = chi0_w   
 
         # chi dipole
         yr = RectBivariateSpline(q_abs, self.omega_w, 
