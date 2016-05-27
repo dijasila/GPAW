@@ -186,8 +186,8 @@ class Unfold:
         if filename is None:
             try:
                 e_mK, P_mK = pickle.load(open('weights_' + self.name +
-                                               '.pckl', 'rb'))
-            except IOError:                
+                                              '.pckl', 'rb'))
+            except IOError:
                 e_Km = []
                 P_Km = []
                 if world.rank == 0:
@@ -211,8 +211,8 @@ class Unfold:
                 e_mK = np.array(e_Km).T
                 P_mK = np.array(P_Km).T
                 if world.rank == 0:
-                    pickle.dump((e_mK, P_mK), open('weights_' +
-                                       self.name + '.pckl', 'wb'))
+                    pickle.dump((e_mK, P_mK),
+                                open('weights_' + self.name + '.pckl', 'wb'))
         else:
             e_mK, P_mK = pickle.load(open(filename, 'rb'))
 
@@ -249,8 +249,8 @@ class Unfold:
                 D = (width / 2 / np.pi) / ((e - e0)**2 + (width / 2)**2)
                 A_ke[ik] += P_mK[ie, ik] * D
         if world.rank == 0:
-            pickle.dump((e * Hartree, A_ke, x, X, points_name), open('sf_'
-                            + self.name + '.pckl', 'wb'))
+            pickle.dump((e * Hartree, A_ke, x, X, points_name),
+                        open('sf_' + self.name + '.pckl', 'wb'))
             print('Spectral Function calculation completed!')
         return
 
@@ -318,7 +318,8 @@ def plot_spectral_function(filename, color='blue', eref=None,
     along the kpoints path."""
 
     try:
-        e, A_ke, x, X, points_name = pickle.load(open(filename + '.pckl'))
+        e, A_ke, x, X, points_name = pickle.load(open(filename + '.pckl',
+                                                      'rb'))
     except IOError:
         print('You Need to Calculate the SF first!')
         raise SystemExit()
