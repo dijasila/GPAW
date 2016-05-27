@@ -5,7 +5,6 @@ import numpy as np
 from math import pi
 import ase.units
 from ase.utils import devnull
-import gpaw.mpi as mpi
 import sys
 import os
 
@@ -554,7 +553,7 @@ class Heterostructure:
                                                   np.array(const_per)))
                       
                 epsM_qw[iq, iw] = 1. / epsinvM
-                
+        
         return self.q_abs / Bohr,  self.frequencies[:Nw] * Hartree, epsM_qw
 
     def get_eels(self, dipole_contribution=False):
@@ -858,7 +857,7 @@ class Heterostructure:
 class BuildingBlock():
 
     """ Module for using Linear response to calculate dielectric 
-    building block of 2D material"""
+    building block of 2D material with GPAW"""
     
     def __init__(self, filename, df, isotropic_q=True, nq_inf=10,
                  qmax=None, txt=sys.stdout):
@@ -1009,6 +1008,7 @@ class BuildingBlock():
             mynw = (nw + world.size - 1) // world.size
             w1 = min(self.df.mynw * world.rank, nw)
             w2 = min(self.df.w1 + self.df.mynw, nw)
+
             q, omega_w, chiM_qw, chiD_qw, z, drhoM_qz, drhoD_qz = \
                 get_chi_2D(self.omega_w, pd, chi_wGG)
 
@@ -1107,7 +1107,14 @@ class BuildingBlock():
 
         # chi monopole
         self.chiM_qw = self.chiM_qw[sort]
-
+        
+        omit_q0 = False
+        if np.isclose(q_abs[0], 0) and not np.isclose(self.chiM_qw[0,0]):
+            omit_q0 = True # omit q=0 from interpolation
+            chi0_w = self.chiM_qw[0]
+            self.chiM_qw = np.delete(self.chiM_qw[0], 0, axis=0)
+            q_abs = np.delete(q_abs, 0)
+            
         yr = RectBivariateSpline(q_abs, self.omega_w, 
                                  self.chiM_qw.real,
                                  s=0)
@@ -1116,7 +1123,9 @@ class BuildingBlock():
                                  self.chiM_qw.imag, s=0)
 
         self.chiM_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
-        
+        if omit_q0:
+            self.chiM_qw = np.insert(self.chiM_qw, 0, chi0_w, axis=0)
+
         # chi dipole
         yr = RectBivariateSpline(q_abs, self.omega_w, 
                                  self.chiD_qw[sort].real,
