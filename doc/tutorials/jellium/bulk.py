@@ -15,7 +15,6 @@ jellium = Jellium(ne)
 bulk = Atoms(pbc=True, cell=(a, a, a))
 bulk.calc = GPAW(background_charge=jellium,
                  xc='LDA_X+LDA_C_WIGNER',
-                 charge=-ne,
                  nbands=5,
                  kpts=[k, k, k],
                  h=h,
