@@ -17,7 +17,7 @@ for k in range(2, 9):
         si.calc = GPAW(kpts=(k, k, k),
                        mode=PW(400),
                        xc='PBE',
-                       parallel={'domain': 1, 'band': 1},
+                       eigensolver='rmm-diis',
                        txt=None)
         si.get_potential_energy()
         name = 'si-{0:.2f}-{1}'.format(a, k)
