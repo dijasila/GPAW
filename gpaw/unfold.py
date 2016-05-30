@@ -4,7 +4,6 @@ import pickle
 from ase.units import Hartree
 
 from gpaw import GPAW
-from gpaw.response.cell import get_primitive_cell
 from gpaw.kpt_descriptor import to1bz
 from gpaw.spinorbit import get_spinorbit_eigenvalues
 from gpaw.wavefunctions.pw import PWDescriptor
@@ -37,10 +36,10 @@ class Unfold:
             self.pd = PWDescriptor(ecut=None, gd=self.gd, kd=self.kd,
                                    dtype=complex)
 
-        rpad = np.ones(3, int)
         self.acell_cv = self.gd.cell_cv
-        self.acell_cv, self.bcell_cv, self.vol, self.BZvol = \
-            get_primitive_cell(self.acell_cv, rpad=rpad)
+        self.bcell_cv = 2 * np.pi * self.gd.icell_cv
+        self.vol = self.gd.volume
+        self.BZvol = (2 * np.pi)**3 / self.vol
         
         self.nb = self.calc.get_number_of_bands()
         
