@@ -329,9 +329,7 @@ class Hamiltonian(object):
     def linearize_to_xc(self, new_xc, density):
         # Store old hamiltonian
         ref_vt_sG = self.vt_sG.copy()
-        ref_dH_asp = {}
-        for a, dH_sp in self.dH_asp.items():
-            ref_dH_asp[a] = dH_sp.copy()
+        ref_dH_asp = self.dH_asp.copy()
         self.xc = new_xc
         self.xc.set_positions(self.spos_ac)
         self.update(density)
@@ -340,7 +338,7 @@ class Hamiltonian(object):
         for a, dH_sp in self.dH_asp.items():
             ref_dH_asp[a] -= dH_sp
         self.ref_vt_sG = ref_vt_sG
-        self.ref_dH_asp = ref_dH_asp
+        self.ref_dH_asp = self.atomdist.to_work(ref_dH_asp)
 
     def calculate_forces(self, dens, F_av):
         ghat_aLv = dens.ghat.dict(derivative=True)
