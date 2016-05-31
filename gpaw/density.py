@@ -50,8 +50,8 @@ class Density(object):
         self.nspins = nspins
         self.charge = float(charge)
         self.grid2grid = grid2grid
-        self.aux_gd = grid2grid.big_gd if grid2grid.enabled else gd
-        self.atomic_matrix_distributor = None
+        self.aux_gd = grid2grid.aux_gd
+        self.atomdist = None
 
         self.collinear = collinear
         self.ncomp = 1 if collinear else 2
@@ -98,10 +98,9 @@ class Density(object):
             self.timer.start('Redistribute')
             self.D_asp.redistribute(atom_partition)
             self.timer.stop('Redistribute')
-        
+
         self.atom_partition = atom_partition
-        self.atomic_matrix_distributor = self.grid2grid.get_matrix_distributor(
-            self.atom_partition, spos_ac)
+        self.atomdist = self.grid2grid.get_atom_distributions(spos_ac)
 
     def set_positions(self, spos_ac, atom_partition):
         self.set_positions_without_ruining_everything(spos_ac, atom_partition)
@@ -199,8 +198,10 @@ class Density(object):
         dominating contribution from the nuclear charge."""
 
         comp_charge = 0.0
-        self.Q_aL = {}
-        Ddist_asp = self.atomic_matrix_distributor.distribute(self.D_asp)
+        Ddist_asp = self.atomdist.to_aux(self.D_asp)
+        def shape(a):
+            return self.setups[a].Delta_pL.shape[1],
+        self.Q_aL = ArrayDict(Ddist_asp.partition, shape)
         for a, D_sp in Ddist_asp.items():
             Q_L = self.Q_aL[a] = np.dot(D_sp[:self.nspins].sum(0),
                                         self.setups[a].Delta_pL)
@@ -410,7 +411,9 @@ class Density(object):
             W += nw
 
         x_W = phi.create_displacement_arrays()[0]
-        D_asp = self.atomic_matrix_distributor.distribute(self.D_asp)
+        #D_asp = self.atomic_matrix_distributor.distribute(self.D_asp)
+        #D_asp = self.atomdist.to_aux(self.D_asp)
+        D_asp = self.D_asp  # XXX really?
 
         rho_MM = np.zeros((phi.Mmax, phi.Mmax))
         for s, I_a in enumerate(I_sa):
@@ -535,11 +538,12 @@ class Density(object):
 
         # Read atomic density matrices
         natoms = len(self.setups)
-        atom_partition = AtomPartition(self.gd.comm, np.zeros(natoms, int))
+        atom_partition = AtomPartition(self.gd.comm, np.zeros(natoms, int),
+                                       'density-gd')
         D_asp = self.setups.empty_atomic_matrix(self.ns, atom_partition)
         self.atom_partition = atom_partition  # XXXXXX
-        self.atomic_matrix_distributor = self.grid2grid.get_matrix_distributor(
-            self.atom_partition)
+        spos_ac = np.zeros((natoms, 3)) # XXXX
+        self.atomdist = self.grid2grid.get_atom_distributions(spos_ac)
 
         all_D_sp = reader.get('AtomicDensityMatrices', broadcast=True)
         if self.gd.comm.rank == 0:

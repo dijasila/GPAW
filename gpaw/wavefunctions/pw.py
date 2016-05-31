@@ -1230,17 +1230,21 @@ class ReciprocalSpaceDensity(Density):
         assert gd.comm.size == 1
         serial_finegd = finegd.new_descriptor(comm=gd.comm)
 
-        from gpaw.utilities.grid import NullGrid2Grid
+        from gpaw.utilities.grid import Grid2Grid
         Density.__init__(self, gd, serial_finegd, nspins, charge,
-                         grid2grid=NullGrid2Grid(gd), collinear=collinear)
+                         grid2grid=Grid2Grid(grid2grid.comm,
+                                             grid2grid.broadcast_comm,
+                                             gd, gd),
+                                             collinear=collinear)
 
         self.pd2 = PWDescriptor(None, gd)
         self.pd3 = PWDescriptor(None, serial_finegd)
 
         self.G3_G = self.pd2.map(self.pd3)
-        
-        self.xc_grid2grid = grid2grid.new(serial_finegd, finegd)
-        self.xc_matrix_distributor = None
+
+        self.xc_grid2grid = Grid2Grid(grid2grid.comm,
+                                      grid2grid.broadcast_comm,
+                                      gd, finegd)
 
     def initialize(self, setups, timer, magmom_av, hund):
         Density.initialize(self, setups, timer, magmom_av, hund)
@@ -1263,8 +1267,6 @@ class ReciprocalSpaceDensity(Density):
 
         from gpaw.utilities.partition import AtomPartition
         p = AtomPartition(self.gd.comm, np.zeros(len(spos_ac), dtype=int))
-        self.xc_matrix_distributor = \
-            self.xc_grid2grid.get_matrix_distributor(p)
 
     def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
@@ -1373,8 +1375,8 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         self.timer.start('XC 3D grid')
         nt_dist_sg = density.xc_grid2grid.distribute(density.nt_sg)
-        vxct_dist_sg = density.xc_grid2grid.big_gd.zeros(self.nspins)
-        self.exc = self.xc.calculate(density.xc_grid2grid.big_gd,
+        vxct_dist_sg = density.xc_grid2grid.aux_gd.zeros(self.nspins)
+        self.exc = self.xc.calculate(density.xc_grid2grid.aux_gd,
                                      nt_dist_sg, vxct_dist_sg)
         vxct_sg = density.xc_grid2grid.collect(vxct_dist_sg)
 
@@ -1386,7 +1388,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         eext = 0.0
 
-        return self.epot, self.ebar, eext, self.exc
+        return np.array([self.epot, self.ebar, eext, self.exc])
 
     def calculate_atomic_hamiltonians(self, density):
         W_aL = {}

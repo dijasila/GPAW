@@ -29,8 +29,7 @@ class HirshfeldDensity(RealSpaceDensity):
         atomic density matrices
         in density.py"""
         self.atom_partition = atom_partition
-        self.atomic_matrix_distributor = self.grid2grid.get_matrix_distributor(
-            self.atom_partition, spos_ac)
+        self.atomdist = self.grid2grid.get_atom_distributions(spos_ac)
         self.nct.set_positions(spos_ac)
         self.ghat.set_positions(spos_ac)
         self.mixer.reset()
@@ -54,10 +53,9 @@ class HirshfeldDensity(RealSpaceDensity):
         density = self.calculator.density
         spos_ac = all_atoms.get_scaled_positions()
         rank_a = self.finegd.get_ranks_from_positions(spos_ac)
-        
+
         density.set_positions(all_atoms.get_scaled_positions(),
-                              AtomPartition(self.finegd.comm, rank_a)
-                              )
+                              AtomPartition(self.finegd.comm, rank_a))
 
         # select atoms
         atoms = []

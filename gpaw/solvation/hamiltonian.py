@@ -84,7 +84,9 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             self.cavity.update_vol_surf()
             self.dielectric.update(self.cavity)
 
-        Epot, Ebar, Eext, Exc = self.update_pseudo_potential(density)
+        #Epot, Ebar, Eext, Exc =
+        finegd_energies = self.update_pseudo_potential(density)
+        self.finegd.comm.sum(finegd_energies)
         ia_changed = [
             ia.update(
                 self.new_atoms,
@@ -103,25 +105,22 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         if len(self.interactions) > 0:
             for vt_g in self.vt_sg[:self.nspins]:
                 vt_g += self.vt_ia_g
-        Eias = [ia.E for ia in self.interactions]
+        Eias = np.array([ia.E for ia in self.interactions])
 
-        Ekin1 = self.calculate_kinetic_energy(density)
+        Ekin1 = self.gd.comm.sum(self.calculate_kinetic_energy(density))
         W_aL = self.calculate_atomic_hamiltonians(density)
-        Ekin2, Epot, Ebar, Eext, Exc = self.update_corrections(
-            density, 0.0, Epot, Ebar, Eext, Exc, W_aL
-        )
+        atomic_energies = self.update_corrections(density, W_aL)
+        self.world.sum(atomic_energies)
 
-        self.Ekin0 = self.gd.comm.sum(Ekin1) + self.finegd.comm.sum(Ekin2)
-        
-        energies = np.array([Epot, Ebar, Eext, Exc] + Eias)
-        self.timer.start('Communicate energies')
-        self.finegd.comm.sum(energies)
-        # Make sure that all CPUs have the same energies
-        self.world.broadcast(energies, 0)
+        energies = atomic_energies
+        energies[1:] += finegd_energies
+        energies[0] += Ekin1
+        self.Ekin0, self.Epot, self.Ebar, self.Eext, self.Exc = energies
+
+        self.finegd.comm.sum(Eias)
+
         self.cavity.communicate_vol_surf(self.world)
-        self.timer.stop('Communicate energies')
-        (self.Epot, self.Ebar, self.Eext, self.Exc) = energies[:4]
-        for E, ia in zip(energies[4:], self.interactions):
+        for E, ia in zip(Eias, self.interactions):
             setattr(self, 'E_' + ia.subscript, E)
 
         # self.Exc += self.Enlxc
