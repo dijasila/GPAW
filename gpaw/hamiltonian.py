@@ -52,7 +52,7 @@ class Hamiltonian(object):
     """
 
     def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
-                 kptband_comm, grid2grid, vext=None, collinear=True):
+                 kptband_comm, redistributor, vext=None, collinear=True):
         """Create the Hamiltonian."""
         self.gd = gd
         self.finegd = finegd
@@ -65,8 +65,8 @@ class Hamiltonian(object):
         self.ns = self.nspins * self.ncomp**2
         self.world = world
         self.kptband_comm = kptband_comm
-        self.grid2grid = grid2grid
-        self.aux_gd = grid2grid.aux_gd
+        self.redistributor = redistributor
+        self.aux_gd = redistributor.aux_gd
         self.atomdist = None
         self.dH_asp = None
 
@@ -133,7 +133,7 @@ class Hamiltonian(object):
             self.timer.stop('Redistribute')
 
         self.atom_partition = atom_partition
-        self.atomdist = self.grid2grid.get_atom_distributions(spos_ac)
+        self.atomdist = self.redistributor.get_atom_distributions(spos_ac)
 
     def set_positions(self, spos_ac, atom_partition):
         self.vbar.set_positions(spos_ac)
@@ -509,10 +509,10 @@ class Hamiltonian(object):
 class RealSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
                  kptband_comm, vext=None, collinear=True,
-                 psolver=None, stencil=3, grid2grid=None):
+                 psolver=None, stencil=3, redistributor=None):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
                              world, kptband_comm, vext=vext,
-                             collinear=collinear, grid2grid=grid2grid)
+                             collinear=collinear, redistributor=redistributor)
 
         # Solver for the Poisson equation:
         if psolver is None:
@@ -529,9 +529,9 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.vbar_g = None
 
     def restrict_and_collect(self, a_xg, b_xg=None, phases=None):
-        if self.grid2grid.enabled:
+        if self.redistributor.enabled:
             tmp_xg = self.restrictor.apply(a_xg, output=None, phases=phases)
-            b_xg = self.grid2grid.collect(tmp_xg, b_xg)
+            b_xg = self.redistributor.collect(tmp_xg, b_xg)
         else:
             b_xg = self.restrictor.apply(a_xg, output=b_xg, phases=phases)
         return b_xg

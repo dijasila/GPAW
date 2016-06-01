@@ -813,7 +813,7 @@ class PAW(PAWTextOutput):
             else:
                 aux_gd = gd
 
-            grid2grid = GridRedistributor(world, kptband_comm, gd, aux_gd)
+            redistributor = GridRedistributor(world, kptband_comm, gd, aux_gd)
 
             if par.stencils[1] != 9:
                 # Construct grid descriptor for fine grids for densities
@@ -826,12 +826,12 @@ class PAW(PAWTextOutput):
             if realspace:
                 self.density = RealSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
-                    grid2grid, collinear=collinear,
+                    redistributor, collinear=collinear,
                     stencil=par.stencils[1])
             else:
                 self.density = pw.ReciprocalSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
-                    grid2grid, collinear=collinear)
+                    redistributor, collinear=collinear)
 
         self.density.initialize(setups, self.timer, magmom_av, par.hund)
         self.density.set_mixer(par.mixer)
@@ -848,7 +848,7 @@ class PAW(PAWTextOutput):
                     gd=gd, finegd=finegd, nspins=nspins,
                     setups=setups, timer=self.timer, xc=xc,
                     world=world, kptband_comm=self.wfs.kptband_comm,
-                    grid2grid=self.density.grid2grid,
+                    redistributor=self.density.redistributor,
                     vext=par.external, collinear=collinear,
                     psolver=par.poissonsolver,
                     stencil=par.stencils[1])
@@ -860,7 +860,7 @@ class PAW(PAWTextOutput):
                     nspins=nspins, setups=setups, timer=self.timer,
                     xc=xc, world=world,
                     kptband_comm=self.wfs.kptband_comm,
-                    grid2grid=self.density.grid2grid,
+                    redistributor=self.density.redistributor,
                     vext=par.external, collinear=collinear)
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,

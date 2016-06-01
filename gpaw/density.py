@@ -42,15 +42,16 @@ class Density(object):
      ========== =========================================
     """
 
-    def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True):
+    def __init__(self, gd, finegd, nspins, charge, redistributor,
+                 collinear=True):
         """Create the Density object."""
 
         self.gd = gd
         self.finegd = finegd
         self.nspins = nspins
         self.charge = float(charge)
-        self.grid2grid = grid2grid
-        self.aux_gd = grid2grid.aux_gd
+        self.redistributor = redistributor
+        self.aux_gd = redistributor.aux_gd
         self.atomdist = None
 
         self.collinear = collinear
@@ -100,7 +101,7 @@ class Density(object):
             self.timer.stop('Redistribute')
 
         self.atom_partition = atom_partition
-        self.atomdist = self.grid2grid.get_atom_distributions(spos_ac)
+        self.atomdist = self.redistributor.get_atom_distributions(spos_ac)
 
     def set_positions(self, spos_ac, atom_partition):
         self.set_positions_without_ruining_everything(spos_ac, atom_partition)
@@ -352,7 +353,7 @@ class Density(object):
             n_sg = self.nt_sG.copy()
             # This will get the density with the same distribution
             # as finegd:
-            n_sg = self.grid2grid.distribute(n_sg)
+            n_sg = self.redistributor.distribute(n_sg)
         elif gridrefinement == 2:
             gd = self.finegd
             if self.nt_sg is None:
@@ -543,7 +544,7 @@ class Density(object):
         D_asp = self.setups.empty_atomic_matrix(self.ns, atom_partition)
         self.atom_partition = atom_partition  # XXXXXX
         spos_ac = np.zeros((natoms, 3)) # XXXX
-        self.atomdist = self.grid2grid.get_atom_distributions(spos_ac)
+        self.atomdist = self.redistributor.get_atom_distributions(spos_ac)
 
         all_D_sp = reader.get('AtomicDensityMatrices', broadcast=True)
         if self.gd.comm.rank == 0:
@@ -554,9 +555,9 @@ class Density(object):
 
 
 class RealSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True,
-                 stencil=3):
-        Density.__init__(self, gd, finegd, nspins, charge, grid2grid,
+    def __init__(self, gd, finegd, nspins, charge, redistributor,
+                 collinear=True, stencil=3):
+        Density.__init__(self, gd, finegd, nspins, charge, redistributor,
                          collinear=collinear)
         self.stencil = stencil
 
@@ -620,7 +621,7 @@ class RealSpaceDensity(Density):
         return out_xR
 
     def distribute_and_interpolate(self, in_xR, out_xR=None):
-        in_xR = self.grid2grid.distribute(in_xR)
+        in_xR = self.redistributor.distribute(in_xR)
         return self.interpolate(in_xR, out_xR)
 
     def calculate_pseudo_charge(self):
