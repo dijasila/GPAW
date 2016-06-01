@@ -66,7 +66,6 @@ class Hamiltonian(object):
         self.world = world
         self.kptband_comm = kptband_comm
         self.redistributor = redistributor
-        self.aux_gd = redistributor.aux_gd
         self.atomdist = None
         self.dH_asp = None
 
@@ -521,7 +520,8 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.poisson.set_grid_descriptor(self.finegd)
 
         # Restrictor function for the potential:
-        self.restrictor = Transformer(self.finegd, self.aux_gd, stencil)
+        self.restrictor = Transformer(self.finegd, self.redistributor.aux_gd,
+                                      stencil)
         self.restrict = self.restrictor.apply
 
         self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],

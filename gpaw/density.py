@@ -51,7 +51,6 @@ class Density(object):
         self.nspins = nspins
         self.charge = float(charge)
         self.redistributor = redistributor
-        self.aux_gd = redistributor.aux_gd
         self.atomdist = None
 
         self.collinear = collinear
@@ -208,7 +207,7 @@ class Density(object):
                                         self.setups[a].Delta_pL)
             Q_L[0] += self.setups[a].Delta0
             comp_charge += Q_L[0]
-        return self.aux_gd.comm.sum(comp_charge) * sqrt(4 * pi)
+        return Ddist_asp.partition.comm.sum(comp_charge) * sqrt(4 * pi)
 
     def get_initial_occupations(self, a):
         c = self.charge / len(self.setups)  # distribute on all atoms
@@ -349,7 +348,7 @@ class Density(object):
         # Refinement of coarse grid, for representation of the AE-density
         # XXXXXXXXXXXX think about distribution depending on gridrefinement!
         if gridrefinement == 1:
-            gd = self.aux_gd
+            gd = self.redistributor.aux_gd
             n_sg = self.nt_sG.copy()
             # This will get the density with the same distribution
             # as finegd:
@@ -565,7 +564,8 @@ class RealSpaceDensity(Density):
         Density.initialize(self, setups, timer, magmom_av, hund)
 
         # Interpolation function for the density:
-        self.interpolator = Transformer(self.aux_gd, self.finegd, self.stencil)
+        self.interpolator = Transformer(self.redistributor.aux_gd,
+                                        self.finegd, self.stencil)
 
         spline_aj = []
         for setup in setups:
