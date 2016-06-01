@@ -80,7 +80,6 @@ class WaveFunctions(EmptyWaveFunctions):
         self.eigensolver = None
         self.positions_set = False
 
-        self.amd = None  # matrix distributor.  Switch to better name
         self.set_setups(setups)
 
     def set_setups(self, setups):
