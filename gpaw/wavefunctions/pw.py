@@ -570,8 +570,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     taut_sR[kpt.s] += 0.5 * f * abs(
                         self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q))**2
 
-        self.kd.comm.sum(taut_sR)
-        self.band_comm.sum(taut_sR)
+        self.kptband_comm.sum(taut_sR)
         return taut_sR
 
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,

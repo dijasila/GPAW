@@ -80,7 +80,7 @@ class C_Response(Contribution):
         self.occupations = self.nlfunc.occupations
         self.nvalence = self.nlfunc.nvalence
         self.kpt_comm = self.wfs.kd.comm
-        self.band_comm = self.wfs.band_comm
+        self.band_comm = self.wfs.bd.comm
         self.grid_comm = self.gd.comm
         if self.Dresp_asp is None:
             self.Dresp_asp = {}

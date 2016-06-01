@@ -2107,7 +2107,7 @@ class Transport(GPAW):
         vHt_g = self.surround.uncapsule(self, nn, hamiltonian.vHt_g,
                                         self.finegd1, self.finegd)
         vt_G0 = self.surround.uncapsule(self, nn // 2, vt_G, self.gd1, self.gd)
-        if wfs.band_comm.rank == 0 and wfs.kd.comm.rank == 0:
+        if wfs.bd.comm.rank == 0 and wfs.kd.comm.rank == 0:
             # Force from compensation charges:
             dF_aLv = self.density.ghat.dict(derivative=True)
 
