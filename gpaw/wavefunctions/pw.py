@@ -1244,8 +1244,8 @@ class ReciprocalSpaceDensity(Density):
         self.G3_G = self.pd2.map(self.pd3)
 
         self.xc_redistributor = GridRedistributor(redistributor.comm,
-                                                  redistributor.broadcast_comm,
-                                                  gd, finegd)
+                                                  redistributor.comm,
+                                                  serial_finegd, finegd)
 
     def initialize(self, setups, timer, magmom_av, hund):
         Density.initialize(self, setups, timer, magmom_av, hund)
