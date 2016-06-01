@@ -6,7 +6,7 @@ from gpaw.utilities.grid_redistribute import general_redistribute
 from gpaw.utilities.partition import AtomPartition, AtomicMatrixDistributor
 
 
-class Grid2Grid:
+class GridRedistributor:
     def __init__(self, comm, broadcast_comm, gd, aux_gd):
         self.comm = comm
         self.broadcast_comm = broadcast_comm
@@ -72,41 +72,37 @@ class Grid2Grid:
         return AtomDistributions(self.comm, self.broadcast_comm,
                                  self.gd, self.aux_gd, spos_ac)
 
+
 class AtomDistributions:
     def __init__(self, comm, broadcast_comm, gd, aux_gd, spos_ac):
         self.comm = comm
         self.broadcast_comm = broadcast_comm
         self.gd = gd
         self.aux_gd = aux_gd
-        self.set_positions(spos_ac)
 
-    def set_positions(self, spos_ac):
-        rank_a = self.gd.get_ranks_from_positions(spos_ac)
-        aux_rank_a = self.aux_gd.get_ranks_from_positions(spos_ac)
-        self.partition = AtomPartition(self.gd.comm, rank_a, name='gd')
+        rank_a = gd.get_ranks_from_positions(spos_ac)
+        aux_rank_a = aux_gd.get_ranks_from_positions(spos_ac)
+        self.partition = AtomPartition(gd.comm, rank_a, name='gd')
 
-        if self.gd is self.aux_gd:
+        if gd is aux_gd:
             name = 'aux-unextended'
         else:
             name = 'aux-extended'
-        self.aux_partition = AtomPartition(self.aux_gd.comm, aux_rank_a,
-                                           name=name)
+        self.aux_partition = AtomPartition(aux_gd.comm, aux_rank_a, name=name)
 
-        self.work_partition = AtomPartition(self.comm,
-                                            np.zeros(len(spos_ac)),
+        self.work_partition = AtomPartition(comm, np.zeros(len(spos_ac)),
                                             name='work').as_even_partition()
 
-        if self.gd is self.aux_gd:
-            aux_broadcast_comm = \
-                self.gd.comm.new_communicator([self.gd.comm.rank])
+        if gd is aux_gd:
+            aux_broadcast_comm = gd.comm.new_communicator([gd.comm.rank])
         else:
-            aux_broadcast_comm = self.broadcast_comm
+            aux_broadcast_comm = broadcast_comm
 
         self.aux_dist = AtomicMatrixDistributor(self.partition,
                                                 aux_broadcast_comm,
                                                 self.aux_partition)
         self.work_dist = AtomicMatrixDistributor(self.partition,
-                                                 self.broadcast_comm,
+                                                 broadcast_comm,
                                                  self.work_partition)
 
     def to_aux(self, arraydict):
@@ -157,7 +153,7 @@ def main():
 
     serial = world.new_communicator([world.rank])
 
-    # Genrator which must run on all ranks
+    # Generator which must run on all ranks
     gen = np.random.RandomState(0)
 
     # This one is just used by master

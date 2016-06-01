@@ -5,7 +5,7 @@ import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
 
 
-class GridRedistributor:
+class AlignedGridRedistributor:
     """Perform redistributions between two grids.
 
     See the redistribute function."""

@@ -38,7 +38,7 @@ from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.utilities.gpts import get_number_of_grid_points
-from gpaw.utilities.grid import Grid2Grid
+from gpaw.utilities.grid import GridRedistributor
 from gpaw.utilities.partition import AtomPartition
 from gpaw.parameters import InputParameters, usesymm2symmetry
 from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
@@ -813,7 +813,7 @@ class PAW(PAWTextOutput):
             else:
                 aux_gd = gd
 
-            grid2grid = Grid2Grid(world, kptband_comm, gd, aux_gd)
+            grid2grid = GridRedistributor(world, kptband_comm, gd, aux_gd)
 
             if par.stencils[1] != 9:
                 # Construct grid descriptor for fine grids for densities
