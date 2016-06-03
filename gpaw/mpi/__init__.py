@@ -1025,7 +1025,12 @@ class Parallelization:
             self.set(band=self.navail)
 
         if self.navail > 1:
-            raise RuntimeError('All the CPUs must be used')
+            assignments = dict(kpt=self.kpt,
+                               domain=self.domain,
+                               band=self.band)
+            raise RuntimeError('All the CPUs must be used.  Have %s but '
+                               '%d times more are available'
+                               % (assignments, self.navail))
     
     def get_optimal_kpt_parallelization(self, kptprioritypower=1.4):
         if self.domain and self.band:

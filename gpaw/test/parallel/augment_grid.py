@@ -4,28 +4,29 @@ from ase.structure import molecule
 from gpaw.mpi import world
 
 system = molecule('H2O')
-system.center(vacuum=1.2)
+system.cell = (4, 4, 4)
 system.pbc = 1
 
-band = 1
-if world.size > 4:
-    band = 2
 
 for mode in ['fd',
-             #'pw',
+             'pw',
              'lcao'
              ]:
     energy = []
-    if mode != 'lcao' and band == 2:
+
+    if mode != 'lcao':
         eigensolver = 'rmm-diis'
     else:
         eigensolver = None
 
-    for augment_grids in [True, False]:
+    for augment_grids in 0, 1:
+        if world.rank == 0:
+            print(mode, augment_grids)
         calc = GPAW(mode=mode,
+                    gpts=(16, 16, 16),
+                    txt='gpaw.%s.%d.txt' % (mode, int(augment_grids)),
                     eigensolver=eigensolver,
-                    parallel=dict(augment_grids=augment_grids,
-                                  band=band),
+                    parallel=dict(augment_grids=augment_grids),
                     basis='szp(dzp)',
                     kpts=[1, 1, 4],
                     nbands=8)

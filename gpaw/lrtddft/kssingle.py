@@ -83,7 +83,7 @@ class KSSingles(ExcitationList):
         self.world = calculator.wfs.world
 
         # parallelization over bands not yet supported
-        assert(calculator.wfs.band_comm.size == 1)
+        assert(calculator.wfs.bd.comm.size == 1)
 
         self.select(nspins, eps, istart, jend, energy_range)
 

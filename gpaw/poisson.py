@@ -13,7 +13,7 @@ from gpaw import PoissonConvergenceError
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.ewald import madelung
-from gpaw.utilities.grid_redistribute import GridRedistributor
+from gpaw.utilities.grid_redistribute import AlignedGridRedistributor
 from gpaw.utilities.tools import construct_reciprocal
 import _gpaw
 
@@ -461,9 +461,11 @@ class ParallelFFTPoissonSolver(PoissonSolver):
         # We will probably want to use this on non-periodic grids too...
         assert gd.pbc_c.all()
         self.gd = gd
-        self.transp_x_yz_1 = GridRedistributor(self.gd, 1, 2)
-        self.transp_1_yz_x = GridRedistributor(self.transp_x_yz_1.gd2, 2, 0)
-        self.transp_yz_1_x = GridRedistributor(self.transp_1_yz_x.gd2, 0, 1)
+        self.transp_x_yz_1 = AlignedGridRedistributor(self.gd, 1, 2)
+        self.transp_1_yz_x = AlignedGridRedistributor(self.transp_x_yz_1.gd2,
+                                                      2, 0)
+        self.transp_yz_1_x = AlignedGridRedistributor(self.transp_1_yz_x.gd2,
+                                                      0, 1)
 
     def initialize(self):
         gd = self.transp_yz_1_x.gd2

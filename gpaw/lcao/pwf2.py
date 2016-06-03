@@ -242,7 +242,7 @@ class PWF2:
         calc = GPAW(gpwfilename, txt=None, basis=basis)
         assert calc.wfs.gd.comm.size == 1
         assert calc.wfs.kd.comm.size == 1
-        assert calc.wfs.band_comm.size == 1
+        assert calc.wfs.bd.comm.size == 1
         if zero_fermi:
             try:
                 Ef = calc.get_fermi_level()
@@ -379,7 +379,7 @@ class LCAOwrap:
     def __init__(self, calc, spin=0):
         assert calc.wfs.gd.comm.size == 1
         assert calc.wfs.kd.comm.size == 1
-        assert calc.wfs.band_comm.size == 1
+        assert calc.wfs.bd.comm.size == 1
         
         from gpaw.lcao.tools import get_lcao_hamiltonian
         H_skMM, S_kMM = get_lcao_hamiltonian(calc)

@@ -132,7 +132,7 @@ class BaseInducedField(object):
             self.paw = paw
             self.world = paw.wfs.world                            # !
             self.domain_comm = paw.wfs.gd.comm                    # !
-            self.band_comm = paw.wfs.band_comm                    # !
+            self.band_comm = paw.wfs.bd.comm                      # !
             self.kpt_comm = paw.wfs.kd.comm                       # !
             self.rank_a = paw.wfs.atom_partition.rank_a
             self.nspins = paw.density.nspins                      # !

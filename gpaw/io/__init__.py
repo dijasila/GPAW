@@ -111,8 +111,8 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     world = paw.wfs.world
     domain_comm = wfs.gd.comm
     kpt_comm = wfs.kd.comm
-    band_comm = wfs.band_comm
-    
+    band_comm = wfs.bd.comm
+
     master = (world.rank == 0)
     parallel = (world.size > 1)
 
