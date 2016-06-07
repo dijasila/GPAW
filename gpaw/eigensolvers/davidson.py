@@ -90,6 +90,12 @@ class Davidson(Eigensolver):
         def integrate(a_G, b_G):
             return np.real(wfs.integrate(a_G, b_G, global_integral=False))
 
+        # Note on band parallelization
+        # The "large" H_2n2n and S_2n2n matrices are at the moment
+        # global and replicated over band communicator, and the 
+        # general diagonalization is performed in serial i.e. without 
+        # scalapack
+
         for nit in range(niter):
             H_2n2n[:] = 0.0
             S_2n2n[:] = 0.0
@@ -228,6 +234,7 @@ class Davidson(Eigensolver):
             # Case 2, band parallelization
             # Work arrays used only in send/recv buffers,
             # psit_nG -> psit_nG
+            # tmp_nG -> psit2_nG
 
             psit_nG = self.operator.matrix_multiply(H_2n2n[:nbands, :nbands], 
                                                     psit_nG, kpt.P_ani,
