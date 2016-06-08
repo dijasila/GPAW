@@ -88,7 +88,6 @@ class MatrixOperator:
             self.hermitian = hermitian
 
         # default for work spaces
-        self.A_qnn = None
         self.A_nn = None
         self.work1_xG = None
         self.work2_xG = None
@@ -127,18 +126,11 @@ class MatrixOperator:
                 assert self.X * G >= g * mynbands
             else:
                 self.X = M
-            if ngroups > 1: 
-                if self.hermitian:
-                    self.Q = ngroups // 2 + 1
-                else:
-                    self.Q = ngroups
 
     def allocate_arrays(self):
         ngroups = self.bd.comm.size
         mynbands = self.bd.mynbands
         dtype = self.dtype
-        if ngroups > 1:
-            self.A_qnn = np.zeros((self.Q, mynbands, mynbands), dtype)
         self.A_nn = self.bmd.zeros(dtype=dtype)
 
         if ngroups == 1 and self.nblocks == 1:
@@ -149,7 +141,7 @@ class MatrixOperator:
 
     def estimate_memory(self, mem, dtype):
         ngroups = self.bd.comm.size
-        count = self.Q * self.bd.mynbands**2
+        count = ngroups * self.bd.mynbands**2
 
         # Code semipasted from allocate_work_arrays        
         if ngroups > 1:
@@ -325,13 +317,17 @@ class MatrixOperator:
         
         # Now it gets nasty! We parallelize over B groups of bands and
         # each band group is blocked in J smaller slices (less memory).
-        Q = self.Q
+
+        if hermitian:
+            Q = B // 2 + 1
+        else:
+            Q = B
         
         # Buffer for storage of blocks of calculated matrix elements.
         if B == 1:
             A_qnn = A_NN.reshape((1, N, N))
         else:
-            A_qnn = self.A_qnn
+            A_qnn = np.zeros((Q, N, N), self.dtype)
 
         # Buffers for send/receive of operated-on versions of P_ani's.
         sbuf_nI = rbuf_nI = None
