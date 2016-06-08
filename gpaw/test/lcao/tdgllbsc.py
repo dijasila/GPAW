@@ -54,17 +54,17 @@ for (mode, TDDFT) in [('lcao', LCAOTDDFT),
         calcs[-1].set(occupations=FermiDirac(0.05))
         calcs[-1].get_potential_energy()
         calcs[-1].write('gs.gpw', mode='all')
-        
+
         # 3) time propagation
         calcs.append(TDDFT('gs.gpw'))
         if fxc != xc:
             calcs[-1].linearize_to_xc(fxc)
 
         calcs[-1].propagate(10.0, 20, 'dm.%s.dat' % tag)
-        # dipole moment must remain zero
-        calcs[-1].attach(equal, 1, calcs[-1].density.finegd.calculate_dipole_moment(calcs[-1].density.rhot_g), 0.0, 1.0e-6)
+        dens = calcs[-1].density
+        equal(dens.finegd.calculate_dipole_moment(dens.rhot_g), 0.0, 1.0e-6)
         calcs[-1].write('td.gpw', mode='all')
-        
+
         # 4) restart time propagation + apply kick
         if xc==fxc: # TODO: restart when linearize_to_xc was applied
             calcs.append(TDDFT('td.gpw'))
