@@ -173,14 +173,14 @@ class ExtendedPoissonSolver(PoissonSolver):
                 self.phi_g[:] = 0
 
             self.timer.start('Extend array')
-            extend_array(rho, self.gd_original, self.rho_g, self.gd)
+            extend_array(self.gd_original, self.gd, rho, self.rho_g)
             self.timer.stop('Extend array')
 
             retval = self._solve(self.phi_g, self.rho_g, charge,
                                  eps, maxcharge, zero_initial_phi)
 
             self.timer.start('Deextend array')
-            deextend_array(phi, self.gd_original, self.phi_g, self.gd)
+            deextend_array(self.gd_original, self.gd, phi, self.phi_g)
             self.timer.stop('Deextend array')
 
             return retval

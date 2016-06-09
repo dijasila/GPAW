@@ -299,9 +299,6 @@ class Domains:
         self.domains_cp = domains_cp
         self.parsize_c = tuple(len(domains_cp[c]) - 1 for c in range(3))
 
-    def get_parsize(self):
-        return tuple(len(self.domains_cp[c]) - 1 for c in range(3))
-
     def get_global_shape(self):
         return tuple(self.domains_cp[c][-1]
                      - self.domains_cp[c][0] for c in range(3))
@@ -477,8 +474,8 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
                     recvranks.append(rank)
 
     # MPI wants contiguous buffers; who are we to argue:
-    sendbuf = np.empty(nsendtotal)
-    recvbuf = np.empty(nrecvtotal)
+    sendbuf = np.empty(nsendtotal, src_xg.dtype)
+    recvbuf = np.empty(nrecvtotal, src_xg.dtype)
 
     # Copy non-contiguous slices into contiguous sendbuffer:
     for sendrank, sendchunk in zip(sendranks, sendchunks):
@@ -519,6 +516,7 @@ def test_general_redistribute():
 
     arr1 = dist1.get_test_array()
     arr2 = dist2.get_test_array()
+    print('shapes', arr1.shape, arr2.shape)
     arr2[:] = -1
 
     general_redistribute(world, domains1, domains2,
@@ -699,5 +697,6 @@ def rigorous_testing():
 
 
 if __name__ == '__main__':
-    playground()
+    test_general_redistribute()
+    #playground()
     #rigorous_testing()
