@@ -24,6 +24,7 @@ from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.tools import vxc
 import os
 
+
 class G0W0(PairDensity):
     def __init__(self, calc, filename='gw', restartfile=None,
                  kpts=None, bands=None, nbands=None, ppa=False,
@@ -196,8 +197,8 @@ class G0W0(PairDensity):
         if not ecut_extrapolation:
             p('Plane wave cut-off: {0:g} eV'.format(self.ecut * Hartree))
         else:
-            p('Extrapolating to infinite Plane wave cut-off using points at:')
-            p('    [%.3f, %.3f, %.3f] eV' % tuple(self.ecut_e[:] * Hartree))
+            p('Extrapolating to infinite plane wave cut-off using points at:')
+            p('  [%.3f, %.3f, %.3f] eV' % tuple(self.ecut_e[:] * Hartree))
         p('Number of bands: {0:d}'.format(self.nbands))
         p('Coulomb cutoff:', self.truncation)
         p('Broadening: {0:g} eV'.format(self.eta * Hartree))
@@ -622,9 +623,10 @@ class G0W0(PairDensity):
                     else:
                         m2 = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
 
-                    pdi, W = self.calculate_w(chi0, q_c, pd, chi0bands_wGG, chi0bands_wxvG,
-                                              chi0bands_wvv, m1, m2, ecut, htp,   
-                                              htm, wstc, A1_x, A2_x)
+                    pdi, W = self.calculate_w(chi0, q_c, pd, chi0bands_wGG, 
+                                              chi0bands_wxvG, chi0bands_wvv, 
+                                              m1, m2, ecut, htp, htm, wstc,
+                                              A1_x, A2_x)
                     m1 = m2
                     if self.savew:
                         if self.blockcomm.size > 1:
@@ -703,7 +705,7 @@ class G0W0(PairDensity):
         if ecut == pd.ecut:
             pdi = pd
             
-        elif ecut < pd.ecut: # construct subset chi0 matrix with lower ecut
+        elif ecut < pd.ecut:  # construct subset chi0 matrix with lower ecut
             pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
                                kd=pd.kd)
             nG = pdi.ngmax
@@ -1026,8 +1028,8 @@ class G0W0(PairDensity):
                   file=self.fd)
             print('           Higher cutoff might be nesecarry.', file=self.fd)
 
-        print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' \
-                  % np.min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)), 
+        print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)'
+              % np.min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)), 
               file=self.fd)
 
     def add_anisotropy_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv, 
@@ -1077,16 +1079,11 @@ class G0W0(PairDensity):
         if print_ac:
             print('Applying analytical 2D correction to W:', 
                   file=self.fd)
-            #print('qf=%.3f, q0density=%s, q0 volume=%.5f ~ %.2f %%' %
-            #      (qf, q0density, q0vol, q0vol / rvol * 100.),
-            #      file=self.fd)
             print('    Evaluating Gamma point contribution to W on a ' +
                   '%dx%dx%d grid' % tuple(npts_c), file=self.fd)
                 
-        qpts_qc = monkhorst_pack(npts_c) #((np.indices(npts_c).transpose((1, 2, 3, 0)) \
-            #.reshape((-1, 3)) + 0.5) / npts_c - 0.5) #/ N_c
+        qpts_qc = monkhorst_pack(npts_c) 
         qgamma = np.argmin(np.sum(qpts_qc**2, axis=1))
-        #qpts_qc[qgamma] += np.array([1e-16, 0, 0])
                     
         qpts_qv = np.dot(qpts_qc, q0cell_cv)
         qpts_q = np.sum(qpts_qv**2, axis=1)**0.5
@@ -1151,7 +1148,6 @@ class G0W0(PairDensity):
                 S_v0G, np.tensordot(u_vvv, S_vG0 * sqrV_G[None, 1:],
                                     axes=(2, 0)), axes=(0, 1)), axis=1)
             
-
     def update_energies(self, mixing):
         """Updates the energies of the calculator with the quasi-particle
         energies."""
@@ -1170,10 +1166,13 @@ class G0W0(PairDensity):
                                     self.qp_iskn[i2, s, ik],
                                     mixing)
                 kpt.eps_n[na:nb] = eps1_n
-                # Should we do something smart with the bands outside the interval?
-                # Here we shift the unoccupied bands not included by the average
-                # change of the top-most band and the occupied by the bottom-most
-                # band included
+                """
+                Should we do something smart with the bands outside the 
+                interval?
+                Here we shift the unoccupied bands not included by the average
+                change of the top-most band and the occupied by the 
+                bottom-most band included
+                """
                 shifts_skn[s, ik] = (eps1_n - self.eps0_skn[s, kpt.k, na:nb])
         
         for kpt in self.calc.wfs.kpt_u:
