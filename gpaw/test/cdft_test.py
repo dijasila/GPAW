@@ -3,11 +3,11 @@ from gpaw import *
 import numpy as np
 from ase import Atoms
 from gpaw import *
-from gpaw.cdft import CDFT
+from gpaw.cdft.cdft import CDFT
 from gpaw import Mixer
 from ase.io import *
 from ase.optimize import *
-from gpaw.cdft_coupling import *
+from gpaw.cdft.cdft_coupling import *
 import matplotlib.pyplot as plt
 from ase.units import Bohr
 
