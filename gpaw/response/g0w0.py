@@ -494,16 +494,18 @@ class G0W0(PairDensity):
         # The decorator $timer('W') doesn't work for generators, do we will
         # have to manually start and stop the timer here:
         self.timer.start('W')
-        print('Calculating screened Coulomb potential', file=self.fd)
-        if self.truncation is not None:
-            print('Using %s truncated Coloumb potential' % self.truncation,
-                  file=self.fd)
+        if self.ite == 0:
+            print('Calculating screened Coulomb potential', file=self.fd)
+            if self.truncation is not None:
+                print('Using %s truncated Coloumb potential' % self.truncation,
+                      file=self.fd)
             
         if self.ppa:
-            print('Using Godby-Needs plasmon-pole approximation:',
-                  file=self.fd)
-            print('    Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
-                  file=self.fd)
+            if self.ite == 0:
+                print('Using Godby-Needs plasmon-pole approximation:',
+                      file=self.fd)
+                print('    Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
+                      file=self.fd)
 
             # use small imaginary frequency to avoid dividing by zero:
             frequencies = [1e-10j, 1j * self.E0 * Hartree]
@@ -513,11 +515,12 @@ class G0W0(PairDensity):
                           'timeordered': False,
                           'frequencies': frequencies}
         else:
-            print('Using full frequency integration:', file=self.fd)
-            print('  domega0: {0:g}'.format(self.domega0 * Hartree),
-                  file=self.fd)
-            print('  omega2: {0:g}'.format(self.omega2 * Hartree),
-                  file=self.fd)
+            if self.ite == 0:
+                print('Using full frequency integration:', file=self.fd)
+                print('  domega0: {0:g}'.format(self.domega0 * Hartree),
+                      file=self.fd)
+                print('  omega2: {0:g}'.format(self.omega2 * Hartree),
+                      file=self.fd)
 
             parameters = {'eta': self.eta * Hartree,
                           'hilbert': True,

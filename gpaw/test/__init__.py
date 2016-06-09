@@ -342,6 +342,7 @@ tests = [
     'transport.py',                         # ~73s
     'lrtddft/3.py',                         # ~75s
     'pathological/nonlocalset.py',          # ~82s
+    'response/gw0_hBN.py',                  # ~82s
     # buildbot > 100 sec tests start here (add tests after xc/lb94.py!)
     'xc/lb94.py',                           # ~84s
     'response/gw_hBN_extrapolate.py',       # ~109s 
