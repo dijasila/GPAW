@@ -344,6 +344,7 @@ tests = [
     'pathological/nonlocalset.py',          # ~82s
     # buildbot > 100 sec tests start here (add tests after xc/lb94.py!)
     'xc/lb94.py',                           # ~84s
+    'response/gw_hBN_extrapolate.py',       # ~109s 
     'exx/AA_enthalpy.py',                   # ~119s
     'lcao/tdgllbsc.py',                     # ~132s
     'solvation/forces.py',                  # ~140s
