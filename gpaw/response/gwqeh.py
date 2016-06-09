@@ -335,9 +335,10 @@ class GWQEHCorrection(PairDensity):
             self.calculate_QEH()  
 
         # Need GW result for renormalization factor
-        gwdata = pickle.load(open(self.gwfile))   
-        self.dsigmagw_sin = gwdata['dsigma']
-        self.qpgw_sin = gwdata['qp'] / Hartree
+        b1, b2 = self.bands
+        gwdata = pickle.load(open(self.gwfile))
+        self.dsigmagw_sin = gwdata['dsigma'][:,:,b1:b2]
+        self.qpgw_sin = gwdata['qp'][:,:,b1:b2] / Hartree
         nk = self.qpgw_sin.shape[1]
         if not self.sigma_sin.shape[1] == nk:
             self.sigma_sin = np.repeat(self.sigma_sin[:, :1, :], nk, axis=1)
@@ -503,7 +504,6 @@ class GWQEHCorrection(PairDensity):
                              wmax=wmax * Hartree,
                              # qmax=qmax / Bohr
                              ) 
-        
         W_qw = HS.get_screened_potential(layer=layer)
     
         # Difference in screened potential:

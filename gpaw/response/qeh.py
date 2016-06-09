@@ -101,7 +101,6 @@ class Heterostructure:
             self.q_abs[0] += 1e-12
         self.frequencies = w[:windex]
         self.n_types = len(namelist)
-
         # layers and distances
         self.d = np.array(d) / Bohr  # interlayer distances
         if self.n_layers > 1:
@@ -155,15 +154,15 @@ class Heterostructure:
             for k in [k for k in range(self.n_layers)
                       if self.layer_indices[k] == i]:
                 z_big = self.z_big - self.z0[k]
-                i_1s = np.argmin(np.abs(-self.s[i] / 2. - z_big))
-                i_2s = np.argmin(np.abs(self.s[i] / 2. - z_big))
+                i_1s = np.argmin(np.abs(-self.s[k] / 2. - z_big))
+                i_2s = np.argmin(np.abs(self.s[k] / 2. - z_big))
 
                 i_1 = np.argmin(np.abs(z[0] - z_big)) + 1
                 i_2 = np.argmin(np.abs(z[-1] - z_big)) - 1
                 if drhod is not None:
                     drho_array[2 * k, :, i_1: i_2] = \
                         fm(z_big[i_1: i_2]) + 1j * fm2(z_big[i_1: i_2])
-                    basis_array[2 * k, :, i_1s: i_2s] = 1. / self.s[i]
+                    basis_array[2 * k, :, i_1s: i_2s] = 1. / self.s[k]
                     drho_array[2 * k + 1, :, i_1: i_2] = \
                         fd(z_big[i_1: i_2]) + 1j * fd2(z_big[i_1: i_2])
                     basis_array[2 * k + 1, :, i_1: i_2] = \
@@ -171,7 +170,7 @@ class Heterostructure:
                 else:
                     drho_array[k, :, i_1: i_2] = \
                         fm(z_big[i_1: i_2]) + 1j * fm2(z_big[i_1: i_2])
-                    basis_array[k, :, i_1s: i_2s] = 1. / self.s[i]
+                    basis_array[k, :, i_1s: i_2s] = 1. / self.s[k]
         
         return drhom, drhod, basis_array, drho_array
 
@@ -1291,7 +1290,6 @@ def z_factor2(z0, d, G, sign=1):
 
 def expand_layers(structure):
     newlist = []
-    
     for name in structure:
         num = ''
         while name[0].isdigit():
@@ -1303,7 +1301,6 @@ def expand_layers(structure):
             num = 1
         for n in range(num):
             newlist.append(name)
-
     return newlist
 
 
