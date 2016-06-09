@@ -20,7 +20,8 @@ def to_parent_comm(partition):
     # that which includes parent's rank0.
     assert min(members) == members[0]
     parent_rank_a -= members[0] # yuckkk
-    return AtomPartition(parent, parent_rank_a)
+    return AtomPartition(parent, parent_rank_a,
+                         name='parent-%s' % partition.name)
 
 
 class AtomicMatrixDistributor:
@@ -39,9 +40,7 @@ class AtomicMatrixDistributor:
         #
         # The idea is to transfer dH_asp so they are distributed equally
         # among all ranks on wfs.world, and back, when necessary.
-        self.atom_partition = atom_partition
         self.broadcast_comm = broadcast_comm
-        #self.new_atom_partition = atom_partition.to_parent_comm()
 
         self.grid_partition = atom_partition
         self.grid_unique_partition = to_parent_comm(self.grid_partition)
@@ -155,13 +154,13 @@ class EvenPartitioning:
             rank = self.comm.rank
         return rank * self.nshort + max(rank - self.shortcount, 0) + i
 
-    def as_atom_partition(self, strided=False):
+    def as_atom_partition(self, strided=False, name='unnamed-even'):
         rank_a = [self.global2local(i)[0] for i in range(self.N)]
         if strided:
             rank_a = np.arange(self.comm.size).repeat(self.nlong)
             rank_a = rank_a.reshape(self.comm.size, -1).T.ravel()
             rank_a = rank_a[self.shortcount:].copy()
-        return AtomPartition(self.comm, rank_a)
+        return AtomPartition(self.comm, rank_a, name=name)
 
     def get_description(self):
         lines = []
@@ -212,14 +211,16 @@ def general_redistribute(comm, src_rank_a, dst_rank_a, redistributable):
 
 class AtomPartition:
     """Represents atoms distributed on a standard grid descriptor."""
-    def __init__(self, comm, rank_a):
+    def __init__(self, comm, rank_a, name='unnamed'):
         self.comm = comm
         self.rank_a = np.array(rank_a)
         self.my_indices = self.get_indices(comm.rank)
         self.natoms = len(rank_a)
+        self.name = name
 
     def as_serial(self):
-        return AtomPartition(self.comm, np.zeros(self.natoms, int))
+        return AtomPartition(self.comm, np.zeros(self.natoms, int),
+                             name='%s-serial' % self.name)
 
     def get_indices(self, rank):
         return np.where(self.rank_a == rank)[0]
@@ -232,7 +233,12 @@ class AtomPartition:
         # XXX we the two communicators to be equal according to
         # some proper criterion like MPI_Comm_compare -> MPI_IDENT.
         # But that is not implemented, so we don't.
-        #assert self.comm == new_partition.comm
+        if self.comm.compare(new_partition.comm) not in ['ident',
+                                                         'congruent']:
+            msg = ('Incompatible partitions %s --> %s.  '
+                   'Communicators must be at least congruent'
+                   % (self, new_partition))
+            raise ValueError(msg)
 
         # atomdict_ax may be a dictionary or a list of dictionaries
 
@@ -257,18 +263,22 @@ class AtomPartition:
                 def get_sendbuffer(self, a):
                     return atomdict_ax.pop(a)
 
-        general_redistribute(self.comm, self.rank_a,
-                             new_partition.rank_a, Redist())
+        try:
+            general_redistribute(self.comm, self.rank_a,
+                                 new_partition.rank_a, Redist())
+        except ValueError as err:
+            raise ValueError('redistribute %s --> %s: %s'
+                             % (self, new_partition, err))
         if isinstance(atomdict_ax, ArrayDict):
             atomdict_ax.partition = new_partition # XXX
             atomdict_ax.check_consistency()
 
     def __repr__(self):
         indextext = ', '.join(map(str, self.my_indices))
-        return '%s@rank%d/%d (%d/%d): [%s]' % (self.__class__.__name__,
-                                               self.comm.rank, self.comm.size,
-                                               len(self.my_indices),
-                                               self.natoms, indextext)
+        return ('%s %s@rank%d/%d (%d/%d): [%s]'
+                % (self.__class__.__name__, self.name, self.comm.rank,
+                   self.comm.size, len(self.my_indices), self.natoms,
+                   indextext))
 
     def arraydict(self, shapes, dtype=float):
         return ArrayDict(self, shapes, dtype)

@@ -23,6 +23,3 @@ calc = GPAW('si_primitive.gpw',
             parallel={'domain': 1, 'band': 1},
             idiotproof=False,
             txt=None)
-from gpaw.xc.hybridk import HybridXC
-pbe0 = HybridXC('PBE0', alpha=5.0)
-calc.get_xc_difference(pbe0)

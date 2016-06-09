@@ -79,62 +79,134 @@ The complete list of all possible parameters and their defaults is
 shown below. A detailed description of the individual parameters is
 given in the following sections.
 
-=================  =========  ===================  ============================
-keyword            type       default value        description
-=================  =========  ===================  ============================
-``mode``           ``str``    ``'fd'``             :ref:`manual_mode`
-``nbands``         ``int``                         :ref:`manual_nbands`
-``xc``             ``str``    ``'LDA'``            :ref:`manual_xc`
-``kpts``           *seq*      `\Gamma`-point       :ref:`manual_kpts`
-``spinpol``        ``bool``                        :ref:`manual_spinpol`
-``gpts``           *seq*                           :ref:`manual_gpts`
-``h``              ``float``  ``0.2``              :ref:`manual_h`
-``symmetry``       ``dict``   ``{}``               :ref:`manual_symmetry`
-``usesymm``        ``bool``   ``True``             :ref:`manual_symmetry`
-``random``         ``bool``   ``False``            Use random numbers for
-                                                   :ref:`manual_random`
-``occupations``    occ. obj.                       :ref:`manual_occ`
-``lmax``           ``int``    ``2``                Maximum angular momentum
-                                                   for expansion of
-                                                   :ref:`manual_lmax`
-``charge``         ``float``  ``0``                Total :ref:`manual_charge`
-                                                   of the system
-``convergence``    ``dict``                        :ref:`manual_convergence`
-``maxiter``        ``int``    ``333``              :ref:`manual_maxiter`
-``txt``            ``str``,   ``'-'``              :ref:`manual_txt`
-                   None, or   (``sys.stdout``)
-                   file obj.
-``parallel``       ``dict``                        :ref:`manual_parallel`
-``stencils``       tuple      ``(3, 3)``           Number of neighbors for
-                                                   :ref:`manual_stencils`
-``mixer``          Object                          Pulay :ref:`manual_mixer`
-                                                   scheme
-``fixdensity``     ``bool``   ``False``            Use :ref:`manual_fixdensity`
-``setups``         ``str``    ``'paw'``            :ref:`manual_setups`
-                   or
-                   ``dict``
-``basis``          ``str``    ``{}``               Specification of
-                   or                              :ref:`manual_basis`
-                   ``dict``
-``eigensolver``    ``str``    ``'dav'``            :ref:`manual_eigensolver`
-``hund``           ``bool``   ``False``            :ref:`Use Hund's rule
-                                                   <manual_hund>`
-``external``       Object                          :ref:`manual_external`
-``verbose``        ``int``    ``0``                :ref:`manual_verbose`
-``poissonsolver``  Object                          Specification of
-                                                   :ref:`Poisson solver
-                                                   <manual_poissonsolver>`
-                                                   or :ref:`dipole correction
-                                                   <manual_dipole_correction>`
-                                                   or :ref:`Advanced Poisson
-                                                   solver <advancedpoisson>`
-``communicator``   Object                          :ref:`manual_communicator`
-``idiotproof``     ``bool``   ``True``             Set to ``False`` to ignore
-                                                   setup fingerprint mismatch
-                                                   (allows restart when the
-                                                   original setup files are
-                                                   not available)
-=================  =========  ===================  ============================
+.. list-table::
+    :header-rows: 1
+    :widths: 1 1 1 2
+    
+    * - keyword
+      - type
+      - default value
+      - description
+    * - ``mode``
+      - ``str``
+      - ``'fd'``
+      - :ref:`manual_mode`
+    * - ``nbands``
+      - ``int``
+      -
+      - :ref:`manual_nbands`
+    * - ``xc``
+      - ``str``
+      - ``'LDA'``
+      - :ref:`manual_xc`
+    * - ``kpts``
+      - *seq*
+      - `\Gamma`-point
+      - :ref:`manual_kpts`
+    * - ``spinpol``
+      - ``bool``
+      -
+      - :ref:`manual_spinpol`
+    * - ``gpts``
+      - *seq*
+      -
+      - :ref:`manual_gpts`
+    * - ``h``
+      - ``float``
+      - ``0.2``
+      - :ref:`manual_h`
+    * - ``symmetry``
+      - ``dict``
+      - ``{}``
+      - :ref:`manual_symmetry`
+    * - ``usesymm``
+      - ``bool``
+      - ``True``
+      - :ref:`manual_symmetry`
+    * - ``random``
+      - ``bool``
+      - ``False``
+      - Use random numbers for :ref:`manual_random`
+    * - ``occupations``
+      - occ. obj.
+      -
+      - :ref:`manual_occ`
+    * - ``lmax``
+      - ``int``
+      - ``2``
+      - Maximum angular momentum for expansion of :ref:`manual_lmax`
+    * - ``charge``
+      - ``float``
+      - ``0``
+      - Total :ref:`manual_charge` of the system
+    * - ``convergence``
+      - ``dict``
+      -
+      - :ref:`manual_convergence`
+    * - ``maxiter``
+      - ``int``
+      - ``333``
+      - :ref:`manual_maxiter`
+    * - ``txt``
+      - ``str``, None, or file obj.
+      - ``'-'`` (``sys.stdout``)
+      - :ref:`manual_txt`
+    * - ``parallel``
+      - ``dict``
+      -
+      - :ref:`manual_parallel`
+    * - ``stencils``
+      - tuple
+      - ``(3, 3)``
+      - Number of neighbors for :ref:`manual_stencils`
+    * - ``mixer``
+      - Object
+      -
+      - Pulay :ref:`manual_mixer` scheme
+    * - ``fixdensity``
+      - ``bool``
+      - ``False``
+      - Use :ref:`manual_fixdensity`
+    * - ``setups``
+      - ``str`` or ``dict``
+      - ``'paw'``
+      - :ref:`manual_setups`
+    * - ``basis``
+      - ``str`` or dict
+      - ``{}``
+      - Specification of :ref:`manual_basis`
+    * - ``eigensolver``
+      - ``str``
+      - ``'dav'``
+      - :ref:`manual_eigensolver`
+    * - ``hund``
+      - ``bool``
+      - ``False``
+      - :ref:`Use Hund's rule <manual_hund>`
+    * - ``external``
+      - Object
+      -
+      - :ref:`manual_external`
+    * - ``verbose``
+      - ``int``
+      - ``0``
+      - :ref:`manual_verbose`
+    * - ``poissonsolver``
+      - Object
+      -
+      - Specification of :ref:`Poisson solver <manual_poissonsolver>` or
+        :ref:`dipole correction <manual_dipole_correction>` or
+        :ref:`Advanced Poisson solver <advancedpoisson>`
+    * - ``communicator``
+      - Object
+      -
+      - :ref:`manual_communicator`
+    * - ``idiotproof``
+      - ``bool``
+      - ``True``
+      - Set to ``False`` to ignore setup fingerprint mismatch
+        (allows restart when the original setup files are not available)
+
 
 *seq*: A sequence of three ``int``'s.
 

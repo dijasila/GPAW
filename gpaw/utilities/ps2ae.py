@@ -6,7 +6,17 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.lfc import LFC
 from gpaw.utilities import h2gpts
 from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.mpi import serial_comm
 
+
+class Interpolator:
+    def __init__(self, gd1, gd2, dtype=float):
+        self.pd1 = PWDescriptor(0.0, gd1, dtype)
+        self.pd2 = PWDescriptor(0.0, gd2, dtype)
+
+    def interpolate(self, a_r):
+        return self.pd1.interpolate(a_r, self.pd2)[0]
+        
 
 class PS2AE:
     """Transform PS to AE wave functions.
@@ -25,17 +35,16 @@ class PS2AE:
             Force number of points to be a mulitiple of n.
         """
         self.calc = calc
+        gd = calc.wfs.gd
 
-        # Create plane-wave descriptor for starting grid:
-        gd0 = GridDescriptor(calc.wfs.gd.N_c, calc.wfs.gd.cell_cv)
-        self.pd0 = PWDescriptor(ecut=None, gd=gd0)
+        gd1 = GridDescriptor(gd.N_c, gd.cell_cv, comm=serial_comm)
         
-        # ... and a descriptor for the final gris:
-        N_c = h2gpts(h / Bohr, gd0.cell_cv, n)
-        N_c = np.array([get_efficient_fft_size(N) for N in N_c])
-        self.gd = GridDescriptor(N_c, gd0.cell_cv)
-        self.pd = PWDescriptor(ecut=None, gd=self.gd)
-        
+        # Descriptor for the final grid:
+        N_c = h2gpts(h / Bohr, gd.cell_cv)
+        N_c = np.array([get_efficient_fft_size(N, n) for N in N_c])
+        gd2 = self.gd = GridDescriptor(N_c, gd.cell_cv, comm=serial_comm)
+        self.interpolator = Interpolator(gd1, gd2, self.calc.wfs.dtype)
+
         self.dphi = None  # PAW correction (will be initialize when needed)
 
     def _initialize_corrections(self):
@@ -57,7 +66,8 @@ class PS2AE:
                                                    points=200))
             dphi_aj.append(dphi_j)
             
-        self.dphi = LFC(self.gd, dphi_aj)
+        self.dphi = LFC(self.gd, dphi_aj, kd=self.calc.wfs.kd.copy(),
+                        dtype=self.calc.wfs.dtype)
         self.dphi.set_positions(self.calc.atoms.get_scaled_positions())
         
     def get_wave_function(self, n, k=0, s=0, ae=True):
@@ -72,15 +82,20 @@ class PS2AE:
         ae: bool
             Add PAW correction to get an all-electron wave function.
         """
-        psi_r = self.calc.get_pseudo_wave_function(n, k, s, pad=True)
-        psi_r *= Bohr**1.5
-        psi_R, _ = self.pd0.interpolate(psi_r, self.pd)
+        psi_r = self.calc.get_pseudo_wave_function(n, k, s,
+                                                   pad=True, periodic=True)
+        psi_R = self.interpolator.interpolate(psi_r * Bohr**1.5)
         if ae:
             self._initialize_corrections()
             wfs = self.calc.wfs
-            kpt_rank, u = wfs.kd.get_rank_and_index(s, k)
-            band_rank, n = wfs.bd.who_has(n)
-            assert kpt_rank == 0 and band_rank == 0
-            P_ai = dict((a, P_ni[n]) for a, P_ni in wfs.kpt_u[u].P_ani.items())
-            self.dphi.add(psi_R, P_ai)
+            P_nI = wfs.collect_projections(k, s)
+            if wfs.world.rank == 0:
+                P_ai = {}
+                I1 = 0
+                for a, setup in enumerate(wfs.setups):
+                    I2 = I1 + setup.ni
+                    P_ai[a] = P_nI[n, I1:I2]
+                    I1 = I2
+                self.dphi.add(psi_R, P_ai, k)
+            wfs.world.broadcast(psi_R, 0)
         return psi_R

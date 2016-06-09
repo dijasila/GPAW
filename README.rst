@@ -37,7 +37,7 @@ and make sure you have ``~/.local/bin`` in your $PATH.
 
 For more details, please see:
 
-    https://wiki.fysik.dtu.dk/gpaw/install/installationguide.html
+    https://wiki.fysik.dtu.dk/gpaw/install.html
     
     
 Testing

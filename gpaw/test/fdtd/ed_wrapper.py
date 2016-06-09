@@ -10,12 +10,12 @@ import numpy as np
 cell = [20, 20, 30];
 
 # Quantum subsystem
-atom_center = np.array([10.0, 10.0, 20.0]);
+atom_center = np.array([10.0, 10.0, 20.0])
 atoms = Atoms('Na2', [atom_center + [0.0, 0.0, -1.50],
-                      atom_center + [0.0, 0.0, +1.50]]);
+                      atom_center + [0.0, 0.0, +1.50]])
 
 # Classical subsystem
-sphere_center = np.array([10.0, 10.0, 10.0]);
+sphere_center = np.array([10.0, 10.0, 10.0])
 classical_material = PolarizableMaterial()
 classical_material.add_component(PolarizableSphere(permittivity = PermittivityPlus(data = [[1.20, 0.20, 25.0]]),
                                                    center = sphere_center,
@@ -37,8 +37,7 @@ qsfdtd.time_propagation('td.gpw', kick_strength=None, time_step=10, iterations=5
 
 # Test
 ref_cl_dipole_moment = [ -5.16149623e-14, -5.89090408e-14,  3.08450150e-02]
-ref_qm_dipole_moment = [ -2.63340461e-11,  2.61812794e-12, -9.35619772e-02]
+ref_qm_dipole_moment = [ -2.63340461e-11,  2.61812794e-12, 5.21368171e-01]
 tol = 0.0001
 equal(qsfdtd.td_calc.hamiltonian.poisson.get_classical_dipole_moment(), ref_cl_dipole_moment, tol)
 equal(qsfdtd.td_calc.hamiltonian.poisson.get_quantum_dipole_moment(), ref_qm_dipole_moment, tol)
-

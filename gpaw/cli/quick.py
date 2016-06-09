@@ -8,7 +8,7 @@ def quick(project='bulk', system=None):
     """
     if project == 'bulk':
         template = """\
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW
 
 atoms = bulk('{0}')
@@ -18,7 +18,7 @@ e = atoms.get_potential_energy()
 f = atoms.get_forces()"""
     else:
         template = """\
-from ase.structure import molecule
+from ase.build import molecule
 from ase.optimize import QuasiNewton
 from gpaw import GPAW
 
@@ -26,6 +26,6 @@ atoms = molecule('{0}')
 atoms.center(vacuum=3.0)
 atoms.calc = GPAW(txt='{0}.txt')
 e = atoms.get_potential_energy()
-opt = QuasiNewton(atoms, traj='{0}.traj')
+opt = QuasiNewton(atoms, trajectory='{0}.traj')
 opt.run(fmax=0.05)"""
     print(template.format(system))

@@ -1255,14 +1255,14 @@ parameters_extra = {
  'In': {'name': 'v08',  'core': '[Kr]', 'rcut': [2.1, 2.5, 2.0]},  # ver. 0.8
  'Sn': {'name': 'v08',  'core': '[Kr]', 'rcut': 2.2},  # ver. 0.8
  'Te': {'name': '16',   'core': '[Kr]', 'rcut': 2.2},  # ver. 0.8
- 'Ta': {'name': '5',    'core': '[Xe]4f', 'rcut': 2.8},  # ver. 0.8
- 'W' : {'name': '6',    'core': '[Xe]4f', 'rcut': 2.8},  # ver. 0.8
- 'Os': {'name': '8',    'core': '[Xe]4f', 'rcut': [2.5, 2.7, 2.5]},  # ver. 0.8
- 'Ir': {'name': '9',    'core': '[Xe]4f', 'rcut': [2.3, 2.6, 2.0],
+ 'Ta': {'name': '5',    'core': '[Kr]4d4f5s5p', 'rcut': 2.8},  # ver. 0.8
+ 'W' : {'name': '6',    'core': '[Kr]4d4f5s5p', 'rcut': 2.8},  # ver. 0.8
+ 'Os': {'name': '8',    'core': '[Kr]4d5s4f5p', 'rcut': [2.5, 2.7, 2.5]},  # ver. 0.8
+ 'Ir': {'name': '9',    'core': '[Kr]4d5s4f5p', 'rcut': [2.3, 2.6, 2.0],
         'vbar': ('poly', 2.1), 'rcutcomp': 2.3},  # ver. 0.8
- 'Pt': {'name': '10',   'core': '[Xe]4f', 'rcut': [2.5, 2.7, 2.3]},  # ver. 0.8
- 'Pt': {'name': 'soft', 'core': '[Xe]4f', 'rcut': [2.5, 2.7, 2.3],
-        'rcutcomp': 2.5},  # ver. 0.8
+ 'Pt': {'name': '10',   'core': '[Kr]4d5s4f5p', 'rcut': [2.5, 2.7, 2.3]},  # ver. 0.8
+# 'Pt': {'name': 'soft', 'core': '[Xe]4f', 'rcut': [2.5, 2.7, 2.3],
+#        'rcutcomp': 2.5},  # ver. 0.8
  'Pb': {'name': 'v08',  'core': '[Xe]4f', 'rcut': [2.4, 2.6, 2.4]},  # ver. 0.8
  'Bi': {'name': 'v08',  'core': '[Xe]4f', 'rcut': [2.2, 2.4, 2.2]},  # ver. 0.8
  }

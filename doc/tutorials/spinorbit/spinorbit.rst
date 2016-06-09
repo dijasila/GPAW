@@ -1,8 +1,8 @@
 .. _spinorbit:
 
-=========================================================
-Calculating band structures with spin-orbit coupling
-=========================================================
+===================
+Spin-orbit coupling
+===================
 
 The spin-orbit module calculates spin-orbit band structures non-
 selfconsistently. The input is a standard converged GPAW calculation and the
@@ -129,24 +129,24 @@ is shown below.
 .. image:: Fe_bands.png
            :height: 500 px
 
-`\text{Z}_2` index of the topological insulator `\text{Bi}_2\text{Se}_3`
-========================================================================
+Topological index of Bi2Se3
+===========================
 
 Time-reversal invariant band insulators fall in two distinct
 topological classes, which can be distinguished by the so-called `\text{Z}_2`
-index. In general, the calculation of the `\text{Z}_2` index is a complicated
+index `\nu`. In general, the calculation of the `\text{Z}_2` index is a complicated
 task, but for materials with an inversion center is is easily expressed in
 terms ofthe parity eigenvalues of occupied states at the parity invariant
 points in the Brillouin zone. It is given by [#Kane]_
 
 .. math::
     
-    (-1)^{Z_2}=\prod_a\prod_m\xi_m(\Lambda_a)
+    (-1)^{\nu}=\prod_a\prod_m\xi_m(\Lambda_a)
 
 where `\xi_m` are the parity eigenvalues of Kramers pairs of occupied bands at
 the parity invariant points `\Lambda_a`.
 
-As an example we consider the topological insulator `\text{Bi}_2\text{Bi}_2`.
+As an example we consider the topological insulator `\text{Bi}_2\text{Se}_3`.
 Again the scripts for the groundstate :download:`gs_Bi2Se3.py`,
 bandstructure :download:`Bi2Se3_bands.py` and plotting
 :download:`plot_Bi2Se3_bands.py` are similar to the previous examples. The
@@ -163,7 +163,7 @@ but in the present case only 4 are inequivalent. These are calcaluted with
 the script :download:`high_sym.py` and the parity eigenvalues are
 obtained with :download:`parity.py`. Note that the product of parity
 eigenvalues at `\Gamma` changes from -1 to 1 when spin-orbit coupling is added
-and the `\text{Z}_2` index thus changes from 0 to 1.
+and the `\nu` thus changes from 0 to 1.
 
 
 Magnetic anisotropy of hcp Co

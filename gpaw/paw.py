@@ -38,7 +38,7 @@ from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.utilities.gpts import get_number_of_grid_points
-from gpaw.utilities.grid import Grid2Grid, NullGrid2Grid
+from gpaw.utilities.grid import GridRedistributor
 from gpaw.utilities.partition import AtomPartition
 from gpaw.parameters import InputParameters, usesymm2symmetry
 from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
@@ -319,7 +319,7 @@ class PAW(PAWTextOutput):
         spos_ac = atoms.get_scaled_positions() % 1.0
 
         rank_a = self.wfs.gd.get_ranks_from_positions(spos_ac)
-        atom_partition = AtomPartition(self.wfs.gd.comm, rank_a)
+        atom_partition = AtomPartition(self.wfs.gd.comm, rank_a, name='gd')
         self.wfs.set_positions(spos_ac, atom_partition)
         self.density.set_positions(spos_ac, atom_partition)
         self.hamiltonian.set_positions(spos_ac, atom_partition)
@@ -802,8 +802,6 @@ class PAW(PAWTextOutput):
         if self.density is None:
             gd = self.wfs.gd
 
-            # XXX allow specification of parsize, and get automatic parsize
-            # in a smarter way
             big_gd = gd.new_descriptor(comm=world)
             # Check whether grid is too small.  8 is smallest admissible.
             # (we decide this by how difficult it is to make the tests pass)
@@ -811,10 +809,11 @@ class PAW(PAWTextOutput):
             N_c = big_gd.get_size_of_global_array(pad=True)
             too_small = np.any(N_c / big_gd.parsize_c < 8)
             if par.parallel['augment_grids'] and not too_small:
-                grid2grid = Grid2Grid(world, kptband_comm, gd, big_gd)
+                aux_gd = big_gd
             else:
-                grid2grid = NullGrid2Grid(gd)
-            aux_gd = big_gd if grid2grid.enabled else gd
+                aux_gd = gd
+
+            redistributor = GridRedistributor(world, kptband_comm, gd, aux_gd)
 
             if par.stencils[1] != 9:
                 # Construct grid descriptor for fine grids for densities
@@ -827,12 +826,12 @@ class PAW(PAWTextOutput):
             if realspace:
                 self.density = RealSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
-                    grid2grid, collinear=collinear,
+                    redistributor, collinear=collinear,
                     stencil=par.stencils[1])
             else:
                 self.density = pw.ReciprocalSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
-                    grid2grid, collinear=collinear)
+                    redistributor, collinear=collinear)
 
         self.density.initialize(setups, self.timer, magmom_av, par.hund)
         self.density.set_mixer(par.mixer)
@@ -849,7 +848,7 @@ class PAW(PAWTextOutput):
                     gd=gd, finegd=finegd, nspins=nspins,
                     setups=setups, timer=self.timer, xc=xc,
                     world=world, kptband_comm=self.wfs.kptband_comm,
-                    grid2grid=self.density.grid2grid,
+                    redistributor=self.density.redistributor,
                     vext=par.external, collinear=collinear,
                     psolver=par.poissonsolver,
                     stencil=par.stencils[1])
@@ -861,7 +860,7 @@ class PAW(PAWTextOutput):
                     nspins=nspins, setups=setups, timer=self.timer,
                     xc=xc, world=world,
                     kptband_comm=self.wfs.kptband_comm,
-                    grid2grid=self.density.grid2grid,
+                    redistributor=self.density.redistributor,
                     vext=par.external, collinear=collinear)
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,

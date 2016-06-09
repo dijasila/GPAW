@@ -100,7 +100,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             self.taugrad_v = [
                 Gradient(self.gd, v, n=3, dtype=self.dtype).apply
                 for v in range(3)]
-            
+
         assert not hasattr(self.kpt_u[0], 'c_on')
         if self.kpt_u[0].psit_nG is None:
             return None
@@ -115,10 +115,9 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     self.taugrad_v[v](psit_G, dpsit_G, kpt.phase_cd)
                     axpy(0.5 * f, abs(dpsit_G)**2, taut_sG[kpt.s])
 
-        self.kd.comm.sum(taut_sG)
-        self.band_comm.sum(taut_sG)
+        self.kptband_comm.sum(taut_sG)
         return taut_sG
-        
+
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                                  Htpsit_xG, dH_asp,
                                                  dedtaut_G):
@@ -181,6 +180,15 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
         self.kd = kd
         self.kpt_u = kpt_u
+
+    def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
+        assert realspace
+        kpt = self.kpt_u[u]
+        psit_G = kpt.psit_nG[n]
+        if periodic and self.dtype == complex:
+            k_c = self.kd.ibzk_kc[kpt.k]
+            return self.gd.plane_wave(-k_c) * psit_G
+        return psit_G
 
     def write(self, writer, write_wave_functions=False):
         writer['Mode'] = 'fd'

@@ -136,6 +136,10 @@ class PAWTextOutput:
 
         t('Using the %s Exchange-Correlation Functional.'
           % self.hamiltonian.xc.name)
+        desc = self.hamiltonian.xc.get_description()
+        if desc is not None:
+            t('Details:')
+            t('\n'.join('  %s' % line for line in desc.splitlines()))
         if self.wfs.nspins == 2:
             t('Spin-Polarized Calculation.')
             t('Magnetic Moment:  (%.6f, %.6f, %.6f)' %
@@ -170,8 +174,15 @@ class PAWTextOutput:
                 t('Parallelization over k-points: %d' %
                   self.wfs.kd.comm.size)
         if self.wfs.gd.comm.size > 1:  # domain parallelization
-            t('Domain Decomposition: %d x %d x %d' %
-              tuple(self.wfs.gd.parsize_c))
+            coarsesize = tuple(self.wfs.gd.parsize_c)
+            finesize = tuple(self.density.finegd.parsize_c)
+            title = 'Domain Decomposition:'
+            template = '%d x %d x %d'
+            if coarsesize == finesize:
+                t(title, template % coarsesize)
+            else:
+                t(title, template % coarsesize, '(coarse grid)')
+                t(' ' * len(title), template % finesize, '(fine grid)')
         if self.wfs.bd.comm.size > 1:  # band parallelization
             t('Parallelization over states: %d'
               % self.wfs.bd.comm.size)

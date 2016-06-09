@@ -80,7 +80,7 @@ class C_Response(Contribution):
         self.occupations = self.nlfunc.occupations
         self.nvalence = self.nlfunc.nvalence
         self.kpt_comm = self.wfs.kd.comm
-        self.band_comm = self.wfs.band_comm
+        self.band_comm = self.wfs.bd.comm
         self.grid_comm = self.gd.comm
         if self.Dresp_asp is None:
             self.Dresp_asp = {}
@@ -176,7 +176,7 @@ class C_Response(Contribution):
 
     def distribute_Dresp_asp(self, Dresp_asp):
         d("distribute_Dresp_asp")
-        return self.density.atomic_matrix_distributor.distribute(Dresp_asp)
+        return self.density.atomdist.to_work(Dresp_asp)
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a,
                                          addcoredensity=True):

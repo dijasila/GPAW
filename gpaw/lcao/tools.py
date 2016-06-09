@@ -55,7 +55,7 @@ def get_bfi2(symbols, basis, a_list):
             bfs_list += range(i, i + nao)
         i += nao
     return bfs_list
-    
+
 
 def get_mulliken(calc, a_list):
     """Mulliken charges from a list of atom indices (a_list)."""
@@ -82,7 +82,7 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
     from gpaw.symmetry import Symmetry
     from ase.dft.kpoints import get_monkhorst_pack_size_and_offset, \
         monkhorst_pack
-    
+
     if symmetry['point_group'] is True:
         raise NotImplementedError('Point group symmetry not implemented')
 
@@ -97,15 +97,15 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
 
     # kpts in the transport direction
     nkpts_p = kpts_grid[dir]
-    bzk_p_kc = monkhorst_pack((nkpts_p,1,1))[:, 0]
+    bzk_p_kc = monkhorst_pack((nkpts_p, 1, 1))[:, 0]
     weight_p_k = 1. / nkpts_p
 
-   # kpts in the transverse directions
+    # kpts in the transverse directions
     bzk_t_kc = monkhorst_pack(tuple(kpts_grid[transverse_dirs]) + (1, ))
-    if not 'time_reversal' in symmetry:
+    if 'time_reversal' not in symmetry:
         symmetry['time_reversal'] = True
     if symmetry['time_reversal'] is True:
-        #XXX a somewhat ugly hack:
+        # XXX a somewhat ugly hack:
         # By default GPAW reduces inversion sym in the z direction. The steps
         # below assure reduction in the transverse dirs.
         # For now this part seems to do the job, but it may be written
@@ -134,13 +134,13 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
             k[transverse_dirs] = k_t
             kpoint_list = [list(np.round(k_kc, tol)) for k_kc in ibzk_kc]
             if list(np.round(k, tol)) not in kpoint_list:
-                k = -k # inversion
-                index = kpoint_list.index(list(np.round(k,tol)))
+                k = -k  # inversion
+                index = kpoint_list.index(list(np.round(k, tol)))
                 h = h_skmm[:, index].conjugate()
                 if s_kmm is not None:
                     s = s_kmm[index].conjugate()
-                k=-k
-            else: # kpoint in the ibz
+                k = -k
+            else:  # kpoint in the ibz
                 index = kpoint_list.index(list(np.round(k, tol)))
                 h = h_skmm[:, index]
                 if s_kmm is not None:
@@ -150,7 +150,7 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
             h_skii[:, j] += c_k * h
             if s_kmm is not None:
                 s_kii[j] += c_k * s
-    
+
     if s_kmm is None:
         return ibzk_t_kc, weights_t_k, h_skii
     else:
@@ -165,7 +165,7 @@ def remove_pbc(atoms, h, s=None, d=0, centers_ic=None, cutoff=None):
     nao = len(h)
     dtype = h.dtype
     if centers_ic is None:
-        centers_ic = get_bf_centers(atoms) # requires an attached LCAO calc
+        centers_ic = get_bf_centers(atoms)  # requires an attached LCAO calc
     ni = len(centers_ic)
     if nao != ni:
         assert nao == 2 * ni
@@ -187,26 +187,26 @@ def remove_pbc(atoms, h, s=None, d=0, centers_ic=None, cutoff=None):
 
 
 def dump_hamiltonian(filename, atoms, direction=None, Ef=None):
-    h_skmm, s_kmm = get_hamiltonian(atoms)
+    h_skmm, s_kmm = get_lcao_hamiltonian(atoms.calc)
     if direction is not None:
         d = 'xyz'.index(direction)
         for s in range(atoms.calc.nspins):
             for k in range(atoms.calc.nkpts):
-                if s==0:
+                if s == 0:
                     remove_pbc(atoms, h_skmm[s, k], s_kmm[k], d)
                 else:
                     remove_pbc(atoms, h_skmm[s, k], None, d)
-    
+
     if atoms.calc.master:
         fd = open(filename, 'wb')
         pickle.dump((h_skmm, s_kmm), fd, 2)
-        atoms_data = {'cell':atoms.cell, 'positions':atoms.positions,
-                      'numbers':atoms.numbers, 'pbc':atoms.pbc}
-        
+        atoms_data = {'cell': atoms.cell, 'positions': atoms.positions,
+                      'numbers': atoms.numbers, 'pbc': atoms.pbc}
+
         pickle.dump(atoms_data, fd, 2)
-        calc_data ={'weight_k':atoms.calc.weight_k,
-                    'ibzk_kc':atoms.calc.ibzk_kc}
-        
+        calc_data = {'weight_k': atoms.calc.weight_k,
+                     'ibzk_kc': atoms.calc.ibzk_kc}
+
         pickle.dump(calc_data, fd, 2)
         fd.close()
 
@@ -230,25 +230,24 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
     if direction is not None:
         d = 'xyz'.index(direction)
 
+    if Ef is not None:
+        Ef = Ef / Hartree
+
     calc = atoms.calc
     wfs = calc.wfs
     nao = wfs.setups.nao
     nq = len(wfs.kpt_u) // wfs.nspins
     H_qMM = np.empty((wfs.nspins, nq, nao, nao), wfs.dtype)
-    calc_data = {'k_q':{},
-                 'skpt_qc':np.empty((nq, 3)),
-                 'weight_q':np.empty(nq)}
+    calc_data = {'k_q': {},
+                 'skpt_qc': np.empty((nq, 3)),
+                 'weight_q': np.empty(nq)}
 
     S_qMM = wfs.S_qMM
-   
+
     for kpt in wfs.kpt_u:
         calc_data['skpt_qc'][kpt.q] = calc.wfs.kd.ibzk_kc[kpt.k]
         calc_data['weight_q'][kpt.q] = calc.wfs.kd.weight_k[kpt.k]
         calc_data['k_q'][kpt.q] = kpt.k
-##         print ('Calc. H matrix on proc. %i: '
-##                '(rk, rd, q, k) = (%i, %i, %i, %i)') % (
-##             wfs.world.rank, wfs.kd.comm.rank,
-##             wfs.gd.domain.comm.rank, kpt.q, kpt.k)
         H_MM = wfs.eigensolver.calculate_hamiltonian_matrix(calc.hamiltonian,
                                                             wfs,
                                                             kpt)
@@ -256,7 +255,7 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
         H_qMM[kpt.s, kpt.q] = H_MM
 
         tri2full(H_qMM[kpt.s, kpt.q])
-        if kpt.s==0:
+        if kpt.s == 0:
             tri2full(S_qMM[kpt.q])
             if direction is not None:
                 remove_pbc(atoms, H_qMM[kpt.s, kpt.q], S_qMM[kpt.q], d)
@@ -266,15 +265,13 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
         if calc.occupations.width > 0:
             if Ef is None:
                 Ef = calc.occupations.get_fermi_level()
-            else:
-                Ef = Ef / Hartree
 
             H_qMM[kpt.s, kpt.q] -= S_qMM[kpt.q] * Ef
-    
+
     if wfs.gd.comm.rank == 0:
         fd = file(filename+'%i.pckl' % wfs.kd.comm.rank, 'wb')
         H_qMM *= Hartree
-        pickle.dump((H_qMM, S_qMM),fd , 2)
+        pickle.dump((H_qMM, S_qMM), fd, 2)
         pickle.dump(calc_data, fd, 2)
         fd.close()
 
@@ -287,7 +284,7 @@ def get_lcao_hamiltonian(calc):
     NM = calc.wfs.eigensolver.nao
     Nk = calc.wfs.kd.nibzkpts
     Ns = calc.wfs.nspins
-    
+
     S_kMM = np.zeros((Nk, NM, NM), dtype)
     H_skMM = np.zeros((Ns, Nk, NM, NM), dtype)
     for kpt in calc.wfs.kpt_u:
@@ -350,7 +347,7 @@ def lead_kspace2realspace(h_skmm, s_kmm, bzk_kc, weight_k, direction='x',
 
     s_kmm[:, :nbf, :nbf] = s_kmm[:, nbf:, nbf:] = s_kii
     s_kmm[:, :nbf, nbf:] = s_kij
-    s_kmm[:, nbf:, :nbf] = s_kij.swapaxes(1,2).conj()
+    s_kmm[:, nbf:, :nbf] = s_kij.swapaxes(1, 2).conj()
 
     return ibz_t_kc, weight_t_k, h_skmm, s_kmm
 
@@ -378,7 +375,7 @@ def basis_subset(symbol, largebasis, smallbasis):
     """
     blarge = Basis(symbol, largebasis)
     zeta_large, pol_large = zeta_pol(blarge)
-    
+
     bsmall = Basis(symbol, smallbasis)
     zeta_small, pol_small = zeta_pol(bsmall)
 
@@ -424,19 +421,18 @@ def collect_orbitals(a_xo, coords, root=0):
     # On root, put the subdomains from the slaves into the big array
     # for the whole domain on root:
     xshape = a_xo.shape[:-1]
-    Norb2 = sum(coords) # total number of orbital indices
+    Norb2 = sum(coords)  # total number of orbital indices
     a_xO = np.empty(xshape + (Norb2,), a_xo.dtype)
     o = 0
-    for rank, norb in enumerate(coords):
-        if rank != root:
+    for rankx, norb in enumerate(coords):
+        if rankx != root:
             tmp_xo = np.empty(xshape + (norb,), a_xo.dtype)
-            world.receive(tmp_xo, rank, 112)
+            world.receive(tmp_xo, rankx, 112)
             a_xO[..., o:o + norb] = tmp_xo
         else:
             a_xO[..., o:o + norb] = a_xo
         o += norb
     return a_xO
-
 
 
 def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
@@ -448,10 +444,10 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
     # normalized (to 1) orbitals.
     #
     # Tolerance is used for truncation of optimized pairorbitals
-    #calc = GPAW(gpwfile, txt=None)
+    # calc = GPAW(gpwfile, txt=None)
     from gpaw import GPAW
     from gpaw.mpi import world, MASTER
-    calc = GPAW(gpwfile, txt='pairorb.txt') # XXX
+    calc = GPAW(gpwfile, txt='pairorb.txt')  # XXX
     gd = calc.wfs.gd
     setups = calc.wfs.setups
     myatoms = calc.density.D_asp.keys()
@@ -466,14 +462,13 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
     else:
         wglobal_wG = None
         Nw = 0
-    Nw = gd.comm.sum(Nw) #distribute Nw to all nodes
+    Nw = gd.comm.sum(Nw)  # distribute Nw to all nodes
     w_wG = gd.empty(n=Nw)
     gd.distribute(wglobal_wG, w_wG)
     del wglobal_wG
-    
+
     # Make pairorbitals
     f_pG = gd.zeros(n=Nw**2)
-    Np = len(f_pG)
     for p, (w1, w2) in enumerate(np.ndindex(Nw, Nw)):
         np.multiply(w_wG[w1], w_wG[w2], f_pG[p])
     del w_wG
@@ -492,7 +487,7 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
             gemm(1.0, P_pp, I4_pp, 0.0, A, 't')
             gemm(1.0, A, P_pp, 1.0, D_pp)
             #D_pp += np.dot(P_pp, np.dot(I4_pp, P_pp.T))
-   
+
     # Summ all contributions to master
     gd.comm.sum(D_pp, MASTER)
 
@@ -534,15 +529,15 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
                                              tolerance=1e3)
                                         for w1, w2 in np.ndindex(Nw, Nw)]))
                           for a, P_wi in P_awi.items()])
-            P_aqp = dict([(a, np.dot(Uisq_qp, P_pp))
-                          for a, P_pp in P_app.items()])
+            P_aqp = dict([(a, np.dot(Uisq_qp, Px_pp))
+                          for a, Px_pp in P_app.items()])
             pickle.dump((g_qG, P_aqp), open(writeoptimizedpairs, 'wb'), 2)
 
 
 def makeV(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
           rotationfile='eps_q__U_pq.pckl', coulombfile='V_qq.pckl',
           log='V_qq.log', fft=False):
-    
+
     if isinstance(log, str) and world.rank == MASTER:
         log = open(log, 'w')
 
@@ -556,7 +551,6 @@ def makeV(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
 
     # Make rotation matrix divided by sqrt of norm
     Nq = len(eps_q)
-    Np = len(U_pq)
     Ni = len(w_wG)
     Uisq_iqj = (U_pq/np.sqrt(eps_q)).reshape(Ni, Ni, Nq).swapaxes(1, 2).copy()
     del eps_q, U_pq

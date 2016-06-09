@@ -20,7 +20,10 @@ u0 = .180
 T = 298.15
 vdw_radii = vdw_radii.copy()
 vdw_radii[1] = 1.09
-atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
+
+
+def atomic_radii(atoms):
+    return [vdw_radii[n] for n in atoms.numbers]
 
 atoms = Cluster(molecule('H2O'))
 atoms.minimal_box(vac, h)
@@ -39,14 +42,11 @@ if not SKIP_REF_CALC:
     print(Fref)
 else:
     # h=0.3, vac=3.0, setups: 0.9.11271, convergence: only energy 0.05 / 8
-    Eref = -11.9838020445
+    Eref = -11.9837925246
     Fref = np.array(
-        [
-            [9.68634537e-13, -6.74234034e-13, -3.39987211e+00],
-            [4.93976820e-14, 1.75606065e+00, 1.68012920e-02],
-            [1.07907651e-13, -1.75606065e+00, 1.68012920e-02]
-        ]
-    )
+        [[1.54678912e-12, -2.25501922e-12, -3.39988295e+00],
+         [1.42379773e-13, 1.75605844e+00, 1.68037209e-02],
+         [1.25039582e-13, -1.75605844e+00, 1.68037209e-02]])
 
 atoms.calc = SolvationGPAW(
     xc='LDA', h=h, convergence=convergence,

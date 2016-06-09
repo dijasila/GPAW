@@ -36,6 +36,7 @@ Limit of optimizer steps: 25
 
 .. csv-table::
    :file: g2_dzp.csv
+   :header: optimizer, failed, time, steps
 
 
 N2Cu

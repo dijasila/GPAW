@@ -26,6 +26,7 @@ N.LDA
 *.npy
 theme.css
 bigpicture.svg
+*.json
 doc/setups/[A-Z]*.rst
 
 # If you run the tests, these may write out files

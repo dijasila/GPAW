@@ -105,7 +105,7 @@ bulk Aluminum.
   Then choose :menuselection:`Tools --> Bulk Modulus`.
 
   Another alternative is to use the :class:`Equation of state module
-  <ase.utils.eos.EquationOfState>` (see this :ref:`tutorial <ase:eos>`).
+  <ase.eos.EquationOfState>` (see this :ref:`tutorial <ase:eos>`).
 
 * Compare your results to the experimental values `a_0` = 4.05 Å and `B`
   = 76 GPa.  Mind the units when you calculate the bulk modulus (read

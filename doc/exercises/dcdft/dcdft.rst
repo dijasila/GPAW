@@ -4,6 +4,10 @@
 DeltaCodesDFT - Comparing Solid State DFT Codes, Basis Sets and Potentials
 ==========================================================================
 
+.. note::
+    
+    This exercise is currently broken.  Please skip it.
+    
 The webpage https://molmod.ugent.be/deltacodesdft provides a method
 for measuring the precision of a given calculation method
 against a chosen reference method (computational
@@ -76,9 +80,11 @@ using :command:`ase-gui`::
     =======  ==================  =========
 
 Extract the results from the database in order to calculate
-the parameters of the equation of state:
+the parameters of the equation of state::
 
-.. literalinclude:: dcdft.db_raw.txt
+     K  73.6852   3.6070  19.7231
+    Ca  42.5903  24.2170 -13.2987
+    Ti  17.3542 113.9593   3.5966
 
 and use the script available from https://molmod.ugent.be/deltacodesdft
 to calculate the Delta factors.

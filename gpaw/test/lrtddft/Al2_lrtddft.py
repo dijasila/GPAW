@@ -25,7 +25,7 @@ atoms = Atoms('Al2', positions=((0, 0, 0),
 atoms.center(4.0)
 calc = GPAW(h=0.24, eigensolver='cg', basis='dzp',
             occupations=FermiDirac(width=0.01),
-            convergence={'eigenstates': 4.0e-5, 'density' : 1.0e-2, 
+            convergence={'eigenstates': 4.0e-5, 'density' : 1.0e-2,
                          'bands' : 'all'},
             nbands=20)
 atoms.set_calculator(calc)
@@ -83,7 +83,7 @@ if debug and rank == 0:
     print(e0_2, e1_2)
     print(e0_3, e1_3)
 
-tol = 1.0e-8
+tol = 5.0e-8
 equal(e0_1, 0.00105074187176, tol)
 equal(e0_1, e0_2, tol)
 equal(e0_1, e0_3, tol)

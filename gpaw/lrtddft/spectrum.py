@@ -2,7 +2,7 @@ from __future__ import print_function
 import sys
 import numpy as np
 
-from ase.units import _hbar, _c, _e, _me, Hartree
+from ase.units import _hbar, _c, _e, _me, Hartree, Bohr
 from gpaw import __version__ as version
 from gpaw.utilities.folder import Folder
 
@@ -45,18 +45,22 @@ def spectrum(exlist=None,
              form='r'):
     """Write out a folded spectrum.
 
-    Parameters:
-    =============== ===================================================
-    ``exlist``      ExcitationList
-    ``filename``    File name for the output file, STDOUT if not given
-    ``emin``        min. energy, set to cover all energies if not given
-    ``emax``        max. energy, set to cover all energies if not given
-    ``de``          energy spacing
-    ``energyunit``  Energy unit 'eV' or 'nm', default 'eV'
-    ``folding``     Gauss (default) or Lorentz
-    ``width``       folding width in terms of the chosen energyunit
-    =============== ===================================================
-    all energies in [eV]
+    Parameters
+    ----------
+    exlist: ExcitationList
+    filename:
+        File name for the output file, STDOUT if not given
+    emin:
+        min. energy, set to cover all energies if not given
+    emax:
+        max. energy, set to cover all energies if not given
+    de:
+        energy spacing
+    energyunit: {'eV', 'nm'}
+        Energy unit, default 'eV'
+    folding: {'Gauss', 'Lorentz'}
+    width:
+        folding width in terms of the chosen energyunit
     """
 
     # output
@@ -187,3 +191,23 @@ class Writer(Folder):
 
         if filename is not None:
             out.close()
+
+            
+def polarizability(exlist, omega, form='v', index=0):
+    """Return the polarizability in ASE units (e^2 Angstrom^2 / eV).
+
+    Parameters
+    ----------
+    exlist: ExcitationList
+    omega:
+        Photon energy (eV)
+    form: {'v', 'r'}
+        Form of the dipole matrix element
+    index: {0, 1, 2, 3}
+        0: averaged, 1,2,3:alpha_xx, alpha_yy, alpha_zz
+    """
+    alpha = 0
+    for ex in exlist:
+        alpha += ex.get_oscillator_strength(form=form)[index] / (
+            (ex.energy * Hartree)**2 - omega**2)
+    return alpha * Bohr**2 * Hartree

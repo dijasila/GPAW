@@ -439,8 +439,8 @@ class GridDescriptor(Domain):
         where the wave vector is given by k_c (in units of reciprocal
         lattice vectors)."""
 
-        N_c = self.N_c
-        return np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
+        index_Gc = np.indices(self.n_c).T + self.beg_c
+        return np.exp(2j * pi * np.dot(index_Gc, k_c / self.N_c).T)
 
     def symmetrize(self, a_g, op_scc, ft_sc=None):
         # ft_sc: fractional translations
@@ -556,7 +556,7 @@ class GridDescriptor(Domain):
         gshape = a_xg.shape[-3:]
         padding_c = 1 - self.pbc_c
         if global_array:
-            assert (gshape == self.N_c - padding_c).all()
+            assert (gshape == self.N_c - padding_c).all(), gshape
             bshape = tuple(self.N_c)
         else:
             assert (gshape == self.n_c).all()
