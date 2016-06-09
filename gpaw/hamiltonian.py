@@ -295,6 +295,27 @@ class Hamiltonian(object):
                     H_p[:] = pack2(Htemp)
 
             dH_sp[:self.nspins] += dH_p
+            
+            if self.vext and self.vext.get_name() == 'CDFT':
+                # cDFT atomic hamiltonian, eq. 25
+                # energy correction added in cDFT main
+
+                h_cdft_a = np.zeros(setup.Delta_pL[:,0].shape)
+                h_cdft_b = np.zeros(setup.Delta_pL[:,0].shape)
+                cdft = self.vext
+                regions = cdft.indices_i
+                c_regions = cdft.n_charge_regions
+                
+                for i in range(len(regions)):
+                    if a in regions[i]:
+                        h_cdft_a += cdft.v_i[i] * 2. * np.sqrt(np.pi)*setup.Delta_pL[:,0] 
+                        h_cdft_b += cdft.v_i[i] * 2. * np.sqrt(np.pi)*setup.Delta_pL[:,0]
+                        if i >= c_regions:
+                            h_cdft_b *= -1. 
+                
+                dH_sp[0] += h_cdft_a              
+                dH_sp[1] += h_cdft_b
+            
             if self.ref_dH_asp:
                 dH_sp += self.ref_dH_asp[a]
             # We are not yet done with dH_sp; still need XC correction below
@@ -367,7 +388,12 @@ class Hamiltonian(object):
         self.xc.add_forces(F_av)
         self.gd.comm.sum(F_coarsegrid_av, 0)
         self.finegd.comm.sum(F_av, 0)
+
+        if self.vext and self.vext.get_name()=='CDFT':
+            F_av += self.vext.get_cdft_forces()            
+        
         F_av += F_coarsegrid_av
+        print(F_av)
 
     def apply_local_potential(self, psit_nG, Htpsit_nG, s):
         """Apply the Hamiltonian operator to a set of vectors.
@@ -559,7 +585,6 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.timer.start('vbar')
         Ebar = self.finegd.integrate(self.vbar_g, density.nt_g,
                                      global_integral=False)
-
         vt_g = self.vt_sg[0]
         vt_g[:] = self.vbar_g
         self.timer.stop('vbar')
@@ -570,43 +595,62 @@ class RealSpaceHamiltonian(Hamiltonian):
             name =  self.vext.get_name()
 
             if name == 'CDFT':
-                # cDFT works with all-electron density
-                vext_g = self.vext.get_potential(self.finegd)
-                vt_g += vext_g
-
+                # cDFT works with all-electron (spin)density
                 atoms = self.vext.get_atoms()
+                n_charge_regions = self.vext.n_charge_regions
                 
-                n_sG, gd = density.get_all_electron_density(
-                               atoms, 
-                               gridrefinement=2)
+                # First the potential
                 
-                if density.nspins == 1:
-                    n_G = n_sG[0]
-                else:
-                    n_G = n_sG.sum(axis=0)
-                
+                # spin dependent external potential, array of Vi*wi
+                self.vext_sg = self.vext.get_potential(self.finegd)
+                vt_g += self.vext_sg[0] 
+                self.vt_sg[1:self.nspins] = self.vext_sg[1] + self.vbar_g.copy()
+                self.vt_sg[self.nspins:] = 0.0
+
+                # then energy
                 w = self.vext.get_w() #weight functions
-                constraints = self.vext.get_constraints()
                 Vi = self.vext.get_vi()
-
-                # CDFT energy with all-electron density
-                # sum_i Vi [\int dr n(r)wi(r) - Ni]
-
-                diff = self.finegd.integrate(w, n_G, global_integral=True) - constraints
+                constraints = self.vext.get_constraints()
+                
+                # pseudo electron density of fine grid
+                if density.nt_sg is None:
+                    density.interpolate_pseudo_density()
+                nt_sg = density.nt_sg
+                
+                diff = np.empty(shape=(0,0))
+                
+                if n_charge_regions != 0:
+                    # pseudo density
+                    nt_g = nt_sg[0]+nt_sg[1]
+                    charge_diff = self.finegd.integrate(w[0:n_charge_regions], 
+                                   nt_g, global_integral=True) \
+                                 - constraints[0:n_charge_regions]
+                    diff = np.append(diff, charge_diff)
+                
+                #constrained spins
+                if len(constraints) - n_charge_regions != 0:
+                    Delta_nt_g =  nt_sg[0] - nt_sg[1] # pseudo spin difference density
+                    spin_diff = self.finegd.integrate(w[n_charge_regions:], 
+                        Delta_nt_g, global_integral=True) - constraints[n_charge_regions:]
+                    
+                    diff = np.append(diff,spin_diff)
                 
                 # number of domains
                 size = self.finegd.comm.size
                 Eext += np.dot(Vi,diff/size)
-
+            
             else:
                 # other potential work with charge density
                 vext_g = self.vext.get_potential(self.finegd)
                 vt_g += vext_g
                 Eext = self.finegd.integrate(vext_g, density.rhot_g,
                                          global_integral=False)
-        self.vt_sg[1:self.nspins] = vt_g
-
-        self.vt_sg[self.nspins:] = 0.0
+        
+                self.vt_sg[1:self.nspins] = vt_g
+                self.vt_sg[self.nspins:] = 0.0
+        else:
+            self.vt_sg[1:self.nspins] = vt_g
+            self.vt_sg[self.nspins:] = 0.0
 
         self.timer.start('XC 3D grid')
         Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
@@ -652,8 +696,11 @@ class RealSpaceHamiltonian(Hamiltonian):
     def calculate_atomic_hamiltonians(self, dens):
         W_aL = dens.ghat.dict()
         if self.vext:
-            vext_g = self.vext.get_potential(self.finegd)
-            dens.ghat.integrate(self.vHt_g + vext_g, W_aL)
+            if self.vext.get_name() != 'CDFT':
+                vext_g = self.vext.get_potential(self.finegd)
+                dens.ghat.integrate(self.vHt_g + vext_g[0], W_aL)
+            else:
+                dens.ghat.integrate(self.vHt_g, W_aL)
         else:
             dens.ghat.integrate(self.vHt_g, W_aL)
         return W_aL

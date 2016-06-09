@@ -40,14 +40,14 @@ class ConstantPotential(ExternalPotential):
     """Constant potential for tests."""
     def __init__(self, constant=1.0):
         self.constant = constant / Hartree
-        self.name = 'ConstantPotential'
         
     def __str__(self):
+        self.name = 'Constant potential'
         return 'Constant potential: {0:.3f} eV'.format(self.constant * Hartree)
 
     def get_name(self):
         return self.name
-    
+
     def calculate_potential(self, gd):
         self.vext_g = gd.zeros() + self.constant
 
@@ -55,7 +55,9 @@ class ConstantPotential(ExternalPotential):
         return {'name': 'ConstantPotential',
                 'kwargs': {'constant': self.constant * Hartree}}
     
-        
+    def spin_polarized_potential(self):
+        return False    
+       
 class ConstantElectricField(ExternalPotential):
     def __init__(self, strength, direction=[0, 0, 1], tolerance=1e-7):
         """External constant electric field.
@@ -68,9 +70,9 @@ class ConstantElectricField(ExternalPotential):
         d_v = np.asarray(direction)
         self.field_v = strength * d_v / (d_v**2).sum()**0.5 * Bohr / Hartree
         self.tolerance = tolerance
-        self.name = 'ConstantElectricField'
-
+        
     def __str__(self):
+        self.name = 'Constant electric field'
         return ('Constant electric field: '
                 '({0:.3f}, {1:.3f}, {2:.3f}) eV/Ang'
                 .format(*(self.field_v * Hartree / Bohr)))
@@ -96,6 +98,8 @@ class ConstantElectricField(ExternalPotential):
                 'kwargs': {'strength': strength * Hartree / Bohr,
                            'direction': self.field_v / strength}}
 
+    def spin_polarized_potential(self):
+        return False
 
 class PointChargePotential(ExternalPotential):
     def __init__(self, charges, positions=None,
@@ -134,10 +138,9 @@ class PointChargePotential(ExternalPotential):
             self.set_positions(positions)
         else:
             self.R_pv = None
-
-        self.name = 'PointChargePotential'
             
     def __str__(self):
+        self.name = 'Point-charge potential'
         return ('Point-charge potential '
                 '(points: {0}, cutoffs: {1:.3f}, {2:.3f}, {3:.3f} Ang)'
                 .format(len(self.q_p),
@@ -147,6 +150,9 @@ class PointChargePotential(ExternalPotential):
 
     def get_name(self):
         return self.name
+
+    def spin_polarized_potential(self):
+        return False
 
     def set_positions(self, R_pv):
         """Update positions."""
@@ -170,4 +176,3 @@ class PointChargePotential(ExternalPotential):
                            self.vext_g, dens.rhot_g, F_pv)
         gd.comm.sum(F_pv)
         return F_pv * Hartree / Bohr
-
