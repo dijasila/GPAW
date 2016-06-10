@@ -294,7 +294,7 @@ class VDWXC(GGA, object):
         self.timer = hamiltonian.timer  # fragile object robbery
         self.timer.start('initialize')
         try:
-            gd = density.xc_grid2grid.big_gd
+            gd = density.xc_redistributor.aux_gd  # fragile
         except AttributeError:
             gd = density.finegd
         if wfs.world.size > gd.comm.size and np.prod(gd.N_c) > 64**3:

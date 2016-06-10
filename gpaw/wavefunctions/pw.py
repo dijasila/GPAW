@@ -570,8 +570,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     taut_sR[kpt.s] += 0.5 * f * abs(
                         self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q))**2
 
-        self.kd.comm.sum(taut_sR)
-        self.band_comm.sum(taut_sR)
+        self.kptband_comm.sum(taut_sR)
         return taut_sR
 
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
@@ -1226,21 +1225,26 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
 
 class ReciprocalSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True):
+    def __init__(self, gd, finegd, nspins, charge, redistributor,
+                 collinear=True):
         assert gd.comm.size == 1
         serial_finegd = finegd.new_descriptor(comm=gd.comm)
 
-        from gpaw.utilities.grid import NullGrid2Grid
+        from gpaw.utilities.grid import GridRedistributor
+
+        noredist = GridRedistributor(redistributor.comm,
+                                     redistributor.broadcast_comm, gd, gd)
         Density.__init__(self, gd, serial_finegd, nspins, charge,
-                         grid2grid=NullGrid2Grid(gd), collinear=collinear)
+                         redistributor=noredist, collinear=collinear)
 
         self.pd2 = PWDescriptor(None, gd)
         self.pd3 = PWDescriptor(None, serial_finegd)
 
         self.G3_G = self.pd2.map(self.pd3)
-        
-        self.xc_grid2grid = grid2grid.new(serial_finegd, finegd)
-        self.xc_matrix_distributor = None
+
+        self.xc_redistributor = GridRedistributor(redistributor.comm,
+                                                  redistributor.comm,
+                                                  serial_finegd, finegd)
 
     def initialize(self, setups, timer, magmom_av, hund):
         Density.initialize(self, setups, timer, magmom_av, hund)
@@ -1263,8 +1267,6 @@ class ReciprocalSpaceDensity(Density):
 
         from gpaw.utilities.partition import AtomPartition
         p = AtomPartition(self.gd.comm, np.zeros(len(spos_ac), dtype=int))
-        self.xc_matrix_distributor = \
-            self.xc_grid2grid.get_matrix_distributor(p)
 
     def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
@@ -1324,13 +1326,14 @@ class ReciprocalSpaceDensity(Density):
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
                  world, kptband_comm, vext=None, collinear=True,
-                 grid2grid=None):
+                 redistributor=None):
 
         assert gd.comm.size == 1
         assert finegd.comm.size == 1
+        assert redistributor is not None  # XXX should not be like this
         Hamiltonian.__init__(self, gd, finegd, nspins, setups,
                              timer, xc, world, kptband_comm, vext=vext,
-                             collinear=collinear, grid2grid=grid2grid)
+                             collinear=collinear, redistributor=redistributor)
 
         self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)
         self.pd2 = pd2
@@ -1372,11 +1375,11 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
-        nt_dist_sg = density.xc_grid2grid.distribute(density.nt_sg)
-        vxct_dist_sg = density.xc_grid2grid.big_gd.zeros(self.nspins)
-        self.exc = self.xc.calculate(density.xc_grid2grid.big_gd,
+        nt_dist_sg = density.xc_redistributor.distribute(density.nt_sg)
+        vxct_dist_sg = density.xc_redistributor.aux_gd.zeros(self.nspins)
+        self.exc = self.xc.calculate(density.xc_redistributor.aux_gd,
                                      nt_dist_sg, vxct_dist_sg)
-        vxct_sg = density.xc_grid2grid.collect(vxct_dist_sg)
+        vxct_sg = density.xc_redistributor.collect(vxct_dist_sg)
 
         for vt_G, vxct_g in zip(self.vt_sG, vxct_sg):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
@@ -1386,7 +1389,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         eext = 0.0
 
-        return self.epot, self.ebar, eext, self.exc
+        return np.array([self.epot, self.ebar, eext, self.exc])
 
     def calculate_atomic_hamiltonians(self, density):
         W_aL = {}

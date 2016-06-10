@@ -5,7 +5,7 @@ import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
 
 
-class GridRedistributor:
+class AlignedGridRedistributor:
     """Perform redistributions between two grids.
 
     See the redistribute function."""
@@ -19,7 +19,7 @@ class GridRedistributor:
     def _redist(self, src, op):
         return redistribute(self.gd, self.gd2, src, self.distribute_dir,
                             self.reduce_dir, operation=op)
-        
+
     def forth(self, src):
         return self._redist(src, 'forth')
 
@@ -177,7 +177,7 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth'):
     sendchunks = []
     recvchunks = []
     recv_chunk_copiers = []
-    
+
     class ChunkCopier:
         def __init__(self, src_chunk, dst_chunk):
             self.src_chunk = src_chunk
@@ -256,7 +256,7 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth'):
 
     peer_comm.alltoallv(sendbuf, sendcounts, senddispls,
                         recvbuf, recvcounts, recvdispls)
-        
+
     # Copy contiguous blocks of receive buffer back into precoded slices:
     for chunk_copier in recv_chunk_copiers:
         chunk_copier.copy()
@@ -264,7 +264,6 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth'):
 
 
 def get_compatible_grid_descriptor(gd, distribute_dir, reduce_dir):
-    
     parsize2_c = list(gd.parsize_c)
     parsize2_c[reduce_dir] = 1
     parsize2_c[distribute_dir] = gd.parsize_c[reduce_dir] \
@@ -288,7 +287,7 @@ def get_compatible_grid_descriptor(gd, distribute_dir, reduce_dir):
          (1, 2): (0, 1, 2),
          (2, 1): (0, 2, 1),
          (2, 0): (1, 2, 0)}[(distribute_dir, reduce_dir)]
-    
+
     ranks = np.arange(gd.comm.size).reshape(gd.parsize_c).transpose(*t).ravel()
     comm2 = gd.comm.new_communicator(ranks)
     gd2 = gd.new_descriptor(comm=comm2, parsize_c=parsize2_c)
@@ -349,7 +348,7 @@ class RandomDistribution:
         domain_order = np.arange(size)
         gen.shuffle(domain_order)
         self.ranks3d = domain_order.reshape(domains.parsize_c)
-        
+
         coords_iter = itertools.product(*[range(domains.parsize_c[c])
                                           for c in range(3)])
         self.coords_by_rank = list(coords_iter)
@@ -622,7 +621,7 @@ def test(N_c, gd, gd2, reduce_dir, distribute_dir, verbose=True):
         print('GOAL GLOBAL')
         print(goal_global)
     gd.comm.barrier()
-    
+
     recvbuf = redistribute(gd, gd2, src, distribute_dir, reduce_dir,
                            operation='forth')
     recvbuf_master = gd2.collect(recvbuf)
@@ -684,7 +683,7 @@ def rigorous_testing():
                                         parsize_c=parsize_c)
                     gd2 = get_compatible_grid_descriptor(gd, distribute_dir,
                                                          reduce_dir)
-                         
+
                     #gd2 = gd.new_descriptor(parsize_c=parsize2_c)
                 except ValueError:  # Skip illegal distributions
                     continue

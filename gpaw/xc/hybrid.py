@@ -104,7 +104,7 @@ class HybridXC(HybridXCBase):
         self.nocc_s = np.empty(self.nspins, int)
 
         self.gd = density.gd
-        self.grid2grid = density.grid2grid
+        self.redistributor = density.redistributor
 
         # XXX How do we construct a copy of the Poisson solver of the
         # Hamiltonian?  We don't know what class it is, etc., but gd

@@ -213,9 +213,9 @@ class TDDFT(GPAW):
                     self.text('Using Domain Decomposition: %d x %d x %d' %
                               tuple(wfs.gd.parsize_c))
 
-                if wfs.band_comm.size > 1:
+                if wfs.bd.comm.size > 1:
                     self.text('Parallelization Over bands on %d Processors' %
-                              wfs.band_comm.size)
+                              wfs.bd.comm.size)
             self.text('States per processor = ', wfs.bd.mynbands)
 
         self.hpsit = None

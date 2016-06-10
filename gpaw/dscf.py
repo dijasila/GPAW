@@ -135,7 +135,7 @@ class OccupationsDSCF(FermiDirac):
             if hasattr(kpt, 'c_on'):
                 for ne, c_n in zip(kpt.ne_o, kpt.c_on):
                     de_band += ne * np.dot(np.abs(c_n)**2, kpt.eps_n)
-        self.e_band += wfs.band_comm.sum(wfs.kd.comm.sum(de_band))
+        self.e_band += wfs.bd.comm.sum(wfs.kd.comm.sum(de_band))
 
 
 class MolecularOrbital:

@@ -362,7 +362,7 @@ class Transport_Analysor:
                 dos_mm = np.real(dos_mm).copy()
             wfs.basis_functions.construct_density(dos_mm, dosg[kpt.s], kpt.q)
         wfs.kd.comm.sum(dosg)
-        wfs.band_comm.sum(dosg)
+        wfs.bd.comm.sum(dosg)
         global_dosg = wfs.gd.collect(dosg)
         return global_dosg
        

@@ -174,8 +174,15 @@ class PAWTextOutput:
                 t('Parallelization over k-points: %d' %
                   self.wfs.kd.comm.size)
         if self.wfs.gd.comm.size > 1:  # domain parallelization
-            t('Domain Decomposition: %d x %d x %d' %
-              tuple(self.wfs.gd.parsize_c))
+            coarsesize = tuple(self.wfs.gd.parsize_c)
+            finesize = tuple(self.density.finegd.parsize_c)
+            title = 'Domain Decomposition:'
+            template = '%d x %d x %d'
+            if coarsesize == finesize:
+                t(title, template % coarsesize)
+            else:
+                t(title, template % coarsesize, '(coarse grid)')
+                t(' ' * len(title), template % finesize, '(fine grid)')
         if self.wfs.bd.comm.size > 1:  # band parallelization
             t('Parallelization over states: %d'
               % self.wfs.bd.comm.size)
