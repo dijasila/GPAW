@@ -208,7 +208,7 @@ class PAW(PAWTextOutput):
                 self.occupations = None
             elif key in ['occupations']:
                 self.occupations = None
-            elif key in ['charge']:
+            elif key in ['charge', 'background_charge']:
                 self.hamiltonian = None
                 self.density = None
                 self.wfs = EmptyWaveFunctions()
@@ -502,6 +502,8 @@ class PAW(PAWTextOutput):
 
         nao = setups.nao
         nvalence = setups.nvalence - par.charge
+        if par.background_charge is not None:
+            nvalence += par.background_charge.charge
         M_v = magmom_av.sum(0)
         M = np.dot(M_v, M_v) ** 0.5
 
@@ -827,12 +829,17 @@ class PAW(PAWTextOutput):
                 self.density = RealSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
                     redistributor, collinear=collinear,
-                    stencil=par.stencils[1])
+                    stencil=par.stencils[1],
+                    background_charge=par.background_charge)
             else:
                 self.density = pw.ReciprocalSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
-                    redistributor, collinear=collinear)
+                    redistributor, collinear=collinear,
+                    background_charge=par.background_charge)
 
+        # XXXXXXXXXX if setups change, then setups.core_charge may change.
+        # But that parameter was supplied in Density constructor!
+        # This surely is a bug!
         self.density.initialize(setups, self.timer, magmom_av, par.hund)
         self.density.set_mixer(par.mixer)
 

@@ -21,6 +21,12 @@ from gpaw.mpi import SerialCommunicator
 from gpaw.arraydict import ArrayDict
 
 
+class NullBackgroundCharge:
+    charge = 0.0
+    def set_grid_descriptor(self, gd): pass
+    def add_charge_to(self, rhot_g): pass
+
+
 class Density(object):
     """Density object.
 
@@ -43,7 +49,7 @@ class Density(object):
     """
 
     def __init__(self, gd, finegd, nspins, charge, redistributor,
-                 collinear=True):
+                 collinear=True, background_charge=None):
         """Create the Density object."""
 
         self.gd = gd
@@ -56,6 +62,12 @@ class Density(object):
         self.collinear = collinear
         self.ncomp = 1 if collinear else 2
         self.ns = self.nspins * self.ncomp**2
+
+        # This can contain e.g. a Jellium background charge
+        if background_charge is None:
+            background_charge = NullBackgroundCharge()
+        background_charge.set_grid_descriptor(self.finegd)
+        self.background_charge = background_charge
 
         self.charge_eps = 1e-7
 
@@ -169,15 +181,18 @@ class Density(object):
 
         pseudo_charge = self.gd.integrate(self.nt_sG[:self.nspins]).sum()
 
-        if pseudo_charge + self.charge + comp_charge != 0:
+        if (pseudo_charge + self.charge + comp_charge
+            - self.background_charge.charge != 0):
             if pseudo_charge != 0:
-                x = -(self.charge + comp_charge) / pseudo_charge
+                x = (self.background_charge.charge - self.charge
+                     - comp_charge) / pseudo_charge
                 self.nt_sG *= x
             else:
                 # Use homogeneous background:
                 volume = self.gd.get_size_of_global_array().prod() * self.gd.dv
-                self.nt_sG[:self.nspins] = -(self.charge +
-                                             comp_charge) / volume
+                total_charge = (self.charge + comp_charge
+                                - self.background_charge.charge)
+                self.nt_sG[:self.nspins] = -total_charge / volume
 
     def mix(self, comp_charge):
         if not self.mixer.mix_rho:
@@ -210,7 +225,9 @@ class Density(object):
         return Ddist_asp.partition.comm.sum(comp_charge) * sqrt(4 * pi)
 
     def get_initial_occupations(self, a):
-        c = self.charge / len(self.setups)  # distribute on all atoms
+        # distribute charge on all atoms
+        # XXX interaction with background charge may be finicky
+        c = (self.charge - self.background_charge.charge) / len(self.setups)
         M_v = self.magmom_av[a]
         M = (M_v**2).sum()**0.5
         f_si = self.setups[a].calculate_initial_occupation_numbers(
@@ -555,9 +572,11 @@ class Density(object):
 
 class RealSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, charge, redistributor,
-                 collinear=True, stencil=3):
+                 collinear=True, stencil=3,
+                 background_charge=None):
         Density.__init__(self, gd, finegd, nspins, charge, redistributor,
-                         collinear=collinear)
+                         collinear=collinear,
+                         background_charge=background_charge)
         self.stencil = stencil
 
     def initialize(self, setups, timer, magmom_av, hund):
@@ -596,7 +615,8 @@ class RealSpaceDensity(Density):
         if not self.gd.pbc_c.all():
             # With zero-boundary conditions in one or more directions,
             # this is not the case.
-            pseudo_charge = -(self.charge + comp_charge)
+            pseudo_charge = (self.background_charge.charge - self.charge
+                             - comp_charge)
             if abs(pseudo_charge) > 1.0e-14:
                 x = (pseudo_charge /
                      self.finegd.integrate(self.nt_sg[:self.nspins]).sum())
@@ -628,6 +648,7 @@ class RealSpaceDensity(Density):
         self.nt_g = self.nt_sg[:self.nspins].sum(axis=0)
         self.rhot_g = self.nt_g.copy()
         self.ghat.add(self.rhot_g, self.Q_aL)
+        self.background_charge.add_charge_to(self.rhot_g)
 
         if debug:
             charge = self.finegd.integrate(self.rhot_g) + self.charge

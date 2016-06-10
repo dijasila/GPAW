@@ -263,8 +263,7 @@ class PAWTextOutput:
             t('All')
         else:
             t('%d Lowest Bands' % cc['bands'])
-        t('Number of Valence Electrons: %g'
-          % (self.wfs.setups.nvalence - p.charge))
+        t('Number of Valence Electrons: %g' % self.wfs.nvalence)
 
     def print_converged(self, iter):
         t = self.text
@@ -352,7 +351,7 @@ class PAWTextOutput:
         # Output from each iteration:
         t = self.text
 
-        nvalence = self.wfs.setups.nvalence - self.input_parameters.charge
+        nvalence = self.wfs.nvalence
         if nvalence > 0:
             eigerr = self.scf.eigenstates_error * Hartree**2 / nvalence
         else:
