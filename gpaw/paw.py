@@ -150,6 +150,24 @@ class PAW(PAWTextOutput):
     def read(self, reader, read_projections=True):
         gpaw.io.read(self, reader, read_projections)
 
+    def __setattr__(self, name, value):
+        important_vars = {'wfs': 'wave functions',
+                          'hamiltonian': 'Hamiltonian',
+                          'density': 'density',
+                          'occupations': 'occupations',
+                          'scf': 'SCF state'}
+        if hasattr(self, name) and name in important_vars:
+            current_val = getattr(self, name)
+            if current_val is not None:
+                prettyname = important_vars[name]
+                if value is None:
+                    msg = '[Discarding %s]' % prettyname
+                else:
+                    msg = '[Discarding %s for %s]' % (prettyname, value)
+                self.text(msg)
+
+        super(PAW, self).__setattr__(name, value)
+
     def set(self, **kwargs):
         """Change parameters for calculator.
 

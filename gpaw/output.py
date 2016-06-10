@@ -19,7 +19,7 @@ from gpaw.utilities.memory import maxrss
 from gpaw import dry_run, extra_parameters
 
 
-class PAWTextOutput:
+class PAWTextOutput(object):
     """Class for handling all text output."""
 
     def __init__(self):
