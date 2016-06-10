@@ -150,7 +150,7 @@ in :mod:`gpaw.unfold` module.
 
 which will produce the following image:
 
-.. image:: sf.png
+.. image:: sf_3x3_defect.png
     :height: 400 px
 
 where you can clearly see the defect states in the gap!
