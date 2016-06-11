@@ -322,7 +322,11 @@ class Density(object):
             else:
                 self.mixer = Mixer(beta, history, weight)
 
-        self.mixer.initialize(self)
+        if self.mixer.mix_rho:
+            gd = self.finegd
+        else:
+            gd = self.gd
+        self.mixer.initialize(self.nspins, gd)
 
     def estimate_magnetic_moments(self):
         magmom_av = np.zeros_like(self.magmom_av)
