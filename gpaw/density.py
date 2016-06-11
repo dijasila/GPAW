@@ -9,7 +9,7 @@ from math import pi, sqrt
 import numpy as np
 
 from gpaw import debug
-from gpaw.mixer import BaseMixer, Mixer, MixerSum
+from gpaw.mixer import Mixer, MixerSum
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC, BasisFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
@@ -82,7 +82,7 @@ class Density(object):
 
         self.atom_partition = None
 
-        self.mixer = BaseMixer()
+        self.mixer = None
         self.timer = nulltimer
 
     def initialize(self, setups, timer, magmom_av, hund):
@@ -537,7 +537,7 @@ class Density(object):
         if reader['version'] > 0.3:
             density_error = reader['DensityError']
             if density_error is not None:
-                self.mixer.set_charge_sloshing(density_error)
+                self.mixer.dNt = density_error
 
         if not reader.has_array('PseudoElectronDensity'):
             return

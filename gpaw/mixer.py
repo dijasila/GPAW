@@ -14,9 +14,9 @@ from gpaw.utilities.tools import construct_reciprocal
 
 
 class BaseMixer:
-    """Pulay density mixer."""
     mix_rho = False
 
+    """Pulay density mixer."""
     def __init__(self, beta=0.1, nmaxold=3, weight=50.0, dotprod=None):
         """Construct density-mixer object.
 
@@ -87,7 +87,7 @@ class BaseMixer:
         self.R_iG = []  # Residuals
         self.A_ii = np.zeros((0, 0))
         self.dNt = None
-        
+
         self.D_iap = []
         self.dD_iap = []
 
@@ -100,9 +100,6 @@ class BaseMixer:
 
     def calculate_charge_sloshing(self, R_G):
         return self.gd.integrate(np.fabs(R_G))
-
-    def set_charge_sloshing(self, dNt):
-        self.dNt = dNt
 
     def mix(self, nt_G, D_ap):
         iold = len(self.nt_iG)
@@ -130,13 +127,13 @@ class BaseMixer:
             # Update matrix:
             A_ii = np.zeros((iold, iold))
             i2 = iold - 1
-            
+
             if self.metric is None:
                 mR_G = R_G
             else:
                 mR_G = self.mR_G
                 self.metric(R_G, mR_G)
-                
+
             for i1, R_1G in enumerate(self.R_iG):
                 a = self.gd.comm.sum(self.dotprod(R_1G, mR_G, self.dD_iap[i1],
                                                   self.dD_iap[-1]))
@@ -158,7 +155,7 @@ class BaseMixer:
                 except ZeroDivisionError:
                     alpha_i[:] = 0.0
                     alpha_i[-1] = 1.0
-            
+
             # Calculate new input density:
             nt_G[:] = 0.0
             #for D_p, D_ip, dD_ip in self.D_a:
@@ -197,7 +194,7 @@ class BaseMixer:
 class ExperimentalDotProd:
     def __init__(self, calc):
         self.calc = calc
-    
+
     def __call__(self, R1_G, R2_G, dD1_ap, dD2_ap):
         prod = np.vdot(R1_G, R2_G).real
         setups = self.calc.wfs.setups
@@ -211,7 +208,7 @@ class ExperimentalDotProd:
             prod += (I4_pp * dD4_pp).sum()
         return prod
 
-        
+
 class DummyMixer(BaseMixer):
     """Dummy mixer for TDDFT, i.e., it does not mix."""
     def mix(self, nt_G, D_asp):
@@ -255,10 +252,6 @@ class Mixer(BaseMixer):
         if self.mixers[0].dNt is None:
             return None
         return sum([mixer.dNt for mixer in self.mixers])
-
-    def set_charge_sloshing(self, dNt):
-        for mixer in self.mixers:
-            mixer.set_charge_sloshing(dNt / len(self.mixers))
 
 
 class MixerSum(BaseMixer):
@@ -530,10 +523,6 @@ class BroydenMixer(BroydenBaseMixer):
             return None
         return sum([mixer.dNt for mixer in self.mixers])
 
-    def set_charge_sloshing(self, dNt):
-        for mixer in self.mixers:
-            mixer.set_charge_sloshing(dNt / len(self.mixers))
-
 
 class BroydenMixerSum(BroydenBaseMixer):
     def mix(self, nt_sG, D_asp):
@@ -620,10 +609,6 @@ class FFTMixer(FFTBaseMixer):
         if self.mixers[0].get_charge_sloshing() is None:
             return None
         return sum([mixer.get_charge_sloshing() for mixer in self.mixers])
-
-    def set_charge_sloshing(self, dNt):
-        for mixer in self.mixers:
-            mixer.set_charge_sloshing(dNt / len(self.mixers))
 
 
 class FFTMixerSum(FFTBaseMixer):
@@ -712,10 +697,6 @@ class FFTMixerDif(FFTBaseMixer):
 
     def get_charge_sloshing(self):
         return self.mixer.get_charge_sloshing()
-
-    def set_charge_sloshing(self, dNt):
-        self.mixer.set_charge_sloshing(dNt)
-
 
 class ReciprocalMetric:
     def __init__(self, weight, k2_Q):

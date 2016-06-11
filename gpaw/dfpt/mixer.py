@@ -93,12 +93,8 @@ class BaseMixer:
 
         Calculated as the integral of the absolute value of the change
         of the density from input to output."""
-        
         return self.dNt
 
-    def set_charge_sloshing(self, dNt):
-        self.dNt = dNt
-        
     def mix(self, nt_G, D_ap, phase_cd=None):
         iold = len(self.nt_iG)
         if iold > 0:
@@ -236,10 +232,6 @@ class Mixer(BaseMixer):
         if self.mixers[0].dNt is None:
             return None
         return sum([mixer.dNt for mixer in self.mixers])
-
-    def set_charge_sloshing(self, dNt):
-        for mixer in self.mixers:
-            mixer.set_charge_sloshing(dNt / len(self.mixers))
 
 
 class MixerSum(BaseMixer):
@@ -522,10 +514,6 @@ class Mixer_Broydn(BaseMixer_Broydn):
         if self.mixers[0].dNt is None:
             return None
         return sum([mixer.dNt for mixer in self.mixers])
-
-    def set_charge_sloshing(self, dNt):
-        for mixer in self.mixers:
-            mixer.set_charge_sloshing(dNt / len(self.mixers))
 
 
 class MixerSum_Broydn(BaseMixer_Broydn):
