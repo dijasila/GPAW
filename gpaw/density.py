@@ -196,14 +196,14 @@ class Density(object):
 
     def mix(self, comp_charge):
         if not self.mixer.mix_rho:
-            self.mixer.mix(self)
+            self.mixer.mix(self.nt_sG, self.D_asp)
             comp_charge = None
 
         self.interpolate_pseudo_density(comp_charge)
         self.calculate_pseudo_charge()
 
         if self.mixer.mix_rho:
-            self.mixer.mix(self)
+            self.mixer.mix(self.rhot_g, self.D_asp)
 
     def calculate_multipole_moments(self):
         """Calculate multipole moments of compensation charges.

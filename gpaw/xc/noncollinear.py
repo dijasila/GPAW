@@ -358,6 +358,6 @@ class NonCollinearLCAOWaveFunctions(LCAOWaveFunctions):
 
 
 class NonCollinearMixer(BaseMixer):
-    def mix(self, density):
-        BaseMixer.mix(self, density.nt_sG[0],
-                      [D_sp[0] for D_sp in density.D_asp.values()])
+    def mix(self, nt_sG, D_asp):
+        BaseMixer.mix(self, nt_sG[0],
+                      [D_sp[0] for D_sp in D_asp.values()])
