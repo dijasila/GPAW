@@ -84,6 +84,7 @@ class Density(object):
 
         self.mixer = None
         self.timer = nulltimer
+        self.density_error = None
 
     def initialize(self, setups, timer, magmom_av, hund):
         self.timer = timer
@@ -196,14 +197,15 @@ class Density(object):
 
     def mix(self, comp_charge):
         if not self.mixer.mix_rho:
-            self.mixer.mix(self.nt_sG, self.D_asp)
+            self.density_error = self.mixer.mix(self.nt_sG, self.D_asp)
             comp_charge = None
 
         self.interpolate_pseudo_density(comp_charge)
         self.calculate_pseudo_charge()
 
         if self.mixer.mix_rho:
-            self.mixer.mix(self.rhot_g, self.D_asp)
+            self.density_error = self.mixer.mix(self.rhot_g, self.D_asp)
+        assert self.density_error is not None, self.mixer
 
     def calculate_multipole_moments(self):
         """Calculate multipole moments of compensation charges.
@@ -535,9 +537,7 @@ class Density(object):
 
     def read(self, reader, parallel, kptband_comm):
         if reader['version'] > 0.3:
-            density_error = reader['DensityError']
-            if density_error is not None:
-                self.mixer.dNt = density_error
+            self.density_error = reader['DensityError']
 
         if not reader.has_array('PseudoElectronDensity'):
             return

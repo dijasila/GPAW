@@ -359,5 +359,5 @@ class NonCollinearLCAOWaveFunctions(LCAOWaveFunctions):
 
 class NonCollinearMixer(BaseMixer):
     def mix(self, nt_sG, D_asp):
-        BaseMixer.mix(self, nt_sG[0],
-                      [D_sp[0] for D_sp in D_asp.values()])
+        return BaseMixer.mix(self, nt_sG[0],
+                             [D_sp[0] for D_sp in D_asp.values()])

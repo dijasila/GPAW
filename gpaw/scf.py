@@ -81,13 +81,13 @@ class SCFLoop:
         else:
             self.energy_error = np.ptp(self.energies[-3:])
 
-        self.density_error = density.mixer.get_charge_sloshing()
+        self.density_error = density.density_error
         if self.density_error is None:
             self.density_error = 1000000.0
 
         if self.max_force_error is not None:
             F_av = forces.calculate(wfs, density, hamiltonian)
-            
+
             if self.force_last is None:
                 self.force_last = F_av
             else:

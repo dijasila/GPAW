@@ -391,7 +391,7 @@ class PAWTextOutput:
             else:
                 eigerr = '%+.2f' % (log(eigerr) / log(10))
 
-            denserr = self.density.mixer.get_charge_sloshing()
+            denserr = self.density.density_error
             if denserr is None or denserr == 0 or nvalence == 0:
                 denserr = ''
             else:

@@ -1589,7 +1589,7 @@ class Transport(GPAW):
                     density = self.density
                 else:
                     density = self.extended_calc.density
-                self.diff_d = density.mixer.get_charge_sloshing()
+                self.diff_d = density.density_error
                 tol =  self.scf.max_density_error
  
                 if self.master:

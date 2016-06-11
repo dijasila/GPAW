@@ -1055,7 +1055,7 @@ class PAW(PAWTextOutput):
             self.scf.converged = False
 
             # is the density ok ?
-            error = self.density.mixer.get_charge_sloshing() or 0.0
+            error = self.density.density_error or 0.0
             criterion = (self.input_parameters['convergence']['density'] *
                          self.wfs.nvalence)
             if error < criterion and not self.hamiltonian.xc.orbital_dependent:
