@@ -3,10 +3,10 @@ import numpy as np
 
 class SCFLoop:
     """Self-consistent field loop.
-    
+
     converged: Do we have a self-consistent solution?
     """
-    
+
     def __init__(self, eigenstates=0.1, energy=0.1, density=0.1, maxiter=100,
                  fixdensity=False, niter_fixdensity=None, force=None):
         self.max_eigenstates_error = max(eigenstates, 1e-20)
@@ -22,13 +22,13 @@ class SCFLoop:
 
         if fixdensity:
             self.fix_density()
-            
+
         self.reset()
 
     def fix_density(self):
         self.fixdensity = True
         self.max_density_error = np.inf
-        
+
     def reset(self):
         self.energies = []
         self.eigenstates_error = None
@@ -41,7 +41,7 @@ class SCFLoop:
     def run(self, wfs, hamiltonian, density, occupations, forces):
         if self.converged:
             return
-        
+
         for iter in range(1, self.maxiter + 1):
             wfs.eigensolver.iterate(hamiltonian, wfs)
             occupations.calculate(wfs)
@@ -107,10 +107,15 @@ class SCFLoop:
                 self.force_error = abs(F_av_diff).max()
                 self.force_last = F_av
 
-        converged = (
-            (self.eigenstates_error or 0.0) < self.max_eigenstates_error and
-            self.energy_error < self.max_energy_error and
-            self.density_error < self.max_density_error and
-            (self.force_error or 0) < ((self.max_force_error)
-                                       or float('Inf')))
+        conv_eig = (self.eigenstates_error or 0.0) < self.max_eigenstates_error
+        conv_energy = self.energy_error < self.max_energy_error
+        conv_density = self.density_error < self.max_density_error
+        conv_force = (self.force_error or 0) < ((self.max_force_error)
+                                                or float('Inf'))
+
+        converged = (conv_eig and conv_energy and conv_density and conv_force)
+
+        # TODO: Let it just *check* convergence, no side effects.  But
+        # that breaks a lot of stuff...
+        self.converged = converged
         return converged
