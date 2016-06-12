@@ -27,7 +27,6 @@ class SCFLoop:
 
     def fix_density(self):
         self.fixdensity = True
-        self.niter_fixdensity = 10000000
         self.max_density_error = np.inf
         
     def reset(self):
@@ -52,14 +51,27 @@ class SCFLoop:
             self.energies.append(energy)
             if self.max_force_error is not None:
                 forces.reset()
-            self.check_convergence(density, wfs.eigensolver,
-                                   wfs, hamiltonian, forces)
+
+            converged = self.check_convergence(density, wfs.eigensolver,
+                                               wfs, hamiltonian, forces)
+
+            # If we are asked to fix the density only for a fixed number of
+            # steps, we should never even consider converging before
+            # density starts changing.  Thus we unfix the density:
+            if converged and iter <= self.niter_fixdensity:
+                self.niter_fixdensity = iter - 1
+                converged = False
+            elif converged and iter <= self.niter_fixdensity + 1:
+                converged = False
+
+            self.converged = converged
+
             yield iter
-            
+
             if self.converged:
                 break
 
-            if iter > self.niter_fixdensity:
+            if iter > self.niter_fixdensity and not self.fixdensity:
                 density.update(wfs)
                 hamiltonian.update(density)
             else:
@@ -67,7 +79,7 @@ class SCFLoop:
 
         # Don't fix the density in the next step:
         self.niter_fixdensity = 0
-        
+
     def check_convergence(self, density, eigensolver,
                           wfs=None, hamiltonian=None, forces=None):
         """Check convergence of eigenstates, energy and density."""
@@ -95,10 +107,10 @@ class SCFLoop:
                 self.force_error = abs(F_av_diff).max()
                 self.force_last = F_av
 
-        self.converged = (
+        converged = (
             (self.eigenstates_error or 0.0) < self.max_eigenstates_error and
             self.energy_error < self.max_energy_error and
             self.density_error < self.max_density_error and
             (self.force_error or 0) < ((self.max_force_error)
                                        or float('Inf')))
-        return self.converged
+        return converged
