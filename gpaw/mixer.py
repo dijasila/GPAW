@@ -5,8 +5,6 @@
 See Kresse, Phys. Rev. B 54, 11169 (1996)
 """
 
-import functools
-
 import numpy as np
 from numpy.fft import fftn, ifftn
 
@@ -16,8 +14,6 @@ from gpaw.utilities.tools import construct_reciprocal
 
 
 class BaseMixer:
-    mix_rho = False
-
     """Pulay density mixer."""
     def __init__(self, beta=0.1, nmaxold=3, weight=50.0, dotprod=None):
         """Construct density-mixer object.
@@ -238,7 +234,6 @@ class FFTBaseMixer(BaseMixer):
 
 
 class BroydenBaseMixer:
-    mix_rho = False
     def __init__(self, beta=0.1, nmaxold=6, weight=1):
         self.verbose = False
         self.beta = beta
@@ -340,7 +335,6 @@ class BroydenBaseMixer:
 
 class DummyMixer:
     """Dummy mixer for TDDFT, i.e., it does not mix."""
-    mix_rho = False
     beta = 1.0
     nmaxold = 1
     weight = 1
@@ -355,6 +349,7 @@ class DummyMixer:
 # This is the only object which will be used by Density, sod the others
 class NewMixer:
     mix_rho = False # XXXXXXXXX
+
     def __init__(self, driver):
         self.driver = driver
 
@@ -384,7 +379,6 @@ class NewMixer:
 
 
 class SeparateSpinMixerDriver:
-    mix_rho = False
     def __init__(self, basemixerclass, beta=0.1, nmaxold=3, weight=50.0):
         self.basemixerclass = basemixerclass
 
@@ -409,7 +403,6 @@ class SeparateSpinMixerDriver:
 
 
 class SpinSumMixerDriver:
-    mix_rho = False
     def __init__(self, basemixerclass, mix_atomic_density_matrices,
                  beta, nmaxold, weight):
         self.basemixerclass = basemixerclass
@@ -452,7 +445,6 @@ class SpinSumMixerDriver:
 
 
 class SpinDifferenceMixerDriver:
-    mix_rho = False
     def __init__(self, basemixerclass, beta, nmaxold, weight,
                  beta_m, nmaxold_m, weight_m):
         self.basemixerclass = basemixerclass
