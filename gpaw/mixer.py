@@ -216,12 +216,6 @@ class FFTBaseMixer(BaseMixer):
     def __init__(self, beta=0.4, nmaxold=3, weight=20.0):
         BaseMixer.__init__(self, beta, nmaxold, weight)
 
-    def initialize(self, nspins, gd):
-        if gd.comm.size > 1:
-            err = 'FFT Mixer cannot be used with domain decomposition'
-            raise NotImplementedError(err)
-        self.initialize_metric(gd)
-
     def initialize_metric(self, gd):
         self.gd = gd
         k2_Q, N3 = construct_reciprocal(self.gd)
