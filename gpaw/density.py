@@ -9,7 +9,7 @@ from math import pi, sqrt
 import numpy as np
 
 from gpaw import debug
-from gpaw.mixer import Mixer, MixerSum
+from gpaw.mixer import Mixer, MixerSum, NewMixer, DummyMixer
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC, BasisFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
@@ -82,7 +82,9 @@ class Density(object):
 
         self.atom_partition = None
 
-        self.mixer = None
+        # XXX at least one test will fail because None has no 'reset()'
+        # So we need DummyMixer I guess
+        self.set_mixer(DummyMixer())
         self.timer = nulltimer
         self.density_error = None
 
@@ -196,6 +198,7 @@ class Density(object):
                 self.nt_sG[:self.nspins] = -total_charge / volume
 
     def mix(self, comp_charge):
+        assert isinstance(self.mixer, NewMixer), self.mixer
         if not self.mixer.mix_rho:
             self.density_error = self.mixer.mix(self.nt_sG, self.D_asp)
             comp_charge = None
@@ -306,9 +309,7 @@ class Density(object):
 
     def set_mixer(self, mixer):
         if mixer is not None:
-            if self.nspins == 1 and isinstance(mixer, MixerSum):
-                raise RuntimeError('Cannot use MixerSum with nspins==1')
-            self.mixer = mixer
+            self.mixer = NewMixer(mixer)
         else:
             if self.gd.pbc_c.any():
                 beta = 0.05
@@ -320,9 +321,9 @@ class Density(object):
                 weight = 1.0
 
             if self.nspins == 2:
-                self.mixer = MixerSum(beta, history, weight)
+                self.mixer = NewMixer(MixerSum(beta, history, weight))
             else:
-                self.mixer = Mixer(beta, history, weight)
+                self.mixer = NewMixer(Mixer(beta, history, weight))
 
         if self.mixer.mix_rho:
             gd = self.finegd

@@ -316,7 +316,7 @@ class LCAOTDDFT(GPAW):
                 self.wfs.kpt_u[0].invS = tmp
 
         # Reset the density mixer
-        self.density.mixer = DummyMixer()
+        self.density.set_mixer(DummyMixer())
         self.tddft_initialized = True
         for k, kpt in enumerate(self.wfs.kpt_u):
             kpt.C2_nM = kpt.C_nM.copy()

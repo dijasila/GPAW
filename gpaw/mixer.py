@@ -5,6 +5,8 @@
 See Kresse, Phys. Rev. B 54, 11169 (1996)
 """
 
+import functools
+
 import numpy as np
 from numpy.fft import fftn, ifftn
 
@@ -69,9 +71,6 @@ class BaseMixer:
                                      gd, float).apply
             self.mR_G = gd.empty()
 
-    def initialize(self, nspins, gd):
-        self.initialize_metric(gd)
-
     def reset(self):
         """Reset Density-history.
 
@@ -91,7 +90,7 @@ class BaseMixer:
     def calculate_charge_sloshing(self, R_G):
         return self.gd.integrate(np.fabs(R_G))
 
-    def mix(self, nt_G, D_ap):
+    def mix_single_density(self, nt_G, D_ap):
         iold = len(self.nt_iG)
 
         dNt = 0.0
@@ -202,180 +201,57 @@ class ExperimentalDotProd:
         return prod
 
 
-class DummyMixer(BaseMixer):
-    """Dummy mixer for TDDFT, i.e., it does not mix."""
-    def mix(self, nt_G, D_asp):
-        return 0.0
+class ReciprocalMetric:
+    def __init__(self, weight, k2_Q):
+        self.k2_Q = k2_Q
+        k2_min = np.min(self.k2_Q)
+        self.q1 = (weight - 1) * k2_min
 
-    def estimate_memory(self, mem, gd):
-        pass
-
-
-class Mixer(BaseMixer):
-    """Mix spin up and down densities separately"""
-
-    def initialize(self, nspins, gd):
-        self.nspins = nspins
-        self.mixers = []
-        for s in range(nspins):
-            mixer = BaseMixer(self.beta, self.nmaxold, self.weight,
-                              self.dotprod)
-            mixer.initialize_metric(gd)
-            self.mixers.append(mixer)
-
-    def mix(self, nt_sG, D_asp):
-        """Mix pseudo electron densities."""
-        D_asp = D_asp.values()
-        D_sap = []
-        for s in range(self.nspins):
-            D_sap.append([D_sp[s] for D_sp in D_asp])
-        dNt = 0.0
-        for nt_G, D_ap, mixer in zip(nt_sG, D_sap, self.mixers):
-            dNt += mixer.mix(nt_G, D_ap)
-        return dNt
-
-    def reset(self):
-        for mixer in self.mixers:
-            mixer.reset()
+    def __call__(self, R_Q, mR_Q):
+            mR_Q[:] = R_Q * (1.0 + self.q1 / self.k2_Q)
 
 
-class MixerSum(BaseMixer):
-    """For pseudo electron densities, mix the total charge density and for
-    density matrices, mix spin up and densities separately.
-    Magnetization density is not mixed, i.e new magnetization density is used
-    """
-
-    def mix(self, nt_sG, D_asp):
-        D_asp = D_asp.values()
-
-        # Mix density
-        nt_G = nt_sG.sum(0)
-        dNt = BaseMixer.mix(self, nt_G, D_asp)
-
-        # Only new magnetization for spin density
-        dnt_G = nt_sG[0] - nt_sG[1]
-        #dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
-
-        # Construct new spin up/down densities
-        nt_sG[0] = 0.5 * (nt_G + dnt_G)
-        nt_sG[1] = 0.5 * (nt_G - dnt_G)
-        return dNt
-
-class MixerSum2(BaseMixer):
-    """Mix the total pseudo electron density and the total density matrices.
-    Magnetization density is not mixed, i.e new magnetization density is used.
-    """
-
-    def mix(self, nt_sG, D_asp):
-        D_asp = D_asp.values()
-
-        # Mix density
-        # XXXXXXXXXXXX is this tested at all?
-        skdjfskdjfkdsjf
-        nt_G = nt_sG.sum(0)
-        D_ap = [D_p[0] + D_p[1] for D_p in D_asp]
-        dNt = BaseMixer.mix(self, nt_G, D_ap)
-
-        # Only new magnetization for spin density
-        dnt_G = nt_sG[0] - nt_sG[1]
-        dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
-
-        # Construct new spin up/down densities
-        nt_sG[0] = 0.5 * (nt_G + dnt_G)
-        nt_sG[1] = 0.5 * (nt_G - dnt_G)
-        for D_sp, D_p, dD_p in zip(D_asp, D_ap, dD_ap):
-            D_sp[0] = 0.5 * (D_p + dD_p)
-            D_sp[1] = 0.5 * (D_p - dD_p)
-        return dNt
-
-class MixerDif(BaseMixer):
-    """Mix the charge density and magnetization density separately"""
-
-    def __init__(self, beta=0.1, nmaxold=3, weight=50.0,
-                 beta_m=0.7, nmaxold_m=2, weight_m=10.0):
-        """Construct density-mixer object.
-
-        Parameters:
-
-        beta: float
-            Mixing parameter between zero and one (one is most
-            aggressive).
-        nmaxold: int
-            Maximum number of old densities.
-        weight: float
-            Weight parameter for special metric (for long wave-length
-            changes).
-        """
-
-        self.beta = beta
-        self.nmaxold = nmaxold
-        self.weight = weight
-
-        self.beta_m = beta_m
-        self.nmaxold_m = nmaxold_m
-        self.weight_m = weight_m
+class FFTBaseMixer(BaseMixer):
+    """Mix the density in Fourier space"""
+    def __init__(self, beta=0.4, nmaxold=3, weight=20.0):
+        BaseMixer.__init__(self, beta, nmaxold, weight)
 
     def initialize(self, nspins, gd):
-        assert nspins == 2
-        self.mixer = BaseMixer(self.beta, self.nmaxold, self.weight)
-        self.mixer.initialize_metric(gd)
-        self.mixer_m = BaseMixer(self.beta_m, self.nmaxold_m, self.weight_m)
-        self.mixer_m.initialize_metric(gd)
-
-    def reset(self):
-        self.mixer.reset()
-        self.mixer_m.reset()
-
-    def mix(self, nt_sG, D_asp):
-        D_asp = D_asp.values()
-
-        # Mix density
-        nt_G = nt_sG.sum(0)
-        D_ap = [D_sp[0] + D_sp[1] for D_sp in D_asp]
-        dNt = self.mixer.mix(nt_G, D_ap)
-
-        # Mix magnetization
-        dnt_G = nt_sG[0] - nt_sG[1]
-        dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
-        self.mixer_m.mix(dnt_G, dD_ap)  # Does not contribute to dNt
-
-        # Construct new spin up/down densities
-        nt_sG[0] = 0.5 * (nt_G + dnt_G)
-        nt_sG[1] = 0.5 * (nt_G - dnt_G)
-        for D_sp, D_p, dD_p in zip(D_asp, D_ap, dD_ap):
-            D_sp[0] = 0.5 * (D_p + dD_p)
-            D_sp[1] = 0.5 * (D_p - dD_p)
-        return dNt
-
-class MixerRho(BaseMixer):
-    mix_rho = True
-    def initialize(self, nspins, gd):
+        if gd.comm.size > 1:
+            err = 'FFT Mixer cannot be used with domain decomposition'
+            raise NotImplementedError(err)
         self.initialize_metric(gd)
 
-    def mix(self, rhot_g, D_asp):
-        """Mix pseudo electron densities."""
-        return BaseMixer.mix(self, rhot_g, [])
+    def initialize_metric(self, gd):
+        self.gd = gd
+        k2_Q, N3 = construct_reciprocal(self.gd)
 
+        self.metric = ReciprocalMetric(self.weight, k2_Q)
+        self.mR_G = gd.empty(dtype=complex)
 
-class MixerRho2(BaseMixer):
-    mix_rho = True
-    def initialize(self, nspins, gd):
-        self.initialize_metric(gd)
+    def calculate_charge_sloshing(self, R_Q):
+        return self.gd.integrate(np.fabs(ifftn(R_Q).real))
 
-    def mix(self, rhot_g, D_asp):
-        """Mix pseudo electron densities."""
-        return BaseMixer.mix(self, rhot_g, D_asp.values())
+    def mix_single_density(self, nt_G, D_ap):
+        # Transform real-space density to Fourier space
+        nt_Q = np.ascontiguousarray(fftn(nt_G))
+
+        dNt = BaseMixer.mix_single_density(self, nt_Q, D_ap)
+
+        # Return density in real space
+        nt_G[:] = np.ascontiguousarray(ifftn(nt_Q).real)
+        return dNt
 
 
 class BroydenBaseMixer:
     mix_rho = False
-    def __init__(self, beta=0.1, nmaxold=6):
+    def __init__(self, beta=0.1, nmaxold=6, weight=1):
         self.verbose = False
         self.beta = beta
         self.nmaxold = nmaxold
-        self.weight = 1
+        self.weight = 1  # XXX discards argument
 
-    def initialize(self, nspins, gd):
+    def initialize_metric(self, gd):
         self.gd = gd
 
     def reset(self):
@@ -393,7 +269,7 @@ class BroydenBaseMixer:
         self.u_G = []
         self.u_D = []
 
-    def mix(self, nt_G, D_ap):
+    def mix_single_density(self, nt_G, D_ap):
         dNt = 0.0
         if self.step > 2:
             del self.R_iG[0]
@@ -467,188 +343,155 @@ class BroydenBaseMixer:
         self.step += 1
         return dNt
 
-class BroydenMixer(BroydenBaseMixer):
-    """Mix spin up and down densities separately"""
+
+class DummyMixer:
+    """Dummy mixer for TDDFT, i.e., it does not mix."""
+    mix_rho = False
+    beta = 1.0
+    nmaxold = 1
+    weight = 1
+
+    def mix(self, basemixers, nt_sG, D_asp):
+        return 0.0
+
+    def get_basemixers(self, nspins):
+        return []
+
+
+# This is the only object which will be used by Density, sod the others
+class NewMixer:
+    mix_rho = False # XXXXXXXXX
+    def __init__(self, driver):
+        self.driver = driver
+
+        self.beta = driver.beta
+        self.nmaxold = driver.nmaxold
+        self.weight = driver.weight
+        assert self.weight is not None, driver
+
+        self.basemixers = None  # X
+        self.nspins = None # X
 
     def initialize(self, nspins, gd):
-        self.nspins = nspins
-        self.mixers = []
-        for s in range(nspins):
-            mixer = BroydenBaseMixer()
-            mixer.initialize(nspins, gd)
-            self.mixers.append(mixer)
+        self.basemixers = self.driver.get_basemixers(nspins)
+        for basemixer in self.basemixers:
+            basemixer.initialize_metric(gd)
 
     def mix(self, nt_sG, D_asp):
-        """Mix pseudo electron densities."""
-        D_asp = D_asp.values()
-        D_sap = []
-        for s in range(self.nspins):
-            D_sap.append([D_sp[s] for D_sp in D_asp])
-        dNt = 0.0
-        for nt_G, D_ap, mixer in zip(nt_sG, D_sap, self.mixers):
-            dNt += mixer.mix(nt_G, D_ap)
-        return dNt
+        return self.driver.mix(self.basemixers, nt_sG, D_asp)
+
+    def estimate_memory(self, mem, gd):
+        for i, basemixer in enumerate(self.basemixers):
+            basemixer.estimate_memory(mem.subnode('Mixer %d' % i), gd)
 
     def reset(self):
-        for mixer in self.mixers:
-            mixer.reset()
+        for basemixer in self.basemixers:
+            basemixer.reset()
 
 
-class BroydenMixerSum(BroydenBaseMixer):
-    def mix(self, nt_sG, D_asp):
-        D_asp = D_asp.values()
-
-        # Mix density
-        # XXXXXXXXXX likely not tested at all
-        sdkjfsdfsdfsdf
-        nt_G = nt_sG.sum(0)
-        dNt = BroydenBaseMixer.mix(self, nt_G, D_asp)
-
-        # Only new magnetization for spin density
-        dnt_G = nt_sG[0] - nt_sG[1]
-        #dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
-
-        # Construct new spin up/down densities
-        nt_sG[0] = 0.5 * (nt_G + dnt_G)
-        nt_sG[1] = 0.5 * (nt_G - dnt_G)
-        return dNt
-
-class FFTBaseMixer(BaseMixer):
-    """Mix the density in Fourier space"""
-    def __init__(self, beta=0.4, nmaxold=3, weight=20.0):
-        BaseMixer.__init__(self, beta, nmaxold, weight)
-
-    def initialize(self, nspins, gd):
-        if gd.comm.size > 1:
-            err = 'FFT Mixer cannot be used with domain decomposition'
-            raise NotImplementedError(err)
-        self.initialize_metric(gd)
-
-    def initialize_metric(self, gd):
-        self.gd = gd
-        k2_Q, N3 = construct_reciprocal(self.gd)
-
-        self.metric = ReciprocalMetric(self.weight, k2_Q)
-        self.mR_G = gd.empty(dtype=complex)
-
-    def calculate_charge_sloshing(self, R_Q):
-        return self.gd.integrate(np.fabs(ifftn(R_Q).real))
-
-    def mix(self, nt_G, D_ap):
-        # Transform real-space density to Fourier space
-        nt_Q = np.ascontiguousarray(fftn(nt_G))
-
-        dNt = BaseMixer.mix(self, nt_Q, D_ap)
-
-        # Return density in real space
-        nt_G[:] = np.ascontiguousarray(ifftn(nt_Q).real)
-        return dNt
-
-# XXXX WTF instantiates mixers of same class as superclass?
-# WTF copy of BroydenMixer???
-class FFTMixer(FFTBaseMixer):
-    """Mix spin up and down densities separately"""
-
-    def initialize(self, nspins, gd):
-        self.nspins = nspins
-        self.mixers = []
-        for s in range(nspins):
-            mixer = FFTBaseMixer(self.beta, self.nmaxold, self.weight)
-            mixer.initialize(nspins, gd)
-            self.mixers.append(mixer)
-
-    def mix(self, nt_sG, D_asp):
-        """Mix pseudo electron densities."""
-        D_asp = D_asp.values()
-        D_sap = []
-        for s in range(self.nspins):
-            D_sap.append([D_sp[s] for D_sp in D_asp])
-        dNt = 0.0
-        for nt_G, D_ap, mixer in zip(nt_sG, D_sap, self.mixers):
-            dNt += mixer.mix(nt_G, D_ap)
-        return dNt
-
-    def reset(self):
-        for mixer in self.mixers:
-            mixer.reset()
-
-
-class FFTMixerSum(FFTBaseMixer):
-    """For pseudo electron densities, mix the total charge density and for
-    density matrices, mix spin up and densities separately.
-    Magnetization density is not mixed, i.e new magnetization density is used
-    """
-
-    def mix(self, nt_sG, D_asp):
-        D_asp = D_asp.values()
-
-        # Mix density
-        nt_G = nt_sG.sum(0)
-        dNt = FFTBaseMixer.mix(self, nt_G, D_asp)
-
-        # Only new magnetization for spin density
-        dnt_G = nt_sG[0] - nt_sG[1]
-        #dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
-
-        # Construct new spin up/down densities
-        nt_sG[0] = 0.5 * (nt_G + dnt_G)
-        nt_sG[1] = 0.5 * (nt_G - dnt_G)
-        return dNt
-
-class FFTMixerDif(FFTBaseMixer):
-    """Mix the charge density and magnetization density separately"""
-
-    def __init__(self, beta=0.1, nmaxold=3, weight=20.0,
-                 beta_m=0.7, nmaxold_m=2, weight_m=1.0):
-        """Construct density-mixer object.
-
-        Parameters:
-
-        beta: float
-            Mixing parameter between zero and one (one is most
-            aggressive).
-        nmaxold: int
-            Maximum number of old densities.
-        weight: float
-            Weight parameter for special metric (for long wave-length
-            changes).
-        """
+class SeparateSpinMixerDriver:
+    mix_rho = False
+    def __init__(self, basemixerclass, beta=0.1, nmaxold=3, weight=50.0):
+        self.basemixerclass = basemixerclass
 
         self.beta = beta
-        self.beta1 = beta
         self.nmaxold = nmaxold
         self.weight = weight
 
+    def get_basemixers(self, nspins):
+        return [self.basemixerclass(self.beta, self.nmaxold, self.weight)
+                for _ in range(nspins)]
+
+    def mix(self, basemixers, nt_sG, D_asp):
+        """Mix pseudo electron densities."""
+        D_asp = D_asp.values()
+        D_sap = []
+        for s in range(len(nt_sG)):
+            D_sap.append([D_sp[s] for D_sp in D_asp])
+        dNt = 0.0
+        for nt_G, D_ap, basemixer in zip(nt_sG, D_sap, basemixers):
+            dNt += basemixer.mix_single_density(nt_G, D_ap)
+        return dNt
+
+
+class SpinSumMixerDriver:
+    mix_rho = False
+    def __init__(self, basemixerclass, mix_atomic_density_matrices,
+                 beta, nmaxold, weight):
+        self.basemixerclass = basemixerclass
+        self.mix_atomic_density_matrices = mix_atomic_density_matrices
+
+        self.beta = beta
+        self.nmaxold = nmaxold
+        self.weight = weight
+
+    def get_basemixers(self, nspins):
+        if nspins != 2:
+            raise ValueError('Spin sum mixer expects 2 spins, not %d' % nspins)
+        return [self.basemixerclass(self.beta, self.nmaxold, self.weight)]
+
+    def mix(self, basemixers, nt_sG, D_asp):
+        assert len(basemixers) == 1
+        basemixer = basemixers[0]
+        D_asp = D_asp.values()
+
+        # Mix density
+        nt_G = nt_sG.sum(0)
+        if self.mix_atomic_density_matrices:
+            D_ap = [D_p[0] + D_p[1] for D_p in D_asp]
+            dNt = basemixer.mix_single_density(nt_G, D_ap)
+            dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
+            for D_sp, D_p, dD_p in zip(D_asp, D_ap, dD_ap):
+                D_sp[0] = 0.5 * (D_p + dD_p)
+                D_sp[1] = 0.5 * (D_p - dD_p)
+        else:
+            dNt = basemixers[0].mix_single_density(nt_G, D_asp)
+
+        dnt_G = nt_sG[0] - nt_sG[1]
+        # Only new magnetization for spin density
+        #dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
+
+        # Construct new spin up/down densities
+        nt_sG[0] = 0.5 * (nt_G + dnt_G)
+        nt_sG[1] = 0.5 * (nt_G - dnt_G)
+        return dNt
+
+
+class SpinDifferenceMixerDriver:
+    mix_rho = False
+    def __init__(self, basemixerclass, beta, nmaxold, weight,
+                 beta_m, nmaxold_m, weight_m):
+        self.basemixerclass = basemixerclass
+        self.beta = beta
+        self.nmaxold = nmaxold
+        self.weight = weight
         self.beta_m = beta_m
         self.nmaxold_m = nmaxold_m
         self.weight_m = weight_m
-        self.dNt = None
 
-        self.mix_rho = False
+    def get_basemixers(self, nspins):
+        if nspins != 2:
+            raise ValueError('Spin difference mixer expects 2 spins, not %d'
+                             % nspins)
+        basemixer = BaseMixer(self.beta, self.nmaxold, self.weight)
+        basemixer_m = BaseMixer(self.beta_m, self.nmaxold_m, self.weight_m)
+        return basemixer, basemixer_m
 
-    def initialize(self, nspins, gd):
-        assert nspins == 2
-        self.mixer = FFTBaseMixer(self.beta, self.nmaxold, self.weight)
-        self.mixer.initialize(nspins, gd)
-        self.mixer_m = FFTBaseMixer(self.beta_m, self.nmaxold_m, self.weight_m)
-        self.mixer_m.initialize(nspins, gd)
-
-    def reset(self):
-        self.mixer.reset()
-        self.mixer_m.reset()
-
-    def mix(self, nt_sG, D_asp):
+    def mix(self, basemixers, nt_sG, D_asp):
         D_asp = D_asp.values()
+
+        basemixer, basemixer_m = basemixers
 
         # Mix density
         nt_G = nt_sG.sum(0)
         D_ap = [D_sp[0] + D_sp[1] for D_sp in D_asp]
-        dNt = self.mixer.mix(nt_G, D_ap)
+        dNt = basemixer.mix_single_density(nt_G, D_ap)
 
         # Mix magnetization
         dnt_G = nt_sG[0] - nt_sG[1]
         dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
-        self.mixer_m.mix(dnt_G, dD_ap)  # Does not contribute to dNt
+        basemixer_m.mix_single_density(dnt_G, dD_ap)
+        # (The latter is not counted in dNt)
 
         # Construct new spin up/down densities
         nt_sG[0] = 0.5 * (nt_G + dnt_G)
@@ -658,11 +501,70 @@ class FFTMixerDif(FFTBaseMixer):
             D_sp[1] = 0.5 * (D_p - dD_p)
         return dNt
 
-class ReciprocalMetric:
-    def __init__(self, weight, k2_Q):
-        self.k2_Q = k2_Q
-        k2_min = np.min(self.k2_Q)
-        self.q1 = (weight - 1) * k2_min
 
-    def __call__(self, R_Q, mR_Q):
-            mR_Q[:] = R_Q * (1.0 + self.q1 / self.k2_Q)
+def Mixer(beta=0.1, nmaxold=3, weight=50.0):
+    return SeparateSpinMixerDriver(BaseMixer, beta, nmaxold, weight)
+
+
+def MixerSum(beta=0.1, nmaxold=3, weight=50.0):
+    return SpinSumMixerDriver(BaseMixer, False, beta, nmaxold, weight)
+
+
+def MixerSum2(beta=0.1, nmaxold=3, weight=50.0):
+    return SpinSumMixerDriver(BaseMixer, True, beta, nmaxold, weight)
+
+
+def MixerDif(beta=0.1, nmaxold=3, weight=50.0,
+             beta_m=0.7, nmaxold_m=2, weight_m=10.0):
+    return SpinDifferenceMixerDriver(BaseMixer, beta, nmaxold, weight,
+                                     beta_m, nmaxold_m, weight_m)
+
+
+def FFTMixer(beta=0.4, nmaxold=3, weight=20.0):
+    return SeparateSpinMixerDriver(FFTBaseMixer, beta, nmaxold, weight)
+
+
+def FFTMixerSum(beta=0.4, nmaxold=3, weight=20.0):
+    return SpinSumMixerDriver(FFTBaseMixer, False, beta, nmaxold, weight)
+
+
+def FFTMixerSum2(beta=0.4, nmaxold=3, weight=20.0):
+    return SpinSumMixerDriver(FFTBaseMixer, True, beta, nmaxold, weight)
+
+
+def FFTMixerDif(beta=0.1, nmaxold=3, weight=20.0,
+                # XXXXX is it on purpose that weight_m is 1 and not 10?
+                # Also, should the parameters not default to the same
+                # as FFTMixer otherwise?
+                beta_m=0.7, nmaxold_m=2, weight_m=1.0):
+    return SpinDifferenceMixerDriver(BaseMixer, beta, nmaxold, weight,
+                                     beta_m, nmaxold_m, weight_m)
+
+
+def BroydenMixer(beta=0.1, nmaxold=6, weight=1):
+    return SeparateSpinMixerDriver(BroydenBaseMixer, beta, nmaxold, weight)
+
+
+def BroydenMixerSum(beta=0.4, nmaxold=3, weight=20.0):
+    return SpinSumMixerDriver(BroydenBaseMixer, False, beta, nmaxold, weight)
+
+
+def BroydenMixerSum2(beta=0.4, nmaxold=3, weight=20.0):
+    return SpinSumMixerDriver(BroydenBaseMixer, True, beta, nmaxold, weight)
+
+# There is no BroydenMixerDif?
+
+if 0:
+    class MixerRho(BaseMixer):
+        mix_rho = True
+        def initialize(self, nspins, gd):
+            self.initialize_metric(gd)
+
+        def mix(self, rhot_g, D_asp):
+            """Mix pseudo electron densities."""
+            return self.mix_single_density(rhot_g, [])
+
+
+    class MixerRho2(MixerRho):
+        def mix(self, rhot_g, D_asp):
+            return self.mix_single_density(rhot_g, D_asp.values())

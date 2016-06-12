@@ -9,7 +9,7 @@ from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.utilities import unpack
 from gpaw.utilities.blas import gemm
-from gpaw.mixer import BaseMixer
+from gpaw.mixer import BaseMixer, SeparateSpinMixerDriver
 from gpaw.utilities.tools import tri2full
 from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
@@ -357,7 +357,16 @@ class NonCollinearLCAOWaveFunctions(LCAOWaveFunctions):
             D_ii += 0.5 * (D0_ii.real + D0_ii.T.real)
 
 
-class NonCollinearMixer(BaseMixer):
-    def mix(self, nt_sG, D_asp):
-        return BaseMixer.mix(self, nt_sG[0],
-                             [D_sp[0] for D_sp in D_asp.values()])
+
+class NonCollinearMixer(SeparateSpinMixerDriver):
+    def __init__(self, beta=0.1, nmaxold=3, weight=50.0):
+        SeparateSpinMixerDriver.__init__(self, BaseMixer, beta, nmaxold,
+                                         weight)
+    def get_basemixers(self, nspins):
+        return SeparateSpinMixerDriver.get_basemixers(self, 1)
+
+    def mix(self, basemixers, nt_sG, D_asp):
+        assert len(basemixers) == 1
+        return SeparateSpinMixerDriver.mix(self, basemixers, nt_sG[:1],
+                                           dict([(a, D_asp[a][:1])
+                                                 for a in D_asp]))
