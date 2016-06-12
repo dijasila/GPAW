@@ -895,16 +895,9 @@ class Transport(GPAW):
 
     def copy_mixer_history(self, calc, guess_type='normal'):
         self.log('copy_mixer_history()')
-        if hasattr(self.density.mixer, 'mixers'):  #for Mixer
-            mixers = calc.density.mixer.mixers
-            mixers0 = self.density.mixer.mixers
-        elif hasattr(self.density.mixer, 'mixer'):   #for MixerDif
-            mixers = [calc.density.mixer.mixer, calc.density.mixer.mixer_m]
-            mixers0 = [self.density.mixer.mixer, self.density.mixer.mixer_m]
-        else:  #for BroydenMixer or BroydenMixerSum
-            mixers = [calc.density.mixer]
-            mixers0 = [self.density.mixer]
-        
+        mixers = calc.density.mixer.basemixers
+        mixers0 = self.density.mixer.basemixers
+
         if guess_type == 'buffer':
             from gpaw.transport.tools import cut_grids_side, \
                                collect_and_distribute_atomic_matrices
@@ -2680,7 +2673,9 @@ class Transport(GPAW):
                 N_c[2] += self.bnc[i]
             p['gpts'] = N_c
             if 'mixer' in p:
-                if hasattr(self.density.mixer, 'mixers'):
+                from gpaw.mixer import SeparateSpinMixerDriver
+                if isinstance(self.density.mixer.driver,
+                              SeparateSpinMixerDriver):
                     p['mixer'] = Mixer(self.density.mixer.beta, 5, weight=100.0)
                 else:
                     p['mixer'] = MixerDif(self.density.mixer.beta, 5, weight=100.0)
