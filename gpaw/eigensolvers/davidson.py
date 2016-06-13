@@ -1,6 +1,5 @@
 import numpy as np
 
-from gpaw.utilities.blas import gemm
 from gpaw.utilities.lapack import general_diagonalize
 from gpaw.utilities import unpack
 from gpaw.hs_operators import reshape
@@ -92,8 +91,8 @@ class Davidson(Eigensolver):
 
         # Note on band parallelization
         # The "large" H_2n2n and S_2n2n matrices are at the moment
-        # global and replicated over band communicator, and the 
-        # general diagonalization is performed in serial i.e. without 
+        # global and replicated over band communicator, and the
+        # general diagonalization is performed in serial i.e. without
         # scalapack
 
         for nit in range(niter):
@@ -145,16 +144,14 @@ class Davidson(Eigensolver):
             def H(psit_xG):
                 result_xG = R_nG
                 wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
-                                         result_xG)
-                hamiltonian.xc.apply_orbital_dependent_hamiltonian(
-                    kpt, psit_xG, result_xG, hamiltonian.dH_asp)
+                                             result_xG)
                 return result_xG
 
             def dH(a, P_ni):
                 return np.dot(P_ni, unpack(hamiltonian.dH_asp[a][kpt.s]))
 
             H_nn = self.operator.calculate_matrix_elements(psit_nG, kpt.P_ani,
-                                                           H, dH, psit2_nG, 
+                                                           H, dH, psit2_nG,
                                                            P2_ani)
 
             H_2n2n[nbands:, :nbands] = H_nn
@@ -183,18 +180,18 @@ class Davidson(Eigensolver):
             def dS(a, P_ni):
                 return np.dot(P_ni, wfs.setups[a].dO_ii)
 
-            S_nn = self.operator.calculate_matrix_elements(psit_nG, kpt.P_ani, 
-                                                           S, dS, psit2_nG, 
+            S_nn = self.operator.calculate_matrix_elements(psit_nG, kpt.P_ani,
+                                                           S, dS, psit2_nG,
                                                            P2_ani)
 
             S_2n2n[nbands:, :nbands] = S_nn
 
             # <psi2 | S | psi2>
-            S_nn = self.operator.calculate_matrix_elements(psit2_nG, P2_ani, 
+            S_nn = self.operator.calculate_matrix_elements(psit2_nG, P2_ani,
                                                            S, dS)
             S_2n2n[nbands:, nbands:] = S_nn
 
-            self.timer.stop('calc. matrices')            
+            self.timer.stop('calc. matrices')
 
             self.timer.start('diagonalize')
             if gd.comm.rank == 0 and bd.comm.rank == 0:
@@ -226,22 +223,22 @@ class Davidson(Eigensolver):
             # Rotate psit_nG
 
             # Memory references during rotate:
-            # Case 1, no band parallelization:            
+            # Case 1, no band parallelization:
             #   Before 1. matrix multiply: psit_nG -> operator.work1_xG
             #   After  1. matrix multiply: psit_nG -> R_nG
             #   After  2. matrix multiply: tmp_nG -> work1_xG
-            # 
+            #
             # Case 2, band parallelization
             # Work arrays used only in send/recv buffers,
             # psit_nG -> psit_nG
             # tmp_nG -> psit2_nG
 
-            psit_nG = self.operator.matrix_multiply(H_2n2n[:nbands, :nbands], 
+            psit_nG = self.operator.matrix_multiply(H_2n2n[:nbands, :nbands],
                                                     psit_nG, kpt.P_ani,
                                                     out_nG=R_nG)
 
-            tmp_nG = self.operator.matrix_multiply(H_2n2n[:nbands, nbands:], 
-                                                    psit2_nG, P2_ani)
+            tmp_nG = self.operator.matrix_multiply(H_2n2n[:nbands, nbands:],
+                                                   psit2_nG, P2_ani)
 
             if bd.comm.size > 1:
                 psit_nG += tmp_nG
