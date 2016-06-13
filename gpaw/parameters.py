@@ -44,7 +44,7 @@ class InputParameters(dict):
             ('random', False),
             ('dtype', None),
             ('filter', None),
-            ('maxiter', 333),  # google it's spiritual meaning!
+            ('maxiter', 333),  # google its spiritual meaning!
             ('parallel', {'kpt': None,
                           'domain': gpaw.parsize_domain,
                           'band': gpaw.parsize_bands,
