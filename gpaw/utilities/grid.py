@@ -6,90 +6,123 @@ from gpaw.utilities.grid_redistribute import general_redistribute
 from gpaw.utilities.partition import AtomPartition, AtomicMatrixDistributor
 
 
-class Grid2Grid:
-    def __init__(self, comm, broadcast_comm, gd, big_gd, enabled=True):
+class GridRedistributor:
+    def __init__(self, comm, broadcast_comm, gd, aux_gd):
         self.comm = comm
         self.broadcast_comm = broadcast_comm
         self.gd = gd
-        self.big_gd = big_gd
-        self.enabled = enabled
-        
-        if big_gd.comm.rank == 0:
-            big_ranks = gd.comm.translate_ranks(big_gd.comm,
+        self.aux_gd = aux_gd
+        self.enabled = np.any(gd.parsize_c != aux_gd.parsize_c)
+
+        assert gd.comm.size * broadcast_comm.size == comm.size
+        if self.enabled:
+            assert comm.compare(aux_gd.comm) in ['ident', 'congruent']
+        else:
+            assert gd.comm.compare(aux_gd.comm) in ['ident', 'congruent']
+
+        if aux_gd.comm.rank == 0:
+            aux_ranks = gd.comm.translate_ranks(aux_gd.comm,
                                                 np.arange(gd.comm.size))
         else:
-            big_ranks = np.empty(gd.comm.size, dtype=int)
-        big_gd.comm.broadcast(big_ranks, 0)
-        
-        bigrank2rank = dict(zip(big_ranks, np.arange(gd.comm.size)))
+            aux_ranks = np.empty(gd.comm.size, dtype=int)
+        aux_gd.comm.broadcast(aux_ranks, 0)
+
+        auxrank2rank = dict(zip(aux_ranks, np.arange(gd.comm.size)))
         def rank2parpos1(rank):
-            if rank in bigrank2rank:
-                return gd.get_processor_position_from_rank(bigrank2rank[rank])
+            if rank in auxrank2rank:
+                return gd.get_processor_position_from_rank(auxrank2rank[rank])
             else:
                 return None
 
-        rank2parpos2 = big_gd.get_processor_position_from_rank
+        rank2parpos2 = aux_gd.get_processor_position_from_rank
 
-        self._distribute = partial(general_redistribute, big_gd.comm,
-                                   gd.n_cp, big_gd.n_cp,
+        try:
+            gd.n_cp
+        except AttributeError:  # AtomPAW
+            self._distribute = self._collect = lambda x: None
+            return  # XXX
+
+        self._distribute = partial(general_redistribute, aux_gd.comm,
+                                   gd.n_cp, aux_gd.n_cp,
                                    rank2parpos1, rank2parpos2)
-        self._collect = partial(general_redistribute, big_gd.comm,
-                                big_gd.n_cp, gd.n_cp,
+        self._collect = partial(general_redistribute, aux_gd.comm,
+                                aux_gd.n_cp, gd.n_cp,
                                 rank2parpos2, rank2parpos1)
-    
+
     def distribute(self, src_xg, dst_xg=None):
+        if not self.enabled:
+            assert src_xg is dst_xg or dst_xg is None
+            return src_xg
         if dst_xg is None:
-            dst_xg = self.big_gd.empty(src_xg.shape[:-3], dtype=src_xg.dtype)
+            dst_xg = self.aux_gd.empty(src_xg.shape[:-3], dtype=src_xg.dtype)
         self._distribute(src_xg, dst_xg)
         return dst_xg
-    
+
     def collect(self, src_xg, dst_xg=None):
+        if not self.enabled:
+            assert src_xg is dst_xg or dst_xg is None
+            return src_xg
         if dst_xg is None:
             dst_xg = self.gd.empty(src_xg.shape[:-3], src_xg.dtype)
         self._collect(src_xg, dst_xg)
         self.broadcast_comm.broadcast(dst_xg, 0)
         return dst_xg
 
-    # Strangely enough the purpose of this is to appease AtomPAW
-    def new(self, gd, big_gd):
-        return Grid2Grid(self.comm, self.broadcast_comm, gd, big_gd,
-                         self.enabled)
+    def get_atom_distributions(self, spos_ac):
+        return AtomDistributions(self.comm, self.broadcast_comm,
+                                 self.gd, self.aux_gd, spos_ac)
 
-    def get_matrix_distributor(self, atom_partition, spos_ac=None):
-        if spos_ac is None:
-            rank_a = np.zeros(self.big_gd.comm.size, dtype=int)
+
+class AtomDistributions:
+    def __init__(self, comm, broadcast_comm, gd, aux_gd, spos_ac):
+        self.comm = comm
+        self.broadcast_comm = broadcast_comm
+        self.gd = gd
+        self.aux_gd = aux_gd
+
+        rank_a = gd.get_ranks_from_positions(spos_ac)
+        aux_rank_a = aux_gd.get_ranks_from_positions(spos_ac)
+        self.partition = AtomPartition(gd.comm, rank_a, name='gd')
+
+        if gd is aux_gd:
+            name = 'aux-unextended'
         else:
-            rank_a = self.big_gd.get_ranks_from_positions(spos_ac)
-        big_partition = AtomPartition(self.big_gd.comm, rank_a)
-        return AtomicMatrixDistributor(atom_partition, self.broadcast_comm,
-                                       big_partition)
+            name = 'aux-extended'
+        self.aux_partition = AtomPartition(aux_gd.comm, aux_rank_a, name=name)
+
+        self.work_partition = AtomPartition(comm, np.zeros(len(spos_ac)),
+                                            name='work').as_even_partition()
+
+        if gd is aux_gd:
+            aux_broadcast_comm = gd.comm.new_communicator([gd.comm.rank])
+        else:
+            aux_broadcast_comm = broadcast_comm
+
+        self.aux_dist = AtomicMatrixDistributor(self.partition,
+                                                aux_broadcast_comm,
+                                                self.aux_partition)
+        self.work_dist = AtomicMatrixDistributor(self.partition,
+                                                 broadcast_comm,
+                                                 self.work_partition)
+
+    def to_aux(self, arraydict):
+        if self.gd is self.aux_gd:
+            return arraydict.copy()
+        return self.aux_dist.distribute(arraydict)
+
+    def from_aux(self, arraydict):
+        if self.gd is self.aux_gd:
+            return arraydict.copy()
+        return self.aux_dist.collect(arraydict)
+
+    def to_work(self, arraydict):
+        return self.work_dist.distribute(arraydict)
+
+    def from_work(self, arraydict):
+        return self.work_dist.collect(arraydict)
 
 
-class NullGrid2Grid:
-    def __init__(self, aux_gd):
-        self.gd = aux_gd
-        self.big_gd = aux_gd
-        self.enabled = False
-
-    def distribute(self, src_xg, dst_xg=None):
-        assert src_xg is dst_xg or dst_xg is None
-        return src_xg
-
-    collect = distribute
-
-    def get_matrix_distributor(self, atom_partition, spos_ac=None):
-        class NullMatrixDistributor:
-            def distribute(self, D_asp):
-                return D_asp
-            collect = distribute
-        return NullMatrixDistributor()
-
-    def new(self, gd, big_gd):
-        assert np.all(gd.n_c == big_gd.n_c)
-        return NullGrid2Grid(gd)
-
-
-def grid2grid(comm, gd1, gd2, src_g, dst_g):
+def grid2grid(comm, gd1, gd2, src_g, dst_g, offset1_c=None, offset2_c=None):
     assert np.all(src_g.shape == gd1.n_c)
     assert np.all(dst_g.shape == gd2.n_c)
 
@@ -102,25 +135,41 @@ def grid2grid(comm, gd1, gd2, src_g, dst_g):
     assert (ranks2 >= 0).all(), 'comm not parent of gd2.comm'
 
     def rank2parpos(gd, rank):
-        gdrank = comm.translate_ranks(gd.comm, [rank])[0]
+        gdrank = comm.translate_ranks(gd.comm, np.array([rank]))[0]
+        # XXXXXXXXXXXXX segfault when not passing array!!
         if gdrank == -1:
             return None
         return gd.get_processor_position_from_rank(gdrank)
     rank2parpos1 = partial(rank2parpos, gd1)
     rank2parpos2 = partial(rank2parpos, gd2)
 
+
+    def add_offset(n_cp, offset_c):
+        n_cp = [n_p.copy() for n_p in n_cp]
+        for c in range(3):
+            n_cp[c] += offset_c[c]
+        return n_cp
+
+    n1_cp = gd1.n_cp
+    if offset1_c is not None:
+        n1_cp = add_offset(n1_cp, offset1_c)
+
+    n2_cp = gd2.n_cp
+    if offset2_c is not None:
+        n2_cp = add_offset(n2_cp, offset2_c)
+
     general_redistribute(comm,
-                         gd1.n_cp, gd2.n_cp,
+                         n1_cp, n2_cp,
                          rank2parpos1, rank2parpos2,
                          src_g, dst_g)
 
 def main():
     from gpaw.grid_descriptor import GridDescriptor
     from gpaw.mpi import world
-    
+
     serial = world.new_communicator([world.rank])
 
-    # Genrator which must run on all ranks
+    # Generator which must run on all ranks
     gen = np.random.RandomState(0)
 
     # This one is just used by master
@@ -130,7 +179,7 @@ def main():
     for i in range(1):
         N1_c = gen.randint(1, maxsize, 3)
         N2_c = gen.randint(1, maxsize, 3)
-        
+
         gd1 = GridDescriptor(N1_c, N1_c)
         gd2 = GridDescriptor(N2_c, N2_c)
         serial_gd1 = gd1.new_descriptor(comm=serial)

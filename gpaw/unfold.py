@@ -4,7 +4,6 @@ import pickle
 from ase.units import Hartree
 
 from gpaw import GPAW
-from gpaw.response.cell import get_primitive_cell
 from gpaw.kpt_descriptor import to1bz
 from gpaw.spinorbit import get_spinorbit_eigenvalues
 from gpaw.wavefunctions.pw import PWDescriptor
@@ -37,10 +36,10 @@ class Unfold:
             self.pd = PWDescriptor(ecut=None, gd=self.gd, kd=self.kd,
                                    dtype=complex)
 
-        rpad = np.ones(3, int)
         self.acell_cv = self.gd.cell_cv
-        self.acell_cv, self.bcell_cv, self.vol, self.BZvol = \
-            get_primitive_cell(self.acell_cv, rpad=rpad)
+        self.bcell_cv = 2 * np.pi * self.gd.icell_cv
+        self.vol = self.gd.volume
+        self.BZvol = (2 * np.pi)**3 / self.vol
         
         self.nb = self.calc.get_number_of_bands()
         
@@ -184,37 +183,42 @@ class Unfold:
         
         world = mpi.world
         if filename is None:
-            e_Km = []
-            P_Km = []
-            if world.rank == 0:
-                print('Getting EigenValues and Weights')
+            try:
+                e_mK, P_mK = pickle.load(open('weights_' + self.name +
+                                              '.pckl', 'rb'))
+            except IOError:
+                e_Km = []
+                P_Km = []
+                if world.rank == 0:
+                    print('Getting EigenValues and Weights')
                 
-            e_Km = np.zeros((Nk, Nb))
-            P_Km = np.zeros((Nk, Nb))
-            myk = range(0, Nk)[world.rank::world.size]
-            for ik in myk:
-                k = kpoints[ik]
-                print('kpoint: %s' % k)
-                K_c, G_c = find_K_from_k(k, self.M)
-                iK = self.get_K_index(K_c)
-                e_Km[ik] = self.get_eigenvalues(iK)
-                P_Km[ik] = self.get_spectral_weights_k(k)
+                e_Km = np.zeros((Nk, Nb))
+                P_Km = np.zeros((Nk, Nb))
+                myk = range(0, Nk)[world.rank::world.size]
+                for ik in myk:
+                    k = kpoints[ik]
+                    print('kpoint: %s' % k)
+                    K_c, G_c = find_K_from_k(k, self.M)
+                    iK = self.get_K_index(K_c)
+                    e_Km[ik] = self.get_eigenvalues(iK)
+                    P_Km[ik] = self.get_spectral_weights_k(k)
+                    
+                world.barrier()
+                world.sum(e_Km)
+                world.sum(P_Km)
 
-            world.barrier()
-            world.sum(e_Km)
-            world.sum(P_Km)
-
-            e_mK = np.array(e_Km).T
-            P_mK = np.array(P_Km).T
-            if world.rank == 0:
-                pickle.dump((e_mK, P_mK), open('weights_' + self.name +
-                                               '.pckl', 'wb'))
+                e_mK = np.array(e_Km).T
+                P_mK = np.array(P_Km).T
+                if world.rank == 0:
+                    pickle.dump((e_mK, P_mK),
+                                open('weights_' + self.name + '.pckl', 'wb'))
         else:
             e_mK, P_mK = pickle.load(open(filename, 'rb'))
 
         return e_mK, P_mK
   
-    def spectral_function(self, kpts, width=0.002, npts=10000, filename=None):
+    def spectral_function(self, kpts, x, X, points_name, width=0.002,
+                          npts=10000, filename=None):
         """Returns the spectral function for all the ks in kpoints:
                                                                                             
                                               eta / pi
@@ -244,8 +248,10 @@ class Unfold:
                 D = (width / 2 / np.pi) / ((e - e0)**2 + (width / 2)**2)
                 A_ke[ik] += P_mK[ie, ik] * D
         if world.rank == 0:
-            pickle.dump((e, A_ke), open('sf_' + self.name + '.pckl', 'wb'))
+            pickle.dump((e * Hartree, A_ke, x, X, points_name),
+                        open('sf_' + self.name + '.pckl', 'wb'))
             print('Spectral Function calculation completed!')
+        return
 
 
 def find_K_from_k(k, M):
@@ -305,14 +311,23 @@ def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Knm=None):
         return ut_mgrid
 
 
-def plot_spectral_function(e, A_ke, x, X, points_name,
-                           color='blue', emin=None, emax=None):
+def plot_spectral_function(filename, color='blue', eref=None,
+                           emin=None, emax=None):
     """Function to plot spectral function corresponding to the bandstructure
     along the kpoints path."""
- 
+
+    try:
+        e, A_ke, x, X, points_name = pickle.load(open(filename + '.pckl',
+                                                      'rb'))
+    except IOError:
+        print('You Need to Calculate the SF first!')
+        raise SystemExit()
+
     import matplotlib.pyplot as plt
     print('Plotting Spectral Function')
 
+    if eref is not None:
+        e -= eref
     if emin is None:
         emin = e.min()
     if emax is None:
@@ -341,7 +356,7 @@ def plot_spectral_function(e, A_ke, x, X, points_name,
     plt.yticks(size=20)
     plt.ylabel('E(eV)', size=20)
     plt.axis([0, x[-1], emin, emax])
-    plt.savefig('sf.png')
+    plt.savefig(filename + '.png')
     plt.show()
 
 

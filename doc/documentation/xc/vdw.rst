@@ -34,6 +34,11 @@ in the GPAW calculator object.
 However, parameters of the FFT algorithm can be assigned non-default values
 by importing the vdW-DF base class.
 
+For larger systems, the van der Waals functionals may be
+computationally expensive.  Consider using :ref:`libvdwxc <libvdwxc-doc>` which typically
+increases the efficiency of the van der Waals evaluation by an order
+of magnitude, and parallelizes to any desired system size.
+
 
 Selfconsistent vdW-DF calculations
 -------------------------------------

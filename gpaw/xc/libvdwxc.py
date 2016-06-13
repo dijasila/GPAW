@@ -87,7 +87,9 @@ class LibVDWXC(object):
                                     % comm.size)
             _gpaw.libvdwxc_init_serial(self._ptr)
         elif comm.get_c_object() is None:
-            pass  # For dry run.  XXXXXX liable to cause really nasty errors.
+            from gpaw.mpi import DryRunCommunicator
+            # XXXXXX liable to cause really nasty errors.
+            assert isinstance(comm, DryRunCommunicator)
         elif mode == 'mpi':
             if not libvdwxc_has_mpi():
                 raise ImportError('libvdwxc not compiled with MPI')
@@ -204,7 +206,8 @@ class FFTDistribution:
 
 class VDWXC(GGA, object):
     def __init__(self, gga_kernel, name, mode='auto',
-                 pfft_grid=None):
+                 pfft_grid=None, libvdwxc_name=None,
+                 setup_name='revPBE'):
         """Initialize VDWXC object (further initialization required).
 
         mode can be 'auto', 'serial', 'mpi', or 'pfft'.
@@ -233,29 +236,47 @@ class VDWXC(GGA, object):
         self.distribution = None
         self.redist_wrapper = None
         self.timer = nulltimer
+        self.setup_name = setup_name
 
         # These parameters are simply stored for later forwarding
-        self._vdw_functional_name = name
+        self.name = name
+        if libvdwxc_name is None:
+            libvdwxc_name = name
+        self._libvdwxc_name = libvdwxc_name
         self._mode = mode
         self._pfft_grid = pfft_grid
 
-    @property
-    def name(self):
-        if self.libvdwxc is None:
-            return 'libvdwxc (uninitialized)'
-        return self.libvdwxc.get_description()
+        self.last_nonlocal_energy = None
+        self.last_semilocal_energy = None
 
-    @name.setter
-    def name(self, value):
-        # Somewhere in the class hierarchy, someone tries to set the name.
-        pass
+    def get_description(self):
+        lines = []
+        app = lines.append
+        app(self.libvdwxc.get_description())
+        app('GGA kernel: %s' % self.kernel.name)
+        app('libvdwxc parameters for non-local correlation:')
+        app(self.libvdwxc.tostring())
+        return '\n'.join(lines)
+
+    def summary(self, fd):
+        from ase.units import Hartree
+        enl = self.libvdwxc.comm.sum(self.last_nonlocal_energy)
+        esl = self.gd.comm.sum(self.last_semilocal_energy)
+        # In the current implementation these communicators have the same
+        # processes always:
+        assert self.libvdwxc.comm.size == self.gd.comm.size
+        fd.write('Non-local %s correlation energy: %.6f\n' % (self.name,
+                                                              enl * Hartree))
+        fd.write('Semilocal %s energy: %.6f\n' % (self.kernel.name,
+                                                  esl * Hartree))
+        fd.write('(Not including atomic contributions)\n')
 
     def get_setup_name(self):
-        return 'revPBE'
+        return self.setup_name
 
     def _initialize(self, gd):
         N_c = gd.get_size_of_global_array(pad=True)
-        self.libvdwxc = LibVDWXC(self._vdw_functional_name, N_c, gd.cell_cv,
+        self.libvdwxc = LibVDWXC(self._libvdwxc_name, N_c, gd.cell_cv,
                                  gd.comm, mode=self._mode,
                                  pfft_grid=self._pfft_grid)
         cpugrid = [1, 1, 1]
@@ -273,18 +294,20 @@ class VDWXC(GGA, object):
         self.timer = hamiltonian.timer  # fragile object robbery
         self.timer.start('initialize')
         try:
-            gd = density.xc_grid2grid.big_gd
+            gd = density.xc_redistributor.aux_gd  # fragile
         except AttributeError:
             gd = density.finegd
-        if wfs.world.size > gd.comm.size:
+        if wfs.world.size > gd.comm.size and np.prod(gd.N_c) > 64**3:
             # We could issue a warning if an excuse turns out to exist some day
             raise ValueError('You are using libvdwxc with only '
-                             '%d out of %d available cores.  This is not '
+                             '%d out of %d available cores in a non-small '
+                             'calculation (%s points).  This is not '
                              'a crime but is likely silly and therefore '
                              'triggers and error.  Please use '
                              'parallel={\'augment_grids\': True} '
                              'or complain to the developers.' %
-                             (gd.comm.size, wfs.world.size))
+                             (gd.comm.size, wfs.world.size,
+                              ' x '.join(str(N) for N in gd.N_c)))
         self._initialize(gd)
         # TODO Here we could decide FFT padding.
         self.timer.stop('initialize')
@@ -315,6 +338,7 @@ class VDWXC(GGA, object):
         sigma_xg[:] = np.abs(sigma_xg)
         self.timer.start('semilocal')
         GGA.calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        self.last_semilocal_energy = e_g.sum() * self.gd.dv
         self.timer.stop('semilocal')
 
         energy_nonlocal = self.redist_wrapper.calculate(
@@ -323,6 +347,7 @@ class VDWXC(GGA, object):
         # XXXXXXXXXXXXXXXX ignoring vdwcoef
 
         # XXXXXXXXXXXXXXXX ugly
+        self.last_nonlocal_energy = energy_nonlocal
         e_g[0, 0, 0] += energy_nonlocal / self.gd.dv
         self.timer.stop('van der Waals')
 
@@ -343,14 +368,51 @@ def vdw_df2(*args, **kwargs):
 
 
 def vdw_df_cx(*args, **kwargs):
-    # Exists also in libxc 2.2.2 or newer (or maybe from older)
-    kernel = CXGGAKernel()
+    try:
+        # Exists in libxc 2.2.2 or newer (or maybe from older)
+        kernel = LibXC('GGA_X_LV_RPW86+LDA_C_PW')
+    except NameError:
+        kernel = CXGGAKernel()
+
+    # Hidden debug feature
+    if kwargs.get('gga_backend') == 'purepython':
+        kernel = CXGGAKernel()
+        kwargs.pop('gga_backend')
+    assert 'gga_backend' not in kwargs
+
     return VDWXC(gga_kernel=kernel, name='vdW-DF-CX', *args, **kwargs)
 
 
-def vdw_df_cx_libxc(*args, **kwargs):
-    kernel = LibXC('GGA_X_LV_RPW86+LDA_C_PW')
-    return VDWXC(gga_kernel=kernel, name='vdW-DF-CX', *args, **kwargs)
+def vdw_optPBE(*args, **kwargs):
+    kernel = LibXC('GGA_X_OPTPBE_VDW+LDA_C_PW')
+    return VDWXC(gga_kernel=kernel, name='vdW-optPBE',
+                 libvdwxc_name='vdW-DF', *args, **kwargs)
+
+
+def vdw_optB88(*args, **kwargs):
+    kernel = LibXC('GGA_X_OPTB88_VDW+LDA_C_PW')
+    return VDWXC(gga_kernel=kernel, name='optB88',
+                 libvdwxc_name='vdW-DF', *args, **kwargs)
+
+
+def vdw_C09(*args, **kwargs):
+    kernel = LibXC('GGA_X_C09X+LDA_C_PW')
+    return VDWXC(gga_kernel=kernel, name='vdW-C09',
+                 libvdwxc_name='vdW-DF', *args, **kwargs)
+
+
+def vdw_beef(*args, **kwargs):
+    # Kernel parameters stolen from vdw.py
+    from gpaw.xc.bee import BEEVDWKernel
+    kernel = BEEVDWKernel('BEE2', None,
+                          0.600166476948828631066,
+                          0.399833523051171368934)
+    return VDWXC(gga_kernel=kernel, name='vdW-BEEF',
+                 setup_name='PBE', libvdwxc_name='vdW-DF2',
+                 *args, **kwargs)
+
+# Finally, mBEEF is an MGGA.  For that we would have to un-subclass GGA
+# and subclass MGGA.  Maybe the XC object architecture could be improved...
 
 
 class CXGGAKernel:
@@ -359,9 +421,9 @@ class CXGGAKernel:
         self.type = 'GGA'
         self.lda_c = LibXC('LDA_C_PW')
         if self.just_kidding:
-            self.name = 'rPW86_with_%s' % self.lda_c.name
+            self.name = 'purepython rPW86_with_%s' % self.lda_c.name
         else:
-            self.name = 'CX'
+            self.name = 'purepython CX'
 
     def calculate(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         e_g[:] = 0.0
@@ -404,7 +466,7 @@ class CXGGAKernel:
         s_5 = s_4 * s_1
         s_6 = s_5 * s_1
 
-        fs_rPW86 = (1.0 + a * s_2 + b * s_4 + c * s_6)**(1./15.)
+        fs_rPW86 = (1.0 + a * s_2 + b * s_4 + c * s_6)**(1. / 15.)
 
         if self.just_kidding:
             fs = fs_rPW86
@@ -422,15 +484,15 @@ class CXGGAKernel:
             df_ds = df_rPW86_ds  # XXXXXXXXXXXXXXXXXXXX
         else:
             df_ds = 1. / (1. + alp * s_6)**2 \
-                * (2.0 * mu_LM * s_1 * (1. + alp * s_6)
-                   - 6.0 * alp * s_5 * (1. + mu_LM * s_2)) \
+                * (2.0 * mu_LM * s_1 * (1. + alp * s_6) -
+                   6.0 * alp * s_5 * (1. + mu_LM * s_2)) \
                 + alp * s_6 / (beta + alp * s_6) * df_rPW86_ds \
                 + 6.0 * alp * s_5 * fs_rPW86 / (beta + alp * s_6) \
                 * (1. - alp * s_6 / (beta + alp * s_6))
 
         # de/dn.  This is the partial derivative of sx wrt. n, for s constant
-        v1x[:] += Ax * four_thirds * (rho**(1. / 3.) * fs
-                                      - grad_rho / (s_prefactor * rho) * df_ds)
+        v1x[:] += Ax * four_thirds * (rho**(1. / 3.) * fs -
+                                      grad_rho / (s_prefactor * rho) * df_ds)
         # de/d(nabla n).  The other partial derivative
         v2x[:] += 0.5 * Ax * df_ds / (s_prefactor * grad_rho)
         # (We may or may not understand what that grad_rho is doing here.)

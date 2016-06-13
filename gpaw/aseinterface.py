@@ -447,19 +447,22 @@ class GPAW(PAW):
         return fold(energies * Hartree, weights, npts, width)
 
     def get_pseudo_wave_function(self, band=0, kpt=0, spin=0, broadcast=True,
-                                 pad=True):
+                                 pad=True, periodic=False):
         """Return pseudo-wave-function array.
 
         Units: 1/Angstrom^(3/2)
         """
         if pad:
             psit_G = self.get_pseudo_wave_function(band, kpt, spin, broadcast,
-                                                   pad=False)
+                                                   pad=False,
+                                                   periodic=periodic)
             if psit_G is None:
                 return
             else:
                 return self.wfs.gd.zero_pad(psit_G)
-        psit_G = self.wfs.get_wave_function_array(band, kpt, spin)
+
+        psit_G = self.wfs.get_wave_function_array(band, kpt, spin,
+                                                  periodic=periodic)
         if broadcast:
             if not self.wfs.world.rank == 0:
                 psit_G = self.wfs.gd.empty(dtype=self.wfs.dtype,

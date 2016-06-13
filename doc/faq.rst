@@ -126,33 +126,6 @@ You can also try to set the number of grid points to be divisible by 8.
 Consult the :ref:`poisson_performance` page.
 
 
-How to switch between several GPAW versions
-===========================================
-
-For each GPAW installation use a separate, modified submit tool:
-:git:`~doc/documentation/parallel_runs/gpaw-qsub`.
-
-Assuming that your :ref:`developer installation` is under
-:file:`~/gpaw.test`, and the :command:`gpaw-python` under
-:file:`~/gpaw.test/build/bin.linux-x86_64-2.3/`, modify the submit
-tool: :git:`~doc/documentation/parallel_runs/gpaw-qsub`:
-
-* set the :envvar:`PYTHONPATH` and :envvar:`PATH` passed to :command:`mpirun`::
-
-   ...
-   'export PYTHONPATH=${HOME}/gpaw.test:${PYTHONPATH} && ' +
-   'export PATH=${HOME}/gpaw.test/build/bin.linux-x86_64-2.3:${PATH} && ' +
-   'mpirun')
-
-* make sure that the corresponding :command:`gpaw-python` is used::
-
-   os.system('%s gpaw-python JOB' % (mpirun))
-
-Alternatively, instead of modifying
-:git:`~doc/documentation/parallel_runs/gpaw-qsub`
-create a bash function - see :ref:`Niflheim` for details.
-
-
 Tests fail!
 ===========
 

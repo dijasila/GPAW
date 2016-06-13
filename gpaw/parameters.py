@@ -27,6 +27,7 @@ class InputParameters(dict):
             ('kpts', [(0.0, 0.0, 0.0)]),
             ('lmax', 2),
             ('charge', 0),
+            ('background_charge', None),
             ('fixmom', False),  # don't use this
             ('nbands', None),
             ('setups', 'paw'),

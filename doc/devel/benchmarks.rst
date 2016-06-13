@@ -554,7 +554,7 @@ on `4x4` blacs grid with block size of `64` specified by adding ``--gpaw=blacs=1
 
 **Note** also that a default domain decomposition is appplied, and different
 results can be obtained by tuning ``--domain-decomposition`` argument
-to your platform (see :ref:`submit_tool_on_niflheim`).
+to your platform.
 
 **Note**: the ``--gpaw=usenewlfc=1`` option is required to skip the calculation of forces
 and decrease **memory** usage.
@@ -711,7 +711,7 @@ on `5x5` blacs grid with block size of `64` specified by adding ``--gpaw=blacs=1
 
 **Note** also that a default domain decomposition is appplied, and different
 results can be obtained by tuning ``--domain-decomposition`` argument
-to your platform (see :ref:`submit_tool_on_niflheim`).
+to your platform.
 
 **Note**: the ``--gpaw=usenewlfc=1`` option is required to skip the calculation of forces
 and decrease **memory** usage.

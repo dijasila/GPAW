@@ -2,9 +2,9 @@ from __future__ import print_function
 import numpy as np
 from gpaw.test import equal
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.transformers import Transformer
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.mpi import world
+
 
 def test(gd1, gd2, pd1, pd2, R1, R2):
     a1 = gd1.zeros(dtype=pd1.dtype)
@@ -28,8 +28,7 @@ if world.size == 1:
         [(2, 3, 4), (5, 6, 8)],
         [(4, 4, 4), (8, 8, 8)],
         [(2, 4, 4), (4, 8, 8)],
-        [(2, 4, 2), (4, 8, 4)]
-        ]:
+        [(2, 4, 2), (4, 8, 4)]]:
         print(size1, size2)
         gd1 = GridDescriptor(size1, size1)
         gd2 = GridDescriptor(size2, size1)
@@ -37,16 +36,18 @@ if world.size == 1:
         pd2 = PWDescriptor(1, gd2, complex)
         pd1r = PWDescriptor(1, gd1)
         pd2r = PWDescriptor(1, gd2)
-        for R1, R2 in [[(0,0,0), (0,0,0)],
-                       [(0,0,0), (0,0,1)]]:
+        for R1, R2 in [[(0, 0, 0), (0, 0, 0)],
+                       [(0, 0, 0), (0, 0, 1)]]:
             x = test(gd1, gd2, pd1, pd2, R1, R2)
-            y = test(gd1, gd2, pd1r, pd2r ,R1, R2)
+            y = test(gd1, gd2, pd1r, pd2r, R1, R2)
             equal(x, y, 1e-9)
         
         a1 = np.random.random(size1)
         a2 = pd1r.interpolate(a1, pd2r)[0]
         c2 = pd1.interpolate(a1 + 0.0j, pd2)[0]
         d2 = pd1.interpolate(a1 * 1.0j, pd2)[0]
+        equal(abs(c2.imag).max(), 0, 1e-14)
+        equal(abs(d2.real).max(), 0, 1e-14)
         equal(gd1.integrate(a1), gd2.integrate(a2), 1e-13)
         equal(abs(c2 - a2).max(), 0, 1e-14)
         equal(abs(d2 - a2 * 1.0j).max(), 0, 1e-14)

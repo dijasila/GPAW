@@ -132,7 +132,7 @@ class BaseInducedField(object):
             self.paw = paw
             self.world = paw.wfs.world                            # !
             self.domain_comm = paw.wfs.gd.comm                    # !
-            self.band_comm = paw.wfs.band_comm                    # !
+            self.band_comm = paw.wfs.bd.comm                      # !
             self.kpt_comm = paw.wfs.kd.comm                       # !
             self.rank_a = paw.wfs.atom_partition.rank_a
             self.nspins = paw.density.nspins                      # !
@@ -202,7 +202,7 @@ class BaseInducedField(object):
             extended_grid_descriptor(gd, extend_N_cd=extend_N_cd)
         Frho_we = egd.zeros((self.nw,), dtype=self.dtype)
         for w in range(self.nw):
-            extend_array(Frho_wg[w], gd, Frho_we[w], egd)
+            extend_array(gd, egd, Frho_wg[w], Frho_we[w])
         Frho_wg = Frho_we
         gd = egd
         if not deextend:
@@ -233,11 +233,11 @@ class BaseInducedField(object):
             Fef_wvo = oldgd.zeros((self.nw, self.nv,), dtype=self.dtype)
             Ffe_wo = oldgd.zeros((self.nw,), dtype=float)
             for w in range(self.nw):
-                deextend_array(Frho_wo[w], oldgd, Frho_wg[w], gd)
-                deextend_array(Fphi_wo[w], oldgd, Fphi_wg[w], gd)
-                deextend_array(Ffe_wo[w], oldgd, Ffe_wg[w], gd)
+                deextend_array(oldgd, gd, Frho_wo[w], Frho_wg[w])
+                deextend_array(oldgd, gd, Fphi_wo[w], Fphi_wg[w])
+                deextend_array(oldgd, gd, Ffe_wo[w], Ffe_wg[w])
                 for v in range(self.nv):
-                    deextend_array(Fef_wvo[w][v], oldgd, Fef_wvg[w][v], gd)
+                    deextend_array(oldgd, gd, Fef_wvo[w][v], Fef_wvg[w][v])
             Frho_wg = Frho_wo
             Fphi_wg = Fphi_wo
             Fef_wvg = Fef_wvo

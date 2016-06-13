@@ -187,8 +187,8 @@ nameax.set_xticks([])
 
 styles = {}
 
-
-thecolors = 'bgrcmy'
+thecolors = ['blue', 'green', 'red', 'cyan', 'magenta', 'yellow',
+             'darkred', 'indigo', 'springgreen', 'purple']
 thehatches = ['', '//', 'O', '*', 'o', r'\\', '.', '|']
 def getstyle(i):
     return thecolors[i % len(thecolors)], thehatches[i // len(thecolors)]

@@ -11,9 +11,6 @@ a = 3.184
 PC = mx2(a=a).cell
 path = [special_points['hexagonal'][k] for k in 'MKG']
 kpts, x, X = get_bandpath(path, PC, 48)
-
-with paropen('x.pckl', 'wb') as fd:
-    pickle.dump((x, X), fd)
     
 M = [[3, 0, 0], [0, 3, 0], [0, 0, 1]]
 
@@ -37,4 +34,5 @@ unfold = Unfold(name='3x3_defect',
                 M=M,
                 spinorbit=False)
 
-unfold.spectral_function(kpts=kpts)
+unfold.spectral_function(kpts=kpts, x=x, X=X,
+                         points_name=['M', 'K', 'G'])

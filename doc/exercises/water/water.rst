@@ -16,12 +16,12 @@ Read the script and try to understand what it does.  A few notes:
    *iterable* (in this case a list of the strings ``H2O``, ``H`` and ``O``).
    You can loop over integers, if desired, using ``for x in range(17):``.
 
- * The code in loops, if-statements and other code blocks is indented.  
+ * The code in loops, if-statements and other code blocks is indented.
    The loop or if-statement stops when the lines are no longer indented.
    Thus, *indentation determines control flow*.
 
  * In this case we conveniently load the geometry from the G2 database
-   of small molecules, using the :func:`~ase.structure.molecule`
+   of small molecules, using the :func:`~ase.build.molecule`
    function from ASE.
 
  * By setting the ``txt`` parameter, we specify a file where GPAW will save
@@ -149,7 +149,7 @@ sets.  Instead of looping over grid spacing, use a loop over basis keywords::
   for basis in ['sz(dzp)', 'szp(dzp)', 'dzp']:
       ...
       calc = GPAW(mode='lcao',
-                  basis=basis, 
+                  basis=basis,
                   ...)
 
 Compare the calculated energies to those calculated in grid mode.  Do

@@ -1,8 +1,9 @@
+import numpy as np
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.tddft import TDDFT
 from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
-import numpy as np
+from gpaw.test import equal
 
 # Na2 cluster
 atoms = Atoms(symbols='Na2',
@@ -58,8 +59,7 @@ ind.calculate_induced_field(gridrefinement=2, from_density='comp',
                             poisson_eps=2e-10)
 
 # Test
-from gpaw.test import equal
-tol = 0.0001
+tol = 0.001
 val1 = ind.fieldgd.integrate(ind.Ffe_wg[0])
 val2 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[0][0]))
 val3 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[0][1]))

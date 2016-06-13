@@ -2,7 +2,7 @@ import numpy as np
 
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.blas import gemm, axpy
-from gpaw.utilities.partition import AtomPartition, AtomicMatrixDistributor
+from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
 
 
@@ -57,7 +57,7 @@ class WaveFunctions(EmptyWaveFunctions):
     # information about non-collinear spins.  With collinear spin
     # it is always 1; else it is 2.
     ncomp = 1
-    
+
     def __init__(self, gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.gd = gd
@@ -72,17 +72,14 @@ class WaveFunctions(EmptyWaveFunctions):
         self.world = world
         self.kd = kd
         self.kptband_comm = kptband_comm
-        self.band_comm = self.bd.comm  # XXX
         self.timer = timer
         self.atom_partition = None
-        self.big_atom_partition = None
-            
+
         self.kpt_u = kd.create_k_points(self.gd)
 
         self.eigensolver = None
         self.positions_set = False
 
-        self.amd = None  # matrix distributor.  Switch to better name
         self.set_setups(setups)
 
     def set_setups(self, setups):
@@ -276,14 +273,14 @@ class WaveFunctions(EmptyWaveFunctions):
 
             # Domain master send this to the global master
             if self.gd.comm.rank == 0:
-                if self.band_comm.size == 1:
+                if self.bd.comm.size == 1:
                     if kpt_rank == 0:
                         return a_nx
                     else:
                         self.kd.comm.ssend(a_nx, 0, 1301)
                 else:
                     b_nx = self.bd.collect(a_nx)
-                    if self.band_comm.rank == 0:
+                    if self.bd.comm.rank == 0:
                         if kpt_rank == 0:
                             return b_nx
                         else:
@@ -345,13 +342,13 @@ class WaveFunctions(EmptyWaveFunctions):
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
 
         natoms = self.atom_partition.natoms
-        nproj = sum([setup.ni for setup in self.setups])
+        nproj = sum(setup.ni for setup in self.setups)
 
         if self.world.rank == 0:
             if kpt_rank == 0:
                 P_ani = self.kpt_u[u].P_ani
             all_P_ni = np.empty((self.bd.nbands, nproj), self.dtype)
-            for band_rank in range(self.band_comm.size):
+            for band_rank in range(self.bd.comm.size):
                 nslice = self.bd.get_slice(band_rank)
                 i = 0
                 for a in range(natoms):
@@ -363,7 +360,7 @@ class WaveFunctions(EmptyWaveFunctions):
                         # XXX will fail with nonstandard communicator nesting
                         world_rank = (self.atom_partition.rank_a[a] +
                                       kpt_rank * self.gd.comm.size *
-                                      self.band_comm.size +
+                                      self.bd.comm.size +
                                       band_rank * self.gd.comm.size)
                         self.world.receive(P_ni, world_rank, 1303 + a)
                     all_P_ni[nslice, i:i + ni] = P_ni
@@ -377,7 +374,7 @@ class WaveFunctions(EmptyWaveFunctions):
                 if a in P_ani:
                     self.world.ssend(P_ani[a], 0, 1303 + a)
 
-    def get_wave_function_array(self, n, k, s, realspace=True):
+    def get_wave_function_array(self, n, k, s, realspace=True, periodic=False):
         """Return pseudo-wave-function array on master.
         
         n: int
@@ -400,11 +397,12 @@ class WaveFunctions(EmptyWaveFunctions):
         rank = self.world.rank
 
         if (self.kd.comm.rank == kpt_rank and
-            self.band_comm.rank == band_rank):
-            psit_G = self._get_wave_function_array(u, myn, realspace)
+            self.bd.comm.rank == band_rank):
+            psit_G = self._get_wave_function_array(u, myn, realspace, periodic)
+
             if realspace:
                 psit_G = self.gd.collect(psit_G)
-
+                
             if rank == 0:
                 return psit_G
             
@@ -419,7 +417,7 @@ class WaveFunctions(EmptyWaveFunctions):
             # XXX this will fail when using non-standard nesting
             # of communicators.
             world_rank = (kpt_rank * self.gd.comm.size *
-                          self.band_comm.size +
+                          self.bd.comm.size +
                           band_rank * self.gd.comm.size)
             self.world.receive(psit_G, world_rank, 1398)
             return psit_G

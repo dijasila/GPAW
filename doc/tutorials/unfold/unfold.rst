@@ -106,7 +106,7 @@ spectral function, we define the transformation matrix M, and find the
 corresponding `\vec{K}` in the SBZ.
 
 .. literalinclude:: unfold_3x3_defect.py
-    :lines: 1-23
+    :lines: 1-20
 
 Non self-consistent calculation at the `\vec{K}` points
 -------------------------------------------------------
@@ -114,7 +114,7 @@ Once we have the relevant `\vec{K}` we have to calculate eigenvalues and
 eigenvectors; we can do that non self-consistently.
 
 .. literalinclude:: unfold_3x3_defect.py
-    :lines: 25-33
+    :lines: 22-30
 
 Unfolding the bands and calculating Spectral Function
 -----------------------------------------------------
@@ -123,12 +123,12 @@ We are now ready to proceed with the unfolding. First we set up the
 :class:`Unfold` object.
 
 .. literalinclude:: unfold_3x3_defect.py
-    :lines: 35-38
+    :lines: 32-35
 
 and then we call the function for calculating the spectral function.
 
 .. literalinclude:: unfold_3x3_defect.py
-    :lines: 40
+    :lines: 37-38
 
 This can be run in parallel over kpoints, and you may want to do that since the
 supercell is relatively big.
@@ -150,7 +150,7 @@ in :mod:`gpaw.unfold` module.
 
 which will produce the following image:
 
-.. image:: sf.png
+.. image:: sf_3x3_defect.png
     :height: 400 px
 
 where you can clearly see the defect states in the gap!

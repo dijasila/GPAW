@@ -3,7 +3,13 @@
 ============
 Installation
 ============
-
+    
+.. toctree::
+    :hidden:
+        
+    troubleshooting
+    platforms/platforms
+        
 GPAW relies on the Python library *atomic simulation environment* (ASE_),
 so you need to :ref:`install ASE <ase:download_and_install>` first.  GPAW
 itself is written mostly in the Python programming language, but there
@@ -190,11 +196,12 @@ folder is).
     See the :ref:`releasenotes` for which tags are available.  Also the
     dates of older releases can be found there.
 
-
 .. _gpaw-1.0.0.tar.gz:
-    https://pypi.python.org/packages/source/g/gpaw/gpaw-1.0.0.tar.gz
+    https://pypi.python.org/packages/50/ab/
+    7e7b1591c631bbe54e000a6d0b605628a2d88818ee5048fc1cdcaa3ee6f5/
+    gpaw-1.0.0.tar.gz
 
-
+    
 .. _customizing installation:
 
 Customizing installation
@@ -336,10 +343,3 @@ or your :file:`~/.cshrc` file::
 
     $ setenv PYTHONPATH ${HOME}/gpaw:${PYTHONPATH}
     $ setenv PATH ${HOME}/gpaw/tools:${PATH}
-
-    
-.. toctree::
-    :hidden:
-        
-    troubleshooting
-    platforms/platforms

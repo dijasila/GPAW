@@ -21,7 +21,7 @@ class Eigensolver:
         self.timer = wfs.timer
         self.world = wfs.world
         self.kpt_comm = wfs.kd.comm
-        self.band_comm = wfs.band_comm
+        self.band_comm = wfs.bd.comm
         self.dtype = wfs.dtype
         self.bd = wfs.bd
         self.ksl = wfs.diagksl

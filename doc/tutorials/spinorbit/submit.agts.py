@@ -20,7 +20,7 @@ def agts(queue):
                              walltime=300)
     high_sym = queue.add('high_sym.py', deps=Bi2Se3_gs, ncpus=4,
                          walltime=30)
-    queue.add('parity.py', deps=high_sym, ncpus=1, walltime=2)
+    queue.add('parity.py', deps=high_sym, ncpus=1, walltime=5)
     queue.add('plot_Bi2Se3_bands.py', ncpus=1, deps=Bi2Se3_bands,
               walltime=2, creates='Bi2Se3_bands.png')
 
