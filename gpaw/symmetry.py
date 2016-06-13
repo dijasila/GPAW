@@ -314,12 +314,14 @@ class Symmetry:
         if self.do_not_symmetrize_the_density:
             return
         for U_cc, ft_c in zip(self.op_scc, self.ft_sc):
-            # Make sure all grid-points map onto another grid-point:
-            if ((N_c * U_cc).T % N_c).any():
-                raise ValueError
             t_c = ft_c * N_c
-            if not np.allclose(t_c, t_c.round()):
-                raise ValueError
+            # Make sure all grid-points map onto another grid-point:
+            if (((N_c * U_cc).T % N_c).any() or
+                not np.allclose(t_c, t_c.round())):
+                raise ValueError(
+                    'Real space grid not compatible with symmetry operation. '
+                    'Use:\n\n   '
+                    "GPAW(symmetry={'do_not_symmetrize_the_density': True})")
 
     def symmetrize(self, a, gd):
         """Symmetrize array."""
