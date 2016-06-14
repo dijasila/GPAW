@@ -218,7 +218,9 @@ class Hamiltonian(object):
         finegrid_energies = self.update_pseudo_potential(density)
         coarsegrid_Ekin = self.calculate_kinetic_energy(density)
 
+        self.timer.start('Calculate atomic Hamiltonians')
         W_aL = self.calculate_atomic_hamiltonians(density)
+        self.timer.stop('Calculate atomic Hamiltonians')
         atomic_energies = self.update_corrections(density, W_aL)
 
         # Make energy contributions summable over world:

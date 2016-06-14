@@ -906,7 +906,7 @@ def ft(spline):
 
 
 class PWLFC(BaseLFC):
-    def __init__(self, spline_aj, pd, blocksize=5000):
+    def __init__(self, spline_aj, pd, blocksize=5000, comm=None):
         """Reciprocal-space plane-wave localized function collection.
 
         spline_aj: list of list of spline objects
@@ -915,7 +915,10 @@ class PWLFC(BaseLFC):
             Plane-wave descriptor object.
         blocksize: int
             Block-size to use when looping over G-vectors.  Use None for
-            doing all G-vectors in one big block."""
+            doing all G-vectors in one big block.
+        comm: communicator
+            Communicator for operations that support parallelization
+            over planewaves (only integrate so far)."""
 
         self.pd = pd
         self.spline_aj = spline_aj
@@ -940,6 +943,10 @@ class PWLFC(BaseLFC):
         self.indices = None
         self.pos_av = None
         self.nI = None
+
+        if comm is None:
+            comm = pd.gd.comm
+        self.comm = comm
 
     def initialize(self):
         if self.initialized:
@@ -1034,13 +1041,16 @@ class PWLFC(BaseLFC):
                            self.Y_qLG[q][l**2:(l + 1)**2, G1:G2])
         return f_IG
 
-    def block(self, q=-1):
+    def block(self, q=-1, serial=True):
         nG = self.Y_qLG[q].shape[1]
+        iblock = 0
         if self.blocksize:
             G1 = 0
             while G1 < nG:
                 G2 = min(G1 + self.blocksize, nG)
-                yield G1, G2
+                if serial or iblock % self.comm.size == self.comm.rank:
+                    yield G1, G2
+                iblock += 1
                 G1 = G2
         else:
             yield 0, nG
@@ -1085,8 +1095,11 @@ class PWLFC(BaseLFC):
         if c_axi is None:
             c_axi = self.dict(a_xG.shape[:-1])
 
-        x = 0.0
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block(q, serial=False):
+            if G1 > 0:
+                x = 1.0
+            else:
+                x = 0.0
             f_IG = self.expand(q, G1, G2)
             if self.pd.dtype == float:
                 if G1 == 0:
@@ -1096,7 +1109,7 @@ class PWLFC(BaseLFC):
                 G2 *= 2
 
             gemm(alpha, f_IG, a_xG[:, G1:G2], x, b_xI, 'c')
-            x = 1.0
+        self.comm.sum(b_xI)
 
         for a, I1, I2 in self.indices:
             c_axi[a][:] = self.eikR_qa[q][a] * c_xI[..., I1:I2]
@@ -1260,7 +1273,8 @@ class ReciprocalSpaceDensity(Density):
                 spline_aj.append([setup.nct])
         self.nct = PWLFC(spline_aj, self.pd2)
 
-        self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3)
+        self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3,
+                          blocksize=256, comm=self.xc_redistributor.comm)
 
     def set_positions(self, spos_ac, atom_partition):
         Density.set_positions(self, spos_ac, atom_partition)
