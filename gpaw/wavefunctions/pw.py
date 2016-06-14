@@ -1314,10 +1314,8 @@ class ReciprocalSpaceDensity(Density):
         self.rhot_q = self.pd3.zeros()
         self.rhot_q[self.G3_G] = self.nt_Q * 8
         self.ghat.add(self.rhot_q, self.Q_aL)
-        if self.background_charge:
-            rhot_g = self.finegd.zeros()
-            self.background_charge.add_charge_to(rhot_g)
-            self.rhot_q += self.pd3.fft(rhot_g)
+        self.background_charge.add_fourier_space_charge_to(self.pd3,
+                                                           self.rhot_q)
         self.rhot_q[0] = 0.0
 
     def get_pseudo_core_kinetic_energy_density_lfc(self):
