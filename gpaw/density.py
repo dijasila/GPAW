@@ -25,7 +25,8 @@ class NullBackgroundCharge:
     charge = 0.0
     def set_grid_descriptor(self, gd): pass
     def add_charge_to(self, rhot_g): pass
-
+    def __bool__(self): return False
+    __nonzero__ = __bool__  # Python 2 compat
 
 class Density(object):
     """Density object.
