@@ -2,7 +2,7 @@ import numpy as np
 from ase import Atoms
 from ase.units import Bohr
 from gpaw.jellium import JelliumSlab
-from gpaw import GPAW, Mixer
+from gpaw import GPAW, PW, Mixer
 
 rs = 5.0 * Bohr  # Wigner-Seitz radius
 h = 0.2          # grid-spacing
@@ -17,7 +17,8 @@ jellium = JelliumSlab(ne, z1=v, z2=v + L)
 
 surf = Atoms(pbc=(True, True, False),
              cell=(a, a, v + L + v))
-surf.calc = GPAW(background_charge=jellium,
+surf.calc = GPAW(mode=PW(400.0),
+                 background_charge=jellium,
                  xc='LDA_X+LDA_C_WIGNER',
                  eigensolver='dav',
                  kpts=[k, k, 1],
