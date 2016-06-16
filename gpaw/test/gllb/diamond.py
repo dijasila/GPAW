@@ -28,7 +28,7 @@ setup_paths.insert(0, '.')
 atoms = bulk('C', 'diamond', a=3.567)
 # We want sufficiently many grid points that the calculator
 # can use wfs.world for the finegd, to test that part of the code.
-calc = GPAW(h=0.13, kpts=(4,4,4), xc=xc, nbands=8,
+calc = GPAW(h=0.2, kpts=(4,4,4), xc=xc, nbands=8,
             parallel=dict(domain=min(world.size, 2),
                           band=1),
             eigensolver=Davidson(niter=4))
@@ -59,7 +59,7 @@ homo, lumo = homolumo
 print("band gap ",(lumo-homo)*27.2)
     
 # Redo the ground state calculation
-calc = GPAW(h=0.15, kpts=(4,4,4), xc=xc, nbands=8,
+calc = GPAW(h=0.2, kpts=(4,4,4), xc=xc, nbands=8,
             eigensolver=Davidson(niter=4))
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
@@ -70,10 +70,15 @@ calc.write('CGLLBSC.gpw')
 
 # Redo the band structure calculation
 atoms, calc = restart('CGLLBSC.gpw', kpts=kpts, fixdensity=True, symmetry='off',
-                      convergence=dict(bands=6), eigensolver=Davidson(niter=2))
+                      convergence=dict(bands=6), eigensolver=Davidson(niter=4))
 atoms.get_potential_energy()
 response = calc.hamiltonian.xc.xcs['RESPONSE']
 KS, dxc = response.calculate_delta_xc_perturbation()
 
-assert abs(KS+dxc-5.41)<0.10
+energy = KS + dxc
+ref = 5.41
+err = abs(energy - ref)
+if calc.wfs.world.rank == 0:
+    print('energy', energy, 'ref', ref)
+assert err < 0.10, err
 #M. Kuisma et. al, Phys. Rev. B 82, 115106, QP gap for C, 5.41eV, expt. 5.48eV
