@@ -17,7 +17,7 @@ class BaseMixer:
     name = 'pulay'
 
     """Pulay density mixer."""
-    def __init__(self, beta=0.1, nmaxold=3, weight=50.0):
+    def __init__(self, beta, nmaxold, weight):
         """Construct density-mixer object.
 
         Parameters:
@@ -210,7 +210,7 @@ class FFTBaseMixer(BaseMixer):
     name = 'fft'
 
     """Mix the density in Fourier space"""
-    def __init__(self, beta=0.4, nmaxold=3, weight=20.0):
+    def __init__(self, beta, nmaxold, weight):
         BaseMixer.__init__(self, beta, nmaxold, weight)
 
     def initialize_metric(self, gd):
@@ -237,11 +237,11 @@ class FFTBaseMixer(BaseMixer):
 class BroydenBaseMixer:
     name = 'broyden'
 
-    def __init__(self, beta=0.1, nmaxold=6, weight=1):
+    def __init__(self, beta, nmaxold, weight):
         self.verbose = False
         self.beta = beta
         self.nmaxold = nmaxold
-        self.weight = 1  # XXX discards argument
+        self.weight = 1.0  # XXX discards argument
 
     def initialize_metric(self, gd):
         self.gd = gd
@@ -353,7 +353,7 @@ class DummyMixer:
 class SeparateSpinMixerDriver:
     name = 'separate'
 
-    def __init__(self, basemixerclass, beta=0.1, nmaxold=3, weight=50.0):
+    def __init__(self, basemixerclass, beta, nmaxold, weight):
         self.basemixerclass = basemixerclass
 
         self.beta = beta
@@ -428,7 +428,7 @@ class SpinDifferenceMixerDriver:
     name = 'difference'
 
     def __init__(self, basemixerclass, beta, nmaxold, weight,
-                 beta_m, nmaxold_m, weight_m):
+                 beta_m=0.7, nmaxold_m=2, weight_m=10.0):
         self.basemixerclass = basemixerclass
         self.beta = beta
         self.nmaxold = nmaxold
@@ -471,6 +471,7 @@ class SpinDifferenceMixerDriver:
         return dNt
 
 
+# Dictionaries to get mixers by name:
 _backends = {}
 _methods = {}
 for cls in [FFTBaseMixer, BroydenBaseMixer, BaseMixer]:
@@ -480,17 +481,12 @@ for cls in [SeparateSpinMixerDriver, SpinSumMixerDriver,
     _methods[cls.name] = cls
 
 
-#           dict(beta=beta,
-#                history=history,
-#                weight=weight,
-#                method=method,
-#                backend=backend)
-
-
 # This function is used by Density to decide mixer parameters
 # that the user did not explicitly provide, i.e., it fills out
 # everything that is missing and returns a mixer "driver".
-def get_mixer_driver(pbc, nspins, **mixerkwargs):
+def get_mixer_from_keywords(pbc, nspins, **mixerkwargs):
+    # The plan is to first establish a kwargs dictionary with all the
+    # defaults, then we update it with values from the user.
     kwargs = {'backend': BaseMixer}
 
     if np.any(pbc):  # Works on array or boolean
@@ -503,21 +499,32 @@ def get_mixer_driver(pbc, nspins, **mixerkwargs):
     else:
         kwargs['method'] = SeparateSpinMixerDriver
 
-    # Now we have established all the defaults.  Now the user override:
-    for key in mixerkwargs:
-        assert key in kwargs, 'Unknown mixer variable %s' % key
-        if mixerkwargs[key] is not None:  # None really means that we decide.
-            kwargs[key] = mixerkwargs[key]
+    # Clean up mixerkwargs (compatibility)
+    if 'nmaxold' in mixerkwargs:
+        assert 'history' not in mixerkwargs
+        mixerkwargs['history'] = mixerkwargs.pop('nmaxold')
 
-    # Resolve keyword strings into classes:
+    # Now the user override:
+    for key in kwargs:
+        # Clean any 'None' values out as if they had never been passed:
+        val = mixerkwargs.pop(key, None)
+        if val is not None:
+            kwargs[key] = val
+
+    # Resolve keyword strings (like 'fft') into classes (like FFTBaseMixer):
     driver = _methods.get(kwargs['method'], kwargs['method'])
     baseclass = _backends.get(kwargs['backend'], kwargs['backend'])
-    return driver(baseclass, beta=kwargs['beta'],
-                  nmaxold=kwargs['history'], weight=kwargs['weight'])
+
+    # We forward any remaining mixer kwargs to the actual mixer object.
+    # Any user defined variables that do not really exist will cause an error.
+    mixer = driver(baseclass, beta=kwargs['beta'],
+                   nmaxold=kwargs['history'], weight=kwargs['weight'],
+                   **mixerkwargs)
+    return mixer
 
 
 # This is the only object which will be used by Density, sod the others
-class NewMixer:
+class MixerWrapper:
     def __init__(self, driver, nspins, gd):
         self.driver = driver
 
@@ -542,56 +549,26 @@ class NewMixer:
             basemixer.reset()
 
 
-# Old interfaces to mixers for compability below
-
-def Mixer(beta=0.1, nmaxold=3, weight=50.0):
-    return SeparateSpinMixerDriver(BaseMixer, beta, nmaxold, weight)
-
-
-def MixerSum(beta=0.1, nmaxold=3, weight=50.0):
-    return SpinSumMixerDriver(BaseMixer, beta, nmaxold, weight)
-
-
-def MixerSum2(beta=0.1, nmaxold=3, weight=50.0):
-    return SpinSumMixerDriver2(BaseMixer, beta, nmaxold, weight)
+# Helper function to define old-style interfaces to mixers.
+# Defines and returns a function which looks like a mixer class
+def _definemixerfunc(method, backend):
+    def getmixer(beta=None, nmaxold=None, weight=None, **kwargs):
+        d = dict(method=method, backend=backend,
+                 beta=beta, nmaxold=nmaxold, weight=weight)
+        d.update(kwargs)
+        return d
+    return getmixer
 
 
-def MixerDif(beta=0.1, nmaxold=3, weight=50.0,
-             beta_m=0.7, nmaxold_m=2, weight_m=10.0):
-    return SpinDifferenceMixerDriver(BaseMixer, beta, nmaxold, weight,
-                                     beta_m, nmaxold_m, weight_m)
-
-
-def FFTMixer(beta=0.4, nmaxold=3, weight=20.0):
-    return SeparateSpinMixerDriver(FFTBaseMixer, beta, nmaxold, weight)
-
-
-def FFTMixerSum(beta=0.4, nmaxold=3, weight=20.0):
-    return SpinSumMixerDriver(FFTBaseMixer, False, beta, nmaxold, weight)
-
-
-def FFTMixerSum2(beta=0.4, nmaxold=3, weight=20.0):
-    return SpinSumMixerDriver2(FFTBaseMixer, beta, nmaxold, weight)
-
-
-def FFTMixerDif(beta=0.1, nmaxold=3, weight=20.0,
-                # XXXXX is it on purpose that weight_m is 1 and not 10?
-                # Also, should the parameters not default to the same
-                # as FFTMixer otherwise?
-                beta_m=0.7, nmaxold_m=2, weight_m=1.0):
-    return SpinDifferenceMixerDriver(BaseMixer, beta, nmaxold, weight,
-                                     beta_m, nmaxold_m, weight_m)
-
-
-def BroydenMixer(beta=0.1, nmaxold=6, weight=1):
-    return SeparateSpinMixerDriver(BroydenBaseMixer, beta, nmaxold, weight)
-
-
-def BroydenMixerSum(beta=0.4, nmaxold=3, weight=20.0):
-    return SpinSumMixerDriver(BroydenBaseMixer, False, beta, nmaxold, weight)
-
-
-def BroydenMixerSum2(beta=0.4, nmaxold=3, weight=20.0):
-    return SpinSumMixerDriver2(BroydenBaseMixer, beta, nmaxold, weight)
-
-# There is no BroydenMixerDif?
+Mixer = _definemixerfunc(SeparateSpinMixerDriver, BaseMixer)
+MixerSum = _definemixerfunc(SpinSumMixerDriver, BaseMixer)
+MixerSum2 = _definemixerfunc(SpinSumMixerDriver2, BaseMixer)
+MixerDif = _definemixerfunc(SpinDifferenceMixerDriver, BaseMixer)
+FFTMixer = _definemixerfunc(SeparateSpinMixerDriver, FFTBaseMixer)
+FFTMixerSum = _definemixerfunc(SpinSumMixerDriver, FFTBaseMixer)
+FFTMixerSum2 = _definemixerfunc(SpinSumMixerDriver2, FFTBaseMixer)
+FFTMixerDif = _definemixerfunc(SpinDifferenceMixerDriver, FFTBaseMixer)
+BroydenMixer = _definemixerfunc(SeparateSpinMixerDriver, BroydenBaseMixer)
+BroydenMixerSum = _definemixerfunc(SpinSumMixerDriver, BroydenBaseMixer)
+BroydenMixerSum2 = _definemixerfunc(SpinSumMixerDriver2, BroydenBaseMixer)
+BroydenMixerDif = _definemixerfunc(SpinDifferenceMixerDriver, BroydenBaseMixer)

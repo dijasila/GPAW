@@ -9,7 +9,7 @@ from math import pi, sqrt
 import numpy as np
 
 from gpaw import debug
-from gpaw.mixer import get_mixer_driver, NewMixer, DummyMixer
+from gpaw.mixer import get_mixer_from_keywords, MixerWrapper, DummyMixer
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC, BasisFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
@@ -198,7 +198,7 @@ class Density(object):
                 self.nt_sG[:self.nspins] = -total_charge / volume
 
     def mix(self, comp_charge):
-        assert isinstance(self.mixer, NewMixer), self.mixer
+        assert isinstance(self.mixer, MixerWrapper), self.mixer
         self.density_error = self.mixer.mix(self.nt_sG, self.D_asp)
         assert self.density_error is not None, self.mixer
 
@@ -307,10 +307,11 @@ class Density(object):
         if mixer is None:
             mixer = {}
         if isinstance(mixer, dict):
-            mixer = get_mixer_driver(self.gd.pbc_c.any(), self.nspins, **mixer)
+            mixer = get_mixer_from_keywords(self.gd.pbc_c.any(), self.nspins,
+                                            **mixer)
         if not hasattr(mixer, 'mix'):
             raise ValueError('Not a mixer: %s' % mixer)
-        self.mixer = NewMixer(mixer, self.nspins, self.gd)
+        self.mixer = MixerWrapper(mixer, self.nspins, self.gd)
 
     def estimate_magnetic_moments(self):
         magmom_av = np.zeros_like(self.magmom_av)
