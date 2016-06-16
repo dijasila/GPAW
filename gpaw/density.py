@@ -199,16 +199,12 @@ class Density(object):
 
     def mix(self, comp_charge):
         assert isinstance(self.mixer, NewMixer), self.mixer
-        if not self.mixer.mix_rho:
-            self.density_error = self.mixer.mix(self.nt_sG, self.D_asp)
-            comp_charge = None
+        self.density_error = self.mixer.mix(self.nt_sG, self.D_asp)
+        assert self.density_error is not None, self.mixer
 
+        comp_charge = None
         self.interpolate_pseudo_density(comp_charge)
         self.calculate_pseudo_charge()
-
-        if self.mixer.mix_rho:
-            self.density_error = self.mixer.mix(self.rhot_g, self.D_asp)
-        assert self.density_error is not None, self.mixer
 
     def calculate_multipole_moments(self):
         """Calculate multipole moments of compensation charges.
@@ -308,9 +304,7 @@ class Density(object):
         self.mix(comp_charge)
 
     def set_mixer(self, mixer):
-        if mixer is not None:
-            self.mixer = NewMixer(mixer)
-        else:
+        if mixer is None:
             if self.gd.pbc_c.any():
                 beta = 0.05
                 history = 5
@@ -321,15 +315,11 @@ class Density(object):
                 weight = 1.0
 
             if self.nspins == 2:
-                self.mixer = NewMixer(MixerSum(beta, history, weight))
+                mixer = MixerSum(beta, history, weight)
             else:
-                self.mixer = NewMixer(Mixer(beta, history, weight))
+                mixer = Mixer(beta, history, weight)
 
-        if self.mixer.mix_rho:
-            gd = self.finegd
-        else:
-            gd = self.gd
-        self.mixer.initialize(self.nspins, gd)
+        self.mixer = NewMixer(mixer, self.nspins, self.gd)
 
     def estimate_magnetic_moments(self):
         magmom_av = np.zeros_like(self.magmom_av)

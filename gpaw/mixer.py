@@ -350,7 +350,7 @@ class DummyMixer:
 class NewMixer:
     mix_rho = False # XXXXXXXXX
 
-    def __init__(self, driver):
+    def __init__(self, driver, nspins, gd):
         self.driver = driver
 
         self.beta = driver.beta
@@ -358,10 +358,6 @@ class NewMixer:
         self.weight = driver.weight
         assert self.weight is not None, driver
 
-        self.basemixers = None  # X
-        self.nspins = None # X
-
-    def initialize(self, nspins, gd):
         self.basemixers = self.driver.get_basemixers(nspins)
         for basemixer in self.basemixers:
             basemixer.initialize_metric(gd)
@@ -539,18 +535,3 @@ def BroydenMixerSum2(beta=0.4, nmaxold=3, weight=20.0):
     return SpinSumMixerDriver(BroydenBaseMixer, True, beta, nmaxold, weight)
 
 # There is no BroydenMixerDif?
-
-if 0:
-    class MixerRho(BaseMixer):
-        mix_rho = True
-        def initialize(self, nspins, gd):
-            self.initialize_metric(gd)
-
-        def mix(self, rhot_g, D_asp):
-            """Mix pseudo electron densities."""
-            return self.mix_single_density(rhot_g, [])
-
-
-    class MixerRho2(MixerRho):
-        def mix(self, rhot_g, D_asp):
-            return self.mix_single_density(rhot_g, D_asp.values())
