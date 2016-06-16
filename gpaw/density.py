@@ -9,7 +9,7 @@ from math import pi, sqrt
 import numpy as np
 
 from gpaw import debug
-from gpaw.mixer import Mixer, MixerSum, NewMixer, DummyMixer
+from gpaw.mixer import get_mixer_driver, NewMixer, DummyMixer
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC, BasisFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
@@ -305,20 +305,11 @@ class Density(object):
 
     def set_mixer(self, mixer):
         if mixer is None:
-            if self.gd.pbc_c.any():
-                beta = 0.05
-                history = 5
-                weight = 50.0
-            else:
-                beta = 0.25
-                history = 3
-                weight = 1.0
-
-            if self.nspins == 2:
-                mixer = MixerSum(beta, history, weight)
-            else:
-                mixer = Mixer(beta, history, weight)
-
+            mixer = {}
+        if isinstance(mixer, dict):
+            mixer = get_mixer_driver(self.gd.pbc_c.any(), self.nspins, **mixer)
+        if not hasattr(mixer, 'mix'):
+            raise ValueError('Not a mixer: %s' % mixer)
         self.mixer = NewMixer(mixer, self.nspins, self.gd)
 
     def estimate_magnetic_moments(self):
