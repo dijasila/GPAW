@@ -140,6 +140,9 @@ get('tutorials/wannier90', ['GaAs.png', 'Cu.png', 'Fe.png'])
 
 get('agts-files', ['datasets.json'], 'setups', source=agtspath)
 
+# Carlsberg foundation figure:
+get('.', ['carlsberg.png'])
+
 
 def setup(app):
     # Get png files and other stuff from the AGTS scripts that run
