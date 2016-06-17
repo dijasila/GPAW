@@ -25,6 +25,7 @@ class NullBackgroundCharge:
     charge = 0.0
     def set_grid_descriptor(self, gd): pass
     def add_charge_to(self, rhot_g): pass
+    def add_fourier_space_charge_to(self, pd, rhot_q): pass
 
 
 class Density(object):

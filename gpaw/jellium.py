@@ -38,6 +38,12 @@ class Jellium():
         """ Add Jellium background charge to pseudo charge density rhot_g"""
         rhot_g -= self.mask_g * (self.charge / self.volume)
 
+    def add_fourier_space_charge_to(self, pd, rhot_q):
+        rhot_g = pd.gd.zeros()
+        self.add_charge_to(rhot_g)
+        rhot_q += pd.fft(rhot_g)
+
+
 class JelliumSlab(Jellium):
     """ The Jellium slab object """
     def __init__(self, charge, z1, z2):

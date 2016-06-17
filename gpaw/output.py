@@ -173,16 +173,26 @@ class PAWTextOutput:
             else:
                 t('Parallelization over k-points: %d' %
                   self.wfs.kd.comm.size)
-        if self.wfs.gd.comm.size > 1:  # domain parallelization
-            coarsesize = tuple(self.wfs.gd.parsize_c)
-            finesize = tuple(self.density.finegd.parsize_c)
+
+        # Domain decomposition settings:
+        coarsesize = tuple(self.wfs.gd.parsize_c)
+        finesize = tuple(self.density.finegd.parsize_c)
+        try:  # Only planewave density
+            xc_redist = self.density.xc_redistributor
+        except AttributeError:
+            xcsize = finesize
+        else:
+            xcsize = tuple(xc_redist.aux_gd.parsize_c)
+
+        if any(np.prod(size) != 1 for size in [coarsesize, finesize, xcsize]):
             title = 'Domain Decomposition:'
             template = '%d x %d x %d'
-            if coarsesize == finesize:
-                t(title, template % coarsesize)
-            else:
-                t(title, template % coarsesize, '(coarse grid)')
+            t(title, template % coarsesize)
+            if coarsesize != finesize:
                 t(' ' * len(title), template % finesize, '(fine grid)')
+            if xcsize != finesize:
+                t(' ' * len(title), template % xcsize, '(xc only)')
+
         if self.wfs.bd.comm.size > 1:  # band parallelization
             t('Parallelization over states: %d'
               % self.wfs.bd.comm.size)
