@@ -12,6 +12,23 @@ from gpaw.utilities.blas import axpy
 from gpaw.fd_operators import FDOperator
 from gpaw.utilities.tools import construct_reciprocal
 
+"""About mixing-related classes.
+
+(FFT/Broyden)BaseMixer: These classes know how to mix one density
+array and store history etc.  But they do not take care of complexity
+like spin.
+
+(SpinSum/etc.)MixerDriver: These combine one or more BaseMixers to
+implement a full algorithm.  Think of them as stateless (immutable).
+The user can give an object of these types as input, but they will generally
+be constructed by a utility function so the interface is nice.
+
+The density object always wraps the (X)MixerDriver with a
+MixerWrapper.  The wrapper contains the common code for all mixers so
+we don't have to implement it multiple times (estimate memory, etc.).
+
+In the end, what the user provides is probably a dictionary anyway, and the
+relevant objects are instantiated automatically."""
 
 class BaseMixer:
     name = 'pulay'
