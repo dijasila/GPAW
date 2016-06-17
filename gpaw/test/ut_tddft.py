@@ -22,13 +22,10 @@ from gpaw.mpi import world
 from gpaw.tddft import TDDFT
 from gpaw.tddft.units import attosec_to_autime
 
-# -------------------------------------------------------------------
-
 from gpaw.test.ut_common import shapeopt, TestCase, \
     TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
     initialTestLoader, create_random_atoms, create_parsize_maxbands
 
-# -------------------------------------------------------------------
 
 class UTGroundStateSetup(TestCase):
     """
@@ -153,7 +150,7 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
 
                 # Hack to prevent calls to GPAW::get_potential_energy when saving
                 spa = self.tdcalc.get_atoms()
-                spc = SinglePointCalculator(epot, F_av, None, None, spa)
+                spc = SinglePointCalculator(spa, energy=epot, forces=F_av)
                 spa.set_calculator(spc)
                 traj.write(spa)
         f.close()
