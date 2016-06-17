@@ -139,6 +139,7 @@ tests = [
     'generic/proton.py',
     'atoms_mismatch.py',
     'setup_basis_spec.py',
+    'pw/direct.py',
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
     'lcao/density.py',                      # ~1s
