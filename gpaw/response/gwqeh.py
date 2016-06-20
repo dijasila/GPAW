@@ -480,8 +480,11 @@ class GWQEHCorrection(PairDensity):
         return dWgw_qw
 
     def calculate_W_QEH(self, structure, d, layer=0):
-        from gpaw.response.qeh import Heterostructure, expand_layers
+        from gpaw.response.qeh import Heterostructure, expand_layers, \
+            check_building_blocks
+
         structure = expand_layers(structure)
+
         self.w_grid = self.omega_w
         wmax = self.w_grid[-1]
         # qmax = (self.q_grid).max()

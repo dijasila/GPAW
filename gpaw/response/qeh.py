@@ -54,6 +54,8 @@ class Heterostructure:
         namelist = []
         n_rep = 0
         structure = expand_layers(structure)
+        if not check_building_blocks(set(structure)):
+            raise ValueError('Building Blocks not on the same grid')
         self.n_layers = len(structure)
         for n, name in enumerate(structure):
             if name not in namelist:
@@ -924,11 +926,19 @@ class BuildingBlock():
         rcell_cv = 2 * pi * np.linalg.inv(calc.wfs.gd.cell_cv).T
         if isotropic_q:  # only use q along [1 0 0] direction.
             Nk = kd.N_c
-            omit_q = []
-            for n, q_c in enumerate(q_cs):
-                if not np.allclose(q_c[1:], 0):
-                    omit_q.append(n)
-            q_cs = np.delete(q_cs, omit_q, axis=0)
+            qx = np.array(range(0, Nk[0] / 2. + 1)) / float(Nk[0])
+            q_cs = np.zeros([Nk[0] / 2 + 1, 3])
+            q_cs[:, 0] = qx
+            
+            # This only works if [1 0 0] direction is part of ired BZ
+            #omit_q = []
+            #GM_dir = [1, 0, 0]
+            #print(q_cs)
+            #for n, q_c in enumerate(q_cs):
+            #    if not np.allclose(q_c[1:], 0):
+            #        omit_q.append(n)
+            #q_cs = np.delete(q_cs, omit_q, axis=0)
+
             q = 0
             if qmax is not None: # 
                 qmax *= Bohr
@@ -953,6 +963,7 @@ class BuildingBlock():
         q_abs = (q_vs**2).sum(axis=1)**0.5
         sort = np.argsort(q_abs)
         q_abs = q_abs[sort]
+        print(q_abs)
         q_cs = q_cs[sort]
         q_cut = q_abs[1] / 2.  # smallest finite q
         self.nq_cut = self.nq_inftot + 1
@@ -1186,6 +1197,131 @@ class BuildingBlock():
 
 """TOOLS"""
 
+def check_building_blocks(BBfiles=None):
+    """ Check that building blocks are on same frequency-
+    and q- grid 
+
+    BBfiles: list of str
+        list of names of BB files
+    """
+    
+    name = BBfiles[0] + '-chi.pckl'
+    data = pickle.load(open(name))
+    q = data['q_abs']
+    w = data['omega_w']
+    for name in BBfiles[1:]:
+        name +='-chi.pckl'
+        data = pickle.load(open(name))
+        if not (data['q_abs'] == q and
+                data['omega_w'] == w):
+            return False
+    return True
+
+def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
+                                q_grid=None, w_grid=None):
+    """ Interpolate building blocks to same frequency-
+    and q- grid 
+
+    BBfiles: list of str
+        list of names of BB files to be interpolated
+    BBmother: str
+        name of BB file to match the grids to
+    
+    q_grid: float
+        q-grid in Ang. Should start at q=0
+    w_grid: float
+        in eV
+    """
+
+    from scipy.interpolate import RectBivariateSpline
+    from scipy.interpolate import interp1d, interp2d
+
+    if BBmother is not None:
+        name = BBmother + '-chi.pckl'
+        data = pickle.load(open(name))
+        q_grid = data['q_abs']
+        w_grid = data['omega_w']
+    else:
+        q_grid *= Bohr
+        w_grid *= Hartree
+
+    for name in BBfiles:
+        data = pickle.load(open(name + '-chi.pckl'))
+        q_abs = data['q_abs']
+        w = data['omega_w']
+        z = data['z']
+        chiM_qw = data['chiM_qw']
+        chiD_qw = data['chiD_qw']
+        drhoM_qz = data['drhoM_qz']
+        drhoD_qz = data['drhoD_qz']
+
+        # chi monopole
+        omit_q0 = False
+        if np.isclose(q_abs[0], 0) and not np.isclose(chiM_qw[0,0], 0):
+            omit_q0 = True # omit q=0 from interpolation
+            q0_abs = q_abs[0].copy()
+            q_abs[0] = 0.
+            chi0_w = chiM_qw[0].copy()
+            chiM_qw[0] = np.zeros_like(chi0_w)
+
+        yr = RectBivariateSpline(q_abs, omega_w, 
+                                 chiM_qw.real,
+                                 s=0)
+        
+        yi = RectBivariateSpline(q_abs, omega_w, 
+                                 chiM_qw.imag, s=0)
+
+        chiM_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
+        
+        if omit_q0:
+            yr = interp1d(omega_w,chi0_w.real)
+            yi = interp1d(omega_w,chi0_w.imag)
+            chi0_w = yr(w_grid) + 1j * yi(w_grid)
+            q_abs[0] = q0_abs            
+            if np.isclose(q_grid[0], 0):
+                chiM_qw[0] = chi0_w   
+
+        # chi dipole
+        yr = RectBivariateSpline(q_abs, omega_w, 
+                                 chiD_qw[sort].real,
+                                 s=0)
+        yi = RectBivariateSpline(q_abs, omega_w, 
+                                 chiD_qw[sort].imag, 
+                                 s=0)
+
+        chiD_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
+        
+        # drho monopole
+
+        yr = RectBivariateSpline(q_abs, z, 
+                                 drhoM_qz[sort].real, s=0)
+        yi = RectBivariateSpline(q_abs, z, 
+                                 drhoM_qz[sort].imag, s=0)
+
+        drhoM_qz = yr(q_grid, z) + 1j * yi(q_grid, z)
+
+        # drho dipole
+        yr = RectBivariateSpline(q_abs, z, 
+                                 drhoD_qz[sort].real, s=0)
+        yi = RectBivariateSpline(q_abs, z, 
+                                 drhoD_qz[sort].imag, s=0)
+
+        drhoD_qz = yr(q_grid, z) + 1j * yi(q_grid, z)
+        
+        q_abs = q_grid
+        omega_w = w_grid
+
+        data = {'q_abs': q_abs,
+                'omega_w': omega_w,
+                'chiM_qw': chiM_qw, 
+                'chiD_qw': chiD_qw, 
+                'z': z, 
+                'drhoM_qz': drhoM_qz, 
+                'drhoD_qz': drhoD_qz}
+
+
+        with open(name + '_int-chi.pckl', 'wb') as fd:
+            pickle.dump(data, fd, pickle.HIGHEST_PROTOCOL)
 
 def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,
                filenames=None, name=None):
