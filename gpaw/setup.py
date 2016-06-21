@@ -159,7 +159,7 @@ class BaseSetup:
                 correct_for_charge(f_j, charge, degeneracy_j, True)
             elif charge != 0 and c == 0:
                 #print('Stopping electron distribution, ran out of projector functions to fill.')
-                # Then there are more electrons in the 
+                # Then there are more electrons in the
                 # calculation than can be distributed over the
                 # atomic projector functions. Leave remaining density
                 # undistributed.
