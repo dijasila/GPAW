@@ -607,7 +607,7 @@ In words:
   per valence electron.
 
 * The change in density (integrated absolute value of density change)
-  should be less than 0.001 electrons per valence electron.
+  should be less than 0.0001 electrons per valence electron.
 
 * The integrated value of the square of the residuals of the Kohn-Sham
   equations should be less than `4.0 \times 10^{-8}
