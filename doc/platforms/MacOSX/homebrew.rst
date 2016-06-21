@@ -4,6 +4,8 @@
 Homebrew
 ========
 
+.. highlight:: bash
+
 Get Xcode from the App Store and install it. You also need to install the
 command line tools, do this with the command::
 
