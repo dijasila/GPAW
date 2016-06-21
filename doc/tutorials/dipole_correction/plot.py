@@ -22,7 +22,6 @@ for name in ['zero', 'periodic', 'corrected']:
 
     calc.restore_state()
     v = (calc.hamiltonian.vHt_g * units.Hartree).mean(0).mean(0)
-    #v = (calc.hamiltonian.vt_sG[0] * units.Hartree).mean(0).mean(0)
     
     z = np.linspace(0, calc.atoms.cell[2, 2], len(v), endpoint=False)
     if not calc.atoms.pbc[2]:
@@ -38,7 +37,8 @@ for name in ['zero', 'periodic', 'corrected']:
                  '$\phi$ = %.2f eV' % (v[0] - efermi), va='center')
         plt.plot([z[-1] - 0.2, z[-1] - 0.2], [efermi, v[-1]], 'r:')
         plt.text(z[-1] - 0.23, (efermi + v[-1]) / 2,
-                 '$\phi$ = %.2f eV' % (v[-1] - efermi), va='center', ha='right')
+                 '$\phi$ = %.2f eV' % (v[-1] - efermi),
+                 va='center', ha='right')
     
     plt.xlabel('$z$, $\AA$')
     plt.ylabel('(Pseudo) electrostatic potential, V')
