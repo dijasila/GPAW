@@ -44,7 +44,8 @@ There are several ways to install GPAW:
   description: :ref:`developer installation`.
 
 .. seealso::
-    
+
+    * Using :ref:`homebrew` on MacOSX.
     * Tips and tricks for installation on many :ref:`platforms and
       architectures`.
     * :ref:`troubleshooting`.
