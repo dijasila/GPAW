@@ -7,8 +7,8 @@ import time
 import traceback
 import atexit
 import pickle
-from fractions import gcd
 
+from ase.utils import gcd
 import numpy as np
 
 from gpaw import debug

@@ -6,7 +6,7 @@ from __future__ import print_function, division
 
 import functools
 
-from fractions import gcd
+from ase.utils import gcd
 import numpy as np
 
 import _gpaw

@@ -574,7 +574,8 @@ class TestRunner:
         try:
             setup_paths[:] = self.setup_paths
             loc = {}
-            exec(compile(open(filename).read(), filename, 'exec'), loc)
+            with open(filename) as fd:
+                exec(compile(fd.read(), filename, 'exec'), loc)
             loc.clear()
             del loc
             self.check_garbage()

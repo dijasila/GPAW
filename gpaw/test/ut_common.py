@@ -153,7 +153,7 @@ def create_random_atoms(gd, nmolecules=10, name='NH2', mindist=4.5 / Bohr):
 
 # -------------------------------------------------------------------
 
-from fractions import gcd
+from ase.utils import gcd
 from gpaw import parsize_domain, parsize_bands
 
 def create_parsize_maxbands(nbands, world_size):

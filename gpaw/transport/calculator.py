@@ -293,7 +293,7 @@ class Transport(GPAW):
         else:
             npk = np.product(kpts[:2])
             nibpzk = (npk + npk % 2) // 2
-            from fractions import gcd
+            from ase.utils import gcd
             n_kpt_comm = gcd(nibpzk, world.size)
             self.gpw_kwargs['parallel'] = {'kpt': n_kpt_comm,
                                            'domain': None,
