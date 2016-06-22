@@ -1,4 +1,4 @@
-.. _unfolding_tutorial:
+.. _unfolding tutorial:
 .. module:: gpaw.unfold
 
 ==============================================================

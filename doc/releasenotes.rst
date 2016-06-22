@@ -10,14 +10,45 @@ Git master branch
 
 :git:`master <>`.
 
+
+Version 1.1.0
+=============
+
+22 June 2016: :git:`1.1.0 <../1.1.0>`.
+
+* Corresponding ASE release: ASE-3.11.0.
+
 * There was a **BUG** in the recently added spin-orbit module.  Should now
   be fixed.
+
+* The default Davidson eigensolver can now parallelize over bands.
 
 * There is a new PAW-dataset file available:
   :ref:`gpaw-setup-0.9.20000.tar.gz <datasets>`.
   It's identical to the previous
   one except for one new data-file which is needed for doing vdW-DF
   calculations with Python 3.
+
+* Jellium calculations can now be done in plane-wave mode and there is a new
+  ``background_charge`` keyword (see the :ref:`Jellium tutorial <jellium>`).
+  
+* New band structure unfolding tool and :ref:`tutorial <unfolding tutorial>`.
+
+* The :meth:`~gpaw.aseinterface.GPAW.get_pseudo_wave_function` method
+  has a new keyword:  Use ``periodic=True`` to get the periodic part of the
+  wave function.
+  
+* New tool for interpolating the pseudo wave functions to fine real-space
+  grids and for adding PAW-corrections in order to abtain all-electron wave
+  functions.  See this tutorial: :ref:`ps2ae`.
+
+* New and improved dataset pages (see :ref:`periodic table`).  Now shows
+  convergence of absolute and reletive energies with respect to plane-wave
+  cutoff.
+
+* :ref:`wannier90 interface`.
+
+* topological index
 
 
 Version 1.0.0
