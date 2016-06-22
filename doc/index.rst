@@ -41,6 +41,8 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
 News
 ====
 
+* :ref:`GPAW version 1.1 <releasenotes>` released (Jun 22 2016)
+
 * :ref:`GPAW version 1.0 <releasenotes>` released (Mar 18 2016)
 
 * Web-page now use the `Read the Docs Sphinx Theme
