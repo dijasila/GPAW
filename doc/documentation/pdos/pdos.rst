@@ -125,8 +125,7 @@ PDOS script::
     for n in range(2,7):
         print('Band', n)
         # PDOS on the band n
-        wf_k = [c_mol.wfs.kpt_u[k].psit_nG[n]
-                for k in range(len(c_mol.wfs.weight_k))]
+        wf_k = [kpt.psit_nG[n] for kpt in c_mol.wfs.kpt_u]
         P_aui = [[kpt.P_ani[a][n] for kpt in c_mol.wfs.kpt_u]
                  for a in range(len(molecule))]
         e, dos = calc.get_all_electron_ldos(mol=molecule, spin=0, npts=2001,
@@ -168,8 +167,7 @@ Pickle script::
     P_n = []
     for n in range(c_mol.wfs.nbands):
         print('Band: ', n)
-        wf_k = [c_mol.wfs.kpt_u[k].psit_nG[n]
-                for k in range(len(c_mol.wfs.weight_k))]
+        wf_k = [kpt.psit_nG[n] for kpt in c_mol.wfs.ktp_u]
         P_aui = [[kpt.P_ani[a][n] for kpt in c_mol.wfs.kpt_u]
                  for a in range(len(molecule))]
         e, P = calc.get_all_electron_ldos(mol=molecule, wf_k=wf_k, spin=0,
