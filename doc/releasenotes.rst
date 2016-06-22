@@ -43,8 +43,8 @@ Version 1.1.0
   functions.  See this tutorial: :ref:`ps2ae`.
 
 * New and improved dataset pages (see :ref:`periodic table`).  Now shows
-  convergence of absolute and reletive energies with respect to plane-wave
-  cutoff.
+  convergence of absolute and relative energies with respect to plane-wave
+  cut-off.
 
 * :ref:`wannier90 interface`.
 
