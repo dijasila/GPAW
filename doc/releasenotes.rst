@@ -38,8 +38,8 @@ Version 1.1.0
   has a new keyword:  Use ``periodic=True`` to get the periodic part of the
   wave function.
   
-* New tool for interpolating the pseudo wave functions to fine real-space
-  grids and for adding PAW-corrections in order to abtain all-electron wave
+* New tool for interpolating the pseudo wave functions to a fine real-space
+  grids and for adding PAW-corrections in order to obtain all-electron wave
   functions.  See this tutorial: :ref:`ps2ae`.
 
 * New and improved dataset pages (see :ref:`periodic table`).  Now shows
@@ -47,6 +47,8 @@ Version 1.1.0
   cutoff.
 
 * :ref:`wannier90 interface`.
+
+* Updated MacOSX installation guide for :ref:`homebrew` users.
 
 * topological index
 

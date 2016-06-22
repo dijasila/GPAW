@@ -812,9 +812,16 @@ Eigensolver
 -----------
 
 The default solver for iterative diagonalization of the Kohn-Sham
-Hamiltonian is a simple Davidson method, (``eigensolver='dav'``), which seems to perform well in most cases. Sometimes more efficient/stable convergence can be obtained with a different eigensolver. One option is the RMM-DIIS (Residual minimization method - direct inversion in iterative subspace), (``eigensolver='rmm-diis'``), which performs well when only a few unoccupied states are calculated. Another option is the conjugate gradient method (``eigensolver='cg'``), which is very stable but slower.
+Hamiltonian is a simple Davidson method, (``eigensolver='dav'``), which
+seems to perform well in most cases. Sometimes more efficient/stable
+convergence can be obtained with a different eigensolver. One option is the
+RMM-DIIS (Residual minimization method - direct inversion in iterative
+subspace), (``eigensolver='rmm-diis'``), which performs well when only a few
+unoccupied states are calculated. Another option is the conjugate gradient
+method (``eigensolver='cg'``), which is very stable but slower.
 
-If parallellization over bands is necessary, then RMM-DIIS must be used.
+If parallellization over bands is necessary, then Davidson or RMM-DIIS must
+be used.
 
 More control can be obtained by using directly the eigensolver objects::
 
@@ -954,6 +961,7 @@ Communicator object
 By specifying a communicator object, it is possible to use only a subset of
 processes for the calculator when calculating e.g. different atomic images
 in parallel. See :ref:`different_calculations_in parallel` for more details.
+
 
 .. _manual_parallel_calculations:
 
