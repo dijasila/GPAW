@@ -1,4 +1,4 @@
-include COPYING LICENSE config.py customize.py
+include COPYING LICENSE CONTRIBUTING.rst CHANGELOG.rst config.py customize.py
 include c/*.c
 include c/*.h
 include c/xc/*.h
