@@ -8,7 +8,7 @@ The Journal of Chemical Physics, vol. 136, no. 6, p. 064102, 2012
 from gpaw import GPAW
 from gpaw.cluster import Cluster
 from gpaw.test import equal
-from ase.structure import molecule
+from ase.build import molecule
 from ase.units import mol, kcal, Pascal, m, Bohr
 from gpaw.solvation import (
     SolvationGPAW,

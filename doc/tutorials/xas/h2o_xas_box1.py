@@ -1,5 +1,5 @@
 import numpy as np
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw import GPAW, setup_paths
 setup_paths.insert(0, '.')
 

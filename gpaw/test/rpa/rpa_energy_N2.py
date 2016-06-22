@@ -1,6 +1,6 @@
 from __future__ import print_function
 from ase import *
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw import *
 from gpaw.test import equal
 from gpaw.xc.rpa import RPACorrelation

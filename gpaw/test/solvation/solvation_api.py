@@ -3,7 +3,7 @@
 # XXX TODO: make an example/documentation out of this test
 # XXX       when the api has changed and the test passes
 
-from ase.structure import molecule
+from ase.build import molecule
 from ase.units import Pascal, m, Bohr
 from ase.data.vdw import vdw_radii
 from ase.parallel import parprint

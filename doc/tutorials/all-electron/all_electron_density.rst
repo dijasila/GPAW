@@ -23,7 +23,7 @@ the same way as you would normally use the
 :meth:`~gpaw.aseinterface.GPAW.get_pseudo_density` method, i.e.:
 
 >>> from gpaw import GPAW
->>> from ase.structure import molecule
+>>> from ase.build import molecule
 >>> calc = GPAW()
 >>> mol = molecule('C6H6', calculator=calc)
 >>> mol.center(vacuum=5)

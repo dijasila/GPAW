@@ -1,4 +1,4 @@
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW, PW
 
 calc = GPAW(mode=PW(600),

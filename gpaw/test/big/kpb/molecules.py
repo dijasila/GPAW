@@ -11,7 +11,7 @@ Compare results to::
 
 import ase.db
 from ase import Atoms
-from ase.structure import molecule
+from ase.build import molecule
 from ase.data.g2_1_ref import diatomic, ex_atomization
 
 from gpaw import GPAW, PW, Davidson

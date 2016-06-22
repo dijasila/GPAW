@@ -47,7 +47,7 @@ atom and CO molecule and compare them to results from molecular orbital theory.
   calculation (what is the number of valence electrons in CO?).
   You can quickly create the Atoms object with the CO molecule by::
   
-      from ase.structure import molecule
+      from ase.build import molecule
       CO = molecule('CO')
   
   This will create a CO molecule with an approximately correct bond length

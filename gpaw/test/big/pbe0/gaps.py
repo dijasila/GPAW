@@ -13,7 +13,7 @@ The numbers are compared to:
 """
 
 import ase.db
-from ase.lattice import bulk
+from ase.build import bulk
 from ase.dft.kpoints import monkhorst_pack
 
 from gpaw import GPAW, PW

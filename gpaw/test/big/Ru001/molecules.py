@@ -1,4 +1,4 @@
-from ase.structure import molecule
+from ase.build import molecule
 from ase.optimize import BFGS
 from gpaw import GPAW
 from gpaw.mixer import MixerDif

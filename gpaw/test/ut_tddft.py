@@ -10,7 +10,7 @@ except (ImportError, RuntimeError):
     mpl = None
 
 from ase import Atoms
-from ase.structure import molecule
+from ase.build import molecule
 from ase.parallel import paropen
 from ase.units import Bohr, Hartree
 from ase.io import Trajectory

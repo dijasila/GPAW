@@ -1,4 +1,4 @@
-from ase.lattice.surface import fcc100, add_adsorbate
+from ase.build import fcc100, add_adsorbate
 from gpaw import GPAW
 from gpaw.poisson import PoissonSolver
 from gpaw.dipole_correction import DipoleCorrection

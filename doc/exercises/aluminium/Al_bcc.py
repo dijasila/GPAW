@@ -1,7 +1,7 @@
 from __future__ import division, print_function
 from numpy.polynomial import Polynomial
 import ase.units as u
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW, PW
 
 afcc = 3.985             # Theoretical fcc lattice parameter

@@ -1,7 +1,7 @@
 from __future__ import print_function
 import sys
 import numpy as np
-from ase.structure import molecule
+from ase.build import molecule
 from ase.io import write
 from ase.parallel import parprint
 from gpaw import GPAW, restart

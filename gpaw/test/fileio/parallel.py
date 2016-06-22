@@ -2,7 +2,7 @@ from gpaw import GPAW, ConvergenceError, restart
 from gpaw.eigensolvers.rmm_diis_old import RMM_DIIS
 from gpaw.mixer import MixerSum
 from gpaw.test import equal
-from ase.lattice import bulk
+from ase.build import bulk
 
 modes = ['gpw']
 try:

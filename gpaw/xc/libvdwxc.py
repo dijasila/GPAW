@@ -573,7 +573,7 @@ def test_derivatives():
 
 def test_selfconsistent():
     from gpaw import GPAW
-    from ase.structure import molecule
+    from ase.build import molecule
     from gpaw.xc.gga import GGA
 
     system = molecule('H2O')

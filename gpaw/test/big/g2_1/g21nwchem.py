@@ -1,5 +1,5 @@
 import ase.db
-from ase.structure import molecule
+from ase.build import molecule
 from ase.optimize.bfgs import BFGS
 from ase.calculators.nwchem import NWChem
 from ase.data.g2_1 import molecule_names, atom_names

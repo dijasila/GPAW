@@ -10,8 +10,8 @@ import traceback
 import numpy as np
 from ase import Atoms
 from ase.data import covalent_radii, atomic_numbers
-from ase.lattice import bulk
-from ase.lattice.surface import fcc111
+from ase.build import bulk
+from ase.build import fcc111
 from ase.units import Bohr
 
 from gpaw import GPAW, PW, setup_paths, Mixer  # , ConvergenceError

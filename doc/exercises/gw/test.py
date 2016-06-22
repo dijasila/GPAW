@@ -1,5 +1,5 @@
 from gpaw import GPAW, PW, FermiDirac
-from ase.lattice import bulk
+from ase.build import bulk
 si = bulk('Si')
 si.calc = GPAW(mode=PW(200),
                kpts={'size': (2, 2, 2), 'gamma': True},

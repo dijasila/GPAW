@@ -3,7 +3,7 @@
 # and absorption peaks.
 from __future__ import print_function
 
-from ase.lattice import bulk
+from ase.build import bulk
 from ase.parallel import paropen
 from gpaw import GPAW, FermiDirac
 from gpaw.response.df import DielectricFunction

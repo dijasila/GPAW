@@ -1,6 +1,6 @@
 from __future__ import print_function
 from ase import Atoms, Atom
-from ase.structure import molecule
+from ase.build import molecule
 from ase.parallel import barrier
 from ase.units import Hartree, mol, kcal
 from gpaw import GPAW, setup_paths

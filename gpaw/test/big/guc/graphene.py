@@ -1,7 +1,7 @@
 import numpy as np
 from math import sqrt
 from ase import Atoms
-from ase.lattice.surface import hcp0001
+from ase.build import hcp0001
 from gpaw import GPAW
 from gpaw.test import equal
 

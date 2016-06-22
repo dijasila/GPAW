@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from ase.visualize import view
-from ase.lattice.surface import fcc111, add_adsorbate
+from ase.build import fcc111, add_adsorbate
 from gpaw import GPAW
 from gpaw.mixer import MixerSum
 from gpaw import dscf

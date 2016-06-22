@@ -1,4 +1,4 @@
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW, FermiDirac, PW
 from gpaw.mpi import serial_comm
 from gpaw.xc.rpa import RPACorrelation

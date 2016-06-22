@@ -1,5 +1,5 @@
 from ase import Atoms
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw import GPAW
 from gpaw.xc.fxc import FXCCorrelation
 from gpaw.test import equal

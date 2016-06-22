@@ -85,7 +85,7 @@ import numpy as np
 
 from math import sin, cos
 from ase import Atoms
-from ase.structure import molecule
+from ase.build import molecule
 from ase.units import Bohr
 from gpaw.mpi import synchronize_atoms, world
 from gpaw.utilities.tools import md5_array

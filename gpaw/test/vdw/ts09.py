@@ -4,7 +4,7 @@ import numpy as np
 import ase.io
 from ase.calculators.vdwcorrection import vdWTkatchenko09prl
 from ase.parallel import barrier
-from ase.structure import molecule
+from ase.build import molecule
 
 from gpaw import GPAW
 from gpaw.analyse.hirshfeld import HirshfeldPartitioning

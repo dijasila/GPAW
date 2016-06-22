@@ -1,6 +1,6 @@
 from __future__ import print_function
 import numpy as np
-from ase.structure import molecule
+from ase.build import molecule
 
 from gpaw import GPAW
 from gpaw.eigensolvers.rmm_diis_old import RMM_DIIS

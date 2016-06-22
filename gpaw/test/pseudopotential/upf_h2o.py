@@ -47,7 +47,7 @@ if 1:
     from ase import Atoms
     from gpaw import GPAW, PoissonSolver, FermiDirac, Mixer, MixerSum
     from gpaw.utilities import h2gpts
-    from ase.structure import molecule
+    from ase.build import molecule
 
     #s = UPFSetupData('/home/askhl/parse-upf/h_lda_v1.uspp.F.UPF')
 

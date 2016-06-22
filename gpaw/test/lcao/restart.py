@@ -3,7 +3,7 @@ from __future__ import print_function
 # in normal as well as 'all' mode
 
 import numpy as np
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw import GPAW
 
 # setting number of decimals globally makes numpy.test() tests

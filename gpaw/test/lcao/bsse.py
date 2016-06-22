@@ -1,5 +1,5 @@
 from __future__ import print_function
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw import GPAW
 from gpaw.poisson import PoissonSolver
 from gpaw.atom.basis import BasisMaker

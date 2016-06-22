@@ -1,6 +1,6 @@
 from ase.parallel import paropen
 from ase import Atoms
-from ase.lattice.surface import mx2
+from ase.build import mx2
 
 from gpaw import GPAW,FermiDirac,restart
 from gpaw.mixer import Mixer,MixerSum

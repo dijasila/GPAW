@@ -8,7 +8,7 @@ from gpaw import GPAW
 from gpaw import KohnShamConvergenceError
 from gpaw.utilities import compiled_with_sl
 
-from ase.structure import molecule
+from ase.build import molecule
 
 # Calculates energy and forces for various parallelizations
 

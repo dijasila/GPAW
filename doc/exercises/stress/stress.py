@@ -1,6 +1,6 @@
 from __future__ import print_function
 from ase import Atoms
-from ase.lattice import bulk
+from ase.build import bulk
 from ase.optimize.bfgs import BFGS
 from ase.constraints import UnitCellFilter
 from gpaw import GPAW

@@ -92,7 +92,7 @@ class PWDescriptor:
                 raise ValueError(
                     'You have a weird unit cell!  '
                     'Try to use the maximally reduced Niggli cell.  '
-                    'See the ase.utils.geometry.niggli_reduce() function.')
+                    'See the ase.build.niggli_reduce() function.')
 
         self.ecut = ecut
                 
