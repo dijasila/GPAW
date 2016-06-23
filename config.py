@@ -488,7 +488,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     if glob(libpl + '/libpython*mpi*'):
         libs += ' -lpython%s_mpi' % cfgDict['VERSION']
     else:
-        libs += ' -lpython%s' % cfgDict['VERSION']
+        libs += ' ' + cfgDict.get('BLDLIBRARY', '-lpython%s' % cfgDict['VERSION'])
     libs = ' '.join([libs, cfgDict['LIBS'], cfgDict['LIBM']])
 
     # Hack taken from distutils to determine option for runtime_libary_dirs
