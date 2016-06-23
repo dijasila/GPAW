@@ -1259,7 +1259,13 @@ def main(argv=None):
                 basis.write_xml()
 
             if opt.write:
-                gen.make_paw_setup(opt.tag).write_xml()
+                setup = gen.make_paw_setup(opt.tag)
+                parameters = []
+                for key, value in kwargs.items():
+                    if value is not None:
+                        parameters.append('{0}={1!r}'.format(key, value))
+                setup.generatordata = ',\n    '.join(parameters)
+                setup.write_xml()
 
         if opt.logarithmic_derivatives or opt.plot:
             if opt.plot:
