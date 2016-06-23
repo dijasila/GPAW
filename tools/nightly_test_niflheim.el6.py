@@ -95,7 +95,7 @@ if os.system('source /home/opt/modulefiles/modulefiles_el6.sh&& ' +
              'export OMP_NUM_THREADS=1; ' +
              'mpiexec -np %d ' % np +
              tmpdir + '/bin/gpaw-python ' +
-             'tools/gpaw-test --directory=. %s >& test.out' % args) != 0:
+             'tools/gpaw test %s >& test.out' % args) != 0:
     fail('GPAW %s:  Testsuite crashed!' % str(__version__), email, 'test.out')
 
 try:
