@@ -1342,7 +1342,7 @@ class ReciprocalSpaceDensity(Density):
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
                  world, kptband_comm, vext=None, collinear=True,
-                 redistributor=None):
+                 psolver={}, redistributor=None):
 
         assert gd.comm.size == 1
         assert finegd.comm.size == 1
@@ -1364,7 +1364,14 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
             def estimate_memory(self, mem):
                 pass
+                
+            def todict(self):
+                return {}
 
+        if psolver:
+            raise NotImplementedError('Unknown parameters: {0}'
+                                      .format(', '.join(psolver)))
+            
         self.poisson = PS()
         self.npoisson = 0
 

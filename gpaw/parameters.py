@@ -237,7 +237,7 @@ class InputParameters(dict):
             ps = r['PoissonStencil']
             if ps == 999:
                 self.poissonsolver = FFTPoissonSolver()
-            elif isinstance(ps, int) or ps=='M':
+            elif isinstance(ps, int) or ps == 'M':
                 self.poissonsolver = PoissonSolver(nn=r['PoissonStencil'])
             self.charge = r['Charge']
             fixmom = r['FixMagneticMoment']

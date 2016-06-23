@@ -1,15 +1,16 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-from math import pi
 import warnings
+from math import pi
 
 import numpy as np
 from numpy.fft import fftn, ifftn, fft2, ifft2
 
-from gpaw.transformers import Transformer
-from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw import PoissonConvergenceError
+from gpaw.dipole_correction import DipoleCorrection
+from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
+from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.ewald import madelung
@@ -18,7 +19,7 @@ from gpaw.utilities.tools import construct_reciprocal
 import _gpaw
 
 
-POISSON_GRID_WARNING="""Grid unsuitable for Poisson solver!
+POISSON_GRID_WARNING = """Grid unsuitable for Poisson solver!
 
 The Poisson solver does not have sufficient multigrid levels for good
 performance and will converge inefficiently if at all, or yield wrong
@@ -40,7 +41,13 @@ number of multigrid levels even if the total number of grid points
 is divisible by a high power of 2."""
 
 
-class PoissonSolver:
+def PoissonSolver(dipolecorrection=None, **kwargs):
+    if dipolecorrection is not None:
+        return DipoleCorrection(PoissonSolver(**kwargs), dipolecorrection)
+    return FDPoissonSolver(**kwargs)
+    
+
+class FDPoissonSolver:
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
                  remove_moment=None, use_charge_center=False):
         self.relax = relax
@@ -402,7 +409,7 @@ class NoInteractionPoissonSolver:
         pass
 
 
-class FFTPoissonSolver(PoissonSolver):
+class FFTPoissonSolver(FDPoissonSolver):
     """FFT Poisson solver for general unit cells."""
 
     relax_method = 0
@@ -442,7 +449,7 @@ class FFTPoissonSolver(PoissonSolver):
         mem.subnode('(Varies)', 0.0)
 
 
-class ParallelFFTPoissonSolver(PoissonSolver):
+class ParallelFFTPoissonSolver(FDPoissonSolver):
     """FFT Poisson solver for general unit cells."""
     # XXX it is criminally outrageous that this inherits from PoissonSolver!
 
@@ -489,7 +496,7 @@ class ParallelFFTPoissonSolver(PoissonSolver):
         mem.subnode('k squared', self.transp_yz_1_x.gd2.bytecount())
 
 
-class FixedBoundaryPoissonSolver(PoissonSolver):
+class FixedBoundaryPoissonSolver(FDPoissonSolver):
     """Solve the Poisson equation with FFT in two directions,
     and with central differential method in the third direction."""
 
