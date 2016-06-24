@@ -15,7 +15,9 @@ class DipoleCorrection:
         """
         self.c = direction
         self.poissonsolver = poissonsolver
-
+        
+        self.correction = None
+        
     def get_stencil(self):
         return self.poissonsolver.get_stencil()
 
@@ -23,7 +25,7 @@ class DipoleCorrection:
         if isinstance(self.c, str):
             axes = ['xyz'.index(d) for d in self.c]
             for c in range(3):
-                if abs(gd.cell_cv[c, [v1, v2]]).max() < 1e-12:
+                if abs(gd.cell_cv[c, axes]).max() < 1e-12:
                     break
             else:
                 raise ValueError('No axis perpendicular to {0}-plane!'
@@ -39,7 +41,7 @@ class DipoleCorrection:
         # be orthogonal to each other.
         for c1 in range(3):
             if c1 != self.c:
-                if abd(np.dot(gd.cell_cv[self.c], gd.cell_cv[c1])) > 1e-12:
+                if abs(np.dot(gd.cell_cv[self.c], gd.cell_cv[c1])) > 1e-12:
                     raise ValueError('Dipole correction axis must be '
                                      'orthogonal to the two other axes.')
 
@@ -55,7 +57,7 @@ class DipoleCorrection:
 
     def solve(self, phi, rho, **kwargs):
         gd = self.poissonsolver.gd
-        drho, dphi, self.phifactor = dipole_correction(c, gd, rho)
+        drho, dphi, self.correction = dipole_correction(self.c, gd, rho)
         phi -= dphi
         iters = self.poissonsolver.solve(phi, rho + drho, **kwargs)
         phi += dphi

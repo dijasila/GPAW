@@ -94,7 +94,7 @@ if rank == 0:
 
     err1 = abs(dvz1 - dvz2)
 
-    correction = calc1.hamiltonian.poisson.corrector.correction
+    correction = calc1.hamiltonian.poisson.correction
 
     correction_err = abs(2.0 * correction * Hartree + dvz1)
     print('correction error %s' % correction_err)
