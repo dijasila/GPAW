@@ -3,8 +3,6 @@ import numpy as np
 from ase.build import molecule
 from ase.units import Hartree
 from gpaw import GPAW
-from gpaw.dipole_correction import DipoleCorrection
-from gpaw.poisson import PoissonSolver
 from gpaw.mpi import rank
 from gpaw.utilities import h2gpts
 
@@ -62,19 +60,16 @@ convergence = dict(density=1e-5)
 calc1 = GPAW(mode='lcao',
              convergence=convergence,
              gpts=h2gpts(0.25, system1.cell, idiv=8),
-             poissonsolver=DipoleCorrection(PoissonSolver(relax='GS',
-                                                          eps=1e-11), 2))
+             poissonsolver={'dipolelayer': 'xy', 'relax': 'GS', 'eps': 1e-11})
 
 system1.set_calculator(calc1)
 system1.get_potential_energy()
 v1 = calc1.get_effective_potential(pad=False)
 
-
-
 calc2 = GPAW(mode='lcao',
              convergence=convergence,
              gpts=h2gpts(0.25, system2.cell, idiv=8),
-             poissonsolver=PoissonSolver(relax='GS', eps=1e-11))
+             poissonsolver={'relax': 'GS', 'eps': 1e-11})
 
 system2.set_calculator(calc2)
 system2.get_potential_energy()
@@ -99,7 +94,7 @@ if rank == 0:
 
     err1 = abs(dvz1 - dvz2)
 
-    correction = calc1.hamiltonian.poisson.corrector.correction
+    correction = calc1.hamiltonian.poisson.correction
 
     correction_err = abs(2.0 * correction * Hartree + dvz1)
     print('correction error %s' % correction_err)

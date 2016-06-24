@@ -1,14 +1,11 @@
 from __future__ import print_function
 from math import sqrt
-import numpy as np
-import gpaw.mpi as mpi
-MASTER = mpi.MASTER
 
+import numpy as np
 from ase.units import Hartree
 from ase.utils.timing import Timer
 
 import gpaw.mpi as mpi
-#from gpaw.poisson import PoissonSolver
 from gpaw.output import get_txt
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.transformers import Transformer
@@ -635,7 +632,7 @@ class OmegaMatrix:
 
     def write(self, filename=None, fh=None):
         """Write current state to a file."""
-        if mpi.rank == mpi.MASTER:
+        if mpi.rank == 0:
             if fh is None:
                 f = open(filename, 'w')
             else:

@@ -1,15 +1,13 @@
 from __future__ import print_function
-import numpy as np
 import ase.units as units
-from gpaw import restart, GPAW
-from gpaw.poisson import PoissonSolver
-from gpaw.dipole_correction import DipoleCorrection
+from gpaw import GPAW
+
 
 energies = []
 for name in ['zero', 'periodic', 'corrected']:
     if name == 'corrected':
         calc = GPAW(name, txt=None,
-                    poissonsolver=DipoleCorrection(PoissonSolver(), 2))
+                    poissonsolver={'dipolelayer': 'xy'})
     else:
         calc = GPAW(name, txt=None)
 

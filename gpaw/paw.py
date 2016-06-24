@@ -868,7 +868,8 @@ class PAW(PAWTextOutput):
                     xc=xc, world=world,
                     kptband_comm=self.wfs.kptband_comm,
                     redistributor=self.density.redistributor,
-                    vext=par.external, collinear=collinear)
+                    vext=par.external, collinear=collinear,
+                    psolver=par.poissonsolver)
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)

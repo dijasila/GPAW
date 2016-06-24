@@ -517,7 +517,9 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         # Solver for the Poisson equation:
         if psolver is None:
-            psolver = PoissonSolver(nn=3, relax='J')
+            psolver = {}
+        if isinstance(psolver, dict):
+            psolver = PoissonSolver(**psolver)
         self.poisson = psolver
         self.poisson.set_grid_descriptor(self.finegd)
 

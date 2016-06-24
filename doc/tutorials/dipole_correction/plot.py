@@ -6,15 +6,13 @@ import matplotlib.pyplot as plt
 import ase.units as units
 from ase.io import write
 from gpaw import GPAW
-from gpaw.poisson import PoissonSolver
-from gpaw.dipole_correction import DipoleCorrection
 
 # this test requires OpenEXR-libs
 
 for name in ['zero', 'periodic', 'corrected']:
     if name == 'corrected':
         calc = GPAW(name, txt=None,
-                    poissonsolver=DipoleCorrection(PoissonSolver(), 2))
+                    poissonsolver={'dipolelayer': 'xy'})
     else:
         calc = GPAW(name, txt=None)
 
