@@ -7,7 +7,7 @@ Miscellaneous objects
 .. autoclass:: gpaw.spline.Spline
     :members:
 
-.. autoclass:: gpaw.poisson.PoissonSolver
+.. autoclass:: gpaw.poisson.FDPoissonSolver
     :members:
 
 .. autoclass:: gpaw.xc.functional.XCFunctional
