@@ -41,9 +41,17 @@ number of multigrid levels even if the total number of grid points
 is divisible by a high power of 2."""
 
 
-def PoissonSolver(dipolecorrection=None, **kwargs):
-    if dipolecorrection is not None:
-        return DipoleCorrection(PoissonSolver(**kwargs), dipolecorrection)
+def create_poisson_solver(kind, **kwargs):
+    if kind == 'default':
+        return PoissonSolver(**kwargs)
+    if kind == 'fdtd':
+        return PoissonSolver(**kwargs)
+    raise ValueError('Unknown poisson-solver: ' + kind)
+    
+    
+def PoissonSolver(dipolelayer=None, **kwargs):
+    if dipolelayer is not None:
+        return DipoleCorrection(PoissonSolver(**kwargs), dipolelayer)
     return FDPoissonSolver(**kwargs)
     
 
