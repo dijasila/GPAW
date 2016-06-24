@@ -327,7 +327,7 @@ class PAWTextOutput:
                 t('Center of Charge: %s' % (dipole / self.density.charge))
 
         try:
-            correction = self.hamiltonian.poisson.corrector.correction
+            correction = self.hamiltonian.poisson.correction
             epsF = self.occupations.fermilevel
         except AttributeError:
             pass
