@@ -615,6 +615,9 @@ class FermiDirac(SmoothDistribution):
         sign = 1 - kpt.s * 2
         return np.array([n, dnde, n * sign, e_entropy])
 
+    def extrapolate_energy_to_zero_width(self, E):
+        return E + 0.5 * self.e_entropy
+    
         
 class MethfesselPaxton(SmoothDistribution):
     def __init__(self, width, iter=0, fixmagmom=False, maxiter=1000):
@@ -657,6 +660,9 @@ class MethfesselPaxton(SmoothDistribution):
         else:
             return (2 * x * self.hermite_poly(n - 1, x) -
                     2 * (n - 1) * self.hermite_poly(n - 2, x))
+
+    def extrapolate_energy_to_zero_width(self, E):
+        return E + self.e_entropy / (self.iter + 2)
 
                             
 class FixedOccupations(ZeroKelvin):
