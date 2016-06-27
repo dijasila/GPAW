@@ -54,7 +54,7 @@ def to1bz(bzk_kc, cell_cv):
 class KPointDescriptor:
     """Descriptor-class for k-points."""
 
-    def __init__(self, kpts, nspins=1, collinear=True):
+    def __init__(self, kpts, nspins=1):
         """Construct descriptor object for kpoint/spin combinations (ks-pair).
 
         Parameters
@@ -106,7 +106,6 @@ class KPointDescriptor:
                     self.N_c = None
                     self.offset_c = None
 
-        self.collinear = collinear
         self.nspins = nspins
         self.nbzkpts = len(self.bzk_kc)
 
@@ -177,10 +176,7 @@ class KPointDescriptor:
 
         # Number of irreducible k-points and k-point/spin combinations.
         self.nibzkpts = len(self.ibzk_kc)
-        if self.collinear:
-            self.nks = self.nibzkpts * self.nspins
-        else:
-            self.nks = self.nibzkpts
+        self.nks = self.nibzkpts * self.nspins
 
     def set_communicator(self, comm):
         """Set k-point communicator."""
@@ -231,10 +227,7 @@ class KPointDescriptor:
         for ks in range(self.ks0, self.ks0 + self.mynks):
             s, k = divmod(ks, self.nibzkpts)
             q = (ks - self.ks0) % self.nibzkpts
-            if self.collinear:
-                weight = self.weight_k[k] * 2 / self.nspins
-            else:
-                weight = self.weight_k[k]
+            weight = self.weight_k[k] * 2 / self.nspins
             if self.gamma:
                 phase_cd = np.ones((3, 2), complex)
             else:

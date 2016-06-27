@@ -17,9 +17,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         cavity, dielectric, interactions,
         # RealSpaceHamiltonian arguments:
         gd, finegd, nspins, setups, timer, xc, world,
-        kptband_comm, redistributor, vext=None, collinear=True, psolver=None,
-        stencil=3
-    ):
+        kptband_comm, redistributor, vext=None, psolver=None,
+        stencil=3):
         """Constructor of SolvationRealSpaceHamiltonian class.
 
         Additional arguments not present in RealSpaceHamiltonian:
@@ -41,7 +40,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         RealSpaceHamiltonian.__init__(
             self,
             gd, finegd, nspins, setups, timer, xc, world,
-            kptband_comm, vext=vext, collinear=collinear, psolver=psolver,
+            kptband_comm, vext=vext, psolver=psolver,
             stencil=stencil, redistributor=redistributor
         )
         for ia in interactions:

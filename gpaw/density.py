@@ -23,9 +23,15 @@ from gpaw.arraydict import ArrayDict
 
 class NullBackgroundCharge:
     charge = 0.0
-    def set_grid_descriptor(self, gd): pass
-    def add_charge_to(self, rhot_g): pass
-    def add_fourier_space_charge_to(self, pd, rhot_q): pass
+    
+    def set_grid_descriptor(self, gd):
+        pass
+    
+    def add_charge_to(self, rhot_g):
+        pass
+        
+    def add_fourier_space_charge_to(self, pd, rhot_q):
+        pass
 
 
 class Density(object):
@@ -50,7 +56,7 @@ class Density(object):
     """
 
     def __init__(self, gd, finegd, nspins, charge, redistributor,
-                 collinear=True, background_charge=None):
+                 background_charge=None):
         """Create the Density object."""
 
         self.gd = gd
@@ -59,10 +65,6 @@ class Density(object):
         self.charge = float(charge)
         self.redistributor = redistributor
         self.atomdist = None
-
-        self.collinear = collinear
-        self.ncomp = 1 if collinear else 2
-        self.ns = self.nspins * self.ncomp**2
 
         # This can contain e.g. a Jellium background charge
         if background_charge is None:
@@ -86,11 +88,11 @@ class Density(object):
         self.mixer = BaseMixer()
         self.timer = nulltimer
 
-    def initialize(self, setups, timer, magmom_av, hund):
+    def initialize(self, setups, timer, magmom_a, hund):
         self.timer = timer
         self.setups = setups
         self.hund = hund
-        self.magmom_av = magmom_av
+        self.magmom_a = magmom_a
 
     def reset(self):
         # TODO: reset other parameters?
@@ -103,11 +105,11 @@ class Density(object):
         # it previously didn't exist but it will needed for the new atoms.
         if (self.atom_partition is not None and
             self.D_asp is None and (rank_a == self.gd.comm.rank).any()):
-            self.D_asp = self.setups.empty_atomic_matrix(self.ns,
+            self.D_asp = self.setups.empty_atomic_matrix(self.nspins,
                                                          self.atom_partition)
 
-        if (self.atom_partition is not None and self.D_asp is not None
-            and not isinstance(self.gd.comm, SerialCommunicator)):
+        if (self.atom_partition is not None and self.D_asp is not None and
+            not isinstance(self.gd.comm, SerialCommunicator)):
             self.timer.start('Redistribute')
             self.D_asp.redistribute(atom_partition)
             self.timer.stop('Redistribute')
@@ -145,7 +147,8 @@ class Density(object):
     @D_asp.setter
     def D_asp(self, value):
         if isinstance(value, dict):
-            tmp = self.setups.empty_atomic_matrix(self.ns, self.atom_partition)
+            tmp = self.setups.empty_atomic_matrix(self.nspins,
+                                                  self.atom_partition)
             tmp.update(value)
             value = tmp
         assert isinstance(value, ArrayDict) or value is None, type(value)
@@ -229,21 +232,12 @@ class Density(object):
         # distribute charge on all atoms
         # XXX interaction with background charge may be finicky
         c = (self.charge - self.background_charge.charge) / len(self.setups)
-        M_v = self.magmom_av[a]
-        M = (M_v**2).sum()**0.5
+        M = self.magmom_a[a]
         f_si = self.setups[a].calculate_initial_occupation_numbers(
-            M, self.hund, charge=c, nspins=self.nspins * self.ncomp)
+            abs(M), self.hund, charge=c, nspins=self.nspins)
 
-        if self.collinear:
-            if M_v[2] < 0:
-                f_si = f_si[::-1].copy()
-        else:
-            f_i = f_si.sum(axis=0)
-            fm_i = f_si[0] - f_si[1]
-            f_si = np.zeros((4, len(f_i)))
-            f_si[0] = f_i
-            if M > 0:
-                f_si[1:4] = np.outer(M_v / M, fm_i)
+        if M < 0:
+            f_si = f_si[::-1].copy()
         return f_si
 
     def initialize_from_atomic_densities(self, basis_functions):
@@ -259,7 +253,9 @@ class Density(object):
         # but is not particularly efficient (not that this is a time
         # consuming step)
 
-        self.D_asp = self.setups.empty_atomic_matrix(self.ns,
+        self.log('Density initialize from atomic densities')
+
+        self.D_asp = self.setups.empty_atomic_matrix(self.nspins,
                                                      self.atom_partition)
         f_asi = {}
         for a in basis_functions.atom_indices:
@@ -273,22 +269,23 @@ class Density(object):
                 f_si = self.get_initial_occupations(a)
             self.D_asp[a][:] = self.setups[a].initialize_density_matrix(f_si)
 
-        self.nt_sG = self.gd.zeros(self.ns)
+        self.nt_sG = self.gd.zeros(self.nspins)
         basis_functions.add_to_density(self.nt_sG, f_asi)
         self.nt_sG[:self.nspins] += self.nct_G
         self.calculate_normalized_charges_and_mix()
 
     def initialize_from_wavefunctions(self, wfs):
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""
-        self.timer.start("Density initialize from wavefunctions")
-        self.nt_sG = self.gd.empty(self.ns)
+        self.log('Density initialize from wavefunctions')
+        self.timer.start('Density initialize from wavefunctions')
+        self.nt_sG = self.gd.empty(self.nspins)
         self.calculate_pseudo_density(wfs)
-        D_asp = self.setups.empty_atomic_matrix(self.ns,
+        D_asp = self.setups.empty_atomic_matrix(self.nspins,
                                                 wfs.atom_partition)
         wfs.calculate_atomic_density_matrices(D_asp)
         self.D_asp = D_asp
         self.calculate_normalized_charges_and_mix()
-        self.timer.stop("Density initialize from wavefunctions")
+        self.timer.stop('Density initialize from wavefunctions')
 
     def initialize_directly_from_arrays(self, nt_sG, D_asp):
         """Set D_asp and nt_sG directly."""
@@ -326,16 +323,12 @@ class Density(object):
         self.mixer.initialize(self)
 
     def estimate_magnetic_moments(self):
-        magmom_av = np.zeros_like(self.magmom_av)
-        if self.nspins == 2 or not self.collinear:
+        magmom_a = np.zeros_like(self.magmom_a)
+        if self.nspins == 2:
             for a, D_sp in self.D_asp.items():
-                if self.collinear:
-                    magmom_av[a, 2] = np.dot(D_sp[0] - D_sp[1],
-                                             self.setups[a].N0_p)
-                else:
-                    magmom_av[a] = np.dot(D_sp[1:4], self.setups[a].N0_p)
-            self.gd.comm.sum(magmom_av)
-        return magmom_av
+                magmom_a[a] = np.dot(D_sp[0] - D_sp[1], self.setups[a].N0_p)
+            self.gd.comm.sum(magmom_a)
+        return magmom_a
 
     def get_correction(self, a, spin):
         """Integrated atomic density correction.
@@ -558,9 +551,9 @@ class Density(object):
         natoms = len(self.setups)
         atom_partition = AtomPartition(self.gd.comm, np.zeros(natoms, int),
                                        'density-gd')
-        D_asp = self.setups.empty_atomic_matrix(self.ns, atom_partition)
+        D_asp = self.setups.empty_atomic_matrix(self.nspins, atom_partition)
         self.atom_partition = atom_partition  # XXXXXX
-        spos_ac = np.zeros((natoms, 3)) # XXXX
+        spos_ac = np.zeros((natoms, 3))  # XXXX
         self.atomdist = self.redistributor.get_atom_distributions(spos_ac)
 
         all_D_sp = reader.get('AtomicDensityMatrices', broadcast=True)
@@ -573,15 +566,14 @@ class Density(object):
 
 class RealSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, charge, redistributor,
-                 collinear=True, stencil=3,
+                 stencil=3,
                  background_charge=None):
         Density.__init__(self, gd, finegd, nspins, charge, redistributor,
-                         collinear=collinear,
                          background_charge=background_charge)
         self.stencil = stencil
 
-    def initialize(self, setups, timer, magmom_av, hund):
-        Density.initialize(self, setups, timer, magmom_av, hund)
+    def initialize(self, setups, timer, magmom_a, hund):
+        Density.initialize(self, setups, timer, magmom_a, hund)
 
         # Interpolation function for the density:
         self.interpolator = Transformer(self.redistributor.aux_gd,
@@ -616,8 +608,8 @@ class RealSpaceDensity(Density):
         if not self.gd.pbc_c.all():
             # With zero-boundary conditions in one or more directions,
             # this is not the case.
-            pseudo_charge = (self.background_charge.charge - self.charge
-                             - comp_charge)
+            pseudo_charge = (self.background_charge.charge - self.charge -
+                             comp_charge)
             if abs(pseudo_charge) > 1.0e-14:
                 x = (pseudo_charge /
                      self.finegd.integrate(self.nt_sg[:self.nspins]).sum())

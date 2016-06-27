@@ -16,16 +16,10 @@ class LCAO:
     def __init__(self, atomic_correction=None):
         self.atomic_correction = atomic_correction
 
-    def __call__(self, collinear, *args, **kwargs):
-        if collinear:
-            cls = LCAOWaveFunctions
-        else:
-            from gpaw.xc.noncollinear import \
-                NonCollinearLCAOWaveFunctions
-            cls = NonCollinearLCAOWaveFunctions
-        
-        return cls(*args, atomic_correction=self.atomic_correction,
-                    **kwargs)
+    def __call__(self, *args, **kwargs):
+        return LCAOWaveFunctions(*args,
+                                 atomic_correction=self.atomic_correction,
+                                 **kwargs)
 
 
 # replace by class to make data structure perhaps a bit less confusing

@@ -375,7 +375,7 @@ class ZeroKelvin(OccupationNumbers):
             if wfs.bd.comm.rank == 0:
                 f_n = wfs.bd.empty(global_array=True)
                 homo, lumo = self.occupy(f_n, eps_n,
-                                         0.5 * self.nvalence * wfs.ncomp *
+                                         0.5 * self.nvalence *
                                          kpt.weight, kpt.weight)
                 self.homo = max(self.homo, homo)
                 self.lumo = min(self.lumo, lumo)
@@ -458,7 +458,7 @@ class SmoothDistribution(ZeroKelvin):
         return string
 
     def calculate_occupation_numbers(self, wfs):
-        if self.width == 0 or self.nvalence == wfs.bd.nbands * 2 // wfs.ncomp:
+        if self.width == 0 or self.nvalence == wfs.bd.nbands * 2:
             ZeroKelvin.calculate_occupation_numbers(self, wfs)
             return
 
@@ -551,8 +551,7 @@ class SmoothDistribution(ZeroKelvin):
             if kd.comm.rank == 0:
                 eps_n = eps_skn.ravel()
                 w_skn = np.empty((kd.nspins, kd.nibzkpts, wfs.bd.nbands))
-                w_skn[:] = (2.0 / wfs.nspins / wfs.ncomp *
-                            kd.weight_k[:, np.newaxis])
+                w_skn[:] = (2.0 / wfs.nspins * kd.weight_k[:, np.newaxis])
                 w_n = w_skn.ravel()
                 n_i = eps_n.argsort()
                 w_i = w_n[n_i]

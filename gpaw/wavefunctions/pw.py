@@ -1239,7 +1239,7 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
 class ReciprocalSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, charge, redistributor,
-                 collinear=True, background_charge=None):
+                 background_charge=None):
         assert gd.comm.size == 1
         serial_finegd = finegd.new_descriptor(comm=gd.comm)
 
@@ -1247,7 +1247,7 @@ class ReciprocalSpaceDensity(Density):
         noredist = GridRedistributor(redistributor.comm,
                                      redistributor.broadcast_comm, gd, gd)
         Density.__init__(self, gd, serial_finegd, nspins, charge,
-                         redistributor=noredist, collinear=collinear,
+                         redistributor=noredist,
                          background_charge=background_charge)
 
         self.pd2 = PWDescriptor(None, gd)
@@ -1279,17 +1279,14 @@ class ReciprocalSpaceDensity(Density):
         self.nct.add(self.nct_q, 1.0 / self.nspins)
         self.nct_G = self.pd2.ifft(self.nct_q)
 
-        from gpaw.utilities.partition import AtomPartition
-        p = AtomPartition(self.gd.comm, np.zeros(len(spos_ac), dtype=int))
-
     def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
         if comp_charge is None:
             comp_charge = self.calculate_multipole_moments()
 
         if self.nt_sg is None:
-            self.nt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
-            self.nt_sQ = self.pd2.empty(self.nspins * self.ncomp**2)
+            self.nt_sg = self.finegd.empty(self.nspins)
+            self.nt_sQ = self.pd2.empty(self.nspins)
 
         for nt_G, nt_Q, nt_g in zip(self.nt_sG, self.nt_sQ, self.nt_sg):
             nt_g[:], nt_Q[:] = self.pd2.interpolate(nt_G, self.pd3)
@@ -1341,7 +1338,7 @@ class ReciprocalSpaceDensity(Density):
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
-                 world, kptband_comm, vext=None, collinear=True,
+                 world, kptband_comm, vext=None,
                  psolver={}, redistributor=None):
 
         assert gd.comm.size == 1
@@ -1349,7 +1346,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         assert redistributor is not None  # XXX should not be like this
         Hamiltonian.__init__(self, gd, finegd, nspins, setups,
                              timer, xc, world, kptband_comm, vext=vext,
-                             collinear=collinear, redistributor=redistributor)
+                             redistributor=redistributor)
 
         self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)
         self.pd2 = pd2

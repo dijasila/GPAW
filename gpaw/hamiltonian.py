@@ -52,7 +52,7 @@ class Hamiltonian(object):
     """
 
     def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
-                 kptband_comm, redistributor, vext=None, collinear=True):
+                 kptband_comm, redistributor, vext=None):
         """Create the Hamiltonian."""
         self.gd = gd
         self.finegd = finegd
@@ -60,9 +60,6 @@ class Hamiltonian(object):
         self.setups = setups
         self.timer = timer
         self.xc = xc
-        self.collinear = collinear
-        self.ncomp = 2 - int(collinear)
-        self.ns = self.nspins * self.ncomp**2
         self.world = world
         self.kptband_comm = kptband_comm
         self.redistributor = redistributor
@@ -99,7 +96,8 @@ class Hamiltonian(object):
     @dH_asp.setter
     def dH_asp(self, value):
         if isinstance(value, dict):
-            tmp = self.setups.empty_atomic_matrix(self.ns, self.atom_partition)
+            tmp = self.setups.empty_atomic_matrix(self.nspins,
+                                                  self.atom_partition)
             tmp.update(value)
             value = tmp
         assert isinstance(value, ArrayDict) or value is None, type(value)
@@ -196,9 +194,9 @@ class Hamiltonian(object):
             return A, V
 
     def initialize(self):
-        self.vt_sg = self.finegd.empty(self.ns)
+        self.vt_sg = self.finegd.empty(self.nspins)
         self.vHt_g = self.finegd.zeros()
-        self.vt_sG = self.gd.empty(self.ns)
+        self.vt_sG = self.gd.empty(self.nspins)
         self.poisson.initialize()
 
     def update(self, density):
@@ -244,7 +242,7 @@ class Hamiltonian(object):
         Ekin, Epot, Ebar, Eext, Exc = np.zeros(5)
 
         D_asp = self.atomdist.to_work(density.D_asp)
-        dH_asp = self.setups.empty_atomic_matrix(self.ns, D_asp.partition)
+        dH_asp = self.setups.empty_atomic_matrix(self.nspins, D_asp.partition)
 
         for a, D_sp in D_asp.items():
             W_L = W_aL[a]
@@ -262,7 +260,6 @@ class Hamiltonian(object):
             dH_asp[a] = dH_sp = np.zeros_like(D_sp)
 
             if setup.HubU is not None:
-                assert self.collinear
                 nspins = len(D_sp)
 
                 l_j = setup.l_j
@@ -480,7 +477,6 @@ class Hamiltonian(object):
         # Read pseudo potential on the coarse grid
         # and broadcast on kpt/band comm:
         if version > 0.3:
-            # XXX should this not be self.ns instead of self.nspins?
             self.vt_sG = self.gd.empty(self.nspins)
             if hdf5:
                 indices = [slice(0, self.nspins), ] + self.gd.get_slice()
@@ -509,11 +505,11 @@ class Hamiltonian(object):
 
 class RealSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
-                 kptband_comm, vext=None, collinear=True,
+                 kptband_comm, vext=None,
                  psolver=None, stencil=3, redistributor=None):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
                              world, kptband_comm, vext=vext,
-                             collinear=collinear, redistributor=redistributor)
+                             redistributor=redistributor)
 
         # Solver for the Poisson equation:
         if psolver is None:
@@ -568,7 +564,6 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         Eext = 0.0
         if self.vext is not None:
-            assert self.collinear
             vext_g = self.vext.get_potential(self.finegd)
             vt_g += vext_g
             Eext = self.finegd.integrate(vext_g, density.rhot_g,
@@ -620,7 +615,6 @@ class RealSpaceHamiltonian(Hamiltonian):
         return Ekin
 
     def calculate_atomic_hamiltonians(self, dens):
-        #W_aL = dens.ghat.dict()
         def getshape(a):
             return sum(2 * l + 1 for l, _ in enumerate(self.setups[a].ghat_l)),
         W_aL = ArrayDict(self.atomdist.aux_partition, getshape, float)

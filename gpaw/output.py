@@ -351,11 +351,6 @@ class PAWTextOutput:
             for a, mom in enumerate(self.get_magnetic_moments()):
                 t(a, mom)
             t()
-        elif not self.wfs.collinear:
-            self.txt.write('Local Magnetic Moments:\n')
-            for a, mom_v in enumerate(self.get_magnetic_moments()):
-                self.txt.write('%4d  (%.3f, %.3f, %.3f)\n' %
-                               (a, mom_v[0], mom_v[1], mom_v[2]))
 
     def print_iteration(self, iter):
         # Output from each iteration:

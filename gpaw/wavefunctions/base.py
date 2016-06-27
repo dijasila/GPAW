@@ -52,21 +52,12 @@ class WaveFunctions(EmptyWaveFunctions):
         MPI-communicator for parallelization over **k**-points.
     """
 
-    collinear = True
-    # ncomp is a number of array components necessary to hold
-    # information about non-collinear spins.  With collinear spin
-    # it is always 1; else it is 2.
-    ncomp = 1
-
     def __init__(self, gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.gd = gd
         self.nspins = kd.nspins
-        self.ns = self.nspins * self.ncomp**2
         self.nvalence = nvalence
         self.bd = bd
-        #self.nbands = self.bd.nbands #XXX
-        #self.mynbands = self.bd.mynbands #XXX
         self.dtype = dtype
         assert dtype == float or dtype == complex
         self.world = world
@@ -198,7 +189,7 @@ class WaveFunctions(EmptyWaveFunctions):
                 D_sp = D_asp.get(a)
                 if D_sp is None:
                     ni = setup.ni
-                    D_sp = np.empty((self.ns, ni * (ni + 1) // 2))
+                    D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
                 self.gd.comm.broadcast(D_sp, self.atom_partition.rank_a[a])
                 all_D_asp.append(D_sp)
  

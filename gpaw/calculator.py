@@ -354,7 +354,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         cell_cv = atoms.get_cell() / Bohr
         pbc_c = atoms.get_pbc()
         Z_a = atoms.get_atomic_numbers()
-        magmom_av = atoms.get_initial_magnetic_moments()
+        magmom_a = atoms.get_initial_magnetic_moments()
 
         self.synchronize_atoms()
 
@@ -406,21 +406,14 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         setups = Setups(Z_a, par.setups, par.basis, par.lmax, xc,
                         filter, world)
 
-        if magmom_av.ndim == 1:
-            collinear = True
-            magmom_av, magmom_a = np.zeros((natoms, 3)), magmom_av
-            magmom_av[:, 2] = magmom_a
-        else:
-            collinear = False
-
-        magnetic = magmom_av.any()
+        magnetic = magmom_a.any()
 
         spinpol = par.spinpol
         if par.hund:
             if natoms != 1:
                 raise ValueError('hund=True arg only valid for single atoms!')
             spinpol = True
-            magmom_av[0] = (0, 0, setups[0].get_hunds_rule_moment(par.charge))
+            magmom_a[0] = setups[0].get_hunds_rule_moment(par.charge)
 
         if spinpol is None:
             spinpol = magnetic
@@ -428,12 +421,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             raise ValueError('Non-zero initial magnetic moment for a ' +
                              'spin-paired calculation!')
 
-        if collinear:
-            nspins = 1 + int(spinpol)
-            ncomp = 1
-        else:
-            nspins = 1
-            ncomp = 2
+        nspins = 1 + int(spinpol)
 
         if par.usesymm != 'default':
             warnings.warn('Use "symmetry" keyword instead of ' +
@@ -445,9 +433,9 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             symm = {'point_group': False, 'time_reversal': False}
 
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
-        kd = KPointDescriptor(bzkpts_kc, nspins, collinear)
-        m_av = magmom_av.round(decimals=3)  # round off
-        id_a = list(zip(setups.id_a, *m_av.T))
+        kd = KPointDescriptor(bzkpts_kc, nspins)
+        m_a = magmom_a.round(decimals=3)  # round off
+        id_a = list(zip(setups.id_a, m_a))
         symmetry = Symmetry(id_a, cell_cv, atoms.pbc, **symm)
         self.timer.start('Set symmetry')
         kd.set_symmetry(atoms, symmetry, comm=world)
@@ -486,8 +474,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         nvalence = setups.nvalence - par.charge
         if par.background_charge is not None:
             nvalence += par.background_charge.charge
-        M_v = magmom_av.sum(0)
-        M = np.dot(M_v, M_v) ** 0.5
+        M = abs(magmom_a.sum())
 
         nbands = par.nbands
 
@@ -531,8 +518,6 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         if nvalence > 2 * nbands and not orbital_free:
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
-
-        nbands *= ncomp
 
         if par.width is not None:
             self.text('**NOTE**: please start using '
@@ -690,7 +675,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                                                gd, bd, domainband_comm, dtype,
                                                nao=nao, timer=self.timer)
 
-                self.wfs = mode(collinear, lcaoksl, **wfs_kwargs)
+                self.wfs = mode(lcaoksl, **wfs_kwargs)
 
             elif mode.name == 'fd' or mode.name == 'pw':
                 # buffer_size keyword only relevant for fdpw
@@ -810,19 +795,19 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             if realspace:
                 self.density = RealSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
-                    redistributor, collinear=collinear,
+                    redistributor,
                     stencil=par.stencils[1],
                     background_charge=par.background_charge)
             else:
                 self.density = pw.ReciprocalSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
-                    redistributor, collinear=collinear,
+                    redistributor,
                     background_charge=par.background_charge)
 
         # XXXXXXXXXX if setups change, then setups.core_charge may change.
         # But that parameter was supplied in Density constructor!
         # This surely is a bug!
-        self.density.initialize(setups, self.timer, magmom_av, par.hund)
+        self.density.initialize(setups, self.timer, magmom_a, par.hund)
         self.density.set_mixer(par.mixer)
 
         if self.hamiltonian is None:
@@ -838,7 +823,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                     setups=setups, timer=self.timer, xc=xc,
                     world=world, kptband_comm=self.wfs.kptband_comm,
                     redistributor=self.density.redistributor,
-                    vext=par.external, collinear=collinear,
+                    vext=par.external,
                     psolver=par.poissonsolver,
                     stencil=par.stencils[1])
             else:
@@ -850,7 +835,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                     xc=xc, world=world,
                     kptband_comm=self.wfs.kptband_comm,
                     redistributor=self.density.redistributor,
-                    vext=par.external, collinear=collinear,
+                    vext=par.external,
                     psolver=par.poissonsolver)
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
