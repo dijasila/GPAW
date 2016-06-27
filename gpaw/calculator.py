@@ -1,6 +1,3 @@
-# Copyright (C) 2003  CAMP
-# Please see the accompanying LICENSE file for further information.
-
 """ASE-calculator interface."""
 import numpy as np
 from ase.units import Bohr, Hartree
@@ -13,7 +10,7 @@ from ase.units import Bohr, Hartree
 from ase.dft.kpoints import monkhorst_pack
 from ase.calculators.calculator import kptdensity2monkhorstpack
 from ase.utils.timing import Timer
-from ase.io.trajectory import read_atoms
+from ase.io.trajectory import read_atoms, write_atoms
 
 import gpaw.io
 import gpaw.mpi as mpi
@@ -25,7 +22,6 @@ from gpaw.symmetry import Symmetry
 import gpaw.wavefunctions.pw as pw
 from gpaw.output import PAWTextOutput
 import gpaw.occupations as occupations
-from gpaw.forces import ForceCalculator
 from gpaw.wavefunctions.lcao import LCAO
 from gpaw.wavefunctions.fd import FD
 from gpaw.density import RealSpaceDensity
@@ -44,6 +40,8 @@ from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
 
 from gpaw.paw import PAW
 from gpaw.io import Reader, Writer
+from gpaw.forces import calculate_forces
+from gpaw.stress import calculate_stress
 
 
 class GPAW(Calculator, PAW, PAWTextOutput):
@@ -141,10 +139,87 @@ class GPAW(Calculator, PAW, PAWTextOutput):
     def write(self, filename, mode=''):
         writer = Writer(filename)
         write_atoms(writer.subwriter('atoms'), self.atoms)
-        write.write('results', self.results)
-        write.write('parameters', self.paramesters)
+        writer.write('results', self.results)
+        writer.write('parameters', self.paramesters)
         writer.close()
         
+    def check_state(self, atoms, tol=1e-15):
+        system_changes = Calculator.check_state(self, atoms, tol)
+        if 'positions' not in system_changes:
+            if self.hamiltonian.vext:
+                if self.hamiltonian.vext.vext_g is None:
+                    # QMMM atoms have moved:
+                    system_changes.appen('positions')
+        return system_changes
+        
+    def calculate(self, atoms=None, properties=['energy'],
+                  system_changes=['cell']):
+        Calculator.calculate(self, atoms)
+        atoms = self.atoms
+        
+        if system_changes:
+            if system_changes == ['positions']:
+                # Only positions have changed:
+                self.density.reset()
+            else:
+                # Drastic changes:
+                self.wfs = None
+                self.occupations = None
+                self.density = None
+                self.hamiltonian = None
+                self.scf = None
+                self.initialize(atoms)
+            
+            self.set_positions(atoms)
+
+        assert not self.scf.converged
+        
+        self.print_cell_and_parameters()
+
+        self.timer.start('SCF-cycle')
+        for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
+                                 self.occupations):
+            self.iter = iter
+            self.call_observers(iter)
+            self.print_iteration(iter)
+        self.timer.stop('SCF-cycle')
+
+        if self.scf.converged:
+            self.call_observers(iter, final=True)
+            self.print_converged(iter)
+        else:
+            self.txt.write(oops)
+            raise KohnShamConvergenceError(
+                'Did not converge!  See text output for help.')
+
+        self.results['energy'] = self.hamiltonian.Etot * Hartree
+        efree = self.occupations.extrapolate_energy_to_zero_width(
+            self.hamiltonian.Etot) * Hartree
+        self.results['free_energy'] = efree
+
+        dipole_v = self.density.calculate_dipole_moment()
+        self.results['dipole'] = dipole_v * Bohr
+
+        # Magnetic moments within augmentation spheres:
+        magmom_a = self.density.estimate_magnetic_moments()
+        momsum = self.magmom_a.sum()
+        magmom = self.occupations.magmom
+        if abs(magmom) > 1e-7 and abs(momsum) > 1e-7:
+            magmom_a *= magmom / momsum
+        self.results['magmom'] = self.occupations.magmom
+        self.results['magmoms'] = magmom_a
+
+        if 'forces' in properties:
+            with self.timer('Forces'):
+                F_av = calculate_forces(self.wfs, self.density,
+                                        self.hamiltonian)
+                self.print_forces()
+                self.results['forces'] = F_av * (Hartree / Bohr)
+
+        if 'stress' in properties:
+            stress = calculate_stress(self).flat[[0, 4, 8, 5, 2, 1]]
+            self.results['stress'] = stress * (Hartree / Bohr**3)
+            
     def set(self, **kwargs):
         """Change parameters for calculator.
 
@@ -156,11 +231,11 @@ class GPAW(Calculator, PAW, PAWTextOutput):
 
         if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
             raise ValueError("""You can't use both "gpts" and "h"!""")
-        if 'h' in kwargs:
-            del self.parameters['gpts']
-        if 'gpts' in kwargs:
-            del self.parameters['h']
 
+        changed_parameters = Calculator.set(self, **kwargs)
+        if not changed_parameters:
+            return {}
+            
         self.initialized = False
 
         for key in kwargs:
@@ -173,7 +248,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
 
             if key in ['fixmom', 'mixer',
                        'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof', 'notify']:
+                       'eigensolver', 'idiotproof']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
@@ -183,7 +258,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             # More drastic changes:
             self.scf = None
             self.wfs.set_orthonormalized(False)
-            if key in ['lmax', 'width', 'stencils', 'external', 'xc',
+            if key in ['lmax', 'stencils', 'external', 'xc',
                        'poissonsolver']:
                 self.hamiltonian = None
                 self.occupations = None
@@ -192,19 +267,19 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             elif key in ['charge', 'background_charge']:
                 self.hamiltonian = None
                 self.density = None
-                self.wfs = EmptyWaveFunctions()
+                self.wfs = None
                 self.occupations = None
             elif key in ['kpts', 'nbands', 'usesymm', 'symmetry']:
-                self.wfs = EmptyWaveFunctions()
+                self.wfs = None
                 self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'realspace',
                          'parallel', 'communicator', 'dtype', 'mode']:
                 self.density = None
                 self.occupations = None
                 self.hamiltonian = None
-                self.wfs = EmptyWaveFunctions()
+                self.wfs = None
             elif key in ['basis']:
-                self.wfs = EmptyWaveFunctions()
+                self.wfs = None
             elif key in ['parsize', 'parsize_bands', 'parstride_bands']:
                 name = {'parsize': 'domain',
                         'parsize_bands': 'band',
@@ -216,86 +291,6 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                 raise TypeError("Unknown keyword argument: '%s'" % key)
 
         p.update(kwargs)
-
-    def calculate(self, atoms=None, converge=False,
-                  force_call_to_set_positions=False):
-        """Update PAW calculaton if needed.
-
-        Returns True/False whether a calculation was performed or not."""
-
-        self.timer.start('Initialization')
-        if atoms is None:
-            atoms = self.atoms
-
-        if self.atoms is None:
-            # First time:
-            self.initialize(atoms)
-            self.set_positions(atoms)
-        elif (len(atoms) != len(self.atoms) or
-              (atoms.get_atomic_numbers() !=
-               self.atoms.get_atomic_numbers()).any() or
-              (atoms.get_initial_magnetic_moments() !=
-               self.atoms.get_initial_magnetic_moments()).any() or
-              (atoms.get_cell() != self.atoms.get_cell()).any() or
-              (atoms.get_pbc() != self.atoms.get_pbc()).any()):
-            # Drastic changes:
-            self.wfs = EmptyWaveFunctions()
-            self.occupations = None
-            self.density = None
-            self.hamiltonian = None
-            self.scf = None
-            self.initialize(atoms)
-            self.set_positions(atoms)
-        elif not self.initialized:
-            self.initialize(atoms)
-            self.set_positions(atoms)
-        elif ((atoms.get_positions() != self.atoms.get_positions()).any() or
-              self.input_parameters.external is not None and
-              self.input_parameters.external.vext_g is None):
-            self.density.reset()
-            self.set_positions(atoms)
-        elif not self.scf.converged:
-            # Do not call scf.check_convergence() here as it overwrites
-            # scf.converged, and setting scf.converged is the only
-            # 'practical' way for a user to force the calculation to proceed
-            self.set_positions(atoms)
-        elif force_call_to_set_positions:
-            self.set_positions(atoms)
-
-        self.timer.stop('Initialization')
-
-        if self.scf.converged:
-            return False
-        else:
-            self.print_cell_and_parameters()
-
-        self.timer.start('SCF-cycle')
-        for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
-                                 self.occupations, self.forces):
-            self.iter = iter
-            self.call_observers(iter)
-            self.print_iteration(iter)
-        self.timer.stop('SCF-cycle')
-
-        if self.scf.converged:
-            self.call_observers(iter, final=True)
-            self.print_converged(iter)
-        elif converge:
-            self.txt.write(oops)
-            raise KohnShamConvergenceError(
-                'Did not converge!  See text output for help.')
-
-        dipole_v = self.density.calculate_dipole_moment()
-        self.results['dipole'] = dipole_v * Bohr
-
-        # Magnetic moments within augmentation spheres:
-        magmom_a = self.density.estimate_magnetic_moments()
-        momsum = self.magmom_a.sum()
-        magmom = self.occupations.magmom
-        if abs(magmom) > 1e-7 and abs(momsum) > 1e-7:
-            magmom_a *= magmom / momsum
-        self.results['magmom'] = self.occupations.magmom
-        self.results['magmoms'] = magmoms_a
 
     def initialize_positions(self, atoms=None):
         """Update the positions of the atoms."""
@@ -323,10 +318,6 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         self.wfs.initialize(self.density, self.hamiltonian, spos_ac)
         self.wfs.eigensolver.reset()
         self.scf.reset()
-        self.forces.reset()
-        self.stress_vv = None
-        self.dipole_v = None
-        self.magmom_av = None
         self.print_positions()
 
     def initialize(self, atoms=None):
@@ -338,7 +329,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             # Save the state of the atoms:
             self.atoms = atoms.copy()
 
-        par = self.input_parameters
+        par = self.parameters
 
         world = par.communicator
         if world is None:
@@ -881,7 +872,6 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             self.txt.flush()
 
         self.initialized = True
-        self._changed_keywords.clear()
 
     def dry_run(self):
         # Can be overridden like in gpaw.atom.atompaw
@@ -889,3 +879,25 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         self.print_positions()
         self.txt.flush()
         raise SystemExit
+
+        
+oops = """
+Did not converge!
+
+Here are some tips:
+
+1) Make sure the geometry and spin-state is physically sound.
+2) Use less aggressive density mixing.
+3) Solve the eigenvalue problem more accurately at each scf-step.
+4) Use a smoother distribution function for the occupation numbers.
+5) Try adding more empty states.
+6) Use enough k-points.
+7) Don't let your structure optimization algorithm take too large steps.
+8) Solve the Poisson equation more accurately.
+9) Better initial guess for the wave functions.
+
+See details here:
+
+    https://wiki.fysik.dtu.dk/gpaw/documentation/convergence.html
+
+"""

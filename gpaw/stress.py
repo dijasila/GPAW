@@ -5,7 +5,7 @@ from gpaw.utilities import unpack
 from gpaw.wavefunctions.pw import PWWaveFunctions
 
 
-def stress(calc):
+def calculate_stress(calc):
     wfs = calc.wfs
     dens = calc.density
     ham = calc.hamiltonian

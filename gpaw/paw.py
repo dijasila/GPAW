@@ -863,23 +863,3 @@ def kpts2ndarray(kpts, atoms=None):
     return np.array(kpts)
 
 
-oops = """
-Did not converge!
-
-Here are some tips:
-
-1) Make sure the geometry and spin-state is physically sound.
-2) Use less aggressive density mixing.
-3) Solve the eigenvalue problem more accurately at each scf-step.
-4) Use a smoother distribution function for the occupation numbers.
-5) Try adding more empty states.
-6) Use enough k-points.
-7) Don't let your structure optimization algorithm take too large steps.
-8) Solve the Poisson equation more accurately.
-9) Better initial guess for the wave functions.
-
-See details here:
-
-    https://wiki.fysik.dtu.dk/gpaw/documentation/convergence.html
-
-"""
