@@ -2,13 +2,6 @@
 import numpy as np
 from ase.units import Bohr, Hartree
 from ase.calculators.calculator import Calculator
-
-import warnings
-
-import numpy as np
-from ase.units import Bohr, Hartree
-from ase.dft.kpoints import monkhorst_pack
-from ase.calculators.calculator import kptdensity2monkhorstpack
 from ase.utils.timing import Timer
 from ase.io.trajectory import read_atoms, write_atoms
 
@@ -30,7 +23,6 @@ from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor, kpts2ndarray
 from gpaw.hamiltonian import RealSpaceHamiltonian
-from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
@@ -188,23 +180,26 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                 raise KohnShamConvergenceError(
                     'Did not converge!  See text output for help.')
 
-        self.results['energy'] = self.hamiltonian.Etot * Hartree
-        efree = self.occupations.extrapolate_energy_to_zero_width(
-            self.hamiltonian.Etot) * Hartree
-        self.results['free_energy'] = efree
-
-        dipole_v = self.density.calculate_dipole_moment()
-        self.results['dipole'] = dipole_v * Bohr
-
-        # Magnetic moments within augmentation spheres:
-        magmom_a = self.density.estimate_magnetic_moments()
-        momsum = magmom_a.sum()
-        magmom = self.occupations.magmom
-        if abs(magmom) > 1e-7 and abs(momsum) > 1e-7:
-            magmom_a *= magmom / momsum
-        self.results['magmom'] = self.occupations.magmom
-        self.results['magmoms'] = magmom_a
-
+            self.results['energy'] = self.hamiltonian.Etot * Hartree
+            efree = self.occupations.extrapolate_energy_to_zero_width(
+                self.hamiltonian.Etot) * Hartree
+            self.results['free_energy'] = efree
+    
+            dipole_v = self.density.calculate_dipole_moment()
+            self.results['dipole'] = dipole_v * Bohr
+    
+            # Magnetic moments within augmentation spheres:
+            magmom_a = self.density.estimate_magnetic_moments()
+            momsum = magmom_a.sum()
+            magmom = self.occupations.magmom
+            if abs(magmom) > 1e-7 and abs(momsum) > 1e-7:
+                magmom_a *= magmom / momsum
+            self.results['magmom'] = self.occupations.magmom
+            self.results['magmoms'] = magmom_a
+    
+            self.call_observers(iter, final=True)
+            self.print_converged(iter)
+        
         if 'forces' in properties:
             with self.timer('Forces'):
                 F_av = calculate_forces(self.wfs, self.density,
@@ -217,9 +212,6 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                 stress = calculate_stress(self).flat[[0, 4, 8, 5, 2, 1]]
                 self.results['stress'] = stress * (Hartree / Bohr**3)
             
-        self.call_observers(iter, final=True)
-        self.print_converged(iter)
-        
     def set(self, **kwargs):
         """Change parameters for calculator.
 
@@ -818,7 +810,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             self.hamiltonian = RealSpaceHamiltonian(stencil=mode.interpolation,
                                                     **kwargs)
         else:
-            self.hamiltonian = ReciprocalSpaceHamiltonian(**kwargs)
+            self.hamiltonian = pw.ReciprocalSpaceHamiltonian(**kwargs)
         
     def dry_run(self):
         # Can be overridden like in gpaw.atom.atompaw
