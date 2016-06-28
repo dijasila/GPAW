@@ -10,8 +10,7 @@ import ase
 from ase.units import Bohr, Hartree
 from ase.data import chemical_symbols
 from ase import __version__ as ase_version
-from ase.utils import devnull
-from ase.parallel import get_txt
+from ase.utils import convert_string_to_fd
 
 import gpaw
 import _gpaw
@@ -23,7 +22,8 @@ class PAWTextOutput:
     """Class for handling all text output."""
 
     def __init__(self):
-        self.txt = devnull
+        self.txt = None
+        self.old_txt = None
 
     def set_txt(self, txt):
         """Set the stream for text output.
@@ -35,12 +35,17 @@ class PAWTextOutput:
         * A filename:  Open a new file on master, elsewhere throw away.
         """
 
-        self.txt = get_txt(txt, self.wfs.world.rank)
+        if txt == self.old_txt:
+            return
+        self.old_txt = txt
+        self.txt = convert_string_to_fd(txt, self.wfs.world)
         self.print_header()
 
     def text(self, *args, **kwargs):
         print(*args, file=self.txt, **kwargs)
 
+    log = text
+    
     def print_header(self):
         self.text()
         self.text('  ___ ___ ___ _ _ _  ')

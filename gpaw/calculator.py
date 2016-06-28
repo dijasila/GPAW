@@ -230,7 +230,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             
         self.initialized = False
 
-        for key in kwargs:
+        for key in changed_parameters:
             if key == 'basis' and str(p['mode']) == 'fd':  # umm what about PW?
                 # The second criterion seems buggy, will not touch it.  -Ask
                 continue
@@ -273,8 +273,6 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                 self.wfs = None
             else:
                 raise TypeError("Unknown keyword argument: '%s'" % key)
-
-        p.update(kwargs)
 
     def initialize_positions(self, atoms=None):
         """Update the positions of the atoms."""
@@ -396,10 +394,6 @@ class GPAW(Calculator, PAW, PAWTextOutput):
 
         nspins = 1 + int(spinpol)
 
-        symm = par.symmetry
-        if symm == 'off':
-            symm = {'point_group': False, 'time_reversal': False}
-
         if pbc_c.any():
             width = 0.1  # eV
         else:
@@ -491,215 +485,13 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                 niter_fixdensity,
                 force_crit)
 
-        parsize_kpt = par.parallel['kpt']
-        parsize_domain = par.parallel['domain']
-        parsize_bands = par.parallel['band']
-
         if not realspace:
             pbc_c = np.ones(3, bool)
 
         if not self.wfs:
-            bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
-            kd = KPointDescriptor(bzkpts_kc, nspins)
-
-            parallelization = mpi.Parallelization(world,
-                                                  nspins * kd.nibzkpts)
-            ndomains = None
-            if parsize_domain is not None:
-                ndomains = np.prod(parsize_domain)
-            if mode.name == 'pw':
-                if ndomains is not None and ndomains > 1:
-                    raise ValueError('Planewave mode does not support '
-                                     'domain decomposition.')
-                ndomains = 1
-            parallelization.set(kpt=parsize_kpt,
-                                domain=ndomains,
-                                band=parsize_bands)
-            comms = parallelization.build_communicators()
-            domain_comm = comms['d']
-            kpt_comm = comms['k']
-            band_comm = comms['b']
-            kptband_comm = comms['D']
-            domainband_comm = comms['K']
-
-            self.comms = comms
-            
-            m_a = magmom_a.round(decimals=3)  # round off
-            id_a = list(zip(setups.id_a, m_a))
-            symmetry = Symmetry(id_a, cell_cv, atoms.pbc, **symm)
-            self.timer.start('Set symmetry')
-            kd.set_symmetry(atoms, symmetry, comm=world)
-            self.timer.stop('Set symmetry')
-            setups.set_symmetry(symmetry)
-    
-            if par.gpts is not None:
-                N_c = np.array(par.gpts)
-            else:
-                h = par.h
-                if h is not None:
-                    h /= Bohr
-                N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
-                                                kd.symmetry)
-    
-            symmetry.check_grid(N_c)
-            
-            kd.set_communicator(kpt_comm)
-
-            parstride_bands = par.parallel['stridebands']
-
-            # Unfortunately we need to remember that we adjusted the
-            # number of bands so we can print a warning if it differs
-            # from the number specified by the user.  (The number can
-            # be inferred from the input parameters, but it's tricky
-            # because we allow negative numbers)
-            self.nbands_parallelization_adjustment = -nbands % band_comm.size
-            nbands += self.nbands_parallelization_adjustment
-
-            # I would like to give the following error message, but apparently
-            # there are cases, e.g. gpaw/test/gw_ppa.py, which involve
-            # nbands > nao and are supposed to work that way.
-            # if nbands > nao:
-            #    raise ValueError('Number of bands %d adjusted for band '
-            #                    'parallelization %d exceeds number of atomic '
-            #                     'orbitals %d.  This problem can be fixed '
-            #                     'by reducing the number of bands a bit.'
-            #                     % (nbands, band_comm.size, nao))
-            bd = BandDescriptor(nbands, band_comm, parstride_bands)
-
-            if (self.density is not None and
-                self.density.gd.comm.size != domain_comm.size):
-                # Domain decomposition has changed, so we need to
-                # reinitialize density and hamiltonian:
-                if par.fixdensity:
-                    raise RuntimeError(
-                        'Density reinitialization conflict ' +
-                        'with "fixdensity" - specify domain decomposition.')
-                self.density = None
-                self.hamiltonian = None
-                1 / 0
-                
-            # Construct grid descriptor for coarse grids for wave functions:
-            gd = self.create_grid_descriptor(N_c, cell_cv, pbc_c,
-                                             domain_comm, parsize_domain)
-
-            if hasattr(self, 'time') or par.dtype == complex:
-                dtype = complex
-            else:
-                if kd.gamma:
-                    dtype = float
-                else:
-                    dtype = complex
-
-            # do k-point analysis here? XXX
-            wfs_kwargs = dict(gd=gd, nvalence=nvalence, setups=setups,
-                              bd=bd, dtype=dtype, world=world, kd=kd,
-                              kptband_comm=kptband_comm, timer=self.timer)
-
-            if par.parallel['sl_auto']:
-                # Choose scalapack parallelization automatically
-
-                for key, val in par.parallel.items():
-                    if (key.startswith('sl_') and key != 'sl_auto' and
-                        val is not None):
-                        raise ValueError("Cannot use 'sl_auto' together "
-                                         "with '%s'" % key)
-                max_scalapack_cpus = bd.comm.size * gd.comm.size
-                nprow = max_scalapack_cpus
-                npcol = 1
-
-                # Get a sort of reasonable number of columns/rows
-                while npcol < nprow and nprow % 2 == 0:
-                    npcol *= 2
-                    nprow //= 2
-                assert npcol * nprow == max_scalapack_cpus
-
-                # ScaLAPACK creates trouble if there aren't at least a few
-                # whole blocks; choose block size so there will always be
-                # several blocks.  This will crash for small test systems,
-                # but so will ScaLAPACK in any case
-                blocksize = min(-(-nbands // 4), 64)
-                sl_default = (nprow, npcol, blocksize)
-            else:
-                sl_default = par.parallel['sl_default']
-
-            if mode.name == 'lcao':
-                # Layouts used for general diagonalizer
-                sl_lcao = par.parallel['sl_lcao']
-                if sl_lcao is None:
-                    sl_lcao = sl_default
-                lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
-                                               gd, bd, domainband_comm, dtype,
-                                               nao=nao, timer=self.timer)
-
-                self.wfs = mode(lcaoksl, **wfs_kwargs)
-
-            elif mode.name == 'fd' or mode.name == 'pw':
-                # buffer_size keyword only relevant for fdpw
-                buffer_size = par.parallel['buffer_size']
-                # Layouts used for diagonalizer
-                sl_diagonalize = par.parallel['sl_diagonalize']
-                if sl_diagonalize is None:
-                    sl_diagonalize = sl_default
-                diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',  # XXX
-                                               # choice of key 'fd' not so nice
-                                               gd, bd, domainband_comm, dtype,
-                                               buffer_size=buffer_size,
-                                               timer=self.timer)
-
-                # Layouts used for orthonormalizer
-                sl_inverse_cholesky = par.parallel['sl_inverse_cholesky']
-                if sl_inverse_cholesky is None:
-                    sl_inverse_cholesky = sl_default
-                if sl_inverse_cholesky != sl_diagonalize:
-                    message = 'sl_inverse_cholesky != sl_diagonalize ' \
-                        'is not implemented.'
-                    raise NotImplementedError(message)
-                orthoksl = get_KohnSham_layouts(sl_inverse_cholesky, 'fd',
-                                                gd, bd, domainband_comm, dtype,
-                                                buffer_size=buffer_size,
-                                                timer=self.timer)
-
-                # Use (at most) all available LCAO for initialization
-                lcaonbands = min(nbands, nao)
-
-                try:
-                    lcaobd = BandDescriptor(lcaonbands, band_comm,
-                                            parstride_bands)
-                except RuntimeError:
-                    initksl = None
-                else:
-                    # Layouts used for general diagonalizer
-                    # (LCAO initialization)
-                    sl_lcao = par.parallel['sl_lcao']
-                    if sl_lcao is None:
-                        sl_lcao = sl_default
-                    initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
-                                                   gd, lcaobd, domainband_comm,
-                                                   dtype, nao=nao,
-                                                   timer=self.timer)
-
-                if hasattr(self, 'time'):
-                    assert mode.name == 'fd'
-                    from gpaw.tddft import TimeDependentWaveFunctions
-                    self.wfs = TimeDependentWaveFunctions(
-                        stencil=mode.nn,
-                        diagksl=diagksl,
-                        orthoksl=orthoksl,
-                        initksl=initksl,
-                        gd=gd,
-                        nvalence=nvalence,
-                        setups=setups,
-                        bd=bd,
-                        world=world,
-                        kd=kd,
-                        kptband_comm=kptband_comm,
-                        timer=self.timer)
-                elif mode.name == 'fd':
-                    self.wfs = mode(diagksl, orthoksl, initksl, **wfs_kwargs)
-                else:
-                    self.wfs = mode(diagksl, orthoksl, initksl, **wfs_kwargs)
-            else:
-                self.wfs = mode(self, **wfs_kwargs)
+            self.create_wave_functions(mode, realspace, world,
+                                       nspins, nbands, nao, nvalence, setups,
+                                       magmom_a, cell_cv, pbc_c)
         else:
             self.wfs.world = world
             self.wfs.set_setups(setups)
@@ -723,7 +515,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             self.wfs.set_eigensolver(eigensolver)
 
         if self.density is None:
-            self.create_density(realspace, mode, kptband_comm)
+            self.create_density(realspace, mode)
     
         # XXXXXXXXXX if setups change, then setups.core_charge may change.
         # But that parameter was supplied in Density constructor!
@@ -737,6 +529,9 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
 
+        self.set_txt(par.txt)
+        self.density.txt = self.txt
+        
         self.text()
         self.print_memory_estimate(self.txt, maxdepth=memory_estimate_depth)
         self.txt.flush()
@@ -746,8 +541,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         if dry_run:
             self.dry_run()
 
-        if realspace and \
-                self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
+        if (realspace and
+            self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT'):
             self.hamiltonian.poisson.set_density(self.density)
             self.hamiltonian.poisson.print_messages(self.text)
             self.txt.flush()
@@ -758,7 +553,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                                domain_comm, parsize_domain):
         return GridDescriptor(N_c, cell_cv, pbc_c, domain_comm, parsize_domain)
             
-    def create_density(self, realspace, mode, kptband_comm):
+    def create_density(self, realspace, mode):
         gd = self.wfs.gd
 
         big_gd = gd.new_descriptor(comm=self.wfs.world)
@@ -772,7 +567,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         else:
             aux_gd = gd
 
-        redistributor = GridRedistributor(self.wfs.world, kptband_comm,
+        redistributor = GridRedistributor(self.wfs.world,
+                                          self.wfs.kptband_comm,
                                           gd, aux_gd)
 
         # Construct grid descriptor for fine grids for densities
@@ -792,8 +588,6 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         else:
             self.density = pw.ReciprocalSpaceDensity(**kwargs)
             
-        self.density.txt = self.txt
-
     def create_hamiltonian(self, realspace, mode, xc):
         dens = self.density
         kwargs = dict(
@@ -812,6 +606,222 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         else:
             self.hamiltonian = pw.ReciprocalSpaceHamiltonian(**kwargs)
         
+    def create_wave_functions(self, mode, realspace, world,
+                              nspins, nbands, nao, nvalence, setups,
+                              magmom_a, cell_cv, pbc_c):
+        par = self.parameters
+        
+        bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
+        kd = KPointDescriptor(bzkpts_kc, nspins)
+
+        parallelization = mpi.Parallelization(world,
+                                              nspins * kd.nibzkpts)
+
+        parsize_kpt = par.parallel['kpt']
+        parsize_domain = par.parallel['domain']
+        parsize_bands = par.parallel['band']
+
+        ndomains = None
+        if parsize_domain is not None:
+            ndomains = np.prod(parsize_domain)
+        if mode.name == 'pw':
+            if ndomains is not None and ndomains > 1:
+                raise ValueError('Planewave mode does not support '
+                                 'domain decomposition.')
+            ndomains = 1
+        parallelization.set(kpt=parsize_kpt,
+                            domain=ndomains,
+                            band=parsize_bands)
+        comms = parallelization.build_communicators()
+        domain_comm = comms['d']
+        kpt_comm = comms['k']
+        band_comm = comms['b']
+        kptband_comm = comms['D']
+        domainband_comm = comms['K']
+
+        self.comms = comms
+        
+        symm = par.symmetry
+        if symm == 'off':
+            symm = {'point_group': False, 'time_reversal': False}
+
+        m_a = magmom_a.round(decimals=3)  # round off
+        id_a = list(zip(setups.id_a, m_a))
+        symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)
+        self.timer.start('Set symmetry')
+        kd.set_symmetry(self.atoms, symmetry, comm=world)
+        self.timer.stop('Set symmetry')
+        setups.set_symmetry(symmetry)
+
+        if par.gpts is not None:
+            N_c = np.array(par.gpts)
+        else:
+            h = par.h
+            if h is not None:
+                h /= Bohr
+            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
+                                            kd.symmetry)
+
+        symmetry.check_grid(N_c)
+        
+        kd.set_communicator(kpt_comm)
+
+        parstride_bands = par.parallel['stridebands']
+
+        # Unfortunately we need to remember that we adjusted the
+        # number of bands so we can print a warning if it differs
+        # from the number specified by the user.  (The number can
+        # be inferred from the input parameters, but it's tricky
+        # because we allow negative numbers)
+        self.nbands_parallelization_adjustment = -nbands % band_comm.size
+        nbands += self.nbands_parallelization_adjustment
+
+        # I would like to give the following error message, but apparently
+        # there are cases, e.g. gpaw/test/gw_ppa.py, which involve
+        # nbands > nao and are supposed to work that way.
+        # if nbands > nao:
+        #    raise ValueError('Number of bands %d adjusted for band '
+        #                    'parallelization %d exceeds number of atomic '
+        #                     'orbitals %d.  This problem can be fixed '
+        #                     'by reducing the number of bands a bit.'
+        #                     % (nbands, band_comm.size, nao))
+        bd = BandDescriptor(nbands, band_comm, parstride_bands)
+
+        if (self.density is not None and
+            self.density.gd.comm.size != domain_comm.size):
+            # Domain decomposition has changed, so we need to
+            # reinitialize density and hamiltonian:
+            if par.fixdensity:
+                raise RuntimeError(
+                    'Density reinitialization conflict ' +
+                    'with "fixdensity" - specify domain decomposition.')
+            self.density = None
+            self.hamiltonian = None
+            1 / 0
+            
+        # Construct grid descriptor for coarse grids for wave functions:
+        gd = self.create_grid_descriptor(N_c, cell_cv, pbc_c,
+                                         domain_comm, parsize_domain)
+
+        if hasattr(self, 'time') or par.dtype == complex:
+            dtype = complex
+        else:
+            if kd.gamma:
+                dtype = float
+            else:
+                dtype = complex
+
+        # do k-point analysis here? XXX
+        wfs_kwargs = dict(gd=gd, nvalence=nvalence, setups=setups,
+                          bd=bd, dtype=dtype, world=world, kd=kd,
+                          kptband_comm=kptband_comm, timer=self.timer)
+
+        if par.parallel['sl_auto']:
+            # Choose scalapack parallelization automatically
+
+            for key, val in par.parallel.items():
+                if (key.startswith('sl_') and key != 'sl_auto' and
+                    val is not None):
+                    raise ValueError("Cannot use 'sl_auto' together "
+                                     "with '%s'" % key)
+            max_scalapack_cpus = bd.comm.size * gd.comm.size
+            nprow = max_scalapack_cpus
+            npcol = 1
+
+            # Get a sort of reasonable number of columns/rows
+            while npcol < nprow and nprow % 2 == 0:
+                npcol *= 2
+                nprow //= 2
+            assert npcol * nprow == max_scalapack_cpus
+
+            # ScaLAPACK creates trouble if there aren't at least a few
+            # whole blocks; choose block size so there will always be
+            # several blocks.  This will crash for small test systems,
+            # but so will ScaLAPACK in any case
+            blocksize = min(-(-nbands // 4), 64)
+            sl_default = (nprow, npcol, blocksize)
+        else:
+            sl_default = par.parallel['sl_default']
+
+        if mode.name == 'lcao':
+            # Layouts used for general diagonalizer
+            sl_lcao = par.parallel['sl_lcao']
+            if sl_lcao is None:
+                sl_lcao = sl_default
+            lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
+                                           gd, bd, domainband_comm, dtype,
+                                           nao=nao, timer=self.timer)
+
+            self.wfs = mode(lcaoksl, **wfs_kwargs)
+
+        elif mode.name == 'fd' or mode.name == 'pw':
+            # buffer_size keyword only relevant for fdpw
+            buffer_size = par.parallel['buffer_size']
+            # Layouts used for diagonalizer
+            sl_diagonalize = par.parallel['sl_diagonalize']
+            if sl_diagonalize is None:
+                sl_diagonalize = sl_default
+            diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',  # XXX
+                                           # choice of key 'fd' not so nice
+                                           gd, bd, domainband_comm, dtype,
+                                           buffer_size=buffer_size,
+                                           timer=self.timer)
+
+            # Layouts used for orthonormalizer
+            sl_inverse_cholesky = par.parallel['sl_inverse_cholesky']
+            if sl_inverse_cholesky is None:
+                sl_inverse_cholesky = sl_default
+            if sl_inverse_cholesky != sl_diagonalize:
+                message = 'sl_inverse_cholesky != sl_diagonalize ' \
+                    'is not implemented.'
+                raise NotImplementedError(message)
+            orthoksl = get_KohnSham_layouts(sl_inverse_cholesky, 'fd',
+                                            gd, bd, domainband_comm, dtype,
+                                            buffer_size=buffer_size,
+                                            timer=self.timer)
+
+            # Use (at most) all available LCAO for initialization
+            lcaonbands = min(nbands, nao)
+
+            try:
+                lcaobd = BandDescriptor(lcaonbands, band_comm,
+                                        parstride_bands)
+            except RuntimeError:
+                initksl = None
+            else:
+                # Layouts used for general diagonalizer
+                # (LCAO initialization)
+                sl_lcao = par.parallel['sl_lcao']
+                if sl_lcao is None:
+                    sl_lcao = sl_default
+                initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
+                                               gd, lcaobd, domainband_comm,
+                                               dtype, nao=nao,
+                                               timer=self.timer)
+
+            if hasattr(self, 'time'):
+                assert mode.name == 'fd'
+                from gpaw.tddft import TimeDependentWaveFunctions
+                self.wfs = TimeDependentWaveFunctions(
+                    stencil=mode.nn,
+                    diagksl=diagksl,
+                    orthoksl=orthoksl,
+                    initksl=initksl,
+                    gd=gd,
+                    nvalence=nvalence,
+                    setups=setups,
+                    bd=bd,
+                    world=world,
+                    kd=kd,
+                    kptband_comm=kptband_comm,
+                    timer=self.timer)
+            elif mode.name == 'fd':
+                self.wfs = mode(diagksl, orthoksl, initksl, **wfs_kwargs)
+            else:
+                self.wfs = mode(diagksl, orthoksl, initksl, **wfs_kwargs)
+        else:
+            self.wfs = mode(self, **wfs_kwargs)
+
     def dry_run(self):
         # Can be overridden like in gpaw.atom.atompaw
         self.print_cell_and_parameters()

@@ -188,17 +188,17 @@ class Density(object):
 
         pseudo_charge = self.gd.integrate(self.nt_sG[:self.nspins]).sum()
 
-        if (pseudo_charge + self.charge + comp_charge
-            - self.background_charge.charge != 0):
+        if (pseudo_charge + self.charge + comp_charge -
+            self.background_charge.charge != 0):
             if pseudo_charge != 0:
-                x = (self.background_charge.charge - self.charge
-                     - comp_charge) / pseudo_charge
+                x = (self.background_charge.charge - self.charge -
+                     comp_charge) / pseudo_charge
                 self.nt_sG *= x
             else:
                 # Use homogeneous background:
                 volume = self.gd.get_size_of_global_array().prod() * self.gd.dv
-                total_charge = (self.charge + comp_charge
-                                - self.background_charge.charge)
+                total_charge = (self.charge + comp_charge -
+                                self.background_charge.charge)
                 self.nt_sG[:self.nspins] = -total_charge / volume
 
     def mix(self, comp_charge):
@@ -221,8 +221,10 @@ class Density(object):
 
         comp_charge = 0.0
         Ddist_asp = self.atomdist.to_aux(self.D_asp)
+        
         def shape(a):
             return self.setups[a].Delta_pL.shape[1],
+            
         self.Q_aL = ArrayDict(Ddist_asp.partition, shape)
         for a, D_sp in Ddist_asp.items():
             Q_L = self.Q_aL[a] = np.dot(D_sp[:self.nspins].sum(0),
@@ -256,7 +258,7 @@ class Density(object):
         # but is not particularly efficient (not that this is a time
         # consuming step)
 
-        self.log('Density initialize from atomic densities')
+        self.log('Density initialized from atomic densities')
 
         self.D_asp = self.setups.empty_atomic_matrix(self.nspins,
                                                      self.atom_partition)
@@ -279,7 +281,7 @@ class Density(object):
 
     def initialize_from_wavefunctions(self, wfs):
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""
-        self.log('Density initialize from wavefunctions')
+        self.log('Density initialized from wavefunctions')
         self.timer.start('Density initialize from wavefunctions')
         self.nt_sG = self.gd.empty(self.nspins)
         self.calculate_pseudo_density(wfs)
@@ -425,8 +427,6 @@ class Density(object):
             W += nw
 
         x_W = phi.create_displacement_arrays()[0]
-        #D_asp = self.atomic_matrix_distributor.distribute(self.D_asp)
-        #D_asp = self.atomdist.to_aux(self.D_asp)
         D_asp = self.D_asp  # XXX really?
 
         rho_MM = np.zeros((phi.Mmax, phi.Mmax))
@@ -526,7 +526,7 @@ class Density(object):
         dt_sg = np.where(dt_sg > 0, dt_sg, 0.0)
         return gd.integrate(dt_sg)
 
-    def read(self, reader, parallel, kptband_comm):
+    def read(self, reader):
         if reader['version'] > 0.3:
             density_error = reader['DensityError']
             if density_error is not None:
@@ -535,20 +535,10 @@ class Density(object):
         if not reader.has_array('PseudoElectronDensity'):
             return
 
-        hdf5 = hasattr(reader, 'hdf5')
         nt_sG = self.gd.empty(self.nspins)
-        if hdf5:
-            # Read pseudoelectron density on the coarse grid
-            # and broadcast on kpt_comm and band_comm:
-            indices = [slice(0, self.nspins)] + self.gd.get_slice()
-            do_read = (kptband_comm.rank == 0)
-            reader.get('PseudoElectronDensity', out=nt_sG, parallel=parallel,
-                       read=do_read, *indices)  # XXX read=?
-            kptband_comm.broadcast(nt_sG, 0)
-        else:
-            for s in range(self.nspins):
-                self.gd.distribute(reader.get('PseudoElectronDensity', s),
-                                   nt_sG[s])
+        for s in range(self.nspins):
+            self.gd.distribute(reader.get('PseudoElectronDensity', s),
+                               nt_sG[s])
 
         # Read atomic density matrices
         natoms = len(self.setups)
