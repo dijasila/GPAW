@@ -39,7 +39,7 @@ class SCFLoop:
         self.force_last = None
         self.converged = False
 
-    def run(self, wfs, hamiltonian, density, occupations, forces):
+    def run(self, wfs, hamiltonian, density, occupations):
         if self.converged:
             return
         
@@ -53,7 +53,7 @@ class SCFLoop:
             if self.max_force_error is not None:
                 forces.reset()
             self.check_convergence(density, wfs.eigensolver,
-                                   wfs, hamiltonian, forces)
+                                   wfs, hamiltonian)
             yield iter
             
             if self.converged:
@@ -69,7 +69,7 @@ class SCFLoop:
         self.niter_fixdensity = 0
         
     def check_convergence(self, density, eigensolver,
-                          wfs=None, hamiltonian=None, forces=None):
+                          wfs=None, hamiltonian=None):
         """Check convergence of eigenstates, energy and density."""
         if self.converged:
             return True

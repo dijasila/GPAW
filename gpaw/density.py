@@ -4,6 +4,7 @@
 
 """This module defines a density class."""
 
+from __future__ import print_function
 from math import pi, sqrt
 
 import numpy as np
@@ -13,10 +14,9 @@ from gpaw.mixer import BaseMixer, Mixer, MixerSum
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC, BasisFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
-from gpaw.utilities import unpack2
+from gpaw.utilities import unpack2, unpack_atomic_matrices
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
-from gpaw.io import read_atomic_matrices
 from gpaw.mpi import SerialCommunicator
 from gpaw.arraydict import ArrayDict
 
@@ -87,6 +87,9 @@ class Density(object):
 
         self.mixer = BaseMixer()
         self.timer = nulltimer
+
+    def log(self, *args, **kwargs):
+        print(*args, file=self.txt, **kwargs)
 
     def initialize(self, setups, timer, magmom_a, hund):
         self.timer = timer
@@ -558,7 +561,7 @@ class Density(object):
 
         all_D_sp = reader.get('AtomicDensityMatrices', broadcast=True)
         if self.gd.comm.rank == 0:
-            D_asp.update(read_atomic_matrices(all_D_sp, self.setups))
+            D_asp.update(unpack_atomic_matrices(all_D_sp, self.setups))
             D_asp.check_consistency()
 
         self.initialize_directly_from_arrays(nt_sG, D_asp)

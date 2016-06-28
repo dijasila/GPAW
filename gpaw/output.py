@@ -120,7 +120,7 @@ class PAWTextOutput:
 
     def print_parameters(self):
         t = self.text
-        p = self.input_parameters
+        p = self.parameters
 
         # Write PAW setup information in order of appearance:
         ids = set()
@@ -316,15 +316,11 @@ class PAWTextOutput:
 
         t()
 
-        try:
-            dipole = self.get_dipole_moment()
-        except NotImplementedError:
-            pass
+        dipole = self.get_dipole_moment()
+        if self.density.charge == 0:
+            t('Dipole Moment: %s' % dipole)
         else:
-            if self.density.charge == 0:
-                t('Dipole Moment: %s' % dipole)
-            else:
-                t('Center of Charge: %s' % (dipole / self.density.charge))
+            t('Center of Charge: %s' % (dipole / self.density.charge))
 
         try:
             correction = self.hamiltonian.poisson.correction
@@ -439,7 +435,8 @@ class PAWTextOutput:
         self.txt.flush()
 
     def print_forces(self):
-        if self.forces.F_av is None:
+        F_av = self.results.get('forces')
+        if F_av is None:
             return
         t = self.text
         t()
@@ -448,7 +445,7 @@ class PAWTextOutput:
         symbols = self.atoms.get_chemical_symbols()
         for a, symbol in enumerate(symbols):
             t('%3d %-2s %10.5f %10.5f %10.5f' %
-              ((a, symbol) + tuple(self.forces.F_av[a] * c)))
+              ((a, symbol) + tuple(F_av[a] * c)))
 
     def print_eigenvalues(self):
         """Print eigenvalues and occupation numbers."""

@@ -9,8 +9,7 @@ import numpy as np
 from gpaw.poisson import PoissonSolver
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC
-from gpaw.utilities import pack2, unpack, unpack2
-from gpaw.io import read_atomic_matrices
+from gpaw.utilities import pack2, unpack, unpack2, unpack_atomic_matrices
 from gpaw.utilities.partition import AtomPartition
 from gpaw.arraydict import ArrayDict
 
@@ -52,7 +51,7 @@ class Hamiltonian(object):
     """
 
     def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
-                 kptband_comm, redistributor, vext=None):
+                 redistributor, vext=None):
         """Create the Hamiltonian."""
         self.gd = gd
         self.finegd = finegd
@@ -61,7 +60,6 @@ class Hamiltonian(object):
         self.timer = timer
         self.xc = xc
         self.world = world
-        self.kptband_comm = kptband_comm
         self.redistributor = redistributor
         self.atomdist = None
         self.dH_asp = None
@@ -500,15 +498,15 @@ class Hamiltonian(object):
             all_H_sp = reader.get('NonLocalPartOfHamiltonian', broadcast=True)
 
         if self.gd.comm.rank == 0 and version > 0.3:
-            self.dH_asp = read_atomic_matrices(all_H_sp, self.setups)
+            self.dH_asp = unpack_atomic_matrices(all_H_sp, self.setups)
 
 
 class RealSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
-                 kptband_comm, vext=None,
+                 vext=None,
                  psolver=None, stencil=3, redistributor=None):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
-                             world, kptband_comm, vext=vext,
+                             world, vext=vext,
                              redistributor=redistributor)
 
         # Solver for the Poisson equation:

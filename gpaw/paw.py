@@ -7,42 +7,12 @@
 
 The central object that glues everything together!"""
 
-import warnings
-
 import numpy as np
 from ase.units import Bohr, Hartree
-from ase.dft.kpoints import monkhorst_pack
-from ase.calculators.calculator import kptdensity2monkhorstpack
-from ase.utils.timing import Timer
 
 import gpaw.io
-import gpaw.mpi as mpi
-from gpaw.xc import XC
-from gpaw.xc.sic import SIC
-from gpaw.scf import SCFLoop
-from gpaw.setup import Setups
-from gpaw.symmetry import Symmetry
-import gpaw.wavefunctions.pw as pw
 from gpaw.output import PAWTextOutput
-import gpaw.occupations as occupations
-from gpaw.forces import ForceCalculator
-from gpaw.wavefunctions.lcao import LCAO
-from gpaw.wavefunctions.fd import FD
-from gpaw.density import RealSpaceDensity
-from gpaw.eigensolvers import get_eigensolver
-from gpaw.band_descriptor import BandDescriptor
-from gpaw.grid_descriptor import GridDescriptor
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.utilities.memory import MemNode, maxrss
-from gpaw.kohnsham_layouts import get_KohnSham_layouts
-from gpaw.wavefunctions.base import EmptyWaveFunctions
-from gpaw.utilities.gpts import get_number_of_grid_points
-from gpaw.utilities.grid import GridRedistributor
-from gpaw.utilities.partition import AtomPartition
-from gpaw.parameters import InputParameters, usesymm2symmetry
-from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
-
 from gpaw.external import PointChargePotential
 from gpaw.xc import XC
 
@@ -72,7 +42,6 @@ class PAW(PAWTextOutput):
         will be 0.1 eV (energies are extrapolated to zero Kelvin) and
         all symmetries will be used to reduce the number of
         **k**-points."""
-
 
     def linearize_to_xc(self, newxc):
         """Linearize Hamiltonian to difference XC functional.
@@ -202,7 +171,7 @@ class PAW(PAWTextOutput):
         no_wave_functions = (self.wfs.kpt_u[0].psit_nG is None)
         converged = self.scf.check_convergence(self.density,
                                                self.wfs.eigensolver, self.wfs,
-                                               self.hamiltonian, self.forces)
+                                               self.hamiltonian)
         if no_wave_functions or not converged:
             self.wfs.eigensolver.error = np.inf
             self.scf.converged = False
@@ -221,10 +190,6 @@ class PAW(PAWTextOutput):
         self.wfs.diagonalize_full_hamiltonian(self.hamiltonian, self.atoms,
                                               self.occupations, self.txt,
                                               nbands, scalapack, expert)
-
-    def synchronize_atoms(self):
-        """Check that atoms objects are identical on all processors."""
-        mpi.synchronize_atoms(self.atoms, self.wfs.world)
 
     def get_number_of_bands(self):
         """Return the number of bands."""
@@ -808,58 +773,3 @@ class PAW(PAWTextOutput):
         pc = PointChargePotential(q_p, rc=rc, rc2=rc2, width=width)
         self.set(external=pc)
         return pc
-
-        
-def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,
-                        atoms=None):
-    """Helper function for selecting k-points.
-
-    Use either size or density.
-
-    size: 3 ints
-        Number of k-points.
-    density: float
-        K-point density in units of k-points per Ang^-1.
-    gamma: None or bool
-        Should the Gamma-point be included?  Yes / no / don't care:
-        True / False / None.
-    even: None or bool
-        Should the number of k-points be even?  Yes / no / don't care:
-        True / False / None.
-    atoms: Atoms object
-        Needed for calculating k-point density.
-
-    """
-
-    if size is None:
-        if density is None:
-            size = [1, 1, 1]
-        else:
-            size = kptdensity2monkhorstpack(atoms, density, even)
-
-    offsets = [0, 0, 0]
-
-    if gamma is not None:
-        for i, s in enumerate(size):
-            if atoms.pbc[i] and s % 2 != bool(gamma):
-                offsets[i] = 0.5 / s
-
-    return size, offsets
-
-
-def kpts2ndarray(kpts, atoms=None):
-    """Convert kpts keyword to 2-d ndarray of scaled k-points."""
-
-    if kpts is None:
-        return np.zeros((1, 3))
-
-    if isinstance(kpts, dict):
-        size, offsets = kpts2sizeandoffsets(atoms=atoms, **kpts)
-        return monkhorst_pack(size) + offsets
-
-    if isinstance(kpts[0], int):
-        return monkhorst_pack(kpts)
-
-    return np.array(kpts)
-
-

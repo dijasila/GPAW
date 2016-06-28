@@ -812,17 +812,6 @@ def read_atoms(reader):
     return atoms
 
 
-def read_atomic_matrices(all_M_sp, setups):
-    M_asp = {}
-    p1 = 0
-    for a, setup in enumerate(setups):
-        ni = setup.ni
-        p2 = p1 + ni * (ni + 1) // 2
-        M_asp[a] = all_M_sp[:, p1:p2].copy()
-        p1 = p2
-    return M_asp
-
-
 def read_wave_function(gd, s, k, n, mode):
     """Read the wave function for spin s, kpoint k and index n
     from a sperate file. The filename is determined from the mode

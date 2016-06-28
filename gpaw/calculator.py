@@ -28,11 +28,10 @@ from gpaw.density import RealSpaceDensity
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.kpt_descriptor import KPointDescriptor, kpts2ndarray
 from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
-from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
 from gpaw.utilities.partition import AtomPartition
@@ -52,25 +51,40 @@ class GPAW(Calculator, PAW, PAWTextOutput):
 
     default_parameters = {
         'h': None,  # Angstrom
-        'xc': 'LDA',
         'gpts': None,
         'kpts': [(0.0, 0.0, 0.0)],
-        'lmax': 2,
         'charge': 0,
-        'background_charge': None,
         'nbands': None,
         'setups': 'paw',
         'basis': {},
-        'occupations': None,
         'spinpol': None,
-        'stencils': (3, 3),
         'fixdensity': False,
-        'mixer': None,
-        'txt': '-',
-        'hund': False,
-        'random': False,
         'dtype': None,
         'filter': None,
+        
+        'xc': 'LDA',
+        'background_charge': None,
+        'occupations': None,
+        'external': None,  # eV
+        'poissonsolver': None,
+        'mode': 'fd',
+
+        'convergence': {'energy': 0.0005,  # eV / electron
+                        'density': 1.0e-4,
+                        'eigenstates': 4.0e-8,  # eV^2
+                        'bands': 'occupied',
+                        'forces': None},  # eV / Ang Max
+
+        'mixer': None,
+        'eigensolver': None,
+
+        'symmetry': {'point_group': True,
+                     'time_reversal': True,
+                     'symmorphic': True,
+                     'tolerance': 1e-7},
+        'random': False,
+        'txt': '-',
+        'hund': False,
         'maxiter': 333,  # google its spiritual meaning!
         'parallel': {'kpt': None,
                      'domain': gpaw.parsize_domain,
@@ -88,24 +102,10 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                      'sl_lcao': gpaw.sl_lcao,
                      'sl_lrtddft': gpaw.sl_lrtddft,
                      'buffer_size': gpaw.buffer_size},
-        'external': None,  # eV
         'verbose': 0,
-        'eigensolver': None,
-        'poissonsolver': None,
         'communicator': None,
-        'idiotproof': True,
-        'mode': 'fd',
-        'convergence': {'energy': 0.0005,  # eV / electron
-                        'density': 1.0e-4,
-                        'eigenstates': 4.0e-8,  # eV^2
-                        'bands': 'occupied',
-                        'forces': None},  # eV / Ang Max
-        'realspace': None,
-        'symmetry': {'point_group': True,
-                     'time_reversal': True,
-                     'symmorphic': True,
-                     'tolerance': 1e-7}}
-    
+        'idiotproof': True}
+
     def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
                  atoms=None, timer=None, **kwargs):
     
@@ -172,25 +172,21 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             
             self.set_positions(atoms)
 
-        assert not self.scf.converged
-        
-        self.print_cell_and_parameters()
-
-        self.timer.start('SCF-cycle')
-        for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
-                                 self.occupations):
-            self.iter = iter
-            self.call_observers(iter)
-            self.print_iteration(iter)
-        self.timer.stop('SCF-cycle')
-
-        if self.scf.converged:
-            self.call_observers(iter, final=True)
-            self.print_converged(iter)
-        else:
-            self.txt.write(oops)
-            raise KohnShamConvergenceError(
-                'Did not converge!  See text output for help.')
+        if not self.scf.converged:
+            self.print_cell_and_parameters()
+    
+            self.timer.start('SCF-cycle')
+            for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
+                                     self.occupations):
+                self.iter = iter
+                self.call_observers(iter)
+                self.print_iteration(iter)
+            self.timer.stop('SCF-cycle')
+    
+            if not self.scf.converged:
+                self.txt.write(oops)
+                raise KohnShamConvergenceError(
+                    'Did not converge!  See text output for help.')
 
         self.results['energy'] = self.hamiltonian.Etot * Hartree
         efree = self.occupations.extrapolate_energy_to_zero_width(
@@ -202,7 +198,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
 
         # Magnetic moments within augmentation spheres:
         magmom_a = self.density.estimate_magnetic_moments()
-        momsum = self.magmom_a.sum()
+        momsum = magmom_a.sum()
         magmom = self.occupations.magmom
         if abs(magmom) > 1e-7 and abs(momsum) > 1e-7:
             magmom_a *= magmom / momsum
@@ -217,9 +213,13 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                 self.results['forces'] = F_av * (Hartree / Bohr)
 
         if 'stress' in properties:
-            stress = calculate_stress(self).flat[[0, 4, 8, 5, 2, 1]]
-            self.results['stress'] = stress * (Hartree / Bohr**3)
+            with self.timer('Stress'):
+                stress = calculate_stress(self).flat[[0, 4, 8, 5, 2, 1]]
+                self.results['stress'] = stress * (Hartree / Bohr**3)
             
+        self.call_observers(iter, final=True)
+        self.print_converged(iter)
+        
     def set(self, **kwargs):
         """Change parameters for calculator.
 
@@ -246,7 +246,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             if key == 'eigensolver':
                 self.wfs.set_eigensolver(None)
 
-            if key in ['fixmom', 'mixer',
+            if key in ['mixer',
                        'verbose', 'txt', 'hund', 'random',
                        'eigensolver', 'idiotproof']:
                 continue
@@ -258,8 +258,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             # More drastic changes:
             self.scf = None
             self.wfs.set_orthonormalized(False)
-            if key in ['lmax', 'stencils', 'external', 'xc',
-                       'poissonsolver']:
+            if key in ['external', 'xc', 'poissonsolver']:
                 self.hamiltonian = None
                 self.occupations = None
             elif key in ['occupations']:
@@ -269,10 +268,10 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                 self.density = None
                 self.wfs = None
                 self.occupations = None
-            elif key in ['kpts', 'nbands', 'usesymm', 'symmetry']:
+            elif key in ['kpts', 'nbands', 'symmetry']:
                 self.wfs = None
                 self.occupations = None
-            elif key in ['h', 'gpts', 'setups', 'spinpol', 'realspace',
+            elif key in ['h', 'gpts', 'setups', 'spinpol',
                          'parallel', 'communicator', 'dtype', 'mode']:
                 self.density = None
                 self.occupations = None
@@ -280,13 +279,6 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                 self.wfs = None
             elif key in ['basis']:
                 self.wfs = None
-            elif key in ['parsize', 'parsize_bands', 'parstride_bands']:
-                name = {'parsize': 'domain',
-                        'parsize_bands': 'band',
-                        'parstride_bands': 'stridebands'}[key]
-                raise DeprecationWarning(
-                    'Keyword argument has been moved ' +
-                    "to the 'parallel' dictionary keyword under '%s'." % name)
             else:
                 raise TypeError("Unknown keyword argument: '%s'" % key)
 
@@ -300,7 +292,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             # Save the state of the atoms:
             self.atoms = atoms.copy()
 
-        self.synchronize_atoms()
+        mpi.synchronize_atoms(atoms, self.wfs.world)
 
         spos_ac = atoms.get_scaled_positions() % 1.0
 
@@ -343,10 +335,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         else:
             # world should be a list of ranks:
             world = mpi.world.new_communicator(np.asarray(world))
-        self.wfs.world = world
 
-        if 'txt' in self._changed_keywords:
-            self.set_txt(par.txt)
         self.verbose = par.verbose
 
         natoms = len(atoms)
@@ -356,7 +345,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         Z_a = atoms.get_atomic_numbers()
         magmom_a = atoms.get_initial_magnetic_moments()
 
-        self.synchronize_atoms()
+        mpi.synchronize_atoms(atoms, world)
 
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
@@ -376,19 +365,12 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             mode = pw.PW()
         elif mode == 'lcao':
             mode = LCAO()
-        else:
-            assert hasattr(mode, 'name'), str(mode)
 
         if xc.orbital_dependent and mode.name == 'lcao':
             raise NotImplementedError('LCAO mode does not support '
                                       'orbital-dependent XC functionals.')
 
-        if par.realspace is None:
-            realspace = (mode.name != 'pw')
-        else:
-            realspace = par.realspace
-            if mode.name == 'pw':
-                assert not realspace
+        realspace = (mode.name != 'pw' or mode.interpolate != 'fft')
 
         if par.filter is None and mode.name != 'pw':
             gamma = 1.6
@@ -403,8 +385,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         else:
             filter = par.filter
 
-        setups = Setups(Z_a, par.setups, par.basis, par.lmax, xc,
-                        filter, world)
+        setups = Setups(Z_a, par.setups, par.basis, xc, filter, world)
 
         magnetic = magmom_a.any()
 
@@ -423,52 +404,14 @@ class GPAW(Calculator, PAW, PAWTextOutput):
 
         nspins = 1 + int(spinpol)
 
-        if par.usesymm != 'default':
-            warnings.warn('Use "symmetry" keyword instead of ' +
-                          '"usesymm" keyword')
-            par.symmetry = usesymm2symmetry(par.usesymm)
-
         symm = par.symmetry
         if symm == 'off':
             symm = {'point_group': False, 'time_reversal': False}
 
-        bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
-        kd = KPointDescriptor(bzkpts_kc, nspins)
-        m_a = magmom_a.round(decimals=3)  # round off
-        id_a = list(zip(setups.id_a, m_a))
-        symmetry = Symmetry(id_a, cell_cv, atoms.pbc, **symm)
-        self.timer.start('Set symmetry')
-        kd.set_symmetry(atoms, symmetry, comm=world)
-        self.timer.stop('Set symmetry')
-        setups.set_symmetry(symmetry)
-
-        if par.gpts is not None:
-            N_c = np.array(par.gpts)
+        if pbc_c.any():
+            width = 0.1  # eV
         else:
-            h = par.h
-            if h is not None:
-                h /= Bohr
-            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
-                                            kd.symmetry)
-
-        symmetry.check_grid(N_c)
-
-        width = par.width
-        if width is None:
-            if pbc_c.any():
-                width = 0.1  # eV
-            else:
-                width = 0.0
-        else:
-            assert par.occupations is None
-
-        if hasattr(self, 'time') or par.dtype == complex:
-            dtype = complex
-        else:
-            if kd.gamma:
-                dtype = float
-            else:
-                dtype = complex
+            width = 0.0
 
         nao = setups.nao
         nvalence = setups.nvalence - par.charge
@@ -519,34 +462,23 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
 
-        if par.width is not None:
-            self.text('**NOTE**: please start using '
-                      'occupations=FermiDirac(width).')
-        if par.fixmom:
-            self.text('**NOTE**: please start using '
-                      'occupations=FermiDirac(width, fixmagmom=True).')
-
         if self.occupations is None:
             if par.occupations is None:
                 # Create object for occupation numbers:
                 if orbital_free:
                     width = 0.0  # even for PBC
-                    self.occupations = occupations.TFOccupations(width,
-                                                                 par.fixmom)
+                    self.occupations = occupations.TFOccupations(width)
                 else:
-                    self.occupations = occupations.FermiDirac(width,
-                                                              par.fixmom)
+                    self.occupations = occupations.FermiDirac(width)
             else:
                 self.occupations = par.occupations
 
             # If occupation numbers are changed, and we have wave functions,
             # recalculate the occupation numbers
-            if self.wfs is not None and not isinstance(
-                    self.wfs,
-                    EmptyWaveFunctions):
+            if self.wfs is not None:
                 self.occupations.calculate(self.wfs)
 
-        self.occupations.magmom = M_v[2]
+        self.occupations.magmom = magmom_a.sum()
         
         cc = par.convergence
 
@@ -575,6 +507,9 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             pbc_c = np.ones(3, bool)
 
         if not self.wfs:
+            bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
+            kd = KPointDescriptor(bzkpts_kc, nspins)
+
             parallelization = mpi.Parallelization(world,
                                                   nspins * kd.nibzkpts)
             ndomains = None
@@ -596,6 +531,26 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             domainband_comm = comms['K']
 
             self.comms = comms
+            
+            m_a = magmom_a.round(decimals=3)  # round off
+            id_a = list(zip(setups.id_a, m_a))
+            symmetry = Symmetry(id_a, cell_cv, atoms.pbc, **symm)
+            self.timer.start('Set symmetry')
+            kd.set_symmetry(atoms, symmetry, comm=world)
+            self.timer.stop('Set symmetry')
+            setups.set_symmetry(symmetry)
+    
+            if par.gpts is not None:
+                N_c = np.array(par.gpts)
+            else:
+                h = par.h
+                if h is not None:
+                    h /= Bohr
+                N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
+                                                kd.symmetry)
+    
+            symmetry.check_grid(N_c)
+            
             kd.set_communicator(kpt_comm)
 
             parstride_bands = par.parallel['stridebands']
@@ -620,7 +575,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
             if (self.density is not None and
-                    self.density.gd.comm.size != domain_comm.size):
+                self.density.gd.comm.size != domain_comm.size):
                 # Domain decomposition has changed, so we need to
                 # reinitialize density and hamiltonian:
                 if par.fixdensity:
@@ -629,10 +584,19 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                         'with "fixdensity" - specify domain decomposition.')
                 self.density = None
                 self.hamiltonian = None
-
+                1 / 0
+                
             # Construct grid descriptor for coarse grids for wave functions:
-            gd = self.grid_descriptor_class(N_c, cell_cv, pbc_c,
-                                            domain_comm, parsize_domain)
+            gd = self.create_grid_descriptor(N_c, cell_cv, pbc_c,
+                                             domain_comm, parsize_domain)
+
+            if hasattr(self, 'time') or par.dtype == complex:
+                dtype = complex
+            else:
+                if kd.gamma:
+                    dtype = float
+                else:
+                    dtype = complex
 
             # do k-point analysis here? XXX
             wfs_kwargs = dict(gd=gd, nvalence=nvalence, setups=setups,
@@ -726,7 +690,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                     assert mode.name == 'fd'
                     from gpaw.tddft import TimeDependentWaveFunctions
                     self.wfs = TimeDependentWaveFunctions(
-                        stencil=par.stencils[0],
+                        stencil=mode.nn,
                         diagksl=diagksl,
                         orthoksl=orthoksl,
                         initksl=initksl,
@@ -739,15 +703,13 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                         kptband_comm=kptband_comm,
                         timer=self.timer)
                 elif mode.name == 'fd':
-                    self.wfs = mode(par.stencils[0], diagksl,
-                                    orthoksl, initksl, **wfs_kwargs)
+                    self.wfs = mode(diagksl, orthoksl, initksl, **wfs_kwargs)
                 else:
-                    assert mode.name == 'pw'
-                    self.wfs = mode(diagksl, orthoksl, initksl,
-                                    **wfs_kwargs)
+                    self.wfs = mode(diagksl, orthoksl, initksl, **wfs_kwargs)
             else:
                 self.wfs = mode(self, **wfs_kwargs)
         else:
+            self.wfs.world = world
             self.wfs.set_setups(setups)
 
         if not self.wfs.eigensolver:
@@ -769,41 +731,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             self.wfs.set_eigensolver(eigensolver)
 
         if self.density is None:
-            gd = self.wfs.gd
-
-            big_gd = gd.new_descriptor(comm=world)
-            # Check whether grid is too small.  8 is smallest admissible.
-            # (we decide this by how difficult it is to make the tests pass)
-            # (Actually it depends on stencils!  But let the user deal with it)
-            N_c = big_gd.get_size_of_global_array(pad=True)
-            too_small = np.any(N_c / big_gd.parsize_c < 8)
-            if par.parallel['augment_grids'] and not too_small:
-                aux_gd = big_gd
-            else:
-                aux_gd = gd
-
-            redistributor = GridRedistributor(world, kptband_comm, gd, aux_gd)
-
-            if par.stencils[1] != 9:
-                # Construct grid descriptor for fine grids for densities
-                # and potentials:
-                finegd = aux_gd.refine()
-            else:
-                # Special case (use only coarse grid):
-                finegd = aux_gd
-
-            if realspace:
-                self.density = RealSpaceDensity(
-                    gd, finegd, nspins, par.charge + setups.core_charge,
-                    redistributor,
-                    stencil=par.stencils[1],
-                    background_charge=par.background_charge)
-            else:
-                self.density = pw.ReciprocalSpaceDensity(
-                    gd, finegd, nspins, par.charge + setups.core_charge,
-                    redistributor,
-                    background_charge=par.background_charge)
-
+            self.create_density(realspace, mode, kptband_comm)
+    
         # XXXXXXXXXX if setups change, then setups.core_charge may change.
         # But that parameter was supplied in Density constructor!
         # This surely is a bug!
@@ -811,32 +740,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         self.density.set_mixer(par.mixer)
 
         if self.hamiltonian is None:
-            # XXX we hope and pray that hamiltonian becomes None
-            # whenever the density does; else the finegds of the two
-            # objects may have different communicators depending on
-            # whether someone called set()!
-            gd, finegd = self.density.gd, self.density.finegd
-
-            if realspace:
-                self.hamiltonian = self.real_space_hamiltonian_class(
-                    gd=gd, finegd=finegd, nspins=nspins,
-                    setups=setups, timer=self.timer, xc=xc,
-                    world=world, kptband_comm=self.wfs.kptband_comm,
-                    redistributor=self.density.redistributor,
-                    vext=par.external,
-                    psolver=par.poissonsolver,
-                    stencil=par.stencils[1])
-            else:
-                assert par.poissonsolver is None, str(par.poissonsolver) +\
-                        ' is not supported in PW mode'
-                self.hamiltonian = self.reciprocal_space_hamiltonian_class(
-                    gd, finegd, self.density.pd2, self.density.pd3,
-                    nspins=nspins, setups=setups, timer=self.timer,
-                    xc=xc, world=world,
-                    kptband_comm=self.wfs.kptband_comm,
-                    redistributor=self.density.redistributor,
-                    vext=par.external,
-                    psolver=par.poissonsolver)
+            self.create_hamiltonian(realspace, mode, xc)
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
@@ -858,6 +762,64 @@ class GPAW(Calculator, PAW, PAWTextOutput):
 
         self.initialized = True
 
+    def create_grid_descriptor(self, N_c, cell_cv, pbc_c,
+                               domain_comm, parsize_domain):
+        return GridDescriptor(N_c, cell_cv, pbc_c, domain_comm, parsize_domain)
+            
+    def create_density(self, realspace, mode, kptband_comm):
+        gd = self.wfs.gd
+
+        big_gd = gd.new_descriptor(comm=self.wfs.world)
+        # Check whether grid is too small.  8 is smallest admissible.
+        # (we decide this by how difficult it is to make the tests pass)
+        # (Actually it depends on stencils!  But let the user deal with it)
+        N_c = big_gd.get_size_of_global_array(pad=True)
+        too_small = np.any(N_c / big_gd.parsize_c < 8)
+        if self.parameters.parallel['augment_grids'] and not too_small:
+            aux_gd = big_gd
+        else:
+            aux_gd = gd
+
+        redistributor = GridRedistributor(self.wfs.world, kptband_comm,
+                                          gd, aux_gd)
+
+        # Construct grid descriptor for fine grids for densities
+        # and potentials:
+        finegd = aux_gd.refine()
+
+        kwargs = dict(
+            gd=gd, finegd=finegd,
+            nspins=self.wfs.nspins,
+            charge=self.parameters.charge + self.wfs.setups.core_charge,
+            redistributor=redistributor,
+            background_charge=self.parameters.background_charge)
+        
+        if realspace:
+            self.density = RealSpaceDensity(stencil=mode.interpolation,
+                                            **kwargs)
+        else:
+            self.density = pw.ReciprocalSpaceDensity(**kwargs)
+            
+        self.density.txt = self.txt
+
+    def create_hamiltonian(self, realspace, mode, xc):
+        dens = self.density
+        kwargs = dict(
+            gd=dens.gd, finegd=dens.finegd,
+            nspins=dens.nspins,
+            setups=dens.setups,
+            timer=self.timer,
+            xc=xc,
+            world=self.wfs.world,
+            redistributor=dens.redistributor,
+            vext=self.parameters.external,
+            psolver=self.parameters.poissonsolver)
+        if realspace:
+            self.hamiltonian = RealSpaceHamiltonian(stencil=mode.interpolation,
+                                                    **kwargs)
+        else:
+            self.hamiltonian = ReciprocalSpaceHamiltonian(**kwargs)
+        
     def dry_run(self):
         # Can be overridden like in gpaw.atom.atompaw
         self.print_cell_and_parameters()

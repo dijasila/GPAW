@@ -2,7 +2,6 @@ import numpy as np
 
 from gpaw.kpoint import KPoint
 from gpaw.mpi import serial_comm
-from gpaw.io import FileReference
 from gpaw.utilities.blas import axpy
 from gpaw.transformers import Transformer
 from gpaw.hs_operators import MatrixOperator
@@ -16,11 +15,12 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC
 class FD:
     name = 'fd'
 
-    def __init__(self):
-        pass  # Could hold parameters like FD stencils
+    def __init__(self, nn=3, interpolation=3):
+        self.nn = nn
+        self.interpolation = interpolation
 
     def __call__(self, *args, **kwargs):
-        return FDWaveFunctions(*args, **kwargs)
+        return FDWaveFunctions(self.nn, *args, **kwargs)
 
 
 class FDWaveFunctions(FDPWWaveFunctions):
@@ -102,9 +102,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 for v in range(3)]
 
         assert not hasattr(self.kpt_u[0], 'c_on')
-        if self.kpt_u[0].psit_nG is None:
-            return None
-        if isinstance(self.kpt_u[0].psit_nG, FileReference):
+        if not isinstance(self.kpt_u[0].psit_nG, np.ndarray):
             return None
 
         taut_sG = self.gd.zeros(self.nspins)

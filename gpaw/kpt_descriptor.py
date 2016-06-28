@@ -13,6 +13,7 @@ This module contains classes for defining combinations of two indices:
 import numpy as np
 
 from ase.dft.kpoints import monkhorst_pack, get_monkhorst_pack_size_and_offset
+from ase.calculators.calculator import kptdensity2monkhorstpack
 
 from gpaw.kpoint import KPoint
 import gpaw.mpi as mpi
@@ -49,6 +50,59 @@ def to1bz(bzk_kc, cell_cv):
         bz1k_kc[k] -= N_xc[x]
 
     return bz1k_kc
+
+        
+def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,
+                        atoms=None):
+    """Helper function for selecting k-points.
+
+    Use either size or density.
+
+    size: 3 ints
+        Number of k-points.
+    density: float
+        K-point density in units of k-points per Ang^-1.
+    gamma: None or bool
+        Should the Gamma-point be included?  Yes / no / don't care:
+        True / False / None.
+    even: None or bool
+        Should the number of k-points be even?  Yes / no / don't care:
+        True / False / None.
+    atoms: Atoms object
+        Needed for calculating k-point density.
+
+    """
+
+    if size is None:
+        if density is None:
+            size = [1, 1, 1]
+        else:
+            size = kptdensity2monkhorstpack(atoms, density, even)
+
+    offsets = [0, 0, 0]
+
+    if gamma is not None:
+        for i, s in enumerate(size):
+            if atoms.pbc[i] and s % 2 != bool(gamma):
+                offsets[i] = 0.5 / s
+
+    return size, offsets
+
+
+def kpts2ndarray(kpts, atoms=None):
+    """Convert kpts keyword to 2-d ndarray of scaled k-points."""
+
+    if kpts is None:
+        return np.zeros((1, 3))
+
+    if isinstance(kpts, dict):
+        size, offsets = kpts2sizeandoffsets(atoms=atoms, **kpts)
+        return monkhorst_pack(size) + offsets
+
+    if isinstance(kpts[0], int):
+        return monkhorst_pack(kpts)
+
+    return np.array(kpts)
 
 
 class KPointDescriptor:

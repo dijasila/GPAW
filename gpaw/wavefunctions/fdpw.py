@@ -2,7 +2,6 @@ from __future__ import division
 import numpy as np
 
 from gpaw import extra_parameters
-from gpaw.io import FileReference
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.lfc import BasisFunctions
 from gpaw.overlap import Overlap
@@ -49,7 +48,7 @@ class FDPWWaveFunctions(WaveFunctions):
                                              self.kd, dtype=self.dtype,
                                              cut=True)
             basis_functions.set_positions(spos_ac)
-        elif isinstance(self.kpt_u[0].psit_nG, FileReference):
+        elif not isinstance(self.kpt_u[0].psit_nG, np.ndarray):
             self.initialize_wave_functions_from_restart_file()
 
         if self.kpt_u[0].psit_nG is not None:
@@ -116,7 +115,7 @@ class FDPWWaveFunctions(WaveFunctions):
         self.timer.stop('LCAO initialization')
 
     def initialize_wave_functions_from_restart_file(self):
-        if not isinstance(self.kpt_u[0].psit_nG, FileReference):
+        if isinstance(self.kpt_u[0].psit_nG, np.ndarray):
             return
 
         # Calculation started from a restart file.  Copy data
