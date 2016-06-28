@@ -343,8 +343,8 @@ class Density(object):
         """
         setup = self.setups[a]
         return sqrt(4 * pi) * (
-            np.dot(self.D_asp[a][spin], setup.Delta_pL[:, 0])
-            + setup.Delta0 / self.nspins)
+            np.dot(self.D_asp[a][spin], setup.Delta_pL[:, 0]) +
+            setup.Delta0 / self.nspins)
 
     def get_all_electron_density(self, atoms=None, gridrefinement=2,
                                  spos_ac=None, skip_core=False):
@@ -526,6 +526,10 @@ class Density(object):
         dt_sg = np.where(dt_sg > 0, dt_sg, 0.0)
         return gd.integrate(dt_sg)
 
+    def write(self, writer):
+        writer.write(density_error=self.mixer.d)
+        writer.write
+        
     def read(self, reader):
         if reader['version'] > 0.3:
             density_error = reader['DensityError']

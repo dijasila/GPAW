@@ -122,17 +122,29 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                             atoms)
 
     def read(self, filename):
+        self.initialize()
         reader = Reader(filename)
         self.atoms = read_atoms(reader.atoms)
         self.results = reader.results
         self.parameters = reader.parameters
+        self.density.read(reader)
+        self.hamiltonia.read(reader)
+        self.occupations.read(reader)
+        self.scf.read(reader)
+        self.wfs.read(reader)
         self.reader.close()
         
     def write(self, filename, mode=''):
         writer = Writer(filename)
-        write_atoms(writer.subwriter('atoms'), self.atoms)
+        write_atoms(writer.child('atoms'), self.atoms)
         writer.write('results', self.results)
-        writer.write('parameters', self.paramesters)
+        writer.write('parameters', self.todict())
+        writer.write('density', self.density)
+        writer.write('hamiltonian', self.hamiltonian)
+        writer.write('occupations', self.occupations)
+        writer.write('scf', self.scf)
+        if mode:
+            writer.write('wave_functions', self.wfs)
         writer.close()
         
     def check_state(self, atoms, tol=1e-15):
