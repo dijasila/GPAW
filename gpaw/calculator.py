@@ -204,8 +204,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             with self.timer('Forces'):
                 F_av = calculate_forces(self.wfs, self.density,
                                         self.hamiltonian)
-                self.print_forces()
                 self.results['forces'] = F_av * (Hartree / Bohr)
+                self.print_forces()
 
         if 'stress' in properties:
             with self.timer('Stress'):

@@ -76,10 +76,10 @@ def calculate_stress(calc):
     # results):
     wfs.world.broadcast(sigma_vv, 0)
 
-    calc.text('Stress tensor:')
+    calc.log('Stress tensor:')
     for sigma_v in sigma_vv:
-        calc.text('%12.6f %12.6f %12.6f' %
-                  tuple(units.Hartree / units.Bohr**3 * sigma_v))
+        calc.log('%12.6f %12.6f %12.6f' %
+                 tuple(units.Hartree / units.Bohr**3 * sigma_v))
 
     calc.timer.stop('Stress tensor')
 
