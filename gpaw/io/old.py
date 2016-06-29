@@ -30,34 +30,15 @@ import gpaw.mpi as mpi
 from gpaw.io.dummy import DummyWriter
 
 
-def open(filename, mode='r', comm=mpi.world):
-    parallel_io = False
-    if filename.endswith('.nc'):
-        import gpaw.io.netcdf as io
-    elif filename.endswith('.db') or filename.endswith('.cmr'):
-        import gpaw.io.cmr_io as io
-    elif filename.endswith('.hdf5'):
-        import gpaw.io.hdf5 as io
-        parallel_io = True
-    else:
-        if not filename.endswith('.gpw'):
-            filename += '.gpw'
-        import gpaw.io.tar as io
+def open(filename, comm=mpi.world):
+    if not filename.endswith('.gpw'):
+        filename += '.gpw'
+    import gpaw.io.tar as io
 
     # comm is used to eliminate replicated reads, hence it should never be None
     # it is not required for writes at the moment, but this is likely to change
     # in the future
-    if mode == 'r':
-        if comm is None:
-            raise RuntimeError('Warning: Communicator needed for reads/writes')
-        return io.Reader(filename, comm)
-    elif mode == 'w':
-        if parallel_io or comm.rank == 0:
-            return io.Writer(filename, comm)
-        else:
-            return DummyWriter(filename, comm)
-    else:
-        raise ValueError("Illegal mode!  Use 'r' or 'w'.")
+    return io.Reader(filename, comm)
 
 
 def write_atomic_matrix(writer, X_asp, name, master):
@@ -67,67 +48,8 @@ def write_atomic_matrix(writer, X_asp, name, master):
     if master:
         writer.fill(all_X_asp.toarray(axis=1))
 
-def write(paw, filename, mode, cmr_params=None, **kwargs):
-    """Write state to file.
-    
-    The `mode` argument should be one of:
-
-    ``''``:
-      Don't write the wave functions.
-    ``'all'``:
-      Write also the wave functions to the file.
-    ``'nc'`` or ``'gpw'``:
-      Write wave functions as separate files (the default filenames
-      are ``'psit_Gs%dk%dn%d.nc' % (s, k, n)`` for ``'nc'``, where
-      ``s``, ``k`` and ``n`` are spin, **k**-point and band indices). XXX
-    ``'nc:mywfs/psit_Gs%dk%dn%d'``:
-      Defines the filenames to be ``'mywfs/psit_Gs%dk%dn%d' % (s, k, n)``.
-      The directory ``mywfs`` is created if not present. XXX
-
-    cmr_params specifies the parameters that should be used for CMR.
-    (Computational Materials Repository)
-
-    Please note: mode argument is ignored by CMR.
-    """
-
-    timer = paw.timer
-    timer.start('Write')
-
-    wfs = paw.wfs
-    scf = paw.scf
-    density = paw.density
-    hamiltonian = paw.hamiltonian
-
-    world = paw.wfs.world
-    domain_comm = wfs.gd.comm
-    kpt_comm = wfs.kd.comm
-    band_comm = wfs.bd.comm
-
-    master = (world.rank == 0)
-    parallel = (world.size > 1)
-
-    atoms = paw.atoms
-    natoms = len(atoms)
-
-    magmom_a = paw.get_magnetic_moments()
-
-    hdf5 = filename.endswith('.hdf5')
-
-    # defaults for replicated writes with HDF5
-
-    timer.start('Meta data')
-
-    # Note that HDF5 and GPW-writers behave very differently here.
-    # - real GPW-writer is created only on the master task, other
-    #   tasks use dummy writer
-    # - HDF5 writer is created on all MPI tasks.
-    # - GPW-writer always writes from master
-    # - HDF-writer writes full distributed data from all task, replicated data
-    #   from master, and partially replicated-data from domain_comm.rank == 0.
-    #   These types of writes are call Datasets.
-    # - HDF-writer writes parameters and dimensions as Attributes, not
-    #   Datasets.
-    #   Attributes must be written by all MPI tasks.
+        
+def write():
     
     w = open(filename, 'w', world)
     w['history'] = 'GPAW restart file'
@@ -436,40 +358,6 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                                  dtype=dtype)
                         wpsi.fill(psit_G)
                         wpsi.close()
-
-    db = False
-    if filename.endswith('.db') or filename.endswith('.cmr'):
-        from cmr.tools.functions import get_ase_atoms_as_dict
-        atoms_var = get_ase_atoms_as_dict(paw.get_atoms())
-        if cmr_params is None:
-            c = {}
-        else:
-            c = cmr_params.copy()
-        c["ase_atoms_var"] = atoms_var
-        if master:
-            w.write_additional_db_params(cmr_params=c)
-    elif cmr_params is not None and 'db' in cmr_params:
-        db = cmr_params['db']
-
-    timer.start('Close')
-    # Close the file here to ensure that the last wave function is
-    # written to disk:
-    w.close()
-
-    # We don't want the slaves to start reading before the master has
-    # finished writing:
-    world.barrier()
-    timer.stop('Close')
-    timer.stop('Write')
-
-    # Creates a db file for CMR, if requested
-    if db and not filename.endswith('.db'):
-        # Write a db copy to the database
-        write(paw, '.db', mode='', cmr_params=cmr_params, **kwargs)
-    elif db and not filename.endswith('.cmr'):
-        # Write a db copy to the database (Note currently only *.db are
-        # accepted for a check-in)
-        write(paw, '.db', mode='', cmr_params=cmr_params, **kwargs)
 
 
 def read(paw, reader, read_projections=True):

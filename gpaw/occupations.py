@@ -80,8 +80,18 @@ class OccupationNumbers:
         self.niter = 0          # number of iterations for finding Fermi level
         self.ready = False
 
-    def is_ready(self):
-        return self.ready
+    def write(self, writer):
+        writer.write(fermilevel=self.fermilevel,
+                     split=self.split,
+                     homo=self.homo,
+                     lumo=self.lumo)
+        
+    def read(self, reader):
+        o = reader.occupations
+        self.fermilevel = o.fermilevel
+        self.split = o.split
+        self.homo = o.homo
+        self.lumo = o.lumo
         
     def calculate(self, wfs):
         """Calculate everything.

@@ -33,6 +33,7 @@ class SCFLoop:
         
         self.reset()
 
+    
     def fix_density(self):
         self.fixdensity = True
         self.niter_fixdensity = 10000000
@@ -183,7 +184,7 @@ class SCFLoop:
                     log('       ', end='')
 
             log('%11.6f    %-5s  %-7s' %
-                (Hartree * ham.e_extrapolated,
+                (Hartree * ham.e_total_extrapolated,
                  niterocc,
                  niterpoisson), end='')
 

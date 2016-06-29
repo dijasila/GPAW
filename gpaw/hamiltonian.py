@@ -9,12 +9,18 @@ import numpy as np
 from gpaw.poisson import PoissonSolver
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC
-from gpaw.utilities import pack2, unpack, unpack2, unpack_atomic_matrices
+from gpaw.utilities import (pack2, unpack, unpack2,
+                            unpack_atomic_matrices, pack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
 from gpaw.arraydict import ArrayDict
 
 
+ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
+                'e_entropy', 'e_total_free', 'e_total_extrapolated']
+
+    
 class Hamiltonian(object):
+   
     def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
                  redistributor, vext=None):
         self.gd = gd
@@ -36,7 +42,7 @@ class Hamiltonian(object):
 
         # Energy contributioons that sum up to e_total_free:
         self.e_kinetic = None
-        self.E_coulomb = None
+        self.e_coulomb = None
         self.e_zero = None
         self.e_external = None
         self.e_xc = None
@@ -187,14 +193,14 @@ class Hamiltonian(object):
         finegrid_energies *= self.finegd.comm.size / float(self.world.size)
         coarsegrid_e_kinetic *= self.gd.comm.size / float(self.world.size)
         # (careful with array orderings/contents)
-        energies = atomic_energies #         e_kinetic, E_coulomb, e_zero, e_external, e_xc
-        energies[1:] += finegrid_energies #  ----, E_coulomb, e_zero, e_external, e_xc
-        energies[0] += coarsegrid_e_kinetic #     e_kinetic, ----, ----, ----, ---
-        self.timer.start('Communicate')
-        self.world.sum(energies)
-        self.timer.stop('Communicate')
+        energies = atomic_energies  # kinetic, coulomb, zero, external, xc
+        energies[1:] += finegrid_energies  # coulomb, zero, external, xc
+        energies[0] += coarsegrid_e_kinetic  # kinetic
+        with self.timer('Communicate'):
+            self.world.sum(energies)
 
-        self.e_kinetic0, self.E_coulomb, self.e_zero, self.e_external, self.e_xc = energies
+        (self.e_kinetic0, self.e_coulomb, self.e_zero,
+         self.e_external, self.e_xc) = energies
         self.timer.stop('Hamiltonian')
 
     def update_corrections(self, density, W_aL):
@@ -202,7 +208,7 @@ class Hamiltonian(object):
         self.dH_asp = None  # XXXX
 
         e_kinetic = 0.0
-        E_coulomb = 0.0
+        e_coulomb = 0.0
         e_zero = 0.0
         e_external = 0.0
         e_xc = 0.0
@@ -220,8 +226,8 @@ class Hamiltonian(object):
                     np.dot(setup.Delta_pL, W_L))
             e_kinetic += np.dot(setup.K_p, D_p) + setup.Kc
             e_zero += setup.MB + np.dot(setup.MB_p, D_p)
-            E_coulomb += setup.M + np.dot(D_p, (setup.M_p +
-                                           np.dot(setup.M_pp, D_p)))
+            e_coulomb += setup.M + np.dot(D_p, (setup.M_p +
+                                                np.dot(setup.M_pp, D_p)))
 
             dH_asp[a] = dH_sp = np.zeros_like(D_sp)
 
@@ -267,7 +273,7 @@ class Hamiltonian(object):
         self.timer.start('XC Correction')
         for a, D_sp in D_asp.items():
             e_xc += self.xc.calculate_paw_correction(self.setups[a], D_sp,
-                                                    dH_asp[a], a=a)
+                                                     dH_asp[a], a=a)
         self.timer.stop('XC Correction')
 
         for a, D_sp in D_asp.items():
@@ -278,14 +284,14 @@ class Hamiltonian(object):
         # Make corrections due to non-local xc:
         self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
         e_kinetic += self.xc.get_kinetic_energy_correction() / self.world.size
-        return np.array([e_kinetic, E_coulomb, e_zero, e_external, e_xc])
+        return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
     def get_energy(self, occ):
         self.e_kinetic = self.e_kinetic0 + occ.e_band
         self.e_entropy = occ.e_entropy
 
         # Total free energy:
-        self.e_total_free = (self.e_kinetic + self.E_coulomb +
+        self.e_total_free = (self.e_kinetic + self.e_coulomb +
                              self.e_external + self.e_zero + self.e_xc +
                              self.e_entropy)
         self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
@@ -425,35 +431,25 @@ class Hamiltonian(object):
         self.vbar.estimate_memory(mem.subnode('vbar'))
 
     def write(self, writer):
-        writer.write(density_error=self.mixer.get_charge_sloshing(),
-                     density=self.gd.collect(self.nt_sG),
-                     atomic_density_matrices=pack_atomic_matrices(self.D_asp))
+        # Write all eneriges:
+        for name in ENERGY_NAMES:
+            writer.write(name, getattr(self, name))
+        
+        writer.write(
+            potential=self.gd.collect(self.vt_sG),
+            atomic_hamiltonian_matrices=pack_atomic_matrices(self.dH_asp))
 
     def read(self, reader):
         h = reader.hamiltonian
 
-        self.e_kinetic = h.e_kinetic
-        self.E_coulomb = h.e_potential
-        self.e_zero = h.e_zero
-        self.e_external = h.e_extrernal
-        self.e_xc = h.e_xc
-        self.e_entropy = h.e_entropy
-        self.e_total_free = h.e_total_free
-        self.e_total_extrapolated = h.e_total_extrapolated
-
-        if not reader.has_array('PseudoPotential'):
-            return
-
-        hdf5 = hasattr(reader, 'hdf5')
-        version = reader['version']
+        # Read all energies:
+        for name in ENERGY_NAMES:
+            setattr(self, name, h.get(name))
 
         # Read pseudo potential on the coarse grid
         # and broadcast on kpt/band comm:
-        if version > 0.3:
-            self.vt_sG = self.gd.empty(self.nspins)
-            for s in range(self.nspins):
-                self.gd.distribute(reader.get('PseudoPotential', s),
-                                   self.vt_sG[s])
+        self.vt_sG = self.gd.empty(self.nspins)
+        self.gd.distribute(h.potential, self.vt_sG)
 
         self.atom_partition = AtomPartition(self.gd.comm,
                                             np.zeros(len(self.setups), int),
@@ -461,11 +457,10 @@ class Hamiltonian(object):
 
         # Read non-local part of hamiltonian
         self.dH_asp = {}
-        if version > 0.3:
-            all_H_sp = reader.get('NonLocalPartOfHamiltonian', broadcast=True)
+        dH_sP = h.atomic_hamiltonian_matrices
 
-        if self.gd.comm.rank == 0 and version > 0.3:
-            self.dH_asp = unpack_atomic_matrices(all_H_sp, self.setups)
+        if self.gd.comm.rank == 0:
+            self.dH_asp = unpack_atomic_matrices(dH_sP, self.setups)
 
 
 class RealSpaceHamiltonian(Hamiltonian):
@@ -521,7 +516,7 @@ class RealSpaceHamiltonian(Hamiltonian):
     def update_pseudo_potential(self, density):
         self.timer.start('vbar')
         e_zero = self.finegd.integrate(self.vbar_g, density.nt_g,
-                                     global_integral=False)
+                                       global_integral=False)
 
         vt_g = self.vt_sg[0]
         vt_g[:] = self.vbar_g
@@ -532,7 +527,7 @@ class RealSpaceHamiltonian(Hamiltonian):
             vext_g = self.vext.get_potential(self.finegd)
             vt_g += vext_g
             e_external = self.finegd.integrate(vext_g, density.rhot_g,
-                                         global_integral=False)
+                                               global_integral=False)
 
         self.vt_sg[1:self.nspins] = vt_g
 
@@ -551,7 +546,7 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         self.timer.start('Hartree integrate/restrict')
         E_coulomb = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
-                                           global_integral=False)
+                                                global_integral=False)
 
         for vt_g in self.vt_sg[:self.nspins]:
             vt_g += self.vHt_g
@@ -574,7 +569,8 @@ class RealSpaceHamiltonian(Hamiltonian):
                 e_kinetic -= self.gd.integrate(vt_G, nt_G - density.nct_G,
                                                global_integral=False)
             else:
-                e_kinetic -= self.gd.integrate(vt_G, nt_G, global_integral=False)
+                e_kinetic -= self.gd.integrate(vt_G, nt_G,
+                                               global_integral=False)
             s += 1
         self.timer.stop('Hartree integrate/restrict')
         return e_kinetic

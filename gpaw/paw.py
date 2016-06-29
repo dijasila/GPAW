@@ -11,16 +11,13 @@ import numpy as np
 from ase.units import Bohr, Hartree
 
 import gpaw.io
-from gpaw.output import PAWTextOutput
 from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.external import PointChargePotential
 from gpaw.xc import XC
 
 
-class PAW(PAWTextOutput):
-    def __init__(self, filename=None, timer=None,
-                 read_projections=True, **kwargs):
-        """ASE-calculator interface.
+class PAW:
+    """ASE-calculator interface.
 
         The following parameters can be used: nbands, xc, kpts,
         spinpol, gpts, h, charge, symmetry, width, mixer,
@@ -105,18 +102,6 @@ class PAW(PAWTextOutput):
 
     def get_reference_energy(self):
         return self.wfs.setups.Eref * Hartree
-
-    def write(self, filename, mode='', cmr_params={}, **kwargs):
-        """Write state to file.
-
-        use mode='all' to write the wave functions.  cmr_params is a
-        dictionary that allows you to specify parameters for CMR
-        (Computational Materials Repository).
-        """
-
-        self.timer.start('IO')
-        gpaw.io.write(self, filename, mode, cmr_params=cmr_params, **kwargs)
-        self.timer.stop('IO')
 
     def get_homo_lumo(self):
         """Return HOMO and LUMO eigenvalues."""
