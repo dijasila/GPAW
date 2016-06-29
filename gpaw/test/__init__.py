@@ -122,7 +122,6 @@ tests = [
     'pw/lfc.py',
     'gauss_func.py',
     'multipoletest.py',
-    'noncollinear/xcgrid3d.py',
     'cluster.py',
     'poisson/poisson.py',
     'poisson/poisson_asym.py',
@@ -133,7 +132,6 @@ tests = [
     'fd_ops/transformations.py',
     'parallel/blacsdist.py',
     'pbc.py',
-    'noncollinear/xccorr.py',
     'atoms_too_close.py',
     'ext_potential/harmonic.py',
     'generic/proton.py',
@@ -166,7 +164,6 @@ tests = [
     'ase_features/plt.py',                  # ~2s
     'ds_beta.py',                           # ~2s
     'multipoleH2O.py',                      # ~2s
-    'noncollinear/h.py',                    # ~2s
     'spinorbit_Kr.py',                      # ~2s
     'stdout.py',                            # ~2s
     'lcao/largecellforce.py',               # ~2s
