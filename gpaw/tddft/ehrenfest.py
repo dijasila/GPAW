@@ -179,8 +179,8 @@ class EhrenfestVelocityVerlet:
         """Updates kinetic, electronic and total energies"""
 
         self.Ekin = 0.5 * (self.M * (self.v**2).sum(axis=1)).sum()
-        self.Epot = self.calc.get_td_energy()
-        self.Etot = self.Ekin + self.Epot
+        self.e_coulomb = self.calc.get_td_energy()
+        self.Etot = self.Ekin + self.e_coulomb
         return self.Etot
         
     def get_velocities_in_au(self):

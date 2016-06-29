@@ -14,7 +14,8 @@ from gpaw.mixer import BaseMixer, Mixer, MixerSum
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC, BasisFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
-from gpaw.utilities import unpack2, unpack_atomic_matrices
+from gpaw.utilities import (unpack2, unpack_atomic_matrices,
+                            pack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
 from gpaw.mpi import SerialCommunicator
@@ -527,22 +528,16 @@ class Density(object):
         return gd.integrate(dt_sg)
 
     def write(self, writer):
-        writer.write(density_error=self.mixer.d)
-        writer.write
+        writer.write(density_error=self.mixer.get_charge_sloshing(),
+                     density=self.gd.collect(self.nt_sG),
+                     atomic_density_matrices=pack_atomic_matrices(self.D_asp))
         
     def read(self, reader):
-        if reader['version'] > 0.3:
-            density_error = reader['DensityError']
-            if density_error is not None:
-                self.mixer.set_charge_sloshing(density_error)
-
-        if not reader.has_array('PseudoElectronDensity'):
-            return
+        density_error = reader.density.error
+        self.mixer.set_charge_sloshing(density_error)
 
         nt_sG = self.gd.empty(self.nspins)
-        for s in range(self.nspins):
-            self.gd.distribute(reader.get('PseudoElectronDensity', s),
-                               nt_sG[s])
+        self.gd.distribute(reader.density.density, nt_sG)
 
         # Read atomic density matrices
         natoms = len(self.setups)
@@ -553,9 +548,9 @@ class Density(object):
         spos_ac = np.zeros((natoms, 3))  # XXXX
         self.atomdist = self.redistributor.get_atom_distributions(spos_ac)
 
-        all_D_sp = reader.get('AtomicDensityMatrices', broadcast=True)
+        D_sP = reader.density.atomic_density_matrices
         if self.gd.comm.rank == 0:
-            D_asp.update(unpack_atomic_matrices(all_D_sp, self.setups))
+            D_asp.update(unpack_atomic_matrices(D_sP, self.setups))
             D_asp.check_consistency()
 
         self.initialize_directly_from_arrays(nt_sG, D_asp)

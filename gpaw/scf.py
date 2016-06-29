@@ -182,10 +182,8 @@ class SCFLoop:
                 else:
                     log('       ', end='')
 
-            efree = ham.Etot
-            e0 = occ.extrapolate_energy_to_zero_width(efree)
             log('%11.6f    %-5s  %-7s' %
-                (Hartree * e0,
+                (Hartree * ham.e_extrapolated,
                  niterocc,
                  niterpoisson), end='')
 

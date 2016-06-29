@@ -488,11 +488,11 @@ class TDDFT(GPAW):
 
         # PAW
         self.Ekin = H.Ekin0 + self.occupations.e_band + self.Enlkin
-        self.Epot = H.Epot
+        self.e_coulomb = H.e_coulomb
         self.Eext = H.Eext
         self.Ebar = H.Ebar
         self.Exc = H.Exc + self.Enlxc
-        self.Etot = self.Ekin + self.Epot + self.Ebar + self.Exc
+        self.Etot = self.Ekin + self.e_coulomb + self.Ebar + self.Exc
 
 
     def get_td_energy(self):

@@ -83,7 +83,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             self.cavity.update_vol_surf()
             self.dielectric.update(self.cavity)
 
-        #Epot, Ebar, Eext, Exc =
+        #e_coulomb, Ebar, Eext, Exc =
         finegd_energies = self.update_pseudo_potential(density)
         self.finegd.comm.sum(finegd_energies)
         ia_changed = [
@@ -114,16 +114,13 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         energies = atomic_energies
         energies[1:] += finegd_energies
         energies[0] += Ekin1
-        self.Ekin0, self.Epot, self.Ebar, self.Eext, self.Exc = energies
+        self.Ekin0, self.e_coulomb, self.Ebar, self.Eext, self.Exc = energies
 
         self.finegd.comm.sum(Eias)
 
         self.cavity.communicate_vol_surf(self.world)
         for E, ia in zip(Eias, self.interactions):
-            setattr(self, 'E_' + ia.subscript, E)
-
-        # self.Exc += self.Enlxc
-        # self.Ekin0 += self.Enlkin
+            setattr(self, 'e_' + ia.subscript, E)
 
         self.new_atoms = None
         self.timer.stop('Hamiltonian')
@@ -176,20 +173,19 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             for v in (0, 1, 2):
                 F_v[v] += self.finegd.integrate(
                     fixed * del_g_del_r_vg[v],
-                    global_integral=False
-                )
+                    global_integral=False)
 
     def get_energy(self, occupations):
-        self.Ekin = self.Ekin0 + occupations.e_band
-        self.S = occupations.e_entropy
-        self.Eel = (
-            self.Ekin + self.Epot + self.Eext + self.Ebar + self.Exc - self.S
-        )
-        Etot = self.Eel
+        self.e_kinetic = self.e_kinetic0 + occupations.e_band
+        self.e_entropy = occupations.e_entropy
+        self.e_el = (
+            self.e_kinetic + self.e_coulomb + self.e_external + self.e_zero +
+            self.e_xc + self.e_entropy)
+        e_total_free = self.e_el
         for ia in self.interactions:
-            Etot += getattr(self, 'E_' + ia.subscript)
-        self.Etot = Etot
-        return self.Etot
+            e_total_free += getattr(self, 'e_' + ia.subscript)
+        self.e_total_free = e_total_free
+        return self.e_total_free
 
     def grad_squared(self, x):
         # XXX ugly

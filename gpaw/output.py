@@ -302,7 +302,7 @@ class PAWTextOutput:
         t('-------------------------')
 
         energies = [('Kinetic:      ', self.hamiltonian.Ekin),
-                    ('Potential:    ', self.hamiltonian.Epot),
+                    ('Potential:    ', self.hamiltonian.e_coulomb),
                     ('External:     ', self.hamiltonian.Eext),
                     ('XC:           ', self.hamiltonian.Exc),
                     ('Entropy (-ST):', -self.hamiltonian.S),
@@ -311,11 +311,11 @@ class PAWTextOutput:
         for name, e in energies:
             t('%-14s %+11.6f' % (name, Hartree * e))
 
-        efree = self.hamiltonian.Etot
-        e0 = self.occupations.extrapolate_energy_to_zero_width(efree)
+        e_free = self.hamiltonian.e_total_free
+        e_extrapolated = self.hamiltonian.e_total_extrapolated
         t('-------------------------')
-        t('Free Energy:   %+11.6f' % (Hartree * efree))
-        t('Zero Kelvin:   %+11.6f' % (Hartree * e0))
+        t('Free Energy:   %+11.6f' % (Hartree * e_free))
+        t('Zero Kelvin:   %+11.6f' % (Hartree * e_extrapolated))
         t()
         self.occupations.print_fermi_level(self.txt)
 

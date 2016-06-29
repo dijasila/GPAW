@@ -15,44 +15,8 @@ from gpaw.arraydict import ArrayDict
 
 
 class Hamiltonian(object):
-    """Hamiltonian object.
-
-    Attributes:
-     =============== =====================================================
-     ``xc``          ``XC3DGrid`` object.
-     ``poisson``     ``PoissonSolver``.
-     ``gd``          Grid descriptor for coarse grids.
-     ``finegd``      Grid descriptor for fine grids.
-     ``restrict``    Function for restricting the effective potential.
-     =============== =====================================================
-
-    Soft and smooth pseudo functions on uniform 3D grids:
-     ========== =========================================
-     ``vHt_g``  Hartree potential on the fine grid.
-     ``vt_sG``  Effective potential on the coarse grid.
-     ``vt_sg``  Effective potential on the fine grid.
-     ========== =========================================
-
-    Energy contributions and forces:
-
-    =========== ==========================================
-                Description
-    =========== ==========================================
-    ``Ekin``    Kinetic energy.
-    ``Epot``    Potential energy.
-    ``Etot``    Total energy.
-    ``Exc``     Exchange-Correlation energy.
-    ``Eext``    Energy of external potential
-    ``Eref``    Reference energy for all-electron atoms.
-    ``S``       Entropy.
-    ``Ebar``    Should be close to zero!
-    =========== ==========================================
-
-    """
-
     def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
                  redistributor, vext=None):
-        """Create the Hamiltonian."""
         self.gd = gd
         self.finegd = finegd
         self.nspins = nspins
@@ -61,26 +25,26 @@ class Hamiltonian(object):
         self.xc = xc
         self.world = world
         self.redistributor = redistributor
+        self.vext = vext  # external potential
+        
         self.atomdist = None
         self.dH_asp = None
-
-        # The external potential
-        self.vext = vext
-
         self.vt_sG = None
         self.vHt_g = None
         self.vt_sg = None
-
         self.atom_partition = None
 
-        self.Ekin0 = None
-        self.Ekin = None
-        self.Epot = None
-        self.Ebar = None
-        self.Eext = None
-        self.Exc = None
-        self.Etot = None
-        self.S = None
+        # Energy contributioons that sum up to e_total_free:
+        self.e_kinetic = None
+        self.E_coulomb = None
+        self.e_zero = None
+        self.e_external = None
+        self.e_xc = None
+        self.e_entropy = None
+        
+        self.e_total_free = None
+        self.e_total_extrapolated = None
+        self.e_kinetic0 = None
 
         self.ref_vt_sG = None
         self.ref_dH_asp = None
@@ -212,7 +176,7 @@ class Hamiltonian(object):
             self.timer.stop('Initialize Hamiltonian')
 
         finegrid_energies = self.update_pseudo_potential(density)
-        coarsegrid_Ekin = self.calculate_kinetic_energy(density)
+        coarsegrid_e_kinetic = self.calculate_kinetic_energy(density)
 
         self.timer.start('Calculate atomic Hamiltonians')
         W_aL = self.calculate_atomic_hamiltonians(density)
@@ -221,23 +185,27 @@ class Hamiltonian(object):
 
         # Make energy contributions summable over world:
         finegrid_energies *= self.finegd.comm.size / float(self.world.size)
-        coarsegrid_Ekin *= self.gd.comm.size / float(self.world.size)
+        coarsegrid_e_kinetic *= self.gd.comm.size / float(self.world.size)
         # (careful with array orderings/contents)
-        energies = atomic_energies #         Ekin, Epot, Ebar, Eext, Exc
-        energies[1:] += finegrid_energies #  ----, Epot, Ebar, Eext, Exc
-        energies[0] += coarsegrid_Ekin #     Ekin, ----, ----, ----, ---
+        energies = atomic_energies #         e_kinetic, E_coulomb, e_zero, e_external, e_xc
+        energies[1:] += finegrid_energies #  ----, E_coulomb, e_zero, e_external, e_xc
+        energies[0] += coarsegrid_e_kinetic #     e_kinetic, ----, ----, ----, ---
         self.timer.start('Communicate')
         self.world.sum(energies)
         self.timer.stop('Communicate')
 
-        self.Ekin0, self.Epot, self.Ebar, self.Eext, self.Exc = energies
+        self.e_kinetic0, self.E_coulomb, self.e_zero, self.e_external, self.e_xc = energies
         self.timer.stop('Hamiltonian')
 
     def update_corrections(self, density, W_aL):
         self.timer.start('Atomic')
         self.dH_asp = None  # XXXX
 
-        Ekin, Epot, Ebar, Eext, Exc = np.zeros(5)
+        e_kinetic = 0.0
+        E_coulomb = 0.0
+        e_zero = 0.0
+        e_external = 0.0
+        e_xc = 0.0
 
         D_asp = self.atomdist.to_work(density.D_asp)
         dH_asp = self.setups.empty_atomic_matrix(self.nspins, D_asp.partition)
@@ -250,9 +218,9 @@ class Hamiltonian(object):
             dH_p = (setup.K_p + setup.M_p +
                     setup.MB_p + 2.0 * np.dot(setup.M_pp, D_p) +
                     np.dot(setup.Delta_pL, W_L))
-            Ekin += np.dot(setup.K_p, D_p) + setup.Kc
-            Ebar += setup.MB + np.dot(setup.MB_p, D_p)
-            Epot += setup.M + np.dot(D_p, (setup.M_p +
+            e_kinetic += np.dot(setup.K_p, D_p) + setup.Kc
+            e_zero += setup.MB + np.dot(setup.MB_p, D_p)
+            E_coulomb += setup.M + np.dot(D_p, (setup.M_p +
                                            np.dot(setup.M_pp, D_p)))
 
             dH_asp[a] = dH_sp = np.zeros_like(D_sp)
@@ -273,10 +241,10 @@ class Hamiltonian(object):
                     Eorb = setup.HubU / 2. * (N_mm -
                                               np.dot(N_mm, N_mm)).trace()
                     Vorb = setup.HubU * (0.5 * np.eye(2 * l + 1) - N_mm)
-                    Exc += Eorb
+                    e_xc += Eorb
                     if nspins == 1:
                         # add contribution of other spin manyfold
-                        Exc += Eorb
+                        e_xc += Eorb
 
                     if len(nl) == 2:
                         mm = (2 * np.array(l_j) + 1)[0:nl[1]].sum()
@@ -298,29 +266,32 @@ class Hamiltonian(object):
 
         self.timer.start('XC Correction')
         for a, D_sp in D_asp.items():
-            Exc += self.xc.calculate_paw_correction(self.setups[a], D_sp,
+            e_xc += self.xc.calculate_paw_correction(self.setups[a], D_sp,
                                                     dH_asp[a], a=a)
         self.timer.stop('XC Correction')
 
         for a, D_sp in D_asp.items():
-            Ekin -= (D_sp * dH_asp[a]).sum()  # NCXXX
+            e_kinetic -= (D_sp * dH_asp[a]).sum()  # NCXXX
         self.dH_asp = self.atomdist.from_work(dH_asp)
         self.timer.stop('Atomic')
 
         # Make corrections due to non-local xc:
         self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
-        Ekin += self.xc.get_kinetic_energy_correction() / self.world.size
-        return np.array([Ekin, Epot, Ebar, Eext, Exc])
+        e_kinetic += self.xc.get_kinetic_energy_correction() / self.world.size
+        return np.array([e_kinetic, E_coulomb, e_zero, e_external, e_xc])
 
-    def get_energy(self, occupations):
-        self.Ekin = self.Ekin0 + occupations.e_band
-        self.S = occupations.e_entropy
+    def get_energy(self, occ):
+        self.e_kinetic = self.e_kinetic0 + occ.e_band
+        self.e_entropy = occ.e_entropy
 
         # Total free energy:
-        self.Etot = (self.Ekin + self.Epot + self.Eext +
-                     self.Ebar + self.Exc - self.S)
+        self.e_total_free = (self.e_kinetic + self.E_coulomb +
+                             self.e_external + self.e_zero + self.e_xc +
+                             self.e_entropy)
+        self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
+            self.e_total_free)
 
-        return self.Etot
+        return self.e_total_free
 
     def linearize_to_xc(self, new_xc, density):
         # Store old hamiltonian
@@ -433,14 +404,14 @@ class Hamiltonian(object):
         nt_sg = density.nt_sg
         if hasattr(xc, 'hybrid'):
             xc.calculate_exx()
-        finegd_Exc = xc.calculate(density.finegd, nt_sg)
+        finegd_e_xc = xc.calculate(density.finegd, nt_sg)
         D_asp = self.atomdist.to_work(density.D_asp)
-        atomic_Exc = 0.0
+        atomic_e_xc = 0.0
         for a, D_sp in D_asp.items():
             setup = self.setups[a]
-            atomic_Exc += xc.calculate_paw_correction(setup, D_sp)
-        Exc = finegd_Exc + self.world.sum(atomic_Exc)
-        return Exc - self.Exc
+            atomic_e_xc += xc.calculate_paw_correction(setup, D_sp)
+        e_xc = finegd_e_xc + self.world.sum(atomic_e_xc)
+        return e_xc - self.e_xc
 
     def estimate_memory(self, mem):
         nbytes = self.gd.bytecount()
@@ -453,18 +424,22 @@ class Hamiltonian(object):
         self.poisson.estimate_memory(mem.subnode('Poisson'))
         self.vbar.estimate_memory(mem.subnode('vbar'))
 
-    def read(self, reader, parallel):
-        self.Ekin = reader['Ekin']
-        self.Epot = reader['Epot']
-        self.Ebar = reader['Ebar']
-        try:
-            self.Eext = reader['Eext']
-        except (AttributeError, KeyError):
-            self.Eext = 0.0
-        self.Exc = reader['Exc']
-        self.S = reader['S']
-        self.Etot = reader.get('PotentialEnergy',
-                               broadcast=True) - 0.5 * self.S
+    def write(self, writer):
+        writer.write(density_error=self.mixer.get_charge_sloshing(),
+                     density=self.gd.collect(self.nt_sG),
+                     atomic_density_matrices=pack_atomic_matrices(self.D_asp))
+
+    def read(self, reader):
+        h = reader.hamiltonian
+
+        self.e_kinetic = h.e_kinetic
+        self.E_coulomb = h.e_potential
+        self.e_zero = h.e_zero
+        self.e_external = h.e_extrernal
+        self.e_xc = h.e_xc
+        self.e_entropy = h.e_entropy
+        self.e_total_free = h.e_total_free
+        self.e_total_extrapolated = h.e_total_extrapolated
 
         if not reader.has_array('PseudoPotential'):
             return
@@ -476,17 +451,9 @@ class Hamiltonian(object):
         # and broadcast on kpt/band comm:
         if version > 0.3:
             self.vt_sG = self.gd.empty(self.nspins)
-            if hdf5:
-                indices = [slice(0, self.nspins), ] + self.gd.get_slice()
-                do_read = (self.kptband_comm.rank == 0)
-                reader.get('PseudoPotential', out=self.vt_sG,
-                           parallel=parallel,
-                           read=do_read, *indices)  # XXX read=?
-                self.kptband_comm.broadcast(self.vt_sG, 0)
-            else:
-                for s in range(self.nspins):
-                    self.gd.distribute(reader.get('PseudoPotential', s),
-                                       self.vt_sG[s])
+            for s in range(self.nspins):
+                self.gd.distribute(reader.get('PseudoPotential', s),
+                                   self.vt_sG[s])
 
         self.atom_partition = AtomPartition(self.gd.comm,
                                             np.zeros(len(self.setups), int),
@@ -553,18 +520,18 @@ class RealSpaceHamiltonian(Hamiltonian):
 
     def update_pseudo_potential(self, density):
         self.timer.start('vbar')
-        Ebar = self.finegd.integrate(self.vbar_g, density.nt_g,
+        e_zero = self.finegd.integrate(self.vbar_g, density.nt_g,
                                      global_integral=False)
 
         vt_g = self.vt_sg[0]
         vt_g[:] = self.vbar_g
         self.timer.stop('vbar')
 
-        Eext = 0.0
+        e_external = 0.0
         if self.vext is not None:
             vext_g = self.vext.get_potential(self.finegd)
             vt_g += vext_g
-            Eext = self.finegd.integrate(vext_g, density.rhot_g,
+            e_external = self.finegd.integrate(vext_g, density.rhot_g,
                                          global_integral=False)
 
         self.vt_sg[1:self.nspins] = vt_g
@@ -572,8 +539,8 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.vt_sg[self.nspins:] = 0.0
 
         self.timer.start('XC 3D grid')
-        Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
-        Exc /= self.finegd.comm.size
+        e_xc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
+        e_xc /= self.finegd.comm.size
         self.timer.stop('XC 3D grid')
 
         self.timer.start('Poisson')
@@ -583,34 +550,34 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.timer.stop('Poisson')
 
         self.timer.start('Hartree integrate/restrict')
-        Epot = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
+        E_coulomb = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
                                            global_integral=False)
 
         for vt_g in self.vt_sg[:self.nspins]:
             vt_g += self.vHt_g
 
         self.timer.stop('Hartree integrate/restrict')
-        return np.array([Epot, Ebar, Eext, Exc])
+        return np.array([E_coulomb, e_zero, e_external, e_xc])
 
     def calculate_kinetic_energy(self, density):
         # XXX new timer item for kinetic energy?
         self.timer.start('Hartree integrate/restrict')
         self.restrict_and_collect(self.vt_sg, self.vt_sG)
 
-        Ekin = 0.0
+        e_kinetic = 0.0
         s = 0
         for vt_G, nt_G in zip(self.vt_sG, density.nt_sG):
             if self.ref_vt_sG is not None:
                 vt_G += self.ref_vt_sG[s]
 
             if s < self.nspins:
-                Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
-                                          global_integral=False)
+                e_kinetic -= self.gd.integrate(vt_G, nt_G - density.nct_G,
+                                               global_integral=False)
             else:
-                Ekin -= self.gd.integrate(vt_G, nt_G, global_integral=False)
+                e_kinetic -= self.gd.integrate(vt_G, nt_G, global_integral=False)
             s += 1
         self.timer.stop('Hartree integrate/restrict')
-        return Ekin
+        return e_kinetic
 
     def calculate_atomic_hamiltonians(self, dens):
         def getshape(a):

@@ -67,16 +67,6 @@ def write_atomic_matrix(writer, X_asp, name, master):
     if master:
         writer.fill(all_X_asp.toarray(axis=1))
 
-
-def wave_function_name_template(mode):
-    try:
-        ftype, template = mode.split(':')
-    except:
-        ftype = mode
-        template = 'wfs/psit_Gs%dk%dn%d'
-    return ftype, template
-
-
 def write(paw, filename, mode, cmr_params=None, **kwargs):
     """Write state to file.
     
@@ -144,35 +134,6 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w['version'] = 6
     w['lengthunit'] = 'Bohr'
     w['energyunit'] = 'Hartree'
-
-    try:
-        tag_a = atoms.get_tags()
-        if tag_a is None:
-            raise KeyError
-    except KeyError:
-        tag_a = np.zeros(natoms, int)
-
-    w.dimension('natoms', natoms)
-    w.dimension('3', 3)
-
-    w.add('AtomicNumbers', ('natoms',),
-          atoms.get_atomic_numbers(), write=master)
-    w.add('CartesianPositions', ('natoms', '3'),
-          atoms.get_positions() / Bohr, write=master)
-    w.add('MagneticMoments', ('natoms',), magmom_a, write=master)
-    w.add('Tags', ('natoms',), tag_a, write=master)
-    w.add('BoundaryConditions', ('3',), atoms.get_pbc(), write=master)
-    w.add('UnitCell', ('3', '3'), atoms.get_cell() / Bohr, write=master)
-
-    if atoms.get_velocities() is not None:
-        w.add('CartesianVelocities', ('natoms', '3'),
-              atoms.get_velocities() * AUT / Bohr, write=master)
-
-    w.add('PotentialEnergy', (), hamiltonian.Etot + 0.5 * hamiltonian.S,
-          write=master)
-    if paw.forces.F_av is not None:
-        w.add('CartesianForces', ('natoms', '3'), paw.forces.F_av,
-              write=master)
 
     # Write the k-points:
     if wfs.kd.N_c is not None:
@@ -245,7 +206,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     else:
         w['ForcesConvergenceCriterion'] = None
     w['Ekin'] = hamiltonian.Ekin
-    w['Epot'] = hamiltonian.Epot
+    w['e_coulomb'] = hamiltonian.e_coulomb
     w['Ebar'] = hamiltonian.Ebar
     w['Eext'] = hamiltonian.Eext
     w['Exc'] = hamiltonian.Exc
@@ -410,25 +371,6 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                     if master:
                         w.fill(c_n, s, k, o)
         timer.stop('dSCF expansions')
-
-    # Write the pseudodensity on the coarse grid:
-    timer.start('Pseudo-density')
-    w.add('PseudoElectronDensity',
-          ('nspins', 'ngptsx', 'ngptsy', 'ngptsz'), dtype=float)
-
-    for s in range(wfs.nspins):
-        if hdf5:
-            # XXXXXXX must work with density/hamiltonian redist changes
-            # Maybe the easiest solution is to simply redist to wfs.gd
-            do_write = (kpt_comm.rank == 0) and (band_comm.rank == 0)
-            indices = [s] + density.gd.get_slice()
-            w.fill(density.nt_sG[s], parallel=parallel, write=do_write,
-                   *indices)
-        else:
-            nt_sG = density.gd.collect(density.nt_sG[s])
-            if master:
-                w.fill(nt_sG, s)
-    timer.stop('Pseudo-density')
 
     # Write the pseudopotential on the coarse grid:
     timer.start('Pseudo-potential')
@@ -810,21 +752,6 @@ def read_atoms(reader):
         atoms.set_velocities(velocities)
 
     return atoms
-
-
-def read_wave_function(gd, s, k, n, mode):
-    """Read the wave function for spin s, kpoint k and index n
-    from a sperate file. The filename is determined from the mode
-    in the same way as in write() (see above)"""
-
-    ftype, template = wave_function_name_template(mode)
-    fname = template % (s, k, n) + '.' + ftype
-
-    i = gd.get_slice()
-    r = open(fname, 'r')
-    psit_G = r.get('PseudoWaveFunction', 0)[i]
-    r.close()
-    return psit_G
 
 
 class FileReference:

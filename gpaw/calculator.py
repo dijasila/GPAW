@@ -42,50 +42,46 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                               'magmom', 'magmoms']
 
     default_parameters = {
+        'mode': 'fd',
+        'xc': 'LDA',
+        'occupations': None,
+        'poissonsolver': None,
         'h': None,  # Angstrom
         'gpts': None,
         'kpts': [(0.0, 0.0, 0.0)],
-        'charge': 0,
         'nbands': None,
+        'charge': 0,
         'setups': 'paw',
         'basis': {},
         'spinpol': None,
         'fixdensity': False,
         'dtype': None,
         'filter': None,
-        
-        'xc': 'LDA',
+        'mixer': None,
+        'eigensolver': None,
         'background_charge': None,
-        'occupations': None,
         'external': None,  # eV
-        'poissonsolver': None,
-        'mode': 'fd',
-
+        'random': False,
+        'txt': '-',
+        'hund': False,
+        'maxiter': 333,
+        'verbose': 0,
+        'communicator': None,
+        'idiotproof': True,
+        'symmetry': {'point_group': True,
+                     'time_reversal': True,
+                     'symmorphic': True,
+                     'tolerance': 1e-7},
         'convergence': {'energy': 0.0005,  # eV / electron
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
                         'bands': 'occupied',
                         'forces': None},  # eV / Ang Max
-
-        'mixer': None,
-        'eigensolver': None,
-
-        'symmetry': {'point_group': True,
-                     'time_reversal': True,
-                     'symmorphic': True,
-                     'tolerance': 1e-7},
-        'random': False,
-        'txt': '-',
-        'hund': False,
-        'maxiter': 333,  # google its spiritual meaning!
         'parallel': {'kpt': None,
                      'domain': gpaw.parsize_domain,
                      'band': gpaw.parsize_bands,
                      'order': 'kdb',
                      'stridebands': False,
-                     # Distribute density/potential on world.
-                     # What is a better name for this parameter?
-                     # It should probably accept a parsize tuple
                      'augment_grids': gpaw.augment_grids,
                      'sl_auto': False,
                      'sl_default': gpaw.sl_default,
@@ -93,10 +89,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                      'sl_inverse_cholesky': gpaw.sl_inverse_cholesky,
                      'sl_lcao': gpaw.sl_lcao,
                      'sl_lrtddft': gpaw.sl_lrtddft,
-                     'buffer_size': gpaw.buffer_size},
-        'verbose': 0,
-        'communicator': None,
-        'idiotproof': True}
+                     'buffer_size': gpaw.buffer_size}}
 
     def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
                  atoms=None, timer=None, **kwargs):
@@ -128,7 +121,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         self.initialize()
 
         self.density.read(reader)
-        self.hamiltonia.read(reader)
+        self.hamiltonian.read(reader)
         self.occupations.read(reader)
         self.scf.read(reader)
         self.wfs.read(reader)
@@ -137,8 +130,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
     def write(self, filename, mode=''):
         writer = Writer(filename)
         write_atoms(writer.child('atoms'), self.atoms)
-        writer.write('results', self.results)
-        writer.write('parameters', self.todict())
+        writer.child('results').write(**self.results)
+        writer.child('parameters').write(**self.todict())
         writer.write('density', self.density)
         writer.write('hamiltonian', self.hamiltonian)
         writer.write('occupations', self.occupations)
@@ -184,8 +177,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                              self.density, self.occupations,
                              self, self.call_observers)
     
-            efree = self.hamiltonian.Etot
-            e0 = self.occupations.extrapolate_energy_to_zero_width(efree)
+            e_free = self.hamiltonian.e_total_free
+            e_extrapolated = self.hamiltonian.e_total_extrapolated
             dipole_v = self.density.calculate_dipole_moment()
             magmom_a = self.density.estimate_magnetic_moments()
             momsum = magmom_a.sum()
@@ -193,8 +186,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             if abs(magmom) > 1e-7 and abs(momsum) > 1e-7:
                 magmom_a *= magmom / momsum
             
-            self.results['energy'] = e0 * Hartree
-            self.results['free_energy'] = efree * Hartree
+            self.results['energy'] = e_extrapolated * Hartree
+            self.results['free_energy'] = e_free * Hartree
             self.results['dipole'] = dipole_v * Bohr
             self.results['magmom'] = self.occupations.magmom
             self.results['magmoms'] = magmom_a

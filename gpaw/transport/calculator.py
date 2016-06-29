@@ -2362,7 +2362,7 @@ class Transport(GPAW):
         self.surround.combine_vHt_g(self, self.hamiltonian.vHt_g)
         self.text('poisson iterations :' + str(ham.npoisson))
         self.timer.stop('Poisson')
-        Epot = 0.5 * self.hamiltonian.finegd.integrate(self.hamiltonian.vHt_g,
+        e_coulomb = 0.5 * self.hamiltonian.finegd.integrate(self.hamiltonian.vHt_g,
                                                        density.rhot_g,
                                                         global_integral=False)
         Ekin = 0.0
@@ -2394,7 +2394,7 @@ class Transport(GPAW):
                     np.dot(setup.Delta_pL, W_L))
             Ekin += np.dot(setup.K_p, D_p) + setup.Kc
             Ebar += setup.MB + np.dot(setup.MB_p, D_p)
-            Epot += setup.M + np.dot(D_p, (setup.M_p + np.dot(setup.M_pp, D_p)))
+            e_coulomb += setup.M + np.dot(D_p, (setup.M_p + np.dot(setup.M_pp, D_p)))
 
             ham.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
             Exc += ham.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
@@ -2444,7 +2444,7 @@ class Transport(GPAW):
         
         comm = ham.gd.comm
         ham.Ekin0 = comm.sum(Ekin)
-        ham.Epot = comm.sum(Epot)
+        ham.e_coulomb = comm.sum(e_coulomb)
         ham.Ebar = comm.sum(Ebar)
         ham.Eext = comm.sum(Eext)
         ham.Exc = comm.sum(Exc)

@@ -33,16 +33,22 @@ min_locfun_radius = 0.85  # Bohr
 smallest_safe_grid_spacing = 2 * min_locfun_radius / np.sqrt(3)  # ~0.52 Ang
 
 
-def unpack_atomic_matrices(all_M_sp, setups):
+def unpack_atomic_matrices(M_sP, setups):
     M_asp = {}
-    p1 = 0
+    P1 = 0
     for a, setup in enumerate(setups):
         ni = setup.ni
-        p2 = p1 + ni * (ni + 1) // 2
-        M_asp[a] = all_M_sp[:, p1:p2].copy()
-        p1 = p2
+        P2 = P1 + ni * (ni + 1) // 2
+        M_asp[a] = M_sP[:, P1:P2].copy()
+        P1 = P2
     return M_asp
 
+    
+def pack_atomic_matrices(M_asp):
+    M2_asp = M_asp.deepcopy()
+    M2_asp.redistribute(M2_asp.partition.as_serial())
+    return M2_asp.toarray(axis=1)
+    
 
 def h2gpts(h, cell_cv, idiv=4):
     """Convert grid spacing to number of grid points divisible by idiv.

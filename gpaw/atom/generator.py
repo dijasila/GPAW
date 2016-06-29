@@ -740,8 +740,8 @@ class Generator(AllElectron):
         setup.Nv = self.Nv
         setup.e_kinetic = self.Ekin
         setup.e_xc = self.Exc
-        setup.e_electrostatic = self.Epot
-        setup.e_total = self.Epot + self.Exc + self.Ekin
+        setup.e_electrostatic = self.e_coulomb
+        setup.e_total = self.e_coulomb + self.Exc + self.Ekin
 
         setup.rgd = self.rgd
         
@@ -919,7 +919,7 @@ class Generator(AllElectron):
         print('  <ae_energy kinetic="%f" xc="%f"' % \
               (self.Ekin, self.Exc), file=xml)
         print('             electrostatic="%f" total="%f"/>' % \
-              (self.Epot, self.Ekin + self.Exc + self.Epot), file=xml)
+              (self.e_coulomb, self.Ekin + self.Exc + self.e_coulomb), file=xml)
 
         print('  <core_energy kinetic="%f"/>' % Ekincore, file=xml)
 
