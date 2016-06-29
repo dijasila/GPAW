@@ -3,7 +3,6 @@ import os
 import sys
 import time
 import platform
-from math import log
 
 import numpy as np
 import ase
@@ -42,9 +41,13 @@ class PAWTextOutput:
         self.print_header()
 
     def text(self, *args, **kwargs):
+        flush = kwargs.pop('flush', False)
         print(*args, file=self.txt, **kwargs)
+        if flush:
+            self.txt.flush()
 
     log = text
+    __call__ = text
     
     def print_header(self):
         self.text()
@@ -308,10 +311,11 @@ class PAWTextOutput:
         for name, e in energies:
             t('%-14s %+11.6f' % (name, Hartree * e))
 
+        efree = self.hamiltonian.Etot
+        e0 = self.occupations.extrapolate_energy_to_zero_width(efree)
         t('-------------------------')
-        t('Free Energy:   %+11.6f' % (Hartree * self.hamiltonian.Etot))
-        t('Zero Kelvin:   %+11.6f' % (Hartree * (self.hamiltonian.Etot +
-                                                 0.5 * self.hamiltonian.S)))
+        t('Free Energy:   %+11.6f' % (Hartree * efree))
+        t('Zero Kelvin:   %+11.6f' % (Hartree * e0))
         t()
         self.occupations.print_fermi_level(self.txt)
 
@@ -352,92 +356,6 @@ class PAWTextOutput:
             for a, mom in enumerate(self.get_magnetic_moments()):
                 t(a, mom)
             t()
-
-    def print_iteration(self, iter):
-        # Output from each iteration:
-        t = self.text
-
-        nvalence = self.wfs.nvalence
-        if nvalence > 0:
-            eigerr = self.scf.eigenstates_error * Hartree**2 / nvalence
-        else:
-            eigerr = 0.0
-
-        if self.verbose != 0:
-            T = time.localtime()
-            t()
-            t('------------------------------------')
-            t('iter: %d %d:%02d:%02d' % (iter, T[3], T[4], T[5]))
-            t()
-            t('Poisson Solver Converged in %d Iterations' %
-              self.hamiltonian.npoisson)
-            t('Fermi Level Found  in %d Iterations' % self.occupations.niter)
-            t('Error in Wave Functions: %.13f' % eigerr)
-            t()
-            self.print_all_information()
-
-        else:
-            if iter == 1:
-                header = """\
-                     log10-error:    Total        Iterations:
-           Time      WFS    Density  Energy       Fermi  Poisson"""
-                if self.wfs.nspins == 2:
-                    header += '  MagMom'
-                if self.scf.max_force_error is not None:
-                    l1 = header.find('Total')
-                    header = header[:l1] + '       ' + header[l1:]
-                    l2 = header.find('Energy')
-                    header = header[:l2] + 'Force  ' + header[l2:]
-                t(header)
-
-            T = time.localtime()
-
-            if eigerr == 0.0:
-                eigerr = ''
-            else:
-                eigerr = '%+.2f' % (log(eigerr) / log(10))
-
-            denserr = self.density.mixer.get_charge_sloshing()
-            if denserr is None or denserr == 0 or nvalence == 0:
-                denserr = ''
-            else:
-                denserr = '%+.2f' % (log(denserr / nvalence) / log(10))
-
-            niterocc = self.occupations.niter
-            if niterocc == -1:
-                niterocc = ''
-            else:
-                niterocc = '%d' % niterocc
-
-            if self.hamiltonian.npoisson == 0:
-                niterpoisson = ''
-            else:
-                niterpoisson = str(self.hamiltonian.npoisson)
-
-            t('iter: %3d  %02d:%02d:%02d %6s %6s  ' %
-              (iter,
-               T[3], T[4], T[5],
-               eigerr,
-               denserr), end='')
-
-            if self.scf.max_force_error is not None:
-                if self.scf.force_error is not None:
-                    t('  %+.2f' %
-                      (log(self.scf.force_error) / log(10)), end='')
-                else:
-                    t('       ', end='')
-
-            t('%11.6f    %-5s  %-7s' %
-              (Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S),
-               niterocc,
-               niterpoisson), end='')
-
-            if self.wfs.nspins == 2:
-                t('  %+.4f' % self.occupations.magmom, end='')
-
-            t()
-
-        self.txt.flush()
 
     def print_forces(self):
         F_av = self.results.get('forces')

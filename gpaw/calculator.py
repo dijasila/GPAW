@@ -1,7 +1,7 @@
 """ASE-calculator interface."""
 import numpy as np
 from ase.units import Bohr, Hartree
-from ase.calculators.calculator import Calculator
+from ase.calculators.calculator import Calculator, Parameters
 from ase.utils.timing import Timer
 from ase.io.trajectory import read_atoms, write_atoms
 
@@ -27,7 +27,7 @@ from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
 from gpaw.utilities.partition import AtomPartition
-from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
+from gpaw import dry_run, memory_estimate_depth
 
 from gpaw.paw import PAW
 from gpaw.io import Reader, Writer
@@ -112,8 +112,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         self.density = None
         self.hamiltonian = None
 
-        self.iter = 0
-        self.observers = []
+        self.observers = []  # XXX move to self.scf
         self.initialized = False
 
         PAWTextOutput.__init__(self)
@@ -122,11 +121,12 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                             atoms)
 
     def read(self, filename):
-        self.initialize()
         reader = Reader(filename)
         self.atoms = read_atoms(reader.atoms)
         self.results = reader.results
-        self.parameters = reader.parameters
+        self.parameters = Parameters(reader.parameters)
+        self.initialize()
+
         self.density.read(reader)
         self.hamiltonia.read(reader)
         self.occupations.read(reader)
@@ -143,7 +143,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         writer.write('hamiltonian', self.hamiltonian)
         writer.write('occupations', self.occupations)
         writer.write('scf', self.scf)
-        if mode:
+        if mode == 'all':
             writer.write('wave_functions', self.wfs)
         writer.close()
         
@@ -179,38 +179,28 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         if not self.scf.converged:
             self.print_cell_and_parameters()
     
-            self.timer.start('SCF-cycle')
-            for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
-                                     self.occupations):
-                self.iter = iter
-                self.call_observers(iter)
-                self.print_iteration(iter)
-            self.timer.stop('SCF-cycle')
+            with self.timer('SCF-cycle'):
+                self.scf.run(self.wfs, self.hamiltonian,
+                             self.density, self.occupations,
+                             self, self.call_observers)
     
-            if not self.scf.converged:
-                self.txt.write(oops)
-                raise KohnShamConvergenceError(
-                    'Did not converge!  See text output for help.')
-
-            self.results['energy'] = self.hamiltonian.Etot * Hartree
-            efree = self.occupations.extrapolate_energy_to_zero_width(
-                self.hamiltonian.Etot) * Hartree
-            self.results['free_energy'] = efree
-    
+            efree = self.hamiltonian.Etot
+            e0 = self.occupations.extrapolate_energy_to_zero_width(efree)
             dipole_v = self.density.calculate_dipole_moment()
-            self.results['dipole'] = dipole_v * Bohr
-    
-            # Magnetic moments within augmentation spheres:
             magmom_a = self.density.estimate_magnetic_moments()
             momsum = magmom_a.sum()
             magmom = self.occupations.magmom
             if abs(magmom) > 1e-7 and abs(momsum) > 1e-7:
                 magmom_a *= magmom / momsum
+            
+            self.results['energy'] = e0 * Hartree
+            self.results['free_energy'] = efree * Hartree
+            self.results['dipole'] = dipole_v * Bohr
             self.results['magmom'] = self.occupations.magmom
             self.results['magmoms'] = magmom_a
     
-            self.call_observers(iter, final=True)
-            self.print_converged(iter)
+            self.call_observers(self.scf.iter, final=True)
+            self.print_converged(self.scf.iter)
         
         if 'forces' in properties:
             with self.timer('Forces'):
@@ -840,25 +830,3 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         self.print_positions()
         self.txt.flush()
         raise SystemExit
-
-        
-oops = """
-Did not converge!
-
-Here are some tips:
-
-1) Make sure the geometry and spin-state is physically sound.
-2) Use less aggressive density mixing.
-3) Solve the eigenvalue problem more accurately at each scf-step.
-4) Use a smoother distribution function for the occupation numbers.
-5) Try adding more empty states.
-6) Use enough k-points.
-7) Don't let your structure optimization algorithm take too large steps.
-8) Solve the Poisson equation more accurately.
-9) Better initial guess for the wave functions.
-
-See details here:
-
-    https://wiki.fysik.dtu.dk/gpaw/documentation/convergence.html
-
-"""
