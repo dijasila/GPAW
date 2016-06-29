@@ -58,7 +58,7 @@ class LDA(XCFunctional):
                                 c.B_pqL.reshape((len(c.B_pqL), -1)))
 
         if addcoredensity:
-            return e - et - c.Exc0
+            return e - et - c.e_xc0
         else:
             return e - et
 

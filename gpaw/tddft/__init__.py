@@ -233,13 +233,10 @@ class TDDFT(GPAW):
             self.hamiltonian.poisson.print_messages(self.text)
             self.txt.flush()
 
-
-
         self.calculate_energy = calculate_energy
         if self.hamiltonian.xc.name.startswith('GLLB'):
-             self.text("GLLB model potential. Not updating energy.")
-             self.calculate_energy = False
-
+            self.text('GLLB model potential. Not updating energy.')
+            self.calculate_energy = False
 
     # Electrodynamics requires extra care
     def initialize_FDTD(self):
@@ -259,7 +256,6 @@ class TDDFT(GPAW):
         # the FDTDPoissonSolver changes the calculation_mode from propagate to
         # something else when the propagation is finished.
         self.attach(self.hamiltonian.poisson.set_calculation_mode, 1, 'propagate')
-
 
     def set(self, **kwargs):
         p = self.input_parameters

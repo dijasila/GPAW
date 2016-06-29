@@ -182,7 +182,7 @@ class EXX(PairDensity):
     def get_total_energy(self):
         ham = self.calc.hamiltonian
         return (self.exx * self.exx_fraction + self.exc +
-                ham.Etot - ham.Exc) * Hartree
+                ham.e_total_free - ham.e_xc) * Hartree
         
     def get_eigenvalue_contributions(self):
         if self.reader is not None:

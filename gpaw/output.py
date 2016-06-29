@@ -301,12 +301,12 @@ class PAWTextOutput:
 
         t('-------------------------')
 
-        energies = [('Kinetic:      ', self.hamiltonian.Ekin),
+        energies = [('Kinetic:      ', self.hamiltonian.e_kinetic),
                     ('Potential:    ', self.hamiltonian.e_coulomb),
-                    ('External:     ', self.hamiltonian.Eext),
-                    ('XC:           ', self.hamiltonian.Exc),
-                    ('Entropy (-ST):', -self.hamiltonian.S),
-                    ('Local:        ', self.hamiltonian.Ebar)]
+                    ('External:     ', self.hamiltonian.e_external),
+                    ('XC:           ', self.hamiltonian.e_xc),
+                    ('Entropy (-ST):', self.hamiltonian.e_entropy),
+                    ('Local:        ', self.hamiltonian.e_zero)]
 
         for name, e in energies:
             t('%-14s %+11.6f' % (name, Hartree * e))

@@ -2,13 +2,14 @@ from gpaw.xc.functional import XCFunctional
 from gpaw.mpi import world
 import numpy as np
 
+
 class NonLocalFunctional(XCFunctional):
     type = 'GLLB'
     def __init__(self, xcname):
         self.contributions = []
         self.xcs = {}
         XCFunctional.__init__(self, xcname)
-        self.mix = None   
+        self.mix = None
         self.mix_vt_sg = None
         self.old_vt_sg = None
         self.old_H_asp = {}
@@ -22,7 +23,7 @@ class NonLocalFunctional(XCFunctional):
         self.gd = density.gd # smooth grid describtor
         self.finegd = density.finegd # fine grid describtor
         self.nt_sg = density.nt_sg # smooth density
-        self.setups = wfs.setups # All the setups 
+        self.setups = wfs.setups # All the setups
         self.nspins = wfs.nspins # number of spins
         self.wfs = wfs
         self.occupations = occupations
@@ -31,7 +32,7 @@ class NonLocalFunctional(XCFunctional):
         self.nvalence = wfs.nvalence
 
         #self.vt_sg = paw.vt_sg # smooth potential
-        #self.kpt_u = kpt_u # kpoints object       
+        #self.kpt_u = kpt_u # kpoints object
         #self.interpolate = interpolate # interpolation function
         #self.nuclei = nuclei
 
@@ -163,4 +164,4 @@ class NonLocalFunctional(XCFunctional):
 
     def write(self, writer, natoms):
         for contribution in self.contributions:
-            contribution.write(writer, natoms)     
+            contribution.write(writer, natoms)
