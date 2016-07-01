@@ -66,7 +66,6 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         'hund': False,
         'maxiter': 333,
         'verbose': 0,
-        'communicator': None,
         'idiotproof': True,
         'symmetry': {'point_group': True,
                      'time_reversal': True,
@@ -92,7 +91,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                      'buffer_size': gpaw.buffer_size}}
 
     def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
-                 atoms=None, timer=None, **kwargs):
+                 atoms=None, timer=None, communicator=None, **kwargs):
     
         if timer is None:
             self.timer = Timer()
@@ -108,10 +107,16 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         self.observers = []  # XXX move to self.scf
         self.initialized = False
 
+        self.world = communicator
+        if self.world is None:
+            self.world = mpi.world
+        elif not hasattr(self.world, 'new_communicator'):
+            self.world = mpi.world.new_communicator(np.asarray(self.world))
+
         PAWTextOutput.__init__(self)
 
         Calculator.__init__(self, restart, ignore_bad_restart_file, label,
-                            atoms)
+                            atoms, **kwargs)
 
     def read(self, filename):
         reader = Reader(filename)
@@ -137,7 +142,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         writer.write('hamiltonian', self.hamiltonian)
         writer.write('occupations', self.occupations)
         writer.write('scf', self.scf)
-        self.wfs.write(writer.child('wave_functions'), mode)
+        self.wfs.write(writer.child('wave_functions'), mode == 'all')
         writer.close()
         
     def check_state(self, atoms, tol=1e-15):
@@ -220,12 +225,19 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             raise ValueError("""You can't use both "gpts" and "h"!""")
 
         changed_parameters = Calculator.set(self, **kwargs)
+
+        # We need to handle txt early in order to get logging up and running:
+        if 'txt' in changed_parameters:
+            self.set_txt(changed_parameters.pop('txt'), self.world)
+            
         if not changed_parameters:
             return {}
             
         self.initialized = False
 
+        self.log('Input parameters:')
         for key in changed_parameters:
+            self.log('{0}: {1}'.format(key, changed_parameters[key]))
             if key == 'basis' and str(p['mode']) == 'fd':  # umm what about PW?
                 # The second criterion seems buggy, will not touch it.  -Ask
                 continue
@@ -244,7 +256,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
 
             # More drastic changes:
             self.scf = None
-            self.wfs.set_orthonormalized(False)
+            if self.wfs:
+                self.wfs.set_orthonormalized(False)
             if key in ['external', 'xc', 'poissonsolver']:
                 self.hamiltonian = None
                 self.occupations = None
@@ -277,7 +290,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             # Save the state of the atoms:
             self.atoms = atoms.copy()
 
-        mpi.synchronize_atoms(atoms, self.wfs.world)
+        mpi.synchronize_atoms(atoms, self.world)
 
         spos_ac = atoms.get_scaled_positions() % 1.0
 
@@ -308,19 +321,6 @@ class GPAW(Calculator, PAW, PAWTextOutput):
 
         par = self.parameters
 
-        world = par.communicator
-        if world is None:
-            world = mpi.world
-        elif hasattr(world, 'new_communicator'):
-            # Check for whether object has correct type already
-            #
-            # Using isinstance() is complicated because of all the
-            # combinations, serial/parallel/debug...
-            pass
-        else:
-            # world should be a list of ranks:
-            world = mpi.world.new_communicator(np.asarray(world))
-
         self.verbose = par.verbose
 
         natoms = len(atoms)
@@ -330,7 +330,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         Z_a = atoms.get_atomic_numbers()
         magmom_a = atoms.get_initial_magnetic_moments()
 
-        mpi.synchronize_atoms(atoms, world)
+        mpi.synchronize_atoms(atoms, self.world)
 
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
@@ -355,7 +355,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             raise NotImplementedError('LCAO mode does not support '
                                       'orbital-dependent XC functionals.')
 
-        realspace = (mode.name != 'pw' or mode.interpolate != 'fft')
+        realspace = (mode.name != 'pw' and mode.interpolate != 'fft')
 
         if par.filter is None and mode.name != 'pw':
             gamma = 1.6
@@ -370,7 +370,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         else:
             filter = par.filter
 
-        setups = Setups(Z_a, par.setups, par.basis, xc, filter, world)
+        setups = Setups(Z_a, par.setups, par.basis, xc, filter, self.world)
 
         magnetic = magmom_a.any()
 
@@ -484,11 +484,11 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             pbc_c = np.ones(3, bool)
 
         if not self.wfs:
-            self.create_wave_functions(mode, realspace, world,
+            self.create_wave_functions(mode, realspace,
                                        nspins, nbands, nao, nvalence, setups,
                                        magmom_a, cell_cv, pbc_c)
         else:
-            self.wfs.world = world
+            self.wfs.world = self.world
             self.wfs.set_setups(setups)
 
         if not self.wfs.eigensolver:
@@ -524,7 +524,6 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
 
-        self.set_txt(par.txt)
         self.density.txt = self.txt
         
         self.text()
@@ -551,7 +550,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
     def create_density(self, realspace, mode):
         gd = self.wfs.gd
 
-        big_gd = gd.new_descriptor(comm=self.wfs.world)
+        big_gd = gd.new_descriptor(comm=self.world)
         # Check whether grid is too small.  8 is smallest admissible.
         # (we decide this by how difficult it is to make the tests pass)
         # (Actually it depends on stencils!  But let the user deal with it)
@@ -562,7 +561,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         else:
             aux_gd = gd
 
-        redistributor = GridRedistributor(self.wfs.world,
+        redistributor = GridRedistributor(self.world,
                                           self.wfs.kptband_comm,
                                           gd, aux_gd)
 
@@ -591,7 +590,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             setups=dens.setups,
             timer=self.timer,
             xc=xc,
-            world=self.wfs.world,
+            world=self.world,
             redistributor=dens.redistributor,
             vext=self.parameters.external,
             psolver=self.parameters.poissonsolver)
@@ -599,9 +598,10 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             self.hamiltonian = RealSpaceHamiltonian(stencil=mode.interpolation,
                                                     **kwargs)
         else:
-            self.hamiltonian = pw.ReciprocalSpaceHamiltonian(**kwargs)
+            self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
+                pd2=dens.pd2, pd3=dens.pd3, **kwargs)
         
-    def create_wave_functions(self, mode, realspace, world,
+    def create_wave_functions(self, mode, realspace,
                               nspins, nbands, nao, nvalence, setups,
                               magmom_a, cell_cv, pbc_c):
         par = self.parameters
@@ -609,7 +609,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
         kd = KPointDescriptor(bzkpts_kc, nspins)
 
-        parallelization = mpi.Parallelization(world,
+        parallelization = mpi.Parallelization(self.world,
                                               nspins * kd.nibzkpts)
 
         parsize_kpt = par.parallel['kpt']
@@ -644,7 +644,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         id_a = list(zip(setups.id_a, m_a))
         symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)
         self.timer.start('Set symmetry')
-        kd.set_symmetry(self.atoms, symmetry, comm=world)
+        kd.set_symmetry(self.atoms, symmetry, comm=self.world)
         self.timer.stop('Set symmetry')
         setups.set_symmetry(symmetry)
 
@@ -708,7 +708,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
 
         # do k-point analysis here? XXX
         wfs_kwargs = dict(gd=gd, nvalence=nvalence, setups=setups,
-                          bd=bd, dtype=dtype, world=world, kd=kd,
+                          bd=bd, dtype=dtype, world=self.world, kd=kd,
                           kptband_comm=kptband_comm, timer=self.timer)
 
         if par.parallel['sl_auto']:
@@ -806,7 +806,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                     nvalence=nvalence,
                     setups=setups,
                     bd=bd,
-                    world=world,
+                    world=self.world,
                     kd=kd,
                     kptband_comm=kptband_comm,
                     timer=self.timer)

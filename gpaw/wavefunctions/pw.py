@@ -610,16 +610,15 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return psit_G
 
     def write(self, writer, write_wave_functions=False):
-        writer['Mode'] = 'pw'
-        writer['PlaneWaveCutoff'] = self.ecut
+        writer.write(cutoff_energy=self.ecut)
 
         if not write_wave_functions:
             return
 
-        writer.dimension('nplanewaves', self.pd.ngmax)
-        writer.add('PseudoWaveFunctions',
-                   ('nspins', 'nibzkpts', 'nbands', 'nplanewaves'),
-                   dtype=complex)
+        writer.add_array(
+            'coefficients',
+            (self.nspins, self.kd.nibzkpts, self.bd.nbands, self.pd.ngmax),
+            complex)
 
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
@@ -627,15 +626,16 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     psit_G = self.get_wave_function_array(n, k, s,
                                                           realspace=False,
                                                           cut=False)
-                    writer.fill(psit_G, s, k, n)
+                    writer.fill(psit_G)
 
-        writer.add('PlaneWaveIndices', ('nibzkpts', 'nplanewaves'),
-                   dtype=np.int32)
+        writer.add_array('indices', (self.kd.nibzkpts, self.pd.ngmax),
+                         np.int32)
 
         if self.bd.comm.rank > 0:
             return
 
         Q_G = np.empty(self.pd.ngmax, np.int32)
+        kk = 0
         for r in range(self.kd.comm.size):
             for q, ks in enumerate(self.kd.get_indices(r)):
                 s, k = divmod(ks, self.kd.nibzkpts)
@@ -650,7 +650,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     if r > 0:
                         self.kd.comm.receive(Q_G, r)
                     Q_G[ng:] = -1
-                    writer.fill(Q_G, k)
+                    writer.fill(Q_G)
+                    assert k == kk
+                    kk += 1
 
     def read(self, reader, hdf5):
         assert reader['version'] >= 3
@@ -1338,14 +1340,14 @@ class ReciprocalSpaceDensity(Density):
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
-                 world, kptband_comm, vext=None,
+                 world, vext=None,
                  psolver={}, redistributor=None):
 
         assert gd.comm.size == 1
         assert finegd.comm.size == 1
         assert redistributor is not None  # XXX should not be like this
         Hamiltonian.__init__(self, gd, finegd, nspins, setups,
-                             timer, xc, world, kptband_comm, vext=vext,
+                             timer, xc, world, vext=vext,
                              redistributor=redistributor)
 
         self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)

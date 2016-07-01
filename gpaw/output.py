@@ -21,10 +21,10 @@ class PAWTextOutput:
     """Class for handling all text output."""
 
     def __init__(self):
-        self.txt = None
+        self.txt = 42
         self.old_txt = None
 
-    def set_txt(self, txt):
+    def set_txt(self, txt, world):
         """Set the stream for text output.
 
         If `txt` is not a stream-object, then it must be one of:
@@ -37,7 +37,7 @@ class PAWTextOutput:
         if txt == self.old_txt:
             return
         self.old_txt = txt
-        self.txt = convert_string_to_fd(txt, self.wfs.world)
+        self.txt = convert_string_to_fd(txt, world)
         self.print_header()
 
     def text(self, *args, **kwargs):
@@ -86,7 +86,7 @@ class PAWTextOutput:
         except ImportError:
             self.text('scipy:  Not available')
         self.text('units:  Angstrom and eV')
-        self.text('cores: ', self.wfs.world.size)
+        self.text('cores: ', self.world.size)
 
         if gpaw.debug:
             self.text('DEBUG MODE')

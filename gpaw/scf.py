@@ -33,6 +33,23 @@ class SCFLoop:
         
         self.reset()
 
+    def write(self, writer):
+        writer.write(errors={'eigenstates': self.eigenstates_error,
+                             'energy': self.energy_error,
+                             'density': self.density_error,
+                             'force': self.force_error},
+                     last_energies=self.energies,
+                     last_forces=self.force_last)
+        
+    def read(self, reader):
+        scf = reader.scf
+        errors = scf.errors
+        self.eigenstates_error = errors.eigenstates
+        self.energy_error = errors.energy
+        self.density_error = errors.density
+        self.force_error = errors.force
+        self.energies = scf.last_energies
+        self.force_last = scf.last_forces
     
     def fix_density(self):
         self.fixdensity = True
