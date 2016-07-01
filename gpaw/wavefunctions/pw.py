@@ -68,14 +68,6 @@ class PW:
             dct['cell'] = self.cell_vc * units.Bohr
         return dct
         
-    def __eq__(self, other):
-        hmmm
-        return (isinstance(other, PW) and self.ecut == other.ecut)
-
-    def __ne__(self, other):
-        hmmm
-        return not self == other
-
 
 class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray

@@ -36,7 +36,7 @@ class BaseMixer:
         self.nmaxold = nmaxold
         self.weight = weight
 
-        self.dNt = None
+        self.dNt = np.inf
 
         self.mix_rho = False
         
@@ -87,7 +87,7 @@ class BaseMixer:
         self.nt_iG = []  # Pseudo-electron densities
         self.R_iG = []  # Residuals
         self.A_ii = np.zeros((0, 0))
-        self.dNt = None
+        self.dNt = np.inf
         
         self.D_iap = []
         self.dD_iap = []
@@ -255,9 +255,7 @@ class Mixer(BaseMixer):
         Calculated as the integral of the absolute value of the change
         of the density from input to output."""
 
-        if self.mixers[0].dNt is None:
-            return None
-        return sum([mixer.dNt for mixer in self.mixers])
+        return sum(mixer.dNt for mixer in self.mixers)
 
     def set_charge_sloshing(self, dNt):
         for mixer in self.mixers:
@@ -340,7 +338,7 @@ class MixerDif(BaseMixer):
         self.beta_m = beta_m
         self.nmaxold_m = nmaxold_m
         self.weight_m = weight_m
-        self.dNt = None
+        self.dNt = np.inf
 
         self.mix_rho = False
 
@@ -378,8 +376,6 @@ class MixerDif(BaseMixer):
             D_sp[1] = 0.5 * (D_p - dD_p)
 
     def get_charge_sloshing(self):
-        if self.mixer.dNt is None:
-            return None
         return self.mixer.dNt
 
 
@@ -434,7 +430,7 @@ class BroydenBaseMixer:
         self.v_G = []
         self.u_G = []
         self.u_D = []
-        self.dNt = None
+        self.dNt = np.inf
         
     def get_charge_sloshing(self):
         return self.dNt
@@ -543,9 +539,7 @@ class BroydenMixer(BroydenBaseMixer):
         Calculated as the integral of the absolute value of the change
         of the density from input to output."""
 
-        if self.mixers[0].dNt is None:
-            return None
-        return sum([mixer.dNt for mixer in self.mixers])
+        return sum(mixer.dNt for mixer in self.mixers)
 
     def set_charge_sloshing(self, dNt):
         for mixer in self.mixers:
@@ -632,9 +626,7 @@ class FFTMixer(FFTBaseMixer):
         Calculated as the integral of the absolute value of the change
         of the density from input to output."""
 
-        if self.mixers[0].dNt is None:
-            return None
-        return sum([mixer.dNt for mixer in self.mixers])
+        return sum(mixer.dNt for mixer in self.mixers)
 
     def set_charge_sloshing(self, dNt):
         for mixer in self.mixers:
@@ -691,7 +683,7 @@ class FFTMixerDif(FFTBaseMixer):
         self.beta_m = beta_m
         self.nmaxold_m = nmaxold_m
         self.weight_m = weight_m
-        self.dNt = None
+        self.dNt = np.inf
 
         self.mix_rho = False
 
@@ -729,8 +721,6 @@ class FFTMixerDif(FFTBaseMixer):
             D_sp[1] = 0.5 * (D_p - dD_p)
             
     def get_charge_sloshing(self):
-        if self.mixer.dNt is None:
-            return None
         return self.mixer.dNt
 
     def set_charge_sloshing(self, dNt):

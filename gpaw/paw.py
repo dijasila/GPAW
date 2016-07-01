@@ -724,7 +724,7 @@ class PAW:
         return self.wfs.gd.N_c
 
     def get_number_of_iterations(self):
-        return self.iter
+        return self.scf.iter
 
     def get_number_of_electrons(self):
         return self.wfs.setups.nvalence - self.density.charge

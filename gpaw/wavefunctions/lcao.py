@@ -13,14 +13,19 @@ from gpaw.lcao.atomic_correction import get_atomic_correction
 class LCAO:
     name = 'lcao'
     
-    def __init__(self, atomic_correction=None):
+    def __init__(self, atomic_correction=None, interpolation=3):
         self.atomic_correction = atomic_correction
+        self.interpolation = interpolation
 
     def __call__(self, *args, **kwargs):
         return LCAOWaveFunctions(*args,
                                  atomic_correction=self.atomic_correction,
                                  **kwargs)
 
+    def todict(self):
+        return {'mode': 'lcao',
+                'interpolation': self.interpolation}
+        
 
 # replace by class to make data structure perhaps a bit less confusing
 def get_r_and_offsets(nl, spos_ac, cell_cv):

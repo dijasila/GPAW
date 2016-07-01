@@ -21,7 +21,7 @@ class PAWTextOutput:
     """Class for handling all text output."""
 
     def __init__(self):
-        self.txt = 42
+        self.txt = sys.stdout
         self.old_txt = None
 
     def set_txt(self, txt, world):

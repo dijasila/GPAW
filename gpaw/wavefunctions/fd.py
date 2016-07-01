@@ -22,6 +22,11 @@ class FD:
     def __call__(self, *args, **kwargs):
         return FDWaveFunctions(self.nn, *args, **kwargs)
 
+    def todict(self):
+        return {'mode': 'fd',
+                'nn': self.nn,
+                'interpolation': self.interpolation}
+        
 
 class FDWaveFunctions(FDPWWaveFunctions):
     mode = 'fd'

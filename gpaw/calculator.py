@@ -114,7 +114,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             self.world = mpi.world.new_communicator(np.asarray(self.world))
 
         PAWTextOutput.__init__(self)
-
+        
         Calculator.__init__(self, restart, ignore_bad_restart_file, label,
                             atoms, **kwargs)
 
@@ -149,10 +149,11 @@ class GPAW(Calculator, PAW, PAWTextOutput):
     def check_state(self, atoms, tol=1e-15):
         system_changes = Calculator.check_state(self, atoms, tol)
         if 'positions' not in system_changes:
-            if self.hamiltonian.vext:
-                if self.hamiltonian.vext.vext_g is None:
-                    # QMMM atoms have moved:
-                    system_changes.appen('positions')
+            if self.hamiltonian:
+                if self.hamiltonian.vext:
+                    if self.hamiltonian.vext.vext_g is None:
+                        # QMMM atoms have moved:
+                        system_changes.appen('positions')
         return system_changes
         
     def calculate(self, atoms=None, properties=['energy'],
@@ -222,9 +223,6 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             calc.set(nbands=20, kpts=(4, 1, 1))
         """
 
-        if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
-            raise ValueError("""You can't use both "gpts" and "h"!""")
-
         changed_parameters = Calculator.set(self, **kwargs)
 
         # We need to handle txt early in order to get logging up and running:
@@ -239,11 +237,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         self.log('Input parameters:')
         for key in changed_parameters:
             self.log('{0}: {1}'.format(key, changed_parameters[key]))
-            if key == 'basis' and str(p['mode']) == 'fd':  # umm what about PW?
-                # The second criterion seems buggy, will not touch it.  -Ask
-                continue
 
-            if key == 'eigensolver':
+            if key == 'eigensolver' and self.wfs:
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer',
@@ -356,7 +351,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             raise NotImplementedError('LCAO mode does not support '
                                       'orbital-dependent XC functionals.')
 
-        realspace = (mode.name != 'pw' and mode.interpolate != 'fft')
+        realspace = (mode.name != 'pw' and mode.interpolation != 'fft')
 
         if par.filter is None and mode.name != 'pw':
             gamma = 1.6
@@ -647,6 +642,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         setups.set_symmetry(symmetry)
 
         if par.gpts is not None:
+            if par.h is not None:
+                raise ValueError("""You can't use both "gpts" and "h"!""")
             N_c = np.array(par.gpts)
         else:
             h = par.h
