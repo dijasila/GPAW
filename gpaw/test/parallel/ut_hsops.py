@@ -4,13 +4,6 @@ import sys
 import time
 import numpy as np
 
-try:
-    # Matplotlib is not a dependency
-    import matplotlib as mpl
-    mpl.use('Agg')  # force the antigrain backend
-except (ImportError, RuntimeError):
-    mpl = None
-
 from ase.units import Bohr
 from ase.utils import devnull
 
@@ -30,6 +23,8 @@ memstats = False
 from gpaw.test.ut_common import shapeopt, TestCase, \
     TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
     initialTestLoader, create_random_atoms, create_parsize_maxbands
+
+mpl = None
 
 
 p = InputParameters(spinpol=False)
