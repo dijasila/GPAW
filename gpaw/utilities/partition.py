@@ -54,7 +54,7 @@ class AtomicMatrixDistributor:
         # Right now the D are duplicated across the band/kpt comms.
         # Here we pick out a set of unique D.  With duplicates out,
         # we can redistribute one-to-one to the larger work_partition.
-        #assert D_asp.partition == self.grid_partition
+        # assert D_asp.partition == self.grid_partition
 
         Ddist_asp = ArrayDict(self.grid_unique_partition, D_asp.shapes_a,
                               dtype=D_asp.dtype)
@@ -72,7 +72,7 @@ class AtomicMatrixDistributor:
         # to grid_partition.
 
         # First receive one-to-one from everywhere.
-        #assert dHdist_asp.partition == self.work_partition
+        # assert dHdist_asp.partition == self.work_partition
         dHdist_asp = dHdist_asp.deepcopy()
         dHdist_asp.redistribute(self.grid_unique_partition)
 
@@ -146,7 +146,8 @@ class EvenPartitioning:
             return I // self.nshort, I % self.nshort
         else:
             Ioffset = I - nIshort
-            return self.shortcount + Ioffset // self.nlong, Ioffset % self.nlong
+            return (self.shortcount + Ioffset // self.nlong,
+                    Ioffset % self.nlong)
 
     def local2global(self, i, rank=None):
         """Get global index I corresponding to local index i on rank."""
