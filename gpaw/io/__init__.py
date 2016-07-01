@@ -648,7 +648,7 @@ def read(paw, reader, read_projections=True):
 
     if use_fdtd:
         from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
-        # fdtd_poisson will overwrite the poisson at a later stage
+        # fdtd_poisson will overwrite the poisson in TDDFT.__init__()
         paw.hamiltonian.fdtd_poisson = FDTDPoissonSolver(restart_reader=r,
                                                          paw=paw)
 
