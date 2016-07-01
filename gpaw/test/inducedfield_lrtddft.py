@@ -3,7 +3,11 @@ from ase import Atoms
 from gpaw import GPAW
 from gpaw.lrtddft import LrTDDFT
 from gpaw.inducedfield.inducedfield_lrtddft import LrTDDFTInducedField
+from gpaw.poisson import PoissonSolver
 from gpaw.test import equal
+
+# 0) PoissonSolver
+poissonsolver = PoissonSolver(eps=1e-20)
 
 # 1) Ground state calculation with empty states
 atoms = Atoms(symbols='Na2',
@@ -11,13 +15,13 @@ atoms = Atoms(symbols='Na2',
               pbc=False)
 atoms.center(vacuum=3.0)
 
-calc = GPAW(nbands=20, h=0.6, setups={'Na': '1'})
+calc = GPAW(nbands=20, h=0.6, setups={'Na': '1'}, poissonsolver=poissonsolver)
 atoms.set_calculator(calc)
 energy = atoms.get_potential_energy()
 calc.write('na2_gs_casida.gpw', mode='all')
 
 # 2) Casida calculation
-calc = GPAW('na2_gs_casida.gpw')
+calc = GPAW('na2_gs_casida.gpw', poissonsolver=poissonsolver)
 istart = 0
 jend = 20
 lr = LrTDDFT(calc, xc='LDA', istart=istart, jend=jend)
@@ -32,10 +36,10 @@ kickdir = 0                # Kick field direction 0, 1, 2 for x, y, z
 ind = LrTDDFTInducedField(paw=calc, lr=lr, frequencies=frequencies,
                           folding=folding, width=width, kickdir=kickdir)
 ind.calculate_induced_field(gridrefinement=2, from_density='comp',
-                            poisson_eps=2e-10)
+                            poisson_eps=1e-20)
 
 # Test
-tol = 0.0001
+tol = 1e-8
 val1 = ind.fieldgd.integrate(ind.Ffe_wg[0])
 val2 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[0][0]))
 val3 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[0][1]))
@@ -45,11 +49,11 @@ val6 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[1][0]))
 val7 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[1][1]))
 val8 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[1][2]))
 
-equal(val1, 3175.76308, tol)
-equal(val2, 1700.43520, tol)
-equal(val3, 1187.26303, tol)
-equal(val4, 1187.26303, tol)
-equal(val5, 10957.02783, tol)
-equal(val6, 6574.61686, tol)
-equal(val7, 4589.76405, tol)
-equal(val8, 4589.76405, tol)
+equal(val1, 3175.7735779847876, tol)
+equal(val2, 1700.4802379802722, tol)
+equal(val3, 1187.2584619412758, tol)
+equal(val4, 1187.2584619407216, tol)
+equal(val5, 10957.19614721598, tol)
+equal(val6, 6574.846859393127, tol)
+equal(val7, 4589.770191548621, tol)
+equal(val8, 4589.770191545197, tol)

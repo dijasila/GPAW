@@ -54,7 +54,7 @@ qsfdtd.write('td.gpw', mode='all')
 qsfdtd.time_propagation('td.gpw', kick_strength=None, time_step=10, iterations=5, dipole_moment_file='dmCl.dat')
 
 # Test
-ref_cl_dipole_moment = [-1.01218372e-04, -3.03603352e-05, 1.86063694e-01]
-tol = 0.0001
+ref_cl_dipole_moment = [ -1.01218549e-04,  -3.03603883e-05,   1.86063875e-01]
+tol = 1e-8
 equal(qsfdtd.td_calc.hamiltonian.poisson.get_classical_dipole_moment(), ref_cl_dipole_moment, tol)
 
