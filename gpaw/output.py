@@ -151,7 +151,7 @@ class PAWTextOutput:
         if self.wfs.nspins == 2:
             t('Spin-Polarized Calculation.')
             t('Magnetic Moment:  (%.6f, %.6f, %.6f)' %
-              tuple(self.density.magmom_av.sum(0)), end='')
+              tuple(self.density.magmom_a.sum()), end='')
             if self.occupations.fixmagmom:
                 t('(fixed)')
             else:
@@ -355,7 +355,7 @@ class PAWTextOutput:
             t('Local Magnetic Moments:')
             for a, mom in enumerate(self.get_magnetic_moments()):
                 t(a, mom)
-            t()
+        t(flush=True)
 
     def print_forces(self):
         F_av = self.results.get('forces')

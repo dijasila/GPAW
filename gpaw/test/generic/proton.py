@@ -30,9 +30,9 @@ for d in D:
     f1 = H.get_forces()
     f2 = pcp.get_forces(calc)
     eref = -1 / d * Bohr * Hartree
-    print(d, e - eref, abs(f1 + f2).max())
+    print(d, e, eref, abs(f1 + f2).max())
     if d < 4.0:
-        assert abs(e + 1 / d * Bohr * Hartree) < 0.01
+        assert abs(e + 1 / d * Bohr * Hartree) < 0.01, e + 1 / d * Bohr * Hartree
     assert abs(f1 + f2).max() < 0.01
     E.append(e)
     F.append(f1[0, 2])

@@ -9,13 +9,9 @@ from gpaw.forces import calculate_forces
 
 
 class SCFLoop:
-    """Self-consistent field loop.
-    
-    converged: Do we have a self-consistent solution?
-    """
-    
-    def __init__(self, eigenstates=0.1, energy=0.1, density=0.1, maxiter=100,
-                 fixdensity=False, niter_fixdensity=None, force=np.inf):
+    """Self-consistent field loop."""
+    def __init__(self, eigenstates=0.1, energy=0.1, density=0.1, force=np.inf,
+                 maxiter=100, fixdensity=False, niter_fixdensity=None):
         self.max_errors = {'eigenstates': eigenstates,
                            'energy': energy,
                            'force': force,

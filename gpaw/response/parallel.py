@@ -3,7 +3,7 @@
 import numpy as np
 from gpaw.mpi import serial_comm
 from gpaw.mpi import rank, size, world
-from gpaw.io.old import open
+from gpaw.io.tar import open
 
 def set_communicator(world, rank, size, kcommsize=None):
     """Communicator inilialized."""

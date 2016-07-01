@@ -153,7 +153,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                 if self.hamiltonian.vext:
                     if self.hamiltonian.vext.vext_g is None:
                         # QMMM atoms have moved:
-                        system_changes.appen('positions')
+                        system_changes.append('positions')
         return system_changes
         
     def calculate(self, atoms=None, properties=['energy'],
@@ -176,6 +176,10 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             
             self.set_positions(atoms)
 
+        if not self.initialized:
+            self.initialize(atoms)
+            self.set_positions(atoms)
+            
         if not self.scf.converged:
             self.print_cell_and_parameters()
     
@@ -246,12 +250,13 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                        'eigensolver', 'idiotproof']:
                 continue
 
+            self.scf = None
+            self.reset()
+            
             if key in ['convergence', 'fixdensity', 'maxiter']:
-                self.scf = None
                 continue
 
             # More drastic changes:
-            self.scf = None
             if self.wfs:
                 self.wfs.set_orthonormalized(False)
             if key in ['external', 'xc', 'poissonsolver']:
@@ -385,11 +390,6 @@ class GPAW(Calculator, PAW, PAWTextOutput):
 
         nspins = 1 + int(spinpol)
 
-        if pbc_c.any():
-            width = 0.1  # eV
-        else:
-            width = 0.0
-
         nao = setups.nao
         nvalence = setups.nvalence - par.charge
         if par.background_charge is not None:
@@ -440,41 +440,35 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                              % (nvalence, nbands))
 
         if self.occupations is None:
-            if par.occupations is None:
-                # Create object for occupation numbers:
-                if orbital_free:
-                    width = 0.0  # even for PBC
-                    self.occupations = occupations.TFOccupations(width)
-                else:
-                    self.occupations = occupations.FermiDirac(width)
-            else:
-                self.occupations = par.occupations
-
-            # If occupation numbers are changed, and we have wave functions,
-            # recalculate the occupation numbers
-            if self.wfs is not None:
-                self.occupations.calculate(self.wfs)
-
+            self.create_occupations(orbital_free)
         self.occupations.magmom = magmom_a.sum()
         
-        cc = par.convergence
-
         if mode.name == 'lcao':
             niter_fixdensity = 0
         else:
             niter_fixdensity = None
 
         if self.scf is None:
+            nv = max(nvalence, 1)
+            cc = par.convergence
             self.scf = SCFLoop(
-                cc['eigenstates'] / Hartree**2 * nvalence,
-                cc['energy'] / Hartree * max(nvalence, 1),
-                cc['density'] * nvalence,
+                cc['eigenstates'] / Hartree**2 * nv,
+                cc['energy'] / Hartree * nv,
+                cc['density'] * nv,
+                cc['forces'] / (Hartree / Bohr),
                 par.maxiter, par.fixdensity,
-                niter_fixdensity,
-                cc['forces'] / Hartree / Bohr)
+                niter_fixdensity)
 
         if not realspace:
             pbc_c = np.ones(3, bool)
+
+        symm = par.symmetry
+        if symm == 'off':
+            symm = {'point_group': False, 'time_reversal': False}
+        m_a = magmom_a.round(decimals=3)  # round off
+        id_a = list(zip(setups.id_a, m_a))
+        self.symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)
+        setups.set_symmetry(self.symmetry)
 
         if not self.wfs:
             self.create_wave_functions(mode, realspace,
@@ -486,7 +480,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
 
         if not self.wfs.eigensolver:
             # Number of bands to converge:
-            nbands_converge = cc['bands']
+            nbands_converge = par.convergence['bands']
             if nbands_converge == 'all':
                 nbands_converge = nbands
             elif nbands_converge != 'occupied':
@@ -540,6 +534,26 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                                domain_comm, parsize_domain):
         return GridDescriptor(N_c, cell_cv, pbc_c, domain_comm, parsize_domain)
             
+    def create_occupations(self, orbital_free):
+        if self.parameters.occupations is None:
+            # Create object for occupation numbers:
+            if orbital_free:
+                width = 0.0  # even for PBC
+                self.occupations = occupations.TFOccupations(width)
+            else:
+                if self.atoms.pbc.any():
+                    width = 0.1  # eV
+                else:
+                    width = 0.0
+                self.occupations = occupations.FermiDirac(width)
+        else:
+            self.occupations = self.parameters.occupations
+
+        # If occupation numbers are changed, and we have wave functions,
+        # recalculate the occupation numbers
+        if self.wfs is not None:
+            self.occupations.calculate(self.wfs)
+
     def create_density(self, realspace, mode):
         gd = self.wfs.gd
 
@@ -629,17 +643,9 @@ class GPAW(Calculator, PAW, PAWTextOutput):
 
         self.comms = comms
         
-        symm = par.symmetry
-        if symm == 'off':
-            symm = {'point_group': False, 'time_reversal': False}
-
-        m_a = magmom_a.round(decimals=3)  # round off
-        id_a = list(zip(setups.id_a, m_a))
-        symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)
         self.timer.start('Set symmetry')
-        kd.set_symmetry(self.atoms, symmetry, comm=self.world)
+        kd.set_symmetry(self.atoms, self.symmetry, comm=self.world)
         self.timer.stop('Set symmetry')
-        setups.set_symmetry(symmetry)
 
         if par.gpts is not None:
             if par.h is not None:
@@ -652,7 +658,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
                                             kd.symmetry)
 
-        symmetry.check_grid(N_c)
+        self.symmetry.check_grid(N_c)
         
         kd.set_communicator(kpt_comm)
 

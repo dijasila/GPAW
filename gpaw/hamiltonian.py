@@ -290,7 +290,6 @@ class Hamiltonian(object):
         self.e_kinetic = self.e_kinetic0 + occ.e_band
         self.e_entropy = occ.e_entropy
 
-        # Total free energy:
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
                              self.e_external + self.e_zero + self.e_xc +
                              self.e_entropy)
