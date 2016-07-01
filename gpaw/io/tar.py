@@ -6,9 +6,9 @@ import xml.sax
 
 import numpy as np
 
-from gpaw.io import FileReference
 from gpaw.mpi import broadcast as mpi_broadcast
 from gpaw.mpi import world
+from gpaw.io.dummy import DummyWriter
 
 intsize = 4
 floatsize = np.array([1], float).itemsize
@@ -16,6 +16,41 @@ complexsize = np.array([1], complex).itemsize
 itemsizes = {'int': intsize, 'float': floatsize, 'complex': complexsize}
 
     
+class FileReference:
+    """Common base class for having reference to a file. The actual I/O
+       classes implementing the referencing should be inherited from
+       this class."""
+
+    def __init__(self):
+        raise NotImplementedError('Should be implemented in derived classes')
+
+    def __len__(self):
+        raise NotImplementedError('Should be implemented in derived classes')
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
+
+    def __getitem__(self):
+        raise NotImplementedError('Should be implemented in derived classes')
+
+    def __array__(self):
+        return self[::]
+
+
+def open(filename, mode='r', comm=world):
+    if not filename.endswith('.gpw'):
+        filename += '.gpw'
+
+    if mode == 'r':
+        return Reader(filename, comm)
+    elif mode == 'w':
+        if comm.rank == 0:
+            return Writer(filename, comm)
+        else:
+            return DummyWriter(filename, comm)
+
+            
 class Writer:
     def __init__(self, name, comm=world):
         self.comm = comm  # for possible future use
@@ -118,8 +153,8 @@ class Reader(xml.sax.handler.ContentHandler):
 
     def startElement(self, tag, attrs):
         if tag == 'gpaw_io':
-            self.byteswap = ((attrs['endianness'] == 'little')
-                             != np.little_endian)
+            self.byteswap = ((attrs['endianness'] == 'little') !=
+                             np.little_endian)
         elif tag == 'array':
             name = attrs['name']
             self.dtypes[name] = attrs['type']

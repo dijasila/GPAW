@@ -5,6 +5,7 @@ import numpy as np
 from ase.units import Hartree
 
 from gpaw import KohnShamConvergenceError
+from gpaw.forces import calculate_forces
 
 
 class SCFLoop:
@@ -14,14 +15,20 @@ class SCFLoop:
     """
     
     def __init__(self, eigenstates=0.1, energy=0.1, density=0.1, maxiter=100,
-                 fixdensity=False, niter_fixdensity=None, force=None):
-        self.max_eigenstates_error = max(eigenstates, 1e-20)
-        self.max_energy_error = energy
-        self.max_force_error = force
-        self.max_density_error = max(density, 1e-20)
+                 fixdensity=False, niter_fixdensity=None, force=np.inf):
+        self.max_errors = {'eigenstates': eigenstates,
+                           'energy': energy,
+                           'force': force,
+                           'density': density}
+
         self.maxiter = maxiter
+        
         self.fixdensity = fixdensity
 
+        self.old_energies = []
+        self.old_F_av = None
+        self.converged = False
+        
         if niter_fixdensity is None:
             niter_fixdensity = 2
         self.niter_fixdensity = niter_fixdensity
@@ -34,35 +41,19 @@ class SCFLoop:
         self.reset()
 
     def write(self, writer):
-        writer.write(errors={'eigenstates': self.eigenstates_error,
-                             'energy': self.energy_error,
-                             'density': self.density_error,
-                             'force': self.force_error},
-                     last_energies=self.energies,
-                     last_forces=self.force_last)
+        writer.write(converged=self.converged)
         
     def read(self, reader):
-        scf = reader.scf
-        errors = scf.errors
-        self.eigenstates_error = errors.eigenstates
-        self.energy_error = errors.energy
-        self.density_error = errors.density
-        self.force_error = errors.force
-        self.energies = scf.last_energies
-        self.force_last = scf.last_forces
+        self.converged = reader.scf.converged
     
     def fix_density(self):
         self.fixdensity = True
         self.niter_fixdensity = 10000000
-        self.max_density_error = np.inf
+        self.max_errors['density'] = np.inf
         
     def reset(self):
-        self.energies = []
-        self.eigenstates_error = None
-        self.energy_error = None
-        self.density_error = None
-        self.force_error = None
-        self.force_last = None
+        self.old_energies = []
+        self.old_F_av = None
         self.converged = False
 
     def run(self, wfs, ham, dens, occ, log, callback):
@@ -71,13 +62,19 @@ class SCFLoop:
             occ.calculate(wfs)
 
             energy = ham.get_energy(occ)
-            self.energies.append(energy)
-            if self.max_force_error is not None:
-                forces.reset()
-            self.check_convergence(dens, wfs.eigensolver, wfs, ham)
-            
+            self.old_energies.append(energy)
+            errors = self.collect_errors(dens, ham, wfs)
+
+            # Converged?
+            for kind, error in errors.items():
+                if error > self.max_errors[kind]:
+                    self.converged = False
+                    break
+            else:
+                self.converged = True
+                
             callback(self.iter)
-            self.log(log, self.iter, wfs, ham, dens, occ)
+            self.log(log, self.iter, wfs, ham, dens, occ, errors)
             
             if self.converged:
                 break
@@ -96,46 +93,31 @@ class SCFLoop:
             raise KohnShamConvergenceError(
                 'Did not converge!  See text output for help.')
         
-    def check_convergence(self, dens, eigensolver,
-                          wfs=None, ham=None):
+    def collect_errors(self, dens, ham, wfs):
         """Check convergence of eigenstates, energy and density."""
-        if self.converged:
-            return True
 
-        self.eigenstates_error = eigensolver.error
+        errors = {'eigenstates': wfs.eigensolver.error,
+                  'density': dens.mixer.get_charge_sloshing(),
+                  'force': np.inf,
+                  'energy': np.inf}
 
-        if len(self.energies) < 3:
-            self.energy_error = self.max_energy_error
-        else:
-            self.energy_error = np.ptp(self.energies[-3:])
+        if len(self.old_energies) >= 3:
+            errors['energy'] = np.ptp(self.old_energies[-3:])
 
-        self.density_error = dens.mixer.get_charge_sloshing()
-        if self.density_error is None:
-            self.density_error = 1000000.0
+        if self.max_errors['force'] < np.inf:
+            F_av = calculate_forces(wfs, dens, ham)
+            if self.old_F_av is not None:
+                errors['force'] = ((F_av - self.old_F_av)**2).sum(1).max()**0.5
+            self.old_F_av = F_av
+                
+        return errors
 
-        if self.max_force_error is not None:
-            F_av = forces.calculate(wfs, dens, ham)
-            
-            if self.force_last is None:
-                self.force_last = F_av
-            else:
-                F_av_diff = ((F_av - self.force_last)**2).sum(axis=1)
-                self.force_error = abs(F_av_diff).max()
-                self.force_last = F_av
-
-        self.converged = (
-            (self.eigenstates_error or 0.0) < self.max_eigenstates_error and
-            self.energy_error < self.max_energy_error and
-            self.density_error < self.max_density_error and
-            (self.force_error or 0) < ((self.max_force_error) or float('inf')))
-        return self.converged
-
-    def log(self, log, iter, wfs, ham, dens, occ):
+    def log(self, log, iter, wfs, ham, dens, occ, errors):
         """Output from each iteration."""
 
         nvalence = wfs.nvalence
         if nvalence > 0:
-            eigerr = self.eigenstates_error * Hartree**2 / nvalence
+            eigerr = errors['eigenstates'] * Hartree**2 / nvalence
         else:
             eigerr = 0.0
 
@@ -158,7 +140,7 @@ class SCFLoop:
            Time      WFS    Density  Energy       Fermi  Poisson"""
                 if wfs.nspins == 2:
                     header += '  MagMom'
-                if self.max_force_error is not None:
+                if self.max_errors['force'] < np.inf:
                     l1 = header.find('Total')
                     header = header[:l1] + '       ' + header[l1:]
                     l2 = header.find('Energy')
@@ -193,10 +175,10 @@ class SCFLoop:
                  eigerr,
                  denserr), end='')
 
-            if self.max_force_error is not None:
-                if self.force_error is not None:
+            if self.max_errors['force'] < np.inf:
+                if errors['force'] is not None:
                     log('  %+.2f' %
-                        (ln(self.scf.force_error) / ln(10)), end='')
+                        (ln(errors['force']) / ln(10)), end='')
                 else:
                     log('       ', end='')
 

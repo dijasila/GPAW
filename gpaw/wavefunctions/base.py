@@ -3,28 +3,9 @@ import numpy as np
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.blas import gemm, axpy
 from gpaw.utilities.partition import AtomPartition
-from gpaw.utilities.timing import nulltimer
 
 
-class EmptyWaveFunctions:
-    mode = 'undefined'
-    
-    def __bool__(self):
-        return False
-
-    __nonzero__ = __bool__  # for Python 2
-    
-    def set_eigensolver(self, eigensolver):
-        pass
-
-    def set_orthonormalized(self, flag):
-        pass
-
-    def estimate_memory(self, mem):
-        mem.set('Unknown WFs', 0)
-
-
-class WaveFunctions(EmptyWaveFunctions):
+class WaveFunctions:
     """...
 
     setups:
@@ -79,11 +60,6 @@ class WaveFunctions(EmptyWaveFunctions):
     def set_eigensolver(self, eigensolver):
         self.eigensolver = eigensolver
 
-    def __bool__(self):
-        return True
-
-    __nonzero__ = __bool__  # for Python 2
-
     def add_realspace_orbital_to_density(self, nt_G, psit_G):
         if psit_G.dtype == float:
             axpy(1.0, psit_G**2, nt_G)
@@ -124,18 +100,18 @@ class WaveFunctions(EmptyWaveFunctions):
     def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
         if kpt.rho_MM is not None:
             P_Mi = self.P_aqMi[a][kpt.q]
-            #P_Mi = kpt.P_aMi_sparse[a]
-            #ind = get_matrix_index(kpt.P_aMi_index[a])
-            #D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM),
-            #                       P_Mi).real
+            # P_Mi = kpt.P_aMi_sparse[a]
+            # ind = get_matrix_index(kpt.P_aMi_index[a])
+            # D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM),
+            #                        P_Mi).real
             rhoP_Mi = np.zeros_like(P_Mi)
             D_ii = np.zeros(D_sii[kpt.s].shape, kpt.rho_MM.dtype)
-            #gemm(1.0, P_Mi, kpt.rho_MM[ind.T, ind], 0.0, tmp)
+            # gemm(1.0, P_Mi, kpt.rho_MM[ind.T, ind], 0.0, tmp)
             gemm(1.0, P_Mi, kpt.rho_MM, 0.0, rhoP_Mi)
             gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
             D_sii[kpt.s] += D_ii.real
-            #D_sii[kpt.s] += dot(dot(P_Mi.T.conj().copy(),
-            #                        kpt.rho_MM[ind.T, ind]), P_Mi).real
+            # D_sii[kpt.s] += dot(dot(P_Mi.T.conj().copy(),
+            #                         kpt.rho_MM[ind.T, ind]), P_Mi).real
         else:
             P_ni = kpt.P_ani[a]
             D_sii[kpt.s] += np.dot(P_ni.T.conj() * f_n, P_ni).real
@@ -202,8 +178,8 @@ class WaveFunctions(EmptyWaveFunctions):
 
     def set_positions(self, spos_ac, atom_partition=None):
         self.positions_set = False
-        #rank_a = self.gd.get_ranks_from_positions(spos_ac)
-        #atom_partition = AtomPartition(self.gd.comm, rank_a)
+        # rank_a = self.gd.get_ranks_from_positions(spos_ac)
+        # atom_partition = AtomPartition(self.gd.comm, rank_a)
         # XXX pass AtomPartition around instead of spos_ac?
         # All the classes passing around spos_ac end up needing the ranks
         # anyway.

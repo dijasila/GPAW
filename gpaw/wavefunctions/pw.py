@@ -61,10 +61,19 @@ class PW:
                               **kwargs)
         return wfs
 
+    def todict(self):
+        dct = {'mode': 'pw',
+               'ecut': self.ecut * units.Hartree}
+        if self.cell_cv is not None:
+            dct['cell'] = self.cell_vc * units.Bohr
+        return dct
+        
     def __eq__(self, other):
+        hmmm
         return (isinstance(other, PW) and self.ecut == other.ecut)
 
     def __ne__(self, other):
+        hmmm
         return not self == other
 
 

@@ -1,9 +1,9 @@
-# The parallel code is from Carsten Rostgaard # 
+# The parallel code is from Carsten Rostgaard #
 
 import numpy as np
 from gpaw.mpi import serial_comm
 from gpaw.mpi import rank, size, world
-from gpaw.io import open
+from gpaw.io.old import open
 
 def set_communicator(world, rank, size, kcommsize=None):
     """Communicator inilialized."""
@@ -264,7 +264,7 @@ def gatherv(m, N=None):
 
     if  ndim == 2:
         n, N = m.shape
-        assert n < N 
+        assert n < N
         M  = np.zeros((N, N), dtype=complex)
     elif ndim == 1:
         n = m.shape[0]

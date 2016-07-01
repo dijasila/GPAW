@@ -75,7 +75,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
                         'bands': 'occupied',
-                        'forces': None},  # eV / Ang Max
+                        'forces': np.inf},  # eV / Ang Max
         'parallel': {'kpt': None,
                      'domain': gpaw.parsize_domain,
                      'band': gpaw.parsize_bands,
@@ -135,6 +135,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         
     def write(self, filename, mode=''):
         writer = Writer(filename)
+        writer.write(version=1, ha=Hartree, bohr=Bohr)
         write_atoms(writer.child('atoms'), self.atoms)
         writer.child('results').write(**self.results)
         writer.child('parameters').write(**self.todict())
@@ -469,16 +470,13 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             niter_fixdensity = None
 
         if self.scf is None:
-            force_crit = cc['forces']
-            if force_crit is not None:
-                force_crit /= Hartree / Bohr
             self.scf = SCFLoop(
                 cc['eigenstates'] / Hartree**2 * nvalence,
                 cc['energy'] / Hartree * max(nvalence, 1),
                 cc['density'] * nvalence,
                 par.maxiter, par.fixdensity,
                 niter_fixdensity,
-                force_crit)
+                cc['forces'] / Hartree / Bohr)
 
         if not realspace:
             pbc_c = np.ones(3, bool)
