@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
-
+from __future__ import print_function, absolute_import
 import functools
-import io
 from math import pi, sqrt
 
 import numpy as np
 import ase.units as units
 from ase.data import chemical_symbols
-from ase.utils import basestring
+from ase.utils import basestring, StringIO
 
 from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
@@ -1403,16 +1402,19 @@ class Setups(list):
     def __str__(self):
         # Write PAW setup information in order of appearance:
         ids = set()
+        s = ''
         for id in self.id_a:
             if id in ids:
                 continue
             ids.add(id)
             setup = self.setups[id]
-            with io.StringIO() as output:
-                setup.print_info(functools.partial(print, file=output))
-                txt = output.getvalue()
+            output = StringIO()
+            setup.print_info(functools.partial(print, file=output))
+            txt = output.getvalue()
             basis_descr = setup.get_basis_description()
-            return txt + basis_descr
+            s += txt + basis_descr
+            
+        s += '  Reference Energy: %.6f' % (self.Eref * units.Hartree)
             
     def set_symmetry(self, symmetry):
         """Find rotation matrices for spherical harmonics."""

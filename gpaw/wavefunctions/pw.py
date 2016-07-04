@@ -524,20 +524,20 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         FDPWWaveFunctions.set_setups(self, setups)
 
-    def summary(self, fd):
-        fd.write('Wave functions: Plane wave expansion\n')
-        fd.write('      Cutoff energy: %.3f eV\n' %
-                 (self.pd.ecut * units.Hartree))
+    def __str__(self):
+        s = 'Wave functions: Plane wave expansion\n'
+        s += '  Cutoff energy: %.3f eV\n' % (self.pd.ecut * units.Hartree)
         if self.dtype == float:
-            fd.write('      Number of coefficients: %d (reduced to %d)\n' %
-                     (self.pd.ngmax * 2 - 1, self.pd.ngmax))
+            s += ('  Number of coefficients: %d (reduced to %d)\n' %
+                  (self.pd.ngmax * 2 - 1, self.pd.ngmax))
         else:
-            fd.write('      Number of coefficients (min, max): %d, %d\n' %
-                     (self.pd.ngmin, self.pd.ngmax))
+            s += ('  Number of coefficients (min, max): %d, %d\n' %
+                  (self.pd.ngmin, self.pd.ngmax))
         if fftw.FFTPlan is fftw.NumpyFFTPlan:
-            fd.write("      Using Numpy's FFT\n")
+            s += "  Using Numpy's FFT\n"
         else:
-            fd.write('      Using FFTW library\n')
+            s += '  Using FFTW library\n'
+        return s + FDPWWaveFunctions.__str__(self)
 
     def make_preconditioner(self, block=1):
         return Preconditioner(self.pd.G2_qG, self.pd)

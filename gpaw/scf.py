@@ -29,24 +29,26 @@ class SCFLoop:
             niter_fixdensity = 2
         self.niter_fixdensity = niter_fixdensity
 
-        if fixdensity:
-            self.fix_density()
-            
         self.iter = None
         
         self.reset()
 
+    def __str__(self):
+        cc = self.max_errors
+        t('Convergence Criteria:')
+        t('  Maximum total energy change: %g eV / electron' %
+          (cc['energy']))
+        t('  Maximum integral of absolute density change: %g electrons' %
+          cc['density'])
+        t('  Maximum integral of absolute eigenstate change: %g eV^2' %
+          cc['eigenstates'])
+        
     def write(self, writer):
         writer.write(converged=self.converged)
         
     def read(self, reader):
         self.converged = reader.scf.converged
     
-    def fix_density(self):
-        self.fixdensity = True
-        self.niter_fixdensity = 10000000
-        self.max_errors['density'] = np.inf
-        
     def reset(self):
         self.old_energies = []
         self.old_F_av = None

@@ -148,7 +148,7 @@ class GridDescriptor(Domain):
         if max(h_c) / min(h_c) > 1.3:
             raise ValueError('Very anisotropic grid spacings: %s' % h_c)
 
-    def __str__(self):
+    def __repr__(self):
         if self.orthogonal:
             cellstring = np.diag(self.cell_cv).tolist()
         else:

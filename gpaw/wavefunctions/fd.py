@@ -62,9 +62,10 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def set_positions(self, spos_ac, atom_partition=None):
         FDPWWaveFunctions.set_positions(self, spos_ac, atom_partition)
 
-    def summary(self, fd):
-        fd.write('Wave functions: Uniform real-space grid\n')
-        fd.write('Kinetic energy operator: %s\n' % self.kin.description)
+    def __str__(self):
+        s = 'Wave functions: Uniform real-space grid\n'
+        s += '  Kinetic energy operator: %s\n' % self.kin.description
+        return s + FDPWWaveFunctions.__str__(self)
         
     def make_preconditioner(self, block=1):
         return Preconditioner(self.gd, self.kin, self.dtype, block)
@@ -194,31 +195,22 @@ class FDWaveFunctions(FDPWWaveFunctions):
         return psit_G
 
     def write(self, writer, write_wave_functions=False):
-        writer['Mode'] = 'fd'
-
         if not write_wave_functions:
             return
 
-        writer.add('PseudoWaveFunctions',
-                   ('nspins', 'nibzkpts', 'nbands',
-                    'ngptsx', 'ngptsy', 'ngptsz'),
-                   dtype=self.dtype)
+        writer.add_array(
+            'values',
+            (self.nspins, self.kd.nibzkpts, self.bd.nbands) +
+            tuple(self.gd.N_c),
+            self.dtype)
+        
+        for s in range(self.nspins):
+            for k in range(self.kd.nibzkpts):
+                for n in range(self.bd.nbands):
+                    psit_G = self.get_wave_function_array(n, k, s)
+                    writer.fill(psit_G)
 
-        if hasattr(writer, 'hdf5'):
-            parallel = (self.world.size > 1)
-            for kpt in self.kpt_u:
-                indices = [kpt.s, kpt.k]
-                indices.append(self.bd.get_slice())
-                indices += self.gd.get_slice()
-                writer.fill(kpt.psit_nG, parallel=parallel, *indices)
-        else:
-            for s in range(self.nspins):
-                for k in range(self.kd.nibzkpts):
-                    for n in range(self.bd.nbands):
-                        psit_G = self.get_wave_function_array(n, k, s)
-                        writer.fill(psit_G, s, k, n)
-
-    def read(self, reader, hdf5):
+    def read(self, reader):
         if ((not hdf5 and self.bd.comm.size == 1) or
             (hdf5 and self.world.size == 1)):
             # We may not be able to keep all the wave

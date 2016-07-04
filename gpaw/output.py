@@ -17,14 +17,22 @@ from gpaw.utilities.memory import maxrss
 from gpaw import dry_run, extra_parameters
 
 
-class PAWTextOutput:
+class GPAWLogger:
     """Class for handling all text output."""
 
-    def __init__(self):
-        self.txt = sys.stdout
-        self.old_txt = None
+    def __init__(self, verbose=False, world):
+        self.verbose = verbose
+        self.world = world
+        
+        self._fd = 42
+        self.oldfd = -42
 
-    def set_txt(self, txt, world):
+    @property
+    def get_fd(self):
+        return self._fd
+        
+    @get_fd.setter
+    def set_fd(self, fd):
         """Set the stream for text output.
 
         If `txt` is not a stream-object, then it must be one of:
@@ -34,207 +42,143 @@ class PAWTextOutput:
         * A filename:  Open a new file on master, elsewhere throw away.
         """
 
-        if txt == self.old_txt:
+        if fd == self.oldfd:
             return
-        self.old_txt = txt
-        self.txt = convert_string_to_fd(txt, world)
-        self.print_header()
-
-    def text(self, *args, **kwargs):
+        self.oldfd = fd
+        self._fd = convert_string_to_fd(fd, self.world)
+        self.header()
+        
+    def __call__(self, *args, **kwargs):
         flush = kwargs.pop('flush', False)
-        print(*args, file=self.txt, **kwargs)
+        print(*args, file=self._fd, **kwargs)
         if flush:
-            self.txt.flush()
+            self._fd.flush()
 
-    log = text
-    __call__ = text
-    
-    def print_header(self):
-        self.text()
-        self.text('  ___ ___ ___ _ _ _  ')
-        self.text(' |   |   |_  | | | | ')
-        self.text(' | | | | | . | | | | ')
-        self.text(' |__ |  _|___|_____| ', gpaw.__version__)
-        self.text(' |___|_|             ')
-        self.text()
+    def header(self):
+        self()
+        self('  ___ ___ ___ _ _ _  ')
+        self(' |   |   |_  | | | | ')
+        self(' | | | | | . | | | | ')
+        self(' |__ |  _|___|_____| ', gpaw.__version__)
+        self(' |___|_|             ')
+        self()
 
         uname = platform.uname()
-        self.text('User:  ', os.getenv('USER', '???') + '@' + uname[1])
-        self.text('Date:  ', time.asctime())
-        self.text('Arch:  ', uname[4])
-        self.text('Pid:   ', os.getpid())
-        self.text('Python: {0}.{1}.{2}'.format(*sys.version_info[:3]))
-        self.text('gpaw:  ', os.path.dirname(gpaw.__file__))
+        self('User:  ', os.getenv('USER', '???') + '@' + uname[1])
+        self('Date:  ', time.asctime())
+        self('Arch:  ', uname[4])
+        self('Pid:   ', os.getpid())
+        self('Python: {0}.{1}.{2}'.format(*sys.version_info[:3]))
+        self('gpaw:  ', os.path.dirname(gpaw.__file__))
         
         # Find C-code:
         c = getattr(_gpaw, '__file__', None)
         if not c:
             c = sys.executable
-        self.text('_gpaw: ', os.path.normpath(c))
+        self('_gpaw: ', os.path.normpath(c))
                   
-        self.text('ase:    %s (version %s)' %
-                  (os.path.dirname(ase.__file__), ase_version))
-        self.text('numpy:  %s (version %s)' %
-                  (os.path.dirname(np.__file__), np.version.version))
+        self('ase:    %s (version %s)' %
+             (os.path.dirname(ase.__file__), ase_version))
+        self('numpy:  %s (version %s)' %
+             (os.path.dirname(np.__file__), np.version.version))
         try:
             import scipy as sp
-            self.text('scipy:  %s (version %s)' %
-                      (os.path.dirname(sp.__file__), sp.version.version))
+            self('scipy:  %s (version %s)' %
+                 (os.path.dirname(sp.__file__), sp.version.version))
             # Explicitly deleting SciPy seems to remove garbage collection
             # problem of unknown cause
             del sp
         except ImportError:
-            self.text('scipy:  Not available')
-        self.text('units:  Angstrom and eV')
-        self.text('cores: ', self.world.size)
+            self('scipy:  Not available')
+        self('units:  Angstrom and eV')
+        self('cores: ', self.world.size)
 
         if gpaw.debug:
-            self.text('DEBUG MODE')
+            self('DEBUG MODE')
 
         if extra_parameters:
-            self.text('Extra parameters:', extra_parameters)
+            self('Extra parameters:', extra_parameters)
 
-    def print_cell_and_parameters(self):
-        self.plot_atoms(self.atoms)
-        self.print_unit_cell(self.atoms.get_positions() / Bohr)
-        self.print_parameters()
-
-    def print_unit_cell(self, pos_ac):
-        self.text()
-        self.text('Unit Cell:')
-        self.text('           Periodic     X           Y           Z' +
-                  '      Points  Spacing')
-        self.text('  -----------------------------------------------' +
-                  '---------------------')
-        gd = self.wfs.gd
-        h_c = gd.get_grid_spacings()
-        pbc_c = self.atoms.pbc
-        for c in range(3):
-            self.text('  %d. axis:    %s  %10.6f  %10.6f  %10.6f   %3d   %8.4f'
-                      % ((c + 1, ['no ', 'yes'][int(pbc_c[c])]) +
-                         tuple(Bohr * gd.cell_cv[c]) +
-                         (gd.N_c[c], Bohr * h_c[c])))
-        self.text()
-
-    def print_positions(self):
-        t = self.text
-        t()
-        t('Positions:')
-        symbols = self.atoms.get_chemical_symbols()
-        for a, pos_v in enumerate(self.atoms.get_positions()):
-            symbol = symbols[a]
-            t('%3d %-2s %9.4f %9.4f %9.4f' % ((a, symbol) + tuple(pos_v)))
-        t()
-
-    def print_parameters(self):
-        t = self.text
-        p = self.parameters
-
-        t('Using the %s Exchange-Correlation Functional.'
-          % self.hamiltonian.xc.name)
-        desc = self.hamiltonian.xc.get_description()
-        if desc is not None:
-            t('Details:')
-            t('\n'.join('  %s' % line for line in desc.splitlines()))
-
-        if self.wfs.nspins == 2:
-            t('Spin-Polarized Calculation.')
-            t('Magnetic Moment:  (%.6f, %.6f, %.6f)' %
-              tuple(self.density.magmom_a.sum()), end='')
-            if self.occupations.fixmagmom:
-                t('(fixed)')
-            else:
-                t()
-        else:
-            t('Spin-Paired Calculation')
-        t('Total Charge: %.6f' % p['charge'])
-        t('Fermi Temperature: %.6f' % (self.occupations.width * Hartree))
-        self.wfs.summary(self.txt)
-        t('Eigensolver: %s' % self.wfs.eigensolver)
-
-        self.hamiltonian.summary(self.txt)
-
-        t('Reference Energy: %.6f' % (self.wfs.setups.Eref * Hartree))
-        t()
-
-        nibzkpts = self.wfs.kd.nibzkpts
-
-        # Print parallelization details
-        t('Total number of cores used: %d' % self.wfs.world.size)
-        if self.wfs.kd.comm.size > 1:  # kpt/spin parallization
-            if self.wfs.nspins == 2 and nibzkpts == 1:
-                t('Parallelization over spin')
-            elif self.wfs.nspins == 2:
-                t('Parallelization over k-points and spin: %d' %
-                  self.wfs.kd.comm.size)
-            else:
-                t('Parallelization over k-points: %d' %
-                  self.wfs.kd.comm.size)
-
-        # Domain decomposition settings:
-        coarsesize = tuple(self.wfs.gd.parsize_c)
-        finesize = tuple(self.density.finegd.parsize_c)
-        try:  # Only planewave density
-            xc_redist = self.density.xc_redistributor
-        except AttributeError:
-            xcsize = finesize
-        else:
-            xcsize = tuple(xc_redist.aux_gd.parsize_c)
-
-        if any(np.prod(size) != 1 for size in [coarsesize, finesize, xcsize]):
-            title = 'Domain Decomposition:'
-            template = '%d x %d x %d'
-            t(title, template % coarsesize)
-            if coarsesize != finesize:
-                t(' ' * len(title), template % finesize, '(fine grid)')
-            if xcsize != finesize:
-                t(' ' * len(title), template % xcsize, '(xc only)')
-
-        if self.wfs.bd.comm.size > 1:  # band parallelization
-            t('Parallelization over states: %d'
-              % self.wfs.bd.comm.size)
-
-        if self.wfs.mode == 'fd':
-            # XXX Why is this not in wfs summary? -askhl
-            # Also, why wouldn't PW mode use the diagonalizer?
-            if self.wfs.diagksl.buffer_size is not None:
-                t('MatrixOperator buffer_size (KiB): %d'
-                  % self.wfs.diagksl.buffer_size)
-            else:
-                t('MatrixOperator buffer_size: default value or \n' +
-                  ' %s see value of nblock in input file' % (26 * ' '))
-            diagonalizer_layout = self.wfs.diagksl.get_description()
-            t('Diagonalizer layout: ' + diagonalizer_layout)
-            orthonormalizer_layout = self.wfs.orthoksl.get_description()
-            t('Orthonormalizer layout: ' + orthonormalizer_layout)
-        t()
-        
-        if self.hamiltonian.vext is not None:
-            t('External potential:\n    {0}\n'.format(self.hamiltonian.vext))
-
-        self.wfs.kd.symmetry.print_symmetries(self.txt)
-
-        if -1 in self.wfs.kd.bz2bz_ks:
-            t('Note: your k-points are not as symmetric as your crystal!')
+    def __del__(self):
+        """Destructor:  Write timing output before closing."""
+        if dry_run:
+            return
             
-        t(self.wfs.kd.description)
-        t(('%d k-point%s in the Irreducible Part of the Brillouin Zone') %
-          (nibzkpts, ' s'[1:nibzkpts]))
+        try:
+            mr = maxrss()
+        except (LookupError, TypeError, NameError):
+            # Thing can get weird during interpreter shutdown ...
+            mr = 0
+
+        if mr > 0:
+            if mr < 1024.0**3:
+                log('Memory usage: %.2f MiB' % (mr / 1024.0**2))
+            else:
+                log('Memory usage: %.2f GiB' % (mr / 1024.0**3))
+
+        self.timer.write(self._fd)
+
         
-        kd = self.wfs.kd
-        w_k = kd.weight_k * kd.nbzkpts
-        assert np.allclose(w_k, w_k.round())
-        w_k = w_k.round()
+def print_cell(gd, pbc_c, log):
+    log("""Unit Cell:
+           Periodic     X           Y           Z      Points  Spacing
+  --------------------------------------------------------------------""")
+    h_c = gd.get_grid_spacings()
+    for c in range(3):
+        log('  %d. axis:    %s  %10.6f  %10.6f  %10.6f   %3d   %8.4f'
+            % ((c + 1, ['no ', 'yes'][int(pbc_c[c])]) +
+               tuple(Bohr * gd.cell_cv[c]) +
+               (gd.N_c[c], Bohr * h_c[c])))
+    log()
+
         
-        t()
-        t('          k-points in crystal coordinates                weights')
-        for k in range(nibzkpts):
-            if k < 10 or k == nibzkpts - 1:
-                t('%4d:   %12.8f  %12.8f  %12.8f     %6d/%d' %
-                  ((k,) + tuple(kd.ibzk_kc[k]) + (w_k[k], kd.nbzkpts)))
-            elif k == 10:
-                t('          ...')
-        t()
+def print_positions(atoms):
+    log()
+    log('Positions:')
+    symbols = atoms.get_chemical_symbols()
+    for a, pos_v in enumerate(atoms.get_positions()):
+        symbol = symbols[a]
+        log('%3d %-2s %9.4f %9.4f %9.4f' % ((a, symbol) + tuple(pos_v)))
+    log()
+
+    
+def print_parallelization_details(wfs, dens, log):
+    nibzkpts = wfs.kd.nibzkpts
+
+    # Print parallelization details
+    log('Total number of cores used: %d' % wfs.world.size)
+    if wfs.kd.comm.size > 1:  # kpt/spin parallization
+        if wfs.nspins == 2 and nibzkpts == 1:
+            log('Parallelization over spin')
+        elif wfs.nspins == 2:
+            log('Parallelization over k-points and spin: %d' %
+                wfs.kd.comm.size)
+        else:
+            log('Parallelization over k-points: %d' %
+                wfs.kd.comm.size)
+
+    # Domain decomposition settings:
+    coarsesize = tuple(wfs.gd.parsize_c)
+    finesize = tuple(dens.finegd.parsize_c)
+    try:  # Only planewave density
+        xc_redist = dens.xc_redistributor
+    except AttributeError:
+        xcsize = finesize
+    else:
+        xcsize = tuple(xc_redist.aux_gd.parsize_c)
+
+    if any(np.prod(size) != 1 for size in [coarsesize, finesize, xcsize]):
+        title = 'Domain Decomposition:'
+        template = '%d x %d x %d'
+        log(title, template % coarsesize)
+        if coarsesize != finesize:
+            log(' ' * len(title), template % finesize, '(fine grid)')
+        if xcsize != finesize:
+            log(' ' * len(title), template % xcsize, '(xc only)')
+
+    if wfs.bd.comm.size > 1:  # band parallelization
+        log('Parallelization over states: %d' % wfs.bd.comm.size)
+        
 
         if self.scf.fixdensity > self.scf.maxiter:
             t('Fixing the initial density')
@@ -248,15 +192,6 @@ class PAWTextOutput:
             else:
                 t('Damping of Long Wave Oscillations: %g' % mixer.weight)
 
-        cc = p['convergence']
-        t()
-        t('Convergence Criteria:')
-        t('    Total Energy Change: %g eV / electron' %
-          (cc['energy']))
-        t('    Integral of Absolute Density Change: %g electrons' %
-          cc['density'])
-        t('    Integral of Absolute Eigenstate Change: %g eV^2' %
-          cc['eigenstates'])
         t('Number of Atoms: %d' % len(self.wfs.setups))
         t('Number of Atomic Orbitals: %d' % self.wfs.setups.nao)
         if self.nbands_parallelization_adjustment != 0:
@@ -352,44 +287,6 @@ class PAWTextOutput:
                 t(a, mom)
         t(flush=True)
 
-    def print_forces(self):
-        F_av = self.results.get('forces')
-        if F_av is None:
-            return
-        t = self.text
-        t()
-        t('Forces in eV/Ang:')
-        c = Hartree / Bohr
-        symbols = self.atoms.get_chemical_symbols()
-        for a, symbol in enumerate(symbols):
-            t('%3d %-2s %10.5f %10.5f %10.5f' %
-              ((a, symbol) + tuple(F_av[a] * c)))
-
-    def print_eigenvalues(self):
-        """Print eigenvalues and occupation numbers."""
-        self.text(eigenvalue_string(self))
-
-    def plot_atoms(self, atoms):
-        self.text(plot(atoms))
-
-    def __del__(self):
-        """Destructor:  Write timing output before closing."""
-        if dry_run:
-            return
-            
-        try:
-            mr = maxrss()
-        except (LookupError, TypeError, NameError):
-            # Thing can get weird during interpreter shutdown ...
-            mr = 0
-
-        if mr > 0:
-            if mr < 1024.0**3:
-                self.text('Memory usage: %.2f MiB' % (mr / 1024.0**2))
-            else:
-                self.text('Memory usage: %.2f GiB' % (mr / 1024.0**3))
-
-        self.timer.write(self.txt)
 
 
 def eigenvalue_string(paw, comment=' '):

@@ -53,6 +53,9 @@ class WaveFunctions:
         self.positions_set = False
 
         self.set_setups(setups)
+        
+    def __str__(self):
+        return '  Eigensolver: ' + self.eigensolver
 
     def set_setups(self, setups):
         self.setups = setups

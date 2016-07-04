@@ -24,6 +24,19 @@ class FDPWWaveFunctions(WaveFunctions):
 
         self.overlap = self.make_overlap()
 
+    def __str__(self):
+        if self.diagksl.buffer_size is not None:
+            s = ('  MatrixOperator buffer_size (KiB): %d\n' %
+                 self.diagksl.buffer_size)
+        else:
+            s = ('  MatrixOperator buffer_size: default value or \n' +
+                 ' %s see value of nblock in input file\n' % (28 * ' '))
+        diagonalizer_layout = self.diagksl.get_description()
+        s += 'Diagonalizer layout: ' + diagonalizer_layout
+        orthonormalizer_layout = self.orthoksl.get_description()
+        s += 'Orthonormalizer layout: ' + orthonormalizer_layout
+        return WaveFunctions.__str__(self) + s
+
     def set_setups(self, setups):
         WaveFunctions.set_setups(self, setups)
 

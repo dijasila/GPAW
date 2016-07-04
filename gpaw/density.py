@@ -89,9 +89,13 @@ class Density(object):
         self.mixer = BaseMixer()
         self.timer = nulltimer
 
-    def log(self, *args, **kwargs):
-        print(*args, file=self.txt, **kwargs)
-
+    def __str__(self):
+        s = 'Densities:\n'
+        s += '  Coarse grid: {0}*{1}*{2} grid\n'.format(*self.gd.N_c)
+        s += '  Fine grid: {0}*{1}*{2} grid\n'.format(*self.finegd.N_c)
+        s += '  Total Charge: {0:.6f}'.format(self.charge)
+        return s
+        
     def initialize(self, setups, timer, magmom_a, hund):
         self.timer = timer
         self.setups = setups

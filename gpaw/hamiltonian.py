@@ -73,10 +73,18 @@ class Hamiltonian(object):
             value.check_consistency()
         self._dH_asp = value
 
-    def summary(self, fd):
-        fd.write('XC and Coulomb potentials evaluated on a %d*%d*%d grid\n' %
-                 tuple(self.finegd.N_c))
-
+    def __str__(self):
+        s = 'Hamiltonian:\n'
+        s += ('  XC and Coulomb potentials evaluated on a {0}*{1}*{2} grid\n'
+              .format(*self.finegd.N_c))
+        s += '  Using the %s Exchange-Correlation Functional.' % self.xc.name
+        desc = self.xc.get_description()
+        if desc is not None:
+            s += '  Details:\n    {0}\n'.format('\n'.join(desc.splitlines()))
+        if self.hamiltonian.vext is not None:
+            s += '  External potential:\n    {0}\n'.format(self.vext)
+        return s
+        
     def set_positions_without_ruining_everything(self, spos_ac,
                                                  atom_partition):
         self.spos_ac = spos_ac

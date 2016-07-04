@@ -13,7 +13,7 @@ from gpaw.scf import SCFLoop
 from gpaw.setup import Setups
 from gpaw.symmetry import Symmetry
 import gpaw.wavefunctions.pw as pw
-from gpaw.output import PAWTextOutput
+from gpaw.output import GPAWLogger
 import gpaw.occupations as occupations
 from gpaw.wavefunctions.lcao import LCAO
 from gpaw.wavefunctions.fd import FD
@@ -35,7 +35,7 @@ from gpaw.forces import calculate_forces
 from gpaw.stress import calculate_stress
 
 
-class GPAW(Calculator, PAW, PAWTextOutput):
+class GPAW(Calculator, PAW):
     """This is the ASE-calculator frontend for doing a PAW calculation."""
 
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
@@ -113,7 +113,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         elif not hasattr(self.world, 'new_communicator'):
             self.world = mpi.world.new_communicator(np.asarray(self.world))
 
-        PAWTextOutput.__init__(self)
+        self.log = GPAWLogger(world=self.world)
         
         Calculator.__init__(self, restart, ignore_bad_restart_file, label,
                             atoms, **kwargs)
@@ -181,8 +181,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             self.set_positions(atoms)
             
         if not self.scf.converged:
-            self.print_cell_and_parameters()
-    
+            print_cell(self.wfs.gd, self.atoms.pbc)
+            
             with self.timer('SCF-cycle'):
                 self.scf.run(self.wfs, self.hamiltonian,
                              self.density, self.occupations,
@@ -206,9 +206,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         if 'forces' in properties:
             with self.timer('Forces'):
                 F_av = calculate_forces(self.wfs, self.density,
-                                        self.hamiltonian)
+                                        self.hamiltonian, self.log)
                 self.results['forces'] = F_av * (Hartree / Bohr)
-                self.print_forces()
 
         if 'stress' in properties:
             with self.timer('Stress'):
@@ -307,7 +306,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         self.wfs.initialize(self.density, self.hamiltonian, spos_ac)
         self.wfs.eigensolver.reset()
         self.scf.reset()
-        self.print_positions()
+        print_positions(self.atoms, self.log)
 
     def initialize(self, atoms=None):
         """Inexpensive initialization."""
@@ -320,7 +319,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
 
         par = self.parameters
 
-        self.verbose = par.verbose
+        self.log.verbose = par.verbose
 
         natoms = len(atoms)
 
@@ -389,6 +388,12 @@ class GPAW(Calculator, PAW, PAWTextOutput):
 
         nspins = 1 + int(spinpol)
 
+        if spinpol:
+            self.log('Spin-Polarized Calculation.')
+            self.log('Magnetic Moment:  {0:.6f}'.format(magmom_a.sum()))
+        else:
+            self.log('Spin-Paired Calculation')
+            
         nao = setups.nao
         nvalence = setups.nvalence - par.charge
         if par.background_charge is not None:
@@ -446,6 +451,9 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             niter_fixdensity = 0
         else:
             niter_fixdensity = None
+            
+        if par.fixdensity:
+            niter_fixdensity = np.inf
 
         if self.scf is None:
             nv = max(nvalence, 1)
@@ -455,9 +463,10 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                 cc['energy'] / Hartree * nv,
                 cc['density'] * nv,
                 cc['forces'] / (Hartree / Bohr),
-                par.maxiter, par.fixdensity,
-                niter_fixdensity)
-
+                par.maxiter,
+                niter_fixdensity, nv)
+            self.log(self.scf)
+            
         if not realspace:
             pbc_c = np.ones(3, bool)
 
@@ -479,23 +488,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             self.wfs.set_setups(setups)
 
         if not self.wfs.eigensolver:
-            # Number of bands to converge:
-            nbands_converge = par.convergence['bands']
-            if nbands_converge == 'all':
-                nbands_converge = nbands
-            elif nbands_converge != 'occupied':
-                assert isinstance(nbands_converge, int)
-                if nbands_converge < 0:
-                    nbands_converge += nbands
-            eigensolver = get_eigensolver(par.eigensolver, mode,
-                                          par.convergence)
-            eigensolver.nbands_converge = nbands_converge
-            # XXX Eigensolver class doesn't define an nbands_converge property
-
-            if isinstance(xc, SIC):
-                eigensolver.blocksize = 1
-            self.wfs.set_eigensolver(eigensolver)
-
+            self.create_eigensolver(xc)
+            
         if self.density is None:
             self.create_density(realspace, mode)
     
@@ -553,7 +547,29 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         # recalculate the occupation numbers
         if self.wfs is not None:
             self.occupations.calculate(self.wfs)
+            
+        self.log(self.occupations)
 
+    def create_eigensolver(self, xc, nbands, mode):
+        # Number of bands to converge:
+        nbands_converge = self.parameters.convergence['bands']
+        if nbands_converge == 'all':
+            nbands_converge = nbands
+        elif nbands_converge != 'occupied':
+            assert isinstance(nbands_converge, int)
+            if nbands_converge < 0:
+                nbands_converge += nbands
+        eigensolver = get_eigensolver(self.parameters.eigensolver, mode,
+                                      self.parameters.convergence)
+        eigensolver.nbands_converge = nbands_converge
+        # XXX Eigensolver class doesn't define an nbands_converge property
+
+        if isinstance(xc, SIC):
+            eigensolver.blocksize = 1
+        self.wfs.set_eigensolver(eigensolver)
+
+        self.log(self.wfs.eigensolver)
+        
     def create_density(self, realspace, mode):
         gd = self.wfs.gd
 
@@ -589,6 +605,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         else:
             self.density = pw.ReciprocalSpaceDensity(**kwargs)
             
+        self.log(self.density)
+            
     def create_hamiltonian(self, realspace, mode, xc):
         dens = self.density
         kwargs = dict(
@@ -607,6 +625,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         else:
             self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
                 pd2=dens.pd2, pd3=dens.pd3, **kwargs)
+            
+        self.log(self.hamiltonian)
         
     def create_wave_functions(self, mode, realspace,
                               nspins, nbands, nao, nvalence, setups,
@@ -817,6 +837,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
                 self.wfs = mode(diagksl, orthoksl, initksl, **wfs_kwargs)
         else:
             self.wfs = mode(self, **wfs_kwargs)
+        
+        self.log(self.wfs)
 
     def dry_run(self):
         # Can be overridden like in gpaw.atom.atompaw

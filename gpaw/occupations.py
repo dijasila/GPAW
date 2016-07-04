@@ -93,6 +93,9 @@ class OccupationNumbers:
         self.homo = o.homo
         self.lumo = o.lumo
         
+    def extrapolate_energy_to_zero_width(self.e_free):
+        return e_free
+        
     def calculate(self, wfs):
         """Calculate everything.
 
@@ -440,7 +443,7 @@ class ZeroKelvin(OccupationNumbers):
 
 class SmoothDistribution(ZeroKelvin):
     """Base class for Fermi-Dirac and other smooth distributions."""
-    def __init__(self, width, fixmagmom, maxiter):
+    def __init__(self, width, fixmagmom):
         """Smooth distribution.
 
         Find the Fermi level by integrating in energy until
@@ -452,21 +455,17 @@ class SmoothDistribution(ZeroKelvin):
             Fix spin moment calculations.  A separate Fermi level for
             spin up and down electrons is found: self.fermilevel +
             self.split and self.fermilevel - self.split.
-        maxiter: int
-            Maximum number of iterations.
         """
 
         ZeroKelvin.__init__(self, fixmagmom)
         self.width = width / Hartree
-        self.maxiter = maxiter
-        
-    def __repr__(self):
-        classname = self.__class__.__name__
-        template = '%s(width=%f, fixmagmom=%r, maxiter=%d)'
-        string = template % (classname, self.width * Hartree, self.fixmagmom,
-                             self.maxiter)
-        return string
 
+    def __str__(self):
+        s = 'Occupation numbers:\n'
+        if self.fixmagmom:
+            s += '  Fixed magnetic moment\n'
+        return s
+        
     def calculate_occupation_numbers(self, wfs):
         if self.width == 0 or self.nvalence == wfs.bd.nbands * 2:
             ZeroKelvin.calculate_occupation_numbers(self, wfs)
@@ -606,8 +605,12 @@ class SmoothDistribution(ZeroKelvin):
 
 
 class FermiDirac(SmoothDistribution):
-    def __init__(self, width, fixmagmom=False, maxiter=10000):
-        SmoothDistribution.__init__(self, width, fixmagmom, maxiter)
+    def __init__(self, width, fixmagmom=False):
+        SmoothDistribution.__init__(self, width, fixmagmom)
+
+    def __str__(self):
+        s = '  Fermi-Dirac: width={0:.4f} eV\n'.format(self.width * Hartree)
+        return SmoothDistribution.__str__(self) + s
 
     def distribution(self, kpt, fermilevel):
         x = (kpt.eps_n - fermilevel) / self.width
@@ -629,29 +632,34 @@ class FermiDirac(SmoothDistribution):
     
         
 class MethfesselPaxton(SmoothDistribution):
-    def __init__(self, width, iter=0, fixmagmom=False, maxiter=1000):
-        SmoothDistribution.__init__(self, width, fixmagmom, maxiter)
-        self.iter = iter
-
+    def __init__(self, width, order=0, fixmagmom=False):
+        SmoothDistribution.__init__(self, width, fixmagmom)
+        self.order = order
+        
+    def __str__(self):
+        s = '  Methfessel-Paxton: width={0:.4f} eV, order={1}\n'.format(
+            self.width * Hartree, self.order)
+        return SmoothDistribution.__str__(self) + s
+        
     def distribution(self, kpt, fermilevel):
         x = (kpt.eps_n - fermilevel) / self.width
         x = x.clip(-100, 100)
 
         z = 0.5 * (1 - erf(x))
-        for i in range(self.iter):
+        for i in range(self.order):
             z += (self.coff_function(i + 1) *
                   self.hermite_poly(2 * i + 1, x) * np.exp(-x**2))
         kpt.f_n[:] = kpt.weight * z
         n = kpt.f_n.sum()
 
         dnde = 1 / np.sqrt(pi) * np.exp(-x**2)
-        for i in range(self.iter):
+        for i in range(self.order):
             dnde += (self.coff_function(i + 1) *
                      self.hermite_poly(2 * i + 2, x) * np.exp(-x**2))
         dnde = dnde.sum()
         dnde *= kpt.weight / self.width
-        e_entropy = (0.5 * self.coff_function(self.iter) *
-                     self.hermite_poly(2 * self.iter, x) * np.exp(-x**2))
+        e_entropy = (0.5 * self.coff_function(self.order) *
+                     self.hermite_poly(2 * self.order, x) * np.exp(-x**2))
         e_entropy = -kpt.weight * e_entropy.sum() * self.width
 
         sign = 1 - kpt.s * 2
@@ -671,7 +679,7 @@ class MethfesselPaxton(SmoothDistribution):
                     2 * (n - 1) * self.hermite_poly(n - 2, x))
 
     def extrapolate_energy_to_zero_width(self, E):
-        return E - self.e_entropy / (self.iter + 2)
+        return E - self.e_entropy / (self.order + 2)
 
                             
 class FixedOccupations(ZeroKelvin):
@@ -688,8 +696,8 @@ class FixedOccupations(ZeroKelvin):
 
 
 class TFOccupations(FermiDirac):
-    def __init__(self, width, fixmagmom=False, maxiter=1000):
-        FermiDirac.__init__(self, width, fixmagmom, maxiter)
+    def __init__(self, width, fixmagmom=False):
+        FermiDirac.__init__(self, width, fixmagmom)
     
     def occupy(self, f_n, eps_n, ne, weight=1):
         """Fill in occupation numbers.

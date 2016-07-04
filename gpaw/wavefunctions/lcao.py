@@ -91,12 +91,12 @@ class LCAOWaveFunctions(WaveFunctions):
             nao = self.setups.nao
             return np.empty(n + (nao,), self.dtype)
 
-    def summary(self, fd):
-        fd.write('Wave functions: LCAO\n')
-        fd.write('    Diagonalizer: %s\n' % self.ksl.get_description())
-        fd.write('    Atomic Correction: %s\n'
-                 % self.atomic_correction.description)
-        fd.write("    Datatype: %s\n" % self.dtype.__name__)
+    def __str__(self):
+        s = 'Wave functions: LCAO\n'
+        s += '  Diagonalizer: %s\n' % self.ksl.get_description()
+        s += '  Atomic Correction: %s\n' % self.atomic_correction.description
+        s += '  Datatype: %s\n' % self.dtype.__name__
+        return s + WaveFunctions.__str__(self)
         
     def set_eigensolver(self, eigensolver):
         WaveFunctions.set_eigensolver(self, eigensolver)

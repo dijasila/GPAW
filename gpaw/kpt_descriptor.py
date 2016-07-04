@@ -179,21 +179,42 @@ class KPointDescriptor:
 
         self.set_communicator(mpi.serial_comm)
 
+    def __str__(self):
+        s = str(self.symmetry)
+
+        if -1 in self.bz2bz_ks:
+            s += 'Note: your k-points are not as symmetric as your crystal!\n'
+            
         if self.gamma:
-            self.description = '1 k-point (Gamma)'
+            s += '1 k-point (Gamma)\n'
         else:
-            self.description = '%d k-points' % self.nbzkpts
+            s += '%d k-points' % self.nbzkpts
             if self.N_c is not None:
-                self.description += (': %d x %d x %d Monkhorst-Pack grid' %
-                                     tuple(self.N_c))
+                s += ': %d x %d x %d Monkhorst-Pack grid' % tuple(self.N_c)
                 if self.offset_c.any():
-                    self.description += ' + ['
+                    s += ' + ['
                     for x in self.offset_c:
                         if x != 0 and abs(round(1 / x) - 1 / x) < 1e-12:
-                            self.description += '1/%d,' % round(1 / x)
+                            s += '1/%d,' % round(1 / x)
                         else:
-                            self.description += '%f,' % x
-                    self.description = self.description[:-1] + ']'
+                            s += '%f,' % x
+                    s = s[:-1] + ']'
+
+        s += ('%d k-point%s in the Irreducible Part of the Brillouin Zone' %
+              (self.nibzkpts, ' s'[1:self.nibzkpts]))
+        
+        w_k = self.weight_k * self.nbzkpts
+        assert np.allclose(w_k, w_k.round())
+        w_k = w_k.round()
+        
+        s += '       k-points in crystal coordinates                weights\n'
+        for k in range(self.nibzkpts):
+            if k < 10 or k == self.nibzkpts - 1:
+                s += ('%4d:   %12.8f  %12.8f  %12.8f     %6d/%d\n' %
+                      ((k,) + tuple(self.ibzk_kc[k]) +
+                       (w_k[k], self.nbzkpts)))
+            elif k == 10:
+                s += '          ...\n'
 
     def __len__(self):
         """Return number of k-point/spin combinations of local CPU."""

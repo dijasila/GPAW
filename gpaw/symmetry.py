@@ -393,19 +393,17 @@ class Symmetry:
                 F_ac[a2] += np.dot(F0_av[a1], op_vv)
         return F_ac / len(self.op_scc)
 
-    def print_symmetries(self, fd):
-        """Print symmetry information."""
-
-        p = functools.partial(print, file=fd)
-
+    def __str__(self):
         n = len(self.op_scc)
         nft = self.ft_sc.any(1).sum()
-        p('Symmetries present (total):', n)
+        lines = ['Symmetries present (total): {0}'.format(n)]
         if not self.symmorphic:
-            p('Symmetries with fractional translations:', nft)
+            lines.append(
+                'Symmetries with fractional translations: {0}'.format(nft))
 
         # X-Y grid of symmetry matrices:
-        p()
+        
+        lines.append('')
         nx = 6 if self.symmorphic else 3
         ns = len(self.op_scc)
         y = 0
@@ -417,11 +415,12 @@ class Symmetry:
                         break
                     op_c = self.op_scc[s, c]
                     ft = self.ft_sc[s, c]
-                    p('  (%2d %2d %2d)' % tuple(op_c), end='')
+                    lines.append('  (%2d %2d %2d)' % tuple(op_c))
                     if not self.symmorphic:
-                        p(' + (%4s)' % sfrac(ft), end='')
-                p()
-            p()
+                        lines.append(' + (%4s)' % sfrac(ft))
+                lines.append('')
+            lines.append('')
+        return '\n'.join(lines)
 
 
 def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):

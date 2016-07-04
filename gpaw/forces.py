@@ -1,9 +1,11 @@
 import numpy as np
 
+from ase.units import Hartree, Bohr
+
 from gpaw.xc.hybrid import HybridXCBase
 
 
-def calculate_forces(wfs, dens, ham):
+def calculate_forces(wfs, dens, ham, log):
     """Return the atomic forces."""
 
     assert not isinstance(ham.xc, HybridXCBase)
@@ -31,4 +33,11 @@ def calculate_forces(wfs, dens, ham):
     wfs.world.broadcast(F_av, 0)
 
     F_av = wfs.kd.symmetry.symmetrize_forces(F_av)
+    
+    log('\nForces in eV/Ang:')
+    c = Hartree / Bohr
+    for a, setup in enumerate(wfs.setups):
+        log('%3d %-2s %10.5f %10.5f %10.5f' %
+            ((a, setup.symbol) + tuple(F_av[a] * c)))
+
     return F_av
