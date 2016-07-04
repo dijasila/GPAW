@@ -86,6 +86,7 @@ class Density(object):
 
         self.atom_partition = None
 
+        self.fixed = False
         self.mixer = BaseMixer()
         self.timer = nulltimer
 
@@ -93,7 +94,9 @@ class Density(object):
         s = 'Densities:\n'
         s += '  Coarse grid: {0}*{1}*{2} grid\n'.format(*self.gd.N_c)
         s += '  Fine grid: {0}*{1}*{2} grid\n'.format(*self.finegd.N_c)
-        s += '  Total Charge: {0:.6f}'.format(self.charge)
+        s += '  Total Charge: {0:.6f}\n'.format(self.charge)
+        if self.fixed:
+            s += '  Fixed\n'
         return s
         
     def initialize(self, setups, timer, magmom_a, hund):

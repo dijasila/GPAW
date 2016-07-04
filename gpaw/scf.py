@@ -2,7 +2,7 @@ import time
 from math import log as ln
 
 import numpy as np
-from ase.units import Hartree
+from ase.units import Hartree, Bohr
 
 from gpaw import KohnShamConvergenceError
 from gpaw.forces import calculate_forces
@@ -11,44 +11,46 @@ from gpaw.forces import calculate_forces
 class SCFLoop:
     """Self-consistent field loop."""
     def __init__(self, eigenstates=0.1, energy=0.1, density=0.1, force=np.inf,
-                 maxiter=100, fixdensity=False, niter_fixdensity=None):
+                 maxiter=100, niter_fixdensity=None, nvalence=None):
         self.max_errors = {'eigenstates': eigenstates,
                            'energy': energy,
                            'force': force,
                            'density': density}
-
         self.maxiter = maxiter
-        
-        self.fixdensity = fixdensity
+        self.niter_fixdensity = niter_fixdensity
+        self.nvalence = nvalence
 
         self.old_energies = []
         self.old_F_av = None
         self.converged = False
         
-        if niter_fixdensity is None:
-            niter_fixdensity = 2
-        self.niter_fixdensity = niter_fixdensity
-
-        self.iter = None
+        self.niter = None
         
         self.reset()
 
     def __str__(self):
         cc = self.max_errors
-        t('Convergence Criteria:')
-        t('  Maximum total energy change: %g eV / electron' %
-          (cc['energy']))
-        t('  Maximum integral of absolute density change: %g electrons' %
-          cc['density'])
-        t('  Maximum integral of absolute eigenstate change: %g eV^2' %
-          cc['eigenstates'])
+        s = 'Convergence Criteria:\n'
+        for name, val in [
+            ('total energy change: {0:g} eV / electron',
+             cc['energy'] * Hartree / self.nvalence),
+            ('integral of absolute density change: {0:g} electrons',
+             cc['density'] / self.nvalence),
+            ('integral of absolute eigenstate change: {0:g} eV^2',
+             cc['eigenstates'] * Hartree**2 / self.nvalence),
+            ('change in atomic force: {0:g} eV / Ang',
+             cc['forces'] * Hartree / Bohr),
+            ('number of iterations: {0}', self.maxiter)]:
+            if val < np.inf:
+                s += '  Maximum {0}\n'.format(name.format(val))
+        return s
         
     def write(self, writer):
         writer.write(converged=self.converged)
         
     def read(self, reader):
         self.converged = reader.scf.converged
-    
+        
     def reset(self):
         self.old_energies = []
         self.old_F_av = None
@@ -77,7 +79,7 @@ class SCFLoop:
             if self.converged:
                 break
 
-            if self.iter > self.niter_fixdensity:
+            if self.iter > self.niter_fixdensity and not dens.fixed:
                 dens.update(wfs)
                 ham.update(dens)
             else:

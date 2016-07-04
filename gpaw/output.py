@@ -178,42 +178,6 @@ def print_parallelization_details(wfs, dens, log):
 
     if wfs.bd.comm.size > 1:  # band parallelization
         log('Parallelization over states: %d' % wfs.bd.comm.size)
-        
-
-        if self.scf.fixdensity > self.scf.maxiter:
-            t('Fixing the initial density')
-        else:
-            mixer = self.density.mixer
-            t('Mixer Type:', mixer.__class__.__name__)
-            t('Linear Mixing Parameter: %g' % mixer.beta)
-            t('Mixing with %d Old Densities' % mixer.nmaxold)
-            if mixer.weight == 1:
-                t('No Damping of Long Wave Oscillations')
-            else:
-                t('Damping of Long Wave Oscillations: %g' % mixer.weight)
-
-        t('Number of Atoms: %d' % len(self.wfs.setups))
-        t('Number of Atomic Orbitals: %d' % self.wfs.setups.nao)
-        if self.nbands_parallelization_adjustment != 0:
-            t('Adjusting Number of Bands by %+d to Match Parallelization'
-              % self.nbands_parallelization_adjustment)
-        t('Number of Bands in Calculation: %d' % self.wfs.bd.nbands)
-        t('Bands to Converge: ', end='')
-        if cc['bands'] == 'occupied':
-            t('Occupied States Only')
-        elif cc['bands'] == 'all':
-            t('All')
-        else:
-            t('%d Lowest Bands' % cc['bands'])
-        t('Number of Valence Electrons: %g' % self.wfs.nvalence)
-
-    def print_converged(self, iter):
-        t = self.text
-        t('------------------------------------')
-        t('Converged After %d Iterations.' % iter)
-
-        t()
-        self.print_all_information()
 
     def print_all_information(self):
         t = self.text
@@ -286,7 +250,6 @@ def print_parallelization_details(wfs, dens, log):
             for a, mom in enumerate(magmom_a):
                 t(a, mom)
         t(flush=True)
-
 
 
 def eigenvalue_string(paw, comment=' '):

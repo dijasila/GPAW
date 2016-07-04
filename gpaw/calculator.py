@@ -200,8 +200,9 @@ class GPAW(Calculator, PAW):
             self.results['magmom'] = self.occupations.magmom
             self.results['magmoms'] = magmom_a
     
-            self.call_observers(self.scf.iter, final=True)
-            self.print_converged(self.scf.iter)
+            self.call_observers(self.scf.niter, final=True)
+            self.log('------------------------------------')
+            self.log('Converged After %d Iterations.' % self.scf.niter)
         
         if 'forces' in properties:
             with self.timer('Forces'):
@@ -325,7 +326,6 @@ class GPAW(Calculator, PAW):
 
         cell_cv = atoms.get_cell() / Bohr
         pbc_c = atoms.get_pbc()
-        Z_a = atoms.get_atomic_numbers()
         magmom_a = atoms.get_initial_magnetic_moments()
 
         mpi.synchronize_atoms(atoms, self.world)
@@ -355,22 +355,11 @@ class GPAW(Calculator, PAW):
 
         realspace = (mode.name != 'pw' and mode.interpolation != 'fft')
 
-        if par.filter is None and mode.name != 'pw':
-            gamma = 1.6
-            if par.gpts is not None:
-                h = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / par.gpts).max()
-            else:
-                h = (par.h or 0.2) / Bohr
+        if not realspace:
+            pbc_c = np.ones(3, bool)
 
-            def filter(rgd, rcut, f_r, l=0):
-                gcut = np.pi / h - 2 / rcut / gamma
-                f_r[:] = rgd.filter(f_r, rcut * gamma, gcut, l)
-        else:
-            filter = par.filter
-
-        setups = Setups(Z_a, par.setups, par.basis, xc, filter, self.world)
-        self.log(setups)
-        
+        self.create_setups(mode, xc)
+                
         magnetic = magmom_a.any()
 
         spinpol = par.spinpol
@@ -378,7 +367,7 @@ class GPAW(Calculator, PAW):
             if natoms != 1:
                 raise ValueError('hund=True arg only valid for single atoms!')
             spinpol = True
-            magmom_a[0] = setups[0].get_hunds_rule_moment(par.charge)
+            magmom_a[0] = self.setups[0].get_hunds_rule_moment(par.charge)
 
         if spinpol is None:
             spinpol = magnetic
@@ -394,15 +383,15 @@ class GPAW(Calculator, PAW):
         else:
             self.log('Spin-Paired Calculation')
             
-        nao = setups.nao
-        nvalence = setups.nvalence - par.charge
+        nao = self.setups.nao
+        nvalence = self.setups.nvalence - par.charge
         if par.background_charge is not None:
             nvalence += par.background_charge.charge
         M = abs(magmom_a.sum())
 
         nbands = par.nbands
 
-        orbital_free = any(setup.orbital_free for setup in setups)
+        orbital_free = any(setup.orbital_free for setup in self.setups)
         if orbital_free:
             nbands = 1
 
@@ -416,7 +405,7 @@ class GPAW(Calculator, PAW):
 
         if nbands is None:
             nbands = 0
-            for setup in setups:
+            for setup in self.setups:
                 nbands_from_atom = setup.get_default_nbands()
 
                 # Any obscure setup errors?
@@ -447,45 +436,18 @@ class GPAW(Calculator, PAW):
             self.create_occupations(orbital_free)
         self.occupations.magmom = magmom_a.sum()
         
-        if mode.name == 'lcao':
-            niter_fixdensity = 0
-        else:
-            niter_fixdensity = None
-            
-        if par.fixdensity:
-            niter_fixdensity = np.inf
-
         if self.scf is None:
-            nv = max(nvalence, 1)
-            cc = par.convergence
-            self.scf = SCFLoop(
-                cc['eigenstates'] / Hartree**2 * nv,
-                cc['energy'] / Hartree * nv,
-                cc['density'] * nv,
-                cc['forces'] / (Hartree / Bohr),
-                par.maxiter,
-                niter_fixdensity, nv)
-            self.log(self.scf)
-            
-        if not realspace:
-            pbc_c = np.ones(3, bool)
-
-        symm = par.symmetry
-        if symm == 'off':
-            symm = {'point_group': False, 'time_reversal': False}
-        m_a = magmom_a.round(decimals=3)  # round off
-        id_a = list(zip(setups.id_a, m_a))
-        self.symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)
-        self.symmetry.analyze(self.atoms.get_scaled_positions())
-        setups.set_symmetry(self.symmetry)
-
+            self.create_scf(nvalence)
+    
+        self.create_symmetry(magmom_a, cell_cv)
+        
         if not self.wfs:
             self.create_wave_functions(mode, realspace,
-                                       nspins, nbands, nao, nvalence, setups,
+                                       nspins, nbands, nao, nvalence,
+                                       self.setups,
                                        magmom_a, cell_cv, pbc_c)
         else:
-            self.wfs.world = self.world
-            self.wfs.set_setups(setups)
+            self.wfs.set_setups(self.setups)
 
         if not self.wfs.eigensolver:
             self.create_eigensolver(xc)
@@ -496,8 +458,11 @@ class GPAW(Calculator, PAW):
         # XXXXXXXXXX if setups change, then setups.core_charge may change.
         # But that parameter was supplied in Density constructor!
         # This surely is a bug!
-        self.density.initialize(setups, self.timer, magmom_a, par.hund)
+        self.density.initialize(self.setups, self.timer, magmom_a, par.hund)
         self.density.set_mixer(par.mixer)
+        self.log(self.density.mixer)
+        self.density.fixed = par.fixdensity
+        self.density.log = self.log
 
         if self.hamiltonian is None:
             self.create_hamiltonian(realspace, mode, xc)
@@ -505,11 +470,26 @@ class GPAW(Calculator, PAW):
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
 
-        self.density.txt = self.txt
-        
-        self.text()
         self.print_memory_estimate(self.txt, maxdepth=memory_estimate_depth)
-        self.txt.flush()
+        
+        self.log('Number of Atoms:', natoms)
+        self.log('Number of Atomic Orbitals:', self.wfs.setups.nao)
+        if self.nbands_parallelization_adjustment != 0:
+            self.log(
+                'Adjusting Number of Bands by %+d to Match Parallelization' %
+                self.nbands_parallelization_adjustment)
+        self.log('Number of Bands in Calculation:', self.wfs.bd.nbands)
+        self.log('Bands to Converge: ', end='')
+        n = par.convergence['bands']
+        if n == 'occupied':
+            self.log('Occupied States Only')
+        elif n == 'all':
+            self.log('All')
+        else:
+            self.log('%d Lowest Bands' % n)
+        self.log('Number of Valence Electrons:', self.wfs.nvalence)
+
+        self.log(flush=True)
 
         self.timer.print_info(self)
 
@@ -523,6 +503,28 @@ class GPAW(Calculator, PAW):
             self.txt.flush()
 
         self.initialized = True
+
+    def create_setups(self, mode, xc):
+        if self.pararameters.filter is None and mode.name != 'pw':
+            gamma = 1.6
+            N_c = self.parameters.get('gpts')
+            if N_c is None:
+                h = (self.parameters.h or 0.2) / Bohr
+            else:
+                icell_vc = np.linalg.inv(self.atoms.cell)
+                h = ((icell_vc**2).sum(0)**-0.5 / N_c).max() / Bohr
+
+            def filter(rgd, rcut, f_r, l=0):
+                gcut = np.pi / h - 2 / rcut / gamma
+                f_r[:] = rgd.filter(f_r, rcut * gamma, gcut, l)
+        else:
+            filter = self.parameters.filter
+
+        Z_a = self.atoms.get_atomic_numbers()
+        self.setups = Setups(Z_a,
+                             self.parameters.setups, self.parameters.basis,
+                             xc, filter, self.world)
+        self.log(self.setups)
 
     def create_grid_descriptor(self, N_c, cell_cv, pbc_c,
                                domain_comm, parsize_domain):
@@ -549,6 +551,33 @@ class GPAW(Calculator, PAW):
             self.occupations.calculate(self.wfs)
             
         self.log(self.occupations)
+
+    def create_scf(self, nvalence, mode):
+        if mode.name == 'lcao':
+            niter_fixdensity = 0
+        else:
+            niter_fixdensity = 2
+            
+        nv = max(nvalence, 1)
+        cc = self.parameters.convergence
+        self.scf = SCFLoop(
+            cc['eigenstates'] / Hartree**2 * nv,
+            cc['energy'] / Hartree * nv,
+            cc['density'] * nv,
+            cc['forces'] / (Hartree / Bohr),
+            self.parameters.maxiter,
+            niter_fixdensity, nv)
+        self.log(self.scf)
+            
+    def create_symmetry(self, magmom_a, cell_cv):
+        symm = self.parameters.symmetry
+        if symm == 'off':
+            symm = {'point_group': False, 'time_reversal': False}
+        m_a = magmom_a.round(decimals=3)  # round off
+        id_a = list(zip(self.setups.id_a, m_a))
+        self.symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)
+        self.symmetry.analyze(self.atoms.get_scaled_positions())
+        self.setups.set_symmetry(self.symmetry)
 
     def create_eigensolver(self, xc, nbands, mode):
         # Number of bands to converge:
