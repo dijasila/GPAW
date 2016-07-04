@@ -203,7 +203,7 @@ class Hamiltonian(object):
          self.e_external, self.e_xc) = energies
         self.timer.stop('Hamiltonian')
 
-    def update_corrections(self, density, W_aL):
+    def update_corrections(self, dens, W_aL):
         self.timer.start('Atomic')
         self.dH_asp = None  # XXXX
 
@@ -213,7 +213,7 @@ class Hamiltonian(object):
         e_external = 0.0
         e_xc = 0.0
 
-        D_asp = self.atomdist.to_work(density.D_asp)
+        D_asp = self.atomdist.to_work(dens.D_asp)
         dH_asp = self.setups.empty_atomic_matrix(self.nspins, D_asp.partition)
 
         for a, D_sp in D_asp.items():

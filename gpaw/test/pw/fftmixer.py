@@ -5,6 +5,7 @@ from gpaw.wavefunctions.pw import PW
 from gpaw.test import equal
 
 bulk = Atoms('Li', pbc=True)
+bulk.set_cell((2.6, 2.6, 2.6))
 k = 4
 calc = GPAW(mode=PW(200),
             kpts=(k, k, k),
@@ -12,7 +13,5 @@ calc = GPAW(mode=PW(200),
             verbose=1,
             eigensolver='rmm-diis')
 bulk.set_calculator(calc)
-bulk.set_cell((2.6, 2.6, 2.6))
 e = bulk.get_potential_energy()
-nit = calc.get_number_of_iterations()
 equal(e, -1.98481281259, 1.0e-6)

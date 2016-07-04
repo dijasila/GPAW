@@ -162,15 +162,12 @@ class Density(object):
 
     def update(self, wfs):
         self.timer.start('Density')
-        self.timer.start('Pseudo density')
-        self.calculate_pseudo_density(wfs)
-        self.timer.stop('Pseudo density')
-        self.timer.start('Atomic density matrices')
-        wfs.calculate_atomic_density_matrices(self.D_asp)
-        self.timer.stop('Atomic density matrices')
-        self.timer.start('Multipole moments')
-        comp_charge = self.calculate_multipole_moments()
-        self.timer.stop('Multipole moments')
+        with self.timer('Pseudo density'):
+            self.calculate_pseudo_density(wfs)
+        with self.timer('Atomic density matrices'):
+            wfs.calculate_atomic_density_matrices(self.D_asp)
+        with self.timer('Multipole moments'):
+            comp_charge = self.calculate_multipole_moments()
 
         if isinstance(wfs, LCAOWaveFunctions):
             self.timer.start('Normalize')

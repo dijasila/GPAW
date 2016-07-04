@@ -467,6 +467,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
         m_a = magmom_a.round(decimals=3)  # round off
         id_a = list(zip(setups.id_a, m_a))
         self.symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)
+        self.symmetry.analyze(self.atoms.get_scaled_positions())
         setups.set_symmetry(self.symmetry)
 
         if not self.wfs:
