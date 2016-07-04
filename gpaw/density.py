@@ -328,12 +328,16 @@ class Density(object):
 
         self.mixer.initialize(self)
 
-    def estimate_magnetic_moments(self):
+    def estimate_magnetic_moments(self, total=None):
         magmom_a = np.zeros_like(self.magmom_a)
         if self.nspins == 2:
             for a, D_sp in self.D_asp.items():
                 magmom_a[a] = np.dot(D_sp[0] - D_sp[1], self.setups[a].N0_p)
             self.gd.comm.sum(magmom_a)
+        if total is not None:
+            momsum = magmom_a.sum()
+            if abs(total) > 1e-7 and abs(momsum) > 1e-7:
+                magmom_a *= total / momsum
         return magmom_a
 
     def get_correction(self, a, spin):

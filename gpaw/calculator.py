@@ -191,11 +191,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             e_free = self.hamiltonian.e_total_free
             e_extrapolated = self.hamiltonian.e_total_extrapolated
             dipole_v = self.density.calculate_dipole_moment()
-            magmom_a = self.density.estimate_magnetic_moments()
-            momsum = magmom_a.sum()
-            magmom = self.occupations.magmom
-            if abs(magmom) > 1e-7 and abs(momsum) > 1e-7:
-                magmom_a *= magmom / momsum
+            magmom_a = self.density.estimate_magnetic_moments(
+                total=self.occupations.magmom)
             
             self.results['energy'] = e_extrapolated * Hartree
             self.results['free_energy'] = e_free * Hartree

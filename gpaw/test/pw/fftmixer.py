@@ -9,6 +9,7 @@ k = 4
 calc = GPAW(mode=PW(200),
             kpts=(k, k, k),
             mixer=FFTMixer(),
+            verbose=1,
             eigensolver='rmm-diis')
 bulk.set_calculator(calc)
 bulk.set_cell((2.6, 2.6, 2.6))

@@ -325,11 +325,13 @@ class PAWTextOutput:
 
         t()
 
-        dipole = self.get_dipole_moment()
+        dipole_v = self.results.get('dipole')
+        if dipole_v is None:
+            dipole_v = self.density.calculate_dipole_moment() * Bohr
         if self.density.charge == 0:
-            t('Dipole Moment: %s' % dipole)
+            t('Dipole Moment: %s' % dipole_v)
         else:
-            t('Center of Charge: %s' % (dipole / self.density.charge))
+            t('Center of Charge: %s' % (dipole_v / self.density.charge))
 
         try:
             correction = self.hamiltonian.poisson.correction
@@ -353,7 +355,11 @@ class PAWTextOutput:
             except (TypeError, AttributeError):
                 pass
             t('Local Magnetic Moments:')
-            for a, mom in enumerate(self.get_magnetic_moments()):
+            magmom_a = self.results.get('magmoms')
+            if magmom_a is None:
+                magmom_a = self.density.estimate_magnetic_moments(
+                    total=magmom)
+            for a, mom in enumerate(magmom_a):
                 t(a, mom)
         t(flush=True)
 
