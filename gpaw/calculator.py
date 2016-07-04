@@ -237,7 +237,7 @@ class GPAW(Calculator, PAW, PAWTextOutput):
 
         self.log('Input parameters:')
         for key in changed_parameters:
-            self.log('{0}: {1}'.format(key, changed_parameters[key]))
+            self.log('  {0}: {1}'.format(key, changed_parameters[key]))
 
             if key == 'eigensolver' and self.wfs:
                 self.wfs.set_eigensolver(None)
@@ -278,7 +278,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             elif key in ['basis']:
                 self.wfs = None
             else:
-                raise TypeError("Unknown keyword argument: '%s'" % key)
+                raise TypeError('Unknown keyword argument: "%s"' % key)
+        self.log()
 
     def initialize_positions(self, atoms=None):
         """Update the positions of the atoms."""
@@ -369,7 +370,8 @@ class GPAW(Calculator, PAW, PAWTextOutput):
             filter = par.filter
 
         setups = Setups(Z_a, par.setups, par.basis, xc, filter, self.world)
-
+        self.log(setups)
+        
         magnetic = magmom_a.any()
 
         spinpol = par.spinpol

@@ -121,26 +121,14 @@ class PAWTextOutput:
         t()
         t('Positions:')
         symbols = self.atoms.get_chemical_symbols()
-        for a, pos_c in enumerate(self.atoms.get_positions()):
+        for a, pos_v in enumerate(self.atoms.get_positions()):
             symbol = symbols[a]
-            t('%3d %-2s %9.4f %9.4f %9.4f' % ((a, symbol) + tuple(pos_c)))
+            t('%3d %-2s %9.4f %9.4f %9.4f' % ((a, symbol) + tuple(pos_v)))
         t()
 
     def print_parameters(self):
         t = self.text
         p = self.parameters
-
-        # Write PAW setup information in order of appearance:
-        ids = set()
-        for id in self.wfs.setups.id_a:
-            if id in ids:
-                continue
-            ids.add(id)
-            setup = self.wfs.setups.setups[id]
-            setup.print_info(self.text)
-            basis_descr = setup.get_basis_description()
-            t(basis_descr)
-            t()
 
         t('Using the %s Exchange-Correlation Functional.'
           % self.hamiltonian.xc.name)
@@ -148,6 +136,7 @@ class PAWTextOutput:
         if desc is not None:
             t('Details:')
             t('\n'.join('  %s' % line for line in desc.splitlines()))
+
         if self.wfs.nspins == 2:
             t('Spin-Polarized Calculation.')
             t('Magnetic Moment:  (%.6f, %.6f, %.6f)' %

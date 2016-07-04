@@ -2,15 +2,8 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-if __name__ == '__main__':
-    print("""\
-You are using the wrong setup.py script!  This setup.py defines a
-Setup class used to hold the atomic data needed for a specific atom.
-For building the GPAW code you must use the setup.py distutils script
-at the root of the code tree.  Just do "cd .." and you will be at the
-right place.""")
-    raise SystemExit
-
+import functools
+import io
 from math import pi, sqrt
 
 import numpy as np
@@ -1407,6 +1400,20 @@ class Setups(list):
             self.nvalence += n * setup.Nv
             self.nao += n * setup.nao
 
+    def __str__(self):
+        # Write PAW setup information in order of appearance:
+        ids = set()
+        for id in self.id_a:
+            if id in ids:
+                continue
+            ids.add(id)
+            setup = self.setups[id]
+            with io.StringIO() as output:
+                setup.print_info(functools.partial(print, file=output))
+                txt = output.getvalue()
+            basis_descr = setup.get_basis_description()
+            return txt + basis_descr
+            
     def set_symmetry(self, symmetry):
         """Find rotation matrices for spherical harmonics."""
         R_slmm = []
@@ -1458,3 +1465,13 @@ def types2atomtypes(symbols, types, default):
             type_a[a] = type
 
     return type_a
+
+    
+if __name__ == '__main__':
+    print("""\
+You are using the wrong setup.py script!  This setup.py defines a
+Setup class used to hold the atomic data needed for a specific atom.
+For building the GPAW code you must use the setup.py distutils script
+at the root of the code tree.  Just do "cd .." and you will be at the
+right place.""")
+    raise SystemExit
