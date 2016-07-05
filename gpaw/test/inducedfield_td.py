@@ -63,7 +63,7 @@ ind.calculate_induced_field(gridrefinement=2, from_density='comp',
                             poisson_eps=1e-20)
 
 # Test
-tol = 1e-8
+tol = 1e-6
 val1 = ind.fieldgd.integrate(ind.Ffe_wg[0])
 val2 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[0][0]))
 val3 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[0][1]))
