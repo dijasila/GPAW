@@ -13,7 +13,8 @@ from gpaw.scf import SCFLoop
 from gpaw.setup import Setups
 from gpaw.symmetry import Symmetry
 import gpaw.wavefunctions.pw as pw
-from gpaw.output import (GPAWLogger, print_cell, print_positions,
+from gpaw.io.logger import GPAWLogger
+from gpaw.output import (print_cell, print_positions,
                          print_parallelization_details)
 import gpaw.occupations as occupations
 from gpaw.wavefunctions.lcao import LCAO
@@ -217,6 +218,8 @@ class GPAW(Calculator, PAW):
                 self.results['magmom'] = self.occupations.magmom
                 self.results['magmoms'] = magmom_a
     
+            self.summary()
+        
             self.call_observers(self.scf.niter, final=True)
         
         if 'forces' in properties:
@@ -230,13 +233,12 @@ class GPAW(Calculator, PAW):
                 stress = calculate_stress(self).flat[[0, 4, 8, 5, 2, 1]]
                 self.results['stress'] = stress * (Hartree / Bohr**3)
                 
-        self.summary()
-        
     def summary(self):
         self.hamiltonian.summary(self.occupations.fermilevel, self.log)
         self.density.summary(self.atoms, self.occupations.magmom, self.log)
         self.occupations.summary(self.log)
         self.wfs.summary(self.log)
+        self.log.fd.flush()
             
     def set(self, **kwargs):
         """Change parameters for calculator.

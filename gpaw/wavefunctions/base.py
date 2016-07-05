@@ -401,7 +401,7 @@ class WaveFunctions:
                 I1 = I2
 
                 
-def eigenvalue_string(calc, comment=' '):
+def eigenvalue_string(wfs, comment=' '):
     """
     Write eigenvalues and occupation numbers into a string.
     The parameter comment can be used to comment out non-numers,
@@ -415,50 +415,50 @@ def eigenvalue_string(calc, comment=' '):
             tokens.append(token)
         tokens.append('\n')
 
-    if len(calc.wfs.kd.ibzk_kc) == 1:
-        if calc.wfs.nspins == 1:
+    if len(wfs.kd.ibzk_kc) == 1:
+        if wfs.nspins == 1:
             add(comment, 'Band  Eigenvalues  Occupancy')
-            eps_n = calc.get_eigenvalues(kpt=0, spin=0)
-            f_n = calc.get_occupation_numbers(kpt=0, spin=0)
-            if calc.wfs.world.rank == 0:
-                for n in range(calc.wfs.bd.nbands):
+            eps_n = wfs.collect_eigenvalues(0, 0)
+            f_n = wfs.collect_occupations(0, 0)
+            if wfs.world.rank == 0:
+                for n in range(wfs.bd.nbands):
                     add('%5d  %11.5f  %9.5f' % (n, eps_n[n], f_n[n]))
         else:
             add(comment, '                  Up                     Down')
             add(comment, 'Band  Eigenvalues  Occupancy  Eigenvalues  '
                 'Occupancy')
-            epsa_n = calc.get_eigenvalues(kpt=0, spin=0, broadcast=False)
-            epsb_n = calc.get_eigenvalues(kpt=0, spin=1, broadcast=False)
-            fa_n = calc.get_occupation_numbers(kpt=0, spin=0, broadcast=False)
-            fb_n = calc.get_occupation_numbers(kpt=0, spin=1, broadcast=False)
-            if calc.wfs.world.rank == 0:
-                for n in range(calc.wfs.bd.nbands):
+            epsa_n = wfs.collect_eigenvalues(0, 0)
+            epsb_n = wfs.collect_eigenvalues(0, 1)
+            fa_n = wfs.collect_occupations(0, 0)
+            fb_n = wfs.collect_occupations(0, 1)
+            if wfs.world.rank == 0:
+                for n in range(wfs.bd.nbands):
                     add('%5d  %11.5f  %9.5f  %11.5f  %9.5f' %
                         (n, epsa_n[n], fa_n[n], epsb_n[n], fb_n[n]))
         return ''.join(tokens)
 
-    if len(calc.wfs.kd.ibzk_kc) > 10:
+    if len(wfs.kd.ibzk_kc) > 10:
         add('Warning: Showing only first 10 kpts')
         print_range = 10
     else:
         add('Showing all kpts')
-        print_range = len(calc.wfs.kd.ibzk_kc)
+        print_range = len(wfs.kd.ibzk_kc)
 
-    if calc.wfs.nvalence / 2. > 10:
-        m = int(calc.wfs.nvalence / 2. - 10)
+    if wfs.nvalence / 2. > 10:
+        m = int(wfs.nvalence / 2. - 10)
     else:
         m = 0
-    if calc.wfs.bd.nbands - calc.wfs.nvalence / 2. > 10:
-        j = int(calc.wfs.nvalence / 2. + 10)
+    if wfs.bd.nbands - wfs.nvalence / 2. > 10:
+        j = int(wfs.nvalence / 2. + 10)
     else:
-        j = int(calc.wfs.bd.nbands)
+        j = int(wfs.bd.nbands)
 
-    if calc.wfs.nspins == 1:
+    if wfs.nspins == 1:
         add(comment, 'Kpt  Band  Eigenvalues  Occupancy')
         for i in range(print_range):
-            eps_n = calc.get_eigenvalues(kpt=i, spin=0)
-            f_n = calc.get_occupation_numbers(kpt=i, spin=0)
-            if calc.wfs.world.rank == 0:
+            eps_n = wfs.collect_eigenvalues(i, 0)
+            f_n = wfs.collect_occupations(i, 0)
+            if wfs.world.rank == 0:
                 for n in range(m, j):
                     add('%3i %5d  %11.5f  %9.5f' % (i, n, eps_n[n], f_n[n]))
                 add()
@@ -468,11 +468,11 @@ def eigenvalue_string(calc, comment=' '):
             'Occupancy')
 
         for i in range(print_range):
-            epsa_n = calc.get_eigenvalues(kpt=i, spin=0, broadcast=False)
-            epsb_n = calc.get_eigenvalues(kpt=i, spin=1, broadcast=False)
-            fa_n = calc.get_occupation_numbers(kpt=i, spin=0, broadcast=False)
-            fb_n = calc.get_occupation_numbers(kpt=i, spin=1, broadcast=False)
-            if calc.wfs.world.rank == 0:
+            epsa_n = wfs.collect_eigenvalues(i, 0)
+            epsb_n = wfs.collect_eigenvalues(i, 1)
+            fa_n = wfs.collect_occupations(i, 0)
+            fb_n = wfs.collect_occupations(i, 1)
+            if wfs.world.rank == 0:
                 for n in range(m, j):
                     add('%3i %5d  %11.5f  %9.5f  %11.5f  %9.5f' %
                         (i, n, epsa_n[n], fa_n[n], epsb_n[n], fb_n[n]))

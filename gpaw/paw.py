@@ -46,7 +46,7 @@ class PAW:
         """
         if isinstance(newxc, str):
             newxc = XC(newxc)
-        self.txt.write('Linearizing xc-hamiltonian to ' + str(newxc))
+        self.log('Linearizing xc-hamiltonian to ' + str(newxc))
         newxc.initialize(self.density, self.hamiltonian, self.wfs,
                          self.occupations)
         self.hamiltonian.linearize_to_xc(newxc, self.density)
@@ -172,7 +172,7 @@ class PAW:
     def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None,
                                      expert=False):
         self.wfs.diagonalize_full_hamiltonian(self.hamiltonian, self.atoms,
-                                              self.occupations, self.txt,
+                                              self.occupations, self.log,
                                               nbands, scalapack, expert)
 
     def get_number_of_bands(self):
@@ -723,7 +723,7 @@ class PAW:
         return self.wfs.gd.N_c
 
     def get_number_of_iterations(self):
-        return self.scf.iter
+        return self.scf.niter
 
     def get_number_of_electrons(self):
         return self.wfs.setups.nvalence - self.density.charge

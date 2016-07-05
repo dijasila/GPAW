@@ -1375,11 +1375,6 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.poisson = PS()
         self.npoisson = 0
 
-    def summary(self, fd):
-        Hamiltonian.summary(self, fd)
-        fd.write('Interpolation: FFT\n')
-        fd.write('Poisson solver: FFT\n')
-
     def set_positions(self, spos_ac, atom_partition):
         Hamiltonian.set_positions(self, spos_ac, atom_partition)
         self.vbar_Q = self.pd2.zeros()

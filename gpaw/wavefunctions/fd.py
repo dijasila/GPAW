@@ -201,7 +201,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         writer.add_array(
             'values',
             (self.nspins, self.kd.nibzkpts, self.bd.nbands) +
-            tuple(self.gd.N_c),
+            tuple(self.gd.get_size_of_global_array()),
             self.dtype)
         
         for s in range(self.nspins):
