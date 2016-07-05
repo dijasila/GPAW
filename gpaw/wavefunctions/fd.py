@@ -224,19 +224,21 @@ class FDWaveFunctions(FDPWWaveFunctions):
             kpt.psit_nG = reader.wave_functions.proxy('values', kpt.s, kpt.k)
             kpt.psit_nG.scale = c
             
-        if self.world.size > 1:
-            # Read to memory:
-            for kpt in self.kpt_u:
-                psit_nG = kpt.psit_nG
-                kpt.psit_nG = self.empty(self.bd.mynbands)
-                # Read band by band to save memory
-                for myn, psit_G in enumerate(kpt.psit_nG):
-                    n = self.bd.global_index(myn)
-                    if self.gd.comm.rank == 0:
-                        big_psit_G = psit_nG[n]
-                    else:
-                        big_psit_G = None
-                    self.gd.distribute(big_psit_G, psit_G)
+        if self.world.size == 1:
+            return
+
+        # Read to memory:
+        for kpt in self.kpt_u:
+            psit_nG = kpt.psit_nG
+            kpt.psit_nG = self.empty(self.bd.mynbands)
+            # Read band by band to save memory
+            for myn, psit_G in enumerate(kpt.psit_nG):
+                n = self.bd.global_index(myn)
+                if self.gd.comm.rank == 0:
+                    big_psit_G = psit_nG[n]
+                else:
+                    big_psit_G = None
+                self.gd.distribute(big_psit_G, psit_G)
         
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
         for kpt in self.kpt_u:

@@ -8,7 +8,7 @@ tag = 'Ru001_Ru8'
 
 adsorbate_heights = {'H': 1.0, 'N': 1.108, 'O': 1.257}
 
-slab = hcp0001('Ru', size=(2, 2, 4), a=2.72, c=1.58*2.72, vacuum=7.0,
+slab = hcp0001('Ru', size=(2, 2, 4), a=2.72, c=1.58 * 2.72, vacuum=7.0,
                orthogonal=True)
 slab.center(axis=2)
 
@@ -22,7 +22,6 @@ slab.set_constraint(FixAtoms(mask=slab.get_tags() >= 3))
 calc = GPAW(xc='PBE',
             h=0.2,
             mixer=Mixer(0.1, 5, weight=100.0),
-            stencils=(3, 3),
             occupations=FermiDirac(width=0.1),
             kpts=[4, 4, 1],
             setups={'Ru': '8'},

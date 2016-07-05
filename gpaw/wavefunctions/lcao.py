@@ -210,7 +210,7 @@ class LCAOWaveFunctions(WaveFunctions):
                 density.initialize_from_wavefunctions(self)
             # Initialize GLLB-potential from basis function orbitals
             if hamiltonian.xc.type == 'GLLB':
-                hamiltonian.xc.initialize_from_atomic_orbitals(\
+                hamiltonian.xc.initialize_from_atomic_orbitals(
                     self.basis_functions)
 
         else:
@@ -876,25 +876,6 @@ class LCAOWaveFunctions(WaveFunctions):
             return psit_G
         else:
             return C_M
-
-    def load_lazily(self, hamiltonian, spos_ac):
-        """Horrible hack to recalculate lcao coefficients after restart."""
-        self.basis_functions.set_positions(spos_ac)
-        
-        class LazyLoader:
-            def __init__(self, hamiltonian, spos_ac):
-                self.spos_ac = spos_ac
-            
-            def load(self, wfs):
-                wfs.set_positions(self.spos_ac)  # this sets rank_a
-                # Now we need to pass atom_partition or things to work
-                # XXX WTF why does one have to fiddle with atom_partition???
-                hamiltonian.set_positions(self.spos_ac,
-                                          wfs.atom_partition)
-                wfs.eigensolver.iterate(hamiltonian, wfs)
-                del wfs.lazyloader
-        
-        self.lazyloader = LazyLoader(hamiltonian, spos_ac)
         
     def write(self, writer, write_wave_functions=False):
         if not write_wave_functions:
@@ -910,13 +891,8 @@ class LCAOWaveFunctions(WaveFunctions):
                 C_nM = self.collect_array('C_nM', k, s)
                 writer.fill(C_nM)
 
-    def read_coefficients(self, reader):
-        for kpt in self.kpt_u:
-            kpt.C_nM = self.bd.empty(self.setups.nao, dtype=self.dtype)
-            for myn, C_M in enumerate(kpt.C_nM):
-                n = self.bd.global_index(myn)
-                C_M[:] = reader.get('WaveFunctionCoefficients',
-                                         kpt.s, kpt.k, n)
+    def read(self, reader):
+        pass
 
     def estimate_memory(self, mem):
         nq = len(self.kd.ibzk_qc)

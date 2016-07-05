@@ -81,17 +81,17 @@ class OccupationNumbers:
         self.ready = False
 
     def write(self, writer):
-        writer.write(fermilevel=self.fermilevel,
-                     split=self.split,
-                     homo=self.homo,
-                     lumo=self.lumo)
+        writer.write(fermilevel=self.fermilevel * Hartree,
+                     split=self.split * Hartree,
+                     homo=self.homo * Hartree,
+                     lumo=self.lumo * Hartree)
         
     def read(self, reader):
         o = reader.occupations
-        self.fermilevel = o.fermilevel
-        self.split = o.split
-        self.homo = o.homo
-        self.lumo = o.lumo
+        self.fermilevel = o.fermilevel / reader.ha
+        self.split = o.split / reader.ha
+        self.homo = o.homo / reader.ha
+        self.lumo = o.lumo / reader.ha
         
     def extrapolate_energy_to_zero_width(self, e_free):
         return e_free

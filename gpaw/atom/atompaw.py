@@ -3,7 +3,7 @@ from math import pi, sqrt
 import numpy as np
 from ase.atoms import Atoms
 
-from gpaw.aseinterface import GPAW
+from gpaw.calculator import GPAW
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.utilities import unpack
@@ -283,7 +283,6 @@ class AtomPAW(GPAW):
                       mode=MakeWaveFunctions(gd),
                       eigensolver=AtomEigensolver(gd, f_sln),
                       poissonsolver=AtomPoissonSolver(),
-                      stencils=(1, 9),
                       nbands=sum([(2 * l + 1) * len(f_n)
                                   for l, f_n in enumerate(f_sln[0])]),
                       communicator=mpi.serial_comm,

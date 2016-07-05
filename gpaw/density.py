@@ -8,6 +8,7 @@ from __future__ import print_function
 from math import pi, sqrt
 
 import numpy as np
+from ase.units import Bohr
 
 from gpaw import debug
 from gpaw.mixer import BaseMixer, Mixer, MixerSum
@@ -547,7 +548,7 @@ class Density(object):
 
     def write(self, writer):
         writer.write(error=self.mixer.get_charge_sloshing(),
-                     density=self.gd.collect(self.nt_sG),
+                     density=self.gd.collect(self.nt_sG) / Bohr**3,
                      atomic_density_matrices=pack_atomic_matrices(self.D_asp))
         
     def read(self, reader):
@@ -555,7 +556,7 @@ class Density(object):
         self.mixer.set_charge_sloshing(density_error)
 
         nt_sG = self.gd.empty(self.nspins)
-        self.gd.distribute(reader.density.density, nt_sG)
+        self.gd.distribute(reader.density.density, nt_sG * reader.bohr**3)
 
         # Read atomic density matrices
         natoms = len(self.setups)

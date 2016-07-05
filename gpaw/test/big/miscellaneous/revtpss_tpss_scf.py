@@ -7,8 +7,11 @@ name='N2'
 a = Atoms([Atom('N', (L/2.+1.098/2.,L/2.,L/2.)),
            Atom('N', (L/2.-1.098/2.,L/2.,L/2.))], cell=(L, L, L), pbc=False)
 
-calc=GPAW(h=0.22, xc='PBE',convergence={'eigenstates':1.0e-7}, stencils=(3,3), txt = name+'.txt',
-          eigensolver='rmm-diis')
+calc = GPAW(h=0.22,
+            xc='PBE',
+            convergence={'eigenstates': 1.0e-7},
+            txt=name+'.txt',
+            eigensolver='rmm-diis')
 a.set_calculator(calc)
 e_n2 = a.get_potential_energy()
 n2t = calc.get_xc_difference('TPSS')
@@ -24,9 +27,13 @@ e_n2rt = a.get_potential_energy()
 name='N'
 b = Atoms([Atom('N', (L/2.,L/2.,L/2.),magmom=3)], cell=(L, L, L), pbc=False)
 
-calc=GPAW(h=0.22, xc='PBE',convergence={'eigenstates':1.0e-7}, stencils=(3,3), txt = name+'.txt',
-          eigensolver='rmm-diis',
-          fixmom=True, hund=True)
+calc = GPAW(h=0.22,
+            xc='PBE',
+            convergence={'eigenstates': 1.0e-7},
+            txt=name+'.txt',
+            eigensolver='rmm-diis',
+            fixmom=True,
+            hund=True)
 b.set_calculator(calc)
 e_n = b.get_potential_energy()
 nt = calc.get_xc_difference('TPSS')
@@ -45,4 +52,3 @@ print('Atm. TPSS(nsc)   ', ((e_n2+n2t)-2*(e_n+nt))*23.06)
 print('Atm. TPSS        ', (e_n2t-2*e_nt)*23.06)
 print('Atm. revTPSS(nsc)', ((e_n2+n2rt)-2*(e_n+nrt))*23.06)
 print('Atm. revTPSS     ', (e_n2rt-2*e_nrt)*23.06)
-

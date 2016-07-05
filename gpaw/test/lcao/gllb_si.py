@@ -6,10 +6,9 @@ from gpaw import GPAW
 # calculation, physically speaking, is garbage.
 
 si = bulk('Si', 'diamond', a=5.421)
-calc = GPAW(mode='lcao',
+calc = GPAW(mode=LCAO(interpolation=2),
             h=0.3,
             basis='sz(dzp)',
-            stencils=(2, 2),
             fixdensity=True,
             xc='GLLBSC',
             kpts={'size': (2, 2, 2), 'gamma': True},

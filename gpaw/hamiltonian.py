@@ -472,23 +472,24 @@ class Hamiltonian(object):
     def write(self, writer):
         # Write all eneriges:
         for name in ENERGY_NAMES:
-            writer.write(name, getattr(self, name))
+            writer.write(name, getattr(self, name) * Hartree)
         
         writer.write(
-            potential=self.gd.collect(self.vt_sG),
-            atomic_hamiltonian_matrices=pack_atomic_matrices(self.dH_asp))
+            potential=self.gd.collect(self.vt_sG) * Hartree,
+            atomic_hamiltonian_matrices=pack_atomic_matrices(self.dH_asp) *
+            Hartree)
 
     def read(self, reader):
         h = reader.hamiltonian
 
         # Read all energies:
         for name in ENERGY_NAMES:
-            setattr(self, name, h.get(name))
+            setattr(self, name, h.get(name) / reader.ha)
 
         # Read pseudo potential on the coarse grid
         # and broadcast on kpt/band comm:
         self.vt_sG = self.gd.empty(self.nspins)
-        self.gd.distribute(h.potential, self.vt_sG)
+        self.gd.distribute(h.potential / reader.ha, self.vt_sG)
 
         self.atom_partition = AtomPartition(self.gd.comm,
                                             np.zeros(len(self.setups), int),
@@ -496,7 +497,7 @@ class Hamiltonian(object):
 
         # Read non-local part of hamiltonian
         self.dH_asp = {}
-        dH_sP = h.atomic_hamiltonian_matrices
+        dH_sP = h.atomic_hamiltonian_matrices / reader.ha
 
         if self.gd.comm.rank == 0:
             self.dH_asp = unpack_atomic_matrices(dH_sP, self.setups)

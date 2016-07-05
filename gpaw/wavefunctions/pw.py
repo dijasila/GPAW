@@ -622,7 +622,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             (self.nspins, self.kd.nibzkpts, self.bd.nbands, self.pd.ngmax),
             complex)
 
-        c = Bohr**-1.5
+        c = units.Bohr**-1.5
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 for n in range(self.bd.nbands):
@@ -658,28 +658,36 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     kk += 1
 
     def read(self, reader):
+        if 'coefficients' not in reader.wave_functions:
+            return
+            
+        Q_kG = reader.wave_functions.indices
         for kpt in self.kpt_u:
             if kpt.s == 0:
-                Q_G = reader.get('PlaneWaveIndices', kpt.k)
+                Q_G = Q_kG[kpt.k]
                 ng = self.ng_k[kpt.k]
                 assert (Q_G[:ng] == self.pd.Q_qG[kpt.q]).all()
                 assert (Q_G[ng:] == -1).all()
 
-        if self.bd.comm.size == 1:
-            for kpt in self.kpt_u:
-                ng = self.ng_k[kpt.k]
-                kpt.psit_nG = reader.get_reference('PseudoWaveFunctions',
-                                                   (kpt.s, kpt.k),
-                                                   length=ng)
+        c = reader.bohr**1.5
+        for kpt in self.kpt_u:
+            ng = self.ng_k[kpt.k]
+            kpt.psit_nG = reader.wave_functions.proxy('coefficients',
+                                                      kpt.s, kpt.k)
+            kpt.psit_nG.scale = c
+            kpt.psit_nG.length_of_last_dimension = ng
+            
+        if self.world.size == 1:
             return
 
+        # Read to memory:
         for kpt in self.kpt_u:
+            psit_nG = kpt.psit_nG
             kpt.psit_nG = self.empty(self.bd.mynbands, q=kpt.q)
             ng = self.ng_k[kpt.k]
             for myn, psit_G in enumerate(kpt.psit_nG):
                 n = self.bd.global_index(myn)
-                psit_G[:] = reader.get('PseudoWaveFunctions',
-                                       kpt.s, kpt.k, n)[..., :ng]
+                psit_G[:] = psit_nG[n]
 
     def hs(self, ham, q=-1, s=0, md=None):
         npw = len(self.pd.Q_qG[q])
