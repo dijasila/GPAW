@@ -6,7 +6,7 @@ from gpaw.test import equal
 # Self-consistent calculation:
 a = 2.5
 slab = Atoms('Li', cell=(a, a, 2 * a), pbc=1)
-slab.calc = GPAW(kpts=(3,3,1), txt='li.txt',
+slab.calc = GPAW(kpts=(3, 3, 1), txt='li.txt',
                  parallel=dict(kpt=1))
 slab.get_potential_energy()
 slab.calc.write('Li.gpw')
@@ -15,7 +15,7 @@ slab.calc.write('Li.gpw')
 e1 = slab.calc.get_eigenvalues(kpt=0)[0]
 
 # Fix density and continue:
-kpts = [(0,0,0)]
+kpts = [(0, 0, 0)]
 slab.calc.set(fixdensity=True,
               nbands=5,
               kpts=kpts,
@@ -25,7 +25,7 @@ slab.get_potential_energy()
 e2 = slab.calc.get_eigenvalues(kpt=0)[0]
 
 # Start from gpw-file:
-calc = GPAW('Li.gpw', 
+calc = GPAW('Li.gpw',
             fixdensity=True,
             nbands=5,
             kpts=kpts,

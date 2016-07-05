@@ -65,8 +65,6 @@ def print_parallelization_details(wfs, dens, log):
         log('Parallelization over states: %d' % wfs.bd.comm.size)
 
 
-
-
 def plot(atoms):
     """Ascii-art plot of the atoms."""
 

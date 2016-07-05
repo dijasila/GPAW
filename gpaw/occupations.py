@@ -604,6 +604,9 @@ class FermiDirac(SmoothDistribution):
     def __init__(self, width, fixmagmom=False):
         SmoothDistribution.__init__(self, width, fixmagmom)
 
+    def todict(self):
+        return {'name': 'fermi-dirac', 'width': self.width * Hartree}
+        
     def __str__(self):
         s = '  Fermi-Dirac: width={0:.4f} eV\n'.format(self.width * Hartree)
         return SmoothDistribution.__str__(self) + s

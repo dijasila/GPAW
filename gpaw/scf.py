@@ -101,6 +101,9 @@ class SCFLoop:
                   'force': np.inf,
                   'energy': np.inf}
 
+        if dens.fixed:
+            errors['density'] = 0.0
+            
         if len(self.old_energies) >= 3:
             errors['energy'] = np.ptp(self.old_energies[-3:])
 

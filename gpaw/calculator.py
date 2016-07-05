@@ -1,4 +1,6 @@
 """ASE-calculator interface."""
+import warnings
+
 import numpy as np
 from ase.units import Bohr, Hartree
 from ase.calculators.calculator import Calculator, Parameters
@@ -30,7 +32,6 @@ from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
 from gpaw.utilities.partition import AtomPartition
 from gpaw import dry_run, memory_estimate_depth
-
 from gpaw.paw import PAW
 from gpaw.io import Reader, Writer
 from gpaw.forces import calculate_forces
@@ -57,7 +58,6 @@ class GPAW(Calculator, PAW):
         'basis': {},
         'spinpol': None,
         'fixdensity': False,
-        'dtype': None,
         'filter': None,
         'mixer': None,
         'eigensolver': None,
@@ -67,7 +67,6 @@ class GPAW(Calculator, PAW):
         'txt': '-',
         'hund': False,
         'maxiter': 333,
-        'verbose': 0,
         'idiotproof': True,
         'symmetry': {'point_group': True,
                      'time_reversal': True,
@@ -90,7 +89,9 @@ class GPAW(Calculator, PAW):
                      'sl_inverse_cholesky': gpaw.sl_inverse_cholesky,
                      'sl_lcao': gpaw.sl_lcao,
                      'sl_lrtddft': gpaw.sl_lrtddft,
-                     'buffer_size': gpaw.buffer_size}}
+                     'buffer_size': gpaw.buffer_size},
+        'dtype': None,
+        'verbose': 0}
 
     def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
                  atoms=None, timer=None, communicator=None, **kwargs):
@@ -167,6 +168,7 @@ class GPAW(Calculator, PAW):
         atoms = self.atoms
         
         if system_changes:
+            self.log('System changes:', ', '.join(system_changes))
             if system_changes == ['positions']:
                 # Only positions have changed:
                 self.density.reset()
@@ -273,7 +275,7 @@ class GPAW(Calculator, PAW):
                 continue
 
             self.scf = None
-            self.reset()
+            self.results = {}
             
             if key in ['convergence', 'fixdensity', 'maxiter']:
                 continue
@@ -295,7 +297,7 @@ class GPAW(Calculator, PAW):
                 self.wfs = None
                 self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol',
-                         'parallel', 'communicator', 'dtype', 'mode']:
+                         'parallel', 'dtype', 'mode']:
                 self.density = None
                 self.occupations = None
                 self.hamiltonian = None
@@ -372,6 +374,13 @@ class GPAW(Calculator, PAW):
         elif mode == 'lcao':
             mode = LCAO()
 
+        if par.dtype == complex:
+            warnings.warn('Use mode={0}(..., force_complex_dtype=True) '
+                          'instead of dtype=complex'.format(mode.name.upper()))
+            mode.force_complex_dtype = True
+            del par.dtype
+            par.mode = mode
+            
         if xc.orbital_dependent and mode.name == 'lcao':
             raise NotImplementedError('LCAO mode does not support '
                                       'orbital-dependent XC functionals.')
@@ -773,7 +782,7 @@ class GPAW(Calculator, PAW):
         gd = self.create_grid_descriptor(N_c, cell_cv, pbc_c,
                                          domain_comm, parsize_domain)
 
-        if hasattr(self, 'time') or par.dtype == complex:
+        if hasattr(self, 'time') or mode.force_complex_dtype:
             dtype = complex
         else:
             if kd.gamma:

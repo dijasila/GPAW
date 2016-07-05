@@ -10,22 +10,24 @@ from gpaw.fd_operators import Laplace, Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.wavefunctions.mode import Mode
 
 
-class FD:
+class FD(Mode):
     name = 'fd'
 
-    def __init__(self, nn=3, interpolation=3):
+    def __init__(self, nn=3, interpolation=3, force_complex_dtype=False):
         self.nn = nn
         self.interpolation = interpolation
+        Mode.__init__(self, force_complex_dtype)
 
     def __call__(self, *args, **kwargs):
         return FDWaveFunctions(self.nn, *args, **kwargs)
 
-    def todict(self):
-        return {'mode': 'fd',
-                'nn': self.nn,
-                'interpolation': self.interpolation}
+    def write(self, writer):
+        Mode.write(self, writer)
+        writer.write(nn=self.nn,
+                     interpolation=self.interpolation)
         
 
 class FDWaveFunctions(FDPWWaveFunctions):

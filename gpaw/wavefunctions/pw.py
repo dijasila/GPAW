@@ -25,12 +25,14 @@ from gpaw.utilities import unpack
 from gpaw.utilities.blas import rk, r2k, gemv, gemm, axpy
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
+from gpaw.wavefunctions.mode import Mode
 
 
-class PW:
+class PW(Mode):
     name = 'pw'
     
-    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None):
+    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None,
+                 force_complex_dtype=False):
         """Plane-wave basis mode.
 
         ecut: float
@@ -47,6 +49,8 @@ class PW:
             self.cell_cv = None
         else:
             self.cell_cv = cell / units.Bohr
+        
+        Mode.__init__(self, force_complex_dtype)
 
     def __call__(self, diagksl, orthoksl, initksl, gd, *args, **kwargs):
         if self.cell_cv is None:
@@ -61,12 +65,11 @@ class PW:
                               **kwargs)
         return wfs
 
-    def todict(self):
-        dct = {'mode': 'pw',
-               'ecut': self.ecut * units.Hartree}
+    def write(self, writer):
+        Mode.write(self, writer)
+        writer.write(ecut=self.ecut * units.Hartree)
         if self.cell_cv is not None:
-            dct['cell'] = self.cell_vc * units.Bohr
-        return dct
+            writer.write(cell=self.cell_cv * units.Bohr)
         
 
 class PWDescriptor:
@@ -611,8 +614,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return psit_G
 
     def write(self, writer, write_wave_functions=False):
-        writer.write(cutoff_energy=self.ecut)
-
         if not write_wave_functions:
             return
 
@@ -621,13 +622,14 @@ class PWWaveFunctions(FDPWWaveFunctions):
             (self.nspins, self.kd.nibzkpts, self.bd.nbands, self.pd.ngmax),
             complex)
 
+        c = Bohr**-1.5
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 for n in range(self.bd.nbands):
                     psit_G = self.get_wave_function_array(n, k, s,
                                                           realspace=False,
                                                           cut=False)
-                    writer.fill(psit_G)
+                    writer.fill(psit_G * c)
 
         writer.add_array('indices', (self.kd.nibzkpts, self.pd.ngmax),
                          np.int32)
