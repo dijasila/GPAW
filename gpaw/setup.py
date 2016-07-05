@@ -1415,7 +1415,8 @@ class Setups(list):
             s += txt + basis_descr
             
         s += '  Reference Energy: %.6f' % (self.Eref * units.Hartree)
-            
+        return s
+        
     def set_symmetry(self, symmetry):
         """Find rotation matrices for spherical harmonics."""
         R_slmm = []

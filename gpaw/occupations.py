@@ -93,7 +93,7 @@ class OccupationNumbers:
         self.homo = o.homo
         self.lumo = o.lumo
         
-    def extrapolate_energy_to_zero_width(self.e_free):
+    def extrapolate_energy_to_zero_width(self, e_free):
         return e_free
         
     def calculate(self, wfs):
@@ -153,9 +153,6 @@ class OccupationNumbers:
         for kpt in wfs.kpt_u:
             e_band += np.dot(kpt.f_n, kpt.eps_n)
         self.e_band = wfs.kptband_comm.sum(e_band)
-
-    def print_fermi_level(self, stream):
-        pass
 
     def get_fermi_level(self):
         raise ValueError('Can not calculate Fermi level!')
@@ -280,16 +277,15 @@ class ZeroKelvin(OccupationNumbers):
             return eps_n[n], eps_n[n]
         return eps_n[n - 1], eps_n[n]
 
-    def print_fermi_level(self, stream):
+    def summary(self, log):
         if self.fermilevel is not None and np.isfinite(self.fermilevel):
             # if self.split == 0.0:
             if not self.fixmagmom:
-                stream.write('Fermi Level: %.5f\n' %
-                             (Hartree * self.fermilevel))
+                log('Fermi level: %.5f\n' % (Hartree * self.fermilevel))
             else:
-                stream.write('Fermi Levels: %.5f, %.5f\n' %
-                             (Hartree * (self.fermilevel + 0.5 * self.split),
-                              Hartree * (self.fermilevel - 0.5 * self.split)))
+                log('Fermi levels: %.5f, %.5f\n' %
+                    (Hartree * (self.fermilevel + 0.5 * self.split),
+                     Hartree * (self.fermilevel - 0.5 * self.split)))
 
     def get_fermi_level(self):
         """This function returns the calculated fermi-level.

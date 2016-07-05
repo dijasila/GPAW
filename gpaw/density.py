@@ -98,7 +98,17 @@ class Density(object):
         if self.fixed:
             s += '  Fixed\n'
         return s
-        
+
+    def summary(self, atoms, magmom, log):
+        if self.nspins == 1:
+            return
+        try:
+            # XXX This doesn't always work, HGH, SIC, ...
+            sc = self.get_spin_contamination(atoms, int(magmom < 0))
+            log('Spin contamination: %f electrons' % sc)
+        except (TypeError, AttributeError):
+            pass
+            
     def initialize(self, setups, timer, magmom_a, hund):
         self.timer = timer
         self.setups = setups

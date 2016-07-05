@@ -13,7 +13,8 @@ from gpaw.scf import SCFLoop
 from gpaw.setup import Setups
 from gpaw.symmetry import Symmetry
 import gpaw.wavefunctions.pw as pw
-from gpaw.output import GPAWLogger
+from gpaw.output import (GPAWLogger, print_cell, print_positions,
+                         print_parallelization_details)
 import gpaw.occupations as occupations
 from gpaw.wavefunctions.lcao import LCAO
 from gpaw.wavefunctions.fd import FD
@@ -117,6 +118,9 @@ class GPAW(Calculator, PAW):
         
         Calculator.__init__(self, restart, ignore_bad_restart_file, label,
                             atoms, **kwargs)
+    
+    def __del__(self):
+        self.timer.write(self.log.fd)
 
     def read(self, filename):
         reader = Reader(filename)
@@ -181,28 +185,39 @@ class GPAW(Calculator, PAW):
             self.set_positions(atoms)
             
         if not self.scf.converged:
-            print_cell(self.wfs.gd, self.atoms.pbc)
+            print_cell(self.wfs.gd, self.atoms.pbc, self.log)
             
             with self.timer('SCF-cycle'):
                 self.scf.run(self.wfs, self.hamiltonian,
                              self.density, self.occupations,
-                             self, self.call_observers)
+                             self.log, self.call_observers)
     
-            e_free = self.hamiltonian.e_total_free
-            e_extrapolated = self.hamiltonian.e_total_extrapolated
-            dipole_v = self.density.calculate_dipole_moment()
-            magmom_a = self.density.estimate_magnetic_moments(
-                total=self.occupations.magmom)
-            
-            self.results['energy'] = e_extrapolated * Hartree
-            self.results['free_energy'] = e_free * Hartree
-            self.results['dipole'] = dipole_v * Bohr
-            self.results['magmom'] = self.occupations.magmom
-            self.results['magmoms'] = magmom_a
-    
-            self.call_observers(self.scf.niter, final=True)
             self.log('------------------------------------')
             self.log('Converged After %d Iterations.' % self.scf.niter)
+
+            e_free = self.hamiltonian.e_total_free
+            e_extrapolated = self.hamiltonian.e_total_extrapolated
+            self.results['energy'] = e_extrapolated * Hartree
+            self.results['free_energy'] = e_free * Hartree
+
+            if not self.atoms.pbc.all() and self.density.charge == 0:
+                dipole_v = self.density.calculate_dipole_moment() * Bohr
+                self.log('Dipole Moment: ({0:.6f}, {1:.6f}, {2:.6f}) |e|*Ang'
+                         .format(*dipole_v))
+                self.results['dipole'] = dipole_v
+                
+            if self.wfs.nspins == 2:
+                magmom = self.occupations.magmom
+                magmom_a = self.density.estimate_magnetic_moments(
+                    total=magmom)
+                self.log('Total magnetic moment: %f' % magmom)
+                self.log('Local magnetic moments:')
+                for a, mom in enumerate(magmom_a):
+                    self.log('{0:4} {1:.6f}'.format(a, mom))
+                self.results['magmom'] = self.occupations.magmom
+                self.results['magmoms'] = magmom_a
+    
+            self.call_observers(self.scf.niter, final=True)
         
         if 'forces' in properties:
             with self.timer('Forces'):
@@ -214,6 +229,14 @@ class GPAW(Calculator, PAW):
             with self.timer('Stress'):
                 stress = calculate_stress(self).flat[[0, 4, 8, 5, 2, 1]]
                 self.results['stress'] = stress * (Hartree / Bohr**3)
+                
+        self.summary()
+        
+    def summary(self):
+        self.hamiltonian.summary(self.occupations.fermilevel, self.log)
+        self.density.summary(self.atoms, self.occupations.magmom, self.log)
+        self.occupations.summary(self.log)
+        self.wfs.summary(self.log)
             
     def set(self, **kwargs):
         """Change parameters for calculator.
@@ -227,8 +250,8 @@ class GPAW(Calculator, PAW):
         changed_parameters = Calculator.set(self, **kwargs)
 
         # We need to handle txt early in order to get logging up and running:
-        if 'txt' in changed_parameters:
-            self.set_txt(changed_parameters.pop('txt'), self.world)
+        if 'txt' in changed_parameters or self.log.fd is None:
+            self.log.fd = changed_parameters.pop('txt', '-')
             
         if not changed_parameters:
             return {}
@@ -319,8 +342,6 @@ class GPAW(Calculator, PAW):
             self.atoms = atoms.copy()
 
         par = self.parameters
-
-        self.log.verbose = par.verbose
 
         natoms = len(atoms)
 
@@ -437,7 +458,7 @@ class GPAW(Calculator, PAW):
         self.occupations.magmom = magmom_a.sum()
         
         if self.scf is None:
-            self.create_scf(nvalence)
+            self.create_scf(nvalence, mode)
     
         self.create_symmetry(magmom_a, cell_cv)
         
@@ -450,7 +471,7 @@ class GPAW(Calculator, PAW):
             self.wfs.set_setups(self.setups)
 
         if not self.wfs.eigensolver:
-            self.create_eigensolver(xc)
+            self.create_eigensolver(xc, nbands, mode)
             
         if self.density is None:
             self.create_density(realspace, mode)
@@ -470,7 +491,9 @@ class GPAW(Calculator, PAW):
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
 
-        self.print_memory_estimate(self.txt, maxdepth=memory_estimate_depth)
+        self.print_memory_estimate(maxdepth=memory_estimate_depth)
+        
+        print_parallelization_details(self.wfs, self.density, self.log)
         
         self.log('Number of Atoms:', natoms)
         self.log('Number of Atomic Orbitals:', self.wfs.setups.nao)
@@ -505,7 +528,7 @@ class GPAW(Calculator, PAW):
         self.initialized = True
 
     def create_setups(self, mode, xc):
-        if self.pararameters.filter is None and mode.name != 'pw':
+        if self.parameters.filter is None and mode.name != 'pw':
             gamma = 1.6
             N_c = self.parameters.get('gpts')
             if N_c is None:
@@ -756,7 +779,6 @@ class GPAW(Calculator, PAW):
             else:
                 dtype = complex
 
-        # do k-point analysis here? XXX
         wfs_kwargs = dict(gd=gd, nvalence=nvalence, setups=setups,
                           bd=bd, dtype=dtype, world=self.world, kd=kd,
                           kptband_comm=kptband_comm, timer=self.timer)
@@ -871,7 +893,7 @@ class GPAW(Calculator, PAW):
 
     def dry_run(self):
         # Can be overridden like in gpaw.atom.atompaw
-        self.print_cell_and_parameters()
-        self.print_positions()
-        self.txt.flush()
+        print_cell(self.wfs.gd, self.atoms.pbc, self.log)
+        print_positions(self.atoms, self.log)
+        self.log.fd.flush()
         raise SystemExit

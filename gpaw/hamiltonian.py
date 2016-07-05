@@ -5,6 +5,7 @@
 """This module defines a Hamiltonian."""
 
 import numpy as np
+from ase.units import Hartree
 
 from gpaw.poisson import PoissonSolver
 from gpaw.transformers import Transformer
@@ -81,10 +82,41 @@ class Hamiltonian(object):
         desc = self.xc.get_description()
         if desc is not None:
             s += '  Details:\n    {0}\n'.format('\n'.join(desc.splitlines()))
-        if self.hamiltonian.vext is not None:
+        if self.vext is not None:
             s += '  External potential:\n    {0}\n'.format(self.vext)
         return s
-        
+    
+    def summary(self, fermilevel, log):
+        log('Energy contributions relative to reference atoms:',
+            '(reference = {0:.6f})'.format(self.setups.Eref * Hartree))
+        log('-------------------------')
+
+        energies = [('Kinetic:      ', self.e_kinetic),
+                    ('Potential:    ', self.e_coulomb),
+                    ('External:     ', self.e_external),
+                    ('XC:           ', self.e_xc),
+                    ('Entropy (-ST):', self.e_entropy),
+                    ('Local:        ', self.e_zero)]
+
+        for name, e in energies:
+            log('%-14s %+11.6f' % (name, Hartree * e))
+
+        log('-------------------------')
+        log('Free Energy:   %+11.6f' % (Hartree * self.e_total_free))
+        log('Extrapolated:   %+11.6f' % (Hartree * self.e_total_extrapolated))
+        log()
+        self.xc.summary(log)
+
+        try:
+            correction = self.poisson.correction
+        except AttributeError:
+            pass
+        else:
+            wf1 = (-fermilevel + correction) * Hartree
+            wf2 = (-fermilevel - correction) * Hartree
+            log('Dipole-layer corrected work functions: {0}, {1} eV'
+                .format(wf1, wf2))
+
     def set_positions_without_ruining_everything(self, spos_ac,
                                                  atom_partition):
         self.spos_ac = spos_ac
@@ -503,15 +535,15 @@ class RealSpaceHamiltonian(Hamiltonian):
             b_xg = self.restrictor.apply(a_xg, output=b_xg, phases=phases)
         return b_xg
 
-    def summary(self, fd):
-        Hamiltonian.summary(self, fd)
+    def __str__(self):
+        s = Hamiltonian.__str__(self)
 
         degree = self.restrictor.nn * 2 - 1
         name = ['linear', 'cubic', 'quintic', 'heptic'][degree // 2]
-        fd.write('Interpolation: tri-%s ' % name +
-                 '(%d. degree polynomial)\n' % degree)
-
-        fd.write('Poisson solver: %s\n' % self.poisson.get_description())
+        s += ('  Interpolation: tri-%s ' % name +
+              '(%d. degree polynomial)\n' % degree)
+        s += 'Poisson solver: %s\n' % self.poisson.get_description()
+        return s
 
     def set_positions(self, spos_ac, rank_a):
         Hamiltonian.set_positions(self, spos_ac, rank_a)

@@ -39,7 +39,7 @@ class SCFLoop:
             ('integral of absolute eigenstate change: {0:g} eV^2',
              cc['eigenstates'] * Hartree**2 / self.nvalence),
             ('change in atomic force: {0:g} eV / Ang',
-             cc['forces'] * Hartree / Bohr),
+             cc['force'] * Hartree / Bohr),
             ('number of iterations: {0}', self.maxiter)]:
             if val < np.inf:
                 s += '  Maximum {0}\n'.format(name.format(val))
@@ -57,7 +57,7 @@ class SCFLoop:
         self.converged = False
 
     def run(self, wfs, ham, dens, occ, log, callback):
-        for self.iter in range(1, self.maxiter + 1):
+        for self.niter in range(1, self.maxiter + 1):
             wfs.eigensolver.iterate(ham, wfs)
             occ.calculate(wfs)
 
@@ -73,13 +73,13 @@ class SCFLoop:
             else:
                 self.converged = True
                 
-            callback(self.iter)
-            self.log(log, self.iter, wfs, ham, dens, occ, errors)
+            callback(self.niter)
+            self.log(log, self.niter, wfs, ham, dens, occ, errors)
             
             if self.converged:
                 break
 
-            if self.iter > self.niter_fixdensity and not dens.fixed:
+            if self.niter > self.niter_fixdensity and not dens.fixed:
                 dens.update(wfs)
                 ham.update(dens)
             else:
@@ -112,7 +112,7 @@ class SCFLoop:
                 
         return errors
 
-    def log(self, log, iter, wfs, ham, dens, occ, errors):
+    def log(self, log, niter, wfs, ham, dens, occ, errors):
         """Output from each iteration."""
 
         nvalence = wfs.nvalence
@@ -123,74 +123,63 @@ class SCFLoop:
 
         T = time.localtime()
         
-        if log.verbose != 0:
-            log()
-            log('------------------------------------')
-            log('iter: %d %d:%02d:%02d' % (iter, T[3], T[4], T[5]))
-            log()
-            log('Poisson Solver Converged in %d Iterations' % ham.npoisson)
-            log('Fermi Level Found  in %d Iterations' % occ.niter)
-            log('Error in Wave Functions: %.13f' % eigerr)
-            log()
-            log.print_all_information()
-        else:
-            if iter == 1:
-                header = """\
-                     log10-error:    Total        Iterations:
-           Time      WFS    Density  Energy       Fermi  Poisson"""
-                if wfs.nspins == 2:
-                    header += '  MagMom'
-                if self.max_errors['force'] < np.inf:
-                    l1 = header.find('Total')
-                    header = header[:l1] + '       ' + header[l1:]
-                    l2 = header.find('Energy')
-                    header = header[:l2] + 'Force  ' + header[l2:]
-                log(header)
-
-            if eigerr == 0.0:
-                eigerr = ''
-            else:
-                eigerr = '%+.2f' % (ln(eigerr) / ln(10))
-
-            denserr = dens.mixer.get_charge_sloshing()
-            if denserr is None or denserr == 0 or nvalence == 0:
-                denserr = ''
-            else:
-                denserr = '%+.2f' % (ln(denserr / nvalence) / ln(10))
-
-            niterocc = occ.niter
-            if niterocc == -1:
-                niterocc = ''
-            else:
-                niterocc = '%d' % niterocc
-
-            if ham.npoisson == 0:
-                niterpoisson = ''
-            else:
-                niterpoisson = str(ham.npoisson)
-
-            log('iter: %3d  %02d:%02d:%02d %6s %6s  ' %
-                (iter,
-                 T[3], T[4], T[5],
-                 eigerr,
-                 denserr), end='')
-
-            if self.max_errors['force'] < np.inf:
-                if errors['force'] is not None:
-                    log('  %+.2f' %
-                        (ln(errors['force']) / ln(10)), end='')
-                else:
-                    log('       ', end='')
-
-            log('%11.6f    %-5s  %-7s' %
-                (Hartree * ham.e_total_extrapolated,
-                 niterocc,
-                 niterpoisson), end='')
-
+        if niter == 1:
+            header = """\
+                 log10-error:    Total        Iterations:
+       Time      WFS    Density  Energy       Fermi  Poisson"""
             if wfs.nspins == 2:
-                log('  %+.4f' % occ.magmom, end='')
+                header += '  MagMom'
+            if self.max_errors['force'] < np.inf:
+                l1 = header.find('Total')
+                header = header[:l1] + '       ' + header[l1:]
+                l2 = header.find('Energy')
+                header = header[:l2] + 'Force  ' + header[l2:]
+            log(header)
 
-            log(flush=True)
+        if eigerr == 0.0:
+            eigerr = ''
+        else:
+            eigerr = '%+.2f' % (ln(eigerr) / ln(10))
+
+        denserr = dens.mixer.get_charge_sloshing()
+        if denserr is None or denserr == 0 or nvalence == 0:
+            denserr = ''
+        else:
+            denserr = '%+.2f' % (ln(denserr / nvalence) / ln(10))
+
+        niterocc = occ.niter
+        if niterocc == -1:
+            niterocc = ''
+        else:
+            niterocc = '%d' % niterocc
+
+        if ham.npoisson == 0:
+            niterpoisson = ''
+        else:
+            niterpoisson = str(ham.npoisson)
+
+        log('iter: %3d  %02d:%02d:%02d %6s %6s  ' %
+            (niter,
+             T[3], T[4], T[5],
+             eigerr,
+             denserr), end='')
+
+        if self.max_errors['force'] < np.inf:
+            if errors['force'] is not None:
+                log('  %+.2f' %
+                    (ln(errors['force']) / ln(10)), end='')
+            else:
+                log('       ', end='')
+
+        log('%11.6f    %-5s  %-7s' %
+            (Hartree * ham.e_total_extrapolated,
+             niterocc,
+             niterpoisson), end='')
+
+        if wfs.nspins == 2:
+            log('  %+.4f' % occ.magmom, end='')
+
+        log(flush=True)
 
         
 oops = """

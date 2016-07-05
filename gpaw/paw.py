@@ -10,7 +10,6 @@ The central object that glues everything together!"""
 import numpy as np
 from ase.units import Bohr, Hartree
 
-import gpaw.io
 from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.external import PointChargePotential
 from gpaw.xc import XC
@@ -114,7 +113,7 @@ class PAW:
                           ('Wavefunctions', self.wfs)]:
             obj.estimate_memory(mem.subnode(name))
 
-    def print_memory_estimate(self, txt=None, maxdepth=-1):
+    def print_memory_estimate(self, log=None, maxdepth=-1):
         """Print estimated memory usage for PAW object and components.
 
         maxdepth is the maximum nesting level of displayed components.
@@ -125,23 +124,23 @@ class PAW:
         #
         # However, the initial overhead estimate is wrong if this method
         # is called within a real mpirun/gpaw-python context.
-        if txt is None:
-            txt = self.txt
-        txt.write('Memory estimate\n')
-        txt.write('---------------\n')
+        if log is None:
+            log = self.log
+        log('Memory estimate')
+        log('---------------')
 
         mem_init = maxrss()  # initial overhead includes part of Hamiltonian!
-        txt.write('Process memory now: %.2f MiB\n' % (mem_init / 1024.0**2))
+        log('Process memory now: %.2f MiB' % (mem_init / 1024.0**2))
 
         mem = MemNode('Calculator', 0)
         try:
             self.estimate_memory(mem)
         except AttributeError as m:
-            txt.write('Attribute error: %r' % m)
-            txt.write('Some object probably lacks estimate_memory() method')
-            txt.write('Memory breakdown may be incomplete')
+            log('Attribute error: %r' % m)
+            log('Some object probably lacks estimate_memory() method')
+            log('Memory breakdown may be incomplete')
         mem.calculate_size()
-        mem.write(txt, maxdepth=maxdepth)
+        mem.write(log.fd, maxdepth=maxdepth)
 
     def converge_wave_functions(self):
         """Converge the wave-functions if not present."""
