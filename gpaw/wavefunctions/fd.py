@@ -213,35 +213,30 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     writer.fill(psit_G)
 
     def read(self, reader):
-        if ((not hdf5 and self.bd.comm.size == 1) or
-            (hdf5 and self.world.size == 1)):
+        if 'values' not in reader.wave_functions:
+            return
+            
+        c = reader.bohr**1.5
+        for kpt in self.kpt_u:
             # We may not be able to keep all the wave
             # functions in memory - so psit_nG will be a special type of
             # array that is really just a reference to a file:
+            kpt.psit_nG = reader.wave_functions.proxy('values', kpt.s, kpt.k)
+            kpt.psit_nG.scale = c
+            
+        if self.world.size > 1:
+            # Read to memory:
             for kpt in self.kpt_u:
-                kpt.psit_nG = reader.get_reference('PseudoWaveFunctions',
-                                                   (kpt.s, kpt.k))
-        else:
-            for kpt in self.kpt_u:
+                psit_nG = kpt.psit_nG
                 kpt.psit_nG = self.empty(self.bd.mynbands)
-                if hdf5:
-                    indices = [kpt.s, kpt.k]
-                    indices.append(self.bd.get_slice())
-                    indices += self.gd.get_slice()
-                    reader.get('PseudoWaveFunctions', out=kpt.psit_nG,
-                               parallel=(self.world.size > 1), *indices)
-                else:
-                    # Read band by band to save memory
-                    for myn, psit_G in enumerate(kpt.psit_nG):
-                        n = self.bd.global_index(myn)
-                        if self.gd.comm.rank == 0:
-                            big_psit_G = np.array(
-                                reader.get('PseudoWaveFunctions',
-                                           kpt.s, kpt.k, n),
-                                self.dtype)
-                        else:
-                            big_psit_G = None
-                        self.gd.distribute(big_psit_G, psit_G)
+                # Read band by band to save memory
+                for myn, psit_G in enumerate(kpt.psit_nG):
+                    n = self.bd.global_index(myn)
+                    if self.gd.comm.rank == 0:
+                        big_psit_G = psit_nG[n]
+                    else:
+                        big_psit_G = None
+                    self.gd.distribute(big_psit_G, psit_G)
         
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
         for kpt in self.kpt_u:

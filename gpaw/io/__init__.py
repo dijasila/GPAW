@@ -6,4 +6,4 @@ def Reader(filename):
 
     
 def Writer(filename):
-    return aff.Writer(filename)
+    return aff.Writer(filename, tag='GPAW')

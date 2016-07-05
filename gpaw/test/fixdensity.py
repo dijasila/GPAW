@@ -31,7 +31,7 @@ calc = GPAW('Li.gpw',
             kpts=kpts,
             symmetry='off',
             eigensolver='cg')
-calc.scf.reset()
+
 calc.get_potential_energy()
 e3 = calc.get_eigenvalues(kpt=0)[0]
 

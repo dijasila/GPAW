@@ -94,7 +94,7 @@ class GPAW(Calculator, PAW):
         'verbose': 0}
 
     def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
-                 atoms=None, timer=None, communicator=None, **kwargs):
+                 atoms=None, timer=None, communicator=None, txt='-', **kwargs):
     
         if timer is None:
             self.timer = Timer()
@@ -117,6 +117,7 @@ class GPAW(Calculator, PAW):
             self.world = mpi.world.new_communicator(np.asarray(self.world))
 
         self.log = GPAWLogger(world=self.world)
+        self.log.fd = txt
         
         Calculator.__init__(self, restart, ignore_bad_restart_file, label,
                             atoms, **kwargs)
@@ -128,8 +129,15 @@ class GPAW(Calculator, PAW):
         reader = Reader(filename)
         self.atoms = read_atoms(reader.atoms)
         self.results = reader.results
-        self.parameters = Parameters(reader.parameters)
         
+        par = reader.parameters
+        new = dict((key, par.get(key)) for key in par.keys())
+        self.parameters = self.get_default_parameters()
+        self.parameters.update(new)
+        self.log('Reading input parameters:')
+        for key, value in sorted(new.items()):
+            self.log('  {0}: {1}'.format(key, value))
+                
         self.initialize()
 
         self.density.read(reader)
@@ -137,7 +145,7 @@ class GPAW(Calculator, PAW):
         self.scf.read(reader)
         self.wfs.read(reader)
 
-        self.reader.close()
+        reader.close()
         
     def write(self, filename, mode=''):
         writer = Writer(filename)
@@ -254,8 +262,8 @@ class GPAW(Calculator, PAW):
         changed_parameters = Calculator.set(self, **kwargs)
 
         # We need to handle txt early in order to get logging up and running:
-        if 'txt' in changed_parameters or self.log.fd is None:
-            self.log.fd = changed_parameters.pop('txt', '-')
+        if 'txt' in changed_parameters:
+            self.log.fd = changed_parameters.pop('txt')
             
         if not changed_parameters:
             return {}
@@ -263,7 +271,7 @@ class GPAW(Calculator, PAW):
         self.initialized = False
 
         self.log('Input parameters:')
-        for key in changed_parameters:
+        for key in sorted(changed_parameters):
             self.log('  {0}: {1}'.format(key, changed_parameters[key]))
 
             if key == 'eigensolver' and self.wfs:

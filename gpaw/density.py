@@ -546,7 +546,7 @@ class Density(object):
         return gd.integrate(dt_sg)
 
     def write(self, writer):
-        writer.write(density_error=self.mixer.get_charge_sloshing(),
+        writer.write(error=self.mixer.get_charge_sloshing(),
                      density=self.gd.collect(self.nt_sG),
                      atomic_density_matrices=pack_atomic_matrices(self.D_asp))
         

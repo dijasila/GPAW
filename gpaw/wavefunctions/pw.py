@@ -657,8 +657,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     assert k == kk
                     kk += 1
 
-    def read(self, reader, hdf5):
-        assert reader['version'] >= 3
+    def read(self, reader):
         for kpt in self.kpt_u:
             if kpt.s == 0:
                 Q_G = reader.get('PlaneWaveIndices', kpt.k)
@@ -666,7 +665,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 assert (Q_G[:ng] == self.pd.Q_qG[kpt.q]).all()
                 assert (Q_G[ng:] == -1).all()
 
-        assert not hdf5
         if self.bd.comm.size == 1:
             for kpt in self.kpt_u:
                 ng = self.ng_k[kpt.k]
