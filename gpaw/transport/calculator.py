@@ -560,7 +560,7 @@ class Transport(GPAW):
         # scattering region
         if dry_run:
             self.parameters_test()
-        self.cvg_ham_steps = 0
+        #self.cvg_ham_steps = 0
         self.initialize()
         self.nspins = self.wfs.nspins
         self.npk = len(self.wfs.kd.ibzk_kc)
@@ -746,6 +746,10 @@ class Transport(GPAW):
         kpts = kwargs['kpts']
         kpts = kpts[:2] + (1,)
         kwargs['kpts'] = kpts
+        # This part of the code is untested and clearly broken since
+        # recent mixer changes.  Since no tests trigger the code, I
+        # won't bother trying to fix it.  --askhl
+        raise NotImplementedError('Broken, untested code')
         if hasattr(self.density.mixer, 'mixers'):
             kwargs['mixer'] = Mixer(self.beta_guess, 5, weight=100.0)
         elif hasattr(self.density.mixer, 'mixer'):
@@ -796,16 +800,10 @@ class Transport(GPAW):
         if self.non_sc:
             kwargs['kpts'] = kpts[:2] + (self.scat_ntk,)
 
-        if hasattr(self.density.mixer, 'mixers'):
-            kwargs['mixer'] = Mixer(self.beta_guess, 5, weight=100.0)
-        elif hasattr(self.density.mixer, 'mixer'):
-            kwargs['mixer'] = MixerDif(self.beta_guess, 5, weight=100.0)
-        elif self.spinpol and hasattr(self.density.mixer, 'step'):
-            kwargs['mixer'] = BroydenMixerSum(self.beta_guess, 5)
-        elif self.spinpol and not hasattr(self.density.mixer, 'step'):
-            kwargs['mixer'] = MixerSum(self.beta_guess, 5, weight=100.0)
-        else:
-            kwargs['mixer'] = BroydenMixer(self.beta_guess, 5)
+        old = self.density.mixer.driver
+        new = old.__class__(old.basemixerclass, beta=self.beta_guess,
+                            nmaxold=5, weight=100.0)
+        kwargs['mixer'] = new
 
         if 'txt' in kwargs and kwargs['txt'] != '-':
             kwargs['txt'] = 'guess_' + kwargs['txt']
@@ -895,16 +893,9 @@ class Transport(GPAW):
 
     def copy_mixer_history(self, calc, guess_type='normal'):
         self.log('copy_mixer_history()')
-        if hasattr(self.density.mixer, 'mixers'):  #for Mixer
-            mixers = calc.density.mixer.mixers
-            mixers0 = self.density.mixer.mixers
-        elif hasattr(self.density.mixer, 'mixer'):   #for MixerDif
-            mixers = [calc.density.mixer.mixer, calc.density.mixer.mixer_m]
-            mixers0 = [self.density.mixer.mixer, self.density.mixer.mixer_m]
-        else:  #for BroydenMixer or BroydenMixerSum
-            mixers = [calc.density.mixer]
-            mixers0 = [self.density.mixer]
-        
+        mixers = calc.density.mixer.basemixers
+        mixers0 = self.density.mixer.basemixers
+
         if guess_type == 'buffer':
             from gpaw.transport.tools import cut_grids_side, \
                                collect_and_distribute_atomic_matrices
@@ -937,14 +928,15 @@ class Transport(GPAW):
                                                     rank_a, gd.comm, keys)
                 mixer0.nt_iG.append(nt_G0)
                 mixer0.D_iap.append(lD_ap)
-                if hasattr(mixer, 'A_ii'):
+                if isinstance(mixer, BaseMixer):
                     mixer0.A_ii = mixer.A_ii
                 else:
+                    assert isinstance(mixer, BroydenBaseMixer)
                     for cG, vG, uG, uD, etaD in zip(mixer.c_G,
-                                              mixer.v_G,
-                                              mixer.u_G,
-                                              mixer.u_D,
-                                              mixer.eta_D):
+                                                    mixer.v_G,
+                                                    mixer.u_G,
+                                                    mixer.u_D,
+                                                    mixer.eta_D):
                         vG0 = cut_grids_side(vG, gd, gd0)
                         uG0 = cut_grids_side(uG, gd, gd0)
                         uD0 = collect_and_distribute_atomic_matrices(uD,
@@ -1548,18 +1540,17 @@ class Transport(GPAW):
             self.text('HamMM', self.timer.timers['HamMM',], 'seconds')
        
         self.d_cvg = self.check_convergence('d')
-        
-        # adaptive mixing ?
-        if self.h_cvg:
-            self.cvg_ham_steps += 1
-        else:
-            self.cvg_ham_steps = 0
-        
-        if self.cvg_ham_steps > 4:
-            self.text('Ham cvg since {0} iterations -> increase density mixing'.format(self.cvg_ham_steps))
-            b = self.density.mixer.beta
-            self.density.mixer.beta = b + (b*0.25)
-            self.text('New beta: {0}'.format(self.density.mixer.beta))
+
+        #if self.h_cvg:
+        #    self.cvg_ham_steps += 1
+        #else:
+        #    self.cvg_ham_steps = 0
+
+        #if self.cvg_ham_steps > 4:
+            #self.text('Ham cvg since {0} iterations -> increase density mixing'.format(self.cvg_ham_steps))
+            #b = self.density.mixer.driver.beta
+            #self.density.mixer.driver.beta = b + (b*0.25)
+            #self.text('New beta: {0}'.format(self.density.mixer.beta))
         
         self.txt.flush()
         
@@ -1589,7 +1580,7 @@ class Transport(GPAW):
                     density = self.density
                 else:
                     density = self.extended_calc.density
-                self.diff_d = density.mixer.get_charge_sloshing()
+                self.diff_d = density.density_error
                 tol =  self.scf.max_density_error
  
                 if self.master:
@@ -2680,7 +2671,9 @@ class Transport(GPAW):
                 N_c[2] += self.bnc[i]
             p['gpts'] = N_c
             if 'mixer' in p:
-                if hasattr(self.density.mixer, 'mixers'):
+                from gpaw.mixer import SeparateSpinMixerDriver
+                if isinstance(self.density.mixer.driver,
+                              SeparateSpinMixerDriver):
                     p['mixer'] = Mixer(self.density.mixer.beta, 5, weight=100.0)
                 else:
                     p['mixer'] = MixerDif(self.density.mixer.beta, 5, weight=100.0)

@@ -76,7 +76,7 @@ class SCFLoop:
             callback(self.niter)
             self.log(log, self.niter, wfs, ham, dens, occ, errors)
             
-            if self.converged:
+            if self.converged and self.niter >= self.niter_fixdensity:
                 break
 
             if self.niter > self.niter_fixdensity and not dens.fixed:
@@ -204,4 +204,42 @@ See details here:
 
     https://wiki.fysik.dtu.dk/gpaw/documentation/convergence.html
 
+"""
+"""
+    def run(self, wfs, hamiltonian, density, occupations, forces):
+        if self.converged:
+            return
+
+        for iter in range(1, self.maxiter + 1):
+            wfs.eigensolver.iterate(hamiltonian, wfs)
+            occupations.calculate(wfs)
+            # XXX ortho, dens, wfs?
+
+            energy = hamiltonian.get_energy(occupations)
+            self.energies.append(energy)
+            if self.max_force_error is not None:
+                forces.reset()
+
+            converged = self.check_convergence(density, wfs.eigensolver,
+                                               wfs, hamiltonian, forces)
+
+            # If we are asked to fix the density only for a fixed number of
+            # steps, we should never even consider converging before
+            # density starts changing.  Thus we unfix the density:
+            if converged and iter <= self.niter_fixdensity:
+                self.niter_fixdensity = iter - 1
+                converged = False
+            elif converged and iter <= self.niter_fixdensity + 1:
+                converged = False
+
+            self.converged = converged
+
+            yield iter
+
+            if self.converged:
+                break
+
+            if iter > self.niter_fixdensity and not self.fixdensity:
+                density.update(wfs)
+                hamiltonian.update(density)
 """

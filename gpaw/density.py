@@ -11,7 +11,7 @@ import numpy as np
 from ase.units import Bohr
 
 from gpaw import debug
-from gpaw.mixer import BaseMixer, Mixer, MixerSum
+from gpaw.mixer import get_mixer_from_keywords, MixerWrapper, DummyMixer
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC, BasisFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
@@ -88,8 +88,12 @@ class Density(object):
         self.atom_partition = None
 
         self.fixed = False
-        self.mixer = BaseMixer()
+        # XXX at least one test will fail because None has no 'reset()'
+        # So we need DummyMixer I guess
+        self.set_mixer(None)#DummyMixer())
+
         self.timer = nulltimer
+        self.density_error = None
 
     def __str__(self):
         s = 'Densities:\n'
@@ -218,15 +222,13 @@ class Density(object):
                 self.nt_sG[:self.nspins] = -total_charge / volume
 
     def mix(self, comp_charge):
-        if not self.mixer.mix_rho:
-            self.mixer.mix(self)
-            comp_charge = None
+        assert isinstance(self.mixer, MixerWrapper), self.mixer
+        self.density_error = self.mixer.mix(self.nt_sG, self.D_asp)
+        assert self.density_error is not None, self.mixer
 
+        comp_charge = None
         self.interpolate_pseudo_density(comp_charge)
         self.calculate_pseudo_charge()
-
-        if self.mixer.mix_rho:
-            self.mixer.mix(self)
 
     def calculate_multipole_moments(self):
         """Calculate multipole moments of compensation charges.
@@ -322,26 +324,14 @@ class Density(object):
         self.mix(comp_charge)
 
     def set_mixer(self, mixer):
-        if mixer is not None:
-            if self.nspins == 1 and isinstance(mixer, MixerSum):
-                raise RuntimeError('Cannot use MixerSum with nspins==1')
-            self.mixer = mixer
-        else:
-            if self.gd.pbc_c.any():
-                beta = 0.05
-                history = 5
-                weight = 50.0
-            else:
-                beta = 0.25
-                history = 3
-                weight = 1.0
-
-            if self.nspins == 2:
-                self.mixer = MixerSum(beta, history, weight)
-            else:
-                self.mixer = Mixer(beta, history, weight)
-
-        self.mixer.initialize(self)
+        if mixer is None:
+            mixer = {}
+        if isinstance(mixer, dict):
+            mixer = get_mixer_from_keywords(self.gd.pbc_c.any(), self.nspins,
+                                            **mixer)
+        if not hasattr(mixer, 'mix'):
+            raise ValueError('Not a mixer: %s' % mixer)
+        self.mixer = MixerWrapper(mixer, self.nspins, self.gd)
 
     def estimate_magnetic_moments(self, total=None):
         magmom_a = np.zeros_like(self.magmom_a)
@@ -547,14 +537,10 @@ class Density(object):
         return gd.integrate(dt_sg)
 
     def write(self, writer):
-        writer.write(error=self.mixer.get_charge_sloshing(),
-                     density=self.gd.collect(self.nt_sG) / Bohr**3,
+        writer.write(density=self.gd.collect(self.nt_sG) / Bohr**3,
                      atomic_density_matrices=pack_atomic_matrices(self.D_asp))
         
     def read(self, reader):
-        density_error = reader.density.error
-        self.mixer.set_charge_sloshing(density_error)
-
         nt_sG = self.gd.empty(self.nspins)
         self.gd.distribute(reader.density.density, nt_sG * reader.bohr**3)
 
