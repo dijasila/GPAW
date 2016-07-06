@@ -70,13 +70,13 @@ class PairDensity2:
 
 
 class PairDensity:
-    def  __init__(self, paw):
+    def __init__(self, paw):
         self.set_paw(paw)
         
     def set_paw(self, paw):
         """basic initialisation knowing"""
         self.wfs = paw.wfs
-        self.lcao = paw.input_parameters.mode == 'lcao'
+        self.lcao = paw.parameters.mode == 'lcao'
         self.density = paw.density
         self.setups = paw.wfs.setups
         self.spos_ac = paw.atoms.get_scaled_positions()
@@ -85,7 +85,6 @@ class PairDensity:
         self.k = 0
         self.weight = 0.0
 
-        self.lcao = paw.input_parameters.mode == 'lcao'
         if self.lcao:
             assert paw.wfs.dtype == float
             self.wfs = paw.wfs

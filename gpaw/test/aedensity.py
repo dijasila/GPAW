@@ -1,8 +1,6 @@
 from __future__ import print_function
-import numpy as np
 
 from ase import Atom, Atoms
-from ase.parallel import rank
 
 from gpaw import GPAW
 from gpaw.test import equal
@@ -13,15 +11,15 @@ try:
     e = NaCl.get_potential_energy()
     niter = None
 except IOError:
-    h = 0.21 # gridspacing
-    a = [6.5, 6.5, 7.7] # unit cell
-    d = 2.3608 # experimental bond length
+    h = 0.21  # gridspacing
+    a = [6.5, 6.5, 7.7]  # unit cell
+    d = 2.3608  # experimental bond length
 
     NaCl = Atoms([Atom('Na', [0, 0, 0]),
                   Atom('Cl', [0, 0, d])],
                  pbc=False, cell=a)
     NaCl.center()
-    calc = GPAW(h=h, xc='LDA', nbands=5, lmax=0,
+    calc = GPAW(h=h, xc='LDA', nbands=5,
                 setups={'Na': '1'},
                 convergence={'eigenstates': 1e-6}, spinpol=1)
 

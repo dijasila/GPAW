@@ -180,7 +180,7 @@ class MolecularOrbital:
     def __init__(self, paw, Estart=0.0, Eend=1.e6,
                  nos=None, weights={0: [1], 1: [-1]}):
 
-        self.fixmom = paw.input_parameters.fixmom
+        self.fixmom = paw.occupations.fixmagmom
         self.w = weights
         self.Estart = Estart
         self.Eend = Eend
@@ -274,7 +274,7 @@ class AEOrbital:
     def __init__(self, paw, wf_u, p_uai, Estart=0.0, Eend=1.e6, nos=None,
                  txt='-'):
 
-        self.fixmom = paw.input_parameters.fixmom
+        self.fixmom = paw.occupations.fixmagmom
         self.wf_u = wf_u
         self.p_uai = p_uai
         self.Estart = Estart
@@ -327,7 +327,7 @@ class AEOrbital:
                                           p_i[j])
             wfs.gd.comm.sum(Porb_n)
 
-            #print 'Kpt:', kpt.k, ' Spin:', kpt.s, \
+            # print 'Kpt:', kpt.k, ' Spin:', kpt.s, \
             #      ' Sum_n|<orb|nks>|^2:', sum(abs(Porb_n)**2)
             p_u.append(np.array([sum(abs(Porb_n)**2)], dtype=float))
 

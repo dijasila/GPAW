@@ -14,7 +14,8 @@ import gpaw.mpi as mpi
 
 class MakeWaveFunctions:
     name = 'atompaw'
-
+    interpolation = 42
+    
     def __init__(self, gd):
         self.gd = gd
 

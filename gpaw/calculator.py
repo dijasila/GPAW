@@ -546,8 +546,8 @@ class GPAW(Calculator, PAW):
         if (realspace and
             self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT'):
             self.hamiltonian.poisson.set_density(self.density)
-            self.hamiltonian.poisson.print_messages(self.text)
-            self.txt.flush()
+            self.hamiltonian.poisson.print_messages(self.log)
+            self.log.fd.flush()
 
         self.initialized = True
 

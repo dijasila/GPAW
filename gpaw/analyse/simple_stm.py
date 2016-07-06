@@ -59,7 +59,7 @@ class SimpleStm(STM):
         if hasattr(bias, '__len__') and len(bias) == 3:
             n, k, s = bias
             # only a single wf requested
-            u = self.calc.get_myu(k, s)
+            u = self.calc.wfs.kd.where_is(k, s)
             if u is not None:
                 self.add_wf_to_ldos(n, u, weight=1)
 
@@ -184,7 +184,7 @@ class SimpleStm(STM):
 
     def linescan(self, bias, current, p1, p2, npoints=50, z0=None):
         """Line scan for a given current [nA]"""
-        return STM.linescan(self, bias, 
+        return STM.linescan(self, bias,
                             self.current_to_density(current),
                             p1, p2, npoints, z0)
 
