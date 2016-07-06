@@ -206,7 +206,7 @@ class Density(object):
         if comp_charge is None:
             comp_charge = self.calculate_multipole_moments()
 
-        pseudo_charge = self.gd.integrate(self.nt_sG[:self.nspins]).sum()
+        pseudo_charge = self.gd.integrate(self.nt_sG).sum()
 
         if (pseudo_charge + self.charge + comp_charge -
             self.background_charge.charge != 0):
@@ -225,7 +225,7 @@ class Density(object):
         assert isinstance(self.mixer, MixerWrapper), self.mixer
         self.error = self.mixer.mix(self.nt_sG, self.D_asp)
         assert self.error is not None, self.mixer
-
+        
         comp_charge = None
         self.interpolate_pseudo_density(comp_charge)
         self.calculate_pseudo_charge()
@@ -249,6 +249,7 @@ class Density(object):
                                         self.setups[a].Delta_pL)
             Q_L[0] += self.setups[a].Delta0
             comp_charge += Q_L[0]
+
         return Ddist_asp.partition.comm.sum(comp_charge) * sqrt(4 * pi)
 
     def get_initial_occupations(self, a):
@@ -542,7 +543,8 @@ class Density(object):
         
     def read(self, reader):
         nt_sG = self.gd.empty(self.nspins)
-        self.gd.distribute(reader.density.density, nt_sG * reader.bohr**3)
+        self.gd.distribute(reader.density.density, nt_sG)
+        nt_sG *= reader.bohr**3
 
         # Read atomic density matrices
         natoms = len(self.setups)

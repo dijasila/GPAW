@@ -9,7 +9,7 @@ slab = Atoms('Li', cell=(a, a, 2 * a), pbc=1)
 slab.calc = GPAW(kpts=(3, 3, 1), txt='li.txt',
                  parallel=dict(kpt=1))
 slab.get_potential_energy()
-slab.calc.write('Li.gpw')
+slab.calc.write('li.gpw')
 
 # Gamma point:
 e1 = slab.calc.get_eigenvalues(kpt=0)[0]
@@ -25,7 +25,8 @@ slab.get_potential_energy()
 e2 = slab.calc.get_eigenvalues(kpt=0)[0]
 
 # Start from gpw-file:
-calc = GPAW('Li.gpw',
+calc = GPAW('li.gpw',
+            txt='li2.txt',
             fixdensity=True,
             nbands=5,
             kpts=kpts,

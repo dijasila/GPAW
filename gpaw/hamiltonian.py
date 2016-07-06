@@ -217,16 +217,15 @@ class Hamiltonian(object):
         self.timer.start('Hamiltonian')
 
         if self.vt_sg is None:
-            self.timer.start('Initialize Hamiltonian')
-            self.initialize()
-            self.timer.stop('Initialize Hamiltonian')
+            with self.timer('Initialize Hamiltonian'):
+                self.initialize()
 
         finegrid_energies = self.update_pseudo_potential(density)
         coarsegrid_e_kinetic = self.calculate_kinetic_energy(density)
 
-        self.timer.start('Calculate atomic Hamiltonians')
-        W_aL = self.calculate_atomic_hamiltonians(density)
-        self.timer.stop('Calculate atomic Hamiltonians')
+        with self.timer('Calculate atomic Hamiltonians'):
+            W_aL = self.calculate_atomic_hamiltonians(density)
+
         atomic_energies = self.update_corrections(density, W_aL)
 
         # Make energy contributions summable over world:
@@ -241,6 +240,7 @@ class Hamiltonian(object):
 
         (self.e_kinetic0, self.e_coulomb, self.e_zero,
          self.e_external, self.e_xc) = energies
+
         self.timer.stop('Hamiltonian')
 
     def update_corrections(self, dens, W_aL):
@@ -318,6 +318,7 @@ class Hamiltonian(object):
 
         for a, D_sp in D_asp.items():
             e_kinetic -= (D_sp * dH_asp[a]).sum()  # NCXXX
+
         self.dH_asp = self.atomdist.from_work(dH_asp)
         self.timer.stop('Atomic')
 
@@ -553,9 +554,9 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.vbar_g[:] = 0.0
         self.vbar.add(self.vbar_g)
 
-    def update_pseudo_potential(self, density):
+    def update_pseudo_potential(self, dens):
         self.timer.start('vbar')
-        e_zero = self.finegd.integrate(self.vbar_g, density.nt_g,
+        e_zero = self.finegd.integrate(self.vbar_g, dens.nt_g,
                                        global_integral=False)
 
         vt_g = self.vt_sg[0]
@@ -566,7 +567,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         if self.vext is not None:
             vext_g = self.vext.get_potential(self.finegd)
             vt_g += vext_g
-            e_external = self.finegd.integrate(vext_g, density.rhot_g,
+            e_external = self.finegd.integrate(vext_g, dens.rhot_g,
                                                global_integral=False)
 
         self.vt_sg[1:self.nspins] = vt_g
@@ -574,18 +575,18 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.vt_sg[self.nspins:] = 0.0
 
         self.timer.start('XC 3D grid')
-        e_xc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
+        e_xc = self.xc.calculate(self.finegd, dens.nt_sg, self.vt_sg)
         e_xc /= self.finegd.comm.size
         self.timer.stop('XC 3D grid')
 
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
-        self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
-                                           charge=-density.charge)
+        self.npoisson = self.poisson.solve(self.vHt_g, dens.rhot_g,
+                                           charge=-dens.charge)
         self.timer.stop('Poisson')
 
         self.timer.start('Hartree integrate/restrict')
-        E_coulomb = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
+        E_coulomb = 0.5 * self.finegd.integrate(self.vHt_g, dens.rhot_g,
                                                 global_integral=False)
 
         for vt_g in self.vt_sg[:self.nspins]:
@@ -624,6 +625,7 @@ class RealSpaceHamiltonian(Hamiltonian):
             dens.ghat.integrate(self.vHt_g + vext_g, W_aL)
         else:
             dens.ghat.integrate(self.vHt_g, W_aL)
+
         return self.atomdist.to_work(self.atomdist.from_aux(W_aL))
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
