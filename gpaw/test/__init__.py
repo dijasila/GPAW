@@ -157,7 +157,6 @@ tests = [
     'eigen/keep_htpsit.py',                 # ~2s
     'xc/gga_atom.py',                       # ~2s
     'generic/hydrogen.py',                  # ~2s
-    'fileio/restart2.py',                   # ~2s
     'aeatom.py',                            # ~2s
     'ase_features/plt.py',                  # ~2s
     'ds_beta.py',                           # ~2s
