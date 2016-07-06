@@ -126,7 +126,7 @@ class GPAW(Calculator, PAW):
     
     def __del__(self):
         self.timer.write(self.log.fd)
-        if self.reader:
+        if self.reader is not None:
             self.reader.close()
 
     def write(self, filename, mode=''):
