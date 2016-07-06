@@ -10,12 +10,12 @@ from math import log
 import numpy as np
 from ase.units import Hartree
 
-from gpaw.aseinterface import GPAW
+from gpaw.calculator import GPAW
 from gpaw.mixer import DummyMixer
 from gpaw import __version__ as version
 from gpaw.preconditioner import Preconditioner
-from gpaw.tddft.units import attosec_to_autime, autime_to_attosec, \
-                             eV_to_aufrequency, aufrequency_to_eV
+from gpaw.tddft.units import (attosec_to_autime, autime_to_attosec,
+                              eV_to_aufrequency, aufrequency_to_eV)
 from gpaw.tddft.utils import MultiBlas
 from gpaw.tddft.bicgstab import BiCGStab
 from gpaw.tddft.cscg import CSCG

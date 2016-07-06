@@ -3,7 +3,7 @@ import warnings
 
 import numpy as np
 from ase.units import Bohr, Hartree
-from ase.calculators.calculator import Calculator, Parameters
+from ase.calculators.calculator import Calculator
 from ase.utils.timing import Timer
 from ase.io.trajectory import read_atoms, write_atoms
 
@@ -386,7 +386,7 @@ class GPAW(Calculator, PAW):
             warnings.warn('Use mode={0}(..., force_complex_dtype=True) '
                           'instead of dtype=complex'.format(mode.name.upper()))
             mode.force_complex_dtype = True
-            del par.dtype
+            del par['dtype']
             par.mode = mode
             
         if xc.orbital_dependent and mode.name == 'lcao':

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, division
-import functools
 import numbers
 from math import pi
 from math import factorial as fac
@@ -734,7 +733,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return H_GG, S_GG
 
     @timer('Full diag')
-    def diagonalize_full_hamiltonian(self, ham, atoms, occupations, txt,
+    def diagonalize_full_hamiltonian(self, ham, atoms, occupations, log,
                                      nbands=None, scalapack=None,
                                      expert=False):
 
@@ -757,12 +756,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
 
-        p = functools.partial(print, file=txt)
-        p('Diagonalizing full Hamiltonian ({0} lowest bands)'.format(nbands))
-        p('Matrix size (min, max): {0}, {1}'.format(self.pd.ngmin,
-                                                    self.pd.ngmax))
+        log('Diagonalizing full Hamiltonian ({0} lowest bands)'.format(nbands))
+        log('Matrix size (min, max): {0}, {1}'.format(self.pd.ngmin,
+                                                      self.pd.ngmax))
         mem = 3 * self.pd.ngmax**2 * 16 / bd.comm.size / 1024**2
-        p('Approximate memory usage per core: {0:.3f} MB'.format(mem))
+        log('Approximate memory usage per core: {0:.3f} MB'.format(mem))
         if bd.comm.size > 1:
             if isinstance(scalapack, (list, tuple)):
                 nprow, npcol, b = scalapack
@@ -772,8 +770,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     nprow -= 1
                 npcol = bd.comm.size // nprow
                 b = 64
-            p('ScaLapack grid: {0}x{1},'.format(nprow, npcol),
-              'block-size:', b)
+            log('ScaLapack grid: {0}x{1},'.format(nprow, npcol),
+                'block-size:', b)
             bg = BlacsGrid(bd.comm, bd.comm.size, 1)
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
             scalapack = True
@@ -787,7 +785,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         myslice = bd.get_slice()
 
-        pb = ProgressBar(txt)
+        pb = ProgressBar(log.fd)
         nkpt = len(self.kpt_u)
         
         for u, kpt in enumerate(self.kpt_u):
