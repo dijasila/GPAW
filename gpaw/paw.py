@@ -153,10 +153,7 @@ class PAW:
             self.wfs.set_positions(spos_ac)
 
         no_wave_functions = (self.wfs.kpt_u[0].psit_nG is None)
-        converged = self.scf.check_convergence(self.density,
-                                               self.wfs.eigensolver, self.wfs,
-                                               self.hamiltonian)
-        if no_wave_functions or not converged:
+        if no_wave_functions or not self.scf.converged:
             self.wfs.eigensolver.error = np.inf
             self.scf.converged = False
 

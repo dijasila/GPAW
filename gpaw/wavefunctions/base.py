@@ -419,10 +419,12 @@ class WaveFunctions:
         nslice = self.bd.get_slice()
         r = reader.wave_functions
         for u, kpt in enumerate(self.kpt_u):
-            kpt.eps_n = r.get('eigenvalues', kpt.s, kpt.k)[nslice] / reader.ha
-            kpt.f_n = r.get('occupations', kpt.s, kpt.k)[nslice] * kpt.weight
+            eps_n = r.proxy('eigenvalues', kpt.s, kpt.k)[nslice]
+            f_n = r.proxy('occupations', kpt.s, kpt.k)[nslice]
+            kpt.eps_n = eps_n / reader.ha
+            kpt.f_n = f_n * kpt.weight
             if self.gd.comm.rank == 0:
-                P_nI = r.get('projections', kpt.s, kpt.k)
+                P_nI = r.proxy('projections', kpt.s, kpt.k)[:]
             I1 = 0
             kpt.P_ani = {}
             for a, setup in enumerate(self.setups):
@@ -449,7 +451,7 @@ def eigenvalue_string(wfs, comment=' '):
     if len(wfs.kd.ibzk_kc) == 1:
         if wfs.nspins == 1:
             add(comment, 'Band  Eigenvalues  Occupancy')
-            eps_n = wfs.collect_eigenvalues(0, 0)
+            eps_n = wfs.collect_eigenvalues(0, 0) * Hartree
             f_n = wfs.collect_occupations(0, 0)
             if wfs.world.rank == 0:
                 for n in range(wfs.bd.nbands):
@@ -458,8 +460,8 @@ def eigenvalue_string(wfs, comment=' '):
             add(comment, '                  Up                     Down')
             add(comment, 'Band  Eigenvalues  Occupancy  Eigenvalues  '
                 'Occupancy')
-            epsa_n = wfs.collect_eigenvalues(0, 0)
-            epsb_n = wfs.collect_eigenvalues(0, 1)
+            epsa_n = wfs.collect_eigenvalues(0, 0) * Hartree
+            epsb_n = wfs.collect_eigenvalues(0, 1) * Hartree
             fa_n = wfs.collect_occupations(0, 0)
             fb_n = wfs.collect_occupations(0, 1)
             if wfs.world.rank == 0:
@@ -487,7 +489,7 @@ def eigenvalue_string(wfs, comment=' '):
     if wfs.nspins == 1:
         add(comment, 'Kpt  Band  Eigenvalues  Occupancy')
         for i in range(print_range):
-            eps_n = wfs.collect_eigenvalues(i, 0)
+            eps_n = wfs.collect_eigenvalues(i, 0) * Hartree
             f_n = wfs.collect_occupations(i, 0)
             if wfs.world.rank == 0:
                 for n in range(m, j):
@@ -499,8 +501,8 @@ def eigenvalue_string(wfs, comment=' '):
             'Occupancy')
 
         for i in range(print_range):
-            epsa_n = wfs.collect_eigenvalues(i, 0)
-            epsb_n = wfs.collect_eigenvalues(i, 1)
+            epsa_n = wfs.collect_eigenvalues(i, 0) * Hartree
+            epsb_n = wfs.collect_eigenvalues(i, 1) * Hartree
             fa_n = wfs.collect_occupations(i, 0)
             fb_n = wfs.collect_occupations(i, 1)
             if wfs.world.rank == 0:
