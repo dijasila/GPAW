@@ -135,7 +135,7 @@ def get_system_config(define_macros, undef_macros,
             openblas = False
             for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib64']:
                 if glob(join(dir, 'libopenblas.so')) != []:
-                    openblas = True
+                    #openblas = True
                     libdir = dir
                     break
             if openblas:  # prefer openblas
