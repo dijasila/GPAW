@@ -109,12 +109,12 @@ class LCAOWaveFunctions(WaveFunctions):
         eigensolver.initialize(self.gd, self.dtype, self.setups.nao, self.ksl)
 
     def set_positions(self, spos_ac, atom_partition=None):
-        self.timer.start('Basic WFS set positions')
-        WaveFunctions.set_positions(self, spos_ac, atom_partition)
-        self.timer.stop('Basic WFS set positions')
-        self.timer.start('Basis functions set positions')
-        self.basis_functions.set_positions(spos_ac)
-        self.timer.stop('Basis functions set positions')
+        with self.timer('Basic WFS set positions'):
+            WaveFunctions.set_positions(self, spos_ac, atom_partition)
+
+        with self.timer('Basis functions set positions'):
+            self.basis_functions.set_positions(spos_ac)
+
         if self.ksl is not None:
             self.basis_functions.set_matrix_distribution(self.ksl.Mstart,
                                                          self.ksl.Mstop)
@@ -127,7 +127,7 @@ class LCAOWaveFunctions(WaveFunctions):
         Mstart = self.ksl.Mstart
         mynao = Mstop - Mstart
 
-        if self.ksl.using_blacs: # XXX
+        if self.ksl.using_blacs:  # XXX
             # S and T have been distributed to a layout with blacs, so
             # discard them to force reallocation from scratch.
             #
@@ -161,12 +161,10 @@ class LCAOWaveFunctions(WaveFunctions):
         # Calculate lower triangle of S and T matrices:
         self.tci.calculate(spos_ac, S_qMM, T_qMM, self.P_aqMi)
 
-        # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
         if self.atomic_correction.name != 'dense':
             from gpaw.lcao.newoverlap import newoverlap
             self.P_neighbors_a, self.P_aaqim = newoverlap(self, spos_ac)
         self.atomic_correction.gobble_data(self)
-        # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
         self.atomic_correction.add_overlap_correction(self, S_qMM)
         self.timer.stop('TCI: Calculate S, T, P')
@@ -882,10 +880,10 @@ class LCAOWaveFunctions(WaveFunctions):
         if not write_wave_functions:
             return
    
-        writer.add('coefficients',
-                   (self.nspins, self.kd.nibzkpts, self.bd.nbands,
-                    self.setups.nao),
-                   dtype=self.dtype)
+        writer.add_array(
+            'coefficients',
+            (self.nspins, self.kd.nibzkpts, self.bd.nbands, self.setups.nao),
+            dtype=self.dtype)
 
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):

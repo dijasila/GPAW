@@ -119,11 +119,15 @@ class GPAW(Calculator, PAW):
         self.log = GPAWLogger(world=self.world)
         self.log.fd = txt
         
+        self.reader = None
+        
         Calculator.__init__(self, restart, ignore_bad_restart_file, label,
                             atoms, **kwargs)
     
     def __del__(self):
         self.timer.write(self.log.fd)
+        if self.reader:
+            self.reader.close()
 
     def write(self, filename, mode=''):
         writer = Writer(filename)
@@ -139,7 +143,7 @@ class GPAW(Calculator, PAW):
         writer.close()
         
     def read(self, filename):
-        reader = Reader(filename)
+        self.reader = reader = Reader(filename)
         
         self.atoms = read_atoms(reader.atoms)
 
@@ -160,8 +164,6 @@ class GPAW(Calculator, PAW):
         self.hamiltonian.read(reader)
         self.scf.read(reader)
         self.wfs.read(reader)
-
-        reader.close()
         
     def check_state(self, atoms, tol=1e-15):
         system_changes = Calculator.check_state(self, atoms, tol)

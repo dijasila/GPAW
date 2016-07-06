@@ -483,6 +483,9 @@ class PAW:
 
         Units: 1/Angstrom^(3/2)
         """
+        if self.wfs.mode == 'lcao' and not self.wfs.positions_set:
+            self.initialize_positions()
+            
         if pad:
             psit_G = self.get_pseudo_wave_function(band, kpt, spin, broadcast,
                                                    pad=False,

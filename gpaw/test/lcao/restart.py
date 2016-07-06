@@ -18,11 +18,13 @@ system.set_calculator(calc)
 system.get_potential_energy()
 wf = calc.get_pseudo_wave_function(0)
 
-for mode in ['normal', 'all']:
+for mode in ['all', 'normal']:
     fname = 'lcao-restart.%s.gpw' % mode
     calc.write(fname, mode=dict(normal='', all='all')[mode])
     
     calc2 = GPAW(fname, txt=None)
+    if mode == 'normal':
+        calc2.hmmmm()
     wf2 = calc2.get_pseudo_wave_function(0)
     err = np.abs(wf2 - wf).max()
     print('%s: err=%s' % (mode, repr(err)))
