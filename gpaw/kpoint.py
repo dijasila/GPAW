@@ -112,7 +112,7 @@ class GlobalKPoint(KPoint):
         self.P_ani = {}
 
         if self.phase_cd is None:
-            self.phase_cd = np.empty((3,2), wfs.dtype)
+            self.phase_cd = np.empty((3, 2), wfs.dtype)
 
         if self.psit_nG is None:
             self.psit_nG = wfs.gd.empty(wfs.mynbands, wfs.dtype)
@@ -126,9 +126,9 @@ class GlobalKPoint(KPoint):
 
             # Compress entries in requested P_ani dict into my_P_ni ndarray
             i = 0
-            for a,P_ni in wfs.kpt_u[u].P_ani.items():
+            for a, P_ni in wfs.kpt_u[u].P_ani.items():
                 ni = wfs.setups[a].ni
-                my_P_ni[:,i:i+ni] = P_ni
+                my_P_ni[:, i:i + ni] = P_ni
                 i += ni
 
             assert (my_atom_indices == wfs.kpt_u[u].P_ani.keys()).all()
@@ -152,6 +152,6 @@ class GlobalKPoint(KPoint):
         i = 0
         for a in my_atom_indices:
             ni = wfs.setups[a].ni
-            self.P_ani[a] = my_P_ni[:,i:i+ni] #copy?
+            self.P_ani[a] = my_P_ni[:, i:i + ni]  # copy?
             i += ni
 

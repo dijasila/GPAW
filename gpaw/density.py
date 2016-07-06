@@ -11,7 +11,7 @@ import numpy as np
 from ase.units import Bohr
 
 from gpaw import debug
-from gpaw.mixer import get_mixer_from_keywords, MixerWrapper, DummyMixer
+from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC, BasisFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
@@ -90,10 +90,10 @@ class Density(object):
         self.fixed = False
         # XXX at least one test will fail because None has no 'reset()'
         # So we need DummyMixer I guess
-        self.set_mixer(None)#DummyMixer())
+        self.set_mixer(None)
 
         self.timer = nulltimer
-        self.density_error = None
+        self.error = None
 
     def __str__(self):
         s = 'Densities:\n'
@@ -223,8 +223,8 @@ class Density(object):
 
     def mix(self, comp_charge):
         assert isinstance(self.mixer, MixerWrapper), self.mixer
-        self.density_error = self.mixer.mix(self.nt_sG, self.D_asp)
-        assert self.density_error is not None, self.mixer
+        self.error = self.mixer.mix(self.nt_sG, self.D_asp)
+        assert self.error is not None, self.mixer
 
         comp_charge = None
         self.interpolate_pseudo_density(comp_charge)
@@ -389,7 +389,7 @@ class Density(object):
             gd = self.finegd.refine()
 
             # Interpolation function for the density:
-            interpolator = Transformer(self.finegd, gd, 3) # XXX grids!
+            interpolator = Transformer(self.finegd, gd, 3)  # XXX grids!
 
             # Transfer the pseudo-density to the fine grid:
             n_sg = gd.empty(self.nspins)

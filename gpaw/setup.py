@@ -22,10 +22,10 @@ from gpaw.xc import XC
 def create_setup(symbol, xc='LDA', lmax=0,
                  type='paw', basis=None, setupdata=None,
                  filter=None, world=None):
-    if isinstance(xc, str):
+    if isinstance(xc, basestring):
         xc = XC(xc)
 
-    if isinstance(type, str) and ':' in type:
+    if isinstance(type, basestring) and ':' in type:
         # Parse DFT+U parameters from type-string:
         # Examples: "type:l,U" or "type:l,U,scale"
         type, lu = type.split(':')
@@ -1214,12 +1214,12 @@ class Setups(list):
                 Z, type, basis = id
                 symbol = chemical_symbols[Z]
                 setupdata = None
-                if not isinstance(type, str):
+                if not isinstance(type, basestring):
                     setupdata = type
                 # Basis may be None (meaning that the setup decides), a string
                 # (meaning we load the basis set now from a file) or an actual
                 # pre-created Basis object (meaning we just pass it along)
-                if isinstance(basis, str):
+                if isinstance(basis, basestring):
                     basis = Basis(symbol, basis, world=world)
                 setup = create_setup(symbol, xc, 2, type,
                                      basis, setupdata=setupdata,
@@ -1300,8 +1300,8 @@ def types2atomtypes(symbols, types, default):
     for symbol, type in types.items():
         # Types are given either by strings or they are objects that
         # have a 'symbol' attribute (SetupData, Pseudopotential, Basis, etc.).
-        assert isinstance(type, str) or hasattr(type, 'symbol')
-        if isinstance(symbol, str):
+        assert isinstance(type, basestring) or hasattr(type, 'symbol')
+        if isinstance(symbol, basestring):
             for a, symbol2 in enumerate(symbols):
                 if symbol == symbol2:
                     type_a[a] = type

@@ -1,4 +1,5 @@
 import numpy as np
+from ase.units import Hartree
 
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.blas import gemm, axpy
@@ -388,10 +389,40 @@ class WaveFunctions:
             self.world.receive(psit_G, world_rank, 1398)
             return psit_G
             
-    def read_projections(self, reader):
+    def write(self, writer):
+        nproj = sum(setup.ni for setup in self.setups)
+        writer.add_array(
+            'projections',
+            (self.nspins, self.kd.nibzkpts, self.bd.nbands, nproj),
+            self.dtype)
+        for s in range(self.nspins):
+            for k in range(self.kd.nibzkpts):
+                P_nI = self.collect_projections(k, s)
+                writer.fill(P_nI)
+                
+        shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
+        
+        writer.add_array('eigenvalues', shape)
+        for s in range(self.nspins):
+            for k in range(self.kd.nibzkpts):
+                writer.fill(self.collect_eigenvalues(k, s) * Hartree)
+                
+        writer.add_array('occupations', shape)
+        for s in range(self.nspins):
+            for k in range(self.kd.nibzkpts):
+                # Scale occupation numbers when writing:
+                # XXX fix this in the code also ...
+                weight = self.kd.weight_k[k] * 2 / self.nspins
+                writer.fill(self.collect_occupations(k, s) / weight)
+                
+    def read(self, reader):
         nslice = self.bd.get_slice()
+        r = reader.wave_functions
         for u, kpt in enumerate(self.kpt_u):
-            P_nI = reader.get('Projections', kpt.s, kpt.k)
+            kpt.eps_n = r.get('eigenvalues', kpt.s, kpt.k)[nslice] / reader.ha
+            kpt.f_n = r.get('occupations', kpt.s, kpt.k)[nslice] * kpt.weight
+            if self.gd.comm.rank == 0:
+                P_nI = r.get('projections', kpt.s, kpt.k)
             I1 = 0
             kpt.P_ani = {}
             for a, setup in enumerate(self.setups):

@@ -85,6 +85,9 @@ class LCAOWaveFunctions(WaveFunctions):
                                               dtype=dtype,
                                               cut=True)
 
+    def set_orthonormalized(self, o):
+        pass
+        
     def empty(self, n=(), global_array=False, realspace=False):
         if realspace:
             return self.gd.empty(n, self.dtype, global_array)
@@ -861,10 +864,6 @@ class LCAOWaveFunctions(WaveFunctions):
     def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
         # XXX Taking kpt is better than taking u
         kpt = self.kpt_u[u]
-        if kpt.C_nM is None:
-            # Hack to make sure things are available after restart
-            self.lazyloader.load(self)
-        
         C_M = kpt.C_nM[n]
 
         if realspace:
@@ -878,6 +877,8 @@ class LCAOWaveFunctions(WaveFunctions):
             return C_M
         
     def write(self, writer, write_wave_functions=False):
+        WaveFunctions.write(self, writer)
+
         if not write_wave_functions:
             return
    
@@ -892,7 +893,24 @@ class LCAOWaveFunctions(WaveFunctions):
                 writer.fill(C_nM)
 
     def read(self, reader):
-        pass
+        WaveFunctions.read(self, reader)
+        
+        if 'coefficients' not in reader.wave_functions:
+            return
+            
+        for kpt in self.kpt_u:
+            kpt.C_nM = reader.wave_functions.proxy('coefficients',
+                                                   kpt.s, kpt.k)
+        if self.world.size == 1:
+            return
+
+        # Read to memory:
+        for kpt in self.kpt_u:
+            C_nM = kpt.C_nM
+            kpt.C_nM = self.bd.empty(self.setups.nao, dtype=self.dtype)
+            for myn, C_M in enumerate(kpt.C_nM):
+                n = self.bd.global_index(myn)
+                C_M[:] = C_nM[n]
 
     def estimate_memory(self, mem):
         nq = len(self.kd.ibzk_qc)

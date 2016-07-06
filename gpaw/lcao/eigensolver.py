@@ -30,7 +30,7 @@ class DirectLCAO(object):
     @error.setter
     def error(self, e):
         pass
-        
+
     def calculate_hamiltonian_matrix(self, hamiltonian, wfs, kpt, Vt_xMM=None,
                                      root=-1, add_kinetic=True):
         # XXX document parallel stuff, particularly root parameter

@@ -613,6 +613,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return psit_G
 
     def write(self, writer, write_wave_functions=False):
+        FDPWWaveFunctions.write(self, writer)
+
         if not write_wave_functions:
             return
 
@@ -657,6 +659,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     kk += 1
 
     def read(self, reader):
+        FDPWWaveFunctions.read(self, reader)
+
         if 'coefficients' not in reader.wave_functions:
             return
             

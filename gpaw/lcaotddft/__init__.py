@@ -1,5 +1,5 @@
 from __future__ import print_function
-from math import log
+from math import log as ln
 
 import numpy as np
 from numpy.linalg import inv, solve
@@ -37,6 +37,7 @@ class KickHamiltonian:
             dHtmp_asp[a] = np.dot(setup.Delta_pL, W_L).reshape((1, -1))
         self.dH_asp = ham.atomdist.from_aux(dHtmp_asp)
 
+        
 class LCAOTDDFT(GPAW):
     def __init__(self, filename=None,
                  propagator='cn', fxc=None, **kwargs):
@@ -221,9 +222,9 @@ class LCAOTDDFT(GPAW):
         # normalize
         direction = self.kick_strength / magnitude
 
-        self.text('Applying absorption kick')
-        self.text('Magnitude: %.8f hartree/bohr' % magnitude)
-        self.text('Direction: %.4f %.4f %.4f' % tuple(direction))
+        self.log('Applying absorption kick')
+        self.log('Magnitude: %.8f hartree/bohr' % magnitude)
+        self.log('Direction: %.4f %.4f %.4f' % tuple(direction))
 
         # Create hamiltonian object for absorption kick
         cef = ConstantElectricField(magnitude * Hartree / Bohr, direction)
@@ -421,11 +422,11 @@ class LCAOTDDFT(GPAW):
                        % ('time', 'norm', 'dmx', 'dmy', 'dmz')
                 self.dm_file.write(header)
                 self.dm_file.flush()
-                self.text('About to do %d propagation steps.' % iterations)
+                self.log('About to do %d propagation steps.' % iterations)
             else:
                 self.dm_file = open(out, 'a')
-                self.text('About to continue from iteration %d and do %d '
-                          'propagation steps' % (self.niter, self.tdmaxiter))
+                self.log('About to continue from iteration %d and do %d '
+                         'propagation steps' % (self.niter, self.tdmaxiter))
         self.tddft_init()
 
         dm0 = None  # Initial dipole moment
@@ -444,10 +445,10 @@ class LCAOTDDFT(GPAW):
                 print(line, file=self.dm_file)
 
             if self.wfs.world.rank == 0 and self.niter % 1 == 0:
-                self.text('iter: %3d  %02d:%02d:%02d %11.2f   %9.1f'
-                          % (self.niter, T[3], T[4], T[5],
-                             self.time * autime_to_attosec,
-                             log(abs(norm) + 1e-16) / log(10)))
+                self.log('iter: %3d  %02d:%02d:%02d %11.2f   %9.1f' %
+                         (self.niter, T[3], T[4], T[5],
+                          self.time * autime_to_attosec,
+                          ln(abs(norm) + 1e-16) / ln(10)))
                 self.dm_file.flush()
             self.propagate_single(self.time_step)
             

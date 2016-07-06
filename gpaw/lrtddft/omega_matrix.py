@@ -3,10 +3,10 @@ from math import sqrt
 
 import numpy as np
 from ase.units import Hartree
+from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer
 
 import gpaw.mpi as mpi
-from gpaw.output import get_txt
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.transformers import Transformer
 from gpaw.utilities import pack
@@ -42,12 +42,11 @@ class OmegaMatrix:
                  filehandle=None,
                  txt=None,
                  finegrid=2,
-                 eh_comm=None,
-                 ):
+                 eh_comm=None):
 
         if not txt and calculator:
-            txt = calculator.txt
-        self.txt = get_txt(txt, mpi.rank)
+            txt = calculator.log.fd
+        self.txt = convert_string_to_fd(txt, mpi.world)
 
         if eh_comm is None:
             eh_comm = mpi.serial_comm

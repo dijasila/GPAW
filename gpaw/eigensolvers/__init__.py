@@ -1,5 +1,7 @@
 """Module defining  ``Eigensolver`` classes."""
 
+from ase.utils import basestring
+
 from gpaw.eigensolvers.rmm_diis import RMM_DIIS
 from gpaw.eigensolvers.cg import CG
 from gpaw.eigensolvers.davidson import Davidson
@@ -13,7 +15,7 @@ def get_eigensolver(name, mode, convergence=None):
             name = 'lcao'
         else:
             name = 'dav'
-    if isinstance(name, str):
+    if isinstance(name, basestring):
         eigensolver = {'rmm-diis': RMM_DIIS,
                        'cg': CG,
                        'dav': Davidson,
