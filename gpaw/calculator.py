@@ -125,10 +125,26 @@ class GPAW(Calculator, PAW):
     def __del__(self):
         self.timer.write(self.log.fd)
 
+    def write(self, filename, mode=''):
+        writer = Writer(filename)
+        writer.write(version=1, ha=Hartree, bohr=Bohr)
+        write_atoms(writer.child('atoms'), self.atoms)
+        writer.child('results').write(**self.results)
+        writer.child('parameters').write(**self.todict())
+        writer.write('density', self.density)
+        writer.write('hamiltonian', self.hamiltonian)
+        writer.write('occupations', self.occupations)
+        writer.write('scf', self.scf)
+        self.wfs.write(writer.child('wave_functions'), mode == 'all')
+        writer.close()
+        
     def read(self, filename):
         reader = Reader(filename)
+        
         self.atoms = read_atoms(reader.atoms)
-        self.results = reader.results
+
+        res = reader.results
+        self.results = dict((key, res.get(key)) for key in res.keys())
         
         par = reader.parameters
         new = dict((key, par.get(key)) for key in par.keys())
@@ -146,19 +162,6 @@ class GPAW(Calculator, PAW):
         self.wfs.read(reader)
 
         reader.close()
-        
-    def write(self, filename, mode=''):
-        writer = Writer(filename)
-        writer.write(version=1, ha=Hartree, bohr=Bohr)
-        write_atoms(writer.child('atoms'), self.atoms)
-        writer.child('results').write(**self.results)
-        writer.child('parameters').write(**self.todict())
-        writer.write('density', self.density)
-        writer.write('hamiltonian', self.hamiltonian)
-        writer.write('occupations', self.occupations)
-        writer.write('scf', self.scf)
-        self.wfs.write(writer.child('wave_functions'), mode == 'all')
-        writer.close()
         
     def check_state(self, atoms, tol=1e-15):
         system_changes = Calculator.check_state(self, atoms, tol)
