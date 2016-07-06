@@ -119,10 +119,6 @@ given in the following sections.
       - ``dict``
       - ``{}``
       - :ref:`manual_symmetry`
-    * - ``usesymm``
-      - ``bool``
-      - ``True``
-      - :ref:`manual_symmetry`
     * - ``random``
       - ``bool``
       - ``False``
@@ -131,10 +127,6 @@ given in the following sections.
       - occ. obj.
       -
       - :ref:`manual_occ`
-    * - ``lmax``
-      - ``int``
-      - ``2``
-      - Maximum angular momentum for expansion of :ref:`manual_lmax`
     * - ``charge``
       - ``float``
       - ``0``
@@ -155,10 +147,6 @@ given in the following sections.
       - ``dict``
       -
       - :ref:`manual_parallel`
-    * - ``stencils``
-      - tuple
-      - ``(3, 3)``
-      - Number of neighbors for :ref:`manual_stencils`
     * - ``mixer``
       - Object
       -
@@ -187,10 +175,6 @@ given in the following sections.
       - Object
       -
       - :ref:`manual_external`
-    * - ``verbose``
-      - ``int``
-      - ``0``
-      - :ref:`manual_verbose`
     * - ``poissonsolver``
       - Object
       -
@@ -896,7 +880,7 @@ dipole moment.
 Finite-difference stencils
 --------------------------
 
-GPAW uses finite-difference stencils for the Laplacian in the
+GPAW can use finite-difference stencils for the Laplacian in the
 Kohn-Sham and Poisson equations.  You can set the range of the stencil
 (number of neighbor grid points) used for the Poisson equation like
 this::
@@ -905,9 +889,10 @@ this::
     calc = GPAW(poissonsolver=PoissonSolver(nn=n))
 
 This will give an accuracy of `O(h^{2n})`, where ``n`` must be between
-1 and 6.  The default value for version 0.6 is ``n='M'`` which is a
-special Mehrstellen stencil - this will be changed to ``n=3`` in
-version 0.7.
+1 and 6.  The default value is ``n=3``.
+
+    from gpaw import GPAW, FD
+    calc = GPAW(mode=FD(nn=3, interpolation=3))
 
 With the ``stencils=(a, b)`` keyword, you can set the accuracy of the
 stencil used for the Kohn-Sham equation to `O(h^{2a})`.  The ``b``
