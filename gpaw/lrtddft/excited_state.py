@@ -419,4 +419,4 @@ class ExcitedStateDensity(RealSpaceDensity):
                                           self.wunocc_sn[s]),
                                          kpt.psit_nG):
                         axpy(f, psit_G ** 2, self.nt_sG[s])
-        self.nt_sG[:self.nspins] += self.nct_G
+        self.nt_sG += self.nct_G

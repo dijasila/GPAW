@@ -83,16 +83,15 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             self.cavity.update_vol_surf()
             self.dielectric.update(self.cavity)
 
-        #e_coulomb, Ebar, Eext, Exc =
+        # e_coulomb, Ebar, Eext, Exc =
         finegd_energies = self.update_pseudo_potential(density)
         self.finegd.comm.sum(finegd_energies)
         ia_changed = [
             ia.update(
                 self.new_atoms,
                 density,
-                self.cavity if cavity_changed else None
-            ) for ia in self.interactions
-        ]
+                self.cavity if cavity_changed else None)
+            for ia in self.interactions]
         if np.any(ia_changed):
             self.vt_ia_g.fill(.0)
             for ia in self.interactions:
@@ -102,7 +101,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                     self.vt_ia_g += (ia.delta_E_delta_g_g *
                                      self.cavity.del_g_del_n_g)
         if len(self.interactions) > 0:
-            for vt_g in self.vt_sg[:self.nspins]:
+            for vt_g in self.vt_sg:
                 vt_g += self.vt_ia_g
         Eias = np.array([ia.E for ia in self.interactions])
 
@@ -134,7 +133,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         del_eps_del_g_g = self.dielectric.del_eps_del_g_g
         Veps = -1. / (8. * np.pi) * del_eps_del_g_g * del_g_del_n_g
         Veps *= self.grad_squared(self.vHt_g)
-        for vt_g in self.vt_sg[:self.nspins]:
+        for vt_g in self.vt_sg:
             vt_g += Veps
         return ret
 

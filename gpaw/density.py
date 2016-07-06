@@ -161,7 +161,7 @@ class Density(object):
         wfs.add_to_density().
         """
         wfs.calculate_density_contribution(self.nt_sG)
-        self.nt_sG[:self.nspins] += self.nct_G
+        self.nt_sG += self.nct_G
 
     @property
     def D_asp(self):
@@ -219,7 +219,7 @@ class Density(object):
                 volume = self.gd.get_size_of_global_array().prod() * self.gd.dv
                 total_charge = (self.charge + comp_charge -
                                 self.background_charge.charge)
-                self.nt_sG[:self.nspins] = -total_charge / volume
+                self.nt_sG[:] = -total_charge / volume
 
     def mix(self, comp_charge):
         assert isinstance(self.mixer, MixerWrapper), self.mixer
@@ -245,7 +245,7 @@ class Density(object):
             
         self.Q_aL = ArrayDict(Ddist_asp.partition, shape)
         for a, D_sp in Ddist_asp.items():
-            Q_L = self.Q_aL[a] = np.dot(D_sp[:self.nspins].sum(0),
+            Q_L = self.Q_aL[a] = np.dot(D_sp.sum(0),
                                         self.setups[a].Delta_pL)
             Q_L[0] += self.setups[a].Delta0
             comp_charge += Q_L[0]
@@ -295,7 +295,7 @@ class Density(object):
 
         self.nt_sG = self.gd.zeros(self.nspins)
         basis_functions.add_to_density(self.nt_sG, f_asi)
-        self.nt_sG[:self.nspins] += self.nct_G
+        self.nt_sG += self.nct_G
         self.calculate_normalized_charges_and_mix()
 
     def initialize_from_wavefunctions(self, wfs):
@@ -611,7 +611,7 @@ class RealSpaceDensity(Density):
                              comp_charge)
             if abs(pseudo_charge) > 1.0e-14:
                 x = (pseudo_charge /
-                     self.finegd.integrate(self.nt_sg[:self.nspins]).sum())
+                     self.finegd.integrate(self.nt_sg).sum())
                 self.nt_sg *= x
 
     def interpolate(self, in_xR, out_xR=None):
@@ -637,7 +637,7 @@ class RealSpaceDensity(Density):
         return self.interpolate(in_xR, out_xR)
 
     def calculate_pseudo_charge(self):
-        self.nt_g = self.nt_sg[:self.nspins].sum(axis=0)
+        self.nt_g = self.nt_sg.sum(axis=0)
         self.rhot_g = self.nt_g.copy()
         self.ghat.add(self.rhot_g, self.Q_aL)
         self.background_charge.add_charge_to(self.rhot_g)

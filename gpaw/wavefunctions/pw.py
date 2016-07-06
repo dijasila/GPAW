@@ -1320,7 +1320,7 @@ class ReciprocalSpaceDensity(Density):
     distribute_and_interpolate = interpolate
 
     def calculate_pseudo_charge(self):
-        self.nt_Q = self.nt_sQ[:self.nspins].sum(axis=0)
+        self.nt_Q = self.nt_sQ.sum(axis=0)
         self.rhot_q = self.pd3.zeros()
         self.rhot_q[self.G3_G] = self.nt_Q * 8
         self.ghat.add(self.rhot_q, self.Q_aL)

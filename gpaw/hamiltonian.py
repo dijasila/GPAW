@@ -260,7 +260,7 @@ class Hamiltonian(object):
             W_L = W_aL[a]
             setup = self.setups[a]
 
-            D_p = D_sp[:self.nspins].sum(0)
+            D_p = D_sp.sum(0)
             dH_p = (setup.K_p + setup.M_p +
                     setup.MB_p + 2.0 * np.dot(setup.M_pp, D_p) +
                     np.dot(setup.Delta_pL, W_L))
@@ -306,7 +306,7 @@ class Hamiltonian(object):
                     Htemp += V
                     H_p[:] = pack2(Htemp)
 
-            dH_sp[:self.nspins] += dH_p
+            dH_sp += dH_p
             if self.ref_dH_asp:
                 dH_sp += self.ref_dH_asp[a]
 
@@ -570,9 +570,8 @@ class RealSpaceHamiltonian(Hamiltonian):
             e_external = self.finegd.integrate(vext_g, dens.rhot_g,
                                                global_integral=False)
 
-        self.vt_sg[1:self.nspins] = vt_g
-
-        self.vt_sg[self.nspins:] = 0.0
+        if self.nspins == 2:
+            self.vt_sg[1] = vt_g
 
         self.timer.start('XC 3D grid')
         e_xc = self.xc.calculate(self.finegd, dens.nt_sg, self.vt_sg)
@@ -589,7 +588,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         E_coulomb = 0.5 * self.finegd.integrate(self.vHt_g, dens.rhot_g,
                                                 global_integral=False)
 
-        for vt_g in self.vt_sg[:self.nspins]:
+        for vt_g in self.vt_sg:
             vt_g += self.vHt_g
 
         self.timer.stop('Hartree integrate/restrict')
