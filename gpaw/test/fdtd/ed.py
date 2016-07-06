@@ -78,6 +78,6 @@ td_calc2.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
 # Test
 ref_cl_dipole_moment = [  5.25374117e-14,   5.75811267e-14,   3.08349334e-02]
 ref_qm_dipole_moment = [  1.78620337e-11,  -1.57782578e-11,   5.21368300e-01]
-tol = 1e-6
+tol = 1e-4
 equal(td_calc2.hamiltonian.poisson.get_classical_dipole_moment(), ref_cl_dipole_moment, tol)
 equal(td_calc2.hamiltonian.poisson.get_quantum_dipole_moment(), ref_qm_dipole_moment, tol)
