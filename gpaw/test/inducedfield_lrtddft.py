@@ -6,8 +6,12 @@ from gpaw.inducedfield.inducedfield_lrtddft import LrTDDFTInducedField
 from gpaw.poisson import PoissonSolver
 from gpaw.test import equal
 
+do_print_values = False  # Use this for printing the reference values
+poisson_eps = 1e-20
+density_eps = 1e-8
+
 # 0) PoissonSolver
-poissonsolver = PoissonSolver(eps=1e-20)
+poissonsolver = PoissonSolver(eps=poisson_eps)
 
 # 1) Ground state calculation with empty states
 atoms = Atoms(symbols='Na2',
@@ -15,7 +19,8 @@ atoms = Atoms(symbols='Na2',
               pbc=False)
 atoms.center(vacuum=3.0)
 
-calc = GPAW(nbands=20, h=0.6, setups={'Na': '1'}, poissonsolver=poissonsolver)
+calc = GPAW(nbands=20, h=0.6, setups={'Na': '1'}, poissonsolver=poissonsolver,
+        convergence={'density': density_eps})
 atoms.set_calculator(calc)
 energy = atoms.get_potential_energy()
 calc.write('na2_gs_casida.gpw', mode='all')
@@ -36,10 +41,16 @@ kickdir = 0                # Kick field direction 0, 1, 2 for x, y, z
 ind = LrTDDFTInducedField(paw=calc, lr=lr, frequencies=frequencies,
                           folding=folding, width=width, kickdir=kickdir)
 ind.calculate_induced_field(gridrefinement=2, from_density='comp',
-                            poisson_eps=1e-20)
+                            poisson_eps=poisson_eps)
+
+# Estimate tolerance (worst case error accumulation)
+tol = len(lr) * ind.fieldgd.integrate(ind.fieldgd.zeros() + 1.0) * \
+        max(density_eps, np.sqrt(poisson_eps))
+# tol = 0.000369606940
+if do_print_values:
+    print('tol = %.12f' % tol)
 
 # Test
-tol = 1e-4
 val1 = ind.fieldgd.integrate(ind.Ffe_wg[0])
 val2 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[0][0]))
 val3 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[0][1]))
@@ -49,14 +60,18 @@ val6 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[1][0]))
 val7 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[1][1]))
 val8 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[1][2]))
 
-def relative_equal(x, y, tol):
-    return equal(x/y, 1.0, tol)
+if do_print_values:
+    i = 1
+    def equal(x, y, tol):
+        global i
+        print("equal(val%d, %20.12f, tol)" % (i, x))
+        i += 1
 
-relative_equal(val1, 3175.7735779847876, tol)
-relative_equal(val2, 1700.4802379802722, tol)
-relative_equal(val3, 1187.2584619412758, tol)
-relative_equal(val4, 1187.2584619407216, tol)
-relative_equal(val5, 10957.19614721598, tol)
-relative_equal(val6, 6574.846859393127, tol)
-relative_equal(val7, 4589.770191548621, tol)
-relative_equal(val8, 4589.770191545197, tol)
+equal(val1,    3175.710769842502, tol)
+equal(val2,    1700.915873926834, tol)
+equal(val3,    1187.042280386919, tol)
+equal(val4,    1187.042280388817, tol)
+equal(val5,   10957.186908354506, tol)
+equal(val6,    6576.600305045955, tol)
+equal(val7,    4588.724567703681, tol)
+equal(val8,    4588.724567714311, tol)
