@@ -36,7 +36,7 @@ def set_communicator(world, rank, size, kcommsize=None):
 
 def parallel_partition(N, commrank, commsize, reshape=True, positive=False):
     
-    if reshape is True:
+    if reshape:
         if N % commsize != 0:
             N -= N % commsize
             if positive:

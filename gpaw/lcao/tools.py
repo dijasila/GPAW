@@ -83,7 +83,7 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
     from ase.dft.kpoints import get_monkhorst_pack_size_and_offset, \
         monkhorst_pack
 
-    if symmetry['point_group'] is True:
+    if symmetry['point_group']:
         raise NotImplementedError('Point group symmetry not implemented')
 
     nspins, nk, nbf = h_skmm.shape[:3]
@@ -104,7 +104,7 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
     bzk_t_kc = monkhorst_pack(tuple(kpts_grid[transverse_dirs]) + (1, ))
     if 'time_reversal' not in symmetry:
         symmetry['time_reversal'] = True
-    if symmetry['time_reversal'] is True:
+    if symmetry['time_reversal']:
         # XXX a somewhat ugly hack:
         # By default GPAW reduces inversion sym in the z direction. The steps
         # below assure reduction in the transverse dirs.
@@ -326,7 +326,7 @@ def lead_kspace2realspace(h_skmm, s_kmm, bzk_kc, weight_k, direction='x',
     """
 
     dir = 'xyz'.index(direction)
-    if symmetry['point_group'] is True:
+    if symmetry['point_group']:
         raise NotImplementedError
 
     R_c = [0, 0, 0]

@@ -409,7 +409,7 @@ class KPointDescriptor:
                     if iop1 == iop and self.time_reversal_k[ii] == timerev:
                         find = True
                         break
-                if find is False:
+                if not find:
                     raise ValueError('cant find k!')
 
                 ibzq_q_tmp[i] = ibzk

@@ -92,7 +92,7 @@ class Unfold:
     def get_eigenvalues(self, iK):
         """Get the list of eigenvalues for a given iK."""
 
-        if self.spinorbit is False:
+        if not self.spinorbit:
             e_m = self.calc.get_eigenvalues(kpt=iK, spin=0) / Hartree
         else:
             e_m = self.e_mK[:, iK] / Hartree
@@ -105,7 +105,7 @@ class Unfold:
 
         psi_mgrid = get_rs_wavefunctions_k(self.calc, iK, self.spinorbit,
                                            self.v_Knm)
-        if self.spinorbit is False:
+        if not self.spinorbit:
             psi_list_mG = []
             for i in range(len(psi_mgrid)):
                 psi_list_mG.append(self.pd.fft(psi_mgrid[i], iK))
@@ -469,8 +469,8 @@ def get_vacuum_level(calc, plot_pot=False):
     else:
         vHt_g = calc.hamiltonian.vHt_g * Hartree
     vHt_z = np.mean(np.mean(vHt_g, axis=0), axis=0)
-    
-    if plot_pot is True:
+
+    if plot_pot:
         import matplotlib.pyplot as plt
         plt.plot(vHt_z)
         plt.show()
