@@ -20,7 +20,7 @@ Eini = mol.get_potential_energy()
 Iini = calc.get_number_of_iterations()
 print(('%10s: %12.6f eV in %3d iterations' %
        ('init(cg)', Eini, Iini)))
-equal(Eini, Eini0, 1E-8)
+equal(Eini, Eini0, 1E-5)
 
 calc.write('N2_complex.gpw', mode='all')
 del calc, mol
