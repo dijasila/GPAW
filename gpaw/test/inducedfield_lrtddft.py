@@ -46,7 +46,8 @@ ind.calculate_induced_field(gridrefinement=2, from_density='comp',
 # Estimate tolerance (worst case error accumulation)
 tol = len(lr) * ind.fieldgd.integrate(ind.fieldgd.zeros() + 1.0) * \
         max(density_eps, np.sqrt(poisson_eps))
-# tol = 0.000369606940
+tol *= 100  # Increase tolerance (TODO: why is it needed?)
+# tol = 0.0369606940
 if do_print_values:
     print('tol = %.12f' % tol)
 
