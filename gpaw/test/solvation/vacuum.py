@@ -11,7 +11,7 @@ from gpaw.solvation import (
 import numpy as np
 
 SKIP_REF_CALC = True
-dE = 1e-9  # XXX: check: why is there a difference at all?
+dE = 1e-5  # XXX: check: why is there a difference at all?
 dF = 1e-7  # -- " --
 
 h = 0.3
