@@ -11,6 +11,7 @@ from ase.utils import opencew, devnull
 from ase.utils.timing import timer
 from ase.parallel import paropen
 
+from gpaw import GPAW
 import gpaw.mpi as mpi
 from gpaw import debug
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -34,7 +35,7 @@ class G0W0(PairDensity):
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
                  world=mpi.world, ecut_extrapolation=False,
-                 gate_voltage=None):
+                 nblocksmax=False, gate_voltage=None):
 
         """G0W0 calculator.
         
@@ -110,6 +111,23 @@ class G0W0(PairDensity):
         p()
 
         self.inputcalc = calc
+
+        ### Check if nblocks is compatible, adjust if not
+        if nblocksmax:
+            nblocks = world.size
+            nblocks_calc = GPAW(calc,txt=None)
+            ngmax = []
+            for q_c in nblocks_calc.wfs.kd.bzk_kc:
+                qd = KPointDescriptor([q_c])
+                pd = PWDescriptor(np.min(ecut)/Hartree, nblocks_calc.wfs.gd, complex, qd)
+                ngmax.append(pd.ngmax)
+            nG = np.min(ngmax)
+
+            while nblocks > nG**0.5 + 1 or world.size % nblocks != 0:
+                nblocks -= 1
+
+            mynG = (nG + nblocks - 1) // nblocks
+            assert mynG * (nblocks - 1) < nG
 
         if ecut_extrapolation is True:
             pct = 0.8
