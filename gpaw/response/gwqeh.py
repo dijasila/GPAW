@@ -34,7 +34,7 @@ class GWQEHCorrection(PairDensity):
                  structure=None, d=None, layer=0, 
                  dW_qw=None, qqeh=None, wqeh=None,
                  txt=sys.stdout, world=mpi.world, domega0=0.025, 
-                 omega2=10.0, eta=0.1, include_q0=True): 
+                 omega2=10.0, eta=0.1, include_q0=True, metal=False): 
         """ 
         Class for calculating quasiparticle energies of van der Waals
         heterostructures using the GW approximation for the self-energy. 
@@ -49,13 +49,13 @@ class GWQEHCorrection(PairDensity):
         filename: str
             filename for gwqeh output
         kpts: list
-            List of indices of the IBZ k-points to calculate the quasi particle 
-            energies for. Set to [0] by default since the QP correction is 
-            generally the same for all k. 
+            List of indices of sthe IBZ k-points to calculate the quasi
+            particle energies for. Set to [0] by default since the QP 
+            correction is generally the same for all k. 
         bands: tuple
             Range of band indices, like (n1, n2+1), to calculate the quasi
             particle energies for. Note that the second band index is not
-            included.
+            included. Should be the same as used for the GW calculation.
         structure: list of str
             Heterostructure set up. Each entry should consist of number of
             layers + chemical formula.
@@ -87,6 +87,9 @@ class GWQEHCorrection(PairDensity):
         include_q0: bool
             include q=0 in W or not. if True an integral arround q=0 is
             performed, if False the q=0 contribution is set to zero. 
+        metal: bool
+            If True, the point at q=0 is omitted when averaging the screened
+            potential close to q=0. 
         """
         
         self.gwfile = gwfile
@@ -96,7 +99,7 @@ class GWQEHCorrection(PairDensity):
         # G=0 is needed.
         self.ecut = 1.
         PairDensity.__init__(self, calc, ecut=self.ecut, world=world,
-                             txt=filename + '.gw')    
+                             txt=filename + '.txt')    
     
         self.filename = filename
         self.ecut /= Hartree
@@ -158,7 +161,8 @@ class GWQEHCorrection(PairDensity):
             self.qqeh = qqeh
             self.wqeh = None  # wqeh
         
-        self.dW_qw = self.get_W_on_grid(dW_qw, include_q0=include_q0)
+        self.dW_qw = self.get_W_on_grid(dW_qw, include_q0=include_q0,
+                                        metal=metal)
 
         assert self.nw == self.dW_qw.shape[1], \
             ('Frequency grids doesnt match!')
@@ -196,16 +200,15 @@ class GWQEHCorrection(PairDensity):
                   for s, K, n1, n2 in self.mysKn1n2]
 
         kplusqdone_u = [set() for kpt in mykpts]
- 
+        Nq = len((self.qd.ibzk_kc))
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             self.nq = iq
             nq = iq
             self.save_state_file()
      
             qcstr = '(' + ', '.join(['%.3f' % x for x in q_c]) + ')'
-            # print('Calculating contribution from IBZ q-pointq #%d/%d, 
-            # q_c=%s' %
-            #       (nq + 1, nibzqs, qcstr), file=self.fd)
+            print('Calculating contribution from IBZ q-point #%d/%d q_c=%s'
+                  % (nq, Nq, qcstr), file=self.fd)
             
             rcell_cv = 2 * pi * np.linalg.inv(self.calc.wfs.gd.cell_cv).T
             q_abs = np.linalg.norm(np.dot(q_c, rcell_cv))
@@ -325,9 +328,9 @@ class GWQEHCorrection(PairDensity):
 
     def calculate_qp_correction(self):
         if self.filename:
-            pckl = self.filename + '.sigma.pckl'
+            pckl = self.filename + '_qeh.pckl'
         else:
-            pckl = 'sigma_qeh.pckl'
+            pckl = 'qeh.pckl'
 
         if self.complete:
             print('Self-energy loaded from file', file=self.fd)
@@ -337,8 +340,8 @@ class GWQEHCorrection(PairDensity):
         # Need GW result for renormalization factor
         b1, b2 = self.bands
         gwdata = pickle.load(open(self.gwfile))
-        self.dsigmagw_sin = gwdata['dsigma'][:,:,b1:b2]
-        self.qpgw_sin = gwdata['qp'][:,:,b1:b2] / Hartree
+        self.dsigmagw_sin = gwdata['dsigma']
+        self.qpgw_sin = gwdata['qp'] / Hartree
         nk = self.qpgw_sin.shape[1]
         if not self.sigma_sin.shape[1] == nk:
             self.sigma_sin = np.repeat(self.sigma_sin[:, :1, :], nk, axis=1)
@@ -407,12 +410,12 @@ class GWQEHCorrection(PairDensity):
                 'qp_sin': self.qp_sin,
                 'Qp_sin': self.Qp_sin}
         if self.world.rank == 0:
-            with open(self.filename + '.sigma.pckl', 'wb') as fd:
+            with open(self.filename + '_qeh.pckl', 'wb') as fd:
                 pickle.dump(data, fd) 
 
     def load_state_file(self):
         try:
-            data = pickle.load(open(self.filename + '.sigma.pckl'))
+            data = pickle.load(open(self.filename + '_qeh.pckl'))
         except IOError:
             return False
         else:
@@ -428,10 +431,10 @@ class GWQEHCorrection(PairDensity):
             else:
                 return False    
 
-    def get_W_on_grid(self, dW_qw, include_q0=True):
+    def get_W_on_grid(self, dW_qw, include_q0=True, metal=False):
         """This function transforms the screened potential W(q,w) to the 
         (q,w)-grid of the GW calculation. Also, W is integrated over
-        a region around each q=0 if include_q0 is set to True."""
+        a region around q=0 if include_q0 is set to True."""
     
         q_cs = self.qd.ibzk_kc
 
@@ -443,22 +446,37 @@ class GWQEHCorrection(PairDensity):
 
         wqeh = self.wqeh  # w_grid.copy() # self.qeh
         qqeh = self.qqeh
-        sort = np.argsort(qqeh)
-        qqeh = qqeh[sort]
-        dW_qw = dW_qw[sort] 
+        sortqeh = np.argsort(qqeh)
+        qqeh = qqeh[sortqeh]
+        dW_qw = dW_qw[sortqeh] 
 
+        sort = np.argsort(q_grid)
+        isort = np.argsort(sort)
+        if metal and np.isclose(qqeh[0], 0):
+            """We don't have the right q=0 limit for metals  and semi-metals.
+            -> Point should be omitted from interpolation"""
+            qqeh = qqeh[1:]
+            dW_qw = dW_qw[1:]
+            sort = sort[1:]
+            
         from scipy.interpolate import RectBivariateSpline
         yr = RectBivariateSpline(qqeh, wqeh, dW_qw.real, s=0)
         yi = RectBivariateSpline(qqeh, wqeh, dW_qw.imag, s=0)
-        
-        sort = np.argsort(q_grid)
-        isort = np.argsort(sort)
+
         dWgw_qw = yr(q_grid[sort], w_grid) + 1j * yi(q_grid[sort], w_grid)
         dW_qw = yr(qqeh, w_grid) + 1j * yi(qqeh, w_grid)
-
-        q_cut = q_grid[sort][1] / 2.
+        
+        if metal:
+            # Interpolation is done -> put back zeros at q=0
+            dWgw_qw = np.insert(dWgw_qw, 0, 0, axis=0)
+            qqeh = np.insert(qqeh, 0, 0)
+            dW_qw = np.insert(dW_qw, 0, 0, axis=0)
+            q_cut = q_grid[sort][0] / 2.
+        else:
+            q_cut = q_grid[sort][1] / 2.
+            
         q0 = np.array([q for q in qqeh if q <= q_cut])
-        if len(q0) > 1:
+        if len(q0) > 1:  # Integrate arround q=0 
             vol = np.pi * (q0[-1] + q0[1] / 2.)**2 
             if np.isclose(q0[0], 0):
                 weight0 = np.pi * (q0[1] / 2.)**2 / vol
@@ -472,11 +490,10 @@ class GWQEHCorrection(PairDensity):
             dWgw_qw[0] = (np.repeat(weights[:, np.newaxis], len(w_grid), 
                                     axis=1) * dW_qw[:len(q0)]).sum(axis=0)
         
-        if not include_q0:
-            dWgw_qw[0, 0] = 0.0
-            
-        dWgw_qw = dWgw_qw[isort]
-
+        if not include_q0:  # Omit q=0 contrinution completely.
+            dWgw_qw[0] = 0.0
+             
+        dWgw_qw = dWgw_qw[isort]  # Put dW back on native grid.
         return dWgw_qw
 
     def calculate_W_QEH(self, structure, d, layer=0):
@@ -484,7 +501,6 @@ class GWQEHCorrection(PairDensity):
             check_building_blocks
 
         structure = expand_layers(structure)
-
         self.w_grid = self.omega_w
         wmax = self.w_grid[-1]
         # qmax = (self.q_grid).max()
@@ -503,6 +519,7 @@ class GWQEHCorrection(PairDensity):
         W0_qw = HS0.get_screened_potential()
         
         # Full heterostructure
+      
         HS = Heterostructure(structure=structure, d=d,
                              wmax=wmax * Hartree,
                              # qmax=qmax / Bohr
