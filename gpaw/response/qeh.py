@@ -7,9 +7,10 @@ import ase.units
 from ase.utils import devnull
 import sys
 import os
+import gpaw.mpi as mpi
 
-Hartree = 27.2113956555
-Bohr = 0.529177257507
+Hartree = ase.units.Hartree
+Bohr = ase.units.Bohr
 
 
 class Heterostructure:
@@ -54,7 +55,8 @@ class Heterostructure:
         namelist = []
         n_rep = 0
         structure = expand_layers(structure)
-        if not check_building_blocks(set(structure)):
+
+        if not check_building_blocks(list(set(structure))):
             raise ValueError('Building Blocks not on the same grid')
         self.n_layers = len(structure)
         for n, name in enumerate(structure):
@@ -96,11 +98,27 @@ class Heterostructure:
                 n_rep += 1
 
             layer_indices = np.append(layer_indices, n)
+
         self.layer_indices = np.array(layer_indices, dtype=int)
 
         self.q_abs = q[:qindex]
         if self.q_abs[0] == 0:
             self.q_abs[0] += 1e-12
+
+        # parallelize over q in case of multiple processors 
+        self.world = mpi.world
+        nq = len(self.q_abs)
+        mynq = (nq + self.world.size - 1) // self.world.size
+        self.q1 = min(mynq * self.world.rank, nq)
+        self.q2 = min(self.q1 + mynq, nq)
+        self.mynq = self.q2 - self.q1
+        self.myq_abs = self.q_abs[self.q1: self.q2]
+
+        chi_monopole = np.array(chi_monopole)[:, self.q1: self.q2]
+        chi_dipole = np.array(chi_dipole)[:, self.q1: self.q2]
+        drho_monopole = np.array(drho_monopole)[:, self.q1: self.q2]
+        drho_dipole = np.array(drho_dipole)[:, self.q1: self.q2]
+
         self.frequencies = w[:windex]
         self.n_types = len(namelist)
         # layers and distances
@@ -127,9 +145,9 @@ class Heterostructure:
         self.z0 = np.append(np.array([0]), np.cumsum(self.d))
 
         # arange potential and density
-        self.chi_monopole = np.array(chi_monopole)
+        self.chi_monopole = chi_monopole
         if include_dipole:
-            self.chi_dipole = np.array(chi_dipole)
+            self.chi_dipole = chi_dipole
         self.drho_monopole, self.drho_dipole, self.basis_array, \
             self.drho_array = self.arange_basis(drho_monopole, drho_dipole)
         
@@ -139,9 +157,9 @@ class Heterostructure:
     def arange_basis(self, drhom, drhod=None):
         from scipy.interpolate import interp1d
         Nz = len(self.z_big)
-        drho_array = np.zeros([self.dim, len(self.q_abs),
+        drho_array = np.zeros([self.dim, self.mynq,
                                Nz], dtype=complex)
-        basis_array = np.zeros([self.dim, len(self.q_abs),
+        basis_array = np.zeros([self.dim, self.mynq,
                                 Nz], dtype=complex)
         
         for i in range(self.n_types):
@@ -179,12 +197,12 @@ class Heterostructure:
     def get_induced_potentials(self):
         from scipy.interpolate import interp1d
         Nz = len(self.z_big)
-        dphi_array = np.zeros([self.dim, len(self.q_abs), Nz], dtype=complex)
+        dphi_array = np.zeros([self.dim, self.mynq, Nz], dtype=complex)
 
         for i in range(self.n_types):
             z = self.z[i]
-            for iq in range(len(self.q_abs)):
-                q = self.q_abs[iq]
+            for iq in range(self.mynq):
+                q = self.myq_abs[iq]
                 drho_m = self.drho_monopole[i][iq].copy()
                 poisson_m = self.solve_poisson_1D(drho_m, q, z)
                 z_poisson = self.get_z_grid(z, z_lim=self.poisson_lim)
@@ -210,13 +228,13 @@ class Heterostructure:
                     i_2 = np.argmin(np.abs(z_poisson[-1] - z_big)) - 1
 
                     dphi_array[self.dim / self.n_layers * k, iq] = \
-                        self.potential_model(self.q_abs[iq], self.z_big,
+                        self.potential_model(self.myq_abs[iq], self.z_big,
                                              self.z0[k])
                     dphi_array[self.dim / self.n_layers * k, iq, i_1: i_2] = \
                         fm(z_big[i_1: i_2]) + 1j * fm2(z_big[i_1: i_2])
                     if self.chi_dipole is not None:
                         dphi_array[2 * k + 1, iq] = \
-                            self.potential_model(self.q_abs[iq], self.z_big,
+                            self.potential_model(self.myq_abs[iq], self.z_big,
                                                  self.z0[k], dipole=True,
                                                  delta=delta)
                         dphi_array[2 * k + 1, iq, i_1: i_2] = \
@@ -288,10 +306,10 @@ class Heterostructure:
         return dphi
 
     def get_Coulomb_Kernel(self, step_potential=False):
-        kernel_qij = np.zeros([len(self.q_abs), self.dim, self.dim],
+        kernel_qij = np.zeros([self.mynq, self.dim, self.dim],
                               dtype=complex)
-        for iq in range(len(self.q_abs)):
-            if np.isclose(self.q_abs[iq], 0):
+        for iq in range(self.mynq):
+            if np.isclose(self.myq_abs[iq], 0):
                 # Special treatment of q=0 limit
                 kernel_qij[iq] = np.eye(self.dim)
             else:
@@ -311,21 +329,19 @@ class Heterostructure:
         Dyson equation: chi_full = chi_intra + chi_intra V_inter chi_full
         """
         Nls = self.n_layers
-        q_abs = self.q_abs
+        q_abs = self.myq_abs
         chi_m_iqw = self.chi_monopole
         chi_d_iqw = self.chi_dipole
         
         if self.kernel_qij is None:
             self.kernel_qij = self.get_Coulomb_Kernel()            
-        chi_qwij = np.zeros((len(self.q_abs), len(self.frequencies),
+        chi_qwij = np.zeros((self.mynq, len(self.frequencies),
                              self.dim, self.dim), dtype=complex)
 
         for iq in range(len(q_abs)):
             kernel_ij = self.kernel_qij[iq].copy()
             np.fill_diagonal(kernel_ij, 0)  # Diagonal is set to zero
             for iw in range(0, len(self.frequencies)):
-                #print(chi_m_iqw.shape)
-                #print(self.layer_indices)
                 chi_intra_i = chi_m_iqw[self.layer_indices, iq, iw]
                 if self.chi_dipole is not None:
                     chi_intra_i = np.insert(chi_intra_i, np.arange(Nls) + 1,
@@ -346,10 +362,10 @@ class Heterostructure:
             self.get_Coulomb_Kernel(step_potential=step_potential)
         
         chi_qwij = self.get_chi_matrix()
-        eps_qwij = np.zeros((len(self.q_abs), len(self.frequencies),
+        eps_qwij = np.zeros((self.mynq, len(self.frequencies),
                              self.dim, self.dim), dtype=complex)
 
-        for iq in range(len(self.q_abs)):
+        for iq in range(self.mynq):
             kernel_ij = self.kernel_qij[iq]
             for iw in range(0, len(self.frequencies)):
                 eps_qwij[iq, iw, :, :] = np.linalg.inv(
@@ -374,47 +390,51 @@ class Heterostructure:
             self.get_Coulomb_Kernel(step_potential=True)
 
         chi_qwij = self.get_chi_matrix()
-        W_qw = np.zeros((len(self.q_abs), len(self.frequencies)), 
+        W_qw = np.zeros((self.mynq, len(self.frequencies)), 
                         dtype=complex)
 
-        W0_qw = np.zeros((len(self.q_abs), len(self.frequencies)), 
+        W0_qw = np.zeros((self.mynq, len(self.frequencies)), 
                          dtype=complex)
         k = layer
         if self.chi_dipole is not None:
             k *= 2
-        for iq in range(len(self.q_abs)):
+        for iq in range(self.mynq):
             kernel_ij = self.kernel_qij[iq]
-            if np.isclose(self.q_abs[iq], 0):
+            if np.isclose(self.myq_abs[iq], 0):
                 kernel_ij = 2 * np.pi * np.ones([self.dim, self.dim])
 
             if self.chi_dipole is not None:
                 for j in range(self.n_layers):
                     kernel_ij[2 * j, 2 * j + 1] = 0
                     kernel_ij[2 * j + 1, 2 * j] = 0
-
+            
             for iw in range(0, len(self.frequencies)):
                 W_qw[iq, iw] = np.dot(np.dot(kernel_ij[k], chi_qwij[iq, iw]),
                                       kernel_ij[:, k])
                 W0_qw[iq, iw] = kernel_ij[k, k]**2 * chi_qwij[iq, iw, k, k]
+
+        W_qw = self.collect_qw(W_qw)
                 
         return W_qw
     
     def get_exciton_screened_potential(self, e_distr, h_distr):
-        v_screened_qw = np.zeros((len(self.q_abs),
+        v_screened_qw = np.zeros((self.mynq,
                                   len(self.frequencies)))
         eps_qwij = self.get_eps_matrix()
         h_distr = h_distr.transpose()
         kernel_qij = self.get_Coulomb_Kernel()
 
-        for iq in range(0, len(self.q_abs)):
+        for iq in range(0, self.mynq):
             ext_pot = np.dot(kernel_qij[iq], h_distr)
             for iw in range(0, len(self.frequencies)):
                 v_screened_qw[iq, iw] =\
                     np.dot(e_distr,
                            np.dot(np.linalg.inv(eps_qwij[iq, iw, :, :]),
                                   ext_pot))
-                        
-        return self.q_abs, -v_screened_qw[:, 0]
+         
+        v_screened_q = self.collect_q(v_screened_qw[:, 0])
+        
+        return self.q_abs, -v_screened_q
 
     def get_exciton_screened_potential_r(self, r_array, e_distr=None, 
                                          h_distr=None, Wq_name=None):
@@ -545,7 +565,7 @@ class Heterostructure:
 
         eps_qwij = self.get_eps_matrix(step_potential=True)[:, :Nw] 
         
-        Nq = len(self.q_abs)
+        Nq = self.mynq
         epsM_qw = np.zeros([Nq, Nw], dtype=complex)
 
         for iw in range(Nw):
@@ -557,6 +577,8 @@ class Heterostructure:
                                                   np.array(const_per)))
                       
                 epsM_qw[iq, iw] = 1. / epsinvM
+        
+        epsM_qw = self.collect_qw(epsM_qw)
         
         return self.q_abs / Bohr,  self.frequencies[:Nw] * Hartree, epsM_qw
 
@@ -586,18 +608,20 @@ class Heterostructure:
                                   np.ones([self.n_layers]))
 
         N = self.n_layers
-        eels_qw = np.zeros([len(self.q_abs), len(self.frequencies)],
+        eels_qw = np.zeros([self.mynq, len(self.frequencies)],
                            dtype=complex)
        
         chi_qwij = self.get_chi_matrix()
    
-        for iq in range(len(self.q_abs)):
+        for iq in range(self.mynq):
             for iw in range(len(self.frequencies)):
                 eels_qw[iq, iw] = np.dot(np.array(const_per) * layer_weight,
                                          np.dot(chi_qwij[iq, iw],
                                                 np.array(const_per)))
 
             eels_qw[iq, :] *= 1. / N * 4 * np.pi / self.q_abs[iq]**2
+        
+        eels_qw = self.collect_q(eels_qw)
 
         return self.q_abs / Bohr, self.frequencies * Hartree, \
             - (Bohr * eels_qw).imag
@@ -628,19 +652,20 @@ class Heterostructure:
                                   np.ones([self.n_layers]))
 
         N = self.n_layers
-        abs_qw = np.zeros([len(self.q_abs), len(self.frequencies)],
+        abs_qw = np.zeros([self.mynq, len(self.frequencies)],
                            dtype=complex)
        
         eps_qwij = self.get_eps_matrix()
    
-        for iq in range(len(self.q_abs)):
+        for iq in range(self.mynq):
             for iw in range(len(self.frequencies)):
                 abs_qw[iq, iw] = np.dot(np.array(const_per) * layer_weight,
                                         np.dot(eps_qwij[iq, iw],
                                                np.array(const_per)))
 
             abs_qw[iq, :] *= 1. / N * 2. / self.q_abs[iq] 
-
+            
+        abs_qw = self.collect_qw(abs_qw)
         return self.q_abs / Bohr, self.frequencies * Hartree, \
             (Bohr * abs_qw).imag
 
@@ -709,7 +734,7 @@ class Heterostructure:
                                              1. / q_z**2) + 
                               0.5 * np.log((q_max / q_z)**2 + 1)))
        
-        for iq in range(len(self.q_abs)):
+        for iq in range(self.mynq):
             eels_temp = np.zeros([len(self.frequencies)], dtype=complex)
             for iw in range(len(self.frequencies)):
                 # Longitudinal in-plane
@@ -760,7 +785,9 @@ class Heterostructure:
                     eels_temp *= (4 * np.pi)**2 * weights[iq]
                     
                 eels_w += eels_temp
-
+            
+        self.world.sum(eels_w)
+            
         return self.frequencies * Hartree, - (Bohr**5 * eels_w * vol).imag
 
     def get_response(self, iw=0, dipole=False):
@@ -781,19 +808,21 @@ class Heterostructure:
                                   np.ones([self.n_layers]))
 
         chi_qij = self.get_chi_matrix()[:, iw]
-        Vind_z = np.zeros((len(self.q_abs), len(self.z_big)))
-        rhoind_z = np.zeros((len(self.q_abs), len(self.z_big)))
+        Vind_qz = np.zeros((self.mynq, len(self.z_big)))
+        rhoind_qz = np.zeros((self.mynq, len(self.z_big)))
         
         drho_array = self.drho_array.copy()
         dphi_array = self.dphi_array.copy()
         # Expand on potential and density basis function
         # to get spatial detendence
-        for iq in range(len(self.q_abs)):
+        for iq in range(self.mynq):
             chi_ij = chi_qij[iq]
             Vind_qi = np.dot(chi_ij, np.array(const_per))
-            rhoind_z[iq] = np.dot(drho_array[:, iq].T, Vind_qi)
-            Vind_z[iq] = np.dot(dphi_array[:, iq].T, Vind_qi)
-        return self.z_big * Bohr, rhoind_z, Vind_z, self.z0 * Bohr
+            rhoind_qz[iq] = np.dot(drho_array[:, iq].T, Vind_qi)
+            Vind_qz[iq] = np.dot(dphi_array[:, iq].T, Vind_qi)
+
+        rhoind_qz = self.collect_qw(rhoind_qz)
+        return self.z_big * Bohr, rhoind_qz, Vind_qz, self.z0 * Bohr
     
     def get_plasmon_eigenmodes(self):
         """
@@ -804,9 +833,11 @@ class Heterostructure:
             Eigenvalue array (shape Nq x nw x dim), z-grid, induced densities,
             induced potentials, energies at zero crossings.
         """
+        
+        assert self.world.size == 1
         eps_qwij = self.get_eps_matrix()
         Nw = len(self.frequencies)
-        Nq = len(self.q_abs)
+        Nq = self.mynq
         w_w = self.frequencies
         eig = np.zeros([Nq, Nw, self.dim], dtype=complex)
         vec = np.zeros([Nq, Nw, self.dim, self.dim],
@@ -857,6 +888,28 @@ class Heterostructure:
 
         return eig, self.z_big * Bohr, rho_z, phi_z, np.array(omega0)
 
+    def collect_q(self, a_q):
+        """ Collect arrays of dim (q)"""
+        world = self.world
+        nq = len(self.q_abs)
+        mynq = (nq + self.world.size - 1) // self.world.size
+        b_q = np.zeros(mynq, a_q.dtype)
+        b_q[:self.q2 - self.q1] = a_q
+        A_q = np.empty(mynq * world.size, a_q.dtype)
+        world.all_gather(b_q, A_q)
+        return A_q[:nq]
+    
+    def collect_qw(self, a_qw):
+        """ Collect arrays of dim (q X w)"""
+        nw = a_qw.shape[1]
+        nq = len(self.q_abs)
+        A_qw = np.zeros((nq, nw),
+                        a_qw.dtype)
+        for iw in range(nw):
+            A_qw[:, iw] = self.collect_q(a_qw[:, iw])
+        nq = len(self.q_abs)
+        return A_qw[:nq]
+
 
 class BuildingBlock():
 
@@ -864,7 +917,7 @@ class BuildingBlock():
     building block of 2D material with GPAW"""
     
     def __init__(self, filename, df, isotropic_q=True, nq_inf=10,
-                 qmax=None, txt=sys.stdout):
+                 direction='x', qmax=None, txt=sys.stdout):
         """Creates a BuildingBlock object.
 
         filename: str
@@ -874,6 +927,8 @@ class BuildingBlock():
         isotropic_q: bool
             If True, only q-points along one direction (1 0 0) in the 
             2D BZ is included, thus asuming an isotropic material
+        direction: 'x' or 'y'
+            Direction used for isotropic q sampling. 
         qmax: float
             Cutoff for q-grid. To be used if one wishes to sample outside the
             irreducible BZ. Only works for isotropic q-sampling.
@@ -882,6 +937,7 @@ class BuildingBlock():
             extrapolated from q=0, assumung that the head of chi0_wGG goes 
             as q^2 and the wings as q. 
             Note that this does not hold for (semi)metals!
+       
         """
         if qmax is not None:
             assert isotropic_q
@@ -891,7 +947,13 @@ class BuildingBlock():
         self.nq_inftot = nq_inf
         if not isotropic_q:
             self.nq_inftot *= 2
-    
+
+        if direction == 'x':
+            qdir = 0
+        elif direction == 'y':
+            qdir = 1 
+        self.direction = direction
+
         self.df = df  # dielectric function object
         self.df.truncation = '2D'  # in case you forgot!
         self.omega_w = self.df.chi0.omega_w
@@ -926,23 +988,14 @@ class BuildingBlock():
         rcell_cv = 2 * pi * np.linalg.inv(calc.wfs.gd.cell_cv).T
         if isotropic_q:  # only use q along [1 0 0] direction.
             Nk = kd.N_c
-            qx = np.array(range(0, Nk[0] / 2. + 1)) / float(Nk[0])
-            q_cs = np.zeros([Nk[0] / 2 + 1, 3])
-            q_cs[:, 0] = qx
-            
-            # This only works if [1 0 0] direction is part of ired BZ
-            #omit_q = []
-            #GM_dir = [1, 0, 0]
-            #print(q_cs)
-            #for n, q_c in enumerate(q_cs):
-            #    if not np.allclose(q_c[1:], 0):
-            #        omit_q.append(n)
-            #q_cs = np.delete(q_cs, omit_q, axis=0)
-
+            qx = np.array(range(0, Nk[0] / 2)) / float(Nk[0])
+            q_cs = np.zeros([Nk[0] / 2, 3])
+            q_cs[:, qdir] = qx
             q = 0
-            if qmax is not None: # 
+            if qmax is not None: 
                 qmax *= Bohr
-                qmax_v = np.array([qmax, 0, 0])
+                qmax_v = np.zeros([3])
+                qmax_v[qdir] = qmax
                 qmax_c = 1. / (2 * np.pi) * np.dot(qmax_v, calc.wfs.gd.cell_cv)
                 q_c = q_cs[-1]
                 q_v = np.dot(q_c, rcell_cv)
@@ -951,10 +1004,11 @@ class BuildingBlock():
                 assert nk % 2 == 0 
                 i = nk / 2.
                 while q < qmax:
-                    if i == nk: # omit BZ edge 
+                    if i == nk:  # omit BZ edge 
                         i += 1
                         continue 
-                    q_c = np.array([i / nk, 0, 0])
+                    q_c = np.zeros([3])
+                    q_c[qdir] = i / nk
                     q_cs = np.append(q_cs, q_c[np.newaxis, :], axis=0)
                     q_v = np.dot(q_c, rcell_cv)
                     q = (q_v**2).sum()**0.5
@@ -963,17 +1017,16 @@ class BuildingBlock():
         q_abs = (q_vs**2).sum(axis=1)**0.5
         sort = np.argsort(q_abs)
         q_abs = q_abs[sort]
-        print(q_abs)
         q_cs = q_cs[sort]
         q_cut = q_abs[1] / 2.  # smallest finite q
         self.nq_cut = self.nq_inftot + 1
         
         q_infs = np.zeros([q_cs.shape[0] + self.nq_inftot, 3])
         # x-direction:
-        q_infs[1: self.nq_inf + 1, 0] = \
+        q_infs[1: self.nq_inf + 1, qdir] = \
             np.linspace(0, q_cut, self.nq_inf+1)[1:]
-        if not isotropic_q:  # y-direction:
-            q_infs[self.nq_inf + 1 : self.nq_inf*2 + 1, 1] = \
+        if not isotropic_q:  # y-direction
+            q_infs[self.nq_inf + 1: self.nq_inf*2 + 1, 1] = \
                 np.linspace(0, q_cut, self.nq_inf+1)[1:]
        
         # add q_inf to list
@@ -1005,14 +1058,14 @@ class BuildingBlock():
                   % (nq + 1, Nq, qcstr), file=self.fd)
             if q_inf is not None:
                 qstr = '(' + ', '.join(['%.3f' % x for x in q_inf]) + ')'
-                print('    and q_inf=%s' % qstr , file=self.fd)
+                print('    and q_inf=%s' % qstr, file=self.fd)
             pd, chi0_wGG, \
                 chi_wGG = self.df.get_dielectric_matrix(symmetric=False, 
                                                         calculate_chi=True,
                                                         q_c=q_c,
                                                         q_v=q_inf,
-                                                        add_intraband=
-                                                        add_intraband
+                                                        direction=self.direction,
+                                                        add_intraband=add_intraband
                                                         )
             print('calculated chi!', file=self.fd)
 
@@ -1032,7 +1085,8 @@ class BuildingBlock():
 
             if self.world.rank == 0:
                 assert w1 == 0  # drhoM and drhoD in static limit
-                self.update_building_block(chiM_w[np.newaxis, :], chiD_w[np.newaxis, :], 
+                self.update_building_block(chiM_w[np.newaxis, :], 
+                                           chiD_w[np.newaxis, :], 
                                            drhoM_qz, drhoD_qz)
 
         # Induced densities are not probably described in q-> 0 limit-
@@ -1111,9 +1165,10 @@ class BuildingBlock():
         w_grid /= Hartree
 
         assert np.max(q_grid) <= np.max(self.q_abs), \
-            'q can not be larger that %1.2f Ang'% np.max(self.q_abs / Bohr)
+            'q can not be larger that %1.2f Ang' % np.max(self.q_abs / Bohr)
         assert np.max(w_grid) <= np.max(self.omega_w), \
-            'w can not be larger that %1.2f eV'% np.max(self.omega_w * Hartree)
+            'w can not be larger that %1.2f eV' % \
+            np.max(self.omega_w * Hartree)
         
         sort = np.argsort(self.q_abs)
         q_abs = self.q_abs[sort]
@@ -1122,8 +1177,8 @@ class BuildingBlock():
         self.chiM_qw = self.chiM_qw[sort]
         
         omit_q0 = False
-        if np.isclose(q_abs[0], 0) and not np.isclose(self.chiM_qw[0,0], 0):
-            omit_q0 = True # omit q=0 from interpolation
+        if np.isclose(q_abs[0], 0) and not np.isclose(self.chiM_qw[0, 0], 0):
+            omit_q0 = True  # omit q=0 from interpolation
             q0_abs = q_abs[0].copy()
             q_abs[0] = 0.
             chi0_w = self.chiM_qw[0].copy()
@@ -1138,8 +1193,8 @@ class BuildingBlock():
 
         self.chiM_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
         if omit_q0:
-            yr = interp1d(self.omega_w,chi0_w.real)
-            yi = interp1d(self.omega_w,chi0_w.imag)
+            yr = interp1d(self.omega_w, chi0_w.real)
+            yi = interp1d(self.omega_w, chi0_w.imag)
             chi0_w = yr(w_grid) + 1j * yi(w_grid)
             q_abs[0] = q0_abs            
             if np.isclose(q_grid[0], 0):
@@ -1197,25 +1252,26 @@ class BuildingBlock():
 
 """TOOLS"""
 
+
 def check_building_blocks(BBfiles=None):
     """ Check that building blocks are on same frequency-
-    and q- grid 
+    and q- grid. 
 
     BBfiles: list of str
         list of names of BB files
     """
-    
     name = BBfiles[0] + '-chi.pckl'
     data = pickle.load(open(name))
-    q = data['q_abs']
-    w = data['omega_w']
+    q = data['q_abs'].copy()
+    w = data['omega_w'].copy()
     for name in BBfiles[1:]:
-        name +='-chi.pckl'
+        name += '-chi.pckl'
         data = pickle.load(open(name))
-        if not (data['q_abs'] == q and
-                data['omega_w'] == w):
+        if not ((data['q_abs'] == q).all and
+                (data['omega_w'] == w).all):
             return False
     return True
+
 
 def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
                                 q_grid=None, w_grid=None):
@@ -1225,27 +1281,45 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
     BBfiles: list of str
         list of names of BB files to be interpolated
     BBmother: str
-        name of BB file to match the grids to
-    
+        name of BB file to match the grids to. Will
+        also be interpolated to common grid.
     q_grid: float
         q-grid in Ang. Should start at q=0
     w_grid: float
         in eV
     """
 
-    from scipy.interpolate import RectBivariateSpline
-    from scipy.interpolate import interp1d, interp2d
+    from scipy.interpolate import RectBivariateSpline, interp1d
+    
+    if BBmotherfile is not None:
+        BBfiles.append(BBmotherfile)
 
-    if BBmother is not None:
-        name = BBmother + '-chi.pckl'
+    q_max = 1000
+    w_max = 1000
+    for name in BBfiles:
+        data = pickle.load(open(name + '-chi.pckl'))
+        q_abs = data['q_abs']
+        q_max = np.min([q_abs[-1], q_max])
+        w = data['omega_w']
+        w_max = np.min([w[-1], w_max])
+
+    if BBmotherfile is not None:
+        name = BBmotherfile + '-chi.pckl'
         data = pickle.load(open(name))
         q_grid = data['q_abs']
         w_grid = data['omega_w']
     else:
         q_grid *= Bohr
         w_grid *= Hartree
-
+    
+    q_grid = [q for q in q_grid if q < q_max]
+    q_grid.append(q_max)
+    w_grid = [w for w in w_grid if w < w_max]
+    w_grid.append(w_max)
+    q_grid = np.array(q_grid)
+    w_grid = np.array(w_grid)
     for name in BBfiles:
+        assert data['isotropic_q']
         data = pickle.load(open(name + '-chi.pckl'))
         q_abs = data['q_abs']
         w = data['omega_w']
@@ -1254,39 +1328,39 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
         chiD_qw = data['chiD_qw']
         drhoM_qz = data['drhoM_qz']
         drhoD_qz = data['drhoD_qz']
-
+        
         # chi monopole
         omit_q0 = False
-        if np.isclose(q_abs[0], 0) and not np.isclose(chiM_qw[0,0], 0):
-            omit_q0 = True # omit q=0 from interpolation
+        if np.isclose(q_abs[0], 0) and not np.isclose(chiM_qw[0, 0], 0):
+            omit_q0 = True  # omit q=0 from interpolation
             q0_abs = q_abs[0].copy()
             q_abs[0] = 0.
             chi0_w = chiM_qw[0].copy()
             chiM_qw[0] = np.zeros_like(chi0_w)
 
-        yr = RectBivariateSpline(q_abs, omega_w, 
+        yr = RectBivariateSpline(q_abs, w, 
                                  chiM_qw.real,
                                  s=0)
         
-        yi = RectBivariateSpline(q_abs, omega_w, 
+        yi = RectBivariateSpline(q_abs, w, 
                                  chiM_qw.imag, s=0)
 
         chiM_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
         
         if omit_q0:
-            yr = interp1d(omega_w,chi0_w.real)
-            yi = interp1d(omega_w,chi0_w.imag)
+            yr = interp1d(w, chi0_w.real)
+            yi = interp1d(w, chi0_w.imag)
             chi0_w = yr(w_grid) + 1j * yi(w_grid)
             q_abs[0] = q0_abs            
             if np.isclose(q_grid[0], 0):
                 chiM_qw[0] = chi0_w   
 
         # chi dipole
-        yr = RectBivariateSpline(q_abs, omega_w, 
-                                 chiD_qw[sort].real,
+        yr = RectBivariateSpline(q_abs, w, 
+                                 chiD_qw.real,
                                  s=0)
-        yi = RectBivariateSpline(q_abs, omega_w, 
-                                 chiD_qw[sort].imag, 
+        yi = RectBivariateSpline(q_abs, w, 
+                                 chiD_qw.imag, 
                                  s=0)
 
         chiD_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
@@ -1294,17 +1368,17 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
         # drho monopole
 
         yr = RectBivariateSpline(q_abs, z, 
-                                 drhoM_qz[sort].real, s=0)
+                                 drhoM_qz.real, s=0)
         yi = RectBivariateSpline(q_abs, z, 
-                                 drhoM_qz[sort].imag, s=0)
+                                 drhoM_qz.imag, s=0)
 
         drhoM_qz = yr(q_grid, z) + 1j * yi(q_grid, z)
 
         # drho dipole
         yr = RectBivariateSpline(q_abs, z, 
-                                 drhoD_qz[sort].real, s=0)
+                                 drhoD_qz.real, s=0)
         yi = RectBivariateSpline(q_abs, z, 
-                                 drhoD_qz[sort].imag, s=0)
+                                 drhoD_qz.imag, s=0)
 
         drhoD_qz = yr(q_grid, z) + 1j * yi(q_grid, z)
         
@@ -1317,11 +1391,12 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
                 'chiD_qw': chiD_qw, 
                 'z': z, 
                 'drhoM_qz': drhoM_qz, 
-                'drhoD_qz': drhoD_qz}
-
+                'drhoD_qz': drhoD_qz,
+                'isotropic_q': True}
 
         with open(name + '_int-chi.pckl', 'wb') as fd:
             pickle.dump(data, fd, pickle.HIGHEST_PROTOCOL)
+
 
 def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,
                filenames=None, name=None):
@@ -1353,7 +1428,7 @@ def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,
         nq = len(filenames)
     elif chi_wGG is not None:
         nq = 1
-    nw = chi_wGG.shape[0] #omega_w.shape[0]
+    nw = chi_wGG.shape[0] 
     r = pd.gd.get_grid_point_coordinates()
     z = r[2, 0, 0, :]
     L = pd.gd.cell_cv[2, 2]  # Length of cell in Bohr
@@ -1454,4 +1529,5 @@ def read_chi_wGG(name):
     for chi_GG in chi_wGG:
         chi_GG[:] = pickle.load(fd)
     return omega_w, pd, chi_wGG, q0
+
 
