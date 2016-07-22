@@ -10,8 +10,6 @@ from gpaw.occupations import FermiDirac, ZeroKelvin
 from gpaw.eigensolvers.rmm_diis import RMM_DIIS
 from gpaw.eigensolvers.cg import CG
 from gpaw.eigensolvers.davidson import Davidson
-from gpaw.lcao.eigensolver import LCAO
-
 
 def build_parser():
     usage = '%prog [OPTIONS] [FILE...]'
