@@ -69,15 +69,15 @@ class OccupationNumbers:
     """Base class for all occupation number objects."""
     def __init__(self, fixmagmom):
         self.fixmagmom = fixmagmom
-        self.magmom = None      # magnetic moment
-        self.e_entropy = None   # -ST
-        self.e_band = None      # band energy (sum_n eps_n * f_n)
-        self.fermilevel = None  # Fermi level
-        self.homo = np.nan      # HOMO eigenvalue
-        self.lumo = np.nan      # LUMO eigenvalue
-        self.nvalence = None    # number of electrons
-        self.split = 0.0        # splitting of Fermi levels from fixmagmom=True
-        self.niter = 0          # number of iterations for finding Fermi level
+        self.magmom = None  # magnetic moment
+        self.e_entropy = None  # -ST
+        self.e_band = None  # band energy (sum_n eps_n * f_n)
+        self.fermilevel = np.nan  # Fermi level
+        self.homo = np.nan  # HOMO eigenvalue
+        self.lumo = np.nan  # LUMO eigenvalue
+        self.nvalence = None  # number of electrons
+        self.split = 0.0  # splitting of Fermi levels from fixmagmom=True
+        self.niter = 0  # number of iterations for finding Fermi level
         self.ready = False
 
     def write(self, writer):
@@ -168,19 +168,6 @@ class OccupationNumbers:
         one fermi-level to an fixed-magmom calculation and will
         also accept everything which can converted to an numpy-
         array for setting two fermi-levels.
-
-        You can (and should) use "set_fermi_levels" when doing
-        fixed-magmom calculations which raises an error if you
-        supply one fermi-level.
-
-        For historical (and storage) reasons there is also
-        an method "set_fermi_levels_mean" which might be used
-        to set the fermi-levels using the mean and the splitting
-        (set_fermi_splitting).
-
-        However: you can use simply this method but have to
-        keep in mind to supply two fermi-levels if you do fixed-
-        magmom calculations.
             
         """
         if self.fixmagmom:
@@ -194,51 +181,6 @@ class OccupationNumbers:
                 self.fermilevel = fermilevel
         else:
             self.fermilevel = fermilevel
-
-    def set_fermi_levels(self, fermilevels):
-        """This method sets two fermi levels.
-        
-        It takes two fermi-levels as argument and sets the
-        fermi-levels in a fixed-magmom calculation according
-        to the supplied levels.
-        
-        """
-        if self.fixmagmom:
-            fermilevels = np.array(fermilevels)
-            if fermilevels.size == 2:
-                self.fermilevel = fermilevels.mean()
-                self.split = fermilevels[0] - fermilevels[1]
-            else:
-                raise ValueError('Please supply two distinct values.')
-        else:
-            raise ValueError('Different fermi levels are only vaild with ' +
-                             'fixmagmom!')
-            
-    def set_fermi_levels_mean(self, fermilevel):
-        """This method sets the mean of two fermi level.
-        
-        It is mostly used for storage/historical reasons.
-        With the combination of this method and "set_fermi_splitting",
-        you're able to set the corresponding values direct.
-        
-        """
-        if self.fixmagmom:
-            if isinstance(fermilevel, float):
-                self.fermilevel = fermilevel
-            else:
-                raise ValueError('Please use float for supplying mean ' +
-                                 'fermi level!')
-        else:
-            raise ValueError('Different fermi levels are only vaild with ' +
-                             'fixmagmom!')
-            
-    def set_fermi_splitting(self, fermisplit):
-        """Set the splitting of the fermi-level (in Ht).
-        
-        This method is used in fixed-magmom calculations.
-        
-        """
-        self.split = fermisplit
 
 
 class ZeroKelvin(OccupationNumbers):
@@ -278,7 +220,7 @@ class ZeroKelvin(OccupationNumbers):
         return eps_n[n - 1], eps_n[n]
 
     def summary(self, log):
-        if self.fermilevel is not None and np.isfinite(self.fermilevel):
+        if np.isfinite(self.fermilevel):
             # if self.split == 0.0:
             if not self.fixmagmom:
                 log('Fermi level: %.5f\n' % (Hartree * self.fermilevel))
@@ -298,7 +240,7 @@ class ZeroKelvin(OccupationNumbers):
         otherwise.
         
         """
-        if self.fermilevel is None or not np.isfinite(self.fermilevel):
+        if not np.isfinite(self.fermilevel):
             OccupationNumbers.get_fermi_level(self)  # fail
         else:
             if self.fixmagmom:
@@ -313,7 +255,7 @@ class ZeroKelvin(OccupationNumbers):
 
     def get_fermi_levels(self):
         """Getting fermi-levels in case of fixed-magmom."""
-        if self.fermilevel is None or not np.isfinite(self.fermilevel):
+        if not np.isfinite(self.fermilevel):
             OccupationNumbers.get_fermi_level(self)  # fail
         else:
             if self.fixmagmom:
@@ -326,7 +268,7 @@ class ZeroKelvin(OccupationNumbers):
                                  'for fixed-magmom calculations!')
 
     def get_fermi_levels_mean(self):
-        if self.fermilevel is None or not np.isfinite(self.fermilevel):
+        if not np.isfinite(self.fermilevel):
             OccupationNumbers.get_fermi_level(self)  # fail
         else:
             return self.fermilevel
@@ -467,7 +409,7 @@ class SmoothDistribution(ZeroKelvin):
             ZeroKelvin.calculate_occupation_numbers(self, wfs)
             return
 
-        if self.fermilevel is None:
+        if not np.isfinite(self.fermilevel):
             self.fermilevel = self.guess_fermi_level(wfs)
 
         if not self.fixmagmom or wfs.nspins == 1:
@@ -578,7 +520,7 @@ class SmoothDistribution(ZeroKelvin):
         niter = 0
         
         x = self.fermilevel
-        if x is None:
+        if not np.isfinite(x):
             x = self.guess_fermi_level(wfs)
             
         data = np.empty(4)
