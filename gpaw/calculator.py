@@ -54,7 +54,7 @@ class GPAW(Calculator, PAW):
         'kpts': [(0.0, 0.0, 0.0)],
         'nbands': None,
         'charge': 0,
-        'setups': 'paw',
+        'setups': {},
         'basis': {},
         'spinpol': None,
         'fixdensity': False,
