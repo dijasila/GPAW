@@ -280,7 +280,7 @@ class BroydenBaseMixer:
         self.u_D = []
 
     def mix_single_density(self, nt_G, D_ap):
-        dNt = inf
+        dNt = np.inf
         if self.step > 2:
             del self.R_iG[0]
             for d_Dp in self.dD_iap:
