@@ -1,4 +1,5 @@
 import numpy as np
+from ase.units import Bohr
 
 from gpaw.kpoint import KPoint
 from gpaw.mpi import serial_comm
@@ -212,14 +213,14 @@ class FDWaveFunctions(FDPWWaveFunctions):
             for k in range(self.kd.nibzkpts):
                 for n in range(self.bd.nbands):
                     psit_G = self.get_wave_function_array(n, k, s)
-                    writer.fill(psit_G)
+                    writer.fill(psit_G * Bohr**-1.5)
 
     def read(self, reader):
         FDPWWaveFunctions.read(self, reader)
 
         if 'values' not in reader.wave_functions:
             return
-            
+
         c = reader.bohr**1.5
         for kpt in self.kpt_u:
             # We may not be able to keep all the wave
@@ -227,7 +228,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             # array that is really just a reference to a file:
             kpt.psit_nG = reader.wave_functions.proxy('values', kpt.s, kpt.k)
             kpt.psit_nG.scale = c
-            
+
         if self.world.size == 1:
             return
 
