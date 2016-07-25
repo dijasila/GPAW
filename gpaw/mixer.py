@@ -106,7 +106,7 @@ class BaseMixer:
     def mix_single_density(self, nt_G, D_ap):
         iold = len(self.nt_iG)
 
-        dNt = 0.0
+        dNt = np.inf
         if iold > 0:
             if iold > self.nmaxold:
                 # Throw away too old stuff:
@@ -280,7 +280,7 @@ class BroydenBaseMixer:
         self.u_D = []
 
     def mix_single_density(self, nt_G, D_ap):
-        dNt = 0.0
+        dNt = inf
         if self.step > 2:
             del self.R_iG[0]
             for d_Dp in self.dD_iap:
