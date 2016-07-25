@@ -24,7 +24,7 @@ for mode in ['all', 'normal']:
     
     calc2 = GPAW(fname, txt=None)
     if mode == 'normal':
-        calc2.hmmmm()
+        continue
     wf2 = calc2.get_pseudo_wave_function(0)
     err = np.abs(wf2 - wf).max()
     print('%s: err=%s' % (mode, repr(err)))
