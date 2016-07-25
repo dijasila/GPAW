@@ -5,7 +5,7 @@ import numpy as np
 from numpy.linalg import inv, solve
 from ase.units import Bohr, Hartree
 
-from gpaw import GPAW
+from gpaw import GPAW, LCAO
 from gpaw.external import ConstantElectricField
 from gpaw.utilities.blas import gemm
 from gpaw.mixer import DummyMixer
@@ -56,7 +56,7 @@ class LCAOTDDFT(GPAW):
 
     def set(self, **kwargs):
         if 'mode' not in kwargs:
-            kwargs['mode'] = 'lcao'
+            kwargs['mode'] = LCAO(force_complex_dtype=True)
         else:
             modevar = kwargs['mode']
             if hasattr(modevar, 'name'):
@@ -204,8 +204,8 @@ class LCAOTDDFT(GPAW):
                 for n in range(order):
                     tempC_nM[:] = \
                         np.dot(self.wfs.kpt_u[0].invS,
-                               np.dot(H_MM, 1j * dt / (n + 1)
-                                      * tempC_nM.T.conjugate())).T.conjugate()
+                               np.dot(H_MM, 1j * dt / (n + 1) *
+                                      tempC_nM.T.conjugate())).T.conjugate()
                     targetC_nM += tempC_nM
             self.density.gd.comm.broadcast(targetC_nM, 0)
                 
@@ -277,8 +277,8 @@ class LCAOTDDFT(GPAW):
             self.Cnm_block_descriptor = grid.new_descriptor(nbands, nao,
                                                             blocksize,
                                                             blocksize)
-            #self.CnM_descriptor = ksl.blockgrid.new_descriptor(nbands,
-            #    nao, mynbands, nao)
+            # self.CnM_descriptor = ksl.blockgrid.new_descriptor(nbands,
+            #     nao, mynbands, nao)
             self.mM_column_descriptor = ksl.single_column_grid.new_descriptor(
                 nao, nao, ksl.naoblocksize, nao)
             self.CnM_unique_descriptor = ksl.single_column_grid.new_descriptor(
@@ -287,10 +287,10 @@ class LCAOTDDFT(GPAW):
             # Redistributors
             self.mm2MM = Redistributor(ksl.block_comm,
                                        self.mm_block_descriptor,
-                                       self.MM_descriptor) # XXX FOR DEBUG
+                                       self.MM_descriptor)  # XXX FOR DEBUG
             self.MM2mm = Redistributor(ksl.block_comm,
                                        self.MM_descriptor,
-                                       self.mm_block_descriptor) # XXX FOR DEBUG
+                                       self.mm_block_descriptor)  # XXX FOR DEBUG
             self.Cnm2nM = Redistributor(ksl.block_comm,
                                         self.Cnm_block_descriptor,
                                         self.CnM_unique_descriptor)
@@ -321,7 +321,7 @@ class LCAOTDDFT(GPAW):
         self.tddft_initialized = True
         for k, kpt in enumerate(self.wfs.kpt_u):
             kpt.C2_nM = kpt.C_nM.copy()
-            #kpt.firstC_nM = kpt.C_nM.copy()
+            # kpt.firstC_nM = kpt.C_nM.copy()
 
     def update_projectors(self):
         self.timer.start('LCAO update projectors')
@@ -352,7 +352,7 @@ class LCAOTDDFT(GPAW):
         # Predictor step
         # --------------
         # 1. Calculate H(t)
-        self.save_wfs() # kpt.C2_nM = kpt.C_nM
+        self.save_wfs()  # kpt.C2_nM = kpt.C_nM
         # 2. H_MM(t) = <M|H(t)|H>
         #    Solve Psi(t+dt) from (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt) =
         #                              (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
@@ -387,8 +387,8 @@ class LCAOTDDFT(GPAW):
             if self.fxc is not None:
                 #  Store this to H0_MM and maybe save one extra H_MM of
                 # memory?
-                kpt.H0_MM += 0.5 * (self.get_hamiltonian(kpt)
-                                    + kpt.deltaXC_H_MM)
+                kpt.H0_MM += 0.5 * (self.get_hamiltonian(kpt) +
+                                    kpt.deltaXC_H_MM)
             else:
                 #  Store this to H0_MM and maybe save one extra H_MM of
                 # memory?
