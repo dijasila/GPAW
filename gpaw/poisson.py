@@ -41,14 +41,6 @@ number of multigrid levels even if the total number of grid points
 is divisible by a high power of 2."""
 
 
-def create_poisson_solver(kind, **kwargs):
-    if kind == 'default':
-        return PoissonSolver(**kwargs)
-    if kind == 'fdtd':
-        return PoissonSolver(**kwargs)
-    raise ValueError('Unknown poisson-solver: ' + kind)
-    
-    
 def PoissonSolver(dipolelayer=None, **kwargs):
     if dipolelayer is not None:
         return DipoleCorrection(PoissonSolver(**kwargs), dipolelayer)
@@ -78,6 +70,9 @@ class FDPoissonSolver:
 
         self.description = None
 
+    def write(self, writer):
+        writer.write(nn=self.nn, relax=self.relax)
+        
     def get_stencil(self):
         return self.nn
 

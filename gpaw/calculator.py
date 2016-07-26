@@ -4,6 +4,7 @@ import warnings
 import numpy as np
 from ase.units import Bohr, Hartree
 from ase.calculators.calculator import Calculator
+from ase.utils import basestring
 from ase.utils.timing import Timer
 from ase.io.trajectory import read_atoms, write_atoms
 
@@ -371,7 +372,7 @@ class GPAW(Calculator, PAW):
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
-            if isinstance(par.xc, str):
+            if isinstance(par.xc, basestring):
                 xc = XC(par.xc)
             else:
                 xc = par.xc
@@ -440,7 +441,7 @@ class GPAW(Calculator, PAW):
         if orbital_free:
             nbands = 1
 
-        if isinstance(nbands, str):
+        if isinstance(nbands, basestring):
             if nbands[-1] == '%':
                 basebands = int(nvalence + M + 0.5) // 2
                 nbands = int((float(nbands[:-1]) / 100) * basebands)

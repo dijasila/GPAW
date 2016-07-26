@@ -18,6 +18,10 @@ class DipoleCorrection:
         
         self.correction = None
         
+    def write(self, writer):
+        self.poissonsolver.write(writer)
+        writer.write(direction=self.c)
+
     def get_stencil(self):
         return self.poissonsolver.get_stencil()
 
