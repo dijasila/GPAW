@@ -62,7 +62,7 @@ class GPAW(Calculator, PAW):
         'mixer': None,
         'eigensolver': None,
         'background_charge': None,
-        'external': None,  # eV
+        'external': None,
         'random': False,
         'txt': '-',
         'hund': False,
