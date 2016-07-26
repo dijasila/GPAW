@@ -19,7 +19,6 @@ from gpaw.response.math_func import (two_phi_planewave_integrals,
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.pw import PWLFC
-import gpaw.io.tar as io
 
 
 class KPoint:
@@ -555,11 +554,8 @@ class PairDensity:
                       file=self.fd)
                 if not calc.split('.')[-1] == 'gpw':
                     calc = calc + '.gpw'
-                self.reader = io.Reader(calc, comm=mpi.serial_comm)
-                calc = GPAW(calc, txt=None, communicator=mpi.serial_comm,
-                            read_projections=False)
+                calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
             else:
-                self.reader = None
                 assert calc.wfs.world.size == 1
 
         assert calc.wfs.kd.symmetry.symmorphic
@@ -616,11 +612,11 @@ class PairDensity:
             kpt.eps_n[self.nocc1:] += eshift
             # Nothing done for occupations so far
             # assume T=0 for occupations
-            #kpt.f_n[:self.nocc1] = kpt.weight
-            #kpt.f_n[self.nocc1:] = 0
-            # or shift Fermi level:
-            #kpt.f_n = (self.shift_occupations(kpt.eps_n, eshift / 2.)
-            #          * kpt.weight)
+            # kpt.f_n[:self.nocc1] = kpt.weight
+            # kpt.f_n[self.nocc1:] = 0
+            #  or shift Fermi level:
+            # kpt.f_n = (self.shift_occupations(kpt.eps_n, eshift / 2.)
+            #           * kpt.weight)
 
     def count_occupied_bands(self):
         self.nocc1 = 9999999
@@ -717,28 +713,11 @@ class PairDensity:
             ut_nR[n - na] = T(wfs.pd.ifft(psit_nG[n], ik))
 
         P_ani = []
-        if self.reader is None:
-            for b, U_ii in zip(a_a, U_aii):
-                P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
-                if time_reversal:
-                    P_ni = P_ni.conj()
-                P_ani.append(P_ni)
-        else:
-            II_a = []
-            I1 = 0
-            for U_ii in U_aii:
-                I2 = I1 + len(U_ii)
-                II_a.append((I1, I2))
-                I1 = I2
-                
-            P_ani = []
-            P_nI = self.reader.get('Projections', kpt.s, kpt.k)
-            for b, U_ii in zip(a_a, U_aii):
-                I1, I2 = II_a[b]
-                P_ni = np.dot(P_nI[na:nb, I1:I2], U_ii)
-                if time_reversal:
-                    P_ni = P_ni.conj()
-                P_ani.append(P_ni)
+        for b, U_ii in zip(a_a, U_aii):
+            P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
+            if time_reversal:
+                P_ni = P_ni.conj()
+            P_ani.append(P_ni)
         
         return KPoint(s, K, n1, n2, blocksize, na, nb,
                       ut_nR, eps_n, f_n, P_ani, shift_c)
