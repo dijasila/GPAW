@@ -20,8 +20,7 @@ from gpaw.io.logger import GPAWLogger
 from gpaw.output import (print_cell, print_positions,
                          print_parallelization_details)
 from gpaw.occupations import create_occupation_number_object
-from gpaw.wavefunctions.lcao import LCAO
-from gpaw.wavefunctions.fd import FD
+from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.density import RealSpaceDensity
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.band_descriptor import BandDescriptor
@@ -131,6 +130,7 @@ class GPAW(Calculator, PAW):
             self.reader.close()
 
     def write(self, filename, mode=''):
+        self.log('Writing to {0} (mode={1})'.format(filename, mode))
         writer = Writer(filename)
         writer.write(version=1, ha=Hartree, bohr=Bohr)
         write_atoms(writer.child('atoms'), self.atoms)
@@ -144,20 +144,33 @@ class GPAW(Calculator, PAW):
         writer.close()
         
     def read(self, filename):
+        self.log('Reading from {0}'.format(filename))
+        
         self.reader = reader = Reader(filename)
         
         self.atoms = read_atoms(reader.atoms)
 
         res = reader.results
         self.results = dict((key, res.get(key)) for key in res.keys())
-        
-        par = reader.parameters
-        new = dict((key, par.get(key)) for key in par.keys())
-        self.parameters = self.get_default_parameters()
-        self.parameters.update(new)
+        if self.results:
+            self.log('Read {0}'.format(', '.join(self.results)))
+                     
         self.log('Reading input parameters:')
-        for key, value in sorted(new.items()):
-            self.log('  {0}: {1}'.format(key, value))
+        self.parameters = self.get_default_parameters()
+        par = reader.parameters
+        for key in par.keys():
+            value = par.get(key)
+            if isinstance(value, (int, float, basestring)):
+                self.log('  {0}: {1}'.format(key, value))
+            else:
+                value = dict(value.items())
+                if len(value) == 1:
+                    self.log('  {0}: {1}'.format(key, value))
+                else:
+                    s = ',\n'.join('{0}: {1}'.format(*item)
+                                   for item in sorted(value.items()))
+                    self.log('  {0}: {{{1}}}'.format(key, s))
+            self.parameters[key] = value
                 
         self.initialize()
 
@@ -380,17 +393,15 @@ class GPAW(Calculator, PAW):
             xc = self.hamiltonian.xc
 
         mode = par.mode
-
-        if mode == 'fd':
-            mode = FD()
-        elif mode == 'pw':
-            mode = pw.PW()
-        elif mode == 'lcao':
-            mode = LCAO()
+        if isinstance(mode, basestring):
+            mode = {'name': mode}
+        if isinstance(mode, dict):
+            mode = create_wave_function_mode(**mode)
 
         if par.dtype == complex:
             warnings.warn('Use mode={0}(..., force_complex_dtype=True) '
-                          'instead of dtype=complex'.format(mode.name.upper()))
+                          'instead of dtype=complex'.format(mode.name.upper()),
+                          stacklevel=3)
             mode.force_complex_dtype = True
             del par['dtype']
             par.mode = mode
