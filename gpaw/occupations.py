@@ -12,6 +12,16 @@ from ase.units import Hartree
 from gpaw.utilities import erf
 
 
+def create_occupation_number_object(name, **kwargs):
+    if name == 'fermi-dirac':
+        return FermiDirac(**kwargs)
+    if name == 'methfessel-paxton':
+        return MethfesselPaxton(**kwargs)
+    if name == 'orbital-free':
+        return TFOccupations()
+    raise ValueError('Unknown occupation number object name: ' + name)
+    
+    
 def findroot(func, x, tol=1e-10):
     """Function used for locating Fermi level."""
     xmin = -np.inf
@@ -398,6 +408,12 @@ class SmoothDistribution(ZeroKelvin):
         ZeroKelvin.__init__(self, fixmagmom)
         self.width = width / Hartree
 
+    def todict(self):
+        dct = {'width': self.width * Hartree}
+        if self.fixmagmom:
+            dct['fixmagmom'] = True
+        return dct
+
     def __str__(self):
         s = 'Occupation numbers:\n'
         if self.fixmagmom:
@@ -547,7 +563,9 @@ class FermiDirac(SmoothDistribution):
         SmoothDistribution.__init__(self, width, fixmagmom)
 
     def todict(self):
-        return {'name': 'fermi-dirac', 'width': self.width * Hartree}
+        dct = SmoothDistribution.todict(self)
+        dct['name'] = 'fermi-dirac'
+        return dct
         
     def __str__(self):
         s = '  Fermi-Dirac: width={0:.4f} eV\n'.format(self.width * Hartree)
@@ -577,6 +595,12 @@ class MethfesselPaxton(SmoothDistribution):
         SmoothDistribution.__init__(self, width, fixmagmom)
         self.order = order
         
+    def todict(self):
+        dct = SmoothDistribution.todict(self)
+        dct['name'] = 'methfessel-paxton'
+        dct['order'] = self.order
+        return dct
+
     def __str__(self):
         s = '  Methfessel-Paxton: width={0:.4f} eV, order={1}\n'.format(
             self.width * Hartree, self.order)
@@ -637,9 +661,12 @@ class FixedOccupations(ZeroKelvin):
 
 
 class TFOccupations(FermiDirac):
-    def __init__(self, width, fixmagmom=False):
-        FermiDirac.__init__(self, width, fixmagmom)
-    
+    def __init__(self):
+        FermiDirac.__init__(self, width=0.0, fixmagmom=False)
+
+    def todict(self):
+        return {'name': 'orbital-free'}
+        
     def occupy(self, f_n, eps_n, ne, weight=1):
         """Fill in occupation numbers.
         

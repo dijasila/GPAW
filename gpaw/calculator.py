@@ -19,7 +19,7 @@ import gpaw.wavefunctions.pw as pw
 from gpaw.io.logger import GPAWLogger
 from gpaw.output import (print_cell, print_positions,
                          print_parallelization_details)
-import gpaw.occupations as occupations
+from gpaw.occupations import create_occupation_number_object
 from gpaw.wavefunctions.lcao import LCAO
 from gpaw.wavefunctions.fd import FD
 from gpaw.density import RealSpaceDensity
@@ -579,19 +579,23 @@ class GPAW(Calculator, PAW):
         return GridDescriptor(N_c, cell_cv, pbc_c, domain_comm, parsize_domain)
             
     def create_occupations(self, orbital_free):
-        if self.parameters.occupations is None:
+        occ = self.parameters.occupations
+        
+        if occ is None:
             # Create object for occupation numbers:
             if orbital_free:
-                width = 0.0  # even for PBC
-                self.occupations = occupations.TFOccupations(width)
+                occ = {'name': 'orbital-free'}
             else:
                 if self.atoms.pbc.any():
                     width = 0.1  # eV
                 else:
                     width = 0.0
-                self.occupations = occupations.FermiDirac(width)
-        else:
-            self.occupations = self.parameters.occupations
+                occ = {'name': 'fermi-dirac', 'width': width}
+                
+        if isinstance(occ, dict):
+            occ = create_occupation_number_object(**occ)
+            
+        self.occupations = occ
 
         # If occupation numbers are changed, and we have wave functions,
         # recalculate the occupation numbers
