@@ -157,11 +157,11 @@ class GPAW(Calculator, PAW):
                      
         self.log('Reading input parameters:')
         self.parameters = self.get_default_parameters()
-        par = reader.parameters
-        for key in par.keys():
-            value = par.get(key)
-            if isinstance(value, (int, float, basestring)):
+        for key in reader.parameters.keys():
+            value = reader.parameters.get(key)
+            if isinstance(value, (int, float, basestring, np.ndarray)):
                 self.log('  {0}: {1}'.format(key, value))
+                self.parameters[key] = value
             else:
                 value = dict(value.items())
                 if len(value) == 1:
@@ -170,7 +170,7 @@ class GPAW(Calculator, PAW):
                     s = ',\n'.join('{0}: {1}'.format(*item)
                                    for item in sorted(value.items()))
                     self.log('  {0}: {{{1}}}'.format(key, s))
-            self.parameters[key] = value
+                self.parameters[key].update(value)
                 
         self.initialize()
 
