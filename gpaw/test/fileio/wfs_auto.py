@@ -14,7 +14,6 @@ H.get_potential_energy()
 calc.write('tmp')
 
 calc = GPAW('tmp')
-calc.set(fixdensity=False)  # provoke deletion of calc.scf
 calc.converge_wave_functions()
 
 calc.set(nbands=5)

@@ -14,7 +14,7 @@ import gpaw.mpi as mpi
 
 class MakeWaveFunctions:
     name = 'atompaw'
-    interpolation = 42
+    interpolation = 3
     force_complex_dtype = False
     
     def __init__(self, gd):

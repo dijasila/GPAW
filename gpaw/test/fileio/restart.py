@@ -32,6 +32,7 @@ calc.write('tmp')
 del atoms, calc
 # Try restarting from all the files
 atoms, calc = restart('tmp')
+
 e1 = atoms.get_potential_energy()
 f1 = atoms.get_forces()
 m1 = atoms.get_magnetic_moments()

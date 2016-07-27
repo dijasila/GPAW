@@ -145,26 +145,16 @@ class PAW:
     def converge_wave_functions(self):
         """Converge the wave-functions if not present."""
 
-        if not self.wfs or not self.scf:
+        if not self.initialized:
             self.initialize()
-        else:
-            self.wfs.initialize_wave_functions_from_restart_file()
-            spos_ac = self.atoms.get_scaled_positions() % 1.0
-            self.wfs.set_positions(spos_ac)
-
-        no_wave_functions = (self.wfs.kpt_u[0].psit_nG is None)
-        if no_wave_functions or not self.scf.converged:
-            self.wfs.eigensolver.error = np.inf
-            self.scf.converged = False
-
-            # is the density ok ?
-            error = self.density.density_error or 0.0
-            criterion = (self.input_parameters['convergence']['density'] *
-                         self.wfs.nvalence)
-            if error < criterion and not self.hamiltonian.xc.orbital_dependent:
-                self.scf.fix_density()
-
-            self.calculate()
+            
+        self.set_positions()
+        
+        self.scf.converged = False
+        fixed = self.density.fixed
+        self.density.fixed = True
+        self.calculate(system_changes=[])
+        self.density.fixed = fixed
 
     def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None,
                                      expert=False):

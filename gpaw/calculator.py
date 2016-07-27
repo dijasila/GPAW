@@ -170,7 +170,10 @@ class GPAW(Calculator, PAW):
                     s = ',\n'.join('{0}: {1}'.format(*item)
                                    for item in sorted(value.items()))
                     self.log('  {0}: {{{1}}}'.format(key, s))
-                self.parameters[key].update(value)
+                if isinstance(self.parameters[key], dict):
+                    self.parameters[key].update(value)
+                else:
+                    self.parameters[key] = value
                 
         self.initialize()
 
@@ -178,6 +181,14 @@ class GPAW(Calculator, PAW):
         self.hamiltonian.read(reader)
         self.scf.read(reader)
         self.wfs.read(reader)
+        
+        # We need to do this in a better way:  XXX
+        from gpaw.utilities.partition import AtomPartition
+        atom_partition = AtomPartition(self.wfs.gd.comm,
+                                       np.zeros(len(self.atoms), dtype=int))
+        self.wfs.atom_partition = atom_partition
+        self.density.atom_partition = atom_partition
+        self.hamiltonian.atom_partition = atom_partition
         
     def check_state(self, atoms, tol=1e-15):
         system_changes = Calculator.check_state(self, atoms, tol)
