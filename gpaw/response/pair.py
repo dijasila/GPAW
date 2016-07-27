@@ -552,8 +552,6 @@ class PairDensity:
             if isinstance(calc, str):
                 print('Reading ground state calculation:\n  %s' % calc,
                       file=self.fd)
-                if not calc.split('.')[-1] == 'gpw':
-                    calc = calc + '.gpw'
                 calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
             else:
                 assert calc.wfs.world.size == 1
@@ -664,7 +662,7 @@ class PairDensity:
                     self.mysKn1n2.append((s, K, n1 + band1, n2 + band1))
                 i += nbands
 
-        print('BZ k-points:', self.calc.wfs.kd.description, file=self.fd)
+        print('BZ k-points:', self.calc.wfs.kd, file=self.fd)
         print('Distributing spins, k-points and bands (%d x %d x %d)' %
               (ns, nk, nbands),
               'over %d process%s' %

@@ -215,6 +215,7 @@ class KPointDescriptor:
                        (w_k[k], self.nbzkpts)))
             elif k == 10:
                 s += '          ...\n'
+        return s
 
     def __len__(self):
         """Return number of k-point/spin combinations of local CPU."""

@@ -130,7 +130,7 @@ class GPAW(Calculator, PAW):
             self.reader.close()
 
     def write(self, filename, mode=''):
-        self.log('Writing to {0} (mode={1})'.format(filename, mode))
+        self.log('Writing to {0} (mode={1!r})'.format(filename, mode))
         writer = Writer(filename)
         writer.write(version=1, ha=Hartree, bohr=Bohr)
         write_atoms(writer.child('atoms'), self.atoms)

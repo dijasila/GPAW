@@ -158,9 +158,11 @@ class PAW:
 
     def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None,
                                      expert=False):
-        self.wfs.diagonalize_full_hamiltonian(self.hamiltonian, self.atoms,
-                                              self.occupations, self.log,
-                                              nbands, scalapack, expert)
+        nbands = self.wfs.diagonalize_full_hamiltonian(
+            self.hamiltonian, self.atoms,
+            self.occupations, self.log,
+            nbands, scalapack, expert)
+        self.parameters.nbands = nbands
 
     def get_number_of_bands(self):
         """Return the number of bands."""

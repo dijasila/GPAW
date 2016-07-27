@@ -839,6 +839,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         pb.finish()
         
         occupations.calculate(self)
+        
+        return nbands
 
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
         N_c = self.gd.N_c
