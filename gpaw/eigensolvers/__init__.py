@@ -1,5 +1,7 @@
 """Module defining  ``Eigensolver`` classes."""
 
+import warnings
+
 from ase.utils import basestring
 
 from gpaw.eigensolvers.rmmdiis import RMMDIIS
@@ -21,7 +23,10 @@ def get_eigensolver(eigensolver, mode, convergence=None):
         
     if isinstance(eigensolver, dict):
         name = eigensolver.pop('name')
-        eigensolver = {'rmm-diis': RMMDIIS,
+        if name == 'rmm-diis':
+            warnings.warn('Please use rmmdiis from now on.')
+            name = 'rmmdiis'
+        eigensolver = {'rmmdiis': RMMDIIS,
                        'cg': CG,
                        'dav': Davidson,
                        'lcao': DirectLCAO
