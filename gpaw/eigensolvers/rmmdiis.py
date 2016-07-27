@@ -47,7 +47,7 @@ class RMMDIIS(Eigensolver):
         self.first = True
 
     def write(self, writer):
-        writer.write(niter=self.niter)
+        writer.write(name='rmmdiis', niter=self.niter)
         
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do a single RMM-DIIS iteration for the kpoint"""

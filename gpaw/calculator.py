@@ -179,6 +179,7 @@ class GPAW(Calculator, PAW):
 
         self.density.read(reader)
         self.hamiltonian.read(reader)
+        self.occupations.read(reader)
         self.scf.read(reader)
         self.wfs.read(reader)
         

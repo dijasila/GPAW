@@ -18,7 +18,7 @@ __ase_version_required__ = '3.11.0'
 
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
-           'CG', 'Davidson', 'RMM_DIIS', 'DirectLCAO',
+           'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
            'PW', 'LCAO', 'restart']
@@ -231,11 +231,13 @@ except KeyError:
 
 from gpaw.calculator import GPAW
 from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
-from gpaw.eigensolvers import Davidson, RMM_DIIS, CG, DirectLCAO
+from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
 from gpaw.poisson import PoissonSolver
 from gpaw.occupations import FermiDirac, MethfesselPaxton
 from gpaw.wavefunctions.lcao import LCAO
 from gpaw.wavefunctions.pw import PW
+
+RMM_DIIS = RMMDIIS
 
 
 def restart(filename, Class=GPAW, **kwargs):

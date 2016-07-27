@@ -37,7 +37,7 @@ class Davidson(Eigensolver):
             self.niter, self.smin, self.normalize)
 
     def write(self, writer):
-        writer.write(niter=self.niter)
+        writer.write(name='dav', niter=self.niter)
         
     def initialize(self, wfs):
 
