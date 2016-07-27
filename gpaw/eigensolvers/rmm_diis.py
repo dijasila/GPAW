@@ -7,7 +7,7 @@ from gpaw.utilities import unpack
 from gpaw.eigensolvers.eigensolver import Eigensolver
 
 
-class RMM_DIIS(Eigensolver):
+class RMMDIIS(Eigensolver):
     """RMM-DIIS eigensolver
 
     It is expected that the trial wave functions are orthonormal
@@ -46,6 +46,9 @@ class RMM_DIIS(Eigensolver):
         self.trial_step = trial_step
         self.first = True
 
+    def write(self, writer):
+        writer.write(niter=self.niter)
+        
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do a single RMM-DIIS iteration for the kpoint"""
 

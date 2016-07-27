@@ -14,7 +14,7 @@ import gpaw.mpi as mpi
 
 class MakeWaveFunctions:
     name = 'atompaw'
-    interpolation = 3
+    interpolation = 9
     force_complex_dtype = False
     
     def __init__(self, gd):
@@ -36,8 +36,8 @@ class AtomWaveFunctions(WaveFunctions):
     def add_to_density_from_k_point(self, nt_sG, kpt):
         nt_sG[kpt.s] += np.dot(kpt.f_n / 4 / pi, kpt.psit_nG**2)
 
-    def summary(self, fd):
-        fd.write('Mode: Spherically symmetric atomic solver')
+    def summary(self, log):
+        log('Mode: Spherically symmetric atomic solver')
 
 
 class AtomPoissonSolver:
@@ -274,7 +274,10 @@ class AtomOccupations(OccupationNumbers):
     def get_fermi_level(self):
         raise ValueError
 
+    def summary(self, log):
+        log('Occupation numbers:', self.f_sln)
 
+        
 class AtomPAW(GPAW):
     def __init__(self, symbol, f_sln, h=0.05, rcut=10.0, **kwargs):
         assert len(f_sln) in [1, 2]
@@ -293,7 +296,7 @@ class AtomPAW(GPAW):
         self.occupations = AtomOccupations(f_sln)
         self.initialize(Atoms(symbol, calculator=self))
         self.density.charge_eps = 1e-3
-        self.calculate(converge=True)
+        self.calculate(system_changes=['positions'])
 
     def dry_run(self):
         pass

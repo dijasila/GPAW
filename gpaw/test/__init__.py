@@ -318,7 +318,6 @@ tests = [
     'gllb/diamond.py',                      # ~33s
     'vdw/quick_spin.py',                    # ~37s
     'pw/expert_diag.py',                    # ~37s
-    'parallel/ut_hsops.py',                 # ~41s
     'pathological/LDA_unstable.py',         # ~42s
     'response/bse_aluminum.py',             # ~42s
     'response/au02_absorption.py',          # ~44s

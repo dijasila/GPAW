@@ -35,6 +35,9 @@ class Davidson(Eigensolver):
     def __repr__(self):
         return 'Davidson(niter=%d, smin=%r, normalize=%r)' % (
             self.niter, self.smin, self.normalize)
+
+    def write(self, writer):
+        writer.write(niter=self.niter)
         
     def initialize(self, wfs):
 
