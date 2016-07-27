@@ -1,16 +1,16 @@
 from __future__ import print_function
-from gpaw import GPAW, restart
+from gpaw import GPAW, restart, FD
 from ase.build import molecule
 from gpaw.test import equal
 Eini0 = -17.8037610364
-esolvers = ['cg', 'rmm-diis', 'dav']
+esolvers = ['cg', 'rmmdiis', 'dav']
 
 calc = GPAW(xc='LDA',
             h=0.21,
             eigensolver='cg',
             convergence={'eigenstates': 3.5e-5},
             txt=None,
-            dtype=complex)
+            mode=FD(force_complex_dtype=True))
 
 mol = molecule('N2')
 mol.center(vacuum=3.0)
@@ -18,8 +18,7 @@ mol.set_calculator(calc)
 
 Eini = mol.get_potential_energy()
 Iini = calc.get_number_of_iterations()
-print(('%10s: %12.6f eV in %3d iterations' %
-       ('init(cg)', Eini, Iini)))
+print('%10s: %12.6f eV in %3d iterations' % ('init(cg)', Eini, Iini))
 equal(Eini, Eini0, 1E-8)
 
 calc.write('N2_complex.gpw', mode='all')

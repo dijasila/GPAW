@@ -302,7 +302,6 @@ tests = [
     'vdw/ts09.py',                          # ~21s
     'response/na_plasmon.py',               # ~22s
     'fermilevel.py',                        # ~23s
-    'parallel/ut_hsblacs.py',               # ~23s
     'ralda/ralda_energy_H2.py',             # ~23s
     'response/diamond_absorption.py',       # ~24s
     'ralda/ralda_energy_Si.py',             # ~24s

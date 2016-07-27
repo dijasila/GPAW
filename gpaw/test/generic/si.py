@@ -36,4 +36,4 @@ print('Difference', eigs2 - eigs)
 
 assert np.fabs(eigs2 - eigs)[:-1].max() < 3e-5
 equal(e1, -36.7667, 0.001)
-equal(e1, e2, 1e-10)
+equal(e1, e2, 1e-4)
