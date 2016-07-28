@@ -1369,10 +1369,10 @@ class Transport(GPAW):
         p['nbands'] = None
         p['kpts'] = self.pl_kpts
 
-        p['parallel'] = self.input_parameters['parallel'].copy()
+        p['parallel'] = self.parameters['parallel'].copy()
         p['parallel'].update(band=self.wfs.bd.comm.size,
                              kpt=self.wfs.kd.comm.size,
-                            domain=self.wfs.gd.parsize_c)
+                             domain=self.wfs.gd.parsize_c)
         if 'mixer' in p:
             if not self.spinpol:
                 p['mixer'] = Mixer(0.1, 5, weight=100.0)

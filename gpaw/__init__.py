@@ -236,6 +236,7 @@ from gpaw.poisson import PoissonSolver
 from gpaw.occupations import FermiDirac, MethfesselPaxton
 from gpaw.wavefunctions.lcao import LCAO
 from gpaw.wavefunctions.pw import PW
+from gpaw.wavefunctions.fd import FD
 
 RMM_DIIS = RMMDIIS
 

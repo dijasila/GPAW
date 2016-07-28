@@ -4,7 +4,7 @@ from ase.build import bulk
 from ase.dft.kpoints import monkhorst_pack
 from ase.units import Bohr
 
-from gpaw import GPAW
+from gpaw import GPAW, FermiDirac
 from gpaw.response.chi0 import Chi0
 from gpaw.mpi import serial_comm
 
@@ -31,7 +31,7 @@ for k in [2, 3]:
                         eigensolver='rmm-diis',
                         symmetry={'point_group': sym},
                         mode='pw',
-                        width=0.001,
+                        occupations=FermiDirac(width=0.001),
                         txt=name + '.txt')
                     e = a.get_potential_energy()
                     calc.write(name, 'all')

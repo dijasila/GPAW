@@ -577,7 +577,7 @@ class PAW:
         # If calc is a save file, read in tar references to memory
         # For lcao mode just initialize the wavefunctions from the
         # calculated lcao coefficients
-        if self.input_parameters['mode'] == 'lcao':
+        if self.wfs.mode == 'lcao':
             self.wfs.initialize_wave_functions_from_lcao()
         else:
             self.wfs.initialize_wave_functions_from_restart_file()

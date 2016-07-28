@@ -1,4 +1,4 @@
-# Copyright (C) 2009-2012 P. Kluepfel and the CoMPaS group 
+# Copyright (C) 2009-2012 P. Kluepfel and the CoMPaS group
 # Please see the accompanying LICENSE file for further information.
 #
 # ============================================================================
@@ -8,16 +8,16 @@
 # affiliated with the Science Institute of the University of Iceland.
 #
 # The last updates of our contribution to the GPAW code took place
-# 01.11.2011 and a minor update on 16.01.2012. Since then there is no active 
-# development in the original GPAW repositories, but of course we continued 
+# 01.11.2011 and a minor update on 16.01.2012. Since then there is no active
+# development in the original GPAW repositories, but of course we continued
 # work in our development version.
 #
 # If you are interested in running self-interaction corrected DFT
 # calculations we strongly recommend you to read the LICENSE file carefully
 # (especially regarding the FITNESS FOR A PARTICULAR PURPOSE of THIS version
-# of the code). In case of questions, a persistent interest in running SIC 
-# calculations or if you want to support the necessary further development 
-# of SIC and the theory of orbital-density dependent energy functionals 
+# of the code). In case of questions, a persistent interest in running SIC
+# calculations or if you want to support the necessary further development
+# of SIC and the theory of orbital-density dependent energy functionals
 # in GPAW you can reach the developers at:
 #
 #     peter-Dot-kluepfel-At-gmail-Dot-com
@@ -82,7 +82,7 @@ def matrix_exponential(G_nn, dlt):
         U_nn = np.dot(V_nn.T.conj(),np.dot(O_nn, V_nn)).copy()
     else:
         U_nn = np.dot(V_nn.T.conj(),np.dot(O_nn, V_nn)).real.copy()
-    #        
+    #
     return U_nn
 
 
@@ -109,7 +109,7 @@ def ortho(W_nn, maxerr=1E-10):
     if (err < maxerr):
         #
         # perturbative Symmetric-Loewdin
-        X_nn= 1.5*np.eye(ndim) - 0.5*O_nn    
+        X_nn= 1.5*np.eye(ndim) - 0.5*O_nn
     else:
         #
         # diagonalization
@@ -129,7 +129,7 @@ def random_unitary_matrix(delta, n):
 
     """ Initializaes a (random) unitary matrix
 
-    delta: float 
+    delta: float
         strength of deviation from unit-matrix.
         > 0 random matrix
         < 0 non-random matrix
@@ -283,7 +283,7 @@ class SIC(XCFunctional):
     def add_forces(self, F_av):
         F_av += self.dF_av
 
-    def summary(self, out=sys.stdout):
+    def summary(self, log):
         for s in range(self.nspins):
             if s in self.spin_s:
                 stabpot = self.spin_s[s].stabpot
@@ -306,23 +306,21 @@ class SIC(XCFunctional):
                     self.kpt_comm.receive(exc_m, 1)
                     self.kpt_comm.receive(ecoulomb_m, 1)
             if self.kpt_comm.rank == 0 and self.finegd.comm.rank == 0:
-                out.write('\nSIC orbital centers and energies:\n')
-                out.write('                                %5.2fx   %5.2fx\n' %
-                          (self.spin_s[0].xc_factor,
-                           self.spin_s[0].coulomb_factor))
-                out.write('          x       y       z       XC    Coulomb\n')
-                out.write('--------------------------------------------------\n')
+                log('\nSIC orbital centers and energies:')
+                log('                                %5.2fx   %5.2fx' %
+                    (self.spin_s[0].xc_factor,
+                     self.spin_s[0].coulomb_factor))
+                log('          x       y       z       XC    Coulomb')
+                log('--------------------------------------------------')
                 m = 0
                 for pos_v, exc, ecoulomb in zip(pos_mv, exc_m, ecoulomb_m):
-                    out.write('%3d  (%7.3f,%7.3f,%7.3f): %8.3f %8.3f\n' %
-                              ((m,) + tuple(pos_v) +
-                               (exc * Hartree, ecoulomb * Hartree)))
+                    log('%3d  (%7.3f,%7.3f,%7.3f): %8.3f %8.3f' %
+                        ((m,) + tuple(pos_v) +
+                         (exc * Hartree, ecoulomb * Hartree)))
                     m += 1
-                out.write('--------------------------------------------------\n')
-        out.write('\nTotal SIC energy     : %12.5f\n' % (self.esic * Hartree))
-        out.write('Stabilizing potential: %12.5f\n' % (stabpot * Hartree))
-        
-
+                log('--------------------------------------------------')
+        log('\nTotal SIC energy     : %12.5f' % (self.esic * Hartree))
+        log('Stabilizing potential: %12.5f' % (stabpot * Hartree))
 
     def read(self, reader):
         xc_factor = reader['SIC_xc_factor']
@@ -400,7 +398,7 @@ class SIC(XCFunctional):
         else:
             W_mn[:] = 0.0
         #
-        self.wfs.world.sum(W_mn)   
+        self.wfs.world.sum(W_mn)
         return W_mn
     
 
@@ -466,11 +464,11 @@ class SICSpin:
 
         self.dtype = dtype
         self.coulomb_factor = coulomb_factor
-        self.xc_factor = xc_factor    
+        self.xc_factor = xc_factor
 
         self.nocc = None           # number of occupied states
         self.W_mn = None           # unit. transf. to energy optimal states
-        self.initial_W_mn = None   # initial unitary transformation 
+        self.initial_W_mn = None   # initial unitary transformation
         self.vt_mG = None          # orbital dependent potentials
         self.exc_m = None          # PZ-SIC contributions (from E_xc)
         self.ecoulomb_m = None     # PZ-SIC contributions (from E_H)
@@ -481,9 +479,9 @@ class SICSpin:
                                    
         self.uominres = uominres
         self.uomaxres = uomaxres
-        self.uorelres = uorelres   
+        self.uorelres = uorelres
         self.uonscres = uonscres
-        self.maxuoiter = maxuoiter 
+        self.maxuoiter = maxuoiter
         self.maxlsiter = 1         # maximum number of line-search steps
         self.maxcgiter = 2         # maximum number of CG-iterations
         self.lsinterp = True       # interpolate for minimum during line search
@@ -543,7 +541,7 @@ class SICSpin:
         #
         assert self.gd.orthogonal
         #
-        # calculate wannier matrixelements 
+        # calculate wannier matrixelements
         Z_mmv = np.empty((self.nocc, self.nocc, 3), complex)
         for v in range(3):
             G_v = np.zeros(3)
@@ -632,7 +630,7 @@ class SICSpin:
         V_mm = 0.5 * (V_mm + V_mm.T.conj())
 
         # evaluate the kinetic correction
-        self.ekin = -np.trace(V_mm) * (3 - self.nspins) 
+        self.ekin = -np.trace(V_mm) * (3 - self.nspins)
         
         return V_mm, K_mm, np.vdot(K_mm, K_mm).real
 
@@ -645,7 +643,7 @@ class SICSpin:
             gemm(1.0, self.kpt.psit_nG[:self.nocc],
                  self.W_mn, 0.0, self.phit_mG)
         #
-        # PAW 
+        # PAW
         self.P_ami = {}
         for a, P_ni in self.kpt.P_ani.items():
             self.P_ami[a] = np.dot(self.W_mn, P_ni[:self.nocc])
@@ -677,7 +675,7 @@ class SICSpin:
     def update_potentials(self, save=False, restore=False):
         
         if restore:
-            self.exc_m = self.exc_save_m 
+            self.exc_m = self.exc_save_m
             self.ecoulomb_m = self.eco_save_m
             self.esic = self.esic_save
             self.vt_mG = self.vt_save_mG.copy()
@@ -774,7 +772,7 @@ class SICSpin:
                 self.timer.start('Restrictor')
                 self.restrictor.apply(vt_sg[0], self.vt_mG[m])
                 self.timer.stop('Restrictor')
-            self.Q_maL[m] = Q_aL 
+            self.Q_maL[m] = Q_aL
 
         self.timer.stop('ODD-potentials')
         #
@@ -847,7 +845,7 @@ class SICSpin:
         """ Calculate the action of the unified Hamiltonian on an
             arbitrary state:
 
-                H_u|Psi> = 
+                H_u|Psi> =
         """
 
         nocc = self.nocc
@@ -868,8 +866,8 @@ class SICSpin:
                 for m, dH_p in enumerate(self.dH_amp[a]):
                     dH_ii = unpack(dH_p)
                     R_mk[m] += np.dot(P_mi[m], np.dot(dH_ii, P_ni[nocc:].T))
-            #      
-            self.finegd.comm.sum(R_mk)        
+            #
+            self.finegd.comm.sum(R_mk)
         #
         #self.R_mk = R_mk
         # ==================================================================
@@ -909,7 +907,7 @@ class SICSpin:
         
     def calculate_residual_change(self, psit_xG, Htpsit_xG, P_axi, c_axi, n_x):
         #
-        """ 
+        """
 
         """
         #
@@ -933,7 +931,7 @@ class SICSpin:
             
             for m, dH_p in enumerate(self.dH_amp[a]):
                 dH_ii = unpack(dH_p)
-                v_mx[m] += np.dot(P_mi[m], np.dot(dH_ii, P_xi.T))   
+                v_mx[m] += np.dot(P_mi[m], np.dot(dH_ii, P_xi.T))
         #
         # sum over grid-domains
         self.finegd.comm.sum(w_mx)

@@ -3,11 +3,9 @@ from ase import Atoms, Atom
 from ase.build import molecule
 from ase.parallel import barrier
 from ase.units import Hartree, mol, kcal
-from gpaw import GPAW, setup_paths
+from gpaw import GPAW
 from gpaw.mixer import Mixer, MixerSum
 from gpaw.occupations import FermiDirac
-from gpaw.atom.generator import Generator
-from gpaw.atom.configurations import parameters
 from gpaw.test import equal, gen
 from gpaw.mpi import rank
 

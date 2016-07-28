@@ -412,8 +412,7 @@ class GPAW(Calculator, PAW):
 
         if par.dtype == complex:
             warnings.warn('Use mode={0}(..., force_complex_dtype=True) '
-                          'instead of dtype=complex'.format(mode.name.upper()),
-                          stacklevel=3)
+                          'instead of dtype=complex'.format(mode.name.upper()))
             mode.force_complex_dtype = True
             del par['dtype']
             par.mode = mode
