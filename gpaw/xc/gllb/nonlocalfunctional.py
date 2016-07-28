@@ -118,7 +118,7 @@ class NonLocalFunctional(XCFunctional):
         #if a == 0:
         #    print('eh', H_sp.sum())
         H0_sp += H_sp
-        Exc -= setup.xc_correction.Exc0
+        Exc -= setup.xc_correction.e_xc0
         return Exc
 
     def get_xc_potential_and_energy_1d(self, v_g):

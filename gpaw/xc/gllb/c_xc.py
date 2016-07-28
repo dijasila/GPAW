@@ -24,7 +24,7 @@ class C_XC(Contribution):
 
     def initialize_1d(self):
         self.ae = self.nlfunc.ae
-        self.xc = XC(self.functional) 
+        self.xc = XC(self.functional)
         self.v_g = np.zeros(self.ae.N)
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
@@ -46,7 +46,7 @@ class C_XC(Contribution):
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
         E = self.xc.calculate_paw_correction(setup, D_sp, H_sp, True, a)
-        E += setup.xc_correction.Exc0
+        E += setup.xc_correction.e_xc0
         return E
 
     def add_xc_potential_and_energy_1d(self, v_g):

@@ -4,10 +4,9 @@ from math import sqrt, pi
 
 import numpy as np
 
-from gpaw.io import write_atomic_matrix
 from gpaw.mpi import world
 from gpaw.sphere.lebedev import weight_n
-from gpaw.utilities import pack
+from gpaw.utilities import pack, pack_atomic_matrices
 from gpaw.xc.gllb import safe_sqr
 from gpaw.xc.gllb.contribution import Contribution
 
@@ -123,7 +122,7 @@ class C_Response(Contribution):
             self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
             return
 
-        if not self.occupations.is_ready():
+        if not self.occupations.ready:
             d("No occupations calculated yet")
             return
 
@@ -492,7 +491,6 @@ class C_Response(Contribution):
             for s in range(wfs.nspins):
                 vt_sG = wfs.gd.collect(self.vt_sG[s])
                 if master:
-                    #print("vt_sG", vt_sG.shape)
                     w.fill(vt_sG)
 
         if master:
@@ -504,7 +502,6 @@ class C_Response(Contribution):
             for s in range(wfs.nspins):
                 vt_sG = wfs.gd.collect(self.Dxc_vt_sG[s])
                 if master:
-                    #print("vt_sG", vt_sG.shape)
                     w.fill(vt_sG)
 
         #print("Integration over vt_sG",
@@ -514,7 +511,7 @@ class C_Response(Contribution):
 
         def _write_atomic_matrix(X0_asp, name):
             X_asp = self.wfs.setups.empty_atomic_matrix(
-                self.wfs.ns, self.wfs.atom_partition)
+                self.wfs.nspins, self.wfs.atom_partition)
             # XXX some of the provided X0_asp contain strangely duplicated
             # elements.  Take only the minimal set:
             for a in X_asp:
@@ -528,7 +525,7 @@ class C_Response(Contribution):
                              'GLLBDxcAtomicResponseMatrices')
 
     def empty_atomic_matrix(self):
-        return self.setups.empty_atomic_matrix(self.density.ns,
+        return self.setups.empty_atomic_matrix(self.density.nspins,
                                                self.density.atom_partition)
 
     def read(self, r):
