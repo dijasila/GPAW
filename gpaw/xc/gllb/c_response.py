@@ -11,7 +11,7 @@ from gpaw.xc.gllb import safe_sqr
 from gpaw.xc.gllb.contribution import Contribution
 
 # XXX Work in process
-debug = False
+debug = not False
 
 
 def d(*args):

@@ -44,17 +44,23 @@ class LCAOTDDFT(GPAW):
         self.time = 0.0
         self.niter = 0
         self.kick_strength = np.array([0.0, 0.0, 0.0], dtype=float)
-        GPAW.__init__(self, filename, **kwargs)
         self.tddft_initialized = False
         self.fxc = fxc
         self.propagator = propagator
+        GPAW.__init__(self, filename, **kwargs)
 
         # Restarting from a file
         if filename is not None:
             self.initialize()
             self.set_positions()
+        else:
+            asdfjkhasdf
+            
+        if 0:#self.world.size == 1:
+            for kpt in self.wfs.kpt_u:
+                kpt.C_nM = kpt.C_nM[:]
 
-    def set(self, **kwargs):
+    def setttttttttttttttt(self, **kwargs):
         if 'mode' not in kwargs:
             kwargs['mode'] = LCAO(force_complex_dtype=True)
         else:

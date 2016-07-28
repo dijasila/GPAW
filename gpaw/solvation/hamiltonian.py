@@ -156,9 +156,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                         F_v[v] -= self.finegd.integrate(
                             del_E_del_r_vg[v],
                             global_integral=False)
-        return RealSpaceHamiltonian.calculate_forces(
-            self, dens, F_av
-        )
+        return RealSpaceHamiltonian.calculate_forces(self, dens, F_av)
 
     def el_force_correction(self, dens, F_av):
         if not self.cavity.depends_on_atomic_positions:
@@ -185,6 +183,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         self.e_total_free = e_total_free
         self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
             self.e_total_free)
+        self.e_el_extrapolated = occ.extrapolate_energy_to_zero_width(
+            self.e_el)
         return self.e_total_free
 
     def grad_squared(self, x):

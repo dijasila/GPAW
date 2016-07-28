@@ -1,7 +1,5 @@
 import numpy as np
 
-from gpaw.utilities.blas import gemm
-
 
 class DirectLCAO(object):
     """Eigensolver for LCAO-basis calculation"""
@@ -10,7 +8,7 @@ class DirectLCAO(object):
         self.diagonalizer = diagonalizer
         # ??? why should we be able to set
         # this diagonalizer in both constructor and initialize?
-        self.has_initialized = False # XXX
+        self.has_initialized = False  # XXX
 
     def initialize(self, gd, dtype, nao, diagonalizer=None):
         self.gd = gd
@@ -18,7 +16,7 @@ class DirectLCAO(object):
         if diagonalizer is not None:
             self.diagonalizer = diagonalizer
         assert self.diagonalizer is not None
-        self.has_initialized = True # XXX
+        self.has_initialized = True  # XXX
 
     def reset(self):
         pass

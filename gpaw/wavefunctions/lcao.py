@@ -899,8 +899,8 @@ class LCAOWaveFunctions(WaveFunctions):
         for kpt in self.kpt_u:
             kpt.C_nM = reader.wave_functions.proxy('coefficients',
                                                    kpt.s, kpt.k)
-        if self.world.size == 1:
-            return
+        #if self.world.size == 1:
+        #    return
 
         # Read to memory:
         for kpt in self.kpt_u:

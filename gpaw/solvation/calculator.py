@@ -56,24 +56,14 @@ class SolvationGPAW(GPAW):
         self.hamiltonian.update_atoms(self.atoms)
         return spos_ac
 
-    def get_electrostatic_energy(self, atoms=None, force_consistent=False):
+    def get_electrostatic_energy(self):
         """Return electrostatic part of the total energy.
 
         The electrostatic part consists of everything except
         the short-range interactions defined in the interactions list.
-
-        See the get_potential_energy method for the meaning
-        of the force_consistent option.
         """
-        self.calculate(atoms, converge=True)
-        if force_consistent:
-            # Free energy:
-            return Hartree * self.hamiltonian.Eel
-        else:
-            # Energy extrapolated to zero width:
-            return Hartree * self._extrapolate_energy_to_zero_width(
-                self.hamiltonian.Eel
-            )
+        # Energy extrapolated to zero width:
+        return Hartree * self.hamiltonian.e_el_extrapolated
 
     def get_solvation_interaction_energy(self, subscript, atoms=None):
         """Return a specific part of the solvation interaction energy.
