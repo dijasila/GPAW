@@ -17,7 +17,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         cavity, dielectric, interactions,
         # RealSpaceHamiltonian arguments:
         gd, finegd, nspins, setups, timer, xc, world,
-        kptband_comm, redistributor, vext=None, psolver=None,
+        redistributor, vext=None, psolver=None,
         stencil=3):
         """Constructor of SolvationRealSpaceHamiltonian class.
 
@@ -40,9 +40,9 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         RealSpaceHamiltonian.__init__(
             self,
             gd, finegd, nspins, setups, timer, xc, world,
-            kptband_comm, vext=vext, psolver=psolver,
-            stencil=stencil, redistributor=redistributor
-        )
+            vext=vext, psolver=psolver,
+            stencil=stencil, redistributor=redistributor)
+
         for ia in interactions:
             setattr(self, 'E_' + ia.subscript, None)
         self.new_atoms = None
@@ -113,7 +113,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         energies = atomic_energies
         energies[1:] += finegd_energies
         energies[0] += Ekin1
-        self.Ekin0, self.e_coulomb, self.Ebar, self.Eext, self.Exc = energies
+        (self.e_kinetic0, self.e_coulomb, self.e_zero,
+         self.e_external, self.e_xc) = energies
 
         self.finegd.comm.sum(Eias)
 
@@ -147,16 +148,14 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                     for v in (0, 1, 2):
                         F_v[v] -= self.finegd.integrate(
                             ia.delta_E_delta_g_g * del_g_del_r_vg[v],
-                            global_integral=False
-                        )
+                            global_integral=False)
             if ia.depends_on_atomic_positions:
                 for a, F_v in enumerate(F_av):
                     del_E_del_r_vg = ia.get_del_r_vg(a, dens)
                     for v in (0, 1, 2):
                         F_v[v] -= self.finegd.integrate(
                             del_E_del_r_vg[v],
-                            global_integral=False
-                        )
+                            global_integral=False)
         return RealSpaceHamiltonian.calculate_forces(
             self, dens, F_av
         )
@@ -165,7 +164,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         if not self.cavity.depends_on_atomic_positions:
             return
         del_eps_del_g_g = self.dielectric.del_eps_del_g_g
-        fixed = 1. / (8. * np.pi) * del_eps_del_g_g * \
+        fixed = 1 / (8 * np.pi) * del_eps_del_g_g * \
             self.grad_squared(self.vHt_g)  # XXX grad_vHt_g inexact in bmgs
         for a, F_v in enumerate(F_av):
             del_g_del_r_vg = self.cavity.get_del_r_vg(a, dens)
@@ -174,9 +173,9 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                     fixed * del_g_del_r_vg[v],
                     global_integral=False)
 
-    def get_energy(self, occupations):
-        self.e_kinetic = self.e_kinetic0 + occupations.e_band
-        self.e_entropy = occupations.e_entropy
+    def get_energy(self, occ):
+        self.e_kinetic = self.e_kinetic0 + occ.e_band
+        self.e_entropy = occ.e_entropy
         self.e_el = (
             self.e_kinetic + self.e_coulomb + self.e_external + self.e_zero +
             self.e_xc + self.e_entropy)
@@ -184,6 +183,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         for ia in self.interactions:
             e_total_free += getattr(self, 'e_' + ia.subscript)
         self.e_total_free = e_total_free
+        self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
+            self.e_total_free)
         return self.e_total_free
 
     def grad_squared(self, x):

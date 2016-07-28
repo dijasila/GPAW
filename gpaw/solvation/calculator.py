@@ -3,12 +3,6 @@ from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
 from ase.units import Hartree, Bohr
 
 
-class NIReciprocalSpaceHamiltonian:
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError(
-            'SolvationGPAW does not support '
-            'calculations in reciprocal space yet.'
-        )
 
 
 class SolvationGPAW(GPAW):
@@ -17,8 +11,6 @@ class SolvationGPAW(GPAW):
     See also Section III of
     A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
     """
-
-    reciprocal_space_hamiltonian_class = NIReciprocalSpaceHamiltonian
 
     def __init__(self, cavity, dielectric, interactions=None,
                  **gpaw_kwargs):
@@ -32,14 +24,32 @@ class SolvationGPAW(GPAW):
         if interactions is None:
             interactions = []
 
-        def real_space_hamiltonian_factory(*args, **kwargs):
-            return SolvationRealSpaceHamiltonian(
-                cavity, dielectric, interactions,
-                *args, **kwargs
-            )
+        self.stuff_for_hamiltonian = (cavity, dielectric, interactions)
 
-        self.real_space_hamiltonian_class = real_space_hamiltonian_factory
         GPAW.__init__(self, **gpaw_kwargs)
+
+    def create_hamiltonian(self, realspace, mode, xc):
+        if not realspace:
+            raise NotImplementedError(
+                'SolvationGPAW does not support '
+                'calculations in reciprocal space yet.')
+
+        dens = self.density
+
+        self.hamiltonian = SolvationRealSpaceHamiltonian(
+            *self.stuff_for_hamiltonian,
+            gd=dens.gd, finegd=dens.finegd,
+            nspins=dens.nspins,
+            setups=dens.setups,
+            timer=self.timer,
+            xc=xc,
+            world=self.world,
+            redistributor=dens.redistributor,
+            vext=self.parameters.external,
+            psolver=self.parameters.poissonsolver,
+            stencil=mode.interpolation)
+            
+        self.log(self.hamiltonian)
 
     def initialize_positions(self, atoms=None):
         spos_ac = GPAW.initialize_positions(self, atoms)
@@ -133,5 +143,4 @@ class SolvationGPAW(GPAW):
 
     def write(self, *args, **kwargs):
         raise NotImplementedError(
-            'IO is not implemented yet for SolvationGPAW!'
-        )
+            'IO is not implemented yet for SolvationGPAW!')
