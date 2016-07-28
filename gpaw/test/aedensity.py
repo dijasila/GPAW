@@ -28,6 +28,8 @@ except IOError:
     niter = calc.get_number_of_iterations()
     calc.write('NaCl.gpw')
 
+equal(e, -4.90957, 0.001)
+
 dv = NaCl.get_volume() / calc.get_number_of_grid_points().prod()
 nt1 = calc.get_pseudo_density(gridrefinement=1)
 Zt1 = nt1.sum() * dv
@@ -41,7 +43,3 @@ for gridrefinement in [1, 2, 4]:
     Z = n.sum() * dv / gridrefinement**3
     print('Integral of all-electron density:', Z)
     equal(Z, 28, 1e-5)
-
-energy_tolerance = 0.0004
-niter_tolerance = 0
-equal(e, -4.908677, energy_tolerance)
