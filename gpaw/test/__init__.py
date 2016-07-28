@@ -353,7 +353,7 @@ tests = [
     'exx/AA_enthalpy.py',                   # ~119s
     'lcao/tdgllbsc.py',                     # ~132s
     'solvation/forces.py',                  # ~140s
-    'cdft.py',
+    'cdft_test.py',
     'response/gw_MoS2_cut.py',
     'response/gwsi.py',                     # ~147s
     'response/graphene.py',                 # ~160s
@@ -395,6 +395,7 @@ if mpi.size > 1:
                 'spinorbit_Kr.py',
                 'fd_ops/laplace.py',
                 'potential.py',
+                'cdft_test.py',
                 'lcao/pair_and_coulomb.py',
                 'muffintinpot.py',
                 'pw/moleculecg.py',

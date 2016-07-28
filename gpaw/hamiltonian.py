@@ -305,12 +305,16 @@ class Hamiltonian(object):
                 cdft = self.vext
                 regions = cdft.indices_i
                 c_regions = cdft.n_charge_regions
+
+                v_i =cdft.v_i
+                if cdft.difference:
+                    v_i = [v_i,-v_i]
                 
                 for i in range(len(regions)):
                     if a in regions[i]:
-                        h_cdft_a += cdft.v_i[i] * 2. * np.sqrt(np.pi)*setup.Delta_pL[:,0] 
-                        h_cdft_b += cdft.v_i[i] * 2. * np.sqrt(np.pi)*setup.Delta_pL[:,0]
-                        if i >= c_regions:
+                        h_cdft_a += v_i[i] * 2. * np.sqrt(np.pi)*setup.Delta_pL[:,0] 
+                        h_cdft_b += v_i[i] * 2. * np.sqrt(np.pi)*setup.Delta_pL[:,0]
+                        if i >= c_regions and cdft.difference is False:
                             h_cdft_b *= -1. 
                 
                 dH_sp[0] += h_cdft_a              
@@ -384,15 +388,19 @@ class Hamiltonian(object):
         # Force from zero potential:
         for a, dF_v in vbar_av.items():
             F_av[a] += dF_v[0]
+        
+        if self.vext:
+            if self.vext.get_name()=='CDFT':
+                F_av += self.vext.get_cdft_forces()
 
+        print(self.vext.get_cdft_forces())
         self.xc.add_forces(F_av)
+        
         self.gd.comm.sum(F_coarsegrid_av, 0)
         self.finegd.comm.sum(F_av, 0)
-
-        if self.vext and self.vext.get_name()=='CDFT':
-            F_av += self.vext.get_cdft_forces()            
         
         F_av += F_coarsegrid_av
+        
         print(F_av)
 
     def apply_local_potential(self, psit_nG, Htpsit_nG, s):
@@ -715,7 +723,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         if self.vext:
             
             if self.vext.get_name() == 'CDFT':
-                # CDFT force is computed in CDFT main
+                # CDFT force added in calculate_forces
                 dens.ghat.derivative(self.vHt_g, ghat_aLv)
             else:
                 vext_g = self.vext.get_potential(self.finegd)

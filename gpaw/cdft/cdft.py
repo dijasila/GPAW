@@ -11,7 +11,8 @@ from scipy.optimize import minimize
 
 from gpaw.external import ExternalPotential
 import gpaw.mpi as mpi           
-        
+
+    
 class CDFT(Calculator):
     implemented_properties = ['energy', 'forces']
     
@@ -20,7 +21,8 @@ class CDFT(Calculator):
                  charge_coefs=None, spin_coefs = None,txt='-',
                  minimizer_options={'gtol':0.01, 'ftol': 1e-8, 'xtol':1e-8,
                  'max_trust_radius':1.,'initial_trust_radius':1.e-4},
-                 method='BFGS', forces = 'analytical'):
+                 method='BFGS', forces = 'analytical',
+                 difference = False):
         
         """Constrained DFT calculator.
         
@@ -49,6 +51,14 @@ class CDFT(Calculator):
         forces: str
             cDFT weight function contribution to forces
             'fd' for finite difference or 'analytical'
+        difference: bool
+            If True, constrain charge difference between two regions
+            Then charge_regions needs two regions and charges needs
+            only one item which is the charge difference between
+            the two regions, the first beign donor, the second acceptor
+            
+            If False, each region is treated with the corresponding
+            charge constraint
         """
         
         Calculator.__init__(self)
@@ -57,38 +67,51 @@ class CDFT(Calculator):
         self.method = method
         self.forces = forces
         self.options = minimizer_options
+        self.difference = difference
 
         # set charge constraints and lagrangians
         self.v_i = np.empty(shape=(0,0))
         self.constraints = np.empty(shape=(0,0))
         
+        if self.difference:
+            # difference calculation only for 2 charge regions
+            assert spin_regions is None
+            assert len(charge_regions) == 2
+
         if charge_regions is None:
             self.n_charge_regions = 0
             self.regions = []
-        
+
         else: 
             self.charge_i = np.array(charges, dtype=float)
+            
             if charge_coefs is None: # to Hartree
                 self.v_i = 0.1 * np.sign(self.charge_i)
             else:
                 self.v_i = np.array(charge_coefs) / Hartree
             
-            self.n_charge_regions = len(charge_regions)
-            self.regions = charge_regions
+            if not self.difference:
+                self.n_charge_regions = len(charge_regions)
+                self.regions = charge_regions
 
-            # The objective is to constrain the number of electrons (nel)
-            # in a certain region --> convert charge to nel
-            Zn = np.zeros(len(self.charge_i))
-            for j in range(len(Zn)):
-                for atom in atoms[charge_regions[j]]:  
-                        Zn[j] += atom.number
+                # The objective is to constrain the number of electrons (nel)
+                # in a certain region --> convert charge to nel
+                Zn = np.zeros(len(self.charge_i))
+                for j in range(len(Zn)):
+                    for atom in atoms[charge_regions[j]]:  
+                            Zn[j] += atom.number
+                
+                # combined spin and charge constraints
+                self.constraints = Zn - self.charge_i
             
-            # combined spin and charge constraints
-            self.constraints = Zn - self.charge_i 
+            else: # constrain charge between two regions
+                self.constraints = charges
+                self.n_charge_regions = 1
+                self.regions = charge_regions
         
         # set spin constraints
         self.n_spin_regions = 0
-        if spin_regions is not None:
+        if spin_regions is not None and not self.difference:
             spin_i = np.array(spins, dtype=float)
             self.constraints = np.append(self.constraints, spin_i)
             
@@ -99,8 +122,6 @@ class CDFT(Calculator):
             
             self.v_i = np.append(self.v_i, v_is)
             self.n_spin_regions = len(spin_regions)
-            # combined charge and spin regions
-            #self.regions.tolist().append(spin_regions.tolist())
             self.regions.append(spin_regions)
             
             assert (len(self.regions)==self.n_spin_regions+self.n_charge_regions)
@@ -119,6 +140,7 @@ class CDFT(Calculator):
                     atoms = self.atoms, 
                     constraints = self.constraints,
                     n_charge_regions = self.n_charge_regions,
+                    difference = self.difference,
                     txt=self.log)
         
         self.calc.set(external=self.ext)
@@ -272,9 +294,10 @@ class CDFT(Calculator):
                 n_charge_regions = self.n_charge_regions,  
                 n_spin_regions = self.n_spin_regions,
                 w_ig = self.w,
-                method = self.forces)
+                method = self.forces,
+                difference = self.difference)
         
-        self.calc.wfs.world.broadcast(f_cdft,0)
+        #self.calc.wfs.world.broadcast(f_cdft,0)
 
         self.ext.set_forces(f_cdft)
 
@@ -305,8 +328,10 @@ class CDFT(Calculator):
         returns a pos.def. hessian
         '''
         iteration = self.iteration - 1
-        n_regions = len(self.regions)
-
+        if not self.difference:
+            n_regions = len(self.regions)
+        else:
+            n_regions = 1
         if iteration == 0:
             # Initialize Hessian as identity
             # scaled with gradients
@@ -343,7 +368,7 @@ class CDFT(Calculator):
                 eigs = np.linalg.eigvals(hess)
             
         self.old_gradient = self.dn_i
-        self.old_v_i = self.v_i
+        self.old_v_i = v_i
         self.old_hessian = hess
 
         return hess
@@ -351,12 +376,6 @@ class CDFT(Calculator):
     def get_atomic_density_correction(self):
         # eq. 20 of the paper
         self.dn_s = np.zeros((2,len(self.atoms)))
-        
-#        for a in range(len(self.atoms)):
-#            self.dn_s[0][a] = self.calc.density.get_correction(a,spin=0)
-#            self.dn_s[1][a] = self.calc.density.get_correction(a,spin=1)
-
-#            self.dn_s[:,a] += self.atoms[a].number/2.
        
         for a, D_sp in self.calc.density.D_asp.items():
             self.dn_s[0,a] += np.sqrt(4.*np.pi)*(np.dot(D_sp[0],
@@ -382,7 +401,7 @@ class CDFT(Calculator):
         # in spin constraints w_ib = -w_ia
         # inside augmentation spheres w_i = 1
 
-        for c in range(self.n_charge_regions):
+        for c in range(len(self.regions)):
             # sum all atoms in a region
             n_sa = self.dn_s[0,self.regions[c]].sum()
             n_sb = self.dn_s[1,self.regions[c]].sum()
@@ -396,10 +415,19 @@ class CDFT(Calculator):
             n_a[self.n_charge_regions+s] = n_sa - n_sb
             
         if return_density:
-            # Delta n^a, eq 20
-            return n_a
+            if not self.difference:
+                # Delta n^a, eq 20
+                return n_a
+            else:
+                # the difference of corrections
+                return [n_a[0]-n_a[1]]
         else:
-            return (np.dot(self.v_i, n_a))
+            if not self.difference:
+                return (np.dot(self.v_i, n_a))
+            else:
+                # negative for difference acceptor
+                vi_temp = np.array([self.v_i[0],-self.v_i[0]])
+                return (np.dot(vi_temp,n_a))
 
 def gaussians(gd, positions, numbers):
     r_Rv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
@@ -417,7 +445,8 @@ def gaussians(gd, positions, numbers):
     
 class CDFTPotential(ExternalPotential):
     def __init__(self, regions, gd, 
-            atoms, constraints, n_charge_regions, txt='-'):
+            atoms, constraints, n_charge_regions, difference, txt='-'):
+        
         self.indices_i = regions
         self.gd = gd
         self.log = convert_string_to_fd(txt)
@@ -428,6 +457,7 @@ class CDFTPotential(ExternalPotential):
         self.w_ig = None
         self.n_charge_regions = n_charge_regions
         self.constraints = constraints
+        self.difference = difference
         self.name = 'CDFT'
 
     def __str__(self):
@@ -486,8 +516,15 @@ class CDFTPotential(ExternalPotential):
             weig = wf.construct_weight_function()
             self.mu = wf.mu
             self.Rc = wf.Rc
-            w.append(weig)
-        
+            
+            if not self.difference:
+                w.append(weig)
+            
+            else: # for charge difference constraint
+                if i==0:
+                    w.append(weig)
+                else:
+                    w[0] -= weig # negative for acceptor
         self.w_ig = np.array(w)
         
         volume_i = self.gd.integrate(self.w_ig)
@@ -666,7 +703,7 @@ class WeightFunc:
 
 
     def get_cdft_forces2(self, dens, v_i, n_charge_regions, 
-            n_spin_regions, w_ig,method):
+            n_spin_regions, w_ig,method,difference):
         ''' Calculate cDFT force as a sum
         dF/dRi = Fi(inside) + Fs(surf)
         due to cutoff (Rc) in gauss
@@ -686,36 +723,27 @@ class WeightFunc:
         '''
         cdft_forces = np.zeros((len(self.atoms),3))
         prefactor = self.get_derivative_prefactor(n_charge_regions,
-                   n_spin_regions,w_ig,v_i)
+                   n_spin_regions,w_ig,v_i,difference)
         
         if dens.nt_sg is None:
             dens.interpolate_pseudo_density()
-            
-        nt_ag = dens.nt_sg[0]
-        nt_bg = dens.nt_sg[1]
-
-        #n_sg, gd = dens.get_all_electron_density(atoms = self.atoms,
-        #            gridrefinement=2)
-        #n_sg /= (Bohr**3)
         
         if method == 'analytical':
             dG_dRav = self.get_analytical_gaussian_derivates()
-        
         elif method == 'fd':
             dG_dRav = self.get_fd_gaussian_derivatives()
-
+        
         for a,atom in enumerate(self.atoms):
             wn_sg = self.gd.zeros()
             
             # make extended array
             for c in range(n_charge_regions):
-                n_g = (nt_ag[0] + nt_bg[1]) 
+                n_g = (dens.nt_sg[0] + dens.nt_sg[1]) 
                 wn_sg += n_g * prefactor[a][0]
             
             for s in range(n_spin_regions):
-                n_g = (nt_ag[0] - nt_bg[1]) 
+                n_g = (dens.nt_sg[0] - dens.nt_sg[1]) 
                 wn_sg += n_g * prefactor[a][1]
-            
             if method == 'LFC':
                 # XXX NOT YET WORKING!!!!
                 return cdft_forces
@@ -729,7 +757,6 @@ class WeightFunc:
              
                 cdft_forces[a][2] += -self.gd.integrate(
                         wn_sg * dG_dRav[a][2], global_integral=True)
-                        
         return cdft_forces
 
 
@@ -781,7 +808,7 @@ class WeightFunc:
         return dG_dRav
     
     def get_derivative_prefactor(self,n_charge_regions, n_spin_regions,
-                                 w_ig,v_i):
+                                 w_ig,v_i,difference):
         '''Computes the dw/dRa array needed for derivatives/forces
         eq 31 
         needed for lfc-derivative/integrals
@@ -793,7 +820,6 @@ class WeightFunc:
         # Add value to zeros for denominator...
         rho_kd = rho_k.copy()
         rho_kd += check * 1.0
-
         # MAKE AN EXTENDED ARRAY
         for atom in self.atoms:
             wc = self.gd.zeros()
@@ -803,8 +829,16 @@ class WeightFunc:
             for i in range(n_charge_regions):
                 # build V_i [sum_k rho_k + sum_{j in i}rho_i]
                 wi = -w_ig[i]
-                if atom.index in self.indices_i[i]:
-                    wi += 1.
+                
+                if not difference:
+                    if atom.index in self.indices_i[i]:
+                        wi += 1.
+                
+                else:
+                    if atom.index in self.indices_i[0]:
+                        wi += 1.
+                    elif atom.index in self.indices_i[1]:
+                        wi -= 1.
                 wi *= v_i[i]
                 wc += wi / rho_kd
             
@@ -832,8 +866,8 @@ class WeightFunc:
             a_index = atom.index
             a_symbol = atom.symbol
             a_charge = atom.number
+            
             a_dis = self.get_distance_vectors(a_pos)
-        
             rRa = -self.get_distance_vectors(a_pos, distance = False)
             dist_rRa = self.get_distance_vectors(a_pos, distance = True)
             check = dist_rRa == 0
@@ -856,6 +890,11 @@ class WeightFunc:
             check_i = abs(a_dis) <= self.Rc[a_symbol]        
             rRc = check_i*a_dis
             dGa_drRa = -rRc * G_a / (self.mu[a_symbol])**2  # (\Theta * (r-R_a) n_A) / \sigma^2
+
+            # at surface
+
+            check_s = abs(abs(a_dis) - self.Rc[a_symbol] ) <= max(self.gd.get_grid_spacings())
+            dGa_drRa += check_s * G_a #\ sigma_{A\in i} n_A
             
             # eq 32      
 
