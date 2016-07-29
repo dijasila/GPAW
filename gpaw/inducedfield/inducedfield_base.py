@@ -141,7 +141,7 @@ class BaseInducedField(object):
             self.atoms = paw.atoms                                # !
             self.na = len(self.atoms.get_atomic_numbers())        # !
             self.gd = self.density.gd                             # !
-            self.stencil = self.paw.input_parameters.stencils[1]
+            self.stencil = self.density.stencil
         
         if allocate:
             self.allocate()

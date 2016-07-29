@@ -4,16 +4,16 @@ from __future__ import print_function
 import sys
 import numpy as np
 
-from ase.units import Hartree
 from ase.calculators.general import Calculator
 from ase.calculators.test import numeric_force
-from ase.utils.timing import Timer
 from ase.parallel import distribute_cpus
+from ase.units import Hartree
+from ase.utils import convert_string_to_fd
+from ase.utils.timing import Timer
 
+import gpaw.mpi as mpi
 from gpaw import GPAW, __version__
 from gpaw.density import RealSpaceDensity
-from gpaw.output import get_txt
-from gpaw import mpi
 from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
@@ -40,7 +40,8 @@ class FiniteDifferenceCalculator(Calculator):
             if txt is None:
                 self.txt = self.lrtddft.txt
             else:
-                self.txt = get_txt(txt, world.rank)
+                self.txt = convert_string_to_fd(txt, world)
+                
         print('#', self.__class__.__name__, __version__, file=self.txt)
 
         self.d = d
