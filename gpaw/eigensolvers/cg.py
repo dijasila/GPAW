@@ -48,6 +48,8 @@ class CG(Eigensolver):
             self.orthonormalization_required = False
         self.tw_coeff = tw_coeff
 
+        self.tolerance = None
+        
     def __repr__(self):
         return 'CG(niter=%d, rtol=%5.1e)' % (self.niter, self.rtol)
 

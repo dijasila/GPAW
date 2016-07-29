@@ -85,7 +85,7 @@ def dipole_correction(c, gd, rhot_g):
 
     moment = gd.calculate_dipole_moment(rhot_g)[c]
     if abs(moment) < 1e-12:
-        return gd.zeros(), gd.zeros()
+        return gd.zeros(), gd.zeros(), 0.0
 
     r_g = gd.get_grid_point_coordinates()[c]
     cellsize = abs(gd.cell_cv[c, c])

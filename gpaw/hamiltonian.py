@@ -7,13 +7,14 @@
 import numpy as np
 from ase.units import Hartree
 
+from gpaw.arraydict import ArrayDict
+from gpaw.external import create_external_potential
+from gpaw.lfc import LFC
 from gpaw.poisson import PoissonSolver
 from gpaw.transformers import Transformer
-from gpaw.lfc import LFC
 from gpaw.utilities import (pack2, unpack, unpack2,
                             unpack_atomic_matrices, pack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
-from gpaw.arraydict import ArrayDict
 
 
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
@@ -32,7 +33,6 @@ class Hamiltonian(object):
         self.xc = xc
         self.world = world
         self.redistributor = redistributor
-        self.vext = vext  # external potential
         
         self.atomdist = None
         self.dH_asp = None
@@ -55,6 +55,10 @@ class Hamiltonian(object):
 
         self.ref_vt_sG = None
         self.ref_dH_asp = None
+
+        if isinstance(vext, dict):
+            vext = create_external_potential(**vext)
+        self.vext = vext  # external potential
 
     @property
     def dH_asp(self):

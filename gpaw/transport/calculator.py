@@ -23,7 +23,7 @@ from gpaw.transport.surrounding import Surrounding
 from gpaw.transport.selfenergy import LeadSelfEnergy
 from gpaw.transport.analysor import Transport_Analysor, Transport_Plotter
 from gpaw.transport.io import Transport_IO
-from gpaw.utilities import pack2,unpack,unpack2
+from gpaw.utilities import pack2, unpack, unpack2
 
 import gpaw
 import numpy as np
@@ -70,6 +70,7 @@ class Lead_Calc(GPAW):
         self.gd = self.wfs.gd
         self.finegd = self.density.finegd
         
+        
 class Transport(GPAW):
     def __init__(self, **transport_kwargs):
         self.dbg = DBG()
@@ -77,6 +78,7 @@ class Transport(GPAW):
         self.grid_descriptor_class = FixedBC_GridDescriptor
         self.set_transport_kwargs(**transport_kwargs)
         GPAW.__init__(self, **self.gpw_kwargs)
+        self.text = self.log
             
     def initialize(self, *args, **kwargs):
         GPAW.initialize(self, *args, **kwargs)
@@ -84,7 +86,8 @@ class Transport(GPAW):
         self.finegd = self.density.finegd
             
     def set_transport_kwargs(self, **transport_kwargs):
-        """ Illustration of keywords::
+        """Illustration of keywords::
+            
           o  o  o  o  o  o  o  o  o  o  o  o  o
           0  1  2  3  4  5  6  7  8  9  10 11 12
           .            | mol_atoms |

@@ -167,8 +167,8 @@ class GPAW(Calculator, PAW):
                 if len(value) == 1:
                     self.log('  {0}: {1}'.format(key, value))
                 else:
-                    s = ',\n'.join('{0}: {1}'.format(*item)
-                                   for item in sorted(value.items()))
+                    s = ',\n    '.join('{0}: {1}'.format(*item)
+                                       for item in sorted(value.items()))
                     self.log('  {0}: {{{1}}}'.format(key, s))
                 if isinstance(self.parameters[key], dict):
                     self.parameters[key].update(value)
@@ -305,7 +305,7 @@ class GPAW(Calculator, PAW):
         for key in sorted(changed_parameters):
             self.log('  {0}: {1}'.format(key, changed_parameters[key]))
 
-            if key == 'eigensolver' and self.wfs:
+            if key in ['eigensolver', 'convergence'] and self.wfs:
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer',
@@ -669,6 +669,7 @@ class GPAW(Calculator, PAW):
 
         if isinstance(xc, SIC):
             eigensolver.blocksize = 1
+            
         self.wfs.set_eigensolver(eigensolver)
 
         self.log(self.wfs.eigensolver)
