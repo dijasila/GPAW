@@ -50,6 +50,9 @@ class GPAWLogger(object):
         if flush:
             self._fd.flush()
 
+    def flush(self):
+        self._fd.flush()
+            
     def header(self):
         self()
         self('  ___ ___ ___ _ _ _  ')

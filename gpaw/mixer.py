@@ -367,6 +367,7 @@ class DummyMixer:
     def get_basemixers(self, nspins):
         return []
 
+    def write()
 
 class SeparateSpinMixerDriver:
     name = 'separate'

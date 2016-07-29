@@ -64,7 +64,7 @@ class GPAW(Calculator, PAW):
         'background_charge': None,
         'external': None,
         'random': False,
-        'txt': '-',
+        #'txt': '-',
         'hund': False,
         'maxiter': 333,
         'idiotproof': True,
@@ -76,26 +76,33 @@ class GPAW(Calculator, PAW):
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
                         'bands': 'occupied',
-                        'forces': np.inf},  # eV / Ang Max
-        'parallel': {'kpt': None,
-                     'domain': gpaw.parsize_domain,
-                     'band': gpaw.parsize_bands,
-                     'order': 'kdb',
-                     'stridebands': False,
-                     'augment_grids': gpaw.augment_grids,
-                     'sl_auto': False,
-                     'sl_default': gpaw.sl_default,
-                     'sl_diagonalize': gpaw.sl_diagonalize,
-                     'sl_inverse_cholesky': gpaw.sl_inverse_cholesky,
-                     'sl_lcao': gpaw.sl_lcao,
-                     'sl_lrtddft': gpaw.sl_lrtddft,
-                     'buffer_size': gpaw.buffer_size},
+                        'forces': np.inf},  # eV / Ang
         'dtype': None,
         'verbose': 0}
 
-    def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
-                 atoms=None, timer=None, communicator=None, txt='-', **kwargs):
+    default_parallel = {
+        'kpt': None,
+        'domain': gpaw.parsize_domain,
+        'band': gpaw.parsize_bands,
+        'order': 'kdb',
+        'stridebands': False,
+        'augment_grids': gpaw.augment_grids,
+        'sl_auto': False,
+        'sl_default': gpaw.sl_default,
+        'sl_diagonalize': gpaw.sl_diagonalize,
+        'sl_inverse_cholesky': gpaw.sl_inverse_cholesky,
+        'sl_lcao': gpaw.sl_lcao,
+        'sl_lrtddft': gpaw.sl_lrtddft,
+        'buffer_size': gpaw.buffer_size}
     
+    def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
+                 atoms=None, timer=None,
+                 communicator=None, txt='-', parallel=None, **kwargs):
+    
+        self.parallel = dict(self.default_parallel)
+        if parallel:
+            self.parallel.update(parallel)
+            
         if timer is None:
             self.timer = Timer()
         else:
@@ -316,8 +323,7 @@ class GPAW(Calculator, PAW):
             if key in ['eigensolver', 'convergence'] and self.wfs:
                 self.wfs.set_eigensolver(None)
 
-            if key in ['mixer',
-                       'verbose', 'txt', 'hund', 'random',
+            if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
                        'eigensolver', 'idiotproof']:
                 continue
 
@@ -343,8 +349,7 @@ class GPAW(Calculator, PAW):
             elif key in ['kpts', 'nbands', 'symmetry']:
                 self.wfs = None
                 self.occupations = None
-            elif key in ['h', 'gpts', 'setups', 'spinpol',
-                         'parallel', 'dtype', 'mode']:
+            elif key in ['h', 'gpts', 'setups', 'spinpol', 'dtype', 'mode']:
                 self.density = None
                 self.occupations = None
                 self.hamiltonian = None
@@ -691,7 +696,7 @@ class GPAW(Calculator, PAW):
         # (Actually it depends on stencils!  But let the user deal with it)
         N_c = big_gd.get_size_of_global_array(pad=True)
         too_small = np.any(N_c / big_gd.parsize_c < 8)
-        if self.parameters.parallel['augment_grids'] and not too_small:
+        if self.parallel['augment_grids'] and not too_small:
             aux_gd = big_gd
         else:
             aux_gd = gd
@@ -751,9 +756,9 @@ class GPAW(Calculator, PAW):
         parallelization = mpi.Parallelization(self.world,
                                               nspins * kd.nibzkpts)
 
-        parsize_kpt = par.parallel['kpt']
-        parsize_domain = par.parallel['domain']
-        parsize_bands = par.parallel['band']
+        parsize_kpt = self.parallel['kpt']
+        parsize_domain = self.parallel['domain']
+        parsize_bands = self.parallel['band']
 
         ndomains = None
         if parsize_domain is not None:
@@ -794,7 +799,7 @@ class GPAW(Calculator, PAW):
         
         kd.set_communicator(kpt_comm)
 
-        parstride_bands = par.parallel['stridebands']
+        parstride_bands = self.parallel['stridebands']
 
         # Unfortunately we need to remember that we adjusted the
         # number of bands so we can print a warning if it differs
@@ -843,10 +848,10 @@ class GPAW(Calculator, PAW):
                           bd=bd, dtype=dtype, world=self.world, kd=kd,
                           kptband_comm=kptband_comm, timer=self.timer)
 
-        if par.parallel['sl_auto']:
+        if self.parallel['sl_auto']:
             # Choose scalapack parallelization automatically
 
-            for key, val in par.parallel.items():
+            for key, val in self.parallel.items():
                 if (key.startswith('sl_') and key != 'sl_auto' and
                     val is not None):
                     raise ValueError("Cannot use 'sl_auto' together "
@@ -868,11 +873,11 @@ class GPAW(Calculator, PAW):
             blocksize = min(-(-nbands // 4), 64)
             sl_default = (nprow, npcol, blocksize)
         else:
-            sl_default = par.parallel['sl_default']
+            sl_default = self.parallel['sl_default']
 
         if mode.name == 'lcao':
             # Layouts used for general diagonalizer
-            sl_lcao = par.parallel['sl_lcao']
+            sl_lcao = self.parallel['sl_lcao']
             if sl_lcao is None:
                 sl_lcao = sl_default
             lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
@@ -883,9 +888,9 @@ class GPAW(Calculator, PAW):
 
         elif mode.name == 'fd' or mode.name == 'pw':
             # buffer_size keyword only relevant for fdpw
-            buffer_size = par.parallel['buffer_size']
+            buffer_size = self.parallel['buffer_size']
             # Layouts used for diagonalizer
-            sl_diagonalize = par.parallel['sl_diagonalize']
+            sl_diagonalize = self.parallel['sl_diagonalize']
             if sl_diagonalize is None:
                 sl_diagonalize = sl_default
             diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',  # XXX
@@ -895,7 +900,7 @@ class GPAW(Calculator, PAW):
                                            timer=self.timer)
 
             # Layouts used for orthonormalizer
-            sl_inverse_cholesky = par.parallel['sl_inverse_cholesky']
+            sl_inverse_cholesky = self.parallel['sl_inverse_cholesky']
             if sl_inverse_cholesky is None:
                 sl_inverse_cholesky = sl_default
             if sl_inverse_cholesky != sl_diagonalize:
@@ -918,7 +923,7 @@ class GPAW(Calculator, PAW):
             else:
                 # Layouts used for general diagonalizer
                 # (LCAO initialization)
-                sl_lcao = par.parallel['sl_lcao']
+                sl_lcao = self.parallel['sl_lcao']
                 if sl_lcao is None:
                     sl_lcao = sl_default
                 initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
@@ -926,26 +931,7 @@ class GPAW(Calculator, PAW):
                                                dtype, nao=nao,
                                                timer=self.timer)
 
-            if hasattr(self, 'time'):
-                assert mode.name == 'fd'
-                from gpaw.tddft import TimeDependentWaveFunctions
-                self.wfs = TimeDependentWaveFunctions(
-                    stencil=mode.nn,
-                    diagksl=diagksl,
-                    orthoksl=orthoksl,
-                    initksl=initksl,
-                    gd=gd,
-                    nvalence=nvalence,
-                    setups=setups,
-                    bd=bd,
-                    world=self.world,
-                    kd=kd,
-                    kptband_comm=kptband_comm,
-                    timer=self.timer)
-            elif mode.name == 'fd':
-                self.wfs = mode(diagksl, orthoksl, initksl, **wfs_kwargs)
-            else:
-                self.wfs = mode(diagksl, orthoksl, initksl, **wfs_kwargs)
+            self.wfs = mode(diagksl, orthoksl, initksl, **wfs_kwargs)
         else:
             self.wfs = mode(self, **wfs_kwargs)
         

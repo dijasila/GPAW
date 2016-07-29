@@ -34,6 +34,7 @@ from gpaw.tddft.tdopers import \
     TimeDependentWaveFunctions, \
     TimeDependentDensity, \
     AbsorptionKickHamiltonian
+from gpaw.wavefunctions.fd import FD
 
 
 # T^-1
@@ -59,9 +60,11 @@ class InverseOverlapPreconditioner:
 # ^^^^^^^^^^
 
 
-###########################
-# Main class
-###########################
+class FDTDDFTMode(FD):
+    def __call__(self, *args, **kwargs):
+        return TimeDependentWaveFunctions(self.nn, *args, **kwargs)
+        
+        
 class TDDFT(GPAW):
     """Time-dependent density functional theory calculation based on GPAW.
     
@@ -69,7 +72,8 @@ class TDDFT(GPAW):
     theory implementation and is the only class which a user has to use.
     """
     
-    def __init__(self, filename, td_potential=None, propagator='SICN', calculate_energy=True,
+    def __init__(self, filename,
+                 td_potential=None, propagator='SICN', calculate_energy=True,
                  propagator_kwargs=None, solver='CSCG', tolerance=1e-8,
                  **kwargs):
         """Create TDDFT-object.
@@ -103,15 +107,13 @@ class TDDFT(GPAW):
         # Set initial value of iteration counter
         self.niter = 0
 
-        # Override default `mixer` and `dtype` given in InputParameters
-        kwargs.setdefault('mixer', DummyMixer())
-        kwargs.setdefault('dtype', complex)
-
         # Parallelization dictionary should also default to strided bands
-        parallel = kwargs.setdefault('parallel', {})
-        parallel.setdefault('stridebands', True)
-
-        # Initialize paw-object without density mixing
+        self.default_parallel = GPAW.default_parallel.copy()
+        self.default_parallel['stridebands'] = True
+        self.default_parameters = GPAW.default_parameters.copy()
+        self.default_parameters['mixer'] = DummyMixer()
+        self.default_parameters['mode'] = FDTDDFTMode()
+        
         # NB: TDDFT restart files contain additional information which
         #     will override the initial settings for time/kick/niter.
         GPAW.__init__(self, filename, **kwargs)
@@ -132,6 +134,7 @@ class TDDFT(GPAW):
         wfs = self.wfs
         self.rank = wfs.world.rank
 
+        self.text = self.log
         self.text('')
         self.text('')
         self.text('------------------------------------------')
@@ -144,8 +147,9 @@ class TDDFT(GPAW):
         # Time-dependent variables and operators
         self.td_potential = td_potential
         self.td_hamiltonian = TimeDependentHamiltonian(self.wfs, self.atoms,
-                                  self.hamiltonian, td_potential)
-        self.td_overlap = self.wfs.overlap #TODO remove this property
+                                                       self.hamiltonian,
+                                                       td_potential)
+        self.td_overlap = self.wfs.overlap  # TODO remove this property
         self.td_density = TimeDependentDensity(self)
 
         # Solver for linear equations
@@ -162,16 +166,18 @@ class TDDFT(GPAW):
         # Preconditioner
         # No preconditioner as none good found
         self.text('Preconditioner: ', 'None')
-        self.preconditioner = None #TODO! check out SSOR preconditioning
-        #self.preconditioner = InverseOverlapPreconditioner(self.overlap)
-        #self.preconditioner = KineticEnergyPreconditioner(wfs.gd, self.td_hamiltonian.hamiltonian.kin, np.complex)
+        self.preconditioner = None  # TODO! check out SSOR preconditioning
+        # self.preconditioner = InverseOverlapPreconditioner(self.overlap)
+        # self.preconditioner = KineticEnergyPreconditioner(
+        #    wfs.gd, self.td_hamiltonian.hamiltonian.kin, np.complex)
 
         # Time propagator
         self.text('Propagator: ', propagator)
         if propagator_kwargs is None:
             propagator_kwargs = {}
         if propagator == 'ECN':
-            self.propagator = ExplicitCrankNicolson(self.td_density,
+            self.propagator = ExplicitCrankNicolson(
+                self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
         elif propagator == 'SICN':
@@ -231,7 +237,7 @@ class TDDFT(GPAW):
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             self.initialize_FDTD()
             self.hamiltonian.poisson.print_messages(self.text)
-            self.txt.flush()
+            self.log.flush()
 
         self.calculate_energy = calculate_energy
         if self.hamiltonian.xc.name.startswith('GLLB'):
@@ -255,51 +261,8 @@ class TDDFT(GPAW):
         # ensures that actual propagation takes place only once. This is because
         # the FDTDPoissonSolver changes the calculation_mode from propagate to
         # something else when the propagation is finished.
-        self.attach(self.hamiltonian.poisson.set_calculation_mode, 1, 'propagate')
-
-    def set(self, **kwargs):
-        p = self.input_parameters
-
-        # Special treatment for dictionary parameters:
-        for name in ['parallel']:
-            if kwargs.get(name) is not None:
-                tmp = p[name]
-                for key in kwargs[name]:
-                    if not key in tmp:
-                        raise KeyError('Unknown subparameter "%s" in '
-                                       'dictionary parameter "%s"' % (key,
-                                                                      name))
-                tmp.update(kwargs[name])
-                kwargs[name] = tmp
-
-        for key in kwargs:
-            # Only whitelisted arguments can be changed after initialization
-            if self.initialized and key not in ['txt']:
-                raise TypeError("Keyword argument '%s' is immutable." % key)
-
-            if key in ['txt', 'parallel', 'communicator', 'poissonsolver']:
-                continue
-            elif key == 'mixer':
-                if not isinstance(kwargs[key], DummyMixer):
-                    raise ValueError("Mixer must be of type DummyMixer.")
-            elif key == 'dtype':
-                if kwargs[key] is not complex:
-                    raise ValueError("TDDFT calculation must be complex.")
-            elif key in ['parsize', 'parsize_bands', 'parstride_bands']:
-                name = {'parsize': 'domain',
-                        'parsize_bands': 'band',
-                        'parstride_bands': 'stridebands'}[key]
-                raise DeprecationWarning(
-                    'Keyword argument has been moved ' +
-                    "to the 'parallel' dictionary keyword under '%s'." % name)
-            else:
-                raise TypeError("Unknown keyword argument: '%s'" % key)
-
-        p.update(kwargs)
-
-    def read(self, reader, read_projections=True):
-        assert reader.has_array('PseudoWaveFunctions')
-        GPAW.read(self, reader, read_projections)
+        self.attach(self.hamiltonian.poisson.set_calculation_mode, 1,
+                    'propagate')
 
     def propagate(self, time_step, iterations, dipole_moment_file=None,
                   restart_file=None, dump_interval=100):
@@ -331,7 +294,6 @@ class TDDFT(GPAW):
              Time          time        Energy (eV)   Norm      Propagator"""
             self.text()
             self.text(header)
-
 
         # Convert to atomic units
         time_step = time_step * attosec_to_autime
@@ -374,8 +336,7 @@ class TDDFT(GPAW):
                                log(abs(norm)+1e-16)/log(10),
                                niterpropagator))
 
-                    self.txt.flush()
-
+                    self.log.flush()
 
             # Propagate the Kohn-Shame wavefunctions a single timestep
             niterpropagator = self.propagator.propagate(self.time, time_step)
@@ -479,17 +440,15 @@ class TDDFT(GPAW):
         H = self.td_hamiltonian.hamiltonian
 
         # Nonlocal
-        self.Enlxc = 0.0#xcfunc.get_non_local_energy()
         self.Enlkin = H.xc.get_kinetic_energy_correction()
 
         # PAW
-        self.Ekin = H.Ekin0 + self.occupations.e_band + self.Enlkin
+        self.Ekin = H.e_kinetic0 + self.occupations.e_band + self.Enlkin
         self.e_coulomb = H.e_coulomb
-        self.Eext = H.Eext
-        self.Ebar = H.Ebar
-        self.Exc = H.Exc + self.Enlxc
+        self.Eext = H.e_external
+        self.Ebar = H.e_zero
+        self.Exc = H.e_xc
         self.Etot = self.Ekin + self.e_coulomb + self.Ebar + self.Exc
-
 
     def get_td_energy(self):
         """Calculate the time-dependent total energy"""
@@ -506,10 +465,8 @@ class TDDFT(GPAW):
 
         return self.Etot
 
-
     def set_absorbing_boundary(self, absorbing_boundary):
         self.td_hamiltonian.set_absorbing_boundary(absorbing_boundary)
-
 
     # exp(ip.r) psi
     def absorption_kick(self, kick_strength):
@@ -536,12 +493,6 @@ class TDDFT(GPAW):
         # Kick the classical part, if it is present
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             self.hamiltonian.poisson.set_kick(kick = self.kick_strength)
-
-
-
-    def __del__(self):
-        """Destructor"""
-        GPAW.__del__(self)
 
 
 from gpaw.mpi import world
@@ -687,7 +638,5 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
         print('Calculated photoabsorption spectrum saved to file "%s"' \
               % spectrum_file)
 
-            
     # Make static method
     # photoabsorption_spectrum=staticmethod(photoabsorption_spectrum)
-        
