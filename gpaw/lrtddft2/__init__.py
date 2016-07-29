@@ -38,9 +38,11 @@ class LrTDDFT2:
     def __init__(self,
                  basefilename,
                  gs_calc,
-                 fxc = None,
-                 min_occ=None, max_occ=None,
-                 min_unocc=None, max_unocc=None,
+                 fxc=None,
+                 min_occ=None,
+                 max_occ=None,
+                 min_unocc=None,
+                 max_unocc=None,
                  max_energy_diff=1e9,
                  recalculate=None,
                  lr_communicators=None,
@@ -126,8 +128,8 @@ class LrTDDFT2:
 
         # Input paramers?
         self.deriv_scale = 1e-5   # fxc finite difference step
-        self.min_pop_diff = 1e-3  # ignore transition if population
-                                  # difference is below this value
+        # ignore transition if population difference is below this value:
+        self.min_pop_diff = 1e-3  
 
         # set up communicators
         self.lr_comms = lr_communicators
@@ -136,20 +138,18 @@ class LrTDDFT2:
             self.lr_comms = LrCommunicators()
         self.lr_comms.initialize(gs_calc)
 
-
         # Init text output
         if self.lr_comms.parent_comm.rank == 0 and txt is not None:
             if txt == '-':
                 self.txt = sys.stdout
-            elif isinstance(txt,str):
-                self.txt = open(txt,'w')
+            elif isinstance(txt, str):
+                self.txt = open(txt, 'w')
             else:
                 self.txt = txt
         elif self.calc is not None:
             self.txt = self.calc.txt
         else:
             self.txt = devnull
-
 
         # Check and set unset params
 
@@ -175,15 +175,12 @@ class LrTDDFT2:
             raise RuntimeError('Error in LrTDDFT2: max_occ >= nbands')
         if ( self.max_unocc >= nbands ):
             raise RuntimeError('Error in LrTDDFT2: max_unocc >= nbands')
-
  
         # Only spin unpolarized calculations are supported atm
         # > FIXME
         assert len(self.calc.wfs.kpt_u) == 1, "LrTDDFT2 does not support more than one k-point/spin."
         self.kpt_ind = 0
         # <
-
-
 
         # Internal classes
 
@@ -203,7 +200,7 @@ class LrTDDFT2:
         # Note: this is not the Casida matrix
         self.K_matrix = Kmatrix(self.ks_singles, self.xc, self.deriv_scale)
 
-        self.sl_lrtddft = self.calc.input_parameters.parallel['sl_lrtddft']
+        self.sl_lrtddft = self.calc.parameters.parallel['sl_lrtddft']
 
         # LR-TDDFT transitions
         self.lr_transitions = LrtddftTransitions(self.ks_singles, self.K_matrix, self.sl_lrtddft)
@@ -211,10 +208,8 @@ class LrTDDFT2:
         # Response wavefunction
         self.lr_response_wf = None
 
-
         # Pair density
         self.pair_density = None  # pair density class
-
 
         # Timer
         self.timer = self.calc.timer
@@ -222,21 +217,17 @@ class LrTDDFT2:
 
 
         # If a previous calculation exist, read info file
-        #self.read(self.basefilename)
-
+        # self.read(self.basefilename)
 
         # Write info file
-        #self.parent_comm.barrier()
-        #if self.parent_comm.rank == 0:
-        #    self.write_info(self.basefilename)
+        # self.parent_comm.barrier()
+        # if self.parent_comm.rank == 0:
+        #     self.write_info(self.basefilename)
 
-
-        #self.custom_axes = None
-        #self.K_matrix_scaling_factor = 1.0
+        # self.custom_axes = None
+        # self.K_matrix_scaling_factor = 1.0
         self.K_matrix_values_ready = False
 
-
-    #################################################################
     def get_transitions(self, filename=None, min_energy=0.0, max_energy=30.0, units='eVcgs'):
         """Get transitions: energy, dipole strength and rotatory strength.
 

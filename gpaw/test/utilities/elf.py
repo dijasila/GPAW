@@ -2,7 +2,6 @@ from __future__ import print_function
 import sys
 import numpy as np
 from ase.build import molecule
-from ase.io import write
 from ase.parallel import parprint
 from gpaw import GPAW, restart
 from gpaw.elf import ELF
@@ -13,7 +12,7 @@ atoms = molecule('CO')
 atoms.center(2.0)
 
 txt=sys.stdout
-txt=None
+#txt=None
 
 try:
     atoms, calc = restart('CO.gpw', txt=txt)
@@ -56,7 +55,7 @@ if rank == 0:
     parprint("Ints", int1, int2)
     parprint("Min, max G", np.min(elf_G), np.max(elf_G))
     parprint("Min, max g", np.min(elf_g), np.max(elf_g))
-#   The tested values (< r7887) do not seem to be correct  
+#   The tested values (< r7887) do not seem to be correct
 #    equal(int1, 14.8078, 0.0001)
 #    equal(int2, 13.0331, 0.0001)
 
@@ -77,8 +76,8 @@ def check_diff(g1, g2, gd, txt):
     parprint(txt, 'integrated diff=', intd, end='')
     maxd = np.max(np.abs(g1 - g2))
     parprint('max diff=', maxd)
-    equal(intd, 0, 1.e-8) 
-    equal(maxd, 0, 1.e-9) 
+    equal(intd, 0, 1e-8)
+    equal(maxd, 0, 1.e-9)
 
 nt_spinpol_G = calc.density.nt_sG.sum(axis=0)
 check_diff(nt_G, nt_spinpol_G, elf.finegd, 'nt_G')

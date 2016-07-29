@@ -456,8 +456,8 @@ class Transport(GPAW):
                 # calculator except the 'parallel' options
                 self.log("  check")
                 _tmp = GPAW(self.lead_calculators[i])
-                pl_params = _tmp.input_parameters.copy()
-                pl_params['parallel'] = self.input_parameters['parallel'].copy()
+                pl_params = _tmp.parameters.copy()
+                pl_params['parallel'] = self.parameters['parallel'].copy()
                 # self.log('  self.input_parameters[parallel] {0}'.format(pl_params['parallel']))
                 #pl_params['parallel'].update(band=self.wfs.bd.comm.size, domain=self.wfs.gd.parsize_c)
                 #parprint('>>> self.input_parameters[parallel] updated {0}'.format(pl_params['parallel']))
@@ -642,7 +642,7 @@ class Transport(GPAW):
                 self.inner_poisson = FixedBoundaryPoissonSolver(nn=1)
             self.inner_poisson.set_grid_descriptor(self.finegd)
             self.interpolator = Transformer(self.gd1, self.finegd1,
-                                            self.input_parameters.stencils[1])
+                                            self.density.stencil)
 
             self.surround.combine(self)
 

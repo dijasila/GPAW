@@ -371,7 +371,7 @@ class ExcitedStateDensity(RealSpaceDensity):
 
         D_asp = {}
         for a, D_sp in self.gsdensity.D_asp.items():
-            repeats = self.ns // self.gsdensity.ns
+            repeats = self.nspins // self.gsdensity.nspins
             # XXX does this work always?
             D_asp[a] = (1. * D_sp).repeat(repeats, axis=0)
         self.D_asp = D_asp
