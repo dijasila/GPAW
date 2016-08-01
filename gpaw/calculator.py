@@ -241,7 +241,7 @@ class GPAW(Calculator, PAW):
             self.initialize(atoms)
             self.set_positions(atoms)
 
-        if not self.wfs.positions_set or not self.hamiltonian.positions_set:
+        if not (self.wfs.positions_set and self.hamiltonian.positions_set):
             self.set_positions(atoms)
             
         if not self.scf.converged:
@@ -364,6 +364,7 @@ class GPAW(Calculator, PAW):
 
     def initialize_positions(self, atoms=None):
         """Update the positions of the atoms."""
+        self.log('Initializing position-dependent things.')
         if atoms is None:
             atoms = self.atoms
         else:

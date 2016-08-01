@@ -17,6 +17,7 @@ _eps0_au = 1.0 / (4.0 * np.pi)
 #        2) electric field
 #        3) classical polarization charge density
 #    -contains routines for calculating them from each other and/or external potential
+
 class PolarizableMaterial():
     def __init__(self, components=None, sign = -1.0):
         self.gd          = None
@@ -199,11 +200,11 @@ class PolarizableBox():
                  np.logical_and( #x
                                 r_gv[:, :, :, 0] > self.corner1[0],
                                 r_gv[:, :, :, 0] < self.corner2[0]),
-                                 r_gv[:, :, :, 1] > self.corner1[1]),
-                                 r_gv[:, :, :, 1] < self.corner2[1]),
-                                  r_gv[:, :, :, 2] > self.corner1[2]),
-                                  r_gv[:, :, :, 2] < self.corner2[2])
-
+                 r_gv[:, :, :, 1] > self.corner1[1]),
+                               r_gv[:, :, :, 1] < self.corner2[1]),
+                r_gv[:, :, :, 2] > self.corner1[2]),
+                              r_gv[:, :, :, 2] < self.corner2[2])
+        
 
 # Shape from atom positions (surrounding region)
 class PolarizableAtomisticRegion():

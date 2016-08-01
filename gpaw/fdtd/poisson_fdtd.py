@@ -1,9 +1,9 @@
-"""Part of the module for electrodynamic simulations
+"""Part of the module for electrodynamic simulations."""
 
-"""
-
+import numpy as np
 from ase import Atoms
 from ase.units import Bohr
+
 from gpaw import GPAW
 from gpaw.fdtd.polarizable_material import PolarizableMaterial
 from gpaw.fdtd.potential_couplers import (RefinerPotentialCoupler,
@@ -15,7 +15,6 @@ from gpaw.transformers import Transformer
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.poisson import PoissonSolver
 import gpaw.mpi as mpi
-import numpy as np
 
 # QSFDTD is a wrapper class to make calculations
 # easier, something like this:
@@ -95,7 +94,7 @@ class QSFDTD:
                 self.atoms, self.qm_spacing, self.gpts = \
                     self.poissonsolver.cut_cell(self.atoms, corners=corners)
         else:  # Dummy quantum system
-            self.atoms = Atoms("H", [0.5 * cell], cell=cell)
+            self.atoms = Atoms('H', [0.5 * cell], cell=cell)
             if vacuum is not None:  # vacuum
                 self.atoms, self.qm_spacing, self.gpts = \
                     self.poissonsolver.cut_cell(self.atoms, vacuum=vacuum)
@@ -1001,49 +1000,40 @@ class FDTDPoissonSolver:
         self.cl.gd.distribute(big_currents, self.classical_material.currents)
 
         # Write restart data
-    def write(self, paw, writer):  # filename='poisson'):
-        # rho = self.classical_material.charge_density
-        world = paw.wfs.world
-        # domain_comm = self.cl.gd.comm
-        kpt_comm = paw.wfs.kd.comm
-        # band_comm = paw.wfs.band_comm
-        master = (world.rank == 0)
-        # parallel = (world.size > 1)
-        w = writer
+    def write(self, writer):  # filename='poisson'):
 
         # Classical materials data
         w['classmat.num_components'] = len(self.classical_material.components)
         self.classical_material.write(w)
 
         # FDTDPoissonSolver related data
-        w['fdtd.eps'] = self.eps
-        w['fdtd.nn'] = self.nn
-        w['fdtd.relax'] = self.relax
-        w['fdtd.coupling_scheme'] = self.potential_coupling_scheme
-        w['fdtd.description'] = self.get_description()
-        w['fdtd.remove_moment_qm'] = self.remove_moment_qm
-        w['fdtd.remove_moment_cl'] = self.remove_moment_cl
-        w['fdtd.time'] = self.time
-        w['fdtd.time_step'] = self.time_step
-        w['fdtd.kick'] = self.kick
-        w['fdtd.maxiter'] = self.maxiter
-
-        # PoissonOrganizer
-        w['fdtd.cl_cell'] = np.diag(self.cl.cell)
-        w['fdtd.cl_spacing_def'] = self.cl.spacing_def
-        w['fdtd.cl_spacing'] = self.cl.spacing
-        w['fdtd.cl_world_comm'] = self.cl.dcomm == world
-
-        w['fdtd.qm_corner1'] = self.qm.corner1
-        w['fdtd.qm_corner2'] = self.qm.corner2
-        w['fdtd.given_corner_1'] = self.given_corner_v1
-        w['fdtd.given_corner_2'] = self.given_corner_v2
-        w['fdtd.given_cell'] = np.diag(self.given_cell)
-        w['fdtd.hratios'] = self.hratios
-        w['fdtd.shift_indices_1'] = self.shift_indices_1
-        w['fdtd.shift_indices_2'] = self.shift_indices_2
-        w['fdtd.num_refinements'] = self.num_refinements
-        w['fdtd.num_indices'] = self.num_indices
+        writer.write(
+            eps=self.eps,
+            nn=self.nn,
+            relax=self.relax,
+            coupling_scheme=self.potential_coupling_scheme,
+            description=self.get_description(),
+            remove_moment_qm=self.remove_moment_qm,
+            remove_moment_cl=self.remove_moment_cl,
+            time=self.time,
+            time_step=self.time_step,
+            kick=self.kick,
+            maxiter=self.maxiter,
+            # PoissonOrganizer
+            cl_cell=np.diag(self.cl.cell),
+            cl_spacing_def=self.cl.spacing_def,
+            cl_spacing=self.cl.spacing,
+            cl_world_comm=self.cl.dcomm == world,
+            qm_corner1=self.qm.corner1,
+            qm_corner2=self.qm.corner2,
+            given_corner_1=self.given_corner_v1,
+            given_corner_2=self.given_corner_v2,
+            given_cell=np.diag(self.given_cell),
+            hratios=self.hratios,
+            shift_indices_1=self.shift_indices_1,
+            shift_indices_2=self.shift_indices_2,
+            num_refinements=self.num_refinements,
+            num_indices=self.num_indices)
 
         # Create dimensions for various netCDF variables:
         ng = self.cl.gd.get_size_of_global_array()
