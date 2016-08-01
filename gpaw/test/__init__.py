@@ -107,7 +107,6 @@ tests = [
     'xc/xc.py',
     'xc/XC2.py',
     'radial/yukawa_radial.py',
-    'response/dump_chi0.py',
     'vdw/potential.py',
     'radial/lebedev.py',
     'occupations.py',
