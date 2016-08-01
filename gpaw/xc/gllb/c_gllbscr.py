@@ -1,17 +1,17 @@
 from gpaw.xc.gllb.contribution import Contribution
 from gpaw.xc import XC
 from gpaw.xc.pawcorrection import rnablaY_nLv
-from gpaw.xc.gllb import safe_sqr
 from math import sqrt, pi, exp
 from gpaw.utilities import erf
-from gpaw.io.tar import TarFileReference
 from gpaw.sphere.lebedev import weight_n
 import numpy as np
 
 K_G = 0.382106112167171
 
+
 class C_GLLBScr(Contribution):
-    def __init__(self, nlfunc, weight, functional='GGA_X_B88', width=None, eps=0.05, damp=1e-10):
+    def __init__(self, nlfunc, weight, functional='GGA_X_B88', width=None,
+                 eps=0.05, damp=1e-10):
         Contribution.__init__(self, nlfunc, weight)
         self.functional = functional
         self.old_coeffs = None
@@ -53,7 +53,7 @@ class C_GLLBScr(Contribution):
         self.xc = XC(self.functional)
 
         # Always 1 spin, no matter what calculation nspins is
-        self.vt_sg = self.nlfunc.finegd.empty(1) 
+        self.vt_sg = self.nlfunc.finegd.empty(1)
         self.e_g = self.nlfunc.finegd.empty()#.ravel()
 
     def get_coefficient_calculator(self):
@@ -78,11 +78,11 @@ class C_GLLBScr(Contribution):
             return Knew
     
     def get_coefficients(self, e_j, f_j):
-        homo_e = max( [ np.where(f>1e-3, e, -1000) for f,e in zip(f_j, e_j)] ) 
+        homo_e = max( [ np.where(f>1e-3, e, -1000) for f,e in zip(f_j, e_j)] )
         return [ f * K_G * self.f(homo_e - e) for e,f in zip(e_j, f_j) ]
 
     def get_coefficients_1d(self, smooth=False, lumo_perturbation = False):
-        homo_e = max( [ np.where(f>1e-3, e, -1000) for f,e in zip(self.ae.f_j, self.ae.e_j)]) 
+        homo_e = max( [ np.where(f>1e-3, e, -1000) for f,e in zip(self.ae.f_j, self.ae.e_j)])
         if not smooth:
             if lumo_perturbation:
                 lumo_e = min( [ np.where(f<1e-3, e, 1000) for f,e in zip(self.ae.f_j, self.ae.e_j)])
@@ -107,14 +107,14 @@ class C_GLLBScr(Contribution):
         #if self.occupations.nvalence is None:
         #    return None
         #if kpt_u[0].psit_nG is None or isinstance(kpt_u[0].psit_nG,
-        #                                          TarFileReference): 
+        #                                          TarFileReference):
         #    if kpt_u[0].C_nM is None:
         #        return None
 
         if homolumo is None:
             # Find homo and lumo levels for each spin
             eref_s = []
-            eref_lumo_s = []  
+            eref_lumo_s = []
             for s in range(nspins):
                 homo, lumo = self.occupations.get_homo_lumo_by_spin(self.nlfunc.wfs, s)
                 eref_s.append(homo)
@@ -141,7 +141,7 @@ class C_GLLBScr(Contribution):
             
             
         else:
-            coeff = [ np.array([ f * K_G * self.f(eref_s[kpt.s] - e) 
+            coeff = [ np.array([ f * K_G * self.f(eref_s[kpt.s] - e)
                      for e, f in zip(kpt.eps_n, kpt.f_n) ])
                      for kpt in kpt_u ]
             #print coeff
@@ -273,7 +273,7 @@ class C_GLLBScr(Contribution):
         # GLLBScr has no special data to be read
         pass
 
-    def write(self, writer, natoms):
+    def write(self, writer):
         # GLLBScr has no special data to be written
         pass
         

@@ -94,7 +94,7 @@ class Transport(GPAW):
           | pl_atoms1 |              | pl_atoms2 |
         """
         kw = transport_kwargs
-        p =  self.set_default_transport_parameters()
+        p = self.set_default_transport_parameters()
         self.gpw_kwargs = kw.copy()
         for key in kw:
             if key in [ 'use_lead',
@@ -457,7 +457,7 @@ class Transport(GPAW):
                 self.log("  check")
                 _tmp = GPAW(self.lead_calculators[i])
                 pl_params = _tmp.parameters.copy()
-                pl_params['parallel'] = self.parameters['parallel'].copy()
+                pl_params['parallel'] = self.parallel.copy()
                 # self.log('  self.input_parameters[parallel] {0}'.format(pl_params['parallel']))
                 #pl_params['parallel'].update(band=self.wfs.bd.comm.size, domain=self.wfs.gd.parsize_c)
                 #parprint('>>> self.input_parameters[parallel] updated {0}'.format(pl_params['parallel']))
@@ -1372,7 +1372,7 @@ class Transport(GPAW):
         p['nbands'] = None
         p['kpts'] = self.pl_kpts
 
-        p['parallel'] = self.parameters['parallel'].copy()
+        p['parallel'] = self.parallel.copy()
         p['parallel'].update(band=self.wfs.bd.comm.size,
                              kpt=self.wfs.kd.comm.size,
                              domain=self.wfs.gd.parsize_c)

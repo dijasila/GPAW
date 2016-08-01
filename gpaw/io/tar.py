@@ -1,14 +1,11 @@
 import numbers
-import os
 import tarfile
-import time
 import xml.sax
 
 import numpy as np
 
 from gpaw.mpi import broadcast as mpi_broadcast
 from gpaw.mpi import world
-from gpaw.io.dummy import DummyWriter
 
 intsize = 4
 floatsize = np.array([1], float).itemsize
@@ -42,100 +39,8 @@ def open(filename, mode='r', comm=world):
     if not filename.endswith('.gpw'):
         filename += '.gpw'
 
-    if mode == 'r':
-        return Reader(filename, comm)
-    elif mode == 'w':
-        if comm.rank == 0:
-            return Writer(filename, comm)
-        else:
-            return DummyWriter(filename, comm)
-
-            
-class Writer:
-    def __init__(self, name, comm=world):
-        self.comm = comm  # for possible future use
-        self.dims = {}
-        self.files = {}
-        self.xml1 = ['<gpaw_io version="0.1" endianness="%s">' %
-                     ('big', 'little')[int(np.little_endian)]]
-        self.xml2 = []
-        if os.path.isfile(name):
-            os.rename(name, name[:-4] + '.old' + name[-4:])
-        self.tar = tarfile.open(name, 'w')
-        self.mtime = int(time.time())
-        
-    def dimension(self, name, value):
-        if name in self.dims.keys() and self.dims[name] != value:
-            raise Warning('Dimension %s changed from %s to %s' %
-                          (name, self.dims[name], value))
-        self.dims[name] = value
-
-    def __setitem__(self, name, value):
-        if isinstance(value, float):
-            value = repr(value)
-        self.xml1 += ['  <parameter %-20s value="%s"/>' %
-                      ('name="%s"' % name, value)]
-        
-    def add(self, name, shape, array=None, dtype=None, units=None,
-            parallel=False, write=True):
-        if array is not None:
-            array = np.asarray(array)
-
-        self.dtype, type, itemsize = self.get_data_type(array, dtype)
-        self.xml2 += ['  <array name="%s" type="%s">' % (name, type)]
-        self.xml2 += ['    <dimension length="%s" name="%s"/>' %
-                      (self.dims[dim], dim)
-                      for dim in shape]
-        self.xml2 += ['  </array>']
-        self.shape = [self.dims[dim] for dim in shape]
-        size = itemsize * int(np.product([self.dims[dim] for dim in shape]))
-        self.write_header(name, size)
-        if array is not None:
-            self.fill(array)
-
-    def get_data_type(self, array=None, dtype=None):
-        if dtype is None:
-            dtype = array.dtype
-
-        if dtype in [int, bool]:
-            dtype = np.int32
-
-        dtype = np.dtype(dtype)
-        type = {np.int32: 'int',
-                np.float64: 'float',
-                np.complex128: 'complex'}[dtype.type]
-
-        return dtype, type, dtype.itemsize
-
-    def fill(self, array, *indices, **kwargs):
-        self.write(np.asarray(array, self.dtype).tostring())
-
-    def write_header(self, name, size):
-        assert name not in self.files.keys(), name
-        tarinfo = tarfile.TarInfo(name)
-        tarinfo.mtime = self.mtime
-        tarinfo.size = size
-        self.files[name] = tarinfo
-        self.size = size
-        self.n = 0
-        self.tar.addfile(tarinfo)
-
-    def write(self, string):
-        self.tar.fileobj.write(string)
-        self.n += len(string)
-        if self.n == self.size:
-            blocks, remainder = divmod(self.size, tarfile.BLOCKSIZE)
-            if remainder > 0:
-                self.tar.fileobj.write(b'\0' * (tarfile.BLOCKSIZE - remainder))
-                blocks += 1
-            self.tar.offset += blocks * tarfile.BLOCKSIZE
-        
-    def close(self):
-        self.xml2 += ['</gpaw_io>\n']
-        string = '\n'.join(self.xml1 + self.xml2).encode()
-        self.write_header('info.xml', len(string))
-        self.write(string)
-        self.tar.close()
+    assert mode == 'r'
+    return Reader(filename, comm)
 
 
 class Reader(xml.sax.handler.ContentHandler):

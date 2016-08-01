@@ -107,12 +107,12 @@ class TDDFT(GPAW):
         # Set initial value of iteration counter
         self.niter = 0
 
-        # Parallelization dictionary should also default to strided bands
+        # Parallelization dictionary should default to strided bands
         self.default_parallel = GPAW.default_parallel.copy()
         self.default_parallel['stridebands'] = True
+        
         self.default_parameters = GPAW.default_parameters.copy()
         self.default_parameters['mixer'] = DummyMixer()
-        self.default_parameters['mode'] = FDTDDFTMode()
         
         # NB: TDDFT restart files contain additional information which
         #     will override the initial settings for time/kick/niter.
@@ -181,15 +181,18 @@ class TDDFT(GPAW):
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
         elif propagator == 'SICN':
-            self.propagator = SemiImplicitCrankNicolson(self.td_density,
+            self.propagator = SemiImplicitCrankNicolson(
+                self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
         elif propagator == 'EFSICN':
-            self.propagator = EhrenfestPAWSICN(self.td_density,
+            self.propagator = EhrenfestPAWSICN(
+                self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
         elif propagator == 'EFSICN_HGH':
-            self.propagator = EhrenfestHGHSICN(self.td_density,
+            self.propagator = EhrenfestHGHSICN(
+                self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
         elif propagator == 'ETRSCN':
@@ -198,11 +201,13 @@ class TDDFT(GPAW):
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
         elif propagator == 'SITE':
-            self.propagator = SemiImplicitTaylorExponential(self.td_density,
+            self.propagator = SemiImplicitTaylorExponential(
+                self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
         elif propagator == 'SIKE':
-            self.propagator = SemiImplicitKrylovExponential(self.td_density,
+            self.propagator = SemiImplicitKrylovExponential(
+                self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
         elif propagator.startswith('SITE') or propagator.startswith('SIKE'):
@@ -228,7 +233,8 @@ class TDDFT(GPAW):
         self.eps_tmp = None
         self.mblas = MultiBlas(wfs.gd)
         
-        # Restarting an FDTD run generates hamiltonian.fdtd_poisson, which now overwrites hamiltonian.poisson
+        # Restarting an FDTD run generates hamiltonian.fdtd_poisson, which
+        # now overwrites hamiltonian.poisson
         if hasattr(self.hamiltonian, 'fdtd_poisson'):
             self.hamiltonian.poisson = self.hamiltonian.fdtd_poisson
             self.hamiltonian.poisson.set_grid_descriptor(self.density.finegd)
@@ -244,6 +250,10 @@ class TDDFT(GPAW):
             self.text('GLLB model potential. Not updating energy.')
             self.calculate_energy = False
 
+    def create_wave_functions(self, mode, *args, **kwargs):
+        mode = FDTDDFTMode(mode.nn, mode.interpolation, True)
+        GPAW.create_wave_functions(self, mode, *args, **kwargs)
+
     # Electrodynamics requires extra care
     def initialize_FDTD(self):
         
@@ -256,9 +266,10 @@ class TDDFT(GPAW):
         # in time when self.hamiltonian.poisson.solve(...) is called
         self.hamiltonian.poisson.set_calculation_mode('propagate')
 
-        # During each time step, self.hamiltonian.poisson.solve may be called several
-        # times (depending on the used propagator). Using the attached observer one
-        # ensures that actual propagation takes place only once. This is because
+        # During each time step, self.hamiltonian.poisson.solve may be called
+        # several times (depending on the used propagator). Using the
+        # attached observer one ensures that actual propagation takes
+        # place only once. This is because
         # the FDTDPoissonSolver changes the calculation_mode from propagate to
         # something else when the propagation is finished.
         self.attach(self.hamiltonian.poisson.set_calculation_mode, 1,
@@ -333,7 +344,7 @@ class TDDFT(GPAW):
                               (self.niter, T[3], T[4], T[5],
                                self.time * autime_to_attosec,
                                self.Etot * aufrequency_to_eV,
-                               log(abs(norm)+1e-16)/log(10),
+                               log(abs(norm) + 1e-16) / log(10),
                                niterpropagator))
 
                     self.log.flush()
@@ -351,16 +362,16 @@ class TDDFT(GPAW):
                 self.write(restart_file, 'all')
                 if self.rank == 0:
                     print('Wrote restart file.')
-                    print(self.niter, ' iterations done. Current time is ', \
-                        self.time * autime_to_attosec, ' as.')
+                    print(self.niter, ' iterations done. Current time is ',
+                          self.time * autime_to_attosec, ' as.')
 
         self.timer.stop('Propagate')
 
         # Write final results and close dipole moment file
         if dipole_moment_file is not None:
-            #TODO final iteration is propagated, but nothing is updated
-            #norm = self.density.finegd.integrate(self.density.rhot_g)
-            #self.finalize_dipole_moment_file(norm)
+            # TODO final iteration is propagated, but nothing is updated
+            # norm = self.density.finegd.integrate(self.density.rhot_g)
+            # self.finalize_dipole_moment_file(norm)
             self.finalize_dipole_moment_file()
 
         # Finalize FDTDPoissonSolver
@@ -389,7 +400,7 @@ class TDDFT(GPAW):
             # If the dipole moment file is empty, add a header
             if self.dm_file.tell() == 0:
                 header = '# Kick = [%22.12le, %22.12le, %22.12le]\n' \
-                    % (self.kick_strength[0], self.kick_strength[1], \
+                    % (self.kick_strength[0], self.kick_strength[1],
                        self.kick_strength[2])
                 header += '# %15s %15s %22s %22s %22s\n' \
                     % ('time', 'norm', 'dmx', 'dmy', 'dmz')
@@ -483,8 +494,9 @@ class TDDFT(GPAW):
 
         self.kick_strength = np.array(kick_strength)
 
-        abs_kick_hamiltonian = AbsorptionKickHamiltonian(self.wfs, self.atoms,
-                                   np.array(kick_strength, float))
+        abs_kick_hamiltonian = AbsorptionKickHamiltonian(
+            self.wfs, self.atoms,
+            np.array(kick_strength, float))
         abs_kick = AbsorptionKick(self.wfs, abs_kick_hamiltonian,
                                   self.td_overlap, self.solver,
                                   self.preconditioner, self.wfs.gd, self.timer)
@@ -541,9 +553,8 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
         raise RuntimeError('Error in photoabsorption_spectrum: '
                            'Only Gaussian folding is currently supported.')
     
-    
     if world.rank == 0:
-        print('Calculating photoabsorption spectrum from file "%s"' \
+        print('Calculating photoabsorption spectrum from file "%s"'
               % dipole_moment_file)
 
         f_file = open(spectrum_file, 'w')
@@ -568,14 +579,14 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
         # Continue with dipole moment data
         lines = lines[2:]
         n = len(lines)
-        dm = np.zeros((n,3),dtype=float)
-        time = np.zeros((n,),dtype=float)
+        dm = np.zeros((n, 3), dtype=float)
+        time = np.zeros((n,), dtype=float)
         for i in range(n):
             data = lines[i].split()
             time[i] = float(data[0])
-            dm[i,0] = float(data[2])
-            dm[i,1] = float(data[3])
-            dm[i,2] = float(data[4])
+            dm[i, 0] = float(data[2])
+            dm[i, 1] = float(data[3])
+            dm[i, 2] = float(data[4])
 
         t = time - time[0]
         dt = time[1] - time[0]
@@ -583,10 +594,10 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
         nw = int(e_max / delta_e)
         dw = delta_e * eV_to_aufrequency
         # f(w) = Nw exp(-w^2/2sigma^2)
-        #sigma = fwhm / Hartree / (2.* np.sqrt(2.* np.log(2.0)))
+        # sigma = fwhm / Hartree / (2.* np.sqrt(2.* np.log(2.0)))
         # f(t) = Nt exp(-t^2*sigma^2/2)
         sigma = width * eV_to_aufrequency
-        fwhm = sigma * (2.* np.sqrt(2.* np.log(2.0)))
+        fwhm = sigma * (2. *  np.sqrt(2. * np.log(2.0)))
         kick_magnitude = np.sum(strength**2)
 
         # write comment line
@@ -609,21 +620,21 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
         for i in range(nw):
             w = i * dw
             # x
-            alphax = np.sum(np.sin(t*w) * np.exp(-t**2*sigma**2/2.0) * dm[:,0])
-            alphax *= 2 * dt / (2*np.pi) / kick_magnitude * strength[0]
+            alphax = np.sum(np.sin(t * w) * np.exp(-t**2*sigma**2/2.0) * dm[:,0])
+            alphax *= 2 * dt / (2 * np.pi) / kick_magnitude * strength[0]
             # y
-            alphay = np.sum(np.sin(t*w) * np.exp(-t**2*sigma**2/2.0) * dm[:,1])
-            alphay *= 2 * dt / (2*np.pi) / kick_magnitude * strength[1]
+            alphay = np.sum(np.sin(t * w) * np.exp(-t**2*sigma**2/2.0) * dm[:,1])
+            alphay *= 2 * dt / (2 * np.pi) / kick_magnitude * strength[1]
             # z
-            alphaz = np.sum(np.sin(t*w) * np.exp(-t**2*sigma**2/2.0) * dm[:,2])
-            alphaz *= 2 * dt / (2*np.pi) / kick_magnitude * strength[2]
+            alphaz = np.sum(np.sin(t * w) * np.exp(-t**2*sigma**2/2.0) * dm[:,2])
+            alphaz *= 2 * dt / (2 * np.pi) / kick_magnitude * strength[2]
 
             # f = 2 * omega * alpha
             line = '%10.6lf %20.10le %20.10le %20.10le\n' \
-                % (w*aufrequency_to_eV,
-                   2*w*alphax / Hartree,
-                   2*w*alphay / Hartree,
-                   2*w*alphaz / Hartree)
+                % (w * aufrequency_to_eV,
+                   2 * w * alphax / Hartree,
+                   2 * w * alphay / Hartree,
+                   2 * w * alphaz / Hartree)
             f_file.write(line)
 
             if (i % 100) == 0:
@@ -635,7 +646,7 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
         print('')
         f_file.close()
         
-        print('Calculated photoabsorption spectrum saved to file "%s"' \
+        print('Calculated photoabsorption spectrum saved to file "%s"'
               % spectrum_file)
 
     # Make static method

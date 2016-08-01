@@ -239,6 +239,7 @@ class GPAW(Calculator, PAW):
 
         if not self.initialized:
             self.initialize(atoms)
+        if not self.wfs.positions_set:
             self.set_positions(atoms)
             
         if not self.scf.converged:

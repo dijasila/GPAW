@@ -482,7 +482,8 @@ class Hamiltonian(object):
         writer.write(
             potential=self.gd.collect(self.vt_sG) * Hartree,
             atomic_hamiltonian_matrices=pack_atomic_matrices(self.dH_asp) *
-            Hartree)
+            Hartree,
+            xc=self.xc)
 
     def read(self, reader):
         h = reader.hamiltonian
@@ -506,6 +507,8 @@ class Hamiltonian(object):
 
         if self.gd.comm.rank == 0:
             self.dH_asp = unpack_atomic_matrices(dH_sP, self.setups)
+            
+        self.xc.read(reader)
 
 
 class RealSpaceHamiltonian(Hamiltonian):

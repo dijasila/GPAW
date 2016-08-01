@@ -145,7 +145,7 @@ class PAW:
     def converge_wave_functions(self):
         """Converge the wave-functions if not present."""
 
-        if (self.scf.converged and
+        if (self.scf and self.scf.converged and
             isinstance(self.wfs.kpt_u[0].psit_nG, np.ndarray)):
             return
             

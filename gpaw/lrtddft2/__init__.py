@@ -129,7 +129,7 @@ class LrTDDFT2:
         # Input paramers?
         self.deriv_scale = 1e-5   # fxc finite difference step
         # ignore transition if population difference is below this value:
-        self.min_pop_diff = 1e-3  
+        self.min_pop_diff = 1e-3
 
         # set up communicators
         self.lr_comms = lr_communicators
@@ -200,7 +200,7 @@ class LrTDDFT2:
         # Note: this is not the Casida matrix
         self.K_matrix = Kmatrix(self.ks_singles, self.xc, self.deriv_scale)
 
-        self.sl_lrtddft = self.calc.parameters.parallel['sl_lrtddft']
+        self.sl_lrtddft = self.calc.parallel['sl_lrtddft']
 
         # LR-TDDFT transitions
         self.lr_transitions = LrtddftTransitions(self.ks_singles, self.K_matrix, self.sl_lrtddft)
