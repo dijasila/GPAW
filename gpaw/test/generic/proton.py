@@ -32,7 +32,8 @@ for d in D:
     eref = -1 / d * Bohr * Hartree
     print(d, e, eref, abs(f1 + f2).max())
     if d < 4.0:
-        assert abs(e + 1 / d * Bohr * Hartree) < 0.01, e + 1 / d * Bohr * Hartree
+        error = e + 1 / d * Bohr * Hartree
+        assert abs(error) < 0.01, error
     assert abs(f1 + f2).max() < 0.01
     E.append(e)
     F.append(f1[0, 2])

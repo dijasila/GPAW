@@ -60,6 +60,8 @@ class Hamiltonian(object):
             vext = create_external_potential(**vext)
         self.vext = vext  # external potential
 
+        self.positions_set = False
+        
     @property
     def dH_asp(self):
         assert isinstance(self._dH_asp, ArrayDict) or self._dH_asp is None
@@ -148,7 +150,8 @@ class Hamiltonian(object):
         self.vbar.set_positions(spos_ac)
         self.xc.set_positions(spos_ac)
         self.set_positions_without_ruining_everything(spos_ac, atom_partition)
-
+        self.positions_set = True
+        
     def aoom(self, DM, a, l, scale=1):
         """Atomic Orbital Occupation Matrix.
 

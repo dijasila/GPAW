@@ -47,30 +47,13 @@ class LCAOTDDFT(GPAW):
         self.tddft_initialized = False
         self.fxc = fxc
         self.propagator = propagator
-        GPAW.__init__(self, filename, **kwargs)
+        GPAW.__init__(self, filename, mode='lcao', **kwargs)
 
         # Restarting from a file
         if filename is not None:
             self.initialize()
             self.set_positions()
-        else:
-            asdfjkhasdf
             
-        if 0:#self.world.size == 1:
-            for kpt in self.wfs.kpt_u:
-                kpt.C_nM = kpt.C_nM[:]
-
-    def setttttttttttttttt(self, **kwargs):
-        if 'mode' not in kwargs:
-            kwargs['mode'] = LCAO(force_complex_dtype=True)
-        else:
-            modevar = kwargs['mode']
-            if hasattr(modevar, 'name'):
-                assert modevar.name == 'lcao'  # LCAO mode required
-            else:
-                assert modevar == 'lcao'  # LCAO mode required
-        GPAW.set(self, **kwargs)
-
     def propagate_wfs(self, sourceC_nm, targetC_nm, S_MM, H_MM, dt):
         if self.propagator == 'cn':
             return self.linear_propagator(sourceC_nm, targetC_nm, S_MM, H_MM,

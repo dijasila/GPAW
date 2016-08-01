@@ -239,7 +239,9 @@ class GPAW(Calculator, PAW):
 
         if not self.initialized:
             self.initialize(atoms)
-        if not self.wfs.positions_set:
+            self.set_positions(atoms)
+
+        if not self.wfs.positions_set or not self.hamiltonian.positions_set:
             self.set_positions(atoms)
             
         if not self.scf.converged:
@@ -316,6 +318,8 @@ class GPAW(Calculator, PAW):
             return {}
             
         self.initialized = False
+        self.scf = None
+        self.results = {}
 
         self.log('Input parameters:')
         for key in sorted(changed_parameters):
@@ -328,9 +332,6 @@ class GPAW(Calculator, PAW):
                        'eigensolver', 'idiotproof']:
                 continue
 
-            self.scf = None
-            self.results = {}
-            
             if key in ['convergence', 'fixdensity', 'maxiter']:
                 continue
 
