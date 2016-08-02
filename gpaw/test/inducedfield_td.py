@@ -7,8 +7,8 @@ from gpaw.poisson import PoissonSolver
 from gpaw.test import equal
 
 do_print_values = False  # Use this for printing the reference values
-poisson_eps = 1e-20
-density_eps = 1e-8
+poisson_eps = 1e-12
+density_eps = 1e-6
 
 # PoissonSolver
 poissonsolver = PoissonSolver(eps=poisson_eps)
@@ -28,7 +28,7 @@ calc.write('na2_gs.gpw', mode='all')
 
 # Standard time-propagation initialization
 time_step = 10.0
-iterations = 60
+iterations = 20
 kick_strength = [1.0e-3, 1.0e-3, 0.0]
 td_calc = TDDFT('na2_gs.gpw', poissonsolver=poissonsolver)
 td_calc.absorption_kick(kick_strength=kick_strength)
@@ -70,7 +70,7 @@ ind.calculate_induced_field(gridrefinement=2, from_density='comp',
 # Estimate tolerance (worst case error accumulation)
 tol = iterations * ind.fieldgd.integrate(ind.fieldgd.zeros() + 1.0) * \
         max(density_eps, np.sqrt(poisson_eps))
-#tol = 0.001167179811
+# tol = 0.038905993684
 if do_print_values:
     print('tol = %.12f' % tol)
 
@@ -91,13 +91,13 @@ if do_print_values:
         print("equal(val%d, %20.12f, tol)" % (i, x))
         i += 1
 
-equal(val1,    3314.463566436767, tol)
-equal(val2,       2.254452178599, tol)
-equal(val3,       2.208970141543, tol)
-equal(val4,       1.697564042167, tol)
-equal(val5,    3311.757129629823, tol)
-equal(val6,       2.102499949779, tol)
-equal(val7,       2.103871112604, tol)
-equal(val8,       1.602251056016, tol)
+equal(val1,    1926.232999117403, tol)
+equal(val2,       0.427606450419, tol)
+equal(val3,       0.565823985683, tol)
+equal(val4,       0.372493489423, tol)
+equal(val5,    1945.618902611449, tol)
+equal(val6,       0.423899965987, tol)
+equal(val7,       0.560882533828, tol)
+equal(val8,       0.369203021329, tol)
 
 ind.paw = None
