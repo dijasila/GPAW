@@ -310,7 +310,7 @@ def get_lead_lcao_hamiltonian(calc, direction='x'):
                                      bzk_kc=calc.wfs.kd.bzk_kc,
                                      weight_k=calc.wfs.kd.weight_k,
                                      direction=direction,
-                                     symmetry=calc.input_parameters['symmetry'])
+                                     symmetry=calc.parameters.symmetry)
     else:
         return None, None, None, None
 

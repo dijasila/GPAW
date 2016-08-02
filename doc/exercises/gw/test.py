@@ -6,7 +6,7 @@ si.calc = GPAW(mode=PW(200),
                occupations=FermiDirac(0.01))
 si.get_potential_energy()
 si.calc.diagonalize_full_hamiltonian()
-si.calc.write('Si_gs', 'all')
+si.calc.write('Si_gs.gpw', 'all')
 dct = {}
 exec(open('Si_g0w0_ppa.py').read(), dct)
 assert abs(dct['ks_gap'] - 0.404) < 0.01
