@@ -306,7 +306,7 @@ class Hamiltonian(object):
                 regions = cdft.indices_i
                 c_regions = cdft.n_charge_regions
 
-                v_i =cdft.v_i
+                v_i = cdft.v_i
                 if cdft.difference:
                     v_i = [v_i,-v_i]
                 
@@ -389,15 +389,14 @@ class Hamiltonian(object):
         for a, dF_v in vbar_av.items():
             F_av[a] += dF_v[0]
         
-        if self.vext:
-            if self.vext.get_name()=='CDFT':
-                F_av += self.vext.get_cdft_forces()
-
-        print(self.vext.get_cdft_forces())
         self.xc.add_forces(F_av)
         
         self.gd.comm.sum(F_coarsegrid_av, 0)
         self.finegd.comm.sum(F_av, 0)
+        
+        if self.vext:
+            if self.vext.get_name()=='CDFT':
+                F_av += self.vext.get_cdft_forces()        
         
         F_av += F_coarsegrid_av
         
@@ -733,4 +732,5 @@ class RealSpaceHamiltonian(Hamiltonian):
             dens.ghat.derivative(self.vHt_g, ghat_aLv)
         
         dens.nct.derivative(vt_G, nct_av)
+
 

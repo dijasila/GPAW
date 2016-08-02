@@ -104,7 +104,7 @@ class CDFT(Calculator):
                 # combined spin and charge constraints
                 self.constraints = Zn - self.charge_i
             
-            else: # constrain charge between two regions
+            else: # constrain charge difference between two regions
                 self.constraints = charges
                 self.n_charge_regions = 1
                 self.regions = charge_regions
