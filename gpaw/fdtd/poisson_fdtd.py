@@ -387,12 +387,10 @@ class FDTDPoissonSolver:
             numb = 4
 
         # The index mismatch of the two simulation cells
-        # self.num_indices = numb * np.ceil((np.array(v2) -
-        #                                    np.array(v1)) /
-        #                                   self.cl.spacing / numb).astype(int)
-        num_indices_1 = numb * np.floor(np.array(v1) / self.cl.spacing / numb)
-        num_indices_2 = numb * np.ceil(np.array(v2) / self.cl.spacing / numb)
-        self.num_indices = (num_indices_2 - num_indices_1).astype(int)
+        # Round before taking floor/ceil to avoid floating point arithmetic errors
+        num_indices_1 = numb * np.floor(np.round(np.array(v1) / self.cl.spacing / numb, 2)).astype(int)
+        num_indices_2 = numb * np.ceil(np.round(np.array(v2) / self.cl.spacing / numb, 2)).astype(int)
+        self.num_indices = num_indices_2 - num_indices_1
 
         # Center, left, and right points of the suggested quantum grid
         cp = 0.5 * (np.array(v1) + np.array(v2))
