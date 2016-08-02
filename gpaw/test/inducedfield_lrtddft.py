@@ -7,8 +7,8 @@ from gpaw.poisson import PoissonSolver
 from gpaw.test import equal
 
 do_print_values = False  # Use this for printing the reference values
-poisson_eps = 1e-20
-density_eps = 1e-8
+poisson_eps = 1e-12
+density_eps = 1e-6
 
 # 0) PoissonSolver
 poissonsolver = PoissonSolver(eps=poisson_eps)
@@ -44,10 +44,9 @@ ind.calculate_induced_field(gridrefinement=2, from_density='comp',
                             poisson_eps=poisson_eps)
 
 # Estimate tolerance (worst case error accumulation)
-tol = len(lr) * ind.fieldgd.integrate(ind.fieldgd.zeros() + 1.0) * \
+tol = len(lr) ** 2 * ind.fieldgd.integrate(ind.fieldgd.zeros() + 1.0) * \
         max(density_eps, np.sqrt(poisson_eps))
-tol *= 100  # Increase tolerance (TODO: why is it needed?)
-# tol = 0.0369606940
+# tol = 0.702253185994
 if do_print_values:
     print('tol = %.12f' % tol)
 
@@ -68,11 +67,11 @@ if do_print_values:
         print("equal(val%d, %20.12f, tol)" % (i, x))
         i += 1
 
-equal(val1,    3175.710769842502, tol)
-equal(val2,    1700.915873926834, tol)
-equal(val3,    1187.042280386919, tol)
-equal(val4,    1187.042280388817, tol)
-equal(val5,   10957.186908354506, tol)
-equal(val6,    6576.600305045955, tol)
-equal(val7,    4588.724567703681, tol)
-equal(val8,    4588.724567714311, tol)
+equal(val1,    3175.732161495840, tol)
+equal(val2,    1700.727018909886, tol)
+equal(val3,    1187.130921347186, tol)
+equal(val4,    1187.130921347852, tol)
+equal(val5,   10957.059193705705, tol)
+equal(val6,    6575.777519299762, tol)
+equal(val7,    4589.111152993442, tol)
+equal(val8,    4589.111152996577, tol)
