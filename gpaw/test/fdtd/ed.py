@@ -7,6 +7,9 @@ from gpaw.tddft import TDDFT, photoabsorption_spectrum, units
 from gpaw.test import equal
 import numpy as np
 
+# Accuracy
+energy_eps = 0.0005
+
 # Whole simulation cell (Angstroms)
 large_cell = [20, 20, 30]
 
@@ -50,11 +53,18 @@ gs_calc = GPAW(gpts          = gpts,
                eigensolver   = 'cg',
                nbands        = -1,
                poissonsolver = poissonsolver,
-               convergence   = {'density': 1e-8})
+               convergence   = {'density': 1e-8, 'energy': energy_eps})
 atoms.set_calculator(gs_calc)
 
 # Ground state
 energy = atoms.get_potential_energy()
+
+# Test ground state
+equal(energy, -0.631876, energy_eps * gs_calc.get_number_of_electrons())
+
+# Test floating point arithmetic errors
+equal(gs_calc.hamiltonian.poisson.shift_indices_1, [4, 4, 10], 0)
+equal(gs_calc.hamiltonian.poisson.shift_indices_2, [8, 8, 16], 0)
 
 # Save state
 gs_calc.write('gs.gpw', 'all')
