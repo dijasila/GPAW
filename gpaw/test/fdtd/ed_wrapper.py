@@ -8,6 +8,9 @@ import numpy as np
 
 # This test does the same calculation as ed.py, but using QSFDTD wrapper instead
 
+# Accuracy
+energy_eps = 0.0005
+
 # Whole simulation cell (Angstroms)
 cell = [20, 20, 30];
 
@@ -33,7 +36,8 @@ qsfdtd = QSFDTD(classical_material = classical_material,
                 communicator       = world)
 
 # Run
-energy = qsfdtd.ground_state('gs.gpw', eigensolver='cg', nbands=-1, convergence={'density': 1e-8})
+qsfdtd.ground_state('gs.gpw', eigensolver='cg', nbands=-1, convergence={'density': 1e-8, 'energy': energy_eps})
+equal(qsfdtd.energy, -0.631876, energy_eps * qsfdtd.gs_calc.get_number_of_electrons())
 qsfdtd.time_propagation('gs.gpw', kick_strength=[0.000, 0.000, 0.001], time_step=10, iterations=5, dipole_moment_file='dm.dat', restart_file='td.gpw')
 qsfdtd.time_propagation('td.gpw', kick_strength=None, time_step=10, iterations=5, dipole_moment_file='dm.dat')
 
