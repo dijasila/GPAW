@@ -898,41 +898,34 @@ class FDTDPoissonSolver:
         return self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
 
     # Read restart data
-    def read(self, paw, reader):
+    def read(self, reader):
         r = reader
 
-        # version = r['version']
-
-        # Helper function
-        def read_vector(v):
-            return np.array([float(
-                x) for x in v.replace('[', '').replace(']', '').split()])
-
         # FDTDPoissonSolver related data
-        self.eps = r['fdtd.eps']
-        self.nn = r['fdtd.nn']
-        self.relax = r['fdtd.relax']
-        self.potential_coupling_scheme = r['fdtd.coupling_scheme']
-        self.description = r['fdtd.description']
-        self.remove_moment_qm = int(r['fdtd.remove_moment_qm'])
-        self.remove_moment_cl = int(r['fdtd.remove_moment_cl'])
-        self.time = float(r['fdtd.time'])
-        self.time_step = float(r['fdtd.time_step'])
+        self.eps = r.eps
+        self.nn = r.nn
+        self.relax = r.relax
+        self.potential_coupling_scheme = r.coupling_scheme
+        self.description = r.description
+        self.remove_moment_qm = r.remove_moment_qm
+        self.remove_moment_cl = r.remove_moment_cl
+        self.time = r.time
+        self.time_step = r.time_step
 
         # Try to read time-dependent information
-        self.kick = read_vector(r['fdtd.kick'])
-        self.maxiter = int(r['fdtd.maxiter'])
+        self.kick = r.kick
+        self.maxiter = r.maxiter
 
         # PoissonOrganizer: classical
         self.cl = PoissonOrganizer()
-        self.cl.spacing_def = read_vector(r['fdtd.cl_spacing_def'])
-        self.cl.spacing = read_vector(r['fdtd.cl_spacing'])
-        self.cl.cell = np.diag(read_vector(r['fdtd.cl_cell']))
+        self.cl.spacing_def = r.cl_spacing_def
+        self.cl.spacing = r.cl_spacing
+        self.cl.cell = np.diag(r.cl_cell)
         self.cl.dparsize = None
 
         # TODO: it should be possible to use different
         #       communicator after restart
-        if r['fdtd.cl_world_comm']:
+        if r.cl_world_comm:
             self.cl.dcomm = world
         else:
             self.cl.dcomm = mpi.serial_comm
@@ -947,18 +940,18 @@ class FDTDPoissonSolver:
 
         # PoissonOrganizer: quantum
         self.qm = PoissonOrganizer()
-        self.qm.corner1 = read_vector(r['fdtd.qm_corner1'])
-        self.qm.corner2 = read_vector(r['fdtd.qm_corner2'])
-        self.given_corner_v1 = read_vector(r['fdtd.given_corner_1'])
-        self.given_corner_v2 = read_vector(r['fdtd.given_corner_2'])
-        self.given_cell = np.diag(read_vector(r['fdtd.given_cell']))
-        self.hratios = read_vector(r['fdtd.hratios'])
+        self.qm.corner1 = read_vector(r.qm_corner1)
+        self.qm.corner2 = read_vector(r.qm_corner2)
+        self.given_corner_v1 = read_vector(r.given_corner_1)
+        self.given_corner_v2 = read_vector(r.given_corner_2)
+        self.given_cell = np.diag(read_vector(r.given_cell))
+        self.hratios = read_vector(r.hratios)
         self.shift_indices_1 = \
-            read_vector(r['fdtd.shift_indices_1']).astype(int)
+            read_vector(r.shift_indices_1).astype(int)
         self.shift_indices_2 = \
-            read_vector(r['fdtd.shift_indices_2']).astype(int)
-        self.num_indices = read_vector(r['fdtd.num_indices']).astype(int)
-        self.num_refinements = int(r['fdtd.num_refinements'])
+            read_vector(r.shift_indices_2).astype(int)
+        self.num_indices = read_vector(r.num_indices).astype(int)
+        self.num_refinements = int(r.num_refinements)
 
         # Redefine atoms to suit the cut_cell routine
         newatoms = paw.atoms.copy()
@@ -999,15 +992,14 @@ class FDTDPoissonSolver:
             big_currents = None
         self.cl.gd.distribute(big_currents, self.classical_material.currents)
 
-        # Write restart data
-    def write(self, writer):  # filename='poisson'):
+    def write(self, writer):
 
         # Classical materials data
-        w['classmat.num_components'] = len(self.classical_material.components)
-        self.classical_material.write(w)
+        self.classical_material.write(writer.child('classmat'))
 
         # FDTDPoissonSolver related data
         writer.write(
+            name='fdtd',
             eps=self.eps,
             nn=self.nn,
             relax=self.relax,
@@ -1035,65 +1027,21 @@ class FDTDPoissonSolver:
             num_refinements=self.num_refinements,
             num_indices=self.num_indices)
 
-        # Create dimensions for various netCDF variables:
-        ng = self.cl.gd.get_size_of_global_array()
-
         # Write the classical charge density
-        w.dimension('nclgptsx', ng[0])
-        w.dimension('nclgptsy', ng[1])
-        w.dimension('nclgptsz', ng[2])
-        w.add('classical_material_rho',
-              ('nclgptsx', 'nclgptsy', 'nclgptsz'),
-              dtype=float,
-              write=master)
-        if kpt_comm.rank == 0:
-            charge_density = \
-                self.cl.gd.collect(self.classical_material.charge_density)
-            if master:
-                w.fill(charge_density)
+        charge_density = self.cl.gd.collect(
+            self.classical_material.charge_density)
+        writer.write(classical_material_rho=charge_density)
 
         # Write the total polarization
-        w.dimension('3', 3)
-        w.dimension('nclgptsx', ng[0])
-        w.dimension('nclgptsy', ng[1])
-        w.dimension('nclgptsz', ng[2])
-        w.add('polarization_total',
-              ('3', 'nclgptsx', 'nclgptsy', 'nclgptsz'),
-              dtype=float,
-              write=master)
-        if kpt_comm.rank == 0:
-            polarization_total = \
-                self.cl.gd.collect(self.classical_material.polarization_total)
-            if master:
-                w.fill(polarization_total)
+        polarization_total = self.cl.gd.collect(
+            self.classical_material.polarization_total)
+        writer.write(polarization_total=polarization_total)
 
         # Write the partial polarizations
-        w.dimension('3', 3)
-        w.dimension('Nj', self.classical_material.Nj)
-        w.dimension('nclgptsx', ng[0])
-        w.dimension('nclgptsy', ng[1])
-        w.dimension('nclgptsz', ng[2])
-        w.add('polarizations',
-              ('3', 'Nj', 'nclgptsx', 'nclgptsy', 'nclgptsz'),
-              dtype=float,
-              write=master)
-        if kpt_comm.rank == 0:
-            polarizations = \
-                self.cl.gd.collect(self.classical_material.polarizations)
-            if master:
-                w.fill(polarizations)
+        polarizations = self.cl.gd.collect(
+            self.classical_material.polarizations)
+        writer.write(polarizations=polarizations)
 
         # Write the partial currents
-        w.dimension('3', 3)
-        w.dimension('Nj', self.classical_material.Nj)
-        w.dimension('nclgptsx', ng[0])
-        w.dimension('nclgptsy', ng[1])
-        w.dimension('nclgptsz', ng[2])
-        w.add('currents',
-              ('3', 'Nj', 'nclgptsx', 'nclgptsy', 'nclgptsz'),
-              dtype=float,
-              write=master)
-        if kpt_comm.rank == 0:
-            currents = self.cl.gd.collect(self.classical_material.currents)
-            if master:
-                w.fill(currents)
+        currents = self.cl.gd.collect(self.classical_material.currents)
+        writer.write(currents=currents)

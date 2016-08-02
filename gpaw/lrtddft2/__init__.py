@@ -147,7 +147,7 @@ class LrTDDFT2:
             else:
                 self.txt = txt
         elif self.calc is not None:
-            self.txt = self.calc.txt
+            self.txt = self.calc.log.fd
         else:
             self.txt = devnull
 
@@ -168,17 +168,18 @@ class LrTDDFT2:
         if self.max_energy_diff is None:
             self.max_energy_diff = 1e9
 
-        self.min_occ   = max(self.min_occ,  0)
-        self.min_unocc = max(self.min_unocc,0)
+        self.min_occ = max(self.min_occ, 0)
+        self.min_unocc = max(self.min_unocc, 0)
 
-        if ( self.max_occ   >= nbands ):
+        if self.max_occ >= nbands:
             raise RuntimeError('Error in LrTDDFT2: max_occ >= nbands')
-        if ( self.max_unocc >= nbands ):
+        if self.max_unocc >= nbands:
             raise RuntimeError('Error in LrTDDFT2: max_unocc >= nbands')
  
         # Only spin unpolarized calculations are supported atm
         # > FIXME
-        assert len(self.calc.wfs.kpt_u) == 1, "LrTDDFT2 does not support more than one k-point/spin."
+        assert len(self.calc.wfs.kpt_u) == 1, \
+            'LrTDDFT2 does not support more than one k-point/spin.'
         self.kpt_ind = 0
         # <
 
@@ -203,7 +204,9 @@ class LrTDDFT2:
         self.sl_lrtddft = self.calc.parallel['sl_lrtddft']
 
         # LR-TDDFT transitions
-        self.lr_transitions = LrtddftTransitions(self.ks_singles, self.K_matrix, self.sl_lrtddft)
+        self.lr_transitions = LrtddftTransitions(self.ks_singles,
+                                                 self.K_matrix,
+                                                 self.sl_lrtddft)
 
         # Response wavefunction
         self.lr_response_wf = None
@@ -214,7 +217,6 @@ class LrTDDFT2:
         # Timer
         self.timer = self.calc.timer
         self.timer.start('LrTDDFT')
-
 
         # If a previous calculation exist, read info file
         # self.read(self.basefilename)
@@ -351,8 +353,6 @@ class LrTDDFT2:
 
         return lr_response
 
-
-    #################################################################
     def calculate(self):
         """Calculates linear response matrix and properties of KS
         electron-hole pairs.
@@ -393,7 +393,8 @@ class LrTDDFT2:
         if self.recalculate == 'all' or self.recalculate == 'matrix':
             # delete files
             if self.parent_comm.rank == 0:
-                for ready_file in glob.glob(self.basefilename+'.ready_rows.*'):
+                for ready_file in glob.glob(self.basefilename +
+                                            '.ready_rows.*'):
                     os.remove(ready_file)
                 for K_file in glob.glob(self.basefilename + '.K_matrix.*'):
                     os.remove(K_file)
@@ -420,13 +421,9 @@ class LrTDDFT2:
                 os.remove(trans_file)
             self.lr_transitions.calculate()
 
-
         # recalculate only once
         self.recalculate = None
 
-
-
-    #################################################################
     def read(self, basename):
         """Does not do much at the moment."""
         info_file = open(basename + '.lr_info', 'r')
@@ -435,14 +432,13 @@ class LrTDDFT2:
                 continue
             if len(line.split()) <= 2:
                 continue
-            #key = line.split('=')[0]
-            #value = line.split('=')[1]
+            # key = line.split('=')[0]
+            # value = line.split('=')[1]
             # .....
             # FIXME: do something, like warn if changed
             # ...
         info_file.close()
 
-    #################################################################
     def write_info(self, basename):
         """Writes used parameters to a file."""
         f = open(basename + '.lr_info', 'a+')
@@ -457,15 +453,5 @@ class LrTDDFT2:
         f.write('%20s = %18.12lf\n' % ('min_pop_diff', self.min_pop_diff))
         f.close()
 
-
-    #################################################################
     def __del__(self):
         self.timer.stop('LrTDDFT')
-
-
-
-################################################################################
-
-
-
-

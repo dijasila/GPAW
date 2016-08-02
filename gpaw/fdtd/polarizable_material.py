@@ -95,15 +95,12 @@ class PolarizableMaterial():
             
     # Save information on the structures for restarting
     def write(self, writer):
-        w = writer
-        ind = 0
-        for component in self.components:
-            w['classmat.component_%i.name' % ind] = component.name
-            w['classmat.component_%i.arguments' % ind] = component.arguments
-            w['classmat.component_%i.eps_infty' % ind] = component.permittivity.eps_infty
-            w['classmat.component_%i.eps' % ind] = component.permittivity.data_eVA()
-            ind += 1
-        
+        writer.write(components=[
+                         {'name': component.name,
+                          'arguments': component.arguments,
+                          'eps_infty': component.permittivity.eps_infty,
+                          'eps': component.permittivity.data_eVA()}
+                         for component in self.components])
             
     # Here the 3D-arrays are filled with material-specific information
     def apply_mask(self, mask, permittivity):
