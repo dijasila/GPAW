@@ -11,8 +11,8 @@ from gpaw.solvation import (
 import numpy as np
 
 SKIP_REF_CALC = True
-dE = 1e-5  # XXX: check: why is there a difference at all?
-dF = 1e-7  # -- " --
+
+energy_eps = 0.05 / 8.
 
 h = 0.3
 vac = 3.0
@@ -29,7 +29,7 @@ atoms = Cluster(molecule('H2O'))
 atoms.minimal_box(vac, h)
 
 convergence = {
-    'energy': 0.05 / 8.,
+    'energy': energy_eps,
     'density': 10.,
     'eigenstates': 10.,
 }
@@ -59,6 +59,8 @@ atoms.calc = SolvationGPAW(
 Etest = atoms.get_potential_energy()
 Eeltest = atoms.calc.get_electrostatic_energy()
 Ftest = atoms.get_forces()
-equal(Etest, Eref, dE)
-equal(Ftest, Fref, dF)
+equal(Etest, Eref, energy_eps * atoms.calc.get_number_of_electrons())
+# Equality tolerance for forces is completely arbitrary
+# Use convergence={'forces': XXX} to fix it
+equal(Ftest, Fref, 1e-4)
 equal(Eeltest, Etest)
