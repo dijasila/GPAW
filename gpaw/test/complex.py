@@ -3,7 +3,7 @@ from gpaw import GPAW, restart
 from ase.build import molecule
 from gpaw.test import equal
 Eini0 = -17.8037610364
-energy_eps = 5e-4
+energy_eps = 0.0005
 esolvers = ['cg', 'rmm-diis', 'dav']
 
 calc = GPAW(xc='LDA',
@@ -21,7 +21,6 @@ Eini = mol.get_potential_energy()
 Iini = calc.get_number_of_iterations()
 print(('%10s: %12.6f eV in %3d iterations' %
        ('init(cg)', Eini, Iini)))
-print(energy_eps * calc.get_number_of_electrons())
 equal(Eini, Eini0, energy_eps * calc.get_number_of_electrons())
 
 calc.write('N2_complex.gpw', mode='all')
