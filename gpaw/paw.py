@@ -360,8 +360,6 @@ class PAW:
         periodic systems.
         """
         if width is None:
-            width = self.get_electronic_temperature()
-        if width == 0:
             width = 0.1
 
         w_k = self.wfs.kd.weight_k
@@ -383,8 +381,6 @@ class PAW:
         Project wave functions onto a Wigner-Seitz box at atom ``a``, and
         use this as weight when summing the eigenvalues."""
         if width is None:
-            width = self.get_electronic_temperature()
-        if width == 0:
             width = 0.1
 
         from gpaw.utilities.dos import raw_wignerseitz_LDOS, fold
@@ -410,8 +406,6 @@ class PAW:
         interested in the DOS at low energies.
         """
         if width is None:
-            width = self.get_electronic_temperature()
-        if width == 0.0:
             width = 0.1
 
         from gpaw.utilities.dos import raw_orbital_LDOS, fold
@@ -434,8 +428,6 @@ class PAW:
                              'basis_indices but not both')
 
         if width is None:
-            width = self.get_electronic_temperature()
-        if width == 0.0:
             width = 0.1
 
         if self.wfs.S_qMM is None:
@@ -468,8 +460,6 @@ class PAW:
             return all_electron_LDOS(self, mol, spin, lc=lc,
                                      wf_k=wf_k, P_aui=P_aui)
         if width is None:
-            width = self.get_electronic_temperature()
-        if width == 0.0:
             width = 0.1
 
         energies, weights = all_electron_LDOS(self, mol, spin,

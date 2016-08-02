@@ -47,7 +47,9 @@ if 1:
     # test I/O, accuracy due to text output
     accuracy = 1.e-5
     for fname in [out_traj, out_txt]:
+        print(fname)
         s_out = ase.io.read(fname)
+        print(s_out.calc)
         equal(s_out.get_potential_energy(), E, accuracy)
         for fi, fo in zip(F_ac, s_out.get_forces()):
             equal(fi, fo, accuracy)

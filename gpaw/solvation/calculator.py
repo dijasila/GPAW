@@ -3,8 +3,6 @@ from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
 from ase.units import Hartree, Bohr
 
 
-
-
 class SolvationGPAW(GPAW):
     """Subclass of gpaw.GPAW calculator with continuum solvent model.
 
@@ -72,8 +70,8 @@ class SolvationGPAW(GPAW):
         It has to match the value of a subscript attribute of one of
         the interactions in the interactions list.
         """
-        self.calculate(atoms, converge=True)
-        return Hartree * getattr(self.hamiltonian, 'E_' + subscript)
+        #self.calculate(atoms, converge=True)
+        return Hartree * getattr(self.hamiltonian, 'e_' + subscript)
 
     def get_cavity_volume(self, atoms=None):
         """Return the cavity volume in Angstrom ** 3.
@@ -81,7 +79,7 @@ class SolvationGPAW(GPAW):
         In case no volume calculator has been set for the cavity, None
         is returned.
         """
-        self.calculate(atoms, converge=True)
+        #self.calculate(atoms, converge=True)
         V = self.hamiltonian.cavity.V
         return V and V * Bohr ** 3
 
@@ -91,7 +89,7 @@ class SolvationGPAW(GPAW):
         In case no surface calculator has been set for the cavity,
         None is returned.
         """
-        self.calculate(atoms, converge=True)
+        #self.calculate(atoms, converge=True)
         A = self.hamiltonian.cavity.A
         return A and A * Bohr ** 2
 
@@ -125,7 +123,7 @@ class SolvationGPAW(GPAW):
         t()
         t('Solvation Energy Contributions:')
         for ia in self.hamiltonian.interactions:
-            E = Hartree * getattr(self.hamiltonian, 'E_' + ia.subscript)
+            E = Hartree * getattr(self.hamiltonian, 'e_' + ia.subscript)
             t('%-14s: %+11.6f' % (ia.subscript, E))
         Eel = Hartree * getattr(self.hamiltonian, 'Eel')
         t('%-14s: %+11.6f' % ('el', Eel))

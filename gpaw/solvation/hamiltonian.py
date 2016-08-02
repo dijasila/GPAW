@@ -44,7 +44,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             stencil=stencil, redistributor=redistributor)
 
         for ia in interactions:
-            setattr(self, 'E_' + ia.subscript, None)
+            setattr(self, 'e_' + ia.subscript, None)
         self.new_atoms = None
         self.vt_ia_g = None
 

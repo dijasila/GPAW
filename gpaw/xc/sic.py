@@ -189,7 +189,6 @@ class SIC(XCFunctional):
         self.finegrid = finegrid
         self.parameters = parameters
 
-    
     def initialize(self, density, hamiltonian, wfs, occ=None):
         assert wfs.kd.gamma
         assert not wfs.gd.pbc_c.any()
@@ -224,7 +223,7 @@ class SIC(XCFunctional):
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
         return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
-                                 addcoredensity, a)
+                                                addcoredensity, a)
     
     def set_positions(self, spos_ac):
         self.ghat.set_positions(spos_ac)
@@ -323,81 +322,61 @@ class SIC(XCFunctional):
         log('Stabilizing potential: %12.5f' % (stabpot * Hartree))
 
     def read(self, reader):
-        xc_factor = reader['SIC_xc_factor']
-        coulomb_factor = reader['SIC_coulomb_factor']
-        #
+        xc_factor = reader.hamiltonian.xc.sic_xc_factor
+        coulomb_factor = reader.hamiltonian.xc.sic_coulomb_factor
+
         for s in range(self.nspins):
-            #
-            try:
-                npart = reader.dimension('npart'+str(s))
-            except KeyError:
-                npart = 0
-            #
-            if npart>0:
-                W_mn = reader.get('UnitaryTransformation'+str(s))
-            else:
-                W_mn = None
-            #
-            if s in self.spin_s.keys():
+            W_mn = reader.hamiltonian.xc.get(
+                'unitary_transformation{0}'.format(s))
+
+            if s in self.spin_s:
                 self.spin_s[s].initial_W_mn = W_mn
                 self.spin_s[s].xc_factor = xc_factor
                 self.spin_s[s].coulomb_factor = coulomb_factor
-            
 
-    def write(self, writer, natoms=None):
-        #
-        for s in self.spin_s.keys():
+    def write(self, writer):
+        for s in self.spin_s:
             spin = self.spin_s[s]
-            if self.wfs.world.rank==0:
-                writer['SIC_xc_factor'] = spin.xc_factor
-                writer['SIC_coulomb_factor'] = spin.coulomb_factor
+            writer.write(sic_xc_factor=spin.xc_factor,
+                         sic_coulomb_factor=spin.coulomb_factor)
             break
-        #
-        for s in range(self.nspins):
-            #
-            W_mn = self.get_unitary_transformation(s)
-            #
-            if self.wfs.world.rank == 0:
-                if W_mn is not None:
-                    writer.dimension('npart'+str(s), W_mn.shape[0])
-                    writer.add('UnitaryTransformation'+str(s),
-                               ('npart'+str(s),'npart'+str(s)),
-                               dtype=self.dtype)
-                    writer.fill(W_mn)
-    
 
+        for s in range(self.nspins):
+            W_mn = self.get_unitary_transformation(s)
+
+            if W_mn is not None:
+                writer.write('unitary_transformation{0}'.format(s), W_mn)
+    
     def get_unitary_transformation(self, s):
-        #
         if s in self.spin_s.keys():
             spin = self.spin_s[s]
-            #
+
             if spin.W_mn is None or spin.finegd.rank!=0:
                 n = 0
             else:
                 n = spin.W_mn.shape[0]
-            #
         else:
-            n=0
-        #
+            n = 0
+
         n = self.wfs.world.sum(n)
-        #
-        if n>0:
-            W_mn = np.zeros((n,n), dtype=self.dtype)
+
+        if n > 0:
+            W_mn = np.zeros((n, n), dtype=self.dtype)
         else:
             W_mn = None
             return W_mn
-        #
+
         if s in self.spin_s.keys():
             spin = self.spin_s[s]
             #
-            if spin.W_mn is None or spin.finegd.rank!=0:
+            if spin.W_mn is None or spin.finegd.rank != 0:
                 W_mn[:] = 0.0
             else:
                 W_mn[:] = spin.W_mn[:]
             #
         else:
             W_mn[:] = 0.0
-        #
+
         self.wfs.world.sum(W_mn)
         return W_mn
     
@@ -488,9 +467,7 @@ class SICSpin:
         self.basiserror = 1E+20
         self.logging = logging
 
-
     def initialize_orbitals(self, rattle=-0.1, localize=True):
-        #
         if self.initial_W_mn is not None:
             self.nocc = self.initial_W_mn.shape[0]
         else:
@@ -536,11 +513,10 @@ class SICSpin:
         spos_mc = -np.angle(Z_mmv.diagonal()).T / (2 * pi)
         self.initial_pos_mv = np.dot(spos_mc % 1.0, self.gd.cell_cv)
 
-
     def localize_orbitals(self):
-        #
+
         assert self.gd.orthogonal
-        #
+
         # calculate wannier matrixelements
         Z_mmv = np.empty((self.nocc, self.nocc, 3), complex)
         for v in range(3):
@@ -550,10 +526,10 @@ class SICSpin:
                                                     self.kpt.psit_nG, G_v,
                                                     self.nocc)
         self.finegd.comm.sum(Z_mmv)
-        #
+
         # setup the initial configuration (identity)
         W_nm = np.identity(self.nocc)
-        #
+
         # localize the orbitals
         localization = 0.0
         for iter in range(30):
@@ -561,36 +537,33 @@ class SICSpin:
             if loc - localization < 1e-6:
                 break
             localization = loc
-        #
+
         # apply localizing transformation
         self.W_mn = W_nm.T.copy()
-
             
     def rattle_orbitals(self, rattle=-0.1):
-        #
+
         # check for the trivial cases
         if rattle==0.0:
             return
 
         if self.W_mn is None:
             return
-        #
+
         # setup a "random" unitary matrix
         nocc = self.W_mn.shape[0]
         U_mm = random_unitary_matrix(rattle, nocc)
-        #
+
         # apply unitary transformation
         self.W_mn = np.dot(U_mm, self.W_mn)
 
-
     def get_centers(self):
-        #
         assert self.gd.orthogonal
-        #
+
         # calculate energy optimal states (if necessary)
         if self.phit_mG is None:
             self.update_optimal_states()
-        #
+
         # calculate wannier matrixelements
         Z_mmv = np.empty((self.nocc, self.nocc, 3), complex)
         for v in range(3):
@@ -600,26 +573,23 @@ class SICSpin:
                                                     self.phit_mG, G_v,
                                                     self.nocc)
         self.finegd.comm.sum(Z_mmv)
-        #
+
         # calculate positions of localized orbitals
         spos_mc = -np.angle(Z_mmv.diagonal()).T / (2 * pi)
         
         return np.dot(spos_mc % 1.0, self.gd.cell_cv) * Bohr
 
-
     def calculate_sic_matrixelements(self):
-        
         # overlap of pseudo wavefunctions
         Htphit_mG = self.vt_mG * self.phit_mG
         V_mm = np.zeros((self.nocc, self.nocc), dtype=self.dtype)
         gemm(self.gd.dv, self.phit_mG, Htphit_mG, 0.0, V_mm, 't')
-        #
+
         # PAW
         for a, P_mi in self.P_ami.items():
             for m, dH_p in enumerate(self.dH_amp[a]):
                 dH_ii = unpack(dH_p)
                 V_mm[m,:] += np.dot(P_mi[m], np.dot(dH_ii, P_mi.T))
-        
 
         # accumulate over grid-domains
         self.finegd.comm.sum(V_mm)
@@ -634,22 +604,19 @@ class SICSpin:
         
         return V_mm, K_mm, np.vdot(K_mm, K_mm).real
 
-
     def update_optimal_states(self):
-        #
         # pseudo wavefunctions
         self.phit_mG = self.gd.zeros(self.nocc)
         if self.nocc>0:
             gemm(1.0, self.kpt.psit_nG[:self.nocc],
                  self.W_mn, 0.0, self.phit_mG)
-        #
+
         # PAW
         self.P_ami = {}
         for a, P_ni in self.kpt.P_ani.items():
             self.P_ami[a] = np.dot(self.W_mn, P_ni[:self.nocc])
 
     def calculate_density(self, m):
-        #
         # pseudo density
         nt_G = self.phit_mG[m]**2
 
@@ -673,7 +640,6 @@ class SICSpin:
         return nt_g, Q_aL, D_ap
         
     def update_potentials(self, save=False, restore=False):
-        
         if restore:
             self.exc_m = self.exc_save_m
             self.ecoulomb_m = self.eco_save_m
@@ -683,16 +649,15 @@ class SICSpin:
             return
 
         self.timer.start('ODD-potentials')
-        #
+
         nt_sg = self.finegd.empty(2)
         nt_sg[1] = 0.0
         vt_sg = self.finegd.empty(2)
-        #
+
         # PAW
         W_aL = self.ghat.dict()
         zero_initial_phi = False
         
-        #
         # initialize some bigger fields
         if self.vt_mG is None or self.nocc!=self.phit_mG.shape[0]:
             self.vt_mG = self.gd.empty(self.nocc)
