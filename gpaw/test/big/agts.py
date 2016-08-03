@@ -113,7 +113,7 @@ class AGTSJob:
         return None
 
     def clean(self):
-        for name in ['start', 'done', 'status']:
+        for name in ['start', 'done', 'status', 'py', 'output']:
             try:
                 os.remove(self.absname + '.' + name)
             except OSError:
