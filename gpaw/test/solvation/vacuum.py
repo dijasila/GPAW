@@ -12,7 +12,8 @@ import numpy as np
 
 SKIP_REF_CALC = True
 
-energy_eps = 0.05 / 8.
+energy_eps = 0.0005 / 8.
+forces_eps = 2e-5
 
 h = 0.3
 vac = 3.0
@@ -30,6 +31,7 @@ atoms.minimal_box(vac, h)
 
 convergence = {
     'energy': energy_eps,
+    'forces': forces_eps ** 2,  # Force error is squared
     'density': 10.,
     'eigenstates': 10.,
 }
@@ -41,12 +43,12 @@ if not SKIP_REF_CALC:
     Fref = atoms.get_forces()
     print(Fref)
 else:
-    # h=0.3, vac=3.0, setups: 0.9.11271, convergence: only energy 0.05 / 8
-    Eref = -11.9837925246
+    # setups: 0.9.11271, same settings as above
+    Eref = -11.987992702
     Fref = np.array(
-        [[1.54678912e-12, -2.25501922e-12, -3.39988295e+00],
-         [1.42379773e-13, 1.75605844e+00, 1.68037209e-02],
-         [1.25039582e-13, -1.75605844e+00, 1.68037209e-02]])
+            [[  3.02502086e-13, -1.44665920e-12, -6.05004154e+00],
+             [  1.23004481e-13,  1.61482505e+00,  6.87380315e-02],
+             [  2.57885170e-13, -1.61482505e+00,  6.87380315e-02]])
 
 atoms.calc = SolvationGPAW(
     xc='LDA', h=h, convergence=convergence,
@@ -60,7 +62,5 @@ Etest = atoms.get_potential_energy()
 Eeltest = atoms.calc.get_electrostatic_energy()
 Ftest = atoms.get_forces()
 equal(Etest, Eref, energy_eps * atoms.calc.get_number_of_electrons())
-# Equality tolerance for forces is completely arbitrary
-# Use convergence={'forces': XXX} to fix it
-equal(Ftest, Fref, 1e-4)
+equal(Ftest, Fref, forces_eps)
 equal(Eeltest, Etest)
