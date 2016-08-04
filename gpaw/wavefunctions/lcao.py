@@ -335,7 +335,7 @@ class LCAOWaveFunctions(WaveFunctions):
         Mstop = ksl.Mstop
 
         from gpaw.kohnsham_layouts import BlacsOrbitalLayouts
-        isblacs = isinstance(ksl, BlacsOrbitalLayouts) # XXX
+        isblacs = isinstance(ksl, BlacsOrbitalLayouts)  # XXX
         
         if not isblacs:
             self.timer.start('TCI derivative')
@@ -847,8 +847,8 @@ class LCAOWaveFunctions(WaveFunctions):
                         ArhoT_MM = (gemmdot(dPdR_Mi, HP_iM) * rhoT_uMM[u]).real
                         for a, M1, M2 in slices():
                             dE = 2 * ArhoT_MM[M1:M2].sum()
-                            Fatom_av[a, v] += dE # the "b; mu in a; nu" term
-                            Fatom_av[b, v] -= dE # the "mu nu" term
+                            Fatom_av[a, v] += dE  # the "b; mu in a; nu" term
+                            Fatom_av[b, v] -= dE  # the "mu nu" term
             self.timer.stop('Atomic Hamiltonian force')
 
         F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
@@ -899,8 +899,8 @@ class LCAOWaveFunctions(WaveFunctions):
         for kpt in self.kpt_u:
             kpt.C_nM = reader.wave_functions.proxy('coefficients',
                                                    kpt.s, kpt.k)
-        #if self.world.size == 1:
-        #    return
+        # if self.world.size == 1:
+        #     return
 
         # Read to memory:
         for kpt in self.kpt_u:

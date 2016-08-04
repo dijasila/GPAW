@@ -1,34 +1,32 @@
+import pickle
+import time
+
+import numpy as np
 from ase.parallel import parprint, paropen
 from ase.units import Hartree, Bohr
+
 from gpaw import GPAW, dry_run, PoissonSolver
 from gpaw.mixer import Mixer, MixerSum, MixerDif, BroydenMixer, BroydenMixerSum
 from gpaw.poisson import FixedBoundaryPoissonSolver
-
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.transformers import Transformer
 from gpaw.mpi import world
 from gpaw.utilities.memory import maxrss
-
 from gpaw.transport.tools import (
     tri2full, dot,
     get_atom_indices, substract_pk, get_lcao_density_matrix,
     get_pk_hsd, get_matrix_index, collect_atomic_matrices,
     distribute_atomic_matrices, fermidistribution)
-
 from gpaw.transport.sparse_matrix import (Tp_Sparse_HSD, Banded_Sparse_HSD,
                                           CP_Sparse_HSD)
-
 from gpaw.transport.contour import Contour, EnergyNode
 from gpaw.transport.surrounding import Surrounding
 from gpaw.transport.selfenergy import LeadSelfEnergy
 from gpaw.transport.analysor import Transport_Analysor, Transport_Plotter
 from gpaw.transport.io import Transport_IO
 from gpaw.utilities import pack2, unpack, unpack2
-
 import gpaw
-import numpy as np
-import pickle
-import time
+from gpaw.output import print_positions
 
 
 class DBG(object):
@@ -846,13 +844,12 @@ class Transport(GPAW):
                 wfs.eigensolver.iterate(hamiltonian, wfs)
                 occupations.calculate(wfs)
                 energy = hamiltonian.get_energy(occupations)
-                scf.energies.append(energy)
-                scf.check_convergence(density, wfs.eigensolver)
+                #scf.energies.append(energy)
+                #scf.check_convergence(density, wfs.eigensolver)
                 density.update(wfs)
                 if self.extra_density:
                     density.rhot_g += self.surround.extra_rhot_g
                 hamiltonian.update(density)
-                calc.print_iteration(iter)
             self.copy_mixer_history(calc)
         self.initialize_hamiltonian_matrix(calc)
         if not (self.non_sc and self.scat_restart):
@@ -2173,10 +2170,10 @@ class Transport(GPAW):
                 self.get_selfconsistent_hamiltonian()
             if force_consistent:
                 # Free energy:
-                return Hartree * self.hamiltonian.Etot
+                return Hartree * self.hamiltonian.e_total_free
             else:
                 # Energy extrapolated to zero Kelvin:
-                return Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S)
+                return Hartree * self.hamiltonian.e_total_extrapolated
       
     def induce_density_perturbation(self):
         self.log('induce_density_perturbation()')
@@ -2437,14 +2434,14 @@ class Transport(GPAW):
             print('Where should we do comm.sum() ?')
         
         comm = ham.gd.comm
-        ham.Ekin0 = comm.sum(Ekin)
+        ham.e_kinetic0 = comm.sum(Ekin)
         ham.e_coulomb = comm.sum(e_coulomb)
-        ham.Ebar = comm.sum(Ebar)
-        ham.Eext = comm.sum(Eext)
-        ham.Exc = comm.sum(Exc)
+        ham.e_zero = comm.sum(Ebar)
+        ham.e_external = comm.sum(Eext)
+        ham.e_xc = comm.sum(Exc)
         
-        ham.Exc += ham.Enlxc
-        ham.Ekin0 += ham.Enlkin
+        ham.e_xc += ham.Enlxc
+        ham.e_kinetic0 += ham.Enlkin
         
         #dH_asp = collect_D_asp3(ham, self.density.rank_a)
         dH_asp = collect_atomic_matrices(ham.dH_asp, ham.setups, ham.nspins,
@@ -2457,8 +2454,6 @@ class Transport(GPAW):
         self.timer.stop('Hamiltonian')
         self.log('finish update_hamiltonian()')
         
-
-    
     def print_boundary_charge(self):
         self.log('print_boundary_charge()')
         boundary_charge = []
@@ -2820,11 +2815,10 @@ class Transport(GPAW):
         self.log('  update_hamiltonian() called')
         self.scf.reset()
         self.log('  scf.reset() called')
-        self.forces.reset()
-        self.log('  forces.reset() called')
-        self.print_positions()
+        #self.forces.reset()
+        #self.log('  forces.reset() called')
+        print_positions(self.atoms, self.log)
         self.log('  print_positions() called')
-        
 
     def analysis(self, n, n1=0, gate=False, gate_uplimit=None):
         self.log('analysis()')

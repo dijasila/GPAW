@@ -19,6 +19,7 @@ for (mode, TDDFT) in [('lcao', LCAOTDDFT),
     for (xc, fxc) in [('PBE', 'PBE'),
                       ('GLLBSC', 'GLLBSC'),
                       ('GLLBSC', 'LDA')]:
+        print('XXXXXXX', mode, xc, fxc)
 
         if xc == 'PBE' and mode == 'fd':
             # There are other checks for this combination
@@ -44,20 +45,21 @@ for (mode, TDDFT) in [('lcao', LCAOTDDFT),
                           h=0.40,
                           mode={'name': mode, 'force_complex_dtype': True},
                           xc=xc,
-                          basis='dzp'))
+                          basis='dzp',
+                          txt='grr.txt'))
 
         atoms.set_calculator(calcs[-1])
         energy = atoms.get_potential_energy()
         calcs[-1].write('gs.gpw', mode='all')
 
         # 2) restart ground state
-        calcs.append(GPAW('gs.gpw'))
+        calcs.append(GPAW('gs.gpw', txt='grr2.txt'))
         calcs[-1].set(occupations=FermiDirac(0.05))
         calcs[-1].get_potential_energy()
         calcs[-1].write('gs.gpw', mode='all')
 
         # 3) time propagation
-        calcs.append(TDDFT('gs.gpw'))
+        calcs.append(TDDFT('gs.gpw', txt='grr3.txt'))
         if fxc != xc:
             calcs[-1].linearize_to_xc(fxc)
 
@@ -68,7 +70,7 @@ for (mode, TDDFT) in [('lcao', LCAOTDDFT),
 
         # 4) restart time propagation + apply kick
         if xc == fxc:  # TODO: restart when linearize_to_xc was applied
-            calcs.append(TDDFT('td.gpw'))
+            calcs.append(TDDFT('td.gpw', txt='grr4.txt'))
 
         calcs[-1].absorption_kick([0.01, 0.01, 0.01])
         calcs[-1].propagate(10.0, 30, 'dm.%s.dat' % tag)
@@ -76,4 +78,5 @@ for (mode, TDDFT) in [('lcao', LCAOTDDFT),
         dens = calcs[-1].density
         equal(dens.finegd.calculate_dipole_moment(dens.rhot_g),
               ref_values.pop(0), 1.0e-5,
-              msg="Failed with %s/%s+%s: " % (mode, xc, fxc))
+              msg="Failed with %s/%s+%s: " % (mode, xc, fxc),
+              )#fail=0)
