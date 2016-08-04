@@ -448,11 +448,23 @@ def eigenvalue_string(wfs, comment=' '):
             tokens.append(token)
         tokens.append('\n')
 
+    def eigs(k, s):
+        eps_n = wfs.collect_eigenvalues(k, s)
+        if eps_n is None:
+            return np.zeros(wfs.bd.nbands)
+        return eps_n * Hartree
+        
+    def occs(k, s):
+        f_n = wfs.collect_occupations(k, s)
+        if f_n is None:
+            return np.zeros(wfs.bd.nbands)
+        return f_n
+        
     if len(wfs.kd.ibzk_kc) == 1:
         if wfs.nspins == 1:
             add(comment, 'Band  Eigenvalues  Occupancy')
-            eps_n = wfs.collect_eigenvalues(0, 0) * Hartree
-            f_n = wfs.collect_occupations(0, 0)
+            eps_n = eigs(0, 0)
+            f_n = occs(0, 0)
             if wfs.world.rank == 0:
                 for n in range(wfs.bd.nbands):
                     add('%5d  %11.5f  %9.5f' % (n, eps_n[n], f_n[n]))
@@ -460,10 +472,10 @@ def eigenvalue_string(wfs, comment=' '):
             add(comment, '                  Up                     Down')
             add(comment, 'Band  Eigenvalues  Occupancy  Eigenvalues  '
                 'Occupancy')
-            epsa_n = wfs.collect_eigenvalues(0, 0) * Hartree
-            epsb_n = wfs.collect_eigenvalues(0, 1) * Hartree
-            fa_n = wfs.collect_occupations(0, 0)
-            fb_n = wfs.collect_occupations(0, 1)
+            epsa_n = eigs(0, 0)
+            epsb_n = eigs(0, 1)
+            fa_n = occs(0, 0)
+            fb_n = occs(0, 1)
             if wfs.world.rank == 0:
                 for n in range(wfs.bd.nbands):
                     add('%5d  %11.5f  %9.5f  %11.5f  %9.5f' %
@@ -489,8 +501,8 @@ def eigenvalue_string(wfs, comment=' '):
     if wfs.nspins == 1:
         add(comment, 'Kpt  Band  Eigenvalues  Occupancy')
         for i in range(print_range):
-            eps_n = wfs.collect_eigenvalues(i, 0) * Hartree
-            f_n = wfs.collect_occupations(i, 0)
+            eps_n = eigs(i, 0)
+            f_n = occs(i, 0)
             if wfs.world.rank == 0:
                 for n in range(m, j):
                     add('%3i %5d  %11.5f  %9.5f' % (i, n, eps_n[n], f_n[n]))
@@ -501,10 +513,10 @@ def eigenvalue_string(wfs, comment=' '):
             'Occupancy')
 
         for i in range(print_range):
-            epsa_n = wfs.collect_eigenvalues(i, 0) * Hartree
-            epsb_n = wfs.collect_eigenvalues(i, 1) * Hartree
-            fa_n = wfs.collect_occupations(i, 0)
-            fb_n = wfs.collect_occupations(i, 1)
+            epsa_n = eigs(i, 0)
+            epsb_n = eigs(i, 1)
+            fa_n = occs(i, 0)
+            fb_n = occs(i, 1)
             if wfs.world.rank == 0:
                 for n in range(m, j):
                     add('%3i %5d  %11.5f  %9.5f  %11.5f  %9.5f' %

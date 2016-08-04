@@ -41,6 +41,7 @@ class FiniteDifferenceCalculator(Calculator):
                 self.txt = self.lrtddft.txt
             else:
                 self.txt = convert_string_to_fd(txt, world)
+            self.log = self.txt
                 
         print('#', self.__class__.__name__, __version__, file=self.txt)
 

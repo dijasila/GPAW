@@ -20,9 +20,8 @@ H2 = Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)])
 H2.set_pbc(True)
 H2.set_cell((2., 2., 3.))
 H2.center()
-calc = GPAW(mode=PW(210),
+calc = GPAW(mode=PW(210, force_complex_dtype=True),
             eigensolver='rmm-diis',
-            dtype=complex,
             xc='LDA',
             basis='dzp',
             nbands=8,
@@ -39,13 +38,12 @@ rapbe = FXCCorrelation('H2.gpw', xc='rAPBE')
 E_rapbe_H2 = rapbe.calculate(ecut=[200])
 
 # H
-H = Atoms('H', [(0,0,0)])
+H = Atoms('H')
 H.set_pbc(True)
 H.set_cell((2., 2., 3.))
 H.center()
-calc = GPAW(mode=PW(210),
+calc = GPAW(mode=PW(210, force_complex_dtype=True),
             eigensolver='rmm-diis',
-            dtype=complex,
             xc='LDA',
             basis='dzp',
             nbands=4,

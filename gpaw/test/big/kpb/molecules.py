@@ -73,9 +73,8 @@ for name in ex_atomization.keys() + 'H Li Be B C N O F Cl P'.split():
     a.center()
    
     a.calc = GPAW(xc='PBE',
-                  dtype=complex,
                   eigensolver=Davidson(2),
-                  mode=PW(500),
+                  mode=PW(500, force_complex_dtype=True),
                   txt=name + '.txt')
     a.get_potential_energy()
     
