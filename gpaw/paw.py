@@ -500,7 +500,6 @@ class PAW:
         eps_n = self.wfs.collect_eigenvalues(kpt, spin)
         if broadcast:
             if self.wfs.world.rank != 0:
-                assert eps_n is None
                 eps_n = np.empty(self.wfs.bd.nbands)
             self.wfs.world.broadcast(eps_n, 0)
         if eps_n is not None:

@@ -6,7 +6,6 @@ from ase.units import Bohr, Hartree
 from ase.calculators.calculator import Calculator
 from ase.utils import basestring
 from ase.utils.timing import Timer
-from ase.io.trajectory import read_atoms, write_atoms
 
 import gpaw.io
 import gpaw.mpi as mpi
@@ -137,8 +136,9 @@ class GPAW(Calculator, PAW):
             self.reader.close()
 
     def write(self, filename, mode=''):
+        from ase.io.trajectory import write_atoms
         self.log('Writing to {0} (mode={1!r})'.format(filename, mode))
-        writer = Writer(filename)
+        writer = Writer(filename, self.world)
         writer.write(version=1, ha=Hartree, bohr=Bohr)
         write_atoms(writer.child('atoms'), self.atoms)
         writer.child('results').write(**self.results)
@@ -151,6 +151,7 @@ class GPAW(Calculator, PAW):
         writer.close()
         
     def read(self, filename):
+        from ase.io.trajectory import read_atoms
         self.log('Reading from {0}'.format(filename))
         
         self.reader = reader = Reader(filename)
@@ -756,6 +757,12 @@ class GPAW(Calculator, PAW):
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
         kd = KPointDescriptor(bzkpts_kc, nspins)
 
+        self.timer.start('Set symmetry')
+        kd.set_symmetry(self.atoms, self.symmetry, comm=self.world)
+        self.timer.stop('Set symmetry')
+        
+        self.log(kd)
+
         parallelization = mpi.Parallelization(self.world,
                                               nspins * kd.nibzkpts)
 
@@ -783,10 +790,6 @@ class GPAW(Calculator, PAW):
 
         self.comms = comms
         
-        self.timer.start('Set symmetry')
-        kd.set_symmetry(self.atoms, self.symmetry, comm=self.world)
-        self.timer.stop('Set symmetry')
-
         if par.gpts is not None:
             if par.h is not None:
                 raise ValueError("""You can't use both "gpts" and "h"!""")

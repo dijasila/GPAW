@@ -264,6 +264,8 @@ class WaveFunctions:
                             dtype=a_nx.dtype)
             self.kd.comm.receive(b_nx, kpt_rank, 1301)
             return b_nx
+            
+        return np.nan  # see comment in get_wave_function_array() method
 
     def collect_auxiliary(self, value, k, s, shape=1, dtype=float):
         """Helper method for collecting band-independent scalars/arrays.
@@ -388,6 +390,13 @@ class WaveFunctions:
                           band_rank * self.gd.comm.size)
             self.world.receive(psit_G, world_rank, 1398)
             return psit_G
+
+        # We return a number instead of None on all the slaves.  Most of
+        # the time the return value will be ignored on the slaves, but
+        # in some cases it will be multiplied by some other number and
+        # then ignored.  Allowing for this will simplify some code here
+        # and there.
+        return np.nan
             
     def write(self, writer):
         nproj = sum(setup.ni for setup in self.setups)
@@ -450,15 +459,9 @@ def eigenvalue_string(wfs, comment=' '):
 
     def eigs(k, s):
         eps_n = wfs.collect_eigenvalues(k, s)
-        if eps_n is None:
-            return np.zeros(wfs.bd.nbands)
         return eps_n * Hartree
         
-    def occs(k, s):
-        f_n = wfs.collect_occupations(k, s)
-        if f_n is None:
-            return np.zeros(wfs.bd.nbands)
-        return f_n
+    occs = wfs.collect_occupations
         
     if len(wfs.kd.ibzk_kc) == 1:
         if wfs.nspins == 1:

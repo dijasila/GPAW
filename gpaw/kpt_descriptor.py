@@ -186,9 +186,9 @@ class KPointDescriptor:
             s += 'Note: your k-points are not as symmetric as your crystal!\n'
             
         if self.gamma:
-            s += '1 k-point (Gamma)\n'
+            s += '\n1 k-point (Gamma)'
         else:
-            s += '%d k-points' % self.nbzkpts
+            s += '\n%d k-points' % self.nbzkpts
             if self.N_c is not None:
                 s += ': %d x %d x %d Monkhorst-Pack grid' % tuple(self.N_c)
                 if self.offset_c.any():
@@ -200,8 +200,8 @@ class KPointDescriptor:
                             s += '%f,' % x
                     s = s[:-1] + ']'
 
-        s += ('%d k-point%s in the Irreducible Part of the Brillouin Zone' %
-              (self.nibzkpts, ' s'[1:self.nibzkpts]))
+        s += ('\n%d k-point%s in the Irreducible Part of the Brillouin Zone\n'
+              % (self.nibzkpts, ' s'[1:self.nibzkpts]))
         
         w_k = self.weight_k * self.nbzkpts
         assert np.allclose(w_k, w_k.round())

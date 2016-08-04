@@ -409,16 +409,17 @@ class Symmetry:
         y = 0
         for y in range((ns + nx - 1) // nx):
             for c in range(3):
+                line = ''
                 for x in range(nx):
                     s = x + y * nx
                     if s == ns:
                         break
                     op_c = self.op_scc[s, c]
                     ft = self.ft_sc[s, c]
-                    lines.append('  (%2d %2d %2d)' % tuple(op_c))
+                    line += '  (%2d %2d %2d)' % tuple(op_c)
                     if not self.symmorphic:
-                        lines.append(' + (%4s)' % sfrac(ft))
-                lines.append('')
+                        line += ' + (%4s)' % sfrac(ft)
+                lines.append(line)
             lines.append('')
         return '\n'.join(lines)
 
