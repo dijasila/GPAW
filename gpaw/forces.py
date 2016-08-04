@@ -40,5 +40,6 @@ def calculate_forces(wfs, dens, ham, log=None):
         for a, setup in enumerate(wfs.setups):
             log('%3d %-2s %10.5f %10.5f %10.5f' %
                 ((a, setup.symbol) + tuple(F_av[a] * c)))
-
+        log()
+        
     return F_av

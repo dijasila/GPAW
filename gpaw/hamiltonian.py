@@ -121,7 +121,7 @@ class Hamiltonian(object):
             wf2 = (-fermilevel - correction) * Hartree
             log('Dipole-layer corrected work functions: {0}, {1} eV'
                 .format(wf1, wf2))
-        log()
+            log()
 
     def set_positions_without_ruining_everything(self, spos_ac,
                                                  atom_partition):

@@ -97,6 +97,8 @@ class GPAWLogger(object):
         if extra_parameters:
             self('Extra parameters:', extra_parameters)
 
+        self()
+        
     def __del__(self):
         """Destructor:  Write timing output before closing."""
         if dry_run:
@@ -113,3 +115,5 @@ class GPAWLogger(object):
                 self('Memory usage: %.2f MiB' % (mr / 1024.0**2))
             else:
                 self('Memory usage: %.2f GiB' % (mr / 1024.0**3))
+        
+        self('Date: %s\n' % time.asctime())
