@@ -126,13 +126,13 @@ class PAW:
         # is called within a real mpirun/gpaw-python context.
         if log is None:
             log = self.log
-        log('Memory estimate')
-        log('---------------')
+        log('Memory estimate:')
 
         mem_init = maxrss()  # initial overhead includes part of Hamiltonian!
-        log('Process memory now: %.2f MiB' % (mem_init / 1024.0**2))
+        log('  Process memory now: %.2f MiB' % (mem_init / 1024.0**2))
 
         mem = MemNode('Calculator', 0)
+        mem.indent = '  '
         try:
             self.estimate_memory(mem)
         except AttributeError as m:
@@ -140,8 +140,9 @@ class PAW:
             log('Some object probably lacks estimate_memory() method')
             log('Memory breakdown may be incomplete')
         mem.calculate_size()
-        mem.write(log.fd, maxdepth=maxdepth)
-
+        mem.write(log.fd, maxdepth=maxdepth, depth=1)
+        log()
+        
     def converge_wave_functions(self):
         """Converge the wave-functions if not present."""
 
@@ -510,7 +511,6 @@ class PAW:
         f_n = self.wfs.collect_occupations(kpt, spin)
         if broadcast:
             if self.wfs.world.rank != 0:
-                assert f_n is None
                 f_n = np.empty(self.wfs.bd.nbands)
             self.wfs.world.broadcast(f_n, 0)
         return f_n

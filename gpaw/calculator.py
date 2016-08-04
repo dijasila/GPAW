@@ -137,18 +137,22 @@ class GPAW(Calculator, PAW):
 
     def write(self, filename, mode=''):
         from ase.io.trajectory import write_atoms
-        self.log('Writing to {0} (mode={1!r})'.format(filename, mode))
+        self.log('Writing to {0} (mode={1!r})\n'.format(filename, mode))
         writer = Writer(filename, self.world)
         writer.write(version=1, ha=Hartree, bohr=Bohr)
+        
         write_atoms(writer.child('atoms'), self.atoms)
         writer.child('results').write(**self.results)
         writer.child('parameters').write(**self.todict())
-        writer.write('density', self.density)
-        writer.write('hamiltonian', self.hamiltonian)
-        writer.write('occupations', self.occupations)
-        writer.write('scf', self.scf)
+        
+        self.density.write(writer.child('density'))
+        self.hamiltonian.write(writer.child('hamiltonian'))
+        self.occupations.write(writer.child('occupations'))
+        self.scf.write(writer.child('scf'))
         self.wfs.write(writer.child('wave_functions'), mode == 'all')
+        
         writer.close()
+        self.world.barrier()
         
     def read(self, filename):
         from ase.io.trajectory import read_atoms
@@ -182,7 +186,8 @@ class GPAW(Calculator, PAW):
                     self.parameters[key].update(value)
                 else:
                     self.parameters[key] = value
-                
+        self.log()
+        
         self.initialize()
 
         self.density.read(reader)
@@ -253,8 +258,8 @@ class GPAW(Calculator, PAW):
                              self.density, self.occupations,
                              self.log, self.call_observers)
     
-            self.log('------------------------------------')
-            self.log('Converged After %d Iterations.' % self.scf.niter)
+            self.log('\nConverged After {0} Iterations.\n'
+                     .format(self.scf.niter))
 
             e_free = self.hamiltonian.e_total_free
             e_extrapolated = self.hamiltonian.e_total_extrapolated
@@ -263,7 +268,7 @@ class GPAW(Calculator, PAW):
 
             if not self.atoms.pbc.all() and self.density.charge == 0:
                 dipole_v = self.density.calculate_dipole_moment() * Bohr
-                self.log('Dipole Moment: ({0:.6f}, {1:.6f}, {2:.6f}) |e|*Ang'
+                self.log('Dipole Moment: ({0:.6f}, {1:.6f}, {2:.6f}) |e|*Ang\n'
                          .format(*dipole_v))
                 self.results['dipole'] = dipole_v
                 
@@ -273,8 +278,10 @@ class GPAW(Calculator, PAW):
                     total=magmom)
                 self.log('Total magnetic moment: %f' % magmom)
                 self.log('Local magnetic moments:')
+                symbols = self.atoms.get_chemical_symbols()
                 for a, mom in enumerate(magmom_a):
-                    self.log('{0:4} {1:.6f}'.format(a, mom))
+                    self.log('{0:4} {0:2} {2:.6f}'.format(a, symbols[a], mom))
+                self.log()
                 self.results['magmom'] = self.occupations.magmom
                 self.results['magmoms'] = magmom_a
     
@@ -365,7 +372,7 @@ class GPAW(Calculator, PAW):
 
     def initialize_positions(self, atoms=None):
         """Update the positions of the atoms."""
-        self.log('Initializing position-dependent things.')
+        self.log('Initializing position-dependent things.\n')
         if atoms is None:
             atoms = self.atoms
         else:
@@ -555,7 +562,7 @@ class GPAW(Calculator, PAW):
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
 
-        self.print_memory_estimate(maxdepth=memory_estimate_depth)
+        self.print_memory_estimate(maxdepth=memory_estimate_depth + 1)
         
         print_parallelization_details(self.wfs, self.density, self.log)
         
@@ -940,7 +947,7 @@ class GPAW(Calculator, PAW):
             self.wfs = mode(diagksl, orthoksl, initksl, **wfs_kwargs)
         else:
             self.wfs = mode(self, **wfs_kwargs)
-        
+
         self.log(self.wfs)
 
     def dry_run(self):

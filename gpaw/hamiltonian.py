@@ -94,8 +94,7 @@ class Hamiltonian(object):
     
     def summary(self, fermilevel, log):
         log('Energy contributions relative to reference atoms:',
-            '(reference = {0:.6f})'.format(self.setups.Eref * Hartree))
-        log('-------------------------')
+            '(reference = {0:.6f})\n'.format(self.setups.Eref * Hartree))
 
         energies = [('Kinetic:      ', self.e_kinetic),
                     ('Potential:    ', self.e_coulomb),
@@ -107,9 +106,9 @@ class Hamiltonian(object):
         for name, e in energies:
             log('%-14s %+11.6f' % (name, Hartree * e))
 
-        log('-------------------------')
+        log('--------------------------')
         log('Free Energy:   %+11.6f' % (Hartree * self.e_total_free))
-        log('Extrapolated:   %+11.6f' % (Hartree * self.e_total_extrapolated))
+        log('Extrapolated:  %+11.6f' % (Hartree * self.e_total_extrapolated))
         log()
         self.xc.summary(log)
 
@@ -122,6 +121,7 @@ class Hamiltonian(object):
             wf2 = (-fermilevel - correction) * Hartree
             log('Dipole-layer corrected work functions: {0}, {1} eV'
                 .format(wf1, wf2))
+        log()
 
     def set_positions_without_ruining_everything(self, spos_ac,
                                                  atom_partition):

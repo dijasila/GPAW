@@ -481,7 +481,7 @@ class GridDescriptor(Domain):
                 self.comm.broadcast(A_xg, 0)
                 return A_xg
             else:
-                return None
+                return np.nan
 
         # Put the subdomains from the slaves into the big array
         # for the whole domain:

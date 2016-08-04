@@ -90,7 +90,6 @@ class GPAWLogger(object):
         except ImportError:
             self('scipy:  Not available')
         self('units:  Angstrom and eV')
-        self('cores: ', self.world.size)
 
         if gpaw.debug:
             self('DEBUG MODE')

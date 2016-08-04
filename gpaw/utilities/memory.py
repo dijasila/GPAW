@@ -110,7 +110,7 @@ class MemNode:
 
         The depth parameter determines indentation.  maxdepth of -1 means
         infinity."""
-        print(''.join([depth * self.indent, self.name, '  ',
+        print(''.join([depth * self.indent, self.name, ': ',
                        self.memformat(self.totalsize)]), file=txt)
         if depth == maxdepth:
             return
@@ -132,6 +132,7 @@ class MemNode:
         """Create subcomponent with given name and intrinsic size.  Use this
         to build component tree."""
         mem = MemNode(name, basesize)
+        mem.indent = self.indent
         self.nodes.append(mem)
         return mem
 

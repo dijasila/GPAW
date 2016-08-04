@@ -540,7 +540,7 @@ class Density(object):
     def write(self, writer):
         writer.write(density=self.gd.collect(self.nt_sG) / Bohr**3,
                      atomic_density_matrices=pack_atomic_matrices(self.D_asp))
-        
+
     def read(self, reader):
         nt_sG = self.gd.empty(self.nspins)
         self.gd.distribute(reader.density.density, nt_sG)

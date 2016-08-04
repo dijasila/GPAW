@@ -6,9 +6,8 @@ from ase.data import chemical_symbols
 
         
 def print_cell(gd, pbc_c, log):
-    log("""Unit Cell:
-           Periodic     X           Y           Z      Points  Spacing
-  --------------------------------------------------------------------""")
+    log("""Unit cell:
+           periodic     x           y           z      points  spacing""")
     h_c = gd.get_grid_spacings()
     for c in range(3):
         log('  %d. axis:    %s  %10.6f  %10.6f  %10.6f   %3d   %8.4f'
@@ -53,7 +52,7 @@ def print_parallelization_details(wfs, dens, log):
         xcsize = tuple(xc_redist.aux_gd.parsize_c)
 
     if any(np.prod(size) != 1 for size in [coarsesize, finesize, xcsize]):
-        title = 'Domain Decomposition:'
+        title = 'Domain decomposition:'
         template = '%d x %d x %d'
         log(title, template % coarsesize)
         if coarsesize != finesize:
@@ -63,6 +62,7 @@ def print_parallelization_details(wfs, dens, log):
 
     if wfs.bd.comm.size > 1:  # band parallelization
         log('Parallelization over states: %d' % wfs.bd.comm.size)
+    log()
 
 
 def plot(atoms):
