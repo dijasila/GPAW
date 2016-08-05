@@ -1,15 +1,22 @@
 """Code for reading old gpw files."""
+import warnings
+
 import numpy as np
 import ase.io.aff as aff
 from ase import Atoms
 from ase.io.trajectory import write_atoms
 from ase.units import AUT, Bohr, Ha
+from ase.utils import devnull
 
 from gpaw.io.tar import Reader
 
 
 def wrap_old_gpw_reader(filename):
+    warnings.warn('You are reading an old-style gpw-file.  It may work, but '
+                  'If I were you, I would delete it and redo the calculation!')
+    
     r = Reader(filename)
+    
     assert not r.byteswap
     
     data = {'version': -1,
@@ -65,18 +72,12 @@ def wrap_old_gpw_reader(filename):
         data['wave_functions.'][name + '.'] = {
             'ndarray': (shape, dtype.name, offset)}
 
-    new = aff.Reader(None, data=data)
+    new = aff.Reader(devnull, data=data)
     
     for ref in new._data['wave_functions']._data.values():
         ref.fd = ref.offset
         ref.offset = 0
-        
-    class File:
-        def close(self):
-            pass
             
-    new._fd = File()
-    
     return new
     
     
