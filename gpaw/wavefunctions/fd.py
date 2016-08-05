@@ -240,7 +240,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             for myn, psit_G in enumerate(kpt.psit_nG):
                 n = self.bd.global_index(myn)
                 if self.gd.comm.rank == 0:
-                    big_psit_G = psit_nG[n]
+                    big_psit_G = np.asarray(psit_nG[n], self.dtype)
                 else:
                     big_psit_G = None
                 self.gd.distribute(big_psit_G, psit_G)

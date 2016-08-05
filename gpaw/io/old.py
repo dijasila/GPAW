@@ -4,10 +4,14 @@ import warnings
 import numpy as np
 import ase.io.aff as aff
 from ase import Atoms
+from ase.dft.kpoints import monkhorst_pack
 from ase.io.trajectory import write_atoms
 from ase.units import AUT, Bohr, Ha
 from ase.utils import devnull
 
+from gpaw.wavefunctions.pw import PW
+from gpaw.occupations import FermiDirac
+from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.io.tar import Reader
 
 
@@ -36,8 +40,93 @@ def wrap_old_gpw_reader(filename):
     data['results.'] = {
         'energy': e_total_extrapolated}
     
-    data['parameters.'] = {}
+    p = data['parameters.'] = {}
     
+    p['xc'] = r['XCFunctional']
+    p['nbands'] = r.dimension('nbands')
+    p['spinpol'] = (r.dimension('nspins') == 2)
+
+    bzk_kc = r.get('BZKPoints', broadcast=True)
+    if r.has_array('NBZKPoints'):
+        p['kpts'] = r.get('NBZKPoints', broadcast=True)
+        if r.has_array('MonkhorstPackOffset'):
+            offset_c = r.get('MonkhorstPackOffset', broadcast=True)
+            if offset_c.any():
+                p['kpts'] = monkhorst_pack(p['kpts']) + offset_c
+    else:
+        p['kpts'] = bzk_kc
+
+    p['symmetry'] = {'point_group': r['SymmetryOnSwitch'],
+                     'symmorphic': r['SymmetrySymmorphicSwitch'],
+                     'time_reversal': r['SymmetryTimeReversalSwitch'],
+                     'tolerance': r['SymmetryToleranceCriterion']}
+
+    p['basis'] = r['BasisSet']
+
+    try:
+        h = r['GridSpacing']
+    except KeyError:  # CMR can't handle None!
+        h = None
+    if h is not None:
+        p['h'] = Bohr * h
+    if r.has_array('GridPoints'):
+        p['gpts'] = r.get('GridPoints')
+
+    p['lmax'] = r['MaximumAngularMomentum']
+    p['setups'] = r['SetupTypes']
+    p['fixdensity'] = r['FixDensity']
+    nbtc = r['NumberOfBandsToConverge']
+    if not isinstance(nbtc, (int, str)):
+        # The string 'all' was eval'ed to the all() function!
+        nbtc = 'all'
+    p['convergence'] = {'density': r['DensityConvergenceCriterion'],
+                        'energy': r['EnergyConvergenceCriterion'] * Ha,
+                        'eigenstates': r['EigenstatesConvergenceCriterion'],
+                        'bands': nbtc}
+    mixer = r['MixClass']
+    weight = r['MixWeight']
+
+    if mixer == 'Mixer':
+        from gpaw.mixer import Mixer
+    elif mixer == 'MixerSum':
+        from gpaw.mixer import MixerSum as Mixer
+    elif mixer == 'MixerSum2':
+        from gpaw.mixer import MixerSum2 as Mixer
+    elif mixer == 'MixerDif':
+        from gpaw.mixer import MixerDif as Mixer
+    elif mixer == 'DummyMixer':
+        from gpaw.mixer import DummyMixer as Mixer
+    else:
+        Mixer = None
+
+    if Mixer is None:
+        p['mixer'] = None
+    else:
+        p['mixer'] = Mixer(r['MixBeta'], r['MixOld'], weight)
+        
+    p['stencils'] = (r['KohnShamStencil'],
+                     r['InterpolationStencil'])
+    ps = r['PoissonStencil']
+    if ps == 999:
+        p['poissonsolver'] = FFTPoissonSolver()
+    elif isinstance(ps, int) or ps == 'M':
+        p['poissonsolver'] = PoissonSolver(nn=r['PoissonStencil'])
+    p['charge'] = r['Charge']
+    fixmom = r['FixMagneticMoment']
+
+    p['occupations'] = FermiDirac(r['FermiWidth'] * Ha,
+                                  fixmagmom=fixmom)
+
+    p['mode'] = r['Mode']
+
+    if p['mode'] == 'pw':
+        p['mode'] = PW(ecut=r['PlaneWaveCutoff'] * Ha)
+        
+    if len(bzk_kc) == 1 and not bzk_kc[0].any():
+        # Gamma point only:
+        if r['DataType'] == 'Complex':
+            p['dtype'] = complex
+
     data['occupations.'] = {
         'fermilevel': r['FermiLevel'] * Ha,
         'split': r.parameters.get('FermiLevel', 0) * Ha,
@@ -67,7 +156,10 @@ def wrap_old_gpw_reader(filename):
                       ('eigenvalues', 'Eigenvalues'),
                       ('occupations', 'OccupationNumbers'),
                       ('projections', 'Projections')]:
-        fd, shape, size, dtype = r.get_file_object(old, ())
+        try:
+            fd, shape, size, dtype = r.get_file_object(old, ())
+        except IOError:
+            continue
         offset = fd
         data['wave_functions.'][name + '.'] = {
             'ndarray': (shape, dtype.name, offset)}

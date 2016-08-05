@@ -460,7 +460,7 @@ class TDDFT(GPAW):
         self.Ebar = H.e_zero
         self.Exc = H.e_xc
         self.Etot = self.Ekin + self.e_coulomb + self.Ebar + self.Exc
-
+        
     def get_td_energy(self):
         """Calculate the time-dependent total energy"""
 

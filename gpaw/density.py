@@ -300,8 +300,8 @@ class Density(object):
 
     def initialize_from_wavefunctions(self, wfs):
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""
-        self.log('Density initialized from wavefunctions')
-        self.timer.start('Density initialize from wavefunctions')
+        self.log('Density initialized from wave functions')
+        self.timer.start('Density initialized from wave functions')
         self.nt_sG = self.gd.empty(self.nspins)
         self.calculate_pseudo_density(wfs)
         D_asp = self.setups.empty_atomic_matrix(self.nspins,
@@ -309,7 +309,7 @@ class Density(object):
         wfs.calculate_atomic_density_matrices(D_asp)
         self.D_asp = D_asp
         self.calculate_normalized_charges_and_mix()
-        self.timer.stop('Density initialize from wavefunctions')
+        self.timer.stop('Density initialized from wave functions')
 
     def initialize_directly_from_arrays(self, nt_sG, D_asp):
         """Set D_asp and nt_sG directly."""

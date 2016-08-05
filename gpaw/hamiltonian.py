@@ -595,14 +595,14 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.timer.stop('Poisson')
 
         self.timer.start('Hartree integrate/restrict')
-        E_coulomb = 0.5 * self.finegd.integrate(self.vHt_g, dens.rhot_g,
+        e_coulomb = 0.5 * self.finegd.integrate(self.vHt_g, dens.rhot_g,
                                                 global_integral=False)
 
         for vt_g in self.vt_sg:
             vt_g += self.vHt_g
 
         self.timer.stop('Hartree integrate/restrict')
-        return np.array([E_coulomb, e_zero, e_external, e_xc])
+        return np.array([e_coulomb, e_zero, e_external, e_xc])
 
     def calculate_kinetic_energy(self, density):
         # XXX new timer item for kinetic energy?
