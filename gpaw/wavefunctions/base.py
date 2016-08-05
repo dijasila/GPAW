@@ -430,8 +430,10 @@ class WaveFunctions:
         for u, kpt in enumerate(self.kpt_u):
             eps_n = r.proxy('eigenvalues', kpt.s, kpt.k)[nslice]
             f_n = r.proxy('occupations', kpt.s, kpt.k)[nslice]
+            if reader.version > 0:
+                f_n *= kpt.weight  # skip for old tar-files gpw's
             kpt.eps_n = eps_n / reader.ha
-            kpt.f_n = f_n * kpt.weight
+            kpt.f_n = f_n
             if self.gd.comm.rank == 0:
                 P_nI = r.proxy('projections', kpt.s, kpt.k)[:]
             I1 = 0

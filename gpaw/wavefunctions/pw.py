@@ -673,6 +673,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 assert (Q_G[ng:] == -1).all()
 
         c = reader.bohr**1.5
+        if reader.version < 0:
+            c = 1  # old gpw file
         for kpt in self.kpt_u:
             ng = self.ng_k[kpt.k]
             kpt.psit_nG = reader.wave_functions.proxy('coefficients',

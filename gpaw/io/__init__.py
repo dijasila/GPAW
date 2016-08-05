@@ -1,6 +1,11 @@
 def Reader(filename):
     import ase.io.aff as aff
-    return aff.Reader(filename)
+    try:
+        return aff.Reader(filename)
+    except aff.InvalidAFFError:
+        pass
+    from gpaw.io.old import wrap_old_gpw_reader
+    return wrap_old_gpw_reader(filename)
 
     
 def Writer(filename, world):
