@@ -1,16 +1,12 @@
 import numpy as np
-
-
 from ase.units import Bohr, Hartree
 from ase import Atoms
-from gpaw.tddft import eV_to_aufrequency, aufrequency_to_eV
 
 import gpaw.mpi as mpi
-from gpaw.io.tar import Reader, Writer
+from gpaw.tddft import eV_to_aufrequency, aufrequency_to_eV
 from gpaw.poisson import PoissonSolver
 from gpaw.fd_operators import Gradient
 from gpaw.grid_descriptor import GridDescriptor
-
 from gpaw.utilities.extend_grid import extended_grid_descriptor, \
     extend_array, deextend_array, move_atoms
 
