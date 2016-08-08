@@ -254,6 +254,19 @@ class TDDFT(GPAW):
         mode = FDTDDFTMode(mode.nn, mode.interpolation, True)
         GPAW.create_wave_functions(self, mode, *args, **kwargs)
 
+    def read(self, filename):
+        reader = GPAW.read(self, filename)
+        if 'tddft' in reader:
+            self.time = reader.tddft.time
+            self.niter = reader.tddft.niter
+            self.kick_strength = reader.tddft.kick_strength
+
+    def _write(self, writer, mode):
+        GPAW._write(self, writer, mode)
+        writer.child('tddft').write(time=self.time,
+                                    niter=self.niter,
+                                    kick_strength=self.kick_strength)
+        
     # Electrodynamics requires extra care
     def initialize_FDTD(self):
         

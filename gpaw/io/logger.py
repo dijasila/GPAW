@@ -126,4 +126,4 @@ class GPAWLogger(object):
             else:
                 self('Memory usage: %.2f GiB' % (mr / 1024.0**3))
         
-        self('Date: %s\n' % time.asctime())
+        self('Date: ' + time.asctime())

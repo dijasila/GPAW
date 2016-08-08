@@ -64,6 +64,7 @@ class LCAOTDDFT(GPAW):
             self.kick_strength = reader.tddft.kick_strength
 
     def _write(self, writer, mode):
+        GPAW._write(self, writer, mode)
         writer.child('tddft').write(time=self.time,
                                     niter=self.niter,
                                     kick_strength=self.kick_strength)

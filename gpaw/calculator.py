@@ -260,7 +260,7 @@ class GPAW(Calculator, PAW):
                              self.density, self.occupations,
                              self.log, self.call_observers)
     
-            self.log('\nConverged After {0} Iterations.\n'
+            self.log('\nConverged after {0} iterations.\n'
                      .format(self.scf.niter))
 
             e_free = self.hamiltonian.e_total_free
@@ -270,7 +270,7 @@ class GPAW(Calculator, PAW):
 
             if not self.atoms.pbc.all() and self.density.charge == 0:
                 dipole_v = self.density.calculate_dipole_moment() * Bohr
-                self.log('Dipole Moment: ({0:.6f}, {1:.6f}, {2:.6f}) |e|*Ang\n'
+                self.log('Dipole moment: ({0:.6f}, {1:.6f}, {2:.6f}) |e|*Ang\n'
                          .format(*dipole_v))
                 self.results['dipole'] = dipole_v
                 
@@ -474,10 +474,10 @@ class GPAW(Calculator, PAW):
         nspins = 1 + int(spinpol)
 
         if spinpol:
-            self.log('Spin-Polarized Calculation.')
-            self.log('Magnetic Moment:  {0:.6f}'.format(magmom_a.sum()))
+            self.log('Spin-polarized calculation.')
+            self.log('Magnetic moment:  {0:.6f}\n'.format(magmom_a.sum()))
         else:
-            self.log('Spin-Paired Calculation')
+            self.log('Spin-paired calculation\n')
             
         nao = self.setups.nao
         nvalence = self.setups.nvalence - par.charge
@@ -496,7 +496,7 @@ class GPAW(Calculator, PAW):
                 basebands = int(nvalence + M + 0.5) // 2
                 nbands = int((float(nbands[:-1]) / 100) * basebands)
             else:
-                raise ValueError('Integer Expected: Only use a string '
+                raise ValueError('Integer expected: Only use a string '
                                  'if giving a percentage of occupied bands')
 
         if nbands is None:
@@ -580,11 +580,11 @@ class GPAW(Calculator, PAW):
         self.log('Bands to converge: ', end='')
         n = par.convergence['bands']
         if n == 'occupied':
-            self.log('Occupied states only')
+            self.log('occupied states only')
         elif n == 'all':
-            self.log('All')
+            self.log('all')
         else:
-            self.log('%d Lowest bands' % n)
+            self.log('%d lowest bands' % n)
         self.log('Number of valence electrons:', self.wfs.nvalence)
 
         self.log(flush=True)
