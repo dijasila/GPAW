@@ -416,119 +416,49 @@ class BaseInducedField(object):
             raise IOError('field variables cannot be written ' +
                           'before they are calculated')
 
-        # Open writer on master
-        if master:
-            tar = Writer(filename)
-        else:
-            tar = None
-       
+        from gpaw.io import Writer
+        writer = Writer(filename, self.world, 'INDUCED')
         # Actual write
-        self._write(tar, writes, ws,
-                    (master, domainmaster, bandmaster, kptmaster))
-       
-        # Close to flush changes
-        if master:
-            tar.close()
-
+        self._write(writer, writes, ws)
         # Make sure slaves don't return before master is done
         self.world.barrier()
 
-    def _write(self, tar, writes, ws, masters):
-        master, domainmaster, bandmaster, kptmaster = masters
+    def _write(self, writer, writes, ws):
 
-        nw = len(ws)
+        # Write parameters/dimensions
+        writer.write(dtype=self.dtype.name,
+                     folding=self.folding,
+                     width=self.width,
+                     na=self.na,
+                     nspins=self.nspins)
 
-        if master:
-            # Write parameters/dimensions
-            tar['datatype'] = {float: 'float', complex: 'complex'}[self.dtype]
-            tar['folding'] = self.folding
-            tar['width'] = self.width
+        # Write field grid
+        if 'field' in writes:
+            writer.write(field_from_density=self.field_from_density)
+
+        # Write frequencies
+        writer.write(omega_w=self.omega_w[ws])
+
+        # Write background electric field
+        writer.write(Fbgef_v=self.Fbgef_v)
+   
+        from ase.io.trajectory import write_atoms
+        write_atoms(writer.child('atoms'), self.atoms)
+        
+        def write(name, shape, dtype):
+            if name.split('_')[0] in writes:
+                writer.add_array(name, shape, dtype)
+            a_wxg = getattr(self, name)
+            for w in ws:
+                writer.fill(self.fieldgd.collect(a_wxg[w]))
+
+        shape = (len(ws),) + tuple(self.fieldgd.get_size_of_global_array())
+        write('Frho_wg', shape, self.dtype)
+        write('Fphi_wg', shape, self.dtype)
+        write('Ffe_wg', shape, float)
             
-            tar['na'] = self.na
-            tar['nspins'] = self.nspins
-            tar.dimension('nv', self.nv)
-            tar.dimension('nw', nw)
-            tar.dimension('nspins', self.nspins)
-            
-            # Write grid
-            ng = self.gd.get_size_of_global_array()
-            tar['ng0'] = ng[0]
-            tar['ng1'] = ng[1]
-            tar['ng2'] = ng[2]
-            tar.dimension('ng0', ng[0])
-            tar.dimension('ng1', ng[1])
-            tar.dimension('ng2', ng[2])
-
-            # Write field grid
-            if 'field' in writes:
-                nfieldg = self.fieldgd.get_size_of_global_array()
-                tar['nfieldg0'] = nfieldg[0]
-                tar['nfieldg1'] = nfieldg[1]
-                tar['nfieldg2'] = nfieldg[2]
-                tar.dimension('nfieldg0', nfieldg[0])
-                tar.dimension('nfieldg1', nfieldg[1])
-                tar.dimension('nfieldg2', nfieldg[2])
-                tar['field_from_density'] = self.field_from_density
-
-            # Write frequencies
-            tar.add('omega_w', ('nw',), self.omega_w[ws], dtype=float)
-
-            # Write background electric field
-            tar.add('Fbgef_v', ('nv',), self.Fbgef_v, dtype=float)
-       
-            # Write system description
-            # TODO: remove this and use ASE's atoms object instead
-            # if 'atoms' in writes:
-            if True:  # Always write atoms!
-                atomnum_a = self.atoms.get_atomic_numbers()
-                atompos_a = self.atoms.get_positions()
-                atomcell_cv = self.atoms.get_cell()
-                
-                tar.dimension('na', self.na)
-                tar.add('atomnum_a', ('na',), atomnum_a, dtype=int)
-                tar.add('atompos_a', ('na', 'nv',), atompos_a, dtype=float)
-                tar.add('atomcell_cv', ('nv', 'nv',), atomcell_cv, dtype=float)
-                
-        if 'Frho' in writes:
-            if master:
-                tar.add('Frho_wg',
-                        ('nw', 'nfieldg0', 'nfieldg1', 'nfieldg2', ),
-                        dtype=self.dtype)
-            for w in ws:
-                big_g = self.fieldgd.collect(self.Frho_wg[w])
-                if master:
-                    tar.fill(big_g)
-
-        if 'Fphi' in writes:
-            if master:
-                tar.add('Fphi_wg',
-                        ('nw', 'nfieldg0', 'nfieldg1', 'nfieldg2', ),
-                        dtype=self.dtype)
-            for w in ws:
-                big_g = self.fieldgd.collect(self.Fphi_wg[w])
-                if master:
-                    tar.fill(big_g)
-
-        if 'Fef' in writes:
-            if master:
-                tar.add('Fef_wvg',
-                        ('nw', 'nv', 'nfieldg0', 'nfieldg1', 'nfieldg2', ),
-                        dtype=self.dtype)
-            for w in ws:
-                for v in range(self.nv):
-                    big_g = self.fieldgd.collect(self.Fef_wvg[w][v])
-                    if master:
-                        tar.fill(big_g)
-                        
-        if 'Ffe' in writes:
-            if master:
-                tar.add('Ffe_wg',
-                        ('nw', 'nfieldg0', 'nfieldg1', 'nfieldg2', ),
-                        dtype=float)
-            for w in ws:
-                big_g = self.fieldgd.collect(self.Ffe_wg[w])
-                if master:
-                    tar.fill(big_g)
+        shape3 = shape[:1] + (3,) + shape[1:]
+        write('Fef_wvg', shape3, self.dtype)
 
 
 def calculate_field(gd, rho_g, bgef_v,

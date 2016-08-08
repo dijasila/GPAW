@@ -8,8 +8,8 @@ def Reader(filename):
     return wrap_old_gpw_reader(filename)
 
     
-def Writer(filename, world):
+def Writer(filename, world, tag='GPAW'):
     import ase.io.aff as aff
     if world.rank == 0:
-        return aff.Writer(filename, tag='GPAW')
+        return aff.Writer(filename, tag=tag)
     return aff.DummyWriter()

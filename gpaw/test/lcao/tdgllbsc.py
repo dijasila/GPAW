@@ -79,4 +79,4 @@ for (mode, TDDFT) in [('lcao', LCAOTDDFT),
         equal(dens.finegd.calculate_dipole_moment(dens.rhot_g),
               ref_values.pop(0), 1.0e-5,
               msg="Failed with %s/%s+%s: " % (mode, xc, fxc),
-              )#fail=0)
+              fail=1)

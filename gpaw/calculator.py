@@ -136,9 +136,14 @@ class GPAW(Calculator, PAW):
             self.reader.close()
 
     def write(self, filename, mode=''):
-        from ase.io.trajectory import write_atoms
         self.log('Writing to {0} (mode={1!r})\n'.format(filename, mode))
         writer = Writer(filename, self.world)
+        self._write(writer, mode)
+        writer.close()
+        self.world.barrier()
+        
+    def _write(self, writer, mode):
+        from ase.io.trajectory import write_atoms
         writer.write(version=1, ha=Hartree, bohr=Bohr)
         
         write_atoms(writer.child('atoms'), self.atoms)
@@ -150,11 +155,11 @@ class GPAW(Calculator, PAW):
         self.occupations.write(writer.child('occupations'))
         self.scf.write(writer.child('scf'))
         self.wfs.write(writer.child('wave_functions'), mode == 'all')
-        
-        writer.close()
-        self.world.barrier()
+
+        return writer
         
     def read(self, filename):
+        import ase.io.aff as aff
         from ase.io.trajectory import read_atoms
         self.log('Reading from {0}'.format(filename))
         
@@ -169,23 +174,17 @@ class GPAW(Calculator, PAW):
                      
         self.log('Reading input parameters:')
         self.parameters = self.get_default_parameters()
-        for key in sorted(reader.parameters.keys()):
-            value = reader.parameters.get(key)
-            if isinstance(value, (int, float, basestring, np.ndarray)):
-                self.log('  {0}: {1}'.format(key, value))
-                self.parameters[key] = value
-            else:
+        dct = {}
+        for key, value in reader.parameters.items():
+            if isinstance(value, aff.Reader):
                 value = dict(value.items())
-                if len(value) == 1:
-                    self.log('  {0}: {1}'.format(key, value))
-                else:
-                    s = ',\n    '.join('{0}: {1}'.format(*item)
-                                       for item in sorted(value.items()))
-                    self.log('  {0}: {{\n{1}}}'.format(key, s))
-                if isinstance(self.parameters[key], dict):
-                    self.parameters[key].update(value)
-                else:
-                    self.parameters[key] = value
+            if (isinstance(value, dict) and
+                isinstance(self.parameters[key], dict)):
+                self.parameters[key].update(value)
+            else:
+                self.parameters[key] = value
+            dct[key] = self.parameters[key]
+        self.log.print_dict(dct)
         self.log()
         
         self.initialize()
@@ -211,6 +210,9 @@ class GPAW(Calculator, PAW):
                                                          new_atom_partition)
             
         self.hamiltonian.xc.read(reader)
+        self.occupations.calculate(self.wfs)
+
+        return reader
         
     def check_state(self, atoms, tol=1e-15):
         system_changes = Calculator.check_state(self, atoms, tol)
@@ -228,7 +230,7 @@ class GPAW(Calculator, PAW):
         atoms = self.atoms
         
         if system_changes:
-            self.log('System changes:', ', '.join(system_changes))
+            self.log('System changes:', ', '.join(system_changes), '\n')
             if system_changes == ['positions']:
                 # Only positions have changed:
                 self.density.reset()
@@ -330,9 +332,10 @@ class GPAW(Calculator, PAW):
         self.results = {}
 
         self.log('Input parameters:')
-        for key in sorted(changed_parameters):
-            self.log('  {0}: {1}'.format(key, changed_parameters[key]))
-
+        self.log.print_dict(changed_parameters)
+        self.log()
+        
+        for key in changed_parameters:
             if key in ['eigensolver', 'convergence'] and self.wfs:
                 self.wfs.set_eigensolver(None)
 
@@ -368,7 +371,6 @@ class GPAW(Calculator, PAW):
                 self.wfs = None
             else:
                 raise TypeError('Unknown keyword argument: "%s"' % key)
-        self.log()
 
     def initialize_positions(self, atoms=None):
         """Update the positions of the atoms."""
@@ -402,6 +404,8 @@ class GPAW(Calculator, PAW):
     def initialize(self, atoms=None):
         """Inexpensive initialization."""
 
+        self.log('Initialize ...\n')
+        
         if atoms is None:
             atoms = self.atoms
         else:
@@ -566,22 +570,22 @@ class GPAW(Calculator, PAW):
         
         print_parallelization_details(self.wfs, self.density, self.log)
         
-        self.log('Number of Atoms:', natoms)
-        self.log('Number of Atomic Orbitals:', self.wfs.setups.nao)
+        self.log('Number of atoms:', natoms)
+        self.log('Number of atomic orbitals:', self.wfs.setups.nao)
         if self.nbands_parallelization_adjustment != 0:
             self.log(
-                'Adjusting Number of Bands by %+d to Match Parallelization' %
+                'Adjusting number of bands by %+d to match parallelization' %
                 self.nbands_parallelization_adjustment)
-        self.log('Number of Bands in Calculation:', self.wfs.bd.nbands)
-        self.log('Bands to Converge: ', end='')
+        self.log('Number of bands in calculation:', self.wfs.bd.nbands)
+        self.log('Bands to converge: ', end='')
         n = par.convergence['bands']
         if n == 'occupied':
-            self.log('Occupied States Only')
+            self.log('Occupied states only')
         elif n == 'all':
             self.log('All')
         else:
-            self.log('%d Lowest Bands' % n)
-        self.log('Number of Valence Electrons:', self.wfs.nvalence)
+            self.log('%d Lowest bands' % n)
+        self.log('Number of valence electrons:', self.wfs.nvalence)
 
         self.log(flush=True)
 

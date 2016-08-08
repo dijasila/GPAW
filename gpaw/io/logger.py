@@ -99,6 +99,16 @@ class GPAWLogger(object):
 
         self()
         
+    def print_dict(self, dct):
+        for key, value in sorted(dct.items()):
+            if not isinstance(value, dict):
+                    self('  {0}: {1}'.format(key, value))
+            else:
+                sep = ',\n     ' + ' ' * len(key)
+                s = sep.join('{0}: {1}'.format(*item)
+                             for item in sorted(value.items()))
+                self('  {0}: {{{1}}}'.format(key, s))
+        
     def __del__(self):
         """Destructor:  Write timing output before closing."""
         if dry_run:

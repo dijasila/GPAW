@@ -1256,9 +1256,9 @@ class Setups(list):
             setup.print_info(functools.partial(print, file=output))
             txt = output.getvalue()
             basis_descr = setup.get_basis_description()
-            s += txt + basis_descr
+            s += txt + '  ' + basis_descr + '\n\n'
             
-        s += '  Reference Energy: %.6f' % (self.Eref * units.Hartree)
+        s += 'Reference Energy: %.6f\n' % (self.Eref * units.Hartree)
         return s
         
     def set_symmetry(self, symmetry):

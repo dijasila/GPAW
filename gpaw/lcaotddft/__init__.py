@@ -5,7 +5,7 @@ import numpy as np
 from numpy.linalg import inv, solve
 from ase.units import Bohr, Hartree
 
-from gpaw import GPAW, LCAO
+from gpaw import GPAW
 from gpaw.external import ConstantElectricField
 from gpaw.utilities.blas import gemm
 from gpaw.mixer import DummyMixer
@@ -43,18 +43,31 @@ class LCAOTDDFT(GPAW):
                  propagator='cn', fxc=None, **kwargs):
         self.time = 0.0
         self.niter = 0
-        self.kick_strength = np.array([0.0, 0.0, 0.0], dtype=float)
+        self.kick_strength = np.zeros(3)
         self.tddft_initialized = False
         self.fxc = fxc
         self.propagator = propagator
-        kwargs['mode'] = kwargs.get('mode', 'lcao')
+        if filename is None:
+            kwargs['mode'] = kwargs.get('mode', 'lcao')
         GPAW.__init__(self, filename, **kwargs)
 
         # Restarting from a file
         if filename is not None:
-            self.initialize()
+            #self.initialize()
             self.set_positions()
             
+    def read(self, filename):
+        reader = GPAW.read(self, filename)
+        if 'tddft' in reader:
+            self.time = reader.tddft.time
+            self.niter = reader.tddft.niter
+            self.kick_strength = reader.tddft.kick_strength
+
+    def _write(self, writer, mode):
+        writer.child('tddft').write(time=self.time,
+                                    niter=self.niter,
+                                    kick_strength=self.kick_strength)
+        
     def propagate_wfs(self, sourceC_nm, targetC_nm, S_MM, H_MM, dt):
         if self.propagator == 'cn':
             return self.linear_propagator(sourceC_nm, targetC_nm, S_MM, H_MM,
@@ -280,7 +293,7 @@ class LCAOTDDFT(GPAW):
                                        self.MM_descriptor)  # XXX FOR DEBUG
             self.MM2mm = Redistributor(ksl.block_comm,
                                        self.MM_descriptor,
-                                       self.mm_block_descriptor)  # XXX FOR DEBUG
+                                       self.mm_block_descriptor)  # FOR DEBUG
             self.Cnm2nM = Redistributor(ksl.block_comm,
                                         self.Cnm_block_descriptor,
                                         self.CnM_unique_descriptor)
@@ -405,11 +418,11 @@ class LCAOTDDFT(GPAW):
             if self.time < self.time_step:
                 self.dm_file = open(out, 'w')
 
-                header = '# Kick = [%22.12le, %22.12le, %22.12le]\n' \
-                       % (self.kick_strength[0], self.kick_strength[1], \
-                          self.kick_strength[2])
-                header += '# %15s %15s %22s %22s %22s\n' \
-                       % ('time', 'norm', 'dmx', 'dmy', 'dmz')
+                header = ('# Kick = [%22.12le, %22.12le, %22.12le]\n' %
+                          (self.kick_strength[0], self.kick_strength[1],
+                           self.kick_strength[2]))
+                header += ('# %15s %15s %22s %22s %22s\n' %
+                           ('time', 'norm', 'dmx', 'dmy', 'dmz'))
                 self.dm_file.write(header)
                 self.dm_file.flush()
                 self.log('About to do %d propagation steps.' % iterations)
