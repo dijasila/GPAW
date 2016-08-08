@@ -1256,6 +1256,7 @@ class Setups(list):
             setup.print_info(functools.partial(print, file=output))
             txt = output.getvalue()
             basis_descr = setup.get_basis_description()
+            basis_descr = basis_descr.replace('\n  ', '\n    ')
             s += txt + '  ' + basis_descr + '\n\n'
             
         s += 'Reference Energy: %.6f\n' % (self.Eref * units.Hartree)

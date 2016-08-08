@@ -107,7 +107,7 @@ class Hamiltonian(object):
             log('%-14s %+11.6f' % (name, Hartree * e))
 
         log('--------------------------')
-        log('Free Energy:   %+11.6f' % (Hartree * self.e_total_free))
+        log('Free energy:   %+11.6f' % (Hartree * self.e_total_free))
         log('Extrapolated:  %+11.6f' % (Hartree * self.e_total_extrapolated))
         log()
         self.xc.summary(log)

@@ -260,7 +260,11 @@ class TDDFT(GPAW):
             self.time = reader.tddft.time
             self.niter = reader.tddft.niter
             self.kick_strength = reader.tddft.kick_strength
-
+            
+    def initialize(self):
+        self.parameters.mixer = DummyMixer()
+        GPAW.initialize(self)
+        
     def _write(self, writer, mode):
         GPAW._write(self, writer, mode)
         writer.child('tddft').write(time=self.time,

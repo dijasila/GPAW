@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import print_function, division
 import os
 import sys
 import time
@@ -74,7 +74,7 @@ class GPAWLogger(object):
         c = getattr(_gpaw, '__file__', None)
         if not c:
             c = sys.executable
-        self('_gpaw: ', os.path.normpath(c))
+        self('_gpaw: ', cut(os.path.normpath(c)))
                   
         self('ase:    %s (version %s)' %
              (os.path.dirname(ase.__file__), ase_version))
@@ -121,9 +121,16 @@ class GPAWLogger(object):
             mr = 0
 
         if mr > 0:
-            if mr < 1024.0**3:
-                self('Memory usage: %.2f MiB' % (mr / 1024.0**2))
+            if mr < 1024**3:
+                self('Memory usage: %.2f MiB' % (mr / 1024**2))
             else:
-                self('Memory usage: %.2f GiB' % (mr / 1024.0**3))
+                self('Memory usage: %.2f GiB' % (mr / 1024**3))
         
         self('Date: ' + time.asctime())
+
+        
+def cut(s, indent='       '):
+    if len(s) + len(indent) < 80:
+        return s
+    s1, s2 = s.rsplit('/', 1)
+    return s1 + '/\n' + indent + s2
