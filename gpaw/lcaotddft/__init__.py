@@ -47,6 +47,7 @@ class LCAOTDDFT(GPAW):
         self.tddft_initialized = False
         self.fxc = fxc
         self.propagator = propagator
+        kwargs['mode'] = kwargs.get('mode', 'lcao')
         GPAW.__init__(self, filename, **kwargs)
 
         # Restarting from a file

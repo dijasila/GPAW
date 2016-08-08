@@ -1552,7 +1552,7 @@ class Transport(GPAW):
             #self.density.mixer.driver.beta = b + (b*0.25)
             #self.text('New beta: {0}'.format(self.density.mixer.beta))
         
-        self.txt.flush()
+        self.log.flush()
         
     def check_convergence(self, var):
         self.log('check_convergence()')
@@ -1580,8 +1580,8 @@ class Transport(GPAW):
                     density = self.density
                 else:
                     density = self.extended_calc.density
-                self.diff_d = density.density_error
-                tol =  self.scf.max_density_error
+                self.diff_d = density.error
+                tol =  self.scf.max_errors['density']
  
                 if self.master:
                     self.text('density: diff = %f  tol=%f' % (self.diff_d,
@@ -1638,7 +1638,7 @@ class Transport(GPAW):
         self.ham_vt_diff = None
         self.ham_vt_tol = 1e-2
         #self.diag_ham_tol = 5e-3
-        self.diag_ham_tol = self.scf.max_energy_error * Hartree / len(self.atoms) * 5
+        self.diag_ham_tol = self.scf.max_errors['energy'] * Hartree / len(self.atoms) * 5
         self.step = 0
         self.cvgflag = False
         self.spin_coff = 3. - self.nspins
@@ -2127,8 +2127,8 @@ class Transport(GPAW):
         if wfs.kd.symmetry:
             self.F_av = wfs.kd.symmetry.symmetrize_forces(self.F_av)
 
-        self.forces.F_av = self.F_av[:len(self.atoms)]
-        self.print_forces()
+        self.results['forces'] = self.F_av[:len(self.atoms)] * Hartree / Bohr
+        #self.print_forces()
         return self.F_av[:len(self.atoms)]
 
     def calculate_to_bias(self, v_limit, num_v, gate=0, num_g=3, start=0):
