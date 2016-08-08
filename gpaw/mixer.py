@@ -569,6 +569,19 @@ class MixerWrapper:
         for basemixer in self.basemixers:
             basemixer.reset()
 
+    def __repr__(self):
+        return '\n  '.join(
+            ['Mixer:',
+             'Method: ' + self.driver.name,
+             'Backend: ' + self.driver.basemixerclass.name,
+             ])
+            t('Linear Mixing Parameter: %g' % mixer.beta)
+            t('Mixing with %d Old Densities' % mixer.nmaxold)
+            if mixer.weight == 1:
+                t('No Damping of Long Wave Oscillations')
+            else:
+                t('Damping of Long Wave Oscillations: %g' % mixer.weight)
+                            
 
 # Helper function to define old-style interfaces to mixers.
 # Defines and returns a function which looks like a mixer class
