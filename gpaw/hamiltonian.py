@@ -5,7 +5,7 @@
 """This module defines a Hamiltonian."""
 
 import numpy as np
-from ase.units import Hartree
+from ase.units import Ha
 
 from gpaw.arraydict import ArrayDict
 from gpaw.external import create_external_potential
@@ -94,7 +94,7 @@ class Hamiltonian(object):
     
     def summary(self, fermilevel, log):
         log('Energy contributions relative to reference atoms:',
-            '(reference = {0:.6f})\n'.format(self.setups.Eref * Hartree))
+            '(reference = {0:.6f})\n'.format(self.setups.Eref * Ha))
 
         energies = [('Kinetic:      ', self.e_kinetic),
                     ('Potential:    ', self.e_coulomb),
@@ -104,11 +104,11 @@ class Hamiltonian(object):
                     ('Local:        ', self.e_zero)]
 
         for name, e in energies:
-            log('%-14s %+11.6f' % (name, Hartree * e))
+            log('%-14s %+11.6f' % (name, Ha * e))
 
         log('--------------------------')
-        log('Free energy:   %+11.6f' % (Hartree * self.e_total_free))
-        log('Extrapolated:  %+11.6f' % (Hartree * self.e_total_extrapolated))
+        log('Free energy:   %+11.6f' % (Ha * self.e_total_free))
+        log('Extrapolated:  %+11.6f' % (Ha * self.e_total_extrapolated))
         log()
         self.xc.summary(log)
 
@@ -117,8 +117,8 @@ class Hamiltonian(object):
         except AttributeError:
             pass
         else:
-            wf1 = (-fermilevel + correction) * Hartree
-            wf2 = (-fermilevel - correction) * Hartree
+            wf1 = (-fermilevel + correction) * Ha
+            wf2 = (-fermilevel - correction) * Ha
             log('Dipole-layer corrected work functions: {0}, {1} eV'
                 .format(wf1, wf2))
             log()
@@ -480,13 +480,13 @@ class Hamiltonian(object):
     def write(self, writer):
         # Write all eneriges:
         for name in ENERGY_NAMES:
-            writer.write(name, getattr(self, name) * Hartree)
+            writer.write(name, getattr(self, name) * Ha)
         
         writer.write(
-            potential=self.gd.collect(self.vt_sG) * Hartree,
-            atomic_hamiltonian_matrices=pack_atomic_matrices(self.dH_asp) *
-            Hartree,
-            xc=self.xc)
+            potential=self.gd.collect(self.vt_sG) * Ha,
+            atomic_hamiltonian_matrices=pack_atomic_matrices(self.dH_asp) * Ha)
+
+        self.xc.write(writer.child('xc'))
 
     def read(self, reader):
         h = reader.hamiltonian
