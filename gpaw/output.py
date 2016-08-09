@@ -6,6 +6,7 @@ from ase.data import chemical_symbols
 
         
 def print_cell(gd, pbc_c, log):
+    
     log("""Unit cell:
            periodic     x           y           z      points  spacing""")
     h_c = gd.get_grid_spacings()
@@ -18,6 +19,7 @@ def print_cell(gd, pbc_c, log):
 
 
 def print_positions(atoms, log):
+    log(plot(atoms))
     log('\nPositions:')
     symbols = atoms.get_chemical_symbols()
     for a, pos_v in enumerate(atoms.get_positions()):

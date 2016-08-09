@@ -556,7 +556,10 @@ class GPAW(Calculator, PAW):
         # This surely is a bug!
         self.density.initialize(self.setups, self.timer, magmom_a, par.hund)
         self.density.set_mixer(par.mixer)
-        self.log(self.density.mixer)
+        if self.density.mixer.driver.name == 'dummy' or par.fixdensity:
+            self.log('No density mixing\n')
+        else:
+            self.log(self.density.mixer, '\n')
         self.density.fixed = par.fixdensity
         self.density.log = self.log
 
@@ -700,7 +703,7 @@ class GPAW(Calculator, PAW):
             
         self.wfs.set_eigensolver(eigensolver)
 
-        self.log(self.wfs.eigensolver)
+        self.log(self.wfs.eigensolver, '\n')
         
     def create_density(self, realspace, mode):
         gd = self.wfs.gd
@@ -737,7 +740,7 @@ class GPAW(Calculator, PAW):
         else:
             self.density = pw.ReciprocalSpaceDensity(**kwargs)
             
-        self.log(self.density)
+        self.log(self.density, '\n')
             
     def create_hamiltonian(self, realspace, mode, xc):
         dens = self.density
@@ -758,7 +761,7 @@ class GPAW(Calculator, PAW):
             self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
                 pd2=dens.pd2, pd3=dens.pd3, **kwargs)
             
-        self.log(self.hamiltonian)
+        self.log(self.hamiltonian, '\n')
         
     def create_wave_functions(self, mode, realspace,
                               nspins, nbands, nao, nvalence, setups,
@@ -952,7 +955,7 @@ class GPAW(Calculator, PAW):
         else:
             self.wfs = mode(self, **wfs_kwargs)
 
-        self.log(self.wfs)
+        self.log(self.wfs, '\n')
 
     def dry_run(self):
         # Can be overridden like in gpaw.atom.atompaw

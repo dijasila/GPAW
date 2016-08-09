@@ -128,15 +128,15 @@ class SCFLoop:
         
         if niter == 1:
             header = """\
-                     log10-error:    Total        Iterations:
-           Time      WFS    Density  Energy       Fermi  Poisson"""
+                     log10-error:    total        iterations:
+           time      wfs    density  energy       fermi  poisson"""
             if wfs.nspins == 2:
-                header += '  MagMom'
+                header += '  magmom'
             if self.max_errors['force'] < np.inf:
-                l1 = header.find('Total')
+                l1 = header.find('total')
                 header = header[:l1] + '       ' + header[l1:]
-                l2 = header.find('Energy')
-                header = header[:l2] + 'Force  ' + header[l2:]
+                l2 = header.find('energy')
+                header = header[:l2] + 'force  ' + header[l2:]
             log(header)
 
         if eigerr == 0.0:
