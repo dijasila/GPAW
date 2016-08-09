@@ -446,8 +446,8 @@ class GPAW(Calculator, PAW):
             par.mode = mode
             
         if xc.orbital_dependent and mode.name == 'lcao':
-            raise NotImplementedError('LCAO mode does not support '
-                                      'orbital-dependent XC functionals.')
+            raise ValueError('LCAO mode does not support '
+                             'orbital-dependent XC functionals.')
 
         realspace = (mode.name != 'pw' and mode.interpolation != 'fft')
 
