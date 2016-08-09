@@ -293,7 +293,6 @@ tests = [
     'corehole/si.py',                       # ~18s
     'mgga/mgga_sc.py',                      # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
-    # buildbot > 20 sec tests start here (add tests after lrtddft/1.py!)
     'lrtddft/1.py',                         # ~20s
     'gllb/spin.py',                         # ~21s
     'parallel/fd_parallel_kpt.py',          # ~21s

@@ -1,12 +1,12 @@
 from __future__ import print_function
 import sys
 
-from ase import Atoms
 from ase.utils import devnull
 
 from gpaw import GPAW, FermiDirac
 from gpaw import KohnShamConvergenceError
 from gpaw.utilities import compiled_with_sl
+from gpaw.forces import calculate_forces
 
 from ase.build import molecule
 
@@ -49,8 +49,8 @@ def run(formula='H2O', vacuum=1.5, cell=None, pbc=1, **morekwargs):
         pass
 
     E = calc.hamiltonian.e_total_free
-    F_av = calc.forces.calculate(calc.wfs, calc.density,
-                                 calc.hamiltonian)
+    F_av = calculate_forces(calc.wfs, calc.density,
+                            calc.hamiltonian)
 
     global Eref, Fref_av
     if Eref is None:

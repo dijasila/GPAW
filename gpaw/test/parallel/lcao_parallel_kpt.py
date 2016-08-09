@@ -7,7 +7,7 @@ from ase.utils import devnull
 from gpaw import GPAW
 from gpaw import KohnShamConvergenceError
 from gpaw.utilities import compiled_with_sl
-
+from gpaw.forces import calculate_forces
 
 # Calculates energy and forces for various parallelizations
 
@@ -45,8 +45,8 @@ def run(formula='H2O', vacuum=1.5, cell=None, pbc=1, **morekwargs):
         pass
 
     E = calc.hamiltonian.e_total_free
-    F_av = calc.forces.calculate(calc.wfs, calc.density,
-                                 calc.hamiltonian)
+    F_av = calculate_forces(calc.wfs, calc.density,
+                            calc.hamiltonian)
 
     global Eref, Fref_av
     if Eref is None:
@@ -163,4 +163,3 @@ if compiled_with_sl():
     # with blacs
     parallel['sl_default'] = (2, 2, 2)
     run(**OH_kwargs)
-
