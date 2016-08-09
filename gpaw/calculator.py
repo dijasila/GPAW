@@ -604,6 +604,7 @@ class GPAW(Calculator, PAW):
             self.log.fd.flush()
 
         self.initialized = True
+        self.log('... initialized')
 
     def create_setups(self, mode, xc):
         if self.parameters.filter is None and mode.name != 'pw':
