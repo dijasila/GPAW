@@ -2,7 +2,6 @@
 import numpy as np
 
 from gpaw import debug
-from gpaw.io.tar import Reader, Writer
 from gpaw.utilities import is_contiguous
 from gpaw.analyse.observers import Observer
 from gpaw.transformers import Transformer

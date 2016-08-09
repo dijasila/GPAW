@@ -48,7 +48,7 @@ def run(formula='H2O', vacuum=1.5, cell=None, pbc=1, **morekwargs):
     except KohnShamConvergenceError:
         pass
 
-    E = calc.hamiltonian.Etot
+    E = calc.hamiltonian.e_total_free
     F_av = calc.forces.calculate(calc.wfs, calc.density,
                                  calc.hamiltonian)
 
@@ -149,7 +149,7 @@ run(**OH_kwargs)
 # domain-decomposition = (1, 1, 1)
 del parallel['domain']
 parallel['band'] = 2
-run(**OH_kwargs) 
+run(**OH_kwargs)
 
 # do last test plus buffer_size keyword
 parallel['buffer_size'] = 150

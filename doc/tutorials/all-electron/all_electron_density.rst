@@ -6,21 +6,21 @@ Getting the all-electron density
 
 The variational quantity of the PAW formalism is the pseudo-density
 `\tilde{n}`. This is also the density returned by the
-:meth:`~gpaw.aseinterface.GPAW.get_pseudo_density` method of the GPAW
+:meth:`~gpaw.calculator.GPAW.get_pseudo_density` method of the GPAW
 calculator. Sometimes it is desirable to work with the true all-electron
 density.  The PAW formalism offers a recipe for reconstructing the all-electron
 density from the pseudo-density, and in GPAW, this can be reached by
-the method :meth:`~gpaw.aseinterface.GPAW.get_all_electron_density` of the GPAW
-:class:`~gpaw.aseinterface.GPAW`:
+the method :meth:`~gpaw.calculator.GPAW.get_all_electron_density` of the
+:class:`~gpaw.calculator.GPAW` class:
 
 .. method:: get_all_electron_density(spin=None, gridrefinement=2, pad=True)
 
     Return reconstructed all-electron density array.
 
 
-The :meth:`~gpaw.aseinterface.GPAW.get_all_electron_density` method is used in
+The :meth:`~gpaw.calculator.GPAW.get_all_electron_density` method is used in
 the same way as you would normally use the
-:meth:`~gpaw.aseinterface.GPAW.get_pseudo_density` method, i.e.:
+:meth:`~gpaw.calculator.GPAW.get_pseudo_density` method, i.e.:
 
 >>> from gpaw import GPAW
 >>> from ase.build import molecule

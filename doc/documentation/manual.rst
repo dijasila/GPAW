@@ -29,7 +29,7 @@ Doing a PAW calculation
 -----------------------
 
 To do a PAW calculation with the GPAW code, you need an ASE
-:class:`~ase.atoms.Atoms` object and a :class:`~gpaw.aseinterface.GPAW`
+:class:`~ase.atoms.Atoms` object and a :class:`~gpaw.calculator.GPAW`
 calculator::
 
    _____________          ____________
@@ -198,7 +198,7 @@ given in the following sections.
 .. note::
    
    Parameters can be changed after the calculator has been constructed
-   by using the :meth:`~gpaw.aseinterface.GPAW.set` method:
+   by using the :meth:`~gpaw.calculator.GPAW.set` method:
 
    >>> calc.set(txt='H2.txt', charge=1)
 
@@ -1040,7 +1040,7 @@ example saves a differently named restart file every 5 iterations::
 
   calc.attach(OccasionalWriter().write, occasionally)
 
-See also :meth:`~gpaw.aseinterface.GPAW.attach`.
+See also :meth:`~gpaw.calculator.GPAW.attach`.
 
 
 ----------------------

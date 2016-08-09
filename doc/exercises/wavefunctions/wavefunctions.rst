@@ -6,8 +6,8 @@ In this section we will look at the Kohn-Sham wavefunctions of the O
 atom and CO molecule and compare them to results from molecular orbital theory.
 
 * The first script :download:`O.py` sets up an oxygen
-  atom in a cubic supercell with non-periodic boundary conditions and 
-  calculates the total energy. A couple of extra bands (i.e. Kohn-Sham 
+  atom in a cubic supercell with non-periodic boundary conditions and
+  calculates the total energy. A couple of extra bands (i.e. Kohn-Sham
   states) are included in the calculation:
 
 .. literalinclude:: O.py
@@ -23,7 +23,7 @@ atom and CO molecule and compare them to results from molecular orbital theory.
 
 * The orbitals can be visualized using Mayavi_ and its
   :func:`mayavi.mlab.contour3d` function and the GPAW-calculators
-  :meth:`~gpaw.aseinterface.GPAW.get_pseudo_wave_function` method.
+  :meth:`~gpaw.calculator.GPAW.get_pseudo_wave_function` method.
   Reload the gpw-file and look at one of the orbitals like this::
     
       from gpaw import GPAW
@@ -42,7 +42,7 @@ atom and CO molecule and compare them to results from molecular orbital theory.
 * Make a script where a CO molecule is placed in the center of a cubic
   unit cell with non-periodic boundary conditions, e.g. of 6 Å. For
   more accurate calculations, the cell should definitely be bigger,
-  but for reasons of speed, we use this cell here. A grid spacing of 
+  but for reasons of speed, we use this cell here. A grid spacing of
   around 0.20 Å will suffice. Include a couple of unoccupied bands in the
   calculation (what is the number of valence electrons in CO?).
   You can quickly create the Atoms object with the CO molecule by::
@@ -53,7 +53,7 @@ atom and CO molecule and compare them to results from molecular orbital theory.
   This will create a CO molecule with an approximately correct bond length
   and the correct magnetic moments on each atom.
 
-  Then relax the CO molecule to its minimum energy position. 
+  Then relax the CO molecule to its minimum energy position.
   Write the relaxation to a trajectory file and
   the final results to a :file:`.gpw` file. The wavefunctions
   are not written to the :file:`.gpw` file by default, but can again be saved by

@@ -14,59 +14,49 @@ PAW
 
 This object is the central object for a GPAW calculation::
 
-                    +---------------+
-                    |ForceCalculator|      +-----------+
-                    +---------------+  --->|Hamiltonian|
+                      +----------+
+                      |GPAWLogger|         +-----------+
+                      +----------+     --->|Hamiltonian|
                              ^        /    +-----------+
-                             |    ----      +---------------+
-                             |   /     ---->|InputParameters|
-     +-----+              +-----+     /     +---------------+
-     |Atoms|<-------------| PAW |-----
-     +-----+              +-----+     \
-                         /   |   \     \            +-----------+
-      +-------------+   /    |    ---   ----------->|Occupations|
-      |WaveFunctions|<--     v       \              +-----------+
-      +-------------+     +-------+   \   +-------+
-                          |Density|    -->|SCFLoop|
-                          +-------+       +-------+
+                             |    ----       +------+
+                             |   /      ---->|Setups|
+     +-----+              +------+     /     +------+
+     |Atoms|<-------------| GPAW |-----
+     +-----+              +------+     \
+                         /   |    \     \            +-----------+
+      +-------------+   /    |     ---   ----------->|Occupations|
+      |WaveFunctions|<--     v        \              +-----------+
+      +-------------+     +-------+    \   +-------+
+                          |Density|     -->|SCFLoop|
+                          +-------+        +-------+
 
-The implementation is in :git:`gpaw/paw.py`.  The
-:class:`~gpaw.paw.PAW` class doesn't do any part of the actual
+The implementation is in :git:`gpaw/calculator.py`.  The
+:class:`gpaw.calculator.GPAW` class doesn't do any part of the actual
 calculation - it only handles the logic of parsing the input
 parameters and setting up the necessary objects for doing the actual
 work (see figure above).
 
 
-A PAW instance has the following attributes: ``atoms``,
-``input_parameters``, ``wfs``, ``density``,
-``hamiltonian``, ``scf``, ``forces``, ``timer``,
-``occupations``, ``initialized`` and ``observers``.
+A GPAW instance has the following attributes: ``atoms``,
+``parameters``, ``wfs``, ``density``, ``setups``,
+``hamiltonian``, ``scf``, ``log``, ``timer``,
+``occupations``, ``initialized``, ``world`` and ``observers``.
 
+The :class:`gpaw.calculator.GPAW` inherits from:
+    
+* :class:`ase.calculators.calculator.Calculator`
 
-
-GPAW
-====
-
-The :class:`~gpaw.aseinterface.GPAW` class (:git:`gpaw/aseinterface.py`),
-which implements the ASE :ref:`ase:calculator interface`, inherits from the
-PAW class, and does unit conversion between GPAW's internal atomic units
-(`\hbar=e=m=1`) and ASE's :mod:`~ase.units` (Angstrom and eV)::
-
-        gpaw          |    ase
+  This implements the ASE :ref:`ase:calculator interface`
   
-  (Hartree and Bohr)  |  (eV and Angstrom)
-               
-     +-----+          |
-     | PAW |
-     +-----+          |
-        ^
-       /_\            |
-        |
-        |             |
-     +------+           calc +-------+
-     | GPAW |<---------------| Atoms |
-     +------+                +-------+
-                      |
+* :class:`gpaw.paw.PAW`
+
+  Mixin that adds a number of extra methods without bloating the
+  :git:`gpaw/calculator.py` file too much.
+  
+.. note::
+    
+    GPAW uses atomic units internally (`\hbar=e=m=1`) and ASE uses
+    Angstrom and eV (:mod:`~ase.units`).
 
 
 Generating a GPAW instance from scratch
@@ -77,20 +67,24 @@ When a GPAW instance is created from scratch::
   calc = GPAW(xc='LDA', nbands=7)
 
 the GPAW object is almost empty.  In order to start a calculation, one
-will have to call the :meth:`~gpaw.paw.PAW.calculate` method::
+will have to do something like::
+    
+    
+    atoms = Atoms(...)
+    atoms.calc = calc
+    atoms.get_potential_energy()
+    
+ASE will then arrange to call the :meth:`~gpaw.calculator.GPAW.calculate`
+method with the correct arguments.  This will trigger:
 
-  calc.calculate(converge=True)
-
-This will trigger:
-
-1) A call to the :meth:`~gpaw.paw.PAW.initialize` method, which will
+1) A call to the :meth:`~gpaw.calculator.GPAW.initialize` method, which will
    set up the objects needed for a calculation:
    :class:`~gpaw.density.Density`,
    :class:`~gpaw.hamiltonian.Hamiltonian`,
    :class:`~gpaw.wavefunctions.base.WaveFunctions`,
    :class:`~gpaw.setup.Setups` and a few more (see figure above).
 
-2) A call to the :meth:`~gpaw.paw.PAW.set_positions` method, which will
+2) A call to the :meth:`~gpaw.calculator.GPAW.set_positions` method, which will
    initialize everything that depends on the atomic positions:
 
    a) Pass on the atomic positions to the wave functions, hamiltonian
@@ -98,10 +92,7 @@ This will trigger:
    
    b) Make sure the wave functions are initialized.
 
-   c) Reset the :class:`~gpaw.scf.SCFLoop` and
-      :class:`~gpaw.forces.ForceCalculator` objects.
-
-
+   c) Reset the :class:`~gpaw.scf.SCFLoop`.
 
 
 Generating a GPAW instance from a restart file
@@ -111,11 +102,10 @@ When a GPAW instance is created like this::
 
   calc = GPAW('restart.gpw')
 
-the :meth:`~gpaw.paw.PAW.initialize` method is called first, so that the
-parts read from the file can be placed inside the objects where they
-belong: the effective pseudo potential and the total energy are put in
-the hamiltonian, the pseudo density is put in the density object and so
-on.
+the :meth:`~gpaw.calculator.GPAW.initialize` method is called first, so that
+the parts read from the file can be placed inside the objects where they
+belong: the effective pseudo potential and the total energy are put in the
+hamiltonian, the pseudo density is put in the density object and so on.
 
 After a restart, everything *should* be as before the restart file was
 written.  However, there are a few exceptions:
@@ -182,6 +172,7 @@ Attributes of the wave function object: ``gd``, ``nspins``,
 ``rank_a``, ``nibzkpts``, ``kpt_u``, ``setups``,
 ``ibzk_qc``, ``eigensolver``, and ``timer``.
         
+
 .. _overview_xc:
 
 Exchange-correlation functionals module
@@ -243,68 +234,6 @@ GPAW also has a few non-libxc kernels that one can use like this::
     from gpaw.xc.kernel import XCKernel
     xc = XC(XCKernel('PBE'))
 
-
-Collinear or not collinear
-==========================
-
-For a non-collinear calculation, we work with a 2x2 density matrix:
-
-.. math::
-
-    n^{\alpha\beta}(\br)=
-    [n(\br)\delta_{\alpha\beta}+
-     \mathbf{m}(\br)\cdot\mathbf{\sigma}^{\alpha\beta}]/2,
-
-where `n(\br)` is the total electron density and the Pauli spin
-matrices given as:
-
-.. math::
-
-   \sigma_x=\begin{pmatrix} 0 &  1 \\ 1 &  0 \end{pmatrix},\,
-   \sigma_y=\begin{pmatrix} 0 & -i \\ i &  0 \end{pmatrix},\,
-   \sigma_z=\begin{pmatrix} 1 &  0 \\ 0 & -1 \end{pmatrix}.
-
-Inserting the Pauli matrices, we get:
-
-.. math::
-
-    n^{\alpha\beta}=
-    \frac{1}{2}\begin{pmatrix}
-    n+m_z    & m_x-im_y\\
-    m_x+im_y & n-m_z
-    \end{pmatrix}.
-
-Here is how we abuse the ``s`` index to store both `n(\br)` and
-`\mathbf{m}(\br)` in ``nt_sG``:
-
-.. list-table::
-
-    * - collinear
-      - nspins
-      - ncomp
-      - nspins*ncomp**2
-      - nt_sG
-    * - True
-      - 1
-      - 1
-      - 1
-      - [`n`]
-    * - True
-      - 2
-      - 1
-      - 2
-      - [`n_{\uparrow}`, `n_{\downarrow}`]
-    * - False
-      - 1
-      - 2
-      - 4
-      - [`n`, `m_x`, `m_y`, `m_z`]
-
-Notice that ``nspins=1`` for non-collinear calculations and the wave
-functions have ``ncomp=2`` components and we have twice as many bands
-as in a collinear calculation.
-
-  
 
 .. _overview_array_naming:
 

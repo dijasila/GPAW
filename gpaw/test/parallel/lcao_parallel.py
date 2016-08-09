@@ -46,7 +46,7 @@ def run(formula='H2O', vacuum=2.0, cell=None, pbc=0, **morekwargs):
     except KohnShamConvergenceError:
         pass
 
-    E = calc.hamiltonian.Etot
+    E = calc.hamiltonian.e_total_free
     F_av = calc.forces.calculate(calc.wfs, calc.density,
                                  calc.hamiltonian)
 
@@ -108,7 +108,7 @@ if compiled_with_sl():
     parallel['sl_default'] = (2, 2, 2)
     run()
 
-    # state-parallelization = 1, 
+    # state-parallelization = 1,
     # domain-decomposition = (1, 2, 2)
     # with blacs
     del parallel['band']
@@ -148,11 +148,11 @@ run(**OH_kwargs)
 # state-parallelization= 2,
 # domain-decomposition = (1, 1, 1)
 del parallel['domain']
-parallel['band'] = 2 
+parallel['band'] = 2
 run(**OH_kwargs)
 
 if compiled_with_sl():
-    # spin-polarization = 2, 
+    # spin-polarization = 2,
     # state-parallelization = 2,
     # domain-decomposition = (1, 1, 1)
     # with blacs

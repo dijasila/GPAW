@@ -34,7 +34,7 @@ Version 1.1.0
   
 * New band structure unfolding tool and :ref:`tutorial <unfolding tutorial>`.
 
-* The :meth:`~gpaw.aseinterface.GPAW.get_pseudo_wave_function` method
+* The :meth:`~gpaw.calculator.GPAW.get_pseudo_wave_function` method
   has a new keyword:  Use ``periodic=True`` to get the periodic part of the
   wave function.
   

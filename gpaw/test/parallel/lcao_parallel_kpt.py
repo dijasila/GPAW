@@ -1,14 +1,13 @@
 from __future__ import print_function
 import sys
 
-from ase import Atoms
+from ase.build import molecule
 from ase.utils import devnull
 
 from gpaw import GPAW
 from gpaw import KohnShamConvergenceError
 from gpaw.utilities import compiled_with_sl
 
-from ase.build import molecule
 
 # Calculates energy and forces for various parallelizations
 
@@ -18,10 +17,8 @@ parallel = dict()
 
 basekwargs = dict(mode='lcao',
                   maxiter=3,
-                  #basis='dzp',
-                  #nbands=18,
                   nbands=6,
-                  kpts=(4,4,4), # 8 kpts in the IBZ
+                  kpts=(4, 4, 4),  # 8 kpts in the IBZ
                   parallel=parallel)
 
 Eref = None
@@ -47,7 +44,7 @@ def run(formula='H2O', vacuum=1.5, cell=None, pbc=1, **morekwargs):
     except KohnShamConvergenceError:
         pass
 
-    E = calc.hamiltonian.Etot
+    E = calc.hamiltonian.e_total_free
     F_av = calc.forces.calculate(calc.wfs, calc.density,
                                  calc.hamiltonian)
 
@@ -119,7 +116,7 @@ parallel = dict()
 basekwargs = dict(mode='lcao',
                   maxiter=3,
                   nbands=6,
-                  kpts=(4,4,4), # 8 kpts in the IBZ
+                  kpts=(4, 4, 4),  # 8 kpts in the IBZ
                   parallel=parallel)
 
 Eref = None
@@ -136,7 +133,7 @@ run(**OH_kwargs)
 
 # kpt-parallelization = 2,
 # spin-polarization = 2,
-# state-parallelization = 1, 
+# state-parallelization = 1,
 # domain-decomposition = (1, 2, 1)
 parallel['domain'] = (1, 2, 1)
 run(**OH_kwargs)
@@ -147,7 +144,7 @@ run(**OH_kwargs)
 # domain-decomposition = (1, 1, 1)
 del parallel['domain']
 parallel['band'] = 2
-run(**OH_kwargs) # test for forces is failing in this case!
+run(**OH_kwargs)  # test for forces is failing in this case!
 
 if compiled_with_sl():
     # kpt-parallelization = 2,

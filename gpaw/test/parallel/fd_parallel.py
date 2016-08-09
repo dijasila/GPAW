@@ -45,7 +45,7 @@ def run(formula='H2O', vacuum=2.0, cell=None, pbc=0, **morekwargs):
     except KohnShamConvergenceError:
         pass
 
-    E = calc.hamiltonian.Etot
+    E = calc.hamiltonian.e_total_free
     F_av = calc.forces.calculate(calc.wfs, calc.density,
                                  calc.hamiltonian)
 
@@ -90,7 +90,7 @@ def run(formula='H2O', vacuum=2.0, cell=None, pbc=0, **morekwargs):
         raise AssertionError(msg)
         
 # reference:
-# state-parallelization = 1, 
+# state-parallelization = 1,
 # domain-decomposition = (1, 2, 2)
 run()
 
@@ -148,8 +148,8 @@ run(**OH_kwargs)
 # state-parallelization= 2,
 # domain-decomposition = (1, 1, 1)
 del parallel['domain']
-parallel['band'] = 2 
-run(**OH_kwargs) 
+parallel['band'] = 2
+run(**OH_kwargs)
 
 # do last test with buffer_size keyword
 parallel['buffer_size'] = 50

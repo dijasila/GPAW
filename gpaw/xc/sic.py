@@ -34,11 +34,11 @@ functionals (Perdew-Zunger).
 """
 
 
-import sys
 from math import pi
 
 import numpy as np
 from ase.units import Bohr, Hartree
+from ase.utils import basestring
 
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.lapack import diagonalize
@@ -181,7 +181,7 @@ class SIC(XCFunctional):
             Use fine grid for energy functional evaluations?
         """
         
-        if isinstance(xc, str):
+        if isinstance(xc, basestring):
             xc = XC(xc)
         self.xc = xc
         self.type = xc.type

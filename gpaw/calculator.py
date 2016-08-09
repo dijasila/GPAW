@@ -604,7 +604,7 @@ class GPAW(Calculator, PAW):
             self.log.fd.flush()
 
         self.initialized = True
-        self.log('... initialized')
+        self.log('... initialized\n')
 
     def create_setups(self, mode, xc):
         if self.parameters.filter is None and mode.name != 'pw':
@@ -851,7 +851,7 @@ class GPAW(Calculator, PAW):
                     'with "fixdensity" - specify domain decomposition.')
             self.density = None
             self.hamiltonian = None
-            1 / 0
+            #1 / 0
             
         # Construct grid descriptor for coarse grids for wave functions:
         gd = self.create_grid_descriptor(N_c, cell_cv, pbc_c,

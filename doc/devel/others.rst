@@ -16,8 +16,7 @@ Miscellaneous objects
 .. autoclass:: gpaw.xc.gga.GGA
     :members:
 
-.. autoclass:: gpaw.forces.ForceCalculator
-    :members:
+.. autofunction:: gpaw.forces.calculate_forces
 
 .. autoclass:: gpaw.grid_descriptor.GridDescriptor
     :members:
