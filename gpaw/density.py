@@ -561,6 +561,37 @@ class Density(object):
             D_asp.check_consistency()
 
         self.initialize_directly_from_arrays(nt_sG, D_asp)
+        
+    def initialize_from_other_density(self, dens, kptband_comm):
+        """Redistribute pseudo density and atomic density matrices.
+        
+        Collect dens.nt_sG and dens.D_asp to world master and distribute."""
+        
+        nt_sG = dens.gd.collect(dens.nt_sG)
+        new_nt_sG = self.gd.empty(self.nspins)
+        if kptband_comm.rank == 0:
+            self.gd.distribute(nt_sG, new_nt_sG)
+        kptband_comm.broadcast(new_nt_sG, 0)
+        
+        natoms = len(self.setups)
+        atom_partition = AtomPartition(self.gd.comm, np.zeros(natoms, int),
+                                       'density-gd')
+        D_asp = self.setups.empty_atomic_matrix(self.nspins, atom_partition)
+        self.atom_partition = atom_partition  # XXXXXX
+        spos_ac = np.zeros((natoms, 3))  # XXXX
+        self.atomdist = self.redistributor.get_atom_distributions(spos_ac)
+        
+        D_sP = pack_atomic_matrices(dens.D_asp)
+        if self.gd.comm.rank == 0:
+            if kptband_comm.rank > 0:
+                nP = sum(setup.ni * (setup.ni + 1) // 2
+                         for setup in self.setups)
+                D_sP = np.empty((self.npsins, nP))
+            kptband_comm.broadcast(D_sP, 0)
+            D_asp.update(unpack_atomic_matrices(D_sP, self.setups))
+            D_asp.check_consistency()
+        
+        self.initialize_directly_from_arrays(new_nt_sG, D_asp)
 
 
 class RealSpaceDensity(Density):

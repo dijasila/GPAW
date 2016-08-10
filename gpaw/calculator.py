@@ -547,7 +547,18 @@ class GPAW(Calculator, PAW):
 
         if not self.wfs.eigensolver:
             self.create_eigensolver(xc, nbands, mode)
-            
+
+        olddensity = None
+        if (self.density is not None and
+            self.density.gd.comm.size != self.wfs.gd.comm.size):
+            # Domain decomposition has changed, so we need to
+            # reinitialize density and hamiltonian:
+            if par.fixdensity:
+                olddensity = self.density
+
+            self.density = None
+            self.hamiltonian = None
+
         if self.density is None:
             self.create_density(realspace, mode)
     
@@ -563,6 +574,9 @@ class GPAW(Calculator, PAW):
         self.density.fixed = par.fixdensity
         self.density.log = self.log
 
+        if olddensity is not None:
+            self.density.redistribute(olddensity, self.wfs.kptband_comm)
+            
         if self.hamiltonian is None:
             self.create_hamiltonian(realspace, mode, xc)
 
@@ -840,18 +854,6 @@ class GPAW(Calculator, PAW):
         #                     'by reducing the number of bands a bit.'
         #                     % (nbands, band_comm.size, nao))
         bd = BandDescriptor(nbands, band_comm, parstride_bands)
-
-        if (self.density is not None and
-            self.density.gd.comm.size != domain_comm.size):
-            # Domain decomposition has changed, so we need to
-            # reinitialize density and hamiltonian:
-            if par.fixdensity:
-                raise RuntimeError(
-                    'Density reinitialization conflict ' +
-                    'with "fixdensity" - specify domain decomposition.')
-            self.density = None
-            self.hamiltonian = None
-            #1 / 0
             
         # Construct grid descriptor for coarse grids for wave functions:
         gd = self.create_grid_descriptor(N_c, cell_cv, pbc_c,
