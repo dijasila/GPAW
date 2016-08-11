@@ -898,8 +898,8 @@ class FDTDPoissonSolver:
         return self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
 
     # Read restart data
-    def read(self, reader):
-        r = reader
+    def read(self, paw, reader):
+        r = reader.parameters.poissonsolver
 
         # FDTDPoissonSolver related data
         self.eps = r.eps
@@ -940,17 +940,15 @@ class FDTDPoissonSolver:
 
         # PoissonOrganizer: quantum
         self.qm = PoissonOrganizer()
-        self.qm.corner1 = read_vector(r.qm_corner1)
-        self.qm.corner2 = read_vector(r.qm_corner2)
-        self.given_corner_v1 = read_vector(r.given_corner_1)
-        self.given_corner_v2 = read_vector(r.given_corner_2)
-        self.given_cell = np.diag(read_vector(r.given_cell))
-        self.hratios = read_vector(r.hratios)
-        self.shift_indices_1 = \
-            read_vector(r.shift_indices_1).astype(int)
-        self.shift_indices_2 = \
-            read_vector(r.shift_indices_2).astype(int)
-        self.num_indices = read_vector(r.num_indices).astype(int)
+        self.qm.corner1 = r.qm_corner1
+        self.qm.corner2 = r.qm_corner2
+        self.given_corner_v1 = r.given_corner_1
+        self.given_corner_v2 = r.given_corner_2
+        self.given_cell = np.diag(r.given_cell)
+        self.hratios = r.hratios
+        self.shift_indices_1 = r.shift_indices_1.astype(int)
+        self.shift_indices_2 = r.shift_indices_2.astype(int)
+        self.num_indices = r.num_indices.astype(int)
         self.num_refinements = int(r.num_refinements)
 
         # Redefine atoms to suit the cut_cell routine

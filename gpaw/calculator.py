@@ -589,9 +589,21 @@ class GPAW(Calculator, PAW):
         if olddensity is not None:
             self.density.initialize_from_other_density(olddensity,
                                                        self.wfs.kptband_comm)
-            
+
+        self.is_fdtd = False
+        if isinstance(self.parameters.poissonsolver, dict) and \
+           self.parameters.poissonsolver.get('description') == 'FDTD+TDDFT':
+            from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
+            self.fdtd_poisson = FDTDPoissonSolver(restart_reader=self.reader, paw=self)
+            self.parameters.poissonsolver = {}
+            self.is_fdtd = True
+
         if self.hamiltonian is None:
             self.create_hamiltonian(realspace, mode, xc)
+
+        if self.is_fdtd:
+            self.hamiltonian.fdtd_poisson = self.fdtd_poisson
+            self.parameters.poissonsolver = self.fdtd_poisson
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)

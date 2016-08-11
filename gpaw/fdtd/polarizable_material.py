@@ -84,13 +84,11 @@ class PolarizableMaterial():
     # Restart by regenerating the structures
     # TODO: is everything always fully reproduced? Should there be a test for it (e.g. checksum[mask])
     def read(self, reader):
-        r = reader
-        num_components = r['classmat.num_components']
-        for n in range(num_components):
-            name = r['classmat.component_%i.name' % n]
-            arguments = r['classmat.component_%i.arguments' % n]
-            eps_infty = r['classmat.component_%i.eps_infty' % n]
-            eps = r['classmat.component_%i.eps' % n] # Data as array
+        for component in reader.classmat.components:
+            name = component['name']
+            arguments = component['arguments']
+            eps_infty = component['eps_infty']
+            eps = component['eps']  # Data as array
             eval('self.add_component(%s(permittivity = Permittivity(data=eps), %s))' % (name, arguments))
             
     # Save information on the structures for restarting
