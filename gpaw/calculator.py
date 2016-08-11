@@ -575,7 +575,8 @@ class GPAW(Calculator, PAW):
         self.density.log = self.log
 
         if olddensity is not None:
-            self.density.redistribute(olddensity, self.wfs.kptband_comm)
+            self.density.initialize_from_other_density(olddensity,
+                                                       self.wfs.kptband_comm)
             
         if self.hamiltonian is None:
             self.create_hamiltonian(realspace, mode, xc)
