@@ -9,12 +9,12 @@ from gpaw.test import equal
 d = 4.0
 a = 2.4437
 
-calc = GPAW(h=0.15, width=0.1, xc='LDA', nbands=-4, txt='-',
+calc = GPAW(h=0.15, xc='LDA', nbands=-4, txt='-',
             basis='dzp', convergence={'energy': 1e-5, 'density': 1e-5})
 
 # Calculate potential energy per atom for orthogonal unitcell
-atoms = hcp0001('C', a=a/sqrt(3), vacuum=d, size=(3,2,1), orthogonal=True)
-del atoms[[1,-1]]
+atoms = hcp0001('C', a=a / sqrt(3), vacuum=d, size=(3, 2, 1), orthogonal=True)
+del atoms[[1, -1]]
 atoms.center(axis=0)
 atoms.set_calculator(calc)
 
@@ -26,9 +26,12 @@ F1_av = atoms.get_forces()
 equal(np.abs(F1_av).max(), 0, 5e-3)
 
 # Redo calculation with non-orthogonal unitcell
-atoms = Atoms(symbols='C2', pbc=(True,True,False),
-              positions=[(a/2,-sqrt(3)/6*a,d), (a/2,sqrt(3)/6*a,d)],
-              cell=[(a/2,-sqrt(3)/2*a,0), (a/2,sqrt(3)/2*a,0), (0,0,2*d)])
+atoms = Atoms(symbols='C2', pbc=(True, True, False),
+              positions=[(a / 2, -sqrt(3) / 6 * a, d),
+                         (a / 2, sqrt(3) / 6 * a, d)],
+              cell=[(a / 2, -sqrt(3) / 2 * a, 0),
+                    (a / 2, sqrt(3) / 2 * a, 0),
+                    (0, 0, 2 * d)])
 atoms.set_calculator(calc)
 
 kpts_c = np.ceil(50 / np.sum(atoms.get_cell()**2, axis=1)**0.5).astype(int)

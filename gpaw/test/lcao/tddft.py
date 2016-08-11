@@ -37,7 +37,7 @@ if world.rank == 0:
 
 if 0:
     # Reference RS-LR-TDDFT
-    calc = GPAW(xc=xc, h=h, charge=c, width=0, nbands=4)
+    calc = GPAW(xc=xc, h=h, charge=c, nbands=4)
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
     lr = lrtddft.LrTDDFT(calc, finegrid=0)

@@ -58,16 +58,16 @@ def dipole_op(c, state1, state2, k=0, s=0):
         ma1 = np.zeros(me.shape)
         for i in range(ni):
             for j in range(ni):
-                pij = Pi_i[i]*Pj_i[j]
+                pij = Pi_i[i] * Pj_i[j]
                 ij = packed_index(i, j, ni)
                 # L=0 term
-                ma0 += Delta_pL[ij,0]*pij
+                ma0 += Delta_pL[ij, 0] * pij
                 # L=1 terms
                 if wfs.setups[a].lmax >= 1:
                     # see spherical_harmonics.py for
                     # L=1:y L=2:z; L=3:x
-                    ma1 += np.array([Delta_pL[ij,3], Delta_pL[ij,1],
-                                     Delta_pL[ij,2]]) * pij
+                    ma1 += np.array([Delta_pL[ij, 3], Delta_pL[ij, 1],
+                                     Delta_pL[ij, 2]]) * pij
         ma += sqrt(4 * pi / 3) * ma1 + Ra * sqrt(4 * pi) * ma0
     gd.comm.sum(ma)
 
@@ -91,20 +91,14 @@ if debug:
 else:
     txt = None
 
-###
-
 test1 = True
 test2 = True
 test3 = True
 
-###
-
 a0 = 6.0
-a  = Atoms('H',
-           positions=[[a0 / 2, a0 / 2, a0 / 2 ]],
-           cell=[ a0, a0, a0 ])
-
-###
+a = Atoms('H',
+          positions=[[a0 / 2, a0 / 2, a0 / 2 ]],
+          cell=[a0, a0, a0])
 
 alpha1 = None
 alpha2 = None
@@ -115,16 +109,14 @@ alpha3 = None
 if test1:
     c = GPAW(
         h=h,
-        width=0.00,
-        nbands=nbands+10,
+        nbands=nbands + 10,
         spinpol=True,
         hund=True,
         xc='LDA',
         eigensolver='cg',
         convergence={'bands': nbands, 'eigenstates': 3.3e-4},
-        maxiter= 1000,
-        txt= txt
-        )
+        maxiter=1000,
+        txt=txt)
     a.set_calculator(c)
     a.get_potential_energy()
 
@@ -149,15 +141,14 @@ if test1:
     if rank == 0 and debug:
         print('From perturbation theory:')
         print('  alpha = ', alpha, ' A**2/eV')
-        print('  alpha = ', alpha*to_au, ' Bohr**3')
+        print('  alpha = ', alpha * to_au, ' Bohr**3')
 
     alpha1 = alpha
 
 ###
 
 c = GPAW(
-    h            = h,
-    width        = 0.00,
+    h=h,
     nbands       = 2,
     spinpol      = True,
     hund         = True,
@@ -165,8 +156,7 @@ c = GPAW(
     #eigensolver  = 'cg',
     convergence  = {'bands': nbands, 'eigenstates': 3.3e-4},
     maxiter      = 1000,
-    txt          = txt
-    )
+    txt          = txt)
 a.set_calculator(c)
 
 # Test 2
