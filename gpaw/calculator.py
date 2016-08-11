@@ -178,12 +178,24 @@ class GPAW(Calculator, PAW):
         for key, value in reader.parameters.items():
             if isinstance(value, aff.Reader):
                 value = dict(value.items())
+            dct[key] = value
+
+        def resolve_NDArrayReader(dct):
+            for key, value in dct.items():
+                if isinstance(value, aff.NDArrayReader):
+                    dct[key] = value.read()
+                if isinstance(value, dict):
+                    resolve_NDArrayReader(value)
+        resolve_NDArrayReader(dct)
+
+        for key, value in dct.items():
             if (isinstance(value, dict) and
                 isinstance(self.parameters[key], dict)):
                 self.parameters[key].update(value)
             else:
                 self.parameters[key] = value
             dct[key] = self.parameters[key]
+
         self.log.print_dict(dct)
         self.log()
         
