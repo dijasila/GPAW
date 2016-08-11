@@ -114,13 +114,15 @@ class Heterostructure:
         self.mynq = self.q2 - self.q1
         self.myq_abs = self.q_abs[self.q1: self.q2]
 
-        chi_monopole = np.array(chi_monopole)[:, self.q1: self.q2]
-        chi_dipole = np.array(chi_dipole)[:, self.q1: self.q2]
-        drho_monopole = np.array(drho_monopole)[:, self.q1: self.q2]
-        drho_dipole = np.array(drho_dipole)[:, self.q1: self.q2]
-
         self.frequencies = w[:windex]
         self.n_types = len(namelist)
+
+        chi_monopole = np.array(chi_monopole)[:, self.q1: self.q2]
+        chi_dipole = np.array(chi_dipole)[:, self.q1: self.q2]
+        for i in range(self.n_types):
+            drho_monopole[i] = np.array(drho_monopole[i])[self.q1: self.q2]
+            drho_dipole[i] = np.array(drho_dipole[i])[self.q1: self.q2]
+
         # layers and distances
         self.d = np.array(d) / Bohr  # interlayer distances
         if self.n_layers > 1:
@@ -986,10 +988,10 @@ class BuildingBlock():
         qd.set_symmetry(calc.atoms, kd.symmetry)
         q_cs = qd.ibzk_kc
         rcell_cv = 2 * pi * np.linalg.inv(calc.wfs.gd.cell_cv).T
-        if isotropic_q:  # only use q along [1 0 0] direction.
-            Nk = kd.N_c
-            qx = np.array(range(0, Nk[0] / 2)) / float(Nk[0])
-            q_cs = np.zeros([Nk[0] / 2, 3])
+        if isotropic_q:  # only use q along [1 0 0] or [0 1 0] direction.
+            Nk = kd.N_c[qdir]
+            qx = np.array(range(0, Nk / 2)) / float(Nk)
+            q_cs = np.zeros([Nk / 2, 3])
             q_cs[:, qdir] = qx
             q = 0
             if qmax is not None: 
@@ -1000,15 +1002,14 @@ class BuildingBlock():
                 q_c = q_cs[-1]
                 q_v = np.dot(q_c, rcell_cv)
                 q = (q_v**2).sum()**0.5
-                nk = kd.N_c[0]
-                assert nk % 2 == 0 
-                i = nk / 2.
+                assert Nk % 2 == 0 
+                i = Nk / 2.
                 while q < qmax:
-                    if i == nk:  # omit BZ edge 
+                    if i == Nk:  # omit BZ edge 
                         i += 1
                         continue 
                     q_c = np.zeros([3])
-                    q_c[qdir] = i / nk
+                    q_c[qdir] = i / Nk
                     q_cs = np.append(q_cs, q_c[np.newaxis, :], axis=0)
                     q_v = np.dot(q_c, rcell_cv)
                     q = (q_v**2).sum()**0.5
