@@ -63,7 +63,6 @@ class GPAW(Calculator, PAW):
         'background_charge': None,
         'external': None,
         'random': False,
-        #'txt': '-',
         'hund': False,
         'maxiter': 333,
         'idiotproof': True,
@@ -76,7 +75,8 @@ class GPAW(Calculator, PAW):
                         'eigenstates': 4.0e-8,  # eV^2
                         'bands': 'occupied',
                         'forces': np.inf},  # eV / Ang
-        'dtype': None,
+        'dtype': None,  # Deprecated
+        'width': None,  # Deprecated
         'verbose': 0}
 
     default_parallel = {
@@ -352,7 +352,7 @@ class GPAW(Calculator, PAW):
             if key in ['external', 'xc', 'poissonsolver']:
                 self.hamiltonian = None
                 self.occupations = None
-            elif key in ['occupations']:
+            elif key in ['occupations', 'width']:
                 self.occupations = None
             elif key in ['charge', 'background_charge']:
                 self.hamiltonian = None
@@ -654,7 +654,11 @@ class GPAW(Calculator, PAW):
             if orbital_free:
                 occ = {'name': 'orbital-free'}
             else:
-                if self.atoms.pbc.any():
+                width = self.parameters.width
+                if width is not None:
+                    warnings.warn('Please use occupations=FermiDirac({0})'
+                                  .format(width))
+                elif self.atoms.pbc.any():
                     width = 0.1  # eV
                 else:
                     width = 0.0
