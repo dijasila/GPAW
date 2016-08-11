@@ -180,6 +180,16 @@ class GPAW(Calculator, PAW):
                 value = dict(value.items())
             dct[key] = value
 
+        # Resolving recursively nested Readers
+        # XXX: this could be done in a clearer way
+        def resolve_Reader(dct):
+            for key, value in dct.items():
+                if isinstance(value, aff.Reader):
+                    dct[key] = dict(value.items())
+                if isinstance(value, dict):
+                    resolve_Reader(value)
+        resolve_Reader(dct)
+
         def resolve_NDArrayReader(dct):
             for key, value in dct.items():
                 if isinstance(value, aff.NDArrayReader):
