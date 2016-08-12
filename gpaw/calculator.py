@@ -226,6 +226,8 @@ class GPAW(Calculator, PAW):
         
     def calculate(self, atoms=None, properties=['energy'],
                   system_changes=['cell']):
+        """Calulate things."""
+        
         Calculator.calculate(self, atoms)
         atoms = self.atoms
         

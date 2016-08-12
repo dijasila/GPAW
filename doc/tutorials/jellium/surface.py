@@ -2,7 +2,7 @@ import numpy as np
 from ase import Atoms
 from ase.units import Bohr
 from gpaw.jellium import JelliumSlab
-from gpaw import GPAW, PW, Mixer
+from gpaw import GPAW, PW
 
 rs = 5.0 * Bohr  # Wigner-Seitz radius
 h = 0.2          # grid-spacing

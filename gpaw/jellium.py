@@ -5,10 +5,12 @@ from math import pi
 import numpy as np
 from ase.units import Bohr
 
+
 class Jellium():
     """ The Jellium object """
     def __init__(self, charge):
         """ Initialize the Jellium object
+        
         Input: charge, a positive number, the total Jellium background charge"""
         self.charge = charge
         self.rs = None  # the Wigner-Seitz radius
@@ -16,6 +18,9 @@ class Jellium():
         self.mask_g = None
         self.gd = None
 
+    def todict(self):
+        return {'charge': self.charge}
+        
     def set_grid_descriptor(self, gd):
         """ Set the grid descriptor for the Jellium background charge"""
         self.gd = gd
@@ -57,6 +62,12 @@ class JelliumSlab(Jellium):
         self.z1 = (z1 - 0.0001) / Bohr
         self.z2 = (z2 - 0.0001) / Bohr
 
+    def todict(self):
+        dct = Jellium.todict(self)
+        dct.update(z1=self.z1 * Bohr + 0.0001,
+                   z2=self.z2 * Bohr + 0.0001)
+        return dct
+        
     def get_mask(self):
         r_gv = self.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
         # r_gv: 4-dimensional ndarray
