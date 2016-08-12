@@ -586,7 +586,7 @@ class Density(object):
             if kptband_comm.rank > 0:
                 nP = sum(setup.ni * (setup.ni + 1) // 2
                          for setup in self.setups)
-                D_sP = np.empty((self.npsins, nP))
+                D_sP = np.empty((self.nspins, nP))
             kptband_comm.broadcast(D_sP, 0)
             D_asp.update(unpack_atomic_matrices(D_sP, self.setups))
             D_asp.check_consistency()

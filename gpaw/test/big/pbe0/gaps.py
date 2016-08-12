@@ -70,7 +70,7 @@ for name in ['Si', 'C', 'GaAs', 'MgO', 'NaCl', 'Ar']:
         atoms.calc.set(eigensolver='dav')
 
     atoms.get_potential_energy()
-    atoms.calc.write(name, mode='all')
+    atoms.calc.write(name + '.gpw', mode='all')
     
     ibzk_kc = atoms.calc.get_ibz_k_points()
     n = int(atoms.calc.get_number_of_electrons()) // 2
@@ -86,7 +86,7 @@ for name in ['Si', 'C', 'GaAs', 'MgO', 'NaCl', 'Ar']:
 
     deps_kn = vxc(atoms.calc, 'PBE')[0, ibzk, n - 1:n + 1]
         
-    pbe0 = EXX(name, 'PBE0', ibzk, (n - 1, n + 1), txt=name + '.exx')
+    pbe0 = EXX(name + '.gpw', 'PBE0', ibzk, (n - 1, n + 1), txt=name + '.exx')
     pbe0.calculate()
     deps0_kn = pbe0.get_eigenvalue_contributions()[0]
 

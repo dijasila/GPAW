@@ -16,6 +16,5 @@ atoms.calc = GPAW(h=0.20,
                   poissonsolver={'dipolelayer': 'xy'},
                   basis='dzp',
                   maxiter=200,
-                  width=0.1,
                   txt='Pt_H2O.txt')
 ncpus = 8

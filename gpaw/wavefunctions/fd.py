@@ -25,10 +25,11 @@ class FD(Mode):
     def __call__(self, *args, **kwargs):
         return FDWaveFunctions(self.nn, *args, **kwargs)
 
-    def write(self, writer):
-        Mode.write(self, writer)
-        writer.write(nn=self.nn,
-                     interpolation=self.interpolation)
+    def todict(self):
+        dct = Mode.todict(self)
+        dct['nn'] = self.nn
+        dct['interpolation'] = self.interpolation
+        return dct
         
 
 class FDWaveFunctions(FDPWWaveFunctions):

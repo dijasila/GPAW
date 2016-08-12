@@ -6,10 +6,10 @@ from gpaw import GPAW
 energies = []
 for name in ['zero', 'periodic', 'corrected']:
     if name == 'corrected':
-        calc = GPAW(name, txt=None,
+        calc = GPAW(name + '.gpw', txt=None,
                     poissonsolver={'dipolelayer': 'xy'})
     else:
-        calc = GPAW(name, txt=None)
+        calc = GPAW(name + '.gpw', txt=None)
 
     energies.append(calc.get_potential_energy())
 

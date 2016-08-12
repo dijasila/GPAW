@@ -572,7 +572,7 @@ class GPAW(Calculator, PAW):
 
         olddensity = None
         if (self.density is not None and
-            self.density.gd.comm.size != self.wfs.gd.comm.size):
+            (self.density.gd.parsize_c != self.wfs.gd.parsize_c).any()):
             # Domain decomposition has changed, so we need to
             # reinitialize density and hamiltonian:
             if par.fixdensity:

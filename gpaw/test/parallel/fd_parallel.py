@@ -1,14 +1,14 @@
 from __future__ import print_function
 import sys
 
+from ase.build import molecule
 from ase.utils import devnull
 
-from gpaw import GPAW
+from gpaw import GPAW, FermiDirac
 from gpaw import KohnShamConvergenceError
 from gpaw.utilities import compiled_with_sl
 from gpaw.mpi import world
-
-from ase.build import molecule
+from gpaw.forces import calculate_forces
 
 # Calculates energy and forces for various parallelizations
 
@@ -46,8 +46,8 @@ def run(formula='H2O', vacuum=2.0, cell=None, pbc=0, **morekwargs):
         pass
 
     E = calc.hamiltonian.e_total_free
-    F_av = calc.forces.calculate(calc.wfs, calc.density,
-                                 calc.hamiltonian)
+    F_av = calculate_forces(calc.wfs, calc.density,
+                            calc.hamiltonian)
 
     global Eref, Fref_av
     if Eref is None:
@@ -120,15 +120,14 @@ parallel = dict()
 basekwargs = dict(mode='fd',
                   eigensolver='rmm-diis',
                   maxiter=3,
-                  #basis='dzp',
-                  #nbands=18,
                   nbands=6,
                   parallel=parallel)
 
 Eref = None
 Fref_av = None
 
-OH_kwargs = dict(formula='NH2', vacuum=1.5, pbc=1, spinpol=1, width=0.1)
+OH_kwargs = dict(formula='NH2', vacuum=1.5, pbc=1, spinpol=1,
+                 occupations=FermiDirac(width=0.1))
 
 # start with empty parallel keyword
 # del parallel['sl_default']

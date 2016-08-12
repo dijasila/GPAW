@@ -64,11 +64,12 @@ class PW(Mode):
                               **kwargs)
         return wfs
 
-    def write(self, writer):
-        Mode.write(self, writer)
-        writer.write(ecut=self.ecut * units.Hartree)
+    def todict(self):
+        dct = Mode.todict(self)
+        dct['ecut'] = self.ecut * units.Hartree
         if self.cell_cv is not None:
-            writer.write(cell=self.cell_cv * units.Bohr)
+            dct['cell'] = self.cell_cv * units.Bohr
+        return dct
         
 
 class PWDescriptor:

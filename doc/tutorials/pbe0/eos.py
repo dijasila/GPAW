@@ -21,7 +21,7 @@ for k in range(2, 9):
                        txt=None)
         si.get_potential_energy()
         name = 'si-{0:.2f}-{1}'.format(a, k)
-        si.calc.write(name, mode='all')
+        si.calc.write(name + '.gpw', mode='all')
         pbe0 = EXX(name, 'PBE0', txt=name + '.pbe0.txt')
         pbe0.calculate()
         epbe0 = pbe0.get_total_energy()
