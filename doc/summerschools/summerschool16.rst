@@ -104,14 +104,17 @@ Setting up your UNIX environment
 The first time you use the databar computers, you must configure your
 environment.  Run the commands::
 
-    $ source ~mikst/camd2016.bashrc
+    $ source ~mikst/camd2016.sh
 
 
-This will set up the environment for you so that you can use ASE,
-GPAW, VMD and matplotlib.
+This will set up the environment, by modifying your ``.bashrc`` file,
+for you so that you can use ASE, GPAW and matplotlib. 
+Additionally it will configure the text editors nedit and 
+vim to be more python friendly.
+Note you only have to do this step the first time you login to the databar
+computer.
 
-Note that the filename ``.bashrc`` starts with a period, making it a
-hidden file in Unix.
+Note that the file ``.bashrc`` starts with a period, making it a hidden file in Unix.
 
 
 Running GPAW calculations
