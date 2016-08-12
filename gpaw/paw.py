@@ -166,6 +166,8 @@ class PAW:
 
     def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None,
                                      expert=False):
+        if not self.initialized:
+            self.initialize()
         nbands = self.wfs.diagonalize_full_hamiltonian(
             self.hamiltonian, self.atoms,
             self.occupations, self.log,

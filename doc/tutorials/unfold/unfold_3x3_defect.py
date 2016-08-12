@@ -1,8 +1,5 @@
-import pickle
-
 from ase.build import mx2
 from ase.dft.kpoints import get_bandpath, special_points
-from ase.parallel import paropen
 
 from gpaw import GPAW
 from gpaw.unfold import Unfold, find_K_from_k
