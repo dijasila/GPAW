@@ -159,7 +159,6 @@ class GPAW(Calculator, PAW):
         return writer
         
     def read(self, filename):
-        import ase.io.aff as aff
         from ase.io.trajectory import read_atoms
         self.log('Reading from {0}'.format(filename))
         
@@ -175,9 +174,7 @@ class GPAW(Calculator, PAW):
         self.log('Reading input parameters:')
         self.parameters = self.get_default_parameters()
         dct = {}
-        for key, value in reader.parameters.items():
-            if isinstance(value, aff.Reader):
-                value = dict(value.items())
+        for key, value in reader.parameters.asdict().items():
             if (isinstance(value, dict) and
                 isinstance(self.parameters[key], dict)):
                 self.parameters[key].update(value)
