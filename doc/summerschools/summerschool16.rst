@@ -105,7 +105,7 @@ The first time you use the databar computers, you must configure your
 environment.  Add the following line to the very end of your
 ``.bashrc`` file::
 
-    $ source ~mikst/camd2016.bashrc
+    source ~mikst/camd2016.bashrc
 
 
 This will set up the environment for you so that you can use ASE, GPAW and 
@@ -113,11 +113,12 @@ matplotlib.
 
 Note that the file ``.bashrc`` starts with a period, making it a hidden file in Unix.
 
-If you would like to setup the text editors nedit and vim in a python friendly
-way you can execute the command::
+If you would like to setup the text editors ``nedit`` and ``vim`` in a python
+friendly way you can execute the command::
 
-    $ source ~mikst/python_friendly.sh
+    $ sh ~mikst/python_friendly.sh
 
+This may take about a minute or so.
 
 
 Running GPAW calculations
