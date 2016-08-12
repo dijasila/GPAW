@@ -107,7 +107,9 @@ class LCAOWaveFunctions(WaveFunctions):
         
     def set_eigensolver(self, eigensolver):
         WaveFunctions.set_eigensolver(self, eigensolver)
-        eigensolver.initialize(self.gd, self.dtype, self.setups.nao, self.ksl)
+        if eigensolver:
+            eigensolver.initialize(self.gd, self.dtype, self.setups.nao,
+                                   self.ksl)
 
     def set_positions(self, spos_ac, atom_partition=None):
         with self.timer('Basic WFS set positions'):
