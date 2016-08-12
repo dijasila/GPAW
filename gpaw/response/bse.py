@@ -776,33 +776,25 @@ class BSE:
         return w_w, alpha_w
 
     def par_save(self, filename, name, A_sS):
-        from gpaw.io import open
-
-        nS = self.nS
-        if world.rank == 0:
-            w = open(filename, 'w', world)
-            w.dimension('nS', nS)
+        from gpaw.io import Writer
+        writer = Writer(filename, world, 'BSE')
             
-            if name == 'v_TS':
-                w.add('w_T', ('nS',), dtype=self.w_T.dtype)
-                w.fill(self.w_T)
-            w.add('rhoG0_S', ('nS',), dtype=complex)
-            w.fill(self.rhoG0_S)
-            w.add('df_S', ('nS',), dtype=complex)
-            w.fill(self.df_S)
+        if name == 'v_TS':
+            writer.write(w_T=self.w_T)
 
-            w.add(name, ('nS', 'nS'), dtype=complex)
+        writer.write(rhoG0_S=self.rhoG0_S,
+                     df_S=self.df_S)
+
+        writer.add_array(name, (self.nS, self.nS), dtype=complex)
         
         if not self.td and name == 'v_TS':
-            if world.rank == 0:
-                w.fill(A_sS)
+            writer.fill(A_sS)
         else:
             # Assumes that A_SS is written in order from rank 0 - rank N
             nK = self.kd.nbzkpts
             for irank in range(world.size):
                 if irank == 0:
-                    if world.rank == 0:
-                        w.fill(A_sS)
+                    writer.fill(A_sS)
                 else:
                     if world.rank == irank:
                         world.send(A_sS, 0, irank + 100)
@@ -811,44 +803,40 @@ class BSE:
                         iKrange = range(irank * iKsize,
                                         min((irank + 1) * iKsize, nK))
                         iSsize = len(iKrange) * self.nv * self.nc
-                        tmp = np.empty((iSsize, nS), complex)
+                        tmp = np.empty((iSsize, self.nS), complex)
                         world.receive(tmp, irank, irank + 100)
-                        w.fill(tmp)
-        if world.rank == 0:
-            w.close()
+                        writer.fill(tmp)
+
+        writer.close()
         world.barrier()
 
     def par_load(self, filename, name):
-        from gpaw.io import open
+        from ase.io.aff import affopen
 
-        r = open(filename, 'r')
-        nS = r.dimension('nS')
+        reader = affopen(filename)
+
+        self.rhoG0_S = reader.rhoG0_S
+        self.df_S = reader.df_S
+        
         nK = self.kd.nbzkpts
         myKsize = -(-nK // world.size)
         myKrange = range(world.rank * myKsize,
                          min((world.rank + 1) * myKsize, nK))
         mySsize = len(myKrange) * self.nv * self.nc
         if len(myKrange) > 0:
-            mySrange = range(myKrange[0] * self.nv * self.nc,
-                             myKrange[0] * self.nv * self.nc + mySsize)
+            S1 = myKrange[0] * self.nv * self.nc
+        else:
+            S1 = 0
+        S2 = S1 + mySsize
 
         if name == 'H_SS':
-            self.H_sS = np.zeros((mySsize, nS), dtype=complex)
-            if len(myKrange) > 0:
-                for si, s in enumerate(mySrange):
-                    self.H_sS[si] = r.get('H_SS', s)
+            self.H_sS = reader.proxy('H_SS')[S1:S2]
 
-        if name == 'v_TS':
-            self.w_T = r.get('w_T')
-            self.v_St = np.zeros((nS, mySsize), dtype=complex)
-            if len(myKrange) > 0:
-                for it, t in enumerate(mySrange):
-                    self.v_St[:, it] = r.get('v_TS', t)
-
-        self.rhoG0_S = r.get('rhoG0_S')
-        self.df_S = r.get('df_S')
-
-        r.close()
+        elif name == 'v_TS':
+            self.w_T = reader.w_T
+            self.v_St = reader.proxy('v_TS')[S1:S2].T.copy()
+            
+        reader.close()
         
     def print_initialization(self, td, eshift, gw_skn):
         p = functools.partial(print, file=self.fd)
