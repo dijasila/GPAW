@@ -25,9 +25,10 @@ class LCAO(Mode):
                                  atomic_correction=self.atomic_correction,
                                  **kwargs)
 
-    def write(self, writer):
-        Mode.write(self, writer)
-        writer.write(interpolation=self.interpolation)
+    def todict(self):
+        dct = Mode.todict(self)
+        dct['interpolation'] = self.interpolation
+        return dct
         
 
 # replace by class to make data structure perhaps a bit less confusing
