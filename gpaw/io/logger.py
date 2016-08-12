@@ -100,23 +100,22 @@ class GPAWLogger(object):
         self()
 
     def print_dict(self, dct, sep='  '):
+        options = np.get_printoptions()
+        np.set_printoptions(threshold=4, linewidth=50)
         for key, value in sorted(dct.items()):
             if isinstance(value, dict):
-                self(sep + '{0}: {{'.format(key))
-                self.print_dict(value, sep=sep+'   '+' '*len(str(key)))
-                self(sep + '{0}  }}'.format(' ' * len(str(key))))
-            elif isinstance(value, list):
-                self(sep + '{0}: ['.format(key))
-                self.print_dict(dict(enumerate(value)), sep=sep+'   '+' '*len(str(key)))
-                self(sep + '{0}  ]'.format(' ' * len(str(key))))
-            elif isinstance(value, np.ndarray):
-                if value.ndim == 1 and value.size < 5:
-                    self(sep + '{0}: {1}'.format(key, value))
-                else:
-                    self(sep + '{0}: np.ndarray({1}, dtype={2})'.format(key, value.shape, value.dtype))
+                sep = ',\n     ' + ' ' * len(key)
+                s = sep.join('{0}: {1}'.format(*item)
+                             for item in sorted(value.items()))
+                self('  {0}: {{{1}}}'.format(key, s))
+            elif hasattr(value, '__len__'):
+                value = np.asarray(value)
+                sep = ',\n     ' + ' ' * len(key)
+                s = sep.join(str(value).splitlines())
+                self('  {0}: {1}'.format(key, s))
             else:
-                self(sep + '{0}: {1}'.format(key, value))
-#                self(sep + '{0}: {1} {2}'.format(key, value, value.__class__.__name__))
+                self('  {0}: {1}'.format(key, value))
+        np.set_printoptions(**options)
 
     def __del__(self):
         """Destructor:  Write timing output before closing."""
