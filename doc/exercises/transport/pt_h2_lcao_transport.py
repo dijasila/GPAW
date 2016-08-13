@@ -26,7 +26,7 @@ print('Conductance: %.2f 2e^2/h' % G)
 
 # Determine the basis functions of the two Hydrogen atoms and subdiagonalize
 Pt_N = 5    # Number of Pt atoms on each side in the scattering region
-Pt_nbf = 9  # number of bf per Pt atom (basis=szp)
+Pt_nbf = 15  # number of bf per Pt atom (basis=szp)
 H_nbf = 4   # number of bf per H atom (basis=szp)
 bf_H1 = Pt_nbf * Pt_N
 bfs = range(bf_H1, bf_H1 + 2 * H_nbf)
