@@ -58,7 +58,7 @@ extra = {
 
 c = ase.db.connect('results.db')
 
-for name in ex_atomization.keys() + 'H Li Be B C N O F Cl P'.split():
+for name in list(ex_atomization.keys()) + 'H Li Be B C N O F Cl P'.split():
     id = c.reserve(name=name)
     if id is None:
         continue

@@ -3,8 +3,7 @@ from gpaw import GPAW, PW, FermiDirac
 
 calc = GPAW(mode=PW(600),
             xc='PBE',
-            width=FermiDirac(0.01),
-            spinpol=True,
+            occupations=FermiDirac(0.01),
             kpts=(32, 32, 16),
             symmetry='off',
             parallel={'band': 1, 'domain': 1},

@@ -786,7 +786,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             nprow = npcol = 1
             scalapack = False
 
-        self.pt.set_positions(atoms.get_scaled_positions())
+        self.set_positions(atoms.get_scaled_positions())
         self.kpt_u[0].P_ani = None
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
 

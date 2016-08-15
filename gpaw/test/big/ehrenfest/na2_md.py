@@ -62,7 +62,7 @@ if __name__ == '__main__':
     world.barrier()
 
     tdcalc = GPAW(name + '_gs.gpw', txt=name + '_td.txt')
-    tdcalc.forces.reset() #XXX debug
+    #tdcalc.forces.reset() #XXX debug
     tdcalc.initialize_positions()
     atoms = tdcalc.get_atoms()
 
