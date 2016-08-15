@@ -17,7 +17,7 @@ from gpaw.io.tar import Reader
 
 def wrap_old_gpw_reader(filename):
     warnings.warn('You are reading an old-style gpw-file.  It may work, but '
-                  'If I were you, I would delete it and redo the calculation!')
+                  'if I were you, I would delete it and redo the calculation!')
     
     r = Reader(filename)
     
@@ -164,12 +164,13 @@ def wrap_old_gpw_reader(filename):
         data['wave_functions.'][name + '.'] = {
             'ndarray': (shape, dtype.name, offset)}
 
-    new = aff.Reader(devnull, data=data)
+    new = aff.Reader(devnull, data=data,
+                     little_endian=r.byteswap ^ np.little_endian)
     
     for ref in new._data['wave_functions']._data.values():
         ref.fd = ref.offset
         ref.offset = 0
-            
+
     return new
     
     

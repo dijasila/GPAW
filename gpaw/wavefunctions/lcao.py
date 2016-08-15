@@ -1,4 +1,5 @@
 import numpy as np
+from ase.units import Bohr
 
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack
