@@ -53,6 +53,9 @@ class CG(Eigensolver):
     def __repr__(self):
         return 'CG(niter=%d, rtol=%5.1e)' % (self.niter, self.rtol)
 
+    def todict(self):
+        return {'name': 'cg', 'niter': self.niter}
+
     def initialize(self, wfs):
         if wfs.bd.comm.size > 1:
             raise ValueError('CG eigensolver does not support band '

@@ -46,8 +46,8 @@ class RMMDIIS(Eigensolver):
         self.trial_step = trial_step
         self.first = True
 
-    def write(self, writer):
-        writer.write(name='rmmdiis', niter=self.niter)
+    def todict(self):
+        return {'name': 'rmm-diis', 'niter': self.niter}
         
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do a single RMM-DIIS iteration for the kpoint"""
