@@ -165,6 +165,75 @@ You are now ready to embark on the :ref:`exercises` and :ref:`tutorials`.
 Have fun.
 
 
+Accessing databar files on your laptop
+======================================
+
+The databar has its own file system, separate from your laptop
+(obviously).  If you want to keep your scripts and/or results, the
+files should be transferred to your own computer.
+
+* If you use MobaXTerm on Windows, you can access your databar files
+  by dragging and dropping in the file window to the left.
+
+* If you use ssh to log in, and are familiar with the scp command, you
+  can use it to copy files back and forth::
+
+    scp camd16XXX@login.gbar.dtu.dk:myfolder/myfile .
+    scp localfile camd16XXX@login.gbar.dtu.dk:myfolder
+
+* You can map your databar home folder as a network drive:
+
+  - **On a MAC**: From Finder select Go / Connect to Server (⌘K) and
+    enter the following as the Server Address::
+
+      smb://home.cc.dtu.dk/camd16XXX
+
+  - **On Windows**: Tools | Map Network drive
+
+    And select any unused drive letter and enter the following as path::
+
+      \\home.cc.dtu.dk\camd16XXX
+
+  - **On Linux**: It depends on the Linux distribution and on what
+    software is installed.  If you have samba installed, you should be
+    able to mount the drive using the smb protocol, use the same
+    address as on a Mac (see above).
+
+    Another option that may work is the sshfs command. Create an empty
+    directory, and mount the remove file system there::
+
+      mkdir databar
+      sshfs camd16XXX@transfer.gbar.dtu.dk: databar
+
+    If you fumble, you may leave the folder in a half-mounted state,
+    and get a "Device or resource not ready" or "Transport endpoint is
+    not connected" error when you try again.  In those case, either create a new folder
+    with a new name, or reboot your linux machine.
+
+Cannot open new windows after 20 minutes
+========================================
+
+If you use SSH to log in from a Mac (and from *some* Linux
+distributions), an over-zealous security measure prevents the databar
+computer from opening new windows if it is more than 20 minutes since
+you logged in.
+
+To fix it, edit the file /etc/ssh/ssh_config as the super-user, and
+add a magic line to it::
+
+  cd /etc/ssh
+  sudo nano ssh_config
+
+This opens a primitive editor.  Use the arrow keys to go to the end of
+the file, and add this line::
+
+  ForwardX11Timeout 36000
+
+(it is case sensitive, so use copy-paste).
+
+Save the file and exit (Control-X).  This increases the time-out to 36000 seconds, i.e. ten hours.
+      
+
 Notes and hints
 ===============
 
