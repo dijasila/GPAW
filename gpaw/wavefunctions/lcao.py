@@ -891,7 +891,7 @@ class LCAOWaveFunctions(WaveFunctions):
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 C_nM = self.collect_array('C_nM', k, s)
-                writer.fill(C_nM)
+                writer.fill(C_nM * Bohr**-1.5)
 
     def read(self, reader):
         WaveFunctions.read(self, reader)
@@ -900,18 +900,11 @@ class LCAOWaveFunctions(WaveFunctions):
             return
             
         for kpt in self.kpt_u:
-            kpt.C_nM = reader.wave_functions.proxy('coefficients',
-                                                   kpt.s, kpt.k)
-        # if self.world.size == 1:
-        #     return
-
-        # Read to memory:
-        for kpt in self.kpt_u:
-            C_nM = kpt.C_nM
+            C_nM = reader.wave_functions.proxy('coefficients', kpt.s, kpt.k)
             kpt.C_nM = self.bd.empty(self.setups.nao, dtype=self.dtype)
             for myn, C_M in enumerate(kpt.C_nM):
                 n = self.bd.global_index(myn)
-                C_M[:] = C_nM[n]
+                C_M[:] = C_nM[n] * Bohr**1.5
 
     def estimate_memory(self, mem):
         nq = len(self.kd.ibzk_qc)

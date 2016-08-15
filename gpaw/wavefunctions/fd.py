@@ -223,6 +223,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
             return
 
         c = reader.bohr**1.5
+        if reader.version < 0:
+            c = 1  # old gpw file
         for kpt in self.kpt_u:
             # We may not be able to keep all the wave
             # functions in memory - so psit_nG will be a special type of
