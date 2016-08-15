@@ -116,7 +116,7 @@ def wrap_old_gpw_reader(filename):
 
     p['occupations'] = FermiDirac(r['FermiWidth'] * Ha,
                                   fixmagmom=fixmom)
-
+    
     p['mode'] = r['Mode']
 
     if p['mode'] == 'pw':
@@ -158,7 +158,7 @@ def wrap_old_gpw_reader(filename):
                       ('projections', 'Projections')]:
         try:
             fd, shape, size, dtype = r.get_file_object(old, ())
-        except IOError:
+        except KeyError:
             continue
         offset = fd
         data['wave_functions.'][name + '.'] = {

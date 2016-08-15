@@ -510,8 +510,6 @@ class Hamiltonian(object):
 
         if self.gd.comm.rank == 0:
             self.dH_asp = unpack_atomic_matrices(dH_sP, self.setups)
-            
-        #self.xc.read(reader)
 
 
 class RealSpaceHamiltonian(Hamiltonian):

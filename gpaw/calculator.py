@@ -479,10 +479,15 @@ class GPAW(Calculator, PAW):
         else:
             self.log('Spin-paired calculation\n')
             
+        if isinstance(par.background_charge, dict):
+            background = create_background_charge(**par.background_charge)
+        else:
+            background = par.background_charge
+            
         nao = self.setups.nao
         nvalence = self.setups.nvalence - par.charge
         if par.background_charge is not None:
-            nvalence += par.background_charge.charge
+            nvalence += background.charge
         M = abs(magmom_a.sum())
 
         nbands = par.nbands
@@ -560,7 +565,7 @@ class GPAW(Calculator, PAW):
             self.hamiltonian = None
 
         if self.density is None:
-            self.create_density(realspace, mode)
+            self.create_density(realspace, mode, background)
     
         # XXXXXXXXXX if setups change, then setups.core_charge may change.
         # But that parameter was supplied in Density constructor!
@@ -737,7 +742,7 @@ class GPAW(Calculator, PAW):
 
         self.log(self.wfs.eigensolver, '\n')
         
-    def create_density(self, realspace, mode):
+    def create_density(self, realspace, mode, background):
         gd = self.wfs.gd
 
         big_gd = gd.new_descriptor(comm=self.world)
@@ -764,7 +769,7 @@ class GPAW(Calculator, PAW):
             nspins=self.wfs.nspins,
             charge=self.parameters.charge + self.wfs.setups.core_charge,
             redistributor=redistributor,
-            background_charge=self.parameters.background_charge)
+            background_charge=background)
         
         if realspace:
             self.density = RealSpaceDensity(stencil=mode.interpolation,

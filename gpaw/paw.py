@@ -8,7 +8,7 @@
 The central object that glues everything together!"""
 
 import numpy as np
-from ase.units import Bohr, Hartree
+from ase.units import Bohr, Ha
 
 from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.external import PointChargePotential
@@ -100,11 +100,11 @@ class PAW:
                 function(*args, **kwargs)
 
     def get_reference_energy(self):
-        return self.wfs.setups.Eref * Hartree
+        return self.wfs.setups.Eref * Ha
 
     def get_homo_lumo(self):
         """Return HOMO and LUMO eigenvalues."""
-        return self.occupations.get_homo_lumo(self.wfs) * Hartree
+        return self.occupations.get_homo_lumo(self.wfs) * Ha
 
     def estimate_memory(self, mem):
         """Estimate memory use of this object."""
@@ -249,9 +249,8 @@ class PAW:
 
     get_pseudo_valence_density = get_pseudo_density  # Don't use this one!
 
-    def get_effective_potential(self, spin=0, pad=True, broadcast=False):
+    def get_effective_potential(self, spin=0, pad=True, broadcast=True):
         """Return pseudo effective-potential."""
-        # XXX should we do a gd.collect here?
         vt_G = self.hamiltonian.gd.collect(self.hamiltonian.vt_sG[spin],
                                            broadcast=broadcast)
         if vt_G is None:
@@ -259,7 +258,24 @@ class PAW:
 
         if pad:
             vt_G = self.hamiltonian.gd.zero_pad(vt_G)
-        return vt_G * Hartree
+        return vt_G * Ha
+
+    def get_electrostatic_potential(self):
+        """Return pseudo effective-potential."""
+        
+        ham = self.hamiltonian
+        dens = self.density
+        self.initialize_positions()
+        dens.interpolate_pseudo_density()
+        dens.calculate_pseudo_charge()
+        ham.update(dens)
+        
+        v_g = ham.gd.collect(ham.vHt_g, broadcast=True)
+        v_g = ham.finegd.zero_pad(v_g)
+        if hasattr(ham.poisson, 'correction'):
+            assert ham.poisson.c == 2
+            v_g[:, :, 0] = ham.poisson.correction
+        return v_g * Ha
 
     def get_pseudo_density_corrections(self):
         """Integrated density corrections.
@@ -308,28 +324,28 @@ class PAW:
         """Return the Fermi-level(s)."""
         eFermi = self.occupations.get_fermi_level()
         if eFermi is not None:
-            eFermi *= Hartree
+            eFermi *= Ha
         return eFermi
 
     def get_fermi_levels(self):
         """Return the Fermi-levels in case of fixed-magmom."""
         eFermi_np_array = self.occupations.get_fermi_levels()
         if eFermi_np_array is not None:
-            eFermi_np_array *= Hartree
+            eFermi_np_array *= Ha
         return eFermi_np_array
 
     def get_fermi_levels_mean(self):
         """Return the mean of th Fermi-levels in case of fixed-magmom."""
         eFermi_mean = self.occupations.get_fermi_levels_mean()
         if eFermi_mean is not None:
-            eFermi_mean *= Hartree
+            eFermi_mean *= Ha
         return eFermi_mean
 
     def get_fermi_splitting(self):
         """Return the Fermi-level-splitting in case of fixed-magmom."""
         eFermi_splitting = self.occupations.get_fermi_splitting()
         if eFermi_splitting is not None:
-            eFermi_splitting *= Hartree
+            eFermi_splitting *= Ha
         return eFermi_splitting
 
     def get_wigner_seitz_densities(self, spin):
@@ -388,7 +404,7 @@ class PAW:
 
         from gpaw.utilities.dos import raw_wignerseitz_LDOS, fold
         energies, weights = raw_wignerseitz_LDOS(self, a, spin)
-        return fold(energies * Hartree, weights, npts, width)
+        return fold(energies * Ha, weights, npts, width)
 
     def get_orbital_ldos(self, a,
                          spin=0, angular='spdf', npts=201, width=None,
@@ -413,7 +429,7 @@ class PAW:
 
         from gpaw.utilities.dos import raw_orbital_LDOS, fold
         energies, weights = raw_orbital_LDOS(self, a, spin, angular, nbands)
-        return fold(energies * Hartree, weights, npts, width)
+        return fold(energies * Ha, weights, npts, width)
 
     def get_lcao_dos(self, atom_indices=None, basis_indices=None,
                      npts=201, width=None):
@@ -445,7 +461,7 @@ class PAW:
                         
         eps_n, w_n = lcaodos.get_subspace_pdos(basis_indices)
         from gpaw.utilities.dos import fold
-        return fold(eps_n * Hartree, w_n, npts, width)
+        return fold(eps_n * Ha, w_n, npts, width)
 
     def get_all_electron_ldos(self, mol, spin=0, npts=201, width=None,
                               wf_k=None, P_aui=None, lc=None, raw=False):
@@ -467,7 +483,7 @@ class PAW:
 
         energies, weights = all_electron_LDOS(self, mol, spin,
                                               lc=lc, wf_k=wf_k, P_aui=P_aui)
-        return fold(energies * Hartree, weights, npts, width)
+        return fold(energies * Ha, weights, npts, width)
 
     def get_pseudo_wave_function(self, band=0, kpt=0, spin=0, broadcast=True,
                                  pad=True, periodic=False):
@@ -506,7 +522,7 @@ class PAW:
                 eps_n = np.empty(self.wfs.bd.nbands)
             self.wfs.world.broadcast(eps_n, 0)
         if eps_n is not None:
-            return eps_n * Hartree
+            return eps_n * Ha
 
     def get_occupation_numbers(self, kpt=0, spin=0, broadcast=True):
         """Return occupation array."""
@@ -525,7 +541,7 @@ class PAW:
         xc.set_positions(self.atoms.get_scaled_positions() % 1.0)
         if xc.orbital_dependent:
             self.converge_wave_functions()
-        return self.hamiltonian.get_xc_difference(xc, self.density) * Hartree
+        return self.hamiltonian.get_xc_difference(xc, self.density) * Ha
 
     def initial_wannier(self, initialwannier, kpointgrid, fixedstates,
                         edf, spin, nbands):
@@ -725,7 +741,7 @@ class PAW:
             setup = self.wfs.setups[a]
             dEH_a[a] = setup.dEH0 + np.dot(setup.dEH_p, D_sp.sum(0))
         self.wfs.gd.comm.sum(dEH_a)
-        return dEH_a * Hartree * Bohr**3
+        return dEH_a * Ha * Bohr**3
 
     def get_nonselfconsistent_energies(self, type='beefvdw'):
         from gpaw.xc.bee import BEEFEnsemble

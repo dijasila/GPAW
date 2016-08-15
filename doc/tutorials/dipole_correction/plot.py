@@ -1,29 +1,17 @@
 import numpy as np
-# mathtext fails to create Angstrom with matplotlib 0.99 on el6
-import matplotlib
-matplotlib.rc('text', usetex=True)
 import matplotlib.pyplot as plt
-import ase.units as units
 from ase.io import write
 from gpaw import GPAW
 
 # this test requires OpenEXR-libs
 
 for name in ['zero', 'periodic', 'corrected']:
-    if name == 'corrected':
-        calc = GPAW(name + '.gpw', txt=None,
-                    poissonsolver={'dipolelayer': 'xy'})
-    else:
-        calc = GPAW(name + '.gpw', txt=None)
+    calc = GPAW(name + '.gpw', txt=None)
 
     efermi = calc.get_fermi_level()
 
-    calc.restore_state()
-    v = (calc.hamiltonian.vHt_g * units.Hartree).mean(0).mean(0)
-    
+    v = calc.get_electrostatic_potential().mean(0).mean(0)
     z = np.linspace(0, calc.atoms.cell[2, 2], len(v), endpoint=False)
-    if not calc.atoms.pbc[2]:
-        z += z[1]
 
     plt.figure(figsize=(6.5, 4.5))
     plt.plot(z, v, label='xy-averaged potential')
