@@ -30,4 +30,4 @@ slab.set_calculator(calc)
   
 opt = LBFGS(slab, logfile=tag + '.log', trajectory=tag + '.traj')
 opt.run(fmax=0.05)
-calc.write(tag)
+calc.write(tag + '.gpw')

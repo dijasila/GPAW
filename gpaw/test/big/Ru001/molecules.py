@@ -16,4 +16,4 @@ for name in ['H2', 'N2', 'O2', 'NO']:
   
     opt = BFGS(mol, logfile=name + '.log', trajectory=name + '.traj')
     opt.run(fmax=0.05)
-    calc.write(name)
+    calc.write(name + '.gpw')
