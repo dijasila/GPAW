@@ -512,7 +512,7 @@ class PAWSetupGenerator:
         if rcore is None:
             rcore = self.rcmax * 0.8
         else:
-            assert rcore <= self.rcmax
+            assert abs(rcore) <= self.rcmax
 
         if self.ncore == 0:
             self.nct_g = self.rgd.zeros()
