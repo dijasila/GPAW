@@ -2,19 +2,20 @@
 
 import numpy as np
 from ase import Atoms
+from ase.io.trajectory import read_atoms
 from ase.units import Bohr
 
+import gpaw.mpi as mpi
 from gpaw import GPAW
 from gpaw.fdtd.polarizable_material import PolarizableMaterial
 from gpaw.fdtd.potential_couplers import (RefinerPotentialCoupler,
                                           MultipolesPotentialCoupler)
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import world, serial_comm
+from gpaw.poisson import PoissonSolver
 from gpaw.tddft import TDDFT
 from gpaw.transformers import Transformer
 from gpaw.utilities.gpts import get_number_of_grid_points
-from gpaw.poisson import PoissonSolver
-import gpaw.mpi as mpi
 
 # QSFDTD is a wrapper class to make calculations
 # easier, something like this:
@@ -170,18 +171,11 @@ class FDTDPoissonSolver:
                  cl_spacing=1.20,
                  remove_moments=(1, 1),
                  potential_coupler='Refiner',
-                 communicator=serial_comm,
-                 restart_reader=None,
-                 paw=None):
+                 communicator=serial_comm):
 
         self.rank = mpi.rank
 
         self.messages = []
-
-        if restart_reader is not None:  # restart
-            assert paw is not None
-            self.read(paw=paw, reader=restart_reader)
-            return  # we are ready
 
         assert (potential_coupler in ['Multipoles', 'Refiner'])
         self.potential_coupling_scheme = potential_coupler
@@ -224,6 +218,17 @@ class FDTDPoissonSolver:
         # Generate classical grid descriptor
         self.initialize_clgd()
 
+    def todict(self):
+        dct = dict(
+            name='fdtd',
+            eps=self.eps,
+            nn=self.nn,
+            relax=self.relax,
+            cell=self.qm.cell * Bohr,
+            potential_coupler=self.potential_coupling_scheme,
+            remove_moments=(self.remove_moment_qm, self.remove_moment_cl))
+        return dct
+
     def get_description(self):
         return 'FDTD+TDDFT'
 
@@ -238,7 +243,7 @@ class FDTDPoissonSolver:
         self.cl.extrapolated_qm_phi = self.cl.gd.empty()
 
     def estimate_memory(self, mem):
-        #self.cl.poisson_solver.estimate_memory(mem)
+        # self.cl.poisson_solver.estimate_memory(mem)
         self.qm.poisson_solver.estimate_memory(mem)
 
     # Return the TDDFT stencil by default
@@ -359,8 +364,8 @@ class FDTDPoissonSolver:
         self.given_cell = atoms_in.get_cell()
 
         # Sanity check: quantum box must be inside the classical one
-        assert (all([v1[w] <= v2[w] and v1[w] >= 0
-                and v2[w] <= np.diag(self.cl.cell)[w] for w in range(3)]))
+        assert (all([v1[w] <= v2[w] and v1[w] >= 0 and
+                     v2[w] <= np.diag(self.cl.cell)[w] for w in range(3)]))
 
         # Ratios of the user-given spacings
         self.hratios = self.cl.spacing_def / qmh
@@ -424,8 +429,8 @@ class FDTDPoissonSolver:
 
         # New quantum grid
         self.qm.cell = \
-            np.diag([(self.shift_indices_2[w] - self.shift_indices_1[w])
-                     * self.cl.spacing[w] for w in range(3)])
+            np.diag([(self.shift_indices_2[w] - self.shift_indices_1[w]) *
+                     self.cl.spacing[w] for w in range(3)])
         self.qm.spacing = self.cl.spacing / self.hratios
         N_c = get_number_of_grid_points(self.qm.cell, self.qm.spacing)
 
@@ -475,9 +480,9 @@ class FDTDPoissonSolver:
             % (tuple(np.diag(self.cl.cell) *
                      Bohr / get_number_of_grid_points(self.cl.cell,
                                                       self.cl.spacing))))
-        #msg("  Ratios of cl/qm spacings:    " +
+        # msg("  Ratios of cl/qm spacings:    " +
         #    "(%10i %10i %10i)" % (tuple(self.hratios)))
-        #msg("                             = (%10.2f %10.2f %10.2f)" %
+        # msg("                             = (%10.2f %10.2f %10.2f)" %
         #         (tuple((np.diag(self.cl.cell) * Bohr / \
         #                 get_number_of_grid_points(self.cl.cell,
         #                                           self.cl.spacing)) / \
@@ -496,7 +501,7 @@ class FDTDPoissonSolver:
         self.cl.subgds.append(GridDescriptor(N_c, subcell_cv, False,
                                              serial_comm, self.cl.dparsize))
 
-        #msg("  N_c/spacing of the subgrid:           " +
+        # msg("  N_c/spacing of the subgrid:           " +
         #    "%3i %3i %3i / %.4f %.4f %.4f" %
         #          (self.cl.subgds[0].N_c[0],
         #           self.cl.subgds[0].N_c[1],
@@ -504,7 +509,7 @@ class FDTDPoissonSolver:
         #           self.cl.subgds[0].h_cv[0][0] * Bohr,
         #           self.cl.subgds[0].h_cv[1][1] * Bohr,
         #           self.cl.subgds[0].h_cv[2][2] * Bohr))
-        #msg("  shape from the subgrid:           " +
+        # msg("  shape from the subgrid:           " +
         #    "%3i %3i %3i" % (tuple(self.cl.subgds[0].empty().shape)))
 
         self.cl.coarseners = []
@@ -514,7 +519,7 @@ class FDTDPoissonSolver:
             self.cl.refiners.append(Transformer(self.cl.subgds[n],
                                                 self.cl.subgds[n + 1]))
 
-            #msg("  refiners[%i] can perform the transformation " +
+            # msg("  refiners[%i] can perform the transformation " +
             #    "(%3i %3i %3i) -> (%3i %3i %3i)" % (\
             #         n,
             #         self.cl.subgds[n].empty().shape[0],
@@ -612,7 +617,7 @@ class FDTDPoissonSolver:
             #     % (tuple(self.cl.subgds[-1].empty().shape)))
 
         self.extended_deltaIndex = 2**(self.num_refinements) * self.extend_nn
-        #msg(" self.extended_deltaIndex = %i" % self.extended_deltaIndex)
+        # msg(" self.extended_deltaIndex = %i" % self.extended_deltaIndex)
 
         qgpts = self.cl.subgds[-1].coarsen().N_c
 
@@ -898,17 +903,11 @@ class FDTDPoissonSolver:
         return self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
 
     # Read restart data
-    def read(self, paw, reader):
+    def read(self, reader):
         r = reader.parameters.poissonsolver
 
         # FDTDPoissonSolver related data
-        self.eps = r.eps
-        self.nn = r.nn
-        self.relax = r.relax
-        self.potential_coupling_scheme = r.coupling_scheme
         self.description = r.description
-        self.remove_moment_qm = r.remove_moment_qm
-        self.remove_moment_cl = r.remove_moment_cl
         self.time = r.time
         self.time_step = r.time_step
 
@@ -952,7 +951,7 @@ class FDTDPoissonSolver:
         self.num_refinements = int(r.num_refinements)
 
         # Redefine atoms to suit the cut_cell routine
-        newatoms = paw.atoms.copy()
+        newatoms = read_atoms(reader.atoms)
         newatoms.positions = newatoms.positions + self.qm.corner1 * Bohr
         newatoms.set_cell(np.diag(self.given_cell))
         self.create_subsystems(newatoms)
@@ -991,20 +990,12 @@ class FDTDPoissonSolver:
         self.cl.gd.distribute(big_currents, self.classical_material.currents)
 
     def write(self, writer):
-
         # Classical materials data
         self.classical_material.write(writer.child('classmat'))
 
         # FDTDPoissonSolver related data
         writer.write(
-            name='fdtd',
-            eps=self.eps,
-            nn=self.nn,
-            relax=self.relax,
-            coupling_scheme=self.potential_coupling_scheme,
             description=self.get_description(),
-            remove_moment_qm=self.remove_moment_qm,
-            remove_moment_cl=self.remove_moment_cl,
             time=self.time,
             time_step=self.time_step,
             kick=self.kick,

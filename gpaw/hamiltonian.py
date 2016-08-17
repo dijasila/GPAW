@@ -10,7 +10,7 @@ from ase.units import Ha
 from gpaw.arraydict import ArrayDict
 from gpaw.external import create_external_potential
 from gpaw.lfc import LFC
-from gpaw.poisson import PoissonSolver
+from gpaw.poisson import create_poisson_solver
 from gpaw.transformers import Transformer
 from gpaw.utilities import (pack2, unpack, unpack2,
                             unpack_atomic_matrices, pack_atomic_matrices)
@@ -511,6 +511,9 @@ class Hamiltonian(object):
         if self.gd.comm.rank == 0:
             self.dH_asp = unpack_atomic_matrices(dH_sP, self.setups)
 
+        if hasattr(self.poisson, 'read'):
+            self.poisson.read(reader)
+
 
 class RealSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
@@ -524,7 +527,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         if psolver is None:
             psolver = {}
         if isinstance(psolver, dict):
-            psolver = PoissonSolver(**psolver)
+            psolver = create_poisson_solver(**psolver)
         self.poisson = psolver
         self.poisson.set_grid_descriptor(self.finegd)
 

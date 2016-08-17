@@ -41,6 +41,17 @@ number of multigrid levels even if the total number of grid points
 is divisible by a high power of 2."""
 
 
+def create_poisson_solver(name='fd', **kwargs):
+    if name == 'fft':
+        return FFTPoissonSolver()
+    if name == 'fdtd':
+        from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
+        return FDTDPoissonSolver(**kwargs)
+    elif name == 'fd':
+        return PoissonSolver(**kwargs)
+    1 / 0
+    
+
 def PoissonSolver(dipolelayer=None, **kwargs):
     if dipolelayer is not None:
         return DipoleCorrection(PoissonSolver(**kwargs), dipolelayer)
@@ -70,8 +81,8 @@ class FDPoissonSolver:
 
         self.description = None
 
-    def write(self, writer):
-        writer.write(nn=self.nn, relax=self.relax)
+    def todict(self):
+        return {'name': 'fd', 'nn': self.nn, 'relax': self.relax}
         
     def get_stencil(self):
         return self.nn
@@ -413,46 +424,6 @@ class NoInteractionPoissonSolver:
 
 
 class FFTPoissonSolver(FDPoissonSolver):
-    """FFT Poisson solver for general unit cells."""
-
-    relax_method = 0
-    nn = 999
-
-    def __init__(self, eps=2e-10):
-        # This class inherits from PoissonSolver but it has almost none of
-        # its capabilities and doesn't even invoke its constructor!!
-        self.charged_periodic_correction = None
-        self.remove_moment = None
-        self.eps = eps
-
-    def get_description(self):
-        return 'FFT'
-
-    def set_grid_descriptor(self, gd):
-        assert gd.pbc_c.all()
-        self.gd = gd
-
-    def initialize(self):
-        if self.gd.comm.rank == 0:
-            self.k2_Q, self.N3 = construct_reciprocal(self.gd)
-
-    def solve_neutral(self, phi_g, rho_g, eps=None):
-        if self.gd.comm.size == 1:
-            phi_g[:] = ifftn(fftn(rho_g) * 4.0 * pi / self.k2_Q).real
-        else:
-            rho_g = self.gd.collect(rho_g)
-            if self.gd.comm.rank == 0:
-                globalphi_g = ifftn(fftn(rho_g) * 4.0 * pi / self.k2_Q).real
-            else:
-                globalphi_g = None
-            self.gd.distribute(globalphi_g, phi_g)
-        return 1
-
-    def estimate_memory(self, mem):
-        mem.subnode('(Varies)', 0.0)
-
-
-class ParallelFFTPoissonSolver(FDPoissonSolver):
     """FFT Poisson solver for general unit cells."""
     # XXX it is criminally outrageous that this inherits from PoissonSolver!
 

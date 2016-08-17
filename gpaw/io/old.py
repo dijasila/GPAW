@@ -11,7 +11,7 @@ from ase.utils import devnull
 
 from gpaw.wavefunctions.pw import PW
 from gpaw.occupations import FermiDirac
-from gpaw.poisson import PoissonSolver, FFTPoissonSolver
+from gpaw.poisson import PoissonSolver
 from gpaw.io.tar import Reader
 
 
@@ -107,9 +107,7 @@ def wrap_old_gpw_reader(filename):
     p['stencils'] = (r['KohnShamStencil'],
                      r['InterpolationStencil'])
     ps = r['PoissonStencil']
-    if ps == 999:
-        p['poissonsolver'] = FFTPoissonSolver()
-    elif isinstance(ps, int) or ps == 'M':
+    if isinstance(ps, int) or ps == 'M':
         p['poissonsolver'] = PoissonSolver(nn=r['PoissonStencil'])
     p['charge'] = r['Charge']
     fixmom = r['FixMagneticMoment']
