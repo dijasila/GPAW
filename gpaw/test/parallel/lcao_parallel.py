@@ -3,8 +3,7 @@ import sys
 
 from ase.utils import devnull
 
-from gpaw import GPAW
-from gpaw import KohnShamConvergenceError
+from gpaw import GPAW, FermiDirac, KohnShamConvergenceError
 from gpaw.utilities import compiled_with_sl
 from gpaw.mpi import world
 from gpaw.forces import calculate_forces
@@ -19,8 +18,6 @@ parallel = dict()
 
 basekwargs = dict(mode='lcao',
                   maxiter=3,
-                  #basis='dzp',
-                  #nbands=18,
                   nbands=6,
                   parallel=parallel)
 
@@ -121,15 +118,14 @@ parallel = dict()
 
 basekwargs = dict(mode='lcao',
                   maxiter=3,
-                  #basis='dzp',
-                  #nbands=18,
                   nbands=6,
                   parallel=parallel)
 
 Eref = None
 Fref_av = None
 
-OH_kwargs = dict(formula='NH2', vacuum=1.5, pbc=1, spinpol=1, width=0.1)
+OH_kwargs = dict(formula='NH2', vacuum=1.5, pbc=1, spinpol=1,
+                 occupations=FermiDirac(0.1))
 
 # start with empty parallel keyword
 # del parallel['sl_default']

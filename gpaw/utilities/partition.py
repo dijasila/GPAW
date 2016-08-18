@@ -19,7 +19,7 @@ def to_parent_comm(partition):
     # XXXX we hope and pray that our communicator is "equivalent" to
     # that which includes parent's rank0.
     assert min(members) == members[0]
-    parent_rank_a -= members[0] # yuckkk
+    parent_rank_a -= members[0]  # yuckkk
     return AtomPartition(parent, parent_rank_a,
                          name='parent-%s' % partition.name)
 
@@ -83,7 +83,7 @@ class AtomicMatrixDistributor:
             assert not np.isnan(buf).any()
         else:
             buf = dH_asp.toarray()
-            buf[:] = np.nan # Let's be careful for now like --debug mode
+            buf[:] = np.nan  # Let's be careful for now like --debug mode
         self.broadcast_comm.broadcast(buf, 0)
         assert not np.isnan(buf).any()
         dH_asp.fromarray(buf)
@@ -108,10 +108,10 @@ class EvenPartitioning:
         #  i, I: local/global index
         self.comm = comm
         self.N = N
-        self.nlong = -(-N // comm.size) # size of a 'long' slice
-        self.nshort = N // comm.size # size of a 'short' slice
-        self.longcount = N % comm.size # number of ranks with a 'long' slice
-        self.shortcount = comm.size - self.longcount # ranks with 'short' slice
+        self.nlong = -(-N // comm.size)  # size of a long slice
+        self.nshort = N // comm.size  # size of a short slice
+        self.longcount = N % comm.size  # number of ranks with a long slice
+        self.shortcount = comm.size - self.longcount  # ranks with short slice
 
     def nlocal(self, rank=None):
         """Get the number of locally stored elements."""

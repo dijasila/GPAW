@@ -231,11 +231,11 @@ tests = [
     'pw/h.py',                              # ~7s
     'lrtddft/apmb.py',                      # ~7s
     'pseudopotential/hgh_h2o.py',           # ~7s
-#    'fdtd/ed_wrapper.py',                   # ~7s
-#    'fdtd/ed.py',                           # ~7s
-#    'fdtd/ed_shapes.py',                    # ~14s
-#    'inducedfield_td.py',                   # ~9s
-#    'transport.py',                         # ~73s
+    'fdtd/ed_wrapper.py',                   # ~7s
+    'fdtd/ed.py',                           # ~7s
+    'fdtd/ed_shapes.py',                    # ~14s
+    'inducedfield_td.py',                   # ~9s
+    'transport.py',                         # ~73s
     'pw/bulk.py',                           # ~7s
     'gllb/ne.py',                           # ~7s
     'lcao/force.py',                        # ~7s
@@ -369,6 +369,15 @@ tests = [
 
 
 exclude = []
+
+if True:
+    exclude.extend(['fdtd/ed_wrapper.py',
+                    'fdtd/ed.py',
+                    'fdtd/ed_shapes.py',
+                    'inducedfield_td.py',
+                    'transport.py'])
+    if mpi.size > 1:
+        exclude.append('lrtddft/excited_state.py')
 
 if mpi.size > 1:
     exclude += ['ase_features/asewannier.py',

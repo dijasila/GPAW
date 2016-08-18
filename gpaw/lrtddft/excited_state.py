@@ -41,8 +41,13 @@ class FiniteDifferenceCalculator(Calculator):
                 self.txt = self.lrtddft.txt
             else:
                 self.txt = convert_string_to_fd(txt, world)
-            self.log = self.txt
-                
+
+            # XXX please fix this !!!!!
+            from gpaw.io.logger import GPAWLogger
+            self.log = GPAWLogger(world)
+            self.log.fd = self.txt
+            self.reader = None
+            
         print('#', self.__class__.__name__, __version__, file=self.txt)
 
         self.d = d
