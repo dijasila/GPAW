@@ -208,7 +208,7 @@ class GPAW(Calculator, PAW):
                                                          new_atom_partition)
             
         self.hamiltonian.xc.read(reader)
-        self.occupations.calculate(self.wfs)
+        #self.occupations.calculate(self.wfs)
 
         return reader
         

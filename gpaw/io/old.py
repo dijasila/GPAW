@@ -21,8 +21,6 @@ def wrap_old_gpw_reader(filename):
     
     r = Reader(filename)
     
-    assert not r.byteswap
-    
     data = {'version': -1,
             'ha': Ha,
             'bohr': Bohr,
@@ -106,9 +104,20 @@ def wrap_old_gpw_reader(filename):
         
     p['stencils'] = (r['KohnShamStencil'],
                      r['InterpolationStencil'])
+    
+    poisson = {'name': 'fd'}
+    vt_sG = r.get('PseudoPotential') * Ha
+    if data['atoms.']['pbc'] == [1, 1, 0]:
+        v1, v2 = vt_sG[0, :, :, [0, -1]].mean(axis=(1, 2))
+        if abs(v1 - v2) > 0.01:
+            warnings.warn('I am guessing that this calculation was done '
+                          'with a dipole-layer correction?')
+            poisson['dipolelayer'] = 'xy'
+    
     ps = r['PoissonStencil']
     if isinstance(ps, int) or ps == 'M':
-        p['poissonsolver'] = PoissonSolver(nn=r['PoissonStencil'])
+        poisson['nn'] = ps
+        p['poissonsolver'] = poisson
     p['charge'] = r['Charge']
     fixmom = r['FixMagneticMoment']
 
@@ -127,7 +136,7 @@ def wrap_old_gpw_reader(filename):
 
     data['occupations.'] = {
         'fermilevel': r['FermiLevel'] * Ha,
-        'split': r.parameters.get('FermiLevel', 0) * Ha,
+        'split': r.parameters.get('FermiSplit', 0) * Ha,
         'homo': np.nan,
         'lumo': np.nan}
     
@@ -143,7 +152,7 @@ def wrap_old_gpw_reader(filename):
         'e_total_extrapolated': e_total_extrapolated,
         'e_xc': r['Exc'] * Ha,
         'e_zero': r['Ebar'] * Ha,
-        'potential': r.get('PseudoPotential') * Ha,
+        'potential': vt_sG,
         'atomic_hamiltonian_matrices': r.get('NonLocalPartOfHamiltonian') * Ha}
     data['hamiltonian.']['e_total_free'] = (
         sum(data['hamiltonian.'][e] for e in ['e_coulomb', 'e_entropy',

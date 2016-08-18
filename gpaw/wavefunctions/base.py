@@ -432,7 +432,8 @@ class WaveFunctions:
             f_n = r.proxy('occupations', kpt.s, kpt.k)[nslice]
             if reader.version > 0:
                 f_n *= kpt.weight  # skip for old tar-files gpw's
-            kpt.eps_n = eps_n / reader.ha
+                eps_n /= reader.ha
+            kpt.eps_n = eps_n
             kpt.f_n = f_n
             if self.gd.comm.rank == 0:
                 P_nI = r.proxy('projections', kpt.s, kpt.k)[:]
