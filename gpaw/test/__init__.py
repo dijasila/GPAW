@@ -231,10 +231,13 @@ tests = [
     'pw/h.py',                              # ~7s
     'lrtddft/apmb.py',                      # ~7s
     'pseudopotential/hgh_h2o.py',           # ~7s
-    'fdtd/ed_wrapper.py',                   # ~7s
+#    'fdtd/ed_wrapper.py',                   # ~7s
+#    'fdtd/ed.py',                           # ~7s
+#    'fdtd/ed_shapes.py',                    # ~14s
+#    'inducedfield_td.py',                   # ~9s
+#    'transport.py',                         # ~73s
     'pw/bulk.py',                           # ~7s
     'gllb/ne.py',                           # ~7s
-    'fdtd/ed.py',                           # ~7s
     'lcao/force.py',                        # ~7s
     'xc/pplda.py',                          # ~7s
     'fileio/restart_density.py',            # ~8s
@@ -242,7 +245,6 @@ tests = [
     'tddft/be_nltd_ip.py',                  # ~8s
     'test_ibzqpt.py',                       # ~8s
     'generic/si_primitive.py',              # ~9s
-    'inducedfield_td.py',                   # ~9s
     'tddft/ehrenfest_nacl.py',              # ~9s
     'lcao/fd2lcao_restart.py',              # ~9s
     'ext_potential/constant_e_field.py',    # ~9s
@@ -269,7 +271,6 @@ tests = [
     'ralda/ralda_energy_Ni.py',             # ~13s
     'utilities/simple_stm.py',              # ~13s
     'ofdft/ofdft_pbc.py',                   # ~13s
-    'fdtd/ed_shapes.py',                    # ~14s
     'gllb/restart_band_structure.py',       # ~14s
     'exx/exx.py',                           # ~14s
     'Hubbard_U.py',                         # ~15s
@@ -330,7 +331,6 @@ tests = [
     'pw/si_stress.py',                      # ~61s
     'response/chi0.py',                     # ~71s
     'sic/scfsic_n2.py',                     # ~73s
-    'transport.py',                         # ~73s
     'lrtddft/3.py',                         # ~75s
     'pathological/nonlocalset.py',          # ~82s
     # buildbot > 100 sec tests start here (add tests after xc/lb94.py!)
