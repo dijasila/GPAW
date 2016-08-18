@@ -556,13 +556,13 @@ class GPAW(Calculator, PAW):
         if not self.wfs.eigensolver:
             self.create_eigensolver(xc, nbands, mode)
 
-        olddensity = None
+        olddens = None
         if (self.density is not None and
             (self.density.gd.parsize_c != self.wfs.gd.parsize_c).any()):
             # Domain decomposition has changed, so we need to
             # reinitialize density and hamiltonian:
             if par.fixdensity:
-                olddensity = self.density
+                olddens = self.density
 
             self.density = None
             self.hamiltonian = None
@@ -582,16 +582,19 @@ class GPAW(Calculator, PAW):
         self.density.fixed = par.fixdensity
         self.density.log = self.log
 
-        if olddensity is not None:
-            self.density.initialize_from_other_density(olddensity,
+        if olddens is not None:
+            self.density.initialize_from_other_density(olddens,
                                                        self.wfs.kptband_comm)
-
+            
         if self.hamiltonian is None:
             self.create_hamiltonian(realspace, mode, xc)
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
 
+        if xc.name == 'GLLBSC' and olddens is not None:
+            xc.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)
+            
         self.print_memory_estimate(maxdepth=memory_estimate_depth + 1)
         
         print_parallelization_details(self.wfs, self.density, self.log)

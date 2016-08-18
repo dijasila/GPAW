@@ -172,3 +172,12 @@ class NonLocalFunctional(XCFunctional):
     def write(self, writer):
         for contribution in self.contributions:
             contribution.write(writer)
+
+    def heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(self, olddens):
+        for contribution in self.contributions:
+            try:
+                contribution.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)
+            except AttributeError:
+                pass
+
+            

@@ -568,7 +568,7 @@ class Density(object):
         Collect dens.nt_sG and dens.D_asp to world master and distribute."""
         
         new_nt_sG = redistribute_array(dens.nt_sG, dens.gd, self.gd,
-                                       kptband_comm)
+                                       self.nspins, kptband_comm)
     
         self.atom_partition, self.atomdist, D_asp = \
             redistribute_atomic_matrices(dens.D_asp, self.gd, self.nspins,
@@ -672,9 +672,9 @@ class RealSpaceDensity(Density):
         return self.finegd.calculate_dipole_moment(self.rhot_g)
 
 
-def redistribute_array(nt_sG, gd1, gd2, kptband_comm):
+def redistribute_array(nt_sG, gd1, gd2, nspins, kptband_comm):
     nt_sG = gd1.collect(nt_sG)
-    new_nt_sG = gd2.empty(len(nt_sG))
+    new_nt_sG = gd2.empty(nspins)
     if kptband_comm.rank == 0:
         gd2.distribute(nt_sG, new_nt_sG)
     kptband_comm.broadcast(new_nt_sG, 0)

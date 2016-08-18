@@ -471,12 +471,9 @@ class C_Response(Contribution):
             self.calculate_delta_xc()
 
         wfs = self.wfs
-        world = wfs.world
         kpt_comm = wfs.kd.comm
         gd = wfs.gd
         
-        master = (world.rank == 0)
-
         nadm = 0
         for setup in wfs.setups:
             ni = setup.ni
@@ -549,6 +546,16 @@ class C_Response(Contribution):
 
         # Dsp and Dresp need to be redistributed
         self.just_read = True
+
+    def heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(self, olddens):
+        from gpaw.density import redistribute_array
+        self.vt_sg = redistribute_array(self.vt_sg,
+                                        olddens.finegd, self.finegd,
+                                        self.wfs.nspins, self.wfs.kptband_comm)
+        self.Dxc_vt_sG = redistribute_array(self.Dxc_vt_sG,
+                                            olddens.gd, self.gd,
+                                            self.wfs.nspins,
+                                            self.wfs.kptband_comm)
 
 
 if __name__ == '__main__':
