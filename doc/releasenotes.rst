@@ -10,6 +10,10 @@ Git master branch
 
 :git:`master <>`.
 
+* New file-format for gpw-files.  Reading of old files should still work.
+
+* New get_electrostatic_potential() method.
+
 
 Version 1.1.0
 =============
