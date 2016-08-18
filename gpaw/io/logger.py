@@ -103,6 +103,8 @@ class GPAWLogger(object):
         options = np.get_printoptions()
         np.set_printoptions(threshold=4, linewidth=50)
         for key, value in sorted(dct.items()):
+            if hasattr(value, 'todict'):
+                value = value.todict()
             if isinstance(value, dict):
                 sep = ',\n     ' + ' ' * len(key)
                 s = sep.join('{0}: {1}'.format(*item)
@@ -110,7 +112,7 @@ class GPAWLogger(object):
                 self('  {0}: {{{1}}}'.format(key, s))
             elif hasattr(value, '__len__'):
                 value = np.asarray(value)
-                sep = ',\n     ' + ' ' * len(key)
+                sep = ',\n    ' + ' ' * len(key)
                 s = sep.join(str(value).splitlines())
                 self('  {0}: {1}'.format(key, s))
             else:

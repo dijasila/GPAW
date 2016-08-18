@@ -84,7 +84,7 @@ class Hamiltonian(object):
         s = 'Hamiltonian:\n'
         s += ('  XC and Coulomb potentials evaluated on a {0}*{1}*{2} grid\n'
               .format(*self.finegd.N_c))
-        s += '  Using the %s Exchange-Correlation Functional.' % self.xc.name
+        s += '  Using the %s Exchange-Correlation Functional\n' % self.xc.name
         desc = self.xc.get_description()
         if desc is not None:
             s += '  Details:\n    {0}\n'.format('\n'.join(desc.splitlines()))
@@ -555,7 +555,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         name = ['linear', 'cubic', 'quintic', 'heptic'][degree // 2]
         s += ('  Interpolation: tri-%s ' % name +
               '(%d. degree polynomial)\n' % degree)
-        s += 'Poisson solver: %s\n' % self.poisson.get_description()
+        s += '  Poisson solver: %s' % self.poisson.get_description()
         return s
 
     def set_positions(self, spos_ac, rank_a):
