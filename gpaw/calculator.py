@@ -208,7 +208,10 @@ class GPAW(Calculator, PAW):
                                                          new_atom_partition)
             
         self.hamiltonian.xc.read(reader)
-        #self.occupations.calculate(self.wfs)
+        
+        if self.hamiltonian.xc.name == 'GLLBSC':
+            # XXX GLLB: See lcao/tdgllbsc.py test
+            self.occupations.calculate(self.wfs)
 
         return reader
         
