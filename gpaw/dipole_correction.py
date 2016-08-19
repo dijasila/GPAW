@@ -1,4 +1,5 @@
 import numpy as np
+from ase.utils import basestring
 
 from gpaw.utilities import erf
 
@@ -26,7 +27,7 @@ class DipoleCorrection:
         return self.poissonsolver.get_stencil()
 
     def set_grid_descriptor(self, gd):
-        if isinstance(self.c, str):
+        if isinstance(self.c, basestring):
             axes = ['xyz'.index(d) for d in self.c]
             for c in range(3):
                 if abs(gd.cell_cv[c, axes]).max() < 1e-12:

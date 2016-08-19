@@ -6,7 +6,7 @@ import numpy as np
 from ase.units import Bohr
 
 
-def create_bacground_charge(**kwargs):
+def create_background_charge(**kwargs):
     if 'z1' in kwargs:
         return JelliumSlab(**kwargs)
     return Jellium(**kwargs)

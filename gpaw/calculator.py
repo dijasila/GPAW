@@ -7,34 +7,35 @@ from ase.calculators.calculator import Calculator
 from ase.utils import basestring
 from ase.utils.timing import Timer
 
-import gpaw.io
+import gpaw
 import gpaw.mpi as mpi
-from gpaw.xc import XC
-from gpaw.xc.sic import SIC
+import gpaw.wavefunctions.pw as pw
+from gpaw import dry_run, memory_estimate_depth
+from gpaw.band_descriptor import BandDescriptor
+from gpaw.density import RealSpaceDensity
+from gpaw.eigensolvers import get_eigensolver
+from gpaw.forces import calculate_forces
+from gpaw.grid_descriptor import GridDescriptor
+from gpaw.hamiltonian import RealSpaceHamiltonian
+from gpaw.io.logger import GPAWLogger
+from gpaw.io import Reader, Writer
+from gpaw.jellium import create_background_charge
+from gpaw.kpt_descriptor import KPointDescriptor, kpts2ndarray
+from gpaw.kohnsham_layouts import get_KohnSham_layouts
+from gpaw.occupations import create_occupation_number_object
+from gpaw.output import (print_cell, print_positions,
+                         print_parallelization_details)
+from gpaw.paw import PAW
 from gpaw.scf import SCFLoop
 from gpaw.setup import Setups
 from gpaw.symmetry import Symmetry
-import gpaw.wavefunctions.pw as pw
-from gpaw.io.logger import GPAWLogger
-from gpaw.output import (print_cell, print_positions,
-                         print_parallelization_details)
-from gpaw.occupations import create_occupation_number_object
-from gpaw.wavefunctions.mode import create_wave_function_mode
-from gpaw.density import RealSpaceDensity
-from gpaw.eigensolvers import get_eigensolver
-from gpaw.band_descriptor import BandDescriptor
-from gpaw.grid_descriptor import GridDescriptor
-from gpaw.kpt_descriptor import KPointDescriptor, kpts2ndarray
-from gpaw.hamiltonian import RealSpaceHamiltonian
-from gpaw.kohnsham_layouts import get_KohnSham_layouts
+from gpaw.stress import calculate_stress
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
 from gpaw.utilities.partition import AtomPartition
-from gpaw import dry_run, memory_estimate_depth
-from gpaw.paw import PAW
-from gpaw.io import Reader, Writer
-from gpaw.forces import calculate_forces
-from gpaw.stress import calculate_stress
+from gpaw.wavefunctions.mode import create_wave_function_mode
+from gpaw.xc import XC
+from gpaw.xc.sic import SIC
 
 
 class GPAW(Calculator, PAW):
