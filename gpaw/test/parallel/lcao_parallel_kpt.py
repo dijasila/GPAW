@@ -4,8 +4,7 @@ import sys
 from ase.build import molecule
 from ase.utils import devnull
 
-from gpaw import GPAW
-from gpaw import KohnShamConvergenceError
+from gpaw import GPAW, FermiDirac, KohnShamConvergenceError
 from gpaw.utilities import compiled_with_sl
 from gpaw.forces import calculate_forces
 
@@ -122,7 +121,8 @@ basekwargs = dict(mode='lcao',
 Eref = None
 Fref_av = None
 
-OH_kwargs = dict(formula='NH2', vacuum=1.5, pbc=1, spinpol=1, width=0.1)
+OH_kwargs = dict(formula='NH2', vacuum=1.5, pbc=1, spinpol=1,
+                 occupations=FermiDirac(width=0.1))
 
 # reference:
 # kpt-parallelization = 4,

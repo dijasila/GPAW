@@ -97,7 +97,7 @@ class OccupationsDSCF(FermiDirac):
                 fermilevels = [ef + 0.5 * self.split, ef - 0.5 * self.split]
             else:
                 fermilevels = ef
-            c_oun.append(orb[1].expand(fermilevels, wfs))
+            c_oun.append(orb[1].expand(fermilevels, wfs, self.fixmagmom))
 
         for u, kpt in enumerate(wfs.kpt_u):
             kpt.ne_o = np.zeros(self.norbitals, dtype=float)
@@ -180,17 +180,15 @@ class MolecularOrbital:
     def __init__(self, paw, Estart=0.0, Eend=1.e6,
                  nos=None, weights={0: [1], 1: [-1]}):
 
-        self.fixmom = paw.occupations.fixmagmom
         self.w = weights
         self.Estart = Estart
         self.Eend = Eend
         self.nos = nos
 
-    def expand(self, epsF, wfs):
-
+    def expand(self, epsF, wfs, fixmom):
         if wfs.nspins == 1:
             epsF = [epsF]
-        elif not self.fixmom:
+        elif not fixmom:
             epsF = [epsF, epsF]
 
         if self.nos is None:
@@ -274,7 +272,6 @@ class AEOrbital:
     def __init__(self, paw, wf_u, p_uai, Estart=0.0, Eend=1.e6, nos=None,
                  txt='-'):
 
-        self.fixmom = paw.occupations.fixmagmom
         self.wf_u = wf_u
         self.p_uai = p_uai
         self.Estart = Estart
@@ -290,11 +287,11 @@ class AEOrbital:
         else:
             self.txt = txt
 
-    def expand(self, epsF, wfs):
+    def expand(self, epsF, wfs, fixmom):
 
         if wfs.nspins == 1:
             epsF = [epsF]
-        elif not self.fixmom:
+        elif not fixmom:
             epsF = [epsF, epsF]
 
         if self.nos is None:

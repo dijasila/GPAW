@@ -1,15 +1,13 @@
-from __future__ import print_function
-
 import os
 import time
 import numpy as np
-
 from ase import Atoms
 from ase.optimize.bfgs import BFGS
 from ase.parallel import paropen
 from ase.units import Hartree, Bohr
 from ase.io import Trajectory
 from ase.calculators.singlepoint import SinglePointCalculator
+
 from gpaw import GPAW
 from gpaw.mpi import world
 from gpaw.occupations import FermiDirac

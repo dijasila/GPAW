@@ -1,6 +1,6 @@
 from ase.build import molecule
 from gpaw import GPAW
-from gpaw import dscf
+import gpaw.dscf as dscf
 from gpaw.test import equal
 
 # Ground state calculation

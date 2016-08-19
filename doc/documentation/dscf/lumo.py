@@ -6,7 +6,7 @@ from ase.visualize import view
 from ase.build import fcc111, add_adsorbate
 from gpaw import GPAW
 from gpaw.mixer import MixerSum
-from gpaw import dscf
+import gpaw.dscf as dscf
 
 filename='lumo'
 
