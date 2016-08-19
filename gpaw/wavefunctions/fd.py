@@ -242,6 +242,9 @@ class FDWaveFunctions(FDPWWaveFunctions):
             # Read band by band to save memory
             for myn, psit_G in enumerate(kpt.psit_nG):
                 n = self.bd.global_index(myn)
+                # XXX number of bands could have been rounded up!
+                if n >= len(psit_nG):
+                    break
                 if self.gd.comm.rank == 0:
                     big_psit_G = np.asarray(psit_nG[n], self.dtype)
                 else:

@@ -693,7 +693,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
             ng = self.ng_k[kpt.k]
             for myn, psit_G in enumerate(kpt.psit_nG):
                 n = self.bd.global_index(myn)
-                psit_G[:] = psit_nG[n]
+                # XXX number of bands could have been rounded up!
+                if n < len(psit_nG):
+                    psit_G[:] = psit_nG[n]
 
     def hs(self, ham, q=-1, s=0, md=None):
         npw = len(self.pd.Q_qG[q])

@@ -905,6 +905,9 @@ class LCAOWaveFunctions(WaveFunctions):
             kpt.C_nM = self.bd.empty(self.setups.nao, dtype=self.dtype)
             for myn, C_M in enumerate(kpt.C_nM):
                 n = self.bd.global_index(myn)
+                # XXX number of bands could have been rounded up!
+                if n >= len(C_nM):
+                    break
                 C_M[:] = C_nM[n] * Bohr**1.5
 
     def estimate_memory(self, mem):
