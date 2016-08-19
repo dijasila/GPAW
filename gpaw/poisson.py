@@ -82,7 +82,8 @@ class FDPoissonSolver:
         self.description = None
 
     def todict(self):
-        return {'name': 'fd', 'nn': self.nn, 'relax': self.relax}
+        return {'name': 'fd', 'nn': self.nn, 'relax': self.relax,
+                'eps': self.eps, 'remove_moment': self.remove_moment}
         
     def get_stencil(self):
         return self.nn
