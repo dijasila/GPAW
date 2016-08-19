@@ -12,5 +12,5 @@ molecule.set_calculator(calc)
 
 molecule.get_potential_energy()
 
-lr = LrTDDFT(calc, xc='LDA', istart=0, jend=10, nspins=2)
+lr = LrTDDFT(calc, xc='LDA')
 lr.write('Omega_Na2.gz')
