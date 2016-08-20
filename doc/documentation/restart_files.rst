@@ -30,8 +30,11 @@ The calculation can be read from file like this::
 or this::
 
   atoms, calc = restart('xyz.gpw')
+ 
+By adding the option txt=None you can suppress text output when restarting
+(e.g. when plotting a DOS)::
 
-
+  atoms, calc = restart('xyz.gpw', txt=None)
 
 GPAW's native file format
 =========================
