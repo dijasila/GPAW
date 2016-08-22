@@ -43,10 +43,10 @@ class DOSPES(BasePES):
         e_HOMO = ex_m[0]
 
         if self.vde is not None:
-            assert(self.shift is False)
+            assert not self.shift
             energy_shift = -e_HOMO + self.vde
         else:
-            if self.shift is True:
+            if self.shift:
                 e_m = self.c_m.get_potential_energy()
                 try:
                     energy_shift = float(self.c_d) - e_HOMO

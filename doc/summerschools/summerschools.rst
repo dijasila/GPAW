@@ -9,3 +9,5 @@ Summer schools
     summerschool12
     summerschool10
     summerschool08
+    mobaxterm
+    

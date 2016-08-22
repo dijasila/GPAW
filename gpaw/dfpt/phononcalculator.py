@@ -121,7 +121,7 @@ class PhononCalculator:
 
         # Number of occupied bands
         nvalence = self.calc.wfs.nvalence
-        nbands = nvalence / 2 + nvalence % 2
+        nbands = nvalence // 2 + nvalence % 2
         assert nbands <= self.calc.wfs.bd.nbands
 
         # Extract other useful objects

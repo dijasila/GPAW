@@ -65,7 +65,7 @@ class ResponseCalculator:
         poisson_solver: PoissonSolver
             Multigrid or FFT poisson solver (not required if the
             ``Perturbation`` to be solved for has a ``solve_poisson`` member
-            function). 
+            function).
         dtype: ...
             dtype of the density response.
             
@@ -117,7 +117,7 @@ class ResponseCalculator:
 
         # Array attributes
         self.nt1_G = None
-        self.vHXC1_G = None        
+        self.vHXC1_G = None
         self.nt1_g = None
         self.vH1_g = None
 
@@ -126,7 +126,7 @@ class ResponseCalculator:
         
         # Number of occupied bands
         nvalence = calc.wfs.nvalence
-        self.nbands = nvalence / 2 + nvalence % 2
+        self.nbands = nvalence // 2 + nvalence % 2
         assert self.nbands <= calc.wfs.bd.nbands
                                   
         self.initialized = False
@@ -141,7 +141,7 @@ class ResponseCalculator:
         self.solve_poisson = None
 
         self.nt1_G = None
-        self.vHXC1_G = None        
+        self.vHXC1_G = None
         self.nt1_g = None
         self.vH1_g = None
         
@@ -253,7 +253,7 @@ class ResponseCalculator:
 
         #XXX K-point of the pc must be set in the k-point loop -> store a ref.
         self.pc = pc
-        # Linear solver for the solution of Sternheimer equation            
+        # Linear solver for the solution of Sternheimer equation
         self.linear_solver = ScipyLinearSolver(method=krylov_solver,
                                                preconditioner=pc,
                                                tolerance=tolerance_sternheimer,
@@ -362,7 +362,7 @@ class ResponseCalculator:
             # k and k+q
             # XXX should only be done once for all k-points but maybe too cheap
             # to bother ??
-            rhs_nG = self.gd.zeros(n=self.nbands, dtype=self.gs_dtype)            
+            rhs_nG = self.gd.zeros(n=self.nbands, dtype=self.gs_dtype)
             self.perturbation.apply(psit_nG, rhs_nG, self.wfs, k, kplusq)
             if self.vHXC1_G is not None:
                 rhs_nG += self.vHXC1_G * psit_nG
@@ -376,7 +376,7 @@ class ResponseCalculator:
                 self.sternheimer_operator.set_band(n)
                 # Get view of the Bloch function derivative
                 psit1_G = psit1_nG[n]
-                # Rhs of Sternheimer equation                
+                # Rhs of Sternheimer equation
                 rhs_G = -1 * rhs_nG[n]
                
                 # Solve Sternheimer equation

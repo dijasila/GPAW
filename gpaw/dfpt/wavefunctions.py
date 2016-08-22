@@ -25,7 +25,7 @@ class WaveFunctions:
         kd: KPointDescriptor
             K-point and symmetry related stuff.
         gd: GridDescriptor
-            Descriptor for the coarse grid.            
+            Descriptor for the coarse grid.
         dtype: dtype
             This is the ``dtype`` for the wave-function derivatives (same as
             the ``dtype`` for the ground-state wave-functions).
@@ -152,15 +152,15 @@ class WaveFunctions:
 
         1. Coefficients from the projector functions::
 
-                        /      a          
+                        /      a
                P_ani =  | dG  p (G) Psi (G)  ,
                         /      i       n
                           
         2. Coefficients from the derivative of the projector functions::
 
-                          /      a           
+                          /      a
                dP_aniv =  | dG dp  (G) Psi (G)  ,
-                          /      iv       n   
+                          /      iv       n
 
         where::
                        

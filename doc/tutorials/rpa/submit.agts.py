@@ -5,6 +5,6 @@ def agts(queue):
     rpa_N2 = queue.add('rpa_N2.py', deps=gs_N2,
                        #queueopts='-l mem=127GB',  # needed on 16 cpus
                        ncpus=32, walltime=1200)
-    queue.add('plot_w.py', deps=w, creates='E_w.png')
+    queue.add('plot_w.py', deps=[w, f], creates='E_w.png')
     queue.add('plot_con_freq.py', deps=f, creates='con_freq.png')
     queue.add('extrapolate.py', deps=rpa_N2, creates='extrapolate.png')

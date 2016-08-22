@@ -66,11 +66,11 @@ class SimpleStm(STM):
         else:
             # energy bias
             try:
-                if self.calc.occupations.fixmagmom is True:
+                if self.calc.occupations.fixmagmom:
                     efermi_s = self.calc.get_fermi_levels()
                 else:
                     efermi_s = np.array([self.calc.get_fermi_level()] * 2)
-            except:
+            except:  # XXXXX except what?
                 efermi_s = np.array([self.calc.get_homo_lumo().mean()] * 2)
 
             if isinstance(bias, (int, float)):
@@ -224,7 +224,7 @@ class SimpleStm(STM):
         try:
             import datetime
             print('#', datetime.datetime.now().ctime(), file=f)
-        except:
+        except:  # XXX except what?
             pass
         print('# Simulated STM picture', file=f)
         if hasattr(self, 'file'):
