@@ -328,31 +328,6 @@ class FDPoissonSolver:
 
         return niter
 
-    def iterate(self, step, level=0):
-        residual = self.residuals[level]
-        niter = 0
-        while True:
-            niter += 1
-            if level > 0 and niter == 1:
-                residual[:] = -self.rhos[level]
-            else:
-                self.operators[level].apply(self.phis[level], residual)
-                residual -= self.rhos[level]
-            error = self.gd.comm.sum(np.vdot(residual, residual))
-            if niter == 1 and level < self.levels:
-                self.restrictors[level].apply(residual, self.rhos[level + 1])
-                self.phis[level + 1][:] = 0.0
-                self.iterate(4.0 * step, level + 1)
-                self.interpolators[level].apply(self.phis[level + 1], residual)
-                self.phis[level] -= residual
-                continue
-            residual *= step
-            self.phis[level] -= residual
-            if niter == 2:
-                break
-
-        return error
-
     def iterate2(self, step, level=0):
         """Smooths the solution in every multigrid level"""
 
@@ -384,6 +359,10 @@ class FDPoissonSolver:
             residual -= self.rhos[level]
             error = self.gd.comm.sum(np.dot(residual.ravel(),
                                             residual.ravel())) * self.gd.dv
+            
+            # How about this instead:
+            # error = self.gd.comm.max(abs(residual).max())
+            
             return error
 
     def estimate_memory(self, mem):
