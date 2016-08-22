@@ -1,16 +1,13 @@
+import numpy as np
+from ase.build import molecule
+from ase.data.vdw import vdw_radii
 from gpaw import GPAW
 from gpaw.cluster import Cluster
 from gpaw.test import equal
-from ase.build import molecule
-from ase.data.vdw import vdw_radii
-from gpaw.solvation import (
-    SolvationGPAW,
-    EffectivePotentialCavity,
-    Power12Potential,
-    LinearDielectric)
-import numpy as np
+from gpaw.solvation import (SolvationGPAW, EffectivePotentialCavity,
+                            Power12Potential, LinearDielectric)
 
-SKIP_REF_CALC = True
+SKIP_REF_CALC = not not True
 
 energy_eps = 0.0005 / 8.
 forces_eps = 2e-5
@@ -44,11 +41,12 @@ if not SKIP_REF_CALC:
     print(Fref)
 else:
     # setups: 0.9.11271, same settings as above
-    Eref = -11.987992702
+    Eref = -11.9879852185
+
     Fref = np.array(
-            [[  3.02502086e-13, -1.44665920e-12, -6.05004154e+00],
-             [  1.23004481e-13,  1.61482505e+00,  6.87380315e-02],
-             [  2.57885170e-13, -1.61482505e+00,  6.87380315e-02]])
+        [[1.77087917e-12, -2.38046360e-12, -6.05015925e+00],
+         [7.91317656e-14, 1.61479184e+00, 6.87595580e-02],
+         [2.62581472e-13, -1.61479184e+00, 6.87595580e-02]])
 
 atoms.calc = SolvationGPAW(
     xc='LDA', h=h, convergence=convergence,
