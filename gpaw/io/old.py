@@ -16,8 +16,8 @@ from gpaw.io.tar import Reader
 
 
 def wrap_old_gpw_reader(filename):
-    warnings.warn('You are reading an old-style gpw-file.  It may work, but '
-                  'if I were you, I would delete it and redo the calculation!')
+    warnings.warn('You are reading an old-style gpw-file.  Please check '
+                  'the results carefully!')
     
     r = Reader(filename)
     
