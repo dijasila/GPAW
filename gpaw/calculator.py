@@ -557,6 +557,9 @@ class GPAW(Calculator, PAW):
         if not self.wfs.eigensolver:
             self.create_eigensolver(xc, nbands, mode)
 
+        if self.density is None:
+            assert not par.fixdensity, 'No density to fix!'
+            
         olddens = None
         if (self.density is not None and
             (self.density.gd.parsize_c != self.wfs.gd.parsize_c).any()):
