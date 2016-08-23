@@ -30,7 +30,7 @@ calc.write('N.gpw', mode='all')
 # N2
 N2 = molecule('N2')
 N2.cell = (6, 6, 7)
-N.center()
+N2.center()
 calc = GPAW(mode=PW(600, force_complex_dtype=True),
             maxiter=300,
             xc='PBE',
