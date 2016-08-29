@@ -18,28 +18,28 @@ from gpaw.io.tar import Reader
 def wrap_old_gpw_reader(filename):
     warnings.warn('You are reading an old-style gpw-file.  Please check '
                   'the results carefully!')
-    
+
     r = Reader(filename)
-    
+
     data = {'version': -1,
             'ha': Ha,
             'bohr': Bohr,
             'scf.': {'converged': True},
             'atoms.': {},
             'wave_functions.': {}}
-    
+
     class DictBackend:
         def write(self, **kwargs):
             data['atoms.'].update(kwargs)
-            
+
     write_atoms(DictBackend(), read_atoms(r))
-    
+
     e_total_extrapolated = r.get('PotentialEnergy').item() * Ha
     data['results.'] = {
         'energy': e_total_extrapolated}
-    
+
     p = data['parameters.'] = {}
-    
+
     p['xc'] = r['XCFunctional']
     p['nbands'] = r.dimension('nbands')
     p['spinpol'] = (r.dimension('nspins') == 2)
@@ -101,10 +101,10 @@ def wrap_old_gpw_reader(filename):
         p['mixer'] = None
     else:
         p['mixer'] = Mixer(r['MixBeta'], r['MixOld'], weight)
-        
+
     p['stencils'] = (r['KohnShamStencil'],
                      r['InterpolationStencil'])
-    
+
     poisson = {'name': 'fd'}
     vt_sG = r.get('PseudoPotential') * Ha
     if data['atoms.']['pbc'] == [1, 1, 0]:
@@ -113,7 +113,7 @@ def wrap_old_gpw_reader(filename):
             warnings.warn('I am guessing that this calculation was done '
                           'with a dipole-layer correction?')
             poisson['dipolelayer'] = 'xy'
-    
+
     ps = r['PoissonStencil']
     if isinstance(ps, int) or ps == 'M':
         poisson['nn'] = ps
@@ -123,12 +123,12 @@ def wrap_old_gpw_reader(filename):
 
     p['occupations'] = FermiDirac(r['FermiWidth'] * Ha,
                                   fixmagmom=fixmom)
-    
+
     p['mode'] = r['Mode']
 
     if p['mode'] == 'pw':
         p['mode'] = PW(ecut=r['PlaneWaveCutoff'] * Ha)
-        
+
     if len(bzk_kc) == 1 and not bzk_kc[0].any():
         # Gamma point only:
         if r['DataType'] == 'Complex':
@@ -139,11 +139,11 @@ def wrap_old_gpw_reader(filename):
         'split': r.parameters.get('FermiSplit', 0) * Ha,
         'homo': np.nan,
         'lumo': np.nan}
-    
+
     data['density.'] = {
         'density': r.get('PseudoElectronDensity') * Bohr**-3,
         'atomic_density_matrices': r.get('AtomicDensityMatrices')}
-    
+
     data['hamiltonian.'] = {
         'e_coulomb': r['Epot'] * Ha,
         'e_entropy': -r['S'] * Ha,
@@ -158,11 +158,20 @@ def wrap_old_gpw_reader(filename):
         sum(data['hamiltonian.'][e] for e in ['e_coulomb', 'e_entropy',
                                               'e_external', 'e_kinetic',
                                               'e_xc', 'e_zero']))
-    
-    for name, old in [('values', 'PseudoWaveFunctions'),
-                      ('eigenvalues', 'Eigenvalues'),
-                      ('occupations', 'OccupationNumbers'),
-                      ('projections', 'Projections')]:
+
+    special = [('eigenvalues', 'Eigenvalues'),
+               ('occupations', 'OccupationNumbers'),
+               ('projections', 'Projections')]
+
+    if r['Mode'] == 'pw':
+        special.append(('coefficients', 'PseudoWaveFunctions'))
+        data['wave_functions.']['indices'] = r.get('PlaneWaveIndices')
+    elif r['Mode'] == 'fd':
+        special.append(('values', 'PseudoWaveFunctions'))
+    else:
+        special.append(('coefficients', 'WaveFunctionCoefficients'))
+
+    for name, old in special:
         try:
             fd, shape, size, dtype = r.get_file_object(old, ())
         except KeyError:
@@ -173,14 +182,17 @@ def wrap_old_gpw_reader(filename):
 
     new = aff.Reader(devnull, data=data,
                      little_endian=r.byteswap ^ np.little_endian)
-    
+
     for ref in new._data['wave_functions']._data.values():
-        ref.fd = ref.offset
+        try:
+            ref.fd = ref.offset
+        except AttributeError:
+            continue
         ref.offset = 0
 
     return new
-    
-    
+
+
 def read_atoms(reader):
     positions = reader.get('CartesianPositions', broadcast=True) * Bohr
     numbers = reader.get('AtomicNumbers', broadcast=True)
