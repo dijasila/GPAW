@@ -43,7 +43,7 @@ In Python code, it looks like this:
 
 .. literalinclude:: h2.py
     :start-after: from __future__
-    
+
 If the above code was executed, a calculation for a single `\rm{H}_2`
 molecule would be started.  The calculation would be done using a
 supercell of size `6.0 \times 6.0 \times 6.0` Å with cluster
@@ -82,7 +82,7 @@ given in the following sections.
 .. list-table::
     :header-rows: 1
     :widths: 1 1 1 2
-    
+
     * - keyword
       - type
       - default value
@@ -196,7 +196,7 @@ given in the following sections.
 
 
 .. note::
-   
+
    Parameters can be changed after the calculator has been constructed
    by using the :meth:`~gpaw.calculator.GPAW.set` method:
 
@@ -225,7 +225,7 @@ Finite-difference, plane-wave or LCAO mode
 Finite-difference:
     The default mode (``mode='fd'``) is Finite Differece. This means that
     the wave functions will be expanded on a real space grid.
-    
+
 LCAO:
     Expand the wave functions in a basis-set constructed
     from atomic-like orbitals, in short LCAO (linear combination of atomic
@@ -238,30 +238,30 @@ Plane-waves:
     to use the default plane-wave cutoff of `E_{\text{cut}}=340` eV.  The
     plane-waves will be those with `|\mathbf G+\mathbf k|^2/2<E_{\text{cut}}`.
     You can set another cutoff like this::
-        
+
         from gpaw import GPAW, PW
         calc = GPAW(mode=PW(200))
 
 
 Comparing FD, LCAO and PW modes
 ```````````````````````````````
-    
+
 Memory consumption:
     With LCAO, you have fewer degrees of freedom so memory usage is low.
     PW mode uses more memory and FD a lot more.
-    
+
 Speed:
     For small systems with many **k**-points, PW mode beats everything else.
     For larger systems LCAO will be most efficient.  Whereas PW beats FD for
     smallish systems, the opposite is true for very large systems where FD
     will parallelize better.
-    
+
 Absolute convergence:
     With LCAO, it can be hard to reach the complete basis set limit and get
     absolute convergence of energies, whereas with FD and PW mode it is
     quite easy to do by decreasing the grid spacing or increasing the
     plane-wave cutoff energy, respectively.
-    
+
 Eggbox errors:
     With LCAO and FD mode you will get a small eggbox error: you get a
     small periodic energy variation as you translate atoms and the period
@@ -273,8 +273,8 @@ Features:
     for calculating the stress-tensor and for response function calculations.
     Green's function based electronic transport calculations require
     LCAO mode.
-    
-    
+
+
 .. _manual_nbands:
 
 Number of electronic bands
@@ -295,12 +295,12 @@ states.  For metals, more bands are needed.  Sometimes, adding more
 unoccupied bands will improve convergence.
 
 .. tip::
-   
+
     ``nbands=0`` will give zero empty bands, and ``nbands=-n`` will
     give ``n`` empty bands.
-   
+
 .. tip::
-    
+
     ``nbands='n%'`` will give ``n/100`` times the number of occupied bands.
 
 
@@ -372,24 +372,24 @@ This will sample the Brillouin-zone with a regular grid of ``N1``
 :func:`ase.dft.kpoints.monkhorst_pack` function for more details.
 
 For more flexibility, you can use this syntax::
-    
+
     kpts={'size': (4, 4, 4)}  # 4x4x4 Monkhorst-pack
     kpts={'size': (4, 4, 4), 'gamma': True}  # shifted 4x4x4 Monkhorst-pack
 
 You can also specify the **k**-point density in units of points per
 Å\ `^{-1}`::
-    
+
     kpts={'density': 2.5}  # MP with a minimum density of 2.5 points/Ang^-1
     kpts={'density': 2.5, 'even': True}  # round up to nearest even number
     kpts={'density': 2.5, 'gamma': True}  # include gamma-point
-    
+
 The **k**-point density is calculated as:
-    
+
 .. math:: N \frac{a}{2\pi},
 
 where `N` is then number of **k**-points and `a` is the length of the
 unit-cell along the direction of the corresponding reciprocal lattice vector.
-    
+
 An arbitrary set of **k**-points can be specified, by giving a
 sequence of k-point coordinates like this::
 
@@ -485,7 +485,7 @@ The default behavior is to use all point-group symmetries and time-reversal
 symmetry to reduce the **k**-points to only those in the irreducible part of
 the Brillouin-zone.  Moving the atoms so that a symmetry is broken will
 cause an error.  This can be avoided by using::
-    
+
     symmetry={'point_group': False}
 
 This will reduce the number of applied symmetries to just the time-reversal
@@ -495,7 +495,7 @@ For some purposes you might want to have no symmetry reduction of the
 calculations, ...). This can be achieved by specifying::
 
     symmetry={'point_group': False, 'time_reversal': False}
-    
+
 or simply ``symmetry='off'`` which is a short-hand notation for the same
 thing.
 
@@ -512,11 +512,11 @@ key                default   description
 =================  ========  ===============================
 
 .. note::
-    
+
     If you are using version 0.10 or earlier, you can use
     ``usesymm=False`` to turn off all point-group symmetries and
     ``usesymm=None`` to turn off also time-reversal symmetry.
-    
+
 
 .. _manual_random:
 
@@ -660,8 +660,8 @@ which is also what GPAW will choose if the system has periodic
 boundary conditions in one or more directions.
 
 In spin-polarized calculations using Fermi-distribution
-occupations one has to use :class:`~gpaw.mixer.MixerSum` instead of
-:class:`~gpaw.mixer.Mixer`.
+occupations one has to use ``MixerSum`` instead of
+``Mixer``.
 
 See also the documentation on :ref:`density mixing <densitymix>`.
 
@@ -721,7 +721,7 @@ There exist three special names that, if used, do not specify a file name:
   {<pseudopotential>}`.  Here, :file:`{<pseudopotential>}` can be
   either a direct path to a UPF file or the symbol or identifier to
   search for in the GPAW setup paths.
-        
+
 * ``'hgh'`` is used to specify a norm-conserving Hartwigsen-Goedecker-Hutter
   pseudopotential (no installation necessary).  Some elements have better
   semicore pseudopotentials.  To use those, specify ``'hgh.sc'``
@@ -737,7 +737,7 @@ atomic number specifications, the latter is dominant.
 An example::
 
   setups={None: 'soft', 'Li': 'hard', 5: 'ghost', 'H': 'ae'}
-  
+
 Indicates that the files named 'hard' should be used for lithium
 atoms, an all-electron potential is used for hydrogen atoms, atom
 number 5 is a ghost atom (even if it is a Li or H atom), and for all
@@ -860,11 +860,11 @@ non-periodic in that direction but periodic in the two other
 directions.
 
 ::
-  
+
   from gpaw import GPAW
   from gpaw.poisson import PoissonSolver
   from gpaw.dipole_correction import DipoleCorrection
-  
+
   poissonsolver = PoissonSolver()
   correction = DipoleCorrection(poissonsolver, 2) # 2 == z-axis
   calc = GPAW(poissonsolver=correction)
@@ -922,10 +922,10 @@ External potential
 ------------------
 
 Example::
-    
+
     from gpaw.external import ConstanElectricField
     calc = GPAW(..., external=ConstanElectricField(2.0, [1, 0, 0]), ...)
-    
+
 See also: :mod:`gpaw.external`.
 
 
@@ -1107,7 +1107,7 @@ argument                         description
                                  Requires GPAW to be built with ScaLAPACK.
 ``--gpaw a=1,b=2.3,...``
                                  Extra parameters for development work:
-                                 
+
                                  >>> from gpaw import extra_parameters
                                  >>> print extra_parameters
                                  {'a': 1, 'b': 2.3}
