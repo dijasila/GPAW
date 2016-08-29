@@ -262,7 +262,7 @@ class VDWFunctionalBase:
                    (q0_g.min(), q0_g.mean(), q0_g.max())))
         
         if self.soft_correction:
-            dEcnl = gd.integrate(n_g**2 / q0_g**3) * 0.5 * self.C_soft
+            dEcnl = -gd.integrate(n_g**2 / q0_g**3) * 0.5 * self.C_soft
         else:
             dEcnl = 0.0
             
