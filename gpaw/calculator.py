@@ -925,7 +925,7 @@ class GPAW(PAW, Calculator):
         # from the number specified by the user.  (The number can
         # be inferred from the input parameters, but it's tricky
         # because we allow negative numbers)
-        self.nbands_parallelization_adjustment = -nbands % band_comm.size
+        self.nbands_parallelization_adjustment = 0#-nbands % band_comm.size
         nbands += self.nbands_parallelization_adjustment
 
         bd = BandDescriptor(nbands, band_comm, parstride_bands)
