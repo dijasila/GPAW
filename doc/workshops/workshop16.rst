@@ -15,6 +15,8 @@ Sponsored by `psi-k <http://www.psi-k.org/>`__ and
 
 .. image:: ../static/gpaw2016-photo.jpg
    :width: 15cm
+
+
 Talks
 =====
 
