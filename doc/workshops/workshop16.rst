@@ -15,8 +15,6 @@ Sponsored by `psi-k <http://www.psi-k.org/>`__ and
 
 .. image:: ../static/gpaw2016-photo.jpg
    :width: 15cm
-
-
 Talks
 =====
 
@@ -29,6 +27,9 @@ Talks
  * - Kirsten T. Winther
    - `Band gaps of 2D materials and van der Waals heterostructures
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop16/ktw.pdf>`__
+ * - Simone Latini
+   - `Designing Excitons in van der Waals Heterostructures
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop16/sl.pdf>`__
  * - Ask Hjorth Larsen
    - `Efficient van der Waals functionals and other GPAW developments
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop16/ahl.pdf>`__
