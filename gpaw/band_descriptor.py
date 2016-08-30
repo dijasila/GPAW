@@ -81,20 +81,27 @@ class BandDescriptor:
 
         if comm is None:
             comm = serial_comm
+
         self.comm = comm
-        self.rank = self.comm.rank
-
         self.nbands = nbands
-
-        if self.nbands % self.comm.size != 0:
-            raise RuntimeError('Cannot distribute %d bands to %d processors' %
-                               (self.nbands, self.comm.size))
-
-        self.mynbands = self.nbands // self.comm.size
         self.strided = strided
 
-        nslice = self.get_slice()
-        self.beg, self.end, self.step = nslice.indices(self.nbands)
+        self.mynbands = self.nbands // self.comm.size
+        r = nbands - comm.size * self.mynbands
+
+        if strided:
+            assert r == 0
+            self.beg = comm.rank
+            self.end = nbands
+            self.step = comm.size
+        else:
+            if comm.rank >= r:
+                self.beg = comm.rank * self.mybands + r
+            else:
+                self.mybands += 1
+                self.beg = comm.rank * self.mybands
+            self.end = self.beg + self.mynbands
+            self.step = 1
 
     def __len__(self):
         return self.mynbands
@@ -109,8 +116,7 @@ class BandDescriptor:
             nstride = self.comm.size
             nslice = slice(band_rank, None, nstride)
         else:
-            n0 = band_rank * self.mynbands
-            nslice = slice(n0, n0 + self.mynbands)
+            nslice = slice(self.beg, self.end)
         return nslice
 
     def get_band_indices(self, band_rank=None):
@@ -132,6 +138,7 @@ class BandDescriptor:
         if self.strided:
             myn, band_rank = divmod(n, self.comm.size)
         else:
+            asdfhjg
             band_rank, myn = divmod(n, self.mynbands)
         return band_rank, myn
 
@@ -142,6 +149,7 @@ class BandDescriptor:
         if self.strided:
             n = band_rank + myn * self.comm.size
         else:
+            jkhgjkg
             n = band_rank * self.mynbands + myn
         return n
 
@@ -240,7 +248,32 @@ class BandDescriptor:
 
         # Optimization for blocked groups
         if not self.strided:
-            self.comm.scatter(B_nx, b_nx, 0)
+            if self.rank0 == 0:
+                self.comm.scatter(B_nx, b_nx, 0)
+                return
+
+            M = self.mynbands
+            if B_nx is not None:
+                C_nx = np.empty((self.comm.size * M,) + B_nx.shape[1:],
+                                B_nx.dtype)
+                n = 0
+                for r in range(self.rank0):
+                    C_nx[n:n + M] = B_nx[n:n + M]
+                    n += M
+                n2 = n
+                for r in range(self.rank0, self.comm.size):
+                    C_nx[n:n + M - 1] = B_nx[n2:n2 + M - 1]
+                    n += M
+                    n2 += M - 1
+            else:
+                C_nx = None
+            if self.comm.rank < self.rank0:
+                c_nx = b_nx
+            else:
+                c_nx = np.empty((M,) + B_nx.shape[1:], B_nx.dtype)
+            self.comm.scatter(C_nx, c_nx, 0)
+            if self.comm.rank >= self.rank0:
+                b_nx[:] = c_nx[:-1]
             return
 
         if self.rank != 0:
