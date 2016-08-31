@@ -20,13 +20,13 @@ def create_occupation_number_object(name, **kwargs):
     if name == 'orbital-free':
         return TFOccupations()
     raise ValueError('Unknown occupation number object name: ' + name)
-    
-    
+
+
 def findroot(func, x, tol=1e-10):
     """Function used for locating Fermi level."""
     xmin = -np.inf
     xmax = np.inf
-        
+
     # Try 10 step using the gradient:
     niter = 0
     while True:
@@ -52,7 +52,7 @@ def findroot(func, x, tol=1e-10):
             xmin -= step
             fmin = func(xmin)[0]
             step *= 2
-            
+
     if not np.isfinite(xmax):
         xmax = x
         fmax = f
@@ -61,7 +61,7 @@ def findroot(func, x, tol=1e-10):
             xmax += step
             fmax = func(xmax)[0]
             step *= 2
-            
+
     # Bisect:
     while True:
         x = (xmin + xmax) / 2
@@ -95,17 +95,17 @@ class OccupationNumbers:
                      split=self.split * Hartree,
                      homo=self.homo * Hartree,
                      lumo=self.lumo * Hartree)
-        
+
     def read(self, reader):
         o = reader.occupations
         self.fermilevel = o.fermilevel / reader.ha
         self.split = o.split / reader.ha
         self.homo = o.homo / reader.ha
         self.lumo = o.lumo / reader.ha
-        
+
     def extrapolate_energy_to_zero_width(self, e_free):
         return e_free
-        
+
     def calculate(self, wfs):
         """Calculate everything.
 
@@ -121,7 +121,7 @@ class OccupationNumbers:
 
         # Allow subclasses to adjust nvalence:
         self.set_number_of_electrons(wfs)
-        
+
         # Allocate:
         for kpt in wfs.kpt_u:
             if kpt.f_n is None:
@@ -169,7 +169,7 @@ class OccupationNumbers:
 
     def set_fermi_level(self, fermilevel):
         """This method sets the fermi-level.
-        
+
         However, since you get two fermi-levels when doing
         calculations with fixed magmom, you should be able
         to set two fermi-levels.
@@ -178,7 +178,7 @@ class OccupationNumbers:
         one fermi-level to an fixed-magmom calculation and will
         also accept everything which can converted to an numpy-
         array for setting two fermi-levels.
-            
+
         """
         if self.fixmagmom:
             fermilevels = np.array(fermilevel)
@@ -197,7 +197,7 @@ class ZeroKelvin(OccupationNumbers):
     def __init__(self, fixmagmom):
         self.width = 0.0
         OccupationNumbers.__init__(self, fixmagmom)
-        
+
     def calculate_occupation_numbers(self, wfs):
         if wfs.nspins == 1:
             self.spin_paired(wfs)
@@ -248,7 +248,7 @@ class ZeroKelvin(OccupationNumbers):
         conjunction with "get_fermi_splitting" if you do
         fixed-magmom calculations. We will issue an warning
         otherwise.
-        
+
         """
         if not np.isfinite(self.fermilevel):
             OccupationNumbers.get_fermi_level(self)  # fail
@@ -285,7 +285,7 @@ class ZeroKelvin(OccupationNumbers):
 
     def get_fermi_splitting(self):
         """Return the splitting of the fermi level in hartree.
-            
+
         Returns 0.0 if calculation is not done using
         fixmagmom.
 
@@ -327,7 +327,7 @@ class ZeroKelvin(OccupationNumbers):
         wfs.kptband_comm.sum(fermilevels)
         self.fermilevel = fermilevels.mean()
         self.split = fermilevels[0] - fermilevels[1]
-        
+
     def spin_paired(self, wfs):
         self.homo = -np.inf
         self.lumo = np.inf
@@ -351,7 +351,7 @@ class ZeroKelvin(OccupationNumbers):
             self.fermilevel = 0.5 * (self.homo + self.lumo)
 
         self.magmom = 0.0
-        
+
     def spin_polarized(self, wfs):
         eps_un = [wfs.bd.collect(kpt.eps_n) for kpt in wfs.kpt_u]
         self.fermilevel = np.nan
@@ -419,7 +419,7 @@ class SmoothDistribution(ZeroKelvin):
         if self.fixmagmom:
             s += '  Fixed magnetic moment\n'
         return s
-        
+
     def calculate_occupation_numbers(self, wfs):
         if self.width == 0 or self.nvalence == wfs.bd.nbands * 2:
             ZeroKelvin.calculate_occupation_numbers(self, wfs)
@@ -431,7 +431,7 @@ class SmoothDistribution(ZeroKelvin):
         if not self.fixmagmom or wfs.nspins == 1:
             result = self.find_fermi_level(wfs, self.nvalence, self.fermilevel)
             self.fermilevel, self.magmom, self.e_entropy = result
-            
+
             if wfs.nspins == 1:
                 self.magmom = 0.0
         else:
@@ -482,7 +482,7 @@ class SmoothDistribution(ZeroKelvin):
                     eps = np.min(np.where(kpt.f_n / kpt.weight <= epsilon,
                                           kpt.eps_n, +1000.0))
                     eps_lumo = min([eps_lumo, eps])
-            
+
             eps_homo = wfs.kd.comm.max(eps_homo)
             eps_lumo = wfs.kd.comm.min(eps_lumo)
 
@@ -497,18 +497,18 @@ class SmoothDistribution(ZeroKelvin):
 
         if self.nvalence is None:
             self.calculate(wfs)
-        
+
         return self.get_homo_lumo_by_spin(wfs, 0)
 
     def guess_fermi_level(self, wfs):
         fermilevel = 0.0
 
         kd = wfs.kd
-        
+
         myeps_un = np.empty((kd.mynks, wfs.bd.nbands))
         for u, kpt in enumerate(wfs.kpt_u):
             myeps_un[u] = wfs.bd.collect(kpt.eps_n)
-        
+
         if wfs.bd.comm.rank == 0:
             eps_skn = kd.collect(myeps_un, broadcast=False)
             if kd.comm.rank == 0:
@@ -531,16 +531,16 @@ class SmoothDistribution(ZeroKelvin):
 
         # XXX broadcast would be better!
         return wfs.kptband_comm.sum(fermilevel)
-                    
+
     def find_fermi_level(self, wfs, ne, fermilevel, spins=(0, 1)):
         niter = 0
-        
+
         x = self.fermilevel
         if not np.isfinite(x):
             x = self.guess_fermi_level(wfs)
-            
+
         data = np.empty(4)
-        
+
         def f(x, data=data):
             data.fill(0.0)
             for kpt in wfs.kpt_u:
@@ -552,7 +552,7 @@ class SmoothDistribution(ZeroKelvin):
             return dn, dnde
 
         fermilevel, niter = findroot(f, x)
-        
+
         self.niter = niter
         magmom, e_entropy = data[2:]
         return fermilevel, magmom, e_entropy
@@ -566,7 +566,7 @@ class FermiDirac(SmoothDistribution):
         dct = SmoothDistribution.todict(self)
         dct['name'] = 'fermi-dirac'
         return dct
-        
+
     def __str__(self):
         s = '  Fermi-Dirac: width={0:.4f} eV\n'.format(self.width * Hartree)
         return SmoothDistribution.__str__(self) + s
@@ -588,13 +588,13 @@ class FermiDirac(SmoothDistribution):
 
     def extrapolate_energy_to_zero_width(self, E):
         return E - 0.5 * self.e_entropy
-    
-        
+
+
 class MethfesselPaxton(SmoothDistribution):
     def __init__(self, width, order=0, fixmagmom=False):
         SmoothDistribution.__init__(self, width, fixmagmom)
         self.order = order
-        
+
     def todict(self):
         dct = SmoothDistribution.todict(self)
         dct['name'] = 'methfessel-paxton'
@@ -605,7 +605,7 @@ class MethfesselPaxton(SmoothDistribution):
         s = '  Methfessel-Paxton: width={0:.4f} eV, order={1}\n'.format(
             self.width * Hartree, self.order)
         return SmoothDistribution.__str__(self) + s
-        
+
     def distribution(self, kpt, fermilevel):
         x = (kpt.eps_n - fermilevel) / self.width
         x = x.clip(-100, 100)
@@ -646,7 +646,7 @@ class MethfesselPaxton(SmoothDistribution):
     def extrapolate_energy_to_zero_width(self, E):
         return E - self.e_entropy / (self.order + 2)
 
-                            
+
 class FixedOccupations(ZeroKelvin):
     def __init__(self, occupation):
         self.occupation = np.array(occupation)
@@ -666,13 +666,13 @@ class TFOccupations(FermiDirac):
 
     def todict(self):
         return {'name': 'orbital-free'}
-        
+
     def occupy(self, f_n, eps_n, ne, weight=1):
         """Fill in occupation numbers.
-        
+
         In TF mode only one band. Is guaranteed to work only
         for spin-paired case.
-        
+
         return HOMO and LUMO energies."""
         # Same as occupy in FermiDirac expect one band: weight = ne
         return FermiDirac.occupy(self, f_n, eps_n, ne, ne)
