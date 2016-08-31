@@ -284,7 +284,7 @@ class BandDescriptor:
             if self.comm.rank < self.maxrank:
                 c_nx = b_nx
             else:
-                c_nx = np.empty((M,) + B_nx.shape[1:], B_nx.dtype)
+                c_nx = np.empty((M,) + b_nx.shape[1:], b_nx.dtype)
             self.comm.scatter(C_nx, c_nx, 0)
             if self.comm.rank >= self.maxrank:
                 b_nx[:] = c_nx[:-1]
