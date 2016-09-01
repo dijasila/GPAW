@@ -6,9 +6,15 @@ system = molecule('H2O')
 system.center(vacuum=1.5)
 system.pbc = 1
 
-calc = GPAW(eigensolver='rmm-diis',
-            mixer=Mixer(0.3, 5, 10.),
-            xc=vdw_df())
+for mode in ['lcao', 'fd', 'pw']:
+    calc = GPAW(mode=mode,
+                basis='szp(dzp)',
+                mixer=Mixer(0.3, 5, 10.),
+                xc=vdw_df())
+    def stopcalc():
+        calc.scf.converged = True
 
-system.set_calculator(calc)
-system.get_potential_energy()
+    calc.attach(stopcalc, 6)
+
+    system.set_calculator(calc)
+    system.get_potential_energy()
