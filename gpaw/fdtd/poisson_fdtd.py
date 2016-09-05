@@ -229,7 +229,7 @@ class FDTDPoissonSolver:
             cell=self.cl.cell * Bohr,
             qm_spacing=self.qm.spacing_def[0] * Bohr,
             cl_spacing=self.cl.spacing_def[0] * Bohr,
-            remove_moments=(self.remove_moment_qm, self.remove_moment_cl),
+            remove_moments=(self.remove_moment_cl, self.remove_moment_qm),
             potential_coupler=self.potential_coupling_scheme,
             )
         return dct

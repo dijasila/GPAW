@@ -76,14 +76,14 @@ kick = [0.0, 0.0, 1.0e-3]
 time_step = 10.0
 max_time = 100 # 0.1 fs
 
-td_calc = TDDFT('gs.gpw', poissonsolver=poissonsolver)
+td_calc = TDDFT('gs.gpw')
 td_calc.absorption_kick(kick_strength=kick)
 td_calc.hamiltonian.poisson.set_kick(kick)
 
 # Propagate TDDFT and FDTD
 td_calc.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
 
-td_calc2 = TDDFT('td.gpw', poissonsolver=poissonsolver)
+td_calc2 = TDDFT('td.gpw')
 td_calc2.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
 
 # Test
