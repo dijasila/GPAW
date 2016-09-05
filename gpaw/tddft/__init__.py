@@ -126,6 +126,8 @@ class TDDFT(GPAW):
 
         # Initialize wavefunctions and density
         # (necessary after restarting from file)
+        if not self.initialized:
+            self.initialize()
         self.set_positions()
 
         # Don't be too strict
