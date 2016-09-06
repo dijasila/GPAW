@@ -374,7 +374,6 @@ if True:
     exclude.extend(['fdtd/ed_wrapper.py',
                     'fdtd/ed.py',
                     'fdtd/ed_shapes.py',
-                    'inducedfield_td.py',
                     'transport.py'])
     if mpi.size > 1:
         exclude.append('lrtddft/excited_state.py')
