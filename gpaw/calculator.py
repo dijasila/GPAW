@@ -187,7 +187,7 @@ class GPAW(Calculator, PAW):
         self.log.print_dict(dct)
         self.log()
 
-        self.initialize()
+        self.initialize(reading=True)
 
         self.density.read(reader)
         self.hamiltonian.read(reader)
@@ -406,7 +406,7 @@ class GPAW(Calculator, PAW):
         self.scf.reset()
         print_positions(self.atoms, self.log)
 
-    def initialize(self, atoms=None):
+    def initialize(self, atoms=None, reading=False):
         """Inexpensive initialization."""
 
         self.log('Initialize ...\n')
@@ -558,7 +558,7 @@ class GPAW(Calculator, PAW):
         if not self.wfs.eigensolver:
             self.create_eigensolver(xc, nbands, mode)
 
-        if self.density is None:
+        if self.density is None and not reading:
             assert not par.fixdensity, 'No density to fix!'
 
         olddens = None
