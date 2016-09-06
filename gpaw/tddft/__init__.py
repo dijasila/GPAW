@@ -63,21 +63,21 @@ class InverseOverlapPreconditioner:
 class FDTDDFTMode(FD):
     def __call__(self, *args, **kwargs):
         return TimeDependentWaveFunctions(self.nn, *args, **kwargs)
-        
-        
+
+
 class TDDFT(GPAW):
     """Time-dependent density functional theory calculation based on GPAW.
-    
+
     This class is the core class of the time-dependent density functional
     theory implementation and is the only class which a user has to use.
     """
-    
+
     def __init__(self, filename,
                  td_potential=None, propagator='SICN', calculate_energy=True,
                  propagator_kwargs=None, solver='CSCG', tolerance=1e-8,
                  **kwargs):
         """Create TDDFT-object.
-        
+
         Parameters:
 
         filename: string
@@ -110,10 +110,10 @@ class TDDFT(GPAW):
         # Parallelization dictionary should default to strided bands
         self.default_parallel = GPAW.default_parallel.copy()
         self.default_parallel['stridebands'] = True
-        
+
         self.default_parameters = GPAW.default_parameters.copy()
         self.default_parameters['mixer'] = DummyMixer()
-        
+
         # NB: TDDFT restart files contain additional information which
         #     will override the initial settings for time/kick/niter.
         GPAW.__init__(self, filename, **kwargs)
@@ -232,7 +232,7 @@ class TDDFT(GPAW):
         self.hpsit = None
         self.eps_tmp = None
         self.mblas = MultiBlas(wfs.gd)
-        
+
         # Restarting an FDTD run generates hamiltonian.fdtd_poisson, which
         # now overwrites hamiltonian.poisson
         if hasattr(self.hamiltonian, 'fdtd_poisson'):
@@ -260,23 +260,23 @@ class TDDFT(GPAW):
             self.time = reader.tddft.time
             self.niter = reader.tddft.niter
             self.kick_strength = reader.tddft.kick_strength
-            
-    def initialize(self):
+
+    def initialize(self, reading=False):
         self.parameters.mixer = DummyMixer()
-        GPAW.initialize(self)
-        
+        GPAW.initialize(self, reading=reading)
+
     def _write(self, writer, mode):
         GPAW._write(self, writer, mode)
         writer.child('tddft').write(time=self.time,
                                     niter=self.niter,
                                     kick_strength=self.kick_strength)
-        
+
     # Electrodynamics requires extra care
     def initialize_FDTD(self):
-        
+
         # Sanity check
         assert(self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT')
-        
+
         self.hamiltonian.poisson.set_density(self.density)
 
         # The propagate calculation_mode causes classical part to evolve
@@ -295,7 +295,7 @@ class TDDFT(GPAW):
     def propagate(self, time_step, iterations, dipole_moment_file=None,
                   restart_file=None, dump_interval=100):
         """Propagates wavefunctions.
-        
+
         Parameters:
 
         time_step: float
@@ -309,7 +309,7 @@ class TDDFT(GPAW):
             Name of the restart file
         dump_interval: integer
             After how many iterations restart data is dumped
-        
+
         """
 
         if self.rank == 0:
@@ -325,7 +325,7 @@ class TDDFT(GPAW):
 
         # Convert to atomic units
         time_step = time_step * attosec_to_autime
-        
+
         if dipole_moment_file is not None:
             self.initialize_dipole_moment_file(dipole_moment_file)
 
@@ -340,7 +340,7 @@ class TDDFT(GPAW):
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             self.hamiltonian.poisson.set_time(self.time)
             self.hamiltonian.poisson.set_time_step(self.time_step)
-            
+
         self.timer.start('Propagate')
         while self.niter < self.tdmaxiter:
             norm = self.density.finegd.integrate(self.density.rhot_g)
@@ -352,7 +352,7 @@ class TDDFT(GPAW):
             # print output (energy etc.) every 10th iteration
             if self.niter % 10 == 0:
                 self.get_td_energy()
-                
+
                 T = time.localtime()
                 if self.rank == 0:
                     iter_text = 'iter: %3d  %02d:%02d:%02d %11.2f' \
@@ -426,7 +426,7 @@ class TDDFT(GPAW):
 
     def update_dipole_moment_file(self, norm):
         dm = self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
-        
+
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             dm += self.hamiltonian.poisson.get_classical_dipole_moment()
 
@@ -477,7 +477,7 @@ class TDDFT(GPAW):
         self.Ebar = H.e_zero
         self.Exc = H.e_xc
         self.Etot = self.Ekin + self.e_coulomb + self.Ebar + self.Exc
-        
+
     def get_td_energy(self):
         """Calculate the time-dependent total energy"""
 
@@ -504,7 +504,7 @@ class TDDFT(GPAW):
 
         kick_strength: [float, float, float]
             Strength of the kick, e.g., [0.0, 0.0, 1e-3]
-        
+
         """
         if self.rank == 0:
             self.text('Delta kick = ', kick_strength)
@@ -532,7 +532,7 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
                              e_min=0.0, e_max=30.0, delta_e=0.05):
     """Calculates photoabsorption spectrum from the time-dependent
     dipole moment.
-    
+
     Parameters:
 
     dipole_moment_file: string
@@ -552,7 +552,7 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
         Maxiumum energy shown in the spectrum (eV)
     delta_e: float
         Energy resolution (eV)
-    
+
 
     """
 
@@ -569,7 +569,7 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
     if folding != 'Gauss':
         raise RuntimeError('Error in photoabsorption_spectrum: '
                            'Only Gaussian folding is currently supported.')
-    
+
     if world.rank == 0:
         print('Calculating photoabsorption spectrum from file "%s"'
               % dipole_moment_file)
@@ -591,7 +591,7 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
                                   float(columns[2])],
                                  dtype=float)
         strength = np.array(kick_strength, dtype=float)
-        
+
         print('Using kick strength = ', strength)
         # Continue with dipole moment data
         lines = lines[2:]
@@ -657,12 +657,12 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
             if (i % 100) == 0:
                 print('.', end=' ')
                 sys.stdout.flush()
-                
+
         print("Sinc contamination", np.exp(-t[-1]**2*sigma**2/2.0))
 
         print('')
         f_file.close()
-        
+
         print('Calculated photoabsorption spectrum saved to file "%s"'
               % spectrum_file)
 
