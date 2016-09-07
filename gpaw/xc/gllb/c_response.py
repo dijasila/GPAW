@@ -304,7 +304,7 @@ class C_Response(Contribution):
             self.Dxc_D_asp, f_kn)
 
     def calculate_delta_xc_perturbation_spin(self, s=0):
-        homo, lumo = self.occupations.get_homo_lumo_by_spin(self.wfs, s)
+        homo, lumo = self.wfs.get_homo_lumo(s)
         Ksgap = lumo - homo
 
         # Calculate average of lumo reference response potential
@@ -313,9 +313,7 @@ class C_Response(Contribution):
 
         # Find the lumo-orbital of this spin
         sign = 1 - s * 2
-        lumo_n = int((
-            self.occupations.nvalence + sign * self.occupations.magmom
-        ) // 2)
+        lumo_n = int((self.wfs.nvalence + sign * self.occupations.magmom) // 2)
         gaps = [1000.0]
         for u, kpt in enumerate(self.kpt_u):
             if kpt.s == s:
@@ -462,7 +460,7 @@ class C_Response(Contribution):
 
     def write(self, writer):
         """Writes response specific data to disc.
-        
+
         During the writing process, the DeltaXC is calculated
         (if not yet calculated).
         """
@@ -473,7 +471,7 @@ class C_Response(Contribution):
         wfs = self.wfs
         kpt_comm = wfs.kd.comm
         gd = wfs.gd
-        
+
         nadm = 0
         for setup in wfs.setups:
             ni = setup.ni
@@ -483,7 +481,7 @@ class C_Response(Contribution):
         # assert world.size == 1
 
         shape = (wfs.nspins,) + tuple(gd.get_size_of_global_array())
-        
+
         # Write the pseudodensity on the coarse grid:
         writer.add_array('gllb_pseudo_response_potential', shape)
         if kpt_comm.rank == 0:
@@ -503,7 +501,7 @@ class C_Response(Contribution):
             for a in X_asp:
                 X_asp[a][:] = X0_asp[a]
             return pack_atomic_matrices(X_asp)
-            
+
         writer.write(gllb_atomic_density_matrices=pack(self.D_asp))
         writer.write(gllb_atomic_response_matrices=pack(self.Dresp_asp))
         writer.write(gllb_dxc_atomic_density_matrices=pack(self.Dxc_D_asp))
@@ -537,7 +535,7 @@ class C_Response(Contribution):
 
         def unpack(D_sP):
             return unpack_atomic_matrices(D_sP, wfs.setups)
-            
+
         # Read atomic density matrices and non-local part of hamiltonian:
         self.D_asp = unpack(r.gllb_atomic_density_matrices)
         self.Dresp_asp = unpack(r.gllb_atomic_response_matrices)

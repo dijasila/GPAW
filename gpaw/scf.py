@@ -23,9 +23,9 @@ class SCFLoop:
         self.old_energies = []
         self.old_F_av = None
         self.converged = False
-        
+
         self.niter = None
-        
+
         self.reset()
 
     def __str__(self):
@@ -44,13 +44,13 @@ class SCFLoop:
             if val < np.inf:
                 s += '  Maximum {0}\n'.format(name.format(val))
         return s
-        
+
     def write(self, writer):
         writer.write(converged=self.converged)
-        
+
     def read(self, reader):
         self.converged = reader.scf.converged
-        
+
     def reset(self):
         self.old_energies = []
         self.old_F_av = None
@@ -72,10 +72,10 @@ class SCFLoop:
                     break
             else:
                 self.converged = True
-                
+
             callback(self.niter)
             self.log(log, self.niter, wfs, ham, dens, occ, errors)
-            
+
             if self.converged and self.niter >= self.niter_fixdensity:
                 break
 
@@ -92,7 +92,7 @@ class SCFLoop:
             log(oops)
             raise KohnShamConvergenceError(
                 'Did not converge!  See text output for help.')
-        
+
     def collect_errors(self, dens, ham, wfs):
         """Check convergence of eigenstates, energy and density."""
 
@@ -103,7 +103,7 @@ class SCFLoop:
 
         if dens.fixed:
             errors['density'] = 0.0
-            
+
         if len(self.old_energies) >= 3:
             errors['energy'] = np.ptp(self.old_energies[-3:])
 
@@ -112,7 +112,7 @@ class SCFLoop:
             if self.old_F_av is not None:
                 errors['force'] = ((F_av - self.old_F_av)**2).sum(1).max()**0.5
             self.old_F_av = F_av
-                
+
         return errors
 
     def log(self, log, niter, wfs, ham, dens, occ, errors):
@@ -125,7 +125,7 @@ class SCFLoop:
             eigerr = 0.0
 
         T = time.localtime()
-        
+
         if niter == 1:
             header = """\
                      log10-error:    total        iterations:
@@ -184,7 +184,7 @@ class SCFLoop:
 
         log(flush=True)
 
-        
+
 oops = """
 Did not converge!
 

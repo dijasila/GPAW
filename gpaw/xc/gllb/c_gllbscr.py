@@ -21,7 +21,7 @@ class C_GLLBScr(Contribution):
             width = width / 27.21
         self.eps = eps / 27.21
         self.width = width
- 
+
     def get_name(self):
         return 'SCREENING'
 
@@ -30,7 +30,7 @@ class C_GLLBScr(Contribution):
 
     def get_desc(self):
         return '(' + self.functional + ')'
-        
+
     # Initialize GLLBScr functional
     def initialize_1d(self):
         self.ae = self.nlfunc.ae
@@ -76,7 +76,7 @@ class C_GLLBScr(Contribution):
             Knew += sqrt(max(0.0,dEH)-dEH)*exp(max(0.0,dEH)/w)
             #print dEH, w, dEH/w, Knew, f**0.5
             return Knew
-    
+
     def get_coefficients(self, e_j, f_j):
         homo_e = max( [ np.where(f>1e-3, e, -1000) for f,e in zip(f_j, e_j)] )
         return [ f * K_G * self.f(homo_e - e) for e,f in zip(e_j, f_j) ]
@@ -95,7 +95,7 @@ class C_GLLBScr(Contribution):
             return [ [ f * K_G * self.f(homo_e - e)
                     for e,f in zip(e_n, f_n) ]
                      for e_n, f_n in zip(self.ae.e_ln, self.ae.f_ln) ]
-        
+
 
     def get_coefficients_by_kpt(self, kpt_u, lumo_perturbation=False, homolumo=None, nspins=1):
         #if not hasattr(kpt_u[0],'orbitals_ready'):
@@ -116,7 +116,7 @@ class C_GLLBScr(Contribution):
             eref_s = []
             eref_lumo_s = []
             for s in range(nspins):
-                homo, lumo = self.occupations.get_homo_lumo_by_spin(self.nlfunc.wfs, s)
+                homo, lumo = self.nlfunc.wfs.get_homo_lumo(s)
                 eref_s.append(homo)
                 eref_lumo_s.append(lumo)
         else:
@@ -138,15 +138,15 @@ class C_GLLBScr(Contribution):
                           -self.f(eref_s[kpt.s]-e))
                      for e, f in zip(kpt.eps_n, kpt.f_n) ])
                      for kpt in kpt_u ]
-            
-            
+
+
         else:
             coeff = [ np.array([ f * K_G * self.f(eref_s[kpt.s] - e)
                      for e, f in zip(kpt.eps_n, kpt.f_n) ])
                      for kpt in kpt_u ]
             #print coeff
             return coeff
-        
+
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
         self.e_g[:] = 0.0
@@ -193,10 +193,10 @@ class C_GLLBScr(Contribution):
                 for y, (w, Y_L) in enumerate(zip(weight_n, c.Y_nL)):
                     # Cut gradient releated coefficient to match the setup's Lmax
                     A_Li = rnablaY_nLv[y, :c.Lmax]
-                    
+
                     # Expand pseudo density
                     nt_g = np.dot(Y_L, nt_Lg)
-                    
+
                     # Expand pseudo density gradient
                     a1x_g = np.dot(A_Li[:, 0], nt_Lg)
                     a1y_g = np.dot(A_Li[:, 1], nt_Lg)
@@ -206,7 +206,7 @@ class C_GLLBScr(Contribution):
                     a2_g[0] = a2_g[1]
                     a1_g = np.dot(Y_L, dntdr_Lg)
                     a2_g += a1_g**2
-                   
+
                     vt_g[:] = 0.0
                     e_g[:] = 0.0
                     # Calculate pseudo GGA energy density (potential is discarded)
@@ -264,7 +264,7 @@ class C_GLLBScr(Contribution):
     def initialize_from_atomic_orbitals(self, basis_functions):
         # GLLBScr needs only density which is already initialized
         pass
-        
+
     def add_extra_setup_data(self, dict):
         # GLLBScr has not any special data
         pass
@@ -276,6 +276,6 @@ class C_GLLBScr(Contribution):
     def write(self, writer):
         # GLLBScr has no special data to be written
         pass
-        
+
 
 
