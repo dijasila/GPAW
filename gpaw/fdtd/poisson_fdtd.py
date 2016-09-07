@@ -128,7 +128,7 @@ class QSFDTD:
                          restart_file=None,
                          dump_interval=100,
                          **kwargs):
-        self.td_calc = TDDFT(filename, poissonsolver=self.poissonsolver, **kwargs)
+        self.td_calc = TDDFT(filename, **kwargs)
         if kick_strength is not None:
             self.td_calc.absorption_kick(kick_strength)
             self.td_calc.hamiltonian.poisson.set_kick(kick_strength)
@@ -187,6 +187,7 @@ class FDTDPoissonSolver:
 
         self.set_calculation_mode('solve')
 
+        self.has_subsystems = False
         self.remove_moment_cl = remove_moments[0]
         self.remove_moment_qm = remove_moments[1]
         self.time = 0.0
@@ -221,12 +222,16 @@ class FDTDPoissonSolver:
     def todict(self):
         dct = dict(
             name='fdtd',
-            eps=self.eps,
             nn=self.nn,
             relax=self.relax,
-            cell=self.qm.cell * Bohr,
+            eps=self.eps,
+            # classical_material missing
+            cell=self.cl.cell * Bohr,
+            qm_spacing=self.qm.spacing_def[0] * Bohr,
+            cl_spacing=self.cl.spacing_def[0] * Bohr,
+            remove_moments=(self.remove_moment_cl, self.remove_moment_qm),
             potential_coupler=self.potential_coupling_scheme,
-            remove_moments=(self.remove_moment_qm, self.remove_moment_cl))
+            )
         return dct
 
     def get_description(self):
@@ -259,6 +264,8 @@ class FDTDPoissonSolver:
         self.cl.poisson_solver.initialize(load_Gauss)
 
     def set_grid_descriptor(self, qmgd):
+        if not self.has_subsystems:
+            return
 
         self.qm.gd = qmgd
 
@@ -631,6 +638,7 @@ class FDTDPoissonSolver:
         #        dmygd.h_cv[1][1] * Bohr,
         #        dmygd.h_cv[2][2] * Bohr))
 
+        self.has_subsystems = True
         return atoms_out, self.qm.spacing[0] * Bohr, qgpts
 
     def print_messages(self, printer_function):
@@ -902,7 +910,7 @@ class FDTDPoissonSolver:
 
     # Read restart data
     def read(self, reader):
-        r = reader.parameters.poissonsolver
+        r = reader.hamiltonian.poisson
 
         # FDTDPoissonSolver related data
         self.description = r.description
