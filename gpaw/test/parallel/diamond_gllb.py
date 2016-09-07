@@ -63,7 +63,7 @@ for band in [1, 2, 4]:
     atoms.get_potential_energy()
     # And calculate the discontinuity potential with accurate band gap
     response = calc.hamiltonian.xc.xcs['RESPONSE']
-    response.calculate_delta_xc(homolumo=homolumo * Ha)
+    response.calculate_delta_xc(homolumo=homolumo / Ha)
     calc.write('CGLLBSC.gpw')
 
     # Redo the band structure calculation
