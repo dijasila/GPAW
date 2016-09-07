@@ -496,11 +496,12 @@ def eigenvalue_string(wfs, comment=' '):
     def occs(k, s):
         f_n = wfs.collect_occupations(k, s)
         if f_n is None:
-            f_n = np.zeros(200)
+            # For fixdensity=True we don't have occupation numbers
+            f_n = np.zeros(wfs.bd.nbands)
             f_n[:] = np.nan
         return f_n
 
-    #occs = wfs.collect_occupations
+    # occs = wfs.collect_occupations
 
     if len(wfs.kd.ibzk_kc) == 1:
         if wfs.nspins == 1:
