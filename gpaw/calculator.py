@@ -534,7 +534,7 @@ class GPAW(Calculator, PAW):
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
 
-        self.create_occupations(magmom_a.sum, orbital_free)
+        self.create_occupations(magmom_a.sum(), orbital_free)
 
         if self.scf is None:
             self.create_scf(nvalence, mode)
