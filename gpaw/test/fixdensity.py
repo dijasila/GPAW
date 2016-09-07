@@ -39,6 +39,7 @@ calc.get_potential_energy()
 e3 = calc.get_eigenvalues(kpt=0)[0]
 f3 = slab.calc.get_fermi_level()
 
-print(f1, f2-f1, f3-f1)
+equal(f2, f1, 1e-10)
+equal(f3, f1, 1e-10)
 equal(e1, e2, 3e-5)
 equal(e1, e3, 3e-5)
