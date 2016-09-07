@@ -41,7 +41,7 @@ class PAW:
 
     def linearize_to_xc(self, newxc):
         """Linearize Hamiltonian to difference XC functional.
-        
+
         Used in real time TDDFT to perform calculations with various kernels.
         """
         if isinstance(newxc, str):
@@ -56,14 +56,14 @@ class PAW:
 
         Call *function* using *args* and
         *kwargs* as arguments.
-        
+
         If *n* is positive, then
         *function* will be called every *n* iterations + the
         final iteration if it would not be otherwise
-        
+
         If *n* is negative, then *function* will only be
         called on iteration *abs(n)*.
-        
+
         If *n* is 0, then *function* will only be called
         on convergence"""
 
@@ -102,9 +102,9 @@ class PAW:
     def get_reference_energy(self):
         return self.wfs.setups.Eref * Ha
 
-    def get_homo_lumo(self):
+    def get_homo_lumo(self, spin=None):
         """Return HOMO and LUMO eigenvalues."""
-        return self.occupations.get_homo_lumo(self.wfs) * Ha
+        return self.wfs.get_homo_lumo(spin) * Ha
 
     def estimate_memory(self, mem):
         """Estimate memory use of this object."""
@@ -142,7 +142,7 @@ class PAW:
         mem.calculate_size()
         mem.write(log.fd, maxdepth=maxdepth, depth=1)
         log()
-        
+
     def converge_wave_functions(self):
         """Converge the wave-functions if not present."""
 
@@ -152,12 +152,12 @@ class PAW:
             if self.wfs.kpt_u[0].psit_nG is not None:
                 self.wfs.initialize_wave_functions_from_restart_file()
                 return
-                
+
         if not self.initialized:
             self.initialize()
-            
+
         self.set_positions()
-        
+
         self.scf.converged = False
         fixed = self.density.fixed
         self.density.fixed = True
@@ -262,14 +262,14 @@ class PAW:
 
     def get_electrostatic_potential(self):
         """Return pseudo effective-potential."""
-        
+
         ham = self.hamiltonian
         dens = self.density
         self.initialize_positions()
         dens.interpolate_pseudo_density()
         dens.calculate_pseudo_charge()
         ham.update(dens)
-        
+
         v_g = ham.gd.collect(ham.vHt_g, broadcast=True)
         v_g = ham.finegd.zero_pad(v_g)
         if hasattr(ham.poisson, 'correction'):
@@ -455,10 +455,10 @@ class PAW:
         else:
             from gpaw.utilities.dos import LCAODOS
             lcaodos = LCAODOS(self)
-        
+
         if atom_indices is not None:
             basis_indices = lcaodos.get_atom_indices(atom_indices)
-                        
+
         eps_n, w_n = lcaodos.get_subspace_pdos(basis_indices)
         from gpaw.utilities.dos import fold
         return fold(eps_n * Ha, w_n, npts, width)
@@ -493,7 +493,7 @@ class PAW:
         """
         if self.wfs.mode == 'lcao' and not self.wfs.positions_set:
             self.initialize_positions()
-            
+
         if pad:
             psit_G = self.get_pseudo_wave_function(band, kpt, spin, broadcast,
                                                    pad=False,

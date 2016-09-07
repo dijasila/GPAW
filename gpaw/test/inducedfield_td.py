@@ -2,6 +2,7 @@ import numpy as np
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.tddft import TDDFT
+from gpaw.inducedfield.inducedfield_base import BaseInducedField
 from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
 from gpaw.poisson import PoissonSolver
 from gpaw.test import equal
@@ -30,7 +31,7 @@ calc.write('na2_gs.gpw', mode='all')
 time_step = 10.0
 iterations = 20
 kick_strength = [1.0e-3, 1.0e-3, 0.0]
-td_calc = TDDFT('na2_gs.gpw', poissonsolver=poissonsolver)
+td_calc = TDDFT('na2_gs.gpw')
 td_calc.absorption_kick(kick_strength=kick_strength)
 
 # Create and attach InducedField object
@@ -49,11 +50,10 @@ td_calc.propagate(time_step, iterations // 2, 'na2_td_dm.dat', 'na2_td.gpw')
 # Save TDDFT and InducedField objects
 td_calc.write('na2_td.gpw', mode='all')
 ind.write('na2_td.ind')
-
 ind.paw = None
 
 # Restart and continue
-td_calc = TDDFT('na2_td.gpw', poissonsolver=poissonsolver)
+td_calc = TDDFT('na2_td.gpw')
 
 # Load and attach InducedField object
 ind = TDDFTInducedField(filename='na2_td.ind',
@@ -66,6 +66,16 @@ td_calc.propagate(time_step, iterations // 2, 'na2_td_dm.dat', 'na2_td.gpw')
 # Calculate induced electric field
 ind.calculate_induced_field(gridrefinement=2, from_density='comp',
                             poisson_eps=poisson_eps)
+
+# Save
+ind.write('na2_td_field.ind', 'all')
+ind.paw = None
+td_calc = None
+ind = None
+
+# Read data (test also field data I/O)
+ind = BaseInducedField(filename='na2_td_field.ind',
+                       readmode='field')
 
 # Estimate tolerance (worst case error accumulation)
 tol = iterations * ind.fieldgd.integrate(ind.fieldgd.zeros() + 1.0) * \
@@ -99,5 +109,3 @@ equal(val5,    1945.618902611449, tol)
 equal(val6,       0.423899965987, tol)
 equal(val7,       0.560882533828, tol)
 equal(val8,       0.369203021329, tol)
-
-ind.paw = None

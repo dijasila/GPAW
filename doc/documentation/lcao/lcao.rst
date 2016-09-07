@@ -139,13 +139,13 @@ and d-type valence states, get a p-type polarization function and thus
 a total of 15 basis functions.
 
 To plot already generated basis functions, use the
-:command:`analyse-basis` command like::
+:command:`gpaw-analyse-basis` command like::
 
-  $ analyse-basis -f H.dzp.basis O.dzp.basis
+  $ gpaw-analyse-basis -f H.dzp.basis O.dzp.basis
 
 This will plot the basis functions in the specified files.  If the ``-f`` option is not included, the script will look for the
 first matching file in the GPAW setups paths, rather than the precise
-specified files.  Run ``analyse-basis --help`` for more
+specified files.  Run ``gpaw-analyse-basis --help`` for more
 options.
 
 

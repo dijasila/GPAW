@@ -14,6 +14,8 @@ Git master branch
 
 * New get_electrostatic_potential() method.
 
+* Calculations with ``fixdensity=True`` no longer update the Fermi level.
+
 
 Version 1.1.0
 =============
@@ -35,13 +37,13 @@ Version 1.1.0
 
 * Jellium calculations can now be done in plane-wave mode and there is a new
   ``background_charge`` keyword (see the :ref:`Jellium tutorial <jellium>`).
-  
+
 * New band structure unfolding tool and :ref:`tutorial <unfolding tutorial>`.
 
 * The :meth:`~gpaw.calculator.GPAW.get_pseudo_wave_function` method
   has a new keyword:  Use ``periodic=True`` to get the periodic part of the
   wave function.
-  
+
 * New tool for interpolating the pseudo wave functions to a fine real-space
   grids and for adding PAW-corrections in order to obtain all-electron wave
   functions.  See this tutorial: :ref:`ps2ae`.
@@ -123,11 +125,11 @@ Version 0.11.0
 * Text output from ground-state calculations now list the symmetries found
   and the **k**-points used.  Eigenvalues and occupation numbers are now
   also printed for systems with **k**-points.
-  
+
 * :ref:`GW <gw exercise>`, :ref:`rpa`, and :ref:`response function
   calculation <df_tutorial>` has been rewritten to take advantage of
   symmetry and fast matrix-matrix multiplication (BLAS).
-  
+
 * New :ref:`symmetry <manual_symmetry>` keyword.  Replaces ``usesymm``.
 
 * Use non-symmorphic symmetries: combining fractional translations with
@@ -147,9 +149,9 @@ Version 0.11.0
 
 * GPAW can now perform :ref:`electrodynamics` simulations using the
   quasistatic finite-difference time-domain (QSFDTD) method.
-  
+
 * BEEF-vdW, mBEEF and mBEEF-vdW functionals added.
-  
+
 * Support for Python 3.
 
 
@@ -166,7 +168,7 @@ Version 0.10.0
   with periodic boundary conditions.  Parameters for that case:
   ``Mixer(0.05, 5, 50)`` (or ``MixerSum(0.05, 5, 50)`` for spin-paired
   calculations.  Old parameters: ``0.1, 3, 50``.
-  
+
 * Default is now ``occupations=FermiDirac(0.1)`` if a
   calculation is periodic in at least one direction,
   and ``FermiDirac(0.0)`` otherwise (before it was 0.1 eV for anything
@@ -176,7 +178,7 @@ Version 0.10.0
 
 * :ref:`One-shot GW calculations <gw_theory>` with full frequency
   integration or plasmon-pole approximation.
-  
+
 * Beyond RPA-correlation: `using renormalized LDA and PBE
   <https://trac.fysik.dtu.dk/projects/gpaw/browser/branches/sprint2013/doc/tutorials/fxc_correlation>`_.
 
