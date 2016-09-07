@@ -219,6 +219,12 @@ class WaveFunctions:
         return self.collect_array('eps_n', k, s)
 
     def collect_occupations(self, k, s):
+        if self.kpt_u[0].f_n is None:
+            # For fixdensity=True we don't have occupation numbers
+            f_n = np.zeros(self.bd.nbands)
+            f_n[:] = np.nan
+            return f_n
+
         return self.collect_array('f_n', k, s)
 
     def collect_array(self, name, k, s, subset=None):
@@ -493,15 +499,7 @@ def eigenvalue_string(wfs, comment=' '):
         eps_n = wfs.collect_eigenvalues(k, s)
         return eps_n * Hartree
 
-    def occs(k, s):
-        f_n = wfs.collect_occupations(k, s)
-        if f_n is None:
-            # For fixdensity=True we don't have occupation numbers
-            f_n = np.zeros(wfs.bd.nbands)
-            f_n[:] = np.nan
-        return f_n
-
-    # occs = wfs.collect_occupations
+    occs = wfs.collect_occupations
 
     if len(wfs.kd.ibzk_kc) == 1:
         if wfs.nspins == 1:
