@@ -661,10 +661,7 @@ class GPAW(Calculator, PAW):
         occ = self.parameters.occupations
 
         if occ is None:
-            if self.parameters.fixdensity:
-                occ = {'name': 'fixed',
-                       'fermilevel': self.occupations.fermilevel}
-            elif orbital_free:
+            if orbital_free:
                 occ = {'name': 'orbital-free'}
             else:
                 width = self.parameters.width
@@ -679,6 +676,10 @@ class GPAW(Calculator, PAW):
 
         if isinstance(occ, dict):
             occ = create_occupation_number_object(**occ)
+
+        if self.parameters.fixdensity:
+            occ.fixed_fermilevel = True
+            occ.fermilevel = self.occupations.fermilevel
 
         self.occupations = occ
 

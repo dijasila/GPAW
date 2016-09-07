@@ -13,8 +13,6 @@ from gpaw.utilities import erf
 
 
 def create_occupation_number_object(name, **kwargs):
-    if name == 'fixed':
-        return Fixed(**kwargs)
     if name == 'fermi-dirac':
         return FermiDirac(**kwargs)
     if name == 'methfessel-paxton':
@@ -22,28 +20,6 @@ def create_occupation_number_object(name, **kwargs):
     if name == 'orbital-free':
         return TFOccupations()
     raise ValueError('Unknown occupation number object name: ' + name)
-
-
-class Fixed:
-    """For fixdensity=True calculations."""
-    e_band = np.nan
-    e_entropy = np.nan
-    niter = 0
-
-    def __init__(self, fermilevel):
-        self.fermilevel = fermilevel
-
-    def extrapolate_energy_to_zero_width(self, e):
-        return np.nan
-
-    def summary(self, log):
-        log('Fixed!')
-
-    def get_fermi_level(self):
-        return self.fermilevel
-
-    def calculate(self, wfs):
-        pass
 
 
 def findroot(func, x, tol=1e-10):
@@ -111,6 +87,7 @@ class OccupationNumbers:
         self.split = 0.0  # splitting of Fermi levels from fixmagmom=True
         self.niter = 0  # number of iterations for finding Fermi level
         self.ready = False
+        self.fixed_fermilevel = False
 
     def write(self, writer):
         writer.write(fermilevel=self.fermilevel * Hartree,
@@ -152,6 +129,8 @@ class OccupationNumbers:
             # suffer if any NaNs sneak in.
             assert not np.isnan(kpt.eps_n).any()
 
+        fermilevel = self.fermilevel  # save for later
+
         # Let the master domain do the work and broadcast results:
         data = np.empty(5)
         if wfs.gd.comm.rank == 0:
@@ -165,6 +144,9 @@ class OccupationNumbers:
 
         for kpt in wfs.kpt_u:
             wfs.gd.comm.broadcast(kpt.f_n, 0)
+
+        if self.fixed_fermilevel:
+            self.fermilevel = fermilevel
 
     def set_number_of_electrons(self, wfs):
         self.nvalence = wfs.nvalence
@@ -182,31 +164,6 @@ class OccupationNumbers:
 
     def get_fermi_level(self):
         raise ValueError('Can not calculate Fermi level!')
-
-    def set_fermi_level(self, fermilevel):
-        """This method sets the fermi-level.
-
-        However, since you get two fermi-levels when doing
-        calculations with fixed magmom, you should be able
-        to set two fermi-levels.
-
-        So set_fermi_level will give an warning if you supply
-        one fermi-level to an fixed-magmom calculation and will
-        also accept everything which can converted to an numpy-
-        array for setting two fermi-levels.
-
-        """
-        if self.fixmagmom:
-            fermilevels = np.array(fermilevel)
-            if fermilevels.size == 2:
-                self.fermilevel = fermilevels.mean()
-                self.split = fermilevels[0] - fermilevels[1]
-            else:
-                warnings.warn('Please use set_fermi_levels when ' +
-                              'using fixmagmom', DeprecationWarning)
-                self.fermilevel = fermilevel
-        else:
-            self.fermilevel = fermilevel
 
 
 class ZeroKelvin(OccupationNumbers):
@@ -247,7 +204,8 @@ class ZeroKelvin(OccupationNumbers):
 
     def summary(self, log):
         if np.isfinite(self.fermilevel):
-            # if self.split == 0.0:
+            if self.fixed_fermilevel:
+                log('Fixed ', end='')
             if not self.fixmagmom:
                 log('Fermi level: %.5f\n' % (Hartree * self.fermilevel))
             else:
@@ -420,6 +378,8 @@ class SmoothDistribution(ZeroKelvin):
         s = 'Occupation numbers:\n'
         if self.fixmagmom:
             s += '  Fixed magnetic moment\n'
+        if self.fixed_fermilevel:
+            s += '  Fixed Fermi level\n'
         return s
 
     def calculate_occupation_numbers(self, wfs):
