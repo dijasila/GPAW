@@ -792,9 +792,11 @@ class GPAW(Calculator, PAW):
         if realspace:
             self.hamiltonian = RealSpaceHamiltonian(stencil=mode.interpolation,
                                                     **kwargs)
+            xc.set_grid_descriptor(self.hamiltonian.finegd)  # XXX
         else:
             self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
                 pd2=dens.pd2, pd3=dens.pd3, **kwargs)
+            xc.set_grid_descriptor(dens.xc_redistributor.aux_gd)  # XXX
 
         self.log(self.hamiltonian, '\n')
 
