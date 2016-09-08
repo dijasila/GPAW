@@ -356,20 +356,16 @@ class GPAW(Calculator, PAW):
                 self.wfs.set_orthonormalized(False)
             if key in ['external', 'xc', 'poissonsolver']:
                 self.hamiltonian = None
-                self.occupations = None
             elif key in ['occupations', 'width']:
-                self.occupations = None
+                pass
             elif key in ['charge', 'background_charge']:
                 self.hamiltonian = None
                 self.density = None
                 self.wfs = None
-                self.occupations = None
             elif key in ['kpts', 'nbands', 'symmetry']:
                 self.wfs = None
-                self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'dtype', 'mode']:
                 self.density = None
-                self.occupations = None
                 self.hamiltonian = None
                 self.wfs = None
             elif key in ['basis']:
@@ -538,9 +534,7 @@ class GPAW(Calculator, PAW):
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
 
-        if self.occupations is None:
-            self.create_occupations(orbital_free)
-        self.occupations.magmom = magmom_a.sum()
+        self.create_occupations(magmom_a.sum(), orbital_free)
 
         if self.scf is None:
             self.create_scf(nvalence, mode)
@@ -663,11 +657,10 @@ class GPAW(Calculator, PAW):
                                domain_comm, parsize_domain):
         return GridDescriptor(N_c, cell_cv, pbc_c, domain_comm, parsize_domain)
 
-    def create_occupations(self, orbital_free):
+    def create_occupations(self, magmom, orbital_free):
         occ = self.parameters.occupations
 
         if occ is None:
-            # Create object for occupation numbers:
             if orbital_free:
                 occ = {'name': 'orbital-free'}
             else:
@@ -684,12 +677,18 @@ class GPAW(Calculator, PAW):
         if isinstance(occ, dict):
             occ = create_occupation_number_object(**occ)
 
+        if self.parameters.fixdensity:
+            occ.fixed_fermilevel = True
+            occ.fermilevel = self.occupations.fermilevel
+
         self.occupations = occ
 
         # If occupation numbers are changed, and we have wave functions,
         # recalculate the occupation numbers
         if self.wfs is not None:
             self.occupations.calculate(self.wfs)
+
+        self.occupations.magmom = magmom
 
         self.log(self.occupations)
 
@@ -793,9 +792,11 @@ class GPAW(Calculator, PAW):
         if realspace:
             self.hamiltonian = RealSpaceHamiltonian(stencil=mode.interpolation,
                                                     **kwargs)
+            xc.set_grid_descriptor(self.hamiltonian.finegd)  # XXX
         else:
             self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
                 pd2=dens.pd2, pd3=dens.pd3, **kwargs)
+            xc.set_grid_descriptor(dens.xc_redistributor.aux_gd)  # XXX
 
         self.log(self.hamiltonian, '\n')
 
