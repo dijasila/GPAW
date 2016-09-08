@@ -14,7 +14,7 @@ class Heterostructure:
                  include_dipole=True, d0=None,
                  wmax=10, qmax=None):
         """Creates a Heterostructure object.
-        
+
         structure: list of str
             Heterostructure set up. Each entry should consist of number of
             layers + chemical formula.
@@ -61,7 +61,12 @@ class Heterostructure:
             if name not in namelist:
                 namelist.append(name)
                 name += '-chi.pckl'
-                q, w, chim, chid, zi, drhom, drhod = pickle.load(open(name))
+                fd = open(name, 'rb')
+                try:
+                    things = pickle.load(fd, encoding='latin1')
+                except TypeError:
+                    things = pickle.load(fd)
+                q, w, chim, chid, zi, drhom, drhod = things
                 if qmax is not None:
                     qindex = np.argmin(abs(q - qmax * Bohr)) + 1
                 else:
@@ -119,7 +124,7 @@ class Heterostructure:
             self.chi_dipole = np.array(chi_dipole)
         self.drho_monopole, self.drho_dipole, self.basis_array, \
             self.drho_array = self.arange_basis(drho_monopole, drho_dipole)
-        
+
         self.dphi_array = self.get_induced_potentials()
         self.kernel_qij = None
 
@@ -130,9 +135,9 @@ class Heterostructure:
                                Nz], dtype=complex)
         basis_array = np.zeros([self.dim, len(self.q_abs),
                                 Nz], dtype=complex)
-        
+
         for i in range(self.n_types):
-            z = self.z[i] - self.z[i][len(self.z[i]) / 2]
+            z = self.z[i] - self.z[i][len(self.z[i]) // 2]
             drhom_i = drhom[i]
             fm = interp1d(z, np.real(drhom_i))
             fm2 = interp1d(z, np.imag(drhom_i))
@@ -160,7 +165,7 @@ class Heterostructure:
                     drho_array[k, :, i_1: i_2] = \
                         fm(z_big[i_1: i_2]) + 1j * fm2(z_big[i_1: i_2])
                     basis_array[k, :, i_1s: i_2s] = 1. / self.s[i]
-        
+
         return drhom, drhod, basis_array, drho_array
 
     def get_induced_potentials(self):
@@ -196,10 +201,10 @@ class Heterostructure:
                     i_1 = np.argmin(np.abs(z_poisson[0] - z_big)) + 1
                     i_2 = np.argmin(np.abs(z_poisson[-1] - z_big)) - 1
 
-                    dphi_array[self.dim / self.n_layers * k, iq] = \
+                    dphi_array[self.dim // self.n_layers * k, iq] = \
                         self.potential_model(self.q_abs[iq], self.z_big,
                                              self.z0[k])
-                    dphi_array[self.dim / self.n_layers * k, iq, i_1: i_2] = \
+                    dphi_array[self.dim // self.n_layers * k, iq, i_1: i_2] = \
                         fm(z_big[i_1: i_2]) + 1j * fm2(z_big[i_1: i_2])
                     if self.chi_dipole is not None:
                         dphi_array[2 * k + 1, iq] = \
@@ -208,7 +213,7 @@ class Heterostructure:
                                                  delta=delta)
                         dphi_array[2 * k + 1, iq, i_1: i_2] = \
                             fd(z_big[i_1: i_2])
-        
+
         return dphi_array
 
     def get_z_grid(self, z, z_lim=None):
@@ -220,7 +225,7 @@ class Heterostructure:
         z_grid = np.insert(z, 0, np.arange(-z_lim, z[0], dz))
         z_grid = np.append(z_grid, np.arange(z[-1] + dz, z_lim + dz, dz))
         return z_grid
-    
+
     def potential_model(self, q, z, z0=0, dipole=False, delta=None):
         """
         2D Coulomb: 2 pi / q with exponential decay in z-direction
@@ -231,26 +236,26 @@ class Heterostructure:
                   np.exp(-q * np.abs(z - z0 - delta)))
         else:  # Monopole potential from single plane
             V = 2 * np.pi / q * np.exp(-q * np.abs(z - z0))
-        
+
         return V
-    
+
     def solve_poisson_1D(self, drho, q, z,
                          dipole=False, delta=None):
         """
         Solves poissons equation in 1D using finite difference method.
-        
+
         drho: induced potential basis function
         q: momentum transfer.
         """
         z -= np.mean(z)  # center around 0
         z_grid = self.get_z_grid(z, z_lim=self.poisson_lim)
         dz = z[1] - z[0]
-        Nz_loc = (len(z_grid) - len(z)) / 2
-       
+        Nz_loc = (len(z_grid) - len(z)) // 2
+
         drho = np.append(np.insert(drho, 0, np.zeros([Nz_loc])),
                          np.zeros([Nz_loc]))
         Nint = len(drho) - 1
-        
+
         bc_v0 = self.potential_model(q, z_grid[0], dipole=dipole,
                                      delta=delta)
         bc_vN = self.potential_model(q, z_grid[-1], dipole=dipole,
@@ -265,7 +270,7 @@ class Heterostructure:
             M[i, i - 1] = 1. / dz**2
             M[0, 0] = 1.
             M[Nint, Nint] = 1.
-    
+
         f_z[0] = bc_v0
         f_z[Nint] = bc_vN
 
@@ -290,9 +295,9 @@ class Heterostructure:
                 else:  # Normal kernel
                     kernel_qij[iq] = np.dot(self.drho_array[:, iq],
                                             self.dphi_array[:, iq].T) * self.dz
-           
+
         return kernel_qij
-    
+
     def get_chi_matrix(self):
 
         """
@@ -302,9 +307,9 @@ class Heterostructure:
         q_abs = self.q_abs
         chi_m_iqw = self.chi_monopole
         chi_d_iqw = self.chi_dipole
-        
+
         if self.kernel_qij is None:
-            self.kernel_qij = self.get_Coulomb_Kernel()            
+            self.kernel_qij = self.get_Coulomb_Kernel()
         chi_qwij = np.zeros((len(self.q_abs), len(self.frequencies),
                              self.dim, self.dim), dtype=complex)
 
@@ -321,7 +326,7 @@ class Heterostructure:
                 chi_qwij[iq, iw, :, :] = np.dot(np.linalg.inv(
                         np.eye(self.dim) - np.dot(chi_intra_ij, kernel_ij)),
                                                 chi_intra_ij)
-  
+
         return chi_qwij
 
     def get_eps_matrix(self, step_potential=False):
@@ -330,7 +335,7 @@ class Heterostructure:
         """
         self.kernel_qij =\
             self.get_Coulomb_Kernel(step_potential=step_potential)
-        
+
         chi_qwij = self.get_chi_matrix()
         eps_qwij = np.zeros((len(self.q_abs), len(self.frequencies),
                              self.dim, self.dim), dtype=complex)
@@ -342,9 +347,9 @@ class Heterostructure:
                     np.eye(kernel_ij.shape[0]) + np.dot(kernel_ij,
                                                         chi_qwij[iq, iw,
                                                                  :, :]))
-      
+
         return eps_qwij
-    
+
     def get_exciton_screened_potential(self, e_distr, h_distr):
         v_screened_qw = np.zeros((len(self.q_abs),
                                   len(self.frequencies)))
@@ -359,15 +364,15 @@ class Heterostructure:
                     np.dot(e_distr,
                            np.dot(np.linalg.inv(eps_qwij[iq, iw, :, :]),
                                   ext_pot))
-                        
+
         return self.q_abs, -v_screened_qw[:,0]
 
     def get_exciton_screened_potential_r(self, r_array, e_distr=None, h_distr=None,Wq_name=None):
         if Wq_name is not None:
-            q_abs,W_q = pickle.load(open(Wq_name))
+            q_abs,W_q = pickle.load(open(Wq_name, 'rb'))
         else:
             q_temp,W_q = self.get_exciton_screened_potential(e_distr, h_distr)
-        
+
         from scipy.special import jn
         if self.n_layers==1:
             layer_thickness = self.s[0]
@@ -377,12 +382,12 @@ class Heterostructure:
         else:
             ilayer = np.min([np.where(e_distr==1)[0][0],np.where(h_distr==1)[0][0]])//4
             layer_thickness=self.d[ilayer]
-            
+
         W_q *= q_temp
         q = np.linspace(q_temp[0],q_temp[-1],10000)
         Wt_q = np.interp(q,q_temp,W_q)
         Dq_Q2D = q[1]-q[0]
-        Coulombt_q = -4.*np.pi/q*(1.-np.exp(-q*layer_thickness/2.))/layer_thickness   
+        Coulombt_q = -4.*np.pi/q*(1.-np.exp(-q*layer_thickness/2.))/layer_thickness
 
         W_r = np.zeros(len(r_array))
         for ir in range(0,len(r_array)):
@@ -392,16 +397,16 @@ class Heterostructure:
                             /(-layer_thickness/2. + np.sqrt(r_array[ir]**2 + layer_thickness**2/4.)))
             else:
                 Int_temp = -1./layer_thickness*np.log(layer_thickness**2/r_array[ir]**2)
-            W_r[ir] =  Dq_Q2D/2./np.pi * np.sum(J_q*(Wt_q-Coulombt_q)) + Int_temp 
+            W_r[ir] =  Dq_Q2D/2./np.pi * np.sum(J_q*(Wt_q-Coulombt_q)) + Int_temp
         return r_array,W_r
 
     def get_exciton_binding_energies(self, eff_mass, L_min=-50,L_max=10,Delta=0.1, e_distr=None, h_distr=None, Wq_name=None):
         from scipy.linalg import eig
         r_space = np.arange(L_min,L_max,Delta)
-        Nint = len(r_space) 
+        Nint = len(r_space)
 
         r,W_r = self.get_exciton_screened_potential_r(r_array=np.exp(r_space),e_distr=e_distr, h_distr=h_distr, Wq_name=None)
-        
+
         H = np.zeros((Nint,Nint),dtype=complex)
         for i in range(0,Nint):
             r_abs = np.exp(r_space[i])
@@ -414,19 +419,19 @@ class Heterostructure:
         ee, ev = eig(H)
         index_sort = np.argsort(ee.real)
         ee = ee[index_sort]
-        ev = ev[:,index_sort]        
+        ev = ev[:,index_sort]
         return ee*Hartree, ev
 
     def get_macroscopic_dielectric_function(self, static=True, layers=None,
                                             direction='x'):
         """
         Calculates the averaged dielectric function over the structure.
-        
+
         Parameters:
-        
+
         static: bool
-            If True only include w=0 
-            
+            If True only include w=0
+
         layers: array of integers
             list with index of specific layers to include in the average.
 
@@ -437,7 +442,7 @@ class Heterostructure:
         Returns list of q-points, frequencies, dielectric function(q, w).
         """
         layer_weight = self.s / np.sum(self.s) * self.n_layers
-        
+
         if self.chi_dipole is not None:
             layer_weight = np.insert(layer_weight,
                                      np.arange(self.n_layers) + 1,
@@ -465,14 +470,14 @@ class Heterostructure:
             if direction == 'z':
                 index += 1
             potential[index] = 1.
-        
+
         if static:
             Nw = 1
         else:
             Nw = len(self.frequencies)
 
-        eps_qwij = self.get_eps_matrix(step_potential=True)[:, :Nw] 
-        
+        eps_qwij = self.get_eps_matrix(step_potential=True)[:, :Nw]
+
         Nq = len(self.q_abs)
         epsM_qw = np.zeros([Nq, Nw], dtype=complex)
 
@@ -483,9 +488,9 @@ class Heterostructure:
                 epsinv_M = 1. / N * np.dot(np.array(potential) * layer_weight,
                                            np.dot(epsinv_ij,
                                                   np.array(const_per)))
-                      
+
                 epsM_qw[iq, iw] = 1. / epsinv_M
-                
+
         return self.q_abs / Bohr,  self.frequencies[:Nw] * Hartree, epsM_qw
 
     def get_eels(self, dipole_contribution=False):
@@ -498,7 +503,7 @@ class Heterostructure:
         """
         const_per = np.ones([self.n_layers])
         layer_weight = self.s / np.sum(self.s) * self.n_layers
-        
+
         if self.chi_dipole is not None:
             const_per = np.insert(const_per,
                                   np.arange(self.n_layers) + 1,
@@ -516,9 +521,9 @@ class Heterostructure:
         N = self.n_layers
         eels_qw = np.zeros([len(self.q_abs), len(self.frequencies)],
                            dtype=complex)
-       
+
         chi_qwij = self.get_chi_matrix()
-   
+
         for iq in range(len(self.q_abs)):
             for iw in range(len(self.frequencies)):
                 eels_qw[iq, iw] = np.dot(np.array(const_per) * layer_weight,
@@ -529,7 +534,7 @@ class Heterostructure:
 
         return self.q_abs / Bohr, self.frequencies * Hartree, \
             - (Bohr * eels_qw).imag
-    
+
     def get_absorption_spectrum(self, dipole_contribution=False):
         """
         Calculates absorption spectrum, defined as:
@@ -540,7 +545,7 @@ class Heterostructure:
         """
         const_per = np.ones([self.n_layers])
         layer_weight = self.s / np.sum(self.s) * self.n_layers
-        
+
         if self.chi_dipole is not None:
             const_per = np.insert(const_per,
                                   np.arange(self.n_layers) + 1,
@@ -558,16 +563,16 @@ class Heterostructure:
         N = self.n_layers
         abs_qw = np.zeros([len(self.q_abs), len(self.frequencies)],
                            dtype=complex)
-       
+
         eps_qwij = self.get_eps_matrix()
-   
+
         for iq in range(len(self.q_abs)):
             for iw in range(len(self.frequencies)):
                 abs_qw[iq, iw] = np.dot(np.array(const_per) * layer_weight,
                                         np.dot(eps_qwij[iq, iw],
                                                np.array(const_per)))
 
-            abs_qw[iq, :] *= 1. / N * 2. / self.q_abs[iq] 
+            abs_qw[iq, :] *= 1. / N * 2. / self.q_abs[iq]
 
         return self.q_abs / Bohr, self.frequencies * Hartree, \
             (Bohr * abs_qw).imag
@@ -580,20 +585,20 @@ class Heterostructure:
 
         EELS(w) = - Im [sum_{q}^{q_max}  V(q) \chi(w, q) V(q)]
                     \delta(w - q \dot v_e)
-                    
+
         The calculation assumes a beam in the z-direction perpendicular to the
         layers, and that the response in isotropic within the plane.
 
         Input parameters:
         V_beam: float
-            Acceleration voltage of electron beam in kV. 
+            Acceleration voltage of electron beam in kV.
             Is used to calculate v_e that goes into \delta(w - q \dot v_e)
 
         Returns list of Frequencies and the loss function
         """
         const_per = np.ones([self.n_layers])
         layer_weight = self.s / np.sum(self.s) * self.n_layers
-        
+
         if self.chi_dipole is not None:
             const_per = np.insert(const_per,
                                   np.arange(self.n_layers) + 1,
@@ -605,17 +610,17 @@ class Heterostructure:
         N = self.n_layers
         eels_w = np.zeros([len(self.frequencies)], dtype=complex)
         chi_qwij = self.get_chi_matrix()
-        vol = np.pi * (self.q_abs[-1] + self.q_abs[1] / 2.)**2 
+        vol = np.pi * (self.q_abs[-1] + self.q_abs[1] / 2.)**2
         weight0 = np.pi * (self.q_abs[1] / 2.)**2 / vol
         c = (1 - weight0) / np.sum(self.q_abs)
-        weights = c * self.q_abs        
+        weights = c * self.q_abs
         weights[0] = weight0
         # Beam speed from relativistic eq
         me = ase.units._me
         c = ase.units._c
         E_0 = me * c**2  # Rest energy
         E = E_0 + V_beam * 1e3 / ase.units.J   # Relativistic energy
-        v_e = c * (E**2 - E_0**2)**0.5 / E  # beam velocity in SI 
+        v_e = c * (E**2 - E_0**2)**0.5 / E  # beam velocity in SI
         # Lower cutoff q_z = w / v_e
         w_wSI = self.frequencies * Hartree \
             / ase.units.J / ase.units._hbar  # w in SI units
@@ -625,7 +630,7 @@ class Heterostructure:
         print('Beam speed = %1.2f / c' % (v_e / c))
         # Upper cutoff q_c = q[1] / 2.
         q_c = self.q_abs[1] / 2.
-        # Integral for q=0: \int_0^q_c \frac{q^3}{(q^2 + q_z^2)^2} dq 
+        # Integral for q=0: \int_0^q_c \frac{q^3}{(q^2 + q_z^2)^2} dq
         I = 2 * np.pi / vol * \
             (q_z**2 / 2. / (q_c**2 + q_z**2) - 0.5 +
              0.5 * np.log((q_c / q_z)**2 + 1))
@@ -635,9 +640,9 @@ class Heterostructure:
         print(q_max / Bohr)
         omega_weight = 1. / (2 * np.pi / vol *
                              (q_z**2 / 2. * (1. / (q_max**2 + q_z**2) -
-                                             1. / q_z**2) + 
+                                             1. / q_z**2) +
                               0.5 * np.log((q_max / q_z)**2 + 1)))
-       
+
         for iq in range(len(self.q_abs)):
             eels_temp = np.zeros([len(self.frequencies)], dtype=complex)
             for iw in range(len(self.frequencies)):
@@ -645,13 +650,13 @@ class Heterostructure:
                 temp = np.dot(np.array(const_per) * layer_weight,
                               np.dot(chi_qwij[iq, iw], np.array(const_per)))
                 eels_temp[iw] += temp
-                
+
             if np.isclose(self.q_abs[iq], 0):
                 eels_temp *= (4 * np.pi)**2 * I
-                
+
             else:
                 eels_temp *= 1. / (self.q_abs[iq]**2 + q_z**2)**2
-                eels_temp *= (4 * np.pi)**2 * weights[iq] 
+                eels_temp *= (4 * np.pi)**2 * weights[iq]
             eels_w += eels_temp
 
             if include_z:
@@ -666,7 +671,7 @@ class Heterostructure:
                     # longitudinal cross terms
                     temp = 1J * np.dot(np.array(const_per) * layer_weight,
                                      np.dot(chi_qwij[iq, iw],
-                                            np.array(const_per[::-1]))) 
+                                            np.array(const_per[::-1])))
                     eels_temp[iw] += temp / q_z[iw]
 
                     temp = -1J * np.dot(np.array(const_per[::-1]) *
@@ -687,7 +692,7 @@ class Heterostructure:
                 else:
                     eels_temp *= 1. / (self.q_abs[iq]**2 + q_z**2)**2 * q_z**2
                     eels_temp *= (4 * np.pi)**2 * weights[iq]
-                    
+
                 eels_w += eels_temp
 
         return self.frequencies * Hartree, - (Bohr**5 * eels_w * vol).imag
@@ -712,7 +717,7 @@ class Heterostructure:
         chi_qij = self.get_chi_matrix()[:, iw]
         Vind_z = np.zeros((len(self.q_abs), len(self.z_big)))
         rhoind_z = np.zeros((len(self.q_abs), len(self.z_big)))
-        
+
         drho_array = self.drho_array.copy()
         dphi_array = self.dphi_array.copy()
         # Expand on potential and density basis function
@@ -723,7 +728,7 @@ class Heterostructure:
             rhoind_z[iq] = np.dot(drho_array[:, iq].T, Vind_qi)
             Vind_z[iq] = np.dot(dphi_array[:, iq].T, Vind_qi)
         return self.z_big * Bohr, rhoind_z, Vind_z, self.z0 * Bohr
-    
+
     def get_plasmon_eigenmodes(self):
         """
         Diagonalize the dieletric matrix to get the plasmon eigenresonances
@@ -804,19 +809,19 @@ def get_chi_2D(filenames=None, name=None):
       (L G_z cos(G_z L/2)-2 sin(G_z L/2))/G_z^2
 
     input parameters:
-    
+
     filenames: list of str
         list of chi_wGG.pckl files for different q calculated with
         the DielectricFunction module in GPAW
     name: str
         name writing output files
     """
-    
+
     q_list_abs = []
-    
+
     omega_w, pd, chi_wGG, q0 = read_chi_wGG(filenames[0])
     nq = len(filenames)
-        
+
     nw = omega_w.shape[0]
     r = pd.gd.get_grid_point_coordinates()
     z = r[2, 0, 0, :]
@@ -870,7 +875,9 @@ def get_chi_2D(filenames=None, name=None):
     densities and z array (all in Bohr)
     """
     pickle.dump((np.array(q_list_abs), omega_w, chiM_2D_qw, chiD_2D_qw,
-                 z, drho_M_qz, drho_D_qz), open(name + '-chi.pckl', 'w'))
+                 z, drho_M_qz, drho_D_qz),
+                open(name + '-chi.pckl', 'wb'),
+                protocol=pickle.HIGHEST_PROTOCOL)
     return np.array(q_list_abs) / Bohr, omega_w * Hartree, chiM_2D_qw, \
         chiD_2D_qw, z, drho_M_qz, drho_D_qz
 
@@ -892,7 +899,7 @@ def read_chi_wGG(name):
     module in GPAW.
     Returns frequency grid, gpaw.wavefunctions object, chi_wGG
     """
-    fd = open(name)
+    fd = open(name, 'rb')
     omega_w, pd, chi_wGG, q0, chi0_wvv = pickle.load(fd)
     nw = len(omega_w)
     nG = pd.ngmax
