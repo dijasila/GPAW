@@ -194,7 +194,7 @@ class Writer(Folder):
 
             
 def polarizability(exlist, omega, form='v', index=0):
-    """Return the polarizability in ASE units (e^2 Angstrom^2 / eV).
+    """Evaluate the polarizability from sum over states. 
 
     Parameters
     ----------
@@ -205,8 +205,14 @@ def polarizability(exlist, omega, form='v', index=0):
         Form of the dipole matrix element
     index: {0, 1, 2, 3}
         0: averaged, 1,2,3:alpha_xx, alpha_yy, alpha_zz
+
+    Returns
+    -------
+    alpha:
+        Unit (e^2 Angstrom^2 / eV). 
+        Multiply with Bohr * Ha to get (Angstrom^3)
     """
-    alpha = 0
+    alpha = np.zeros_like(omega, dtype=float)
     for ex in exlist:
         alpha += ex.get_oscillator_strength(form=form)[index] / (
             (ex.energy * Hartree)**2 - omega**2)
