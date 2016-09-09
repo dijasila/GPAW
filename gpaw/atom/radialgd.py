@@ -1,4 +1,5 @@
 from __future__ import division
+import numbers
 from math import pi, factorial as fac
 
 import numpy as np
@@ -141,6 +142,16 @@ class RadialGridDescriptor:
         d2ndr2_g[-1] = d2ndr2_g[-2]
         return d2ndr2_g
 
+    def T(self, u_g):
+        dudg_g = 0.5 * (u_g[2:] - u_g[:-2])
+        d2udg2_g = u_g[2:] - 2 * u_g[1:-1] + u_g[:-2]
+        Tu_g = self.empty()
+        Tu_g[1:-1] = -0.5 * (d2udg2_g / self.dr_g[1:-1]**2 +
+                            dudg_g * self.d2gdr2()[1:-1])
+        Tu_g[0] = Tu_g[1]
+        Tu_g[-1] = Tu_g[-2]
+        return Tu_g
+        
     def interpolate(self, f_g, r_x):
         from scipy.interpolate import InterpolatedUnivariateSpline
         return InterpolatedUnivariateSpline(self.r_g, f_g)(r_x)
@@ -230,10 +241,10 @@ class RadialGridDescriptor:
 
         for g < gc+P.
         """
-        assert isinstance(gc, int) and gc > 10
+        assert isinstance(gc, numbers.Integral) and gc > 10
         
         r_g = self.r_g
-        i = range(gc, gc + points)
+        i = np.arange(gc, gc + points)
         r_i = r_g[i]
         c_p = np.polyfit(r_i**2, a_g[i] / r_i**l, points - 1)
         b_g = a_g.copy()
