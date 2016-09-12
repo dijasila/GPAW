@@ -241,21 +241,21 @@ class G0W0(PairDensity):
 
         Returns a dict with the results with the following key/value pairs:
 
-        =========   ===================================
-        key         value
-        =========   ===================================
-        ``f``       Occupation numbers
-        ``eps``     Kohn-Sham eigenvalues in eV
-        ``vxc``     Exchange-correlation
-                    contributions in eV
-        ``exx``     Exact exchange contributions in eV
-        ``sigma``   Self-energy contributions in eV
-        ``dsigma``  Self-energy derivatives
-        ``sigma_e`` Self-energy contributions in eV
-                    used for ecut extrapolation
-        ``Z``       Renormalization factors
-        ``qp``      Quasi particle energies in eV
-        =========   ===================================
+        ===========  ===================================
+        key          value
+        ===========  ===================================
+        ``f``        Occupation numbers
+        ``eps``      Kohn-Sham eigenvalues in eV
+        ``vxc``      Exchange-correlation
+                     contributions in eV
+        ``exx``      Exact exchange contributions in eV
+        ``sigma``    Self-energy contributions in eV
+        ``dsigma``   Self-energy derivatives
+        ``sigma_e``  Self-energy contributions in eV
+                     used for ecut extrapolation
+        ``Z``        Renormalization factors
+        ``qp``       Quasi particle energies in eV
+        ===========  ===================================
 
         All the values are ``ndarray``'s of shape
         (spins, IBZ k-points, bands)."""
