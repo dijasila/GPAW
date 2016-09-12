@@ -7,7 +7,7 @@ from gpaw.test import equal
 
 atoms = bulk('BN', 'zincblende', a=3.615)
 
-calc = GPAW(mode = PW(400),
+calc = GPAW(mode=PW(400),
             kpts={'size': (2, 2, 2), 'gamma': True},
             dtype=complex,
             xc='LDA',
@@ -21,7 +21,7 @@ calc.diagonalize_full_hamiltonian(scalapack=True)
 calc.write('BN_bulk_k2_ecut400_allbands.gpw', mode='all')
 
 gw = G0W0('BN_bulk_k2_ecut400_allbands.gpw',
-          bands=(3,5),
+          bands=(3, 5),
           nbands=10,
           nblocks=1,
           method='GW0',
@@ -30,8 +30,8 @@ gw = G0W0('BN_bulk_k2_ecut400_allbands.gpw',
 
 result = gw.calculate()
 
-gaps = [3.256, 4.599, 4.800, 4.812, 4.810, 4.808] 
+gaps = [3.256, 4.599, 4.800, 4.812, 4.810, 4.808]
 
 for i in range(result['iqp'].shape[0]):
-    equal(np.min(result['iqp'][i,0,:,1])-np.max(result['iqp'][i,0,:,0]), gaps[i], 0.01)
-
+    equal(np.min(result['iqp'][i, 0, :, 1]) -
+          np.max(result['iqp'][i, 0, :, 0]), gaps[i], 0.01)

@@ -6,7 +6,7 @@ from math import pi
 
 import numpy as np
 from ase.dft.kpoints import monkhorst_pack
-from ase.units import Hartree
+from ase.units import Ha
 from ase.utils import opencew, devnull
 from ase.utils.timing import timer
 from ase.parallel import paropen
@@ -30,7 +30,7 @@ class G0W0(PairDensity):
     def __init__(self, calc, filename='gw', restartfile=None,
                  kpts=None, bands=None, nbands=None, ppa=False,
                  truncation=None, integrate_gamma=0,
-                 ecut=150.0, eta=0.1, E0=1.0 * Hartree,
+                 ecut=150.0, eta=0.1, E0=1.0 * Ha,
                  domega0=0.025, omega2=10.0, anisotropy_correction=False,
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
@@ -38,13 +38,13 @@ class G0W0(PairDensity):
                  nblocksmax=False, gate_voltage=None):
 
         """G0W0 calculator.
-        
+
         The G0W0 calculator is used is used to calculate the quasi
         particle energies through the G0W0 approximation for a number
         of states.
 
         .. note::
-            
+
             So far the G0W0 calculation only works for spin-paired systems.
 
         calc: str or PAW object
@@ -63,11 +63,11 @@ class G0W0(PairDensity):
         ecut: float
             Plane wave cut-off energy in eV.
         ecut_extrapolation: bool or array
-            If set to True an automatic extrapolation of the selfenergy to 
-            infinite cutoff will be performed based on three points 
-            for the cutoff energy. 
-            If an array is given, the extrapolation will be performed based on 
-            the cutoff energies given in the array. 
+            If set to True an automatic extrapolation of the selfenergy to
+            infinite cutoff will be performed based on three points
+            for the cutoff energy.
+            If an array is given, the extrapolation will be performed based on
+            the cutoff energies given in the array.
         nbands: int
             Number of bands to use in the calculation. If None, the number will
             be determined from :ecut: to yield a number close to the number of
@@ -112,14 +112,15 @@ class G0W0(PairDensity):
 
         self.inputcalc = calc
 
-        ### Check if nblocks is compatible, adjust if not
+        # Check if nblocks is compatible, adjust if not
         if nblocksmax:
             nblocks = world.size
-            nblocks_calc = GPAW(calc,txt=None)
+            nblocks_calc = GPAW(calc, txt=None)
             ngmax = []
             for q_c in nblocks_calc.wfs.kd.bzk_kc:
                 qd = KPointDescriptor([q_c])
-                pd = PWDescriptor(np.min(ecut)/Hartree, nblocks_calc.wfs.gd, complex, qd)
+                pd = PWDescriptor(np.min(ecut) / Ha,
+                                  nblocks_calc.wfs.gd, complex, qd)
                 ngmax.append(pd.ngmax)
             nG = np.min(ngmax)
 
@@ -143,13 +144,13 @@ class G0W0(PairDensity):
             assert not savew
         else:
             ecut_e = np.array([ecut])
-        self.ecut_e = ecut_e / Hartree
+        self.ecut_e = ecut_e / Ha
 
         PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
                              gate_voltage=gate_voltage, txt=txt)
 
         self.gate_voltage = gate_voltage
-        ecut /= Hartree
+        ecut /= Ha
 
         self.filename = filename
         self.restartfile = restartfile
@@ -158,10 +159,10 @@ class G0W0(PairDensity):
         self.ppa = ppa
         self.truncation = truncation
         self.integrate_gamma = integrate_gamma
-        self.eta = eta / Hartree
-        self.E0 = E0 / Hartree
-        self.domega0 = domega0 / Hartree
-        self.omega2 = omega2 / Hartree
+        self.eta = eta / Ha
+        self.E0 = E0 / Ha
+        self.domega0 = domega0 / Ha
+        self.omega2 = omega2 / Ha
         self.ac = anisotropy_correction
         if self.ac:
             assert self.truncation == '2D'
@@ -174,18 +175,17 @@ class G0W0(PairDensity):
             assert self.maxiter > 1
 
         self.kpts = list(select_kpts(kpts, self.calc))
-                
+
         if bands is None:
             bands = [0, self.nocc2]
-            
+
         self.bands = bands
 
         self.ibzk_kc = self.calc.get_ibz_k_points()
         nibzk = len(self.ibzk_kc)
         self.eps0_skn = np.array([[self.calc.get_eigenvalues(kpt=k, spin=s)
                                    for k in range(nibzk)]
-                                  for s in range(self.calc.wfs.nspins)]) \
-                                  / Hartree
+                                  for s in range(self.calc.wfs.nspins)]) / Ha
 
         b1, b2 = bands
         self.shape = shape = (self.calc.wfs.nspins, len(self.kpts), b2 - b1)
@@ -196,7 +196,7 @@ class G0W0(PairDensity):
         self.vxc_skn = None                # KS XC-contributions
         self.exx_skn = None                # exact exchange contributions
         self.Z_skn = None                  # renormalization factors
-        
+
         if nbands is None:
             nbands = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
         self.nbands = nbands
@@ -213,32 +213,32 @@ class G0W0(PairDensity):
         p()
         p('Computational parameters:')
         if not ecut_extrapolation:
-            p('Plane wave cut-off: {0:g} eV'.format(self.ecut * Hartree))
+            p('Plane wave cut-off: {0:g} eV'.format(self.ecut * Ha))
         else:
             p('Extrapolating to infinite plane wave cut-off using points at:')
-            p('  [%.3f, %.3f, %.3f] eV' % tuple(self.ecut_e[:] * Hartree))
+            p('  [%.3f, %.3f, %.3f] eV' % tuple(self.ecut_e[:] * Ha))
         p('Number of bands: {0:d}'.format(self.nbands))
         p('Coulomb cutoff:', self.truncation)
-        p('Broadening: {0:g} eV'.format(self.eta * Hartree))
+        p('Broadening: {0:g} eV'.format(self.eta * Ha))
 
         kd = self.calc.wfs.kd
 
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
         self.distribute_k_points_and_bands(b1, b2, kd.ibz2bz_k[self.kpts])
-        
+
         # Find q-vectors and weights in the IBZ:
         assert -1 not in kd.bz2bz_ks
         offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
-        
+
         # assert self.calc.wfs.nspins == 1
-        
+
     @timer('G0W0')
     def calculate(self):
         """Starts the G0W0 calculation.
-        
+
         Returns a dict with the results with the following key/value pairs:
 
         =========   ===================================
@@ -251,15 +251,15 @@ class G0W0(PairDensity):
         ``exx``     Exact exchange contributions in eV
         ``sigma``   Self-energy contributions in eV
         ``dsigma``  Self-energy derivatives
-        ``sigma_e`` Self-energy contributions in eV 
+        ``sigma_e`` Self-energy contributions in eV
                     used for ecut extrapolation
         ``Z``       Renormalization factors
         ``qp``      Quasi particle energies in eV
         =========   ===================================
-        
+
         All the values are ``ndarray``'s of shape
         (spins, IBZ k-points, bands)."""
-        
+
         kd = self.calc.wfs.kd
 
         self.calculate_ks_xc_contribution()
@@ -282,8 +282,6 @@ class G0W0(PairDensity):
             self.previous_dsigma = 0.
 
         self.ite = 0
-
-        dqp_skn = np.zeros(self.shape)
 
         while self.ite < self.maxiter:
             # Reset calculation
@@ -312,13 +310,13 @@ class G0W0(PairDensity):
             # My part of the states we want to calculate QP-energies for:
             mykpts = [self.get_k_point(s, K, n1, n2)
                       for s, K, n1, n2 in self.mysKn1n2]
-        
+
             # Loop over q in the IBZ:
             nQ = 0
             for ie, pd0, W0, q_c, m2 in self.calculate_screened_potential():
                 for kpt1 in mykpts:
                     K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
-                    kpt2 = self.get_k_point(kpt1.s, K2, 0, m2, 
+                    kpt2 = self.get_k_point(kpt1.s, K2, 0, m2,
                                             block=True)
                     k1 = kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
@@ -337,37 +335,37 @@ class G0W0(PairDensity):
             else:
                 self.sigma_skn = self.sigma_eskn[0]
                 self.dsigma_skn = self.dsigma_eskn[0]
-            
+
             self.Z_skn = 1 / (1 - self.dsigma_skn)
 
-            qp_skn = self.qp_skn + self.Z_skn * (self.eps_skn -
-                     self.vxc_skn - self.qp_skn + self.exx_skn +
-                     self.sigma_skn)
+            qp_skn = self.qp_skn + self.Z_skn * (
+                self.eps_skn -
+                self.vxc_skn - self.qp_skn + self.exx_skn +
+                self.sigma_skn)
 
-            dqp_skn = qp_skn - self.qp_skn
             self.qp_skn = qp_skn
 
             self.qp_iskn = np.concatenate((self.qp_iskn,
                                            np.array([self.qp_skn])))
-            
+
             self.ite += 1
 
         results = {'f': self.f_skn,
-                   'eps': self.eps_skn * Hartree,
-                   'vxc': self.vxc_skn * Hartree,
-                   'exx': self.exx_skn * Hartree,
-                   'sigma': self.sigma_skn * Hartree,
+                   'eps': self.eps_skn * Ha,
+                   'vxc': self.vxc_skn * Ha,
+                   'exx': self.exx_skn * Ha,
+                   'sigma': self.sigma_skn * Ha,
                    'dsigma': self.dsigma_skn,
                    'Z': self.Z_skn,
-                   'qp': self.qp_skn * Hartree,
-                   'iqp': self.qp_iskn * Hartree}
-      
+                   'qp': self.qp_skn * Ha,
+                   'iqp': self.qp_iskn * Ha}
+
         self.print_results(results)
-        
-        if len(self.ecut_e) > 1:  
+
+        if len(self.ecut_e) > 1:
             # save non-extrapolated result and R^2 value for fit quality.
-            results.update({'sigma_eskn': self.sigma_eskn * Hartree,
-                            'dsigma_eskn': self.dsigma_eskn * Hartree,
+            results.update({'sigma_eskn': self.sigma_eskn * Ha,
+                            'dsigma_eskn': self.dsigma_eskn * Ha,
                             'sigr2_skn': self.sigr2_skn,
                             'dsigr2_skn': self.dsigr2_skn,
                             })
@@ -379,18 +377,19 @@ class G0W0(PairDensity):
         if self.method == 'GW0':
             for iq, q_c in enumerate(self.qd.ibzk_kc):
                 try:
-                    os.remove(self.filename+'.rank' + 
-                              str(self.blockcomm.rank)+'.w.q'+str(iq)+'.pckl')
+                    os.remove(self.filename + '.rank' +
+                              str(self.blockcomm.rank) + '.w.q' +
+                              str(iq) + '.pckl')
                 except:
                     continue
-        
+
         return results
-        
+
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, W0):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
         wfs = self.calc.wfs
-        
+
         N_c = pd0.gd.N_c
         i_cG = self.sign * np.dot(self.U_cc,
                                   np.unravel_index(pd0.Q_qG[0], N_c))
@@ -403,13 +402,13 @@ class G0W0(PairDensity):
 
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
-        
+
         G_Gv = pd0.get_reciprocal_vectors()
         pos_av = np.dot(self.spos_ac, pd0.gd.cell_cv)
         M_vv = np.dot(pd0.gd.cell_cv.T,
                       np.dot(self.U_cc.T,
                              np.linalg.inv(pd0.gd.cell_cv).T))
-        
+
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
             x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
@@ -423,12 +422,12 @@ class G0W0(PairDensity):
 
         if debug:
             self.check(ie, i_cG, shift0_c, N_c, q_c, Q_aGii)
-                
+
         if self.ppa:
             calculate_sigma = self.calculate_sigma_ppa
         else:
             calculate_sigma = self.calculate_sigma
-            
+
         for n in range(kpt1.n2 - kpt1.n1):
             ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
@@ -438,14 +437,14 @@ class G0W0(PairDensity):
                                                  pd0, I_G)
             if self.sign == 1:
                 n_mG = n_mG.conj()
-                                    
+
             f_m = kpt2.f_n
             deps_m = eps1 - kpt2.eps_n
             sigma, dsigma = calculate_sigma(n_mG, deps_m, f_m, W0)
             nn = kpt1.n1 + n - self.bands[0]
             self.sigma_eskn[ie, kpt1.s, k, nn] += sigma
             self.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma
-            
+
     def check(self, ie, i_cG, shift0_c, N_c, q_c, Q_aGii):
         I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
         qd1 = KPointDescriptor([q_c])
@@ -469,10 +468,10 @@ class G0W0(PairDensity):
         o_m = abs(deps_m)
         # Add small number to avoid zeros for degenerate states:
         sgn_m = np.sign(deps_m + 1e-15)
-        
+
         # Pick +i*eta or -i*eta:
         s_m = (1 + sgn_m * np.sign(0.5 - f_m)).astype(int) // 2
-        
+
         beta = (2**0.5 - 1) * self.domega0 / self.omega2
         w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
         m_inb = np.where(w_m < len(self.omega_w) - 1)[0]
@@ -500,7 +499,7 @@ class G0W0(PairDensity):
             sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
             sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
             dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
-            
+
         return sigma, dsigma
 
     def calculate_screened_potential(self):
@@ -517,7 +516,7 @@ class G0W0(PairDensity):
             if self.truncation is not None:
                 print('Using %s truncated Coloumb potential' % self.truncation,
                       file=self.fd)
-            
+
         if self.ppa:
             if self.ite == 0:
                 print('Using Godby-Needs plasmon-pole approximation:',
@@ -526,8 +525,8 @@ class G0W0(PairDensity):
                       file=self.fd)
 
             # use small imaginary frequency to avoid dividing by zero:
-            frequencies = [1e-10j, 1j * self.E0 * Hartree]
-            
+            frequencies = [1e-10j, 1j * self.E0 * Ha]
+
             parameters = {'eta': 0,
                           'hilbert': False,
                           'timeordered': False,
@@ -535,20 +534,20 @@ class G0W0(PairDensity):
         else:
             if self.ite == 0:
                 print('Using full frequency integration:', file=self.fd)
-                print('  domega0: {0:g}'.format(self.domega0 * Hartree),
+                print('  domega0: {0:g}'.format(self.domega0 * Ha),
                       file=self.fd)
-                print('  omega2: {0:g}'.format(self.omega2 * Hartree),
+                print('  omega2: {0:g}'.format(self.omega2 * Ha),
                       file=self.fd)
 
-            parameters = {'eta': self.eta * Hartree,
+            parameters = {'eta': self.eta * Ha,
                           'hilbert': True,
                           'timeordered': True,
-                          'domega0': self.domega0 * Hartree,
-                          'omega2': self.omega2 * Hartree}
+                          'domega0': self.domega0 * Ha,
+                          'omega2': self.omega2 * Ha}
 
         chi0 = Chi0(self.inputcalc,
                     nbands=self.nbands,
-                    ecut=self.ecut * Hartree,
+                    ecut=self.ecut * Ha,
                     intraband=False,
                     real_space_derivatives=False,
                     txt=self.filename + '.w.txt',
@@ -565,10 +564,10 @@ class G0W0(PairDensity):
                 chi0.fd)
         else:
             wstc = None
-        
+
         self.omega_w = chi0.omega_w
         self.omegamax = chi0.omegamax
-        
+
         htp = HilbertTransform(self.omega_w, self.eta, gw=True)
         htm = HilbertTransform(self.omega_w, -self.eta, gw=True)
 
@@ -577,22 +576,22 @@ class G0W0(PairDensity):
         nGmax = max(count_reciprocal_vectors(self.ecut, gd, q_c)
                     for q_c in self.qd.ibzk_kc)
         nw = len(self.omega_w)
-        
+
         size = self.blockcomm.size
-        
+
         mynGmax = (nGmax + size - 1) // size
         mynw = (nw + size - 1) // size
-        
+
         # Allocate memory in the beginning and use for all q:
         A1_x = np.empty(nw * mynGmax * nGmax, complex)
         A2_x = np.empty(max(mynw * nGmax, nw * mynGmax) * nGmax, complex)
-        
+
         # Need to pause the timer in between iterations
         self.timer.stop('W')
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             if iq <= self.last_q:
                 continue
-            
+
             thisqd = KPointDescriptor([q_c])
             pd = PWDescriptor(self.ecut, self.calc.wfs.gd, complex, thisqd)
             nG = pd.ngmax
@@ -619,8 +618,9 @@ class G0W0(PairDensity):
             for ie, ecut in enumerate(self.ecut_e):
                 self.timer.start('W')
                 if self.savew:
-                    wfilename = self.filename+'.rank' \
-                        + str(self.blockcomm.rank)+'.w.q%d.pckl' % iq
+                    wfilename = (self.filename + '.rank' +
+                                 str(self.blockcomm.rank) +
+                                 '.w.q%d.pckl' % iq)
                     fd = opencew(wfilename)
                 if self.savew and fd is None:
                     # Read screened potential from file
@@ -644,22 +644,23 @@ class G0W0(PairDensity):
                     else:
                         m2 = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
 
-                    pdi, W = self.calculate_w(chi0, q_c, pd, chi0bands_wGG, 
-                                              chi0bands_wxvG, chi0bands_wvv, 
+                    pdi, W = self.calculate_w(chi0, q_c, pd, chi0bands_wGG,
+                                              chi0bands_wxvG, chi0bands_wvv,
                                               m1, m2, ecut, htp, htm, wstc,
                                               A1_x, A2_x)
                     m1 = m2
                     if self.savew:
                         if self.blockcomm.size > 1:
-                            thisfile = self.filename+'.rank' + \
-                                str(self.blockcomm.rank)+'.w.q%d.pckl' % iq
-                            pickle.dump((pdi, W), open(thisfile, 'w'), 
+                            thisfile = (self.filename + '.rank' +
+                                        str(self.blockcomm.rank) +
+                                        '.w.q%d.pckl' % iq)
+                            pickle.dump((pdi, W), open(thisfile, 'wb'),
                                         pickle.HIGHEST_PROTOCOL)
                         else:
                             pickle.dump((pdi, W), fd, pickle.HIGHEST_PROTOCOL)
 
                 self.timer.stop('W')
-                # Loop over all k-points in the BZ and find those that are 
+                # Loop over all k-points in the BZ and find those that are
                 # related to the current IBZ k-point by symmetry
                 Q1 = self.qd.ibz2bz_k[iq]
                 done = set()
@@ -680,7 +681,7 @@ class G0W0(PairDensity):
                     self.save_restart_file(iq)
 
     @timer('WW')
-    def calculate_w(self, chi0,  q_c, pd, chi0bands_wGG, chi0bands_wxvG, 
+    def calculate_w(self, chi0, q_c, pd, chi0bands_wGG, chi0bands_wxvG,
                     chi0bands_wvv, m1, m2, ecut, htp, htm, wstc, A1_x, A2_x):
         """Calculates the screened potential for a specified q-point."""
 
@@ -701,7 +702,7 @@ class G0W0(PairDensity):
             chi0_wvv = None
 
         chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, [0])
-        
+
         if len(self.ecut_e) > 1:
             # Add chi from previous cutoff with remaining bands
             chi0_wGG += chi0bands_wGG
@@ -722,10 +723,10 @@ class G0W0(PairDensity):
         else:
             wa = 0
             wb = nw
-        
+
         if ecut == pd.ecut:
             pdi = pd
-            
+
         elif ecut < pd.ecut:  # construct subset chi0 matrix with lower ecut
             pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
                                kd=pd.kd)
@@ -735,8 +736,8 @@ class G0W0(PairDensity):
             self.Gb = min(self.Ga + mynG, nG)
             nw = len(self.omega_w)
             mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
-           
-            G2G = pdi.map(pd, q=0) 
+
+            G2G = pdi.map(pd, q=0)
             chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
 
             if chi0_wxvG is not None:
@@ -763,7 +764,7 @@ class G0W0(PairDensity):
             sqrV0 = (4 * np.pi)**(1.5) * Rq0**2 / bzvol / 2
         else:
             pass
-            
+
         nG = len(chi0_wGG[0])
         delta_GG = np.eye(nG)
 
@@ -789,7 +790,7 @@ class G0W0(PairDensity):
                            np.dot(chi0_wvv[wa:wb], qf_qv.T)], axis=1)
             a0_qwG = np.dot(qf_qv, chi0_wxvG[wa:wb, 0])
             a1_qwG = np.dot(qf_qv, chi0_wxvG[wa:wb, 1])
-            
+
         self.timer.start('Dyson eq.')
         # Calculate W and store it in chi0_wGG ndarray:
         for iw, chi0_GG in enumerate(chi0_wGG):
@@ -820,15 +821,16 @@ class G0W0(PairDensity):
             else:
                 W_GG = chi0_GG
                 W_GG[:] = (einv_GG - delta_GG) * sqrV_G * sqrV_G[:, np.newaxis]
-                
+
                 if self.ac and np.allclose(q_c, 0):
                     if iw == 0:
                         print_ac = True
                     else:
                         print_ac = False
-                    self.add_anisotropy_correction(pdi, W_GG, einv_GG, 
-                                                   chi0_wxvG[wa+iw], 
-                                                   chi0_wvv[wa+iw], sqrV_G,
+                    self.add_anisotropy_correction(pdi, W_GG, einv_GG,
+                                                   chi0_wxvG[wa + iw],
+                                                   chi0_wvv[wa + iw],
+                                                   sqrV_G,
                                                    print_ac=print_ac)
                 elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
                     W_GG[0, 0] = (einv_GG[0, 0] - 1.0) * V0
@@ -836,7 +838,7 @@ class G0W0(PairDensity):
                     W_GG[1:, 0] = einv_GG[1:, 0] * sqrV0 * sqrV_G[1:]
                 else:
                     pass
-        
+
         if self.ppa:
             omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
                                           (einv_wGG[0] - einv_wGG[1]))
@@ -849,12 +851,12 @@ class G0W0(PairDensity):
 
             self.timer.stop('Dyson eq.')
             return pdi, [W_GG, omegat_GG]
-            
+
         if self.blockcomm.size > 1:
             Wm_wGG = chi0.redistribute(chi0_wGG, A1_x)
         else:
             Wm_wGG = chi0_wGG
-        
+
         Wp_wGG = A2_x[:Wm_wGG.size].reshape(Wm_wGG.shape)
         Wp_wGG[:] = Wm_wGG
 
@@ -862,7 +864,7 @@ class G0W0(PairDensity):
             htp(Wp_wGG)
             htm(Wm_wGG)
         self.timer.stop('Dyson eq.')
-       
+
         return pdi, [Wp_wGG, Wm_wGG]
 
     @timer('Kohn-Sham XC-contribution')
@@ -876,13 +878,13 @@ class G0W0(PairDensity):
                 self.vxc_skn = np.load(fd)
             assert self.vxc_skn.shape == self.shape, self.vxc_skn.shape
             return
-            
+
         print('Calculating Kohn-Sham XC contribution', file=self.fd)
-        vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Hartree
+        vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Ha
         n1, n2 = self.bands
         self.vxc_skn = vxc_skn[:, self.kpts, n1:n2]
         np.save(fd, self.vxc_skn)
-        
+
     @timer('EXX')
     def calculate_exact_exchange(self):
         name = self.filename + '.exx.npy'
@@ -893,12 +895,12 @@ class G0W0(PairDensity):
                 self.exx_skn = np.load(fd)
             assert self.exx_skn.shape == self.shape, self.exx_skn.shape
             return
-            
+
         print('Calculating EXX contribution', file=self.fd)
         exx = EXX(self.calc, kpts=self.kpts, bands=self.bands,
                   txt=self.filename + '.exx.txt', timer=self.timer)
         exx.calculate()
-        self.exx_skn = exx.get_eigenvalue_contributions() / Hartree
+        self.exx_skn = exx.get_eigenvalue_contributions() / Ha
         np.save(fd, self.exx_skn)
 
     def print_results(self, results):
@@ -914,7 +916,7 @@ class G0W0(PairDensity):
         print('\nResults:', file=self.fd)
         for line in description:
             print(line, file=self.fd)
-            
+
         b1, b2 = self.bands
         names = [line.split(':', 1)[0] for line in description]
         ibzk_kc = self.calc.wfs.kd.ibzk_kc
@@ -966,7 +968,7 @@ class G0W0(PairDensity):
             sigma += np.vdot(n_mG[m], nW_G).real
             nW_G = np.dot(n_mG[m], dx_GG)
             dsigma -= np.vdot(n_mG[m], nW_G).real
-        
+
         x = 1 / (self.qd.nbzkpts * 2 * pi * self.vol)
         return x * sigma, x * dsigma
 
@@ -988,11 +990,11 @@ class G0W0(PairDensity):
 
         if self.world.rank == 0:
             with open(self.restartfile + '.sigma.pckl', 'wb') as fd:
-                pickle.dump(data, fd)
+                pickle.dump(data, fd, pickle.HIGHEST_PROTOCOL)
 
     def load_restart_file(self):
         try:
-            data = pickle.load(open(self.restartfile + '.sigma.pckl'))
+            data = pickle.load(open(self.restartfile + '.sigma.pckl', 'rb'))
         except IOError:
             return False
         else:
@@ -1013,15 +1015,15 @@ class G0W0(PairDensity):
                     'current calculation. Check kpts, bands, nbands, ecut, '
                     'domega0, omega2, integrate_gamma.')
 
-    def extrapolate_ecut(self):        
+    def extrapolate_ecut(self):
         # Do linear fit of selfenergy vs. inverse of number of plane waves
         # to extrapolate to infinite number of plane waves
         from scipy.stats import linregress
         print('', file=self.fd)
-        print('Extrapolating selfenergy to infinite energy cutoff:', 
+        print('Extrapolating selfenergy to infinite energy cutoff:',
               file=self.fd)
-        print('  Performing linear fit to %d points' % len(self.ecut_e), 
-              file=self.fd) 
+        print('  Performing linear fit to %d points' % len(self.ecut_e),
+              file=self.fd)
         self.sigr2_skn = np.zeros(self.shape)
         self.dsigr2_skn = np.zeros(self.shape)
         self.sigma_skn = np.zeros(self.shape)
@@ -1032,34 +1034,32 @@ class G0W0(PairDensity):
 
             slope, intercept, r_value, p_value, std_err = \
                 linregress(invN_i, self.sigma_eskn[:, s, k, n])
-            
+
             self.sigr2_skn[s, k, n] = r_value**2
             self.sigma_skn[s, k, n] = intercept
 
             slope, intercept, r_value, p_value, std_err = \
                 linregress(invN_i, self.dsigma_eskn[:, s, k, n])
-            
+
             self.dsigr2_skn[s, k, n] = r_value**2
             self.dsigma_skn[s, k, n] = intercept
-            
+
         if np.any(self.sigr2_skn < 0.9) or np.any(self.dsigr2_skn < 0.9):
             print('  Warning: Bad quality of linear fit for some (n,k). ',
                   file=self.fd)
             print('           Higher cutoff might be nesecarry.', file=self.fd)
 
         print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)'
-              % np.min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)), 
+              % np.min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)),
               file=self.fd)
 
-    def add_anisotropy_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv, 
+    def add_anisotropy_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
                                   sqrV_G, print_ac=False):
-        from ase.dft import monkhorst_pack 
+        from ase.dft import monkhorst_pack
         self.cell_cv = self.calc.wfs.gd.cell_cv
         self.qpts_qc = self.calc.wfs.kd.bzk_kc
         self.weight_q = 1.0 * np.ones(len(self.qpts_qc)) / len(self.qpts_qc)
         L = self.cell_cv[2, 2]
-        nG = W_GG.shape[0]
-        vc_00 = 4 * pi * L/2.
         vc_G0 = sqrV_G[1:]**2
 
         B_GG = einv_GG[1:, 1:]
@@ -1081,7 +1081,6 @@ class G0W0(PairDensity):
 
         # Generate numerical q-point grid
         rcell_cv = 2 * pi * np.linalg.inv(self.cell_cv).T
-        rvol = abs(np.linalg.det(rcell_cv))
         N_c = self.qd.N_c
 
         iq = np.argmin(np.sum(self.qpts_qc**2, axis=1))
@@ -1096,14 +1095,14 @@ class G0W0(PairDensity):
         npts_c[2] = 1
         npts_c += (npts_c + 1) % 2
         if print_ac:
-            print('Applying analytical 2D correction to W:', 
+            print('Applying analytical 2D correction to W:',
                   file=self.fd)
             print('    Evaluating Gamma point contribution to W on a ' +
                   '%dx%dx%d grid' % tuple(npts_c), file=self.fd)
-                
-        qpts_qc = monkhorst_pack(npts_c) 
+
+        qpts_qc = monkhorst_pack(npts_c)
         qgamma = np.argmin(np.sum(qpts_qc**2, axis=1))
-                    
+
         qpts_qv = np.dot(qpts_qc, q0cell_cv)
         qpts_q = np.sum(qpts_qv**2, axis=1)**0.5
         qpts_q[qgamma] = 1e-14
@@ -1118,13 +1117,13 @@ class G0W0(PairDensity):
         dx0rad = dq0rad * R
 
         exp_q = 4 * pi * (1 - np.exp(-qpts_q * R))
-        dv_G = ((pi * L * G2_G * np.exp(-Gpar_G * R) * np.cos(G_Gv[:, 2] * R) - 
-                 4 * pi * Gpar_G * (1 - np.exp(-Gpar_G * R) * 
-                                    np.cos(G_Gv[:, 2] * R))) / 
-                (G2_G**1.5 * Gpar_G * 
-                 (4 * pi * (1 - np.exp(-Gpar_G * R) * 
+        dv_G = ((pi * L * G2_G * np.exp(-Gpar_G * R) * np.cos(G_Gv[:, 2] * R) -
+                 4 * pi * Gpar_G * (1 - np.exp(-Gpar_G * R) *
+                                    np.cos(G_Gv[:, 2] * R))) /
+                (G2_G**1.5 * Gpar_G *
+                 (4 * pi * (1 - np.exp(-Gpar_G * R) *
                             np.cos(G_Gv[:, 2] * R)))**0.5))
-       
+
         dv_Gv = dv_G[:, np.newaxis] * G_Gv
 
         # Add corrections
@@ -1140,16 +1139,16 @@ class G0W0(PairDensity):
         W_GG[0, 0] = w00_q.sum() / nq
         Axy = 0.5 * (L_vv[0, 0] + L_vv[1, 1])  # in-plane average
         a0 = 4 * pi * Axy + 1
-        
-        W_GG[0, 0] += - (a0 * dx0rad - np.log(a0 * dx0rad + 1)) \
-                / a0**2 / x0area * 2 * np.pi * (2 * pi * L)**2 * Axy
+
+        W_GG[0, 0] += -((a0 * dx0rad - np.log(a0 * dx0rad + 1)) /
+                        a0**2 / x0area * 2 * np.pi * (2 * pi * L)**2 * Axy)
 
         # WINGS:
         u_q = -exp_q / qpts_q * frac_q
         W_GG[1:, 0] = 1. / nq * np.dot(
             np.sum(qdir_qv * u_q[:, np.newaxis], axis=0),
             S_vG0 * sqrV_G[np.newaxis, 1:])
-            
+
         W_GG[0, 1:] = 1. / nq * np.dot(
             np.sum(qdir_qv * u_q[:, np.newaxis], axis=0),
             S_v0G * sqrV_G[np.newaxis, 1:])
@@ -1158,15 +1157,17 @@ class G0W0(PairDensity):
         # Constant corrections:
         W_GG[1:, 1:] += 1. / nq * sqrV_G[1:, None] * sqrV_G[None, 1:] * \
             np.tensordot(S_v0G, np.dot(S_vG0.T,
-            np.sum(-qdir_qvv * exp_q[:, None, None] * frac_q[:, None, None],
-                    axis=0)), axes=(0, 1))
+                                       np.sum(-qdir_qvv *
+                                              exp_q[:, None, None] *
+                                              frac_q[:, None, None],
+                                              axis=0)), axes=(0, 1))
         u_vvv = np.tensordot(u_q[:, None] * qpts_qv, qdir_qvv, axes=(0, 0))
         # Gradient corrections:
         W_GG[1:, 1:] += 1. / nq * np.sum(
             dv_Gv[:, :, None] * np.tensordot(
                 S_v0G, np.tensordot(u_vvv, S_vG0 * sqrV_G[None, 1:],
                                     axes=(2, 0)), axes=(0, 1)), axis=1)
-            
+
     def update_energies(self, mixing):
         """Updates the energies of the calculator with the quasi-particle
         energies."""
@@ -1186,14 +1187,14 @@ class G0W0(PairDensity):
                                     mixing)
                 kpt.eps_n[na:nb] = eps1_n
                 """
-                Should we do something smart with the bands outside the 
+                Should we do something smart with the bands outside the
                 interval?
                 Here we shift the unoccupied bands not included by the average
-                change of the top-most band and the occupied by the 
+                change of the top-most band and the occupied by the
                 bottom-most band included
                 """
                 shifts_skn[s, ik] = (eps1_n - self.eps0_skn[s, kpt.k, na:nb])
-        
+
         for kpt in self.calc.wfs.kpt_u:
             s = kpt.s
             if kpt.k in self.kpts:
@@ -1216,4 +1217,3 @@ class G0W0(PairDensity):
     def mixer(self, e0_skn, e1_skn, mixing=1.0):
         """Mix energies."""
         return e0_skn + mixing * (e1_skn - e0_skn)
-

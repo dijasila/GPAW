@@ -1,6 +1,4 @@
-from __future__ import division
 import numpy as np
-from ase import Atoms
 from ase.lattice.hexagonal import Graphene
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
@@ -18,7 +16,7 @@ if 1:
                 eigensolver='rmm-diis',
                 occupations=FermiDirac(0.001),
                 kpts={'size': (6, 6, 1), 'gamma': True})
-    
+
     layer = Graphene(symbol='B',
                      latticeconstant={'a': 2.5, 'c': 1.0},
                      size=(1, 1, 1))
@@ -28,7 +26,7 @@ if 1:
 
     layer.set_calculator(calc)
     layer.get_potential_energy()
-    
+
     nbecut = 50
     from ase.units import Bohr, Hartree
     vol = layer.get_volume() / Bohr**3
@@ -45,12 +43,11 @@ gw = G0W0('hBN.gpw',
           kpts=[0],
           bands=(3, 5),
           ecut_extrapolation=[30, 40, 50],
-          nblocks=mpi.world.size
-          )
+          nblocks=mpi.world.size)
 
 e_qp = gw.calculate()['qp'][0, 0]
 
-ev = -4.38194812 
+ev = -4.38194812
 ec = 3.71013806
 equal(e_qp[0], ev, 0.01)
 equal(e_qp[1], ec, 0.01)
