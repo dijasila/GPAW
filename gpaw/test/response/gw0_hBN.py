@@ -9,7 +9,6 @@ atoms = bulk('BN', 'zincblende', a=3.615)
 
 calc = GPAW(mode=PW(400),
             kpts={'size': (2, 2, 2), 'gamma': True},
-            dtype=complex,
             xc='LDA',
             eigensolver='rmm-diis',
             occupations=FermiDirac(0.001))
