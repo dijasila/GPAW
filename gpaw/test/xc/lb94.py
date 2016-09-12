@@ -2,8 +2,7 @@ from __future__ import print_function
 
 from ase import Atoms
 from ase.parallel import rank, barrier
-from gpaw import GPAW
-from gpaw import setup_paths
+from gpaw import GPAW, FermiDirac, setup_paths
 from gpaw.atom.all_electron import AllElectron
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
@@ -86,8 +85,13 @@ for atom in sorted(e_HOMO_os):
     SS = Atoms(atom, magmoms=[magmom], cell=(7, 7, 7), pbc=False)
     SS.center()
     # fine grid needed for convergence!
-    c = GPAW(h=.2, xc='LB94', nbands=-2, spinpol=True,
-             hund=True, fixmom=True, txt=txt)
+    c = GPAW(h=0.2,
+             xc='LB94',
+             nbands=-2,
+             spinpol=True,
+             hund=True,
+             occupations=FermiDirac(0.0, fixmagmom=True),
+             txt=txt)
     c.calculate(SS)
     # find HOMO energy
     eps_n = c.get_eigenvalues(kpt=0, spin=0) / 27.211

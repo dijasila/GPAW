@@ -2,7 +2,7 @@ import pickle
 import numpy as np
 
 from ase.parallel import paropen
-from ase.lattice import bulk
+from ase.build import bulk
 
 from gpaw.test import equal
 from gpaw import GPAW, FermiDirac

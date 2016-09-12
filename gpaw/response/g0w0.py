@@ -878,8 +878,6 @@ class G0W0(PairDensity):
             return
             
         print('Calculating Kohn-Sham XC contribution', file=self.fd)
-        if self.reader is not None:
-            self.calc.wfs.read_projections(self.reader)
         vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Hartree
         n1, n2 = self.bands
         self.vxc_skn = vxc_skn[:, self.kpts, n1:n2]

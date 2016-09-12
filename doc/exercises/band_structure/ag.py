@@ -1,5 +1,5 @@
 import numpy as np
-from ase.lattice import bulk
+from ase.build import bulk
 from ase.dft.kpoints import ibz_points, get_bandpath
 from gpaw import GPAW
 

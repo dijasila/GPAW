@@ -1,11 +1,10 @@
 .. _workshop:
 
-====================================================
-Electronic structure calculations with the GPAW code
-====================================================
+=======================================
+GPAW 2013: Users and developers meeting
+=======================================
 
-Users and developers meeting Technical University of Denmark, May 21-23, 2013
-=============================================================================
+Technical University of Denmark, May 21-23, 2013
 
 .. image:: ../static/workshop13_01_33-1.jpg
 
@@ -228,7 +227,7 @@ Activities for GPAW developers (we start at 9:00):
 
 * Coordination of code development and discussions about the future:
   Quick tour of :ref:`projects` --- what's the current status?
-  
+
 * Introduction to Sphinx and reStructuredText
 
 * Introduction to testing of GPAW
@@ -256,4 +255,3 @@ Activities for GPAW developers (we start at 9:00):
 * Hands on: Write new documentation/tutorials --- continued
 
 * Approximately 14:00: Presentations of today's work and wrap up
-

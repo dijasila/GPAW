@@ -1,104 +1,207 @@
+import time
+from math import log as ln
+
 import numpy as np
+from ase.units import Hartree, Bohr
+
+from gpaw import KohnShamConvergenceError
+from gpaw.forces import calculate_forces
 
 
 class SCFLoop:
-    """Self-consistent field loop.
-    
-    converged: Do we have a self-consistent solution?
-    """
-    
-    def __init__(self, eigenstates=0.1, energy=0.1, density=0.1, maxiter=100,
-                 fixdensity=False, niter_fixdensity=None, force=None):
-        self.max_eigenstates_error = max(eigenstates, 1e-20)
-        self.max_energy_error = energy
-        self.max_force_error = force
-        self.max_density_error = max(density, 1e-20)
+    """Self-consistent field loop."""
+    def __init__(self, eigenstates=0.1, energy=0.1, density=0.1, force=np.inf,
+                 maxiter=100, niter_fixdensity=None, nvalence=None):
+        self.max_errors = {'eigenstates': eigenstates,
+                           'energy': energy,
+                           'force': force,
+                           'density': density}
         self.maxiter = maxiter
-        self.fixdensity = fixdensity
-
-        if niter_fixdensity is None:
-            niter_fixdensity = 2
         self.niter_fixdensity = niter_fixdensity
+        self.nvalence = nvalence
 
-        if fixdensity:
-            self.fix_density()
-            
-        self.reset()
-
-    def fix_density(self):
-        self.fixdensity = True
-        self.niter_fixdensity = 10000000
-        self.max_density_error = np.inf
-        
-    def reset(self):
-        self.energies = []
-        self.eigenstates_error = None
-        self.energy_error = None
-        self.density_error = None
-        self.force_error = None
-        self.force_last = None
+        self.old_energies = []
+        self.old_F_av = None
         self.converged = False
 
-    def run(self, wfs, hamiltonian, density, occupations, forces):
-        if self.converged:
-            return
-        
-        for iter in range(1, self.maxiter + 1):
-            wfs.eigensolver.iterate(hamiltonian, wfs)
-            occupations.calculate(wfs)
-            # XXX ortho, dens, wfs?
+        self.niter = None
 
-            energy = hamiltonian.get_energy(occupations)
-            self.energies.append(energy)
-            if self.max_force_error is not None:
-                forces.reset()
-            self.check_convergence(density, wfs.eigensolver,
-                                   wfs, hamiltonian, forces)
-            yield iter
-            
-            if self.converged:
+        self.reset()
+
+    def __str__(self):
+        cc = self.max_errors
+        s = 'Convergence Criteria:\n'
+        for name, val in [
+            ('total energy change: {0:g} eV / electron',
+             cc['energy'] * Hartree / self.nvalence),
+            ('integral of absolute density change: {0:g} electrons',
+             cc['density'] / self.nvalence),
+            ('integral of absolute eigenstate change: {0:g} eV^2',
+             cc['eigenstates'] * Hartree**2 / self.nvalence),
+            ('change in atomic force: {0:g} eV / Ang',
+             cc['force'] * Hartree / Bohr),
+            ('number of iterations: {0}', self.maxiter)]:
+            if val < np.inf:
+                s += '  Maximum {0}\n'.format(name.format(val))
+        return s
+
+    def write(self, writer):
+        writer.write(converged=self.converged)
+
+    def read(self, reader):
+        self.converged = reader.scf.converged
+
+    def reset(self):
+        self.old_energies = []
+        self.old_F_av = None
+        self.converged = False
+
+    def run(self, wfs, ham, dens, occ, log, callback):
+        for self.niter in range(1, self.maxiter + 1):
+            wfs.eigensolver.iterate(ham, wfs)
+            occ.calculate(wfs)
+
+            energy = ham.get_energy(occ)
+            self.old_energies.append(energy)
+            errors = self.collect_errors(dens, ham, wfs)
+
+            # Converged?
+            for kind, error in errors.items():
+                if error > self.max_errors[kind]:
+                    self.converged = False
+                    break
+            else:
+                self.converged = True
+
+            callback(self.niter)
+            self.log(log, self.niter, wfs, ham, dens, occ, errors)
+
+            if self.converged and self.niter >= self.niter_fixdensity:
                 break
 
-            if iter > self.niter_fixdensity:
-                density.update(wfs)
-                hamiltonian.update(density)
+            if self.niter > self.niter_fixdensity and not dens.fixed:
+                dens.update(wfs)
+                ham.update(dens)
             else:
-                hamiltonian.npoisson = 0
+                ham.npoisson = 0
 
         # Don't fix the density in the next step:
         self.niter_fixdensity = 0
-        
-    def check_convergence(self, density, eigensolver,
-                          wfs=None, hamiltonian=None, forces=None):
+
+        if not self.converged:
+            log(oops)
+            raise KohnShamConvergenceError(
+                'Did not converge!  See text output for help.')
+
+    def collect_errors(self, dens, ham, wfs):
         """Check convergence of eigenstates, energy and density."""
-        if self.converged:
-            return True
 
-        self.eigenstates_error = eigensolver.error
+        errors = {'eigenstates': wfs.eigensolver.error,
+                  'density': dens.error,
+                  'force': np.inf,
+                  'energy': np.inf}
 
-        if len(self.energies) < 3:
-            self.energy_error = self.max_energy_error
+        if dens.fixed:
+            errors['density'] = 0.0
+
+        if len(self.old_energies) >= 3:
+            errors['energy'] = np.ptp(self.old_energies[-3:])
+
+        if self.max_errors['force'] < np.inf:
+            F_av = calculate_forces(wfs, dens, ham)
+            if self.old_F_av is not None:
+                errors['force'] = ((F_av - self.old_F_av)**2).sum(1).max()**0.5
+            self.old_F_av = F_av
+
+        return errors
+
+    def log(self, log, niter, wfs, ham, dens, occ, errors):
+        """Output from each iteration."""
+
+        nvalence = wfs.nvalence
+        if nvalence > 0:
+            eigerr = errors['eigenstates'] * Hartree**2 / nvalence
         else:
-            self.energy_error = np.ptp(self.energies[-3:])
+            eigerr = 0.0
 
-        self.density_error = density.mixer.get_charge_sloshing()
-        if self.density_error is None:
-            self.density_error = 1000000.0
+        T = time.localtime()
 
-        if self.max_force_error is not None:
-            F_av = forces.calculate(wfs, density, hamiltonian)
-            
-            if self.force_last is None:
-                self.force_last = F_av
+        if niter == 1:
+            header = """\
+                     log10-error:    total        iterations:
+           time      wfs    density  energy       fermi  poisson"""
+            if wfs.nspins == 2:
+                header += '  magmom'
+            if self.max_errors['force'] < np.inf:
+                l1 = header.find('total')
+                header = header[:l1] + '       ' + header[l1:]
+                l2 = header.find('energy')
+                header = header[:l2] + 'force  ' + header[l2:]
+            log(header)
+
+        if eigerr == 0.0:
+            eigerr = ''
+        else:
+            eigerr = '%+.2f' % (ln(eigerr) / ln(10))
+
+        denserr = errors['density']
+        if denserr is None or denserr == 0 or nvalence == 0:
+            denserr = ''
+        else:
+            denserr = '%+.2f' % (ln(denserr / nvalence) / ln(10))
+
+        niterocc = occ.niter
+        if niterocc == -1:
+            niterocc = ''
+        else:
+            niterocc = '%d' % niterocc
+
+        if ham.npoisson == 0:
+            niterpoisson = ''
+        else:
+            niterpoisson = str(ham.npoisson)
+
+        log('iter: %3d  %02d:%02d:%02d %6s %6s  ' %
+            (niter,
+             T[3], T[4], T[5],
+             eigerr,
+             denserr), end='')
+
+        if self.max_errors['force'] < np.inf:
+            if errors['force'] is not None:
+                log('  %+.2f' %
+                    (ln(errors['force']) / ln(10)), end='')
             else:
-                F_av_diff = ((F_av - self.force_last)**2).sum(axis=1)
-                self.force_error = abs(F_av_diff).max()
-                self.force_last = F_av
+                log('       ', end='')
 
-        self.converged = (
-            (self.eigenstates_error or 0.0) < self.max_eigenstates_error and
-            self.energy_error < self.max_energy_error and
-            self.density_error < self.max_density_error and
-            (self.force_error or 0) < ((self.max_force_error)
-                                       or float('Inf')))
-        return self.converged
+        log('%11.6f    %-5s  %-7s' %
+            (Hartree * ham.e_total_extrapolated,
+             niterocc,
+             niterpoisson), end='')
+
+        if wfs.nspins == 2:
+            log('  %+.4f' % occ.magmom, end='')
+
+        log(flush=True)
+
+
+oops = """
+Did not converge!
+
+Here are some tips:
+
+1) Make sure the geometry and spin-state is physically sound.
+2) Use less aggressive density mixing.
+3) Solve the eigenvalue problem more accurately at each scf-step.
+4) Use a smoother distribution function for the occupation numbers.
+5) Try adding more empty states.
+6) Use enough k-points.
+7) Don't let your structure optimization algorithm take too large steps.
+8) Solve the Poisson equation more accurately.
+9) Better initial guess for the wave functions.
+
+See details here:
+
+    https://wiki.fysik.dtu.dk/gpaw/documentation/convergence.html
+
+"""

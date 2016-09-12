@@ -1,5 +1,5 @@
 ncpus = 4
-from ase.lattice.surface import fcc100
+from ase.build import fcc100
 from gpaw import GPAW
 atoms = fcc100(symbol='Ni', size=(1, 1, 9), a=3.52, vacuum=5.5)
 atoms.set_initial_magnetic_moments([0.6] * len(atoms))

@@ -1,4 +1,4 @@
-from gpaw.poisson import PoissonSolver
+from gpaw.poisson import FDPoissonSolver
 from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.wfd_operators import WeightedFDOperator
@@ -8,7 +8,7 @@ import warnings
 import numpy as np
 
 
-class SolvationPoissonSolver(PoissonSolver):
+class SolvationPoissonSolver(FDPoissonSolver):
     """Base class for Poisson solvers with spatially varying dielectric.
 
     The Poisson equation
@@ -21,10 +21,9 @@ class SolvationPoissonSolver(PoissonSolver):
         if remove_moment is not None:
             raise NotImplementedError(
                 'Removing arbitrary multipole moments '
-                'is not implemented for SolvationPoissonSolver!'
-            )
-        PoissonSolver.__init__(self, nn, relax, eps, maxiter, remove_moment,
-                               use_charge_center=use_charge_center)
+                'is not implemented for SolvationPoissonSolver!')
+        FDPoissonSolver.__init__(self, nn, relax, eps, maxiter, remove_moment,
+                                 use_charge_center=use_charge_center)
 
     def set_dielectric(self, dielectric):
         """Set the dielectric.
@@ -74,11 +73,10 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
             actual_charge = self.gd.integrate(rho)
             if abs(actual_charge) > maxcharge:
                 raise NotImplementedError(
-                    'charged periodic systems are not implemented'
-                )
+                    'charged periodic systems are not implemented')
         self.restrict_op_weights()
-        ret = PoissonSolver.solve(self, phi, rho, charge, eps, maxcharge,
-                                  zero_initial_phi)
+        ret = FDPoissonSolver.solve(self, phi, rho, charge, eps, maxcharge,
+                                    zero_initial_phi)
         return ret
 
     def restrict_op_weights(self):
@@ -124,8 +122,7 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
             description = SolvationPoissonSolver.get_description(self)
             return description.replace(
                 'solver with',
-                'weighted FD solver with dielectric and'
-            )
+                'weighted FD solver with dielectric and')
 
     def initialize(self, load_gauss=False):
         self.presmooths[self.levels] = 8
@@ -165,16 +162,12 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
                  remove_moment=None, use_charge_center=True):
         polarization_warning = UserWarning(
-            (
-                'PolarizationPoissonSolver is not accurate enough'
-                ' and therefore not recommended for production code!'
-            )
-        )
+            'PolarizationPoissonSolver is not accurate enough'
+            ' and therefore not recommended for production code!')
         warnings.warn(polarization_warning)
         SolvationPoissonSolver.__init__(
             self, nn, relax, eps, maxiter, remove_moment,
-            use_charge_center=use_charge_center
-        )
+            use_charge_center=use_charge_center)
         self.phi_tilde = None
 
     def get_description(self):
@@ -184,8 +177,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
             description = SolvationPoissonSolver.get_description(self)
             return description.replace(
                 'solver with',
-                'polarization solver with dielectric and'
-            )
+                'polarization solver with dielectric and')
 
     def solve(self, phi, rho, charge=None, eps=None,
               maxcharge=1e-6,
@@ -193,10 +185,9 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
         if self.phi_tilde is None:
             self.phi_tilde = self.gd.zeros()
         phi_tilde = self.phi_tilde
-        niter_tilde = PoissonSolver.solve(
+        niter_tilde = FDPoissonSolver.solve(
             self, phi_tilde, rho, None, self.eps,
-            maxcharge, False
-        )
+            maxcharge, False)
 
         epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric.eps_gradeps
         dx_phi_tilde = self.gd.empty()
@@ -209,21 +200,18 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
         scalar_product = (
             dx_epsr * dx_phi_tilde +
             dy_epsr * dy_phi_tilde +
-            dz_epsr * dz_phi_tilde
-        )
+            dz_epsr * dz_phi_tilde)
 
         rho_and_pol = (
-            rho / epsr + scalar_product / (4. * np.pi * epsr ** 2)
-        )
+            rho / epsr + scalar_product / (4. * np.pi * epsr ** 2))
 
-        niter = PoissonSolver.solve(
+        niter = FDPoissonSolver.solve(
             self, phi, rho_and_pol, None, eps,
-            maxcharge, zero_initial_phi
-        )
+            maxcharge, zero_initial_phi)
         return niter_tilde + niter
 
     def load_gauss(self, center=None):
-        return PoissonSolver.load_gauss(self, center=center)
+        return FDPoissonSolver.load_gauss(self, center=center)
 
 
 class ADM12PoissonSolver(SolvationPoissonSolver):
@@ -250,17 +238,13 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
         eta -- linear mixing parameter
         """
         adm12_warning = UserWarning(
-            (
-                'ADM12PoissonSolver is not tested thoroughly'
-                ' and therefore not recommended for production code!'
-            )
-        )
+            'ADM12PoissonSolver is not tested thoroughly'
+            ' and therefore not recommended for production code!')
         warnings.warn(adm12_warning)
         self.eta = eta
         SolvationPoissonSolver.__init__(
             self, nn, relax, eps, maxiter, remove_moment,
-            use_charge_center=use_charge_center
-        )
+            use_charge_center=use_charge_center)
 
     def set_grid_descriptor(self, gd):
         SolvationPoissonSolver.set_grid_descriptor(self, gd)
@@ -275,8 +259,7 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
             description = SolvationPoissonSolver.get_description(self)
             return description.replace(
                 'solver with',
-                'ADM12 solver with dielectric and'
-            )
+                'ADM12 solver with dielectric and')
 
     def initialize(self, load_gauss=False):
         self.rho_iter = self.gd.zeros()
@@ -290,11 +273,9 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
             actual_charge = self.gd.integrate(rho)
             if abs(actual_charge) > maxcharge:
                 raise NotImplementedError(
-                    'charged periodic systems are not implemented'
-                )
-        return PoissonSolver.solve(
-            self, phi, rho, charge, eps, maxcharge, zero_initial_phi
-        )
+                    'charged periodic systems are not implemented')
+        return FDPoissonSolver.solve(
+            self, phi, rho, charge, eps, maxcharge, zero_initial_phi)
 
     def solve_neutral(self, phi, rho, eps=2e-10):
         self.rho = rho

@@ -35,8 +35,8 @@ valence electrons/atom is included in the calculation.
   is necessary to find magnetic states.  Choose the magnetic
   moment close to the expected/desired magnetic state of your system
   (the experimental value is 2.22 per atom). The initial magnetic
-  moment is relaxed during the self consistency cycles. 
-  Note that for a spin polarized calculation, each iteration step takes 
+  moment is relaxed during the self consistency cycles.
+  Note that for a spin polarized calculation, each iteration step takes
   twice the time compared to a spin paired calculation.
 
 * For each of the three magnetic phases ferro, antiferro
@@ -57,5 +57,5 @@ Compare the energies of the three magnetic phases:
 * Compare the calculated magnetic moment for the
   ferromagnetic phase with the experimental value.  You can find the
   calculated value in the text output, or by using the
-  :meth:`~gpaw.aseinterface.GPAW.get_magnetic_moments` method of the
+  :meth:`~gpaw.calculator.GPAW.get_magnetic_moments` method of the
   calculator object.

@@ -4,16 +4,16 @@ from __future__ import print_function
 import sys
 import numpy as np
 
-from ase.units import Hartree
 from ase.calculators.general import Calculator
 from ase.calculators.test import numeric_force
-from ase.utils.timing import Timer
 from ase.parallel import distribute_cpus
+from ase.units import Hartree
+from ase.utils import convert_string_to_fd
+from ase.utils.timing import Timer
 
+import gpaw.mpi as mpi
 from gpaw import GPAW, __version__
 from gpaw.density import RealSpaceDensity
-from gpaw.output import get_txt
-from gpaw import mpi
 from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
@@ -40,7 +40,14 @@ class FiniteDifferenceCalculator(Calculator):
             if txt is None:
                 self.txt = self.lrtddft.txt
             else:
-                self.txt = get_txt(txt, world.rank)
+                self.txt = convert_string_to_fd(txt, world)
+
+            # XXX please fix this !!!!!
+            from gpaw.io.logger import GPAWLogger
+            self.log = GPAWLogger(world)
+            self.log.fd = self.txt
+            self.reader = None
+            
         print('#', self.__class__.__name__, __version__, file=self.txt)
 
         self.d = d
@@ -370,7 +377,7 @@ class ExcitedStateDensity(RealSpaceDensity):
 
         D_asp = {}
         for a, D_sp in self.gsdensity.D_asp.items():
-            repeats = self.ns // self.gsdensity.ns
+            repeats = self.nspins // self.gsdensity.nspins
             # XXX does this work always?
             D_asp[a] = (1. * D_sp).repeat(repeats, axis=0)
         self.D_asp = D_asp
@@ -419,4 +426,4 @@ class ExcitedStateDensity(RealSpaceDensity):
                                           self.wunocc_sn[s]),
                                          kpt.psit_nG):
                         axpy(f, psit_G ** 2, self.nt_sG[s])
-        self.nt_sG[:self.nspins] += self.nct_G
+        self.nt_sG += self.nct_G

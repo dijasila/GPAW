@@ -337,7 +337,7 @@ class AllElectron:
         for f, e in zip(f_j, e_j):
             Ekin += f * e
 
-        Epot = 2 * pi * np.dot(n * r * (vHr - Z), dr)
+        e_coulomb = 2 * pi * np.dot(n * r * (vHr - Z), dr)
         Ekin += -4 * pi * np.dot(n * vr * r, dr)
 
         if self.orbital_free:
@@ -354,10 +354,10 @@ class AllElectron:
         t('-------------------------')
         t('Kinetic:   %+13.6f' % Ekin)
         t('XC:        %+13.6f' % Exc)
-        t('Potential: %+13.6f' % Epot)
+        t('Potential: %+13.6f' % e_coulomb)
         t('-------------------------')
-        t('Total:     %+13.6f' % (Ekin + Exc + Epot))
-        self.ETotal = Ekin + Exc + Epot
+        t('Total:     %+13.6f' % (Ekin + Exc + e_coulomb))
+        self.ETotal = Ekin + Exc + e_coulomb
         t()
 
         t('state      eigenvalue         ekin         rmax')
@@ -393,7 +393,7 @@ class AllElectron:
         self.write(tau, 'tau')
 
         self.Ekin = Ekin
-        self.Epot = Epot
+        self.e_coulomb = e_coulomb
         self.Exc = Exc
 
     def write(self, array, name=None, n=None, l=None):

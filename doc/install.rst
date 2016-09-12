@@ -44,7 +44,8 @@ There are several ways to install GPAW:
   description: :ref:`developer installation`.
 
 .. seealso::
-    
+
+    * Using :ref:`homebrew` on MacOSX.
     * Tips and tricks for installation on many :ref:`platforms and
       architectures`.
     * :ref:`troubleshooting`.
@@ -57,7 +58,7 @@ Requirements
 
 * Python_ 2.6-3.5
 * NumPy_ 1.6.1 or later (base N-dimensional array package)
-* ASE_ 3.10 or later (atomic simulation environment)
+* ASE_ 3.11 or later (atomic simulation environment)
 * a C-compiler
 * LibXC_ 2.0.1 or later
 * BLAS_ and LAPACK_ libraries
@@ -167,24 +168,26 @@ Sou can get the source from a tar-file or from Git:
 :Tar-file:
 
     You can get the source as a tar-file for the
-    latest stable release (gpaw-1.0.0.tar.gz_) or the latest
+    latest stable release (gpaw-1.1.0.tar.gz_) or the latest
     development snapshot (`<snapshot.tar.gz>`_).
 
     Unpack and make a soft link::
     
-        $ tar -xf gpaw-1.0.0.tar.gz
-        $ ln -s gpaw-1.0.0 gpaw
+        $ tar -xf gpaw-1.1.0.tar.gz
+        $ ln -s gpaw-1.1.0 gpaw
 
 :Git clone:
 
-    Alternatively, you can get the source for the latest stable release from
-    https://gitlab.com/gpaw/gpaw like this::
+    Alternatively, you can get the source for the the development version
+    from https://gitlab.com/gpaw/gpaw like this::
     
-        $ git clone -b 1.0.0 https://gitlab.com/gpaw/gpaw.git
+        $ git clone https://gitlab.com/gpaw/gpaw.git
 
-    or if you want the development version::
+    If you want the latest stable release you should clone and then *checkout*
+    the ``1.1.0`` tag like this::
 
         $ git clone https://gitlab.com/gpaw/gpaw.git
+        $ git checkout 1.1.0
     
 Add ``~/gpaw`` to your :envvar:`PYTHONPATH` environment variable and add
 ``~/gpaw/tools`` to :envvar:`PATH` (assuming ``~/gpaw`` is where your GPAW
@@ -196,10 +199,10 @@ folder is).
     See the :ref:`releasenotes` for which tags are available.  Also the
     dates of older releases can be found there.
 
-.. _gpaw-1.0.0.tar.gz:
-    https://pypi.python.org/packages/50/ab/
-    7e7b1591c631bbe54e000a6d0b605628a2d88818ee5048fc1cdcaa3ee6f5/
-    gpaw-1.0.0.tar.gz
+.. _gpaw-1.1.0.tar.gz:
+    https://pypi.python.org/packages/71/e6/
+    d26db47ec7bc44d21fbefedb61a8572276358b50862da3390c20664d9511/
+    gpaw-1.1.0.tar.gz
 
     
 .. _customizing installation:

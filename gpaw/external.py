@@ -8,11 +8,11 @@ import _gpaw
 __all__ = ['ConstantPotential', 'ConstantElectricField']
 
 
-def dict2potential(dct):
+def create_external_potential(name, **kwargs):
     """Construct potential from dict."""
-    if dct['name'] not in __all__:
+    if name not in __all__:
         raise ValueError
-    return globals()[dct['name']](**dct['kwargs'])
+    return globals()[name](**kwargs)
     
 
 class ExternalPotential:
@@ -30,11 +30,6 @@ class ExternalPotential:
     def calculate_potential(self, gd):
         raise NotImplementedError
         
-    def write(self, writer):
-        if hasattr(self, 'todict'):
-            from ase.io.jsonio import encode
-            writer['ExternalPotential'] = encode(self).replace('"', "'")
-        
 
 class ConstantPotential(ExternalPotential):
     """Constant potential for tests."""
@@ -49,7 +44,7 @@ class ConstantPotential(ExternalPotential):
 
     def todict(self):
         return {'name': 'ConstantPotential',
-                'kwargs': {'constant': self.constant * Hartree}}
+                'constant': self.constant * Hartree}
     
         
 class ConstantElectricField(ExternalPotential):
@@ -85,8 +80,8 @@ class ConstantElectricField(ExternalPotential):
     def todict(self):
         strength = (self.field_v**2).sum()**0.5
         return {'name': 'ConstantElectricField',
-                'kwargs': {'strength': strength * Hartree / Bohr,
-                           'direction': self.field_v / strength}}
+                'strength': strength * Hartree / Bohr,
+                'direction': self.field_v / strength}
 
 
 class PointChargePotential(ExternalPotential):

@@ -6,14 +6,13 @@ from time import time
 import numpy as np
 from scipy.special import sici
 from scipy.special.orthogonal import p_roots
-
+from ase.io.aff import affopen
 from ase.units import Hartree, Bohr
 from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.fd_operators import Gradient
-from gpaw.io.tar import Writer, Reader
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.utilities.blas import gemmdot, axpy
 from gpaw.wavefunctions.pw import PWDescriptor
@@ -80,7 +79,7 @@ class FXCCorrelation(RPACorrelation):
 
             for iq in reversed(range(len(self.ibzq_qc))):
 
-                if not os.path.isfile('fhxc_%s_%s_%s_%s.gpw'
+                if not os.path.isfile('fhxc_%s_%s_%s_%s.aff'
                                       % (self.tag, self.xc,
                                          self.ecut_max, iq)):
                     q_empty = iq
@@ -248,9 +247,9 @@ class FXCCorrelation(RPACorrelation):
         #              the calculation is spin-polarized!)
 
         if self.spin_kernel:
-            r = Reader('fhxc_%s_%s_%s_%s.gpw' %
-                       (self.tag, self.xc, self.ecut_max, qi))
-            fv = r.get('fhxc_sGsG')
+            r = affopen('fhxc_%s_%s_%s_%s.aff' %
+                        (self.tag, self.xc, self.ecut_max, qi))
+            fv = r.fhxc_sGsG
 
             if cut_G is not None:
                 cut_sG = np.tile(cut_G, ns)
@@ -269,8 +268,8 @@ class FXCCorrelation(RPACorrelation):
                         n1 = (s1 + 1) * nG
                         m2 = s2 * nG
                         n2 = (s2 + 1) * nG
-                        fv[m1:n1, m2:n2] *= (G_G * G_G[:, np.newaxis]
-                                             / 4 / np.pi)
+                        fv[m1:n1, m2:n2] *= (G_G * G_G[:, np.newaxis] /
+                                             (4 * np.pi))
 
                         if np.prod(self.unit_cells) > 1 and pd.kd.gamma:
                             m1 = s1 * nG
@@ -346,9 +345,9 @@ class FXCCorrelation(RPACorrelation):
                 fv = np.exp(-0.25 * (G_G * self.range_rc) ** 2.0)
 
             elif self.linear_kernel:
-                r = Reader('fhxc_%s_%s_%s_%s.gpw' %
-                           (self.tag, self.xc, self.ecut_max, qi))
-                fv = r.get('fhxc_sGsG')
+                r = affopen('fhxc_%s_%s_%s_%s.aff' %
+                            (self.tag, self.xc, self.ecut_max, qi))
+                fv = r.fhxc_sGsG
 
                 if cut_G is not None:
                     fv = fv.take(cut_G, 0).take(cut_G, 1)
@@ -356,17 +355,17 @@ class FXCCorrelation(RPACorrelation):
             elif not self.dyn_kernel:
                 # static kernel which does not scale with lambda
 
-                r = Reader('fhxc_%s_%s_%s_%s.gpw' %
-                           (self.tag, self.xc, self.ecut_max, qi))
-                fv = r.get('fhxc_lGG')
+                r = affopen('fhxc_%s_%s_%s_%s.aff' %
+                            (self.tag, self.xc, self.ecut_max, qi))
+                fv = r.fhxc_lGG
 
                 if cut_G is not None:
                     fv = fv.take(cut_G, 1).take(cut_G, 2)
 
             else:  # dynamical kernel
-                r = Reader('fhxc_%s_%s_%s_%s.gpw' %
-                           (self.tag, self.xc, self.ecut_max, qi))
-                fv = r.get('fhxc_lwGG')
+                r = affopen('fhxc_%s_%s_%s_%s.aff' %
+                            (self.tag, self.xc, self.ecut_max, qi))
+                fv = r.fhxc_lwGG
 
                 if cut_G is not None:
                     fv = fv.take(cut_G, 2).take(cut_G, 3)
@@ -786,40 +785,26 @@ class KernelWave:
             # Write to disk
             if mpi.rank == 0:
 
-                w = Writer('fhxc_%s_%s_%s_%s.gpw' %
-                           (self.tag, self.xc, self.ecut, iq))
+                w = affopen('fhxc_%s_%s_%s_%s.aff' %
+                            (self.tag, self.xc, self.ecut, iq), 'w')
 
                 if calc_spincorr:
                     # Form the block matrix kernel
-                    fv_full = np.empty((2*nG, 2*nG), dtype=complex)
+                    fv_full = np.empty((2 * nG, 2 * nG), dtype=complex)
                     fv_full[:nG, :nG] = fv_nospin[0] + fv_spincorr
                     fv_full[:nG, nG:] = fv_nospin[0] - fv_spincorr
                     fv_full[nG:, :nG] = fv_nospin[0] - fv_spincorr
                     fv_full[nG:, nG:] = fv_nospin[0] + fv_spincorr
-
-                    w.dimension('sG',  2 * nG)
-                    w.add('fhxc_sGsG', ('sG', 'sG'), dtype=complex)
-                    w.fill(fv_full)
+                    w.write(fhxc_sGsG=fv_full)
 
                 elif len(self.l_l) == 1:
-
-                    w.dimension('sG',  nG)
-                    w.add('fhxc_sGsG', ('sG', 'sG'), dtype=complex)
-                    w.fill(fv_nospin[0])
+                    w.write(fhxc_sGsG=fv_nospin[0])
 
                 elif self.omega_w is None:
-
-                    w.dimension('G',  nG)
-                    w.dimension('l',  len(self.l_l))
-                    w.add('fhxc_lGG', ('l', 'G', 'G'), dtype=complex)
-                    w.fill(fv_nospin)
+                    w.write(fhxc_lGG=fv_nospin)
 
                 else:
-                    w.dimension('G',  nG)
-                    w.dimension('l',  len(self.l_l))
-                    w.dimension('w',  len(self.omega_w))
-                    w.add('fhxc_lwGG', ('l', 'w', 'G', 'G'), dtype=complex)
-                    w.fill(fv_nospin)
+                    w.write(fhxc_lwGG=fv_nospin)
                 w.close()
 
             print('q point %s complete' % iq, file=self.fd)
@@ -1562,17 +1547,16 @@ class KernelDens:
             fhxc_sGsG /= vol
 
             if mpi.rank == 0:
-                w = Writer('fhxc_%s_%s_%s_%s.gpw' %
-                           (self.tag, self.xc, self.ecut, iq))
-                w.dimension('sG', ns * npw)
-                w.add('fhxc_sGsG', ('sG', 'sG'), dtype=complex)
+                w = affopen('fhxc_%s_%s_%s_%s.aff' %
+                            (self.tag, self.xc, self.ecut, iq), 'w')
                 if nR > 1:  # add Hartree kernel evaluated in PW basis
                     Gq2_G = self.pd.G2_qG[iq]
                     if (q == 0).all():
+                        Gq2_G = Gq2_G.copy()
                         Gq2_G[0] = 1.
                     vq_G = 4 * np.pi / Gq2_G
                     fhxc_sGsG += np.tile(np.eye(npw) * vq_G, (ns, ns))
-                w.fill(fhxc_sGsG)
+                w.write(fhxc_sGsG=fhxc_sGsG)
                 w.close()
             mpi.world.barrier()
         print(file=self.fd)
@@ -1621,11 +1605,9 @@ class KernelDens:
             fhxc_sGsG += np.tile(np.eye(npw) * vq_G, (ns, ns))
 
             if mpi.rank == 0:
-                w = Writer('fhxc_%s_%s_%s_%s.gpw' %
-                           (self.tag, self.xc, self.ecut, iq))
-                w.dimension('sG', ns * npw)
-                w.add('fhxc_sGsG', ('sG', 'sG'), dtype=complex)
-                w.fill(fhxc_sGsG)
+                w = affopen('fhxc_%s_%s_%s_%s.aff' %
+                            (self.tag, self.xc, self.ecut, iq), 'w')
+                w.write(fhxc_sGsG=fhxc_sGsG)
                 w.close()
             mpi.world.barrier()
         print(file=self.fd)

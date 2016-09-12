@@ -138,19 +138,19 @@ class SetupData:
             text(self.symbol + '-setup:')
         else:
             text('%s-setup (%.1f core hole):' % (self.symbol, self.fcorehole))
-        text('  name   :', atomic_names[self.Z])
-        text('  id     :', self.fingerprint)
-        text('  Z      :', self.Z)
+        text('  name:', atomic_names[self.Z])
+        text('  id:', self.fingerprint)
+        text('  Z:', self.Z)
         text('  valence:', self.Nv)
         if self.phicorehole_g is None:
-            text('  core   : %d' % self.Nc)
+            text('  core: %d' % self.Nc)
         else:
-            text('  core   : %.1f' % self.Nc)
-        text('  charge :', self.Z - self.Nv - self.Nc)
+            text('  core: %.1f' % self.Nc)
+        text('  charge:', self.Z - self.Nv - self.Nc)
         if setup.HubU is not None:
             text('  Hubbard U: %f eV (l=%d, scale=%s)' %
                  (setup.HubU * Hartree, setup.Hubl, bool(setup.Hubs)))
-        text('  file   :', self.filename)
+        text('  file:', self.filename)
         text(('  cutoffs: %4.2f(comp), %4.2f(filt), %4.2f(core),'
               ' lmax=%d' % (sqrt(10) * self.rcgauss * Bohr,
                             # XXX is this really true?  I don't think this is
@@ -159,15 +159,15 @@ class SetupData:
                             setup.rcore * Bohr,
                             setup.lmax)))
         text('  valence states:')
-        text('            energy   radius')
+        text('                energy  radius')
         j = 0
         for n, l, f, eps in zip(self.n_j, self.l_j, self.f_j, self.eps_j):
             if n > 0:
                 f = '(%.2f)' % f
-                text('    %d%s%-5s %7.3f   %5.3f' % (
+                text('    %d%s%-5s %9.3f   %5.3f' % (
                     n, 'spdf'[l], f, eps * Hartree, self.rcut_j[j] * Bohr))
             else:
-                text('    *%s     %7.3f   %5.3f' % (
+                text('    *%s       %9.3f   %5.3f' % (
                     'spdf'[l], eps * Hartree, self.rcut_j[j] * Bohr))
             j += 1
         text()

@@ -9,7 +9,7 @@
 from gpaw import *
 from ase import *
 from gpaw.transport.calculator import Transport
-from ase.lattice.surface import fcc100
+from ase.build import fcc100
 from gpaw.transport.tools import sort_atoms
 
 system = read('NiC8.traj')

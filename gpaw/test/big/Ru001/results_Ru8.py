@@ -16,7 +16,7 @@ for name in ['NO', 'O2', 'N2', 'Ru001', 'NRu001', 'ORu001']:
         restartname = name + '_Ru8'
     else:
         restartname = name
-    a, calc = restart(restartname, txt=None)
+    a, calc = restart(restartname + '.gpw', txt=None)
     pbe[name] = a.get_potential_energy()
     pw91[name] = pbe[name] + calc.get_xc_difference('PW91')
 

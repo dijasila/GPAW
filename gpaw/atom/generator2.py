@@ -512,19 +512,41 @@ class PAWSetupGenerator:
         if rcore is None:
             rcore = self.rcmax * 0.8
         else:
-            assert rcore <= self.rcmax
+            assert abs(rcore) <= self.rcmax
 
         if self.ncore == 0:
             self.nct_g = self.rgd.zeros()
             self.tauct_g = self.rgd.zeros()
+        elif rcore > 0.0:
+            # Make sure pseudo density is monotonically decreasing:
+            while True:
+                gcore = self.rgd.round(rcore)
+                self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
+                nt_g = self.nt_g + self.nct_g
+                dntdr_g = self.rgd.derivative(nt_g)[:gcore]
+                if dntdr_g.max() < 0.0:
+                    break
+                rcore -= 0.01
+
+            rcore *= 1.2
+            gcore = self.rgd.round(rcore)
+            self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
+            nt_g = self.nt_g + self.nct_g
+
+            self.log('Constructing smooth pseudo core density for r < %.3f' %
+                     rcore)
+            self.nt_g = nt_g
+
+            self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
         else:
+            rcore *= -1
             gcore = self.rgd.round(rcore)
             nt_g = self.rgd.pseudize(self.aea.n_sg[0], gcore)[0]
             self.nct_g = nt_g - self.nt_g
             self.nt_g = nt_g
 
-            self.log('Constructing smooth pseudo core density for r < %.3f' %
-                     rcore)
+            self.log('Constructing NLCC-style smooth pseudo core density for'
+                     'r < %.3f' % rcore)
 
             self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
 
@@ -1214,6 +1236,8 @@ def main(argv=None):
     add('-t', '--tag', type='string')
     add('-a', '--alpha', type=float)
     add('-b', '--create-basis-set', action='store_true')
+    add('--nlcc', action='store_true',
+        help='Use NLCC-style pseudo core density (for vdW-DF functionals).')
     add('--core-hole')
     add('-e', '--electrons', type=int)
     add('-o', '--output')
@@ -1235,7 +1259,13 @@ def main(argv=None):
                 basis.write_xml()
 
             if opt.write:
-                gen.make_paw_setup(opt.tag).write_xml()
+                setup = gen.make_paw_setup(opt.tag)
+                parameters = []
+                for key, value in kwargs.items():
+                    if value is not None:
+                        parameters.append('{0}={1!r}'.format(key, value))
+                setup.generatordata = ',\n    '.join(parameters)
+                setup.write_xml()
 
         if opt.logarithmic_derivatives or opt.plot:
             if opt.plot:
@@ -1343,6 +1373,9 @@ def get_parameters(symbol, opt):
         rcore = opt.pseudo_core_density_radius
     else:
         rcore = extra.get('rcore')
+        
+    if opt.nlcc:
+        rcore *= -1
         
     return dict(symbol=symbol,
                 xc=opt.xc_functional,

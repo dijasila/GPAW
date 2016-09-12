@@ -5,7 +5,7 @@ def agts(queue):
 
 if __name__ == '__main__':
     import pylab as plt
-    from ase.utils.eos import EquationOfState
+    from ase.eos import EquationOfState
     from ase.io import read
 
     def fit(filename):

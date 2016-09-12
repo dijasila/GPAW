@@ -1,5 +1,5 @@
 from __future__ import print_function
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw import GPAW
 from gpaw.poisson import PoissonSolver
 from gpaw.atom.basis import BasisMaker
@@ -19,7 +19,7 @@ system.center(vacuum=6.0)
 def prepare(setups):
     calc = GPAW(basis={'H' : b}, mode='lcao',
                 setups=setups, h=0.2,
-                poissonsolver=PoissonSolver('M', relax='GS', eps=1e-5),
+                poissonsolver=PoissonSolver(nn='M', relax='GS', eps=1e-5),
                 spinpol=False,
                 nbands=1)
     system.set_calculator(calc)

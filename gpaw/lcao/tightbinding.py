@@ -38,7 +38,7 @@ class TightBinding:
 
         # Symmetry
         self.symmetry = kd.symmetry
-        if self.symmetry['point_group'] is True:
+        if self.symmetry['point_group']:
             raise NotImplementedError("Only time-reversal symmetry supported.")
 
         # Lattice vectors and number of repetitions

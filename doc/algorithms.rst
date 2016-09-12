@@ -165,6 +165,15 @@ server at http://www.gnu.org/licenses/.  Everybody is invited to
 participate in using and :ref:`developing the code <devel>`.
 
 
+.. figure:: carlsberg.png
+    :width: 12cm
+    
+    September 2003 - August 2005: Sponsored by The `Carlsberg Foundation`_
+    (artwork by P. Erhart)
+   
+.. _Carlsberg Foundation: http://www.carlsbergfondet.dk
+
+
 .. [Mor05] J. J. Mortensen, L. B. Hansen, and K. W. Jacobsen,
    Phys. Rev. B, 71 035109 (2005)
 .. [Mor05b] J. J. Mortensen, K. Kaasbjerg, S. L. Frederiksen,

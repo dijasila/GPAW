@@ -5,7 +5,7 @@ from __future__ import print_function
 # difference check.
 
 import numpy as np
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw import GPAW
 from gpaw.atom.basis import BasisMaker
 

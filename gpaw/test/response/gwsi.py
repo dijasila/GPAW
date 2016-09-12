@@ -1,6 +1,6 @@
 """Test band-gaps for Si."""
 
-from ase.lattice import bulk
+from ase.build import bulk
 import numpy as np
 
 from gpaw.test import equal

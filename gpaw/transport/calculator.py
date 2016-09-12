@@ -1,34 +1,32 @@
+import pickle
+import time
+
+import numpy as np
 from ase.parallel import parprint, paropen
 from ase.units import Hartree, Bohr
+
 from gpaw import GPAW, dry_run, PoissonSolver
 from gpaw.mixer import Mixer, MixerSum, MixerDif, BroydenMixer, BroydenMixerSum
 from gpaw.poisson import FixedBoundaryPoissonSolver
-
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.transformers import Transformer
 from gpaw.mpi import world
 from gpaw.utilities.memory import maxrss
-
 from gpaw.transport.tools import (
     tri2full, dot,
     get_atom_indices, substract_pk, get_lcao_density_matrix,
     get_pk_hsd, get_matrix_index, collect_atomic_matrices,
     distribute_atomic_matrices, fermidistribution)
-
 from gpaw.transport.sparse_matrix import (Tp_Sparse_HSD, Banded_Sparse_HSD,
                                           CP_Sparse_HSD)
-
 from gpaw.transport.contour import Contour, EnergyNode
 from gpaw.transport.surrounding import Surrounding
 from gpaw.transport.selfenergy import LeadSelfEnergy
 from gpaw.transport.analysor import Transport_Analysor, Transport_Plotter
 from gpaw.transport.io import Transport_IO
-from gpaw.utilities import pack2,unpack,unpack2
-
+from gpaw.utilities import pack2, unpack, unpack2
 import gpaw
-import numpy as np
-import pickle
-import time
+from gpaw.output import print_positions
 
 
 class DBG(object):
@@ -70,6 +68,7 @@ class Lead_Calc(GPAW):
         self.gd = self.wfs.gd
         self.finegd = self.density.finegd
         
+        
 class Transport(GPAW):
     def __init__(self, **transport_kwargs):
         self.dbg = DBG()
@@ -77,6 +76,7 @@ class Transport(GPAW):
         self.grid_descriptor_class = FixedBC_GridDescriptor
         self.set_transport_kwargs(**transport_kwargs)
         GPAW.__init__(self, **self.gpw_kwargs)
+        self.text = self.log
             
     def initialize(self, *args, **kwargs):
         GPAW.initialize(self, *args, **kwargs)
@@ -84,14 +84,15 @@ class Transport(GPAW):
         self.finegd = self.density.finegd
             
     def set_transport_kwargs(self, **transport_kwargs):
-        """ Illustration of keywords::
+        """Illustration of keywords::
+            
           o  o  o  o  o  o  o  o  o  o  o  o  o
           0  1  2  3  4  5  6  7  8  9  10 11 12
           .            | mol_atoms |
           | pl_atoms1 |              | pl_atoms2 |
         """
         kw = transport_kwargs
-        p =  self.set_default_transport_parameters()
+        p = self.set_default_transport_parameters()
         self.gpw_kwargs = kw.copy()
         for key in kw:
             if key in [ 'use_lead',
@@ -293,7 +294,7 @@ class Transport(GPAW):
         else:
             npk = np.product(kpts[:2])
             nibpzk = (npk + npk % 2) // 2
-            from fractions import gcd
+            from ase.utils import gcd
             n_kpt_comm = gcd(nibpzk, world.size)
             self.gpw_kwargs['parallel'] = {'kpt': n_kpt_comm,
                                            'domain': None,
@@ -453,8 +454,8 @@ class Transport(GPAW):
                 # calculator except the 'parallel' options
                 self.log("  check")
                 _tmp = GPAW(self.lead_calculators[i])
-                pl_params = _tmp.input_parameters.copy()
-                pl_params['parallel'] = self.input_parameters['parallel'].copy()
+                pl_params = _tmp.parameters.copy()
+                pl_params['parallel'] = self.parallel.copy()
                 # self.log('  self.input_parameters[parallel] {0}'.format(pl_params['parallel']))
                 #pl_params['parallel'].update(band=self.wfs.bd.comm.size, domain=self.wfs.gd.parsize_c)
                 #parprint('>>> self.input_parameters[parallel] updated {0}'.format(pl_params['parallel']))
@@ -560,7 +561,7 @@ class Transport(GPAW):
         # scattering region
         if dry_run:
             self.parameters_test()
-        self.cvg_ham_steps = 0
+        #self.cvg_ham_steps = 0
         self.initialize()
         self.nspins = self.wfs.nspins
         self.npk = len(self.wfs.kd.ibzk_kc)
@@ -639,7 +640,7 @@ class Transport(GPAW):
                 self.inner_poisson = FixedBoundaryPoissonSolver(nn=1)
             self.inner_poisson.set_grid_descriptor(self.finegd)
             self.interpolator = Transformer(self.gd1, self.finegd1,
-                                            self.input_parameters.stencils[1])
+                                            self.density.stencil)
 
             self.surround.combine(self)
 
@@ -746,6 +747,10 @@ class Transport(GPAW):
         kpts = kwargs['kpts']
         kpts = kpts[:2] + (1,)
         kwargs['kpts'] = kpts
+        # This part of the code is untested and clearly broken since
+        # recent mixer changes.  Since no tests trigger the code, I
+        # won't bother trying to fix it.  --askhl
+        raise NotImplementedError('Broken, untested code')
         if hasattr(self.density.mixer, 'mixers'):
             kwargs['mixer'] = Mixer(self.beta_guess, 5, weight=100.0)
         elif hasattr(self.density.mixer, 'mixer'):
@@ -796,16 +801,10 @@ class Transport(GPAW):
         if self.non_sc:
             kwargs['kpts'] = kpts[:2] + (self.scat_ntk,)
 
-        if hasattr(self.density.mixer, 'mixers'):
-            kwargs['mixer'] = Mixer(self.beta_guess, 5, weight=100.0)
-        elif hasattr(self.density.mixer, 'mixer'):
-            kwargs['mixer'] = MixerDif(self.beta_guess, 5, weight=100.0)
-        elif self.spinpol and hasattr(self.density.mixer, 'step'):
-            kwargs['mixer'] = BroydenMixerSum(self.beta_guess, 5)
-        elif self.spinpol and not hasattr(self.density.mixer, 'step'):
-            kwargs['mixer'] = MixerSum(self.beta_guess, 5, weight=100.0)
-        else:
-            kwargs['mixer'] = BroydenMixer(self.beta_guess, 5)
+        old = self.density.mixer.driver
+        new = old.__class__(old.basemixerclass, beta=self.beta_guess,
+                            nmaxold=5, weight=100.0)
+        kwargs['mixer'] = new
 
         if 'txt' in kwargs and kwargs['txt'] != '-':
             kwargs['txt'] = 'guess_' + kwargs['txt']
@@ -845,13 +844,12 @@ class Transport(GPAW):
                 wfs.eigensolver.iterate(hamiltonian, wfs)
                 occupations.calculate(wfs)
                 energy = hamiltonian.get_energy(occupations)
-                scf.energies.append(energy)
-                scf.check_convergence(density, wfs.eigensolver)
+                #scf.energies.append(energy)
+                #scf.check_convergence(density, wfs.eigensolver)
                 density.update(wfs)
                 if self.extra_density:
                     density.rhot_g += self.surround.extra_rhot_g
                 hamiltonian.update(density)
-                calc.print_iteration(iter)
             self.copy_mixer_history(calc)
         self.initialize_hamiltonian_matrix(calc)
         if not (self.non_sc and self.scat_restart):
@@ -895,16 +893,9 @@ class Transport(GPAW):
 
     def copy_mixer_history(self, calc, guess_type='normal'):
         self.log('copy_mixer_history()')
-        if hasattr(self.density.mixer, 'mixers'):  #for Mixer
-            mixers = calc.density.mixer.mixers
-            mixers0 = self.density.mixer.mixers
-        elif hasattr(self.density.mixer, 'mixer'):   #for MixerDif
-            mixers = [calc.density.mixer.mixer, calc.density.mixer.mixer_m]
-            mixers0 = [self.density.mixer.mixer, self.density.mixer.mixer_m]
-        else:  #for BroydenMixer or BroydenMixerSum
-            mixers = [calc.density.mixer]
-            mixers0 = [self.density.mixer]
-        
+        mixers = calc.density.mixer.basemixers
+        mixers0 = self.density.mixer.basemixers
+
         if guess_type == 'buffer':
             from gpaw.transport.tools import cut_grids_side, \
                                collect_and_distribute_atomic_matrices
@@ -937,14 +928,15 @@ class Transport(GPAW):
                                                     rank_a, gd.comm, keys)
                 mixer0.nt_iG.append(nt_G0)
                 mixer0.D_iap.append(lD_ap)
-                if hasattr(mixer, 'A_ii'):
+                if isinstance(mixer, BaseMixer):
                     mixer0.A_ii = mixer.A_ii
                 else:
+                    assert isinstance(mixer, BroydenBaseMixer)
                     for cG, vG, uG, uD, etaD in zip(mixer.c_G,
-                                              mixer.v_G,
-                                              mixer.u_G,
-                                              mixer.u_D,
-                                              mixer.eta_D):
+                                                    mixer.v_G,
+                                                    mixer.u_G,
+                                                    mixer.u_D,
+                                                    mixer.eta_D):
                         vG0 = cut_grids_side(vG, gd, gd0)
                         uG0 = cut_grids_side(uG, gd, gd0)
                         uD0 = collect_and_distribute_atomic_matrices(uD,
@@ -1377,10 +1369,10 @@ class Transport(GPAW):
         p['nbands'] = None
         p['kpts'] = self.pl_kpts
 
-        p['parallel'] = self.input_parameters['parallel'].copy()
+        p['parallel'] = self.parallel.copy()
         p['parallel'].update(band=self.wfs.bd.comm.size,
                              kpt=self.wfs.kd.comm.size,
-                            domain=self.wfs.gd.parsize_c)
+                             domain=self.wfs.gd.parsize_c)
         if 'mixer' in p:
             if not self.spinpol:
                 p['mixer'] = Mixer(0.1, 5, weight=100.0)
@@ -1548,20 +1540,19 @@ class Transport(GPAW):
             self.text('HamMM', self.timer.timers['HamMM',], 'seconds')
        
         self.d_cvg = self.check_convergence('d')
+
+        #if self.h_cvg:
+        #    self.cvg_ham_steps += 1
+        #else:
+        #    self.cvg_ham_steps = 0
+
+        #if self.cvg_ham_steps > 4:
+            #self.text('Ham cvg since {0} iterations -> increase density mixing'.format(self.cvg_ham_steps))
+            #b = self.density.mixer.driver.beta
+            #self.density.mixer.driver.beta = b + (b*0.25)
+            #self.text('New beta: {0}'.format(self.density.mixer.beta))
         
-        # adaptive mixing ?
-        if self.h_cvg:
-            self.cvg_ham_steps += 1
-        else:
-            self.cvg_ham_steps = 0
-        
-        if self.cvg_ham_steps > 4:
-            self.text('Ham cvg since {0} iterations -> increase density mixing'.format(self.cvg_ham_steps))
-            b = self.density.mixer.beta
-            self.density.mixer.beta = b + (b*0.25)
-            self.text('New beta: {0}'.format(self.density.mixer.beta))
-        
-        self.txt.flush()
+        self.log.flush()
         
     def check_convergence(self, var):
         self.log('check_convergence()')
@@ -1589,8 +1580,8 @@ class Transport(GPAW):
                     density = self.density
                 else:
                     density = self.extended_calc.density
-                self.diff_d = density.mixer.get_charge_sloshing()
-                tol =  self.scf.max_density_error
+                self.diff_d = density.error
+                tol =  self.scf.max_errors['density']
  
                 if self.master:
                     self.text('density: diff = %f  tol=%f' % (self.diff_d,
@@ -1647,7 +1638,7 @@ class Transport(GPAW):
         self.ham_vt_diff = None
         self.ham_vt_tol = 1e-2
         #self.diag_ham_tol = 5e-3
-        self.diag_ham_tol = self.scf.max_energy_error * Hartree / len(self.atoms) * 5
+        self.diag_ham_tol = self.scf.max_errors['energy'] * Hartree / len(self.atoms) * 5
         self.step = 0
         self.cvgflag = False
         self.spin_coff = 3. - self.nspins
@@ -2136,8 +2127,8 @@ class Transport(GPAW):
         if wfs.kd.symmetry:
             self.F_av = wfs.kd.symmetry.symmetrize_forces(self.F_av)
 
-        self.forces.F_av = self.F_av[:len(self.atoms)]
-        self.print_forces()
+        self.results['forces'] = self.F_av[:len(self.atoms)] * Hartree / Bohr
+        #self.print_forces()
         return self.F_av[:len(self.atoms)]
 
     def calculate_to_bias(self, v_limit, num_v, gate=0, num_g=3, start=0):
@@ -2179,10 +2170,10 @@ class Transport(GPAW):
                 self.get_selfconsistent_hamiltonian()
             if force_consistent:
                 # Free energy:
-                return Hartree * self.hamiltonian.Etot
+                return Hartree * self.hamiltonian.e_total_free
             else:
                 # Energy extrapolated to zero Kelvin:
-                return Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S)
+                return Hartree * self.hamiltonian.e_total_extrapolated
       
     def induce_density_perturbation(self):
         self.log('induce_density_perturbation()')
@@ -2362,7 +2353,7 @@ class Transport(GPAW):
         self.surround.combine_vHt_g(self, self.hamiltonian.vHt_g)
         self.text('poisson iterations :' + str(ham.npoisson))
         self.timer.stop('Poisson')
-        Epot = 0.5 * self.hamiltonian.finegd.integrate(self.hamiltonian.vHt_g,
+        e_coulomb = 0.5 * self.hamiltonian.finegd.integrate(self.hamiltonian.vHt_g,
                                                        density.rhot_g,
                                                         global_integral=False)
         Ekin = 0.0
@@ -2394,7 +2385,7 @@ class Transport(GPAW):
                     np.dot(setup.Delta_pL, W_L))
             Ekin += np.dot(setup.K_p, D_p) + setup.Kc
             Ebar += setup.MB + np.dot(setup.MB_p, D_p)
-            Epot += setup.M + np.dot(D_p, (setup.M_p + np.dot(setup.M_pp, D_p)))
+            e_coulomb += setup.M + np.dot(D_p, (setup.M_p + np.dot(setup.M_pp, D_p)))
 
             ham.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
             Exc += ham.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
@@ -2443,14 +2434,14 @@ class Transport(GPAW):
             print('Where should we do comm.sum() ?')
         
         comm = ham.gd.comm
-        ham.Ekin0 = comm.sum(Ekin)
-        ham.Epot = comm.sum(Epot)
-        ham.Ebar = comm.sum(Ebar)
-        ham.Eext = comm.sum(Eext)
-        ham.Exc = comm.sum(Exc)
+        ham.e_kinetic0 = comm.sum(Ekin)
+        ham.e_coulomb = comm.sum(e_coulomb)
+        ham.e_zero = comm.sum(Ebar)
+        ham.e_external = comm.sum(Eext)
+        ham.e_xc = comm.sum(Exc)
         
-        ham.Exc += ham.Enlxc
-        ham.Ekin0 += ham.Enlkin
+        ham.e_xc += ham.Enlxc
+        ham.e_kinetic0 += ham.Enlkin
         
         #dH_asp = collect_D_asp3(ham, self.density.rank_a)
         dH_asp = collect_atomic_matrices(ham.dH_asp, ham.setups, ham.nspins,
@@ -2463,8 +2454,6 @@ class Transport(GPAW):
         self.timer.stop('Hamiltonian')
         self.log('finish update_hamiltonian()')
         
-
-    
     def print_boundary_charge(self):
         self.log('print_boundary_charge()')
         boundary_charge = []
@@ -2680,7 +2669,9 @@ class Transport(GPAW):
                 N_c[2] += self.bnc[i]
             p['gpts'] = N_c
             if 'mixer' in p:
-                if hasattr(self.density.mixer, 'mixers'):
+                from gpaw.mixer import SeparateSpinMixerDriver
+                if isinstance(self.density.mixer.driver,
+                              SeparateSpinMixerDriver):
                     p['mixer'] = Mixer(self.density.mixer.beta, 5, weight=100.0)
                 else:
                     p['mixer'] = MixerDif(self.density.mixer.beta, 5, weight=100.0)
@@ -2781,7 +2772,7 @@ class Transport(GPAW):
                 for a in self.wfs.basis_functions.atom_indices:
                     setup = self.wfs.setups[a]
                     f_si = setup.calculate_initial_occupation_numbers(
-                        density.magmom_av[a, 2], density.hund, charge=c,
+                        density.magmom_a[a], density.hund, charge=c,
                         nspins=self.nspins)
                     if a in self.wfs.basis_functions.my_atom_indices:
                         density.D_asp[a] = setup.initialize_density_matrix(
@@ -2824,11 +2815,10 @@ class Transport(GPAW):
         self.log('  update_hamiltonian() called')
         self.scf.reset()
         self.log('  scf.reset() called')
-        self.forces.reset()
-        self.log('  forces.reset() called')
-        self.print_positions()
+        #self.forces.reset()
+        #self.log('  forces.reset() called')
+        print_positions(self.atoms, self.log)
         self.log('  print_positions() called')
-        
 
     def analysis(self, n, n1=0, gate=False, gate_uplimit=None):
         self.log('analysis()')

@@ -6,7 +6,7 @@ from math import sqrt
 import numpy as np
 
 import gpaw.mpi as mpi
-from gpaw.output import get_txt
+from ase.utils import convert_string_to_fd
 
 
 class ExcitationList(list):
@@ -22,8 +22,8 @@ class ExcitationList(list):
 
         self.calculator = calculator
         if not txt and calculator:
-            txt = calculator.txt
-        self.txt = get_txt(txt, mpi.rank)
+            txt = calculator.log.fd
+        self.txt = convert_string_to_fd(txt, mpi.world)
 
     def get_calculator(self):
         return self.calculator

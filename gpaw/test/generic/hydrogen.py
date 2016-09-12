@@ -2,6 +2,7 @@ from math import log
 from ase import Atoms
 from ase.io import read, write, iread
 from ase.units import Bohr
+from ase.db import connect
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 
@@ -28,7 +29,6 @@ e2 = hydrogen.get_potential_energy()
 equal(e1, e2 + log(2) * kT, 3.0e-7)
 
 # Test ase.db a bit:
-from ase.db import connect
 for name in ['h.json', 'h.db']:
     con = connect(name, append=False)
     con.write(hydrogen)

@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import numpy as np
 
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW, PW
 from gpaw.test import equal
 from gpaw.mpi import world

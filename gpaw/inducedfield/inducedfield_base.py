@@ -1,16 +1,12 @@
 import numpy as np
-
-
 from ase.units import Bohr, Hartree
 from ase import Atoms
-from gpaw.tddft import eV_to_aufrequency, aufrequency_to_eV
 
 import gpaw.mpi as mpi
-from gpaw.io.tar import Reader, Writer
+from gpaw.tddft import eV_to_aufrequency, aufrequency_to_eV
 from gpaw.poisson import PoissonSolver
 from gpaw.fd_operators import Gradient
 from gpaw.grid_descriptor import GridDescriptor
-
 from gpaw.utilities.extend_grid import extended_grid_descriptor, \
     extend_array, deextend_array, move_atoms
 
@@ -58,7 +54,7 @@ class BaseInducedField(object):
         Fourier transform of background electric field
     """
     
-    def __init__(self, filename=None, paw=None, ws='all',
+    def __init__(self, filename=None, paw=None,
                  frequencies=None, folding='Gauss', width=0.08,
                  readmode=''):
         """
@@ -70,9 +66,6 @@ class BaseInducedField(object):
             ``folding`` and ``width``.
         paw: PAW object
             PAW object for InducedField
-        ws: ndarray or list of ints
-            Indices for frequencies that are read from given file.
-            This parameter is neglected if ``filename`` is not given.
         frequencies: ndarray or list of floats
             Frequencies in eV for Fourier transforms.
             This parameter is neglected if ``filename`` is given.
@@ -106,7 +99,7 @@ class BaseInducedField(object):
  
         if filename is not None:
             self.initialize(paw, allocate=False)
-            self.read(filename, ws=ws, mode=readmode)
+            self.read(filename, mode=readmode)
             return
         
         self.folding = folding
@@ -141,7 +134,7 @@ class BaseInducedField(object):
             self.atoms = paw.atoms                                # !
             self.na = len(self.atoms.get_atomic_numbers())        # !
             self.gd = self.density.gd                             # !
-            self.stencil = self.paw.input_parameters.stencils[1]
+            self.stencil = self.density.stencil
         
         if allocate:
             self.allocate()
@@ -181,7 +174,6 @@ class BaseInducedField(object):
                                 poisson_nn=3, poisson_relax='J',
                                 poisson_eps=1e-20,
                                 gradient_n=3):
-
         if self.has_field and \
            from_density == self.field_from_density and \
            self.Frho_wg is not None:
@@ -269,48 +261,35 @@ class BaseInducedField(object):
 
         return readwrites
 
-    def read(self, filename, mode='', ws='all', idiotproof=True):
+    def read(self, filename, mode='', idiotproof=True):
         if idiotproof and not filename.endswith('.ind'):
             raise IOError('Filename must end with `.ind`.')
         
         reads = self._parse_readwritemode(mode)
         
-        # Open reader (handles masters)
-        tar = Reader(filename)
-
-        # Actual read
-        self.nw = tar.dimension('nw')
-        if ws == 'all':
-            ws = np.arange(self.nw)
-        self.nw = len(ws)
-        self._read(tar, reads, ws)
-
-        # Close
-        tar.close()
+        # Open reader
+        from gpaw.io import Reader
+        reader = Reader(filename)
+        self._read(reader, reads)
+        reader.close()
         self.world.barrier()
 
-    def _read(self, tar, reads, ws):
+    def _read(self, reader, reads):
+        r = reader
+
         # Test data type
-        dtype = tar['datatype']
+        dtype = {'float': float, 'complex': complex}[r.dtype]
         if dtype != self.dtype:
             raise IOError('Data is an incompatible type.')
 
         # Read dimensions
-        na = tar['na']
-        self.nv = tar.dimension('nv')
-        try:
-            nspins = tar.dimension('nspins')
-        except KeyError:
-            nspins = tar['nspins']
-        try:
-            ng = np.array((tar.dimension('ng0'),
-                           tar.dimension('ng1'),
-                           tar.dimension('ng2')))
-        except KeyError:
-            ng = np.array((tar['ng0'], tar['ng1'], tar['ng2']))
+        na = r.na
+        self.nv = r.nv
+        nspins = r.nspins
+        ng = r.ng
 
         # Background electric field
-        Fbgef_v = tar.get('Fbgef_v')
+        Fbgef_v = r.Fbgef_v
         
         if self.has_paw:
             # Test dimensions
@@ -328,68 +307,43 @@ class BaseInducedField(object):
             self.nspins = nspins
             self.Fbgef_v = Fbgef_v
 
-            atomnum_a = tar.get('atomnum_a')
-            atompos_av = tar.get('atompos_a')
-            atomcell_cv = tar.get('atomcell_cv')
-            self.atoms = Atoms(numbers=atomnum_a, positions=atompos_av,
-                               cell=atomcell_cv, pbc=False)
+            from ase.io.trajectory import read_atoms
+            self.atoms = read_atoms(r.atoms)
 
             self.world = mpi.world
-            self.gd = GridDescriptor(ng + 1, atomcell_cv / Bohr,
+            self.gd = GridDescriptor(ng + 1, self.atoms.get_cell() / Bohr,
                                      pbc_c=False, comm=self.world)
             self.domain_comm = self.gd.comm
             self.band_comm = mpi.SerialCommunicator()
             self.kpt_comm = mpi.SerialCommunicator()
 
         # Folding
-        folding = tar['folding']
-        width = tar['width']
+        folding = r.folding
+        width = r.width
         self.set_folding(folding, width)
         
         # Frequencies
-        self.omega_w = tar.get('omega_w')[ws]
+        self.omega_w = r.omega_w
+        self.nw = len(self.omega_w)
 
         # Read field
         if 'field' in reads:
-            try:
-                nfieldg = np.array((tar.dimension('nfieldg0'),
-                                    tar.dimension('nfieldg1'),
-                                    tar.dimension('nfieldg2')))
-            except KeyError:
-                nfieldg = np.array((tar['nfieldg0'],
-                                    tar['nfieldg1'],
-                                    tar['nfieldg2']))
+            nfieldg = r.nfieldg
             self.has_field = True
-            self.field_from_density = tar['field_from_density']
+            self.field_from_density = r.field_from_density
             self.fieldgd = self.gd.new_descriptor(N_c=nfieldg + 1)
-    
-        if 'Frho' in reads:
-            self.Frho_wg = self.fieldgd.empty((self.nw), dtype=self.dtype)
-            for w, wread in enumerate(ws):
-                big_g = tar.get('Frho_wg', wread)
-                self.fieldgd.distribute(big_g, self.Frho_wg[w])
-        
-        if 'Fphi' in reads:
-            self.Fphi_wg = self.fieldgd.empty((self.nw), dtype=self.dtype)
-            for w, wread in enumerate(ws):
-                big_g = tar.get('Fphi_wg', wread)
-                self.fieldgd.distribute(big_g, self.Fphi_wg[w])
 
-        if 'Fef' in reads:
-            self.Fef_wvg = self.fieldgd.empty((self.nw, self.nv),
-                                              dtype=self.dtype)
-            for w, wread in enumerate(ws):
-                for v in range(self.nv):
-                    big_g = tar.get('Fef_wvg', wread, v)
-                    self.fieldgd.distribute(big_g, self.Fef_wvg[w][v])
+            def readarray(name, shape, dtype):
+                if name.split('_')[0] in reads:
+                    setattr(self, name, self.fieldgd.empty(shape, dtype=dtype))
+                    self.fieldgd.distribute(r.get(name), getattr(self, name))
 
-        if 'Ffe' in reads:
-            self.Ffe_wg = self.fieldgd.empty((self.nw), dtype=float)
-            for w, wread in enumerate(ws):
-                big_g = tar.get('Ffe_wg', wread)
-                self.fieldgd.distribute(big_g, self.Ffe_wg[w])
+            readarray('Frho_wg', (self.nw,), self.dtype)
+            readarray('Fphi_wg', (self.nw,), self.dtype)
+            readarray('Fef_wvg', (self.nw, self.nv), self.dtype)
+            readarray('Ffe_wg', (self.nw,), float)
 
-    def write(self, filename, mode='', ws='all', idiotproof=True):
+    def write(self, filename, mode='', idiotproof=True):
         """
         Parameters
         ----------
@@ -413,133 +367,64 @@ class BaseInducedField(object):
 
         writes = self._parse_readwritemode(mode)
 
-        if ws == 'all':
-            ws = np.arange(self.nw)
-
         if 'field' in writes and self.fieldgd is None:
             raise IOError('field variables cannot be written ' +
                           'before they are calculated')
 
-        # Open writer on master
-        if master:
-            tar = Writer(filename)
-        else:
-            tar = None
-       
+        from gpaw.io import Writer
+        writer = Writer(filename, self.world, 'INDUCEDFIELD')
         # Actual write
-        self._write(tar, writes, ws,
-                    (master, domainmaster, bandmaster, kptmaster))
-       
-        # Close to flush changes
-        if master:
-            tar.close()
-
+        self._write(writer, writes)
         # Make sure slaves don't return before master is done
+        writer.close()
         self.world.barrier()
 
-    def _write(self, tar, writes, ws, masters):
-        master, domainmaster, bandmaster, kptmaster = masters
+    def _write(self, writer, writes):
+        # Write parameters/dimensions
+        writer.write(dtype={float: 'float', complex: 'complex'}[self.dtype],
+                     folding=self.folding,
+                     width=self.width,
+                     na=self.na,
+                     nv=self.nv,
+                     nspins=self.nspins,
+                     ng=self.gd.get_size_of_global_array())
 
-        nw = len(ws)
+        # Write field grid
+        if 'field' in writes:
+            writer.write(field_from_density=self.field_from_density,
+                    nfieldg=self.fieldgd.get_size_of_global_array())
 
-        if master:
-            # Write parameters/dimensions
-            tar['datatype'] = {float: 'float', complex: 'complex'}[self.dtype]
-            tar['folding'] = self.folding
-            tar['width'] = self.width
-            
-            tar['na'] = self.na
-            tar['nspins'] = self.nspins
-            tar.dimension('nv', self.nv)
-            tar.dimension('nw', nw)
-            tar.dimension('nspins', self.nspins)
-            
-            # Write grid
-            ng = self.gd.get_size_of_global_array()
-            tar['ng0'] = ng[0]
-            tar['ng1'] = ng[1]
-            tar['ng2'] = ng[2]
-            tar.dimension('ng0', ng[0])
-            tar.dimension('ng1', ng[1])
-            tar.dimension('ng2', ng[2])
+        # Write frequencies
+        writer.write(omega_w=self.omega_w)
 
-            # Write field grid
-            if 'field' in writes:
-                nfieldg = self.fieldgd.get_size_of_global_array()
-                tar['nfieldg0'] = nfieldg[0]
-                tar['nfieldg1'] = nfieldg[1]
-                tar['nfieldg2'] = nfieldg[2]
-                tar.dimension('nfieldg0', nfieldg[0])
-                tar.dimension('nfieldg1', nfieldg[1])
-                tar.dimension('nfieldg2', nfieldg[2])
-                tar['field_from_density'] = self.field_from_density
+        # Write background electric field
+        writer.write(Fbgef_v=self.Fbgef_v)
+   
+        from ase.io.trajectory import write_atoms
+        write_atoms(writer.child('atoms'), self.atoms)
 
-            # Write frequencies
-            tar.add('omega_w', ('nw',), self.omega_w[ws], dtype=float)
+        if 'field' in writes:
+            def writearray(name, shape, dtype):
+                if name.split('_')[0] in writes:
+                    writer.add_array(name, shape, dtype)
+                a_wxg = getattr(self, name)
+                for w in range(self.nw):
+                    writer.fill(self.fieldgd.collect(a_wxg[w]))
 
-            # Write background electric field
-            tar.add('Fbgef_v', ('nv',), self.Fbgef_v, dtype=float)
-       
-            # Write system description
-            # TODO: remove this and use ASE's atoms object instead
-            # if 'atoms' in writes:
-            if True:  # Always write atoms!
-                atomnum_a = self.atoms.get_atomic_numbers()
-                atompos_a = self.atoms.get_positions()
-                atomcell_cv = self.atoms.get_cell()
-                
-                tar.dimension('na', self.na)
-                tar.add('atomnum_a', ('na',), atomnum_a, dtype=int)
-                tar.add('atompos_a', ('na', 'nv',), atompos_a, dtype=float)
-                tar.add('atomcell_cv', ('nv', 'nv',), atomcell_cv, dtype=float)
-                
-        if 'Frho' in writes:
-            if master:
-                tar.add('Frho_wg',
-                        ('nw', 'nfieldg0', 'nfieldg1', 'nfieldg2', ),
-                        dtype=self.dtype)
-            for w in ws:
-                big_g = self.fieldgd.collect(self.Frho_wg[w])
-                if master:
-                    tar.fill(big_g)
+            shape = (self.nw,) + tuple(self.fieldgd.get_size_of_global_array())
+            writearray('Frho_wg', shape, self.dtype)
+            writearray('Fphi_wg', shape, self.dtype)
+            writearray('Ffe_wg', shape, float)
 
-        if 'Fphi' in writes:
-            if master:
-                tar.add('Fphi_wg',
-                        ('nw', 'nfieldg0', 'nfieldg1', 'nfieldg2', ),
-                        dtype=self.dtype)
-            for w in ws:
-                big_g = self.fieldgd.collect(self.Fphi_wg[w])
-                if master:
-                    tar.fill(big_g)
-
-        if 'Fef' in writes:
-            if master:
-                tar.add('Fef_wvg',
-                        ('nw', 'nv', 'nfieldg0', 'nfieldg1', 'nfieldg2', ),
-                        dtype=self.dtype)
-            for w in ws:
-                for v in range(self.nv):
-                    big_g = self.fieldgd.collect(self.Fef_wvg[w][v])
-                    if master:
-                        tar.fill(big_g)
-                        
-        if 'Ffe' in writes:
-            if master:
-                tar.add('Ffe_wg',
-                        ('nw', 'nfieldg0', 'nfieldg1', 'nfieldg2', ),
-                        dtype=float)
-            for w in ws:
-                big_g = self.fieldgd.collect(self.Ffe_wg[w])
-                if master:
-                    tar.fill(big_g)
+            shape3 = shape[:1] + (self.nv,) + shape[1:]
+            writearray('Fef_wvg', shape3, self.dtype)
 
 
 def calculate_field(gd, rho_g, bgef_v,
                     phi_g, ef_vg, fe_g,  # preallocated numpy arrays
                     nv=3, poisson_nn=3, poisson_relax='J',
                     gradient_n=3, poisson_eps=1e-20):
-    
+
     dtype = rho_g.dtype
     yes_complex = dtype == complex
 
@@ -603,113 +488,6 @@ def zero_pad(a):
     
     b[..., 1:-1, 1:-1, 1:-1] = a
     return b
-
-
-def read_data(filename, keys=None, ws='all'):
-    """
-    Read data arrays for post processing.
-    
-    Not parallel safe. No GridDescriptor, only numpy arrays.
-    
-    Parameters
-    ----------
-    filename: string
-        File to be read.
-    keys: list of strings
-        Keys to be read.
-    ws: list of ints
-        Indices of frequencies to be read.
-    """
-    
-    key_to_tarname = {'n0t_sG': 'n0t_sG',
-                      'Fnt_wsG': 'Fnt_wsG',
-                      'Frho_wg': 'Frho_wg',
-                      'Fphi_wg': 'Fphi_wg',
-                      'Fef_wvg': 'Fef_wvg',
-                      'Ffe_wg': 'Ffe_wg',
-                      'eps0_G': 'eps0_G'
-                      }
-    
-    print('Reading %s' % (filename))
-    
-    if keys is None:
-        keys = key_to_tarname.keys()  # all keys
-    
-    tar = Reader(filename)
-
-    omega_w = tar.get('omega_w')
-
-    if ws == 'all':
-        ws = range(len(omega_w))
-    else:
-        omega_w = omega_w[ws]
-    
-    freq_w = omega_w * aufrequency_to_eV
-    
-    try:
-        nspins = tar.dimension('nspins')
-    except KeyError:
-        nspins = None
-    
-    na = tar['na']
-    try:
-        atomnum_a = tar.get('atomnum_a')
-        atompos_av = tar.get('atompos_a')
-        atomcell_cv = tar.get('atomcell_cv')
-        Fbgef_v = tar.get('Fbgef_v')
-        
-        atom_a = []
-        for a in range(na):
-            atom_a.append({'atom': atomnum_a[a], 'pos': atompos_av[a]})
-    except KeyError:
-        atom_a = None
-        atomcell_cv = None
-        Fbgef_v = None
-        print('no atoms')
-    
-    data = dict()
-    data['freq_w'] = freq_w
-    data['nspins'] = nspins
-    data['na'] = na
-    data['atom_a'] = atom_a
-    data['cell_cv'] = atomcell_cv
-    data['Fbgef_v'] = Fbgef_v
-   
-    try:
-        data['corner1_v'] = tar.get('corner1_v')
-        data['corner2_v'] = tar.get('corner2_v')
-    except:
-        print('no corners')
-
-    try:
-        FD_awsp = {}
-        D0_asp = {}
-        for a in range(na):
-            FD_awsp[a] = tar.get('FD_%dwsp' % a)
-            D0_asp[a] = tar.get('D0_%dsp' % a)
-        data['FD_awsp'] = FD_awsp
-        data['D0_asp'] = D0_asp
-    except KeyError:
-        print('no FD_awsp')
-
-    for key in keys:
-        try:
-            if '_w' in key:
-                tmp = zero_pad(tar.get(key_to_tarname[key], ws[0]))
-                data[key] = np.empty((len(ws),) + tmp.shape, tmp.dtype)
-                data[key][0] = tmp
-                for w, wread in enumerate(ws[1:], 1):
-                    data[key][w] = zero_pad(tar.get(key_to_tarname[key],
-                                                    wread))
-            else:
-                data[key] = zero_pad(tar.get(key_to_tarname[key]))
-        except KeyError:
-            print('no %s' % key)
-            pass
-
-    tar.close()
-    
-    return data
 
 
 # TOOD: remove/edit this function

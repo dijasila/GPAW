@@ -6,7 +6,7 @@ import numpy as np
 from ase import Atoms
 from ase.io import read
 from ase.data import covalent_radii
-from ase.calculators.neighborlist import NeighborList
+from ase.neighborlist import NeighborList
 
 
 class Cluster(Atoms):

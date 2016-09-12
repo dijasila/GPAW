@@ -4,151 +4,57 @@
 Homebrew
 ========
 
+.. highlight:: bash
 
-Install https://developer.apple.com/xcode/ and activate it from a terminal::
+Get Xcode from the App Store and install it. You also need to install the
+command line tools, do this with the command::
 
-  sudo xcodebuild -license
+    $ xcode-select --install
 
-After installing xcode install also its *Command Line Developer Tools*
-(provides *llvm-gcc compiler* on the command line)::
+Install Homebrew::
 
-  sudo xcode-select --install
+    $ /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+    $ echo 'export PATH=/usr/local/bin:$PATH' >> ~/.bash_profile
 
-Make sure the compilers are in place::
+Install ASE and GPAW dependencies::
 
-  which llvm-gcc
+    $ brew install python
+    $ brew install gcc
+    $ brew install libxc
+    $ brew install open-mpi
+    $ brew install fftw
+    $ brew install pygtk
 
-Follow the instructions for installing Homebrew http://brew.sh/
-the famous::
+Install pip::
 
-  ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+    $ sudo easy_install pip
 
-and configure your init scripts *~/.bash_profile*::
+Install required Python packages::
 
-  # Set architecture flags
-  export ARCHFLAGS="-arch x86_64"
+    $ pip install numpy scipy matplotlib
 
-  # personal installation of pip
-  export PATH=/Users/$USER/pip_latest:$PATH
-  export PYTHONPATH=/Users/$USER/pip_latest:$PYTHONPATH
+Install and test ASE::
 
-  pyver=`python -c "from distutils import sysconfig; print sysconfig.get_python_version()"`
+    $ pip install --upgrade --user ase
+    $ python -m ase.test
 
-  # pip --user installations of packages
-  export PATH=/Users/$USER/Library/Python/${pyver}/bin:$PATH
-  export PYTHONPATH=/Users/$USER/Library/Python/${pyver}/lib/python/site-packages:$PYTHONPATH
-
-  # homebrew
-  # Ensure user-installed binaries take precedence
-  export PATH=/usr/local/bin:$PATH
-  export PYTHONPATH=/usr/local/lib/python${pyver}/site-packages:$PYTHONPATH
-  # hack gtk-2.0
-  export PYTHONPATH=/usr/local/lib/python${pyver}/site-packages/gtk-2.0:$PYTHONPATH
-  # https://github.com/mxcl/homebrew/issues/16891
-  export PKG_CONFIG_PATH=`brew --prefix libffi`/lib/pkgconfig:$PKG_CONFIG_PATH
-  export PKG_CONFIG_PATH=/opt/X11/lib/pkgconfig:$PKG_CONFIG_PATH
-  export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
-
-  # virtualenv
-  # virtualenv should use Distribute instead of legacy setuptools
-  export VIRTUALENV_DISTRIBUTE=true
-  # Centralized location for new virtual environments
-  export PIP_VIRTUALENV_BASE=$HOME/Virtualenvs
-  # pip should only run if there is a virtualenv currently activated
-  export PIP_REQUIRE_VIRTUALENV=true
-  # cache pip-installed packages to avoid re-downloading
-  export PIP_DOWNLOAD_CACHE=$HOME/.pip/cache
-
-Now you should source your new *~/.bash_profile* file::
-
-  source ~/.bash_profile
- 
-Update and verify your homebrew::
-
-  brew update
-  brew doctor
-
-If you prefer to use OS X python (recommended!), install ``pip``::
-
-  mkdir -p ~/pip_latest
-  easy_install --install-dir=$HOME/pip_latest pip  # fails under $HOME/pip
-
-Note that homebrew recommends installing its own python, but by doing so
-be prepared on other troubles than addressed in the installation described here.
-
-www.virtualenv.org allows you to run different versions of python modules after
-having them configured in different virtualenvs.
-It is a convenient way of keeping GPAW with its corresponding
-ASE version isolated form the globally installed python modules.
-
-Install virtualenv::
-
-  PIP_REQUIRE_VIRTUALENV=false pip install --user virtualenv
-
-Create directory for virtualenvs::
-
-  mkdir ~/Virtualenvs
-
-If you are only installing ASE skip the next section.
-
-Installing GPAW requirements
-----------------------------
-
-Install the following homebrew packages::
-
-  brew install gcc
-  brew install openmpi
-  brew install libxc
+Install GPAW:
+        
+    $ pip install --upgrade --user gpaw
 
 Install GPAW setups::
+    
+    $ gpaw --verbose install-data
+    
+.. note::
+    
+  Alternative solution if the above command fails::
+        
+    $ curl -O https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.20000.tar.gz
+    $ tar -xf gpaw-setups-0.9.20000.tar
+    $ echo 'export GPAW_SETUP_PATH=~/gpaw-setups-0.9.20000' >> ~/.bash_profile
 
-  brew install https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/platforms/MacOSX/gpaw-setups.rb
+Test GPAW::
 
-Configure a virtualenv for GPAW, e.g. trunk::
-
-  cd ~/Virtualenvs
-  virtualenv gpaw-trunk && cd gpaw-trunk
-  . bin/activate
-
-Install the dependencies::
-
-  pip install python-ase
-  pip install numpy
-
-and install GPAW (still inside of the virtualenv)
-with ``python setup.py install``.
-
-Installing ASE requirements
----------------------------
-
-If you prefer to have matplotlib available you need to
-install http://xquartz.macosforge.org, reboot, and additionally::
-
-  brew install pygtk
-
-**Note** with recent brew (March 2015) pygtk seems is pulling
-homebrew python as a dependency and we don't want that.
-This means the instructions below concerning matplotlib installation
-do not work anymore. Numpy/ASE instructions should work still.
-
-Configure a virtualenv for the latest stable release of ASE::
-
-  cd ~/Virtualenvs
-  virtualenv ase && cd ase
-  . bin/activate
-
-Now, install ASE inside of virtualenv::
-
-  pip install python-ase
-  pip install numpy
-
-Make sure the PKG_CONFIG_PATH correctly
-https://github.com/mxcl/homebrew/issues/16891
-and then, again inside of virtualenv::
-
-  pip install python-dateutil  # OS X version is outdated!
-
-The latest, precompiled versions of matplotlib (1.3.1) are missing
-backend_gdk.so, and therefore compile an older version::
-
-  pip install matplotlib==1.1.1
+    $ gpaw test
+    $ gpaw -P 4 test

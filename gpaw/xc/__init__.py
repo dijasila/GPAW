@@ -1,6 +1,7 @@
 from __future__ import print_function
-
 import warnings
+
+from ase.utils import basestring
 
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.lda import LDA
@@ -23,7 +24,7 @@ def XC(kernel, parameters=None):
     In this way one has access to all the functionals defined in libxc.
     See xc_funcs.h for the complete list.  """
     
-    if isinstance(kernel, str):
+    if isinstance(kernel, basestring):
         name = kernel
         if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
                     'C09-vdW', 'mBEEF-vdW', 'BEEF-vdW']:

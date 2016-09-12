@@ -13,6 +13,7 @@ This module contains classes for defining combinations of two indices:
 import numpy as np
 
 from ase.dft.kpoints import monkhorst_pack, get_monkhorst_pack_size_and_offset
+from ase.calculators.calculator import kptdensity2monkhorstpack
 
 from gpaw.kpoint import KPoint
 import gpaw.mpi as mpi
@@ -50,11 +51,64 @@ def to1bz(bzk_kc, cell_cv):
 
     return bz1k_kc
 
+        
+def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,
+                        atoms=None):
+    """Helper function for selecting k-points.
+
+    Use either size or density.
+
+    size: 3 ints
+        Number of k-points.
+    density: float
+        K-point density in units of k-points per Ang^-1.
+    gamma: None or bool
+        Should the Gamma-point be included?  Yes / no / don't care:
+        True / False / None.
+    even: None or bool
+        Should the number of k-points be even?  Yes / no / don't care:
+        True / False / None.
+    atoms: Atoms object
+        Needed for calculating k-point density.
+
+    """
+
+    if size is None:
+        if density is None:
+            size = [1, 1, 1]
+        else:
+            size = kptdensity2monkhorstpack(atoms, density, even)
+
+    offsets = [0, 0, 0]
+
+    if gamma is not None:
+        for i, s in enumerate(size):
+            if atoms.pbc[i] and s % 2 != bool(gamma):
+                offsets[i] = 0.5 / s
+
+    return size, offsets
+
+
+def kpts2ndarray(kpts, atoms=None):
+    """Convert kpts keyword to 2-d ndarray of scaled k-points."""
+
+    if kpts is None:
+        return np.zeros((1, 3))
+
+    if isinstance(kpts, dict):
+        size, offsets = kpts2sizeandoffsets(atoms=atoms, **kpts)
+        return monkhorst_pack(size) + offsets
+
+    if isinstance(kpts[0], int):
+        return monkhorst_pack(kpts)
+
+    return np.array(kpts)
+
 
 class KPointDescriptor:
     """Descriptor-class for k-points."""
 
-    def __init__(self, kpts, nspins=1, collinear=True):
+    def __init__(self, kpts, nspins=1):
         """Construct descriptor object for kpoint/spin combinations (ks-pair).
 
         Parameters
@@ -106,7 +160,6 @@ class KPointDescriptor:
                     self.N_c = None
                     self.offset_c = None
 
-        self.collinear = collinear
         self.nspins = nspins
         self.nbzkpts = len(self.bzk_kc)
 
@@ -126,21 +179,43 @@ class KPointDescriptor:
 
         self.set_communicator(mpi.serial_comm)
 
+    def __str__(self):
+        s = str(self.symmetry)
+
+        if -1 in self.bz2bz_ks:
+            s += 'Note: your k-points are not as symmetric as your crystal!\n'
+            
         if self.gamma:
-            self.description = '1 k-point (Gamma)'
+            s += '\n1 k-point (Gamma)'
         else:
-            self.description = '%d k-points' % self.nbzkpts
+            s += '\n%d k-points' % self.nbzkpts
             if self.N_c is not None:
-                self.description += (': %d x %d x %d Monkhorst-Pack grid' %
-                                     tuple(self.N_c))
+                s += ': %d x %d x %d Monkhorst-Pack grid' % tuple(self.N_c)
                 if self.offset_c.any():
-                    self.description += ' + ['
+                    s += ' + ['
                     for x in self.offset_c:
                         if x != 0 and abs(round(1 / x) - 1 / x) < 1e-12:
-                            self.description += '1/%d,' % round(1 / x)
+                            s += '1/%d,' % round(1 / x)
                         else:
-                            self.description += '%f,' % x
-                    self.description = self.description[:-1] + ']'
+                            s += '%f,' % x
+                    s = s[:-1] + ']'
+
+        s += ('\n%d k-point%s in the Irreducible Part of the Brillouin Zone\n'
+              % (self.nibzkpts, ' s'[1:self.nibzkpts]))
+        
+        w_k = self.weight_k * self.nbzkpts
+        assert np.allclose(w_k, w_k.round())
+        w_k = w_k.round()
+        
+        s += '       k-points in crystal coordinates                weights\n'
+        for k in range(self.nibzkpts):
+            if k < 10 or k == self.nibzkpts - 1:
+                s += ('%4d:   %12.8f  %12.8f  %12.8f     %6d/%d\n' %
+                      ((k,) + tuple(self.ibzk_kc[k]) +
+                       (w_k[k], self.nbzkpts)))
+            elif k == 10:
+                s += '          ...\n'
+        return s
 
     def __len__(self):
         """Return number of k-point/spin combinations of local CPU."""
@@ -163,10 +238,6 @@ class KPointDescriptor:
             if not periodic and not np.allclose(self.bzk_kc[:, c], 0.0):
                 raise ValueError('K-points can only be used with PBCs!')
 
-        # Find symmetry operations of atoms if necessary:
-        if self.nbzkpts > 1:
-            symmetry.analyze(atoms.get_scaled_positions())
-
         if symmetry.time_reversal or symmetry.point_group:
             (self.ibzk_kc, self.weight_k,
              self.sym_k,
@@ -177,10 +248,7 @@ class KPointDescriptor:
 
         # Number of irreducible k-points and k-point/spin combinations.
         self.nibzkpts = len(self.ibzk_kc)
-        if self.collinear:
-            self.nks = self.nibzkpts * self.nspins
-        else:
-            self.nks = self.nibzkpts
+        self.nks = self.nibzkpts * self.nspins
 
     def set_communicator(self, comm):
         """Set k-point communicator."""
@@ -231,10 +299,7 @@ class KPointDescriptor:
         for ks in range(self.ks0, self.ks0 + self.mynks):
             s, k = divmod(ks, self.nibzkpts)
             q = (ks - self.ks0) % self.nibzkpts
-            if self.collinear:
-                weight = self.weight_k[k] * 2 / self.nspins
-            else:
-                weight = self.weight_k[k]
+            weight = self.weight_k[k] * 2 / self.nspins
             if self.gamma:
                 phase_cd = np.ones((3, 2), complex)
             else:
@@ -409,7 +474,7 @@ class KPointDescriptor:
                     if iop1 == iop and self.time_reversal_k[ii] == timerev:
                         find = True
                         break
-                if find is False:
+                if not find:
                     raise ValueError('cant find k!')
 
                 ibzq_q_tmp[i] = ibzk

@@ -121,7 +121,7 @@ def generate_basis_functions(ppdata):
                    basis={ppdata.symbol: b1},
                    setups={ppdata.symbol: ppdata},
                    maxiter=60,
-                   lmax=0, txt=None)
+                   txt=None)
     basis = apaw.extract_basis_functions()
     return basis
 

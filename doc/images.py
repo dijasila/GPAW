@@ -26,7 +26,7 @@ def get(path, names, target=None, source=None):
     """Get files from web-server.
 
     Returns True if something new was fetched."""
-    
+
     if target is None:
         target = path
     if source is None:
@@ -77,8 +77,9 @@ get('bgp', ['bgp_mapping_intranode.png',
             'bgp_mapping1.png',
             'bgp_mapping2.png'], 'platforms/BGP')
 
-# workshop2013 photo
+# workshop 2013 and 2016 photos:
 get('workshop13', ['workshop13_01_33-1.jpg'], 'static')
+get('workshop16', ['gpaw2016-photo.jpg'], 'static')
 
 # files from agtspath
 
@@ -139,6 +140,9 @@ get('agts-files', g2_1_stuff, target='setups', source=agtspath)
 get('tutorials/wannier90', ['GaAs.png', 'Cu.png', 'Fe.png'])
 
 get('agts-files', ['datasets.json'], 'setups', source=agtspath)
+
+# Carlsberg foundation figure:
+get('.', ['carlsberg.png'])
 
 
 def setup(app):

@@ -1,4 +1,4 @@
-from ase.lattice.spacegroup import crystal
+from ase.spacegroup import crystal
 from gpaw import GPAW
 from gpaw import PW
 from gpaw.test import equal

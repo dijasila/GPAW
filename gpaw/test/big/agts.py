@@ -113,7 +113,7 @@ class AGTSJob:
         return None
 
     def clean(self):
-        for name in ['start', 'done', 'status']:
+        for name in ['start', 'done', 'status', 'py', 'output']:
             try:
                 os.remove(self.absname + '.' + name)
             except OSError:
@@ -415,6 +415,9 @@ def main():
         elif opt.run == 'niflheim':
             from gpaw.test.big.niflheim import NiflheimCluster
             cluster = NiflheimCluster()
+        elif opt.run == 'gbar':
+            from gpaw.test.big.gbar import GbarCluster
+            cluster = GbarCluster()
         elif opt.run == 'local':
             cluster = LocalCluster()
         else:

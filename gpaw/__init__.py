@@ -13,12 +13,12 @@ import numpy as np
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '1.0.1b1'
-__ase_version_required__ = '3.10.0'
+__version__ = '1.1.1b1'
+__ase_version_required__ = '3.11.0'
 
-__all__ = ['GPAW', 'Calculator',
+__all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
-           'CG', 'Davidson', 'RMM_DIIS', 'DirectLCAO',
+           'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
            'PW', 'LCAO', 'restart']
@@ -229,19 +229,16 @@ except KeyError:
                        '/usr/share/gpaw-setups']
 
 
-from gpaw.aseinterface import GPAW
+from gpaw.calculator import GPAW
 from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
-from gpaw.eigensolvers import Davidson, RMM_DIIS, CG, DirectLCAO
+from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
 from gpaw.poisson import PoissonSolver
 from gpaw.occupations import FermiDirac, MethfesselPaxton
 from gpaw.wavefunctions.lcao import LCAO
 from gpaw.wavefunctions.pw import PW
+from gpaw.wavefunctions.fd import FD
 
-
-class Calculator(GPAW):
-    def __init__(self, *args, **kwargs):
-        sys.stderr.write('Please start using GPAW instead of Calculator!\n')
-        GPAW.__init__(self, *args, **kwargs)
+RMM_DIIS = RMMDIIS
 
 
 def restart(filename, Class=GPAW, **kwargs):

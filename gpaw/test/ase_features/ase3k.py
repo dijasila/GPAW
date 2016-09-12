@@ -1,8 +1,9 @@
 from __future__ import print_function
-from ase import Atom, Atoms
+from ase import Atoms
 from ase.io import read
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
+
 a = 2.0
 calc = GPAW(gpts=(12, 12, 12), txt='H.txt', occupations=FermiDirac(0.0))
 H = Atoms('H',

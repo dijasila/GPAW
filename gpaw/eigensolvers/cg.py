@@ -6,12 +6,12 @@ import numpy as np
 from numpy import dot
 from ase.units import Hartree
 
-from gpaw.utilities.blas import axpy, dotc, gemv, gemm
+from gpaw.utilities.blas import axpy, gemv
 from gpaw.utilities import unpack
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.hs_operators import reshape
-
 from gpaw import extra_parameters
+
 
 class CG(Eigensolver):
     """Conjugate gardient eigensolver
@@ -48,8 +48,13 @@ class CG(Eigensolver):
             self.orthonormalization_required = False
         self.tw_coeff = tw_coeff
 
+        self.tolerance = None
+        
     def __repr__(self):
         return 'CG(niter=%d, rtol=%5.1e)' % (self.niter, self.rtol)
+
+    def todict(self):
+        return {'name': 'cg', 'niter': self.niter}
 
     def initialize(self, wfs):
         if wfs.bd.comm.size > 1:
@@ -101,9 +106,9 @@ class CG(Eigensolver):
         total_error = 0.0
         for n in range(self.nbands):
             if extra_parameters.get('PK', False):
-               N = n+1
+                N = n + 1
             else:
-               N = psit_nG.shape[0]+1
+                N = psit_nG.shape[0] + 1
             R_G = R_nG[n]
             Htpsit_G = Htpsit_nG[n]
             gamma_old = 1.0
@@ -132,19 +137,19 @@ class CG(Eigensolver):
                 self.timer.start('CG: orthonormalize')
                 self.timer.start('CG: overlap')
                 overlap_n = wfs.integrate(psit_nG[:N], phi_G,
-                                        global_integral=False)
+                                          global_integral=False)
                 self.timer.stop('CG: overlap')
                 self.timer.start('CG: overlap2')
                 for a, P2_i in P2_ai.items():
                     P_ni = kpt.P_ani[a]
                     dO_ii = wfs.setups[a].dO_ii
-                    gemv(1.0, P_ni[:N].conjugate(), np.inner(dO_ii, P2_i), 
+                    gemv(1.0, P_ni[:N].conjugate(), np.inner(dO_ii, P2_i),
                          1.0, overlap_n)
                 self.timer.stop('CG: overlap2')
                 comm.sum(overlap_n)
 
                 # phi_G -= overlap_n * kpt.psit_nG
-                wfs.matrixoperator.gd.gemv(-1.0, psit_nG[:N], overlap_n, 
+                wfs.matrixoperator.gd.gemv(-1.0, psit_nG[:N], overlap_n,
                                            1.0, phi_G, 'n')
                 for a, P2_i in P2_ai.items():
                     P_ni = kpt.P_ani[a]
@@ -200,7 +205,7 @@ class CG(Eigensolver):
                     Htpsit_G *= cos(theta)
                     # Htpsit_G += sin(theta) * Htphi_G
                     axpy(sin(theta), Htphi_G, Htpsit_G)
-                    #adjust residuals
+                    # adjust residuals
                     R_G[:] = Htpsit_G - kpt.eps_n[n] * psit_nG[n]
 
                     coef_ai = wfs.pt.dict()
@@ -234,7 +239,7 @@ class CG(Eigensolver):
             for i in range(len(kpt.eps_n)):
                 kpt.eps_n[i] *= self.tw_coeff
             hamiltonian.vt_sG *= self.tw_coeff
-            # Assuming the ordering in dH_asp and wfs is the same 
+            # Assuming the ordering in dH_asp and wfs is the same
             for a in hamiltonian.dH_asp.keys():
                 hamiltonian.dH_asp[a] *= self.tw_coeff
 

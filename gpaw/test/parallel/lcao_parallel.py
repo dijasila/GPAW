@@ -3,12 +3,12 @@ import sys
 
 from ase.utils import devnull
 
-from gpaw import GPAW
-from gpaw import KohnShamConvergenceError
+from gpaw import GPAW, FermiDirac, KohnShamConvergenceError
 from gpaw.utilities import compiled_with_sl
 from gpaw.mpi import world
+from gpaw.forces import calculate_forces
 
-from ase.structure import molecule
+from ase.build import molecule
 
 # Calculates energy and forces for various parallelizations
 
@@ -18,8 +18,6 @@ parallel = dict()
 
 basekwargs = dict(mode='lcao',
                   maxiter=3,
-                  #basis='dzp',
-                  #nbands=18,
                   nbands=6,
                   parallel=parallel)
 
@@ -46,9 +44,9 @@ def run(formula='H2O', vacuum=2.0, cell=None, pbc=0, **morekwargs):
     except KohnShamConvergenceError:
         pass
 
-    E = calc.hamiltonian.Etot
-    F_av = calc.forces.calculate(calc.wfs, calc.density,
-                                 calc.hamiltonian)
+    E = calc.hamiltonian.e_total_free
+    F_av = calculate_forces(calc.wfs, calc.density,
+                            calc.hamiltonian)
 
     global Eref, Fref_av
     if Eref is None:
@@ -108,7 +106,7 @@ if compiled_with_sl():
     parallel['sl_default'] = (2, 2, 2)
     run()
 
-    # state-parallelization = 1, 
+    # state-parallelization = 1,
     # domain-decomposition = (1, 2, 2)
     # with blacs
     del parallel['band']
@@ -120,15 +118,14 @@ parallel = dict()
 
 basekwargs = dict(mode='lcao',
                   maxiter=3,
-                  #basis='dzp',
-                  #nbands=18,
                   nbands=6,
                   parallel=parallel)
 
 Eref = None
 Fref_av = None
 
-OH_kwargs = dict(formula='NH2', vacuum=1.5, pbc=1, spinpol=1, width=0.1)
+OH_kwargs = dict(formula='NH2', vacuum=1.5, pbc=1, spinpol=1,
+                 occupations=FermiDirac(0.1))
 
 # start with empty parallel keyword
 # del parallel['sl_default']
@@ -148,11 +145,11 @@ run(**OH_kwargs)
 # state-parallelization= 2,
 # domain-decomposition = (1, 1, 1)
 del parallel['domain']
-parallel['band'] = 2 
+parallel['band'] = 2
 run(**OH_kwargs)
 
 if compiled_with_sl():
-    # spin-polarization = 2, 
+    # spin-polarization = 2,
     # state-parallelization = 2,
     # domain-decomposition = (1, 1, 1)
     # with blacs

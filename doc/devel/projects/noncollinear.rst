@@ -2,9 +2,11 @@ Non-collinear spin
 ==================
 
 :Who:
-    Kamal, Jens Jørgen
+    Jens Jørgen
 
 We have a proof-of-concept implementation that works for LDA and LCAO.
+
+.. note:: Removed after version 1.1!
 
 To be done:
 

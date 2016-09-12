@@ -48,7 +48,6 @@ MacOSX:
    :maxdepth: 1
 
    MacOSX/homebrew
-   MacOSX/macports
 
 AIX:
 

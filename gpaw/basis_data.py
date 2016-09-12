@@ -140,13 +140,13 @@ class Basis:
     def get_description(self):
         title = 'LCAO basis set for %s:' % self.symbol
         if self.name is not None:
-            name = 'Name: %s' % self.name
+            name = 'Name: ' + self.name
         else:
             name = 'This basis set does not have a name'
         if self.filename is None:
             fileinfo = 'This basis set was not loaded from a file'
         else:
-            fileinfo = 'Basis set was loaded from file %s' % self.filename
+            fileinfo = 'File: ' + self.filename
         nj = len(self.bf_j)
         count1 = 'Number of radial functions: %d' % nj
         count2 = 'Number of spherical harmonics: %d' % self.nao

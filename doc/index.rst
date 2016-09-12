@@ -34,18 +34,22 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
 
 .. _Python: http://www.python.org
 .. _ASE: https://wiki.fysik.dtu.dk/ase
-    
+
 
 .. _news:
 
 News
 ====
 
+* Slides from the talks at :ref:`workshop16` are now available (Sep 5 2016)
+
+* :ref:`GPAW version 1.1 <releasenotes>` released (Jun 22 2016)
+
 * :ref:`GPAW version 1.0 <releasenotes>` released (Mar 18 2016)
 
 * Web-page now use the `Read the Docs Sphinx Theme
   <https://github.com/snide/sphinx_rtd_theme>`_ (Mar 18 2016)
-  
+
 * :ref:`GPAW version 0.11 <releasenotes>` released (Jul 22 2015)
 
 * :ref:`GPAW version 0.10 <releasenotes>` released (Apr 8 2014)
@@ -65,7 +69,7 @@ News
 
 * Help!  The :ref:`todolist` has been updated.  Maybe there is
   something you can do (May 25 2011)
- 
+
 * :ref:`GPAW version 0.8 <releasenotes>` released (May 25 2011)
 
 * GPAW is part of benchmark suite for `CSC's supercomputer procurement`_

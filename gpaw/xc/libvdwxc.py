@@ -54,6 +54,7 @@ class LibVDWXC(object):
     """Minimum-tomfoolery object-oriented interface to libvdwxc."""
     def __init__(self, funcname, N_c, cell_cv, comm, mode='auto',
                  pfft_grid=None):
+        self.initialized = False
         if not compiled_with_libvdwxc():
             raise ImportError('libvdwxc not compiled into GPAW')
 
@@ -79,9 +80,25 @@ class LibVDWXC(object):
         if mode != 'serial' and not have_mpi:
             raise ImportError('MPI not available for libvdwxc-%s '
                               'because GPAW is serial' % mode)
-        if mode != 'pfft' and pfft_grid is not None:
+
+        if mode == 'pfft':
+            if pfft_grid is None:
+                pfft_grid = get_auto_pfft_grid(comm.size)
+            nx, ny = pfft_grid
+            assert nx * ny == comm.size
+            # User might have passed a list, but we make sure to store a tuple:
+            self.pfft_grid = (nx, ny)
+        elif pfft_grid is not None:
             raise ValueError('pfft_grid specified with mode %s' % mode)
 
+        self.mode = mode
+        self.comm = comm
+
+    def _init(self):
+        assert not self.initialized
+
+        mode = self.mode
+        comm = self.comm
         if mode == 'serial':
             assert comm.size == 1, ('You cannot run in serial with %d cores'
                                     % comm.size)
@@ -94,21 +111,17 @@ class LibVDWXC(object):
             if not libvdwxc_has_mpi():
                 raise ImportError('libvdwxc not compiled with MPI')
             _gpaw.libvdwxc_init_mpi(self._ptr, comm.get_c_object())
-        if mode == 'pfft':
-            if mode == 'pfft' and not libvdwxc_has_pfft():
-                raise ImportError('libvdwxc not compiled with PFFT')
-            if pfft_grid is None:
-                pfft_grid = get_auto_pfft_grid(comm.size)
-            nx, ny = pfft_grid
-            assert nx * ny == comm.size
+        elif mode == 'pfft':
+            nx, ny = self.pfft_grid
             _gpaw.libvdwxc_init_pfft(self._ptr, comm.get_c_object(), nx, ny)
-            self.pfft_grid = (nx, ny)  # Makes sure that pfft_grid is a tuple
 
-        self.mode = mode
-        self.comm = comm
+        self.initialized = True
 
     def calculate(self, n_g, sigma_g, dedn_g, dedsigma_g):
         """Calculate energy and add partial derivatives to arrays."""
+        if not self.initialized:
+            self._init()
+
         for arr in [n_g, sigma_g, dedn_g, dedsigma_g]:
             assert arr.flags.contiguous
             assert arr.dtype == float
@@ -249,27 +262,34 @@ class VDWXC(GGA, object):
         self.last_nonlocal_energy = None
         self.last_semilocal_energy = None
 
+    def set_grid_descriptor(self, gd):
+        if self.gd is not None and self.gd != gd:
+            raise NotImplementedError('Cannot switch grids')
+        if self.libvdwxc is None:
+            self._initialize(gd)
+        GGA.set_grid_descriptor(self, gd)
+
     def get_description(self):
         lines = []
         app = lines.append
         app(self.libvdwxc.get_description())
         app('GGA kernel: %s' % self.kernel.name)
-        app('libvdwxc parameters for non-local correlation:')
-        app(self.libvdwxc.tostring())
+        #app('libvdwxc parameters for non-local correlation:')
+        #app(self.libvdwxc.tostring())
         return '\n'.join(lines)
 
-    def summary(self, fd):
+    def summary(self, log):
         from ase.units import Hartree
         enl = self.libvdwxc.comm.sum(self.last_nonlocal_energy)
         esl = self.gd.comm.sum(self.last_semilocal_energy)
         # In the current implementation these communicators have the same
         # processes always:
         assert self.libvdwxc.comm.size == self.gd.comm.size
-        fd.write('Non-local %s correlation energy: %.6f\n' % (self.name,
-                                                              enl * Hartree))
-        fd.write('Semilocal %s energy: %.6f\n' % (self.kernel.name,
-                                                  esl * Hartree))
-        fd.write('(Not including atomic contributions)\n')
+        log('Non-local %s correlation energy: %.6f' % (self.name,
+                                                       enl * Hartree))
+        log('Semilocal %s energy: %.6f' % (self.kernel.name,
+                                           esl * Hartree))
+        log('(Not including atomic contributions)')
 
     def get_setup_name(self):
         return self.setup_name
@@ -292,11 +312,12 @@ class VDWXC(GGA, object):
     def initialize(self, density, hamiltonian, wfs, occupations):
         GGA.initialize(self, density, hamiltonian, wfs, occupations)
         self.timer = hamiltonian.timer  # fragile object robbery
-        self.timer.start('initialize')
-        try:
-            gd = density.xc_redistributor.aux_gd  # fragile
-        except AttributeError:
-            gd = density.finegd
+        #self.timer.start('initialize')
+        #try:
+        #    gd = density.xc_redistributor.aux_gd  # fragile
+        #except AttributeError:
+        #    gd = density.finegd
+        gd = self.gd
         if wfs.world.size > gd.comm.size and np.prod(gd.N_c) > 64**3:
             # We could issue a warning if an excuse turns out to exist some day
             raise ValueError('You are using libvdwxc with only '
@@ -308,9 +329,9 @@ class VDWXC(GGA, object):
                              'or complain to the developers.' %
                              (gd.comm.size, wfs.world.size,
                               ' x '.join(str(N) for N in gd.N_c)))
-        self._initialize(gd)
+        #self._initialize(gd)
         # TODO Here we could decide FFT padding.
-        self.timer.stop('initialize')
+        #self.timer.stop('initialize')
 
     def calculate(self, gd, n_sg, v_sg, e_g=None):
         """Calculate energy and potential.
@@ -573,7 +594,7 @@ def test_derivatives():
 
 def test_selfconsistent():
     from gpaw import GPAW
-    from ase.structure import molecule
+    from ase.build import molecule
     from gpaw.xc.gga import GGA
 
     system = molecule('H2O')

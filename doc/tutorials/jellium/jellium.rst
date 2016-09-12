@@ -41,9 +41,9 @@ The surface energy is:
 >>> L = 10 * a
 >>> sigma = (e - L / a * e0) / 2 / a**2
 >>> print('%.2f mev/Ang^2' % (1000 * sigma))
-5.41 mev/Ang^2
+5.39 mev/Ang^2
 >>> print('%.1f erg/cm^2' % (sigma / 6.24150974e-5))
-86.7 erg/cm^2
+86.4 erg/cm^2
 
 which is reasonably close to the value from Lang and Kohn: 100
 ergs/cm\ `^2`.

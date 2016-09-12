@@ -1,6 +1,6 @@
 import numpy as np
 from ase.units import Bohr
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW, FermiDirac
 from gpaw.response.df import DielectricFunction
 from gpaw.test import equal, findpeak
