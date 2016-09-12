@@ -13,6 +13,13 @@ Hartree = ase.units.Hartree
 Bohr = ase.units.Bohr
 
 
+def load(fd):
+    try:
+        return pickle.load(fd, encoding='latin1')
+    except TypeError:
+        return pickle.load(fd)
+
+
 class Heterostructure:
     """This class defines dielectric function of heterostructures
         and related physical quantities."""
@@ -64,10 +71,7 @@ class Heterostructure:
                 namelist.append(name)
                 name += '-chi.pckl'
                 fd = open(name, 'rb')
-                try:
-                    data = pickle.load(fd, encoding='latin1')
-                except TypeError:
-                    data = pickle.load(fd)
+                data = load(fd)
                 try:  # new format
                     q = data['q_abs']
                     w = data['omega_w']
@@ -76,10 +80,8 @@ class Heterostructure:
                     chid = data['chiD_qw']
                     drhom = data['drhoM_qz']
                     drhod = data['drhoD_qz']
-                    isostropic_q = data['isotropic_q']
                 except TypeError:  # old format
                     q, w, chim, chid, zi, drhom, drhod = data
-                    isotropic_q = False
 
                 if qmax is not None:
                     qindex = np.argmin(abs(q - qmax * Bohr)) + 1
@@ -265,7 +267,7 @@ class Heterostructure:
         if dipole:  # Two planes separated by 2 * delta
             V = np.pi / (q * delta) * \
                 (-np.exp(-q * np.abs(z - z0 + delta)) +
-                  np.exp(-q * np.abs(z - z0 - delta)))
+                 np.exp(-q * np.abs(z - z0 - delta)))
         else:  # Monopole potential from single plane
             V = 2 * np.pi / q * np.exp(-q * np.abs(z - z0))
 
@@ -354,9 +356,10 @@ class Heterostructure:
                                             chi_d_iqw[self.layer_indices,
                                                       iq, iw])
                 chi_intra_ij = np.diag(chi_intra_i)
-                chi_qwij[iq, iw, :, :] = np.dot(np.linalg.inv(
-                        np.eye(self.dim) - np.dot(chi_intra_ij, kernel_ij)),
-                                                chi_intra_ij)
+                chi_qwij[iq, iw, :, :] = np.dot(
+                    np.linalg.inv(np.eye(self.dim) -
+                                  np.dot(chi_intra_ij, kernel_ij)),
+                    chi_intra_ij)
 
         return chi_qwij
 
@@ -445,7 +448,7 @@ class Heterostructure:
     def get_exciton_screened_potential_r(self, r_array, e_distr=None,
                                          h_distr=None, Wq_name=None):
         if Wq_name is not None:
-            q_abs, W_q = pickle.load(open(Wq_name, 'rb'))
+            q_abs, W_q = load(open(Wq_name, 'rb'))
         else:
             q_temp, W_q = self.get_exciton_screened_potential(e_distr, h_distr)
 
@@ -472,12 +475,13 @@ class Heterostructure:
         for ir in range(0, len(r_array)):
             J_q = jn(0, q * r_array[ir])
             if r_array[ir] > np.exp(-13):
-                Int_temp = -1./layer_thickness * \
+                Int_temp = -1. / layer_thickness * \
                     np.log((layer_thickness / 2. +
-                            np.sqrt(r_array[ir]**2 + layer_thickness**2/4.))\
-                               / (-layer_thickness/2. +
-                                   np.sqrt(r_array[ir]**2 +
-                                           layer_thickness**2/4.)))
+                            np.sqrt(r_array[ir]**2 +
+                                    layer_thickness**2 / 4.)) /
+                           (-layer_thickness / 2. +
+                            np.sqrt(r_array[ir]**2 +
+                                    layer_thickness**2 / 4.)))
             else:
                 Int_temp = -1. / layer_thickness \
                     * np.log(layer_thickness**2 / r_array[ir]**2)
@@ -503,7 +507,7 @@ class Heterostructure:
             H[i, i] = - 1. / r_abs**2 / 2. / eff_mass \
                 * (-2. / Delta**2 + 1. / 4.) + W_r[i]
             if i + 1 < Nint:
-                H[i, i+1] = -1. / r_abs**2 / 2. / eff_mass \
+                H[i, i + 1] = -1. / r_abs**2 / 2. / eff_mass \
                     * (1. / Delta**2 - 1. / 2. / Delta)
             if i - 1 >= 0:
                 H[i, i - 1] = -1. / r_abs**2 / 2. / eff_mass \
@@ -579,14 +583,14 @@ class Heterostructure:
                 eps_ij = eps_qwij[iq, iw]
                 epsinv_ij = np.linalg.inv(eps_ij)
                 epsinvM = 1. / N * np.dot(np.array(potential) * layer_weight,
-                                           np.dot(epsinv_ij,
-                                                  np.array(const_per)))
+                                          np.dot(epsinv_ij,
+                                                 np.array(const_per)))
 
                 epsM_qw[iq, iw] = 1. / epsinvM
 
         epsM_qw = self.collect_qw(epsM_qw)
 
-        return self.q_abs / Bohr,  self.frequencies[:Nw] * Hartree, epsM_qw
+        return self.q_abs / Bohr, self.frequencies[:Nw] * Hartree, epsM_qw
 
     def get_eels(self, dipole_contribution=False):
         """
@@ -659,7 +663,7 @@ class Heterostructure:
 
         N = self.n_layers
         abs_qw = np.zeros([self.mynq, len(self.frequencies)],
-                           dtype=complex)
+                          dtype=complex)
 
         eps_qwij = self.get_eps_matrix()
 
@@ -705,7 +709,6 @@ class Heterostructure:
                                      np.arange(self.n_layers) + 1,
                                      layer_weight)
 
-        N = self.n_layers
         eels_w = np.zeros([len(self.frequencies)], dtype=complex)
         chi_qwij = self.get_chi_matrix()
         vol = np.pi * (self.q_abs[-1] + self.q_abs[1] / 2.)**2
@@ -733,12 +736,6 @@ class Heterostructure:
             (q_z**2 / 2. / (q_c**2 + q_z**2) - 0.5 +
              0.5 * np.log((q_c / q_z)**2 + 1))
         I2 = 2 * np.pi / vol / 2. * (1. / q_z**2 - 1. / (q_z**2 + q_c**2))
-
-        q_max = self.q_abs[-1]
-        omega_weight = 1. / (2 * np.pi / vol *
-                             (q_z**2 / 2. * (1. / (q_max**2 + q_z**2) -
-                                             1. / q_z**2) +
-                              0.5 * np.log((q_max / q_z)**2 + 1)))
 
         for iq in range(self.mynq):
             eels_temp = np.zeros([len(self.frequencies)], dtype=complex)
@@ -985,7 +982,7 @@ class BuildingBlock():
 
         # First: choose all ibzq in 2D BZ
         from ase.dft.kpoints import monkhorst_pack
-        from gpaw.kpt_descriptor import to1bz, KPointDescriptor
+        from gpaw.kpt_descriptor import KPointDescriptor
         offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
         qd = KPointDescriptor(bzq_qc)
@@ -1002,7 +999,6 @@ class BuildingBlock():
                 qmax *= Bohr
                 qmax_v = np.zeros([3])
                 qmax_v[qdir] = qmax
-                qmax_c = 1. / (2 * np.pi) * np.dot(qmax_v, calc.wfs.gd.cell_cv)
                 q_c = q_cs[-1]
                 q_v = np.dot(q_c, rcell_cv)
                 q = (q_v**2).sum()**0.5
@@ -1029,10 +1025,10 @@ class BuildingBlock():
         q_infs = np.zeros([q_cs.shape[0] + self.nq_inftot, 3])
         # x-direction:
         q_infs[1: self.nq_inf + 1, qdir] = \
-            np.linspace(0, q_cut, self.nq_inf+1)[1:]
+            np.linspace(0, q_cut, self.nq_inf + 1)[1:]
         if not isotropic_q:  # y-direction
-            q_infs[self.nq_inf + 1: self.nq_inf*2 + 1, 1] = \
-                np.linspace(0, q_cut, self.nq_inf+1)[1:]
+            q_infs[self.nq_inf + 1: self.nq_inf * 2 + 1, 1] = \
+                np.linspace(0, q_cut, self.nq_inf + 1)[1:]
 
         # add q_inf to list
         self.q_cs = np.insert(q_cs, 1, np.zeros([self.nq_inftot, 3]), axis=0)
@@ -1065,20 +1061,18 @@ class BuildingBlock():
                 qstr = '(' + ', '.join(['%.3f' % x for x in q_inf]) + ')'
                 print('    and q_inf=%s' % qstr, file=self.fd)
             pd, chi0_wGG, \
-                chi_wGG = self.df.get_dielectric_matrix(symmetric=False,
-                                                        calculate_chi=True,
-                                                        q_c=q_c,
-                                                        q_v=q_inf,
-                                                        direction=self.direction,
-                                                        add_intraband=add_intraband
-                                                        )
+                chi_wGG = self.df.get_dielectric_matrix(
+                    symmetric=False,
+                    calculate_chi=True,
+                    q_c=q_c,
+                    q_v=q_inf,
+                    direction=self.direction,
+                    add_intraband=add_intraband)
             print('calculated chi!', file=self.fd)
 
             nw = len(self.omega_w)
             world = self.df.chi0.world
-            mynw = (nw + world.size - 1) // world.size
             w1 = min(self.df.mynw * world.rank, nw)
-            w2 = min(self.df.w1 + self.df.mynw, nw)
 
             q, omega_w, chiM_qw, chiD_qw, z, drhoM_qz, drhoD_qz = \
                 get_chi_2D(self.omega_w, pd, chi_wGG)
@@ -1137,7 +1131,7 @@ class BuildingBlock():
 
     def load_chi_file(self):
         try:
-            data = pickle.load(open(self.filename + '-chi.pckl'))
+            data = load(open(self.filename + '-chi.pckl', 'rb'))
         except IOError:
             return False
         else:
@@ -1163,7 +1157,7 @@ class BuildingBlock():
         """
 
         from scipy.interpolate import RectBivariateSpline
-        from scipy.interpolate import interp1d, interp2d
+        from scipy.interpolate import interp1d
         if not self.complete:
             self.calculate_building_block()
         q_grid *= Bohr
@@ -1266,12 +1260,16 @@ def check_building_blocks(BBfiles=None):
         list of names of BB files
     """
     name = BBfiles[0] + '-chi.pckl'
-    data = pickle.load(open(name))
-    q = data['q_abs'].copy()
-    w = data['omega_w'].copy()
+    data = load(open(name, 'rb'))
+    try:
+        q = data['q_abs'].copy()
+        w = data['omega_w'].copy()
+    except TypeError:
+        # Skip test for old format:
+        return True
     for name in BBfiles[1:]:
         name += '-chi.pckl'
-        data = pickle.load(open(name))
+        data = load(open(name, 'rb'))
         if not ((data['q_abs'] == q).all and
                 (data['omega_w'] == w).all):
             return False
@@ -1302,7 +1300,7 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
     q_max = 1000
     w_max = 1000
     for name in BBfiles:
-        data = pickle.load(open(name + '-chi.pckl'))
+        data = load(open(name + '-chi.pckl', 'rb'))
         q_abs = data['q_abs']
         q_max = np.min([q_abs[-1], q_max])
         w = data['omega_w']
@@ -1310,7 +1308,7 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
 
     if BBmotherfile is not None:
         name = BBmotherfile + '-chi.pckl'
-        data = pickle.load(open(name))
+        data = load(open(name, 'rb'))
         q_grid = data['q_abs']
         w_grid = data['omega_w']
     else:
@@ -1325,7 +1323,7 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
     w_grid = np.array(w_grid)
     for name in BBfiles:
         assert data['isotropic_q']
-        data = pickle.load(open(name + '-chi.pckl'))
+        data = load(open(name + '-chi.pckl', 'rb'))
         q_abs = data['q_abs']
         w = data['omega_w']
         z = data['z']
@@ -1478,9 +1476,9 @@ def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,
                     chi_wGG[0, iG, iG1] * factor1
     # Normalize induced densities with chi
     drhoM_qz /= np.repeat(chiM_qw[:, 0, np.newaxis], drhoM_qz.shape[1],
-                           axis=1)
+                          axis=1)
     drhoD_qz /= np.repeat(chiD_qw[:, 0, np.newaxis], drhoM_qz.shape[1],
-                           axis=1)
+                          axis=1)
 
     """ Returns q array, frequency array, chi2D monopole and dipole, induced
     densities and z array (all in Bohr)
@@ -1527,12 +1525,10 @@ def read_chi_wGG(name):
     Returns frequency grid, gpaw.wavefunctions object, chi_wGG
     """
     fd = open(name, 'rb')
-    omega_w, pd, chi_wGG, q0, chi0_wvv = pickle.load(fd)
+    omega_w, pd, chi_wGG, q0, chi0_wvv = load(fd)
     nw = len(omega_w)
     nG = pd.ngmax
     chi_wGG = np.empty((nw, nG, nG), complex)
     for chi_GG in chi_wGG:
-        chi_GG[:] = pickle.load(fd)
+        chi_GG[:] = load(fd)
     return omega_w, pd, chi_wGG, q0
-
-
