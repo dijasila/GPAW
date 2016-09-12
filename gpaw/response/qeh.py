@@ -7,7 +7,6 @@ import ase.units
 from ase.utils import devnull
 import sys
 import os
-import gpaw.mpi as mpi
 
 Hartree = ase.units.Hartree
 Bohr = ase.units.Bohr
@@ -111,7 +110,8 @@ class Heterostructure:
             self.q_abs[0] += 1e-12
 
         # parallelize over q in case of multiple processors
-        self.world = mpi.world
+        from ase.parallel import world
+        self.world = world
         nq = len(self.q_abs)
         mynq = (nq + self.world.size - 1) // self.world.size
         self.q1 = min(mynq * self.world.rank, nq)
@@ -899,7 +899,10 @@ class Heterostructure:
         b_q = np.zeros(mynq, a_q.dtype)
         b_q[:self.q2 - self.q1] = a_q
         A_q = np.empty(mynq * world.size, a_q.dtype)
-        world.all_gather(b_q, A_q)
+        if world.size == 1:
+            A_q[:] = b_q
+        else:
+            world.all_gather(b_q, A_q)
         return A_q[:nq]
 
     def collect_qw(self, a_qw):
