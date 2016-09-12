@@ -1049,8 +1049,8 @@ class G0W0(PairDensity):
                   file=self.fd)
             print('           Higher cutoff might be nesecarry.', file=self.fd)
 
-        print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)'
-              % np.min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)),
+        print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
+              min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)),
               file=self.fd)
 
     def add_anisotropy_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
