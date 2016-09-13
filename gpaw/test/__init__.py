@@ -333,7 +333,7 @@ tests = [
     'sic/scfsic_n2.py',                     # ~73s
     'lrtddft/3.py',                         # ~75s
     'pathological/nonlocalset.py',          # ~82s
-    # WIP 'response/gw0_hBN.py',                  # ~82s
+    'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
     'response/gw_hBN_extrapolate.py',       # ~109s
     'exx/AA_enthalpy.py',                   # ~119s
