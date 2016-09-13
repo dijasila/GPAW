@@ -112,6 +112,21 @@ class G0W0(PairDensity):
 
         self.inputcalc = calc
 
+        if ecut_extrapolation is True:
+            pct = 0.8
+            necuts = 3
+            ecut_e = ecut * (1 + (1. / pct - 1) * np.arange(necuts)[::-1] /
+                             (necuts - 1))**(-2 / 3)
+            """It doesn't make sence to save W in this case since
+            W is calculated for different cutoffs:"""
+            assert not savew
+        elif isinstance(ecut_extrapolation, (list, np.ndarray)):
+            ecut_e = np.array(np.sort(ecut_extrapolation))
+            ecut = ecut_e[-1]
+            assert not savew
+        else:
+            ecut_e = np.array([ecut])
+
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
             nblocks = world.size
@@ -130,20 +145,6 @@ class G0W0(PairDensity):
             mynG = (nG + nblocks - 1) // nblocks
             assert mynG * (nblocks - 1) < nG
 
-        if ecut_extrapolation is True:
-            pct = 0.8
-            necuts = 3
-            ecut_e = ecut * (1 + (1. / pct - 1) * np.arange(necuts)[::-1] /
-                             (necuts - 1))**(-2 / 3)
-            """It doesn't make sence to save W in this case since
-            W is calculated for different cutoffs:"""
-            assert not savew
-        elif isinstance(ecut_extrapolation, (list, np.ndarray)):
-            ecut_e = np.array(np.sort(ecut_extrapolation))
-            ecut = ecut_e[-1]
-            assert not savew
-        else:
-            ecut_e = np.array([ecut])
         self.ecut_e = ecut_e / Ha
 
         PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
