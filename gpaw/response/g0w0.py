@@ -220,7 +220,12 @@ class G0W0(PairDensity):
         p('Number of bands: {0:d}'.format(self.nbands))
         p('Coulomb cutoff:', self.truncation)
         p('Broadening: {0:g} eV'.format(self.eta * Ha))
-
+        p()
+        p('Method:', self.method)
+        if self.method == 'GW0':
+            p('Number of iterations:', self.maxiter)
+            p('Mixing:', self.mixing)
+        p()
         kd = self.calc.wfs.kd
 
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
