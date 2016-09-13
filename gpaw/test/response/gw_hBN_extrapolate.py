@@ -43,7 +43,7 @@ gw = G0W0('hBN.gpw',
           kpts=[0],
           bands=(3, 5),
           ecut_extrapolation=[30, 40, 50],
-          nblocks=mpi.world.size)
+          nblocksmax=True)
 
 e_qp = gw.calculate()['qp'][0, 0]
 
