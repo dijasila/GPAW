@@ -40,7 +40,7 @@ for selection in [[0, 1, 2], [3, 4, 5]]:
     print(dimer.get_potential_energy())
     opt = BFGS(dimer, trajectory=name + '.traj')
     opt.run(0.02)
-    
+
     c = dimer.constraints
     dimer.constraints = None
     monomer = dimer[selection]
@@ -48,6 +48,14 @@ for selection in [[0, 1, 2], [3, 4, 5]]:
     monomer.center(vacuum=4)
     monomer.calc = GPAW(txt=name + 'M.txt', h=0.17)
     e0 = monomer.get_potential_energy()
-    print(dimer.get_potential_energy() - e0, dimer.get_distance(2, 5))
+    be = dimer.get_potential_energy() - e0
+    d = dimer.get_distance(2, 5)
+    print(name, be, d)
+    if name == '012':
+        assert abs(be - -0.260) < 0.002
+        assert abs(d - 2.79) < 0.02
+    else:
+        assert abs(be - -0.346) < 0.002
+        assert abs(d - 2.67) < 0.02
     opt = BFGS(monomer, trajectory=name + 'M.traj')
     opt.run(0.02)
