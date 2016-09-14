@@ -287,7 +287,7 @@ class GPAW(Calculator, PAW):
                 self.log('Local magnetic moments:')
                 symbols = self.atoms.get_chemical_symbols()
                 for a, mom in enumerate(magmom_a):
-                    self.log('{0:4} {0:2} {2:.6f}'.format(a, symbols[a], mom))
+                    self.log('{0:4} {1:2} {2:.6f}'.format(a, symbols[a], mom))
                 self.log()
                 self.results['magmom'] = self.occupations.magmom
                 self.results['magmoms'] = magmom_a
