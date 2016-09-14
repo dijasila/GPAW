@@ -6,6 +6,7 @@ from __future__ import division
 import numpy as np
 
 from gpaw.utilities.blas import gemm
+from gpaw.blacs_hs_operators import MatrixOperator
 
 
 def reshape(a_x, shape):
@@ -13,7 +14,7 @@ def reshape(a_x, shape):
     return a_x.ravel()[:np.prod(shape)].reshape(shape)
 
 
-class MatrixOperator:
+class MatrixOperator0:
     """Base class for overlap and hamiltonian operators.
 
     Due to optimized BLAS usage, matrices are considered
@@ -66,7 +67,7 @@ class MatrixOperator:
         Cases::
 
           Simplest case is G % J = M % J = 0: X = M.
-          
+
           If g * N > M * G, then we need to increase the buffer size by one
           wavefunction unit greater than the simple case, thus X = M + 1.
 
@@ -106,7 +107,7 @@ class MatrixOperator:
             numberof_wfs = self.buffer_size * 1024 / sizeof_single_wfs
             assert numberof_wfs > 0  # buffer_size is too small
             self.nblocks = max(int(mynbands // numberof_wfs), 1)
-            
+
         # Calculate Q and X for allocating arrays later
         self.X = 1  # not used for ngroups == 1 and J == 1
         self.Q = 1
@@ -292,7 +293,7 @@ class MatrixOperator:
             hermitian = self.hermitian
         else:
             hermitian = False
-        
+
         if P2_ani is None:
             P2_ani = P1_ani
 
@@ -311,7 +312,7 @@ class MatrixOperator:
                 gemm(1.0, P1_ni, dA(a, P2_ni), 1.0, A_NN, 'c')
             domain_comm.sum(A_NN, 0)
             return self.bmd.redistribute_output(A_NN)
-        
+
         # Now it gets nasty! We parallelize over B groups of bands and
         # each band group is blocked in J smaller slices (less memory).
 
@@ -319,7 +320,7 @@ class MatrixOperator:
             Q = B // 2 + 1
         else:
             Q = B
-        
+
         # Buffer for storage of blocks of calculated matrix elements.
         if B == 1:
             A_qnn = A_NN.reshape((1, N, N))
@@ -413,7 +414,7 @@ class MatrixOperator:
         # be syncronized up to this point.
         block_comm.barrier()
         return self.bmd.redistribute_output(A_NN)
-        
+
     def matrix_multiply(self, C_NN, psit_nG, P_ani=None, out_nG=None):
         """Calculate new linear combinations of wave functions.
 
@@ -464,7 +465,7 @@ class MatrixOperator:
                 for P_ni in P_ani.values():
                     gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
             return out_nG
-        
+
         # Now it gets nasty! We parallelize over B groups of bands and
         # each grid chunk is divided in J smaller slices (less memory).
 

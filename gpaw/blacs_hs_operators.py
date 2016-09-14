@@ -14,6 +14,9 @@ class MatrixOperator:
         self.gd = ksl.gd
         self.bmd = ksl.new_descriptor()  # XXX take hermitian as argument?
         self.dtype = ksl.dtype
+        self.nblocks = 1
+        self.A_nn = None
+        self.work1_xG = None
 
     def calculate_matrix_elements(self, psit1_nG, P1_ani, A, dA,
                                   psit2_nG=None, P2_ani=None):
@@ -47,7 +50,7 @@ class MatrixOperator:
         """
         band_comm = self.bd.comm
         domain_comm = self.gd.comm
-        block_comm = self.block_comm
+        #block_comm = self.block_comm
 
         B = band_comm.size
         J = self.nblocks
@@ -56,7 +59,7 @@ class MatrixOperator:
 
         if psit2_nG is None:
             psit2_nG = psit1_nG
-            hermitian = self.hermitian
+            hermitian = True
         else:
             hermitian = False
 
@@ -64,7 +67,7 @@ class MatrixOperator:
             P2_ani = P1_ani
 
         if self.A_nn is None:
-            self.allocate_arrays()
+            self.A_nn = np.empty((N, N), self.dtype)
 
         A_NN = self.A_nn
 
@@ -78,6 +81,8 @@ class MatrixOperator:
                 gemm(1.0, P1_ni, dA(a, P2_ni), 1.0, A_NN, 'c')
             domain_comm.sum(A_NN, 0)
             return self.bmd.redistribute_output(A_NN)
+
+        dfgjkh
 
         domain_comm.sum(A_qnn, 0)
 
@@ -118,13 +123,14 @@ class MatrixOperator:
 
         """
 
-        if self.A_nn is None:
-            self.allocate_arrays()
+        N = self.bd.mynbands
+
+        if self.work1_xG is None:
+            self.work1_xG = self.gd.empty(N, self.dtype)
 
         band_comm = self.bd.comm
         B = band_comm.size
         J = self.nblocks
-        N = self.bd.mynbands
 
         C_NN = self.bmd.redistribute_input(C_NN)
 
@@ -143,6 +149,7 @@ class MatrixOperator:
                     gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
             return out_nG
 
+        asdfhjg
         # Now it gets nasty! We parallelize over B groups of bands and
         # each grid chunk is divided in J smaller slices (less memory).
 
