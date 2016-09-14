@@ -16,8 +16,7 @@ atoms.set_calculator(td_calc)
 atoms.get_potential_energy()
 td_calc.write('Na8_gs.gpw', mode='all')
 
-td_calc = LCAOTDDFT(
-    'Na8_gs.gpw', poissonsolver=PoissonSolver(eps=1e-14, remove_moment=1 + 3 + 5))
+td_calc = LCAOTDDFT('Na8_gs.gpw')
 td_calc.attach(DensityCollector('Na8.TdDen', td_calc))
 td_calc.absorption_kick([1e-4, 0.0, 0.0])
 td_calc.propagate(20, 1000, 'Na8.dm')

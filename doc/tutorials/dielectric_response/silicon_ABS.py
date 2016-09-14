@@ -49,9 +49,8 @@ epsNLF, epsLF = df.get_macroscopic_dielectric_constant()
 epsrefNLF = 14.08  # From [1] in top
 epsrefLF = 12.66  # From [1] in top
 
-f = paropen('mac_eps.csv', 'w')
-print(' , Without LFE, With LFE', file=f)
-print('%s, %.6f, %.6f' % ('GPAW-linear response', epsNLF, epsLF), file=f)
-print('%s, %.6f, %.6f' % ('[1]', epsrefNLF, epsrefLF), file=f)
-print('%s, %.6f, %.6f' % ('Exp.', 11.90, 11.90), file=f)
-f.close()
+with paropen('mac_eps.csv', 'w') as f:
+    print(' , Without LFE, With LFE', file=f)
+    print('%s, %.6f, %.6f' % ('GPAW-linear response', epsNLF, epsLF), file=f)
+    print('%s, %.6f, %.6f' % ('[1]', epsrefNLF, epsrefLF), file=f)
+    print('%s, %.6f, %.6f' % ('Exp.', 11.90, 11.90), file=f)

@@ -480,7 +480,10 @@ class Hamiltonian(object):
     def write(self, writer):
         # Write all eneriges:
         for name in ENERGY_NAMES:
-            writer.write(name, getattr(self, name) * Ha)
+            energy = getattr(self, name)
+            if energy is not None:
+                energy *= Ha
+            writer.write(name, energy)
         
         writer.write(
             potential=self.gd.collect(self.vt_sG) * Ha,
@@ -488,12 +491,18 @@ class Hamiltonian(object):
 
         self.xc.write(writer.child('xc'))
 
+        if hasattr(self.poisson, 'write'):
+            self.poisson.write(writer.child('poisson'))
+
     def read(self, reader):
         h = reader.hamiltonian
 
         # Read all energies:
         for name in ENERGY_NAMES:
-            setattr(self, name, h.get(name) / reader.ha)
+            energy = h.get(name)
+            if energy is not None:
+                energy /= reader.ha
+            setattr(self, name, energy)
 
         # Read pseudo potential on the coarse grid
         # and broadcast on kpt/band comm:
@@ -513,6 +522,7 @@ class Hamiltonian(object):
 
         if hasattr(self.poisson, 'read'):
             self.poisson.read(reader)
+            self.poisson.set_grid_descriptor(self.finegd)
 
 
 class RealSpaceHamiltonian(Hamiltonian):

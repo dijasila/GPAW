@@ -269,7 +269,7 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
             H_qMM[kpt.s, kpt.q] -= S_qMM[kpt.q] * Ef
 
     if wfs.gd.comm.rank == 0:
-        fd = file(filename+'%i.pckl' % wfs.kd.comm.rank, 'wb')
+        fd = open(filename + '%i.pckl' % wfs.kd.comm.rank, 'wb')
         H_qMM *= Hartree
         pickle.dump((H_qMM, S_qMM), fd, 2)
         pickle.dump(calc_data, fd, 2)
@@ -486,7 +486,7 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
             A = np.zeros((len(I4_pp), len(P_pp)))
             gemm(1.0, P_pp, I4_pp, 0.0, A, 't')
             gemm(1.0, A, P_pp, 1.0, D_pp)
-            #D_pp += np.dot(P_pp, np.dot(I4_pp, P_pp.T))
+            # D_pp += np.dot(P_pp, np.dot(I4_pp, P_pp.T))
 
     # Summ all contributions to master
     gd.comm.sum(D_pp, MASTER)
@@ -499,9 +499,10 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
                 for pb, (wb1, wb2) in enumerate(np.ndindex(Nw, Nw)):
                     D_pp[pa, pb] /= S2[wa1] * S2[wa2] * S2[wb1] * S2[wb2]
 
-        D_pp.dump(dppname) # XXX if the diagonalization below (on MASTER only)
-                           # fails, then one can always restart the stuff
-                           # below using only the stored D_pp matrix
+        D_pp.dump(dppname)
+        # XXX if the diagonalization below (on MASTER only)
+        # fails, then one can always restart the stuff
+        # below using only the stored D_pp matrix
 
         # Determine eigenvalues and vectors on master only
         eps_q, U_pq = np.linalg.eigh(D_pp, UPLO='L')
@@ -552,7 +553,8 @@ def makeV(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
     # Make rotation matrix divided by sqrt of norm
     Nq = len(eps_q)
     Ni = len(w_wG)
-    Uisq_iqj = (U_pq/np.sqrt(eps_q)).reshape(Ni, Ni, Nq).swapaxes(1, 2).copy()
+    Uisq_iqj = (U_pq / np.sqrt(eps_q)).reshape(
+        Ni, Ni, Nq).swapaxes(1, 2).copy()
     del eps_q, U_pq
 
     # Determine number of opt. pairorb on each cpu
@@ -602,8 +604,9 @@ def makeV(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
             if q2 == 0 and world.rank == MASTER:
                 T = localtime()
                 log.write(
-                    'Block %i/%i is %4.1f percent done at %02i:%02i:%02i\n' % (
-                    block + 1, world.size, 100.0 * q1 / nq1, T[3], T[4], T[5]))
+                    'Block %i/%i is %4.1f percent done at %02i:%02i:%02i\n' %
+                    (block + 1, world.size,
+                     100.0 * q1 / nq1, T[3], T[4], T[5]))
                 log.flush()
 
     # Collect V_qq array on master node

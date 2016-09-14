@@ -54,13 +54,13 @@ class WaveFunctions:
         self.positions_set = False
 
         self.set_setups(setups)
-        
+
     def __str__(self):
         return '  Eigensolver: ' + str(self.eigensolver)
 
     def summary(self, log):
         log(eigenvalue_string(self))
-        
+
     def set_setups(self, setups):
         self.setups = setups
 
@@ -86,7 +86,7 @@ class WaveFunctions:
         for kpt in self.kpt_u:
             self.add_to_density_from_k_point(nt_sG, kpt)
         self.kptband_comm.sum(nt_sG)
-        
+
         self.timer.start('Symmetrize density')
         for nt_G in nt_sG:
             self.kd.symmetry.symmetrize(nt_G, self.gd)
@@ -103,7 +103,7 @@ class WaveFunctions:
         D_sii[kpt.s] += np.outer(P_i.conj(), P_i).real
         D_sp = [pack(D_ii) for D_ii in D_sii]
         return D_sp
-    
+
     def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
         if kpt.rho_MM is not None:
             P_Mi = self.P_aqMi[a][kpt.q]
@@ -120,7 +120,7 @@ class WaveFunctions:
             for ne, c_n in zip(kpt.ne_o, kpt.c_on):
                 d_nn = ne * np.outer(c_n.conj(), c_n)
                 D_sii[kpt.s] += np.dot(P_ni.T.conj(), np.dot(d_nn, P_ni)).real
-    
+
     def calculate_atomic_density_matrices(self, D_asp):
         """Calculate atomic density matrices from projections."""
         f_un = [kpt.f_n for kpt in self.kpt_u]
@@ -148,7 +148,7 @@ class WaveFunctions:
     def symmetrize_atomic_density_matrices(self, D_asp):
         if len(self.kd.symmetry.op_scc) == 0:
             return
-        
+
         if hasattr(D_asp, 'redistribute'):
             a_sa = self.kd.symmetry.a_sa
             D_asp.redistribute(self.atom_partition.as_serial())
@@ -168,7 +168,7 @@ class WaveFunctions:
                     D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
                 self.gd.comm.broadcast(D_sp, self.atom_partition.rank_a[a])
                 all_D_asp.append(D_sp)
- 
+
             for s in range(self.nspins):
                 D_aii = [unpack2(D_sp[s]) for D_sp in all_D_asp]
                 for a, D_sp in D_asp.items():
@@ -191,7 +191,7 @@ class WaveFunctions:
         if self.atom_partition is not None and self.kpt_u[0].P_ani is not None:
             self.timer.start('Redistribute')
             mynks = len(self.kpt_u)
-            
+
             def get_empty(a):
                 ni = self.setups[a].ni
                 return np.empty((mynks, self.bd.mynbands, ni), self.dtype)
@@ -217,7 +217,7 @@ class WaveFunctions:
 
     def collect_eigenvalues(self, k, s):
         return self.collect_array('eps_n', k, s)
-    
+
     def collect_occupations(self, k, s):
         return self.collect_array('f_n', k, s)
 
@@ -264,7 +264,7 @@ class WaveFunctions:
                             dtype=a_nx.dtype)
             self.kd.comm.receive(b_nx, kpt_rank, 1301)
             return b_nx
-            
+
         return np.nan  # see comment in get_wave_function_array() method
 
     def collect_auxiliary(self, value, k, s, shape=1, dtype=float):
@@ -345,7 +345,7 @@ class WaveFunctions:
 
     def get_wave_function_array(self, n, k, s, realspace=True, periodic=False):
         """Return pseudo-wave-function array on master.
-        
+
         n: int
             Global band index.
         k: int
@@ -371,10 +371,10 @@ class WaveFunctions:
 
             if realspace:
                 psit_G = self.gd.collect(psit_G)
-                
+
             if rank == 0:
                 return psit_G
-            
+
             # Domain master send this to the global master
             if self.gd.comm.rank == 0:
                 self.world.ssend(psit_G, 0, 1398)
@@ -397,7 +397,36 @@ class WaveFunctions:
         # then ignored.  Allowing for this will simplify some code here
         # and there.
         return np.nan
-            
+
+    def get_homo_lumo(self, spin=None):
+        """Return HOMO and LUMO eigenvalues."""
+        if spin is None:
+            if self.nspins == 1:
+                return self.get_homo_lumo(0)
+            h0, l0 = self.get_homo_lumo(0)
+            h1, l1 = self.get_homo_lumo(1)
+            return np.array([max(h0, h1), min(l0, l1)])
+
+        n = self.nvalence // 2
+        band_rank, myn = self.bd.who_has(n - 1)
+        homo = -np.inf
+        if self.bd.rank == band_rank:
+            for kpt in self.kpt_u:
+                if kpt.s == spin:
+                    homo = max(kpt.eps_n[myn], homo)
+        homo = self.world.max(homo)
+
+        lumo = np.inf
+        if n < self.bd.nbands:  # there are not enough bands for LUMO
+            band_rank, myn = self.bd.who_has(n)
+            if self.bd.rank == band_rank:
+                for kpt in self.kpt_u:
+                    if kpt.s == spin:
+                        lumo = min(kpt.eps_n[myn], lumo)
+            lumo = self.world.min(lumo)
+
+        return np.array([homo, lumo])
+
     def write(self, writer):
         nproj = sum(setup.ni for setup in self.setups)
         writer.add_array(
@@ -408,14 +437,14 @@ class WaveFunctions:
             for k in range(self.kd.nibzkpts):
                 P_nI = self.collect_projections(k, s)
                 writer.fill(P_nI)
-                
+
         shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
-        
+
         writer.add_array('eigenvalues', shape)
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 writer.fill(self.collect_eigenvalues(k, s) * Hartree)
-                
+
         writer.add_array('occupations', shape)
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
@@ -423,7 +452,7 @@ class WaveFunctions:
                 # XXX fix this in the code also ...
                 weight = self.kd.weight_k[k] * 2 / self.nspins
                 writer.fill(self.collect_occupations(k, s) / weight)
-                
+
     def read(self, reader):
         nslice = self.bd.get_slice()
         r = reader.wave_functions
@@ -445,16 +474,16 @@ class WaveFunctions:
                     kpt.P_ani[a] = np.array(P_nI[nslice, I1:I2], self.dtype)
                 I1 = I2
 
-                
+
 def eigenvalue_string(wfs, comment=' '):
-    """
-    Write eigenvalues and occupation numbers into a string.
+    """Write eigenvalues and occupation numbers into a string.
+
     The parameter comment can be used to comment out non-numers,
     for example to escape it for gnuplot.
     """
 
     tokens = []
-    
+
     def add(*line):
         for token in line:
             tokens.append(token)
@@ -463,9 +492,9 @@ def eigenvalue_string(wfs, comment=' '):
     def eigs(k, s):
         eps_n = wfs.collect_eigenvalues(k, s)
         return eps_n * Hartree
-        
+
     occs = wfs.collect_occupations
-        
+
     if len(wfs.kd.ibzk_kc) == 1:
         if wfs.nspins == 1:
             add(comment, 'Band  Eigenvalues  Occupancy')

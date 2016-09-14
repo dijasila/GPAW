@@ -38,7 +38,7 @@ def findpeak(x, y):
     x = -0.5 * b / a
     return dx * (i + x), a * x**2 + b * x + c
 
-    
+
 def gen(symbol, exx=False, name=None, **kwargs):
     if mpi.rank == 0:
         if 'scalarrel' not in kwargs:
@@ -333,8 +333,9 @@ tests = [
     'sic/scfsic_n2.py',                     # ~73s
     'lrtddft/3.py',                         # ~75s
     'pathological/nonlocalset.py',          # ~82s
-    # buildbot > 100 sec tests start here (add tests after xc/lb94.py!)
+    'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
+    'response/gw_hBN_extrapolate.py',       # ~109s
     'exx/AA_enthalpy.py',                   # ~119s
     'lcao/tdgllbsc.py',                     # ~132s
     'solvation/forces.py',                  # ~140s
@@ -371,11 +372,7 @@ tests = [
 exclude = []
 
 if True:
-    exclude.extend(['fdtd/ed_wrapper.py',
-                    'fdtd/ed.py',
-                    'fdtd/ed_shapes.py',
-                    'inducedfield_td.py',
-                    'transport.py'])
+    exclude.append('transport.py')
     if mpi.size > 1:
         exclude.append('lrtddft/excited_state.py')
 
@@ -400,7 +397,7 @@ if mpi.size > 1:
 if mpi.size > 2:
     exclude += ['ase_features/neb.py',
                 'response/pair.py']
-    
+
 if mpi.size < 4:
     exclude += ['parallel/fd_parallel.py',
                 'parallel/lcao_parallel.py',
@@ -477,7 +474,7 @@ class TestRunner:
             self.log = devnull
         self.n = max([len(test) for test in tests])
         self.setup_paths = setup_paths[:]
-        
+
     def run(self):
         self.log.write('=' * 77 + '\n')
         if not self.show_output:
@@ -624,7 +621,7 @@ class TestRunner:
     def register_skipped(self, test, t0):
         self.write_result(test, 'SKIPPED', t0)
         self.skipped.append(test)
-    
+
     def check_garbage(self):
         gc.collect()
         n = len(gc.garbage)

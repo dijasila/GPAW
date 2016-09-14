@@ -83,25 +83,20 @@ class OccupationNumbers:
         self.e_entropy = None  # -ST
         self.e_band = None  # band energy (sum_n eps_n * f_n)
         self.fermilevel = np.nan  # Fermi level
-        self.homo = np.nan  # HOMO eigenvalue
-        self.lumo = np.nan  # LUMO eigenvalue
         self.nvalence = None  # number of electrons
         self.split = 0.0  # splitting of Fermi levels from fixmagmom=True
         self.niter = 0  # number of iterations for finding Fermi level
         self.ready = False
+        self.fixed_fermilevel = False
 
     def write(self, writer):
         writer.write(fermilevel=self.fermilevel * Hartree,
-                     split=self.split * Hartree,
-                     homo=self.homo * Hartree,
-                     lumo=self.lumo * Hartree)
+                     split=self.split * Hartree)
 
     def read(self, reader):
         o = reader.occupations
         self.fermilevel = o.fermilevel / reader.ha
         self.split = o.split / reader.ha
-        self.homo = o.homo / reader.ha
-        self.lumo = o.lumo / reader.ha
 
     def extrapolate_energy_to_zero_width(self, e_free):
         return e_free
@@ -116,7 +111,6 @@ class OccupationNumbers:
         * entropy
         * band energy
         * Fermi level
-        * HOMO and LUMO energies
         """
 
         # Allow subclasses to adjust nvalence:
@@ -135,20 +129,24 @@ class OccupationNumbers:
             # suffer if any NaNs sneak in.
             assert not np.isnan(kpt.eps_n).any()
 
+        fermilevel = self.fermilevel  # save for later
+
         # Let the master domain do the work and broadcast results:
-        data = np.empty(7)
+        data = np.empty(5)
         if wfs.gd.comm.rank == 0:
             self.calculate_occupation_numbers(wfs)
             self.calculate_band_energy(wfs)
             data[:] = [self.magmom, self.e_entropy, self.e_band,
-                       self.homo, self.lumo,
                        self.fermilevel, self.split]
         wfs.world.broadcast(data, 0)
         (self.magmom, self.e_entropy, self.e_band,
-         self.homo, self.lumo, self.fermilevel, self.split) = data
+         self.fermilevel, self.split) = data
 
         for kpt in wfs.kpt_u:
             wfs.gd.comm.broadcast(kpt.f_n, 0)
+
+        if self.fixed_fermilevel:
+            self.fermilevel = fermilevel
 
     def set_number_of_electrons(self, wfs):
         self.nvalence = wfs.nvalence
@@ -166,31 +164,6 @@ class OccupationNumbers:
 
     def get_fermi_level(self):
         raise ValueError('Can not calculate Fermi level!')
-
-    def set_fermi_level(self, fermilevel):
-        """This method sets the fermi-level.
-
-        However, since you get two fermi-levels when doing
-        calculations with fixed magmom, you should be able
-        to set two fermi-levels.
-
-        So set_fermi_level will give an warning if you supply
-        one fermi-level to an fixed-magmom calculation and will
-        also accept everything which can converted to an numpy-
-        array for setting two fermi-levels.
-
-        """
-        if self.fixmagmom:
-            fermilevels = np.array(fermilevel)
-            if fermilevels.size == 2:
-                self.fermilevel = fermilevels.mean()
-                self.split = fermilevels[0] - fermilevels[1]
-            else:
-                warnings.warn('Please use set_fermi_levels when ' +
-                              'using fixmagmom', DeprecationWarning)
-                self.fermilevel = fermilevel
-        else:
-            self.fermilevel = fermilevel
 
 
 class ZeroKelvin(OccupationNumbers):
@@ -231,7 +204,8 @@ class ZeroKelvin(OccupationNumbers):
 
     def summary(self, log):
         if np.isfinite(self.fermilevel):
-            # if self.split == 0.0:
+            if self.fixed_fermilevel:
+                log('Fixed ', end='')
             if not self.fixmagmom:
                 log('Fermi level: %.5f\n' % (Hartree * self.fermilevel))
             else:
@@ -295,19 +269,6 @@ class ZeroKelvin(OccupationNumbers):
         else:
             return 0.0
 
-    def get_homo_lumo(self, wfs):
-        if self.nvalence is None:
-            self.calculate(wfs)
-        if np.isfinite(self.homo) and np.isfinite(self.lumo):
-            if wfs.bd.comm.rank != 0:
-                homolumo = np.array([0.0, 0.0])
-            else:
-                homolumo = np.array([self.homo, self.lumo])
-            wfs.bd.comm.broadcast(homolumo, 0)
-            return homolumo
-        else:
-            raise ValueError("Can't find HOMO and/or LUMO!")
-
     def fixed_moment(self, wfs):
         assert wfs.nspins == 2 and wfs.kd.nbzkpts == 1
         fermilevels = np.zeros(2)
@@ -329,26 +290,26 @@ class ZeroKelvin(OccupationNumbers):
         self.split = fermilevels[0] - fermilevels[1]
 
     def spin_paired(self, wfs):
-        self.homo = -np.inf
-        self.lumo = np.inf
+        homo = -np.inf
+        lumo = np.inf
         for kpt in wfs.kpt_u:
             eps_n = wfs.bd.collect(kpt.eps_n)
             if wfs.bd.comm.rank == 0:
                 f_n = wfs.bd.empty(global_array=True)
-                homo, lumo = self.occupy(f_n, eps_n,
-                                         0.5 * self.nvalence *
-                                         kpt.weight, kpt.weight)
-                self.homo = max(self.homo, homo)
-                self.lumo = min(self.lumo, lumo)
+                hom, lum = self.occupy(f_n, eps_n,
+                                       0.5 * self.nvalence *
+                                       kpt.weight, kpt.weight)
+                homo = max(homo, hom)
+                lumo = min(lumo, lum)
             else:
                 f_n = None
                 self.fermilevel = np.nan
             wfs.bd.distribute(f_n, kpt.f_n)
 
         if wfs.bd.comm.rank == 0:
-            self.homo = wfs.kd.comm.max(self.homo)
-            self.lumo = wfs.kd.comm.min(self.lumo)
-            self.fermilevel = 0.5 * (self.homo + self.lumo)
+            homo = wfs.kd.comm.max(homo)
+            lumo = wfs.kd.comm.min(lumo)
+            self.fermilevel = 0.5 * (homo + lumo)
 
         self.magmom = 0.0
 
@@ -370,11 +331,10 @@ class ZeroKelvin(OccupationNumbers):
                 eps_n = np.ravel(eps_sn)
                 f_n = np.empty(nbands * 2)
                 nsorted = eps_n.argsort()
-                self.homo, self.lumo = self.occupy(f_n, eps_n[nsorted],
-                                                   self.nvalence)
+                homo, lumo = self.occupy(f_n, eps_n[nsorted], self.nvalence)
                 f_sn = f_n[nsorted.argsort()].reshape((2, nbands))
                 self.magmom = f_sn[0].sum() - f_sn[1].sum()
-                self.fermilevel = 0.5 * (self.homo + self.lumo)
+                self.fermilevel = 0.5 * (homo + lumo)
 
             if wfs.kd.comm.size == 2:
                 if wfs.kd.comm.rank == 0:
@@ -418,6 +378,8 @@ class SmoothDistribution(ZeroKelvin):
         s = 'Occupation numbers:\n'
         if self.fixmagmom:
             s += '  Fixed magnetic moment\n'
+        if self.fixed_fermilevel:
+            s += '  Fixed Fermi level\n'
         return s
 
     def calculate_occupation_numbers(self, wfs):
@@ -446,59 +408,6 @@ class SmoothDistribution(ZeroKelvin):
                 self.e_entropy += e_entropy
             self.fermilevel = fermilevels.mean()
             self.split = fermilevels[0] - fermilevels[1]
-
-    def get_homo_lumo_by_spin(self, wfs, spin):
-        if wfs.nspins == 1:
-            assert spin == 0
-            n = self.nvalence // 2
-            band_rank, myn = wfs.bd.who_has(n - 1)
-            if wfs.bd.rank == band_rank:
-                homo = max([kpt.eps_n[myn] for kpt in wfs.kpt_u])
-            else:
-                homo = -1000.0
-            homo = wfs.world.max(homo)
-
-            # There are not enough bands for LUMO
-            if n >= wfs.bd.nbands:
-                return np.array([homo, np.NaN])
-
-            band_rank, myn = wfs.bd.who_has(n)
-            if wfs.bd.rank == band_rank:
-                lumo = -max([-kpt.eps_n[myn] for kpt in wfs.kpt_u])
-            else:
-                lumo = 1000.0
-            lumo = -wfs.world.max(-lumo)
-            return np.array([homo, lumo])
-        else:
-            assert wfs.bd.comm.size == 1
-            eps_homo = -1000.0
-            eps_lumo = 1000.0
-            epsilon = 1e-2
-            for kpt in wfs.kpt_u:
-                if kpt.s == spin:
-                    eps = np.max(np.where(kpt.f_n / kpt.weight > epsilon,
-                                          kpt.eps_n, -1000.0))
-                    eps_homo = max([eps_homo, eps])
-                    eps = np.min(np.where(kpt.f_n / kpt.weight <= epsilon,
-                                          kpt.eps_n, +1000.0))
-                    eps_lumo = min([eps_lumo, eps])
-
-            eps_homo = wfs.kd.comm.max(eps_homo)
-            eps_lumo = wfs.kd.comm.min(eps_lumo)
-
-            return np.array([eps_homo, eps_lumo])
-
-    def get_homo_lumo(self, wfs):
-        if self.width == 0:
-            return ZeroKelvin.get_homo_lumo(self, wfs)
-
-        if wfs.nspins == 2:
-            raise NotImplementedError
-
-        if self.nvalence is None:
-            self.calculate(wfs)
-
-        return self.get_homo_lumo_by_spin(wfs, 0)
 
     def guess_fermi_level(self, wfs):
         fermilevel = 0.0

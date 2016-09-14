@@ -10,6 +10,7 @@ from scipy.special import gamma
 # from scipy.linalg import solve_banded
 import ase.units as units
 from ase.data import atomic_numbers, atomic_names, chemical_symbols
+from ase.utils import seterr
 
 from gpaw.xc import XC
 from gpaw.gaunt import gaunt
@@ -36,7 +37,7 @@ class GaussianBasis:
             Grid descriptor.
         eps: float
             Cutoff for eigenvalues of overlap matrix."""
-        
+
         self.l = l
         self.alpha_B = alpha_B
         self.rgd = rgd
@@ -71,21 +72,18 @@ class GaussianBasis:
 
         Q_Bb = np.dot(U_BB[:, -self.nbasis:],
                       np.diag(s_B[-self.nbasis:]**-0.5))
-        
+
         self.T_bb = np.dot(np.dot(Q_Bb.T, T_BB), Q_Bb)
         self.D_bb = np.dot(np.dot(Q_Bb.T, D_BB), Q_Bb)
         self.K_bb = np.dot(np.dot(Q_Bb.T, K_BB), Q_Bb)
 
         r_g = rgd.r_g
-        # Avoid errors in debug mode from division by zero:
-        old_settings = np.seterr(divide='ignore')
-        self.basis_bg = (np.dot(
-            Q_Bb.T,
-            (2 * (2 * alpha_B[:, None])**(l + 1.5) /
-             gamma(l + 1.5))**0.5 *
-            np.exp(-np.multiply.outer(alpha_B, r_g**2))) * r_g**l)
-        np.seterr(**old_settings)
-        
+        with seterr(divide='ignore'):
+            # Avoid errors in debug mode from division by zero:
+            gaussians_Bg = np.exp(-np.outer(alpha_B, r_g**2)) * r_g**l
+        prefactors_B = (2 * (2 * alpha_B)**(l + 1.5) / gamma(l + 1.5))**0.5
+        self.basis_bg = np.dot(Q_Bb.T, prefactors_B[:, None] * gaussians_Bg)
+
     def __len__(self):
         return self.nbasis
 
@@ -106,7 +104,7 @@ def coefs(rgd, l, vr_g, e, scalar_relativistic=False, Z=None):
     x1_g = 2 * (l + 1) * r_g / rgd.dr_g + r_g**2 * rgd.d2gdr2()
     x2_g = r_g**2 / rgd.dr_g**2
     x = 1.0
-    
+
     if scalar_relativistic:
         x = (1 + l + l**2 - (Z / c)**2)**0.5 - l
         r_g = r_g.copy()
@@ -124,9 +122,9 @@ def coefs(rgd, l, vr_g, e, scalar_relativistic=False, Z=None):
     cm1_g = x2_g - x1_g / 2
     c0_g = x0_g - 2 * x2_g
     cp1_g = x2_g + x1_g / 2
-    
+
     return cm1_g, c0_g, cp1_g, x
-    
+
 
 class Channel:
     def __init__(self, l, s=0, f_n=(), basis=None):
@@ -138,10 +136,10 @@ class Channel:
         self.e_n = None                        # eigenvalues
         self.f_n = np.array(f_n, dtype=float)  # occupation numbers
         self.phi_ng = None                     # wave functions
-        
+
         self.name = 'spdfg'[l]
         self.solve2ok = False
-        
+
     def solve(self, vr_g):
         """Diagonalize Schrödinger equation in basis set."""
         H_bb = self.basis.calculate_potential_matrix(vr_g)
@@ -194,17 +192,17 @@ class Channel:
                     e += 0.5 * A * u_g[g0]**2
                     if e > 0:
                         break
-                
+
                 iter += 1
                 assert iter < 400, (n, l, e)
-                
+
             if ok:
                 self.e_n[n] = e
                 self.phi_ng[n, 1:] = u_g[1:] / r_g[1:]
                 self.phi_ng[n, 0] = a
             else:
                 self.solve2ok = False
-            
+
     def calculate_density(self, n=None):
         """Calculate density."""
         if n is None:
@@ -237,7 +235,7 @@ class Channel:
         cm1_g, c0_g, cp1_g, x = coefs(rgd, l, vr_g, e, scalar_relativistic, Z)
 
         b_g = rgd.zeros()
-        
+
         if Z is not None:
             a0 = 1.0
             if scalar_relativistic:
@@ -253,7 +251,7 @@ class Channel:
                 b_g[1:] = 2 * pt_g[1:] * r_g[1:]**(2 - l)
                 a0 = pt_g[1] / r_g[1]**l / (vr_g[1] / r_g[1] - e)
             a1 = a0
-            
+
         u_g[0] = 0.0
         g = 1
         agm1 = a0
@@ -276,7 +274,7 @@ class Channel:
             phi0 = a0 * (r_g[1] * 0.1)**(l - 1 + x)
         else:
             phi0 = a0 * 0.0**(l - 1 + x)
-            
+
         return dudr, phi0
 
     def integrate_inwards(self, u_g, rgd, vr_g, g0, e,
@@ -357,7 +355,7 @@ class DiracChannel(Channel):
                 n_g[0] = n_g[1]
         return n_g
 
-        
+
 class AllElectronAtom:
     def __init__(self, symbol, xc='LDA', spinpol=False, dirac=False,
                  configuration=None,
@@ -391,7 +389,7 @@ class AllElectronAtom:
             self.configuration = copy.deepcopy(configuration)
         else:
             self.configuration = None
-        
+
         self.scalar_relativistic = False
 
         if isinstance(xc, str):
@@ -433,7 +431,7 @@ class AllElectronAtom:
             configuration = configurations[self.symbol][1]
 
         for n, l, f, e in configuration:
-            
+
             if l not in self.f_lsn:
                 self.f_lsn[l] = [[] for s in range(self.nspins)]
             if self.nspins == 1:
@@ -443,7 +441,7 @@ class AllElectronAtom:
                 f0 = min(f, 2 * l + 1)
                 self.f_lsn[l][0].append(f0)
                 self.f_lsn[l][1].append(f - f0)
-                
+
         if 0:
             n = 2 + len(self.f_lsn[2][0])
             if self.f_lsn[0][0][n] == 2:
@@ -459,10 +457,10 @@ class AllElectronAtom:
                 self.add(n, l, 0.5 * df, 0)
                 self.add(n, l, 0.5 * df, 1)
                 return
-            
+
         if l not in self.f_lsn:
             self.f_lsn[l] = [[] for x in range(self.nspins)]
-            
+
         f_n = self.f_lsn[l][s]
         if len(f_n) < n - l:
             f_n.extend([0] * (n - l - len(f_n)))
@@ -494,7 +492,7 @@ class AllElectronAtom:
         b = (rcut - a * ngpts) / (rcut * ngpts)
         b = 1 / round(1 / b)
         self.rgd = AERadialGridDescriptor(a, b, ngpts)
-        
+
         self.log('Grid points:     %d (%.5f, %.5f, %.5f, ..., %.3f, %.3f)' %
                  ((self.rgd.N,) + tuple(self.rgd.r_g[[0, 1, 2, -2, -1]])))
 
@@ -558,7 +556,7 @@ class AllElectronAtom:
         self.vHr_g = self.rgd.poisson(n_g)
         self.eH = 0.5 * self.rgd.integrate(n_g * self.vHr_g, -1)
         self.eZ = -self.Z * self.rgd.integrate(n_g, -1)
-        
+
     def calculate_xc_potential(self):
         self.vxc_sg = self.rgd.zeros(self.nspins)
         self.exc = self.xc.calculate_spherical(self.rgd, self.n_sg,
@@ -574,7 +572,7 @@ class AllElectronAtom:
         self.vr_sg -= self.Z
         self.ekin = (self.eeig -
                      self.rgd.integrate((self.vr_sg * self.n_sg).sum(0), -1))
-        
+
     def run(self, mix=0.4, maxiter=117, dnmax=1e-9):
         if self.channels is None:
             self.initialize()
@@ -607,7 +605,7 @@ class AllElectronAtom:
             self.step()
 
         self.summary()
-        
+
         if self.method != 'Gaussian basis-set':
             for channel in self.channels:
                 assert channel.solve2ok
@@ -618,11 +616,11 @@ class AllElectronAtom:
     def refine(self):
         self.method = 'finite difference'
         self.run(dnmax=1e-6, mix=0.14, maxiter=200)
-        
+
     def summary(self):
         self.write_states()
         self.write_energies()
-            
+
     def write_states(self):
         self.log('\n state  occupation         eigenvalue          <r>')
         if self.dirac:
@@ -719,9 +717,9 @@ class AllElectronAtom:
                 d1 -= 1
             logderivs.append(d1)
             d0 = d1
-            
+
         return np.array(logderivs)
-            
+
     def calculate_exx(self, s=None):
         if s is None:
             self.exx = sum(self.calculate_exx(s)
@@ -864,7 +862,7 @@ def main(args=None):
             ld = aea.logarithmic_derivative(l, energies, r)
             plt.plot(energies, ld, colors[l])
         plt.show()
-        
+
     if opt.plot:
         aea.plot_wave_functions()
 

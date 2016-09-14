@@ -1,3 +1,5 @@
+.. _workshop16:
+
 =======================================
 GPAW 2016: Users and developers meeting
 =======================================
@@ -29,6 +31,9 @@ Talks
  * - Kirsten T. Winther
    - `Band gaps of 2D materials and van der Waals heterostructures
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop16/ktw.pdf>`__
+ * - Simone Latini
+   - `Designing Excitons in van der Waals Heterostructures
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop16/sl.pdf>`__
  * - Ask Hjorth Larsen
    - `Efficient van der Waals functionals and other GPAW developments
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop16/ahl.pdf>`__

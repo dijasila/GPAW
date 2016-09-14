@@ -16,7 +16,7 @@ energy = atoms.get_potential_energy()
 calc.set(convergence={'bands' : 90}, 
          fixdensity=True,
          eigensolver='cg')
-calc.calculate()
+atoms.get_potential_energy()
 
 calc.write('na2_gs_casida.gpw', mode='all')
 

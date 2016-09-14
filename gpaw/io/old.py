@@ -11,7 +11,6 @@ from ase.utils import devnull
 
 from gpaw.wavefunctions.pw import PW
 from gpaw.occupations import FermiDirac
-from gpaw.poisson import PoissonSolver
 from gpaw.io.tar import Reader
 
 
@@ -22,6 +21,7 @@ def wrap_old_gpw_reader(filename):
     r = Reader(filename)
 
     data = {'version': -1,
+            'gpaw_version': '1.0',
             'ha': Ha,
             'bohr': Bohr,
             'scf.': {'converged': True},
@@ -165,7 +165,10 @@ def wrap_old_gpw_reader(filename):
 
     if r['Mode'] == 'pw':
         special.append(('coefficients', 'PseudoWaveFunctions'))
-        data['wave_functions.']['indices'] = r.get('PlaneWaveIndices')
+        try:
+            data['wave_functions.']['indices'] = r.get('PlaneWaveIndices')
+        except KeyError:
+            pass
     elif r['Mode'] == 'fd':
         special.append(('values', 'PseudoWaveFunctions'))
     else:
