@@ -1,6 +1,7 @@
 import numpy as np
 
 from gpaw.utilities.blas import gemm
+from gpaw.blacs import BlacsGrid
 
 
 def reshape(a_x, shape):
@@ -17,37 +18,14 @@ class MatrixOperator:
         self.nblocks = 1
         self.A_nn = None
         self.work1_xG = None
+        self.grid = BlacsGrid(self.bd.comm, self.bd.comm.size, 1)
+        G = self.gd.n_c.prod()
+        N = self.bd.nbands
+        self.md1 = self.grid.new_descriptor(N, G, self.bd.maxmynbands, G)
+        self.md2 = self.grid.new_descriptor(N, N, N, N)
 
     def calculate_matrix_elements(self, psit1_nG, P1_ani, A, dA,
                                   psit2_nG=None, P2_ani=None):
-        """Calculate matrix elements for A-operator.
-
-        Results will be put in the *A_nn* array::
-
-                                    ___
-                    ~ 2  ^  ~ 1     \     ~   ~a    a   ~a  ~
-           A    = <psi  |A|psi  > +  )  <psi |p > dA   <p |psi >
-            nn'       n      n'     /___    n  i    ii'  i'   n'
-                                     aii'
-
-        Fills in the lower part of *A_nn*, but only on domain and band masters.
-
-
-        Parameters:
-
-        psit_nG: ndarray
-            Set of vectors in which the matrix elements are evaluated.
-        P_ani: dict
-            Dictionary of projector overlap integrals P_ni = <p_i | psit_nG>.
-        A: function
-            Functional form of the operator A which works on psit_nG.
-            Must accept and return an ndarray of the same shape as psit_nG.
-        dA: function
-            Operator which works on | phi_i >.  Must accept atomic
-            index a and P_ni and return an ndarray with the same shape
-            as P_ni, thus representing P_ni multiplied by dA_ii.
-
-        """
         band_comm = self.bd.comm
         domain_comm = self.gd.comm
         #block_comm = self.block_comm
@@ -71,16 +49,22 @@ class MatrixOperator:
 
         A_NN = self.A_nn
 
-        if B == 1 and J == 1:
-            # Simple case:
-            Apsit_nG = A(psit2_nG)
-            self.gd.integrate(psit1_nG, Apsit_nG, hermitian=hermitian,
-                              _transposed_result=A_NN)
-            for a, P1_ni in P1_ani.items():
-                P2_ni = P2_ani[a]
-                gemm(1.0, P1_ni, dA(a, P2_ni), 1.0, A_NN, 'c')
-            domain_comm.sum(A_NN, 0)
-            return self.bmd.redistribute_output(A_NN)
+
+        Apsit_nG = A(psit2_nG)
+        from gpaw.utilities.scalapack import pblas_gemm
+        M = self.bd.mynbands
+        G = self.gd.n_c.prod()
+        pblas_gemm(self.gd.dv, psit1_nG.reshape(M, G), Apsit_nG.reshape(M, G), 0.0, A_NN,
+                   self.md1, self.md1, self.md2, 'N', 'T')
+        print(A_NN)
+        self.gd.integrate(psit1_nG, Apsit_nG, hermitian=hermitian,
+                          _transposed_result=A_NN)
+        print(A_NN);asdg
+        for a, P1_ni in P1_ani.items():
+            P2_ni = P2_ani[a]
+            gemm(1.0, P1_ni, dA(a, P2_ni), 1.0, A_NN, 'c')
+        domain_comm.sum(A_NN, 0)
+        return self.bmd.redistribute_output(A_NN)
 
         dfgjkh
 
