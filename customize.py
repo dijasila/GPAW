@@ -4,7 +4,7 @@ Here one changes the default arguments for compiling _gpaw.so (serial)
 and gpaw-python (parallel).
 
 Here are all the lists that can be modified:
-    
+
 * libraries
 * library_dirs
 * include_dirs
@@ -20,7 +20,7 @@ Here are all the lists that can be modified:
 * mpi_define_macros
 
 To override use the form:
-    
+
     libraries = ['somelib', 'otherlib']
 
 To append use the form
@@ -32,7 +32,7 @@ To append use the form
 # mpicompiler = 'mpicc'  # use None if you don't want to build a gpaw-python
 # mpilinker = 'mpicc'
 # platform_id = ''
-# scalapack = False
+scalapack = not False
 # hdf5 = False
 
 # Use ScaLAPACK:
@@ -55,7 +55,7 @@ if 0:
     extra_link_args += ['/home/user/libxc-2.0.1-1/lib/libxc.a']
     if 'xc' in libraries:
         libraries.remove('xc')
-        
+
 # - dynamic linking (requires rpath or setting LD_LIBRARY_PATH at runtime):
 if 0:
     include_dirs += ['/home/user/libxc-2.0.1-1/include']
