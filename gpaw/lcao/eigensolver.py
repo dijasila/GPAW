@@ -24,7 +24,7 @@ class DirectLCAO(object):
     @property
     def error(self):
         return 0.0
-        
+
     @error.setter
     def error(self, e):
         pass
@@ -42,7 +42,7 @@ class DirectLCAO(object):
         #dH_asp = wfs.atomic_correction.redistribute(wfs, hamiltonian.dH_asp)
         # XXXXX fix atomic corrections
         dH_asp = hamiltonian.dH_asp
-        
+
         if Vt_xMM is None:
             wfs.timer.start('Potential matrix')
             vt_G = hamiltonian.vt_sG[kpt.s]
@@ -107,7 +107,7 @@ class DirectLCAO(object):
 
         if kpt.eps_n is None:
             kpt.eps_n = np.empty(wfs.bd.mynbands)
-            
+
         diagonalization_string = repr(self.diagonalizer)
         wfs.timer.start(diagonalization_string)
         self.diagonalizer.diagonalize(H_MM, kpt.C_nM, kpt.eps_n, S_MM)

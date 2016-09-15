@@ -38,7 +38,7 @@ class Davidson(Eigensolver):
 
     def todict(self):
         return {'name': 'dav', 'niter': self.niter}
-        
+
     def initialize(self, wfs):
 
         Eigensolver.initialize(self, wfs)
@@ -85,7 +85,7 @@ class Davidson(Eigensolver):
             psit2_nG = wfs.empty(mynbands, q=kpt.q)
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_nG, R_nG)
             wfs.pt.integrate(psit_nG, kpt.P_ani, kpt.q)
-        
+
         self.calculate_residuals(kpt, wfs, hamiltonian, psit_nG,
                                  kpt.P_ani, kpt.eps_n, R_nG)
 
@@ -134,13 +134,13 @@ class Davidson(Eigensolver):
                 gd.comm.sum(norm_n)
                 for norm, psit2_G in zip(norm_n, psit2_nG):
                     psit2_G *= norm**-0.5
-        
+
             # Calculate projections
             P2_ani = wfs.pt.dict(mynbands)
             wfs.pt.integrate(psit2_nG, P2_ani, kpt.q)
 
             self.timer.start('calc. matrices')
-            
+
             # Hamiltonian matrix
             # <psi2 | H | psi>
 
@@ -179,7 +179,7 @@ class Davidson(Eigensolver):
 
             def S(psit_G):
                 return psit_G
-            
+
             def dS(a, P_ni):
                 return np.dot(P_ni, wfs.setups[a].dO_ii)
 
@@ -218,7 +218,7 @@ class Davidson(Eigensolver):
             bd.comm.broadcast(H_2n2n, 0)
             bd.comm.broadcast(eps_2n, 0)
 
-            self.operator.bd.distribute(eps_2n[:nbands], kpt.eps_n[:])
+            kpt.eps_n[:] = eps_2n[self.operator.bd.get_slice()]
 
             self.timer.stop('diagonalize')
 
@@ -248,7 +248,7 @@ class Davidson(Eigensolver):
             else:
                 tmp_nG += psit_nG
                 psit_nG, R_nG = tmp_nG, psit_nG
-            
+
             for a, P_ni in kpt.P_ani.items():
                 P2_ni = P2_ani[a]
                 P_ni += P2_ni
