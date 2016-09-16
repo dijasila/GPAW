@@ -54,8 +54,10 @@ class MatrixOperator:
         from gpaw.utilities.scalapack import pblas_gemm
         M = self.bd.mynbands
         G = self.gd.n_c.prod()
-        pblas_gemm(self.gd.dv, psit1_nG.reshape(M, G), Apsit_nG.reshape(M, G), 0.0, A_NN,
-                   self.md1, self.md1, self.md2, 'N', 'T')
+        pblas_gemm(self.gd.dv,
+                   psit1_nG.reshape(M, G),
+                   Apsit_nG.reshape(M, G),
+                   0.0, A_NN, self.md1, self.md1, self.md2, 'N', 'T')
         print(A_NN)
         self.gd.integrate(psit1_nG, Apsit_nG, hermitian=hermitian,
                           _transposed_result=A_NN)
