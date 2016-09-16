@@ -35,8 +35,14 @@ def wrap_old_gpw_reader(filename):
     write_atoms(DictBackend(), read_atoms(r))
 
     e_total_extrapolated = r.get('PotentialEnergy').item() * Ha
+    magmom_a = r.get('MagneticMoments')
     data['results.'] = {
-        'energy': e_total_extrapolated}
+        'energy': e_total_extrapolated,
+        'magmoms': magmom_a,
+        'magmom': magmom_a.sum()}
+
+    if r.has_array('CartesianForces'):
+        data['results.']['forces'] = r.get('CartesianForces') * Ha / Bohr
 
     p = data['parameters.'] = {}
 
