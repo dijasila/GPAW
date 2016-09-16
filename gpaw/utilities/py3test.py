@@ -12,8 +12,8 @@ import subprocess
 import sys
 import os.path as op
 
-dir = op.expanduser('~/python3-test-gpaw')
-datasets = op.expanduser('~/datasets/gpaw-setups-0.9.11271')
+dir = op.expanduser('~/py3test')
+datasets = op.expanduser('~/datasets/gpaw-setups-0.9.20000')
 
 
 def run():
@@ -24,7 +24,6 @@ def run():
     subprocess.check_call('python3 setup.py install --home=.. > build.out',
                           shell=True)
 
-    import numpy as np
     from gpaw import setup_paths
     setup_paths.insert(0, datasets)
     from gpaw.test import TestRunner, tests
@@ -36,7 +35,7 @@ def run():
         os.chdir('..')
 
     from ase.test import test
-    results = test(display=False)
+    results = test(display=False, calculators=['gpaw'])
     failed.extend(results.errors + results.failures)
 
     if failed:
