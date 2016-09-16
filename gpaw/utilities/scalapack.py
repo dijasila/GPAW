@@ -49,22 +49,22 @@ def scalapack_set(desca, a, alpha, beta, uplo, m=None, n=None, ia=1, ja=1):
         n = desca.gshape[1]
     if not desca.blacsgrid.is_active():
         return
-    _gpaw.scalapack_set(a, desca.asarray(), alpha, beta, 
+    _gpaw.scalapack_set(a, desca.asarray(), alpha, beta,
                         switch_lu[uplo], n, m, ja, ia)
 
 
 def scalapack_diagonalize_dc(desca, a, z, w, uplo):
     """Diagonalize symmetric matrix using the divide & conquer algorithm.
     Orthogonal eigenvectors not guaranteed; no warning is provided.
- 
+
     Solve the eigenvalue equation::
-    
+
       A_nn Z_nn = w_N Z_nn
 
     Diagonalizes A_nn and writes eigenvectors to Z_nn.  Both A_nn
     and Z_nn must be compatible with desca descriptor.  Values in
     A_nn will be overwritten.
-    
+
     Eigenvalues are written to the global array w_N in ascending order.
 
     The `uplo` flag can be either 'L' or 'U', meaning that the
@@ -78,27 +78,27 @@ def scalapack_diagonalize_dc(desca, a, z, w, uplo):
     if not desca.blacsgrid.is_active():
         return
     assert desca.gshape[0] == len(w)
-    info = _gpaw.scalapack_diagonalize_dc(a, desca.asarray(), 
+    info = _gpaw.scalapack_diagonalize_dc(a, desca.asarray(),
                                           switch_lu[uplo], z, w)
     if info != 0:
         raise RuntimeError('scalapack_diagonalize_dc error: %d' % info)
 
- 
+
 def scalapack_diagonalize_ex(desca, a, z, w, uplo, iu=None):
     """Diagonalize symmetric matrix using the bisection and inverse
-    iteration algorithm. Re-orthogonalization of eigenvectors 
-    is an issue for tightly clustered eigenvalue problems; it 
+    iteration algorithm. Re-orthogonalization of eigenvectors
+    is an issue for tightly clustered eigenvalue problems; it
     requires substantial memory and is not scalable. See ScaLAPACK
     pdsyevx.f routine for more information.
- 
+
     Solve the eigenvalue equation::
-    
+
       A_nn Z_nn = w_N Z_nn
 
     Diagonalizes A_nn and writes eigenvectors to Z_nn.  Both A_nn
     and Z_nn must be compatible with desca descriptor.  Values in
     A_nn will be overwritten.
-    
+
     Eigenvalues are written to the global array w_N in ascending order.
 
     The `uplo` flag can be either 'L' or 'U', meaning that the
@@ -122,8 +122,8 @@ def scalapack_diagonalize_ex(desca, a, z, w, uplo, iu=None):
         message = 'scalapack_diagonalize_ex may have a buffer ' \
             'overflow, use scalapack_diagonalize_dc instead'
         warnings.warn(message, RuntimeWarning)
-    info = _gpaw.scalapack_diagonalize_ex(a, desca.asarray(), 
-                                          switch_lu[uplo], 
+    info = _gpaw.scalapack_diagonalize_ex(a, desca.asarray(),
+                                          switch_lu[uplo],
                                           iu, z, w)
     if info != 0:
         # 0 means you are OK
@@ -131,15 +131,15 @@ def scalapack_diagonalize_ex(desca, a, z, w, uplo, iu=None):
 
 def scalapack_diagonalize_mr3(desca, a, z, w, uplo, iu=None):
     """Diagonalize symmetric matrix using the MRRR algorithm.
- 
+
     Solve the eigenvalue equation::
-    
+
       A_nn Z_nn = w_N Z_nn
 
     Diagonalizes A_nn and writes eigenvectors to Z_nn.  Both A_nn
     and Z_nn must be compatible with this desca descriptor.  Values in
     A_nn will be overwritten.
-    
+
     Eigenvalues are written to the global array w_N in ascending order.
 
     The `uplo` flag can be either 'L' or 'U', meaning that the
@@ -159,8 +159,8 @@ def scalapack_diagonalize_mr3(desca, a, z, w, uplo, iu=None):
     if not desca.blacsgrid.is_active():
         return
     assert desca.gshape[0] == len(w)
-    info = _gpaw.scalapack_diagonalize_mr3(a, desca.asarray(), 
-                                           switch_lu[uplo], 
+    info = _gpaw.scalapack_diagonalize_mr3(a, desca.asarray(),
+                                           switch_lu[uplo],
                                            iu, z, w)
     if info != 0:
         raise RuntimeError('scalapack_diagonalize_mr3 error: %d' % info)
@@ -168,15 +168,15 @@ def scalapack_diagonalize_mr3(desca, a, z, w, uplo, iu=None):
 def scalapack_general_diagonalize_dc(desca, a, b, z, w, uplo):
     """Diagonalize symmetric matrix using the divide & conquer algorithm.
     Orthogonal eigenvectors not guaranteed; no warning is provided.
- 
+
     Solve the generalized eigenvalue equation::
-    
+
       A_nn Z_nn = w_N B_nn Z_nn
 
-    B_nn is assumed to be positivde definite. Eigenvectors written to Z_nn. 
+    B_nn is assumed to be positivde definite. Eigenvectors written to Z_nn.
     Both A_nn, B_nn and Z_nn must be compatible with desca descriptor.
     Values in A_nn and B_nn will be overwritten.
-    
+
     Eigenvalues are written to the global array w_N in ascending order.
 
     The `uplo` flag can be either 'L' or 'U', meaning that the
@@ -186,31 +186,31 @@ def scalapack_general_diagonalize_dc(desca, a, b, z, w, uplo):
     desca.checkassert(b)
     desca.checkassert(z)
     # only symmetric matrices
-    assert desca.gshape[0] == desca.gshape[1] 
+    assert desca.gshape[0] == desca.gshape[1]
     assert uplo in ['L', 'U']
     if not desca.blacsgrid.is_active():
         return
     assert desca.gshape[0] == len(w)
-    info = _gpaw.scalapack_general_diagonalize_dc(a, desca.asarray(), 
+    info = _gpaw.scalapack_general_diagonalize_dc(a, desca.asarray(),
                                           switch_lu[uplo], b, z, w)
     if info != 0:
         raise RuntimeError('scalapack_general_diagonalize_dc error: %d' % info)
 
 def scalapack_general_diagonalize_ex(desca, a, b, z, w, uplo, iu=None):
     """Diagonalize symmetric matrix using the bisection and inverse
-    iteration algorithm. Re-orthogonalization of eigenvectors 
-    is an issue for tightly clustered eigenvalue problems; it 
+    iteration algorithm. Re-orthogonalization of eigenvectors
+    is an issue for tightly clustered eigenvalue problems; it
     requires substantial memory and is not scalable. See ScaLAPACK
     pdsyevx.f routine for more information.
- 
+
     Solves the eigenvalue equation::
-    
+
       A_nn Z_nn = w_N B_nn Z_nn
 
-    B_nn is assumed to be positivde definite. Eigenvectors written to Z_nn. 
+    B_nn is assumed to be positivde definite. Eigenvectors written to Z_nn.
     Both A_nn, B_nn and Z_nn must be compatible with desca descriptor.
     Values in A_nn and B_nn will be overwritten.
-    
+
     Eigenvalues are written to the global array w_N in ascending order.
 
     The `uplo` flag can be either 'L' or 'U', meaning that the
@@ -235,8 +235,8 @@ def scalapack_general_diagonalize_ex(desca, a, b, z, w, uplo, iu=None):
         message = 'scalapack_general_diagonalize_ex may have a buffer ' \
             'overflow, use scalapack_general_diagonalize_dc instead'
         warnings.warn(message, RuntimeWarning)
-    info = _gpaw.scalapack_general_diagonalize_ex(a, desca.asarray(), 
-                                                  switch_lu[uplo], 
+    info = _gpaw.scalapack_general_diagonalize_ex(a, desca.asarray(),
+                                                  switch_lu[uplo],
                                                   iu, b, z, w)
     if info != 0:
         # 0 means you are OK
@@ -246,13 +246,13 @@ def scalapack_general_diagonalize_mr3(desca, a, b, z, w, uplo, iu=None):
     """Diagonalize symmetric matrix using the MRRR algorithm.
 
     Solve the generalized eigenvalue equation::
-    
+
       A_nn Z_nn = w_N B_nn Z_nn
 
-    B_nn is assumed to be positivde definite. Eigenvectors written to Z_nn. 
+    B_nn is assumed to be positivde definite. Eigenvectors written to Z_nn.
     Both A_nn, B_nn and Z_nn must be compatible with desca descriptor.
     Values in A_nn and B_nn will be overwritten.
-    
+
     Eigenvalues are written to the global array w_N in ascending order.
 
     The `uplo` flag can be either 'L' or 'U', meaning that the
@@ -273,8 +273,8 @@ def scalapack_general_diagonalize_mr3(desca, a, b, z, w, uplo, iu=None):
     if not desca.blacsgrid.is_active():
         return
     assert desca.gshape[0] == len(w)
-    info = _gpaw.scalapack_general_diagonalize_mr3(a, desca.asarray(), 
-                                                   switch_lu[uplo], 
+    info = _gpaw.scalapack_general_diagonalize_mr3(a, desca.asarray(),
+                                                   switch_lu[uplo],
                                                    iu, b, z, w)
     if info != 0:
         raise RuntimeError('scalapack_general_diagonalize_mr3 error: %d' % info)
@@ -362,10 +362,11 @@ def pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
     if side=='R':
         M, N = N, M
 
-    _gpaw.pblas_hemm(fortran_side[side], fortran_uplo[uplo], 
+    _gpaw.pblas_hemm(fortran_side[side], fortran_uplo[uplo],
                      N, M, alpha, a_MK.T, b_KN.T, beta, c_MN.T,
                      desca.asarray(), descb.asarray(), descc.asarray())
-    
+
+
 def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
                transa='N', transb='N'):
     desca.checkassert(a_MK)
@@ -380,13 +381,12 @@ def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
     if transb == 'T':
         Kb, N = N, Kb
     Mc, Nc = descc.gshape
-    K = Ka
 
     assert Ka == Kb
     assert M == Mc
     assert N == Nc
 
-    #trans = transa + transb
+    # trans = transa + transb
 
     """
     if transb == 'N':
@@ -414,7 +414,7 @@ def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
     #assert transa == 'N' # XXX remember to implement 'T'
     _gpaw.pblas_gemm(N, M, Ka, alpha, b_KN.T, a_MK.T, beta, c_MN.T,
     """
-    #assert transa == 'N' # XXX remember to implement 'T'
+    # assert transa == 'N' # XXX remember to implement 'T'
     if not desca.blacsgrid.is_active():
         return
     _gpaw.pblas_gemm(N, M, Ka, alpha, b_KN.T, a_MK.T, beta, c_MN.T,
@@ -422,12 +422,13 @@ def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
                      transb, transa)
 
 
-def pblas_simple_gemm(desca, descb, descc, a_MK, b_KN, c_MN, 
+def pblas_simple_gemm(desca, descb, descc, a_MK, b_KN, c_MN,
                       transa='N', transb='N'):
     alpha = 1.0
     beta = 0.0
     pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
                transa, transb)
+
 
 def pblas_simple_hemm(desca, descb, descc, a_MK, b_KN, c_MN, side='L', uplo='L'):
     alpha = 1.0
@@ -451,7 +452,7 @@ def pblas_gemv(alpha, a, x, beta, y, desca, descx, descy,
                      a, x, beta, y,
                      desca.asarray(),
                      descx.asarray(),
-                     descy.asarray(), 
+                     descy.asarray(),
                      transa)
 
 
@@ -475,8 +476,8 @@ def pblas_r2k(alpha, a_NK, b_NK, beta, c_NN, desca, descb, descc,
     # K must take into account implicit tranpose due to C ordering
     K = desca.gshape[1] # number of columns of A and B
     _gpaw.pblas_r2k(N, K, alpha, a_NK, b_NK, beta, c_NN,
-                    desca.asarray(), 
-                    descb.asarray(), 
+                    desca.asarray(),
+                    descb.asarray(),
                     descc.asarray(),
                     uplo)
 
@@ -484,7 +485,7 @@ def pblas_r2k(alpha, a_NK, b_NK, beta, c_NN, desca, descb, descc,
 def pblas_simple_r2k(desca, descb, descc, a, b, c, uplo='U'):
     alpha = 1.0
     beta = 0.0
-    pblas_r2k(alpha, a, b, beta, c, 
+    pblas_r2k(alpha, a, b, beta, c,
                 desca, descb, descc, uplo)
 
 
@@ -500,14 +501,14 @@ def pblas_rk(alpha, a_NK, beta, c_NN, desca, descc,
     # K must take into account implicit tranpose due to C ordering
     K = desca.gshape[1] # number of columns of A
     _gpaw.pblas_rk(N, K, alpha, a_NK, beta, c_NN,
-                    desca.asarray(), 
+                    desca.asarray(),
                     descc.asarray(),
                     uplo)
 
 
 def pblas_simple_rk(desca, descc, a, c):
-    alpha = 1.0 
-    beta = 0.0 
-    pblas_rk(alpha, a, beta, c, 
+    alpha = 1.0
+    beta = 0.0
+    pblas_rk(alpha, a, beta, c,
              desca, descc)
 
