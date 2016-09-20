@@ -1,3 +1,5 @@
+.. _summerschool16:
+
 =======================
 CAMd Summer School 2016
 =======================
@@ -25,7 +27,7 @@ desktop.
   ThinLinc is easier to install, many find that Secure Shell is nicer
   to work with.
 
-  
+
 Using Secure Shell on Linux and Mac computers
 ---------------------------------------------
 
@@ -108,8 +110,8 @@ environment.  Add the following line to the very end of your
     source ~mikst/camd2016.bashrc
 
 
-This will set up the environment for you so that you can use ASE, GPAW and 
-matplotlib. 
+This will set up the environment for you so that you can use ASE, GPAW and
+matplotlib.
 
 Note that the file ``.bashrc`` starts with a period, making it a hidden file in Unix.
 
@@ -232,7 +234,7 @@ the file, and add this line::
 (it is case sensitive, so use copy-paste).
 
 Save the file and exit (Control-X).  This increases the time-out to 36000 seconds, i.e. ten hours.
-      
+
 
 Notes and hints
 ===============
