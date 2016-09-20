@@ -233,8 +233,8 @@ class VDWXC(GGA, object):
          * 'pfft' uses PFFT and works with any decomposition,
            parallelizing along two directions for best scalability.
 
-         * 'auto' uses PFFT if available, else FFTW-MPI if available,
-           else adhoc if applicable, else serial.
+         * 'auto' uses PFFT if pfft_grid is given, else FFTW-MPI if the
+           calculation uses more than one core, else serial FFTW.
 
          pfft_grid is the 2D CPU grid used by PFFT and can be a tuple
          (nproc1, nproc2) that multiplies to total communicator size,
@@ -261,6 +261,18 @@ class VDWXC(GGA, object):
 
         self.last_nonlocal_energy = None
         self.last_semilocal_energy = None
+
+    def __str__(self):
+        special = [self._mode]
+        if self._libvdwxc_name != self.name:
+            special.append('nonlocal-name=%s' % self._libvdwxc_name)
+            special.append('gga-kernel=%s' % self.kernel.name)
+        if self._pfft_grid is not None:
+            special.append('pfft=%s' % self._pfft_grid)
+
+        special_str = ', '.join(special)
+
+        return '%s [libvdwxc/%s]' % (self.name, special_str)
 
     def set_grid_descriptor(self, gd):
         if self.gd is not None and self.gd != gd:
