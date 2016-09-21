@@ -12,7 +12,7 @@ direct_gap = np.zeros(4)
 for j, k in enumerate([4, 6, 8, 10]):
     for i, ecut in enumerate([50, 100, 150, 200]):
         fil = pickle.load(paropen('Si-g0w0_k%s_ecut%s_results.pckl' %
-                                  (k, ecut), 'r'))
+                                  (k, ecut), 'rb'))
         direct_gap[i] = fil['qp'][0, 0, 1] - fil['qp'][0, 0, 0]
     plt.plot(ecuts, direct_gap, color[j],
              label='(%sx%sx%s) k-points' % (k, k, k))

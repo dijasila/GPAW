@@ -154,7 +154,7 @@ class GWQEHCorrection(PairDensity):
         if dW_qw is None:
             try: 
                 self.qqeh, self.wqeh, dW_qw = pickle.load(
-                    open(filename + '_dW_qw.pckl', 'r'))
+                    open(filename + '_dW_qw.pckl', 'rb'))
             except:
                 dW_qw = self.calculate_W_QEH(structure, d, layer)
         else:
@@ -339,7 +339,7 @@ class GWQEHCorrection(PairDensity):
 
         # Need GW result for renormalization factor
         b1, b2 = self.bands
-        gwdata = pickle.load(open(self.gwfile))
+        gwdata = pickle.load(open(self.gwfile, 'rb'))
         self.dsigmagw_sin = gwdata['dsigma']
         self.qpgw_sin = gwdata['qp'] / Hartree
         nk = self.qpgw_sin.shape[1]
@@ -415,7 +415,7 @@ class GWQEHCorrection(PairDensity):
 
     def load_state_file(self):
         try:
-            data = pickle.load(open(self.filename + '_qeh.pckl'))
+            data = pickle.load(open(self.filename + '_qeh.pckl', 'rb'))
         except IOError:
             return False
         else:
@@ -533,7 +533,7 @@ class GWQEHCorrection(PairDensity):
 
         if self.world.rank == 0:
             pickle.dump((self.qqeh, self.wqeh, dW_qw), 
-                        open(self.filename + '_dW_qw.pckl', 'w'))
+                        open(self.filename + '_dW_qw.pckl', 'wb'))
 
         return dW_qw
 

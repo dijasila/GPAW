@@ -298,7 +298,7 @@ class VDWFunctionalBase:
             for dir in dirs:
                 filename = os.path.join(dir, oldname)
                 if os.path.isfile(filename):
-                    self.phi_ij = pickle.load(open(filename))
+                    self.phi_ij = pickle.load(open(filename, 'rb'))
                     if self.verbose:
                         print('VDW: using', filename)
                     return
