@@ -304,7 +304,7 @@ class ElectronPhononCoupling(Displacement):
         # For the contribution from the derivative of the projectors
         dP_aqvMi = self.calculate_dP_aqvMi(wfs)
         # Equilibrium atomic Hamiltonian matrix (projector coefficients)
-        dH_asp = pickle.load(open(self.name + '.eq.pckl'))[1]
+        dH_asp = pickle.load(open(self.name + '.eq.pckl', 'rb'))[1]
         
         # Check that the grid is the same as in the calculator
         assert np.all(V1t_xG.shape[-3:] == (gd.N_c + gd.pbc_c - 1)), \
@@ -397,7 +397,7 @@ class ElectronPhononCoupling(Displacement):
                         fname = self.name + \
                                 '.supercell_matrix_x_%2.2u.%s.pckl' % (x, basis)
                     if kd.comm.rank == 0:
-                        fd = open(fname, 'w')
+                        fd = open(fname, 'wb')
                         M_a = self.basis_info['M_a']
                         nao_a = self.basis_info['nao_a']
                         pickle.dump((g_NNMM, M_a, nao_a), fd, 2)
@@ -415,7 +415,7 @@ class ElectronPhononCoupling(Displacement):
                     fname = '%s.supercell_matrix.%s.pckl' % (name, basis)
                 else:
                     fname = self.name + '.supercell_matrix.%s.pckl' % basis
-                fd = open(fname, 'w')
+                fd = open(fname, 'wb')
                 M_a = self.basis_info['M_a']
                 nao_a = self.basis_info['nao_a']
                 pickle.dump((self.g_xNNMM, M_a, nao_a), fd, 2)
@@ -448,7 +448,7 @@ class ElectronPhononCoupling(Displacement):
                 fname = name
             else:
                 fname = self.name + '.supercell_matrix.%s.pckl' % basis
-            fd = open(fname)
+            fd = open(fname, 'rb')
             self.g_xNNMM, M_a, nao_a = pickle.load(fd)
             fd.close()
         else:
@@ -459,7 +459,7 @@ class ElectronPhononCoupling(Displacement):
                 else:
                     fname = self.name + \
                             '.supercell_matrix_x_%2.2u.%s.pckl' % (x, basis)
-                fd = open(fname, 'r')
+                fd = open(fname, 'rb')
                 g_NNMM, M_a, nao_a = pickle.load(fd)
                 fd.close()
                 g_xNNMM.append(g_NNMM)
@@ -842,8 +842,8 @@ class ElectronPhononCoupling(Displacement):
                 name = '%s.%d%s' % (self.name, a, 'xyz'[v])
                 # Potential and atomic density matrix for atomic displacement
                 try:
-                    Vtm_G, dHm_asp = pickle.load(open(name + '-.pckl'))
-                    Vtp_G, dHp_asp = pickle.load(open(name + '+.pckl'))
+                    Vtm_G, dHm_asp = pickle.load(open(name + '-.pckl', 'rb'))
+                    Vtp_G, dHp_asp = pickle.load(open(name + '+.pckl', 'rb'))
                 except (IOError, EOFError):
                     raise IOError('%s(-/+).pckl' % name)
                 

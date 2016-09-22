@@ -346,7 +346,7 @@ class BSE:
         if self.wfile is not None:
             # Read screened potential from file
             try:
-                f = open(self.wfile)
+                f = open(self.wfile, 'rb')
                 print('Reading screened potential from % s' % self.wfile,
                       file=self.fd)
                 self.Q_qaGii, self.pd_q, self.W_qGG = pickle.load(f)
@@ -354,7 +354,7 @@ class BSE:
                 self.calculate_screened_potential(ac)
                 print('Saving screened potential to % s' % self.wfile,
                       file=self.fd)
-                f = open(self.wfile, 'w')
+                f = open(self.wfile, 'wb')
                 pickle.dump((self.Q_qaGii, self.pd_q, self.W_qGG),
                             f, pickle.HIGHEST_PROTOCOL)
         else:

@@ -28,7 +28,7 @@ class DatabaseHandler:
 
     def read(self):
         if os.path.isfile(self.filename):
-            self.data = pickle.load(file(self.filename))
+            self.data = pickle.load(open(self.filename, 'rb'))
         else:
             print('File does not exist, starting from scratch')
 

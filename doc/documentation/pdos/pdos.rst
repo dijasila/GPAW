@@ -174,7 +174,7 @@ Pickle script::
                                           P_aui=P_aui, raw=True)
         e_n.append(e)
         P_n.append(P)
-    pickle.dump((e_n, P_n), open('top.pickle', 'w'))
+    pickle.dump((e_n, P_n), open('top.pickle', 'wb'))
 
 Plot PDOS::
 
@@ -186,7 +186,7 @@ Plot PDOS::
 
     e_f = GPAW('top.gpw').get_fermi_level()
 
-    e_n, P_n = pickle.load(open('top.pickle'))
+    e_n, P_n = pickle.load(open('top.pickle', 'rb'))
     for n in range(2,7):
         e, ldos = fold(e_n[n] * Hartree, P_n[n], npts=2001, width=0.2)
         plot(e-e_f, ldos, label='Band: ' + str(n))

@@ -213,7 +213,7 @@ class DatasetOptimizer:
                       for x, (error, id) in ga.individuals.items())
         if 0:
             import pickle
-            pickle.dump(sorted(ga.individuals.values()), open('Zn.pckl', 'w'))
+            pickle.dump(sorted(ga.individuals.values()), open('Zn.pckl', 'wb'))
         if N is None:
             return len(best), best[0] + (ga.errors[best[0][1]],)
         else:
