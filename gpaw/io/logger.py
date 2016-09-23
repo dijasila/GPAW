@@ -13,6 +13,7 @@ import gpaw
 import _gpaw
 from gpaw.utilities.memory import maxrss
 from gpaw import dry_run, extra_parameters
+from gpaw.mpi import world
 
 
 class GPAWLogger(object):
@@ -90,6 +91,7 @@ class GPAWLogger(object):
         except ImportError:
             self('scipy:  Not available')
         self('units:  Angstrom and eV')
+        self('cores:  %d' % world.size)
 
         if gpaw.debug:
             self('DEBUG MODE')
@@ -101,23 +103,25 @@ class GPAWLogger(object):
 
     def print_dict(self, dct, sep='  '):
         options = np.get_printoptions()
-        np.set_printoptions(threshold=4, linewidth=50)
-        for key, value in sorted(dct.items()):
-            if hasattr(value, 'todict'):
-                value = value.todict()
-            if isinstance(value, dict):
-                sep = ',\n     ' + ' ' * len(key)
-                s = sep.join('{0}: {1}'.format(*item)
-                             for item in sorted(value.items()))
-                self('  {0}: {{{1}}}'.format(key, s))
-            elif hasattr(value, '__len__'):
-                value = np.asarray(value)
-                sep = ',\n    ' + ' ' * len(key)
-                s = sep.join(str(value).splitlines())
-                self('  {0}: {1}'.format(key, s))
-            else:
-                self('  {0}: {1}'.format(key, value))
-        np.set_printoptions(**options)
+        try:
+            np.set_printoptions(threshold=4, linewidth=50)
+            for key, value in sorted(dct.items()):
+                if hasattr(value, 'todict'):
+                    value = value.todict()
+                if isinstance(value, dict):
+                    sep = ',\n     ' + ' ' * len(key)
+                    s = sep.join('{0}: {1}'.format(*item)
+                                 for item in sorted(value.items()))
+                    self('  {0}: {{{1}}}'.format(key, s))
+                elif hasattr(value, '__len__'):
+                    value = np.asarray(value)
+                    sep = ',\n    ' + ' ' * len(key)
+                    s = sep.join(str(value).splitlines())
+                    self('  {0}: {1}'.format(key, s))
+                else:
+                    self('  {0}: {1}'.format(key, value))
+        finally:
+            np.set_printoptions(**options)
 
     def __del__(self):
         """Destructor:  Write timing output before closing."""

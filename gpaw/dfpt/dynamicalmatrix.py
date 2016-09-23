@@ -153,7 +153,7 @@ class DynamicalMatrix:
                 for v in [0, 1, 2]:
                     filename = self.name % (q, a, v)
                     try:
-                        fd = open(os.path.join(self.path, filename))
+                        fd = open(os.path.join(self.path, filename), 'rb')
                     except EOFError:
                         print(("Redo file %s "
                                % os.path.join(self.path, filename)))
