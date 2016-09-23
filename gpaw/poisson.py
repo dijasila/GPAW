@@ -54,7 +54,7 @@ def create_poisson_solver(name='fd', **kwargs):
 
 def PoissonSolver(dipolelayer=None, **kwargs):
     if dipolelayer is not None:
-        return DipoleCorrection(PoissonSolver(**kwargs), dipolelayer)
+        return DipoleCorrection(PoissonSolver(**kwargs), direction=dipolelayer)
     return FDPoissonSolver(**kwargs)
     
 
@@ -84,6 +84,11 @@ class FDPoissonSolver:
     def todict(self):
         return {'name': 'fd', 'nn': self.nn, 'relax': self.relax,
                 'eps': self.eps, 'remove_moment': self.remove_moment}
+
+    def write(self, writer):
+        d = self.todict()
+        for key, value in d.iteritems():
+            writer.write(key, value)
         
     def get_stencil(self):
         return self.nn
