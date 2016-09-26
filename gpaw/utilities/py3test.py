@@ -39,7 +39,7 @@ def run():
     failed.extend(results.errors + results.failures)
 
     if failed:
-        print(failed)
+        print(failed, file=sys.stderr)
     else:
         shutil.rmtree('testing')
 
@@ -49,6 +49,6 @@ def run():
 
 if __name__ == '__main__':
     if os.path.isdir('gpaw/testing'):
-        print('Failed ...')
+        print('Failed ...', file=sys.stderr)
     else:
         run()
