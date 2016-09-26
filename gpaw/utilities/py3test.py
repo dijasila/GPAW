@@ -6,6 +6,7 @@ Put this in crontab::
     58 13 * * * cd $ASE/..; PATH=$ASE/tools:$PATH PYTHONPATH=$ASE:$PYTHONPATH \
                 python3 -bb test.py --debug
 """
+from __future__ import print_function
 import os
 import shutil
 import subprocess
