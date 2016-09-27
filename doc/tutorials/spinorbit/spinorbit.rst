@@ -46,6 +46,7 @@ character along the z axis. The spin character is defined as
 
 and is useful for analyzing the degree of spin-orbit induced hybridization
 between spin up and spin down states. Examples of this will be given below.
+The implementation is documented in Ref. [#Olsen]_
 
 
 Band structure of bulk Pt
@@ -189,5 +190,7 @@ the experimental value of `70 \mu eV`.
 .. image:: anisotropy.png
            :height: 500 px
 
+.. [#Olsen] T. Olsen,
+            arXiv:1609.02338 (2016)
 .. [#Kane] M. Z. Hasan and C. L. Kane,
            *Rev. Mod. Phys.* **82**, 3045 (2010)
