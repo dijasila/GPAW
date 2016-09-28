@@ -621,7 +621,7 @@ Maximum number of SCF-iterations
 --------------------------------
 
 The calculation will stop with an error if convergence is not reached
-in ``maxiter`` self-consistent iterations (defaults to 120).
+in ``maxiter`` self-consistent iterations.
 
 
 .. _manual_txt:
