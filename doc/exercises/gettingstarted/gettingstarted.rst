@@ -24,17 +24,17 @@ are in order:
 
 * At the top is a series of *import statements*.  These load the
   python modules we are going to use.
-* An :class:`~ase.atoms.Atoms` object is created, specifying an initial
+* An :class:`~ase.Atoms` object is created, specifying an initial
   (possibly bad) guess for the atomic positions.
 * An :class:`~ase.calculators.emt.EMT` calculator is created.  A
   *calculator* can evaluate
   quantities such as energies and forces on a collection of atoms.
   There are different kinds of calculators, and EMT is a particularly
-  simple one.  The calculator is associated with the :class:`~ase.atoms.Atoms`
+  simple one.  The calculator is associated with the :class:`~ase.Atoms`
   object by calling ``atoms.set_calculator(calc)``.
 * An :mod:`optimizer <ase.optimize>` is created and
   associated with the
-  :class:`~ase.atoms.Atoms` object.  It is also given an optional argument,
+  :class:`~ase.Atoms` object.  It is also given an optional argument,
   ``trajectory``, which specifies the name of a file into which the
   positions will be saved for each step in the geometry optimization.
 * Finally the call ``opt.run(fmax=0.05)`` will run the
@@ -62,7 +62,7 @@ The empirical EMT potential is fast, but not very accurate for
 molecules in particular.  We therefore want to perform this
 calculation in GPAW instead.  GPAW uses real-space grids to represent
 density and wavefunctions, and the grids exist in a cell.  For this
-reason you must set a cell for the :class:`~ase.atoms.Atoms` object.  As a
+reason you must set a cell for the :class:`~ase.Atoms` object.  As a
 coarse value let us use a 6 Ångström cell::
 
   system.set_cell((6.0, 6.0, 6.0))
