@@ -20,9 +20,9 @@ from gpaw.utilities.partition import AtomPartition
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
 
-    
+
 class Hamiltonian(object):
-   
+
     def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
                  redistributor, vext=None):
         self.gd = gd
@@ -33,7 +33,7 @@ class Hamiltonian(object):
         self.xc = xc
         self.world = world
         self.redistributor = redistributor
-        
+
         self.atomdist = None
         self.dH_asp = None
         self.vt_sG = None
@@ -48,7 +48,7 @@ class Hamiltonian(object):
         self.e_external = None
         self.e_xc = None
         self.e_entropy = None
-        
+
         self.e_total_free = None
         self.e_total_extrapolated = None
         self.e_kinetic0 = None
@@ -61,7 +61,7 @@ class Hamiltonian(object):
         self.vext = vext  # external potential
 
         self.positions_set = False
-        
+
     @property
     def dH_asp(self):
         assert isinstance(self._dH_asp, ArrayDict) or self._dH_asp is None
@@ -84,14 +84,14 @@ class Hamiltonian(object):
         s = 'Hamiltonian:\n'
         s += ('  XC and Coulomb potentials evaluated on a {0}*{1}*{2} grid\n'
               .format(*self.finegd.N_c))
-        s += '  Using the %s Exchange-Correlation Functional\n' % self.xc.name
+        s += '  Using the %s Exchange-Correlation functional\n' % self.xc.name
         desc = self.xc.get_description()
         if desc is not None:
             s += '  Details:\n    {0}\n'.format('\n'.join(desc.splitlines()))
         if self.vext is not None:
             s += '  External potential:\n    {0}\n'.format(self.vext)
         return s
-    
+
     def summary(self, fermilevel, log):
         log('Energy contributions relative to reference atoms:',
             '(reference = {0:.6f})\n'.format(self.setups.Eref * Ha))
@@ -151,7 +151,7 @@ class Hamiltonian(object):
         self.xc.set_positions(spos_ac)
         self.set_positions_without_ruining_everything(spos_ac, atom_partition)
         self.positions_set = True
-        
+
     def aoom(self, DM, a, l, scale=1):
         """Atomic Orbital Occupation Matrix.
 
@@ -484,7 +484,7 @@ class Hamiltonian(object):
             if energy is not None:
                 energy *= Ha
             writer.write(name, energy)
-        
+
         writer.write(
             potential=self.gd.collect(self.vt_sG) * Ha,
             atomic_hamiltonian_matrices=pack_atomic_matrices(self.dH_asp) * Ha)

@@ -102,9 +102,9 @@ class BaseSetup:
 
     Maybe this class will be removed in the future, or it could be
     made a proper base class with attributes and so on."""
-    
+
     orbital_free = False
-    
+
     def print_info(self, text):
         self.data.print_info(text, self)
 
@@ -179,7 +179,7 @@ class BaseSetup:
                                2 * l_j + 1, False)
             correct_for_charge(f_sj[1], f_sj[1].sum() - ndown,
                                2 * l_j + 1, False)
-        
+
         # Projector function indices:
         nj = len(self.n_j)  # or l_j?  Seriously.
 
@@ -235,7 +235,7 @@ class BaseSetup:
             else:
                 return M
         raise RuntimeError
-    
+
     def initialize_density_matrix(self, f_si):
         nspins, nao = f_si.shape
         ni = self.ni
@@ -323,7 +323,7 @@ class BaseSetup:
         <p|p>=1
         Note U is in atomic units
         """
-        
+
         self.HubLinRes = LinRes
         self.Hubs = scale
         self.HubStore = store
@@ -385,7 +385,7 @@ class BaseSetup:
         # https://wiki.fysik.dtu.dk/gpaw/devel/overview.html
 
         G_LLL = gaunt(max(self.l_j))
-        
+
         # calculate the integrals
         _np = ni * (ni + 1) // 2  # length for packing
         self.I4_pp = np.empty((_np, _np))
@@ -462,7 +462,7 @@ class LeanSetup(BaseSetup):
 
         self.E = s.E
         self.Kc = s.Kc
-        
+
         self.M = s.M
         self.M_p = s.M_p
         self.M_pp = s.M_pp
@@ -486,7 +486,7 @@ class LeanSetup(BaseSetup):
         # Below are things which are not really used all that much,
         # i.e. shouldn't generally be necessary.  Maybe we can make a system
         # involving dictionaries for these "optional" parameters
-        
+
         # Required by print_info
         self.rcutfilter = s.rcutfilter
         self.rcore = s.rcore
@@ -524,13 +524,13 @@ class LeanSetup(BaseSetup):
 
         # Required by utilities/kspot.py (AllElectronPotential)
         self.g_lg = s.g_lg
-        
+
         # Probably empty dictionary, required by GLLB
         self.extra_xc_data = s.extra_xc_data
 
         self.orbital_free = s.orbital_free
 
-        
+
 class Setup(BaseSetup):
     """Attributes:
 
@@ -595,13 +595,13 @@ class Setup(BaseSetup):
     """
     def __init__(self, data, xc, lmax=0, basis=None, filter=None):
         self.type = data.name
-        
+
         self.HubU = None
 
         if not data.is_compatible(xc):
             raise ValueError('Cannot use %s setup with %s functional' %
                              (data.setupname, xc.get_setup_name()))
-        
+
         self.symbol = data.symbol
         self.data = data
 
@@ -620,7 +620,7 @@ class Setup(BaseSetup):
         self.X_p = data.X_p
 
         self.orbital_free = data.orbital_free
-        
+
         pt_jg = data.pt_jg
         phit_jg = data.phit_jg
         phi_jg = data.phi_jg
@@ -633,7 +633,7 @@ class Setup(BaseSetup):
         dr_g = rgd.dr_g
 
         self.lmax = lmax
-            
+
         rcutmax = max(rcut_j)
         rcut2 = 2 * rcutmax
         gcut2 = rgd.ceil(rcut2)
@@ -663,7 +663,7 @@ class Setup(BaseSetup):
         else:
             rcutfilter = max(rcut_j)
             gcutfilter = rgd.ceil(rcutfilter)
-        
+
         self.rcutfilter = rcutfilter = r_g[gcutfilter]
         assert (data.vbar_g[gcutfilter:] == 0).all()
 
@@ -771,10 +771,10 @@ class Setup(BaseSetup):
         A -= 0.5 * np.dot(mct_g, wmct_g)
         self.M = A
         self.MB = -np.dot(dv_g * nct_g, vbar_g)
-        
+
         AB_q = -np.dot(nt_qg, dv_g * vbar_g)
         self.MB_p = np.dot(AB_q, T_Lqp[0])
-        
+
         # Correction for average electrostatic potential:
         #
         #   dEH = dEH0 + dot(D_p, dEH_p)
@@ -784,7 +784,7 @@ class Setup(BaseSetup):
         dEh_q = (wn_lqg[0].sum(1) - wnt_lqg[0].sum(1) -
                  Delta_lq[0] * wg_lg[0].sum())
         self.dEH_p = np.dot(dEh_q, T_Lqp[0]) * sqrt(4 * pi)
-        
+
         M_p, M_pp = self.calculate_coulomb_corrections(lcut, n_qg, wn_lqg,
                                                        lmax, Delta_lq,
                                                        wnt_lqg, g_lg,
@@ -807,7 +807,7 @@ class Setup(BaseSetup):
                         (self.njcore, -1))
                     self.uc_jg = self.uc_jg[:, :gcut2]
                 self.phi_jg = phi_jg
-            
+
         self.Kc = data.e_kinetic_core - data.e_kinetic
         self.M -= data.e_electrostatic
         self.E = data.e_total
@@ -816,19 +816,19 @@ class Setup(BaseSetup):
         self.dO_ii = data.get_overlap_correction(Delta0_ii)
         self.dC_ii = self.get_inverse_overlap_coefficients(self.B_ii,
                                                            self.dO_ii)
-        
+
         self.Delta_iiL = np.zeros((ni, ni, self.Lmax))
         for L in range(self.Lmax):
             self.Delta_iiL[:, :, L] = unpack(self.Delta_pL[:, L].copy())
 
         self.Nct = data.get_smooth_core_density_integral(Delta0)
         self.K_p = data.get_linear_kinetic_correction(T_Lqp[0])
-        
+
         r = 0.02 * rcut2 * np.arange(51, dtype=float)
         alpha = data.rcgauss**-2
         self.ghat_l = data.get_ghat(lmax, alpha, r, rcut2)
         self.rcgauss = data.rcgauss
-        
+
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
         self.rnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
@@ -901,7 +901,7 @@ class Setup(BaseSetup):
                 p += 1
             i1 += 1
         return T_Lqp
-    
+
     def calculate_projector_overlaps(self, pt_jg):
         """Compute projector function overlaps B_ii = <pt_i | pt_i>."""
         nj = len(pt_jg)
@@ -928,7 +928,7 @@ class Setup(BaseSetup):
         nq = self.nq
 
         g_lg = self.data.create_compensation_charge_functions(lmax)
-        
+
         n_qg = np.zeros((nq, gcut2))
         nt_qg = np.zeros((nq, gcut2))
         q = 0  # q: common index for j1, j2
@@ -937,7 +937,7 @@ class Setup(BaseSetup):
                 n_qg[q] = phi_jg[j1] * phi_jg[j2]
                 nt_qg[q] = phit_jg[j1] * phit_jg[j2]
                 q += 1
-        
+
         gcutmin = self.gcutmin
         r_g = self.rgd2.r_g
         dr_g = self.rgd2.dr_g
@@ -972,7 +972,7 @@ class Setup(BaseSetup):
         """Calculate PAW-correction matrix elements of nabla.
 
         ::
-        
+
           /  _       _  d       _     ~   _  d   ~   _
           | dr [phi (r) -- phi (r) - phi (r) -- phi (r)]
           /        1    dx    2         1    dx    2
@@ -1016,7 +1016,7 @@ class Setup(BaseSetup):
         """Calculate PAW-correction matrix elements of r x nabla.
 
         ::
-        
+
           /  _       _          _     ~   _      ~   _
           | dr [phi (r) O  phi (r) - phi (r) O  phi (r)]
           /        1     x    2         1     x    2
@@ -1029,7 +1029,7 @@ class Setup(BaseSetup):
 
         G_LLL = gaunt(max(self.l_j))
         Y_LLv = nabla(max(self.l_j))
-        
+
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         rnabla_iiv = np.zeros((self.ni, self.ni, 3))
@@ -1101,7 +1101,7 @@ class Setup(BaseSetup):
             def __init__(self, symbol, phit_j):
                 Basis.__init__(self, symbol, 'partial-waves', readxml=False)
                 self.phit_j = phit_j
-                
+
             def tosplines(self):
                 return self.phit_j
 
@@ -1150,7 +1150,7 @@ class Setups(list):
     Non-distinct atoms are those with the same atomic number, setup, and basis.
 
     Class attributes:
-    
+
     ``nvalence``    Number of valence electrons.
     ``nao``         Number of atomic orbitals.
     ``Eref``        Reference energy.
@@ -1258,10 +1258,10 @@ class Setups(list):
             basis_descr = setup.get_basis_description()
             basis_descr = basis_descr.replace('\n  ', '\n    ')
             s += txt + '  ' + basis_descr + '\n\n'
-            
-        s += 'Reference Energy: %.6f\n' % (self.Eref * units.Hartree)
+
+        s += 'Reference energy: %.6f\n' % (self.Eref * units.Hartree)
         return s
-        
+
     def set_symmetry(self, symmetry):
         """Find rotation matrices for spherical harmonics."""
         R_slmm = []
@@ -1269,7 +1269,7 @@ class Setups(list):
             op_vv = np.dot(np.linalg.inv(symmetry.cell_cv),
                            np.dot(op_cc, symmetry.cell_cv))
             R_slmm.append([rotation(l, op_vv) for l in range(4)])
-        
+
         for setup in self.setups.values():
             setup.calculate_rotations(R_slmm)
 
@@ -1281,7 +1281,7 @@ class Setups(list):
 
 def types2atomtypes(symbols, types, default):
     """Map a types identifier to a list with a type id for each atom.
-    
+
     types can be a single str, or a dictionary mapping chemical
     symbols and/or atom numbers to a type identifier.
     If both a symbol key and atomnumber key relates to the same atom, then
@@ -1314,7 +1314,7 @@ def types2atomtypes(symbols, types, default):
 
     return type_a
 
-    
+
 if __name__ == '__main__':
     print("""\
 You are using the wrong setup.py script!  This setup.py defines a

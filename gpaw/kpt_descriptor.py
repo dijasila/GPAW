@@ -206,7 +206,7 @@ class KPointDescriptor:
                             s += '%f,' % x
                     s = s[:-1] + ']'
 
-        s += ('\n%d k-point%s in the Irreducible Part of the Brillouin Zone\n'
+        s += ('\n%d k-point%s in the irreducible part of the Brillouin zone\n'
               % (self.nibzkpts, ' s'[1:self.nibzkpts]))
 
         w_k = self.weight_k * self.nbzkpts
