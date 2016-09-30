@@ -1,6 +1,7 @@
 """Module defining an eigensolver base-class."""
 
 import numpy as np
+from ase.utils.timing import timer
 
 from gpaw.utilities.blas import axpy
 from gpaw.utilities import unpack
@@ -99,6 +100,7 @@ class Eigensolver:
                                       calculate_change)
         wfs.pt.add(R_xG, c_axi, kpt.q)
         
+    @timer('Subspace diag')
     def subspace_diagonalize(self, hamiltonian, wfs, kpt):
         """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
 
@@ -122,8 +124,6 @@ class Eigensolver:
         if self.band_comm.size > 1 and wfs.bd.strided:
             raise NotImplementedError
 
-        self.timer.start('Subspace diag')
-
         psit_nG = kpt.psit_nG
         P_ani = kpt.P_ani
         dH_asp = hamiltonian.dH_asp
@@ -133,40 +133,49 @@ class Eigensolver:
         else:
             Htpsit_nG = None
 
-        def H(psit_xG):
-            if self.keep_htpsit:
-                result_xG = Htpsit_nG
-            else:
-                result_xG = reshape(self.operator.work1_xG, psit_xG.shape)
-            wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
-                                         result_xG)
-            return result_xG
+        def H(psit_n, Htpsit_n):
+            print(psit_n.data.shape,Htpsit_n.data.shape)
+            wfs.apply_pseudo_hamiltonian(kpt, hamiltonian,
+                                         psit_n.data, Htpsit_n.data)
 
-        def dH(a, P_ni):
-            return np.dot(P_ni, unpack(dH_asp[a][kpt.s]))
+        dH_aii = [unpack(dH_asp[a][kpt.s]) for a in P_ani]
+        
+        def dH(P_n, P2_n):
+            for P_ni, P2_ni, dH_ii in zip(P_n, P2_n, dH_aii):
+                P2_ni[:] = np.dot(P_ni, dH_ii)
 
-        self.timer.start('calc_h_matrix')
-        H_nn = self.operator.calculate_matrix_elements(psit_nG, P_ani,
-                                                       H, dH)
-        hamiltonian.xc.correct_hamiltonian_matrix(kpt, H_nn)
-        self.timer.stop('calc_h_matrix')
+        from gpaw.matrix import Matrix
+        psit_n = Matrix(psit_nG, wfs.gd)
+        Htpsit_n = Matrix(Htpsit_nG, wfs.gd)
+        N = len(psit_nG)
+        H_nn = Matrix(np.empty((N, N), wfs.dtype))
+        P_n = Matrix(P_ani)
+        dHP_n = P_n.empty_like()
+
+        with self.timer('calc_h_matrix'):
+            Htpsit_n[:] = H * psit_n
+            H_nn[:] = (psit_n | Htpsit_n)
+            dHP_n[:] = dH * P_n
+            H_nn += P_n.C * dHP_n.T
+
+            hamiltonian.xc.correct_hamiltonian_matrix(kpt, H_nn.data)
 
         diagonalization_string = repr(self.ksl)
         wfs.timer.start(diagonalization_string)
-        self.ksl.diagonalize(H_nn, kpt.eps_n)
+        self.ksl.diagonalize(H_nn.data, kpt.eps_n)
         # H_nn now contains the result of the diagonalization.
         wfs.timer.stop(diagonalization_string)
 
-        self.timer.start('rotate_psi')
-        psit_nG = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
-        if self.keep_htpsit:
-            Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_nG,
-                                                      out_nG=kpt.psit_nG)
+        with self.timer('rotate_psi'):
+            if self.keep_htpsit:
+                Htpsit_n[:] = H_nn * Htpsit_n
+            psit_n[:] = H_nn * psit_n
+            P_n[:] = H_nn * P_n
+            P_n.extract(P_ani)
 
-        # Rotate orbital dependent XC stuff:
-        hamiltonian.xc.rotate(kpt, H_nn)
+            # Rotate orbital dependent XC stuff:
+            hamiltonian.xc.rotate(kpt, H_nn)
 
-        self.timer.stop('rotate_psi')
         self.timer.stop('Subspace diag')
 
         return psit_nG, Htpsit_nG

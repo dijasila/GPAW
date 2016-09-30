@@ -114,99 +114,23 @@ class MatrixOperator:
         if self.work1_xG is None:
             self.work1_xG = self.gd.empty(N, self.dtype)
 
-        band_comm = self.bd.comm
-        B = band_comm.size
-        J = self.nblocks
-
-        C_NN = self.bmd.redistribute_input(C_NN)
-
-        if B == 1 and J == 1:
-            # Simple case:
-            work_nG = reshape(self.work1_xG, psit_nG.shape)
-            if out_nG is None:
-                out_nG = work_nG
-                out_nG[:] = 117  # gemm may not like nan's
-            elif out_nG is psit_nG:
-                work_nG[:] = psit_nG
-                psit_nG = work_nG
-            self.gd.gemm(1.0, psit_nG, C_NN, 0.0, out_nG)
-            if P_ani:
-                for P_ni in P_ani.values():
-                    gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
-            return out_nG
-
-        asdfhjg
-        # Now it gets nasty! We parallelize over B groups of bands and
-        # each grid chunk is divided in J smaller slices (less memory).
-
-        Q = B  # always non-hermitian XXX
-        rank = band_comm.rank
-        shape = psit_nG.shape
-        psit_nG = psit_nG.reshape(N, -1)
-        G = psit_nG.shape[1]  # number of grid-points
-        g = int(np.ceil(G / float(J)))
-
-        # Buffers for send/receive of pre-multiplication versions of P_ani's.
-        sbuf_nI = rbuf_nI = None
-        if P_ani:
-            sbuf_nI = np.hstack([P_ni for P_ni in P_ani.values()])
-            sbuf_nI = np.ascontiguousarray(sbuf_nI)
-            if B > 1:
-                rbuf_nI = np.empty_like(sbuf_nI)
-
-        # Because of the amount of communication involved, we need to
-        # be syncronized up to this point but only on the 1D band_comm
-        # communication ring
-        band_comm.barrier()
-        while g * J >= G + g:  # remove extra slice(s)
-            J -= 1
-        assert 0 < g * J < G + g
-
-        work1_xG = reshape(self.work1_xG, (self.X,) + psit_nG.shape[1:])
-        work2_xG = reshape(self.work2_xG, (self.X,) + psit_nG.shape[1:])
-
-        for j in range(J):
-            G1 = j * g
-            G2 = G1 + g
-            if G2 > G:
-                G2 = G
-                g = G2 - G1
-            sbuf_ng = reshape(work1_xG, (N, g))
-            rbuf_ng = reshape(work2_xG, (N, g))
-            sbuf_ng[:] = psit_nG[:, G1:G2]
-            beta = 0.0
-            cycle_P_ani = (j == J - 1 and P_ani)
-            for q in range(Q):
-                # Start sending currently buffered kets to rank below
-                # and receiving next set of kets from rank above us.
-                # If we're at the last slice, start cycling P_ani too.
-                if q < Q - 1:
-                    self._initialize_cycle(sbuf_ng, rbuf_ng,
-                                           sbuf_nI, rbuf_nI, cycle_P_ani)
-
-                # Calculate wave-function contributions from the current slice
-                # of grid data by the current mynbands x mynbands matrix block.
-                C_nn = self.bmd.extract_block(C_NN, (rank + q) % B, rank)
-                self.gd.gemm(1.0, sbuf_ng, C_nn, beta, psit_nG[:, G1:G2])
-
-                # If we're at the last slice, add contributions to P_ani's.
-                if cycle_P_ani:
-                    I1 = 0
-                    for P_ni in P_ani.values():
-                        I2 = I1 + P_ni.shape[1]
-                        gemm(1.0, sbuf_nI[:, I1:I2], C_nn, beta, P_ni)
-                        I1 = I2
-
-                # Wait for all send/receives to finish before next iteration.
-                # Swap send and receive buffer such that next becomes current.
-                # If we're at the last slice, also finishes the P_ani cycle.
-                if q < Q - 1:
-                    sbuf_ng, rbuf_ng, sbuf_nI, rbuf_nI = self._finish_cycle(
-                        sbuf_ng, rbuf_ng, sbuf_nI, rbuf_nI, cycle_P_ani)
-
-                # First iteration was special because we initialized the kets
-                if q == 0:
-                    beta = 1.0
-
-        psit_nG.shape = shape
-        return psit_nG
+        work_nG = reshape(self.work1_xG, psit_nG.shape)
+        if out_nG is None:
+            out_nG = work_nG
+            out_nG[:] = 117  # gemm may not like nan's
+        elif out_nG is psit_nG:
+            work_nG[:] = psit_nG
+            psit_nG = work_nG
+        
+        from gpaw.matrix import Matrix
+        psit_n = Matrix(psit_nG, self.gd)
+        out_n = Matrix(out_nG, self.gd)
+        C_nn = Matrix(C_NN)
+        P_n = Matrix(P_ani)
+        P2_n = P_n.empty_like()
+        
+        out_n[:] = C_nn * psit_n
+        P2_n[:] = C_nn * P_n
+        P2_n.extract(P_ani)
+        
+        return out_nG

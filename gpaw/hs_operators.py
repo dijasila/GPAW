@@ -6,7 +6,7 @@ from __future__ import division
 import numpy as np
 
 from gpaw.utilities.blas import gemm
-from gpaw.blacs_hs_operators import MatrixOperator
+#from gpaw.blacs_hs_operators import MatrixOperator
 
 
 def reshape(a_x, shape):
@@ -14,7 +14,7 @@ def reshape(a_x, shape):
     return a_x.ravel()[:np.prod(shape)].reshape(shape)
 
 
-class MatrixOperator0:
+class MatrixOperator:
     """Base class for overlap and hamiltonian operators.
 
     Due to optimized BLAS usage, matrices are considered
