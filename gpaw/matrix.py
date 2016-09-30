@@ -12,15 +12,23 @@ class RealSpaceGridDescriptor:
 
         
 class ProjectorDescriptor:
+    def __init__(self, P_ani):
+        self.slices = []
+        I1 = 0
+        for a, P_ni in P_ani.items():
+            I2 = I1 + P_ni.shape[1]
+            self.slices.append((I1, I2))
+            I1 = I2
+        self.I = I
+        
     def sum(self, x):
         pass
 
     def convert_to_raw_data(self, P_ani):
-        I = 0
-        for P_ni in P_ani.values():
-            I += P_ni.shape[1]
-        if I:
-            P_nI = np.empty((P_ni.shape[0], I), P_ni.dtype)
+        if self.I == 0:
+            return np.zeros((0, 0))
+            .............................................................................................
+        P_nI = np.empty((P_ani.shape[0], I), P_ni.dtype)
             I1 = 0
             for a, P_ni in P_ani.items():
                 I2 = I1 + P_ni.shape[1]
@@ -28,7 +36,6 @@ class ProjectorDescriptor:
                 I1 = I2
             return P_nI
         else:
-            return np.zeros((0, 0))
             
     def extract(self, P_nI, P_ani):
         I1 = 0
@@ -81,6 +88,8 @@ class Matrix:
     def empty_like(self):
         return Matrix(np.empty_like(self.data), self.descriptor, raw=True)
 
+    def __iter__(self):
+        
     def extract(self, target):
         self.descriptor.extract(self.data, target)
         
