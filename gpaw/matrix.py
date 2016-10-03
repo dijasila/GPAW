@@ -19,7 +19,7 @@ class ProjectorDescriptor:
             I2 = I1 + P_ni.shape[1]
             self.slices.append((I1, I2))
             I1 = I2
-        self.I = I2
+        self.I = I1
 
     def sum(self, x):
         pass
@@ -169,10 +169,10 @@ class Product:
             if opa in 'NC':
                 a.descriptor.sum(c)
             if beta == 0:
-                destination.data[:] = c
+                destination.data[:] = alpha * c
             else:
                 assert beta == 1
-                destination.data += c
+                destination.data += alpha * c
 
     def __mul__(self, x):
         return Product(self, x)

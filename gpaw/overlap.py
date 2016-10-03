@@ -14,6 +14,7 @@ from gpaw.utilities.tools import tri2full
 from gpaw import extra_parameters
 from gpaw.utilities.lapack import diagonalize
 
+
 class Overlap:
     """Overlap operator S
 
@@ -25,7 +26,7 @@ class Overlap:
         """Create the Overlap operator."""
         self.ksl = ksl
         self.timer = timer
-        
+
     def orthonormalize(self, wfs, kpt, psit_nG=None):
         """Orthonormalizes the vectors a_nG with respect to the overlap.
 
@@ -57,6 +58,8 @@ class Overlap:
         self.timer.start('Orthonormalize')
         if psit_nG is None:
             psit_nG = kpt.psit_nG
+        else:
+            asdfhjg
         P_ani = kpt.P_ani
         self.timer.start('projections')
         wfs.pt.integrate(psit_nG, P_ani, kpt.q)
@@ -67,13 +70,30 @@ class Overlap:
 
         def S(psit_G):
             return psit_G
-        
-        def dS(a, P_ni):
+
+        def dS0(a, P_ni):
             return np.dot(P_ni, wfs.setups[a].dO_ii)
 
-        self.timer.start('calc_s_matrix')
-        S_nn = operator.calculate_matrix_elements(psit_nG, P_ani, S, dS)
-        self.timer.stop('calc_s_matrix')
+        dS_aii = [wfs.setups[a].dO_ii for a in P_ani]
+
+        def dS(P_n, P2_n):
+            for P_ni, P2_ni, dS_ii in zip(P_n, P2_n, dS_aii):
+                P2_ni[:] = np.dot(P_ni, dS_ii)
+
+        from gpaw.matrix import Matrix
+        psit_n = Matrix(psit_nG, wfs.gd)
+        N = len(psit_nG)
+        S_nn = Matrix(np.empty((N, N), wfs.dtype))
+        P_n = Matrix(P_ani)
+        dSP_n = P_n.empty_like()
+
+        with self.timer('calc_s_matrix'):
+            S_nn[:] = (psit_n | psit_n)
+            dSP_n[:] = dS * P_n
+            S_nn += P_n.C * dSP_n.T
+
+        #S_nn = operator.calculate_matrix_elements(psit_nG, P_ani, S, dS)
+        #self.timer.stop('calc_s_matrix')
 
         orthonormalization_string = repr(self.ksl)
         self.timer.start(orthonormalization_string)
@@ -88,16 +108,18 @@ class Overlap:
             S_nn = np.dot(np.dot(S_nn.T.conj(), nrm_nn), S_nn)
         else:
             #
-            self.ksl.inverse_cholesky(S_nn)
+            self.ksl.inverse_cholesky(S_nn.data)
         # S_nn now contains the inverse of the Cholesky factorization.
         # Let's call it something different:
         C_nn = S_nn
         del S_nn
         self.timer.stop(orthonormalization_string)
 
-        self.timer.start('rotate_psi')
-        operator.matrix_multiply(C_nn, psit_nG, P_ani, out_nG=kpt.psit_nG)
-        self.timer.stop('rotate_psi')
+        with self.timer('rotate_psi_s'):
+            psit_n[:] = C_nn * psit_n
+            P_n[:] = C_nn * P_n
+            P_n.extract(P_ani)
+
         self.timer.stop('Orthonormalize')
 
     def apply(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):

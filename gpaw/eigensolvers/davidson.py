@@ -263,4 +263,5 @@ class Davidson(Eigensolver):
 
         self.timer.stop('Davidson')
         error = gd.comm.sum(error)
-        return error, psit_nG
+        kpt.psit_nG[:] = psit_nG
+        return error, 'sdfg'
