@@ -29,7 +29,7 @@ from gpaw.wavefunctions.mode import Mode
 
 class PW(Mode):
     name = 'pw'
-    
+
     def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None,
                  force_complex_dtype=False):
         """Plane-wave basis mode.
@@ -48,7 +48,7 @@ class PW(Mode):
             self.cell_cv = None
         else:
             self.cell_cv = cell / units.Bohr
-        
+
         Mode.__init__(self, force_complex_dtype)
 
     def __call__(self, diagksl, orthoksl, initksl, gd, *args, **kwargs):
@@ -70,7 +70,7 @@ class PW(Mode):
         if self.cell_cv is not None:
             dct['cell'] = self.cell_cv * units.Bohr
         return dct
-        
+
 
 class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
@@ -86,7 +86,7 @@ class PWDescriptor:
 
         N_c = gd.N_c
         self.comm = gd.comm
-        
+
         ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
 
         if ecut is None:
@@ -99,7 +99,7 @@ class PWDescriptor:
                     'See the ase.build.niggli_reduce() function.')
 
         self.ecut = ecut
-                
+
         if dtype is None:
             if kd is None or kd.gamma:
                 dtype = float
@@ -441,11 +441,11 @@ def count_reciprocal_vectors(ecut, gd, q_c):
     B_cv = 2.0 * pi * gd.icell_cv
     i_Qc.shape = (-1, 3)
     Gpq_Qv = np.dot(i_Qc, B_cv) + np.dot(q_c, B_cv)
-    
+
     G2_Q = (Gpq_Qv**2).sum(axis=1)
     return (G2_Q <= 2 * ecut).sum()
 
-            
+
 class Preconditioner:
     """Preconditioner for KS equation.
 
@@ -664,7 +664,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         if 'coefficients' not in reader.wave_functions:
             return
-            
+
         Q_kG = reader.wave_functions.indices
         for kpt in self.kpt_u:
             if kpt.s == 0:
@@ -682,7 +682,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                                       kpt.s, kpt.k)
             kpt.psit_nG.scale = c
             kpt.psit_nG.length_of_last_dimension = ng
-            
+
         if self.world.size == 1:
             return
 
@@ -752,7 +752,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                              'Please supply GPAW(..., dtype=complex, ...) '
                              'as an argument to the calculator to enforce '
                              'complex wavefunctions.')
-        
+
         if nbands is None:
             nbands = self.pd.ngmin // self.bd.comm.size * self.bd.comm.size
         else:
@@ -796,7 +796,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         pb = ProgressBar(log.fd)
         nkpt = len(self.kpt_u)
-        
+
         for u, kpt in enumerate(self.kpt_u):
             pb.update(u / nkpt)
             npw = len(self.pd.Q_qG[kpt.q])
@@ -842,9 +842,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt.f_n = None
 
         pb.finish()
-        
+
         occupations.calculate(self)
-        
+
         return nbands
 
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
@@ -946,7 +946,7 @@ class PWLFC(BaseLFC):
         self.dtype = pd.dtype
 
         self.initialized = False
-        
+
         # These will be filled in later:
         self.lf_aj = []
         self.Y_qLG = []
@@ -971,7 +971,7 @@ class PWLFC(BaseLFC):
     def initialize(self):
         if self.initialized:
             return
-            
+
         cache = {}
         lmax = -1
 
@@ -999,7 +999,7 @@ class PWLFC(BaseLFC):
             for L in range((lmax + 1)**2):
                 Y_LG[L] = Y(L, *G_Gv.T)
             self.Y_qLG.append(Y_LG)
-            
+
         self.initialized = True
 
     def estimate_memory(self, mem):
@@ -1381,14 +1381,14 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
             def estimate_memory(self, mem):
                 pass
-                
+
             def todict(self):
                 return {}
 
         if psolver:
             raise NotImplementedError('Unknown parameters: {0}'
                                       .format(', '.join(psolver)))
-            
+
         self.poisson = PS()
         self.npoisson = 0
 

@@ -1,97 +1,30 @@
 import numpy as np
 
 
-class RealSpaceGridDescriptor:
-    def __init__(self, gd):
-        self.dv = gd.dv
-        self.sum = gd.comm.sum
-        self.size = gd.n_c.prod()
-
-    def convert_to_raw_data(self, data):
-        return data
-
-
-class ProjectorDescriptor:
-    def __init__(self, P_ani):
-        self.slices = []
-        I1 = 0
-        for a, P_ni in P_ani.items():
-            I2 = I1 + P_ni.shape[1]
-            self.slices.append((I1, I2))
-            I1 = I2
-        self.I = I1
-
-    def sum(self, x):
-        pass
-
-    def convert_to_raw_data(self, P_ani):
-        if self.I == 0:
-            return np.zeros((0, 0))
-
-        for P_ni in P_ani.values():
-            P_nI = np.empty((P_ni.shape[0], self.I), P_ni.dtype)
-            break
-        for P_ni, (I1, I2) in zip(P_ani.values(), self.slices):
-            P_nI[:, I1:I2] = P_ni
-        return P_nI
-
-    def extract(self, P_nI, P_ani):
-        I1 = 0
-        for a, P_ni in P_ani.items():
-            I2 = I1 + P_ni.shape[1]
-            P_ni[:] = P_nI[:, I1:I2]
-            I1 = I2
-
-
-class SimpleDescriptor:
-    def convert_to_raw_data(self, data):
-        return data
-
-    def sum(self, x):
-        pass
-
-
-def op(opx, x):
-    x = x.data.reshape((len(x.data), -1))
-    if opx == 'N':
-        return x
-    if opx == 'T':
-        return x.T
-    if opx == 'C':
-        return x.conj()
-    return x.T.conj()
+def matrix(data, descriptor=None):
+    if isinstance(data, dict):
+        return ProjectorMatrix(data, descriptor)
+    if descriptor:
+        if data.ndim == 2:
+            return PWExpansionMatrix(data, descriptor.pd)
+        else:
+            return RealSpaceMatrix(data, descriptor.gd)
+    return Matrix(data)
 
 
 class Matrix:
-    def __init__(self, data, descriptor=None, raw=False):
-        if raw:
-            self.data = data
-        else:
-            if isinstance(data, dict):
-                descriptor = ProjectorDescriptor(data)
-            elif descriptor:
-                descriptor = RealSpaceGridDescriptor(descriptor)
-            else:
-                data = np.asarray(data)
-                descriptor = SimpleDescriptor()
-
-            self.data = descriptor.convert_to_raw_data(data)
-
-        self.descriptor = descriptor
+    def __init__(self, data):
+        self.data = np.asarray(data)
         self.source = None
 
     def __str__(self):
         return str(self.data)
 
+    def sum(self, x):
+        pass
+
     def empty_like(self):
-        return Matrix(np.empty_like(self.data), self.descriptor, raw=True)
-
-    def __iter__(self):
-        for I1, I2 in self.descriptor.slices:
-            yield self.data[:, I1:I2]
-
-    def extract(self, target):
-        self.descriptor.extract(self.data, target)
+        return Matrix(np.empty_like(self.data))
 
     def __setitem__(self, i, x):
         #assert i == slice(None)
@@ -117,7 +50,7 @@ class Matrix:
         return Product(x, ('N', self))
 
     def __or__(self, x):
-        return Product(self.descriptor.dv, Product(('C', self), ('T', x)))
+        return Product(self.dv, Product(('C', self), ('T', x)))
 
     @property
     def T(self):
@@ -130,6 +63,79 @@ class Matrix:
     @property
     def H(self):
         return Product(('H', self))
+
+
+class RealSpaceMatrix(Matrix):
+    def __init__(self, data, gd):
+        Matrix.__init__(self, data)
+        self.gd = gd
+        self.dv = gd.dv
+        self.sum = gd.comm.sum
+
+    def empty_like(self):
+        return RealSpaceMatrix(np.empty_like(self.data), self.gd)
+
+
+class PWExpansionMatrix(Matrix):
+    def __init__(self, data, pd):
+        Matrix.__init__(self, data)
+        self.pd = pd
+        self.dv = pd.gd.dv / pd.gd.N_c.prod()
+
+    def empty_like(self):
+        return PWExpansionMatrix(np.empty_like(self.data), self.pd)
+
+
+class ProjectorMatrix(Matrix):
+    def __init__(self, P_ani=None, comm=None):
+        self.comm = comm
+        if P_ani is not None:
+            self.slices = []
+            I1 = 0
+            N = 0
+            dtype = float
+            for a, P_ni in P_ani.items():
+                N, i = P_ni.shape
+                dtype = P_ni.dtype
+                I2 = I1 + i
+                self.slices.append((I1, I2))
+                I1 = I2
+
+            P_nI = np.empty((N, I1), dtype)
+            for P_ni, (I1, I2) in zip(P_ani.values(), self.slices):
+                P_nI[:, I1:I2] = P_ni
+
+            Matrix.__init__(self, P_nI)
+
+    def empty_like(self):
+        pm = ProjectorMatrix(comm=self.comm)
+        pm.data = np.empty_like(self.data)
+        pm.slices = self.slices
+        return pm
+
+    def sum(self, x):
+        self.comm.sum(x)
+
+    def __iter__(self):
+        P_nI = self.data
+        for I1, I2 in self.slices:
+            yield P_nI[:, I1:I2]
+
+    def extract_to(self, P_ani):
+        P_nI = self.data
+        for P_ni, (I1, I2) in zip(P_ani.values(), self.slices):
+            P_ni[:] = P_nI[:, I1:I2]
+
+
+def op(opx, x):
+    x = x.data.reshape((len(x.data), -1))
+    if opx == 'N':
+        return x
+    if opx == 'T':
+        return x.T
+    if opx == 'C':
+        return x.conj()
+    return x.T.conj()
 
 
 class Product:
@@ -167,7 +173,7 @@ class Product:
             # print(a is b, a is b.source)
             c = np.dot(op(opa, a), op(opb, b)).reshape(destination.data.shape)
             if opa in 'NC':
-                a.descriptor.sum(c)
+                a.sum(c)
             if beta == 0:
                 destination.data[:] = alpha * c
             else:
@@ -185,18 +191,19 @@ if __name__ == '__main__':
     p2 = gd.zeros(2)
     p1[:] = 1
     p2[:] = 2
-    a = Matrix(p1, gd)
-    b = Matrix(p2, gd)
-    c = Matrix(np.zeros((2, 2)))
+    a = matrix(p1, gd)
+    b = matrix(p2, gd)
+    c = matrix(np.zeros((2, 2)))
 
-    def f(x):
-        return x + 1
+    def f(x, y):
+        y.data[:] = x.data + 1
 
     c[:] = (a | a)
     c[:] = (a | b)
     b[:] = f * a
     c[:] = (a | b)
-    b[:] = c * a
+    d = a.empty_like()
+    d[:] = c * a
     print(c)
     c += a * b.T
     print(c)

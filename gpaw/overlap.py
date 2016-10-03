@@ -80,11 +80,11 @@ class Overlap:
             for P_ni, P2_ni, dS_ii in zip(P_n, P2_n, dS_aii):
                 P2_ni[:] = np.dot(P_ni, dS_ii)
 
-        from gpaw.matrix import Matrix
-        psit_n = Matrix(psit_nG, wfs.gd)
+        from gpaw.matrix import matrix
+        psit_n = matrix(psit_nG, wfs)
         N = len(psit_nG)
-        S_nn = Matrix(np.empty((N, N), wfs.dtype))
-        P_n = Matrix(P_ani)
+        S_nn = matrix(np.empty((N, N), wfs.dtype))
+        P_n = matrix(P_ani, wfs.gd.comm)
         dSP_n = P_n.empty_like()
 
         with self.timer('calc_s_matrix'):
@@ -118,7 +118,7 @@ class Overlap:
         with self.timer('rotate_psi_s'):
             psit_n[:] = C_nn * psit_n
             P_n[:] = C_nn * P_n
-            P_n.extract(P_ani)
+            P_n.extract_to(P_ani)
 
         self.timer.stop('Orthonormalize')
 

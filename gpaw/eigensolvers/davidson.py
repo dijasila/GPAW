@@ -79,7 +79,7 @@ class Davidson(Eigensolver):
 
         if self.keep_htpsit:
             R_nG = Htpsit_nG
-            psit2_nG = reshape(self.Htpsit_nG, psit_nG.shape)
+            psit2_nG = reshape(self.Htpsit_nG, psit_nG.shape).copy()
         else:
             R_nG = wfs.empty(mynbands, q=kpt.q)
             psit2_nG = wfs.empty(mynbands, q=kpt.q)

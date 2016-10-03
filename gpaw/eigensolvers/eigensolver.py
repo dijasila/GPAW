@@ -143,12 +143,12 @@ class Eigensolver:
             for P_ni, P2_ni, dH_ii in zip(P_n, P2_n, dH_aii):
                 P2_ni[:] = np.dot(P_ni, dH_ii)
 
-        from gpaw.matrix import Matrix
-        psit_n = Matrix(psit_nG, wfs.gd)
-        Htpsit_n = Matrix(Htpsit_nG, wfs.gd)
+        from gpaw.matrix import matrix
+        psit_n = matrix(psit_nG, wfs)
+        Htpsit_n = matrix(Htpsit_nG, wfs)
         N = len(psit_nG)
-        H_nn = Matrix(np.empty((N, N), wfs.dtype))
-        P_n = Matrix(P_ani)
+        H_nn = matrix(np.empty((N, N), wfs.dtype))
+        P_n = matrix(P_ani, wfs.gd.comm)
         dHP_n = P_n.empty_like()
 
         with self.timer('calc_h_matrix'):
@@ -169,7 +169,7 @@ class Eigensolver:
                 Htpsit_n[:] = H_nn * Htpsit_n
             psit_n[:] = H_nn * psit_n
             P_n[:] = H_nn * P_n
-            P_n.extract(P_ani)
+            P_n.extract_to(P_ani)
             # Rotate orbital dependent XC stuff:
             hamiltonian.xc.rotate(kpt, H_nn)
 
