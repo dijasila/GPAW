@@ -17,7 +17,7 @@ class Eigensolver:
         self.error = np.inf
         self.blocksize = blocksize
         self.orthonormalization_required = True
-        
+
     def initialize(self, wfs):
         self.timer = wfs.timer
         self.world = wfs.world
@@ -42,7 +42,7 @@ class Eigensolver:
         for kpt in wfs.kpt_u:
             if kpt.eps_n is None:
                 kpt.eps_n = np.empty(self.mynbands)
-        
+
         self.initialized = True
 
     def reset(self):
@@ -55,7 +55,7 @@ class Eigensolver:
         implement *iterate_one_k_point* method for a single iteration of
         a single kpoint.
         """
-        
+
         if not self.initialized:
             if isinstance(hamiltonian.xc, HybridXC):
                 self.blocksize = wfs.bd.mynbands
@@ -85,7 +85,7 @@ class Eigensolver:
         """Calculate residual.
 
         From R=Ht*psit calculate R=H*psit-eps*S*psit."""
-        
+
         for R_G, eps, psit_G in zip(R_xG, eps_x, psit_xG):
             axpy(-eps, psit_G, R_G)
 
@@ -99,7 +99,7 @@ class Eigensolver:
         hamiltonian.xc.add_correction(kpt, psit_xG, R_xG, P_axi, c_axi, n_x,
                                       calculate_change)
         wfs.pt.add(R_xG, c_axi, kpt.q)
-        
+
     @timer('Subspace diag')
     def subspace_diagonalize(self, hamiltonian, wfs, kpt):
         """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
@@ -134,12 +134,11 @@ class Eigensolver:
             Htpsit_nG = None
 
         def H(psit_n, Htpsit_n):
-            print(psit_n.data.shape,Htpsit_n.data.shape)
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian,
                                          psit_n.data, Htpsit_n.data)
 
         dH_aii = [unpack(dH_asp[a][kpt.s]) for a in P_ani]
-        
+
         def dH(P_n, P2_n):
             for P_ni, P2_ni, dH_ii in zip(P_n, P2_n, dH_aii):
                 P2_ni[:] = np.dot(P_ni, dH_ii)
@@ -156,7 +155,9 @@ class Eigensolver:
             Htpsit_n[:] = H * psit_n
             H_nn[:] = (psit_n | Htpsit_n)
             dHP_n[:] = dH * P_n
+            print(H_nn.data)
             H_nn += P_n.C * dHP_n.T
+            print(H_nn.data)
 
             hamiltonian.xc.correct_hamiltonian_matrix(kpt, H_nn.data)
 
