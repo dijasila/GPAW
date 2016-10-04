@@ -166,9 +166,9 @@ class Eigensolver:
 
         with self.timer('rotate_psi'):
             if self.keep_htpsit:
-                Htpsit_n[:] = H_nn * Htpsit_n
-            psit_n[:] = H_nn * psit_n
-            P_n[:] = H_nn * P_n
+                Htpsit_n[:] = H_nn.C * Htpsit_n
+            psit_n[:] = H_nn.C * psit_n
+            P_n[:] = H_nn.C * P_n
             P_n.extract_to(P_ani)
             # Rotate orbital dependent XC stuff:
             hamiltonian.xc.rotate(kpt, H_nn)
