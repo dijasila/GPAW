@@ -92,7 +92,7 @@ class CG(Eigensolver):
         # Note that psit_nG is now in self.operator.work1_nG and
         # Htpsit_nG is in kpt.psit_nG!
 
-        R_nG = reshape(self.Htpsit_nG, psit_nG.shape)
+        R_nG = np.empty_like(psit_nG)
         Htphi_G = R_nG[0]
 
         R_nG[:] = Htpsit_nG

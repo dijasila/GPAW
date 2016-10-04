@@ -84,7 +84,7 @@ class Overlap:
         psit_n = matrix(psit_nG, wfs)
         N = len(psit_nG)
         S_nn = matrix(np.empty((N, N), wfs.dtype))
-        P_n = matrix(P_ani, wfs.gd.comm)
+        P_n = matrix(P_ani, wfs.gd.comm, N, wfs.dtype)
         dSP_n = P_n.empty_like()
 
         with self.timer('calc_s_matrix'):

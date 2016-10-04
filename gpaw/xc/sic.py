@@ -265,13 +265,7 @@ class SIC(XCFunctional):
             return
         spin.correct_hamiltonian_matrix(H_nn)
 
-    def add_correction(self,
-                       kpt,
-                       psit_xG,
-                       Htpsit_xG,
-                       P_axi,
-                       c_axi,
-                       n_x,
+    def add_correction(self, kpt, psit_xG, Htpsit_xG, P_axi, c_axi, n_x,
                        calculate_change=False):
         spin = self.spin_s[kpt.s]
         if spin.W_mn is None:
@@ -814,7 +808,7 @@ class SICSpin:
         # R_mk = self.R_mk
         V_mm = 0.5 * (self.V_mm + self.V_mm.T)
 
-        H_nn[:nocc, :nocc] += np.dot(W_mn.T, np.dot(V_mm, W_mn))
+        H_nn[:nocc, :nocc] += np.dot(W_mn.T, np.dot(V_mm, W_mn)).conj()
 
         if nvirt != 0:
             H_nn[:nocc, nocc:] = 0.0  # R_nk
@@ -918,7 +912,6 @@ class SICSpin:
 
         if self.stabpot != 0.0:
             q_mx -= self.stabpot * w_mx
-
         gemm(1.0, Htphit_mG, w_mx.T.copy(), 1.0, Htpsit_xG)
         gemm(1.0, phit_mG, q_mx.T.copy(), 1.0, Htpsit_xG)
 
@@ -1012,7 +1005,7 @@ class SICSpin:
         optstep = 0.0
         Gold = 0.0
         cgiter = 0
-        #
+
         epsstep = 0.005  # 0.005
         dltstep = 0.1  # 0.1
         prec = 1E-7
@@ -1169,7 +1162,6 @@ class SICSpin:
                 lsmethod = 'CC-EPS'
 
             if (optstep == 0.0):
-                #
                 # we are in the concave region or force-only estimate failed,
                 # just follow the (conjugate) gradient
                 step = dltstep * abs(step)
@@ -1178,8 +1170,7 @@ class SICSpin:
                 self.update_optimal_states()
                 self.update_potentials()
                 E1 = self.esic
-                #
-                #
+
                 if (abs(E1 - E0) < prec and E1 >= E0):
                     ESI = E1
                     optstep = 0.0
