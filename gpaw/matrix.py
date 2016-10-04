@@ -194,6 +194,8 @@ class Product:
                 destination.data += alpha * c
 
     def __mul__(self, x):
+        if isinstance(x, Matrix):
+            x = Product(('N', x))
         return Product(self, x)
 
 

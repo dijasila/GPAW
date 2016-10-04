@@ -91,7 +91,6 @@ class Overlap:
             S_nn[:] = (psit_n | psit_n)
             dSP_n[:] = dS * P_n
             S_nn += P_n.C * dSP_n.T
-
         #S_nn = operator.calculate_matrix_elements(psit_nG, P_ani, S, dS)
         #self.timer.stop('calc_s_matrix')
 
@@ -108,6 +107,7 @@ class Overlap:
             S_nn = np.dot(np.dot(S_nn.T.conj(), nrm_nn), S_nn)
         else:
             #
+            #S_nn.data = S_nn.data.T.copy()
             self.ksl.inverse_cholesky(S_nn.data)
         # S_nn now contains the inverse of the Cholesky factorization.
         # Let's call it something different:
@@ -116,8 +116,8 @@ class Overlap:
         self.timer.stop(orthonormalization_string)
 
         with self.timer('rotate_psi_s'):
-            psit_n[:] = C_nn * psit_n
-            P_n[:] = C_nn * P_n
+            psit_n[:] = C_nn.C * psit_n
+            P_n[:] = C_nn.C * P_n
             P_n.extract_to(P_ani)
 
         self.timer.stop('Orthonormalize')
