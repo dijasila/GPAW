@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def matrix(data, descriptor=None):
+def matrix(data, descriptor=None, layout=None):
     if isinstance(data, dict):
         return ProjectorMatrix(data, descriptor)
     if descriptor:
@@ -12,22 +12,36 @@ def matrix(data, descriptor=None):
     return Matrix(data)
 
 
+def create_layout(n, m, comm=None, r=None, c=None, b=None):
+    if r is None:
+        return 42  # SimpleLayout()
+    return BLACSLayout(comm, n, m, r, c, b)
+
+
 class Matrix:
-    def __init__(self, data):
+    def __init__(self, data, layout=()):
         self.data = np.asarray(data)
+
+        n = len(self.data)
+        m = self.data.size // n
+        self.layout = create_layout(n, m, *layout)
+
         self.source = None
+        self.summcomm = None
+        self.comm = None
 
     def __str__(self):
         return str(self.data)
 
-    def sum(self, x):
-        pass
-
     def empty_like(self):
         return Matrix(np.empty_like(self.data))
 
+    def touch(self):
+        if self.commsum:
+            self.commsum.sum(self.data)
+
     def __setitem__(self, i, x):
-        #assert i == slice(None)
+        # assert i == slice(None)
         x.eval(self)
 
     def eval(self, destination, beta=0):
@@ -70,7 +84,7 @@ class RealSpaceMatrix(Matrix):
         Matrix.__init__(self, data)
         self.gd = gd
         self.dv = gd.dv
-        self.sum = gd.comm.sum
+        self.comm = gd.comm
 
     def empty_like(self):
         return RealSpaceMatrix(np.empty_like(self.data), self.gd)
@@ -81,6 +95,7 @@ class PWExpansionMatrix(Matrix):
         Matrix.__init__(self, data)
         self.pd = pd
         self.dv = pd.gd.dv / pd.gd.N_c.prod()
+        assert pd.dtype == float
 
     def empty_like(self):
         return PWExpansionMatrix(np.empty_like(self.data), self.pd)
@@ -112,9 +127,6 @@ class ProjectorMatrix(Matrix):
         pm.data = np.empty_like(self.data)
         pm.slices = self.slices
         return pm
-
-    def sum(self, x):
-        self.comm.sum(x)
 
     def __iter__(self):
         P_nI = self.data
@@ -172,8 +184,9 @@ class Product:
             opb, b = b
             # print(a is b, a is b.source)
             c = np.dot(op(opa, a), op(opb, b)).reshape(destination.data.shape)
-            if opa in 'NC':
-                a.sum(c)
+            if opa in 'NC' and a.comm:
+                destination.sumcomm = a.comm
+                assert opb in 'TH' and b.comm is a.comm
             if beta == 0:
                 destination.data[:] = alpha * c
             else:
