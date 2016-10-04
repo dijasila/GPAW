@@ -158,16 +158,16 @@ class BlacsGrid:
             if nprow * npcol > comm.size:
                 raise ValueError('Impossible: %dx%d Blacs grid with %d CPUs'
                                  % (nprow, npcol, comm.size))
-            
+
             try:
                 new = _gpaw.new_blacs_context
             except AttributeError as e:
                 raise AttributeError(
                     'BLACS is unavailable.  '
                     'GPAW must be compiled with BLACS/ScaLAPACK, '
-                    'and must run in MPI-enabled interpretre (gpaw-python).  '
+                    'and must run in MPI-enabled interpreter (gpaw-python).  '
                     'Original error: %s' % e)
-            
+
             self.context = new(comm.get_c_object(), npcol, nprow, order)
             assert (self.context != INACTIVE) == (comm.rank < nprow * npcol)
 
@@ -208,7 +208,7 @@ class BlacsGrid:
 
     def __bool__(self):
         2 / 0
-        
+
     __nonzero__ = __bool__  # for Python 2
 
     def __str__(self):
@@ -228,7 +228,7 @@ class DryRunBlacsGrid(BlacsGrid):
         assert (isinstance(comm, SerialCommunicator) or
                 isinstance(comm.comm, SerialCommunicator))
         # DryRunCommunicator is subclass
-        
+
         if nprow * npcol > comm.size:
             raise ValueError('Impossible: %dx%d Blacs grid with %d CPUs'
                              % (nprow, npcol, comm.size))
