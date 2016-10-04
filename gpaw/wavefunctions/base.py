@@ -410,7 +410,7 @@ class WaveFunctions:
         n = self.nvalence // 2
         band_rank, myn = self.bd.who_has(n - 1)
         homo = -np.inf
-        if self.bd.rank == band_rank:
+        if self.bd.comm.rank == band_rank:
             for kpt in self.kpt_u:
                 if kpt.s == spin:
                     homo = max(kpt.eps_n[myn], homo)
@@ -419,7 +419,7 @@ class WaveFunctions:
         lumo = np.inf
         if n < self.bd.nbands:  # there are not enough bands for LUMO
             band_rank, myn = self.bd.who_has(n)
-            if self.bd.rank == band_rank:
+            if self.bd.comm.rank == band_rank:
                 for kpt in self.kpt_u:
                     if kpt.s == spin:
                         lumo = min(kpt.eps_n[myn], lumo)

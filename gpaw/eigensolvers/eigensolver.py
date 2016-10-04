@@ -131,7 +131,7 @@ class Eigensolver:
         if self.keep_htpsit:
             Htpsit_nG = reshape(self.Htpsit_nG, psit_nG.shape)
         else:
-            Htpsit_nG = None
+            Htpsit_nG = np.empty_like(psit_nG)
 
         def H(psit_n, Htpsit_n):
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian,
@@ -148,7 +148,7 @@ class Eigensolver:
         Htpsit_n = matrix(Htpsit_nG, wfs)
         N = len(psit_nG)
         H_nn = matrix(np.empty((N, N), wfs.dtype))
-        P_n = matrix(P_ani, wfs.gd.comm)
+        P_n = matrix(P_ani, wfs.gd.comm, N, wfs.dtype)
         dHP_n = P_n.empty_like()
 
         with self.timer('calc_h_matrix'):
@@ -171,81 +171,7 @@ class Eigensolver:
             P_n[:] = H_nn.C * P_n
             P_n.extract_to(P_ani)
             # Rotate orbital dependent XC stuff:
-            hamiltonian.xc.rotate(kpt, H_nn)
-
-        return psit_nG, Htpsit_nG
-
-    def ssubspace_diagonalize(self, hamiltonian, wfs, kpt):
-        """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
-
-        *Htpsit_nG* is a work array of same size as psit_nG which contains
-        the local part of the Hamiltonian times psit on exit
-
-        First, the Hamiltonian (defined by *kin*, *vt_sG*, and
-        *dH_asp*) is applied to the wave functions, then the *H_nn*
-        matrix is calculated and diagonalized, and finally, the wave
-        functions (and also Htpsit_nG are rotated.  Also the
-        projections *P_ani* are rotated.
-
-        It is assumed that the wave functions *psit_nG* are orthonormal
-        and that the integrals of projector functions and wave functions
-        *P_ani* are already calculated.
-
-        Return ratated wave functions and H applied to the rotated
-        wave functions if self.keep_htpsit is True.
-        """
-
-        if self.band_comm.size > 1 and wfs.bd.strided:
-            raise NotImplementedError
-
-        self.timer.start('Subspace diag')
-
-        psit_nG = kpt.psit_nG
-        P_ani = kpt.P_ani
-        dH_asp = hamiltonian.dH_asp
-
-        if self.keep_htpsit:
-            Htpsit_nG = reshape(self.Htpsit_nG, psit_nG.shape)
-        else:
-            Htpsit_nG = None
-
-        def H(psit_xG):
-            if self.keep_htpsit:
-                result_xG = Htpsit_nG
-            else:
-                result_xG = reshape(self.operator.work1_xG, psit_xG.shape)
-            wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
-                                         result_xG)
-            return result_xG
-
-        def dH(a, P_ni):
-            return np.dot(P_ni, unpack(dH_asp[a][kpt.s]))
-
-        self.timer.start('calc_h_matrix')
-        H_nn = self.operator.calculate_matrix_elements(psit_nG, P_ani,
-                                                       H, dH)
-        hamiltonian.xc.correct_hamiltonian_matrix(kpt, H_nn)
-        self.timer.stop('calc_h_matrix')
-
-        diagonalization_string = repr(self.ksl)
-        wfs.timer.start(diagonalization_string)
-        self.ksl.diagonalize(H_nn, kpt.eps_n)
-        # H_nn now contains the result of the diagonalization.
-        wfs.timer.stop(diagonalization_string)
-
-        self.timer.start('rotate_psi')
-        psit_nG = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
-        print(psit_nG[0,1,2,3:5])
-        print(P_ani);asdg
-        if self.keep_htpsit:
-            Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_nG,
-                                                      out_nG=kpt.psit_nG)
-
-        # Rotate orbital dependent XC stuff:
-        hamiltonian.xc.rotate(kpt, H_nn)
-
-        self.timer.stop('rotate_psi')
-        self.timer.stop('Subspace diag')
+            hamiltonian.xc.rotate(kpt, H_nn.data.conj())
 
         return psit_nG, Htpsit_nG
 

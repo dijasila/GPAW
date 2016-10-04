@@ -136,8 +136,7 @@ class BandDescriptor:
         if self.strided:
             myn, band_rank = divmod(n, self.comm.size)
         else:
-            asdfhjg
-            band_rank, myn = divmod(n, self.mynbands)
+            band_rank, myn = divmod(n, self.maxmynbands)
         return band_rank, myn
 
     def global_index(self, myn, band_rank=None):

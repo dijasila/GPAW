@@ -1,21 +1,36 @@
 import numpy as np
 
+import ase
+from gpaw.grid_descriptor import GridDescriptor
+import _gpaw
 
-def matrix(data, descriptor=None, layout=None):
+
+def matrix(data, *args, **kwargs):
     if isinstance(data, dict):
-        return ProjectorMatrix(data, descriptor)
-    if descriptor:
+        return ProjectorMatrix(data, *args, **kwargs)
+    if args:
         if data.ndim == 2:
-            return PWExpansionMatrix(data, descriptor.pd)
+            return PWExpansionMatrix(data, args[0].pd, **kwargs)
         else:
-            return RealSpaceMatrix(data, descriptor.gd)
-    return Matrix(data)
+            if isinstance(args[0], GridDescriptor):
+                return RealSpaceMatrix(data, args[0], **kwargs)
+            return RealSpaceMatrix(data, args[0].gd, **kwargs)
+    return Matrix(data, **kwargs)
 
 
-def create_layout(n, m, comm=None, r=None, c=None, b=None):
-    if r is None:
-        return 42  # SimpleLayout()
-    return BLACSLayout(comm, n, m, r, c, b)
+def create_layout(m, n, comm=None, r=1, c=1, b=None):
+    # if r == c == 1:
+    if comm is None:
+        return None
+    context = _gpaw.new_blacs_context(comm.get_c_object(), c, r, 'R')
+    if b is None:
+        br = (m + r - 1) // r
+        bc = n
+    else:
+        br = bc = b
+    N, M = _gpaw.get_blacs_local_shape(context, n, m, bc, br, 0, 0)
+    lld = max(1, N)
+    return np.array([1, context, n, m, bc, br, 0, 0, lld], np.intc)
 
 
 class Matrix:
@@ -78,37 +93,61 @@ class Matrix:
     def H(self):
         return Product(('H', self))
 
+    def mmm(self, alpha, opa, b, opb, beta, destination):
+        if self.layout is not None:
+            print(self.layout, alpha, self.data.shape, opa, b.data.shape, opb,
+                  beta, destination.data.shape);asdg
+            #self.layout.mmm(alpha, self, opa, b, opb, beta, destination)
+            return
+
+        # print(self is b, self is b.source)
+        c = np.dot(op(opa, self), op(opb, b)).reshape(destination.data.shape)
+        if beta == 0:
+            destination.data[:] = alpha * c
+        else:
+            assert beta == 1
+            destination.data += alpha * c
+
 
 class RealSpaceMatrix(Matrix):
-    def __init__(self, data, gd):
-        Matrix.__init__(self, data)
+    def __init__(self, data, gd, layout):
+        Matrix.__init__(self, data, layout)
         self.gd = gd
         self.dv = gd.dv
         self.comm = gd.comm
 
     def empty_like(self):
-        return RealSpaceMatrix(np.empty_like(self.data), self.gd)
+        return RealSpaceMatrix(np.empty_like(self.data), self.gd, self.layout)
 
 
 class PWExpansionMatrix(Matrix):
-    def __init__(self, data, pd):
-        Matrix.__init__(self, data)
+    def __init__(self, data, pd, layout):
+        Matrix.__init__(self, data, layout)
         self.pd = pd
         self.dv = pd.gd.dv / pd.gd.N_c.prod()
-        assert pd.dtype == float
 
     def empty_like(self):
         return PWExpansionMatrix(np.empty_like(self.data), self.pd)
 
+    def mmm(self, alpha, opa, b, opb, beta, destination):
+        if (self.pd.dtype == float and opa in 'NC' and
+            isinstance(b, PWExpansionMatrix)):
+            assert opa == 'C' and opb == 'T' and beta == 0
+            a = self.data.view(float)
+            b = b.data.view(float)
+            destination.data[:] = np.dot(a, b.T)
+            destination.data *= 2 * alpha
+            destination.data -= alpha * np.outer(a[:, 0], b[:, 0])
+        else:
+            Matrix.mmm(self, alpha, opa, b, opb, beta, destination)
+
 
 class ProjectorMatrix(Matrix):
-    def __init__(self, P_ani=None, comm=None):
+    def __init__(self, P_ani, comm, N=0, dtype=float, layout=()):
         self.comm = comm
         if P_ani is not None:
             self.slices = []
             I1 = 0
-            N = 0
-            dtype = float
             for a, P_ni in P_ani.items():
                 N, i = P_ni.shape
                 dtype = P_ni.dtype
@@ -120,12 +159,13 @@ class ProjectorMatrix(Matrix):
             for P_ni, (I1, I2) in zip(P_ani.values(), self.slices):
                 P_nI[:, I1:I2] = P_ni
 
-            Matrix.__init__(self, P_nI)
+            Matrix.__init__(self, P_nI, layout)
 
     def empty_like(self):
-        pm = ProjectorMatrix(comm=self.comm)
+        pm = ProjectorMatrix(None, self.comm)
         pm.data = np.empty_like(self.data)
         pm.slices = self.slices
+        pm.layout = self.layout
         return pm
 
     def __iter__(self):
@@ -182,16 +222,10 @@ class Product:
         else:
             opa, a = a
             opb, b = b
-            # print(a is b, a is b.source)
-            c = np.dot(op(opa, a), op(opb, b)).reshape(destination.data.shape)
+            a.mmm(alpha, opa, b, opb, beta, destination)
             if opa in 'NC' and a.comm:
                 destination.sumcomm = a.comm
                 assert opb in 'TH' and b.comm is a.comm
-            if beta == 0:
-                destination.data[:] = alpha * c
-            else:
-                assert beta == 1
-                destination.data += alpha * c
 
     def __mul__(self, x):
         if isinstance(x, Matrix):
@@ -200,15 +234,16 @@ class Product:
 
 
 if __name__ == '__main__':
-    from gpaw.grid_descriptor import GridDescriptor
+    from gpaw.mpi import world
     gd = GridDescriptor([2, 3, 4], [2, 3, 4])
     p1 = gd.zeros(2)
     p2 = gd.zeros(2)
     p1[:] = 1
     p2[:] = 2
-    a = matrix(p1, gd)
-    b = matrix(p2, gd)
-    c = matrix(np.zeros((2, 2)))
+    L = (world, 1, 1)
+    a = matrix(p1, gd, layout=L)
+    b = matrix(p2, gd, layout=L)
+    c = matrix(np.zeros((2, 2)), layout=L)
 
     def f(x, y):
         y.data[:] = x.data + 1
