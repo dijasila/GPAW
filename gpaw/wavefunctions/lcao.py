@@ -86,9 +86,6 @@ class LCAOWaveFunctions(WaveFunctions):
                                               kd,
                                               dtype=dtype,
                                               cut=True)
-
-    def set_orthonormalized(self, o):
-        pass
         
     def empty(self, n=(), global_array=False, realspace=False):
         if realspace:

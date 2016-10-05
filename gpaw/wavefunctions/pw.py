@@ -17,6 +17,7 @@ from gpaw.hs_operators import MatrixOperator
 from gpaw.lfc import BaseLFC
 from gpaw.lcao.overlap import fbt
 from gpaw.hamiltonian import Hamiltonian
+from gpaw.matrix import PWExpansionMatrix
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
@@ -495,7 +496,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         self.orthoksl.gd = self.pd
         self.matrixoperator = MatrixOperator(self.orthoksl)
-
+        
     def empty(self, n=(), global_array=False, realspace=False,
               q=-1):
         if realspace:
@@ -503,6 +504,15 @@ class PWWaveFunctions(FDPWWaveFunctions):
         else:
             return self.pd.empty(n, self.dtype, q)
 
+    def wrap_wave_function_arrays_in_fancy_objects(self):
+        dist = (self.bd.comm, self.bd.size)
+        for kpt in self.kpt_u:
+            if kpt.dist is not None:
+                return
+            kpt.psit_n = PWExpansionMatrix(self.bd.nbands, self.pd,
+                                           kpt.psit_nG, dist)
+            kpt.dist = dist
+        
     def integrate(self, a_xg, b_yg=None, global_integral=True):
         return self.pd.integrate(a_xg, b_yg, global_integral)
 

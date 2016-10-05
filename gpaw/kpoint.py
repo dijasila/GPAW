@@ -5,6 +5,8 @@
 
 import numpy as np
 
+from gpaw.matrix import ProjectorMatrix
+
 
 class KPoint:
     """Class for a single k-point.
@@ -85,14 +87,27 @@ class KPoint:
         self.P_ani = None
 
         # Only one of these two will be used:
-        self.psit_nG = None  # wave functions on 3D grid
+        self.psit_nG = None  # wave functions on 3D grid or PW expansion
         self.C_nM = None     # LCAO coefficients for wave functions XXX
 
         self.rho_MM = None
         
         self.S_MM = None
         self.T_MM = None
-
+        
+        # RealSpaceMatrix/PWExpansionMatrix wrapper:
+        self.psit_n = None
+        
+        self.dist = None  # BLACS distribution of self.P_n
+        
+    @property
+    def P_n(self):
+        """Wrap projections."""
+        x = self.psit_n
+        pm = ProjectorMatrix(x.shape[0], x.comm, x.dtype, self.P_ani,
+                             self.dist)
+        self.dist = pm.dist
+        
 
 class GlobalKPoint(KPoint):
 

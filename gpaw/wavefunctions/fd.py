@@ -1,16 +1,17 @@
 import numpy as np
 from ase.units import Bohr
 
-from gpaw.kpoint import KPoint
-from gpaw.mpi import serial_comm
-from gpaw.utilities.blas import axpy
-from gpaw.transformers import Transformer
-from gpaw.hs_operators import MatrixOperator
-from gpaw.preconditioner import Preconditioner
 from gpaw.fd_operators import Laplace, Gradient
+from gpaw.hs_operators import MatrixOperator
+from gpaw.kpoint import KPoint
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.matrix import RealSpaceMatrix
+from gpaw.mpi import serial_comm
+from gpaw.preconditioner import Preconditioner
+from gpaw.transformers import Transformer
+from gpaw.utilities.blas import axpy
+from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
 
 
@@ -51,6 +52,15 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def empty(self, n=(), global_array=False, realspace=False, q=-1):
         return self.gd.empty(n, self.dtype, global_array)
+
+    def wrap_wave_function_arrays_in_fancy_objects(self):
+        dist = (self.bd.comm, self.bd.size)
+        for kpt in self.kpt_u:
+            if kpt.dist is not None:
+                return
+            kpt.psit_n = RealSpaceMatrix(self.bd.nbands, self.gd,
+                                         kpt.psit_nG, dist)
+            kpt.dist = dist
 
     def integrate(self, a_xg, b_yg=None, global_integral=True):
         return self.gd.integrate(a_xg, b_yg, global_integral)
