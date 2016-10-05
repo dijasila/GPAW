@@ -7,27 +7,66 @@ import _gpaw
 global_blacs_context_store = {}
 
 
+class NoDistribution:
+    def __init__(self, M, N):
+        self.shape = (M, N)
+        
+    def mmm(self, alpha, a, opa, b, opb, beta, destination):
+        # print(self is b, self is b.source)
+        c = np.dot(op(opa, a), op(opb, b)).reshape(destination.data.shape)
+        if beta == 0:
+            destination.data[:] = alpha * c
+        else:
+            assert beta == 1
+            destination.data += alpha * c
+        
+    def inverse_cholesky(self, data):
+        lapack.inverse_cholesky(data)
+        
+    def diagonalize(self, data, eps_n):
+        lapack.diagonalize(data, eps_n)
+        
+        
+class BLACSDistribution:
+    def __init__(self, M, N, comm, r, c, b):
+        key = (comm, r, c)
+        context = global_blacs_context_store.get(key)
+        if context is None:
+            context = _gpaw.new_blacs_context(comm.get_c_object(), c, r, 'R')
+            global_blacs_context_store[key] = context
+    
+        if b is None:
+            assert c == 1
+            br = (M + r - 1) // r
+            bc = N
+        else:
+            br = bc = b
+    
+        n, m = _gpaw.get_blacs_local_shape(context, N, M, bc, br, 0, 0)
+        self.shape = (m, n)
+        lld = max(1, n)
+        self.desc = np.array([1, context, N, M, bc, br, 0, 0, lld], np.intc)
+        
+    def mmm(self, alpha, a, opa, b, opb, beta, destination):
+        M, Ka = a.shape
+        Kb, N = b.shape
+        if opa == 'T':
+            M, Ka = Ka, M
+        if opb == 'T':
+            Kb, N = N, Kb
+        if opa == 'C' and a.dtype == float:
+            opa = 'N'
+        _gpaw.pblas_gemm(N, M, Ka, alpha, b.data, a.data,
+                         beta, destination.data,
+                         b.dist.desc, a.dist.desc, destination.dist.desc,
+                         opb, opa)
+
+    
 def create_distribution(M, N, comm=None, r=1, c=1, b=None):
     if r == c == 1:
-        return None
-
-    key = (comm, r, c)
-    context = global_blacs_context_store.get(key)
-    if context is None:
-        context = _gpaw.new_blacs_context(comm.get_c_object(), c, r, 'R')
-        global_blacs_context_store[key] = context
-
-    if b is None:
-        assert c == 1
-        br = (M + r - 1) // r
-        bc = N
-    else:
-        br = bc = b
-
-    n, m = _gpaw.get_blacs_local_shape(context, N, M, bc, br, 0, 0)
-    lld = max(1, n)
-    return np.array([1, context, N, M, bc, br, 0, 0, lld], np.intc)
-
+        return NoDistribution()
+    return BLACSDistribution(M, N, comm, r, c, b)
+      
 
 class Matrix:
     def __init__(self, M, N, dtype=None, data=None, dist=None):
@@ -45,12 +84,7 @@ class Matrix:
         self.dist = dist
 
         if data is None:
-            if dist is None:
-                m = M
-                n = N
-            else:
-                n, m = _gpaw.get_blacs_local_shape(*dist[1:8])
-            self.data = np.empty((m, n), self.dtype)
+            self.data = np.empty(dist.shape, self.dtype)
         else:
             self.data = np.asarray(data)
 
@@ -107,46 +141,15 @@ class Matrix:
         return Product(('C', self))
 
     def mmm(self, alpha, opa, b, opb, beta, destination):
-        a = self
-        if a.dist is not None:
-            # print(self.dist, alpha, self.data.shape, opa, b.data.shape, opb,
-            #       beta, destination.data.shape)
-            # print(b.dist)
-            # print(destination.dist)
-            Ka, M = a.dist[2:4]
-            N, Kb = b.dist[2:4]
-            if opa == 'T':
-                M, Ka = Ka, M
-            if opb == 'T':
-                Kb, N = N, Kb
-            if opa == 'C' and a.data.dtype == float:
-                opa = 'N'
-            # print(N, M, Ka)
-            # print(N, M, Ka, alpha, b.data.shape, b.data.strides,
-            # a.data.shape, a.data.strides,
-            #                 beta, destination.data.shape,
-            # destination.data.strides,
-            #                 b.dist, a.dist, destination.dist, opb, opa)
-            _gpaw.pblas_gemm(N, M, Ka, alpha, b.data, a.data,
-                             beta, destination.data,
-                             b.dist, a.dist, destination.dist, opb, opa)
-            return
-
-        # print(self is b, self is b.source)
-        c = np.dot(op(opa, a), op(opb, b)).reshape(destination.data.shape)
-        if beta == 0:
-            destination.data[:] = alpha * c
-        else:
-            assert beta == 1
-            destination.data += alpha * c
+        self.dist.mmm(alpha, self, opa, b, opb, beta, destination)
 
     def inverse_cholesky(self):
         self.finish_sums()
-        lapack.inverse_cholesky(self.data)
+        self.dist.inverse_cholesky(self.data)
         
     def diagonalize(self, eps_n):
         self.finish_sums()
-        lapack.diagonalize(self.data, eps_n)
+        self.dist.diagonalize(self.data, eps_n)
 
         
 class RealSpaceMatrix(Matrix):
@@ -270,7 +273,7 @@ class Product:
             opb, b = b
             a.mmm(alpha, opa, b, opb, beta, destination)
             if opa in 'NC' and a.comm:
-                destination.sumcomm = a.comm
+                destination.comm_to_be_summed_over = a.comm
                 assert opb in 'TH' and b.comm is a.comm
 
     def __mul__(self, x):

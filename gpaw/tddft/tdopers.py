@@ -409,7 +409,7 @@ class TimeDependentOverlap(Overlap):
     overlap operator to a set of wavefunctions.
     """
     
-    def __init__(self, ksl, timer):
+    def __init__(self, timer):
         """Creates the TimeDependentOverlap-object.
         
         Parameters
@@ -417,7 +417,7 @@ class TimeDependentOverlap(Overlap):
         XXX TODO
 
         """
-        Overlap.__init__(self, ksl, timer)
+        Overlap.__init__(self, timer)
 
     def update_k_point_projections(self, wfs, kpt, psit=None):
         """Updates the projector function overlap integrals
@@ -609,15 +609,15 @@ class TimeDependentOverlap(Overlap):
 
 
 class TimeDependentWaveFunctions(FDWaveFunctions):
-    def __init__(self, stencil, diagksl, orthoksl, initksl, gd, nvalence, setups,
+    def __init__(self, stencil, initksl, gd, nvalence, setups,
                  bd, dtype, world, kd, kptband_comm, timer):
         assert dtype == complex
-        FDWaveFunctions.__init__(self, stencil, diagksl, orthoksl, initksl,
+        FDWaveFunctions.__init__(self, stencil, initksl,
                                  gd, nvalence, setups, bd, dtype, world,
                                  kd, kptband_comm, timer=timer)
 
     def make_overlap(self):
-        return TimeDependentOverlap(self.orthoksl, self.timer)
+        return TimeDependentOverlap(self.timer)
 
     def calculate_forces(self, hamiltonian, F_av):
         """ Calculate wavefunction forces with optional corrections for
