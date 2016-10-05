@@ -107,6 +107,7 @@ class KPoint:
         pm = ProjectorMatrix(x.shape[0], x.comm, x.dtype, self.P_ani,
                              self.dist)
         self.dist = pm.dist
+        return pm
         
 
 class GlobalKPoint(KPoint):

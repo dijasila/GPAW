@@ -36,29 +36,26 @@ class FD(Mode):
 class FDWaveFunctions(FDPWWaveFunctions):
     mode = 'fd'
 
-    def __init__(self, stencil, diagksl, orthoksl, initksl,
+    def __init__(self, stencil, initksl,
                  gd, nvalence, setups, bd,
                  dtype, world, kd, kptband_comm, timer):
-        FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
+        FDPWWaveFunctions.__init__(self, initksl,
                                    gd, nvalence, setups, bd,
                                    dtype, world, kd, kptband_comm, timer)
 
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype)
-
-        self.matrixoperator = MatrixOperator(self.orthoksl)
-
         self.taugrad_v = None  # initialized by MGGA functional
 
     def empty(self, n=(), global_array=False, realspace=False, q=-1):
         return self.gd.empty(n, self.dtype, global_array)
 
     def wrap_wave_function_arrays_in_fancy_objects(self):
-        dist = (self.bd.comm, self.bd.size)
+        dist = (self.bd.comm, self.bd.comm.size)
         for kpt in self.kpt_u:
             if kpt.dist is not None:
                 return
-            kpt.psit_n = RealSpaceMatrix(self.bd.nbands, self.gd,
+            kpt.psit_n = RealSpaceMatrix(self.bd.nbands, self.gd, self.dtype,
                                          kpt.psit_nG, dist)
             kpt.dist = dist
 

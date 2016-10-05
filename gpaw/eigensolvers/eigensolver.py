@@ -5,8 +5,12 @@ from ase.utils.timing import timer
 
 from gpaw.utilities.blas import axpy
 from gpaw.utilities import unpack
-from gpaw.hs_operators import reshape
 from gpaw.xc.hybrid import HybridXC
+
+
+def reshape(a_x, shape):
+    """Get an ndarray of size shape from a_x buffer."""
+    return a_x.ravel()[:np.prod(shape)].reshape(shape)
 
 
 class Eigensolver:
@@ -25,12 +29,10 @@ class Eigensolver:
         self.band_comm = wfs.bd.comm
         self.dtype = wfs.dtype
         self.bd = wfs.bd
-        self.ksl = wfs.diagksl
         self.nbands = wfs.bd.nbands
         self.mynbands = wfs.bd.mynbands
-        self.operator = wfs.matrixoperator
 
-        if self.mynbands != self.nbands or self.operator.nblocks != 1:
+        if wfs.bd.comm.size > 1:
             self.keep_htpsit = False
 
         if self.keep_htpsit:
@@ -48,7 +50,7 @@ class Eigensolver:
     def reset(self):
         self.initialized = False
 
-    def iterate(self, hamiltonian, wfs):
+    def iterate(self, ham, wfs):
         """Solves eigenvalue problem iteratively
 
         This method is inherited by the actual eigensolver which should
@@ -57,26 +59,23 @@ class Eigensolver:
         """
 
         if not self.initialized:
-            if isinstance(hamiltonian.xc, HybridXC):
+            if isinstance(ham.xc, HybridXC):
                 self.blocksize = wfs.bd.mynbands
             self.initialize(wfs)
 
         error = 0.0
         for kpt in wfs.kpt_u:
             if not wfs.orthonormalized:
-                wfs.overlap.orthonormalize(wfs, kpt)
-            e, psit_nG = self.iterate_one_k_point(hamiltonian, wfs, kpt)
+                wfs.orthonormalize(kpt)
+            e = self.iterate_one_k_point(ham, wfs, kpt)
             error += e
             if self.orthonormalization_required:
-                wfs.overlap.orthonormalize(wfs, kpt)#, psit_nG)
-            else:
-                pass#kpt.psit_nG[:] = psit_nG[:]
+                wfs.orthonormalize(kpt)
 
-        wfs.set_orthonormalized(True)
-
+        wfs.orthonormalized = True
         self.error = self.band_comm.sum(self.kpt_comm.sum(error))
 
-    def iterate_one_k_point(self, hamiltonian, kpt):
+    def iterate_one_k_point(self, ham, kpt):
         """Implemented in subclasses."""
         raise NotImplementedError
 
@@ -135,7 +134,7 @@ class Eigensolver:
 
         psit_n = kpt.psit_n
         tmp_n = psit_n.new(buf=wfs.work_array_nG)
-        H_nn = self.M_nn
+        H_nn = wfs.M_nn
         P_n = kpt.P_n
         dHP_n = P_n.new()
 
@@ -146,10 +145,9 @@ class Eigensolver:
             H_nn += P_n.C * dHP_n.T
             ham.xc.correct_hamiltonian_matrix(kpt, H_nn.data)
 
-        diagonalization_string = repr(self.ksl)
-        with wfs.timer(diagonalization_string):
-            self.ksl.diagonalize(H_nn.data, kpt.eps_n)
-            # H_nn now contains the result of the diagonalization.
+        with wfs.timer('diagonalize'):
+            H_nn.diagonalize(kpt.eps_n)
+            # H_nn now contains the eigenvectors
 
         with self.timer('rotate_psi'):
             if self.keep_htpsit:
@@ -158,10 +156,15 @@ class Eigensolver:
             tmp_n[:] = H_nn.C * psit_n
             psit_n[:] = tmp_n
             dHP_n[:] = H_nn.C * P_n
-            dHP_n.extract_to(P_ani)
+            dHP_n.extract_to(kpt.P_ani)
             # Rotate orbital dependent XC stuff:
-            hamiltonian.xc.rotate(kpt, H_nn.data.conj())
+            ham.xc.rotate(kpt, H_nn.data.conj())
 
+        if self.keep_htpsit:
+            return kpt.psit_nG, Htpsit_n.data
+        else:
+            return kpt.psit_nG, None
+            
     def estimate_memory(self, mem, wfs):
         gridmem = wfs.bytes_per_wave_function()
 

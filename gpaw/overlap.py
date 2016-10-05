@@ -22,11 +22,9 @@ class Overlap:
     overlap operator to a set of wavefunctions.
     """
 
-    def __init__(self, ksl, timer):
+    def __init__(self, timer):
         """Create the Overlap operator."""
-        self.ksl = ksl
         self.timer = timer
-
 
     def apply(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):
         """Apply the overlap operator to a set of vectors.

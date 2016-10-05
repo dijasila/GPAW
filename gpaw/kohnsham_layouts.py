@@ -3,14 +3,11 @@
 # Please see the accompanying LICENSE file for further information.
 import numpy as np
 
-from gpaw.matrix_descriptor import MatrixDescriptor, \
-    BandMatrixDescriptor, \
-    BlacsBandMatrixDescriptor
+from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.utilities import uncamelcase
 from gpaw.utilities.blas import gemm, r2k
-from gpaw.utilities.lapack import diagonalize, general_diagonalize, \
-    inverse_cholesky
+from gpaw.utilities.lapack import general_diagonalize
 from gpaw.utilities.scalapack import pblas_simple_gemm, pblas_tran
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities.timing import nulltimer
@@ -21,22 +18,15 @@ def get_KohnSham_layouts(sl, mode, gd, bd, block_comm, dtype, **kwargs):
     # Not needed for AtomPAW special mode, as usual we just provide whatever
     # happens to make the code not crash
     if not isinstance(mode, str):
-        return None  #XXX
-    name = {'fd': 'BandLayouts', 'lcao': 'OrbitalLayouts'}[mode]
+        return None  # XXX
+    name = 'OrbitalLayouts'
     args = (gd, bd, block_comm, dtype)
     if sl is not None:
         name = 'Blacs' + name
         assert len(sl) == 3
         args += tuple(sl)
-    ksl = {'BandLayouts':         BandLayouts,
-           'BlacsBandLayouts':    BlacsBandLayouts,
-           'BlacsOrbitalLayouts': BlacsOrbitalLayouts,
-           'OrbitalLayouts':      OrbitalLayouts,
-            }[name](*args, **kwargs)
-    if 0: #XXX debug
-        print(('USING KSL: %s' % repr(ksl)))
-    assert isinstance(ksl, KohnShamLayouts)
-    assert isinstance(ksl, BlacsLayouts) == (sl is not None)
+    ksl = {'BlacsOrbitalLayouts': BlacsOrbitalLayouts,
+           'OrbitalLayouts': OrbitalLayouts}[name](*args, **kwargs)
     return ksl
 
 
@@ -100,177 +90,6 @@ class BlacsLayouts(KohnShamLayouts):
         return (title, template)
 
 
-class BandLayouts(KohnShamLayouts):
-    matrix_descriptor_class = BandMatrixDescriptor
-
-    def __init__(self, gd, bd, block_comm, dtype,
-                 buffer_size=None, timer=nulltimer):
-        KohnShamLayouts.__init__(self, gd, bd, block_comm, dtype,
-                                 timer)
-        self.buffer_size = buffer_size
-
-    def diagonalize(self, H_NN, eps_n):
-        """Serial diagonalizer must handle two cases:
-        1. Parallelization over domains only.
-        2. Simultaneous parallelization over domains and bands.
-        """
-        nbands = self.bd.nbands
-        eps_N = np.empty(nbands)
-        self.timer.start('Diagonalize')
-        # Broadcast on block_comm since result
-        # is k-point and spin-dependent only
-        self.block_comm.broadcast(H_NN, 0)
-        # The result on different processor is not necessarily bit-wise
-        # identical, so only domain master performs diagonalization
-        if self.gd.comm.rank == 0:
-            self._diagonalize(H_NN, eps_N)
-        self.gd.comm.broadcast(H_NN, 0)
-        self.gd.comm.broadcast(eps_N, 0)
-        self.timer.stop('Diagonalize')
-
-        self.timer.start('Distribute results')
-        # Copy the portion that belongs to my band group
-        eps_n[:] = eps_N[self.bd.get_slice()]
-        self.timer.stop('Distribute results')
-
-    def _diagonalize(self, H_NN, eps_N):
-        """Serial diagonalize via LAPACK."""
-        # This is replicated computation but ultimately avoids
-        # additional communication.
-        diagonalize(H_NN, eps_N)
-
-    def inverse_cholesky(self, S_NN):
-        """Serial inverse Cholesky must handle two cases:
-        1. Parallelization over domains only.
-        2. Simultaneous parallelization over domains and bands.
-        """
-        self.timer.start('Inverse Cholesky')
-        # Broadcast on block_comm since result
-        # is k-point and spin-dependent only
-        self.block_comm.broadcast(S_NN, 0)
-        # The result on different processor is not necessarily bit-wise
-        # identical, so only domain master performs computation
-        if self.gd.comm.rank == 0:
-            self._inverse_cholesky(S_NN)
-        self.gd.comm.broadcast(S_NN, 0)
-        self.timer.stop('Inverse Cholesky')
-
-    def _inverse_cholesky(self, S_NN):
-        """Serial inverse Cholesky via LAPACK."""
-        # This is replicated computation but ultimately avoids
-        # additional communication.
-        inverse_cholesky(S_NN)
-
-    def get_description(self):
-        return 'Serial LAPACK'
-
-
-class BlacsBandLayouts(BlacsLayouts):  #XXX should derive from BandLayouts too!
-    """ScaLAPACK Dense Linear Algebra.
-
-    This class is instantiated in the real-space code.  Not for
-    casual use, at least for now.
-    
-    Requires two distributors and three descriptors for initialization
-    as well as grid descriptors and band descriptors. Distributors are
-    for cols2blocks (1D -> 2D BLACS grid) and blocks2rows (2D -> 1D
-    BLACS grid). ScaLAPACK operations must occur on a 2D BLACS grid for
-    performance and scalability. Redistribute of 1D *column* layout
-    matrix will operate only on lower half of H or S. Redistribute of
-    2D block will operate on entire matrix for U, but only lower half
-    of C.
-
-    inverse_cholesky is "hard-coded" for real-space code.
-    Expects overlap matrix (S) and the coefficient matrix (C) to be a
-    replicated data structures and *not* created by the BLACS descriptor class.
-    This is due to the MPI_Reduce and MPI_Broadcast that will occur
-    in the parallel matrix multiply. Input matrices should be:
-    S = np.empty((nbands, mybands), dtype)
-    C = np.empty((mybands, nbands), dtype)
-
-    
-    _standard_diagonalize is "hard-coded" for the real-space code.
-    Expects both hamiltonian (H) and eigenvector matrix (U) to be a
-    replicated data structures and not created by the BLACS descriptor class.
-    This is due to the MPI_Reduce and MPI_Broadcast that will occur
-    in the parallel matrix multiply. Input matrices should be:
-    H = np.empty((nbands, mynbands), dtype)
-    U = np.empty((mynbands, nbands), dtype)
-    eps_n = np.empty(mynbands, dtype = float)
-    """ #XXX rewrite this docstring a bit!
-
-    matrix_descriptor_class = BlacsBandMatrixDescriptor
-
-    # This class 'describes' all the realspace Blacs-related layouts
-    def __init__(self, gd, bd, block_comm, dtype, mcpus, ncpus,
-                 blocksize, buffer_size=None, timer=nulltimer):
-        BlacsLayouts.__init__(self, gd, bd, block_comm, dtype,
-                              mcpus, ncpus, blocksize, timer)
-        self.buffer_size = buffer_size
-        nbands = bd.nbands
-        self.mynbands = mynbands = bd.mynbands
-        self.blocksize = blocksize
-
-        # 1D layout - columns
-        self.columngrid = BlacsGrid(self.column_comm, 1, bd.comm.size)
-        self.Nndescriptor = self.columngrid.new_descriptor(nbands, nbands,
-                                                           nbands, mynbands)
-
-        # 2D layout
-        self.nndescriptor = self.blockgrid.new_descriptor(nbands, nbands,
-                                                          blocksize, blocksize)
-
-        # 1D layout - rows
-        self.rowgrid = BlacsGrid(self.column_comm, bd.comm.size, 1)
-        self.nNdescriptor = self.rowgrid.new_descriptor(nbands, nbands,
-                                                        mynbands, nbands)
-
-        # Only redistribute filled out half for Hermitian matrices
-        self.Nn2nn = Redistributor(self.block_comm, self.Nndescriptor,
-                                   self.nndescriptor)
-        #self.Nn2nn = Redistributor(self.block_comm, self.Nndescriptor,
-        #                           self.nndescriptor, 'L') #XXX faster but...
-
-        # Resulting matrix will be used in dgemm which is symmetry obvlious
-        self.nn2nN = Redistributor(self.block_comm, self.nndescriptor,
-                                   self.nNdescriptor)
-        
-    def diagonalize(self, H_nn, eps_n):
-        nbands = self.bd.nbands
-        eps_N = np.empty(nbands)
-        self.timer.start('Diagonalize')
-        self._diagonalize(H_nn, eps_N)
-        self.timer.stop('Diagonalize')
-
-        self.timer.start('Distribute results')
-        # eps_N is already on block_comm.rank = 0
-        # easier to broadcast eps_N to all and
-        # get the correct slice afterward.
-        self.block_comm.broadcast(eps_N, 0)
-        eps_n[:] = eps_N[self.bd.get_slice()]
-        self.timer.stop('Distribute results')
-
-    def _diagonalize(self, H_nn, eps_N):
-        """Parallel diagonalizer."""
-        self.nndescriptor.diagonalize_dc(H_nn.copy(), H_nn, eps_N, 'L')
-        
-    def inverse_cholesky(self, S_nn):
-        self.timer.start('Inverse Cholesky')
-        self._inverse_cholesky(S_nn)
-        self.block_comm.barrier() # removing barrier may lead to race condition
-        self.timer.stop('Inverse Cholesky')
-        
-    def _inverse_cholesky(self, S_nn):
-        self.nndescriptor.inverse_cholesky(S_nn, 'L')
-
-    def get_description(self):
-        (title, template) = BlacsLayouts.get_description(self)
-        bg = self.blockgrid
-        desc = self.nndescriptor
-        s = template % (bg.nprow, bg.npcol, desc.mb, desc.nb)
-        return ' '.join([title, s])
-
-
 class BlacsOrbitalLayouts(BlacsLayouts):
     """ScaLAPACK Dense Linear Algebra.
 
@@ -314,11 +133,11 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.nMdescriptor = self.columngrid.new_descriptor(nbands, nao,
                                                            mynbands, nao)
 
-        #parallelprint(world, (mynao, self.mMdescriptor.shape))
+        # parallelprint(world, (mynao, self.mMdescriptor.shape))
 
         # Column layout for one matrix in total (only on grid masters):
         self.single_column_grid = BlacsGrid(self.column_comm, bd.comm.size, 1)
-        self.mM_unique_descriptor = self.single_column_grid.new_descriptor( \
+        self.mM_unique_descriptor = self.single_column_grid.new_descriptor(
             nao, nao, naoblocksize, nao)
 
         # nM_unique_descriptor is meant to hold the coefficients after
@@ -327,14 +146,14 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         #
         # The array will then be trimmed and broadcast across
         # the grid descriptor's communicator.
-        self.nM_unique_descriptor = self.single_column_grid.new_descriptor( \
+        self.nM_unique_descriptor = self.single_column_grid.new_descriptor(
             nbands, nao, mynbands, nao)
 
         # Fully blocked grid for diagonalization with many CPUs:
         self.mmdescriptor = self.blockgrid.new_descriptor(nao, nao, blocksize,
                                                           blocksize)
 
-        #self.nMdescriptor = nMdescriptor
+        # self.nMdescriptor = nMdescriptor
         self.mM2mm = Redistributor(self.block_comm, self.mM_unique_descriptor,
                                    self.mmdescriptor)
         self.mm2nM = Redistributor(self.block_comm, self.mmdescriptor,
@@ -356,8 +175,9 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.timer.start('General diagonalize')
         # general_diagonalize_ex may have a buffer overflow, so
         # we no longer use it
-        #blockdescriptor.general_diagonalize_ex(H_mm, S_mm.copy(), C_mm, eps_M,
-        #                                       UL='L', iu=self.bd.nbands)
+        # blockdescriptor.general_diagonalize_ex(H_mm, S_mm.copy(), C_mm,
+        #                                        eps_M,
+        #                                        UL='L', iu=self.bd.nbands)
         blockdescriptor.general_diagonalize_dc(H_mm, S_mm.copy(), C_mm, eps_M,
                                                UL='L')
         self.timer.stop('General diagonalize')
@@ -494,7 +314,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         return rho_mM
 
     def distribute_to_columns(self, rho_mm, srcdescriptor):
-        redistributor = Redistributor(self.block_comm, # XXX
+        redistributor = Redistributor(self.block_comm,  # XXX
                                       srcdescriptor,
                                       self.mM_unique_descriptor)
         rho_mM = redistributor.redistribute(rho_mm)
@@ -592,12 +412,12 @@ class OrbitalLayouts(KohnShamLayouts):
     def get_transposed_density_matrix(self, f_n, C_nM, rho_MM=None):
         return self.calculate_density_matrix(f_n, C_nM, rho_MM).T.copy()
 
-        #if rho_MM is None:
-        #    rho_MM = np.zeros((self.mynao, self.nao), dtype=C_nM.dtype)
-        #C_Mn = C_nM.T.copy()
-        #gemm(1.0, C_Mn, f_n[np.newaxis, :] * C_Mn, 0.0, rho_MM, 'c')
-        #self.bd.comm.sum(rho_MM)
-        #return rho_MM
+        # if rho_MM is None:
+        #     rho_MM = np.zeros((self.mynao, self.nao), dtype=C_nM.dtype)
+        # C_Mn = C_nM.T.copy()
+        # gemm(1.0, C_Mn, f_n[np.newaxis, :] * C_Mn, 0.0, rho_MM, 'c')
+        # self.bd.comm.sum(rho_MM)
+        # return rho_MM
 
     def alternative_calculate_density_matrix(self, f_n, C_nM, rho_MM=None):
         if rho_MM is None:

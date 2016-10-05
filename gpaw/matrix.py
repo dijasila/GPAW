@@ -1,14 +1,14 @@
 import numpy as np
 
+import gpaw.utilities.lapack as lapack
 import _gpaw
 
 
 global_blacs_context_store = {}
 
 
-def create_distribution(M, M, comm=None, r=1, c=1, b=None):
-    # if r == c == 1:
-    if comm is None:
+def create_distribution(M, N, comm=None, r=1, c=1, b=None):
+    if r == c == 1:
         return None
 
     key = (comm, r, c)
@@ -32,7 +32,13 @@ def create_distribution(M, M, comm=None, r=1, c=1, b=None):
 class Matrix:
     def __init__(self, M, N, dtype=None, data=None, dist=None):
         self.shape = (M, N)
-        self.dtype = dtype or data.dtype
+        
+        if dtype is None:
+            if data is None:
+                dtype = float
+            else:
+                dtype = data.dtype
+        self.dtype = dtype
 
         if isinstance(dist, tuple):
             dist = create_distribution(M, N, *dist)
@@ -49,19 +55,22 @@ class Matrix:
             self.data = np.asarray(data)
 
         self.source = None
-        self.summcomm = None
+        
+        self.comm_to_be_summed_over = None
+        
         self.comm = None
 
     def __str__(self):
         return str(self.data)
 
-    def empty_like(self):
-        return Matrix(*self.shape, self.dtype, dist=self.dist)
+    def new(self):
+        return Matrix(*self.shape, dtype=self.dtype, dist=self.dist)
 
-    def touch(self):
-        if self.commsum:
-            self.commsum.sum(self.data)
-
+    def finish_sums(self):
+        if self.comm_to_be_summed_over:
+            self.comm_to_be_summed_over.sum(self.data, 0)
+        self.comm_to_be_summed_over = None
+        
     def __setitem__(self, i, x):
         # assert i == slice(None)
         x.eval(self)
@@ -131,7 +140,15 @@ class Matrix:
             assert beta == 1
             destination.data += alpha * c
 
+    def inverse_cholesky(self):
+        self.finish_sums()
+        lapack.inverse_cholesky(self.data)
+        
+    def diagonalize(self, eps_n):
+        self.finish_sums()
+        lapack.diagonalize(self.data, eps_n)
 
+        
 class RealSpaceMatrix(Matrix):
     def __init__(self, M, gd, dtype=None, data=None, dist=None):
         N = gd.get_size_of_global_array().prod()
@@ -173,7 +190,7 @@ class PWExpansionMatrix(Matrix):
 
 class ProjectorMatrix(Matrix):
     def __init__(self, M, comm, dtype, P_ani, dist):
-        if P_ani is not None:
+        if isinstance(P_ani, dict):
             self.slices = []
             I1 = 0
             for a, P_ni in P_ani.items():
@@ -186,12 +203,15 @@ class ProjectorMatrix(Matrix):
             P_nI = np.empty((N, I1), dtype)
             for P_ni, (I1, I2) in zip(P_ani.values(), self.slices):
                 P_nI[:, I1:I2] = P_ni
+        else:
+            P_nI = P_ani
 
-        Matrix.__init__(self, M, I1, dtype, P_nI, dist)
+        Matrix.__init__(self, M, P_nI.shape[1], dtype, P_nI, dist)
         self.comm = comm
 
     def new(self):
-        pm = ProjectorMatrix(self.shape[0], self.comm, self.dtype, None,
+        P_nI = np.empty_like(self.data)
+        pm = ProjectorMatrix(self.shape[0], self.comm, self.dtype, P_nI,
                              self.dist)
         pm.slices = self.slices
         return pm
