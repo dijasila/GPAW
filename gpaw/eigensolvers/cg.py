@@ -147,8 +147,11 @@ class CG(Eigensolver):
                 comm.sum(overlap_n)
 
                 # phi_G -= overlap_n * kpt.psit_nG
-                gemv(-1.0, psit_nG[:N].view(float), overlap_n,
-                     1.0, phi_G.view(float), 'n')
+                if psit_nG.ndims == 2 and psit_nG.dtype == float:
+                    gemv(-1.0, psit_nG[:N].view(float), overlap_n,
+                         1.0, phi_G.view(float), 'n')
+                else:
+                    gemv(-1.0, psit_nG[:N], overlap_n, 1.0, phi_G, 'n')
                 for a, P2_i in P2_ai.items():
                     P_ni = kpt.P_ani[a]
                     gemv(-1.0, P_ni[:N], overlap_n, 1.0, P2_i, 'n')

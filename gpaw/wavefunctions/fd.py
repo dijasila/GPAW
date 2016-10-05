@@ -2,7 +2,6 @@ import numpy as np
 from ase.units import Bohr
 
 from gpaw.fd_operators import Laplace, Gradient
-from gpaw.hs_operators import MatrixOperator
 from gpaw.kpoint import KPoint
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.lfc import LocalizedFunctionsCollection as LFC

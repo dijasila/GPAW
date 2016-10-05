@@ -283,19 +283,23 @@ if __name__ == '__main__':
     from gpaw.mpi import world
     from gpaw.grid_descriptor import GridDescriptor
     gd = GridDescriptor([2, 3, 4], [2, 3, 4])
-    p1 = gd.zeros(2)
-    p2 = gd.zeros(2)
-    p1[:] = 1
-    p2[:] = 2
     N = 2
-    a = RealSpaceMatrix(N, gd, data=p1, dist=(world, world.size))
-    b = RealSpaceMatrix(N, gd, data=p2, dist=(world, world.size))
+    a = RealSpaceMatrix(N, gd, float, dist=(world, world.size))
+    a.data[:] = 1
+    a.data[0, 0, world.rank] = 0
     c = Matrix(N, N, dist=(world, world.size))
 
     def f(x, y):
         y.data[:] = x.data + 1
 
     c[:] = (a | a)
+    print(c.data)
+    c.inverse_cholesky()
+    print(c.data)
+    b = a.new()
+    b[:] = c.C * a
+    c[:] = (b | b)
+    print(c.data);asdgf
     c[:] = (a | b)
     b[:] = f * a
     c[:] = (a | b)
