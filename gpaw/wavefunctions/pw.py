@@ -52,7 +52,7 @@ class PW(Mode):
 
         Mode.__init__(self, force_complex_dtype)
 
-    def __call__(self, diagksl, orthoksl, initksl, gd, *args, **kwargs):
+    def __call__(self, initksl, gd, *args, **kwargs):
         if self.cell_cv is None:
             ecut = self.ecut
         else:
@@ -61,7 +61,7 @@ class PW(Mode):
             ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
 
         wfs = PWWaveFunctions(ecut, self.fftwflags,
-                              diagksl, orthoksl, initksl, gd, *args,
+                              initksl, gd, *args,
                               **kwargs)
         return wfs
 
@@ -417,20 +417,6 @@ class PWDescriptor:
         G3_Q[pd.Q_qG[q]] = np.arange(len(pd.Q_qG[q]))
         return G3_Q[Q3_G]
 
-    def gemm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
-        """Helper function for MatrixOperator class."""
-        if self.dtype == float:
-            psit_nG = psit_nG.view(float)
-            newpsit_mG = newpsit_mG.view(float)
-        gemm(alpha, psit_nG, C_mn, beta, newpsit_mG)
-
-    def gemv(self, alpha, psit_nG, C_n, beta, newpsit_G, trans='t'):
-        """Helper function for CG eigensolver."""
-        if self.dtype == float:
-            psit_nG = psit_nG.view(float)
-            newpsit_G = newpsit_G.view(float)
-        gemv(alpha, psit_nG, C_n, beta, newpsit_G, trans)
-
 
 def count_reciprocal_vectors(ecut, gd, q_c):
     N_c = gd.N_c
@@ -482,7 +468,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     mode = 'pw'
 
     def __init__(self, ecut, fftwflags,
-                 diagksl, orthoksl, initksl,
+                 initksl,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
@@ -490,13 +476,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         self.ng_k = None  # number of G-vectors for all IBZ k-points
 
-        FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
+        FDPWWaveFunctions.__init__(self, initksl,
                                    gd, nvalence, setups, bd, dtype,
                                    world, kd, kptband_comm, timer)
 
-        self.orthoksl.gd = self.pd
-        self.matrixoperator = MatrixOperator(self.orthoksl)
-        
     def empty(self, n=(), global_array=False, realspace=False,
               q=-1):
         if realspace:
