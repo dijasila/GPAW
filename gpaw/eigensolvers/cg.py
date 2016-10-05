@@ -233,7 +233,7 @@ class CG(Eigensolver):
             total_error += weight * error
             # if nit == 3:
             #   print >> self.f, "cg:iters", n, nit+1
-        if self.tw_coeff: #undo the scaling for calculating energies
+        if self.tw_coeff:  # undo the scaling for calculating energies
             for i in range(len(kpt.eps_n)):
                 kpt.eps_n[i] *= self.tw_coeff
             hamiltonian.vt_sG *= self.tw_coeff
