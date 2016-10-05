@@ -353,7 +353,7 @@ class GPAW(Calculator, PAW):
 
             # More drastic changes:
             if self.wfs:
-                self.wfs.set_orthonormalized(False)
+                self.wfs.orthonormalized = False
             if key in ['external', 'xc', 'poissonsolver']:
                 self.hamiltonian = None
             elif key in ['occupations', 'width']:
@@ -932,30 +932,6 @@ class GPAW(Calculator, PAW):
             self.wfs = mode(lcaoksl, **wfs_kwargs)
 
         elif mode.name == 'fd' or mode.name == 'pw':
-            # buffer_size keyword only relevant for fdpw
-            buffer_size = self.parallel['buffer_size']
-            # Layouts used for diagonalizer
-            sl_diagonalize = self.parallel['sl_diagonalize']
-            if sl_diagonalize is None:
-                sl_diagonalize = sl_default
-            diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',  # XXX
-                                           # choice of key 'fd' not so nice
-                                           gd, bd, domainband_comm, dtype,
-                                           buffer_size=buffer_size,
-                                           timer=self.timer)
-
-            # Layouts used for orthonormalizer
-            sl_inverse_cholesky = self.parallel['sl_inverse_cholesky']
-            if sl_inverse_cholesky is None:
-                sl_inverse_cholesky = sl_default
-            if sl_inverse_cholesky != sl_diagonalize:
-                message = 'sl_inverse_cholesky != sl_diagonalize ' \
-                    'is not implemented.'
-                raise NotImplementedError(message)
-            orthoksl = get_KohnSham_layouts(sl_inverse_cholesky, 'fd',
-                                            gd, bd, domainband_comm, dtype,
-                                            buffer_size=buffer_size,
-                                            timer=self.timer)
 
             # Use (at most) all available LCAO for initialization
             lcaonbands = min(nbands, nao)
@@ -976,7 +952,7 @@ class GPAW(Calculator, PAW):
                                                dtype, nao=nao,
                                                timer=self.timer)
 
-            self.wfs = mode(diagksl, orthoksl, initksl, **wfs_kwargs)
+            self.wfs = mode(initksl, **wfs_kwargs)
         else:
             self.wfs = mode(self, **wfs_kwargs)
 

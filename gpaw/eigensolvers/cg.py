@@ -8,8 +8,7 @@ from ase.units import Hartree
 
 from gpaw.utilities.blas import axpy, gemv
 from gpaw.utilities import unpack
-from gpaw.eigensolvers.eigensolver import Eigensolver
-from gpaw.hs_operators import reshape
+from gpaw.eigensolvers.eigensolver import Eigensolver, reshape
 from gpaw import extra_parameters
 
 
@@ -62,7 +61,6 @@ class CG(Eigensolver):
                              'parallelization.  This calculation parallelizes '
                              'over %d band groups.' % wfs.bd.comm.size)
         Eigensolver.initialize(self, wfs)
-        self.overlap = wfs.overlap
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do conjugate gradient iterations for the k-point"""
@@ -92,7 +90,7 @@ class CG(Eigensolver):
         # Note that psit_nG is now in self.operator.work1_nG and
         # Htpsit_nG is in kpt.psit_nG!
 
-        R_nG = np.empty_like(psit_nG)
+        R_nG = reshape(wfs.work_array_nG, psit_nG.shape)
         Htphi_G = R_nG[0]
 
         R_nG[:] = Htpsit_nG

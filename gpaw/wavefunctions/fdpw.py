@@ -16,11 +16,9 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 class FDPWWaveFunctions(WaveFunctions):
     """Base class for finite-difference and planewave classes."""
-    def __init__(self, diagksl, orthoksl, initksl, *args, **kwargs):
+    def __init__(self, initksl, *args, **kwargs):
         WaveFunctions.__init__(self, *args, **kwargs)
 
-        self.diagksl = diagksl
-        self.orthoksl = orthoksl
         self.initksl = initksl
 
         self.orthonormalized = False
@@ -44,31 +42,18 @@ class FDPWWaveFunctions(WaveFunctions):
                                 dist=(self.bd.comm, self.bd.comm.size))
         return self._M_nn
 
-    def __str__(self):
-        if self.diagksl.buffer_size is not None:
-            s = ('  MatrixOperator buffer_size (KiB): %d\n' %
-                 self.diagksl.buffer_size)
-        else:
-            s = ('  MatrixOperator buffer_size: default value or \n' +
-                 ' %s see value of nblock in input file\n' % (28 * ' '))
-        diagonalizer_layout = self.diagksl.get_description()
-        s += 'Diagonalizer layout: ' + diagonalizer_layout
-        orthonormalizer_layout = self.orthoksl.get_description()
-        s += 'Orthonormalizer layout: ' + orthonormalizer_layout
-        return WaveFunctions.__str__(self) + s
-
     def set_setups(self, setups):
         WaveFunctions.set_setups(self, setups)
 
     def set_positions(self, spos_ac, atom_partition=None):
         WaveFunctions.set_positions(self, spos_ac, atom_partition)
-        self.set_orthonormalized(False)
+        self.orthonormalized = False
         self.pt.set_positions(spos_ac)
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
         self.positions_set = True
 
     def make_overlap(self):
-        return Overlap(self.orthoksl, self.timer)
+        return Overlap(self.timer)
 
     def initialize(self, density, hamiltonian, spos_ac):
         if self.kpt_u[0].psit_nG is None:
@@ -194,10 +179,9 @@ class FDPWWaveFunctions(WaveFunctions):
             dSP_n[:] = dS * P_n
             S_nn += P_n.C * dSP_n.T
 
-        orthonormalization_string = repr(self.ksl)
-        with self.timer(orthonormalization_string):
+        with self.timer('inverse-cholesky'):
             assert self.bd.comm.size == 1
-            self.ksl.inverse_cholesky(S_nn.data)
+            S_nn.inverse_cholesky()
             # S_nn now contains the inverse of the Cholesky factorization.
 
         psit2_n = psit_n.new(buf=self.work_array_nG)

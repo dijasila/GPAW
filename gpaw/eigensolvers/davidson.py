@@ -2,8 +2,7 @@ import numpy as np
 
 from gpaw.utilities.lapack import general_diagonalize
 from gpaw.utilities import unpack
-from gpaw.hs_operators import reshape
-from gpaw.eigensolvers.eigensolver import Eigensolver
+from gpaw.eigensolvers.eigensolver import Eigensolver, reshape
 
 
 class Davidson(Eigensolver):

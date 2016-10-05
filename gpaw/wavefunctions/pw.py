@@ -505,7 +505,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             return self.pd.empty(n, self.dtype, q)
 
     def wrap_wave_function_arrays_in_fancy_objects(self):
-        dist = (self.bd.comm, self.bd.size)
+        dist = (self.bd.comm, self.bd.comm.size)
         for kpt in self.kpt_u:
             if kpt.dist is not None:
                 return

@@ -9,10 +9,6 @@ from gpaw.utilities.blas import gemm
 #from gpaw.blacs_hs_operators import MatrixOperator
 
 
-def reshape(a_x, shape):
-    """Get an ndarray of size shape from a_x buffer."""
-    return a_x.ravel()[:np.prod(shape)].reshape(shape)
-
 
 class MatrixOperator:
     """Base class for overlap and hamiltonian operators.
