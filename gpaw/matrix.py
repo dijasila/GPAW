@@ -194,13 +194,11 @@ class ProjectorMatrix(Matrix):
             self.slices = []
             I1 = 0
             for a, P_ni in P_ani.items():
-                N, i = P_ni.shape
-                dtype = P_ni.dtype
-                I2 = I1 + i
+                I2 = I1 + P_ni.shape[1]
                 self.slices.append((I1, I2))
                 I1 = I2
 
-            P_nI = np.empty((N, I1), dtype)
+            P_nI = np.empty((M, I1), dtype)
             for P_ni, (I1, I2) in zip(P_ani.values(), self.slices):
                 P_nI[:, I1:I2] = P_ni
         else:

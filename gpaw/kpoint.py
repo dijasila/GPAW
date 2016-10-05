@@ -104,7 +104,11 @@ class KPoint:
     def P_n(self):
         """Wrap projections."""
         x = self.psit_n
-        pm = ProjectorMatrix(x.shape[0], x.comm, x.dtype, self.P_ani,
+        if hasattr(x, 'pd'):
+            dtype = x.pd.dtype
+        else:
+            dtype = x.dtype
+        pm = ProjectorMatrix(x.shape[0], x.comm, dtype, self.P_ani,
                              self.dist)
         self.dist = pm.dist
         return pm

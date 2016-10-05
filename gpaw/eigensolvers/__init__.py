@@ -23,7 +23,7 @@ def get_eigensolver(eigensolver, mode, convergence=None):
         name = eigensolver.pop('name')
         eigensolver = {'rmm-diis': RMMDIIS,
                        'cg': CG,
-                       'dav': Davidson,
+                       'dav': RMMDIIS,#Davidson,
                        'lcao': DirectLCAO
                        }[name](**eigensolver)
     

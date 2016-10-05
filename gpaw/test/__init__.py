@@ -123,7 +123,6 @@ tests = [
     'poisson/poisson.py',
     'poisson/poisson_asym.py',
     'parallel/arraydict_redist.py',
-    'parallel/overlap.py',
     'parallel/scalapack.py',
     'gauss_wave.py',
     'fd_ops/transformations.py',
@@ -137,7 +136,6 @@ tests = [
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
     'lcao/density.py',                      # ~1s
-    'parallel/hamiltonian.py',              # ~1s
     'pw/stresstest.py',                     # ~1s
     'pw/fftmixer.py',                       # ~1s
     'symmetry/usesymm.py',                  # ~1s
