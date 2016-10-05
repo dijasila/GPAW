@@ -1,6 +1,5 @@
 import numpy as np
 
-from gpaw.grid_descriptor import GridDescriptor
 import _gpaw
 
 
@@ -68,6 +67,7 @@ class Matrix:
         x.eval(self)
 
     def eval(self, destination, beta=0):
+        assert destination.dist == self.dist
         if beta == 0:
             destination.data[:] = self.data
         else:
@@ -100,10 +100,10 @@ class Matrix:
     def mmm(self, alpha, opa, b, opb, beta, destination):
         a = self
         if a.dist is not None:
-            #print(self.dist, alpha, self.data.shape, opa, b.data.shape, opb,
-            #      beta, destination.data.shape)
-            #print(b.dist)
-            #print(destination.dist)
+            # print(self.dist, alpha, self.data.shape, opa, b.data.shape, opb,
+            #       beta, destination.data.shape)
+            # print(b.dist)
+            # print(destination.dist)
             Ka, M = a.dist[2:4]
             N, Kb = b.dist[2:4]
             if opa == 'T':
@@ -112,9 +112,11 @@ class Matrix:
                 Kb, N = N, Kb
             if opa == 'C' and a.data.dtype == float:
                 opa = 'N'
-            #print(N, M, Ka)
-            #print(N, M, Ka, alpha, b.data.shape, b.data.strides, a.data.shape, a.data.strides,
-            #                 beta, destination.data.shape, destination.data.strides,
+            # print(N, M, Ka)
+            # print(N, M, Ka, alpha, b.data.shape, b.data.strides,
+            # a.data.shape, a.data.strides,
+            #                 beta, destination.data.shape,
+            # destination.data.strides,
             #                 b.dist, a.dist, destination.dist, opb, opa)
             _gpaw.pblas_gemm(N, M, Ka, alpha, b.data, a.data,
                              beta, destination.data,
@@ -132,24 +134,29 @@ class Matrix:
 
 class RealSpaceMatrix(Matrix):
     def __init__(self, M, gd, dtype=None, data=None, dist=None):
-        Matrix.__init__(self, data, dist)
+        N = gd.get_size_of_global_array().prod()
+        Matrix.__init__(self, M, N, dtype, data, dist)
+        self.data.shape = (-1,) + tuple(gd.n_c)
         self.gd = gd
         self.dv = gd.dv
         self.comm = gd.comm
 
-    def empty_like(self):
-        return RealSpaceMatrix(np.empty_like(self.data), self.gd, self.dist)
+    def new(self, buf=None):
+        return RealSpaceMatrix(self.shape[0], self.gd, self.dtype, buf,
+                               self.dist)
 
 
 class PWExpansionMatrix(Matrix):
-    def __init__(self, data, pd, dist):
-        Matrix.__init__(self, data, dist)
+    def __init__(self, M, pd, data=None, dist=None):
+        Matrix.__init__(self, M, data.shape[1], complex, data, dist)
         self.pd = pd
         self.dv = pd.gd.dv / pd.gd.N_c.prod()
 
-    def empty_like(self):
-        return PWExpansionMatrix(np.empty_like(self.data), self.pd,
-                                 self.dist)
+    def new(self, buf=None):
+        if buf is not None:
+            buf = buf.ravel()[:self.data.size]
+            buf.shape = self.data.shape
+        return PWExpansionMatrix(self.shape[0], self.pd, buf, self.dist)
 
     def mmm(self, alpha, opa, b, opb, beta, destination):
         if (self.pd.dtype == float and opa in 'NC' and
@@ -165,8 +172,7 @@ class PWExpansionMatrix(Matrix):
 
 
 class ProjectorMatrix(Matrix):
-    def __init__(self, P_ani, comm, N=0, dtype=float, dist=()):
-        self.comm = comm
+    def __init__(self, M, comm, dtype, P_ani, dist):
         if P_ani is not None:
             self.slices = []
             I1 = 0
@@ -181,13 +187,13 @@ class ProjectorMatrix(Matrix):
             for P_ni, (I1, I2) in zip(P_ani.values(), self.slices):
                 P_nI[:, I1:I2] = P_ni
 
-            Matrix.__init__(self, P_nI, dist)
+        Matrix.__init__(self, M, I1, dtype, P_nI, dist)
+        self.comm = comm
 
-    def empty_like(self):
-        pm = ProjectorMatrix(None, self.comm)
-        pm.data = np.empty_like(self.data)
+    def new(self):
+        pm = ProjectorMatrix(self.shape[0], self.comm, self.dtype, None,
+                             self.dist)
         pm.slices = self.slices
-        pm.dist = self.dist
         return pm
 
     def __iter__(self):
@@ -257,15 +263,16 @@ class Product:
 
 if __name__ == '__main__':
     from gpaw.mpi import world
+    from gpaw.grid_descriptor import GridDescriptor
     gd = GridDescriptor([2, 3, 4], [2, 3, 4])
     p1 = gd.zeros(2)
     p2 = gd.zeros(2)
     p1[:] = 1
     p2[:] = 2
     N = 2
-    a = RealSpaceMatrix(N, gd, data=p1, parallel=(world, world.size))
-    b = RealSpaceMatrix(N, gd, data=p2, parallel=(world, world.size))
-    c = Matrix(N, N, parallel=(world, world.size, 1))
+    a = RealSpaceMatrix(N, gd, data=p1, dist=(world, world.size))
+    b = RealSpaceMatrix(N, gd, data=p2, dist=(world, world.size))
+    c = Matrix(N, N, dist=(world, world.size))
 
     def f(x, y):
         y.data[:] = x.data + 1
@@ -274,7 +281,7 @@ if __name__ == '__main__':
     c[:] = (a | b)
     b[:] = f * a
     c[:] = (a | b)
-    d = a.empty_like()
+    d = a.new()
     d[:] = c * a
     print(c)
     c += a * b.T

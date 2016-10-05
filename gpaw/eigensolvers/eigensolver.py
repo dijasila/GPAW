@@ -101,7 +101,7 @@ class Eigensolver:
         wfs.pt.add(R_xG, c_axi, kpt.q)
 
     @timer('Subspace diag')
-    def subspace_diagonalize(self, hamiltonian, wfs, kpt):
+    def subspace_diagonalize(self, ham, wfs, kpt):
         """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
 
         *Htpsit_nG* is a work array of same size as psit_nG which contains
@@ -117,63 +117,50 @@ class Eigensolver:
         and that the integrals of projector functions and wave functions
         *P_ani* are already calculated.
 
-        Return ratated wave functions and H applied to the rotated
+        Return rotated wave functions and H applied to the rotated
         wave functions if self.keep_htpsit is True.
         """
 
         if self.band_comm.size > 1 and wfs.bd.strided:
             raise NotImplementedError
 
-        psit_nG = kpt.psit_nG
-        P_ani = kpt.P_ani
-        dH_asp = hamiltonian.dH_asp
-
-        if self.keep_htpsit:
-            Htpsit_nG = reshape(self.Htpsit_nG, psit_nG.shape)
-        else:
-            Htpsit_nG = np.empty_like(psit_nG)
-
         def H(psit_n, Htpsit_n):
-            wfs.apply_pseudo_hamiltonian(kpt, hamiltonian,
-                                         psit_n.data, Htpsit_n.data)
+            wfs.apply_pseudo_hamiltonian(kpt, ham, psit_n.data, Htpsit_n.data)
 
-        dH_aii = [unpack(dH_asp[a][kpt.s]) for a in P_ani]
+        dH_aii = [unpack(ham.dH_asp[a][kpt.s]) for a in kpt.P_ani]
 
-        def dH(P_n, P2_n):
-            for P_ni, P2_ni, dH_ii in zip(P_n, P2_n, dH_aii):
-                P2_ni[:] = np.dot(P_ni, dH_ii)
+        def dH(P_n, dHP_n):
+            for P_ni, dHP_ni, dH_ii in zip(P_n, dHP_n, dH_aii):
+                dHP_ni[:] = np.dot(P_ni, dH_ii)
 
-        from gpaw.matrix import matrix
-        psit_n = matrix(psit_nG, wfs)
-        Htpsit_n = matrix(Htpsit_nG, wfs)
-        N = len(psit_nG)
-        H_nn = matrix(np.empty((N, N), wfs.dtype))
-        P_n = matrix(P_ani, wfs.gd.comm, N, wfs.dtype)
-        dHP_n = P_n.empty_like()
+        psit_n = kpt.psit_n
+        tmp_n = psit_n.new(buf=wfs.work_array_nG)
+        H_nn = self.M_nn
+        P_n = kpt.P_n
+        dHP_n = P_n.new()
 
         with self.timer('calc_h_matrix'):
-            Htpsit_n[:] = H * psit_n
-            H_nn[:] = (psit_n | Htpsit_n)
+            tmp_n[:] = H * psit_n
+            H_nn[:] = (psit_n | tmp_n)
             dHP_n[:] = dH * P_n
             H_nn += P_n.C * dHP_n.T
-            hamiltonian.xc.correct_hamiltonian_matrix(kpt, H_nn.data)
+            ham.xc.correct_hamiltonian_matrix(kpt, H_nn.data)
 
         diagonalization_string = repr(self.ksl)
-        wfs.timer.start(diagonalization_string)
-        self.ksl.diagonalize(H_nn.data, kpt.eps_n)
-        # H_nn now contains the result of the diagonalization.
-        wfs.timer.stop(diagonalization_string)
+        with wfs.timer(diagonalization_string):
+            self.ksl.diagonalize(H_nn.data, kpt.eps_n)
+            # H_nn now contains the result of the diagonalization.
 
         with self.timer('rotate_psi'):
             if self.keep_htpsit:
-                Htpsit_n[:] = H_nn.C * Htpsit_n
-            psit_n[:] = H_nn.C * psit_n
-            P_n[:] = H_nn.C * P_n
-            P_n.extract_to(P_ani)
+                Htpsit_n = psit_n.new(buf=self.Htpsit_nG)
+                Htpsit_n[:] = H_nn.C * tmp_n
+            tmp_n[:] = H_nn.C * psit_n
+            psit_n[:] = tmp_n
+            dHP_n[:] = H_nn.C * P_n
+            dHP_n.extract_to(P_ani)
             # Rotate orbital dependent XC stuff:
             hamiltonian.xc.rotate(kpt, H_nn.data.conj())
-
-        return psit_nG, Htpsit_nG
 
     def estimate_memory(self, mem, wfs):
         gridmem = wfs.bytes_per_wave_function()
