@@ -31,7 +31,7 @@ class PW(Mode):
     name = 'pw'
     
     def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None,
-                 force_complex_dtype=False):
+                 force_complex_dtype=False, dipole_corr_dir=None):
         """Plane-wave basis mode.
 
         ecut: float
@@ -43,6 +43,7 @@ class PW(Mode):
 
         self.ecut = ecut / units.Hartree
         self.fftwflags = fftwflags
+	self.dipole_corr_dir=dipole_corr_dir
 
         if cell is None:
             self.cell_cv = None
@@ -60,8 +61,8 @@ class PW(Mode):
             ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
 
         wfs = PWWaveFunctions(ecut, self.fftwflags,
-                              diagksl, orthoksl, initksl, gd, *args,
-                              **kwargs)
+                              diagksl, orthoksl, initksl, gd,
+			      self.dipole_corr_dir,*args,**kwargs)
         return wfs
 
     def todict(self):
@@ -482,7 +483,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     def __init__(self, ecut, fftwflags,
                  diagksl, orthoksl, initksl,
-                 gd, nvalence, setups, bd, dtype,
+                 gd, dipole_corr_dir, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
         self.fftwflags = fftwflags
@@ -495,6 +496,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         self.orthoksl.gd = self.pd
         self.matrixoperator = MatrixOperator(self.orthoksl)
+	self.dipole_corr_dir=dipole_corr_dir
 
     def empty(self, n=(), global_array=False, realspace=False,
               q=-1):
@@ -540,6 +542,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
             s += "  Using Numpy's FFT\n"
         else:
             s += '  Using FFTW library\n'
+	if self.dipole_corr_dir:
+	    s +=('Dipole correction in %s-direction is performed\n' %
+                 ('xyz'[self.dipole_corr_dir]))
         return s + FDPWWaveFunctions.__str__(self)
 
     def make_preconditioner(self, block=1):
@@ -1358,7 +1363,7 @@ class ReciprocalSpaceDensity(Density):
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
-                 world, vext=None,
+                 world, dipole_corr_dir, vext=None,
                  psolver={}, redistributor=None):
 
         assert gd.comm.size == 1
@@ -1371,7 +1376,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)
         self.pd2 = pd2
         self.pd3 = pd3
-
+	self.dipole_corr_dir=dipole_corr_dir
         class PS:
             def initialize(self):
                 pass
@@ -1403,6 +1408,13 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.timer.start('Poisson')
         self.vHt_q = 4 * pi * density.rhot_q
         self.vHt_q[1:] /= self.pd3.G2_qG[0][1:]
+
+        if self.dipole_corr_dir != None:
+           p=density.calculate_dipole_moment()
+           from gpaw.dipole_correction import get_pw_dipole_correction 
+           vdc_g,self.dip_correction=get_pw_dipole_correction(self.dipole_corr_dir,self.finegd,p)
+           self.vHt_q+=self.pd3.fft(vdc_g)
+
         self.epot = 0.5 * self.pd3.integrate(self.vHt_q, density.rhot_q)
         self.timer.stop('Poisson')
 

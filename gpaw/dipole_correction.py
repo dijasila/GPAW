@@ -99,3 +99,39 @@ def dipole_correction(c, gd, rhot_g):
     phifactor = factor * (np.pi / alpha)**1.5 * cellsize**2 / 4.0
     dphi_g = -phifactor * erf(sr_g * np.sqrt(alpha))
     return drho_g, dphi_g, phifactor
+
+def get_pw_dipole_correction(c,gd,p):
+    """Dipole correction following Bengtsson,PRB,59,12301
+
+	Returns the array vdc_g.pckl, which corresponds to a linear
+	potential, which is added to vHt_q after Fourier transformation.
+	The potential counters the potential in vacuum and allows to
+	determine the two work functions in assymetric slab calculations.
+    """
+	
+    ng = gd.N_c[c]    #number of grid points in the corrected direction
+    cs = abs(gd.cell_cv[c,c])     #cell size in the corrected direction
+    nz0 = 0     			#XXX: should not be hard coded!
+    vdc_g = gd.zeros()
+    z0 = (nz0)/(ng)*cs     #z0=reference grid point in realspace
+
+    #Introduction of a linear function, which counters the potential introduced by the dipole
+    #Im sure this could be implemented in a nicer way
+    v = 4 * np.pi * p[c] * cs/np.linalg.det(gd.cell_cv)
+    for nz in range(nz0,nz0+ng):
+         z = (float(nz%ng)/ng*cs)
+	 vdc_i = -v * ((z-z0)/cs-0.5)
+         if c == 0: vdc_g[nz%ng,:,:] = vdc_i
+         elif c == 1: vdc_g[:,nz%ng,:] = vdc_i
+         else: vdc_g[:,:,nz%ng] = vdc_i
+    
+    #Introduction of an error function in order to counter the discontinuity at the boundary
+    for i in range(-5,5):
+	erfun = (-erf(0.5*float(-i))+1)
+	if c == 0:
+	   vdc_g[(i-nz0)%ng,:,:] = vdc_g[(-6-nz0)%ng,:,:]-erfun*(vdc_g[(-6-nz0)%ng,:,:]-vdc_g[(5-nz0)%ng,:,:])/2
+	elif c == 1:
+	   vdc_g[:,(i-nz0)%ng,:] = vdc_g[:,(-6-nz0)%ng,:]-erfun*(vdc_g[:,(-6-nz0)%ng,:]-vdc_g[:,(5-nz0)%ng,:])/2
+	else:
+	   vdc_g[:,:,(i-nz0)%ng] = vdc_g[:,:,(-6-nz0)%ng]-erfun*(vdc_g[:,:,(-6-nz0)%ng]-vdc_g[:,:,(5-nz0)%ng])/2
+    return vdc_g,-v*0.5

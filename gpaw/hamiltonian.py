@@ -123,6 +123,17 @@ class Hamiltonian(object):
                 .format(wf1, wf2))
             log()
 
+	try:
+            correction=self.dip_correction
+        except AttributeError:
+            pass
+        else:
+            wf1 = (-fermilevel + correction) * Ha
+            wf2 = (-fermilevel - correction) * Ha
+            log('Dipole layer corrected work functions: {0}, {1} eV'
+                .format(wf1, wf2))
+	    log()
+
     def set_positions_without_ruining_everything(self, spos_ac,
                                                  atom_partition):
         self.spos_ac = spos_ac
