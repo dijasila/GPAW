@@ -543,7 +543,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         else:
             s += '  Using FFTW library\n'
 	if self.dipole_corr_dir:
-	    s +=('Dipole correction in %s-direction is performed\n' %
+	    s +=('  Dipole correction in %s-direction is performed\n' %
                  ('xyz'[self.dipole_corr_dir]))
         return s + FDPWWaveFunctions.__str__(self)
 
