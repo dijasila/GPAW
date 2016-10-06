@@ -16,12 +16,13 @@ class DipoleCorrection:
         """
         self.c = direction
         self.poissonsolver = poissonsolver
-        
+
         self.correction = None
-        
-    def write(self, writer):
-        self.poissonsolver.write(writer)
-        writer.write(direction=self.c)
+
+    def todict(self):
+        dct = self.poissonsolver.todict()
+        dct['dipolelayer'] = self.c
+        return dct
 
     def get_stencil(self):
         return self.poissonsolver.get_stencil()
@@ -36,11 +37,11 @@ class DipoleCorrection:
                 raise ValueError('No axis perpendicular to {0}-plane!'
                                  .format(self.c))
             self.c = c
-            
+
         if gd.pbc_c[self.c]:
             raise ValueError('System must be non-periodic perpendicular '
                              'to dipole-layer.')
-            
+
         # Right now the dipole correction must be along one coordinate
         # axis and orthogonal to the two others.  The two others need not
         # be orthogonal to each other.
