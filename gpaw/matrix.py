@@ -10,7 +10,7 @@ global_blacs_context_store = {}
 class NoDistribution:
     def __init__(self, M, N):
         self.shape = (M, N)
-        
+
     def mmm(self, alpha, a, opa, b, opb, beta, destination):
         # print(self is b, self is b.source)
         c = np.dot(op(opa, a), op(opb, b)).reshape(destination.data.shape)
@@ -19,14 +19,14 @@ class NoDistribution:
         else:
             assert beta == 1
             destination.data += alpha * c
-        
+
     def inverse_cholesky(self, data):
         lapack.inverse_cholesky(data)
-        
+
     def diagonalize(self, data, eps_n):
         lapack.diagonalize(data, eps_n)
-        
-        
+
+
 class BLACSDistribution:
     def __init__(self, M, N, comm, r, c, b):
         key = (comm, r, c)
@@ -34,19 +34,19 @@ class BLACSDistribution:
         if context is None:
             context = _gpaw.new_blacs_context(comm.get_c_object(), c, r, 'R')
             global_blacs_context_store[key] = context
-    
+
         if b is None:
             assert c == 1
             br = (M + r - 1) // r
             bc = N
         else:
             br = bc = b
-    
+
         n, m = _gpaw.get_blacs_local_shape(context, N, M, bc, br, 0, 0)
         self.shape = (m, n)
         lld = max(1, n)
         self.desc = np.array([1, context, N, M, bc, br, 0, 0, lld], np.intc)
-        
+
     def mmm(self, alpha, a, opa, b, opb, beta, destination):
         M, Ka = a.shape
         Kb, N = b.shape
@@ -61,17 +61,23 @@ class BLACSDistribution:
                          b.dist.desc, a.dist.desc, destination.dist.desc,
                          opb, opa)
 
-    
+    def inverse_cholesky(self, data):
+        lapack.inverse_cholesky(data)
+
+    def diagonalize(self, data, eps_n):
+        lapack.diagonalize(data, eps_n)
+
+
 def create_distribution(M, N, comm=None, r=1, c=1, b=None):
     if r == c == 1:
-        return NoDistribution()
+        return NoDistribution(M, N)
     return BLACSDistribution(M, N, comm, r, c, b)
-      
+
 
 class Matrix:
     def __init__(self, M, N, dtype=None, data=None, dist=None):
         self.shape = (M, N)
-        
+
         if dtype is None:
             if data is None:
                 dtype = float
@@ -89,9 +95,9 @@ class Matrix:
             self.data = np.asarray(data)
 
         self.source = None
-        
+
         self.comm_to_be_summed_over = None
-        
+
         self.comm = None
 
     def __str__(self):
@@ -104,7 +110,7 @@ class Matrix:
         if self.comm_to_be_summed_over:
             self.comm_to_be_summed_over.sum(self.data, 0)
         self.comm_to_be_summed_over = None
-        
+
     def __setitem__(self, i, x):
         # assert i == slice(None)
         x.eval(self)
@@ -146,12 +152,12 @@ class Matrix:
     def inverse_cholesky(self):
         self.finish_sums()
         self.dist.inverse_cholesky(self.data)
-        
+
     def diagonalize(self, eps_n):
         self.finish_sums()
         self.dist.diagonalize(self.data, eps_n)
 
-        
+
 class RealSpaceMatrix(Matrix):
     def __init__(self, M, gd, dtype=None, data=None, dist=None):
         N = gd.get_size_of_global_array().prod()
