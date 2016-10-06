@@ -65,3 +65,51 @@ used to create the figures in this tutorial is shown here:
 
 .. autoclass:: gpaw.dipole_correction.DipoleCorrection
     :members:
+
+Dipole Correction in plane wave mode
+====================================
+For the dipole correction in PW mode we use another example, namely 
+a HCl molecule in a periodic cell.
+
+In the following we calculate a single HCl structure using a plane 
+wave basis set. 
+
+.. literalinclude:: dipole_pw_nocorr.py 
+
+
+Due to the dipole in the cell the electrostatic potential in the 
+vacuum on both sides of the molecule is different and in order to
+account for the periodicity the potentials approach each other 
+linearly.
+
+.. image:: dipole_pw_nocorr.png
+
+In order to cancel the interaction between neighboring cells and to
+be able to determine the two different work functions in our chosen 
+directory ('z') we now apply a dipole correction:
+
+.. literalinclude:: dipole_pw_corr.py 
+
+Resulting in two different vacuum levels on both sides of the 
+molecule.
+
+.. image:: dipole_pw_corr.png
+
+An evaluation of the method consisting of comparing the vacuum levels 
+in the described cell with the electrostatic potential in a cell 
+containing two mirrored HCl molecule can be calculated and seen here: 
+:download:`dipole_pw.py`. The vacuum levels on the two sides of our 
+single HCl molecule should correspond to the respective ones in the 
+cell containing two HCl molecules. The resulting two electrostatic 
+potentials look like this:
+
+.. image:: dipole_pw_benchmark.png
+
+The raise and decrease on the two sides of the small cells guarantee 
+that the two vacuum levels still match at the boundary.
+
+.. warning:: 
+   * Up to now the electrostatic potential can not be retrieved by 
+     restarting from a .gpw file, since it will be reset to be just
+     0 everywhere.
+
