@@ -24,16 +24,16 @@ class FDPWWaveFunctions(WaveFunctions):
         self.orthonormalized = False
 
         self.overlap = self.make_overlap()
-        
+
         self._M_nn = None  # storage for H, S, ...
         self._work_array_nG = None
-        
+
     @property
     def work_array_nG(self):
         if self._work_array_nG is None:
             self._work_array_nG = self.empty(self.bd.mynbands)
         return self._work_array_nG
-        
+
     @property
     def M_nn(self):
         """Get Matrix object for H, S, ..."""
@@ -79,7 +79,7 @@ class FDPWWaveFunctions(WaveFunctions):
             # will make it necessary to do this for some reason.
             density.calculate_normalized_charges_and_mix()
         hamiltonian.update(density)
-                
+
         if self.kpt_u[0].psit_nG is None:
             self.initialize_wave_functions_from_basis_functions(
                 basis_functions, density, hamiltonian, spos_ac)
@@ -90,7 +90,7 @@ class FDPWWaveFunctions(WaveFunctions):
                                                        spos_ac):
         if self.initksl is None:
             raise RuntimeError('use fewer bands or more basis functions')
-            
+
         self.timer.start('LCAO initialization')
         lcaoksl, lcaobd = self.initksl, self.initksl.bd
         lcaowfs = LCAOWaveFunctions(lcaoksl, self.gd, self.nvalence,
@@ -168,28 +168,28 @@ class FDPWWaveFunctions(WaveFunctions):
                 dSP_ni[:] = np.dot(P_ni, dS_ii)
 
         self.wrap_wave_function_arrays_in_fancy_objects()
-        
+
         S_nn = self.M_nn
         psit_n = kpt.psit_n
-        P_n = kpt.P_n
-        dSP_n = P_n.new()
+        P_nI = kpt.P_n
+        dSP_nI = P_nI.new()
 
         with self.timer('calc_s_matrix'):
             S_nn[:] = (psit_n | psit_n)
-            dSP_n[:] = dS * P_n
-            S_nn += P_n.C * dSP_n.T
+            dSP_nI[:] = dS * P_nI
+            S_nn += P_nI.C * dSP_nI.T
 
         with self.timer('inverse-cholesky'):
             assert self.bd.comm.size == 1
             S_nn.inverse_cholesky()
-            # S_nn now contains the inverse of the Cholesky factorization.
+            # S_nn now contains the inverse of the Cholesky factorization
 
         psit2_n = psit_n.new(buf=self.work_array_nG)
         with self.timer('rotate_psi_s'):
-            psit2_n[:] = S_nn.C * psit_n
+            psit2_n[:] = S_nn.T * psit_n
             psit_n[:] = psit2_n
-            dSP_n[:] = S_nn.C * P_n
-            dSP_n.extract_to(kpt.P_ani)
+            dSP_nI[:] = S_nn.T * P_nI
+            dSP_nI.extract_to(kpt.P_ani)
 
     def calculate_forces(self, hamiltonian, F_av):
         # Calculate force-contribution from k-points:
