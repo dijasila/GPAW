@@ -122,9 +122,8 @@ class Excitation:
         else:
             raise RuntimeError('Unknown form >' + form + '<')
 
-    def get_oscillator_strength(self, form='r'):
-        """Return the excitations dipole oscillator strength.
-
+    def get_dipole_tensor(self, form='r'):
+        """Return the "oscillator strength tensor" 
 
         self.me is assumed to be::
 
@@ -135,7 +134,6 @@ class Excitation:
         final states::
 
           |I>, |J>
-
         """
 
         if form == 'r':
@@ -146,14 +144,13 @@ class Excitation:
             me = self.muv * np.sqrt(self.fij * self.energy)
         else:
             raise RuntimeError('Unknown form >' + form + '<')
+        
+        return 2 * np.outer(me, me.conj())
 
-        osz = [0.]
-        for c in range(3):
-            val = 2. * (me[c].real ** 2 + me[c].imag ** 2)
-            osz.append(val)
-            osz[0] += val / 3.
-
-        return osz
+    def get_oscillator_strength(self, form='r'):
+        """Return the excitations dipole oscillator strength."""
+        me2_c = self.get_dipole_tensor().diagonal().real
+        return np.array([np.sum(me2_c) / 3.] + np.tolist())
 
     def get_rotatory_strength(self, form='r', units='cgs'):
         """Return rotatory strength"""
