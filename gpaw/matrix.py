@@ -1,6 +1,7 @@
 import numpy as np
 
-import gpaw.utilities.lapack as lapack
+import scipy.linalg as linalg
+import gpaw.utilities.blas as blas
 import _gpaw
 
 
@@ -11,20 +12,25 @@ class NoDistribution:
     def __init__(self, M, N):
         self.shape = (M, N)
 
-    def mmm(self, alpha, a, opa, b, opb, beta, destination):
+    def mmm(self, alpha, a, opa, b, opb, beta, c):
         # print(self is b, self is b.source)
-        c = np.dot(op(opa, a), op(opb, b)).reshape(destination.data.shape)
-        if beta == 0:
-            destination.data[:] = alpha * c
+        if opa == 'C' and opb == 'T':
+            assert not a.transposed and not b.transposed and c.transposed
+            blas.mmm(alpha, b.x, 'n', a.x, 'c', beta, c.x.T)
+        elif opa == 'T' and opb == 'N' and a.transposed:
+            assert not b.transposed and not c.transposed
+            blas.mmm(alpha, a.x.T, 'n', b.x, 'n', beta, c.x)
         else:
-            assert beta == 1
-            destination.data += alpha * c
+            assert not a.transposed and not b.transposed and c.transposed
+            assert opa != 'C' and opb != 'C'
+            blas.mmm(alpha, a.x, opa.lower(), b.x, opb.lower(), beta, c.x.T)
 
-    def inverse_cholesky(self, data):
-        lapack.inverse_cholesky(data)
+    def inverse_cholesky(self, S_nn):
+        S_nn[:] = linalg.cholesky(S_nn)
+        S_nn[:] = linalg.inv(S_nn)
 
-    def diagonalize(self, data, eps_n):
-        lapack.diagonalize(data, eps_n)
+    def eigh(self, H_nn, eps_n):
+        eps_n[:], H_nn[:] = linalg.eigh(H_nn)
 
 
 class BLACSDistribution:
@@ -54,18 +60,16 @@ class BLACSDistribution:
             M, Ka = Ka, M
         if opb == 'T':
             Kb, N = N, Kb
-        if opa == 'C' and a.dtype == float:
-            opa = 'N'
-        _gpaw.pblas_gemm(N, M, Ka, alpha, b.data, a.data,
-                         beta, destination.data,
+        _gpaw.pblas_gemm(N, M, Ka, alpha, b.x, a.x,
+                         beta, destination.x,
                          b.dist.desc, a.dist.desc, destination.dist.desc,
                          opb, opa)
 
-    def inverse_cholesky(self, data):
-        lapack.inverse_cholesky(data)
+    def inverse_cholesky(self, S_nn):
+        lapack.inverse_cholesky(S_nn)
 
-    def diagonalize(self, data, eps_n):
-        lapack.diagonalize(data, eps_n)
+    def diagonalize(self, H_nn, eps_n):
+        lapack.diagonalize(H_nn, eps_n)
 
 
 def create_distribution(M, N, comm=None, r=1, c=1, b=None):
@@ -90,9 +94,13 @@ class Matrix:
         self.dist = dist
 
         if data is None:
-            self.data = np.empty(dist.shape, self.dtype)
+            self.data = np.empty(dist.shape, self.dtype).T
+            self.transposed = True
         else:
-            self.data = np.asarray(data)
+            self.data = np.asarray(data).reshape(self.shape)
+            self.transposed = False
+
+        self.x = self.data
 
         self.source = None
 
@@ -107,8 +115,8 @@ class Matrix:
         return Matrix(*self.shape, dtype=self.dtype, dist=self.dist)
 
     def finish_sums(self):
-        if self.comm_to_be_summed_over:
-            self.comm_to_be_summed_over.sum(self.data, 0)
+        if self.comm_to_be_summed_over and not self.transposed:
+            self.comm_to_be_summed_over.sum(self.x, 0)
         self.comm_to_be_summed_over = None
 
     def __setitem__(self, i, x):
@@ -118,10 +126,10 @@ class Matrix:
     def eval(self, destination, beta=0):
         assert destination.dist == self.dist
         if beta == 0:
-            destination.data[:] = self.data
+            destination.x[:] = self.x
         else:
             assert beta == 1
-            destination.data += self.data
+            destination.x += self.x
 
     def __iadd__(self, x):
         x.eval(self, 1.0)
@@ -147,25 +155,35 @@ class Matrix:
         return Product(('C', self))
 
     def mmm(self, alpha, opa, b, opb, beta, destination):
+        if opa == 'C' and self.dtype == float:
+            opa = 'N'
         self.dist.mmm(alpha, self, opa, b, opb, beta, destination)
 
     def inverse_cholesky(self):
         self.finish_sums()
-        self.dist.inverse_cholesky(self.data)
+        self.dist.inverse_cholesky(self.x)
 
-    def diagonalize(self, eps_n):
+    def eigh(self, eps_n):
         self.finish_sums()
-        self.dist.diagonalize(self.data, eps_n)
+        self.dist.eigh(self.x, eps_n)
 
 
 class RealSpaceMatrix(Matrix):
     def __init__(self, M, gd, dtype=None, data=None, dist=None):
         N = gd.get_size_of_global_array().prod()
         Matrix.__init__(self, M, N, dtype, data, dist)
-        self.data.shape = (-1,) + tuple(gd.n_c)
+        if data is None:
+            self.data = self.data.T
+            self.transposed = False
+        self.x = self.data
+        self.data = self.x.reshape((-1,) + tuple(gd.n_c))
         self.gd = gd
         self.dv = gd.dv
         self.comm = gd.comm
+
+    def __getitem__(self, i):
+        assert self.distribution.shape[0] == self.shape[0]
+        return self.data[i]
 
     def new(self, buf=None):
         return RealSpaceMatrix(self.shape[0], self.gd, self.dtype, buf,
@@ -174,9 +192,18 @@ class RealSpaceMatrix(Matrix):
 
 class PWExpansionMatrix(Matrix):
     def __init__(self, M, pd, data=None, dist=None):
-        Matrix.__init__(self, M, data.shape[1], complex, data, dist)
+        if pd.dtype == float:
+            orig = data
+            data = data.view(float)
+        Matrix.__init__(self, M, data.shape[1], pd.dtype, data, dist)
+        if pd.dtype == float:
+            self.data = orig
         self.pd = pd
         self.dv = pd.gd.dv / pd.gd.N_c.prod()
+
+    def __getitem__(self, i):
+        assert self.distribution.shape[0] == self.shape[0]
+        return self.data[i]
 
     def new(self, buf=None):
         if buf is not None:
@@ -223,6 +250,11 @@ class ProjectorMatrix(Matrix):
         pm.slices = self.slices
         return pm
 
+    def paw_matrix(self, M_aii):
+        m = PAWMatrix()
+        m.M_aii = list(M_aii)
+        return m
+
     def __iter__(self):
         P_nI = self.data
         for I1, I2 in self.slices:
@@ -233,16 +265,14 @@ class ProjectorMatrix(Matrix):
         for P_ni, (I1, I2) in zip(P_ani.values(), self.slices):
             P_ni[:] = P_nI[:, I1:I2]
 
+    def mmm(self, alpha, opa, b, opb, beta, c):
+        assert (alpha, beta, opa, opb) == (1, 0, 'N', 'N')
+        for (I1, I2), M_ii in zip(self.slices, b.M_aii):
+            c.x[:, I1, I2] = np.dot(self.x[:, I1:I2], M_ii)
 
-def op(opx, x):
-    x = x.data.reshape((len(x.data), -1))
-    if opx == 'N':
-        return x
-    if opx == 'T':
-        return x.T
-    if opx == 'C':
-        return x.conj()
-    return x.T.conj()
+
+class PAWMatrix:
+    pass
 
 
 class Product:
@@ -265,22 +295,12 @@ class Product:
             alpha = self.things.pop(0)
         else:
             alpha = 1
-        a, b = self.things
-        self.things = None
-        if callable(a):
-            opb, b = b
-            assert beta == 0
-            assert alpha == 1
-            assert opb == 'N'
-            a(b, destination)
-            destination.source = b
-        else:
-            opa, a = a
-            opb, b = b
-            a.mmm(alpha, opa, b, opb, beta, destination)
-            if opa in 'NC' and a.comm:
-                destination.comm_to_be_summed_over = a.comm
-                assert opb in 'TH' and b.comm is a.comm
+
+        (opa, a), (opb, b) = self.things
+        a.mmm(alpha, opa, b, opb, beta, destination)
+        if opa in 'NC' and a.comm:
+            destination.comm_to_be_summed_over = a.comm
+            assert opb in 'TH' and b.comm is a.comm
 
     def __mul__(self, x):
         if isinstance(x, Matrix):
@@ -299,21 +319,26 @@ if __name__ == '__main__':
     c = Matrix(N, N, dist=(world, world.size))
 
     def f(x, y):
-        y.data[:] = x.data + 1
+        y.x[:] = np.dot([[2, 1], [1, 3.5]], x.x)
 
     c[:] = (a | a)
     print(c.data)
     c.inverse_cholesky()
     print(c.data)
     b = a.new()
-    b[:] = c.C * a
-    c[:] = (b | b)
-    print(c.data);asdgf
-    c[:] = (a | b)
+    b[:] = c.T * a
+    a[:] = b
+    c[:] = (a | a)
+    print(c.data)
     b[:] = f * a
     c[:] = (a | b)
+    print(c)
+    eps = np.empty(2)
+    c.eigh(eps)
+    print(eps, c)
     d = a.new()
-    d[:] = c * a
+    d[:] = c.T * a
+    b[:] = f * d
+    c[:] = (d | b)
     print(c)
-    c += a * b.T
-    print(c)
+    

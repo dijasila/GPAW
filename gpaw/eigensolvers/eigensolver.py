@@ -123,48 +123,45 @@ class Eigensolver:
         if self.band_comm.size > 1 and wfs.bd.strided:
             raise NotImplementedError
 
-        def H(psit_n, Htpsit_n):
-            wfs.apply_pseudo_hamiltonian(kpt, ham, psit_n.data, Htpsit_n.data)
-
-        dH_aii = [unpack(ham.dH_asp[a][kpt.s]) for a in kpt.P_ani]
-
-        def dH(P_n, dHP_n):
-            for P_ni, dHP_ni, dH_ii in zip(P_n, dHP_n, dH_aii):
-                dHP_ni[:] = np.dot(P_ni, dH_ii)
-
         psit_n = kpt.psit_n
         tmp_n = psit_n.new(buf=wfs.work_array_nG)
         H_nn = wfs.M_nn
-        P_n = kpt.P_n
-        dHP_n = P_n.new()
+        P_nI = kpt.P_n
+        dHP_nI = P_nI.new()
+
+        def Ht(psit_n, Htpsit_n):
+            wfs.apply_pseudo_hamiltonian(kpt, ham, psit_n.data, Htpsit_n.data)
+
+        dH_II = P_nI.paw_matrix(unpack(ham.dH_asp[a][kpt.s])
+                                for a in kpt.P_ani)
 
         with self.timer('calc_h_matrix'):
-            tmp_n[:] = H * psit_n
-            H_nn[:] = (psit_n | tmp_n)
-            dHP_n[:] = dH * P_n
-            H_nn += P_n.C * dHP_n.T
+            Ht(psit_n, tmp_n)
+            psit_n.matrix_elements(tmp_n, H_nn, hermitian=True)
+            dHP_nI[:] = P_nI * dH_II
+            H_nn += P_nI.C * dHP_nI.T
             ham.xc.correct_hamiltonian_matrix(kpt, H_nn.data)
 
         with wfs.timer('diagonalize'):
-            H_nn.diagonalize(kpt.eps_n)
+            H_nn.eigh(kpt.eps_n)
             # H_nn now contains the eigenvectors
 
         with self.timer('rotate_psi'):
             if self.keep_htpsit:
                 Htpsit_n = psit_n.new(buf=self.Htpsit_nG)
-                Htpsit_n[:] = H_nn.C * tmp_n
-            tmp_n[:] = H_nn.C * psit_n
+                Htpsit_n[:] = H_nn.T * tmp_n
+            tmp_n[:] = H_nn.T * psit_n
             psit_n[:] = tmp_n
-            dHP_n[:] = H_nn.C * P_n
-            dHP_n.extract_to(kpt.P_ani)
+            dHP_nI[:] = H_nn.T * P_nI
+            dHP_nI.extract_to(kpt.P_ani)
             # Rotate orbital dependent XC stuff:
-            ham.xc.rotate(kpt, H_nn.data.conj())
+            ham.xc.rotate(kpt, H_nn.data)
 
         if self.keep_htpsit:
             return kpt.psit_nG, Htpsit_n.data
         else:
             return kpt.psit_nG, None
-            
+
     def estimate_memory(self, mem, wfs):
         gridmem = wfs.bytes_per_wave_function()
 
