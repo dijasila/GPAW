@@ -12,18 +12,21 @@ class NoDistribution:
     def __init__(self, M, N):
         self.shape = (M, N)
 
+    def __str__(self):
+        return 'NoDistribution({0}x{1})'.format(*self.shape)
+
     def mmm(self, alpha, a, opa, b, opb, beta, c):
         # print(self is b, self is b.source)
         if opa == 'C' and opb == 'T':
             assert not a.transposed and not b.transposed and c.transposed
-            blas.mmm(alpha, b.x, 'n', a.x, 'c', beta, c.x.T)
+            blas.mmm(alpha, b.a, 'n', a.a, 'c', beta, c.a.T)
         elif opa == 'T' and opb == 'N' and a.transposed:
             assert not b.transposed and not c.transposed
-            blas.mmm(alpha, a.x.T, 'n', b.x, 'n', beta, c.x)
+            blas.mmm(alpha, a.a.T, 'n', b.a, 'n', beta, c.a)
         else:
             assert not a.transposed and not b.transposed and c.transposed
             assert opa != 'C' and opb != 'C'
-            blas.mmm(alpha, a.x, opa.lower(), b.x, opb.lower(), beta, c.x.T)
+            blas.mmm(alpha, a.a, opa.lower(), b.a, opb.lower(), beta, c.a.T)
 
     def cholesky(self, S_nn):
         S_nn[:] = linalg.cholesky(S_nn)
@@ -55,6 +58,13 @@ class BLACSDistribution:
         lld = max(1, n)
         self.desc = np.array([1, context, N, M, bc, br, 0, 0, lld], np.intc)
 
+    def __str__(self):
+        return ('BLACSDistribution(global={0}, local={1}, blocksize={2})'
+                .format(*('{0}x{1}'.format(*shape)
+                          for shape in [self.desc[2:4:1],
+                                        self.shape,
+                                        self.desc[4:6:1]])))
+
     def mmm(self, alpha, a, opa, b, opb, beta, destination):
         M, Ka = a.shape
         Kb, N = b.shape
@@ -62,8 +72,8 @@ class BLACSDistribution:
             M, Ka = Ka, M
         if opb == 'T':
             Kb, N = N, Kb
-        _gpaw.pblas_gemm(N, M, Ka, alpha, b.x, a.x,
-                         beta, destination.x,
+        _gpaw.pblas_gemm(N, M, Ka, alpha, b.a, a.a,
+                         beta, destination.a,
                          b.dist.desc, a.dist.desc, destination.dist.desc,
                          opb, opa)
 
@@ -99,16 +109,17 @@ class Matrix:
         self.dist = dist
 
         if data is None:
-            self.data = np.empty(dist.shape, self.dtype).T
+            self.a = np.empty(dist.shape, self.dtype).T
             self.transposed = True
         else:
-            self.data = np.asarray(data).reshape(self.shape)
+            self.a = np.asarray(data).reshape(self.shape)
             self.transposed = False
 
-        self.x = self.data
+        assert self.transposed == self.a.flags['F_CONTIGUOUS']
 
     def __str__(self):
-        return str(self.data)
+        dist = str(self.dist).split('(')[1]
+        return 'Matrix({0}: {1}'.format(self.dtype, dist)
 
     def new(self):
         return Matrix(*self.shape, dtype=self.dtype, dist=self.dist)
@@ -123,10 +134,10 @@ class Matrix:
     def eval(self, destination, beta=0):
         assert destination.dist == self.dist
         if beta == 0:
-            destination.x[:] = self.x
+            destination.a[:] = self.a
         else:
             assert beta == 1
-            destination.x += self.x
+            destination.a += self.a
 
     def __iadd__(self, x):
         x.eval(self, 1.0)
@@ -155,15 +166,15 @@ class Matrix:
 
     def cholesky(self):
         self.finish_sums()
-        self.dist.cholesky(self.x)
+        self.dist.cholesky(self.a)
 
     def inv(self):
         self.finish_sums()
-        self.dist.inv(self.x)
+        self.dist.inv(self.a)
 
     def eigh(self, eps_n):
         self.finish_sums()
-        self.dist.eigh(self.x, eps_n)
+        self.dist.eigh(self.a, eps_n)
 
 
 class Product:

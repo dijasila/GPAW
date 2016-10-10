@@ -55,7 +55,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             if kpt.dist is not None:
                 return
             kpt.psit_n = UniformGridMatrix(self.bd.nbands, self.gd, self.dtype,
-                                           kpt.psit_nG, dist)
+                                           kpt.psit_nG, kpt.q, dist)
             kpt.dist = dist
 
     def integrate(self, a_xg, b_yg=None, global_integral=True):
