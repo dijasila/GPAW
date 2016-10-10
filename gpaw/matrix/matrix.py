@@ -25,8 +25,10 @@ class NoDistribution:
             assert opa != 'C' and opb != 'C'
             blas.mmm(alpha, a.x, opa.lower(), b.x, opb.lower(), beta, c.x.T)
 
-    def inverse_cholesky(self, S_nn):
+    def cholesky(self, S_nn):
         S_nn[:] = linalg.cholesky(S_nn)
+
+    def inv(self, S_nn):
         S_nn[:] = linalg.inv(S_nn)
 
     def eigh(self, H_nn, eps_n):
@@ -65,8 +67,11 @@ class BLACSDistribution:
                          b.dist.desc, a.dist.desc, destination.dist.desc,
                          opb, opa)
 
+    def cholesky(self, S_nn):
+        lapack.cholesky(S_nn)
+
     def inverse_cholesky(self, S_nn):
-        lapack.inverse_cholesky(S_nn)
+        lapack.inv(S_nn)
 
     def diagonalize(self, H_nn, eps_n):
         lapack.diagonalize(H_nn, eps_n)
@@ -102,12 +107,6 @@ class Matrix:
 
         self.x = self.data
 
-        self.source = None
-
-        self.comm_to_be_summed_over = None
-
-        self.comm = None
-
     def __str__(self):
         return str(self.data)
 
@@ -115,9 +114,7 @@ class Matrix:
         return Matrix(*self.shape, dtype=self.dtype, dist=self.dist)
 
     def finish_sums(self):
-        if self.comm_to_be_summed_over and not self.transposed:
-            self.comm_to_be_summed_over.sum(self.x, 0)
-        self.comm_to_be_summed_over = None
+        pass
 
     def __setitem__(self, i, x):
         # assert i == slice(None)
@@ -136,15 +133,12 @@ class Matrix:
         return self
 
     def __mul__(self, x):
-        if isinstance(x, Matrix):
+        if not isinstance(x, Product):
             x = ('N', x)
         return Product(('N', self), x)
 
     def __rmul__(self, x):
         return Product(x, ('N', self))
-
-    def __or__(self, x):
-        return Product(self.dv, Product(('C', self), ('T', x)))
 
     @property
     def T(self):
@@ -159,120 +153,17 @@ class Matrix:
             opa = 'N'
         self.dist.mmm(alpha, self, opa, b, opb, beta, destination)
 
-    def inverse_cholesky(self):
+    def cholesky(self):
         self.finish_sums()
-        self.dist.inverse_cholesky(self.x)
+        self.dist.cholesky(self.x)
+
+    def inv(self):
+        self.finish_sums()
+        self.dist.inv(self.x)
 
     def eigh(self, eps_n):
         self.finish_sums()
         self.dist.eigh(self.x, eps_n)
-
-
-class RealSpaceMatrix(Matrix):
-    def __init__(self, M, gd, dtype=None, data=None, dist=None):
-        N = gd.get_size_of_global_array().prod()
-        Matrix.__init__(self, M, N, dtype, data, dist)
-        if data is None:
-            self.data = self.data.T
-            self.transposed = False
-        self.x = self.data
-        self.data = self.x.reshape((-1,) + tuple(gd.n_c))
-        self.gd = gd
-        self.dv = gd.dv
-        self.comm = gd.comm
-
-    def __getitem__(self, i):
-        assert self.distribution.shape[0] == self.shape[0]
-        return self.data[i]
-
-    def new(self, buf=None):
-        return RealSpaceMatrix(self.shape[0], self.gd, self.dtype, buf,
-                               self.dist)
-
-
-class PWExpansionMatrix(Matrix):
-    def __init__(self, M, pd, data=None, dist=None):
-        if pd.dtype == float:
-            orig = data
-            data = data.view(float)
-        Matrix.__init__(self, M, data.shape[1], pd.dtype, data, dist)
-        if pd.dtype == float:
-            self.data = orig
-        self.pd = pd
-        self.dv = pd.gd.dv / pd.gd.N_c.prod()
-
-    def __getitem__(self, i):
-        assert self.distribution.shape[0] == self.shape[0]
-        return self.data[i]
-
-    def new(self, buf=None):
-        if buf is not None:
-            buf = buf.ravel()[:self.data.size]
-            buf.shape = self.data.shape
-        return PWExpansionMatrix(self.shape[0], self.pd, buf, self.dist)
-
-    def mmm(self, alpha, opa, b, opb, beta, destination):
-        if (self.pd.dtype == float and opa in 'NC' and
-            isinstance(b, PWExpansionMatrix)):
-            assert opa == 'C' and opb == 'T' and beta == 0
-            a = self.data.view(float)
-            b = b.data.view(float)
-            destination.data[:] = np.dot(a, b.T)
-            destination.data *= 2 * alpha
-            destination.data -= alpha * np.outer(a[:, 0], b[:, 0])
-        else:
-            Matrix.mmm(self, alpha, opa, b, opb, beta, destination)
-
-
-class ProjectorMatrix(Matrix):
-    def __init__(self, M, comm, dtype, P_ani, dist):
-        if isinstance(P_ani, dict):
-            self.slices = []
-            I1 = 0
-            for a, P_ni in P_ani.items():
-                I2 = I1 + P_ni.shape[1]
-                self.slices.append((I1, I2))
-                I1 = I2
-
-            P_nI = np.empty((M, I1), dtype)
-            for P_ni, (I1, I2) in zip(P_ani.values(), self.slices):
-                P_nI[:, I1:I2] = P_ni
-        else:
-            P_nI = P_ani
-
-        Matrix.__init__(self, M, P_nI.shape[1], dtype, P_nI, dist)
-        self.comm = comm
-
-    def new(self):
-        P_nI = np.empty_like(self.data)
-        pm = ProjectorMatrix(self.shape[0], self.comm, self.dtype, P_nI,
-                             self.dist)
-        pm.slices = self.slices
-        return pm
-
-    def paw_matrix(self, M_aii):
-        m = PAWMatrix()
-        m.M_aii = list(M_aii)
-        return m
-
-    def __iter__(self):
-        P_nI = self.data
-        for I1, I2 in self.slices:
-            yield P_nI[:, I1:I2]
-
-    def extract_to(self, P_ani):
-        P_nI = self.data
-        for P_ni, (I1, I2) in zip(P_ani.values(), self.slices):
-            P_ni[:] = P_nI[:, I1:I2]
-
-    def mmm(self, alpha, opa, b, opb, beta, c):
-        assert (alpha, beta, opa, opb) == (1, 0, 'N', 'N')
-        for (I1, I2), M_ii in zip(self.slices, b.M_aii):
-            c.x[:, I1, I2] = np.dot(self.x[:, I1:I2], M_ii)
-
-
-class PAWMatrix:
-    pass
 
 
 class Product:
@@ -294,13 +185,10 @@ class Product:
         if isinstance(self.things[0], (int, float)):
             alpha = self.things.pop(0)
         else:
-            alpha = 1
+            alpha = 1.0
 
         (opa, a), (opb, b) = self.things
         a.mmm(alpha, opa, b, opb, beta, destination)
-        if opa in 'NC' and a.comm:
-            destination.comm_to_be_summed_over = a.comm
-            assert opb in 'TH' and b.comm is a.comm
 
     def __mul__(self, x):
         if isinstance(x, Matrix):
@@ -308,37 +196,3 @@ class Product:
         return Product(self, x)
 
 
-if __name__ == '__main__':
-    from gpaw.mpi import world
-    from gpaw.grid_descriptor import GridDescriptor
-    gd = GridDescriptor([2, 3, 4], [2, 3, 4])
-    N = 2
-    a = RealSpaceMatrix(N, gd, float, dist=(world, world.size))
-    a.data[:] = 1
-    a.data[0, 0, world.rank] = 0
-    c = Matrix(N, N, dist=(world, world.size))
-
-    def f(x, y):
-        y.x[:] = np.dot([[2, 1], [1, 3.5]], x.x)
-
-    c[:] = (a | a)
-    print(c.data)
-    c.inverse_cholesky()
-    print(c.data)
-    b = a.new()
-    b[:] = c.T * a
-    a[:] = b
-    c[:] = (a | a)
-    print(c.data)
-    b[:] = f * a
-    c[:] = (a | b)
-    print(c)
-    eps = np.empty(2)
-    c.eigh(eps)
-    print(eps, c)
-    d = a.new()
-    d[:] = c.T * a
-    b[:] = f * d
-    c[:] = (d | b)
-    print(c)
-    

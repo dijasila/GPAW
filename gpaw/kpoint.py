@@ -5,7 +5,7 @@
 
 import numpy as np
 
-from gpaw.matrix import ProjectorMatrix
+from gpaw.matrix import ProjectionMatrix
 
 
 class KPoint:
@@ -39,7 +39,7 @@ class KPoint:
         Rank of the CPU that does the matrix diagonalization of
         H_nn and the Cholesky decomposition of S_nn.
     """
-    
+
     def __init__(self, weight, s, k, q, phase_cd):
         """Construct k-point object.
 
@@ -81,7 +81,7 @@ class KPoint:
         self.k = k  # k-point index
         self.q = q  # local k-point index
         self.phase_cd = phase_cd
-        
+
         self.eps_n = None
         self.f_n = None
         self.P_ani = None
@@ -91,15 +91,15 @@ class KPoint:
         self.C_nM = None     # LCAO coefficients for wave functions XXX
 
         self.rho_MM = None
-        
+
         self.S_MM = None
         self.T_MM = None
-        
-        # RealSpaceMatrix/PWExpansionMatrix wrapper:
+
+        # UniformGridMatrix/PWExpansionMatrix wrapper:
         self.psit_n = None
-        
+
         self.dist = None  # BLACS distribution of self.P_n
-        
+
     @property
     def P_n(self):
         """Wrap projections."""
@@ -108,11 +108,11 @@ class KPoint:
             dtype = x.pd.dtype
         else:
             dtype = x.dtype
-        pm = ProjectorMatrix(x.shape[0], x.comm, dtype, self.P_ani,
-                             self.dist)
+        pm = ProjectionMatrix(x.shape[0], x.comm, dtype, self.P_ani,
+                              self.dist)
         self.dist = pm.dist
         return pm
-        
+
 
 class GlobalKPoint(KPoint):
 

@@ -6,7 +6,7 @@ from ase.utils.timing import timer
 from gpaw import extra_parameters
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.lfc import BasisFunctions
-from gpaw.matrix import Matrix
+from gpaw.matrix import Matrix, PAWMatrix
 from gpaw.overlap import Overlap
 from gpaw.utilities import unpack
 from gpaw.utilities.timing import nulltimer
@@ -157,31 +157,28 @@ class FDPWWaveFunctions(WaveFunctions):
             self.orthonormalized = True
             return
 
-        with self.timer('projections'):
-            self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-
-        dS_aii = [self.setups[a].dO_ii for a in kpt.P_ani]
-
-        def dS(P_n, dSP_n):
-            """PAW correction."""
-            for P_ni, dSP_ni, dS_ii in zip(P_n, dSP_n, dS_aii):
-                dSP_ni[:] = np.dot(P_ni, dS_ii)
-
         self.wrap_wave_function_arrays_in_fancy_objects()
 
-        S_nn = self.M_nn
         psit_n = kpt.psit_n
         P_nI = kpt.P_n
+
+        with self.timer('projections'):
+            psit_n.project(self.pt, P_nI)
+
+        dS_II = PAWMatrix(self.setups[a].dO_ii for a in kpt.P_ani)
+
+        S_nn = self.M_nn
         dSP_nI = P_nI.new()
 
         with self.timer('calc_s_matrix'):
-            S_nn[:] = (psit_n | psit_n)
-            dSP_nI[:] = dS * P_nI
+            psit_n.matrix_elements(psit_n, S_nn)
+            dSP_nI[:] = P_nI * dS_II
             S_nn += P_nI.C * dSP_nI.T
 
         with self.timer('inverse-cholesky'):
             assert self.bd.comm.size == 1
-            S_nn.inverse_cholesky()
+            S_nn.cholesky()
+            S_nn.inv()
             # S_nn now contains the inverse of the Cholesky factorization
 
         psit2_n = psit_n.new(buf=self.work_array_nG)
