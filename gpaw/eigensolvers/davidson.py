@@ -1,3 +1,5 @@
+from functools import partial
+
 import numpy as np
 
 from gpaw.utilities.lapack import general_diagonalize
@@ -71,7 +73,7 @@ class Davidson(Eigensolver):
         psit_n = kpt.psit_n
         psit2_n = psit_n.new(buf=wfs.work_array_nG)
         P_nI = kpt.P_nI
-        dHP_nI = P_nI.new()
+        P2_nI = P_nI.new()
         H_nn = wfs.M_nn
 
         H_2n2n = self.H_2n2n
@@ -83,14 +85,14 @@ class Davidson(Eigensolver):
         if self.keep_htpsit:
             R_n = psit_n.new(buf=self.Htpsit_nG)
         else:
-            pass
+            1 / 0
             # R_nG = wfs.empty(mynbands, q=kpt.q)
             # psit2_nG = wfs.empty(mynbands, q=kpt.q)
             # wfs.apply_pseudo_hamiltonian(kpt, ham, psit_nG, R_nG)
             # wfs.pt.integrate(psit_nG, kpt.P_ani, kpt.q)
 
-        self.calculate_residuals(kpt, wfs, ham, psit_n.data,
-                                 kpt.P_ani, kpt.eps_n, R_n.data)
+        self.calculate_residuals(kpt, wfs, ham, psit_n.A,
+                                 kpt.P_ani, kpt.eps_n, R_n.A)
 
         def integrate(a_G):
             return np.real(wfs.integrate(a_G, a_G, global_integral=False))
@@ -121,7 +123,7 @@ class Davidson(Eigensolver):
 
                 ekin = self.preconditioner.calculate_kinetic_energy(
                     psit_n[n:n + 1], kpt)
-                psit2_n.data[n] = self.preconditioner(R_n[n:n + 1], kpt, ekin)
+                psit2_n[n] = self.preconditioner(R_n[n:n + 1], kpt, ekin)
 
                 if self.normalize:
                     norm_n[n] = integrate(psit2_n[n])
@@ -130,8 +132,8 @@ class Davidson(Eigensolver):
                 H_2n2n[N, N] = kpt.eps_n[n]
                 S_2n2n[N, N] = 1.0
 
-            bd.comm.sum(H_2n2n)
-            bd.comm.sum(S_2n2n)
+            #bd.comm.sum(H_2n2n)
+            #bd.comm.sum(S_2n2n)
 
             if self.normalize:
                 gd.comm.sum(norm_n)
@@ -141,7 +143,6 @@ class Davidson(Eigensolver):
             self.timer.start('calc. matrices')
 
             Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
-
             dH_II = P_nI.paw_matrix(unpack(ham.dH_asp[a][kpt.s])
                                     for a in kpt.P_ani)
             dS_II = P_nI.paw_matrix(wfs.setups[a].dO_ii for a in kpt.P_ani)
@@ -150,20 +151,19 @@ class Davidson(Eigensolver):
             # <psi2 | H | psi>
             psit2_n.apply(Ht, R_n)
             psit_n.matrix_elements(R_n, H_nn)
-            dHP_nI[:] = P_nI * dH_II
-            H_nn += P_nI.C * dHP_nI.T
+            P2_nI[:] = P_nI * dH_II
+            H_nn += P_nI.C * P2_nI.T
             H_2n2n[nbands:, :nbands] = H_nn
 
             # Overlap matrix
             # <psi2 | S | psi>
             psit_n.matrix_elements(psit2_n, H_nn)
-            dHP_nI[:] = P_nI * dS_II
-            H_nn += P_nI.C * dHP_nI.T
+            P2_nI[:] = P_nI * dS_II
+            H_nn += P_nI.C * P2_nI.T
             S_2n2n[nbands:, :nbands] = H_nn
 
             # Calculate projections
-            P2_ani = wfs.pt.dict(mynbands)
-            wfs.pt.integrate(psit2_n.data, P2_ani, kpt.q)
+            psit2_n.project(wfs.pt, P2_nI)
 
             # <psi2 | H | psi2>
             psit2_n.matrix_elements(R_n, H_nn)
@@ -179,18 +179,16 @@ class Davidson(Eigensolver):
 
             self.timer.stop('calc. matrices')
 
-            self.timer.start('diagonalize')
-            if gd.comm.rank == 0 and bd.comm.rank == 0:
+            with self.timer('diagonalize'):
+                #if gd.comm.rank == 0 and bd.comm.rank == 0:
                 general_diagonalize(H_2n2n, eps_2n, S_2n2n)
 
-            gd.comm.broadcast(H_2n2n, 0)
-            gd.comm.broadcast(eps_2n, 0)
-            bd.comm.broadcast(H_2n2n, 0)
-            bd.comm.broadcast(eps_2n, 0)
+            #gd.comm.broadcast(H_2n2n, 0)
+            #gd.comm.broadcast(eps_2n, 0)
+            #bd.comm.broadcast(H_2n2n, 0)
+            #bd.comm.broadcast(eps_2n, 0)
 
             kpt.eps_n[:] = eps_2n[self.operator.bd.get_slice()]
-
-            self.timer.stop('diagonalize')
 
             self.timer.start('rotate_psi')
 
@@ -213,13 +211,13 @@ class Davidson(Eigensolver):
 
             self.timer.stop('rotate_psi')
 
+            P_nI.extract_to(kpt.P_ani)
+
             if nit < niter - 1:
-                wfs.apply_pseudo_hamiltonian(kpt, ham, psit_nG,
-                                             R_nG)
-                self.calculate_residuals(kpt, wfs, ham, psit_nG,
-                                         kpt.P_ani, kpt.eps_n, R_nG)
+                psit_n.apply(Ht, R_n)
+                self.calculate_residuals(kpt, wfs, ham, psit_n.A,
+                                         kpt.P_ani, kpt.eps_n, R_n.A)
 
         self.timer.stop('Davidson')
         error = gd.comm.sum(error)
-        kpt.psit_nG[:] = psit_nG
         return error

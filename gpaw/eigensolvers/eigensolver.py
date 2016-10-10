@@ -1,4 +1,5 @@
 """Module defining an eigensolver base-class."""
+from functools import partial
 
 import numpy as np
 from ase.utils.timing import timer
@@ -130,17 +131,15 @@ class Eigensolver:
         P_nI = kpt.P_n
         dHP_nI = P_nI.new()
 
-        def Ht(psit_n, Htpsit_n):
-            wfs.apply_pseudo_hamiltonian(kpt, ham, psit_n.data, Htpsit_n.data)
-
+        Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
         dH_II = PAWMatrix(unpack(ham.dH_asp[a][kpt.s]) for a in kpt.P_ani)
 
         with self.timer('calc_h_matrix'):
-            Ht(psit_n, tmp_n)
+            psit_n.apply(Ht, tmp_n)
             psit_n.matrix_elements(tmp_n, H_nn, hermitian=True)
             dHP_nI[:] = P_nI * dH_II
             H_nn += P_nI.C * dHP_nI.T
-            ham.xc.correct_hamiltonian_matrix(kpt, H_nn.data)
+            ham.xc.correct_hamiltonian_matrix(kpt, H_nn.a)
 
         with wfs.timer('diagonalize'):
             H_nn.eigh(kpt.eps_n)
@@ -155,10 +154,10 @@ class Eigensolver:
             dHP_nI[:] = H_nn.T * P_nI
             dHP_nI.extract_to(kpt.P_ani)
             # Rotate orbital dependent XC stuff:
-            ham.xc.rotate(kpt, H_nn.data)
+            ham.xc.rotate(kpt, H_nn.a)
 
         if self.keep_htpsit:
-            return kpt.psit_nG, Htpsit_n.data
+            return kpt.psit_nG, Htpsit_n.A
         else:
             return kpt.psit_nG, None
 

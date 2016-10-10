@@ -25,70 +25,66 @@ class SpatialMatrix(Matrix):
             pass
         self.mmm(self.dv, 'C', other, 'T', 0.0, M)
 
+    def project(self, lfc, P_nI):
+        lfc.integrate(self.A, P_nI.dictview(), self.q)
 
-class UniformGridMatrix(SpatialMatrix):
-    def __init__(self, M, gd, dtype=None, data=None, dist=None):
-        N = gd.get_size_of_global_array().prod()
-        SpatialMatrix.__init__(self, M, N, dtype, data, dist)
-        if data is None:
-            self.data = self.data.T
-            self.transposed = False
-        self.x = self.data
-        self.data = self.x.reshape((-1,) + tuple(gd.n_c))
-        self.gd = gd
-        self.dv = gd.dv
-        self.comm = gd.comm
+    def apply(self, func, out):
+        func(self.A, out.A)
 
     def __getitem__(self, i):
         assert self.distribution.shape[0] == self.shape[0]
         return self.data[i]
 
+
+class UniformGridMatrix(SpatialMatrix):
+    def __init__(self, M, gd, dtype=None, data=None, q=-1, dist=None):
+        N = gd.get_size_of_global_array().prod()
+        SpatialMatrix.__init__(self, M, N, dtype, data, dist)
+        if data is None:
+            self.a = self.a.T
+            self.transposed = False
+        self.A = self.a.reshape((-1,) + tuple(gd.n_c))
+        self.gd = gd
+        self.dv = gd.dv
+        self.comm = gd.comm
+        self.q = q
+
     def new(self, buf=None):
         return UniformGridMatrix(self.shape[0], self.gd, self.dtype, buf,
-                                 self.dist)
-
-    def project(self, lfc, P_nI):
-        lfc.integrate(self.data, P_nI.dictview())
-        return P_nI
+                                 self.q, self.dist)
 
 
 class PWExpansionMatrix(SpatialMatrix):
-    def __init__(self, M, pd, data=None, k=-1, dist=None):
+    def __init__(self, M, pd, data, q=-1, dist=None):
+        self.A = data
         if pd.dtype == float:
-            orig = data
             data = data.view(float)
         SpatialMatrix.__init__(self, M, data.shape[1], pd.dtype, data, dist)
-        if pd.dtype == float:
-            self.data = orig
         self.pd = pd
-        self.k = k
+        self.q = q
         self.dv = pd.gd.dv / pd.gd.N_c.prod()
 
     def __getitem__(self, i):
         assert self.distribution.shape[0] == self.shape[0]
-        return self.data[i]
+        return self.A[i]
 
     def new(self, buf=None):
         if buf is not None:
-            buf = buf.ravel()[:self.data.size]
-            buf.shape = self.data.shape
-        return PWExpansionMatrix(self.shape[0], self.pd, buf, self.dist)
+            buf = buf.ravel()[:self.A.size]
+            buf.shape = self.A.shape
+        return PWExpansionMatrix(self.shape[0], self.pd, buf, self.q,
+                                 self.dist)
 
     def mmm(self, alpha, opa, b, opb, beta, c):
         if (self.pd.dtype == float and opa in 'NC' and
             isinstance(b, PWExpansionMatrix)):
             assert opa == 'C' and opb == 'T' and beta == 0
-            a = self.data.view(float)
-            b = b.data.view(float)
-            c.data[:] = np.dot(a, b.T)
-            c.data *= 2 * alpha
-            c.data -= alpha * np.outer(a[:, 0], b[:, 0])
+            a = self
+            c.a[:] = np.dot(a.a, b.a.T)
+            c.a *= 2 * alpha
+            c.a -= alpha * np.outer(a.a[:, 0], b.a[:, 0])
         else:
             SpatialMatrix.mmm(self, alpha, opa, b, opb, beta, c)
-
-    def project(self, lfc, P_nI):
-        lfc.integrate(self.data, P_nI.dictview(), self.k)
-        return P_nI
 
 
 class ProjectionMatrix(SpatialMatrix):
@@ -113,7 +109,7 @@ class ProjectionMatrix(SpatialMatrix):
         self.comm = comm
 
     def new(self):
-        P_nI = np.empty_like(self.data)
+        P_nI = np.empty_like(self.a)
         pm = ProjectionMatrix(self.shape[0], self.comm, self.dtype, P_nI,
                               self.dist)
         pm.atom_indices = self.atom_indices
@@ -126,12 +122,12 @@ class ProjectionMatrix(SpatialMatrix):
             yield P_nI[:, I1:I2]
 
     def extract_to(self, P_ani):
-        P_nI = self.data
+        P_nI = self.a
         for P_ni, (I1, I2) in zip(P_ani.values(), self.slices):
             P_ni[:] = P_nI[:, I1:I2]
 
     def dictview(self):
-        P_nI = self.data
+        P_nI = self.a
         P_ani = {}
         for a, (I1, I2) in zip(self.atom_indices, self.slices):
             P_ani[a] = P_nI[:, I1:I2]
@@ -141,7 +137,7 @@ class ProjectionMatrix(SpatialMatrix):
         if isinstance(b, PAWMatrix):
             assert (alpha, beta, opa, opb) == (1, 0, 'N', 'N')
             for (I1, I2), M_ii in zip(self.slices, b.M_aii):
-                c.x[:, I1:I2] = np.dot(self.x[:, I1:I2], M_ii)
+                c.a[:, I1:I2] = np.dot(self.a[:, I1:I2], M_ii)
         else:
             SpatialMatrix.mmm(self, alpha, opa, b, opb, beta, c)
 
