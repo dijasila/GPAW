@@ -128,7 +128,7 @@ class Eigensolver:
         psit_n = kpt.psit_n
         tmp_n = psit_n.new(buf=wfs.work_array_nG)
         H_nn = wfs.M_nn
-        P_nI = kpt.P_n
+        P_nI = kpt.P_nI
         dHP_nI = P_nI.new()
 
         Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
