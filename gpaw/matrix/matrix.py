@@ -102,7 +102,7 @@ class Matrix:
                 dtype = float
             else:
                 dtype = data.dtype
-        self.dtype = dtype
+        self.dtype = np.dtype(dtype)
 
         if isinstance(dist, tuple):
             dist = create_distribution(M, N, *dist)
@@ -119,7 +119,7 @@ class Matrix:
 
     def __str__(self):
         dist = str(self.dist).split('(')[1]
-        return 'Matrix({0}: {1}'.format(self.dtype, dist)
+        return 'Matrix({0}: {1}'.format(self.dtype.name, dist)
 
     def new(self):
         return Matrix(*self.shape, dtype=self.dtype, dist=self.dist)
@@ -145,19 +145,19 @@ class Matrix:
 
     def __mul__(self, x):
         if not isinstance(x, Product):
-            x = ('N', x)
-        return Product(('N', self), x)
+            x = (x, 'N')
+        return Product((self, 'N'), x)
 
     def __rmul__(self, x):
-        return Product(x, ('N', self))
+        return Product(x, (self, 'N'))
 
     @property
     def T(self):
-        return Product(('T', self))
+        return Product((self, 'T'))
 
     @property
     def C(self):
-        return Product(('C', self))
+        return Product((self, 'C'))
 
     def mmm(self, alpha, opa, b, opb, beta, destination):
         if opa == 'C' and self.dtype == float:
@@ -178,16 +178,13 @@ class Matrix:
 
 
 class Product:
-    def __init__(self, x, y=None):
-        if y is None:
-            self.things = [x]
-        elif isinstance(y, Product):
-            if isinstance(x, Product):
-                self.things = x.things + y.things
+    def __init__(self, *x):
+        self.things = []
+        for p in x:
+            if isinstance(p, Product):
+                self.things.extend(p.things)
             else:
-                self.things = [x] + y.things
-        else:
-            self.things = [x, y]
+                self.things.append(p)
 
     def __str__(self):
         return str(self.things)
@@ -198,12 +195,12 @@ class Product:
         else:
             alpha = 1.0
 
-        (opa, a), (opb, b) = self.things
+        (a, opa), (b, opb) = self.things
         a.mmm(alpha, opa, b, opb, beta, destination)
 
     def __mul__(self, x):
         if isinstance(x, Matrix):
-            x = Product(('N', x))
+            x = Product((x, 'N'))
         return Product(self, x)
 
 

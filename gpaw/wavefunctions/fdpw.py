@@ -160,7 +160,7 @@ class FDPWWaveFunctions(WaveFunctions):
         self.wrap_wave_function_arrays_in_fancy_objects()
 
         psit_n = kpt.psit_n
-        P_nI = kpt.P_n
+        P_nI = kpt.P_nI
 
         with self.timer('projections'):
             psit_n.project(self.pt, P_nI)

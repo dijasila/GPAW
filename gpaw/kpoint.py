@@ -101,7 +101,7 @@ class KPoint:
         self.dist = None  # BLACS distribution of self.P_n
 
     @property
-    def P_n(self):
+    def P_nI(self):
         """Wrap projections."""
         x = self.psit_n
         if hasattr(x, 'pd'):

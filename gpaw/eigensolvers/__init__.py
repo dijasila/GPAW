@@ -15,18 +15,18 @@ def get_eigensolver(eigensolver, mode, convergence=None):
             eigensolver = 'lcao'
         else:
             eigensolver = 'dav'
-            
+
     if isinstance(eigensolver, basestring):
         eigensolver = {'name': eigensolver}
-        
+
     if isinstance(eigensolver, dict):
         name = eigensolver.pop('name')
         eigensolver = {'rmm-diis': RMMDIIS,
                        'cg': CG,
-                       'dav': RMMDIIS,#Davidson,
+                       'dav': Davidson,
                        'lcao': DirectLCAO
                        }[name](**eigensolver)
-    
+
     if isinstance(eigensolver, CG):
         eigensolver.tolerance = convergence['eigenstates']
 

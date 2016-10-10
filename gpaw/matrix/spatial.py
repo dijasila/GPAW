@@ -1,6 +1,6 @@
 import numpy as np
 
-from gpaw.matrix import Matrix
+from gpaw.matrix.matrix import Matrix, Product
 
 
 class SpatialMatrix(Matrix):
@@ -31,9 +31,18 @@ class SpatialMatrix(Matrix):
     def apply(self, func, out):
         func(self.A, out.A)
 
+    def __setitem__(self, i, x):
+        if isinstance(i, int):
+            self.A[i] = x
+        else:
+            Matrix.__setitem__(self, i, x)
+
+    def __or__(self, other):
+        return Product(self.dv, (self, 'C'), (other, 'T'))
+
     def __getitem__(self, i):
-        assert self.distribution.shape[0] == self.shape[0]
-        return self.data[i]
+        assert self.dist.shape[0] == self.shape[0]
+        return self.A[i]
 
 
 class UniformGridMatrix(SpatialMatrix):

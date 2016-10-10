@@ -1,32 +1,38 @@
+import functools
+import numpy as np
 from gpaw.mpi import world
+from gpaw.fd_operators import Laplace
 from gpaw.grid_descriptor import GridDescriptor
-gd = GridDescriptor([2, 3, 4], [2, 3, 4])
-N = 2
-a = RealSpaceMatrix(N, gd, float, dist=(world, world.size))
-a.data[:] = 1
-a.data[0, 0, world.rank] = 0
-c = Matrix(N, N, dist=(world, world.size))
+from gpaw.matrix import Matrix, UniformGridMatrix
 
-def f(x, y):
-    y.x[:] = np.dot([[2, 1], [1, 3.5]], x.x)
+gd = GridDescriptor([2, 3, 4], [2, 3, 4])
+dt = complex
+ph = np.ones((3, 2), complex)
+T = functools.partial(Laplace(gd, -0.5, 1, dt).apply, phase_cd=ph)
+N = 2
+a = UniformGridMatrix(N, gd, dt, dist=(world, world.size))
+a.a[:] = 1
+a.A[0, 0, world.rank] = -1j
+c = Matrix(N, N, dt, dist=(world, world.size))
 
 c[:] = (a | a)
-print(c.data)
-c.inverse_cholesky()
-print(c.data)
+print(c.a)
+c.cholesky()
+c.inv()
+print(c.a)
 b = a.new()
 b[:] = c.T * a
 a[:] = b
 c[:] = (a | a)
-print(c.data)
-b[:] = f * a
+print(c.a)
+a.apply(T, b)
 c[:] = (a | b)
-print(c)
+print('H:', c.a)
 eps = np.empty(2)
 c.eigh(eps)
-print(eps, c)
+print(eps, c.a)
 d = a.new()
 d[:] = c.T * a
-b[:] = f * d
+d.apply(T, b)
 c[:] = (d | b)
-print(c)
+print('H2:', c.a)
