@@ -3,6 +3,7 @@
 import numpy as np
 from ase.utils.timing import timer
 
+from gpaw.matrix import PAWMatrix
 from gpaw.utilities.blas import axpy
 from gpaw.utilities import unpack
 from gpaw.xc.hybrid import HybridXC
@@ -132,8 +133,7 @@ class Eigensolver:
         def Ht(psit_n, Htpsit_n):
             wfs.apply_pseudo_hamiltonian(kpt, ham, psit_n.data, Htpsit_n.data)
 
-        dH_II = P_nI.paw_matrix(unpack(ham.dH_asp[a][kpt.s])
-                                for a in kpt.P_ani)
+        dH_II = PAWMatrix(unpack(ham.dH_asp[a][kpt.s]) for a in kpt.P_ani)
 
         with self.timer('calc_h_matrix'):
             Ht(psit_n, tmp_n)
