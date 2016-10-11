@@ -8,6 +8,15 @@ import _gpaw
 global_blacs_context_store = {}
 
 
+def op(a, opa):
+    if opa == 'N':
+        return a
+    if opa == 'C':
+        return a.conj()
+    if opa == 'T':
+        return a.T
+        
+        
 class NoDistribution:
     serial = True
 
@@ -18,7 +27,14 @@ class NoDistribution:
         return 'NoDistribution({0}x{1})'.format(*self.shape)
 
     def mmm(self, alpha, a, opa, b, opb, beta, c):
+        if beta == 0:
+            c2 = alpha * np.dot(op(a.a, opa), op(b.a, opb))
+        else:
+            assert beta == 1
+            c2 = c.a + alpha * np.dot(op(a.a, opa), op(b.a, opb))
+        #return
         # print(self is b, self is b.source)
+        print('hej')
         if opa == 'C' and opb == 'T':
             assert not a.transposed and not b.transposed and c.transposed
             blas.mmm(alpha, b.a, 'n', a.a, 'c', beta, c.a.T)
@@ -28,8 +44,17 @@ class NoDistribution:
         else:
             assert not a.transposed and not b.transposed and c.transposed
             assert opa != 'C' and opb != 'C'
+            print(c.a)
             blas.mmm(alpha, a.a, opa.lower(), b.a, opb.lower(), beta, c.a.T)
-
+        if abs(c.a-c2).max() > 0.000001:
+            print(self, alpha, a, opa, b, opb, beta, c)
+            print(a.transposed, b.transposed, c.transposed)
+            print(c.a)
+            print(c2)
+            print(np.dot(a.a[0], b.a[1]))
+            1 / 0
+        c.a[:] = c2
+        
     def cholesky(self, S_nn):
         S_nn[:] = linalg.cholesky(S_nn)
 

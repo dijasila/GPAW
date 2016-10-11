@@ -449,16 +449,17 @@ class Preconditioner:
         self.pd = pd
 
     def calculate_kinetic_energy(self, psit_xG, kpt):
+        if psit_xG.ndim == 1:
+            return self.calculate_kinetic_energy(psit_xG[np.newaxis], kpt)[0]
         G2_G = self.G2_qG[kpt.q]
         return [self.pd.integrate(0.5 * G2_G * psit_G, psit_G)
                 for psit_G in psit_xG]
 
-    def __call__(self, R_xG, kpt, ekin_x, out=None):
+    def __call__(self, R_xG, kpt, ekin_x):
+        if R_xG.ndim == 1:
+            return self.__call__(R_xG[np.newaxis], kpt, [ekin_x])[0]
         G2_G = self.G2_qG[kpt.q]
-        if out is None:
-            PR_xG = np.empty_like(R_xG)
-        else:
-            PR_xG = out
+        PR_xG = np.empty_like(R_xG)
         for PR_G, R_G, ekin in zip(PR_xG, R_xG, ekin_x):
             x_G = 1 / ekin / 3 * G2_G
             a_G = 27.0 + x_G * (18.0 + x_G * (12.0 + x_G * 8.0))
