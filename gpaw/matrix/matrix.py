@@ -119,9 +119,11 @@ class Matrix:
             self.a = np.asarray(data).reshape(self.shape)
             self.transposed = False
 
+        self.array = self.a
+        
         assert self.transposed == self.a.flags['F_CONTIGUOUS']
 
-    def __str__(self):
+    def __repr__(self):
         dist = str(self.dist).split('(')[1]
         return 'Matrix({0}: {1}'.format(self.dtype.name, dist)
 
@@ -133,7 +135,10 @@ class Matrix:
 
     def __setitem__(self, i, x):
         # assert i == slice(None)
-        x.eval(self)
+        if isinstance(x, np.ndarray):
+            self.array[:] = x
+        else:
+            x.eval(self)
 
     def __array__(self, dtype):
         assert self.dtype == dtype

@@ -52,6 +52,20 @@ class Eigensolver:
     def reset(self):
         self.initialized = False
 
+    def weights(self, kpt):
+        if self.nbands_converge == 'occupied':
+            if kpt.f_n is None:
+                weights = np.empty(self.bd.mynbands)
+                weights[:] = kpt.weight
+            else:
+                weights = kpt.f_n
+        else:
+            weights = np.zeros(self.bd.mynbands)
+            n = self.nbands_converge - self.bd.beg
+            if n > 0:
+                weights[:n] = kpt.weight
+        return weights
+        
     def iterate(self, ham, wfs):
         """Solves eigenvalue problem iteratively
 
@@ -157,7 +171,7 @@ class Eigensolver:
             ham.xc.rotate(kpt, H_nn.a)
 
         if self.keep_htpsit:
-            return kpt.psit_nG, Htpsit_n.A
+            return kpt.psit_nG, Htpsit_n.array
         else:
             return kpt.psit_nG, None
 

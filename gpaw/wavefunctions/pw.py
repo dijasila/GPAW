@@ -453,14 +453,17 @@ class Preconditioner:
         return [self.pd.integrate(0.5 * G2_G * psit_G, psit_G)
                 for psit_G in psit_xG]
 
-    def __call__(self, R_xG, kpt, ekin_x):
+    def __call__(self, R_xG, kpt, ekin_x, out=None):
         G2_G = self.G2_qG[kpt.q]
-        PR_xG = np.empty_like(R_xG)
+        if out is None:
+            PR_xG = np.empty_like(R_xG)
+        else:
+            PR_xG = out
         for PR_G, R_G, ekin in zip(PR_xG, R_xG, ekin_x):
             x_G = 1 / ekin / 3 * G2_G
             a_G = 27.0 + x_G * (18.0 + x_G * (12.0 + x_G * 8.0))
-            PR_G[:] = 4.0 / 3 / ekin * R_G * a_G / (a_G + 16.0 * x_G**4)
-        return -PR_xG
+            PR_G[:] = -4.0 / 3 / ekin * R_G * a_G / (a_G + 16.0 * x_G**4)
+        return PR_xG
 
 
 class PWWaveFunctions(FDPWWaveFunctions):
