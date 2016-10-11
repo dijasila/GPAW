@@ -62,7 +62,7 @@ class Davidson(Eigensolver):
 
     def iterate_one_k_point(self, ham, wfs, kpt):
         """Do Davidson iterations for the kpoint"""
-        nbands = self.nbands
+        B = self.nbands
         mynbands = self.mynbands
         #gd = wfs.matrixoperator.gd
         bd = wfs.bd
@@ -138,36 +138,27 @@ class Davidson(Eigensolver):
             dH_II = PAWMatrix(unpack(ham.dH_asp[a][kpt.s]) for a in kpt.P_ani)
             dS_II = PAWMatrix(wfs.setups[a].dO_ii for a in kpt.P_ani)
 
+            def mat(a_n, b_n, Pa_nI, Pb_nI, dM_II, C_nn, hermitian=False):
+                """Fill C_nn with <a|b> matrix elements."""
+                a_n.matrix_elements(b_n, M_nn, hermitian)
+                dMP_nI[:] = Pb_nI * dM_II
+                C_nn += Pa_nI.C * dMP_nI.T
+                C_nn[:] = M_nn
+
+            # Calculate projections
+            psit2_n.project(wfs.pt, P2_nI)
+
+            psit2_n.apply(Ht, R_n)
+
             with self.timer('calc. matrices'):
-                # Hamiltonian matrix
                 # <psi2 | H | psi>
-                psit2_n.apply(Ht, R_n)
-                psit_n.matrix_elements(R_n, M_nn)
-                dMP_nI[:] = P_nI * dH_II
-                M_nn += P_nI.C * dMP_nI.T
-                H_2n2n[nbands:, :nbands] = M_nn.a
-
-                # Overlap matrix
+                mat(R_n, psit_n, P2_nI, dH_II, P_nI, H21_nn)
                 # <psi2 | S | psi>
-                psit_n.matrix_elements(psit2_n, M_nn)
-                dMP_nI[:] = P_nI * dS_II
-                M_nn += P_nI.C * dMP_nI.T
-                S_2n2n[nbands:, :nbands] = M_nn.a
-
-                # Calculate projections
-                psit2_n.project(wfs.pt, P2_nI)
-
+                mat(psit2_n, psit_n, P2_nI, dS_II, P_nI, S21_nn)
                 # <psi2 | H | psi2>
-                psit2_n.matrix_elements(R_n, M_nn)
-                dMP_nI[:] = P_nI * dH_II
-                M_nn += P_nI.C * dMP_nI.T
-                H_2n2n[nbands:, :nbands] = M_nn.a
-
+                mat(R_n, psit2_n, P2_nI, dH_II, P2_nI, H22_nn)
                 # <psi2 | S | psi2>
-                psit2_n.matrix_elements(R_n, M_nn)
-                dMP_nI[:] = P_nI * dH_II
-                M_nn += P_nI.C * dMP_nI.T
-                S_2n2n[nbands:, nbands:] = M_nn.a
+                mat(psit2_n, psit2_n, P2_nI, dS_II, P2_nI, S22_nn)
 
             with self.timer('diagonalize'):
                 #if gd.comm.rank == 0 and bd.comm.rank == 0:
