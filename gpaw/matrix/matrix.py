@@ -9,6 +9,8 @@ global_blacs_context_store = {}
 
 
 class NoDistribution:
+    serial = True
+
     def __init__(self, M, N):
         self.shape = (M, N)
 
@@ -39,6 +41,8 @@ class NoDistribution:
 
 
 class BLACSDistribution:
+    serial = False
+
     def __init__(self, M, N, comm, r, c, b):
         key = (comm, r, c)
         context = global_blacs_context_store.get(key)
@@ -130,6 +134,11 @@ class Matrix:
     def __setitem__(self, i, x):
         # assert i == slice(None)
         x.eval(self)
+
+    def __array__(self, dtype):
+        assert self.dtype == dtype
+        assert self.dist.serial
+        return self.a
 
     def eval(self, destination, beta=0):
         assert destination.dist == self.dist
