@@ -33,14 +33,14 @@ class SpatialMatrix(Matrix):
 
     def __setitem__(self, i, x):
         if isinstance(i, int):
-            self.array[i] = x
+            self.array[i] = x;asdf
         else:
             Matrix.__setitem__(self, i, x)
 
     def __or__(self, other):
         return Product(self.dv, (self, 'C'), (other, 'T'))
 
-    def __getitem__(self, i):
+    def __getitem_______________(self, i):
         assert self.dist.shape[0] == self.shape[0]
         return self.array[i]
 
@@ -71,15 +71,16 @@ class UniformGridMatrix(SpatialMatrix):
 
 class PWExpansionMatrix(SpatialMatrix):
     def __init__(self, M, pd, data, q=-1, dist=None):
-        self.array = data
+        orig = data
         if pd.dtype == float:
             data = data.view(float)
         SpatialMatrix.__init__(self, M, data.shape[1], pd.dtype, data, dist)
+        self.array = orig
         self.pd = pd
         self.q = q
         self.dv = pd.gd.dv / pd.gd.N_c.prod()
 
-    def __getitem__(self, i):
+    def __getitem______________________(self, i):
         assert self.distribution.shape[0] == self.shape[0]
         return self.array[i]
 

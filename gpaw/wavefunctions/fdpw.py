@@ -172,8 +172,10 @@ class FDPWWaveFunctions(WaveFunctions):
 
         with self.timer('calc_s_matrix'):
             psit_n.matrix_elements(psit_n, S_nn)
+            print(S_nn.a)
             dSP_nI[:] = P_nI * dS_II
             S_nn += P_nI.C * dSP_nI.T
+            print(S_nn.a)
 
         with self.timer('inverse-cholesky'):
             assert self.bd.comm.size == 1

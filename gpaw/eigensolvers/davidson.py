@@ -113,6 +113,7 @@ class Davidson(Eigensolver):
                 #gd.comm.sum(norm_n)
                 for norm, psit2_G in zip(norms, psit2_n.array):
                     psit2_G *= norm**-0.5
+                print(error, norms)
 
             Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
             dH_II = PAWMatrix(unpack(ham.dH_asp[a][kpt.s]) for a in kpt.P_ani)
@@ -146,12 +147,14 @@ class Davidson(Eigensolver):
 
             with self.timer('diagonalize'):
                 #if gd.comm.rank == 0 and bd.comm.rank == 0:
-                #H_NN[:B, B:] = 0.0
-                #S_NN[:B, B:] = 0.0
+                H_NN[B:, :B] = 0.0
+                S_NN[B:, :B] = 0.0
                 #from gpaw.utilities.lapack import general_diagonalize
+                print(H_NN)
+                print(S_NN)
                 eps_N, H_NN[:] = linalg.eigh(H_NN, S_NN,
                                              lower=False,
-                                             check_finite=False)
+                                             check_finite=not False)
                 #general_diagonalize(H_NN, eps_N, S_NN)
                 #H_NN = H_NN.T.copy()
 
