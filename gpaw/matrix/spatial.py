@@ -11,7 +11,7 @@ class SpatialMatrix(Matrix):
 
     def finish_sums(self):
         if self.comm_to_be_summed_over and not self.transposed:
-            self.comm_to_be_summed_over.sum(self.x, 0)
+            self.comm_to_be_summed_over.sum(self.a, 0)
         self.comm_to_be_summed_over = None
 
     def mmm(self, alpha, opa, b, opb, beta, c):
@@ -26,14 +26,14 @@ class SpatialMatrix(Matrix):
         self.mmm(self.dv, 'C', other, 'T', 0.0, M)
 
     def project(self, lfc, P_nI):
-        lfc.integrate(self.A, P_nI.dictview(), self.q)
+        lfc.integrate(self.array, P_nI.dictview(), self.q)
 
     def apply(self, func, out):
-        func(self.A, out.A)
+        func(self.array, out.array)
 
     def __setitem__(self, i, x):
         if isinstance(i, int):
-            self.A[i] = x
+            self.array[i] = x
         else:
             Matrix.__setitem__(self, i, x)
 
@@ -42,7 +42,7 @@ class SpatialMatrix(Matrix):
 
     def __getitem__(self, i):
         assert self.dist.shape[0] == self.shape[0]
-        return self.A[i]
+        return self.array[i]
 
 
 class UniformGridMatrix(SpatialMatrix):
@@ -52,12 +52,18 @@ class UniformGridMatrix(SpatialMatrix):
         if data is None:
             self.a = self.a.T
             self.transposed = False
-        self.A = self.a.reshape((-1,) + tuple(gd.n_c))
+        self.array = self.a.reshape((-1,) + tuple(gd.n_c))
         self.gd = gd
         self.dv = gd.dv
         self.comm = gd.comm
         self.q = q
 
+    def __repr__(self):
+        s = SpatialMatrix.__repr__(self).split('(')[1][:-1]
+        shape = self.gd.get_size_of_global_array()
+        s = 'UniformGridMatrix({0}, gpts={1}x{2}x{3})'.format(s, *shape)
+        return s
+        
     def new(self, buf=None):
         return UniformGridMatrix(self.shape[0], self.gd, self.dtype, buf,
                                  self.q, self.dist)
@@ -65,7 +71,7 @@ class UniformGridMatrix(SpatialMatrix):
 
 class PWExpansionMatrix(SpatialMatrix):
     def __init__(self, M, pd, data, q=-1, dist=None):
-        self.A = data
+        self.array = data
         if pd.dtype == float:
             data = data.view(float)
         SpatialMatrix.__init__(self, M, data.shape[1], pd.dtype, data, dist)
@@ -75,12 +81,12 @@ class PWExpansionMatrix(SpatialMatrix):
 
     def __getitem__(self, i):
         assert self.distribution.shape[0] == self.shape[0]
-        return self.A[i]
+        return self.array[i]
 
     def new(self, buf=None):
         if buf is not None:
-            buf = buf.ravel()[:self.A.size]
-            buf.shape = self.A.shape
+            buf = buf.ravel()[:self.array.size]
+            buf.shape = self.array.shape
         return PWExpansionMatrix(self.shape[0], self.pd, buf, self.q,
                                  self.dist)
 
