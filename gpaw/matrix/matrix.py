@@ -15,8 +15,8 @@ def op(a, opa):
         return a.conj()
     if opa == 'T':
         return a.T
-        
-        
+
+
 class NoDistribution:
     serial = True
 
@@ -37,7 +37,7 @@ class NoDistribution:
         print('hej')
         if opa == 'C' and opb == 'T':
             assert not a.transposed and not b.transposed and c.transposed
-            blas.mmm(alpha, b.a, 'n', a.a, 'c', beta, c.a.T)
+            blas.mmm(alpha, b.a, 'n', a.a, 'c', beta, c.a.T, 'n')
         elif opa == 'T' and opb == 'N' and a.transposed:
             assert not b.transposed and not c.transposed
             blas.mmm(alpha, a.a.T, 'n', b.a, 'n', beta, c.a)
@@ -45,7 +45,7 @@ class NoDistribution:
             assert not a.transposed and not b.transposed and c.transposed
             assert opa != 'C' and opb != 'C'
             print(c.a)
-            blas.mmm(alpha, a.a, opa.lower(), b.a, opb.lower(), beta, c.a.T)
+            blas.mmm(alpha, a.a, opa.lower(), b.a, opb.lower(), beta, c.a, 'n')#.T)
         if abs(c.a-c2).max() > 0.000001:
             print(self, alpha, a, opa, b, opb, beta, c)
             print(a.transposed, b.transposed, c.transposed)
@@ -54,7 +54,7 @@ class NoDistribution:
             print(np.dot(a.a[0], b.a[1]))
             1 / 0
         c.a[:] = c2
-        
+
     def cholesky(self, S_nn):
         S_nn[:] = linalg.cholesky(S_nn)
 
@@ -145,7 +145,7 @@ class Matrix:
             self.transposed = False
 
         self.array = self.a
-        
+
         assert self.transposed == self.a.flags['F_CONTIGUOUS']
 
     def __repr__(self):
@@ -199,7 +199,7 @@ class Matrix:
         return Product((self, 'C'))
 
     def mmm(self, alpha, opa, b, opb, beta, destination):
-        if opa == 'C' and self.dtype == float:
+        if opa == 'Ccccccccccccccccccccccccccccccccccccccccccccccccccc' and self.dtype == float:
             opa = 'N'
         self.dist.mmm(alpha, self, opa, b, opb, beta, destination)
 
