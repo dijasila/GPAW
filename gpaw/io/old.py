@@ -60,10 +60,19 @@ def wrap_old_gpw_reader(filename):
     else:
         p['kpts'] = bzk_kc
 
-    p['symmetry'] = {'point_group': r['SymmetryOnSwitch'],
-                     'symmorphic': r['SymmetrySymmorphicSwitch'],
-                     'time_reversal': r['SymmetryTimeReversalSwitch'],
-                     'tolerance': r['SymmetryToleranceCriterion']}
+    if r['version'] < 4:
+        usesymm = r['UseSymmetry']
+        if usesymm is None:
+            p['symmetry'] = {'time_reversal': False, 'point_group': False}
+        elif usesymm:
+            p['symmetry'] = {'time_reversal': True, 'point_group': True}
+        else:
+            p['symmetry'] = {'time_reversal': True, 'point_group': False}
+    else:
+        p['symmetry'] = {'point_group': r['SymmetryOnSwitch'],
+                         'symmorphic': r['SymmetrySymmorphicSwitch'],
+                         'time_reversal': r['SymmetryTimeReversalSwitch'],
+                         'tolerance': r['SymmetryToleranceCriterion']}
 
     p['basis'] = r['BasisSet']
 
