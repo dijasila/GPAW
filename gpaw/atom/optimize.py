@@ -207,6 +207,10 @@ class DatasetOptimizer:
         ga = GA(self.x)
         ga.run(self)  # , mutate=mu, size1=n1, size2=n2)
 
+    def run_initial(self):
+        errors, total_error = self(0, self.x)[2:]
+        print('Errors', errors, '\nTotal error:', total_error)
+
     def best(self, N=None):
         ga = GA(self.x)
         best = sorted((error, id, x)
@@ -509,6 +513,7 @@ if __name__ == '__main__':
     parser.add_option('-b', '--best', action='store_true')
     parser.add_option('-r', '--run', action='store_true')
     parser.add_option('-n', '--norm-conserving', action='store_true')
+    parser.add_option('-i', '--initial-only', action='store_true')
     opts, args = parser.parse_args()
     if opts.run:
         symbol = args[0]
@@ -519,7 +524,10 @@ if __name__ == '__main__':
             os.mkdir(symbol)
             os.chdir(symbol)
             do = DatasetOptimizer(symbol, opts.norm_conserving)
-        do.run()  # *args[1:])
+        if opts.initial_only:
+            do.run_initial()
+        else:
+            do.run()
     else:
         if len(args) == 0:
             symbol = os.getcwd().rsplit('/', 1)[1]
