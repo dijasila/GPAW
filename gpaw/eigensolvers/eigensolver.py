@@ -99,7 +99,7 @@ class Eigensolver:
                                       calculate_change)
         wfs.pt.add(R_xG, c_axi, kpt.q)
         
-    def subspace_diagonalize(self, hamiltonian, wfs, kpt):
+    def subspace_diagonalize(self, hamiltonian, wfs, kpt, return_Hnn=False):
         """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
 
         *Htpsit_nG* is a work array of same size as psit_nG which contains
@@ -150,6 +150,9 @@ class Eigensolver:
                                                        H, dH)
         hamiltonian.xc.correct_hamiltonian_matrix(kpt, H_nn)
         self.timer.stop('calc_h_matrix')
+
+        if return_Hnn == True:
+            return H_nn
 
         diagonalization_string = repr(self.ksl)
         wfs.timer.start(diagonalization_string)
