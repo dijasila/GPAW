@@ -212,7 +212,7 @@ class DatasetOptimizer:
     def run_initial(self):
         errors, total_error = self(0, self.x)[2:]
         print(self.symbol, 'Errors:', errors, '\nTotal error:', total_error)
-        with open(self.symbol + '.pckl', 'rb') as f:
+        with open(self.symbol + '.pckl', 'wb') as f:
             pickle.dump((self.symbol, errors, total_error), f)
 
     def best(self, N=None):
