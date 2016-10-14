@@ -549,7 +549,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             self.data = []
         elif name == 'generator':
             setup.type = attrs['type']
-            setup.generator_version = attrs.get('version', 1)
+            setup.generator_version = int(attrs.get('version', '1'))
         else:
             self.data = None
 
