@@ -2,6 +2,7 @@ from __future__ import print_function, division
 import multiprocessing as mp
 import glob
 import os
+import pickle
 import random
 import re
 import time
@@ -160,6 +161,7 @@ class DatasetOptimizer:
     conf = None
 
     def __init__(self, symbol='H', nc=False):
+        self.old = False
 
         self.symbol = symbol
         self.nc = nc
@@ -209,7 +211,9 @@ class DatasetOptimizer:
 
     def run_initial(self):
         errors, total_error = self(0, self.x)[2:]
-        print('Errors', errors, '\nTotal error:', total_error)
+        print(self.symbol, 'Errors:', errors, '\nTotal error:', total_error)
+        with open(self.symbol + '.pckl', 'rb') as f:
+            pickle.dump((self.symbol, errors, total_error), f)
 
     def best(self, N=None):
         ga = GA(self.x)
@@ -268,6 +272,10 @@ class DatasetOptimizer:
 
     def generate(self, fd, xc, projectors, radii, r0,
                  scalar_relativistic=False, tag=None, logderivs=True):
+        if self.old:
+            self.generate_old(fd, xc, scalar_relativistic, tag)
+            return 0.0
+
         if projectors[-1].isupper():
             nderiv0 = 5
         else:
@@ -295,6 +303,15 @@ class DatasetOptimizer:
                 ld2 = gen.logarithmic_derivative(l, energies, r)
                 error = max(error, abs(ld1 - ld2).sum() * de)
         return error
+
+    def generate_old(self, fd, xc, scalar_relativistic, tag):
+        from gpaw.atom.configurations import parameters
+        from gpaw.atom.generator import Generator
+        par = parameters[self.symbol]
+        g = Generator(self.symbol, xc, scalarrel=scalar_relativistic,
+                      nofiles=True, txt=fd)
+        g.run(exx=True, logderiv=False, use_restart_file=False, name=tag,
+              **par)
 
     def parameters(self, x):
         energies = tuple(0.1 * i for i in x[:self.nenergies])
@@ -514,6 +531,7 @@ if __name__ == '__main__':
     parser.add_option('-r', '--run', action='store_true')
     parser.add_option('-n', '--norm-conserving', action='store_true')
     parser.add_option('-i', '--initial-only', action='store_true')
+    parser.add_option('-o', '--old-setups', action='store_true')
     opts, args = parser.parse_args()
     if opts.run:
         symbol = args[0]
@@ -525,6 +543,7 @@ if __name__ == '__main__':
             os.chdir(symbol)
             do = DatasetOptimizer(symbol, opts.norm_conserving)
         if opts.initial_only:
+            do.old = opts.old_setups
             do.run_initial()
         else:
             do.run()
