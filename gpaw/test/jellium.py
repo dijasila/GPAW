@@ -46,3 +46,5 @@ equal(phi1, 2.7162036108, 1e-3)
 # Reference value: Lang and Kohn, 1971, Theory of Metal Surfaces: Work function
 # DOI 10.1103/PhysRevB.3.1215
 # r_s = 5, work function = 2.73 eV
+
+surf.calc.write('jellium.gpw')

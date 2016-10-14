@@ -29,9 +29,9 @@ valence electrons/atom is included in the calculation.
 
 * One should *help* a magnetic calculation by providing initial
   magnetic moments for the atoms using the ``magmoms`` argument to the
-  :class:`~ase.atoms.Atoms` constructor or by using the
-  :meth:`~ase.atoms.Atoms.set_initial_magnetic_moments` method of the
-  :class:`~ase.atoms.Atoms` object. This
+  :class:`~ase.Atoms` constructor or by using the
+  :meth:`~ase.Atoms.set_initial_magnetic_moments` method of the
+  :class:`~ase.Atoms` object. This
   is necessary to find magnetic states.  Choose the magnetic
   moment close to the expected/desired magnetic state of your system
   (the experimental value is 2.22 per atom). The initial magnetic

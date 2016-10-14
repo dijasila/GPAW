@@ -6,6 +6,7 @@ Put this in crontab::
     58 13 * * * cd $ASE/..; PATH=$ASE/tools:$PATH PYTHONPATH=$ASE:$PYTHONPATH \
                 python3 -bb test.py --debug
 """
+from __future__ import print_function
 import os
 import shutil
 import subprocess
@@ -39,7 +40,7 @@ def run():
     failed.extend(results.errors + results.failures)
 
     if failed:
-        print(failed)
+        print(failed, file=sys.stderr)
     else:
         shutil.rmtree('testing')
 
@@ -49,6 +50,6 @@ def run():
 
 if __name__ == '__main__':
     if os.path.isdir('gpaw/testing'):
-        print('Failed ...')
+        print('Failed ...', file=sys.stderr)
     else:
         run()

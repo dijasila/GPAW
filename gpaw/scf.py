@@ -30,7 +30,7 @@ class SCFLoop:
 
     def __str__(self):
         cc = self.max_errors
-        s = 'Convergence Criteria:\n'
+        s = 'Convergence criteria:\n'
         for name, val in [
             ('total energy change: {0:g} eV / electron',
              cc['energy'] * Hartree / self.nvalence),

@@ -27,7 +27,9 @@ names = [r for r, d in sources]
 
 
 def main(args):
-    p = OptionParser(usage=usage, description=description)
+    p = OptionParser(prog='gpaw install-data',
+                     usage=usage,
+                     description=description)
     add = p.add_option
     add('--version', metavar='VERSION',
         help='download VERSION of package.  '
@@ -253,7 +255,8 @@ def print_setups_info(p):
     # GPAW may already have been imported, and the contents of the rc
     # file may have changed since then.  Thus, we re-import gpaw to be
     # sure that everything is as it should be.
-    reload(gpaw)
+    gpaw.initialize_data_paths()
+    gpaw.read_rc_file()
 
     npaths = len(gpaw.setup_paths)
     if npaths == 0:

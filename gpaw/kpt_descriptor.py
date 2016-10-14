@@ -51,7 +51,7 @@ def to1bz(bzk_kc, cell_cv):
 
     return bz1k_kc
 
-        
+
 def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,
                         atoms=None):
     """Helper function for selecting k-points.
@@ -103,6 +103,12 @@ def kpts2ndarray(kpts, atoms=None):
         return monkhorst_pack(kpts)
 
     return np.array(kpts)
+
+
+try:
+    from ase.calculators.calculator import kpts2ndarray
+except ImportError:
+    pass
 
 
 class KPointDescriptor:
@@ -165,7 +171,7 @@ class KPointDescriptor:
 
         # Gamma-point calculation?
         self.gamma = self.nbzkpts == 1 and np.allclose(self.bzk_kc, 0)
-            
+
         # Point group and time-reversal symmetry neglected:
         self.weight_k = np.ones(self.nbzkpts) / self.nbzkpts
         self.ibzk_kc = self.bzk_kc.copy()
@@ -184,7 +190,7 @@ class KPointDescriptor:
 
         if -1 in self.bz2bz_ks:
             s += 'Note: your k-points are not as symmetric as your crystal!\n'
-            
+
         if self.gamma:
             s += '\n1 k-point (Gamma)'
         else:
@@ -200,13 +206,13 @@ class KPointDescriptor:
                             s += '%f,' % x
                     s = s[:-1] + ']'
 
-        s += ('\n%d k-point%s in the Irreducible Part of the Brillouin Zone\n'
+        s += ('\n%d k-point%s in the irreducible part of the Brillouin zone\n'
               % (self.nibzkpts, ' s'[1:self.nibzkpts]))
-        
+
         w_k = self.weight_k * self.nbzkpts
         assert np.allclose(w_k, w_k.round())
         w_k = w_k.round()
-        
+
         s += '       k-points in crystal coordinates                weights\n'
         for k in range(self.nibzkpts):
             if k < 10 or k == self.nibzkpts - 1:

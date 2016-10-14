@@ -11,7 +11,8 @@ tutorial assumes that ``Wannier90`` is installed and ``wannier90.x``,
 to be regarded as a tutorial on the GPAW interface to ``Wannier90``. Details
 and tutorials on the ``Wannier90`` code itself can be found at the `Wannier90
 home page <http://www.wannier.org>`_. For details on the theory the review
-paper[#Wannier_cose]_ may be consulted.
+paper [#Wannier_code]_ may be consulted. The interface is 
+documented in Ref. [#Olsen]_
 
 
 Wannier functions of GaAs
@@ -170,9 +171,10 @@ conductivity on a `50\times50\times50` `k`-mesh. The `z`-component should be
 bad, but one needs to go to much higher `k`-point densities to obtain the
 converged values of 757 S/cm [#AHC]_.
 
-
 .. [#Wannier_code] N. Marzari, A. A. Mostofi, J. R. Yates, I. Souza, and D. Vanderbilt
                    *Rev. Mod. Phys.* **84**, 1419 (2012)
+
+.. [#Olsen] T. Olsen, arXiv:1609.02338
 
 .. [#AHC]     X. Wang, J. R. Yates, I. Souza, and D. Vanderbilt
               *Phys. Rev. B* **74**, 195118 (2006)

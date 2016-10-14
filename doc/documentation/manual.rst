@@ -29,7 +29,7 @@ Doing a PAW calculation
 -----------------------
 
 To do a PAW calculation with the GPAW code, you need an ASE
-:class:`~ase.atoms.Atoms` object and a :class:`~gpaw.calculator.GPAW`
+:class:`~ase.Atoms` object and a :class:`~gpaw.calculator.GPAW`
 calculator::
 
    _____________          ____________
@@ -621,7 +621,7 @@ Maximum number of SCF-iterations
 --------------------------------
 
 The calculation will stop with an error if convergence is not reached
-in ``maxiter`` self-consistent iterations (defaults to 120).
+in ``maxiter`` self-consistent iterations.
 
 
 .. _manual_txt:

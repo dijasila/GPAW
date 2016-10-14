@@ -679,7 +679,8 @@ class GPAW(Calculator, PAW):
 
         if self.parameters.fixdensity:
             occ.fixed_fermilevel = True
-            occ.fermilevel = self.occupations.fermilevel
+            if self.occupations:
+                occ.fermilevel = self.occupations.fermilevel
 
         self.occupations = occ
 
