@@ -211,8 +211,8 @@ def get_number_of_electrons(symbol, name):
     if name == 'default':
         return default[Z]
     return semicore[Z]
-    
-        
+
+
 class PAWWaves:
     def __init__(self, rgd, l, rcut):
         self.rgd = rgd
@@ -464,7 +464,7 @@ class PAWSetupGenerator:
         if self.lmax >= 0:
             radii += [radii[-1]] * (self.lmax + 1 - len(radii))
         del radii[self.lmax + 1:]  # remove unused radii
-            
+
         self.rcmax = max(radii)
 
         self.waves_l = []
@@ -654,11 +654,11 @@ class PAWSetupGenerator:
                 ok = False
                 # continue  # fail here
 
-            nbound = (e_b < -0.05).sum()
+            nbound = (e_b < -0.002).sum()
 
             if l < len(self.aea.channels):
                 e0_b = self.aea.channels[l].e_n
-                nbound0 = (e0_b < -0.05).sum()
+                nbound0 = (e0_b < -0.002).sum()
                 extra = 6
                 for n in range(1 + l, nbound0 + 1 + l + extra):
                     if n - 1 - l < len(self.aea.channels[l].f_n):
@@ -687,8 +687,6 @@ class PAWSetupGenerator:
                     self.log('Error in %s-states!' % 'spdf'[l])
                     if not self.aea.scalar_relativistic:
                         ok = False
-                    else:
-                        ok = True
             elif nbound > 0:
                 self.log('Wrong number of %s-states!' % 'spdf'[l])
                 ok = False
@@ -1241,7 +1239,7 @@ def main(argv=None):
     add('--core-hole')
     add('-e', '--electrons', type=int)
     add('-o', '--output')
-    
+
     opt, symbols = parser.parse_args(argv)
 
     for symbol in symbols:
@@ -1254,7 +1252,7 @@ def main(argv=None):
 
         if opt.create_basis_set or opt.write:
             basis = None  # gen.create_basis_set()
-            
+
             if opt.create_basis_set:
                 basis.write_xml()
 
@@ -1287,7 +1285,7 @@ def main(argv=None):
                     de = energies[1] - energies[0]
                     error = abs(ld1 - ld2).sum() * de
                     print('Logarithmic derivative error:', l, error)
-                    
+
                     # Fixed points:
                     if l < len(gen.waves_l):
                         efix = gen.waves_l[l].e_n
@@ -1330,7 +1328,7 @@ def get_parameters(symbol, opt):
     else:
         Z = atomic_numbers[symbol]
         par = parameters[symbol + str(default[Z])]
-        
+
     projectors, radii = par[:2]
     if len(par) == 3:
         extra = par[2]
@@ -1373,10 +1371,10 @@ def get_parameters(symbol, opt):
         rcore = opt.pseudo_core_density_radius
     else:
         rcore = extra.get('rcore')
-        
+
     if opt.nlcc:
         rcore *= -1
-        
+
     return dict(symbol=symbol,
                 xc=opt.xc_functional,
                 configuration=configuration,
