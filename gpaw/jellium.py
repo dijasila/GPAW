@@ -1,5 +1,5 @@
 """Helper classes for doing jellium calculations."""
-
+from __future__ import division
 from math import pi
 
 import numpy as np
@@ -17,7 +17,8 @@ class Jellium():
     def __init__(self, charge):
         """ Initialize the Jellium object
         
-        Input: charge, a positive number, the total Jellium background charge"""
+        Input: charge, the total Jellium background charge.
+        """
         self.charge = charge
         self.rs = None  # the Wigner-Seitz radius
         self.volume = None
@@ -32,7 +33,7 @@ class Jellium():
         self.gd = gd
         self.mask_g = self.get_mask().astype(float)
         self.volume = self.gd.comm.sum(self.mask_g.sum()) * self.gd.dv
-        self.rs = (3 / pi / 4 * self.volume / self.charge)**(1 / 3.0)
+        self.rs = (3 / pi / 4 * self.volume / abs(self.charge))**(1 / 3)
 
     def get_mask(self):
         """Choose which grid points are inside the jellium.
