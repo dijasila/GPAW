@@ -1,7 +1,16 @@
-if [ -n "$FYS_PLATFORM" ]
-then
-    cd $PBS_O_WORKDIR
+if [ -f /home/opt/modulefiles/modulefiles_el6.sh ]; then
     source /home/opt/modulefiles/modulefiles_el6.sh
+fi
+if [ -z $FYS_PLATFORM ]
+then
+    module load GPAW
+    module load matplotlib
+    PLATFORM=linux-x86_64-el7-3.5
+    GPAW=~/gpaw7
+    ASE=~/ase7
+    alias gpaw-sbatch=$GPAW/doc/platforms/Linux/Niflheim/gpaw-sbatch.py
+else
+    cd $PBS_O_WORKDIR
     module load GPAW
     module load NUMPY/1.7.1-1
     module load SCIPY/0.12.0-1
@@ -10,12 +19,6 @@ then
     GPAW=~/gpaw
     ASE=~/ase
     alias gpaw-qsub=$GPAW/doc/platforms/Linux/Niflheim/gpaw-qsub.py
-else
-    module load GPAW
-    PLATFORM=linux-x86_64-el7-3.5
-    GPAW=~/gpaw7
-    ASE=~/ase7
-    alias gpaw-sbatch=$GPAW/doc/platforms/Linux/Niflheim/gpaw-sbatch.py
 fi
 
 export PATH=$GPAW/tools:$GPAW/build/bin.$PLATFORM:$PATH
