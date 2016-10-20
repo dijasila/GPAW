@@ -652,17 +652,15 @@ class PAWSetupGenerator:
             except RuntimeError:
                 self.log('Singular overlap matrix!')
                 ok = False
-                # continue  # fail here
 
-            nbound = (e_b < -0.002).sum()
             n0 = self.number_of_core_states(l)
 
             if l < len(self.aea.channels):
                 e0_b = self.aea.channels[l].e_n
-                nbound0 = (e0_b < -0.002).sum()
                 extra = 6
-                for n in range(1 + l, nbound0 + 1 + l + extra):
-                    if n - 1 - l < len(self.aea.channels[l].f_n):
+                nae = len(self.aea.channels[l].f_n)
+                for n in range(1 + l, nae + 1 + l + extra):
+                    if n - 1 - l < nae:
                         f = self.aea.channels[l].f_n[n - 1 - l]
                         self.log('%2d%s  %2d' % (n, 'spdf'[l], f), end='')
                     else:
@@ -676,21 +674,16 @@ class PAWSetupGenerator:
                     else:
                         self.log()
 
-                if nbound != nbound0 - n0:
-                    self.log('Wrong number of %s-states!' % 'spdf'[l])
-                    ok = False
-                elif (nbound > 0 and
-                      abs(e_b[:nbound] - e0_b[n0:nbound0]).max() > 1e-3):
+                errors = abs(e_b[:nae - n0] - e0_b[n0:nae])
+                if (errors > 2e-3).any():
                     self.log('Error in bound %s-states!' % 'spdf'[l])
                     ok = False
-                elif (abs(e_b[nbound:nbound + extra] -
-                          e0_b[nbound0:nbound0 + extra]).max() > 2e-2):
+                errors = abs(e_b[nae - n0:nae - n0 + extra] -
+                             e0_b[nae:nae + extra])
+                if (not self.aea.scalar_relativistic and
+                    (errors > 2e-2).any()):
                     self.log('Error in %s-states!' % 'spdf'[l])
-                    if not self.aea.scalar_relativistic:
-                        ok = False
-            elif nbound > 0:
-                self.log('Wrong number of %s-states!' % 'spdf'[l])
-                ok = False
+                    ok = False
 
         return ok
 
