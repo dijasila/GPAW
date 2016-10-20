@@ -61,7 +61,7 @@ class GA:
         while True:
             while len(results) < mp.cpu_count():
                 x = self.new(mutate, size1, size2)
-                self.individuals[x] = (None, self.n)
+                self.individuals[x] = (np.inf, self.n)
                 result = self.pool.apply_async(func, [self.n, x])
                 self.n += 1
                 results.append(result)
@@ -287,7 +287,8 @@ class DatasetOptimizer:
                         scalar_relativistic, None, r0, nderiv0,
                         (type, 4), None, None, fd)
         if not gen.check_all():
-            raise DatasetGenerationError(xc)
+            print('dataset check failed')
+            return np.inf
 
         if tag is not None:
             gen.make_paw_setup(tag or None).write_xml()
@@ -331,7 +332,12 @@ class DatasetOptimizer:
         fd = open('{0}.txt'.format(n), 'w')
         energies, radii, r0, projectors = self.parameters(x)
 
+        if r0 < 0.2:
+            print(n, x, 'core radius too small')
+            return n, x, [np.inf] * NN, np.inf
+
         if any(r < r0 for r in radii):  # or any(e <= 0.0 for e in energies):
+            print(n, x, 'radii too small')
             return n, x, [np.inf] * NN, np.inf
 
         errors = self.test(n, fd, projectors, radii, r0)
@@ -349,12 +355,17 @@ class DatasetOptimizer:
         for xc in ['PBE', 'LDA', 'PBEsol', 'RPBE', 'PW91']:
             error += self.generate(fd, xc, projectors, radii, r0,
                                    scalar_relativistic=True)
+
+        if not np.isfinite(error):
+            return [np.inf] * NN
+
         results = {'dataset': error}
 
         for name in ['slab', 'fcc', 'rocksalt', 'convergence', 'eggbox']:
             try:
                 result = getattr(self, name)(n, fd)
             except ConvergenceError:
+                print(n, name)
                 result = np.inf
             results[name] = result
 
