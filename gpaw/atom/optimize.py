@@ -6,7 +6,6 @@ import pickle
 import random
 import re
 import time
-import traceback
 
 import numpy as np
 from ase import Atoms
@@ -15,7 +14,7 @@ from ase.build import bulk
 from ase.build import fcc111
 from ase.units import Bohr
 
-from gpaw import GPAW, PW, setup_paths, Mixer  # , ConvergenceError
+from gpaw import GPAW, PW, setup_paths, Mixer, ConvergenceError
 from gpaw.atom.generator2 import _generate, DatasetGenerationError
 
 
@@ -327,11 +326,7 @@ class DatasetOptimizer:
         if any(r < r0 for r in radii):  # or any(e <= 0.0 for e in energies):
             return n, x, [np.inf] * NN, np.inf
 
-        try:
-            errors = self.test(n, fd, projectors, radii, r0)
-        except Exception:
-            traceback.print_exc(file=fd)
-            errors = [np.inf] * NN
+        errors = self.test(n, fd, projectors, radii, r0)
 
         try:
             os.remove('{0}.ga{1}.PBE'.format(self.symbol, n))
@@ -349,7 +344,10 @@ class DatasetOptimizer:
         results = {'dataset': error}
 
         for name in ['slab', 'fcc', 'rocksalt', 'convergence', 'eggbox']:
-            result = getattr(self, name)(n, fd)
+            try:
+                result = getattr(self, name)(n, fd)
+            except ConvergenceError:
+                result = np.inf
             results[name] = result
 
         rc = self.rc / Bohr
@@ -365,10 +363,14 @@ class DatasetOptimizer:
 
         for name in ['fcc', 'rocksalt']:
             result = results[name]
-            maxiter = max(maxiter, result['maxiter'])
-            errors.append(result['a'] - result['a0'])
-            errors.append(result['c90'] - result['c90ref'])
-            errors.append(result['c80'] - result['c80ref'])
+            if isinstance(result, dict):
+                maxiter = max(maxiter, result['maxiter'])
+                errors.append(result['a'] - result['a0'])
+                errors.append(result['c90'] - result['c90ref'])
+                errors.append(result['c80'] - result['c80ref'])
+            else:
+                maxiter = np.inf
+                errors.extend([np.inf, np.inf, np.inf])
 
         errors.append(maxiter)
         errors.append(results['convergence'])
