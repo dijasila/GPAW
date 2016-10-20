@@ -293,14 +293,22 @@ class DatasetOptimizer:
             gen.make_paw_setup(tag or None).write_xml()
 
         r = 1.1 * gen.rcmax
-        energies = np.linspace(-1.5, 2.0, 100)
-        de = energies[1] - energies[0]
+
         error = 0.0
         if logderivs:
             for l in range(4):
+                e0_n = gen.aea.channels[l].e_n
+                n0 = gen.number_of_core_states(l)
+                emin = -1.5
+                emax = 2.0
+                if n0 > 0:
+                    emin = max(emin, e0_n[n0 - 1] + 0.1)
+                energies = np.linspace(emin, emax, 100)
+                de = energies[1] - energies[0]
                 ld1 = gen.aea.logarithmic_derivative(l, energies, r)
                 ld2 = gen.logarithmic_derivative(l, energies, r)
-                error = max(error, abs(ld1 - ld2).sum() * de)
+                error += abs(ld1 - ld2).sum() * de
+
         return error
 
     def generate_old(self, fd, xc, scalar_relativistic, tag):
