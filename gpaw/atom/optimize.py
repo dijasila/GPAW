@@ -297,11 +297,11 @@ class DatasetOptimizer:
         error = 0.0
         if logderivs:
             for l in range(4):
-                e0_n = gen.aea.channels[l].e_n
-                n0 = gen.number_of_core_states(l)
                 emin = -1.5
                 emax = 2.0
+                n0 = gen.number_of_core_states(l)
                 if n0 > 0:
+                    e0_n = gen.aea.channels[l].e_n
                     emin = max(emin, e0_n[n0 - 1] + 0.1)
                 energies = np.linspace(emin, emax, 100)
                 de = energies[1] - energies[0]
