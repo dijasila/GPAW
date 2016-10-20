@@ -648,13 +648,14 @@ class PAWSetupGenerator:
 
         for l in range(4):
             try:
-                e_b, n0 = self.check(l)
+                e_b = self.check(l)
             except RuntimeError:
                 self.log('Singular overlap matrix!')
                 ok = False
                 # continue  # fail here
 
             nbound = (e_b < -0.002).sum()
+            n0 = self.number_of_core_states(l)
 
             if l < len(self.aea.channels):
                 e0_b = self.aea.channels[l].e_n
@@ -693,6 +694,18 @@ class PAWSetupGenerator:
 
         return ok
 
+    def number_of_core_states(self, l):
+        n0 = 0
+        if l < len(self.waves_l):
+            waves = self.waves_l[l]
+            if len(waves) > 0:
+                n0 = waves.n_n[0] - l - 1
+                if n0 < 0 and l < len(self.aea.channels):
+                    n0 = (self.aea.channels[l].f_n > 0).sum()
+        elif l < len(self.aea.channels):
+            n0 = (self.aea.channels[l].f_n > 0).sum()
+        return n0
+
     def check(self, l):
         basis = self.aea.channels[0].basis
         eps = basis.eps
@@ -703,7 +716,6 @@ class PAWSetupGenerator:
         H_bb += basis.T_bb
         S_bb = np.eye(len(basis))
 
-        n0 = 0
         if l < len(self.waves_l):
             waves = self.waves_l[l]
             if len(waves) > 0:
@@ -711,15 +723,10 @@ class PAWSetupGenerator:
                                           waves.pt_ng) / (4 * pi)
                 H_bb += np.dot(np.dot(P_bn, waves.dH_nn), P_bn.T)
                 S_bb += np.dot(np.dot(P_bn, waves.dS_nn), P_bn.T)
-                n0 = waves.n_n[0] - l - 1
-                if n0 < 0 and l < len(self.aea.channels):
-                    n0 = (self.aea.channels[l].f_n > 0).sum()
-        elif l < len(self.aea.channels):
-            n0 = (self.aea.channels[l].f_n > 0).sum()
 
         e_b = np.empty(len(basis))
         general_diagonalize(H_bb, e_b, S_bb)
-        return e_b, n0
+        return e_b
 
     def test_convergence(self):
         rgd = self.rgd
@@ -1274,30 +1281,34 @@ def main(argv=None):
                 emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.8
                 lvalues, energies, r = parse_ld_str(
                     opt.logarithmic_derivatives, (emin, emax, 0.05), r)
+                emin = energies[0]
+                de = energies[1] - emin
+
                 error = 0.0
                 for l in lvalues:
-                    ld1 = gen.aea.logarithmic_derivative(l, energies, r)
-                    if opt.plot:
-                        plt.plot(energies, ld1, colors[l], label='spdfg'[l])
-                    ld2 = gen.logarithmic_derivative(l, energies, r)
-                    if opt.plot:
-                        plt.plot(energies, ld2, '--' + colors[l])
-                    de = energies[1] - energies[0]
-                    error = abs(ld1 - ld2).sum() * de
-                    print('Logarithmic derivative error:', l, error)
-
+                    efix = []
                     # Fixed points:
                     if l < len(gen.waves_l):
-                        efix = gen.waves_l[l].e_n
-                        ldfix = gen.logarithmic_derivative(l, efix, r)
-                        if opt.plot:
-                            plt.plot(efix, ldfix, 'x' + colors[l])
-
+                        efix.extend(gen.waves_l[l].e_n)
                     if l == gen.l0:
-                        efix = [0.0]
-                        ldfix = gen.logarithmic_derivative(l, efix, r)
-                        if opt.plot:
-                            plt.plot(efix, ldfix, 'x' + colors[l])
+                        efix.append(0.0)
+
+                    ld1 = gen.aea.logarithmic_derivative(l, energies, r)
+                    ld2 = gen.logarithmic_derivative(l, energies, r)
+                    for e in efix:
+                        i = int((e - emin) / de)
+                        if 0 <= i < len(energies):
+                            ld1 -= round(ld1[i] - ld2[i])
+                            if opt.plot:
+                                ldfix = ld1[i]
+                                plt.plot([e], [ldfix], 'x' + colors[l])
+
+                    if opt.plot:
+                        plt.plot(energies, ld1, colors[l], label='spdfg'[l])
+                        plt.plot(energies, ld2, '--' + colors[l])
+
+                    error = abs(ld1 - ld2).sum() * de
+                    print('Logarithmic derivative error:', l, error)
 
                 if opt.plot:
                     plt.xlabel('energy [Ha]')
