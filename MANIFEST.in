@@ -1,3 +1,4 @@
+include MANIFEST.in
 include COPYING LICENSE CONTRIBUTING.rst CHANGELOG.rst config.py customize.py
 include c/*.c
 include c/*.h
