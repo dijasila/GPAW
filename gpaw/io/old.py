@@ -60,10 +60,19 @@ def wrap_old_gpw_reader(filename):
     else:
         p['kpts'] = bzk_kc
 
-    p['symmetry'] = {'point_group': r['SymmetryOnSwitch'],
-                     'symmorphic': r['SymmetrySymmorphicSwitch'],
-                     'time_reversal': r['SymmetryTimeReversalSwitch'],
-                     'tolerance': r['SymmetryToleranceCriterion']}
+    if r['version'] < 4:
+        usesymm = r['UseSymmetry']
+        if usesymm is None:
+            p['symmetry'] = {'time_reversal': False, 'point_group': False}
+        elif usesymm:
+            p['symmetry'] = {'time_reversal': True, 'point_group': True}
+        else:
+            p['symmetry'] = {'time_reversal': True, 'point_group': False}
+    else:
+        p['symmetry'] = {'point_group': r['SymmetryOnSwitch'],
+                         'symmorphic': r['SymmetrySymmorphicSwitch'],
+                         'time_reversal': r['SymmetryTimeReversalSwitch'],
+                         'tolerance': r['SymmetryToleranceCriterion']}
 
     p['basis'] = r['BasisSet']
 
@@ -111,19 +120,19 @@ def wrap_old_gpw_reader(filename):
     p['stencils'] = (r['KohnShamStencil'],
                      r['InterpolationStencil'])
 
-    poisson = {'name': 'fd'}
     vt_sG = r.get('PseudoPotential') * Ha
-    if data['atoms.']['pbc'] == [1, 1, 0]:
-        v1, v2 = vt_sG[0, :, :, [0, -1]].mean(axis=(1, 2))
-        if abs(v1 - v2) > 0.01:
-            warnings.warn('I am guessing that this calculation was done '
-                          'with a dipole-layer correction?')
-            poisson['dipolelayer'] = 'xy'
-
     ps = r['PoissonStencil']
     if isinstance(ps, int) or ps == 'M':
+        poisson = {'name': 'fd'}
         poisson['nn'] = ps
+        if data['atoms.']['pbc'] == [1, 1, 0]:
+            v1, v2 = vt_sG[0, :, :, [0, -1]].mean(axis=(1, 2))
+            if abs(v1 - v2) > 0.01:
+                warnings.warn('I am guessing that this calculation was done '
+                              'with a dipole-layer correction?')
+                poisson['dipolelayer'] = 'xy'
         p['poissonsolver'] = poisson
+
     p['charge'] = r['Charge']
     fixmom = r['FixMagneticMoment']
 
