@@ -20,7 +20,7 @@ from gpaw.hamiltonian import Hamiltonian
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
-from gpaw.utilities import unpack,erf
+from gpaw.utilities import unpack, erf
 from gpaw.utilities.blas import rk, r2k, gemv, gemm, axpy
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
@@ -1388,7 +1388,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         if psolver:
             raise NotImplementedError('Unknown parameters: {0}'
                                       .format(', '.join(psolver)))
-            
+
         self.poisson = PS()
         self.npoisson = 0
 
@@ -1406,40 +1406,44 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.epot = 0.5 * self.pd3.integrate(self.vHt_q, density.rhot_q)
         self.timer.stop('Poisson')
 
-	if self.vext is not None:
-	    gd=self.finegd
-	    vext_g = self.vext.get_potential(gd)
-		
-	    for c in range(3):
-		ng = gd.N_c[c]    #number of grid points in the corrected direction
-		cs = abs(gd.cell_cv[c,c])     #cell size in the corrected direction
-		nz0 = 0                             #XXX: should not be hard coded!
+        if self.vext is not None:
+            gd = self.finegd
+            vext_g = self.vext.get_potential(gd)
 
-		#Introduction of an error function in order to counter the discontinuity at the boundary
-		for i in range(-5,5):
-		    erfun = (-erf(0.25*float(-i))+1)
-		    if c == 0:
-		        vext_g[(i-nz0)%ng,:,:] = vext_g[(-6-nz0)%ng,:,:]\
-                                         -erfun*(vext_g[(-6-nz0)%ng,:,:]\
-                                         -vext_g[(5-nz0)%ng,:,:])/2
-		    elif c == 1:
-		        vext_g[:,(i-nz0)%ng,:] = vext_g[:,(-6-nz0)%ng,:]\
-                                         -erfun*(vext_g[:,(-6-nz0)%ng,:]\
-                                         -vext_g[:,(5-nz0)%ng,:])/2
-		    else:
-		        vext_g[:,:,(i-nz0)%ng] = vext_g[:,:,(-6-nz0)%ng]\
-                                         -erfun*(vext_g[:,:,(-6-nz0)%ng]\
-                                         -vext_g[:,:,(5-nz0)%ng])/2
+            for c in range(3):
+                ng = gd.N_c[c]
+                cs = abs(gd.cell_cv[c, c])
+                nz0 = 0        # XXX: should not be hard coded!
 
-	    vext_q=self.pd3.fft(vext_g)
-	    eext=self.pd3.integrate(vext_q, density.rhot_q)	
+                """Introduction of an error function in order
+                   to counter the discontinuity at the boundary"""
+                for i in range(-5, 5):
+                    erfun = -erf(0.25*float(-i))+1
+                    if c == 0:
+                        vext_g[(i - nz0) % ng, :, :] = \
+                            vext_g[(-6-nz0) % ng, :, :] -\
+                            erfun * (vext_g[(-6 - nz0) % ng, :, :] -
+                            vext_g[(5-nz0) % ng, :, :]) / 2
+                    elif c == 1:
+                        vext_g[:, (i - nz0) % ng, :] = \
+                            vext_g[:, (-6-nz0) % ng, :] -\
+                            erfun * (vext_g[:, (-6 - nz0) % ng, :] -
+                            vext_g[:, (5-nz0) % ng, :]) / 2
+                    else:
+                        vext_g[:, :, (i-nz0) % ng] = \
+                            vext_g[:, :, (-6-nz0) % ng] -\
+                            erfun * (vext_g[:, :, (-6 - nz0) % ng] -
+                            vext_g[:, :, (5-nz0) % ng]) / 2
 
-            v_q=self.vHt_q+vext_q
-            self.vt_Q = self.vbar_Q + (v_q[density.G3_G]) / 8  
-	else:
-            self.vt_Q = self.vbar_Q + (self.vHt_q[density.G3_G]) / 8  
+            vext_q = self.pd3.fft(vext_g)
+            eext = self.pd3.integrate(vext_q, density.rhot_q)
+
+            v_q = self.vHt_q+vext_q
+            self.vt_Q = self.vbar_Q + (v_q[density.G3_G]) / 8
+        else:
+            self.vt_Q = self.vbar_Q + (self.vHt_q[density.G3_G]) / 8
             eext = 0.0
-		
+
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
