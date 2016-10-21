@@ -413,6 +413,10 @@ class GPAW(Calculator, PAW):
             # Save the state of the atoms:
             self.atoms = atoms.copy()
 
+        if atoms.cell is None:
+            raise AttributeError('GPAW requires a unit cell, but '
+                                 'Atoms have no cell')
+
         par = self.parameters
 
         natoms = len(atoms)

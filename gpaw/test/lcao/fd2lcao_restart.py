@@ -13,9 +13,8 @@ if not os.path.isfile('Na4_fd.gpw'):
     # Do grid kpts calculation
     a = 3.31
     atoms = Atoms([Atom('Na',(i*a,0,0)) for i in range(4)], pbc=(1,0,0))
+    atoms.center(vacuum=3.5)
     atoms.center(vacuum=a/2, axis=0)
-    atoms.center(vacuum=3.5, axis=1)
-    atoms.center(vacuum=3.5, axis=2)
 
     calc = GPAW(nbands=-3,
                 h=0.3,
