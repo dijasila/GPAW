@@ -652,6 +652,7 @@ class PAWSetupGenerator:
             except RuntimeError:
                 self.log('Singular overlap matrix!')
                 ok = False
+                continue
 
             n0 = self.number_of_core_states(l)
 
