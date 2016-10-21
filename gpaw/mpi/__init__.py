@@ -742,7 +742,7 @@ def broadcast(obj, root=0, comm=world):
 
 def synchronize_atoms(atoms, comm, tolerance=1e-8):
     """Synchronize atoms between multiple CPUs removing numerical noise.
-    
+
     If the atoms differ significantly, raise ValueError on all ranks.
     The error object contains the ranks where the check failed.
 
@@ -750,17 +750,23 @@ def synchronize_atoms(atoms, comm, tolerance=1e-8):
 
     if len(atoms) == 0:
         return
-    
+
     if comm.rank == 0:
         src = (atoms.positions, atoms.cell, atoms.numbers, atoms.pbc)
     else:
         src = None
 
+    # XXX replace with ase.cell.same_cell in the future
+    # (if that functions gets to exist)
+    def same_cell(cell1, cell2):
+        return ((cell1 is None) == (cell2 is None) and
+                (cell1 is None or (cell1 == cell2).all()))
+
     positions, cell, numbers, pbc = broadcast(src, root=0, comm=comm)
     ok = (len(positions) == len(atoms.positions) and
           (abs(positions - atoms.positions).max() <= tolerance) and
           (numbers == atoms.numbers).all() and
-          (cell == atoms.cell).all() and
+          same_cell(cell, atoms.cell) and
           (pbc == atoms.pbc).all())
 
     # We need to fail equally on all ranks to avoid trouble.  Thus
@@ -779,16 +785,16 @@ def synchronize_atoms(atoms, comm, tolerance=1e-8):
         raise ValueError('Mismatch of Atoms objects.  In debug '
                          'mode, atoms will be dumped to files.',
                          err_ranks)
-        
+
     atoms.positions = positions
 
-        
+
 def broadcast_string(string=None, root=0, comm=world):
     if comm.rank == root:
         string = string.encode()
     return broadcast_bytes(string, root, comm).decode()
-    
-    
+
+
 def broadcast_bytes(b=None, root=0, comm=world):
     """Broadcast a bytes across an MPI communicator and return it."""
     if comm.rank == root:

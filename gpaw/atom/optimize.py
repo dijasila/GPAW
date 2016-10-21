@@ -490,7 +490,7 @@ class DatasetOptimizer:
     def eggbox(self, n, fd):
         h = 0.18
         a0 = 16 * h
-        atoms = Atoms(self.symbol, cell=(a0, a0, a0), pbc=True)
+        atoms = Atoms(self.symbol, cell=(a0, a0, 2 * a0), pbc=True)
         M = 333
         if 58 <= self.Z <= 70 or 90 <= self.Z <= 102:
             M = 999
