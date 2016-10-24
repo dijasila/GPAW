@@ -16,8 +16,8 @@ from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
 from gpaw.gaunt import gaunt
 from gpaw.utilities import erf, pack2
 from gpaw.utilities.lapack import general_diagonalize
-from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
-    GaussianBasis
+from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
+                              GaussianBasis)
 
 
 class DatasetGenerationError(Exception):
@@ -545,7 +545,7 @@ class PAWSetupGenerator:
             self.nct_g = nt_g - self.nt_g
             self.nt_g = nt_g
 
-            self.log('Constructing NLCC-style smooth pseudo core density for'
+            self.log('Constructing NLCC-style smooth pseudo core density for '
                      'r < %.3f' % rcore)
 
             self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
