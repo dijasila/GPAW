@@ -232,12 +232,16 @@ class DatasetOptimizer:
         for error, id, x, errors in self.best(N):
             params = [0.1 * p for p in x[:self.nenergies]]
             params += [0.05 * p for p in x[self.nenergies:]]
-            print('{0:2} {1:2} {2:5} {3:7.1f} {4} {5}'.format(
-                self.Z,
-                self.symbol,
-                id, error,
-                ' '.join('{0:5.2f}'.format(p) for p in params),
-                ' '.join('{0:8.3f}'.format(e) for e in errors)))
+            print('{0:2} {1:2}{2:4}{3:6.1f}|{4}|'
+                  '{5:4.1f}|'
+                  '{6:6.2f} {7:6.2f} {8:6.2f}|'
+                  '{9:6.2f} {10:6.2f} {11:6.2f}|'
+                  '{12:3.0f} {13:4.0f} {14:7.4f} {15:4.1f}'
+                  .format(self.Z,
+                          self.symbol,
+                          id, error,
+                          ' '.join('{0:5.2f}'.format(p) for p in params),
+                          *errors))
 
     def best1(self):
         try:

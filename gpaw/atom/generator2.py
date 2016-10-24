@@ -274,6 +274,8 @@ class PAWWaves:
         rgd = self.rgd
         phit_ng = self.phit_ng
         gcmax = rgd.ceil(rcmax)
+        gcut = rgd.ceil(self.rcut)
+        assert gcmax >= gcut
         r_g = rgd.r_g
         l = self.l
 
@@ -291,7 +293,7 @@ class PAWWaves:
             q_g -= 0.5 * r_g**l * (
                 (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
                 r_g * d2adg2_g * dgdr_g**2)
-            q_g[gcmax:] = 0
+            q_g[gcut:] = 0
             q_g[1:] /= r_g[1:]
             if l == 0:
                 q_g[0] = q_g[1]
