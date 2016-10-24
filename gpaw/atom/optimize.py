@@ -6,7 +6,6 @@ import pickle
 import random
 import re
 import time
-import traceback
 
 import numpy as np
 from ase import Atoms
@@ -15,7 +14,7 @@ from ase.build import bulk
 from ase.build import fcc111
 from ase.units import Bohr
 
-from gpaw import GPAW, PW, setup_paths, Mixer  # , ConvergenceError
+from gpaw import GPAW, PW, setup_paths, Mixer, ConvergenceError
 from gpaw.atom.generator2 import _generate, DatasetGenerationError
 
 
@@ -62,7 +61,7 @@ class GA:
         while True:
             while len(results) < mp.cpu_count():
                 x = self.new(mutate, size1, size2)
-                self.individuals[x] = (None, self.n)
+                self.individuals[x] = (np.inf, self.n)
                 result = self.pool.apply_async(func, [self.n, x])
                 self.n += 1
                 results.append(result)
@@ -288,7 +287,8 @@ class DatasetOptimizer:
                         scalar_relativistic, None, r0, nderiv0,
                         (type, 4), None, None, fd)
         if not gen.check_all():
-            raise DatasetGenerationError(xc)
+            print('dataset check failed')
+            return np.inf
 
         if tag is not None:
             gen.make_paw_setup(tag or None).write_xml()
@@ -298,11 +298,11 @@ class DatasetOptimizer:
         error = 0.0
         if logderivs:
             for l in range(4):
-                e0_n = gen.aea.channels[l].e_n
-                n0 = gen.number_of_core_states(l)
                 emin = -1.5
                 emax = 2.0
+                n0 = gen.number_of_core_states(l)
                 if n0 > 0:
+                    e0_n = gen.aea.channels[l].e_n
                     emin = max(emin, e0_n[n0 - 1] + 0.1)
                 energies = np.linspace(emin, emax, 100)
                 de = energies[1] - energies[0]
@@ -332,14 +332,15 @@ class DatasetOptimizer:
         fd = open('{0}.txt'.format(n), 'w')
         energies, radii, r0, projectors = self.parameters(x)
 
-        if any(r < r0 for r in radii):  # or any(e <= 0.0 for e in energies):
+        if r0 < 0.2:
+            print(n, x, 'core radius too small')
             return n, x, [np.inf] * NN, np.inf
 
-        try:
-            errors = self.test(n, fd, projectors, radii, r0)
-        except Exception:
-            traceback.print_exc(file=fd)
-            errors = [np.inf] * NN
+        if any(r < r0 for r in radii):  # or any(e <= 0.0 for e in energies):
+            print(n, x, 'radii too small')
+            return n, x, [np.inf] * NN, np.inf
+
+        errors = self.test(n, fd, projectors, radii, r0)
 
         try:
             os.remove('{0}.ga{1}.PBE'.format(self.symbol, n))
@@ -354,10 +355,18 @@ class DatasetOptimizer:
         for xc in ['PBE', 'LDA', 'PBEsol', 'RPBE', 'PW91']:
             error += self.generate(fd, xc, projectors, radii, r0,
                                    scalar_relativistic=True)
+
+        if not np.isfinite(error):
+            return [np.inf] * NN
+
         results = {'dataset': error}
 
         for name in ['slab', 'fcc', 'rocksalt', 'convergence', 'eggbox']:
-            result = getattr(self, name)(n, fd)
+            try:
+                result = getattr(self, name)(n, fd)
+            except ConvergenceError:
+                print(n, name)
+                result = np.inf
             results[name] = result
 
         rc = self.rc / Bohr
@@ -373,10 +382,14 @@ class DatasetOptimizer:
 
         for name in ['fcc', 'rocksalt']:
             result = results[name]
-            maxiter = max(maxiter, result['maxiter'])
-            errors.append(result['a'] - result['a0'])
-            errors.append(result['c90'] - result['c90ref'])
-            errors.append(result['c80'] - result['c80ref'])
+            if isinstance(result, dict):
+                maxiter = max(maxiter, result['maxiter'])
+                errors.append(result['a'] - result['a0'])
+                errors.append(result['c90'] - result['c90ref'])
+                errors.append(result['c80'] - result['c80ref'])
+            else:
+                maxiter = np.inf
+                errors.extend([np.inf, np.inf, np.inf])
 
         errors.append(maxiter)
         errors.append(results['convergence'])
@@ -477,7 +490,7 @@ class DatasetOptimizer:
     def eggbox(self, n, fd):
         h = 0.18
         a0 = 16 * h
-        atoms = Atoms(self.symbol, cell=(a0, a0, a0), pbc=True)
+        atoms = Atoms(self.symbol, cell=(a0, a0, 2 * a0), pbc=True)
         M = 333
         if 58 <= self.Z <= 70 or 90 <= self.Z <= 102:
             M = 999
