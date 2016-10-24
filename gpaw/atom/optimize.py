@@ -9,7 +9,7 @@ import time
 
 import numpy as np
 from ase import Atoms
-from ase.data import covalent_radii, atomic_numbers
+from ase.data import covalent_radii, atomic_numbers, chemical_symbols
 from ase.build import bulk
 from ase.build import fcc111
 from ase.units import Bohr
@@ -54,15 +54,15 @@ class GA:
 
         self.fd = open('pool.csv', 'a')  # pool of genes
         self.n = len(self.individuals)
-        self.pool = mp.Pool()  # process pool
 
     def run(self, func, sleep=5, mutate=5.0, size1=2, size2=1000):
+        pool = mp.Pool()  # process pool
         results = []
         while True:
             while len(results) < mp.cpu_count():
                 x = self.new(mutate, size1, size2)
                 self.individuals[x] = (np.inf, self.n)
-                result = self.pool.apply_async(func, [self.n, x])
+                result = pool.apply_async(func, [self.n, x])
                 self.n += 1
                 results.append(result)
             time.sleep(sleep)
@@ -569,10 +569,13 @@ if __name__ == '__main__':
         else:
             do.run()
     else:
-        if len(args) == 0:
+        if args == ['.']:
             symbol = os.getcwd().rsplit('/', 1)[1]
-            args.append(symbol)
+            args = [symbol]
             os.chdir('..')
+        elif len(args) == 0:
+            args = [symbol for symbol in chemical_symbols
+                    if os.path.isdir(symbol)]
         for symbol in args:
             os.chdir(symbol)
             do = DatasetOptimizer(symbol, opts.norm_conserving)
