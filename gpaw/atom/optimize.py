@@ -290,9 +290,10 @@ class DatasetOptimizer:
         gen = _generate(self.symbol, xc, self.conf, projectors, radii,
                         scalar_relativistic, None, r0, nderiv0,
                         (type, 4), None, None, fd)
-        if not gen.check_all():
-            print('dataset check failed')
-            return np.inf
+        if not scalar_relativistic:
+            if not gen.check_all():
+                print('dataset check failed')
+                return np.inf
 
         if tag is not None:
             gen.make_paw_setup(tag or None).write_xml()
