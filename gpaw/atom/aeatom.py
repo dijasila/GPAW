@@ -180,7 +180,7 @@ class Channel:
 
                 nodes = (u_g[:-1] * u_g[1:] < 0).sum()
 
-                if abs(A) < 1e-5 and nodes == n:
+                if abs(A) < 1e-7 and nodes == n:
                     ok = True
                     break
 

@@ -16,8 +16,8 @@ from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
 from gpaw.gaunt import gaunt
 from gpaw.utilities import erf, pack2
 from gpaw.utilities.lapack import general_diagonalize
-from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
-    GaussianBasis
+from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
+                              GaussianBasis)
 
 
 class DatasetGenerationError(Exception):
@@ -274,6 +274,8 @@ class PAWWaves:
         rgd = self.rgd
         phit_ng = self.phit_ng
         gcmax = rgd.ceil(rcmax)
+        gcut = rgd.ceil(self.rcut)
+        assert gcmax >= gcut
         r_g = rgd.r_g
         l = self.l
 
@@ -291,7 +293,7 @@ class PAWWaves:
             q_g -= 0.5 * r_g**l * (
                 (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
                 r_g * d2adg2_g * dgdr_g**2)
-            q_g[gcmax:] = 0
+            q_g[gcut:] = 0
             q_g[1:] /= r_g[1:]
             if l == 0:
                 q_g[0] = q_g[1]
@@ -545,7 +547,7 @@ class PAWSetupGenerator:
             self.nct_g = nt_g - self.nt_g
             self.nt_g = nt_g
 
-            self.log('Constructing NLCC-style smooth pseudo core density for'
+            self.log('Constructing NLCC-style smooth pseudo core density for '
                      'r < %.3f' % rcore)
 
             self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
@@ -1295,7 +1297,8 @@ def main(argv=None):
                             ld1 -= round(ld1[i] - ld2[i])
                             if opt.plot:
                                 ldfix = ld1[i]
-                                plt.plot([e], [ldfix], 'x' + colors[l])
+                                plt.plot([energies[i]], [ldfix],
+                                         'x' + colors[l])
 
                     if opt.plot:
                         plt.plot(energies, ld1, colors[l], label='spdfg'[l])
