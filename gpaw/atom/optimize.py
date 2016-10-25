@@ -87,7 +87,7 @@ class GA:
                 if int(f[:-4]) not in nbest:
                     os.remove(f)
 
-            if len(self.individuals) > 40 and best[0][0] == np.inf:
+            if len(self.individuals) > 400 and best[0][0] == np.inf:
                 for result in results:
                     result.wait()
                 return
