@@ -2,7 +2,7 @@ import numpy as np
 import pylab as pl
 from gpaw import GPAW
 from gpaw.spinorbit import get_spinorbit_eigenvalues
-pl.rc('text', usetex=True)
+#pl.rc('text', usetex=True)
 
 calc = GPAW('Fe_bands.gpw', txt=None)
 

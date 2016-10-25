@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from ase.dft.kpoints import get_bandpath, ibz_points
 from gpaw import GPAW
 from gpaw.spinorbit import get_spinorbit_eigenvalues
-plt.rc('text', usetex=True)
+#plt.rc('text', usetex=True)
 
 calc = GPAW('Pt_bands.gpw', txt=None)
 ef = GPAW('Pt_gs.gpw').get_fermi_level()
