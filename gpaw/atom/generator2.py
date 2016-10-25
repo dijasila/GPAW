@@ -1297,7 +1297,8 @@ def main(argv=None):
                             ld1 -= round(ld1[i] - ld2[i])
                             if opt.plot:
                                 ldfix = ld1[i]
-                                plt.plot([e], [ldfix], 'x' + colors[l])
+                                plt.plot([energies[i]], [ldfix],
+                                         'x' + colors[l])
 
                     if opt.plot:
                         plt.plot(energies, ld1, colors[l], label='spdfg'[l])
