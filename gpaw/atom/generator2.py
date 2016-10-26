@@ -278,7 +278,6 @@ class PAWWaves:
         assert gcmax >= gcut
         r_g = rgd.r_g
         l = self.l
-
         dgdr_g = 1 / rgd.dr_g
         d2gdr2_g = rgd.d2gdr2()
 
@@ -293,7 +292,7 @@ class PAWWaves:
             q_g -= 0.5 * r_g**l * (
                 (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
                 r_g * d2adg2_g * dgdr_g**2)
-            q_g[gcut:] = 0
+            q_g[gcmax:] = 0
             q_g[1:] /= r_g[1:]
             if l == 0:
                 q_g[0] = q_g[1]
@@ -489,7 +488,7 @@ class PAWSetupGenerator:
                     n = -1
                     f = 0.0
                     phi_g = self.rgd.zeros()
-                    gc = self.rgd.round(1.5 * rcut)
+                    gc = self.rgd.round(1.5 * self.rcmax)
                     ch = Channel(l)
                     a = ch.integrate_outwards(phi_g, self.rgd,
                                               self.aea.vr_sg[0], gc, e,
@@ -637,7 +636,7 @@ class PAWSetupGenerator:
 
     def construct_projectors(self):
         for waves in self.waves_l:
-            waves.construct_projectors(self.vtr_g, self.rcmax)
+            waves.construct_projectors(self.vtr_g, 1.25 * self.rcmax)
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
 
