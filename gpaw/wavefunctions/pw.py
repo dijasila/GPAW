@@ -1435,10 +1435,10 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
                             erfun * (vext_g[:, :, (-6 - nz0) % ng] -
                             vext_g[:, :, (5-nz0) % ng]) / 2
 
-            vext_q = self.pd3.fft(vext_g)
-            eext = self.pd3.integrate(vext_q, density.rhot_q)
+            self.vext_q = self.pd3.fft(vext_g)
+            eext = self.pd3.integrate(self.vext_q, density.rhot_q)
 
-            v_q = self.vHt_q+vext_q
+            v_q = self.vHt_q+self.vext_q
             self.vt_Q = self.vbar_Q + (v_q[density.G3_G]) / 8
         else:
             self.vt_Q = self.vbar_Q + (self.vHt_q[density.G3_G]) / 8
@@ -1491,6 +1491,9 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     restrict_and_collect = restrict
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
-        dens.ghat.derivative(self.vHt_q, ghat_aLv)
+        if self.vext is not None:
+            dens.ghat.derivative(self.vHt_q+self.vext_q, ghat_aLv)
+        else:
+            dens.ghat.derivative(self.vHt_q, ghat_aLv)
         dens.nct.derivative(self.vt_Q, nct_av)
         self.vbar.derivative(dens.nt_sQ.sum(0), vbar_av)
