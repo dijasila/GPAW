@@ -87,7 +87,7 @@ class GA:
                 if int(f[:-4]) not in nbest:
                     os.remove(f)
 
-            if len(self.individuals) > 40 and best[0][0] == np.inf:
+            if len(self.individuals) > 400 and best[0][0] == np.inf:
                 for result in results:
                     result.wait()
                 return
@@ -290,9 +290,10 @@ class DatasetOptimizer:
         gen = _generate(self.symbol, xc, self.conf, projectors, radii,
                         scalar_relativistic, None, r0, nderiv0,
                         (type, 4), None, None, fd)
-        if not gen.check_all():
-            print('dataset check failed')
-            return np.inf
+        if not scalar_relativistic:
+            if not gen.check_all():
+                print('dataset check failed')
+                return np.inf
 
         if tag is not None:
             gen.make_paw_setup(tag or None).write_xml()
