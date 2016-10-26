@@ -1465,7 +1465,10 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         W_aL = {}
         for a in density.D_asp:
             W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
-        density.ghat.integrate(self.vHt_q, W_aL)
+        if self.vext:
+            density.ghat.integrate(self.vHt_q+self.vext_q, W_aL)
+        else:
+            density.ghat.integrate(self.vHt_q, W_aL)
         return W_aL
 
     def calculate_kinetic_energy(self, density):
@@ -1491,7 +1494,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     restrict_and_collect = restrict
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
-        if self.vext is not None:
+        if self.vext:
             dens.ghat.derivative(self.vHt_q+self.vext_q, ghat_aLv)
         else:
             dens.ghat.derivative(self.vHt_q, ghat_aLv)
