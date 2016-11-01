@@ -33,6 +33,14 @@ lr = LrTDDFT(calc, xc='LDA', istart=istart, jend=jend)
 lr.diagonalize()
 lr.write('na2_lr.dat.gz')
 
+# Start from scratch
+del lr
+del calc
+calc = GPAW('na2_gs_casida.gpw')
+#calc.initialize_positions()
+#calc.set_positions()
+lr = LrTDDFT('na2_lr.dat.gz')
+
 # 3) Calculate induced field
 frequencies = [1.0, 2.08]  # Frequencies of interest in eV
 folding = 'Gauss'          # Folding function
