@@ -9,7 +9,7 @@ import time
 
 import numpy as np
 from ase import Atoms
-from ase.data import covalent_radii, atomic_numbers
+from ase.data import covalent_radii, atomic_numbers, chemical_symbols
 from ase.build import bulk
 from ase.build import fcc111
 from ase.units import Bohr
@@ -54,15 +54,15 @@ class GA:
 
         self.fd = open('pool.csv', 'a')  # pool of genes
         self.n = len(self.individuals)
-        self.pool = mp.Pool()  # process pool
 
     def run(self, func, sleep=5, mutate=5.0, size1=2, size2=1000):
+        pool = mp.Pool()  # process pool
         results = []
         while True:
             while len(results) < mp.cpu_count():
                 x = self.new(mutate, size1, size2)
-                self.individuals[x] = (None, self.n)
-                result = self.pool.apply_async(func, [self.n, x])
+                self.individuals[x] = (np.inf, self.n)
+                result = pool.apply_async(func, [self.n, x])
                 self.n += 1
                 results.append(result)
             time.sleep(sleep)
@@ -87,7 +87,7 @@ class GA:
                 if int(f[:-4]) not in nbest:
                     os.remove(f)
 
-            if len(self.individuals) > 40 and best[0][0] == np.inf:
+            if len(self.individuals) > 400 and best[0][0] == np.inf:
                 for result in results:
                     result.wait()
                 return
@@ -232,12 +232,16 @@ class DatasetOptimizer:
         for error, id, x, errors in self.best(N):
             params = [0.1 * p for p in x[:self.nenergies]]
             params += [0.05 * p for p in x[self.nenergies:]]
-            print('{0:2} {1:2} {2:5} {3:7.1f} {4} {5}'.format(
-                self.Z,
-                self.symbol,
-                id, error,
-                ' '.join('{0:5.2f}'.format(p) for p in params),
-                ' '.join('{0:8.3f}'.format(e) for e in errors)))
+            print('{0:2} {1:2}{2:4}{3:6.1f}|{4}|'
+                  '{5:4.1f}|'
+                  '{6:6.2f} {7:6.2f} {8:6.2f}|'
+                  '{9:6.2f} {10:6.2f} {11:6.2f}|'
+                  '{12:3.0f} {13:4.0f} {14:7.4f} {15:4.1f}'
+                  .format(self.Z,
+                          self.symbol,
+                          id, error,
+                          ' '.join('{0:5.2f}'.format(p) for p in params),
+                          *errors))
 
     def best1(self):
         try:
@@ -286,8 +290,10 @@ class DatasetOptimizer:
         gen = _generate(self.symbol, xc, self.conf, projectors, radii,
                         scalar_relativistic, None, r0, nderiv0,
                         (type, 4), None, None, fd)
-        if not gen.check_all():
-            raise DatasetGenerationError(xc)
+        if not scalar_relativistic:
+            if not gen.check_all():
+                print('dataset check failed')
+                return np.inf
 
         if tag is not None:
             gen.make_paw_setup(tag or None).write_xml()
@@ -331,7 +337,12 @@ class DatasetOptimizer:
         fd = open('{0}.txt'.format(n), 'w')
         energies, radii, r0, projectors = self.parameters(x)
 
+        if r0 < 0.2:
+            print(n, x, 'core radius too small')
+            return n, x, [np.inf] * NN, np.inf
+
         if any(r < r0 for r in radii):  # or any(e <= 0.0 for e in energies):
+            print(n, x, 'radii too small')
             return n, x, [np.inf] * NN, np.inf
 
         errors = self.test(n, fd, projectors, radii, r0)
@@ -349,12 +360,17 @@ class DatasetOptimizer:
         for xc in ['PBE', 'LDA', 'PBEsol', 'RPBE', 'PW91']:
             error += self.generate(fd, xc, projectors, radii, r0,
                                    scalar_relativistic=True)
+
+        if not np.isfinite(error):
+            return [np.inf] * NN
+
         results = {'dataset': error}
 
         for name in ['slab', 'fcc', 'rocksalt', 'convergence', 'eggbox']:
             try:
                 result = getattr(self, name)(n, fd)
             except ConvergenceError:
+                print(n, name)
                 result = np.inf
             results[name] = result
 
@@ -479,7 +495,7 @@ class DatasetOptimizer:
     def eggbox(self, n, fd):
         h = 0.18
         a0 = 16 * h
-        atoms = Atoms(self.symbol, cell=(a0, a0, a0), pbc=True)
+        atoms = Atoms(self.symbol, cell=(a0, a0, 2 * a0), pbc=True)
         M = 333
         if 58 <= self.Z <= 70 or 90 <= self.Z <= 102:
             M = 999
@@ -558,10 +574,13 @@ if __name__ == '__main__':
         else:
             do.run()
     else:
-        if len(args) == 0:
+        if args == ['.']:
             symbol = os.getcwd().rsplit('/', 1)[1]
-            args.append(symbol)
+            args = [symbol]
             os.chdir('..')
+        elif len(args) == 0:
+            args = [symbol for symbol in chemical_symbols
+                    if os.path.isdir(symbol)]
         for symbol in args:
             os.chdir(symbol)
             do = DatasetOptimizer(symbol, opts.norm_conserving)

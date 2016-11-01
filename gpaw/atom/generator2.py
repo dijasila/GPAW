@@ -16,8 +16,8 @@ from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
 from gpaw.gaunt import gaunt
 from gpaw.utilities import erf, pack2
 from gpaw.utilities.lapack import general_diagonalize
-from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
-    GaussianBasis
+from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
+                              GaussianBasis)
 
 
 class DatasetGenerationError(Exception):
@@ -274,9 +274,10 @@ class PAWWaves:
         rgd = self.rgd
         phit_ng = self.phit_ng
         gcmax = rgd.ceil(rcmax)
+        gcut = rgd.ceil(self.rcut)
+        assert gcmax >= gcut
         r_g = rgd.r_g
         l = self.l
-
         dgdr_g = 1 / rgd.dr_g
         d2gdr2_g = rgd.d2gdr2()
 
@@ -487,7 +488,7 @@ class PAWSetupGenerator:
                     n = -1
                     f = 0.0
                     phi_g = self.rgd.zeros()
-                    gc = self.rgd.round(1.5 * rcut)
+                    gc = self.rgd.round(1.5 * self.rcmax)
                     ch = Channel(l)
                     a = ch.integrate_outwards(phi_g, self.rgd,
                                               self.aea.vr_sg[0], gc, e,
@@ -545,7 +546,7 @@ class PAWSetupGenerator:
             self.nct_g = nt_g - self.nt_g
             self.nt_g = nt_g
 
-            self.log('Constructing NLCC-style smooth pseudo core density for'
+            self.log('Constructing NLCC-style smooth pseudo core density for '
                      'r < %.3f' % rcore)
 
             self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
@@ -635,7 +636,7 @@ class PAWSetupGenerator:
 
     def construct_projectors(self):
         for waves in self.waves_l:
-            waves.construct_projectors(self.vtr_g, self.rcmax)
+            waves.construct_projectors(self.vtr_g, 1.25 * self.rcmax)
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
 
@@ -652,6 +653,7 @@ class PAWSetupGenerator:
             except RuntimeError:
                 self.log('Singular overlap matrix!')
                 ok = False
+                continue
 
             n0 = self.number_of_core_states(l)
 
@@ -1294,7 +1296,8 @@ def main(argv=None):
                             ld1 -= round(ld1[i] - ld2[i])
                             if opt.plot:
                                 ldfix = ld1[i]
-                                plt.plot([e], [ldfix], 'x' + colors[l])
+                                plt.plot([energies[i]], [ldfix],
+                                         'x' + colors[l])
 
                     if opt.plot:
                         plt.plot(energies, ld1, colors[l], label='spdfg'[l])

@@ -294,7 +294,9 @@ class AtomPAW(GPAW):
                       parallel=dict(augment_grids=False),
                       occupations=AtomOccupations(f_sln),
                       **kwargs)
-        self.initialize(Atoms(symbol, calculator=self))
+        # Initialize function will raise an error unless we set a (bogus) cell
+        self.initialize(Atoms(symbol, calculator=self,
+                              cell=np.eye(3)))
         self.density.charge_eps = 1e-3
         self.calculate(system_changes=['positions'])
 
