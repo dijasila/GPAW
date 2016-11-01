@@ -413,16 +413,17 @@ class GPAW(Calculator, PAW):
             # Save the state of the atoms:
             self.atoms = atoms.copy()
 
-        if atoms.cell is None:
-            raise AttributeError('GPAW requires a unit cell, but '
-                                 'Atoms have no cell')
-
         par = self.parameters
 
         natoms = len(atoms)
 
         cell_cv = atoms.get_cell() / Bohr
+        if cell_cv.shape != (3, 3):
+            raise ValueError('GPAW requires a 3x3 cell, but atoms have '
+                             '{0}x{1}.  Try atoms.center(vacuum=...) for '
+                             'non-periodic systems.'.format(*cell_cv.shape))
         pbc_c = atoms.get_pbc()
+        assert len(pbc_c) == 3
         magmom_a = atoms.get_initial_magnetic_moments()
 
         mpi.synchronize_atoms(atoms, self.world)
