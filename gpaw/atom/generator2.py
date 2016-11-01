@@ -473,6 +473,57 @@ class PAWSetupGenerator:
         self.log('Core electrons:', self.ncore)
         self.log('Valence electrons:', self.nvalence)
 
+    def find_local_potential(self, r0, P):
+        self.r0 = r0
+        self.nderiv0 = P
+        if self.l0 is None:
+            self.find_polynomial_potential(r0, P)
+        else:
+            self.match_local_potential(r0, P)
+
+    def find_polynomial_potential(self, r0, P):
+        self.log('Constructing smooth local potential for r < %.3f' % r0)
+        g0 = self.rgd.ceil(r0)
+        self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
+
+    def match_local_potential(self, r0, P):
+        l0 = self.l0
+        self.log('Local potential matching %s-scattering at e=0.0 eV' %
+                 'spdfg'[l0] + ' and r=%.2f Bohr' % r0)
+
+        g0 = self.rgd.ceil(r0)
+        gc = g0 + 20
+
+        e0 = 0.0
+
+        ch = Channel(l0)
+        phi_g = self.rgd.zeros()
+        a = ch.integrate_outwards(phi_g, self.rgd, self.aea.vr_sg[0], gc, e0,
+                                  self.aea.scalar_relativistic, self.aea.Z)[1]
+        phi_g[1:gc] /= self.rgd.r_g[1:gc]
+        phi_g[0] = a
+
+        phit_g, c = self.rgd.pseudize(phi_g, g0, l=l0, points=P)
+
+        dgdr_g = 1 / self.rgd.dr_g
+        d2gdr2_g = self.rgd.d2gdr2()
+        a_g = phit_g.copy()
+        a_g[1:] /= self.rgd.r_g[1:]**l0
+        a_g[0] = c
+        dadg_g = self.rgd.zeros()
+        d2adg2_g = self.rgd.zeros()
+        dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
+        d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
+        q_g = (((l0 + 1) * dgdr_g + 0.5 * self.rgd.r_g * d2gdr2_g) * dadg_g +
+               0.5 * self.rgd.r_g * d2adg2_g * dgdr_g**2)
+        q_g[:g0] /= a_g[:g0]
+        q_g += e0 * self.rgd.r_g
+        q_g[0] = 0.0
+
+        self.vtr_g = self.aea.vr_sg[0].copy()
+        self.vtr_g[0] = 0.0
+        self.vtr_g[1:g0] = q_g[1:g0]
+
     def add_waves(self, rc):
         if isinstance(rc, float):
             radii = [rc]
@@ -527,6 +578,11 @@ class PAWSetupGenerator:
             self.nt_g += waves.nt_g
             self.Q += waves.Q
 
+        self.construct_pseudo_core_density(rcore)
+        self.calculate_potentials()
+        self.summarize()
+
+    def construct_pseudo_core_density(self, rcore):
         if rcore is None:
             rcore = self.rcmax * 0.8
         else:
@@ -572,6 +628,7 @@ class PAWSetupGenerator:
         self.log('Pseudo core electrons: %.6f' % self.npseudocore)
         self.Q -= self.npseudocore
 
+    def calculate_potentials(self):
         self.rhot_g = self.nt_g + self.Q * self.ghat_g
         self.vHtr_g = self.rgd.poisson(self.rhot_g)
 
@@ -583,6 +640,7 @@ class PAWSetupGenerator:
         self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
         self.v0r_g[self.rgd.round(self.rcmax):] = 0.0
 
+    def summarize(self):
         self.log('\nProjectors:')
         self.log(' state  occ         energy             norm        rcut')
         self.log(' nl            [Hartree]  [eV]      [electrons]   [Bohr]')
@@ -599,57 +657,6 @@ class PAWSetupGenerator:
                         (n, 'spdf'[l], f, e, e * Hartree, 1 - ds,
                          waves.rcut))
         self.log()
-
-    def find_local_potential(self, r0, P):
-        self.r0 = r0
-        self.nderiv0 = P
-        if self.l0 is None:
-            self.find_polynomial_potential(r0, P)
-        else:
-            self.match_local_potential(r0, P)
-
-    def find_polynomial_potential(self, r0, P):
-        self.log('Constructing smooth local potential for r < %.3f' % r0)
-        g0 = self.rgd.ceil(r0)
-        self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
-
-    def match_local_potential(self, r0, P):
-        l0 = self.l0
-        self.log('Local potential matching %s-scattering at e=0.0 eV' %
-                 'spdfg'[l0] + ' and r=%.2f Bohr' % r0)
-
-        g0 = self.rgd.ceil(r0)
-        gc = g0 + 20
-
-        e0 = 0.0
-
-        ch = Channel(l0)
-        phi_g = self.rgd.zeros()
-        a = ch.integrate_outwards(phi_g, self.rgd, self.aea.vr_sg[0], gc, e0,
-                                  self.aea.scalar_relativistic, self.aea.Z)[1]
-        phi_g[1:gc] /= self.rgd.r_g[1:gc]
-        phi_g[0] = a
-
-        phit_g, c = self.rgd.pseudize(phi_g, g0, l=l0, points=P)
-
-        dgdr_g = 1 / self.rgd.dr_g
-        d2gdr2_g = self.rgd.d2gdr2()
-        a_g = phit_g.copy()
-        a_g[1:] /= self.rgd.r_g[1:]**l0
-        a_g[0] = c
-        dadg_g = self.rgd.zeros()
-        d2adg2_g = self.rgd.zeros()
-        dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
-        d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
-        q_g = (((l0 + 1) * dgdr_g + 0.5 * self.rgd.r_g * d2gdr2_g) * dadg_g +
-               0.5 * self.rgd.r_g * d2adg2_g * dgdr_g**2)
-        q_g[:g0] /= a_g[:g0]
-        q_g += e0 * self.rgd.r_g
-        q_g[0] = 0.0
-
-        self.vtr_g = self.aea.vr_sg[0].copy()
-        self.vtr_g[0] = 0.0
-        self.vtr_g[1:g0] = q_g[1:g0]
 
     def construct_projectors(self):
         for waves in self.waves_l:
