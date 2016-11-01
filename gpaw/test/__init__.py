@@ -235,7 +235,6 @@ tests = [
     'fdtd/ed.py',                           # ~7s
     'fdtd/ed_shapes.py',                    # ~14s
     'inducedfield_td.py',                   # ~9s
-    'transport.py',                         # ~73s
     'pw/bulk.py',                           # ~7s
     'gllb/ne.py',                           # ~7s
     'lcao/force.py',                        # ~7s
@@ -372,7 +371,6 @@ tests = [
 exclude = []
 
 if True:
-    exclude.append('transport.py')
     if mpi.size > 1:
         exclude.append('lrtddft/excited_state.py')
 

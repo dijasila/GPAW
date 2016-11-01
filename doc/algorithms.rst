@@ -5,9 +5,9 @@ Features and algorithms
 =======================
 
 Quick links to all features:
-    
+
 .. list-table::
-    
+
     * - :ref:`Plane-waves <manual_mode>`
       - :ref:`Finite-difference <manual_stencils>`
       - :ref:`LCAO <lcao>`
@@ -24,14 +24,11 @@ Quick links to all features:
       - :ref:`LRTDDFT (molecules) <lrtddft>`
       - :ref:`LRTDDFT (extended systems) <df_theory>`
     * - :ref:`Transport <transport_exercise>`
-      - :ref:`NEGF-transport <transport>`
-      - :ref:`Keldysh GF-transport ... <keldyshgf>`
-    * - :ref:`RPA-correlation <rpa>`
+      - :ref:`RPA-correlation <rpa>`
       - :ref:`GW <gw_theory>`
-      - :ref:`BSE <bse theory>`
-    * - :ref:`Parallelization <parallel_runs>`
+    * - :ref:`BSE <bse theory>`
+      - :ref:`Parallelization <parallel_runs>`
       - :ref:`Continuum Solvent Model <continuum_solvent_model>`
-      -
 
 This Page gives a quick overview of the algorithms used.  We have
 written some :ref:`papers <gpaw_publications>` about the implementation,
@@ -72,11 +69,11 @@ Finite-difference (FD):
 Plane-waves (PW):
     Expansion in plane-waves.  There is one cutoff used for the wave-functions
     and a higher cutoff for electron densities and potentials.
-    
+
 Linear combination of atomic orbitals (LCAO):
     Expansion in atom-centered basis functions.
-    
-    
+
+
 Multi-grid techniques for FD-mode
 =================================
 
@@ -152,7 +149,6 @@ simulation environment (`ASE <https://wiki.fysik.dtu.dk/ase>`). ASE provides:
  * Nudged elastic band calculations.
  * Maximally localized Wannier functions.
  * Scanning tunneling microscopy images.
- * Transport calculations.
 
 
 Open Software
@@ -167,10 +163,10 @@ participate in using and :ref:`developing the code <devel>`.
 
 .. figure:: carlsberg.png
     :width: 12cm
-    
+
     September 2003 - August 2005: Sponsored by The `Carlsberg Foundation`_
     (artwork by P. Erhart)
-   
+
 .. _Carlsberg Foundation: http://www.carlsbergfondet.dk
 
 
