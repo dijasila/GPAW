@@ -246,6 +246,13 @@ class PAWWaves:
             ps = rgd.pseudize_normalized
 
         phi_ng = self.phi_ng = np.array(self.phi_ng)
+        S_nn = rgd.integrate(phi_ng * phi_ng[:, None]) / (4 * pi)
+        L_nn = np.linalg.cholesky(S_nn)
+        phi_ng[:] = np.linalg.solve(L_nn, phi_ng)
+        print('*'*33,self.l)
+        print(L_nn)
+        S_nn = rgd.integrate(phi_ng * phi_ng[:, None]) / (4 * pi)
+        print(S_nn)
         N = len(phi_ng)
         phit_ng = self.phit_ng = rgd.empty(N)
         gcut = rgd.ceil(self.rcut)
@@ -263,6 +270,8 @@ class PAWWaves:
                 self.dS_nn[n1, n2] = rgd.integrate(
                     phi_ng[n1] * phi_ng[n2] -
                     phit_ng[n1] * phit_ng[n2]) / (4 * pi)
+                print(n1,n2,rgd.integrate(
+                    phi_ng[n1] * phi_ng[n2]) / (4 * pi))
         self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
 
     def construct_projectors(self, vtr_g, rcmax):
@@ -292,7 +301,8 @@ class PAWWaves:
             q_g -= 0.5 * r_g**l * (
                 (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
                 r_g * d2adg2_g * dgdr_g**2)
-            q_g[gcmax:] = 0
+            #rgd.cut(q_g, self.rcut)
+            q_g[gcmax:] = 0.0
             q_g[1:] /= r_g[1:]
             if l == 0:
                 q_g[0] = q_g[1]
@@ -304,7 +314,7 @@ class PAWWaves:
         L_nn = np.eye(N)
         U_nn = A_nn.copy()
 
-        if N - self.n_n.count(-1) == 1:
+        if 0:#N - self.n_n.count(-1) == 1:
             assert self.n_n[0] != -1
             # We have a single bound-state projector.
             for n1 in range(N):
@@ -319,7 +329,14 @@ class PAWWaves:
             self.dS_nn = np.dot(np.dot(iL_nn, self.dS_nn), iL_nn.T)
             self.dH_nn = np.dot(np.dot(iL_nn, self.dH_nn), iL_nn.T)
 
+
+        #A_nn = rgd.integrate(phit_ng[:, None] * q_ng) / (4 * pi)
         self.pt_ng = np.dot(np.linalg.inv(U_nn.T), q_ng)
+        if 0:#for q_g in self.pt_ng:
+            rgd.cut(q_g, self.rcut)
+        A_nn = rgd.integrate(phit_ng[:, None] * self.pt_ng) / (4 * pi)
+        print(A_nn)
+        self.pt_ng = np.dot(np.linalg.inv(A_nn.T), self.pt_ng)
 
     def calculate_kinetic_energy_correction(self, vr_g, vtr_g):
         if len(self) == 0:
@@ -488,7 +505,7 @@ class PAWSetupGenerator:
                     n = -1
                     f = 0.0
                     phi_g = self.rgd.zeros()
-                    gc = self.rgd.round(1.5 * self.rcmax)
+                    gc = self.rgd.round(2.5 * self.rcmax)
                     ch = Channel(l)
                     a = ch.integrate_outwards(phi_g, self.rgd,
                                               self.aea.vr_sg[0], gc, e,
@@ -636,7 +653,7 @@ class PAWSetupGenerator:
 
     def construct_projectors(self):
         for waves in self.waves_l:
-            waves.construct_projectors(self.vtr_g, 1.25 * self.rcmax)
+            waves.construct_projectors(self.vtr_g, 2.45 * self.rcmax)
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
 
@@ -1232,7 +1249,7 @@ def main(argv=None):
         'Energy range and/or radius can be left out.')
     add('-w', '--write', action='store_true')
     add('-s', '--scalar-relativistic', action='store_true')
-    add('--no-check', action='store_true')
+    add('-n', '--no-check', action='store_true')
     add('-t', '--tag', type='string')
     add('-a', '--alpha', type=float)
     add('-b', '--create-basis-set', action='store_true')

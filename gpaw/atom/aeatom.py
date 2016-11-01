@@ -542,6 +542,7 @@ class AllElectronAtom:
             else:
                 channel.solve2(self.vr_sg[channel.s], self.scalar_relativistic,
                                self.Z)
+
             self.eeig += channel.get_eigenvalue_sum()
 
     def calculate_density(self):
@@ -632,6 +633,9 @@ class AllElectronAtom:
         for ch in self.channels:
             for n, f in enumerate(ch.f_n):
                 states.append((ch.e_n[n], ch, n))
+            print(ch.l)
+            print(ch.basis.rgd.integrate(ch.phi_ng * ch.phi_ng[:, None]) /
+                  (4 * pi))
         states.sort()
         for e, ch, n in states:
             name = str(n + ch.l + 1) + ch.name

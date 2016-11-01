@@ -251,6 +251,15 @@ class RadialGridDescriptor:
         b_g[:gc] = np.polyval(c_p, r_g[:gc]**2) * r_g[:gc]**l
         return b_g, c_p[-1]
 
+    def cut(self, a_g, rcut):
+        gcut = self.floor(rcut)
+        r0 = 0.7 * rcut
+        x_g = np.clip((self.r_g - r0) / (rcut - r0), 0, 1)
+        f_g = x_g**2 * (3 - 2 * x_g)
+        shift = (4 * a_g[gcut] - a_g[gcut - 1]) / 3
+        a_g -= f_g * shift
+        a_g[gcut + 1:] = 0
+
     def pseudize_normalized(self, a_g, gc, l=0, points=3):
         """Construct normalized smooth continuation of a_g for g<gc.
 
