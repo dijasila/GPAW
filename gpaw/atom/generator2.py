@@ -248,11 +248,11 @@ class PAWWaves:
         phi_ng = self.phi_ng = np.array(self.phi_ng)
         S_nn = rgd.integrate(phi_ng * phi_ng[:, None]) / (4 * pi)
         L_nn = np.linalg.cholesky(S_nn)
-        phi_ng[:] = np.linalg.solve(L_nn, phi_ng)
-        print('*'*33,self.l)
-        print(L_nn)
-        S_nn = rgd.integrate(phi_ng * phi_ng[:, None]) / (4 * pi)
-        print(S_nn)
+        #phi_ng[:] = np.linalg.solve(L_nn, phi_ng)
+        #print('*'*33,self.l)
+        #print(L_nn)
+        #S_nn = rgd.integrate(phi_ng * phi_ng[:, None]) / (4 * pi)
+        #print(S_nn)
         N = len(phi_ng)
         phit_ng = self.phit_ng = rgd.empty(N)
         gcut = rgd.ceil(self.rcut)
@@ -334,9 +334,11 @@ class PAWWaves:
         self.pt_ng = np.dot(np.linalg.inv(U_nn.T), q_ng)
         if 0:#for q_g in self.pt_ng:
             rgd.cut(q_g, self.rcut)
-        A_nn = rgd.integrate(phit_ng[:, None] * self.pt_ng) / (4 * pi)
-        print(A_nn)
-        self.pt_ng = np.dot(np.linalg.inv(A_nn.T), self.pt_ng)
+        #A_nn = rgd.integrate(phit_ng[:, None] * self.pt_ng) / (4 * pi)
+        #print(A_nn)
+        #self.pt_ng = np.dot(np.linalg.inv(A_nn.T), self.pt_ng)
+
+    def solve(self, vtr_g):
 
     def calculate_kinetic_energy_correction(self, vr_g, vtr_g):
         if len(self) == 0:
@@ -658,11 +660,22 @@ class PAWSetupGenerator:
                          waves.rcut))
         self.log()
 
-    def construct_projectors(self):
+    def construct_projectors(self, rcore):
         for waves in self.waves_l:
             waves.construct_projectors(self.vtr_g, 2.45 * self.rcmax)
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
+
+        self.Q = -self.aea.Z + self.ncore
+        self.nt_g = self.rgd.zeros()
+        for waves in self.waves_l:
+            waves.solve(self.vtr_g)
+            self.nt_g += waves.nt_g
+            self.Q += waves.Q
+
+        self.construct_pseudo_core_density(rcore)
+        self.calculate_potentials()
+        self.summarize()
 
     def check_all(self):
         self.log(('Checking eigenvalues of %s pseudo atom using ' +
@@ -1433,7 +1446,7 @@ def _generate(symbol, xc, configuration, projectors, radii,
     gen.find_local_potential(r0, nderiv0)
     gen.add_waves(radii)
     gen.pseudize(pseudize[0], pseudize[1], rcore=rcore)
-    gen.construct_projectors()
+    gen.construct_projectors(rcore)
     return gen
 
 
