@@ -300,7 +300,7 @@ class PAWWaves:
             phit_ng[n] *= phi_ng[n, gc] / phit_ng[n, gc]
             phit_ng[n, gc:] = phi_ng[n, gc:]
             pt_ng[n] = -c * k_g * phit_ng[n]
-            if 0:
+            if 1:
                 q=rgd.T(phit_ng[n] * r_g, self.l) + (vtr_g - e * r_g) * phit_ng[n]
                 rgd.plot(q,-1)
                 rgd.plot(pt_ng[n],0,show=1)
@@ -323,8 +323,9 @@ class PAWWaves:
         self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
 
         A_nn = rgd.integrate(phit_ng[:, None] * pt_ng) / (4 * pi)
-        print(A_nn)
-        self.dH_nn = self.e_n * self.dS_nn - A_nn
+        print(self.dS_nn)
+        #self.dH_nn = self.e_n * self.dS_nn - A_nn
+        self.dH_nn = np.dot(self.dS_nn, np.diag(self.e_n)) - A_nn
         print(self.dH_nn);asdfg
 
         pt_ng[:] = np.dot(np.linalg.inv(A_nn.T), pt_ng)
