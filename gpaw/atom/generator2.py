@@ -5,7 +5,7 @@ from math import pi, exp, sqrt, log
 from distutils.version import LooseVersion
 
 import numpy as np
-from scipy.optimize import fsolve  # , root
+from scipy.optimize import brentq, fsolve  # , root
 from scipy import __version__ as scipy_version
 from ase.units import Hartree
 from ase.data import atomic_numbers
@@ -235,33 +235,79 @@ class PAWWaves:
         self.e_n.append(e)
         self.f_n.append(f)
 
-    def pseudize(self, type, nderiv):
+    def pseudize(self, type, nderiv, vtr_g):
         rgd = self.rgd
-
-        if type == 'poly':
-            ps = rgd.pseudize
-        elif type == 'bessel':
-            ps = rgd.jpseudize
-        elif type == 'nc':
-            ps = rgd.pseudize_normalized
-
+        r_g = rgd.r_g
         phi_ng = self.phi_ng = np.array(self.phi_ng)
-        S_nn = rgd.integrate(phi_ng * phi_ng[:, None]) / (4 * pi)
-        L_nn = np.linalg.cholesky(S_nn)
-        #phi_ng[:] = np.linalg.solve(L_nn, phi_ng)
-        #print('*'*33,self.l)
-        #print(L_nn)
-        #S_nn = rgd.integrate(phi_ng * phi_ng[:, None]) / (4 * pi)
-        #print(S_nn)
         N = len(phi_ng)
         phit_ng = self.phit_ng = rgd.empty(N)
-        gcut = rgd.ceil(self.rcut)
+        pt_ng = self.pt_ng = rgd.empty(N)
+        gc = rgd.ceil(self.rcut)
+        ch = Channel(self.l)
+        u_g = rgd.zeros()
+        x_g = np.clip(r_g / self.rcut, 0, 1)
+        k_g = np.sinc(x_g)**2
+        kr_g = k_g * r_g
 
-        self.nt_g = 0
-        self.c_n = []
-        for n in range(N):
-            phit_ng[n], c = ps(phi_ng[n], gcut, self.l, nderiv)
-            self.c_n.append(c)
+        def integrate(c, e):
+            wr_g = vtr_g + c * kr_g
+            dudr, a = ch.integrate_outwards(u_g, rgd, wr_g, gc, e)
+            nodes = int((np.diff(np.sign(u_g[1:]))**2).sum() / 4)
+            #print(e, nodes, c, dudr / u_g[gc])
+            return dudr / u_g[gc], nodes
+
+        def f(c, e, ld):
+            return integrate(c, e)[0] - ld
+
+        self.nt_g = rgd.zeros()
+        c = 0.0  # initial guess
+        for n, phi_g in enumerate(phi_ng):
+            e = self.e_n[0]
+            dphidr = 0.5 * (phi_g[gc + 1] - phi_g[gc - 1]) / rgd.dr_g[gc]
+            dudr = dphidr * r_g[gc] + phi_g[gc]
+            ld = dudr / (phi_g[gc] * r_g[gc])  # logarithmic derivative
+
+            nn = n
+            # Bracket solution.  Find first end-point:
+            while True:
+                ldt, nodes = integrate(c, e)
+                if nodes == nn:
+                    break
+                c += 0.1 * (nodes - nn)
+
+            if ldt < ld:
+                dc = 0.1
+            else:
+                dc = -0.1
+
+            # ... second end-point:
+            c2 = c + dc
+            while True:
+                ldt, nodes = integrate(c2, e)
+                if nodes != nn:
+                    dc /= 2
+                    c2 -= dc
+                    continue
+                if (ldt - ld) * dc > 0:
+                    break
+                c = c2
+                c2 += dc
+
+            c = brentq(f, min(c, c2), max(c, c2), (e, ld))
+
+            phit_ng[n, 1:] = u_g[1:] / r_g[1:]
+            phit_ng[n, 0] = 0.0**self.l
+            phit_ng[n] *= phi_ng[n, gc] / phit_ng[n, gc]
+            phit_ng[n, gc:] = phi_ng[n, gc:]
+            pt_ng[n] = -c * k_g * phit_ng[n]
+            if 0:
+                q=rgd.T(phit_ng[n] * r_g, self.l) + (vtr_g - e * r_g) * phit_ng[n]
+                rgd.plot(q,-1)
+                rgd.plot(pt_ng[n],0,show=1)
+
+                rgd.plot(phi_g,0)
+                rgd.plot(phit_ng[n],0,show=1)
+
             self.nt_g += self.f_n[n] / 4 / pi * phit_ng[n]**2
 
         self.dS_nn = np.empty((N, N))
@@ -270,75 +316,21 @@ class PAWWaves:
                 self.dS_nn[n1, n2] = rgd.integrate(
                     phi_ng[n1] * phi_ng[n2] -
                     phit_ng[n1] * phit_ng[n2]) / (4 * pi)
-                print(n1,n2,rgd.integrate(
-                    phi_ng[n1] * phi_ng[n2]) / (4 * pi))
+                print(n1, n2, rgd.integrate(
+                          phi_ng[n1] * phi_ng[n2]) / (4 * pi),
+                      rgd.integrate(
+                          phit_ng[n1] * phit_ng[n2]) / (4 * pi))
         self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
 
-    def construct_projectors(self, vtr_g, rcmax):
-        N = len(self)
-        if N == 0:
-            self.pt_ng = []
-            return
-
-        rgd = self.rgd
-        phit_ng = self.phit_ng
-        gcmax = rgd.ceil(rcmax)
-        gcut = rgd.ceil(self.rcut)
-        assert gcmax >= gcut
-        r_g = rgd.r_g
-        l = self.l
-        dgdr_g = 1 / rgd.dr_g
-        d2gdr2_g = rgd.d2gdr2()
-
-        q_ng = rgd.zeros(N)
-        for n in range(N):
-            a_g, dadg_g, d2adg2_g = rgd.zeros(3)
-            a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
-            a_g[0] = self.c_n[n]
-            dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
-            d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
-            q_g = (vtr_g - self.e_n[n] * r_g) * self.phit_ng[n]
-            q_g -= 0.5 * r_g**l * (
-                (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
-                r_g * d2adg2_g * dgdr_g**2)
-            #rgd.cut(q_g, self.rcut)
-            q_g[gcmax:] = 0.0
-            q_g[1:] /= r_g[1:]
-            if l == 0:
-                q_g[0] = q_g[1]
-            q_ng[n] = q_g
-
-        A_nn = rgd.integrate(phit_ng[:, None] * q_ng) / (4 * pi)
+        A_nn = rgd.integrate(phit_ng[:, None] * pt_ng) / (4 * pi)
+        print(A_nn)
         self.dH_nn = self.e_n * self.dS_nn - A_nn
+        print(self.dH_nn);asdfg
 
-        L_nn = np.eye(N)
-        U_nn = A_nn.copy()
+        pt_ng[:] = np.dot(np.linalg.inv(A_nn.T), pt_ng)
 
-        if 0:#N - self.n_n.count(-1) == 1:
-            assert self.n_n[0] != -1
-            # We have a single bound-state projector.
-            for n1 in range(N):
-                for n2 in range(n1 + 1, N):
-                    L_nn[n2, n1] = U_nn[n2, n1] / U_nn[n1, n1]
-                    U_nn[n2] -= U_nn[n1] * L_nn[n2, n1]
-
-            iL_nn = np.linalg.inv(L_nn)
-            phit_ng[:] = np.dot(iL_nn, phit_ng)
-            self.phi_ng[:] = np.dot(iL_nn, self.phi_ng)
-
-            self.dS_nn = np.dot(np.dot(iL_nn, self.dS_nn), iL_nn.T)
-            self.dH_nn = np.dot(np.dot(iL_nn, self.dH_nn), iL_nn.T)
-
-
-        #A_nn = rgd.integrate(phit_ng[:, None] * q_ng) / (4 * pi)
-        self.pt_ng = np.dot(np.linalg.inv(U_nn.T), q_ng)
-        if 0:#for q_g in self.pt_ng:
-            rgd.cut(q_g, self.rcut)
-        #A_nn = rgd.integrate(phit_ng[:, None] * self.pt_ng) / (4 * pi)
-        #print(A_nn)
-        #self.pt_ng = np.dot(np.linalg.inv(A_nn.T), self.pt_ng)
-
-    def solve(self, vtr_g):
+    def construct_projectors(self, vtr_g, rcmax):
+        pass
 
     def calculate_kinetic_energy_correction(self, vr_g, vtr_g):
         if len(self) == 0:
@@ -576,7 +568,7 @@ class PAWSetupGenerator:
 
         self.nt_g = self.rgd.zeros()
         for waves in self.waves_l:
-            waves.pseudize(type, nderiv)
+            waves.pseudize(type, nderiv, self.vtr_g)
             self.nt_g += waves.nt_g
             self.Q += waves.Q
 
@@ -665,17 +657,6 @@ class PAWSetupGenerator:
             waves.construct_projectors(self.vtr_g, 2.45 * self.rcmax)
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
-
-        self.Q = -self.aea.Z + self.ncore
-        self.nt_g = self.rgd.zeros()
-        for waves in self.waves_l:
-            waves.solve(self.vtr_g)
-            self.nt_g += waves.nt_g
-            self.Q += waves.Q
-
-        self.construct_pseudo_core_density(rcore)
-        self.calculate_potentials()
-        self.summarize()
 
     def check_all(self):
         self.log(('Checking eigenvalues of %s pseudo atom using ' +
