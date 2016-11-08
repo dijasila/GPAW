@@ -354,7 +354,8 @@ class PAWWaves:
         self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
 
         A_nn = rgd.integrate(phit_ng[:, None] * pt_ng) / (4 * pi)
-        print(np.dot(self.dS_nn, np.diag(self.e_n)) - A_nn)
+        print(self.dH_nn)
+        self.dH_nn = np.dot(self.dS_nn, np.diag(self.e_n)) - A_nn
         print(self.dH_nn)
         print(self.dS_nn)
         print(self.e_n)

@@ -143,14 +143,14 @@ class RadialGridDescriptor:
         return d2ndr2_g
 
     def T(self, u_g, l):
-        assert l == 0
         dudg_g = 0.5 * (u_g[2:] - u_g[:-2])
         d2udg2_g = u_g[2:] - 2 * u_g[1:-1] + u_g[:-2]
         Tu_g = self.empty()
         Tu_g[1:-1] = -0.5 * (d2udg2_g / self.dr_g[1:-1]**2 +
                              dudg_g * self.d2gdr2()[1:-1])
-        Tu_g[0] = Tu_g[1]
         Tu_g[-1] = Tu_g[-2]
+        Tu_g[1:] += 0.5 * l * (l + 1) * u_g[1:] / self.r_g[1:]**2
+        Tu_g[0] = Tu_g[1]
         return Tu_g
 
     def interpolate(self, f_g, r_x):
