@@ -235,7 +235,7 @@ class PAWWaves:
         self.e_n.append(e)
         self.f_n.append(f)
 
-    def pseudize(self, type, nderiv, vtr_g):
+    def pseudize(self, type, nderiv, vtr_g, vr_g):
         rgd = self.rgd
         r_g = rgd.r_g
         phi_ng = self.phi_ng = np.array(self.phi_ng)
@@ -253,7 +253,7 @@ class PAWWaves:
             wr_g = vtr_g + c * kr_g
             dudr, a = ch.integrate_outwards(u_g, rgd, wr_g, gc, e)
             nodes = int((np.diff(np.sign(u_g[1:]))**2).sum() / 4)
-            #print(e, nodes, c, dudr / u_g[gc])
+            # print(e, nodes, c, dudr / u_g[gc])
             return dudr / u_g[gc], nodes
 
         def f(c, e, ld):
@@ -300,34 +300,38 @@ class PAWWaves:
             phit_ng[n] *= phi_ng[n, gc] / phit_ng[n, gc]
             phit_ng[n, gc:] = phi_ng[n, gc:]
             pt_ng[n] = -c * k_g * phit_ng[n]
-            if 1:
-                q=rgd.T(phit_ng[n] * r_g, self.l) + (vtr_g - e * r_g) * phit_ng[n]
-                rgd.plot(q,-1)
-                rgd.plot(pt_ng[n],0,show=1)
+            if 0:
+                q = (rgd.T(phit_ng[n] * r_g, self.l) +
+                     (vtr_g - e * r_g) * phit_ng[n])
+                rgd.plot(q, -1)
+                rgd.plot(pt_ng[n], 0, show=1)
 
-                rgd.plot(phi_g,0)
-                rgd.plot(phit_ng[n],0,show=1)
+                rgd.plot(phi_g, 0)
+                rgd.plot(phit_ng[n], 0, show=1)
 
             self.nt_g += self.f_n[n] / 4 / pi * phit_ng[n]**2
 
         self.dS_nn = np.empty((N, N))
+        self.dH_nn = np.empty((N, N))
         for n1 in range(N):
             for n2 in range(N):
                 self.dS_nn[n1, n2] = rgd.integrate(
                     phi_ng[n1] * phi_ng[n2] -
                     phit_ng[n1] * phit_ng[n2]) / (4 * pi)
-                print(n1, n2, rgd.integrate(
-                          phi_ng[n1] * phi_ng[n2]) / (4 * pi),
-                      rgd.integrate(
-                          phit_ng[n1] * phit_ng[n2]) / (4 * pi))
+                h_g = rgd.T(phi_ng[n2] * r_g, self.l)
+                h_g += vr_g * phi_ng[n2]
+                ht_g = rgd.T(phit_ng[n2] * r_g, self.l)
+                ht_g += vtr_g * phit_ng[n2]
+                self.dH_nn[n1, n2] = rgd.integrate(
+                    phi_ng[n1] * h_g - phit_ng[n1] * ht_g, -1) / (4 * pi)
         self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
 
         A_nn = rgd.integrate(phit_ng[:, None] * pt_ng) / (4 * pi)
+        print(np.linalg.eig(np.dot(np.linalg.inv(self.dS_nn),A_nn+self.dH_nn)))
+        print(np.dot(np.linalg.inv(self.dS_nn),A_nn+self.dH_nn))
+        print(self.dH_nn)
         print(self.dS_nn)
-        #self.dH_nn = self.e_n * self.dS_nn - A_nn
-        self.dH_nn = np.dot(self.dS_nn, np.diag(self.e_n)) - A_nn
-        print(self.dH_nn);asdfg
-
+        print(self.e_n)
         pt_ng[:] = np.dot(np.linalg.inv(A_nn.T), pt_ng)
 
     def construct_projectors(self, vtr_g, rcmax):
@@ -569,7 +573,7 @@ class PAWSetupGenerator:
 
         self.nt_g = self.rgd.zeros()
         for waves in self.waves_l:
-            waves.pseudize(type, nderiv, self.vtr_g)
+            waves.pseudize(type, nderiv, self.vtr_g, self.aea.vr_sg[0])
             self.nt_g += waves.nt_g
             self.Q += waves.Q
 
