@@ -235,7 +235,7 @@ class PAWWaves:
         self.e_n.append(e)
         self.f_n.append(f)
 
-    def pseudize(self, type, nderiv, vtr_g, vr_g):
+    def pseudize(self, type, nderiv, vtr_g, vr_g, rcmax):
         rgd = self.rgd
         r_g = rgd.r_g
         phi_ng = self.phi_ng = np.array(self.phi_ng)
@@ -243,6 +243,7 @@ class PAWWaves:
         phit_ng = self.phit_ng = rgd.empty(N)
         pt_ng = self.pt_ng = rgd.empty(N)
         gc = rgd.ceil(self.rcut)
+        gcmax = rgd.ceil(rcmax)
         ch = Channel(self.l)
         u_g = rgd.zeros()
         x_g = np.clip(r_g / self.rcut, 0, 1)
@@ -259,9 +260,33 @@ class PAWWaves:
         def f(c, e, ld):
             return integrate(c, e)[0] - ld
 
+        l = self.l
+
+        dgdr_g = 1 / rgd.dr_g
+        d2gdr2_g = rgd.d2gdr2()
+
         self.nt_g = rgd.zeros()
         c = 0.0  # initial guess
         for n, phi_g in enumerate(phi_ng):
+            if 1:
+                phit_ng[n], c0 = rgd.pseudize(phi_g, gc, self.l, nderiv)
+                a_g, dadg_g, d2adg2_g = rgd.zeros(3)
+                a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
+                a_g[0] = c0
+                dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
+                d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
+                q_g = (vtr_g - self.e_n[n] * r_g) * self.phit_ng[n]
+                q_g -= 0.5 * r_g**l * (
+                    (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
+                    r_g * d2adg2_g * dgdr_g**2)
+                q_g[gcmax:] = 0
+                q_g[1:] /= r_g[1:]
+                if l == 0:
+                    q_g[0] = q_g[1]
+                pt_ng[n] = q_g
+
+                continue
+
             e = self.e_n[0]
             dphidr = 0.5 * (phi_g[gc + 1] - phi_g[gc - 1]) / rgd.dr_g[gc]
             dudr = dphidr * r_g[gc] + phi_g[gc]
@@ -327,8 +352,7 @@ class PAWWaves:
         self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
 
         A_nn = rgd.integrate(phit_ng[:, None] * pt_ng) / (4 * pi)
-        print(np.linalg.eig(np.dot(np.linalg.inv(self.dS_nn),A_nn+self.dH_nn)))
-        print(np.dot(np.linalg.inv(self.dS_nn),A_nn+self.dH_nn))
+        print(np.dot(self.dS_nn, np.diag(self.e_n)) - A_nn)
         print(self.dH_nn)
         print(self.dS_nn)
         print(self.e_n)
@@ -573,7 +597,8 @@ class PAWSetupGenerator:
 
         self.nt_g = self.rgd.zeros()
         for waves in self.waves_l:
-            waves.pseudize(type, nderiv, self.vtr_g, self.aea.vr_sg[0])
+            waves.pseudize(type, nderiv, self.vtr_g, self.aea.vr_sg[0],
+                           self.rcmax)
             self.nt_g += waves.nt_g
             self.Q += waves.Q
 
