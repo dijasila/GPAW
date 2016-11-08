@@ -89,7 +89,7 @@ class Generator(AllElectron):
             f_j.append(0.0)
             e_j.append(-0.01)
             empty_states = empty_states[2:]
-            
+
         if 2 in l_j[njcore:]:
             # We have a bound valence d-state.  Add bound s- and
             # p-states if not already there:
@@ -522,7 +522,7 @@ class Generator(AllElectron):
             nn = len(e_n)
             L_nn = np.identity(nn, float)
             U_nn = A_nn.copy()
-            
+
             # Keep all bound states normalized
             if sum([n > 0 for n in n_ln[l]]) <= 1:
                 for i in range(nn):
@@ -535,7 +535,9 @@ class Generator(AllElectron):
 
             e_nn = np.zeros((nn, nn))
             e_nn.ravel()[::nn + 1] = e_n
+            print(A_nn,e_nn)
             dH_nn = np.dot(dO_nn, e_nn) - A_nn
+            print(dH_nn);asdg
 
             q_n[:] = np.dot(inv(np.transpose(U_nn)), q_n)
             s_n[:] = np.dot(inv(L_nn), s_n)
@@ -744,7 +746,7 @@ class Generator(AllElectron):
         setup.e_total = self.e_coulomb + self.Exc + self.Ekin
 
         setup.rgd = self.rgd
-        
+
         setup.rcgauss = self.rcutcomp / sqrt(self.gamma)
         setup.e_kin_jj = self.dK_jj
         setup.ExxC = ExxC
@@ -777,7 +779,7 @@ class Generator(AllElectron):
         setup.generatorattrs = attrs
         setup.generatordata  = data
         setup.orbital_free = self.orbital_free
-        
+
         self.id_j = []
         for l, n in zip(vl_j, vn_j):
             if n > 0:
