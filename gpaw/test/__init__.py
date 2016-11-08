@@ -356,7 +356,7 @@ tests = [
     'parallel/scalapack_mpirecv_crash.py']  # duration unknown
 
 # 'symmetry/fractional_translations.py',
-# 'response/graphene_EELS.py', disabled while work is in progress on response code
+# 'response/graphene_EELS.py', disabled while work is in progress
 
 # 'symmetry/fractional_translations_med.py',
 # 'symmetry/fractional_translations_big.py',
@@ -369,10 +369,6 @@ tests = [
 
 
 exclude = []
-
-if True:
-    if mpi.size > 1:
-        exclude.append('lrtddft/excited_state.py')
 
 if mpi.size > 1:
     exclude += ['ase_features/asewannier.py',
