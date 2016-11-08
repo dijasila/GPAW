@@ -57,6 +57,7 @@ class ExcitedState(GPAW):
             self.lrtddft = lrtddft
             self.calculator = self.lrtddft.calculator
             self.atoms = self.calculator.atoms
+            self.parameters = self.calculator.parameters
             if txt is None:
                 self.txt = self.lrtddft.txt
             else:
