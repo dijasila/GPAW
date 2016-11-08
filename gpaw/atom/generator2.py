@@ -285,6 +285,8 @@ class PAWWaves:
                     q_g[0] = q_g[1]
                 pt_ng[n] = q_g
 
+                self.nt_g += self.f_n[n] / 4 / pi * phit_ng[n]**2
+
                 continue
 
             e = self.e_n[0]
