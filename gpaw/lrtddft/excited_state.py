@@ -23,7 +23,7 @@ from gpaw.io.logger import GPAWLogger
 class ExcitedState(GPAW):
 
     def __init__(self, lrtddft=None, index=0, d=0.001, txt=None,
-                 parallel=None, communicator=None, name=None, restart=None):
+                 parallel=0, communicator=None, name=None, restart=None):
         """ExcitedState object.
         parallel: Can be used to parallelize the numerical force calculation
         over images.
