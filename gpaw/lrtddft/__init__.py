@@ -504,7 +504,7 @@ class LrTDDFTExcitation(Excitation):
         s = ('E=%.3f' % (self.energy * Hartree) + ' eV, ' +
              'f=%.5g' % osc[0] + ', (%.5g,%.5g,%.5g) ' %
              (osc[1], osc[2], osc[3]) + '\n')
-           # 'R=%.5g' % self.get_rotatory_strength() + ' cgs\n')
+        # 'R=%.5g' % self.get_rotatory_strength() + ' cgs\n')
 
         def sqr(x):
             return x * x

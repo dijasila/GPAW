@@ -3,21 +3,20 @@
 from __future__ import print_function
 import os
 import errno
-import numpy as np
 
+import numpy as np
 from ase.units import Hartree
 from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer
-from gpaw.finite_differences import FiniteDifference
 
 import gpaw.mpi as mpi
-from gpaw import GPAW, __version__
-from gpaw import restart
+from gpaw import GPAW, __version__, restart
 from gpaw.density import RealSpaceDensity
+from gpaw.io.logger import GPAWLogger
+from gpaw.lrtddft import LrTDDFT
+from gpaw.lrtddft.finite_differences import FiniteDifference
 from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
-from gpaw.lrtddft import LrTDDFT
-from gpaw.io.logger import GPAWLogger
 
 
 class ExcitedState(GPAW):
@@ -97,7 +96,7 @@ class ExcitedState(GPAW):
         except OSError as exception:
             if exception.errno != errno.EEXIST:
                 raise
-        
+
         self.calculator.write(filename=filename + '/' + filename, mode=mode)
         self.lrtddft.write(filename=filename + '/' + filename + '.lr.dat.gz',
                            fh=None)
@@ -113,7 +112,7 @@ class ExcitedState(GPAW):
         mpi.world.barrier()
 
     def read(self, filename):
-        
+
         self.lrtddft = LrTDDFT(filename + '/' + filename + '.lr.dat.gz')
         self.atoms, self.calculator = restart(
             filename + '/' + filename, communicator=self.world)
@@ -242,7 +241,8 @@ class ExcitedState(GPAW):
                 symbols = self.atoms.get_chemical_symbols()
                 for a, symbol in enumerate(symbols):
                     self.log(('%3d %-2s %10.5f %10.5f %10.5f' %
-                            ((a, symbol) + tuple(self.results['forces'][a]))))
+                              ((a, symbol) +
+                               tuple(self.results['forces'][a]))))
         return self.results['forces']
 
     def forces_indexn(self, index):
