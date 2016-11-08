@@ -535,9 +535,7 @@ class Generator(AllElectron):
 
             e_nn = np.zeros((nn, nn))
             e_nn.ravel()[::nn + 1] = e_n
-            print(A_nn,e_nn)
             dH_nn = np.dot(dO_nn, e_nn) - A_nn
-            print(dH_nn);asdg
 
             q_n[:] = np.dot(inv(np.transpose(U_nn)), q_n)
             s_n[:] = np.dot(inv(L_nn), s_n)
