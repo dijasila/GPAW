@@ -5,7 +5,7 @@ from math import pi, exp, sqrt, log
 from distutils.version import LooseVersion
 
 import numpy as np
-from scipy.optimize import brentq, fsolve  # , root
+from scipy.optimize import fsolve
 from scipy import __version__ as scipy_version
 from ase.units import Hartree
 from ase.data import atomic_numbers
@@ -244,21 +244,6 @@ class PAWWaves:
         pt_ng = self.pt_ng = rgd.empty(N)
         gc = rgd.ceil(self.rcut)
         gcmax = rgd.ceil(rcmax)
-        ch = Channel(self.l)
-        u_g = rgd.zeros()
-        x_g = np.clip(r_g / self.rcut, 0, 1)
-        k_g = np.sinc(x_g)**2
-        kr_g = k_g * r_g
-
-        def integrate(c, e):
-            wr_g = vtr_g + c * kr_g
-            dudr, a = ch.integrate_outwards(u_g, rgd, wr_g, gc, e)
-            nodes = int((np.diff(np.sign(u_g[1:]))**2).sum() / 4)
-            # print(e, nodes, c, dudr / u_g[gc])
-            return dudr / u_g[gc], nodes
-
-        def f(c, e, ld):
-            return integrate(c, e)[0] - ld
 
         l = self.l
 
@@ -266,99 +251,33 @@ class PAWWaves:
         d2gdr2_g = rgd.d2gdr2()
 
         self.nt_g = rgd.zeros()
-        c = 0.0  # initial guess
         for n, phi_g in enumerate(phi_ng):
-            if 1:
-                phit_ng[n], c0 = rgd.pseudize(phi_g, gc, self.l, nderiv)
-                a_g, dadg_g, d2adg2_g = rgd.zeros(3)
-                a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
-                a_g[0] = c0
-                dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
-                d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
-                q_g = (vtr_g - self.e_n[n] * r_g) * self.phit_ng[n]
-                q_g -= 0.5 * r_g**l * (
-                    (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
-                    r_g * d2adg2_g * dgdr_g**2)
-                q_g[gcmax:] = 0
-                q_g[1:] /= r_g[1:]
-                if l == 0:
-                    q_g[0] = q_g[1]
-                pt_ng[n] = q_g
-
-                self.nt_g += self.f_n[n] / 4 / pi * phit_ng[n]**2
-
-                continue
-
-            e = self.e_n[0]
-            dphidr = 0.5 * (phi_g[gc + 1] - phi_g[gc - 1]) / rgd.dr_g[gc]
-            dudr = dphidr * r_g[gc] + phi_g[gc]
-            ld = dudr / (phi_g[gc] * r_g[gc])  # logarithmic derivative
-
-            nn = n
-            # Bracket solution.  Find first end-point:
-            while True:
-                ldt, nodes = integrate(c, e)
-                if nodes == nn:
-                    break
-                c += 0.1 * (nodes - nn)
-
-            if ldt < ld:
-                dc = 0.1
-            else:
-                dc = -0.1
-
-            # ... second end-point:
-            c2 = c + dc
-            while True:
-                ldt, nodes = integrate(c2, e)
-                if nodes != nn:
-                    dc /= 2
-                    c2 -= dc
-                    continue
-                if (ldt - ld) * dc > 0:
-                    break
-                c = c2
-                c2 += dc
-
-            c = brentq(f, min(c, c2), max(c, c2), (e, ld))
-
-            phit_ng[n, 1:] = u_g[1:] / r_g[1:]
-            phit_ng[n, 0] = 0.0**self.l
-            phit_ng[n] *= phi_ng[n, gc] / phit_ng[n, gc]
-            phit_ng[n, gc:] = phi_ng[n, gc:]
-            pt_ng[n] = -c * k_g * phit_ng[n]
-            if 0:
-                q = (rgd.T(phit_ng[n] * r_g, self.l) +
-                     (vtr_g - e * r_g) * phit_ng[n])
-                rgd.plot(q, -1)
-                rgd.plot(pt_ng[n], 0, show=1)
-
-                rgd.plot(phi_g, 0)
-                rgd.plot(phit_ng[n], 0, show=1)
+            phit_ng[n], c0 = rgd.pseudize(phi_g, gc, self.l, nderiv)
+            a_g, dadg_g, d2adg2_g = rgd.zeros(3)
+            a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
+            a_g[0] = c0
+            dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
+            d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
+            q_g = (vtr_g - self.e_n[n] * r_g) * self.phit_ng[n]
+            q_g -= 0.5 * r_g**l * (
+                (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
+                r_g * d2adg2_g * dgdr_g**2)
+            q_g[gcmax:] = 0
+            rgd.cut(q_g, self.rcut)
+            q_g[1:] /= r_g[1:]
+            if l == 0:
+                q_g[0] = q_g[1]
+            pt_ng[n] = q_g
 
             self.nt_g += self.f_n[n] / 4 / pi * phit_ng[n]**2
 
-        self.dS_nn = np.empty((N, N))
-        self.dH_nn = np.empty((N, N))
-        for n1 in range(N):
-            for n2 in range(N):
-                self.dS_nn[n1, n2] = rgd.integrate(
-                    phi_ng[n1] * phi_ng[n2] -
-                    phit_ng[n1] * phit_ng[n2]) / (4 * pi)
-                h_g = rgd.T(phi_ng[n2] * r_g, self.l)
-                h_g += vr_g * phi_ng[n2]
-                ht_g = rgd.T(phit_ng[n2] * r_g, self.l)
-                ht_g += vtr_g * phit_ng[n2]
-                self.dH_nn[n1, n2] = rgd.integrate(
-                    phi_ng[n1] * h_g - phit_ng[n1] * ht_g, -1) / (4 * pi)
+        self.dS_nn = (rgd.integrate(phi_ng[:, None] * phi_ng) -
+                      rgd.integrate(phit_ng[:, None] * phit_ng)) / (4 * pi)
         self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
-
         A_nn = rgd.integrate(phit_ng[:, None] * pt_ng) / (4 * pi)
-        print(self.dH_nn)
         self.dH_nn = np.dot(self.dS_nn, np.diag(self.e_n)) - A_nn
-        print(self.dH_nn)
-        print(self.dS_nn)
-        print(self.e_n)
+        self.dH_nn *= 0.5
+        self.dH_nn += self.dH_nn.T.copy()
         pt_ng[:] = np.dot(np.linalg.inv(A_nn.T), pt_ng)
 
     def construct_projectors(self, vtr_g, rcmax):
@@ -601,7 +520,7 @@ class PAWSetupGenerator:
         self.nt_g = self.rgd.zeros()
         for waves in self.waves_l:
             waves.pseudize(type, nderiv, self.vtr_g, self.aea.vr_sg[0],
-                           self.rcmax)
+                           2.0 * self.rcmax)
             self.nt_g += waves.nt_g
             self.Q += waves.Q
 
