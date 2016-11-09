@@ -1358,6 +1358,7 @@ class ReciprocalSpaceDensity(Density):
 
 class ReciprocalSpacePoissonSolver:
     def __init__(self, pd):
+        self.pd = pd
         self.G2_q = pd.G2_qG[0][1:]
 
     def initialize(self):
@@ -1411,22 +1412,22 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vbar_Q = self.pd2.zeros()
         self.vbar.add(self.vbar_Q)
 
-    def update_pseudo_potential(self, density):
-        self.ebar = self.pd2.integrate(self.vbar_Q, density.nt_sQ.sum(0))
+    def update_pseudo_potential(self, dens):
+        self.ebar = self.pd2.integrate(self.vbar_Q, dens.nt_sQ.sum(0))
 
         with self.timer('Poisson'):
-            self.poisson.solve(self.vHt_q, density.rhot_q)
-            self.epot = 0.5 * self.pd3.integrate(self.vHt_q, density.rhot_q)
+            self.poisson.solve(self.vHt_q, dens)
+            self.epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
 
-        self.vt_Q = self.vbar_Q + self.vHt_q[density.G3_G] / 8
+        self.vt_Q = self.vbar_Q + self.vHt_q[dens.G3_G] / 8
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
-        nt_dist_sg = density.xc_redistributor.distribute(density.nt_sg)
-        vxct_dist_sg = density.xc_redistributor.aux_gd.zeros(self.nspins)
-        self.exc = self.xc.calculate(density.xc_redistributor.aux_gd,
+        nt_dist_sg = dens.xc_redistributor.distribute(dens.nt_sg)
+        vxct_dist_sg = dens.xc_redistributor.aux_gd.zeros(self.nspins)
+        self.exc = self.xc.calculate(dens.xc_redistributor.aux_gd,
                                      nt_dist_sg, vxct_dist_sg)
-        vxct_sg = density.xc_redistributor.collect(vxct_dist_sg)
+        vxct_sg = dens.xc_redistributor.collect(vxct_dist_sg)
 
         for vt_G, vxct_g in zip(self.vt_sG, vxct_sg):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)

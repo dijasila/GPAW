@@ -1,4 +1,5 @@
 import numpy as np
+from ase.units import Bohr
 from ase.utils import basestring
 
 from gpaw.utilities import erf
@@ -6,7 +7,7 @@ from gpaw.utilities import erf
 
 class DipoleCorrection:
     """Dipole-correcting wrapper around another PoissonSolver."""
-    def __init__(self, poissonsolver, direction):
+    def __init__(self, poissonsolver, direction, width=1.0):
         """Construct dipole correction object.
 
         poissonsolver:
@@ -18,6 +19,7 @@ class DipoleCorrection:
         self.poissonsolver = poissonsolver
 
         self.correction = None
+        self.width = width / Bohr
 
     def todict(self):
         dct = self.poissonsolver.todict()
@@ -61,14 +63,49 @@ class DipoleCorrection:
     def initialize(self):
         self.poissonsolver.initialize()
 
-    def solve(self, phi, rho, **kwargs):
-        gd = self.poissonsolver.gd
-        drho, dphi, self.correction = dipole_correction(self.c, gd, rho)
-        phi -= dphi
-        iters = self.poissonsolver.solve(phi, rho + drho, **kwargs)
-        phi += dphi
-        return iters
+    def solve(self, vHt_g, dens, **kwargs):
+        # if not self.correction_initialized:
+        #     self.initialize_corection()
+        if isinstance(dens, np.ndarray):
+            rhot_g = dens
+            gd = self.poissonsolver.gd
+            drhot_g, dvHt_g, self.correction = dipole_correction(self.c, gd,
+                                                                 rhot_g)
+            vHt_g -= dvHt_g
+            iters = self.poissonsolver.solve(vHt_g, rhot_g + drhot_g, **kwargs)
+            vHt_g += dvHt_g
+            return iters
 
+        gd = self.poissonsolver.pd.gd
+        sawtooth_g = gd.empty()
+        L = gd.cell_cv[2, 2]
+        w = self.width
+        assert w < L / 2
+        gc = int(w / gd.h_cv[2, 2])
+        x = gd.coords(self.c)
+        sawtooth = x / L - 0.5
+        a = 1 / L - 0.75 / w
+        b = 0.25 / w**3
+        sawtooth[:gc] = x[:gc] * (a + b * x[:gc]**2)
+        sawtooth[-gc:] = -sawtooth[gc:0:-1]
+        sawtooth_g = gd.empty()
+        sawtooth_g[:] = sawtooth
+        sawtooth_q = self.poissonsolver.pd.fft(sawtooth_g)
+        if 0:
+            import matplotlib.pyplot as plt
+            plt.plot(x_g, sawtooth_g)
+            plt.show()
+            1 / 0
+
+        self.poissonsolver.solve(vHt_g, dens.rhot_q)
+        dip_v = dens.calculate_dipole_moment()
+        self.correction = 2 * np.pi * dip_v[self.c] * L / gd.volume
+        #import matplotlib.pyplot as plt
+        #plt.plot(x, self.poissonsolver.pd.ifft(vHt_g)[0,0])
+        vHt_g -= 2 * self.correction * sawtooth_q
+        #plt.plot(x, self.poissonsolver.pd.ifft(vHt_g)[0,0])
+        #plt.show()
+        #1/0
     def estimate_memory(self, mem):
         self.poissonsolver.estimate_memory(mem)
 
