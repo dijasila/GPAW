@@ -19,17 +19,13 @@ class FDTDInducedField(BaseInducedField, Observer):
     -------------------------------------------
     time: float
         Current time
-    Fn_wsG: ndarray (complex)
+    Fn_wG: ndarray (complex)
         Fourier transform of induced polarization charge density
-    n0t_sG: ndarray (float)
+    n0_G: ndarray (float)
         Ground state charge density
-    FD_awsp: dict of ndarray (complex)
-        Fourier transform of induced D_asp
-    D0_asp: dict of ndarray (float)
-        Ground state D_asp
     """
     
-    def __init__(self, filename=None, paw=None, ws='all',
+    def __init__(self, filename=None, paw=None,
                   frequencies=None, folding='Gauss', width=0.08,
                   interval=1, restart_file=None
                   ):
@@ -62,41 +58,42 @@ class FDTDInducedField(BaseInducedField, Observer):
 
 
         self.readwritemode_str_to_list = \
-        {'': ['Fn', 'n0', 'FD', 'atoms'],
-         'all': ['Fn', 'n0', 'FD',
+        {'': ['Fn', 'n0', 'atoms'],
+         'all': ['Fn', 'n0',
                  'Frho', 'Fphi', 'Fef', 'Ffe', 'eps0', 'atoms'],
          'field': ['Frho', 'Fphi', 'Fef', 'Ffe', 'eps0', 'atoms']}
 
-        BaseInducedField.__init__(self, filename, paw, ws,
+        BaseInducedField.__init__(self, filename, paw,
                                   frequencies, folding, width)
         
     def initialize(self, paw, allocate=True):
         BaseInducedField.initialize(self, paw, allocate)
-        
-        # FDTD replacements and overwrites
-        self.fdtd   = paw.hamiltonian.poisson
-        #self.gd     = self.fdtd.cl.gd.refine()
-        self.gd     = self.fdtd.cl.gd
-               
-        assert hasattr(paw, 'time') and hasattr(paw, 'niter'), 'Use TDDFT!'
-        self.time = paw.time
-        self.niter = paw.niter
-        
-        # TODO: remove this requirement
-        assert np.count_nonzero(paw.kick_strength) > 0, \
-        'Apply absorption kick before %s' % self.__class__.__name__
-        
-        # Background electric field
-        self.Fbgef_v = paw.kick_strength
 
-        # Attach to PAW-type object
-        paw.attach(self, self.interval)
-        # TODO: write more details (folding, freqs, etc)
-        parprint('%s: Attached ' % self.__class__.__name__)
+        if self.has_paw:
+            # FDTD replacements and overwrites
+            self.fdtd = paw.hamiltonian.poisson
+            #self.gd = self.fdtd.cl.gd.refine()
+            self.gd = self.fdtd.cl.gd
+
+            assert hasattr(paw, 'time') and hasattr(paw, 'niter'), 'Use TDDFT!'
+            self.time = paw.time
+            self.niter = paw.niter
+
+            # TODO: remove this requirement
+            assert np.count_nonzero(paw.kick_strength) > 0, \
+            'Apply absorption kick before %s' % self.__class__.__name__
+
+            # Background electric field
+            self.Fbgef_v = paw.kick_strength
+
+            # Attach to PAW-type object
+            paw.attach(self, self.interval)
+            # TODO: write more details (folding, freqs, etc)
+            parprint('%s: Attached ' % self.__class__.__name__)
 
     def set_folding(self, folding, width):
         BaseInducedField.set_folding(self, folding, width)
-        
+
         if self.folding is None:
             self.envelope = lambda t: 1.0
         else:
@@ -106,27 +103,26 @@ class FDTDInducedField(BaseInducedField, Observer):
                 self.envelope = lambda t: np.exp(- self.width * t)
             else:
                 raise RuntimeError('unknown folding "' + self.folding + '"')
-        
+
     def allocate(self):
         if not self.allocated:
-            
+
             # Ground state charge density
-            self.n0_G = (-1.0) * self.paw.hamiltonian.poisson.classical_material.sign * \
-                                 self.paw.hamiltonian.poisson.classical_material.charge_density.copy()
-            
+            self.n0_G = -1.0 * self.paw.hamiltonian.poisson.classical_material.sign * \
+                        self.paw.hamiltonian.poisson.classical_material.charge_density.copy()
+
             # Fourier transformed charge density
-            self.Fn_wsG = self.paw.hamiltonian.poisson.cl.gd.zeros((self.nw, self.nspins),
+            self.Fn_wG = self.paw.hamiltonian.poisson.cl.gd.zeros((self.nw,),
                                                                    dtype=self.dtype)
-    
             self.allocated = True
-            
+
         if debug:
-            assert is_contiguous(self.Ft_wG, self.dtype)
+            assert is_contiguous(self.Fn_wG, self.dtype)
 
     def deallocate(self):
         BaseInducedField.deallocate(self)
-        self.n0t_G = None
-        self.Fnt_wG = None
+        self.n0_G = None
+        self.Fn_wG = None
         
     def update(self):
         # Update time
@@ -138,80 +134,95 @@ class FDTDInducedField(BaseInducedField, Observer):
               self.envelope(self.time) * time_step
 
         # Time-dependent quantities
-        n_G = (-1.0) * self.fdtd.classical_material.charge_density * self.fdtd.classical_material.sign
+        n_G = -1.0 * self.fdtd.classical_material.sign * \
+              self.fdtd.classical_material.charge_density
 
         # Update Fourier transforms
         for w in range(self.nw):
-            self.Fn_wsG[w] += (n_G - self.n0_G) * f_w[w]
+            self.Fn_wG[w] += (n_G - self.n0_G) * f_w[w]
 
         # Restart file
         if self.restart_file is not None and \
            self.niter % self.paw.dump_interval == 0:
             self.write(self.restart_file)
             parprint('%s: Wrote restart file %s' % (self.__class__.__name__, self.restart_file))
-    
-        
+
     def get_induced_density(self, from_density, gridrefinement):
-        #Frho_wg = -self.Fn_wG.sum(axis=1).copy()
-        #Fn_wG_global = -self.gd.collect(self.Fn_wG).sum(axis=1)
-        #if self.gd.comm.rank==0:
+        if self.gd == self.fdtd.cl.gd:
+            Frho_wg = self.Fn_wG.copy()
+        else:
+            Frho_wg = Transformer(self.fdtd.cl.gd,
+                                  self.gd,
+                                  self.stencil,
+                                  dtype=self.dtype).apply(self.Fn_wG)
+
+        Frho_wg, gd = self.interpolate_density(self.gd, Frho_wg, gridrefinement)
+        return Frho_wg, gd
+
+    def interpolate_density(self, gd, Fn_wg, gridrefinement=2):
         
-        Frho_wg = []
-        for w in range(self.nw):
-            if self.gd == self.fdtd.cl.gd:
-                Frho_wg.append(self.Fn_wsG[w].sum(axis=0))
-            else:
-                Frho_wg.append(Transformer(self.fdtd.cl.gd,
-                                           self.gd,
-                                           self.stencil,
-                                           dtype=self.dtype).apply(self.Fn_wsG[w].sum(axis=0)))
+        # Find m for
+        # gridrefinement = 2**m
+        m1 = np.log(gridrefinement) / np.log(2.)
+        m = int(np.round(m1))
+
+        # Check if m is really integer
+        if np.absolute(m - m1) < 1e-8:
+            for i in range(m):
+                gd2 = gd.refine()
+                
+                # Interpolate
+                interpolator = Transformer(gd, gd2, self.stencil,
+                                           dtype=self.dtype)
+                Fn2_wg = gd2.empty((self.nw,), dtype=self.dtype)
+                for w in range(self.nw):
+                    interpolator.apply(Fn_wg[w], Fn2_wg[w],
+                                       np.ones((3, 2), dtype=complex))
+
+                gd = gd2
+                Fn_wg = Fn2_wg
+        else:
+            raise NotImplementedError
         
-        return Frho_wg, self.gd
-    
-    def _read(self, tar, reads, ws):
-        BaseInducedField._read(self, tar, reads, ws)
-        
+        return Fn_wg, gd
+
+    def _read(self, reader, reads):
+        BaseInducedField._read(self, reader, reads)
+
         # Test time
-        time = tar['time']
-        if abs(time - self.time) >= 1e-9:
-            raise IOError('Timestamp is incompatible with calculator.')
+        r = reader
+        time = r.time
+        if self.has_paw:
+            # Test time
+            if abs(time - self.time) >= 1e-9:
+                raise IOError('Timestamp is incompatible with calculator.')
+        else:
+            self.time = time
 
         # Allocate
         self.allocate()
 
+        def readarray(name):
+            if name.split('_')[0] in reads:
+                self.gd.distribute(r.get(name), getattr(self, name))
+
         # Read arrays
-        if 'n0' in reads:
-            big_g = tar.get('n0_G')
-            self.gd.distribute(big_g, self.n0_G)
-        
-        if 'Fn' in reads:
-            for w, wread in enumerate(ws):
-                big_g = tar.get('Fn_wsG', wread)
-                self.gd.distribute(big_g, self.Fn_wsG[w])
-        
-        if 'eps0' in reads:
-            self.eps0_G = self.gd.empty(dtype=float)
-            big_g = tar.get('eps0_G')
-            self.gd.distribute(big_g, self.eps0_G)
-        else:
-            self.eps0_G = None
+        readarray('n0_G')
+        readarray('Fn_wG')
+        readarray('eps0_G')
 
-
-    def _write(self, tar, writes, ws, masters):
+    def _write(self, writer, writes):
         # Swap classical and quantum cells, and shift atom positions for the time of writing
         qmcell = self.atoms.get_cell()
-        self.atoms.set_cell(self.fdtd.cl.cell*Bohr) # Set classical cell
-        self.atoms.positions = self.atoms.get_positions() + self.fdtd.qm.corner1*Bohr
-        BaseInducedField._write(self, tar, writes, ws, masters)
+        self.atoms.set_cell(self.fdtd.cl.cell * Bohr) # Set classical cell
+        self.atoms.positions = self.atoms.get_positions() + self.fdtd.qm.corner1 * Bohr
+        BaseInducedField._write(self, writer, writes)
         self.atoms.set_cell(qmcell) # Restore quantum cell to the atoms object
-        self.atoms.positions = self.atoms.get_positions() - self.fdtd.qm.corner1*Bohr
+        self.atoms.positions = self.atoms.get_positions() - self.fdtd.qm.corner1 * Bohr
 
-        master, domainmaster, bandmaster, kptmaster = masters
-        
         # Write time propagation status
-        if master:
-            tar['time'] = self.time
-        
+        writer.write(time=self.time)
+
         # Mask, interpolation approach:
         #self.eps0_G = self.fdtd.classical_material.permittivityValue(omega=0.0) - self.fdtd.classical_material.epsInfty
         #self.eps0_G= -interpolator.apply(self.eps0_G)
@@ -219,56 +230,35 @@ class FDTDInducedField(BaseInducedField, Observer):
         # Mask, direct approach:
         self.eps0_G = self.fdtd.cl.gd.zeros()
         for component in self.fdtd.classical_material.components:
-            self.eps0_G += 1.0 * component.get_mask(gd = self.fdtd.cl.gd, verbose = False)
-        
+            self.eps0_G += 1.0 * component.get_mask(gd=self.fdtd.cl.gd)
+
+#        def writearray(name, shape, dtype):
+#            if name.split('_')[0] in writes:
+#                writer.add_array(name, shape, dtype)
+#            a_wxg = getattr(self, name)
+#            for w in range(self.nw):
+#                if self.fdtd.cl.gd == self.gd:
+#                    writer.fill(self.gd.collect(a_wxg[w]))
+#                else:
+#                    writer.fill(self.gd.collect(Transformer(self.fdtd.cl.gd, self.gd, self.stencil, self.dtype).apply(a_wxg[w])))
+
+        def writearray(name):
+            if name.split('_')[0] in writes:
+                a_xg = getattr(self, name)
+                if self.fdtd.cl.gd != self.gd:
+                    a_xg = Transformer(self.fdtd.cl.gd,
+                                       self.gd,
+                                       self.stencil,
+                                       a_xg.dtype).apply(a_xg)
+                writer.write(**{name: self.gd.collect(a_xg)})
+
         # Write time propagation arrays
-        if 'n0' in writes:
-            
-            if master:
-                tar.add('n0_G',
-                        ('ng0', 'ng1', 'ng2'),
-                        dtype=float)
-            
-            if self.fdtd.cl.gd == self.gd:
-                big_g = self.gd.collect(self.n0_G)
-            else:
-                big_g = self.gd.collect(Transformer(self.fdtd.cl.gd, self.gd, self.stencil, float).apply(self.n0_G))
-            
-            if master:
-                tar.fill(big_g)
-                
-        if 'Fn' in writes:
-            if master:
-                tar.add('Fn_wsG',
-                        ('nw', 'nspins', 'ng0', 'ng1', 'ng2'),
-                        dtype=self.dtype)
-            for w in ws:
-                #big_g = self.gd.collect(self.Fn_wG[w])
-                if self.fdtd.cl.gd == self.gd:
-                    big_g = self.gd.collect(self.Fn_wsG[w])
-                else:
-                    big_g = self.gd.collect(Transformer(self.fdtd.cl.gd, self.gd, self.stencil, self.dtype).apply(self.Fn_wsG[w]))
-                #big_g = self.gd.collect(interpolator_float.apply(self.n0_G.copy()))
-                if master:
-                    tar.fill(big_g)
-         
-        if 'eps0' in writes:
-            if master:
-                tar.add('eps0_G',
-                        ('ng0', 'ng1', 'ng2'),
-                        dtype=float)
-            #big_g = self.fieldgd.collect(self.eps0_G)
-            if self.fdtd.cl.gd == self.gd:
-                big_g = self.gd.collect(self.eps0_G)
-            else:
-                big_g = self.gd.collect(Transformer(self.fdtd.cl.gd, self.gd, self.stencil, float).apply(self.eps0_G))
-            if master:
-                tar.fill(big_g)
-        
-        if master and hasattr(self.fdtd, 'qm') and hasattr(self.fdtd.qm, 'corner1'):
-            tar.add('corner1_v', ('nv',), self.fdtd.qm.corner1, dtype=float)
-            tar.add('corner2_v', ('nv',), self.fdtd.qm.corner2, dtype=float)
-        
+        writearray('n0_G')
+        writearray('Fn_wG')
+        writearray('eps0_G')
+
+        if hasattr(self.fdtd, 'qm') and hasattr(self.fdtd.qm, 'corner1'):
+            writer.write(corner1_v=self.fdtd.qm.corner1)
+            writer.write(corner2_v=self.fdtd.qm.corner2)
+
         self.fdtd.cl.gd.comm.barrier()
-            
-            
