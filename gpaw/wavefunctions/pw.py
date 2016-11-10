@@ -1357,8 +1357,9 @@ class ReciprocalSpaceDensity(Density):
 
 
 class ReciprocalSpacePoissonSolver:
-    def __init__(self, pd):
+    def __init__(self, pd, realpbc_c):
         self.pd = pd
+        self.realpbc_c = realpbc_c
         self.G2_q = pd.G2_qG[0][1:]
 
     def initialize(self):
@@ -1373,15 +1374,15 @@ class ReciprocalSpacePoissonSolver:
     def todict(self):
         return {}
 
-    def solve(self, vHt_q, rhot_q):
-        vHt_q[:] = 4 * pi * rhot_q
+    def solve(self, vHt_q, dens):
+        vHt_q[:] = 4 * pi * dens.rhot_q
         vHt_q[1:] /= self.G2_q
 
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
                  world, vext=None,
-                 psolver=None, redistributor=None):
+                 psolver=None, redistributor=None, realpbc_c=None):
 
         assert gd.comm.size == 1
         assert finegd.comm.size == 1
@@ -1397,13 +1398,13 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vHt_q = pd3.empty()
 
         if psolver is None:
-            psolver = ReciprocalSpacePoissonSolver(pd3)
+            psolver = ReciprocalSpacePoissonSolver(pd3, realpbc_c)
         elif isinstance(psolver, dict):
             direction = psolver['dipolelayer']
             assert len(psolver) == 1
             from gpaw.dipole_correction import DipoleCorrection
-            psolver = DipoleCorrection(ReciprocalSpacePoissonSolver(pd3),
-                                       direction)
+            psolver = DipoleCorrection(
+                ReciprocalSpacePoissonSolver(pd3, realpbc_c), direction)
         self.poisson = psolver
         self.npoisson = 0
 
@@ -1472,3 +1473,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         dens.ghat.derivative(self.vHt_q, ghat_aLv)
         dens.nct.derivative(self.vt_Q, nct_av)
         self.vbar.derivative(dens.nt_sQ.sum(0), vbar_av)
+
+    def get_electrostatic_potential(self, dens):
+        self.poisson.solve(self.vHt_q, dens)
+        return self.pd3.ifft(self.vHt_q)

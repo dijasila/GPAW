@@ -661,3 +661,13 @@ class RealSpaceHamiltonian(Hamiltonian):
         else:
             dens.ghat.derivative(self.vHt_g, ghat_aLv)
         dens.nct.derivative(vt_G, nct_av)
+
+    def get_electrostatic_potential(self, dens):
+        self.update(dens)
+
+        v_g = self.gd.collect(self.vHt_g, broadcast=True)
+        v_g = self.finegd.zero_pad(v_g)
+        if hasattr(self.poisson, 'correction'):
+            assert self.poisson.c == 2
+            v_g[:, :, 0] = self.poisson.correction
+        return v_g
