@@ -29,11 +29,10 @@ eps_gold = PermittivityPlus(data = [[0.2350, 0.1551,  95.62],
                                     [7.912,   1.361,  81.04]])
 
 # 1) Nanosphere only
-classical_material = PolarizableMaterial()                            
-
-classical_material.add_component(PolarizableSphere(center = sphere_center,
-                                 radius                   = radius,
-                                 permittivity             = eps_gold))
+classical_material = PolarizableMaterial()
+classical_material.add_component(PolarizableSphere(center       = sphere_center,
+                                                   radius       = radius,
+                                                   permittivity = eps_gold))
 
 qsfdtd = QSFDTD(classical_material = classical_material,
                 atoms              = None,
@@ -54,10 +53,10 @@ photoabsorption_spectrum('dm.dat', 'spec.1.dat', width=0.15)
 
 
 # 2) Na2 only (radius=0)
-classical_material = PolarizableMaterial()                            
-classical_material.add_component(PolarizableSphere(center = sphere_center,
-                                 radius                   = 0.0,
-                                 permittivity             = eps_gold))
+classical_material = PolarizableMaterial()
+classical_material.add_component(PolarizableSphere(center       = sphere_center,
+                                                   radius       = 0.0,
+                                                   permittivity = eps_gold))
 
 qsfdtd = QSFDTD(classical_material = classical_material,
                 atoms              = atoms,
@@ -76,10 +75,10 @@ qsfdtd.time_propagation('gs.gpw',
 photoabsorption_spectrum('dm.dat', 'spec.2.dat', width=0.15)
 
 # 3) Nanosphere + Na2
-classical_material = PolarizableMaterial()                            
-classical_material.add_component(PolarizableSphere(center = sphere_center,
-                                 radius                   = radius,
-                                 permittivity             = eps_gold))
+classical_material = PolarizableMaterial()
+classical_material.add_component(PolarizableSphere(center       = sphere_center,
+                                                   radius       = radius,
+                                                   permittivity = eps_gold))
 
 qsfdtd = QSFDTD(classical_material = classical_material,
                 atoms              = atoms,
