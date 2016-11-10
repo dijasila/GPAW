@@ -185,7 +185,8 @@ class BaseInducedField(object):
         
         # Always extend a bit to get field without jumps
         if extend_N_cd is None:
-            extend_N_cd = gradient_n * np.ones(shape=(3, 2), dtype=np.int)
+            extend_N = max(8, 2 ** int(np.ceil(np.log(gradient_n) / np.log(2.))))
+            extend_N_cd = extend_N * np.ones(shape=(3, 2), dtype=np.int)
             deextend = True
         
         # Extend grid
@@ -353,17 +354,6 @@ class BaseInducedField(object):
         """
         if idiotproof and not filename.endswith('.ind'):
             raise IOError('Filename must end with `.ind`.')
-
-        # Masters
-        domainmaster = self.domain_comm.rank == 0
-        bandmaster = self.band_comm.rank == 0
-        kptmaster = self.kpt_comm.rank == 0
-        master = domainmaster and bandmaster and kptmaster
-#        master = self.world.rank == 0
-
-        if master:
-            if self.world.rank != 0:
-                raise IOError('master not world master')
 
         writes = self._parse_readwritemode(mode)
 
