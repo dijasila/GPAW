@@ -136,7 +136,7 @@ class QSFDTD:
                                restart_file, dump_interval)
 
 
-# This helps in telling the classical quantitites from the quantum ones
+# This helps in telling the classical quantities from the quantum ones
 class PoissonOrganizer:
     def __init__(self, poisson_solver=None):
         self.poisson_solver = poisson_solver
@@ -725,14 +725,14 @@ class FDTDPoissonSolver:
                 cln = Transformer(clgd, clgd.refine()).apply(cln)
                 clgd = clgd.refine()
 
-                # refine quantum part
+            # refine quantum part
             qmgd = GridDescriptor(self.qm.gd.N_c, self.qm.cell, False,
                                   serial_comm, None)
             while qmgd.h_cv[0, 0] < clgd.h_cv[0, 0] * 0.95:
                 qmn = Transformer(qmgd, qmgd.coarsen()).apply(qmn)
                 qmgd = qmgd.coarsen()
 
-            assert np.all(qmgd.h_cv == clgd.h_cv), \
+            assert np.all(np.absolute(qmgd.h_cv - clgd.h_cv) < 1e-12), \
                 " Spacings %.8f (qm) and %.8f (cl) Angstroms" \
                 % (qmgd.h_cv[0][0] * Bohr, clgd.h_cv[0][0] * Bohr)
 
