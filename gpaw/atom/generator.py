@@ -705,7 +705,8 @@ class Generator(AllElectron):
 
         sqrt4pi = sqrt(4 * pi)
         setup = SetupData(self.symbol, self.xc.name, self.name,
-                          readxml=False)
+                          readxml=False,
+                          generator_version=1)
 
         def divide_by_r(x_g, l):
             r = self.r
@@ -722,6 +723,7 @@ class Generator(AllElectron):
             return [divide_by_r(x_g, l) for x_g, l in zip(x_jg, vl_j)]
 
         setup.l_j = vl_j
+        setup.l_orb_j = vl_j
         setup.n_j = vn_j
         setup.f_j = vf_j
         setup.eps_j = ve_j

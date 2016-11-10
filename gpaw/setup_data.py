@@ -31,11 +31,13 @@ else:
 class SetupData:
     """Container class for persistent setup attributes and XML I/O."""
     def __init__(self, symbol, xcsetupname, name='paw', readxml=True,
-                 zero_reference=False, world=None):
+                 zero_reference=False, world=None,
+                 generator_version=None):
         self.symbol = symbol
         self.setupname = xcsetupname
         self.name = name
         self.zero_reference = zero_reference
+        self.generator_version = generator_version
 
         # Default filename if this setup is written
         if name is None or name == 'paw':
@@ -114,6 +116,11 @@ class SetupData:
 
         if readxml:
             self.read_xml(world=world)
+
+    def __repr__(self):
+        return ('{0}({symbol!r}, {setupname!r}, name={name!r}, '
+                'generator_version={generator_version!r}, ...)'
+                .format(self.__class__.__name__, **vars(self)))
 
     def append(self, n, l, f, e, rcut, phi_g, phit_g, pt_g):
         self.n_j.append(n)
