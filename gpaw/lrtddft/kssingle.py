@@ -212,11 +212,10 @@ class KSSingles(ExcitationList):
         else:
             f = fh
 
-        try:
-            assert(f.readline().startswith('# KSSingles'))
-        except:
+        if not f.readline().startswith('# KSSingles'):
             raise RuntimeError(f.name + ' is not a ' +
                                self.__class__.__name__ + ' data file')
+        
         words = f.readline().split()
         n = int(words[0])
         if len(words) == 1:
