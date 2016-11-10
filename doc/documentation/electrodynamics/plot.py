@@ -6,7 +6,8 @@ from gpaw.fdtd.polarizable_material import PermittivityPlus, _eps0_au
 # Nanosphere radius (Angstroms)
 radius = 50.0
 
-# Permittivity of Gold (from  J. Chem. Phys. 137, 074113 (2012))
+# Permittivity of Gold
+# J. Chem. Phys. 135, 084121 (2011); http://dx.doi.org/10.1063/1.3626549
 gold = [[0.2350, 0.1551,  95.62],
         [0.4411, 0.1480, -12.55],
         [0.7603,  1.946, -40.89],
