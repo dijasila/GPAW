@@ -81,15 +81,8 @@ class LDA(XCFunctional):
         XCFunctional.__init__(self, kernel.name)
         self.type = kernel.type
 
-    def calculate(self, gd, n_sg, v_sg=None, e_g=None):
-        if gd is not self.gd:
-            self.set_grid_descriptor(gd)
-        if e_g is None:
-            e_g = gd.empty()
-        if v_sg is None:
-            v_sg = np.zeros_like(n_sg)
-        self.calculate_lda(e_g, n_sg, v_sg)
-        return gd.integrate(e_g)
+    def calculate_impl(self, gd, n_sg, v_sg, e_g):
+        self.kernel.calculate(e_g, n_sg, v_sg)
 
     def calculate_lda(self, e_g, n_sg, v_sg):
         self.kernel.calculate(e_g, n_sg, v_sg)

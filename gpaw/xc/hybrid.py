@@ -132,7 +132,7 @@ class HybridXC(HybridXCBase):
     def set_positions(self, spos_ac):
         self.ghat.set_positions(spos_ac)
     
-    def calculate(self, gd, n_sg, v_sg=None, e_g=None):
+    def calculate_impl(self, gd, n_sg, v_sg, e_g):
         # Normal XC contribution:
         exc = self.xc.calculate(gd, n_sg, v_sg, e_g)
         # Note that the quantities passed are on the density/Hamiltonian grids!

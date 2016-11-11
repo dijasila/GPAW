@@ -55,11 +55,7 @@ class NonLocalFunctional(XCFunctional):
         for contribution in self.contributions:
             contribution.initialize_1d()
 
-    def calculate(self, gd, n_sg, v_sg=None, e_g=None):
-        if e_g is None:
-            e_g = gd.empty()
-        if v_sg is None:
-            v_sg = np.zeros_like(n_sg)
+    def calculate_impl(self, gd, n_sg, v_sg, e_g):
         if self.nspins == 1:
             self.calculate_spinpaired(e_g, n_sg[0], v_sg[0])
         else:

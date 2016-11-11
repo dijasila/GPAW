@@ -51,30 +51,29 @@ def gga_add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg,
                 # TODO: can the number of gradient evaluations be reduced?
 
 
+def get_gga_quantities(gd, grad_v, n_sg):
+    nspins = len(n_sg)
+    sigma_xg, gradn_svg = calculate_sigma(gd, grad_v, n_sg)
+    dedsigma_xg = gd.empty(nspins * 2 - 1)
+    return sigma_xg, dedsigma_xg
+
+
 class GGA(LDA):
     def set_grid_descriptor(self, gd):
         LDA.set_grid_descriptor(self, gd)
         self.grad_v = [Gradient(gd, v).apply for v in range(3)]
 
     def calculate_lda(self, e_g, n_sg, v_sg):
-        nspins = len(n_sg)
-        sigma_xg, gradn_svg = self.calculate_sigma(n_sg)
-        dedsigma_xg = self.gd.empty(nspins * 2 - 1)
+        sigma_xg, dedsigma_xg = get_gga_quantities(self.gd, self.grad_v, n_sg)
         self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-        self.add_gradient_correction(gradn_svg, sigma_xg, dedsigma_xg, v_sg)
-
-    def add_gradient_correction(self, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
         gga_add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
                                     dedsigma_xg, v_sg)
-
-    def calculate_sigma(self, n_sg):
-        return calculate_sigma(self.gd, self.grad_v, n_sg)
 
     def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
 
     def stress_tensor_contribution(self, n_sg):
-        sigma_xg, gradn_svg = self.calculate_sigma(n_sg)
+        sigma_xg, gradn_svg = calculate_sigma(self.gd, self.grad_v, n_sg)
         nspins = len(n_sg)
         dedsigma_xg = self.gd.empty(nspins * 2 - 1)
         v_sg = self.gd.zeros(nspins)
