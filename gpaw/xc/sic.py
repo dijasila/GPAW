@@ -228,9 +228,9 @@ class SIC(XCFunctional):
     def set_positions(self, spos_ac):
         self.ghat.set_positions(spos_ac)
 
-    def calculate_impl(self, gd, n_sg, v_sg, e_g):
+    def calculate(self, gd, n_sg, v_sg=None, e_g=None):
         # Normal XC contribution:
-        exc = self.xc.calculate_impl(gd, n_sg, v_sg, e_g)
+        exc = self.xc.calculate(gd, n_sg, v_sg, e_g)
 
         # SIC:
         self.esic = 0.0

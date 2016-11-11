@@ -82,7 +82,7 @@ class LDA(XCFunctional):
         self.type = kernel.type
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        self.kernel.calculate(e_g, n_sg, v_sg)
+        self.calculate_lda(e_g, n_sg, v_sg)
 
     def calculate_lda(self, e_g, n_sg, v_sg):
         self.kernel.calculate(e_g, n_sg, v_sg)

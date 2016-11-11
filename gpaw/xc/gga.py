@@ -55,7 +55,7 @@ def get_gga_quantities(gd, grad_v, n_sg):
     nspins = len(n_sg)
     sigma_xg, gradn_svg = calculate_sigma(gd, grad_v, n_sg)
     dedsigma_xg = gd.empty(nspins * 2 - 1)
-    return sigma_xg, dedsigma_xg
+    return sigma_xg, dedsigma_xg, gradn_svg
 
 
 class GGA(LDA):
@@ -64,7 +64,7 @@ class GGA(LDA):
         self.grad_v = [Gradient(gd, v).apply for v in range(3)]
 
     def calculate_lda(self, e_g, n_sg, v_sg):
-        sigma_xg, dedsigma_xg = get_gga_quantities(self.gd, self.grad_v, n_sg)
+        sigma_xg, dedsigma_xg, gradn_svg = get_gga_quantities(self.gd, self.grad_v, n_sg)
         self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
         gga_add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
                                     dedsigma_xg, v_sg)
