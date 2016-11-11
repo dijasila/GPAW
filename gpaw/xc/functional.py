@@ -1,12 +1,13 @@
 import numpy as np
 
-class XCFunctional:
+class XCFunctional(object):
     orbital_dependent = False
 
-    def __init__(self, name):
+    def __init__(self, name, type):
         self.name = name
         self.gd = None
         self.ekin = 0.0
+        self.type = type
 
     def get_setup_name(self):
         return self.name

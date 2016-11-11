@@ -7,7 +7,7 @@ from gpaw.utilities.blas import axpy
 from gpaw.fd_operators import Gradient
 from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
-
+from gpaw.xc.functional import XCFunctional
 
 def gga_radial_expansion(calculate_radial, rgd, D_sLq, n_qg, nc0_sg):
     n_sLg = np.dot(D_sLq, n_qg)
@@ -133,10 +133,18 @@ def get_gga_quantities(gd, grad_v, n_sg):
     return sigma_xg, dedsigma_xg, gradn_svg
 
 
+def get_gradient_ops(gd):
+    return [Gradient(gd, v).apply for v in range(3)]
+
+
 class GGA(LDA):
+    def __init__(self, kernel):
+        LDA.__init__(self, kernel)
+        #self.kernel = kernel
+
     def set_grid_descriptor(self, gd):
         LDA.set_grid_descriptor(self, gd)
-        self.grad_v = [Gradient(gd, v).apply for v in range(3)]
+        self.grad_v = get_gradient_ops(gd)
 
     def calculate_lda(self, e_g, n_sg, v_sg):
         sigma_xg, dedsigma_xg, gradn_svg = get_gga_quantities(self.gd, self.grad_v, n_sg)

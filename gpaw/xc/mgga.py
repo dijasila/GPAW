@@ -3,19 +3,23 @@ from math import sqrt, pi
 import numpy as np
 
 from gpaw.xc.gga import (GGA, gga_add_gradient_correction, get_gga_quantities,
-                         gga_radial1, gga_radial2, gga_radial_expansion)
-from gpaw.xc.lda import lda_calculate_paw_correction
+                         gga_radial1, gga_radial2, gga_radial_expansion,
+                         get_gradient_ops)
+from gpaw.xc.lda import lda_calculate_paw_correction, LDA
+from gpaw.xc.functional import XCFunctional
 from gpaw.sphere.lebedev import weight_n
 
-class MGGA(GGA):
+class MGGA(XCFunctional):
     orbital_dependent = True
 
     def __init__(self, kernel):
         """Meta GGA functional."""
-        GGA.__init__(self, kernel)
+        XCFunctional.__init__(self, kernel.name, kernel.type)
+        self.kernel = kernel
 
     def set_grid_descriptor(self, gd):
-        GGA.set_grid_descriptor(self, gd)
+        self.grad_v = get_gradient_ops(gd)
+        XCFunctional.set_grid_descriptor(self, gd)
 
     def get_setup_name(self):
         return 'PBE'

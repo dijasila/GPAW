@@ -184,8 +184,7 @@ class SIC(XCFunctional):
         if isinstance(xc, basestring):
             xc = XC(xc)
         self.xc = xc
-        self.type = xc.type
-        XCFunctional.__init__(self, xc.name + '-PZ-SIC')
+        XCFunctional.__init__(self, xc.name + '-PZ-SIC', xc.type)
         self.finegrid = finegrid
         self.parameters = parameters
 

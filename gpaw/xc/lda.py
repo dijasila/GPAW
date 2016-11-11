@@ -61,7 +61,6 @@ def lda_calculate_radial_expansion(kernel, rgd, D_sLq, n_qg, nc0_sg):
     dEdD_sqL = np.zeros_like(np.transpose(D_sLq, (0, 2, 1)))
 
     Lmax = n_sLg.shape[1]
-
     E = 0.0
     for n, Y_L in enumerate(Y_nL[:, :Lmax]):
         w = weight_n[n]
@@ -70,7 +69,6 @@ def lda_calculate_radial_expansion(kernel, rgd, D_sLq, n_qg, nc0_sg):
         dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
                            n_qg.T)[:, :, np.newaxis] * (w * Y_L)
         E += w * rgd.integrate(e_g)
-
     return E, dEdD_sqL
 
 
@@ -78,8 +76,7 @@ def lda_calculate_radial_expansion(kernel, rgd, D_sLq, n_qg, nc0_sg):
 class LDA(XCFunctional):
     def __init__(self, kernel):
         self.kernel = kernel
-        XCFunctional.__init__(self, kernel.name)
-        self.type = kernel.type
+        XCFunctional.__init__(self, kernel.name, kernel.type)
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         self.calculate_lda(e_g, n_sg, v_sg)

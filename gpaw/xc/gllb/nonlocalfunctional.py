@@ -4,12 +4,10 @@ import numpy as np
 
 
 class NonLocalFunctional(XCFunctional):
-    type = 'GLLB'
-
     def __init__(self, xcname):
         self.contributions = []
         self.xcs = {}
-        XCFunctional.__init__(self, xcname)
+        XCFunctional.__init__(self, xcname, 'GLLB')
         self.mix = None
         self.mix_vt_sg = None
         self.old_vt_sg = None
