@@ -139,7 +139,6 @@ def get_gradient_ops(gd):
 
 class GGA(XCFunctional):
     def __init__(self, kernel):
-        #LDA.__init__(self, kernel)
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
 
@@ -149,12 +148,9 @@ class GGA(XCFunctional):
 
     def calculate_lda(self, e_g, n_sg, v_sg):
         sigma_xg, dedsigma_xg, gradn_svg = get_gga_quantities(self.gd, self.grad_v, n_sg)
-        self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
         gga_add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
                                     dedsigma_xg, v_sg)
-
-    def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
-        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         self.calculate_lda(e_g, n_sg, v_sg)
@@ -172,7 +168,7 @@ class GGA(XCFunctional):
         dedsigma_xg = self.gd.empty(nspins * 2 - 1)
         v_sg = self.gd.zeros(nspins)
         e_g = self.gd.empty()
-        self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
 
         def integrate(a1_g, a2_g=None):
             return self.gd.integrate(a1_g, a2_g, global_integral=False)
@@ -204,12 +200,9 @@ class GGA(XCFunctional):
 
     def calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
         e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_radial1(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
-        self.calculate_gga_radial(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, n)
+        self.kernel.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
         vv_sg = gga_radial2(rgd, sigma_xg, dedsigma_xg, a_sg)
         return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
-
-    def calculate_gga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg, n):
-        return self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         dndr_sg = np.empty_like(n_sg)

@@ -79,9 +79,6 @@ class LDA(XCFunctional):
         XCFunctional.__init__(self, kernel.name, kernel.type)
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        self.calculate_lda(e_g, n_sg, v_sg)
-
-    def calculate_lda(self, e_g, n_sg, v_sg):
         self.kernel.calculate(e_g, n_sg, v_sg)
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
@@ -118,7 +115,7 @@ class LDA(XCFunctional):
         nspins = len(n_sg)
         v_sg = self.gd.zeros(nspins)
         e_g = self.gd.empty()
-        self.calculate_lda(e_g, n_sg, v_sg)
+        self.calculate_impl(e_g, n_sg, v_sg)
         stress = self.gd.integrate(e_g)
         for v_g, n_g in zip(v_sg, n_sg):
             stress -= self.gd.integrate(v_g, n_g)
