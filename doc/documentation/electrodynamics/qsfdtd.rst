@@ -47,7 +47,8 @@ be used.
 Permittivity
 ------------
 
-In the current implementation, the permittivity of the classical material is parametrized as
+In the current implementation, the permittivity of the classical material
+is parametrized as a linear combination of Lorentzian oscillators
 
 .. math::
 

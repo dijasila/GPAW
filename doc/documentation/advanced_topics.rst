@@ -8,7 +8,7 @@ GPAW calculator:
 
 .. toctree::
    :maxdepth: 2
-   
+
    lcao/lcao
    parallel_runs/parallel_runs
    convergence
@@ -20,7 +20,6 @@ GPAW calculator:
    xc/exx
    xc/rpa
    poisson
-   transport/negftransport
    transport/keldyshgf
    tddft/tddft
    electrodynamics/electrodynamics
@@ -32,6 +31,7 @@ GPAW calculator:
    densitymix/densitymix
    scf_conv_eval/scf_conv_eval
    cmdline
+   transport/negftransport
    ../devel/electrostatic_potential
    ../devel/eigenvalues_of_core_states
    ../devel/grids

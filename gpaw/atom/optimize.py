@@ -2,19 +2,19 @@ from __future__ import print_function, division
 import multiprocessing as mp
 import glob
 import os
+import pickle
 import random
 import re
 import time
-import traceback
 
 import numpy as np
 from ase import Atoms
-from ase.data import covalent_radii, atomic_numbers
+from ase.data import covalent_radii, atomic_numbers, chemical_symbols
 from ase.build import bulk
 from ase.build import fcc111
 from ase.units import Bohr
 
-from gpaw import GPAW, PW, setup_paths, Mixer  # , ConvergenceError
+from gpaw import GPAW, PW, setup_paths, Mixer, ConvergenceError
 from gpaw.atom.generator2 import _generate, DatasetGenerationError
 
 
@@ -54,15 +54,15 @@ class GA:
 
         self.fd = open('pool.csv', 'a')  # pool of genes
         self.n = len(self.individuals)
-        self.pool = mp.Pool()  # process pool
 
     def run(self, func, sleep=5, mutate=5.0, size1=2, size2=1000):
+        pool = mp.Pool()  # process pool
         results = []
         while True:
             while len(results) < mp.cpu_count():
                 x = self.new(mutate, size1, size2)
-                self.individuals[x] = (None, self.n)
-                result = self.pool.apply_async(func, [self.n, x])
+                self.individuals[x] = (np.inf, self.n)
+                result = pool.apply_async(func, [self.n, x])
                 self.n += 1
                 results.append(result)
             time.sleep(sleep)
@@ -87,7 +87,7 @@ class GA:
                 if int(f[:-4]) not in nbest:
                     os.remove(f)
 
-            if len(self.individuals) > 40 and best[0][0] == np.inf:
+            if len(self.individuals) > 400 and best[0][0] == np.inf:
                 for result in results:
                     result.wait()
                 return
@@ -160,6 +160,7 @@ class DatasetOptimizer:
     conf = None
 
     def __init__(self, symbol='H', nc=False):
+        self.old = False
 
         self.symbol = symbol
         self.nc = nc
@@ -207,6 +208,12 @@ class DatasetOptimizer:
         ga = GA(self.x)
         ga.run(self)  # , mutate=mu, size1=n1, size2=n2)
 
+    def run_initial(self):
+        errors, total_error = self(0, self.x)[2:]
+        print(self.symbol, 'Errors:', errors, '\nTotal error:', total_error)
+        with open(self.symbol + '.pckl', 'wb') as f:
+            pickle.dump((self.symbol, errors, total_error), f)
+
     def best(self, N=None):
         ga = GA(self.x)
         best = sorted((error, id, x)
@@ -225,12 +232,16 @@ class DatasetOptimizer:
         for error, id, x, errors in self.best(N):
             params = [0.1 * p for p in x[:self.nenergies]]
             params += [0.05 * p for p in x[self.nenergies:]]
-            print('{0:2} {1:2} {2:5} {3:7.1f} {4} {5}'.format(
-                self.Z,
-                self.symbol,
-                id, error,
-                ' '.join('{0:5.2f}'.format(p) for p in params),
-                ' '.join('{0:8.3f}'.format(e) for e in errors)))
+            print('{0:2} {1:2}{2:4}{3:6.1f}|{4}|'
+                  '{5:4.1f}|'
+                  '{6:6.2f} {7:6.2f} {8:6.2f}|'
+                  '{9:6.2f} {10:6.2f} {11:6.2f}|'
+                  '{12:3.0f} {13:4.0f} {14:7.4f} {15:4.1f}'
+                  .format(self.Z,
+                          self.symbol,
+                          id, error,
+                          ' '.join('{0:5.2f}'.format(p) for p in params),
+                          *errors))
 
     def best1(self):
         try:
@@ -264,6 +275,10 @@ class DatasetOptimizer:
 
     def generate(self, fd, xc, projectors, radii, r0,
                  scalar_relativistic=False, tag=None, logderivs=True):
+        if self.old:
+            self.generate_old(fd, xc, scalar_relativistic, tag)
+            return 0.0
+
         if projectors[-1].isupper():
             nderiv0 = 5
         else:
@@ -275,22 +290,41 @@ class DatasetOptimizer:
         gen = _generate(self.symbol, xc, self.conf, projectors, radii,
                         scalar_relativistic, None, r0, nderiv0,
                         (type, 4), None, None, fd)
-        if not gen.check_all():
-            raise DatasetGenerationError(xc)
+        if not scalar_relativistic:
+            if not gen.check_all():
+                print('dataset check failed')
+                return np.inf
 
         if tag is not None:
             gen.make_paw_setup(tag or None).write_xml()
 
         r = 1.1 * gen.rcmax
-        energies = np.linspace(-1.5, 2.0, 100)
-        de = energies[1] - energies[0]
+
         error = 0.0
         if logderivs:
             for l in range(4):
+                emin = -1.5
+                emax = 2.0
+                n0 = gen.number_of_core_states(l)
+                if n0 > 0:
+                    e0_n = gen.aea.channels[l].e_n
+                    emin = max(emin, e0_n[n0 - 1] + 0.1)
+                energies = np.linspace(emin, emax, 100)
+                de = energies[1] - energies[0]
                 ld1 = gen.aea.logarithmic_derivative(l, energies, r)
                 ld2 = gen.logarithmic_derivative(l, energies, r)
-                error = max(error, abs(ld1 - ld2).sum() * de)
+                error += abs(ld1 - ld2).sum() * de
+
         return error
+
+    def generate_old(self, fd, xc, scalar_relativistic, tag):
+        from gpaw.atom.configurations import parameters
+        from gpaw.atom.generator import Generator
+        par = parameters[self.symbol]
+        g = Generator(self.symbol, xc, scalarrel=scalar_relativistic,
+                      nofiles=True, txt=fd)
+        g.run(exx=True, logderiv=False, use_restart_file=False, name=tag,
+              **par)
 
     def parameters(self, x):
         energies = tuple(0.1 * i for i in x[:self.nenergies])
@@ -303,14 +337,15 @@ class DatasetOptimizer:
         fd = open('{0}.txt'.format(n), 'w')
         energies, radii, r0, projectors = self.parameters(x)
 
-        if any(r < r0 for r in radii):  # or any(e <= 0.0 for e in energies):
+        if r0 < 0.2:
+            print(n, x, 'core radius too small')
             return n, x, [np.inf] * NN, np.inf
 
-        try:
-            errors = self.test(n, fd, projectors, radii, r0)
-        except Exception:
-            traceback.print_exc(file=fd)
-            errors = [np.inf] * NN
+        if any(r < r0 for r in radii):  # or any(e <= 0.0 for e in energies):
+            print(n, x, 'radii too small')
+            return n, x, [np.inf] * NN, np.inf
+
+        errors = self.test(n, fd, projectors, radii, r0)
 
         try:
             os.remove('{0}.ga{1}.PBE'.format(self.symbol, n))
@@ -325,10 +360,18 @@ class DatasetOptimizer:
         for xc in ['PBE', 'LDA', 'PBEsol', 'RPBE', 'PW91']:
             error += self.generate(fd, xc, projectors, radii, r0,
                                    scalar_relativistic=True)
+
+        if not np.isfinite(error):
+            return [np.inf] * NN
+
         results = {'dataset': error}
 
         for name in ['slab', 'fcc', 'rocksalt', 'convergence', 'eggbox']:
-            result = getattr(self, name)(n, fd)
+            try:
+                result = getattr(self, name)(n, fd)
+            except ConvergenceError:
+                print(n, name)
+                result = np.inf
             results[name] = result
 
         rc = self.rc / Bohr
@@ -344,10 +387,14 @@ class DatasetOptimizer:
 
         for name in ['fcc', 'rocksalt']:
             result = results[name]
-            maxiter = max(maxiter, result['maxiter'])
-            errors.append(result['a'] - result['a0'])
-            errors.append(result['c90'] - result['c90ref'])
-            errors.append(result['c80'] - result['c80ref'])
+            if isinstance(result, dict):
+                maxiter = max(maxiter, result['maxiter'])
+                errors.append(result['a'] - result['a0'])
+                errors.append(result['c90'] - result['c90ref'])
+                errors.append(result['c80'] - result['c80ref'])
+            else:
+                maxiter = np.inf
+                errors.extend([np.inf, np.inf, np.inf])
 
         errors.append(maxiter)
         errors.append(results['convergence'])
@@ -448,7 +495,7 @@ class DatasetOptimizer:
     def eggbox(self, n, fd):
         h = 0.18
         a0 = 16 * h
-        atoms = Atoms(self.symbol, cell=(a0, a0, a0), pbc=True)
+        atoms = Atoms(self.symbol, cell=(a0, a0, 2 * a0), pbc=True)
         M = 333
         if 58 <= self.Z <= 70 or 90 <= self.Z <= 102:
             M = 999
@@ -509,6 +556,8 @@ if __name__ == '__main__':
     parser.add_option('-b', '--best', action='store_true')
     parser.add_option('-r', '--run', action='store_true')
     parser.add_option('-n', '--norm-conserving', action='store_true')
+    parser.add_option('-i', '--initial-only', action='store_true')
+    parser.add_option('-o', '--old-setups', action='store_true')
     opts, args = parser.parse_args()
     if opts.run:
         symbol = args[0]
@@ -519,12 +568,19 @@ if __name__ == '__main__':
             os.mkdir(symbol)
             os.chdir(symbol)
             do = DatasetOptimizer(symbol, opts.norm_conserving)
-        do.run()  # *args[1:])
+        if opts.initial_only:
+            do.old = opts.old_setups
+            do.run_initial()
+        else:
+            do.run()
     else:
-        if len(args) == 0:
+        if args == ['.']:
             symbol = os.getcwd().rsplit('/', 1)[1]
-            args.append(symbol)
+            args = [symbol]
             os.chdir('..')
+        elif len(args) == 0:
+            args = [symbol for symbol in chemical_symbols
+                    if os.path.isdir(symbol)]
         for symbol in args:
             os.chdir(symbol)
             do = DatasetOptimizer(symbol, opts.norm_conserving)

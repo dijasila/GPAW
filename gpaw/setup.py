@@ -418,7 +418,7 @@ class BaseSetup:
         return self.I4_pp
 
     def get_default_nbands(self):
-        assert len(self.l_orb_j) == len(self.n_j)
+        assert len(self.l_orb_j) == len(self.n_j), (self.l_orb_j, self.n_j)
         return sum([2 * l + 1 for (l, n) in zip(self.l_orb_j, self.n_j)
                     if n > 0])
 
@@ -1187,7 +1187,8 @@ class Setups(list):
                 else:
                     setupname = _type.name  # _type is an object like SetupData
                 # Drop DFT+U specification from type string if it is there:
-                setupname = setupname.split(':')[0]
+                if hasattr(setupname, 'swapcase'):
+                    setupname = setupname.split(':')[0]
 
                 # Basis names inherit setup names except default setups
                 # and ghost atoms.

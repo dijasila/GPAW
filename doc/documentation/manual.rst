@@ -271,8 +271,6 @@ Eggbox errors:
 Features:
     FD mode is the oldest and has most features.  Only PW mode can be used
     for calculating the stress-tensor and for response function calculations.
-    Green's function based electronic transport calculations require
-    LCAO mode.
 
 
 .. _manual_nbands:
@@ -491,8 +489,8 @@ cause an error.  This can be avoided by using::
 This will reduce the number of applied symmetries to just the time-reversal
 symmetry (implying that the Hamiltonian is invariant under **k** -> -**k**).
 For some purposes you might want to have no symmetry reduction of the
-**k**-points at all (debugging, transport calculations, band-structure
-calculations, ...). This can be achieved by specifying::
+**k**-points at all (debugging, band-structure calculations, ...). This can
+be achieved by specifying::
 
     symmetry={'point_group': False, 'time_reversal': False}
 

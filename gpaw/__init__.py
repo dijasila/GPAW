@@ -201,7 +201,7 @@ if debug:
         return a
     np.empty = empty
 
-    
+
 build_path = join(__path__[0], '..', 'build')
 arch = '%s-%s' % (get_platform(), sys.version[0:3])
 
@@ -219,14 +219,21 @@ def get_gpaw_python_path():
     raise RuntimeError('Could not find gpaw-python!')
 
 
-try:
-    setup_paths = os.environ['GPAW_SETUP_PATH'].split(os.pathsep)
-except KeyError:
-    if os.pathsep == ';':
-        setup_paths = [r'C:\gpaw-setups']
-    else:
-        setup_paths = ['/usr/local/share/gpaw-setups',
-                       '/usr/share/gpaw-setups']
+setup_paths = []
+
+
+def initialize_data_paths():
+    try:
+        setup_paths[:] = os.environ['GPAW_SETUP_PATH'].split(os.pathsep)
+    except KeyError:
+        if os.pathsep == ';':
+            seltup_paths[:] = [r'C:\gpaw-setups']
+        else:
+            setup_paths[:] = ['/usr/local/share/gpaw-setups',
+                              '/usr/share/gpaw-setups']
+
+
+initialize_data_paths()
 
 
 from gpaw.calculator import GPAW
@@ -303,10 +310,13 @@ def is_parallel_environment():
     return False
 
 
-home = os.environ.get('HOME')
-if home is not None:
-    rc = os.path.join(home, '.gpaw', 'rc.py')
-    if os.path.isfile(rc):
-        # Read file in ~/.gpaw/rc.py
-        with open(rc) as fd:
-            exec(fd.read())
+def read_rc_file():
+    home = os.environ.get('HOME')
+    if home is not None:
+        rc = os.path.join(home, '.gpaw', 'rc.py')
+        if os.path.isfile(rc):
+            # Read file in ~/.gpaw/rc.py
+            with open(rc) as fd:
+                exec(fd.read())
+
+read_rc_file()
