@@ -30,13 +30,13 @@ from gpaw.utilities.tools import construct_reciprocal
 from gpaw import setup_paths, extra_parameters
 import gpaw.mpi as mpi
 import _gpaw
- 
- 
+
+
 def T(w, x, y, z):
     return 0.5 * ((1.0 / (w + x) + 1.0 / (y + z)) *
                   (1.0 / ((w + y) * (x + z)) + 1.0 / ((w + z) * (y + x))))
 
-    
+
 def W(a, b):
     return 2 * ((3 - a**2) * b * cos(b) * sin(a) +
                 (3 - b**2) * a * cos(a) * sin(b) +
@@ -49,7 +49,7 @@ eta = 8 * pi / 9
 def nu(y, d):
     return 0.5 * y**2 / (1 - exp(-0.5 * eta * (y / d)**2))
 
-    
+
 def f(a, b, d, dp):
     va = nu(a, d)
     vb = nu(b, d)
@@ -92,7 +92,7 @@ def hRPS(x, xc=1.0):
     y = np.exp(y)
     return xc * (1.0 - y), z * y
 
-    
+
 def VDWFunctional(name, fft=True, **kwargs):
     if name == 'vdW-DF':
         kernel = LibXC('GGA_X_PBE_R+LDA_C_PW')
@@ -127,7 +127,7 @@ def VDWFunctional(name, fft=True, **kwargs):
         return GGAFFTVDWFunctional(name, kernel, **kwargs)
     return GGARealSpaceVDWFunctional(name, kernel, **kwargs)
 
-        
+
 class VDWFunctionalBase:
     """Base class for vdW-DF."""
     def __init__(self, world=None, Zab=-0.8491, vdwcoef=1.0, q0cut=5.0,
@@ -165,7 +165,7 @@ class VDWFunctionalBase:
         verbose: bool
             Print useful information.
         """
-        
+
         if world is None:
             self.world = mpi.world
         else:
@@ -181,24 +181,24 @@ class VDWFunctionalBase:
         self.D_j = np.linspace(0, Dmax, nD)
 
         self.verbose = verbose
-        
+
         self.read_table()
 
         self.soft_correction = soft_correction
         if soft_correction:
             dD = self.D_j[1]
             self.C_soft = np.dot(self.D_j**2, self.phi_ij[0]) * 4 * pi * dD
-            
+
         self.gd = None
         self.energy_only = energy_only
         self.timer = nulltimer
 
         self.LDAc = LibXC('LDA_C_PW')
         self.setup_name = setup_name
-        
+
     def get_setup_name(self):
         return self.setup_name
-    
+
     def get_Ecnl(self):
         return self.Ecnl
 
@@ -246,26 +246,26 @@ class VDWFunctionalBase:
         e_LDAc_g: ndarray
             LDA correlation energy density.
         """
-        
+
         gd = self.gd
-        
+
         n_g = n_g.clip(1e-7, np.inf)
-        
+
         # Calculate q0 and cut it off smoothly at q0cut:
         kF_g = (3 * pi**2 * n_g)**(1.0 / 3.0)
         q0_g, dhdx_g = hRPS(kF_g -
                             4 * pi / 3 * e_LDAc_g / n_g -
                             self.Zab / 36 / kF_g * a2_g / n_g**2, self.q0cut)
-        
+
         if self.verbose:
             print(('VDW: q0 (min, mean, max): (%f, %f, %f)' %
                    (q0_g.min(), q0_g.mean(), q0_g.max())))
-        
+
         if self.soft_correction:
             dEcnl = -gd.integrate(n_g**2 / q0_g**3) * 0.5 * self.C_soft
         else:
             dEcnl = 0.0
-            
+
         # Distribute density and q0 to all processors:
         n_g = gd.collect(n_g, broadcast=True)
         q0_g = gd.collect(q0_g, broadcast=True)
@@ -292,7 +292,7 @@ class VDWFunctionalBase:
                 if self.verbose:
                     print('VDW: using', filename)
                 return
-                
+
         if sys.version_info[0] == 2:
             oldname = name[:-3] + 'pckl'
             for dir in dirs:
@@ -305,7 +305,7 @@ class VDWFunctionalBase:
 
         print('VDW: Could not find table file:', name)
         self.make_table(name)
-            
+
     def make_table(self, name):
         print('VDW: Generating vdW-DF kernel ...')
         print('VDW:', end=' ')
@@ -332,7 +332,7 @@ class VDWFunctionalBase:
                     break
 
         self.world.sum(self.phi_ij)
-        
+
         print()
         print('VDW: Done!')
         header = ('phi0={0:.3f}, ds={1:.3f}, Dmax={2:.3f}, nD={3}, ndelta={4}'
@@ -361,14 +361,14 @@ class VDWFunctionalBase:
 
         Uses bi-linear interpolation and returns zero for D > Dmax.
         """
-        
+
         P = self.phi_ij
         D = (d + dp) / 2.0
         if D < 1e-14:
             return P[0, 0]
         if D >= self.D_j[-1]:
             return 0.0
-        
+
         delta = abs((d - dp) / (2 * D))
         ddelta = self.delta_i[1]
         x = delta / ddelta
@@ -401,11 +401,11 @@ class RealSpaceVDWFunctional(VDWFunctionalBase):
         ncut: float
             Density cutoff.
         """
-        
+
         VDWFunctionalBase.__init__(self, **kwargs)
         self.repeat = repeat
         self.ncut = ncut
-        
+
     def calculate_6d_integral(self, n_g, q0_g,
                               a2_g=None, e_LDAc_g=None, v_LDAc_g=None,
                               v_g=None, deda2_g=None):
@@ -431,7 +431,7 @@ class RealSpaceVDWFunctional(VDWFunctionalBase):
 
         if self.verbose:
             print('VDW: number of points:', ni)
-            
+
         # Number of pairs per processor:
         world = self.world
         p = ni * (ni - 1) // 2 // world.size
@@ -449,7 +449,7 @@ class RealSpaceVDWFunctional(VDWFunctionalBase):
                 iA = iB
 
         assert iA <= iB
-        
+
         if world.rank == world.size - 1:
             iB = ni
 
@@ -481,7 +481,7 @@ class RealSpaceVDWFunctional(VDWFunctionalBase):
         self.world.sum(self.Dhistogram)
         E_vdwnl = self.world.sum(E_vdwnl * gd.dv**2)
         return E_vdwnl
-        
+
 
 class FFTVDWFunctional(VDWFunctionalBase):
     """FFT implementation of vdW-DF."""
@@ -512,12 +512,12 @@ class FFTVDWFunctional(VDWFunctionalBase):
         self.rcut = rcut
         self.Nr = Nr
         self.size = size
-        
+
         self.C_aip = None
         self.phi_aajp = None
 
         self.get_alphas()
-        
+
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.timer = wfs.timer
         self.world = wfs.world
@@ -546,7 +546,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
 
           http://en.wikipedia.org/wiki/Spline_(mathematics)
         """
-        
+
         n = self.Nalpha
         lambd = self.lambd
         q1 = self.q0cut * (lambd - 1) / (lambd**(n - 1) - 1)
@@ -555,7 +555,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
         if self.verbose:
             print(('VDW: using %d cubic splines: 0.00, %.2f, ..., %.2f, %.2f' %
                    (n, q1, q[-2], q[-1])))
-            
+
         y = np.eye(n)
         a = y
         h = q[1:] - q[:-1]
@@ -601,7 +601,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
         if self.verbose:
             print(("VDW: cutoff for fft'ed kernel: %.3f Hartree" %
                    (0.5 * k_j[-1]**2)))
-            
+
         for a in range(self.Nalpha):
             qa = self.q_a[a]
             for b in range(a, self.Nalpha):
@@ -627,7 +627,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
                     assert n == gd.N_c[c]
                 else:
                     assert n >= gd.N_c[c]
-        
+
         if self.alphas:
             scale_c1 = (self.shape / (1.0 * gd.N_c))[:, np.newaxis]
             gdfft = GridDescriptor(self.shape, gd.cell_cv * scale_c1, True)
@@ -635,21 +635,21 @@ class FFTVDWFunctional(VDWFunctionalBase):
                                                  :,
                                                  :self.shape[2] // 2 + 1]**0.5
             k_k[0, 0, 0] = 0.0
-    
+
             self.dj_k = k_k / (2 * pi / self.rcut)
             self.j_k = self.dj_k.astype(int)
             self.dj_k -= self.j_k
             self.dj_k *= 2 * pi / self.rcut
-         
+
             if self.verbose:
                 print('VDW: density array size:',
                       gd.get_size_of_global_array())
                 print('VDW: zero-padded array size:', self.shape)
                 print(('VDW: maximum kinetic energy: %.3f Hartree' %
                        (0.5 * k_k.max()**2)))
-            
+
             assert self.j_k.max() < self.Nr // 2, 'Use larger Nr than %i.' % self.Nr
-        
+
         else:
             self.dj_k = None
             self.j_k = None
@@ -679,10 +679,10 @@ class FFTVDWFunctional(VDWFunctionalBase):
         else:
             i_g = None
             dq0_g = None
-        
+
         if self.verbose:
             print('VDW: fft:', end=' ')
-            
+
         theta_ak = {}
         p_ag = {}
         for a in self.alphas:
@@ -698,18 +698,18 @@ class FFTVDWFunctional(VDWFunctionalBase):
             if extra_parameters.get('vdw0'):
                 theta_ak[a][0, 0, 0] = 0.0
             self.timer.stop()
-            
+
             if not self.energy_only:
                 p_ag[a] = pa_g
             del pa_g
             if self.verbose:
                 print(a, end=' ')
                 sys.stdout.flush()
-        
+
         if self.energy_only:
             del i_g
             del dq0_g
-        
+
         if self.verbose:
             print()
             print('VDW: convolution:', end=' ')
@@ -728,7 +728,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
                 _gpaw.vdw2(self.phi_aajp[a, b], self.j_k, dj_k,
                            theta_ak[b], F_k)
             self.timer.stop()
-            
+
             if vdwcomm is not None:
                 self.timer.start('gather')
                 for F in F_k:
@@ -788,7 +788,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
             dq0da2_g = -(self.Zab / 36 / (3 * pi**2)**(1.0 / 3.0) /
                          n_g**(7.0 / 3.0))
             self.timer.stop('p1')
-        
+
         v0_g = np.zeros_like(n_g)
         deda20_g = np.zeros_like(n_g)
 
@@ -821,7 +821,7 @@ class GGAFFTVDWFunctional(FFTVDWFunctional, GGA):
         FFTVDWFunctional.__init__(self, **kwargs)
         GGA.__init__(self, kernel)
         self.name = name
-        
+
     def calculate_gga(self, *args):
         GGA.calculate_gga(self, *args)
         FFTVDWFunctional.calculate_gga(self, *args)
@@ -836,7 +836,7 @@ class GGARealSpaceVDWFunctional(RealSpaceVDWFunctional, GGA):
         RealSpaceVDWFunctional.__init__(self, **kwargs)
         GGA.__init__(self, kernel)
         self.name = name
-        
+
     def calculate_gga(self, *args):
         GGA.calculate_gga(self, *args)
         RealSpaceVDWFunctional.calculate_gga(self, *args)
@@ -851,7 +851,7 @@ class MGGAFFTVDWFunctional(FFTVDWFunctional, MGGA):
         FFTVDWFunctional.__init__(self, **kwargs)
         MGGA.__init__(self, kernel)
         self.name = name
-        
+
     def calculate_gga(self, *args):
         MGGA.calculate_gga(self, *args)
         FFTVDWFunctional.calculate_gga(self, *args)
