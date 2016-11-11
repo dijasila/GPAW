@@ -302,10 +302,11 @@ def calculate_hybrid_induced_field(cl_ind, qm_ind, h):
     qm_Frho_wg, qm_gd = qm_ind.get_induced_density(gridrefinement=2,
                                                    from_density=from_density)
 
+    fdtd_poisson = tot_ind.paw.hamiltonian.poisson
     combine = lambda qm_g, cl_g: \
-        tot_ind.paw.hamiltonian.poisson.get_combined_data(qm_g.copy(),
-                                                          cl_g.copy(),
-                                                          h)
+        fdtd_poisson.get_combined_data(qm_g.copy(),
+                                       cl_g.copy(),
+                                       h)
 
     _, tot_gd = combine(qm_Frho_wg[0].imag, cl_Frho_wg[0].imag)
     tot_ind.gd = tot_gd
