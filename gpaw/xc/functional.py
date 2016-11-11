@@ -91,3 +91,6 @@ class XCFunctional(object):
 
     def add_forces(self, F_av):
         pass
+
+    def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
+        raise NotImplementedError

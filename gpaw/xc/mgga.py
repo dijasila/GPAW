@@ -151,9 +151,6 @@ class MGGA(XCFunctional):
             self.n = 0
             self.ae = False
 
-    def calculate_spherical(self, rgd, n_sg, v_sg):
-        raise NotImplementedError
-
     def add_forces(self, F_av):
         dF_av = self.tauct.dict(derivative=True)
         self.tauct.derivative(self.dedtaut_sG.sum(0), dF_av)
