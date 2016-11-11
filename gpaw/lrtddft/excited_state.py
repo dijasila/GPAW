@@ -22,7 +22,7 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 class ExcitedState(GPAW):
 
     def __init__(self, lrtddft=None, index=0, d=0.001, txt=None,
-                 parallel=None, communicator=None, name=None, restart=None):
+                 parallel=0, communicator=None, name=None, restart=None):
         """ExcitedState object.
         parallel: Can be used to parallelize the numerical force calculation
         over images.
@@ -56,6 +56,7 @@ class ExcitedState(GPAW):
             self.lrtddft = lrtddft
             self.calculator = self.lrtddft.calculator
             self.atoms = self.calculator.atoms
+            self.parameters = self.calculator.parameters
             if txt is None:
                 self.txt = self.lrtddft.txt
             else:
