@@ -696,63 +696,64 @@ class FDTDPoissonSolver:
                 self.cl.gd
 
     # Returns the quantum + classical density in the large classical box,
-    # so that the classical charge is coarsened into it and the quantum
-    # charge is refined there
+    # so that the classical charge is refined into it and the quantum
+    # charge is coarsened there
     def get_combined_data(self, qmdata=None, cldata=None, spacing=None):
 
         if qmdata is None:
             qmdata = self.density.rhot_g
 
         if cldata is None:
-            cldata = self.classical_material.charge_density
+            cldata = self.classical_material.charge_density * self.classical_material.sign
 
         if spacing is None:
             spacing = self.cl.gd.h_cv[0, 0]
 
         spacing_au = spacing / Bohr  # from Angstroms to a.u.
 
-        # Collect data from different processes
-        cln = self.cl.gd.collect(cldata)
-        qmn = self.qm.gd.collect(qmdata)
+        # Refine classical part
+        clgd = self.cl.gd.new_descriptor()
+        cl_g = cldata.copy()
+        while clgd.h_cv[0, 0] > spacing_au * 1.50:  # 45:
+            clgd2 = clgd.refine()
+            cl_g = Transformer(clgd, clgd2).apply(cl_g)
+            clgd = clgd2
 
-        clgd = GridDescriptor(self.cl.gd.N_c, self.cl.cell,
-                              False, serial_comm, None)
+        # Coarse quantum part
+        qmgd = self.qm.gd.new_descriptor()
+        qm_g = qmdata.copy()
+        while qmgd.h_cv[0, 0] < clgd.h_cv[0, 0] * 0.95:
+            qmgd2 = qmgd.coarsen()
+            qm_g = Transformer(qmgd, qmgd2).apply(qm_g)
+            qmgd = qmgd2
 
-        if world.rank == 0:
-            cln *= self.classical_material.sign
-            # refine classical part
-            while clgd.h_cv[0, 0] > spacing_au * 1.50:  # 45:
-                cln = Transformer(clgd, clgd.refine()).apply(cln)
-                clgd = clgd.refine()
+        assert np.all(np.absolute(qmgd.h_cv - clgd.h_cv) < 1e-12), \
+            " Spacings %.8f (qm) and %.8f (cl) Angstroms" \
+            % (qmgd.h_cv[0][0] * Bohr, clgd.h_cv[0][0] * Bohr)
 
-            # refine quantum part
-            qmgd = GridDescriptor(self.qm.gd.N_c, self.qm.cell, False,
-                                  serial_comm, None)
-            while qmgd.h_cv[0, 0] < clgd.h_cv[0, 0] * 0.95:
-                qmn = Transformer(qmgd, qmgd.coarsen()).apply(qmn)
-                qmgd = qmgd.coarsen()
+        # Do distribution on master
+        big_cl_g = clgd.collect(cl_g)
+        big_qm_g = qmgd.collect(qm_g)
+        assert clgd.comm.rank == qmgd.comm.rank
 
-            assert np.all(np.absolute(qmgd.h_cv - clgd.h_cv) < 1e-12), \
-                " Spacings %.8f (qm) and %.8f (cl) Angstroms" \
-                % (qmgd.h_cv[0][0] * Bohr, clgd.h_cv[0][0] * Bohr)
-
+        if clgd.comm.rank == 0:
             # now find the corners
             # r_gv_cl = \
             #     clgd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
             cind = self.qm.corner1 / np.diag(clgd.h_cv) - 1
 
-            n = qmn.shape
+            n = big_qm_g.shape
 
             # print 'Corner points:     ', self.qm.corner1*Bohr, \
             #     ' - ', self.qm.corner2*Bohr
             # print 'Calculated points: ', r_gv_cl[tuple(cind)]*Bohr, \
             #     ' - ', r_gv_cl[tuple(cind+n+1)]*Bohr
 
-            cln[cind[0] + 1:cind[0] + n[0] + 1, cind[1] + 1:cind[1] + n[1] + 1,
-                cind[2] + 1:cind[2] + n[2] + 1] += qmn
+            big_cl_g[cind[0] + 1:cind[0] + n[0] + 1, cind[1] + 1:cind[1] + n[1] + 1,
+                     cind[2] + 1:cind[2] + n[2] + 1] += big_qm_g
 
-        world.barrier()
-        return cln, clgd
+        clgd.distribute(big_cl_g, cl_g)
+        return cl_g, clgd
 
     # Solve quantum and classical potentials, and add them up
     def solve_solve(self, **kwargs):
