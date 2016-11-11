@@ -4,6 +4,7 @@ import numpy as np
 
 from gpaw.xc.gga import (GGA, gga_add_gradient_correction, get_gga_quantities,
                          gga_radial1, gga_radial2)
+from gpaw.xc.lda import lda_calculate_paw_correction
 from gpaw.sphere.lebedev import weight_n
 
 class MGGA(GGA):
@@ -96,12 +97,20 @@ class MGGA(GGA):
         if self.xcc.tau_npg is None:
             self.xcc.tau_npg, self.xcc.taut_npg = self.initialize_kinetic(self.xcc)
 
-        E = GGA.calculate_paw_correction(self, setup, D_sp, dEdD_sp,
+        E = lda_calculate_paw_correction(self.calculate_radial_expansion,
+                                         setup, D_sp, dEdD_sp,
                                          addcoredensity, a)
         del self.D_sp, self.n, self.ae, self.xcc, self.dEdD_sp
         return E
 
-    def calculate_gga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg, n):
+    def calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
+        e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_radial1(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
+        self.mgga_radial(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, n)
+        vv_sg = gga_radial2(rgd, sigma_xg, dedsigma_xg, a_sg)
+        return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
+
+
+    def mgga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg, n):
         #print('calc gga radial mgga', self.n)
         #sdfdsf
         nspins = len(n_sg)
