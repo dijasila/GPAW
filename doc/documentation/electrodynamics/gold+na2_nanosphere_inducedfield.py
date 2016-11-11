@@ -70,7 +70,7 @@ td_calc = TDDFT('gs.gpw')
 td_calc.absorption_kick(kick_strength=kick)
 td_calc.hamiltonian.poisson.set_kick(kick)
 
-# Attached InducedField calculation
+# Attach InducedFields to the calculation
 frequencies = [2.05, 2.60]
 width = 0.15
 cl_ind = FDTDInducedField(paw=td_calc,
