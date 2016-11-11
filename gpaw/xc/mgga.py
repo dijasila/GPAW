@@ -2,9 +2,8 @@ from math import sqrt, pi
 
 import numpy as np
 
-from gpaw.xc.gga import GGA
+from gpaw.xc.gga import GGA, gga_add_gradient_correction, get_gga_quantities
 from gpaw.sphere.lebedev import weight_n
-
 
 class MGGA(GGA):
     orbital_dependent = True
@@ -34,7 +33,14 @@ class MGGA(GGA):
         self.tauct_G[:] = 0.0
         self.tauct.add(self.tauct_G)
 
-    def calculate_gga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
+    def calculate_impl(self, gd, n_sg, v_sg, e_g):
+        sigma_xg, dedsigma_xg, gradn_svg = get_gga_quantities(gd, self.grad_v,
+                                                              n_sg)
+        self.process_mgga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        gga_add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
+                                    dedsigma_xg, v_sg)
+
+    def process_mgga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
         taut_sG = self.wfs.calculate_kinetic_energy_density()
         if taut_sG is None:
             # Initialize with von Weizsaecker kinetic energy density:
