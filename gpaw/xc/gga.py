@@ -27,6 +27,30 @@ def calculate_sigma(gd, grad_v, n_sg):
     return sigma_xg, gradn_svg
 
 
+def gga_add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg,
+                                v_sg):
+    """Add gradient correction to potential.
+
+    ::
+
+                      __   /       de(r)    __      \
+        v  (r) += -2  \/ . | ? + ---------  \/ n(r) |
+         xc                \     dsigma(r)          /
+
+    Appears to also add to sigma_xg.
+    """
+    nspins = len(v_sg)
+    vv_g = sigma_xg[0]
+    for v in range(3):
+        for s in range(nspins):
+            grad_v[v](dedsigma_xg[2 * s] * gradn_svg[s, v], vv_g)
+            axpy(-2.0, vv_g, v_sg[s])
+            if nspins == 2:
+                grad_v[v](dedsigma_xg[1] * gradn_svg[s, v], vv_g)
+                axpy(-1.0, vv_g, v_sg[1 - s])
+                # TODO: can the number of gradient evaluations be reduced?
+
+
 class GGA(LDA):
     def set_grid_descriptor(self, gd):
         LDA.set_grid_descriptor(self, gd)
@@ -40,26 +64,8 @@ class GGA(LDA):
         self.add_gradient_correction(gradn_svg, sigma_xg, dedsigma_xg, v_sg)
 
     def add_gradient_correction(self, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
-        """Add gradient correction to potential.
-
-        ::
-            
-                          __   /       de(r)    __      \
-            v  (r) += -2  \/ . | ? + ---------  \/ n(r) |
-             xc                \     dsigma(r)          /
-
-        Appears to also add to sigma_xg.
-        """
-        nspins = len(v_sg)
-        vv_g = sigma_xg[0]
-        for v in range(3):
-            for s in range(nspins):
-                self.grad_v[v](dedsigma_xg[2 * s] * gradn_svg[s, v], vv_g)
-                axpy(-2.0, vv_g, v_sg[s])
-                if nspins == 2:
-                    self.grad_v[v](dedsigma_xg[1] * gradn_svg[s, v], vv_g)
-                    axpy(-1.0, vv_g, v_sg[1 - s])
-                    # TODO: can the number of gradient evaluations be reduced?
+        gga_add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
+                                    dedsigma_xg, v_sg)
 
     def calculate_sigma(self, n_sg):
         return calculate_sigma(self.gd, self.grad_v, n_sg)
