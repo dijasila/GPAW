@@ -7,39 +7,39 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 
 
 
-def lda_calculate_paw_correction(radial_expansion,
+def lda_calculate_paw_correction(calculate_radial_expansion,
                                  setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
-    c = setup.xc_correction
-    if c is None:
+    xcc = setup.xc_correction
+    if xcc is None:
         return 0.0
 
-    rgd = c.rgd
+    rgd = xcc.rgd
     nspins = len(D_sp)
 
     if addcoredensity:
         nc0_sg = rgd.empty(nspins)
         nct0_sg = rgd.empty(nspins)
-        nc0_sg[:] = sqrt(4 * pi) / nspins * c.nc_g
-        nct0_sg[:] = sqrt(4 * pi) / nspins * c.nct_g
-        if c.nc_corehole_g is not None and nspins == 2:
-            nc0_sg[0] -= 0.5 * sqrt(4 * pi) * c.nc_corehole_g
-            nc0_sg[1] += 0.5 * sqrt(4 * pi) * c.nc_corehole_g
+        nc0_sg[:] = sqrt(4 * pi) / nspins * xcc.nc_g
+        nct0_sg[:] = sqrt(4 * pi) / nspins * xcc.nct_g
+        if xcc.nc_corehole_g is not None and nspins == 2:
+            nc0_sg[0] -= 0.5 * sqrt(4 * pi) * xcc.nc_corehole_g
+            nc0_sg[1] += 0.5 * sqrt(4 * pi) * xcc.nc_corehole_g
     else:
         nc0_sg = 0
         nct0_sg = 0
 
-    D_sLq = np.inner(D_sp, c.B_pqL.T)
+    D_sLq = np.inner(D_sp, xcc.B_pqL.T)
 
-    e, dEdD_sqL = radial_expansion(rgd, D_sLq, c.n_qg, nc0_sg)
-    et, dEtdD_sqL = radial_expansion(rgd, D_sLq, c.nt_qg, nct0_sg)
+    e, dEdD_sqL = calculate_radial_expansion(rgd, D_sLq, xcc.n_qg, nc0_sg)
+    et, dEtdD_sqL = calculate_radial_expansion(rgd, D_sLq, xcc.nt_qg, nct0_sg)
 
     if dEdD_sp is not None:
         dEdD_sp += np.inner((dEdD_sqL - dEtdD_sqL).reshape((nspins, -1)),
-                            c.B_pqL.reshape((len(c.B_pqL), -1)))
+                            xcc.B_pqL.reshape((len(xcc.B_pqL), -1)))
 
     if addcoredensity:
-        return e - et - c.e_xc0
+        return e - et - xcc.e_xc0
     else:
         return e - et
 
