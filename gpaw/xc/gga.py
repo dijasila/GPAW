@@ -9,6 +9,49 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
 
 
+# First part of gga_calculate_radial - initializes some quantities.
+def gga_radial1(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv):
+    nspins = len(n_sLg)
+
+    n_sg = np.dot(Y_L, n_sLg)
+
+    a_sg = np.dot(Y_L, dndr_sLg)
+    b_vsg = np.dot(rnablaY_Lv.T, n_sLg)
+
+    sigma_xg = rgd.empty(2 * nspins - 1)
+    sigma_xg[::2] = (b_vsg ** 2).sum(0)
+    if nspins == 2:
+        sigma_xg[1] = (b_vsg[:, 0] * b_vsg[:, 1]).sum(0)
+    sigma_xg[:, 1:] /= rgd.r_g[1:] ** 2
+    sigma_xg[:, 0] = sigma_xg[:, 1]
+    sigma_xg[::2] += a_sg ** 2
+    if nspins == 2:
+        sigma_xg[1] += a_sg[0] * a_sg[1]
+
+    e_g = rgd.empty()
+    dedn_sg = rgd.zeros(nspins)
+    dedsigma_xg = rgd.zeros(2 * nspins - 1)
+    return e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg
+
+
+def gga_radial2(rgd, sigma_xg, dedsigma_xg, a_sg):
+    nspins = len(a_sg)
+    vv_sg = sigma_xg[:nspins]  # reuse array
+    for s in range(nspins):
+        rgd.derivative2(-2 * rgd.dv_g * dedsigma_xg[2 * s] * a_sg[s],
+                        vv_sg[s])
+    if nspins == 2:
+        v_g = sigma_xg[2]
+        rgd.derivative2(rgd.dv_g * dedsigma_xg[1] * a_sg[1], v_g)
+        vv_sg[0] -= v_g
+        rgd.derivative2(rgd.dv_g * dedsigma_xg[1] * a_sg[0], v_g)
+        vv_sg[1] -= v_g
+
+    vv_sg[:, 1:] /= rgd.dv_g[1:]
+    vv_sg[:, 0] = vv_sg[:, 1]
+    return vv_sg
+
+
 def calculate_sigma(gd, grad_v, n_sg):
     """Calculate sigma(r) and grad n(r).
                   _     __   _  2     __    _
@@ -134,43 +177,9 @@ class GGA(LDA):
         return E, dEdD_sqL
 
     def calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv):
-        nspins = len(n_sLg)
-
-        n_sg = np.dot(Y_L, n_sLg)
-
-        a_sg = np.dot(Y_L, dndr_sLg)
-        b_vsg = np.dot(rnablaY_Lv.T, n_sLg)
-
-        sigma_xg = rgd.empty(2 * nspins - 1)
-        sigma_xg[::2] = (b_vsg ** 2).sum(0)
-        if nspins == 2:
-            sigma_xg[1] = (b_vsg[:, 0] * b_vsg[:, 1]).sum(0)
-        sigma_xg[:, 1:] /= rgd.r_g[1:] ** 2
-        sigma_xg[:, 0] = sigma_xg[:, 1]
-        sigma_xg[::2] += a_sg ** 2
-        if nspins == 2:
-            sigma_xg[1] += a_sg[0] * a_sg[1]
-
-        e_g = rgd.empty()
-        dedn_sg = rgd.zeros(nspins)
-        dedsigma_xg = rgd.zeros(2 * nspins - 1)
-
+        e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_radial1(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
         self.calculate_gga_radial(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
-
-        vv_sg = sigma_xg[:nspins]  # reuse array
-        for s in range(nspins):
-            rgd.derivative2(-2 * rgd.dv_g * dedsigma_xg[2 * s] * a_sg[s],
-                            vv_sg[s])
-        if nspins == 2:
-            v_g = sigma_xg[2]
-            rgd.derivative2(rgd.dv_g * dedsigma_xg[1] * a_sg[1], v_g)
-            vv_sg[0] -= v_g
-            rgd.derivative2(rgd.dv_g * dedsigma_xg[1] * a_sg[0], v_g)
-            vv_sg[1] -= v_g
-
-        vv_sg[:, 1:] /= rgd.dv_g[1:]
-        vv_sg[:, 0] = vv_sg[:, 1]
-
+        vv_sg = gga_radial2(rgd, sigma_xg, dedsigma_xg, a_sg)
         return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
 
     calculate_gga_radial = calculate_gga

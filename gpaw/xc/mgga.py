@@ -2,7 +2,8 @@ from math import sqrt, pi
 
 import numpy as np
 
-from gpaw.xc.gga import GGA, gga_add_gradient_correction, get_gga_quantities
+from gpaw.xc.gga import (GGA, gga_add_gradient_correction, get_gga_quantities,
+                         gga_radial1, gga_radial2)
 from gpaw.sphere.lebedev import weight_n
 
 class MGGA(GGA):
