@@ -117,8 +117,17 @@ class Hamiltonian(object):
         except AttributeError:
             pass
         else:
-            wf1 = (-fermilevel + correction) * Ha
-            wf2 = (-fermilevel - correction) * Ha
+            c = self.poisson.c  # index of axis perpendicular to dipole-layer
+            if not self.gd.pbc_c[c]:
+                # zero boundary conditions
+                vacuum = 0.0
+            else:
+                axes = (c, (c + 1) % 3, (c + 2) % 3)
+                v_g = self.pd3.ifft(self.vHt_q).transpose(axes)
+                vacuum = v_g[0].mean()
+
+            wf1 = (vacuum - fermilevel + correction) * Ha
+            wf2 = (vacuum - fermilevel - correction) * Ha
             log('Dipole-layer corrected work functions: {0}, {1} eV'
                 .format(wf1, wf2))
             log()
