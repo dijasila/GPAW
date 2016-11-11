@@ -7,8 +7,9 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 
 
 
-def calculate_paw_correction(radial_expansion, setup, D_sp, dEdD_sp=None,
-                             addcoredensity=True, a=None):
+def lda_calculate_paw_correction(radial_expansion,
+                                 setup, D_sp, dEdD_sp=None,
+                                 addcoredensity=True, a=None):
     c = setup.xc_correction
     if c is None:
         return 0.0
@@ -43,7 +44,7 @@ def calculate_paw_correction(radial_expansion, setup, D_sp, dEdD_sp=None,
         return e - et
 
 
-def calculate_radial(kernel, rgd, n_sLg, Y_L):
+def lda_calculate_radial(kernel, rgd, n_sLg, Y_L):
     nspins = len(n_sLg)
     n_sg = np.dot(Y_L, n_sLg)
     e_g = rgd.empty()
@@ -53,7 +54,7 @@ def calculate_radial(kernel, rgd, n_sLg, Y_L):
     return e_g, dedn_sg
 
 
-def calculate_radial_expansion(kernel, rgd, D_sLq, n_qg, nc0_sg):
+def lda_calculate_radial_expansion(kernel, rgd, D_sLq, n_qg, nc0_sg):
     n_sLg = np.dot(D_sLq, n_qg)
     n_sLg[:, 0] += nc0_sg
 
@@ -65,7 +66,7 @@ def calculate_radial_expansion(kernel, rgd, D_sLq, n_qg, nc0_sg):
     for n, Y_L in enumerate(Y_nL[:, :Lmax]):
         w = weight_n[n]
 
-        e_g, dedn_sg = calculate_radial(kernel, rgd, n_sLg, Y_L)
+        e_g, dedn_sg = lda_calculate_radial(kernel, rgd, n_sLg, Y_L)
         dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
                            n_qg.T)[:, :, np.newaxis] * (w * Y_L)
         E += w * rgd.integrate(e_g)
@@ -95,15 +96,15 @@ class LDA(XCFunctional):
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
-        return calculate_paw_correction(self.calculate_radial_expansion,
-                                        setup, D_sp, dEdD_sp,
-                                        addcoredensity, a)
+        return lda_calculate_paw_correction(self.calculate_radial_expansion,
+                                            setup, D_sp, dEdD_sp,
+                                            addcoredensity, a)
 
     def calculate_radial_expansion(self, rgd, D_sLq, n_qg, nc0_sg):
-        return calculate_radial_expansion(self.kernel, rgd, D_sLq, n_qg, nc0_sg)
+        return lda_calculate_radial_expansion(self.kernel, rgd, D_sLq, n_qg, nc0_sg)
 
     def calculate_radial(self, rgd, n_sLg, Y_L):
-        return calculate_radial(self.kernel, rgd, n_sLg, Y_L)
+        return lda_calculate_radial(self.kernel, rgd, n_sLg, Y_L)
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         if e_g is None:
