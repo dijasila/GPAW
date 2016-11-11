@@ -4,6 +4,7 @@ from ase.parallel import parprint
 from ase.units import Bohr
 
 from gpaw import debug
+from gpaw.tddft import eV_to_aufrequency, aufrequency_to_eV
 from gpaw.analyse.observers import Observer
 from gpaw.transformers import Transformer
 from gpaw.lfc import BasisFunctions
@@ -262,3 +263,61 @@ class FDTDInducedField(BaseInducedField, Observer):
             writer.write(corner2_v=self.fdtd.qm.corner2)
 
         self.fdtd.cl.gd.comm.barrier()
+
+
+def calculate_hybrid_induced_field(cl_ind, qm_ind, h):
+    """
+    Combines two InducedField objects and
+    calculates total induced field.
+
+    Parameters:
+    -----------
+    cl_ind: FDTDInducedField
+        InducedField object of the classical subsystem
+    qm_ind: TDDFTInducedField
+        InducedField object of the quantum subsystem
+    h: float
+        Grid spacing of total grid in Angstroms
+    """
+    # Sanity checks
+    for attr in ['paw', 'omega_w', 'width', 'folding', 'Fbgef_v', 'world', 'atoms']:
+        assert np.all(getattr(cl_ind, attr) == getattr(qm_ind, attr)), \
+                'Attributes %s are not the same' % attr
+
+    # Object for the total induced field
+    tot_ind = FDTDInducedField(paw=cl_ind.paw,
+            frequencies=cl_ind.omega_w * aufrequency_to_eV,
+            width=cl_ind.width * aufrequency_to_eV,
+            folding=cl_ind.folding)
+
+    tot_ind.world = cl_ind.world
+    tot_ind.Fbgef_v = cl_ind.Fbgef_v
+    tot_ind.atoms = cl_ind.atoms.copy()
+    tot_ind.na = cl_ind.na
+    tot_ind.nspins = 1
+
+    from_density = 'comp'
+    cl_Frho_wg, cl_gd = cl_ind.get_induced_density(gridrefinement=1,
+                                                   from_density=from_density)
+    qm_Frho_wg, qm_gd = qm_ind.get_induced_density(gridrefinement=2,
+                                                   from_density=from_density)
+
+    combine = lambda qm_g, cl_g: \
+        tot_ind.paw.hamiltonian.poisson.get_combined_data(qm_g.copy(),
+                                                          cl_g.copy(),
+                                                          h)
+
+    _, tot_gd = combine(qm_Frho_wg[0].imag, cl_Frho_wg[0].imag)
+    tot_ind.gd = tot_gd
+    tot_ind.fieldgd = tot_gd
+    tot_ind.Frho_wg = tot_gd.empty((tot_ind.nw,), dtype=complex)
+    for w in range(tot_ind.nw):
+        tot_Frho_g, _ = combine(qm_Frho_wg[w].real, cl_Frho_wg[w].real)
+        tot_ind.Frho_wg[w][:] = tot_Frho_g
+        tot_Frho_g, _ = combine(qm_Frho_wg[w].imag, cl_Frho_wg[w].imag)
+        tot_ind.Frho_wg[w] += 1.0j * tot_Frho_g
+
+    tot_ind.has_field = True
+    tot_ind.field_from_density = from_density
+    tot_ind.calculate_induced_field(from_density=from_density)
+    return tot_ind
