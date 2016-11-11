@@ -21,7 +21,7 @@ grid = BlacsGrid(world, B, D)
 nbands = 500
 nG = 80**3
 
-nGdesc = grid.new_descriptor(nbands, nG, nbands/B, nG/D)
+nGdesc = grid.new_descriptor(nbands, nG, nbands // B, nG // D)
 nndesc = grid.new_descriptor(nbands, nbands, mb, mb)
 
 psit_nG = gen.rand(*nGdesc.shape)
