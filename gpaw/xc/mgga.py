@@ -3,7 +3,7 @@ from math import sqrt, pi
 import numpy as np
 
 from gpaw.xc.gga import (GGA, gga_add_gradient_correction, get_gga_quantities,
-                         gga_radial1, gga_radial2)
+                         gga_radial1, gga_radial2, gga_radial_expansion)
 from gpaw.xc.lda import lda_calculate_paw_correction
 from gpaw.sphere.lebedev import weight_n
 
@@ -102,6 +102,10 @@ class MGGA(GGA):
                                          addcoredensity, a)
         del self.D_sp, self.n, self.ae, self.xcc, self.dEdD_sp
         return E
+
+    def calculate_radial_expansion(self, rgd, D_sLq, n_qg, nc0_sg):
+        return gga_radial_expansion(self.calculate_radial, rgd, D_sLq,
+                                    n_qg, nc0_sg)
 
     def calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
         e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_radial1(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)

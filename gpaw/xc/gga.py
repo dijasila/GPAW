@@ -9,6 +9,38 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
 
 
+def gga_radial_expansion(calculate_radial, rgd, D_sLq, n_qg, nc0_sg):
+    n_sLg = np.dot(D_sLq, n_qg)
+    n_sLg[:, 0] += nc0_sg
+
+    dndr_sLg = np.empty_like(n_sLg)
+    for n_Lg, dndr_Lg in zip(n_sLg, dndr_sLg):
+        for n_g, dndr_g in zip(n_Lg, dndr_Lg):
+            rgd.derivative(n_g, dndr_g)
+
+    nspins, Lmax, nq = D_sLq.shape
+    dEdD_sqL = np.zeros((nspins, nq, Lmax))
+
+    E = 0.0
+    for n, Y_L in enumerate(Y_nL[:, :Lmax]):
+        w = weight_n[n]
+        rnablaY_Lv = rnablaY_nLv[n, :Lmax]
+        e_g, dedn_sg, b_vsg, dedsigma_xg = \
+            calculate_radial(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n)
+        dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
+                           n_qg.T)[:, :, np.newaxis] * (w * Y_L)
+        dedsigma_xg *= rgd.dr_g
+        B_vsg = dedsigma_xg[::2] * b_vsg
+        if nspins == 2:
+            B_vsg += 0.5 * dedsigma_xg[1] * b_vsg[:, ::-1]
+        B_vsq = np.dot(B_vsg, n_qg.T)
+        dEdD_sqL += 8 * pi * w * np.inner(rnablaY_Lv, B_vsq.T).T
+        E += w * rgd.integrate(e_g)
+
+    return E, dEdD_sqL
+
+
+
 # First part of gga_calculate_radial - initializes some quantities.
 def gga_radial1(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv):
     nspins = len(n_sLg)
@@ -147,34 +179,9 @@ class GGA(LDA):
         return stress_vv
 
     def calculate_radial_expansion(self, rgd, D_sLq, n_qg, nc0_sg):
-        n_sLg = np.dot(D_sLq, n_qg)
-        n_sLg[:, 0] += nc0_sg
+        return gga_radial_expansion(self.calculate_radial, rgd, D_sLq,
+                                    n_qg, nc0_sg)
 
-        dndr_sLg = np.empty_like(n_sLg)
-        for n_Lg, dndr_Lg in zip(n_sLg, dndr_sLg):
-            for n_g, dndr_g in zip(n_Lg, dndr_Lg):
-                rgd.derivative(n_g, dndr_g)
-
-        nspins, Lmax, nq = D_sLq.shape
-        dEdD_sqL = np.zeros((nspins, nq, Lmax))
-
-        E = 0.0
-        for n, Y_L in enumerate(Y_nL[:, :Lmax]):
-            w = weight_n[n]
-            rnablaY_Lv = rnablaY_nLv[n, :Lmax]
-            e_g, dedn_sg, b_vsg, dedsigma_xg = \
-                self.calculate_radial(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n)
-            dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
-                               n_qg.T)[:, :, np.newaxis] * (w * Y_L)
-            dedsigma_xg *= rgd.dr_g
-            B_vsg = dedsigma_xg[::2] * b_vsg
-            if nspins == 2:
-                B_vsg += 0.5 * dedsigma_xg[1] * b_vsg[:, ::-1]
-            B_vsq = np.dot(B_vsg, n_qg.T)
-            dEdD_sqL += 8 * pi * w * np.inner(rnablaY_Lv, B_vsq.T).T
-            E += w * rgd.integrate(e_g)
-
-        return E, dEdD_sqL
 
     def calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
         e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_radial1(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
