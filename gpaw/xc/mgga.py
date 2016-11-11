@@ -83,26 +83,26 @@ class MGGA(GGA):
         self.D_sp = D_sp
         self.n = 0
         self.ae = True
-        self.c = setup.xc_correction
+        self.xcc = setup.xc_correction
         self.dEdD_sp = dEdD_sp
 
-        if self.c.tau_npg is None:
-            self.c.tau_npg, self.c.taut_npg = self.initialize_kinetic(self.c)
+        if self.xcc.tau_npg is None:
+            self.xcc.tau_npg, self.xcc.taut_npg = self.initialize_kinetic(self.xcc)
 
         E = GGA.calculate_paw_correction(self, setup, D_sp, dEdD_sp,
                                          addcoredensity, a)
-        del self.D_sp, self.n, self.ae, self.c, self.dEdD_sp
+        del self.D_sp, self.n, self.ae, self.xcc, self.dEdD_sp
         return E
 
     def calculate_gga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         nspins = len(n_sg)
         if self.ae:
-            tau_pg = self.c.tau_npg[self.n]
-            tauc_g = self.c.tauc_g / (sqrt(4 * pi) * nspins)
+            tau_pg = self.xcc.tau_npg[self.n]
+            tauc_g = self.xcc.tauc_g / (sqrt(4 * pi) * nspins)
             sign = 1.0
         else:
-            tau_pg = self.c.taut_npg[self.n]
-            tauc_g = self.c.tauct_g / (sqrt(4 * pi) * nspins)
+            tau_pg = self.xcc.taut_npg[self.n]
+            tauc_g = self.xcc.tauct_g / (sqrt(4 * pi) * nspins)
             sign = -1.0
         tau_sg = np.dot(self.D_sp, tau_pg) + tauc_g
 
@@ -118,7 +118,7 @@ class MGGA(GGA):
                               tau_sg, dedtau_sg)
         if self.dEdD_sp is not None:
             self.dEdD_sp += (sign * weight_n[self.n] *
-                             np.inner(dedtau_sg * self.c.rgd.dv_g, tau_pg))
+                             np.inner(dedtau_sg * self.xcc.rgd.dv_g, tau_pg))
         self.n += 1
         if self.n == len(weight_n):
             self.n = 0
