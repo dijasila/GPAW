@@ -89,10 +89,10 @@ class FiniteDifference:
             savecalc.write(filename + '-' + self.ending)
         self.atoms.positions[a, i] = p0
 
-        self.value[a, i] = ((eminus - eplus) / (2 * self.d))
+        self.value[a, i] = (eminus - eplus) / (2 * self.d)
         if self.parallel > 1:
-            k = a - par * len(self.atoms) / self.parallel
-            self.locvalue[k, i] = ((eminus - eplus) / (2 * self.d))
+            k = a - par * len(self.atoms) // self.parallel
+            self.locvalue[k, i] = (eminus - eplus) / (2 * self.d)
             print('# rank', self.world.rank, 'Atom', a,
                   'direction', i, 'FD: ', self.value[a, i])
         else:
@@ -151,15 +151,15 @@ class FiniteDifference:
         return self.value
 
     def set_parallel(self):
-        assert self.world.size == 1 or self.world.size % (self.parallel) == 0
-        assert len(self.atoms) % (self.parallel) == 0
+        assert self.world.size == 1 or self.world.size % self.parallel == 0
+        assert len(self.atoms) % self.parallel == 0
 
         calc = self.atoms.get_calculator()
         calc.write(self.name + '_eq' + self.ending)
-        self.locvalue = np.empty([len(self.atoms) / self.parallel, 3])
+        self.locvalue = np.empty([len(self.atoms) // self.parallel, 3])
         ranks = np.array(range(self.world.size), dtype=int)
         self.ranks = ranks.reshape(
-            self.parallel, self.world.size / self.parallel)
+            self.parallel, self.world.size // self.parallel)
         self.comm = []
         for i in range(self.parallel):
             self.comm.append(self.world.new_communicator(self.ranks[i]))
