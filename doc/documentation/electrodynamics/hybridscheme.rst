@@ -118,8 +118,11 @@ This produces the following figures for the electric near field:
 |cl_fe| |qm_fe| |tot_fe|
 
 .. |cl_fe| image:: cl_field.ind_Ffe.png
+   :scale: 70 %
 .. |qm_fe| image:: qm_field.ind_Ffe.png
+   :scale: 70 %
 .. |tot_fe| image:: tot_field.ind_Ffe.png
+   :scale: 70 %
 
 
 ----------
