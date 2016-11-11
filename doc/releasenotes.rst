@@ -12,7 +12,13 @@ Git master branch
 
 * New file-format for gpw-files.  Reading of old files should still work.
 
-* New get_electrostatic_potential() method.
+* Simple syntax for specifying BZ paths introduced:
+  ``kpts={'path': 'GXK', 'npoints': 50}``.
+
+* Dipole-layer corrections for slab calculations can now be done in PW-mode
+  also.  See :ref:`dipole`.
+
+* New :meth:`~gpaw.paw.PAW.get_electrostatic_potential` method.
 
 * Calculations with ``fixdensity=True`` no longer update the Fermi level.
 
