@@ -62,6 +62,13 @@ when it is subject to external electric fields.
 The time-evolution for the charges in GPAW is performed with
 the leap-frog algorithm, following Ref. \ [#Gao]_.
 
+To test quality of the fit, one can use
+:download:`this script <plot_permittivity.py>`.
+This gives a following plot for Au permittivity fitting.
+
+.. image:: Au.yml.png
+   :scale: 50 %
+
 -------------------
 Geometry components
 -------------------
@@ -72,8 +79,6 @@ Several routines are available to generate the basic shapes:
 * `\text{PolarizableEllipsoid}(\mathbf{p}, \mathbf{r}, \epsilon({\mathbf{r}, \omega}))` where `\mathbf{p}` is the center and `\mathbf{r}` is the array containing the three radii
 * `\text{PolarizableRod}(\mathbf{p}, r, \epsilon({\mathbf{r}, \omega}), c)` where `\mathbf{p}` is an array of subsequent corner coordinates, `r` is the radius, and `c` is a boolean denoting whether the corners are rounded
 * `\text{PolarizableTetrahedron}(\mathbf{p}, \epsilon({\mathbf{r}, \omega}))` where `\mathbf{p}` is an array containing the four corner points of the tetrahedron
-
-
 
 These routines can generate many typical geometries, and for general cases a set of tetrahedra can be used.
 
