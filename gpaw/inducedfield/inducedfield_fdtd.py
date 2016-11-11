@@ -306,10 +306,12 @@ def calculate_hybrid_induced_field(cl_ind, qm_ind, h):
     combine = lambda qm_g, cl_g: \
         fdtd_poisson.get_combined_data(qm_g.copy(),
                                        cl_g.copy(),
-                                       h)
+                                       h,
+                                       qm_gd,
+                                       cl_gd)
 
     _, tot_gd = combine(qm_Frho_wg[0].imag, cl_Frho_wg[0].imag)
-    tot_ind.gd = tot_gd
+    tot_ind.gd = cl_ind.gd
     tot_ind.fieldgd = tot_gd
     tot_ind.Frho_wg = tot_gd.empty((tot_ind.nw,), dtype=complex)
     for w in range(tot_ind.nw):

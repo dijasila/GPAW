@@ -698,7 +698,8 @@ class FDTDPoissonSolver:
     # Returns the quantum + classical density in the large classical box,
     # so that the classical charge is refined into it and the quantum
     # charge is coarsened there
-    def get_combined_data(self, qmdata=None, cldata=None, spacing=None):
+    def get_combined_data(self, qmdata=None, cldata=None, spacing=None,
+                          qmgd=None, clgd=None):
 
         if qmdata is None:
             qmdata = self.density.rhot_g
@@ -706,13 +707,19 @@ class FDTDPoissonSolver:
         if cldata is None:
             cldata = self.classical_material.charge_density * self.classical_material.sign
 
+        if qmgd is None:
+            qmgd = self.qm.gd
+
+        if clgd is None:
+            clgd = self.cl.gd
+
         if spacing is None:
-            spacing = self.cl.gd.h_cv[0, 0]
+            spacing = clgd.h_cv[0, 0]
 
         spacing_au = spacing / Bohr  # from Angstroms to a.u.
 
         # Refine classical part
-        clgd = self.cl.gd.new_descriptor()
+        clgd = clgd.new_descriptor()
         cl_g = cldata.copy()
         while clgd.h_cv[0, 0] > spacing_au * 1.50:  # 45:
             clgd2 = clgd.refine()
@@ -720,7 +727,7 @@ class FDTDPoissonSolver:
             clgd = clgd2
 
         # Coarse quantum part
-        qmgd = self.qm.gd.new_descriptor()
+        qmgd = qmgd.new_descriptor()
         qm_g = qmdata.copy()
         while qmgd.h_cv[0, 0] < clgd.h_cv[0, 0] * 0.95:
             qmgd2 = qmgd.coarsen()
