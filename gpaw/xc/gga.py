@@ -2,7 +2,7 @@ from math import pi
 
 import numpy as np
 
-from gpaw.xc.lda import LDA
+from gpaw.xc.lda import LDA, lda_calculate_paw_correction
 from gpaw.utilities.blas import axpy
 from gpaw.fd_operators import Gradient
 from gpaw.sphere.lebedev import Y_nL, weight_n
@@ -137,13 +137,14 @@ def get_gradient_ops(gd):
     return [Gradient(gd, v).apply for v in range(3)]
 
 
-class GGA(LDA):
+class GGA(XCFunctional):
     def __init__(self, kernel):
-        LDA.__init__(self, kernel)
-        #self.kernel = kernel
+        #LDA.__init__(self, kernel)
+        XCFunctional.__init__(self, kernel.name, kernel.type)
+        self.kernel = kernel
 
     def set_grid_descriptor(self, gd):
-        LDA.set_grid_descriptor(self, gd)
+        XCFunctional.set_grid_descriptor(self, gd)
         self.grad_v = get_gradient_ops(gd)
 
     def calculate_lda(self, e_g, n_sg, v_sg):
@@ -154,6 +155,16 @@ class GGA(LDA):
 
     def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+
+    def calculate_impl(self, gd, n_sg, v_sg, e_g):
+        self.calculate_lda(e_g, n_sg, v_sg)
+
+    # paste from LDA
+    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
+                                 addcoredensity=True, a=None):
+        return lda_calculate_paw_correction(self.calculate_radial_expansion,
+                                            setup, D_sp, dEdD_sp,
+                                            addcoredensity, a)
 
     def stress_tensor_contribution(self, n_sg):
         sigma_xg, gradn_svg = calculate_sigma(self.gd, self.grad_v, n_sg)
