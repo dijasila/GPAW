@@ -101,7 +101,9 @@ class MGGA(GGA):
         del self.D_sp, self.n, self.ae, self.xcc, self.dEdD_sp
         return E
 
-    def calculate_gga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
+    def calculate_gga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg, n):
+        #print('calc gga radial mgga', self.n)
+        #sdfdsf
         nspins = len(n_sg)
         if self.ae:
             tau_pg = self.xcc.tau_npg[self.n]
@@ -126,6 +128,7 @@ class MGGA(GGA):
         if self.dEdD_sp is not None:
             self.dEdD_sp += (sign * weight_n[self.n] *
                              np.inner(dedtau_sg * self.xcc.rgd.dv_g, tau_pg))
+        assert n == self.n
         self.n += 1
         if self.n == len(weight_n):
             self.n = 0

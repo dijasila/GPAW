@@ -163,7 +163,7 @@ class GGA(LDA):
             w = weight_n[n]
             rnablaY_Lv = rnablaY_nLv[n, :Lmax]
             e_g, dedn_sg, b_vsg, dedsigma_xg = \
-                self.calculate_radial(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
+                self.calculate_radial(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n)
             dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
                                n_qg.T)[:, :, np.newaxis] * (w * Y_L)
             dedsigma_xg *= rgd.dr_g
@@ -176,13 +176,14 @@ class GGA(LDA):
 
         return E, dEdD_sqL
 
-    def calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv):
+    def calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
         e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_radial1(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
-        self.calculate_gga_radial(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
+        self.calculate_gga_radial(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, n)
         vv_sg = gga_radial2(rgd, sigma_xg, dedsigma_xg, a_sg)
         return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
 
-    calculate_gga_radial = calculate_gga
+    def calculate_gga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg, n):
+        return self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         dndr_sg = np.empty_like(n_sg)
@@ -193,7 +194,7 @@ class GGA(LDA):
         e_g[:], dedn_sg = self.calculate_radial(rgd, n_sg[:, np.newaxis],
                                                 [1.0],
                                                 dndr_sg[:, np.newaxis],
-                                                np.zeros((1, 3)))[:2]
+                                                np.zeros((1, 3)), n=None)[:2]
         v_sg[:] = dedn_sg
         return rgd.integrate(e_g)
 

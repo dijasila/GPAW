@@ -44,7 +44,7 @@ def lda_calculate_paw_correction(calculate_radial_expansion,
         return e - et
 
 
-def lda_calculate_radial(kernel, rgd, n_sLg, Y_L):
+def lda_calculate_radial(kernel, rgd, n_sLg, Y_L, n):
     nspins = len(n_sLg)
     n_sg = np.dot(Y_L, n_sLg)
     e_g = rgd.empty()
@@ -66,7 +66,7 @@ def lda_calculate_radial_expansion(kernel, rgd, D_sLq, n_qg, nc0_sg):
     for n, Y_L in enumerate(Y_nL[:, :Lmax]):
         w = weight_n[n]
 
-        e_g, dedn_sg = lda_calculate_radial(kernel, rgd, n_sLg, Y_L)
+        e_g, dedn_sg = lda_calculate_radial(kernel, rgd, n_sLg, Y_L, n)
         dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
                            n_qg.T)[:, :, np.newaxis] * (w * Y_L)
         E += w * rgd.integrate(e_g)
@@ -96,14 +96,14 @@ class LDA(XCFunctional):
     def calculate_radial_expansion(self, rgd, D_sLq, n_qg, nc0_sg):
         return lda_calculate_radial_expansion(self.kernel, rgd, D_sLq, n_qg, nc0_sg)
 
-    def calculate_radial(self, rgd, n_sLg, Y_L):
-        return lda_calculate_radial(self.kernel, rgd, n_sLg, Y_L)
+    def calculate_radial(self, rgd, n_sLg, Y_L, n):
+        return lda_calculate_radial(self.kernel, rgd, n_sLg, Y_L, n)
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         if e_g is None:
             e_g = rgd.empty()
         e_g[:], dedn_sg = self.calculate_radial(rgd, n_sg[:, np.newaxis],
-                                                [1.0])
+                                                [1.0], n=None)
         v_sg[:] = dedn_sg
         return rgd.integrate(e_g)
 
