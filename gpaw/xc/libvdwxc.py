@@ -1,8 +1,9 @@
 from __future__ import print_function
 import numpy as np
 from gpaw.xc.libxc import LibXC
-from gpaw.xc.gga import GGA
+from gpaw.xc.gga import GGA, get_gga_quantities, gga_add_gradient_correction
 from gpaw.xc.mgga import MGGA
+from gpaw.xc.functional import XCFunctional
 from gpaw.utilities import compiled_with_libvdwxc
 from gpaw.utilities.grid_redistribute import Domains, general_redistribute
 from gpaw.utilities.timing import nulltimer
@@ -227,223 +228,234 @@ class FFTDistribution:
                              a_xg, b_xg, behavior='add')
 
 
-def define_vdwxcclass(xcclass):
-    class BaseVDWXC(xcclass, object):
-        def __init__(self, gga_kernel, name, mode='auto',
-                     pfft_grid=None, libvdwxc_name=None,
-                     setup_name='revPBE', vdwcoef=1.0):
-            """Initialize VDWXC object (further initialization required).
+class VDWXC(XCFunctional):
+    def __init__(self, semilocal_xc, name, mode='auto',
+                 pfft_grid=None, libvdwxc_name=None,
+                 setup_name='revPBE'):
+        """Initialize VDWXC object (further initialization required).
 
-            mode can be 'auto', 'serial', 'mpi', or 'pfft'.
+        mode can be 'auto', 'serial', 'mpi', or 'pfft'.
 
-             * 'serial' uses FFTW and only works with serial decompositions.
+         * 'serial' uses FFTW and only works with serial decompositions.
 
-             * 'mpi' uses FFTW-MPI with communicator of the grid
-               descriptor, parallelizing along the x axis.
+         * 'mpi' uses FFTW-MPI with communicator of the grid
+           descriptor, parallelizing along the x axis.
 
-             * 'pfft' uses PFFT and works with any decomposition,
-               parallelizing along two directions for best scalability.
+         * 'pfft' uses PFFT and works with any decomposition,
+           parallelizing along two directions for best scalability.
 
-             * 'auto' uses PFFT if pfft_grid is given, else FFTW-MPI if the
-               calculation uses more than one core, else serial FFTW.
+         * 'auto' uses PFFT if pfft_grid is given, else FFTW-MPI if the
+           calculation uses more than one core, else serial FFTW.
 
-             pfft_grid is the 2D CPU grid used by PFFT and can be a tuple
-             (nproc1, nproc2) that multiplies to total communicator size,
-             or None.  It is an error to specify pfft_grid unless using
-             PFFT.  If left unspecified, a hopefully reasonable automatic
-             choice will be made.
-             """
-            xcclass.__init__(self, gga_kernel)
+         pfft_grid is the 2D CPU grid used by PFFT and can be a tuple
+         (nproc1, nproc2) that multiplies to total communicator size,
+         or None.  It is an error to specify pfft_grid unless using
+         PFFT.  If left unspecified, a hopefully reasonable automatic
+         choice will be made.
+         """
+        XCFunctional.__init__(self, semilocal_xc.kernel.name,
+                              semilocal_xc.kernel.type)
+        # Really, 'type' should be something along the lines of vdw-df.
+        self.semilocal_xc = semilocal_xc
 
-            # We set these in the initialize later (ugly).
-            self.libvdwxc = None
-            self.distribution = None
-            self.redist_wrapper = None
-            self.timer = nulltimer
-            self.setup_name = setup_name
+        # We set these in the initialize later (ugly).
+        self.libvdwxc = None
+        self.distribution = None
+        self.redist_wrapper = None
+        self.timer = nulltimer
+        self.setup_name = setup_name
 
-            # These parameters are simply stored for later forwarding
-            self.name = name
-            if libvdwxc_name is None:
-                libvdwxc_name = name
-            self._libvdwxc_name = libvdwxc_name
-            self._mode = mode
-            self._pfft_grid = pfft_grid
-            self._vdwcoef = vdwcoef
-            self._xcclass = xcclass
+        # These parameters are simply stored for later forwarding
+        self.name = name
+        if libvdwxc_name is None:
+            libvdwxc_name = name
+        self._libvdwxc_name = libvdwxc_name
+        self._mode = mode
+        self._pfft_grid = pfft_grid
 
-            self.last_nonlocal_energy = None
-            self.last_semilocal_energy = None
+        self.last_nonlocal_energy = None
+        self.last_semilocal_energy = None
 
-        def __str__(self):
-            special = [self._mode]
-            if self._libvdwxc_name != self.name:
-                special.append('nonlocal-name=%s' % self._libvdwxc_name)
-                special.append('gga-kernel=%s' % self.kernel.name)
-            if self._pfft_grid is not None:
-                special.append('pfft=%s' % self._pfft_grid)
+        # XXXXXXXXXXXXXXXXX
+        self.calculate_paw_correction = semilocal_xc.calculate_paw_correction
+        self.stress_tensor_contribution = semilocal_xc.stress_tensor_contribution
+        self.calculate_radial_expansion = semilocal_xc.calculate_radial_expansion
+        self.calculate_radial = semilocal_xc.calculate_radial
+        self.calculate_spherical = semilocal_xc.calculate_spherical
 
-            special_str = ', '.join(special)
+    def __str__(self):
+        special = [self._mode]
+        if self._libvdwxc_name != self.name:
+            special.append('nonlocal-name=%s' % self._libvdwxc_name)
+            special.append('gga-kernel=%s' % self.semilocal_xc.kernel.name)
+        if self._pfft_grid is not None:
+            special.append('pfft=%s' % self._pfft_grid)
+        special_str = ', '.join(special)
+        return '%s [libvdwxc/%s]' % (self.name, special_str)
 
-            return '%s [libvdwxc/%s]' % (self.name, special_str)
+    def set_grid_descriptor(self, gd):
+        if self.gd is not None and self.gd != gd:
+            raise NotImplementedError('Cannot switch grids')
+        if self.libvdwxc is None:
+            self._initialize(gd)
+        XCFunctional.set_grid_descriptor(self, gd)
+        self.semilocal_xc.set_grid_descriptor(gd)
+        #from gpaw.xc.gga import get_gradients
+        #self.grad_v = get_gradients(gd)
 
-        def set_grid_descriptor(self, gd):
-            if self.gd is not None and self.gd != gd:
-                raise NotImplementedError('Cannot switch grids')
-            self._xcclass.set_grid_descriptor(self, gd)
-            if self.libvdwxc is None:
-                self._initialize(gd)
+    def get_description(self):
+        lines = []
+        app = lines.append
+        app(self.libvdwxc.get_description())
+        app('GGA kernel: %s' % self.semilocal_xc.kernel.name)
+        #app('libvdwxc parameters for non-local correlation:')
+        #app(self.libvdwxc.tostring())
+        return '\n'.join(lines)
 
-        def get_description(self):
-            lines = []
-            app = lines.append
-            app(self.libvdwxc.get_description())
-            app('GGA kernel: %s' % self.kernel.name)
-            #app('libvdwxc parameters for non-local correlation:')
-            #app(self.libvdwxc.tostring())
-            return '\n'.join(lines)
+    def summary(self, log):
+        from ase.units import Hartree
+        enl = self.libvdwxc.comm.sum(self.last_nonlocal_energy)
+        esl = self.gd.comm.sum(self.last_semilocal_energy)
+        # In the current implementation these communicators have the same
+        # processes always:
+        assert self.libvdwxc.comm.size == self.gd.comm.size
+        log('Non-local %s correlation energy: %.6f' % (self.name,
+                                                       enl * Hartree))
+        log('Semilocal %s energy: %.6f' % (self.semilocal_xc.kernel.name,
+                                           esl * Hartree))
+        log('(Not including atomic contributions)')
 
-        def summary(self, log):
-            from ase.units import Hartree
-            enl = self.libvdwxc.comm.sum(self.last_nonlocal_energy)
-            esl = self.gd.comm.sum(self.last_semilocal_energy)
-            # In the current implementation these communicators have the same
-            # processes always:
-            assert self.libvdwxc.comm.size == self.gd.comm.size
-            log('Non-local %s correlation energy: %.6f' % (self.name,
-                                                           enl * Hartree))
-            log('Semilocal %s energy: %.6f' % (self.kernel.name,
-                                               esl * Hartree))
-            log('(Not including atomic contributions)')
+    def get_setup_name(self):
+        return self.setup_name
 
-        def get_setup_name(self):
-            return self.setup_name
+    def _initialize(self, gd):
+        N_c = gd.get_size_of_global_array(pad=True)
+        self.libvdwxc = LibVDWXC(self._libvdwxc_name, N_c, gd.cell_cv,
+                                 gd.comm, mode=self._mode,
+                                 pfft_grid=self._pfft_grid)
+        cpugrid = [1, 1, 1]
+        if self.libvdwxc.mode == 'mpi':
+            cpugrid[0] = gd.comm.size
+        elif self.libvdwxc.mode == 'pfft':
+            cpugrid[0], cpugrid[1] = self.libvdwxc.pfft_grid
+        self.distribution = FFTDistribution(gd, cpugrid)
+        self.redist_wrapper = RedistWrapper(self.libvdwxc,
+                                            self.distribution,
+                                            self.timer)
 
-        def _initialize(self, gd):
-            N_c = gd.get_size_of_global_array(pad=True)
-            self.libvdwxc = LibVDWXC(self._libvdwxc_name, N_c, gd.cell_cv,
-                                     gd.comm, mode=self._mode,
-                                     pfft_grid=self._pfft_grid)
-            cpugrid = [1, 1, 1]
-            if self.libvdwxc.mode == 'mpi':
-                cpugrid[0] = gd.comm.size
-            elif self.libvdwxc.mode == 'pfft':
-                cpugrid[0], cpugrid[1] = self.libvdwxc.pfft_grid
-            self.distribution = FFTDistribution(gd, cpugrid)
-            self.redist_wrapper = RedistWrapper(self.libvdwxc,
-                                                self.distribution,
-                                                self.timer,
-                                                self._vdwcoef)
+    def initialize(self, density, hamiltonian, wfs, occupations):
+        self.timer = hamiltonian.timer  # fragile object robbery
+        #self.timer.start('initialize')
+        #try:
+        #    gd = density.xc_redistributor.aux_gd  # fragile
+        #except AttributeError:
+        #    gd = density.finegd
+        gd = self.gd
+        if wfs.world.size > gd.comm.size and np.prod(gd.N_c) > 64**3:
+            # We could issue a warning if an excuse turns out to exist some day
+            raise ValueError('You are using libvdwxc with only '
+                             '%d out of %d available cores in a non-small '
+                             'calculation (%s points).  This is not '
+                             'a crime but is likely silly and therefore '
+                             'triggers and error.  Please use '
+                             'parallel={\'augment_grids\': True} '
+                             'or complain to the developers.' %
+                             (gd.comm.size, wfs.world.size,
+                              ' x '.join(str(N) for N in gd.N_c)))
+        #self._initialize(gd)
+        # TODO Here we could decide FFT padding.
+        #self.timer.stop('initialize')
 
-        def initialize(self, density, hamiltonian, wfs, occupations):
-            self._xcclass.initialize(self, density, hamiltonian, wfs,
-                                     occupations)
-            self.timer = hamiltonian.timer  # fragile object robbery
-            #self.timer.start('initialize')
-            try:
-                gd = density.xc_redistributor.aux_gd  # fragile
-            except AttributeError:
-                gd = density.finegd
-            if wfs.world.size > gd.comm.size and np.prod(gd.N_c) > 64**3:
-                # We could issue a warning if an excuse turns out to
-                # exist some day
-                raise ValueError('You are using libvdwxc with only '
-                                 '%d out of %d available cores in a non-small '
-                                 'calculation (%s points).  This is not '
-                                 'a crime but is likely silly and therefore '
-                                 'triggers and error.  Please use '
-                                 'parallel={\'augment_grids\': True} '
-                                 'or complain to the developers.' %
-                                 (gd.comm.size, wfs.world.size,
-                                  ' x '.join(str(N) for N in gd.N_c)))
-            #self._initialize(gd)
-            # TODO Here we could decide FFT padding.
-            #self.timer.stop('initialize')
+    def calculate_impl(self, gd, n_sg, v_sg, e_g):
+        """Calculate energy and potential.
 
-        def calculate(self, gd, n_sg, v_sg, e_g=None):
-            """Calculate energy and potential.
+        gd may be non-periodic.  To be distinguished from self.gd
+        which is always periodic due to priminess of FFT dimensions.
+        (To do: proper padded FFTs.)"""
+        assert gd == self.distribution.input_gd
+        assert self.libvdwxc is not None
 
-            gd may be non-periodic.  To be distinguished from self.gd
-            which is always periodic due to priminess of FFT dimensions.
-            (To do: proper padded FFTs.)"""
-            assert gd == self.distribution.input_gd
+        self.timer.start('van der Waals')
 
-            if e_g is not None:
-                # TODO: handle e_g properly
-                raise NotImplementedError('Proper energy density e_g in '
-                                          'libvdwxc')
-            energy = self._xcclass.calculate(self, gd, n_sg, v_sg, e_g=None)
-            return energy
+        self.timer.start('semilocal')
+        # XXXXXXX taken from GGA
+        sigma_xg, dedsigma_xg, gradn_svg = get_gga_quantities(self.gd, self.semilocal_xc.grad_v, n_sg)
+        n_sg[:] = np.abs(n_sg)  # XXXX What to do about this?
+        sigma_xg[:] = np.abs(sigma_xg)
+        self.semilocal_xc.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        #self.semilocal_xc.calculate_impl(gd, n_sg, v_sg, e_g)
+        self.last_semilocal_energy = e_g.sum() * self.gd.dv
+        self.timer.stop('semilocal')
+        #energy = GGA.calculate(self, gd, n_sg, v_sg, e_g=None)
 
-        def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
-            assert self.libvdwxc is not None
+        nspins = len(n_sg)
+        if nspins == 1:
+            n_g = n_sg[0]
+            sigma_g = sigma_xg[0]
+            v_g = v_sg[0]
+            dedsigma_g = dedsigma_xg[0]
+        elif nspins == 2:
+            n_g = n_sg.sum(0)
+            sigma_g = sigma_xg[0] + 2 * sigma_xg[1] + sigma_xg[2]
+            v_g = np.zeros_like(n_g)
+            dedsigma_g = np.zeros_like(n_g)
+        else:
+            raise ValueError('Strange number of spins {0}'.format(nspins))
 
-            self.timer.start('van der Waals')
-            n_sg[:] = np.abs(n_sg)  # XXXX What to do about this?
-            sigma_xg[:] = np.abs(sigma_xg)
-            self.timer.start('semilocal')
-            self._xcclass.calculate_gga(self, e_g, n_sg, v_sg, sigma_xg,
-                                        dedsigma_xg)
-            self.last_semilocal_energy = e_g.sum() * self.gd.dv
-            self.timer.stop('semilocal')
+        energy_nonlocal = self.redist_wrapper.calculate(n_g, sigma_g,
+                                                        v_g, dedsigma_g)
+        if nspins == 2:
+            dedsigma_xg[0] += dedsigma_g
+            dedsigma_xg[1] += 2 * dedsigma_g
+            dedsigma_xg[2] += dedsigma_g
+            v_sg += v_g[None]
 
-            nspins = len(n_sg)
-            if nspins == 1:
-                n_g = n_sg[0]
-                sigma_g = sigma_xg[0]
-                v_g = v_sg[0]
-                dedsigma_g = dedsigma_xg[0]
-            elif nspins == 2:
-                n_g = n_sg.sum(0)
-                sigma_g = sigma_xg[0] + 2 * sigma_xg[1] + sigma_xg[2]
-                v_g = np.zeros_like(n_g)
-                dedsigma_g = np.zeros_like(n_g)
-            else:
-                raise ValueError('Strange number of spins {0}'.format(nspins))
+        # Note: Redistwrapper handles vdwcoef.  For now
 
-            energy_nonlocal = self.redist_wrapper.calculate(n_g, sigma_g,
-                                                            v_g, dedsigma_g)
+        gga_add_gradient_correction(self.semilocal_xc.grad_v, gradn_svg,
+                                    sigma_xg, dedsigma_xg, v_sg)
 
-            if nspins == 2:
-                dedsigma_xg[0] += dedsigma_g
-                dedsigma_xg[1] += 2 * dedsigma_g
-                dedsigma_xg[2] += dedsigma_g
-                v_sg += v_g[None]
+        # XXXXXXXXXXXXXXXX ignoring vdwcoef
 
-            # Redistwrapper handles vdwcoef.  For now
+        # XXXXXXXXXXXXXXXX ugly
+        self.last_nonlocal_energy = energy_nonlocal
+        e_g[0, 0, 0] += energy_nonlocal / self.gd.dv
+        self.timer.stop('van der Waals')
+        #return energy
 
-            # XXXXXXXXXXXXXXXX ugly
-            # Surrounding classes will eventually integrate e_g anyway,
-            # so we can fill it with garbage as long as garbage integrates
-            # to the correct energy.
-            self.last_nonlocal_energy = energy_nonlocal
-            e_g[0, 0, 0] += energy_nonlocal / self.gd.dv
-            self.timer.stop('van der Waals')
+    #def calculate_vdw(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
+        #assert self.libvdwxc is not None
+        #assert len(n_sg) == 1, 'libvdwxc does not work with multiple spins yet'
+        #assert len(sigma_xg) == 1
+        #assert len(v_sg) == 1
+        #assert len(dedsigma_xg) == 1
 
-        def estimate_memory(self, mem):
-            size = self.distribution.input_gd.bytecount()  # only on average
-            mem.subnode('thetas', 20 * size)
-            mem.subnode('other', 3 * size)
+        #self.timer.start('van der Waals')
+        #n_sg[:] = np.abs(n_sg)  # XXXX What to do about this?
+        #sigma_xg[:] = np.abs(sigma_xg)
+        #self.timer.start('semilocal')
+        #GGA.calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        #self.last_semilocal_energy = e_g.sum() * self.gd.dv
+        #self.timer.stop('semilocal')
 
-    return BaseVDWXC
+    #    energy_nonlocal = self.redist_wrapper.calculate(
+    #        n_sg[0], sigma_xg[0], v_sg[0], dedsigma_xg[0])
 
+        # XXXXXXXXXXXXXXXX ignoring vdwcoef
 
-class VDWXC(define_vdwxcclass(GGA)):
-    pass
-
-
-class MGGAVDWXC(define_vdwxcclass(MGGA)):
-    pass
-
+        # XXXXXXXXXXXXXXXX ugly
+    #    self.last_nonlocal_energy = energy_nonlocal
+    #    e_g[0, 0, 0] += energy_nonlocal / self.gd.dv
+    #    self.timer.stop('van der Waals')
 
 def vdw_df(*args, **kwargs):
-    kernel = LibXC('GGA_X_PBE_R+LDA_C_PW')
-    return VDWXC(gga_kernel=kernel, name='vdW-DF', *args, **kwargs)
+    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_PBE_R+LDA_C_PW')),
+                 name='vdW-DF', *args, **kwargs)
 
 
 def vdw_df2(*args, **kwargs):
-    kernel = LibXC('GGA_X_RPW86+LDA_C_PW')
-    return VDWXC(gga_kernel=kernel, name='vdW-DF2', *args, **kwargs)
+    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_RPW86+LDA_C_PW')),
+                 name='vdW-DF2', *args, **kwargs)
 
 
 def vdw_df_cx(*args, **kwargs):
@@ -459,25 +471,22 @@ def vdw_df_cx(*args, **kwargs):
         kwargs.pop('gga_backend')
     assert 'gga_backend' not in kwargs
 
-    return VDWXC(gga_kernel=kernel, name='vdW-DF-CX', *args, **kwargs)
+    return VDWXC(semilocal_xc=GGA(kernel), name='vdW-DF-CX', *args, **kwargs)
 
 
 def vdw_optPBE(*args, **kwargs):
-    kernel = LibXC('GGA_X_OPTPBE_VDW+LDA_C_PW')
-    return VDWXC(gga_kernel=kernel, name='vdW-optPBE',
-                 libvdwxc_name='vdW-DF', *args, **kwargs)
+    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_OPTPBE_VDW+LDA_C_PW')),
+                 name='vdW-optPBE', libvdwxc_name='vdW-DF', *args, **kwargs)
 
 
 def vdw_optB88(*args, **kwargs):
-    kernel = LibXC('GGA_X_OPTB88_VDW+LDA_C_PW')
-    return VDWXC(gga_kernel=kernel, name='optB88',
-                 libvdwxc_name='vdW-DF', *args, **kwargs)
+    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_OPTB88_VDW+LDA_C_PW')),
+                 name='optB88', libvdwxc_name='vdW-DF', *args, **kwargs)
 
 
 def vdw_C09(*args, **kwargs):
-    kernel = LibXC('GGA_X_C09X+LDA_C_PW')
-    return VDWXC(gga_kernel=kernel, name='vdW-C09',
-                 libvdwxc_name='vdW-DF', *args, **kwargs)
+    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_C09X+LDA_C_PW')),
+                 name='vdW-C09', libvdwxc_name='vdW-DF', *args, **kwargs)
 
 
 def vdw_beef(*args, **kwargs):
@@ -486,7 +495,7 @@ def vdw_beef(*args, **kwargs):
     kernel = BEEVDWKernel('BEE2', None,
                           0.600166476948828631066,
                           0.399833523051171368934)
-    return VDWXC(gga_kernel=kernel, name='vdW-BEEF',
+    return VDWXC(semilocal_xc=GGA(kernel), name='vdW-BEEF',
                  setup_name='PBE', libvdwxc_name='vdW-DF2',
                  *args, **kwargs)
 

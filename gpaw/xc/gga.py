@@ -146,14 +146,11 @@ class GGA(XCFunctional):
         XCFunctional.set_grid_descriptor(self, gd)
         self.grad_v = get_gradient_ops(gd)
 
-    def calculate_lda(self, e_g, n_sg, v_sg):
+    def calculate_impl(self, gd, n_sg, v_sg, e_g):
         sigma_xg, dedsigma_xg, gradn_svg = get_gga_quantities(self.gd, self.grad_v, n_sg)
         self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
         gga_add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
                                     dedsigma_xg, v_sg)
-
-    def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        self.calculate_lda(e_g, n_sg, v_sg)
 
     # paste from LDA
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
