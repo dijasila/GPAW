@@ -7,9 +7,9 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 
 
 
-def lda_calculate_paw_correction(calculate_radial_expansion,
-                                 setup, D_sp, dEdD_sp=None,
-                                 addcoredensity=True, a=None):
+def calculate_paw_correction(calculate_radial_expansion,
+                             setup, D_sp, dEdD_sp=None,
+                             addcoredensity=True, a=None):
     xcc = setup.xc_correction
     if xcc is None:
         return 0.0
@@ -83,9 +83,9 @@ class LDA(XCFunctional):
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
-        return lda_calculate_paw_correction(self.calculate_radial_expansion,
-                                            setup, D_sp, dEdD_sp,
-                                            addcoredensity, a)
+        return calculate_paw_correction(self.calculate_radial_expansion,
+                                        setup, D_sp, dEdD_sp,
+                                        addcoredensity, a)
 
     def calculate_radial_expansion(self, rgd, D_sLq, n_qg, nc0_sg):
         return lda_calculate_radial_expansion(self.kernel, rgd, D_sLq, n_qg, nc0_sg)

@@ -5,7 +5,7 @@ import numpy as np
 from gpaw.xc.gga import (GGA, gga_add_gradient_correction, get_gga_quantities,
                          gga_get_radial_quantities, gga_add_radial_gradient_correction, gga_radial_expansion,
                          get_gradient_ops)
-from gpaw.xc.lda import lda_calculate_paw_correction, LDA
+from gpaw.xc.lda import calculate_paw_correction, LDA
 from gpaw.xc.functional import XCFunctional
 from gpaw.sphere.lebedev import weight_n
 
@@ -101,9 +101,9 @@ class MGGA(XCFunctional):
         if self.xcc.tau_npg is None:
             self.xcc.tau_npg, self.xcc.taut_npg = self.initialize_kinetic(self.xcc)
 
-        E = lda_calculate_paw_correction(self.calculate_radial_expansion,
-                                         setup, D_sp, dEdD_sp,
-                                         addcoredensity, a)
+        E = calculate_paw_correction(self.calculate_radial_expansion,
+                                     setup, D_sp, dEdD_sp,
+                                     addcoredensity, a)
         del self.D_sp, self.n, self.ae, self.xcc, self.dEdD_sp
         return E
 

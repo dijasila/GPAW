@@ -2,7 +2,7 @@ from math import pi
 
 import numpy as np
 
-from gpaw.xc.lda import LDA, lda_calculate_paw_correction
+from gpaw.xc.lda import LDA, calculate_paw_correction
 from gpaw.utilities.blas import axpy
 from gpaw.fd_operators import Gradient
 from gpaw.sphere.lebedev import Y_nL, weight_n
@@ -155,9 +155,9 @@ class GGA(XCFunctional):
     # paste from LDA
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
-        return lda_calculate_paw_correction(self.calculate_radial_expansion,
-                                            setup, D_sp, dEdD_sp,
-                                            addcoredensity, a)
+        return calculate_paw_correction(self.calculate_radial_expansion,
+                                        setup, D_sp, dEdD_sp,
+                                        addcoredensity, a)
 
     def stress_tensor_contribution(self, n_sg):
         sigma_xg, gradn_svg = calculate_sigma(self.gd, self.grad_v, n_sg)
