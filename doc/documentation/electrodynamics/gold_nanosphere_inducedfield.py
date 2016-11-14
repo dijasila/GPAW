@@ -40,6 +40,7 @@ poissonsolver = FDTDPoissonSolver(classical_material=classical_material,
                                   cl_spacing=8.0,
                                   qm_spacing=1.0,
                                   cell=large_cell,
+                                  communicator=world,
                                   remove_moments=(4, 1))
 poissonsolver.set_calculation_mode('iterate')
 
