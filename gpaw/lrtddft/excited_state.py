@@ -104,10 +104,10 @@ class ExcitedState(GPAW):
 
         f = open(filename + '/' + filename + '.exst', 'w')
         f.write('# ' + self.__class__.__name__ + __version__ + '\n')
-        f.write('Displacement: {}'.format(self.d) + '\n')
+        f.write('Displacement: {0}'.format(self.d) + '\n')
         f.write('Index: ' + self.index.__class__.__name__ + '\n')
         for k, v in self.index.__dict__.items():
-            f.write('{}, {}'.format(k, v) + '\n')
+            f.write('{0}, {1}'.format(k, v) + '\n')
         f.close()
 
         mpi.world.barrier()
@@ -207,7 +207,7 @@ class ExcitedState(GPAW):
         self.log('--------------------------')
         self.log('Excited state')
         self.log(self.index)
-        self.log('Energy:   {}'.format(energy))
+        self.log('Energy:   {0}'.format(energy))
         self.log()
 
         return energy
