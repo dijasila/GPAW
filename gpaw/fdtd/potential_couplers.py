@@ -111,7 +111,7 @@ class RefinerPotentialCoupler(PotentialCoupler):
 
         self.qm.gd.distribute(global_phi_cl_qmgd, local_phi_cl_qmgd)
 
-        # Transfer quantum potential into classical subsystem
+        # Transfer quantum density into classical grid
         global_rho_qm_qmgd = self.qm.gd.collect(local_rho_qm_qmgd)
         global_rho_qm_clgd = self.cl.gd.zeros(global_array=True)
         local_rho_qm_clgd = self.cl.gd.zeros()
@@ -132,7 +132,7 @@ class RefinerPotentialCoupler(PotentialCoupler):
         # Distribute the combined density to all processes
         self.cl.gd.distribute(global_rho_qm_clgd, local_rho_qm_clgd)
         
-        # Solve potential
+        # Solve quantum potential on classical grid
         local_phi_qm_clgd = self.old_local_phi_qm_clgd
         self.cl.poisson_solver.remove_moment = None
         niter_qm_clgd = self.cl.poisson_solver.solve(phi=local_phi_qm_clgd,

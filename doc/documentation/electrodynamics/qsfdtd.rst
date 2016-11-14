@@ -139,9 +139,10 @@ means that the volume (and intensity) is roughly 16% too large:
 
  `\frac{V}{V_{\text{sphere}}}\approx\frac{0.18035\times(15\text{nm})^3)}{\frac{4}{3}\pi\times(5\text{nm})^3}\approx1.16`.
 
--------------------------------------------
+----------------------------------------
 Advanced example: Near field enhancement
--------------------------------------------
+----------------------------------------
+
 This example shows how to calculate the induced electric near field
 enhancement of the same nanosphere considered in the previous example.
 The induced field calculations can be included by using the advanced
@@ -162,7 +163,8 @@ We obtain a following plot of the field:
    :scale: 70 %
 
 Note that the oscillations in the induced field (and density)
-inside the material are caused by numerical limitations.
+inside the material are caused by numerical limitations
+of the current implementation.
 
 -----------
 Limitations
@@ -207,8 +209,6 @@ Technical remarks
   one can improve the situation by defining remove_moments argument in
   FDTDPoissonSolver: this will then use the multipole moments correction
   scheme, see e.g. Ref. \ [#Castro]_.
-
-
 
 ----
 TODO
