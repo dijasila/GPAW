@@ -139,6 +139,31 @@ means that the volume (and intensity) is roughly 16% too large:
 
  `\frac{V}{V_{\text{sphere}}}\approx\frac{0.18035\times(15\text{nm})^3)}{\frac{4}{3}\pi\times(5\text{nm})^3}\approx1.16`.
 
+-------------------------------------------
+Advanced example: Near field enhancement
+-------------------------------------------
+This example shows how to calculate the induced electric near field
+enhancement of the same nanosphere considered in the previous example.
+The induced field calculations can be included by using the advanced
+syntax instead of the simple :code:`QSFDTD` wrapper.
+In the example one can also see how the dummy empty quantum system is
+generated.
+
+.. literalinclude:: gold_nanosphere_inducedfield.py
+
+The contents of the obtained file :code:`field.ind`
+can be visualized like described in
+:ref:`hybrid-inducedfield`.
+We obtain a following plot of the field:
+
+|cl_fe|
+
+.. |cl_fe| image:: field.ind_Ffe.png
+   :scale: 70 %
+
+Note that the oscillations in the induced field (and density)
+inside the material are caused by numerical limitations.
+
 -----------
 Limitations
 -----------
@@ -193,6 +218,7 @@ TODO
 * Geometries from 3D model files
 * Subcell averaging
 * Full FDTD (retardation effects) or interface to an external FDTD software
+* Fix grid-dependent oscillations in the induced density
 
 ----------------------
 Combination with TDDFT

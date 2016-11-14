@@ -10,7 +10,7 @@ def agts(queue):
               creates=['geom.png'])
 
     calc3 = queue.add('gold_nanosphere_calculate.py',
-                      ncpus=8,
+                      ncpus=1,
                       walltime=60)
 
     queue.add('plot.py',
@@ -18,6 +18,16 @@ def agts(queue):
               walltime=5,
               deps=[calc1, calc3],
               creates=['qsfdtd_vs_mie.png', 'hybrid.png'])
+
+    clind1 = queue.add('gold_nanosphere_inducedfield.py',
+                       ncpus=1,
+                       walltime=60)
+
+    queue.add('gold_nanosphere_inducedfield_plot.py',
+              ncpus=1,
+              walltime=10,
+              deps=clind1,
+              creates=['field.ind_Ffe.png'])
 
     ind1 = queue.add('gold+na2_nanosphere_inducedfield.py',
                      ncpus=8,

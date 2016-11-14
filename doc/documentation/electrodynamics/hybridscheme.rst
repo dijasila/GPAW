@@ -87,6 +87,9 @@ of the grid points are shown in the following figure
 
 .. |geometry| image:: geom.png
 
+
+.. _hybrid-inducedfield:
+
 ----------------------------------------------------------------------------
 Advanced example: Near field enhancement of hybrid system
 ----------------------------------------------------------------------------
