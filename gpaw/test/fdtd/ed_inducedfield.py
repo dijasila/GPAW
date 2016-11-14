@@ -105,6 +105,8 @@ td_calc.write('td.gpw', 'all')
 cl_ind.write('cl.ind')
 qm_ind.write('qm.ind')
 td_calc = None
+cl_ind.paw = None
+qm_ind.paw = None
 cl_ind = None
 qm_ind = None
 
@@ -129,6 +131,8 @@ tol = 1e-4
 equal(td_calc.hamiltonian.poisson.get_classical_dipole_moment(), ref_cl_dipole_moment, tol)
 equal(td_calc.hamiltonian.poisson.get_quantum_dipole_moment(), ref_qm_dipole_moment, tol)
 
+cl_ind.paw = None
+qm_ind.paw = None
 td_calc = None
 cl_ind = None
 qm_ind = None
@@ -149,6 +153,14 @@ qm_ind.write('qm_field.ind', mode='all')
 # Total system, interpolate/extrapolate to a grid with spacing h
 tot_ind = calculate_hybrid_induced_field(cl_ind, qm_ind, h=0.4)
 tot_ind.write('tot_field.ind', mode='all')
+
+tot_ind.paw = None
+cl_ind.paw = None
+qm_ind.paw = None
+td_calc = None
+cl_ind = None
+qm_ind = None
+tot_ind = None
 
 # Test induced fields
 if do_print_values:
