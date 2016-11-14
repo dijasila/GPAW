@@ -63,9 +63,8 @@ class LrTDDFTInducedField(BaseInducedField):
         self.Fbgef_v = Fbgef_v
 
         # Initialize PAW object
-        self.density.ghat.set_positions(self.atoms.get_scaled_positions())
-        paw.converge_wave_functions()
-        
+        paw.initialize_positions()
+
     def set_folding(self, folding, width):
         BaseInducedField.set_folding(self, folding, width)
         
