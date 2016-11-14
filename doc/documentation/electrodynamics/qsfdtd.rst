@@ -62,7 +62,7 @@ when it is subject to external electric fields.
 The time-evolution for the charges in GPAW is performed with
 the leap-frog algorithm, following Ref. \ [#Gao]_.
 
-To test quality of the fit, one can use
+To test the quality of the fit, one can use
 :download:`this script <plot_permittivity.py>`.
 This gives a following plot for Au permittivity fitting.
 
