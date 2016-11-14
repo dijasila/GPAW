@@ -49,7 +49,9 @@ kickdir = 0                # Kick field direction 0, 1, 2 for x, y, z
 ind = LrTDDFTInducedField(paw=calc, lr=lr, frequencies=frequencies,
                           folding=folding, width=width, kickdir=kickdir)
 ind.calculate_induced_field(gridrefinement=2, from_density='comp',
-                            poisson_eps=poisson_eps)
+                            poisson_eps=poisson_eps,
+                            extend_N_cd=3 * np.ones(shape=(3, 2), dtype=np.int),
+                            deextend=True)
 
 # Estimate tolerance (worst case error accumulation)
 tol = (len(lr) ** 2 * ind.fieldgd.integrate(ind.fieldgd.zeros() + 1.0) *
