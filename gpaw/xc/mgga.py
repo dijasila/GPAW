@@ -3,7 +3,7 @@ from math import sqrt, pi
 import numpy as np
 
 from gpaw.xc.gga import (GGA, gga_add_gradient_correction, get_gga_quantities,
-                         gga_radial1, gga_radial2, gga_radial_expansion,
+                         gga_get_radial_quantities, gga_add_radial_gradient_correction, gga_radial_expansion,
                          get_gradient_ops)
 from gpaw.xc.lda import lda_calculate_paw_correction, LDA
 from gpaw.xc.functional import XCFunctional
@@ -112,9 +112,9 @@ class MGGA(XCFunctional):
                                     n_qg, nc0_sg)
 
     def calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
-        e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_radial1(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
+        e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_get_radial_quantities(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
         self.mgga_radial(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, n)
-        vv_sg = gga_radial2(rgd, sigma_xg, dedsigma_xg, a_sg)
+        vv_sg = gga_add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg)
         return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
 
 

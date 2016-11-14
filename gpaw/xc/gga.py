@@ -42,7 +42,7 @@ def gga_radial_expansion(calculate_radial, rgd, D_sLq, n_qg, nc0_sg):
 
 
 # First part of gga_calculate_radial - initializes some quantities.
-def gga_radial1(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv):
+def gga_get_radial_quantities(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv):
     nspins = len(n_sLg)
 
     n_sg = np.dot(Y_L, n_sLg)
@@ -66,7 +66,7 @@ def gga_radial1(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv):
     return e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg
 
 
-def gga_radial2(rgd, sigma_xg, dedsigma_xg, a_sg):
+def gga_add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg):
     nspins = len(a_sg)
     vv_sg = sigma_xg[:nspins]  # reuse array
     for s in range(nspins):
@@ -196,9 +196,9 @@ class GGA(XCFunctional):
 
 
     def calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
-        e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_radial1(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
+        e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_get_radial_quantities(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
         self.kernel.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
-        vv_sg = gga_radial2(rgd, sigma_xg, dedsigma_xg, a_sg)
+        vv_sg = gga_add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg)
         return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
