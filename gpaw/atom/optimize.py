@@ -6,6 +6,7 @@ import pickle
 import random
 import re
 import time
+import traceback
 
 import numpy as np
 from ase import Atoms
@@ -371,6 +372,10 @@ class DatasetOptimizer:
                 result = getattr(self, name)(n, fd)
             except ConvergenceError:
                 print(n, name)
+                result = np.inf
+            except Exception, ex:
+                print(n, name, ex)
+                traceback.print_exc()
                 result = np.inf
             results[name] = result
 
