@@ -40,19 +40,21 @@ def findpeak(x, y):
 
 
 def gen(symbol, exx=False, name=None, **kwargs):
+    setup = None
     if mpi.rank == 0:
         if 'scalarrel' not in kwargs:
             kwargs['scalarrel'] = True
         g = Generator(symbol, **kwargs)
         if 'orbital_free' in kwargs:
-            g.run(exx=exx, name=name, use_restart_file=False,
-                  **tf_parameters.get(symbol, {'rcut': 0.9}))
+            setup = g.run(exx=exx, name=name, use_restart_file=False,
+                          **tf_parameters.get(symbol, {'rcut': 0.9}))
         else:
-            g.run(exx=exx, name=name, use_restart_file=False,
-                  **parameters[symbol])
-    mpi.world.barrier()
+            setup = g.run(exx=exx, name=name, use_restart_file=False,
+                          **parameters[symbol])
+    setup = mpi.broadcast(setup, 0)
     if setup_paths[0] != '.':
         setup_paths.insert(0, '.')
+    return setup
 
 
 def wrap_pylab(names=[]):
@@ -356,7 +358,7 @@ tests = [
     'parallel/scalapack_mpirecv_crash.py']  # duration unknown
 
 # 'symmetry/fractional_translations.py',
-# 'response/graphene_EELS.py', disabled while work is in progress on response code
+# 'response/graphene_EELS.py', disabled while work is in progress
 
 # 'symmetry/fractional_translations_med.py',
 # 'symmetry/fractional_translations_big.py',
@@ -369,10 +371,6 @@ tests = [
 
 
 exclude = []
-
-if True:
-    if mpi.size > 1:
-        exclude.append('lrtddft/excited_state.py')
 
 if mpi.size > 1:
     exclude += ['ase_features/asewannier.py',

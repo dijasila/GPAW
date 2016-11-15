@@ -39,14 +39,14 @@ from pylab import plotfile, show, gca
 import matplotlib.pyplot as plt
 import matplotlib
 
-matplotlib.rc('font', family='normal', serif='cm10')
+#matplotlib.rc('font', family='normal', serif='cm10')
 
-matplotlib.rc('text', usetex=True)
-matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
+#matplotlib.rc('text', usetex=True)
+#matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
-font = {'family' : 'normal',
-        'size'   : 12}
-matplotlib.rc('font', **font)
+#font = {'family' : 'normal',
+#        'size'   : 12}
+#matplotlib.rc('font', **font)
 
 plt.plot(e-ef, w, label=r'\textbf{Total}', c='k', lw=2, alpha=0.7)
 plt.plot(e-ef, x_s_pdos, label=r'\textbf{X-$s$}', c='g', lw=2, alpha=0.7)
