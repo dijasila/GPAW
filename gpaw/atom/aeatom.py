@@ -542,6 +542,7 @@ class AllElectronAtom:
             else:
                 channel.solve2(self.vr_sg[channel.s], self.scalar_relativistic,
                                self.Z)
+
             self.eeig += channel.get_eigenvalue_sum()
 
     def calculate_density(self):

@@ -413,7 +413,7 @@ def main():
                 job.walltime = 20
             cluster = TestCluster()
         elif opt.run == 'niflheim':
-            from gpaw.test.big.niflheim7 import NiflheimCluster
+            from gpaw.test.big.niflheim import NiflheimCluster
             cluster = NiflheimCluster()
         elif opt.run == 'gbar':
             from gpaw.test.big.gbar import GbarCluster

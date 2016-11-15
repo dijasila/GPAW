@@ -1,13 +1,17 @@
-.. _transport:
-
 =========
 Transport
 =========
 
-The Transport object in GPAW has been written as a calculator, 
+.. warning::
+
+    The ``gpaw.transport`` module is no longer functional and
+    will no longer be maintained.
+
+
+The Transport object in GPAW has been written as a calculator,
 different for other calculators, it supports open boundary
-condition, it needs the information of the electrodes and 
-scattering region, and can calculate the density, hamiltonian, 
+condition, it needs the information of the electrodes and
+scattering region, and can calculate the density, hamiltonian,
 total energy, forces and current as well.
 
 Model Picture
@@ -15,7 +19,7 @@ Model Picture
 
 ::
 
-        ______ ______ ____________ ______ ______ 
+        ______ ______ ____________ ______ ______
        |      |      |     __     |      |      |
    ....|______|______|___ /  \____|______|______|....
        |      |      |    \__/    |      |      |
@@ -30,13 +34,13 @@ How to describe an open system
 ------------------------------
 
 The total open system includes some semi-infinite electrodes
-or leads connected to the scattering region we focus on. 
-When it is far away enough from the scattering region, 
+or leads connected to the scattering region we focus on.
+When it is far away enough from the scattering region,
 the lead parts are quite close to the periodical case.
-So here we divide the total system into two parts: one is 
-the lead parts, there is neither reconstruct nor charge 
-transfer, all the information of it can be got from the 
-periodical calculation, the other is the scattering region, 
+So here we divide the total system into two parts: one is
+the lead parts, there is neither reconstruct nor charge
+transfer, all the information of it can be got from the
+periodical calculation, the other is the scattering region,
 we need a self-consistent procedure to get the properites
 here.
 
@@ -54,12 +58,12 @@ in a item named surface Green's function
 leads respectively, and since they are infinite, we need to
 do some handling to get it.
 
-We induce the concept of principle layer, the unit cell when 
-solving the surface Green's function. We assum interaction 
+We induce the concept of principle layer, the unit cell when
+solving the surface Green's function. We assum interaction
 only exsits between two adjacent principle layers.
 That means the Hamiltonian matrix is tridiagonal by the size
 of a principle layer, which is necessary to get the surface
-Green's function. 
+Green's function.
 
 The selfenergy of lead can be calculated like this
 
@@ -108,7 +112,7 @@ For leads(necessary):
 =================  =========    ============================
 keyword            type         description
 =================  =========    ============================
-``pl_atoms``       list         :ref:`manual_pl_atoms`  
+``pl_atoms``       list         :ref:`manual_pl_atoms`
 ``pl_cells``       list         :ref:`manual_pl_cells`
 ``pl_kpts``        list         :ref:`manual_pl_kpts`
 =================  =========    ============================
@@ -122,7 +126,7 @@ scattering region. Something special for Transport is:
   like ``PoissonSolver(nn=x)``.
 
 * ``usesymm`` does not act, Transport set a value for it automatically.
- 
+
 Other keywords (used frequently):
 
 
@@ -132,7 +136,7 @@ keyword                    type   default value  description
 ``non_sc``                 bool   False          :ref:`manual_non_sc`
 ``plot_eta``               float  1e-4           :ref:`manual_plot_eta`
 ``plot_energy_range``      list   [-5,5]         :ref:`manual_plot_energy_range`
-``plot_energy_point_num``  int    201            :ref:`manual_plot_energy_point_num` 
+``plot_energy_point_num``  int    201            :ref:`manual_plot_energy_point_num`
 ``analysis_mode``          bool   False          :ref:`manual_analysis_mode`
 =========================  =====  =============  ===================================
 
@@ -149,7 +153,7 @@ Get an iv curve using NEGF:
 A spin transport example (anti-parallel junction):
 
 .. literalinclude:: spin_transport.py
- 
+
 Calculate transmission and DOS based on separate DFT results for electrodes and scattering region(for example
 one may want to carry out a PBE+U calculation for the scattering region):
 
@@ -159,23 +163,23 @@ Analysis:
 
 >>> from gpaw.transport.analysor import Transport_Plotter
 >>> plotter = Transport_Plotter()
->>> data = plotter.get_info(XXX, 0, 0) #information string, bias_step, ion_step 
+>>> data = plotter.get_info(XXX, 0, 0) #information string, bias_step, ion_step
 
 Transport_Plotter now just get the data, users need to plot the data themselves.
 XXX can be one in the list ['tc', 'dos', 'force', 'lead_fermi', 'bias', 'gate', 'nt', 'vt'].
 The analysis functionality only works after a transport calculation
-is done successfully and the directory analysis_data and some files in it are generated. 
+is done successfully and the directory analysis_data and some files in it are generated.
 
 Analysis Package:
 
-Some small scripts are provided in the analysis_scripts directory to analyze the result. 
-One can include them in python path, and more convenient way is to append some 
-alias lines in .bashrc or cshrc. 
+Some small scripts are provided in the analysis_scripts directory to analyze the result.
+One can include them in python path, and more convenient way is to append some
+alias lines in .bashrc or cshrc.
 
 .. literalinclude:: alias_lines
 
-The syntax is 
-Transmission: 
+The syntax is
+Transmission:
 
 >>> tc X Y
 
@@ -190,9 +194,9 @@ Average Effective Potential or Pseudo Density(average x, y directions):
 >>> vt X Y
 
 Here X support a linking symbol -, i.e. vt 5-0 plot the potential difference
-for the bias step 5 and bias step 0, which can be used to judge the 
+for the bias step 5 and bias step 0, which can be used to judge the
 screening effects. In this plot, x axis is the realspace position in transport
-direction, and the potential of one principle layer, which is from the 
+direction, and the potential of one principle layer, which is from the
 electrode calculation, will be attached outside.
 
 >>> nt X Y
@@ -233,7 +237,7 @@ Charge:
 
 >>> charge X Y ZZZ
 
-Usage is similar to pdos, it plot the charge of the partial orbitals as a function 
+Usage is similar to pdos, it plot the charge of the partial orbitals as a function
 of bias.
 
 Force:
@@ -248,7 +252,7 @@ Optional keywords:
 =====================  ===========      =============  ===============================
     keyword              type           default value          description
 =====================  ===========      =============  ===============================
-``bias``                 list               [0, 0]     :ref:`manual_bias`  
+``bias``                 list               [0, 0]     :ref:`manual_bias`
 ``gate``                 float                0        :ref:`manual_gate`
 ``fixed_boundary``       bool                True      :ref:`manual_fixed_boundary`
 ``lead_restart``         bool               False      :ref:`manual_lead_restart`
@@ -263,14 +267,14 @@ Optional keywords:
 ``alpha``                float               0.0       :ref:`manual_alpha`
 ``gate_fun``           numpy array          None       :ref:`manual_gate_fun`
 =====================  ===========      =============  ===============================
- 
+
 .. _manual_pl_atoms:
 
 
 Principle Layer Atoms
 ---------------------
 
-``pl_atoms`` is the index of lead atoms, whose length is the 
+``pl_atoms`` is the index of lead atoms, whose length is the
 number of leads. For example, [[0,1,2,3],[7,8,9,10]] means there
 are two leads, [0,1,2,3] is the principle layer of the first
 lead and [7,8,9,10] for the second. The sequence is arbitrary.
@@ -282,7 +286,7 @@ Principle Layer Cells
 
 ``pl_cells`` is a list of leads' cells, also has the same length
 with the leads number. [[10., 10., 30], [10., 10., 30.]] for example.
-For two-probe system, the lead cell should have the same size with that of 
+For two-probe system, the lead cell should have the same size with that of
 scattering region in x, y directions.
 
 .. _manual_pl_kpts:
@@ -292,10 +296,10 @@ Principle Layer K-points
 
 ``pl_kpts`` is k-points sampling for leads, it is a 1*3 int sequence.
 We just let all the leads have the same K number. Attention here that
-the k number in the transport direction should bigger than 3, 
+the k number in the transport direction should bigger than 3,
 in principle we should have enough k points in this direction, an
 experenced rule is nK * L(Å) ~ 50. L is the length of unit cell
-in this direction. Note that pl_kpts should match the K sampling of 
+in this direction. Note that pl_kpts should match the K sampling of
 scattering region kpts in the x and y direction and in the parallel
 case, the local K sampling should match as well. So a safe way is to use
 a prime number for the pl_kpts in the z axis.
@@ -314,7 +318,7 @@ respectively.
 Gate
 ----
 
-``gate`` is a float number that should only make some sense with 
+``gate`` is a float number that should only make some sense with
 the fixed boundary condition. The atoms on what a constant gate
 is applied is the total scattering region minus the lead's
 principle layers.
@@ -327,8 +331,8 @@ Fixed Boundary Condition
 ``fixed_boundary`` is a bool option. If set True, we solve the
 Poisson equation for the scattering region with fixed boundary
 condition. It workes when ``pbc`` in the transport direction
-for the scattering region is True and ``poissonsolver=PoissonSolver(nn=X)``. 
-If set False, Transport object will deal with a 
+for the scattering region is True and ``poissonsolver=PoissonSolver(nn=X)``.
+If set False, Transport object will deal with a
 regular gpaw option which depends on ``pbc``.
 
 .. _manual_lead_restart:
@@ -362,12 +366,12 @@ Recalculate Integral Path
 -------------------------
 
 ``recal_path`` When doing the Green's function integral,
-the energy points on the integral path depends on the 
+the energy points on the integral path depends on the
 hamiltonian. The default option is we get the path info with
 a hamiltonian guess and then fix it, it often works fine,
 saving much time for calculation the leads selfenergy, but when
-the guess is not good enough, the integral result differs 
-from the real value. This keyword will force to refine the 
+the guess is not good enough, the integral result differs
+from the real value. This keyword will force to refine the
 energy points on path in each SCF iteration, it should be
 a option when can not get a convergence result.
 
@@ -377,7 +381,7 @@ Use Buffer Atoms
 ----------------
 
 ``use_buffer`` Buffer atoms are needed somtime, this part of
-atoms are included when calculating hamiltonian, but will be 
+atoms are included when calculating hamiltonian, but will be
 neglected when calculating the Green's function, that means
 the density of this part is fixed. If set True, you should
 provide the information in ``buffer_atoms``.
@@ -397,10 +401,10 @@ Edge Atoms
 
 ``edge_atoms`` One needs to point which atom
 is used to align the energy levels, that means in ground
-state calculation, the hamiltonian matrix should have the same 
-value in the orbitals of that atom. It is a list includes 
+state calculation, the hamiltonian matrix should have the same
+value in the orbitals of that atom. It is a list includes
 two sub lists. For example, [[0,3],[0,9]] means the atom 0 in
-lead1, atom 3 in lead2 are equal to atom 0, atom 9 in scattering 
+lead1, atom 3 in lead2 are equal to atom 0, atom 9 in scattering
 region respectively.
 
 .. _manual_use_qzk_boundary:
@@ -431,8 +435,8 @@ the molecular levels, the scaling factor is very close to 1. There the scaling
 just helps to converge, and does not influece the calculation result. In NEGF
 calculation, because the density matrix is obtain by the Green's function integral
 to the fermi level, the charge neutrality is not guaranteed. Without scaling, there
-may be a convergence problem for the three dimensional system. So the code 
-is forced to do scaling always for the first several steps. The keyword 
+may be a convergence problem for the three dimensional system. So the code
+is forced to do scaling always for the first several steps. The keyword
 ``normalize_density`` decides whether the scaling will be released or not at last.
 In principle it should be released, but there is only very tiny diference if
 the scaling factor is close to 1 at last.
@@ -441,10 +445,10 @@ the scaling factor is close to 1 at last.
 
 Alpha
 -----
-If scaling the electron density, sometime you can meet a trap, when the scaling 
-factor oscillating far away from 1. If this situation happen, just set 
+If scaling the electron density, sometime you can meet a trap, when the scaling
+factor oscillating far away from 1. If this situation happen, just set
 ``alpha`` 0.1~0.3, then when you do scaling, there will be a small amount of
-net charge after scaling, which will help the calculatoin jump out the trap and 
+net charge after scaling, which will help the calculatoin jump out the trap and
 not get diverged.
 
 .. _manual_gate_fun:
@@ -462,7 +466,7 @@ NonSelfConsistent
 -----------------
 
 When ``non_sc`` is True, the scattering region is calculated by a normal
-DFT using a periodical slab. 
+DFT using a periodical slab.
 
 .. _manual_analysis_mode:
 
@@ -479,9 +483,9 @@ adjustable, this is often used to project the trammission into dense k sampling.
 Plot Eta
 --------
 
-When calculating the Green function for the transmision plot, a small 
+When calculating the Green function for the transmision plot, a small
 imaginary float is added to the real energy to avoid singularity, in principle
-eta should be a infinitesimal, while the bigger eta can smear the 
+eta should be a infinitesimal, while the bigger eta can smear the
 sharp peaks in transmission and dos.
 
 .. _manual_plot_energy_range:

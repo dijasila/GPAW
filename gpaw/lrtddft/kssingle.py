@@ -206,17 +206,16 @@ class KSSingles(ExcitationList):
         if fh is None:
             if filename.endswith('.gz'):
                 import gzip
-                f = gzip.open(filename)
+                f = gzip.open(filename, 'rt')
             else:
                 f = open(filename, 'r')
         else:
             f = fh
 
-        try:
-            assert(f.readline().strip() == '# KSSingles')
-        except:
+        if not f.readline().startswith('# KSSingles'):
             raise RuntimeError(f.name + ' is not a ' +
                                self.__class__.__name__ + ' data file')
+        
         words = f.readline().split()
         n = int(words[0])
         if len(words) == 1:

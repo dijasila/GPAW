@@ -268,14 +268,7 @@ class PAW:
         self.initialize_positions()
         dens.interpolate_pseudo_density()
         dens.calculate_pseudo_charge()
-        ham.update(dens)
-
-        v_g = ham.gd.collect(ham.vHt_g, broadcast=True)
-        v_g = ham.finegd.zero_pad(v_g)
-        if hasattr(ham.poisson, 'correction'):
-            assert ham.poisson.c == 2
-            v_g[:, :, 0] = ham.poisson.correction
-        return v_g * Ha
+        return ham.get_electrostatic_potential(dens) * Ha
 
     def get_pseudo_density_corrections(self):
         """Integrated density corrections.

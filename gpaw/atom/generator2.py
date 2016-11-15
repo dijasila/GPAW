@@ -5,7 +5,7 @@ from math import pi, exp, sqrt, log
 from distutils.version import LooseVersion
 
 import numpy as np
-from scipy.optimize import fsolve  # , root
+from scipy.optimize import fsolve
 from scipy import __version__ as scipy_version
 from ase.units import Hartree
 from ase.data import atomic_numbers
@@ -235,57 +235,33 @@ class PAWWaves:
         self.e_n.append(e)
         self.f_n.append(f)
 
-    def pseudize(self, type, nderiv):
+    def pseudize(self, type, nderiv, vtr_g, vr_g, rcmax):
         rgd = self.rgd
-
-        if type == 'poly':
-            ps = rgd.pseudize
-        elif type == 'bessel':
-            ps = rgd.jpseudize
-        elif type == 'nc':
-            ps = rgd.pseudize_normalized
-
+        r_g = rgd.r_g
         phi_ng = self.phi_ng = np.array(self.phi_ng)
         N = len(phi_ng)
         phit_ng = self.phit_ng = rgd.empty(N)
-        gcut = rgd.ceil(self.rcut)
-
-        self.nt_g = 0
-        self.c_n = []
-        for n in range(N):
-            phit_ng[n], c = ps(phi_ng[n], gcut, self.l, nderiv)
-            self.c_n.append(c)
-            self.nt_g += self.f_n[n] / 4 / pi * phit_ng[n]**2
-
-        self.dS_nn = np.empty((N, N))
-        for n1 in range(N):
-            for n2 in range(N):
-                self.dS_nn[n1, n2] = rgd.integrate(
-                    phi_ng[n1] * phi_ng[n2] -
-                    phit_ng[n1] * phit_ng[n2]) / (4 * pi)
-        self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
-
-    def construct_projectors(self, vtr_g, rcmax):
-        N = len(self)
-        if N == 0:
-            self.pt_ng = []
-            return
-
-        rgd = self.rgd
-        phit_ng = self.phit_ng
+        pt_ng = self.pt_ng = rgd.empty(N)
+        gc = rgd.ceil(self.rcut)
         gcmax = rgd.ceil(rcmax)
-        gcut = rgd.ceil(self.rcut)
-        assert gcmax >= gcut
-        r_g = rgd.r_g
+
         l = self.l
+
         dgdr_g = 1 / rgd.dr_g
         d2gdr2_g = rgd.d2gdr2()
 
-        q_ng = rgd.zeros(N)
-        for n in range(N):
+        self.nt_g = rgd.zeros()
+        for n, phi_g in enumerate(phi_ng):
+            if type == 'poly':
+                phit_ng[n], c0 = rgd.pseudize(phi_g, gc, self.l, nderiv)
+            elif type == 'nc':
+                phit_ng[n], c0 = rgd.pseudize_normalized(phi_g, gc, self.l,
+                                                         nderiv)
+            else:
+                1 / 0
             a_g, dadg_g, d2adg2_g = rgd.zeros(3)
             a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
-            a_g[0] = self.c_n[n]
+            a_g[0] = c0
             dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
             d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
             q_g = (vtr_g - self.e_n[n] * r_g) * self.phit_ng[n]
@@ -293,33 +269,25 @@ class PAWWaves:
                 (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
                 r_g * d2adg2_g * dgdr_g**2)
             q_g[gcmax:] = 0
+            rgd.cut(q_g, self.rcut)
             q_g[1:] /= r_g[1:]
             if l == 0:
                 q_g[0] = q_g[1]
-            q_ng[n] = q_g
+            pt_ng[n] = q_g
 
-        A_nn = rgd.integrate(phit_ng[:, None] * q_ng) / (4 * pi)
-        self.dH_nn = self.e_n * self.dS_nn - A_nn
+            self.nt_g += self.f_n[n] / 4 / pi * phit_ng[n]**2
 
-        L_nn = np.eye(N)
-        U_nn = A_nn.copy()
+        self.dS_nn = (rgd.integrate(phi_ng[:, None] * phi_ng) -
+                      rgd.integrate(phit_ng[:, None] * phit_ng)) / (4 * pi)
+        self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
+        A_nn = rgd.integrate(phit_ng[:, None] * pt_ng) / (4 * pi)
+        self.dH_nn = np.dot(self.dS_nn, np.diag(self.e_n)) - A_nn
+        self.dH_nn *= 0.5
+        self.dH_nn += self.dH_nn.T.copy()
+        pt_ng[:] = np.dot(np.linalg.inv(A_nn.T), pt_ng)
 
-        if N - self.n_n.count(-1) == 1:
-            assert self.n_n[0] != -1
-            # We have a single bound-state projector.
-            for n1 in range(N):
-                for n2 in range(n1 + 1, N):
-                    L_nn[n2, n1] = U_nn[n2, n1] / U_nn[n1, n1]
-                    U_nn[n2] -= U_nn[n1] * L_nn[n2, n1]
-
-            iL_nn = np.linalg.inv(L_nn)
-            phit_ng[:] = np.dot(iL_nn, phit_ng)
-            self.phi_ng[:] = np.dot(iL_nn, self.phi_ng)
-
-            self.dS_nn = np.dot(np.dot(iL_nn, self.dS_nn), iL_nn.T)
-            self.dH_nn = np.dot(np.dot(iL_nn, self.dH_nn), iL_nn.T)
-
-        self.pt_ng = np.dot(np.linalg.inv(U_nn.T), q_ng)
+    def construct_projectors(self, vtr_g, rcmax):
+        pass
 
     def calculate_kinetic_energy_correction(self, vr_g, vtr_g):
         if len(self) == 0:
@@ -456,133 +424,6 @@ class PAWSetupGenerator:
         self.log('Core electrons:', self.ncore)
         self.log('Valence electrons:', self.nvalence)
 
-    def add_waves(self, rc):
-        if isinstance(rc, float):
-            radii = [rc]
-        else:
-            radii = rc
-
-        if self.lmax >= 0:
-            radii += [radii[-1]] * (self.lmax + 1 - len(radii))
-        del radii[self.lmax + 1:]  # remove unused radii
-
-        self.rcmax = max(radii)
-
-        self.waves_l = []
-        for l in range(self.lmax + 1):
-            rcut = radii[l]
-            waves = PAWWaves(self.rgd, l, rcut)
-            e = -1.0
-            for n in self.states[l]:
-                if isinstance(n, int):
-                    # Bound state:
-                    ch = self.aea.channels[l]
-                    e = ch.e_n[n - l - 1]
-                    f = ch.f_n[n - l - 1]
-                    phi_g = ch.phi_ng[n - l - 1]
-                else:
-                    if n is None:
-                        e += 1.0
-                    else:
-                        e = n
-                    n = -1
-                    f = 0.0
-                    phi_g = self.rgd.zeros()
-                    gc = self.rgd.round(1.5 * self.rcmax)
-                    ch = Channel(l)
-                    a = ch.integrate_outwards(phi_g, self.rgd,
-                                              self.aea.vr_sg[0], gc, e,
-                                              self.aea.scalar_relativistic,
-                                              self.aea.Z)[1]
-                    phi_g[1:gc + 1] /= self.rgd.r_g[1:gc + 1]
-                    phi_g[0] = a
-                    phi_g /= (self.rgd.integrate(phi_g**2) / (4 * pi))**0.5
-
-                waves.add(phi_g, n, e, f)
-            self.waves_l.append(waves)
-
-    def pseudize(self, type='poly', nderiv=6, rcore=None):
-        self.Q = -self.aea.Z + self.ncore
-
-        self.nt_g = self.rgd.zeros()
-        for waves in self.waves_l:
-            waves.pseudize(type, nderiv)
-            self.nt_g += waves.nt_g
-            self.Q += waves.Q
-
-        if rcore is None:
-            rcore = self.rcmax * 0.8
-        else:
-            assert abs(rcore) <= self.rcmax
-
-        if self.ncore == 0:
-            self.nct_g = self.rgd.zeros()
-            self.tauct_g = self.rgd.zeros()
-        elif rcore > 0.0:
-            # Make sure pseudo density is monotonically decreasing:
-            while True:
-                gcore = self.rgd.round(rcore)
-                self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
-                nt_g = self.nt_g + self.nct_g
-                dntdr_g = self.rgd.derivative(nt_g)[:gcore]
-                if dntdr_g.max() < 0.0:
-                    break
-                rcore -= 0.01
-
-            rcore *= 1.2
-            gcore = self.rgd.round(rcore)
-            self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
-            nt_g = self.nt_g + self.nct_g
-
-            self.log('Constructing smooth pseudo core density for r < %.3f' %
-                     rcore)
-            self.nt_g = nt_g
-
-            self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
-        else:
-            rcore *= -1
-            gcore = self.rgd.round(rcore)
-            nt_g = self.rgd.pseudize(self.aea.n_sg[0], gcore)[0]
-            self.nct_g = nt_g - self.nt_g
-            self.nt_g = nt_g
-
-            self.log('Constructing NLCC-style smooth pseudo core density for '
-                     'r < %.3f' % rcore)
-
-            self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
-
-        self.npseudocore = self.rgd.integrate(self.nct_g)
-        self.log('Pseudo core electrons: %.6f' % self.npseudocore)
-        self.Q -= self.npseudocore
-
-        self.rhot_g = self.nt_g + self.Q * self.ghat_g
-        self.vHtr_g = self.rgd.poisson(self.rhot_g)
-
-        self.vxct_g = self.rgd.zeros()
-        nt_sg = self.nt_g.reshape((1, -1))
-        self.exct = self.aea.xc.calculate_spherical(
-            self.rgd, nt_sg, self.vxct_g.reshape((1, -1)))
-
-        self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
-        self.v0r_g[self.rgd.round(self.rcmax):] = 0.0
-
-        self.log('\nProjectors:')
-        self.log(' state  occ         energy             norm        rcut')
-        self.log(' nl            [Hartree]  [eV]      [electrons]   [Bohr]')
-        self.log('----------------------------------------------------------')
-        for l, waves in enumerate(self.waves_l):
-            for n, e, f, ds in zip(waves.n_n, waves.e_n, waves.f_n,
-                                   waves.dS_nn.diagonal()):
-                if n == -1:
-                    self.log('  %s         %10.6f %10.5f   %19.2f' %
-                             ('spdf'[l], e, e * Hartree, waves.rcut))
-                else:
-                    self.log(
-                        ' %d%s   %5.2f %10.6f %10.5f      %5.3f  %9.2f' %
-                        (n, 'spdf'[l], f, e, e * Hartree, 1 - ds,
-                         waves.rcut))
-        self.log()
-
     def find_local_potential(self, r0, P):
         self.r0 = r0
         self.nderiv0 = P
@@ -634,9 +475,144 @@ class PAWSetupGenerator:
         self.vtr_g[0] = 0.0
         self.vtr_g[1:g0] = q_g[1:g0]
 
-    def construct_projectors(self):
+    def add_waves(self, rc):
+        if isinstance(rc, float):
+            radii = [rc]
+        else:
+            radii = rc
+
+        if self.lmax >= 0:
+            radii += [radii[-1]] * (self.lmax + 1 - len(radii))
+        del radii[self.lmax + 1:]  # remove unused radii
+
+        self.rcmax = max(radii)
+
+        self.waves_l = []
+        for l in range(self.lmax + 1):
+            rcut = radii[l]
+            waves = PAWWaves(self.rgd, l, rcut)
+            e = -1.0
+            for n in self.states[l]:
+                if isinstance(n, int):
+                    # Bound state:
+                    ch = self.aea.channels[l]
+                    e = ch.e_n[n - l - 1]
+                    f = ch.f_n[n - l - 1]
+                    phi_g = ch.phi_ng[n - l - 1]
+                else:
+                    if n is None:
+                        e += 1.0
+                    else:
+                        e = n
+                    n = -1
+                    f = 0.0
+                    phi_g = self.rgd.zeros()
+                    gc = self.rgd.round(2.5 * self.rcmax)
+                    ch = Channel(l)
+                    a = ch.integrate_outwards(phi_g, self.rgd,
+                                              self.aea.vr_sg[0], gc, e,
+                                              self.aea.scalar_relativistic,
+                                              self.aea.Z)[1]
+                    phi_g[1:gc + 1] /= self.rgd.r_g[1:gc + 1]
+                    phi_g[0] = a
+                    phi_g /= (self.rgd.integrate(phi_g**2) / (4 * pi))**0.5
+
+                waves.add(phi_g, n, e, f)
+            self.waves_l.append(waves)
+
+    def pseudize(self, type='poly', nderiv=6, rcore=None):
+        self.Q = -self.aea.Z + self.ncore
+
+        self.nt_g = self.rgd.zeros()
         for waves in self.waves_l:
-            waves.construct_projectors(self.vtr_g, 1.25 * self.rcmax)
+            waves.pseudize(type, nderiv, self.vtr_g, self.aea.vr_sg[0],
+                           2.0 * self.rcmax)
+            self.nt_g += waves.nt_g
+            self.Q += waves.Q
+
+        self.construct_pseudo_core_density(rcore)
+        self.calculate_potentials()
+        self.summarize()
+
+    def construct_pseudo_core_density(self, rcore):
+        if rcore is None:
+            rcore = self.rcmax * 0.8
+        else:
+            assert abs(rcore) <= self.rcmax
+
+        if self.ncore == 0:
+            self.nct_g = self.rgd.zeros()
+            self.tauct_g = self.rgd.zeros()
+        elif rcore > 0.0:
+            # Make sure pseudo density is monotonically decreasing:
+            while True:
+                gcore = self.rgd.round(rcore)
+                self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
+                nt_g = self.nt_g + self.nct_g
+                dntdr_g = self.rgd.derivative(nt_g)[:gcore]
+                if dntdr_g.max() < 0.0:
+                    break
+                rcore -= 0.01
+
+            rcore *= 1.2
+            gcore = self.rgd.round(rcore)
+            self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
+            nt_g = self.nt_g + self.nct_g
+
+            self.log('Constructing smooth pseudo core density for r < %.3f' %
+                     rcore)
+            self.nt_g = nt_g
+
+            self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
+        else:
+            rcore *= -1
+            gcore = self.rgd.round(rcore)
+            nt_g = self.rgd.pseudize(self.aea.n_sg[0], gcore)[0]
+            self.nct_g = nt_g - self.nt_g
+            self.nt_g = nt_g
+
+            self.log('Constructing NLCC-style smooth pseudo core density for '
+                     'r < %.3f' % rcore)
+
+            self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
+
+        self.npseudocore = self.rgd.integrate(self.nct_g)
+        self.log('Pseudo core electrons: %.6f' % self.npseudocore)
+        self.Q -= self.npseudocore
+
+    def calculate_potentials(self):
+        self.rhot_g = self.nt_g + self.Q * self.ghat_g
+        self.vHtr_g = self.rgd.poisson(self.rhot_g)
+
+        self.vxct_g = self.rgd.zeros()
+        nt_sg = self.nt_g.reshape((1, -1))
+        self.exct = self.aea.xc.calculate_spherical(
+            self.rgd, nt_sg, self.vxct_g.reshape((1, -1)))
+
+        self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
+        self.v0r_g[self.rgd.round(self.rcmax):] = 0.0
+
+    def summarize(self):
+        self.log('\nProjectors:')
+        self.log(' state  occ         energy             norm        rcut')
+        self.log(' nl            [Hartree]  [eV]      [electrons]   [Bohr]')
+        self.log('----------------------------------------------------------')
+        for l, waves in enumerate(self.waves_l):
+            for n, e, f, ds in zip(waves.n_n, waves.e_n, waves.f_n,
+                                   waves.dS_nn.diagonal()):
+                if n == -1:
+                    self.log('  %s         %10.6f %10.5f   %19.2f' %
+                             ('spdf'[l], e, e * Hartree, waves.rcut))
+                else:
+                    self.log(
+                        ' %d%s   %5.2f %10.6f %10.5f      %5.3f  %9.2f' %
+                        (n, 'spdf'[l], f, e, e * Hartree, 1 - ds,
+                         waves.rcut))
+        self.log()
+
+    def construct_projectors(self, rcore):
+        for waves in self.waves_l:
+            waves.construct_projectors(self.vtr_g, 2.45 * self.rcmax)
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
 
@@ -1232,7 +1208,7 @@ def main(argv=None):
         'Energy range and/or radius can be left out.')
     add('-w', '--write', action='store_true')
     add('-s', '--scalar-relativistic', action='store_true')
-    add('--no-check', action='store_true')
+    add('-n', '--no-check', action='store_true')
     add('-t', '--tag', type='string')
     add('-a', '--alpha', type=float)
     add('-b', '--create-basis-set', action='store_true')
@@ -1409,7 +1385,7 @@ def _generate(symbol, xc, configuration, projectors, radii,
     gen.find_local_potential(r0, nderiv0)
     gen.add_waves(radii)
     gen.pseudize(pseudize[0], pseudize[1], rcore=rcore)
-    gen.construct_projectors()
+    gen.construct_projectors(rcore)
     return gen
 
 
