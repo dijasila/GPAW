@@ -19,8 +19,8 @@ def main():
         if line.startswith('#SBATCH'):
             script += line
     script += 'mpiexec gpaw-python ' + ' '.join(args[i:])
-    cmd = 'sbatch ' + ' '.join(args[:i])
-    subprocess.Popen(cmd, stdin=subprocess.PIPE).communicate(script)
+    cmd = ['sbatch'] + args[:i]
+    subprocess.Popen(cmd, stdin=subprocess.PIPE).communicate(script.encode())
 
 
 if __name__ == '__main__':
