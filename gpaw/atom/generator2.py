@@ -252,7 +252,13 @@ class PAWWaves:
 
         self.nt_g = rgd.zeros()
         for n, phi_g in enumerate(phi_ng):
-            phit_ng[n], c0 = rgd.pseudize(phi_g, gc, self.l, nderiv)
+            if type == 'poly':
+                phit_ng[n], c0 = rgd.pseudize(phi_g, gc, self.l, nderiv)
+            elif type == 'nc':
+                phit_ng[n], c0 = rgd.pseudize_normalized(phi_g, gc, self.l,
+                                                         nderiv)
+            else:
+                1 / 0
             a_g, dadg_g, d2adg2_g = rgd.zeros(3)
             a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
             a_g[0] = c0
