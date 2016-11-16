@@ -41,6 +41,10 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
 News
 ====
 
+* It has been decided to have monthly GPAW/ASE code-sprints at DTU in Lyngby.
+  The sprints will be the first Wednesday of every month starting December 7,
+  2016 (Nov 11 2016)
+
 * Slides from the talks at :ref:`workshop16` are now available (Sep 5 2016)
 
 * :ref:`GPAW version 1.1 <releasenotes>` released (Jun 22 2016)

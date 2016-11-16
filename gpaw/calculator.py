@@ -801,7 +801,7 @@ class GPAW(Calculator, PAW):
             xc.set_grid_descriptor(self.hamiltonian.finegd)  # XXX
         else:
             self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
-                pd2=dens.pd2, pd3=dens.pd3, **kwargs)
+                pd2=dens.pd2, pd3=dens.pd3, realpbc_c=self.atoms.pbc, **kwargs)
             xc.set_grid_descriptor(dens.xc_redistributor.aux_gd)  # XXX
 
         self.log(self.hamiltonian, '\n')

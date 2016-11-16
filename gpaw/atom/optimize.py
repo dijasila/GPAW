@@ -6,6 +6,7 @@ import pickle
 import random
 import re
 import time
+import traceback
 
 import numpy as np
 from ase import Atoms
@@ -173,6 +174,8 @@ class DatasetOptimizer:
                     radii = [float(f) for f in words[5].split(',')]
                     r0 = float(words[7].split(',')[1])
                     break
+            else:
+                raise ValueError
 
         # Parse projectors string:
         pattern = r'(-?\d+\.\d)'
@@ -371,6 +374,10 @@ class DatasetOptimizer:
                 result = getattr(self, name)(n, fd)
             except ConvergenceError:
                 print(n, name)
+                result = np.inf
+            except Exception, ex:
+                print(n, name, ex)
+                traceback.print_exc()
                 result = np.inf
             results[name] = result
 
@@ -583,9 +590,13 @@ if __name__ == '__main__':
                     if os.path.isdir(symbol)]
         for symbol in args:
             os.chdir(symbol)
-            do = DatasetOptimizer(symbol, opts.norm_conserving)
-            if opts.summary:
-                do.summary(15)
-            elif opts.best:
-                do.best1()
+            try:
+                do = DatasetOptimizer(symbol, opts.norm_conserving)
+            except ValueError:
+                pass
+            else:
+                if opts.summary:
+                    do.summary(15)
+                elif opts.best:
+                    do.best1()
             os.chdir('..')
