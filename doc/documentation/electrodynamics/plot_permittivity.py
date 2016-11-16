@@ -1,5 +1,3 @@
-import yaml
-
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -13,10 +11,11 @@ def eV_from_um(um_i):
     return _hplanck / _e * _c / (um_i * 1e-6)
 
 def plot(fname, fiteps):
-    yml = yaml.load(open(fname, 'r'))
-    data = yml['DATA'][0]['data'].strip()
-    data_ij = np.array([[float(d) for d in line.split()] for line in data.split('\n')])
-    #data_ij = np.loadtxt(fname)
+    with open(fname, 'r') as yml:
+        for line in yml:
+            if line.strip().startswith('data'):
+                data_ij = np.array([[float(d) for d in line.split()]
+                                    for line in yml])
 
     energy_j = eV_from_um(data_ij[:,0])
     n_j = data_ij[:,1]
