@@ -1,8 +1,8 @@
 from gpaw.tddft import TDDFT
-from gpaw.tddft import eV_to_aufrequency, aufrequency_to_eV
-from gpaw.inducedfield.inducedfield_fdtd import FDTDInducedField, calculate_hybrid_induced_field
+from gpaw.inducedfield.inducedfield_fdtd import (
+    FDTDInducedField,
+    calculate_hybrid_induced_field)
 from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
-from gpaw.inducedfield.inducedfield_base import BaseInducedField
 
 td_calc = TDDFT('td.gpw')
 
