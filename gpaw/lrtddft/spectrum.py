@@ -195,7 +195,7 @@ class Writer(Folder):
             
 def polarizability(exlist, omega, form='v',
                    tensor=False, index=0):
-    """Evaluate the polarizability from sum over states. 
+    """Evaluate the polarizability from sum over states.
 
     Parameters
     ----------
@@ -213,13 +213,13 @@ def polarizability(exlist, omega, form='v',
     Returns
     -------
     alpha:
-        Unit (e^2 Angstrom^2 / eV). 
+        Unit (e^2 Angstrom^2 / eV).
         Multiply with Bohr * Ha to get (Angstrom^3)
     """
     if tensor:
         alpha = np.zeros(np.array(omega).shape + (3, 3), dtype=complex)
         for ex in exlist:
-            alpha += ex.get_dipole_tensor(form=form)  / (
+            alpha += ex.get_dipole_tensor(form=form) / (
                 (ex.energy * Hartree)**2 - omega**2)
     else:
         alpha = np.zeros_like(omega, dtype=float)

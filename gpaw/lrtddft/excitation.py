@@ -115,7 +115,7 @@ class Excitation:
             raise RuntimeError('Unknown form >' + form + '<')
 
     def get_dipole_tensor(self, form='r'):
-        """Return the "oscillator strength tensor" 
+        """Return the "oscillator strength tensor"
 
         self.me is assumed to be::
 
