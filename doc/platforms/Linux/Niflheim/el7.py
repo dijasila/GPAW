@@ -1,5 +1,6 @@
 scalapack = True
-libraries = ['gfortran',
+libraries = ['readline',
+             'gfortran',
              'scalapack',
              'openblas',
              'xc']
