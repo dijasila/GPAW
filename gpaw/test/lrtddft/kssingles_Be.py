@@ -54,6 +54,9 @@ for mode in modes:
                   kss[0].get_oscillator_strength()[0], 5.e-3)
             equal(ks.get_oscillator_strength()[0],
                   ks.get_oscillator_strength()[1:].sum() / 3, 1.e-15)
+            for c in range(3):
+                equal(ks.get_oscillator_strength()[1 + c],
+                      ks.get_dipole_tensor()[c, c], 1.e-15)
         energy[name] = np.array(
             [ks.get_energy() * Hartree for ks in kss]).mean()
         osz[name] = np.array(
