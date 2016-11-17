@@ -508,7 +508,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
                              for lib in runtime_library_dirs])
 
     extra_link_args.append(cfgDict['LDFLAGS'])
-    extra_link_args.append(cfgDict['MODLIBS'])
+
     if sys.platform in ['aix5', 'aix6']:
         extra_link_args.append(cfgDict['LINKFORSHARED'].replace(
             'Modules', cfgDict['LIBPL']))

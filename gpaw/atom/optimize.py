@@ -375,7 +375,7 @@ class DatasetOptimizer:
             except ConvergenceError:
                 print(n, name)
                 result = np.inf
-            except Exception, ex:
+            except Exception as ex:
                 print(n, name, ex)
                 traceback.print_exc()
                 result = np.inf
