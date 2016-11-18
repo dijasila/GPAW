@@ -290,9 +290,9 @@ def define_vdwxcclass(xcclass):
         def set_grid_descriptor(self, gd):
             if self.gd is not None and self.gd != gd:
                 raise NotImplementedError('Cannot switch grids')
+            self._xcclass.set_grid_descriptor(self, gd)
             if self.libvdwxc is None:
                 self._initialize(gd)
-            self._xcclass.set_grid_descriptor(self, gd)
 
         def get_description(self):
             lines = []
@@ -340,11 +340,10 @@ def define_vdwxcclass(xcclass):
                                      occupations)
             self.timer = hamiltonian.timer  # fragile object robbery
             #self.timer.start('initialize')
-            #try:
-            #    gd = density.xc_redistributor.aux_gd  # fragile
-            #except AttributeError:
-            #    gd = density.finegd
-            gd = self.gd
+            try:
+                gd = density.xc_redistributor.aux_gd  # fragile
+            except AttributeError:
+                gd = density.finegd
             if wfs.world.size > gd.comm.size and np.prod(gd.N_c) > 64**3:
                 # We could issue a warning if an excuse turns out to
                 # exist some day
