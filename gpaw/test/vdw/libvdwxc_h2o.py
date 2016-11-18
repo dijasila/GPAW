@@ -10,7 +10,8 @@ system.pbc = 1
 sol_setups = {}
 for sym in 'H', 'O':
     s = Generator(sym, xcname='PBEsol')
-    setup = s.run(write_xml=False)
+    setup = s.run(write_xml=False,
+                  use_restart_file=False)
     sol_setups[sym] = setup
 
 for mode in ['lcao', 'fd', 'pw']:
