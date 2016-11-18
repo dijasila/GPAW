@@ -254,9 +254,9 @@ state, and using a non-standard size of the augmentation sphere.
 Miscellaneous remarks
 ---------------------
 
-In FD mode, a single LCAO iteration is used to initialize the wave
+In FD or PW mode, a single LCAO iteration is used to initialize the wave
 functions and density.  Specifying a basis to the calculator in FD
-mode can be used to increase the quality of the initial guess, but
+or PW mode can be used to increase the quality of the initial guess, but
 does not in any other way affect the subsequent iterations::
 
   >>> calc = GPAW(mode='fd', basis='dzp', ...)
