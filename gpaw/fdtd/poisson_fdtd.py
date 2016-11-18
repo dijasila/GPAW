@@ -746,7 +746,7 @@ class FDTDPoissonSolver:
             # now find the corners
             # r_gv_cl = \
             #     clgd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-            cind = self.qm.corner1 / np.diag(clgd.h_cv) - 1
+            cind = (self.qm.corner1 / np.diag(clgd.h_cv) - 1).astype(int)
 
             n = big_qm_g.shape
 
