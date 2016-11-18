@@ -6,6 +6,7 @@ from gpaw.fdtd.polarizable_material import PermittivityPlus, PolarizableMaterial
 from gpaw.tddft import TDDFT, photoabsorption_spectrum
 from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
 from gpaw.inducedfield.inducedfield_fdtd import FDTDInducedField
+from gpaw.mpi import world
 import numpy as np
 
 # Nanosphere radius (Angstroms)
@@ -42,6 +43,7 @@ poissonsolver = FDTDPoissonSolver(classical_material=classical_material,
                                   qm_spacing=0.5,
                                   cl_spacing=2.0,
                                   cell=simulation_cell,
+                                  communicator=world,
                                   remove_moments=(1, 1))
 poissonsolver.set_calculation_mode('iterate')
 

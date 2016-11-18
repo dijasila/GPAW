@@ -740,8 +740,7 @@ class FDTDPoissonSolver:
 
         # Do distribution on master
         big_cl_g = clgd.collect(cl_g)
-        big_qm_g = qmgd.collect(qm_g)
-        assert clgd.comm.rank == qmgd.comm.rank
+        big_qm_g = qmgd.collect(qm_g, broadcast=True)
 
         if clgd.comm.rank == 0:
             # now find the corners
