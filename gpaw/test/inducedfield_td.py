@@ -22,7 +22,7 @@ atoms.center(vacuum=3.0)
 
 # Standard ground state calculation
 calc = GPAW(nbands=2, h=0.6, setups={'Na': '1'}, poissonsolver=poissonsolver,
-        convergence={'density': density_eps})
+            convergence={'density': density_eps})
 atoms.set_calculator(calc)
 energy = atoms.get_potential_energy()
 calc.write('na2_gs.gpw', mode='all')
@@ -59,14 +59,14 @@ td_calc = TDDFT('na2_td.gpw')
 ind = TDDFTInducedField(filename='na2_td.ind',
                         paw=td_calc,
                         restart_file='na2_td.ind')
-    
+
 # Continue propagation as usual
 td_calc.propagate(time_step, iterations // 2, 'na2_td_dm.dat', 'na2_td.gpw')
 
 # Calculate induced electric field
 ind.calculate_induced_field(gridrefinement=2, from_density='comp',
                             poisson_eps=poisson_eps,
-                            extend_N_cd=3 * np.ones(shape=(3, 2), dtype=np.int),
+                            extend_N_cd=3 * np.ones(shape=(3, 2), int),
                             deextend=True)
 
 # Save
@@ -80,8 +80,8 @@ ind = BaseInducedField(filename='na2_td_field.ind',
                        readmode='field')
 
 # Estimate tolerance (worst case error accumulation)
-tol = iterations * ind.fieldgd.integrate(ind.fieldgd.zeros() + 1.0) * \
-        max(density_eps, np.sqrt(poisson_eps))
+tol = (iterations * ind.fieldgd.integrate(ind.fieldgd.zeros() + 1.0) *
+       max(density_eps, np.sqrt(poisson_eps)))
 # tol = 0.038905993684
 if do_print_values:
     print('tol = %.12f' % tol)
@@ -98,16 +98,17 @@ val8 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[1][2]))
 
 if do_print_values:
     i = 1
+
     def equal(x, y, tol):
         global i
         print("equal(val%d, %20.12f, tol)" % (i, x))
         i += 1
 
-equal(val1,    1926.232999117403, tol)
-equal(val2,       0.427606450419, tol)
-equal(val3,       0.565823985683, tol)
-equal(val4,       0.372493489423, tol)
-equal(val5,    1945.618902611449, tol)
-equal(val6,       0.423899965987, tol)
-equal(val7,       0.560882533828, tol)
-equal(val8,       0.369203021329, tol)
+equal(val1, 1926.232999117403, tol)
+equal(val2, 0.427606450419, tol)
+equal(val3, 0.565823985683, tol)
+equal(val4, 0.372493489423, tol)
+equal(val5, 1945.618902611449, tol)
+equal(val6, 0.423899965987, tol)
+equal(val7, 0.560882533828, tol)
+equal(val8, 0.369203021329, tol)
