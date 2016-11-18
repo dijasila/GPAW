@@ -4,18 +4,17 @@ from ase.parallel import parprint
 from ase.units import Bohr
 
 from gpaw import debug
-from gpaw.tddft import eV_to_aufrequency, aufrequency_to_eV
+from gpaw.tddft import aufrequency_to_eV
 from gpaw.analyse.observers import Observer
 from gpaw.transformers import Transformer
-from gpaw.lfc import BasisFunctions
-from gpaw.utilities import unpack2, is_contiguous
+from gpaw.utilities import is_contiguous
 
-from gpaw.inducedfield.inducedfield_base import BaseInducedField, sendreceive_dict
+from gpaw.inducedfield.inducedfield_base import BaseInducedField
 
 
 class FDTDInducedField(BaseInducedField, Observer):
     """Induced field class for FDTD.
-    
+
     Attributes (see also ``BaseInducedField``):
     -------------------------------------------
     time: float
@@ -25,11 +24,10 @@ class FDTDInducedField(BaseInducedField, Observer):
     n0_G: ndarray (float)
         Ground state charge density
     """
-    
+
     def __init__(self, filename=None, paw=None,
-                  frequencies=None, folding='Gauss', width=0.08,
-                  interval=1, restart_file=None
-                  ):
+                 frequencies=None, folding='Gauss', width=0.08,
+                 interval=1, restart_file=None):
         """
         Parameters (see also ``BaseInducedField``):
         -------------------------------------------
@@ -49,31 +47,30 @@ class FDTDInducedField(BaseInducedField, Observer):
         # From observer:
         # self.niter
         # self.interval
-        
+
         # Restart file
         self.restart_file = restart_file
-        
+
         # These are allocated in allocate()
         self.Fn_wsG = None
         self.n0_G = None
 
-
-        self.readwritemode_str_to_list = \
-        {'': ['Fn', 'n0', 'atoms'],
-         'all': ['Fn', 'n0',
-                 'Frho', 'Fphi', 'Fef', 'Ffe', 'eps0', 'atoms'],
-         'field': ['Frho', 'Fphi', 'Fef', 'Ffe', 'eps0', 'atoms']}
+        self.readwritemode_str_to_list = {
+            '': ['Fn', 'n0', 'atoms'],
+            'all': ['Fn', 'n0',
+                    'Frho', 'Fphi', 'Fef', 'Ffe', 'eps0', 'atoms'],
+            'field': ['Frho', 'Fphi', 'Fef', 'Ffe', 'eps0', 'atoms']}
 
         BaseInducedField.__init__(self, filename, paw,
                                   frequencies, folding, width)
-        
+
     def initialize(self, paw, allocate=True):
         BaseInducedField.initialize(self, paw, allocate)
 
         if self.has_paw:
             # FDTD replacements and overwrites
             self.fdtd = paw.hamiltonian.poisson
-            #self.gd = self.fdtd.cl.gd.refine()
+            # self.gd = self.fdtd.cl.gd.refine()
             self.gd = self.fdtd.cl.gd
 
             assert hasattr(paw, 'time') and hasattr(paw, 'niter'), 'Use TDDFT!'
@@ -82,7 +79,7 @@ class FDTDInducedField(BaseInducedField, Observer):
 
             # TODO: remove this requirement
             assert np.count_nonzero(paw.kick_strength) > 0, \
-            'Apply absorption kick before %s' % self.__class__.__name__
+                'Apply absorption kick before %s' % self.__class__.__name__
 
             # Background electric field
             self.Fbgef_v = paw.kick_strength
@@ -108,13 +105,15 @@ class FDTDInducedField(BaseInducedField, Observer):
     def allocate(self):
         if not self.allocated:
 
+            poisson = self.paw.hamiltonian.poisson
             # Ground state charge density
-            self.n0_G = -1.0 * self.paw.hamiltonian.poisson.classical_material.sign * \
-                        self.paw.hamiltonian.poisson.classical_material.charge_density.copy()
+            self.n0_G = (
+                -1.0 * poisson.classical_material.sign *
+                poisson.classical_material.charge_density.copy())
 
             # Fourier transformed charge density
-            self.Fn_wG = self.paw.hamiltonian.poisson.cl.gd.zeros((self.nw,),
-                                                                   dtype=self.dtype)
+            self.Fn_wG = poisson.cl.gd.zeros((self.nw,),
+                                             dtype=self.dtype)
             self.allocated = True
 
         if debug:
@@ -124,19 +123,19 @@ class FDTDInducedField(BaseInducedField, Observer):
         BaseInducedField.deallocate(self)
         self.n0_G = None
         self.Fn_wG = None
-        
+
     def update(self):
         # Update time
         self.time = self.paw.time
         time_step = self.paw.time_step
 
         # Complex exponential with envelope
-        f_w = np.exp(1.0j * self.omega_w * self.time) * \
-              self.envelope(self.time) * time_step
+        f_w = (np.exp(1.0j * self.omega_w * self.time) *
+               self.envelope(self.time) * time_step)
 
         # Time-dependent quantities
-        n_G = -1.0 * self.fdtd.classical_material.sign * \
-              self.fdtd.classical_material.charge_density
+        n_G = (-1.0 * self.fdtd.classical_material.sign *
+               self.fdtd.classical_material.charge_density)
 
         # Update Fourier transforms
         for w in range(self.nw):
@@ -146,7 +145,8 @@ class FDTDInducedField(BaseInducedField, Observer):
         if self.restart_file is not None and \
            self.niter % self.paw.dump_interval == 0:
             self.write(self.restart_file)
-            parprint('%s: Wrote restart file %s' % (self.__class__.__name__, self.restart_file))
+            parprint('%s: Wrote restart file %s' %
+                     (self.__class__.__name__, self.restart_file))
 
     def get_induced_density(self, from_density, gridrefinement):
         if self.gd == self.fdtd.cl.gd:
@@ -157,11 +157,12 @@ class FDTDInducedField(BaseInducedField, Observer):
                                   self.stencil,
                                   dtype=self.dtype).apply(self.Fn_wG)
 
-        Frho_wg, gd = self.interpolate_density(self.gd, Frho_wg, gridrefinement)
+        Frho_wg, gd = self.interpolate_density(self.gd, Frho_wg,
+                                               gridrefinement)
         return Frho_wg, gd
 
     def interpolate_density(self, gd, Fn_wg, gridrefinement=2):
-        
+
         # Find m for
         # gridrefinement = 2**m
         m1 = np.log(gridrefinement) / np.log(2.)
@@ -171,7 +172,7 @@ class FDTDInducedField(BaseInducedField, Observer):
         if np.absolute(m - m1) < 1e-8:
             for i in range(m):
                 gd2 = gd.refine()
-                
+
                 # Interpolate
                 interpolator = Transformer(gd, gd2, self.stencil,
                                            dtype=self.dtype)
@@ -184,7 +185,7 @@ class FDTDInducedField(BaseInducedField, Observer):
                 Fn_wg = Fn2_wg
         else:
             raise NotImplementedError
-        
+
         return Fn_wg, gd
 
     def _read(self, reader, reads):
@@ -213,21 +214,25 @@ class FDTDInducedField(BaseInducedField, Observer):
         readarray('eps0_G')
 
     def _write(self, writer, writes):
-        # Swap classical and quantum cells, and shift atom positions for the time of writing
+        # Swap classical and quantum cells, and shift atom positions for
+        # the time of writing
         qmcell = self.atoms.get_cell()
-        self.atoms.set_cell(self.fdtd.cl.cell * Bohr) # Set classical cell
-        self.atoms.positions = self.atoms.get_positions() + self.fdtd.qm.corner1 * Bohr
+        self.atoms.set_cell(self.fdtd.cl.cell * Bohr)  # Set classical cell
+        self.atoms.positions = (self.atoms.get_positions() +
+                                self.fdtd.qm.corner1 * Bohr)
         BaseInducedField._write(self, writer, writes)
-        self.atoms.set_cell(qmcell) # Restore quantum cell to the atoms object
-        self.atoms.positions = self.atoms.get_positions() - self.fdtd.qm.corner1 * Bohr
+        self.atoms.set_cell(qmcell)  # Restore quantum cell to the atoms object
+        self.atoms.positions = (self.atoms.get_positions() -
+                                self.fdtd.qm.corner1 * Bohr)
 
         # Write time propagation status
         writer.write(time=self.time)
 
         # Mask, interpolation approach:
-        #self.eps0_G = self.fdtd.classical_material.permittivityValue(omega=0.0) - self.fdtd.classical_material.epsInfty
-        #self.eps0_G= -interpolator.apply(self.eps0_G)
-        
+        # self.eps0_G = self.fdtd.classical_material.permittivityValue(
+        # omega=0.0) - self.fdtd.classical_material.epsInfty
+        # self.eps0_G= -interpolator.apply(self.eps0_G)
+
         # Mask, direct approach:
         self.eps0_G = self.fdtd.cl.gd.zeros()
         for component in self.fdtd.classical_material.components:
@@ -241,7 +246,8 @@ class FDTDInducedField(BaseInducedField, Observer):
 #                if self.fdtd.cl.gd == self.gd:
 #                    writer.fill(self.gd.collect(a_wxg[w]))
 #                else:
-#                    writer.fill(self.gd.collect(Transformer(self.fdtd.cl.gd, self.gd, self.stencil, self.dtype).apply(a_wxg[w])))
+#                    writer.fill(self.gd.collect(Transformer(self.fdtd.cl.gd,
+# self.gd, self.stencil, self.dtype).apply(a_wxg[w])))
 
         def writearray(name):
             if name.split('_')[0] in writes:
@@ -280,15 +286,15 @@ def calculate_hybrid_induced_field(cl_ind, qm_ind, h):
         Grid spacing of total grid in Angstroms
     """
     # Sanity checks
-    for attr in ['paw', 'omega_w', 'width', 'folding', 'Fbgef_v', 'world', 'atoms']:
-        assert np.all(getattr(cl_ind, attr) == getattr(qm_ind, attr)), \
-                'Attributes %s are not the same' % attr
+    for attr in ['paw', 'omega_w', 'width', 'folding',
+                 'Fbgef_v', 'world', 'atoms']:
+        assert np.all(getattr(cl_ind, attr) == getattr(qm_ind, attr))
 
     # Object for the total induced field
     tot_ind = FDTDInducedField(paw=cl_ind.paw,
-            frequencies=cl_ind.omega_w * aufrequency_to_eV,
-            width=cl_ind.width * aufrequency_to_eV,
-            folding=cl_ind.folding)
+                               frequencies=cl_ind.omega_w * aufrequency_to_eV,
+                               width=cl_ind.width * aufrequency_to_eV,
+                               folding=cl_ind.folding)
 
     tot_ind.world = cl_ind.world
     tot_ind.Fbgef_v = cl_ind.Fbgef_v
@@ -303,12 +309,13 @@ def calculate_hybrid_induced_field(cl_ind, qm_ind, h):
                                                    from_density=from_density)
 
     fdtd_poisson = tot_ind.paw.hamiltonian.poisson
-    combine = lambda qm_g, cl_g: \
-        fdtd_poisson.get_combined_data(qm_g.copy(),
-                                       cl_g.copy(),
-                                       h,
-                                       qm_gd,
-                                       cl_gd)
+
+    def combine(qm_g, cl_g):
+        return fdtd_poisson.get_combined_data(qm_g.copy(),
+                                              cl_g.copy(),
+                                              h,
+                                              qm_gd,
+                                              cl_gd)
 
     _, tot_gd = combine(qm_Frho_wg[0].imag, cl_Frho_wg[0].imag)
     tot_ind.gd = cl_ind.gd

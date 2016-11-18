@@ -398,9 +398,12 @@ class FDTDPoissonSolver:
             numb = 4
 
         # The index mismatch of the two simulation cells
-        # Round before taking floor/ceil to avoid floating point arithmetic errors
-        num_indices_1 = numb * np.floor(np.round(np.array(v1) / self.cl.spacing / numb, 2)).astype(int)
-        num_indices_2 = numb * np.ceil(np.round(np.array(v2) / self.cl.spacing / numb, 2)).astype(int)
+        # Round before taking floor/ceil to avoid floating point
+        # arithmetic errors
+        num_indices_1 = numb * np.floor(
+            np.round(np.array(v1) / self.cl.spacing / numb, 2)).astype(int)
+        num_indices_2 = numb * np.ceil(
+            np.round(np.array(v2) / self.cl.spacing / numb, 2)).astype(int)
         self.num_indices = num_indices_2 - num_indices_1
 
         # Center, left, and right points of the suggested quantum grid
@@ -705,7 +708,8 @@ class FDTDPoissonSolver:
             qmdata = self.density.rhot_g
 
         if cldata is None:
-            cldata = self.classical_material.charge_density * self.classical_material.sign
+            cldata = (self.classical_material.charge_density *
+                      self.classical_material.sign)
 
         if qmgd is None:
             qmgd = self.qm.gd
@@ -755,7 +759,8 @@ class FDTDPoissonSolver:
             # print 'Calculated points: ', r_gv_cl[tuple(cind)]*Bohr, \
             #     ' - ', r_gv_cl[tuple(cind+n+1)]*Bohr
 
-            big_cl_g[cind[0] + 1:cind[0] + n[0] + 1, cind[1] + 1:cind[1] + n[1] + 1,
+            big_cl_g[cind[0] + 1:cind[0] + n[0] + 1,
+                     cind[1] + 1:cind[1] + n[1] + 1,
                      cind[2] + 1:cind[2] + n[2] + 1] += big_qm_g
 
         clgd.distribute(big_cl_g, cl_g)
@@ -812,8 +817,8 @@ class FDTDPoissonSolver:
             niter_cl += 1
 
             dRho = self.qm.gd.integrate(abs(self.qm.rho - old_rho_qm)) + \
-                self.cl.gd.integrate(abs(self.classical_material.charge_density
-                                         - old_rho_cl))
+                self.cl.gd.integrate(
+                    abs(self.classical_material.charge_density - old_rho_cl))
 
             if (abs(dRho) < 1e-3):
                 break
