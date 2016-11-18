@@ -3,8 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from gpaw.inducedfield.inducedfield_base import BaseInducedField
-from gpaw.tddft.units import (attosec_to_autime, autime_to_attosec,
-                              eV_to_aufrequency, aufrequency_to_eV)
+from gpaw.tddft.units import aufrequency_to_eV
 
 
 # Helper function
@@ -12,14 +11,14 @@ def do_plot(d_g, ng, box, atoms):
     # Take slice of data array
     d_yx = d_g[:, :, ng[2] // 2]
     y = np.linspace(0, box[0], ng[0] + 1)[:-1]
-    dy = box[0] / (ng[0]+1)
-    y += dy*0.5
+    dy = box[0] / (ng[0] + 1)
+    y += dy * 0.5
     ylabel = u'x / Å'
     x = np.linspace(0, box[1], ng[1] + 1)[:-1]
-    dx = box[1] / (ng[1]+1)
-    x += dx*0.5
+    dx = box[1] / (ng[1] + 1)
+    x += dx * 0.5
     xlabel = u'y / Å'
-    
+
     # Plot
     plt.figure()
     ax = plt.subplot(1, 1, 1)
@@ -35,8 +34,7 @@ def do_plot(d_g, ng, box, atoms):
     plt.ylim([y[0], y[-1]])
     ax.set_aspect('equal')
 
-for fname, name in zip(['field.ind'],
-        ['Classical system']):
+for fname, name in zip(['field.ind'], ['Classical system']):
     # Read InducedField object
     ind = BaseInducedField(fname, readmode='all')
 
@@ -56,12 +54,14 @@ for fname, name in zip(['field.ind'],
     d_g = ind.Frho_wg[w].imag
     ng = d_g.shape
     do_plot(d_g, ng, box, atoms)
-    plt.title('%s\nImaginary part of induced charge density @ %.2f eV' % (name, freq))
+    plt.title('%s\nImaginary part of induced charge density @ %.2f eV' %
+              (name, freq))
     plt.savefig(fname + '_Frho.png', bbox_inches='tight')
 
     # Imaginary part of potential
     d_g = ind.Fphi_wg[w].imag
     ng = d_g.shape
     do_plot(d_g, ng, box, atoms)
-    plt.title('%s\nImaginary part of induced potential @ %.2f eV' % (name, freq))
+    plt.title('%s\nImaginary part of induced potential @ %.2f eV' %
+              (name, freq))
     plt.savefig(fname + '_Fphi.png', bbox_inches='tight')

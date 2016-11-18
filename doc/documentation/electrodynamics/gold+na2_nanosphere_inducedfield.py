@@ -1,8 +1,9 @@
 from ase import Atoms
-from ase.units import Hartree
 from gpaw import GPAW
 from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
-from gpaw.fdtd.polarizable_material import PermittivityPlus, PolarizableMaterial, PolarizableSphere
+from gpaw.fdtd.polarizable_material import (PermittivityPlus,
+                                            PolarizableMaterial,
+                                            PolarizableSphere)
 from gpaw.tddft import TDDFT, photoabsorption_spectrum
 from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
 from gpaw.inducedfield.inducedfield_fdtd import FDTDInducedField
@@ -19,21 +20,21 @@ simulation_cell = np.array([40., 30., 30.])
 
 # Atoms object
 atoms = Atoms('Na2', atom_center + np.array([[-1.5, 0.0, 0.0],
-                                             [ 1.5, 0.0, 0.0]]))
+                                             [1.5, 0.0, 0.0]]))
 
 # Permittivity of Gold
 # J. Chem. Phys. 135, 084121 (2011); http://dx.doi.org/10.1063/1.3626549
-eps_gold = PermittivityPlus(data=[[0.2350, 0.1551,  95.62],
+eps_gold = PermittivityPlus(data=[[0.2350, 0.1551, 95.62],
                                   [0.4411, 0.1480, -12.55],
-                                  [0.7603,  1.946, -40.89],
-                                  [1.161,   1.396,  17.22],
-                                  [2.946,   1.183,  15.76],
-                                  [4.161,   1.964,  36.63],
-                                  [5.747,   1.958,  22.55],
-                                  [7.912,   1.361,  81.04]])
+                                  [0.7603, 1.946, -40.89],
+                                  [1.161, 1.396, 17.22],
+                                  [2.946, 1.183, 15.76],
+                                  [4.161, 1.964, 36.63],
+                                  [5.747, 1.958, 22.55],
+                                  [7.912, 1.361, 81.04]])
 
 # 3) Nanosphere + Na2
-classical_material = PolarizableMaterial()                            
+classical_material = PolarizableMaterial()
 classical_material.add_component(PolarizableSphere(center=sphere_center,
                                                    radius=radius,
                                                    permittivity=eps_gold))
@@ -81,7 +82,7 @@ cl_ind = FDTDInducedField(paw=td_calc,
 qm_ind = TDDFTInducedField(paw=td_calc,
                            frequencies=frequencies,
                            width=width)
- 
+
 # Propagate TDDFT and FDTD
 td_calc.propagate(time_step, iterations, 'dm.dat', 'td.gpw')
 

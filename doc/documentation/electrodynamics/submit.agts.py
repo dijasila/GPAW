@@ -42,8 +42,9 @@ def agts(queue):
               ncpus=1,
               walltime=5,
               deps=ind2,
-              creates=['cl_field.ind_Ffe.png', 'qm_field.ind_Ffe.png', 'tot_field.ind_Ffe.png'])
-    
+              creates=['cl_field.ind_Ffe.png', 'qm_field.ind_Ffe.png',
+                       'tot_field.ind_Ffe.png'])
+
     queue.add('plot_permittivity.py',
               ncpus=1,
               walltime=5,
