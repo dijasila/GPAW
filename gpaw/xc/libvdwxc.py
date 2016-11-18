@@ -378,11 +378,6 @@ def define_vdwxcclass(xcclass):
 
         def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
             assert self.libvdwxc is not None
-            assert len(n_sg) == 1, ('libvdwxc does not work with multiple '
-                                    'spins yet')
-            assert len(sigma_xg) == 1
-            assert len(v_sg) == 1
-            assert len(dedsigma_xg) == 1
 
             self.timer.start('van der Waals')
             n_sg[:] = np.abs(n_sg)  # XXXX What to do about this?
@@ -393,12 +388,35 @@ def define_vdwxcclass(xcclass):
             self.last_semilocal_energy = e_g.sum() * self.gd.dv
             self.timer.stop('semilocal')
 
-            energy_nonlocal = self.redist_wrapper.calculate(
-                n_sg[0], sigma_xg[0], v_sg[0], dedsigma_xg[0])
+            nspins = len(n_sg)
+            if nspins == 1:
+                n_g = n_sg[0]
+                sigma_g = sigma_xg[0]
+                v_g = v_sg[0]
+                dedsigma_g = dedsigma_xg[0]
+            elif nspins == 2:
+                n_g = n_sg.sum(0)
+                sigma_g = sigma_xg[0] + 2 * sigma_xg[1] + sigma_xg[2]
+                v_g = np.zeros_like(n_g)
+                dedsigma_g = np.zeros_like(n_g)
+            else:
+                raise ValueError('Strange number of spins {0}'.format(nspins))
 
-            # XXXXXXXXXXXXXXXX ignoring vdwcoef
+            energy_nonlocal = self.redist_wrapper.calculate(n_g, sigma_g,
+                                                            v_g, dedsigma_g)
+
+            if nspins == 2:
+                dedsigma_xg[0] += dedsigma_g
+                dedsigma_xg[1] += 2 * dedsigma_g
+                dedsigma_xg[2] += dedsigma_g
+                v_sg += v_g[None]
+
+            # Redistwrapper handles vdwcoef.  For now
 
             # XXXXXXXXXXXXXXXX ugly
+            # Surrounding classes will eventually integrate e_g anyway,
+            # so we can fill it with garbage as long as garbage integrates
+            # to the correct energy.
             self.last_nonlocal_energy = energy_nonlocal
             e_g[0, 0, 0] += energy_nonlocal / self.gd.dv
             self.timer.stop('van der Waals')
