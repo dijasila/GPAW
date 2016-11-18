@@ -1,8 +1,9 @@
-from gpaw.tddft import TDDFT
-from matplotlib import use, patches
-import matplotlib.pyplot as plt
-from ase.units import Bohr
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import use, patches
+from ase.units import Bohr
+
+from gpaw.tddft import TDDFT
 
 
 # Initialize TDDFT and QSFDTD
@@ -49,8 +50,7 @@ poisson_solver = td_calc.hamiltonian.poisson
 atoms = td_calc.atoms
 
 box = np.diagonal(poisson_solver.cl.gd.cell_cv) * Bohr  # in Ang
-atom_positions = (atoms.get_positions() +
-                  poisson_solver.qm.corner1 * Bohr)  # in Ang
+atom_positions = atoms.positions + poisson_solver.qm.corner1 * Bohr  # in Ang
 atom_elements = atoms.get_chemical_symbols()
 
 # create figure
@@ -82,15 +82,13 @@ plt.ylim(y[0], y[-1])
 
 # Mark the quantum region
 i, j = 1, 0
-qmrect = patches.Rectangle((poisson_solver.qm.corner1[i] * Bohr,
-                            poisson_solver.qm.corner1[j] * Bohr),
-                           (poisson_solver.qm.corner2[i] -
-                            poisson_solver.qm.corner1[i]) * Bohr,
-                           (poisson_solver.qm.corner2[j] -
-                            poisson_solver.qm.corner1[j]) * Bohr,
-                           color='black',  # #0099FF',
-                           fill=0,
-                           linewidth=1.0)
+qmrect = patches.Rectangle(
+    (poisson_solver.qm.corner1[i] * Bohr, poisson_solver.qm.corner1[j] * Bohr),
+    (poisson_solver.qm.corner2[i] - poisson_solver.qm.corner1[i]) * Bohr,
+    (poisson_solver.qm.corner2[j] - poisson_solver.qm.corner1[j]) * Bohr,
+    color='black',  # #0099FF',
+    fill=0,
+    linewidth=1.0)
 ax.add_patch(qmrect)
 
 # Classical

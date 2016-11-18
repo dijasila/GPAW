@@ -67,4 +67,3 @@ fiteps = PermittivityPlus(data=[[0.2350, 0.1551, 95.62],
                                 [5.747, 1.958, 22.55],
                                 [7.912, 1.361, 81.04]])
 plot(ymlfname, fiteps)
-# plt.show()
