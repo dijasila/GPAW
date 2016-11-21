@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import use, patches
+from matplotlib import patches
 from ase.units import Bohr
 
 from gpaw.tddft import TDDFT
@@ -44,7 +44,6 @@ def generate_xygrid(d, g, box):
     dy = y[1] - y[0]
     return d_slice, d_proj, (x, y, dx, dy), (X, Y, U, V)
 
-use('Agg')
 
 poisson_solver = td_calc.hamiltonian.poisson
 atoms = td_calc.atoms
@@ -63,7 +62,7 @@ ng = plotData.shape
 
 axis = 2
 ax = plt.subplot(1, 1, 1)
-g = [None, None, ng[2] / 2]
+g = [None, None, ng[2] // 2]
 
 dmy1, d_proj, (x, y, dx, dy), dmy2 = generate_xygrid(plotData, g, box)
 
