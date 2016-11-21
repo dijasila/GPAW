@@ -37,8 +37,8 @@ lr.write('na2_lr.dat.gz')
 del lr
 del calc
 calc = GPAW('na2_gs_casida.gpw')
-#calc.initialize_positions()
-#calc.set_positions()
+# calc.initialize_positions()
+# calc.set_positions()
 lr = LrTDDFT('na2_lr.dat.gz')
 
 # 3) Calculate induced field
@@ -48,8 +48,11 @@ width = 0.1                # Line width for folding in eV
 kickdir = 0                # Kick field direction 0, 1, 2 for x, y, z
 ind = LrTDDFTInducedField(paw=calc, lr=lr, frequencies=frequencies,
                           folding=folding, width=width, kickdir=kickdir)
-ind.calculate_induced_field(gridrefinement=2, from_density='comp',
-                            poisson_eps=poisson_eps)
+ind.calculate_induced_field(gridrefinement=2,
+                            from_density='comp',
+                            poisson_eps=poisson_eps,
+                            extend_N_cd=3 * np.ones((3, 2), int),
+                            deextend=True)
 
 # Estimate tolerance (worst case error accumulation)
 tol = (len(lr) ** 2 * ind.fieldgd.integrate(ind.fieldgd.zeros() + 1.0) *

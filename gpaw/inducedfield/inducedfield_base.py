@@ -1,9 +1,8 @@
 import numpy as np
 from ase.units import Bohr, Hartree
-from ase import Atoms
 
 import gpaw.mpi as mpi
-from gpaw.tddft import eV_to_aufrequency, aufrequency_to_eV
+from gpaw.tddft import eV_to_aufrequency
 from gpaw.poisson import PoissonSolver
 from gpaw.fd_operators import Gradient
 from gpaw.grid_descriptor import GridDescriptor
@@ -33,7 +32,7 @@ def sendreceive_dict(comm, a_i, dest, b_i, src_i, iitems):
 
 class BaseInducedField(object):
     """Partially virtual base class for induced field calculations.
-    
+
     Attributes:
     -----------
     omega_w: ndarray
@@ -53,7 +52,7 @@ class BaseInducedField(object):
     Fbgef_v: ndarray (float)
         Fourier transform of background electric field
     """
-    
+
     def __init__(self, filename=None, paw=None,
                  frequencies=None, folding='Gauss', width=0.08,
                  readmode=''):
@@ -96,23 +95,23 @@ class BaseInducedField(object):
                 {'': ['Frho', 'atoms'],
                  'all': ['Frho', 'Fphi', 'Fef', 'Ffe', 'atoms'],
                  'field': ['Frho', 'Fphi', 'Fef', 'Ffe', 'atoms']}
- 
+
         if filename is not None:
             self.initialize(paw, allocate=False)
             self.read(filename, mode=readmode)
             return
-        
+
         self.folding = folding
         self.width = width * eV_to_aufrequency
         self.set_folding(folding, width * eV_to_aufrequency)
-        
+
         self.omega_w = np.asarray(frequencies) * eV_to_aufrequency
         self.nw = len(self.omega_w)
-        
+
         self.nv = 3  # dimensionality of the space
-        
+
         self.initialize(paw, allocate=True)
-    
+
     def initialize(self, paw, allocate=True):
         self.allocated = False
         self.has_paw = paw is not None
@@ -135,13 +134,13 @@ class BaseInducedField(object):
             self.na = len(self.atoms.get_atomic_numbers())        # !
             self.gd = self.density.gd                             # !
             self.stencil = self.density.stencil
-        
+
         if allocate:
             self.allocate()
-    
+
     def allocate(self):
         self.allocated = True
-    
+
     def deallocate(self):
         self.fieldgd = None
         self.Frho_wg = None
@@ -149,7 +148,7 @@ class BaseInducedField(object):
         self.Fef_wvg = None
         self.Ffe_wg = None
         self.Fbgef_v = None
-        
+
     def set_folding(self, folding, width):
         """
         width: float
@@ -163,7 +162,7 @@ class BaseInducedField(object):
             self.width = None
         else:
             self.width = width
-        
+
     def get_induced_density(self, from_density, gridrefinement):
         raise RuntimeError('Virtual member function called')
 
@@ -182,12 +181,13 @@ class BaseInducedField(object):
         else:
             Frho_wg, gd = self.get_induced_density(from_density,
                                                    gridrefinement)
-        
+
         # Always extend a bit to get field without jumps
         if extend_N_cd is None:
-            extend_N_cd = gradient_n * np.ones(shape=(3, 2), dtype=np.int)
+            extend_N = max(8, 2**int(np.ceil(np.log(gradient_n) / np.log(2.))))
+            extend_N_cd = extend_N * np.ones(shape=(3, 2), dtype=np.int)
             deextend = True
-        
+
         # Extend grid
         oldgd = gd
         egd, cell_cv, move_c = \
@@ -201,15 +201,15 @@ class BaseInducedField(object):
             # TODO: this will make atoms unusable with original grid
             self.atoms.set_cell(cell_cv, scale_atoms=False)
             move_atoms(self.atoms, move_c)
-        
+
         # Allocate arrays
         Fphi_wg = gd.zeros((self.nw,), dtype=self.dtype)
         Fef_wvg = gd.zeros((self.nw, self.nv,), dtype=self.dtype)
         Ffe_wg = gd.zeros((self.nw,), dtype=float)
-        
+
         for w in range(self.nw):
             # TODO: better output of progress
-            #parprint('%d' % w)
+            # parprint('%d' % w)
             calculate_field(gd, Frho_wg[w], self.Fbgef_v,
                             Fphi_wg[w], Fef_wvg[w], Ffe_wg[w],
                             nv=self.nv,
@@ -235,7 +235,7 @@ class BaseInducedField(object):
             Fef_wvg = Fef_wvo
             Ffe_wg = Ffe_wo
             gd = oldgd
-    
+
         # Store results
         self.has_field = True
         self.field_from_density = from_density
@@ -244,7 +244,7 @@ class BaseInducedField(object):
         self.Fphi_wg = Fphi_wg
         self.Fef_wvg = Fef_wvg
         self.Ffe_wg = Ffe_wg
-        
+
     def _parse_readwritemode(self, mode):
         if isinstance(mode, str):
             try:
@@ -255,7 +255,7 @@ class BaseInducedField(object):
             readwrites = mode
         else:
             raise IOError('unknown readwrite mode type')
-        
+
         if any(k in readwrites for k in ['Frho', 'Fphi', 'Fef', 'Ffe']):
             readwrites.append('field')
 
@@ -264,9 +264,9 @@ class BaseInducedField(object):
     def read(self, filename, mode='', idiotproof=True):
         if idiotproof and not filename.endswith('.ind'):
             raise IOError('Filename must end with `.ind`.')
-        
+
         reads = self._parse_readwritemode(mode)
-        
+
         # Open reader
         from gpaw.io import Reader
         reader = Reader(filename)
@@ -290,7 +290,7 @@ class BaseInducedField(object):
 
         # Background electric field
         Fbgef_v = r.Fbgef_v
-        
+
         if self.has_paw:
             # Test dimensions
             if na != self.na:
@@ -321,7 +321,7 @@ class BaseInducedField(object):
         folding = r.folding
         width = r.width
         self.set_folding(folding, width)
-        
+
         # Frequencies
         self.omega_w = r.omega_w
         self.nw = len(self.omega_w)
@@ -348,22 +348,11 @@ class BaseInducedField(object):
         Parameters
         ----------
         mode: string or list of strings
-            
-        
+
+
         """
         if idiotproof and not filename.endswith('.ind'):
             raise IOError('Filename must end with `.ind`.')
-
-        # Masters
-        domainmaster = self.domain_comm.rank == 0
-        bandmaster = self.band_comm.rank == 0
-        kptmaster = self.kpt_comm.rank == 0
-        master = domainmaster and bandmaster and kptmaster
-#        master = self.world.rank == 0
-
-        if master:
-            if self.world.rank != 0:
-                raise IOError('master not world master')
 
         writes = self._parse_readwritemode(mode)
 
@@ -392,14 +381,14 @@ class BaseInducedField(object):
         # Write field grid
         if 'field' in writes:
             writer.write(field_from_density=self.field_from_density,
-                    nfieldg=self.fieldgd.get_size_of_global_array())
+                         nfieldg=self.fieldgd.get_size_of_global_array())
 
         # Write frequencies
         writer.write(omega_w=self.omega_w)
 
         # Write background electric field
         writer.write(Fbgef_v=self.Fbgef_v)
-   
+
         from ase.io.trajectory import write_atoms
         write_atoms(writer.child('atoms'), self.atoms)
 
@@ -448,7 +437,7 @@ def calculate_field(gd, rho_g, bgef_v,
         tmp_g[:] = 0.0
         poissonsolver.solve(tmp_g, rho_g.imag.copy())
         phi_g += 1.0j * tmp_g
-    
+
     # Gradient
     gradient = [Gradient(gd, v, scale=1.0, n=gradient_n)
                 for v in range(nv)]
@@ -460,14 +449,14 @@ def calculate_field(gd, rho_g, bgef_v,
         if yes_complex:
             gradient[v].apply(-phi_g.imag, tmp_g)
             ef_vg[v] += 1.0j * tmp_g
-    
+
     # Electric field enhancement
     tmp_g[:] = 0.0  # total electric field norm
     bgefnorm = 0.0  # background electric field norm
     for v in range(nv):
         tmp_g += np.absolute(bgef_v[v] + ef_vg[v])**2
         bgefnorm += np.absolute(bgef_v[v])**2
-        
+
     tmp_g = np.sqrt(tmp_g)
     bgefnorm = np.sqrt(bgefnorm)
 
@@ -476,16 +465,16 @@ def calculate_field(gd, rho_g, bgef_v,
 
 def zero_pad(a):
     """Add zeros to both sides of all axis on array a.
-    
+
     Not parallel safe.
     """
-    
+
     z_shape = np.zeros(shape=len(a.shape))
     z_shape[-3:] = 2
     b_shape = np.array(a.shape) + z_shape
-    
+
     b = np.zeros(shape=b_shape, dtype=a.dtype)
-    
+
     b[..., 1:-1, 1:-1, 1:-1] = a
     return b
 
@@ -498,7 +487,7 @@ def calculate_oscstr(Fn_wg, omega_w, box, kick):
     volume = box.prod()
     ng = np.array(Fn_wg[0].shape)
     dV = volume / (ng - 1).prod()  # Note: data is zeropadded to both sides
-    
+
     Fn_wg_im = Fn_wg.imag
     if kick[0] != 0.0:
         osc_w = -2 * omega_w / np.pi / kick[0] * \
@@ -521,7 +510,7 @@ def calculate_polarizability(Fn_wg, box, kick):
     volume = box.prod()
     ng = np.array(Fn_wg[0].shape)
     dV = volume / (ng - 1).prod()  # Note: data is zeropadded to both sides
-    
+
     if kick[0] != 0.0:
         pol_w = -1.0 / kick[0] * \
             ((Fn_wg.sum(axis=2)).sum(axis=2) *
