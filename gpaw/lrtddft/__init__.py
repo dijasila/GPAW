@@ -330,7 +330,7 @@ class LrTDDFT(ExcitationList):
         if self.calculator is None:
             rank = mpi.world.rank
         else:
-            rank =self.calculator.wfs.world.rank
+            rank = self.calculator.wfs.world.rank
 
         if rank == 0:
             if fh is None:
