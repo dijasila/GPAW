@@ -230,8 +230,8 @@ class FDTDPoissonSolver:
             qm_spacing=self.qm.spacing_def[0] * Bohr,
             cl_spacing=self.cl.spacing_def[0] * Bohr,
             remove_moments=(self.remove_moment_cl, self.remove_moment_qm),
-            potential_coupler=self.potential_coupling_scheme,
-            )
+            potential_coupler=self.potential_coupling_scheme)
+
         return dct
 
     def get_description(self):
@@ -771,8 +771,7 @@ class FDTDPoissonSolver:
         self.phi_tot_qmgd, self.phi_tot_clgd, niter = \
             self.potential_coupler.getPotential(
                 local_rho_qm_qmgd=self.qm.rho,
-                local_rho_cl_clgd=
-                self.classical_material.sign *
+                local_rho_cl_clgd=self.classical_material.sign *
                 self.classical_material.charge_density,
                 **kwargs)
         self.qm.phi[:] = self.phi_tot_qmgd[:]
