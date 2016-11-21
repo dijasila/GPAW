@@ -273,7 +273,7 @@ class GPAW(Calculator, PAW):
             self.results['energy'] = e_extrapolated * Hartree
             self.results['free_energy'] = e_free * Hartree
 
-            if not self.atoms.pbc.all() and self.density.charge == 0:
+            if not self.atoms.pbc.all():
                 dipole_v = self.density.calculate_dipole_moment() * Bohr
                 self.log('Dipole moment: ({0:.6f}, {1:.6f}, {2:.6f}) |e|*Ang\n'
                          .format(*dipole_v))
