@@ -326,7 +326,13 @@ class LrTDDFT(ExcitationList):
         'fh' is a filehandle. This can be used to write into already
         opened files.
         """
-        if self.calculator.wfs.world.rank == 0:
+
+        if self.calculator is None:
+            rank = mpi.world.rank
+        else:
+            rank = self.calculator.wfs.world.rank
+
+        if rank == 0:
             if fh is None:
                 if filename.endswith('.gz'):
                     try:
