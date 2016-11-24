@@ -630,7 +630,12 @@ class OmegaMatrix:
 
     def write(self, filename=None, fh=None):
         """Write current state to a file."""
-        if self.paw.wfs.world.rank == 0:
+
+        try:
+            rank = self.paw.wfs.world.rank
+        except AttributeError:
+            rank = mpi.world.rank
+        if rank == 0:
             if fh is None:
                 f = open(filename, 'w')
             else:

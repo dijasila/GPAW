@@ -750,7 +750,7 @@ Atomic basis set
 
 The ``basis`` keyword can be used to specify the basis set which
 should be used in LCAO mode.  This also affects the LCAO
-initialization in FD mode, where initial wave functions are
+initialization in FD or PW mode, where initial wave functions are
 constructed by solving the Kohn-Sham equations in the LCAO basis.
 
 If ``basis`` is a string, :file:`basis='basisname'`, then GPAW will
