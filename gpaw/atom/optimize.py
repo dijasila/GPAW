@@ -303,9 +303,13 @@ class DatasetOptimizer:
 
         r = 1.1 * gen.rcmax
 
+        lmax = 2
+        if 'f' in projectors:
+            lmax = 3
+
         error = 0.0
         if logderivs:
-            for l in range(4):
+            for l in range(lmax + 1):
                 emin = -1.5
                 emax = 2.0
                 n0 = gen.number_of_core_states(l)
