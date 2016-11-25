@@ -520,12 +520,13 @@ class DatasetOptimizer:
                           maxiter=M,
                           txt=fd,
                           **mixer)
+        atoms.positions += h / 2  # start with broken symmetry
         e0 = atoms.get_potential_energy()
-        atoms.positions += h / 6
+        atoms.positions -= h / 6
         e1 = atoms.get_potential_energy()
-        atoms.positions += h / 6
+        atoms.positions -= h / 6
         e2 = atoms.get_potential_energy()
-        atoms.positions += h / 6
+        atoms.positions -= h / 6
         e3 = atoms.get_potential_energy()
         return np.ptp([e0, e1, e2, e3])
 
