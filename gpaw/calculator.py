@@ -418,10 +418,12 @@ class GPAW(Calculator, PAW):
         natoms = len(atoms)
 
         cell_cv = atoms.get_cell() / Bohr
-        if cell_cv.shape != (3, 3):
-            raise ValueError('GPAW requires a 3x3 cell, but atoms have '
-                             '{0}x{1}.  Try atoms.center(vacuum=...) for '
-                             'non-periodic systems.'.format(*cell_cv.shape))
+        number_of_lattice_vectors = cell_cv.any(axis=1).sum()
+        if number_of_lattice_vectors < 3:
+            raise ValueError(
+                'GPAW requires 3 lattice vectors.  Your system has {0}.'
+                .format(number_of_lattice_vectors))
+
         pbc_c = atoms.get_pbc()
         assert len(pbc_c) == 3
         magmom_a = atoms.get_initial_magnetic_moments()
