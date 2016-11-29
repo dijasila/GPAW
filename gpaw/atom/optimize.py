@@ -303,9 +303,13 @@ class DatasetOptimizer:
 
         r = 1.1 * gen.rcmax
 
+        lmax = 2
+        if 'f' in projectors:
+            lmax = 3
+
         error = 0.0
         if logderivs:
-            for l in range(4):
+            for l in range(lmax + 1):
                 emin = -1.5
                 emax = 2.0
                 n0 = gen.number_of_core_states(l)
@@ -375,7 +379,7 @@ class DatasetOptimizer:
             except ConvergenceError:
                 print(n, name)
                 result = np.inf
-            except Exception, ex:
+            except Exception as ex:
                 print(n, name, ex)
                 traceback.print_exc()
                 result = np.inf
@@ -516,12 +520,13 @@ class DatasetOptimizer:
                           maxiter=M,
                           txt=fd,
                           **mixer)
+        atoms.positions += h / 2  # start with broken symmetry
         e0 = atoms.get_potential_energy()
-        atoms.positions += h / 6
+        atoms.positions -= h / 6
         e1 = atoms.get_potential_energy()
-        atoms.positions += h / 6
+        atoms.positions -= h / 6
         e2 = atoms.get_potential_energy()
-        atoms.positions += h / 6
+        atoms.positions -= h / 6
         e3 = atoms.get_potential_energy()
         return np.ptp([e0, e1, e2, e3])
 

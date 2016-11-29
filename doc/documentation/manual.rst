@@ -593,7 +593,8 @@ In words:
 
 * The integrated value of the square of the residuals of the Kohn-Sham
   equations should be less than `4.0 \times 10^{-8}
-  \mathrm{eV}^2` per valence electron (FD mode only).
+  \mathrm{eV}^2` per valence electron. This criterion does not affect LCAO
+  calculations.
 
 * The maximum change in the magnitude of the vector representing the
   difference in forces for each atom.  Setting this to None disables
@@ -749,7 +750,7 @@ Atomic basis set
 
 The ``basis`` keyword can be used to specify the basis set which
 should be used in LCAO mode.  This also affects the LCAO
-initialization in FD mode, where initial wave functions are
+initialization in FD or PW mode, where initial wave functions are
 constructed by solving the Kohn-Sham equations in the LCAO basis.
 
 If ``basis`` is a string, :file:`basis='basisname'`, then GPAW will

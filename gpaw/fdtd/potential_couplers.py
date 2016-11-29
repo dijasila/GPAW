@@ -32,7 +32,7 @@ class PotentialCoupler():
         self.old_local_phi_qm_qmgd = self.qm.gd.zeros()
         self.old_local_phi_cl_clgd = self.cl.gd.zeros()
         self.old_local_phi_qm_clgd = self.cl.gd.zeros()
-    
+
     # Add quantum and classical potentials
     def couple(self,
                qm_qmgd,
@@ -95,15 +95,18 @@ class RefinerPotentialCoupler(PotentialCoupler):
 
         if self.rank == 0:
             # Extract the overlapping region from the classical potential
+            o1 = self.extended_index_offset_1
+            o2 = self.extended_index_offset_2
             global_phi_cl_clgd_refined = global_phi_cl_clgd[
-                self.extended_index_offset_1[0]:self.extended_index_offset_2[0] - 1,
-                self.extended_index_offset_1[1]:self.extended_index_offset_2[1] - 1,
-                self.extended_index_offset_1[2]:self.extended_index_offset_2[2] - 1].copy()
-            
+                o1[0]:o2[0] - 1,
+                o1[1]:o2[1] - 1,
+                o1[2]:o2[2] - 1].copy()
+
             for n in range(self.num_refinements):
                 global_phi_cl_clgd_refined = \
-                    self.cl.extended_refiners[n].apply(global_phi_cl_clgd_refined)
-            
+                    self.cl.extended_refiners[n].apply(
+                        global_phi_cl_clgd_refined)
+
             global_phi_cl_qmgd = global_phi_cl_clgd_refined[
                 self.extended_delta_index:-self.extended_delta_index,
                 self.extended_delta_index:-self.extended_delta_index,
@@ -111,28 +114,30 @@ class RefinerPotentialCoupler(PotentialCoupler):
 
         self.qm.gd.distribute(global_phi_cl_qmgd, local_phi_cl_qmgd)
 
-        # Transfer quantum potential into classical subsystem
+        # Transfer quantum density into classical grid
         global_rho_qm_qmgd = self.qm.gd.collect(local_rho_qm_qmgd)
         global_rho_qm_clgd = self.cl.gd.zeros(global_array=True)
         local_rho_qm_clgd = self.cl.gd.zeros()
-        
+
         if self.rank == 0:
             # Coarsen the quantum density
             global_rho_qm_qmgd_coarsened = global_rho_qm_qmgd
             for n in range(self.num_refinements):
                 global_rho_qm_qmgd_coarsened = \
                     self.cl.coarseners[n].apply(global_rho_qm_qmgd_coarsened)
-            
+
             # Add the coarsened quantum density
-            global_rho_qm_clgd[self.index_offset_1[0]:self.index_offset_2[0] - 1,
-                               self.index_offset_1[1]:self.index_offset_2[1] - 1,
-                               self.index_offset_1[2]:self.index_offset_2[2] - 1] = \
+            o1 = self.index_offset_1
+            o2 = self.index_offset_2
+            global_rho_qm_clgd[o1[0]:o2[0] - 1,
+                               o1[1]:o2[1] - 1,
+                               o1[2]:o2[2] - 1] = \
                 global_rho_qm_qmgd_coarsened[:]
-            
+
         # Distribute the combined density to all processes
         self.cl.gd.distribute(global_rho_qm_clgd, local_rho_qm_clgd)
-        
-        # Solve potential
+
+        # Solve quantum potential on classical grid
         local_phi_qm_clgd = self.old_local_phi_qm_clgd
         self.cl.poisson_solver.remove_moment = None
         niter_qm_clgd = self.cl.poisson_solver.solve(phi=local_phi_qm_clgd,
@@ -147,7 +152,7 @@ class RefinerPotentialCoupler(PotentialCoupler):
                         qm_clgd=local_phi_qm_clgd,
                         cl_qmgd=local_phi_cl_qmgd,
                         cl_clgd=local_phi_cl_clgd)
-        
+
         return local_phi_tot_qmgd, local_phi_tot_clgd, \
             (niter_qm, niter_cl, niter_qm_clgd)
 

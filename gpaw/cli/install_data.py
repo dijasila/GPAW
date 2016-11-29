@@ -25,6 +25,28 @@ sources = [('gpaw', 'official GPAW setups releases [default]'),
            ]
 names = [r for r, d in sources]
 
+baseurls = {'gpaw':
+            'https://wiki.fysik.dtu.dk/gpaw/_sources/setups/setups.txt',
+            #'sg15': 'http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/',
+            'sg15': 'http://www.quantum-simulation.org/potentials/sg15_oncv/',
+            'basis':
+            'http://dcwww.camd.dtu.dk/~askhl/files/gpaw-lcao-basis-sets/',
+            'test': 'http://dcwww.camd.dtu.dk/~askhl/files/gpaw-test-source/'}
+
+
+notfound_msg = """\
+For some reason the files were not found.
+
+Perhaps this script is out of date, and the data is no longer
+available at the expected URL:
+
+  {url}
+
+Or maybe there it is just a temporary problem or timeout.  Please try
+again, or rummage around the GPAW web page until a solution is found.
+Writing e-mails to gpaw-developers@lists@listserv.fysik.dtu.dk is also
+likely to help."""
+
 
 def main(args):
     p = OptionParser(prog='gpaw install-data',
@@ -88,12 +110,8 @@ def main(args):
                 print(' %s %s' % (marking, url))
 
         if len(urls) == 0:
-            p.error(
-                'For some reason, no files were found. Probably this script '
-                'is out of date.  Please rummage around GPAW web page until '
-                'solution is found.  Writing e-mails to '
-                'gpaw-developers@lists@listserv.fysik.dtu.dk is also likely'
-                'to help.')
+            url = baseurls[opts.source]
+            p.error(notfound_msg.format(url=url))
 
         if opts.version:
             matching_urls = [url for url in urls if opts.version in url]
@@ -215,35 +233,31 @@ def main(args):
 
 
 def get_urls(source):
+    page = baseurls[source]
+    response = urlopen(page)
     if source == 'gpaw':
-        page = 'https://wiki.fysik.dtu.dk/gpaw/_sources/setups/setups.txt'
-        response = urlopen(page)
         pattern = 'https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-*.tar.gz'
         lines = (line.strip().decode() for line in response)
         urls = [line for line in lines if fnmatch.fnmatch(line, pattern)]
-        return urls
     elif source == 'sg15':
-        page = 'http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/'
-        response = urlopen(page)
-        # Extract filename from:
-        # <a href="...">sg15_oncv_upf_YYYY-MM-DD.tar.gz</a>
-        pattern = r'>(sg15_oncv_upf_\d\d\d\d-\d\d-\d\d\.tar\.gz)</a>'
+        # We want sg15_oncv_2015-10-07.tar.gz, but they may upload
+        # newer files, too.
+        pattern = (r'<a\s*href=[^>]+>\s*'
+                   r'(sg15_oncv_upf_\d\d\d\d-\d\d-\d\d.tar.gz)'
+                   r'\s*</a>')
+
         files = re.compile(pattern).findall(response.read())
         files.sort(reverse=True)
         urls = [page + fname for fname in files]
-        return urls
     elif source == 'basis':
-        page = 'http://dcwww.camd.dtu.dk/~askhl/files/gpaw-lcao-basis-sets/'
         pattern = re.compile('>(gpaw-basis-.+?.tar.gz)</a>')
-        response = urlopen(page)
         files = sorted(pattern.findall(response.read()), reverse=True)
-        return [page + fname for fname in files]
+        urls = [page + fname for fname in files]
     elif source == 'test':
-        return ['http://dcwww.camd.dtu.dk/~askhl/files/gpaw-test-source/'
-                'gpaw-dist-test-source.tar.gz']
+        urls = ['{0}gpaw-dist-test-source.tar.gz'.format(page)]
     else:
         raise ValueError('Unknown source: %s' % source)
-
+    return urls
 
 def print_setups_info(p):
     try:

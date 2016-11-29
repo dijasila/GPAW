@@ -24,7 +24,7 @@ spectrum in separate calculations::
   lr.write('excitations_Na2.gz')
 
 and::
-  
+
   from gpaw.lrtddft import LrTDDFT, photoabsorption_spectrum
   lr = LrTDDFT(filename='excitations_Na2.gz')
   photoabsorption_spectrum(lr, 'Na2_spectrum.dat', e_min=0.0, e_max=10)
@@ -38,7 +38,7 @@ By default only singlet-singlet transitions are calculated, singlet-triplet
 transitions can be calculated by giving the ``nspins`` parameter::
 
   LrTDDFT(calc, istart=0, jend=10, nspins=2)
-  
+
 
 1. Check how the results vary with the number of unoccupied states in
    the calculation (``jend`` parameter).
@@ -52,4 +52,3 @@ transitions can be calculated by giving the ``nspins`` parameter::
    :ref:`timepropagation` approach and see how the results compare to
    linear response calculation.  Note that the :ref:`timepropagation`
    examples deal with Be2, you can of course modify it to use Na2 instead.
-

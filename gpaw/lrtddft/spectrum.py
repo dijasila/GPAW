@@ -193,8 +193,9 @@ class Writer(Folder):
             out.close()
 
             
-def polarizability(exlist, omega, form='v', index=0):
-    """Evaluate the polarizability from sum over states. 
+def polarizability(exlist, omega, form='v',
+                   tensor=False, index=0):
+    """Evaluate the polarizability from sum over states.
 
     Parameters
     ----------
@@ -205,15 +206,25 @@ def polarizability(exlist, omega, form='v', index=0):
         Form of the dipole matrix element
     index: {0, 1, 2, 3}
         0: averaged, 1,2,3:alpha_xx, alpha_yy, alpha_zz
+    tensor:
+        if True returns alpha_ij, i,j=x,y,z
+        index is ignored
 
     Returns
     -------
     alpha:
-        Unit (e^2 Angstrom^2 / eV). 
+        Unit (e^2 Angstrom^2 / eV).
         Multiply with Bohr * Ha to get (Angstrom^3)
     """
-    alpha = np.zeros_like(omega, dtype=float)
-    for ex in exlist:
-        alpha += ex.get_oscillator_strength(form=form)[index] / (
-            (ex.energy * Hartree)**2 - omega**2)
+    if tensor:
+        alpha = np.zeros(np.array(omega).shape + (3, 3), dtype=complex)
+        for ex in exlist:
+            alpha += ex.get_dipole_tensor(form=form) / (
+                (ex.energy * Hartree)**2 - omega**2)
+    else:
+        alpha = np.zeros_like(omega, dtype=float)
+        for ex in exlist:
+            alpha += ex.get_oscillator_strength(form=form)[index] / (
+                (ex.energy * Hartree)**2 - omega**2)
+            
     return alpha * Bohr**2 * Hartree
