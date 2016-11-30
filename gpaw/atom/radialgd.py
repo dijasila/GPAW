@@ -413,12 +413,11 @@ class EquidistantRadialGridDescriptor(RadialGridDescriptor):
     def r2g(self, r):
         return (r - self.r_g[0]) / (self.r_g[1] - self.r_g[0])
 
-    def spline(self, a_g, rcut=None, l=0):
-        assert rcut is None
-        b_g = a_g.copy()
-        if l > 0:
-            b_g = divrl(b_g, l, self.r_g[:len(a_g)])
-        return Spline(l, self.r_g[len(a_g) - 1], b_g)
+    def xml(self, id='grid1'):
+        assert self.r_g[0] == 0.0
+        return ('<radial_grid eq="r=d*i" d="{0!r}" '
+                'istart="0" iend="{1}" id="{2}"/>\n'
+                .format(self.r_g[1], len(self.r_g) - 1, id))
 
 
 class AERadialGridDescriptor(RadialGridDescriptor):

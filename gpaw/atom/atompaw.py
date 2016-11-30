@@ -325,15 +325,16 @@ class AtomPAW(GPAW):
         from gpaw.basis_data import Basis, BasisFunction
         assert self.wfs.nspins == 1
 
-        basis = Basis(self.symbol, basis_name, readxml=False)
-        basis.d = self.wfs.gd.r_g[0]
-        basis.ng = self.wfs.gd.N + 1
+        d = self.wfs.gd.r_g[0]
+        ng = self.wfs.gd.N + 1
+        rgd = EquidistantRadialGridDescriptor(d, ng)
+        basis = Basis(self.symbol, basis_name, readxml=False, rgd=rgd)
         basis.generatorattrs = {}  # attrs of the setup maybe
         basis.generatordata = 'AtomPAW'  # version info too?
 
         bf_j = basis.bf_j
         for l, n, f, eps, psit_G in self.state_iter():
-            phit_g = np.empty(basis.ng)
+            phit_g = rgd.empty()
             phit_g[0] = 0.0
             phit_g[1:] = psit_G
             phit_g *= np.sign(psit_G[-1])
@@ -342,7 +343,7 @@ class AtomPAW(GPAW):
             # We'll make an ugly hack
             if abs(phit_g[1]) > 3.0 * abs(phit_g[2] - phit_g[1]):
                 phit_g[0] = phit_g[1]
-            bf = BasisFunction(l, self.wfs.gd.r_g[-1], phit_g,
+            bf = BasisFunction(n, l, self.wfs.gd.r_g[-1], phit_g,
                                '%s%d e=%.3f f=%.3f' % ('spdfgh'[l], n, eps, f))
             bf_j.append(bf)
         return basis
