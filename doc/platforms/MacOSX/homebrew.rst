@@ -39,7 +39,7 @@ Install and test ASE::
     $ python -m ase.test
 
 Install GPAW:
-        
+
     $ pip install --upgrade --user gpaw
 
 Install GPAW setups::
