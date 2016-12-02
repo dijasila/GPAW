@@ -205,13 +205,17 @@ class DatasetOptimizer:
         self.rco = my_covalent_radii[8]
 
     def minimize(self):
-        def f(x):
-            n, x, errors, error = self(0, x)
-            print(x, errors, error)
+        self.projectors = self.projectors.replace('%.1f', '%.10f')
+        nn = 0
+
+        def f(x, nn=nn):
+            n, x, errors, error = self(nn, x)
+            print(nn, x, errors, error)
+            nn += 1
             return error
 
         from scipy.optimize import fmin
-        fmin(f, self.x)
+        fmin(f, self.x, xtol=0.1)
 
     def run(self):  # , mu, n1, n2):
         # mu = float(mu)
