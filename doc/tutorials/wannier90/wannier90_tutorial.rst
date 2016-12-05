@@ -172,9 +172,10 @@ bad, but one needs to go to much higher `k`-point densities to obtain the
 converged values of 757 S/cm [#AHC]_.
 
 .. [#Wannier_code] N. Marzari, A. A. Mostofi, J. R. Yates, I. Souza, and D. Vanderbilt
-                   *Rev. Mod. Phys.* **84**, 1419 (2012)
+              *Rev. Mod. Phys.* **84**, 1419 (2012)
 
-.. [#Olsen] T. Olsen, arXiv:1609.02338
+.. [#Olsen]   T. Olsen
+              *Phys. Rev. B* **94**, 235106 (2016)
 
 .. [#AHC]     X. Wang, J. R. Yates, I. Souza, and D. Vanderbilt
               *Phys. Rev. B* **74**, 195118 (2006)
