@@ -205,17 +205,42 @@ class DatasetOptimizer:
         self.rco = my_covalent_radii[8]
 
     def minimize(self):
-        self.projectors = self.projectors.replace('%.1f', '%.10f')
-        nn = 0
+        fd = open('pool.csv', 'w')
+        done = {}
 
         def f(x):
-            n, x, errors, error = self(nn, x)
-            print(nn, x, errors, error)
-            nn += 1
+            n, x, errors, error = self(0, tuple(x))
+            n = len(done)
+            done[tuple(x)] = error
+            print('{0},{1},{2},{3}'.format(n, error,
+                                           ','.join(str(i) for i in x),
+                                           ','.join('{0:.4f}'.format(e)
+                                                    for e in errors)),
+                  file=fd)
+            fd.flush()
             return error
 
-        from scipy.optimize import fmin
-        fmin(f, self.x, xtol=0.1)
+        x = list(self.x)
+        f(x)
+
+        while True:
+            finished = True
+            e2 = []
+            for i, yi in enumerate(x):
+                x[i] += 1
+                if tuple(x) in done:
+                    e = done[tuple(x)]
+                else:
+                    finished = False
+                    e = f(x)
+                x[i] -= 1
+                e2.append(e)
+            if finished:
+                break
+            e2 += [-e for e in e2]
+            i = np.argmin(e2)
+            sign, i = divmod(i, len(x))
+            x[i] += 1 - 2 * sign
 
     def run(self):  # , mu, n1, n2):
         # mu = float(mu)
