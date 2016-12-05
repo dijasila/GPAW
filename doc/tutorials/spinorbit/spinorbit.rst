@@ -191,6 +191,6 @@ the experimental value of `70 \mu eV`.
            :height: 500 px
 
 .. [#Olsen] T. Olsen,
-            arXiv:1609.02338 (2016)
+           *Phys. Rev. B* **94**, 235106 (2016)
 .. [#Kane] M. Z. Hasan and C. L. Kane,
            *Rev. Mod. Phys.* **82**, 3045 (2010)
