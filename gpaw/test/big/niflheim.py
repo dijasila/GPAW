@@ -12,11 +12,11 @@ class NiflheimCluster(Cluster):
     def submit(self, job):
         dir = os.getcwd()
         os.chdir(job.dir)
-
         self.write_pylab_wrapper(job)
 
         cmd = ['sbatch',
                '--job-name={}'.format(job.name),
+               '--time={}'.format(job.walltime // 60),
                '--ntasks={}'.format(job.ncpus)]
 
         script = [
