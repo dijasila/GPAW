@@ -208,7 +208,7 @@ class DatasetOptimizer:
         self.projectors = self.projectors.replace('%.1f', '%.10f')
         nn = 0
 
-        def f(x, nn=nn):
+        def f(x):
             n, x, errors, error = self(nn, x)
             print(nn, x, errors, error)
             nn += 1
