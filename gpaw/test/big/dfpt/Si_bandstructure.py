@@ -9,7 +9,7 @@ For comparison, see e.g.:
 import numpy as np
 import matplotlib.pyplot as plt
 import ase.units as units
-from ase.dft.kpoints import ibz_points, get_bandpath
+from ase.dft.kpoints import get_bandpath
 
 from gpaw.mpi import rank, world
 from gpaw.dfpt import PhononCalculator
@@ -36,15 +36,8 @@ world.barrier()
 if rank == 0:
 
     # High-symmetry points in the Brillouin zone
-    points = ibz_points['fcc']
-    G = points['Gamma']
-    X = points['X']
-    W = points['W']
-    K = points['K']
-    L = points['L']
-
     atoms = ph.get_atoms()
-    path_kc, q, Q = get_bandpath([G, K, X, G, L, X, W, L],
+    path_kc, q, Q = get_bandpath("GKXGLXWL",
                                  atoms.cell, 100)
     point_names = ['$\Gamma$', 'K', 'X', '$\Gamma$', 'L', 'X', 'W', 'L']
     
