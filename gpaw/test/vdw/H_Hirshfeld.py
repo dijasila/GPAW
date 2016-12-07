@@ -16,8 +16,10 @@ atoms.minimal_box(box)
 
 volumes = []
 for spinpol in [False, True]:
-    calc = GPAW(h=h, occupations=FermiDirac(0.1), spinpol=spinpol, txt=None)
+    calc = GPAW(h=h,
+                occupations=FermiDirac(0.1, fixmagmom=True),
+                spinpol=spinpol)
     calc.calculate(atoms)
     volumes.append(HirshfeldPartitioning(calc).get_effective_volume_ratios())
-##parprint(volumes)
+parprint(volumes)
 equal(volumes[0], volumes[1], 1.e-9)
