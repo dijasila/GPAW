@@ -674,7 +674,7 @@ class RealSpaceHamiltonian(Hamiltonian):
     def get_electrostatic_potential(self, dens):
         self.update(dens)
 
-        v_g = self.gd.collect(self.vHt_g, broadcast=True)
+        v_g = self.finegd.collect(self.vHt_g, broadcast=True)
         v_g = self.finegd.zero_pad(v_g)
         if hasattr(self.poisson, 'correction'):
             assert self.poisson.c == 2
