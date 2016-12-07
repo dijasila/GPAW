@@ -1,7 +1,6 @@
 """Calculate diamond with various parallelizations with GLLBSC."""
 from __future__ import print_function
 from ase.build import bulk
-from ase.dft.kpoints import ibz_points, get_bandpath
 from ase.units import Ha
 from gpaw import GPAW, restart
 from gpaw.test import gen
@@ -31,15 +30,8 @@ for band in [1, 2, 4]:
     calc.write('Cgs.gpw')
 
     # Calculate accurate KS-band gap from band structure
-    points = ibz_points['fcc']
-
-    # CMB is in G-X
-    G = points['Gamma']
-    X = points['X']
-
-    kpts, x, X = get_bandpath([G, X], atoms.cell, npoints=12)
     calc = GPAW('Cgs.gpw',
-                kpts=kpts,
+                kpts={'path': 'GX', 'npoints': 12},
                 fixdensity=True,
                 symmetry='off',
                 nbands=8,

@@ -1,20 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from ase.dft.kpoints import get_bandpath, ibz_points
 from gpaw import GPAW
+from ase.dft.kpoints import get_bandpath
 from gpaw.spinorbit import get_spinorbit_eigenvalues
 #plt.rc('text', usetex=True)
 
 calc = GPAW('Pt_bands.gpw', txt=None)
 ef = GPAW('Pt_gs.gpw').get_fermi_level()
 
-points = ibz_points['fcc']
-G = points['Gamma']
-X = points['X']
-W = points['W']
-L = points['L']
-K = points['K']
-kpts, x, X = get_bandpath([G, X, W, L, G, K, X], calc.atoms.cell, npoints=200)
+kpts, x, X = get_bandpath("GXWLGKX", calc.atoms.cell, npoints=200)
 
 e_kn = np.array([calc.get_eigenvalues(kpt=k)[:20]
                  for k in range(len(calc.get_ibz_k_points()))])
