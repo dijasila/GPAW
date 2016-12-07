@@ -147,6 +147,27 @@ class Basis:
         lines.extend(bf_lines)
         return '\n  '.join(lines)
 
+    def get_l_numbes(self,ts = 'sz')
+        l_number = []
+        for bf in self.bf_j:
+            which_type = bf.type.encode()
+            wt = which_type.split()
+            h = which_type[0]
+            if 'orbital' in wt and ts == 'sz':
+                t = 'sz'
+                l1 = [bf.l, which_type,ts, h]
+            elif 'wave' in wt and ts =='dz':
+                t = 'dz'
+                l1 = [bf.l, which_type,ts, h]
+            elif 'polarization' in wt and ts == 'Gaussian':
+                t = 'Gaussian'
+                l1 = [bf.l, which_type,ts, h]
+            l_number.append(l1)
+
+        return l_number
+	   
+
+ 
 
 class BasisFunction:
     """Encapsulates various basis function data."""
