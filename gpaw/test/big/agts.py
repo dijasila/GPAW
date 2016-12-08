@@ -237,7 +237,7 @@ class AGTSQueue:
             fname = os.path.join(dir, agtsfile)
             exec(compile(open(fname).read(), fname, 'exec'), _global)
             self._dir = dir
-            if 'agts' in _globals:
+            if 'agts' in _global:
                 _global['agts'](self)
             else:
                 print(fname, 'has no agts() function!')
