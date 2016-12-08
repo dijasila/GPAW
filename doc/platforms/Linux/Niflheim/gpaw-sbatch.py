@@ -11,7 +11,8 @@ def main():
             break
     else:
         print('Submit a GPAW Python script via sbatch.')
-        print('Usage: gpaw-sbatch [sbatch options] script.py [script arguments]')
+        print('Usage: gpaw-sbatch [sbatch options] script.py '
+              '[script arguments]')
         return
 
     script = '#!/bin/sh\n'
