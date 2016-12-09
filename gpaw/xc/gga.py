@@ -2,7 +2,7 @@ from math import pi
 
 import numpy as np
 
-from gpaw.xc.lda import LDA, calculate_paw_correction
+from gpaw.xc.lda import calculate_paw_correction
 from gpaw.utilities.blas import axpy
 from gpaw.fd_operators import Gradient
 from gpaw.sphere.lebedev import Y_nL, weight_n
@@ -11,8 +11,8 @@ from gpaw.xc.functional import XCFunctional
 
 
 class GGARadialExpansion:
-    def __init__(self, integrator):
-        self.integrator = integrator
+    def __init__(self, rcalc):
+        self.rcalc = rcalc
 
     def __call__(self, rgd, D_sLq, n_qg, nc0_sg):
         n_sLg = np.dot(D_sLq, n_qg)
@@ -31,7 +31,7 @@ class GGARadialExpansion:
             w = weight_n[n]
             rnablaY_Lv = rnablaY_nLv[n, :Lmax]
             e_g, dedn_sg, b_vsg, dedsigma_xg = \
-                self.integrator.integrate(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n)
+                self.rcalc(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n)
             dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
                                n_qg.T)[:, :, np.newaxis] * (w * Y_L)
             dedsigma_xg *= rgd.dr_g
@@ -88,11 +88,11 @@ def gga_add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg):
     return vv_sg
 
 
-class GGAIntegrator:
+class GGARadialCalculator:
     def __init__(self, kernel):
         self.kernel = kernel
 
-    def integrate(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
+    def __call__(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
         e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_get_radial_quantities(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
         self.kernel.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
         vv_sg = gga_add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg)
@@ -117,8 +117,7 @@ def calculate_sigma(gd, grad_v, n_sg):
     return sigma_xg, gradn_svg
 
 
-def gga_add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg,
-                                v_sg):
+def gga_add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
     """Add gradient correction to potential.
 
     ::
@@ -167,12 +166,11 @@ class GGA(XCFunctional):
         gga_add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
                                     dedsigma_xg, v_sg)
 
-    # paste from LDA
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
-        integrator = GGAIntegrator(self.kernel)
-        radex = GGARadialExpansion(integrator)
-        return calculate_paw_correction(radex,
+        rcalc = GGARadialCalculator(self.kernel)
+        expansion = GGARadialExpansion(rcalc)
+        return calculate_paw_correction(expansion,
                                         setup, D_sp, dEdD_sp,
                                         addcoredensity, a)
 
@@ -214,12 +212,12 @@ class GGA(XCFunctional):
         if e_g is None:
             e_g = rgd.empty()
 
-        integrator = GGAIntegrator(self.kernel)
+        rcalc = GGARadialCalculator(self.kernel)
 
-        e_g[:], dedn_sg = integrator.integrate(rgd, n_sg[:, np.newaxis],
-                                               [1.0],
-                                               dndr_sg[:, np.newaxis],
-                                               np.zeros((1, 3)), n=None)[:2]
+        e_g[:], dedn_sg = rcalc(rgd, n_sg[:, np.newaxis],
+                                [1.0],
+                                dndr_sg[:, np.newaxis],
+                                np.zeros((1, 3)), n=None)[:2]
         v_sg[:] = dedn_sg
         return rgd.integrate(e_g)
 

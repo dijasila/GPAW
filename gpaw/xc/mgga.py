@@ -2,12 +2,12 @@ from math import sqrt, pi
 
 import numpy as np
 
-from gpaw.xc.gga import (GGA, gga_add_gradient_correction, get_gga_quantities,
-                         gga_get_radial_quantities, gga_add_radial_gradient_correction, GGARadialExpansion, GGAIntegrator,
-                         get_gradient_ops)
-from gpaw.xc.lda import calculate_paw_correction, LDA
+from gpaw.xc.gga import (gga_add_gradient_correction, get_gga_quantities,
+                         GGARadialExpansion, GGARadialCalculator, get_gradient_ops)
+from gpaw.xc.lda import calculate_paw_correction
 from gpaw.xc.functional import XCFunctional
 from gpaw.sphere.lebedev import weight_n
+
 
 class MGGA(XCFunctional):
     orbital_dependent = True
@@ -108,12 +108,11 @@ class MGGA(XCFunctional):
             def calculate(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
                 self.mgga.mgga_radial(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
 
-        integrator = GGAIntegrator(MockKernel(self))
-        radex = GGARadialExpansion(integrator)  # yuck
+        rcalc = GGARadialCalculator(MockKernel(self))  # yuck
+        expansion = GGARadialExpansion(rcalc)
         # The damn thing uses too many 'self' variables to define a clean
         # integrator object.
-
-        E = calculate_paw_correction(radex,
+        E = calculate_paw_correction(expansion,
                                      setup, D_sp, dEdD_sp,
                                      addcoredensity, a)
         del self.D_sp, self.n, self.ae, self.xcc, self.dEdD_sp

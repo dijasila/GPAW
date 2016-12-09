@@ -6,9 +6,9 @@ from gpaw.xc.functional import XCFunctional
 from gpaw.sphere.lebedev import Y_nL, weight_n
 
 
-class RadialExpansion:
-    def __init__(self, integrator):
-        self.integrator = integrator
+class LDARadialExpansion:
+    def __init__(self, rcalc):
+        self.rcalc = rcalc
 
     def __call__(self, rgd, D_sLq, n_qg, nc0_sg):
         n_sLg = np.dot(D_sLq, n_qg)
@@ -21,7 +21,7 @@ class RadialExpansion:
         for n, Y_L in enumerate(Y_nL[:, :Lmax]):
             w = weight_n[n]
 
-            e_g, dedn_sg = self.integrator.integrate(rgd, n_sLg, Y_L, n)
+            e_g, dedn_sg = self.rcalc(rgd, n_sLg, Y_L)
             dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
                                n_qg.T)[:, :, np.newaxis] * (w * Y_L)
             E += w * rgd.integrate(e_g)
@@ -29,7 +29,7 @@ class RadialExpansion:
 
 
 
-def calculate_paw_correction(radex,
+def calculate_paw_correction(expansion,
                              setup, D_sp, dEdD_sp=None,
                              addcoredensity=True, a=None):
     xcc = setup.xc_correction
@@ -53,8 +53,8 @@ def calculate_paw_correction(radex,
 
     D_sLq = np.inner(D_sp, xcc.B_pqL.T)
 
-    e, dEdD_sqL = radex(rgd, D_sLq, xcc.n_qg, nc0_sg)
-    et, dEtdD_sqL = radex(rgd, D_sLq, xcc.nt_qg, nct0_sg)
+    e, dEdD_sqL = expansion(rgd, D_sLq, xcc.n_qg, nc0_sg)
+    et, dEtdD_sqL = expansion(rgd, D_sLq, xcc.nt_qg, nct0_sg)
 
     if dEdD_sp is not None:
         dEdD_sp += np.inner((dEdD_sqL - dEtdD_sqL).reshape((nspins, -1)),
@@ -66,11 +66,11 @@ def calculate_paw_correction(radex,
         return e - et
 
 
-class Integrator:
+class LDARadialCalculator:
     def __init__(self, kernel):
         self.kernel = kernel
 
-    def integrate(self, rgd, n_sLg, Y_L, n):
+    def __call__(self, rgd, n_sLg, Y_L):
         nspins = len(n_sLg)
         n_sg = np.dot(Y_L, n_sLg)
         e_g = rgd.empty()
@@ -90,19 +90,21 @@ class LDA(XCFunctional):
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
-        integrator = Integrator(self.kernel)
-        radex = RadialExpansion(integrator)
-        return calculate_paw_correction(radex,
+        rcalc = LDARadialCalculator(self.kernel)
+        expansion = LDARadialExpansion(rcalc)
+        return calculate_paw_correction(expansion,
                                         setup, D_sp, dEdD_sp,
                                         addcoredensity, a)
+
+    def calculate_radial(self, rgd, n_sLg, Y_L):
+        rcalc = LDARadialCalculator(self.kernel)
+        return rcalc(rgd, n_sLg, Y_L)
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         if e_g is None:
             e_g = rgd.empty()
-        integrator = Integrator(self.kernel)
-        e_g[:], dedn_sg = integrator.integrate(rgd,
-                                               n_sg[:, np.newaxis],
-                                               [1.0], n=None)
+        rcalc = LDARadialCalculator(self.kernel)
+        e_g[:], dedn_sg = rcalc(rgd, n_sg[:, np.newaxis], [1.0])
         v_sg[:] = dedn_sg
         return rgd.integrate(e_g)
 

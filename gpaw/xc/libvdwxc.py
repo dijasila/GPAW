@@ -698,7 +698,7 @@ def test_selfconsistent():
     vdw_results = {}
     vdw_coef0_results = {}
 
-    for vdw in [VDWDF(), VDWDF2(), VDWDFCX()]:
+    for vdw in [vdw_df(), vdw_df2(), vdw_df_cx()]:
         vdw.vdwcoef = 0.0
         vdw_coef0_results[vdw.__class__.__name__] = test(vdw)
         vdw.vdwcoef = 1.0  # Leave nicest text file by running real calc last
