@@ -3,7 +3,7 @@ from math import sqrt, pi
 import numpy as np
 
 from gpaw.xc.gga import (GGA, gga_add_gradient_correction, get_gga_quantities,
-                         gga_get_radial_quantities, gga_add_radial_gradient_correction, gga_radial_expansion,
+                         gga_get_radial_quantities, gga_add_radial_gradient_correction, GGARadialExpansion, GGAIntegrator,
                          get_gradient_ops)
 from gpaw.xc.lda import calculate_paw_correction, LDA
 from gpaw.xc.functional import XCFunctional
@@ -101,27 +101,26 @@ class MGGA(XCFunctional):
         if self.xcc.tau_npg is None:
             self.xcc.tau_npg, self.xcc.taut_npg = self.initialize_kinetic(self.xcc)
 
-        E = calculate_paw_correction(self.kernel,
-                                     self.calculate_radial_expansion,
+        class MockKernel:
+            def __init__(self, mgga):
+                self.mgga = mgga
+
+            def calculate(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
+                self.mgga.mgga_radial(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+
+        integrator = GGAIntegrator(MockKernel(self))
+        radex = GGARadialExpansion(integrator)  # yuck
+        # The damn thing uses too many 'self' variables to define a clean
+        # integrator object.
+
+        E = calculate_paw_correction(radex,
                                      setup, D_sp, dEdD_sp,
                                      addcoredensity, a)
         del self.D_sp, self.n, self.ae, self.xcc, self.dEdD_sp
         return E
 
-    def calculate_radial_expansion(self, kernel, rgd, D_sLq, n_qg, nc0_sg):
-        return gga_radial_expansion(kernel, self.calculate_radial, rgd, D_sLq,
-                                    n_qg, nc0_sg)
-
-    def calculate_radial(self, kernel, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
-        e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_get_radial_quantities(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
-        self.mgga_radial(kernel, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, n)
-        vv_sg = gga_add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg)
-        return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
-
-
-    def mgga_radial(self, kernel, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg, n):
-        #print('calc gga radial mgga', self.n)
-        #sdfdsf
+    def mgga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
+        n = self.n
         nspins = len(n_sg)
         if self.ae:
             tau_pg = self.xcc.tau_npg[self.n]
@@ -141,8 +140,8 @@ class MGGA(XCFunctional):
                 break
 
         dedtau_sg = np.empty_like(tau_sg)
-        kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
-                         tau_sg, dedtau_sg)
+        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
+                              tau_sg, dedtau_sg)
         if self.dEdD_sp is not None:
             self.dEdD_sp += (sign * weight_n[self.n] *
                              np.inner(dedtau_sg * self.xcc.rgd.dv_g, tau_pg))

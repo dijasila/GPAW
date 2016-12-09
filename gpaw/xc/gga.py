@@ -9,35 +9,40 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
 from gpaw.xc.functional import XCFunctional
 
-def gga_radial_expansion(kernel, calculate_radial, rgd, D_sLq, n_qg, nc0_sg):
-    n_sLg = np.dot(D_sLq, n_qg)
-    n_sLg[:, 0] += nc0_sg
 
-    dndr_sLg = np.empty_like(n_sLg)
-    for n_Lg, dndr_Lg in zip(n_sLg, dndr_sLg):
-        for n_g, dndr_g in zip(n_Lg, dndr_Lg):
-            rgd.derivative(n_g, dndr_g)
+class GGARadialExpansion:
+    def __init__(self, integrator):
+        self.integrator = integrator
 
-    nspins, Lmax, nq = D_sLq.shape
-    dEdD_sqL = np.zeros((nspins, nq, Lmax))
+    def __call__(self, rgd, D_sLq, n_qg, nc0_sg):
+        n_sLg = np.dot(D_sLq, n_qg)
+        n_sLg[:, 0] += nc0_sg
 
-    E = 0.0
-    for n, Y_L in enumerate(Y_nL[:, :Lmax]):
-        w = weight_n[n]
-        rnablaY_Lv = rnablaY_nLv[n, :Lmax]
-        e_g, dedn_sg, b_vsg, dedsigma_xg = \
-            calculate_radial(kernel, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n)
-        dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
-                           n_qg.T)[:, :, np.newaxis] * (w * Y_L)
-        dedsigma_xg *= rgd.dr_g
-        B_vsg = dedsigma_xg[::2] * b_vsg
-        if nspins == 2:
-            B_vsg += 0.5 * dedsigma_xg[1] * b_vsg[:, ::-1]
-        B_vsq = np.dot(B_vsg, n_qg.T)
-        dEdD_sqL += 8 * pi * w * np.inner(rnablaY_Lv, B_vsq.T).T
-        E += w * rgd.integrate(e_g)
+        dndr_sLg = np.empty_like(n_sLg)
+        for n_Lg, dndr_Lg in zip(n_sLg, dndr_sLg):
+            for n_g, dndr_g in zip(n_Lg, dndr_Lg):
+                rgd.derivative(n_g, dndr_g)
 
-    return E, dEdD_sqL
+        nspins, Lmax, nq = D_sLq.shape
+        dEdD_sqL = np.zeros((nspins, nq, Lmax))
+
+        E = 0.0
+        for n, Y_L in enumerate(Y_nL[:, :Lmax]):
+            w = weight_n[n]
+            rnablaY_Lv = rnablaY_nLv[n, :Lmax]
+            e_g, dedn_sg, b_vsg, dedsigma_xg = \
+                self.integrator.integrate(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n)
+            dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
+                               n_qg.T)[:, :, np.newaxis] * (w * Y_L)
+            dedsigma_xg *= rgd.dr_g
+            B_vsg = dedsigma_xg[::2] * b_vsg
+            if nspins == 2:
+                B_vsg += 0.5 * dedsigma_xg[1] * b_vsg[:, ::-1]
+            B_vsq = np.dot(B_vsg, n_qg.T)
+            dEdD_sqL += 8 * pi * w * np.inner(rnablaY_Lv, B_vsq.T).T
+            E += w * rgd.integrate(e_g)
+
+        return E, dEdD_sqL
 
 
 # First part of gga_calculate_radial - initializes some quantities.
@@ -83,14 +88,15 @@ def gga_add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg):
     return vv_sg
 
 
+class GGAIntegrator:
+    def __init__(self, kernel):
+        self.kernel = kernel
 
-def gga_calculate_radial(kernel, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
-    e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_get_radial_quantities(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
-    kernel.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
-    vv_sg = gga_add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg)
-    return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
-
-
+    def integrate(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
+        e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_get_radial_quantities(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
+        self.kernel.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
+        vv_sg = gga_add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg)
+        return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
 
 
 def calculate_sigma(gd, grad_v, n_sg):
@@ -164,7 +170,9 @@ class GGA(XCFunctional):
     # paste from LDA
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
-        return calculate_paw_correction(self.kernel, self.calculate_radial_expansion,
+        integrator = GGAIntegrator(self.kernel)
+        radex = GGARadialExpansion(integrator)
+        return calculate_paw_correction(radex,
                                         setup, D_sp, dEdD_sp,
                                         addcoredensity, a)
 
@@ -199,19 +207,16 @@ class GGA(XCFunctional):
                                                    dedsigma_xg[2]) * 2
         return stress_vv
 
-    def calculate_radial_expansion(self, kernel, rgd, D_sLq, n_qg, nc0_sg):
-        return gga_radial_expansion(kernel, gga_calculate_radial, rgd, D_sLq,
-                                    n_qg, nc0_sg)
-
-
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         dndr_sg = np.empty_like(n_sg)
         for n_g, dndr_g in zip(n_sg, dndr_sg):
             rgd.derivative(n_g, dndr_g)
         if e_g is None:
             e_g = rgd.empty()
-        e_g[:], dedn_sg = gga_calculate_radial(self.kernel,
-                                               rgd, n_sg[:, np.newaxis],
+
+        integrator = GGAIntegrator(self.kernel)
+
+        e_g[:], dedn_sg = integrator.integrate(rgd, n_sg[:, np.newaxis],
                                                [1.0],
                                                dndr_sg[:, np.newaxis],
                                                np.zeros((1, 3)), n=None)[:2]
