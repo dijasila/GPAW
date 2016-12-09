@@ -190,6 +190,7 @@ tests = [
     'response/aluminum_EELS_RPA.py',        # ~3s
     'poisson/poisson_extended.py',          # ~3s
     'solvation/vacuum.py',                  # ~3s
+    'vdw/libvdwxc_mbeef.py',                # ~3s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
     'parallel/augment_grid.py',             # ~4s
     'utilities/ewald.py',                   # ~4s
@@ -441,6 +442,7 @@ if not compiled_with_sl():
 if not compiled_with_libvdwxc():
     exclude.append('vdw/libvdwxc_functionals.py')
     exclude.append('vdw/libvdwxc_h2o.py')
+    exclude.append('vdw/libvdwxc_mbeef.py')
 
 if LooseVersion(np.__version__) < '1.6.0':
     exclude.append('response/chi0.py')
