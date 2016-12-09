@@ -734,9 +734,9 @@ class G0W0(PairDensity):
             chi0bands_wGG[:] = chi0_wGG.copy()
             if np.allclose(q_c, 0.0):
                 chi0_wxvG += chi0bands_wxvG
-                chi0bands_wxvG = chi0_wxvG.copy()
+                chi0bands_wxvG[:] = chi0_wxvG.copy()
                 chi0_wvv += chi0bands_wvv
-                chi0bands_wvv = chi0_wvv.copy()
+                chi0bands_wvv[:] = chi0_wvv.copy()
 
         self.Q_aGii = chi0.Q_aGii
 
@@ -1072,7 +1072,7 @@ class G0W0(PairDensity):
         if np.any(self.sigr2_skn < 0.9) or np.any(self.dsigr2_skn < 0.9):
             print('  Warning: Bad quality of linear fit for some (n,k). ',
                   file=self.fd)
-            print('           Higher cutoff might be nesecarry.', file=self.fd)
+            print('           Higher cutoff might be necesarry.', file=self.fd)
 
         print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
               min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)),
