@@ -83,6 +83,16 @@ def gga_add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg):
     return vv_sg
 
 
+
+def gga_calculate_radial(kernel, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
+    e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_get_radial_quantities(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
+    kernel.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
+    vv_sg = gga_add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg)
+    return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
+
+
+
+
 def calculate_sigma(gd, grad_v, n_sg):
     """Calculate sigma(r) and grad n(r).
                   _     __   _  2     __    _
@@ -190,15 +200,9 @@ class GGA(XCFunctional):
         return stress_vv
 
     def calculate_radial_expansion(self, kernel, rgd, D_sLq, n_qg, nc0_sg):
-        return gga_radial_expansion(kernel, self.calculate_radial, rgd, D_sLq,
+        return gga_radial_expansion(kernel, gga_calculate_radial, rgd, D_sLq,
                                     n_qg, nc0_sg)
 
-
-    def calculate_radial(self, kernel, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
-        e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_get_radial_quantities(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
-        kernel.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
-        vv_sg = gga_add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg)
-        return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         dndr_sg = np.empty_like(n_sg)
@@ -206,11 +210,11 @@ class GGA(XCFunctional):
             rgd.derivative(n_g, dndr_g)
         if e_g is None:
             e_g = rgd.empty()
-        e_g[:], dedn_sg = self.calculate_radial(self.kernel,
-                                                rgd, n_sg[:, np.newaxis],
-                                                [1.0],
-                                                dndr_sg[:, np.newaxis],
-                                                np.zeros((1, 3)), n=None)[:2]
+        e_g[:], dedn_sg = gga_calculate_radial(self.kernel,
+                                               rgd, n_sg[:, np.newaxis],
+                                               [1.0],
+                                               dndr_sg[:, np.newaxis],
+                                               np.zeros((1, 3)), n=None)[:2]
         v_sg[:] = dedn_sg
         return rgd.integrate(e_g)
 

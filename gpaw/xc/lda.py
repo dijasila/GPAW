@@ -83,12 +83,10 @@ class LDA(XCFunctional):
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
-        return calculate_paw_correction(self.kernel, self.calculate_radial_expansion,
+        return calculate_paw_correction(self.kernel,
+                                        lda_calculate_radial_expansion,
                                         setup, D_sp, dEdD_sp,
                                         addcoredensity, a)
-
-    def calculate_radial_expansion(self, kernel, rgd, D_sLq, n_qg, nc0_sg):
-        return lda_calculate_radial_expansion(kernel, rgd, D_sLq, n_qg, nc0_sg)
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         if e_g is None:
