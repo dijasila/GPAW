@@ -279,8 +279,6 @@ class VDWXC(XCFunctional):
         # XXXXXXXXXXXXXXXXX
         self.calculate_paw_correction = semilocal_xc.calculate_paw_correction
         self.stress_tensor_contribution = semilocal_xc.stress_tensor_contribution
-        self.calculate_radial_expansion = semilocal_xc.calculate_radial_expansion
-        self.calculate_radial = semilocal_xc.calculate_radial
         self.calculate_spherical = semilocal_xc.calculate_spherical
 
     def __str__(self):
