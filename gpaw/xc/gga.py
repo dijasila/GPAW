@@ -9,7 +9,7 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
 from gpaw.xc.functional import XCFunctional
 
-def gga_radial_expansion(calculate_radial, rgd, D_sLq, n_qg, nc0_sg):
+def gga_radial_expansion(kernel, calculate_radial, rgd, D_sLq, n_qg, nc0_sg):
     n_sLg = np.dot(D_sLq, n_qg)
     n_sLg[:, 0] += nc0_sg
 
@@ -26,7 +26,7 @@ def gga_radial_expansion(calculate_radial, rgd, D_sLq, n_qg, nc0_sg):
         w = weight_n[n]
         rnablaY_Lv = rnablaY_nLv[n, :Lmax]
         e_g, dedn_sg, b_vsg, dedsigma_xg = \
-            calculate_radial(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n)
+            calculate_radial(kernel, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n)
         dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
                            n_qg.T)[:, :, np.newaxis] * (w * Y_L)
         dedsigma_xg *= rgd.dr_g
@@ -38,7 +38,6 @@ def gga_radial_expansion(calculate_radial, rgd, D_sLq, n_qg, nc0_sg):
         E += w * rgd.integrate(e_g)
 
     return E, dEdD_sqL
-
 
 
 # First part of gga_calculate_radial - initializes some quantities.
@@ -191,13 +190,13 @@ class GGA(XCFunctional):
         return stress_vv
 
     def calculate_radial_expansion(self, rgd, D_sLq, n_qg, nc0_sg):
-        return gga_radial_expansion(self.calculate_radial, rgd, D_sLq,
+        return gga_radial_expansion(self.kernel, self.calculate_radial, rgd, D_sLq,
                                     n_qg, nc0_sg)
 
 
-    def calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
+    def calculate_radial(self, kernel, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
         e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_get_radial_quantities(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
-        self.kernel.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
+        kernel.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
         vv_sg = gga_add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg)
         return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
 
@@ -207,7 +206,8 @@ class GGA(XCFunctional):
             rgd.derivative(n_g, dndr_g)
         if e_g is None:
             e_g = rgd.empty()
-        e_g[:], dedn_sg = self.calculate_radial(rgd, n_sg[:, np.newaxis],
+        e_g[:], dedn_sg = self.calculate_radial(self.kernel,
+                                                rgd, n_sg[:, np.newaxis],
                                                 [1.0],
                                                 dndr_sg[:, np.newaxis],
                                                 np.zeros((1, 3)), n=None)[:2]

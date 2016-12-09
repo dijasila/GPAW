@@ -108,17 +108,17 @@ class MGGA(XCFunctional):
         return E
 
     def calculate_radial_expansion(self, rgd, D_sLq, n_qg, nc0_sg):
-        return gga_radial_expansion(self.calculate_radial, rgd, D_sLq,
+        return gga_radial_expansion(self.kernel, self.calculate_radial, rgd, D_sLq,
                                     n_qg, nc0_sg)
 
-    def calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
+    def calculate_radial(self, kernel, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
         e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_get_radial_quantities(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
-        self.mgga_radial(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, n)
+        self.mgga_radial(kernel, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, n)
         vv_sg = gga_add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg)
         return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
 
 
-    def mgga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg, n):
+    def mgga_radial(self, kernel, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg, n):
         #print('calc gga radial mgga', self.n)
         #sdfdsf
         nspins = len(n_sg)
@@ -140,8 +140,8 @@ class MGGA(XCFunctional):
                 break
 
         dedtau_sg = np.empty_like(tau_sg)
-        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
-                              tau_sg, dedtau_sg)
+        kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
+                         tau_sg, dedtau_sg)
         if self.dEdD_sp is not None:
             self.dEdD_sp += (sign * weight_n[self.n] *
                              np.inner(dedtau_sg * self.xcc.rgd.dv_g, tau_pg))
