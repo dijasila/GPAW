@@ -7,7 +7,7 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 
 
 
-def calculate_paw_correction(calculate_radial_expansion,
+def calculate_paw_correction(kernel, calculate_radial_expansion,
                              setup, D_sp, dEdD_sp=None,
                              addcoredensity=True, a=None):
     xcc = setup.xc_correction
@@ -31,8 +31,8 @@ def calculate_paw_correction(calculate_radial_expansion,
 
     D_sLq = np.inner(D_sp, xcc.B_pqL.T)
 
-    e, dEdD_sqL = calculate_radial_expansion(rgd, D_sLq, xcc.n_qg, nc0_sg)
-    et, dEtdD_sqL = calculate_radial_expansion(rgd, D_sLq, xcc.nt_qg, nct0_sg)
+    e, dEdD_sqL = calculate_radial_expansion(kernel, rgd, D_sLq, xcc.n_qg, nc0_sg)
+    et, dEtdD_sqL = calculate_radial_expansion(kernel, rgd, D_sLq, xcc.nt_qg, nct0_sg)
 
     if dEdD_sp is not None:
         dEdD_sp += np.inner((dEdD_sqL - dEtdD_sqL).reshape((nspins, -1)),
@@ -83,12 +83,12 @@ class LDA(XCFunctional):
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
-        return calculate_paw_correction(self.calculate_radial_expansion,
+        return calculate_paw_correction(self.kernel, self.calculate_radial_expansion,
                                         setup, D_sp, dEdD_sp,
                                         addcoredensity, a)
 
-    def calculate_radial_expansion(self, rgd, D_sLq, n_qg, nc0_sg):
-        return lda_calculate_radial_expansion(self.kernel, rgd, D_sLq, n_qg, nc0_sg)
+    def calculate_radial_expansion(self, kernel, rgd, D_sLq, n_qg, nc0_sg):
+        return lda_calculate_radial_expansion(kernel, rgd, D_sLq, n_qg, nc0_sg)
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         if e_g is None:

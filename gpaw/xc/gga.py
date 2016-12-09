@@ -154,7 +154,7 @@ class GGA(XCFunctional):
     # paste from LDA
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
-        return calculate_paw_correction(self.calculate_radial_expansion,
+        return calculate_paw_correction(self.kernel, self.calculate_radial_expansion,
                                         setup, D_sp, dEdD_sp,
                                         addcoredensity, a)
 
@@ -189,8 +189,8 @@ class GGA(XCFunctional):
                                                    dedsigma_xg[2]) * 2
         return stress_vv
 
-    def calculate_radial_expansion(self, rgd, D_sLq, n_qg, nc0_sg):
-        return gga_radial_expansion(self.kernel, self.calculate_radial, rgd, D_sLq,
+    def calculate_radial_expansion(self, kernel, rgd, D_sLq, n_qg, nc0_sg):
+        return gga_radial_expansion(kernel, self.calculate_radial, rgd, D_sLq,
                                     n_qg, nc0_sg)
 
 

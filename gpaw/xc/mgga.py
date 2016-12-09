@@ -101,14 +101,15 @@ class MGGA(XCFunctional):
         if self.xcc.tau_npg is None:
             self.xcc.tau_npg, self.xcc.taut_npg = self.initialize_kinetic(self.xcc)
 
-        E = calculate_paw_correction(self.calculate_radial_expansion,
+        E = calculate_paw_correction(self.kernel,
+                                     self.calculate_radial_expansion,
                                      setup, D_sp, dEdD_sp,
                                      addcoredensity, a)
         del self.D_sp, self.n, self.ae, self.xcc, self.dEdD_sp
         return E
 
-    def calculate_radial_expansion(self, rgd, D_sLq, n_qg, nc0_sg):
-        return gga_radial_expansion(self.kernel, self.calculate_radial, rgd, D_sLq,
+    def calculate_radial_expansion(self, kernel, rgd, D_sLq, n_qg, nc0_sg):
+        return gga_radial_expansion(kernel, self.calculate_radial, rgd, D_sLq,
                                     n_qg, nc0_sg)
 
     def calculate_radial(self, kernel, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
