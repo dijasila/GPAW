@@ -581,7 +581,7 @@ class TestRunner:
                 module = ex.name
             else:
                 module = ex.args[0].split()[-1].split('.')[0]
-            if module in ['scipy', '_gpaw_hdf5']:
+            if module == 'scipy':
                 skip = True
             else:
                 tb = traceback.format_exc()
