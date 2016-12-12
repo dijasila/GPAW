@@ -182,7 +182,7 @@ class Density(object):
             value.check_consistency()
         self._D_asp = value
 
-    def update(self, wfs, mixing=True):
+    def update(self, wfs):
         self.timer.start('Density')
         with self.timer('Pseudo density'):
             self.calculate_pseudo_density(wfs)
@@ -196,10 +196,9 @@ class Density(object):
             self.normalize(comp_charge)
             self.timer.stop('Normalize')
 
-        if mixing:
-            self.timer.start('Mix')
-            self.mix(comp_charge)
-            self.timer.stop('Mix')
+        self.timer.start('Mix')
+        self.mix(comp_charge)
+        self.timer.stop('Mix')
         self.timer.stop('Density')
 
     def normalize(self, comp_charge=None):
