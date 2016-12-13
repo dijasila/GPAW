@@ -1,6 +1,6 @@
 from __future__ import print_function
 import numpy as np
-from ase.structure import molecule
+from ase.build import molecule
 from ase.constraints import FixedPlane
 from ase.optimize import QuasiNewton
 from gpaw import GPAW, FermiDirac

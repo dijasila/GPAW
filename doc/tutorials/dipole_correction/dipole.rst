@@ -1,6 +1,8 @@
-==========================
-Dipole corrections in GPAW
-==========================
+.. _dipole:
+
+================================
+Dipole-layer corrections in GPAW
+================================
 
 As an example system, a 2 layer `2\times2` slab of fcc (100) Al
 is constructed with a single Na adsorbed on one side of the surface.
@@ -18,20 +20,8 @@ the electrostatic potential in the z-direction as shown here:
 .. image:: zero.png
 
 The blue line is the xy-averaged potential and the green line is the
-fermi-level.
-
-.. note::
-
-    You need a bit of magic to get the electrostatic potential from a
-    gpw file:
-
-    >>> from ase.units import Hartree
-    >>> from gpaw import GPAW
-    >>> calc = GPAW('zero.gpw', txt=None)
-    >>> calc.restore_state()
-    >>> v = calc.hamiltonian.vHt_g * Hartree
-    >>> v.shape
-    (56, 56, 167)
+fermi-level.  See below how to extract the potential using the
+:meth:`~gpaw.paw.PAW.get_electrostatic_potential` method.
 
 If we use periodic boundary conditions in all directions:
 
@@ -52,16 +42,17 @@ correction:
 
 .. image:: corrected.png
 
-.. warning::
+In PW-mode, the potential must be periodic and in that case the corrected
+potential looks like this (see [Bengtsson]_ for more details):
 
-    * Information about use of a dipole correction is currently not
-      written to the gpw file.  See below how to restart such a
-      calculation.
+.. image:: pwcorrected.png
 
-See the full Python script here: :download:`dipole.py`.  The script
+See the full Python scripts here :download:`dipole.py` and here
+:download:`pwdipole.py`.  The script
 used to create the figures in this tutorial is shown here:
 
 .. literalinclude:: plot.py
 
-.. autoclass:: gpaw.dipole_correction.DipoleCorrection
-    :members:
+.. [Bengtsson] Lennart Bengtsson,
+    Dipole correction for surface supercell calculations,
+    Phys. Rev. B 59, 12301 - Published 15 May 1999

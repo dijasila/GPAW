@@ -15,13 +15,13 @@ class HirshfeldDensity(RealSpaceDensity):
 
     def __init__(self, calculator):
         self.calculator = calculator
-        density = calculator.density
-        par = self.calculator.input_parameters
-        RealSpaceDensity.__init__(self, density.gd, density.finegd,
-                                  density.nspins, 0,
-                                  stencil=par.stencils[1],
-                                  redistributor=density.redistributor)
-
+        dens = calculator.density
+        RealSpaceDensity.__init__(self, dens.gd, dens.finegd,
+                                  dens.nspins, 0,
+                                  stencil=dens.stencil,
+                                  redistributor=dens.redistributor)
+        self.log = calculator.log
+        
     def set_positions(self, spos_ac, atom_partition):
         """HirshfeldDensity builds a hack density object to calculate
         all electron density
@@ -73,15 +73,15 @@ class HirshfeldDensity(RealSpaceDensity):
         spos_ac = atoms.get_scaled_positions()
         Z_a = atoms.get_atomic_numbers()
 
-        par = self.calculator.input_parameters
-        setups = Setups(Z_a, par.setups, par.basis, par.lmax,
+        par = self.calculator.parameters
+        setups = Setups(Z_a, par.setups, par.basis,
                         XC(par.xc),
                         self.calculator.wfs.world)
 
         # initialize
         self.initialize(setups,
                         self.calculator.timer,
-                        np.zeros((len(atoms), 3)), False)
+                        np.zeros(len(atoms)), False)
         self.set_mixer(None)
 
         # FIXME nparray causes partitionong.py test to fail
@@ -96,7 +96,7 @@ class HirshfeldDensity(RealSpaceDensity):
 
         aed_sg, gd = self.get_all_electron_density(atoms,
                                                    gridrefinement)
-        return aed_sg[0], gd
+        return aed_sg.sum(axis=0), gd
 
 
 class HirshfeldPartitioning:

@@ -7,8 +7,7 @@ For comparison, see e.g.:
 """
 
 import numpy as np
-import pylab as plt
-
+import matplotlib.pyplot as plt
 import ase.units as units
 from ase.dft.kpoints import ibz_points, get_bandpath
 
@@ -60,7 +59,7 @@ if rank == 0:
     # Plot the band-structure
     plt.figure(1)
     for n in range(len(omega_kn[0])):
-       plt.plot(q, omega_kn[:, n], 'k-', lw=2)
+        plt.plot(q, omega_kn[:, n], 'k-', lw=2)
         
     plt.xticks(Q, point_names, fontsize=18)
     plt.yticks(fontsize=18)

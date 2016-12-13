@@ -1,30 +1,12 @@
 import numpy as np
+from ase.units import Hartree
 
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.blas import gemm, axpy
 from gpaw.utilities.partition import AtomPartition
-from gpaw.utilities.timing import nulltimer
 
 
-class EmptyWaveFunctions:
-    mode = 'undefined'
-    
-    def __bool__(self):
-        return False
-
-    __nonzero__ = __bool__  # for Python 2
-    
-    def set_eigensolver(self, eigensolver):
-        pass
-
-    def set_orthonormalized(self, flag):
-        pass
-
-    def estimate_memory(self, mem):
-        mem.set('Unknown WFs', 0)
-
-
-class WaveFunctions(EmptyWaveFunctions):
+class WaveFunctions:
     """...
 
     setups:
@@ -52,21 +34,12 @@ class WaveFunctions(EmptyWaveFunctions):
         MPI-communicator for parallelization over **k**-points.
     """
 
-    collinear = True
-    # ncomp is a number of array components necessary to hold
-    # information about non-collinear spins.  With collinear spin
-    # it is always 1; else it is 2.
-    ncomp = 1
-
     def __init__(self, gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.gd = gd
         self.nspins = kd.nspins
-        self.ns = self.nspins * self.ncomp**2
         self.nvalence = nvalence
         self.bd = bd
-        #self.nbands = self.bd.nbands #XXX
-        #self.mynbands = self.bd.mynbands #XXX
         self.dtype = dtype
         assert dtype == float or dtype == complex
         self.world = world
@@ -82,16 +55,17 @@ class WaveFunctions(EmptyWaveFunctions):
 
         self.set_setups(setups)
 
+    def __str__(self):
+        return '  Eigensolver: ' + str(self.eigensolver)
+
+    def summary(self, log):
+        log(eigenvalue_string(self))
+
     def set_setups(self, setups):
         self.setups = setups
 
     def set_eigensolver(self, eigensolver):
         self.eigensolver = eigensolver
-
-    def __bool__(self):
-        return True
-
-    __nonzero__ = __bool__  # for Python 2
 
     def add_realspace_orbital_to_density(self, nt_G, psit_G):
         if psit_G.dtype == float:
@@ -112,7 +86,7 @@ class WaveFunctions(EmptyWaveFunctions):
         for kpt in self.kpt_u:
             self.add_to_density_from_k_point(nt_sG, kpt)
         self.kptband_comm.sum(nt_sG)
-        
+
         self.timer.start('Symmetrize density')
         for nt_G in nt_sG:
             self.kd.symmetry.symmetrize(nt_G, self.gd)
@@ -129,22 +103,15 @@ class WaveFunctions(EmptyWaveFunctions):
         D_sii[kpt.s] += np.outer(P_i.conj(), P_i).real
         D_sp = [pack(D_ii) for D_ii in D_sii]
         return D_sp
-    
+
     def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
         if kpt.rho_MM is not None:
             P_Mi = self.P_aqMi[a][kpt.q]
-            #P_Mi = kpt.P_aMi_sparse[a]
-            #ind = get_matrix_index(kpt.P_aMi_index[a])
-            #D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM),
-            #                       P_Mi).real
             rhoP_Mi = np.zeros_like(P_Mi)
             D_ii = np.zeros(D_sii[kpt.s].shape, kpt.rho_MM.dtype)
-            #gemm(1.0, P_Mi, kpt.rho_MM[ind.T, ind], 0.0, tmp)
             gemm(1.0, P_Mi, kpt.rho_MM, 0.0, rhoP_Mi)
             gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
             D_sii[kpt.s] += D_ii.real
-            #D_sii[kpt.s] += dot(dot(P_Mi.T.conj().copy(),
-            #                        kpt.rho_MM[ind.T, ind]), P_Mi).real
         else:
             P_ni = kpt.P_ani[a]
             D_sii[kpt.s] += np.dot(P_ni.T.conj() * f_n, P_ni).real
@@ -153,7 +120,7 @@ class WaveFunctions(EmptyWaveFunctions):
             for ne, c_n in zip(kpt.ne_o, kpt.c_on):
                 d_nn = ne * np.outer(c_n.conj(), c_n)
                 D_sii[kpt.s] += np.dot(P_ni.T.conj(), np.dot(d_nn, P_ni)).real
-    
+
     def calculate_atomic_density_matrices(self, D_asp):
         """Calculate atomic density matrices from projections."""
         f_un = [kpt.f_n for kpt in self.kpt_u]
@@ -181,7 +148,7 @@ class WaveFunctions(EmptyWaveFunctions):
     def symmetrize_atomic_density_matrices(self, D_asp):
         if len(self.kd.symmetry.op_scc) == 0:
             return
-        
+
         if hasattr(D_asp, 'redistribute'):
             a_sa = self.kd.symmetry.a_sa
             D_asp.redistribute(self.atom_partition.as_serial())
@@ -198,10 +165,10 @@ class WaveFunctions(EmptyWaveFunctions):
                 D_sp = D_asp.get(a)
                 if D_sp is None:
                     ni = setup.ni
-                    D_sp = np.empty((self.ns, ni * (ni + 1) // 2))
+                    D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
                 self.gd.comm.broadcast(D_sp, self.atom_partition.rank_a[a])
                 all_D_asp.append(D_sp)
- 
+
             for s in range(self.nspins):
                 D_aii = [unpack2(D_sp[s]) for D_sp in all_D_asp]
                 for a, D_sp in D_asp.items():
@@ -211,8 +178,8 @@ class WaveFunctions(EmptyWaveFunctions):
 
     def set_positions(self, spos_ac, atom_partition=None):
         self.positions_set = False
-        #rank_a = self.gd.get_ranks_from_positions(spos_ac)
-        #atom_partition = AtomPartition(self.gd.comm, rank_a)
+        # rank_a = self.gd.get_ranks_from_positions(spos_ac)
+        # atom_partition = AtomPartition(self.gd.comm, rank_a)
         # XXX pass AtomPartition around instead of spos_ac?
         # All the classes passing around spos_ac end up needing the ranks
         # anyway.
@@ -224,7 +191,7 @@ class WaveFunctions(EmptyWaveFunctions):
         if self.atom_partition is not None and self.kpt_u[0].P_ani is not None:
             self.timer.start('Redistribute')
             mynks = len(self.kpt_u)
-            
+
             def get_empty(a):
                 ni = self.setups[a].ni
                 return np.empty((mynks, self.bd.mynbands, ni), self.dtype)
@@ -250,7 +217,7 @@ class WaveFunctions(EmptyWaveFunctions):
 
     def collect_eigenvalues(self, k, s):
         return self.collect_array('eps_n', k, s)
-    
+
     def collect_occupations(self, k, s):
         return self.collect_array('f_n', k, s)
 
@@ -297,6 +264,8 @@ class WaveFunctions(EmptyWaveFunctions):
                             dtype=a_nx.dtype)
             self.kd.comm.receive(b_nx, kpt_rank, 1301)
             return b_nx
+
+        return np.nan  # see comment in get_wave_function_array() method
 
     def collect_auxiliary(self, value, k, s, shape=1, dtype=float):
         """Helper method for collecting band-independent scalars/arrays.
@@ -376,7 +345,7 @@ class WaveFunctions(EmptyWaveFunctions):
 
     def get_wave_function_array(self, n, k, s, realspace=True, periodic=False):
         """Return pseudo-wave-function array on master.
-        
+
         n: int
             Global band index.
         k: int
@@ -402,10 +371,10 @@ class WaveFunctions(EmptyWaveFunctions):
 
             if realspace:
                 psit_G = self.gd.collect(psit_G)
-                
+
             if rank == 0:
                 return psit_G
-            
+
             # Domain master send this to the global master
             if self.gd.comm.rank == 0:
                 self.world.ssend(psit_G, 0, 1398)
@@ -421,11 +390,82 @@ class WaveFunctions(EmptyWaveFunctions):
                           band_rank * self.gd.comm.size)
             self.world.receive(psit_G, world_rank, 1398)
             return psit_G
-            
-    def read_projections(self, reader):
+
+        # We return a number instead of None on all the slaves.  Most of
+        # the time the return value will be ignored on the slaves, but
+        # in some cases it will be multiplied by some other number and
+        # then ignored.  Allowing for this will simplify some code here
+        # and there.
+        return np.nan
+
+    def get_homo_lumo(self, spin=None):
+        """Return HOMO and LUMO eigenvalues."""
+        if spin is None:
+            if self.nspins == 1:
+                return self.get_homo_lumo(0)
+            h0, l0 = self.get_homo_lumo(0)
+            h1, l1 = self.get_homo_lumo(1)
+            return np.array([max(h0, h1), min(l0, l1)])
+
+        n = self.nvalence // 2
+        band_rank, myn = self.bd.who_has(n - 1)
+        homo = -np.inf
+        if self.bd.rank == band_rank:
+            for kpt in self.kpt_u:
+                if kpt.s == spin:
+                    homo = max(kpt.eps_n[myn], homo)
+        homo = self.world.max(homo)
+
+        lumo = np.inf
+        if n < self.bd.nbands:  # there are not enough bands for LUMO
+            band_rank, myn = self.bd.who_has(n)
+            if self.bd.rank == band_rank:
+                for kpt in self.kpt_u:
+                    if kpt.s == spin:
+                        lumo = min(kpt.eps_n[myn], lumo)
+            lumo = self.world.min(lumo)
+
+        return np.array([homo, lumo])
+
+    def write(self, writer):
+        nproj = sum(setup.ni for setup in self.setups)
+        writer.add_array(
+            'projections',
+            (self.nspins, self.kd.nibzkpts, self.bd.nbands, nproj),
+            self.dtype)
+        for s in range(self.nspins):
+            for k in range(self.kd.nibzkpts):
+                P_nI = self.collect_projections(k, s)
+                writer.fill(P_nI)
+
+        shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
+
+        writer.add_array('eigenvalues', shape)
+        for s in range(self.nspins):
+            for k in range(self.kd.nibzkpts):
+                writer.fill(self.collect_eigenvalues(k, s) * Hartree)
+
+        writer.add_array('occupations', shape)
+        for s in range(self.nspins):
+            for k in range(self.kd.nibzkpts):
+                # Scale occupation numbers when writing:
+                # XXX fix this in the code also ...
+                weight = self.kd.weight_k[k] * 2 / self.nspins
+                writer.fill(self.collect_occupations(k, s) / weight)
+
+    def read(self, reader):
         nslice = self.bd.get_slice()
+        r = reader.wave_functions
         for u, kpt in enumerate(self.kpt_u):
-            P_nI = reader.get('Projections', kpt.s, kpt.k)
+            eps_n = r.proxy('eigenvalues', kpt.s, kpt.k)[nslice]
+            f_n = r.proxy('occupations', kpt.s, kpt.k)[nslice]
+            if reader.version > 0:
+                f_n *= kpt.weight  # skip for old tar-files gpw's
+                eps_n /= reader.ha
+            kpt.eps_n = eps_n
+            kpt.f_n = f_n
+            if self.gd.comm.rank == 0:
+                P_nI = r.proxy('projections', kpt.s, kpt.k)[:]
             I1 = 0
             kpt.P_ani = {}
             for a, setup in enumerate(self.setups):
@@ -433,3 +473,88 @@ class WaveFunctions(EmptyWaveFunctions):
                 if self.gd.comm.rank == 0:
                     kpt.P_ani[a] = np.array(P_nI[nslice, I1:I2], self.dtype)
                 I1 = I2
+
+
+def eigenvalue_string(wfs, comment=' '):
+    """Write eigenvalues and occupation numbers into a string.
+
+    The parameter comment can be used to comment out non-numers,
+    for example to escape it for gnuplot.
+    """
+
+    tokens = []
+
+    def add(*line):
+        for token in line:
+            tokens.append(token)
+        tokens.append('\n')
+
+    def eigs(k, s):
+        eps_n = wfs.collect_eigenvalues(k, s)
+        return eps_n * Hartree
+
+    occs = wfs.collect_occupations
+
+    if len(wfs.kd.ibzk_kc) == 1:
+        if wfs.nspins == 1:
+            add(comment, 'Band  Eigenvalues  Occupancy')
+            eps_n = eigs(0, 0)
+            f_n = occs(0, 0)
+            if wfs.world.rank == 0:
+                for n in range(wfs.bd.nbands):
+                    add('%5d  %11.5f  %9.5f' % (n, eps_n[n], f_n[n]))
+        else:
+            add(comment, '                  Up                     Down')
+            add(comment, 'Band  Eigenvalues  Occupancy  Eigenvalues  '
+                'Occupancy')
+            epsa_n = eigs(0, 0)
+            epsb_n = eigs(0, 1)
+            fa_n = occs(0, 0)
+            fb_n = occs(0, 1)
+            if wfs.world.rank == 0:
+                for n in range(wfs.bd.nbands):
+                    add('%5d  %11.5f  %9.5f  %11.5f  %9.5f' %
+                        (n, epsa_n[n], fa_n[n], epsb_n[n], fb_n[n]))
+        return ''.join(tokens)
+
+    if len(wfs.kd.ibzk_kc) > 10:
+        add('Warning: Showing only first 10 kpts')
+        print_range = 10
+    else:
+        add('Showing all kpts')
+        print_range = len(wfs.kd.ibzk_kc)
+
+    if wfs.nvalence / 2. > 10:
+        m = int(wfs.nvalence / 2. - 10)
+    else:
+        m = 0
+    if wfs.bd.nbands - wfs.nvalence / 2. > 10:
+        j = int(wfs.nvalence / 2. + 10)
+    else:
+        j = int(wfs.bd.nbands)
+
+    if wfs.nspins == 1:
+        add(comment, 'Kpt  Band  Eigenvalues  Occupancy')
+        for i in range(print_range):
+            eps_n = eigs(i, 0)
+            f_n = occs(i, 0)
+            if wfs.world.rank == 0:
+                for n in range(m, j):
+                    add('%3i %5d  %11.5f  %9.5f' % (i, n, eps_n[n], f_n[n]))
+                add()
+    else:
+        add(comment, '                     Up                     Down')
+        add(comment, 'Kpt  Band  Eigenvalues  Occupancy  Eigenvalues  '
+            'Occupancy')
+
+        for i in range(print_range):
+            epsa_n = eigs(i, 0)
+            epsb_n = eigs(i, 1)
+            fa_n = occs(i, 0)
+            fb_n = occs(i, 1)
+            if wfs.world.rank == 0:
+                for n in range(m, j):
+                    add('%3i %5d  %11.5f  %9.5f  %11.5f  %9.5f' %
+                        (i, n, epsa_n[n], fa_n[n], epsb_n[n], fb_n[n]))
+                add()
+    return ''.join(tokens)

@@ -1,13 +1,10 @@
 from gpaw.xc.gllb.contribution import Contribution
 from gpaw.xc import XC
-from gpaw.xc.pawcorrection import rnablaY_nLv
-from gpaw.sphere.lebedev import weight_n
 import numpy as np
-from numpy import dot as dot3  # Avoid dotblas bug!
-from math import pi, sqrt
+
 
 class C_XC(Contribution):
-    def __init__(self, nlfunc, weight, functional = 'LDA'):
+    def __init__(self, nlfunc, weight, functional='LDA'):
         Contribution.__init__(self, nlfunc, weight)
         self.functional = functional
 
@@ -15,7 +12,7 @@ class C_XC(Contribution):
         return 'XC'
 
     def get_desc(self):
-        return "("+self.functional+")"
+        return "(" + self.functional + ")"
         
     def initialize(self):
         self.xc = XC(self.functional)
@@ -24,7 +21,7 @@ class C_XC(Contribution):
 
     def initialize_1d(self):
         self.ae = self.nlfunc.ae
-        self.xc = XC(self.functional) 
+        self.xc = XC(self.functional)
         self.v_g = np.zeros(self.ae.N)
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
@@ -39,14 +36,14 @@ class C_XC(Contribution):
         self.e_g[:] = 0.0
         self.vt_sg[:] = 0.0
         self.xc.calculate(self.nlfunc.finegd, n_sg, self.vt_sg, self.e_g)
-        #self.xc.get_energy_and_potential(na_g, self.vt_sg[0], nb_g, self.vt_sg[1], e_g=self.e_g)
         v_sg[0] += self.weight * self.vt_sg[0]
         v_sg[1] += self.weight * self.vt_sg[1]
         e_g += self.weight * self.e_g
 
-    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
+    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a,
+                                         addcoredensity=True):
         E = self.xc.calculate_paw_correction(setup, D_sp, H_sp, True, a)
-        E += setup.xc_correction.Exc0
+        E += setup.xc_correction.e_xc0
         return E
 
     def add_xc_potential_and_energy_1d(self, v_g):
@@ -73,11 +70,10 @@ class C_XC(Contribution):
         # LDA has not any special data
         pass
 
-    def write(self, writer, natoms):
+    def write(self, writer):
         # LDA has not any special data to be written
         pass
 
     def read(self, reader):
         # LDA has not any special data to be read
         pass
-        

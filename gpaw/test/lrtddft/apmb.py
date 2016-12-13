@@ -37,7 +37,7 @@ lr_ApmB = LrTDDFT(calc, xc=xc, force_ApmB=True)
 lr_ApmB.diagonalize()
 parprint('lr=', lr)
 parprint('ApmB=', lr_ApmB)
-equal(lr[0].get_energy(), lr_ApmB[0].get_energy(), 5.e-10)
+equal(lr[0].get_energy(), lr_ApmB[0].get_energy(), 5.e-9)
 
 # with spin
 parprint('------ with spin')
@@ -57,8 +57,8 @@ lr_ApmB = LrTDDFT(c_spin, xc=xc, force_ApmB=True)
 lr_ApmB.diagonalize()
 parprint('lr=', lr)
 parprint('ApmB=', lr_ApmB)
-equal(lr[0].get_energy(), lr_ApmB[0].get_energy(), 5.e-10)
-equal(lr[1].get_energy(), lr_ApmB[1].get_energy(), 5.e-10)
+equal(lr[0].get_energy(), lr_ApmB[0].get_energy(), 5.e-8)
+equal(lr[1].get_energy(), lr_ApmB[1].get_energy(), 5.e-8)
 
 # with spin virtual
 parprint('------ with virtual spin')
@@ -71,8 +71,8 @@ lr_ApmB = LrTDDFT(calc, xc=xc, nspins=2)
 lr_ApmB.diagonalize()
 parprint('lr=', lr)
 parprint('ApmB=', lr_ApmB)
-equal(lr[0].get_energy(), lr_ApmB[0].get_energy(), 5.e-10)
-equal(lr[1].get_energy(), lr_ApmB[1].get_energy(), 5.e-10)
+equal(lr[0].get_energy(), lr_ApmB[0].get_energy(), 5.e-8)
+equal(lr[1].get_energy(), lr_ApmB[1].get_energy(), 5.e-8)
     
 # with HF exchange
 

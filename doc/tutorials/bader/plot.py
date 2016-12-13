@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from ase.io.cube import read_cube_data
 
 if os.path.isfile('h2o.pckl'):
-    with open('h2o.pckl') as fd:
+    with open('h2o.pckl', 'rb') as fd:
         dens, bader, atoms = pickle.load(fd)
 else:
     dens, atoms = read_cube_data('density.cube')
@@ -13,7 +13,7 @@ else:
     x = len(dens) // 2
     dens = dens[x]
     bader = bader[x]
-    with open('h2o.pckl', 'w') as fd:
+    with open('h2o.pckl', 'wb') as fd:
         pickle.dump((dens, bader, atoms), fd)
 
 x0, y0, z0 = atoms.positions[0]

@@ -262,7 +262,7 @@ class VDWFunctionalBase:
                    (q0_g.min(), q0_g.mean(), q0_g.max())))
         
         if self.soft_correction:
-            dEcnl = gd.integrate(n_g**2 / q0_g**3) * 0.5 * self.C_soft
+            dEcnl = -gd.integrate(n_g**2 / q0_g**3) * 0.5 * self.C_soft
         else:
             dEcnl = 0.0
             
@@ -298,7 +298,7 @@ class VDWFunctionalBase:
             for dir in dirs:
                 filename = os.path.join(dir, oldname)
                 if os.path.isfile(filename):
-                    self.phi_ij = pickle.load(open(filename))
+                    self.phi_ij = pickle.load(open(filename, 'rb'))
                     if self.verbose:
                         print('VDW: using', filename)
                     return

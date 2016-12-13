@@ -1,4 +1,4 @@
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW
 si = bulk('Si', 'diamond', a=5.5, cubic=not True)
 si.set_calculator(GPAW(setups='ah', kpts=(2, 2, 2)))

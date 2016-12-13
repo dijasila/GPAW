@@ -29,7 +29,7 @@ class TDDFTInducedField(BaseInducedField, Observer):
         Ground state D_asp
     """
     
-    def __init__(self, filename=None, paw=None, ws='all',
+    def __init__(self, filename=None, paw=None,
                  frequencies=None, folding='Gauss', width=0.08,
                  interval=1, restart_file=None
                  ):
@@ -68,7 +68,7 @@ class TDDFTInducedField(BaseInducedField, Observer):
                      'Frho', 'Fphi', 'Fef', 'Ffe', 'atoms'],
              'field': ['Frho', 'Fphi', 'Fef', 'Ffe', 'atoms']}
 
-        BaseInducedField.__init__(self, filename, paw, ws,
+        BaseInducedField.__init__(self, filename, paw,
                                   frequencies, folding, width)
         
     def initialize(self, paw, allocate=True):
@@ -233,7 +233,7 @@ class TDDFTInducedField(BaseInducedField, Observer):
                 FQ2_aL[a] = FQ_L.imag.copy()
             self.density.ghat.add(tmp_g, FQ2_aL)
             Frhot_wg[w] += 1.0j * tmp_g
-        
+
         return Frhot_wg, gd
     
     def paw_corrections(self, gridrefinement=2):
@@ -348,10 +348,11 @@ class TDDFTInducedField(BaseInducedField, Observer):
         else:
             raise RuntimeError('unknown from_density "' + from_density + '"')
     
-    def _read(self, tar, reads, ws):
-        BaseInducedField._read(self, tar, reads, ws)
-        
-        time = tar['time']
+    def _read(self, reader, reads):
+        BaseInducedField._read(self, reader, reads)
+
+        r = reader
+        time = r.time
         if self.has_paw:
             # Test time
             if abs(time - self.time) >= 1e-9:
@@ -363,39 +364,32 @@ class TDDFTInducedField(BaseInducedField, Observer):
         self.allocate()
 
         # Dimensions for D_p for all atoms
-        self.np_a = {}
-        for a in range(self.na):
-            if self.domain_comm.rank == self.rank_a[a]:
-                self.np_a[a] = np.array([tar.dimension('np_%d' % a)])
+        self.np_a = r.np_a
+
+        def readarray(name):
+            if name.split('_')[0] in reads:
+                self.gd.distribute(r.get(name), getattr(self, name))
 
         # Read arrays
-        if 'n0t' in reads:
-            for s in range(self.nspins):
-                big_g = tar.get('n0t_sG', s)
-                self.gd.distribute(big_g, self.n0t_sG[s])
-        
-        if 'Fnt' in reads:
-            for w, wread in enumerate(ws):
-                for s in range(self.nspins):
-                    big_g = tar.get('Fnt_wsG', wread, s)
-                    self.gd.distribute(big_g, self.Fnt_wsG[w][s])
+        readarray('n0t_sG')
+        readarray('Fnt_wsG')
         
         if 'D0' in reads:
+            D0_asp = r.D0_asp
             self.D0_asp = {}
             for a in range(self.na):
                 if self.domain_comm.rank == self.rank_a[a]:
-                    self.D0_asp[a] = tar.get('D0_%dsp' % a)
+                    self.D0_asp[a] = D0_asp[a]
         
         if 'FD' in reads:
+            FD_awsp = r.FD_awsp
             self.FD_awsp = {}
             for a in range(self.na):
                 if self.domain_comm.rank == self.rank_a[a]:
-                    self.FD_awsp[a] = tar.get('FD_%dwsp' % a)[ws]
+                    self.FD_awsp[a] = FD_awsp[a]
 
-    def _write(self, tar, writes, ws, masters):
-        BaseInducedField._write(self, tar, writes, ws, masters)
-
-        master, domainmaster, bandmaster, kptmaster = masters
+    def _write(self, writer, writes):
+        BaseInducedField._write(self, writer, writes)
 
         # Collect np_a to master
         if self.kpt_comm.rank == 0 and self.band_comm.rank == 0:
@@ -412,32 +406,21 @@ class TDDFTInducedField(BaseInducedField, Observer):
                              self.np_a, self.rank_a, range(self.na))
         
         # Write time propagation status
-        if master:
-            tar['time'] = self.time
-            for a in range(self.na):
-                tar.dimension('np_%d' % a, int(np_a[a]))
-          
+        writer.write(time=self.time, np_a=np_a)
+
+        def writearray(name, shape, dtype):
+            if name.split('_')[0] in writes:
+                writer.add_array(name, shape, dtype)
+            a_wxg = getattr(self, name)
+            for w in range(self.nw):
+                writer.fill(self.gd.collect(a_wxg[w]))
+
+        ng = tuple(self.gd.get_size_of_global_array())
+
         # Write time propagation arrays
         if 'n0t' in writes:
-            if master:
-                tar.add('n0t_sG',
-                        ('nspins', 'ng0', 'ng1', 'ng2'),
-                        dtype=float)
-            for s in range(self.nspins):
-                big_g = self.gd.collect(self.n0t_sG[s])
-                if master:
-                    tar.fill(big_g)
-        
-        if 'Fnt' in writes:
-            if master:
-                tar.add('Fnt_wsG',
-                        ('nw', 'nspins', 'ng0', 'ng1', 'ng2'),
-                        dtype=self.dtype)
-            for w in ws:
-                for s in range(self.nspins):
-                    big_g = self.gd.collect(self.Fnt_wsG[w][s])
-                    if master:
-                        tar.fill(big_g)
+            writer.write(n0t_sG=self.gd.collect(self.n0t_sG))
+        writearray('Fnt_wsG', (self.nw, self.nspins) + ng, self.dtype)
         
         if 'D0' in writes:
             # Collect D0_asp to world master
@@ -455,11 +438,7 @@ class TDDFTInducedField(BaseInducedField, Observer):
                 sendreceive_dict(self.domain_comm, D0_asp, 0,
                                  self.D0_asp, self.rank_a, range(self.na))
             # Write
-            if master:
-                for a in range(self.na):
-                    tar.add('D0_%dsp' % a, ('nspins', 'np_%d' % a),
-                            dtype=float)
-                    tar.fill(D0_asp[a])
+            writer.write(D0_asp=D0_asp)
 
         if 'FD' in writes:
             # Collect FD_awsp to world master
@@ -477,8 +456,4 @@ class TDDFTInducedField(BaseInducedField, Observer):
                 sendreceive_dict(self.domain_comm, FD_awsp, 0,
                                  self.FD_awsp, self.rank_a, range(self.na))
             # Write
-            if master:
-                for a in range(self.na):
-                    tar.add('FD_%dwsp' % a, ('nw', 'nspins', 'np_%d' % a),
-                            dtype=self.dtype)
-                    tar.fill(FD_awsp[a][ws])
+            writer.write(FD_awsp=FD_awsp)

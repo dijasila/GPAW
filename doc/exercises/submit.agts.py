@@ -31,4 +31,3 @@ def agts(queue):
     queue.add('transport/pt_h2_tb_transport.py')
     t1 = queue.add('transport/pt_h2_lcao_manual.py')
     queue.add('transport/pt_h2_lcao_transport.py', deps=t1)
-    queue.add('lrtddft/ground_state.py', ncpus=8)

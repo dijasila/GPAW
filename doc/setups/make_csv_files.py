@@ -5,7 +5,7 @@ from ase.atoms import string2symbols
 from ase.data.g2_1 import data
 from ase.data.g2_1_ref import atomization_vasp, diatomic
 from ase.data.molecules import latex
-from ase.structure import molecule
+from ase.build import molecule
 from ase.units import kcal, mol
 import numpy as np
 import pylab as plt

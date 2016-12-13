@@ -12,7 +12,7 @@ from glob import glob
 from os.path import join
 from stat import ST_MTIME
 
-            
+
 def find_file(arg, dir, files):
     # looks if the first element of the list arg is contained in the list files
     # and if so, appends dir to to arg. To be used with the os.path.walk
@@ -166,7 +166,7 @@ def get_system_config(define_macros, undef_macros,
         libraries += ['mkl', 'mkl_lapack64']
 
     elif platform.machine().startswith('arm'):
-        
+
         extra_compile_args += ['-Wall', '-std=c99']
 
         atlas = False
@@ -353,7 +353,7 @@ def get_parallel_config(mpi_libraries, mpi_library_dirs, mpi_include_dirs,
 
     return mpicompiler
 
-    
+
 def mtime(path, name, mtimes):
     """Return modification time.
 
@@ -374,7 +374,7 @@ def mtime(path, name, mtimes):
     mtimes[name] = t
     return t
 
-    
+
 def check_dependencies(sources):
     # Distutils does not do deep dependencies correctly.  We take care of
     # that here so that "python setup.py build_ext" always does the right
@@ -399,7 +399,7 @@ def check_dependencies(sources):
         # print 'removing', so
         os.remove(so)
 
-        
+
 def test_configuration():
     raise NotImplementedError
 
@@ -488,7 +488,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     if glob(libpl + '/libpython*mpi*'):
         libs += ' -lpython%s_mpi' % cfgDict['VERSION']
     else:
-        libs += ' -lpython%s' % cfgDict['VERSION']
+        libs += ' ' + cfgDict.get('BLDLIBRARY', '-lpython%s' % cfgDict['VERSION'])
     libs = ' '.join([libs, cfgDict['LIBS'], cfgDict['LIBM']])
 
     # Hack taken from distutils to determine option for runtime_libary_dirs
@@ -508,6 +508,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
                              for lib in runtime_library_dirs])
 
     extra_link_args.append(cfgDict['LDFLAGS'])
+
     if sys.platform in ['aix5', 'aix6']:
         extra_link_args.append(cfgDict['LINKFORSHARED'].replace(
             'Modules', cfgDict['LIBPL']))
@@ -517,7 +518,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
         extra_link_args.append(cfgDict['LINKFORSHARED'])
 
     extra_compile_args.append('-fPIC')
-    
+
     # Compile the parallel sources
     for src in sources:
         obj = 'build/temp.%s/' % plat + src[:-1] + 'o'

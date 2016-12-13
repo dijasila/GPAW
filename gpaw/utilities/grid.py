@@ -122,7 +122,7 @@ class AtomDistributions:
         return self.work_dist.collect(arraydict)
 
 
-def grid2grid(comm, gd1, gd2, src_g, dst_g):
+def grid2grid(comm, gd1, gd2, src_g, dst_g, offset1_c=None, offset2_c=None):
     assert np.all(src_g.shape == gd1.n_c)
     assert np.all(dst_g.shape == gd2.n_c)
 
@@ -135,15 +135,31 @@ def grid2grid(comm, gd1, gd2, src_g, dst_g):
     assert (ranks2 >= 0).all(), 'comm not parent of gd2.comm'
 
     def rank2parpos(gd, rank):
-        gdrank = comm.translate_ranks(gd.comm, [rank])[0]
+        gdrank = comm.translate_ranks(gd.comm, np.array([rank]))[0]
+        # XXXXXXXXXXXXX segfault when not passing array!!
         if gdrank == -1:
             return None
         return gd.get_processor_position_from_rank(gdrank)
     rank2parpos1 = partial(rank2parpos, gd1)
     rank2parpos2 = partial(rank2parpos, gd2)
 
+
+    def add_offset(n_cp, offset_c):
+        n_cp = [n_p.copy() for n_p in n_cp]
+        for c in range(3):
+            n_cp[c] += offset_c[c]
+        return n_cp
+
+    n1_cp = gd1.n_cp
+    if offset1_c is not None:
+        n1_cp = add_offset(n1_cp, offset1_c)
+
+    n2_cp = gd2.n_cp
+    if offset2_c is not None:
+        n2_cp = add_offset(n2_cp, offset2_c)
+
     general_redistribute(comm,
-                         gd1.n_cp, gd2.n_cp,
+                         n1_cp, n2_cp,
                          rank2parpos1, rank2parpos2,
                          src_g, dst_g)
 

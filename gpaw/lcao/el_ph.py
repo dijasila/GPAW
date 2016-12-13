@@ -119,8 +119,8 @@ class ElectronPhononCouplingMatrix:
                         forces = self.atoms.get_forces()
                         barrier()
                         if rank == 0:
-                            vd = open(self.name + name , 'w')
-                            fd = open('vib' + name, 'w')
+                            vd = open(self.name + name , 'wb')
+                            fd = open('vib' + name, 'wb')
                             pickle.dump((Vt_G, alldH_asp), vd)
                             pickle.dump(forces, fd)
                             vd.close()
@@ -132,7 +132,7 @@ class ElectronPhononCouplingMatrix:
     def get_gradient(self):
         """Calculates gradient"""
         nx = len(self.indices) * 3
-        veqt_G, dHeq_asp = pickle.load(open(self.name + '.eq.pckl'))
+        veqt_G, dHeq_asp = pickle.load(open(self.name + '.eq.pckl', 'rb'))
         gpts = veqt_G.shape
         dvt_Gx = np.zeros(gpts + (nx, ))
         ddH_aspx = {}
@@ -143,13 +143,13 @@ class ElectronPhononCouplingMatrix:
         for a in self.indices:
             for i in range(3):
                 name = '%s.%d%s' % (self.name,a,'xyz'[i])
-                vtm_G, dHm_asp = pickle.load(open(name + '-.pckl'))
-                vtp_G, dHp_asp = pickle.load(open(name + '+.pckl'))
+                vtm_G, dHm_asp = pickle.load(open(name + '-.pckl', 'rb'))
+                vtp_G, dHp_asp = pickle.load(open(name + '+.pckl', 'rb'))
                 
 
                 if self.nfree==4:
-                    vtmm_G, dHmm_asp = pickle.load(open(name+'--.pckl'))
-                    vtpp_G, dHpp_asp = pickle.load(open(name+'++.pckl'))
+                    vtmm_G, dHmm_asp = pickle.load(open(name+'--.pckl', 'rb'))
+                    vtpp_G, dHpp_asp = pickle.load(open(name+'++.pckl', 'rb'))
                     dvtdx_G = (-vtpp_G+8.0*vtp_G
                                 -8.0*vtm_G+vtmm_G)/(12.0*self.delta/Bohr)
                     dvt_Gx[:,:,:,x] = dvtdx_G
@@ -278,7 +278,7 @@ class ElectronPhononCouplingMatrix:
         dP_aMix = self.get_dP_aMix(spos_ac, wfs, q, timer)
         timer.write_now('Finished gradient of projectors part')
 
-        dH_asp = pickle.load(open('v.eq.pckl'))[1]
+        dH_asp = pickle.load(open('v.eq.pckl', 'rb'))[1]
         
         Mb_lii = {}
         for f, mode in modes.items():

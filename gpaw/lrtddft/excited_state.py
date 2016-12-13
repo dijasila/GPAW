@@ -1,105 +1,150 @@
 """Excited state as calculator object."""
 
 from __future__ import print_function
-import sys
+import os
+import errno
+
 import numpy as np
-
 from ase.units import Hartree
-from ase.calculators.general import Calculator
-from ase.calculators.test import numeric_force
+from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer
-from ase.parallel import distribute_cpus
 
-from gpaw import GPAW, __version__
+import gpaw.mpi as mpi
+from gpaw import GPAW, __version__, restart
 from gpaw.density import RealSpaceDensity
-from gpaw.output import get_txt
-from gpaw import mpi
+from gpaw.io.logger import GPAWLogger
+from gpaw.lrtddft import LrTDDFT
+from gpaw.lrtddft.finite_differences import FiniteDifference
 from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 
-class FiniteDifferenceCalculator(Calculator):
+class ExcitedState(GPAW):
 
-    def __init__(self, lrtddft, d=0.001, txt=None, parallel=None):
-        """Finite difference calculator for LrTDDFT.
-
-        parallel: Can be used to parallelize the numerical force
-        calculation over images
-        """
-        self.timer = Timer()
-        self.atoms = None
-
-        world = mpi.world
-        if lrtddft is not None:
-            self.lrtddft = lrtddft
-            self.calculator = self.lrtddft.calculator
-            self.atoms = self.calculator.atoms
-            if self.calculator.initialized:
-                world = self.calculator.wfs.world
-
-            if txt is None:
-                self.txt = self.lrtddft.txt
-            else:
-                self.txt = get_txt(txt, world.rank)
-        print('#', self.__class__.__name__, __version__, file=self.txt)
-
-        self.d = d
-        self.parallel = {
-            'world': world, 'mycomm': world, 'ncalcs': 1, 'icalc': 0}
-        if world.size < 2:
-            if parallel:
-                print('#', (self.__class__.__name__ + ':'),
-                      'Serial calculation, keyword parallel ignored.',
-                      file=self.txt)
-        elif parallel:
-            mycomm, ncalcs, icalc = distribute_cpus(parallel, world)
-            if not isinstance(ncalcs, int):
-                # this is ase < r3431
-                ncalcs = world.size / parallel
-            self.parallel = {'world': world, 'mycomm': mycomm,
-                             'ncalcs': ncalcs, 'icalc': icalc}
-            self.calculator.set(communicator=mycomm)
-
-    def set(self, **kwargs):
-        self.calculator.set(**kwargs)
-
-
-class ExcitedState(FiniteDifferenceCalculator, GPAW):
-
-    def __init__(self, lrtddft, index, d=0.001, txt=None,
-                 parallel=None, name=None):
+    def __init__(self, lrtddft=None, index=0, d=0.001, txt=None,
+                 parallel=0, communicator=None, name=None, restart=None):
         """ExcitedState object.
-
         parallel: Can be used to parallelize the numerical force calculation
         over images.
         """
-        FiniteDifferenceCalculator.__init__(self, lrtddft, d, txt, parallel)
 
+        self.timer = Timer()
+        self.atoms = None
         if isinstance(index, int):
             self.index = UnconstraintIndex(index)
         else:
             self.index = index
+
+        self.results = {}
+        self.results['forces'] = None
+        self.results['energy'] = None
+        if communicator is None:
+            try:
+                communicator = lrtddft.calculator.wfs.world
+            except:
+                communicator = mpi.world
+        self.world = communicator
+
+        if restart is not None:
+            self.read(restart)
+            if txt is None:
+                self.txt = self.lrtddft.txt
+            else:
+                self.txt = convert_string_to_fd(txt, self.world)
+
+        if lrtddft is not None:
+            self.lrtddft = lrtddft
+            self.calculator = self.lrtddft.calculator
+            self.atoms = self.calculator.atoms
+            self.parameters = self.calculator.parameters
+            if txt is None:
+                self.txt = self.lrtddft.txt
+            else:
+                self.txt = convert_string_to_fd(txt, self.world)
+
+        self.d = d
+        self.parallel = parallel
         self.name = name
 
-        self.energy = None
-        self.F_av = None
-
-        print('#', self.index, file=self.txt)
+        self.log = GPAWLogger(self.world)
+        self.log.fd = self.txt
+        self.reader = None
+        self.calculator.log.fd = self.txt
+        self.log('#', self.__class__.__name__, __version__)
+        self.log('#', self.index)
         if name:
-            print('name=' + name, file=self.txt)
-        print('# Force displacement:', self.d, file=self.txt)
-        if self.parallel:
-            print('#', self.parallel['world'].size,
-                  'cores in total, ', self.parallel['mycomm'].size,
-                  'cores per energy evaluation',
-                  file=self.txt)
+            self.log('name=' + name)
+        self.log('# Force displacement:', self.d)
+        self.log
+
+    def __del__(self):
+        self.timer.write(self.log.fd)
+
+    def set(self, **kwargs):
+        self.calculator.set(**kwargs)
 
     def set_positions(self, atoms):
         """Update the positions of the atoms."""
+
         self.atoms = atoms.copy()
-        self.energy = None
-        self.F_av = None
-        self.atoms.set_calculator(self)
+        self.results['forces'] = None
+        self.results['energy'] = None
+
+    def write(self, filename, mode=''):
+
+        try:
+            os.makedirs(filename)
+        except OSError as exception:
+            if exception.errno != errno.EEXIST:
+                raise
+
+        self.calculator.write(filename=filename + '/' + filename, mode=mode)
+        self.lrtddft.write(filename=filename + '/' + filename + '.lr.dat.gz',
+                           fh=None)
+
+        f = open(filename + '/' + filename + '.exst', 'w')
+        f.write('# ' + self.__class__.__name__ + __version__ + '\n')
+        f.write('Displacement: {0}'.format(self.d) + '\n')
+        f.write('Index: ' + self.index.__class__.__name__ + '\n')
+        for k, v in self.index.__dict__.items():
+            f.write('{0}, {1}'.format(k, v) + '\n')
+        f.close()
+
+        mpi.world.barrier()
+
+    def read(self, filename):
+
+        self.lrtddft = LrTDDFT(filename + '/' + filename + '.lr.dat.gz')
+        self.atoms, self.calculator = restart(
+            filename + '/' + filename, communicator=self.world)
+        E0 = self.calculator.get_potential_energy()
+
+        f = open(filename + '/' + filename + '.exst', 'r')
+        f.readline()
+        self.d = f.readline().replace('\n', '').split()[1]
+        indextype = f.readline().replace('\n', '').split()[1]
+        if indextype == 'UnconstraintIndex':
+            iex = int(f.readline().replace('\n', '').split()[1])
+            self.index = UnconstraintIndex(iex)
+        else:
+            direction = f.readline().replace('\n', '').split()[1]
+            if direction in [str(0), str(1), str(2)]:
+                direction = int(direction)
+            else:
+                direction = None
+
+            val = f.readline().replace('\n', '').split()
+            if indextype == 'MinimalOSIndex':
+
+                self.index = MinimalOSIndex(float(val[1]), direction)
+            else:
+                emin = float(val[2])
+                emax = float(val[3].replace(']', ''))
+                self.index = MaximalOSIndex([emin, emax], direction)
+
+        index = self.index.apply(self.lrtddft)
+        self.results['energy'] = E0 + self.lrtddft[index].energy * Hartree
+        self.lrtddft.set_calculator(self.calculator)
 
     def calculation_required(self, atoms, quantities):
         if len(quantities) == 0:
@@ -107,6 +152,7 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
 
         if self.atoms is None:
             return True
+
         elif (len(atoms) != len(self.atoms) or
               (atoms.get_atomic_numbers() !=
                self.atoms.get_atomic_numbers()).any() or
@@ -119,22 +165,27 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
               self.atoms.get_positions()).any():
             return True
 
-        for quantity in ['energy', 'F_av']:
+        for quantity in ['energy', 'forces']:
             if quantity in quantities:
                 quantities.remove(quantity)
-                if self.__dict__[quantity] is None:
+                if self.results[quantity] is None:
                     return True
         return len(quantities) > 0
 
+    def check_state(self, atoms, tol=1e-15):
+        system_changes = GPAW.check_state(self.calculator, atoms, tol)
+        return system_changes
+
     def get_potential_energy(self, atoms=None):
         """Evaluate potential energy for the given excitation."""
+
         if atoms is None:
             atoms = self.atoms
 
         if self.calculation_required(atoms, ['energy']):
-            self.energy = self.calculate(atoms)
+            self.results['energy'] = self.calculate(atoms)
 
-        return self.energy
+        return self.results['energy']
 
     def calculate(self, atoms):
         """Evaluate your energy if needed."""
@@ -142,6 +193,7 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
 
         self.calculator.calculate(atoms)
         E0 = self.calculator.get_potential_energy()
+        atoms.set_calculator(self)
 
         if hasattr(self, 'density'):
             del(self.density)
@@ -151,58 +203,68 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
         index = self.index.apply(self.lrtddft)
 
         energy = E0 + self.lrtddft[index].energy * Hartree
+
+        self.log('--------------------------')
+        self.log('Excited state')
+        self.log(self.index)
+        self.log('Energy:   {0}'.format(energy))
+        self.log()
+
         return energy
 
-    def get_forces(self, atoms=None):
-        """Get finite-difference forces"""
+    def get_forces(self, atoms=None, save=False):
+        """Get finite-difference forces
+        If save = True, restartfiles for every displacement are given
+        """
         if atoms is None:
             atoms = self.atoms
 
-        if self.calculation_required(atoms, ['F_av']):
+        if self.calculation_required(atoms, ['forces']):
             atoms.set_calculator(self)
 
             # do the ground state calculation to set all
             # ranks to the same density to start with
-            self.calculator.calculate(atoms)
+            E0 = self.calculate(atoms)
 
-            world = self.parallel['world']
-            txt = self.txt
-            if world.rank > 0:
-                txt = sys.stdout
+            finite = FiniteDifference(
+                atoms=atoms,
+                propertyfunction=atoms.get_potential_energy,
+                save=save,
+                name="excited_state", ending='.gpw',
+                d=self.d, parallel=self.parallel)
+            F_av = finite.run()
 
-            mycomm = self.parallel['mycomm']
-            ncalcs = self.parallel['ncalcs']
-            icalc = self.parallel['icalc']
-            F_av = np.zeros((len(atoms), 3))
-            i = 0
-            for ia, a in enumerate(self.atoms):
-                for ic in range(3):
-                    if (i % ncalcs) == icalc:
-                        F_av[ia, ic] = numeric_force(
-                            atoms, ia, ic, self.d) / mycomm.size
-                        print('# rank', world.rank, '-> force',
-                              (str(ia) + 'xyz'[ic]), file=txt)
-                    i += 1
-            energy = np.array([0.])  # array needed for world.sum()
-            if (i % ncalcs) == icalc:
-                self.energy = None
-                energy[0] = self.get_potential_energy(atoms) / mycomm.size
-                print('# rank', world.rank, '-> energy',
-                      energy[0] * mycomm.size, file=txt)
             self.set_positions(atoms)
-            world.sum(F_av)
-            world.sum(energy)
-            self.energy = energy[0]
-            self.F_av = F_av
-
+            self.results['energy'] = E0
+            self.results['forces'] = F_av
             if self.txt:
-                print('Excited state forces in eV/Ang:', file=self.txt)
+                self.log('Excited state forces in eV/Ang:')
                 symbols = self.atoms.get_chemical_symbols()
                 for a, symbol in enumerate(symbols):
-                    print(('%3d %-2s %10.5f %10.5f %10.5f' %
-                           ((a, symbol) + tuple(self.F_av[a]))),
-                          file=self.txt)
-        return self.F_av
+                    self.log(('%3d %-2s %10.5f %10.5f %10.5f' %
+                              ((a, symbol) +
+                               tuple(self.results['forces'][a]))))
+        return self.results['forces']
+
+    def forces_indexn(self, index):
+        """ If restartfiles are created from the force calculation,
+        this function allows the calculation of forces for every
+        excited state index.
+        """
+        atoms = self.atoms
+
+        def reforce(self, name):
+            excalc = ExcitedState(index=index, restart=name)
+            return excalc.get_potential_energy()
+
+        fd = FiniteDifference(
+            atoms=atoms, save=True,
+            propertyfunction=self.atoms.get_potential_energy,
+            name="excited_state", ending='.gpw',
+            d=self.d, parallel=0)
+        atoms.set_calculator(self)
+
+        return fd.restart(reforce)
 
     def get_stress(self, atoms):
         """Return the stress for the current state of the Atoms."""
@@ -370,7 +432,7 @@ class ExcitedStateDensity(RealSpaceDensity):
 
         D_asp = {}
         for a, D_sp in self.gsdensity.D_asp.items():
-            repeats = self.ns // self.gsdensity.ns
+            repeats = self.nspins // self.gsdensity.nspins
             # XXX does this work always?
             D_asp[a] = (1. * D_sp).repeat(repeats, axis=0)
         self.D_asp = D_asp
@@ -419,4 +481,4 @@ class ExcitedStateDensity(RealSpaceDensity):
                                           self.wunocc_sn[s]),
                                          kpt.psit_nG):
                         axpy(f, psit_G ** 2, self.nt_sG[s])
-        self.nt_sG[:self.nspins] += self.nct_G
+        self.nt_sG += self.nct_G

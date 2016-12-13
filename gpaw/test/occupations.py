@@ -27,7 +27,7 @@ def test(occ):
         np, dp, Sp = f(occ, e + x)
         nm, dm, Sm = f(occ, e - x)
         d = -(np - nm) / (2 * x)
-        dS = Sp - Sm
+        dS = Sm - Sp
         dn = np - nm
         print(d - d0, dS - e * dn)
         assert abs(d - d0) < 3e-5

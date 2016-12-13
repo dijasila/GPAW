@@ -6,7 +6,7 @@ from __future__ import print_function, division
 
 import functools
 
-from fractions import gcd
+from ase.utils import gcd
 import numpy as np
 
 import _gpaw
@@ -314,12 +314,14 @@ class Symmetry:
         if self.do_not_symmetrize_the_density:
             return
         for U_cc, ft_c in zip(self.op_scc, self.ft_sc):
-            # Make sure all grid-points map onto another grid-point:
-            if ((N_c * U_cc).T % N_c).any():
-                raise ValueError
             t_c = ft_c * N_c
-            if not np.allclose(t_c, t_c.round()):
-                raise ValueError
+            # Make sure all grid-points map onto another grid-point:
+            if (((N_c * U_cc).T % N_c).any() or
+                not np.allclose(t_c, t_c.round())):
+                raise ValueError(
+                    'Real space grid not compatible with symmetry operation. '
+                    'Use:\n\n   '
+                    "GPAW(symmetry={'do_not_symmetrize_the_density': True})")
 
     def symmetrize(self, a, gd):
         """Symmetrize array."""
@@ -393,35 +395,35 @@ class Symmetry:
                 F_ac[a2] += np.dot(F0_av[a1], op_vv)
         return F_ac / len(self.op_scc)
 
-    def print_symmetries(self, fd):
-        """Print symmetry information."""
-
-        p = functools.partial(print, file=fd)
-
+    def __str__(self):
         n = len(self.op_scc)
         nft = self.ft_sc.any(1).sum()
-        p('Symmetries present (total):', n)
+        lines = ['Symmetries present (total): {0}'.format(n)]
         if not self.symmorphic:
-            p('Symmetries with fractional translations:', nft)
+            lines.append(
+                'Symmetries with fractional translations: {0}'.format(nft))
 
         # X-Y grid of symmetry matrices:
-        p()
+        
+        lines.append('')
         nx = 6 if self.symmorphic else 3
         ns = len(self.op_scc)
         y = 0
         for y in range((ns + nx - 1) // nx):
             for c in range(3):
+                line = ''
                 for x in range(nx):
                     s = x + y * nx
                     if s == ns:
                         break
                     op_c = self.op_scc[s, c]
                     ft = self.ft_sc[s, c]
-                    p('  (%2d %2d %2d)' % tuple(op_c), end='')
+                    line += '  (%2d %2d %2d)' % tuple(op_c)
                     if not self.symmorphic:
-                        p(' + (%4s)' % sfrac(ft), end='')
-                p()
-            p()
+                        line += ' + (%4s)' % sfrac(ft)
+                lines.append(line)
+            lines.append('')
+        return '\n'.join(lines)
 
 
 def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):

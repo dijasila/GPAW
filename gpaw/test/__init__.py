@@ -38,21 +38,23 @@ def findpeak(x, y):
     x = -0.5 * b / a
     return dx * (i + x), a * x**2 + b * x + c
 
-    
+
 def gen(symbol, exx=False, name=None, **kwargs):
+    setup = None
     if mpi.rank == 0:
         if 'scalarrel' not in kwargs:
             kwargs['scalarrel'] = True
         g = Generator(symbol, **kwargs)
         if 'orbital_free' in kwargs:
-            g.run(exx=exx, name=name, use_restart_file=False,
-                  **tf_parameters.get(symbol, {'rcut': 0.9}))
+            setup = g.run(exx=exx, name=name, use_restart_file=False,
+                          **tf_parameters.get(symbol, {'rcut': 0.9}))
         else:
-            g.run(exx=exx, name=name, use_restart_file=False,
-                  **parameters[symbol])
-    mpi.world.barrier()
+            setup = g.run(exx=exx, name=name, use_restart_file=False,
+                          **parameters[symbol])
+    setup = mpi.broadcast(setup, 0)
     if setup_paths[0] != '.':
         setup_paths.insert(0, '.')
+    return setup
 
 
 def wrap_pylab(names=[]):
@@ -77,7 +79,6 @@ tests = [
     'kpt.py',
     'mpicomm.py',
     'pathological/numpy_core_multiarray_dot.py',
-    'fileio/hdf5_noncontiguous.py',
     'eigen/cg2.py',
     'fd_ops/laplace.py',
     'linalg/lapack.py',
@@ -108,10 +109,8 @@ tests = [
     'xc/xc.py',
     'xc/XC2.py',
     'radial/yukawa_radial.py',
-    'response/dump_chi0.py',
     'vdw/potential.py',
     'radial/lebedev.py',
-    'fileio/hdf5_simple.py',
     'occupations.py',
     'lfc/derivatives.py',
     'parallel/realspace_blacs.py',
@@ -122,7 +121,6 @@ tests = [
     'pw/lfc.py',
     'gauss_func.py',
     'multipoletest.py',
-    'noncollinear/xcgrid3d.py',
     'cluster.py',
     'poisson/poisson.py',
     'poisson/poisson_asym.py',
@@ -133,7 +131,6 @@ tests = [
     'fd_ops/transformations.py',
     'parallel/blacsdist.py',
     'pbc.py',
-    'noncollinear/xccorr.py',
     'atoms_too_close.py',
     'ext_potential/harmonic.py',
     'generic/proton.py',
@@ -161,12 +158,10 @@ tests = [
     'eigen/keep_htpsit.py',                 # ~2s
     'xc/gga_atom.py',                       # ~2s
     'generic/hydrogen.py',                  # ~2s
-    'fileio/restart2.py',                   # ~2s
     'aeatom.py',                            # ~2s
     'ase_features/plt.py',                  # ~2s
     'ds_beta.py',                           # ~2s
     'multipoleH2O.py',                      # ~2s
-    'noncollinear/h.py',                    # ~2s
     'spinorbit_Kr.py',                      # ~2s
     'stdout.py',                            # ~2s
     'lcao/largecellforce.py',               # ~2s
@@ -195,6 +190,7 @@ tests = [
     'response/aluminum_EELS_RPA.py',        # ~3s
     'poisson/poisson_extended.py',          # ~3s
     'solvation/vacuum.py',                  # ~3s
+    'vdw/libvdwxc_mbeef.py',                # ~3s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
     'parallel/augment_grid.py',             # ~4s
     'utilities/ewald.py',                   # ~4s
@@ -233,15 +229,19 @@ tests = [
     'fixmom.py',                            # ~6s
     'exx/unocc.py',                         # ~6s
     'eigen/davidson.py',                    # ~6s
+    'vdw/H_Hirshfeld.py',                   # ~6s
     'parallel/redistribute_grid.py',        # ~7s
     'aedensity.py',                         # ~7s
     'pw/h.py',                              # ~7s
     'lrtddft/apmb.py',                      # ~7s
     'pseudopotential/hgh_h2o.py',           # ~7s
     'fdtd/ed_wrapper.py',                   # ~7s
+    'fdtd/ed_shapes.py',                    # ~7s
+    'fdtd/ed.py',                           # ~12s
+    'fdtd/ed_inducedfield.py',              # ~16s
+    'inducedfield_td.py',                   # ~9s
     'pw/bulk.py',                           # ~7s
     'gllb/ne.py',                           # ~7s
-    'fdtd/ed.py',                           # ~7s
     'lcao/force.py',                        # ~7s
     'xc/pplda.py',                          # ~7s
     'fileio/restart_density.py',            # ~8s
@@ -249,7 +249,6 @@ tests = [
     'tddft/be_nltd_ip.py',                  # ~8s
     'test_ibzqpt.py',                       # ~8s
     'generic/si_primitive.py',              # ~9s
-    'inducedfield_td.py',                   # ~9s
     'tddft/ehrenfest_nacl.py',              # ~9s
     'lcao/fd2lcao_restart.py',              # ~9s
     'ext_potential/constant_e_field.py',    # ~9s
@@ -276,7 +275,6 @@ tests = [
     'ralda/ralda_energy_Ni.py',             # ~13s
     'utilities/simple_stm.py',              # ~13s
     'ofdft/ofdft_pbc.py',                   # ~13s
-    'fdtd/ed_shapes.py',                    # ~14s
     'gllb/restart_band_structure.py',       # ~14s
     'exx/exx.py',                           # ~14s
     'Hubbard_U.py',                         # ~15s
@@ -300,7 +298,6 @@ tests = [
     'corehole/si.py',                       # ~18s
     'mgga/mgga_sc.py',                      # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
-    # buildbot > 20 sec tests start here (add tests after lrtddft/1.py!)
     'lrtddft/1.py',                         # ~20s
     'gllb/spin.py',                         # ~21s
     'parallel/fd_parallel_kpt.py',          # ~21s
@@ -308,10 +305,10 @@ tests = [
     'vdw/ts09.py',                          # ~21s
     'response/na_plasmon.py',               # ~22s
     'fermilevel.py',                        # ~23s
-    'parallel/ut_hsblacs.py',               # ~23s
     'ralda/ralda_energy_H2.py',             # ~23s
     'response/diamond_absorption.py',       # ~24s
     'ralda/ralda_energy_Si.py',             # ~24s
+    'jellium.py',                           # ~24s
     'utilities/ldos.py',                    # ~25s
     'solvation/swap_atoms.py',              # ~25s
     'xc/revPBE_Li.py',                      # ~26s
@@ -323,7 +320,6 @@ tests = [
     'gllb/diamond.py',                      # ~33s
     'vdw/quick_spin.py',                    # ~37s
     'pw/expert_diag.py',                    # ~37s
-    'parallel/ut_hsops.py',                 # ~41s
     'pathological/LDA_unstable.py',         # ~42s
     'response/bse_aluminum.py',             # ~42s
     'response/au02_absorption.py',          # ~44s
@@ -339,11 +335,11 @@ tests = [
     'pw/si_stress.py',                      # ~61s
     'response/chi0.py',                     # ~71s
     'sic/scfsic_n2.py',                     # ~73s
-    'transport.py',                         # ~73s
     'lrtddft/3.py',                         # ~75s
     'pathological/nonlocalset.py',          # ~82s
-    # buildbot > 100 sec tests start here (add tests after xc/lb94.py!)
+    'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
+    'response/gw_hBN_extrapolate.py',       # ~109s
     'exx/AA_enthalpy.py',                   # ~119s
     'lcao/tdgllbsc.py',                     # ~132s
     'solvation/forces.py',                  # ~140s
@@ -365,7 +361,7 @@ tests = [
     'parallel/scalapack_mpirecv_crash.py']  # duration unknown
 
 # 'symmetry/fractional_translations.py',
-# 'response/graphene_EELS.py', disabled while work is in progress on response code
+# 'response/graphene_EELS.py', disabled while work is in progress
 
 # 'symmetry/fractional_translations_med.py',
 # 'symmetry/fractional_translations_big.py',
@@ -400,7 +396,7 @@ if mpi.size > 1:
 if mpi.size > 2:
     exclude += ['ase_features/neb.py',
                 'response/pair.py']
-    
+
 if mpi.size < 4:
     exclude += ['parallel/fd_parallel.py',
                 'parallel/lcao_parallel.py',
@@ -446,6 +442,7 @@ if not compiled_with_sl():
 if not compiled_with_libvdwxc():
     exclude.append('vdw/libvdwxc_functionals.py')
     exclude.append('vdw/libvdwxc_h2o.py')
+    exclude.append('vdw/libvdwxc_mbeef.py')
 
 if LooseVersion(np.__version__) < '1.6.0':
     exclude.append('response/chi0.py')
@@ -477,7 +474,7 @@ class TestRunner:
             self.log = devnull
         self.n = max([len(test) for test in tests])
         self.setup_paths = setup_paths[:]
-        
+
     def run(self):
         self.log.write('=' * 77 + '\n')
         if not self.show_output:
@@ -573,7 +570,8 @@ class TestRunner:
         try:
             setup_paths[:] = self.setup_paths
             loc = {}
-            exec(compile(open(filename).read(), filename, 'exec'), loc)
+            with open(filename) as fd:
+                exec(compile(fd.read(), filename, 'exec'), loc)
             loc.clear()
             del loc
             self.check_garbage()
@@ -623,7 +621,7 @@ class TestRunner:
     def register_skipped(self, test, t0):
         self.write_result(test, 'SKIPPED', t0)
         self.skipped.append(test)
-    
+
     def check_garbage(self):
         gc.collect()
         n = len(gc.garbage)

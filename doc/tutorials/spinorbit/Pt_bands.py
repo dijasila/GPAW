@@ -11,7 +11,10 @@ L = points['L']
 K = points['K']
 kpts, x, X = get_bandpath([G, X, W, L, G, K, X], calc.atoms.cell, npoints=200)
 
-calc = GPAW('Pt_gs.gpw', kpts=kpts, usesymm=None, txt='Pt_bands.txt')
+calc = GPAW('Pt_gs.gpw',
+            kpts=kpts,
+            symmetry='off',
+            txt='Pt_bands.txt')
 calc.diagonalize_full_hamiltonian(nbands=20)
 
 calc.write('Pt_bands.gpw', mode='all')

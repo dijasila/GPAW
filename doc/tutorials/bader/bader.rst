@@ -33,8 +33,8 @@ cube file, ready for the Bader program, could be:
 >>> density = calc.get_all_electron_density() * Bohr**3
 >>> write('density.cube', atoms, data=density)
 
-One can also use :meth:`~gpaw.aseinterface.GPAW.get_pseudo_density` but it is
-better to use the :meth:`~gpaw.aseinterface.GPAW.get_all_electron_density`
+One can also use :meth:`~gpaw.calculator.GPAW.get_pseudo_density` but it is
+better to use the :meth:`~gpaw.calculator.GPAW.get_all_electron_density`
 method as it will create a normalized electron density with all the electrons.
 
 Note that it is strongly recommended to use version 0.26b or higher of

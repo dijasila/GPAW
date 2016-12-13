@@ -62,7 +62,7 @@ class MatrixDescriptor:
     def estimate_memory(self, mem, dtype):
         """Handled by subclass."""
         pass
-# -------------------------------------------------------------------
+
 
 class BandMatrixDescriptor(MatrixDescriptor):
     """Descriptor-class for square matrices of bands times bands."""
@@ -70,8 +70,8 @@ class BandMatrixDescriptor(MatrixDescriptor):
     def __init__(self, bd, gd, ksl):
         MatrixDescriptor.__init__(self, bd.nbands, bd.nbands)
         self.bd = bd
-        self.gd = gd #XXX used?
-        self.ksl = ksl # not really used...
+        self.gd = gd  # XXX used?
+        self.ksl = ksl  # not really used...
 
     def assemble_blocks(self, A_qnn, A_NN, hermitian):
         """Assign all distributed sub-blocks pertaining from various rank to
@@ -132,7 +132,7 @@ class BandMatrixDescriptor(MatrixDescriptor):
         if B == 1:
             # Only fill in the lower part
             mask = np.tri(N).astype(bool)
-            A_NN[mask] = A_qnn.reshape((N,N))[mask]
+            A_NN[mask] = A_qnn.reshape((N, N))[mask]
             return
 
         # A_qnn[q2,myn1,myn2] on rank q1 is the q2'th overlap calculated
@@ -141,37 +141,38 @@ class BandMatrixDescriptor(MatrixDescriptor):
         q1 = band_rank
         Q = B // 2 + 1
         if debug:
-            assert A_qnn.shape == (Q,N,N)
+            assert A_qnn.shape == (Q, N, N)
 
         # Note that for integer inequalities, these relations are useful (X>0):
         #     A*X > B   <=>   A > B//X   ^   A*X <= B   <=>   A <= B//X
 
         if self.bd.strided:
             A_nbnb = A_NN.reshape((N, B, N, B))
-            mask = np.empty((N,N), dtype=bool)
+            mask = np.empty((N, N), dtype=bool)
             for q2 in range(Q):
                 # n1 = (q1+q2)%B + myn1*B   ^   n2 = q1 + myn2*B
                 #
                 # We seek the lower triangular part i.e. n1 >= n2
                 #   <=>   (myn2-myn1)*B <= (q1+q2)%B-q1
                 #   <=>   myn2-myn1 <= dq//B
-                dq = (q1+q2)%B-q1 # within ]-B; Q[ so dq//B is -1 or 0
+                dq = (q1 + q2) % B - q1  # within ]-B; Q[ so dq//B is -1 or 0
 
                 # Create mask for lower part of current block
-                mask[:] = np.tri(N, N, dq//B)
+                mask[:] = np.tri(N, N, dq // B)
                 if debug:
-                    m1,m2 = np.indices((N,N))
-                    assert dq in range(-B+1,Q)
-                    assert (mask == (m1 >= m2 - dq//B)).all()
+                    m1, m2 = np.indices((N, N))
+                    assert dq in range(-B + 1, Q)
+                    assert (mask == (m1 >= m2 - dq // B)).all()
 
                 # Copy lower part of A_qnn[q2] to its rightfull place
-                A_nbnb[:, (q1+q2)%B, :, q1][mask] = A_qnn[q2][mask]
+                A_nbnb[:, (q1 + q2) % B, :, q1][mask] = A_qnn[q2][mask]
 
                 # Negate the transposed mask to get complementary mask
                 mask = ~mask.T
 
                 # Copy upper part of Hermitian conjugate of A_qnn[q2]
-                A_nbnb[:, q1, :, (q1+q2)%B][mask] = A_qnn[q2].T.conj()[mask]
+                A_nbnb[:, q1, :,
+                       (q1 + q2) % B][mask] = A_qnn[q2].T.conj()[mask]
         else:
             A_bnbn = A_NN.reshape((B, N, B, N))
 
@@ -215,7 +216,7 @@ class BandMatrixDescriptor(MatrixDescriptor):
         assert band_rank in range(B)
 
         if B == 1:
-            A_NN[:] = A_qnn.reshape((N,N))
+            A_NN[:] = A_qnn.reshape((N, N))
             return
 
         # A_qnn[q2,myn1,myn2] on rank q1 is the q2'th overlap calculated
@@ -224,12 +225,12 @@ class BandMatrixDescriptor(MatrixDescriptor):
         q1 = band_rank
         Q = B
         if debug:
-            assert A_qnn.shape == (Q,N,N)
+            assert A_qnn.shape == (Q, N, N)
 
         if self.bd.strided:
             A_nbnb = A_NN.reshape((N, B, N, B))
             for q2 in range(Q):
-                A_nbnb[:, (q1+q2)%B, :, q1] = A_qnn[q2]
+                A_nbnb[:, (q1 + q2) % B, :, q1] = A_qnn[q2]
         else:
             A_bnbn = A_NN.reshape((B, N, B, N))
 
@@ -239,7 +240,7 @@ class BandMatrixDescriptor(MatrixDescriptor):
                 return
 
             for q2 in range(Q):
-                A_bnbn[(q1+q2)%B, :, q1] = A_qnn[q2]
+                A_bnbn[(q1 + q2) % B, :, q1] = A_qnn[q2]
 
     def extract_block(self, A_NN, q1, q2):
         """Extract the sub-block pertaining from a given pair of ranks within
@@ -268,17 +269,16 @@ class BandMatrixDescriptor(MatrixDescriptor):
 
         if self.bd.strided:
             A_nbnb = A_NN.reshape((N, B, N, B))
-            return A_nbnb[:, q2, :, q1].copy() # last dim must have unit stride
+            # last dim must have unit stride
+            return A_nbnb[:, q2, :, q1].copy()
         else:
             A_bnbn = A_NN.reshape((B, N, B, N))
             return A_bnbn[q2, :, q1]
 
-    def redistribute_input(self, A_NN): # do nothing
-        if debug:
-            self.checkassert(A_NN)
+    def redistribute_input(self, A_NN):  # do nothing
         return A_NN
 
-    def redistribute_output(self, A_NN): # do nothing
+    def redistribute_output(self, A_NN):  # do nothing
         if debug:
             self.checkassert(A_NN)
         return A_NN
@@ -287,22 +287,17 @@ class BandMatrixDescriptor(MatrixDescriptor):
         # Temporary work arrays included in estimate #
         nbands = self.bd.nbands
         itemsize = mem.itemsize[dtype]
-        mem.subnode('A_NN', nbands*nbands*itemsize)
+        mem.subnode('A_NN', nbands * nbands * itemsize)
 
-# -------------------------------------------------------------------
 
-#from gpaw.blacs import BlacsDescriptor #TODO XXX derive from BlacsDescriptor
-#from gpaw.blacs import BlacsBandLayouts
-
-class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
+class BlacsBandMatrixDescriptor(MatrixDescriptor):
     """Descriptor-class for square BLACS matrices of bands times bands."""
 
-    def __init__(self, bd, gd, ksl): #mcpus, ncpus, blocksize):
-        MatrixDescriptor.__init__(self, bd.nbands, bd.mynbands) #XXX a hack...
-        #BlacsBandLayouts.__init__(self, gd, bd, mcpus, ncpus, blocksize)
-        #BlacsDescriptor.__init__(self, blacsgrid, M, N, mb, nb, rsrc, csrc)
+    def __init__(self, bd, gd, ksl):
+        # XXX a hack...
+        MatrixDescriptor.__init__(self, bd.nbands, bd.mynbands)
         self.bd = bd
-        self.gd = gd #XXX used?
+        self.gd = gd  # XXX used?
         self.ksl = ksl
 
     def assemble_blocks(self, A_qnn, A_Nn, hermitian):
@@ -353,7 +348,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
         if B == 1:
             # Only fill in the lower part
             mask = np.tri(N).astype(bool)
-            A_Nn[mask] = A_qnn.reshape((N,N))[mask]
+            A_Nn[mask] = A_qnn.reshape((N, N))[mask]
             return
 
         # A_qnn[q2,myn1,myn2] on rank q1 is the q2'th overlap calculated
@@ -362,7 +357,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
         q1 = band_rank
         Q = B // 2 + 1
         if debug:
-            assert A_qnn.shape == (Q,N,N)
+            assert A_qnn.shape == (Q, N, N)
 
         # Note that for integer inequalities, these relations are useful (X>0):
         #     A*X > B   <=>   A > B//X   ^   A*X <= B   <=>   A <= B//X
@@ -395,7 +390,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
                 mask = ~mask.T
 
                 # Copy upper part of Hermitian conjugate of A_qnn[q2]
-                A_nbn[:, q1][mask] = A_qnn[q2].T.conj()[mask] #XXX on rank (q1+q2)%B
+                A_nbn[:, q1][mask] = A_qnn[q2].T.conj()[mask]
             """
         else:
             A_bnn = A_Nn.reshape((B, N, N))
@@ -414,23 +409,29 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
                     A_bnn[q1 + q2] = A_qnn[q2]
 
             reqs = []
-            if q1 < Q-1: # receive from ranks >= Q
+            if q1 < Q - 1:  # receive from ranks >= Q
                 if debug:
-                    Q2 = np.arange(Q,B-q1)
-                    print('q1=%d, q2: %12s | recv from q1+q2:%12s -> A_bnn%s' % (q1,Q2.tolist(),(q1+Q2).tolist(),(q1+Q2).tolist()))
+                    Q2 = np.arange(Q, B - q1)
+                    print('q1=%d, q2: %12s | recv from q1+q2:%12s -> A_bnn%s' %
+                          (q1, Q2.tolist(), (q1 + Q2).tolist(),
+                           (q1 + Q2).tolist()))
 
-                for q2 in range(Q, B-q1):
+                for q2 in range(Q, B - q1):
                     rrank = q1 + q2
                     A_nn = A_bnn[q1 + q2]
                     reqs.append(self.bd.comm.receive(A_nn, rrank, block=False))
-            elif q1 >= Q: # send to ranks < Q-1
+            elif q1 >= Q:  # send to ranks < Q-1
                 if debug:
-                    Q2 = np.arange(B-q1,B-Q+1)[::-1]
-                    print('q1=%d, q2: %12s | send to q1+q2-B:%12s <- A_qnn%s.T.conj()' % (q1,Q2.tolist(),(q1+Q2-B).tolist(),Q2.tolist()))
+                    Q2 = np.arange(B - q1, B - Q + 1)[::-1]
+                    print('q1=%d, q2: %12s | '
+                          'send to q1+q2-B:%12s <- A_qnn%s.T.conj()' %
+                          (q1, Q2.tolist(), (q1 + Q2 - B).tolist(),
+                           Q2.tolist()))
 
-                for q2 in reversed(range(B-q1, B-Q+1)): # symmetrize comm.
+                # symmetrize comm
+                for q2 in reversed(range(B - q1, B - Q + 1)):
                     srank = q1 + q2 - B
-                    sbuf_nn = np.ascontiguousarray(np.conjugate(A_qnn[q2].T)) # always a copy!
+                    sbuf_nn = np.ascontiguousarray(np.conjugate(A_qnn[q2].T))
                     reqs.append(self.bd.comm.send(sbuf_nn, srank, block=False))
             else:
                 if debug:
@@ -447,7 +448,8 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
         A_qnn: ndarray
             Sub-blocks belonging to the specified rank.
         A_Nn: ndarray
-            Full column vector, in which to write contributions from sub-blocks.
+            Full column vector, in which to write contributions from
+            sub-blocks.
         band_rank: int
             Communicator rank to which the sub-blocks belongs.
 
@@ -459,7 +461,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
         assert band_rank in range(B)
 
         if B == 1:
-            A_Nn[:] = A_qnn.reshape((N,N))
+            A_Nn[:] = A_qnn.reshape((N, N))
             return
 
         # A_qnn[q2,myn1,myn2] on rank q1 is the q2'th overlap calculated
@@ -471,7 +473,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
         if self.bd.strided:
             A_nbn = A_Nn.reshape((N, B, N))
             for q2 in range(Q):
-                A_nbn[:, (q1+q2)%B] = A_qnn[q2]
+                A_nbn[:, (q1 + q2) % B] = A_qnn[q2]
         else:
             A_bnn = A_Nn.reshape((B, N, N))
 
@@ -481,7 +483,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
                 return
 
             for q2 in range(Q):
-                A_bnn[(q1+q2)%B] = A_qnn[q2]
+                A_bnn[(q1 + q2) % B] = A_qnn[q2]
 
     def extract_block_from_column(self, A_Nn, q1, q2):
         """Extract the sub-block pertaining from a given pair of ranks within
@@ -508,17 +510,17 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
         if B == 1:
             return A_Nn
 
-        if q1 == self.bd.comm.rank: #XXX must evaluate the same on all ranks!
+        if q1 == self.bd.comm.rank:  # XXX must evaluate the same on all ranks!
             if self.bd.strided:
                 A_nbn = A_Nn.reshape((N, B, N))
-                return A_nbn[:, q2, :].copy() # block must be contiguous
+                return A_nbn[:, q2, :].copy()  # block must be contiguous
             else:
                 A_bnn = A_Nn.reshape((B, N, N))
                 return A_bnn[q2]
 
         # Time for us to put the cards on the table
-        Qs = np.empty((self.bd.comm.size,2), dtype=int)
-        self.bd.comm.all_gather(np.array([q1,q2]), Qs)
+        Qs = np.empty((self.bd.comm.size, 2), dtype=int)
+        self.bd.comm.all_gather(np.array([q1, q2]), Qs)
         Q1, Q2 = Qs.T
 
         # Block exchange. What do we want and who should we be sending to?
@@ -530,12 +532,12 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
             S = np.empty(self.bd.comm.size, dtype=int)
             self.bd.comm.all_gather(np.array([srank]), S)
             if self.bd.comm.rank == 0:
-                #print 'Q1: %s, Q2: %s' % (Q1.tolist(),Q2.tolist())
-                print('recv(Q1): %s, send(Q1==rank): %s' % (Q1.tolist(),S.tolist()))
+                print('recv(Q1): %s, send(Q1==rank): %s' %
+                      (Q1.tolist(), S.tolist()))
 
         if self.bd.strided:
             A_nbn = A_Nn.reshape((N, B, N))
-            sbuf_nn = A_nbn[:, sq2, :].copy() # block must be contiguous
+            sbuf_nn = A_nbn[:, sq2, :].copy()  # block must be contiguous
         else:
             A_bnn = A_Nn.reshape((B, N, N))
             sbuf_nn = A_bnn[sq2]
@@ -569,32 +571,33 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
         if B == 1:
             return A_nN
 
-        if q2 == self.bd.comm.rank: #XXX must evaluate the same on all ranks!
+        if q2 == self.bd.comm.rank:  # XXX must evaluate the same on all ranks!
             if self.bd.strided:
                 # XXX This case seems to be untested
                 A_nnb = A_nN.reshape((N, N, B))
-                return A_nnb[..., q1].copy('C') # block must be contiguous
+                return A_nnb[..., q1].copy('C')  # block must be contiguous
             else:
                 A_nbn = A_nN.reshape((N, B, N))
-                return A_nbn[:, q1, :].copy('C') # block must be contiguous
+                return A_nbn[:, q1, :].copy('C')  # block must be contiguous
         else:
             raise NotImplementedError
 
-    extract_block = extract_block_from_row #XXX ugly but works
+    extract_block = extract_block_from_row  # XXX ugly but works
 
-    def redistribute_input(self, A_nn, A_nN=None): # 2D -> 1D row layout
+    def redistribute_input(self, A_nn, A_nN=None):  # 2D -> 1D row layout
         if A_nN is None:
             A_nN = self.ksl.nNdescriptor.empty(dtype=A_nn.dtype)
         self.ksl.nn2nN.redistribute(A_nn, A_nN)
         if not self.ksl.nNdescriptor.blacsgrid.is_active():
-            assert A_nN.shape == (0,0)
-            A_nN = np.empty((self.bd.mynbands, self.bd.nbands), dtype=A_nN.dtype)
+            assert A_nN.shape == (0, 0)
+            A_nN = np.empty((self.bd.mynbands, self.bd.nbands),
+                            dtype=A_nN.dtype)
         self.gd.comm.broadcast(A_nN, 0)
         return A_nN
 
-    def redistribute_output(self, A_Nn, A_nn=None): # 1D column -> 2D layout
+    def redistribute_output(self, A_Nn, A_nn=None):  # 1D column -> 2D layout
         if not self.ksl.Nndescriptor.blacsgrid.is_active():
-            A_Nn = np.empty((0,0), dtype=A_Nn.dtype)
+            A_Nn = np.empty((0, 0), dtype=A_Nn.dtype)
         if A_nn is None:
             A_nn = self.ksl.nndescriptor.empty(dtype=A_Nn.dtype)
         self.ksl.Nn2nn.redistribute(A_Nn, A_nn)
@@ -605,26 +608,6 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
         mynbands = self.bd.mynbands
         nbands = self.bd.nbands
         itemsize = mem.itemsize[dtype]
-        mem.subnode('2 A_nN', 2*mynbands*nbands*itemsize)
-        mem.subnode('2 A_nn', 2*nbands*nbands/self.ksl.blockgrid.ncpus*itemsize)
-
-    #def redistribute_input(self, A_NN): # 2D -> 1D row layout
-    #    # XXX instead of a BLACS-distribute from 2D, we disassemble the full matrix
-    #    A_nN = np.empty((self.bd.mynbands,self.bd.nbands), dtype=A_NN.dtype)
-    #    self.bd.distribute(A_NN, A_nN)
-    #    return A_nN
-
-    #def redistribute_input(self, A_NN): # 2D -> 1D column layout
-    #    # XXX instead of a BLACS-distribute from 2D, we disassemble the full matrix
-    #    A_nN = np.empty((self.bd.mynbands,self.bd.nbands), dtype=A_NN.dtype)
-    #    self.bd.distribute(A_NN.T.copy(), A_nN)
-    #    return A_nN.T.copy()
-
-    #def redistribute_output(self, A_Nn): # 1D column -> 2D layout
-    #    # XXX instead of a BLACS-distribute to 2D, we assemble the full matrix
-    #    A_NN = self.bd.collect(A_Nn.T.copy())
-    #    if self.bd.comm.rank == 0:
-    #        return A_NN.T.copy()
-    #    else:
-    #        return np.empty((self.bd.nbands,self.bd.nbands), dtype=A_Nn.dtype)
-
+        mem.subnode('2 A_nN', 2 * mynbands * nbands * itemsize)
+        mem.subnode('2 A_nn', 2 * nbands * nbands / self.ksl.blockgrid.ncpus *
+                    itemsize)

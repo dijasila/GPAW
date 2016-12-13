@@ -1,4 +1,4 @@
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW, FermiDirac
 from gpaw.wavefunctions.pw import PW
 from gpaw.xc.exx import EXX

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, division
-import functools
 import numbers
 from math import pi
 from math import factorial as fac
@@ -25,12 +24,14 @@ from gpaw.utilities import unpack
 from gpaw.utilities.blas import rk, r2k, gemv, gemm, axpy
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
+from gpaw.wavefunctions.mode import Mode
 
 
-class PW:
+class PW(Mode):
     name = 'pw'
-    
-    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None):
+
+    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None,
+                 force_complex_dtype=False):
         """Plane-wave basis mode.
 
         ecut: float
@@ -48,6 +49,8 @@ class PW:
         else:
             self.cell_cv = cell / units.Bohr
 
+        Mode.__init__(self, force_complex_dtype)
+
     def __call__(self, diagksl, orthoksl, initksl, gd, *args, **kwargs):
         if self.cell_cv is None:
             ecut = self.ecut
@@ -61,11 +64,12 @@ class PW:
                               **kwargs)
         return wfs
 
-    def __eq__(self, other):
-        return (isinstance(other, PW) and self.ecut == other.ecut)
-
-    def __ne__(self, other):
-        return not self == other
+    def todict(self):
+        dct = Mode.todict(self)
+        dct['ecut'] = self.ecut * units.Hartree
+        if self.cell_cv is not None:
+            dct['cell'] = self.cell_cv * units.Bohr
+        return dct
 
 
 class PWDescriptor:
@@ -82,7 +86,7 @@ class PWDescriptor:
 
         N_c = gd.N_c
         self.comm = gd.comm
-        
+
         ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
 
         if ecut is None:
@@ -92,10 +96,10 @@ class PWDescriptor:
                 raise ValueError(
                     'You have a weird unit cell!  '
                     'Try to use the maximally reduced Niggli cell.  '
-                    'See the ase.utils.geometry.niggli_reduce() function.')
+                    'See the ase.build.niggli_reduce() function.')
 
         self.ecut = ecut
-                
+
         if dtype is None:
             if kd is None or kd.gamma:
                 dtype = float
@@ -437,11 +441,11 @@ def count_reciprocal_vectors(ecut, gd, q_c):
     B_cv = 2.0 * pi * gd.icell_cv
     i_Qc.shape = (-1, 3)
     Gpq_Qv = np.dot(i_Qc, B_cv) + np.dot(q_c, B_cv)
-    
+
     G2_Q = (Gpq_Qv**2).sum(axis=1)
     return (G2_Q <= 2 * ecut).sum()
 
-            
+
 class Preconditioner:
     """Preconditioner for KS equation.
 
@@ -523,20 +527,20 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         FDPWWaveFunctions.set_setups(self, setups)
 
-    def summary(self, fd):
-        fd.write('Wave functions: Plane wave expansion\n')
-        fd.write('      Cutoff energy: %.3f eV\n' %
-                 (self.pd.ecut * units.Hartree))
+    def __str__(self):
+        s = 'Wave functions: Plane wave expansion\n'
+        s += '  Cutoff energy: %.3f eV\n' % (self.pd.ecut * units.Hartree)
         if self.dtype == float:
-            fd.write('      Number of coefficients: %d (reduced to %d)\n' %
-                     (self.pd.ngmax * 2 - 1, self.pd.ngmax))
+            s += ('  Number of coefficients: %d (reduced to %d)\n' %
+                  (self.pd.ngmax * 2 - 1, self.pd.ngmax))
         else:
-            fd.write('      Number of coefficients (min, max): %d, %d\n' %
-                     (self.pd.ngmin, self.pd.ngmax))
+            s += ('  Number of coefficients (min, max): %d, %d\n' %
+                  (self.pd.ngmin, self.pd.ngmax))
         if fftw.FFTPlan is fftw.NumpyFFTPlan:
-            fd.write("      Using Numpy's FFT\n")
+            s += "  Using Numpy's FFT\n"
         else:
-            fd.write('      Using FFTW library\n')
+            s += '  Using FFTW library\n'
+        return s + FDPWWaveFunctions.__str__(self)
 
     def make_preconditioner(self, block=1):
         return Preconditioner(self.pd.G2_qG, self.pd)
@@ -610,32 +614,33 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return psit_G
 
     def write(self, writer, write_wave_functions=False):
-        writer['Mode'] = 'pw'
-        writer['PlaneWaveCutoff'] = self.ecut
+        FDPWWaveFunctions.write(self, writer)
 
         if not write_wave_functions:
             return
 
-        writer.dimension('nplanewaves', self.pd.ngmax)
-        writer.add('PseudoWaveFunctions',
-                   ('nspins', 'nibzkpts', 'nbands', 'nplanewaves'),
-                   dtype=complex)
+        writer.add_array(
+            'coefficients',
+            (self.nspins, self.kd.nibzkpts, self.bd.nbands, self.pd.ngmax),
+            complex)
 
+        c = units.Bohr**-1.5
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 for n in range(self.bd.nbands):
                     psit_G = self.get_wave_function_array(n, k, s,
                                                           realspace=False,
                                                           cut=False)
-                    writer.fill(psit_G, s, k, n)
+                    writer.fill(psit_G * c)
 
-        writer.add('PlaneWaveIndices', ('nibzkpts', 'nplanewaves'),
-                   dtype=np.int32)
+        writer.add_array('indices', (self.kd.nibzkpts, self.pd.ngmax),
+                         np.int32)
 
         if self.bd.comm.rank > 0:
             return
 
         Q_G = np.empty(self.pd.ngmax, np.int32)
+        kk = 0
         for r in range(self.kd.comm.size):
             for q, ks in enumerate(self.kd.get_indices(r)):
                 s, k = divmod(ks, self.kd.nibzkpts)
@@ -650,33 +655,47 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     if r > 0:
                         self.kd.comm.receive(Q_G, r)
                     Q_G[ng:] = -1
-                    writer.fill(Q_G, k)
+                    writer.fill(Q_G)
+                    assert k == kk
+                    kk += 1
 
-    def read(self, reader, hdf5):
-        assert reader['version'] >= 3
+    def read(self, reader):
+        FDPWWaveFunctions.read(self, reader)
+
+        if 'coefficients' not in reader.wave_functions:
+            return
+
+        Q_kG = reader.wave_functions.indices
         for kpt in self.kpt_u:
             if kpt.s == 0:
-                Q_G = reader.get('PlaneWaveIndices', kpt.k)
+                Q_G = Q_kG[kpt.k]
                 ng = self.ng_k[kpt.k]
                 assert (Q_G[:ng] == self.pd.Q_qG[kpt.q]).all()
                 assert (Q_G[ng:] == -1).all()
 
-        assert not hdf5
-        if self.bd.comm.size == 1:
-            for kpt in self.kpt_u:
-                ng = self.ng_k[kpt.k]
-                kpt.psit_nG = reader.get_reference('PseudoWaveFunctions',
-                                                   (kpt.s, kpt.k),
-                                                   length=ng)
+        c = reader.bohr**1.5
+        if reader.version < 0:
+            c = 1  # old gpw file
+        for kpt in self.kpt_u:
+            ng = self.ng_k[kpt.k]
+            kpt.psit_nG = reader.wave_functions.proxy('coefficients',
+                                                      kpt.s, kpt.k)
+            kpt.psit_nG.scale = c
+            kpt.psit_nG.length_of_last_dimension = ng
+
+        if self.world.size == 1:
             return
 
+        # Read to memory:
         for kpt in self.kpt_u:
+            psit_nG = kpt.psit_nG
             kpt.psit_nG = self.empty(self.bd.mynbands, q=kpt.q)
             ng = self.ng_k[kpt.k]
             for myn, psit_G in enumerate(kpt.psit_nG):
                 n = self.bd.global_index(myn)
-                psit_G[:] = reader.get('PseudoWaveFunctions',
-                                       kpt.s, kpt.k, n)[..., :ng]
+                # XXX number of bands could have been rounded up!
+                if n < len(psit_nG):
+                    psit_G[:] = psit_nG[n]
 
     def hs(self, ham, q=-1, s=0, md=None):
         npw = len(self.pd.Q_qG[q])
@@ -723,7 +742,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return H_GG, S_GG
 
     @timer('Full diag')
-    def diagonalize_full_hamiltonian(self, ham, atoms, occupations, txt,
+    def diagonalize_full_hamiltonian(self, ham, atoms, occupations, log,
                                      nbands=None, scalapack=None,
                                      expert=False):
 
@@ -733,7 +752,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                              'Please supply GPAW(..., dtype=complex, ...) '
                              'as an argument to the calculator to enforce '
                              'complex wavefunctions.')
-        
+
         if nbands is None:
             nbands = self.pd.ngmin // self.bd.comm.size * self.bd.comm.size
         else:
@@ -746,12 +765,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
 
-        p = functools.partial(print, file=txt)
-        p('Diagonalizing full Hamiltonian ({0} lowest bands)'.format(nbands))
-        p('Matrix size (min, max): {0}, {1}'.format(self.pd.ngmin,
-                                                    self.pd.ngmax))
+        log('Diagonalizing full Hamiltonian ({0} lowest bands)'.format(nbands))
+        log('Matrix size (min, max): {0}, {1}'.format(self.pd.ngmin,
+                                                      self.pd.ngmax))
         mem = 3 * self.pd.ngmax**2 * 16 / bd.comm.size / 1024**2
-        p('Approximate memory usage per core: {0:.3f} MB'.format(mem))
+        log('Approximate memory usage per core: {0:.3f} MB'.format(mem))
         if bd.comm.size > 1:
             if isinstance(scalapack, (list, tuple)):
                 nprow, npcol, b = scalapack
@@ -761,8 +779,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     nprow -= 1
                 npcol = bd.comm.size // nprow
                 b = 64
-            p('ScaLapack grid: {0}x{1},'.format(nprow, npcol),
-              'block-size:', b)
+            log('ScaLapack grid: {0}x{1},'.format(nprow, npcol),
+                'block-size:', b)
             bg = BlacsGrid(bd.comm, bd.comm.size, 1)
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
             scalapack = True
@@ -770,15 +788,15 @@ class PWWaveFunctions(FDPWWaveFunctions):
             nprow = npcol = 1
             scalapack = False
 
-        self.pt.set_positions(atoms.get_scaled_positions())
+        self.set_positions(atoms.get_scaled_positions())
         self.kpt_u[0].P_ani = None
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
 
         myslice = bd.get_slice()
 
-        pb = ProgressBar(txt)
+        pb = ProgressBar(log.fd)
         nkpt = len(self.kpt_u)
-        
+
         for u, kpt in enumerate(self.kpt_u):
             pb.update(u / nkpt)
             npw = len(self.pd.Q_qG[kpt.q])
@@ -824,8 +842,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt.f_n = None
 
         pb.finish()
-        
+
         occupations.calculate(self)
+
+        return nbands
 
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
         N_c = self.gd.N_c
@@ -906,7 +926,7 @@ def ft(spline):
 
 
 class PWLFC(BaseLFC):
-    def __init__(self, spline_aj, pd, blocksize=5000):
+    def __init__(self, spline_aj, pd, blocksize=5000, comm=None):
         """Reciprocal-space plane-wave localized function collection.
 
         spline_aj: list of list of spline objects
@@ -915,7 +935,10 @@ class PWLFC(BaseLFC):
             Plane-wave descriptor object.
         blocksize: int
             Block-size to use when looping over G-vectors.  Use None for
-            doing all G-vectors in one big block."""
+            doing all G-vectors in one big block.
+        comm: communicator
+            Communicator for operations that support parallelization
+            over planewaves (only integrate so far)."""
 
         self.pd = pd
         self.spline_aj = spline_aj
@@ -923,7 +946,7 @@ class PWLFC(BaseLFC):
         self.dtype = pd.dtype
 
         self.initialized = False
-        
+
         # These will be filled in later:
         self.lf_aj = []
         self.Y_qLG = []
@@ -941,10 +964,14 @@ class PWLFC(BaseLFC):
         self.pos_av = None
         self.nI = None
 
+        if comm is None:
+            comm = pd.gd.comm
+        self.comm = comm
+
     def initialize(self):
         if self.initialized:
             return
-            
+
         cache = {}
         lmax = -1
 
@@ -972,7 +999,7 @@ class PWLFC(BaseLFC):
             for L in range((lmax + 1)**2):
                 Y_LG[L] = Y(L, *G_Gv.T)
             self.Y_qLG.append(Y_LG)
-            
+
         self.initialized = True
 
     def estimate_memory(self, mem):
@@ -1034,13 +1061,16 @@ class PWLFC(BaseLFC):
                            self.Y_qLG[q][l**2:(l + 1)**2, G1:G2])
         return f_IG
 
-    def block(self, q=-1):
+    def block(self, q=-1, serial=True):
         nG = self.Y_qLG[q].shape[1]
+        iblock = 0
         if self.blocksize:
             G1 = 0
             while G1 < nG:
                 G2 = min(G1 + self.blocksize, nG)
-                yield G1, G2
+                if serial or iblock % self.comm.size == self.comm.rank:
+                    yield G1, G2
+                iblock += 1
                 G1 = G2
         else:
             yield 0, nG
@@ -1085,8 +1115,11 @@ class PWLFC(BaseLFC):
         if c_axi is None:
             c_axi = self.dict(a_xG.shape[:-1])
 
-        x = 0.0
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block(q, serial=False):
+            if G1 > 0:
+                x = 1.0
+            else:
+                x = 0.0
             f_IG = self.expand(q, G1, G2)
             if self.pd.dtype == float:
                 if G1 == 0:
@@ -1096,7 +1129,7 @@ class PWLFC(BaseLFC):
                 G2 *= 2
 
             gemm(alpha, f_IG, a_xG[:, G1:G2], x, b_xI, 'c')
-            x = 1.0
+        self.comm.sum(b_xI)
 
         for a, I1, I2 in self.indices:
             c_axi[a][:] = self.eikR_qa[q][a] * c_xI[..., I1:I2]
@@ -1226,16 +1259,16 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
 class ReciprocalSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, charge, redistributor,
-                 collinear=True):
+                 background_charge=None):
         assert gd.comm.size == 1
         serial_finegd = finegd.new_descriptor(comm=gd.comm)
 
         from gpaw.utilities.grid import GridRedistributor
-
         noredist = GridRedistributor(redistributor.comm,
                                      redistributor.broadcast_comm, gd, gd)
         Density.__init__(self, gd, serial_finegd, nspins, charge,
-                         redistributor=noredist, collinear=collinear)
+                         redistributor=noredist,
+                         background_charge=background_charge)
 
         self.pd2 = PWDescriptor(None, gd)
         self.pd3 = PWDescriptor(None, serial_finegd)
@@ -1257,7 +1290,8 @@ class ReciprocalSpaceDensity(Density):
                 spline_aj.append([setup.nct])
         self.nct = PWLFC(spline_aj, self.pd2)
 
-        self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3)
+        self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3,
+                          blocksize=256, comm=self.xc_redistributor.comm)
 
     def set_positions(self, spos_ac, atom_partition):
         Density.set_positions(self, spos_ac, atom_partition)
@@ -1265,17 +1299,14 @@ class ReciprocalSpaceDensity(Density):
         self.nct.add(self.nct_q, 1.0 / self.nspins)
         self.nct_G = self.pd2.ifft(self.nct_q)
 
-        from gpaw.utilities.partition import AtomPartition
-        p = AtomPartition(self.gd.comm, np.zeros(len(spos_ac), dtype=int))
-
     def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
         if comp_charge is None:
             comp_charge = self.calculate_multipole_moments()
 
         if self.nt_sg is None:
-            self.nt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
-            self.nt_sQ = self.pd2.empty(self.nspins * self.ncomp**2)
+            self.nt_sg = self.finegd.empty(self.nspins)
+            self.nt_sQ = self.pd2.empty(self.nspins)
 
         for nt_G, nt_Q, nt_g in zip(self.nt_sG, self.nt_sQ, self.nt_sg):
             nt_g[:], nt_Q[:] = self.pd2.interpolate(nt_G, self.pd3)
@@ -1296,10 +1327,12 @@ class ReciprocalSpaceDensity(Density):
     distribute_and_interpolate = interpolate
 
     def calculate_pseudo_charge(self):
-        self.nt_Q = self.nt_sQ[:self.nspins].sum(axis=0)
+        self.nt_Q = self.nt_sQ.sum(axis=0)
         self.rhot_q = self.pd3.zeros()
         self.rhot_q[self.G3_G] = self.nt_Q * 8
         self.ghat.add(self.rhot_q, self.Q_aL)
+        self.background_charge.add_fourier_space_charge_to(self.pd3,
+                                                           self.rhot_q)
         self.rhot_q[0] = 0.0
 
     def get_pseudo_core_kinetic_energy_density_lfc(self):
@@ -1323,63 +1356,79 @@ class ReciprocalSpaceDensity(Density):
         return -np.dot(d_c, pd.gd.cell_cv) / pi * pd.gd.dv
 
 
+class ReciprocalSpacePoissonSolver:
+    def __init__(self, pd, realpbc_c):
+        self.pd = pd
+        self.realpbc_c = realpbc_c
+        self.G2_q = pd.G2_qG[0][1:]
+
+    def initialize(self):
+        pass
+
+    def get_stencil(self):
+        return '????'
+
+    def estimate_memory(self, mem):
+        pass
+
+    def todict(self):
+        return {}
+
+    def solve(self, vHt_q, dens):
+        vHt_q[:] = 4 * pi * dens.rhot_q
+        vHt_q[1:] /= self.G2_q
+
+
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
-                 world, kptband_comm, vext=None, collinear=True,
-                 redistributor=None):
+                 world, vext=None,
+                 psolver=None, redistributor=None, realpbc_c=None):
 
         assert gd.comm.size == 1
         assert finegd.comm.size == 1
         assert redistributor is not None  # XXX should not be like this
         Hamiltonian.__init__(self, gd, finegd, nspins, setups,
-                             timer, xc, world, kptband_comm, vext=vext,
-                             collinear=collinear, redistributor=redistributor)
+                             timer, xc, world, vext=vext,
+                             redistributor=redistributor)
 
         self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)
         self.pd2 = pd2
         self.pd3 = pd3
 
-        class PS:
-            def initialize(self):
-                pass
+        self.vHt_q = pd3.empty()
 
-            def get_stencil(self):
-                return '????'
-
-            def estimate_memory(self, mem):
-                pass
-
-        self.poisson = PS()
+        if psolver is None:
+            psolver = ReciprocalSpacePoissonSolver(pd3, realpbc_c)
+        elif isinstance(psolver, dict):
+            direction = psolver['dipolelayer']
+            assert len(psolver) == 1
+            from gpaw.dipole_correction import DipoleCorrection
+            psolver = DipoleCorrection(
+                ReciprocalSpacePoissonSolver(pd3, realpbc_c), direction)
+        self.poisson = psolver
         self.npoisson = 0
-
-    def summary(self, fd):
-        Hamiltonian.summary(self, fd)
-        fd.write('Interpolation: FFT\n')
-        fd.write('Poisson solver: FFT\n')
 
     def set_positions(self, spos_ac, atom_partition):
         Hamiltonian.set_positions(self, spos_ac, atom_partition)
         self.vbar_Q = self.pd2.zeros()
         self.vbar.add(self.vbar_Q)
 
-    def update_pseudo_potential(self, density):
-        self.ebar = self.pd2.integrate(self.vbar_Q, density.nt_sQ.sum(0))
+    def update_pseudo_potential(self, dens):
+        self.ebar = self.pd2.integrate(self.vbar_Q, dens.nt_sQ.sum(0))
 
-        self.timer.start('Poisson')
-        self.vHt_q = 4 * pi * density.rhot_q
-        self.vHt_q[1:] /= self.pd3.G2_qG[0][1:]
-        self.epot = 0.5 * self.pd3.integrate(self.vHt_q, density.rhot_q)
-        self.timer.stop('Poisson')
+        with self.timer('Poisson'):
+            self.poisson.solve(self.vHt_q, dens)
+            self.epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
 
-        self.vt_Q = self.vbar_Q + self.vHt_q[density.G3_G] / 8
+        self.vt_Q = self.vbar_Q + self.vHt_q[dens.G3_G] / 8
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
-        nt_dist_sg = density.xc_redistributor.distribute(density.nt_sg)
-        vxct_dist_sg = density.xc_redistributor.aux_gd.zeros(self.nspins)
-        self.exc = self.xc.calculate(density.xc_redistributor.aux_gd,
+        nt_dist_sg = dens.xc_redistributor.distribute(dens.nt_sg)
+        vxct_dist_sg = dens.xc_redistributor.aux_gd.zeros(self.nspins)
+        self.exc = self.xc.calculate(dens.xc_redistributor.aux_gd,
                                      nt_dist_sg, vxct_dist_sg)
-        vxct_sg = density.xc_redistributor.collect(vxct_dist_sg)
+        vxct_sg = dens.xc_redistributor.collect(vxct_dist_sg)
 
         for vt_G, vxct_g in zip(self.vt_sG, vxct_sg):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
@@ -1424,3 +1473,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         dens.ghat.derivative(self.vHt_q, ghat_aLv)
         dens.nct.derivative(self.vt_Q, nct_av)
         self.vbar.derivative(dens.nt_sQ.sum(0), vbar_av)
+
+    def get_electrostatic_potential(self, dens):
+        self.poisson.solve(self.vHt_q, dens)
+        return self.pd3.ifft(self.vHt_q)

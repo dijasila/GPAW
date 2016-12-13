@@ -161,7 +161,7 @@ The current trunk version can then be updated by::
 We have to modify the file :file:`customize.py` to
 :download:`customize_justus.py`
 
-.. literalinclude:: customize_bwuni.py
+.. literalinclude:: customize_justus.py
 
 To build GPAW use::
 

@@ -148,7 +148,7 @@ class GridDescriptor(Domain):
         if max(h_c) / min(h_c) > 1.3:
             raise ValueError('Very anisotropic grid spacings: %s' % h_c)
 
-    def __str__(self):
+    def __repr__(self):
         if self.orthogonal:
             cellstring = np.diag(self.cell_cv).tolist()
         else:
@@ -481,7 +481,7 @@ class GridDescriptor(Domain):
                 self.comm.broadcast(A_xg, 0)
                 return A_xg
             else:
-                return None
+                return np.nan
 
         # Put the subdomains from the slaves into the big array
         # for the whole domain:

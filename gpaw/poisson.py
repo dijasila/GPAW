@@ -1,15 +1,16 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-from math import pi
 import warnings
+from math import pi
 
 import numpy as np
 from numpy.fft import fftn, ifftn, fft2, ifft2
 
-from gpaw.transformers import Transformer
-from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw import PoissonConvergenceError
+from gpaw.dipole_correction import DipoleCorrection
+from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
+from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.ewald import madelung
@@ -18,7 +19,7 @@ from gpaw.utilities.tools import construct_reciprocal
 import _gpaw
 
 
-POISSON_GRID_WARNING="""Grid unsuitable for Poisson solver!
+POISSON_GRID_WARNING = """Grid unsuitable for Poisson solver!
 
 The Poisson solver does not have sufficient multigrid levels for good
 performance and will converge inefficiently if at all, or yield wrong
@@ -40,7 +41,24 @@ number of multigrid levels even if the total number of grid points
 is divisible by a high power of 2."""
 
 
-class PoissonSolver:
+def create_poisson_solver(name='fd', **kwargs):
+    if name == 'fft':
+        return FFTPoissonSolver()
+    if name == 'fdtd':
+        from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
+        return FDTDPoissonSolver(**kwargs)
+    elif name == 'fd':
+        return PoissonSolver(**kwargs)
+    1 / 0
+    
+
+def PoissonSolver(dipolelayer=None, **kwargs):
+    if dipolelayer is not None:
+        return DipoleCorrection(PoissonSolver(**kwargs), dipolelayer)
+    return FDPoissonSolver(**kwargs)
+    
+
+class FDPoissonSolver:
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
                  remove_moment=None, use_charge_center=False):
         self.relax = relax
@@ -63,6 +81,10 @@ class PoissonSolver:
 
         self.description = None
 
+    def todict(self):
+        return {'name': 'fd', 'nn': self.nn, 'relax': self.relax,
+                'eps': self.eps, 'remove_moment': self.remove_moment}
+        
     def get_stencil(self):
         return self.nn
 
@@ -306,31 +328,6 @@ class PoissonSolver:
 
         return niter
 
-    def iterate(self, step, level=0):
-        residual = self.residuals[level]
-        niter = 0
-        while True:
-            niter += 1
-            if level > 0 and niter == 1:
-                residual[:] = -self.rhos[level]
-            else:
-                self.operators[level].apply(self.phis[level], residual)
-                residual -= self.rhos[level]
-            error = self.gd.comm.sum(np.vdot(residual, residual))
-            if niter == 1 and level < self.levels:
-                self.restrictors[level].apply(residual, self.rhos[level + 1])
-                self.phis[level + 1][:] = 0.0
-                self.iterate(4.0 * step, level + 1)
-                self.interpolators[level].apply(self.phis[level + 1], residual)
-                self.phis[level] -= residual
-                continue
-            residual *= step
-            self.phis[level] -= residual
-            if niter == 2:
-                break
-
-        return error
-
     def iterate2(self, step, level=0):
         """Smooths the solution in every multigrid level"""
 
@@ -362,6 +359,10 @@ class PoissonSolver:
             residual -= self.rhos[level]
             error = self.gd.comm.sum(np.dot(residual.ravel(),
                                             residual.ravel())) * self.gd.dv
+            
+            # How about this instead:
+            # error = self.gd.comm.max(abs(residual).max())
+            
             return error
 
     def estimate_memory(self, mem):
@@ -402,47 +403,7 @@ class NoInteractionPoissonSolver:
         pass
 
 
-class FFTPoissonSolver(PoissonSolver):
-    """FFT Poisson solver for general unit cells."""
-
-    relax_method = 0
-    nn = 999
-
-    def __init__(self, eps=2e-10):
-        # This class inherits from PoissonSolver but it has almost none of
-        # its capabilities and doesn't even invoke its constructor!!
-        self.charged_periodic_correction = None
-        self.remove_moment = None
-        self.eps = eps
-
-    def get_description(self):
-        return 'FFT'
-
-    def set_grid_descriptor(self, gd):
-        assert gd.pbc_c.all()
-        self.gd = gd
-
-    def initialize(self):
-        if self.gd.comm.rank == 0:
-            self.k2_Q, self.N3 = construct_reciprocal(self.gd)
-
-    def solve_neutral(self, phi_g, rho_g, eps=None):
-        if self.gd.comm.size == 1:
-            phi_g[:] = ifftn(fftn(rho_g) * 4.0 * pi / self.k2_Q).real
-        else:
-            rho_g = self.gd.collect(rho_g)
-            if self.gd.comm.rank == 0:
-                globalphi_g = ifftn(fftn(rho_g) * 4.0 * pi / self.k2_Q).real
-            else:
-                globalphi_g = None
-            self.gd.distribute(globalphi_g, phi_g)
-        return 1
-
-    def estimate_memory(self, mem):
-        mem.subnode('(Varies)', 0.0)
-
-
-class ParallelFFTPoissonSolver(PoissonSolver):
+class FFTPoissonSolver(FDPoissonSolver):
     """FFT Poisson solver for general unit cells."""
     # XXX it is criminally outrageous that this inherits from PoissonSolver!
 
@@ -489,7 +450,7 @@ class ParallelFFTPoissonSolver(PoissonSolver):
         mem.subnode('k squared', self.transp_yz_1_x.gd2.bytecount())
 
 
-class FixedBoundaryPoissonSolver(PoissonSolver):
+class FixedBoundaryPoissonSolver(FDPoissonSolver):
     """Solve the Poisson equation with FFT in two directions,
     and with central differential method in the third direction."""
 

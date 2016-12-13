@@ -261,7 +261,7 @@ class PurePython2DMGGAKernel:
 
 def twodexchange(n, sigma, tau, pars):
     # parameters for 2 Legendre polynomials
-    parlen_i = pars[0]
+    parlen_i = int(pars[0])
     parlen_j = pars[2 + 2 * parlen_i]
     assert parlen_i == parlen_j
     pars_i = pars[1:2 + 2 * parlen_i]

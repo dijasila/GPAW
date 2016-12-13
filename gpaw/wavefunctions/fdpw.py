@@ -2,7 +2,6 @@ from __future__ import division
 import numpy as np
 
 from gpaw import extra_parameters
-from gpaw.io import FileReference
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.lfc import BasisFunctions
 from gpaw.overlap import Overlap
@@ -24,6 +23,19 @@ class FDPWWaveFunctions(WaveFunctions):
         self.set_orthonormalized(False)
 
         self.overlap = self.make_overlap()
+
+    def __str__(self):
+        if self.diagksl.buffer_size is not None:
+            s = ('  MatrixOperator buffer_size (KiB): %d\n' %
+                 self.diagksl.buffer_size)
+        else:
+            s = ('  MatrixOperator buffer_size: default value or \n' +
+                 ' %s see value of nblock in input file\n' % (28 * ' '))
+        diagonalizer_layout = self.diagksl.get_description()
+        s += 'Diagonalizer layout: ' + diagonalizer_layout
+        orthonormalizer_layout = self.orthoksl.get_description()
+        s += 'Orthonormalizer layout: ' + orthonormalizer_layout
+        return WaveFunctions.__str__(self) + s
 
     def set_setups(self, setups):
         WaveFunctions.set_setups(self, setups)
@@ -49,7 +61,7 @@ class FDPWWaveFunctions(WaveFunctions):
                                              self.kd, dtype=self.dtype,
                                              cut=True)
             basis_functions.set_positions(spos_ac)
-        elif isinstance(self.kpt_u[0].psit_nG, FileReference):
+        elif not isinstance(self.kpt_u[0].psit_nG, np.ndarray):
             self.initialize_wave_functions_from_restart_file()
 
         if self.kpt_u[0].psit_nG is not None:
@@ -116,7 +128,7 @@ class FDPWWaveFunctions(WaveFunctions):
         self.timer.stop('LCAO initialization')
 
     def initialize_wave_functions_from_restart_file(self):
-        if not isinstance(self.kpt_u[0].psit_nG, FileReference):
+        if isinstance(self.kpt_u[0].psit_nG, np.ndarray):
             return
 
         # Calculation started from a restart file.  Copy data

@@ -1,6 +1,7 @@
 import numpy as np
 from ase.units import Bohr
 from gpaw.grid_descriptor import GridDescriptor
+from gpaw.utilities.grid import grid2grid
 
 
 def extended_grid_descriptor(gd,
@@ -42,42 +43,16 @@ def extended_grid_descriptor(gd,
     return egd, cell_cv * Bohr, move_c * Bohr
 
 
-def extend_array(d_g, gd, d_e, egd):
-    big_d_e = egd.collect(d_e)
-    big_d_g = gd.collect(d_g)
-
-    N_cd = egd.extend_N_cd
-
-    if egd.comm.rank == 0:
-        assert gd.comm.rank == 0, \
-            'extended array master has to equal to the grid descriptor master'
-        N1_c = N_cd[:, 0]
-        N2_c = N1_c + gd.N_c - 1  # implicit zero
-        big_d_e[N1_c[0]:N2_c[0], N1_c[1]:N2_c[1], N1_c[2]:N2_c[2]] = big_d_g
-    egd.distribute(big_d_e, d_e)
+def extend_array(gd, ext_gd, a_g, aext_g):
+    assert gd.comm.compare(ext_gd.comm) in ['ident', 'congruent']
+    offset_c = ext_gd.extend_N_cd[:, 0]
+    grid2grid(gd.comm, gd, ext_gd, a_g, aext_g, offset1_c=offset_c)
 
 
-def deextend_array(d_g, gd, d_e, egd):
-    big_d_g = gd.collect(d_g)
-    big_d_e = egd.collect(d_e)
-
-    N_cd = egd.extend_N_cd
-
-    if egd.comm.rank == 0:
-        assert gd.comm.rank == 0, \
-            'extended array master has to equal to the grid descriptor master'
-        N1_c = N_cd[:, 0]
-        N2_c = N1_c + gd.N_c - 1  # implicit zero
-        big_d_g[:] = big_d_e[N1_c[0]:N2_c[0], N1_c[1]:N2_c[1], N1_c[2]:N2_c[2]]
-    elif gd.comm.rank == 0:
-        # Fill with nan to find out errors with different communicators
-        big_d_g[:] = np.nan
-        # TODO:
-        # If you have used for egd other communicator
-        # than gd.comm, you have to call appropriate
-        # broadcast to distribute d_g to all cpus.
-
-    gd.distribute(big_d_g, d_g)
+def deextend_array(gd, ext_gd, a_g, aext_g):
+    assert gd.comm.compare(ext_gd.comm) in ['ident', 'congruent']
+    offset_c = ext_gd.extend_N_cd[:, 0]
+    grid2grid(gd.comm, ext_gd, gd, aext_g, a_g, offset2_c=offset_c)
 
 
 def move_atoms(atoms, move_c):

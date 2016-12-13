@@ -1,6 +1,4 @@
-"""This module defines a linear response TDDFT-class.
-
-"""
+"""This module defines a linear response TDDFT-class."""
 from __future__ import print_function
 import numbers
 import sys
@@ -92,7 +90,7 @@ class LrTDDFT(ExcitationList):
                 raise NotImplementedError(err_txt)
             if self.xc == 'GS':
                 self.xc = calculator.hamiltonian.xc.name
-            if calculator.input_parameters.mode != 'lcao':
+            if calculator.parameters.mode != 'lcao':
                 calculator.converge_wave_functions()
             if calculator.density.nct_G is None:
                 spos_ac = calculator.initialize_positions()
@@ -116,8 +114,7 @@ class LrTDDFT(ExcitationList):
             'filename': None,
             'finegrid': 2,
             'force_ApmB': False,  # for tests
-            'eh_comm': None  # parallelization over eh-pairs
-        }
+            'eh_comm': None}  # parallelization over eh-pairs
 
         changed = False
         for key, value in defaults.items():
@@ -329,7 +326,13 @@ class LrTDDFT(ExcitationList):
         'fh' is a filehandle. This can be used to write into already
         opened files.
         """
-        if mpi.rank == 0:
+
+        if self.calculator is None:
+            rank = mpi.world.rank
+        else:
+            rank = self.calculator.wfs.world.rank
+
+        if rank == 0:
             if fh is None:
                 if filename.endswith('.gz'):
                     try:
@@ -507,7 +510,7 @@ class LrTDDFTExcitation(Excitation):
         s = ('E=%.3f' % (self.energy * Hartree) + ' eV, ' +
              'f=%.5g' % osc[0] + ', (%.5g,%.5g,%.5g) ' %
              (osc[1], osc[2], osc[3]) + '\n')
-           #'R=%.5g' % self.get_rotatory_strength() + ' cgs\n')
+        # 'R=%.5g' % self.get_rotatory_strength() + ' cgs\n')
 
         def sqr(x):
             return x * x

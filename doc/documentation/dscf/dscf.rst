@@ -54,7 +54,7 @@ pseudowavefunction.
 
 Exciting the LUMO in CO::
 
-    from ase.structure import molecule
+    from ase.build import molecule
     from gpaw import GPAW
     from gpaw import dscf
 

@@ -26,7 +26,7 @@ def get(path, names, target=None, source=None):
     """Get files from web-server.
 
     Returns True if something new was fetched."""
-    
+
     if target is None:
         target = path
     if source is None:
@@ -40,7 +40,7 @@ def get(path, names, target=None, source=None):
             print(dst, end=' ')
             try:
                 data = urlopen(src).read()
-                sink = open(dst, 'w')
+                sink = open(dst, 'wb')
                 sink.write(data)
                 sink.close()
                 print('OK')
@@ -77,8 +77,9 @@ get('bgp', ['bgp_mapping_intranode.png',
             'bgp_mapping1.png',
             'bgp_mapping2.png'], 'platforms/BGP')
 
-# workshop2013 photo
+# workshop 2013 and 2016 photos:
 get('workshop13', ['workshop13_01_33-1.jpg'], 'static')
+get('workshop16', ['gpaw2016-photo.jpg'], 'static')
 
 # files from agtspath
 
@@ -140,6 +141,9 @@ get('tutorials/wannier90', ['GaAs.png', 'Cu.png', 'Fe.png'])
 
 get('agts-files', ['datasets.json'], 'setups', source=agtspath)
 
+# Carlsberg foundation figure:
+get('.', ['carlsberg.png'])
+
 
 def setup(app):
     # Get png files and other stuff from the AGTS scripts that run
@@ -152,7 +156,10 @@ def setup(app):
         if not job.creates:
             continue
         for name in job.creates:
-            assert name not in names, "Name '%s' clashes!" % name
+            if name in names:
+                raise RuntimeError(
+                    'The name {0!r} is used in more than one place!'
+                    .format(name))
             names.add(name)
             # the files are saved by the weekly tests under agtspath/agts-files
             # now we are copying them back to their original run directories

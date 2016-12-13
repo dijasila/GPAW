@@ -24,9 +24,6 @@ class MatrixOperator:
     standard definitions.
     """
 
-    # This class has 100% parallel unittest coverage by parallel/ut_hsops.py!
-    # If you add to or change any aspect of the code, please update the test.
-
     nblocks = 1
     async = True
     hermitian = True
@@ -46,9 +43,9 @@ class MatrixOperator:
           g = np.ceil(G/float(J))  The number of grid points in each block.
           X and Q                  The workspaces to be calculated.
 
-        Note that different values of J can lead to the same values of M 
-        and G. Q is relatively simple to calculate, symmetric case needs 
-        *roughly* half as much storage space as the non-symmetric case. 
+        Note that different values of J can lead to the same values of M
+        and G. Q is relatively simple to calculate, symmetric case needs
+        *roughly* half as much storage space as the non-symmetric case.
         X is much more difficult. Read below.
 
         X is the band index of the workspace array. It is allocated in units
@@ -70,7 +67,7 @@ class MatrixOperator:
 
           Simplest case is G % J = M % J = 0: X = M.
           
-          If g * N > M * G, then we need to increase the buffer size by one 
+          If g * N > M * G, then we need to increase the buffer size by one
           wavefunction unit greater than the simple case, thus X = M + 1.
 
         """
@@ -88,7 +85,6 @@ class MatrixOperator:
             self.hermitian = hermitian
 
         # default for work spaces
-        self.A_qnn = None
         self.A_nn = None
         self.work1_xG = None
         self.work2_xG = None
@@ -97,11 +93,11 @@ class MatrixOperator:
         ngroups = self.bd.comm.size
         G = self.gd.n_c.prod()
 
-        # If buffer_size keyword exist, use it to calculate closest 
+        # If buffer_size keyword exist, use it to calculate closest
         # corresponding value of nblocks. An *attempt* is made
-        # such that actual buffer size used does not exceed the 
+        # such that actual buffer size used does not exceed the
         # value specified by buffer_size.
-        # Maximum allowable buffer_size corresponds to nblock = 1 
+        # Maximum allowable buffer_size corresponds to nblock = 1
         # which is all the wavefunctions.
         # Give error if the buffer_size is so small that it cannot
         # contain a single wavefunction
@@ -127,18 +123,11 @@ class MatrixOperator:
                 assert self.X * G >= g * mynbands
             else:
                 self.X = M
-            if ngroups > 1: 
-                if self.hermitian:
-                    self.Q = ngroups // 2 + 1
-                else:
-                    self.Q = ngroups
 
     def allocate_arrays(self):
         ngroups = self.bd.comm.size
         mynbands = self.bd.mynbands
         dtype = self.dtype
-        if ngroups > 1:
-            self.A_qnn = np.zeros((self.Q, mynbands, mynbands), dtype)
         self.A_nn = self.bmd.zeros(dtype=dtype)
 
         if ngroups == 1 and self.nblocks == 1:
@@ -149,9 +138,9 @@ class MatrixOperator:
 
     def estimate_memory(self, mem, dtype):
         ngroups = self.bd.comm.size
-        count = self.Q * self.bd.mynbands**2
+        count = ngroups * self.bd.mynbands**2
 
-        # Code semipasted from allocate_work_arrays        
+        # Code semipasted from allocate_work_arrays
         if ngroups > 1:
             mem.subnode('A_qnn', count * mem.itemsize[dtype])
 
@@ -259,16 +248,17 @@ class MatrixOperator:
 
         return sbuf_mG, rbuf_mG, sbuf_nI, rbuf_nI
 
-    def calculate_matrix_elements(self, psit_nG, P_ani, A, dA):
+    def calculate_matrix_elements(self, psit1_nG, P1_ani, A, dA,
+                                  psit2_nG=None, P2_ani=None):
         """Calculate matrix elements for A-operator.
 
         Results will be put in the *A_nn* array::
 
-                                  ___
-                    ~   ^  ~     \     ~   ~a    a   ~a  ~
-           A    = <psi |A|psi > + )  <psi |p > dA   <p |psi >
-            nn'       n      n'  /___    n  i    ii'  i'   n'
-                                  aii'
+                                    ___
+                    ~ 2  ^  ~ 1     \     ~   ~a    a   ~a  ~
+           A    = <psi  |A|psi  > +  )  <psi |p > dA   <p |psi >
+            nn'       n      n'     /___    n  i    ii'  i'   n'
+                                     aii'
 
         Fills in the lower part of *A_nn*, but only on domain and band masters.
 
@@ -297,6 +287,15 @@ class MatrixOperator:
         N = self.bd.mynbands
         M = int(np.ceil(N / float(J)))
 
+        if psit2_nG is None:
+            psit2_nG = psit1_nG
+            hermitian = self.hermitian
+        else:
+            hermitian = False
+        
+        if P2_ani is None:
+            P2_ani = P1_ani
+
         if self.A_nn is None:
             self.allocate_arrays()
 
@@ -304,34 +303,39 @@ class MatrixOperator:
 
         if B == 1 and J == 1:
             # Simple case:
-            Apsit_nG = A(psit_nG)
-            self.gd.integrate(psit_nG, Apsit_nG, hermitian=self.hermitian,
+            Apsit_nG = A(psit2_nG)
+            self.gd.integrate(psit1_nG, Apsit_nG, hermitian=hermitian,
                               _transposed_result=A_NN)
-            for a, P_ni in P_ani.items():
-                gemm(1.0, P_ni, dA(a, P_ni), 1.0, A_NN, 'c')
+            for a, P1_ni in P1_ani.items():
+                P2_ni = P2_ani[a]
+                gemm(1.0, P1_ni, dA(a, P2_ni), 1.0, A_NN, 'c')
             domain_comm.sum(A_NN, 0)
             return self.bmd.redistribute_output(A_NN)
         
         # Now it gets nasty! We parallelize over B groups of bands and
         # each band group is blocked in J smaller slices (less memory).
-        Q = self.Q
+
+        if hermitian:
+            Q = B // 2 + 1
+        else:
+            Q = B
         
         # Buffer for storage of blocks of calculated matrix elements.
         if B == 1:
             A_qnn = A_NN.reshape((1, N, N))
         else:
-            A_qnn = self.A_qnn
+            A_qnn = np.zeros((Q, N, N), self.dtype)
 
         # Buffers for send/receive of operated-on versions of P_ani's.
         sbuf_nI = rbuf_nI = None
-        if P_ani:
-            sbuf_nI = np.hstack([dA(a, P_ni) for a, P_ni in P_ani.items()])
+        if P2_ani:
+            sbuf_nI = np.hstack([dA(a, P_ni) for a, P_ni in P2_ani.items()])
             sbuf_nI = np.ascontiguousarray(sbuf_nI)
             if B > 1:
                 rbuf_nI = np.empty_like(sbuf_nI)
 
-        work1_xG = reshape(self.work1_xG, (self.X,) + psit_nG.shape[1:])
-        work2_xG = reshape(self.work2_xG, (self.X,) + psit_nG.shape[1:])
+        work1_xG = reshape(self.work1_xG, (self.X,) + psit1_nG.shape[1:])
+        work2_xG = reshape(self.work2_xG, (self.X,) + psit1_nG.shape[1:])
 
         # Because of the amount of communication involved, we need to
         # be syncronized up to this point but only on the 1D band_comm
@@ -347,11 +351,11 @@ class MatrixOperator:
             if n2 > N:
                 n2 = N
                 M = n2 - n1
-            psit_mG = psit_nG[n1:n2]
-            temp_mG = A(psit_mG) 
+            psit_mG = psit2_nG[n1:n2]
+            temp_mG = A(psit_mG)
             sbuf_mG = temp_mG[:M]  # necessary only for last slice
             rbuf_mG = work2_xG[:M]
-            cycle_P_ani = (j == J - 1 and P_ani)
+            cycle_P_ani = (j == J - 1 and P1_ani)
 
             for q in range(Q):
                 A_nn = A_qnn[q]
@@ -366,23 +370,23 @@ class MatrixOperator:
 
                 # Calculate pseudo-braket contributions for the current slice
                 # of bands in the current mynbands x mynbands matrix block.
-                # The special case may no longer be valid when. Better to be 
-                # conservative, than to risk it. Moreover, this special case 
-                # seems is an accident waiting to happen. Always doing the 
+                # The special case may no longer be valid when. Better to be
+                # conservative, than to risk it. Moreover, this special case
+                # seems is an accident waiting to happen. Always doing the
                 # more general case is safer.
                 # if q == 0 and self.hermitian and not self.bd.strided:
                 #    # Special case, we only need the lower part:
                 #     self._pseudo_braket(psit_nG[:n2], sbuf_mG, A_mn[:, :n2])
                 # else:
-                self.gd.integrate(psit_nG, sbuf_mG, hermitian=False,
+                self.gd.integrate(psit1_nG, sbuf_mG, hermitian=False,
                                   _transposed_result=A_mn)
 
                 # If we're at the last slice, add contributions from P_ani's.
                 if cycle_P_ani:
                     I1 = 0
-                    for P_ni in P_ani.values():
-                        I2 = I1 + P_ni.shape[1]
-                        gemm(1.0, P_ni, sbuf_nI[:, I1:I2],
+                    for P1_ni in P1_ani.values():
+                        I2 = I1 + P1_ni.shape[1]
+                        gemm(1.0, P1_ni, sbuf_nI[:, I1:I2],
                              1.0, A_nn, 'c')
                         I1 = I2
 
@@ -403,10 +407,10 @@ class MatrixOperator:
             return self.bmd.redistribute_output(A_NN)
 
         if domain_comm.rank == 0:
-            self.bmd.assemble_blocks(A_qnn, A_NN, self.hermitian)
+            self.bmd.assemble_blocks(A_qnn, A_NN, hermitian)
 
         # Because of the amount of communication involved, we need to
-        # be syncronized up to this point.           
+        # be syncronized up to this point.
         block_comm.barrier()
         return self.bmd.redistribute_output(A_NN)
         

@@ -1,7 +1,5 @@
-import numpy as np
 from ase import Atoms
 from gpaw import GPAW, setup_paths
-from gpaw.setup_data import SetupData
 from gpaw.basis_data import get_basis_name, parse_basis_name
 
 # This test looks for differently named setups and basis sets to ascertain
@@ -11,6 +9,7 @@ del setup_paths[:]
 
 system = Atoms('Na')
 system.center(vacuum=3.0)
+
 
 def check(setups, basis, refname):
     calc = GPAW(setups=setups, basis=basis)

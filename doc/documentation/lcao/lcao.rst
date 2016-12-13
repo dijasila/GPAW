@@ -139,13 +139,13 @@ and d-type valence states, get a p-type polarization function and thus
 a total of 15 basis functions.
 
 To plot already generated basis functions, use the
-:command:`analyse-basis` command like::
+:command:`gpaw-analyse-basis` command like::
 
-  $ analyse-basis -f H.dzp.basis O.dzp.basis
+  $ gpaw-analyse-basis -f H.dzp.basis O.dzp.basis
 
 This will plot the basis functions in the specified files.  If the ``-f`` option is not included, the script will look for the
 first matching file in the GPAW setups paths, rather than the precise
-specified files.  Run ``analyse-basis --help`` for more
+specified files.  Run ``gpaw-analyse-basis --help`` for more
 options.
 
 
@@ -254,9 +254,9 @@ state, and using a non-standard size of the augmentation sphere.
 Miscellaneous remarks
 ---------------------
 
-In FD mode, a single LCAO iteration is used to initialize the wave
+In FD or PW mode, a single LCAO iteration is used to initialize the wave
 functions and density.  Specifying a basis to the calculator in FD
-mode can be used to increase the quality of the initial guess, but
+or PW mode can be used to increase the quality of the initial guess, but
 does not in any other way affect the subsequent iterations::
 
   >>> calc = GPAW(mode='fd', basis='dzp', ...)
