@@ -449,7 +449,7 @@
 2016-04-28 10.1063/1.4947225 Pyridine adsorption and diffusion on Pt(111) investigated with density functional theory
 2016-05-17 10.1038/srep25988 Prospect of quantum anomalous Hall and quantum spin Hall effect in doped kagome lattice Mott insulators
 2016-05-21 10.1063/1.4950828 An approach to develop chemical intuition for atomistic electron transport calculations using basis set rotations
-2016-05-28 10.1063/1.4951686 Ab initio electronic structure of quasi-two-dimensional materials: A "native" Gaussian-plane wave approach
+2016-05-28 10.1063/1.4951686 Ab initio electronic structure of quasi-two-dimensional materials: A 'native' Gaussian-plane wave approach
 2016-06-02 10.1021/acs.jpclett.6b00742 Self-Interaction Corrected Functional Calculations of a Dipole-Bound Molecular Anion
 2016-06-02 10.1103/PhysRevB.93.241401 Effective gating and tunable magnetic proximity effects in two-dimensional heterostructures
 2016-06-30 10.1103/PhysRevB.93.235162 mBEEF-vdW: Robust fitting of error estimation density functionals
