@@ -17,7 +17,7 @@
 2013-10-23 10.1103/PhysRevB.88.155128 Plasmons in metallic monolayer and bilayer transition metal dichalcogenides
 2013-12-15 10.1016/j.cpc.2013.07.014 Graphics Processing Unit acceleration of the Random Phase Approximation in the projector augmented wave method
 2013-12-26 10.1103/PhysRevB.88.245309 How dielectric screening in two-dimensional crystals affects the convergence of excited-state calculations: Monolayer MoS2
-2013-12-27 10.1103/PhysRevB.88.245204 Calculated formation and reaction energies of 3d transition metal oxides using a hierarchy of exchange-correlation functionals
+2013-12-27 10.1103/PhysRevB.88.245204 Calculated formation and reaction energies of 3d transition metal oxides using a hierachy of exchange-correlation functionals
 2014-04-28 10.1063/1.4871875 Static correlation beyond the random phase approximation: Dissociating H-2 with the Bethe-Salpeter equation and time-dependent GW
 2014-05-15 10.1007/s00339-013-8034-3 Atomistic approach for simulating plasmons in nanostructures
 2014-05-21 10.1103/PhysRevLett.112.203001 Accurate Ground-State Energies of Solids and Molecules from Time-Dependent Density-Functional Theory
@@ -36,3 +36,16 @@
 2015-05-15 10.1016/j.progsurf.2014.12.002 The influence of electron confinement, quantum size effects, and film morphology on the dispersion and the damping of plasmonic modes in Ag and Au thin films
 2015-07-01 10.1016/j.nimb.2014.11.080 Computation of electron energy loss spectra by an iterative method
 2015-07-15 10.1021/acs.nanolett.5b01251 Dielectric Genome of van der Waals Heterostructures
+2015-09-14 10.1063/1.4919236 Adiabatic-connection fluctuation-dissipation DFT for the structural properties of solids-The renormalized ALDA and electron gas kernels
+2015-09-21 10.1103/PhysRevB.92.115140 Improved description of metal oxide stability: Beyond the random phase approximation with renormalized kernels
+2016-01-19 10.1016/j.ssc.2015.11.017 Strain engineering of electronic properties of transition metal dichalcogenide monolayers
+2016-01-25 10.1103/PhysRevB.93.035133 Hubbard-U corrected Hamiltonians for non-self-consistent random-phase approximation total-energy calculations: A study of ZnS, TiO2, and NiO
+2016-01-28 10.1021/acs.jpcc.5b10025 Photoinduced Absorption within Single-Walled Carbon Nanotube Systems
+2016-02-02 10.1103/PhysRevLett.116.056401 Simple Screened Hydrogen Model of Excitons in Two-Dimensional Materials
+2016-02-15 10.1007/s11082-015-0370-4 A model for terahertz plasmons in graphene
+2016-03-15 10.1016/j.commatsci.2015.12.012 Plasmonic and dielectric properties of ideal graphene
+2016-07-12 10.1103/PhysRevB.94.035128 Limitations of effective medium theory in multilayer graphite/hBN heterostructures
+2016-07-25 10.1088/1367-2630/18/7/073043 Exciton ionization in multilayer transition-metal dichalcogenides
+2016-09-28 10.1039/c6cp05188j Strong 1D localization and highly anisotropic electron-hole masses in heavy-halogen functionalized graphenes
+2016-09-29 10.1103/PhysRevB.94.125444 Band-gap control in phosphorene/BN structures from first-principles calculations
+2016-10-06 10.1103/PhysRevB.94.155406 Efficient many-body calculations for two-dimensional materials using exact limits for the screened potential: Band gaps of MoS2, h-BN, and phosphorene
