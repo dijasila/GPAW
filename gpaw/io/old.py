@@ -174,6 +174,21 @@ def wrap_old_gpw_reader(filename):
                                               'e_external', 'e_kinetic',
                                               'e_xc', 'e_zero']))
 
+    if r.has_array('GLLBPseudoResponsePotential'):
+        data['hamiltonian.']['xc.'] = {
+            'gllb_pseudo_response_potential':
+            r.get('GLLBPseudoResponsePotential') * Ha,
+            'gllb_dxc_pseudo_response_potential':
+            r.get('GLLBDxcPseudoResponsePotential') * Ha / Bohr,
+            'gllb_atomic_density_matrices':
+            r.get('GLLBAtomicDensityMatrices'),
+            'gllb_atomic_response_matrices':
+            r.get('GLLBAtomicResponseMatrices'),
+            'gllb_dxc_atomic_density_matrices':
+            r.get('GLLBDxcAtomicDensityMatrices'),
+            'gllb_dxc_atomic_response_matrices':
+            r.get('GLLBDxcAtomicResponseMatrices')}
+
     special = [('eigenvalues', 'Eigenvalues'),
                ('occupations', 'OccupationNumbers'),
                ('projections', 'Projections')]
