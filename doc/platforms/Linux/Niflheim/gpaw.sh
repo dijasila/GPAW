@@ -1,3 +1,5 @@
+if [ -f /etc/bashrc ]; then
+    . /etc/bashrc
 if [ -f /home/opt/modulefiles/modulefiles_el6.sh ]; then
     source /home/opt/modulefiles/modulefiles_el6.sh
 fi
