@@ -2,12 +2,12 @@
 
 """Van der Waals density functional.
 
-This module implements the Dion-Rydberg-Schröder-Langreth-Lundqvist
+This module implements the Dion-Rydberg–Schröder–Langreth–Lundqvist
 XC-functional.  There are two implementations:
 
-1. A simlpe real-space double sum.
+1. A simple real-space double sum.
 
-2. A more efficient FFT implementation based on the Román-Péres-Soler paper.
+2. A more efficient FFT implementation based on the Román-Pérez–Soler paper.
 
 """
 
@@ -23,7 +23,7 @@ import time
 
 from gpaw.utilities.timing import nulltimer
 from gpaw.xc.libxc import LibXC
-from gpaw.xc.gga import GGA
+from gpaw.xc.gga import GGA, get_gga_quantities, gga_add_gradient_correction
 from gpaw.xc.mgga import MGGA
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.tools import construct_reciprocal
@@ -78,7 +78,7 @@ def phi_asymptotic(d, dp):
 
 
 def hRPS(x, xc=1.0):
-    """Cutoff function from Román-Péres-Soler paper."""
+    """Cutoff function from Román-Pérez–Soler paper."""
     x1 = x / xc
     xm = x1 * 1.0
     y = -x1
@@ -202,7 +202,19 @@ class VDWFunctionalBase:
     def get_Ecnl(self):
         return self.Ecnl
 
-    def calculate_gga(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg):
+    def calculate_impl(self, gd, n_sg, v_sg, e_g):
+        sigma_xg, dedsigma_xg, gradn_svg = get_gga_quantities(self.gd,
+                                                              self.grad_v,
+                                                              n_sg)
+        self.calculate_exchange(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        self.calculate_correlation(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        gga_add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
+                                    dedsigma_xg, v_sg)
+
+    def calculate_exchange(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg):
+        raise NotImplementedError
+
+    def calculate_correlation(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg):
         eLDAc_g = self.gd.empty()
         vLDAc_sg = self.gd.zeros(1)
 
@@ -822,9 +834,8 @@ class GGAFFTVDWFunctional(FFTVDWFunctional, GGA):
         GGA.__init__(self, kernel)
         self.name = name
 
-    def calculate_gga(self, *args):
-        GGA.calculate_gga(self, *args)
-        FFTVDWFunctional.calculate_gga(self, *args)
+    def calculate_exchange(self, *args):
+        self.kernel.calculate(*args)
 
     def set_grid_descriptor(self, gd):
         GGA.set_grid_descriptor(self, gd)
@@ -837,9 +848,8 @@ class GGARealSpaceVDWFunctional(RealSpaceVDWFunctional, GGA):
         GGA.__init__(self, kernel)
         self.name = name
 
-    def calculate_gga(self, *args):
-        GGA.calculate_gga(self, *args)
-        RealSpaceVDWFunctional.calculate_gga(self, *args)
+    def calculate_exchange(self, *args):
+        self.kernel.calculate(*args)
 
     def set_grid_descriptor(self, gd):
         GGA.set_grid_descriptor(self, gd)
@@ -852,9 +862,8 @@ class MGGAFFTVDWFunctional(FFTVDWFunctional, MGGA):
         MGGA.__init__(self, kernel)
         self.name = name
 
-    def calculate_gga(self, *args):
-        MGGA.calculate_gga(self, *args)
-        FFTVDWFunctional.calculate_gga(self, *args)
+    def calculate_exchange(self, *args):
+        MGGA.process_mgga(self, *args)
 
     def initialize(self, *args):
         MGGA.initialize(self, *args)
