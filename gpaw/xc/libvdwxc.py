@@ -1,8 +1,8 @@
 from __future__ import print_function
 import numpy as np
 from gpaw.xc.libxc import LibXC
-from gpaw.xc.gga import GGA, get_gga_quantities, gga_add_gradient_correction
 from gpaw.xc.mgga import MGGA
+from gpaw.xc.gga import GGA, gga_vars, add_gradient_correction
 from gpaw.xc.functional import XCFunctional
 from gpaw.utilities import compiled_with_libvdwxc
 from gpaw.utilities.grid_redistribute import Domains, general_redistribute
@@ -377,7 +377,8 @@ class VDWXC(XCFunctional):
 
         self.timer.start('semilocal')
         # XXXXXXX taken from GGA
-        sigma_xg, dedsigma_xg, gradn_svg = get_gga_quantities(self.gd, self.semilocal_xc.grad_v, n_sg)
+        grad_v = self.semilocal_xc.grad_v
+        sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, grad_v, n_sg)
         n_sg[:] = np.abs(n_sg)  # XXXX What to do about this?
         sigma_xg[:] = np.abs(sigma_xg)
         self.semilocal_xc.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
@@ -410,8 +411,7 @@ class VDWXC(XCFunctional):
 
         # Note: Redistwrapper handles vdwcoef.  For now
 
-        gga_add_gradient_correction(self.semilocal_xc.grad_v, gradn_svg,
-                                    sigma_xg, dedsigma_xg, v_sg)
+        add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg, v_sg)
 
         # XXXXXXXXXXXXXXXX ignoring vdwcoef
 

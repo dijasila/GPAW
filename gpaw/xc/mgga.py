@@ -2,8 +2,9 @@ from math import sqrt, pi
 
 import numpy as np
 
-from gpaw.xc.gga import (gga_add_gradient_correction, get_gga_quantities,
-                         GGARadialExpansion, GGARadialCalculator, get_gradient_ops)
+from gpaw.xc.gga import (add_gradient_correction, gga_vars,
+                         GGARadialExpansion, GGARadialCalculator,
+                         get_gradient_ops)
 from gpaw.xc.lda import calculate_paw_correction
 from gpaw.xc.functional import XCFunctional
 from gpaw.sphere.lebedev import weight_n
@@ -40,11 +41,10 @@ class MGGA(XCFunctional):
         self.tauct.add(self.tauct_G)
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        sigma_xg, dedsigma_xg, gradn_svg = get_gga_quantities(gd, self.grad_v,
-                                                              n_sg)
+        sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)
         self.process_mgga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-        gga_add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
-                                    dedsigma_xg, v_sg)
+        add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
+                                dedsigma_xg, v_sg)
 
     def process_mgga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
         taut_sG = self.wfs.calculate_kinetic_energy_density()

@@ -23,7 +23,7 @@ import time
 
 from gpaw.utilities.timing import nulltimer
 from gpaw.xc.libxc import LibXC
-from gpaw.xc.gga import GGA, get_gga_quantities, gga_add_gradient_correction
+from gpaw.xc.gga import GGA, gga_vars, add_gradient_correction
 from gpaw.xc.mgga import MGGA
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.tools import construct_reciprocal
@@ -203,13 +203,11 @@ class VDWFunctionalBase:
         return self.Ecnl
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        sigma_xg, dedsigma_xg, gradn_svg = get_gga_quantities(self.gd,
-                                                              self.grad_v,
-                                                              n_sg)
+        sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)
         self.calculate_exchange(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
         self.calculate_correlation(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-        gga_add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
-                                    dedsigma_xg, v_sg)
+        add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
+                                dedsigma_xg, v_sg)
 
     def calculate_exchange(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg):
         raise NotImplementedError

@@ -46,7 +46,7 @@ class GGARadialExpansion:
 
 
 # First part of gga_calculate_radial - initializes some quantities.
-def gga_get_radial_quantities(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv):
+def radial_gga_vars(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv):
     nspins = len(n_sLg)
 
     n_sg = np.dot(Y_L, n_sLg)
@@ -70,7 +70,7 @@ def gga_get_radial_quantities(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv):
     return e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg
 
 
-def gga_add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg):
+def add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg):
     nspins = len(a_sg)
     vv_sg = sigma_xg[:nspins]  # reuse array
     for s in range(nspins):
@@ -93,9 +93,11 @@ class GGARadialCalculator:
         self.kernel = kernel
 
     def __call__(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
-        e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg = gga_get_radial_quantities(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
+        (e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg,
+         b_vsg) = radial_gga_vars(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
         self.kernel.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
-        vv_sg = gga_add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg)
+        vv_sg = add_radial_gradient_correction(rgd, sigma_xg,
+                                               dedsigma_xg, a_sg)
         return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
 
 
@@ -117,7 +119,7 @@ def calculate_sigma(gd, grad_v, n_sg):
     return sigma_xg, gradn_svg
 
 
-def gga_add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
+def add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
     """Add gradient correction to potential.
 
     ::
@@ -140,7 +142,7 @@ def gga_add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
                 # TODO: can the number of gradient evaluations be reduced?
 
 
-def get_gga_quantities(gd, grad_v, n_sg):
+def gga_vars(gd, grad_v, n_sg):
     nspins = len(n_sg)
     sigma_xg, gradn_svg = calculate_sigma(gd, grad_v, n_sg)
     dedsigma_xg = gd.empty(nspins * 2 - 1)
@@ -161,10 +163,10 @@ class GGA(XCFunctional):
         self.grad_v = get_gradient_ops(gd)
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        sigma_xg, dedsigma_xg, gradn_svg = get_gga_quantities(self.gd, self.grad_v, n_sg)
+        sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)
         self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-        gga_add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
-                                    dedsigma_xg, v_sg)
+        add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
+                                dedsigma_xg, v_sg)
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
