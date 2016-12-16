@@ -1,13 +1,16 @@
 from __future__ import print_function
+
 import numpy as np
-from gpaw.xc.libxc import LibXC
-from gpaw.xc.mgga import MGGA
-from gpaw.xc.gga import GGA, gga_vars, add_gradient_correction
-from gpaw.xc.functional import XCFunctional
+
+from gpaw.mpi import have_mpi
 from gpaw.utilities import compiled_with_libvdwxc
 from gpaw.utilities.grid_redistribute import Domains, general_redistribute
 from gpaw.utilities.timing import nulltimer
-from gpaw.mpi import have_mpi
+from gpaw.xc.functional import XCFunctional
+from gpaw.xc.gga import GGA, gga_vars, add_gradient_correction
+from gpaw.xc.libxc import LibXC
+from gpaw.xc.mgga import MGGA
+
 import _gpaw
 
 
@@ -231,7 +234,7 @@ class FFTDistribution:
 class VDWXC(XCFunctional):
     def __init__(self, semilocal_xc, name, mode='auto',
                  pfft_grid=None, libvdwxc_name=None,
-                 setup_name='revPBE'):
+                 setup_name='revPBE', vdwcoef=1.0):
         """Initialize VDWXC object (further initialization required).
 
         mode can be 'auto', 'serial', 'mpi', or 'pfft'.
@@ -272,24 +275,29 @@ class VDWXC(XCFunctional):
         self._libvdwxc_name = libvdwxc_name
         self._mode = mode
         self._pfft_grid = pfft_grid
+        self._vdwcoef = vdwcoef
 
         self.last_nonlocal_energy = None
         self.last_semilocal_energy = None
 
         # XXXXXXXXXXXXXXXXX
         self.calculate_paw_correction = semilocal_xc.calculate_paw_correction
-        self.stress_tensor_contribution = semilocal_xc.stress_tensor_contribution
+        #self.stress_tensor_contribution = semilocal_xc.stress_tensor_contribution
         self.calculate_spherical = semilocal_xc.calculate_spherical
 
     def __str__(self):
-        special = [self._mode]
+        tokens = [self._mode]
         if self._libvdwxc_name != self.name:
-            special.append('nonlocal-name=%s' % self._libvdwxc_name)
-            special.append('gga-kernel=%s' % self.semilocal_xc.kernel.name)
+            tokens.append('nonlocal-name={0}'.format(self._libvdwxc_name))
+            tokens.append('gga-kernel={0}'
+                          .format(self.semilocal_xc.kernel.name))
         if self._pfft_grid is not None:
-            special.append('pfft=%s' % self._pfft_grid)
-        special_str = ', '.join(special)
-        return '%s [libvdwxc/%s]' % (self.name, special_str)
+            tokens.append('pfft={0}'.format(self._pfft_grid))
+        if self._vdwcoef != 1:
+            tokens.append('vdwcoef={0}'.format(self._vdwcoef))
+
+        qualifier = ', '.join(tokens)
+        return '{0} [libvdwxc/{1}]'.format(self.name, qualifier)
 
     def set_grid_descriptor(self, gd):
         if self.gd is not None and self.gd != gd:
@@ -298,8 +306,6 @@ class VDWXC(XCFunctional):
             self._initialize(gd)
         XCFunctional.set_grid_descriptor(self, gd)
         self.semilocal_xc.set_grid_descriptor(gd)
-        #from gpaw.xc.gga import get_gradients
-        #self.grad_v = get_gradients(gd)
 
     def get_description(self):
         lines = []
@@ -339,10 +345,15 @@ class VDWXC(XCFunctional):
         self.distribution = FFTDistribution(gd, cpugrid)
         self.redist_wrapper = RedistWrapper(self.libvdwxc,
                                             self.distribution,
-                                            self.timer)
+                                            self.timer,
+                                            self._vdwcoef)
+
+    def set_positions(self, spos_ac):
+        self.semilocal_xc.set_positions(spos_ac)
 
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.timer = hamiltonian.timer  # fragile object robbery
+        self.semilocal_xc.initialize(density, hamiltonian, wfs, occupations)
         #self.timer.start('initialize')
         #try:
         #    gd = density.xc_redistributor.aux_gd  # fragile
@@ -372,16 +383,22 @@ class VDWXC(XCFunctional):
         (To do: proper padded FFTs.)"""
         assert gd == self.distribution.input_gd
         assert self.libvdwxc is not None
+        semiloc = self.semilocal_xc
 
         self.timer.start('van der Waals')
 
         self.timer.start('semilocal')
         # XXXXXXX taken from GGA
-        grad_v = self.semilocal_xc.grad_v
+        grad_v = semiloc.grad_v
         sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, grad_v, n_sg)
         n_sg[:] = np.abs(n_sg)  # XXXX What to do about this?
         sigma_xg[:] = np.abs(sigma_xg)
-        self.semilocal_xc.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+
+        # Grrr, interface still sucks
+        if hasattr(semiloc, 'process_mgga'):
+            semiloc.process_mgga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        else:
+            semiloc.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
         #self.semilocal_xc.calculate_impl(gd, n_sg, v_sg, e_g)
         self.last_semilocal_energy = e_g.sum() * self.gd.dv
         self.timer.stop('semilocal')
@@ -419,32 +436,7 @@ class VDWXC(XCFunctional):
         self.last_nonlocal_energy = energy_nonlocal
         e_g[0, 0, 0] += energy_nonlocal / self.gd.dv
         self.timer.stop('van der Waals')
-        #return energy
 
-    #def calculate_vdw(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
-        #assert self.libvdwxc is not None
-        #assert len(n_sg) == 1, 'libvdwxc does not work with multiple spins yet'
-        #assert len(sigma_xg) == 1
-        #assert len(v_sg) == 1
-        #assert len(dedsigma_xg) == 1
-
-        #self.timer.start('van der Waals')
-        #n_sg[:] = np.abs(n_sg)  # XXXX What to do about this?
-        #sigma_xg[:] = np.abs(sigma_xg)
-        #self.timer.start('semilocal')
-        #GGA.calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-        #self.last_semilocal_energy = e_g.sum() * self.gd.dv
-        #self.timer.stop('semilocal')
-
-    #    energy_nonlocal = self.redist_wrapper.calculate(
-    #        n_sg[0], sigma_xg[0], v_sg[0], dedsigma_xg[0])
-
-        # XXXXXXXXXXXXXXXX ignoring vdwcoef
-
-        # XXXXXXXXXXXXXXXX ugly
-    #    self.last_nonlocal_energy = energy_nonlocal
-    #    e_g[0, 0, 0] += energy_nonlocal / self.gd.dv
-    #    self.timer.stop('van der Waals')
 
 def vdw_df(*args, **kwargs):
     return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_PBE_R+LDA_C_PW')),
@@ -502,9 +494,9 @@ def vdw_mbeef(*args, **kwargs):
     # Note: Parameters taken from vdw.py
     from gpaw.xc.bee import BEEVDWKernel
     kernel = BEEVDWKernel('BEE3', None, 0.405258352, 0.356642240)
-    return MGGAVDWXC(gga_kernel=kernel, name='vdW-mBEEF',
-                     setup_name='PBEsol', libvdwxc_name='vdW-DF2',
-                     vdwcoef=0.886774972)
+    return VDWXC(semilocal_xc=MGGA(kernel), name='vdW-mBEEF',
+                 setup_name='PBEsol', libvdwxc_name='vdW-DF2',
+                 vdwcoef=0.886774972)
 
 
 # Finally, mBEEF is an MGGA.  For that we would have to un-subclass GGA
