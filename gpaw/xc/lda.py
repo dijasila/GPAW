@@ -122,7 +122,7 @@ class LDA(XCFunctional):
         nspins = len(n_sg)
         v_sg = self.gd.zeros(nspins)
         e_g = self.gd.empty()
-        self.calculate_impl(e_g, n_sg, v_sg)
+        self.calculate_impl(self.gd, n_sg, v_sg, e_g)
         stress = self.gd.integrate(e_g)
         for v_g, n_g in zip(v_sg, n_sg):
             stress -= self.gd.integrate(v_g, n_g)
