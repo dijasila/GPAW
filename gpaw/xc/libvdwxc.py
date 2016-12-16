@@ -284,6 +284,10 @@ class VDWXC(XCFunctional):
         self.calculate_paw_correction = semilocal_xc.calculate_paw_correction
         #self.stress_tensor_contribution = semilocal_xc.stress_tensor_contribution
         self.calculate_spherical = semilocal_xc.calculate_spherical
+        self.apply_orbital_dependent_hamiltonian = semilocal_xc.apply_orbital_dependent_hamiltonian
+        self.add_forces = semilocal_xc.add_forces
+        self.get_kinetic_energy_correction = semilocal_xc.get_kinetic_energy_correction
+        self.rotate = semilocal_xc.rotate
 
     def __str__(self):
         tokens = [self._mode]
@@ -293,7 +297,7 @@ class VDWXC(XCFunctional):
                           .format(self.semilocal_xc.kernel.name))
         if self._pfft_grid is not None:
             tokens.append('pfft={0}'.format(self._pfft_grid))
-        if self._vdwcoef != 1:
+        if self._vdwcoef != 1.0:
             tokens.append('vdwcoef={0}'.format(self._vdwcoef))
 
         qualifier = ', '.join(tokens)
