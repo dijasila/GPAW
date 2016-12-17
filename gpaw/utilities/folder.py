@@ -3,6 +3,29 @@ from scipy.special import dawsn
 
 from gpaw.gauss import Gauss, Lorentz
 
+class Voigt:
+    """Voigt profile.
+
+    See http://reference.wolfram.com/language/ref/VoigtDistribution.html"""
+    def __init__(self, width=0.08):
+        self.dtype = complex
+        self.set_width(width)
+        
+    def get(self, x, x0):
+        argm = (-1j * x + self.width[0]) * self.argpre
+        argp = (1j * x + self.width[0]) * self.argpre
+        res = np.exp(argm**2) * erfc(argm)
+        res += np.exp(argp**2) * erfc(argp)
+        return res.real * self.prefactor
+        
+    def set_width(self, width=0.08):
+        """Width is interpreted as [delta, sigma]"""
+        if hasattr(width, '__iter__'):
+            self.width
+        else:
+            self.width = [width, width]
+        self.prefactor = 1. / 2 / np.sqrt(2 * np.pi) / self.width[1]
+        self.argpre = 1. / np.sqrt(2) / self.width[1]
 
 class ComplexLorentz:
     def __init__(self, width=0.08):
