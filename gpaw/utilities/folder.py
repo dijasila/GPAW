@@ -1,19 +1,25 @@
 import numpy as np
 from scipy.special import dawsn
 
+from gpaw.utilities import cerf
 from gpaw.gauss import Gauss, Lorentz
+
+def erfc(x):
+    """The complimentary error function."""
+    return 1. - cerf(x)
+
 
 class Voigt:
     """Voigt profile.
 
     See http://reference.wolfram.com/language/ref/VoigtDistribution.html"""
     def __init__(self, width=0.08):
-        self.dtype = complex
+        self.dtype = float
         self.set_width(width)
         
-    def get(self, x, x0):
-        argm = (-1j * x + self.width[0]) * self.argpre
-        argp = (1j * x + self.width[0]) * self.argpre
+    def get(self, x, x0=0):
+        argm = (-1j * (x - x0) + self.width[0]) * self.argpre
+        argp = (1j * (x - x0) + self.width[0]) * self.argpre
         res = np.exp(argm**2) * erfc(argm)
         res += np.exp(argp**2) * erfc(argp)
         return res.real * self.prefactor
@@ -116,6 +122,8 @@ class Folder:
             self.func = LorentzPole(width, imag=False)
         elif folding == 'ImaginaryLorentzPole':
             self.func = LorentzPole(width, imag=True)
+        elif folding == 'Voigt':
+            self.func = Voigt(width)
         elif folding is None:
             self.func = None
         else:
