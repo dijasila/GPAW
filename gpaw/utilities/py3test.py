@@ -18,8 +18,8 @@ datasets = op.expanduser('~/datasets/gpaw-setups-0.9.20000')
 
 
 def run():
-    subprocess.check_call('cd ase; git pull > git.out', shell=True)
-    subprocess.check_call('cd gpaw; git pull > git.out', shell=True)
+    subprocess.check_call('cd ase; git pull -q > git.out', shell=True)
+    subprocess.check_call('cd gpaw; git pull -q > git.out', shell=True)
     os.chdir('gpaw')
     sys.path[:0] = [op.join(dir, 'ase'), op.join(dir, 'lib', 'python')]
     subprocess.check_call('python3 setup.py install --home=.. > build.out',
@@ -36,7 +36,7 @@ def run():
         os.chdir('..')
 
     from ase.test import test
-    results = test(display=False, calculators=['gpaw'])
+    results = test(display=False, calculators=['gpaw'], verbosity=0)
     failed.extend(results.errors + results.failures)
 
     if failed:
