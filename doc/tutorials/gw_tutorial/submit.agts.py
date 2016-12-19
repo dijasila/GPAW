@@ -8,8 +8,8 @@ def agts(queue):
 
     queue.add('C_equal_test.py', deps=[conv, freq])
 
-    bn = queue.add('BN_GW0.py', ncpus=8, walltime=1800)
+    bn = queue.add('BN_GW0.py', walltime=70)
     queue.add('BN_GW0_plot.py', deps=bn, creates='BN_GW0.png')
 
-    mos2 = queue.add('MoS2_gs_GW.py', ncpus=8, walltime=1800)
+    mos2 = queue.add('MoS2_gs_GW.py', walltime=70)
     queue.add('MoS2_bs_plot.py', deps=mos2, creates='MoS2_bs.png')
