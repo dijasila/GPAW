@@ -3,6 +3,30 @@ from scipy.special import dawsn
 
 from gpaw.gauss import Gauss, Lorentz
 
+class Voigt:
+    """Voigt profile.
+
+    See http://reference.wolfram.com/language/ref/VoigtDistribution.html"""
+    def __init__(self, width=0.08):
+        self.dtype = float
+        self.set_width(width)
+        
+    def get(self, x, x0=0):
+        from scipy.special import erfc
+        argm = (-1j * (x - x0) + self.delta) * self.argpre
+        argp = (1j * (x - x0) + self.delta) * self.argpre
+        res = np.exp(argm**2) * erfc(argm)
+        res += np.exp(argp**2) * erfc(argp)
+        return res.real * self.prefactor
+        
+    def set_width(self, width=0.08):
+        """Width is interpreted as [delta, sigma]"""
+        if not hasattr(width, '__iter__'):
+            width = [width, width]
+        self.delta, self.sigma = width
+        self.width = np.linalg.norm(np.array(width))
+        self.prefactor = 1. / 2 / np.sqrt(2 * np.pi) / self.sigma
+        self.argpre = 1. / np.sqrt(2) / self.sigma
 
 class ComplexLorentz:
     def __init__(self, width=0.08):
@@ -93,6 +117,8 @@ class Folder:
             self.func = LorentzPole(width, imag=False)
         elif folding == 'ImaginaryLorentzPole':
             self.func = LorentzPole(width, imag=True)
+        elif folding == 'Voigt':
+            self.func = Voigt(width)
         elif folding is None:
             self.func = None
         else:
@@ -113,7 +139,10 @@ class Folder:
             if xmax is None:
                 xmax = np.max(X) + 4 * self.width
             if dx is None:
-                dx = self.width / 4.
+                try:
+                    dx = self.func.width / 4.
+                except AttributeError:
+                    dx = self.width / 4.
 
             xl = np.arange(xmin, xmax + 0.5 * dx, dx)
             
