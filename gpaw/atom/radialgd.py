@@ -419,6 +419,12 @@ class EquidistantRadialGridDescriptor(RadialGridDescriptor):
                 'istart="0" iend="{1}" id="{2}"/>\n'
                 .format(self.r_g[1], len(self.r_g) - 1, id))
 
+    def spline(self, a_g, rcut=None, l=0, points=None):
+        b_g = a_g.copy()
+        if l > 0:
+            b_g = divrl(b_g, l, self.r_g[:len(a_g)])
+        return Spline(l, self.r_g[len(a_g) - 1], b_g)
+
 
 class AERadialGridDescriptor(RadialGridDescriptor):
     def __init__(self, a, b, N=1000, default_spline_points=25):
