@@ -190,6 +190,7 @@ tests = [
     'response/aluminum_EELS_RPA.py',        # ~3s
     'poisson/poisson_extended.py',          # ~3s
     'solvation/vacuum.py',                  # ~3s
+    'vdw/libvdwxc_mbeef.py',                # ~3s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
     'parallel/augment_grid.py',             # ~4s
     'utilities/ewald.py',                   # ~4s
@@ -228,6 +229,7 @@ tests = [
     'fixmom.py',                            # ~6s
     'exx/unocc.py',                         # ~6s
     'eigen/davidson.py',                    # ~6s
+    'vdw/H_Hirshfeld.py',                   # ~6s
     'parallel/redistribute_grid.py',        # ~7s
     'aedensity.py',                         # ~7s
     'pw/h.py',                              # ~7s
@@ -440,6 +442,7 @@ if not compiled_with_sl():
 if not compiled_with_libvdwxc():
     exclude.append('vdw/libvdwxc_functionals.py')
     exclude.append('vdw/libvdwxc_h2o.py')
+    exclude.append('vdw/libvdwxc_mbeef.py')
 
 if LooseVersion(np.__version__) < '1.6.0':
     exclude.append('response/chi0.py')
@@ -580,7 +583,7 @@ class TestRunner:
                 module = ex.name
             else:
                 module = ex.args[0].split()[-1].split('.')[0]
-            if module in ['scipy', '_gpaw_hdf5']:
+            if module == 'scipy':
                 skip = True
             else:
                 tb = traceback.format_exc()

@@ -613,7 +613,7 @@ class GPAW(Calculator, PAW):
                 self.nbands_parallelization_adjustment)
         self.log('Number of bands in calculation:', self.wfs.bd.nbands)
         self.log('Bands to converge: ', end='')
-        n = par.convergence['bands']
+        n = par.convergence.get('bands', 'occupied')
         if n == 'occupied':
             self.log('occupied states only')
         elif n == 'all':
@@ -709,10 +709,10 @@ class GPAW(Calculator, PAW):
         nv = max(nvalence, 1)
         cc = self.parameters.convergence
         self.scf = SCFLoop(
-            cc['eigenstates'] / Hartree**2 * nv,
-            cc['energy'] / Hartree * nv,
-            cc['density'] * nv,
-            cc['forces'] / (Hartree / Bohr),
+            cc.get('eigenstates', 4.0e-8) / Hartree**2 * nv,
+            cc.get('energy', 0.0005) / Hartree * nv,
+            cc.get('density', 1.0e-4) * nv,
+            cc.get('forces', np.inf) / (Hartree / Bohr),
             self.parameters.maxiter,
             niter_fixdensity, nv)
         self.log(self.scf)
@@ -729,7 +729,7 @@ class GPAW(Calculator, PAW):
 
     def create_eigensolver(self, xc, nbands, mode):
         # Number of bands to converge:
-        nbands_converge = self.parameters.convergence['bands']
+        nbands_converge = self.parameters.convergence.get('bands', 'occupied')
         if nbands_converge == 'all':
             nbands_converge = nbands
         elif nbands_converge != 'occupied':

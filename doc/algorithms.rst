@@ -23,12 +23,12 @@ Quick links to all features:
     * - :ref:`TDDFT <timepropagation>`
       - :ref:`LRTDDFT (molecules) <lrtddft>`
       - :ref:`LRTDDFT (extended systems) <df_theory>`
-    * - :ref:`Transport <transport_exercise>`
-      - :ref:`RPA-correlation <rpa>`
+    * - :ref:`RPA-correlation <rpa>`
       - :ref:`GW <gw_theory>`
-    * - :ref:`BSE <bse theory>`
-      - :ref:`Parallelization <parallel_runs>`
+      - :ref:`BSE <bse theory>`
+    * - :ref:`Parallelization <parallel_runs>`
       - :ref:`Continuum Solvent Model <continuum_solvent_model>`
+      -
 
 This Page gives a quick overview of the algorithms used.  We have
 written some :ref:`papers <gpaw_publications>` about the implementation,

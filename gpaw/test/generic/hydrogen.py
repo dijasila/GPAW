@@ -43,7 +43,7 @@ for name in ['h.json', 'h.db']:
 
     write('x' + name, hydrogen)
     write('xx' + name, [hydrogen, hydrogen])
-    
+
     assert read(name + '@foo=bar')[0].get_potential_energy() == e2
     for n, h in zip([1, 0], iread(name + '@:')):
         assert n == len(h)
@@ -52,3 +52,7 @@ for name in ['h.json', 'h.db']:
 h = read('h.txt')
 error = abs(h.calc.get_eigenvalues() - hydrogen.calc.get_eigenvalues()).max()
 assert error < 1e-5, error
+
+# Test get_electrostatic_potential() method
+v = hydrogen.calc.get_electrostatic_potential()
+print(v.shape, v.ptp())

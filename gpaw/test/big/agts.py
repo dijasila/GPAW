@@ -131,7 +131,7 @@ class Cluster:
         fd.write('exec(compile(open({0!r}).read(), {0!r}, "exec"))\n'
                  .format(job.script))
         fd.close()
-        
+
     def tick(self, nrunning):
         pass
 
@@ -163,10 +163,10 @@ class TestCluster(Cluster):
 class LocalCluster(Cluster):
     def __init__(self):
         self.queue = []
-        
+
     def submit(self, job):
         self.queue.append(job)
-        
+
     def tick(self, nrunning):
         if self.queue and nrunning == 0:
             job = self.queue.pop(0)
@@ -237,7 +237,10 @@ class AGTSQueue:
             fname = os.path.join(dir, agtsfile)
             exec(compile(open(fname).read(), fname, 'exec'), _global)
             self._dir = dir
-            _global['agts'](self)
+            if 'agts' in _global:
+                _global['agts'](self)
+            else:
+                print(fname, 'has no agts() function!')
         self.normalize()
 
     def normalize(self):
@@ -306,7 +309,7 @@ class AGTSQueue:
                     nrunning += 1
 
             cluster.tick(nrunning)
-                        
+
         t = self.get_cpu_time()
         self.fd.write('CPU time: %d:%02d:%02d\n' %
                       (t // 3600, t // 60 % 60, t % 60))

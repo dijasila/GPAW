@@ -58,3 +58,6 @@ Talks
    - `Constrained DFT for Charge Transfer Calculations and
      Predicting Polaron Conductivity in Battery Materials
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop16/mm.pdf>`__
+ * - Bjørk Hammer
+   - `Two ASE tools: AutoNEB & Genetic Algorithm
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop16/bh.pdf>`__

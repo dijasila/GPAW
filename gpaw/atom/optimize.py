@@ -204,6 +204,44 @@ class DatasetOptimizer:
         self.rc = my_covalent_radii[self.Z]
         self.rco = my_covalent_radii[8]
 
+    def minimize(self):
+        fd = open('pool.csv', 'w')
+        done = {}
+
+        def f(x):
+            n, x, errors, error = self(0, tuple(x))
+            n = len(done)
+            done[tuple(x)] = error
+            print('{0},{1},{2},{3}'.format(n, error,
+                                           ','.join(str(i) for i in x),
+                                           ','.join('{0:.4f}'.format(e)
+                                                    for e in errors)),
+                  file=fd)
+            fd.flush()
+            return error
+
+        x = list(self.x)
+        f(x)
+
+        while True:
+            finished = True
+            e2 = []
+            for i, yi in enumerate(x):
+                x[i] += 1
+                if tuple(x) in done:
+                    e = done[tuple(x)]
+                else:
+                    finished = False
+                    e = f(x)
+                x[i] -= 1
+                e2.append(e)
+            if finished:
+                break
+            e2 += [-e for e in e2]
+            i = np.argmin(e2)
+            sign, i = divmod(i, len(x))
+            x[i] += 1 - 2 * sign
+
     def run(self):  # , mu, n1, n2):
         # mu = float(mu)
         # n1 = int(n1)
@@ -567,24 +605,25 @@ if __name__ == '__main__':
     parser.add_option('-s', '--summary', action='store_true')
     parser.add_option('-b', '--best', action='store_true')
     parser.add_option('-r', '--run', action='store_true')
+    parser.add_option('-m', '--minimize', action='store_true')
     parser.add_option('-n', '--norm-conserving', action='store_true')
     parser.add_option('-i', '--initial-only', action='store_true')
     parser.add_option('-o', '--old-setups', action='store_true')
     opts, args = parser.parse_args()
-    if opts.run:
+    if opts.run or opts.minimize:
         symbol = args[0]
-        if os.path.isdir(symbol):
-            os.chdir(symbol)
-            do = DatasetOptimizer(symbol, opts.norm_conserving)
-        else:
+        if not os.path.isdir(symbol):
             os.mkdir(symbol)
-            os.chdir(symbol)
-            do = DatasetOptimizer(symbol, opts.norm_conserving)
-        if opts.initial_only:
-            do.old = opts.old_setups
-            do.run_initial()
+        os.chdir(symbol)
+        do = DatasetOptimizer(symbol, opts.norm_conserving)
+        if opts.run:
+            if opts.initial_only:
+                do.old = opts.old_setups
+                do.run_initial()
+            else:
+                do.run()
         else:
-            do.run()
+            do.minimize()
     else:
         if args == ['.']:
             symbol = os.getcwd().rsplit('/', 1)[1]

@@ -20,7 +20,9 @@ calc = GPAW(mode=PW(600, force_complex_dtype=True),
 N.calc = calc
 E1_pbe = N.get_potential_energy()
 
-exx = EXX(calc, txt='N_exx.txt')
+calc.write('N.gpw', mode='all')
+
+exx = EXX('N.gpw', txt='N_exx.txt')
 exx.calculate()
 E1_hf = exx.get_total_energy()
 
@@ -42,7 +44,9 @@ dyn = BFGS(N2)
 dyn.run(fmax=0.05)
 E2_pbe = N2.get_potential_energy()
 
-exx = EXX(calc, txt='N2_exx.txt')
+calc.write('N2.gpw', mode='all')
+
+exx = EXX('N2.gpw', txt='N2_exx.txt')
 exx.calculate()
 E2_hf = exx.get_total_energy()
 

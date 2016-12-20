@@ -71,11 +71,6 @@ Optional, but highly recommended:
 * FFTW_ (for increased performance)
 * BLACS_ and ScaLAPACK_
 
-Optional (maybe not needed):
-
-* HDF5_ 1.8.0 or later (library for parallel I/O and for saving files in HDF5_
-  format)
-
 
 .. _Python: http://www.python.org/
 .. _NumPy: http://docs.scipy.org/doc/numpy/reference/
@@ -86,7 +81,6 @@ Optional (maybe not needed):
 .. _BLACS: http://www.netlib.org/blacs/
 .. _LAPACK: http://www.netlib.org/lapack/
 .. _ScaLAPACK: http://www.netlib.org/scalapack/
-.. _HDF5: https://www.hdfgroup.org/HDF5/
 .. _PyPI: https://pypi.python.org/pypi/gpaw
 .. _PIP: https://pip.pypa.io/en/stable/
 .. _ASE: https://wiki.fysik.dtu.dk/ase
@@ -258,17 +252,6 @@ as described in :ref:`customizing installation`.
 
 Instructions for running parallel calculations can be found in the
 :ref:`user manual <manual_parallel_calculations>`.
-
-
-Installation with HDF5 support
-------------------------------
-
-HDF5_ support can be enabled by setting in :git:`customize.py`::
-
-    hdf5 = True
-
-and, in this case, provide HDF5 ``include_dirs``, ``libraries``, and
-``library_dirs`` as described in :ref:`customizing installation`.
 
 
 Libxc Installation

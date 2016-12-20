@@ -71,9 +71,6 @@ News
 
 * :ref:`GPAW version 0.9 <releasenotes>` released (March 7 2012)
 
-* Help!  The :ref:`todolist` has been updated.  Maybe there is
-  something you can do (May 25 2011)
-
 * :ref:`GPAW version 0.8 <releasenotes>` released (May 25 2011)
 
 * GPAW is part of benchmark suite for `CSC's supercomputer procurement`_

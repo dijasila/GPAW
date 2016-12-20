@@ -95,6 +95,24 @@ class G0W0(PairDensity):
         gate_voltage: float
             Shift Fermi level of ground state calculation by the
             specified amount.
+        anisotropy_correction: bool
+            Analytic correction to the q=0 contribution applicable to 2D systems.
+        nblocks: int
+            Number of blocks chi0 should be distributed in so each core does not have to store the entire matrix. This is to reduce memory requirement. nblocks must be less than or equal to the number of processors.
+        nblocksmax: bool
+            Cuts chi0 into as many blocks as possible to reduce memory requirements as much as possible.
+        savew: bool
+            Save W to a file.
+        savepckl: bool
+            Save output to a pckl file.
+        method: str
+            G0W0 or GW0(eigenvalue selfconsistency in G) currently available.
+        maxiter: int
+            Number of iterations in a GW0 calculation.
+        mixing: float
+            Number between 0 and 1 determining how much of previous iteration's eigenvalues to mix with.
+        ecut_extrapolation: bool
+            Carries out the extrapolation to infinite cutoff automatically.
         """
 
         if world.rank != 0:
@@ -247,9 +265,9 @@ class G0W0(PairDensity):
 
         Returns a dict with the results with the following key/value pairs:
 
-        ===========  ===================================
+        ===========  =============================================
         key          value
-        ===========  ===================================
+        ===========  =============================================
         ``f``        Occupation numbers
         ``eps``      Kohn-Sham eigenvalues in eV
         ``vxc``      Exchange-correlation
@@ -260,8 +278,9 @@ class G0W0(PairDensity):
         ``sigma_e``  Self-energy contributions in eV
                      used for ecut extrapolation
         ``Z``        Renormalization factors
-        ``qp``       Quasi particle energies in eV
-        ===========  ===================================
+        ``qp``       Quasi particle (QP) energies in eV
+        ``iqp``      GW0/GW: QP energies for each iteration in eV
+        ===========  =============================================
 
         All the values are ``ndarray``'s of shape
         (spins, IBZ k-points, bands)."""
@@ -715,9 +734,9 @@ class G0W0(PairDensity):
             chi0bands_wGG[:] = chi0_wGG.copy()
             if np.allclose(q_c, 0.0):
                 chi0_wxvG += chi0bands_wxvG
-                chi0bands_wxvG = chi0_wxvG.copy()
+                chi0bands_wxvG[:] = chi0_wxvG.copy()
                 chi0_wvv += chi0bands_wvv
-                chi0bands_wvv = chi0_wvv.copy()
+                chi0bands_wvv[:] = chi0_wvv.copy()
 
         self.Q_aGii = chi0.Q_aGii
 
@@ -1053,7 +1072,7 @@ class G0W0(PairDensity):
         if np.any(self.sigr2_skn < 0.9) or np.any(self.dsigr2_skn < 0.9):
             print('  Warning: Bad quality of linear fit for some (n,k). ',
                   file=self.fd)
-            print('           Higher cutoff might be nesecarry.', file=self.fd)
+            print('           Higher cutoff might be necesarry.', file=self.fd)
 
         print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
               min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)),

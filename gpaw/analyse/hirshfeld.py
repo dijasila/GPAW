@@ -96,7 +96,7 @@ class HirshfeldDensity(RealSpaceDensity):
 
         aed_sg, gd = self.get_all_electron_density(atoms,
                                                    gridrefinement)
-        return aed_sg[0], gd
+        return aed_sg.sum(axis=0), gd
 
 
 class HirshfeldPartitioning:

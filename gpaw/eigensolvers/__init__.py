@@ -29,7 +29,7 @@ def get_eigensolver(eigensolver, mode, convergence=None):
                        }[name](**eigensolver)
 
     if isinstance(eigensolver, CG):
-        eigensolver.tolerance = convergence['eigenstates']
+        eigensolver.tolerance = convergence.get('eigenstates', 4.0e-8)
 
     assert isinstance(eigensolver, DirectLCAO) == (mode.name == 'lcao')
 

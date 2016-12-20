@@ -156,7 +156,10 @@ def setup(app):
         if not job.creates:
             continue
         for name in job.creates:
-            assert name not in names, "Name '%s' clashes!" % name
+            if name in names:
+                raise RuntimeError(
+                    'The name {0!r} is used in more than one place!'
+                    .format(name))
             names.add(name)
             # the files are saved by the weekly tests under agtspath/agts-files
             # now we are copying them back to their original run directories
