@@ -155,7 +155,7 @@ class DatasetOptimizer:
                            0.01, 0.03, 0.05,
                            40,
                            400,  # 0.1 eV convergence
-                           0.002,  # eggbox error
+                           0.0005,  # eggbox error
                            0.4])
 
     conf = None
@@ -221,26 +221,26 @@ class DatasetOptimizer:
             return error
 
         x = list(self.x)
-        f(x)
 
+        e0 = f(x)
+ 
         while True:
-            finished = True
-            e2 = []
-            for i, yi in enumerate(x):
-                x[i] += 1
-                if tuple(x) in done:
-                    e = done[tuple(x)]
-                else:
-                    finished = False
-                    e = f(x)
-                x[i] -= 1
-                e2.append(e)
-            if finished:
+            ee = []
+            for d in [1, -1]:
+                for i, yi in enumerate(x):
+                    x[i] += d
+                    if tuple(x) in done:
+                        e = done[tuple(x)]
+                    else:
+                        e = f(x)
+                    x[i] -= d
+                    ee.append(e)
+
+            i = np.argmin(ee)
+            if ee[i] > e0:
                 break
-            e2 += [-e for e in e2]
-            i = np.argmin(e2)
-            sign, i = divmod(i, len(x))
-            x[i] += 1 - 2 * sign
+            e0 = ee[i]
+            x[i % len(x)] += 1 - (i // len(x)) * 2
 
     def run(self):  # , mu, n1, n2):
         # mu = float(mu)
