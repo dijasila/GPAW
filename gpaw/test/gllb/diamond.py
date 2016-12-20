@@ -62,7 +62,7 @@ calc.write('CGLLBSC.gpw')
 
 # Redo the band structure calculation
 atoms, calc = restart('CGLLBSC.gpw',
-                      kpts=kpts,
+                      kpts={'path': 'GX', 'npoints': 12},
                       fixdensity=True,
                       symmetry='off',
                       convergence=dict(bands=6),
