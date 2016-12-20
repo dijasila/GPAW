@@ -33,7 +33,6 @@ To append use the form
 # mpilinker = 'mpicc'
 # platform_id = ''
 # scalapack = False
-# hdf5 = False
 
 # Use ScaLAPACK:
 # Warning! At least scalapack 2.0.1 is required!

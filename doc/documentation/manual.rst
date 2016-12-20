@@ -673,7 +673,7 @@ Fixed density
 When calculating band structures or when adding unoccupied states to
 calculation (and wanting to converge them) it is often useful to use existing
 density without updating it. By using ``fixdensity=True`` the initial density
-(e.g. one read from .gpw/.hdf5 or existing from previous calculation) is used
+(e.g. one read from .gpw or existing from previous calculation) is used
 throughout the SCF-cycle (so called Harris calculation).
 
 
