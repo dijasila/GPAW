@@ -17,7 +17,7 @@ calc = GPAW(mode=PW(600),
             dtype=complex,
             xc='LDA',
             occupations=FermiDirac(0.001),
-            txt='output_files/C_converged_ppa.txt')
+            txt='C_converged_ppa.txt')
 
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
@@ -31,13 +31,13 @@ for ecut in [300,400]:
               bands=(3, 5),
               ecut=ecut,
               ppa=True,
-              filename='output_files/C-g0w0_ppa_%s' %(ecut))
+              filename='C-g0w0_ppa_%s' %(ecut))
 
     gw.calculate()
 
-fil = pickle.load(open('output_files/C-g0w0_ppa_300_results.pckl', 'rb'))
+fil = pickle.load(open('C-g0w0_ppa_300_results.pckl', 'rb'))
 direct_gap_300 = fil['qp'][0, 0, 1] - fil['qp'][0, 0, 0]
-fil = pickle.load(open('output_files/C-g0w0_ppa_400_results.pckl', 'rb'))
+fil = pickle.load(open('C-g0w0_ppa_400_results.pckl', 'rb'))
 direct_gap_400 = fil['qp'][0, 0, 1] - fil['qp'][0, 0, 0]
 
 extrap_gap, slope = np.linalg.solve(np.array([[1, 1./300.**(3./2)], [1, 1./400.**(3./2)]]), np.array([direct_gap_300, direct_gap_400]))

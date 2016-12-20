@@ -14,7 +14,7 @@ data = np.zeros((6,6))
 
 for i, domega0 in enumerate([0.005, 0.01, 0.02, 0.03, 0.04, 0.05]):
     for j, omega2 in enumerate([1, 5, 10, 15, 20, 25]):
-        filename = 'output_files/C_g0w0_domega0_%s_omega2_%s_results.pckl' % (domega0, omega2)
+        filename = 'C_g0w0_domega0_%s_omega2_%s_results.pckl' % (domega0, omega2)
         results = pickle.load(open(filename,'rb'))
 
         data[i,j] = results['qp'][0,0,1] - results['qp'][0,0,0]

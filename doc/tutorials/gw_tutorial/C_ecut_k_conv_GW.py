@@ -13,19 +13,19 @@ for j, k in enumerate([6, 8, 10, 12]):
                 xc='LDA',
                 basis='dzp',
                 occupations=FermiDirac(0.001),
-                txt='output_files/C_groundstate_%s.txt' %(k))
+                txt='C_groundstate_%s.txt' %(k))
 
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
 
     calc.diagonalize_full_hamiltonian()
-    calc.write('output_files/C_groundstate_%s.gpw' % k, mode='all')
+    calc.write('C_groundstate_%s.gpw' % k, mode='all')
 
     for i, ecut in enumerate([100, 200, 300, 400]):
-        gw = G0W0(calc='output_files/C_groundstate_%s.gpw' % k,
+        gw = G0W0(calc='C_groundstate_%s.gpw' % k,
                   bands=(3, 5),
                   ecut=ecut,
                   kpts=[0],
-                  filename='output_files/C-g0w0_k%s_ecut%s' % (k, ecut))
+                  filename='C-g0w0_k%s_ecut%s' % (k, ecut))
 
         result = gw.calculate()

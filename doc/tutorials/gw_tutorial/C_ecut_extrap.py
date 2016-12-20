@@ -13,7 +13,7 @@ direct_gap = np.zeros(4)
 
 k = 8
 for i, ecut in enumerate([100, 200, 300, 400]):
-    fil = pickle.load(paropen('output_files/C-g0w0_k%s_ecut%s_results.pckl' %
+    fil = pickle.load(paropen('C-g0w0_k%s_ecut%s_results.pckl' %
                               (k, ecut), 'rb'))
     direct_gap[i] = fil['qp'][0, 0, 1] - fil['qp'][0, 0, 0]
 plt.plot(1./(ecuts**(3./2.)), direct_gap, 'ko-',
