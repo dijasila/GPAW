@@ -234,7 +234,7 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
             self.rc = float(attrs['rc'])
             self.type = attrs.get('type')
             self.data = []
-            if attrs.has_key('n'):
+            if 'n' in attrs:
                 self.n = int(attrs['n'])
             elif self.type[0].isdigit():
                 self.n = int(self.type[0])
