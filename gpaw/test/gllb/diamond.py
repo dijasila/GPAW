@@ -9,7 +9,6 @@
 Compare to reference.
 """
 from ase.build import bulk
-from ase.dft.kpoints import ibz_points, get_bandpath
 from ase.units import Ha
 from gpaw.eigensolvers.davidson import Davidson
 from gpaw import GPAW, restart
@@ -38,21 +37,13 @@ atoms.get_potential_energy()
 calc.write('Cgs.gpw')
 
 # Calculate accurate KS-band gap from band structure
-points = ibz_points['fcc']
-
-# CMB is in G-X
-G = points['Gamma']
-X = points['X']
-
-# W = points['W']
-# K = points['K']
-# L = points['L']
-# [W, L, G, X, W, K]
-
-kpts, x, X = get_bandpath([G, X], atoms.cell, npoints=12)
-calc = GPAW('Cgs.gpw', kpts=kpts, fixdensity=True, symmetry='off',
+calc = GPAW('Cgs.gpw',
+            kpts={'path': 'GX', 'npoints': 12},
+            fixdensity=True,
+            symmetry='off',
             nbands=8,
-            convergence=dict(bands=6), eigensolver=Davidson(niter=4))
+            convergence=dict(bands=6),
+            eigensolver=Davidson(niter=4))
 calc.get_atoms().get_potential_energy()
 # Get the accurate KS-band gap
 homolumo = calc.get_homo_lumo()
@@ -71,7 +62,7 @@ calc.write('CGLLBSC.gpw')
 
 # Redo the band structure calculation
 atoms, calc = restart('CGLLBSC.gpw',
-                      kpts=kpts,
+                      kpts={'path': 'GX', 'npoints': 12},
                       fixdensity=True,
                       symmetry='off',
                       convergence=dict(bands=6),
