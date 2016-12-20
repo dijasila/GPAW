@@ -1,5 +1,5 @@
 from __future__ import print_function
-from ase.dft.kpoints import get_bandpath
+from ase.dft.kpoints import bandpath
 from ase.parallel import paropen
 from gpaw import GPAW
 
@@ -10,7 +10,7 @@ K = [1 / 3., 1 / 3., 0]
 M = [0.5, 0, 0]
 M_ = [-0.5, 0, 0]
 K_ = [-1 / 3., -1 / 3., 0]
-kpts, x, X = get_bandpath([M, K, G, K_, M_], layer.cell, npoints=1000)
+kpts, x, X = bandpath([M, K, G, K_, M_], layer.cell, npoints=1000)
 
 calc = GPAW('WS2_gs.gpw', kpts=kpts, symmetry='off')
 calc.diagonalize_full_hamiltonian(nbands=100)
