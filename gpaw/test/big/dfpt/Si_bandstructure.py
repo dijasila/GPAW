@@ -9,7 +9,7 @@ For comparison, see e.g.:
 import numpy as np
 import matplotlib.pyplot as plt
 import ase.units as units
-from ase.dft.kpoints import get_bandpath
+from ase.dft.kpoints import bandpath
 
 from gpaw.mpi import rank, world
 from gpaw.dfpt import PhononCalculator
@@ -37,23 +37,22 @@ if rank == 0:
 
     # High-symmetry points in the Brillouin zone
     atoms = ph.get_atoms()
-    path_kc, q, Q = get_bandpath("GKXGLXWL",
-                                 atoms.cell, 100)
+    path_kc, q, Q = bandpath('GKXGLXWL', atoms.cell, 100)
     point_names = ['$\Gamma$', 'K', 'X', '$\Gamma$', 'L', 'X', 'W', 'L']
-    
+
     # Calculate band-structure
     omega_kn = ph.band_structure(path_kc)
-    
+
     # Convert from sqrt(Ha / Bohr**2 / amu) -> meV
     s = units.Hartree**0.5 * units._hbar * 1.e10 / \
         (units._e * units._amu)**(0.5) / units.Bohr
     omega_kn *= s * 1000
-    
+
     # Plot the band-structure
     plt.figure(1)
     for n in range(len(omega_kn[0])):
         plt.plot(q, omega_kn[:, n], 'k-', lw=2)
-        
+
     plt.xticks(Q, point_names, fontsize=18)
     plt.yticks(fontsize=18)
     plt.xlim(q[0], q[-1])
