@@ -4,12 +4,10 @@ import numpy as np
 
 
 class NonLocalFunctional(XCFunctional):
-    type = 'GLLB'
-
     def __init__(self, xcname):
         self.contributions = []
         self.xcs = {}
-        XCFunctional.__init__(self, xcname)
+        XCFunctional.__init__(self, xcname, 'GLLB')
         self.mix = None
         self.mix_vt_sg = None
         self.old_vt_sg = None
@@ -43,7 +41,7 @@ class NonLocalFunctional(XCFunctional):
     def set_positions(self, spos_ac):
         for contribution in self.contributions:
             contribution.set_positions(spos_ac)
-        
+
     def pass_stuff_1d(self, ae):
         self.ae = ae
 
@@ -55,11 +53,7 @@ class NonLocalFunctional(XCFunctional):
         for contribution in self.contributions:
             contribution.initialize_1d()
 
-    def calculate(self, gd, n_sg, v_sg=None, e_g=None):
-        if e_g is None:
-            e_g = gd.empty()
-        if v_sg is None:
-            v_sg = np.zeros_like(n_sg)
+    def calculate_impl(self, gd, n_sg, v_sg, e_g):
         if self.nspins == 1:
             self.calculate_spinpaired(e_g, n_sg[0], v_sg[0])
         else:
@@ -70,7 +64,7 @@ class NonLocalFunctional(XCFunctional):
                                  addcoredensity=True):
         return self.calculate_energy_and_derivatives(setup, D_sp, dEdD_sp, a,
                                                      addcoredensity)
-    
+
     def calculate_spinpaired(self, e_g, n_g, v_g):
         e_g[:] = 0.0
         if self.mix is None:
@@ -94,7 +88,7 @@ class NonLocalFunctional(XCFunctional):
         e_g[:] = 0.0
         for contribution in self.contributions:
             contribution.calculate_spinpolarized(e_g, n_sg, v_sg)
-            
+
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a,
                                          addcoredensity=True):
         Exc = 0.0
@@ -119,7 +113,7 @@ class NonLocalFunctional(XCFunctional):
             H_sp *= cmix
             H_sp += (1 - cmix) * self.old_H_asp[a]
             self.old_H_asp[a][:] = H_sp.copy()
-            
+
         # if a == 0:
         #     print('eh', H_sp.sum())
         H0_sp += H_sp
@@ -131,7 +125,7 @@ class NonLocalFunctional(XCFunctional):
         for contribution in self.contributions:
             Exc += contribution.add_xc_potential_and_energy_1d(v_g)
         return Exc
-    
+
     def get_smooth_xc_potential_and_energy_1d(self, vt_g):
         Exc = 0.0
         for contribution in self.contributions:
@@ -179,5 +173,3 @@ class NonLocalFunctional(XCFunctional):
                 contribution.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)
             except AttributeError:
                 pass
-
-            
