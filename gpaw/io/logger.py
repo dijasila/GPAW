@@ -2,7 +2,6 @@ from __future__ import print_function, division
 import os
 import sys
 import time
-import platform
 
 import numpy as np
 import ase
@@ -20,7 +19,7 @@ class GPAWLogger(object):
     """Class for handling all text output."""
     def __init__(self, world):
         self.world = world
-        
+
         self.verbose = False
         self._fd = None
         self.oldfd = 42
@@ -28,7 +27,7 @@ class GPAWLogger(object):
     @property
     def fd(self):
         return self._fd
-        
+
     @fd.setter
     def fd(self, fd):
         """Set the stream for text output.
@@ -44,7 +43,7 @@ class GPAWLogger(object):
         self.oldfd = fd
         self._fd = convert_string_to_fd(fd, self.world)
         self.header()
-        
+
     def __call__(self, *args, **kwargs):
         flush = kwargs.pop('flush', False)
         print(*args, file=self._fd, **kwargs)
@@ -53,7 +52,7 @@ class GPAWLogger(object):
 
     def flush(self):
         self._fd.flush()
-            
+
     def header(self):
         self()
         self('  ___ ___ ___ _ _ _  ')
@@ -63,20 +62,24 @@ class GPAWLogger(object):
         self(' |___|_|             ')
         self()
 
-        uname = platform.uname()
-        self('User:  ', os.getenv('USER', '???') + '@' + uname[1])
+        # We use os.uname() here bacause platform.uname() starts a subprocess,
+        # which MPI may not like!
+        # This might not work on Windows.  We will see ...
+        nodename, machine = os.uname()[1::3]
+
+        self('User:  ', os.getenv('USER', '???') + '@' + nodename)
         self('Date:  ', time.asctime())
-        self('Arch:  ', uname[4])
+        self('Arch:  ', machine)
         self('Pid:   ', os.getpid())
         self('Python: {0}.{1}.{2}'.format(*sys.version_info[:3]))
         self('gpaw:  ', os.path.dirname(gpaw.__file__))
-        
+
         # Find C-code:
         c = getattr(_gpaw, '__file__', None)
         if not c:
             c = sys.executable
         self('_gpaw: ', cut(os.path.normpath(c)))
-                  
+
         self('ase:    %s (version %s)' %
              (os.path.dirname(ase.__file__), ase_version))
         self('numpy:  %s (version %s)' %
@@ -127,7 +130,7 @@ class GPAWLogger(object):
         """Destructor:  Write timing output before closing."""
         if dry_run:
             return
-            
+
         try:
             mr = maxrss()
         except (LookupError, TypeError, NameError):
@@ -139,10 +142,10 @@ class GPAWLogger(object):
                 self('Memory usage: %.2f MiB' % (mr / 1024**2))
             else:
                 self('Memory usage: %.2f GiB' % (mr / 1024**3))
-        
+
         self('Date: ' + time.asctime())
 
-        
+
 def cut(s, indent='       '):
     if len(s) + len(indent) < 80:
         return s
