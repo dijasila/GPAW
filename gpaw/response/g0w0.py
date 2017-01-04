@@ -148,7 +148,11 @@ class G0W0(PairDensity):
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
             nblocks = world.size
-            nblocks_calc = GPAW(calc, txt=None)
+            if isinstance(calc, GPAW):
+              raise Exception('Using a calulator is not implemented at the moment, load from file!')
+              nblocks_calc = calc
+            else:
+              nblocks_calc = GPAW(calc, txt=None)
             ngmax = []
             for q_c in nblocks_calc.wfs.kd.bzk_kc:
                 qd = KPointDescriptor([q_c])
@@ -258,6 +262,10 @@ class G0W0(PairDensity):
         self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
 
         # assert self.calc.wfs.nspins == 1
+
+        # print at least at the end...
+        if world.rank != 0:
+            txt.flush()
 
     @timer('G0W0')
     def calculate(self):
