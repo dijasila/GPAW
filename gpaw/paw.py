@@ -164,14 +164,14 @@ class PAW:
         self.calculate(system_changes=[])
         self.density.fixed = fixed
 
-    def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None,
+    def diagonalize_full_hamiltonian(self, nbands=None, ecut=None, scalapack=None,
                                      expert=False):
         if not self.initialized:
             self.initialize()
         nbands = self.wfs.diagonalize_full_hamiltonian(
             self.hamiltonian, self.atoms,
             self.occupations, self.log,
-            nbands, scalapack, expert)
+            nbands, ecut, scalapack, expert)
         self.parameters.nbands = nbands
 
     def get_number_of_bands(self):
