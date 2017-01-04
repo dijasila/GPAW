@@ -333,6 +333,7 @@ tests = [
     'parallel/diamond_gllb.py',             # ~59s
     'beef.py',
     'pw/si_stress.py',                      # ~61s
+    'pw/si_stress_LDA.py',                  # ~61s
     'response/chi0.py',                     # ~71s
     'sic/scfsic_n2.py',                     # ~73s
     'lrtddft/3.py',                         # ~75s
