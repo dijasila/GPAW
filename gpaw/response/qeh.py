@@ -443,55 +443,91 @@ class Heterostructure:
 
         v_screened_q = self.collect_q(v_screened_qw[:, 0])
 
-        return self.q_abs, -v_screened_q
+        return self.q_abs, -v_screened_q, kernel_qij
 
     def get_exciton_screened_potential_r(self, r_array, e_distr=None,
-                                         h_distr=None, Wq_name=None):
+                                         h_distr=None, Wq_name=None,
+                                         tweak=None):
         if Wq_name is not None:
             q_abs, W_q = load(open(Wq_name, 'rb'))
         else:
-            q_temp, W_q = self.get_exciton_screened_potential(e_distr, h_distr)
+            q_temp, W_q, xxx = self.get_exciton_screened_potential(e_distr,
+                                                                   h_distr)
 
         from scipy.special import jn
-        if self.n_layers == 1:
+
+        inter = False
+        if np.where(e_distr==1)[0][0] != np.where(h_distr==1)[0][0]:
+            inter = True
+
+        layer_dist = 0.
+        if self.n_layers==1:
             layer_thickness = self.s[0]
-        elif len(e_distr) == self.n_layers:
-            ilayer = np.min([np.where(e_distr == 1)[0][0],
-                             np.where(h_distr == 1)[0][0]]) // 2
-            layer_thickness = self.d[ilayer]
         else:
-            ilayer = np.min([np.where(e_distr == 1)[0][0],
-                             np.where(h_distr == 1)[0][0]]) // 4
-            layer_thickness = self.d[ilayer]
+            if len(e_distr)==self.n_layers:
+                div = 1
+            else:
+                div = 2
+
+            if not inter:
+                ilayer = np.where(e_distr==1)[0][0] // div
+                if ilayer==len(self.d):
+                    ilayer -= 1
+                layer_thickness=self.d[ilayer]
+            else:
+                ilayer1 = np.min([np.where(e_distr==1)[0][0],
+                                  np.where(h_distr==1)[0][0]]) // div
+                ilayer2 = np.max([np.where(e_distr==1)[0][0],
+                                  np.where(h_distr==1)[0][0]]) // div
+                layer_thickness=self.d[ilayer1]/2.
+                layer_dist = np.sum(self.d[ilayer1:ilayer2]) / 1.8
+        if tweak is not None:
+            layer_thickness = tweak
 
         W_q *= q_temp
-        q = np.linspace(q_temp[0], q_temp[-1], 10000)
-        Wt_q = np.interp(q, q_temp, W_q)
-        Dq_Q2D = q[1] - q[0]
-        Coulombt_q = -4. * np.pi / q * \
-            (1. - np.exp(-q * layer_thickness / 2.)) / layer_thickness
+        q = np.linspace(q_temp[0],q_temp[-1],10000)
+        Wt_q = np.interp(q,q_temp,W_q)
+        Dq_Q2D = q[1]-q[0]
+
+        if not inter:
+            Coulombt_q = -4.*np.pi/q*(1.-np.exp(-q*layer_thickness/2.)) /\
+                         layer_thickness
+        else:
+            Coulombt_q = -2.*np.pi/q*\
+                         (np.exp(-q*(layer_dist - layer_thickness/2.)) -\
+                         np.exp(-q*(layer_dist + layer_thickness/2.))) /\
+                         layer_thickness
+
 
         W_r = np.zeros(len(r_array))
-        for ir in range(0, len(r_array)):
-            J_q = jn(0, q * r_array[ir])
-            if r_array[ir] > np.exp(-13):
-                Int_temp = -1. / layer_thickness * \
-                    np.log((layer_thickness / 2. +
-                            np.sqrt(r_array[ir]**2 +
-                                    layer_thickness**2 / 4.)) /
-                           (-layer_thickness / 2. +
-                            np.sqrt(r_array[ir]**2 +
-                                    layer_thickness**2 / 4.)))
+        for ir in range(0,len(r_array)):
+            J_q = jn(0, q*r_array[ir])
+            if r_array[ir]>np.exp(-13):
+                Int_temp = -1./layer_thickness *\
+                           np.log((layer_thickness/2. - layer_dist +\
+                           np.sqrt(r_array[ir]**2 +\
+                           (layer_thickness/2. - layer_dist)**2)) /\
+                           (-layer_thickness/2. - layer_dist +\
+                           np.sqrt(r_array[ir]**2 +\
+                           (layer_thickness/2. + layer_dist)**2)))
             else:
-                Int_temp = -1. / layer_thickness \
-                    * np.log(layer_thickness**2 / r_array[ir]**2)
-            W_r[ir] = Dq_Q2D / 2. / np.pi \
-                * np.sum(J_q * (Wt_q - Coulombt_q)) + Int_temp
-        return r_array, W_r
+                if not inter:
+                    Int_temp = -1. / layer_thickness *\
+                                np.log(layer_thickness**2 / r_array[ir]**2)
+                else:
+                    Int_temp = -1. / layer_thickness *\
+                               np.log((layer_thickness + 2 * layer_dist) /\
+                               (2 * layer_dist - layer_thickness))
+
+            W_r[ir] = Dq_Q2D / 2. / np.pi * np.sum(J_q*(Wt_q - Coulombt_q)) +\
+                      Int_temp
+
+        return r_array,W_r
+
 
     def get_exciton_binding_energies(self, eff_mass, L_min=-50, L_max=10,
                                      Delta=0.1, e_distr=None, h_distr=None,
-                                     Wq_name=None):
+                                     Wq_name=None, tweak=None):
         from scipy.linalg import eig
         r_space = np.arange(L_min, L_max, Delta)
         Nint = len(r_space)
@@ -499,7 +535,8 @@ class Heterostructure:
         r, W_r = self.get_exciton_screened_potential_r(r_array=np.exp(r_space),
                                                        e_distr=e_distr,
                                                        h_distr=h_distr,
-                                                       Wq_name=None)
+                                                       Wq_name=None,
+                                                       tweak=tweak)
 
         H = np.zeros((Nint, Nint), dtype=complex)
         for i in range(0, Nint):
