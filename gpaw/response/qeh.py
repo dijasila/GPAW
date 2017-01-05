@@ -427,21 +427,19 @@ class Heterostructure:
         return W_qw
 
     def get_exciton_screened_potential(self, e_distr, h_distr):
-        v_screened_qw = np.zeros((self.mynq,
-                                  len(self.frequencies)))
+        v_screened_q = np.zeros(self.mynq)
         eps_qwij = self.get_eps_matrix()
         h_distr = h_distr.transpose()
         kernel_qij = self.get_Coulomb_Kernel()
 
         for iq in range(0, self.mynq):
             ext_pot = np.dot(kernel_qij[iq], h_distr)
-            for iw in range(0, len(self.frequencies)):
-                v_screened_qw[iq, iw] =\
-                    np.dot(e_distr,
-                           np.dot(np.linalg.inv(eps_qwij[iq, iw, :, :]),
-                                  ext_pot))
+            v_screened_q[iq] =\
+                np.dot(e_distr,
+                       np.dot(np.linalg.inv(eps_qwij[iq, 0, :, :]),
+                              ext_pot)).real
 
-        v_screened_q = self.collect_q(v_screened_qw[:, 0])
+        v_screened_q = self.collect_q(v_screened_q[:])
 
         return self.q_abs, -v_screened_q
 
@@ -1306,8 +1304,8 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
         data = load(open(name + '-chi.pckl', 'rb'))
         q_abs = data['q_abs']
         q_max = np.min([q_abs[-1], q_max])
-        w = data['omega_w']
-        w_max = np.min([w[-1], w_max])
+        ow = data['omega_w']
+        w_max = np.min([ow[-1], w_max])
 
     if BBmotherfile is not None:
         name = BBmotherfile + '-chi.pckl'
