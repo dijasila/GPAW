@@ -1,5 +1,4 @@
 def agts(queue):
-    return
     gs_MoS2 = queue.add('gs_MoS2.py', ncpus=16, walltime=25)
     gs_WSe2 = queue.add('gs_WSe2.py', ncpus=16, walltime=25)
 
