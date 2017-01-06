@@ -9,7 +9,7 @@ thick_WSe2 = 6.718
 d_MoS2_WSe2 = (thick_MoS2 + thick_WSe2) / 2
 inter_mass = 0.244
 
-HS = Heterostructure(structure=['1H-MoS2', '1H-WSe2'],
+HS = Heterostructure(structure=['MoS2', 'WSe2'],
                      d=[d_MoS2_WSe2],
                      qmax=None,
                      wmax=0,
