@@ -35,7 +35,10 @@ gw.calculate()
 result = pickle.load(open('BN_GW0_results.pckl','rb'))
 
 for i in range(result['iqp'].shape[0]):
-    print 'Ite:', i, 'Gap:', np.min(result['iqp'][i,0,:,3])-np.max(result['iqp'][i,0,:,2])
+    print('Ite:', i,
+          'Gap:',
+          np.min(result['iqp'][i, 0, :, 3]) -
+          np.max(result['iqp'][i, 0, :, 2]))
 
 
 

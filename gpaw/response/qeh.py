@@ -992,8 +992,8 @@ class BuildingBlock():
         rcell_cv = 2 * pi * np.linalg.inv(calc.wfs.gd.cell_cv).T
         if isotropic_q:  # only use q along [1 0 0] or [0 1 0] direction.
             Nk = kd.N_c[qdir]
-            qx = np.array(range(0, Nk / 2)) / float(Nk)
-            q_cs = np.zeros([Nk / 2, 3])
+            qx = np.array(range(0, Nk // 2)) / float(Nk)
+            q_cs = np.zeros([Nk // 2, 3])
             q_cs[:, qdir] = qx
             q = 0
             if qmax is not None:
@@ -1004,7 +1004,7 @@ class BuildingBlock():
                 q_v = np.dot(q_c, rcell_cv)
                 q = (q_v**2).sum()**0.5
                 assert Nk % 2 == 0
-                i = Nk / 2.
+                i = Nk / 2.0
                 while q < qmax:
                     if i == Nk:  # omit BZ edge
                         i += 1
