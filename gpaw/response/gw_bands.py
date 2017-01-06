@@ -21,7 +21,7 @@ class GWBands:
 
             self.calc = GPAW(calc, txt=None)
             if gw_file is not None:
-                self.gw_file = pickle.load(open(gw_file))
+                self.gw_file = pickle.load(open(gw_file, 'rb'))
             self.kpoints = kpoints
             if bandrange is None:
                 self.bandrange = np.arange(self.calc.get_number_of_bands())
