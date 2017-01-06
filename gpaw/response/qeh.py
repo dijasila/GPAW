@@ -488,8 +488,9 @@ class Heterostructure:
         Dq_Q2D = q[1] - q[0]
 
         if not inter:
-            Coulombt_q = -4.*np.pi/q*(1.-np.exp(-q*layer_thickness/2.)) /\
-                         layer_thickness
+            Coulombt_q = (-4. * np.pi / q *
+                          (1. - np.exp(-q * layer_thickness / 2.)) /
+                          layer_thickness)
         else:
             Coulombt_q = (-2 * np.pi / q *
                           (np.exp(-q * (layer_dist - layer_thickness / 2.)) -
@@ -498,7 +499,7 @@ class Heterostructure:
 
         W_r = np.zeros(len(r_array))
         for ir in range(len(r_array)):
-            J_q = jn(0, q*r_array[ir])
+            J_q = jn(0, q * r_array[ir])
             if r_array[ir] > np.exp(-13):
                 Int_temp = (
                     -1. / layer_thickness *
@@ -510,14 +511,15 @@ class Heterostructure:
                                     (layer_thickness / 2. + layer_dist)**2))))
             else:
                 if not inter:
-                    Int_temp = -1. / layer_thickness * \
-                                np.log(layer_thickness**2 / r_array[ir]**2)
+                    Int_temp = (-1. / layer_thickness *
+                                np.log(layer_thickness * 2 / r_array[ir]**2))
                 else:
-                    Int_temp = -1. / layer_thickness * \
-                               np.log((layer_thickness + 2 * layer_dist) /
-                                      (2 * layer_dist - layer_thickness))
+                    Int_temp = (-1. / layer_thickness *
+                                np.log((layer_thickness + 2 * layer_dist) /
+                                       (2 * layer_dist - layer_thickness)))
 
-            W_r[ir] = (Dq_Q2D / 2. / np.pi * np.sum(J_q*(Wt_q - Coulombt_q)) +
+            W_r[ir] = (Dq_Q2D / 2. / np.pi *
+                       np.sum(J_q * (Wt_q - Coulombt_q)) +
                        Int_temp)
 
         return r_array, W_r
