@@ -1,5 +1,5 @@
 import numpy as np
-from fractions import gcd
+from ase.utils import gcd
 import pickle
 import sys
 
@@ -12,7 +12,7 @@ from gpaw.kpt_descriptor import to1bz
 
 from scipy.interpolate import InterpolatedUnivariateSpline
 
-class GW_bands:
+class GWBands:
     """This class defines the GW_bands properties"""
 
     def __init__(self,
@@ -47,7 +47,7 @@ class GW_bands:
         bcell_cv = self.bcell_cv
         kpoints = self.kpoints
 
-        if plot_BZ is True:
+        if plot_BZ:
             """Plotting the points in the Brillouin Zone"""
             kp_1bz = to1bz(kd.bzk_kc, acell_cv)
             
@@ -79,10 +79,10 @@ class GW_bands:
             to_c = wpts_xc[nwpt]
             from_c = wpts_xc[nwpt - 1]
             vec_c = to_c - from_c
-            print 'From ', from_c, ' to ', to_c
+            print('From ', from_c, ' to ', to_c)
             Nv_c = (vec_c * N_c).round().astype(int)
             Nv = abs(gcd(gcd(Nv_c[0], Nv_c[1]), Nv_c[2]))
-            print Nv, ' points found'
+            print(Nv, ' points found')
             dv_c = vec_c / Nv
             dv_v = np.dot(dv_c, bcell_cv)
             dx = np.linalg.norm(dv_v)
@@ -131,11 +131,11 @@ class GW_bands:
         """Gets the spinorbit corrections to the eigenvalues"""
         calc = self.calc
         bandrange = self.bandrange
-        print (bandrange[0])
+        print(bandrange[0])
         if dft==False:
             e_kn = self.gw_file['qp'][0]  
-            print ('Shape')
-            print (e_kn[:,bandrange[0]:bandrange[-1]].shape)
+            print('Shape')
+            print(e_kn[:,bandrange[0]:bandrange[-1]].shape)
         else:
             if eig_file is not None:
                 e_kn = pickle.load(open(eig_file))[0]
@@ -153,7 +153,7 @@ class GW_bands:
         return e_kn, v_knm
 
 
-    def get_GW_bands(self,nk_Int=50,interpolate=False,SO=False,gwqeh_file=None,dft=False,eig_file=None,vac=False):
+    def get_gw_bands(self,nk_Int=50,interpolate=False,SO=False,gwqeh_file=None,dft=False,eig_file=None,vac=False):
         """Getting Eigenvalues along the path"""
         kd = self.kd
         if SO:
@@ -197,16 +197,16 @@ class GW_bands:
 
         N_occ = (eGW_kn[0] < ef).sum()
         #N_occ = int(self.calc.get_number_of_electrons()/2) 
-        print ' ' 
-        print 'The number of Occupied bands is:', N_occ + bandrange[0]
+        print(' ')
+        print('The number of Occupied bands is:', N_occ + bandrange[0])
         gap = (eGW_kn[:, N_occ].min() - eGW_kn[:, N_occ - 1].max())
-        print 'The bandgap is: %f'%gap
-        print 'The valence band is at k=', x_x[eGW_kn[:, N_occ - 1].argmax()]
-        print 'The conduction band is at k=', x_x[eGW_kn[:, N_occ].argmin()]
+        print('The bandgap is: %f'%gap)
+        print('The valence band is at k=', x_x[eGW_kn[:, N_occ - 1].argmax()])
+        print('The conduction band is at k=', x_x[eGW_kn[:, N_occ].argmin()])
         vbm = eGW_kn[:, N_occ -1 ].max() - evac # eGW_kn[abs(x_x-X[2]).argmin(),N_occ-1] - evac
         cbm = eGW_kn[:, N_occ].min() - evac #eGW_kn[abs(x_x-X[2]).argmin(),N_occ] - evac
-        print 'The valence band at K is=', vbm
-        print 'The conduction band at K is=', cbm
+        print('The valence band at K is=', vbm)
+        print('The conduction band at K is=', cbm)
 
         if interpolate:
             xfit_k = np.linspace(x_x[0], x_x[-1], nk_Int)

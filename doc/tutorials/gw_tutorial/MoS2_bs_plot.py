@@ -3,7 +3,7 @@ import numpy as np
 from ase.dft.kpoints import ibz_points, get_bandpath
 from ase.units import Bohr,Hartree
 
-from gpaw.response.GW_bands import GW_bands
+from gpaw.response.gw_bands import GWBands
 
 import matplotlib.pyplot as plt
 from matplotlib import rc
@@ -14,11 +14,11 @@ K = np.array([1/3.,1/3.,0])
 G = points['Gamma']
 kpoints = np.array([G, K, G])
 
-GW = GW_bands(calc = 'MoS2_fulldiag.gpw',
+GW = GWBands(calc = 'MoS2_fulldiag.gpw',
               gw_file='MoS2_g0w0_80_results.pckl',
               kpoints = kpoints)
 
-results = GW.get_GW_bands(SO=False, interpolate=True, vac=True) #without spin-orbit
+results = GW.get_gw_bands(SO=False, interpolate=True, vac=True) #without spin-orbit
 
 x_x = results['x_k']
 X = results['X']
