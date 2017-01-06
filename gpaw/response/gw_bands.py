@@ -1,16 +1,14 @@
+import pickle
+
 import numpy as np
 from ase.utils import gcd
-import pickle
-import sys
+from ase.units import Ha
+from scipy.interpolate import InterpolatedUnivariateSpline
 
-from ase.dft.kpoints import ibz_points, get_bandpath
-from ase.units import Bohr,Hartree
-
-from gpaw import GPAW, PW, FermiDirac
+from gpaw import GPAW
 from gpaw.spinorbit import get_spinorbit_eigenvalues
 from gpaw.kpt_descriptor import to1bz
 
-from scipy.interpolate import InterpolatedUnivariateSpline
 
 class GWBands:
     """This class defines the GW_bands properties"""
@@ -23,7 +21,7 @@ class GWBands:
 
             self.calc = GPAW(calc, txt=None)
             if gw_file is not None:
-                self.gw_file = pickle.load(open(gw_file))             
+                self.gw_file = pickle.load(open(gw_file))
             self.kpoints = kpoints
             if bandrange is None:
                 self.bandrange = np.arange(self.calc.get_number_of_bands())
@@ -32,12 +30,11 @@ class GWBands:
 
             self.gd = self.calc.wfs.gd.new_descriptor()
             self.kd = self.calc.wfs.kd
-            
+
             self.acell_cv = self.gd.cell_cv
             self.bcell_cv = 2 * np.pi * self.gd.icell_cv
             self.vol = self.gd.volume
             self.BZvol = (2 * np.pi)**3 / self.vol
-           
 
     def find_k_along_path(self, plot_BZ=True):
         """Finds the k-points along the bandpath present in the
@@ -50,10 +47,10 @@ class GWBands:
         if plot_BZ:
             """Plotting the points in the Brillouin Zone"""
             kp_1bz = to1bz(kd.bzk_kc, acell_cv)
-            
+
             bzk_kcv = np.dot(kd.bzk_kc, bcell_cv)
             kp_1bz_v = np.dot(kp_1bz, bcell_cv)
-            
+
             import matplotlib.pyplot as plt
             plt.plot(bzk_kcv[:, 0], bzk_kcv[:, 1], 'xg')
             plt.plot(kp_1bz_v[:, 0], kp_1bz_v[:, 1], 'ob')
@@ -65,7 +62,6 @@ class GWBands:
 
         """Finding the points along given directions"""
         print('Finding the kpoints along the path')
-        op_scc = kd.symmetry.op_scc
         N_c = kd.N_c
         wpts_xc = kpoints
 
@@ -87,7 +83,7 @@ class GWBands:
             dv_v = np.dot(dv_c, bcell_cv)
             dx = np.linalg.norm(dv_v)
             if nwpt == len(wpts_xc) - 1:
-                #X.append(Nv * dx)
+                # X.append(Nv * dx)
                 Nv += 1
             for n in range(Nv):
                 k_c = from_c + n * dv_c
@@ -108,77 +104,78 @@ class GWBands:
 
     def get_dft_eigenvalues(self):
         Nk = len(self.calc.get_ibz_k_points())
-        bands = np.arange(self.bandrange[0],self.bandrange[-1])
+        bands = np.arange(self.bandrange[0], self.bandrange[-1])
         e_kn = np.array([self.calc.get_eigenvalues(kpt=k)[bands]
-                            for k in range(Nk)])
+                         for k in range(Nk)])
         return e_kn
 
     def get_vacuum_level(self, plot_pot=False):
         """Finds the vacuum level through Hartree potential"""
-        calc = self.calc
-        vHt_g = self.calc.hamiltonian.vt_sG[0]*Hartree
+        vHt_g = self.calc.hamiltonian.vt_sG[0] * Ha
         vHt_z = np.mean(np.mean(vHt_g, axis=0), axis=0)
-        
-        if plot_pot==True:
+
+        if plot_pot:
             import matplotlib.pyplot as plt
             plt.plot(vHt_z)
             plt.show()
         return vHt_z[0]
 
-
     def get_spinorbit_corrections(self, return_spin=True, return_wfs=False,
-                                  bands=None,gwqeh_file=None,dft=False, eig_file=None):
+                                  bands=None, gwqeh_file=None, dft=False,
+                                  eig_file=None):
         """Gets the spinorbit corrections to the eigenvalues"""
         calc = self.calc
         bandrange = self.bandrange
         print(bandrange[0])
-        if dft==False:
-            e_kn = self.gw_file['qp'][0]  
+        if not dft:
+            e_kn = self.gw_file['qp'][0]
             print('Shape')
-            print(e_kn[:,bandrange[0]:bandrange[-1]].shape)
+            print(e_kn[:, bandrange[0]:bandrange[-1]].shape)
         else:
             if eig_file is not None:
                 e_kn = pickle.load(open(eig_file))[0]
             else:
                 e_kn = self.get_dft_eigenvalues()
-        
 
-        eSO_nk, s_nk, v_knm = get_spinorbit_eigenvalues(calc,
-                            return_spin=return_spin, return_wfs=return_wfs,
-                            bands=range(bandrange[0], bandrange[-1]),
-                            gw_kn=e_kn[:,:bandrange[-1]-bandrange[0]])
+        eSO_nk, s_nk, v_knm = get_spinorbit_eigenvalues(
+            calc,
+            return_spin=return_spin, return_wfs=return_wfs,
+            bands=range(bandrange[0], bandrange[-1]),
+            gw_kn=e_kn[:, :bandrange[-1] - bandrange[0]])
 
-        #eSO_kn = np.sort(e_skn,axis=2)
+        # eSO_kn = np.sort(e_skn,axis=2)
         e_kn = eSO_nk.T
         return e_kn, v_knm
 
-
-    def get_gw_bands(self,nk_Int=50,interpolate=False,SO=False,gwqeh_file=None,dft=False,eig_file=None,vac=False):
+    def get_gw_bands(self, nk_Int=50, interpolate=False, SO=False,
+                     gwqeh_file=None, dft=False, eig_file=None, vac=False):
         """Getting Eigenvalues along the path"""
         kd = self.kd
         if SO:
-            e_kn, v_knm = self.get_spinorbit_corrections(return_wfs=True, dft=dft, eig_file=eig_file)
+            e_kn, v_knm = self.get_spinorbit_corrections(return_wfs=True,
+                                                         dft=dft,
+                                                         eig_file=eig_file)
             if gwqeh_file is not None:
                 gwqeh_file = pickle.load(open(gwqeh_file))
-                eqeh_noSO_kn = gwqeh_file['qp_sin'][0]  * Hartree
+                eqeh_noSO_kn = gwqeh_file['qp_sin'][0] * Ha
                 eqeh_kn = np.zeros_like(e_kn)
-                eqeh_kn[:,::2] = eqeh_noSO_kn
-                eqeh_kn[:,1::2] = eqeh_noSO_kn
+                eqeh_kn[:, ::2] = eqeh_noSO_kn
+                eqeh_kn[:, 1::2] = eqeh_noSO_kn
 
                 e_kn += eqeh_kn
-                
+
         elif gwqeh_file is not None:
             gwqeh_file = pickle.load(open(gwqeh_file))
-            e_kn = gwqeh_file['Qp_sin'][0]  * Hartree
+            e_kn = gwqeh_file['Qp_sin'][0] * Ha
         elif eig_file is not None:
             e_kn = pickle.load(open(eig_file))[0]
         else:
-            if dft== False:
+            if not dft:
                 e_kn = self.gw_file['qp'][0]
             else:
                 e_kn = self.get_dft_eigenvalues()
-        e_kn = np.sort(e_kn,axis=1)
-        
+        e_kn = np.sort(e_kn, axis=1)
+
         bandrange = self.bandrange
         ef = self.calc.get_fermi_level()
         if vac:
@@ -196,21 +193,23 @@ class GWBands:
                 eGW_kn[ik, n] = e_kn[ibzkpt, n]
 
         N_occ = (eGW_kn[0] < ef).sum()
-        #N_occ = int(self.calc.get_number_of_electrons()/2) 
+        # N_occ = int(self.calc.get_number_of_electrons()/2)
         print(' ')
         print('The number of Occupied bands is:', N_occ + bandrange[0])
         gap = (eGW_kn[:, N_occ].min() - eGW_kn[:, N_occ - 1].max())
-        print('The bandgap is: %f'%gap)
+        print('The bandgap is: %f' % gap)
         print('The valence band is at k=', x_x[eGW_kn[:, N_occ - 1].argmax()])
         print('The conduction band is at k=', x_x[eGW_kn[:, N_occ].argmin()])
-        vbm = eGW_kn[:, N_occ -1 ].max() - evac # eGW_kn[abs(x_x-X[2]).argmin(),N_occ-1] - evac
-        cbm = eGW_kn[:, N_occ].min() - evac #eGW_kn[abs(x_x-X[2]).argmin(),N_occ] - evac
+        vbm = eGW_kn[:, N_occ - 1].max() - evac
+        #  eGW_kn[abs(x_x-X[2]).argmin(),N_occ-1] - evac
+        cbm = eGW_kn[:, N_occ].min() - evac
+        # eGW_kn[abs(x_x-X[2]).argmin(),N_occ] - evac
         print('The valence band at K is=', vbm)
         print('The conduction band at K is=', cbm)
 
         if interpolate:
             xfit_k = np.linspace(x_x[0], x_x[-1], nk_Int)
-            xfit_k = np.append(xfit_k,x_x)
+            xfit_k = np.append(xfit_k, x_x)
             xfit_k = np.sort(xfit_k)
             nk_Int = len(xfit_k)
             efit_kn = np.zeros((nk_Int, eGW_kn.shape[1]))
@@ -224,13 +223,13 @@ class GWBands:
                        'ef': ef - evac,
                        'gap': gap,
                        'vbm': vbm,
-                       'cbm': cbm}  
+                       'cbm': cbm}
             if not SO:
                 return results
             else:
-                print('At the moment I cannot return the interpolated\
-                       wavefuctions with SO=True, so be happy with what you\
-                       got!')
+                print('At the moment I cannot return the interpolated '
+                      'wavefuctions with SO=True, so be happy with what you '
+                      'got!')
                 return results
         else:
             results = {'x_k': x_x,
@@ -240,7 +239,7 @@ class GWBands:
                        'ef': ef - evac,
                        'gap': gap,
                        'vbm': vbm,
-                       'cbm': cbm}            
+                       'cbm': cbm}
             if not SO:
                 return results
             else:
