@@ -1063,8 +1063,8 @@ class BuildingBlock():
 
         q_infs = np.zeros([q_cs.shape[0] + self.nq_inftot, 3])
         # x-direction:
-        q_infs[1: self.nq_inf + 1, qdir] = \
-            np.linspace(0, q_cut, self.nq_inf + 1)[1:]
+        q_infs[: self.nq_inf + 1, qdir] = \
+            np.linspace(0, q_cut, self.nq_inf + 2)[1:]
         if not isotropic_q:  # y-direction
             q_infs[self.nq_inf + 1: self.nq_inf * 2 + 1, 1] = \
                 np.linspace(0, q_cut, self.nq_inf + 1)[1:]
