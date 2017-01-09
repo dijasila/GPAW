@@ -498,7 +498,6 @@ class Heterostructure:
                          np.exp(-q*(layer_dist + layer_thickness/2.))) /\
                          layer_thickness
 
-
         W_r = np.zeros(len(r_array))
         for ir in range(0,len(r_array)):
             J_q = jn(0, q*r_array[ir])
