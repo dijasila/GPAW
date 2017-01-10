@@ -25,6 +25,7 @@ def frequency_grid(domega0, omega2, omegamax):
     wmax = int(omegamax / (domega0 + beta * omegamax)) + 2
     w = np.arange(wmax)
     omega_w = w * domega0 / (1 - beta * w)
+
     return omega_w
 
 
