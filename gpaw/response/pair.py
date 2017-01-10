@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+from __future__ import print_function
 
 import sys
 import functools
@@ -6,6 +6,8 @@ import functools
 from math import pi
 
 import numpy as np
+from scipy.spatial import Delaunay, cKDTree
+
 from ase.units import Hartree
 from ase.utils import devnull
 from ase.utils.timing import timer, Timer
@@ -13,12 +15,16 @@ from ase.utils.timing import timer, Timer
 import gpaw.mpi as mpi
 from gpaw import GPAW
 from gpaw.fd_operators import Gradient
+from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.occupations import FermiDirac
 from gpaw.response.math_func import (two_phi_planewave_integrals,
                                      two_phi_nabla_planewave_integrals)
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.pw import PWLFC
+from gpaw.bztools import get_reduced_BZ, unique_rows
+
+import gpaw.io.tar as io
 
 
 class KPoint:
@@ -63,18 +69,22 @@ class KPointPair:
 
     def get_transition_energies(self, n_n, m_m):
         """Return the energy difference for specified bands."""
+        n_n = np.array(n_n)
+        m_m = np.array(m_m)
         kpt1 = self.kpt1
         kpt2 = self.kpt2
-        deps_nm = (kpt1.eps_n[n_n][:, np.newaxis] -
-                   kpt2.eps_n[m_m])
+        deps_nm = (kpt1.eps_n[n_n - self.kpt1.n1][:, np.newaxis] -
+                   kpt2.eps_n[m_m - self.kpt2.n1])
         return deps_nm
 
     def get_occupation_differences(self, n_n, m_m):
         """Get difference in occupation factor between specified bands."""
+        n_n = np.array(n_n)
+        m_m = np.array(m_m)
         kpt1 = self.kpt1
         kpt2 = self.kpt2
-        df_nm = (kpt1.f_n[n_n][:, np.newaxis] -
-                 kpt2.f_n[m_m])
+        df_nm = (kpt1.f_n[n_n - self.kpt1.n1][:, np.newaxis] -
+                 kpt2.f_n[m_m - self.kpt2.n1])
         return df_nm
 
 
@@ -204,7 +214,7 @@ class PWSymmetryAnalyzer:
         ng = len(K_gK)
         self.infostring += '{0} groups of equivalent kpoints. '.format(ng)
         
-        percent = (1 - ng / self.kd.nbzkpts) * 100
+        percent = (1. - (ng + 0.) / self.kd.nbzkpts) * 100
         self.infostring += '{0}% reduction. '.format(percent)
 
     @timer('Analyze symmetries.')
@@ -230,6 +240,7 @@ class PWSymmetryAnalyzer:
         U_scc = kd.symmetry.op_scc
         nU = self.nU
         nsym = self.nsym
+        ft_sc = kd.symmetry.ft_sc
 
         shift_sc = np.zeros((nsym, 3), int)
         conserveq_s = np.zeros(nsym, bool)
@@ -255,22 +266,22 @@ class PWSymmetryAnalyzer:
 
         # Filter out disabled symmetries
         if self.disable_point_group:
-            s_s = [s for s in s_s if self.is_not_point_group(s)]
+            s_s = filter(self.is_not_point_group, s_s)
 
         if self.disable_time_reversal:
-            s_s = [s for s in s_s if self.is_not_time_reversal(s)]
+            s_s = filter(self.is_not_time_reversal, s_s)
 
         if self.disable_non_symmorphic:
-            s_s = [s for s in s_s if self.is_not_non_symmorphic(s)]
+            s_s = filter(self.is_not_non_symmorphic, s_s)
 
-        stmp_s = []
-        for s in s_s:
-            if self.kd.bz2bz_ks[0, s] == -1:
-                assert (self.kd.bz2bz_ks[:, s] == -1).all()
-            else:
-                stmp_s.append(s)
+#        stmp_s = []
+#        for s in s_s:
+#            if self.kd.bz2bz_ks[0, s] == -1:
+#                assert (self.kd.bz2bz_ks[:, s] == -1).all()
+#            else:
+#                stmp_s.append(s)
         
-        s_s = stmp_s
+#        s_s = stmp_s
 
         self.infostring += 'Found {0} allowed symmetries. '.format(len(s_s))
         self.s_s = s_s
@@ -298,7 +309,7 @@ class PWSymmetryAnalyzer:
     def group_kpoints(self, K_k=None):
         """Group kpoints according to the reduced symmetries"""
         if K_k is None:
-            K_k = np.arange(self.kd.nbzkpts)
+            K_k = range(self.kd.nbzkpts)
         s_s = self.s_s
         bz2bz_ks = self.kd.bz2bz_ks
         nk = len(bz2bz_ks)
@@ -313,6 +324,45 @@ class PWSymmetryAnalyzer:
         K_gk = [np.unique(K_s[K_s != nk]) for K_s in K_gs]
 
         return K_gk
+
+    def get_reduced_kd(self):
+        # Get the little group of q
+        U_scc = []
+        for s in self.s_s:
+            U_cc, sign, _, _, _ = self.get_symmetry_operator(s)
+            U_scc.append(sign * U_cc)
+        U_scc = np.array(U_scc)
+
+        # Determine the irreducible BZ
+        bzk_kc, ibzk_kc = get_reduced_BZ(self.pd.gd.cell_cv,
+                                         U_scc,
+                                         False)
+
+        n = 3
+        N_xc = np.indices((n, n, n)).reshape((3, n**3)).T - n // 2
+
+        # Find the irreducible kpoints
+        tess = Delaunay(ibzk_kc)
+        ik_kc = []
+        for N_c in N_xc:
+            k_kc = self.kd.bzk_kc + N_c
+            k_kc = k_kc[tess.find_simplex(k_kc) >= 0]
+            if not len(ik_kc) and len(k_kc):
+                ik_kc = unique_rows(k_kc)
+            elif len(k_kc):
+                ik_kc = unique_rows(np.append(k_kc, ik_kc, axis=0))
+
+        return KPointDescriptor(ik_kc)
+
+    def get_kpoint_weight(self, k_c):
+        K = self.kd.where_is_q(k_c, self.kd.bzk_kc)
+        iK = self.kd.bz2ibz_k[K]
+        K_k = self.unfold_ibz_kpoint(iK)
+        K_gK = self.group_kpoints(K_k)
+
+        for K_k in K_gK:
+            if K in K_k:
+                return len(K_k)
 
     def get_kpoint_mapping(self, K1, K2):
         """Get index of symmetry for mapping between K1 and K2"""
@@ -357,19 +407,54 @@ class PWSymmetryAnalyzer:
 
     def symmetrize_wGG(self, A_wGG):
         """Symmetrize an array in GG'."""
+        tmp_wGG = np.zeros_like(A_wGG)
 
-        for A_GG in A_wGG:
-            tmp_GG = np.zeros_like(A_GG)
+        if self.use_time_reversal:
+            AT_wGG = np.transpose(A_wGG, (0, 2, 1))
 
-            for s in self.s_s:
-                G_G, sign, _ = self.G_sG[s]
-                if sign == 1:
-                    tmp_GG += A_GG[G_G,:][:,G_G]
-                if sign == -1:
-                    tmp_GG += A_GG[G_G,:][:,G_G].T
+        for s in self.s_s:
+            G_G, sign, _ = self.G_sG[s]
+            if sign == 1:
+                tmp_wGG += A_wGG[:, G_G, :][:, :, G_G]
+            if sign == -1:
+                tmp_wGG += AT_wGG[:, G_G, :][:, :, G_G]
 
-            A_GG[:] = tmp_GG
+        # Inplace overwriting
+        A_wGG[:] = tmp_wGG / self.how_many_symmetries()
 
+    def symmetrize_wxx(self, A_wxx):
+        """Symmetrize an array in xx'."""
+        tmp_wxx = np.zeros_like(A_wxx)
+
+        A_cv = self.pd.gd.cell_cv
+        iA_cv = self.pd.gd.icell_cv
+
+        if self.use_time_reversal:
+            AT_wxx = np.transpose(A_wxx, (0, 2, 1))
+
+        for s in self.s_s:
+            G_G, sign, shift_c = self.G_sG[s]
+            G_G = np.array(G_G) + 2
+            G_G = np.insert(G_G, 0, [0, 1])
+            U_cc, _, TR, shift_c, ft_c = self.get_symmetry_operator(s)
+            M_vv = np.dot(np.dot(A_cv.T, U_cc.T), iA_cv)
+            if sign == 1:
+                tmp = A_wxx[:, G_G, :][:, :, G_G]
+                tmp[:, 0:3, :] = np.transpose(np.dot(M_vv.T,
+                                                     tmp[:, 0:3, :]),
+                                              (1, 0, 2))
+                tmp[:, :, 0:3] = np.dot(tmp[..., 0:3], M_vv)
+                tmp_wxx += tmp
+            elif sign == -1:
+                tmp = AT_wxx[:, G_G, :][:, :, G_G]
+                tmp[:, 0:3, :] = np.transpose(np.dot(M_vv.T, tmp[:, 0:3, :]),
+                                              (1, 0, 2)) * sign
+                tmp[:, :, 0:3] = np.dot(tmp[:, :, 0:3], M_vv) * sign
+                tmp_wxx += tmp
+
+        # Inplace overwriting
+        A_wxx[:] = tmp_wxx / self.how_many_symmetries()
+        
     def symmetrize_wxvG(self, A_wxvG):
         """Symmetrize chi0_wxvG"""
         A_cv = self.pd.gd.cell_cv
@@ -389,9 +474,9 @@ class PWSymmetryAnalyzer:
             elif sign == -1:
                 tmp = sign * np.dot(M_vv.T, AT_wxvG[..., G_G])
             tmp_wxvG += np.transpose(tmp, (1, 2, 0, 3))
-            
+
         # Overwrite the input
-        A_wxvG[:] = tmp_wxvG
+        A_wxvG[:] = tmp_wxvG / self.how_many_symmetries()
 
     def symmetrize_wvv(self, A_wvv):
         """Symmetrize chi_wvv."""
@@ -412,7 +497,7 @@ class PWSymmetryAnalyzer:
             tmp_wvv += np.transpose(tmp, (1, 0, 2))
 
         # Overwrite the input
-        A_wvv[:] = tmp_wvv
+        A_wvv[:] = tmp_wvv / self.how_many_symmetries()
 
     @timer('map_v')
     def map_v(self, K1, K2, a_Mv):
@@ -512,22 +597,31 @@ class PairDensity:
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt=sys.stdout, timer=None, nblocks=1,
-                 gate_voltage=None, eshift=None):
+                 gate_voltage=None, scissor=None):
         if ecut is not None:
             ecut /= Hartree
 
+        if scissor is not None:
+            for op in scissor:
+                if isinstance(op, list):
+                    op[0] /= Hartree
+                    op[1] /= Hartree
+                elif isinstance(op, dict):
+                    op['add'] = op['add'] / Hartree
+
         if gate_voltage is not None:
-            gate_voltage /= Hartree
-        
-        if eshift is not None:
-            eshift /= Hartree
+            gate_voltage = gate_voltage / Hartree
 
         self.ecut = ecut
         self.ftol = ftol
         self.threshold = threshold
         self.real_space_derivatives = real_space_derivatives
-        self.world = world
         self.gate_voltage = gate_voltage
+        self.scissor = scissor
+
+        self.timer = timer or Timer()
+
+        self.world = world
 
         if nblocks == 1:
             self.blockcomm = self.world.new_communicator([world.rank])
@@ -537,7 +631,7 @@ class PairDensity:
             rank1 = world.rank // nblocks * nblocks
             rank2 = rank1 + nblocks
             self.blockcomm = self.world.new_communicator(range(rank1, rank2))
-            ranks = np.arange(world.rank % nblocks, world.size, nblocks)
+            ranks = range(world.rank % nblocks, world.size, nblocks)
             self.kncomm = self.world.new_communicator(ranks)
 
         if world.rank != 0:
@@ -546,75 +640,88 @@ class PairDensity:
             txt = open(txt, 'w')
         self.fd = txt
 
-        self.timer = timer or Timer()
-
         with self.timer('Read ground state'):
             if isinstance(calc, str):
                 print('Reading ground state calculation:\n  %s' % calc,
                       file=self.fd)
-                calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
+                if not calc.split('.')[-1] == 'gpw':
+                    calc = calc + '.gpw'
+                self.reader = io.Reader(calc, comm=mpi.serial_comm)
+                calc = GPAW(calc, txt=None, communicator=mpi.serial_comm,
+                            read_projections=False)
             else:
+                self.reader = None
                 assert calc.wfs.world.size == 1
 
         assert calc.wfs.kd.symmetry.symmorphic
         self.calc = calc
 
+        self.fermi_level = self.calc.occupations.get_fermi_level()
+
+        if scissor is not None:
+            for op in scissor:
+                if isinstance(op, list):
+                    self.apply_scissor_operator(op[0], op[1])
+                elif isinstance(op, dict):
+                    self.apply_bands_scissor(op)
+
         if gate_voltage is not None:
             self.add_gate_voltage(gate_voltage)
+        else:
+            self.add_gate_voltage(gate_voltage=0)
 
         self.spos_ac = calc.atoms.get_scaled_positions()
 
         self.nocc1 = None  # number of completely filled bands
         self.nocc2 = None  # number of non-empty bands
         self.count_occupied_bands()
-        if eshift is not None:
-            self.add_eshift(eshift)
-
-        self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
 
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
-
+        
+        kd = self.calc.wfs.kd
+        self.KDTree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
         print('Number of blocks:', nblocks, file=self.fd)
+
+    def find_kpoint(self, k_c):
+        return self.KDTree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
 
     def add_gate_voltage(self, gate_voltage=0):
         """Shifts the Fermi-level by e * Vg. By definition e = 1."""
         assert isinstance(self.calc.occupations, FermiDirac)
         print('Shifting Fermi-level by %.2f eV' % (gate_voltage * Hartree),
               file=self.fd)
-
+        self.fermi_level += gate_voltage
         for kpt in self.calc.wfs.kpt_u:
             kpt.f_n = (self.shift_occupations(kpt.eps_n, gate_voltage)
                        * kpt.weight)
 
+    def apply_scissor_operator(self, at_energy=0, displace=0):
+        """Applies scissor operator."""
+        args = (displace * Hartree, at_energy * Hartree)
+        print('Fermi-level %.2f eV' % (self.fermi_level * Hartree),
+              file=self.fd)
+        print('Applying scissor op.: %.2f for e_n > %.2f' % args,
+              file=self.fd)
+        at_energy = self.fermi_level + at_energy
+        for kpt in self.calc.wfs.kpt_u:
+            kpt.eps_n[kpt.eps_n > at_energy] += displace
+
+    def apply_bands_scissor(self, op):
+        """Applies scissor operator."""
+        print('Applying scissor op.: %.2f ' % (op['add'] * Hartree) + 
+              ' for bands ', op['bands'], file=self.fd)
+        for kpt in self.calc.wfs.kpt_u:
+            kpt.eps_n[op['bands']] += op['add']
+
     def shift_occupations(self, eps_n, gate_voltage):
         """Shift fermilevel."""
-        fermi = self.calc.occupations.get_fermi_level() + gate_voltage
+        fermi = self.fermi_level
         width = self.calc.occupations.width
         tmp = (eps_n - fermi) / width
         f_n = np.zeros_like(eps_n)
         f_n[tmp <= 100] = 1 / (1 + np.exp(tmp[tmp <= 100]))
         f_n[tmp > 100] = 0.0
         return f_n
-
-    def add_eshift(self, eshift=0):
-        """Shifts unoccupied bands by eshift"""
-        print('Shifting unoccupied bands by %.2f eV' % (eshift * Hartree),
-              file=self.fd)
-        for kpt in self.calc.wfs.kpt_u:
-            # Should only be applied to semiconductors
-            f_n = kpt.f_n / kpt.weight
-            if not all([f_n[i] > 1. - self.ftol or f_n[i] < self.ftol
-                    for i in range(len(f_n))]):
-                raise AssertionError('Eshift should only be applied ' + \
-                                     'to semiconductors and insulators.')
-            kpt.eps_n[self.nocc1:] += eshift
-            # Nothing done for occupations so far
-            # assume T=0 for occupations
-            # kpt.f_n[:self.nocc1] = kpt.weight
-            # kpt.f_n[self.nocc1:] = 0
-            #  or shift Fermi level:
-            # kpt.f_n = (self.shift_occupations(kpt.eps_n, eshift / 2.)
-            #           * kpt.weight)
 
     def count_occupied_bands(self):
         self.nocc1 = 9999999
@@ -641,7 +748,7 @@ class PairDensity:
         wfs = self.calc.wfs
 
         if kpts is None:
-            kpts = np.arange(wfs.kd.nbzkpts)
+            kpts = range(wfs.kd.nbzkpts)
 
         nbands = band2 - band1
         size = self.kncomm.size
@@ -662,7 +769,7 @@ class PairDensity:
                     self.mysKn1n2.append((s, K, n1 + band1, n2 + band1))
                 i += nbands
 
-        print('BZ k-points:', self.calc.wfs.kd, file=self.fd)
+        print('BZ k-points:', self.calc.wfs.kd.description, file=self.fd)
         print('Distributing spins, k-points and bands (%d x %d x %d)' %
               (ns, nk, nbands),
               'over %d process%s' %
@@ -671,7 +778,7 @@ class PairDensity:
         print('Number of blocks:', self.blockcomm.size, file=self.fd)
 
     @timer('Get a k-point')
-    def get_k_point(self, s, K, n1, n2, block=False):
+    def get_k_point(self, s, k_c, n1, n2, load_wfs=True, block=False):
         """Return wave functions for a specific k-point and spin.
 
         s: int
@@ -683,6 +790,9 @@ class PairDensity:
         """
 
         wfs = self.calc.wfs
+        kd = wfs.kd
+        K = self.find_kpoint(k_c)
+        shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
 
         if block:
             nblocks = self.blockcomm.size
@@ -696,7 +806,9 @@ class PairDensity:
         nb = min(na + blocksize, n2)
 
         U_cc, T, a_a, U_aii, shift_c, time_reversal = \
-            self.construct_symmetry_operators(K)
+            self.construct_symmetry_operators(K, k_c=k_c)
+
+        shift_c += -shift0_c
         ik = wfs.kd.bz2ibz_k[K]
         kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
 
@@ -705,17 +817,40 @@ class PairDensity:
         eps_n = kpt.eps_n[n1:n2]
         f_n = kpt.f_n[n1:n2] / kpt.weight
 
-        psit_nG = kpt.psit_nG
-        ut_nR = wfs.gd.empty(nb - na, wfs.dtype)
-        for n in range(na, nb):
-            ut_nR[n - na] = T(wfs.pd.ifft(psit_nG[n], ik))
+        if not load_wfs:
+            return KPoint(s, K, n1, n2, blocksize, na, nb,
+                          None, eps_n, f_n, None, shift_c)
 
-        P_ani = []
-        for b, U_ii in zip(a_a, U_aii):
-            P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
-            if time_reversal:
-                P_ni = P_ni.conj()
-            P_ani.append(P_ni)
+        with self.timer('load wfs'):
+            psit_nG = kpt.psit_nG
+            ut_nR = wfs.gd.empty(nb - na, wfs.dtype)
+            for n in range(na, nb):
+                ut_nR[n - na] = T(wfs.pd.ifft(psit_nG[n], ik))
+
+        with self.timer('Load projections'):
+            P_ani = []
+            if self.reader is None:
+                for b, U_ii in zip(a_a, U_aii):
+                    P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
+                    if time_reversal:
+                        P_ni = P_ni.conj()
+                    P_ani.append(P_ni)
+            else:
+                II_a = []
+                I1 = 0
+                for U_ii in U_aii:
+                    I2 = I1 + len(U_ii)
+                    II_a.append((I1, I2))
+                    I1 = I2
+                    
+                P_ani = []
+                P_nI = self.reader.get('Projections', kpt.s, kpt.k)
+                for b, U_ii in zip(a_a, U_aii):
+                    I1, I2 = II_a[b]
+                    P_ni = np.dot(P_nI[na:nb, I1:I2], U_ii)
+                    if time_reversal:
+                        P_ni = P_ni.conj()
+                    P_ani.append(P_ni)
         
         return KPoint(s, K, n1, n2, blocksize, na, nb,
                       ut_nR, eps_n, f_n, P_ani, shift_c)
@@ -786,7 +921,7 @@ class PairDensity:
                     weight = np.sqrt(PWSA.how_many_symmetries() / len(K_k))
 
                 # Use kpt2 to compute intraband transitions
-                # These conditions are sufficient to make sure
+                # These conditions are sufficent to make sure
                 # that it still works in parallel
                 if kpt1.n1 == 0 and self.blockcomm.rank == 0 and \
                    optical_limit and intraband:
@@ -806,7 +941,7 @@ class PairDensity:
                                            None, None, vel_mv)
 
                 # Divide the occupied bands into chunks
-                n_n = np.arange(n2 - n1)
+                n_n = range(n2 - n1)
                 if use_more_memory == 0:
                     chunksize = 1
                 else:
@@ -822,7 +957,7 @@ class PairDensity:
                 # n runs over occupied bands
                 for n_n in no_n:  # n_n is a list of occupied band indices
                     # m over unoccupied bands
-                    m_m = np.arange(0, kpt2.n2 - kpt2.n1)
+                    m_m = range(0, kpt2.n2 - kpt2.n1)
                     deps_nm = kptpair.get_transition_energies(n_n, m_m)
                     df_nm = kptpair.get_occupation_differences(n_n, m_m)
 
@@ -892,13 +1027,16 @@ class PairDensity:
         pb.finish()
 
     @timer('Get kpoint pair')
-    def get_kpoint_pair(self, pd, s, K, n1, n2, m1, m2):
-        wfs = self.calc.wfs
+    def get_kpoint_pair(self, pd, s, k_c, n1, n2, m1, m2,
+                        load_wfs=True, block=True):
+        # wfs = self.calc.wfs
+        # bzk_kc = wfs.kd.bzk_kc
         q_c = pd.kd.bzk_kc[0]
         with self.timer('get k-points'):
-            kpt1 = self.get_k_point(s, K, n1, n2)
-            K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            kpt2 = self.get_k_point(s, K2, m1, m2, block=True)
+            kpt1 = self.get_k_point(s, k_c, n1, n2, load_wfs=load_wfs)
+            # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
+            kpt2 = self.get_k_point(s, k_c + q_c, m1, m2,
+                                    load_wfs=load_wfs, block=block)
 
         with self.timer('fft indices'):
             Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
@@ -909,10 +1047,11 @@ class PairDensity:
     @timer('get_pair_density')
     def get_pair_density(self, pd, kptpair, n_n, m_m,
                          optical_limit=False, intraband=False,
-                         direction=0, Q_aGii=None):
+                         Q_aGii=None):
         """Get pair density for a kpoint pair."""
-        if optical_limit:
-            assert np.allclose(pd.kd.bzk_kc[0], 0.0)
+        ol = optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0)
+        cpd = self.calculate_pair_densities  # General pair densities
+        opd = self.optical_pair_density  # Interband pair densities / q
 
         if Q_aGii is None:
             Q_aGii = self.initialize_paw_corrections(pd)
@@ -920,35 +1059,22 @@ class PairDensity:
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
         Q_G = kptpair.Q_G  # Fourier components of kpoint pair
+        nG = len(Q_G)
 
-        n_nmG = pd.empty((len(n_n), len(m_m)))
-        if optical_limit:
-            n_nmv = np.zeros((len(n_n), len(m_m), 3), pd.dtype)
-        else:
-            n_nmv = None
-
+        n_nmG = np.zeros((len(n_n), len(m_m), nG + 2 * ol), pd.dtype)
         for j, n in enumerate(n_n):
             Q_G = kptpair.Q_G
             with self.timer('conj'):
-                ut1cc_R = kpt1.ut_nR[n].conj()
+                ut1cc_R = kpt1.ut_nR[n - kpt1.na].conj()
             with self.timer('paw'):
-                C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
+                C1_aGi = [np.dot(Q_Gii, P1_ni[n - kpt1.na].conj())
                           for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
-                n_nmG[j] = self.calculate_pair_densities(ut1cc_R,
-                                                         C1_aGi, kpt2,
-                                                         pd, Q_G)
+                n_nmG[j, :, 2 * ol:] = cpd(ut1cc_R, C1_aGi, kpt2, pd, Q_G)
+
             if optical_limit:
-                n_nmv[j] = self.optical_pair_density(n, m_m, kpt1, kpt2)
+                n_nmG[j, :, 0:3] = opd(n, m_m, kpt1, kpt2)
 
-        if optical_limit:
-            n_nmG[..., 0] = n_nmv[..., direction]
-
-        if intraband:
-            vel_mv = self.intraband_pair_density(kpt2)
-        else:
-            vel_mv = None
-
-        return n_nmG, n_nmv, vel_mv
+        return n_nmG
 
     @timer('get_pair_momentum')
     def get_pair_momentum(self, pd, kptpair, n_n, m_m, Q_avGii=None):
@@ -987,7 +1113,8 @@ class PairDensity:
         kqG_Gv = k_v[np.newaxis] + G_Gv
 
         # Pair velocities
-        n_nmvG = pd.zeros((len(n_n), len(m_m), 3))
+        n_nmvG = pd.empty((len(n_n), len(m_m), 3))
+        n_nmvG *= 0
 
         # Calculate derivatives of left-wavefunction
         # (there will typically be fewer of these)
@@ -996,7 +1123,7 @@ class PairDensity:
         # PAW-corrections
         if Q_avGii is None:
             Q_avGii = self.initialize_paw_nabla_corrections(pd)
-
+        
         # Iterate over occupied bands
         for j, n in enumerate(n_n):
             ut1cc_R = kpt1.ut_nR[n].conj()
@@ -1005,7 +1132,7 @@ class PairDensity:
                                                  [], kpt2,
                                                  pd, Q_G)
 
-            n_nmvG[j] = 1j * kqG_Gv.T[np.newaxis] * n_mG[:, np.newaxis]
+            n_nmvG[j] += 1j * kqG_Gv.T[np.newaxis] * n_mG[:, np.newaxis]
 
             # Treat each cartesian component at a time
             for v in range(3):
@@ -1073,16 +1200,17 @@ class PairDensity:
         k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
 
-        ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n]
+        ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
         atomdata_a = self.calc.wfs.setups
-        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
+        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
 
         blockbands = kpt2.nb - kpt2.na
         n0_mv = np.empty((kpt2.blocksize, 3), dtype=complex)
         nt_m = np.empty(kpt2.blocksize, dtype=complex)
-        n0_mv[:blockbands] = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR).T
-        nt_m[:blockbands] = self.calc.wfs.gd.integrate(kpt1.ut_nR[n],
+        n0_mv[:blockbands] = -self.calc.wfs.gd.integrate(ut_vR,
+                                                         kpt2.ut_nR).T
+        nt_m[:blockbands] = self.calc.wfs.gd.integrate(kpt1.ut_nR[n - kpt1.na],
                                                        kpt2.ut_nR)
 
         n0_mv[:blockbands] += (1j * nt_m[:blockbands, np.newaxis]
@@ -1103,8 +1231,8 @@ class PairDensity:
         # Relative threshold for perturbation theory
         threshold = self.threshold
 
-        eps1 = kpt1.eps_n[n]
-        deps_m = (eps1 - kpt2.eps_n)[m_m]
+        eps1 = kpt1.eps_n[n - kpt1.n1]
+        deps_m = (eps1 - kpt2.eps_n)[m_m - kpt2.n1]
         
         n0_mv = self.optical_pair_velocity(n, m_m, kpt1, kpt2)
 
@@ -1114,7 +1242,6 @@ class PairDensity:
         smallness_mv = np.abs(-1e-3 * n0_mv / deps_m[:, np.newaxis])
         inds_mv = (np.logical_and(np.inf > smallness_mv,
                                   smallness_mv > threshold))
-
         n0_mv *= - 1 / deps_m[:, np.newaxis]
         n0_mv[inds_mv] = 0
 
@@ -1122,15 +1249,17 @@ class PairDensity:
 
     @timer('Intraband')
     def intraband_pair_density(self, kpt, n_n=None,
-                               only_partially_occupied=True):
+                               only_partially_occupied=False):
         """Calculate intraband matrix elements of nabla"""
         # Bands and check for block parallelization
         na, nb, n1 = kpt.na, kpt.nb, kpt.n1
         vel_nv = np.zeros((nb - na, 3), dtype=complex)
         if n_n is None:
-            n_n = np.arange(na, nb)
+            n_n = range(na, nb)
+
         assert np.max(n_n) < nb, print('This is too many bands')
-        
+        assert np.min(n_n) >= na, print('This is too few bands')
+
         # Load kpoints
         kd = self.calc.wfs.kd
         gd = self.calc.wfs.gd
@@ -1141,12 +1270,10 @@ class PairDensity:
 
         # No carriers when T=0
         width = self.calc.occupations.width
-        if width == 0.0:
-            return None
 
         # Only works with Fermi-Dirac distribution
         assert isinstance(self.calc.occupations, FermiDirac)
-        dfde_n = -1 / width * (f_n - f_n**2.0)  # Analytical derivative
+        dfde_n = (- 1. / width * (f_n - f_n**2.0))  # Analytical derivative
         partocc_n = np.abs(dfde_n) > 1e-5  # Is part. occupied?
         if only_partially_occupied and not partocc_n.any():
             return None
@@ -1219,7 +1346,7 @@ class PairDensity:
             N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
         return N_G
 
-    def construct_symmetry_operators(self, K):
+    def construct_symmetry_operators(self, K, k_c=None):
         """Construct symmetry operators for wave function and PAW projections.
 
         We want to transform a k-point in the irreducible part of the BZ to
@@ -1246,12 +1373,24 @@ class PairDensity:
         U_cc = kd.symmetry.op_scc[s]
         time_reversal = kd.time_reversal_k[K]
         ik = kd.bz2ibz_k[K]
-        k_c = kd.bzk_kc[K]
+        if k_c is None:
+            k_c = kd.bzk_kc[K]
         ik_c = kd.ibzk_kc[ik]
 
         sign = 1 - 2 * time_reversal
         shift_c = np.dot(U_cc, ik_c) - k_c * sign
-        assert np.allclose(shift_c.round(), shift_c)
+
+        try:
+            assert np.allclose(shift_c.round(), shift_c)
+        except AssertionError:
+            print(shift_c)
+            print(k_c)
+            print(kd.bzk_kc[K])
+            print(ik_c)
+            print(U_cc)
+            print(sign)
+            raise AssertionError
+
         shift_c = shift_c.round().astype(int)
 
         if (U_cc == np.eye(3)).all():
