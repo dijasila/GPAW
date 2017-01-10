@@ -517,19 +517,19 @@ def eigenvalue_string(wfs, comment=' '):
                         (n, epsa_n[n], fa_n[n], epsb_n[n], fb_n[n]))
         return ''.join(tokens)
 
-    if len(wfs.kd.ibzk_kc) > 10:
-        add('Warning: Showing only first 10 kpts')
-        print_range = 10
+    if len(wfs.kd.ibzk_kc) > 2:
+        add('Warning: Showing only first 2 kpts')
+        print_range = 2
     else:
         add('Showing all kpts')
         print_range = len(wfs.kd.ibzk_kc)
 
-    if wfs.nvalence / 2. > 10:
-        m = int(wfs.nvalence / 2. - 10)
+    if wfs.nvalence / 2. > 2:
+        m = int(wfs.nvalence / 2. - 2)
     else:
         m = 0
-    if wfs.bd.nbands - wfs.nvalence / 2. > 10:
-        j = int(wfs.nvalence / 2. + 10)
+    if wfs.bd.nbands - wfs.nvalence / 2. > 2:
+        j = int(wfs.nvalence / 2. + 2)
     else:
         j = int(wfs.bd.nbands)
 
