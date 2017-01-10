@@ -743,7 +743,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     @timer('Full diag')
     def diagonalize_full_hamiltonian(self, ham, atoms, occupations, log,
-                                     nbands=None, scalapack=None,
+                                     nbands=None, ecut=None, scalapack=None,
                                      expert=False):
 
         if self.dtype != complex:
@@ -753,8 +753,12 @@ class PWWaveFunctions(FDPWWaveFunctions):
                              'as an argument to the calculator to enforce '
                              'complex wavefunctions.')
 
-        if nbands is None:
+        if nbands is None and ecut is None:
             nbands = self.pd.ngmin // self.bd.comm.size * self.bd.comm.size
+        elif nbands is None:
+            ecut /= units.Hartree
+            vol = abs(np.linalg.det(self.gd.cell_cv))
+            nbands = int(vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
         else:
             assert nbands <= self.pd.ngmin
 
