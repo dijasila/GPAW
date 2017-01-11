@@ -29,6 +29,7 @@ def frequency_grid(domega0, omega2, omegamax):
 
 
 class Chi0(PairDensity):
+
     def __init__(self, calc,
                  frequencies=None, domega0=0.1, omega2=10.0, omegamax=None,
                  ecut=50, hilbert=True, nbands=None,
@@ -128,7 +129,7 @@ class Chi0(PairDensity):
         self.Ga = self.blockcomm.rank * mynG
         self.Gb = min(self.Ga + mynG, nG)
         assert mynG * (self.blockcomm.size - 1) < nG
-        
+
         if A_x is not None:
             nx = nw * (self.Gb - self.Ga) * nG
             chi0_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
@@ -147,9 +148,9 @@ class Chi0(PairDensity):
         # Do all empty bands:
         m1 = self.nocc1
         m2 = self.nbands
-        
+
         self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins)
-        
+
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     @timer('Calculate CHI_0')
@@ -251,8 +252,8 @@ class Chi0(PairDensity):
             self.world.broadcast(chi0_vv, 0)
 
             chi0_wvv += (chi0_vv[np.newaxis] /
-                         (omega_w[:, np.newaxis, np.newaxis]
-                          + 1j * self.eta)**2)
+                         (omega_w[:, np.newaxis, np.newaxis] +
+                          1j * self.eta)**2)
 
         if self.unsymmetrized:
             # Carry out symmetrization
@@ -272,7 +273,7 @@ class Chi0(PairDensity):
                 if self.blockcomm.rank == 0:
                     chi0_wGG[:, 0] = chi0_wxvG[:, 0, 0]
                     chi0_wGG[:, 0, 0] = chi0_wvv[:, 0, 0]
-                    
+
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     @timer('CHI_0 update')
@@ -285,7 +286,7 @@ class Chi0(PairDensity):
         else:
             deps1_m = deps_m + 1j * self.eta
             deps2_m = deps_m - 1j * self.eta
-        
+
         for omega, chi0_GG in zip(self.omega_w, chi0_wGG):
             x_m = df_m * (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             if self.blockcomm.size > 1:
@@ -410,69 +411,69 @@ class Chi0(PairDensity):
             x_vv = (-self.prefactor * dfde *
                     np.outer(vel_v, vel_v))
             chi0_vv += x_vv
-                
+
     @timer('redist')
     def redistribute(self, in_wGG, out_x=None):
         """Redistribute array.
-        
+
         Switch between two kinds of parallel distributions:
-            
+
         1) parallel over G-vectors (second dimension of in_wGG)
         2) parallel over frequency (first dimension of in_wGG)
 
         Returns new array using the memory in the 1-d array out_x.
         """
-        
+
         comm = self.blockcomm
-        
+
         if comm.size == 1:
             return in_wGG
-            
+
         nw = len(self.omega_w)
         nG = in_wGG.shape[2]
         mynw = (nw + comm.size - 1) // comm.size
         mynG = (nG + comm.size - 1) // comm.size
-        
+
         bg1 = BlacsGrid(comm, comm.size, 1)
         bg2 = BlacsGrid(comm, 1, comm.size)
         md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
         md2 = BlacsDescriptor(bg2, nw, nG**2, nw, mynG * nG)
-        
+
         if len(in_wGG) == nw:
             mdin = md2
             mdout = md1
         else:
             mdin = md1
             mdout = md2
-            
+
         r = Redistributor(comm, mdin, mdout)
-        
+
         outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
         if out_x is None:
             out_wGG = np.empty(outshape, complex)
         else:
             out_wGG = out_x[:np.product(outshape)].reshape(outshape)
-            
+
         r.redistribute(in_wGG.reshape(mdin.shape),
                        out_wGG.reshape(mdout.shape))
-        
+
         return out_wGG
 
     @timer('dist freq')
     def distribute_frequencies(self, chi0_wGG):
         """Distribute frequencies to all cores."""
-        
+
         world = self.world
         comm = self.blockcomm
-        
+
         if world.size == 1:
             return chi0_wGG
-            
+
         nw = len(self.omega_w)
         nG = chi0_wGG.shape[2]
         mynw = (nw + world.size - 1) // world.size
         mynG = (nG + comm.size - 1) // comm.size
-  
+
         wa = min(world.rank * mynw, nw)
         wb = min(wa + mynw, nw)
 
@@ -486,15 +487,15 @@ class Chi0(PairDensity):
             bg1 = DryRunBlacsGrid(mpi.serial_comm, 1, 1)
             in_wGG = np.zeros((0, 0), complex)
         md1 = BlacsDescriptor(bg1, nw, nG**2, nw, mynG * nG)
-        
+
         bg2 = BlacsGrid(world, world.size, 1)
         md2 = BlacsDescriptor(bg2, nw, nG**2, mynw, nG**2)
-        
+
         r = Redistributor(world, md1, md2)
         shape = (wb - wa, nG, nG)
         out_wGG = np.empty(shape, complex)
         r.redistribute(in_wGG, out_wGG.reshape((wb - wa, nG**2)))
-        
+
         return out_wGG
 
     def print_chi(self, pd):
@@ -531,13 +532,13 @@ class Chi0(PairDensity):
 
         nik = calc.wfs.kd.nibzkpts
         print('    Number of irredicible kpoints: %d' % nik, file=self.fd)
-        
+
         ngmax = pd.ngmax
         print('    Number of planewaves: %d' % ngmax, file=self.fd)
 
         eta = self.eta * Hartree
         print('    Broadening (eta): %f' % eta, file=self.fd)
-        
+
         wsize = world.size
         print('    world.size: %d' % wsize, file=self.fd)
 
@@ -546,11 +547,11 @@ class Chi0(PairDensity):
 
         bsize = self.blockcomm.size
         print('    blockcomm.size: %d' % bsize, file=self.fd)
-        
+
         nocc = self.nocc1
         print('    Number of completely occupied states: %d'
               % nocc, file=self.fd)
-        
+
         npocc = self.nocc2
         print('    Number of partially occupied states: %d'
               % npocc, file=self.fd)
@@ -582,6 +583,7 @@ class Chi0(PairDensity):
 
 
 class HilbertTransform:
+
     def __init__(self, omega_w, eta, timeordered=False, gw=False,
                  blocksize=500):
         """Analytic Hilbert transformation using linear interpolation.
