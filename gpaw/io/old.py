@@ -99,6 +99,11 @@ def wrap_old_gpw_reader(filename):
     mixer = r['MixClass']
     weight = r['MixWeight']
 
+    for key in ['basis', 'setups']:
+        dct = p[key]
+        if isinstance(dct, dict) and None in dct:
+            dct['default'] = dct.pop(None)
+
     if mixer == 'Mixer':
         from gpaw.mixer import Mixer
     elif mixer == 'MixerSum':

@@ -92,7 +92,7 @@ should be set in the calculator::
   >>> calc = GPAW(mode='lcao',
   >>>             basis='dzp',
   >>>             ...)
- 
+
 The calculator can then be used in the usual way.  The ``basis``
 keyword accepts the same types of values as the ``setups`` keyword,
 such as ``basis={'H' : 'dzp', 'O' : 'mine', 'C' : 'szp'}``.
@@ -174,7 +174,7 @@ ordinary atom and the corresponding ghost atom is the setup type.
 
 Perform a calculation using ghost copper atoms and ordinary oxygen and
 hydrogen atoms::
-  
+
   >>> GPAW(setups={'Cu' : 'ghost', 'O' : 'paw', 'H' : 'paw'},
            basis='dzp',
            mode='lcao',
@@ -184,7 +184,7 @@ Perform a calculation where atom 17 and atom 42 (designated by their
 indices in the ``Atoms`` object) use ordinary setups, while all other
 atoms are ghosts::
 
-  >>> GPAW(setups={None: 'ghost', 17: 'paw', 42:'paw'},
+  >>> GPAW(setups={'default': 'ghost', 17: 'paw', 42:'paw'},
            basis='dzp',
            mode='lcao',
            ...)

@@ -325,6 +325,14 @@ class GPAW(Calculator, PAW):
 
         changed_parameters = Calculator.set(self, **kwargs)
 
+        for key in ['setups', 'basis']:
+            if key in changed_parameters:
+                dct = changed_parameters[key]
+                if isinstance(dct, dict) and None in dct:
+                    dct['default'] = dct.pop(None)
+                    warnings.warn('Please use {key}={dct}'
+                                  .format(key=key, dct=dct))
+
         # We need to handle txt early in order to get logging up and running:
         if 'txt' in changed_parameters:
             self.log.fd = changed_parameters.pop('txt')
