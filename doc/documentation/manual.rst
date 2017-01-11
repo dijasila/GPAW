@@ -697,8 +697,8 @@ If specified as a string, the given name is used for all atoms.  If
 specified as a dictionary, each keys can be either a chemical symbol
 or an atom number. The values state the individual setup names.
 
-The special key ``None`` can be used to specify the default setup
-name. Thus ``setups={None: 'paw'}`` is equivalent to ``setups='paw'``
+The special key ``'default'`` can be used to specify the default setup
+name. Thus ``setups={'default': 'paw'}`` is equivalent to ``setups='paw'``
 which is the GPAW default.
 
 As an example, the latest PAW setup of Na includes also the 6 semicore p
@@ -735,7 +735,7 @@ atomic number specifications, the latter is dominant.
 
 An example::
 
-  setups={None: 'soft', 'Li': 'hard', 5: 'ghost', 'H': 'ae'}
+  setups={'default': 'soft', 'Li': 'hard', 5: 'ghost', 'H': 'ae'}
 
 Indicates that the files named 'hard' should be used for lithium
 atoms, an all-electron potential is used for hydrogen atoms, atom
