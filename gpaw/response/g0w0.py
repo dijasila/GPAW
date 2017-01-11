@@ -96,11 +96,16 @@ class G0W0(PairDensity):
             Shift Fermi level of ground state calculation by the
             specified amount.
         anisotropy_correction: bool
-            Analytic correction to the q=0 contribution applicable to 2D systems.
+            Analytic correction to the q=0 contribution applicable to 2D
+            systems.
         nblocks: int
-            Number of blocks chi0 should be distributed in so each core does not have to store the entire matrix. This is to reduce memory requirement. nblocks must be less than or equal to the number of processors.
+            Number of blocks chi0 should be distributed in so each core
+            does not have to store the entire matrix. This is to reduce
+            memory requirement. nblocks must be less than or equal to the
+            number of processors.
         nblocksmax: bool
-            Cuts chi0 into as many blocks as possible to reduce memory requirements as much as possible.
+            Cuts chi0 into as many blocks as possible to reduce memory
+            requirements as much as possible.
         savew: bool
             Save W to a file.
         savepckl: bool
@@ -110,7 +115,8 @@ class G0W0(PairDensity):
         maxiter: int
             Number of iterations in a GW0 calculation.
         mixing: float
-            Number between 0 and 1 determining how much of previous iteration's eigenvalues to mix with.
+            Number between 0 and 1 determining how much of previous
+            iteration's eigenvalues to mix with.
         ecut_extrapolation: bool
             Carries out the extrapolation to infinite cutoff automatically.
         """
@@ -148,7 +154,12 @@ class G0W0(PairDensity):
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
             nblocks = world.size
-            nblocks_calc = GPAW(calc, txt=None)
+            if isinstance(calc, GPAW):
+                raise Exception('Using a calulator is not implemented at '
+                                'the moment, load from file!')
+                # nblocks_calc = calc
+            else:
+                nblocks_calc = GPAW(calc, txt=None)
             ngmax = []
             for q_c in nblocks_calc.wfs.kd.bzk_kc:
                 qd = KPointDescriptor([q_c])
@@ -258,6 +269,8 @@ class G0W0(PairDensity):
         self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
 
         # assert self.calc.wfs.nspins == 1
+
+        txt.flush()
 
     @timer('G0W0')
     def calculate(self):
