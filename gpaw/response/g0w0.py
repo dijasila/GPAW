@@ -23,6 +23,7 @@ from gpaw.response.kernels import get_integrated_kernel
 from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
 from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.tools import vxc
+from gpaw.utilities.progressbar import ProgressBar
 import os
 
 
@@ -350,18 +351,25 @@ class G0W0(PairDensity):
             # My part of the states we want to calculate QP-energies for:
             mykpts = [self.get_k_point(s, K, n1, n2)
                       for s, K, n1, n2 in self.mysKn1n2]
+            nkpt = len(mykpts)
 
             # Loop over q in the IBZ:
             nQ = 0
             for ie, pd0, W0, q_c, m2 in self.calculate_screened_potential():
-                for kpt1 in mykpts:
+                if nQ == 0:
+                    print('Summing all q:', file=self.fd)
+                    pb = ProgressBar(self.fd)
+                for u, kpt1 in enumerate(mykpts):
+                    pb.update((nQ+1)*u / nkpt / len(self.qd))
                     K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
                     kpt2 = self.get_k_point(kpt1.s, K2, 0, m2,
                                             block=True)
                     k1 = kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
+
                     self.calculate_q(ie, i, kpt1, kpt2, pd0, W0)
                 nQ += 1
+            pb.finish()
 
             self.world.sum(self.sigma_eskn)
             self.world.sum(self.dsigma_eskn)
