@@ -194,10 +194,10 @@ class LrTDDFT(ExcitationList):
         self.name = name
 
     def diagonalize(self, istart=None, jend=None,
-                    energy_range=None, TDA=False):
+                    energy_range=None):
         self.timer.start('diagonalize')
         self.timer.start('omega')
-        self.Om.diagonalize(istart, jend, energy_range, TDA)
+        self.Om.diagonalize(istart, jend, energy_range)
         self.timer.stop('omega')
         self.diagonalized = True
 
