@@ -319,6 +319,8 @@ class G0W0(PairDensity):
             self.previous_sigma = 0.
             self.previous_dsigma = 0.
 
+        self.fd.flush()
+
         self.ite = 0
 
         while self.ite < self.maxiter:
@@ -582,6 +584,8 @@ class G0W0(PairDensity):
                           'timeordered': True,
                           'domega0': self.domega0 * Ha,
                           'omega2': self.omega2 * Ha}
+
+        self.fd.flush()
 
         chi0 = Chi0(self.inputcalc,
                     nbands=self.nbands,
@@ -912,10 +916,18 @@ class G0W0(PairDensity):
         if fd is None:
             print('Reading Kohn-Sham XC contribution from file:', name,
                   file=self.fd)
-            with open(name, 'rb') as fd:
-                self.vxc_skn = np.load(fd)
-            assert self.vxc_skn.shape == self.shape, self.vxc_skn.shape
-            return
+            try:
+                with open(name, 'rb') as fd:
+                    self.vxc_skn = np.load(fd)
+                assert self.vxc_skn.shape == self.shape, self.vxc_skn.shape
+                return
+            except:
+                print('Invalide file content:', name, ' - redo...', file=self.fd)
+                try:
+                    os.remove(name)
+                except:
+                    pass
+                fd = opencew(name)
 
         print('Calculating Kohn-Sham XC contribution', file=self.fd)
         vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Ha
@@ -929,10 +941,18 @@ class G0W0(PairDensity):
         fd = opencew(name)
         if fd is None:
             print('Reading EXX contribution from file:', name, file=self.fd)
-            with open(name, 'rb') as fd:
-                self.exx_skn = np.load(fd)
-            assert self.exx_skn.shape == self.shape, self.exx_skn.shape
-            return
+            try:
+                with open(name, 'rb') as fd:
+                    self.exx_skn = np.load(fd)
+                assert self.exx_skn.shape == self.shape, self.exx_skn.shape
+                return
+            except:
+                print('Invalide file content:', name, ' - redo...', file=self.fd)
+                try:
+                    os.remove(name)
+                except:
+                    pass
+                fd = opencew(name)
 
         print('Calculating EXX contribution', file=self.fd)
         exx = EXX(self.calc, kpts=self.kpts, bands=self.bands,
