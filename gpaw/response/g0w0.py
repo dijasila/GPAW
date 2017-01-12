@@ -268,7 +268,7 @@ class G0W0(PairDensity):
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
 
-        # assert self.calc.wfs.nspins == 1
+        assert self.calc.wfs.nspins == 1
 
         txt.flush()
 
