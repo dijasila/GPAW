@@ -36,7 +36,7 @@ def run():
         os.chdir('..')
 
     from ase.test import test
-    results = test(display=False, calculators=['gpaw'], verbosity=0)
+    results = test(calculators=['gpaw'], verbosity=0)
     failed.extend(results.errors + results.failures)
 
     if failed:
@@ -47,6 +47,7 @@ def run():
     os.chdir('..')
     shutil.rmtree('lib')
     shutil.rmtree('bin')
+
 
 if __name__ == '__main__':
     if os.path.isdir('gpaw/testing'):
