@@ -19,13 +19,14 @@ from functools import partial
 
 
 class Integrator():
+
     def __init__(self, comm=mpi.world,
                  txt=sys.stdout, timer=None,  nblocks=1):
         """Baseclass for Brillouin zone integration and band summation.
-        
+
         Simple class to calculate integrals over Brilloun zones
         and summation of bands.
-        
+
         comm: mpi.communicator
         nblocks: block parallelization
         """
@@ -115,13 +116,14 @@ class Integrator():
         print('Number of blocks:', self.blockcomm.size, file=self.fd)
 
         return mysKn1n2
-    
+
     def integrate(self, driver=None, *args, **kwargs):
         """Integration method wrapper."""
         raise NotImplementedError
 
 
 class PointIntegrator(Integrator):
+
     def __init__(self, eta, *args, **kwargs):
         """Integrate brillouin zone using a broadening technique.
 
@@ -146,7 +148,7 @@ class PointIntegrator(Integrator):
                                       timeordered=False, hermitian=False,
                                       hilbert=True):
         """Integrate a response function over bands and kpoints.
-        
+
         func: method
         omega_w: ndarray
         out: np.ndarray
@@ -168,7 +170,7 @@ class PointIntegrator(Integrator):
             M_mx = M_nmx.reshape((-1, nx))
             de_m = (e_n[:, np.newaxis] - e_m).ravel()
             df_m = (f_n[:, np.newaxis] - f_m).ravel()
-            
+
             if hermitian:
                 self.update_hermitian(M_nmx, de_m, df_m, out_wxx)
             elif hilbert:
@@ -176,7 +178,7 @@ class PointIntegrator(Integrator):
             else:
                 self.update(M_mx, de_m, df_m, omega_w, out_wxx,
                             timeordered=timeordered)
-        # Sum over 
+        # Sum over
         for out_xx in out_wxx:
             self.kncomm.sum(out_xx)
 
@@ -341,6 +343,7 @@ class TetrahedronIntegrator(Integrator):
     Tetrahedron integration uses linear interpolation of
     the eigenenergies and of the matrix elements
     between the vertices of the tetrahedron."""
+
     def __init__(self, *args, **kwargs):
         Integrator.__init__(self, *args, **kwargs)
 
@@ -351,13 +354,13 @@ class TetrahedronIntegrator(Integrator):
 
         td.volumes_s = None
         return td
-        
+
     def get_simplex_volume(self, td, S):
         """Get volume of simplex S"""
-        
+
         if td.volumes_s is not None:
             return td.volumes_s[S]
-        
+
         td.volumes_s = np.zeros(td.nsimplex, float)
         for s in range(td.nsimplex):
             K_k = td.simplices[s]
@@ -377,7 +380,7 @@ class TetrahedronIntegrator(Integrator):
     def response_function_integration(self, domain, functions, wd,
                                       kwargs=None, out_wxx=None):
         """Integrate response function.
-        
+
         Assume that the integral has the
         form of a response function. For the linear tetrahedron
         method it is possible calculate frequency dependent weights
@@ -395,7 +398,7 @@ class TetrahedronIntegrator(Integrator):
                                          **kwargs[0])
             get_eigenvalues = partial(get_eigenvalues,
                                       **kwargs[1])
-        
+
         # Relevant quantities
         bzk_kc = td.points
         nk = len(bzk_kc)
@@ -406,7 +409,7 @@ class TetrahedronIntegrator(Integrator):
             for s, K_k in enumerate(td.simplices):
                 A_kv = np.append(td.points[K_k],
                                  np.ones(4)[:, np.newaxis], axis=1)
-                
+
                 D_kv = np.append((A_kv[:, :-1]**2).sum(1)[:, np.newaxis],
                                  A_kv, axis=1)
                 a = np.linalg.det(D_kv[:, np.arange(5) != 0])
@@ -437,7 +440,7 @@ class TetrahedronIntegrator(Integrator):
             deps_tMk = None  # t for term
             shape = [len(domain_l) for domain_l in args]
             nterms = np.prod(shape)
-        
+
             for t in range(nterms):
                 arguments = np.unravel_index(t, shape)
                 for K in range(nk):
@@ -514,6 +517,7 @@ class TetrahedronIntegrator(Integrator):
 
 
 class HilbertTransform:
+
     def __init__(self, omega_w, eta, timeordered=False, gw=False,
                  blocksize=500):
         """Analytic Hilbert transformation using linear interpolation.

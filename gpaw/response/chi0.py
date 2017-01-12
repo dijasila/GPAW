@@ -18,7 +18,7 @@ from gpaw.utilities.memory import maxrss
 from gpaw.utilities.blas import gemm
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.response.pair import PWSymmetryAnalyzer
-from gpaw.response.integrators import Integrator
+from gpaw.response.integrators import (PointIntegrator, TetrahedronIntegrator)
 
 from functools import partial
 
@@ -276,9 +276,12 @@ class Chi0:
         # Initialize integrator. The integrator class is a general class
         # for brillouin zone integration that can integrate user defined
         # functions over user defined domains.
-        integrator = Integrator(comm=self.kncomm,
-                                timer=self.timer,
-                                mode=self.mode)
+        if self.integrationmode in [None, 'point sampling']:
+            integrator = PointIntegrator(comm=self.kncomm,
+                                         timer=self.timer)
+        elif self.integrationmode is 'tetrahedron integration':
+            integrator = TetrahedronIntegrator(comm=self.kncomm,
+                                               timer=self.timer)
 
         # The integration domain is determined by the following function
         # that reduces the integration domain to the irreducible zone
@@ -309,7 +312,6 @@ class Chi0:
                                  x=self.wd,
                                  kwargs=(mat_kwargs, eig_kwargs),
                                  out_wxx=chi0_wGG)
-            pass
         elif self.hilbert:
             # The spectral function integrator assumes that the form of the
             # integrand is a function (a matrix element) multiplied by
@@ -335,7 +337,13 @@ class Chi0:
             # Otherwise, we can make no simplifying assumptions of the
             # form of the response function and we simply perform a brute
             # force calculation of the response function.
-            pass
+            integrator.integrate(kind='response function',
+                                 domain=domain,
+                                 integrand=(self.get_matrix_element,
+                                            self.get_eigenvalues),
+                                 x=self.wd,
+                                 kwargs=(mat_kwargs, eig_kwargs),
+                                 out_wxx=chi0_wGG)
 
         # In the optical limit additional work must be performed
         # for the intraband response.
@@ -355,7 +363,7 @@ class Chi0:
                 domain = (bzk_kv, spins)
                 fermi_level = self.pair.fermi_level
                 plasmafreq_wvv = np.zeros((1, 3, 3), complex)
-                integrator.integrate('response_function', domain,
+                integrator.integrate('spectral function', domain,
                                      (self.get_intraband_response,
                                       self.get_intraband_eigenvalue),
                                      ArrayDescriptor([fermi_level]),
@@ -374,7 +382,7 @@ class Chi0:
                                       (2 * np.pi)**3 /
                                       len(spins))
 
-                print()
+                print(file=self.fd)
                 print('Plasma frequency:', file=self.fd)
                 print((self.plasmafreq_vv**0.5 * Hartree).round(2),
                       file=self.fd)
