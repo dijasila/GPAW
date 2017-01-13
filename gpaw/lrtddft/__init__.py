@@ -418,12 +418,12 @@ class LrTDDFTExcitation(Excitation):
     def __init__(self, Om=None, i=None,
                  e=None, m=None, string=None):
 
+        # multiplicity comes from Kohn-Sham contributions
+        self.fij = 1
+
         if string is not None:
             self.fromstring(string)
             return None
-
-        # multiplicity comes from Kohn-Sham contributions
-        self.fij = 1
 
         # define from the diagonalized Omega matrix
         if Om is not None:
