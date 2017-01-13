@@ -488,7 +488,8 @@ class OmegaMatrix:
                 skss.append((ks + ks) / sqrt(2))
                 tkss.append((ks - ks) / sqrt(2))
                 map.append(ij)
-
+        skss.istart = tkss.istart = self.fullkss.istart
+        skss.jend = tkss.jend = self.fullkss.jend
         nkss = len(skss)
 
         # define the singlet and the triplet omega-matrices
