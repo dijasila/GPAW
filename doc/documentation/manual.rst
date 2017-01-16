@@ -581,7 +581,7 @@ The default value is this Python dictionary::
    'density': 1.0e-4,
    'eigenstates': 4.0e-8,  # eV^2 / electron
    'bands': 'occupied',
-   'forces': None} # eV / Ang Max
+   'forces': float('inf')} # eV / Ang Max
 
 In words:
 
@@ -597,8 +597,8 @@ In words:
   calculations.
 
 * The maximum change in the magnitude of the vector representing the
-  difference in forces for each atom.  Setting this to None disables
-  this functionality, saving computational time and memory usage.
+  difference in forces for each atom.  Setting this to infinity (default)
+  disables this functionality, saving computational time and memory usage.
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
