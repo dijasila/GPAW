@@ -65,8 +65,7 @@ class LrTDDFT(ExcitationList):
         'filename': None,
         'finegrid': 2,
         'force_ApmB': False,  # for tests
-        'eh_comm': None,  # parallelization over eh-pairs
-    }
+        'eh_comm': None}  # parallelization over eh-pairs
 
     def __init__(self, calculator=None, **kwargs):
 
