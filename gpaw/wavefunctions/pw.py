@@ -709,6 +709,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         else:
             H_GG = md.zeros(dtype=complex)
             S_GG = md.zeros(dtype=complex)
+            if S_GG.size == 0:
+                return H_GG, S_GG
             G1, G2 = next(md.my_blocks(S_GG))[:2]
 
         H_GG.ravel()[G1::npw + 1] = (0.5 * self.pd.gd.dv / N *

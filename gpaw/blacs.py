@@ -91,6 +91,7 @@ this module or gpaw.utilities.blacs will be renamed at some point.
 
 import numpy as np
 
+from gpaw import dry_run
 from gpaw.mpi import SerialCommunicator
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.utilities.scalapack import scalapack_inverse_cholesky, \
@@ -158,7 +159,7 @@ class BlacsGrid:
             if nprow * npcol > comm.size:
                 raise ValueError('Impossible: %dx%d Blacs grid with %d CPUs'
                                  % (nprow, npcol, comm.size))
-            
+
             try:
                 new = _gpaw.new_blacs_context
             except AttributeError as e:
@@ -167,7 +168,7 @@ class BlacsGrid:
                     'GPAW must be compiled with BLACS/ScaLAPACK, '
                     'and must run in MPI-enabled interpretre (gpaw-python).  '
                     'Original error: %s' % e)
-            
+
             self.context = new(comm.get_c_object(), npcol, nprow, order)
             assert (self.context != INACTIVE) == (comm.rank < nprow * npcol)
 
@@ -208,7 +209,7 @@ class BlacsGrid:
 
     def __bool__(self):
         2 / 0
-        
+
     __nonzero__ = __bool__  # for Python 2
 
     def __str__(self):
@@ -228,7 +229,7 @@ class DryRunBlacsGrid(BlacsGrid):
         assert (isinstance(comm, SerialCommunicator) or
                 isinstance(comm.comm, SerialCommunicator))
         # DryRunCommunicator is subclass
-        
+
         if nprow * npcol > comm.size:
             raise ValueError('Impossible: %dx%d Blacs grid with %d CPUs'
                              % (nprow, npcol, comm.size))
@@ -242,7 +243,6 @@ class DryRunBlacsGrid(BlacsGrid):
 
 
 # XXX A MAJOR HACK HERE:
-from gpaw import dry_run
 if dry_run:
     BlacsGrid = DryRunBlacsGrid
 
