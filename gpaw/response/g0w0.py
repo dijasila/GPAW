@@ -412,6 +412,11 @@ class G0W0(PairDensity):
             pickle.dump(results,
                         paropen(self.filename + '_results.pckl', 'wb'))
 
+        # after we have written the results restartfile is obsolete
+        if self.restartfile is not None:
+            if os.path.isfile(self.restartfile + '.sigma.pckl') and self.world.rank == 0:
+                os.remove(self.restartfile + '.sigma.pckl')
+
         if self.method == 'GW0':
             for iq, q_c in enumerate(self.qd.ibzk_kc):
                 try:
