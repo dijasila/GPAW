@@ -176,7 +176,7 @@ class ExcitedState(GPAW):
         system_changes = GPAW.check_state(self.calculator, atoms, tol)
         return system_changes
 
-    def get_potential_energy(self, atoms=None):
+    def get_potential_energy(self, atoms=None, force_consistent=None):
         """Evaluate potential energy for the given excitation."""
 
         if atoms is None:
