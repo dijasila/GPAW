@@ -6,15 +6,14 @@ from scipy.spatial import Delaunay, Voronoi, cKDTree, ConvexHull
 from scipy.spatial.distance import pdist
 
 from ase.utils.timing import Timer
-from ase.units import Bohr, Hartree
+from ase.units import Bohr
 from ase.dft.kpoints import monkhorst_pack
 
 import gpaw.mpi as mpi
 from gpaw import GPAW, restart
 from gpaw.symmetry import Symmetry, aglomerate_points
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.paw import kpts2sizeandoffsets
-from gpaw.kpt_descriptor import to1bz
+from gpaw.kpt_descriptor import to1bz, kpts2sizeandoffsets
 
 
 def get_lattice_symmetry(cell_cv):

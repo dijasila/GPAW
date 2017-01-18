@@ -119,7 +119,7 @@ class Chi0:
                  keep_occupied_states=False, gate_voltage=None,
                  disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True, use_more_memory=1,
-                 unsymmetrized=True, scissor=None):
+                 unsymmetrized=True, scissor=None, integrationmode=None):
 
         self.timer = timer or Timer()
 
@@ -132,6 +132,10 @@ class Chi0:
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
+        self.integrationmode = integrationmode
+
+        if integrationmode is not None:
+            print('Using integration method: ' + self.integrationmode)
 
         calc = self.pair.calc
         self.calc = calc
@@ -276,18 +280,28 @@ class Chi0:
         # Initialize integrator. The integrator class is a general class
         # for brillouin zone integration that can integrate user defined
         # functions over user defined domains.
-        if self.integrationmode in [None, 'point sampling']:
-            integrator = PointIntegrator(comm=self.kncomm,
+        if self.integrationmode is None:
+            integrator = PointIntegrator(self.pair.calc.wfs.gd.cell_cv,
+                                         comm=self.kncomm,
                                          timer=self.timer)
-        elif self.integrationmode is 'tetrahedron integration':
-            integrator = TetrahedronIntegrator(comm=self.kncomm,
+        elif self.integrationmode == 'tetrahedron integration':
+            integrator = TetrahedronIntegrator(self.pair.calc.wfs.gd.cell_cv,
+                                               comm=self.kncomm,
                                                timer=self.timer)
+        else:
+            print('Integration mode ' + self.integrationmode +
+                  ' not implemented.')
+            raise NotImplementedError
+
+        optical_limit = chi0_wxvG is not None
 
         # The integration domain is determined by the following function
         # that reduces the integration domain to the irreducible zone
         # of the little group of q.
         bzk_kv, PWSA = self.get_kpoints(pd)
         domain = (bzk_kv, spins)
+
+        print('Number of kpoint:' + str(len(bzk_kv)))
 
         # The functions that are integrated are defined in the bottom
         # of the script and take a number of constant keyword arguments
@@ -347,7 +361,7 @@ class Chi0:
 
         # In the optical limit additional work must be performed
         # for the intraband response.
-        if chi0_wxvG is not None:
+        if optical_limit:
             # Only compute the intraband response if there are partially
             # unoccupied bands and only if the user has not disabled its
             # calculation using the include_intraband keyword.
@@ -398,20 +412,25 @@ class Chi0:
         chi0_wGG *= (2 * PWSA.how_many_symmetries() /
                      (len(spins) * (2 * np.pi)**3))  # Remember prefactor
 
+        if self.integrationmode is None:
+            chi0_wGG *= len(bzk_kv) / self.calc.wfs.kd.nbzkpts
+
         tmpchi0_wGG = self.redistribute(chi0_wGG)
-        PWSA.symmetrize_wxx(tmpchi0_wGG)
+        PWSA.symmetrize_wxx(tmpchi0_wGG,
+                            optical_limit=optical_limit)
         self.redistribute(tmpchi0_wGG, chi0_wGG)
 
         # In the optical limit, we have extended the wings and the head to
         # account for their nonanalytic behaviour which means that the size of
         # the chi0_wGG matrix is nw * (nG + 2)**2. Below we extract these
         # parameters.
-        chi0_wxvG[:, 1] = np.transpose(chi0_wGG[:, :, 0:3],
-                                       (0, 2, 1))
-        chi0_wxvG[:, 0] = chi0_wGG[:, 0:3]
-        chi0_wxvG = chi0_wxvG[..., 2:]
-        chi0_wvv = chi0_wGG[:, 0:3, 0:3]
-        chi0_wGG = chi0_wGG[:, 2:, 2:]
+        if optical_limit:
+            chi0_wxvG[:, 1] = np.transpose(chi0_wGG[:, :, 0:3],
+                                           (0, 2, 1))
+            chi0_wxvG[:, 0] = chi0_wGG[:, 0:3]
+            chi0_wxvG = chi0_wxvG[..., 2:]
+            chi0_wvv = chi0_wGG[:, 0:3, 0:3]
+            chi0_wGG = chi0_wGG[:, 2:, 2:]
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
@@ -431,7 +450,9 @@ class Chi0:
                     disable_time_reversal=self.disable_time_reversal,
                     disable_non_symmorphic=self.disable_non_symmorphic)
 
-        bzk_kc = PWSA.get_reduced_kd().bzk_kc
+        K_gK = PWSA.group_kpoints()
+        bzk_kc = np.array([self.calc.wfs.kd.bzk_kc[K_K[0]] for K_K in K_gK])
+        # bzk_kc = PWSA.get_reduced_kd().bzk_kc
         bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
 
         return bzk_kv, PWSA
@@ -450,8 +471,11 @@ class Chi0:
         where s is spin, n and m are band indices, k is
         the kpoint and q is the momentum transfer."""
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
+        q_c = pd.kd.bzk_kc[0]
+        optical_limit = np.allclose(q_c, 0.0)
         nG = pd.ngmax
-
+        weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
+                         symmetry.how_many_symmetries())
         if self.Q_aGii is None:
             self.Q_aGii = self.pair.initialize_paw_corrections(pd)
 
@@ -460,13 +484,13 @@ class Chi0:
         m_m = np.arange(m1, m2)
         n_n = np.arange(n1, n2)
         n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
-                                           Q_aGii=self.Q_aGii)
+                                           Q_aGii=self.Q_aGii) * weight
 
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
         df_nm[df_nm <= 1e-20] = 0.0
         n_nmG *= df_nm[..., np.newaxis]**0.5
 
-        return n_nmG.reshape(-1, nG + 2)
+        return n_nmG.reshape(-1, nG + 2 * optical_limit)
 
     @timer('Get eigenvalues')
     def get_eigenvalues(self, k_v, s, n1=None, n2=None,

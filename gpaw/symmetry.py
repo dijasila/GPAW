@@ -468,6 +468,83 @@ def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
     return bz2bz_ks
 
 
+def map_k_points_fast(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-7):
+    """Find symmetry relations between k-points.
+
+    This is a Python-wrapper for a C-function that does the hard work
+    which is distributed over comm.
+
+    The map bz2bz_ks is returned.  If there is a k2 for which::
+
+      = _    _    _
+      U q  = q  + N,
+       s k1   k2
+
+    where N is a vector of integers, then bz2bz_ks[k1, s] = k2, otherwise
+    if there is a k2 for which::
+
+      = _     _    _
+      U q  = -q  + N,
+       s k1    k2
+
+    then bz2bz_ks[k1, s + nsym] = k2, where nsym = len(U_scc).  Otherwise
+    bz2bz_ks[k1, s] = -1.
+    """
+
+    nbzkpts = len(bzk_kc)
+
+    if time_reversal:
+        U_scc = np.concatenate([U_scc, -U_scc])
+
+    bz2bz_ks = np.zeros((nbzkpts, len(U_scc)), int)
+    bz2bz_ks[:] = -1
+
+    for s, U_cc in enumerate(U_scc):
+        # Find mapped kpoints
+        Ubzk_kc = np.dot(bzk_kc, U_cc.T)
+
+        # Do some work on the input
+        k_kc = np.concatenate([bzk_kc, Ubzk_kc])
+        k_kc = np.mod(np.mod(k_kc, 1), 1)
+        aglomerate_points(k_kc, tol)
+        k_kc = k_kc.round(-np.log10(tol).astype(int))
+        k_kc = np.mod(k_kc, 1)
+
+        # Find the lexicographical order
+        order = np.lexsort(k_kc.T)
+        k_kc = k_kc[order]
+        diff_kc = np.diff(k_kc, axis=0)
+        equivalentpairs_k = np.array((diff_kc == 0).all(1),
+                                     bool)
+
+        # Mapping array.
+        orders = np.array([order[:-1][equivalentpairs_k],
+                           order[1:][equivalentpairs_k]])
+
+        # This has to be true.
+        assert (orders[0] < nbzkpts).all()
+        assert (orders[1] >= nbzkpts).all()
+        bz2bz_ks[orders[1] - nbzkpts, s] = orders[0]
+
+    return bz2bz_ks
+
+
+def aglomerate_points(k_kc, tol):
+    nd = k_kc.shape[1]
+    nbzkpts = len(k_kc)
+    inds_kc = np.argsort(k_kc, axis=0)
+    for c in range(nd):
+        sk_k = k_kc[inds_kc[:, c], c]
+        dk_k = np.diff(sk_k)
+        
+        # Partition the kpoints into groups
+        pt_K = np.argwhere(dk_k > tol)[:, 0]
+        pt_K = np.append(np.append(0, pt_K + 1), 2 * nbzkpts)
+        for i in range(len(pt_K) - 1):
+            k_kc[inds_kc[pt_K[i]:pt_K[i + 1], c],
+                 c] = k_kc[inds_kc[pt_K[i], c], c]
+
+
 def atoms2symmetry(atoms, id_a=None):
     """Create symmetry object from atoms object."""
     if id_a is None:
