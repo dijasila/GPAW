@@ -100,6 +100,7 @@ Cray:
    Cray/jaguar
    Cray/sisu
    Cray/hermit
+   Cray/nersc_cori
 
 HP:
 
