@@ -1,8 +1,8 @@
 .. _nersc_cori:
 
-============================
+=====================
 cori.nersc.gov (XC40)
-============================
+=====================
 
 
 .. note::
@@ -11,15 +11,17 @@ cori.nersc.gov (XC40)
 GPAW
 ====
 
-At NERSC it is recommened to install GPAW on Cori with Anaconda python. For 
-massivly parallel applications it is recommened to use `Shifter <http://www.nersc.gov/research-and-development/user-defined-images/>`_.
+At NERSC it is recommened to install GPAW on Cori with Anaconda python. For
+massivly parallel applications it is recommened to use `Shifter
+<http://www.nersc.gov/research-and-development/user-defined-images/>`_.
 
 GPAW can be built with a minimal ``customize.py``
 
 .. literalinclude:: customize_nersc_cori.py
 
 
-Load the GNU programming environment and set Cray environment for dynamic linking::
+Load the GNU programming environment and set Cray environment for dynamic
+linking::
 
   export CRAYPE_LINK_TYPE=dynamic
   module rm PrgEnv-intel
