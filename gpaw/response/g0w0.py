@@ -926,7 +926,7 @@ class G0W0(PairDensity):
             assert self.vxc_skn.shape == self.shape, self.vxc_skn.shape
             print('Reading Kohn-Sham XC contribution from file:', name,
                   file=self.fd)
-        except (IOError, ValueError): # not present or defect
+        except (IOError, ValueError, AssertionError): # not present or defect
             if os.path.isfile(name) and self.world.rank == 0:
                 os.remove(name)
             print('Calculating Kohn-Sham XC contribution', file=self.fd)
@@ -944,7 +944,7 @@ class G0W0(PairDensity):
                 self.exx_skn = np.load(fd)
             assert self.exx_skn.shape == self.shape, self.exx_skn.shape
             print('Reading EXX contribution from file:', name, file=self.fd)
-        except (IOError, ValueError): # not present or defect
+        except (IOError, ValueError, AssertionError): # not present or defect
             if os.path.isfile(name) and self.world.rank == 0:
                 os.remove(name)
             print('Calculating EXX contribution', file=self.fd)
