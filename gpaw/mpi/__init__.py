@@ -687,6 +687,9 @@ class DryRunCommunicator(SerialCommunicator):
     def get_c_object(self):
         return None  # won't actually be passed to C
 
+    def translate_ranks(self, comm, ranks):
+        return np.zeros_like(ranks)
+
 if dry_run_size > 1:
     world = DryRunCommunicator(dry_run_size)
 
