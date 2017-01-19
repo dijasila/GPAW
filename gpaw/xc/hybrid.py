@@ -65,9 +65,8 @@ class HybridXCBase(XCFunctional):
         self.hybrid = float(hybrid)
         self.xc = xc
         self.omega = omega
-        self.type = xc.type
 
-        XCFunctional.__init__(self, name)
+        XCFunctional.__init__(self, name, xc.type)
 
     def get_setup_name(self):
         return 'PBE'

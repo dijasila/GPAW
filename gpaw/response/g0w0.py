@@ -7,7 +7,7 @@ from math import pi
 import numpy as np
 from ase.dft.kpoints import monkhorst_pack
 from ase.units import Ha
-from ase.utils import opencew, devnull
+from ase.utils import opencew, devnull, pickleload
 from ase.utils.timing import timer
 from ase.parallel import paropen
 
@@ -95,6 +95,30 @@ class G0W0(PairDensity):
         gate_voltage: float
             Shift Fermi level of ground state calculation by the
             specified amount.
+        anisotropy_correction: bool
+            Analytic correction to the q=0 contribution applicable to 2D
+            systems.
+        nblocks: int
+            Number of blocks chi0 should be distributed in so each core
+            does not have to store the entire matrix. This is to reduce
+            memory requirement. nblocks must be less than or equal to the
+            number of processors.
+        nblocksmax: bool
+            Cuts chi0 into as many blocks as possible to reduce memory
+            requirements as much as possible.
+        savew: bool
+            Save W to a file.
+        savepckl: bool
+            Save output to a pckl file.
+        method: str
+            G0W0 or GW0(eigenvalue selfconsistency in G) currently available.
+        maxiter: int
+            Number of iterations in a GW0 calculation.
+        mixing: float
+            Number between 0 and 1 determining how much of previous
+            iteration's eigenvalues to mix with.
+        ecut_extrapolation: bool
+            Carries out the extrapolation to infinite cutoff automatically.
         """
 
         if world.rank != 0:
@@ -130,7 +154,12 @@ class G0W0(PairDensity):
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
             nblocks = world.size
-            nblocks_calc = GPAW(calc, txt=None)
+            if isinstance(calc, GPAW):
+                raise Exception('Using a calulator is not implemented at '
+                                'the moment, load from file!')
+                # nblocks_calc = calc
+            else:
+                nblocks_calc = GPAW(calc, txt=None)
             ngmax = []
             for q_c in nblocks_calc.wfs.kd.bzk_kc:
                 qd = KPointDescriptor([q_c])
@@ -239,7 +268,9 @@ class G0W0(PairDensity):
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
 
-        # assert self.calc.wfs.nspins == 1
+        assert self.calc.wfs.nspins == 1
+
+        txt.flush()
 
     @timer('G0W0')
     def calculate(self):
@@ -247,9 +278,9 @@ class G0W0(PairDensity):
 
         Returns a dict with the results with the following key/value pairs:
 
-        ===========  ===================================
+        ===========  =============================================
         key          value
-        ===========  ===================================
+        ===========  =============================================
         ``f``        Occupation numbers
         ``eps``      Kohn-Sham eigenvalues in eV
         ``vxc``      Exchange-correlation
@@ -260,8 +291,9 @@ class G0W0(PairDensity):
         ``sigma_e``  Self-energy contributions in eV
                      used for ecut extrapolation
         ``Z``        Renormalization factors
-        ``qp``       Quasi particle energies in eV
-        ===========  ===================================
+        ``qp``       Quasi particle (QP) energies in eV
+        ``iqp``      GW0/GW: QP energies for each iteration in eV
+        ===========  =============================================
 
         All the values are ``ndarray``'s of shape
         (spins, IBZ k-points, bands)."""
@@ -377,17 +409,23 @@ class G0W0(PairDensity):
                             })
 
         if self.savepckl:
-            pickle.dump(results,
-                        paropen(self.filename + '_results.pckl', 'wb'))
+            with paropen(self.filename + '_results.pckl', 'wb') as fd:
+                pickle.dump(results, fd, 2)
 
-        if self.method == 'GW0':
-            for iq, q_c in enumerate(self.qd.ibzk_kc):
+        # After we have written the results restartfile is obsolete
+        if self.restartfile is not None:
+            if self.world.rank == 0:
+                if os.path.isfile(self.restartfile + '.sigma.pckl'):
+                    os.remove(self.restartfile + '.sigma.pckl')
+
+        if self.method == 'GW0' and self.world.rank == 0:
+            for iq in range(len(self.qd.ibzk_kc)):
                 try:
                     os.remove(self.filename + '.rank' +
                               str(self.blockcomm.rank) + '.w.q' +
                               str(iq) + '.pckl')
-                except:
-                    continue
+                except OSError:
+                    pass
 
         return results
 
@@ -631,7 +669,7 @@ class G0W0(PairDensity):
                 if self.savew and fd is None:
                     # Read screened potential from file
                     with open(wfilename, 'rb') as fd:
-                        pdi, W = pickle.load(fd)
+                        pdi, W = pickleload(fd)
                     # We also need to initialize the PAW corrections
                     self.Q_aGii = self.initialize_paw_corrections(pdi)
 
@@ -660,10 +698,10 @@ class G0W0(PairDensity):
                             thisfile = (self.filename + '.rank' +
                                         str(self.blockcomm.rank) +
                                         '.w.q%d.pckl' % iq)
-                            pickle.dump((pdi, W), open(thisfile, 'wb'),
-                                        pickle.HIGHEST_PROTOCOL)
+                            with open(thisfile, 'wb') as fd:
+                                pickle.dump((pdi, W), fd, 2)
                         else:
-                            pickle.dump((pdi, W), fd, pickle.HIGHEST_PROTOCOL)
+                            pickle.dump((pdi, W), fd, 2)
 
                 self.timer.stop('W')
                 # Loop over all k-points in the BZ and find those that are
@@ -715,9 +753,9 @@ class G0W0(PairDensity):
             chi0bands_wGG[:] = chi0_wGG.copy()
             if np.allclose(q_c, 0.0):
                 chi0_wxvG += chi0bands_wxvG
-                chi0bands_wxvG = chi0_wxvG.copy()
+                chi0bands_wxvG[:] = chi0_wxvG.copy()
                 chi0_wvv += chi0bands_wvv
-                chi0bands_wvv = chi0_wvv.copy()
+                chi0bands_wvv[:] = chi0_wvv.copy()
 
         self.Q_aGii = chi0.Q_aGii
 
@@ -996,11 +1034,12 @@ class G0W0(PairDensity):
 
         if self.world.rank == 0:
             with open(self.restartfile + '.sigma.pckl', 'wb') as fd:
-                pickle.dump(data, fd, pickle.HIGHEST_PROTOCOL)
+                pickle.dump(data, fd, 2)
 
     def load_restart_file(self):
         try:
-            data = pickle.load(open(self.restartfile + '.sigma.pckl', 'rb'))
+            with open(self.restartfile + '.sigma.pckl', 'rb') as fd:
+                data = pickleload(fd)
         except IOError:
             return False
         else:
@@ -1053,7 +1092,7 @@ class G0W0(PairDensity):
         if np.any(self.sigr2_skn < 0.9) or np.any(self.dsigr2_skn < 0.9):
             print('  Warning: Bad quality of linear fit for some (n,k). ',
                   file=self.fd)
-            print('           Higher cutoff might be nesecarry.', file=self.fd)
+            print('           Higher cutoff might be necesarry.', file=self.fd)
 
         print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
               min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)),

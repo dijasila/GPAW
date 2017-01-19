@@ -22,6 +22,17 @@ Git master branch
 
 * Calculations with ``fixdensity=True`` no longer update the Fermi level.
 
+* When setting the default PAW-datasets or basis-sets using a dict, we
+  must now use ``'default'`` as the key instead of ``None``:
+
+  >>> calc = GPAW(basis={'default': 'dzp', 'H': 'sz(dzp)'})
+
+  and not:
+
+  >>> calc = GPAW(basis={None: 'dzp', 'H': 'sz(dzp)'})
+
+  (will still work, but you will get a warning).
+
 
 Version 1.1.0
 =============
@@ -112,8 +123,8 @@ Version 0.11.0
 
 * When searching for basis sets, the setup name if any is now
   prepended automatically to the basis name.  Thus if
-  :file:`setups='{setupname}'` and :file:`basis='{basisname}'`, GPAW
-  will search for :file:`{symbol}.{setupname}.{basisname}.basis`.
+  :file:`setups='<setupname>'` and :file:`basis='<basisname>'`, GPAW
+  will search for :file:`<symbol>.<setupname>.<basisname>.basis`.
 
 * :ref:`Time-propagation TDDFT with LCAO <lcaotddft>`.
 
@@ -231,7 +242,7 @@ Version 0.10.0
      For some of the setups one has now a choice of different
      number of valence electrons, e.g.::
 
-       setups = {'Ag': '11'}
+       setups={'Ag': '11'}
 
      See :ref:`manual_setups` and list the contents of :envvar:`GPAW_SETUP_PATH`
      for available setups.

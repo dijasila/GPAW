@@ -1288,15 +1288,16 @@ def types2atomtypes(symbols, types, default):
     If both a symbol key and atomnumber key relates to the same atom, then
     the atomnumber key is dominant.
 
-    If types is a dictionary and contains None, this will be used as default
-    type, otherwize input arg ``default`` is used as default.
+    If types is a dictionary and contains the string 'default', this will
+    be used as default type, otherwize input arg ``default`` is used as
+    default.
     """
     natoms = len(symbols)
     if isinstance(types, basestring):
         return [types] * natoms
 
     # If present, None will map to the default type, else use the input default
-    type_a = [types.get(None, default)] * natoms
+    type_a = [types.get('default', default)] * natoms
 
     # First symbols ...
     for symbol, type in types.items():

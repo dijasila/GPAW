@@ -802,7 +802,7 @@ class PAWSetupGenerator:
 
     def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16):
         rgd = self.rgd
-        self.basis = Basis(self.aea.symbol, readxml=False, rgd=rgd)
+        self.basis = Basis(self.aea.symbol, 'dzp', readxml=False, rgd=rgd)
 
         # We print text to sdtout and put it in the basis-set file
         txt = 'Basis functions:\n'
@@ -1229,7 +1229,7 @@ def main(argv=None):
                 raise DatasetGenerationError
 
         if opt.create_basis_set or opt.write:
-            basis = None  # gen.create_basis_set()
+            basis = gen.create_basis_set()
 
             if opt.create_basis_set:
                 basis.write_xml()

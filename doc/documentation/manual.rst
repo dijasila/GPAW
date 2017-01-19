@@ -581,7 +581,7 @@ The default value is this Python dictionary::
    'density': 1.0e-4,
    'eigenstates': 4.0e-8,  # eV^2 / electron
    'bands': 'occupied',
-   'forces': None} # eV / Ang Max
+   'forces': float('inf')} # eV / Ang Max
 
 In words:
 
@@ -597,8 +597,8 @@ In words:
   calculations.
 
 * The maximum change in the magnitude of the vector representing the
-  difference in forces for each atom.  Setting this to None disables
-  this functionality, saving computational time and memory usage.
+  difference in forces for each atom.  Setting this to infinity (default)
+  disables this functionality, saving computational time and memory usage.
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
@@ -673,7 +673,7 @@ Fixed density
 When calculating band structures or when adding unoccupied states to
 calculation (and wanting to converge them) it is often useful to use existing
 density without updating it. By using ``fixdensity=True`` the initial density
-(e.g. one read from .gpw/.hdf5 or existing from previous calculation) is used
+(e.g. one read from .gpw or existing from previous calculation) is used
 throughout the SCF-cycle (so called Harris calculation).
 
 
@@ -697,8 +697,8 @@ If specified as a string, the given name is used for all atoms.  If
 specified as a dictionary, each keys can be either a chemical symbol
 or an atom number. The values state the individual setup names.
 
-The special key ``None`` can be used to specify the default setup
-name. Thus ``setups={None: 'paw'}`` is equivalent to ``setups='paw'``
+The special key ``'default'`` can be used to specify the default setup
+name. Thus ``setups={'default': 'paw'}`` is equivalent to ``setups='paw'``
 which is the GPAW default.
 
 As an example, the latest PAW setup of Na includes also the 6 semicore p
@@ -735,7 +735,7 @@ atomic number specifications, the latter is dominant.
 
 An example::
 
-  setups={None: 'soft', 'Li': 'hard', 5: 'ghost', 'H': 'ae'}
+  setups={'default': 'soft', 'Li': 'hard', 5: 'ghost', 'H': 'ae'}
 
 Indicates that the files named 'hard' should be used for lithium
 atoms, an all-electron potential is used for hydrogen atoms, atom
