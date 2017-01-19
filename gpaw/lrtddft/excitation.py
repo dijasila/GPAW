@@ -141,7 +141,7 @@ class Excitation:
 
     def get_oscillator_strength(self, form='r'):
         """Return the excitations dipole oscillator strength."""
-        me2_c = self.get_dipole_tensor().diagonal().real
+        me2_c = self.get_dipole_tensor(form).diagonal().real
         return np.array([np.sum(me2_c) / 3.] + me2_c.tolist())
 
     def get_rotatory_strength(self, form='r', units='cgs'):
