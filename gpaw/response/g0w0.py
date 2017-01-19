@@ -56,10 +56,12 @@ class G0W0(PairDensity):
         kpts: list
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.
-        bands: tuple
+        bands: None, tuple, or int
             Range of band indices, like (n1, n2+1), to calculate the quasi
             particle energies for. Note that the second band index is not
             included.
+            If argument is not given, all valence bands are used.
+            If only one number is insert, (vb-bands,vb+bands) is used.
         ecut: float
             Plane wave cut-off energy in eV.
         ecut_extrapolation: bool or array
@@ -208,6 +210,9 @@ class G0W0(PairDensity):
 
         if bands is None:
             bands = [0, self.nocc2]
+        if isinstance(bands, int):
+            vb = self.nocc2
+            bands = [max(vb-bands,0), vb+bands]
 
         self.bands = bands
 
