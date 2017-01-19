@@ -7,7 +7,7 @@ from math import pi
 import numpy as np
 from ase.dft.kpoints import monkhorst_pack
 from ase.units import Ha
-from ase.utils import opencew, devnull
+from ase.utils import opencew, devnull, pickleload
 from ase.utils.timing import timer
 from ase.parallel import paropen
 
@@ -409,22 +409,23 @@ class G0W0(PairDensity):
                             })
 
         if self.savepckl:
-            pickle.dump(results,
-                        paropen(self.filename + '_results.pckl', 'wb'))
+            with paropen(self.filename + '_results.pckl', 'wb') as fd:
+                pickle.dump(results, fd, 2)
 
-        # after we have written the results restartfile is obsolete
+        # After we have written the results restartfile is obsolete
         if self.restartfile is not None:
-            if os.path.isfile(self.restartfile + '.sigma.pckl') and self.world.rank == 0:
-                os.remove(self.restartfile + '.sigma.pckl')
+            if self.world.rank == 0:
+                if os.path.isfile(self.restartfile + '.sigma.pckl'):
+                    os.remove(self.restartfile + '.sigma.pckl')
 
-        if self.method == 'GW0':
-            for iq, q_c in enumerate(self.qd.ibzk_kc):
+        if self.method == 'GW0' and self.world.rank == 0:
+            for iq in range(len(self.qd.ibzk_kc)):
                 try:
                     os.remove(self.filename + '.rank' +
                               str(self.blockcomm.rank) + '.w.q' +
                               str(iq) + '.pckl')
-                except:
-                    continue
+                except OSError:
+                    pass
 
         return results
 
@@ -668,7 +669,7 @@ class G0W0(PairDensity):
                 if self.savew and fd is None:
                     # Read screened potential from file
                     with open(wfilename, 'rb') as fd:
-                        pdi, W = pickle.load(fd)
+                        pdi, W = pickleload(fd)
                     # We also need to initialize the PAW corrections
                     self.Q_aGii = self.initialize_paw_corrections(pdi)
 
@@ -697,10 +698,10 @@ class G0W0(PairDensity):
                             thisfile = (self.filename + '.rank' +
                                         str(self.blockcomm.rank) +
                                         '.w.q%d.pckl' % iq)
-                            pickle.dump((pdi, W), open(thisfile, 'wb'),
-                                        pickle.HIGHEST_PROTOCOL)
+                            with open(thisfile, 'wb') as fd:
+                                pickle.dump((pdi, W), fd, 2)
                         else:
-                            pickle.dump((pdi, W), fd, pickle.HIGHEST_PROTOCOL)
+                            pickle.dump((pdi, W), fd, 2)
 
                 self.timer.stop('W')
                 # Loop over all k-points in the BZ and find those that are
@@ -1033,11 +1034,12 @@ class G0W0(PairDensity):
 
         if self.world.rank == 0:
             with open(self.restartfile + '.sigma.pckl', 'wb') as fd:
-                pickle.dump(data, fd, pickle.HIGHEST_PROTOCOL)
+                pickle.dump(data, fd, 2)
 
     def load_restart_file(self):
         try:
-            data = pickle.load(open(self.restartfile + '.sigma.pckl', 'rb'))
+            with open(self.restartfile + '.sigma.pckl', 'rb') as fd:
+                data = pickleload(fd)
         except IOError:
             return False
         else:
