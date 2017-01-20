@@ -42,7 +42,7 @@ class BSE:
                  write_h=True,
                  write_v=True):
         """Creates the BSE object
-        
+
         calc: str or calculator object
             The string should refer to the .gpw file contaning KS orbitals
         ecut: float
@@ -144,7 +144,7 @@ class BSE:
         self.gw_skn = gw_skn
         self.eshift = eshift
         self.nS = self.kd.nbzkpts * self.nv * self.nc
-        
+
         self.print_initialization(self.td, self.eshift, self.gw_skn)
 
     def calculate(self, optical=True, ac=1.0):
@@ -189,7 +189,7 @@ class BSE:
                 Q_aGii = self.Q_qaGii[iq0]
             else:
                 Q_aGii = self.pair.initialize_paw_corrections(pd0)
-            
+
         # Calculate pair densities, eigenvalues and occupations
         rhoex_KmnG = np.zeros((nK, self.nv, self.nc, len(v_G)), complex)
         rhoG0_Kmn = np.zeros((nK, self.nv, self.nc), complex)
@@ -213,7 +213,7 @@ class BSE:
                                  self.gw_skn[0, iK, self.nv:])
             else:
                 deps_kmn[ik] = -pair.get_transition_energies(n_n, m_m)
-                
+
             df_Kmn[iK] = pair.get_occupation_differences(n_n, m_m)
             rhoex_KmnG[iK] = get_rho(pd0, pair,
                                      n_n, m_m,
@@ -270,7 +270,7 @@ class BSE:
         mySsize = myKsize * self.nv * self.nc
         if myKsize > 0:
             iS0 = myKrange[0] * self.nv * self.nc
-            
+
         # Reshape and collect
         world.sum(rhoG0_Kmn)
         self.rhoG0_S = np.reshape(rhoG0_Kmn, -1)
@@ -477,7 +477,7 @@ class BSE:
                 W_GG[1:, 0] = einv_GG[1:, 0] * sqrV_G[1:] * sqrV0
             else:
                 pass
-            
+
             if pd.kd.gamma:
                 e = 1 / einv_GG[0, 0].real
                 print('    RPA dielectric constant is: %3.3f' % e,
@@ -499,7 +499,7 @@ class BSE:
         """The t and T represent local and global
            eigenstates indices respectively
         """
- 
+
         # Non-Hermitian matrix can only use linalg.eig
         if not self.td:
             print('  Using numpy.linalg.eig...', file=self.fd)
@@ -520,7 +520,7 @@ class BSE:
                 ns = -(-self.kd.nbzkpts // world.size) * self.nv * self.nc
                 grid = BlacsGrid(world, world.size, 1)
                 desc = grid.new_descriptor(nS, nS, ns, nS)
-                
+
                 desc2 = grid.new_descriptor(nS, nS, 2, 2)
                 H_tmp = desc2.zeros(dtype=complex)
                 r = Redistributor(world, desc, desc2)
@@ -636,7 +636,7 @@ class BSE:
                                    direction=direction,
                                    readfile=readfile, optical=True)
         epsilon_w += 1.0
-    
+
         """Check f-sum rule."""
         nv = self.calc.wfs.setups.nvalence
         dw_w = w_w[1:] - w_w[:-1]
@@ -665,9 +665,9 @@ class BSE:
                 for iw, w in enumerate(self.w_T):
                     print('%8d %12.6f' % (iw, w.real), file=f)
                 f.close()
-            
+
         print('Calculation completed at:', ctime(), file=self.fd)
-        
+
         return w_w, epsilon_w
 
     def get_eels_spectrum(self, w_w=None, eta=0.1,
@@ -716,9 +716,9 @@ class BSE:
                 for iw, w in enumerate(self.w_T):
                     print('%8d %12.6f' % (iw, w.real), file=f)
                 f.close()
-            
+
         print('Calculation completed at:', ctime(), file=self.fd)
-        
+
         return w_w, eels_w
 
     def get_polarizability(self, w_w=None, eta=0.1,
@@ -770,7 +770,7 @@ class BSE:
                 for iw, w in enumerate(self.w_T):
                     print('%8d %12.6f' % (iw, w.real), file=f)
                 f.close()
-            
+
         print('Calculation completed at:', ctime(), file=self.fd)
 
         return w_w, alpha_w
@@ -778,7 +778,7 @@ class BSE:
     def par_save(self, filename, name, A_sS):
         from gpaw.io import Writer
         writer = Writer(filename, world, 'BSE')
-            
+
         if name == 'v_TS':
             writer.write(w_T=self.w_T)
 
@@ -786,7 +786,7 @@ class BSE:
                      df_S=self.df_S)
 
         writer.add_array(name, (self.nS, self.nS), dtype=complex)
-        
+
         if not self.td and name == 'v_TS':
             writer.fill(A_sS)
         else:
@@ -811,13 +811,13 @@ class BSE:
         world.barrier()
 
     def par_load(self, filename, name):
-        from ase.io.aff import affopen
+        import ase.io.ulm as ulm
 
-        reader = affopen(filename)
+        reader = ulm.open(filename)
 
         self.rhoG0_S = reader.rhoG0_S
         self.df_S = reader.df_S
-        
+
         nK = self.kd.nbzkpts
         myKsize = -(-nK // world.size)
         myKrange = range(world.rank * myKsize,
@@ -835,9 +835,9 @@ class BSE:
         elif name == 'v_TS':
             self.w_T = reader.w_T
             self.v_St = reader.proxy('v_TS')[S1:S2].T.copy()
-            
+
         reader.close()
-        
+
     def print_initialization(self, td, eshift, gw_skn):
         p = functools.partial(print, file=self.fd)
         p('----------------------------------------------------------')
