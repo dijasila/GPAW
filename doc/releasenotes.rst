@@ -24,7 +24,7 @@ Git master branch
   :meth:`~ase.calculators.calculator.Calculator.band_structure`
   method that returns an :class:`ase.dft.band_structure.BandStructure`
   object.  This makes it very easy to create band-structure plots as shown
-  in section 9 of this awesome Psi-k *Scientic Highlight Of The Month*:
+  in section 9 of this awesome Psi-k *Scientfic Highlight Of The Month*:
   http://psi-k.net/download/highlights/Highlight_134.pdf.
 
 * Dipole-layer corrections for slab calculations can now be done in PW-mode
