@@ -60,6 +60,8 @@ class G0W0(PairDensity):
             Range of band indices, like (n1, n2+1), to calculate the quasi
             particle energies for. Note that the second band index is not
             included.
+            If the numbers are negative they are interpreted as relative to
+            the valence band (vb-n1,vb+n2).
             If argument is not given, all valence bands are used.
             If only one number is insert, (vb-bands,vb+bands) is used.
         ecut: float
@@ -210,9 +212,15 @@ class G0W0(PairDensity):
 
         if bands is None:
             bands = [0, self.nocc2]
-        if isinstance(bands, int):
-            vb = self.nocc2
-            bands = [max(vb-bands,0), vb+bands]
+        elif isinstance(bands, int):
+            bands = [max(self.nocc2-abs(bands),0), self.nocc2+abs(bands)]
+        elif isinstance(bands, tuple):
+            b1, b2 = bands
+            if b1 < 0:
+                b1 = max(self.nocc2-abs(b1),0)
+            if b2 < 0:
+                b2 = self.nocc2+abs(b2)
+            bands = [b1, b2]
 
         self.bands = bands
 
