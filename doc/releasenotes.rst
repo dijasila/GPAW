@@ -18,12 +18,19 @@ Git master branch
 * Simple syntax for specifying BZ paths introduced:
   ``kpts={'path': 'GXK', 'npoints': 50}``.
 
+* Calculations with ``fixdensity=True`` no longer update the Fermi level.
+
+* The GPAW calculator object has a new
+  :meth:`~ase.calculators.calculator.Calculator.band_structure`
+  method that returns an :class:`ase.dft.band_structure.BandStructure`
+  object.  This makes it very easy to create band-structure plots as shown
+  in section 9 of this awesome Psi-k *Scientic Highlight Of The Month*:
+  http://psi-k.net/download/highlights/Highlight_134.pdf.
+
 * Dipole-layer corrections for slab calculations can now be done in PW-mode
   also.  See :ref:`dipole`.
 
 * New :meth:`~gpaw.paw.PAW.get_electrostatic_potential` method.
-
-* Calculations with ``fixdensity=True`` no longer update the Fermi level.
 
 * When setting the default PAW-datasets or basis-sets using a dict, we
   must now use ``'default'`` as the key instead of ``None``:
