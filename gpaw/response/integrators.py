@@ -397,7 +397,7 @@ class TetrahedronIntegrator(Integrator):
             nterms = int(np.prod(shape))
 
             for t in range(nterms):
-                if nterms == 1:
+                if len(shape) == 0:
                     arguments = ()
                 else:
                     arguments = np.unravel_index(t, shape)
