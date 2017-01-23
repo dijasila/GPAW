@@ -135,13 +135,6 @@ class Chi0:
         self.disable_time_reversal = disable_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
         self.integrationmode = integrationmode
-        if pbc is not None:
-            self.pbc = np.array(pbc)
-        else:
-            self.pbc = None
-
-        if integrationmode is not None:
-            print('Using integration method: ' + self.integrationmode)
 
         calc = self.pair.calc
         self.calc = calc
@@ -211,6 +204,23 @@ class Chi0:
         self.nocc2 = self.pair.nocc2  # number of non-empty bands
 
         self.Q_aGii = None
+
+        if pbc is not None:
+            self.pbc = np.array(pbc)
+        else:
+            self.pbc = None
+
+        if self.pbc is not None and (~self.pbc).any():
+            assert np.sum((~self.pbc).astype(int)) == 1, \
+                print('Only one non-periodic direction supported atm.')
+            print('Nonperiodic BC\'s: ', (~self.pbc),
+                  file=self.fd)
+
+        if integrationmode is not None:
+            print('Using integration method: ' + self.integrationmode,
+                  file=self.fd)
+        else:
+            print('Using integration method: PointIntegrator', file=self.fd)
 
     def find_maximum_frequency(self):
         self.epsmin = 10000.0
@@ -296,7 +306,7 @@ class Chi0:
                                                timer=self.timer)
         else:
             print('Integration mode ' + self.integrationmode +
-                  ' not implemented.')
+                  ' not implemented.', file=self.fd)
             raise NotImplementedError
 
         optical_limit = chi0_wxvG is not None
@@ -315,8 +325,6 @@ class Chi0:
         else:
             factor = 1
 
-        print('factor', factor)
-
         # The functions that are integrated are defined in the bottom
         # of the script and take a number of constant keyword arguments
         # which the integrator class accepts through the use of the
@@ -329,6 +337,7 @@ class Chi0:
         eig_kwargs = {'kd': kd, 'm1': m1, 'm2': m2, 'n1': 0,
                       'n2': self.nocc2, 'pd': pd}
 
+        print('Integrating density response function.', file=self.fd)
         if self.eta == 0:
             # If eta is 0 then we must be working with imaginary frequencies.
             # In this case chi is hermitian and it is therefore possible to
@@ -392,6 +401,7 @@ class Chi0:
             domain = (bzk_kv, spins)
             fermi_level = self.pair.fermi_level
             plasmafreq_wvv = np.zeros((1, 3, 3), complex)
+            print('Integrating intraband density response.', file=self.fd)
             if self.integrationmode is None:
                 integrator.integrate(kind='spectral function',
                                      domain=domain,
@@ -425,7 +435,6 @@ class Chi0:
                 self.plasmafreq_vv *= (len(bzk_kv) /
                                        self.calc.wfs.kd.nbzkpts)
 
-            print(file=self.fd)
             print('Plasma frequency:', file=self.fd)
             print((self.plasmafreq_vv**0.5 * Hartree).round(2),
                   file=self.fd)
@@ -486,7 +495,6 @@ class Chi0:
         elif integrationmode == 'tetrahedron integration':
             bzk_kc = PWSA.get_reduced_kd().bzk_kc
             if (~self.pbc).any():
-                print((~self.pbc).astype(int))
                 bzk_kc = np.append(bzk_kc,
                                    bzk_kc + (~self.pbc).astype(int),
                                    axis=0)
