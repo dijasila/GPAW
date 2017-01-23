@@ -4,7 +4,7 @@ import warnings
 import numpy as np
 from ase.units import Bohr, Ha
 from ase.calculators.calculator import Calculator
-from ase.utils import basestring
+from ase.utils import basestring, plural
 from ase.utils.timing import Timer
 
 import gpaw
@@ -411,7 +411,17 @@ class GPAW(Calculator, PAW):
     def set_positions(self, atoms=None):
         """Update the positions of the atoms and initialize wave functions."""
         spos_ac = self.initialize_positions(atoms)
-        self.wfs.initialize(self.density, self.hamiltonian, spos_ac)
+
+        nlcao, nrand = self.wfs.initialize(self.density, self.hamiltonian,
+                                           spos_ac)
+        if nlcao + nrand:
+            self.log('Creating initial wave functions:')
+            if nlcao:
+                self.log(' ', plural(nlcao, 'band'), 'from LCAO basis set')
+            if nrand:
+                self.log(' ', plural(nrand, 'band'), 'from random numbers')
+            self.log()
+
         self.wfs.eigensolver.reset()
         self.scf.reset()
         print_positions(self.atoms, self.log)
@@ -888,15 +898,6 @@ class GPAW(Calculator, PAW):
         self.nbands_parallelization_adjustment = -nbands % band_comm.size
         nbands += self.nbands_parallelization_adjustment
 
-        # I would like to give the following error message, but apparently
-        # there are cases, e.g. gpaw/test/gw_ppa.py, which involve
-        # nbands > nao and are supposed to work that way.
-        # if nbands > nao:
-        #    raise ValueError('Number of bands %d adjusted for band '
-        #                    'parallelization %d exceeds number of atomic '
-        #                     'orbitals %d.  This problem can be fixed '
-        #                     'by reducing the number of bands a bit.'
-        #                     % (nbands, band_comm.size, nao))
         bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
         # Construct grid descriptor for coarse grids for wave functions:
@@ -980,7 +981,7 @@ class GPAW(Calculator, PAW):
                                             timer=self.timer)
 
             # Use (at most) all available LCAO for initialization
-            lcaonbands = min(nbands, nao)
+            lcaonbands = min(nbands, nao // band_comm.size * band_comm.size)
 
             try:
                 lcaobd = BandDescriptor(lcaonbands, band_comm,
