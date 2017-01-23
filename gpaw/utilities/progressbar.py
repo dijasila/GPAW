@@ -56,7 +56,7 @@ class ProgressBar:
             bar = '-' * (n - 1) + self.symbols[int(t % len(self.symbols))]
             p(('\r{0} / {1} ({2:.0f}%) |{3:' + str(N) + '}| ')
               .format(t_dt, est, x * 100, bar), end='')
-            print(' {0:.0f} MB/core'.format(maxrss() / 1024**2), end='')
+            p(' {0:.0f} MB/core'.format(maxrss() / 1024**2), end='')
             if x == 1:
                 p()
                 self.done = True
@@ -100,6 +100,7 @@ class ProgressBar:
         for i, item in enumerate(items):
             self.update(i / len(items))
             yield i, item
+        self.finish()
 
 
 def test():
