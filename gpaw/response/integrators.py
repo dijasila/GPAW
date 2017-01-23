@@ -111,7 +111,7 @@ class PointIntegrator(Integrator):
     def response_function_integration(self, domain=None, integrand=None,
                                       x=None, kwargs=None, out_wxx=None,
                                       timeordered=False, hermitian=False,
-                                      hilbert=True):
+                                      intraband=False, hilbert=True):
         """Integrate a response function over bands and kpoints.
 
         func: method
@@ -140,7 +140,9 @@ class PointIntegrator(Integrator):
             n_MG = get_matrix_element(*arguments)
             deps_M = get_eigenvalues(*arguments)
 
-            if hermitian:
+            if intraband:
+                self.update_intraband(n_MG, out_wxx)
+            elif hermitian:
                 self.update_hermitian(n_MG, deps_M, x, out_wxx)
             elif hilbert:
                 self.update_hilbert(n_MG, deps_M, x, out_wxx)
@@ -282,24 +284,12 @@ class PointIntegrator(Integrator):
             chi0_wxvG[w + 1, 1, :, 1:] += p2 * x_vG.conj()
 
     @timer('CHI_0 intraband update')
-    def update_intraband(self, f_m, vel_mv, chi0_vv):
+    def update_intraband(self, vel_mv, chi0_wvv):
         """Add intraband contributions"""
-        assert len(f_m) == len(vel_mv), print(len(f_m), len(vel_mv))
 
-        width = self.calc.occupations.width
-        if width == 0.0:
-            return
-
-        assert isinstance(self.calc.occupations, FermiDirac)
-        dfde_m = - 1. / width * (f_m - f_m**2.0)
-        partocc_m = np.abs(dfde_m) > 1e-5
-        if not partocc_m.any():
-            return
-
-        for dfde, vel_v in zip(dfde_m, vel_mv):
-            x_vv = (-dfde *
-                    np.outer(vel_v, vel_v))
-            chi0_vv += x_vv
+        for vel_v in vel_mv:
+            x_vv = np.outer(vel_v, vel_v)
+            chi0_wvv[0] += x_vv
 
 
 class TetrahedronIntegrator(Integrator):

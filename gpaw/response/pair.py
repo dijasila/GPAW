@@ -294,7 +294,7 @@ class PWSymmetryAnalyzer:
         U_scc = self.kd.symmetry.op_scc
         nU = self.nU
         return (U_scc[s % nU] == np.eye(3)).all()
-    
+
     def is_not_time_reversal(self, s):
         nU = self.nU
         return not bool(s // nU)
@@ -328,6 +328,21 @@ class PWSymmetryAnalyzer:
 
         return K_gk
 
+    def get_BZ(self):
+        # Get the little group of q
+        U_scc = []
+        for s in self.s_s:
+            U_cc, sign, _, _, _ = self.get_symmetry_operator(s)
+            U_scc.append(sign * U_cc)
+        U_scc = np.array(U_scc)
+
+        # Determine the irreducible BZ
+        bzk_kc, ibzk_kc = get_reduced_BZ(self.pd.gd.cell_cv,
+                                         U_scc,
+                                         False)
+
+        return bzk_kc
+
     def get_reduced_kd(self):
         # Get the little group of q
         U_scc = []
@@ -356,6 +371,21 @@ class PWSymmetryAnalyzer:
                 ik_kc = unique_rows(np.append(k_kc, ik_kc, axis=0))
 
         return KPointDescriptor(ik_kc)
+
+    def unfold_kpoints(self, points_pv, tol=1e-8, mod=None):
+        points_pc = np.dot(points_pv, self.pd.gd.cell_cv.T) / (2 * np.pi)
+
+        # Get the little group of q
+        U_scc = []
+        for s in self.s_s:
+            U_cc, sign, _, _, _ = self.get_symmetry_operator(s)
+            U_scc.append(sign * U_cc)
+        U_scc = np.array(U_scc)
+
+        points = np.concatenate(np.dot(points_pc, U_scc.transpose(0, 2, 1)))
+        points = unique_rows(points, tol=tol, mod=mod)
+        points = np.dot(points, self.pd.gd.icell_cv) * (2 * np.pi)
+        return points
 
     def get_kpoint_weight(self, k_c):
         K = self.find_kpoint(k_c)
@@ -1233,7 +1263,7 @@ class PairDensity:
 
     @timer('Intraband')
     def intraband_pair_density(self, kpt, n_n=None,
-                               only_partially_occupied=True):
+                               only_partially_occupied=False):
         """Calculate intraband matrix elements of nabla"""
         # Bands and check for block parallelization
         na, nb, n1 = kpt.na, kpt.nb, kpt.n1
@@ -1366,12 +1396,12 @@ class PairDensity:
         try:
             assert np.allclose(shift_c.round(), shift_c)
         except AssertionError:
-            print(shift_c)
-            print(k_c)
-            print(kd.bzk_kc[K])
-            print(ik_c)
-            print(U_cc)
-            print(sign)
+            print('shift_c ' + str(shift_c), file=self.fd)
+            print('k_c ' + str(k_c), file=self.fd)
+            print('kd.bzk_kc[K] ' + str(kd.bzk_kc[K]), file=self.fd)
+            print('ik_c ' + str(ik_c), file=self.fd)
+            print('U_cc ' + str(U_cc), file=self.fd)
+            print('sign ' + str(sign), file=self.fd)
             raise AssertionError
 
         shift_c = shift_c.round().astype(int)

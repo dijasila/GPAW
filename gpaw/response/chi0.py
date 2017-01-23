@@ -19,6 +19,7 @@ from gpaw.utilities.blas import gemm
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.response.pair import PWSymmetryAnalyzer
 from gpaw.response.integrators import (PointIntegrator, TetrahedronIntegrator)
+from gpaw.bztools import convex_hull_volume
 
 from functools import partial
 
@@ -119,7 +120,8 @@ class Chi0:
                  keep_occupied_states=False, gate_voltage=None,
                  disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True, use_more_memory=1,
-                 unsymmetrized=True, scissor=None, integrationmode=None):
+                 unsymmetrized=True, scissor=None, integrationmode=None,
+                 pbc=None):
 
         self.timer = timer or Timer()
 
@@ -133,6 +135,10 @@ class Chi0:
         self.disable_time_reversal = disable_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
         self.integrationmode = integrationmode
+        if pbc is not None:
+            self.pbc = np.array(pbc)
+        else:
+            self.pbc = None
 
         if integrationmode is not None:
             print('Using integration method: ' + self.integrationmode)
@@ -298,10 +304,18 @@ class Chi0:
         # The integration domain is determined by the following function
         # that reduces the integration domain to the irreducible zone
         # of the little group of q.
-        bzk_kv, PWSA = self.get_kpoints(pd)
-        domain = (bzk_kv, spins)
+        bzk_kv, PWSA = self.get_kpoints(pd,
+                                        integrationmode=self.integrationmode)
 
-        print('Number of kpoint:' + str(len(bzk_kv)))
+        domain = (bzk_kv, spins)
+        if self.integrationmode == 'tetrahedron integration':
+            domainvol = convex_hull_volume(PWSA.unfold_kpoints(bzk_kv))
+            bzvol = (2 * np.pi)**3 / self.vol
+            factor = bzvol / domainvol
+        else:
+            factor = 1
+
+        print('factor', factor)
 
         # The functions that are integrated are defined in the bottom
         # of the script and take a number of constant keyword arguments
@@ -310,7 +324,8 @@ class Chi0:
         kd = self.calc.wfs.kd
         mat_kwargs = {'kd': kd, 'pd': pd, 'n1': 0,
                       'n2': self.nocc2, 'm1': m1,
-                      'm2': m2, 'symmetry': PWSA}
+                      'm2': m2, 'symmetry': PWSA,
+                      'integrationmode': self.integrationmode}
         eig_kwargs = {'kd': kd, 'm1': m1, 'm2': m2, 'n1': 0,
                       'n2': self.nocc2, 'pd': pd}
 
@@ -361,45 +376,59 @@ class Chi0:
 
         # In the optical limit additional work must be performed
         # for the intraband response.
-        if optical_limit:
-            # Only compute the intraband response if there are partially
-            # unoccupied bands and only if the user has not disabled its
-            # calculation using the include_intraband keyword.
-            if self.nocc1 != self.nocc2 and self.include_intraband:
-                # The intraband response is essentially just the calculation
-                # of the free space Drude plasma frequency. The calculation is
-                # similarly to the interband transitions documented above.
-                mat_kwargs = {'kd': kd, 'symmetry': PWSA,
-                              'n1': self.nocc1, 'n2': self.nocc2,
-                              'pd': pd}
-                eig_kwargs = {'kd': kd, 'n1': self.nocc1,
-                              'n2': self.nocc2, 'pd': pd}
-                domain = (bzk_kv, spins)
-                fermi_level = self.pair.fermi_level
-                plasmafreq_wvv = np.zeros((1, 3, 3), complex)
-                integrator.integrate('spectral function', domain,
-                                     (self.get_intraband_response,
-                                      self.get_intraband_eigenvalue),
-                                     ArrayDescriptor([fermi_level]),
+        # Only compute the intraband response if there are partially
+        # unoccupied bands and only if the user has not disabled its
+        # calculation using the include_intraband keyword.
+        if optical_limit and (self.nocc1 != self.nocc2 and
+                              self.include_intraband):
+            # The intraband response is essentially just the calculation
+            # of the free space Drude plasma frequency. The calculation is
+            # similarly to the interband transitions documented above.
+            mat_kwargs = {'kd': kd, 'symmetry': PWSA,
+                          'n1': self.nocc1, 'n2': self.nocc2,
+                          'pd': pd}
+            eig_kwargs = {'kd': kd, 'n1': self.nocc1,
+                          'n2': self.nocc2, 'pd': pd}
+            domain = (bzk_kv, spins)
+            fermi_level = self.pair.fermi_level
+            plasmafreq_wvv = np.zeros((1, 3, 3), complex)
+            if self.integrationmode is None:
+                integrator.integrate(kind='spectral function',
+                                     domain=domain,
+                                     integrand=(self.get_intraband_response,
+                                                self.get_intraband_eigenvalue),
+                                     intraband=True,
                                      kwargs=(mat_kwargs, eig_kwargs),
                                      out_wxx=plasmafreq_wvv)
-                self.plasmafreq_vv = plasmafreq_wvv[0].copy()
-                chi0_wGG[:, 0:3, 0:3] += (self.plasmafreq_vv[np.newaxis] /
-                                          (self.omega_w[:, np.newaxis,
-                                                        np.newaxis] +
-                                           1e-10 + self.eta * 1j)**2)
+            elif self.integrationmode == 'tetrahedron integration':
+                integrator.integrate(kind='spectral function',
+                                     domain=domain,
+                                     integrand=(self.get_intraband_response,
+                                                self.get_intraband_eigenvalue),
+                                     x=ArrayDescriptor([fermi_level]),
+                                     kwargs=(mat_kwargs, eig_kwargs),
+                                     out_wxx=plasmafreq_wvv)
+            self.plasmafreq_vv = plasmafreq_wvv[0].copy()
+            chi0_wGG[:, 0:3, 0:3] += (self.plasmafreq_vv[np.newaxis] /
+                                      (self.omega_w[:, np.newaxis,
+                                                    np.newaxis] +
+                                       1e-10 + self.eta * 1j)**2)
+            
+            PWSA.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
+            
+            self.plasmafreq_vv = (2 * factor * self.plasmafreq_vv * 4 * np.pi *
+                                  PWSA.how_many_symmetries() /
+                                  (2 * np.pi)**3 /
+                                  len(spins))
 
-                PWSA.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
+            if self.integrationmode is None:
+                self.plasmafreq_vv *= (len(bzk_kv) /
+                                       self.calc.wfs.kd.nbzkpts)
 
-                self.plasmafreq_vv = (2 * self.plasmafreq_vv * 4 * np.pi *
-                                      PWSA.how_many_symmetries() /
-                                      (2 * np.pi)**3 /
-                                      len(spins))
-
-                print(file=self.fd)
-                print('Plasma frequency:', file=self.fd)
-                print((self.plasmafreq_vv**0.5 * Hartree).round(2),
-                      file=self.fd)
+            print(file=self.fd)
+            print('Plasma frequency:', file=self.fd)
+            print((self.plasmafreq_vv**0.5 * Hartree).round(2),
+                  file=self.fd)
 
         # The density response function is integrated only over the IBZ. The
         # chi calculated above must therefore be extended to include the
@@ -409,12 +438,12 @@ class Chi0:
         # group of q. Due to the specific details of the implementation the chi
         # calculated above is normalized by the number of symmetries (as seen
         # below) and then symmetrized.
-        chi0_wGG *= (2 * PWSA.how_many_symmetries() /
+        chi0_wGG *= (2 * factor * PWSA.how_many_symmetries() /
                      (len(spins) * (2 * np.pi)**3))  # Remember prefactor
 
         if self.integrationmode is None:
             chi0_wGG *= len(bzk_kv) / self.calc.wfs.kd.nbzkpts
-
+            
         tmpchi0_wGG = self.redistribute(chi0_wGG)
         PWSA.symmetrize_wxx(tmpchi0_wGG,
                             optical_limit=optical_limit)
@@ -441,7 +470,7 @@ class Chi0:
         return pd
 
     @timer('Get kpoints')
-    def get_kpoints(self, pd):
+    def get_kpoints(self, pd, integrationmode=None):
         # Use symmetries
         PWSA = PWSymmetryAnalyzer
         PWSA = PWSA(self.calc.wfs.kd, pd,
@@ -450,9 +479,18 @@ class Chi0:
                     disable_time_reversal=self.disable_time_reversal,
                     disable_non_symmorphic=self.disable_non_symmorphic)
 
-        K_gK = PWSA.group_kpoints()
-        bzk_kc = np.array([self.calc.wfs.kd.bzk_kc[K_K[0]] for K_K in K_gK])
-        # bzk_kc = PWSA.get_reduced_kd().bzk_kc
+        if integrationmode is None:
+            K_gK = PWSA.group_kpoints()
+            bzk_kc = np.array([self.calc.wfs.kd.bzk_kc[K_K[0]] for
+                               K_K in K_gK])
+        elif integrationmode == 'tetrahedron integration':
+            bzk_kc = PWSA.get_reduced_kd().bzk_kc
+            if (~self.pbc).any():
+                print((~self.pbc).astype(int))
+                bzk_kc = np.append(bzk_kc,
+                                   bzk_kc + (~self.pbc).astype(int),
+                                   axis=0)
+
         bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
 
         return bzk_kv, PWSA
@@ -461,7 +499,7 @@ class Chi0:
     def get_matrix_element(self, k_v, s, n1=None, n2=None,
                            m1=None, m2=None,
                            pd=None, kd=None,
-                           symmetry=None):
+                           symmetry=None, integrationmode=None):
         """A function that returns pair-densities.
 
         A pair density is defined as::
@@ -483,8 +521,12 @@ class Chi0:
                                             m1, m2)
         m_m = np.arange(m1, m2)
         n_n = np.arange(n1, n2)
+
         n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
                                            Q_aGii=self.Q_aGii) * weight
+
+        if integrationmode is None:
+            n_nmG *= weight
 
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
         df_nm[df_nm <= 1e-20] = 0.0
@@ -536,6 +578,13 @@ class Chi0:
         n_n = range(n1, n2)
 
         vel_nv = self.pair.intraband_pair_density(kpt1, n_n)
+
+        if self.integrationmode is None:
+            f_n = kpt1.f_n
+            width = self.calc.occupations.width
+            dfde_n = - 1. / width * (f_n - f_n**2.0)
+            vel_nv *= np.sqrt(-dfde_n[:, np.newaxis])
+
         return vel_nv
 
     @timer('Intraband eigenvalue')
