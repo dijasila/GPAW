@@ -43,6 +43,49 @@ def monkhorst_pack_high_symmetry(calc, density, lcd):
     return kpts_kc
 
 
+def find_high_symmetry_monkhorst_pack(calc, density,
+                                      pbc=None):
+    if pbc is None:
+        pbc = np.array([True, True, True])
+    else:
+        pbc = np.array(pbc)
+
+    atoms, calc = restart(calc, txt=None)
+    # pbc = atoms.get_pbc()
+    minsize, offset = kpts2sizeandoffsets(density=density, even=True,
+                                          gamma=True, atoms=atoms)
+    
+    bzk_kc, ibzk_kc = get_BZ(calc)
+
+    maxsize = minsize + 10
+    minsize[~pbc] = 1
+    maxsize[~pbc] = 2
+
+    for n1 in range(minsize[0], maxsize[0]):
+        for n2 in range(minsize[1], maxsize[1]):
+            for n3 in range(minsize[2], maxsize[2]):
+                size = [n1, n2, n3]
+                size, offset = kpts2sizeandoffsets(size=size, gamma=True,
+                                                   atoms=atoms)
+                offset = np.array(offset)
+                kpts_kc = monkhorst_pack(size) + offset
+                kpts_kc = to1bz(kpts_kc, calc.wfs.gd.cell_cv)
+
+                for ibzk_c in ibzk_kc:
+                    diff_kc = np.abs(kpts_kc - ibzk_c)[:, pbc].round(6)
+                    if not (np.mod(np.mod(diff_kc, 1), 1) <
+                            1e-5).all(axis=1).any():
+                        break
+                else:
+                    kpts_kc = monkhorst_pack(size) + offset
+                    if mpi.rank == 0:
+                        print('Monkhorst-Pack grid:', size, offset)
+                    return kpts_kc
+
+    print('Did not find matching kpoints')
+    raise RuntimeError
+
+
 def tesselate_brillouin_zone(calc, density=3.5):
     """Refine kpoint grid of previously calculated ground state."""
     if isinstance(calc, str):
@@ -2262,11 +2305,16 @@ def tetrahedron_volume(a, b, c, d):
 
 
 def convex_hull_volume(pts):
-    dt = Delaunay(pts)
+    hull = ConvexHull(pts)
+    dt = Delaunay(pts[hull.vertices])
     tets = dt.points[dt.simplices]
-    vol = np.sum(tetrahedron_volume(tets[:, 0], tets[:, 1], 
+    vol = np.sum(tetrahedron_volume(tets[:, 0], tets[:, 1],
                                     tets[:, 2], tets[:, 3]))
     return vol
+
+
+def convex_hull_volume_new(pts):
+    return ConvexHull(pts).volume
 
 
 def convex_hull_volume_bis(pts):
