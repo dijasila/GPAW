@@ -394,10 +394,13 @@ class TetrahedronIntegrator(Integrator):
             # Store eigenvalues
             deps_tMk = None  # t for term
             shape = [len(domain_l) for domain_l in args]
-            nterms = np.prod(shape)
+            nterms = int(np.prod(shape))
 
             for t in range(nterms):
-                arguments = np.unravel_index(t, shape)
+                if nterms == 1:
+                    arguments = ()
+                else:
+                    arguments = np.unravel_index(t, shape)
                 for K in range(nk):
                     k_c = bzk_kc[K]
                     deps_M = get_eigenvalues(k_c, *arguments)
@@ -429,7 +432,10 @@ class TetrahedronIntegrator(Integrator):
         pb = ProgressBar(self.fd)
         for _, arguments in pb.enumerate(myterms_t):
             K = arguments[-1]
-            t = np.ravel_multi_index(arguments[:-1], shape)
+            if len(shape) == 0:
+                t = 0
+            else:
+                t = np.ravel_multi_index(arguments[:-1], shape)
             deps_Mk = deps_tMk[t]
             indices_Mi = indices_tMki[t, :, K]
             n_MG = get_matrix_element(bzk_kc[K],
