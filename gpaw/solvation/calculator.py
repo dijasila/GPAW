@@ -46,7 +46,7 @@ class SolvationGPAW(GPAW):
             vext=self.parameters.external,
             psolver=self.parameters.poissonsolver,
             stencil=mode.interpolation)
-            
+
         self.log(self.hamiltonian)
 
     def initialize_positions(self, atoms=None):
