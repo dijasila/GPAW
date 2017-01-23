@@ -257,7 +257,8 @@ class Symmetry:
         nsym = len(U_scc)
 
         time_reversal = self.time_reversal and not self.has_inversion
-        bz2bz_ks = map_k_points(bzk_kc, U_scc, time_reversal, comm, self.tol)
+        bz2bz_ks = map_k_points_fast(bzk_kc, U_scc, time_reversal,
+                                     comm, self.tol)
 
         bz2bz_k = -np.ones(nbzkpts + 1, int)
         ibz2bz_k = []
