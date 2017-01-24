@@ -512,7 +512,7 @@ class Heterostructure:
             else:
                 if not inter:
                     Int_temp = (-1. / layer_thickness *
-                                np.log(layer_thickness * 2 / r_array[ir]**2))
+                                np.log(layer_thickness**2 / r_array[ir]**2))
                 else:
                     Int_temp = (-1. / layer_thickness *
                                 np.log((layer_thickness + 2 * layer_dist) /
@@ -1064,13 +1064,13 @@ class BuildingBlock():
         q_infs = np.zeros([q_cs.shape[0] + self.nq_inftot, 3])
         # x-direction:
         q_infs[: self.nq_inf + 1, qdir] = \
-            np.linspace(0, q_cut, self.nq_inf + 2)[1:]
+            np.linspace(1e-05, q_cut, self.nq_inf + 1)[:]
         if not isotropic_q:  # y-direction
             q_infs[self.nq_inf + 1: self.nq_inf * 2 + 1, 1] = \
                 np.linspace(0, q_cut, self.nq_inf + 1)[1:]
 
         # add q_inf to list
-        self.q_cs = np.insert(q_cs, 0, np.zeros([self.nq_inftot, 3]), axis=0)
+        self.q_cs = np.insert(q_cs, 1, np.zeros([self.nq_inftot, 3]), axis=0)
         self.q_vs = np.dot(self.q_cs, rcell_cv)
         self.q_vs += q_infs
         self.q_abs = (self.q_vs**2).sum(axis=1)**0.5
