@@ -16,7 +16,7 @@ class SolvationPoissonSolver(FDPoissonSolver):
     """
 
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, use_charge_center=True):
+                 remove_moment=None, use_charge_center=False):
         if remove_moment is not None:
             raise NotImplementedError(
                 'Removing arbitrary multipole moments '
@@ -123,7 +123,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
     """
 
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, use_charge_center=True):
+                 remove_moment=None, use_charge_center=False):
         polarization_warning = UserWarning(
             'PolarizationPoissonSolver is not accurate enough'
             ' and therefore not recommended for production code!')
@@ -194,7 +194,7 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
     """
 
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, eta=.6, use_charge_center=True):
+                 remove_moment=None, eta=.6, use_charge_center=False):
         """Constructor for ADM12PoissonSolver.
 
         Additional arguments not present in SolvationPoissonSolver:
