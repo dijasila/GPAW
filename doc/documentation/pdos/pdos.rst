@@ -108,6 +108,8 @@ PDOS script (:git:`~doc/documentation/pdos/pdos.py`):
 
 .. literalinclude:: pdos.py
 
+.. image:: pdos.png
+
 When running the script `\int d\varepsilon\rho_i(\varepsilon)` is
 printed for each spin and k-point. The value should be close to one if
 the orbital `\psi_i(r)` is well represented by an expansion in
@@ -306,7 +308,7 @@ way but it will come later.
 
 .. image:: lcaodos.png
 
-LCAO PDOS plotting script:
+Last part of :git:`~doc/documentation/pdos/lcaodos_plt.py` script:
 
 .. literalinclude:: lcaodos_plt.py
    :start-after: things

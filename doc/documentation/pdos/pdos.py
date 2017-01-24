@@ -27,5 +27,5 @@ plt.legend()
 plt.axis([-15, 10, None, None])
 plt.xlabel('Energy [eV]')
 plt.ylabel('All-Electron PDOS')
-
+plt.savefig('pdos.png')
 plt.show()
