@@ -35,6 +35,7 @@ for i in range(len(e)):
 
 w_max = np.asarray(w_max)
 
+# Plot things:
 plt.plot(e - ef, w, label='Total', c='k', lw=2, alpha=0.7)
 plt.plot(e - ef, x_s_pdos, label='X-s', c='g', lw=2, alpha=0.7)
 plt.plot(e - ef, x_p_pdos, label='X-p', c='b', lw=2, alpha=0.7)
@@ -46,4 +47,5 @@ plt.axis(ymin=0., ymax=np.max(w_max), xmin=-4.5, xmax=4.5, )
 plt.xlabel(r'$\epsilon - \epsilon_F \ \rm{(eV)}$')
 plt.ylabel('DOS')
 plt.legend(loc=1)
+plt.savefig('lcaodos.png')
 plt.show()
