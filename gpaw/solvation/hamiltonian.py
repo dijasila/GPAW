@@ -1,6 +1,7 @@
 from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.solvation.poisson import WeightedFDPoissonSolver
 from gpaw.fd_operators import Gradient
+from gpaw.io.logger import indent
 import numpy as np
 
 
@@ -48,6 +49,13 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         self.new_atoms = None
         self.vt_ia_g = None
 
+    def __str__(self):
+        s = RealSpaceHamiltonian.__str__(self) + '\n'
+        s += '  Solvation:\n'
+        components = [self.cavity, self.dielectric] + self.interactions
+        s += ''.join([indent(str(c), 2) for c in components])
+        return s
+
     def estimate_memory(self, mem):
         RealSpaceHamiltonian.estimate_memory(self, mem)
         solvation = mem.subnode('Solvation')
@@ -57,8 +65,12 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         ] + [('Interaction: ' + ia.subscript, ia) for ia in self.interactions]:
             obj.estimate_memory(solvation.subnode(name))
 
-    def update_atoms(self, atoms):
+    def update_atoms(self, atoms, log):
         self.new_atoms = atoms.copy()
+        log('Solvation position-dependent initialization:')
+        self.cavity.update_atoms(atoms, log)
+        for ia in self.interactions:
+            ia.update_atoms(atoms, log)
 
     def initialize(self):
         self.gradient = [

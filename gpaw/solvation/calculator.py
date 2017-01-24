@@ -51,7 +51,7 @@ class SolvationGPAW(GPAW):
 
     def initialize_positions(self, atoms=None):
         spos_ac = GPAW.initialize_positions(self, atoms)
-        self.hamiltonian.update_atoms(self.atoms)
+        self.hamiltonian.update_atoms(self.atoms, self.log)
         return spos_ac
 
     def get_electrostatic_energy(self):
@@ -92,31 +92,6 @@ class SolvationGPAW(GPAW):
         #self.calculate(atoms, converge=True)
         A = self.hamiltonian.cavity.A
         return A and A * Bohr ** 2
-
-    def print_parameters(self):
-        GPAW.print_parameters(self)
-        t = self.text
-        t()
-
-        def ul(s, l):
-            t(s)
-            t(l * len(s))
-
-        ul('Solvation Parameters:', '=')
-        ul('Cavity:', '-')
-        t('type: %s' % (self.hamiltonian.cavity.__class__, ))
-        self.hamiltonian.cavity.print_parameters(t)
-        t()
-        ul('Dielectric:', '-')
-        t('type: %s' % (self.hamiltonian.dielectric.__class__, ))
-        self.hamiltonian.dielectric.print_parameters(t)
-        t()
-        for ia in self.hamiltonian.interactions:
-            ul('Interaction:', '-')
-            t('type: %s' % (ia.__class__, ))
-            t('subscript: %s' % (ia.subscript, ))
-            ia.print_parameters(t)
-            t()
 
     def print_all_information(self):
         t = self.text
