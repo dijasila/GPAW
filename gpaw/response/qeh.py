@@ -1070,7 +1070,7 @@ class BuildingBlock():
                 np.linspace(0, q_cut, self.nq_inf + 1)[1:]
 
         # add q_inf to list
-        self.q_cs = np.insert(q_cs, 1, np.zeros([self.nq_inftot, 3]), axis=0)
+        self.q_cs = np.insert(q_cs, 0, np.zeros([self.nq_inftot, 3]), axis=0)
         self.q_vs = np.dot(self.q_cs, rcell_cv)
         self.q_vs += q_infs
         self.q_abs = (self.q_vs**2).sum(axis=1)**0.5
