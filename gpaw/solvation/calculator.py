@@ -93,17 +93,6 @@ class SolvationGPAW(GPAW):
         A = self.hamiltonian.cavity.A
         return A and A * Bohr ** 2
 
-    def print_all_information(self):
-        t = self.text
-        t()
-        t('Solvation Energy Contributions:')
-        for ia in self.hamiltonian.interactions:
-            E = Hartree * getattr(self.hamiltonian, 'e_' + ia.subscript)
-            t('%-14s: %+11.6f' % (ia.subscript, E))
-        Eel = Hartree * getattr(self.hamiltonian, 'Eel')
-        t('%-14s: %+11.6f' % ('el', Eel))
-        GPAW.print_all_information(self)
-
     def write(self, *args, **kwargs):
         raise NotImplementedError(
             'IO is not implemented yet for SolvationGPAW!')
