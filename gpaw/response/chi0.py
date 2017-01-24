@@ -208,7 +208,7 @@ class Chi0:
         if pbc is not None:
             self.pbc = np.array(pbc)
         else:
-            self.pbc = None
+            self.pbc = np.array([True, True, True])
 
         if self.pbc is not None and (~self.pbc).any():
             assert np.sum((~self.pbc).astype(int)) == 1, \
@@ -531,7 +531,7 @@ class Chi0:
         n_n = np.arange(n1, n2)
 
         n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
-                                           Q_aGii=self.Q_aGii) * weight
+                                           Q_aGii=self.Q_aGii)
 
         if integrationmode is None:
             n_nmG *= weight
