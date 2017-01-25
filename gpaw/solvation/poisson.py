@@ -69,7 +69,7 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
     J. Chem. Phys. 131, 174108 (2009).
     """
 
-    def _Laplace(self, gd, scale=1.0, n=1, dtype=float):
+    def create_laplace(self, gd, scale=1.0, n=1, dtype=float):
         operators = [Laplace(gd, scale, n, dtype)]
         operators += [Gradient(gd, j, scale, n, dtype) for j in (0, 1, 2)]
         return WeightedFDOperator(operators)
