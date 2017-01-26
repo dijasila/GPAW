@@ -565,7 +565,7 @@ class G0W0(PairDensity):
             if self.ite == 0:
                 print('Using Godby-Needs plasmon-pole approximation:',
                       file=self.fd)
-                print('    Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
+                print('  Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
                       file=self.fd)
 
             # use small imaginary frequency to avoid dividing by zero:
@@ -631,8 +631,8 @@ class G0W0(PairDensity):
             # A1_x, A2_x
             siz = (nw * mynGmax * nGmax + max(mynw * nGmax, nw * mynGmax) * nGmax) * 16
             sizA = (nw * nGmax  * nGmax + nw * nGmax *nGmax) * 16
-            print('Mem A1/A2: local=%f.2 MB, global=%f.2 MB'%(siz/1024**2,sizA/1024**2), file=self.fd)
-            #
+            print('  memory estimate for chi0: local=%.2f MB, global=%.2f MB'
+                  %(siz/1024**2,sizA/1024**2), file=self.fd)
             self.fd.flush()
 
         # Allocate memory in the beginning and use for all q:
