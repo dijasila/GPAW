@@ -151,3 +151,7 @@ def cut(s, indent='       '):
         return s
     s1, s2 = s.rsplit('/', 1)
     return s1 + '/\n' + indent + s2
+
+
+def indent(s, level=1, tab='  '):
+    return ''.join(tab * level + l for l in s.splitlines(True))
