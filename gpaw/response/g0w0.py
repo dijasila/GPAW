@@ -626,6 +626,15 @@ class G0W0(PairDensity):
         mynGmax = (nGmax + size - 1) // size
         mynw = (nw + size - 1) // size
 
+        # some memory sizes...
+        if self.world.rank == 0:
+            # A1_x, A2_x
+            siz = (nw * mynGmax * nGmax + max(mynw * nGmax, nw * mynGmax) * nGmax) * 16
+            sizA = (nw * nGmax  * nGmax + nw * nGmax *nGmax) * 16
+            print('Mem A1/A2: local=%f.2 MB, global=%f.2 MB'%(siz/1024**2,sizA/1024**2), file=self.fd)
+            #
+            self.fd.flush()
+
         # Allocate memory in the beginning and use for all q:
         A1_x = np.empty(nw * mynGmax * nGmax, complex)
         A2_x = np.empty(max(mynw * nGmax, nw * mynGmax) * nGmax, complex)
