@@ -1,15 +1,15 @@
 def Reader(filename):
-    import ase.io.aff as aff
+    import ase.io.ulm as ulm
     try:
-        return aff.Reader(filename)
-    except aff.InvalidAFFError:
+        return ulm.Reader(filename)
+    except ulm.InvalidULMFileError:
         pass
     from gpaw.io.old import wrap_old_gpw_reader
     return wrap_old_gpw_reader(filename)
 
-    
+
 def Writer(filename, world, tag='GPAW'):
-    import ase.io.aff as aff
+    import ase.io.ulm as ulm
     if world.rank == 0:
-        return aff.Writer(filename, tag=tag)
-    return aff.DummyWriter()
+        return ulm.Writer(filename, tag=tag)
+    return ulm.DummyWriter()

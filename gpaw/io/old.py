@@ -2,7 +2,7 @@
 import warnings
 
 import numpy as np
-import ase.io.aff as aff
+import ase.io.ulm as ulm
 from ase import Atoms
 from ase.dft.kpoints import monkhorst_pack
 from ase.io.trajectory import write_atoms
@@ -218,7 +218,7 @@ def wrap_old_gpw_reader(filename):
         data['wave_functions.'][name + '.'] = {
             'ndarray': (shape, dtype.name, offset)}
 
-    new = aff.Reader(devnull, data=data,
+    new = ulm.Reader(devnull, data=data,
                      little_endian=r.byteswap ^ np.little_endian)
 
     for ref in new._data['wave_functions']._data.values():
