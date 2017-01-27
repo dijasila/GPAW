@@ -225,6 +225,8 @@ class LrTDDFT(ExcitationList):
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
 
+        timer = self.timer
+        timer.start('name')
         if fh is None:
             if filename.endswith('.gz'):
                 try:
@@ -238,7 +240,9 @@ class LrTDDFT(ExcitationList):
         else:
             f = fh
             self.filename = None
+        timer.stop('name')
 
+        timer.start('header')
         # get my name
         s = f.readline().replace('\n', '')
         self.name = s.split()[1]
@@ -253,8 +257,12 @@ class LrTDDFT(ExcitationList):
         else:
             # old writing style, use old defaults
             self.numscale = 0.001
+        timer.stop('header')
 
+        timer.start('init_kss')
         self.kss = KSSingles(filehandle=f)
+        timer.stop('init_kss')
+        timer.start('init_obj')
         if self.name == 'LrTDDFT':
             self.Om = OmegaMatrix(kss=self.kss, filehandle=f,
                                   txt=self.txt)
@@ -262,11 +270,13 @@ class LrTDDFT(ExcitationList):
             self.Om = ApmB(kss=self.kss, filehandle=f,
                            txt=self.txt)
         self.Om.Kss(self.kss)
+        timer.stop('init_obj')
 
+        timer.start('read diagonalized')
         # check if already diagonalized
         p = f.tell()
         s = f.readline()
-        if s != '# Eigenvalues\n':
+        if 1 and s != '# Eigenvalues\n':
             # go back to previous position
             f.seek(p)
         else:
@@ -278,10 +288,9 @@ class LrTDDFT(ExcitationList):
             # load the eigenvectors
             f.readline()
             for i in range(n):
-                values = f.readline().split()
-                weights = [float(val) for val in values]
-                self[i].f = np.array(weights)
+                self[i].f = np.array(list(map(float, f.readline().split())))
                 self[i].kss = self.kss
+        timer.stop('read diagonalized')
 
         if fh is None:
             f.close()

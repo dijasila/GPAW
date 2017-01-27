@@ -616,10 +616,9 @@ class OmegaMatrix:
         nij = int(f.readline())
         full = np.zeros((nij, nij))
         for ij in range(nij):
-            l = f.readline().split()
-            for kq in range(ij, nij):
-                full[ij, kq] = float(l[kq - ij])
-                full[kq, ij] = full[ij, kq]
+            l = list(map(float, f.readline().split()))
+            full[ij, ij:] = l
+            full[ij:, ij] = l
         self.full = full
 
         if fh is None:
