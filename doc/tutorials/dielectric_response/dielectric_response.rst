@@ -1,13 +1,13 @@
 .. _df_tutorial:
 
-==========================================================
-Linear dielectric response of an extended system: tutorial
-==========================================================
+================================================
+Linear dielectric response of an extended system
+================================================
 
 A short introduction
 =====================
 
-The DielectricFunction object can calculate the dielectric function of an 
+The ``DielectricFunction`` object can calculate the dielectric function of an 
 extended system from its ground state electronic structure. The frequency and 
 wave-vector dependent linear dielectric matrix in reciprocal space 
 representation is written as
@@ -284,6 +284,151 @@ The figure shown here is generated from script: :download:`graphite_EELS.py` and
 One can compare the results with literature  \ [#Rubio]_.
 
 
+Example 3: Tetrahedron integration (experimental)
+=================================================
+The k-point integral needed for the calculation of the density response function, 
+is typically performed using a simple summation of individual k-points. By setting 
+the integration mode to 'tetrahedron integration' the kpoint integral is calculated 
+by interpolating density matrix elements and eigenvalues. This typically means that 
+fewer k-points are needed for convergence. 
+
+The combination of using the tetrahedron method and reducing the kpoint integral using 
+crystal symmetries means that it is necessary to be careful with the kpoint sampling 
+which should span the whole irreducible zone. Luckily, :git:`~gpaw/bztools.py` provides 
+the tool to generate such an k-point sampling autimatically::
+
+    from gpaw.bztools import find_high_symmetry_monkhorst_pack
+    kpts = find_high_symmetry_monkhorst_pack('gs.gpw',  # Path to ground state .gpw file
+                                             density=20.0)  # The required minimum density
+
+If the system is lower dimensional this function takes an optional argument ``pbc`` a tuple 
+of bools which for slab with a non-periodic z direction is given by ``pbc=[True, True, False]``. 
+If combined with the tetrahedron method it is necessary to tell the ``DielectricFunction`` 
+object which directions are non-periodic. The recipe for non-periodic systems is given below::
+
+    from gpaw.bztools import find_high_symmetry_monkhorst_pack
+    from gpaw.response.df import DielectricFunction
+    pbc = [True, True, False]
+    kpts = find_high_symmetry_monkhorst_pack('gs.gpw',  # Path to ground state .gpw file
+                                             density=20.0,  # The required minimum density
+					     pbc=pbc)  # Periodic directions
+
+    df = DielectricFunction(...,
+                            integrationmode='tetrahedron integration',
+                            pbc=pbc,
+			    ...)
+
+Bulk TaS\ :sub:`2`
+------------------
+As an example, lets calculate the optical properties of a well-known layered material, namely, 
+the transition metal dichalcogenide (TMD) 2H-TaS\ :sub:`2`\ . We set the structure and find the 
+ground state density with (find the full script here :download:`tas2_dielectric_function.py`, 
+takes about 10 mins on 8 cores.)
+
+.. literalinclude:: tas2_dielectric_function.py
+   :lines: 14-33
+
+The next step is to calculate the unoccupied bands
+
+.. literalinclude:: tas2_dielectric_function.py
+   :lines: 35-45
+
+Lets compare the result of the tetrahedron method with the point sampling method for 
+broadening of ``eta=25 meV``. 
+
+.. literalinclude:: tas2_dielectric_function.py
+   :lines: 47-69
+
+The result of which is shown below. Comparing the methods shows that the calculated 
+dielectric function is much more well behaved when calculated using the tetrahedron 
+method.
+
+.. image:: tas2_eps.png
+    :align: center
+    :width: 400 px
+
+
+Graphene
+--------
+Graphene represents a material which is particularly difficult 
+to converge with respect to the number of k-points. This 
+property originates from its semi-metallic nature and vanishing 
+density of states at the fermi-level which make the calculated 
+properties sensitive to the k-point distribution in the vicinity 
+of the Dirac point. Since the macroscopic dielectric function 
+is not well-defined for two-dimensional systems we will focus 
+on calculating the dielectric function an artificial structure 
+of graphite with double the out-of-plane lattice constant. This 
+should make its properties similar to graphene. It is well known 
+that graphene has a sheet conductance of 
+`\sigma_s=\frac{e^2}{4\hbar}` so, if the individual graphite layers 
+behave as ideal graphene, the optical properties of the structure 
+should be determined by
+
+.. math:: \varepsilon = 1 + \frac{4 \pi i}{\omega d} \sigma_s
+
+where `d=3.22` Å is the thickness of graphene. Below we show the 
+calculated dielectic function 
+(:download:`graphene_dielectric_function.py`) for a minimum 
+k-point density of 30 Å\ `^{-1}` corresponding to a kpoint sampling of size 
+``(90, 90, 1)`` and room temperatur broadening ``eta = 25 meV``. It 
+is clear that the properties are well converged for large frequencies 
+using the tetrahedron method. For smaller frequencies the tetrahedron 
+method fares comparably but convergence is tough for frequencies below
+0.5 eV where the absorption spectrum goes to zero. This behaviour is 
+due to the partially occupied Dirac point which sensitively effects the 
+integrand of the density response function.
+
+.. image:: graphene_eps.png
+    :align: center
+    :width: 400 px
+
+Notes on the implementation of the tetrahedron method
+-----------------------------------------------------
+The tetrahedron method is still in an experimental phase which means that 
+the user should check the results against the results obtained with 
+point integration. The method is based on the paper of \ [#MacDonald]_ whom 
+provide analytical expressions for the response function integration with 
+interpolated eigenvalues and matrix elements.
+
+In other implementations of the tetrahedron integration method, the division 
+of the BZ into tetrahedras has been performed using a recursive scheme. In 
+our implementation we use the external library ``scipy.spatial`` which 
+provide the ``Delaunay()`` class to calculate Delaunay triangulated k-point 
+grids from the ground state k-point grid. Delaunay triangulated grids do 
+necessarily give a good division of the Brillouin zone into tetrahedras and 
+particularly for homogeneously spaced k-point grids (such as a Monkhorst 
+Pack) grid many ill-defined tetrahedrons may be created. Such tetrahedrons 
+are however easily filtered away by removing tetrahedrons with very small 
+volumes.
+
+- Suggested performance enhancement: ``TetrahedronDescriptor(kpts, simplices=None)``
+  Factor out the creation of tetrahedras to make it possible to use user-defined 
+  tetrahedras. Such an object could inherit from the ``Delaunay()`` class.
+
+Additionally, this library provides a k-dimensional tree implementation ``cKDTree()`` 
+which is used to efficiently identify k-points in the Brillouin zone. For finite 
+`\mathbf{q}` it is still necessary for the kpoint grid to be uniform. In the optical 
+limit where `\mathbf{q}=0`, however, it is possible to use non-uniform k-point grids 
+which can aid a faster convergence, especially for materials such as graphene. 
+
+When using the tetrahedron integration method, the plasmafrequency is 
+calculated at `T=0` where the expression reduces an integral over the Fermi 
+surface. The interband transitions are calculated using the temperature 
+of the ground state calculation. The occupation factors are included as 
+modifications to the matrix elements as 
+`\sqrt{f_n - f_m} \langle \psi_m|\nabla |\psi_n \rangle`
+
+- Suggested performance enhancement: Take advantage of the analytical dependence 
+  of the occupation numbers to treat partially occupied bands more accurately. 
+  This is expected to improve the convergence of the optical properties of 
+  graphene for low frequencies.
+
+The entirety of the tetrahedron integration code is written in Python except 
+for the calculation of the algebraic expression for the response function 
+integration of a single tetrahedron for which the Python overhead is 
+significant. The algebraic expression are therefore evaluated in C.
+
 Technical details: 
 ======================
 There are few points about the implementation that we emphasize:
@@ -371,16 +516,15 @@ Details of the DF object
    :members: get_dielectric_function, get_macroscopic_dielectric_constant, 
              get_polarizability, get_eels_spectrum
 
-
-
-
 .. [#Kresse] M. Gajdoš, K. Hummer, G. Kresse, J. Furthmüller and F. Bechstedt, 
               Linear optical properties in the projected-augmented wave methodology, 
               *Phys. Rev. B* **73**, 045112 (2006).
-
 
 .. [#Rubio] A. G. Marinopoulos, L. Reining, A. Rubio and V. Olevano, 
              Ab initio study of the optical absorption and wave-vector-dependent dielectric response of graphite,
              *Phys. Rev. B* **69**, 245419 (2004).
 
 
+.. [#MacDonald] 1. MacDonald, A. H., Vosko, S. H. & Coleridge, P. T., 
+	       Extensions of the tetrahedron method for evaluating spectral 
+	       properties of solids. *J. Phys. C Solid State Phys*. **12**, 2991–3002 (1979).
