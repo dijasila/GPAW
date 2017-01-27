@@ -8,6 +8,18 @@ import numpy as np
 BAD_RADIUS_MESSAGE = "All atomic radii have to be finite and >= zero."
 
 
+def set_log_and_check_radii(obj, atoms, log):
+    radii = np.array(obj.atomic_radii(atoms), dtype=float)
+    obj.atomic_radii_output = radii
+    obj.symbols = atoms.get_chemical_symbols()
+    log('  Atomic radii for %s:' % (obj.__class__, ))
+    for a, (s, r) in enumerate(
+            zip(obj.symbols, radii)):
+        log('    %3d %-2s %10.5f' % (a, s, r))
+    if not np.isfinite(radii).all() or (radii < 0).any():
+        raise ValueError(BAD_RADIUS_MESSAGE)
+
+
 def get_pbc_positions(atoms, r_max):
     """Return dict mapping atom index to positions in Bohr.
 
@@ -427,12 +439,8 @@ class Power12Potential(Potential):
         return s
 
     def update_atoms(self, atoms, log):
-        self.atomic_radii_output = np.array(self.atomic_radii(atoms))
-        self.symbols = atoms.get_chemical_symbols()
-        log('  Atomic radii for %s:' % (self.__class__, ))
-        for a, (s, r) in enumerate(
-                zip(self.symbols, self.atomic_radii_output)):
-            log('    %3d %-2s %10.5f' % (a, s, r))
+        set_log_and_check_radii(self, atoms, log)
+
 
 class SmoothStepCavity(Cavity):
     """Base class for cavities based on a smooth step function and a density.
@@ -716,12 +724,7 @@ class SSS09Density(FDGradientDensity):
         return s
 
     def update_atoms(self, atoms, log):
-        self.atomic_radii_output = np.array(self.atomic_radii(atoms))
-        self.symbols = atoms.get_chemical_symbols()
-        log('  Atomic radii for %s:' % (self.__class__, ))
-        for a, (s, r) in enumerate(
-                zip(self.symbols, self.atomic_radii_output)):
-            log('    %3d %-2s %10.5f' % (a, s, r))
+        set_log_and_check_radii(self, atoms, log)
 
 
 class ADM12SmoothStepCavity(SmoothStepCavity):
