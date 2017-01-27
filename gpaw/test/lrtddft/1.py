@@ -128,11 +128,12 @@ e4 = t4.get_energy()
 equal(e4, 0.675814, 2e-4)
 
 # excited state with forces
-accuracy = 0.3
-exst = ExcitedState(lr_calc, 0)
-forces = exst.get_forces(H2)
-parprint('forces=', forces)
-for c in range(2):
-    equal(forces[0,c], 0.0, accuracy)
-    equal(forces[1,c], 0.0, accuracy)
-equal(forces[0, 2] + forces[1, 2], 0.0, accuracy)
+if 1:
+    accuracy = 0.3
+    exst = ExcitedState(lr_calc, 0)
+    forces = exst.get_forces(H2)
+    parprint('forces=', forces)
+    for c in range(2):
+        equal(forces[0,c], 0.0, accuracy)
+        equal(forces[1,c], 0.0, accuracy)
+    equal(forces[0, 2] + forces[1, 2], 0.0, accuracy)
