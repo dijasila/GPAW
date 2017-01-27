@@ -550,6 +550,9 @@ class C_Response(Contribution):
         self.vt_sg = redistribute_array(self.vt_sg,
                                         olddens.finegd, self.finegd,
                                         self.wfs.nspins, self.wfs.kptband_comm)
+        self.vt_sG = redistribute_array(self.vt_sG,
+                                        olddens.gd, self.gd,
+                                        self.wfs.nspins, self.wfs.kptband_comm)
         self.Dxc_vt_sG = redistribute_array(self.Dxc_vt_sG,
                                             olddens.gd, self.gd,
                                             self.wfs.nspins,
