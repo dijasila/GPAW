@@ -769,6 +769,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
         else:
             iu = None
 
+        while nbands % self.bd.comm.size != 0:
+            nbands += 1
+
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
 
         log('Diagonalizing full Hamiltonian ({0} lowest bands)'.format(nbands))
