@@ -142,6 +142,7 @@ only minutes.
     cores running the calculation. With this, the response function is divided 
     into blocks and each core gets to store a smaller matrix.
 
+.. _gw_2D:
     
 Quasi-particle spectrum of two-dimensional materials
 ====================================================
@@ -171,6 +172,7 @@ resulting in the figure below:
 .. image:: MoS2_bs.png
     :height: 400 px
 
+.. _gw_GW0:
 
 GW0 calculations
 ================

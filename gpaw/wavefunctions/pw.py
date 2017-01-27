@@ -775,7 +775,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
         log('Matrix size (min, max): {0}, {1}'.format(self.pd.ngmin,
                                                       self.pd.ngmax))
         mem = 3 * self.pd.ngmax**2 * 16 / bd.comm.size / 1024**2
-        log('Approximate memory usage per core: {0:.3f} MB'.format(mem))
+        log('Approximate memory used per core to store H_GG, S_GG: {0:.3f} MB'.format(mem))
+        log('Notice: Up to twice the amount of memory might be allocated during\ndiagonalization algorithm.')
+        log('The least memory is required when the parallelization is purely over\nstates (bands) and not k-points, set GPAW(...,parallel={0}{1!r}:1{2},...).'.format('{','kpt','}'))
+        
         if bd.comm.size > 1:
             if isinstance(scalapack, (list, tuple)):
                 nprow, npcol, b = scalapack
