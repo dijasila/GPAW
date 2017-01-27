@@ -55,9 +55,10 @@ class Dielectric(NeedsGD):
     def update_eps_only(self, cavity):
         raise NotImplementedError
 
-    def print_parameters(self, text):
-        """Print parameters using text function."""
-        text('epsilon_inf: %s' % (self.epsinf, ))
+    def __str__(self):
+        s = 'Dielectric: %s\n' % (self.__class__, )
+        s += '  epsilon_inf: %s\n' % (self.epsinf, )
+        return s
 
 
 class LinearDielectric(Dielectric):

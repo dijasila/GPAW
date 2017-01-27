@@ -15,6 +15,7 @@ class NiflheimCluster(Cluster):
         self.write_pylab_wrapper(job)
 
         cmd = ['sbatch',
+               '--partition=xeon24',
                '--job-name={}'.format(job.name),
                '--time={}'.format(job.walltime // 60),
                '--ntasks={}'.format(job.ncpus)]
@@ -22,7 +23,8 @@ class NiflheimCluster(Cluster):
         script = [
             '#!/bin/sh',
             'touch {}.start'.format(job.name),
-            'mpirun -x OMP_NUM_THREADS=1 gpaw-python {}.py {} > {}.output'
+            'mpirun -mca pml cm -mca mtl psm2 -x OMP_NUM_THREADS=1 '
+            'gpaw-python {}.py {} > {}.output'
             .format(job.script, job.args, job.name),
             'echo $? > {}.done'.format(job.name)]
         if 1:
