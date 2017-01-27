@@ -151,6 +151,7 @@ tests = [
     'pathological/numpy_zdotc_graphite.py',  # ~1s
     'utilities/eed.py',                     # ~1s
     'lcao/dos.py',                          # ~1s
+    'solvation/nan_radius.py',              # ~1s
     'solvation/pbc_pos_repeat.py',          # ~1s
     'linalg/gemv.py',                       # ~2s
     'fileio/idiotproof_setup.py',           # ~2s

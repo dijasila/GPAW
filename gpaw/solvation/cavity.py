@@ -5,6 +5,9 @@ from gpaw.io.logger import indent
 import numpy as np
 
 
+BAD_RADIUS_MESSAGE = "All atomic radii have to be finite and >= zero."
+
+
 def get_pbc_positions(atoms, r_max):
     """Return dict mapping atom index to positions in Bohr.
 
