@@ -22,9 +22,8 @@ class DielectricFunction:
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  gate_voltage=None, truncation=None, disable_point_group=False,
-                 disable_time_reversal=False, use_more_memory=1,
-                 unsymmetrized=True, scissor=None, integrationmode=None,
-                 pbc=None):
+                 disable_time_reversal=False, scissor=None,
+                 integrationmode=None, pbc=None, rate=0.0):
         """Creates a DielectricFunction object.
 
         calc: str
@@ -87,9 +86,8 @@ class DielectricFunction:
                          txt=txt, gate_voltage=gate_voltage,
                          disable_point_group=disable_point_group,
                          disable_time_reversal=disable_time_reversal,
-                         use_more_memory=use_more_memory,
-                         unsymmetrized=unsymmetrized, scissor=scissor,
-                         integrationmode=integrationmode, pbc=pbc)
+                         scissor=scissor, integrationmode=integrationmode,
+                         pbc=pbc, rate=rate)
 
         self.name = name
 
@@ -453,7 +451,6 @@ class DielectricFunction:
             fd.close()
 
         return eels_NLFC_w, eels_LFC_w
-
 
     def get_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
                            filename='polarizability.csv', pbc=None):
