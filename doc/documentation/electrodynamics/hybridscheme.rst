@@ -71,7 +71,7 @@ Example: photoabsorption of Na2 near gold nanosphere
 This example calculates the photoabsorption of `\text{Na}_2` molecule
 in (i) presence and (ii) absence of a gold nanosphere:
 
-.. literalinclude:: gold+na2_nanosphere/gold+na2_nanosphere_calculate.py
+.. literalinclude:: gold+na2_nanosphere/calculate.py
 
 |enhanced_absorption|
 
@@ -99,14 +99,14 @@ system as above, but using the advanced syntax instead of the
 in the calculation, see
 :ref:`TDDFTInducedField module documentation <inducedfield_timepropagation>`:
 
-.. literalinclude:: gold+na2_nanosphere_inducedfield/gold+na2_nanosphere_inducedfield.py
+.. literalinclude:: gold+na2_nanosphere_inducedfield/calculate.py
 
 The :code:`TDDFTInducedField` records the quantum part of the calculation and
 the :code:`FDTDInducedField` records the classical part.
 We can calculate the individual and the total induced field
 by the following script:
 
-.. literalinclude:: gold+na2_nanosphere_inducedfield/inducedfield_postprocess.py
+.. literalinclude:: gold+na2_nanosphere_inducedfield/postprocess.py
 
 All the :code:`InducedField` objects
 can be analyzed in the same way as described in
@@ -114,7 +114,7 @@ can be analyzed in the same way as described in
 Here we show an example script
 for plotting:
 
-.. literalinclude:: gold+na2_nanosphere_inducedfield/inducedfield_plot.py
+.. literalinclude:: gold+na2_nanosphere_inducedfield/plot.py
 
 This produces the following figures for the electric near field:
 

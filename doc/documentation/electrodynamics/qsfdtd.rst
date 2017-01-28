@@ -98,7 +98,7 @@ This example calculates the photoabsorption spectrum of a nanosphere
 that has a diameter of 10 nm, and compares the result with analytical
 Mie scattering limit.
 
-.. literalinclude:: gold_nanosphere/gold_nanosphere_calculate.py
+.. literalinclude:: gold_nanosphere/calculate.py
 
 Here the *QSFDTD* object generates a dummy quantum system that is treated using
 GPAW in *qsfdtd.ground_state*. One can pass the GPAW
@@ -150,7 +150,7 @@ syntax instead of the simple :code:`QSFDTD` wrapper.
 In the example one can also see how the dummy empty quantum system is
 generated.
 
-.. literalinclude:: gold_nanosphere_inducedfield/gold_nanosphere_inducedfield.py
+.. literalinclude:: gold_nanosphere_inducedfield/calculate.py
 
 The contents of the obtained file :code:`field.ind`
 can be visualized like described in

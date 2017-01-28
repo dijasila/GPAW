@@ -1,7 +1,7 @@
 def agts(queue):
-    c1 = queue.add('gold_nanosphere_inducedfield.py',
+    c1 = queue.add('calculate.py',
                    walltime=60)
 
-    queue.add('gold_nanosphere_inducedfield_plot.py',
+    queue.add('plot.py',
               deps=c1,
               creates=['field.ind_Ffe.png'])

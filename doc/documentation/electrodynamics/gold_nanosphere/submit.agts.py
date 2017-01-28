@@ -1,5 +1,5 @@
 def agts(queue):
-    c1 = queue.add('gold_nanosphere_calculate.py',
+    c1 = queue.add('calculate.py',
                    walltime=60)
 
     queue.add('plot.py',
