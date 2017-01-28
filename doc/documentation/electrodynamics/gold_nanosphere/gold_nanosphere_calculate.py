@@ -41,13 +41,13 @@ qsfdtd = QSFDTD(classical_material=classical_material,
                 remove_moments=(4, 1))
 
 # Run ground state
-energy = qsfdtd.ground_state('gs0.gpw', nbands=-1)
+energy = qsfdtd.ground_state('gs.gpw', nbands=-1)
 
 # Run time evolution
-qsfdtd.time_propagation('gs0.gpw',
+qsfdtd.time_propagation('gs.gpw',
                         time_step=10,
                         iterations=1000,
                         kick_strength=[0.001, 0.000, 0.000],
-                        dipole_moment_file='dm0.dat')
+                        dipole_moment_file='dm.dat')
 # Spectrum
-photoabsorption_spectrum('dm0.dat', 'spec.dat', width=0.0)
+photoabsorption_spectrum('dm.dat', 'spec.dat', width=0.0)
