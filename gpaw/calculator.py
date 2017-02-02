@@ -457,7 +457,7 @@ class GPAW(Calculator, PAW):
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
-            if isinstance(par.xc, basestring):
+            if isinstance(par.xc, (basestring, dict)):
                 xc = XC(par.xc)
             else:
                 xc = par.xc

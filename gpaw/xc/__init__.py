@@ -12,7 +12,7 @@ from gpaw.xc.mgga import MGGA
 def XC(kernel, parameters=None):
     """Create XCFunctional object.
 
-    kernel: XCKernel object or str
+    kernel: XCKernel object, dict or str
         Kernel object or name of functional.
     parameters: ndarray
         Parameters for BEE functional.
@@ -23,7 +23,7 @@ def XC(kernel, parameters=None):
     GGA_X_PBE+GGA_C_PBE is equivalent to PBE, and LDA_X to the LDA exchange.
     In this way one has access to all the functionals defined in libxc.
     See xc_funcs.h for the complete list.  """
-    
+
     if isinstance(kernel, basestring):
         name = kernel
         if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
@@ -87,6 +87,16 @@ def XC(kernel, parameters=None):
             kernel = ParametrizedKernel(name)
         else:
             kernel = LibXC(kernel)
+    elif isinstance(kernel, dict):
+        xctype = kernel['type']
+        if xctype == 'libvdwxc':
+            from gpaw.xc.libvdwxc import VDWXC
+            kwargs = dict(kernel)
+            kwargs.pop('type')
+            return VDWXC(**kwargs)
+        else:
+            raise ValueError('Unknown type {0} of XC parameter dictionary'
+                             .format(xctype))
     if kernel.type == 'LDA':
         return LDA(kernel)
     elif kernel.type == 'GGA':
@@ -94,10 +104,10 @@ def XC(kernel, parameters=None):
     else:
         return MGGA(kernel)
 
-        
+
 def xc(filename, xc, ecut=None):
     """Calculate non self-consitent energy.
-    
+
     filename: str
         Name of restart-file.
     xc: str

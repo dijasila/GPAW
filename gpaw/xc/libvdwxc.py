@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import numpy as np
+from ase.utils import basestring
 
 from gpaw.mpi import have_mpi
 from gpaw.utilities import compiled_with_libvdwxc
@@ -256,6 +257,9 @@ class VDWXC(XCFunctional):
          PFFT.  If left unspecified, a hopefully reasonable automatic
          choice will be made.
          """
+        if isinstance(semilocal_xc, (basestring, dict)):
+            from gpaw.xc import XC
+            semilocal_xc = XC(semilocal_xc)
         XCFunctional.__init__(self, semilocal_xc.kernel.name,
                               semilocal_xc.kernel.type)
         # Really, 'type' should be something along the lines of vdw-df.
@@ -302,6 +306,17 @@ class VDWXC(XCFunctional):
 
         qualifier = ', '.join(tokens)
         return '{0} [libvdwxc/{1}]'.format(self.name, qualifier)
+
+    def todict(self):
+        dct = dict(type='libvdwxc',
+                   semilocal_xc=self.semilocal_xc.name,
+                   name=self.name,
+                   mode=self._mode,
+                   pfft_grid=self._pfft_grid,
+                   libvdwxc_name=self._libvdwxc_name,
+                   setup_name=self.setup_name,
+                   vdwcoef=self._vdwcoef)
+        return dct
 
     def set_grid_descriptor(self, gd):
         if self.gd is not None and self.gd != gd:
