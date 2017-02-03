@@ -12,30 +12,30 @@ def read_arguments():
     """Input Argument Parsing"""
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('filename', type=str, help="name of input GPAW file")
-    parser.add_argument("-v", "--verbose", help="increase output verbosity",
-                        action="store_true")
-    parser.add_argument("-wmin", "--omegamin",default=0., type=float,
-                        help="energy range minimum (default: %(default)s eV)")
-    parser.add_argument("-wmax", "--omegamax",
-                        help="energy range maximum (default: %(default)s eV)",
+    parser.add_argument('filename', type=str, help='name of input GPAW file')
+    parser.add_argument('-v', '--verbose', help='increase output verbosity',
+                        action='store_true')
+    parser.add_argument('-wmin', '--omegamin',default=0., type=float,
+                        help='energy range minimum (default: %(default)s eV)')
+    parser.add_argument('-wmax', '--omegamax',
+                        help='energy range maximum (default: %(default)s eV)',
                         default=5., type=float)
-    parser.add_argument("-Dw", "--Domega",
-                        help="energy increment (default: %(default)s eV)",
+    parser.add_argument('-Dw', '--Domega',
+                        help='energy increment (default: %(default)s eV)',
                         default=0.025, type=float)
-    parser.add_argument("-eta",
-                        help="electronic temperature '
-                        '(default: %(default)s eV)", default=0.1, type=float)
-    parser.add_argument("-c", "--cutocc",
-                        help="cutoff for occupation difference |f_n - f_m| '
-                        '(default: %(default)s)", default=1e-5, type=float)
-    parser.add_argument("-HT", "--HilbertTransform",
-                        help="use Hilbert transform", action="store_true")
-    parser.add_argument("-s", "--singlet",
-                        help="perform a singlet calculation assuming '
-                        's=0 -> s=1 and s=1 -> s=0", action="store_true")
-    parser.add_argument("-t", "--transitions",
-                        help="output optical transitions", action="store_true")
+    parser.add_argument('-eta',
+                        help='electronic temperature '
+                        '(default: %(default)s eV)', default=0.1, type=float)
+    parser.add_argument('-c', '--cutocc',
+                        help='cutoff for occupation difference |f_n - f_m| '
+                        '(default: %(default)s)', default=1e-5, type=float)
+    parser.add_argument('-HT', '--HilbertTransform',
+                        help='use Hilbert transform', action='store_true')
+    parser.add_argument('-s', '--singlet',
+                        help='perform a singlet calculation assuming '
+                        's=0 -> s=1 and s=1 -> s=0', action='store_true')
+    parser.add_argument('-t', '--transitions',
+                        help='output optical transitions', action='store_true')
     args = parser.parse_args()
     return (args.filename, args.omegamax, args.eta, args.Domega,
             args.omegamin, args.verbose, args.cutocc, args.singlet,
@@ -52,7 +52,7 @@ def write_absorption(epsilon_qvsw, omega_w, filename='out.gpw', cutocc=1e-5,
     if HilbertTransform:
         outfilename = outfilename.split('.')[0]+'_HT.dat'
     if verbose:
-        print("Writing", outfilename)
+        print('Writing', outfilename)
     if spin is None:
         epsilon_qvw = epsilon_qvsw.sum(1)
     else:
@@ -80,7 +80,7 @@ def write_transitions(T_qvsnm, omega_snm, Deltaf_snm, filename='out.gpw',
         for dq in range(3):
             outfilenamesq = outfilename+'_S'+str(spin)+'_'+axes[dq]+'.dat'
             if verbose:
-                print("Writing", outfilenamesq)
+                print('Writing', outfilenamesq)
             f = open(outfilenamesq, 'w')
             for n in range(0, nbands-1):
                 for m in range(n+1, nbands):
@@ -88,11 +88,11 @@ def write_transitions(T_qvsnm, omega_snm, Deltaf_snm, filename='out.gpw',
                         and omega_snm[spin,n,m] < omegamax
                         and abs(T_qvsnm[dq,spin,n,m]) > 1e-3):
                         if verbose and abs(T_qvsnm[dq,spin,n,m]) > 0.1:
-                            print(n, "->", m, T_qvsnm[dq,spin,n,m],
-                                  omega_snm[spin,n,m], "s =", spin, axes[dq],
+                            print(n, '->', m, T_qvsnm[dq,spin,n,m],
+                                  omega_snm[spin,n,m], 's =', spin, axes[dq],
                                   Deltaf_snm[spin,n,m])
                         print(omega_snm[spin,n,m], T_qvsnm[dq,spin,n,m],
-                              "\""+str(n)+" -> "+str(m)+"\"",
+                              '"'+str(n)+' -> '+str(m)+'"',
                               Deltaf_snm[spin,n,m], file=f)
             f.close()
 
@@ -197,7 +197,7 @@ def get_A_DeltaE(calc, dThetadR_qvMM, cutocc=1e-5, singlet=False,
         else:
             spin2 = spin
         if verbose:
-            print("Calculating PAW Corrections")
+            print('Calculating PAW Corrections')
         PAW_Omega_qvnm = get_PAW_Omega(calc, spin1=spin, spin2=spin2)
         DeltaE_snm[spin] = np.outer(eigenvalues_n, np.ones(nbands))
         - np.outer(np.ones(nbands), eigenvalues_n)
@@ -205,7 +205,7 @@ def get_A_DeltaE(calc, dThetadR_qvMM, cutocc=1e-5, singlet=False,
             + np.outer(np.ones(nbands), occupations_n)
         if cutocc:
             if verbose:
-                print("Applying Cutoff |f_n - f_m| >", cutocc)
+                print('Applying Cutoff |f_n - f_m| >', cutocc)
             Deltaf_snm[spin,:,:] = (abs(Deltaf_snm[spin,:,:])
                                     > cutocc) * Deltaf_snm[spin,:,:]
         gradC_Mm = np.zeros(C_nM.shape)
@@ -260,34 +260,34 @@ if __name__ == '__main__':
     (filename, omegamax, eta, Domega, omegamin, verbose, cutocc, singlet,
      HilbertTransform, transitions) = read_arguments()
     if verbose:
-        print("Calculating Absorption Function from", omegamin,
-              "to", omegamax, "eV in increments of ", Domega, "eV")
-        print("Electronic Temperature", eta, "eV")
-        print("|f_n - f_m| >", cutocc)
-        print("Opening", filename)
+        print('Calculating Absorption Function from', omegamin,
+              'to', omegamax, 'eV in increments of ', Domega, 'eV')
+        print('Electronic Temperature', eta, 'eV')
+        print('|f_n - f_m| >', cutocc)
+        print('Opening', filename)
     calc = GPAW(filename, txt=None)
     atoms = calc.get_atoms()
     if verbose:
-        print("Initializing Positions")
+        print('Initializing Positions')
     calc.initialize_positions(atoms)
     if verbose:
-        print("Calculating Basis Function Gradients")
+        print('Calculating Basis Function Gradients')
     dThetadR_qvMM = get_dThetadR(calc)
     if verbose:
-        print("Calculating Matrix Elements")
+        print('Calculating Matrix Elements')
     A_qvsnm, DeltaE_snm, Deltaf_snm = get_A_DeltaE(calc, dThetadR_qvMM,
                                                    cutocc, singlet, verbose)
     if transitions:
         if verbose:
-            print("Calculating Optical Transitions")
+            print('Calculating Optical Transitions')
         T_qvsnm, omega_snm = get_T(A_qvsnm, DeltaE_snm, eta)
         write_transitions(T_qvsnm, omega_snm, Deltaf_snm, filename, cutocc,
                           singlet, verbose, HilbertTransform, omegamin,
                           omegamax)
     if verbose:
-        print("Calculating Optical Absorption")
+        print('Calculating Optical Absorption')
         if HilbertTransform:
-            print("Using Hilbert Transform")
+            print('Using Hilbert Transform')
     epsilon_qvsw, omega_w = get_epsilon(A_qvsnm, DeltaE_snm, eta, omegamax,
                                         Domega, omegamin, HilbertTransform)
     write_absorption(epsilon_qvsw, omega_w, filename, cutocc, singlet,
