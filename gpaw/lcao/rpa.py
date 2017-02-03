@@ -3,7 +3,6 @@
 from __future__ import print_function
 from gpaw import GPAW
 from gpaw.utilities.blas import gemm
-import sys
 import numpy as np
 from ase.units import Hartree
 
@@ -106,7 +105,6 @@ def get_dThetadR(calc):
     dtype = calc.wfs.dtype
     tci = calc.wfs.tci
     gd = calc.wfs.gd
-    bfs = calc.wfs.basis_functions
     dThetadR_qvMM = np.empty((nq, 3, mynao, nao), dtype)
     dTdR_qvMM = np.empty((nq, 3, mynao, nao), dtype)
     dPdR_aqvMi = {}
