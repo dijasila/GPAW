@@ -1,5 +1,6 @@
 #!/usr/bin/env gpaw-python
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 from gpaw import GPAW
 from gpaw.utilities.blas import gemm
 import sys
@@ -31,7 +32,7 @@ def write_absorption(epsilon_qvsw, omega_w, filename='out.gpw', cutocc=1e-5, sin
     if HilbertTransform:
         outfilename = outfilename.split('.')[0]+'_HT.dat'
     if verbose:
-        print "Writing", outfilename
+        print("Writing", outfilename)
     if spin is None:
         epsilon_qvw = epsilon_qvsw.sum(1)
     else:
@@ -39,7 +40,7 @@ def write_absorption(epsilon_qvsw, omega_w, filename='out.gpw', cutocc=1e-5, sin
         outfilename = outfilename.split('.dat')[0]+'_S'+str(spin)+'.dat'
     f = open(outfilename, 'w')
     for dw in range(len(omega_w)):
-        print >> f, omega_w[dw], epsilon_qvw[0,dw], epsilon_qvw[1,dw], epsilon_qvw[2,dw]
+        print(omega_w[dw], epsilon_qvw[0,dw], epsilon_qvw[1,dw], epsilon_qvw[2,dw], file=f)
     f.close()
 
 def write_transitions(T_qvsnm, omega_snm, Deltaf_snm, filename='out.gpw', cutocc=1e-5, singlet=False, verbose=False, HilbertTransform=False, omegamin=0, omegamax=5.):
@@ -56,14 +57,14 @@ def write_transitions(T_qvsnm, omega_snm, Deltaf_snm, filename='out.gpw', cutocc
         for dq in range(3):
             outfilenamesq = outfilename+'_S'+str(spin)+'_'+axes[dq]+'.dat'
             if verbose:
-                print "Writing", outfilenamesq
+                print("Writing", outfilenamesq)
             f = open(outfilenamesq, 'w')
             for n in range(0, nbands-1):
                 for m in range(n+1, nbands):
                     if omegamin < omega_snm[spin,n,m] and omega_snm[spin,n,m] < omegamax and abs(T_qvsnm[dq,spin,n,m]) > 1e-3:
                         if verbose and abs(T_qvsnm[dq,spin,n,m]) > 0.1:
-                            print n, "->", m, T_qvsnm[dq,spin,n,m], omega_snm[spin,n,m], "s =", spin, axes[dq], Deltaf_snm[spin,n,m]
-                        print >> f, omega_snm[spin,n,m], T_qvsnm[dq,spin,n,m], "\""+str(n)+" -> "+str(m)+"\"", Deltaf_snm[spin,n,m]
+                            print(n, "->", m, T_qvsnm[dq,spin,n,m], omega_snm[spin,n,m], "s =", spin, axes[dq], Deltaf_snm[spin,n,m])
+                        print(omega_snm[spin,n,m], T_qvsnm[dq,spin,n,m], "\""+str(n)+" -> "+str(m)+"\"", Deltaf_snm[spin,n,m], file=f)
             f.close()
 
 def get_dThetadR(calc):
@@ -155,19 +156,19 @@ def get_A_DeltaE(calc, dThetadR_qvMM, cutocc=1e-5, singlet=False, verbose=True):
         else:
             spin2 = spin
         if verbose:
-            print "Calculating PAW Corrections"
+            print("Calculating PAW Corrections")
         PAW_Omega_qvnm = get_PAW_Omega(calc, spin1=spin, spin2=spin2)
         DeltaE_snm[spin] = np.outer(eigenvalues_n, np.ones(nbands)) - np.outer(np.ones(nbands), eigenvalues_n)
         Deltaf_snm[spin] =  - np.outer(occupations_n, np.ones(nbands)) + np.outer(np.ones(nbands), occupations_n)
         if cutocc:
             if verbose:
-                print "Applying Cutoff |f_n - f_m| >", cutocc
+                print("Applying Cutoff |f_n - f_m| >", cutocc)
             Deltaf_snm[spin,:,:] = (abs(Deltaf_snm[spin,:,:]) > cutocc) * Deltaf_snm[spin,:,:]
         gradC_Mm = np.zeros(C_nM.shape)
         for dq in range(3):
             Omega_nm = PAW_Omega_qvnm[dq]
             if verbose:
-                print 'Starting spin', spin, 'along', axes[dq], 'axis'
+                print('Starting spin', spin, 'along', axes[dq], 'axis')
             gemm(1.0, dThetadR_qvMM[0,dq], C_nM, 0.0, gradC_Mm)
             gemm(1.0, C_nM, gradC_Mm, 1.0, Omega_nm, 't')
             Omega_nm /=  DeltaE_snm[spin] + I_nm
@@ -206,30 +207,30 @@ if __name__ == '__main__':
     # Read Arguments
     filename, omegamax, eta, Domega, omegamin, verbose, cutocc, singlet, HilbertTransform, transitions = read_arguments()
     if verbose:
-        print "Calculating Absorption Function from", omegamin, "to", omegamax, "eV in increments of ", Domega, "eV"
-        print "Electronic Temperature", eta, "eV"
-        print "|f_n - f_m| >", cutocc
-        print "Opening", filename
+        print("Calculating Absorption Function from", omegamin, "to", omegamax, "eV in increments of ", Domega, "eV")
+        print("Electronic Temperature", eta, "eV")
+        print("|f_n - f_m| >", cutocc)
+        print("Opening", filename)
     calc = GPAW(filename, txt=None)
     atoms = calc.get_atoms()
     if verbose:
-        print "Initializing Positions"
+        print("Initializing Positions")
     calc.initialize_positions(atoms)
     if verbose:
-        print "Calculating Basis Function Gradients"
+        print("Calculating Basis Function Gradients")
     dThetadR_qvMM = get_dThetadR(calc)
     if verbose:
-        print "Calculating Matrix Elements"
+        print("Calculating Matrix Elements")
     A_qvsnm, DeltaE_snm, Deltaf_snm = get_A_DeltaE(calc, dThetadR_qvMM, cutocc, singlet, verbose)
     if transitions:
         if verbose:
-            print "Calculating Optical Transitions"
+            print("Calculating Optical Transitions")
         T_qvsnm, omega_snm = get_T(A_qvsnm, DeltaE_snm, eta)
         write_transitions(T_qvsnm, omega_snm, Deltaf_snm, filename, cutocc, singlet, verbose, HilbertTransform, omegamin, omegamax)
     if verbose:
-        print "Calculating Optical Absorption"
+        print("Calculating Optical Absorption")
         if HilbertTransform:
-            print "Using Hilbert Transform"
+            print("Using Hilbert Transform")
     epsilon_qvsw, omega_w = get_epsilon(A_qvsnm, DeltaE_snm, eta, omegamax, Domega, omegamin, HilbertTransform)
     write_absorption(epsilon_qvsw, omega_w, filename, cutocc, singlet, verbose, HilbertTransform)
     if calc.get_number_of_spins() == 2:
