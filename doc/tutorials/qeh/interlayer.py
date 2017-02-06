@@ -9,7 +9,7 @@ thick_WSe2 = 6.718
 d_MoS2_WSe2 = (thick_MoS2 + thick_WSe2) / 2
 inter_mass = 0.244
 
-HS = Heterostructure(structure=['MoS2', 'MoS2'],
+HS = Heterostructure(structure=['MoS2_int', 'WSe2_int'],
                      d=[d_MoS2_WSe2],
                      qmax=None,
                      wmax=0,
@@ -31,10 +31,10 @@ plt.xlabel(r'${\bf r}$ (Ang)', fontsize=20)
 plt.ylabel(r'$W({\bf r})$ (Ha)', fontsize=20)
 plt.savefig('W_r.svg')
 plt.show()
-'''
+
 ee, ev = HS.get_exciton_binding_energies(eff_mass=inter_mass,
                                          e_distr=el_array,
                                          h_distr=hl_array)
 
 print('The interlayer exciton binding energy is:', -ee[0])
-'''
+
