@@ -98,7 +98,7 @@ This example calculates the photoabsorption spectrum of a nanosphere
 that has a diameter of 10 nm, and compares the result with analytical
 Mie scattering limit.
 
-.. literalinclude:: gold_nanosphere_calculate.py
+.. literalinclude:: gold_nanosphere/calculate.py
 
 Here the *QSFDTD* object generates a dummy quantum system that is treated using
 GPAW in *qsfdtd.ground_state*. One can pass the GPAW
@@ -123,7 +123,7 @@ where *V* is the nanosphere volume:
 
 |qsfdtd_vs_mie|
 
-.. |qsfdtd_vs_mie| image:: qsfdtd_vs_mie.png
+.. |qsfdtd_vs_mie| image:: gold_nanosphere/qsfdtd_vs_mie.png
 
 The general shape of Mie spectrum, and especially the
 localized surface plasmon resonance (LSPR) at 2.5 eV,
@@ -150,7 +150,7 @@ syntax instead of the simple :code:`QSFDTD` wrapper.
 In the example one can also see how the dummy empty quantum system is
 generated.
 
-.. literalinclude:: gold_nanosphere_inducedfield.py
+.. literalinclude:: gold_nanosphere_inducedfield/calculate.py
 
 The contents of the obtained file :code:`field.ind`
 can be visualized like described in
@@ -159,7 +159,7 @@ We obtain a following plot of the field:
 
 |cl_fe|
 
-.. |cl_fe| image:: field.ind_Ffe.png
+.. |cl_fe| image:: gold_nanosphere_inducedfield/field.ind_Ffe.png
    :scale: 70 %
 
 Note that the oscillations in the induced field (and density)
