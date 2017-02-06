@@ -38,6 +38,11 @@ if opts.noxcc:
 fnames.sort()
 
 
+# Move all plots down by this amount so the plots align *around* the y ticks
+# and not *from* the yticks.
+plot_vertical_adjustment = 0.25
+
+
 class Entry:
     def __init__(self, name, t1, parent=None, childnumber=None):
         self.name = name
@@ -176,9 +181,10 @@ if metadata is None:
 entries = EntryCollection(alltimings)
 
 ordered_names = []
-fig = pl.figure(figsize=(12, 6))
-fig2 = pl.figure()
+fig = pl.figure(figsize=(12, 8))
+fig2 = pl.figure(figsize=(10, 8))
 ax = fig.add_subplot(111)
+fig.subplots_adjust(left=0.08, right=.95, bottom=0.07, top=.99)
 #nameax = fig.add_subplot(122)
 nameax = fig2.add_subplot(111)
 nameax.set_yticks([])
@@ -237,7 +243,7 @@ for rank, rootnode in enumerate(alltimings):
         color, hatch = styles[child.name]
         # hardcoded to max 5.  Graphs will overlap if larger.
         compression = 5.0
-        y0 = rank + (child.level / compression) - 0.25
+        y0 = rank + (child.level / compression) - plot_vertical_adjustment
         height = 1.0 / compression
 
         bar = ax.bar([t1], [height], bottom=[y0],
@@ -253,14 +259,19 @@ ax.set_yticks(range(len(metadata)))
 ax.set_yticklabels([txt.replace('=', '') for txt in metadata])
 
 ax.set_xlabel('time / %s' % opts.unit)
-ax.axis(xmin=plotstarttime, xmax=plotendtime)
+ax.axis(xmin=plotstarttime, xmax=plotendtime,
+        ymin=-plot_vertical_adjustment - 0.1)
 
-ncolumns = len(ordered_names) // 24
+# Roughly 38 elements fit in the window.  For each 38, add another column
+# Only two columns will fit.  People will have to maximize the thing if they
+# have hundreds of different timers somehow.
+ncolumns = 1 + len(ordered_names) // 38
 
 nameax.legend([bars[name] for name in ordered_names],
               ordered_names,
+              handlelength=2.5,
               labelspacing=0.0,
-              fontsize='small',
+              fontsize='medium',
               ncol=ncolumns,
               mode='expand',
               frameon=True,
