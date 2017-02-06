@@ -360,7 +360,7 @@ class G0W0(PairDensity):
                     print('Summing all q:', file=self.fd)
                     pb = ProgressBar(self.fd)
                 for u, kpt1 in enumerate(mykpts):
-                    pb.update((nQ+1)*u / nkpt / len(self.qd))
+                    pb.update((nQ + 1) * u / nkpt / len(self.qd))
                     K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
                     kpt2 = self.get_k_point(kpt1.s, K2, 0, m2,
                                             block=True)
@@ -920,40 +920,48 @@ class G0W0(PairDensity):
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
         name = self.filename + '.vxc.npy'
-        try:
-            with open(name, 'rb') as fd:
-                self.vxc_skn = np.load(fd)
-            assert self.vxc_skn.shape == self.shape, self.vxc_skn.shape
-            print('Reading Kohn-Sham XC contribution from file:', name,
-                  file=self.fd)
-        except (IOError, ValueError, AssertionError): # not present or defect
-            if os.path.isfile(name) and self.world.rank == 0:
-                os.remove(name)
+        fd, self.vxc_skn = self.read_contribution(name)
+        if self.vxc_skn is None:
             print('Calculating Kohn-Sham XC contribution', file=self.fd)
             vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Ha
             n1, n2 = self.bands
             self.vxc_skn = vxc_skn[:, self.kpts, n1:n2]
-            fd = opencew(name)
             np.save(fd, self.vxc_skn)
 
     @timer('EXX')
     def calculate_exact_exchange(self):
         name = self.filename + '.exx.npy'
-        try:
-            with open(name, 'rb') as fd:
-                self.exx_skn = np.load(fd)
-            assert self.exx_skn.shape == self.shape, self.exx_skn.shape
-            print('Reading EXX contribution from file:', name, file=self.fd)
-        except (IOError, ValueError, AssertionError): # not present or defect
-            if os.path.isfile(name) and self.world.rank == 0:
-                os.remove(name)
+        fd, self.exx_skn = self.read_contribution(name)
+        if self.exx_skn is None:
             print('Calculating EXX contribution', file=self.fd)
             exx = EXX(self.calc, kpts=self.kpts, bands=self.bands,
                       txt=self.filename + '.exx.txt', timer=self.timer)
             exx.calculate()
             self.exx_skn = exx.get_eigenvalue_contributions() / Ha
-            fd = opencew(name)
             np.save(fd, self.exx_skn)
+
+    def read_contribution(self, filename):
+        fd = opencew(filename)  # create, exclusive, write
+        if fd is not None:
+            # File was not there: nothing to read
+            return fd, None
+
+        try:
+            with open(filename, 'rb') as fd:
+                x_skn = np.load(fd)
+        except IOError:
+            print('Removing broken file:', filename, file=self.fd)
+        else:
+            print('Read:', filename, file=self.fd)
+            if x_skn.shape == self.shape:
+                return None, x_skn
+            print('Removing bad file (wrong shape of array):', filename,
+                  file=self.fd)
+
+        if self.world.rank == 0:
+            os.remove(filename)
+
+        return opencew(filename), None
 
     def print_results(self, results):
         description = ['f:      Occupation numbers',
