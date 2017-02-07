@@ -194,8 +194,8 @@ folder is).
     dates of older releases can be found there.
 
 .. _gpaw-1.2.0.tar.gz:
-    https://pypi.python.org/packages/71/e6/
-    d26db47ec7bc44d21fbefedb61a8572276358b50862da3390c20664d9511/
+    https://pypi.python.org/packages/3c/ed/
+    c06fc0960c1ddc8bb5ae6a23d1164ffa78324758a3bfb50c677278bef14a/
     gpaw-1.2.0.tar.gz
 
 
