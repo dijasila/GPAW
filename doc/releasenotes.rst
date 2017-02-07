@@ -11,7 +11,7 @@ Git master branch
 :git:`master <>`.
 
 
-Version 1.1.0
+Version 1.2.0
 =============
 
 7 February 2017: :git:`1.2.0 <../1.2.0>`.
