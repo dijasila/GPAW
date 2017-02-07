@@ -10,6 +10,6 @@ df = DielectricFunction(calc='MoS2_gs_fulldiag.gpw',
                         name='MoS2_response_',
                         truncation='2D')
 
-buildingblock = BuildingBlock('MoS2', df)
+buildingblock = BuildingBlock('MoS2', df, qmax=3.)
 
 buildingblock.calculate_building_block()

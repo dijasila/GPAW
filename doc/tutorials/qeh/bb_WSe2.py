@@ -10,6 +10,6 @@ df = DielectricFunction(calc='WSe2_gs_fulldiag.gpw',
                         name='WSe2_response_',
                         truncation='2D')
 
-buildingblock = BuildingBlock('WSe2', df)
+buildingblock = BuildingBlock('WSe2', df, qmax=3.)
 
 buildingblock.calculate_building_block()
