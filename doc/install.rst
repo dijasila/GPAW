@@ -58,7 +58,7 @@ Requirements
 
 * Python_ 2.6-3.5
 * NumPy_ 1.6.1 or later (base N-dimensional array package)
-* ASE_ 3.11 or later (atomic simulation environment)
+* ASE_ 3.13 or later (atomic simulation environment)
 * a C-compiler
 * LibXC_ 2.0.1 or later
 * BLAS_ and LAPACK_ libraries
@@ -162,13 +162,13 @@ Sou can get the source from a tar-file or from Git:
 :Tar-file:
 
     You can get the source as a tar-file for the
-    latest stable release (gpaw-1.1.0.tar.gz_) or the latest
+    latest stable release (gpaw-1.2.0.tar.gz_) or the latest
     development snapshot (`<snapshot.tar.gz>`_).
 
     Unpack and make a soft link::
 
-        $ tar -xf gpaw-1.1.0.tar.gz
-        $ ln -s gpaw-1.1.0 gpaw
+        $ tar -xf gpaw-1.2.0.tar.gz
+        $ ln -s gpaw-1.2.0 gpaw
 
 :Git clone:
 
@@ -178,10 +178,10 @@ Sou can get the source from a tar-file or from Git:
         $ git clone https://gitlab.com/gpaw/gpaw.git
 
     If you want the latest stable release you should clone and then *checkout*
-    the ``1.1.0`` tag like this::
+    the ``1.2.0`` tag like this::
 
         $ git clone https://gitlab.com/gpaw/gpaw.git
-        $ git checkout 1.1.0
+        $ git checkout 1.2.0
 
 Add ``~/gpaw`` to your :envvar:`PYTHONPATH` environment variable and add
 ``~/gpaw/tools`` to :envvar:`PATH` (assuming ``~/gpaw`` is where your GPAW
@@ -193,10 +193,10 @@ folder is).
     See the :ref:`releasenotes` for which tags are available.  Also the
     dates of older releases can be found there.
 
-.. _gpaw-1.1.0.tar.gz:
+.. _gpaw-1.2.0.tar.gz:
     https://pypi.python.org/packages/71/e6/
     d26db47ec7bc44d21fbefedb61a8572276358b50862da3390c20664d9511/
-    gpaw-1.1.0.tar.gz
+    gpaw-1.2.0.tar.gz
 
 
 .. _customizing installation:
