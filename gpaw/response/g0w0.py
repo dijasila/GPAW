@@ -137,6 +137,12 @@ class G0W0(PairDensity):
 
         self.inputcalc = calc
 
+        if ppa and (nblocks > 1 or nblocksmax):
+            p('PPA is currently not compatible with block parallellisation. '
+              'Setting nblocks=1 and continuing.')
+            nblocks = 1
+            nblocksmax = False
+
         if ecut_extrapolation is True:
             pct = 0.8
             necuts = 3

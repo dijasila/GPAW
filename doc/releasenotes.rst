@@ -43,6 +43,13 @@ Git master branch
 
   (will still work, but you will get a warning).
 
+* New feature added to the GW code to be used with 2D systems. This lowers
+  the required k-point grid necessary for convergence. See this tutorial
+  :ref:`gw-2D`.
+
+* It is now possible to carry out GW calculations with eigenvalue self-
+  consistency in G. See this tutorial :ref:`gw-GW0`.
+
 
 Version 1.1.0
 =============
