@@ -1,5 +1,7 @@
-#!/usr/bin/env gpaw-python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Users are requested to make reference to the following publication
+# [L. N. Glanzmann and D. J. Mowbray J. Phys. Chem. C 120, 6336-6343 (2016).]
 from __future__ import print_function
 from gpaw import GPAW
 from gpaw.utilities.blas import gemm
@@ -45,7 +47,7 @@ def write_absorption(epsilon_qvsw, omega_w, filename='out.gpw', cutocc=1e-5,
                      singlet=False, verbose=False, HilbertTransform=False,
                      spin=None):
     """Write Absorption File"""
-    outfilename = filename.split('.gpw')[0]+'_absorption_cut'+str(cutocc)+'.dat'
+    outfilename = filename.split('.gpw')[0]+'_absorption_cut'+str(cutocc)+'_kpts.dat'
     if singlet:
         outfilename = outfilename.split('.')[0]+'_singlet.dat'
     if HilbertTransform:
@@ -118,11 +120,9 @@ def get_dThetadR(calc):
 
 def get_P_ani(calc, spin=0, k=0):
     """Obtain Projector Matrix"""
-    kd = calc.wfs.kd
-    ibzkpt = kd.bz2ibz_k[k]
-    u = ibzkpt + kd.nibzkpts * spin
+    u = k + calc.wfs.kd.nibzkpts * spin
     kpt = calc.wfs.kpt_u[u]
-    s = calc.wfs.kd.sym_k[k]
+    s = spin #calc.wfs.kd.sym_k[k]
     P_ani = {}
     for a, id in enumerate(calc.wfs.setups.id_a):
         b = calc.wfs.kd.symmetry.a_sa[s, a]
@@ -135,10 +135,11 @@ def get_PAW_Omega(calc, spin1=0, spin2=0, k=0):
     # PAW corrections from other spin channel
     P_ami = get_P_ani(calc, spin2, k)
     nbands = calc.get_number_of_bands()
-    PAW_Omega_qvnm = np.zeros((3, nbands, nbands))
+    dtype = calc.wfs.dtype
+    PAW_Omega_qvnm = np.zeros((3, nbands, nbands), dtype)
     nbands = calc.get_number_of_bands()
     nocc = int((calc.get_number_of_electrons()
-                + calc.input_parameters['charge']) // 2)
+                + calc.parameters['charge']) // 2)
     setups = calc.wfs.setups
     for dq in range(3):
         for a, id in enumerate(calc.wfs.setups.id_a):
@@ -154,13 +155,13 @@ def get_PAW_Omega(calc, spin1=0, spin2=0, k=0):
     return PAW_Omega_qvnm
 
 def get_A_DeltaE(calc, dThetadR_qvMM, cutocc=1e-5, singlet=False,
-                 verbose=True):
+                 verbose=True, k=0):
     """Calculate Matrix Elements A and Energy Differences DeltaE
     dThetaR_qvMM	Gradients of Basis Functions"""
     nbands = calc.get_number_of_bands()  # total number of bands
     # number of occupied bands in ground state:
     nocc = int((calc.get_number_of_electrons()
-                + calc.input_parameters['charge'])//2)
+                + calc.parameters['charge'])//2)
     cell = calc.wfs.gd.cell_cv  # unit cell in Bohr^3
     # unit cell volume in Bohr^3:
     volume = np.abs(np.dot(cell[0], np.cross(cell[1],cell[2])))
@@ -169,6 +170,7 @@ def get_A_DeltaE(calc, dThetadR_qvMM, cutocc=1e-5, singlet=False,
     prefactor = 4 * np.pi / volume  # prefactor for A_nm in chi0
     number_of_spins = calc.get_number_of_spins()  # number of spins
     # overlap matrix:
+    dtype = calc.wfs.dtype
     A_qvsnm = np.zeros((3, number_of_spins, nbands, nbands))
     # energy difference matrix:
     DeltaE_snm = np.zeros((number_of_spins, nbands, nbands))
@@ -176,45 +178,49 @@ def get_A_DeltaE(calc, dThetadR_qvMM, cutocc=1e-5, singlet=False,
     Deltaf_snm = np.zeros((number_of_spins, nbands, nbands))
     I_nm = np.identity(nbands)  # identity matrix
     for spin in range(number_of_spins):
-        eigenvalues_n = calc.get_eigenvalues(spin=spin).copy()/Hartree
-        occupations_n = calc.get_occupation_numbers(spin=spin).copy()
-        C_nM = calc.wfs.kpt_u[spin].C_nM
+        eigenvalues_n = calc.get_eigenvalues(spin=spin, kpt=k).copy()/Hartree
+        occupations_n = calc.get_occupation_numbers(spin=spin, kpt=k).copy()
+        u = k + calc.wfs.kd.nibzkpts * spin
+        C_nM = calc.wfs.kpt_u[u].C_nM
         # Perform a pseudo-singlet calculation based on a triplet calculation
         # by swapping spin channels for n >= nocc
         if singlet:
             spin2 = np.mod(spin+1, number_of_spins) # other spin channel
             # Take eigenvalues for n >= nocc from other spin channel
-            eigenvalues_m = calc.get_eigenvalues(spin=spin2).copy()/Hartree
+            eigenvalues_m = calc.get_eigenvalues(spin=spin2,
+                                                 kpt=k).copy()/Hartree
             eigenvalues_n[nocc:] = eigenvalues_m[nocc:]
             # Take occupations for n >= nocc from other spin channel
-            occupations_m = calc.get_occupation_numbers(spin=spin2).copy()
+            occupations_m = calc.get_occupation_numbers(spin=spin2,
+                                                        kpt=k).copy()
             occupations_n[nocc:] = occupations_m[nocc:]
             # Take LCAO coefficients for n >= nocc from other spin channel]
-            C_mM = calc.wfs.kpt_u[spin2].C_nM
+            u2 = k + calc.wfs.kd.nibzkpts * spin2
+            C_mM = calc.wfs.kpt_u[u2].C_nM
             C_nM[nocc:] = C_mM[nocc:]
         else:
             spin2 = spin
         if verbose:
             print('Calculating PAW Corrections')
-        PAW_Omega_qvnm = get_PAW_Omega(calc, spin1=spin, spin2=spin2)
-        DeltaE_snm[spin] = np.outer(eigenvalues_n, np.ones(nbands))
-        - np.outer(np.ones(nbands), eigenvalues_n)
-        Deltaf_snm[spin] =  -np.outer(occupations_n, np.ones(nbands)) \
-            + np.outer(np.ones(nbands), occupations_n)
+        PAW_Omega_qvnm = get_PAW_Omega(calc, spin1=spin, spin2=spin2, k=k)
+        DeltaE_snm[spin] = np.outer(eigenvalues_n, np.ones(nbands)) \
+                           - np.outer(np.ones(nbands), eigenvalues_n)
+        Deltaf_snm[spin] = -np.outer(occupations_n, np.ones(nbands)) \
+                           + np.outer(np.ones(nbands), occupations_n)
         if cutocc:
             if verbose:
                 print('Applying Cutoff |f_n - f_m| >', cutocc)
             Deltaf_snm[spin,:,:] = (abs(Deltaf_snm[spin,:,:])
                                     > cutocc) * Deltaf_snm[spin,:,:]
-        gradC_Mm = np.zeros(C_nM.shape)
+        gradC_Mm = np.zeros(C_nM.shape, dtype)
         for dq in range(3):
             Omega_nm = PAW_Omega_qvnm[dq]
             if verbose:
                 print('Starting spin', spin, 'along', axes[dq], 'axis')
-            gemm(1.0, dThetadR_qvMM[0,dq], C_nM, 0.0, gradC_Mm)
+            gemm(1.0, dThetadR_qvMM[k,dq], C_nM, 0.0, gradC_Mm)
             gemm(1.0, C_nM, gradC_Mm, 1.0, Omega_nm, 't')
             Omega_nm /=  DeltaE_snm[spin] + I_nm
-            A_qvsnm[dq,spin] = prefactor * Deltaf_snm[spin] * Omega_nm**2
+            A_qvsnm[dq,spin] = prefactor * Deltaf_snm[spin] * (Omega_nm * Omega_nm.conj()).real
     return A_qvsnm, DeltaE_snm, Deltaf_snm
 
 def get_T(A_qvsnm, DeltaE_snm, eta=0.1):
@@ -229,14 +235,16 @@ def get_T(A_qvsnm, DeltaE_snm, eta=0.1):
               / ((omega_snm + DeltaE_snm)**2 + eta**2))
     return T_qvsnm, omega_snm * Hartree
 
-def get_epsilon(A_qvsnm, DeltaE_snm, eta=0.1, omegamax=5.0, Domega=0.025,
-                omegamin=0.0, HilbertTransform=False):
+def get_epsilon(A_qvsnm, DeltaE_snm, omega_w=None, eta=0.1,
+                HilbertTransform=False):
     """Calculate Optical Absorption Imaginary Epsilon
     A_qvsnm      Matrix Elements
     DeltaE_snm     Energy Differences"""
-    eta /= Hartree
+    #eta /= Hartree
     #A_qvsnm *= eta
-    omega_w = np.arange(omegamin/Hartree, omegamax/Hartree, Domega/Hartree)
+    if omega_w is None:
+        omega_w = np.arange(0.0, 5.0, 0.025)/Hartree
+    #omega_w /= Hartree
     epsilon_qvsw = np.zeros((3, A_qvsnm.shape[1], len(omega_w)))
     iu = np.triu_indices(A_qvsnm.shape[-1],1)
     for dq in range(3):
@@ -248,22 +256,21 @@ def get_epsilon(A_qvsnm, DeltaE_snm, eta=0.1, omegamax=5.0, Domega=0.025,
                         + eta**2) - 1 / ((omega_w[dw] + \
                         DeltaE_snm[spin][iu])**2 + eta**2))).sum()
                 else:
-                    epsilon_qvsw[dq, spin, dw] = eta * \
-                        (A_qvsnm[dq, spin] / ((omega_w[dw] \
-                        - DeltaE_snm[spin])**2 + eta**2)).sum()
-    return epsilon_qvsw, omega_w * Hartree
+                    epsilon_qvsw[dq, spin, dw] = eta * (A_qvsnm[dq, spin] \
+                        / ((omega_w[dw] - DeltaE_snm[spin])**2 + eta**2)).sum()
+    return epsilon_qvsw
 
-if __name__ == '__main__':
-    # Read Arguments
-    (filename, omegamax, eta, Domega, omegamin, verbose, cutocc, singlet,
-     HilbertTransform, transitions) = read_arguments()
+def calculate(calc, filename, omegamax, eta, Domega, omegamin, verbose,
+              cutocc, singlet, HilbertTransform, transitions):
     if verbose:
         print('Calculating Absorption Function from', omegamin,
               'to', omegamax, 'eV in increments of ', Domega, 'eV')
         print('Electronic Temperature', eta, 'eV')
         print('|f_n - f_m| >', cutocc)
         print('Opening', filename)
-    calc = GPAW(filename, txt=None)
+    #calc = GPAW(filename, txt=None)
+    omega_w = np.arange(omegamin/Hartree, omegamax/Hartree, Domega/Hartree)
+    epsilon_qvsw = np.zeros((3, calc.get_number_of_spins(), len(omega_w)))
     atoms = calc.get_atoms()
     if verbose:
         print('Initializing Positions')
@@ -273,21 +280,36 @@ if __name__ == '__main__':
     dThetadR_qvMM = get_dThetadR(calc)
     if verbose:
         print('Calculating Matrix Elements')
-    A_qvsnm, DeltaE_snm, Deltaf_snm = get_A_DeltaE(calc, dThetadR_qvMM,
-                                                   cutocc, singlet, verbose)
-    if transitions:
+    eta /= Hartree
+    for k in range(calc.wfs.kd.nibzkpts):
+        A_qvsnm, DeltaE_snm, Deltaf_snm = get_A_DeltaE(calc, dThetadR_qvMM,
+                                                       cutocc, singlet,
+                                                       verbose, k)
+        if transitions:
+            if verbose:
+                print('Calculating Optical Transitions')
+            T_qvsnm, omega_snm = get_T(A_qvsnm, DeltaE_snm, eta)
+            write_transitions(T_qvsnm, omega_snm, Deltaf_snm,
+                              filename+'_kpt'+str(k),
+                              cutocc, singlet, verbose, HilbertTransform,
+                              omegamin, omegamax)
         if verbose:
-            print('Calculating Optical Transitions')
-        T_qvsnm, omega_snm = get_T(A_qvsnm, DeltaE_snm, eta)
-        write_transitions(T_qvsnm, omega_snm, Deltaf_snm, filename, cutocc,
-                          singlet, verbose, HilbertTransform, omegamin,
-                          omegamax)
-    if verbose:
-        print('Calculating Optical Absorption')
-        if HilbertTransform:
-            print('Using Hilbert Transform')
-    epsilon_qvsw, omega_w = get_epsilon(A_qvsnm, DeltaE_snm, eta, omegamax,
-                                        Domega, omegamin, HilbertTransform)
+            print('Calculating Optical Absorption')
+            if HilbertTransform:
+                print('Using Hilbert Transform')
+        epsilon_qvsw += get_epsilon(A_qvsnm, DeltaE_snm, omega_w, eta,
+                                    HilbertTransform)
+    return epsilon_qvsw, omega_w * Hartree
+
+if __name__ == '__main__':
+    # Read Arguments
+    (filename, omegamax, eta, Domega, omegamin, verbose, cutocc, singlet,
+     HilbertTransform, transitions) = read_arguments()
+    calc = GPAW(filename, txt=None)
+    epsilon_qvsw, omega_w = calculate(calc, filename, omegamax, eta,
+                                      Domega, omegamin,
+                                      verbose, cutocc, singlet,
+                                      HilbertTransform, transitions)
     write_absorption(epsilon_qvsw, omega_w, filename, cutocc, singlet,
                      verbose, HilbertTransform)
     if calc.get_number_of_spins() == 2:
