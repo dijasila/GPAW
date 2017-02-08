@@ -7,8 +7,6 @@ def agts(queue):
     bb_WSe2 = queue.add('bb_WSe2.py', deps=gs_WSe2, ncpus=16,
                         walltime=1200)
 
-    interp = queue.add('interpolate_bb.py', deps=[bb_MoS2, bb_WSe2], ncpus=1,
-                        walltime=10)
+    interp = queue.add('interpolate_bb.py', deps=[bb_MoS2, bb_WSe2])
 
-    queue.add('interlayer.py', deps=interp,
-              creates='W_r.svg')
+    queue.add('interlayer.py', deps=interp, creates='W_r.svg')
