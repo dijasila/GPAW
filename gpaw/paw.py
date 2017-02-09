@@ -261,7 +261,12 @@ class PAW:
         return vt_G * Ha
 
     def get_electrostatic_potential(self):
-        """Return pseudo effective-potential."""
+        """Return the electrostatic potential.
+
+        This is the potential from the pseudo electron density and the
+        PAW-compensation charges.  So, the electrostatic potential will
+        only be correct outside the PAW augmentation spheres.
+        """
 
         ham = self.hamiltonian
         dens = self.density
