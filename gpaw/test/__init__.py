@@ -193,6 +193,7 @@ tests = [
     'vdw/libvdwxc_mbeef.py',                # ~3s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
     'parallel/augment_grid.py',             # ~4s
+    'lcao/rpatest.py',                      # ~4s
     'utilities/ewald.py',                   # ~4s
     'symmetry/symmetry.py',                 # ~4s
     'xc/revPBE.py',                         # ~4s
@@ -377,6 +378,7 @@ exclude = []
 
 if mpi.size > 1:
     exclude += ['ase_features/asewannier.py',
+                'lcao/rpatest.py',
                 'coreeig.py',
                 'ext_potential/stark_shift.py',
                 'spinorbit_Kr.py',
