@@ -1,20 +1,19 @@
 import numpy as np
 
 from ase.units import Hartree
-from gpaw.aseinterface import GPAW
-from gpaw.lcao.overlap import NewTwoCenterIntegrals
+from gpaw import GPAW
 from gpaw.utilities import unpack
 from gpaw.utilities.tools import tri2full, lowdin
 from gpaw.lcao.tools import basis_subset2, get_bfi2
 from gpaw.coulomb import get_vxc as get_ks_xc
 from gpaw.utilities.blas import r2k, gemm
-from gpaw.lcao.projected_wannier import dots, condition_number, eigvals, \
-     get_bfs, get_lcao_projections_HSP
+from gpaw.lcao.projected_wannier import (dots, condition_number, eigvals,
+                                         get_bfs, get_lcao_projections_HSP)
 
 
 def get_rot(F_MM, V_oM, L):
     eps_M, U_MM = np.linalg.eigh(F_MM)
-    indices = eps_M.real.argsort()[-L:] 
+    indices = eps_M.real.argsort()[-L:]
     U_Ml = U_MM[:, indices]
     U_Ml /= np.sqrt(dots(U_Ml.T.conj(), F_MM, U_Ml).diagonal())
 
@@ -51,7 +50,7 @@ def get_lcao_xc(calc, P_aqMi, bfs=None, spin=0):
         D_sp = calc.density.D_asp[a][:]
         H_sp = np.zeros_like(D_sp)
         calc.hamiltonian.xc.calculate_paw_correction(calc.wfs.setups[a],
-                                                     D_sp, H_sp) 
+                                                     D_sp, H_sp)
         H_ii = unpack(H_sp[spin])
         for Vxc_MM, P_Mi in zip(Vxc_qMM, P_qMi):
             Vxc_MM += dots(P_Mi, H_ii, P_Mi.T.conj())
@@ -89,9 +88,9 @@ class ProjectedWannierFunctionsFBL:
 
     ::
     
-                --N              
+                --N
         |w_w> = >    |psi_n> U_nw
-                --n=1            
+                --n=1
     """
     def __init__(self, V_nM, No, ortho=False):
         Nw = V_nM.shape[1]
@@ -154,8 +153,9 @@ class ProjectedWannierFunctionsIBL:
         self.S_ww = self.rotate_matrix(np.ones(1), S_MM)
         P_uw = np.dot(V_uM, self.U_Mw)
         self.norms_n = np.hstack((
-           np.dot(U_ow, np.linalg.solve(self.S_ww, U_ow.T.conj())).diagonal(),
-           np.dot(P_uw, np.linalg.solve(self.S_ww, P_uw.T.conj())).diagonal()))
+            np.dot(U_ow, np.linalg.solve(self.S_ww, U_ow.T.conj())).diagonal(),
+            np.dot(P_uw, np.linalg.solve(self.S_ww, P_uw.T.conj())).diagonal()
+            ))
 
     def rotate_matrix(self, A_o, A_MM):
         assert A_o.ndim == 1
@@ -228,13 +228,7 @@ class PWFplusLCAO(ProjectedWannierFunctionsIBL):
         self.S_ww = self.rotate_matrix(np.ones(1), S_MM)
         self.norms_n = None
 
-def set_lcaoatoms(calc, pwf, lcaoatoms):
-    ind = get_bfi(calc, lcaoatoms)
-    for i in ind:
-        pwf.U_ow[:, i] = 0.0
-        pwf.U_Mw[:, i] = 0.0
-        pwf_U_Mw[i, i] = 1.0
-
+    
 class PWF2:
     def __init__(self, gpwfilename, fixedenergy=0., spin=0, ibl=True,
                  basis='sz', zero_fermi=False, pwfbasis=None, lcaoatoms=None,
@@ -256,7 +250,7 @@ class PWF2:
         self.eps_kn = [calc.get_eigenvalues(kpt=q, spin=spin) - Ef
                        for q in range(self.nk)]
         self.M_k = [sum(eps_n <= fixedenergy) for eps_n in self.eps_kn]
-        print('Fixed states:', self.M_k) 
+        print('Fixed states:', self.M_k)
         self.calc = calc
         self.dtype = self.calc.wfs.dtype
         self.spin = spin
@@ -269,7 +263,7 @@ class PWF2:
         if ibl:
             if pwfbasis is not None:
                 pwfmask = basis_subset2(calc.atoms.get_chemical_symbols(),
-                                       basis, pwfbasis)
+                                        basis, pwfbasis)
             if lcaoatoms is not None:
                 lcaoindices = get_bfi2(calc.atoms.get_chemical_symbols(),
                                        basis,
@@ -332,6 +326,7 @@ class PWF2:
                     dict([(a, P_qMi[q]) for a, P_qMi in self.P_aqMi.items()]),
                     indices)
             else:
+                # XXX pwf?
                 self.P_awi = pwf.rotate_projections(kpt.P_ani, indices)
         return self.P_awi
 
@@ -364,9 +359,9 @@ class PWF2:
         return condition_number(self.S_qww[q])
 
     def get_xc(self, q=0, indices=None):
-        #self.calc.density.ghat.set_positions(
-        #    self.calc.atoms.get_scaled_positions() % 1.)
-        #self.calc.hamiltonian.poisson.initialize()
+        # self.calc.density.ghat.set_positions(
+        #     self.calc.atoms.get_scaled_positions() % 1.)
+        # self.calc.hamiltonian.poisson.initialize()
         if self.ibl:
             return get_xc2(self.calc, self.get_orbitals(q, indices),
                            self.get_projections(q, indices), self.spin)

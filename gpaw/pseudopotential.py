@@ -1,10 +1,12 @@
 import numpy as np
 
 from gpaw.atom.atompaw import AtomPAW
-from gpaw.utilities import erf
+from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
+from gpaw.basis_data import Basis, BasisFunction
 from gpaw.setup import BaseSetup
 from gpaw.spline import Spline
-from gpaw.basis_data import Basis, BasisFunction
+from gpaw.utilities import erf
+
 
 null_spline = Spline(0, 1.0, [0., 0., 0.])
 
@@ -14,7 +16,7 @@ def screen_potential(r, v, charge, rcut=None, a=None):
 
     The potential v is a long-ranted potential with the asymptotic form Z/r
     corresponding to the given charge.
-    
+
     Return a potential vscreened and charge distribution rhocomp such that
 
       v(r) = vscreened(r) + vHartree[rhocomp](r).
@@ -22,7 +24,7 @@ def screen_potential(r, v, charge, rcut=None, a=None):
     The returned quantities are truncated to a reasonable cutoff radius.
     """
     vr = v * r + charge
-    
+
     if rcut is None:
         err = 0.0
         i = len(vr)
@@ -40,7 +42,7 @@ def screen_potential(r, v, charge, rcut=None, a=None):
     rshort = r[:icut]
 
     if a is None:
-        a = rcut / 5.0 # XXX why is this so important?
+        a = rcut / 5.0  # XXX why is this so important?
     vcomp = np.zeros_like(rshort)
     vcomp = charge * erf(rshort / (np.sqrt(2.0) * a)) / rshort.clip(1e-10,
                                                                     np.inf)
@@ -58,7 +60,7 @@ def figure_out_valence_states(ppdata):
     chemical_symbol = chemical_symbols[ppdata.Z]
     Z, config = configurations[chemical_symbol]
     assert Z == ppdata.Z
-    
+
     # Okay, we need to figure out occupations f_ln when we don't know
     # any info about existing states on the pseudopotential.
     #
@@ -83,7 +85,7 @@ def figure_out_valence_states(ppdata):
             elif nelectrons >= ncore:
                 raise ValueError('Cannot figure out what states should exist '
                                  'on this pseudopotential.')
-    
+
     f_ln = {}
     l_j = []
     f_j = []
@@ -101,11 +103,9 @@ def figure_out_valence_states(ppdata):
 def generate_basis_functions(ppdata):
     class SimpleBasis(Basis):
         def __init__(self, symbol, l_j):
-            Basis.__init__(self, symbol, 'simple', readxml=False)
+            rgd = EquidistantRadialGridDescriptor(0.02, 160)
+            Basis.__init__(self, symbol, 'simple', readxml=False, rgd=rgd)
             self.generatordata = 'simple'
-            self.d = 0.02
-            self.ng = 160
-            rgd = self.get_grid_descriptor()
             bf_j = self.bf_j
             rcgauss = rgd.r_g[-1] / 3.0
             gauss_g = np.exp(-(rgd.r_g / rcgauss)**2.0)
@@ -113,22 +113,22 @@ def generate_basis_functions(ppdata):
                 phit_g = rgd.r_g**l * gauss_g
                 norm = (rgd.integrate(phit_g**2) / (4 * np.pi))**0.5
                 phit_g /= norm
-                bf = BasisFunction(l, rgd.r_g[-1], phit_g, 'gaussian')
+                bf = BasisFunction(None, l, rgd.r_g[-1], phit_g, 'gaussian')
                 bf_j.append(bf)
-    #l_orb_j = [state.l for state in self.data['states']]
+    # l_orb_j = [state.l for state in self.data['states']]
     b1 = SimpleBasis(ppdata.symbol, ppdata.l_orb_j)
     apaw = AtomPAW(ppdata.symbol, [ppdata.f_ln], h=0.05, rcut=9.0,
                    basis={ppdata.symbol: b1},
                    setups={ppdata.symbol: ppdata},
                    maxiter=60,
-                   lmax=0, txt=None)
+                   txt=None)
     basis = apaw.extract_basis_functions()
     return basis
 
 
 def pseudoplot(pp, show=True):
     import pylab as pl
-    
+
     fig = pl.figure()
     wfsax = fig.add_subplot(221)
     ptax = fig.add_subplot(222)
@@ -154,7 +154,7 @@ def pseudoplot(pp, show=True):
 
     r, y = spline2grid(pp.vbar)
     vax.plot(r, y, label='vbar')
-    
+
     vax.set_ylabel('potential')
     rhoax.set_ylabel('density')
     wfsax.set_ylabel('wfs')
@@ -193,11 +193,11 @@ class PseudoPotential(BaseSetup):
         self.ni = sum([2 * l + 1 for l in data.l_j])
         self.pt_j = data.get_projectors()
         if len(self.pt_j) == 0:
-            assert False # not sure yet about the consequences of
+            assert False  # not sure yet about the consequences of
             # cleaning this up in the other classes
             self.l_j = [0]
             self.pt_j = [null_spline]
-        
+
         if basis is None:
             basis = data.create_basis_functions()
         self.phit_j = basis.tosplines()
@@ -238,7 +238,7 @@ class PseudoPotential(BaseSetup):
         self.rcutfilter = None
         self.rcore = None
 
-        self.N0_p = np.zeros(_np) # not really implemented
+        self.N0_p = np.zeros(_np)  # not really implemented
         self.nabla_iiv = None
         self.rnabla_iiv = None
         self.rxnabla_iiv = None

@@ -1,5 +1,5 @@
 import numpy as np
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 

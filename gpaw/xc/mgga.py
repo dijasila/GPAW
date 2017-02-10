@@ -2,19 +2,25 @@ from math import sqrt, pi
 
 import numpy as np
 
-from gpaw.xc.gga import GGA
+from gpaw.xc.gga import (add_gradient_correction, gga_vars,
+                         GGARadialExpansion, GGARadialCalculator,
+                         get_gradient_ops)
+from gpaw.xc.lda import calculate_paw_correction
+from gpaw.xc.functional import XCFunctional
 from gpaw.sphere.lebedev import weight_n
 
 
-class MGGA(GGA):
+class MGGA(XCFunctional):
     orbital_dependent = True
 
     def __init__(self, kernel):
         """Meta GGA functional."""
-        GGA.__init__(self, kernel)
+        XCFunctional.__init__(self, kernel.name, kernel.type)
+        self.kernel = kernel
 
     def set_grid_descriptor(self, gd):
-        GGA.set_grid_descriptor(self, gd)
+        self.grad_v = get_gradient_ops(gd)
+        XCFunctional.set_grid_descriptor(self, gd)
 
     def get_setup_name(self):
         return 'PBE'
@@ -34,7 +40,13 @@ class MGGA(GGA):
         self.tauct_G[:] = 0.0
         self.tauct.add(self.tauct_G)
 
-    def calculate_gga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
+    def calculate_impl(self, gd, n_sg, v_sg, e_g):
+        sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)
+        self.process_mgga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
+                                dedsigma_xg, v_sg)
+
+    def process_mgga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
         taut_sG = self.wfs.calculate_kinetic_energy_density()
         if taut_sG is None:
             # Initialize with von Weizsaecker kinetic energy density:
@@ -47,17 +59,17 @@ class MGGA(GGA):
                 self.restrict_and_collect(taut_g, taut_G)
         else:
             taut_sg = np.empty_like(nt_sg)
-        
+
         for taut_G, taut_g in zip(taut_sG, taut_sg):
             taut_G += 1.0 / self.wfs.nspins * self.tauct_G
             self.distribute_and_interpolate(taut_G, taut_g)
-            
+
         # bad = taut_sg < tautW_sg + 1e-11
         # taut_sg[bad] = tautW_sg[bad]
-        
+
         # m = 12.0
         # taut_sg = (taut_sg**m + (tautW_sg / 2)**m)**(1 / m)
-        
+
         dedtaut_sg = np.empty_like(nt_sg)
         self.kernel.calculate(e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg,
                               taut_sg, dedtaut_sg)
@@ -83,49 +95,60 @@ class MGGA(GGA):
         self.D_sp = D_sp
         self.n = 0
         self.ae = True
-        self.c = setup.xc_correction
+        self.xcc = setup.xc_correction
         self.dEdD_sp = dEdD_sp
 
-        if self.c.tau_npg is None:
-            self.c.tau_npg, self.c.taut_npg = self.initialize_kinetic(self.c)
+        if self.xcc.tau_npg is None:
+            self.xcc.tau_npg, self.xcc.taut_npg = self.initialize_kinetic(self.xcc)
 
-        E = GGA.calculate_paw_correction(self, setup, D_sp, dEdD_sp,
-                                         addcoredensity, a)
-        del self.D_sp, self.n, self.ae, self.c, self.dEdD_sp
+        class MockKernel:
+            def __init__(self, mgga):
+                self.mgga = mgga
+
+            def calculate(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
+                self.mgga.mgga_radial(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+
+        rcalc = GGARadialCalculator(MockKernel(self))  # yuck
+        expansion = GGARadialExpansion(rcalc)
+        # The damn thing uses too many 'self' variables to define a clean
+        # integrator object.
+        E = calculate_paw_correction(expansion,
+                                     setup, D_sp, dEdD_sp,
+                                     addcoredensity, a)
+        del self.D_sp, self.n, self.ae, self.xcc, self.dEdD_sp
         return E
 
-    def calculate_gga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
+    def mgga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
+        n = self.n
         nspins = len(n_sg)
         if self.ae:
-            tau_pg = self.c.tau_npg[self.n]
-            tauc_g = self.c.tauc_g / (sqrt(4 * pi) * nspins)
+            tau_pg = self.xcc.tau_npg[self.n]
+            tauc_g = self.xcc.tauc_g / (sqrt(4 * pi) * nspins)
             sign = 1.0
         else:
-            tau_pg = self.c.taut_npg[self.n]
-            tauc_g = self.c.tauct_g / (sqrt(4 * pi) * nspins)
+            tau_pg = self.xcc.taut_npg[self.n]
+            tauc_g = self.xcc.tauct_g / (sqrt(4 * pi) * nspins)
             sign = -1.0
         tau_sg = np.dot(self.D_sp, tau_pg) + tauc_g
-        
+
         if 0:  # not self.ae:
             m = 12
             for tau_g, n_g, sigma_g in zip(tau_sg, n_sg, sigma_xg[::2]):
                 tauw_g = sigma_g / 8 / n_g
                 tau_g[:] = (tau_g**m + (tauw_g / 2)**m)**(1.0 / m)
                 break
-                
+
         dedtau_sg = np.empty_like(tau_sg)
         self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
                               tau_sg, dedtau_sg)
         if self.dEdD_sp is not None:
             self.dEdD_sp += (sign * weight_n[self.n] *
-                             np.inner(dedtau_sg * self.c.rgd.dv_g, tau_pg))
+                             np.inner(dedtau_sg * self.xcc.rgd.dv_g, tau_pg))
+        assert n == self.n
         self.n += 1
         if self.n == len(weight_n):
             self.n = 0
             self.ae = False
-
-    def calculate_spherical(self, rgd, n_sg, v_sg):
-        raise NotImplementedError
 
     def add_forces(self, F_av):
         dF_av = self.tauct.dict(derivative=True)
@@ -137,76 +160,75 @@ class MGGA(GGA):
         bytecount = self.wfs.gd.bytecount()
         mem.subnode('MGGA arrays', (1 + self.wfs.nspins) * bytecount)
 
-    def initialize_kinetic(self, xccorr):
-        nii = xccorr.nii
-        nn = len(xccorr.rnablaY_nLv)
-        ng = len(xccorr.phi_jg[0])
+    def initialize_kinetic(self, xcc):
+        nii = xcc.nii
+        nn = len(xcc.rnablaY_nLv)
+        ng = len(xcc.phi_jg[0])
 
         tau_npg = np.zeros((nn, nii, ng))
         taut_npg = np.zeros((nn, nii, ng))
-        self.create_kinetic(xccorr, nn, xccorr.phi_jg, tau_npg)
-        self.create_kinetic(xccorr, nn, xccorr.phit_jg, taut_npg)
+        create_kinetic(xcc, nn, xcc.phi_jg, tau_npg)
+        create_kinetic(xcc, nn, xcc.phit_jg, taut_npg)
         return tau_npg, taut_npg
 
-    def create_kinetic(self, x, ny, phi_jg, tau_ypg):
-        """Short title here.
 
-        kinetic expression is::
+def create_kinetic(xcc, ny, phi_jg, tau_ypg):
+    """Short title here.
 
-                                             __         __
-          tau_s = 1/2 Sum_{i1,i2} D(s,i1,i2) \/phi_i1 . \/phi_i2 +tauc_s
+    kinetic expression is::
 
-        here the orbital dependent part is calculated::
+                                         __         __
+      tau_s = 1/2 Sum_{i1,i2} D(s,i1,i2) \/phi_i1 . \/phi_i2 +tauc_s
 
-          __         __
-          \/phi_i1 . \/phi_i2 =
-                      __    __
-                      \/YL1.\/YL2 phi_j1 phi_j2 +YL1 YL2 dphi_j1 dphi_j2
-                                                         ------  ------
-                                                           dr     dr
-          __    __
-          \/YL1.\/YL2 [y] = Sum_c A[L1,c,y] A[L2,c,y] / r**2
+    here the orbital dependent part is calculated::
 
-        """
-        nj = len(phi_jg)
-        dphidr_jg = np.zeros(np.shape(phi_jg))
-        for j in range(nj):
-            phi_g = phi_jg[j]
-            x.rgd.derivative(phi_g, dphidr_jg[j])
+      __         __
+      \/phi_i1 . \/phi_i2 =
+                  __    __
+                  \/YL1.\/YL2 phi_j1 phi_j2 +YL1 YL2 dphi_j1 dphi_j2
+                                                     ------  ------
+                                                       dr     dr
+      __    __
+      \/YL1.\/YL2 [y] = Sum_c A[L1,c,y] A[L2,c,y] / r**2
 
-        # Second term:
-        for y in range(ny):
-            i1 = 0
-            p = 0
-            Y_L = x.Y_nL[y]
-            for j1, l1, L1 in x.jlL:
-                for j2, l2, L2 in x.jlL[i1:]:
-                    c = Y_L[L1] * Y_L[L2]
-                    temp = c * dphidr_jg[j1] * dphidr_jg[j2]
-                    tau_ypg[y, p, :] += temp
-                    p += 1
-                i1 += 1
-        # first term
-        for y in range(ny):
-            i1 = 0
-            p = 0
-            rnablaY_Lv = x.rnablaY_nLv[y, :x.Lmax]
-            Ax_L = rnablaY_Lv[:, 0]
-            Ay_L = rnablaY_Lv[:, 1]
-            Az_L = rnablaY_Lv[:, 2]
-            for j1, l1, L1 in x.jlL:
-                for j2, l2, L2 in x.jlL[i1:]:
-                    temp = (Ax_L[L1] * Ax_L[L2] + Ay_L[L1] * Ay_L[L2] +
-                            Az_L[L1] * Az_L[L2])
-                    temp *= phi_jg[j1] * phi_jg[j2]
-                    temp[1:] /= x.rgd.r_g[1:]**2
-                    temp[0] = temp[1]
-                    tau_ypg[y, p, :] += temp
-                    p += 1
-                i1 += 1
-        tau_ypg *= 0.5
+    """
+    nj = len(phi_jg)
+    dphidr_jg = np.zeros(np.shape(phi_jg))
+    for j in range(nj):
+        phi_g = phi_jg[j]
+        xcc.rgd.derivative(phi_g, dphidr_jg[j])
 
-        return
+    # Second term:
+    for y in range(ny):
+        i1 = 0
+        p = 0
+        Y_L = xcc.Y_nL[y]
+        for j1, l1, L1 in xcc.jlL:
+            for j2, l2, L2 in xcc.jlL[i1:]:
+                c = Y_L[L1] * Y_L[L2]
+                temp = c * dphidr_jg[j1] * dphidr_jg[j2]
+                tau_ypg[y, p, :] += temp
+                p += 1
+            i1 += 1
+    # first term
+    for y in range(ny):
+        i1 = 0
+        p = 0
+        rnablaY_Lv = xcc.rnablaY_nLv[y, :xcc.Lmax]
+        Ax_L = rnablaY_Lv[:, 0]
+        Ay_L = rnablaY_Lv[:, 1]
+        Az_L = rnablaY_Lv[:, 2]
+        for j1, l1, L1 in xcc.jlL:
+            for j2, l2, L2 in xcc.jlL[i1:]:
+                temp = (Ax_L[L1] * Ax_L[L2] + Ay_L[L1] * Ay_L[L2] +
+                        Az_L[L1] * Az_L[L2])
+                temp *= phi_jg[j1] * phi_jg[j2]
+                temp[1:] /= xcc.rgd.r_g[1:]**2
+                temp[0] = temp[1]
+                tau_ypg[y, p, :] += temp
+                p += 1
+            i1 += 1
+    tau_ypg *= 0.5
 
 
 class PurePython2DMGGAKernel:
@@ -261,7 +283,7 @@ class PurePython2DMGGAKernel:
 
 def twodexchange(n, sigma, tau, pars):
     # parameters for 2 Legendre polynomials
-    parlen_i = pars[0]
+    parlen_i = int(pars[0])
     parlen_j = pars[2 + 2 * parlen_i]
     assert parlen_i == parlen_j
     pars_i = pars[1:2 + 2 * parlen_i]
@@ -375,7 +397,7 @@ def legendre_polynomial(x, orders, coefs, P=None):
                 2.0 * x[:] * L[:, :, :, i - 1] -
                 L[:, :, :, i - 2] -
                 (x[:] * L[:, :, :, i - 1] - L[:, :, :, i - 2]) / i)
-            
+
     # building polynomium P
     coefs_ = np.empty(max_order + 1)
     k = 0

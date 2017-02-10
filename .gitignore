@@ -25,9 +25,11 @@ N.LDA
 *.gpw
 *.npy
 theme.css
-bigpicture.svg
+*.svg
 *.json
 doc/setups/[A-Z]*.rst
+
+!doc/devel/gpaw-logo.svg
 
 # If you run the tests, these may write out files
 *.gpw
@@ -44,6 +46,9 @@ doc/setups/[A-Z]*.rst
 
 # Vim swap files:
 .*.sw?
+
+# Emacs lock files:
+.\#*
 
 # This one is OK:
 !requirements.txt

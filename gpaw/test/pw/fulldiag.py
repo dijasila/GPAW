@@ -1,5 +1,5 @@
 from ase import Atoms
-from gpaw import GPAW
+from gpaw import GPAW, PW
 from gpaw.mpi import world, serial_comm
 
 a = Atoms('H2',
@@ -7,10 +7,9 @@ a = Atoms('H2',
           cell=(3, 3, 3),
           pbc=1)
 
-a.calc = GPAW(mode='pw',
+a.calc = GPAW(mode=PW(force_complex_dtype=True),
               eigensolver='rmm-diis',
               nbands=8,
-              dtype=complex,
               basis='dzp', txt=None)
 
 a.get_potential_energy()

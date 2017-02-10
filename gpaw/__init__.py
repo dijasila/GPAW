@@ -13,12 +13,12 @@ import numpy as np
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '1.0.1b1'
-__ase_version_required__ = '3.10.0'
+__version__ = '1.2.0'
+__ase_version_required__ = '3.13.0'
 
-__all__ = ['GPAW', 'Calculator',
+__all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
-           'CG', 'Davidson', 'RMM_DIIS', 'DirectLCAO',
+           'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
            'PW', 'LCAO', 'restart']
@@ -201,7 +201,7 @@ if debug:
         return a
     np.empty = empty
 
-    
+
 build_path = join(__path__[0], '..', 'build')
 arch = '%s-%s' % (get_platform(), sys.version[0:3])
 
@@ -219,29 +219,33 @@ def get_gpaw_python_path():
     raise RuntimeError('Could not find gpaw-python!')
 
 
-try:
-    setup_paths = os.environ['GPAW_SETUP_PATH'].split(os.pathsep)
-except KeyError:
-    if os.pathsep == ';':
-        setup_paths = [r'C:\gpaw-setups']
-    else:
-        setup_paths = ['/usr/local/share/gpaw-setups',
-                       '/usr/share/gpaw-setups']
+setup_paths = []
 
 
-from gpaw.aseinterface import GPAW
+def initialize_data_paths():
+    try:
+        setup_paths[:] = os.environ['GPAW_SETUP_PATH'].split(os.pathsep)
+    except KeyError:
+        if os.pathsep == ';':
+            seltup_paths[:] = [r'C:\gpaw-setups']
+        else:
+            setup_paths[:] = ['/usr/local/share/gpaw-setups',
+                              '/usr/share/gpaw-setups']
+
+
+initialize_data_paths()
+
+
+from gpaw.calculator import GPAW
 from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
-from gpaw.eigensolvers import Davidson, RMM_DIIS, CG, DirectLCAO
+from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
 from gpaw.poisson import PoissonSolver
 from gpaw.occupations import FermiDirac, MethfesselPaxton
 from gpaw.wavefunctions.lcao import LCAO
 from gpaw.wavefunctions.pw import PW
+from gpaw.wavefunctions.fd import FD
 
-
-class Calculator(GPAW):
-    def __init__(self, *args, **kwargs):
-        sys.stderr.write('Please start using GPAW instead of Calculator!\n')
-        GPAW.__init__(self, *args, **kwargs)
+RMM_DIIS = RMMDIIS
 
 
 def restart(filename, Class=GPAW, **kwargs):
@@ -306,10 +310,13 @@ def is_parallel_environment():
     return False
 
 
-home = os.environ.get('HOME')
-if home is not None:
-    rc = os.path.join(home, '.gpaw', 'rc.py')
-    if os.path.isfile(rc):
-        # Read file in ~/.gpaw/rc.py
-        with open(rc) as fd:
-            exec(fd.read())
+def read_rc_file():
+    home = os.environ.get('HOME')
+    if home is not None:
+        rc = os.path.join(home, '.gpaw', 'rc.py')
+        if os.path.isfile(rc):
+            # Read file in ~/.gpaw/rc.py
+            with open(rc) as fd:
+                exec(fd.read())
+
+read_rc_file()

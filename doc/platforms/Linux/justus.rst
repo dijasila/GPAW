@@ -161,7 +161,7 @@ The current trunk version can then be updated by::
 We have to modify the file :file:`customize.py` to
 :download:`customize_justus.py`
 
-.. literalinclude:: customize_bwuni.py
+.. literalinclude:: customize_justus.py
 
 To build GPAW use::
 
@@ -172,7 +172,7 @@ To build GPAW use::
 
  cd $GPAW_SOURCE/trunk
  mkdir install
- python setup.py install --prefix=$PWD/install
+ python3 setup.py install --prefix=$PWD/install
 
 which installs GPAW to ``$GPAW_SOURCE/trunk/install``.
 We create a module that does the necessary things::
@@ -193,7 +193,7 @@ the file  :file:`trunk` that should read::
  # change this to your needs
  set gpawhome /home/fr/fr_fr/fr_mw767/source/gpaw/trunk/install
  prepend-path    PATH                 $gpawhome/bin
- prepend-path    PYTHONPATH           $gpawhome/lib64/python2.7/site-packages/
+ prepend-path    PYTHONPATH           $gpawhome/lib/python3.5/site-packages/
  setenv          GPAW_PYTHON          $gpawhome/bin/gpaw-python
 
 Running GPAW
@@ -201,9 +201,9 @@ Running GPAW
 
 A gpaw script :file:`test.py` can be submitted to run on 8 cpus like this::
 
-  module load gpaw
-  gpaw-runscript test.py 8
-  hostname uc1n997 found, using bwUniCluster
-  run.bwUniCluster written
-  msub run.bwUniCluster
+  > module load gpaw
+  > gpaw-runscript test.py 8
+  using justus
+  run.justus written
+  > msub run.justus
 

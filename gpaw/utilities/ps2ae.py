@@ -1,5 +1,7 @@
+from math import pi, sqrt
+
 import numpy as np
-from ase.units import Bohr
+from ase.units import Bohr, Hartree
 
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.grid_descriptor import GridDescriptor
@@ -16,7 +18,16 @@ class Interpolator:
 
     def interpolate(self, a_r):
         return self.pd1.interpolate(a_r, self.pd2)[0]
+
         
+POINTS = 200
+
+
+def gauss(rgd, alpha):
+    r_g = rgd.r_g
+    g_g = 4 / sqrt(pi) * alpha**1.5 * np.exp(-alpha * r_g**2)
+    return g_g
+    
 
 class PS2AE:
     """Transform PS to AE wave functions.
@@ -99,3 +110,45 @@ class PS2AE:
                 self.dphi.add(psi_R, P_ai, k)
             wfs.world.broadcast(psi_R, 0)
         return psi_R
+        
+    def get_electrostatic_potential(self, ae=True, rcgauss=0.02):
+        ham = self.calc.hamiltonian
+
+        if ham.vHt_g is None:
+            self.calc.restore_state()
+            
+        gd = ham.finegd
+        v_r = gd.zero_pad(ham.vHt_g)
+        gd1 = GridDescriptor(gd.N_c, gd.cell_cv, comm=serial_comm)
+        interpolator = Interpolator(gd1, self.gd)
+        v_R = interpolator.interpolate(v_r)
+
+        if ae:
+            alpha = 1 / (rcgauss / Bohr)**2
+            self.add_potential_correction(v_R, alpha)
+            
+        return v_R * Hartree
+
+    def add_potential_correction(self, v_R, alpha):
+        dens = self.calc.density
+        dv_a1 = []
+        for a, D_sp in dens.D_asp.items():
+            setup = dens.setups[a]
+            c = setup.xc_correction
+            rgd = c.rgd
+            ghat_g = gauss(rgd, 1 / setup.rcgauss**2)
+            Z_g = gauss(rgd, alpha) * setup.Z
+            D_q = np.dot(D_sp.sum(0), c.B_pqL[:, :, 0])
+            dn_g = np.dot(D_q, (c.n_qg - c.nt_qg)) * sqrt(4 * pi)
+            dn_g += 4 * pi * (c.nc_g - c.nct_g)
+            dn_g -= Z_g
+            dn_g -= dens.Q_aL[a][0] * ghat_g * sqrt(4 * pi)
+            dv_g = rgd.poisson(dn_g) / sqrt(4 * pi)
+            dv_g[1:] /= rgd.r_g[1:]
+            dv_g[0] = dv_g[1]
+            dv_g[-1] = 0.0
+            dv_a1.append([rgd.spline(dv_g, points=POINTS)])
+            
+        dv = LFC(self.gd, dv_a1)
+        dv.set_positions(self.calc.atoms.get_scaled_positions())
+        dv.add(v_R)

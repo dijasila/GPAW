@@ -1,5 +1,5 @@
 import numpy as np
-from ase.lattice import bulk
+from ase.build import bulk
 from ase.units import Hartree, Bohr
 from gpaw import GPAW, FermiDirac
 from ase.dft.kpoints import monkhorst_pack

@@ -96,6 +96,7 @@ GPAW_SETUP_PATH where to find the setups
 GPAW_MAIL       where to send emails about the jobs
 =============== ===================================
 
+
 Writing to files
 ================
 
@@ -169,8 +170,8 @@ nitrogen molecule using two processes:
 
 .. literalinclude:: parallel_atomization.py
 
-.. _manual_parallelization_types:
 
+.. _manual_parallelization_types:
 .. _manual_parallel:
 
 Parallelization options
@@ -199,21 +200,22 @@ The default value corresponds to this Python dictionary::
 
 In words:
 
-* ``'kpt'`` is an integer and denotes the number of groups of k-points over which to parallelize.
-  k-point parallelization is the most efficient type of parallelization for most systems
-  with many electrons and/or many k-points.
-  If unspecified, the calculator will choose a parallelization itself which maximizes the k-point
-  parallelization unless that leads to load imbalance; in that case, it may prioritize domain
-  decomposition.
+* ``'kpt'`` is an integer and denotes the number of groups of k-points over
+  which to parallelize.  k-point parallelization is the most efficient type of
+  parallelization for most systems with many electrons and/or many k-points. If
+  unspecified, the calculator will choose a parallelization itself which
+  maximizes the k-point parallelization unless that leads to load imbalance; in
+  that case, it may prioritize domain decomposition.
 
 * The ``'domain'`` value specifies either an integer ``n`` or a tuple
-  ``(nx,ny,nz)`` of 3 integers for :ref:`domain decomposition <manual_parsize_domain>`.
-  If not specified (i.e. ``None``), the calculator will try to determine the best
-  domain parallelization size based on number of kpoints, spins etc.
+  ``(nx,ny,nz)`` of 3 integers for
+  :ref:`domain decomposition <manual_parsize_domain>`.
+  If not specified (i.e. ``None``), the calculator will try to determine the
+  best domain parallelization size based on number of kpoints, spins etc.
 
-* The ``'band'`` value specifies the number of parallelization groups to use for
-  :ref:`band parallelization <manual_parsize_bands>` and defaults to one, i.e.
-  no band parallelization.
+* The ``'band'`` value specifies the number of parallelization groups to use
+  for :ref:`band parallelization <manual_parsize_bands>` and defaults to one,
+  i.e. no band parallelization.
 
 * ``'order'`` specifies how different parallelization modes are nested
   within the calculator's world communicator.  Must be a permutation
@@ -224,13 +226,14 @@ In words:
   calculations the most efficient order is ``'kdb'`` whereas for TDDFT
   it is ``'kbd'``.
 
-* The ``'stridebands'`` value only applies when band parallelization is used, and
-  can be used to toggle between grouped and strided band distribution.
+* The ``'stridebands'`` value only applies when band parallelization is used,
+  and can be used to toggle between grouped and strided band distribution.
 
-* If ``'sl_auto'`` is ``True``, ScaLAPACK will be enabled with automatically chosen
-  parameters and using all available CPUs.
+* If ``'sl_auto'`` is ``True``, ScaLAPACK will be enabled with automatically
+  chosen parameters and using all available CPUs.
 
-* The other ``'sl_...'`` values are for using ScaLAPACK with different parameters in different operations.
+* The other ``'sl_...'`` values are for using ScaLAPACK with different
+  parameters in different operations.
   Each can be specified as a tuple ``(m,n,mb)`` of 3 integers to
   indicate an ``m*n`` grid of CPUs and a block size of ``mb``.
   If any of the three latter keywords are not
@@ -314,6 +317,7 @@ More information about these topics can be found here:
 
    band_parallelization/band_parallelization
 
+   
 .. _manual_ScaLAPACK:
 
 ScaLAPACK
@@ -378,4 +382,3 @@ of three ScaLAPACK keywords, e.g::
 
 however, we do not presently support ``m != r``, ``n != s``,  and
 ``mb != rb``.  We may implement this in the future.
-

@@ -22,7 +22,7 @@ same linear combination of errors
 
   n_{i+1}=\sum \alpha_i n_i \quad,\quad R_{i+1}=\sum \alpha_i R_i
 
-The norm `R^{i+1}` is thus given as 
+The norm `R^{i+1}` is thus given as
 
 .. math::
 
@@ -150,16 +150,6 @@ weight used by the metric, if any.
 MixerDif seems to be a good choice for spin polarized
 molecules. MixerSum is sometimes better for bulk systems.
 
-The Mixer and MixerSum classes
-------------------------------
-
-.. autoclass:: gpaw.mixer.Mixer
-   :members:
-   :inherited-members:
-
-.. autoclass:: gpaw.mixer.MixerSum
-   :members:
-   :inherited-members:
 
 References
 ----------

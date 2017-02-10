@@ -13,15 +13,7 @@ There is a mailing list for discussing GPAW:
 
 * gpaw-users_
 
-The mailing lists below are of interest for active GPAW developers only:
-
-* gpaw-developers_
-* gpaw-svncheckins_
-
 You should consider also subscribing to the ASE :ref:`ase:mail lists`.
-
-For topics before Oct 20 2009 browse gridpaw-developer_.
-The list is inactive and serves as an archive only.
 
 Note that you can search the mailing list archives: click on the
 mailing list above, then choose the archive, and search from that page.
@@ -55,6 +47,15 @@ GitLab
 
 Feel free to create Merge Requests and Issues on our GitLab page:
 https://gitlab.com/gpaw/gpaw
+
+
+Old mail lists
+==============
+
+These lists are inactive and serve as an archives only:
+    
+* gpaw-developers_ (deactivated Jun 20 2016)
+* gridpaw-developer_ (deactivated Oct 20 2009)
 
 
 .. _webclient: http://webchat.freenode.net/?randomnick=0&channels=gpaw

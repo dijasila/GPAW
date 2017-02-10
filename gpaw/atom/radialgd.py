@@ -1,4 +1,5 @@
 from __future__ import division
+import numbers
 from math import pi, factorial as fac
 
 import numpy as np
@@ -33,7 +34,7 @@ def fsbt(l, f_g, r_g, G_k):
     """Fast spherical Bessel transform.
 
     Returns::
-       
+
           oo
          / 2
          |r dr j (Gr) f(r),
@@ -120,7 +121,7 @@ class RadialGridDescriptor:
 
         For an infinitely dense grid, this method would be identical
         to the `derivative` method."""
-        
+
         c_g = a_g / self.dr_g
         b_g[0] = 0.5 * c_g[1] + c_g[0]
         b_g[1] = 0.5 * c_g[2] - c_g[0]
@@ -141,15 +142,26 @@ class RadialGridDescriptor:
         d2ndr2_g[-1] = d2ndr2_g[-2]
         return d2ndr2_g
 
+    def T(self, u_g, l):
+        dudg_g = 0.5 * (u_g[2:] - u_g[:-2])
+        d2udg2_g = u_g[2:] - 2 * u_g[1:-1] + u_g[:-2]
+        Tu_g = self.empty()
+        Tu_g[1:-1] = -0.5 * (d2udg2_g / self.dr_g[1:-1]**2 +
+                             dudg_g * self.d2gdr2()[1:-1])
+        Tu_g[-1] = Tu_g[-2]
+        Tu_g[1:] += 0.5 * l * (l + 1) * u_g[1:] / self.r_g[1:]**2
+        Tu_g[0] = Tu_g[1]
+        return Tu_g
+
     def interpolate(self, f_g, r_x):
         from scipy.interpolate import InterpolatedUnivariateSpline
         return InterpolatedUnivariateSpline(self.r_g, f_g)(r_x)
-        
+
     def fft(self, fr_g, l=0, N=None):
         """Fourier transform.
 
         Returns G and f(G) arrays::
-           
+
                                           _ _
                l    ^    / _         ^   iG.r
           f(G)i Y  (G) = |dr f(r)Y  (r) e    .
@@ -221,30 +233,39 @@ class RadialGridDescriptor:
 
     def pseudize(self, a_g, gc, l=0, points=4):
         """Construct smooth continuation of a_g for g<gc.
-        
+
         Returns (b_g, c_p[P-1]) such that b_g=a_g for g >= gc and::
-        
+
                 P-1      2(P-1-p)+l
             b = Sum c_p r
              g  p=0      g
 
         for g < gc+P.
         """
-        assert isinstance(gc, int) and gc > 10
-        
+        assert isinstance(gc, numbers.Integral) and gc > 10, gc
+
         r_g = self.r_g
-        i = range(gc, gc + points)
+        i = np.arange(gc, gc + points)
         r_i = r_g[i]
         c_p = np.polyfit(r_i**2, a_g[i] / r_i**l, points - 1)
         b_g = a_g.copy()
         b_g[:gc] = np.polyval(c_p, r_g[:gc]**2) * r_g[:gc]**l
         return b_g, c_p[-1]
 
+    def cut(self, a_g, rcut):
+        gcut = self.floor(rcut)
+        r0 = 0.7 * rcut
+        x_g = np.clip((self.r_g - r0) / (rcut - r0), 0, 1)
+        f_g = x_g**2 * (3 - 2 * x_g)
+        shift = (4 * a_g[gcut] - a_g[gcut - 1]) / 3
+        a_g -= f_g * shift
+        a_g[gcut + 1:] = 0
+
     def pseudize_normalized(self, a_g, gc, l=0, points=3):
         """Construct normalized smooth continuation of a_g for g<gc.
-        
+
         Same as pseudize() with also this constraint::
-        
+
             /  _     2  /  _     2
             | dr b(r) = | dr a(r)
             /           /
@@ -271,9 +292,9 @@ class RadialGridDescriptor:
 
     def jpseudize(self, a_g, gc, l=0, points=4):
         """Construct spherical Bessel function continuation of a_g for g<gc.
-        
+
         Returns (b_g, b(0)/r^l) such that b_g=a_g for g >= gc and::
-        
+
                 P-2
             b = Sum c_p j (q r )
              g  p=0      l  p g
@@ -293,11 +314,11 @@ class RadialGridDescriptor:
                    [1.430, 2.459, 3.471, 4.477, 5.482, 6.484],
                    [1.835, 2.895, 3.923, 4.938, 5.949, 6.956],
                    [2.224, 3.316, 4.360, 5.387, 6.405, 7.418]]
-        
+
         # Logarithmic derivative:
         ld = np.dot([-1 / 60, 3 / 20, -3 / 4, 0, 3 / 4, -3 / 20, 1 / 60],
                     a_g[gc - 3:gc + 4]) / a_g[gc] / self.dr_g[gc]
-        
+
         rc = self.r_g[gc]
 
         def f(q):
@@ -343,10 +364,10 @@ class RadialGridDescriptor:
 
     def floor(self, r):
         return np.floor(self.r2g(r)).astype(int)
-    
+
     def round(self, r):
         return np.around(self.r2g(r)).astype(int)
-    
+
     def ceil(self, r):
         return np.ceil(self.r2g(r)).astype(int)
 
@@ -364,7 +385,7 @@ class RadialGridDescriptor:
         N = len(b_g)
         if l > 0:
             b_g = divrl(b_g, l, self.r_g[:N])
-            
+
         r_i = np.linspace(0, rcut, points + 1)
         g_i = np.clip((self.r2g(r_i) + 0.5).astype(int), 1, N - 2)
 
@@ -392,14 +413,19 @@ class EquidistantRadialGridDescriptor(RadialGridDescriptor):
     def r2g(self, r):
         return (r - self.r_g[0]) / (self.r_g[1] - self.r_g[0])
 
-    def spline(self, a_g, rcut=None, l=0):
-        assert rcut is None
+    def xml(self, id='grid1'):
+        assert self.r_g[0] == 0.0
+        return ('<radial_grid eq="r=d*i" d="{0!r}" '
+                'istart="0" iend="{1}" id="{2}"/>\n'
+                .format(self.r_g[1], len(self.r_g) - 1, id))
+
+    def spline(self, a_g, rcut=None, l=0, points=None):
         b_g = a_g.copy()
         if l > 0:
             b_g = divrl(b_g, l, self.r_g[:len(a_g)])
         return Spline(l, self.r_g[len(a_g) - 1], b_g)
 
-        
+
 class AERadialGridDescriptor(RadialGridDescriptor):
     def __init__(self, a, b, N=1000, default_spline_points=25):
         """Radial grid descriptor for all-electron calculation.
@@ -417,7 +443,7 @@ class AERadialGridDescriptor(RadialGridDescriptor):
         r_g = self.a * g / (1 - self.b * g)
         dr_g = (self.b * r_g + self.a)**2 / self.a
         RadialGridDescriptor.__init__(self, r_g, dr_g, default_spline_points)
-                                      
+
     def r2g(self, r):
         # return r / (r * self.b + self.a)
         # Hack to preserve backwards compatibility:
@@ -437,7 +463,7 @@ class AERadialGridDescriptor(RadialGridDescriptor):
     def d2gdr2(self):
         return -2 * self.a * self.b / (self.b * self.r_g + self.a)**3
 
-        
+
 class AbinitRadialGridDescriptor(RadialGridDescriptor):
     def __init__(self, a, d, N=1000, default_spline_points=25):
         """Radial grid descriptor for Abinit calculations.
@@ -454,6 +480,6 @@ class AbinitRadialGridDescriptor(RadialGridDescriptor):
         r_g = a * (np.exp(d * g) - 1)
         dr_g = (r_g + a) * d
         RadialGridDescriptor.__init__(self, r_g, dr_g, default_spline_points)
-                                      
+
     def r2g(self, r):
         return np.log(r / self.a + 1) / self.d

@@ -1,7 +1,7 @@
 from __future__ import print_function
 from time import time
 import sys
-from fractions import gcd
+from ase.utils import gcd
 import numpy as np
 from gpaw import parsize_domain, parsize_bands
 from gpaw.band_descriptor import BandDescriptor

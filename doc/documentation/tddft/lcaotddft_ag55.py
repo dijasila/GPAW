@@ -27,9 +27,7 @@ atoms.get_potential_energy()
 # For demonstration purposes, save intermediate ground state result to a file
 td_calc.write('ag55.gpw', mode='all')
 
-# gpw format does not currently save PoissonSolver, so specify it here again
-poissonsolver = PoissonSolver(eps=1e-14, remove_moment=1 + 3)
-td_calc = LCAOTDDFT('ag55.gpw', poissonsolver=poissonsolver,
+td_calc = LCAOTDDFT('ag55.gpw',
                     parallel={'sl_default': (8, 8, 32), 'band': 2})
 
 td_calc.absorption_kick([1e-5, 0.0, 0.0])

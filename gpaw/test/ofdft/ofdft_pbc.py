@@ -1,4 +1,4 @@
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW
 from gpaw.mixer import Mixer
 from gpaw.test import equal

@@ -610,9 +610,10 @@ class TimeDependentOverlap(Overlap):
 
 class TimeDependentWaveFunctions(FDWaveFunctions):
     def __init__(self, stencil, diagksl, orthoksl, initksl, gd, nvalence, setups,
-                 bd, world, kd, kptband_comm, timer):
+                 bd, dtype, world, kd, kptband_comm, timer):
+        assert dtype == complex
         FDWaveFunctions.__init__(self, stencil, diagksl, orthoksl, initksl,
-                                 gd, nvalence, setups, bd, complex, world,
+                                 gd, nvalence, setups, bd, dtype, world,
                                  kd, kptband_comm, timer=timer)
 
     def make_overlap(self):

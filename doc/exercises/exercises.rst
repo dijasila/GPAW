@@ -6,8 +6,8 @@ Exercises
 
 .. note::
 
-  **CAMd summer school 2014 participants**, please read
-  this :ref:`page <summerschool14>` before you start working on the
+  **CAMd summer school 2016 participants**, please read
+  this :ref:`page <summerschool16>` before you start working on the
   exercises.
 
 In order to do the exercises, it helps with a little bit of knowledge
@@ -37,7 +37,7 @@ Do these first...
    water/water
    wavefunctions/wavefunctions
 
-   
+
 Intermediate exercises
 ======================
 
@@ -48,7 +48,7 @@ Intermediate exercises
    surface/surface
    diffusion/diffusion
 
-   
+
 Advanced exercises
 ==================
 
@@ -71,8 +71,8 @@ Pick among them according to your interest.  You can also look at the
    rpa/rpa
    dcdft/dcdft
    stress/stress
-   transport/transport
    lrtddft/lrtddft
+   transport/transport
 
 Further information:
 
@@ -80,6 +80,6 @@ Further information:
    :maxdepth: 1
 
    faeq
-   
+
 For comments and questions, write to the :ref:`mail lists`.  You
 can also search in the mailing list archives on the same page.

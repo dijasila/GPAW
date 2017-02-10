@@ -1,29 +1,35 @@
 """Module defining  ``Eigensolver`` classes."""
 
-from gpaw.eigensolvers.rmm_diis import RMM_DIIS
+from ase.utils import basestring
+
+from gpaw.eigensolvers.rmmdiis import RMMDIIS
 from gpaw.eigensolvers.cg import CG
 from gpaw.eigensolvers.davidson import Davidson
 from gpaw.lcao.eigensolver import DirectLCAO
 
 
-def get_eigensolver(name, mode, convergence=None):
+def get_eigensolver(eigensolver, mode, convergence=None):
     """Create eigensolver object."""
-    if name is None:
+    if eigensolver is None:
         if mode.name == 'lcao':
-            name = 'lcao'
+            eigensolver = 'lcao'
         else:
-            name = 'dav'
-    if isinstance(name, str):
-        eigensolver = {'rmm-diis': RMM_DIIS,
+            eigensolver = 'dav'
+
+    if isinstance(eigensolver, basestring):
+        eigensolver = {'name': eigensolver}
+
+    if isinstance(eigensolver, dict):
+        eigensolver = eigensolver.copy()
+        name = eigensolver.pop('name')
+        eigensolver = {'rmm-diis': RMMDIIS,
                        'cg': CG,
                        'dav': Davidson,
                        'lcao': DirectLCAO
-                       }[name]()
-    else:
-        eigensolver = name
-    
+                       }[name](**eigensolver)
+
     if isinstance(eigensolver, CG):
-        eigensolver.tolerance = convergence['eigenstates']
+        eigensolver.tolerance = convergence.get('eigenstates', 4.0e-8)
 
     assert isinstance(eigensolver, DirectLCAO) == (mode.name == 'lcao')
 

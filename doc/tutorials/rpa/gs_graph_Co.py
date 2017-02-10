@@ -3,7 +3,7 @@ import numpy as np
 from ase.visualize import view
 from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import paropen
-from ase.lattice.surface import *
+from ase.build import *
 from gpaw import GPAW, PW, FermiDirac, MixerSum
 from gpaw.xc.exx import EXX
 

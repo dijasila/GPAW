@@ -89,7 +89,7 @@ class Generator(AllElectron):
             f_j.append(0.0)
             e_j.append(-0.01)
             empty_states = empty_states[2:]
-            
+
         if 2 in l_j[njcore:]:
             # We have a bound valence d-state.  Add bound s- and
             # p-states if not already there:
@@ -522,7 +522,7 @@ class Generator(AllElectron):
             nn = len(e_n)
             L_nn = np.identity(nn, float)
             U_nn = A_nn.copy()
-            
+
             # Keep all bound states normalized
             if sum([n > 0 for n in n_ln[l]]) <= 1:
                 for i in range(nn):
@@ -705,7 +705,8 @@ class Generator(AllElectron):
 
         sqrt4pi = sqrt(4 * pi)
         setup = SetupData(self.symbol, self.xc.name, self.name,
-                          readxml=False)
+                          readxml=False,
+                          generator_version=1)
 
         def divide_by_r(x_g, l):
             r = self.r
@@ -722,6 +723,7 @@ class Generator(AllElectron):
             return [divide_by_r(x_g, l) for x_g, l in zip(x_jg, vl_j)]
 
         setup.l_j = vl_j
+        setup.l_orb_j = vl_j
         setup.n_j = vn_j
         setup.f_j = vf_j
         setup.eps_j = ve_j
@@ -740,11 +742,11 @@ class Generator(AllElectron):
         setup.Nv = self.Nv
         setup.e_kinetic = self.Ekin
         setup.e_xc = self.Exc
-        setup.e_electrostatic = self.Epot
-        setup.e_total = self.Epot + self.Exc + self.Ekin
+        setup.e_electrostatic = self.e_coulomb
+        setup.e_total = self.e_coulomb + self.Exc + self.Ekin
 
         setup.rgd = self.rgd
-        
+
         setup.rcgauss = self.rcutcomp / sqrt(self.gamma)
         setup.e_kin_jj = self.dK_jj
         setup.ExxC = ExxC
@@ -777,7 +779,7 @@ class Generator(AllElectron):
         setup.generatorattrs = attrs
         setup.generatordata  = data
         setup.orbital_free = self.orbital_free
-        
+
         self.id_j = []
         for l, n in zip(vl_j, vn_j):
             if n > 0:
@@ -874,150 +876,6 @@ class Generator(AllElectron):
             s[g + 2] = (q[g + 1] - fm[g] * s[g] - f0[g] * s[g + 1]) / fp[g]
         return s
 
-    def write_xml(self, vl_j, vn_j, vf_j, ve_j, vu_j, vs_j, vq_j,
-                  nc, nct, nt, Ekincore, X_p, ExxC, vbar,
-                  tauc, tauct, extra_xc_data):
-        raise DeprecationWarning('use gpaw/setup_data.py')
-        xcname = self.xc.name
-        if self.name is None:
-            xml = open('%s.%s' % (self.symbol, xcname), 'w')
-        else:
-            xml = open('%s.%s.%s' % (self.symbol, self.name, xcname), 'w')
-        if self.ghost:
-            raise RuntimeError('Ghost!')
-
-        print('<?xml version="1.0"?>', file=xml)
-        print('<paw_setup version="0.6">', file=xml)
-
-        name = atomic_names[self.Z].title()
-        comment1 = name + ' setup for the Projector Augmented Wave method.'
-        comment2 = 'Units: Hartree and Bohr radii.'
-        comment2 += ' ' * (len(comment1) - len(comment2))
-        print('  <!--', comment1, '-->', file=xml)
-        print('  <!--', comment2, '-->', file=xml)
-
-        print(('  <atom symbol="%s" Z="%d" core="%.1f" valence="%d"/>'
-                       % (self.symbol, self.Z, self.Nc, self.Nv)), file=xml)
-        if self.xcname == 'LDA':
-            type = 'LDA'
-            name = 'PW'
-        else:
-            type = 'GGA'
-            name = self.xcname
-
-        print('  <xc_functional type="%s" name="%s"/>' % (type, name), file=xml)
-        if self.scalarrel:
-            type = 'scalar-relativistic'
-        else:
-            type = 'non-relativistic'
-
-        print('  <generator type="%s" name="gpaw-%s">' % \
-              (type, version), file=xml)
-        print('    Frozen core:', self.core or 'none', file=xml)
-        print('  </generator>', file=xml)
-
-        print('  <ae_energy kinetic="%f" xc="%f"' % \
-              (self.Ekin, self.Exc), file=xml)
-        print('             electrostatic="%f" total="%f"/>' % \
-              (self.Epot, self.Ekin + self.Exc + self.Epot), file=xml)
-
-        print('  <core_energy kinetic="%f"/>' % Ekincore, file=xml)
-
-        print('  <valence_states>', file=xml)
-        ids = []
-        line1 = '    <state n="%d" l="%d" f=%s rc="%5.3f" e="%8.5f" id="%s"/>'
-        line2 = '    <state       l="%d"        rc="%5.3f" e="%8.5f" id="%s"/>'
-        for l, n, f, e in zip(vl_j, vn_j, vf_j, ve_j):
-            if n > 0:
-                f = '%-4s' % ('"%d"' % f)
-                id = '%s-%d%s' % (self.symbol, n, 'spdf'[l])
-                print(line1 % (n, l, f, self.rcut_l[l], e, id), file=xml)
-            else:
-                id = '%s-%s%d' % (self.symbol, 'spdf'[l], -n)
-                print(line2 % (l, self.rcut_l[l], e, id), file=xml)
-            ids.append(id)
-        print('  </valence_states>', file=xml)
-
-        print(('  <radial_grid eq="r=a*i/(n-i)" a="%f" n="%d" ' +
-                       'istart="0" iend="%d" id="g1"/>') % \
-                       (self.beta, self.N, self.N - 1), file=xml)
-
-        rcgauss = self.rcutcomp / sqrt(self.gamma)
-        print(('  <shape_function type="gauss" rc="%.12e"/>' %
-                       rcgauss), file=xml)
-
-        r = self.r
-
-        if self.jcorehole is not None:
-            print("self.jcorehole", self.jcorehole)
-            print((('  <core_hole_state state="%d%s" ' +
-                           'removed="%.1f" eig="%.8f" ekin="%.8f">') %
-                           (self.ncorehole, 'spdf'[self.lcorehole],
-                            self.fcorehole,
-                            self.e_j[self.jcorehole],self.Ekincorehole)), file=xml)
-            #print 'normalized?', np.dot(self.dr, self.u_j[self.jcorehole]**2)
-            p = self.u_j[self.jcorehole].copy()
-            p[1:] /= r[1:]
-            if self.l_j[self.jcorehole] == 0:
-                p[0] = (p[2] +
-                        (p[1] - p[2]) * (r[0] - r[2]) / (r[1] - r[2]))
-            for x in p:
-                print('%16.12e' % x, end=' ', file=xml)
-            print('\n  </core_hole_state>', file=xml)
-
-        for name, a in [('ae_core_density', nc),
-                        ('pseudo_core_density', nct),
-                        ('pseudo_valence_density', nt - nct),
-                        ('zero_potential', vbar),
-                        ('ae_core_kinetic_energy_density',tauc),
-                        ('pseudo_core_kinetic_energy_density',tauct)]:
-            print('  <%s grid="g1">\n    ' % name, end=' ', file=xml)
-            for x in a * sqrt(4 * pi):
-                print('%16.12e' % x, end=' ', file=xml)
-            print('\n  </%s>' % name, file=xml)
-
-        # Print xc-specific data to setup file (used so for KLI and GLLB)
-        for name, a in extra_xc_data.items():
-            newname = 'GLLB_'+name
-            print('  <%s grid="g1">\n    ' % newname, end=' ', file=xml)
-            for x in a:
-                print('%16.12e' % x, end=' ', file=xml)
-            print('\n  </%s>' % newname, file=xml)
-
-        for l, u, s, q, in zip(vl_j, vu_j, vs_j, vq_j):
-            id = ids.pop(0)
-            for name, a in [('ae_partial_wave', u),
-                            ('pseudo_partial_wave', s),
-                            ('projector_function', q)]:
-                print(('  <%s state="%s" grid="g1">\n    ' %
-                               (name, id)), end=' ', file=xml)
-                p = a.copy()
-                p[1:] /= r[1:]
-                if l == 0:
-                    # XXXXX go to higher order!!!!!
-                    p[0] = (p[2] +
-                            (p[1] - p[2]) * (r[0] - r[2]) / (r[1] - r[2]))
-                for x in p:
-                    print('%16.12e' % x, end=' ', file=xml)
-                print('\n  </%s>' % name, file=xml)
-
-        print('  <kinetic_energy_differences>', end=' ', file=xml)
-        nj = len(self.dK_jj)
-        for j1 in range(nj):
-            print('\n    ', end=' ', file=xml)
-            for j2 in range(nj):
-                print('%16.12e' % self.dK_jj[j1, j2], end=' ', file=xml)
-        print('\n  </kinetic_energy_differences>', file=xml)
-
-        if X_p is not None:
-            print('  <exact_exchange_X_matrix>\n    ', end=' ', file=xml)
-            for x in X_p:
-                print('%16.12e' % x, end=' ', file=xml)
-            print('\n  </exact_exchange_X_matrix>', file=xml)
-
-            print('  <exact_exchange core-core="%f"/>' % ExxC, file=xml)
-
-        print('</paw_setup>', file=xml)
 
 def construct_smooth_wavefunction(u, l, gc, r, s):
     # Do a linear regression to a wave function

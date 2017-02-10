@@ -1,30 +1,30 @@
 from __future__ import print_function
+import os
+import time
 
-import os, time
 import numpy as np
 
 from ase import Atoms
 from ase.parallel import paropen
-from ase.units import fs, Hartree, Bohr
+from ase.units import fs
 from ase.io import Trajectory
 from ase.md.verlet import VelocityVerlet
 from gpaw import GPAW
 from gpaw.mpi import world
 
-# -------------------------------------------------------------------
-
 name = 'na2_md'
 
 # Equilibrium distance in Ang cf. setups page for Na dimer
-d_bond = 3.29 # ~3.0 during oscillation
+d_bond = 3.29  # ~3.0 during oscillation
 d_disp = 0.1
 
 # Timestep and expected oscillatory period in attoseconds
 timestep = 500.0
-period = 2.1e5 # ~19.7 meV cf. CRC Handbook of Phys. & Chem. #09_08_91
+period = 2.1e5  # ~19.7 meV cf. CRC Handbook of Phys. & Chem. #09_08_91
 
-ndiv = int(np.ceil(10e3 / timestep)) # update stats every 10 fs
+ndiv = int(np.ceil(10e3 / timestep))  # update stats every 10 fs
 niter = ndiv * int(np.ceil(3 * period / (ndiv * timestep)))
+
 
 class Timing:
     def __init__(self, f):
@@ -33,10 +33,11 @@ class Timing:
         self.i = 0
 
     def __call__(self, atoms):
-        rate = 60 * ndiv / (time.time()-self.t0)
+        rate = 60 * ndiv / (time.time() - self.t0)
         ekin = atoms.get_kinetic_energy()
         epot = atoms.get_potential_energy()
-        print('i=%06d (%6.2f min^-1), ekin=%13.9f, epot=%13.9f, etot=%13.9f' % (self.i, rate, ekin, epot, ekin+epot), file=self.f)
+        print('i=%06d (%6.2f min^-1), ekin=%13.9f, epot=%13.9f, etot=%13.9f' %
+              (self.i, rate, ekin, epot, ekin + epot), file=self.f)
         self.t0 = time.time()
         self.i += ndiv
 
@@ -62,8 +63,6 @@ if __name__ == '__main__':
     world.barrier()
 
     tdcalc = GPAW(name + '_gs.gpw', txt=name + '_td.txt')
-    tdcalc.forces.reset() #XXX debug
-    tdcalc.initialize_positions()
     atoms = tdcalc.get_atoms()
 
     traj = Trajectory(name + '_td.traj', 'w', atoms)

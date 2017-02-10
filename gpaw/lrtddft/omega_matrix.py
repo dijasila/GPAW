@@ -1,15 +1,12 @@
 from __future__ import print_function
 from math import sqrt
-import numpy as np
-import gpaw.mpi as mpi
-MASTER = mpi.MASTER
 
+import numpy as np
 from ase.units import Hartree
+from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer
 
 import gpaw.mpi as mpi
-#from gpaw.poisson import PoissonSolver
-from gpaw.output import get_txt
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.transformers import Transformer
 from gpaw.utilities import pack
@@ -45,12 +42,11 @@ class OmegaMatrix:
                  filehandle=None,
                  txt=None,
                  finegrid=2,
-                 eh_comm=None,
-                 ):
+                 eh_comm=None):
 
         if not txt and calculator:
-            txt = calculator.txt
-        self.txt = get_txt(txt, mpi.rank)
+            txt = calculator.log.fd
+        self.txt = convert_string_to_fd(txt, mpi.world)
 
         if eh_comm is None:
             eh_comm = mpi.serial_comm
@@ -87,8 +83,7 @@ class OmegaMatrix:
             self.poisson.initialize()
             self.gd = wfs.gd
         self.restrict = Transformer(self.paw.density.finegd, wfs.gd,
-                                    self.paw.input_parameters.stencils[1]
-                                    ).apply
+                                    self.paw.density.stencil).apply
 
         if xc == 'RPA':
             xc = None  # enable RPA as keyword
@@ -493,10 +488,11 @@ class OmegaMatrix:
                 skss.append((ks + ks) / sqrt(2))
                 tkss.append((ks - ks) / sqrt(2))
                 map.append(ij)
-
+        skss.istart = tkss.istart = self.fullkss.istart
+        skss.jend = tkss.jend = self.fullkss.jend
         nkss = len(skss)
 
-        # define the singlet and the triplet omega-matrixes
+        # define the singlet and the triplet omega-matrices
         sOm = OmegaMatrix(kss=skss)
         sOm.full = np.empty((nkss, nkss))
         tOm = OmegaMatrix(kss=tkss)
@@ -581,12 +577,8 @@ class OmegaMatrix:
 
         return map, kss
 
-    def diagonalize(self, istart=None, jend=None, energy_range=None,
-                    TDA=False):
+    def diagonalize(self, istart=None, jend=None, energy_range=None):
         """Evaluate Eigenvectors and Eigenvalues:"""
-
-        if TDA:
-            raise NotImplementedError
 
         map, kss = self.get_map(istart, jend, energy_range)
         nij = len(kss)
@@ -635,7 +627,12 @@ class OmegaMatrix:
 
     def write(self, filename=None, fh=None):
         """Write current state to a file."""
-        if mpi.rank == mpi.MASTER:
+
+        try:
+            rank = self.paw.wfs.world.rank
+        except AttributeError:
+            rank = mpi.world.rank
+        if rank == 0:
             if fh is None:
                 f = open(filename, 'w')
             else:

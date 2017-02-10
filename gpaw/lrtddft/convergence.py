@@ -3,7 +3,6 @@ import os
 
 from ase.units import Hartree
 
-from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft.spectrum import spectrum, rotatory_spectrum
 
 
@@ -86,8 +85,8 @@ def check_convergence(lr,             # LrTDDFT object
             lr.diagonalize(istart=istart, jend=jend0)
             fn = fname('istart' + str(istart) + '.dat')
             spectrum(lr, fn, width=width)
-            print('    "' + fn + '" t "istart=' + str(istart)
-                  + '" w l lt', i + 1, end=' ', file=fgpl)
+            print('    "' + fn + '" t "istart=' + str(istart) +
+                  '" w l lt', i + 1, end=' ', file=fgpl)
             if i < 3:
                 print(', \\', end=' ', file=fgpl)
             print(file=fgpl)
@@ -101,8 +100,8 @@ def check_convergence(lr,             # LrTDDFT object
             lr.diagonalize(jend=jend, istart=istart0)
             fn = fname('jend' + str(jend) + '.dat')
             spectrum(lr, fn, width=width)
-            print('    "' + fn + '" t "jend=' + str(jend)
-                  + '" w l lt', i + 1, end=' ', file=fgpl)
+            print('    "' + fn + '" t "jend=' + str(jend) +
+                  '" w l lt', i + 1, end=' ', file=fgpl)
             if i < 3:
                 print(', \\', end=' ', file=fgpl)
             print(file=fgpl)

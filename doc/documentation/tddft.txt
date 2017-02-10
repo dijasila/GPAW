@@ -35,6 +35,7 @@
 2015-01-15 10.1039/c4cp02789b A DFT study of the effect of OH groups on the optical, electronic, and structural properties of TiO2 nanoparticles
 2015-01-15 10.1039/c5cc04513d UV photoexcitation of a dissolved metalloid Ge-9 cluster compound and its extensive ultrafast response
 2015-01-15 10.1039/c5cp00435g An old workhorse for new applications: Fe(dpm)(3) as a precursor for low-temperature PECVD of iron(III) oxide
+2015-01-15 10.1039/c5nr04324g Pd2Au36(SR)(24) cluster: structure studies
 2015-01-22 10.1021/jp511037x Silver Sulfide Nanoclusters and the Superatom Model
 2015-01-28 10.1021/ja5109968 A Critical Size for Emergence of Nonbulk Electronic and Geometric Structures in Dodecanethiolate-Protected Au Clusters
 2015-02-05 10.1021/jz502637b Copper Induces a Core Plasmon in Intermetallic Au(144,145)-xCux(SR)(60) Nanoclusters
@@ -47,3 +48,15 @@
 2015-07-20 10.1103/PhysRevB.92.045209 Beyond the Tamm-Dancoff approximation for extended systems using exact diagonalization
 2015-08-14 10.1063/1.4928510 Subspace formulation of time-dependent density functional theory for large-scale calculations
 2015-08-27 10.1021/acs.jpcc.5b07622 Photodynamics of a Molecular Water-Soluble Nanocluster Identified as Au-130(pMBA)(50)
+2015-09-10 10.1021/acs.jpcc.5b05824 Superatom Model for Ag-S Nanocluster with Delocalized Electrons
+2015-12-01 10.1103/PhysRevLett.115.236804 Quantized Evolution of the Plasmonic Response in a Stretched Nanorod
+2015-12-14 10.1063/1.4937379 Nonlinear electronic excitations in crystalline solids using meta-generalized gradient approximation and hybrid functional in time-dependent density functional theory
+2015-12-15 10.1021/acsnano.5b02850 Dynamic Diglyme-Mediated Self-Assembly of Gold Nanoclusters
+2015-12-24 10.1021/acs.jpcc.5b10182 Charge Transfer at the Hybrid Interfaces in the Presence of Water: A Theoretical Study
+2016-01-15 10.1039/c5nr08122j Tuning Ag-29 nanocluster light emission from red to blue with one and two-photon excitation
+2016-02-14 10.1039/c5cp06969f The electrooxidation-induced structural changes of gold di-superatomic molecules: Au-23 vs. Au-25
+2016-02-25 10.1021/acs.jpcc.5b11489 Comparative Ab-Initio Study of Substituted Norbornadiene-Quadricyclane Compounds for Solar Thermal Storage
+2016-06-28 10.1038/srep28618 Role of Polar Phonons in the Photo Excited State of Metal Halide Perovskites
+2016-07-15 10.1021/acs.jctc.6b00263 Electrostatic Embedding To Model the Impact of Environment on Photophysical Properties of Molecular Crystals: A Self-Consistent Charge Adjustment Procedure
+2016-09-15 10.1038/ncomms12809 Plasmonic twinned silver nanoparticles with molecular precision
+2016-11-09 10.1021/jacs.6b09007 [Ag-67(SPhMe2)(32)(PPh3)(8)](3+): Synthesis, Total Structure, and Optical Properties of a Large Box-Shaped Silver Nanocluster

@@ -21,7 +21,7 @@ energy = atoms.get_potential_energy()
 calc.set(convergence={'bands': 8},
          fixdensity=True,
          eigensolver='cg')
-calc.calculate()
+atoms.get_potential_energy()
 
 # Save the ground state
 calc.write('Be_gs_8bands.gpw', 'all')

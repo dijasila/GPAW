@@ -48,7 +48,6 @@ MacOSX:
    :maxdepth: 1
 
    MacOSX/homebrew
-   MacOSX/macports
 
 AIX:
 
@@ -97,6 +96,7 @@ Cray:
 .. toctree::
    :maxdepth: 1
 
+   Cray/nersc_cori
    Cray/louhi
    Cray/jaguar
    Cray/sisu

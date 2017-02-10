@@ -15,7 +15,7 @@ label_fontsize = 12
 
 from ase.data import atomic_numbers
 
-from ase.structure import molecule
+from ase.build import molecule
 from ase.data.g2_1 import data
 
 from gpaw.test.big.g2_1.pbe_nwchem_def2_qzvppd_analyse import ref

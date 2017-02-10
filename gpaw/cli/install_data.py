@@ -1,11 +1,15 @@
 from __future__ import print_function
 import os
 import fnmatch
-import urllib2
-from StringIO import StringIO
+from io import BytesIO
 import tarfile
 from optparse import OptionParser, OptionGroup
 import re
+try:
+    from urllib2 import urlopen
+    input = raw_input
+except ImportError:
+    from urllib.request import urlopen
 
 
 usage = '%prog [OPTION]\n  or:  %prog [OPTION] INSTALLDIR'
@@ -21,9 +25,33 @@ sources = [('gpaw', 'official GPAW setups releases [default]'),
            ]
 names = [r for r, d in sources]
 
+baseurls = {'gpaw':
+            'https://wiki.fysik.dtu.dk/gpaw/_sources/setups/setups.txt',
+            #'sg15': 'http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/',
+            'sg15': 'http://www.quantum-simulation.org/potentials/sg15_oncv/',
+            'basis':
+            'http://dcwww.camd.dtu.dk/~askhl/files/gpaw-lcao-basis-sets/',
+            'test': 'http://dcwww.camd.dtu.dk/~askhl/files/gpaw-test-source/'}
+
+
+notfound_msg = """\
+For some reason the files were not found.
+
+Perhaps this script is out of date, and the data is no longer
+available at the expected URL:
+
+  {url}
+
+Or maybe there it is just a temporary problem or timeout.  Please try
+again, or rummage around the GPAW web page until a solution is found.
+Writing e-mails to gpaw-developers@lists@listserv.fysik.dtu.dk is also
+likely to help."""
+
 
 def main(args):
-    p = OptionParser(usage=usage, description=description)
+    p = OptionParser(prog='gpaw install-data',
+                     usage=usage,
+                     description=description)
     add = p.add_option
     add('--version', metavar='VERSION',
         help='download VERSION of package.  '
@@ -50,10 +78,10 @@ def main(args):
         'GPAW setup search paths')
     opts, args = p.parse_args(args)
     nargs = len(args)
-    
+
     if opts.source is None:
         opts.source = sources[0][0]
-    
+
     if opts.register and opts.no_register:
         p.error('Conflicting options specified on whether to register '
                 'setup install paths in configuration file.  Try not '
@@ -62,7 +90,7 @@ def main(args):
     # The sg15 file is a tarbomb.  We will later defuse it by untarring
     # into a subdirectory, so we don't leave a ghastly mess on the
     # unsuspecting user's system.
-    
+
     if not opts.tarball:
         if opts.list_all:
             urls = []
@@ -71,7 +99,7 @@ def main(args):
                 urls.extend(urls1)
         else:
             urls = get_urls(opts.source)
-    
+
         def print_urls(urls, marked=None):
             for url in urls:
                 pageurl, fname = url.rsplit('/', 1)
@@ -80,15 +108,11 @@ def main(args):
                 else:
                     marking = '    '
                 print(' %s %s' % (marking, url))
-    
+
         if len(urls) == 0:
-            p.error(
-                'For some reason, no files were found. Probably this script '
-                'is out of date.  Please rummage around GPAW web page until '
-                'solution is found.  Writing e-mails to '
-                'gpaw-developers@lists@listserv.fysik.dtu.dk is also likely'
-                'to help.')
-    
+            url = baseurls[opts.source]
+            p.error(notfound_msg.format(url=url))
+
         if opts.version:
             matching_urls = [url for url in urls if opts.version in url]
             if len(matching_urls) > 1:
@@ -102,11 +126,11 @@ def main(args):
             url = matching_urls[0]
         else:
             url = urls[0]
-    
+
         print('Available setups and pseudopotentials')
         print_urls(urls, url)
         print()
-        
+
     if nargs == 0:
         print_setups_info(p)
         print()
@@ -118,9 +142,9 @@ def main(args):
         raise SystemExit
     elif len(args) != 1:
         p.error('No more than one DIR expected.  Please try --help.')
-    
+
     targetpath = args[0]
-    
+
     if opts.tarball:
         print('Reading local tarball %s' % opts.tarball)
         targzfile = tarfile.open(opts.tarball)
@@ -128,12 +152,12 @@ def main(args):
     else:
         tarfname = url.rsplit('/', 1)[1]
         print('Selected %s.  Downloading...' % tarfname)
-        response = urllib2.urlopen(url)
-        targzfile = tarfile.open(fileobj=StringIO(response.read()))
-    
+        response = urlopen(url)
+        targzfile = tarfile.open(fileobj=BytesIO(response.read()))
+
     if not os.path.exists(targetpath):
         os.makedirs(targetpath)
-    
+
     assert tarfname.endswith('.tar.gz')
     setup_dirname = tarfname.rsplit('.', 2)[0]  # remove .tar.gz ending
     setup_path = os.path.abspath(os.path.join(targetpath, setup_dirname))
@@ -142,28 +166,27 @@ def main(args):
         if not os.path.isdir(setup_path):
             os.mkdir(setup_path)
         targetpath = os.path.join(targetpath, setup_dirname)
-    
+
     print('Extracting tarball into %s' % targetpath)
     targzfile.extractall(targetpath)
     assert os.path.isdir(setup_path)
     print('Setups installed into %s.' % setup_path)
-    
+
     # Okay, now we have to maybe edit people's rc files.
     rcfiledir = os.path.join(os.environ['HOME'], '.gpaw')
     rcfilepath = os.path.join(rcfiledir, 'rc.py')
-    
+
     # We could do all this by importing the rcfile as well and checking
     # whether things are okay or not.
     rcline = "setup_paths.insert(0, '%s')" % setup_path
-    
+
     # Run interactive mode unless someone specified a flag requiring otherwise
     interactive_mode = not (opts.register or opts.no_register)
-    
+
     register_path = False
-    
+
     if interactive_mode:
-        answer = raw_input('Register this setup path in %s? [y/n] ' %
-                           rcfilepath)
+        answer = input('Register this setup path in %s? [y/n] ' % rcfilepath)
         if answer.lower() in ['y', 'yes']:
             register_path = True
         elif answer.lower() in ['n', 'no']:
@@ -176,7 +199,7 @@ def main(args):
             register_path = True
         else:
             assert opts.no_register
-    
+
     if register_path:
         # First we create the file
         if not os.path.exists(rcfiledir):
@@ -184,7 +207,7 @@ def main(args):
         if not os.path.exists(rcfilepath):
             tmpfd = open(rcfilepath, 'w')  # Just create empty file
             tmpfd.close()
-    
+
         for line in open(rcfilepath):
             if line.startswith(rcline):
                 print('It looks like the path is already registered in %s.'
@@ -198,7 +221,7 @@ def main(args):
             # Need to explicitly flush/close the file so print_setups_info
             # sees the change in rc.py
             rcfd.close()
-    
+
             print_setups_info(p)
     else:
         print('You can manually register the setups by adding the')
@@ -207,39 +230,35 @@ def main(args):
         print(rcline)
         print()
     print('Installation complete.')
-        
-        
+
+
 def get_urls(source):
+    page = baseurls[source]
+    response = urlopen(page)
     if source == 'gpaw':
-        page = 'https://wiki.fysik.dtu.dk/gpaw/_sources/setups/setups.txt'
-        response = urllib2.urlopen(page)
         pattern = 'https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-*.tar.gz'
-        urls = [line.strip() for line in response
-                if fnmatch.fnmatch(line.strip(), pattern)]
-        return urls
+        lines = (line.strip().decode() for line in response)
+        urls = [line for line in lines if fnmatch.fnmatch(line, pattern)]
     elif source == 'sg15':
-        page = 'http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/'
-        response = urllib2.urlopen(page)
-        # Extract filename from:
-        # <a href="...">sg15_oncv_upf_YYYY-MM-DD.tar.gz</a>
-        pattern = r'>(sg15_oncv_upf_\d\d\d\d-\d\d-\d\d\.tar\.gz)</a>'
+        # We want sg15_oncv_2015-10-07.tar.gz, but they may upload
+        # newer files, too.
+        pattern = (r'<a\s*href=[^>]+>\s*'
+                   r'(sg15_oncv_upf_\d\d\d\d-\d\d-\d\d.tar.gz)'
+                   r'\s*</a>')
+
         files = re.compile(pattern).findall(response.read())
         files.sort(reverse=True)
         urls = [page + fname for fname in files]
-        return urls
     elif source == 'basis':
-        page = 'http://dcwww.camd.dtu.dk/~askhl/files/gpaw-lcao-basis-sets/'
         pattern = re.compile('>(gpaw-basis-.+?.tar.gz)</a>')
-        response = urllib2.urlopen(page)
         files = sorted(pattern.findall(response.read()), reverse=True)
-        return [page + fname for fname in files]
+        urls = [page + fname for fname in files]
     elif source == 'test':
-        return ['http://dcwww.camd.dtu.dk/~askhl/files/gpaw-test-source/'
-                'gpaw-dist-test-source.tar.gz']
+        urls = ['{0}gpaw-dist-test-source.tar.gz'.format(page)]
     else:
         raise ValueError('Unknown source: %s' % source)
+    return urls
 
-        
 def print_setups_info(p):
     try:
         import gpaw
@@ -250,7 +269,8 @@ def print_setups_info(p):
     # GPAW may already have been imported, and the contents of the rc
     # file may have changed since then.  Thus, we re-import gpaw to be
     # sure that everything is as it should be.
-    reload(gpaw)
+    gpaw.initialize_data_paths()
+    gpaw.read_rc_file()
 
     npaths = len(gpaw.setup_paths)
     if npaths == 0:

@@ -44,6 +44,7 @@
 2014-12-07 10.1063/1.4902249 Nucleation and growth of Pt nanoparticles on reduced and oxidized rutile TiO2 (110)
 2015-01-15 10.1039/c4nr06371f Surface-confined 2D polymerization of a brominated copper-tetraphenylporphyrin on Au(111)
 2015-01-15 10.1039/c4sc03835e Design of two-photon molecular tandem architectures for solar cells by ab initio theory
+2015-01-15 10.1039/c5cp00298b A DFT-based genetic algorithm search for AuCu nanoalloy electrocatalysts for CO2 reduction
 2015-01-15 10.1039/c5cp01881a Electronic and magnetic properties of DUT-8(Ni)
 2015-01-15 10.1039/c5cp03382a Low temperature pollutant trapping and dissociation over two-dimensional tin
 2015-03-07 10.1063/1.4913739 Nanoplasmonics simulations at the basis set limit through completeness-optimized, local numerical basis sets
@@ -55,4 +56,25 @@
 2015-05-08 10.1088/0953-8984/27/17/175007 The effect of point defects on diffusion pathway within alpha-Fe
 2015-06-11 10.1021/jp512627e Importance of the Reorganization Energy Barrier in Computational Design of Porphyrin-Based Solar Cells with Cobalt-Based Redox Mediators
 2015-07-30 10.1021/acs.jpcc.5b04977 Self-Metalation of Phthalocyanine Molecules with Silver Surface Atoms by Adsorption on Ag(110)
+2015-11-20 10.1103/PhysRevB.92.201205 Anharmonic stabilization and band gap renormalization in the perovskite CsSnI3
+2015-12-01 10.1103/PhysRevLett.115.236804 Quantized Evolution of the Plasmonic Response in a Stretched Nanorod
 2016-01-15 10.1007/128_2014_616 Dynamical Processes in Open Quantum Systems from a TDDFT Perspective: Resonances and Electron Photoemission
+2016-01-15 10.1039/c6cp04194a Decoupling strain and ligand effects in ternary nanoparticles for improved ORR electrocatalysis
+2016-01-15 10.1039/c6ra21668d Ab initio calculation of halide ligand passivation on PbSe quantum dot facets
+2016-01-15 10.1039/c6sc01360k Conformations of cyclopentasilane stereoisomers control molecular junction conductance
+2016-01-28 10.1021/acs.jpcc.5b10025 Photoinduced Absorption within Single-Walled Carbon Nanotube Systems
+2016-01-28 10.1039/c5cp04694g Correlation between diffusion barriers and alloying energy in binary alloys
+2016-03-31 10.1021/acs.jpcc.5b11211 When Conductance Is Less than the Sum of Its Parts: Exploring Interference in Multiconnected Molecules
+2016-03-31 10.1021/acs.jpcc.5b12611 Theoretical Insight into the Internal Quantum Efficiencies of Polymer/C-60 and Polymer/SWNT Photovoltaic Devices
+2016-04-07 10.1021/acs.jpcc.5b11696 Structural Changes in RuO2 during Electrochemical Hydrogen Evolution
+2016-04-15 10.1038/NCHEM.2454 Effects of correlated parameters and uncertainty in electronic-structure-based chemical kinetic modelling
+2016-05-05 10.1021/acs.jpcc.6b01828 Tuning Conductance in Aromatic Molecules: Constructive and Counteractive Substituent Effects
+2016-06-21 10.1063/1.4954003 All-silicon tandem solar cells: Practical limits for energy conversion and possible routes for improvement
+2016-07-25 10.1002/anie.201603584 Fulleretic Well-Defined Scaffolds: Donor-Fullerene Alignment Through Metal Coordination and Its Effect on Photophysics
+2016-09-07 10.1063/1.4961868 An automated nudged elastic band method
+2016-09-19 10.1002/anie.201605559 Charge Transport and Conductance Switching of Redox-Active Azulene Derivatives
+2016-10-10 10.1038/ncomms13040 Isotope analysis in the transmission electron microscope
+2016-10-15 10.1007/s00706-016-1795-6 Bias-induced conductance switching in single molecule junctions containing a redox-active transition metal complex
+2016-10-15 10.1021/acscatal.6b01310 Reaction Pathways and Intermediates in Selective Ring Opening of Biomass-Derived Heterocyclic Compounds by Iridium
+2016-10-21 10.1063/1.4964671 Accelerating the search for global minima on potential energy surfaces using machine learning
+2016-11-15 10.1021/acs.jctc.6b00815 Implementation of Constrained DFT for Computing Charge Transfer Rates within the Projector Augmented Wave Method

@@ -9,11 +9,11 @@ import pylab
 # pl = 4 * 9 # 9 is the number of bf per Pt atom (basis=szp), see below
 
 # Read in the hamiltonians
-h, s = pickle.load(file('scat_hs.pickle'))
+h, s = pickle.load(open('scat_hs.pickle', 'rb'))
 # Uncomment this line if going back to gpawtransport again
 # h, s = h[pl:-pl, pl:-pl], s[pl:-pl, pl:-pl]
-h1, s1 = pickle.load(file('lead1_hs.pickle'))
-h2, s2 = pickle.load(file('lead2_hs.pickle'))
+h1, s1 = pickle.load(open('lead1_hs.pickle', 'rb'))
+h2, s2 = pickle.load(open('lead2_hs.pickle', 'rb'))
 
 tcalc = TransportCalculator(h=h, h1=h1, h2=h2,  # hamiltonian matrices
                             s=s, s1=s1, s2=s2,  # overlap matrices
@@ -26,7 +26,7 @@ print('Conductance: %.2f 2e^2/h' % G)
 
 # Determine the basis functions of the two Hydrogen atoms and subdiagonalize
 Pt_N = 5    # Number of Pt atoms on each side in the scattering region
-Pt_nbf = 9  # number of bf per Pt atom (basis=szp)
+Pt_nbf = 15  # number of bf per Pt atom (basis=szp)
 H_nbf = 4   # number of bf per H atom (basis=szp)
 bf_H1 = Pt_nbf * Pt_N
 bfs = range(bf_H1, bf_H1 + 2 * H_nbf)

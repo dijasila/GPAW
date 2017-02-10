@@ -32,16 +32,12 @@ encountering convergence problems:
 
    Import the Davidson eigensolver::
        
-       from gpaw.eigensolvers import Davidson
+       from gpaw import Davidson
        
    and increase the number iterations per scf-step ``eigensolver=Davidson(3)``.
         
-   If you need to parallelize over bands (see :ref:`manual_parallel`)
-   try the RMM-DIIS eigensolver ``eigensolver=RMM_DIIS(5)``. Import it with::
-
-       from gpaw.eigensolvers import RMM_DIIS
-
-   CG eigensolver tends converge fastest the unoccupied bands ``eigensolver='cg'``.
+   CG eigensolver tends converge fastest the unoccupied bands
+   ``eigensolver='cg'``.
 
 4) Use a smoother distribution function for the occupation numbers.
 
@@ -85,7 +81,7 @@ encountering convergence problems:
    polarization basis sets that are distributed together with
    the latest PAW datasets. You can also try to make a better initial guess
    by enlarging the :ref:`manual_basis`. Note that you first need to generate
-   the basis file, as described in :ref:`LCAO mode <lcao>`. 
+   the basis file, as described in :ref:`LCAO mode <lcao>`.
 
    Warning: this may in some cases worsen the convergence, and improves
    it usually only when the number of empty states is significantly increased.

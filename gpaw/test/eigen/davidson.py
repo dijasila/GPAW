@@ -1,5 +1,7 @@
 from ase import Atom, Atoms
-from gpaw import GPAW
+from gpaw import GPAW, PW
+from gpaw.eigensolvers.davidson import Davidson
+from gpaw.mpi import size
 from gpaw.test import equal
 
 a = 4.05
@@ -31,3 +33,18 @@ energy_tolerance = 0.00004
 niter_tolerance = 0
 equal(e0, -6.97626, energy_tolerance)
 equal(e1, -6.976265, energy_tolerance)
+
+# band parallelization
+if size % 2 == 0:
+    calc = GPAW(h=h,
+                nbands=2*8,
+                kpts=(2, 2, 2),
+                convergence={'eigenstates': 7.2e-9,
+                             'energy': 1e-5,
+                             'bands': 5 },
+                parallel={'band' : 2},
+                eigensolver=Davidson(niter=3))
+    bulk.set_calculator(calc)
+    e3 = bulk.get_potential_energy()
+    niter3 = calc.get_number_of_iterations()
+    equal(e0, e3, 5.0e-5)

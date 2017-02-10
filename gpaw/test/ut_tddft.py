@@ -2,15 +2,8 @@ from __future__ import print_function
 import os, sys, time
 import numpy as np
 
-try:
-    # Matplotlib is not a dependency
-    import matplotlib as mpl
-    mpl.use('Agg')  # force the antigrain backend
-except (ImportError, RuntimeError):
-    mpl = None
-
 from ase import Atoms
-from ase.structure import molecule
+from ase.build import molecule
 from ase.parallel import paropen
 from ase.units import Bohr, Hartree
 from ase.io import Trajectory
@@ -22,13 +15,12 @@ from gpaw.mpi import world
 from gpaw.tddft import TDDFT
 from gpaw.tddft.units import attosec_to_autime
 
-# -------------------------------------------------------------------
-
 from gpaw.test.ut_common import shapeopt, TestCase, \
     TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
     initialTestLoader, create_random_atoms, create_parsize_maxbands
 
-# -------------------------------------------------------------------
+mpl = None
+
 
 class UTGroundStateSetup(TestCase):
     """
@@ -153,7 +145,7 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
 
                 # Hack to prevent calls to GPAW::get_potential_energy when saving
                 spa = self.tdcalc.get_atoms()
-                spc = SinglePointCalculator(epot, F_av, None, None, spa)
+                spc = SinglePointCalculator(spa, energy=epot, forces=F_av)
                 spa.set_calculator(spc)
                 traj.write(spa)
         f.close()

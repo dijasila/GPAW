@@ -6,7 +6,7 @@ from ase.data.g2_1 import molecule_names
 from ase.tasks.main import run
 from ase.tasks.molecule import MoleculeTask
 
-from ase.structure import molecule
+from ase.build import molecule
 
 from gpaw.test.big.scf.analyse import rundefs
 

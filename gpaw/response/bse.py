@@ -42,7 +42,7 @@ class BSE:
                  write_h=True,
                  write_v=True):
         """Creates the BSE object
-        
+
         calc: str or calculator object
             The string should refer to the .gpw file contaning KS orbitals
         ecut: float
@@ -144,7 +144,7 @@ class BSE:
         self.gw_skn = gw_skn
         self.eshift = eshift
         self.nS = self.kd.nbzkpts * self.nv * self.nc
-        
+
         self.print_initialization(self.td, self.eshift, self.gw_skn)
 
     def calculate(self, optical=True, ac=1.0):
@@ -189,7 +189,7 @@ class BSE:
                 Q_aGii = self.Q_qaGii[iq0]
             else:
                 Q_aGii = self.pair.initialize_paw_corrections(pd0)
-            
+
         # Calculate pair densities, eigenvalues and occupations
         rhoex_KmnG = np.zeros((nK, self.nv, self.nc, len(v_G)), complex)
         rhoG0_Kmn = np.zeros((nK, self.nv, self.nc), complex)
@@ -213,7 +213,7 @@ class BSE:
                                  self.gw_skn[0, iK, self.nv:])
             else:
                 deps_kmn[ik] = -pair.get_transition_energies(n_n, m_m)
-                
+
             df_Kmn[iK] = pair.get_occupation_differences(n_n, m_m)
             rhoex_KmnG[iK] = get_rho(pd0, pair,
                                      n_n, m_m,
@@ -270,7 +270,7 @@ class BSE:
         mySsize = myKsize * self.nv * self.nc
         if myKsize > 0:
             iS0 = myKrange[0] * self.nv * self.nc
-            
+
         # Reshape and collect
         world.sum(rhoG0_Kmn)
         self.rhoG0_S = np.reshape(rhoG0_Kmn, -1)
@@ -346,7 +346,7 @@ class BSE:
         if self.wfile is not None:
             # Read screened potential from file
             try:
-                f = open(self.wfile)
+                f = open(self.wfile, 'rb')
                 print('Reading screened potential from % s' % self.wfile,
                       file=self.fd)
                 self.Q_qaGii, self.pd_q, self.W_qGG = pickle.load(f)
@@ -354,7 +354,7 @@ class BSE:
                 self.calculate_screened_potential(ac)
                 print('Saving screened potential to % s' % self.wfile,
                       file=self.fd)
-                f = open(self.wfile, 'w')
+                f = open(self.wfile, 'wb')
                 pickle.dump((self.Q_qaGii, self.pd_q, self.W_qGG),
                             f, pickle.HIGHEST_PROTOCOL)
         else:
@@ -477,7 +477,7 @@ class BSE:
                 W_GG[1:, 0] = einv_GG[1:, 0] * sqrV_G[1:] * sqrV0
             else:
                 pass
-            
+
             if pd.kd.gamma:
                 e = 1 / einv_GG[0, 0].real
                 print('    RPA dielectric constant is: %3.3f' % e,
@@ -499,7 +499,7 @@ class BSE:
         """The t and T represent local and global
            eigenstates indices respectively
         """
- 
+
         # Non-Hermitian matrix can only use linalg.eig
         if not self.td:
             print('  Using numpy.linalg.eig...', file=self.fd)
@@ -520,7 +520,7 @@ class BSE:
                 ns = -(-self.kd.nbzkpts // world.size) * self.nv * self.nc
                 grid = BlacsGrid(world, world.size, 1)
                 desc = grid.new_descriptor(nS, nS, ns, nS)
-                
+
                 desc2 = grid.new_descriptor(nS, nS, 2, 2)
                 H_tmp = desc2.zeros(dtype=complex)
                 r = Redistributor(world, desc, desc2)
@@ -636,7 +636,7 @@ class BSE:
                                    direction=direction,
                                    readfile=readfile, optical=True)
         epsilon_w += 1.0
-    
+
         """Check f-sum rule."""
         nv = self.calc.wfs.setups.nvalence
         dw_w = w_w[1:] - w_w[:-1]
@@ -665,9 +665,9 @@ class BSE:
                 for iw, w in enumerate(self.w_T):
                     print('%8d %12.6f' % (iw, w.real), file=f)
                 f.close()
-            
+
         print('Calculation completed at:', ctime(), file=self.fd)
-        
+
         return w_w, epsilon_w
 
     def get_eels_spectrum(self, w_w=None, eta=0.1,
@@ -716,9 +716,9 @@ class BSE:
                 for iw, w in enumerate(self.w_T):
                     print('%8d %12.6f' % (iw, w.real), file=f)
                 f.close()
-            
+
         print('Calculation completed at:', ctime(), file=self.fd)
-        
+
         return w_w, eels_w
 
     def get_polarizability(self, w_w=None, eta=0.1,
@@ -770,39 +770,31 @@ class BSE:
                 for iw, w in enumerate(self.w_T):
                     print('%8d %12.6f' % (iw, w.real), file=f)
                 f.close()
-            
+
         print('Calculation completed at:', ctime(), file=self.fd)
 
         return w_w, alpha_w
 
     def par_save(self, filename, name, A_sS):
-        from gpaw.io import open
+        from gpaw.io import Writer
+        writer = Writer(filename, world, 'BSE')
 
-        nS = self.nS
-        if world.rank == 0:
-            w = open(filename, 'w', world)
-            w.dimension('nS', nS)
-            
-            if name == 'v_TS':
-                w.add('w_T', ('nS',), dtype=self.w_T.dtype)
-                w.fill(self.w_T)
-            w.add('rhoG0_S', ('nS',), dtype=complex)
-            w.fill(self.rhoG0_S)
-            w.add('df_S', ('nS',), dtype=complex)
-            w.fill(self.df_S)
+        if name == 'v_TS':
+            writer.write(w_T=self.w_T)
 
-            w.add(name, ('nS', 'nS'), dtype=complex)
-        
+        writer.write(rhoG0_S=self.rhoG0_S,
+                     df_S=self.df_S)
+
+        writer.add_array(name, (self.nS, self.nS), dtype=complex)
+
         if not self.td and name == 'v_TS':
-            if world.rank == 0:
-                w.fill(A_sS)
+            writer.fill(A_sS)
         else:
             # Assumes that A_SS is written in order from rank 0 - rank N
             nK = self.kd.nbzkpts
             for irank in range(world.size):
                 if irank == 0:
-                    if world.rank == 0:
-                        w.fill(A_sS)
+                    writer.fill(A_sS)
                 else:
                     if world.rank == irank:
                         world.send(A_sS, 0, irank + 100)
@@ -811,45 +803,41 @@ class BSE:
                         iKrange = range(irank * iKsize,
                                         min((irank + 1) * iKsize, nK))
                         iSsize = len(iKrange) * self.nv * self.nc
-                        tmp = np.empty((iSsize, nS), complex)
+                        tmp = np.empty((iSsize, self.nS), complex)
                         world.receive(tmp, irank, irank + 100)
-                        w.fill(tmp)
-        if world.rank == 0:
-            w.close()
+                        writer.fill(tmp)
+
+        writer.close()
         world.barrier()
 
     def par_load(self, filename, name):
-        from gpaw.io import open
+        import ase.io.ulm as ulm
 
-        r = open(filename, 'r')
-        nS = r.dimension('nS')
+        reader = ulm.open(filename)
+
+        self.rhoG0_S = reader.rhoG0_S
+        self.df_S = reader.df_S
+
         nK = self.kd.nbzkpts
         myKsize = -(-nK // world.size)
         myKrange = range(world.rank * myKsize,
                          min((world.rank + 1) * myKsize, nK))
         mySsize = len(myKrange) * self.nv * self.nc
         if len(myKrange) > 0:
-            mySrange = range(myKrange[0] * self.nv * self.nc,
-                             myKrange[0] * self.nv * self.nc + mySsize)
+            S1 = myKrange[0] * self.nv * self.nc
+        else:
+            S1 = 0
+        S2 = S1 + mySsize
 
         if name == 'H_SS':
-            self.H_sS = np.zeros((mySsize, nS), dtype=complex)
-            if len(myKrange) > 0:
-                for si, s in enumerate(mySrange):
-                    self.H_sS[si] = r.get('H_SS', s)
+            self.H_sS = reader.proxy('H_SS')[S1:S2]
 
-        if name == 'v_TS':
-            self.w_T = r.get('w_T')
-            self.v_St = np.zeros((nS, mySsize), dtype=complex)
-            if len(myKrange) > 0:
-                for it, t in enumerate(mySrange):
-                    self.v_St[:, it] = r.get('v_TS', t)
+        elif name == 'v_TS':
+            self.w_T = reader.w_T
+            self.v_St = reader.proxy('v_TS')[S1:S2].T.copy()
 
-        self.rhoG0_S = r.get('rhoG0_S')
-        self.df_S = r.get('df_S')
+        reader.close()
 
-        r.close()
-        
     def print_initialization(self, td, eshift, gw_skn):
         p = functools.partial(print, file=self.fd)
         p('----------------------------------------------------------')

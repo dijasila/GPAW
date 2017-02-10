@@ -48,7 +48,8 @@ H -= Ef * S
 remove_pbc(atoms, H, S, 0)
 
 # Dump the Hamiltonian and Scattering matrix to a pickle file
-pickle.dump((H, S), open('scat_hs.pickle', 'wb'), 2)
+pickle.dump((H.astype(complex), S.astype(complex)), 
+            open('scat_hs.pickle', 'wb'), 2)
 
 ########################
 # Left principal layer #

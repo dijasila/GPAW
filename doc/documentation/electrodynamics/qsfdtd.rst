@@ -47,7 +47,8 @@ be used.
 Permittivity
 ------------
 
-In the current implementation, the permittivity of the classical material is parametrized as
+In the current implementation, the permittivity of the classical material
+is parametrized as a linear combination of Lorentzian oscillators
 
 .. math::
 
@@ -61,6 +62,13 @@ when it is subject to external electric fields.
 The time-evolution for the charges in GPAW is performed with
 the leap-frog algorithm, following Ref. \ [#Gao]_.
 
+To test the quality of the fit, one can use
+:download:`this script <plot_permittivity.py>`.
+This gives a following plot for Au permittivity fitting.
+
+.. image:: Au.yml.png
+   :scale: 50 %
+
 -------------------
 Geometry components
 -------------------
@@ -71,8 +79,6 @@ Several routines are available to generate the basic shapes:
 * `\text{PolarizableEllipsoid}(\mathbf{p}, \mathbf{r}, \epsilon({\mathbf{r}, \omega}))` where `\mathbf{p}` is the center and `\mathbf{r}` is the array containing the three radii
 * `\text{PolarizableRod}(\mathbf{p}, r, \epsilon({\mathbf{r}, \omega}), c)` where `\mathbf{p}` is an array of subsequent corner coordinates, `r` is the radius, and `c` is a boolean denoting whether the corners are rounded
 * `\text{PolarizableTetrahedron}(\mathbf{p}, \epsilon({\mathbf{r}, \omega}))` where `\mathbf{p}` is an array containing the four corner points of the tetrahedron
-
-
 
 These routines can generate many typical geometries, and for general cases a set of tetrahedra can be used.
 
@@ -92,7 +98,7 @@ This example calculates the photoabsorption spectrum of a nanosphere
 that has a diameter of 10 nm, and compares the result with analytical
 Mie scattering limit.
 
-.. literalinclude:: gold_nanosphere_calculate.py
+.. literalinclude:: gold_nanosphere/calculate.py
 
 Here the *QSFDTD* object generates a dummy quantum system that is treated using
 GPAW in *qsfdtd.ground_state*. One can pass the GPAW
@@ -117,7 +123,7 @@ where *V* is the nanosphere volume:
 
 |qsfdtd_vs_mie|
 
-.. |qsfdtd_vs_mie| image:: qsfdtd_vs_mie.png
+.. |qsfdtd_vs_mie| image:: gold_nanosphere/qsfdtd_vs_mie.png
 
 The general shape of Mie spectrum, and especially the
 localized surface plasmon resonance (LSPR) at 2.5 eV,
@@ -132,6 +138,33 @@ a look at the standard output where the "Fill ratio" tells that
 means that the volume (and intensity) is roughly 16% too large:
 
  `\frac{V}{V_{\text{sphere}}}\approx\frac{0.18035\times(15\text{nm})^3)}{\frac{4}{3}\pi\times(5\text{nm})^3}\approx1.16`.
+
+----------------------------------------
+Advanced example: Near field enhancement
+----------------------------------------
+
+This example shows how to calculate the induced electric near field
+enhancement of the same nanosphere considered in the previous example.
+The induced field calculations can be included by using the advanced
+syntax instead of the simple :code:`QSFDTD` wrapper.
+In the example one can also see how the dummy empty quantum system is
+generated.
+
+.. literalinclude:: gold_nanosphere_inducedfield/calculate.py
+
+The contents of the obtained file :code:`field.ind`
+can be visualized like described in
+:ref:`hybrid-inducedfield`.
+We obtain a following plot of the field:
+
+|cl_fe|
+
+.. |cl_fe| image:: gold_nanosphere_inducedfield/field.ind_Ffe.png
+   :scale: 70 %
+
+Note that the oscillations in the induced field (and density)
+inside the material are caused by numerical limitations
+of the current implementation.
 
 -----------
 Limitations
@@ -177,8 +210,6 @@ Technical remarks
   FDTDPoissonSolver: this will then use the multipole moments correction
   scheme, see e.g. Ref. \ [#Castro]_.
 
-
-
 ----
 TODO
 ----
@@ -187,6 +218,7 @@ TODO
 * Geometries from 3D model files
 * Subcell averaging
 * Full FDTD (retardation effects) or interface to an external FDTD software
+* Fix grid-dependent oscillations in the induced density
 
 ----------------------
 Combination with TDDFT

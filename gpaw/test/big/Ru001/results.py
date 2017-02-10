@@ -12,7 +12,7 @@ pw91vasp = {'NO':     -0.95,
 pbe = {}
 pw91 = {}
 for name in ['NO', 'O2', 'N2', 'Ru001', 'NRu001', 'ORu001']:
-    a, calc = restart(name, txt=None)
+    a, calc = restart(name + '.gpw', txt=None)
     pbe[name] = a.get_potential_energy()
     pw91[name] = pbe[name] + calc.get_xc_difference('PW91')
 
