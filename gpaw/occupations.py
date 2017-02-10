@@ -19,6 +19,8 @@ def create_occupation_number_object(name, **kwargs):
         return MethfesselPaxton(**kwargs)
     if name == 'orbital-free':
         return TFOccupations()
+    if name == 'fixed-occupations':
+        return FixedOccupations(**kwargs)
     raise ValueError('Unknown occupation number object name: ' + name)
 
 
@@ -557,8 +559,8 @@ class MethfesselPaxton(SmoothDistribution):
 
 
 class FixedOccupations(ZeroKelvin):
-    def __init__(self, occupation):
-        self.occupation = np.array(occupation)
+    def __init__(self, occ):
+        self.occupation = np.array(occ)
         ZeroKelvin.__init__(self, True)
 
     def spin_paired(self, wfs):
@@ -567,6 +569,11 @@ class FixedOccupations(ZeroKelvin):
     def fixed_moment(self, wfs):
         for kpt in wfs.kpt_u:
             wfs.bd.distribute(self.occupation[kpt.s], kpt.f_n)
+
+    def todict(self):
+        dct = {'occ': self.occupation}
+        dct['name'] = 'fixed-occupations'
+        return dct
 
 
 class TFOccupations(FermiDirac):
