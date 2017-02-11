@@ -25,14 +25,28 @@ def XC(kernel, parameters=None):
     See xc_funcs.h for the complete list.  """
 
     if isinstance(kernel, basestring):
-        name = kernel
+        # We have the option of implementing a string specification
+        # minilanguage for xc keywords like 'vdW-DF:type=libvdwxc'
+        kernel = {'name': kernel}
+
+    if isinstance(kernel, dict):
+        kwargs = kernel.copy()
+        name = kwargs.pop('name')
+        xctype = kwargs.pop('type', None)
+
+        if xctype == 'libvdwxc':
+            # Must handle libvdwxc before old vdw implementation to override
+            # behaviour for 'name'
+            from gpaw.xc.libvdwxc import VDWXC
+            return VDWXC(name=name, **kwargs)
+
         if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
                     'C09-vdW', 'mBEEF-vdW', 'BEEF-vdW']:
             from gpaw.xc.vdw import VDWFunctional
             return VDWFunctional(name)
         elif name in ['EXX', 'PBE0', 'B3LYP']:
             from gpaw.xc.hybrid import HybridXC
-            return HybridXC(name)
+            return HybridXC(name, **kwargs)
         elif name in ['HSE03', 'HSE06']:
             from gpaw.xc.exx import EXX
             return EXX(name)
@@ -86,17 +100,8 @@ def XC(kernel, parameters=None):
             from gpaw.xc.parametrizedxc import ParametrizedKernel
             kernel = ParametrizedKernel(name)
         else:
-            kernel = LibXC(kernel)
-    elif isinstance(kernel, dict):
-        xctype = kernel['type']
-        if xctype == 'libvdwxc':
-            from gpaw.xc.libvdwxc import VDWXC
-            kwargs = dict(kernel)
-            kwargs.pop('type')
-            return VDWXC(**kwargs)
-        else:
-            raise ValueError('Unknown type {0} of XC parameter dictionary'
-                             .format(xctype))
+            kernel = LibXC(name)
+
     if kernel.type == 'LDA':
         return LDA(kernel)
     elif kernel.type == 'GGA':

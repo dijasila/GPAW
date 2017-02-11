@@ -188,6 +188,13 @@ class SIC(XCFunctional):
         self.finegrid = finegrid
         self.parameters = parameters
 
+    # Proper IO of general SIC objects should work by means of something like:
+    #def todict(self):
+    #    return {'type': 'SIC',
+    #            'name': self.xc.name,
+    #            'finegrid': self.finegrid,
+    #            'parameters': dict(self.parameters)}
+
     def initialize(self, density, hamiltonian, wfs, occ=None):
         assert wfs.kd.gamma
         assert not wfs.gd.pbc_c.any()
