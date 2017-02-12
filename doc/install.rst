@@ -111,7 +111,7 @@ Check that you have installed everything in the correct places::
 
     $ gpaw info
     
-To check if ScaLAPACK is installed, you need to run::
+To check the compiled parallel features (like ScaLAPACK), you need to run::
     
     $ gpaw-python $(which gpaw) info
 
