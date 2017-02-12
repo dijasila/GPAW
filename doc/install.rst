@@ -110,6 +110,10 @@ you have an ``mpicc`` command on your system then there will also be a
 Check that you have installed everything in the correct places::
 
     $ gpaw info
+    
+To check the compiled parallel features (like ScaLAPACK), you need to run::
+    
+    $ gpaw-python $(which gpaw) info
 
 
 Install PAW datasets
