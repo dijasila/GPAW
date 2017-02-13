@@ -5,6 +5,21 @@ from gpaw.io.logger import indent
 import numpy as np
 
 
+BAD_RADIUS_MESSAGE = "All atomic radii have to be finite and >= zero."
+
+
+def set_log_and_check_radii(obj, atoms, log):
+    radii = np.array(obj.atomic_radii(atoms), dtype=float)
+    obj.atomic_radii_output = radii
+    obj.symbols = atoms.get_chemical_symbols()
+    log('  Atomic radii for %s:' % (obj.__class__, ))
+    for a, (s, r) in enumerate(
+            zip(obj.symbols, radii)):
+        log('    %3d %-2s %10.5f' % (a, s, r))
+    if not np.isfinite(radii).all() or (radii < 0).any():
+        raise ValueError(BAD_RADIUS_MESSAGE)
+
+
 def get_pbc_positions(atoms, r_max):
     """Return dict mapping atom index to positions in Bohr.
 
@@ -30,17 +45,6 @@ def get_pbc_positions(atoms, r_max):
                     pos_aav[index1][index2, :] = pos + np.dot(i_c, cell_cv)
                     index2 += 1
     return pos_aav
-
-
-def divide_silently(x, y):
-    """Divide numpy arrays x / y ignoring all floating point errors.
-
-    Use with caution!
-    """
-    old_err = np.seterr(all='ignore')
-    result = x / y
-    np.seterr(**old_err)
-    return result
 
 
 class Cavity(NeedsGD):
@@ -237,8 +241,9 @@ class EffectivePotentialCavity(Cavity):
     def get_del_r_vg(self, atom_index, density):
         u = self.effective_potential
         del_u_del_r_vg = u.get_del_r_vg(atom_index, density)
-        # asserts lim_(||r - r_atom|| -> 0) dg/du * du/dr_atom = 0
-        del_u_del_r_vg[np.isnan(del_u_del_r_vg)] = .0
+        # there should be no more NaNs now, but let's keep the hint
+        ## asserts lim_(||r - r_atom|| -> 0) dg/du * du/dr_atom = 0
+        #del_u_del_r_vg[np.isnan(del_u_del_r_vg)] = .0
         return self.minus_beta * self.g_g * del_u_del_r_vg
 
     @property
@@ -339,7 +344,7 @@ class Power12Potential(Potential):
     depends_on_el_density = False
     depends_on_atomic_positions = True
 
-    def __init__(self, atomic_radii, u0, pbc_cutoff=1e-6):
+    def __init__(self, atomic_radii, u0, pbc_cutoff=1e-6, tiny=1e-10):
         """Constructor for the Power12Potential class.
 
         Arguments:
@@ -353,6 +358,7 @@ class Power12Potential(Potential):
         self.atomic_radii = atomic_radii
         self.u0 = float(u0)
         self.pbc_cutoff = float(pbc_cutoff)
+        self.tiny = float(tiny)
         self.r12_a = None
         self.r_vg = None
         self.pos_aav = None
@@ -386,18 +392,14 @@ class Power12Potential(Potential):
                 origin_vg = pos_v[:, na, na, na]
                 r_diff_vg = self.r_vg - origin_vg
                 r_diff2_g = (r_diff_vg ** 2).sum(0)
-                r12_g = r_diff2_g ** 6
-                r14_g = r12_g * r_diff2_g
-                self.u_g += divide_silently(r12, r12_g)
-                self.grad_u_vg += divide_silently(r12 * r_diff_vg, r14_g)
+                r_diff2_g[r_diff2_g < self.tiny] = self.tiny
+                u_g = r12 / r_diff2_g ** 6
+                self.u_g += u_g
+                u_g /= r_diff2_g
+                r_diff_vg *= u_g[na, ...]
+                self.grad_u_vg += r_diff_vg
         self.u_g *= self.u0 / Hartree
-        # np.exp(-np.inf) = .0
-        self.u_g[np.isnan(self.u_g)] = np.inf
-
         self.grad_u_vg *= -12. * self.u0 / Hartree
-        # mask points where the limit of all later
-        # calculations is zero anyways
-        self.grad_u_vg[...] = np.nan_to_num(self.grad_u_vg)
         # avoid overflow in norm calculation:
         self.grad_u_vg[self.grad_u_vg < -1e20] = -1e20
         self.grad_u_vg[self.grad_u_vg > 1e20] = 1e20
@@ -411,8 +413,11 @@ class Power12Potential(Potential):
         for pos_v in self.pos_aav[atom_index]:
             origin_vg = pos_v[:, na, na, na]
             diff_vg = self.r_vg - origin_vg
-            r14_g = np.sum(diff_vg ** 2, axis=0) ** 7
-            self.del_u_del_r_vg += divide_silently(diff_vg, r14_g)
+            diff2_g = (diff_vg ** 2).sum(0)
+            diff2_g[diff2_g < self.tiny] = self.tiny
+            diff2_g **= 7
+            diff_vg /= diff2_g[na, ...]
+            self.del_u_del_r_vg += diff_vg
         self.del_u_del_r_vg *= (12. * u0 * r12)
         return self.del_u_del_r_vg
 
@@ -421,15 +426,12 @@ class Power12Potential(Potential):
         s += '  atomic_radii: %s\n' % (self.atomic_radii, )
         s += '  u0: %s\n' % (self.u0, )
         s += '  pbc_cutoff: %s\n' % (self.pbc_cutoff, )
+        s += '  tiny: %s\n' % (self.tiny, )
         return s
 
     def update_atoms(self, atoms, log):
-        self.atomic_radii_output = np.array(self.atomic_radii(atoms))
-        self.symbols = atoms.get_chemical_symbols()
-        log('  Atomic radii for %s:' % (self.__class__, ))
-        for a, (s, r) in enumerate(
-                zip(self.symbols, self.atomic_radii_output)):
-            log('    %3d %-2s %10.5f' % (a, s, r))
+        set_log_and_check_radii(self, atoms, log)
+
 
 class SmoothStepCavity(Cavity):
     """Base class for cavities based on a smooth step function and a density.
@@ -646,7 +648,7 @@ class SSS09Density(FDGradientDensity):
     depends_on_el_density = False
     depends_on_atomic_positions = True
 
-    def __init__(self, atomic_radii, pbc_cutoff=1e-3, nn=3):
+    def __init__(self, atomic_radii, pbc_cutoff=1e-3, nn=3, tiny=1e-100):
         """Constructor for the SSS09Density class.
 
         Arguments:
@@ -661,6 +663,7 @@ class SSS09Density(FDGradientDensity):
         self.atomic_radii_output = None
         self.symbols = None
         self.pbc_cutoff = float(pbc_cutoff)
+        self.tiny = float(tiny)
         self.pos_aav = None
         self.r_vg = None
         self.del_rho_del_r_vg = None
@@ -700,25 +703,22 @@ class SSS09Density(FDGradientDensity):
             origin_vg = pos_v[:, na, na, na]
             r_diff_vg = self.r_vg - origin_vg
             norm_r_diff_g = np.sum(r_diff_vg ** 2, axis=0) ** .5
+            norm_r_diff_g[norm_r_diff_g < self.tiny] = self.tiny
             exponential = np.exp(r_a - norm_r_diff_g)
-            self.del_rho_del_r_vg += divide_silently(
-                exponential * r_diff_vg, norm_r_diff_g
-            )
+            exponential /= norm_r_diff_g
+            r_diff_vg *= exponential[na, ...]
+            self.del_rho_del_r_vg += r_diff_vg
         return self.del_rho_del_r_vg
 
     def __str__(self):
         s = FDGradientDensity.__str__(self)
         s += '  atomic_radii: %s\n' % (self.atomic_radii, )
         s += '  pbc_cutoff: %s\n' % (self.pbc_cutoff, )
+        s += '  tiny: %s\n' % (self.tiny, )
         return s
 
     def update_atoms(self, atoms, log):
-        self.atomic_radii_output = np.array(self.atomic_radii(atoms))
-        self.symbols = atoms.get_chemical_symbols()
-        log('  Atomic radii for %s:' % (self.__class__, ))
-        for a, (s, r) in enumerate(
-                zip(self.symbols, self.atomic_radii_output)):
-            log('    %3d %-2s %10.5f' % (a, s, r))
+        set_log_and_check_radii(self, atoms, log)
 
 
 class ADM12SmoothStepCavity(SmoothStepCavity):
