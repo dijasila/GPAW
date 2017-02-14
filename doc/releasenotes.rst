@@ -43,11 +43,11 @@ Version 1.2.0
 * When setting the default PAW-datasets or basis-sets using a dict, we
   must now use ``'default'`` as the key instead of ``None``:
 
-  >>> calc = GPAW(basis={'default': 'dzp', 'H': 'sz(dzp)'})
+  >>> calc = GPAW(basis={'default': 'dzp', 'H': 'sz(dzp)'}) # doctest: +SKIP
 
   and not:
 
-  >>> calc = GPAW(basis={None: 'dzp', 'H': 'sz(dzp)'})
+  >>> calc = GPAW(basis={None: 'dzp', 'H': 'sz(dzp)'}) # doctest: +SKIP
 
   (will still work, but you will get a warning).
 

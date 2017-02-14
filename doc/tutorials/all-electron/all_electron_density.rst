@@ -24,7 +24,7 @@ the same way as you would normally use the
 
 >>> from gpaw import GPAW
 >>> from ase.build import molecule
->>> calc = GPAW()
+>>> calc = GPAW(txt='C6H6_out.txt')
 >>> mol = molecule('C6H6', calculator=calc)
 >>> mol.center(vacuum=5)
 >>> E  = mol.get_potential_energy()
