@@ -43,24 +43,28 @@ of magnitude, and parallelizes to any desired system size.
 Selfconsistent vdW-DF calculations
 -------------------------------------
 
->>> from ase import *
->>> from gpaw import GPAW
->>> vdw = 'vdW-DF'
->>> atoms = ...
->>> calc = GPAW(xc=vdw, ...)
->>> atoms.set_calculator(calc)
->>> e = atoms.get_potential_energy()
+::
+   
+    from ase import Atoms
+    from gpaw import GPAW
+    vdw = 'vdW-DF'
+    atoms = ...
+    calc = GPAW(xc=vdw, ...)
+    atoms.set_calculator(calc)
+    e = atoms.get_potential_energy()
 
 
 Perturbative vdW-DF calculations (non-selfconsistent)
 --------------------------------------------------------
 
->>> from gpaw import GPAW
->>> xc = 'vdW-DF'
->>> calc = GPAW('input.gpw')
->>> GGA_energy = calc.get_potential_energy()
->>> vdWDF_diff = calc.get_xc_difference(xc)
->>> vdWDF_energy = GGA_energy + vdWDF_diff
+::
+   
+    from gpaw import GPAW
+    xc = 'vdW-DF'
+    calc = GPAW('input.gpw')
+    GGA_energy = calc.get_potential_energy()
+    vdWDF_diff = calc.get_xc_difference(xc)
+    vdWDF_energy = GGA_energy + vdWDF_diff
 
 In the above examples, other vdW-DF type functionals can be used
 by substituting 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW', or 'C09-vdW'
