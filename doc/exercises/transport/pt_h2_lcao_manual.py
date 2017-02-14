@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Transport exersice
+"""Transport exercise
 
 This file should do the same as pt_h2_lcao.py, but extracts the Hamiltonians
 manually instead of using gpawtransport, which currently does not work
