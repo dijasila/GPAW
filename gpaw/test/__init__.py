@@ -333,13 +333,13 @@ tests = [
     'solvation/forces_symmetry.py',         # ~56s
     'parallel/diamond_gllb.py',             # ~59s
     'beef.py',
-    'pw/si_stress.py',                      # ~61s
     'response/chi0.py',                     # ~71s
     'sic/scfsic_n2.py',                     # ~73s
     'lrtddft/3.py',                         # ~75s
     'pathological/nonlocalset.py',          # ~82s
     'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
+    'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
     'exx/AA_enthalpy.py',                   # ~119s
     'lcao/tdgllbsc.py',                     # ~132s
