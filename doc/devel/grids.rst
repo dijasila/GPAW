@@ -37,15 +37,19 @@ Update this XXX how about padding?
 
 An example:
 
+>>> from ase import Atoms
+>>> from gpaw import GPAW
+>>> from ase.units import Bohr
 >>> L = 2.0
->>> atoms = Atoms(...,
+>>> atoms = Atoms('H',
+...               positions=[(1.0,1.0,1.0)],
 ...               cell=(L, L, L),
 ...               pbc=False)
->>> calc = GPAW(..., gpts=(8, 8, 8))
->>> atoms.SetCalculator(calc)
+>>> calc = GPAW(xc='LDA', gpts=(8, 8, 8), txt=None)
+>>> atoms.set_calculator(calc)
 >>> e = atoms.get_potential_energy()
 >>> wf = calc.get_pseudo_wave_function(band=0)
 >>> wf.shape
-(7, 7, 7)
->>> calc.GetGridSpacings()
-array([ 0.25,  0.25])
+(8, 8, 8)
+>>> calc.wfs.gd.h_cv[0,0] * Bohr
+0.25

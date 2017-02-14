@@ -62,9 +62,9 @@ The calculator will try to make sensible choices for all parameters
 that the user does not specify.  Specifying parameters can be done
 like this:
 
->>> calc = GPAW(nbands=1,
-...             xc='PBE',
-...             gpts=(24, 24, 24))
+>>> calc = GPAW(nbands=1, # doctest: +SKIP
+...             xc='PBE', # doctest: +SKIP
+...             gpts=(24, 24, 24)) # doctest: +SKIP
 
 Here, we want to use one electronic band, the Perdew, Burke, Ernzerhof
 (PBE)\ [#PBE]_ exchange-correlation functional and 24 grid points in
@@ -200,7 +200,7 @@ given in the following sections.
    Parameters can be changed after the calculator has been constructed
    by using the :meth:`~gpaw.calculator.GPAW.set` method:
 
-   >>> calc.set(txt='H2.txt', charge=1)
+   >>> calc.set(txt='H2.txt', charge=1) # doctest: +SKIP
 
    This would send all output to a file named :file:`'H2.txt'`, and the
    calculation will be done with one electron removed.
@@ -985,7 +985,7 @@ Restarting a calculation
 
 The state of a calculation can be saved to a file like this:
 
->>> calc.write('H2.gpw')
+>>> calc.write('H2.gpw') # doctest: +SKIP
 
 The file :file:`H2.gpw` is a binary file containing
 wave functions, densities, positions and everything else (also the
@@ -995,24 +995,24 @@ calculation).
 If you want to restart the `\rm{H}_2` calculation in another Python session
 at a later time, this can be done as follows:
 
->>> from gpaw import *
->>> atoms, calc = restart('H2.gpw')
->>> print atoms.get_potential_energy()
+>>> from gpaw import * # doctest: +SKIP
+>>> atoms, calc = restart('H2.gpw') # doctest: +SKIP
+>>> print atoms.get_potential_energy() # doctest: +SKIP
 
 Everything will be just as before we wrote the :file:`H2.gpw` file.
 Often, one wants to restart the calculation with one or two parameters
 changed slightly.  This is very simple to do.  Suppose you want to
 change the number of grid points:
 
->>> atoms, calc = restart('H2.gpw', gpts=(20, 20, 20))
->>> print atoms.get_potential_energy()
+>>> atoms, calc = restart('H2.gpw', gpts=(20, 20, 20)) # doctest: +SKIP
+>>> print atoms.get_potential_energy() # doctest: +SKIP
 
 .. tip::
    There is an alternative way to do this, that can be handy sometimes:
 
-   >>> atoms, calc = restart('H2.gpw')
-   >>> calc.set(gpts=(20, 20, 20))
-   >>> print atoms.get_potential_energy()
+   >>> atoms, calc = restart('H2.gpw') # doctest: +SKIP
+   >>> calc.set(gpts=(20, 20, 20)) # doctest: +SKIP
+   >>> print atoms.get_potential_energy() # doctest: +SKIP
 
 
 More details can be found on the :ref:`restart_files` page.
@@ -1108,7 +1108,7 @@ argument                         description
                                  Extra parameters for development work:
 
                                  >>> from gpaw import extra_parameters
-                                 >>> print extra_parameters
+                                 >>> print(extra_parameters) # doctest: +SKIP
                                  {'a': 1, 'b': 2.3}
 ===============================  =============================================
 

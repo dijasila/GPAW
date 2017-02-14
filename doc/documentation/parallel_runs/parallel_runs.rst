@@ -130,15 +130,18 @@ To avoid this use:
 
 >>> from ase.parallel import parprint
 >>> print('This is written by all nodes')
+This is written by all nodes
 >>> parprint('This is written by the master only')
+This is written by the master only
 
 which is equivalent to
 
 >>> from ase.parallel import rank
 >>> print('This is written by all nodes')
+This is written by all nodes
 >>> if rank == 0:
 ...     print('This is written by the master only')
-
+This is written by the master only
 
 .. _different_calculations_in parallel:
 

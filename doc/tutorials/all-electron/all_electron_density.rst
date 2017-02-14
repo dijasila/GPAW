@@ -22,16 +22,14 @@ The :meth:`~gpaw.calculator.GPAW.get_all_electron_density` method is used in
 the same way as you would normally use the
 :meth:`~gpaw.calculator.GPAW.get_pseudo_density` method, i.e.:
 
-::
-
-    from gpaw import GPAW
-    from ase.build import molecule
-    calc = GPAW()
-    mol = molecule('C6H6', calculator=calc)
-    mol.center(vacuum=5)
-    E  = mol.get_potential_energy()
-    nt = calc.get_pseudo_density()
-    n  = calc.get_all_electron_density()
+>>> from gpaw import GPAW
+>>> from ase.build import molecule
+>>> calc = GPAW(txt='C6H6_out.txt')
+>>> mol = molecule('C6H6', calculator=calc)
+>>> mol.center(vacuum=5)
+>>> E  = mol.get_potential_energy()
+>>> nt = calc.get_pseudo_density()
+>>> n  = calc.get_all_electron_density()
 
 would give you the pseudo-density in ``nt`` and the all-electron
 density in ``n``.
