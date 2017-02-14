@@ -5,6 +5,7 @@ sys.path.append('.')
 extensions = ['images',
               'ext',
               'sphinx.ext.autodoc',
+              'sphinx.ext.doctest',
               'sphinx.ext.viewcode',
               'sphinx.ext.mathjax',
               'sphinx.ext.intersphinx']

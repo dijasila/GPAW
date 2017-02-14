@@ -76,14 +76,16 @@ class is explicitly initialized with new settings.
 The example below redefines the number of interpolating cubic splines
 (Nalpha) used in a vdW-DF2 calculation.
 
->>> from ase import *
->>> from gpaw import GPAW
->>> from gpaw.xc.vdw import VDWFunctional
->>> vdw = VDWFunctional('vdW-DF2', Nalpha=24)
->>> atoms = ...
->>> calc = GPAW(xc=vdw, ...)
->>> atoms.set_calculator(calc)
->>> e = atoms.get_potential_energy()
+::
+   
+   from ase import Atoms
+   from gpaw import GPAW
+   from gpaw.xc.vdw import VDWFunctional
+   vdw = VDWFunctional('vdW-DF2', Nalpha=24)
+   atoms = ...
+   calc = GPAW(xc=vdw, ...)
+   atoms.set_calculator(calc)
+   e = atoms.get_potential_energy()
 
 
 Real-space method vdW-DF
@@ -119,31 +121,7 @@ Below is an example which calculates the BEEF-vdW binding energy
 of molecular H2 (E_bind),
 as well as an ensemble estimate of the binding energy error (dE_bind)
 
->>> from ase import *
->>> from gpaw import GPAW
->>> from ase.dft.bee import BEEFEnsemble
->>> xc = 'BEEF-vdW'
->>> h2 = Atoms('H2',[[0.,0.,0.],[0.,0.,0.75]])
->>> h2.center(vacuum=3)
->>> cell = h2.get_cell()
->>> calc = GPAW(xc=xc)
->>> h2.set_calculator(calc)
->>> e_h2 = h2.get_potential_energy()
->>> ens = BEEFEnsemble(calc)
->>> de_h2 = ens.get_ensemble_energies()
->>> del h2, calc, ens
->>> h = Atoms('H')
->>> h.set_cell(cell)
->>> h.center()
->>> calc = GPAW(xc=xc)
->>> h.set_calculator(calc)
->>> e_h = h.get_potential_energy()
->>> ens = BEEFEnsemble(calc)
->>> de_h = ens.get_ensemble_energies()
->>> E_bind = 2*e_h - e_h2
->>> dE_bind = 2*de_h[:] - de_h2[:]
->>> dE_bind = dE_bind.std()
-
+.. literalinclude:: E_bind_BEEF_vdW_example.py
 
 Note that the BEEFEnsemble module has recently been moved from GPAW
 to the ASE package.
