@@ -27,12 +27,9 @@ array([[ 2.5 ,  2.5 ,  2.5 ],
 >>> h2.set_calculator(GPAW(xc='PBE', mode=PW(300), txt='h2.txt'))
 >>> h2.get_potential_energy()
 -6.62375...
->>> h2.get_forces()  # doctest: +NUMBER
-array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
-       [ -9.98454736e-14,   4.37862132e-14,   6.44750360e-01]])
-
-..
-   -6.6237575005960494
+>>> h2.get_forces().round(3)
+array([[ 0.   ,  0.   , -0.645],
+       [ 0.   ,  0.   ,  0.645]])
 
 .. _Python: http://www.python.org
 .. _ASE: https://wiki.fysik.dtu.dk/ase
