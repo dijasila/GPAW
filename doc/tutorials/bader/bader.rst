@@ -28,11 +28,17 @@ assumes atomic units for the density (`\text{bohr}^{-3}`).
 A simple python script for making a
 cube file, ready for the Bader program, could be:
 
->>> from ase.io import write
->>> from ase.units import Bohr
->>> density = calc.get_all_electron_density() * Bohr**3
->>> write('density.cube', atoms, data=density)
+::
 
+    from ase.io import write
+    from ase.units import Bohr
+    from gpaw import restart
+    atoms, calc = restart('input.gpw')
+    density = calc.get_all_electron_density() * Bohr**3
+    write('density.cube', atoms, data=density)
+
+Where :file:`input.gpw` is from a previous calculation.
+	
 One can also use :meth:`~gpaw.calculator.GPAW.get_pseudo_density` but it is
 better to use the :meth:`~gpaw.calculator.GPAW.get_all_electron_density`
 method as it will create a normalized electron density with all the electrons.
