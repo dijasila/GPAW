@@ -38,7 +38,7 @@ from gpaw.xc import XC
 from gpaw.xc.sic import SIC
 
 
-class GPAW(Calculator, PAW):
+class GPAW(PAW, Calculator):
     """This is the ASE-calculator frontend for doing a PAW calculation."""
 
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
