@@ -438,6 +438,10 @@ class WaveFunctions:
                 P_nI = self.collect_projections(k, s)
                 writer.fill(P_nI)
 
+        writer.add_array('ibzkpts', (self.kd.nibzkpts, 3))
+        for k in range(self.kd.nibzkpts):
+            writer.fill(self.kd.ibzk_kc[k])
+
         shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
 
         writer.add_array('eigenvalues', shape)
