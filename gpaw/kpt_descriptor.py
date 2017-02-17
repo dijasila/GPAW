@@ -632,3 +632,7 @@ class KPointDescriptor:
 
         u = k + self.nibzkpts * s
         return u
+
+    def write(self, writer):
+        writer.write('ibzkpts', self.ibzk_kc)
+

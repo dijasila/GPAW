@@ -428,6 +428,7 @@ class WaveFunctions:
         return np.array([homo, lumo])
 
     def write(self, writer):
+        writer.write(kpts=self.kd)
         nproj = sum(setup.ni for setup in self.setups)
         writer.add_array(
             'projections',
@@ -437,10 +438,6 @@ class WaveFunctions:
             for k in range(self.kd.nibzkpts):
                 P_nI = self.collect_projections(k, s)
                 writer.fill(P_nI)
-
-        writer.add_array('ibzkpts', (self.kd.nibzkpts, 3))
-        for k in range(self.kd.nibzkpts):
-            writer.fill(self.kd.ibzk_kc[k])
 
         shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
 
