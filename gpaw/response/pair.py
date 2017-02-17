@@ -355,20 +355,29 @@ class PWSymmetryAnalyzer:
 
         return TR(a_MG[..., G_G])
 
-    def symmetrize_wGG(self, A_wGG):
+    def symmetrize_wGG(self, A_wGG, tmp_x):
         """Symmetrize an array in GG'."""
 
+        nG = A_wGG.shape[1]
+        tmp_GG = tmp_x[:nG**2].reshape((nG, nG))
+        from gpaw.utilities.memory import maxrss
+        print('SYM', A_wGG.shape, self.s_s, maxrss())
         for A_GG in A_wGG:
-            tmp_GG = np.zeros_like(A_GG)
+            tmp_GG[:] = 0.0
 
             for s in self.s_s:
                 G_G, sign, _ = self.G_sG[s]
                 if sign == 1:
-                    tmp_GG += A_GG[G_G,:][:,G_G]
+                    for G1 in range(nG):
+                        for G2 in range(nG):
+                            tmp_GG[G1, G2] += A_GG[G_G[G1], G_G[G2]]
                 if sign == -1:
-                    tmp_GG += A_GG[G_G,:][:,G_G].T
+                    for G1 in range(nG):
+                        for G2 in range(nG):
+                            tmp_GG[G1, G2] += A_GG[G_G[G2], G_G[G1]]
 
             A_GG[:] = tmp_GG
+        print('SYM', maxrss())
 
     def symmetrize_wxvG(self, A_wxvG):
         """Symmetrize chi0_wxvG"""

@@ -153,7 +153,8 @@ class Chi0(PairDensity):
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     @timer('Calculate CHI_0')
-    def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins):
+    def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins,
+                   A1_x, A2_x):
         # Choose which update method to use
         if self.eta == 0.0:
             update = self.update_hermitian
@@ -257,9 +258,9 @@ class Chi0(PairDensity):
         if self.unsymmetrized:
             # Carry out symmetrization
             # Redistribute if block par
-            tmpchi0_wGG = self.redistribute(chi0_wGG)
-            PWSA.symmetrize_wGG(tmpchi0_wGG)
-            self.redistribute(tmpchi0_wGG, chi0_wGG)
+            tmpchi0_wGG = self.redistribute(chi0_wGG, A2_x)
+            PWSA.symmetrize_wGG(tmpchi0_wGG, A1_x)
+            self.redistribute(tmpchi0_wGG, A1_x)
 
             if optical_limit:
                 PWSA.symmetrize_wxvG(chi0_wxvG)
@@ -306,8 +307,10 @@ class Chi0(PairDensity):
             else:
                 x_m = 2 * df_m * deps_m / (omega.imag**2 + deps_m**2)
                 mynx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
-                mmm(self.prefactor, mynx_mG, 't', n_mG.conj(), 'n',
+                #mmm(self.prefactor, mynx_mG, 't', n_mG.conj(), 'n',
+                mmm(self.prefactor, mynx_mG, 'c', n_mG, 'n',
                     1.0, chi0_wGG[w])
+                chi0_wGG[w].imag *= -1.0
 
     @timer('CHI_0 spectral function update')
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):
@@ -435,8 +438,8 @@ class Chi0(PairDensity):
         
         bg1 = BlacsGrid(comm, comm.size, 1)
         bg2 = BlacsGrid(comm, 1, comm.size)
-        md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
-        md2 = BlacsDescriptor(bg2, nw, nG**2, nw, mynG * nG)
+        md1 = BlacsDescriptor(bg1, nw, nG, mynw, nG)
+        md2 = BlacsDescriptor(bg2, nw, nG, nw, mynG)
         
         if len(in_wGG) == nw:
             mdin = md2
@@ -447,14 +450,17 @@ class Chi0(PairDensity):
             
         r = Redistributor(comm, mdin, mdout)
         
-        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
+        outshape = (mdout.shape[0], mdout.shape[1], nG)
         if out_x is None:
             out_wGG = np.empty(outshape, complex)
+            sdfgljkhsdfg
         else:
             out_wGG = out_x[:np.product(outshape)].reshape(outshape)
             
-        r.redistribute(in_wGG.reshape(mdin.shape),
-                       out_wGG.reshape(mdout.shape))
+        out_wG = np.empty(mdout.shape, complex)
+        for G in range(nG):
+            r.redistribute(in_wGG[:, :, G].copy(), out_wG)
+            out_wGG[:, :, G] = out_wG
         
         return out_wGG
 
