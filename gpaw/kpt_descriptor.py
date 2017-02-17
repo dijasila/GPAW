@@ -1,4 +1,4 @@
-# Copyright (C) 2003  CAMP
+# eCopyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
 """K-point/spin combination-descriptors
@@ -635,4 +635,4 @@ class KPointDescriptor:
 
     def write(self, writer):
         writer.write('ibzkpts', self.ibzk_kc)
-
+        writer.write('weights', self.weight_k)
