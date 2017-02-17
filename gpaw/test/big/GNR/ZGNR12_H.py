@@ -3,12 +3,12 @@
 
 from ase.io import read
 from ase import Atom
-from ase.structure import graphene_nanoribbon
+from ase.build import graphene_nanoribbon
 from ase.optimize import QuasiNewton
 from gpaw import GPAW
 
 GNR = read('ZGNR12.traj')
-pos = GNR[22].position + [-1.05,0.0,0.0] 
+pos = GNR[22].position + [-1.05,0.0,0.0]
 GNR.append(Atom('H', pos))
 pos = GNR[1].position + [1.05,0.0,0.0]
 GNR.append(Atom('H', pos))

@@ -48,10 +48,7 @@ import numpy as np
 from numpy.fft import ifft
 
 from ase import Atoms
-try:
-    from ase.neighborlist import NeighborList
-except ImportError:
-    from ase.calculators.neighborlist import NeighborList
+from ase.neighborlist import NeighborList
 from ase.data import covalent_radii
 from ase.units import Bohr
 

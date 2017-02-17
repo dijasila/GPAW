@@ -6,7 +6,7 @@ from gpaw.test import equal
 atoms = Atoms('H')
 atoms.center(3.0)
 
-convergence={'eigenstates' : 1e-2, 'density' : 1e-2}
+convergence = {'eigenstates': 1e-2, 'density': 1e-2}
 # Keep htpsit
 calc = GPAW(nbands=2,
             eigensolver=RMM_DIIS(keep_htpsit=True),

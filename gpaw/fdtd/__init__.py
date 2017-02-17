@@ -1,3 +1,1 @@
-"""Module for electrodynamic simulations
-
-"""
+"""Module for electrodynamic simulations."""

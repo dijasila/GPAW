@@ -2,15 +2,15 @@ import sys
 from optparse import OptionParser
 
 import numpy as np
+from scipy.optimize import bisect
 
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.atom.basis import rsplit_by_norm, get_gaussianlike_basis_function
+from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.basis_data import BasisFunction, Basis
 from gpaw.hgh import (setups as hgh_setups, sc_setups as hgh_sc_setups,
                       HGHSetupData)
 
-# XXX
-from scipy.optimize import bisect
 
 def atompaw(setup, f_ln, rcut, **kwargs):
     return AtomPAW(setup.symbol,
@@ -33,48 +33,52 @@ def get_orbitals_by_energy_shift(opts, setup, **kwargs):
                 f_ln.append([])
             if f > 0 and n > 0:
                 f_ln[l].append(f)
+
     def calculate(rcut, h=h, txt='-'):
         return atompaw(setup, f_ln, rcut, h=h, txt=txt, **kwargs)
 
     def get_orbital_energy(l0, n0, rcut):
         calc = calculate(rcut, 0.15, txt=None)
         for l, n, f, eps, psit_G in calc.state_iter():
-            if l == l0 and n + 1== n0: # XXX
+            if l == l0 and n + 1 == n0:  # XXX
                 return eps
         raise ValueError('No such valence state: l=%d, n=%d' % (l0, n0))
 
-    calc0 = calculate(2.0, 0.2, txt=None) # XXX
+    calc0 = calculate(2.0, 0.2, txt=None)  # XXX
+
     def valence_states():
         for l, n, f, eps, psit_G in calc0.state_iter():
-            yield l, n + 1 # XXX
+            yield l, n + 1  # XXX
 
     bf_j = []
-    
+
     for i, (l, n) in enumerate(valence_states()):
-        e0 = get_orbital_energy(l, n, 15.0) * 27.211 # 15Ang == infinity
+        e0 = get_orbital_energy(l, n, 15.0) * 27.211  # 15Ang == infinity
         print('e0', e0)
+
         def obj(rcut):
             eps = get_orbital_energy(l, n, rcut) * 27.211
             de = eps - opts.energy_shift - e0
-            #print rcut, eps, de
+            # print rcut, eps, de
             return de
-        
+
         # Not exactly efficient...
         rcut = bisect(obj, 1.0, 15.0, xtol=0.1)
         calc = calculate(h=h, rcut=rcut, txt=None)
         bfs = calc.extract_basis_functions()
         bf_j.append(bfs.bf_j[i])
 
-    basis = Basis(setup.symbol, 'strange', readxml=False)
-    basis.d = bfs.d
-    basis.ng = max([bf.ng for bf in bf_j])
+    d = bfs.d
+    ng = max([bf.ng for bf in bf_j])
+    rgd = EquidistantRadialGridDescriptor(d, ng)
+    basis = Basis(setup.symbol, 'strange', readxml=False, rgd=rgd)
     basis.bf_j = bf_j
     return basis
-    #for (l, n), cutoff in zip(valence_states(), cutoffs):
-    #    calculate(
-    
-    #return
-    #calc = calculate(rcut)
+    # for (l, n), cutoff in zip(valence_states(), cutoffs):
+    #     calculate(
+
+    # return
+    # calc = calculate(rcut)
     bfs = calc.extract_basis_functions(basis_name=opts.name)
     ldict = dict([(bf.l, bf) for bf in bfs.bf_j])
 
@@ -117,7 +121,7 @@ def get_orbitals_by_energy_shift(opts, setup, **kwargs):
             break
     else:
         raise NotImplementedError('f-type polarization not implemented')
-    
+
     for splitnorm in opts.polarization:
         splitnorm = float(splitnorm)
         rchar, normsqr, phit_g = get_rsplit(source_bf, splitnorm)
@@ -127,7 +131,7 @@ def get_orbitals_by_energy_shift(opts, setup, **kwargs):
         N = len(phit_g)
         x = np.dot(rgd.dr_g[:N], (phit_g * rgd.r_g[:N])**2)**0.5
         print('x', x)
-        bf = BasisFunction(lpol,
+        bf = BasisFunction(None, lpol,
                            rc=rcut,
                            phit_g=phit_g,
                            type='%s polarization' % 'spd'[lpol])
@@ -138,9 +142,9 @@ def get_orbitals_by_energy_shift(opts, setup, **kwargs):
 
 def build_parser():
     usage = '%prog [OPTION] [SYMBOL...]'
-    
+
     description = 'generate basis sets from existing setups.'
-    
+
     p = OptionParser(usage=usage, description=description)
     p.add_option('--grid', default=0.05, type=float, metavar='DR',
                  help='grid spacing in atomic calculation')
@@ -163,7 +167,7 @@ def build_parser():
     #             help='force s-type split-valence functions to 0 at origin')
     #p.add_option('-t', '--type',
     #             help='string describing extra basis functions')
-                 
+
     return p
 
 

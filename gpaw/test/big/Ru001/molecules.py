@@ -1,4 +1,4 @@
-from ase.structure import molecule
+from ase.build import molecule
 from ase.optimize import BFGS
 from gpaw import GPAW
 from gpaw.mixer import MixerDif
@@ -16,4 +16,4 @@ for name in ['H2', 'N2', 'O2', 'NO']:
   
     opt = BFGS(mol, logfile=name + '.log', trajectory=name + '.traj')
     opt.run(fmax=0.05)
-    calc.write(name)
+    calc.write(name + '.gpw')

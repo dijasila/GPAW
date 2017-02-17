@@ -1,6 +1,6 @@
 # Check that atoms object mismatches are detected properly across CPUs.
 
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw.mpi import world, synchronize_atoms
 
 system = molecule('H2O')

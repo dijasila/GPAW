@@ -1,6 +1,5 @@
 from __future__ import print_function
 import os
-import platform
 import tempfile
 import warnings
 from optparse import OptionParser
@@ -118,10 +117,6 @@ def main(args=None):
     tmpdir = mpi.broadcast_string(tmpdir)
     cwd = os.getcwd()
     os.chdir(tmpdir)
-    operating_system = platform.system() + ' ' + platform.machine()
-    operating_system += ' ' + ' '.join(platform.dist())
-    python = platform.python_version() + ' ' + platform.python_compiler()
-    python += ' ' + ' '.join(platform.architecture())
     if mpi.rank == 0:
         info()
         print('Running tests in', tmpdir)

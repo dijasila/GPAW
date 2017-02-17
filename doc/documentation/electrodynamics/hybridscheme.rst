@@ -71,20 +71,62 @@ Example: photoabsorption of Na2 near gold nanosphere
 This example calculates the photoabsorption of `\text{Na}_2` molecule
 in (i) presence and (ii) absence of a gold nanosphere:
 
-.. literalinclude:: gold+na2_nanosphere_calculate.py
+.. literalinclude:: gold+na2_nanosphere/calculate.py
 
 |enhanced_absorption|
 
-.. |enhanced_absorption| image:: hybrid.png
+.. |enhanced_absorption| image:: gold+na2_nanosphere/hybrid.png
 
 The optical response of the molecule apparently enhances when
 it is located near the metallic nanoparticle, see Ref. \ [#Sakko]_ for
 more examples. The geometry and the distribution
-of the grid points are shown in the following figure:
+of the grid points are shown in the following figure
+(generated with :download:`this script <gold+na2_nanosphere/plot_geom.py>`):
 
 |geometry|
 
-.. |geometry| image:: geom.png
+.. |geometry| image:: gold+na2_nanosphere/geom.png
+
+
+.. _hybrid-inducedfield:
+
+----------------------------------------------------------------------------
+Advanced example: Near field enhancement of hybrid system
+----------------------------------------------------------------------------
+In this example we calculate the same hybrid Na2 + gold nanoparticle
+system as above, but using the advanced syntax instead of the
+:code:`QSFDTD` wrapper. This allows us to include :code:`InducedField` observers
+in the calculation, see
+:ref:`TDDFTInducedField module documentation <inducedfield_timepropagation>`:
+
+.. literalinclude:: gold+na2_nanosphere_inducedfield/calculate.py
+
+The :code:`TDDFTInducedField` records the quantum part of the calculation and
+the :code:`FDTDInducedField` records the classical part.
+We can calculate the individual and the total induced field
+by the following script:
+
+.. literalinclude:: gold+na2_nanosphere_inducedfield/postprocess.py
+
+All the :code:`InducedField` objects
+can be analyzed in the same way as described in
+:ref:`TDDFTInducedField module documentation <inducedfield_timepropagation>`.
+Here we show an example script
+for plotting:
+
+.. literalinclude:: gold+na2_nanosphere_inducedfield/plot.py
+
+This produces the following figures for the electric near field:
+
+|cl_fe| |qm_fe| |tot_fe|
+
+.. |cl_fe| image:: gold+na2_nanosphere_inducedfield/cl_field.ind_Ffe.png
+   :scale: 70 %
+.. |qm_fe| image:: gold+na2_nanosphere_inducedfield/qm_field.ind_Ffe.png
+   :scale: 70 %
+.. |tot_fe| image:: gold+na2_nanosphere_inducedfield/tot_field.ind_Ffe.png
+   :scale: 70 %
+
 
 ----------
 References

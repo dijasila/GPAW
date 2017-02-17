@@ -1,7 +1,7 @@
 # Check that the LCAODOS works.
 
 from gpaw import GPAW
-from ase.structure import molecule
+from ase.build import molecule
 #import pylab as pl
 
 system = molecule('H2O')

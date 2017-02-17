@@ -1,5 +1,5 @@
 from ase import Atoms
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW, FermiDirac, PW
 
 cell = bulk('Ga', 'fcc', a=5.68).cell

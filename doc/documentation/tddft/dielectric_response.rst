@@ -73,7 +73,7 @@ Dyson's equation:
 
 .. math::
 
-  \chi(\mathbf r, \mathbf{r^{\prime}}, \omega) = \chi_0(\mathbf r,  \mathbf{r^{\prime}}, \omega)
+  \chi(\mathbf r, \mathbf{r^{\prime}}, \omega) = \chi_0(\mathbf r,  \mathbf{r^{\prime}}, \omega) +
   \iint_{\Omega} d\mathbf{r}_1 d\mathbf{r}_2 \ \chi_0(\mathbf r, \mathbf{r}_1, \omega) 
   K(\mathbf{r}_1, \mathbf{r}_2) \chi(\mathbf{r}_2,  \mathbf{r^{\prime}} ,\omega),
 

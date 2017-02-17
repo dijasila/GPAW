@@ -23,11 +23,11 @@ for mode in ['fd', 'pw']:
     dens.interpolate_pseudo_density()
     dens.calculate_pseudo_charge()
     ham.update(dens)
-    e1 = ham.get_energy(hydrogen.calc.occupations) - ham.Ekin
+    e1 = ham.get_energy(hydrogen.calc.occupations) - ham.e_kinetic
     dens.nt_sG[0, 0, 0, 0] -= 2 * x
     dens.nt_sG[0, 0, 0, 1] += 2 * x
     dens.interpolate_pseudo_density()
     dens.calculate_pseudo_charge()
     ham.update(dens)
-    e2 = ham.get_energy(hydrogen.calc.occupations) - ham.Ekin
+    e2 = ham.get_energy(hydrogen.calc.occupations) - ham.e_kinetic
     equal(y, (e1 - e2) / (2 * x), 2e-8)

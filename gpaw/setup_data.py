@@ -31,11 +31,13 @@ else:
 class SetupData:
     """Container class for persistent setup attributes and XML I/O."""
     def __init__(self, symbol, xcsetupname, name='paw', readxml=True,
-                 zero_reference=False, world=None):
+                 zero_reference=False, world=None,
+                 generator_version=None):
         self.symbol = symbol
         self.setupname = xcsetupname
         self.name = name
         self.zero_reference = zero_reference
+        self.generator_version = generator_version
 
         # Default filename if this setup is written
         if name is None or name == 'paw':
@@ -57,41 +59,41 @@ class SetupData:
         self.f_j = []
         self.eps_j = []
         self.e_kin_jj = None  # <phi | T | phi> - <phit | T | phit>
-        
+
         self.rgd = None
         self.rcgauss = None  # For compensation charge expansion functions
-        
+
         # State identifier, like "X-2s" or "X-p1", where X is chemical symbol,
         # for bound and unbound states
         self.id_j = []
-        
+
         # Partial waves, projectors
         self.phi_jg = []
         self.phit_jg = []
         self.pt_jg = []
         self.rcut_j = []
-        
+
         # Densities, potentials
         self.nc_g = None
         self.nct_g = None
         self.nvt_g = None
         self.vbar_g = None
-        
+
         # Kinetic energy densities of core electrons
         self.tauc_g = None
         self.tauct_g = None
-        
+
         # Reference energies
         self.e_kinetic = 0.0
         self.e_xc = 0.0
         self.e_electrostatic = 0.0
         self.e_total = 0.0
         self.e_kinetic_core = 0.0
-        
+
         # Generator may store description of setup in this string
         self.generatorattrs = []
         self.generatordata = ''
-        
+
         # Optional quantities, normally not used
         self.X_p = None
         self.ExxC = None
@@ -111,9 +113,14 @@ class SetupData:
         self.nderiv0 = None
 
         self.orbital_free = False  # orbital-free DFT
-        
+
         if readxml:
             self.read_xml(world=world)
+
+    def __repr__(self):
+        return ('{0}({symbol!r}, {setupname!r}, name={name!r}, '
+                'generator_version={generator_version!r}, ...)'
+                .format(self.__class__.__name__, **vars(self)))
 
     def append(self, n, l, f, e, rcut, phi_g, phit_g, pt_g):
         self.n_j.append(n)
@@ -124,7 +131,7 @@ class SetupData:
         self.phi_jg.append(phi_g)
         self.phit_jg.append(phit_g)
         self.pt_jg.append(pt_g)
-        
+
     def read_xml(self, source=None, world=None):
         PAWXMLParser(self).parse(source=source, world=world)
         nj = len(self.l_j)
@@ -138,19 +145,19 @@ class SetupData:
             text(self.symbol + '-setup:')
         else:
             text('%s-setup (%.1f core hole):' % (self.symbol, self.fcorehole))
-        text('  name   :', atomic_names[self.Z])
-        text('  id     :', self.fingerprint)
-        text('  Z      :', self.Z)
+        text('  name:', atomic_names[self.Z])
+        text('  id:', self.fingerprint)
+        text('  Z:', self.Z)
         text('  valence:', self.Nv)
         if self.phicorehole_g is None:
-            text('  core   : %d' % self.Nc)
+            text('  core: %d' % self.Nc)
         else:
-            text('  core   : %.1f' % self.Nc)
-        text('  charge :', self.Z - self.Nv - self.Nc)
+            text('  core: %.1f' % self.Nc)
+        text('  charge:', self.Z - self.Nv - self.Nc)
         if setup.HubU is not None:
             text('  Hubbard U: %f eV (l=%d, scale=%s)' %
                  (setup.HubU * Hartree, setup.Hubl, bool(setup.Hubs)))
-        text('  file   :', self.filename)
+        text('  file:', self.filename)
         text(('  cutoffs: %4.2f(comp), %4.2f(filt), %4.2f(core),'
               ' lmax=%d' % (sqrt(10) * self.rcgauss * Bohr,
                             # XXX is this really true?  I don't think this is
@@ -159,15 +166,15 @@ class SetupData:
                             setup.rcore * Bohr,
                             setup.lmax)))
         text('  valence states:')
-        text('            energy   radius')
+        text('                energy  radius')
         j = 0
         for n, l, f, eps in zip(self.n_j, self.l_j, self.f_j, self.eps_j):
             if n > 0:
                 f = '(%.2f)' % f
-                text('    %d%s%-5s %7.3f   %5.3f' % (
+                text('    %d%s%-5s %9.3f   %5.3f' % (
                     n, 'spdf'[l], f, eps * Hartree, self.rcut_j[j] * Bohr))
             else:
-                text('    *%s     %7.3f   %5.3f' % (
+                text('    *%s       %9.3f   %5.3f' % (
                     'spdf'[l], eps * Hartree, self.rcut_j[j] * Bohr))
             j += 1
         text()
@@ -190,7 +197,7 @@ class SetupData:
 
     def get_overlap_correction(self, Delta0_ii):
         return sqrt(4.0 * pi) * Delta0_ii
-    
+
     def get_linear_kinetic_correction(self, T0_qp):
         e_kin_jj = self.e_kin_jj
         nj = len(e_kin_jj)
@@ -316,7 +323,7 @@ class SetupData:
             xml.write(('  <zero_potential type="%s" ' +
                        'e0="%r" nderiv="%d" r0="%r" grid="g1">\n') %
                       ('spdfg'[self.l0], self.e0, self.nderiv0, self.r0))
-            
+
         for x in self.vbar_g:
             print('%r' % x, end=' ', file=xml)
         print('\n  </zero_potential>', file=xml)
@@ -423,8 +430,9 @@ def search_for_file(name, world=None):
         err = 'Could not find required %s file "%s".' % (_type, name)
         helpful_message = """
 You need to set the GPAW_SETUP_PATH environment variable to point to
-the directories where setup and basis files are stored.  See
-http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
+the directories where PAW dataset and basis files are stored.  See
+https://wiki.fysik.dtu.dk/gpaw/install.html#install-paw-datasets
+for details."""
         raise RuntimeError('%s\n%s' % (err, helpful_message))
 
     return filename, source
@@ -448,7 +456,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         # We don't want to look at the dtd now.  Remove it:
         source = re.compile(b'<!DOCTYPE .*?>', re.DOTALL).sub(b'', source, 1)
         xml.sax.parseString(source, self)
-        
+
         if setup.zero_reference:
             setup.e_total = 0.0
             setup.e_kinetic = 0.0
@@ -458,7 +466,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
     def startElement(self, name, attrs):
         if sys.version_info[0] < 3:
             attrs.__contains__ = attrs.has_key
-            
+
         setup = self.setup
         if name == 'paw_setup':
             setup.version = attrs['version']
@@ -548,7 +556,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             self.data = []
         elif name == 'generator':
             setup.type = attrs['type']
-            setup.generator_version = attrs.get('version', 1)
+            setup.generator_version = int(attrs.get('version', '1'))
         else:
             self.data = None
 

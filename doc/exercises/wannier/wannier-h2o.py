@@ -1,4 +1,4 @@
-from ase.structure import molecule
+from ase.build import molecule
 from ase.visualize import view
 from ase import Atoms
 from gpaw import GPAW

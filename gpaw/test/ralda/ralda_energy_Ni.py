@@ -1,6 +1,6 @@
 from os import system
 from ase import *
-from ase.lattice import bulk
+from ase.build import bulk
 from ase.dft.kpoints import monkhorst_pack
 from gpaw import *
 from gpaw.test import equal

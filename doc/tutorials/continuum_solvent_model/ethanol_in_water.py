@@ -1,5 +1,5 @@
 from gpaw import GPAW
-from ase.structure import molecule
+from ase.build import molecule
 from ase.units import mol, kJ, kcal, Pascal, m
 from ase.data.vdw import vdw_radii
 from ase.parallel import parprint

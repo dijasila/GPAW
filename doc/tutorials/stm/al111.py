@@ -1,4 +1,4 @@
-from ase.lattice.surface import fcc111
+from ase.build import fcc111
 atoms = fcc111('Al', size=(1, 1, 2))
 atoms.center(vacuum=4.0, axis=2)
 

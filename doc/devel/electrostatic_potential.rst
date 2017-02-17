@@ -43,7 +43,7 @@ So, the all-electron potential is:
    v_H(\mathbf{r}) = \tilde{v}_H(\mathbf{r}) +
    \sum_a \Delta\tilde{v}_H^a(\mathbf{r} - \mathbf{R}^a)
 
-and 
+and
 
 .. math::
 
@@ -57,7 +57,7 @@ moments of `\Delta\tilde{\rho}^a` are zero and therefore, the
 potential from these correction charges (`\Delta\tilde{v}_H^a`) will
 be non-zero only inside the atomic augmentation spheres.
 
-The :meth:`~gpaw.aseinterface.GPAW.get_electrostatic_corrections`
+The :meth:`~gpaw.calculator.GPAW.get_electrostatic_corrections`
 method will return an array of integrated corrections:
 
 .. math::

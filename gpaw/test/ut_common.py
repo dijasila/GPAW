@@ -85,7 +85,7 @@ import numpy as np
 
 from math import sin, cos
 from ase import Atoms
-from ase.structure import molecule
+from ase.build import molecule
 from ase.units import Bohr
 from gpaw.mpi import synchronize_atoms, world
 from gpaw.utilities.tools import md5_array
@@ -153,7 +153,7 @@ def create_random_atoms(gd, nmolecules=10, name='NH2', mindist=4.5 / Bohr):
 
 # -------------------------------------------------------------------
 
-from fractions import gcd
+from ase.utils import gcd
 from gpaw import parsize_domain, parsize_bands
 
 def create_parsize_maxbands(nbands, world_size):

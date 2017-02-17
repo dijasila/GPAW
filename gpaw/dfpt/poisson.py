@@ -18,7 +18,7 @@ import _gpaw
 
 from gpaw import poisson
 
-class PoissonSolver(poisson.PoissonSolver):
+class PoissonSolver(poisson.FDPoissonSolver):
     """Copy of GPAW Poissonsolver"""
 
 class FFTPoissonSolver(poisson.FFTPoissonSolver):

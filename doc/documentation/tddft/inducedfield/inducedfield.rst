@@ -7,11 +7,7 @@ Induced electric near field from TDDFT
 Induced electric near field can be calculated for finite systems from
 :ref:`inducedfield_timepropagation` or :ref:`inducedfield_casida`.
 
-.. warning::
-	This code is experimental and documentation is not complete!
-
-TODO: equations
-
+The implementation is described in Ref. [#Rossi2013]_.
 
 .. _inducedfield_timepropagation:
 
@@ -36,8 +32,6 @@ Plotting example
 
 .. literalinclude:: timepropagation_plot.py
 
-
-
 |na2_td_Frho| |na2_td_Fphi| |na2_td_Ffe|
 
 .. |na2_td_Frho| image:: na2_td_Frho.png
@@ -46,8 +40,6 @@ Plotting example
 
 
 TODO: notes about AE/comp corrections, extending grid
-
-
 
 .. _inducedfield_casida:
 
@@ -73,3 +65,13 @@ Plotting example (same as in time propagation)
 .. |na2_casida_Frho| image:: na2_casida_Frho.png
 .. |na2_casida_Fphi| image:: na2_casida_Fphi.png
 .. |na2_casida_Ffe| image:: na2_casida_Ffe.png
+
+
+References
+==========
+
+.. [#Rossi2013]
+   T. P. Rossi,
+   Simulating electric field enhancement in plasmonic nanomaterials,
+   Master's thesis, Aalto University (2013).
+   `<http://urn.fi/URN:NBN:fi:aalto-201309137662>`_

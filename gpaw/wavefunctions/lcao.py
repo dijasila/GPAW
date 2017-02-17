@@ -1,4 +1,5 @@
 import numpy as np
+from ase.units import Bohr
 
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack
@@ -8,24 +9,27 @@ from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
 from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.lcao.atomic_correction import get_atomic_correction
+from gpaw.wavefunctions.mode import Mode
 
 
-class LCAO:
+class LCAO(Mode):
     name = 'lcao'
-    
-    def __init__(self, atomic_correction=None):
-        self.atomic_correction = atomic_correction
 
-    def __call__(self, collinear, *args, **kwargs):
-        if collinear:
-            cls = LCAOWaveFunctions
-        else:
-            from gpaw.xc.noncollinear import \
-                NonCollinearLCAOWaveFunctions
-            cls = NonCollinearLCAOWaveFunctions
-        
-        return cls(*args, atomic_correction=self.atomic_correction,
-                    **kwargs)
+    def __init__(self, atomic_correction=None, interpolation=3,
+                 force_complex_dtype=False):
+        self.atomic_correction = atomic_correction
+        self.interpolation = interpolation
+        Mode.__init__(self, force_complex_dtype)
+
+    def __call__(self, *args, **kwargs):
+        return LCAOWaveFunctions(*args,
+                                 atomic_correction=self.atomic_correction,
+                                 **kwargs)
+
+    def todict(self):
+        dct = Mode.todict(self)
+        dct['interpolation'] = self.interpolation
+        return dct
 
 
 # replace by class to make data structure perhaps a bit less confusing
@@ -36,7 +40,7 @@ def get_r_and_offsets(nl, spos_ac, cell_cv):
         if not (a1, a2) in r_and_offset_aao:
             r_and_offset_aao[(a1, a2)] = []
         r_and_offset_aao[(a1, a2)].append((R_c, offset))
-    
+
     for a1, spos1_c in enumerate(spos_ac):
         a2_a, offsets = nl.get_neighbors(a1)
         for a2, offset in zip(a2_a, offsets):
@@ -46,13 +50,13 @@ def get_r_and_offsets(nl, spos_ac, cell_cv):
             add(a1, a2, R_c, offset)
             if a1 != a2 or offset.any():
                 add(a2, a1, -R_c, -offset)
-    
+
     return r_and_offset_aao
 
 
 class LCAOWaveFunctions(WaveFunctions):
     mode = 'lcao'
-    
+
     def __init__(self, ksl, gd, nvalence, setups, bd,
                  dtype, world, kd, kptband_comm, timer,
                  atomic_correction=None):
@@ -83,6 +87,9 @@ class LCAOWaveFunctions(WaveFunctions):
                                               dtype=dtype,
                                               cut=True)
 
+    def set_orthonormalized(self, o):
+        pass
+
     def empty(self, n=(), global_array=False, realspace=False):
         if realspace:
             return self.gd.empty(n, self.dtype, global_array)
@@ -92,24 +99,26 @@ class LCAOWaveFunctions(WaveFunctions):
             nao = self.setups.nao
             return np.empty(n + (nao,), self.dtype)
 
-    def summary(self, fd):
-        fd.write('Wave functions: LCAO\n')
-        fd.write('    Diagonalizer: %s\n' % self.ksl.get_description())
-        fd.write('    Atomic Correction: %s\n'
-                 % self.atomic_correction.description)
-        fd.write("    Datatype: %s\n" % self.dtype.__name__)
-        
+    def __str__(self):
+        s = 'Wave functions: LCAO\n'
+        s += '  Diagonalizer: %s\n' % self.ksl.get_description()
+        s += '  Atomic Correction: %s\n' % self.atomic_correction.description
+        s += '  Datatype: %s\n' % self.dtype.__name__
+        return s + WaveFunctions.__str__(self)
+
     def set_eigensolver(self, eigensolver):
         WaveFunctions.set_eigensolver(self, eigensolver)
-        eigensolver.initialize(self.gd, self.dtype, self.setups.nao, self.ksl)
+        if eigensolver:
+            eigensolver.initialize(self.gd, self.dtype, self.setups.nao,
+                                   self.ksl)
 
     def set_positions(self, spos_ac, atom_partition=None):
-        self.timer.start('Basic WFS set positions')
-        WaveFunctions.set_positions(self, spos_ac, atom_partition)
-        self.timer.stop('Basic WFS set positions')
-        self.timer.start('Basis functions set positions')
-        self.basis_functions.set_positions(spos_ac)
-        self.timer.stop('Basis functions set positions')
+        with self.timer('Basic WFS set positions'):
+            WaveFunctions.set_positions(self, spos_ac, atom_partition)
+
+        with self.timer('Basis functions set positions'):
+            self.basis_functions.set_positions(spos_ac)
+
         if self.ksl is not None:
             self.basis_functions.set_matrix_distribution(self.ksl.Mstart,
                                                          self.ksl.Mstop)
@@ -117,12 +126,12 @@ class LCAOWaveFunctions(WaveFunctions):
         nq = len(self.kd.ibzk_qc)
         nao = self.setups.nao
         mynbands = self.bd.mynbands
-        
+
         Mstop = self.ksl.Mstop
         Mstart = self.ksl.Mstart
         mynao = Mstop - Mstart
 
-        if self.ksl.using_blacs: # XXX
+        if self.ksl.using_blacs:  # XXX
             # S and T have been distributed to a layout with blacs, so
             # discard them to force reallocation from scratch.
             #
@@ -130,19 +139,19 @@ class LCAOWaveFunctions(WaveFunctions):
             # memory and avoiding this problem
             self.S_qMM = None
             self.T_qMM = None
-        
+
         S_qMM = self.S_qMM
         T_qMM = self.T_qMM
-        
-        if S_qMM is None: # XXX
+
+        if S_qMM is None:  # XXX
             # First time:
             assert T_qMM is None
-            if self.ksl.using_blacs: # XXX
+            if self.ksl.using_blacs:  # XXX
                 self.tci.set_matrix_distribution(Mstart, mynao)
-                
+
             S_qMM = np.empty((nq, mynao, nao), self.dtype)
             T_qMM = np.empty((nq, mynao, nao), self.dtype)
-        
+
         for kpt in self.kpt_u:
             if kpt.C_nM is None:
                 kpt.C_nM = np.empty((mynbands, nao), self.dtype)
@@ -156,12 +165,10 @@ class LCAOWaveFunctions(WaveFunctions):
         # Calculate lower triangle of S and T matrices:
         self.tci.calculate(spos_ac, S_qMM, T_qMM, self.P_aqMi)
 
-        # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
         if self.atomic_correction.name != 'dense':
             from gpaw.lcao.newoverlap import newoverlap
             self.P_neighbors_a, self.P_aaqim = newoverlap(self, spos_ac)
         self.atomic_correction.gobble_data(self)
-        # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
         self.atomic_correction.add_overlap_correction(self, S_qMM)
         self.timer.stop('TCI: Calculate S, T, P')
@@ -172,7 +179,7 @@ class LCAOWaveFunctions(WaveFunctions):
             my_atom_indices = self.basis_functions.my_atom_indices
         self.allocate_arrays_for_projections(my_atom_indices)
 
-        S_MM = None # allow garbage collection of old S_qMM after redist
+        S_MM = None  # allow garbage collection of old S_qMM after redist
         S_qMM = self.ksl.distribute_overlap_matrix(S_qMM, root=-1)
         T_qMM = self.ksl.distribute_overlap_matrix(T_qMM, root=-1)
         for kpt in self.kpt_u:
@@ -208,7 +215,7 @@ class LCAOWaveFunctions(WaveFunctions):
                 density.initialize_from_wavefunctions(self)
             # Initialize GLLB-potential from basis function orbitals
             if hamiltonian.xc.type == 'GLLB':
-                hamiltonian.xc.initialize_from_atomic_orbitals(\
+                hamiltonian.xc.initialize_from_atomic_orbitals(
                     self.basis_functions)
 
         else:
@@ -216,30 +223,28 @@ class LCAOWaveFunctions(WaveFunctions):
             # make sure it does.  Of course, this should have been taken care
             # of already by this time, so we should improve the code elsewhere
             density.calculate_normalized_charges_and_mix()
-        #print "Updating hamiltonian in LCAO initialize wfs"
+
         hamiltonian.update(density)
         self.timer.stop('LCAO WFS Initialize')
-               
+
+        return 0, 0
+
     def initialize_wave_functions_from_lcao(self):
-        """
-        Fill the calc.wfs.kpt_[u].psit_nG arrays with useful data.
-        
+        """Fill the calc.wfs.kpt_[u].psit_nG arrays with useful data.
+
         Normally psit_nG is NOT used in lcao mode, but some extensions
         (like ase.dft.wannier) want to have it.
         This code is adapted from fd.py / initialize_from_lcao_coefficients()
         and fills psit_nG with data constructed from the current lcao
         coefficients (kpt.C_nM).
-        
+
         (This may or may not work in band-parallel case!)
         """
-        #print('initialize_wave_functions_from_lcao')
         bfs = self.basis_functions
         for kpt in self.kpt_u:
-            #print("kpt: {0}".format(kpt))
             kpt.psit_nG = self.gd.zeros(self.bd.nbands, self.dtype)
             bfs.lcao_to_grid(kpt.C_nM, kpt.psit_nG[:self.bd.mynbands], kpt.q)
-            # kpt.C_nM = None
-            
+
     def initialize_wave_functions_from_restart_file(self):
         """Dummy function to ensure compatibility to fd mode"""
         self.initialize_wave_functions_from_lcao()
@@ -250,17 +255,13 @@ class LCAOWaveFunctions(WaveFunctions):
         assert self.kpt_u[u] is kpt
         psit_G = self._get_wave_function_array(u, n, realspace=True)
         self.add_realspace_orbital_to_density(nt_G, psit_G)
-    
-    def calculate_density_matrix(self, f_n, C_nM, rho_MM=None):
-        # ATLAS can't handle uninitialized output array:
-        #rho_MM.fill(42)
 
+    def calculate_density_matrix(self, f_n, C_nM, rho_MM=None):
         self.timer.start('Calculate density matrix')
         rho_MM = self.ksl.calculate_density_matrix(f_n, C_nM, rho_MM)
         self.timer.stop('Calculate density matrix')
         return rho_MM
 
-        # ----------------------------
         if 1:
             # XXX Should not conjugate, but call gemm(..., 'c')
             # Although that requires knowing C_Mn and not C_nM.
@@ -293,9 +294,6 @@ class LCAOWaveFunctions(WaveFunctions):
                 self, D_asp, f_un)
 
     def calculate_density_matrix_delta(self, d_nn, C_nM, rho_MM=None):
-        # ATLAS can't handle uninitialized output array:
-        #rho_MM.fill(42)
-
         self.timer.start('Calculate density matrix')
         rho_MM = self.ksl.calculate_density_matrix_delta(d_nn, C_nM, rho_MM)
         self.timer.stop('Calculate density matrix')
@@ -338,13 +336,13 @@ class LCAOWaveFunctions(WaveFunctions):
         tci = self.tci
         gd = self.gd
         bfs = self.basis_functions
-        
+
         Mstart = ksl.Mstart
         Mstop = ksl.Mstop
 
         from gpaw.kohnsham_layouts import BlacsOrbitalLayouts
-        isblacs = isinstance(ksl, BlacsOrbitalLayouts) # XXX
-        
+        isblacs = isinstance(ksl, BlacsOrbitalLayouts)  # XXX
+
         if not isblacs:
             self.timer.start('TCI derivative')
             dThetadR_qvMM = np.empty((nq, 3, mynao, nao), dtype)
@@ -358,7 +356,7 @@ class LCAOWaveFunctions(WaveFunctions):
             gd.comm.sum(dThetadR_qvMM)
             gd.comm.sum(dTdR_qvMM)
             self.timer.stop('TCI derivative')
-        
+
             my_atom_indices = bfs.my_atom_indices
             atom_indices = bfs.atom_indices
 
@@ -400,8 +398,8 @@ class LCAOWaveFunctions(WaveFunctions):
                     rhoT_MM = ksl.get_transposed_density_matrix(kpt.f_n,
                                                                 kpt.C_nM)
                     rhoT_uMM.append(rhoT_MM)
-                    ET_MM = ksl.get_transposed_density_matrix(kpt.f_n
-                                                              * kpt.eps_n,
+                    ET_MM = ksl.get_transposed_density_matrix(kpt.f_n *
+                                                              kpt.eps_n,
                                                               kpt.C_nM)
                     ET_uMM.append(ET_MM)
 
@@ -412,16 +410,16 @@ class LCAOWaveFunctions(WaveFunctions):
                                         dtype=kpt.C_nM.dtype)
                         for ne, c_n in zip(kpt.ne_o, kpt.c_on):
                                 d_nn += ne * np.outer(c_n.conj(), c_n)
-                        rhoT_MM += ksl.get_transposed_density_matrix_delta(\
+                        rhoT_MM += ksl.get_transposed_density_matrix_delta(
                             d_nn, kpt.C_nM)
-                        ET_MM += ksl.get_transposed_density_matrix_delta(\
+                        ET_MM += ksl.get_transposed_density_matrix_delta(
                             d_nn * kpt.eps_n, kpt.C_nM)
                 self.timer.stop('Get density matrix')
             else:
                 rhoT_uMM = []
                 ET_uMM = []
                 for kpt in self.kpt_u:
-                    H_MM = self.eigensolver.calculate_hamiltonian_matrix(\
+                    H_MM = self.eigensolver.calculate_hamiltonian_matrix(
                         hamiltonian, self, kpt)
                     tri2full(H_MM)
                     S_MM = kpt.S_MM.copy()
@@ -434,30 +432,30 @@ class LCAOWaveFunctions(WaveFunctions):
                     ET_uMM.append(ET_MM)
         self.timer.stop('Initial')
 
-        if isblacs: # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        if isblacs:  # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
             from gpaw.blacs import BlacsGrid, Redistributor
-            
+
             def get_density_matrix(f_n, C_nM, redistributor):
                 rho1_mm = ksl.calculate_blocked_density_matrix(f_n,
                                                                C_nM).conj()
                 rho_mm = redistributor.redistribute(rho1_mm)
                 return rho_mm
-            
+
             pcutoff_a = [max([pt.get_cutoff() for pt in setup.pt_j])
                          for setup in self.setups]
             phicutoff_a = [max([phit.get_cutoff() for phit in setup.phit_j])
                            for setup in self.setups]
-            
+
             # XXX should probably use bdsize x gdsize instead
             # That would be consistent with some existing grids
             grid = BlacsGrid(ksl.block_comm, self.gd.comm.size,
                              self.bd.comm.size)
-            
+
             blocksize1 = -(-nao // grid.nprow)
             blocksize2 = -(-nao // grid.npcol)
             # XXX what are rows and columns actually?
             desc = grid.new_descriptor(nao, nao, blocksize1, blocksize2)
-            
+
             rhoT_umm = []
             ET_umm = []
             redistributor = Redistributor(grid.comm, ksl.mmdescriptor, desc)
@@ -467,32 +465,32 @@ class LCAOWaveFunctions(WaveFunctions):
                 rhoT_mm = get_density_matrix(kpt.f_n, kpt.C_nM, redistributor)
                 rhoT_umm.append(rhoT_mm)
                 self.timer.stop('Get density matrix')
-                
+
                 self.timer.start('Potential')
                 rhoT_mM = ksl.distribute_to_columns(rhoT_mm, desc)
-                
+
                 vt_G = vt_sG[kpt.s]
                 Fpot_av += bfs.calculate_force_contribution(vt_G, rhoT_mM,
                                                             kpt.q)
                 del rhoT_mM
                 self.timer.stop('Potential')
-            
+
             self.timer.start('Get density matrix')
             for kpt in self.kpt_u:
                 ET_mm = get_density_matrix(kpt.f_n * kpt.eps_n, kpt.C_nM,
                                            redistributor)
                 ET_umm.append(ET_mm)
             self.timer.stop('Get density matrix')
-            
+
             M1start = blocksize1 * grid.myrow
             M2start = blocksize2 * grid.mycol
-            
+
             M1stop = min(M1start + blocksize1, nao)
             M2stop = min(M2start + blocksize2, nao)
-            
+
             m1max = M1stop - M1start
             m2max = M2stop - M2start
-        
+
         if not isblacs:
             # Kinetic energy contribution
             #
@@ -505,8 +503,8 @@ class LCAOWaveFunctions(WaveFunctions):
             #
             Fkin_av = np.zeros_like(F_av)
             for u, kpt in enumerate(self.kpt_u):
-                dEdTrhoT_vMM = (dTdR_qvMM[kpt.q]
-                                * rhoT_uMM[u][np.newaxis]).real
+                dEdTrhoT_vMM = (dTdR_qvMM[kpt.q] *
+                                rhoT_uMM[u][np.newaxis]).real
                 for a, M1, M2 in my_slices():
                     Fkin_av[a, :] += \
                         2.0 * dEdTrhoT_vMM[:, M1:M2].sum(-1).sum(-1)
@@ -523,8 +521,8 @@ class LCAOWaveFunctions(WaveFunctions):
             #
             Ftheta_av = np.zeros_like(F_av)
             for u, kpt in enumerate(self.kpt_u):
-                dThetadRE_vMM = (dThetadR_qvMM[kpt.q]
-                                 * ET_uMM[u][np.newaxis]).real
+                dThetadRE_vMM = (dThetadR_qvMM[kpt.q] *
+                                 ET_uMM[u][np.newaxis]).real
                 for a, M1, M2 in my_slices():
                     Ftheta_av[a, :] += \
                         -2.0 * dThetadRE_vMM[:, M1:M2].sum(-1).sum(-1)
@@ -534,7 +532,7 @@ class LCAOWaveFunctions(WaveFunctions):
             from gpaw.lcao.overlap import TwoCenterIntegralCalculator
             self.timer.start('Prepare TCI loop')
             M_a = bfs.M_a
-            
+
             Fkin2_av = np.zeros_like(F_av)
             Ftheta2_av = np.zeros_like(F_av)
 
@@ -555,7 +553,7 @@ class LCAOWaveFunctions(WaveFunctions):
             Theta_expansions = tci.Theta_expansions
             P_expansions = tci.P_expansions
             nq = len(self.kd.ibzk_qc)
-            
+
             self.timer.start('broadcast dH')
             alldH_asp = {}
             for a in range(len(self.setups)):
@@ -569,7 +567,7 @@ class LCAOWaveFunctions(WaveFunctions):
                 # okay, now everyone gets copies of dH_sp
                 alldH_asp[a] = dH_sp
             self.timer.stop('broadcast dH')
-            
+
             # This will get sort of hairy.  We need to account for some
             # three-center overlaps, such as:
             #
@@ -581,7 +579,7 @@ class LCAOWaveFunctions(WaveFunctions):
             # To this end we will loop over all pairs of atoms (a1, a3),
             # and then a sub-loop over (a3, a2).
             from gpaw.lcao.overlap import DerivativeAtomicDisplacement
-            
+
             class Displacement(DerivativeAtomicDisplacement):
                 def __init__(self, a1, a2, R_c, offset):
                     phases = overlapcalc.phaseclass(overlapcalc.ibzk_qc,
@@ -607,7 +605,7 @@ class LCAOWaveFunctions(WaveFunctions):
                         disp_o.append(disp)
                     disp_aao[(a1, a2)] = disp_o
                 return [disp for disp in disp_o if disp.r < maxdistance]
-                
+
             self.timer.stop('Prepare TCI loop')
             self.timer.start('Not so complicated loop')
 
@@ -618,15 +616,14 @@ class LCAOWaveFunctions(WaveFunctions):
                     # Maybe decide which of these choices
                     # depending on whether a2 % 1 == 0
                     continue
-                
+
                 m1start = M_a[a1] - M1start
                 m2start = M_a[a2] - M2start
                 if m1start >= blocksize1 or m2start >= blocksize2:
-                    continue # (we have only one block per CPU)
+                    continue  # (we have only one block per CPU)
 
                 T_expansion = T_expansions.get(a1, a2)
                 Theta_expansion = Theta_expansions.get(a1, a2)
-                #P_expansion = P_expansions.get(a1, a2)
                 nm1, nm2 = T_expansion.shape
 
                 m1stop = min(m1start + nm1, m1max)
@@ -655,11 +652,11 @@ class LCAOWaveFunctions(WaveFunctions):
                     rhoT_mm = rhoT_umm[u][m1start:m1stop, m2start:m2stop]
                     ET_mm = ET_umm[u][m1start:m1stop, m2start:m2stop]
                     Fkin_v = 2.0 * (dTdR_qvmm[kpt.q][:, J1start:M1stop,
-                                                     J2start:J2stop]
-                                    * rhoT_mm[np.newaxis]).real.sum(-1).sum(-1)
+                                                     J2start:J2stop] *
+                                    rhoT_mm[np.newaxis]).real.sum(-1).sum(-1)
                     Ftheta_v = 2.0 * (dThetadR_qvmm[kpt.q][:, J1start:M1stop,
-                                                           J2start:J2stop]
-                                      * ET_mm[np.newaxis]).real.sum(-1).sum(-1)
+                                                           J2start:J2stop] *
+                                      ET_mm[np.newaxis]).real.sum(-1).sum(-1)
                     Fkin2_av[a1] += Fkin_v
                     Fkin2_av[a2] -= Fkin_v
                     Ftheta2_av[a1] -= Ftheta_v
@@ -673,10 +670,10 @@ class LCAOWaveFunctions(WaveFunctions):
 
             a2values = {}
             for (a2, a3) in atompairs:
-                if not a3 in a2values:
+                if a3 not in a2values:
                     a2values[a3] = []
                 a2values[a3].append(a2)
-            
+
             Fatom_av = np.zeros_like(F_av)
             Frho_av = np.zeros_like(F_av)
             self.timer.start('Complicated loop')
@@ -688,7 +685,7 @@ class LCAOWaveFunctions(WaveFunctions):
                 m1start = M_a[a1] - M1start
                 if m1start >= blocksize1:
                     continue
-                
+
                 P_expansion = P_expansions.get(a1, a3)
                 nm1 = P_expansion.shape[0]
                 m1stop = min(m1start + nm1, m1max)
@@ -703,7 +700,7 @@ class LCAOWaveFunctions(WaveFunctions):
                                            phicutoff_a[a1] + pcutoff_a[a3])
                 if len(disp_o) == 0:
                     continue
-                
+
                 dPdR_qvmi = P_expansion.zeros((nq, 3), dtype=dtype)
                 for disp in disp_o:
                     disp.evaluate_overlap(P_expansion, dPdR_qvmi)
@@ -719,7 +716,7 @@ class LCAOWaveFunctions(WaveFunctions):
                     m2stop = min(m2start + nm2, m2max)
                     if m2stop <= 0:
                         continue
-                    
+
                     disp_o = get_displacements(a2, a3,
                                                phicutoff_a[a2] + pcutoff_a[a3])
                     if len(disp_o) == 0:
@@ -738,7 +735,7 @@ class LCAOWaveFunctions(WaveFunctions):
                         P_qmi = P_qmi[:, J2start:J2stop].copy()
                         dH_sp = alldH_asp[a3]
                         dS_ii = self.setups[a3].dO_ii
-                        
+
                         dHP_uim = []
                         dSP_uim = []
                         for u, kpt in enumerate(self.kpt_u):
@@ -749,25 +746,25 @@ class LCAOWaveFunctions(WaveFunctions):
                             dHP_uim.append(dHP_im)
                             dSP_uim.append(dSP_im)
                             dHP_and_dSP_aauim[(a2, a3)] = dHP_uim, dSP_uim
-                    
+
                     for u, kpt in enumerate(self.kpt_u):
                         rhoT_mm = rhoT_umm[u][m1start:m1stop, m2start:m2stop]
                         ET_mm = ET_umm[u][m1start:m1stop, m2start:m2stop]
                         dPdRdHP_vmm = np.dot(dPdR_qvmi[kpt.q], dHP_uim[u])
                         dPdRdSP_vmm = np.dot(dPdR_qvmi[kpt.q], dSP_uim[u])
-                        
-                        Fatom_c = 2.0 * (dPdRdHP_vmm
-                                         * rhoT_mm).real.sum(-1).sum(-1)
-                        Frho_c = 2.0 * (dPdRdSP_vmm
-                                        * ET_mm).real.sum(-1).sum(-1)
+
+                        Fatom_c = 2.0 * (dPdRdHP_vmm *
+                                         rhoT_mm).real.sum(-1).sum(-1)
+                        Frho_c = 2.0 * (dPdRdSP_vmm *
+                                        ET_mm).real.sum(-1).sum(-1)
                         Fatom_av[a1] += Fatom_c
                         Fatom_av[a3] -= Fatom_c
 
                         Frho_av[a1] -= Frho_c
                         Frho_av[a3] += Frho_c
-                        
+
             self.timer.stop('Complicated loop')
-        
+
         if not isblacs:
             # Potential contribution
             #
@@ -822,8 +819,8 @@ class LCAOWaveFunctions(WaveFunctions):
                         ZE_MM = (work_MM * ET_uMM[u]).real
                         for a, M1, M2 in slices():
                             dE = 2 * ZE_MM[M1:M2].sum()
-                            Frho_av[a, v] -= dE # the "b; mu in a; nu" term
-                            Frho_av[b, v] += dE # the "mu nu" term
+                            Frho_av[a, v] -= dE  # the "b; mu in a; nu" term
+                            Frho_av[b, v] += dE  # the "mu nu" term
             del work_MM, ZE_MM
             self.timer.stop('Paw correction')
 
@@ -850,14 +847,14 @@ class LCAOWaveFunctions(WaveFunctions):
                     H_ii = np.asarray(unpack(dH_asp[b][kpt.s]), dtype)
                     HP_iM = gemmdot(H_ii,
                                     np.ascontiguousarray(
-                            self.P_aqMi[b][kpt.q].T.conj()))
+                                        self.P_aqMi[b][kpt.q].T.conj()))
                     for v in range(3):
                         dPdR_Mi = dPdR_aqvMi[b][kpt.q][v][Mstart:Mstop]
                         ArhoT_MM = (gemmdot(dPdR_Mi, HP_iM) * rhoT_uMM[u]).real
                         for a, M1, M2 in slices():
                             dE = 2 * ArhoT_MM[M1:M2].sum()
-                            Fatom_av[a, v] += dE # the "b; mu in a; nu" term
-                            Fatom_av[b, v] -= dE # the "mu nu" term
+                            Fatom_av[a, v] += dE  # the "b; mu in a; nu" term
+                            Fatom_av[b, v] -= dE  # the "mu nu" term
             self.timer.stop('Atomic Hamiltonian force')
 
         F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
@@ -871,10 +868,6 @@ class LCAOWaveFunctions(WaveFunctions):
     def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
         # XXX Taking kpt is better than taking u
         kpt = self.kpt_u[u]
-        if kpt.C_nM is None:
-            # Hack to make sure things are available after restart
-            self.lazyloader.load(self)
-        
         C_M = kpt.C_nM[n]
 
         if realspace:
@@ -887,48 +880,37 @@ class LCAOWaveFunctions(WaveFunctions):
         else:
             return C_M
 
-    def load_lazily(self, hamiltonian, spos_ac):
-        """Horrible hack to recalculate lcao coefficients after restart."""
-        self.basis_functions.set_positions(spos_ac)
-        
-        class LazyLoader:
-            def __init__(self, hamiltonian, spos_ac):
-                self.spos_ac = spos_ac
-            
-            def load(self, wfs):
-                wfs.set_positions(self.spos_ac) # this sets rank_a
-                # Now we need to pass atom_partition or things to work
-                # XXX WTF why does one have to fiddle with atom_partition???
-                hamiltonian.set_positions(self.spos_ac,
-                                          wfs.atom_partition)
-                wfs.eigensolver.iterate(hamiltonian, wfs)
-                del wfs.lazyloader
-        
-        self.lazyloader = LazyLoader(hamiltonian, spos_ac)
-        
     def write(self, writer, write_wave_functions=False):
-        writer['Mode'] = 'lcao'
-        
+        WaveFunctions.write(self, writer)
+
         if not write_wave_functions:
             return
-   
-        writer.dimension('nbasis', self.setups.nao)
-        writer.add('WaveFunctionCoefficients',
-                   ('nspins', 'nibzkpts', 'nbands', 'nbasis'),
-                   dtype=self.dtype)
+
+        writer.add_array(
+            'coefficients',
+            (self.nspins, self.kd.nibzkpts, self.bd.nbands, self.setups.nao),
+            dtype=self.dtype)
 
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 C_nM = self.collect_array('C_nM', k, s)
-                writer.fill(C_nM, s, k)
+                writer.fill(C_nM * Bohr**-1.5)
 
-    def read_coefficients(self, reader):
+    def read(self, reader):
+        WaveFunctions.read(self, reader)
+
+        if 'coefficients' not in reader.wave_functions:
+            return
+
         for kpt in self.kpt_u:
+            C_nM = reader.wave_functions.proxy('coefficients', kpt.s, kpt.k)
             kpt.C_nM = self.bd.empty(self.setups.nao, dtype=self.dtype)
             for myn, C_M in enumerate(kpt.C_nM):
                 n = self.bd.global_index(myn)
-                C_M[:] = reader.get('WaveFunctionCoefficients',
-                                         kpt.s, kpt.k, n)
+                # XXX number of bands could have been rounded up!
+                if n >= len(C_nM):
+                    break
+                C_M[:] = C_nM[n] * Bohr**1.5
 
     def estimate_memory(self, mem):
         nq = len(self.kd.ibzk_qc)

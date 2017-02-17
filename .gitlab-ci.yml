@@ -1,9 +1,9 @@
 master:
   script:
     - apt-get update -qy
-    - apt-get install -qy python-dev python-numpy libopenblas-dev liblapack-dev libxc-dev python-pip
+    - apt-get install -qy python-dev python-numpy libopenblas-dev liblapack-dev libxc-dev python-pip > apt-get.output
     - pip install git+https://gitlab.com/ase/ase.git@master
-    - python setup.py install --user
+    - python setup.py install --user > gpaw-install.output
     - export PATH=~/.local/bin:$PATH
     - gpaw install-data --register gpaw-datasets
     - gpaw info

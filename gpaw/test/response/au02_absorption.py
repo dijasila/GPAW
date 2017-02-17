@@ -1,6 +1,6 @@
 import numpy as np
 from ase import Atoms
-from gpaw import GPAW, FermiDirac
+from gpaw import GPAW, FermiDirac, PW
 from gpaw.response.df import DielectricFunction
 from gpaw.test import equal, findpeak
 
@@ -10,8 +10,7 @@ if GS:
     cluster = Atoms('Au2', [(0, 0, 0), (0, 0, 2.564)])
     cluster.set_cell((6, 6, 6), scale_atoms=False)
     cluster.center()
-    calc = GPAW(mode='pw',
-                dtype=complex,
+    calc = GPAW(mode=PW(force_complex_dtype=True),
                 xc='RPBE',
                 nbands=16,
                 eigensolver='rmm-diis',

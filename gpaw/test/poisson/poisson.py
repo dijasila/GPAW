@@ -2,8 +2,7 @@ from __future__ import print_function
 from math import sqrt
 import numpy as np
 from gpaw.spline import Spline
-from gpaw.poisson import PoissonSolver, FFTPoissonSolver, \
-    ParallelFFTPoissonSolver
+from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
@@ -42,15 +41,7 @@ print(err2)
 assert err1 < 6e-16
 assert err2 < 3e-6 # XXX Shouldn't this be better?
 
-from gpaw.mpi import size
-if size == 1:
-    b3 = f(8, FFTPoissonSolver())
-    err3 = abs(b3[0,0,0] - b3[8,8,8])
-    print(err3)
-    assert err3 < 6e-16
-
-
-b4 = f(8, ParallelFFTPoissonSolver())
+b4 = f(8, FFTPoissonSolver())
 err4 = abs(b4[0, 0, 0] - b4[8, 8, 8])
 print(err4)
 assert err4 < 6e-16

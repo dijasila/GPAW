@@ -1,14 +1,12 @@
 from __future__ import print_function
 import sys
 
-from ase import Atoms
+from ase.build import molecule
 from ase.utils import devnull
 
-from gpaw import GPAW
-from gpaw import KohnShamConvergenceError
+from gpaw import GPAW, FermiDirac, KohnShamConvergenceError
 from gpaw.utilities import compiled_with_sl
-
-from ase.structure import molecule
+from gpaw.forces import calculate_forces
 
 # Calculates energy and forces for various parallelizations
 
@@ -18,10 +16,8 @@ parallel = dict()
 
 basekwargs = dict(mode='lcao',
                   maxiter=3,
-                  #basis='dzp',
-                  #nbands=18,
                   nbands=6,
-                  kpts=(4,4,4), # 8 kpts in the IBZ
+                  kpts=(4, 4, 4),  # 8 kpts in the IBZ
                   parallel=parallel)
 
 Eref = None
@@ -47,9 +43,9 @@ def run(formula='H2O', vacuum=1.5, cell=None, pbc=1, **morekwargs):
     except KohnShamConvergenceError:
         pass
 
-    E = calc.hamiltonian.Etot
-    F_av = calc.forces.calculate(calc.wfs, calc.density,
-                                 calc.hamiltonian)
+    E = calc.hamiltonian.e_total_free
+    F_av = calculate_forces(calc.wfs, calc.density,
+                            calc.hamiltonian)
 
     global Eref, Fref_av
     if Eref is None:
@@ -119,13 +115,14 @@ parallel = dict()
 basekwargs = dict(mode='lcao',
                   maxiter=3,
                   nbands=6,
-                  kpts=(4,4,4), # 8 kpts in the IBZ
+                  kpts=(4, 4, 4),  # 8 kpts in the IBZ
                   parallel=parallel)
 
 Eref = None
 Fref_av = None
 
-OH_kwargs = dict(formula='NH2', vacuum=1.5, pbc=1, spinpol=1, width=0.1)
+OH_kwargs = dict(formula='NH2', vacuum=1.5, pbc=1, spinpol=1,
+                 occupations=FermiDirac(width=0.1))
 
 # reference:
 # kpt-parallelization = 4,
@@ -136,7 +133,7 @@ run(**OH_kwargs)
 
 # kpt-parallelization = 2,
 # spin-polarization = 2,
-# state-parallelization = 1, 
+# state-parallelization = 1,
 # domain-decomposition = (1, 2, 1)
 parallel['domain'] = (1, 2, 1)
 run(**OH_kwargs)
@@ -147,7 +144,7 @@ run(**OH_kwargs)
 # domain-decomposition = (1, 1, 1)
 del parallel['domain']
 parallel['band'] = 2
-run(**OH_kwargs) # test for forces is failing in this case!
+run(**OH_kwargs)  # test for forces is failing in this case!
 
 if compiled_with_sl():
     # kpt-parallelization = 2,
@@ -166,4 +163,3 @@ if compiled_with_sl():
     # with blacs
     parallel['sl_default'] = (2, 2, 2)
     run(**OH_kwargs)
-

@@ -2,13 +2,6 @@
 import sys
 import numpy as np
 
-try:
-    # Matplotlib is not a dependency
-    import matplotlib as mpl
-    mpl.use('Agg')  # force the antigrain backend
-except (ImportError, RuntimeError):
-    mpl = None
-
 from ase.units import Bohr
 from ase.utils import devnull
 
@@ -27,13 +20,12 @@ from gpaw.wavefunctions.fd import FDWaveFunctions
 from gpaw.fd_operators import Laplace # required but not really used
 from gpaw.pair_overlap import GridPairOverlap, ProjectorPairOverlap
 
-# -------------------------------------------------------------------
-
 from gpaw.test.ut_common import shapeopt, TestCase, \
     TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
     initialTestLoader, create_random_atoms, create_parsize_minbands
 
-# -------------------------------------------------------------------
+mpl = None
+
 
 p = InputParameters(spinpol=False)
 xc = XC(p.xc)

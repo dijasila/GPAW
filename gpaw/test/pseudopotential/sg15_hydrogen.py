@@ -2,7 +2,7 @@
 # agrees with PAW for the H2 eigenvalue.
 
 from __future__ import print_function
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw import GPAW, PoissonSolver
 from gpaw.utilities import h2gpts
 from gpaw.test.pseudopotential.H_sg15 import pp_text

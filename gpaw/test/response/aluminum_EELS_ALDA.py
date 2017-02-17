@@ -5,7 +5,7 @@ import os
 import time
 
 from ase.units import Bohr
-from ase.lattice import bulk
+from ase.build import bulk
 from ase.utils import devnull
 from ase.parallel import parprint
 

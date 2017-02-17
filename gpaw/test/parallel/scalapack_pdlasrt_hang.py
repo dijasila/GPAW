@@ -2,7 +2,7 @@
 
 # works with 'sl_default': (2, 2, 32)
 
-from ase.lattice.surface import fcc100, add_adsorbate
+from ase.build import fcc100, add_adsorbate
 from gpaw import GPAW, ConvergenceError
 from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl

@@ -1,68 +1,8 @@
 
 import numpy as np
 
-from gpaw.io.tar import Writer, Reader
+from gpaw.io.tar import Reader
 
-class IncrementalWriter(Writer):
-    _iterkey = 'niter'
-    _partkey = 'part'
-    _iterpattern = '/%06d.part'
-
-    def __init__(self, name):
-        Writer.__init__(self, name)
-
-        self.dims[self._iterkey] = 0
-        self.dims[self._partkey] = 1
-        self.partitions = {}
-        self.xml3 = []
-
-    def partition(self, name, shape, array=None, dtype=None, units=None):
-        if array is not None:
-            array = np.asarray(array)
-
-        self.dtype, type, itemsize = self.get_data_type(array, dtype)
-
-        assert self._partkey not in shape
-        shape = (self._partkey,) + shape
-
-        if name not in self.partitions.keys():
-            self.xml3 += ['  <partition name="%s" type="%s">' % (name, type)]
-            self.xml3 += ['    <dimension length="%s" name="%s"/>' %
-                          (self.dims[dim], dim)
-                          for dim in shape]
-            self.xml3 += ['  </partition>']
-            self.partitions[name] = shape
-            self.shape = [self.dims[dim] for dim in shape]
-        else:
-            assert self.partitions[name] == shape
-
-        size = itemsize * np.product([self.dims[dim] for dim in shape])
-        name += self._iterpattern % self.dims[self._iterkey]
-        self.write_header(name, size)
-        if array is not None:
-            self.fill(array)
-
-    def __next__(self):
-        self.dims[self._iterkey] += self.dims[self._partkey]
-        
-    next = __next__  # for Python 2
-
-    def close(self):
-        partdim = '    <dimension length="%s" name="%s"/>' % \
-                  (self.dims[self._partkey], self._partkey)
-        iterdim = '    <dimension length="%s" name="%s"/>' % \
-                  (self.dims[self._iterkey], self._iterkey)
-
-        while partdim in self.xml3:
-            i = self.xml3.index(partdim)
-            self.xml3[i] = iterdim
-
-        self.xml2 += self.xml3
-        self.xml3 = []
-        Writer.close(self)
-
-
-# -------------------------------------------------------------------
 
 class _FakeFileObject(object):
     def __init__(self, fileparts, partsize):
@@ -81,7 +21,7 @@ class _FakeFileObject(object):
         self.fileobj.seek(partpos, whence)
 
     def tell(self):
-        return self.fileobj.tell() + self.part*self.partsize
+        return self.fileobj.tell() + self.part * self.partsize
 
     def read(self, size=None):
         self.part, partpos = divmod(self.tell(), self.partsize)
@@ -148,14 +88,14 @@ class IncrementalReader(Reader):
             i, indices = indices[0], indices[1:]
             partshape = [self.dims[dim] for dim in self.partitions[name]]
             name += self._iterpattern % i
-            self.shapes[name] = partshape[1:] #HACK
+            self.shapes[name] = partshape[1:]  # HACK
 
         return Reader.get_file_object(self, name, indices)
 
     def get_data_type(self, name):
         if name not in self.dtypes.keys():
             try:
-                name, partname = name.rsplit('/',1)
+                name, partname = name.rsplit('/', 1)
             except ValueError:
                 raise KeyError(name)
 
@@ -179,4 +119,3 @@ class IncrementalReader(Reader):
             fileobjs.append(fileobj)
 
         return _FakeFileObject(fileobjs, partsize), shape, size, dtype
-

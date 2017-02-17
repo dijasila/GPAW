@@ -59,7 +59,7 @@ def get_radial_potential(calc, a, ai):
 
     # Coulomb force from nucleus
     fc_g = a.Z / r_g**2
-    
+
     # Hartree force
     rho_g = 4 * np.pi * r_g**2 * dr_g * np.sum(n_sg, axis=0)
     fh_g = -np.array([np.sum(rho_g[:ig]) for ig in range(len(r_g))]) / r_g**2
@@ -77,11 +77,11 @@ def get_radial_potential(calc, a, ai):
 
     return f_sg[:] / r_g
 
-    
+
 def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
                               return_wfs=False, scale=1.0,
                               theta=0.0, phi=0.0):
-    
+
     if bands is None:
         bands = np.arange(calc.get_number_of_bands())
 
@@ -140,7 +140,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
         dVL_vsii = np.dot(R_vv, np.swapaxes(dVL_svii, 1, 2))
         dVL_svii = np.swapaxes(dVL_vsii, 0, 1)
         dVL_asvii.append(dVL_svii)
-    
+
     e_km = []
     if return_spin:
         # s_x = np.array([[0, 1.0], [1.0, 0]])
@@ -191,7 +191,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
             s_m = np.sum(np.abs(v_snm[::2, :])**2, axis=0)
             s_m -= np.sum(np.abs(v_snm[1::2, :])**2, axis=0)
             s_km.append(s_m)
-    
+
     if return_spin:
         if return_wfs:
             return np.array(e_km).T, np.array(s_km).T, v_knm
@@ -203,7 +203,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
         else:
             return np.array(e_km).T
 
-            
+
 def set_calculator(calc, e_km, v_knm=None, width=None):
     from gpaw.occupations import FermiDirac
     from ase.units import Hartree
@@ -224,14 +224,14 @@ def set_calculator(calc, e_km, v_knm=None, width=None):
     for kpt in calc.wfs.kpt_u:
         kpt.f_n *= 2
         kpt.weight *= 2
-    
+
 
 def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
                            inversion_center=[0, 0, 0], deg_tol=1.0e-6, tol=1.0e-6):
     '''Calculates parity eigenvalues at time-reversal invariant k-points.
     Only works in plane wave mode.
     '''
-    
+
     kpt_c = calc.get_ibz_k_points()[ik]
     if Nv is None:
         Nv = int(calc.get_number_of_electrons() / 2)
@@ -251,7 +251,7 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
                     n_n.append(n2)
                     used_n.append(n2)
             e_in.append(n_n)
-    
+
     print()
     print(' Inversion center at: %s' % inversion_center)
     print(' Calculating inversion eigenvalues at k = %s' % kpt_c)
@@ -305,7 +305,7 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
                 # Only include one of the degenerate pair of eigenvalues
                 Pm = np.sign(P_eig).tolist().count(-1)
                 Pp = np.sign(P_eig).tolist().count(1)
-                P_n = Pm / 2 * [-1] + Pp / 2 * [1]
+                P_n = Pm // 2 * [-1] + Pp // 2 * [1]
             print('%s: %s' % (str(n_n)[1:-1], str(P_n)[1:-1]))
             p_n += P_n
         else:

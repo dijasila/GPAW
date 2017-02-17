@@ -3,7 +3,7 @@ from __future__ import print_function
 from ase import Atom, Atoms
 from gpaw import GPAW, PoissonSolver
 from gpaw.test import equal
-from ase.structure import molecule
+from ase.build import molecule
 
 
 for i in range(12):

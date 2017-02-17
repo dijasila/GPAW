@@ -1,6 +1,6 @@
 import numpy as np
 import pickle
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw.lcao.tools import makeU, makeV
 from gpaw import GPAW, FermiDirac, restart
 from gpaw.lcao.pwf2 import LCAOwrap

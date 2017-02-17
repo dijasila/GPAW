@@ -3,7 +3,7 @@ import numpy as np
 
 from gpaw.gauss import Gauss, Lorentz
 from gpaw.test import equal
-from gpaw.utilities.folder import Folder
+from gpaw.utilities.folder import Folder, Voigt
 
 # Gauss and Lorentz functions
 
@@ -19,7 +19,7 @@ equal(Lorentz(width).get(x),
 
 # folder function
 
-for name in ['Gauss', 'Lorentz']:
+for name in ['Gauss', 'Lorentz', 'Voigt']:
     folder = Folder(width, name)
 
     x = [0, 2]
@@ -28,9 +28,6 @@ for name in ['Gauss', 'Lorentz']:
     xl, yl = folder.fold(x, y, dx=.7)
 
     # check first value
-    if name == 'Lorentz':
-        func = Lorentz(width)
-    else:
-        func = Gauss(width)
+    exec('func = {0}(width)'.format(name))
     yy = np.dot(np.array(y)[:, 0], func.get(xl[0] - np.array(x)))
     equal(yl[0, 0], yy, 1.e-15)

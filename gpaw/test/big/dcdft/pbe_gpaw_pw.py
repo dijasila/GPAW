@@ -1,4 +1,3 @@
-import os
 import sys
 import time
 
@@ -10,8 +9,7 @@ from ase.utils import opencew
 from ase.calculators.calculator import kpts2mp
 from ase.io import Trajectory
 from ase.test.tasks.dcdft import DeltaCodesDFTCollection as Collection
-from gpaw import GPAW, PW
-from gpaw.mixer import Mixer
+from gpaw import GPAW, PW, FermiDirac
 from gpaw.utilities import h2gpts
 
 collection = Collection()
@@ -23,7 +21,7 @@ else:
 
 c = ase.db.connect('dcdft_gpaw_pw.db')
 
-#mode = 'lcao'
+# mode = 'lcao'
 mode = 'fd'
 mode = 'pw'
 
@@ -101,7 +99,7 @@ for name in names:
             txt=name + '_' + code + '_' + str(n) + '.txt',
             xc='PBE',
             kpts=kpts,
-            width=width,
+            occupations=FermiDirac(width),
             parallel={'band': 1},
             maxiter=777,
             idiotproof=False)

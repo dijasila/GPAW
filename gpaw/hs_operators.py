@@ -24,9 +24,6 @@ class MatrixOperator:
     standard definitions.
     """
 
-    # This class has 100% parallel unittest coverage by parallel/ut_hsops.py!
-    # If you add to or change any aspect of the code, please update the test.
-
     nblocks = 1
     async = True
     hermitian = True
@@ -46,9 +43,9 @@ class MatrixOperator:
           g = np.ceil(G/float(J))  The number of grid points in each block.
           X and Q                  The workspaces to be calculated.
 
-        Note that different values of J can lead to the same values of M 
-        and G. Q is relatively simple to calculate, symmetric case needs 
-        *roughly* half as much storage space as the non-symmetric case. 
+        Note that different values of J can lead to the same values of M
+        and G. Q is relatively simple to calculate, symmetric case needs
+        *roughly* half as much storage space as the non-symmetric case.
         X is much more difficult. Read below.
 
         X is the band index of the workspace array. It is allocated in units
@@ -70,7 +67,7 @@ class MatrixOperator:
 
           Simplest case is G % J = M % J = 0: X = M.
           
-          If g * N > M * G, then we need to increase the buffer size by one 
+          If g * N > M * G, then we need to increase the buffer size by one
           wavefunction unit greater than the simple case, thus X = M + 1.
 
         """
@@ -96,11 +93,11 @@ class MatrixOperator:
         ngroups = self.bd.comm.size
         G = self.gd.n_c.prod()
 
-        # If buffer_size keyword exist, use it to calculate closest 
+        # If buffer_size keyword exist, use it to calculate closest
         # corresponding value of nblocks. An *attempt* is made
-        # such that actual buffer size used does not exceed the 
+        # such that actual buffer size used does not exceed the
         # value specified by buffer_size.
-        # Maximum allowable buffer_size corresponds to nblock = 1 
+        # Maximum allowable buffer_size corresponds to nblock = 1
         # which is all the wavefunctions.
         # Give error if the buffer_size is so small that it cannot
         # contain a single wavefunction
@@ -143,7 +140,7 @@ class MatrixOperator:
         ngroups = self.bd.comm.size
         count = ngroups * self.bd.mynbands**2
 
-        # Code semipasted from allocate_work_arrays        
+        # Code semipasted from allocate_work_arrays
         if ngroups > 1:
             mem.subnode('A_qnn', count * mem.itemsize[dtype])
 
@@ -251,7 +248,7 @@ class MatrixOperator:
 
         return sbuf_mG, rbuf_mG, sbuf_nI, rbuf_nI
 
-    def calculate_matrix_elements(self, psit1_nG, P1_ani, A, dA, 
+    def calculate_matrix_elements(self, psit1_nG, P1_ani, A, dA,
                                   psit2_nG=None, P2_ani=None):
         """Calculate matrix elements for A-operator.
 
@@ -355,7 +352,7 @@ class MatrixOperator:
                 n2 = N
                 M = n2 - n1
             psit_mG = psit2_nG[n1:n2]
-            temp_mG = A(psit_mG) 
+            temp_mG = A(psit_mG)
             sbuf_mG = temp_mG[:M]  # necessary only for last slice
             rbuf_mG = work2_xG[:M]
             cycle_P_ani = (j == J - 1 and P1_ani)
@@ -373,9 +370,9 @@ class MatrixOperator:
 
                 # Calculate pseudo-braket contributions for the current slice
                 # of bands in the current mynbands x mynbands matrix block.
-                # The special case may no longer be valid when. Better to be 
-                # conservative, than to risk it. Moreover, this special case 
-                # seems is an accident waiting to happen. Always doing the 
+                # The special case may no longer be valid when. Better to be
+                # conservative, than to risk it. Moreover, this special case
+                # seems is an accident waiting to happen. Always doing the
                 # more general case is safer.
                 # if q == 0 and self.hermitian and not self.bd.strided:
                 #    # Special case, we only need the lower part:
@@ -413,7 +410,7 @@ class MatrixOperator:
             self.bmd.assemble_blocks(A_qnn, A_NN, hermitian)
 
         # Because of the amount of communication involved, we need to
-        # be syncronized up to this point.           
+        # be syncronized up to this point.
         block_comm.barrier()
         return self.bmd.redistribute_output(A_NN)
         

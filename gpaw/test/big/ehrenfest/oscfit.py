@@ -47,13 +47,13 @@ for name in ['h2_osc', 'n2_osc', 'na2_md', 'na2_osc']:
     natoms = len(traj[0])
     symbol = traj[0].get_name()
     t_i = m.timestep * m.ndiv * np.arange(nframes)
-    Ekin_i, Epot_i = np.empty(nframes), np.empty(nframes)
+    Ekin_i, e_coulomb_i = np.empty(nframes), np.empty(nframes)
     R_iav = np.empty((nframes, natoms, 3))
     V_iav = np.empty((nframes, natoms, 3))
     A_iav = np.empty((nframes, natoms, 3))
     for i in range(nframes):
         Ekin_i[i] = traj[i].get_kinetic_energy()
-        Epot_i[i] = traj[i].get_potential_energy()
+        e_coulomb_i[i] = traj[i].get_potential_energy()
         R_iav[i] = traj[i].get_positions()
         V_iav[i] = traj[i].get_velocities()
         A_iav[i] = traj[i].get_forces() / traj[i].get_masses()[:,np.newaxis]
@@ -62,8 +62,8 @@ for name in ['h2_osc', 'n2_osc', 'na2_md', 'na2_osc']:
     traj.close()
 
     # Verify that energy was conserved
-    dEstd = np.std(Ekin_i + Epot_i)
-    dEmax = np.max(Ekin_i.ptp(), Epot_i.ptp())
+    dEstd = np.std(Ekin_i + e_coulomb_i)
+    dEmax = np.max(Ekin_i.ptp(), e_coulomb_i.ptp())
     assert dEstd < 1e-2 * dEmax + 1e-6, (dEstd, dEmax)
 
     # Compare position, velocity and force time series using Velocity Verlet

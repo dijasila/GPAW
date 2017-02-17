@@ -1,8 +1,8 @@
 import numpy as np
+from ase.units import Bohr
 
 from gpaw.kpoint import KPoint
 from gpaw.mpi import serial_comm
-from gpaw.io import FileReference
 from gpaw.utilities.blas import axpy
 from gpaw.transformers import Transformer
 from gpaw.hs_operators import MatrixOperator
@@ -11,17 +11,26 @@ from gpaw.fd_operators import Laplace, Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.wavefunctions.mode import Mode
 
 
-class FD:
+class FD(Mode):
     name = 'fd'
 
-    def __init__(self):
-        pass  # Could hold parameters like FD stencils
+    def __init__(self, nn=3, interpolation=3, force_complex_dtype=False):
+        self.nn = nn
+        self.interpolation = interpolation
+        Mode.__init__(self, force_complex_dtype)
 
     def __call__(self, *args, **kwargs):
-        return FDWaveFunctions(*args, **kwargs)
+        return FDWaveFunctions(self.nn, *args, **kwargs)
 
+    def todict(self):
+        dct = Mode.todict(self)
+        dct['nn'] = self.nn
+        dct['interpolation'] = self.interpolation
+        return dct
+        
 
 class FDWaveFunctions(FDPWWaveFunctions):
     mode = 'fd'
@@ -57,9 +66,10 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def set_positions(self, spos_ac, atom_partition=None):
         FDPWWaveFunctions.set_positions(self, spos_ac, atom_partition)
 
-    def summary(self, fd):
-        fd.write('Wave functions: Uniform real-space grid\n')
-        fd.write('Kinetic energy operator: %s\n' % self.kin.description)
+    def __str__(self):
+        s = 'Wave functions: Uniform real-space grid\n'
+        s += '  Kinetic energy operator: %s\n' % self.kin.description
+        return s + FDPWWaveFunctions.__str__(self)
         
     def make_preconditioner(self, block=1):
         return Preconditioner(self.gd, self.kin, self.dtype, block)
@@ -102,9 +112,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 for v in range(3)]
 
         assert not hasattr(self.kpt_u[0], 'c_on')
-        if self.kpt_u[0].psit_nG is None:
-            return None
-        if isinstance(self.kpt_u[0].psit_nG, FileReference):
+        if not isinstance(self.kpt_u[0].psit_nG, np.ndarray):
             return None
 
         taut_sG = self.gd.zeros(self.nspins)
@@ -191,60 +199,57 @@ class FDWaveFunctions(FDPWWaveFunctions):
         return psit_G
 
     def write(self, writer, write_wave_functions=False):
-        writer['Mode'] = 'fd'
+        FDPWWaveFunctions.write(self, writer)
 
         if not write_wave_functions:
             return
 
-        writer.add('PseudoWaveFunctions',
-                   ('nspins', 'nibzkpts', 'nbands',
-                    'ngptsx', 'ngptsy', 'ngptsz'),
-                   dtype=self.dtype)
+        writer.add_array(
+            'values',
+            (self.nspins, self.kd.nibzkpts, self.bd.nbands) +
+            tuple(self.gd.get_size_of_global_array()),
+            self.dtype)
+        
+        for s in range(self.nspins):
+            for k in range(self.kd.nibzkpts):
+                for n in range(self.bd.nbands):
+                    psit_G = self.get_wave_function_array(n, k, s)
+                    writer.fill(psit_G * Bohr**-1.5)
 
-        if hasattr(writer, 'hdf5'):
-            parallel = (self.world.size > 1)
-            for kpt in self.kpt_u:
-                indices = [kpt.s, kpt.k]
-                indices.append(self.bd.get_slice())
-                indices += self.gd.get_slice()
-                writer.fill(kpt.psit_nG, parallel=parallel, *indices)
-        else:
-            for s in range(self.nspins):
-                for k in range(self.kd.nibzkpts):
-                    for n in range(self.bd.nbands):
-                        psit_G = self.get_wave_function_array(n, k, s)
-                        writer.fill(psit_G, s, k, n)
+    def read(self, reader):
+        FDPWWaveFunctions.read(self, reader)
 
-    def read(self, reader, hdf5):
-        if ((not hdf5 and self.bd.comm.size == 1) or
-            (hdf5 and self.world.size == 1)):
+        if 'values' not in reader.wave_functions:
+            return
+
+        c = reader.bohr**1.5
+        if reader.version < 0:
+            c = 1  # old gpw file
+        for kpt in self.kpt_u:
             # We may not be able to keep all the wave
             # functions in memory - so psit_nG will be a special type of
             # array that is really just a reference to a file:
-            for kpt in self.kpt_u:
-                kpt.psit_nG = reader.get_reference('PseudoWaveFunctions',
-                                                   (kpt.s, kpt.k))
-        else:
-            for kpt in self.kpt_u:
-                kpt.psit_nG = self.empty(self.bd.mynbands)
-                if hdf5:
-                    indices = [kpt.s, kpt.k]
-                    indices.append(self.bd.get_slice())
-                    indices += self.gd.get_slice()
-                    reader.get('PseudoWaveFunctions', out=kpt.psit_nG,
-                               parallel=(self.world.size > 1), *indices)
+            kpt.psit_nG = reader.wave_functions.proxy('values', kpt.s, kpt.k)
+            kpt.psit_nG.scale = c
+
+        if self.world.size == 1:
+            return
+
+        # Read to memory:
+        for kpt in self.kpt_u:
+            psit_nG = kpt.psit_nG
+            kpt.psit_nG = self.empty(self.bd.mynbands)
+            # Read band by band to save memory
+            for myn, psit_G in enumerate(kpt.psit_nG):
+                n = self.bd.global_index(myn)
+                # XXX number of bands could have been rounded up!
+                if n >= len(psit_nG):
+                    break
+                if self.gd.comm.rank == 0:
+                    big_psit_G = np.asarray(psit_nG[n], self.dtype)
                 else:
-                    # Read band by band to save memory
-                    for myn, psit_G in enumerate(kpt.psit_nG):
-                        n = self.bd.global_index(myn)
-                        if self.gd.comm.rank == 0:
-                            big_psit_G = np.array(
-                                reader.get('PseudoWaveFunctions',
-                                           kpt.s, kpt.k, n),
-                                self.dtype)
-                        else:
-                            big_psit_G = None
-                        self.gd.distribute(big_psit_G, psit_G)
+                    big_psit_G = None
+                self.gd.distribute(big_psit_G, psit_G)
         
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
         for kpt in self.kpt_u:

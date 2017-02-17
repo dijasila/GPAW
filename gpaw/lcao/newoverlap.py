@@ -1,6 +1,6 @@
 import numpy as np
 from ase import Atoms
-from ase.calculators.neighborlist import NeighborList
+from ase.neighborlist import NeighborList
 
 from gpaw.lcao.overlap import AtomicDisplacement, TwoCenterIntegralCalculator
 from gpaw.utilities.partition import EvenPartitioning

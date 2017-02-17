@@ -1,6 +1,6 @@
 from __future__ import print_function
 from ase import Atoms
-from ase.structure import molecule
+from ase.build import molecule
 from ase.parallel import paropen
 from gpaw import GPAW, Mixer, MixerDif
 from gpaw.utilities.tools import split_formula
@@ -67,7 +67,7 @@ for formula in systems:
                 txt=formula + '.txt')
     if len(loa) == 1:
         calc.set(hund=True)
-        calc.set(fixmom=True)
+        # calc.set(fixmom=True)
         calc.set(mixer=MixerDif())
         calc.set(eigensolver='cg')
     else:

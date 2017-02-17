@@ -6,6 +6,7 @@ evaluation of exact exchange.
 """
 
 import numpy as np
+from ase.utils import basestring
 
 from gpaw.atom.configurations import core_states
 from gpaw.gaunt import gaunt
@@ -58,15 +59,14 @@ class HybridXCBase(XCFunctional):
             omega = 0.11
             xc = XC('HYB_GGA_XC_HSE06')
             
-        if isinstance(xc, str):
+        if isinstance(xc, basestring):
             xc = XC(xc)
 
         self.hybrid = float(hybrid)
         self.xc = xc
         self.omega = omega
-        self.type = xc.type
 
-        XCFunctional.__init__(self, name)
+        XCFunctional.__init__(self, name, xc.type)
 
     def get_setup_name(self):
         return 'PBE'

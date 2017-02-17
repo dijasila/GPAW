@@ -1,7 +1,7 @@
 from __future__ import division
 import matplotlib.pyplot as plt
 import ase.db
-from ase.utils.eos import EquationOfState
+from ase.eos import EquationOfState
 
 
 def lattice_constant(volumes, energies):

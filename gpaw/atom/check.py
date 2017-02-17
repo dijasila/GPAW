@@ -24,13 +24,13 @@ def check(con, name):
         params['setups'] = setup
     else:
         symbol = name
-        
+
     for h in [0.16, 0.18, 0.2]:
         id = con.reserve(name=name, test='eggbox', h=h)
         if id is None:
             continue
         a = 16 * h
-        atoms = Atoms(symbol, cell=(a, a, a), pbc=True)
+        atoms = Atoms(symbol, cell=(a, a, 2 * a), pbc=True)
         atoms.calc = GPAW(h=h,
                           txt='{0}-eggbox-{1:.2f}.txt'.format(name, h),
                           **params)
@@ -42,7 +42,7 @@ def check(con, name):
         eegg = np.ptp(energies)
         con.write(atoms, name=name, test='eggbox', eegg=eegg, h=h)
         del con[id]
-        
+
     a = 4.0
     atoms = Atoms(symbol, cell=(a, a, a), pbc=True)
     for ecut in cutoffs:
@@ -66,7 +66,7 @@ def check(con, name):
         atoms.get_potential_energy()
         con.write(atoms, name=name, test='fd1', gpts=g)
         del con[id]
-        
+
     for g in [20, 24, 28]:
         id = con.reserve(name=name, test='lcao1', gpts=g)
         if id is None:
@@ -78,7 +78,7 @@ def check(con, name):
         atoms.get_potential_energy()
         con.write(atoms, name=name, test='lcao1', gpts=g)
         del con[id]
-        
+
     Z = atomic_numbers[symbol]
     d = 2 * covalent_radii[Z]
     atoms = Atoms(symbol * 2, cell=(a, a, 2 * a), pbc=True,
@@ -93,7 +93,7 @@ def check(con, name):
         atoms.get_potential_energy()
         con.write(atoms, name=name, test='pw2', ecut=ecut)
         del con[id]
-    
+
     if 0:
         id = con.reserve(name=name, test='relax')
         if id is not None:
@@ -103,7 +103,7 @@ def check(con, name):
             BFGS(atoms).run(fmax=0.02)
             con.write(atoms, name=name, test='relax')
             del con[id]
-            
+
     for g in [20, 24, 28]:
         id = con.reserve(name=name, test='fd2', gpts=g)
         if id is None:
@@ -114,7 +114,7 @@ def check(con, name):
         atoms.get_potential_energy()
         con.write(atoms, name=name, test='fd2', gpts=g)
         del con[id]
-            
+
     for g in [20, 24, 28]:
         id = con.reserve(name=name, test='lcao2', gpts=g)
         if id is None:
@@ -127,7 +127,7 @@ def check(con, name):
         con.write(atoms, name=name, test='lcao2', gpts=g)
         del con[id]
 
-        
+
 def solve(energies, de):
     for i1 in range(len(energies) - 3, -1, -1):
         if energies[i1] > de:
@@ -140,8 +140,8 @@ def solve(energies, de):
     b = np.log(e1 / e2) / (c2 - c1)
     a = e1 * np.exp(b * c1)
     return np.log(a / de) / b
-    
-    
+
+
 def summary(con, name):
     eegg = [row.get('eegg', np.nan)
             for row in con.select(name=name, test='eggbox', sort='h')]
@@ -167,15 +167,15 @@ def summary(con, name):
     energies = abs(ecut - ecut[-1])
     denergies = abs(decut - decut[-1])
     assert len(energies) == len(cutoffs)
-    
+
     eg -= ecut[-1]
     eg2 -= ecut2[-1]
     deg = eg - 0.5 * eg2
-    
+
     eL -= ecut[-1]
     eL2 -= ecut2[-1]
     deL = eL - 0.5 * eL2
-    
+
     return (energies, denergies,
             abs(eg), abs(deg), abs(eL), abs(deL),
             eegg)
@@ -243,6 +243,6 @@ def main():
                 print(name)
                 traceback.print_exc(file=sys.stdout)
 
-                
+
 if __name__ == '__main__':
     main()

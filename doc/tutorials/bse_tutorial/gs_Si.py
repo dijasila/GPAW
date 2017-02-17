@@ -1,5 +1,5 @@
 from ase import Atoms
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW
 from gpaw.wavefunctions.pw import PW
 from gpaw.occupations import FermiDirac

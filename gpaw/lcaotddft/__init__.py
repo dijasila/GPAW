@@ -1,5 +1,5 @@
 from __future__ import print_function
-from math import log
+from math import log as ln
 
 import numpy as np
 from numpy.linalg import inv, solve
@@ -37,33 +37,38 @@ class KickHamiltonian:
             dHtmp_asp[a] = np.dot(setup.Delta_pL, W_L).reshape((1, -1))
         self.dH_asp = ham.atomdist.from_aux(dHtmp_asp)
 
+        
 class LCAOTDDFT(GPAW):
     def __init__(self, filename=None,
                  propagator='cn', fxc=None, **kwargs):
         self.time = 0.0
         self.niter = 0
-        self.kick_strength = np.array([0.0, 0.0, 0.0], dtype=float)
-        GPAW.__init__(self, filename, **kwargs)
+        self.kick_strength = np.zeros(3)
         self.tddft_initialized = False
         self.fxc = fxc
         self.propagator = propagator
+        if filename is None:
+            kwargs['mode'] = kwargs.get('mode', 'lcao')
+        GPAW.__init__(self, filename, **kwargs)
 
         # Restarting from a file
         if filename is not None:
-            self.initialize()
+            #self.initialize()
             self.set_positions()
+            
+    def read(self, filename):
+        reader = GPAW.read(self, filename)
+        if 'tddft' in reader:
+            self.time = reader.tddft.time
+            self.niter = reader.tddft.niter
+            self.kick_strength = reader.tddft.kick_strength
 
-    def set(self, **kwargs):
-        if 'mode' not in kwargs:
-            kwargs['mode'] = 'lcao'
-        else:
-            modevar = kwargs['mode']
-            if hasattr(modevar, 'name'):
-                assert modevar.name == 'lcao'  # LCAO mode required
-            else:
-                assert modevar == 'lcao'  # LCAO mode required
-        GPAW.set(self, **kwargs)
-
+    def _write(self, writer, mode):
+        GPAW._write(self, writer, mode)
+        writer.child('tddft').write(time=self.time,
+                                    niter=self.niter,
+                                    kick_strength=self.kick_strength)
+        
     def propagate_wfs(self, sourceC_nm, targetC_nm, S_MM, H_MM, dt):
         if self.propagator == 'cn':
             return self.linear_propagator(sourceC_nm, targetC_nm, S_MM, H_MM,
@@ -203,8 +208,8 @@ class LCAOTDDFT(GPAW):
                 for n in range(order):
                     tempC_nM[:] = \
                         np.dot(self.wfs.kpt_u[0].invS,
-                               np.dot(H_MM, 1j * dt / (n + 1)
-                                      * tempC_nM.T.conjugate())).T.conjugate()
+                               np.dot(H_MM, 1j * dt / (n + 1) *
+                                      tempC_nM.T.conjugate())).T.conjugate()
                     targetC_nM += tempC_nM
             self.density.gd.comm.broadcast(targetC_nM, 0)
                 
@@ -221,9 +226,9 @@ class LCAOTDDFT(GPAW):
         # normalize
         direction = self.kick_strength / magnitude
 
-        self.text('Applying absorption kick')
-        self.text('Magnitude: %.8f hartree/bohr' % magnitude)
-        self.text('Direction: %.4f %.4f %.4f' % tuple(direction))
+        self.log('Applying absorption kick')
+        self.log('Magnitude: %.8f hartree/bohr' % magnitude)
+        self.log('Direction: %.4f %.4f %.4f' % tuple(direction))
 
         # Create hamiltonian object for absorption kick
         cef = ConstantElectricField(magnitude * Hartree / Bohr, direction)
@@ -276,8 +281,8 @@ class LCAOTDDFT(GPAW):
             self.Cnm_block_descriptor = grid.new_descriptor(nbands, nao,
                                                             blocksize,
                                                             blocksize)
-            #self.CnM_descriptor = ksl.blockgrid.new_descriptor(nbands,
-            #    nao, mynbands, nao)
+            # self.CnM_descriptor = ksl.blockgrid.new_descriptor(nbands,
+            #     nao, mynbands, nao)
             self.mM_column_descriptor = ksl.single_column_grid.new_descriptor(
                 nao, nao, ksl.naoblocksize, nao)
             self.CnM_unique_descriptor = ksl.single_column_grid.new_descriptor(
@@ -286,10 +291,10 @@ class LCAOTDDFT(GPAW):
             # Redistributors
             self.mm2MM = Redistributor(ksl.block_comm,
                                        self.mm_block_descriptor,
-                                       self.MM_descriptor) # XXX FOR DEBUG
+                                       self.MM_descriptor)  # XXX FOR DEBUG
             self.MM2mm = Redistributor(ksl.block_comm,
                                        self.MM_descriptor,
-                                       self.mm_block_descriptor) # XXX FOR DEBUG
+                                       self.mm_block_descriptor)  # FOR DEBUG
             self.Cnm2nM = Redistributor(ksl.block_comm,
                                         self.Cnm_block_descriptor,
                                         self.CnM_unique_descriptor)
@@ -316,11 +321,11 @@ class LCAOTDDFT(GPAW):
                 self.wfs.kpt_u[0].invS = tmp
 
         # Reset the density mixer
-        self.density.mixer = DummyMixer()
+        self.density.set_mixer(DummyMixer())
         self.tddft_initialized = True
         for k, kpt in enumerate(self.wfs.kpt_u):
             kpt.C2_nM = kpt.C_nM.copy()
-            #kpt.firstC_nM = kpt.C_nM.copy()
+            # kpt.firstC_nM = kpt.C_nM.copy()
 
     def update_projectors(self):
         self.timer.start('LCAO update projectors')
@@ -351,7 +356,7 @@ class LCAOTDDFT(GPAW):
         # Predictor step
         # --------------
         # 1. Calculate H(t)
-        self.save_wfs() # kpt.C2_nM = kpt.C_nM
+        self.save_wfs()  # kpt.C2_nM = kpt.C_nM
         # 2. H_MM(t) = <M|H(t)|H>
         #    Solve Psi(t+dt) from (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt) =
         #                              (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
@@ -386,8 +391,8 @@ class LCAOTDDFT(GPAW):
             if self.fxc is not None:
                 #  Store this to H0_MM and maybe save one extra H_MM of
                 # memory?
-                kpt.H0_MM += 0.5 * (self.get_hamiltonian(kpt)
-                                    + kpt.deltaXC_H_MM)
+                kpt.H0_MM += 0.5 * (self.get_hamiltonian(kpt) +
+                                    kpt.deltaXC_H_MM)
             else:
                 #  Store this to H0_MM and maybe save one extra H_MM of
                 # memory?
@@ -414,18 +419,18 @@ class LCAOTDDFT(GPAW):
             if self.time < self.time_step:
                 self.dm_file = open(out, 'w')
 
-                header = '# Kick = [%22.12le, %22.12le, %22.12le]\n' \
-                       % (self.kick_strength[0], self.kick_strength[1], \
-                          self.kick_strength[2])
-                header += '# %15s %15s %22s %22s %22s\n' \
-                       % ('time', 'norm', 'dmx', 'dmy', 'dmz')
+                header = ('# Kick = [%22.12le, %22.12le, %22.12le]\n' %
+                          (self.kick_strength[0], self.kick_strength[1],
+                           self.kick_strength[2]))
+                header += ('# %15s %15s %22s %22s %22s\n' %
+                           ('time', 'norm', 'dmx', 'dmy', 'dmz'))
                 self.dm_file.write(header)
                 self.dm_file.flush()
-                self.text('About to do %d propagation steps.' % iterations)
+                self.log('About to do %d propagation steps.' % iterations)
             else:
                 self.dm_file = open(out, 'a')
-                self.text('About to continue from iteration %d and do %d '
-                          'propagation steps' % (self.niter, self.tdmaxiter))
+                self.log('About to continue from iteration %d and do %d '
+                         'propagation steps' % (self.niter, self.tdmaxiter))
         self.tddft_init()
 
         dm0 = None  # Initial dipole moment
@@ -444,10 +449,10 @@ class LCAOTDDFT(GPAW):
                 print(line, file=self.dm_file)
 
             if self.wfs.world.rank == 0 and self.niter % 1 == 0:
-                self.text('iter: %3d  %02d:%02d:%02d %11.2f   %9.1f'
-                          % (self.niter, T[3], T[4], T[5],
-                             self.time * autime_to_attosec,
-                             log(abs(norm) + 1e-16) / log(10)))
+                self.log('iter: %3d  %02d:%02d:%02d %11.2f   %9.1f' %
+                         (self.niter, T[3], T[4], T[5],
+                          self.time * autime_to_attosec,
+                          ln(abs(norm) + 1e-16) / ln(10)))
                 self.dm_file.flush()
             self.propagate_single(self.time_step)
             

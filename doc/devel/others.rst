@@ -7,7 +7,7 @@ Miscellaneous objects
 .. autoclass:: gpaw.spline.Spline
     :members:
 
-.. autoclass:: gpaw.poisson.PoissonSolver
+.. autoclass:: gpaw.poisson.FDPoissonSolver
     :members:
 
 .. autoclass:: gpaw.xc.functional.XCFunctional
@@ -16,8 +16,7 @@ Miscellaneous objects
 .. autoclass:: gpaw.xc.gga.GGA
     :members:
 
-.. autoclass:: gpaw.forces.ForceCalculator
-    :members:
+.. autofunction:: gpaw.forces.calculate_forces
 
 .. autoclass:: gpaw.grid_descriptor.GridDescriptor
     :members:

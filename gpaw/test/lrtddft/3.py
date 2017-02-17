@@ -4,7 +4,7 @@ import re
 
 import numpy as np
 
-from ase.structure import molecule
+from ase.build import molecule
 from ase.units import Hartree
 from gpaw import GPAW
 from gpaw.mpi import rank, world

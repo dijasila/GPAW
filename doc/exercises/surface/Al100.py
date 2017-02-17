@@ -1,5 +1,5 @@
 from gpaw import GPAW
-from ase.lattice.surface import fcc100
+from ase.build import fcc100
 
 
 def energy(N, k, a=4.05):

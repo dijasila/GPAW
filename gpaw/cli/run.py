@@ -34,7 +34,8 @@ class GPAWRunner(Runner):
             'Mixer': Mixer,
             'MixerSum': MixerSum}
         parameters = str2dict(self.opts.parameters, parameter_namespace)
-        atoms.calc = GPAW(txt=self.get_filename(name, 'txt'), **parameters)
+        txt = parameters.pop('txt', self.get_filename(name, 'txt'))
+        atoms.calc = GPAW(txt=txt, **parameters)
 
     def calculate(self, atoms, name):
         data = Runner.calculate(self, atoms, name)

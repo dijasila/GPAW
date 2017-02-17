@@ -6,6 +6,11 @@ from gpaw.tddft import photoabsorption_spectrum, units
 from gpaw.test import equal
 import numpy as np
 
+# This test does the same calculation as ed.py, but using QSFDTD wrapper instead
+
+# Accuracy
+energy_eps = 0.0005
+
 # Whole simulation cell (Angstroms)
 cell = [20, 20, 30];
 
@@ -31,13 +36,17 @@ qsfdtd = QSFDTD(classical_material = classical_material,
                 communicator       = world)
 
 # Run
-energy = qsfdtd.ground_state('gs.gpw', eigensolver = 'cg', nbands = -1)
+qsfdtd.ground_state('gs.gpw', eigensolver='cg', nbands=-1, convergence={'energy': energy_eps})
+equal(qsfdtd.energy, -0.631881, energy_eps * qsfdtd.gs_calc.get_number_of_electrons())
 qsfdtd.time_propagation('gs.gpw', kick_strength=[0.000, 0.000, 0.001], time_step=10, iterations=5, dipole_moment_file='dm.dat', restart_file='td.gpw')
 qsfdtd.time_propagation('td.gpw', kick_strength=None, time_step=10, iterations=5, dipole_moment_file='dm.dat')
 
 # Test
-ref_cl_dipole_moment = [ -5.16149623e-14, -5.89090408e-14,  3.08450150e-02]
-ref_qm_dipole_moment = [ -2.63340461e-11,  2.61812794e-12, 5.21368171e-01]
-tol = 0.0001
+ref_cl_dipole_moment = [  5.25374117e-14,  5.75811267e-14,  3.08349334e-02]
+ref_qm_dipole_moment = [  1.78620337e-11, -1.57782578e-11,  5.21368300e-01]
+#print("ref_cl_dipole_moment = %s" % qsfdtd.td_calc.hamiltonian.poisson.get_classical_dipole_moment())
+#print("ref_qm_dipole_moment = %s" % qsfdtd.td_calc.hamiltonian.poisson.get_quantum_dipole_moment())
+
+tol = 1e-4
 equal(qsfdtd.td_calc.hamiltonian.poisson.get_classical_dipole_moment(), ref_cl_dipole_moment, tol)
 equal(qsfdtd.td_calc.hamiltonian.poisson.get_quantum_dipole_moment(), ref_qm_dipole_moment, tol)

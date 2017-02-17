@@ -62,6 +62,6 @@ for name in names:
     t = time() - t
 
     c.write(atoms, name=name, tag=tag, ok=ok,
-            time=t, iters=atoms.calc.iter, ncpus=ncpus)
+            time=t, iters=atoms.calc.get_number_of_iterations(), ncpus=ncpus)
     
     del c[id]

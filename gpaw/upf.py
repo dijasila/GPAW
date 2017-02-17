@@ -17,10 +17,11 @@ from ase.data import atomic_numbers
 from ase.utils import basestring
 
 from gpaw.atom.atompaw import AtomPAW
+from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.setup_data import search_for_file
 from gpaw.basis_data import Basis, BasisFunction
-from gpaw.pseudopotential import PseudoPotential, screen_potential, \
-    figure_out_valence_states
+from gpaw.pseudopotential import (PseudoPotential, screen_potential,
+                                  figure_out_valence_states)
 from gpaw.spline import Spline
 from gpaw.utilities import pack2, divrl
 
@@ -146,12 +147,12 @@ def parse_upf(fname):
     mesh_element = root.find('PP_MESH')
     pp['r'] = toarray(mesh_element.find('PP_R'))
     pp['rab'] = toarray(mesh_element.find('PP_RAB'))
-    
+
     # Convert to Hartree from Rydberg.
     pp['vlocal'] = 0.5 * toarray(root.find('PP_LOCAL'))
-    
+
     non_local = root.find('PP_NONLOCAL')
-    
+
     pp['projectors'] = []
     for element in non_local:
         if element.tag.startswith('PP_BETA'):
@@ -168,7 +169,7 @@ def parse_upf(fname):
                 tokens = element.text.split()
                 metadata = tokens[:5]
                 values = map(float, tokens[5:])
-                
+
                 npts = int(metadata[4])
                 assert npts == len(values), (npts, len(values))
                 while values[-1] == 0.0:
@@ -244,14 +245,14 @@ class UPFSetupData:
             data = parse_upf(data)
         else:
             self.filename = '[N/A]'
-        
+
         assert isinstance(data, dict)
         self.data = data  # more or less "raw" data from the file
 
         self.name = 'upf'
 
         header = data['header']
-        
+
         self.symbol = header['element']
         self.Z = atomic_numbers[self.symbol]
         self.Nv = header['z_valence']
@@ -265,11 +266,11 @@ class UPFSetupData:
         # This is "stolen" from hgh.  Figure out something reasonable
         #rgd = AERadialGridDescriptor(beta / N, 1.0 / N, N,
         #                             default_spline_points=100)
-        
+
         from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
         rgd = EquidistantRadialGridDescriptor(0.02)
         self.rgd = rgd
-        
+
         # Whyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy???
         # What abominable part of the code requires the states
         # to be ordered like this?
@@ -287,7 +288,7 @@ class UPFSetupData:
                 pt_g = self._interp(val) #* np.sqrt(4.0 * np.pi)
                 #sqrnorm = (pt_g**2 * self.rgd.dr_g).sum()
                 self.pt_jg.append(pt_g)
-        
+
         else:
             self.l_j = [0]
             gcut = self.rgd.r2g(1.0)
@@ -344,7 +345,7 @@ class UPFSetupData:
 
         vbar_g, ghat_g = screen_potential(data['r'], vlocal_unscreened,
                                           self.Nv)
-        
+
         self.vbar_g = self._interp(vbar_g) * np.sqrt(4.0 * np.pi)
         self.ghat_lg = [4.0 * np.pi / self.Nv * self._interp(ghat_g)]
 
@@ -353,7 +354,7 @@ class UPFSetupData:
     def get_jargs(self):
         projectors = list(self.data['projectors'])
         jargs = []
-        
+
         for n in range(4):
             for l in range(4):
                 for i, proj in enumerate(projectors):
@@ -366,7 +367,7 @@ class UPFSetupData:
     def tostring(self):
         lines = []
         indent = 0
-        
+
         def add(line):
             lines.append(indent * ' ' + line)
 
@@ -409,7 +410,7 @@ class UPFSetupData:
         H_ii = np.zeros((ni, ni))
         if len(self.data['DIJ']) == 0:
             return pack2(H_ii)
-        
+
         # Multiply by 4.
         # I think the factor of 4 compensates for the fact that the projectors
         # all had square norms of 4, but we brought them back down to 1
@@ -432,7 +433,7 @@ class UPFSetupData:
                 m2start = m2stop
             m1start = m1stop
         return pack2(H_ii)
-    
+
     def get_local_potential(self):
         vbar = Spline(0, self.rgd.r_g[len(self.vbar_g) - 1], self.vbar_g)
         return vbar
@@ -474,27 +475,27 @@ class UPFSetupData:
         else:
             from gpaw.pseudopotential import generate_basis_functions
             return generate_basis_functions(self)
-    
+
     def get_stored_basis_functions(self, ):
-        b = Basis(self.symbol, 'upf', readxml=False)
-        b.generatordata = 'upf-pregenerated'
-        
         states = self.data['states']
         maxlen = max([len(state.values) for state in states])
         orig_r = self.data['r']
         rcut = min(orig_r[maxlen - 1], 12.0)  # XXX hardcoded 12 max radius
-        
-        b.d = 0.02
-        b.ng = int(1 + rcut / b.d)
-        rgd = b.get_grid_descriptor()
-        
+
+        d = 0.02
+        ng = int(1 + rcut / d)
+        rgd = EquidistantRadialGridDescriptor(d, ng)
+
+        b = Basis(self.symbol, 'upf', readxml=False, rgd=rgd)
+        b.generatordata = 'upf-pregenerated'
+
         for j, state in enumerate(states):
             val = state.values
             phit_g = np.interp(rgd.r_g, orig_r, val)
             phit_g = divrl(phit_g, 1, rgd.r_g)
             icut = len(phit_g) - 1  # XXX correct or off-by-one?
             rcut = rgd.r_g[icut]
-            bf = BasisFunction(state.l, rcut, phit_g, 'pregenerated')
+            bf = BasisFunction(None, state.l, rcut, phit_g, 'pregenerated')
             b.bf_j.append(bf)
         return b
 
@@ -546,7 +547,7 @@ def upfplot(setup, show=True, calculate=False):
         r = r0[:len(array)]
         arr = divrl(array, rdividepower, r)
         return r, arr
-    
+
     import pylab as pl
     fig = pl.figure()
     fig.canvas.set_window_title('%s - UPF setup for %s' % (pp['fname'],
@@ -558,7 +559,7 @@ def upfplot(setup, show=True, calculate=False):
     wfsax = fig.add_subplot(224)
 
     r, v = rtrunc(pp['vlocal'])
-    
+
     vax.plot(r, v, label='vloc')
 
     vscreened, rhocomp = screen_potential(r, v, setup.Nv)
@@ -587,7 +588,7 @@ def upfplot(setup, show=True, calculate=False):
     if calculate:
         calc = AtomPAW(setup.symbol,
                        [setup.f_ln],
-                       #xc='PBE', # XXX does not support GGAs :( :( :(
+                       # xc='PBE', # XXX does not support GGAs :( :( :(
                        setups={setup.symbol: setup},
                        h=0.08,
                        rcut=10.0)

@@ -1,18 +1,16 @@
+import numpy as np
+from ase.build import molecule
+from ase.data.vdw import vdw_radii
 from gpaw import GPAW
 from gpaw.cluster import Cluster
 from gpaw.test import equal
-from ase.structure import molecule
-from ase.data.vdw import vdw_radii
-from gpaw.solvation import (
-    SolvationGPAW,
-    EffectivePotentialCavity,
-    Power12Potential,
-    LinearDielectric)
-import numpy as np
+from gpaw.solvation import (SolvationGPAW, EffectivePotentialCavity,
+                            Power12Potential, LinearDielectric)
 
-SKIP_REF_CALC = True
-dE = 1e-9  # XXX: check: why is there a difference at all?
-dF = 1e-7  # -- " --
+SKIP_REF_CALC = not not True
+
+energy_eps = 0.0005 / 8.
+forces_eps = 2e-5
 
 h = 0.3
 vac = 3.0
@@ -29,7 +27,8 @@ atoms = Cluster(molecule('H2O'))
 atoms.minimal_box(vac, h)
 
 convergence = {
-    'energy': 0.05 / 8.,
+    'energy': energy_eps,
+    'forces': forces_eps ** 2,  # Force error is squared
     'density': 10.,
     'eigenstates': 10.,
 }
@@ -41,12 +40,13 @@ if not SKIP_REF_CALC:
     Fref = atoms.get_forces()
     print(Fref)
 else:
-    # h=0.3, vac=3.0, setups: 0.9.11271, convergence: only energy 0.05 / 8
-    Eref = -11.9837925246
+    # setups: 0.9.11271, same settings as above
+    Eref = -11.9879852185
+
     Fref = np.array(
-        [[1.54678912e-12, -2.25501922e-12, -3.39988295e+00],
-         [1.42379773e-13, 1.75605844e+00, 1.68037209e-02],
-         [1.25039582e-13, -1.75605844e+00, 1.68037209e-02]])
+        [[1.77087917e-12, -2.38046360e-12, -6.05015925e+00],
+         [7.91317656e-14, 1.61479184e+00, 6.87595580e-02],
+         [2.62581472e-13, -1.61479184e+00, 6.87595580e-02]])
 
 atoms.calc = SolvationGPAW(
     xc='LDA', h=h, convergence=convergence,
@@ -59,6 +59,6 @@ atoms.calc = SolvationGPAW(
 Etest = atoms.get_potential_energy()
 Eeltest = atoms.calc.get_electrostatic_energy()
 Ftest = atoms.get_forces()
-equal(Etest, Eref, dE)
-equal(Ftest, Fref, dF)
+equal(Etest, Eref, energy_eps * atoms.calc.get_number_of_electrons())
+equal(Ftest, Fref, forces_eps)
 equal(Eeltest, Etest)

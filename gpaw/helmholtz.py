@@ -2,7 +2,7 @@ from math import pi, sqrt
 import numpy as np
 from numpy import exp
 
-from gpaw.poisson import PoissonSolver
+from gpaw.poisson import FDPoissonSolver
 from gpaw.utilities import cerf, erf
 from gpaw.utilities.gauss import Gaussian
 from gpaw.fd_operators import FDOperator, laplace
@@ -98,7 +98,7 @@ class HelmholtzOperator(FDOperator):
             ((self.npoints - 1) // n, n, self.npoints, 2 * n))
 
 
-class HelmholtzSolver(PoissonSolver):
+class HelmholtzSolver(FDPoissonSolver):
     """Solve the Helmholtz or screened Poisson equations.
 
        The difference between the Helmholtz equation:
@@ -118,7 +118,7 @@ class HelmholtzSolver(PoissonSolver):
     def __init__(self, k2=0.0, nn='M', relax='GS', eps=2e-10,
                  use_charge_center=True):
         assert k2 <= 0, 'Currently only defined for k^2<=0'
-        PoissonSolver.__init__(self, nn, relax, eps,
+        FDPoissonSolver.__init__(self, nn, relax, eps,
                                use_charge_center=use_charge_center)
         self.k2 = k2
         

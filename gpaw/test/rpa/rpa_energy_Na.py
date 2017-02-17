@@ -1,4 +1,4 @@
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW, FermiDirac, PW
 from gpaw.mpi import serial_comm
 from gpaw.xc.rpa import RPACorrelation
@@ -7,12 +7,14 @@ from gpaw.test import equal
 bulk = bulk('Na', 'bcc', a=4.23)
 
 ecut = 350
-calc = GPAW(mode=PW(ecut), dtype=complex, basis='dzp',
+calc = GPAW(mode=PW(ecut),
+            basis='dzp',
             kpts={'size': (4, 4, 4), 'gamma': True},
-            parallel={'domain': 1}, txt='gs_occ_pw.txt', nbands=4,
+            parallel={'domain': 1},
+            txt='gs_occ_pw.txt',
+            nbands=4,
             occupations=FermiDirac(0.01),
-            setups={'Na': '1'},
-            )
+            setups={'Na': '1'})
 bulk.set_calculator(calc)
 bulk.get_potential_energy()
 calc.write('gs_occ_pw.gpw')

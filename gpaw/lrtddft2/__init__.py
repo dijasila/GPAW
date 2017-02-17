@@ -12,11 +12,9 @@ from ase.utils import devnull
 
 from gpaw.xc import XC
 
-from gpaw.parameters import InputParameters
-
 
 # a KS determinant with a single occ-uncc excitation
-#from gpaw.lrtddft2.ks_singles import KohnShamSingleExcitation
+# from gpaw.lrtddft2.ks_singles import KohnShamSingleExcitation
 
 # a list of KS determinants with single occ-uncc excitations
 from gpaw.lrtddft2.ks_singles import KohnShamSingles
@@ -24,7 +22,7 @@ from gpaw.lrtddft2.ks_singles import KohnShamSingles
 # Matrix Kip,jq <ia|f_Hxc|jq>
 from gpaw.lrtddft2.k_matrix import Kmatrix
 
-# a set of linear combinations of KS single determinants 
+# a set of linear combinations of KS single determinants
 from gpaw.lrtddft2.lr_transitions import LrtddftTransitions
 
 # a linear combination of KS single determinants
@@ -35,16 +33,16 @@ from gpaw.lrtddft2.lr_response import LrResponse
 from gpaw.lrtddft2.lr_communicators import LrCommunicators
 
 
-
-#####################################################
-"""Linear response TDDFT (Casida) class with indexed K-matrix storage."""
 class LrTDDFT2:
-    def __init__(self, 
+    """Linear response TDDFT (Casida) class with indexed K-matrix storage."""
+    def __init__(self,
                  basefilename,
                  gs_calc,
-                 fxc = None,
-                 min_occ=None, max_occ=None, 
-                 min_unocc=None, max_unocc=None,
+                 fxc=None,
+                 min_occ=None,
+                 max_occ=None,
+                 min_unocc=None,
+                 max_unocc=None,
                  max_energy_diff=1e9,
                  recalculate=None,
                  lr_communicators=None,
@@ -53,7 +51,7 @@ class LrTDDFT2:
 
         Note: Does NOT support spin polarized calculations yet.
 
-        Protip: If K_matrix file is too large and you keep running out of memory when trying to calculate spectrum or response wavefunction, 
+        Protip: If K_matrix file is too large and you keep running out of memory when trying to calculate spectrum or response wavefunction,
         you can try
         "split -l 100000 xxx.K_matrix.ddddddofDDDDDD xxx.K_matrix.ddddddofDDDDDD."
 
@@ -102,8 +100,8 @@ class LrTDDFT2:
 
         lr_communicators
           Communicators for parallelizing over electron-hole pairs (i.e.,
-          rows of K-matrix) and domain. Note that ground state calculator 
-          must have a matching (domain decomposition) communicator, which 
+          rows of K-matrix) and domain. Note that ground state calculator
+          must have a matching (domain decomposition) communicator, which
           can be assured by using lr_communicators
           to create both communicators.
 
@@ -112,9 +110,9 @@ class LrTDDFT2:
         """
 
         # Save input params
-        self.basefilename = basefilename 
+        self.basefilename = basefilename
         self.fxc_name = fxc
-        self.xc = XC(self.fxc_name)        
+        self.xc = XC(self.fxc_name)
         self.min_occ = min_occ
         self.max_occ = max_occ
         self.min_unocc = min_unocc
@@ -130,8 +128,8 @@ class LrTDDFT2:
 
         # Input paramers?
         self.deriv_scale = 1e-5   # fxc finite difference step
-        self.min_pop_diff = 1e-3  # ignore transition if population
-                                  # difference is below this value
+        # ignore transition if population difference is below this value:
+        self.min_pop_diff = 1e-3
 
         # set up communicators
         self.lr_comms = lr_communicators
@@ -140,20 +138,18 @@ class LrTDDFT2:
             self.lr_comms = LrCommunicators()
         self.lr_comms.initialize(gs_calc)
 
-
         # Init text output
         if self.lr_comms.parent_comm.rank == 0 and txt is not None:
             if txt == '-':
                 self.txt = sys.stdout
-            elif isinstance(txt,str):
-                self.txt = open(txt,'w')
+            elif isinstance(txt, str):
+                self.txt = open(txt, 'w')
             else:
                 self.txt = txt
         elif self.calc is not None:
-            self.txt = self.calc.txt 
+            self.txt = self.calc.log.fd
         else:
             self.txt = devnull
-
 
         # Check and set unset params
 
@@ -172,34 +168,32 @@ class LrTDDFT2:
         if self.max_energy_diff is None:
             self.max_energy_diff = 1e9
 
-        self.min_occ   = max(self.min_occ,  0)
-        self.min_unocc = max(self.min_unocc,0)
+        self.min_occ = max(self.min_occ, 0)
+        self.min_unocc = max(self.min_unocc, 0)
 
-        if ( self.max_occ   >= nbands ):
+        if self.max_occ >= nbands:
             raise RuntimeError('Error in LrTDDFT2: max_occ >= nbands')
-        if ( self.max_unocc >= nbands ):
+        if self.max_unocc >= nbands:
             raise RuntimeError('Error in LrTDDFT2: max_unocc >= nbands')
-
  
         # Only spin unpolarized calculations are supported atm
         # > FIXME
-        assert len(self.calc.wfs.kpt_u) == 1, "LrTDDFT2 does not support more than one k-point/spin."
+        assert len(self.calc.wfs.kpt_u) == 1, \
+            'LrTDDFT2 does not support more than one k-point/spin.'
         self.kpt_ind = 0
         # <
-
-
 
         # Internal classes
 
         # list of singly excited Kohn-Sham Slater determinants
         # (ascending KS energy difference)
-        self.ks_singles = KohnShamSingles(self.basefilename, 
-                                          self.calc, 
+        self.ks_singles = KohnShamSingles(self.basefilename,
+                                          self.calc,
                                           self.kpt_ind,
-                                          self.min_occ, self.max_occ, 
-                                          self.min_unocc, self.max_unocc, 
-                                          self.max_energy_diff, 
-                                          self.min_pop_diff, 
+                                          self.min_occ, self.max_occ,
+                                          self.min_unocc, self.max_unocc,
+                                          self.max_energy_diff,
+                                          self.min_pop_diff,
                                           self.lr_comms,
                                           self.txt)
 
@@ -207,52 +201,47 @@ class LrTDDFT2:
         # Note: this is not the Casida matrix
         self.K_matrix = Kmatrix(self.ks_singles, self.xc, self.deriv_scale)
 
-        self.sl_lrtddft = self.calc.input_parameters.parallel['sl_lrtddft']
+        self.sl_lrtddft = self.calc.parallel['sl_lrtddft']
 
         # LR-TDDFT transitions
-        self.lr_transitions = LrtddftTransitions(self.ks_singles, self.K_matrix, self.sl_lrtddft)
+        self.lr_transitions = LrtddftTransitions(self.ks_singles,
+                                                 self.K_matrix,
+                                                 self.sl_lrtddft)
 
         # Response wavefunction
         self.lr_response_wf = None
 
-
         # Pair density
         self.pair_density = None  # pair density class
-
 
         # Timer
         self.timer = self.calc.timer
         self.timer.start('LrTDDFT')
 
-
         # If a previous calculation exist, read info file
-        #self.read(self.basefilename)
-
+        # self.read(self.basefilename)
 
         # Write info file
-        #self.parent_comm.barrier()
-        #if self.parent_comm.rank == 0:
-        #    self.write_info(self.basefilename)
+        # self.parent_comm.barrier()
+        # if self.parent_comm.rank == 0:
+        #     self.write_info(self.basefilename)
 
-
-        #self.custom_axes = None
-        #self.K_matrix_scaling_factor = 1.0
+        # self.custom_axes = None
+        # self.K_matrix_scaling_factor = 1.0
         self.K_matrix_values_ready = False
 
-
-    #################################################################
     def get_transitions(self, filename=None, min_energy=0.0, max_energy=30.0, units='eVcgs'):
         """Get transitions: energy, dipole strength and rotatory strength.
 
-        Returns transitions as (w,S,R, Sx,Sy,Sz) where 
+        Returns transitions as (w,S,R, Sx,Sy,Sz) where
         w is an array of frequencies,
-        S is an array of corresponding dipole strengths, 
+        S is an array of corresponding dipole strengths,
         and R is an array of corresponding rotatory strengths.
 
         Input parameters:
 
         min_energy
-          Minimum energy 
+          Minimum energy
 
         min_energy
           Maximum energy
@@ -280,7 +269,7 @@ class LrTDDFT2:
         Input parameters:
 
         min_energy
-          Minimum energy 
+          Minimum energy
 
         min_energy
           Maximum energy
@@ -364,8 +353,6 @@ class LrTDDFT2:
 
         return lr_response
 
-
-    #################################################################
     def calculate(self):
         """Calculates linear response matrix and properties of KS
         electron-hole pairs.
@@ -380,11 +367,11 @@ class LrTDDFT2:
                 self.calc.converge_wave_functions()
                 spos_ac = self.calc.initialize_positions()
                 self.calc.occupations.calculate(self.calc.wfs)
-                self.calc.wfs.initialize(self.calc.density, 
+                self.calc.wfs.initialize(self.calc.density,
                                          self.calc.hamiltonian, spos_ac)
                 self.xc.initialize(self.calc.density, self.calc.hamiltonian,
                                    self.calc.wfs, self.calc.occupations)
-                self.calc_ready = True        
+                self.calc_ready = True
 
         # Singles logic
         if self.recalculate == 'all' or self.recalculate == 'matrix':
@@ -406,7 +393,8 @@ class LrTDDFT2:
         if self.recalculate == 'all' or self.recalculate == 'matrix':
             # delete files
             if self.parent_comm.rank == 0:
-                for ready_file in glob.glob(self.basefilename+'.ready_rows.*'):
+                for ready_file in glob.glob(self.basefilename +
+                                            '.ready_rows.*'):
                     os.remove(ready_file)
                 for K_file in glob.glob(self.basefilename + '.K_matrix.*'):
                     os.remove(K_file)
@@ -433,29 +421,24 @@ class LrTDDFT2:
                 os.remove(trans_file)
             self.lr_transitions.calculate()
 
-
         # recalculate only once
         self.recalculate = None
 
-
-
-    #################################################################
     def read(self, basename):
         """Does not do much at the moment."""
         info_file = open(basename + '.lr_info', 'r')
         for line in info_file:
-            if line[0] == '#': 
+            if line[0] == '#':
                 continue
-            if len(line.split()) <= 2: 
+            if len(line.split()) <= 2:
                 continue
-            #key = line.split('=')[0]
-            #value = line.split('=')[1]
+            # key = line.split('=')[0]
+            # value = line.split('=')[1]
             # .....
             # FIXME: do something, like warn if changed
-            # ... 
+            # ...
         info_file.close()
 
-    #################################################################
     def write_info(self, basename):
         """Writes used parameters to a file."""
         f = open(basename + '.lr_info', 'a+')
@@ -470,15 +453,5 @@ class LrTDDFT2:
         f.write('%20s = %18.12lf\n' % ('min_pop_diff', self.min_pop_diff))
         f.close()
 
-
-    #################################################################
     def __del__(self):
         self.timer.stop('LrTDDFT')
-
-
-
-################################################################################
-
-
-
-

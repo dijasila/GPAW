@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from gpaw import GPAW
 from gpaw.spinorbit import get_spinorbit_eigenvalues
-plt.rc('text', usetex=True)
+#plt.rc('text', usetex=True)
 
 calc = GPAW('WS2_bands.gpw', txt=None)
 

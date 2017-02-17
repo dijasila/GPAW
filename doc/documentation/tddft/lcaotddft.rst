@@ -59,7 +59,6 @@ from `t` to `t+\mathrm dt` by solving
 This procedure is repeated using 500--2000 time steps of 5--40 as to
 calculate the time evolution of the electrons.
 
-=====
 Usage
 =====
 

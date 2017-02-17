@@ -38,13 +38,12 @@ bulk_crystal = Atoms(symbols=['Ti', 'Ti', 'O', 'O', 'O', 'O'],
                      pbc=(1, 1, 1))
 data_s = []
 for symmetry in ['off', {}]:
-    bulk_calc = GPAW(mode=PW(pwcutoff),
+    bulk_calc = GPAW(mode=PW(pwcutoff, force_complex_dtype=True),
                      kpts={'size': (k, k, k), 'gamma': True},
                      xc='PBE',
                      occupations=FermiDirac(0.00001),
                      parallel={'band': 1},
-                     symmetry=symmetry,
-                     dtype=complex)
+                     symmetry=symmetry)
 
     bulk_crystal.set_calculator(bulk_calc)
     e0_bulk_pbe = bulk_crystal.get_potential_energy()

@@ -50,6 +50,7 @@ Specialized tutorials
    pbe0/pbe0
    xas/xas
    dielectric_response/dielectric_response
+   qeh/qeh
    gw_tutorial/gw_tutorial
    bse_tutorial/bse_tutorial
    rpa/rpa_tut

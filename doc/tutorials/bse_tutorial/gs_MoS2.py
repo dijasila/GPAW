@@ -1,4 +1,4 @@
-from ase.lattice.surface import mx2
+from ase.build import mx2
 from gpaw import GPAW, PW, FermiDirac
 
 calc = GPAW(mode=PW(400),

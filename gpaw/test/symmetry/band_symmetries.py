@@ -1,5 +1,5 @@
 from __future__ import print_function
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW
 from gpaw import restart
 from _gpaw import symmetrize

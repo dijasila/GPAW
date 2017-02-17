@@ -1,6 +1,6 @@
 from math import sqrt
 from ase import Atoms
-from gpaw import GPAW
+from gpaw import GPAW, FermiDirac
 
 a = 2.4437
 # Set up graphene structure
@@ -14,7 +14,10 @@ atoms = Atoms(symbols='C2',
 atoms.pbc = True
 
 # Gamma-point calculation of graphene
-calc = GPAW(h=0.2, width=0.15, kpts=(1, 1, 1), xc='LDA')
+calc = GPAW(h=0.2,
+            occupations=FermiDirac(width=0.15),
+            kpts=(1, 1, 1),
+            xc='LDA')
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 

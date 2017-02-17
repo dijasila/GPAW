@@ -25,7 +25,7 @@ def info():
     results.append(('_gpaw',
                     op.normpath(getattr(module, '__file__', 'built-in'))))
     p = subprocess.Popen(['which', 'gpaw-python'], stdout=subprocess.PIPE)
-    results.append(('parallel', p.communicate()[0].strip() or False))
+    results.append(('parallel', p.communicate()[0].strip().decode() or False))
     results.append(('FFTW', fftw.FFTPlan is fftw.FFTWPlan))
     results.append(('scalapack', compiled_with_sl()))
     results.append(('libvdwxc', compiled_with_libvdwxc()))

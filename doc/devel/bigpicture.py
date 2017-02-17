@@ -133,7 +133,7 @@ hamiltonian = box('Hamiltonian',
                    r'\sum_a \sum_{i_1i_2} |\tilde{p}_{i_1}^a \rangle ' +
                    r'\Delta H_{i_1i_2} \langle \tilde{p}_{i_2}^a|$'],
                   ['nspins, vt_sG, vt_sg, vHt_g, dH_asp',
-                   'Etot, Ekin, Exc, Epot, Ebar'])
+                   'Etot, Ekin, Exc, e_coulomb, Ebar'])
 wfs = box('WaveFunctions',
           [r'$\tilde{\psi}_{\sigma\mathbf{k}n}(\mathbf{r})$'],
           ['nspins, ibzk_qc, mynbands',

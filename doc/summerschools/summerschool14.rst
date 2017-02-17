@@ -38,7 +38,7 @@ GPAW, VMD and matplotlib.
 
 Note that the filename ``.bashrc`` starts with a period, making it a
 hidden file in Unix.  Also note that the tilde (~) key on the databar
-computers is in an unusual place: :kbd:`Alt Graph  5` 
+computers is in an unusual place: :kbd:`Alt Graph  5`
 
 Running GPAW calculations
 =========================
@@ -121,7 +121,7 @@ Windows laptops
 ---------------
 
 As there is no X server running on a windows laptop, you either have
-to install one, or use a full-screen client such as ThinLinc.  
+to install one, or use a full-screen client such as ThinLinc.
 
 You can download ThinLinc from `Cendio's webpage`_.  Information about
 how to connect with ThinLinc is available from the `DTU databar wiki`_.

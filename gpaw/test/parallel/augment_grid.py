@@ -1,6 +1,6 @@
 from __future__ import print_function
 from gpaw import GPAW
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw.mpi import world
 
 system = molecule('H2O')

@@ -1,6 +1,6 @@
 from __future__ import print_function
 from ase import Atoms
-from ase.lattice import bulk
+from ase.build import bulk
 from ase.dft import monkhorst_pack
 from ase.parallel import paropen
 from gpaw import GPAW, FermiDirac

@@ -532,7 +532,7 @@ def dscf_collapse_orbitals(paw, nbands_max='occupied', f_tol=1e-4,
     assert nbands_max >= n0 + norbitals, 'Too few bands to include occupations.'
     ncut = nbands_max-norbitals
 
-    if debug: mpi_debug('nbands_max=%d' % nbands_max) 
+    if debug: mpi_debug('nbands_max=%d' % nbands_max)
 
     paw.wfs.initialize_wave_functions_from_restart_file() # hurts memmory
 
@@ -589,7 +589,7 @@ def dscf_collapse_orbitals(paw, nbands_max='occupied', f_tol=1e-4,
     # Replace occupations class with a fixed variant (gets the magmom right) XXX?!?
     fermilevel, magmom = paw.occupations.fermilevel, paw.occupations.magmom
     paw.occupations = FermiDirac(paw.occupations.width * Hartree, paw.occupations.fixmagmom)
-    paw.occupations.set_fermi_level(fermilevel)
+    paw.occupations.fermilevel = fermilevel
     paw.occupations.magmom = magmom
     del fermilevel, magmom
 

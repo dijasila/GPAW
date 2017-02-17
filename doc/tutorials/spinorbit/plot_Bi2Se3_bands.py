@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from gpaw import GPAW
 from gpaw.spinorbit import get_spinorbit_eigenvalues, set_calculator
 
-plt.rc('text', usetex=True)
+#plt.rc('text', usetex=True)
 
 calc1 = GPAW('Bi2Se3_bands.gpw', txt=None)
 calc2 = GPAW('gs_Bi2Se3.gpw', txt=None)

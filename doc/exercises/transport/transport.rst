@@ -166,9 +166,9 @@ the ``TransportCalculator``::
     import pickle
 
     #Read in the hamiltonians
-    h, s = pickle.load(file('scat_hs.pickle'))
-    h1, s1 = pickle.load(file('lead1_hs.pickle'))
-    h2, s2 = pickle.load(file('lead2_hs.pickle'))
+    h, s = pickle.load(open('scat_hs.pickle', 'rb'))
+    h1, s1 = pickle.load(open('lead1_hs.pickle', 'rb'))
+    h2, s2 = pickle.load(open('lead2_hs.pickle', 'rb'))
 
     tcalc = TransportCalculator(h=h, h1=h1, h2=h2, # hamiltonian matrices
                                 s=s, s1=s1, s2=s2, # overlap matrices

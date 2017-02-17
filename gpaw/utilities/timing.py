@@ -6,7 +6,6 @@ from __future__ import print_function
 import sys
 import time
 import math
-import functools
 
 import numpy as np
 from ase.utils.timing import Timer

@@ -2,7 +2,7 @@ from __future__ import print_function
 from ase.visualize import view
 from ase.constraints import FixAtoms
 from ase.optimize import QuasiNewton
-from ase.lattice.surface import fcc100, add_adsorbate
+from ase.build import fcc100, add_adsorbate
 from gpaw import GPAW, PW
 
 # Initial state:

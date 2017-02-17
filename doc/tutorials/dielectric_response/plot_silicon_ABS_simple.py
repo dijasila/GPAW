@@ -3,7 +3,7 @@ from math import pi
 import matplotlib.pyplot as plt
 from matplotlib import rc
 rc('font', **{'family':'sans-serif','sans-serif':['Helvetica']})
-rc('text', usetex=True)
+#rc('text', usetex=True)
 rc('figure', figsize=(4.0, 4.0), dpi=800)
 
 data = np.loadtxt('df.csv', delimiter=',')

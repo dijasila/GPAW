@@ -7,10 +7,6 @@
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #include <numpy/arrayobject.h>
 
-#ifdef GPAW_WITH_HDF5
-PyMODINIT_FUNC init_gpaw_hdf5(void);
-#endif
-
 #ifdef GPAW_HPM
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
 PyObject* ibm_hpm_stop(PyObject *self, PyObject *args);
@@ -320,12 +316,8 @@ static PyObject* moduleinit(void)
     Py_INCREF(&XCFunctionalType);
     Py_INCREF(&lxcXCFunctionalType);
 
-#ifdef GPAW_WITH_HDF5
-    init_gpaw_hdf5();
-#endif
-
     import_array1(NULL);
- 
+
     return m;
 }
 
@@ -385,7 +377,7 @@ main(int argc, char **argv)
     int status = Py_Main(argc, wargv);
     Py_Finalize();
     MPI_Finalize();
-    
+
 #if PY_MAJOR_VERSION >= 3
     for (int i = 0; i < argc; i++)
         free(wargv2[i]);

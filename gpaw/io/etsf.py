@@ -1,7 +1,7 @@
 import numpy as np
 from ase.units import Hartree
 from Scientific.IO.NetCDF import NetCDFFile
-from ase.lattice.spacegroup import Spacegroup
+from ase.spacegroup import Spacegroup
 
 from gpaw.wavefunctions.pw import PWDescriptor
 

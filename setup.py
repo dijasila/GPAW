@@ -24,7 +24,7 @@ assert sys.version_info >= (2, 6)
 # Get the current version number:
 with open('gpaw/__init__.py') as fd:
     version = re.search("__version__ = '(.*)'", fd.read()).group(1)
- 
+
 description = 'GPAW: DFT and beyond within the projector-augmented wave method'
 long_description = """\
 GPAW is a density-functional theory (DFT) Python code based on the
@@ -88,7 +88,6 @@ compiler = None
 
 scalapack = False
 libvdwxc = False
-hdf5 = False
 
 # User provided customizations:
 exec(open(customize).read())
@@ -159,24 +158,6 @@ extensions = [Extension('_gpaw',
                         runtime_library_dirs=runtime_library_dirs,
                         extra_objects=extra_objects)]
 
-if hdf5:
-    assert sys.version_info < (3, 0), 'We do not support hdf5 on Python 3'
-    hdf5_sources = ['c/hdf5.c']
-    define_macros.append(('GPAW_WITH_HDF5', '1'))
-
-    hdf5_extension = Extension('_gpaw_hdf5',
-                               hdf5_sources,
-                               libraries=libraries,
-                               library_dirs=library_dirs,
-                               include_dirs=include_dirs,
-                               define_macros=define_macros,
-                               undef_macros=undef_macros,
-                               extra_link_args=extra_link_args,
-                               extra_compile_args=extra_compile_args,
-                               runtime_library_dirs=runtime_library_dirs,
-                               extra_objects=extra_objects)
-    extensions.append(hdf5_extension)
-
 files = ['gpaw-analyse-basis', 'gpaw-basis',
          'gpaw-mpisim', 'gpaw-plot-parallel-timings', 'gpaw-runscript',
          'gpaw-setup', 'gpaw-upfplot', 'gpaw']
@@ -191,18 +172,18 @@ write_configuration(define_macros, include_dirs, libraries, library_dirs,
 
 class sdist(_sdist):
     """Fix distutils.
-    
+
     Distutils insists that there should be a README or README.txt,
     but GitLab.com needs README.rst in order to parse it as
     reStructuredText."""
-    
+
     def warn(self, msg):
         if msg.startswith('standard file not found: should have one of'):
             self.filelist.append('README.rst')
         else:
             _sdist.warn(self, msg)
 
-            
+
 class build_ext(_build_ext):
     def run(self):
         _build_ext.run(self)
@@ -218,7 +199,7 @@ class build_ext(_build_ext):
                 mpi_runtime_library_dirs, mpi_define_macros)
             assert error == 0
 
-        
+
 class build_scripts(_build_scripts):
     # Python 3's version will try to read the first line of gpaw-python
     # because it thinks it is a Python script that need an adjustment of
@@ -233,8 +214,8 @@ class build_scripts(_build_scripts):
             updated_files.append(outfile)
             self.copy_file(script, outfile)
         return outfiles, updated_files
-        
-        
+
+
 if mpicompiler:
     scripts.append('build/bin.%s/' % plat + 'gpaw-python')
 
@@ -243,7 +224,7 @@ setup(name='gpaw',
       description=description,
       long_description=long_description,
       maintainer='GPAW-community',
-      maintainer_email='gpaw-developers@listserv.fysik.dtu.dk',
+      maintainer_email='gpaw-users@listserv.fysik.dtu.dk',
       url='http://wiki.fysik.dtu.dk/gpaw',
       license='GPLv3+',
       platforms=['unix'],
@@ -264,4 +245,5 @@ setup(name='gpaw',
           'Programming Language :: Python :: 3',
           'Programming Language :: Python :: 3.4',
           'Programming Language :: Python :: 3.5',
+          'Programming Language :: Python :: 3.6',
           'Topic :: Scientific/Engineering :: Physics'])

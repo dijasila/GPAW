@@ -1,3 +1,5 @@
+.. _ps2ae:
+
 Obtaining all-electron wave functions
 =====================================
 

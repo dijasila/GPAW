@@ -4,58 +4,19 @@
 New release
 ===========
 
-When it is time for a new release of the code, here is what you have to do:
-
-* **Warning:** use only three digits release numbers, e.g. *0.7.2*,
-
-* Checkout the master,
-
-* then :ref:`run the tests`.
+* Update ``__version__`` in :git:`gpaw/__init__.py`.
 
 * If a new ase release is required to pass the tests
-  modify ``required_ase_version`` and ``required_ase_svnversion``
-  in :git:`gpaw/__init__.py`, and checkin the changes.
+  modify ``__ase_version_required__`` in :git:`gpaw/__init__.py`.
 
-* ``svn up`` and :ref:`run the tests` again.
+* Upload to PyPI::
+    
+      $ python3 setup.py sdist upload
+      
+* Push and make a tag.
 
-* Make a tag in svn, using the current version number
-  (to make sure **not** to include changes done by other developers
-  in the meantime!)::
+* Update :ref:`news`, :ref:`releasenotes` and :ref:`download` pages.
 
-    svn copy -r 6972 https://svn.fysik.dtu.dk/projects/gpaw/trunk https://svn.fysik.dtu.dk/projects/gpaw/tags/0.7.2 -m "Version 0.7.2"
+* Increase the version number and push.
 
-  **Note** the resulting tag's revision ``tags_revision``.
-
-* **Checkout** the source, specifying the version number in the directory name::
-
-   svn co -r tags_revision https://svn.fysik.dtu.dk/projects/gpaw/tags/0.7.2 gpaw-0.7.2
-
-* Create the tar file::
-
-   cd gpaw-0.7.2
-   rm -f MANIFEST gpaw/svnversion.py*
-   python setup.py sdist
-
-  Note that the ``tags_revision`` is put into the name of the
-  tar file automatically. Make sure that you are getting only
-  ``tags_revision`` in the tar file name! Any changes to the source
-  will be reflected as a mixed or modified revision tag!
-
-* Put the tar file on web2 (set it read-able for all)::
-
-   scp dist/gpaw-0.7.2."tags_revision".tar.gz root@web2:/var/www/wiki/gpaw-files
-
-* Add a link to the new GPAW on :ref:`news` and update the information
-  on the :ref:`download` page.
-
-* Update the :ref:`releasenotes` including the compatible ASE release!.
-
-* Increase the version number in gpaw/version.py, and commit the change::
-
-    cd ~/gpaw
-    svn ci -m "Version 0.8.0"
-
-  Now the trunk is ready for work on the new version.
-
-* Send announcement email to the ``gpaw-developers`` mailing list (see
-  :ref:`mail lists`).
+* Send announcement email to the ``gpaw-users`` mailing list.

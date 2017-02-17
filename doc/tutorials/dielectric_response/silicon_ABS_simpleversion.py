@@ -1,5 +1,5 @@
 import numpy as np
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW
 from gpaw.response.df import DielectricFunction
 

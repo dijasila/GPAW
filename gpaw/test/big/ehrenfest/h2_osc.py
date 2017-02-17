@@ -1,5 +1,6 @@
 from __future__ import print_function
-import os, time
+import os
+import time
 import numpy as np
 
 from ase import Atoms
@@ -12,19 +13,18 @@ from gpaw.mpi import world
 from gpaw.tddft import TDDFT
 from gpaw.tddft.ehrenfest import EhrenfestVelocityVerlet
 
-# -------------------------------------------------------------------
 
 name = 'h2_osc'
 
 # Equilibrium distance in Ang cf. setups page for H dimer
-d_bond = 0.754 # ~0.766 during oscillation
+d_bond = 0.754  # ~0.766 during oscillation
 d_disp = 0.03
 
 # Timestep and expected oscillatory period in attoseconds
 timestep = 5.0
-period = 7.58e3 # ~545.7 meV cf. CRC Handbook of Phys. & Chem. #09_08_91
+period = 7.58e3  # ~545.7 meV cf. CRC Handbook of Phys. & Chem. #09_08_91
 
-ndiv = int(np.ceil(0.1e3 / timestep)) # update stats every 0.1 fs
+ndiv = int(np.ceil(0.1e3 / timestep))  # update stats every 0.1 fs
 niter = ndiv * int(np.ceil(2 * period / (ndiv * timestep)))
 
 if __name__ == '__main__':
@@ -52,20 +52,21 @@ if __name__ == '__main__':
 
     t0 = time.time()
     f = paropen(name + '_td.log', 'w')
-    for i in range(1, niter+1):
+    for i in range(1, niter + 1):
         ehrenfest.propagate(timestep)
 
         if i % ndiv == 0:
-            rate = 60 * ndiv / (time.time()-t0)
+            rate = 60 * ndiv / (time.time() - t0)
             ekin = tdcalc.atoms.get_kinetic_energy()
             epot = tdcalc.get_td_energy() * Hartree
             F_av = ehrenfest.F * Hartree / Bohr
-            print('i=%06d (%6.2f min^-1), ekin=%13.9f, epot=%13.9f, etot=%13.9f' % (i, rate, ekin, epot, ekin+epot), file=f)
+            s = 'i=%06d (%6.2f min^-1), ekin=%13.9f, epot=%13.9f, etot=%13.9f'
+            print(s % (i, rate, ekin, epot, ekin + epot), file=f)
             t0 = time.time()
 
             # Hack to prevent calls to GPAW::get_potential_energy when saving
             spa = tdcalc.get_atoms()
-            spc = SinglePointCalculator(epot, F_av, None, None, spa)
+            spc = SinglePointCalculator(spa, energy=epot, forces=F_av)
             spa.set_calculator(spc)
             traj.write(spa)
     f.close()

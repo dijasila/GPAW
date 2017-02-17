@@ -1,6 +1,6 @@
 from __future__ import print_function
 import numpy as np
-from ase.lattice.surface import fcc111
+from ase.build import fcc111
 
 from gpaw.mpi import world
 from gpaw import GPAW, PoissonSolver

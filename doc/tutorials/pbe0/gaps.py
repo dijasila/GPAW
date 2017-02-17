@@ -19,7 +19,7 @@ for k in range(2, 9, 2):
                    convergence={'bands': 5},
                    txt=name + '.txt')
     si.get_potential_energy()
-    si.calc.write(name, mode='all')
+    si.calc.write(name + '.gpw', mode='all')
     
     # Range of eigenvalues:
     n1 = 3
@@ -41,7 +41,10 @@ for k in range(2, 9, 2):
     dpbeeigs = vxc(si.calc, 'PBE')[0, kpt_indices, n1:n2]
         
     # Do PBE0 calculation:
-    pbe0 = EXX(name, 'PBE0', kpts=kpt_indices, bands=[n1, n2],
+    pbe0 = EXX(name + '.gpw',
+               'PBE0',
+               kpts=kpt_indices,
+               bands=[n1, n2],
                txt=name + '.pbe0.txt')
     pbe0.calculate()
     

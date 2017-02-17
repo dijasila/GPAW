@@ -10,8 +10,10 @@ def get_hydrogen_chain_dielectric_function(NH, NK):
     a = Atoms('H', cell=[1, 1, 1], pbc=True)
     a.center()
     a = a.repeat((1, 1, NH))
-    a.calc = GPAW(mode=PW(200), kpts={'size': (1, 1, NK), 'gamma': True},
-                  parallel={'band': 1}, dtype=complex, gpts=(10, 10, 10 * NH))
+    a.calc = GPAW(mode=PW(200, force_complex_dtype=True),
+                  kpts={'size': (1, 1, NK), 'gamma': True},
+                  parallel={'band': 1},
+                  gpts=(10, 10, 10 * NH))
     a.get_potential_energy()
     a.calc.diagonalize_full_hamiltonian(nbands=2 * NH)
     a.calc.write('H_chain.gpw', 'all')

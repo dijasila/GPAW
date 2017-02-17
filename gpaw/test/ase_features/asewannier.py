@@ -1,5 +1,5 @@
 import numpy as np
-from ase.structure import molecule
+from ase.build import molecule
 from ase.dft import Wannier
 from gpaw import GPAW
 from gpaw.test import equal

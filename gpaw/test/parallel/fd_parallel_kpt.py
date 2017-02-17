@@ -1,14 +1,14 @@
 from __future__ import print_function
 import sys
 
-from ase import Atoms
 from ase.utils import devnull
 
 from gpaw import GPAW, FermiDirac
 from gpaw import KohnShamConvergenceError
 from gpaw.utilities import compiled_with_sl
+from gpaw.forces import calculate_forces
 
-from ase.structure import molecule
+from ase.build import molecule
 
 # Calculates energy and forces for various parallelizations
 
@@ -48,9 +48,9 @@ def run(formula='H2O', vacuum=1.5, cell=None, pbc=1, **morekwargs):
     except KohnShamConvergenceError:
         pass
 
-    E = calc.hamiltonian.Etot
-    F_av = calc.forces.calculate(calc.wfs, calc.density,
-                                 calc.hamiltonian)
+    E = calc.hamiltonian.e_total_free
+    F_av = calculate_forces(calc.wfs, calc.density,
+                            calc.hamiltonian)
 
     global Eref, Fref_av
     if Eref is None:
@@ -149,7 +149,7 @@ run(**OH_kwargs)
 # domain-decomposition = (1, 1, 1)
 del parallel['domain']
 parallel['band'] = 2
-run(**OH_kwargs) 
+run(**OH_kwargs)
 
 # do last test plus buffer_size keyword
 parallel['buffer_size'] = 150

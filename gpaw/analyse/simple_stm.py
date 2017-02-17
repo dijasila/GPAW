@@ -59,18 +59,18 @@ class SimpleStm(STM):
         if hasattr(bias, '__len__') and len(bias) == 3:
             n, k, s = bias
             # only a single wf requested
-            u = self.calc.get_myu(k, s)
+            u = self.calc.wfs.kd.where_is(k, s)
             if u is not None:
                 self.add_wf_to_ldos(n, u, weight=1)
 
         else:
             # energy bias
             try:
-                if self.calc.occupations.fixmagmom is True:
+                if self.calc.occupations.fixmagmom:
                     efermi_s = self.calc.get_fermi_levels()
                 else:
                     efermi_s = np.array([self.calc.get_fermi_level()] * 2)
-            except:
+            except:  # XXXXX except what?
                 efermi_s = np.array([self.calc.get_homo_lumo().mean()] * 2)
 
             if isinstance(bias, (int, float)):
@@ -184,7 +184,7 @@ class SimpleStm(STM):
 
     def linescan(self, bias, current, p1, p2, npoints=50, z0=None):
         """Line scan for a given current [nA]"""
-        return STM.linescan(self, bias, 
+        return STM.linescan(self, bias,
                             self.current_to_density(current),
                             p1, p2, npoints, z0)
 
@@ -224,7 +224,7 @@ class SimpleStm(STM):
         try:
             import datetime
             print('#', datetime.datetime.now().ctime(), file=f)
-        except:
+        except:  # XXX except what?
             pass
         print('# Simulated STM picture', file=f)
         if hasattr(self, 'file'):
