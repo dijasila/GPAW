@@ -131,7 +131,7 @@ class MGGA(XCFunctional):
             sign = -1.0
         tau_sg = np.dot(self.D_sp, tau_pg) + tauc_g
 
-        if 0:  # not self.ae:
+        if not self.ae:
             m = 12
             for tau_g, n_g, sigma_g in zip(tau_sg, n_sg, sigma_xg[::2]):
                 tauw_g = sigma_g / 8 / n_g
