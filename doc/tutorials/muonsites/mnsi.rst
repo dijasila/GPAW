@@ -2,8 +2,7 @@
 Muon SIte
 ======
 
-
-Positive muons implanted in metals tend to stop at interstitial sites that correspond to the maxima of the Coulomb potential in the material. In turns the Coulomb potential is approximated by the Hartree pseudo-potential obtained from the GPAW calculation. A good guess is therefore given by the maxima of this potential.
+Positive muons implanted in metals tend to stop at interstitial sites that correspond to the maxima of the Coulomb potential energy for electrons in the material. In turns the Coulomb potential is approximated by the Hartree pseudo-potential obtained from the GPAW calculation. A good guess is therefore given by the maxima of this potential.
 
 In this tutorial we obtain the guess in the case of MnSi. The results can be compared with A. Amato et al. [Amato14]_, who find a muon site at fractional cell coordinates (0.532,0.532,0.532) by DFT calculations and by the analysis of experiments.
 
