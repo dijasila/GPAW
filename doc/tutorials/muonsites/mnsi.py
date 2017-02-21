@@ -1,6 +1,7 @@
 from gpaw import GPAW, PW, MethfesselPaxton
 from ase.units import Hartree
 from ase.spacegroup import crystal
+from ase.io import write
 
 a = 4.55643
 mnsi = crystal(['Mn', 'Si'],
