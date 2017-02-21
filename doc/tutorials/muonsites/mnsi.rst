@@ -14,13 +14,16 @@ Let's perform the calculation in ASE, starting from the space group of MnSi, 198
 
 .. literalinclude:: mnsi.py
 
-The ASE code outputs a cube file with volumetric data of the potential that can be visualized.
+The ASE code outputs a Gaussian cube file, mnsi.cube, with volumetric data of the potential that can be visualized.
 
 
-Getting the minimum
+Getting the maximum
 ===================
 
-One way of identifying the maximum is by the use of an isosurface (or 3d contour surface) at a slightly lower value than the maximum, by meaans of an external visualization program, like eg. VESTA.
+One way of identifying the maximum is by the use of an isosurface (or 3d contour surface) at a slightly lower value than the maximum. This can be done by means of an external visualization program, like eg. majavi
+::
+   python -m ase.visualize.mlab "-c 0.49,0.438" -C gpaw mnsi.cube
+or VESTA. The parameters after -c are the potential values for two countour surfaces.
 
 This allows also secondary (local) minima to be identified.
 
@@ -28,9 +31,11 @@ A simplified procedure to identify the global maximum is the following
 
 .. literalinclude:: mnsicontour.py
 
-The figure below shows the contour plot of the potential in a plane containing the maximum
+The figure below shows the contour plot of the pseudo-potential in the plane z=2.28 Angstrom containing the maximum
 
 .. image:: mnsicontour.png
+
+The absolute maximum is at the center of the plot, at (2.28,2.28,2.28), in Angstrom. A local maximum is also visible around (0.6,1.75,2.28), in Angstrom. 
 
 In comparing with [Amato14]_ keep in mind that the present examples has a very reduced number of k points and a low plane wave cutoff energy, just enough to show the right extrema in the shortest CPU time. 
  
