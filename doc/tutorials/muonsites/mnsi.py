@@ -1,5 +1,4 @@
 from gpaw import GPAW, PW, MethfesselPaxton
-from ase.units import Hartree
 from ase.spacegroup import crystal
 from ase.io import write
 
@@ -22,7 +21,7 @@ mnsi.calc = GPAW(xc='PBE',
 
 mnsi.get_potential_energy()
 mnsi.calc.write('mnsi.gpw')
+v = mnsi.calc.get_electrostatic_potential()
+write('mnsi.cube', mnsi, data=v)
 
-calc = GPAW('mnsi.gpw', txt=None)
-v = calc.get_electrostatic_potential() / Hartree
-write('mnsi.cube', calc.get_atoms(), data=v)
+assert abs(v.max() - 13.4) < 0.01
