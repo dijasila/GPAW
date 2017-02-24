@@ -50,6 +50,10 @@ def get_auto_pfft_grid(size):
     return nproc1, nproc2
 
 
+spinwarning = """\
+GPAW uses the total density to evaluate the van der Waals functional
+for a spin-polarized system.  This is not entirely rigorous, so the
+calculation cannot be considered a true vdW-DF-family calculation."""
 _VDW_NUMERICAL_CODES = {'vdW-DF': 1,
                         'vdW-DF2': 2,
                         'vdW-DF-CX': 3}
@@ -276,6 +280,9 @@ class VDWXC(XCFunctional):
         self._mode = mode
         self._pfft_grid = pfft_grid
         self._vdwcoef = vdwcoef
+        # To be completely rigorous and avoid the wrath of the functionalists,
+        # we must write a warning if we run spin-polarized.
+        self._nspins = 1
 
         self.last_nonlocal_energy = None
         self.last_semilocal_energy = None
@@ -332,6 +339,8 @@ class VDWXC(XCFunctional):
         log('Semilocal %s energy: %.6f' % (self.semilocal_xc.kernel.name,
                                            esl * Hartree))
         log('(Not including atomic contributions)')
+        if self._nspins != 1:
+            log('Warning: {}'.format(spinwarning))
 
     def get_setup_name(self):
         return self.setup_name
@@ -364,6 +373,11 @@ class VDWXC(XCFunctional):
         #except AttributeError:
         #    gd = density.finegd
         gd = self.gd
+        if density.nspins != 1:
+            import warnings
+            warnings.warn(spinwarning)
+            self._nspins = density.nspins
+
         if wfs.world.size > gd.comm.size and np.prod(gd.N_c) > 64**3:
             # We could issue a warning if an excuse turns out to exist some day
             raise ValueError('You are using libvdwxc with only '
