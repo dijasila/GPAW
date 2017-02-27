@@ -41,6 +41,8 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
 News
 ====
 
+* Code-sprints moved to first Tuesday of every month (Feb 17 2017)
+
 * :ref:`GPAW version 1.2 <releasenotes>` released (Feb 7 2017)
 
 * It has been decided to have monthly GPAW/ASE code-sprints at DTU in Lyngby.

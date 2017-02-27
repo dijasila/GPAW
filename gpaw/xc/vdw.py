@@ -13,13 +13,14 @@ XC-functional.  There are two implementations:
 
 from __future__ import print_function
 import os
-import sys
 import pickle
+import sys
+import time
 from math import sin, cos, exp, pi, log, sqrt, ceil
 
 import numpy as np
 from numpy.fft import fft, rfftn, irfftn
-import time
+from ase.utils import seterr
 
 from gpaw.utilities.timing import nulltimer
 from gpaw.xc.libxc import LibXC
@@ -42,6 +43,7 @@ def W(a, b):
                 (3 - b**2) * a * cos(a) * sin(b) +
                 (a**2 + b**2 - 3) * sin(a) * sin(b) -
                 3 * a * b * cos(a) * cos(b)) / (a * b)**3
+
 
 eta = 8 * pi / 9
 
@@ -331,7 +333,8 @@ class VDWFunctionalBase:
                 d = D * (1.0 + delta)
                 dp = D * (1.0 - delta)
                 if d**2 + dp**2 > self.ds**2:
-                    self.phi_ij[i, j] = phi(d, dp)
+                    with seterr(divide='ignore'):
+                        self.phi_ij[i, j] = phi(d, dp)
                 else:
                     P = np.polyfit([0, self.D_j[j + 1]**2, self.D_j[j + 2]**2],
                                    [self.phi0,
@@ -658,7 +661,8 @@ class FFTVDWFunctional(VDWFunctionalBase):
                 print(('VDW: maximum kinetic energy: %.3f Hartree' %
                        (0.5 * k_k.max()**2)))
 
-            assert self.j_k.max() < self.Nr // 2, 'Use larger Nr than %i.' % self.Nr
+            assert self.j_k.max() < self.Nr // 2, ('Use larger Nr than %i.' %
+                                                   self.Nr)
 
         else:
             self.dj_k = None

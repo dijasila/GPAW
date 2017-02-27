@@ -3,7 +3,7 @@ import warnings
 
 import numpy as np
 from ase.units import Bohr, Ha
-from ase.calculators.calculator import Calculator
+from ase.calculators.calculator import Calculator, kpts2ndarray
 from ase.utils import basestring, plural
 from ase.utils.timing import Timer
 
@@ -20,7 +20,7 @@ from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.io.logger import GPAWLogger
 from gpaw.io import Reader, Writer
 from gpaw.jellium import create_background_charge
-from gpaw.kpt_descriptor import KPointDescriptor, kpts2ndarray
+from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.occupations import create_occupation_number_object
 from gpaw.output import (print_cell, print_positions,
@@ -457,7 +457,7 @@ class GPAW(PAW, Calculator):
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
-            if isinstance(par.xc, basestring):
+            if isinstance(par.xc, (basestring, dict)):
                 xc = XC(par.xc)
             else:
                 xc = par.xc
