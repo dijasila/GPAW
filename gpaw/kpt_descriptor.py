@@ -1,4 +1,4 @@
-# eCopyright (C) 2003  CAMP
+# Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
 """K-point/spin combination-descriptors
@@ -103,12 +103,6 @@ def kpts2ndarray(kpts, atoms=None):
         return monkhorst_pack(kpts)
 
     return np.array(kpts)
-
-
-try:
-    from ase.calculators.calculator import kpts2ndarray
-except ImportError:
-    pass
 
 
 class KPointDescriptor:
