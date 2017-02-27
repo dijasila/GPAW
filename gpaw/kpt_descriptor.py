@@ -105,12 +105,6 @@ def kpts2ndarray(kpts, atoms=None):
     return np.array(kpts)
 
 
-try:
-    from ase.calculators.calculator import kpts2ndarray
-except ImportError:
-    pass
-
-
 class KPointDescriptor:
     """Descriptor-class for k-points."""
 
@@ -632,3 +626,7 @@ class KPointDescriptor:
 
         u = k + self.nibzkpts * s
         return u
+
+    def write(self, writer):
+        writer.write('ibzkpts', self.ibzk_kc)
+        writer.write('weights', self.weight_k)
