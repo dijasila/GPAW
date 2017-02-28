@@ -360,7 +360,7 @@ class TetrahedronIntegrator(Integrator):
 
         with self.timer('pts'):
             # Point to simplex
-            pts_k = [[] for n in xrange(nk)]
+            pts_k = [[] for n in range(nk)]
             for s, K_k in enumerate(td.simplices):
                 A_kv = np.append(td.points[K_k],
                                  np.ones(4)[:, np.newaxis], axis=1)
@@ -376,14 +376,14 @@ class TetrahedronIntegrator(Integrator):
                     pts_k[K].append(s)
 
             # Change to numpy arrays:
-            for k in xrange(nk):
+            for k in range(nk):
                 pts_k[k] = np.array(pts_k[k], int)
 
         with self.timer('neighbours'):
             # Nearest neighbours
-            neighbours_k = [None for n in xrange(nk)]
+            neighbours_k = [None for n in range(nk)]
 
-            for k in xrange(nk):
+            for k in range(nk):
                 neighbours_k[k] = np.unique(td.simplices[pts_k[k]])
 
         # Distribute everything
@@ -414,7 +414,7 @@ class TetrahedronIntegrator(Integrator):
             # Store indices for frequencies
             indices_tMki = np.zeros(list(deps_tMk.shape) + [2], int)
             for t, deps_Mk in enumerate(deps_tMk):
-                for K in xrange(nk):
+                for K in range(nk):
                     teteps_Mk = deps_Mk[:, neighbours_k[K]]
                     try:
                         emin_M, emax_M = teteps_Mk.min(1), teteps_Mk.max(1)
