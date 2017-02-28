@@ -24,4 +24,4 @@ mnsi.calc.write('mnsi.gpw')
 v = mnsi.calc.get_electrostatic_potential()
 write('mnsi.cube', mnsi, data=v)
 
-assert abs(v.max() - 13.4) < 0.01
+assert abs(v.max() - 13.43) < 0.01
