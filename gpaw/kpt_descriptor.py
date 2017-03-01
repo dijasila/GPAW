@@ -89,28 +89,6 @@ def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,
     return size, offsets
 
 
-def kpts2ndarray(kpts, atoms=None):
-    """Convert kpts keyword to 2-d ndarray of scaled k-points."""
-
-    if kpts is None:
-        return np.zeros((1, 3))
-
-    if isinstance(kpts, dict):
-        size, offsets = kpts2sizeandoffsets(atoms=atoms, **kpts)
-        return monkhorst_pack(size) + offsets
-
-    if isinstance(kpts[0], int):
-        return monkhorst_pack(kpts)
-
-    return np.array(kpts)
-
-
-try:
-    from ase.calculators.calculator import kpts2ndarray
-except ImportError:
-    pass
-
-
 class KPointDescriptor:
     """Descriptor-class for k-points."""
 
@@ -632,3 +610,7 @@ class KPointDescriptor:
 
         u = k + self.nibzkpts * s
         return u
+
+    def write(self, writer):
+        writer.write('ibzkpts', self.ibzk_kc)
+        writer.write('weights', self.weight_k)

@@ -428,6 +428,7 @@ class WaveFunctions:
         return np.array([homo, lumo])
 
     def write(self, writer):
+        writer.write(kpts=self.kd)
         nproj = sum(setup.ni for setup in self.setups)
         writer.add_array(
             'projections',

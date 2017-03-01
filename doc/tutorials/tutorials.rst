@@ -42,6 +42,7 @@ Specialized tutorials
    hubbardu/hubbardu
    jellium/jellium
    hydrogen/h
+   muonsites/mnsi
    stm/stm
    bader/bader
    all-electron/all_electron_density

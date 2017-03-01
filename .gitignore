@@ -47,5 +47,8 @@ doc/setups/[A-Z]*.rst
 # Vim swap files:
 .*.sw?
 
+# Emacs lock files:
+.\#*
+
 # This one is OK:
 !requirements.txt

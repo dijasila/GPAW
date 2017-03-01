@@ -87,26 +87,34 @@ given in the following sections.
       - type
       - default value
       - description
-    * - ``mode``
-      - ``str``
-      - ``'fd'``
-      - :ref:`manual_mode`
-    * - ``nbands``
-      - ``int``
+    * - ``basis``
+      - ``str`` or dict
+      - ``{}``
+      - Specification of :ref:`manual_basis`
+    * - ``charge``
+      - ``float``
+      - ``0``
+      - Total :ref:`manual_charge` of the system
+    * - ``communicator``
+      - Object
       -
-      - :ref:`manual_nbands`
-    * - ``xc``
+      - :ref:`manual_communicator`
+    * - ``convergence``
+      - ``dict``
+      -
+      - :ref:`manual_convergence`
+    * - ``eigensolver``
       - ``str``
-      - ``'LDA'``
-      - :ref:`manual_xc`
-    * - ``kpts``
-      - *seq*
-      - `\Gamma`-point
-      - :ref:`manual_kpts`
-    * - ``spinpol``
+      - ``'dav'``
+      - :ref:`manual_eigensolver`
+    * - ``external``
+      - Object
+      -
+      - :ref:`manual_external`
+    * - ``fixdensity``
       - ``bool``
-      -
-      - :ref:`manual_spinpol`
+      - ``False``
+      - Use :ref:`manual_fixdensity`
     * - ``gpts``
       - *seq*
       -
@@ -115,81 +123,73 @@ given in the following sections.
       - ``float``
       - ``0.2``
       - :ref:`manual_h`
-    * - ``symmetry``
-      - ``dict``
-      - ``{}``
-      - :ref:`manual_symmetry`
-    * - ``random``
-      - ``bool``
-      - ``False``
-      - Use random numbers for :ref:`manual_random`
-    * - ``occupations``
-      - occ. obj.
-      -
-      - :ref:`manual_occ`
-    * - ``charge``
-      - ``float``
-      - ``0``
-      - Total :ref:`manual_charge` of the system
-    * - ``convergence``
-      - ``dict``
-      -
-      - :ref:`manual_convergence`
-    * - ``maxiter``
-      - ``int``
-      - ``333``
-      - :ref:`manual_maxiter`
-    * - ``txt``
-      - ``str``, None, or file obj.
-      - ``'-'`` (``sys.stdout``)
-      - :ref:`manual_txt`
-    * - ``parallel``
-      - ``dict``
-      -
-      - :ref:`manual_parallel`
-    * - ``mixer``
-      - Object
-      -
-      - Pulay :ref:`manual_mixer` scheme
-    * - ``fixdensity``
-      - ``bool``
-      - ``False``
-      - Use :ref:`manual_fixdensity`
-    * - ``setups``
-      - ``str`` or ``dict``
-      - ``'paw'``
-      - :ref:`manual_setups`
-    * - ``basis``
-      - ``str`` or dict
-      - ``{}``
-      - Specification of :ref:`manual_basis`
-    * - ``eigensolver``
-      - ``str``
-      - ``'dav'``
-      - :ref:`manual_eigensolver`
     * - ``hund``
       - ``bool``
       - ``False``
       - :ref:`Use Hund's rule <manual_hund>`
-    * - ``external``
+    * - ``idiotproof``
+      - ``bool``
+      - ``True``
+      - Set to ``False`` to ignore setup fingerprint mismatch
+        (allows restart when the original setup files are not available)
+    * - ``kpts``
+      - *seq*
+      - `\Gamma`-point
+      - :ref:`manual_kpts`
+    * - ``maxiter``
+      - ``int``
+      - ``333``
+      - :ref:`manual_maxiter`
+    * - ``mixer``
       - Object
       -
-      - :ref:`manual_external`
+      - Pulay :ref:`manual_mixer` scheme
+    * - ``mode``
+      - ``str``
+      - ``'fd'``
+      - :ref:`manual_mode`
+    * - ``nbands``
+      - ``int``
+      -
+      - :ref:`manual_nbands`
+    * - ``occupations``
+      - occ. obj.
+      -
+      - :ref:`manual_occ`
+    * - ``parallel``
+      - ``dict``
+      -
+      - :ref:`manual_parallel`
     * - ``poissonsolver``
       - Object
       -
       - Specification of :ref:`Poisson solver <manual_poissonsolver>` or
         :ref:`dipole correction <manual_dipole_correction>` or
         :ref:`Advanced Poisson solver <advancedpoisson>`
-    * - ``communicator``
-      - Object
-      -
-      - :ref:`manual_communicator`
-    * - ``idiotproof``
+    * - ``random``
       - ``bool``
-      - ``True``
-      - Set to ``False`` to ignore setup fingerprint mismatch
-        (allows restart when the original setup files are not available)
+      - ``False``
+      - Use random numbers for :ref:`manual_random`
+    * - ``setups``
+      - ``str`` or ``dict``
+      - ``'paw'``
+      - :ref:`manual_setups`
+    * - ``spinpol``
+      - ``bool``
+      -
+      - :ref:`manual_spinpol`
+    * - ``symmetry``
+      - ``dict``
+      - ``{}``
+      - :ref:`manual_symmetry`
+    * - ``txt``
+      - ``str``, None, or file obj.
+      - ``'-'`` (``sys.stdout``)
+      - :ref:`manual_txt`
+    * - ``xc``
+      - ``str``
+      - ``'LDA'``
+      - :ref:`manual_xc`
 
 
 *seq*: A sequence of three ``int``'s.

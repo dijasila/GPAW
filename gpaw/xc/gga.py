@@ -124,13 +124,15 @@ def add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
 
     ::
 
-                      __   /       de(r)    __      \
-        v  (r) += -2  \/ . | ? + ---------  \/ n(r) |
-         xc                \     dsigma(r)          /
+                      __   /    de(r)    __      \
+        v  (r) += -2  \/ . |  ---------  \/ n(r) |
+         xc                \  dsigma(r)          /
 
-    Appears to also add to sigma_xg.
+    Adds arbitrary data to sigma_xg.  Be sure to pass a copy if you need
+    sigma_xg after calling this function.
     """
     nspins = len(v_sg)
+    # vv_g is a calculation buffer.  Its contents will be corrupted.
     vv_g = sigma_xg[0]
     for v in range(3):
         for s in range(nspins):

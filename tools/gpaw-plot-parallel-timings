@@ -4,6 +4,7 @@ from optparse import OptionParser
 import pylab as pl
 #from glob import glob
 
+
 p = OptionParser(usage='%prog [OPTION] FILE...',
                  description='plot timings from gpaw parallel timer.  '
                  'The timer dumps a lot of files called "timings.<...>.txt".  '
@@ -31,12 +32,16 @@ p.add_option('--align', default='SCF-cycle', metavar='TIMER',
 opts, fnames = p.parse_args()
 
 timeunit = {'s': 1.0, 'm': 60.0, 'h': 3600.0}[opts.unit]
-
 ignored_timers = set(opts.ignore.split(','))
 if opts.noxcc:
     ignored_timers.add('XC Correction')
-
 fnames.sort()
+
+
+# Move all plots down by this amount so the plots align *around* the y ticks
+# and not *from* the yticks.
+plot_vertical_adjustment = 0.25
+
 
 class Entry:
     def __init__(self, name, t1, parent=None, childnumber=None):
@@ -88,11 +93,12 @@ class Entry:
         else:
             raise ValueError('Entry not found: %s' % name)
 
+
 class EntryCollection:
     def __init__(self, entries):
-        tstart = min([entry.t1 for entry in entries])
-        tstop = max([entry.t2 for entry in entries])
-        
+        #tstart = min([entry.t1 for entry in entries])
+        #tstop = max([entry.t2 for entry in entries])
+
         try:
             scf_cycle_starttimes = [entry.get_first_occurrence(opts.align).t1
                                     for entry in entries]
@@ -100,25 +106,25 @@ class EntryCollection:
             print('Warning: No "%s" entry found.  Times may not '
                   'be synchronized so well' % opts.align)
             scf_cycle_starttimes = [0] * len(entries)
-        
+
         abs_starttimes = [entry.t1 for entry in entries]
         max_diff = max([scftime - starttime for scftime, starttime
                         in zip(scf_cycle_starttimes, abs_starttimes)])
 
         for entry in entries:
             assert entry.level == -1
-            start_time = entry.t1
+            #start_time = entry.t1
             sync_time = entry.t1
             for child in entry.iterate():
                 if child.name == 'SCF-cycle': # hardcoded name!
                     sync_time = child.t1
                     break
             entry.normalize(sync_time - max_diff)
-            
+
             #entry.normalize(tstart, tstop)
         self.entries = entries
         self.totals = self.get_totals()
-    
+
     def get_totals(self):
         totals = {}
         for entry in self.entries:
@@ -127,6 +133,7 @@ class EntryCollection:
                     totals[child.name] = 0.0
                 totals[child.name] += child.dt / len(self.entries)
         return totals
+
 
 def get_timings(fname):
     root = Entry('root', 0.0)
@@ -156,9 +163,9 @@ def get_timings(fname):
     root.stop(root.children[-1].t2)
     return root
 
+
 alltimings = []
 metadata = None
-
 for rank, fname in enumerate(fnames):
     if fname.endswith('metadata.txt'):
         assert metadata is None
@@ -168,17 +175,16 @@ for rank, fname in enumerate(fnames):
 
 if len(alltimings) == 0:
     p.error('no timings found')
-
 if metadata is None:
     metadata = map(str, range(len(alltimings)))
 
 entries = EntryCollection(alltimings)
 
 ordered_names = []
-
-fig = pl.figure(figsize=(12, 6))
-fig2 = pl.figure()
+fig = pl.figure(figsize=(12, 8))
+fig2 = pl.figure(figsize=(10, 8))
 ax = fig.add_subplot(111)
+fig.subplots_adjust(left=0.08, right=.95, bottom=0.07, top=.99)
 #nameax = fig.add_subplot(122)
 nameax = fig2.add_subplot(111)
 nameax.set_yticks([])
@@ -186,10 +192,13 @@ nameax.set_xticks([])
 #nameax = [fig2.add_subplot(2, 2, i + 1) for i in range(4)]
 
 styles = {}
+bars = {}  # matplotlib objects for legend
 
 thecolors = ['blue', 'green', 'red', 'cyan', 'magenta', 'yellow',
              'darkred', 'indigo', 'springgreen', 'purple']
 thehatches = ['', '//', 'O', '*', 'o', r'\\', '.', '|']
+
+
 def getstyle(i):
     return thecolors[i % len(thecolors)], thehatches[i // len(thecolors)]
 
@@ -228,41 +237,44 @@ for rank, rootnode in enumerate(alltimings):
                 #                        marker='s', ls='',
                 #                        label=child.name)
                 assert child.name not in styles
-            
+
             styles[child.name] = color, hatch
-        
+
         color, hatch = styles[child.name]
-        centerx = t1 + dt * 0.5
-        centery = child.level + 0.5
-        x = [t1, t2, t2, t1]
-        y = [child.level, child.level, child.level + 1, child.level + 1]
         # hardcoded to max 5.  Graphs will overlap if larger.
         compression = 5.0
-        y = [y1 / compression + rank - 0.25 for y1 in y]
-        ax.fill(x, y, color=color,
-                label='__nolegend__')
-        ax.fill(x, y, color='None', hatch=hatch, edgecolor='k',
-                alpha=0.7,
-                label='__nolegend__')
+        y0 = rank + (child.level / compression) - plot_vertical_adjustment
+        height = 1.0 / compression
+
+        bar = ax.bar([t1], [height], bottom=[y0],
+                     width=[t2 - t1],
+                     color=color,
+                     edgecolor='black',
+                     hatch=hatch,
+                     label='__nolegend__')
+        bars[child.name] = bar
 
 ax.set_ylabel('rank')
 ax.set_yticks(range(len(metadata)))
 ax.set_yticklabels([txt.replace('=', '') for txt in metadata])
 
 ax.set_xlabel('time / %s' % opts.unit)
-ax.axis(xmin=plotstarttime, xmax=plotendtime)
+ax.axis(xmin=plotstarttime, xmax=plotendtime,
+        ymin=-plot_vertical_adjustment - 0.1)
 
-for i, name in enumerate(ordered_names):
-    color, hatch = styles[name]
-    x = [0, 0.8, 0.8, 0]
-    y = [i, i, i + 0.8, i + .8]
-    nameax.fill(x, y, color=color,
-                label='__nolegend__')
-    nameax.fill(x, y, color='None', hatch=hatch, edgecolor='k',
-                alpha=0.7,
-                label='__nolegend__')
-    nameax.text(1.0, i + 0.4, name, va='center', ha='left', color='k')
+# Roughly 38 elements fit in the window.  For each 38, add another column
+# Only two columns will fit.  People will have to maximize the thing if they
+# have hundreds of different timers somehow.
+ncolumns = 1 + len(ordered_names) // 38
 
-nameax.axis(xmin=-1, xmax=len(ordered_names))
-    
+nameax.legend([bars[name] for name in ordered_names],
+              ordered_names,
+              handlelength=2.5,
+              labelspacing=0.0,
+              fontsize='medium',
+              ncol=ncolumns,
+              mode='expand',
+              frameon=True,
+              loc='best')
+
 pl.show()

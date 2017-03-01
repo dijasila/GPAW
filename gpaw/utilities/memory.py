@@ -145,7 +145,7 @@ def monkey_patch_timer():
     
     Call this function before the actual work is done.  Then do::
         
-        $ sort -n mem.????
+        $ less mem.????
         
     to see where the memory is allocated."""
 
@@ -165,21 +165,17 @@ def monkey_patch_timer():
         self.t0 = time()
         
     def start(self, name):
-        st(self, name)
-        self.mem.append((time(), maxrss()))
+        st(self, name) 
+        print('start %14.6f %12d %s' % (time() - self.t0, maxrss(), name),
+              file=self.fd)
+        self.fd.flush()
         
     def stop(self, name=None):
         names = sp(self, name)
-        t1, m1 = self.mem.pop()
-        t2 = time()
-        m2 = maxrss()
-        self.mem = [(t, m + m2 - m1) for t, m in self.mem]
-        if m2 - m1 != 0:
-            print('%12d %14.6f %12d %14.6f %s' % (m2 - m1, t1 - self.t0, m2,
-                                                  t2 - t1,
-                                                  '.'.join(names)),
-                  file=self.fd)
-            self.fd.flush()
+        print('stop  %14.6f %12d %s' % (time() - self.t0, maxrss(),
+                                        '.'.join(names)),
+              file=self.fd)
+        self.fd.flush()
 
     Timer.__init__ = init
     Timer.start = start

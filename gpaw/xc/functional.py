@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class XCFunctional(object):
     orbital_dependent = False
 
@@ -8,6 +9,15 @@ class XCFunctional(object):
         self.gd = None
         self.ekin = 0.0
         self.type = type
+
+    def todict(self):
+        """Get dictionary representation of XC functional.
+
+        This representation works for libxc kernels; other classes should
+        likely override this function and should probably not rely on
+        this implementation."""
+        return {'type': self.kernel.type,
+                'kernel': self.kernel.name}
 
     def get_setup_name(self):
         return self.name
