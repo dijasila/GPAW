@@ -314,10 +314,32 @@ class KSSingles(ExcitationList):
         f.write('{0}\n'.format(self.eps))
         for kss in self:
             f.write(kss.outstring())
-
+            n = len(self)
+##            ov_pp = np.zeros((zp, zp), dtype=float) # XXX molecules
         if fh is None:
             f.close()
 
+    def overlap(self, ov_nn):
+        """Matrix element overlap determined from wave function overlaps.
+
+        Parameters
+        ----------
+        ov_nn: array
+            Wave function overlap factors from a displaced calculator.
+            Index 0 corresponds to the displaced wavefunctions and
+            index 1 to our own wavefunctions.
+
+        Returns
+        -------
+        ov_pp: array
+            Overlap corresponding to matrix elements
+        """
+        n = len(self)
+        ov_pp = np.zeros((n, n), dtype=ov_nn.dtype)
+        for p1, ex1 in enumerate(self):
+            for p2, ex2 in enumerate(self):
+                ov_pp[p1, p2] = ov_nn[ex2.i, ex1.i] * ov_nn[ex2.j, ex1.j].conj()
+        return ov_pp
 
 class KSSingle(Excitation, PairDensity):
 
