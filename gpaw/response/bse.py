@@ -209,8 +209,9 @@ class BSE:
             m_m = np.arange(self.nc)
 
             if self.gw_skn is not None:
+                iKq = self.calc.wfs.kd.find_k_plus_q(self.q_c, [iK])[0]
                 deps_kmn[ik] = -(self.gw_skn[0, iK, :self.nv][:, np.newaxis] -
-                                 self.gw_skn[0, iK, self.nv:])
+                                 self.gw_skn[0, iKq, self.nv:])
             else:
                 deps_kmn[ik] = -pair.get_transition_energies(n_n, m_m)
 
