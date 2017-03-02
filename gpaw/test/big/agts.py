@@ -376,6 +376,7 @@ def main():
                           version='%prog 0.1')
     parser.add_option('-c', '--clean', action='store_true')
     parser.add_option('-r', '--run')
+    parser.add_option('-C', '--copy-created-files')
 
     opt, args = parser.parse_args()
 
@@ -427,6 +428,8 @@ def main():
             1 / 0
 
         queue.run(cluster)
+    elif opt.copy_created_files:
+        queue.copy_created_files(opt.copy_created_files)
 
 
 if __name__ == '__main__':
