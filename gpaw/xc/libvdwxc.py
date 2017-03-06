@@ -399,7 +399,7 @@ class VDWXC(XCFunctional):
                              '%d out of %d available cores in a non-small '
                              'calculation (%s points).  This is not '
                              'a crime but is likely silly and therefore '
-                             'triggers and error.  Please use '
+                             'triggers an error.  Please use '
                              'parallel={\'augment_grids\': True} '
                              'or complain to the developers.' %
                              (gd.comm.size, wfs.world.size,
