@@ -286,10 +286,12 @@ class LrTDDFT(ExcitationList):
             for i in range(n):
                 self.append(LrTDDFTExcitation(string=f.readline()))
             # load the eigenvectors
+            timer.start('read eigenvectors')
             f.readline()
             for i in range(n):
                 self[i].f = np.array(list(map(float, f.readline().split())))
                 self[i].kss = self.kss
+            timer.stop('read eigenvectors')
         timer.stop('read diagonalized')
 
         if fh is None:
@@ -402,6 +404,9 @@ class LrTDDFT(ExcitationList):
         if not self.diagonalized:
             self.diagonalize()
         return list.__len__(self)
+
+    def __del__(self):
+        self.timer.write(self.txt)
 
 
 def d2Excdnsdnt(dup, ddn):
