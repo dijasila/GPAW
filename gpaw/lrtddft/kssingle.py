@@ -335,10 +335,10 @@ class KSSingles(ExcitationList):
         n0 = len(self)
         n1 = len(other)
         ov_pp = np.zeros((n0, n1), dtype=ov_nn.dtype)
+        i1_p = [ex.i for ex in other]
+        j1_p = [ex.j for ex in other]
         for p0, ex0 in enumerate(self):
-            for p1, ex1 in enumerate(other):
-                ov_pp[p0, p1] = (ov_nn[ex0.i, ex1.i] *
-                                 ov_nn[ex0.j, ex1.j].conj())
+            ov_pp[p0,:] = ov_nn[ex0.i, i1_p] * ov_nn[ex0.j, j1_p].conj()
         return ov_pp
 
 
