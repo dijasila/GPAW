@@ -101,6 +101,12 @@ class GPAW(PAW, Calculator):
 
         self.parallel = dict(self.default_parallel)
         if parallel:
+            for key in parallel:
+                if key not in self.default_parallel:
+                    allowed = ', '.join(list(self.default_parallel.keys()))
+                    raise TypeError('Unexpected keyword "{0}" in "parallel" '
+                                    'dictionary.  Must be one of: {1}'
+                                    .format(key, allowed))
             self.parallel.update(parallel)
 
         if timer is None:
@@ -132,8 +138,14 @@ class GPAW(PAW, Calculator):
                             atoms, **kwargs)
 
     def __del__(self):
-        self.timer.write(self.log.fd)
-        if self.reader is not None:
+        # Write timings and close reader if necessary.
+
+        # If we crashed in the constructor (e.g. a bad keyword), we may not
+        # have the normally expected attributes:
+        if hasattr(self, 'timer'):
+            self.timer.write(self.log.fd)
+
+        if hasattr(self, 'reader') and self.reader is not None:
             self.reader.close()
 
     def write(self, filename, mode=''):
@@ -174,6 +186,7 @@ class GPAW(PAW, Calculator):
             self.log('Read {0}'.format(', '.join(sorted(self.results))))
 
         self.log('Reading input parameters:')
+        # XXX param
         self.parameters = self.get_default_parameters()
         dct = {}
         for key, value in reader.parameters.asdict().items():
@@ -328,6 +341,22 @@ class GPAW(PAW, Calculator):
             calc.set(xc='PBE')
             calc.set(nbands=20, kpts=(4, 1, 1))
         """
+
+        # Verify that keys are consistent with default ones.
+        for key in kwargs:
+            if key not in self.default_parameters:
+                raise TypeError('Unknown GPAW parameter: {0}'.format(key))
+
+            if key in ['convergence', 'symmetry'] and isinstance(kwargs[key],
+                                                                 dict):
+                # For values that are dictionaries, verify subkeys, too.
+                default_dict = self.default_parameters[key]
+                for subkey in kwargs[key]:
+                    if subkey not in default_dict:
+                        allowed = ', '.join(list(default_dict.keys()))
+                        raise TypeError('Unknown subkeyword "{0}" of keyword '
+                                        '"{1}".  Must be one of: {2}'
+                                        .format(subkey, key, allowed))
 
         changed_parameters = Calculator.set(self, **kwargs)
 
