@@ -326,10 +326,7 @@ class VDWXC(XCFunctional):
         return dct
 
     def set_grid_descriptor(self, gd):
-        if self.gd is not None and self.gd != gd:
-            raise NotImplementedError('Cannot switch grids')
-        if self.libvdwxc is None:
-            self._initialize(gd)
+        self._initialize(gd)
         XCFunctional.set_grid_descriptor(self, gd)
         self.semilocal_xc.set_grid_descriptor(gd)
 
@@ -362,6 +359,9 @@ class VDWXC(XCFunctional):
 
     def _initialize(self, gd):
         N_c = gd.get_size_of_global_array(pad=True)
+        # garbage-collect before allocating next one, if an object was
+        # already allocated:
+        self.libvdwxc = None
         self.libvdwxc = LibVDWXC(self._libvdwxc_name, N_c, gd.cell_cv,
                                  gd.comm, mode=self._mode,
                                  pfft_grid=self._pfft_grid)
