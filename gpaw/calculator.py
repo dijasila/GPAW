@@ -344,7 +344,7 @@ class GPAW(PAW, Calculator):
 
         # Verify that keys are consistent with default ones.
         for key in kwargs:
-            if key not in self.default_parameters:
+            if key != 'txt' and key not in self.default_parameters:
                 raise TypeError('Unknown GPAW parameter: {0}'.format(key))
 
             if key in ['convergence', 'symmetry'] and isinstance(kwargs[key],
