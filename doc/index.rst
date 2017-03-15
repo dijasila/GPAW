@@ -44,7 +44,7 @@ News
 * Supported by NOMAD_ (Mar 1 2017)
 
   .. image:: static/NOMAD_Logo_supported_by.png
-     :height: 66 px
+     :width: 100 px
      :target: NOMAD_
 
 * Code-sprints moved to first Tuesday of every month (Feb 17 2017)

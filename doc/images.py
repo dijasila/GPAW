@@ -144,7 +144,7 @@ get('agts-files', ['datasets.json'], 'setups', source=agtspath)
 # Carlsberg foundation figure:
 get('.', ['carlsberg.png'])
 
-get('static', ['NOMAD_Logo_supported_by_100x66.png'])
+get('static', ['NOMAD_Logo_supported_by.png'])
 
 
 def setup(app):
