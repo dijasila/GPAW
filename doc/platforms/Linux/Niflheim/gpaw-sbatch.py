@@ -15,7 +15,7 @@ def main():
               '[script arguments]')
         return
 
-    script = '#!/bin/sh\n'
+    script = '#!/bin/bash -l\n'
     for line in open(arg):
         if line.startswith('#SBATCH'):
             script += line
