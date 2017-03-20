@@ -72,7 +72,6 @@ class LibVDWXC(object):
         code = _VDW_NUMERICAL_CODES[funcname]
         self.shape = tuple(N_c)
         ptr = np.empty(1, np.intp)
-        print('NSPINS', nspins)
         _gpaw.libvdwxc_create(ptr, code, nspins, self.shape,
                               tuple(np.ravel(cell_cv)))
         # assign ptr only now that it is initialized (so __del__ always works)
@@ -394,7 +393,6 @@ class VDWXC(XCFunctional):
         #    gd = density.finegd
         gd = self.gd
         if density.nspins != 1:
-            print('DENS NSPINS')
             #import warnings
             #warnings.warn(spinwarning)
             self._nspins = density.nspins
