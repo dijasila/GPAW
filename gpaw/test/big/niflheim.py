@@ -21,7 +21,7 @@ class NiflheimCluster(Cluster):
                '--ntasks={}'.format(job.ncpus)]
 
         script = [
-            '#!/bin/sh',
+            '#!/bin/bash -l',
             'touch {}.start'.format(job.name),
             'mpirun -mca pml cm -mca mtl psm2 -x OMP_NUM_THREADS=1 '
             'gpaw-python {}.py {} > {}.output'
