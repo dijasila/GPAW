@@ -390,6 +390,27 @@ class LrTDDFT(ExcitationList):
                 f.close()
         mpi.world.barrier()
 
+    def overlap(self, ov_nn, other):
+        """Matrix element overlap determined from Kohn-Sham overlaps.
+
+        Parameters
+        ----------
+        ov_pp: array
+            Kon-Sham overlap factors from mine and other KSSingles object.
+            Index 0 corresponds to our own KSSingles and
+            index 1 to the other's
+
+        Returns
+        -------
+        ov_pp: array
+            Overlap
+        """
+        self.diagonalize()
+        other.diagonalize()
+        ov_pp = self.Om.kss.overlap(ov_nn, other.Om.kss)
+        return np.dot(self.Om.eigenvectors.conj(),
+                      np.dot(ov_pp, other.Om.eigenvectors.T))
+
     def __getitem__(self, i):
         if not self.diagonalized:
             self.diagonalize()
