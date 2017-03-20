@@ -15,9 +15,6 @@ except StandardError as import_error:
             raise self.import_error
     sys.modules[__name__] = Wrapper()
 else:
-    if VERSION != (2012,1):
-        from pycuda import VERSION_TEXT
-        raise ImportError('Unsupported PyCUDA %s version! Version 2012.1 needed.' % VERSION_TEXT)
     import pycuda.elementwise as elementwise        
     from pytools import memoize, memoize_method
     import pycuda.driver as drv
