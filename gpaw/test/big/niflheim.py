@@ -5,7 +5,11 @@ from gpaw.test.big.agts import Cluster
 
 
 class NiflheimCluster(Cluster):
-    def __init__(self, asepath='', setuppath='$GPAW_SETUP_PATH'):
+    def __init__(self, asepath='', setuppath='$GPAW_SETUP_PATH',
+                 partition=None):
+        if partition is None:
+            partition = 'xeon8'
+        self.partition = partition
         self.asepath = asepath
         self.setuppath = setuppath
 
@@ -15,7 +19,7 @@ class NiflheimCluster(Cluster):
         self.write_pylab_wrapper(job)
 
         cmd = ['sbatch',
-               '--partition=xeon24',
+               '--partition={}'.format(self.partition),
                '--job-name={}'.format(job.name),
                '--time={}'.format(job.walltime // 60),
                '--ntasks={}'.format(job.ncpus)]

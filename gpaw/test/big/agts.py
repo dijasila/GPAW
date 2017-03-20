@@ -376,6 +376,7 @@ def main():
                           version='%prog 0.1')
     parser.add_option('-c', '--clean', action='store_true')
     parser.add_option('-r', '--run')
+    parser.add_option('-p', '--partition')
     parser.add_option('-C', '--copy-created-files')
 
     opt, args = parser.parse_args()
@@ -418,7 +419,7 @@ def main():
             cluster = TestCluster()
         elif opt.run == 'niflheim':
             from gpaw.test.big.niflheim import NiflheimCluster
-            cluster = NiflheimCluster()
+            cluster = NiflheimCluster(partition=opt.partition)
         elif opt.run == 'gbar':
             from gpaw.test.big.gbar import GbarCluster
             cluster = GbarCluster()
