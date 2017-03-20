@@ -41,12 +41,14 @@ PyObject* libvdwxc_create(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     PyObject* vdwxc_obj;
     int vdwxc_code;
+    int nspins;
     int Nx, Ny, Nz;
     double C00, C10, C20, C01, C11, C21, C02, C12, C22;
 
-    if(!PyArg_ParseTuple(args, "Oi(iii)(ddddddddd)",
+    if(!PyArg_ParseTuple(args, "Oii(iii)(ddddddddd)",
                          &vdwxc_obj,
                          &vdwxc_code, // functional identifier
+                         &nspins,
                          &Nx, &Ny, &Nz, // number of grid points
                          &C00, &C10, &C20, // 3x3 cell
                          &C01, &C11,&C21,
@@ -54,7 +56,15 @@ PyObject* libvdwxc_create(PyObject* self, PyObject* args, PyObject* kwargs)
         return NULL;
     }
 
-    vdwxc_data vdw = vdwxc_new(vdwxc_code);
+    vdwxc_data vdw;
+    if(nspins == 1) {
+        vdw = vdwxc_new(vdwxc_code);
+    } else if(nspins == 2) {
+        vdw = vdwxc_new_spin(vdwxc_code);
+    } else {
+        PyErr_SetString(PyExc_ValueError, "nspins must be 1 or 2");
+        return NULL;
+    }
     vdwxc_data* vdwxc_ptr = unpack_vdwxc_pointer(vdwxc_obj);
     vdwxc_ptr[0] = vdw;
     vdwxc_set_unit_cell(vdw, Nx, Ny, Nz, C00, C10, C20, C01, C11, C21, C02, C12, C22);
@@ -82,11 +92,34 @@ PyObject* libvdwxc_calculate(PyObject* self, PyObject* args)
         return NULL;
     }
     vdwxc_data* vdw = unpack_vdwxc_pointer(vdwxc_obj);
-    double* rho_g = (double*)PyArray_DATA(rho_obj);
-    double* sigma_g = (double*)PyArray_DATA(sigma_obj);
-    double* dedn_g = (double*)PyArray_DATA(dedn_obj);
-    double* dedsigma_g = (double*)PyArray_DATA(dedsigma_obj);
-    double energy = vdwxc_calculate(*vdw, rho_g, sigma_g, dedn_g, dedsigma_g);
+    int nspins = PyArray_DIM(rho_obj, 0);
+    double energy;
+    if (nspins == 1) {
+        double* rho_g = (double*)PyArray_DATA(rho_obj);
+        double* sigma_g = (double*)PyArray_DATA(sigma_obj);
+        double* dedn_g = (double*)PyArray_DATA(dedn_obj);
+        double* dedsigma_g = (double*)PyArray_DATA(dedsigma_obj);
+        energy = vdwxc_calculate(*vdw, rho_g, sigma_g, dedn_g, dedsigma_g);
+    } else if (nspins == 2) {
+        // We actually only need two sigmas/dedsigmas.
+        // The third one came along because that's what usually happens,
+        // but we could save it entirely.
+        assert(PyArray_DIM(sigma_obj, 0) == 3);
+        assert(PyArray_DIM(dedn_obj, 0) == 2);
+        assert(PyArray_DIM(dedsigma_obj, 0) == 3);
+        energy = vdwxc_calculate_spin(*vdw,
+                                      (double*)PyArray_GETPTR1(rho_obj, 0),
+                                      (double*)PyArray_GETPTR1(rho_obj, 1),
+                                      (double*)PyArray_GETPTR1(sigma_obj, 0),
+                                      (double*)PyArray_GETPTR1(sigma_obj, 2),
+                                      (double*)PyArray_GETPTR1(dedn_obj, 0),
+                                      (double*)PyArray_GETPTR1(dedn_obj, 1),
+                                      (double*)PyArray_GETPTR1(dedsigma_obj, 0),
+                                      (double*)PyArray_GETPTR1(dedsigma_obj, 2));
+    } else {
+        PyErr_SetString(PyExc_ValueError, "Expected 1 or 2 spins");
+        return NULL;
+    }
     return Py_BuildValue("d", energy);
 }
 

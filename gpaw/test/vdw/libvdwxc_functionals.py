@@ -28,7 +28,7 @@ for mode in ['serial', 'mpi', 'pfft']:
 
     def test(vdwxcclass, Eref=np.nan, nvref=np.nan):
         xc = vdwxcclass(mode=mode)
-        xc._initialize(gd)
+        xc.initialize_backend(gd)
         if gd.comm.rank == 0:
             print(xc.libvdwxc.tostring())
         v_sg = gd.zeros(1)
