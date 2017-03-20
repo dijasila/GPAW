@@ -24,10 +24,14 @@ class NiflheimCluster(Cluster):
                '--time={}'.format(job.walltime // 60),
                '--ntasks={}'.format(job.ncpus)]
 
+        mpi_cmd = 'mpirun '
+        if self.partition == 'xeon24':
+            mpi_cmd += '-mca pml cm -mca mtl psm2 -x OMP_NUM_THREADS=1 '
+
         script = [
             '#!/bin/bash -l',
             'touch {}.start'.format(job.name),
-            'mpirun -mca pml cm -mca mtl psm2 -x OMP_NUM_THREADS=1 '
+            mpi_cmd,
             'gpaw-python {}.py {} > {}.output'
             .format(job.script, job.args, job.name),
             'echo $? > {}.done'.format(job.name)]
