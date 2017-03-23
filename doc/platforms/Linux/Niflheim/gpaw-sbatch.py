@@ -4,6 +4,7 @@ import sys
 import subprocess
 import os
 
+
 def main():
     args = sys.argv[1:]
     for i, arg in enumerate(args):
