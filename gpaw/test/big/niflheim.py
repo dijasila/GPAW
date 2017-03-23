@@ -31,8 +31,7 @@ class NiflheimCluster(Cluster):
         script = [
             '#!/bin/bash -l',
             'touch {}.start'.format(job.name),
-            mpi_cmd,
-            'gpaw-python {}.py {} > {}.output'
+            mpi_cmd + 'gpaw-python {}.py {} > {}.output'
             .format(job.script, job.args, job.name),
             'echo $? > {}.done'.format(job.name)]
         if 1:
