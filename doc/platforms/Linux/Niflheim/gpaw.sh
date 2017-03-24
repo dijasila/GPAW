@@ -10,7 +10,7 @@ if [ -z $FYS_PLATFORM ]
 then
     module load GPAW
     module load matplotlib
-    PLATFORM=linux-x86_64-el7-3.5
+    PLATFORM=linux-x86_64-$CPU_ARCH-el7-3.5
     alias gpaw-sbatch=$GPAW/doc/platforms/Linux/Niflheim/gpaw-sbatch.py
 else
     cd $PBS_O_WORKDIR
