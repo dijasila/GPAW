@@ -38,9 +38,12 @@ def info():
             b = ['no', 'yes'][b]
         print('{0:16}{1}'.format(a, b))
 
-        
-def main(args):
-    parser = optparse.OptionParser(usage='Usage: gpaw version',
-                                   description=info.__doc__)
-    parser.parse_args(args)
-    info()
+
+class CLICommand:
+    short_description = info.__doc__
+
+    def add_arguments(parser):
+        pass
+
+    def run(args):
+        info()
