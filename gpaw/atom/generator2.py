@@ -1173,138 +1173,6 @@ class PAWSetupGenerator:
                 i1 += 2 * l1 + 1
 
 
-def main(argv=None):
-    from optparse import OptionParser
-
-    parser = OptionParser(usage='gwap dataset [options] element')
-    add = parser.add_option
-    add('-f', '--xc-functional', type='string', default='LDA',
-        help='Exchange-Correlation functional (default value LDA)',
-        metavar='<XC>')
-    add('-C', '--configuration',
-        help='e.g. for Li: "[(1, 0, 2, -1.878564), (2, 0, 1, -0.10554),'
-        ' (2, 1, 0, 0.0)]"')
-    add('-P', '--projectors',
-        help='Projector functions - use comma-separated - ' +
-        'nl values, where n can be principal quantum number ' +
-        '(integer) or energy (floating point number). ' +
-        'Example: 2s,0.5s,2p,0.5p,0.0d.')
-    add('-r', '--radius',
-        help='1.2 or 1.2,1.1,1.1')
-    add('-0', '--zero-potential',
-        metavar='nderivs,radius',
-        help='Parameters for zero potential.')
-    add('-c', '--pseudo-core-density-radius', type=float,
-        metavar='radius',
-        help='Radius for pseudizing core density.')
-    add('-z', '--pseudize',
-        metavar='type,nderivs',
-        help='Parameters for pseudizing wave functions.')
-    add('-p', '--plot', action='store_true')
-    add('-l', '--logarithmic-derivatives',
-        metavar='spdfg,e1:e2:de,radius',
-        help='Plot logarithmic derivatives. ' +
-        'Example: -l spdf,-1:1:0.05,1.3. ' +
-        'Energy range and/or radius can be left out.')
-    add('-w', '--write', action='store_true')
-    add('-s', '--scalar-relativistic', action='store_true')
-    add('-n', '--no-check', action='store_true')
-    add('-t', '--tag', type='string')
-    add('-a', '--alpha', type=float)
-    add('-b', '--create-basis-set', action='store_true')
-    add('--nlcc', action='store_true',
-        help='Use NLCC-style pseudo core density (for vdW-DF functionals).')
-    add('--core-hole')
-    add('-e', '--electrons', type=int)
-    add('-o', '--output')
-
-    opt, symbols = parser.parse_args(argv)
-
-    for symbol in symbols:
-        kwargs = get_parameters(symbol, opt)
-        gen = _generate(**kwargs)
-
-        if not opt.no_check:
-            if not gen.check_all():
-                raise DatasetGenerationError
-
-        if opt.create_basis_set or opt.write:
-            basis = gen.create_basis_set()
-
-            if opt.create_basis_set:
-                basis.write_xml()
-
-            if opt.write:
-                setup = gen.make_paw_setup(opt.tag)
-                parameters = []
-                for key, value in kwargs.items():
-                    if value is not None:
-                        parameters.append('{0}={1!r}'.format(key, value))
-                setup.generatordata = ',\n    '.join(parameters)
-                setup.write_xml()
-
-        if opt.logarithmic_derivatives or opt.plot:
-            if opt.plot:
-                import matplotlib.pyplot as plt
-            if opt.logarithmic_derivatives:
-                r = 1.1 * gen.rcmax
-                emin = min(min(wave.e_n) for wave in gen.waves_l) - 0.8
-                emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.8
-                lvalues, energies, r = parse_ld_str(
-                    opt.logarithmic_derivatives, (emin, emax, 0.05), r)
-                emin = energies[0]
-                de = energies[1] - emin
-
-                error = 0.0
-                for l in lvalues:
-                    efix = []
-                    # Fixed points:
-                    if l < len(gen.waves_l):
-                        efix.extend(gen.waves_l[l].e_n)
-                    if l == gen.l0:
-                        efix.append(0.0)
-
-                    ld1 = gen.aea.logarithmic_derivative(l, energies, r)
-                    ld2 = gen.logarithmic_derivative(l, energies, r)
-                    for e in efix:
-                        i = int((e - emin) / de)
-                        if 0 <= i < len(energies):
-                            ld1 -= round(ld1[i] - ld2[i])
-                            if opt.plot:
-                                ldfix = ld1[i]
-                                plt.plot([energies[i]], [ldfix],
-                                         'x' + colors[l])
-
-                    if opt.plot:
-                        plt.plot(energies, ld1, colors[l], label='spdfg'[l])
-                        plt.plot(energies, ld2, '--' + colors[l])
-
-                    error = abs(ld1 - ld2).sum() * de
-                    print('Logarithmic derivative error:', l, error)
-
-                if opt.plot:
-                    plt.xlabel('energy [Ha]')
-                    plt.ylabel(r'$\arctan(d\log\phi_{\ell\epsilon}(r)/dr)/\pi'
-                               r'|_{r=r_c}$')
-                    plt.legend(loc='best')
-
-            if opt.plot:
-                gen.plot()
-
-                if opt.create_basis_set:
-                    gen.basis.generatordata = ''  # we already printed this
-                    BasisPlotter(show=True).plot(gen.basis)
-
-            if opt.plot:
-                try:
-                    plt.show()
-                except KeyboardInterrupt:
-                    pass
-
-    world.barrier()
-    return gen
-
-
 def get_parameters(symbol, opt):
     if opt.electrons:
         par = parameters[symbol + str(opt.electrons)]
@@ -1409,5 +1277,141 @@ def generate_all():
             main(argv)
 
 
-if __name__ == '__main__':
-    main()
+class CLICommand:
+    short_description = 'Calculate density of states from gpw-file'
+
+    @staticmethod
+    def add_arguments(parser):
+    parser = OptionParser(usage='gwap dataset [options] element')
+    add = parser.add_option
+    add('-f', '--xc-functional', type='string', default='LDA',
+        help='Exchange-Correlation functional (default value LDA)',
+        metavar='<XC>')
+    add('-C', '--configuration',
+        help='e.g. for Li: "[(1, 0, 2, -1.878564), (2, 0, 1, -0.10554),'
+        ' (2, 1, 0, 0.0)]"')
+    add('-P', '--projectors',
+        help='Projector functions - use comma-separated - ' +
+        'nl values, where n can be principal quantum number ' +
+        '(integer) or energy (floating point number). ' +
+        'Example: 2s,0.5s,2p,0.5p,0.0d.')
+    add('-r', '--radius',
+        help='1.2 or 1.2,1.1,1.1')
+    add('-0', '--zero-potential',
+        metavar='nderivs,radius',
+        help='Parameters for zero potential.')
+    add('-c', '--pseudo-core-density-radius', type=float,
+        metavar='radius',
+        help='Radius for pseudizing core density.')
+    add('-z', '--pseudize',
+        metavar='type,nderivs',
+        help='Parameters for pseudizing wave functions.')
+    add('-p', '--plot', action='store_true')
+    add('-l', '--logarithmic-derivatives',
+        metavar='spdfg,e1:e2:de,radius',
+        help='Plot logarithmic derivatives. ' +
+        'Example: -l spdf,-1:1:0.05,1.3. ' +
+        'Energy range and/or radius can be left out.')
+    add('-w', '--write', action='store_true')
+    add('-s', '--scalar-relativistic', action='store_true')
+    add('-n', '--no-check', action='store_true')
+    add('-t', '--tag', type='string')
+    add('-a', '--alpha', type=float)
+    add('-b', '--create-basis-set', action='store_true')
+    add('--nlcc', action='store_true',
+        help='Use NLCC-style pseudo core density (for vdW-DF functionals).')
+    add('--core-hole')
+    add('-e', '--electrons', type=int)
+    add('-o', '--output')
+
+    @staticmethod
+    def run(args):
+        main(args)
+
+
+def main(args):
+    opt, symbols = parser.parse_args(argv)
+
+    for symbol in symbols:
+        kwargs = get_parameters(symbol, opt)
+        gen = _generate(**kwargs)
+
+        if not opt.no_check:
+            if not gen.check_all():
+                raise DatasetGenerationError
+
+        if opt.create_basis_set or opt.write:
+            basis = gen.create_basis_set()
+
+            if opt.create_basis_set:
+                basis.write_xml()
+
+            if opt.write:
+                setup = gen.make_paw_setup(opt.tag)
+                parameters = []
+                for key, value in kwargs.items():
+                    if value is not None:
+                        parameters.append('{0}={1!r}'.format(key, value))
+                setup.generatordata = ',\n    '.join(parameters)
+                setup.write_xml()
+
+        if opt.logarithmic_derivatives or opt.plot:
+            if opt.plot:
+                import matplotlib.pyplot as plt
+            if opt.logarithmic_derivatives:
+                r = 1.1 * gen.rcmax
+                emin = min(min(wave.e_n) for wave in gen.waves_l) - 0.8
+                emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.8
+                lvalues, energies, r = parse_ld_str(
+                    opt.logarithmic_derivatives, (emin, emax, 0.05), r)
+                emin = energies[0]
+                de = energies[1] - emin
+
+                error = 0.0
+                for l in lvalues:
+                    efix = []
+                    # Fixed points:
+                    if l < len(gen.waves_l):
+                        efix.extend(gen.waves_l[l].e_n)
+                    if l == gen.l0:
+                        efix.append(0.0)
+
+                    ld1 = gen.aea.logarithmic_derivative(l, energies, r)
+                    ld2 = gen.logarithmic_derivative(l, energies, r)
+                    for e in efix:
+                        i = int((e - emin) / de)
+                        if 0 <= i < len(energies):
+                            ld1 -= round(ld1[i] - ld2[i])
+                            if opt.plot:
+                                ldfix = ld1[i]
+                                plt.plot([energies[i]], [ldfix],
+                                         'x' + colors[l])
+
+                    if opt.plot:
+                        plt.plot(energies, ld1, colors[l], label='spdfg'[l])
+                        plt.plot(energies, ld2, '--' + colors[l])
+
+                    error = abs(ld1 - ld2).sum() * de
+                    print('Logarithmic derivative error:', l, error)
+
+                if opt.plot:
+                    plt.xlabel('energy [Ha]')
+                    plt.ylabel(r'$\arctan(d\log\phi_{\ell\epsilon}(r)/dr)/\pi'
+                               r'|_{r=r_c}$')
+                    plt.legend(loc='best')
+
+            if opt.plot:
+                gen.plot()
+
+                if opt.create_basis_set:
+                    gen.basis.generatordata = ''  # we already printed this
+                    BasisPlotter(show=True).plot(gen.basis)
+
+            if opt.plot:
+                try:
+                    plt.show()
+                except KeyboardInterrupt:
+                    pass
+
+    world.barrier()
+    return gen
