@@ -14,16 +14,17 @@ commands = [
     ('info', 'gpaw.cli.info'),
     ('dos', 'gpaw.cli.dos'),
     ('gpw', 'gpaw.cli.gpw'),
+    ('completion', 'gpaw.cli.completion'),
     ('test', 'gpaw.test.test'),
     ('atom', 'gpaw.atom.aeatom'),
     ('diag', 'gpaw.fulldiag'),
-    ('quick', 'gpaw.cli.quick'),
+    # ('quick', 'gpaw.cli.quick'),
     ('python', 'gpaw.cli.py'),
     ('sbatch', 'gpaw.cli.sbatch'),
     ('dataset', 'gpaw.atom.generator2'),
     ('symmetry', 'gpaw.symmetry'),
     ('rpa', 'gpaw.xc.rpa'),
-    ('install-data', 'gpaw.cli.install_data')]
+    ('install-data', 'gpaw.cli.install_data')][:10]
 
 
 def hook(parser):
@@ -47,5 +48,4 @@ def hook(parser):
 
 
 def main():
-    ase_main('gpaw', 'GPAW command-line tool',
-             __version__, commands[:4], hook)
+    ase_main('gpaw', 'GPAW command-line tool', __version__, commands, hook)
