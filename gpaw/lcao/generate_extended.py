@@ -22,9 +22,10 @@ class BasisSpecification:
         self.jextra = jextra
         
     def __str__(self):
-        return '%s: jval=%s lval=%s' % (self.setup.symbol, self.jextra,
-                                        [self.setup.l_j[j]
-                                         for j in self.jextra])
+        l_j = self.setup.l_j
+        jvtxt = ', '.join(['%s(l=%s)' % (j, l_j[j]) for j in self.jvalues])
+        jetxt = ', '.join(['%s(l=%s)' % (j, l_j[j]) for j in self.jextra])
+        return '%s: jvalues=[%s] jextra=[%s]' % (self.setup.symbol, jvtxt, jetxt)
 
 description = """Generate basis sets that include unoccupied p states as
 valence states instead of Gaussian-based polarization functions.
@@ -102,7 +103,6 @@ def main():
             print(spec)
         gtxt = None
 
-        # XXX figure out how to accept Ag.11
         tokens = spec.setup.symbol.split('.')
         sym = tokens[0]
 
@@ -115,8 +115,8 @@ def main():
         else:
             raise ValueError('Strange setup specification')
 
-        type = 'dz'  # XXXXXXXXX
-        bm = BasisMaker(sym, '%s.%s' % (name, type),
+        zeta = 'dz'  # This generates only dz setups
+        bm = BasisMaker(sym, '%s.%s' % (name, zeta),
                         run=False, gtxt=gtxt, xc=opts.xc)
         bm.generator.run(write_xml=False, use_restart_file=False, **p[sym])
         basis = bm.generate(2, 0, txt=None, jvalues=spec.jvalues)
