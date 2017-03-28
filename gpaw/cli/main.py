@@ -19,12 +19,12 @@ commands = [
     ('atom', 'gpaw.atom.aeatom'),
     ('diag', 'gpaw.fulldiag'),
     # ('quick', 'gpaw.cli.quick'),
-    ('python', 'gpaw.cli.py'),
+    ('python', 'gpaw.cli.python'),
     ('sbatch', 'gpaw.cli.sbatch'),
     ('dataset', 'gpaw.atom.generator2'),
     ('symmetry', 'gpaw.symmetry'),
     ('rpa', 'gpaw.xc.rpa'),
-    ('install-data', 'gpaw.cli.install_data')][:10]
+    ('install-data', 'gpaw.cli.install_data')]
 
 
 def hook(parser):

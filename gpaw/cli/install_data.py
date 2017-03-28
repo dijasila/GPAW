@@ -3,7 +3,6 @@ import os
 import fnmatch
 from io import BytesIO
 import tarfile
-from optparse import OptionParser, OptionGroup
 import re
 try:
     from urllib2 import urlopen
@@ -12,22 +11,16 @@ except ImportError:
     from urllib.request import urlopen
 
 
-usage = '%prog [OPTION]\n  or:  %prog [OPTION] INSTALLDIR'
-description = ('In first form, show available setups and GPAW setup paths.  '
-               'In second form, download and install gpaw-setups into '
-               'INSTALLDIR/[setups-package-name-and-version].')
-
-
 sources = [('gpaw', 'official GPAW setups releases [default]'),
            ('sg15', 'SG15 pseudopotentials'),
            ('basis', 'basis sets for LCAO mode'),
-           ('test', 'small file for testing this script'),
-           ]
+           ('test', 'small file for testing this script')]
+
 names = [r for r, d in sources]
 
 baseurls = {'gpaw':
             'https://wiki.fysik.dtu.dk/gpaw/_sources/setups/setups.txt',
-            #'sg15': 'http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/',
+            # 'sg15': 'http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/',
             'sg15': 'http://www.quantum-simulation.org/potentials/sg15_oncv/',
             'basis':
             'http://dcwww.camd.dtu.dk/~askhl/files/gpaw-lcao-basis-sets/',
@@ -48,57 +41,64 @@ Writing e-mails to gpaw-developers@lists@listserv.fysik.dtu.dk is also
 likely to help."""
 
 
-def main(args):
-    p = OptionParser(prog='gpaw install-data',
-                     usage=usage,
-                     description=description)
-    add = p.add_option
-    add('--version', metavar='VERSION',
-        help='download VERSION of package.  '
-        'Run without arguments to display a list of versions.  '
-        'VERSION can be the full URL or a part such as  '
-        '\'0.8\' or \'0.6.6300\'')
-    add('--tarball', metavar='FILE',
-        help='unpack and install from local tarball FILE '
-        'instead of downloading')
-    add('--list-all', action='store_true',
-        help='list packages from all sources')
-    g = OptionGroup(p, 'Sources')
-    for name, help in sources:
-        g.add_option('--%s' % name, action='store_const',
-                     const=name, dest='source',
-                     help=help)
-    p.add_option_group(g)
-    add('--register', action='store_true',
-        help='run non-interactively and register install path in '
-        'GPAW setup search paths.  This is done by adding lines to '
-        '~/.gpaw/rc.py')
-    add('--no-register', action='store_true',
-        help='run non-interactively and do not register install path in '
-        'GPAW setup search paths')
-    opts, args = p.parse_args(args)
-    nargs = len(args)
+class CLICommand:
+    short_description = 'Install PAW datasets, pseudopotential or basis sets'
+    description = ('In first form, show available setups and GPAW setup paths. '
+                   'In second form, download and install gpaw-setups into '
+                   'INSTALLDIR/[setups-package-name-and-version].')
 
-    if opts.source is None:
-        opts.source = sources[0][0]
+    @staticmethod
+    def add_arguments(parser):
+        add = parser.add_argument
+        add('directory')
+        add('version', nargs='?',
+            help='download VERSION of package.  '
+            'Run without arguments to display a list of versions.  '
+            'VERSION can be the full URL or a part such as  '
+            '\'0.8\' or \'0.6.6300\'')
+        add('--tarball', metavar='FILE',
+            help='unpack and install from local tarball FILE '
+            'instead of downloading')
+        add('--list-all', action='store_true',
+            help='list packages from all sources')
+        for name, help in sources:
+            add('--' + name, action='store_const',
+                const=name, dest='source',
+                help=help)
+        add('--register', action='store_true',
+            help='run non-interactively and register install path in '
+            'GPAW setup search paths.  This is done by adding lines to '
+            '~/.gpaw/rc.py')
+        add('--no-register', action='store_true',
+            help='run non-interactively and do not register install path in '
+            'GPAW setup search paths')
 
-    if opts.register and opts.no_register:
-        p.error('Conflicting options specified on whether to register '
-                'setup install paths in configuration file.  Try not '
-                'specifying some options.')
+    @staticmethod
+    def run(args, parser):
+        main(args, parser)
+
+
+def main(args, parser):
+    if args.source is None:
+        args.source = sources[0][0]
+
+    if args.register and args.no_register:
+        parser.error('Conflicting options specified on whether to register '
+                     'setup install paths in configuration file.  Try not '
+                     'specifying some options.')
 
     # The sg15 file is a tarbomb.  We will later defuse it by untarring
     # into a subdirectory, so we don't leave a ghastly mess on the
     # unsuspecting user's system.
 
-    if not opts.tarball:
-        if opts.list_all:
+    if not args.tarball:
+        if args.list_all:
             urls = []
             for source in names:
                 urls1 = get_urls(source)
                 urls.extend(urls1)
         else:
-            urls = get_urls(opts.source)
+            urls = get_urls(args.source)
 
         def print_urls(urls, marked=None):
             for url in urls:
@@ -110,18 +110,18 @@ def main(args):
                 print(' %s %s' % (marking, url))
 
         if len(urls) == 0:
-            url = baseurls[opts.source]
-            p.error(notfound_msg.format(url=url))
+            url = baseurls[args.source]
+            parser.error(notfound_msg.format(url=url))
 
-        if opts.version:
-            matching_urls = [url for url in urls if opts.version in url]
+        if args.version:
+            matching_urls = [url for url in urls if args.version in url]
             if len(matching_urls) > 1:
-                p.error('More than one setup file matches version "%s":\n'
-                        '%s' % (opts.version, '\n'.join(matching_urls)))
+                parser.error('More than one setup file matches version "%s":\n'
+                             '%s' % (args.version, '\n'.join(matching_urls)))
             elif len(matching_urls) == 0:
-                p.error('\nNo setup matched the specified version "%s".\n'
-                        'Available setups are:\n'
-                        '%s' % (opts.version, '\n'.join(urls)))
+                parser.error('\nNo setup matched the specified version "%s".\n'
+                             'Available setups are:\n'
+                             '%s' % (args.version, '\n'.join(urls)))
             assert len(matching_urls) == 1
             url = matching_urls[0]
         else:
@@ -131,24 +131,12 @@ def main(args):
         print_urls(urls, url)
         print()
 
-    if nargs == 0:
-        print_setups_info(p)
-        print()
-        progname = p.get_prog_name()
-        print('Run %s DIR to install newest setups into DIR.' % progname)
-        print('Run %s DIR --version=VERSION to install VERSION (from above).'
-              % progname)
-        print('See %s --help for more info.' % progname)
-        raise SystemExit
-    elif len(args) != 1:
-        p.error('No more than one DIR expected.  Please try --help.')
+    targetpath = args.directory
 
-    targetpath = args[0]
-
-    if opts.tarball:
-        print('Reading local tarball %s' % opts.tarball)
-        targzfile = tarfile.open(opts.tarball)
-        tarfname = opts.tarball
+    if args.tarball:
+        print('Reading local tarball %s' % args.tarball)
+        targzfile = tarfile.open(args.tarball)
+        tarfname = args.tarball
     else:
         tarfname = url.rsplit('/', 1)[1]
         print('Selected %s.  Downloading...' % tarfname)
@@ -181,7 +169,7 @@ def main(args):
     rcline = "setup_paths.insert(0, '%s')" % setup_path
 
     # Run interactive mode unless someone specified a flag requiring otherwise
-    interactive_mode = not (opts.register or opts.no_register)
+    interactive_mode = not (args.register or args.no_register)
 
     register_path = False
 
@@ -194,11 +182,11 @@ def main(args):
         else:
             print('What do you mean by "%s"?  Assuming "n".' % answer)
     else:
-        if opts.register:
-            assert not opts.no_register
+        if args.register:
+            assert not args.no_register
             register_path = True
         else:
-            assert opts.no_register
+            assert args.no_register
 
     if register_path:
         # First we create the file
@@ -222,7 +210,7 @@ def main(args):
             # sees the change in rc.py
             rcfd.close()
 
-            print_setups_info(p)
+            print_setups_info(parser)
     else:
         print('You can manually register the setups by adding the')
         print('following line to %s:' % rcfilepath)
@@ -259,12 +247,13 @@ def get_urls(source):
         raise ValueError('Unknown source: %s' % source)
     return urls
 
-def print_setups_info(p):
+
+def print_setups_info(parser):
     try:
         import gpaw
     except ImportError as e:
-        p.error('Cannot import \'gpaw\'.  GPAW does not appear to be '
-                'installed. %s' % e)
+        parser.error('Cannot import \'gpaw\'.  GPAW does not appear to be '
+                     'installed. %s' % e)
 
     # GPAW may already have been imported, and the contents of the rc
     # file may have changed since then.  Thus, we re-import gpaw to be
