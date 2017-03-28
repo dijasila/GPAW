@@ -11,10 +11,10 @@ from gpaw import __version__
 
 commands = [
     ('run', 'gpaw.cli.run'),
+    ('info', 'gpaw.cli.info'),
     ('dos', 'gpaw.cli.dos'),
     ('rpa', 'gpaw.xc.rpa'),
     ('gpw', 'gpaw.cli.gpw'),
-    ('info', 'gpaw.cli.info'),
     ('test', 'gpaw.test.test'),
     ('atom', 'gpaw.atom.aeatom'),
     ('diag', 'gpaw.fulldiag'),
@@ -30,7 +30,7 @@ def hook(parser):
     parser.add_argument('-P', '--parallel', type=int, metavar='N', default=1,
                         help="Run on N CPUs.")
     args = parser.parse_args()
-    print(args)
+
     if args.parallel > 1:
         from gpaw.mpi import size
         if size == 1:
@@ -40,11 +40,12 @@ def hook(parser):
             if args.command == 'python':
                 arguments += args.arguments
             else:
-                arguments += sys.argv
+                arguments += ['-m', 'gpaw'] + sys.argv[1:]
             os.execvp('mpiexec', arguments)
+
     return args
 
 
 def main():
     ase_main('gpaw', 'GPAW command-line tool',
-             __version__, commands[4:5], hook)
+             __version__, commands[:2], hook)

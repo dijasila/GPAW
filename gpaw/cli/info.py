@@ -1,4 +1,3 @@
-import optparse
 import os.path as op
 import subprocess
 import sys
@@ -7,6 +6,7 @@ from ase.utils import import_module
 
 import gpaw
 import gpaw.fftw as fftw
+from gpaw.mpi import rank
 from gpaw.utilities import compiled_with_sl, compiled_with_libvdwxc
 
 
@@ -33,17 +33,20 @@ def info():
              for i, path in enumerate(gpaw.setup_paths)]
     results.append(('PAW-datasets', '\n                '.join(paths)))
 
-    for a, b in results:
-        if isinstance(b, bool):
-            b = ['no', 'yes'][b]
-        print('{0:16}{1}'.format(a, b))
+    if rank == 0:
+        for a, b in results:
+            if isinstance(b, bool):
+                b = ['no', 'yes'][b]
+            print('{0:16}{1}'.format(a, b))
 
 
 class CLICommand:
     short_description = info.__doc__
 
+    @staticmethod
     def add_arguments(parser):
         pass
 
+    @staticmethod
     def run(args):
         info()
