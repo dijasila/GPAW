@@ -43,15 +43,16 @@ likely to help."""
 
 class CLICommand:
     short_description = 'Install PAW datasets, pseudopotential or basis sets'
-    description = ('In first form, show available setups and GPAW setup paths. '
-                   'In second form, download and install gpaw-setups into '
+    description = ('Without a directory, show available setups and GPAW '
+                   'setup paths. '
+                   'With a directory, download and install gpaw-setups into '
                    'INSTALLDIR/[setups-package-name-and-version].')
 
     @staticmethod
     def add_arguments(parser):
         add = parser.add_argument
-        add('directory')
-        add('version', nargs='?',
+        add('directory', nargs='?')
+        add('--version',
             help='download VERSION of package.  '
             'Run without arguments to display a list of versions.  '
             'VERSION can be the full URL or a part such as  '
@@ -130,6 +131,15 @@ def main(args, parser):
         print('Available setups and pseudopotentials')
         print_urls(urls, url)
         print()
+
+    if not args.directory:
+        print_setups_info(parser)
+        print()
+        print('Run ase install-data DIR to install newest setups into DIR.')
+        print('Run ase install-data DIR --version=VERSION to install VERSION '
+              '(from above).')
+        print('See ase install-data --help for more info.')
+        raise SystemExit
 
     targetpath = args.directory
 
