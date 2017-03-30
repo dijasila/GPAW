@@ -19,8 +19,9 @@ Initial setup::
 
 Crontab::
 
-    cmd="python -m gpaw.utilities.build_web_page"
-    10 20 * * * cd ~/gpaw-web-page; . bin/activate; cd gpaw; $cmd > ../gpaw.log
+    WEB_PAGE_FOLDER=...
+    CMD="python -m gpaw.utilities.build_web_page"
+    10 20 * * * cd ~/gpaw-web-page; . bin/activate; cd gpaw; $CMD > ../gpaw.log
 
 """
 
@@ -35,7 +36,7 @@ cmds = """\
 touch ../gpaw-web-page.lock
 cd ../ase; git checkout web-page; pip install .
 git clean -fdx
-git checkout web-page
+git checkout web-page -q
 git pull
 python setup.py install
 cd doc; sphinx-build -b html -d build/doctrees . build/html
@@ -43,7 +44,7 @@ mv doc/build/html gpaw-web-page
 cd ../ase; git checkout master; pip install .
 git clean -fdx doc
 rm -r build
-git checkout master
+git checkout master -q
 git pull
 python setup.py install
 cd doc; sphinx-build -b html -d build/doctrees . build/html
@@ -53,10 +54,10 @@ cp dist/gpaw-*.tar.gz gpaw-web-page/
 cp dist/gpaw-*.tar.gz gpaw-web-page/dev/
 find gpaw-web-page -name install.html | xargs sed -i s/snapshot.tar.gz/{}/g
 tar -cf web-page.tar.gz gpaw-web-page
-scp gpaw-web-page.tar.gz {}:web-pages/"""
+cp gpaw-web-page.tar.gz {}"""
 
 cmds = cmds.format('gpaw-' + __version__ + '.tar.gz',
-                   os.environ['WEB_PAGE_HOST'])
+                   os.environ['WEB_PAGE_FOLDER'])
 
 
 def build():
