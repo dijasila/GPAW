@@ -53,7 +53,7 @@ python setup.py sdist
 cp dist/gpaw-*.tar.gz gpaw-web-page/
 cp dist/gpaw-*.tar.gz gpaw-web-page/dev/
 find gpaw-web-page -name install.html | xargs sed -i s/snapshot.tar.gz/{}/g
-tar -cf web-page.tar.gz gpaw-web-page
+tar -cf gpaw-web-page.tar.gz gpaw-web-page
 cp gpaw-web-page.tar.gz {}"""
 
 cmds = cmds.format('gpaw-' + __version__ + '.tar.gz',
