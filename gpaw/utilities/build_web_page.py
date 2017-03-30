@@ -11,7 +11,8 @@ Initial setup::
     pip install matplotlib scipy
     git clone git@gitlab.com:gpaw/gpaw
     cd gpaw
-    pip install -e .
+    #pip install -e .
+    python setup.py install
 
 Crontab::
 
@@ -33,17 +34,18 @@ git clean -fdx
 git checkout web-page
 git pull
 cd doc; sphinx-build -b html -d build/doctrees . build/html
-mv doc/build/html web-page
+mv doc/build/html gpaw-web-page
 git clean -fdx doc
 git checkout master
 git pull
 cd doc; sphinx-build -b html -d build/doctrees . build/html
-mv doc/build/html web-page/dev
+mv doc/build/html gpaw-web-page/dev
 python setup.py sdist
-cp dist/gpaw-*.tar.gz web-page/
-cp dist/gpaw-*.tar.gz web-page/dev/
-find web-page -name install.html | xargs sed -i s/snapshot.tar.gz/{}/g
-tar -cf web-page.tar.gz web-page""".format('gpaw-' + __version__ + '.tar.gz')
+cp dist/gpaw-*.tar.gz gpaw-web-page/
+cp dist/gpaw-*.tar.gz gpaw-web-page/dev/
+find gpaw-web-page -name install.html | xargs sed -i s/snapshot.tar.gz/{}/g
+tar -cf gpaw-web-page.tar.gz gpaw-web-page""".format(
+    'gpaw-' + __version__ + '.tar.gz')
 
 
 def build():
