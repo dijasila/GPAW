@@ -9,17 +9,18 @@ Initial setup::
     pip install sphinx-rtd-theme
     pip install Sphinx
     pip install matplotlib scipy
-    git clone git@gitlab.com:ase/ase
+    git clone http://gitlab.com/ase/ase.git
     cd ase
-    pip install .
-    git clone git@gitlab.com:gpaw/gpaw
+    pip install -U .
+    cd ..
+    git clone http://gitlab.com/gpaw/gpaw.git
     cd gpaw
     python setup.py install
 
 Crontab::
 
-    build="python -m gpaw.utilities.build_web_page"
-    10 20 * * * cd ~/gpaw-web-page; . bin/activate; cd gpaw; $build > ../gpaw.log
+    cmd="python -m gpaw.utilities.build_web_page"
+    10 20 * * * cd ~/gpaw-web-page; . bin/activate; cd gpaw; $cmd > ../gpaw.log
 
 """
 
@@ -51,8 +52,11 @@ python setup.py sdist
 cp dist/gpaw-*.tar.gz gpaw-web-page/
 cp dist/gpaw-*.tar.gz gpaw-web-page/dev/
 find gpaw-web-page -name install.html | xargs sed -i s/snapshot.tar.gz/{}/g
-tar -cf web-page.tar.gz gpaw-web-page""".format(
-    'gpaw-' + __version__ + '.tar.gz')
+tar -cf web-page.tar.gz gpaw-web-page
+scp gpaw-web-page.tar.gz {}:web-pages/"""
+
+cmds = cmds.format('gpaw-' + __version__ + '.tar.gz',
+                   os.environ['WEB_PAGE_HOST'])
 
 
 def build():
