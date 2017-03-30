@@ -3,20 +3,23 @@
 Initial setup::
 
     cd ~
-    python3 -m venv web-page
-    cd web-page
+    python3 -m venv gpaw-web-page
+    cd gpaw-web-page
     . bin/activate
     pip install sphinx-rtd-theme
     pip install Sphinx
     pip install matplotlib scipy
+    git clone git@gitlab.com:ase/ase
+    cd ase
+    pip install .
     git clone git@gitlab.com:gpaw/gpaw
     cd gpaw
-    pip install -e .
+    python setup.py install
 
 Crontab::
 
     build="python -m gpaw.utilities.build_web_page"
-    10 * * * * cd ~/web-page; . bin/activate; cd gpaw; $build > ../gpaw.log
+    10 20 * * * cd ~/gpaw-web-page; . bin/activate; cd gpaw; $build > ../gpaw.log
 
 """
 
@@ -29,21 +32,27 @@ from gpaw import __version__
 
 cmds = """\
 touch ../gpaw-web-page.lock
+cd ../ase; git checkout web-page; pip install .
 git clean -fdx
 git checkout web-page
 git pull
+python setup.py install
 cd doc; sphinx-build -b html -d build/doctrees . build/html
-mv doc/build/html web-page
+mv doc/build/html gpaw-web-page
+cd ../ase; git checkout master; pip install .
 git clean -fdx doc
+rm -r build
 git checkout master
 git pull
+python setup.py install
 cd doc; sphinx-build -b html -d build/doctrees . build/html
-mv doc/build/html web-page/dev
+mv doc/build/html gpaw-web-page/dev
 python setup.py sdist
-cp dist/gpaw-*.tar.gz web-page/
-cp dist/gpaw-*.tar.gz web-page/dev/
-find web-page -name install.html | xargs sed -i s/snapshot.tar.gz/{}/g
-tar -cf web-page.tar.gz web-page""".format('gpaw-' + __version__ + '.tar.gz')
+cp dist/gpaw-*.tar.gz gpaw-web-page/
+cp dist/gpaw-*.tar.gz gpaw-web-page/dev/
+find gpaw-web-page -name install.html | xargs sed -i s/snapshot.tar.gz/{}/g
+tar -cf web-page.tar.gz gpaw-web-page""".format(
+    'gpaw-' + __version__ + '.tar.gz')
 
 
 def build():
