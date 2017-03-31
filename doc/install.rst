@@ -174,6 +174,8 @@ Sou can get the source from a tar-file or from Git:
         $ tar -xf gpaw-1.2.0.tar.gz
         $ ln -s gpaw-1.2.0 gpaw
 
+    Here is a `list of tarballs <https://pypi.python.org/simple/gpaw>/`__.
+
 :Git clone:
 
     Alternatively, you can get the source for the the development version
