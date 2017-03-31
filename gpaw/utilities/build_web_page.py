@@ -24,7 +24,7 @@ Crontab::
     10 20 * * * cd ~/gpaw-web-page; . bin/activate; cd gpaw; $CMD > ../gpaw.log
 
 """
-
+from __future__ import print_function
 import os
 import subprocess
 import sys
