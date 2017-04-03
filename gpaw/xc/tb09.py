@@ -2,7 +2,7 @@ from __future__ import print_function
 """Tran-Blaha potential.
 
 From:
-    
+
     Accurate Band Gaps of Semiconductors and Insulators
     with a Semilocal Exchange-Correlation Potential
 
@@ -11,7 +11,7 @@ From:
     PRL 102, 226401 (2009)
 
     DOI: 10.1103/PhysRevLett.102.226401
-  
+
 """
 import numpy as np
 from ase.utils import seterr
@@ -26,22 +26,22 @@ class TB09Kernel:
     type = 'MGGA'
     alpha = -0.012
     beta = 1.023
-    
+
     def __init__(self, c=None):
         self.tb09 = LibXC('MGGA_X_TB09').xc.tb09
         self.ldac = LibXC('LDA_C_PW')
-        
+
         self.fixedc = c is not None  # calculate c or use fixed value
         self.c = c  # amount of "exact exchange"
         self.n = 0  # Lebedev quadrature point number (0-49)
         self.sign = 1.0  # sign of PAW correction: +1 for AE and -1 for PS
         self.I = None  # integral from Eq. (3)
-        
+
     def calculate(self, e_g, n_sg, dedn_sg, sigma_xg,
                   dedsigma_xg, tau_sg, dedtau_sg):
         ns = len(n_sg)
         n_sg[n_sg < 1e-6] = 1e-6
-        
+
         if n_sg.ndim == 4:
             if not self.fixedc:
                 if self.c is None:
@@ -62,11 +62,11 @@ class TB09Kernel:
                 self.I = self.gd.integrate(gradn_g / n_sg.sum(0))
                 # The domain is not distributed like the PAW corrections:
                 self.I /= self.world.size
-                
+
             lapl_sg = self.gd.empty(ns)
             for n_g, lapl_g in zip(n_sg, lapl_sg):
                 self.lapl.apply(n_g, lapl_g)
-            
+
         else:
             rgd = self.rgd
             lapl_sg = []
@@ -94,28 +94,28 @@ class TB09Kernel:
                                2 * sigma_xg[1] +
                                sigma_xg[2])**0.5
                 self.I += w * rgd.integrate(gradn_g / n_sg.sum(0))
-                
+
                 self.n += 1
                 if self.n == len(weight_n):
                     self.n = 0
                     self.sign = -self.sign
-                
+
         # dedn_sg[:] = 0.0
         sigma_xg[sigma_xg < 1e-10] = 1e-10
         tau_sg[tau_sg < 1e-10] = 1e-10
-        
+
         for n_g, sigma_g, lapl_g, tau_g, v_g in zip(n_sg, sigma_xg[::2],
                                                     lapl_sg, tau_sg, dedn_sg):
             self.tb09(self.c, n_g.ravel(), sigma_g, lapl_g, tau_g, v_g,
                       dedsigma_xg)
-        
+
         self.ldac.calculate(e_g, n_sg, dedn_sg)
         e_g[:] = 0.0
-        
+
         dedsigma_xg[:] = 0.0
         dedtau_sg[:] = 0.0
 
-        
+
 class TB09(MGGA):
     def __init__(self, c=None):
         MGGA.__init__(self, TB09Kernel(c))
@@ -128,14 +128,18 @@ class TB09(MGGA):
         self.kernel.world = wfs.world
         self.kernel.gd = dens.finegd
         self.kernel.lapl = Laplace(dens.finegd)
-        
-    def calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv):
-        self.kernel.n_sLg = n_sLg
-        self.kernel.Y_L = Y_L
-        self.kernel.rgd = rgd
-        return MGGA.calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg,
-                                     rnablaY_Lv)
-        
+
+    def create_mgga_radial_calculator(self):
+        rcalc = MGGA.create_mgga_radial_calculator(self)
+
+        def f(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
+            self.kernel.n_sLg = n_sLg
+            self.kernel.Y_L = Y_L
+            self.kernel.rgd = rgd
+            return rcalc(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n)
+
+        return f
+
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                             Htpsit_xG, dH_asp):
         pass

@@ -325,6 +325,7 @@ tests = [
     'pathological/LDA_unstable.py',         # ~42s
     'response/bse_aluminum.py',             # ~42s
     'response/au02_absorption.py',          # ~44s
+    'xc/tb09.py',
     'ext_potential/point_charge.py',
     'ase_features/wannierk.py',             # ~45s
     'ut_tddft.py',                          # ~49s
