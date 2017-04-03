@@ -155,6 +155,20 @@ MPI_Comm unpack_gpaw_comm(PyObject* gpaw_mpi_obj)
 }
 #endif
 
+PyObject* error_parallel_support()
+{
+    // Not a true import error, but pretty close.
+#ifndef PARALLEL
+    PyErr_SetString(PyExc_ImportError,
+                    "GPAW not compiled in parallel");
+#endif
+#ifndef VDWXC_HAS_MPI
+    PyErr_SetString(PyExc_ImportError,
+                    "libvdwxc not compiled in parallel.  Recompile libvdwxc with --with-mpi");
+#endif
+    return NULL;
+}
+
 PyObject* libvdwxc_init_mpi(PyObject* self, PyObject* args)
 {
     PyObject* vdwxc_obj;
@@ -167,13 +181,13 @@ PyObject* libvdwxc_init_mpi(PyObject* self, PyObject* args)
         return NULL;
     }
 
-#ifdef PARALLEL
+#if defined(PARALLEL) && defined(VDWXC_HAS_MPI)
     vdwxc_data* vdw = unpack_vdwxc_pointer(vdwxc_obj);
     MPI_Comm comm = unpack_gpaw_comm(gpaw_comm_obj);
     vdwxc_init_mpi(*vdw, comm);
     Py_RETURN_NONE;
 #else
-    return NULL;
+    return error_parallel_support();
 #endif
 }
 
@@ -190,13 +204,13 @@ PyObject* libvdwxc_init_pfft(PyObject* self, PyObject* args)
         return NULL;
     }
 
-#ifdef PARALLEL
+#if defined(PARALLEL) && defined(LIBVDWXC_HAS_MPI)
     vdwxc_data* vdw = unpack_vdwxc_pointer(vdwxc_obj);
     MPI_Comm comm = unpack_gpaw_comm(gpaw_comm_obj);
     vdwxc_init_pfft(*vdw, comm, nproc1, nproc2);
     Py_RETURN_NONE;
 #else
-    return NULL;
+    return error_parallel_support();
 #endif
 }
 
