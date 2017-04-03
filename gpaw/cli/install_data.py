@@ -26,8 +26,8 @@ sources = [('gpaw', 'official GPAW setups releases [default]'),
 names = [r for r, d in sources]
 
 baseurls = {'gpaw':
-            'https://wiki.fysik.dtu.dk/gpaw/_sources/setups/setups.txt',
-            #'sg15': 'http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/',
+            'https://wiki.fysik.dtu.dk/gpaw/_sources/setups/setups.rst.txt',
+            # 'sg15': 'http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/',
             'sg15': 'http://www.quantum-simulation.org/potentials/sg15_oncv/',
             'basis':
             'http://dcwww.camd.dtu.dk/~askhl/files/gpaw-lcao-basis-sets/',
@@ -258,6 +258,7 @@ def get_urls(source):
     else:
         raise ValueError('Unknown source: %s' % source)
     return urls
+
 
 def print_setups_info(p):
     try:
