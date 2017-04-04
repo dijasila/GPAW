@@ -24,6 +24,7 @@ def print_positions(atoms, log):
     symbols = atoms.get_chemical_symbols()
     for a, pos_v in enumerate(atoms.get_positions()):
         symbol = symbols[a]
+	magnetic_moment = get_initial_magnetic_moments()
         log('{0:>4} {1:3} {2:11.6f} {3:11.6f} {4:11.6f}'
             .format(a, symbol, *pos_v))
     log()
