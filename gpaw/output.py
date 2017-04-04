@@ -20,13 +20,14 @@ def print_cell(gd, pbc_c, log):
 
 def print_positions(atoms, log):
     log(plot(atoms))
-    log('\nPositions:')
+    log('\nElement      Initial magmom:      Positions:')
     symbols = atoms.get_chemical_symbols()
+    magnetic_moment = atoms.get_initial_magnetic_moments()
     for a, pos_v in enumerate(atoms.get_positions()):
         symbol = symbols[a]
-	magnetic_moment = get_initial_magnetic_moments()
-        log('{0:>4} {1:3} {2:11.6f} {3:11.6f} {4:11.6f}'
-            .format(a, symbol, *pos_v))
+        moment = magnetic_moment[a]
+        log('{0:>4} {1:3}{2:11.4f}            {3:11.6f} {4:11.6f} {5:11.6f}'
+            .format(a, symbol, moment,  *pos_v))
     log()
     
     
