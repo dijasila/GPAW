@@ -48,8 +48,8 @@ commands = {
     'gpw':
         [''],
     'install-data':
-        ['--tarball', '--list-all', '--gpaw', '--sg15', '--basis',
-         '--test', '--register', '--no-register'],
+        ['--version', '--tarball', '--list-all', '--gpaw', '--sg15',
+         '--basis', '--test', '--register', '--no-register'],
     'python':
         [''],
     'rpa':
@@ -81,10 +81,9 @@ def complete(word, previous, line, point):
                 break
     else:
         if word[:1] == '-':
-            return ['-h', '--help', '-q', '--quiet', '-v', '--verbose',
-                    '--version', '-P', '--parallel']
-        return list(commands.keys()) + ['-h', '--help', '-q', '--quiet',
-                                        '-v', '--verbose', '-P', '--parallel']
+            return ['-h', '--help', '--version', '-P', '--parallel']
+        return list(commands.keys()) + ['-h', '--help', '--version',
+                                        '-P', '--parallel']
 
     if word[:1] == '-':
         return commands[command]
