@@ -70,7 +70,8 @@ class GPAW(PAW, Calculator):
         'symmetry': {'point_group': True,
                      'time_reversal': True,
                      'symmorphic': True,
-                     'tolerance': 1e-7},
+                     'tolerance': 1e-7,
+                     'do_not_symmetrize_the_density': False},
         'convergence': {'energy': 0.0005,  # eV / electron
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2

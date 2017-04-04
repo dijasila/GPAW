@@ -19,7 +19,7 @@ sources = [('gpaw', 'official GPAW setups releases [default]'),
 names = [r for r, d in sources]
 
 baseurls = {'gpaw':
-            'https://wiki.fysik.dtu.dk/gpaw/_sources/setups/setups.txt',
+            'https://wiki.fysik.dtu.dk/gpaw/_sources/setups/setups.rst.txt',
             # 'sg15': 'http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/',
             'sg15': 'http://www.quantum-simulation.org/potentials/sg15_oncv/',
             'basis':

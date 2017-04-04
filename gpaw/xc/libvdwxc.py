@@ -239,7 +239,8 @@ class FFTDistribution:
 class VDWXC(XCFunctional):
     def __init__(self, semilocal_xc, name, mode='auto',
                  pfft_grid=None, libvdwxc_name=None,
-                 setup_name='revPBE', vdwcoef=1.0):
+                 setup_name='revPBE', vdwcoef=1.0,
+                 accept_partial_decomposition=False):
         """Initialize VDWXC object (further initialization required).
 
         mode can be 'auto', 'serial', 'mpi', or 'pfft'.
@@ -284,6 +285,7 @@ class VDWXC(XCFunctional):
         self._mode = mode
         self._pfft_grid = pfft_grid
         self._vdwcoef = vdwcoef
+        self.accept_partial_decomposition = accept_partial_decomposition
         # To be completely rigorous and avoid the wrath of the functionalists,
         # we must write a warning if we run spin-polarized.
         self._nspins = 1
@@ -393,7 +395,8 @@ class VDWXC(XCFunctional):
             warnings.warn(spinwarning)
             self._nspins = density.nspins
 
-        if wfs.world.size > gd.comm.size and np.prod(gd.N_c) > 64**3:
+        if (wfs.world.size > gd.comm.size and np.prod(gd.N_c) > 64**3
+            and not self.accept_partial_decomposition):
             # We could issue a warning if an excuse turns out to exist some day
             raise ValueError('You are using libvdwxc with only '
                              '%d out of %d available cores in a non-small '
@@ -401,7 +404,12 @@ class VDWXC(XCFunctional):
                              'a crime but is likely silly and therefore '
                              'triggers an error.  Please use '
                              'parallel={\'augment_grids\': True} '
-                             'or complain to the developers.' %
+                             'or complain to the developers.  '
+                             'You can also disable this error '
+                             'by passing accept_partial_decomposition=True '
+                             'to the libvdwxc functional object, '
+                             'but be careful to use good domain '
+                             'decomposition.' %
                              (gd.comm.size, wfs.world.size,
                               ' x '.join(str(N) for N in gd.N_c)))
         #self._initialize(gd)
