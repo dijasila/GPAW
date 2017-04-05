@@ -13,7 +13,7 @@ Initial setup::
     cd ..
     git clone http://gitlab.com/gpaw/gpaw.git
     cd gpaw
-    python setup.py install
+    python setup.py install ...
 
 Crontab::
 
@@ -30,8 +30,10 @@ import sys
 cmds = """\
 touch gpaw-tests.lock
 cd ase; git pull; pip install -U .
-cd gpaw; git clean -fdx; git pull; python setup.py install
+cd gpaw; git clean -fdx; git pull; python setup.py install {}
 gpaw -P 1 test kpt.py mpicomm.py"""
+
+cmds = cmds.format(os.environ.get('GPAW_COMPILE_OPTIONS', ''))
 
 
 def build():
