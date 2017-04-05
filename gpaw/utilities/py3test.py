@@ -17,9 +17,8 @@ Initial setup::
 
 Crontab::
 
-    WEB_PAGE_FOLDER=...
-    CMD="python -m gpaw.utilities.build_web_page"
-    10 20 * * * cd ~/gpaw-tests; . bin/activate; cd gpaw; $CMD > ../gpaw.log
+    CMD="python3 -m gpaw.utilities.py3test"
+    10 20 * * * cd ~/gpaw-tests; . bin/activate; $CMD > test.log
 
 """
 from __future__ import print_function
@@ -32,7 +31,7 @@ cmds = """\
 touch gpaw-tests.lock
 cd ase; git pull; pip install -U .
 cd gpaw; git clean -fdx; git pull; python setup.py install
-gpaw -P 1 test"""
+gpaw -P 1 test kpt.py mpicomm.py"""
 
 
 def build():
