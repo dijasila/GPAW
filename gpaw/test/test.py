@@ -58,7 +58,8 @@ class CLICommand:
 def main(args):
     if len(args.tests) == 0:
         from gpaw.test import tests
-        args.tests = tests
+    else:
+        tests = args.tests
 
     if args.reverse:
         tests.reverse()
