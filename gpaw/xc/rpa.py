@@ -2,12 +2,11 @@ from __future__ import print_function, division
 
 import functools
 import os
-import sys
 from time import ctime
 
 import numpy as np
 from ase.units import Hartree
-from ase.utils import devnull
+from ase.utils import convert_string_to_fd
 from ase.utils.timing import timer, Timer
 from scipy.special.orthogonal import p_roots
 
@@ -46,7 +45,7 @@ class RPACorrelation:
                  skip_gamma=False, qsym=True, nlambda=None,
                  nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
                  frequencies=None, weights=None, truncation=None,
-                 world=mpi.world, nblocks=1, txt=sys.stdout):
+                 world=mpi.world, nblocks=1, txt='-'):
         """Creates the RPACorrelation object
 
         calc: str or calculator object
@@ -94,11 +93,7 @@ class RPACorrelation:
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
         self.calc = calc
 
-        if world.rank != 0:
-            txt = devnull
-        elif isinstance(txt, str):
-            txt = open(txt, 'w', 1)
-        self.fd = txt
+        self.fd = convert_string_to_fd(txt, world)
 
         self.timer = Timer()
 
