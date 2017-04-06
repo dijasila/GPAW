@@ -152,7 +152,7 @@ def gga_vars(gd, grad_v, n_sg):
 
 
 def get_gradient_ops(gd):
-    return [Gradient(gd, v).apply for v in range(3)]
+    return [Gradient(gd, v, n=2).apply for v in range(3)]
 
 
 class GGA(XCFunctional):
