@@ -17,8 +17,9 @@ Initial setup::
 
 Crontab::
 
+    GPAW_COMPILE_OPTIONS="..."
     CMD="python3 -m gpaw.utilities.py3test"
-    10 20 * * * cd ~/gpaw-tests; . bin/activate; $CMD > test.log
+    10 20 * * * cd ~/gpaw-tests; . bin/activate; $CMD > test.out
 
 """
 from __future__ import print_function
@@ -30,22 +31,18 @@ import sys
 cmds = """\
 touch gpaw-tests.lock
 cd ase; git pull; pip install -U .
-cd gpaw; git clean -fdx; git pull; python setup.py install {}
-gpaw -P 1 test kpt.py mpicomm.py"""
+cd gpaw; git clean -fdx; git pull; python setup.py install {} 2> ../test.err
+gpaw test
+gpaw -P 2 test
+gpaw -P 4 test
+gpaw -P 8 test"""
 
 cmds = cmds.format(os.environ.get('GPAW_COMPILE_OPTIONS', ''))
 
-
-def build():
-    if os.path.isfile('../gpaw-tests.lock'):
-        print('Locked', file=sys.stderr)
-        return
-    try:
-        for cmd in cmds.splitlines():
-            subprocess.check_call(cmd, shell=True)
-    finally:
-        os.remove('../gpaw-tests.lock')
-
-
-if __name__ == '__main__':
-    build()
+if os.path.isfile('gpaw-tests.lock'):
+    sys.exit('Locked')
+try:
+    for cmd in cmds.splitlines():
+        subprocess.check_call(cmd, shell=True)
+finally:
+    os.remove('gpaw-tests.lock')
