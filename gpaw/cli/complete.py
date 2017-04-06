@@ -47,6 +47,8 @@ commands = {
         ['-p', '--plot', '-w', '--width'],
     'gpw':
         [''],
+    'info':
+        [''],
     'install-data':
         ['--version', '--tarball', '--list-all', '--gpaw', '--sg15',
          '--basis', '--test', '--register', '--no-register'],
