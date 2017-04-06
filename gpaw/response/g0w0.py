@@ -28,7 +28,7 @@ import os
 
 class G0W0(PairDensity):
     def __init__(self, calc, filename='gw', restartfile=None,
-                 kpts=None, bands=None, nbands=None, ppa=False,
+                 kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
                  truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
                  domega0=0.025, omega2=10.0, anisotropy_correction=False,
@@ -56,14 +56,15 @@ class G0W0(PairDensity):
         kpts: list
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.
-        bands: None, tuple, or int
+        bands: tuple
             Range of band indices, like (n1, n2+1), to calculate the quasi
             particle energies for. Note that the second band index is not
             included.
-            If the numbers are negative they are interpreted as relative to
-            the valence band (vb-n1,vb+n2).
-            If argument is not given, all valence bands are used.
-            If only one number is insert, (vb-bands,vb+bands) is used.
+        relbands: tuple, int
+            Range of relative band indices to the valance band, like
+            (VB+n1, VB+1+n2), to calculate the quasi particle energies for. 
+            E.g. (-1,1) will use HOMO+LUMO.
+            If only one number is given, it is used for -n1 and n2.
         ecut: float
             Plane wave cut-off energy in eV.
         ecut_extrapolation: bool or array
@@ -210,17 +211,15 @@ class G0W0(PairDensity):
 
         self.kpts = list(select_kpts(kpts, self.calc))
 
+        if bands and relbands:
+            raise Exception('Use bands or relbands!')
+        if isinstance(relbands, int):
+            bands = [self.calc.wfs.nvalence // 2 - relbands, self.calc.wfs.nvalence // 2 + relbands]
+        elif isinstance(relbands, tuple):
+            b1, b2 = relbands
+            bands = [self.calc.wfs.nvalence // 2 + b1, self.calc.wfs.nvalence // 2 + b2]
         if bands is None:
             bands = [0, self.nocc2]
-        elif isinstance(bands, int):
-            bands = [max(self.nocc2-abs(bands),0), self.nocc2+abs(bands)]
-        elif isinstance(bands, tuple):
-            b1, b2 = bands
-            if b1 < 0:
-                b1 = max(self.nocc2-abs(b1),0)
-            if b2 < 0:
-                b2 = self.nocc2+abs(b2)
-            bands = [b1, b2]
 
         self.bands = bands
 
