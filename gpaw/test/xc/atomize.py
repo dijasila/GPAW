@@ -60,12 +60,12 @@ print(PBEEXXbdifference)
 # TPSS value is from JCP 120 (15) 6898, 2004
 # e.g. Table VII: DE(PBE - TPSS) = (104.6-112.9)*kcal/mol
 # EXX value is from PRL 77, 3865 (1996)
-equal(PBETPSSdifference, -0.3599, 0.04)
-equal(PBEM06Ldifference, -0.169, 0.01)
+equal(PBETPSSdifference, -0.3599, 0.02)
+equal(PBEM06Ldifference, -0.193646446619, 0.001)  # value not from publication
 equal(PBEEXXdifference, 0.91, 0.005)
 equal(PBEEXXbdifference, 0.91, 0.005)
 
 energy_tolerance = 0.0002
 niter_tolerance = 0
-equal(e1, -1.081638, energy_tolerance)
-equal(e2, -6.726356, energy_tolerance)
+equal(e1, -1.08588752167, energy_tolerance)
+equal(e2, -6.73177322459, energy_tolerance)
