@@ -17,8 +17,9 @@ def main():
         return
 
     mpi_cmd = 'mpiexec '
-    if os.environ['CPU_ARCH'] == 'broadwell':
-        mpi_cmd += '-mca pml cm -mca mtl psm2 '
+    mpi_opt = os.getenv('GPAW_MPI_OPTIONS')
+    if mpi_opt:
+        mpi_cmd += '{0} '.format(mpi_opt)
     mpi_cmd += 'gpaw-python '
     script = '#!/bin/bash -l\n'
     for line in open(arg):
