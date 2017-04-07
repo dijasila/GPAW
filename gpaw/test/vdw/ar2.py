@@ -2,7 +2,7 @@ from math import sqrt
 
 from ase import Atoms
 
-from gpaw import GPAW
+from gpaw import GPAW, Davidson
 from gpaw.test import equal
 from gpaw.xc.vdw import VDWFunctional
 
@@ -16,7 +16,7 @@ def test():
     L = 3.0 + 2 * 4.0
     dimer = Atoms('Ar2', [(0, 0, 0), (x, x, x)], cell=(L, L, L))
     dimer.center()
-    calc = GPAW(h=0.2, xc='revPBE')
+    calc = GPAW(h=0.2, xc='revPBE', eigensolver=Davidson(4))
     dimer.set_calculator(calc)
     e2 = dimer.get_potential_energy()
     calc.write('Ar2.gpw')
@@ -35,7 +35,7 @@ def test():
     assert abs(Evdw - +0.0223) < 3e-2, abs(Evdw)
 
     print(e2, e)
-    equal(e2, -0.001581923, energy_tolerance)
-    equal(e, -0.003224226, energy_tolerance)
+    equal(e2, 0.0252258412843, energy_tolerance)
+    equal(e, 0.010126136467, energy_tolerance)
 
 test()
