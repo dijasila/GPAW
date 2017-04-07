@@ -1,13 +1,15 @@
 from __future__ import print_function
 from ase import Atoms
-from gpaw import GPAW
+from gpaw import GPAW, Davidson, Mixer
 from gpaw.test import equal
 
 # ??? g = Generator('H', 'TPSS', scalarrel=True, nofiles=True)
 
 atoms = Atoms('H', magmoms=[1], pbc=True)
-atoms.center(vacuum=3)
-calc = GPAW(gpts=(32, 32, 32), nbands=1, xc='PBE', txt='Hnsc.txt')
+atoms.center(vacuum=2.2)
+calc = GPAW(gpts=(20, 20, 20), nbands=1, xc='oldPBE', txt='Hnsc.txt',
+            mixer=Mixer(0.8),
+            eigensolver=Davidson(6))
 atoms.set_calculator(calc)
 e1 = atoms.get_potential_energy()
 niter1 = calc.get_number_of_iterations()
@@ -27,15 +29,17 @@ print('m06l = ', e1 + de12m)
 print('revtpss = ', e1 + de12r)
 print('================')
 
-equal(e1 + de12t, -1.11723235592, 0.005)
-equal(e1 + de12m, -1.18207312133, 0.005)
-equal(e1 + de12r, -1.10093196353, 0.005)
+equal(e1 + de12t, -1.28881170342, 0.005)
+equal(e1 + de12m, -1.24485467819, 0.005)
+equal(e1 + de12r, -1.27503567927, 0.005)
 
 # ??? g = Generator('He', 'TPSS', scalarrel=True, nofiles=True)
 
 atomsHe = Atoms('He', pbc=True)
-atomsHe.center(vacuum=3)
-calc = GPAW(gpts=(32, 32, 32), nbands=1, xc='PBE', txt='Hensc.txt')
+atomsHe.center(vacuum=2.5)
+calc = GPAW(gpts=(24, 24, 24), nbands=1, xc='oldPBE', txt='Hensc.txt',
+            eigensolver=Davidson(6),
+            mixer=Mixer(0.8))
 atomsHe.set_calculator(calc)
 e1He = atomsHe.get_potential_energy()
 niter_1He = calc.get_number_of_iterations()
@@ -54,11 +58,11 @@ print('m06l = ', e1He + de12mHe)
 print('revtpss = ', e1He + de12rHe)
 print('================')
 
-equal(e1He + de12tHe, -0.409972893501, 0.005)
-equal(e1He + de12mHe, -0.487249688866, 0.005)
-equal(e1He + de12rHe, -0.447232286813, 0.005)
+equal(e1He + de12tHe, -0.43033976854, 0.005)
+equal(e1He + de12mHe, -0.505250941459, 0.005)
+equal(e1He + de12rHe, -0.485316766611, 0.005)
 
 energy_tolerance = 0.0005
 niter_tolerance = 0
-equal(e1, -1.123322, energy_tolerance)
-equal(e1He, 0.0100192, energy_tolerance)
+equal(e1, -1.31588284981, energy_tolerance)
+equal(e1He, -0.00815663578869, energy_tolerance)
