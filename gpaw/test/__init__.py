@@ -437,6 +437,7 @@ if mpi.size != 1 and not compiled_with_sl():
                 'pw/expert_diag.py',
                 'pw/fulldiag.py',
                 'pw/fulldiagk.py',
+                'response/gw_hBN_extrapolate.py',
                 'response/au02_absorption.py']
 
 if not compiled_with_sl():
@@ -453,6 +454,7 @@ if LooseVersion(np.__version__) < '1.6.0':
 
 def get_test_path(test):
     return os.path.join(gpaw.__path__[0], 'test', test)
+
 
 for test in tests + exclude:
     assert os.path.exists(get_test_path(test)), 'No such file: %s' % test
