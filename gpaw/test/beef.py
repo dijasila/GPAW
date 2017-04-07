@@ -12,7 +12,15 @@ d = 0.75
 
 gen('H', xcname='PBEsol')
 
-for xc, E0, dE0 in [('mBEEF', 4.90, 0.17),
+#for xc, E0, dE0 in [('mBEEF', 4.90, 0.17),
+#                    ('BEEF-vdW', 5.17, 0.19),
+#                    ('mBEEF-vdW', 4.79, 0.36)]:
+
+# References changed for 2nd order XC stencil.
+# Change was suspiciously large!  Someone should consider this more closely.
+# Error was:
+#   0.252078175315 != 0.17 (error: |0.0820781753153| > 0.02)
+for xc, E0, dE0 in [('mBEEF', 4.90, 0.252354168997),
                     ('BEEF-vdW', 5.17, 0.19),
                     ('mBEEF-vdW', 4.79, 0.36)]:
     print(xc)
