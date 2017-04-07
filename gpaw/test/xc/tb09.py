@@ -15,6 +15,6 @@ gap, kv, kc = get_band_gap(atoms.calc)
 c = atoms.calc.hamiltonian.xc.c
 print(gap, kv, kc)
 print('c:', c)
-assert abs(gap - 1.226) < 0.01
+assert abs(gap - 1.23908911993) < 0.01, gap
 assert kv == 0 and kc == 24
-assert abs(c - 1.136) < 0.01
+assert abs(c - 1.1384016666324328) < 0.01, c

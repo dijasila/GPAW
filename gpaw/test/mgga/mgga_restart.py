@@ -48,7 +48,7 @@ assert abs(E_1 - E_2) < 0.005
 
 energy_tolerance = 0.00008
 niter_tolerance = 0
-equal(E_PBE, -5.33901, energy_tolerance)
-equal(E_PBE_no_wfs, -5.33901, energy_tolerance)
-equal(E_1, -5.57685, energy_tolerance)
-equal(E_2, -5.57685, energy_tolerance)
+equal(E_PBE, -5.348783148, energy_tolerance)
+equal(E_PBE_no_wfs, -5.348783148, energy_tolerance)
+equal(E_1, -5.60602202989, energy_tolerance)
+equal(E_2, -5.60602743137, energy_tolerance)

@@ -29,5 +29,6 @@ equal(e - erev, 0.025 * Hartree, 0.002 * Hartree)
 print(e, erev)
 energy_tolerance = 0.0002
 niter_tolerance = 0
-equal(e, -204.381098849, energy_tolerance)  # svnversion 5252
-equal(erev, -205.012303379, energy_tolerance)  # svnversion 5252
+# refs from git d54d2996ff101c1
+equal(e, -204.382658651, energy_tolerance)  # svnversion 5252
+equal(erev, -205.014436195, energy_tolerance)  # svnversion 5252

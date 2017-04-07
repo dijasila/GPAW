@@ -24,7 +24,7 @@ si.get_potential_energy()
 response = calc.hamiltonian.xc.xcs['RESPONSE']
 response.calculate_delta_xc()
 EKs, Dxc = response.calculate_delta_xc_perturbation()
-refgap = 3.01514044764
+refgap = 3.0234680279845172
 gap = EKs + Dxc
 print('GAP', gap)
 assert abs(gap - refgap) < 1e-4

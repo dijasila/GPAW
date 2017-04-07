@@ -31,7 +31,12 @@ for xcname in ['GLLB','GLLBSC']:
     response.calculate_delta_xc()
     KS, dxc = response.calculate_delta_xc_perturbation()
     if xcname=='GLLB':
-        equal(KS+dxc, 24.71, 1.5e-1)
+        # Previous values were:
+        #     equal(KS+dxc, 24.71, 1.5e-1)
+        # If these values were from a publication, the new value
+        # (due to new 2nd order XC stencils) will now no longer
+        # be consistent with the publication.  --askhl
+        equal(KS+dxc, 24.8906124373, 1e-2)
     else:
         equal(KS+dxc, 27.70, 6.0e-2)
     eps3d = calc.wfs.kpt_u[0].eps_n[3]
@@ -41,10 +46,13 @@ for xcname in ['GLLB','GLLBSC']:
     KS2, dxc2 = response.calculate_delta_xc_perturbation()
     equal(KS, KS2, 1e-5)
     equal(dxc2, dxc, 1e-5)
-    
+
     # Hardness of Ne 24.71eV by GLLB+Dxc, experimental I-A = I = 21.56eV
 
     if world.rank == 0:
         equal(eps, eps3d, 1e-3)
     if xcname=='GLLB':
-        equal(24.71, KS2+dxc2, 1.2e-1)
+        # Previous:
+        #    equal(24.71, KS2+dxc2, 1.2e-1)
+        # See comment above.  --askhl
+        equal(24.8906124373, KS2+dxc2, 1.2e-1)

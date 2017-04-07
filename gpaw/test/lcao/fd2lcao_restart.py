@@ -31,7 +31,7 @@ if not os.path.isfile('Na4_fd.gpw'):
     calc.write('Na4_fd.gpw')
     del atoms,calc
 
-    equal(etot_fd, -1.99055, energy_tolerance)
+    equal(etot_fd, -2.001943653, energy_tolerance)
 
 if os.path.isfile('Na4_fd.gpw'):
     # LCAO calculation based on grid kpts calculation
@@ -45,4 +45,4 @@ if os.path.isfile('Na4_fd.gpw'):
     calc.write('Na4_lcao.gpw')
     del atoms, calc
 
-    equal(etot_lcao, -1.9616, energy_tolerance)
+    equal(etot_lcao, -1.97429167988, energy_tolerance)

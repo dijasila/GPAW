@@ -1,7 +1,7 @@
 from __future__ import print_function
 from ase.build import molecule
 
-from gpaw import GPAW, FermiDirac, PoissonSolver
+from gpaw import GPAW, FermiDirac, PoissonSolver, Davidson
 from gpaw.test import equal, gen
 
 # Generate setup for oxygen with a core-hole:
@@ -10,7 +10,8 @@ gen('O', name='fch1s', xcname='PBE', corehole=(1, 0, 1.0))
 atoms = molecule('H2O')
 atoms.center(vacuum=2.5)
 
-calc = GPAW(xc='PBE', poissonsolver=PoissonSolver(use_charge_center=True))
+calc = GPAW(xc='oldPBE', poissonsolver=PoissonSolver(use_charge_center=True),
+            eigensolver=Davidson(4))
 atoms.set_calculator(calc)
 e1 = atoms.get_potential_energy() + calc.get_reference_energy()
 niter1 = calc.get_number_of_iterations()
@@ -35,14 +36,17 @@ print('XPS %.3f eV' % (e3 - e1))
 
 print(e2 - e1)
 print(e3 - e1)
-assert abs(e2 - e1 - 533.070) < 0.001
-assert abs(e3 - e1 - 538.549) < 0.001
+assert abs(e2 - e1 - 533.064129973) < 0.001
+assert abs(e3 - e1 - 538.544175693) < 0.001
+
+#assert abs(e2 - e1 - 533.070) < 0.001
+#assert abs(e3 - e1 - 538.549) < 0.001
 
 energy_tolerance = 0.001
 niter_tolerance = 1
 print(e1, niter1)
 print(e2, niter2)
 print(e3, niter3)
-equal(e1, -2080.3715465, energy_tolerance)
-equal(e2, -1547.30157798, energy_tolerance)
-equal(e3, -1541.82252385, energy_tolerance)
+equal(e1, -2080.37682748, energy_tolerance)
+equal(e2, -1547.31257133, energy_tolerance)
+equal(e3, -1541.83258953, energy_tolerance)

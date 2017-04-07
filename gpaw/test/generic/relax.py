@@ -99,6 +99,6 @@ assert abs(f - f0).max() < 5e-6  # 5 digits in txt file
 
 energy_tolerance = 0.00005
 niter_tolerance = 0
-equal(e1, -6.287873, energy_tolerance)
-equal(e2, -6.290744, energy_tolerance)
-equal(e2q, -6.290744, energy_tolerance)
+equal(e1, -6.29462107255, energy_tolerance)
+equal(e2, -6.29746859303, energy_tolerance)
+equal(e2q, -6.29746859303, energy_tolerance)

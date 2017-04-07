@@ -14,7 +14,7 @@ energy_tolerance = 0.0001
 niter_tolerance = 0
 
 e_ref = {'LDA': {'restart': -5.5728768784094758},
-         'GLLBSC': {'restart': -5.4458036264351}} # svnversion 5252
+         'GLLBSC': {'restart': -5.44813723874}} # svnversion 5252
 niter_ref = {'LDA': {'restart': 16},
              'GLLBSC': {'restart': 16}} # svnversion 5252
 

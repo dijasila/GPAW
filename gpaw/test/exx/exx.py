@@ -15,11 +15,19 @@ calc = GPAW(h=0.21,
 
 be2.set_calculator(calc)
 
-ref_1871 = {  # Values from revision 1871. Not true reference values
+#ref_1871 = {  # Values from revision 1871. Not true reference values
     # xc         Energy          eigenvalue 0    eigenvalue 1
-    'PBE': (5.427450, -3.84092, -0.96192),
-    'PBE0': (-790.919942, -4.92321, -1.62948),
-    'EXX': (-785.580737092, -7.16802337336, -2.72602997017)
+#    'PBE': (5.427450, -3.84092, -0.96192),
+#    'PBE0': (-790.919942, -4.92321, -1.62948),
+#    'EXX': (-785.580737092, -7.16802337336, -2.72602997017)
+#    }
+
+# Values from commit d54d2996ff101 after change to 2nd order FD stencil for XC
+# Not true reference values
+refs = {
+    'PBE': (5.4230790679868246, -3.8412253207245439, -0.96306708268313668),
+    'PBE0': (-790.91825034341173, -4.9216423476467934, -1.6284471514867049),
+    'EXX': (-785.58050764525569, -7.1677092981068435, -2.7260359821942757)
     }
 
 from gpaw.xc import XC
@@ -49,6 +57,6 @@ for xc in [XC('PBE'),
         current[xc.name] = res
 
 for name in current:
-    for ref, cur in zip(ref_1871[name], current[name]):
+    for ref, cur in zip(refs[name], current[name]):
         print(ref, cur, ref - cur)
         equal(ref, cur, 2.9e-3)

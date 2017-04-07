@@ -31,5 +31,5 @@ equal(de21, de21b, 9e-8)
 
 energy_tolerance = 0.00005
 niter_tolerance = 0
-equal(e1, -0.07904951, energy_tolerance)
-equal(e2, -0.08147563, energy_tolerance)
+equal(e1, -0.0921807331628, energy_tolerance)
+equal(e2, -0.0924224726224, energy_tolerance)
