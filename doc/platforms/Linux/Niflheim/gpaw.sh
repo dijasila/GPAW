@@ -12,9 +12,9 @@ then
     module load matplotlib
     PLATFORM=linux-x86_64-$CPU_ARCH-el7-3.5
     alias gpaw-sbatch=$GPAW/doc/platforms/Linux/Niflheim/gpaw-sbatch.py
-    if [ $CPU_ARCH=broadwell ]; then
+    if [ $CPU_ARCH = broadwell ]; then
         export GPAW_MPI_OPTIONS="-mca pml cm -mca mtl psm2"
-    elif [ $CPU_ARCH=nehalem ]; then
+    elif [ $CPU_ARCH = nehalem ]; then
         export GPAW_MPI_OPTIONS=""
     fi
 else
