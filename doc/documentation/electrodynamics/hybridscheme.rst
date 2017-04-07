@@ -112,7 +112,7 @@ All the :code:`InducedField` objects
 can be analyzed in the same way as described in
 :ref:`TDDFTInducedField module documentation <inducedfield_timepropagation>`.
 Here we show an example script
-for plotting:
+for plotting (run in serial mode, i.e., with one process):
 
 .. literalinclude:: gold+na2_nanosphere_inducedfield/plot.py
 

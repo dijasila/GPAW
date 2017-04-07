@@ -1,56 +1,48 @@
-"""Crontab job for testing GPAW and ASE on Python 3.
+"""Test GPAW.
 
-Put this in crontab::
+Initial setup::
 
-    ASE=$HOME//python3-test-gpaw/ase
-    58 13 * * * cd $ASE/..; PATH=$ASE/tools:$PATH PYTHONPATH=$ASE:$PYTHONPATH \
-                python3 -bb test.py --debug
+    cd ~
+    python3 -m venv gpaw-tests
+    cd gpaw-tests
+    . bin/activate
+    pip install scipy
+    git clone http://gitlab.com/ase/ase.git
+    cd ase
+    pip install -U .
+    cd ..
+    git clone http://gitlab.com/gpaw/gpaw.git
+    cd gpaw
+    python setup.py install ...
+
+Crontab::
+
+    GPAW_COMPILE_OPTIONS="..."
+    CMD="python3 -m gpaw.utilities.py3test"
+    10 20 * * * cd ~/gpaw-tests; . bin/activate; $CMD > test.out
+
 """
 from __future__ import print_function
 import os
-import shutil
 import subprocess
 import sys
-import os.path as op
-
-dir = op.expanduser('~/py3test')
-datasets = op.expanduser('~/datasets/gpaw-setups-0.9.20000')
 
 
-def run():
-    subprocess.check_call('cd ase; git pull -q > git.out', shell=True)
-    subprocess.check_call('cd gpaw; git pull -q > git.out', shell=True)
-    os.chdir('gpaw')
-    sys.path[:0] = [op.join(dir, 'ase'), op.join(dir, 'lib', 'python')]
-    subprocess.check_call('python3 setup.py install --home=.. > build.out',
-                          shell=True)
+cmds = """\
+touch gpaw-tests.lock
+cd ase; git pull; pip install -U .
+cd gpaw; git clean -fdx; git pull; python setup.py install {} 2> ../test.err
+gpaw test
+gpaw -P 2 test
+gpaw -P 4 test
+gpaw -P 8 test"""
 
-    from gpaw import setup_paths
-    setup_paths.insert(0, datasets)
-    from gpaw.test import TestRunner, tests
+cmds = cmds.format(os.environ.get('GPAW_COMPILE_OPTIONS', ''))
 
-    with open('test.out', 'w') as fd:
-        os.mkdir('testing')
-        os.chdir('testing')
-        failed = TestRunner(tests[::-1], fd, jobs=4, show_output=False).run()
-        os.chdir('..')
-
-    from ase.test import test
-    results = test(calculators=['gpaw'], verbosity=0)
-    failed.extend(results.errors + results.failures)
-
-    if failed:
-        print(failed, file=sys.stderr)
-    else:
-        shutil.rmtree('testing')
-
-    os.chdir('..')
-    shutil.rmtree('lib')
-    shutil.rmtree('bin')
-
-
-if __name__ == '__main__':
-    if os.path.isdir('gpaw/testing'):
-        print('Failed ...', file=sys.stderr)
-    else:
-        run()
+if os.path.isfile('gpaw-tests.lock'):
+    sys.exit('Locked')
+try:
+    for cmd in cmds.splitlines():
+        subprocess.check_call(cmd, shell=True)
+finally:
+    os.remove('gpaw-tests.lock')

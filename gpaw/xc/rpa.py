@@ -2,12 +2,11 @@ from __future__ import print_function, division
 
 import functools
 import os
-import sys
 from time import ctime
 
 import numpy as np
 from ase.units import Hartree
-from ase.utils import devnull
+from ase.utils import convert_string_to_fd
 from ase.utils.timing import timer, Timer
 from scipy.special.orthogonal import p_roots
 
@@ -22,7 +21,7 @@ from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
 
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
     """Calculate RPA energy.
-    
+
     filename: str
         Name of restart-file.
     ecut: float
@@ -40,15 +39,15 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
                          txt=name + '-rpa.txt')
     rpa.calculate(ecut=ecut * (1 + 0.5 * np.arange(extrapolate))**(-2 / 3))
 
-    
+
 class RPACorrelation:
     def __init__(self, calc, xc='RPA', filename=None,
                  skip_gamma=False, qsym=True, nlambda=None,
                  nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
                  frequencies=None, weights=None, truncation=None,
-                 world=mpi.world, nblocks=1, txt=sys.stdout):
+                 world=mpi.world, nblocks=1, txt='-'):
         """Creates the RPACorrelation object
-        
+
         calc: str or calculator object
             The string should refer to the .gpw file contaning KS orbitals
         xc: str
@@ -94,14 +93,10 @@ class RPACorrelation:
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
         self.calc = calc
 
-        if world.rank != 0:
-            txt = devnull
-        elif isinstance(txt, str):
-            txt = open(txt, 'w', 1)
-        self.fd = txt
+        self.fd = convert_string_to_fd(txt, world)
 
         self.timer = Timer()
-        
+
         if frequencies is None:
             frequencies, weights = get_gauss_legendre_points(nfrequencies,
                                                              frequency_max,
@@ -110,7 +105,7 @@ class RPACorrelation:
         else:
             assert weights is not None
             user_spec = True
-            
+
         self.omega_w = frequencies / Hartree
         self.weight_w = weights / Hartree
 
@@ -208,7 +203,7 @@ class RPACorrelation:
         if self.truncation is not None:
             p('Using %s Coulomb truncation' % self.truncation)
         p()
-            
+
         if self.filename and os.path.isfile(self.filename):
             self.read()
             self.world.barrier()
@@ -219,7 +214,7 @@ class RPACorrelation:
                     nblocks=self.nblocks)
 
         self.blockcomm = chi0.blockcomm
-        
+
         wfs = self.calc.wfs
 
         if self.truncation == 'wigner-seitz':
@@ -233,16 +228,16 @@ class RPACorrelation:
         nGmax = max(count_reciprocal_vectors(ecutmax, wfs.gd, q_c)
                     for q_c in self.ibzq_qc[nq:])
         mynGmax = (nGmax + self.nblocks - 1) // self.nblocks
-        
+
         nx = (1 + spin) * nw * mynGmax * nGmax
         A1_x = np.empty(nx, complex)
         if self.nblocks > 1:
             A2_x = np.empty(nx, complex)
         else:
             A2_x = None
-        
+
         self.timer.start('RPA')
-        
+
         for q_c in self.ibzq_qc[nq:]:
             if np.allclose(q_c, 0.0) and self.skip_gamma:
                 self.energy_qi.append(len(self.ecut_i) * [0.0])
@@ -257,11 +252,11 @@ class RPACorrelation:
             mynG = (nG + self.nblocks - 1) // self.nblocks
             chi0.Ga = self.blockcomm.rank * mynG
             chi0.Gb = min(chi0.Ga + mynG, nG)
-            
+
             shape = (1 + spin, nw, chi0.Gb - chi0.Ga, nG)
             chi0_swGG = A1_x[:np.prod(shape)].reshape(shape)
             chi0_swGG[:] = 0.0
-            
+
             if np.allclose(q_c, 0.0):
                 chi0_swxvG = np.zeros((1 + spin, nw, 2, 3, nG), complex)
                 chi0_swvv = np.zeros((1 + spin, nw, 3, 3), complex)
@@ -326,7 +321,7 @@ class RPACorrelation:
         self.timer.stop('RPA')
         self.timer.write(self.fd)
         self.fd.flush()
-        
+
         return e_i * Hartree
 
     @timer('chi0(q)')
@@ -341,7 +336,7 @@ class RPACorrelation:
             chi0_wvv = None
         chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv,
                         m1, m2, [0, 1])
-        
+
         print('E_c(q) = ', end='', file=self.fd)
 
         chi0_wGG = chi0.redistribute(chi0_wGG, A2_x)
@@ -491,35 +486,23 @@ def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
         / (1 - ys) * frequency_scale / alpha
     return w, weights_w * transform / 2
 
-    
-description = 'Run RPA-correlation calculation.'
 
+class CLICommand:
+    short_description = 'Run RPA-correlation calculation'
 
-def main():
-    import optparse
-    parser = optparse.OptionParser(usage='Usage: %prog <gpw-file> [options]',
-                                   description=description)
-    add = parser.add_option
-    
-    add('-e', '--cut-off', type=float, default=100, meta='ECUT',
-        help='Plane-wave cut off energy (eV) for polarization function.')
-    add('-b', '--blocks', type=int, default=1, meta='N',
-        help='Split polarization matrix in N blocks.')
-    
-    opts, args = parser.parse_args()
-    if len(args) == 0:
-        parser.error('No gpw-file!')
-    if len(args) > 1:
-        parser.error('Too many arguments!')
-    
-    name = args[0]
-    assert name.endswith('.gpw')
-    
-    rpa = RPACorrelation(name,
-                         txt=name[:-3] + 'rpa.txt',
-                         nblocks=opts.blocks)
-    rpa.calculate([opts.cut_off])
+    @staticmethod
+    def add_arguments(parser):
+        add = parser.add_argument
+        add('gpw', metavar='gpw-file')
+        add('-e', '--cut-off', type=float, default=100, metavar='ECUT',
+            help='Plane-wave cut off energy (eV) for polarization function.')
+        add('-b', '--blocks', type=int, default=1, metavar='N',
+            help='Split polarization matrix in N blocks.')
 
-
-if __name__ == '__main__':
-    main()
+    @staticmethod
+    def run(args):
+        assert args.gpw.endswith('.gpw')
+        rpa = RPACorrelation(args.gpw,
+                             txt=args.gpw[:-3] + 'rpa.txt',
+                             nblocks=args.blocks)
+        rpa.calculate([args.cut_off])

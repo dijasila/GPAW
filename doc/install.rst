@@ -110,9 +110,9 @@ you have an ``mpicc`` command on your system then there will also be a
 Check that you have installed everything in the correct places::
 
     $ gpaw info
-    
+
 To check the compiled parallel features (like ScaLAPACK), you need to run::
-    
+
     $ gpaw-python $(which gpaw) info
 
 
@@ -173,6 +173,8 @@ Sou can get the source from a tar-file or from Git:
 
         $ tar -xf gpaw-1.2.0.tar.gz
         $ ln -s gpaw-1.2.0 gpaw
+
+    Here is a `list of tarballs <https://pypi.python.org/simple/gpaw/>`__.
 
 :Git clone:
 

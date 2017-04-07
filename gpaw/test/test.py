@@ -2,79 +2,86 @@ from __future__ import print_function
 import os
 import tempfile
 import warnings
-from optparse import OptionParser
 
 import gpaw.mpi as mpi
 from gpaw.cli.info import info
-from gpaw import debug, __version__
+from gpaw import debug
 
 
-def main(args=None):
+class CLICommand:
+    short_description = 'Run the GPAW test suite'
     description = ('Run the GPAW test suite.  The test suite can be run in '
                    'parallel with MPI through gpaw-python.  The test suite '
                    'supports 1, 2, 4 or 8 CPUs although some tests are '
                    'skipped for some parallelizations.  If no TESTs are '
                    'given, run all tests supporting the parallelization.')
 
-    parser = OptionParser(usage='%prog [OPTION...] [TEST...]',
-                          description=description,
-                          version='%%prog %s' % __version__)
-    parser.add_option('-x', '--exclude',
-                      type='string', default=None,
-                      help='Exclude tests (comma separated list of tests).',
-                      metavar='test1.py,test2.py,...')
-    parser.add_option('-f', '--run-failed-tests-only',
-                      action='store_true',
-                      help='Run failed tests only.')
-    parser.add_option('--from', metavar='TESTFILE', dest='from_test',
-                      help='Run remaining tests, starting from TESTFILE')
-    parser.add_option('--after', metavar='TESTFILE', dest='after_test',
-                      help='Run remaining tests, starting after TESTFILE')
-    parser.add_option('--range',
-                      type='string', default=None,
-                      help='Run tests in range test_i.py to test_j.py '
-                      '(inclusive)',
-                      metavar='test_i.py,test_j.py')
-    parser.add_option('-j', '--jobs', type='int', default=1,
-                      help='Run JOBS threads.  Each test will be executed '
-                      'in serial by one thread.  This option cannot be used '
-                      'for parallelization together with MPI.')
-    parser.add_option('--reverse', action='store_true',
-                      help=('Run tests in reverse order (less overhead with '
-                            'multiple jobs)'))
-    parser.add_option('-k', '--keep-temp-dir', action='store_true',
-                      dest='keep_tmpdir',
-                      help='Do not delete temporary files.')
-    parser.add_option('-d', '--directory', help='Run test in this directory')
-    parser.add_option('-s', '--show-output', action='store_true',
-                      help='Show standard output from tests.')
+    @staticmethod
+    def add_arguments(parser):
+        add = parser.add_argument
+        add('tests', nargs='*')
+        add('-x', '--exclude',
+            type=str, default=None,
+            help='Exclude tests (comma separated list of tests).',
+            metavar='test1.py,test2.py,...')
+        add('-f', '--run-failed-tests-only',
+            action='store_true',
+            help='Run failed tests only.')
+        add('--from', metavar='TESTFILE', dest='from_test',
+            help='Run remaining tests, starting from TESTFILE')
+        add('--after', metavar='TESTFILE', dest='after_test',
+            help='Run remaining tests, starting after TESTFILE')
+        add('--range',
+            type=str, default=None,
+            help='Run tests in range test_i.py to test_j.py '
+            '(inclusive)',
+            metavar='test_i.py,test_j.py')
+        add('-j', '--jobs', type=int, default=1,
+            help='Run JOBS threads.  Each test will be executed '
+            'in serial by one thread.  This option cannot be used '
+            'for parallelization together with MPI.')
+        add('--reverse', action='store_true',
+            help=('Run tests in reverse order (less overhead with '
+                                               'multiple jobs)'))
+        add('-k', '--keep-temp-dir', action='store_true',
+            dest='keep_tmpdir',
+            help='Do not delete temporary files.')
+        add('-d', '--directory', help='Run test in this directory')
+        add('-s', '--show-output', action='store_true',
+            help='Show standard output from tests.')
 
-    opt, tests = parser.parse_args(args)
+    @staticmethod
+    def run(args):
+        main(args)
 
-    if len(tests) == 0:
+
+def main(args):
+    if len(args.tests) == 0:
         from gpaw.test import tests
+    else:
+        tests = args.tests
 
-    if opt.reverse:
+    if args.reverse:
         tests.reverse()
 
-    if opt.run_failed_tests_only:
+    if args.run_failed_tests_only:
         tests = [line.strip() for line in open('failed-tests.txt')]
 
     exclude = []
-    if opt.exclude is not None:
-        exclude += opt.exclude.split(',')
+    if args.exclude is not None:
+        exclude += args.exclude.split(',')
 
-    if opt.from_test:
-        fromindex = tests.index(opt.from_test)
+    if args.from_test:
+        fromindex = tests.index(args.from_test)
         tests = tests[fromindex:]
 
-    if opt.after_test:
-        index = tests.index(opt.after_test) + 1
+    if args.after_test:
+        index = tests.index(args.after_test) + 1
         tests = tests[index:]
 
-    if opt.range:
+    if args.range:
         # default start(stop) index is first(last) test
-        indices = opt.range.split(',')
+        indices = args.range.split(',')
         try:
             start_index = tests.index(indices[0])
         except ValueError:
@@ -85,7 +92,7 @@ def main(args=None):
             stop_index = len(tests)
         tests = tests[start_index:stop_index]
 
-    if opt.jobs > 1:
+    if args.jobs > 1:
         exclude.append('maxrss.py')
 
     for test in exclude:
@@ -104,12 +111,12 @@ def main(args=None):
             warnings.warn(message, RuntimeWarning)
 
     if mpi.rank == 0:
-        if opt.directory is None:
+        if args.directory is None:
             tmpdir = tempfile.mkdtemp(prefix='gpaw-test-')
         else:
-            tmpdir = opt.directory
+            tmpdir = args.directory
             if os.path.isdir(tmpdir):
-                opt.keep_tmpdir = True
+                args.keep_tmpdir = True
             else:
                 os.mkdir(tmpdir)
     else:
@@ -121,19 +128,13 @@ def main(args=None):
         info()
         print('Running tests in', tmpdir)
         print('Jobs: {0}, Cores: {1}, debug-mode: {2}'
-              .format(opt.jobs, mpi.size, debug))
-    failed = TestRunner(tests, jobs=opt.jobs,
-                        show_output=opt.show_output).run()
+              .format(args.jobs, mpi.size, debug))
+    failed = TestRunner(tests, jobs=args.jobs,
+                        show_output=args.show_output).run()
     os.chdir(cwd)
     if mpi.rank == 0:
         if len(failed) > 0:
             open('failed-tests.txt', 'w').write('\n'.join(failed) + '\n')
-        elif not opt.keep_tmpdir:
+        elif not args.keep_tmpdir:
             os.system('rm -rf ' + tmpdir)
     return len(failed)
-
-# Backwards compatibility:
-run = main
-
-if __name__ == '__main__':
-    main()
