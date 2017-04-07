@@ -146,10 +146,9 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
     weights_xi = np.empty((nb * nk, setup.ni))
     x = 0
     for k, w in enumerate(w_k):
-        eps = wfs.collect_eigenvalues(k=k, s=spin)[:nb]
-        #print(wfs.world.rank, type(eps))
-        if eps is not None:
-            energies[x:x + nb] = eps
+        eps_n = wfs.collect_eigenvalues(k=k, s=spin)
+        if len(eps_n) > 0:
+            energies[x:x + nb] = eps_n[:nb]
         u = spin * nk + k
         P_ani = wfs.kpt_u[u].P_ani
         if a in P_ani:

@@ -265,7 +265,7 @@ class WaveFunctions:
             self.kd.comm.receive(b_nx, kpt_rank, 1301)
             return b_nx
 
-        return np.nan  # see comment in get_wave_function_array() method
+        return np.zeros(0)  # see comment in get_wave_function_array() method
 
     def collect_auxiliary(self, value, k, s, shape=1, dtype=float):
         """Helper method for collecting band-independent scalars/arrays.

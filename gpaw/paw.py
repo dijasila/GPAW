@@ -519,8 +519,7 @@ class PAW:
             if self.wfs.world.rank != 0:
                 eps_n = np.empty(self.wfs.bd.nbands)
             self.wfs.world.broadcast(eps_n, 0)
-        if eps_n is not None:
-            return eps_n * Ha
+        return eps_n * Ha
 
     def get_occupation_numbers(self, kpt=0, spin=0, broadcast=True):
         """Return occupation array."""
