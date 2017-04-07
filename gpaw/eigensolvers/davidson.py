@@ -38,9 +38,14 @@ class Davidson(Eigensolver):
 
     def todict(self):
         return {'name': 'dav', 'niter': self.niter}
-        
-    def initialize(self, wfs):
 
+    def initialize(self, wfs):
+        for ksl in [wfs.diagksl, wfs.orthoksl]:
+            if ksl.using_blacs:
+                msg = ('Davidson eigensolver does not work in conjunction '
+                       'with BLACS/ScaLAPACK.  This combination should be '
+                       'unnecessary unless there are thousands of bands.')
+                raise ValueError(msg)
         Eigensolver.initialize(self, wfs)
         self.overlap = wfs.overlap
 

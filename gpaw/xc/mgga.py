@@ -99,16 +99,10 @@ class MGGA(XCFunctional):
         self.dEdD_sp = dEdD_sp
 
         if self.xcc.tau_npg is None:
-            self.xcc.tau_npg, self.xcc.taut_npg = self.initialize_kinetic(self.xcc)
+            self.xcc.tau_npg, self.xcc.taut_npg = self.initialize_kinetic(
+                self.xcc)
 
-        class MockKernel:
-            def __init__(self, mgga):
-                self.mgga = mgga
-
-            def calculate(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
-                self.mgga.mgga_radial(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-
-        rcalc = GGARadialCalculator(MockKernel(self))  # yuck
+        rcalc = self.create_mgga_radial_calculator()
         expansion = GGARadialExpansion(rcalc)
         # The damn thing uses too many 'self' variables to define a clean
         # integrator object.
@@ -117,6 +111,16 @@ class MGGA(XCFunctional):
                                      addcoredensity, a)
         del self.D_sp, self.n, self.ae, self.xcc, self.dEdD_sp
         return E
+
+    def create_mgga_radial_calculator(self):
+        class MockKernel:
+            def __init__(self, mgga):
+                self.mgga = mgga
+
+            def calculate(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
+                self.mgga.mgga_radial(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+
+        return GGARadialCalculator(MockKernel(self))
 
     def mgga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         n = self.n

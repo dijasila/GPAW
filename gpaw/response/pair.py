@@ -7,7 +7,7 @@ from math import pi
 
 import numpy as np
 from ase.units import Hartree
-from ase.utils import devnull
+from ase.utils import convert_string_to_fd
 from ase.utils.timing import timer, Timer
 
 import gpaw.mpi as mpi
@@ -52,7 +52,7 @@ class KPointPair:
     def get_k1(self):
         """ Return KPoint object 1."""
         return self.kpt1
-    
+
     def get_k2(self):
         """ Return KPoint object 2."""
         return self.kpt2
@@ -86,7 +86,7 @@ class PWSymmetryAnalyzer:
                  disable_time_reversal=False,
                  timer=None):
         """Creates a PWSymmetryAnalyzer object.
-        
+
         Determines which of the symmetries of the atomic structure
         that is compatible with the reciprocal lattice. Contains the
         necessary functions for mapping quantities between kpoints,
@@ -115,7 +115,7 @@ class PWSymmetryAnalyzer:
         assert disable_non_symmorphic, \
             print('You are not allowed to use non symmorphic syms, sorry. ',
                   file=self.fd)
-        
+
         # Settings
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
@@ -130,7 +130,7 @@ class PWSymmetryAnalyzer:
         self.disable_symmetries = (self.disable_point_group and
                                    self.disable_time_reversal and
                                    self.disable_non_symmorphic)
-        
+
         # Number of symmetries
         U_scc = kd.symmetry.op_scc
         self.nU = len(U_scc)
@@ -203,7 +203,7 @@ class PWSymmetryAnalyzer:
         K_gK = self.group_kpoints()
         ng = len(K_gK)
         self.infostring += '{0} groups of equivalent kpoints. '.format(ng)
-        
+
         percent = (1 - ng / self.kd.nbzkpts) * 100
         self.infostring += '{0}% reduction. '.format(percent)
 
@@ -235,12 +235,12 @@ class PWSymmetryAnalyzer:
         conserveq_s = np.zeros(nsym, bool)
 
         newq_sc = np.dot(U_scc, q_c)
-        
+
         # Direct symmetries
         dshift_sc = (newq_sc - q_c[np.newaxis]).round().astype(int)
         inds_s = np.argwhere((newq_sc == q_c[np.newaxis] + dshift_sc).all(1))
         conserveq_s[inds_s] = True
-        
+
         shift_sc[:nU] = dshift_sc
 
         # Time reversal
@@ -269,7 +269,7 @@ class PWSymmetryAnalyzer:
                 assert (self.kd.bz2bz_ks[:, s] == -1).all()
             else:
                 stmp_s.append(s)
-        
+
         s_s = stmp_s
 
         self.infostring += 'Found {0} allowed symmetries. '.format(len(s_s))
@@ -280,7 +280,7 @@ class PWSymmetryAnalyzer:
         U_scc = self.kd.symmetry.op_scc
         nU = self.nU
         return (U_scc[s % nU] == np.eye(3)).all()
-    
+
     def is_not_time_reversal(self, s):
         nU = self.nU
         return not bool(s // nU)
@@ -305,10 +305,10 @@ class PWSymmetryAnalyzer:
         sbz2sbz_ks = bz2bz_ks[K_k][:, s_s]  # Reduced number of symmetries
         # Avoid -1 (see documentation in gpaw.symmetry)
         sbz2sbz_ks[sbz2sbz_ks == -1] = nk
-        
+
         smallestk_k = np.sort(sbz2sbz_ks)[:, 0]
         k2g_g = np.unique(smallestk_k, return_index=True)[1]
-        
+
         K_gs = sbz2sbz_ks[k2g_g]
         K_gk = [np.unique(K_s[K_s != nk]) for K_s in K_gs]
 
@@ -332,11 +332,11 @@ class PWSymmetryAnalyzer:
         kd = self.kd
         k1_c = kd.bzk_kc[K1]
         k2_c = kd.bzk_kc[K2]
-        
+
         shift_c = np.dot(U_cc, k1_c) - k2_c * sign
         assert np.allclose(shift_c.round(), shift_c)
         shift_c = shift_c.round().astype(int)
-        
+
         return shift_c
 
     @timer('map_G')
@@ -389,7 +389,7 @@ class PWSymmetryAnalyzer:
             elif sign == -1:
                 tmp = sign * np.dot(M_vv.T, AT_wxvG[..., G_G])
             tmp_wxvG += np.transpose(tmp, (1, 2, 0, 3))
-            
+
         # Overwrite the input
         A_wxvG[:] = tmp_wxvG
 
@@ -444,7 +444,7 @@ class PWSymmetryAnalyzer:
         """Return symmetry operator s."""
         U_scc = self.kd.symmetry.op_scc
         ft_sc = self.kd.symmetry.op_scc
-        
+
         reds = s % self.nU
         if self.timereversal(s):
             TR = lambda x: x.conj()
@@ -452,7 +452,7 @@ class PWSymmetryAnalyzer:
         else:
             sign = 1
             TR = lambda x: x
-        
+
         return U_scc[reds], sign, TR, self.shift_sc[s], ft_sc[reds]
 
     @timer('map_G_vectors')
@@ -511,14 +511,14 @@ class PairDensity:
     def __init__(self, calc, ecut=50,
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
-                 world=mpi.world, txt=sys.stdout, timer=None, nblocks=1,
+                 world=mpi.world, txt='-', timer=None, nblocks=1,
                  gate_voltage=None, eshift=None):
         if ecut is not None:
             ecut /= Hartree
 
         if gate_voltage is not None:
             gate_voltage /= Hartree
-        
+
         if eshift is not None:
             eshift /= Hartree
 
@@ -530,21 +530,17 @@ class PairDensity:
         self.gate_voltage = gate_voltage
 
         if nblocks == 1:
-            self.blockcomm = self.world.new_communicator([world.rank])
+            self.blockcomm = world.new_communicator([world.rank])
             self.kncomm = world
         else:
             assert world.size % nblocks == 0, world.size
             rank1 = world.rank // nblocks * nblocks
             rank2 = rank1 + nblocks
-            self.blockcomm = self.world.new_communicator(range(rank1, rank2))
+            self.blockcomm = world.new_communicator(range(rank1, rank2))
             ranks = np.arange(world.rank % nblocks, world.size, nblocks)
-            self.kncomm = self.world.new_communicator(ranks)
+            self.kncomm = world.new_communicator(ranks)
 
-        if world.rank != 0:
-            txt = devnull
-        elif isinstance(txt, str):
-            txt = open(txt, 'w')
-        self.fd = txt
+        self.fd = convert_string_to_fd(txt, world)
 
         self.timer = timer or Timer()
 
@@ -716,7 +712,7 @@ class PairDensity:
             if time_reversal:
                 P_ni = P_ni.conj()
             P_ani.append(P_ni)
-        
+
         return KPoint(s, K, n1, n2, blocksize, na, nb,
                       ut_nR, eps_n, f_n, P_ani, shift_c)
 
@@ -724,7 +720,7 @@ class PairDensity:
                                 PWSA=None, disable_optical_limit=False,
                                 unsymmetrized=False, use_more_memory=1):
         """Generator for returning pair densities.
-        
+
         Returns the pair densities between the occupied and
         the states in range(m1, m2).
 
@@ -850,7 +846,7 @@ class PairDensity:
                     n0_mG = n0_nmG.reshape((-1, nG))
                     if optical_limit:
                         n0_mv = n0_nmv.reshape((-1, 3))
-                    
+
                     if unsymmetrized:
                         if optical_limit:
                             yield (None, df_m, deps_m,
@@ -888,7 +884,7 @@ class PairDensity:
                         yield (None, df_M, deps_M, n_MG, n_Mv, None)
                     else:
                         yield (None, df_M, deps_M, n_MG, None, None)
-                        
+
         pb.finish()
 
     @timer('Get kpoint pair')
@@ -916,7 +912,7 @@ class PairDensity:
 
         if Q_aGii is None:
             Q_aGii = self.initialize_paw_corrections(pd)
-            
+
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
         Q_G = kptpair.Q_G  # Fourier components of kpoint pair
@@ -955,7 +951,7 @@ class PairDensity:
         """Calculate matrix elements of the momentum operator.
 
         Calculates::
-                                               
+
           n_{nm\mathrm{k}}\int_{\Omega_{\mathrm{cell}}}\mathrm{d}\mathbf{r}
           \psi_{n\mathrm{k}}^*(\mathbf{r})
           e^{-i\,(\mathrm{q} + \mathrm{G})\cdot\mathbf{r}}
@@ -1013,7 +1009,7 @@ class PairDensity:
                 utvcc_R = -ut_nvR[n, v].conj()
                 Cv1_aGi = [np.dot(P1_ni[n].conj(), Q_vGii[v])
                            for Q_vGii, P1_ni in zip(Q_avGii, kpt1.P_ani)]
-                
+
                 nv_mG = self.calculate_pair_densities(utvcc_R,
                                                       Cv1_aGi, kpt2,
                                                       pd, Q_G)
@@ -1105,7 +1101,7 @@ class PairDensity:
 
         eps1 = kpt1.eps_n[n]
         deps_m = (eps1 - kpt2.eps_n)[m_m]
-        
+
         n0_mv = self.optical_pair_velocity(n, m_m, kpt1, kpt2)
 
         deps_m = deps_m.copy()
@@ -1130,7 +1126,7 @@ class PairDensity:
         if n_n is None:
             n_n = np.arange(na, nb)
         assert np.max(n_n) < nb, print('This is too many bands')
-        
+
         # Load kpoints
         kd = self.calc.wfs.kd
         gd = self.calc.wfs.gd
@@ -1200,13 +1196,13 @@ class PairDensity:
                     gemm(1.0, C_vi, P_ni[ind_n - na], 1.0, nabla0_nv, 'c')
 
                 vel_nnv[n] = -1j * nabla0_nv
-            
+
             for iv in range(3):
                 vel, _ = np.linalg.eig(vel_nnv[..., iv])
                 vel_nv[ind_n - na, iv] = vel  # Use eigenvalues
 
         return vel_nv[n_n - na]
-    
+
     def get_fft_indices(self, K1, K2, q_c, pd, shift0_c):
         """Get indices for G-vectors inside cutoff sphere."""
         kd = self.calc.wfs.kd
