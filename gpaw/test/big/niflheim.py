@@ -17,6 +17,11 @@ class NiflheimCluster(Cluster):
         dir = os.getcwd()
         os.chdir(job.dir)
         self.write_pylab_wrapper(job)
+        if self.partition is None:
+            if job.ncpus % 24 == 0:
+                self.partition = 'xeon24'
+            else:
+                self.partition = 'xeon8'
 
         cmd = ['sbatch',
                '--partition={}'.format(self.partition),
