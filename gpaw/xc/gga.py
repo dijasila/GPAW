@@ -106,7 +106,20 @@ def calculate_sigma(gd, grad_v, n_sg):
                   _     __   _  2     __    _
     Returns sigma(r) = |\/ n(r)|  and \/ n (r).
 
-    With multiple spins it's a bit more complicated."""
+    With multiple spins, sigma has the three elements
+
+                   _     __     _  2
+            sigma (r) = |\/ n  (r)|  ,
+                 0           up
+
+                   _     __     _      __     _
+            sigma (r) =  \/ n  (r)  .  \/ n  (r) ,
+                 1           up            dn
+
+                   _     __     _  2
+            sigma (r) = |\/ n  (r)|  .
+                 2           dn
+    """
     nspins = len(n_sg)
     gradn_svg = gd.empty((nspins, 3))
     sigma_xg = gd.zeros(nspins * 2 - 1)
