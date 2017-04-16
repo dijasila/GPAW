@@ -48,7 +48,7 @@ class Phonons(phonons.Phonons):
             self.gamma_index = 0
             self.dtype == float
         else:
-            self.dtype == comples
+            self.dtype == complex
             for k, k_c in enumerate(self.kd.ibzk_kc):
                 if np.all(k_c == 0.):
                     self.gamma_index = k
@@ -64,7 +64,7 @@ class Phonons(phonons.Phonons):
         """Read force constants from files."""
 
         # Data structure for force constants
-        self.C_qaavv = [dict([(a, dict([(a_, np.zeros((3, 3), dtype=dtype))
+        self.C_qaavv = [dict([(a, dict([(a_, np.zeros((3, 3), dtype=self.dtype))
                                         for a_ in self.indices]))
                               for a in self.indices])
                         for q in range(self.kd.nibzkpts)]
