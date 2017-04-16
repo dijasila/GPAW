@@ -188,7 +188,6 @@ class GWQEHCorrection(PairDensity):
         mykpts = [self.get_k_point(s, K, n1, n2)
                   for s, K, n1, n2 in self.mysKn1n2]
 
-        kplusqdone_u = [set() for kpt in mykpts]
         Nq = len((self.qd.ibzk_kc))
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             self.nq = iq
@@ -199,8 +198,6 @@ class GWQEHCorrection(PairDensity):
             print('Calculating contribution from IBZ q-point #%d/%d q_c=%s'
                   % (nq, Nq, qcstr), file=self.fd)
             
-            rcell_cv = 2 * pi * np.linalg.inv(self.calc.wfs.gd.cell_cv).T
-            q_abs = np.linalg.norm(np.dot(q_c, rcell_cv))
 
             # Screened potential
             dW_w = self.dW_qw[nq]
@@ -262,7 +259,7 @@ class GWQEHCorrection(PairDensity):
                     k1_c = kd.bzk_kc[kpt1.K]
                     k2_c = kd.bzk_kc[K2]
                     # This is the q that connects K1 and K2 in the 1st BZ
-                    q1_c = kd.bzk_kc[K2] - kd.bzk_kc[kpt1.K]
+                    q1_c = k2_c - k1_c
 
                     # G-vector that connects the full Q_c with q1_c
                     shift1_c = q1_c - self.sign * np.dot(U_cc, q_c)
@@ -358,7 +355,6 @@ class GWQEHCorrection(PairDensity):
         
         # Pick +i*eta or -i*eta:
         s_m = (1 + sgn_m * np.sign(0.5 - f_m)).astype(int) // 2
-        world = self.world
         comm = self.blockcomm
         nw = len(self.omega_w)
         nG = n_mG.shape[1]

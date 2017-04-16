@@ -132,11 +132,6 @@ def calculate(element, h, vacuum, xc, magmom):
         calc_atom.set(xc=xc)
         calc.set(xc=xc)
 
-    if 0:
-        qn = QuasiNewton(compound)
-        qn.attach(Trajectory(
-            element+'2'+'_'+xc+'.traj', 'w', compound).write)
-        qn.run(fmax=0.02)
     e_atom = atom.get_potential_energy()
     e_compound = compound.get_potential_energy()
 
@@ -144,7 +139,6 @@ def calculate(element, h, vacuum, xc, magmom):
                2 * data[element]['dHf_0_A'])
     dHf_298 = (dHf_0 + data[element]['H_298_H_0_AA_B3LYP'] -
                2 * data[element]['H_298_H_0_A']) * (mol / kcal)
-    dist_compound = compound.get_distance(0,1)
     de = dHf_298-data[element][xc][1]
     E[element][xc] = de
     if rank == 0:

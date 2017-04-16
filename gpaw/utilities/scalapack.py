@@ -375,7 +375,6 @@ def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
     if transb == 'T':
         Kb, N = N, Kb
     Mc, Nc = descc.gshape
-    K = Ka
 
     assert Ka == Kb
     assert M == Mc
