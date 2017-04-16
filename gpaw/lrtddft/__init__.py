@@ -408,7 +408,9 @@ class LrTDDFT(ExcitationList):
         self.diagonalize()
         other.diagonalize()
         ov_pp = self.Om.kss.overlap(ov_nn, other.Om.kss)
+	# ov[pLm, pLo] = Om[pLm, :pKm]* ov[:pKm, pLo]
         return np.dot(self.Om.eigenvectors.conj(),
+                      # ov[pKm, pLo] = ov[pKm, :pKo] Om[pLo, :pKo].T
                       np.dot(ov_pp, other.Om.eigenvectors.T))
 
     def __getitem__(self, i):
