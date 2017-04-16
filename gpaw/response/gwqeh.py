@@ -1,32 +1,21 @@
 from __future__ import division, print_function
 
 import sys
-import os
-import functools
 from math import pi
 import pickle
 
 import numpy as np
 
-from ase.utils import opencew, devnull
-from ase.utils.timing import timer, Timer
+from ase.utils.timing import timer
 from ase.units import Hartree
-from ase.parallel import paropen
 from ase.dft.kpoints import monkhorst_pack
 
-import gpaw
-from gpaw import GPAW
 import gpaw.mpi as mpi
-from gpaw.kpt_descriptor import to1bz, KPointDescriptor
+from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import HilbertTransform, frequency_grid
-from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
-from gpaw.response.g0w0 import G0W0
-from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
-from gpaw.utilities.progressbar import ProgressBar
+from gpaw.response.pair import PairDensity
+from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.xc.exx import select_kpts
-from gpaw.xc.tools import vxc
-import gpaw.io.tar as io
-from ase.units import Bohr
 
 
 class GWQEHCorrection(PairDensity):
@@ -497,8 +486,7 @@ class GWQEHCorrection(PairDensity):
         return dWgw_qw
 
     def calculate_W_QEH(self, structure, d, layer=0):
-        from gpaw.response.qeh import Heterostructure, expand_layers, \
-            check_building_blocks
+        from gpaw.response.qeh import Heterostructure, expand_layers
 
         structure = expand_layers(structure)
         self.w_grid = self.omega_w

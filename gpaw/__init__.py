@@ -21,7 +21,7 @@ __all__ = ['GPAW',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
-           'PW', 'LCAO', 'restart']
+           'PW', 'LCAO', 'restart', 'FD']
 
 
 class ConvergenceError(Exception):

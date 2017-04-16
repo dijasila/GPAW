@@ -14,12 +14,7 @@ http://www.netlib.org/scalapack
 """
 
 import warnings
-from sys import stderr
 
-import numpy as np
-
-from gpaw import debug
-import gpaw.mpi as mpi
 import _gpaw
 
 switch_lu = {'U': 'L', 'L': 'U'}

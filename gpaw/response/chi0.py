@@ -1,6 +1,5 @@
 from __future__ import print_function, division
 
-import sys
 from time import ctime
 
 import numpy as np

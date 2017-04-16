@@ -2,7 +2,6 @@
 
 __all__ = ["DynamicalMatrix"]
 
-from math import sqrt, pi
 import os
 import pickle
 
@@ -11,7 +10,7 @@ import numpy.fft as fft
 
 from gpaw import debug
 from gpaw.mpi import serial_comm
-from gpaw.utilities import unpack, unpack2
+from gpaw.utilities import unpack
 
 class DynamicalMatrix:
     """Class for assembling the dynamical matrix from first-order responses.

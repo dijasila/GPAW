@@ -1,7 +1,6 @@
 import numpy as np
 from ase.build import bulk
-from ase.units import Hartree, Bohr
-from gpaw import GPAW, FermiDirac
+from gpaw import GPAW
 from ase.dft.kpoints import monkhorst_pack
 
 

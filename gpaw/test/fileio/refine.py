@@ -1,6 +1,8 @@
 """Test automatically write out of restart files"""
-from gpaw import GPAW
+from __future__ import print_function
+
 from ase import Atoms
+from gpaw import GPAW
 from gpaw.test import equal
 
 restart_wf = 'gpaw-restart-wf.gpw'

@@ -1,11 +1,11 @@
 """Post processing module for dfpt force constants."""
 
+import os
 import pickle
 
 import numpy as np
 import numpy.fft as fft
 
-import ase.units as units
 import ase.phonons as phonons
 
 from gpaw.kpt_descriptor import KPointDescriptor

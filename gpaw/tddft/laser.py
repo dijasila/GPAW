@@ -1,16 +1,7 @@
 """Different kinds of laser pulses.
 """
 
-import sys
-import time
-from math import log
-
 import numpy as np
-from ase.units import Bohr, Hartree
-
-import gpaw.io
-from gpaw.tddft.units import attosec_to_autime, autime_to_attosec, \
-                             eV_to_aufrequency, aufrequency_to_eV
 
 ###########################
 # Main class

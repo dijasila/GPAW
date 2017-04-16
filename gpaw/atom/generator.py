@@ -5,7 +5,6 @@ from math import pi, sqrt
 
 import numpy as np
 from numpy.linalg import solve, inv
-from ase.data import atomic_names
 
 from gpaw.setup_data import SetupData
 from gpaw.atom.configurations import configurations

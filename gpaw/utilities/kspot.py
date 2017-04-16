@@ -4,10 +4,7 @@ from math import pi,sqrt
 
 import numpy as np
 
-from gpaw.utilities import hartree
-from gpaw.utilities.blas import gemmdot
 from gpaw.atom.all_electron import AllElectron
-from gpaw import extra_parameters
 from gpaw.sphere.lebedev import weight_n, R_nv
 
 

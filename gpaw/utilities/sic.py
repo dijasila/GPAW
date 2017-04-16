@@ -3,7 +3,6 @@ from math import pi
 import numpy as np
 from ase.units import Hartree
 
-from gpaw.xc import XC
 from gpaw.xc.sic import SIC
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters

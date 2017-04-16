@@ -1,7 +1,7 @@
 from __future__ import print_function
+
 from ase.build import bulk
 
-from gpaw.atom.generator import Generator
 from gpaw import GPAW, Davidson, Mixer, PW
 from gpaw.xc.libvdwxc import vdw_mbeef
 

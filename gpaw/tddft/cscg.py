@@ -7,7 +7,6 @@ import numpy as np
 
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.blas import dotu
-from gpaw.utilities.blas import dotc
 from gpaw.mpi import rank
 
 class CSCG:

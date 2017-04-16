@@ -1,18 +1,10 @@
-import os
-import time
-import pickle as pckl
-
 import numpy as np
 
 from ase import Atoms
-from ase.io import read
-from ase.lattice.compounds import Rocksalt
 
-from gpaw import GPAW, FermiDirac, Mixer
+from gpaw import GPAW, FermiDirac
 from gpaw.utilities import compiled_with_sl
-from gpaw.eigensolvers import Davidson
 from gpaw.wavefunctions.pw import PW
-from gpaw.occupations import FermiDirac
 from gpaw.response.df import DielectricFunction
 from gpaw.mpi import world
 

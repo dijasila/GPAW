@@ -88,7 +88,6 @@ def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,
 
     return size, offsets
 
-
 class KPointDescriptor:
     """Descriptor-class for k-points."""
 
