@@ -137,6 +137,5 @@ def main(args, parser):
             open('failed-tests.txt', 'w').write('\n'.join(failed) + '\n')
         elif not args.keep_tmpdir:
             os.system('rm -rf ' + tmpdir)
-
-    if failed:
-        parser.exit(1)
+    return failed
+    

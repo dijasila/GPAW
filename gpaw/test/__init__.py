@@ -500,7 +500,7 @@ class TestRunner:
                         ntests, time.time() - t0))
         self.log.write('Tests skipped: %d\n' % len(self.skipped))
         if self.failed:
-            print('Tests failed:', len(self.failed), file=sys.stderr)
+            print('Tests failed:', len(self.failed), file=self.log)
         else:
             self.log.write('All tests passed!\n')
         self.log.write('=' * 77 + '\n')
