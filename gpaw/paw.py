@@ -183,6 +183,7 @@ class PAW:
 
         'LDA', 'PBE', ..."""
 
+        return self.parameters.get('xc', 'LDA')
         return self.hamiltonian.xc.name
 
     def get_number_of_spins(self):
