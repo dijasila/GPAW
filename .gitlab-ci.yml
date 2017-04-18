@@ -3,7 +3,7 @@ master:
     - apt-get update -qy
     - apt-get install -qy python-dev python-numpy python-scipy libopenblas-dev liblapack-dev libxc-dev python-pip > apt-get.output
     - pip install flake8
-    - pip install git+https://gitlab.com/ase/ase.git@master
+    - pip install git+https://gitlab.com/ase/ase.git@master > ase-install.output
     - python setup.py install --user > gpaw-install.output
     - export PATH=~/.local/bin:$PATH
     - gpaw install-data --register gpaw-datasets
