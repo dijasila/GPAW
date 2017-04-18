@@ -51,11 +51,11 @@ class CLICommand:
             help='Show standard output from tests.')
 
     @staticmethod
-    def run(args):
-        main(args)
+    def run(args, parser):
+        main(args, parser)
 
 
-def main(args):
+def main(args, parser):
     if len(args.tests) == 0:
         from gpaw.test import tests
     else:
@@ -137,4 +137,6 @@ def main(args):
             open('failed-tests.txt', 'w').write('\n'.join(failed) + '\n')
         elif not args.keep_tmpdir:
             os.system('rm -rf ' + tmpdir)
-    return len(failed)
+
+    if failed:
+        parser.exit(1)
