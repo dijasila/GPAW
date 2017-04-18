@@ -439,6 +439,7 @@ if mpi.size != 1 and not compiled_with_sl():
                 'pw/fulldiag.py',
                 'pw/fulldiagk.py',
                 'response/gw_hBN_extrapolate.py',
+                'response/gw0_hBN.py',
                 'response/au02_absorption.py']
 
 if not compiled_with_sl():
