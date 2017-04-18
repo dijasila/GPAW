@@ -10,7 +10,6 @@ from scipy import __version__ as scipy_version
 from ase.units import Hartree
 from ase.data import atomic_numbers
 
-from gpaw.mpi import world
 from gpaw import __version__ as version
 from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
 from gpaw.gaunt import gaunt

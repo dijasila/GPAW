@@ -1,5 +1,5 @@
-import numpy as np
 from ase import Atom, Atoms
+
 from gpaw import GPAW, Mixer, RMM_DIIS
 from gpaw.test import equal
 

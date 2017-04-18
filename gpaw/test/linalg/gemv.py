@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import time
 import numpy as np
-from gpaw.utilities.blas import gemmdot, dotu, gemv
+from gpaw.utilities.blas import gemmdot, gemv
 
 def getrand(shape, dtype):
     if isinstance(shape, int):

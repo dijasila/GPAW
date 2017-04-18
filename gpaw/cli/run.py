@@ -1,5 +1,5 @@
 import sys
-import optparse
+import optparse  # noqa
 
 from ase.cli.run import Runner, str2dict, CLICommand as ASECLICommand
 

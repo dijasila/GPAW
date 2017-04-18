@@ -21,7 +21,7 @@ __all__ = ['GPAW',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
-           'PW', 'LCAO', 'restart']
+           'PW', 'LCAO', 'restart', 'FD']
 
 
 class ConvergenceError(Exception):
@@ -227,7 +227,7 @@ def initialize_data_paths():
         setup_paths[:] = os.environ['GPAW_SETUP_PATH'].split(os.pathsep)
     except KeyError:
         if os.pathsep == ';':
-            seltup_paths[:] = [r'C:\gpaw-setups']
+            setup_paths[:] = [r'C:\gpaw-setups']
         else:
             setup_paths[:] = ['/usr/local/share/gpaw-setups',
                               '/usr/share/gpaw-setups']

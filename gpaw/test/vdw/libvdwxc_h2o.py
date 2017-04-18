@@ -1,7 +1,6 @@
 from ase.build import molecule
 from gpaw import GPAW, Mixer
-from gpaw.atom.generator import Generator
-from gpaw.xc.libvdwxc import vdw_df, vdw_mbeef
+from gpaw.xc.libvdwxc import vdw_df
 
 system = molecule('H2O')
 system.center(vacuum=1.5)

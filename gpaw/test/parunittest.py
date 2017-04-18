@@ -28,7 +28,7 @@ import sys
 import numpy as np
 from unittest import TestResult, TestCase, TestSuite, \
                      _TextTestResult, TextTestRunner, TestLoader, \
-                     FunctionTestCase, TestProgram, defaultTestLoader
+                     FunctionTestCase, TestProgram
 
 from ase.utils import devnull
 
