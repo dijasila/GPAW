@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import gc
 import sys
@@ -499,7 +500,7 @@ class TestRunner:
                         ntests, time.time() - t0))
         self.log.write('Tests skipped: %d\n' % len(self.skipped))
         if self.failed:
-            self.log.write('Tests failed: %d\n' % len(self.failed))
+            print('Tests failed:', len(self.failed), file=sys.stderr)
         else:
             self.log.write('All tests passed!\n')
         self.log.write('=' * 77 + '\n')
@@ -667,7 +668,3 @@ class TestRunner:
         if self.jobs > 1:
             self.log.write('%*s' % (-self.n, test))
         self.log.write('%10.3f  %s\n' % (t, text))
-
-
-if __name__ == '__main__':
-    TestRunner(tests).run()
