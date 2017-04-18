@@ -95,8 +95,11 @@ def complete(word, previous, line, point):
     if command == 'help':
         words = commands
 
-    elif command == 'gpwwwww':
-        return ['asdfg']
+    elif command == 'test':
+        from glob import glob
+        path = __file__.rsplit('/', 1)[0] + '/../test/**/*.py'
+        return (word.rsplit('/test/')[-1]
+                for word in glob(path, recursive=True))
 
     return words
 
