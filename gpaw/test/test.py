@@ -51,11 +51,11 @@ class CLICommand:
             help='Show standard output from tests.')
 
     @staticmethod
-    def run(args, parser):
-        main(args, parser)
+    def run(args):
+        main(args)
 
 
-def main(args, parser):
+def main(args):
     if len(args.tests) == 0:
         from gpaw.test import tests
     else:
