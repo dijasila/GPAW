@@ -8,3 +8,4 @@ master:
     - gpaw install-data --register gpaw-datasets
     - gpaw info
     - ase build H2 -V1 | gpaw run -p mode=pw
+    - python -m gpaw.test.pyflakes_check

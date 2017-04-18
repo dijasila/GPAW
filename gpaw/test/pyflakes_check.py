@@ -7,11 +7,10 @@ ignore = ['E',  # pep8 errors
           'W',  # pep8 warnings
           'F812',  # list comprehension redefines
           'F811',  # redefinition of unused variable
-          'F841'  # variable is assigned to but never used
-         ]
+          'F841']  # variable is assigned to but never used
 try:
     output = subprocess.check_output(['flake8',
-                                      '--ignore={0}'.format(",".join(ignore)),
+                                      '--ignore={}'.format(','.join(ignore)),
                                       'gpaw'])
 except subprocess.CalledProcessError as ex:
     output = ex.output.decode()
