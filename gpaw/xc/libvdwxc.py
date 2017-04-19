@@ -538,10 +538,6 @@ def vdw_mbeef(*args, **kwargs):
                  vdwcoef=0.886774972)
 
 
-# Finally, mBEEF is an MGGA.  For that we would have to un-subclass GGA
-# and subclass MGGA.  Maybe the XC object architecture could be improved...
-
-
 class CXGGAKernel:
     def __init__(self, just_kidding=False):
         self.just_kidding = just_kidding
