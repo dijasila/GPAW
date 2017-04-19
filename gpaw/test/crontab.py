@@ -18,7 +18,7 @@ Initial setup::
 Crontab::
 
     GPAW_COMPILE_OPTIONS="..."
-    CMD="python3 -m gpaw.utilities.py3test"
+    CMD="python3 -m gpaw.test.crontab"
     10 20 * * * cd ~/gpaw-tests; . bin/activate; $CMD > test.out
 
 """
