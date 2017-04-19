@@ -137,6 +137,7 @@ tests = [
     'atoms_mismatch.py',
     'setup_basis_spec.py',
     'pw/direct.py',
+    'vdw/libvdwxc_spin.py',                 # ~1s
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
     'lcao/density.py',                      # ~1s
