@@ -32,10 +32,11 @@ cmds = """\
 touch gpaw-tests.lock
 cd ase; git pull; pip install -U .
 cd gpaw; git clean -fdx; git pull; python setup.py install {} 2> ../test.err
-gpaw test
-gpaw -P 2 test
-gpaw -P 4 test
-gpaw -P 8 test"""
+gpaw test > test-1.out
+gpaw -P 2 test > test-2.out
+gpaw -P 4 test > test-4.out
+gpaw -P 8 test > test-8.out
+grep -i fail test-?.out >&2"""
 
 cmds = cmds.format(os.environ.get('GPAW_COMPILE_OPTIONS', ''))
 
