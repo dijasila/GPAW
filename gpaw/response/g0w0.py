@@ -56,15 +56,14 @@ class G0W0(PairDensity):
         kpts: list
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.
-        bands: tuple
-            Range of band indices, like (n1, n2+1), to calculate the quasi
-            particle energies for. Note that the second band index is not
-            included.
-        relbands: tuple, int
-            Range of relative band indices to the valance band, like
-            (VB+n1, VB+1+n2), to calculate the quasi particle energies for. 
-            E.g. (-1,1) will use HOMO+LUMO.
-            If only one number is given, it is used for -n1 and n2.
+        bands: tuple of two ints
+            Range of band indices, like (n1, n2), to calculate the quasi
+            particle energies for. Bands n where n1<=n<n2 will be
+            calculated.  Note that the second band index is not included.
+        relbands: tuple of two ints
+            Same as *bands* except that the numbers are relative to the
+            number of occupied bands.
+            E.g. (-1, 1) will use HOMO+LUMO.
         ecut: float
             Plane wave cut-off energy in eV.
         ecut_extrapolation: bool or array
@@ -211,13 +210,12 @@ class G0W0(PairDensity):
 
         self.kpts = list(select_kpts(kpts, self.calc))
 
-        if bands and relbands:
-            raise Exception('Use bands or relbands!')
-        if isinstance(relbands, int):
-            bands = [self.calc.wfs.nvalence // 2 - relbands, self.calc.wfs.nvalence // 2 + relbands]
-        elif isinstance(relbands, tuple):
-            b1, b2 = relbands
-            bands = [self.calc.wfs.nvalence // 2 + b1, self.calc.wfs.nvalence // 2 + b2]
+        if bands is not None and relbands is not None:
+            raise ValueError('Use bands or relbands!')
+
+        if relbands is not None:
+            bands = [self.calc.wfs.nvalence // 2 + b for b in relbands]
+
         if bands is None:
             bands = [0, self.nocc2]
 
