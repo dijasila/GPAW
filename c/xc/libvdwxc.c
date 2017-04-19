@@ -60,7 +60,12 @@ PyObject* libvdwxc_create(PyObject* self, PyObject* args, PyObject* kwargs)
     if(nspins == 1) {
         vdw = vdwxc_new(vdwxc_code);
     } else if(nspins == 2) {
+#ifdef VDWXC_HAS_SPIN
         vdw = vdwxc_new_spin(vdwxc_code);
+#else
+        PyErr_SetString(PyExc_ImportError, "this version of libvdwxc has no spin support");
+        return NULL;
+#endif
     } else {
         PyErr_SetString(PyExc_ValueError, "nspins must be 1 or 2");
         return NULL;
@@ -107,6 +112,7 @@ PyObject* libvdwxc_calculate(PyObject* self, PyObject* args)
         assert(PyArray_DIM(sigma_obj, 0) == 3);
         assert(PyArray_DIM(dedn_obj, 0) == 2);
         assert(PyArray_DIM(dedsigma_obj, 0) == 3);
+#ifdef VDWXC_HAS_SPIN
         energy = vdwxc_calculate_spin(*vdw,
                                       (double*)PyArray_GETPTR1(rho_obj, 0),
                                       (double*)PyArray_GETPTR1(rho_obj, 1),
@@ -116,6 +122,9 @@ PyObject* libvdwxc_calculate(PyObject* self, PyObject* args)
                                       (double*)PyArray_GETPTR1(dedn_obj, 1),
                                       (double*)PyArray_GETPTR1(dedsigma_obj, 0),
                                       (double*)PyArray_GETPTR1(dedsigma_obj, 2));
+#else
+        return NULL;
+#endif
     } else {
         PyErr_SetString(PyExc_ValueError, "Expected 1 or 2 spins");
         return NULL;
