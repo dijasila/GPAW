@@ -183,6 +183,10 @@ class SIC(XCFunctional):
 
         if isinstance(xc, basestring):
             xc = XC(xc)
+
+        if xc.orbital_dependent:
+            raise ValueError('SIC does not support ' + xc.name)
+
         self.xc = xc
         XCFunctional.__init__(self, xc.name + '-PZ-SIC', xc.type)
         self.finegrid = finegrid
