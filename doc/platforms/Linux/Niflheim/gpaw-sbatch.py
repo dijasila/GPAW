@@ -2,7 +2,6 @@
 
 import sys
 import subprocess
-import os
 
 
 def main():
@@ -16,10 +15,7 @@ def main():
               '[script arguments]')
         return
 
-    mpi_cmd = 'mpiexec '
-    mpi_opt = os.getenv('GPAW_MPI_OPTIONS')
-    if mpi_opt:
-        mpi_cmd += '{0} '.format(mpi_opt)
+    mpi_cmd = 'mpiexec "$GPAW_MPI_OPTIONS" '
     mpi_cmd += 'gpaw-python '
     script = '#!/bin/bash -l\n'
     for line in open(arg):
