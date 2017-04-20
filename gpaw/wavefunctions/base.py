@@ -302,7 +302,7 @@ class WaveFunctions:
             self.kd.comm.receive(b_o, kpt_rank, 1302)
             return b_o
 
-    def collect_projections(self, k, s):
+    def collect_projections(self, k, s, asdict=False):
         """Helper method for collecting projector overlaps across domains.
 
         For the parallel case find the rank in kpt_comm that contains
@@ -335,6 +335,16 @@ class WaveFunctions:
                     all_P_ni[nslice, i:i + ni] = P_ni
                     i += ni
                 assert i == nproj
+
+            if asdict:
+                i = 0
+                P_ani = {}
+                for a in range(natoms):
+                    ni = self.setups[a].ni
+                    P_ani[a] = all_P_ni[:, i:i + ni]
+                    i += ni
+                return P_ani
+
             return all_P_ni
 
         elif self.kd.comm.rank == kpt_rank:  # plain else works too...
