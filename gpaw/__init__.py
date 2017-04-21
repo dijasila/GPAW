@@ -37,9 +37,6 @@ class PoissonConvergenceError(ConvergenceError):
 
 
 # Check for special command line arguments:
-debug = False
-trace = False
-dry_run = 0
 memory_estimate_depth = 2
 parsize_domain = None
 parsize_bands = None
@@ -52,23 +49,17 @@ sl_lrtddft = None
 buffer_size = None
 extra_parameters = {}
 profile = False
+
+
+def parse_extra_parameters(arg):
+    from ase.cli.run import str2dict
+    return str2dict(arg)
+
+
 i = 1
 while len(sys.argv) > i:
     arg = sys.argv[i]
-    if arg.startswith('--gpaw-'):
-        # Found old-style gpaw command line argument:
-        arg = '--' + arg[7:]
-        raise RuntimeError('Warning: Use %s instead of %s.' %
-                           (arg, sys.argv[i]))
-    if arg == '--trace':
-        trace = True
-    elif arg == '--debug':
-        debug = True
-    elif arg.startswith('--dry-run'):
-        dry_run = 1
-        if len(arg.split('=')) == 2:
-            dry_run = int(arg.split('=')[1])
-    elif arg.startswith('--memory-estimate-depth'):
+    if arg.startswith('--memory-estimate-depth'):
         memory_estimate_depth = -1
         if len(arg.split('=')) == 2:
             memory_estimate_depth = int(arg.split('=')[1])
@@ -176,9 +167,9 @@ while len(sys.argv) > i:
         # Buffer size for MatrixOperator in MB
         buffer_size = int(arg.split('=')[1])
     elif arg.startswith('--gpaw='):
-        extra_parameters = eval('dict(%s)' % arg[7:])
+        extra_parameters = parse_extra_parameters(arg[7:])
     elif arg == '--gpaw':
-        extra_parameters = eval('dict(%s)' % sys.argv.pop(i + 1))
+        extra_parameters = parse_extra_parameters(sys.argv.pop(i + 1))
     elif arg.startswith('--profile='):
         profile = arg.split('=')[1]
     else:
@@ -186,6 +177,11 @@ while len(sys.argv) > i:
         continue
     # Delete used command line argument:
     del sys.argv[i]
+
+
+dry_run = extra_parameters.pop('dryrun', 0)
+debug = extra_parameters.pop('debug', False)
+trace = extra_parameters.pop('trace', False)
 
 if debug:
     np.seterr(over='raise', divide='raise', invalid='raise', under='ignore')
