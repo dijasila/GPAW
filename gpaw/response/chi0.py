@@ -551,11 +551,21 @@ class Chi0:
         chi0_wGG *= (2 * factor * PWSA.how_many_symmetries() /
                      (len(spins) * (2 * np.pi)**3))  # Remember prefactor
 
+        print('Redistributing chi... ', end='', file=self.fd)
+        self.fd.flush()
         tmpchi0_wGG = self.redistribute(chi0_wGG)
+
+        print('Done. Symmetrizing chi... ', end='', file=self.fd)
+        self.fd.flush()
         PWSA.symmetrize_wxx(tmpchi0_wGG,
                             optical_limit=optical_limit)
+
+        print('Done. Redistributing chi... ', end='', file=self.fd)
+        self.fd.flush()
         self.redistribute(tmpchi0_wGG, chi0_wGG)
 
+        print('Done', file=self.fd)
+        self.fd.flush()
         # If point summation was used then the normalization of the density
         # response function is not right and we have to make up for this
         # fact.
