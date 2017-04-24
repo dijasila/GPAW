@@ -1041,33 +1041,44 @@ example saves a differently named restart file every 5 iterations::
 
 See also :meth:`~gpaw.calculator.GPAW.attach`.
 
+.. _command line options:
 
-----------------------
-Command line arguments
-----------------------
+--------------------
+Command-line options
+--------------------
 
 The behaviour of GPAW can be controlled with some command line
 arguments. The arguments for GPAW should be specified after the
 python-script, i.e.::
 
-    python script.py [options]
+    $ python3 script.py --gpaw key1=val1,key2=val2,...
 
-The possible command line arguments are:
+The possible keys are:
+
+* ``debug=True``: run in debug-mode, e.g. check consistency of arrays passed
+  to c-extensions.
+
+* ``dry_run=nprocs``: Print out the computational parameters and estimate
+  memory usage, do not perform actual calculation.
+  Print also which parallelization settings would be employed when run on
+  ``nprocs`` processors.
+
+
+.. tip::
+
+    Extra key-value pairs will be available for development work::
+
+        $ python3 - --gpaw a=1,b=2.3
+        >>> from gpaw import extra_parameters
+        >>> extra_parameters
+        {'a': 1, 'b': 2.3}
+
+
+Other command-line arguments:
 
 ===============================  =============================================
 argument                         description
 ===============================  =============================================
-``--trace``
-``--debug``
-                                 Run in debug-mode, e.g. check
-                                 consistency of arrays passed to c-extensions
-``--dry-run[=nprocs]``
-                                 Print out the computational
-                                 parameters and estimate memory usage,
-                                 do not perform actual calculation.
-                                 If ``nprocs`` is specified, print also which
-                                 parallelization settings would be employed
-                                 when run on ``nprocs`` processors.
 ``--memory-estimate-depth[=n]``
                                  Print out an itemized memory estimate by
                                  stepping recursively through the object
@@ -1104,12 +1115,6 @@ argument                         description
                                  the four ``sl_...`` arguments in the
                                  :ref:`parallel <manual_parallel>` keyword.
                                  Requires GPAW to be built with ScaLAPACK.
-``--gpaw a=1,b=2.3,...``
-                                 Extra parameters for development work:
-
-                                 >>> from gpaw import extra_parameters
-                                 >>> print extra_parameters
-                                 {'a': 1, 'b': 2.3}
 ===============================  =============================================
 
 

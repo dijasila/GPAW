@@ -120,7 +120,7 @@ class PAW:
 
         The PAW object must be initialize()'d, but needs not have large
         arrays allocated."""
-        # NOTE.  This should work with --dry-run=N
+        # NOTE.  This should work with "--gpaw dry_run=N"
         #
         # However, the initial overhead estimate is wrong if this method
         # is called within a real mpirun/gpaw-python context.

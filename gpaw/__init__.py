@@ -179,9 +179,8 @@ while len(sys.argv) > i:
     del sys.argv[i]
 
 
-dry_run = extra_parameters.pop('dryrun', 0)
+dry_run = extra_parameters.pop('dry_run', 0)
 debug = extra_parameters.pop('debug', False)
-trace = extra_parameters.pop('trace', False)
 
 if debug:
     np.seterr(over='raise', divide='raise', invalid='raise', under='ignore')
@@ -248,29 +247,6 @@ def restart(filename, Class=GPAW, **kwargs):
     calc = Class(filename, **kwargs)
     atoms = calc.get_atoms()
     return atoms, calc
-
-
-if trace:
-    indent = '    '
-    path = __path__[0]
-    from gpaw.mpi import world
-    if world.size > 1:
-        indent = 'CPU%d    ' % world.rank
-
-    def f(frame, event, arg):
-        global indent
-        f = frame.f_code.co_filename
-        if not f.startswith(path):
-            return
-
-        if event == 'call':
-            print(('%s%s:%d(%s)' % (indent, f[len(path):], frame.f_lineno,
-                                    frame.f_code.co_name)))
-            indent += '| '
-        elif event == 'return':
-            indent = indent[:-2]
-
-    sys.setprofile(f)
 
 
 if profile:

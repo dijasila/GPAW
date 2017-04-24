@@ -10,6 +10,10 @@ Git master branch
 
 :git:`master <>`.
 
+* :ref:`command line options` ``--dry-run`` and ``--debug`` have been removed.
+  Please use ``--gpaw dry_run=N`` and ``--gpaw debug=True`` instead
+  (or ``--gpaw dry_run=N,debug=True`` for both).
+
 
 Version 1.2.0
 =============
