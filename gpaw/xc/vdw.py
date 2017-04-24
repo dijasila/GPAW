@@ -552,6 +552,34 @@ class FFTVDWFunctional(VDWFunctionalBase):
         else:
             self.alphas = []
 
+    def initialize_more_things(self):
+        if self.alphas:
+            scale_c1 = (self.shape / (1.0 * self.gd.N_c))[:, np.newaxis]
+            gdfft = GridDescriptor(self.shape, self.gd.cell_cv * scale_c1, True)
+            k_k = construct_reciprocal(gdfft)[0][:,
+                                                 :,
+                                                 :self.shape[2] // 2 + 1]**0.5
+            k_k[0, 0, 0] = 0.0
+
+            self.dj_k = k_k / (2 * pi / self.rcut)
+            self.j_k = self.dj_k.astype(int)
+            self.dj_k -= self.j_k
+            self.dj_k *= 2 * pi / self.rcut
+
+            if self.verbose:
+                print('VDW: density array size:',
+                      self.gd.get_size_of_global_array())
+                print('VDW: zero-padded array size:', self.shape)
+                print(('VDW: maximum kinetic energy: %.3f Hartree' %
+                       (0.5 * k_k.max()**2)))
+
+            assert self.j_k.max() < self.Nr // 2, ('Use larger Nr than %i.' %
+                                                   self.Nr)
+
+        else:
+            self.dj_k = None
+            self.j_k = None
+
     def construct_cubic_splines(self):
         """Construc interpolating splines for q0.
 
@@ -641,32 +669,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
                 else:
                     assert n >= gd.N_c[c]
 
-        if self.alphas:
-            scale_c1 = (self.shape / (1.0 * gd.N_c))[:, np.newaxis]
-            gdfft = GridDescriptor(self.shape, gd.cell_cv * scale_c1, True)
-            k_k = construct_reciprocal(gdfft)[0][:,
-                                                 :,
-                                                 :self.shape[2] // 2 + 1]**0.5
-            k_k[0, 0, 0] = 0.0
-
-            self.dj_k = k_k / (2 * pi / self.rcut)
-            self.j_k = self.dj_k.astype(int)
-            self.dj_k -= self.j_k
-            self.dj_k *= 2 * pi / self.rcut
-
-            if self.verbose:
-                print('VDW: density array size:',
-                      gd.get_size_of_global_array())
-                print('VDW: zero-padded array size:', self.shape)
-                print(('VDW: maximum kinetic energy: %.3f Hartree' %
-                       (0.5 * k_k.max()**2)))
-
-            assert self.j_k.max() < self.Nr // 2, ('Use larger Nr than %i.' %
-                                                   self.Nr)
-
-        else:
-            self.dj_k = None
-            self.j_k = None
+        self.gd = gd
 
     def calculate_6d_integral(self, n_g, q0_g,
                               a2_g=None, e_LDAc_g=None, v_LDAc_g=None,
@@ -674,6 +677,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
         self.timer.start('VdW-DF integral')
         self.timer.start('splines')
         if self.C_aip is None:
+            self.initialize_more_things()
             self.construct_cubic_splines()
             self.construct_fourier_transformed_kernels()
         self.timer.stop('splines')
