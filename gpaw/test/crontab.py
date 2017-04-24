@@ -36,7 +36,9 @@ gpaw test > test-1.out
 gpaw -P 2 test > test-2.out
 gpaw -P 4 test > test-4.out
 gpaw -P 8 test > test-8.out
-grep -i fail test-?.out >&2"""
+grep -i fail test-?.out >&2 || echo OK"""
+# grep return error code 1 if nothing found.  So we end with "echo OK" to get
+# a zero error code.
 
 cmds = cmds.format(os.environ.get('GPAW_COMPILE_OPTIONS', ''))
 
