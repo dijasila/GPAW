@@ -1,5 +1,4 @@
 from gpaw.poisson import FDPoissonSolver
-from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.wfd_operators import WeightedFDOperator
 from gpaw.utilities.gauss import Gaussian
@@ -17,11 +16,15 @@ class SolvationPoissonSolver(FDPoissonSolver):
     """
 
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, use_charge_center=True):
+                 remove_moment=None, use_charge_center=False):
         if remove_moment is not None:
             raise NotImplementedError(
                 'Removing arbitrary multipole moments '
                 'is not implemented for SolvationPoissonSolver!')
+        if nn == 'M':
+            raise NotImplementedError(
+                'Mehrstellen stencil is not implemented '
+                'for SolvationPoissonSolver!')
         FDPoissonSolver.__init__(self, nn, relax, eps, maxiter, remove_moment,
                                  use_charge_center=use_charge_center)
 
@@ -66,6 +69,11 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
     J. Chem. Phys. 131, 174108 (2009).
     """
 
+    def create_laplace(self, gd, scale=1.0, n=1, dtype=float):
+        operators = [Laplace(gd, scale, n, dtype)]
+        operators += [Gradient(gd, j, scale, n, dtype) for j in (0, 1, 2)]
+        return WeightedFDOperator(operators)
+
     def solve(self, phi, rho, charge=None, eps=None,
               maxcharge=1e-6,
               zero_initial_phi=False):
@@ -87,65 +95,20 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
                 res.apply(weights[i][j], weights[i + 1][j])
         self.step = 0.66666666 / self.operators[0].get_diagonal_element()
 
-    def set_grid_descriptor(self, gd):
-        self.gd = gd
-        self.gds = [gd]
-        self.dv = gd.dv
-        gd = self.gd
-        self.B = None
-        self.interpolators = []
-        self.restrictors = []
-        self.operators = []
-        level = 0
-        self.presmooths = [2]
-        self.postsmooths = [1]
-        self.weights = [2. / 3.]
-        while level < 8:
-            try:
-                gd2 = gd.coarsen()
-            except ValueError:
-                break
-            self.gds.append(gd2)
-            self.interpolators.append(Transformer(gd2, gd))
-            self.restrictors.append(Transformer(gd, gd2))
-            self.presmooths.append(4)
-            self.postsmooths.append(4)
-            self.weights.append(1.0)
-            level += 1
-            gd = gd2
-        self.levels = level
-
     def get_description(self):
-        if len(self.operators) == 0:
-            return 'uninitialized WeightedFDPoissonSolver'
-        else:
-            description = SolvationPoissonSolver.get_description(self)
-            return description.replace(
-                'solver with',
-                'weighted FD solver with dielectric and')
+        description = SolvationPoissonSolver.get_description(self)
+        return description.replace(
+            'solver with',
+            'weighted FD solver with dielectric and')
 
     def initialize(self, load_gauss=False):
-        self.presmooths[self.levels] = 8
-        self.postsmooths[self.levels] = 8
-        self.phis = [None] + [gd.zeros() for gd in self.gds[1:]]
-        self.residuals = [gd.zeros() for gd in self.gds]
-        self.rhos = [gd.zeros() for gd in self.gds]
-        self.op_coarse_weights = [
-            [g.empty() for g in (gd, ) * 4] for gd in self.gds[1:]
-        ]
-        scale = -0.25 / np.pi
-        for i, gd in enumerate(self.gds):
-            if i == 0:
-                nn = self.nn
-                weights = self.dielectric.eps_gradeps
-            else:
-                nn = 1
-                weights = self.op_coarse_weights[i - 1]
-            operators = [Laplace(gd, scale, nn)] + \
-                        [Gradient(gd, j, scale, nn) for j in (0, 1, 2)]
-            self.operators.append(WeightedFDOperator(weights, operators))
-        if load_gauss:
-            self.load_gauss()
+        self.operators[0].set_weights(self.dielectric.eps_gradeps)
+        self.op_coarse_weights = []
+        for operator in self.operators[1:]:
+            weights = [gd.empty() for gd in (operator.gd, ) * 4]
+            self.op_coarse_weights.append(weights)
+            operator.set_weights(weights)
+        return SolvationPoissonSolver.initialize(self, load_gauss)
 
 
 class PolarizationPoissonSolver(SolvationPoissonSolver):
@@ -160,7 +123,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
     """
 
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, use_charge_center=True):
+                 remove_moment=None, use_charge_center=False):
         polarization_warning = UserWarning(
             'PolarizationPoissonSolver is not accurate enough'
             ' and therefore not recommended for production code!')
@@ -231,7 +194,7 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
     """
 
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, eta=.6, use_charge_center=True):
+                 remove_moment=None, eta=.6, use_charge_center=False):
         """Constructor for ADM12PoissonSolver.
 
         Additional arguments not present in SolvationPoissonSolver:

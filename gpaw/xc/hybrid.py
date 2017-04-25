@@ -58,8 +58,8 @@ class HybridXCBase(XCFunctional):
             hybrid = 0.25
             omega = 0.11
             xc = XC('HYB_GGA_XC_HSE06')
-            
-        if isinstance(xc, basestring):
+
+        if isinstance(xc, (basestring, dict)):
             xc = XC(xc)
 
         self.hybrid = float(hybrid)
@@ -68,10 +68,17 @@ class HybridXCBase(XCFunctional):
 
         XCFunctional.__init__(self, name, xc.type)
 
+    def todict(self):
+        return {'type': 'hybrid',
+                'name': self.name,
+                'hybrid': self.hybrid,
+                'xc': self.xc.todict(),
+                'omega': self.omega}
+
     def get_setup_name(self):
         return 'PBE'
 
-        
+
 class HybridXC(HybridXCBase):
     def __init__(self, name, hybrid=None, xc=None,
                  finegrid=False, unocc=False):
@@ -85,12 +92,12 @@ class HybridXC(HybridXCBase):
         self.finegrid = finegrid
         self.unocc = unocc
         HybridXCBase.__init__(self, name, hybrid, xc)
-        
+
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
         return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
                                                 addcoredensity, a)
-    
+
     def initialize(self, density, hamiltonian, wfs, occupations):
         assert wfs.kd.gamma
         self.xc.initialize(density, hamiltonian, wfs, occupations)
@@ -111,7 +118,7 @@ class HybridXC(HybridXCBase):
         # may differ.
         self.poissonsolver = PoissonSolver(eps=1e-11)
         #self.poissonsolver = hamiltonian.poisson
-        
+
         if self.finegrid:
             self.finegd = self.gd.refine()
             # XXX Taking restrictor from Hamiltonian will not work in PW mode,
@@ -130,7 +137,7 @@ class HybridXC(HybridXCBase):
 
     def set_positions(self, spos_ac):
         self.ghat.set_positions(spos_ac)
-    
+
     def calculate(self, gd, n_sg, v_sg=None, e_g=None):
         # Normal XC contribution:
         exc = self.xc.calculate(gd, n_sg, v_sg, e_g)
@@ -249,12 +256,12 @@ class HybridXC(HybridXCBase):
                 ekin -= np.dot(kpt.f_n[:nbands], h_nn.diagonal())
 
                 dH_p = dH_asp[a][kpt.s]
-            
+
             # Get atomic density and Hamiltonian matrices
             D_p = self.density.D_asp[a][kpt.s]
             D_ii = unpack2(D_p)
             ni = len(D_ii)
-            
+
             # Add atomic corrections to the valence-valence exchange energy
             # --
             # >  D   C     D
@@ -272,7 +279,7 @@ class HybridXC(HybridXCBase):
                         dH_p[p12] -= 2 * hybrid / deg * A / ((i1 != i2) + 1)
                     ekin += 2 * hybrid / deg * D_ii[i1, i2] * A
                     exx -= hybrid / deg * D_ii[i1, i2] * A
-            
+
             # Add valence-core exchange energy
             # --
             # >  X   D
@@ -296,14 +303,14 @@ class HybridXC(HybridXCBase):
 
         if self.gd.comm.rank > 0:
             H_nn[:] = 0.0
-            
+
         nocc = self.nocc_s[kpt.s]
         nbands = len(kpt.vt_nG)
         for a, P_ni in kpt.P_ani.items():
             H_nn[:nbands, :nbands] += symmetrize(np.inner(P_ni[:nbands],
                                                           kpt.vxx_ani[a]))
         self.gd.comm.sum(H_nn)
-        
+
         H_nn[:nocc, nocc:] = 0.0
         H_nn[nocc:, :nocc] = 0.0
 
@@ -315,7 +322,7 @@ class HybridXC(HybridXCBase):
             D_ii = np.outer(P1_i, P2_i.conj()).real
             D_p = pack(D_ii)
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
-            
+
         nt_G = psit_nG[n1] * psit_nG[n2]
 
         if self.finegd is self.gd:
@@ -335,7 +342,7 @@ class HybridXC(HybridXCBase):
             return
 
         nocc = self.nocc_s[kpt.s]
-        
+
         if calculate_change:
             for x, n in enumerate(n_x):
                 if n < nocc:
@@ -345,7 +352,7 @@ class HybridXC(HybridXCBase):
         else:
             for a, c_xi in c_axi.items():
                 c_xi[:nocc] += kpt.vxx_ani[a][:nocc]
-        
+
     def rotate(self, kpt, U_nn):
         if kpt.f_n is None:
             return
@@ -359,7 +366,7 @@ class HybridXC(HybridXCBase):
         for v_nii in kpt.vxx_anii.values():
             gemm(1.0, v_nii.copy(), U_nn, 0.0, v_nii)
 
-        
+
 def atomic_exact_exchange(atom, type='all'):
     """Returns the exact exchange energy of the atom defined by the
        instantiated AllElectron object 'atom'
@@ -385,7 +392,7 @@ def atomic_exact_exchange(atom, type='all'):
     # Arrays for storing the potential (times radius)
     vr = np.zeros(atom.N)
     vrl = np.zeros(atom.N)
-    
+
     # do actual calculation of exchange contribution
     Exx = 0.0
     for j1 in nstates:
@@ -455,7 +462,7 @@ def constructX(gen):
 
     # potential times radius
     vr = np.zeros(N)
-        
+
     # initialize X_ii matrix
     X_ii = np.zeros((Nvi, Nvi))
 
@@ -480,17 +487,17 @@ def constructX(gen):
             i2 = 0
             for jv2 in range(Njval):
                 lv2 = lv_j[jv2]
-                
+
                 # electron density 2
                 n2c = uv_j[jv2] * uc_j[jc] * dr
                 n2c[1:] /= r[1:]
-            
+
                 # sum expansion in angular momenta
                 for l in range(min(lv1, lv2) + lc + 1):
                     # Int density * potential * r^2 * dr:
                     hartree(l, n2c, r, vr)
                     nv = np.dot(n1c, vr)
-                    
+
                     # expansion coefficients
                     A_mm = X_ii[i1:i1 + 2 * lv1 + 1, i2:i2 + 2 * lv2 + 1]
                     for mc in range(2 * lc + 1):

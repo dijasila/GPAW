@@ -28,7 +28,7 @@ Induced electric potential and near field are calculated after time-propagation 
 
 .. literalinclude:: timepropagation_postprocess.py
 
-Plotting example
+Plotting example (run in serial mode, i.e., with one process)
 
 .. literalinclude:: timepropagation_plot.py
 

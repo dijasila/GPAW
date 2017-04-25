@@ -27,4 +27,4 @@ calc.get_potential_energy()
 # Plot the band structure
 
 band_structure = calc.band_structure()
-band_structure.plot(filename='Ag.png', show=True)
+band_structure.plot(filename='Ag.png', emax=20.0, show=True)

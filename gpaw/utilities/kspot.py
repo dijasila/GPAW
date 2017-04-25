@@ -4,10 +4,9 @@ from math import pi,sqrt
 
 import numpy as np
 
-from gpaw.utilities import hartree
-from gpaw.utilities.blas import gemmdot
+from ase.units import Bohr
+
 from gpaw.atom.all_electron import AllElectron
-from gpaw import extra_parameters
 from gpaw.sphere.lebedev import weight_n, R_nv
 
 
@@ -45,7 +44,6 @@ class AllElectronPotential:
         f.close()
 
     def grid_to_radial(self, a, gd, f_g):
-      bohr_to_ang = 1/1.88971616463
 
       # Coordinates of an atom
       atom_c = self.paw.atoms.get_positions()[a]
@@ -63,7 +61,7 @@ class AllElectronPotential:
          # Very inefficient loop
          for i, r in enumerate(xccorr.rgd.r_g):
             # Obtain the position of this integration quadrature point in specified grid
-            pos_c = atom_c + (r * bohr_to_ang) * p
+            pos_c = atom_c + (r * Bohr) * p
             # And in scaled coordinates 
             scaled_c = get_scaled_positions(self.paw.atoms, pos_c)
             scaled_nc.append(scaled_c)

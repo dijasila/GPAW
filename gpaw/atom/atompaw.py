@@ -32,6 +32,7 @@ class AtomWaveFunctions(WaveFunctions):
         bf = AtomBasisFunctions(self.gd, setup.phit_j)
         density.initialize_from_atomic_densities(bf)
         hamiltonian.update(density)
+        return 0, 0
 
     def add_to_density_from_k_point(self, nt_sG, kpt):
         nt_sG[kpt.s] += np.dot(kpt.f_n / 4 / pi, kpt.psit_nG**2)

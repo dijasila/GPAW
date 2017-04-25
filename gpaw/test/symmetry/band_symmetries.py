@@ -1,13 +1,15 @@
 from __future__ import print_function
+
+import os
+
 from ase.build import bulk
+import numpy as np
+
 from gpaw import GPAW
 from gpaw import restart
 from _gpaw import symmetrize
-import numpy as np
 from gpaw.symmetry import Symmetry
 from gpaw.utilities.tools import md5_array
-from gpaw.test import equal
-import os
 
 # Normal ground state calculation
 atoms = bulk('Si')

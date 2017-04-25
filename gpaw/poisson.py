@@ -88,6 +88,13 @@ class FDPoissonSolver:
     def get_stencil(self):
         return self.nn
 
+    def create_laplace(self, gd, scale=1.0, n=1, dtype=float):
+        """Instantiate and return a Laplace operator
+
+        Allows subclasses to change the Laplace operator
+        """
+        return Laplace(gd, scale, n, dtype)
+
     def set_grid_descriptor(self, gd):
         # Should probably be renamed initialize
         self.gd = gd
@@ -101,7 +108,7 @@ class FDPoissonSolver:
             self.operators = [LaplaceA(gd, -scale)]
             self.B = LaplaceB(gd)
         else:
-            self.operators = [Laplace(gd, scale, self.nn)]
+            self.operators = [self.create_laplace(gd, scale, self.nn)]
             self.B = None
 
         self.interpolators = []
@@ -120,7 +127,7 @@ class FDPoissonSolver:
                 gd2 = gd.coarsen()
             except ValueError:
                 break
-            self.operators.append(Laplace(gd2, scale, 1))
+            self.operators.append(self.create_laplace(gd2, scale, 1))
             self.interpolators.append(Transformer(gd2, gd))
             self.restrictors.append(Transformer(gd, gd2))
             self.presmooths.append(4)

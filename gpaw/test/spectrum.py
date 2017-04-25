@@ -3,7 +3,7 @@ import numpy as np
 
 from gpaw.gauss import Gauss, Lorentz
 from gpaw.test import equal
-from gpaw.utilities.folder import Folder, Voigt
+from gpaw.utilities.folder import Folder, Voigt  # noqa
 
 # Gauss and Lorentz functions
 
@@ -29,5 +29,5 @@ for name in ['Gauss', 'Lorentz', 'Voigt']:
 
     # check first value
     exec('func = {0}(width)'.format(name))
-    yy = np.dot(np.array(y)[:, 0], func.get(xl[0] - np.array(x)))
+    yy = np.dot(np.array(y)[:, 0], func.get(xl[0] - np.array(x)))  # noqa
     equal(yl[0, 0], yy, 1.e-15)

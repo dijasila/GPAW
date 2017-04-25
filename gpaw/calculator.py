@@ -3,8 +3,8 @@ import warnings
 
 import numpy as np
 from ase.units import Bohr, Ha
-from ase.calculators.calculator import Calculator
-from ase.utils import basestring
+from ase.calculators.calculator import Calculator, kpts2ndarray
+from ase.utils import basestring, plural
 from ase.utils.timing import Timer
 
 import gpaw
@@ -20,7 +20,7 @@ from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.io.logger import GPAWLogger
 from gpaw.io import Reader, Writer
 from gpaw.jellium import create_background_charge
-from gpaw.kpt_descriptor import KPointDescriptor, kpts2ndarray
+from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.occupations import create_occupation_number_object
 from gpaw.output import (print_cell, print_positions,
@@ -38,7 +38,7 @@ from gpaw.xc import XC
 from gpaw.xc.sic import SIC
 
 
-class GPAW(Calculator, PAW):
+class GPAW(PAW, Calculator):
     """This is the ASE-calculator frontend for doing a PAW calculation."""
 
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
@@ -70,7 +70,8 @@ class GPAW(Calculator, PAW):
         'symmetry': {'point_group': True,
                      'time_reversal': True,
                      'symmorphic': True,
-                     'tolerance': 1e-7},
+                     'tolerance': 1e-7,
+                     'do_not_symmetrize_the_density': False},
         'convergence': {'energy': 0.0005,  # eV / electron
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
@@ -101,6 +102,12 @@ class GPAW(Calculator, PAW):
 
         self.parallel = dict(self.default_parallel)
         if parallel:
+            for key in parallel:
+                if key not in self.default_parallel:
+                    allowed = ', '.join(list(self.default_parallel.keys()))
+                    raise TypeError('Unexpected keyword "{0}" in "parallel" '
+                                    'dictionary.  Must be one of: {1}'
+                                    .format(key, allowed))
             self.parallel.update(parallel)
 
         if timer is None:
@@ -132,8 +139,14 @@ class GPAW(Calculator, PAW):
                             atoms, **kwargs)
 
     def __del__(self):
-        self.timer.write(self.log.fd)
-        if self.reader is not None:
+        # Write timings and close reader if necessary.
+
+        # If we crashed in the constructor (e.g. a bad keyword), we may not
+        # have the normally expected attributes:
+        if hasattr(self, 'timer'):
+            self.timer.write(self.log.fd)
+
+        if hasattr(self, 'reader') and self.reader is not None:
             self.reader.close()
 
     def write(self, filename, mode=''):
@@ -174,6 +187,7 @@ class GPAW(Calculator, PAW):
             self.log('Read {0}'.format(', '.join(sorted(self.results))))
 
         self.log('Reading input parameters:')
+        # XXX param
         self.parameters = self.get_default_parameters()
         dct = {}
         for key, value in reader.parameters.asdict().items():
@@ -329,6 +343,22 @@ class GPAW(Calculator, PAW):
             calc.set(nbands=20, kpts=(4, 1, 1))
         """
 
+        # Verify that keys are consistent with default ones.
+        for key in kwargs:
+            if key != 'txt' and key not in self.default_parameters:
+                raise TypeError('Unknown GPAW parameter: {0}'.format(key))
+
+            if key in ['convergence', 'symmetry'] and isinstance(kwargs[key],
+                                                                 dict):
+                # For values that are dictionaries, verify subkeys, too.
+                default_dict = self.default_parameters[key]
+                for subkey in kwargs[key]:
+                    if subkey not in default_dict:
+                        allowed = ', '.join(list(default_dict.keys()))
+                        raise TypeError('Unknown subkeyword "{0}" of keyword '
+                                        '"{1}".  Must be one of: {2}'
+                                        .format(subkey, key, allowed))
+
         changed_parameters = Calculator.set(self, **kwargs)
 
         for key in ['setups', 'basis']:
@@ -411,7 +441,17 @@ class GPAW(Calculator, PAW):
     def set_positions(self, atoms=None):
         """Update the positions of the atoms and initialize wave functions."""
         spos_ac = self.initialize_positions(atoms)
-        self.wfs.initialize(self.density, self.hamiltonian, spos_ac)
+
+        nlcao, nrand = self.wfs.initialize(self.density, self.hamiltonian,
+                                           spos_ac)
+        if nlcao + nrand:
+            self.log('Creating initial wave functions:')
+            if nlcao:
+                self.log(' ', plural(nlcao, 'band'), 'from LCAO basis set')
+            if nrand:
+                self.log(' ', plural(nrand, 'band'), 'from random numbers')
+            self.log()
+
         self.wfs.eigensolver.reset()
         self.scf.reset()
         print_positions(self.atoms, self.log)
@@ -447,7 +487,7 @@ class GPAW(Calculator, PAW):
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
-            if isinstance(par.xc, basestring):
+            if isinstance(par.xc, (basestring, dict)):
                 xc = XC(par.xc)
             else:
                 xc = par.xc
@@ -888,15 +928,6 @@ class GPAW(Calculator, PAW):
         self.nbands_parallelization_adjustment = -nbands % band_comm.size
         nbands += self.nbands_parallelization_adjustment
 
-        # I would like to give the following error message, but apparently
-        # there are cases, e.g. gpaw/test/gw_ppa.py, which involve
-        # nbands > nao and are supposed to work that way.
-        # if nbands > nao:
-        #    raise ValueError('Number of bands %d adjusted for band '
-        #                    'parallelization %d exceeds number of atomic '
-        #                     'orbitals %d.  This problem can be fixed '
-        #                     'by reducing the number of bands a bit.'
-        #                     % (nbands, band_comm.size, nao))
         bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
         # Construct grid descriptor for coarse grids for wave functions:
@@ -980,7 +1011,7 @@ class GPAW(Calculator, PAW):
                                             timer=self.timer)
 
             # Use (at most) all available LCAO for initialization
-            lcaonbands = min(nbands, nao)
+            lcaonbands = min(nbands, nao // band_comm.size * band_comm.size)
 
             try:
                 lcaobd = BandDescriptor(lcaonbands, band_comm,

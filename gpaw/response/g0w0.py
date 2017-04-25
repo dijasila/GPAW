@@ -23,12 +23,13 @@ from gpaw.response.kernels import get_integrated_kernel
 from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
 from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.tools import vxc
+from gpaw.utilities.progressbar import ProgressBar
 import os
 
 
 class G0W0(PairDensity):
     def __init__(self, calc, filename='gw', restartfile=None,
-                 kpts=None, bands=None, nbands=None, ppa=False,
+                 kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
                  truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
                  domega0=0.025, omega2=10.0, anisotropy_correction=False,
@@ -56,10 +57,14 @@ class G0W0(PairDensity):
         kpts: list
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.
-        bands: tuple
-            Range of band indices, like (n1, n2+1), to calculate the quasi
-            particle energies for. Note that the second band index is not
-            included.
+        bands: tuple of two ints
+            Range of band indices, like (n1, n2), to calculate the quasi
+            particle energies for. Bands n where n1<=n<n2 will be
+            calculated.  Note that the second band index is not included.
+        relbands: tuple of two ints
+            Same as *bands* except that the numbers are relative to the
+            number of occupied bands.
+            E.g. (-1, 1) will use HOMO+LUMO.
         ecut: float
             Plane wave cut-off energy in eV.
         ecut_extrapolation: bool or array
@@ -136,6 +141,12 @@ class G0W0(PairDensity):
 
         self.inputcalc = calc
 
+        if ppa and (nblocks > 1 or nblocksmax):
+            p('PPA is currently not compatible with block parallellisation. '
+              'Setting nblocks=1 and continuing.')
+            nblocks = 1
+            nblocksmax = False
+
         if ecut_extrapolation is True:
             pct = 0.8
             necuts = 3
@@ -205,6 +216,12 @@ class G0W0(PairDensity):
             assert self.maxiter > 1
 
         self.kpts = list(select_kpts(kpts, self.calc))
+
+        if bands is not None and relbands is not None:
+            raise ValueError('Use bands or relbands!')
+
+        if relbands is not None:
+            bands = [self.calc.wfs.nvalence // 2 + b for b in relbands]
 
         if bands is None:
             bands = [0, self.nocc2]
@@ -319,6 +336,8 @@ class G0W0(PairDensity):
             self.previous_sigma = 0.
             self.previous_dsigma = 0.
 
+        self.fd.flush()
+
         self.ite = 0
 
         while self.ite < self.maxiter:
@@ -348,18 +367,25 @@ class G0W0(PairDensity):
             # My part of the states we want to calculate QP-energies for:
             mykpts = [self.get_k_point(s, K, n1, n2)
                       for s, K, n1, n2 in self.mysKn1n2]
+            nkpt = len(mykpts)
 
             # Loop over q in the IBZ:
             nQ = 0
             for ie, pd0, W0, q_c, m2 in self.calculate_screened_potential():
-                for kpt1 in mykpts:
+                if nQ == 0:
+                    print('Summing all q:', file=self.fd)
+                    pb = ProgressBar(self.fd)
+                for u, kpt1 in enumerate(mykpts):
+                    pb.update((nQ + 1) * u / nkpt / len(self.qd))
                     K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
                     kpt2 = self.get_k_point(kpt1.s, K2, 0, m2,
                                             block=True)
                     k1 = kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
+
                     self.calculate_q(ie, i, kpt1, kpt2, pd0, W0)
                 nQ += 1
+            pb.finish()
 
             self.world.sum(self.sigma_eskn)
             self.world.sum(self.dsigma_eskn)
@@ -588,6 +614,8 @@ class G0W0(PairDensity):
                           'timeordered': True,
                           'domega0': self.domega0 * Ha,
                           'omega2': self.omega2 * Ha}
+
+        self.fd.flush()
 
         chi0 = Chi0(self.inputcalc,
                     nbands=self.nbands,
@@ -914,38 +942,48 @@ class G0W0(PairDensity):
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
         name = self.filename + '.vxc.npy'
-        fd = opencew(name)
-        if fd is None:
-            print('Reading Kohn-Sham XC contribution from file:', name,
-                  file=self.fd)
-            with open(name, 'rb') as fd:
-                self.vxc_skn = np.load(fd)
-            assert self.vxc_skn.shape == self.shape, self.vxc_skn.shape
-            return
-
-        print('Calculating Kohn-Sham XC contribution', file=self.fd)
-        vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Ha
-        n1, n2 = self.bands
-        self.vxc_skn = vxc_skn[:, self.kpts, n1:n2]
-        np.save(fd, self.vxc_skn)
+        fd, self.vxc_skn = self.read_contribution(name)
+        if self.vxc_skn is None:
+            print('Calculating Kohn-Sham XC contribution', file=self.fd)
+            vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Ha
+            n1, n2 = self.bands
+            self.vxc_skn = vxc_skn[:, self.kpts, n1:n2]
+            np.save(fd, self.vxc_skn)
 
     @timer('EXX')
     def calculate_exact_exchange(self):
         name = self.filename + '.exx.npy'
-        fd = opencew(name)
-        if fd is None:
-            print('Reading EXX contribution from file:', name, file=self.fd)
-            with open(name, 'rb') as fd:
-                self.exx_skn = np.load(fd)
-            assert self.exx_skn.shape == self.shape, self.exx_skn.shape
-            return
+        fd, self.exx_skn = self.read_contribution(name)
+        if self.exx_skn is None:
+            print('Calculating EXX contribution', file=self.fd)
+            exx = EXX(self.calc, kpts=self.kpts, bands=self.bands,
+                      txt=self.filename + '.exx.txt', timer=self.timer)
+            exx.calculate()
+            self.exx_skn = exx.get_eigenvalue_contributions() / Ha
+            np.save(fd, self.exx_skn)
 
-        print('Calculating EXX contribution', file=self.fd)
-        exx = EXX(self.calc, kpts=self.kpts, bands=self.bands,
-                  txt=self.filename + '.exx.txt', timer=self.timer)
-        exx.calculate()
-        self.exx_skn = exx.get_eigenvalue_contributions() / Ha
-        np.save(fd, self.exx_skn)
+    def read_contribution(self, filename):
+        fd = opencew(filename)  # create, exclusive, write
+        if fd is not None:
+            # File was not there: nothing to read
+            return fd, None
+
+        try:
+            with open(filename, 'rb') as fd:
+                x_skn = np.load(fd)
+        except IOError:
+            print('Removing broken file:', filename, file=self.fd)
+        else:
+            print('Read:', filename, file=self.fd)
+            if x_skn.shape == self.shape:
+                return None, x_skn
+            print('Removing bad file (wrong shape of array):', filename,
+                  file=self.fd)
+
+        if self.world.rank == 0:
+            os.remove(filename)
+
+        return opencew(filename), None
 
     def print_results(self, results):
         description = ['f:      Occupation numbers',
