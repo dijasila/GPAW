@@ -68,28 +68,14 @@ class Heterostructure:
         for n, name in enumerate(structure):
             if name not in namelist:
                 namelist.append(name)
-                try:
-                    data = np.load(name + '-chi.npz')
-                    q = data['q_abs']
-                    w = data['omega_w']
-                    zi = data['z']
-                    chim = data['chiM_qw']
-                    chid = data['chiD_qw']
-                    drhom = data['drhoM_qz']
-                    drhod = data['drhoD_qz']
-                except IOError:
-                    fd = open(name + '-chi.pckl', 'rb')
-                    data = load(fd)
-                    try:  # new format
-                        q = data['q_abs']
-                        w = data['omega_w']
-                        zi = data['z']
-                        chim = data['chiM_qw']
-                        chid = data['chiD_qw']
-                        drhom = data['drhoM_qz']
-                        drhod = data['drhoD_qz']
-                    except TypeError:  # old format
-                        q, w, chim, chid, zi, drhom, drhod = data
+                data = np.load(name + '-chi.npz')
+                q = data['q_abs']
+                w = data['omega_w']
+                zi = data['z']
+                chim = data['chiM_qw']
+                chid = data['chiD_qw']
+                drhom = data['drhoM_qz']
+                drhod = data['drhoD_qz']
                 if qmax is not None:
                     qindex = np.argmin(abs(q - qmax * Bohr)) + 1
                 else:
@@ -1180,10 +1166,7 @@ class BuildingBlock():
         try:
             data = np.load(self.filename + '-chi.npz')
         except IOError:
-            try:
-                data = load((self.filename + '-chi.pckl', 'rb'))
-            except IOError:
-                return False
+            return False
         if (np.all(data['omega_w'] == self.omega_w) and
             np.all(data['q_cs'] == self.q_cs) and
             np.all(data['z'] == self.z)):
@@ -1308,12 +1291,8 @@ def check_building_blocks(BBfiles=None):
     BBfiles: list of str
         list of names of BB files
     """
-    try:
-        name = BBfiles[0] + '-chi.npz'
-        data = np.load(name)
-    except IOError:
-        name = BBfiles[0] + '-chi.pckl'
-        data = load(open(name, 'rb'))
+    name = BBfiles[0] + '-chi.npz'
+    data = np.load(name)
     try:
         q = data['q_abs'].copy()
         w = data['omega_w'].copy()
@@ -1321,10 +1300,7 @@ def check_building_blocks(BBfiles=None):
         # Skip test for old format:
         return True
     for name in BBfiles[1:]:
-        try:
-            data = np.load(name + '-chi.npz')
-        except IOError:
-            data = load(open(name + '-chi.pckl', 'rb'))
+        data = np.load(name + '-chi.npz')
         if not ((data['q_abs'] == q).all and
                 (data['omega_w'] == w).all):
             return False
@@ -1355,20 +1331,14 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
     q_max = 1000
     w_max = 1000
     for name in BBfiles:
-        try:
-            data = load(open(name + '-chi.npz', 'rb'))
-        except IOError:
-            data = load(open(name + '-chi.pckl', 'rb'))
+        data = np.load(open(name + '-chi.npz', 'rb'))
         q_abs = data['q_abs']
         q_max = np.min([q_abs[-1], q_max])
         ow = data['omega_w']
         w_max = np.min([ow[-1], w_max])
 
     if BBmotherfile is not None:
-        try:
-            data = np.load(BBmotherfile + "-chi.npz")
-        except IOError:
-            data = load(open(BBmotherfile + '-chi.pckl', 'rb'))
+        data = np.load(BBmotherfile + "-chi.npz")
         q_grid = data['q_abs']
         w_grid = data['omega_w']
     else:
@@ -1383,10 +1353,7 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
     w_grid = np.array(w_grid)
     for name in BBfiles:
         assert data['isotropic_q']
-        try:
-            data = np.load(name + '-chi.npz')
-        except IOError:
-            data = load(open(name + '-chi.pckl', 'rb'))
+        data = np.load(name + '-chi.npz')
         q_abs = data['q_abs']
         w = data['omega_w']
         z = data['z']
