@@ -19,7 +19,7 @@ atoms.get_potential_energy()
 calc.diagonalize_full_hamiltonian()
 calc.write('C_groundstate_freq.gpw', 'all')
 
-for i, domega0 in enumerate([0.005, 0.01, 0.02, 0.03, 0.04, 0.05]):
+for i, domega0 in enumerate([0.01, 0.02, 0.03, 0.04, 0.05]):
     for j, omega2 in enumerate([1, 5, 10, 15, 20, 25]):
         gw = G0W0(calc='C_groundstate_freq.gpw',
                   nbands=30,
