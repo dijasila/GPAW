@@ -62,16 +62,19 @@ def wrap_pylab(names=[]):
     """Use Agg backend and prevent windows from popping up."""
     import matplotlib
     matplotlib.use('Agg')
-    import pylab
+    import matplotlib.pyplot as plt
+    import ase.visualize
 
     def show(names=names):
         if names:
             name = names.pop(0)
         else:
             name = 'fig.png'
-        pylab.savefig(name)
+        plt.savefig(name)
 
-    pylab.show = show
+    plt.show = show
+
+    ase.visualize.view = lambda *args, **kwargs: None
 
 
 tests = [
