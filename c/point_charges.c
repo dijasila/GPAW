@@ -10,11 +10,12 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
     double rc;
     double rc2;
     double width;
+    PyArrayObject* com_v_obj = 0;
     PyArrayObject* vext_G_obj;
     PyArrayObject* rhot_G_obj = 0;
     PyArrayObject* F_pv_obj = 0;
-    if (!PyArg_ParseTuple(args, "OOOOdddO|OO", &beg_v_obj, &h_v_obj, &q_p_obj,
-                          &R_pv_obj, &rc, &rc2, &width, &vext_G_obj,
+    if (!PyArg_ParseTuple(args, "OOOOdddOO|OO", &beg_v_obj, &h_v_obj, &q_p_obj,
+                          &R_pv_obj, &rc, &rc2, &width, &com_v_obj, &vext_G_obj,
                           &rhot_G_obj, &F_pv_obj))
     return NULL;
 
@@ -22,6 +23,7 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
     const double *h_v = PyArray_DATA(h_v_obj);
     const double *q_p = PyArray_DATA(q_p_obj);
     const double *R_pv = PyArray_DATA(R_pv_obj);
+    const double *com_v = PyArray_DATA(com_v_obj);
     double *vext_G = PyArray_DATA(vext_G_obj);
 
     int np = PyArray_DIM(R_pv_obj, 0);
@@ -51,8 +53,14 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
                     double dx = R_v[0] - x;
                     double dy = R_v[1] - y;
                     double dz = R_v[2] - z;
-                    double d = sqrt(dx * dx + dy * dy + dz * dz);
+                    double d  = sqrt(dx * dx + dy * dy + dz * dz);
+                    double dxc = com_v[0] - x;
+                    double dyc = com_v[1] - y;
+                    double dzc = com_v[2] - z;
+                    double dc = sqrt(dxc * dxc + dyc * dyc + dzc * dzc);
                     int G = ij + k;
+                    double rc2b = rc2 - dc;
+                    double rc12b = rc12 - dc;
                     if (F_pv == 0) {
                         // Calculate potential:
                         double v;
@@ -60,10 +68,10 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
                            v = (q_p[p] * (d * d * d * d - rc * rc * rc * rc) /
                                 (d * d * d * d * d + rc * rc * rc * rc * rc));
                         else
-                            if (d > rc2)
+                            if (d > rc2b)
                                 v = 0.0;
-                            else if (d > rc12) {
-                                double x = (d - rc12) / width;
+                            else if (d > rc12b) {
+                                double x = (d - rc12b) / width;
                                 v = q_p[p] * (1 - x * x * (3 - 2 * x)) / d;
                             }
                             else if (d > rc)
@@ -89,10 +97,10 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
                                  4 * d * d / x);
                         }
                         else
-                            if (d > rc2)
+                            if (d > rc2b)
                                 w = 0.0;
-                            else if (d > rc12) {
-                                double x = (d - rc12) / width;
+                            else if (d > rc12b) {
+                                double x = (d - rc12b) / width;
                                 w = (6 * x * (1 - x) / width +
                                      (1 - x * x * (3 - 2 * x)) / d) / (d * d);
                             }
