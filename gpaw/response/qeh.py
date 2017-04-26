@@ -667,7 +667,7 @@ class Heterostructure:
 
             eels_qw[iq, :] *= 1. / N * 4 * np.pi / self.q_abs[iq]**2
 
-        eels_qw = self.collect_q(eels_qw)
+        eels_qw = self.collect_qw(eels_qw)
 
         return self.q_abs / Bohr, self.frequencies * Hartree, \
             - (Bohr * eels_qw).imag
