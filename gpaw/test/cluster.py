@@ -1,17 +1,16 @@
 from __future__ import print_function
-import numpy as np
 
 from ase import Atoms, Atom
-from ase.parallel import barrier, rank, size
+from ase.parallel import barrier, rank
 from gpaw.cluster import Cluster
 from gpaw.test import equal
 from ase.build import molecule
-from math import pi, sqrt
+from math import sqrt
 
 R = 2.0
 CO = Atoms([Atom('C', (1, 0, 0)), Atom('O', (1, 0, R))])
 
-CO.rotate('y', pi/2)
+CO.rotate(90, 'y')
 equal(CO.positions[1, 0], R, 1e-10)
 
 # translate
@@ -29,13 +28,13 @@ for c in range(3):
     equal(q[1, c], p[1, 0] / sqrt(3), 1e-10)
 
 # minimal box
-b=4.0
+b = 4.0
 CO = Cluster([Atom('C', (1, 0, 0)), Atom('O', (1, 0, R))])
 CO.minimal_box(b)
-cc = CO.get_cell() 
+cc = CO.get_cell()
 for c in range(3):
-    width = 2*b
-    if c==2:
+    width = 2 * b
+    if c == 2:
         width += R
     equal(cc[c, c], width, 1e-10)
 
@@ -43,15 +42,14 @@ for c in range(3):
 h = .13
 b = [2, 3, 4]
 CO.minimal_box(b, h=h)
-cc = CO.get_cell() 
+cc = CO.get_cell()
 for c in range(3):
-#    print "cc[c,c], cc[c,c] / h % 4 =", cc[c, c], cc[c, c] / h % 4
+    # print "cc[c,c], cc[c,c] / h % 4 =", cc[c, c], cc[c, c] / h % 4
     for a in CO:
         print(a.symbol, b[c], a.position[c], cc[c, c] - a.position[c])
         assert(a.position[c] > b[c])
     equal(cc[c, c] / h % 4, 0.0, 1e-10)
 
-# .............................................
 # connected atoms
 assert(len(CO.find_connected(0, 1.1 * R)) == 2)
 assert(len(CO.find_connected(0, 0.9 * R)) == 1)
@@ -60,23 +58,20 @@ H2O = Cluster(molecule('H2O'))
 assert (len(H2O.find_connected(0)) == 3)
 assert (len(H2O.find_connected(0, scale=0.9)) == 1)
 
-# .............................................
 # I/O
-fxyz='CO.xyz'
-fpdb='CO.pdb'
+fxyz = 'CO.xyz'
+fpdb = 'CO.pdb'
 
-cell = [2.,3.,R+2.]
+cell = [2., 3., R + 2.]
 CO.set_cell(cell, scale_atoms=True)
 barrier()
 CO.write(fxyz)
 barrier()
 CO_b = Cluster(filename=fxyz)
 assert(len(CO) == len(CO_b))
-#for a, b in zip(cell, CO_b.get_cell().diagonal()):
-#    assert(a == b)
 offdiagonal = CO_b.get_cell().sum() - CO_b.get_cell().diagonal().sum()
 assert(offdiagonal == 0.0)
- 
+
 barrier()
 CO.write(fpdb)
 

@@ -709,6 +709,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         else:
             H_GG = md.zeros(dtype=complex)
             S_GG = md.zeros(dtype=complex)
+            if S_GG.size == 0:
+                return H_GG, S_GG
             G1, G2 = next(md.my_blocks(S_GG))[:2]
 
         H_GG.ravel()[G1::npw + 1] = (0.5 * self.pd.gd.dv / N *
@@ -743,7 +745,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     @timer('Full diag')
     def diagonalize_full_hamiltonian(self, ham, atoms, occupations, log,
-                                     nbands=None, scalapack=None,
+                                     nbands=None, ecut=None, scalapack=None,
                                      expert=False):
 
         if self.dtype != complex:
@@ -753,10 +755,19 @@ class PWWaveFunctions(FDPWWaveFunctions):
                              'as an argument to the calculator to enforce '
                              'complex wavefunctions.')
 
-        if nbands is None:
-            nbands = self.pd.ngmin // self.bd.comm.size * self.bd.comm.size
-        else:
-            assert nbands <= self.pd.ngmin
+        S = self.bd.comm.size
+
+        if nbands is None and ecut is None:
+            nbands = self.pd.ngmin // S * S
+        elif nbands is None:
+            ecut /= units.Hartree
+            vol = abs(np.linalg.det(self.gd.cell_cv))
+            nbands = int(vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
+
+        if nbands % S != 0:
+            nbands += S - nbands % S
+
+        assert nbands <= self.pd.ngmin
 
         if expert:
             iu = nbands
@@ -768,20 +779,27 @@ class PWWaveFunctions(FDPWWaveFunctions):
         log('Diagonalizing full Hamiltonian ({0} lowest bands)'.format(nbands))
         log('Matrix size (min, max): {0}, {1}'.format(self.pd.ngmin,
                                                       self.pd.ngmax))
-        mem = 3 * self.pd.ngmax**2 * 16 / bd.comm.size / 1024**2
-        log('Approximate memory usage per core: {0:.3f} MB'.format(mem))
-        if bd.comm.size > 1:
+        mem = 3 * self.pd.ngmax**2 * 16 / S / 1024**2
+        log('Approximate memory used per core to store H_GG, S_GG: {0:.3f} MB'
+            .format(mem))
+        log('Notice: Up to twice the amount of memory might be allocated\n'
+            'during diagonalization algorithm.')
+        log('The least memory is required when the parallelization is purely\n'
+            'over states (bands) and not k-points, set '
+            "GPAW(..., parallel={'kpt': 1}, ...).")
+
+        if S > 1:
             if isinstance(scalapack, (list, tuple)):
                 nprow, npcol, b = scalapack
             else:
-                nprow = int(round(bd.comm.size**0.5))
-                while bd.comm.size % nprow != 0:
+                nprow = int(round(S**0.5))
+                while S % nprow != 0:
                     nprow -= 1
-                npcol = bd.comm.size // nprow
+                npcol = S // nprow
                 b = 64
             log('ScaLapack grid: {0}x{1},'.format(nprow, npcol),
                 'block-size:', b)
-            bg = BlacsGrid(bd.comm, bd.comm.size, 1)
+            bg = BlacsGrid(bd.comm, S, 1)
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
             scalapack = True
         else:
@@ -801,7 +819,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             pb.update(u / nkpt)
             npw = len(self.pd.Q_qG[kpt.q])
             if scalapack:
-                mynpw = -(-npw // bd.comm.size)
+                mynpw = -(-npw // S)
                 md = BlacsDescriptor(bg, npw, npw, mynpw, npw)
                 md2 = BlacsDescriptor(bg2, npw, npw, b, b)
             else:

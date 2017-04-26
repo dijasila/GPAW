@@ -5,6 +5,7 @@ from ase.utils import basestring
 from gpaw.eigensolvers.rmmdiis import RMMDIIS
 from gpaw.eigensolvers.cg import CG
 from gpaw.eigensolvers.davidson import Davidson
+from gpaw.eigensolvers.direct import DirectPW
 from gpaw.lcao.eigensolver import DirectLCAO
 
 
@@ -25,7 +26,8 @@ def get_eigensolver(eigensolver, mode, convergence=None):
         eigensolver = {'rmm-diis': RMMDIIS,
                        'cg': CG,
                        'dav': Davidson,
-                       'lcao': DirectLCAO
+                       'lcao': DirectLCAO,
+                       'direct': DirectPW
                        }[name](**eigensolver)
 
     if isinstance(eigensolver, CG):

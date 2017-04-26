@@ -3,7 +3,7 @@
 Calculate the band structure of Si along high symmetry directions
 Brillouin zone
 """
-
+# P1
 from ase.build import bulk
 from gpaw import GPAW, PW, FermiDirac
 
@@ -18,7 +18,7 @@ calc = GPAW(mode=PW(200),
 si.calc = calc
 si.get_potential_energy()
 calc.write('Si_gs.gpw')
-
+# P2
 # Restart from ground state and fix potential:
 calc = GPAW('Si_gs.gpw',
             nbands=16,
@@ -28,7 +28,6 @@ calc = GPAW('Si_gs.gpw',
             convergence={'bands': 8})
 
 calc.get_potential_energy()
-
-band_structure = calc.band_structure()
-band_structure.plot(filename='bandstructure.png',
-                    show=True)
+# P3
+bs = calc.band_structure()
+bs.plot(filename='bandstructure.png', show=True, emax=10.0)

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 from math import sqrt
-from ase.units import Hartree
 from ase import Atoms
 from gpaw import GPAW, FermiDirac, PoissonSolver
 from gpaw.test import equal

@@ -1,7 +1,23 @@
 from ase.units import kB, Hartree, Bohr
 from gpaw.solvation.gridmem import NeedsGD
 from gpaw.fd_operators import Gradient
+from gpaw.io.logger import indent
 import numpy as np
+
+
+BAD_RADIUS_MESSAGE = "All atomic radii have to be finite and >= zero."
+
+
+def set_log_and_check_radii(obj, atoms, log):
+    radii = np.array(obj.atomic_radii(atoms), dtype=float)
+    obj.atomic_radii_output = radii
+    obj.symbols = atoms.get_chemical_symbols()
+    log('  Atomic radii for %s:' % (obj.__class__, ))
+    for a, (s, r) in enumerate(
+            zip(obj.symbols, radii)):
+        log('    %3d %-2s %10.5f' % (a, s, r))
+    if not np.isfinite(radii).all() or (radii < 0).any():
+        raise ValueError(BAD_RADIUS_MESSAGE)
 
 
 def get_pbc_positions(atoms, r_max):
@@ -29,17 +45,6 @@ def get_pbc_positions(atoms, r_max):
                     pos_aav[index1][index2, :] = pos + np.dot(i_c, cell_cv)
                     index2 += 1
     return pos_aav
-
-
-def divide_silently(x, y):
-    """Divide numpy arrays x / y ignoring all floating point errors.
-
-    Use with caution!
-    """
-    old_err = np.seterr(all='ignore')
-    result = x / y
-    np.seterr(**old_err)
-    return result
 
 
 class Cavity(NeedsGD):
@@ -151,17 +156,26 @@ class Cavity(NeedsGD):
         """Return whether the cavity depends explicitly on atomic positions."""
         raise NotImplementedError()
 
-    def print_parameters(self, text):
-        """Print parameters using text function."""
-        typ = self.surface_calculator and self.surface_calculator.__class__
-        text('surface calculator: %s' % (typ, ))
-        if self.surface_calculator is not None:
-            self.surface_calculator.print_parameters(text)
-        text()
-        typ = self.volume_calculator and self.volume_calculator.__class__
-        text('volume calculator: %s' % (typ, ))
-        if self.volume_calculator is not None:
-            self.volume_calculator.print_parameters(text)
+    def __str__(self):
+        s = 'Cavity: %s\n' % (self.__class__, )
+        for calc, calcname in ((self.surface_calculator, 'Surface'),
+                               (self.volume_calculator, 'Volume')):
+            if calc is None:
+                s += '  %s Calculator: None\n' % (calcname, )
+            else:
+                s += indent(str(calc))
+        return s
+
+    def update_atoms(self, atoms, log):
+        """Inexpensive initialization when atoms change."""
+        pass
+
+    def summary(self, log):
+        """Log cavity surface area and volume."""
+        A = self.A * Bohr ** 2 if self.A is not None else 'not calculated (no calculator defined)'
+        V = self.V * Bohr ** 3 if self.V is not None else 'not calculated (no calculator defined)'
+        log('Cavity Surface Area: %s' % (A, ))
+        log('Cavity Volume: %s' % (V, ))
 
 
 class EffectivePotentialCavity(Cavity):
@@ -227,8 +241,9 @@ class EffectivePotentialCavity(Cavity):
     def get_del_r_vg(self, atom_index, density):
         u = self.effective_potential
         del_u_del_r_vg = u.get_del_r_vg(atom_index, density)
-        # asserts lim_(||r - r_atom|| -> 0) dg/du * du/dr_atom = 0
-        del_u_del_r_vg[np.isnan(del_u_del_r_vg)] = .0
+        # there should be no more NaNs now, but let's keep the hint
+        ## asserts lim_(||r - r_atom|| -> 0) dg/du * du/dr_atom = 0
+        #del_u_del_r_vg[np.isnan(del_u_del_r_vg)] = .0
         return self.minus_beta * self.g_g * del_u_del_r_vg
 
     @property
@@ -239,13 +254,14 @@ class EffectivePotentialCavity(Cavity):
     def depends_on_atomic_positions(self):
         return self.effective_potential.depends_on_atomic_positions
 
-    def print_parameters(self, text):
-        text('effective potential: %s' % (self.effective_potential.__class__))
-        self.effective_potential.print_parameters(text)
-        text()
-        text('temperature: %s' % (self.temperature, ))
-        text()
-        Cavity.print_parameters(self, text)
+    def __str__(self):
+        s = Cavity.__str__(self)
+        s += indent(str(self.effective_potential))
+        s += '  temperature: %s\n' % (self.temperature, )
+        return s
+
+    def update_atoms(self, atoms, log):
+        self.effective_potential.update_atoms(atoms, log)
 
     # --- BEGIN GradientSurface API ---
 
@@ -308,7 +324,11 @@ class Potential(NeedsGD):
         """Return spatial derivatives with respect to atomic position."""
         raise NotImplementedError()
 
-    def print_parameters(self, text):
+    def __str__(self):
+        return 'Potential: %s\n' % (self.__class__, )
+
+    def update_atoms(self, atoms, log):
+        """Inexpensive initialization when atoms change."""
         pass
 
 
@@ -324,7 +344,7 @@ class Power12Potential(Potential):
     depends_on_el_density = False
     depends_on_atomic_positions = True
 
-    def __init__(self, atomic_radii, u0, pbc_cutoff=1e-6):
+    def __init__(self, atomic_radii, u0, pbc_cutoff=1e-6, tiny=1e-10):
         """Constructor for the Power12Potential class.
 
         Arguments:
@@ -338,6 +358,7 @@ class Power12Potential(Potential):
         self.atomic_radii = atomic_radii
         self.u0 = float(u0)
         self.pbc_cutoff = float(pbc_cutoff)
+        self.tiny = float(tiny)
         self.r12_a = None
         self.r_vg = None
         self.pos_aav = None
@@ -359,8 +380,6 @@ class Power12Potential(Potential):
     def update(self, atoms, density):
         if atoms is None:
             return False
-        self.atomic_radii_output = np.array(self.atomic_radii(atoms))
-        self.symbols = atoms.get_chemical_symbols()
         self.r12_a = (self.atomic_radii_output / Bohr) ** 12
         r_cutoff = (self.r12_a.max() * self.u0 / self.pbc_cutoff) ** (1. / 12.)
         self.pos_aav = get_pbc_positions(atoms, r_cutoff)
@@ -373,18 +392,14 @@ class Power12Potential(Potential):
                 origin_vg = pos_v[:, na, na, na]
                 r_diff_vg = self.r_vg - origin_vg
                 r_diff2_g = (r_diff_vg ** 2).sum(0)
-                r12_g = r_diff2_g ** 6
-                r14_g = r12_g * r_diff2_g
-                self.u_g += divide_silently(r12, r12_g)
-                self.grad_u_vg += divide_silently(r12 * r_diff_vg, r14_g)
+                r_diff2_g[r_diff2_g < self.tiny] = self.tiny
+                u_g = r12 / r_diff2_g ** 6
+                self.u_g += u_g
+                u_g /= r_diff2_g
+                r_diff_vg *= u_g[na, ...]
+                self.grad_u_vg += r_diff_vg
         self.u_g *= self.u0 / Hartree
-        # np.exp(-np.inf) = .0
-        self.u_g[np.isnan(self.u_g)] = np.inf
-
         self.grad_u_vg *= -12. * self.u0 / Hartree
-        # mask points where the limit of all later
-        # calculations is zero anyways
-        self.grad_u_vg[...] = np.nan_to_num(self.grad_u_vg)
         # avoid overflow in norm calculation:
         self.grad_u_vg[self.grad_u_vg < -1e20] = -1e20
         self.grad_u_vg[self.grad_u_vg > 1e20] = 1e20
@@ -398,23 +413,24 @@ class Power12Potential(Potential):
         for pos_v in self.pos_aav[atom_index]:
             origin_vg = pos_v[:, na, na, na]
             diff_vg = self.r_vg - origin_vg
-            r14_g = np.sum(diff_vg ** 2, axis=0) ** 7
-            self.del_u_del_r_vg += divide_silently(diff_vg, r14_g)
+            diff2_g = (diff_vg ** 2).sum(0)
+            diff2_g[diff2_g < self.tiny] = self.tiny
+            diff2_g **= 7
+            diff_vg /= diff2_g[na, ...]
+            self.del_u_del_r_vg += diff_vg
         self.del_u_del_r_vg *= (12. * u0 * r12)
         return self.del_u_del_r_vg
 
-    def print_parameters(self, text):
-        if self.symbols is None:
-            text('atomic_radii: not initialized (dry run)')
-        else:
-            text('atomic_radii:')
-            for a, (s, r) in enumerate(
-                zip(self.symbols, self.atomic_radii_output)
-            ):
-                text('%3d %-2s %10.5f' % (a, s, r))
-        text('u0: %s' % (self.u0, ))
-        text('pbc_cutoff: %s' % (self.pbc_cutoff, ))
-        Potential.print_parameters(self, text)
+    def __str__(self):
+        s = Potential.__str__(self)
+        s += '  atomic_radii: %s\n' % (self.atomic_radii, )
+        s += '  u0: %s\n' % (self.u0, )
+        s += '  pbc_cutoff: %s\n' % (self.pbc_cutoff, )
+        s += '  tiny: %s\n' % (self.tiny, )
+        return s
+
+    def update_atoms(self, atoms, log):
+        set_log_and_check_radii(self, atoms, log)
 
 
 class SmoothStepCavity(Cavity):
@@ -491,11 +507,13 @@ class SmoothStepCavity(Cavity):
             atom_index, density
         )
 
-    def print_parameters(self, text):
-        text('density: %s' % (self.density.__class__))
-        self.density.print_parameters(text)
-        text()
-        Cavity.print_parameters(self, text)
+    def __str__(self):
+        s = Cavity.__str__(self)
+        s += indent(str(self.density))
+        return s
+
+    def update_atoms(self, atoms, log):
+        self.density.update_atoms(atoms, log)
 
     # --- BEGIN GradientSurface API ---
     def get_grad_inner(self):
@@ -547,7 +565,11 @@ class Density(NeedsGD):
     def depends_on_atomic_positions(self):
         raise NotImplementedError()
 
-    def print_parameters(self, text):
+    def __str__(self):
+        return "Density: %s\n" % (self.__class__, )
+
+    def update_atoms(self, atoms, log):
+        """Inexpensive initialization when atoms change."""
         pass
 
 
@@ -626,7 +648,7 @@ class SSS09Density(FDGradientDensity):
     depends_on_el_density = False
     depends_on_atomic_positions = True
 
-    def __init__(self, atomic_radii, pbc_cutoff=1e-3, nn=3):
+    def __init__(self, atomic_radii, pbc_cutoff=1e-3, nn=3, tiny=1e-100):
         """Constructor for the SSS09Density class.
 
         Arguments:
@@ -641,6 +663,7 @@ class SSS09Density(FDGradientDensity):
         self.atomic_radii_output = None
         self.symbols = None
         self.pbc_cutoff = float(pbc_cutoff)
+        self.tiny = float(tiny)
         self.pos_aav = None
         self.r_vg = None
         self.del_rho_del_r_vg = None
@@ -659,8 +682,6 @@ class SSS09Density(FDGradientDensity):
     def update_only_density(self, atoms, density):
         if atoms is None:
             return False
-        self.atomic_radii_output = np.array(self.atomic_radii(atoms))
-        self.symbols = atoms.get_chemical_symbols()
         r_a = self.atomic_radii_output / Bohr
         r_cutoff = r_a.max() - np.log(self.pbc_cutoff)
         self.pos_aav = get_pbc_positions(atoms, r_cutoff)
@@ -682,23 +703,22 @@ class SSS09Density(FDGradientDensity):
             origin_vg = pos_v[:, na, na, na]
             r_diff_vg = self.r_vg - origin_vg
             norm_r_diff_g = np.sum(r_diff_vg ** 2, axis=0) ** .5
+            norm_r_diff_g[norm_r_diff_g < self.tiny] = self.tiny
             exponential = np.exp(r_a - norm_r_diff_g)
-            self.del_rho_del_r_vg += divide_silently(
-                exponential * r_diff_vg, norm_r_diff_g
-            )
+            exponential /= norm_r_diff_g
+            r_diff_vg *= exponential[na, ...]
+            self.del_rho_del_r_vg += r_diff_vg
         return self.del_rho_del_r_vg
 
-    def print_parameters(self, text):
-        if self.symbols is None:
-            text('atomic_radii: not initialized (dry run)')
-        else:
-            text('atomic_radii:')
-            for a, (s, r) in enumerate(
-                zip(self.symbols, self.atomic_radii_output)
-            ):
-                text('%3d %-2s %10.5f' % (a, s, r))
-        text('pbc_cutoff: %s' % (self.pbc_cutoff, ))
-        FDGradientDensity.print_parameters(self, text)
+    def __str__(self):
+        s = FDGradientDensity.__str__(self)
+        s += '  atomic_radii: %s\n' % (self.atomic_radii, )
+        s += '  pbc_cutoff: %s\n' % (self.pbc_cutoff, )
+        s += '  tiny: %s\n' % (self.tiny, )
+        return s
+
+    def update_atoms(self, atoms, log):
+        set_log_and_check_radii(self, atoms, log)
 
 
 class ADM12SmoothStepCavity(SmoothStepCavity):
@@ -761,11 +781,12 @@ class ADM12SmoothStepCavity(SmoothStepCavity):
         dt = -2. * np.sin(arg / 2.) ** 2 / (lnmax - lnmin)
         return (t, dt)
 
-    def print_parameters(self, text):
-        text('rhomin: %s' % (self.rhomin, ))
-        text('rhomax: %s' % (self.rhomax, ))
-        text('epsinf: %s' % (self.epsinf, ))
-        SmoothStepCavity.print_parameters(self, text)
+    def __str__(self):
+        s = SmoothStepCavity.__str__(self)
+        s += '  rhomin: %s\n' % (self.rhomin, )
+        s += '  rhomax: %s\n' % (self.rhomax, )
+        s += '  epsinf: %s\n' % (self.epsinf, )
+        return s
 
 
 class FG02SmoothStepCavity(SmoothStepCavity):
@@ -804,10 +825,11 @@ class FG02SmoothStepCavity(SmoothStepCavity):
             self.del_g_del_rho_g
         )
 
-    def print_parameters(self, text):
-        text('rho0: %s' % (self.rho0, ))
-        text('beta: %s' % (self.beta, ))
-        SmoothStepCavity.print_parameters(self, text)
+    def __str__(self):
+        s = SmoothStepCavity.__str__(self)
+        s += '  rho0: %s\n' % (self.rho0, )
+        s += '  beta: %s\n' % (self.beta, )
+        return s
 
 
 class SurfaceCalculator(NeedsGD):
@@ -831,8 +853,8 @@ class SurfaceCalculator(NeedsGD):
         NeedsGD.allocate(self)
         self.delta_A_delta_g_g = self.gd.empty()
 
-    def print_parameters(self, text):
-        pass
+    def __str__(self):
+        return 'Surface Calculator: %s\n' % (self.__class__, )
 
     def update(self, cavity):
         """Calculate A and delta_A_delta_g_g."""
@@ -919,8 +941,8 @@ class VolumeCalculator(NeedsGD):
         NeedsGD.allocate(self)
         self.delta_V_delta_g_g = self.gd.empty()
 
-    def print_parameters(self, text):
-        pass
+    def __str__(self):
+        return "Volume Calculator: %s\n" % (self.__class__, )
 
     def update(self, cavity):
         """Calculate V and delta_V_delta_g_g"""
@@ -947,10 +969,11 @@ class KB51Volume(VolumeCalculator):
         self.compressibility = float(compressibility)
         self.temperature = float(temperature)
 
-    def print_parameters(self, text):
-        text('compressibility: %s' % (self.compressibility, ))
-        text('temperature:     %s' % (self.temperature, ))
-        VolumeCalculator.print_parameters(self, text)
+    def __str__(self):
+        s = VolumeCalculator.__str__(self)
+        s += '  compressibility: %s\n' % (self.compressibility, )
+        s += '  temperature:     %s\n' % (self.temperature, )
+        return s
 
     def allocate(self):
         VolumeCalculator.allocate(self)

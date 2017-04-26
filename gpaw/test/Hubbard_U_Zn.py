@@ -1,8 +1,7 @@
 from __future__ import print_function
 from ase import Atom
-from ase.units import Hartree
 
-from gpaw import GPAW, FermiDirac, Davidson, PoissonSolver
+from gpaw import GPAW, FermiDirac, PoissonSolver
 from gpaw.cluster import Cluster
 from gpaw.test import equal
 

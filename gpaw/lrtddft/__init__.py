@@ -52,12 +52,27 @@ class LrTDDFT(ExcitationList):
     read from a file
     """
 
+    default_parameters = {
+        'nspins': None,
+        'eps': 0.001,
+        'istart': 0,
+        'jend': sys.maxsize,
+        'energy_range': None,
+        'xc': 'GS',
+        'derivative_level': 1,
+        'numscale': 0.00001,
+        'txt': None,
+        'filename': None,
+        'finegrid': 2,
+        'force_ApmB': False,  # for tests
+        'eh_comm': None}  # parallelization over eh-pairs
+
     def __init__(self, calculator=None, **kwargs):
 
         self.timer = Timer()
         self.diagonalized = False
 
-        self.set(**kwargs)
+        changed = self.set(**kwargs)
 
         if isinstance(calculator, str):
             ExcitationList.__init__(self, None, self.txt)
@@ -66,7 +81,11 @@ class LrTDDFT(ExcitationList):
             ExcitationList.__init__(self, calculator, self.txt)
 
         if self.filename is not None:
-            return self.read(self.filename)
+            self.read(self.filename)
+            if set(['istart', 'jend', 'energy_range']) & set(changed):
+                # the user has explicitely demanded these
+                self.diagonalize()
+            return
 
         if self.eh_comm is None:
             self.eh_comm = mpi.serial_comm
@@ -100,29 +119,14 @@ class LrTDDFT(ExcitationList):
             self.update(calculator)
 
     def set(self, **kwargs):
-
-        defaults = {
-            'nspins': None,
-            'eps': 0.001,
-            'istart': 0,
-            'jend': sys.maxsize,
-            'energy_range': None,
-            'xc': 'GS',
-            'derivative_level': 1,
-            'numscale': 0.00001,
-            'txt': None,
-            'filename': None,
-            'finegrid': 2,
-            'force_ApmB': False,  # for tests
-            'eh_comm': None}  # parallelization over eh-pairs
-
-        changed = False
-        for key, value in defaults.items():
+        """Change parameters."""
+        changed = []
+        for key, value in LrTDDFT.default_parameters.items():
             if hasattr(self, key):
                 value = getattr(self, key)  # do not overwrite
             setattr(self, key, kwargs.pop(key, value))
             if value != getattr(self, key):
-                changed = True
+                changed.append(key)
 
         for key in kwargs:
             raise KeyError('Unknown key ' + key)
@@ -193,11 +197,11 @@ class LrTDDFT(ExcitationList):
                      txt=self.txt)
         self.name = name
 
-    def diagonalize(self, istart=None, jend=None,
-                    energy_range=None, TDA=False):
+    def diagonalize(self, **kwargs):
+        self.set(**kwargs)
         self.timer.start('diagonalize')
         self.timer.start('omega')
-        self.Om.diagonalize(istart, jend, energy_range, TDA)
+        self.Om.diagonalize(self.istart, self.jend, self.energy_range)
         self.timer.stop('omega')
         self.diagonalized = True
 
@@ -266,6 +270,7 @@ class LrTDDFT(ExcitationList):
             # go back to previous position
             f.seek(p)
         else:
+            self.diagonalized = True
             # load the eigenvalues
             n = int(f.readline().split()[0])
             for i in range(n):
@@ -280,10 +285,6 @@ class LrTDDFT(ExcitationList):
 
         if fh is None:
             f.close()
-
-        # update own variables
-        self.istart = self.Om.fullkss.istart
-        self.jend = self.Om.fullkss.jend
 
     def singlets_triplets(self):
         """Split yourself into a singlet and triplet object"""
@@ -416,12 +417,12 @@ class LrTDDFTExcitation(Excitation):
     def __init__(self, Om=None, i=None,
                  e=None, m=None, string=None):
 
+        # multiplicity comes from Kohn-Sham contributions
+        self.fij = 1
+
         if string is not None:
             self.fromstring(string)
             return None
-
-        # multiplicity comes from Kohn-Sham contributions
-        self.fij = 1
 
         # define from the diagonalized Omega matrix
         if Om is not None:

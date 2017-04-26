@@ -289,6 +289,8 @@ class AEOrbital:
 
     def expand(self, epsF, wfs, fixmom):
 
+        if wfs.mode == 'lcao':
+            wfs.initialize_wave_functions_from_lcao()
         if wfs.nspins == 1:
             epsF = [epsF]
         elif not fixmom:

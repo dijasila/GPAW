@@ -1,5 +1,5 @@
-from gpaw.upf import UPFSetupData, upfplot
-from gpaw.pseudopotential import pseudoplot, PseudoPotential
+from gpaw.upf import UPFSetupData
+from gpaw.pseudopotential import PseudoPotential
 from gpaw.eigensolvers.davidson import Davidson
 
 def get(fname):
@@ -44,8 +44,7 @@ if 0:
 #print 'horrible version ok, relatively speaking'
 
 if 1:
-    from ase import Atoms
-    from gpaw import GPAW, PoissonSolver, FermiDirac, Mixer, MixerSum
+    from gpaw import GPAW, PoissonSolver
     from gpaw.utilities import h2gpts
     from ase.build import molecule
 

@@ -10,9 +10,10 @@ New release
   modify ``__ase_version_required__`` in :git:`gpaw/__init__.py`.
 
 * Upload to PyPI::
-    
-      $ python3 setup.py sdist upload
-      
+
+      $ python3 setup.py sdist
+      $ twine upload dist/*
+
 * Push and make a tag.
 
 * Update :ref:`news`, :ref:`releasenotes` and :ref:`download` pages.

@@ -21,7 +21,7 @@ class GWBands:
 
             self.calc = GPAW(calc, txt=None)
             if gw_file is not None:
-                self.gw_file = pickle.load(open(gw_file, 'rb'))
+                self.gw_file = pickle.load(open(gw_file, 'rb'),encoding='bytes')
             self.kpoints = kpoints
             if bandrange is None:
                 self.bandrange = np.arange(self.calc.get_number_of_bands())
@@ -111,7 +111,7 @@ class GWBands:
 
     def get_vacuum_level(self, plot_pot=False):
         """Finds the vacuum level through Hartree potential"""
-        vHt_g = self.calc.hamiltonian.vt_sG[0] * Ha
+        vHt_g = self.calc.get_electrostatic_potential()
         vHt_z = np.mean(np.mean(vHt_g, axis=0), axis=0)
 
         if plot_pot:

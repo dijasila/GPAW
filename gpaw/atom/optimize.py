@@ -16,7 +16,7 @@ from ase.build import fcc111
 from ase.units import Bohr
 
 from gpaw import GPAW, PW, setup_paths, Mixer, ConvergenceError
-from gpaw.atom.generator2 import _generate, DatasetGenerationError
+from gpaw.atom.generator2 import _generate
 
 
 my_covalent_radii = covalent_radii.copy()

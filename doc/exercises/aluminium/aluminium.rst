@@ -20,7 +20,7 @@ script by typing::
 
 The program will pop up a window showing the bulk structure.  Verify
 that the structure indeed is fcc. Try to identify the closepacked (111)
-planes.  In :program:`ase-gui` this is done by choosing :menuselection:`View
+planes.  In :program:`ase gui` this is done by choosing :menuselection:`View
 --> Repeat`.
 
 Notice that the program has generated two output files::
@@ -100,9 +100,9 @@ bulk Aluminum.
 
   where *M* is the number of atoms per cubic unit cell:
   `V=a^3/M` (`M=4` for fcc).  Make the fit using your favorite math
-  package (NumPy_) or use :program:`ase-gui` like this::
+  package (NumPy_) or use :program:`ase gui` like this::
 
-    $ ase-gui bulk-*.txt
+    $ ase gui bulk-*.txt
 
   Then choose :menuselection:`Tools --> Bulk Modulus`.
 

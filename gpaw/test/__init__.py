@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import gc
 import sys
@@ -61,16 +62,19 @@ def wrap_pylab(names=[]):
     """Use Agg backend and prevent windows from popping up."""
     import matplotlib
     matplotlib.use('Agg')
-    import pylab
+    import matplotlib.pyplot as plt
+    import ase.visualize
 
     def show(names=names):
         if names:
             name = names.pop(0)
         else:
             name = 'fig.png'
-        pylab.savefig(name)
+        plt.savefig(name)
 
-    pylab.show = show
+    plt.show = show
+
+    ase.visualize.view = lambda *args, **kwargs: None
 
 
 tests = [
@@ -136,6 +140,7 @@ tests = [
     'generic/proton.py',
     'atoms_mismatch.py',
     'setup_basis_spec.py',
+    'pw/direct.py',
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
     'lcao/density.py',                      # ~1s
@@ -151,6 +156,7 @@ tests = [
     'pathological/numpy_zdotc_graphite.py',  # ~1s
     'utilities/eed.py',                     # ~1s
     'lcao/dos.py',                          # ~1s
+    'solvation/nan_radius.py',              # ~1s
     'solvation/pbc_pos_repeat.py',          # ~1s
     'linalg/gemv.py',                       # ~2s
     'fileio/idiotproof_setup.py',           # ~2s
@@ -247,7 +253,7 @@ tests = [
     'fileio/restart_density.py',            # ~8s
     'rpa/rpa_energy_Ni.py',                 # ~8s
     'tddft/be_nltd_ip.py',                  # ~8s
-    'test_ibzqpt.py',                       # ~8s
+    'ibzqpt.py',                       # ~8s
     'generic/si_primitive.py',              # ~9s
     'tddft/ehrenfest_nacl.py',              # ~9s
     'lcao/fd2lcao_restart.py',              # ~9s
@@ -323,6 +329,7 @@ tests = [
     'pathological/LDA_unstable.py',         # ~42s
     'response/bse_aluminum.py',             # ~42s
     'response/au02_absorption.py',          # ~44s
+    'xc/tb09.py',
     'ext_potential/point_charge.py',
     'ase_features/wannierk.py',             # ~45s
     'ut_tddft.py',                          # ~49s
@@ -332,13 +339,13 @@ tests = [
     'solvation/forces_symmetry.py',         # ~56s
     'parallel/diamond_gllb.py',             # ~59s
     'beef.py',
-    'pw/si_stress.py',                      # ~61s
     'response/chi0.py',                     # ~71s
     'sic/scfsic_n2.py',                     # ~73s
     'lrtddft/3.py',                         # ~75s
     'pathological/nonlocalset.py',          # ~82s
     'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
+    'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
     'exx/AA_enthalpy.py',                   # ~119s
     'lcao/tdgllbsc.py',                     # ~132s
@@ -434,6 +441,8 @@ if mpi.size != 1 and not compiled_with_sl():
                 'pw/expert_diag.py',
                 'pw/fulldiag.py',
                 'pw/fulldiagk.py',
+                'response/gw_hBN_extrapolate.py',
+                'response/gw0_hBN.py',
                 'response/au02_absorption.py']
 
 if not compiled_with_sl():
@@ -450,6 +459,7 @@ if LooseVersion(np.__version__) < '1.6.0':
 
 def get_test_path(test):
     return os.path.join(gpaw.__path__[0], 'test', test)
+
 
 for test in tests + exclude:
     assert os.path.exists(get_test_path(test)), 'No such file: %s' % test
@@ -494,7 +504,7 @@ class TestRunner:
                         ntests, time.time() - t0))
         self.log.write('Tests skipped: %d\n' % len(self.skipped))
         if self.failed:
-            self.log.write('Tests failed: %d\n' % len(self.failed))
+            print('Tests failed:', len(self.failed), file=self.log)
         else:
             self.log.write('All tests passed!\n')
         self.log.write('=' * 77 + '\n')
@@ -662,7 +672,3 @@ class TestRunner:
         if self.jobs > 1:
             self.log.write('%*s' % (-self.n, test))
         self.log.write('%10.3f  %s\n' % (t, text))
-
-
-if __name__ == '__main__':
-    TestRunner(tests).run()

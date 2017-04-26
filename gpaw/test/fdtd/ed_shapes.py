@@ -1,13 +1,9 @@
-from ase import Atoms
 from gpaw.fdtd.poisson_fdtd import QSFDTD
 from gpaw.fdtd.polarizable_material import PermittivityPlus, PolarizableMaterial, \
                                            PolarizableSphere, PolarizableBox, \
                                            PolarizableEllipsoid, PolarizableRod, \
                                            PolarizableTetrahedron
-from gpaw.mpi import world
-from gpaw.tddft import photoabsorption_spectrum, units
 from gpaw.test import equal
-import numpy as np
 
 # Whole simulation cell (Angstroms)
 cell = [40, 40, 20];

@@ -131,7 +131,7 @@ class MatrixOperator:
         self.A_nn = self.bmd.zeros(dtype=dtype)
 
         if ngroups == 1 and self.nblocks == 1:
-            self.work1_xG = self.gd.empty(self.bd.mynbands, self.dtype)
+            self.work1_xG = self.gd.empty(mynbands, self.dtype)
         else:
             self.work1_xG = self.gd.empty(self.X, self.dtype)
             self.work2_xG = self.gd.empty(self.X, self.dtype)

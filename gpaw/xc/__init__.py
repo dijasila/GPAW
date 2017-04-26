@@ -12,7 +12,7 @@ from gpaw.xc.mgga import MGGA
 def XC(kernel, parameters=None):
     """Create XCFunctional object.
 
-    kernel: XCKernel object or str
+    kernel: XCKernel object, dict or str
         Kernel object or name of functional.
     parameters: ndarray
         Parameters for BEE functional.
@@ -23,16 +23,30 @@ def XC(kernel, parameters=None):
     GGA_X_PBE+GGA_C_PBE is equivalent to PBE, and LDA_X to the LDA exchange.
     In this way one has access to all the functionals defined in libxc.
     See xc_funcs.h for the complete list.  """
-    
+
     if isinstance(kernel, basestring):
-        name = kernel
+        # We have the option of implementing a string specification
+        # minilanguage for xc keywords like 'vdW-DF:type=libvdwxc'
+        kernel = {'name': kernel}
+
+    if isinstance(kernel, dict):
+        kwargs = kernel.copy()
+        name = kwargs.pop('name')
+        xctype = kwargs.pop('type', None)
+
+        if xctype == 'libvdwxc':
+            # Must handle libvdwxc before old vdw implementation to override
+            # behaviour for 'name'
+            from gpaw.xc.libvdwxc import VDWXC
+            return VDWXC(name=name, **kwargs)
+
         if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
                     'C09-vdW', 'mBEEF-vdW', 'BEEF-vdW']:
             from gpaw.xc.vdw import VDWFunctional
             return VDWFunctional(name)
         elif name in ['EXX', 'PBE0', 'B3LYP']:
             from gpaw.xc.hybrid import HybridXC
-            return HybridXC(name)
+            return HybridXC(name, **kwargs)
         elif name in ['HSE03', 'HSE06']:
             from gpaw.xc.exx import EXX
             return EXX(name)
@@ -86,7 +100,8 @@ def XC(kernel, parameters=None):
             from gpaw.xc.parametrizedxc import ParametrizedKernel
             kernel = ParametrizedKernel(name)
         else:
-            kernel = LibXC(kernel)
+            kernel = LibXC(name)
+
     if kernel.type == 'LDA':
         return LDA(kernel)
     elif kernel.type == 'GGA':
@@ -94,10 +109,10 @@ def XC(kernel, parameters=None):
     else:
         return MGGA(kernel)
 
-        
+
 def xc(filename, xc, ecut=None):
     """Calculate non self-consitent energy.
-    
+
     filename: str
         Name of restart-file.
     xc: str

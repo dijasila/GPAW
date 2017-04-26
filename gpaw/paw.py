@@ -120,7 +120,7 @@ class PAW:
 
         The PAW object must be initialize()'d, but needs not have large
         arrays allocated."""
-        # NOTE.  This should work with --dry-run=N
+        # NOTE.  This should work with "--gpaw dry_run=N"
         #
         # However, the initial overhead estimate is wrong if this method
         # is called within a real mpirun/gpaw-python context.
@@ -164,14 +164,14 @@ class PAW:
         self.calculate(system_changes=[])
         self.density.fixed = fixed
 
-    def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None,
+    def diagonalize_full_hamiltonian(self, nbands=None, ecut=None, scalapack=None,
                                      expert=False):
         if not self.initialized:
             self.initialize()
         nbands = self.wfs.diagonalize_full_hamiltonian(
             self.hamiltonian, self.atoms,
             self.occupations, self.log,
-            nbands, scalapack, expert)
+            nbands, ecut, scalapack, expert)
         self.parameters.nbands = nbands
 
     def get_number_of_bands(self):
@@ -183,6 +183,7 @@ class PAW:
 
         'LDA', 'PBE', ..."""
 
+        return self.parameters.get('xc', 'LDA')
         return self.hamiltonian.xc.name
 
     def get_number_of_spins(self):
@@ -261,7 +262,12 @@ class PAW:
         return vt_G * Ha
 
     def get_electrostatic_potential(self):
-        """Return pseudo effective-potential."""
+        """Return the electrostatic potential.
+
+        This is the potential from the pseudo electron density and the
+        PAW-compensation charges.  So, the electrostatic potential will
+        only be correct outside the PAW augmentation spheres.
+        """
 
         ham = self.hamiltonian
         dens = self.density
@@ -514,8 +520,7 @@ class PAW:
             if self.wfs.world.rank != 0:
                 eps_n = np.empty(self.wfs.bd.nbands)
             self.wfs.world.broadcast(eps_n, 0)
-        if eps_n is not None:
-            return eps_n * Ha
+        return eps_n * Ha
 
     def get_occupation_numbers(self, kpt=0, spin=0, broadcast=True):
         """Return occupation array."""

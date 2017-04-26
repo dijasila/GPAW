@@ -4,20 +4,17 @@ import numpy
 
 
 class WeightedFDOperator(FDOperator):
-    def __init__(self, weights, operators):
+    def __init__(self, operators):
         """Compound operator A with nonlocal weights.
 
         A = Sum_i weights_i * operators_i
 
         Arguments:
-        weights   -- List of numpy arrays sized gd.n_c
-                     (weights are not copied).
         operators -- List of FDOperators.
 
-        len(weights) has to match len(operators).
+        The weights have to be set using the set_weights method.
         A is build from operators which are then discarded.
         """
-        assert len(weights) == len(operators)
         self.gd = operators[0].gd
         self.shape = tuple(self.gd.n_c)
         self.coef_ps = []
@@ -47,10 +44,6 @@ class WeightedFDOperator(FDOperator):
             assert self.coef_ps[-1].flags.c_contiguous
             assert self.offset_ps[-1].dtype == int
             assert self.coef_ps[-1].dtype == float
-        for weight in weights:
-            assert weight.shape == self.shape
-            assert weight.dtype == float
-            assert weight.flags.c_contiguous
 
         self.nweights = len(operators)
         self.cfd = all([op.cfd for op in operators])
@@ -61,11 +54,25 @@ class WeightedFDOperator(FDOperator):
         else:
             self.comm = None
         self.npoints = max([op.npoints for op in operators])
+        self.weights = None
+        self.operator = None
+        self.description = 'Weighted Finite Difference Operator\n      '
+        self.description += '\n      '.join([op.description for op in operators])
+
+    def set_weights(self, weights):
+        """Set the operator weights.
+
+        weights   -- List of numpy arrays sized gd.n_c
+                     (weights are not copied).
+        """
+        assert len(weights) == self.nweights
+        for weight in weights:
+            assert weight.shape == self.shape
+            assert weight.dtype == float
+            assert weight.flags.c_contiguous
         self.weights = weights
         self.operator = _gpaw.WOperator(
             self.nweights, self.weights,
             self.coef_ps, self.offset_ps, self.gd.n_c, self.mp,
             self.gd.neighbor_cd, self.dtype == float, self.comm, self.cfd
         )
-        self.description = 'Weighted Finite Difference Operator\n  '
-        self.description += '\n  '.join([op.description for op in operators])

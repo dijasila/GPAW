@@ -1,12 +1,12 @@
 from __future__ import print_function
-import os
-import numpy as np
+
 from ase import Atom, Atoms
+import numpy as np
+
 from gpaw import GPAW, FermiDirac
 from gpaw.utilities.dos import raw_orbital_LDOS, raw_wignerseitz_LDOS, RawLDOS
 from gpaw.test import equal
 import gpaw.mpi as mpi
-import numpy as np
 
 comms = [mpi.world.new_communicator(np.array([r])) for r in range(mpi.size)]
 comm = comms[mpi.rank]

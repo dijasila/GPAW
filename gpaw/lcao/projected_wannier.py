@@ -87,7 +87,6 @@ def get_lcao_projections_HSP(calc, bfs=None, spin=0, projectionsonly=True):
     spos_ac = calc.atoms.get_scaled_positions() % 1.
     comm = calc.wfs.gd.comm
     nq = len(calc.wfs.kd.ibzk_qc)
-    Nk = calc.wfs.kd.nibzkpts
     nao = calc.wfs.setups.nao
     dtype = calc.wfs.dtype
     if bfs is None:
@@ -301,7 +300,6 @@ class ProjectedWannierFunctions:
         self.S_kii = np.asarray(Wo_kii) + np.asarray(Wu_kii)
 
     def get_condition_number(self):
-        eigs_kn = [la.eigvalsh(S_ii) for S_ii in self.S_kii]
         return np.asarray([condition_number(S) for S in self.S_kii])
 
     def calculate_hamiltonian_matrix(self, useibl=True):
@@ -316,7 +314,6 @@ class ProjectedWannierFunctions:
 
         if self.h_lcao_kii is not None and useibl:
             print("Using h_lcao and infinite band limit")
-            Vo_kni = self.Vo_kni
             Huf_kii = [h_lcao_ii - np.dot(dagger(Vo_ni) * epso_n, Vo_ni)
                        for h_lcao_ii, Vo_ni, epso_n in zip(self.h_lcao_kii, 
                                                            self.Vo_kni, 
@@ -345,7 +342,6 @@ class ProjectedWannierFunctions:
                            for H, S in zip(self.h_lcao_kii, self.s_lcao_kii)])
 
     def get_norm_of_projection(self):
-        norm_kn = np.zeros((self.nk, self.N))
         Sinv_kii = np.asarray([la.inv(S_ii) for S_ii in self.S_kii])
 
         normo_kn = np.asarray([dots(Uo_ni, Sinv_ii, dagger(Uo_ni)).diagonal()
@@ -366,7 +362,6 @@ class ProjectedWannierFunctions:
     def calculate_functions(self, calc, basis, k=0):
         from gpaw.io import FileReference
         psit_nG = calc.wfs.kpt_u[k].psit_nG
-        atoms = calc.get_atoms()
         Uo_ni = self.Uo_kni[k]
         tarinstance = isinstance(psit_nG, FileReference)
         if tarinstance:

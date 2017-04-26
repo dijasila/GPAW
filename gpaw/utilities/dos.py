@@ -11,7 +11,6 @@ from gpaw.io.fmf import FMF
 from gpaw.utilities.blas import gemmdot
 
 
-
 def print_projectors(setup):
     """Print information on the projectors of input nucleus object.
 
@@ -77,7 +76,6 @@ def get_angular_projectors(setup, angular, type='bound'):
     else:
         nj = len(setup.n_j)
 
-
     # Choose the relevant projectors
     projectors = []
     i = j = 0
@@ -133,8 +131,8 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
         nb = wfs.bd.nbands
     else:
         nb = nbands
-        assert nb <= wfs.bd.nbands, ("nbands higher than available number" +
-                                     "of bands")
+        assert nb <= wfs.bd.nbands, ('nbands higher than available number' +
+                                     'of bands')
 
     if a < 0:
         # Allow list-style negative indices; we'll need the positive a for the
@@ -146,18 +144,16 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
     weights_xi = np.empty((nb * nk, setup.ni))
     x = 0
     for k, w in enumerate(w_k):
-        eps = wfs.collect_eigenvalues(k=k, s=spin)[:nb]
-        #print(wfs.world.rank, type(eps))
-        if eps is not None:
-            energies[x:x + nb] = eps
-        u = spin * nk + k
-        P_ani = wfs.kpt_u[u].P_ani
-        if a in P_ani:
+        eps_n = wfs.collect_eigenvalues(k=k, s=spin)
+        if len(eps_n) > 0:
+            energies[x:x + nb] = eps_n[:nb]
+        P_ani = wfs.collect_projections(k, spin, asdict=True)
+        if P_ani is not None:
             weights_xi[x:x + nb, :] = w * np.absolute(P_ani[a][:nb, :])**2
         x += nb
 
     wfs.world.broadcast(energies, 0)
-    wfs.world.broadcast(weights_xi, wfs.atom_partition.rank_a[a])
+    wfs.world.broadcast(weights_xi, 0)
 
     if angular is None:
         return energies, weights_xi
@@ -193,15 +189,15 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
     P_kn = np.zeros((nk, nb), np.complex)
     if wf_k is None:
         if lc is None:
-            lc = [[1,0,0,0] for a in mol]
+            lc = [[1, 0, 0, 0] for a in mol]
         for k, kpt in enumerate(paw.wfs.kpt_u[spin * nk:(spin + 1) * nk]):
             N = 0
             for atom, w_a in zip(mol, lc):
-                i=0
+                i = 0
                 for w_o in w_a:
                     P_kn[k] += w_o * kpt.P_ani[atom][:, i]
                     N += abs(w_o)**2
-                    i +=1
+                    i += 1
         P_kn /= sqrt(N)
 
     else:
@@ -214,16 +210,18 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
                     p_i = kpt.P_ani[a][n]
                     for i in range(len(p_i)):
                         for j in range(len(p_i)):
-                            P_kn[k][n] += (P_aui[b][spin*nk + k][i] *
+                            P_kn[k][n] += (P_aui[b][spin * nk + k][i] *
                                            atom.dO_ii[i][j] * p_i[j])
-            print('# k', k, ' Sum_m |<m|n>|^2 =',  sum(abs(P_kn[k])**2))
+            print('# k', k, ' Sum_m |<m|n>|^2 =', sum(abs(P_kn[k])**2))
 
     energies = np.empty(nb * nk)
     weights = np.empty(nb * nk)
     x = 0
     for k, w in enumerate(w_k):
-        energies[x:x + nb] = paw.wfs.collect_eigenvalues(k=k, s=spin)
-        weights[x:x + nb] = w * abs(P_kn[k])**2
+        eps_n = paw.wfs.collect_eigenvalues(k=k, s=spin)
+        if len(eps_n) > 0:
+            energies[x:x + nb] = eps_n
+            weights[x:x + nb] = w * abs(P_kn[k])**2
         x += nb
 
     return energies, weights
@@ -235,12 +233,12 @@ def get_all_electron_IPR(paw):
     n_G = wfs.gd.empty()
     n_g = density.finegd.empty()
     print()
-    print("inverse participation function")
-    print("-"*35)
-    print("%5s %5s %10s %10s" % ("k","band","eps","ipr"))
-    print("-"*35)
+    print('inverse participation function')
+    print('-' * 35)
+    print('%5s %5s %10s %10s' % ('k', 'band', 'eps', 'ipr'))
+    print('-' * 35)
     for k, kpt in enumerate(paw.wfs.kpt_u):
-        for n, (eps, psit_G)  in enumerate(zip(kpt.eps_n, kpt.psit_nG)):
+        for n, (eps, psit_G) in enumerate(zip(kpt.eps_n, kpt.psit_nG)):
             n_G[:] = 0.0
             wfs.add_orbital_density(n_G, kpt, n)
             density.interpolator.apply(n_G, n_g)
@@ -255,22 +253,28 @@ def get_all_electron_IPR(paw):
                 # Get D_sp for atom a
                 D_sp = np.array(wfs.get_orbital_density_matrix(a, kpt, n))
 
-                # density a function of L and partial wave radial pair density coefficient
+                # density a function of L and partial wave radial pair
+                # density coefficient
                 D_sLq = gemmdot(D_sp, xccorr.B_Lqp, trans='t')
 
                 # Create pseudo/ae density iterators for integration
                 n_iter = xccorr.expand_density(D_sLq, xccorr.n_qg, None)
                 nt_iter = xccorr.expand_density(D_sLq, xccorr.nt_qg, None)
 
-                # Take the spherical average of smooth and ae radial xc potentials
+                # Take the spherical average of smooth and ae radial
+                # xc potentials
                 for n_sg, nt_sg, integrator in zip(n_iter,
-                                                    nt_iter,
-                                                    xccorr.get_integrator(None)):
-                    ipr += integrator.weight * np.sum((n_sg[0]**2-nt_sg[0]**2) * xccorr.rgd.dv_g)
-                    norm += integrator.weight * np.sum((n_sg[0]-nt_sg[0]) * xccorr.rgd.dv_g)
+                                                   nt_iter,
+                                                   xccorr.get_integrator(
+                                                       None)):
+                    ipr += integrator.weight * np.sum((n_sg[0]**2 -
+                                                       nt_sg[0]**2) *
+                                                      xccorr.rgd.dv_g)
+                    norm += integrator.weight * np.sum((n_sg[0] - nt_sg[0]) *
+                                                       xccorr.rgd.dv_g)
 
-            print("%5i %5i %10.5f %10.5f" % (k, n, eps, ipr/norm**2))
-    print("-"*35)
+            print('%5i %5i %10.5f %10.5f' % (k, n, eps, ipr / norm**2))
+    print('-' * 35)
 
 
 def raw_wignerseitz_LDOS(paw, a, spin):
@@ -294,9 +298,9 @@ def raw_wignerseitz_LDOS(paw, a, spin):
             P_i = wfs.kpt_u[u].P_ani[a][n]
             P_p = pack(np.outer(P_i, P_i))
             Delta_p = sqrt(4 * pi) * wfs.setups[a].Delta_pL[:, 0]
-            weights[x + n] = w * (gd.integrate(abs(
-                np.where(atom_index == a, psit_G, 0.0))**2)
-                                  + np.dot(Delta_p, P_p))
+            weights[x + n] = w * (
+                gd.integrate(abs(np.where(atom_index == a, psit_G, 0.0))**2) +
+                np.dot(Delta_p, P_p))
         x += nb
     return energies, weights
 
@@ -340,7 +344,7 @@ class RawLDOS:
     def by_element(self):
         """Return a dict with elements as keys and LDOS as values."""
         elemi = {}
-        for i,a in enumerate(self.paw.atoms):
+        for i, a in enumerate(self.paw.atoms):
             symbol = a.symbol
             if symbol in elemi:
                 elemi[symbol].append(i)
@@ -358,8 +362,9 @@ class RawLDOS:
                 bound=False):
         """Write the LDOS to a file.
 
-        If a width is given, the LDOS will be Gaussian folded and shifted to set
-        Fermi energy to 0 eV. The latter can be avoided by setting shift=False.
+        If a width is given, the LDOS will be Gaussian folded and shifted to
+        set Fermi energy to 0 eV. The latter can be avoided by setting
+        shift=False.
 
         If you use fixmagmom=true, you will get two fermi-levels, one for each
         spin-setting. Normaly these will shifted individually to 0 eV. If you
@@ -375,7 +380,7 @@ class RawLDOS:
                     data.append(key + '(' + l + ')-weight')
                 if len(key) == 1:
                     key = ' ' + key
-                s +=  ' ' + key + ':s     p        d       '
+                s += ' ' + key + ':s     p        d       '
             return s
 
         wfs = self.paw.wfs
@@ -406,7 +411,7 @@ class RawLDOS:
                     for n in range(wfs.bd.nbands):
                         sum = 0.0
                         print('%10.5f %6.4f %2d %5d' % (e_n[n], f_n[n],
-                                                              s, k), end=' ', file=f)
+                                                        s, k), end=' ', file=f)
                         print('%6d %8.4f' % (n, w), end=' ', file=f)
                         for key in ldbe:
                             spd = ldbe[key][s, k, n]
@@ -421,8 +426,9 @@ class RawLDOS:
 
             gauss = Gauss(width)
             print(fmf.field('folding',
-                                  ['function: Gauss',
-                                   'width: ' + str(width) + ' [eV]']), end=' ', file=f)
+                            ['function: Gauss',
+                             'width: ' + str(width) + ' [eV]']),
+                  end=' ', file=f)
 
             data = ['energy: energy [eV]',
                     'spin index: s',
@@ -483,9 +489,9 @@ class RawLDOS:
                 print(string, file=f)
 
                 # loop over energies
-                emax=emax+.5*de
-                e=emin
-                while e<emax:
+                emax = emax + 0.5 * de
+                e = emin
+                while e < emax:
                     val = {}
                     for key in ldbe:
                         val[key] = np.zeros((3))
@@ -505,7 +511,6 @@ class RawLDOS:
                             print('%8.4f' % spd[l], end=' ', file=f)
                     print(file=f)
                     e += de
-
 
         f.close()
 

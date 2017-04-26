@@ -10,17 +10,57 @@ Git master branch
 
 :git:`master <>`.
 
+* :ref:`command line options` ``--dry-run`` and ``--debug`` have been removed.
+  Please use ``--gpaw dry_run=N`` and ``--gpaw debug=True`` instead
+  (or ``--gpaw dry_run=N,debug=True`` for both).
+
+
+Version 1.2.0
+=============
+
+7 February 2017: :git:`1.2.0 <../1.2.0>`.
+
+* Corresponding ASE release: ASE-3.13.0.
+
 * New file-format for gpw-files.  Reading of old files should still work.
+  Look inside the new files with::
+
+      $ python -m ase.io.ulm abc.gpw
 
 * Simple syntax for specifying BZ paths introduced:
   ``kpts={'path': 'GXK', 'npoints': 50}``.
+
+* Calculations with ``fixdensity=True`` no longer update the Fermi level.
+
+* The GPAW calculator object has a new
+  :meth:`~ase.calculators.calculator.Calculator.band_structure`
+  method that returns an :class:`ase.dft.band_structure.BandStructure`
+  object.  This makes it very easy to create band-structure plots as shown
+  in section 9 of this awesome Psi-k *Scientfic Highlight Of The Month*:
+  http://psi-k.net/download/highlights/Highlight_134.pdf.
 
 * Dipole-layer corrections for slab calculations can now be done in PW-mode
   also.  See :ref:`dipole`.
 
 * New :meth:`~gpaw.paw.PAW.get_electrostatic_potential` method.
 
-* Calculations with ``fixdensity=True`` no longer update the Fermi level.
+* When setting the default PAW-datasets or basis-sets using a dict, we
+  must now use ``'default'`` as the key instead of ``None``:
+
+  >>> calc = GPAW(basis={'default': 'dzp', 'H': 'sz(dzp)'})
+
+  and not:
+
+  >>> calc = GPAW(basis={None: 'dzp', 'H': 'sz(dzp)'})
+
+  (will still work, but you will get a warning).
+
+* New feature added to the GW code to be used with 2D systems. This lowers
+  the required k-point grid necessary for convergence. See this tutorial
+  :ref:`gw-2D`.
+
+* It is now possible to carry out GW calculations with eigenvalue self-
+  consistency in G. See this tutorial :ref:`gw-GW0`.
 
 
 Version 1.1.0
@@ -112,8 +152,8 @@ Version 0.11.0
 
 * When searching for basis sets, the setup name if any is now
   prepended automatically to the basis name.  Thus if
-  :file:`setups='{setupname}'` and :file:`basis='{basisname}'`, GPAW
-  will search for :file:`{symbol}.{setupname}.{basisname}.basis`.
+  :file:`setups='<setupname>'` and :file:`basis='<basisname>'`, GPAW
+  will search for :file:`<symbol>.<setupname>.<basisname>.basis`.
 
 * :ref:`Time-propagation TDDFT with LCAO <lcaotddft>`.
 
@@ -231,7 +271,7 @@ Version 0.10.0
      For some of the setups one has now a choice of different
      number of valence electrons, e.g.::
 
-       setups = {'Ag': '11'}
+       setups={'Ag': '11'}
 
      See :ref:`manual_setups` and list the contents of :envvar:`GPAW_SETUP_PATH`
      for available setups.

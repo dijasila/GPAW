@@ -1,11 +1,11 @@
 from __future__ import print_function
-import sys
+
 import numpy as np
 
 from ase.build import molecule
 from ase.parallel import parprint
 
-from gpaw import GPAW, PW
+from gpaw import GPAW
 from gpaw.analyse.multipole import Multipole
 from gpaw.cluster import Cluster
 from gpaw.test import equal

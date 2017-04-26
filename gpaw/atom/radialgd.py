@@ -276,7 +276,7 @@ class RadialGridDescriptor:
         gc0 = gc // 2
         x0 = b_g[gc0]
         r_g = self.r_g
-        i = [gc0] + range(gc, gc + points)
+        i = [gc0] + list(range(gc, gc + points))
         r_i = r_g[i]
         norm = self.integrate(a_g**2)
 
