@@ -32,10 +32,8 @@ calc = GPAW(h=0.18,
             occupations=FermiDirac(0.1))
 
 atoms.set_calculator(calc)
-# atoms.get_potential_energy()
-# calc.write('gs.gpw')
-
-
+atoms.get_potential_energy()
+calc.write('gs.gpw')
 
 kpts = find_high_symmetry_monkhorst_pack('gs.gpw', density=30,
                                          pbc=pbc)
