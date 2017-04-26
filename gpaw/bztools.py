@@ -67,7 +67,7 @@ def find_high_symmetry_monkhorst_pack(calc, density,
     minsize, offset = kpts2sizeandoffsets(density=density, even=True,
                                           gamma=True, atoms=atoms)
  
-    bzk_kc, ibzk_kc = get_BZ(calc)
+    bzk_kc, ibzk_kc, latibzk_kc = get_BZ(calc, returnlatticeibz=True)
 
     maxsize = minsize + 10
     minsize[~pbc] = 1
@@ -100,7 +100,9 @@ def find_high_symmetry_monkhorst_pack(calc, density,
                     return kpts_kc
 
     if mpi.rank == 0:
-        print('Did not find matching kpoints')
+        print('Did not find matching kpoints for the IBZ')
+        print(ibzk_kc.round(5))
+    
     raise RuntimeError
 
 
@@ -112,7 +114,7 @@ def unfold_points(points, U_scc, tol=1e-8, mod=None):
     points: ndarray
     U_scc: ndarray
     tol: float
-        Tolerance indicating when kpoints are condiered to be
+        Tolerance indicating when kpoints are considered to be
         identical.
     mod: integer 1 or None
         Consider kpoints spaced by a full reciprocal lattice vector
@@ -279,7 +281,7 @@ def get_IBZ_vertices(cell_cv, U_scc=None, time_reversal=None):
     return ibzk_kc
 
 
-def get_BZ(calc):
+def get_BZ(calc, returnlatticeibz=False):
     """Return the BZ and IBZ vertices.
 
     Parameters
@@ -304,10 +306,10 @@ def get_BZ(calc):
     cU_scc = get_symmetry_operations(symmetry.op_scc,
                                      symmetry.time_reversal)
 
-    return get_reduced_BZ(cell_cv, cU_scc, False)
+    return get_reduced_BZ(cell_cv, cU_scc, False, returnlatticeibz)
 
 
-def get_reduced_BZ(cell_cv, cU_scc, time_reversal):
+def get_reduced_BZ(cell_cv, cU_scc, time_reversal, returnlatticeibz=False):
     """Reduce the BZ using the crystal symmetries to obtain the IBZ.
 
     Parameters
@@ -325,11 +327,12 @@ def get_reduced_BZ(cell_cv, cU_scc, time_reversal):
     latsym = get_lattice_symmetry(cell_cv)
     lU_scc = get_symmetry_operations(latsym.op_scc,
                                      latsym.time_reversal)
-    
+
     # Find Lattice IBZ
     ibzk_kc = get_IBZ_vertices(cell_cv,
                                U_scc=latsym.op_scc,
                                time_reversal=latsym.time_reversal)
+    latibzk_kc = ibzk_kc.copy()
 
     # Expand lattice IBZ to crystal IBZ
     ibzk_kc = expand_ibz(lU_scc, cU_scc, ibzk_kc)
@@ -338,7 +341,10 @@ def get_reduced_BZ(cell_cv, cU_scc, time_reversal):
     bzk_kc = unique_rows(np.concatenate(np.dot(ibzk_kc,
                                                cU_scc.transpose(0, 2, 1))))
 
-    return bzk_kc, ibzk_kc
+    if returnlatticeibz:
+        return bzk_kc, ibzk_kc, latibzk_kc
+    else:
+        return bzk_kc, ibzk_kc
 
 
 def expand_ibz(lU_scc, cU_scc, ibzk_kc):
