@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import numpy as np
+from ase.utils import basestring
 
 from gpaw.mpi import have_mpi
 from gpaw.utilities import compiled_with_libvdwxc
@@ -50,6 +51,10 @@ def get_auto_pfft_grid(size):
     return nproc1, nproc2
 
 
+spinwarning = """\
+GPAW uses the total density to evaluate the van der Waals functional
+for a spin-polarized system.  This is not entirely rigorous, so the
+calculation cannot be considered a true vdW-DF-family calculation."""
 _VDW_NUMERICAL_CODES = {'vdW-DF': 1,
                         'vdW-DF2': 2,
                         'vdW-DF-CX': 3}
@@ -234,7 +239,8 @@ class FFTDistribution:
 class VDWXC(XCFunctional):
     def __init__(self, semilocal_xc, name, mode='auto',
                  pfft_grid=None, libvdwxc_name=None,
-                 setup_name='revPBE', vdwcoef=1.0):
+                 setup_name='revPBE', vdwcoef=1.0,
+                 accept_partial_decomposition=False):
         """Initialize VDWXC object (further initialization required).
 
         mode can be 'auto', 'serial', 'mpi', or 'pfft'.
@@ -256,6 +262,9 @@ class VDWXC(XCFunctional):
          PFFT.  If left unspecified, a hopefully reasonable automatic
          choice will be made.
          """
+        if isinstance(semilocal_xc, (basestring, dict)):
+            from gpaw.xc import XC
+            semilocal_xc = XC(semilocal_xc)
         XCFunctional.__init__(self, semilocal_xc.kernel.name,
                               semilocal_xc.kernel.type)
         # Really, 'type' should be something along the lines of vdw-df.
@@ -276,6 +285,10 @@ class VDWXC(XCFunctional):
         self._mode = mode
         self._pfft_grid = pfft_grid
         self._vdwcoef = vdwcoef
+        self.accept_partial_decomposition = accept_partial_decomposition
+        # To be completely rigorous and avoid the wrath of the functionalists,
+        # we must write a warning if we run spin-polarized.
+        self._nspins = 1
 
         self.last_nonlocal_energy = None
         self.last_semilocal_energy = None
@@ -303,11 +316,19 @@ class VDWXC(XCFunctional):
         qualifier = ', '.join(tokens)
         return '{0} [libvdwxc/{1}]'.format(self.name, qualifier)
 
+    def todict(self):
+        dct = dict(type='libvdwxc',
+                   semilocal_xc=self.semilocal_xc.name,
+                   name=self.name,
+                   mode=self._mode,
+                   pfft_grid=self._pfft_grid,
+                   libvdwxc_name=self._libvdwxc_name,
+                   setup_name=self.setup_name,
+                   vdwcoef=self._vdwcoef)
+        return dct
+
     def set_grid_descriptor(self, gd):
-        if self.gd is not None and self.gd != gd:
-            raise NotImplementedError('Cannot switch grids')
-        if self.libvdwxc is None:
-            self._initialize(gd)
+        self._initialize(gd)
         XCFunctional.set_grid_descriptor(self, gd)
         self.semilocal_xc.set_grid_descriptor(gd)
 
@@ -332,12 +353,17 @@ class VDWXC(XCFunctional):
         log('Semilocal %s energy: %.6f' % (self.semilocal_xc.kernel.name,
                                            esl * Hartree))
         log('(Not including atomic contributions)')
+        if self._nspins != 1:
+            log('Warning: {}'.format(spinwarning))
 
     def get_setup_name(self):
         return self.setup_name
 
     def _initialize(self, gd):
         N_c = gd.get_size_of_global_array(pad=True)
+        # garbage-collect before allocating next one, if an object was
+        # already allocated:
+        self.libvdwxc = None
         self.libvdwxc = LibVDWXC(self._libvdwxc_name, N_c, gd.cell_cv,
                                  gd.comm, mode=self._mode,
                                  pfft_grid=self._pfft_grid)
@@ -364,15 +390,26 @@ class VDWXC(XCFunctional):
         #except AttributeError:
         #    gd = density.finegd
         gd = self.gd
-        if wfs.world.size > gd.comm.size and np.prod(gd.N_c) > 64**3:
+        if density.nspins != 1:
+            import warnings
+            warnings.warn(spinwarning)
+            self._nspins = density.nspins
+
+        if (wfs.world.size > gd.comm.size and np.prod(gd.N_c) > 64**3
+            and not self.accept_partial_decomposition):
             # We could issue a warning if an excuse turns out to exist some day
             raise ValueError('You are using libvdwxc with only '
                              '%d out of %d available cores in a non-small '
                              'calculation (%s points).  This is not '
                              'a crime but is likely silly and therefore '
-                             'triggers and error.  Please use '
+                             'triggers an error.  Please use '
                              'parallel={\'augment_grids\': True} '
-                             'or complain to the developers.' %
+                             'or complain to the developers.  '
+                             'You can also disable this error '
+                             'by passing accept_partial_decomposition=True '
+                             'to the libvdwxc functional object, '
+                             'but be careful to use good domain '
+                             'decomposition.' %
                              (gd.comm.size, wfs.world.size,
                               ' x '.join(str(N) for N in gd.N_c)))
         #self._initialize(gd)

@@ -105,19 +105,19 @@ from  :download:`initial.py` and make the  relevant changes.
   that the rate doubles for every temperature increase of 10 K around
   room temperature.  What activation energy does this correspond to?
 
-* Look at the relaxed configurations with the :command:`ase-gui`
+* Look at the relaxed configurations with the :command:`ase gui`
   command::
 
-    $ ase-gui -r 3,3,2 ontop.traj
+    $ ase gui -r 3,3,2 ontop.traj
 
   or::
 
-    $ ase-gui -g 'd(4,-1),F[-1,2]' ontop.traj
+    $ ase gui -g 'd(4,-1),F[-1,2]' ontop.traj
 
   to plot the force in the *z*-direction on the gold atom as a
   function of the Au-Al distance. Note that -1 is the index of the last atom in the cell corresponding to the Au atom.  Try also *terminal-only-mode*::
- 
-    $ ase-gui -t -g 'd(4,-1),F[-1,2]' ontop.traj
+
+    $ ase gui -t -g 'd(4,-1),F[-1,2]' ontop.traj
 
 
 Plot density differences
@@ -131,7 +131,7 @@ Read it and try to understand what is does. Change the necessary lines
 to look at one of your slabs with Au adsorbed. The script will write the
 density difference to a :file:`.npy` file using NumPy's :func:`~numpy.save`
 function (can be read with :func:`~numpy.load`.  Try this::
-    
+
     from mayavi import mlab
     import numpy as np
     d = np.load('densitydiff.npy')

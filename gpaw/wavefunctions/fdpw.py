@@ -54,6 +54,11 @@ class FDPWWaveFunctions(WaveFunctions):
         return Overlap(self.orthoksl, self.timer)
 
     def initialize(self, density, hamiltonian, spos_ac):
+        """Initialize wave-functions, density and hamiltonian.
+
+        Return (nlcao, nrand) tuple with number of bands intialized from
+        LCAO and random numbers, respectively."""
+
         if self.kpt_u[0].psit_nG is None:
             basis_functions = BasisFunctions(self.gd,
                                              [setup.phit_j
@@ -77,18 +82,24 @@ class FDPWWaveFunctions(WaveFunctions):
             # will make it necessary to do this for some reason.
             density.calculate_normalized_charges_and_mix()
         hamiltonian.update(density)
-                
+
         if self.kpt_u[0].psit_nG is None:
-            self.initialize_wave_functions_from_basis_functions(
+            nlcao = self.initialize_wave_functions_from_basis_functions(
                 basis_functions, density, hamiltonian, spos_ac)
+            nrand = self.bd.nbands - nlcao
+        else:
+            # We got everything from file:
+            nlcao = 0
+            nrand = 0
+        return nlcao, nrand
 
     def initialize_wave_functions_from_basis_functions(self,
                                                        basis_functions,
                                                        density, hamiltonian,
                                                        spos_ac):
-        if self.initksl is None:
-            raise RuntimeError('use fewer bands or more basis functions')
-            
+        # if self.initksl is None:
+        #     raise RuntimeError('use fewer bands or more basis functions')
+
         self.timer.start('LCAO initialization')
         lcaoksl, lcaobd = self.initksl, self.initksl.bd
         lcaowfs = LCAOWaveFunctions(lcaoksl, self.gd, self.nvalence,
@@ -126,6 +137,8 @@ class FDPWWaveFunctions(WaveFunctions):
             # wave functions are added.
             self.random_wave_functions(lcaobd.mynbands)
         self.timer.stop('LCAO initialization')
+
+        return lcaobd.nbands
 
     def initialize_wave_functions_from_restart_file(self):
         if isinstance(self.kpt_u[0].psit_nG, np.ndarray):

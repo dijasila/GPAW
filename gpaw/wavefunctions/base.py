@@ -265,7 +265,7 @@ class WaveFunctions:
             self.kd.comm.receive(b_nx, kpt_rank, 1301)
             return b_nx
 
-        return np.nan  # see comment in get_wave_function_array() method
+        return np.zeros(0)  # see comment in get_wave_function_array() method
 
     def collect_auxiliary(self, value, k, s, shape=1, dtype=float):
         """Helper method for collecting band-independent scalars/arrays.
@@ -302,7 +302,7 @@ class WaveFunctions:
             self.kd.comm.receive(b_o, kpt_rank, 1302)
             return b_o
 
-    def collect_projections(self, k, s):
+    def collect_projections(self, k, s, asdict=False):
         """Helper method for collecting projector overlaps across domains.
 
         For the parallel case find the rank in kpt_comm that contains
@@ -335,6 +335,16 @@ class WaveFunctions:
                     all_P_ni[nslice, i:i + ni] = P_ni
                     i += ni
                 assert i == nproj
+
+            if asdict:
+                i = 0
+                P_ani = {}
+                for a in range(natoms):
+                    ni = self.setups[a].ni
+                    P_ani[a] = all_P_ni[:, i:i + ni]
+                    i += ni
+                return P_ani
+
             return all_P_ni
 
         elif self.kd.comm.rank == kpt_rank:  # plain else works too...
@@ -428,6 +438,7 @@ class WaveFunctions:
         return np.array([homo, lumo])
 
     def write(self, writer):
+        writer.write(kpts=self.kd)
         nproj = sum(setup.ni for setup in self.setups)
         writer.add_array(
             'projections',
@@ -517,19 +528,19 @@ def eigenvalue_string(wfs, comment=' '):
                         (n, epsa_n[n], fa_n[n], epsb_n[n], fb_n[n]))
         return ''.join(tokens)
 
-    if len(wfs.kd.ibzk_kc) > 10:
-        add('Warning: Showing only first 10 kpts')
-        print_range = 10
+    if len(wfs.kd.ibzk_kc) > 2:
+        add('Warning: Showing only first 2 kpts')
+        print_range = 2
     else:
         add('Showing all kpts')
         print_range = len(wfs.kd.ibzk_kc)
 
-    if wfs.nvalence / 2. > 10:
-        m = int(wfs.nvalence / 2. - 10)
+    if wfs.nvalence / 2. > 2:
+        m = int(wfs.nvalence / 2. - 2)
     else:
         m = 0
-    if wfs.bd.nbands - wfs.nvalence / 2. > 10:
-        j = int(wfs.nvalence / 2. + 10)
+    if wfs.bd.nbands - wfs.nvalence / 2. > 2:
+        j = int(wfs.nvalence / 2. + 2)
     else:
         j = int(wfs.bd.nbands)
 

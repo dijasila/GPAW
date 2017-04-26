@@ -1,6 +1,8 @@
 from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.solvation.poisson import WeightedFDPoissonSolver
 from gpaw.fd_operators import Gradient
+from gpaw.io.logger import indent
+from ase.units import Hartree
 import numpy as np
 
 
@@ -48,6 +50,13 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         self.new_atoms = None
         self.vt_ia_g = None
 
+    def __str__(self):
+        s = RealSpaceHamiltonian.__str__(self) + '\n'
+        s += '  Solvation:\n'
+        components = [self.cavity, self.dielectric] + self.interactions
+        s += ''.join([indent(str(c), 2) for c in components])
+        return s
+
     def estimate_memory(self, mem):
         RealSpaceHamiltonian.estimate_memory(self, mem)
         solvation = mem.subnode('Solvation')
@@ -57,8 +66,12 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         ] + [('Interaction: ' + ia.subscript, ia) for ia in self.interactions]:
             obj.estimate_memory(solvation.subnode(name))
 
-    def update_atoms(self, atoms):
+    def update_atoms(self, atoms, log):
         self.new_atoms = atoms.copy()
+        log('Solvation position-dependent initialization:')
+        self.cavity.update_atoms(atoms, log)
+        for ia in self.interactions:
+            ia.update_atoms(atoms, log)
 
     def initialize(self):
         self.gradient = [
@@ -174,17 +187,17 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
     def get_energy(self, occ):
         self.e_kinetic = self.e_kinetic0 + occ.e_band
         self.e_entropy = occ.e_entropy
-        self.e_el = (
+        self.e_el_free = (
             self.e_kinetic + self.e_coulomb + self.e_external + self.e_zero +
             self.e_xc + self.e_entropy)
-        e_total_free = self.e_el
+        e_total_free = self.e_el_free
         for ia in self.interactions:
             e_total_free += getattr(self, 'e_' + ia.subscript)
         self.e_total_free = e_total_free
         self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
             self.e_total_free)
         self.e_el_extrapolated = occ.extrapolate_energy_to_zero_width(
-            self.e_el)
+            self.e_el_free)
         return self.e_total_free
 
     def grad_squared(self, x):
@@ -200,3 +213,17 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         np.square(tmp, tmp)
         gs += tmp
         return gs
+
+    def summary(self, fermilevel, log):
+        self.cavity.summary(log)
+        log()
+        log('Solvation Energy Contributions:')
+        for ia in self.interactions:
+            E = Hartree * getattr(self, 'e_' + ia.subscript)
+            log('%-14s %+11.6f' % (ia.subscript + ':', E))
+        E_el_free = Hartree * self.e_el_free
+        E_el_extrapolated = Hartree * self.e_el_extrapolated
+        log('%-14s %+11.6f' % ('el (free):', E_el_free))
+        log('%-14s %+11.6f' % ('el (extrpol.):', E_el_extrapolated))
+        log('el (free) is composed of:')
+        RealSpaceHamiltonian.summary(self, fermilevel, log)

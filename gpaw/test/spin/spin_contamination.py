@@ -1,11 +1,8 @@
-import os
-import sys
-
-from gpaw.test import equal
 from ase import Atom
 
 from gpaw import GPAW, MixerDif
 from gpaw.cluster import Cluster
+from gpaw.test import equal
 
 h = .25
 q = 0

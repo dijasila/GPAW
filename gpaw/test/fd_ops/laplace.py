@@ -4,7 +4,6 @@ import numpy as np
 from gpaw.fd_operators import GUCLaplace as Laplace
 from gpaw.fd_operators import Gradient
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.mpi import size
 
 cells = [
     ('distorted hexagonal', 4,

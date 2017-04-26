@@ -8,7 +8,7 @@ from gpaw import GPAW
 
 def dos(filename, plot=False, output='dos.csv', width=0.1):
     """Calculate density of states.
-    
+
     filename: str
         Name of restart-file.
     plot: bool
@@ -32,3 +32,18 @@ def dos(filename, plot=False, output='dos.csv', width=0.1):
         for y in D:
             plt.plot(dos.energies, y)
         plt.show()
+
+
+class CLICommand:
+    short_description = 'Calculate density of states from gpw-file'
+
+    @staticmethod
+    def add_arguments(parser):
+        parser.add_argument('gpw', metavar='gpw-file')
+        parser.add_argument('csv', nargs='?', metavar='csv-file')
+        parser.add_argument('-p', '--plot', action='store_true')
+        parser.add_argument('-w', '--width', type=float, default=0.1)
+
+    @staticmethod
+    def run(args):
+        dos(args.gpw, args.plot, args.csv, args.width)

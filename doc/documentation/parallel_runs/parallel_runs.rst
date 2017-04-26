@@ -24,9 +24,9 @@ the unit cell.  This choice can be overruled, see
 
 Before starting a parallel calculation, it might be useful to check how the
 parallelization corresponding to the given number of processes would be done
-with ``--dry-run`` command line option::
+with ``--gpaw dry_run=N`` command line option::
 
-  python script.py --dry-run=8
+  python script.py --gpaw dry_run=8
 
 The output will contain also the "Calculator" RAM Memory estimate per process.
 
@@ -317,7 +317,7 @@ More information about these topics can be found here:
 
    band_parallelization/band_parallelization
 
-   
+
 .. _manual_ScaLAPACK:
 
 ScaLAPACK

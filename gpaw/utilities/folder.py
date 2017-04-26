@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.special import dawsn
 
 from gpaw.gauss import Gauss, Lorentz
 
@@ -52,6 +51,7 @@ class ComplexGauss:
         self.set_width(width)
         
     def get(self, x, x0):
+        from scipy.special import dawsn
         return 0.5 / x0 * (2 * self.wm1 *
                            (dawsn((x + x0) * self.wm1)
                             - dawsn((x - x0) * self.wm1))

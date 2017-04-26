@@ -12,7 +12,7 @@ from gpaw.xc.gllb import safe_sqr
 from gpaw.xc.gllb.contribution import Contribution
 
 # XXX Work in process
-debug = not False
+debug = False
 
 
 def d(*args):
@@ -549,6 +549,9 @@ class C_Response(Contribution):
         from gpaw.density import redistribute_array
         self.vt_sg = redistribute_array(self.vt_sg,
                                         olddens.finegd, self.finegd,
+                                        self.wfs.nspins, self.wfs.kptband_comm)
+        self.vt_sG = redistribute_array(self.vt_sG,
+                                        olddens.gd, self.gd,
                                         self.wfs.nspins, self.wfs.kptband_comm)
         self.Dxc_vt_sG = redistribute_array(self.Dxc_vt_sG,
                                             olddens.gd, self.gd,

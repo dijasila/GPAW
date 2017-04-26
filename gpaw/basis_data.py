@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import xml.sax
 
@@ -279,8 +280,7 @@ class BasisPlotter:
         import pylab as pl  # Should not import in module namespace
         if plot_args is None:
             plot_args = {}
-        rc = basis.d * (basis.ng - 1)
-        r_g = np.linspace(0., rc, basis.ng)
+        r_g = basis.rgd.r_g
 
         print('Element  :', basis.symbol)
         print('Name     :', basis.name)
@@ -290,8 +290,9 @@ class BasisPlotter:
 
         norm_j = []
         for j, bf in enumerate(basis.bf_j):
-            rphit_g = r_g[:bf.ng] * bf.phit_g
-            norm = (np.dot(rphit_g, rphit_g) * basis.d) ** .5
+            ng = len(bf.phit_g)
+            rphit_g = r_g[:ng] * bf.phit_g
+            norm = (rphit_g**2 * basis.rgd.dr_g).sum()
             norm_j.append(norm)
             print(bf.type, '[norm=%0.4f]' % norm)
 
@@ -312,10 +313,11 @@ class BasisPlotter:
 
         pl.figure()
         for norm, bf in zip(norm_j, basis.bf_j):
-            y_g = bf.phit_g * factor[:bf.ng]
+            ng = len(bf.phit_g)
+            y_g = bf.phit_g * factor[:ng]
             if self.normalize:
                 y_g /= norm
-            pl.plot(r_g[:bf.ng], y_g, label=bf.type[:12],
+            pl.plot(r_g[:ng], y_g, label=bf.type[:12],
                     dashes=dashes_l[bf.l], lw=2,
                     **plot_args)
         axis = pl.axis()

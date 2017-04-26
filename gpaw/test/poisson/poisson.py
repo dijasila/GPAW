@@ -1,5 +1,5 @@
 from __future__ import print_function
-from math import sqrt
+
 import numpy as np
 from gpaw.spline import Spline
 from gpaw.poisson import PoissonSolver, FFTPoissonSolver
@@ -22,7 +22,7 @@ def f(n, p):
     c.add(a)
 
     I0 = gd.integrate(a)
-    a -= gd.integrate(a) / L**3
+    a -= I0 / L**3
 
     I = gd.integrate(a)
     b = gd.zeros()

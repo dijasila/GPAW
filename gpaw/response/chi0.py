@@ -1,6 +1,5 @@
 from __future__ import print_function, division
 
-import sys
 from time import ctime
 
 import numpy as np
@@ -116,7 +115,7 @@ class Chi0:
                  ecut=50, hilbert=True, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
                  real_space_derivatives=False, intraband=True,
-                 world=mpi.world, txt=sys.stdout, timer=None,
+                 world=mpi.world, txt='-', timer=None,
                  nblocks=1, gate_voltage=None,
                  disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True,

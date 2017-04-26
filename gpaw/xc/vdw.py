@@ -13,13 +13,14 @@ XC-functional.  There are two implementations:
 
 from __future__ import print_function
 import os
-import sys
 import pickle
+import sys
+import time
 from math import sin, cos, exp, pi, log, sqrt, ceil
 
 import numpy as np
 from numpy.fft import fft, rfftn, irfftn
-import time
+from ase.utils import seterr
 
 from gpaw.utilities.timing import nulltimer
 from gpaw.xc.libxc import LibXC
@@ -42,6 +43,7 @@ def W(a, b):
                 (3 - b**2) * a * cos(a) * sin(b) +
                 (a**2 + b**2 - 3) * sin(a) * sin(b) -
                 3 * a * b * cos(a) * cos(b)) / (a * b)**3
+
 
 eta = 8 * pi / 9
 
@@ -331,7 +333,8 @@ class VDWFunctionalBase:
                 d = D * (1.0 + delta)
                 dp = D * (1.0 - delta)
                 if d**2 + dp**2 > self.ds**2:
-                    self.phi_ij[i, j] = phi(d, dp)
+                    with seterr(divide='ignore'):
+                        self.phi_ij[i, j] = phi(d, dp)
                 else:
                     P = np.polyfit([0, self.D_j[j + 1]**2, self.D_j[j + 2]**2],
                                    [self.phi0,
@@ -549,6 +552,34 @@ class FFTVDWFunctional(VDWFunctionalBase):
         else:
             self.alphas = []
 
+    def initialize_more_things(self):
+        if self.alphas:
+            scale_c1 = (self.shape / (1.0 * self.gd.N_c))[:, np.newaxis]
+            gdfft = GridDescriptor(self.shape, self.gd.cell_cv * scale_c1, True)
+            k_k = construct_reciprocal(gdfft)[0][:,
+                                                 :,
+                                                 :self.shape[2] // 2 + 1]**0.5
+            k_k[0, 0, 0] = 0.0
+
+            self.dj_k = k_k / (2 * pi / self.rcut)
+            self.j_k = self.dj_k.astype(int)
+            self.dj_k -= self.j_k
+            self.dj_k *= 2 * pi / self.rcut
+
+            if self.verbose:
+                print('VDW: density array size:',
+                      self.gd.get_size_of_global_array())
+                print('VDW: zero-padded array size:', self.shape)
+                print(('VDW: maximum kinetic energy: %.3f Hartree' %
+                       (0.5 * k_k.max()**2)))
+
+            assert self.j_k.max() < self.Nr // 2, ('Use larger Nr than %i.' %
+                                                   self.Nr)
+
+        else:
+            self.dj_k = None
+            self.j_k = None
+
     def construct_cubic_splines(self):
         """Construc interpolating splines for q0.
 
@@ -638,31 +669,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
                 else:
                     assert n >= gd.N_c[c]
 
-        if self.alphas:
-            scale_c1 = (self.shape / (1.0 * gd.N_c))[:, np.newaxis]
-            gdfft = GridDescriptor(self.shape, gd.cell_cv * scale_c1, True)
-            k_k = construct_reciprocal(gdfft)[0][:,
-                                                 :,
-                                                 :self.shape[2] // 2 + 1]**0.5
-            k_k[0, 0, 0] = 0.0
-
-            self.dj_k = k_k / (2 * pi / self.rcut)
-            self.j_k = self.dj_k.astype(int)
-            self.dj_k -= self.j_k
-            self.dj_k *= 2 * pi / self.rcut
-
-            if self.verbose:
-                print('VDW: density array size:',
-                      gd.get_size_of_global_array())
-                print('VDW: zero-padded array size:', self.shape)
-                print(('VDW: maximum kinetic energy: %.3f Hartree' %
-                       (0.5 * k_k.max()**2)))
-
-            assert self.j_k.max() < self.Nr // 2, 'Use larger Nr than %i.' % self.Nr
-
-        else:
-            self.dj_k = None
-            self.j_k = None
+        self.gd = gd
 
     def calculate_6d_integral(self, n_g, q0_g,
                               a2_g=None, e_LDAc_g=None, v_LDAc_g=None,
@@ -670,6 +677,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
         self.timer.start('VdW-DF integral')
         self.timer.start('splines')
         if self.C_aip is None:
+            self.initialize_more_things()
             self.construct_cubic_splines()
             self.construct_fourier_transformed_kernels()
         self.timer.stop('splines')

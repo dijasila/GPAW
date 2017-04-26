@@ -21,7 +21,6 @@ class TightBinding:
         self.kd = calc.wfs.kd
         wfs = calc.wfs
         kd = wfs.kd
-        kpt_u = wfs.kpt_u
 
         # Matrix size
         self.nao = wfs.setups.nao

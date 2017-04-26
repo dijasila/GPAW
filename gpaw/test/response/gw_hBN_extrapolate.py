@@ -1,9 +1,10 @@
 import numpy as np
+
 from ase.lattice.hexagonal import Graphene
+
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 from gpaw.response.g0w0 import G0W0
-import gpaw.mpi as mpi
 
 """ Tests extrapolation to infinite energy cutoff + block paralellization.
 It takes ~109 s on one core"""

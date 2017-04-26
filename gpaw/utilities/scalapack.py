@@ -14,12 +14,7 @@ http://www.netlib.org/scalapack
 """
 
 import warnings
-from sys import stderr
 
-import numpy as np
-
-from gpaw import debug
-import gpaw.mpi as mpi
 import _gpaw
 
 switch_lu = {'U': 'L', 'L': 'U'}
@@ -380,7 +375,6 @@ def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
     if transb == 'T':
         Kb, N = N, Kb
     Mc, Nc = descc.gshape
-    K = Ka
 
     assert Ka == Kb
     assert M == Mc

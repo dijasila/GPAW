@@ -47,18 +47,6 @@ w = np.linspace(0, 31.9, 320)
 dw = w[1] - w[0]
 
 
-def check(name, energies, loss, ref_energy, ref_peakloss):
-    arg = loss.argmax()
-    energy = energies[arg]
-    peakloss = loss[arg]
-    pp('check %s :: energy = %5.2f [%5.2f], peakloss = %.12f [%.12f]'
-       % (name, energy, ref_energy, peakloss, ref_peakloss))
-
-    data = dict(name=name, peakloss=peakloss, energy=energy,
-                ref_peakloss=ref_peakloss, ref_energy=ref_energy)
-    return data
-
-
 def getpeak(energies, loss):
     arg = loss.argmax()
     energy = energies[arg]

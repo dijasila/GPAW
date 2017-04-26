@@ -4,8 +4,9 @@
 # Please see the accompanying LICENSE file for further information.
 from __future__ import print_function, division
 
-import functools
+import sys
 
+from ase.io import read
 from ase.utils import gcd
 import numpy as np
 
@@ -85,7 +86,7 @@ class Symmetry:
         self.point_group = point_group
         self.time_reversal = time_reversal
         self.do_not_symmetrize_the_density = do_not_symmetrize_the_density
-        
+
         # Disable fractional translations for non-periodic boundary conditions:
         if not self.pbc_c.all():
             self.symmorphic = True
@@ -405,7 +406,7 @@ class Symmetry:
                 'Symmetries with fractional translations: {0}'.format(nft))
 
         # X-Y grid of symmetry matrices:
-        
+
         lines.append('')
         nx = 6 if self.symmorphic else 3
         ns = len(self.op_scc)
@@ -556,15 +557,16 @@ def atoms2symmetry(atoms, id_a=None):
     symmetry.analyze(atoms.get_scaled_positions())
     return symmetry
 
-    
-def analyze_atoms(filename):
-    """Analyse symmetry.
-    
-    filename: str
-        filename containing atomic positions and unit cell."""
-        
-    import sys
-    from ase.io import read
-    atoms = read(filename)
-    symmetry = atoms2symmetry(atoms)
-    symmetry.print_symmetries(sys.stdout)
+
+class CLICommand:
+    short_description = 'Analyse symmetry'
+
+    @staticmethod
+    def add_arguments(parser):
+        parser.add_argument('filename')
+
+    @staticmethod
+    def run(args):
+        atoms = read(args.filename)
+        symmetry = atoms2symmetry(atoms)
+        symmetry.print_symmetries(sys.stdout)

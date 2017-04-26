@@ -87,26 +87,34 @@ given in the following sections.
       - type
       - default value
       - description
-    * - ``mode``
-      - ``str``
-      - ``'fd'``
-      - :ref:`manual_mode`
-    * - ``nbands``
-      - ``int``
+    * - ``basis``
+      - ``str`` or dict
+      - ``{}``
+      - Specification of :ref:`manual_basis`
+    * - ``charge``
+      - ``float``
+      - ``0``
+      - Total :ref:`manual_charge` of the system
+    * - ``communicator``
+      - Object
       -
-      - :ref:`manual_nbands`
-    * - ``xc``
+      - :ref:`manual_communicator`
+    * - ``convergence``
+      - ``dict``
+      -
+      - :ref:`manual_convergence`
+    * - ``eigensolver``
       - ``str``
-      - ``'LDA'``
-      - :ref:`manual_xc`
-    * - ``kpts``
-      - *seq*
-      - `\Gamma`-point
-      - :ref:`manual_kpts`
-    * - ``spinpol``
+      - ``'dav'``
+      - :ref:`manual_eigensolver`
+    * - ``external``
+      - Object
+      -
+      - :ref:`manual_external`
+    * - ``fixdensity``
       - ``bool``
-      -
-      - :ref:`manual_spinpol`
+      - ``False``
+      - Use :ref:`manual_fixdensity`
     * - ``gpts``
       - *seq*
       -
@@ -115,81 +123,73 @@ given in the following sections.
       - ``float``
       - ``0.2``
       - :ref:`manual_h`
-    * - ``symmetry``
-      - ``dict``
-      - ``{}``
-      - :ref:`manual_symmetry`
-    * - ``random``
-      - ``bool``
-      - ``False``
-      - Use random numbers for :ref:`manual_random`
-    * - ``occupations``
-      - occ. obj.
-      -
-      - :ref:`manual_occ`
-    * - ``charge``
-      - ``float``
-      - ``0``
-      - Total :ref:`manual_charge` of the system
-    * - ``convergence``
-      - ``dict``
-      -
-      - :ref:`manual_convergence`
-    * - ``maxiter``
-      - ``int``
-      - ``333``
-      - :ref:`manual_maxiter`
-    * - ``txt``
-      - ``str``, None, or file obj.
-      - ``'-'`` (``sys.stdout``)
-      - :ref:`manual_txt`
-    * - ``parallel``
-      - ``dict``
-      -
-      - :ref:`manual_parallel`
-    * - ``mixer``
-      - Object
-      -
-      - Pulay :ref:`manual_mixer` scheme
-    * - ``fixdensity``
-      - ``bool``
-      - ``False``
-      - Use :ref:`manual_fixdensity`
-    * - ``setups``
-      - ``str`` or ``dict``
-      - ``'paw'``
-      - :ref:`manual_setups`
-    * - ``basis``
-      - ``str`` or dict
-      - ``{}``
-      - Specification of :ref:`manual_basis`
-    * - ``eigensolver``
-      - ``str``
-      - ``'dav'``
-      - :ref:`manual_eigensolver`
     * - ``hund``
       - ``bool``
       - ``False``
       - :ref:`Use Hund's rule <manual_hund>`
-    * - ``external``
+    * - ``idiotproof``
+      - ``bool``
+      - ``True``
+      - Set to ``False`` to ignore setup fingerprint mismatch
+        (allows restart when the original setup files are not available)
+    * - ``kpts``
+      - *seq*
+      - `\Gamma`-point
+      - :ref:`manual_kpts`
+    * - ``maxiter``
+      - ``int``
+      - ``333``
+      - :ref:`manual_maxiter`
+    * - ``mixer``
       - Object
       -
-      - :ref:`manual_external`
+      - Pulay :ref:`manual_mixer` scheme
+    * - ``mode``
+      - ``str``
+      - ``'fd'``
+      - :ref:`manual_mode`
+    * - ``nbands``
+      - ``int``
+      -
+      - :ref:`manual_nbands`
+    * - ``occupations``
+      - occ. obj.
+      -
+      - :ref:`manual_occ`
+    * - ``parallel``
+      - ``dict``
+      -
+      - :ref:`manual_parallel`
     * - ``poissonsolver``
       - Object
       -
       - Specification of :ref:`Poisson solver <manual_poissonsolver>` or
         :ref:`dipole correction <manual_dipole_correction>` or
         :ref:`Advanced Poisson solver <advancedpoisson>`
-    * - ``communicator``
-      - Object
-      -
-      - :ref:`manual_communicator`
-    * - ``idiotproof``
+    * - ``random``
       - ``bool``
-      - ``True``
-      - Set to ``False`` to ignore setup fingerprint mismatch
-        (allows restart when the original setup files are not available)
+      - ``False``
+      - Use random numbers for :ref:`manual_random`
+    * - ``setups``
+      - ``str`` or ``dict``
+      - ``'paw'``
+      - :ref:`manual_setups`
+    * - ``spinpol``
+      - ``bool``
+      -
+      - :ref:`manual_spinpol`
+    * - ``symmetry``
+      - ``dict``
+      - ``{}``
+      - :ref:`manual_symmetry`
+    * - ``txt``
+      - ``str``, None, or file obj.
+      - ``'-'`` (``sys.stdout``)
+      - :ref:`manual_txt`
+    * - ``xc``
+      - ``str``
+      - ``'LDA'``
+      - :ref:`manual_xc`
 
 
 *seq*: A sequence of three ``int``'s.
@@ -581,7 +581,7 @@ The default value is this Python dictionary::
    'density': 1.0e-4,
    'eigenstates': 4.0e-8,  # eV^2 / electron
    'bands': 'occupied',
-   'forces': None} # eV / Ang Max
+   'forces': float('inf')} # eV / Ang Max
 
 In words:
 
@@ -597,8 +597,8 @@ In words:
   calculations.
 
 * The maximum change in the magnitude of the vector representing the
-  difference in forces for each atom.  Setting this to None disables
-  this functionality, saving computational time and memory usage.
+  difference in forces for each atom.  Setting this to infinity (default)
+  disables this functionality, saving computational time and memory usage.
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
@@ -697,8 +697,8 @@ If specified as a string, the given name is used for all atoms.  If
 specified as a dictionary, each keys can be either a chemical symbol
 or an atom number. The values state the individual setup names.
 
-The special key ``None`` can be used to specify the default setup
-name. Thus ``setups={None: 'paw'}`` is equivalent to ``setups='paw'``
+The special key ``'default'`` can be used to specify the default setup
+name. Thus ``setups={'default': 'paw'}`` is equivalent to ``setups='paw'``
 which is the GPAW default.
 
 As an example, the latest PAW setup of Na includes also the 6 semicore p
@@ -735,7 +735,7 @@ atomic number specifications, the latter is dominant.
 
 An example::
 
-  setups={None: 'soft', 'Li': 'hard', 5: 'ghost', 'H': 'ae'}
+  setups={'default': 'soft', 'Li': 'hard', 5: 'ghost', 'H': 'ae'}
 
 Indicates that the files named 'hard' should be used for lithium
 atoms, an all-electron potential is used for hydrogen atoms, atom
@@ -1041,33 +1041,44 @@ example saves a differently named restart file every 5 iterations::
 
 See also :meth:`~gpaw.calculator.GPAW.attach`.
 
+.. _command line options:
 
-----------------------
-Command line arguments
-----------------------
+--------------------
+Command-line options
+--------------------
 
 The behaviour of GPAW can be controlled with some command line
 arguments. The arguments for GPAW should be specified after the
 python-script, i.e.::
 
-    python script.py [options]
+    $ python3 script.py --gpaw key1=val1,key2=val2,...
 
-The possible command line arguments are:
+The possible keys are:
+
+* ``debug=True``: run in debug-mode, e.g. check consistency of arrays passed
+  to c-extensions.
+
+* ``dry_run=nprocs``: Print out the computational parameters and estimate
+  memory usage, do not perform actual calculation.
+  Print also which parallelization settings would be employed when run on
+  ``nprocs`` processors.
+
+
+.. tip::
+
+    Extra key-value pairs will be available for development work::
+
+        $ python3 - --gpaw a=1,b=2.3
+        >>> from gpaw import extra_parameters
+        >>> extra_parameters
+        {'a': 1, 'b': 2.3}
+
+
+Other command-line arguments:
 
 ===============================  =============================================
 argument                         description
 ===============================  =============================================
-``--trace``
-``--debug``
-                                 Run in debug-mode, e.g. check
-                                 consistency of arrays passed to c-extensions
-``--dry-run[=nprocs]``
-                                 Print out the computational
-                                 parameters and estimate memory usage,
-                                 do not perform actual calculation.
-                                 If ``nprocs`` is specified, print also which
-                                 parallelization settings would be employed
-                                 when run on ``nprocs`` processors.
 ``--memory-estimate-depth[=n]``
                                  Print out an itemized memory estimate by
                                  stepping recursively through the object
@@ -1104,12 +1115,6 @@ argument                         description
                                  the four ``sl_...`` arguments in the
                                  :ref:`parallel <manual_parallel>` keyword.
                                  Requires GPAW to be built with ScaLAPACK.
-``--gpaw a=1,b=2.3,...``
-                                 Extra parameters for development work:
-
-                                 >>> from gpaw import extra_parameters
-                                 >>> print extra_parameters
-                                 {'a': 1, 'b': 2.3}
 ===============================  =============================================
 
 

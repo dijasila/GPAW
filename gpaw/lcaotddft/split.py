@@ -2,10 +2,7 @@ from __future__ import print_function
 from gpaw.mpi import world
 import numpy as np
 import time
-from ase.io import read
-from ase import Atoms
 from gpaw.lfc import LFC
-from gpaw.mixer import Mixer
 from gpaw.analyse.observers import Observer 
 from math import sqrt, pi
 

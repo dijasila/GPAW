@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 import sys
 import subprocess
@@ -15,12 +15,15 @@ def main():
               '[script arguments]')
         return
 
-    script = '#!/bin/sh\n'
+    mpi_cmd = 'mpiexec "$GPAW_MPI_OPTIONS" '
+    mpi_cmd += 'gpaw-python '
+    script = '#!/bin/bash -l\n'
     for line in open(arg):
         if line.startswith('#SBATCH'):
             script += line
-    script += ('OMP_NUM_THREADS=1 '
-               'mpiexec gpaw-python ' + ' '.join(args[i:]) + '\n')
+    script += ('OMP_NUM_THREADS=1 ' +
+               mpi_cmd +
+               ' '.join(args[i:]) + '\n')
     cmd = ['sbatch'] + args[:i]
     subprocess.Popen(cmd, stdin=subprocess.PIPE).communicate(script.encode())
 

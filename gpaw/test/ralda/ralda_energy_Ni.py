@@ -1,8 +1,6 @@
-from os import system
-from ase import *
 from ase.build import bulk
 from ase.dft.kpoints import monkhorst_pack
-from gpaw import *
+from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 from gpaw.xc.fxc import FXCCorrelation
 from gpaw.mpi import world, serial_comm

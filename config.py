@@ -100,6 +100,15 @@ def get_system_config(define_macros, undef_macros,
         libraries += ['f', 'lapack', 'essl']
         define_macros.append(('GPAW_AIX', '1'))
 
+    elif sys.platform == 'darwin':
+
+        extra_compile_args += ['-Wall', '-std=c99']
+        include_dirs += ['/usr/include/malloc']
+        library_dirs += ['/usr/local/lib']   # libxc installed with Homebrew
+        extra_link_args += ['-framework', 'Accelerate']  # BLAS
+
+        # We should probably add something to allow for user-installed BLAS?
+
     elif machine in ['x86_64', 'ppc64', 'ppc64le', 'aarch64']:
 
         #    _
@@ -108,7 +117,7 @@ def get_system_config(define_macros, undef_macros,
         #
 
         extra_compile_args += ['-Wall', '-std=c99']
-
+        
         # Look for ACML libraries:
         acml = glob('/opt/acml*/g*64/lib')
         if len(acml) > 0:
@@ -273,16 +282,6 @@ def get_system_config(define_macros, undef_macros,
                     break
             if g2c:
                 libraries += ['g2c']
-
-    elif sys.platform == 'darwin':
-
-        extra_compile_args += ['-Wall', '-std=c99']
-        include_dirs += ['/usr/include/malloc']
-
-        if glob('/System/Library/Frameworks/vecLib.framework') != []:
-            extra_link_args += ['-framework vecLib']
-        else:
-            libraries += ['blas', 'lapack']
 
     else:
         extra_compile_args += ['-Wall', '-std=c99']
@@ -513,7 +512,10 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
         extra_link_args.append(cfgDict['LINKFORSHARED'].replace(
             'Modules', cfgDict['LIBPL']))
     elif sys.platform == 'darwin':
-        pass
+        # On a Mac, it is important to preserve the original compile args.
+        # This should probably always be done ?!?
+        extra_compile_args.append(cfgDict['CFLAGS'])
+        extra_link_args.append(cfgDict['LINKFORSHARED'])
     else:
         extra_link_args.append(cfgDict['LINKFORSHARED'])
 
