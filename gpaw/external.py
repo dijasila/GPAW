@@ -169,6 +169,6 @@ class PointChargePotential(ExternalPotential):
                            self.q_p, self.R_pv, self.com_pv,
                            self.rc, self.rc2, self.width,
                            cqm_v,
-                           self.vext_g, dens.rhot_g, F_pv))
+                           self.vext_g, dens.rhot_g, F_pv)
         gd.comm.sum(F_pv)
         return F_pv * Hartree / Bohr
