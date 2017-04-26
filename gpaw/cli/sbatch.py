@@ -1,5 +1,6 @@
 from __future__ import print_function
 import subprocess
+import sys
 
 
 class CLICommand:
@@ -8,22 +9,28 @@ class CLICommand:
     @staticmethod
     def add_arguments(parser):
         parser.usage = (
-            'Usage: gpaw sbatch [-0] [-a args] script.py -- [sbatch options]')
-        parser.add_argument('script')
+            'Usage: '
+            'gpaw sbatch [-0] -- [sbatch options] script.py [script options]')
         parser.add_argument('-0', '--dry-run', action='store_true')
-        parser.add_argument('-a', '--script-options', default='')
-        parser.add_argument('sbatch_options', nargs='*')
+        parser.add_argument('arguments', nargs='*')
 
     @staticmethod
     def run(args):
         script = '#!/bin/bash -l\n'
-        for line in open(args.script):
+        for i, arg in enumerate(args.arguments):
+            if arg.endswith('.py'):
+                break
+        else:
+            print('No script.py found!', file=sys.stderr)
+            return
+
+        for line in open(arg):
             if line.startswith('#SBATCH'):
                 script += line
         script += ('OMP_NUM_THREADS=1 '
                    'mpiexec `echo $GPAW_MPI_OPTIONS` gpaw-python {} {}\n'
-                   .format(args.script, args.script_options))
-        cmd = ['sbatch'] + args.sbatch_options
+                   .format(arg, ' '.join(args.arguments[i + 1:])))
+        cmd = ['sbatch'] + args.arguments[:i]
         if args.dry_run:
             print('sbatch command:')
             print(' '.join(cmd))
