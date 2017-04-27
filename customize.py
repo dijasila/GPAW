@@ -28,11 +28,9 @@ To append use the form
     libraries += ['somelib', 'otherlib']
 """
 
-compiler = 'gcc4.9'
-mpicompiler = 'mpicc'  # use None if you don't want to build a gpaw-python
-mpilinker = 'mpicc'
-extra_link_args += ['-v']
-extra_compile_args += ['-v']
+# compiler = 'gcc'
+# mpicompiler = 'mpicc'  # use None if you don't want to build a gpaw-python
+# mpilinker = 'mpicc'
 # platform_id = ''
 # scalapack = False
 
@@ -82,3 +80,4 @@ if 0:
     compiler = 'mpicc'
     define_macros += [('PARALLEL', '1')]
     mpicompiler = None
+
