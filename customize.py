@@ -28,9 +28,11 @@ To append use the form
     libraries += ['somelib', 'otherlib']
 """
 
-compiler = 'gcc-6'
+compiler = 'gcc4.9'
 mpicompiler = 'mpicc'  # use None if you don't want to build a gpaw-python
 mpilinker = 'mpicc'
+# extra_link_args += ['-v']
+# extra_compile_args += ['-v']
 # platform_id = ''
 # scalapack = False
 
