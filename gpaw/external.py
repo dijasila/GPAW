@@ -150,9 +150,10 @@ class PointChargePotential(ExternalPotential):
         self.vext_g = gd.zeros()
         cqm_v = np.diag(gd.N_c * gd.h_cv) / 2.0
 
-        # For testing
-        rcc = np.linalg.norm(cqm_v - self.com_pv[0])
-        self.rcc = rcc * Bohr
+        # For testingi
+        if self.com_pv:
+            rcc = np.linalg.norm(cqm_v - self.com_pv[0])
+            self.rcc = rcc * Bohr
 
         _gpaw.pc_potential(gd.beg_c, gd.h_cv.diagonal().copy(),
                            self.q_p, self.R_pv, self.com_pv,
