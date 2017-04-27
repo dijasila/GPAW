@@ -126,6 +126,9 @@ class PointChargePotential(ExternalPotential):
 
         if abs(self.q_p).max() < 1e-14:
             warnings.warn('No charges!')
+        if self.rc < 0. and self.rc2 < np.inf:
+            warnings.warn('Long range cutoff chosen but will not be applied\
+                           for negative inner cutoff values!')
 
     def __str__(self):
         return ('Point-charge potential '
@@ -151,7 +154,7 @@ class PointChargePotential(ExternalPotential):
         cqm_v = np.diag(gd.N_c * gd.h_cv) / 2.0
 
         # For testingi
-        if self.com_pv:
+        if self.com_pv is not None:
             rcc = np.linalg.norm(cqm_v - self.com_pv[0])
             self.rcc = rcc * Bohr
 
