@@ -1547,7 +1547,7 @@ def expand_layers(structure):
             name = name[1:]
         try:
             num = int(num)
-        except:
+        except ValueError:
             num = 1
         for n in range(num):
             newlist.append(name)
