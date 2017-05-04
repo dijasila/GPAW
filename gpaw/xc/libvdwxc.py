@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import numpy as np
-from ase.utils import basestring
 
 from gpaw.mpi import have_mpi
 from gpaw.utilities import compiled_with_libvdwxc
@@ -262,9 +261,9 @@ class VDWXC(XCFunctional):
          PFFT.  If left unspecified, a hopefully reasonable automatic
          choice will be made.
          """
-        #if isinstance(semilocal_xc, (basestring, dict)):
-        #    from gpaw.xc import XC
-        #    semilocal_xc = XC(semilocal_xc)
+
+        # XXX We should probably not initialize with the same data as the
+        # semilocal XC kernel.
         XCFunctional.__init__(self, semilocal_xc.kernel.name,
                               semilocal_xc.kernel.type)
         # Really, 'type' should be something along the lines of vdw-df.
