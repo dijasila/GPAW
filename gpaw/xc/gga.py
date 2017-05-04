@@ -164,18 +164,19 @@ def gga_vars(gd, grad_v, n_sg):
     return sigma_xg, dedsigma_xg, gradn_svg
 
 
-def get_gradient_ops(gd):
-    return [Gradient(gd, v).apply for v in range(3)]
+def get_gradient_ops(gd, order):
+    return [Gradient(gd, v, n=order).apply for v in range(3)]
 
 
 class GGA(XCFunctional):
-    def __init__(self, kernel):
+    def __init__(self, kernel, stencil=1):
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
+        self.stencil_order = stencil
 
     def set_grid_descriptor(self, gd):
         XCFunctional.set_grid_descriptor(self, gd)
-        self.grad_v = get_gradient_ops(gd)
+        self.grad_v = get_gradient_ops(gd, self.stencil_order)
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)
