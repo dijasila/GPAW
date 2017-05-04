@@ -6,12 +6,12 @@ from ase.units import Bohr, Hartree
 a = 7.5 * Bohr
 n = 16
 atoms = Atoms('He', [(0.0, 0.0, 0.0)], cell=(a, a, a), pbc=True)
-calc = GPAW(gpts=(n, n, n), nbands=1, xc='PBE')
+calc = GPAW(gpts=(n, n, n), nbands=1, xc={'name': 'PBE', 'stencil': 1})
 atoms.set_calculator(calc)
 e1 = atoms.get_potential_energy()
 niter1 = calc.get_number_of_iterations()
 e1a = calc.get_reference_energy()
-calc.set(xc='revPBE')
+calc.set(xc={'name': 'revPBE', 'stencil': 1})
 e2 = atoms.get_potential_energy()
 niter2 = calc.get_number_of_iterations()
 e2a = calc.get_reference_energy()
