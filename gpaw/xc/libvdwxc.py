@@ -262,9 +262,9 @@ class VDWXC(XCFunctional):
          PFFT.  If left unspecified, a hopefully reasonable automatic
          choice will be made.
          """
-        if isinstance(semilocal_xc, (basestring, dict)):
-            from gpaw.xc import XC
-            semilocal_xc = XC(semilocal_xc)
+        #if isinstance(semilocal_xc, (basestring, dict)):
+        #    from gpaw.xc import XC
+        #    semilocal_xc = XC(semilocal_xc)
         XCFunctional.__init__(self, semilocal_xc.kernel.name,
                               semilocal_xc.kernel.type)
         # Really, 'type' should be something along the lines of vdw-df.
@@ -480,16 +480,21 @@ class VDWXC(XCFunctional):
 
 
 def vdw_df(*args, **kwargs):
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_PBE_R+LDA_C_PW')),
+    stencil = kwargs.pop('stencil', 2)
+    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_PBE_R+LDA_C_PW'),
+                                  stencil=stencil),
                  name='vdW-DF', *args, **kwargs)
 
 
 def vdw_df2(*args, **kwargs):
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_RPW86+LDA_C_PW')),
+    stencil = kwargs.pop('stencil', 2)
+    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_RPW86+LDA_C_PW'),
+                                  stencil=stencil),
                  name='vdW-DF2', *args, **kwargs)
 
 
 def vdw_df_cx(*args, **kwargs):
+    stencil = kwargs.pop('stencil', 2)
     try:
         # Exists in libxc 2.2.2 or newer (or maybe from older)
         kernel = LibXC('GGA_X_LV_RPW86+LDA_C_PW')
@@ -502,46 +507,51 @@ def vdw_df_cx(*args, **kwargs):
         kwargs.pop('gga_backend')
     assert 'gga_backend' not in kwargs
 
-    return VDWXC(semilocal_xc=GGA(kernel), name='vdW-DF-CX', *args, **kwargs)
+    return VDWXC(semilocal_xc=GGA(kernel, stencil=stencil),
+                 name='vdW-DF-CX', *args, **kwargs)
 
 
 def vdw_optPBE(*args, **kwargs):
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_OPTPBE_VDW+LDA_C_PW')),
+    stencil = kwargs.pop('stencil', 2)
+    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_OPTPBE_VDW+LDA_C_PW'),
+                                  stencil=stencil),
                  name='vdW-optPBE', libvdwxc_name='vdW-DF', *args, **kwargs)
 
 
 def vdw_optB88(*args, **kwargs):
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_OPTB88_VDW+LDA_C_PW')),
+    stencil = kwargs.pop('stencil', 2)
+    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_OPTB88_VDW+LDA_C_PW'),
+                                  stencil=stencil),
                  name='optB88', libvdwxc_name='vdW-DF', *args, **kwargs)
 
 
 def vdw_C09(*args, **kwargs):
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_C09X+LDA_C_PW')),
+    stencil = kwargs.pop('stencil', 2)
+    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_C09X+LDA_C_PW'),
+                                  stencil=stencil),
                  name='vdW-C09', libvdwxc_name='vdW-DF', *args, **kwargs)
 
 
 def vdw_beef(*args, **kwargs):
+    stencil = kwargs.pop('stencil', 2)
     # Kernel parameters stolen from vdw.py
     from gpaw.xc.bee import BEEVDWKernel
     kernel = BEEVDWKernel('BEE2', None,
                           0.600166476948828631066,
                           0.399833523051171368934)
-    return VDWXC(semilocal_xc=GGA(kernel), name='vdW-BEEF',
+    return VDWXC(semilocal_xc=GGA(kernel, stencil=stencil), name='vdW-BEEF',
                  setup_name='PBE', libvdwxc_name='vdW-DF2',
                  *args, **kwargs)
 
 
 def vdw_mbeef(*args, **kwargs):
+    stencil = kwargs.pop('stencil', 2)
     # Note: Parameters taken from vdw.py
     from gpaw.xc.bee import BEEVDWKernel
     kernel = BEEVDWKernel('BEE3', None, 0.405258352, 0.356642240)
-    return VDWXC(semilocal_xc=MGGA(kernel), name='vdW-mBEEF',
+    return VDWXC(semilocal_xc=MGGA(kernel, stencil=stencil), name='vdW-mBEEF',
                  setup_name='PBEsol', libvdwxc_name='vdW-DF2',
                  vdwcoef=0.886774972)
-
-
-# Finally, mBEEF is an MGGA.  For that we would have to un-subclass GGA
-# and subclass MGGA.  Maybe the XC object architecture could be improved...
 
 
 class CXGGAKernel:
