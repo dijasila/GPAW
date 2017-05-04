@@ -624,7 +624,6 @@ class G0W0(PairDensity):
                     real_space_derivatives=False,
                     txt=self.filename + '.w.txt',
                     timer=self.timer,
-                    keep_occupied_states=True,
                     nblocks=self.blockcomm.size,
                     gate_voltage=self.gate_voltage,
                     **parameters)
@@ -773,7 +772,8 @@ class G0W0(PairDensity):
             chi0_wxvG = None
             chi0_wvv = None
 
-        chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, [0])
+        chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, [0],
+                        extend_head=False)
 
         if len(self.ecut_e) > 1:
             # Add chi from previous cutoff with remaining bands

@@ -446,11 +446,11 @@ class PWSymmetryAnalyzer:
             for s in self.s_s:
                 G_G, sign, _ = self.G_sG[s]
                 if sign == 1:
-                    tmp_GG += A_GG[G_G,:][:,G_G]
+                    tmp_GG += A_GG[G_G, :][:, G_G]
                 if sign == -1:
-                    tmp_GG += A_GG[G_G,:][:,G_G].T
+                    tmp_GG += A_GG[G_G, :][:, G_G].T
 
-            A_GG[:] = tmp_GG
+            A_GG[:] = tmp_GG / self.how_many_symmetries()
 
     def symmetrize_wxx(self, A_wxx, optical_limit=False):
         """Symmetrize an array in xx'."""
@@ -469,6 +469,7 @@ class PWSymmetryAnalyzer:
                 G_G = np.insert(G_G, 0, [0, 1])
                 U_cc, _, TR, shift_c, ft_c = self.get_symmetry_operator(s)
                 M_vv = np.dot(np.dot(A_cv.T, U_cc.T), iA_cv)
+
             if sign == 1:
                 tmp = A_wxx[:, G_G, :][:, :, G_G]
                 if optical_limit:
@@ -673,8 +674,6 @@ class PairDensity:
 
         with self.timer('Read ground state'):
             if isinstance(calc, str):
-                if not calc.split('.')[-1] == 'gpw':
-                    calc = calc + '.gpw'
                 print('Reading ground state calculation:\n  %s' % calc,
                       file=self.fd)
                 calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
@@ -705,7 +704,9 @@ class PairDensity:
         self.count_occupied_bands()
 
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
-        
+
+        self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
+
         kd = self.calc.wfs.kd
         self.KDTree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
         print('Number of blocks:', nblocks, file=self.fd)
@@ -736,7 +737,7 @@ class PairDensity:
 
     def apply_bands_scissor(self, op):
         """Applies scissor operator."""
-        print('Applying scissor op.: %.2f ' % (op['add'] * Hartree) + 
+        print('Applying scissor op.: %.2f ' % (op['add'] * Hartree) +
               ' for bands ', op['bands'], file=self.fd)
         for kpt in self.calc.wfs.kpt_u:
             kpt.eps_n[op['bands']] += op['add']
@@ -745,7 +746,10 @@ class PairDensity:
         """Shift fermilevel."""
         fermi = self.fermi_level
         width = self.calc.occupations.width
-        tmp = (eps_n - fermi) / width
+        if width < 1e-9:
+            return (eps_n < fermi).astype(float)
+        else:
+            tmp = (eps_n - fermi) / width
         f_n = np.zeros_like(eps_n)
         f_n[tmp <= 100] = 1 / (1 + np.exp(tmp[tmp <= 100]))
         f_n[tmp > 100] = 0.0
@@ -797,7 +801,7 @@ class PairDensity:
                     self.mysKn1n2.append((s, K, n1 + band1, n2 + band1))
                 i += nbands
 
-        print('BZ k-points:', self.calc.wfs.kd.description, file=self.fd)
+        print('BZ k-points:', self.calc.wfs.kd, file=self.fd)
         print('Distributing spins, k-points and bands (%d x %d x %d)' %
               (ns, nk, nbands),
               'over %d process%s' %
@@ -819,8 +823,14 @@ class PairDensity:
 
         wfs = self.calc.wfs
         kd = wfs.kd
-        K = self.find_kpoint(k_c)
-        shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
+
+        if type(k_c) is np.int64:
+            K = k_c
+            shift0_c = np.array([0, 0, 0])
+            k_c = None
+        else:
+            K = self.find_kpoint(k_c)
+            shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
 
         if block:
             nblocks = self.blockcomm.size
@@ -1081,7 +1091,6 @@ class PairDensity:
                 C1_aGi = [np.dot(Q_Gii, P1_ni[n - kpt1.na].conj())
                           for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
                 n_nmG[j, :, 2 * ol:] = cpd(ut1cc_R, C1_aGi, kpt2, pd, Q_G)
-
             if optical_limit:
                 n_nmG[j, :, 0:3] = opd(n, m_m, kpt1, kpt2)
 

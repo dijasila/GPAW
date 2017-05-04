@@ -21,7 +21,7 @@ from functools import partial
 class Integrator():
 
     def __init__(self, cell_cv, comm=mpi.world,
-                 txt=sys.stdout, timer=None,  nblocks=1):
+                 txt=sys.stdout, timer=None, nblocks=1):
         """Baseclass for Brillouin zone integration and band summation.
 
         Simple class to calculate integrals over Brilloun zones
@@ -94,24 +94,43 @@ class PointIntegrator(Integrator):
         eta. In this code we use Lorentzians."""
         Integrator.__init__(self, *args, **kwargs)
 
-    def integrate(self, kind=None, *args, **kwargs):
-        if kind is None:
+    def integrate(self, kind='pointwise', *args, **kwargs):
+        print('Integral kind:', kind, file=self.fd)
+        if kind == 'pointwise':
             return self.pointwise_integration(*args, **kwargs)
+        elif kind == 'hermitian response function':
+            return self.response_function_integration(hermitian=True,
+                                                      hilbert=False,
+                                                      wings=False,
+                                                      intraband=False,
+                                                      *args, **kwargs)
+        elif kind == 'hermitian response function wings':
+            return self.response_function_integration(hermitian=True,
+                                                      hilbert=False,
+                                                      wings=True,
+                                                      *args, **kwargs)
         elif kind == 'spectral function':
             return self.response_function_integration(hilbert=True,
                                                       *args, **kwargs)
-        elif kind == 'hermitian response function':
-            return self.response_function_integration(hermitian=True,
+        elif kind == 'spectral function wings':
+            return self.response_function_integration(hilbert=True,
+                                                      wings=True,
                                                       *args, **kwargs)
         elif kind == 'response function':
-            return self.response_function_integration(*args, **kwargs)
+            return self.response_function_integration(hilbert=False,
+                                                      *args, **kwargs)
+        elif kind == 'response function wings':
+            return self.response_function_integration(hilbert=False,
+                                                      wings=True,
+                                                      *args, **kwargs)
         else:
             raise NotImplementedError
 
     def response_function_integration(self, domain=None, integrand=None,
                                       x=None, kwargs=None, out_wxx=None,
                                       timeordered=False, hermitian=False,
-                                      intraband=False, hilbert=True):
+                                      intraband=False, hilbert=False,
+                                      wings=False, **extraargs):
         """Integrate a response function over bands and kpoints.
 
         func: method
@@ -125,6 +144,10 @@ class PointIntegrator(Integrator):
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
         get_matrix_element, get_eigenvalues = integrand
+
+        prefactor = (2 * np.pi)**3 / self.vol / nbz
+        out_wxx /= prefactor
+
         # The kwargs contain any constant
         # arguments provided by the user
         if kwargs is not None:
@@ -141,19 +164,28 @@ class PointIntegrator(Integrator):
             deps_M = get_eigenvalues(*arguments)
 
             if intraband:
-                self.update_intraband(n_MG, out_wxx)
-            elif hermitian:
-                self.update_hermitian(n_MG, deps_M, x, out_wxx)
-            elif hilbert:
-                self.update_hilbert(n_MG, deps_M, x, out_wxx)
+                self.update_intraband(n_MG, out_wxx, **extraargs)
+            elif hermitian and not wings:
+                self.update_hermitian(n_MG, deps_M, x, out_wxx, **extraargs)
+            elif hermitian and wings:
+                self.update_optical_limit(n_MG, deps_M, x, out_wxx,
+                                          **extraargs)
+            elif hilbert and not wings:
+                self.update_hilbert(n_MG, deps_M, x, out_wxx, **extraargs)
+            elif hilbert and wings:
+                self.update_hilbert_optical_limit(n_MG, deps_M, x,
+                                                  out_wxx, **extraargs)
+            elif wings:
+                self.update_optical_limit(n_MG, deps_M, x, out_wxx,
+                                          **extraargs)
             else:
-                self.update(n_MG, deps_M, x, out_wxx,
-                            timeordered=timeordered)
+                self.update(n_MG, deps_M, x, out_wxx, **extraargs)
+
         # Sum over
         for out_xx in out_wxx:
             self.kncomm.sum(out_xx)
 
-        if (hermitian or hilbert) and self.blockcomm.size == 1:
+        if (hermitian or hilbert) and self.blockcomm.size == 1 and not wings:
             # Fill in upper/lower triangle also:
             nx = out_wxx.shape[1]
             il = np.tril_indices(nx, -1)
@@ -165,19 +197,19 @@ class PointIntegrator(Integrator):
                 for out_xx in out_wxx:
                     out_xx[iu] = out_xx[il].conj()
 
-        out_wxx *= (2 * np.pi)**3 / self.vol / nbz
+        out_wxx *= prefactor
 
     @timer('CHI_0 update')
-    def update(self, n_mG, deps_m, wd, chi0_wGG, timeordered=False):
+    def update(self, n_mG, deps_m, wd, chi0_wGG, timeordered=False, eta=None):
         """Update chi."""
 
-        omega_w = wd.omega_w
+        omega_w = wd.get_data()
         if timeordered:
-            deps1_m = deps_m + 1j * self.eta * np.sign(deps_m)
+            deps1_m = deps_m + 1j * eta * np.sign(deps_m)
             deps2_m = deps1_m
         else:
-            deps1_m = deps_m + 1j * self.eta
-            deps2_m = deps_m - 1j * self.eta
+            deps1_m = deps_m + 1j * eta
+            deps2_m = deps_m - 1j * eta
 
         for omega, chi0_GG in zip(omega_w, chi0_wGG):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
@@ -185,16 +217,18 @@ class PointIntegrator(Integrator):
                 nx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
             else:
                 nx_mG = n_mG * x_m[:, np.newaxis]
+
             gemm(1.0, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
                  1.0, chi0_GG)
 
     @timer('CHI_0 hermetian update')
     def update_hermitian(self, n_mG, deps_m, wd, chi0_wGG):
         """If eta=0 use hermitian update."""
-        omega_w = wd.omega_w
+        omega_w = wd.get_data()
+
         for w, omega in enumerate(omega_w):
             if self.blockcomm.size == 1:
-                x_m = (-2 * deps_m / (omega.imag**2 + deps_m**2))**0.5
+                x_m = (-2 * deps_m / (omega.imag**2 + deps_m**2) + 0j)**0.5
                 nx_mG = n_mG.conj() * x_m[:, np.newaxis]
                 rk(-1.0, nx_mG, 1.0, chi0_wGG[w], 'n')
             else:
@@ -210,11 +244,12 @@ class PointIntegrator(Integrator):
         later hilbert-transform."""
 
         self.timer.start('prep')
+        omega_w = wd.get_data()
         o_m = abs(deps_m)
         w_m = wd.get_closest_index(o_m)
-        o1_m = wd.omega_w[w_m]
-        o2_m = wd.omega_w[w_m + 1]
-        p_m = 1 / (o2_m - o1_m)**2  # XXX There was abs around df_m here
+        o1_m = omega_w[w_m]
+        o2_m = omega_w[w_m + 1]
+        p_m = np.abs(1 / (o2_m - o1_m)**2)
         p1_m = p_m * (o2_m - o_m)
         p2_m = p_m * (o_m - o1_m)
         self.timer.stop('prep')
@@ -231,58 +266,6 @@ class PointIntegrator(Integrator):
             czher(p1, n_G.conj(), chi0_wGG[w])
             czher(p2, n_G.conj(), chi0_wGG[w + 1])
 
-    @timer('CHI_0 optical limit update')
-    def update_optical_limit(self, n0_mv, deps_m, df_m, n_mG,
-                             chi0_wxvG, chi0_wvv):
-        """Optical limit update of chi."""
-
-        if self.hilbert:  # Do something special when hilbert transforming
-            self.update_optical_limit_hilbert(n0_mv, deps_m, df_m, n_mG,
-                                              chi0_wxvG, chi0_wvv)
-            return
-
-        if self.timeordered:
-            # avoid getting a zero from np.sign():
-            deps1_m = deps_m + 1j * self.eta * np.sign(deps_m + 1e-20)
-            deps2_m = deps1_m
-        else:
-            deps1_m = deps_m + 1j * self.eta
-            deps2_m = deps_m - 1j * self.eta
-
-        for w, omega in enumerate(omega_w):
-            x_m = df_m * (1 / (omega + deps1_m) -
-                          1 / (omega - deps2_m))
-
-            chi0_wvv[w] += np.dot(x_m * n0_mv.T, n0_mv.conj())
-            chi0_wxvG[w, 0, :, 1:] += np.dot(x_m * n0_mv.T, n_mG[:, 1:].conj())
-            chi0_wxvG[w, 1, :, 1:] += np.dot(x_m * n0_mv.T.conj(), n_mG[:, 1:])
-
-    @timer('CHI_0 optical limit hilbert-update')
-    def update_optical_limit_hilbert(self, n0_mv, deps_m, df_m, n_mG,
-                                     chi0_wxvG, chi0_wvv):
-        """Optical limit update of chi-head and -wings."""
-
-        beta = (2**0.5 - 1) * self.domega0 / self.omega2
-        for deps, df, n0_v, n_G in zip(deps_m, df_m, n0_mv, n_mG):
-            o = abs(deps)
-            w = int(o / (self.domega0 + beta * o))
-            if w + 2 > len(omega_w):
-                break
-            o1, o2 = omega_w[w:w + 2]
-            assert o1 <= o <= o2, (o1, o, o2)
-
-            p = abs(df) / (o2 - o1)**2  # XXX abs()?
-            p1 = p * (o2 - o)
-            p2 = p * (o - o1)
-            x_vv = np.outer(n0_v, n0_v.conj())
-            chi0_wvv[w] += p1 * x_vv
-            chi0_wvv[w + 1] += p2 * x_vv
-            x_vG = np.outer(n0_v, n_G[1:].conj())
-            chi0_wxvG[w, 0, :, 1:] += p1 * x_vG
-            chi0_wxvG[w + 1, 0, :, 1:] += p2 * x_vG
-            chi0_wxvG[w, 1, :, 1:] += p1 * x_vG.conj()
-            chi0_wxvG[w + 1, 1, :, 1:] += p2 * x_vG.conj()
-
     @timer('CHI_0 intraband update')
     def update_intraband(self, vel_mv, chi0_wvv):
         """Add intraband contributions"""
@@ -290,6 +273,47 @@ class PointIntegrator(Integrator):
         for vel_v in vel_mv:
             x_vv = np.outer(vel_v, vel_v)
             chi0_wvv[0] += x_vv
+
+    @timer('CHI_0 optical limit update')
+    def update_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG,
+                             timeordered=False, eta=None):
+        """Optical limit update of chi."""
+
+        omega_w = wd.get_data()
+        if timeordered:
+            # avoid getting a zero from np.sign():
+            deps1_m = deps_m + 1j * eta * np.sign(deps_m + 1e-20)
+            deps2_m = deps1_m
+        else:
+            deps1_m = deps_m + 1j * eta
+            deps2_m = deps_m - 1j * eta
+                    
+        for w, omega in enumerate(omega_w):
+            x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
+            chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
+            chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
+
+    @timer('CHI_0 optical limit hilbert-update')
+    def update_hilbert_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG):
+        """Optical limit update of chi-head and -wings."""
+
+        omega_w = wd.get_data()
+        for deps, n_G in zip(deps_m, n_mG):
+            o = abs(deps)
+            w = wd.get_closest_index(o)
+            if w + 2 > len(omega_w):
+                break
+            o1, o2 = omega_w[w:w + 2]
+            assert o1 <= o <= o2, (o1, o, o2)
+            
+            p = 1 / (o2 - o1)**2
+            p1 = p * (o2 - o)
+            p2 = p * (o - o1)
+            x_vG = np.outer(n_G[:3], n_G.conj())
+            chi0_wxvG[w, 0, :, :] += p1 * x_vG
+            chi0_wxvG[w + 1, 0, :, :] += p2 * x_vG
+            chi0_wxvG[w, 1, :, :] += p1 * x_vG.conj()
+            chi0_wxvG[w + 1, 1, :, :] += p2 * x_vG.conj()
 
 
 class TetrahedronIntegrator(Integrator):

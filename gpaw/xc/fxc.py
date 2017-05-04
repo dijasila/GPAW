@@ -176,10 +176,10 @@ class FXCCorrelation(RPACorrelation):
             chi0_swxvG = range(2)  # Not used
             chi0_swvv = range(2)  # Not used
         chi0._calculate(pd, chi0_swGG[0], chi0_swxvG[0], chi0_swvv[0],
-                        m1, m2, [0])
+                        m1, m2, [0], extend_head=False)
         if len(chi0_swGG) == 2:
             chi0._calculate(pd, chi0_swGG[1], chi0_swxvG[1], chi0_swvv[1],
-                            m1, m2, [1])
+                            m1, m2, [1], extend_head=False)
         print('E_c(q) = ', end='', file=self.fd)
 
         if self.nblocks > 1:

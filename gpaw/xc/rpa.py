@@ -335,7 +335,7 @@ class RPACorrelation:
             chi0_wxvG = None
             chi0_wvv = None
         chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv,
-                        m1, m2, [0, 1])
+                        m1, m2, spins='all', extend_head=False)
 
         print('E_c(q) = ', end='', file=self.fd)
 
