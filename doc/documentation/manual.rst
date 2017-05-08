@@ -334,6 +334,14 @@ joined by **+** (plus).
 For example, "the" (most common) LDA approximation in chemistry
 corresponds to ``'LDA_X+LDA_C_VWN'``.
 
+XC functionals can also be specified as dictionaries.
+This is useful for functionals that depend on one or more parameters.
+For example, to use a stencil with two nearest neighbours
+for the density-gradient with the PBE functional, use ``xc={'name': 'PBE', 'stencil': 2}``.
+The ``stencil`` keyword applies to any GGA or MGGA.
+Some functionals may take other parameters; see their respective documentation
+pages.
+
 Hybrid functionals (the feature is described at :ref:`exx`)
 require the setups containing exx information to be generated.
 Check available setups for the presence of exx information, for example::
