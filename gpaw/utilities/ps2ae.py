@@ -1,7 +1,7 @@
 from math import pi, sqrt
 
 import numpy as np
-from ase.units import Bohr, Hartree
+from ase.units import Bohr, Ha
 
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.grid_descriptor import GridDescriptor
@@ -19,7 +19,7 @@ class Interpolator:
     def interpolate(self, a_r):
         return self.pd1.interpolate(a_r, self.pd2)[0]
 
-        
+
 POINTS = 200
 
 
@@ -27,17 +27,17 @@ def gauss(rgd, alpha):
     r_g = rgd.r_g
     g_g = 4 / sqrt(pi) * alpha**1.5 * np.exp(-alpha * r_g**2)
     return g_g
-    
+
 
 class PS2AE:
     """Transform PS to AE wave functions.
-    
+
     Interpolates PS wave functions to a fine grid and adds PAW
     corrections in order to obtain true AE wave functions.
     """
     def __init__(self, calc, h=0.05, n=2):
         """Create transformation object.
-        
+
         calc: GPAW calculator object
             The calcalator that has the wave functions.
         h: float
@@ -49,14 +49,14 @@ class PS2AE:
         gd = calc.wfs.gd
 
         gd1 = GridDescriptor(gd.N_c, gd.cell_cv, comm=serial_comm)
-        
+
         # Descriptor for the final grid:
         N_c = h2gpts(h / Bohr, gd.cell_cv)
         N_c = np.array([get_efficient_fft_size(N, n) for N in N_c])
         gd2 = self.gd = GridDescriptor(N_c, gd.cell_cv, comm=serial_comm)
         self.interpolator = Interpolator(gd1, gd2, self.calc.wfs.dtype)
 
-        self.dphi = None  # PAW correction (will be initialize when needed)
+        self.dphi = None  # PAW correction (will be initialized when needed)
 
     def _initialize_corrections(self):
         if self.dphi is not None:
@@ -76,14 +76,14 @@ class PS2AE:
                     dphi_j.append(setup.rgd.spline(dphi_g, rcut, l,
                                                    points=200))
             dphi_aj.append(dphi_j)
-            
+
         self.dphi = LFC(self.gd, dphi_aj, kd=self.calc.wfs.kd.copy(),
                         dtype=self.calc.wfs.dtype)
         self.dphi.set_positions(self.calc.atoms.get_scaled_positions())
-        
+
     def get_wave_function(self, n, k=0, s=0, ae=True):
         """Interpolate wave function.
-        
+
         n: int
             Band index.
         k: int
@@ -109,16 +109,11 @@ class PS2AE:
                     I1 = I2
                 self.dphi.add(psi_R, P_ai, k)
             wfs.world.broadcast(psi_R, 0)
-        return psi_R
-        
-    def get_electrostatic_potential(self, ae=True, rcgauss=0.02):
-        ham = self.calc.hamiltonian
+        return psi_R * Bohr**-1.5
 
-        if ham.vHt_g is None:
-            self.calc.restore_state()
-            
-        gd = ham.finegd
-        v_r = gd.zero_pad(ham.vHt_g)
+    def get_electrostatic_potential(self, ae=True, rcgauss=0.02):
+        gd = self.calc.hamiltonian.finegd
+        v_r = self.calc.get_electrostatic_potential() / Ha
         gd1 = GridDescriptor(gd.N_c, gd.cell_cv, comm=serial_comm)
         interpolator = Interpolator(gd1, self.gd)
         v_R = interpolator.interpolate(v_r)
@@ -126,8 +121,8 @@ class PS2AE:
         if ae:
             alpha = 1 / (rcgauss / Bohr)**2
             self.add_potential_correction(v_R, alpha)
-            
-        return v_R * Hartree
+
+        return v_R * Ha
 
     def add_potential_correction(self, v_R, alpha):
         dens = self.calc.density
@@ -148,7 +143,7 @@ class PS2AE:
             dv_g[0] = dv_g[1]
             dv_g[-1] = 0.0
             dv_a1.append([rgd.spline(dv_g, points=POINTS)])
-            
+
         dv = LFC(self.gd, dv_a1)
         dv.set_positions(self.calc.atoms.get_scaled_positions())
         dv.add(v_R)

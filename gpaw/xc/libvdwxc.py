@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import numpy as np
-from ase.utils import basestring
 
 from gpaw.mpi import have_mpi
 from gpaw.utilities import compiled_with_libvdwxc
@@ -239,7 +238,8 @@ class FFTDistribution:
 class VDWXC(XCFunctional):
     def __init__(self, semilocal_xc, name, mode='auto',
                  pfft_grid=None, libvdwxc_name=None,
-                 setup_name='revPBE', vdwcoef=1.0):
+                 setup_name='revPBE', vdwcoef=1.0,
+                 accept_partial_decomposition=False):
         """Initialize VDWXC object (further initialization required).
 
         mode can be 'auto', 'serial', 'mpi', or 'pfft'.
@@ -261,9 +261,9 @@ class VDWXC(XCFunctional):
          PFFT.  If left unspecified, a hopefully reasonable automatic
          choice will be made.
          """
-        if isinstance(semilocal_xc, (basestring, dict)):
-            from gpaw.xc import XC
-            semilocal_xc = XC(semilocal_xc)
+
+        # XXX We should probably not initialize with the same data as the
+        # semilocal XC kernel.
         XCFunctional.__init__(self, semilocal_xc.kernel.name,
                               semilocal_xc.kernel.type)
         # Really, 'type' should be something along the lines of vdw-df.
@@ -284,6 +284,7 @@ class VDWXC(XCFunctional):
         self._mode = mode
         self._pfft_grid = pfft_grid
         self._vdwcoef = vdwcoef
+        self.accept_partial_decomposition = accept_partial_decomposition
         # To be completely rigorous and avoid the wrath of the functionalists,
         # we must write a warning if we run spin-polarized.
         self._nspins = 1
@@ -326,10 +327,7 @@ class VDWXC(XCFunctional):
         return dct
 
     def set_grid_descriptor(self, gd):
-        if self.gd is not None and self.gd != gd:
-            raise NotImplementedError('Cannot switch grids')
-        if self.libvdwxc is None:
-            self._initialize(gd)
+        self._initialize(gd)
         XCFunctional.set_grid_descriptor(self, gd)
         self.semilocal_xc.set_grid_descriptor(gd)
 
@@ -362,6 +360,9 @@ class VDWXC(XCFunctional):
 
     def _initialize(self, gd):
         N_c = gd.get_size_of_global_array(pad=True)
+        # garbage-collect before allocating next one, if an object was
+        # already allocated:
+        self.libvdwxc = None
         self.libvdwxc = LibVDWXC(self._libvdwxc_name, N_c, gd.cell_cv,
                                  gd.comm, mode=self._mode,
                                  pfft_grid=self._pfft_grid)
@@ -393,15 +394,21 @@ class VDWXC(XCFunctional):
             warnings.warn(spinwarning)
             self._nspins = density.nspins
 
-        if wfs.world.size > gd.comm.size and np.prod(gd.N_c) > 64**3:
+        if (wfs.world.size > gd.comm.size and np.prod(gd.N_c) > 64**3
+            and not self.accept_partial_decomposition):
             # We could issue a warning if an excuse turns out to exist some day
             raise ValueError('You are using libvdwxc with only '
                              '%d out of %d available cores in a non-small '
                              'calculation (%s points).  This is not '
                              'a crime but is likely silly and therefore '
-                             'triggers and error.  Please use '
+                             'triggers an error.  Please use '
                              'parallel={\'augment_grids\': True} '
-                             'or complain to the developers.' %
+                             'or complain to the developers.  '
+                             'You can also disable this error '
+                             'by passing accept_partial_decomposition=True '
+                             'to the libvdwxc functional object, '
+                             'but be careful to use good domain '
+                             'decomposition.' %
                              (gd.comm.size, wfs.world.size,
                               ' x '.join(str(N) for N in gd.N_c)))
         #self._initialize(gd)
@@ -472,16 +479,21 @@ class VDWXC(XCFunctional):
 
 
 def vdw_df(*args, **kwargs):
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_PBE_R+LDA_C_PW')),
+    stencil = kwargs.pop('stencil', 2)
+    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_PBE_R+LDA_C_PW'),
+                                  stencil=stencil),
                  name='vdW-DF', *args, **kwargs)
 
 
 def vdw_df2(*args, **kwargs):
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_RPW86+LDA_C_PW')),
+    stencil = kwargs.pop('stencil', 2)
+    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_RPW86+LDA_C_PW'),
+                                  stencil=stencil),
                  name='vdW-DF2', *args, **kwargs)
 
 
 def vdw_df_cx(*args, **kwargs):
+    stencil = kwargs.pop('stencil', 2)
     try:
         # Exists in libxc 2.2.2 or newer (or maybe from older)
         kernel = LibXC('GGA_X_LV_RPW86+LDA_C_PW')
@@ -494,46 +506,51 @@ def vdw_df_cx(*args, **kwargs):
         kwargs.pop('gga_backend')
     assert 'gga_backend' not in kwargs
 
-    return VDWXC(semilocal_xc=GGA(kernel), name='vdW-DF-CX', *args, **kwargs)
+    return VDWXC(semilocal_xc=GGA(kernel, stencil=stencil),
+                 name='vdW-DF-CX', *args, **kwargs)
 
 
 def vdw_optPBE(*args, **kwargs):
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_OPTPBE_VDW+LDA_C_PW')),
+    stencil = kwargs.pop('stencil', 2)
+    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_OPTPBE_VDW+LDA_C_PW'),
+                                  stencil=stencil),
                  name='vdW-optPBE', libvdwxc_name='vdW-DF', *args, **kwargs)
 
 
 def vdw_optB88(*args, **kwargs):
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_OPTB88_VDW+LDA_C_PW')),
+    stencil = kwargs.pop('stencil', 2)
+    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_OPTB88_VDW+LDA_C_PW'),
+                                  stencil=stencil),
                  name='optB88', libvdwxc_name='vdW-DF', *args, **kwargs)
 
 
 def vdw_C09(*args, **kwargs):
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_C09X+LDA_C_PW')),
+    stencil = kwargs.pop('stencil', 2)
+    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_C09X+LDA_C_PW'),
+                                  stencil=stencil),
                  name='vdW-C09', libvdwxc_name='vdW-DF', *args, **kwargs)
 
 
 def vdw_beef(*args, **kwargs):
+    stencil = kwargs.pop('stencil', 2)
     # Kernel parameters stolen from vdw.py
     from gpaw.xc.bee import BEEVDWKernel
     kernel = BEEVDWKernel('BEE2', None,
                           0.600166476948828631066,
                           0.399833523051171368934)
-    return VDWXC(semilocal_xc=GGA(kernel), name='vdW-BEEF',
+    return VDWXC(semilocal_xc=GGA(kernel, stencil=stencil), name='vdW-BEEF',
                  setup_name='PBE', libvdwxc_name='vdW-DF2',
                  *args, **kwargs)
 
 
 def vdw_mbeef(*args, **kwargs):
+    stencil = kwargs.pop('stencil', 2)
     # Note: Parameters taken from vdw.py
     from gpaw.xc.bee import BEEVDWKernel
     kernel = BEEVDWKernel('BEE3', None, 0.405258352, 0.356642240)
-    return VDWXC(semilocal_xc=MGGA(kernel), name='vdW-mBEEF',
+    return VDWXC(semilocal_xc=MGGA(kernel, stencil=stencil), name='vdW-mBEEF',
                  setup_name='PBEsol', libvdwxc_name='vdW-DF2',
                  vdwcoef=0.886774972)
-
-
-# Finally, mBEEF is an MGGA.  For that we would have to un-subclass GGA
-# and subclass MGGA.  Maybe the XC object architecture could be improved...
 
 
 class CXGGAKernel:

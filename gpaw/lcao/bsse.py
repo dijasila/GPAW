@@ -7,8 +7,6 @@ import numpy as np
 from ase.data import atomic_numbers
 
 from gpaw.setup import BaseSetup
-from gpaw.setup_data import SetupData
-from gpaw.basis_data import Basis
 from gpaw.spline import Spline
 from gpaw.utilities import min_locfun_radius
 

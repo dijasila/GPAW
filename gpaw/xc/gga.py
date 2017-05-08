@@ -106,7 +106,20 @@ def calculate_sigma(gd, grad_v, n_sg):
                   _     __   _  2     __    _
     Returns sigma(r) = |\/ n(r)|  and \/ n (r).
 
-    With multiple spins it's a bit more complicated."""
+    With multiple spins, sigma has the three elements
+
+                   _     __     _  2
+            sigma (r) = |\/ n  (r)|  ,
+                 0           up
+
+                   _     __     _      __     _
+            sigma (r) =  \/ n  (r)  .  \/ n  (r) ,
+                 1           up            dn
+
+                   _     __     _  2
+            sigma (r) = |\/ n  (r)|  .
+                 2           dn
+    """
     nspins = len(n_sg)
     gradn_svg = gd.empty((nspins, 3))
     sigma_xg = gd.zeros(nspins * 2 - 1)
@@ -151,18 +164,19 @@ def gga_vars(gd, grad_v, n_sg):
     return sigma_xg, dedsigma_xg, gradn_svg
 
 
-def get_gradient_ops(gd):
-    return [Gradient(gd, v).apply for v in range(3)]
+def get_gradient_ops(gd, nn):
+    return [Gradient(gd, v, n=nn).apply for v in range(3)]
 
 
 class GGA(XCFunctional):
-    def __init__(self, kernel):
+    def __init__(self, kernel, stencil=1):
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
+        self.stencil_order = stencil
 
     def set_grid_descriptor(self, gd):
         XCFunctional.set_grid_descriptor(self, gd)
-        self.grad_v = get_gradient_ops(gd)
+        self.grad_v = get_gradient_ops(gd, self.stencil_order)
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)

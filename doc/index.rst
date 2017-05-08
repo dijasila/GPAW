@@ -41,6 +41,12 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
 News
 ====
 
+* Supported by NOMAD_ (Mar 1 2017)
+
+  .. image:: static/NOMAD_Logo_supported_by.png
+     :width: 100 px
+     :target: NOMAD_
+
 * Code-sprints moved to first Tuesday of every month (Feb 17 2017)
 
 * :ref:`GPAW version 1.2 <releasenotes>` released (Feb 7 2017)
@@ -145,6 +151,7 @@ News
 .. _CSC's supercomputer procurement: http://www.csc.fi/english/pages/hpc2011
 .. _18 million CPU hour grant: http://www.prace-ri.eu/PRACE-5thRegular-Call
 .. _PRACE Unified European Application Benchmark Suite: http://www.prace-ri.eu/ueabs
+.. _NOMAD: http://repository.nomad-coe.eu/
 
 
 .. toctree::

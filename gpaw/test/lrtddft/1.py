@@ -1,4 +1,3 @@
-import os
 from ase import Atom, Atoms
 from ase.units import Bohr
 from ase.parallel import parprint

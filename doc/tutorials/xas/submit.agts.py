@@ -7,6 +7,7 @@ def agts(queue):
               creates=['xas_h2o_spectrum.png', 'h2o_xas_box.png'],
               show=['xas_h2o_spectrum.png', 'h2o_xas_box.png'])
 
+
 if __name__ == '__main__':
     from gpaw.test import equal
     exec(open('plot.py').read())

@@ -1,10 +1,9 @@
+import numpy as np
 from ase import Atoms
 from gpaw.fdtd.poisson_fdtd import QSFDTD
 from gpaw.fdtd.polarizable_material import PermittivityPlus, PolarizableMaterial, PolarizableSphere
 from gpaw.mpi import world
-from gpaw.tddft import photoabsorption_spectrum, units
 from gpaw.test import equal
-import numpy as np
 
 # This test does the same calculation as ed.py, but using QSFDTD wrapper instead
 

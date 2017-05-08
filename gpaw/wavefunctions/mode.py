@@ -5,7 +5,6 @@ def create_wave_function_mode(name, **kwargs):
     from gpaw.wavefunctions.fd import FD
     from gpaw.wavefunctions.pw import PW
     from gpaw.wavefunctions.lcao import LCAO
-
     return locals()[name.upper()](**kwargs)
         
 

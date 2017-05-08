@@ -137,6 +137,7 @@ def calculate_0D_truncated_coulomb(pd, q_v=None):
     return v_G
 
 def get_integrated_kernel(pd, N_c, truncation=None, N=100, reduced=False):
+    from scipy.special import j1, k0, j0, k1
 
     B_cv = 2 * np.pi * pd.gd.icell_cv
     Nf_c = np.array([N, N, N])

@@ -122,7 +122,7 @@ class BiCGStab:
 
         # if scale < eps, then convergence check breaks down
         if (scale < self.eps).any():
-            raise RuntimeError("BigCGStab method detected underflow for squared norm of right-hand side (scale = %le < eps = %le)." % (scale,eps))
+            raise RuntimeError("BigCGStab method detected underflow for squared norm of right-hand side (scale = %le < eps = %le)." % (scale,self.eps))
 
         #print 'Scale = ', scale
 

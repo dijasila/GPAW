@@ -2,7 +2,6 @@ from __future__ import print_function
 import os, sys, time
 import numpy as np
 
-from ase import Atoms
 from ase.build import molecule
 from ase.parallel import paropen
 from ase.units import Bohr, Hartree
@@ -15,9 +14,9 @@ from gpaw.mpi import world
 from gpaw.tddft import TDDFT
 from gpaw.tddft.units import attosec_to_autime
 
-from gpaw.test.ut_common import shapeopt, TestCase, \
+from gpaw.test.ut_common import TestCase, \
     TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
-    initialTestLoader, create_random_atoms, create_parsize_maxbands
+    initialTestLoader, create_parsize_maxbands
 
 mpl = None
 

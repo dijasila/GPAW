@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 from optparse import OptionParser
-import pylab as pl
-#from glob import glob
+import matplotlib.pyplot as plt
 
 
 p = OptionParser(usage='%prog [OPTION] FILE...',
@@ -181,8 +180,8 @@ if metadata is None:
 entries = EntryCollection(alltimings)
 
 ordered_names = []
-fig = pl.figure(figsize=(12, 8))
-fig2 = pl.figure(figsize=(10, 8))
+fig = plt.figure(figsize=(12, 8))
+fig2 = plt.figure(figsize=(10, 8))
 ax = fig.add_subplot(111)
 fig.subplots_adjust(left=0.08, right=.95, bottom=0.07, top=.99)
 #nameax = fig.add_subplot(122)
@@ -231,11 +230,6 @@ for rank, rootnode in enumerate(alltimings):
                 assert (color, hatch) not in styles.values()
                 nstyles_used += 1
                 ordered_names.append(child.name)
-                #nameax[child.level].plot([], [],
-                #                        color=color,
-                #                        #hatch=hatch,
-                #                        marker='s', ls='',
-                #                        label=child.name)
                 assert child.name not in styles
 
             styles[child.name] = color, hatch
@@ -262,19 +256,23 @@ ax.set_xlabel('time / %s' % opts.unit)
 ax.axis(xmin=plotstarttime, xmax=plotendtime,
         ymin=-plot_vertical_adjustment - 0.1)
 
-# Roughly 38 elements fit in the window.  For each 38, add another column
+# Roughly 36 elements fit in the window.  For each 36, add another column
 # Only two columns will fit.  People will have to maximize the thing if they
 # have hundreds of different timers somehow.
-ncolumns = 1 + len(ordered_names) // 38
+ncolumns = 1 + len(ordered_names) // 36
 
-nameax.legend([bars[name] for name in ordered_names],
-              ordered_names,
+for name in ordered_names:
+    color, hatch = styles[name]
+    nameax.bar([0], [0], [0], [0],
+               color=color, hatch=hatch, label=name)
+
+nameax.legend(ordered_names,
               handlelength=2.5,
               labelspacing=0.0,
-              fontsize='medium',
+              fontsize='large',
               ncol=ncolumns,
               mode='expand',
               frameon=True,
               loc='best')
 
-pl.show()
+plt.show()

@@ -1,10 +1,6 @@
 import numpy as np
 from ase import Atoms
-from ase.io import read
-from ase.lattice.compounds import Rocksalt
-from gpaw import GPAW, FermiDirac, Mixer
-from gpaw.eigensolvers import Davidson
-import pickle as pckl
+from gpaw import GPAW, FermiDirac
 from gpaw.wavefunctions.pw import PW
 from math import sqrt
 

@@ -3,14 +3,9 @@
 """This module implements time propagators for time-dependent density
 functional theory calculations."""
 
-import sys
-
 import numpy as np
 
 from gpaw.utilities.blas import axpy
-from gpaw.utilities.blas import dotc
-
-from gpaw.mpi import rank, run
 
 from gpaw.tddft.utils import MultiBlas
 from gpaw.tddft.tdopers import DummyDensity
