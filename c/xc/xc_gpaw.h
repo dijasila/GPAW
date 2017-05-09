@@ -19,6 +19,7 @@ C0 = 4 * pi / 3
 */
 
 #define BETA   0.066725
+#define BETAPBESOL 0.046
 #define GAMMA  0.031091
 #define MU     0.2195164512208958
 #define C2     0.26053088059892404

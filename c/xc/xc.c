@@ -35,6 +35,9 @@ double pbe_exchange(const xc_parameters* par,
 double pbe_correlation(double n, double rs, double zeta, double a2,
                        bool gga, bool spinpol,
                        double* dedrs, double* dedzeta, double* deda2);
+double pbesol_correlation(double n, double rs, double zeta, double a2,
+                       bool gga, bool spinpol,
+                       double* dedrs, double* dedzeta, double* deda2);
 double pw91_exchange(const xc_parameters* par,
                      double n, double rs, double a2,
                      double* dedrs, double* deda2);
@@ -243,6 +246,8 @@ PyTypeObject XCFunctionalType = {
     XCFunctional_Methods
 };
 
+extern double pbesolcfrac;
+
 PyObject * NewXCFunctionalObject(PyObject *obj, PyObject *args)
 {
   int code;
@@ -287,16 +292,24 @@ PyObject * NewXCFunctionalObject(PyObject *obj, PyObject *args)
     const int nspin = 1; // a guess, perhaps corrected later in calc_mgga
     init_mgga(&self->mgga,code,nspin);
   }
-  else {
-    assert (code == 17);
+  else if (code == 17 || code == 999 ) {
+    // assert (code == 17);
     // BEEF-vdW
+    int n;
     self->exchange = beefvdw_exchange;
-    int n = PyArray_DIM(parameters, 0);
+    if(code==999)
+    {
+	self->correlation = pbesol_correlation;
+	n = PyArray_DIM(parameters, 0) - 1;
+    }
+    else n = PyArray_DIM(parameters, 0);
     assert(n <= 110);
     double* p = (double*)PyArray_BYTES(parameters);
     for (int i = 0; i < n; i++)
       self->par.parameters[i] = p[i];
     self->par.nparameters = n / 2;
+    if(code==999) pbesolcfrac = p[n];
   }
+  else assert(0);
   return (PyObject*)self;
 }
