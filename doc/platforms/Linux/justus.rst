@@ -150,7 +150,7 @@ We create a place for gpaw and get the trunk version::
  GPAW_SOURCE=$PWD/source/gpaw
  mkdir -p $GPAW_SOURCE
  cd $GPAW_SOURCE
- git clone https://gitlab.com/gpaw/gpaw.git
+ git clone https://gitlab.com/gpaw/gpaw.git trunk
 
 The current trunk version can then be updated by::
 

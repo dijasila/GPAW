@@ -89,8 +89,7 @@ You might want to install a stable version of ASE::
   ASE_SOURCE=$PWD/source/ase
   mkdir -p $ASE_SOURCE
   cd $ASE_SOURCE
-  wget https://wiki.fysik.dtu.dk/ase-files/python-ase-3.9.1.4567.tar.gz
-  tar xzf python-ase-3.9.1.4567.tar.gz
+  git clone -b 3.13.0 https://gitlab.com/ase/ase.git 3.13.0
 
 We add our installation to the module environment::
 
@@ -98,11 +97,11 @@ We add our installation to the module environment::
   mkdir -p modulefiles/ase
   cd modulefiles/ase
   
-Edit the module file  :file:`3.9.1.4567` that should read::
+Edit the module file  :file:`3.13.0` that should read::
 
   #%Module1.0
 
-  module load devel/python/3.6.0
+  module load devel/python/3.13.0
 
   #           change this to your path
   set asehome /home/fr/fr_fr/fr_mw767/source/ase/python-ase-3.9.1.4567
@@ -151,12 +150,20 @@ We create a place for gpaw and get the trunk version::
  GPAW_SOURCE=$PWD/source/gpaw
  mkdir -p $GPAW_SOURCE
  cd $GPAW_SOURCE
- svn checkout https://svn.fysik.dtu.dk/projects/gpaw/trunk trunk
+ git clone https://gitlab.com/gpaw/gpaw.git trunk
 
 The current trunk version can then be updated by::
 
  cd $GPAW_SOURCE/trunk
- svn up
+ git pull
+
+A specific tag can be loaded by::
+
+ cd $GPAW_SOURCE/trunk
+ # list tags
+ git tag
+ # load version 1.2.0
+ git checkout 1.2.0
 
 We have to modify the file :file:`customize.py` to
 :download:`customize_nemo.py`
