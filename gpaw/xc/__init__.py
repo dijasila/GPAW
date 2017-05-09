@@ -57,6 +57,31 @@ def XC(kernel, parameters=None):
         elif name == 'BEE2':
             from gpaw.xc.bee import BEE2
             kernel = BEE2(parameters)
+        elif name == 'TOFU':
+            from gpaw.xc.bee import BEE2
+            if parameters is None:
+              parameters2 = (
+                [6.5124, 0.0] + list(range(12)) +
+                [
+				1.401999997714607e+00,
+				4.019999934886556e-01,
+				-9.689439551991570e-09,
+				-1.108494993689335e-08,
+				-1.101985898709578e-08,
+				-9.646236399820265e-09,
+				-7.162871093499266e-09,
+				-4.725756885942376e-09,
+				-2.215939332815698e-09,
+				-8.417487361008392e-10,
+				4.234628587572872e-10,
+				1.064977169956315e-09,
+				1.0])
+		# last number is prefactor for pbesol gradient correction
+		# to semilocal correlation
+            else:
+              parameters2 = parameters
+            kernel = BEE2(parameters2, cpbesol=True)
+            kernel.name = 'TOFU'
         elif name.startswith('GLLB'):
             from gpaw.xc.gllb.nonlocalfunctionalfactory import \
                 NonLocalFunctionalFactory

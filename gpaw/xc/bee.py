@@ -12,7 +12,7 @@ from gpaw import debug
 
 class BEE2(XCKernel):
     """GGA exchange expanded in Legendre polynomials."""
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, cpbesol = False):
         """BEE2.
 
         parameters: array
@@ -40,11 +40,17 @@ class BEE2(XCKernel):
                  -0.000190491156503997170, 0.000073843624209823442])
         else:
             assert len(parameters) > 2
-            assert np.mod(len(parameters), 2) == 0
+            if not cpbesol:
+                assert np.mod(len(parameters), 2) == 0
+            else:
+                assert np.mod(len(parameters), 2) == 1
             assert parameters[1] == 0.0
 
         parameters = np.array(parameters, dtype=float).ravel()
-        self.xc = _gpaw.XCFunctional(17, parameters)
+        if cpbesol:
+            self.xc = _gpaw.XCFunctional(999, parameters)
+        else:
+            self.xc = _gpaw.XCFunctional(17, parameters)
         self.type = 'GGA'
         self.name = 'BEE2'
 
@@ -150,6 +156,9 @@ class BEEFEnsemble:
             self.calc.converge_wave_functions()
             if rank == 0:
                 print('wave functions converged')
+        elif self.xc == 'TOFU':
+            self.bee_type = 4
+            self.max_order = 12
         else:
             raise NotImplementedError('xc = %s not implemented' % self.xc)
 
@@ -163,6 +172,8 @@ class BEEFEnsemble:
                 out = self.beefvdw_energy_contribs_x()
             elif self.bee_type in [2, 3]:
                 out = self.mbeef_exchange_energy_contribs()
+            elif self.bee_type == 4:
+                out = self.tofu_energy_contribs_x()
             else:
                 raise NotImplementedError(err)
         else:
@@ -172,6 +183,8 @@ class BEEFEnsemble:
                 out = np.array([])
             elif self.bee_type == 3:
                 out = self.mbeefvdw_energy_contribs_c()
+            elif self.bee_type == 4:
+                out = self.tofu_energy_contribs_c()
             else:
                 raise NotImplementedError(err)
         return out
@@ -235,4 +248,27 @@ class BEEFEnsemble:
         self.calc.get_xc_difference(vdwdf2)
         e_nl2 = vdwdf2.get_Ecnl() * Hartree
         corr = np.array([e_lda, e_sol, e_nl2])
+        return corr
+
+    def tofu_energy_contribs_x(self):
+        """Legendre polynomial exchange contributions to tofu"""
+        self.get_non_xc_total_energies()
+        e_pbesol = (self.e_dft + self.calc.get_xc_difference('GGA_C_PBE_SOL') -
+                 self.e0)
+
+        exch = np.zeros(12)
+        for p in range(12):
+            pars = [6.5124, 0, p, 1.0, 1.0]
+            bee = XC('TOFU', pars)
+            exch[p] = (self.e_dft + self.calc.get_xc_difference(bee) -
+                       self.e0 - e_pbesol)
+            del bee
+        return exch
+
+    def tofu_energy_contribs_c(self):
+        """Semilocal contributions to tofu correlation"""
+        self.get_non_xc_total_energies()
+        e_lda = self.e_dft + self.calc.get_xc_difference('LDA_C_PW') - self.e0
+        e_pbesol = self.e_dft + self.calc.get_xc_difference('GGA_C_PBE_SOL') - self.e0
+        corr = np.array([e_lda, e_pbesol])
         return corr
