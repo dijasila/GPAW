@@ -621,14 +621,14 @@ class Chi0:
             # Again, not so pretty but that's how it is
             self.plasmafreq_vv = plasmafreq_wvv[0].copy()
             if extend_head:
-                chi0_wGG[:, :3, :3] += (self.plasmafreq_vv[np.newaxis] /
-                                        (self.omega_w[:, np.newaxis,
-                                                      np.newaxis] +
-                                         1e-10 + self.rate * 1j)**2)
+                A_wxx[:, :3, :3] += (self.plasmafreq_vv[np.newaxis] /
+                                     (self.omega_w[:, np.newaxis,
+                                                   np.newaxis] +
+                                      1e-10 + self.rate * 1j)**2)
             else:
-                chi0_wGG[:, 0, 0] += (self.plasmafreq_vv[2, 2] /
-                                      (self.omega_w + 1e-10 +
-                                       self.rate * 1j)**2)
+                A_wxx[:, 0, 0] += (self.plasmafreq_vv[2, 2] /
+                                   (self.omega_w + 1e-10 +
+                                    self.rate * 1j)**2)
 
             # Save the plasmafrequency
             self.plasmafreq_vv = 4 * np.pi * self.plasmafreq_vv * prefactor
