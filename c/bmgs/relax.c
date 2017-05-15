@@ -23,21 +23,21 @@ if (relax_method == 1)
 
   for (int i0 = 0; i0 < nstep[0]; i0++)
     {
-
       for (int i1 = 0; i1 < nstep[1]; i1++)
         {
-
+#pragma omp simd
           for (int i2 = 0; i2 < nstep[2]; i2++)
             {
               double x = 0.0;
               for (int c = 1; c < s->ncoefs; c++)
-                x += a[s->offsets[c]] * s->coefs[c];
-              x = (*src - x) * coef;
-              *b++ = x;
-              *a++ = x;
-              src++;
+                x += a[s->offsets[c] + i2] * s->coefs[c];
+              x = (src[i2] - x) * coef;
+              b[i2] = x;
+              a[i2] = x;
             }
-          a += s->j[2];
+          src += nstep[2];
+          b += nstep[2];
+          a += s->j[2] + nstep[2];
         }
       a += s->j[1];
     }
@@ -59,7 +59,7 @@ else
             {
               double x = 0.0;
               for (int c = 1; c < s->ncoefs; c++)
-                x += a[s->offsets[c]+i2] * s->coefs[c];
+                x += a[s->offsets[c] + i2] * s->coefs[c];
               b[i2] = (1.0 - w) * b[i2] + w * (src[i2] - x)/s->coefs[0];
             }
           src += s->n[2];
