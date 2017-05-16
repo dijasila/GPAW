@@ -187,8 +187,7 @@ class PointIntegrator(Integrator):
                 self.update(n_MG, deps_M, x, out_wxx, **extraargs)
 
         # Sum over
-        for out_xx in out_wxx:
-            self.kncomm.sum(out_xx)
+        self.kncomm.sum(out_wxx)
 
         if (hermitian or hilbert) and self.blockcomm.size == 1 and not wings:
             # Fill in upper/lower triangle also:
