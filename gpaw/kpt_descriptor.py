@@ -612,4 +612,6 @@ class KPointDescriptor:
 
     def write(self, writer):
         writer.write('ibzkpts', self.ibzk_kc)
+        writer.write('bzkpts', self.bzk_kc)
+        writer.write('bz2ibz', self.bz2ibz_k)
         writer.write('weights', self.weight_k)

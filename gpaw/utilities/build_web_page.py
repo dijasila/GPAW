@@ -41,6 +41,7 @@ git pull
 python setup.py install
 cd doc; sphinx-build -b html -d build/doctrees . build/html
 mv doc/build/html gpaw-web-page
+cd gpaw-web-page/_sources/setups; cp setups.rst.txt setups.txt
 cd ../ase; git checkout master -q; pip install .
 git clean -fdx doc
 rm -r build

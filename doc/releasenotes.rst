@@ -62,6 +62,9 @@ Version 1.2.0
 * It is now possible to carry out GW calculations with eigenvalue self-
   consistency in G. See this tutorial :ref:`gw-GW0`.
 
+* XC objects can now be specified as dictionaries, allowing GGAs and MGGAs
+  with custom stencils: ``GPAW(xc={'name': 'PBE', 'stencil': 2})``
+
 
 Version 1.1.0
 =============
