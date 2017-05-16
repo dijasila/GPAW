@@ -227,6 +227,8 @@ class Chi0:
             ranks = range(world.rank % nblocks, world.size, nblocks)
             self.kncomm = self.world.new_communicator(ranks)
 
+        self.nblocks = nblocks
+
         if world.rank != 0:
             txt = devnull
         elif isinstance(txt, str):
@@ -441,12 +443,22 @@ class Chi0:
         if self.integrationmode is None or \
            self.integrationmode == 'point integration':
             integrator = PointIntegrator(self.pair.calc.wfs.gd.cell_cv,
-                                         comm=self.kncomm,
+                                         comm=self.world,
+                                         timer=self.timer,
+                                         txt=self.fd,
+                                         nblocks=self.nblocks)
+            intnoblock = PointIntegrator(self.pair.calc.wfs.gd.cell_cv,
+                                         comm=self.world,
                                          timer=self.timer,
                                          txt=self.fd)
         elif self.integrationmode == 'tetrahedron integration':
             integrator = TetrahedronIntegrator(self.pair.calc.wfs.gd.cell_cv,
-                                               comm=self.kncomm,
+                                               comm=self.world,
+                                               timer=self.timer,
+                                               txt=self.fd,
+                                               nblocks=self.nblocks)
+            intnoblock = TetrahedronIntegrator(self.pair.calc.wfs.gd.cell_cv,
+                                               comm=self.world,
                                                timer=self.timer,
                                                txt=self.fd)
         else:
@@ -552,7 +564,7 @@ class Chi0:
             chi0_wxvx = np.zeros(np.array(chi0_wxvG.shape) +
                                  [0, 0, 0, 2],
                                  complex)  # Notice the wxv"x" for head extend
-            integrator.integrate(kind=kind + ' wings',  # kind'o int.
+            intnoblock.integrate(kind=kind + ' wings',  # kind'o int.
                                  domain=domain,  # Integration domain
                                  integrand=(self.get_matrix_element,  # Intgrnd
                                             self.get_eigenvalues),  # Integrand
@@ -608,7 +620,7 @@ class Chi0:
                 # Calculate intraband transitions at T=0
                 extraargs['x'] = ArrayDescriptor([fermi_level])
 
-            integrator.integrate(kind='spectral function',  # Kind of integral
+            intnoblock.integrate(kind='spectral function',  # Kind of integral
                                  domain=domain,  # Integration domain
                                  # Integrands
                                  integrand=(self.get_intraband_response,
@@ -672,13 +684,28 @@ class Chi0:
         # account for their nonanalytic behaviour which means that the size of
         # the chi0_wGG matrix is nw * (nG + 2)**2. Below we extract these
         # parameters.
+
         if optical_limit and extend_head:
-            chi0_wxvG[:, 1] = np.transpose(A_wxx[:, :, 0:3],
-                                           (0, 2, 1))
-            chi0_wxvG[:, 0] = A_wxx[:, 0:3, :]
-            chi0_wxvG = chi0_wxvG[..., 2:]
-            chi0_wvv[:] = A_wxx[:, 0:3, 0:3]
-            chi0_wGG = A_wxx[:, 2:, 2:]
+            # The wings are extracted
+            chi0_wxvG[:, 1, :, self.Ga:self.Gb] = np.transpose(A_wxx[..., 0:3],
+                                                               (0, 2, 1))
+            if self.blockcomm.rank == 0:
+                assert self.Gb > 2, print('Too large blockcomm', file=self.fd)
+                chi0_wxvG[:, 0] = A_wxx[:, 0:3, :]
+            # Add contributions on different ranks
+            self.blockcomm.sum(chi0_wxvG)
+            chi0_wxvG = chi0_wxvG[..., 2:]  # Jesus, this is complicated
+
+            # The head is extracted
+            if self.blockcomm.rank == 0:
+                chi0_wvv[:] = A_wxx[:, :3, :3]
+            self.blockcomm.broadcast(chi0_wvv, 0)
+
+            # It is easiest to redistribute over freqs to pick body
+            tmpA_wxx = self.redistribute(A_wxx)
+            chi0_wGG = tmpA_wxx[:, 2:, 2:]
+            chi0_wGG = self.redistribute(chi0_wGG)
+
         elif optical_limit:
             # Since chi_wGG is nonanalytic in the head
             # and wings we have to take care that
@@ -986,11 +1013,11 @@ class Chi0:
         knsize = self.kncomm.size
         nocc = self.nocc1
         npocc = self.nocc2
-        chisize = nw * pd.ngmax**2 * 16. / 1024**2
         ngridpoints = gd.N_c[0] * gd.N_c[1] * gd.N_c[2]
         nstat = (ns * npocc + world.size - 1) // world.size
         occsize = nstat * ngridpoints * 16. / 1024**2
         bsize = self.blockcomm.size
+        chisize = nw * pd.ngmax**2 * 16. / 1024**2 / bsize
 
         p = partial(print, file=self.fd)
 

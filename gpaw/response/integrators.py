@@ -11,10 +11,8 @@ from ase.utils.timing import timer, Timer
 from _gpaw import tetrahedron_weight
 
 import gpaw.mpi as mpi
-from gpaw.occupations import FermiDirac
 from gpaw.utilities.blas import gemm, rk, czher, mmm
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.utilities.memory import maxrss
 from functools import partial
 
 
@@ -140,6 +138,13 @@ class PointIntegrator(Integrator):
         """
         if out_wxx is None:
             raise NotImplementedError
+
+        nG = out_wxx.shape[2]
+        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
+        self.Ga = self.blockcomm.rank * mynG
+        self.Gb = min(self.Ga + mynG, nG)
+        assert mynG * (self.blockcomm.size - 1) < nG, \
+            print('mynG', mynG, 'nG', nG, 'nblocks', self.blockcomm.size)
 
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
