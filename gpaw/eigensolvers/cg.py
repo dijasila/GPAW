@@ -49,7 +49,7 @@ class CG(Eigensolver):
         self.tw_coeff = tw_coeff
 
         self.tolerance = None
-        
+
     def __repr__(self):
         return 'CG(niter=%d, rtol=%5.1e)' % (self.niter, self.rtol)
 
@@ -159,7 +159,7 @@ class CG(Eigensolver):
                 for a, P2_i in P2_ai.items():
                     dO_ii = wfs.setups[a].dO_ii
                     norm += np.vdot(P2_i, np.inner(dO_ii, P2_i))
-                norm = comm.sum(np.real(norm).item())
+                norm = comm.sum(float(np.real(norm)))
                 phi_G /= sqrt(norm)
                 for P2_i in P2_ai.values():
                     P2_i /= sqrt(norm)
@@ -178,8 +178,8 @@ class CG(Eigensolver):
                     dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
                     b += dot(P2_i, dot(dH_ii, P_i.conj()))
                     c += dot(P2_i, dot(dH_ii, P2_i.conj()))
-                b = comm.sum(np.real(b).item())
-                c = comm.sum(np.real(c).item())
+                b = comm.sum(float(np.real(b)))
+                c = comm.sum(float(np.real(c)))
 
                 theta = 0.5 * atan2(2 * b, an - c)
                 enew = (an * cos(theta)**2 +

@@ -1,5 +1,5 @@
 """Test Tran Blaha potential."""
-from ase.dft.bandgap import get_band_gap
+from ase.dft.bandgap import bandgap
 from ase.build import bulk
 from gpaw import GPAW, PW
 
@@ -11,7 +11,7 @@ atoms.calc = GPAW(mode=PW(300),
                   convergence={'bands': -1},
                   txt='si.txt')
 e = atoms.get_potential_energy()
-gap, kv, kc = get_band_gap(atoms.calc)
+gap, (sv, kv, nv), (sc, kc, nc) = bandgap(atoms.calc)
 c = atoms.calc.hamiltonian.xc.c
 print(gap, kv, kc)
 print('c:', c)
