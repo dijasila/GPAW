@@ -369,6 +369,16 @@ class TetrahedronIntegrator(Integrator):
         method it is possible calculate frequency dependent weights
         and do a point summation using these weights."""
 
+        if out_wxx is None:
+            raise NotImplementedError
+
+        nG = out_wxx.shape[2]
+        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
+        self.Ga = self.blockcomm.rank * mynG
+        self.Gb = min(self.Ga + mynG, nG)
+        assert mynG * (self.blockcomm.size - 1) < nG, \
+            print('mynG', mynG, 'nG', nG, 'nblocks', self.blockcomm.size)
+
         # Input domain
         td = self.tesselate(domain[0])
         args = domain[1:]
@@ -431,7 +441,7 @@ class TetrahedronIntegrator(Integrator):
                     arguments = np.unravel_index(t, shape)
                 for K in range(nk):
                     k_c = bzk_kc[K]
-                    deps_M = get_eigenvalues(k_c, *arguments)
+                    deps_M = -get_eigenvalues(k_c, *arguments)
                     if deps_tMk is None:
                         deps_tMk = np.zeros([nterms] +
                                             list(deps_M.shape) +
@@ -479,16 +489,22 @@ class TetrahedronIntegrator(Integrator):
                                              td)
 
                 for iw, weight in enumerate(W_w):
-                    czher(weight, n_G.conj(), out_wxx[i0 + iw])
+                    if self.blockcomm.size > 1:
+                        myn_G = n_G[self.Ga:self.Gb].reshape((-1, 1))
+                        gemm(weight, n_G.reshape((-1, 1)), myn_G,
+                             1.0, out_wxx[i0 + iw], 'c')
+                    else:
+                        czher(weight, n_G.conj(), out_wxx[i0 + iw])
 
         self.kncomm.sum(out_wxx)
 
-        # Fill in upper/lower triangle also:
-        nx = out_wxx.shape[1]
-        il = np.tril_indices(nx, -1)
-        iu = il[::-1]
-        for out_xx in out_wxx:
-            out_xx[il] = out_xx[iu].conj()
+        if self.blockcomm.size == 1:
+            # Fill in upper/lower triangle also:
+            nx = out_wxx.shape[1]
+            il = np.tril_indices(nx, -1)
+            iu = il[::-1]
+            for out_xx in out_wxx:
+                out_xx[il] = out_xx[iu].conj()
 
     @timer('Get kpoint weight')
     def get_kpoint_weight(self, K, deps_k, pts_k,
