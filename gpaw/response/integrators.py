@@ -448,22 +448,6 @@ class TetrahedronIntegrator(Integrator):
                                             [nk], float)
                     deps_tMk[t, :, K] = deps_M
 
-        with self.timer('Get indices'):
-            # Store indices for frequencies
-            indices_tMki = np.zeros(list(deps_tMk.shape) + [2], int)
-            for t, deps_Mk in enumerate(deps_tMk):
-                for K in range(nk):
-                    teteps_Mk = deps_Mk[:, neighbours_k[K]]
-                    try:
-                        emin_M, emax_M = teteps_Mk.min(1), teteps_Mk.max(1)
-                    except:
-                        print(neighbours_k[K])
-                        print(teteps_Mk)
-                        raise
-                    i0_M, i1_M = x.get_index_range(emin_M, emax_M)
-                    indices_tMki[t, :, K, 0] = i0_M
-                    indices_tMki[t, :, K, 1] = i1_M
-
         omega_w = x.get_data()
 
         # Calculate integrations weight
@@ -475,12 +459,13 @@ class TetrahedronIntegrator(Integrator):
             else:
                 t = np.ravel_multi_index(arguments[:-1], shape)
             deps_Mk = deps_tMk[t]
-            indices_Mi = indices_tMki[t, :, K]
+            teteps_Mk = deps_Mk[:, neighbours_k[K]]
+            i0_M, i1_M = x.get_index_range(teteps_Mk.min(1), teteps_Mk.max(1))
+
             n_MG = get_matrix_element(bzk_kc[K],
                                       *arguments[:-1])
-            for n_G, deps_k, I_i in zip(n_MG, deps_Mk,
-                                        indices_Mi):
-                i0, i1 = I_i[0], I_i[1]
+            for n_G, deps_k, i0, i1 in zip(n_MG, deps_Mk,
+                                           i0_M, i1_M):
                 if i0 == i1:
                     continue
 
