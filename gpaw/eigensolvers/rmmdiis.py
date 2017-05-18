@@ -71,7 +71,6 @@ class RMMDIIS(Eigensolver):
         errors_x = np.zeros(B)
         state_done = np.zeros(B, dtype=bool)
 
-        errors_n = np.zeros(wfs.bd.mynbands)
         # Arrays needed for DIIS step
         if self.niter > 1:
             psit_diis_nxG = wfs.empty(B * self.niter, q=kpt.q)
@@ -89,7 +88,7 @@ class RMMDIIS(Eigensolver):
                 B = n2 - n1
                 P_axi = dict((a, P_xi[:B]) for a, P_xi in P_axi.items())
                 dR_xG = dR_xG[:B]
-                
+
             n_x = np.arange(n1, n2)
             psit_xG = psit_nG[n1:n2]
 
@@ -117,7 +116,6 @@ class RMMDIIS(Eigensolver):
                         weight = 0.0
                 errors_x[n - n1] = weight * integrate(R_xG[n - n1],
                                                       R_xG[n - n1])
-                errors_n[n] = errors_x[n - n1]
             comm.sum(errors_x)
             error += np.sum(errors_x)
 
