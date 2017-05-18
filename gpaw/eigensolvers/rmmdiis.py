@@ -299,23 +299,6 @@ class RMMDIIS(Eigensolver):
                                              P_axi, kpt.eps_n[n_x], R_xG, n_x,
                                              calculate_change=True)
                     self.timer.stop('Calculate residuals')
-                    self.timer.start('Calculate errors')
-                    errors_new_x = np.zeros(B)
-                    # errors_x[:] = 0.0
-                    for n in range(n1, n2):
-                        if kpt.f_n is None:
-                            weight = kpt.weight
-                        else:
-                            weight = kpt.f_n[n]
-                        if self.nbands_converge != 'occupied':
-                            if wfs.bd.global_index(n) < self.nbands_converge:
-                                weight = kpt.weight
-                            else:
-                                weight = 0.0
-                        errors_new_x[n-n1] += weight * integrate(R_xG[n - n1],
-                                                                 R_xG[n - n1])
-                    comm.sum(errors_x)
-                    self.timer.stop('Calculate errors')
 
             self.timer.stop('DIIS step')
             # Final trial step
