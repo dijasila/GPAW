@@ -1,5 +1,7 @@
 import sys
 import sphinx_rtd_theme
+from gpaw import __version__
+
 sys.path.append('.')
 
 extensions = ['images',
@@ -30,3 +32,8 @@ html_title = 'GPAW'
 html_favicon = 'static/gpaw_favicon.ico'
 html_static_path = ['static']
 html_last_updated_fmt = '%a, %d %b %Y %H:%M:%S'
+html_context = {
+    'current_version': __version__,
+    'versions':
+        [('1.3.0b1 (development)', 'https://wiki.fysik.dtu.dk/gpaw/dev'),
+         ('1.2.0 (latest stable)', 'https://wiki.fysik.dtu.dk/gpaw')]}

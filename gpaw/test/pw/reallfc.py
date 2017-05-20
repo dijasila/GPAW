@@ -1,13 +1,12 @@
 from __future__ import print_function
+
 import numpy as np
 
 from gpaw.test import equal
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.spline import Spline
 import gpaw.mpi as mpi
-from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
-from gpaw.kpt_descriptor import KPointDescriptor
 
 
 x = 2.0

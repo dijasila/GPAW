@@ -1,7 +1,6 @@
 from math import sqrt, pi
 import numpy as np
 
-import gpaw.mpi as mpi
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.tools import pick
 from gpaw.lfc import LocalizedFunctionsCollection as LFC, BasisFunctions

@@ -320,7 +320,7 @@ class LrTDDFT2:
         Input parameters:
         
         excitation_energy
-          Energy of the laser in give units
+          Energy of the laser in given units
 
         excitation_direction
           Vector for direction (will be normalized)

@@ -17,7 +17,7 @@ calc = GPAW(mode='lcao', basis='dzp', h=0.3, xc='oldLDA',
 system.set_calculator(calc)
 system.get_potential_energy()
 
-from gpaw.utilities.dos import LCAODOS, fold
+from gpaw.utilities.dos import LCAODOS
 # Use RestartLCAODOS if you just restarted from a file.
 # Requires one diagonalization though!
 

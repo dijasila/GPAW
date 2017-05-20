@@ -1,12 +1,13 @@
-from ase import *
+import numpy as np
+from ase import Atoms
 from ase.build import bulk
 from ase.dft.kpoints import monkhorst_pack
-from gpaw import *
+
+from gpaw import GPAW, FermiDirac
 from gpaw.mpi import serial_comm
 from gpaw.test import equal
 from gpaw.xc.rpa import RPACorrelation
 from gpaw.xc.fxc import FXCCorrelation
-import numpy as np
 
 a0 = 5.43
 cell = bulk('Si', 'fcc', a=a0).get_cell()

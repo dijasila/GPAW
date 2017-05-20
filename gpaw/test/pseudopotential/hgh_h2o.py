@@ -1,4 +1,3 @@
-from __future__ import print_function
 """Test of HGH pseudopotential implementation.
 
 This is the canonical makes-sure-nothing-breaks test, which checks that the
@@ -13,11 +12,12 @@ that is considered an error.
 Forces are compared to a previous finite-difference result.
 """
 
+from __future__ import print_function
+
 import numpy as np
 from ase.build import molecule
+
 from gpaw import GPAW
-from gpaw.utilities import unpack
-from gpaw.atom.basis import BasisMaker
 from gpaw.test import equal
 
 mol = molecule('H2O')

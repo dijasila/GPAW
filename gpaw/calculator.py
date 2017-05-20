@@ -70,7 +70,8 @@ class GPAW(PAW, Calculator):
         'symmetry': {'point_group': True,
                      'time_reversal': True,
                      'symmorphic': True,
-                     'tolerance': 1e-7},
+                     'tolerance': 1e-7,
+                     'do_not_symmetrize_the_density': False},
         'convergence': {'energy': 0.0005,  # eV / electron
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
@@ -344,7 +345,7 @@ class GPAW(PAW, Calculator):
 
         # Verify that keys are consistent with default ones.
         for key in kwargs:
-            if key not in self.default_parameters:
+            if key != 'txt' and key not in self.default_parameters:
                 raise TypeError('Unknown GPAW parameter: {0}'.format(key))
 
             if key in ['convergence', 'symmetry'] and isinstance(kwargs[key],

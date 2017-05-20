@@ -2,7 +2,7 @@
 
 """
 
-from ase.units import Hartree, Bohr, _eps0, _c, _aut
+from ase.units import Hartree, Bohr
 from gpaw.fd_operators import Gradient
 from gpaw.transformers import Transformer
 from numpy.fft import fftn, ifftn, fft2, ifft2

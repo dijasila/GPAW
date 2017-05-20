@@ -1,14 +1,11 @@
 from math import pi
-import os
 
 from ase import Atom, Atoms
-from ase.units import Bohr
 from ase.parallel import parprint
+
 from gpaw import GPAW
 from gpaw.test import equal
-from gpaw.grid_descriptor import GridDescriptor
 from gpaw.analyse.expandyl import AngularIntegral, ExpandYl
-import gpaw.mpi as mpi
 
 fname = 'H2.gpw'
 donot = ''
