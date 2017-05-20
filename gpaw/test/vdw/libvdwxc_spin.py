@@ -6,7 +6,7 @@ from gpaw.xc import XC
 from gpaw.xc.libvdwxc import vdw_df_cx
 from gpaw.mpi import world
 
-def test(xc, tol=3e-10):
+def test(xc, tol=5e-10):
     N_c = np.array([10, 6, 4])
     # This test is totally serial.
     gd = GridDescriptor(N_c, N_c * 0.2, pbc_c=(1, 0, 1),
@@ -48,7 +48,7 @@ def test(xc, tol=3e-10):
         err = abs(dedn - v)
         print('{}{} v={} fd={} err={}'.format(xc.name, list(testindex),
                                               v, dedn, err))
-        assert err < tol
+        assert err < tol, err
 
 test(XC('PBE'))
 test(vdw_df_cx())
