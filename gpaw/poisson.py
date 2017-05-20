@@ -448,7 +448,7 @@ class FFTPoissonSolver(BasePoissonSolver):
     relax_method = 0
     nn = 999
 
-    def __init__(self, eps=0.0):
+    def __init__(self):
         super(FFTPoissonSolver, self).__init__()
 
     def get_description(self):
