@@ -50,13 +50,13 @@ def create_poisson_solver(name='fd', **kwargs):
     elif name == 'fd':
         return PoissonSolver(**kwargs)
     1 / 0
-    
+
 
 def PoissonSolver(dipolelayer=None, **kwargs):
     if dipolelayer is not None:
         return DipoleCorrection(PoissonSolver(**kwargs), dipolelayer)
     return FDPoissonSolver(**kwargs)
-    
+
 
 class FDPoissonSolver:
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
@@ -84,7 +84,7 @@ class FDPoissonSolver:
     def todict(self):
         return {'name': 'fd', 'nn': self.nn, 'relax': self.relax,
                 'eps': self.eps, 'remove_moment': self.remove_moment}
-        
+
     def get_stencil(self):
         return self.nn
 
@@ -366,10 +366,10 @@ class FDPoissonSolver:
             residual -= self.rhos[level]
             error = self.gd.comm.sum(np.dot(residual.ravel(),
                                             residual.ravel())) * self.gd.dv
-            
+
             # How about this instead:
             # error = self.gd.comm.max(abs(residual).max())
-            
+
             return error
 
     def estimate_memory(self, mem):
