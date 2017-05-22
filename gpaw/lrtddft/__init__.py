@@ -65,7 +65,8 @@ class LrTDDFT(ExcitationList):
         'filename': None,
         'finegrid': 2,
         'force_ApmB': False,  # for tests
-        'eh_comm': None}  # parallelization over eh-pairs
+        'eh_comm': None,  # parallelization over eh-pairs
+        'poisson': None}  # use calculator's Poisson
 
     def __init__(self, calculator=None, **kwargs):
 
@@ -194,7 +195,7 @@ class LrTDDFT(ExcitationList):
         self.Om = Om(self.calculator, self.kss,
                      self.xc, self.derivative_level, self.numscale,
                      finegrid=self.finegrid, eh_comm=self.eh_comm,
-                     txt=self.txt)
+                     poisson=self.poisson, txt=self.txt)
         self.name = name
 
     def diagonalize(self, **kwargs):

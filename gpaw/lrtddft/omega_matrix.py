@@ -39,6 +39,7 @@ class OmegaMatrix:
                  xc=None,
                  derivativeLevel=None,
                  numscale=0.001,
+                 poisson=None,
                  filehandle=None,
                  txt=None,
                  finegrid=2,
@@ -70,7 +71,10 @@ class OmegaMatrix:
         # handle different grid possibilities
         self.restrict = None
         # self.poisson = PoissonSolver(nn=self.paw.hamiltonian.poisson.nn)
-        self.poisson = calculator.hamiltonian.poisson
+        if poisson is None:
+            self.poisson = calculator.hamiltonian.poisson
+        else:
+            self.poisson = poisson
         if finegrid:
             self.poisson.set_grid_descriptor(self.paw.density.finegd)
             self.poisson.initialize()
