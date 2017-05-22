@@ -4,8 +4,6 @@
 # Please see the accompanying LICENSE file for further information.
 from __future__ import print_function, division
 
-import sys
-
 from ase.io import read
 from ase.utils import gcd
 import numpy as np
@@ -491,4 +489,4 @@ class CLICommand:
     def run(args):
         atoms = read(args.filename)
         symmetry = atoms2symmetry(atoms)
-        symmetry.print_symmetries(sys.stdout)
+        print(symmetry)
