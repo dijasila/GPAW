@@ -25,9 +25,14 @@ def XC(kernel, parameters=None):
     See xc_funcs.h for the complete list.  """
 
     if isinstance(kernel, basestring):
+        tokens = kernel.split(':')
+
         # We have the option of implementing a string specification
         # minilanguage for xc keywords like 'vdW-DF:type=libvdwxc'
-        kernel = {'name': kernel}
+        kernel = {'name': tokens[0]}
+        for token in tokens[1:]:
+            kw, val = token.split('=')
+            kernel[kw] = val
 
     kwargs = {}
     if isinstance(kernel, dict):
@@ -35,11 +40,12 @@ def XC(kernel, parameters=None):
         name = kwargs.pop('name')
         xctype = kwargs.pop('type', None)
 
-        if xctype == 'libvdwxc':
+        if xctype == 'libvdwxc' or name == 'vdW-DF-cx':
             # Must handle libvdwxc before old vdw implementation to override
-            # behaviour for 'name'
-            from gpaw.xc.libvdwxc import VDWXC
-            return VDWXC(name=name, **kwargs)
+            # behaviour for 'name'.  Also, cx is not implemented by the old
+            # vdW module, so that always refers to libvdwxc.
+            from gpaw.xc.libvdwxc import get_libvdwxc_functional
+            return get_libvdwxc_functional(name=name, **kwargs)
 
         if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
                     'C09-vdW', 'mBEEF-vdW', 'BEEF-vdW']:

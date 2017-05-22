@@ -559,6 +559,19 @@ def vdw_mbeef(*args, **kwargs):
                  vdwcoef=0.886774972)
 
 
+# String to functional mapping
+def get_libvdwxc_functional(name, *args, **kwargs):
+    funcs = {'vdW-DF': vdw_df,
+             'vdW-DF2': vdw_df2,
+             'vdW-DF-cx': vdw_df_cx,
+             'optPBE-vdW': vdw_optPBE,
+             'optB88-vdW': vdw_optB88,
+             'C09-vdW': vdw_C09,
+             'BEEF-vdW':  vdw_beef,
+             'mBEEF-vdW': vdw_mbeef}
+    func = funcs[name]
+    return func(*args, **kwargs)
+
 class CXGGAKernel:
     def __init__(self, just_kidding=False):
         self.just_kidding = just_kidding
