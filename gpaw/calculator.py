@@ -1040,4 +1040,11 @@ class GPAW(PAW, Calculator):
         print_cell(self.wfs.gd, self.atoms.pbc, self.log)
         print_positions(self.atoms, self.log)
         self.log.fd.flush()
+
+        # Write timing info now before the interpreter shuts down:
+        self.__del__()
+
+        # Disable timing output during shut-down:
+        del self.timer
+
         raise SystemExit
