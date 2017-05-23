@@ -9,6 +9,19 @@ from gpaw.xc.gga import GGA
 from gpaw.xc.mgga import MGGA
 
 
+def xc_string_to_dict(string):
+    """Convert XC specification string to dictionary.
+
+    'name:key1=value1:...' -> {'name': <name>, key1: value1, ...}."""
+    tokens = string.split(':')
+
+    d = {'name': tokens[0]}
+    for token in tokens[1:]:
+        kw, val = token.split('=')
+        d[kw] = val
+    return d
+
+
 def XC(kernel, parameters=None):
     """Create XCFunctional object.
 
@@ -25,21 +38,20 @@ def XC(kernel, parameters=None):
     See xc_funcs.h for the complete list.  """
 
     if isinstance(kernel, basestring):
-        # We have the option of implementing a string specification
-        # minilanguage for xc keywords like 'vdW-DF:type=libvdwxc'
-        kernel = {'name': kernel}
+        kernel = xc_string_to_dict(kernel)
 
     kwargs = {}
     if isinstance(kernel, dict):
         kwargs = kernel.copy()
         name = kwargs.pop('name')
-        xctype = kwargs.pop('type', None)
+        backend = kwargs.pop('backend', None)
 
-        if xctype == 'libvdwxc':
+        if backend == 'libvdwxc' or name == 'vdW-DF-cx':
             # Must handle libvdwxc before old vdw implementation to override
-            # behaviour for 'name'
-            from gpaw.xc.libvdwxc import VDWXC
-            return VDWXC(name=name, **kwargs)
+            # behaviour for 'name'.  Also, cx is not implemented by the old
+            # vdW module, so that always refers to libvdwxc.
+            from gpaw.xc.libvdwxc import get_libvdwxc_functional
+            return get_libvdwxc_functional(name=name, **kwargs)
 
         if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
                     'C09-vdW', 'mBEEF-vdW', 'BEEF-vdW']:

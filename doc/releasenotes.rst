@@ -65,6 +65,7 @@ Version 1.2.0
 * XC objects can now be specified as dictionaries, allowing GGAs and MGGAs
   with custom stencils: ``GPAW(xc={'name': 'PBE', 'stencil': 2})``
 
+* Support for spin-polarized vdW-DF functionals (svdW-DF) with libvdwxc.
 
 Version 1.1.0
 =============
