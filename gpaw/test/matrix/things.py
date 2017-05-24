@@ -20,7 +20,7 @@ def test(desc, kd, spositions, proj, basis,
     psi = create(desc, nbands, dtype=dtype, kpt=kpt,
                  collinear=collinear, dist=bcomm)
     psi[:] = phi
-    S_nn = (psi * psi).integrate()
+    S_nn = (psi.C * psi).integrate()
     pt = AtomCenteredFunctions(proj, [kpt])
     pt.positions = positions
     P_In = (pt.C * psi).integrate()
@@ -46,6 +46,9 @@ def test(desc, kd, spositions, proj, basis,
     n.from_wave_functions(psi2_n, f_n)
     n.integrate()
 
+    kin(psit2_n, psit_n)
+    H_nn = Matrix((nbands, nbands), dtype, dist=?????)
+    H_nn = psit2_n.C *
 gd = GridDescriptor([2, 3, 4], [2, 3, 4])
 dt = complex
 ph = np.ones((3, 2), complex)
