@@ -251,10 +251,11 @@ tests = [
     'gllb/ne.py',                           # ~7s
     'lcao/force.py',                        # ~7s
     'xc/pplda.py',                          # ~7s
+    'response/test_unit_sphere_area.py',    # ~7s
     'fileio/restart_density.py',            # ~8s
     'rpa/rpa_energy_Ni.py',                 # ~8s
     'tddft/be_nltd_ip.py',                  # ~8s
-    'ibzqpt.py',                       # ~8s
+    'ibzqpt.py',                            # ~8s
     'generic/si_primitive.py',              # ~9s
     'tddft/ehrenfest_nacl.py',              # ~9s
     'lcao/fd2lcao_restart.py',              # ~9s
@@ -349,6 +350,9 @@ tests = [
     'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
     'exx/AA_enthalpy.py',                   # ~119s
+    'response/df_block_par_test_na_plasmons.py',  # ~120
+    'response/df_block_par_test_na_plasmons_tetrahedron_integration.py',
+    # ~120s
     'lcao/tdgllbsc.py',                     # ~132s
     'solvation/forces.py',                  # ~140s
     'response/gw_MoS2_cut.py',
@@ -418,7 +422,10 @@ if mpi.size < 4:
                 'fileio/parallel.py',
                 'parallel/diamond_gllb.py',
                 'parallel/lcao_parallel_kpt.py',
-                'parallel/fd_parallel_kpt.py']
+                'parallel/fd_parallel_kpt.py',
+                'response/df_block_par_test_na_plasmons.py',
+                'response/df_block_par_test_na_plasmons_' +
+                'tetrahedron_integration.py']
 
 
 if mpi.size != 4:
