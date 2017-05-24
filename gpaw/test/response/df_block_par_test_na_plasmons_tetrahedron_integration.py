@@ -3,10 +3,8 @@ from gpaw import GPAW, PW
 from gpaw.response.df import DielectricFunction
 from gpaw.test import equal, findpeak
 
-# Comparing the EELS spectrum of sodium for different block
+# Comparing the EELS spectrum of sodium for different block 
 # parallelizations. Intended to be run with 8 cores.
-# Reasons that this can fail:
-# - Bug in block parallelization
 
 a = 4.23 / 2.0
 a1 = Atoms('Na',
@@ -24,11 +22,14 @@ a1.get_potential_energy()
 a1.calc.diagonalize_full_hamiltonian(nbands=20)
 a1.calc.write('gs_Na.gpw', 'all')
 
+kwargs = {'integrationmode': 'tetrahedron integration',
+          'ecut': 400}
+
 # Calculate the dielectric functions
 df1 = DielectricFunction('gs_Na.gpw',
                          nblocks=1,
-                         ecut=400,
-                         txt='1block.txt')
+                         txt='1block.txt',
+                         **kwargs)
 
 df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
 df1NLFCy, df1LFCy = df1.get_dielectric_function(direction='y')
@@ -36,8 +37,8 @@ df1NLFCz, df1LFCz = df1.get_dielectric_function(direction='z')
 
 df2 = DielectricFunction('gs_Na.gpw',
                          nblocks=2,
-                         ecut=400,
-                         txt='2block.txt')
+                         txt='2block.txt',
+                         **kwargs)
 
 df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
 df2NLFCy, df2LFCy = df2.get_dielectric_function(direction='y')
@@ -45,8 +46,8 @@ df2NLFCz, df2LFCz = df2.get_dielectric_function(direction='z')
 
 df3 = DielectricFunction('gs_Na.gpw',
                          nblocks=4,
-                         ecut=400,
-                         txt='4block.txt')
+                         txt='4block.txt',
+                         **kwargs)
 
 df3NLFCx, df3LFCx = df3.get_dielectric_function(direction='x')
 df3NLFCy, df3LFCy = df3.get_dielectric_function(direction='y')
@@ -54,8 +55,8 @@ df3NLFCz, df3LFCz = df3.get_dielectric_function(direction='z')
 
 df4 = DielectricFunction('gs_Na.gpw',
                          nblocks=8,
-                         ecut=400,
-                         txt='8block.txt')
+                         txt='8block.txt',
+                         **kwargs)
 
 df4NLFCx, df4LFCx = df4.get_dielectric_function(direction='x')
 df4NLFCy, df4LFCy = df4.get_dielectric_function(direction='y')
