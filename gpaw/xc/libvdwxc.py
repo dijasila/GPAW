@@ -62,7 +62,7 @@ _VDW_NUMERICAL_CODES = {'vdW-DF': 1,
 class LibVDWXC(object):
     """Minimum-tomfoolery object-oriented interface to libvdwxc."""
     def __init__(self, funcname, N_c, cell_cv, comm, mode='auto',
-                 pfft_grid=None):
+                 pfft_grid=None, nspins=1):
         self.initialized = False
         if not compiled_with_libvdwxc():
             raise ImportError('libvdwxc not compiled into GPAW')
@@ -71,7 +71,7 @@ class LibVDWXC(object):
         code = _VDW_NUMERICAL_CODES[funcname]
         self.shape = tuple(N_c)
         ptr = np.empty(1, np.intp)
-        _gpaw.libvdwxc_create(ptr, code, self.shape,
+        _gpaw.libvdwxc_create(ptr, code, nspins, self.shape,
                               tuple(np.ravel(cell_cv)))
         # assign ptr only now that it is initialized (so __del__ always works)
         self._ptr = ptr
@@ -103,7 +103,7 @@ class LibVDWXC(object):
         self.mode = mode
         self.comm = comm
 
-    def _init(self):
+    def initialize_backend(self):
         assert not self.initialized
 
         mode = self.mode
@@ -126,18 +126,18 @@ class LibVDWXC(object):
 
         self.initialized = True
 
-    def calculate(self, n_g, sigma_g, dedn_g, dedsigma_g):
+    def calculate(self, n_sg, sigma_xg, dedn_sg, dedsigma_xg):
         """Calculate energy and add partial derivatives to arrays."""
         if not self.initialized:
-            self._init()
+            self.initialize_backend()
 
-        for arr in [n_g, sigma_g, dedn_g, dedsigma_g]:
+        for arr in [n_sg, sigma_xg, dedn_sg, dedsigma_xg]:
             assert arr.flags.contiguous
             assert arr.dtype == float
             # XXX We cannot actually ask libvdwxc about its expected shape
             # assert arr.shape == self.shape, [arr.shape, self.shape]
-        energy = _gpaw.libvdwxc_calculate(self._ptr, n_g, sigma_g,
-                                          dedn_g, dedsigma_g)
+        energy = _gpaw.libvdwxc_calculate(self._ptr, n_sg, sigma_xg,
+                                          dedn_sg, dedsigma_xg)
         return energy
 
     def get_description(self):
@@ -173,29 +173,31 @@ class RedistWrapper:
         self.timer = timer
         self.vdwcoef = vdwcoef
 
-    def calculate(self, n_g, sigma_g, v_g, dedsigma_g):
+    def calculate(self, n_sg, sigma_xg, v_sg, dedsigma_xg):
         zeros = self.distribution.block_zeros
-        nblock_g = zeros()
-        sigmablock_g = zeros()
-        vblock_g = zeros()
-        dedsigmablock_g = zeros()
+        sshape = (len(n_sg),)
+        xshape = (len(sigma_xg),)
+        nblock_sg = zeros(sshape)
+        sigmablock_xg = zeros(xshape)
+        vblock_sg = zeros(sshape)
+        dedsigmablock_xg = zeros(xshape)
 
         self.timer.start('redistribute')
-        self.distribution.gd2block(n_g, nblock_g)
-        self.distribution.gd2block(sigma_g, sigmablock_g)
+        self.distribution.gd2block(n_sg, nblock_sg)
+        self.distribution.gd2block(sigma_xg, sigmablock_xg)
         self.timer.stop('redistribute')
 
         self.timer.start('libvdwxc nonlocal')
-        energy = self.libvdwxc.calculate(nblock_g, sigmablock_g,
-                                         vblock_g, dedsigmablock_g)
+        energy = self.libvdwxc.calculate(nblock_sg, sigmablock_xg,
+                                         vblock_sg, dedsigmablock_xg)
         self.timer.stop('libvdwxc nonlocal')
         energy *= self.vdwcoef
-        for arr in vblock_g, dedsigmablock_g:
+        for arr in vblock_sg, dedsigmablock_xg:
             arr *= self.vdwcoef
 
         self.timer.start('redistribute')
-        self.distribution.block2gd_add(vblock_g, v_g)
-        self.distribution.block2gd_add(dedsigmablock_g, dedsigma_g)
+        self.distribution.block2gd_add(vblock_sg, v_sg)
+        self.distribution.block2gd_add(dedsigmablock_xg, dedsigma_xg)
         self.timer.stop('redistribute')
         return energy
 
@@ -327,14 +329,15 @@ class VDWXC(XCFunctional):
         return dct
 
     def set_grid_descriptor(self, gd):
-        self._initialize(gd)
+        #self.initialize_backend(gd)
         XCFunctional.set_grid_descriptor(self, gd)
         self.semilocal_xc.set_grid_descriptor(gd)
 
     def get_description(self):
         lines = []
         app = lines.append
-        app(self.libvdwxc.get_description())
+        # XXXXXXXXXXXXXXXXXXX
+        #app(self.libvdwxc.get_description())
         app('GGA kernel: %s' % self.semilocal_xc.kernel.name)
         #app('libvdwxc parameters for non-local correlation:')
         #app(self.libvdwxc.tostring())
@@ -352,20 +355,21 @@ class VDWXC(XCFunctional):
         log('Semilocal %s energy: %.6f' % (self.semilocal_xc.kernel.name,
                                            esl * Hartree))
         log('(Not including atomic contributions)')
-        if self._nspins != 1:
-            log('Warning: {}'.format(spinwarning))
+        #if self._nspins != 1:
+        #    log('Warning: {}'.format(spinwarning))
 
     def get_setup_name(self):
         return self.setup_name
 
-    def _initialize(self, gd):
+    def initialize_backend(self, gd):
         N_c = gd.get_size_of_global_array(pad=True)
         # garbage-collect before allocating next one, if an object was
         # already allocated:
         self.libvdwxc = None
         self.libvdwxc = LibVDWXC(self._libvdwxc_name, N_c, gd.cell_cv,
                                  gd.comm, mode=self._mode,
-                                 pfft_grid=self._pfft_grid)
+                                 pfft_grid=self._pfft_grid,
+                                 nspins=self._nspins)
         cpugrid = [1, 1, 1]
         if self.libvdwxc.mode == 'mpi':
             cpugrid[0] = gd.comm.size
@@ -390,9 +394,11 @@ class VDWXC(XCFunctional):
         #    gd = density.finegd
         gd = self.gd
         if density.nspins != 1:
-            import warnings
-            warnings.warn(spinwarning)
+            #import warnings
+            #warnings.warn(spinwarning)
             self._nspins = density.nspins
+
+        self.initialize_backend(self.gd)
 
         if (wfs.world.size > gd.comm.size and np.prod(gd.N_c) > 64**3
             and not self.accept_partial_decomposition):
@@ -444,27 +450,27 @@ class VDWXC(XCFunctional):
         self.timer.stop('semilocal')
         #energy = GGA.calculate(self, gd, n_sg, v_sg, e_g=None)
 
-        nspins = len(n_sg)
-        if nspins == 1:
-            n_g = n_sg[0]
-            sigma_g = sigma_xg[0]
-            v_g = v_sg[0]
-            dedsigma_g = dedsigma_xg[0]
-        elif nspins == 2:
-            n_g = n_sg.sum(0)
-            sigma_g = sigma_xg[0] + 2 * sigma_xg[1] + sigma_xg[2]
-            v_g = np.zeros_like(n_g)
-            dedsigma_g = np.zeros_like(n_g)
-        else:
-            raise ValueError('Strange number of spins {0}'.format(nspins))
+        #nspins = len(n_sg)
+        #if nspins == 1:
+        #    n_g = n_sg[0]
+        #    sigma_g = sigma_xg[0]
+        #    v_g = v_sg[0]
+        #    dedsigma_g = dedsigma_xg[0]
+        #elif nspins == 2:
+            #n_g = n_sg.sum(0)
+            #sigma_g = sigma_xg[0] + 2 * sigma_xg[1] + sigma_xg[2]
+            #v_g = np.zeros_like(n_g)
+            #dedsigma_g = np.zeros_like(n_g)
+        #else:
+        #    raise ValueError('Strange number of spins {0}'.format(nspins))
 
-        energy_nonlocal = self.redist_wrapper.calculate(n_g, sigma_g,
-                                                        v_g, dedsigma_g)
-        if nspins == 2:
-            dedsigma_xg[0] += dedsigma_g
-            dedsigma_xg[1] += 2 * dedsigma_g
-            dedsigma_xg[2] += dedsigma_g
-            v_sg += v_g[None]
+        energy_nonlocal = self.redist_wrapper.calculate(n_sg, sigma_xg,
+                                                        v_sg, dedsigma_xg)
+        #if nspins == 2:
+        #    dedsigma_xg[0] += dedsigma_g
+        #    dedsigma_xg[1] += 2 * dedsigma_g
+        #    dedsigma_xg[2] += dedsigma_g
+        #    v_sg += v_g[None]
 
         # Note: Redistwrapper handles vdwcoef.  For now
 
@@ -552,6 +558,19 @@ def vdw_mbeef(*args, **kwargs):
                  setup_name='PBEsol', libvdwxc_name='vdW-DF2',
                  vdwcoef=0.886774972)
 
+
+# String to functional mapping
+def get_libvdwxc_functional(name, *args, **kwargs):
+    funcs = {'vdW-DF': vdw_df,
+             'vdW-DF2': vdw_df2,
+             'vdW-DF-cx': vdw_df_cx,
+             'optPBE-vdW': vdw_optPBE,
+             'optB88-vdW': vdw_optB88,
+             'C09-vdW': vdw_C09,
+             'BEEF-vdW':  vdw_beef,
+             'mBEEF-vdW': vdw_mbeef}
+    func = funcs[name]
+    return func(*args, **kwargs)
 
 class CXGGAKernel:
     def __init__(self, just_kidding=False):
