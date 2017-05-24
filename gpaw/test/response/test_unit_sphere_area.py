@@ -25,10 +25,8 @@ out_wxx = np.zeros((1, 1, 1), complex)
 integrator.integrate(kind='spectral function',
                      domain=domain,
                      integrand=(unit, unit_sphere),
-                     x=ArrayDescriptor([1.0]),
+                     x=ArrayDescriptor([-1.0]),
                      out_wxx=out_wxx)
 
-print(out_wxx)
-print(4 * np.pi)
 equal(out_wxx[0, 0, 0], 4 * np.pi, 1e-2,
       msg='Integrated area of unit sphere is not 4 * pi')
