@@ -68,12 +68,26 @@ class LinearDielectric(Dielectric):
     A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
     """
 
+    def __init__(self, epsinf):
+        self._epsinf = float(epsinf)
+        Dielectric.__init__(self, epsinf)
+
     def allocate(self):
         Dielectric.allocate(self)
-        self.del_eps_del_g_g = self.epsinf - 1.  # frees array
+        self.del_eps_del_g_g = self._epsinf - 1.  # frees array
 
-    def update_eps_only(self, cavity):
-        np.multiply(cavity.g_g, self.epsinf - 1., self.eps_gradeps[0])
+    @property
+    def epsinf(self):
+        return self._epsinf
+
+    @epsinf.setter
+    def epsinf(self, epsinf):
+        if epsinf != self._epsinf:
+            self._epsinf = float(epsinf)
+            self.del_eps_del_g_g = self._epsinf - 1.
+
+    def update_eps_only(self, cavity, epsinf=None):
+        np.multiply(cavity.g_g, self._epsinf - 1., self.eps_gradeps[0])
         self.eps_gradeps[0] += 1.
 
 

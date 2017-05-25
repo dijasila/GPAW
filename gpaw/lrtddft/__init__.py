@@ -65,7 +65,8 @@ class LrTDDFT(ExcitationList):
         'filename': None,
         'finegrid': 2,
         'force_ApmB': False,  # for tests
-        'eh_comm': None}  # parallelization over eh-pairs
+        'eh_comm': None,  # parallelization over eh-pairs
+        'poisson': None}  # use calculator's Poisson
 
     def __init__(self, calculator=None, **kwargs):
 
@@ -194,7 +195,7 @@ class LrTDDFT(ExcitationList):
         self.Om = Om(self.calculator, self.kss,
                      self.xc, self.derivative_level, self.numscale,
                      finegrid=self.finegrid, eh_comm=self.eh_comm,
-                     txt=self.txt)
+                     poisson=self.poisson, txt=self.txt)
         self.name = name
 
     def diagonalize(self, **kwargs):
@@ -225,6 +226,8 @@ class LrTDDFT(ExcitationList):
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
 
+        timer = self.timer
+        timer.start('name')
         if fh is None:
             if filename.endswith('.gz'):
                 try:
@@ -238,7 +241,9 @@ class LrTDDFT(ExcitationList):
         else:
             f = fh
             self.filename = None
+        timer.stop('name')
 
+        timer.start('header')
         # get my name
         s = f.readline().replace('\n', '')
         self.name = s.split()[1]
@@ -253,8 +258,12 @@ class LrTDDFT(ExcitationList):
         else:
             # old writing style, use old defaults
             self.numscale = 0.001
+        timer.stop('header')
 
+        timer.start('init_kss')
         self.kss = KSSingles(filehandle=f)
+        timer.stop('init_kss')
+        timer.start('init_obj')
         if self.name == 'LrTDDFT':
             self.Om = OmegaMatrix(kss=self.kss, filehandle=f,
                                   txt=self.txt)
@@ -262,11 +271,13 @@ class LrTDDFT(ExcitationList):
             self.Om = ApmB(kss=self.kss, filehandle=f,
                            txt=self.txt)
         self.Om.Kss(self.kss)
+        timer.stop('init_obj')
 
+        timer.start('read diagonalized')
         # check if already diagonalized
         p = f.tell()
         s = f.readline()
-        if s != '# Eigenvalues\n':
+        if 1 and s != '# Eigenvalues\n':
             # go back to previous position
             f.seek(p)
         else:
@@ -276,12 +287,13 @@ class LrTDDFT(ExcitationList):
             for i in range(n):
                 self.append(LrTDDFTExcitation(string=f.readline()))
             # load the eigenvectors
+            timer.start('read eigenvectors')
             f.readline()
             for i in range(n):
-                values = f.readline().split()
-                weights = [float(val) for val in values]
-                self[i].f = np.array(weights)
+                self[i].f = np.array(list(map(float, f.readline().split())))
                 self[i].kss = self.kss
+            timer.stop('read eigenvectors')
+        timer.stop('read diagonalized')
 
         if fh is None:
             f.close()
@@ -379,6 +391,29 @@ class LrTDDFT(ExcitationList):
                 f.close()
         mpi.world.barrier()
 
+    def overlap(self, ov_nn, other):
+        """Matrix element overlap determined from Kohn-Sham overlaps.
+
+        Parameters
+        ----------
+        ov_pp: array
+            Kon-Sham overlap factors from mine and other KSSingles object.
+            Index 0 corresponds to our own KSSingles and
+            index 1 to the other's
+
+        Returns
+        -------
+        ov_pp: array
+            Overlap
+        """
+        self.diagonalize()
+        other.diagonalize()
+        ov_pp = self.Om.kss.overlap(ov_nn, other.Om.kss)
+	# ov[pLm, pLo] = Om[pLm, :pKm]* ov[:pKm, pLo]
+        return np.dot(self.Om.eigenvectors.conj(),
+                      # ov[pKm, pLo] = ov[pKm, :pKo] Om[pLo, :pKo].T
+                      np.dot(ov_pp, other.Om.eigenvectors.T))
+
     def __getitem__(self, i):
         if not self.diagonalized:
             self.diagonalize()
@@ -393,6 +428,9 @@ class LrTDDFT(ExcitationList):
         if not self.diagonalized:
             self.diagonalize()
         return list.__len__(self)
+
+    def __del__(self):
+        self.timer.write(self.txt)
 
 
 def d2Excdnsdnt(dup, ddn):

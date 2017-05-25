@@ -270,6 +270,7 @@ tests = [
     'lrtddft/kssingles_Be.py',              # ~11s
     'generic/relax.py',                     # ~11s
     'solvation/adm12.py',                   # ~11s
+    'solvation/lrtddft.py',                 # ~12s
     'dscf/dscf_lcao.py',                    # ~12s
     'generic/8Si.py',                       # ~12s
     'utilities/partitioning.py',            # ~12s
