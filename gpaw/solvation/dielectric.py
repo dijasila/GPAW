@@ -2,7 +2,7 @@ from gpaw.solvation.gridmem import NeedsGD
 import numpy as np
 
 
-class Dielectric(object, NeedsGD):
+class Dielectric(NeedsGD):
     """Class representing a spatially varying permittivity.
 
     Attributes:
