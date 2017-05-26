@@ -17,7 +17,7 @@ calc = solv.SolvationGPAW(
     xc='PBE', h=0.2,  # non-solvent DFT parameters
     nbands=3,
     convergence={'energy':0.1, 'eigenstates':0.01, 'density':0.1},
-    **solv.get_HW14_water_kwargs(),
+    **solv.get_HW14_water_kwargs()
 )
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
@@ -35,10 +35,7 @@ if 0:
     lreps = LrTDDFT(calc)
     lreps.diagonalize()
 
-if 1:
-    poisson = calc.hamiltonian.poisson
-    poisson.dielectric.epsinf = 1.
-    poisson.dielectric.update(calc.hamiltonian.cavity)
+calc.hamiltonian.poisson.dielectric.epsinf = 1.
 lr1 = LrTDDFT(calc)
 lr1.diagonalize()
 for ex, ex1 in zip(lr, lr1):

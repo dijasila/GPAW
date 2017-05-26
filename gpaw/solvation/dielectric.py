@@ -2,7 +2,7 @@ from gpaw.solvation.gridmem import NeedsGD
 import numpy as np
 
 
-class Dielectric(NeedsGD):
+class Dielectric(object, NeedsGD):
     """Class representing a spatially varying permittivity.
 
     Attributes:
@@ -23,9 +23,10 @@ class Dielectric(NeedsGD):
                   at infinite distance from the solute.
         """
         NeedsGD.__init__(self)
-        self.epsinf = float(epsinf)
+        self._epsinf = float(epsinf)
         self.eps_gradeps = None  # eps_g, dxeps_g, dyeps_g, dzeps_g
         self.del_eps_del_g_g = None
+        self.cavity = None
 
     def estimate_memory(self, mem):
         nbytes = self.gd.bytecount()
@@ -42,40 +43,6 @@ class Dielectric(NeedsGD):
         self.eps_gradeps.extend([gd.zeros() for gd in (self.gd, ) * 3])
         self.del_eps_del_g_g = self.gd.empty()
 
-    def update(self, cavity):
-        """Calculate eps_gradeps and del_eps_del_g_g from the cavity."""
-        self.update_eps_only(cavity)
-        for i in (0, 1, 2):
-            np.multiply(
-                self.del_eps_del_g_g,
-                cavity.grad_g_vg[i],
-                self.eps_gradeps[1 + i]
-            )
-
-    def update_eps_only(self, cavity):
-        raise NotImplementedError
-
-    def __str__(self):
-        s = 'Dielectric: %s\n' % (self.__class__, )
-        s += '  epsilon_inf: %s\n' % (self.epsinf, )
-        return s
-
-
-class LinearDielectric(Dielectric):
-    """Dielectric depending (affine) linearly on the cavity.
-
-    See also
-    A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
-    """
-
-    def __init__(self, epsinf):
-        self._epsinf = float(epsinf)
-        Dielectric.__init__(self, epsinf)
-
-    def allocate(self):
-        Dielectric.allocate(self)
-        self.del_eps_del_g_g = self._epsinf - 1.  # frees array
-
     @property
     def epsinf(self):
         return self._epsinf
@@ -85,9 +52,41 @@ class LinearDielectric(Dielectric):
         if epsinf != self._epsinf:
             self._epsinf = float(epsinf)
             self.del_eps_del_g_g = self._epsinf - 1.
+            if self.cavity is not None:
+                self.update(self.cavity)
 
-    def update_eps_only(self, cavity, epsinf=None):
-        np.multiply(cavity.g_g, self._epsinf - 1., self.eps_gradeps[0])
+    def update(self, cavity):
+        """Calculate eps_gradeps and del_eps_del_g_g from the cavity."""
+        self.cavity = cavity
+        self.update_eps_only()
+        for i in (0, 1, 2):
+            np.multiply(
+                self.del_eps_del_g_g,
+                cavity.grad_g_vg[i],
+                self.eps_gradeps[1 + i]
+            )
+
+    def update_eps_only(self):
+        raise NotImplementedError
+
+    def __str__(self):
+        s = 'Dielectric: %s\n' % (self.__class__, )
+        s += '  epsilon_inf: %s\n' % (self._epsinf, )
+        return s
+
+
+class LinearDielectric(Dielectric):
+    """Dielectric depending (affine) linearly on the cavity.
+
+    See also
+    A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
+    """
+    def allocate(self):
+        Dielectric.allocate(self)
+        self.del_eps_del_g_g = self._epsinf - 1.  # frees array
+
+    def update_eps_only(self):
+        np.multiply(self.cavity.g_g, self._epsinf - 1., self.eps_gradeps[0])
         self.eps_gradeps[0] += 1.
 
 
@@ -97,9 +96,9 @@ class CMDielectric(Dielectric):
     Untested, use at own risk!
     """
 
-    def update_eps_only(self, cavity):
-        ei = self.epsinf
-        t = 1. - cavity.g_g
+    def update_eps_only(self):
+        ei = self._epsinf
+        t = 1. - self.cavity.g_g
         self.eps_gradeps[0][:] = (3. * (ei + 2.)) / ((ei - 1.) * t + 3.) - 2.
         self.del_eps_del_g_g[:] = (
             (3. * (ei - 1.) * (ei + 2.)) / ((ei - 1.) * t + 3.) ** 2
