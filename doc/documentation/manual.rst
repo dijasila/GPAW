@@ -223,7 +223,7 @@ Finite-difference, plane-wave or LCAO mode
 ------------------------------------------
 
 Finite-difference:
-    The default mode (``mode='fd'``) is Finite Differece. This means that
+    The default mode (``mode='fd'``) is Finite Difference. This means that
     the wave functions will be expanded on a real space grid.
 
 LCAO:
