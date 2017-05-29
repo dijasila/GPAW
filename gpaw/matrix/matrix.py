@@ -24,7 +24,7 @@ class NoDistribution:
         self.shape = (M, N)
 
     def __str__(self):
-        return 'NoDistribution({0}x{1})'.format(*self.shape)
+        return 'NoDistribution({}x{})'.format(*self.shape)
 
     def mmm(self, alpha, a, opa, b, opb, beta, c):
         if beta == 0:
