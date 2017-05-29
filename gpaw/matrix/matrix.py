@@ -117,8 +117,10 @@ class BLACSDistribution:
 
 
 def create_distribution(M, N, comm=None, r=1, c=1, b=None):
-    if r == c == 1:
+    if comm is None or comm.size == 1:
+        assert r == 1 and abs(c) == 1 or c == 1 and abs(r) == 1
         return NoDistribution(M, N)
+
     return BLACSDistribution(M, N, comm, r, c, b)
 
 
@@ -170,13 +172,16 @@ class Matrix:
         assert self.dist.serial
         return self.a
 
-    def eval(self, destination, beta=0):
+    def evallllllllll(self, destination=None, beta=0):
+        if destination is None:
+            destination = ...
         assert destination.dist == self.dist
         if beta == 0:
             destination.a[:] = self.a
         else:
             assert beta == 1
             destination.a += self.a
+        return destination
 
     def __iadd__(self, x):
         x.eval(self, 1.0)
@@ -228,7 +233,8 @@ class Product:
     def __str__(self):
         return str(self.things)
 
-    def eval(self, destination, beta=0):
+    def eval(self, out=None, beta=0):
+
         if isinstance(self.things[0], (int, float)):
             alpha = self.things.pop(0)
         else:
