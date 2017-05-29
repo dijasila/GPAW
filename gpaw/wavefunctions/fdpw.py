@@ -6,7 +6,7 @@ from ase.utils.timing import timer
 from gpaw import extra_parameters
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.lfc import BasisFunctions
-from gpaw.matrix import Matrix, PAWMatrix
+from gpaw.matrix import Matrix, AtomBlockMatrix
 from gpaw.overlap import Overlap
 from gpaw.utilities import unpack
 from gpaw.utilities.timing import nulltimer
@@ -175,7 +175,7 @@ class FDPWWaveFunctions(WaveFunctions):
         with self.timer('projections'):
             psit_n.project(self.pt, P_nI)
 
-        dS_II = PAWMatrix(self.setups[a].dO_ii for a in kpt.P_ani)
+        dS_II = AtomBlockMatrix(self.setups[a].dO_ii for a in kpt.P_ani)
 
         S_nn = self.M_nn
         dSP_nI = P_nI.new()

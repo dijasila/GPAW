@@ -32,6 +32,8 @@ class NoDistribution:
         else:
             assert beta == 1
             c2 = c.a + alpha * np.dot(op(a.a, opa), op(b.a, opb))
+        c.a[:] = c2
+        return
         #return
         # print(self is b, self is b.source)
         print('hej')
@@ -135,6 +137,7 @@ class Matrix:
                 dtype = data.dtype
         self.dtype = np.dtype(dtype)
 
+        dist = dist or ()
         if isinstance(dist, tuple):
             dist = create_distribution(M, N, *dist)
         self.dist = dist
@@ -203,10 +206,21 @@ class Matrix:
     def C(self):
         return Product((self, 'C'))
 
-    def mmm(self, alpha, opa, b, opb, beta, destination):
-        if opa == 'Ccccccccccccccccccccccccccccccccccccccccccccccccccc' and self.dtype == float:
+    def mmm(self, alpha, opa, b, opb, beta, out):
+        if opa == 'Ccccccccccccccccccccccccc' and self.dtype == float:
             opa = 'N'
-        self.dist.mmm(alpha, self, opa, b, opb, beta, destination)
+        if out is None:
+            if opa in 'NC':
+                M = self.shape[0]
+            else:
+                M = self.shape[1]
+            if opb in 'NC':
+                N = b.shape[1]
+            else:
+                N = b.shape[0]
+            out = Matrix(M, N)
+        self.dist.mmm(alpha, self, opa, b, opb, beta, out)
+        return out
 
     def cholesky(self):
         self.finish_sums()
@@ -234,14 +248,13 @@ class Product:
         return str(self.things)
 
     def eval(self, out=None, beta=0):
-
         if isinstance(self.things[0], (int, float)):
             alpha = self.things.pop(0)
         else:
             alpha = 1.0
 
         (a, opa), (b, opb) = self.things
-        a.mmm(alpha, opa, b, opb, beta, destination)
+        return a.mmm(alpha, opa, b, opb, beta, out)
 
     def __mul__(self, x):
         if isinstance(x, Matrix):
