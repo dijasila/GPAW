@@ -4,7 +4,7 @@ from functools import partial
 import numpy as np
 from ase.utils.timing import timer
 
-from gpaw.matrix import PAWMatrix
+from gpaw.matrix import AtomBlockMatrix
 from gpaw.utilities.blas import axpy
 from gpaw.utilities import unpack
 from gpaw.xc.hybrid import HybridXC
@@ -65,7 +65,7 @@ class Eigensolver:
             if n > 0:
                 weights[:n] = kpt.weight
         return weights
-        
+
     def iterate(self, ham, wfs):
         """Solves eigenvalue problem iteratively
 
@@ -146,7 +146,8 @@ class Eigensolver:
         dHP_nI = P_nI.new()
 
         Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
-        dH_II = PAWMatrix(unpack(ham.dH_asp[a][kpt.s]) for a in kpt.P_ani)
+        dH_II = AtomBlockMatrix(unpack(ham.dH_asp[a][kpt.s])
+                                for a in kpt.P_ani)
 
         with self.timer('calc_h_matrix'):
             psit_n.apply(Ht, tmp_n)

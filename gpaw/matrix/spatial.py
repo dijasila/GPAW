@@ -45,7 +45,7 @@ class SpatialMatrix(Matrix):
         return self.array[i]
 
 
-class UniformGridMatrix(SpatialMatrix):
+class UniformGridFunctions(SpatialMatrix):
     def __init__(self, M, gd, dtype=None, data=None, q=-1, dist=None):
         N = gd.get_size_of_global_array().prod()
         SpatialMatrix.__init__(self, M, N, dtype, data, dist)
@@ -61,15 +61,15 @@ class UniformGridMatrix(SpatialMatrix):
     def __repr__(self):
         s = SpatialMatrix.__repr__(self).split('(')[1][:-1]
         shape = self.gd.get_size_of_global_array()
-        s = 'UniformGridMatrix({0}, gpts={1}x{2}x{3})'.format(s, *shape)
+        s = 'UniformGridMatrix({}, gpts={}x{}x{})'.format(s, *shape)
         return s
-        
+
     def new(self, buf=None):
         return UniformGridMatrix(self.shape[0], self.gd, self.dtype, buf,
                                  self.q, self.dist)
 
 
-class PWExpansionMatrix(SpatialMatrix):
+class PlaneWaveExpansions(SpatialMatrix):
     def __init__(self, M, pd, data, q=-1, dist=None):
         orig = data
         if pd.dtype == float:
@@ -158,6 +158,11 @@ class ProjectionMatrix(SpatialMatrix):
             SpatialMatrix.mmm(self, alpha, opa, b, opb, beta, c)
 
 
-class PAWMatrix:
+class AtomBlockMatrix:
     def __init__(self, M_aii):
         self.M_aii = list(M_aii)
+
+
+class UniformGridDensity:
+    pass
+    

@@ -16,7 +16,7 @@ from gpaw.density import Density
 from gpaw.lfc import BaseLFC
 from gpaw.lcao.overlap import fbt
 from gpaw.hamiltonian import Hamiltonian
-from gpaw.matrix import PWExpansionMatrix
+from gpaw.matrix import PlaneWaveExpansions
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
@@ -495,8 +495,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         for kpt in self.kpt_u:
             if kpt.dist is not None:
                 return
-            kpt.psit_n = PWExpansionMatrix(self.bd.nbands, self.pd,
-                                           kpt.psit_nG, kpt.q, dist)
+            kpt.psit_n = PlaneWaveExpansions(self.bd.nbands, self.pd,
+                                             kpt.psit_nG, kpt.q, dist)
             kpt.dist = dist
 
     def integrate(self, a_xg, b_yg=None, global_integral=True):
