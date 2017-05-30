@@ -1,6 +1,7 @@
 import numpy as np
 
 from gpaw.matrix.matrix import Matrix, Product
+from gpaw.lfc import LFC
 
 
 class SpatialMatrix(Matrix):
@@ -20,13 +21,11 @@ class SpatialMatrix(Matrix):
             c.comm_to_be_summed_over = self.comm
             assert opb in 'TH' and b.comm is self.comm
 
-    def matrix_elements(self, other, M, hermitian=False):
-        if self is other:
-            pass
-        self.mmm(self.dv, 'C', other, 'T', 0.0, M)
-
-    def project(self, lfc, P_nI):
-        lfc.integrate(self.array, P_nI.dictview(), self.q)
+    def integrate(self, other, out, hermitian=False):
+        if out is None:
+            out = Matrix(len(self), len(other))
+        self.mmm(self.dv, 'C', other, 'T', 0.0, out)
+        return out
 
     def apply(self, func, out):
         func(self.array, out.array)
@@ -46,17 +45,18 @@ class SpatialMatrix(Matrix):
 
 
 class UniformGridFunctions(SpatialMatrix):
-    def __init__(self, M, gd, dtype=None, data=None, q=-1, dist=None):
+    def __init__(self, M, gd, dtype=None, data=None, kpt=None, dist=None,
+                 collinear=True):
         N = gd.get_size_of_global_array().prod()
         SpatialMatrix.__init__(self, M, N, dtype, data, dist)
         if data is None:
-            self.a = self.a.T
+            self.a = self.a.reshape(-1).reshape(self.dist.shape)
             self.transposed = False
+            print(self.a.flags)
         self.array = self.a.reshape((-1,) + tuple(gd.n_c))
         self.gd = gd
         self.dv = gd.dv
         self.comm = gd.comm
-        self.q = q
 
     def __repr__(self):
         s = SpatialMatrix.__repr__(self).split('(')[1][:-1]
@@ -65,8 +65,15 @@ class UniformGridFunctions(SpatialMatrix):
         return s
 
     def new(self, buf=None):
-        return UniformGridMatrix(self.shape[0], self.gd, self.dtype, buf,
-                                 self.q, self.dist)
+        return UniformGridFunctions(self.shape[0], self.gd, self.dtype, buf,
+                                    None, self.dist)
+
+    def plot(self):
+        import matplotlib.pyplot as plt
+        ax = plt.figure().add_subplot(111)
+        a, b, c = self.array.shape[1:]
+        ax.plot(self.array[0, a // 2, b // 2])
+        plt.show()
 
 
 class PlaneWaveExpansions(SpatialMatrix):
@@ -101,6 +108,73 @@ class PlaneWaveExpansions(SpatialMatrix):
             c.a -= alpha * np.outer(a.a[:, 0], b.a[:, 0])
         else:
             SpatialMatrix.mmm(self, alpha, opa, b, opb, beta, c)
+
+
+class AtomCenteredFunctions:
+    dtype = float
+
+    def __init__(self, desc, functions):
+        self.lfc = LFC(desc, functions)
+        self.atom_indices = []
+        self.slices = []
+        I1 = 0
+        for a, f in enumerate(functions):
+            I2 = I1 + len(f)
+            self.atom_indices.append(a)
+            self.slices.append((I1, I2))
+            I1 = I2
+        self.nfuncs = I2
+
+    def __len__(self):
+        return self.nfuncs
+
+    @property
+    def C(self):
+        return self
+
+    def set_positions(self, spos):
+        print(spos)
+        self.lfc.set_positions(spos)
+
+    positions = property(None, set_positions)
+
+    def eval(self, out):
+        out.array[:] = 0.0
+        coef_M = np.zeros(len(self))
+        for M, a in enumerate(out.array):
+            coef_M[M] = 1.0
+            self.lfc.lfc.lcao_to_grid(coef_M, a, -1)
+            coef_M[M] = 0.0
+
+    def integrate(self, other, out, hermetian):
+        self.lfc.integrate(other.array, self.dictview(out), -1)
+
+    def dictview(self, matrix):
+        M_In = matrix.array
+        M_ani = {}
+        for a, (I1, I2) in zip(self.atom_indices, self.slices):
+            M_ani[a] = M_In[I1:I2].T
+        return M_ani
+
+
+class AtomBlockMatrix:
+    def __init__(self, I1, I2, M_aii):
+        self.M_aii = M_aii
+
+    def mmm(self, alpha, opa, b, opb, beta, out):
+        assert opa == 'N'
+        assert opb == 'N'
+        assert beta == 0.0
+        I1 = 0
+        for M_ii in self.M_aii:
+            I2 = I1 + len(M_ii)
+            out.a[I1:I2] = np.dot(M_ii, b.a[I1:I2])
+            I1 = I2
+        return out
+
+
+class UniformGridDensity:
+    pass
 
 
 class ProjectionMatrix(SpatialMatrix):
@@ -142,13 +216,6 @@ class ProjectionMatrix(SpatialMatrix):
         for P_ni, (I1, I2) in zip(P_ani.values(), self.slices):
             P_ni[:] = P_nI[:, I1:I2]
 
-    def dictview(self):
-        P_nI = self.a
-        P_ani = {}
-        for a, (I1, I2) in zip(self.atom_indices, self.slices):
-            P_ani[a] = P_nI[:, I1:I2]
-        return P_ani
-
     def mmm(self, alpha, opa, b, opb, beta, c):
         if isinstance(b, PAWMatrix):
             assert (alpha, beta, opa, opb) == (1, 0, 'N', 'N')
@@ -156,13 +223,3 @@ class ProjectionMatrix(SpatialMatrix):
                 c.a[:, I1:I2] = np.dot(self.a[:, I1:I2], M_ii)
         else:
             SpatialMatrix.mmm(self, alpha, opa, b, opb, beta, c)
-
-
-class AtomBlockMatrix:
-    def __init__(self, M_aii):
-        self.M_aii = list(M_aii)
-
-
-class UniformGridDensity:
-    pass
-    

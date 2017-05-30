@@ -5,7 +5,7 @@ import numpy as np
 import scipy.linalg as linalg
 
 from gpaw.eigensolvers.eigensolver import Eigensolver
-from gpaw.matrix import PAWMatrix
+from gpaw.matrix import AtomBlockMatrix
 from gpaw.utilities import unpack
 
 
@@ -70,12 +70,12 @@ class Davidson(Eigensolver):
         H_NN = self.H_2n2n
         S_NN = self.S_2n2n
         eps_N = self.eps_2n
-        
+
         def integrate(a_G):
             return np.real(wfs.integrate(a_G, a_G, global_integral=False))
 
         self.subspace_diagonalize(ham, wfs, kpt)
-        
+
         psit_n = kpt.psit_n
         psit2_n = psit_n.new(buf=wfs.work_array_nG)
         P_nI = kpt.P_nI
@@ -96,7 +96,7 @@ class Davidson(Eigensolver):
                                  kpt.P_ani, kpt.eps_n, R_n.array)
 
         weights = self.weights(kpt)
-        
+
         for nit in range(self.niter):
             if nit == self.niter - 1:
                 error = np.dot(weights, [integrate(R_G) for R_G in R_n.array])

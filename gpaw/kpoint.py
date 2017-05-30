@@ -5,7 +5,7 @@
 
 import numpy as np
 
-from gpaw.matrix import ProjectionMatrix
+from gpaw.matrix import Matrix
 
 
 class KPoint:
