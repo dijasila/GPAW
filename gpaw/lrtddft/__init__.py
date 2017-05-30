@@ -396,10 +396,10 @@ class LrTDDFT(ExcitationList):
 
         Parameters
         ----------
-        ov_pp: array
-            Kon-Sham overlap factors from mine and other KSSingles object.
-            Index 0 corresponds to our own KSSingles and
-            index 1 to the other's
+        ov_: array
+            Wave function overlap factors from a displaced calculator.
+            Index 0 corresponds to our own wavefunctions and
+            index 1 to the displaced wavefunctions
 
         Returns
         -------
@@ -408,8 +408,8 @@ class LrTDDFT(ExcitationList):
         """
         self.diagonalize()
         other.diagonalize()
-        ov_pp = self.Om.kss.overlap(ov_nn, other.Om.kss)
-	# ov[pLm, pLo] = Om[pLm, :pKm]* ov[:pKm, pLo]
+        ov_pp = self.kss.overlap(ov_nn, other.kss)
+	# ov[pLm, pLo] = Om[pLm, :pKm] * ov[:pKm, pLo]
         return np.dot(self.Om.eigenvectors.conj(),
                       # ov[pKm, pLo] = ov[pKm, :pKo] Om[pLo, :pKo].T
                       np.dot(ov_pp, other.Om.eigenvectors.T))
