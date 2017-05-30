@@ -164,7 +164,7 @@ MPI_Comm unpack_gpaw_comm(PyObject* gpaw_mpi_obj)
 }
 #endif
 
-PyObject* error_parallel_support()
+PyObject* error_parallel_support(void)
 {
     // Not a true import error, but pretty close.
 #ifndef PARALLEL
