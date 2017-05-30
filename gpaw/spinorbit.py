@@ -197,7 +197,8 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
                 sx_m.append(np.trace(v_sn.T.conj().dot(sx_ss).dot(v_sn)))
                 sy_m.append(np.trace(v_sn.T.conj().dot(sy_ss).dot(v_sn)))
                 sz_m.append(np.trace(v_sn.T.conj().dot(sz_ss).dot(v_sn)))
-    
+            s_kvm.append([sx_m, sy_m, sz_m])
+
     if return_spin:
         if return_wfs:
             return np.array(e_km).T, np.array(s_kvm).real, v_knm

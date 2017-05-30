@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import functools
-import pickle
 from time import time, ctime
 from datetime import timedelta
 
@@ -370,17 +369,19 @@ class BSE:
         if self.wfile is not None:
             # Read screened potential from file
             try:
-                f = open(self.wfile)
+                data = np.load(self.wfile)
+                self.Q_qaGii = data['Q']
+                self.W_qGG = data['W']
+                self.pd_q = data['pd']
                 print('Reading screened potential from % s' % self.wfile,
                       file=self.fd)
-                self.Q_qaGii, self.pd_q, self.W_qGG = pickle.load(f)
             except:
                 self.calculate_screened_potential(ac)
                 print('Saving screened potential to % s' % self.wfile,
                       file=self.fd)
-                f = open(self.wfile, 'w')
-                pickle.dump((self.Q_qaGii, self.pd_q, self.W_qGG),
-                            f, pickle.HIGHEST_PROTOCOL)
+                if world.rank == 0:
+                    np.savez(self.wfile,
+                             Q=self.Q_qaGii, pd=self.pd_q, W=self.W_qGG)
         else:
             self.calculate_screened_potential(ac)
 
