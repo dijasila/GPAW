@@ -15,6 +15,7 @@ def op(a, opa):
         return a.conj()
     if opa == 'T':
         return a.T
+    return a.T.conj()
 
 
 class NoDistribution:
@@ -27,10 +28,10 @@ class NoDistribution:
         return 'NoDistribution({}x{})'.format(*self.shape)
 
     def mmm(self, alpha, a, opa, b, opb, beta, c):
-        if beta == 0:
+        if beta == 0.0:
             c2 = alpha * np.dot(op(a.a, opa), op(b.a, opb))
         else:
-            assert beta == 1
+            assert beta == 1.0
             c2 = c.a + alpha * np.dot(op(a.a, opa), op(b.a, opb))
         c.a[:] = c2
         return
@@ -126,6 +127,21 @@ def create_distribution(M, N, comm=None, r=1, c=1, b=None):
     return BLACSDistribution(M, N, comm, r, c, b)
 
 
+class Op:
+    def __init__(self, M, op='N'):
+        if isinstance(M, Op):
+            assert op == 'N'
+            M = M.M
+            op = M.op
+        self.M = M
+        self.op = op
+
+    def __mul__(self, other):
+        if not isinstance(other, Op):
+            other = Op(other)
+        return Product(self, other)
+
+
 class Matrix:
     def __init__(self, M, N, dtype=None, data=None, dist=None):
         self.shape = (M, N)
@@ -143,19 +159,20 @@ class Matrix:
         self.dist = dist
 
         if data is None:
-            self.a = np.empty(dist.shape, self.dtype).T
-            self.transposed = True
+            self.a = np.empty(dist.shape, self.dtype, order='F')
         else:
-            self.a = np.asarray(data).reshape(self.shape)
-            self.transposed = False
+            self.a = data
 
         self.array = self.a
 
-        assert self.transposed == self.a.flags['F_CONTIGUOUS']
+        self.transposed = self.a.flags['F_CONTIGUOUS']
+
+    def __len__(self):
+        return self.shape[0]
 
     def __repr__(self):
         dist = str(self.dist).split('(')[1]
-        return 'Matrix({0}: {1}'.format(self.dtype.name, dist)
+        return 'Matrix({}: {}'.format(self.dtype.name, dist)
 
     def new(self):
         return Matrix(*self.shape, dtype=self.dtype, dist=self.dist)
@@ -166,11 +183,11 @@ class Matrix:
     def __setitem__(self, i, x):
         # assert i == slice(None)
         if isinstance(x, np.ndarray):
-            self.array[:] = x
+            sssssself.array[:] = x
         else:
             x.eval(self)
 
-    def __array__(self, dtype):
+    def __array_____(self, dtype):
         assert self.dtype == dtype
         assert self.dist.serial
         return self.a
@@ -190,21 +207,23 @@ class Matrix:
         x.eval(self, 1.0)
         return self
 
-    def __mul__(self, x):
-        if not isinstance(x, Product):
-            x = (x, 'N')
-        return Product((self, 'N'), x)
+    def __mul__(self, other):
+        return Product(Op(self), Op(other))
 
-    def __rmul__(self, x):
-        return Product(x, (self, 'N'))
+    def __rmul__(self, other):
+        return Product(Op(other), Op(self))
 
     @property
     def T(self):
-        return Product((self, 'T'))
+        return Op(self, 'T')
 
     @property
     def C(self):
-        return Product((self, 'C'))
+        return Op(self, 'C')
+
+    @property
+    def H(self):
+        return Op(self, 'H')
 
     def mmm(self, alpha, opa, b, opb, beta, out):
         if opa == 'Ccccccccccccccccccccccccc' and self.dtype == float:
@@ -236,29 +255,21 @@ class Matrix:
 
 
 class Product:
-    def __init__(self, *x):
-        self.things = []
-        for p in x:
-            if isinstance(p, Product):
-                self.things.extend(p.things)
-            else:
-                self.things.append(p)
+    def __init__(self, a, b):
+        self.a = a
+        self.b = b
 
     def __str__(self):
         return str(self.things)
 
-    def eval(self, out=None, beta=0):
-        if isinstance(self.things[0], (int, float)):
-            alpha = self.things.pop(0)
-        else:
-            alpha = 1.0
+    def eval(self, out=None, beta=0.0, alpha=1.0):
+        a = self.a
+        b = self.b
+        return a.M.mmm(alpha, a.op, b.M, b.op, beta, out)
 
-        (a, opa), (b, opb) = self.things
-        return a.mmm(alpha, opa, b, opb, beta, out)
-
-    def __mul__(self, x):
-        if isinstance(x, Matrix):
-            x = Product((x, 'N'))
-        return Product(self, x)
-
-
+    def integrate(self, out=None, hermetian=False):
+        a = self.a
+        b = self.b
+        assert a.op == 'C' or a.M.dtype == float and a.op == 'N'
+        assert b.op == 'N'
+        return a.M.integrate(b.M, out, hermetian)

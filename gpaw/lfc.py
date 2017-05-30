@@ -73,7 +73,7 @@ class Sphere:
         self.sdisp_wc = None
         self.normalized = False
         self.I_M = None
-        
+
     def set_position(self, spos_c, gd, cut):
         if self.spos_c is not None and not (self.spos_c - spos_c).any():
             return False
@@ -82,7 +82,7 @@ class Sphere:
         self.G_wb = []
         self.M_w = []
         self.sdisp_wc = []
-        
+
         ng = 0
         M = 0
         for spline in self.spline_j:
@@ -101,7 +101,7 @@ class Sphere:
             M += 2 * l + 1
 
         self.Mmax = M
-        
+
         self.rank = gd.get_rank_from_position(spos_c)
         if ng == 0:
             self.ranks = None  # What about making empty lists instead?
@@ -109,7 +109,7 @@ class Sphere:
             self.G_wb = None
             self.M_w = None
             self.sdisp_wc = None
-            
+
         self.spos_c = spos_c.copy()
         self.normalized = False
         return True
@@ -136,9 +136,9 @@ class Sphere:
             yield None
             yield None
             return
-        
+
         I_M = np.zeros(self.Mmax)
-        
+
         nw = len(self.A_wgm) // len(self.spline_j)
         assert nw * len(self.spline_j) == len(self.A_wgm)
 
@@ -158,7 +158,7 @@ class Sphere:
 
         for request in requests:
             comm.wait(request)
-            
+
         requests = []
         if len(self.ranks) > 0:
             I_M += I_rM.sum(axis=0)
@@ -192,7 +192,7 @@ class Sphere:
             points += 4.0 * np.pi / 3.0 * rc**3 / gd.dv * (2 * l + 1)
         return points
 
-        
+
 # Quick hack: base class to share basic functionality across LFC classes
 class BaseLFC:
     def dict(self, shape=(), derivative=False, zero=False):
@@ -256,7 +256,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 self.integral_a = np.array(integral)
         else:
             self.integral_a = None
-  
+
         self.my_atom_indices = None
 
     def set_positions(self, spos_ac):
@@ -272,7 +272,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         if movement or self.my_atom_indices is None:
             self._update(spos_ac)
-    
+
     def _update(self, spos_ac):
         nB = 0
         nW = 0
@@ -312,7 +312,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         self.A_Wgm = []
         sdisp_Wc = np.empty((nW, 3), int)
         self.pos_Wv = np.empty((nW, 3))
-        
+
         B1 = 0
         W = 0
         for a in self.atom_indices:
@@ -391,12 +391,12 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             M1 = self.M_a[a]
             M2 = M1 + self.sphere_a[a].Mmax
             dst_xM[:, M1:M2] = src_axi[a]
-    
+
     def add(self, a_xG, c_axi=1.0, q=-1):
         """Add localized functions to extended arrays.
 
         ::
-        
+
                    --  a     a
           a (G) += >  c   Phi (G)
            x       --  xi    i
@@ -406,7 +406,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         assert not self.use_global_indices
         if q == -1:
             assert self.dtype == float
-        
+
         if isinstance(c_axi, float):
             assert q == -1 and a_xG.ndim == 3
             c_xM = np.empty(self.Mmax)
@@ -468,7 +468,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             Cartesian coordinate of the derivative (0, 1 or 2)
 
         This function adds the following sum to the extended arrays::
-        
+
                    --  a      a
           a (G) += >  c   dPhi  (G)
            x       --  xi     iv
@@ -481,7 +481,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
               iv       dv    i
 
         is the derivative of the Phi^a and v is either x, y, or z.
-        
+
         """
 
         assert v in [0, 1, 2]
@@ -515,11 +515,11 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         # Temp solution - set all coefficient to zero except for those at
         # atom a
-        
+
         # Coefficient indices for atom a
         M1 = self.M_a[a]
         M2 = M1 + self.sphere_a[a].Mmax
-        
+
         if isinstance(c_axi, float):
             assert q == -1
             c_xM = np.zeros(self.Mmax)
@@ -539,16 +539,16 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         """Calculate integrals of arrays times localized functions.
 
         ::
-        
+
                    /             a*
           c_axi =  | dG a (G) Phi  (G)
                    /     x       i
-                   
+
         """
         assert not self.use_global_indices
         if q == -1:
             assert self.dtype == float
-        
+
         xshape = a_xG.shape[:-3]
 
         if debug:
@@ -558,7 +558,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 assert c_xi.shape[:-1] == xshape
 
         dtype = a_xG.dtype
-        
+
         c_xM = np.zeros(xshape + (self.Mmax,), dtype)
         self.lfc.integrate(a_xG, c_xM, q)
 
@@ -608,23 +608,23 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         """Calculate x-, y-, and z-derivatives of localized function integrals.
 
         ::
-        
+
                     /              a*
           c_axiv =  | dG a (G) dPhi  (G)
                     /     x        iv
 
         where::
 
-                       
+
               a        d     a
           dPhi  (G) =  -- Phi (g)
               iv       dv    i
-                         
-                         
+
+
         and v is either x, y, or z, and R^a_v is the center of Phi^a.
 
         Notice that d Phi^a_i / dR^a_v == - d Phi^a_i / d v.
-        
+
         """
 
         assert not self.use_global_indices
@@ -639,18 +639,18 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             assert a_xG.dtype == float
             self._normalized_derivative(a_xG, c_axiv)
             return
-        
+
         dtype = a_xG.dtype
 
         xshape = a_xG.shape[:-3]
         c_xMv = np.zeros(xshape + (self.Mmax, 3), dtype)
-        
+
         cspline_M = []
         for a in self.atom_indices:
             for spline in self.sphere_a[a].spline_j:
                 nm = 2 * spline.get_angular_momentum_number() + 1
                 cspline_M.extend([spline.spline] * nm)
-                
+
         gd = self.gd
         self.lfc.derivative(a_xG, c_xMv, np.ascontiguousarray(gd.h_cv),
                             gd.n_c, cspline_M,
@@ -694,7 +694,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 else:
                     c_xiv[:] = c_xMv[..., M1:M2, :]
             M1 = M2
-        
+
         for request in srequests:
             comm.wait(request)
 
@@ -702,7 +702,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         """Calculate x-, y-, and z-derivatives of localized function integrals.
 
         Calculates the derivatives of this integral::
-        
+
            a       /  _   _   a  -   _a
           A     =  | dr a(r) f  (r - R ),
            lm      /          lm
@@ -714,7 +714,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                     a
                    R
                     v
-                    
+
         where v is either x, y, or z and i=l**2+m.  Note that the
         actual integrals used are normalized::
 
@@ -742,7 +742,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
            a       /  _ -a  _   _a
           I     =  | dr f  (r - R ),
            lm      /     lm
-          
+
 
         so the derivative look pretty ugly!
         """
@@ -808,7 +808,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                                    A0 / I0**2 * np.outer(I_L[1:], b_Lv[0]))
                 else:
                     c_iv[:] = 0.0
-                               
+
             M1 = M2
 
         for request in srequests:
@@ -818,7 +818,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         """Calculate second derivatives.
 
         Works only for this type of input for now::
-        
+
               second_derivative(self, a_G, c_avv, q=-1)
 
         ::
@@ -830,9 +830,9 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                                dR dR
                                  i  j
         """
-        
+
         assert not self.use_global_indices
-        
+
         if debug:
             assert a_xG.ndim == 3
             assert a_xG.dtype == self.dtype
@@ -850,7 +850,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             # that is spherical symmetric
             assert spline.get_angular_momentum_number() == 0
             cspline_M.append(spline.spline)
-            
+
         gd = self.gd
 
         self.lfc.second_derivative(a_xG, c_Mvv, np.ascontiguousarray(gd.h_cv),
@@ -864,7 +864,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         c_arvv = {}
         b_avv = {}
         M1 = 0
-        
+
         for a in self.atom_indices:
             sphere = self.sphere_a[a]
             M2 = M1 + sphere.Mmax
@@ -907,7 +907,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             G2 = G
 
             yield G1, G2
-            
+
             self.g_W[self.current_lfindices] += G2 - G1
 
             if W >= 0:
@@ -976,7 +976,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
         assert self.Mmax is not None
         self.Mstart = Mstart
         self.Mstop = Mstop
-        
+
     def add_to_density(self, nt_sG, f_asi):
         """Add linear combination of squared localized functions to density.
 
@@ -995,7 +995,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
             M1 = self.M_a[a]
             M2 = M1 + sphere.Mmax
             f_sM[:, M1:M2] = f_asi[a]
-  
+
         for nt_G, f_M in zip(nt_sG, f_sM):
             self.lfc.construct_density1(f_M, nt_G)
 
@@ -1008,19 +1008,19 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
             Pseudo electron density.
 
         ::
-                  
+
           ~        --      *
           n(r) +=  >    Phi (r) rho     Phi (r)
                    --     M1       M1M2   M2
                   M1,M2
         """
         self.lfc.construct_density(rho_MM, nt_G, q, self.Mstart, self.Mstop)
-        
+
     def integrate2(self, a_xG, c_xM, q=-1):
         """Calculate integrals of arrays times localized functions.
 
         ::
-        
+
                                /       *
           c_xM += <Phi | a > = | dG Phi (G) a (G)
                       M   x    /       M     x
@@ -1088,10 +1088,10 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
 
         if C_xM.size == 0:
             return
-        
+
         C_xM = C_xM.reshape((-1,) + C_xM.shape[-1:])
         psit_xG = psit_xG.reshape((-1,) + psit_xG.shape[-3:])
-        
+
         if self.gamma or len(C_xM) == 1:
             for C_M, psit_G in zip(C_xM, psit_xG):
                 self.lfc.lcao_to_grid(C_M, psit_G, q)
@@ -1189,7 +1189,7 @@ class OldLocalizedFunctionsCollection(BaseLFC):
     def __init__(self, gd, spline_aj, kpt_comm=None,
                  cut=False, dtype=float,
                  integral=None, forces=False):
-            
+
         self.gd = gd
         self.spline_aj = spline_aj
         self.cut = cut
@@ -1319,8 +1319,8 @@ def LFC(gd, spline_aj, kd=None,
                                             cut, dtype, integral, forces)
     else:
         return gd.get_lfc(gd, spline_aj)
-    
-                  
+
+
 def test():
     from gpaw.grid_descriptor import GridDescriptor
 
@@ -1329,7 +1329,7 @@ def test():
     N_c = (ngpts, ngpts, ngpts)
     a = h * ngpts
     gd = GridDescriptor(N_c, (a, a, a))
-    
+
     from gpaw.spline import Spline
     a = np.array([1, 0.9, 0.8, 0.0])
     s = Spline(0, 0.2, a)
