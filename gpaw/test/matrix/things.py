@@ -40,7 +40,6 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
     (psi2_n.C * psi2_n).integrate(out=S_nn)
     (pt_I.C * psi2_n).integrate(out=P_In)
     dSP_In[:] = dS_II * P_In
-<<<<<<< HEAD
     norm = S_nn.a.trace()
     S_nn += P_In.H * dSP_In
     print(S_nn.a)
@@ -49,15 +48,6 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
     f_n = np.ones(len(psi_n))  # ???
     nt.from_wave_functions(psi2_n, f_n)
     nt.integrate()
-=======
-    S_nn += P_In.H * dSP_In
-    print(S_nn.a)
-
-    n = UniformGridDensity(desc, spinpolarized, collinear)
-    f_n = np.ones(len(psi_n))  # ???
-    n.from_wave_functions(psi2_n, f_n)
-    n.integrate()
->>>>>>> d039de9bb316f3baa8b46f2a09cef4f38108bb35
 
     # kin(psit2_n, psit_n)
     # H_nn = Matrix((nbands, nbands), dtype, dist=?????)
