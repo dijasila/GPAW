@@ -5,8 +5,6 @@
 
 import numpy as np
 
-from gpaw.matrix import Matrix
-
 
 class KPoint:
     """Class for a single k-point.
@@ -84,7 +82,8 @@ class KPoint:
 
         self.eps_n = None
         self.f_n = None
-        self.P_ani = None
+        #self.P_ani = None
+        self.P_In = None
 
         # Only one of these two will be used:
         self.psit_nG = None  # wave functions on 3D grid or PW expansion
@@ -98,20 +97,7 @@ class KPoint:
         # UniformGridMatrix/PWExpansionMatrix wrapper:
         self.psit_n = None
 
-        self.dist = None  # BLACS distribution of self.P_n
-
-    @property
-    def P_nI(self):
-        """Wrap projections."""
-        x = self.psit_n
-        if hasattr(x, 'pd'):
-            dtype = x.pd.dtype
-        else:
-            dtype = x.dtype
-        pm = ProjectionMatrix(x.shape[0], x.comm, dtype, self.P_ani,
-                              self.dist)
-        self.dist = pm.dist
-        return pm
+        #self.dist = None  # BLACS distribution of bands
 
 
 class GlobalKPoint(KPoint):
@@ -174,4 +160,3 @@ class GlobalKPoint(KPoint):
             ni = wfs.setups[a].ni
             self.P_ani[a] = my_P_ni[:, i:i + ni]  # copy?
             i += ni
-

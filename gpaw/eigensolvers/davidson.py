@@ -121,13 +121,14 @@ class Davidson(Eigensolver):
                 print(error, norms)
 
             Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
-            dH_II = PAWMatrix(unpack(ham.dH_asp[a][kpt.s]) for a in kpt.P_ani)
-            dS_II = PAWMatrix(wfs.setups[a].dO_ii for a in kpt.P_ani)
+            dH_II = AtomBlockMatrix(unpack(ham.dH_asp[a][kpt.s])
+                                    for a in kpt.P_ani)
+            dS_II = AtomBlockMatrix(wfs.setups[a].dO_ii for a in kpt.P_ani)
 
             def mat(a_n, b_n, Pa_nI, dM_II, Pb_nI, C_nn,
                     hermitian=False, M_nn=M_nn):
                 """Fill C_nn with <a|b> matrix elements."""
-                a_n.matrix_elements(b_n, M_nn, hermitian)
+                (a_n.C * b_n).integrate(out=M_nn, hermitian=hermitian)
                 dMP_nI[:] = Pb_nI * dM_II
                 M_nn += Pa_nI.C * dMP_nI.T
                 C_nn[:] = M_nn

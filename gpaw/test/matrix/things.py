@@ -13,7 +13,7 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
          bcomm=None,
          spinpolarized=False, collinear=True, kpt=None, dtype=None):
     phi_M = AtomCenteredFunctions(desc, basis)  # , [kpt])
-    phi_M.positions = spositions
+    phi_M.set_positions(spositions)
     nbands = len(phi_M)
     if desc.mode == 'fd':
         create = UniformGridFunctions
@@ -23,13 +23,13 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
                    collinear=collinear, dist=bcomm)
     psi_n[:] = phi_M
     # psi_n.plot()
-    S_nn = (psi_n.C * psi_n).integrate()
+    S_nn = psi_n.matrix_elements(psi_n, hermitian=True)
     pt_I = AtomCenteredFunctions(desc, proj)
-    pt_I.positions = spositions
-    P_In = Matrix(len(pt_I), len(psi_n), dtype=dtype, dist=(bcomm, 1, -1))
-    (pt_I.C * psi_n).integrate(out=P_In)
+    pt_I.set_positions(spositions)
+    P_In = ProjectionMatrix(len(pt_I), len(psi_n), dtype=dtype, dist=(bcomm, 1, -1))
+    pt_I.matrix_elements(psi_n, out=P_In)
     dSP_In = P_In.new()
-    dS_II = AtomBlockMatrix(len(pt_I), len(pt_I), dS_aii)
+    dS_II = AtomBlockMatrix(dS_aii)
     dSP_In[:] = dS_II * P_In
     S_nn += P_In.H * dSP_In
     S_nn.cholesky()
