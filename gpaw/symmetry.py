@@ -256,8 +256,8 @@ class Symmetry:
         nsym = len(U_scc)
 
         time_reversal = self.time_reversal and not self.has_inversion
-        bz2bz_ks = map_k_points_fast(bzk_kc, U_scc, time_reversal,
-                                     comm, self.tol)
+        bz2bz_ks = map_k_points(bzk_kc, U_scc, time_reversal,
+                                comm, self.tol)
 
         bz2bz_k = -np.ones(nbzkpts + 1, int)
         ibz2bz_k = []
@@ -536,7 +536,7 @@ def aglomerate_points(k_kc, tol):
     for c in range(nd):
         sk_k = k_kc[inds_kc[:, c], c]
         dk_k = np.diff(sk_k)
-        
+
         # Partition the kpoints into groups
         pt_K = np.argwhere(dk_k > tol)[:, 0]
         pt_K = np.append(np.append(0, pt_K + 1), 2 * nbzkpts)
