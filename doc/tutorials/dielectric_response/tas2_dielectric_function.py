@@ -1,16 +1,13 @@
 from __future__ import division
 from ase import Atoms
 from ase.lattice.hexagonal import Hexagonal
+import matplotlib.pyplot as plt
+
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.response.df import DielectricFunction
-from matplotlib import pyplot as plt
-from matplotlib import rc
 from gpaw.mpi import world
 from gpaw.bztools import find_high_symmetry_monkhorst_pack
 
-rc('font', family='Times New Roman')
-rc('text', usetex=True)
-    
 a = 3.314
 c = 12.1
 

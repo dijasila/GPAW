@@ -1,16 +1,14 @@
+import matplotlib.pyplot as plt
 import numpy as np
 from ase import Atoms
+from ase.units import Hartree, Bohr
+
 from gpaw import GPAW, FermiDirac
 from gpaw.wavefunctions.pw import PW
 from gpaw.response.df import DielectricFunction
-from matplotlib import rc
-from matplotlib import pyplot as plt
-from ase.units import Hartree, Bohr
 from gpaw.mpi import world
 from gpaw.bztools import find_high_symmetry_monkhorst_pack
 
-rc('font', family='Times New Roman')
-rc('text', usetex=True)
 a = 2.5
 c = 3.22
 
@@ -67,7 +65,7 @@ if world.rank == 0:
     sigmainter = 1 / 4.  # The surface conductivity of graphene
     dfanalytic = 1 + (4 * np.pi * 1j / (omega_w / Hartree) *
                       sigmainter / (c / Bohr))
-    
+
     plt.plot(omega_w, dfanalytic.imag, label='Analytic')
 
     plt.xlabel('Frequency (eV)')
