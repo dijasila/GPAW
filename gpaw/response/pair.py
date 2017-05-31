@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import print_function, division
 
 import sys
 import functools
@@ -22,7 +22,7 @@ from gpaw.response.math_func import (two_phi_planewave_integrals,
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.pw import PWLFC
-from gpaw.bztools import get_reduced_BZ, unique_rows
+from gpaw.bztools import get_reduced_bz, unique_rows
 
 
 class KPoint:
@@ -242,7 +242,6 @@ class PWSymmetryAnalyzer:
         U_scc = kd.symmetry.op_scc
         nU = self.nU
         nsym = self.nsym
-        ft_sc = kd.symmetry.ft_sc
 
         shift_sc = np.zeros((nsym, 3), int)
         conserveq_s = np.zeros(nsym, bool)
@@ -258,8 +257,8 @@ class PWSymmetryAnalyzer:
 
         # Time reversal
         trshift_sc = (-newq_sc - q_c[np.newaxis]).round().astype(int)
-        trinds_s = np.argwhere((-newq_sc == q_c[np.newaxis]
-                                + trshift_sc).all(1)) + nU
+        trinds_s = np.argwhere((-newq_sc == q_c[np.newaxis] +
+                                trshift_sc).all(1)) + nU
         conserveq_s[trinds_s] = True
         shift_sc[nU:nsym] = trshift_sc
 
@@ -282,10 +281,10 @@ class PWSymmetryAnalyzer:
 #                assert (self.kd.bz2bz_ks[:, s] == -1).all()
 #            else:
 #                stmp_s.append(s)
-        
+
 #        s_s = stmp_s
 
-        self.infostring += 'Found {0} allowed symmetries. '.format(len(s_s))
+        self.infostring += 'Found {} allowed symmetries. '.format(len(s_s))
         self.s_s = s_s
         self.shift_sc = shift_sc
 
@@ -336,7 +335,7 @@ class PWSymmetryAnalyzer:
         U_scc = np.array(U_scc)
 
         # Determine the irreducible BZ
-        bzk_kc, ibzk_kc = get_reduced_BZ(self.pd.gd.cell_cv,
+        bzk_kc, ibzk_kc = get_reduced_bz(self.pd.gd.cell_cv,
                                          U_scc,
                                          False)
 
@@ -351,7 +350,7 @@ class PWSymmetryAnalyzer:
         U_scc = np.array(U_scc)
 
         # Determine the irreducible BZ
-        bzk_kc, ibzk_kc = get_reduced_BZ(self.pd.gd.cell_cv,
+        bzk_kc, ibzk_kc = get_reduced_bz(self.pd.gd.cell_cv,
                                          U_scc,
                                          False)
 
@@ -489,7 +488,7 @@ class PWSymmetryAnalyzer:
 
         # Inplace overwriting
         A_wxx[:] = tmp_wxx / self.how_many_symmetries()
-        
+
     def symmetrize_wxvG(self, A_wxvG):
         """Symmetrize chi0_wxvG"""
         A_cv = self.pd.gd.cell_cv
@@ -721,8 +720,8 @@ class PairDensity:
               file=self.fd)
         self.fermi_level += gate_voltage
         for kpt in self.calc.wfs.kpt_u:
-            kpt.f_n = (self.shift_occupations(kpt.eps_n, gate_voltage)
-                       * kpt.weight)
+            kpt.f_n = (self.shift_occupations(kpt.eps_n, gate_voltage) *
+                       kpt.weight)
 
     def apply_scissor_operator(self, at_energy=0, displace=0):
         """Applies scissor operator."""
@@ -872,7 +871,7 @@ class PairDensity:
                 if time_reversal:
                     P_ni = P_ni.conj()
                 P_ani.append(P_ni)
-        
+
         return KPoint(s, K, n1, n2, blocksize, na, nb,
                       ut_nR, eps_n, f_n, P_ani, shift_c)
 
@@ -1232,8 +1231,8 @@ class PairDensity:
         nt_m[:blockbands] = self.calc.wfs.gd.integrate(kpt1.ut_nR[n - kpt1.na],
                                                        kpt2.ut_nR)
 
-        n0_mv[:blockbands] += (1j * nt_m[:blockbands, np.newaxis]
-                               * k_v[np.newaxis, :])
+        n0_mv[:blockbands] += (1j * nt_m[:blockbands, np.newaxis] *
+                               k_v[np.newaxis, :])
 
         for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
             gemm(1.0, C_vi, P_mi, 1.0, n0_mv[:blockbands], 'c')

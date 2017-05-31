@@ -40,7 +40,7 @@ def find_high_symmetry_monkhorst_pack(calc, density,
     contains the corners of the irreducible BZ so that when the
     number of kpoints are reduced the full irreducible brillouion
     zone is spanned.
- 
+
     Parameters
     ----------
     calc : str
@@ -66,8 +66,8 @@ def find_high_symmetry_monkhorst_pack(calc, density,
     atoms, calc = restart(calc, txt=None)
     minsize, offset = kpts2sizeandoffsets(density=density, even=True,
                                           gamma=True, atoms=atoms)
- 
-    bzk_kc, ibzk_kc, latibzk_kc = get_BZ(calc, returnlatticeibz=True)
+
+    bzk_kc, ibzk_kc, latibzk_kc = get_bz(calc, returnlatticeibz=True)
 
     maxsize = minsize + 10
     minsize[~pbc] = 1
@@ -85,7 +85,7 @@ def find_high_symmetry_monkhorst_pack(calc, density,
                                                    atoms=atoms)
 
                 ints = ((ibzk_kc + 0.5 - offset) * size - 0.5)[:, pbc]
-                
+
                 if (np.abs(ints - np.round(ints)) < 1e-5).all():
                     kpts_kc = monkhorst_pack(size) + offset
                     kpts_kc = to1bz(kpts_kc, calc.wfs.gd.cell_cv)
@@ -102,13 +102,13 @@ def find_high_symmetry_monkhorst_pack(calc, density,
     if mpi.rank == 0:
         print('Did not find matching kpoints for the IBZ')
         print(ibzk_kc.round(5))
-    
+
     raise RuntimeError
 
 
 def unfold_points(points, U_scc, tol=1e-8, mod=None):
     """Unfold k-points using a given set of symmetry operators.
-    
+
     Parameters
     ----------
     points: ndarray
@@ -192,7 +192,7 @@ def get_smallest_Gvecs(cell_cv, n=5):
         Reciprocal lattice vectors in cartesian coordinates.
     N_xc : ndarray
         Reciprocal lattice vectors in crystal coordinates.
-    
+
     """
     B_cv = 2.0 * np.pi * np.linalg.inv(cell_cv).T
     N_xc = np.indices((n, n, n)).reshape((3, n**3)).T - n // 2
@@ -217,13 +217,13 @@ def get_symmetry_operations(U_scc, time_reversal):
         Utmp_scc = np.concatenate([U_scc, -U_scc])
     else:
         Utmp_scc = U_scc
-        
+
     return Utmp_scc
 
 
-def get_IBZ_vertices(cell_cv, U_scc=None, time_reversal=None):
+def get_ibz_vertices(cell_cv, U_scc=None, time_reversal=None):
     """Determine irreducible BZ.
-    
+
     Parameters
     ----------
     cell_cv : ndarray
@@ -257,7 +257,7 @@ def get_IBZ_vertices(cell_cv, U_scc=None, time_reversal=None):
     point_sc = np.dot(origin_c, Utmp_scc.transpose((0, 2, 1)))
     assert len(point_sc) == len(unique_rows(point_sc))
     point_sv = np.dot(point_sc, B_cv)
-    
+
     # Translate the points
     n = 5
     G_xv, N_xc = get_smallest_Gvecs(cell_cv, n=n)
@@ -281,13 +281,13 @@ def get_IBZ_vertices(cell_cv, U_scc=None, time_reversal=None):
     return ibzk_kc
 
 
-def get_BZ(calc, returnlatticeibz=False):
+def get_bz(calc, returnlatticeibz=False):
     """Return the BZ and IBZ vertices.
 
     Parameters
     ----------
     calc : str, GPAW calc instance
-    
+
     Returns
     -------
     bzk_kc : ndarray
@@ -300,16 +300,16 @@ def get_BZ(calc, returnlatticeibz=False):
     if isinstance(calc, str):
         calc = GPAW(calc, txt=None)
     cell_cv = calc.wfs.gd.cell_cv
-    
+
     # Crystal symmetries
     symmetry = calc.wfs.kd.symmetry
     cU_scc = get_symmetry_operations(symmetry.op_scc,
                                      symmetry.time_reversal)
 
-    return get_reduced_BZ(cell_cv, cU_scc, False, returnlatticeibz)
+    return get_reduced_bz(cell_cv, cU_scc, False, returnlatticeibz)
 
 
-def get_reduced_BZ(cell_cv, cU_scc, time_reversal, returnlatticeibz=False):
+def get_reduced_bz(cell_cv, cU_scc, time_reversal, returnlatticeibz=False):
     """Reduce the BZ using the crystal symmetries to obtain the IBZ.
 
     Parameters
@@ -329,7 +329,7 @@ def get_reduced_BZ(cell_cv, cU_scc, time_reversal, returnlatticeibz=False):
                                      latsym.time_reversal)
 
     # Find Lattice IBZ
-    ibzk_kc = get_IBZ_vertices(cell_cv,
+    ibzk_kc = get_ibz_vertices(cell_cv,
                                U_scc=latsym.op_scc,
                                time_reversal=latsym.time_reversal)
     latibzk_kc = ibzk_kc.copy()
@@ -437,7 +437,7 @@ def tetrahedron_volume(a, b, c, d):
     -------
     float
         Volume of tetrahedron.
-    
+
     """
     return np.abs(np.einsum('ij,ij->i', a-d, np.cross(b-d, c-d))) / 6
 
