@@ -199,9 +199,13 @@ def main():
     parser.add_option('-v', '--verbose', action='store_true')
     parser.add_option('-p', '--plot', action='store_true')
     parser.add_option('-d', '--database', default='check.db')
+    parser.add_option('--datasets')
     parser.add_option('-e', '--energy-difference', type=float, default=0.01)
     opts, names = parser.parse_args()
     con = ase.db.connect(opts.database)
+    if opts.datasets:
+        from gpaw import setup_paths
+        setup_paths[:0] = opts.datasets.split(',')
     if opts.summary:
         for name in names:
             try:

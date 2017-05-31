@@ -318,11 +318,11 @@ class VDWXC(XCFunctional):
         return '{0} [libvdwxc/{1}]'.format(self.name, qualifier)
 
     def todict(self):
-        dct = dict(type='libvdwxc',
+        dct = dict(backend='libvdwxc',
                    semilocal_xc=self.semilocal_xc.name,
                    name=self.name,
-                   mode=self._mode,
-                   pfft_grid=self._pfft_grid,
+                   #mode=self._mode,
+                   #pfft_grid=self._pfft_grid,
                    libvdwxc_name=self._libvdwxc_name,
                    setup_name=self.setup_name,
                    vdwcoef=self._vdwcoef)
@@ -561,6 +561,9 @@ def vdw_mbeef(*args, **kwargs):
 
 # String to functional mapping
 def get_libvdwxc_functional(name, *args, **kwargs):
+    if 'name' in kwargs:
+        name2 = kwargs.pop('name')
+        assert name == name2
     funcs = {'vdW-DF': vdw_df,
              'vdW-DF2': vdw_df2,
              'vdW-DF-cx': vdw_df_cx,
@@ -569,8 +572,16 @@ def get_libvdwxc_functional(name, *args, **kwargs):
              'C09-vdW': vdw_C09,
              'BEEF-vdW':  vdw_beef,
              'mBEEF-vdW': vdw_mbeef}
-    func = funcs[name]
-    return func(*args, **kwargs)
+
+    semilocal_xc = kwargs.pop('semilocal_xc', None)
+    if semilocal_xc is not None:
+        from gpaw.xc import XC
+        semilocal_xc = XC(semilocal_xc)
+
+    func = funcs[name](*args, **kwargs)
+    if semilocal_xc is not None:
+        assert semilocal_xc.name == func.semilocal_xc.name
+    return func
 
 class CXGGAKernel:
     def __init__(self, just_kidding=False):

@@ -4,16 +4,16 @@
 Contact
 =======
 
-.. _mail lists:
-    
-Mail Lists
-==========
+.. _mail list:
 
-There is a mailing list for discussing GPAW:
+Mail List
+=========
+
+There is a mailing list for getting help and for discussing GPAW:
 
 * gpaw-users_
 
-You should consider also subscribing to the ASE :ref:`ase:mail lists`.
+You should consider also subscribing to the ASE :ref:`ase:mail list`.
 
 Note that you can search the mailing list archives: click on the
 mailing list above, then choose the archive, and search from that page.
@@ -53,7 +53,7 @@ Old mail lists
 ==============
 
 These lists are inactive and serve as an archives only:
-    
+
 * gpaw-developers_ (deactivated Jun 20 2016)
 * gridpaw-developer_ (deactivated Oct 20 2009)
 

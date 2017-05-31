@@ -460,6 +460,7 @@ if not compiled_with_libvdwxc():
     exclude.append('vdw/libvdwxc_functionals.py')
     exclude.append('vdw/libvdwxc_h2o.py')
     exclude.append('vdw/libvdwxc_mbeef.py')
+    exclude.append('vdw/libvdwxc_spin.py')
 
 if LooseVersion(np.__version__) < '1.6.0':
     exclude.append('response/chi0.py')

@@ -24,6 +24,9 @@ class NiflheimCluster(Cluster):
             else:
                 self.partition = 'xeon8'
                 size = 8
+        else:
+            self.partition = 'xeon8'
+            size = 8
 
         cmd = ['sbatch',
                '--partition={}'.format(self.partition),
