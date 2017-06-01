@@ -8,6 +8,8 @@ from gpaw.response.df import DielectricFunction
 from gpaw.mpi import world
 from gpaw.bztools import find_high_symmetry_monkhorst_pack
 
+# 1) Ground-state.
+
 a = 3.314
 c = 12.1
 
@@ -29,6 +31,8 @@ atoms.set_calculator(calc)
 atoms.get_potential_energy()
 calc.write('TaS2_gs.gpw')
 
+# 2) Unoccupied bands
+
 kpts = find_high_symmetry_monkhorst_pack('TaS2_gs.gpw', density=5.0)
 
 responseGS = GPAW('TaS2_gs.gpw',
@@ -40,6 +44,8 @@ responseGS = GPAW('TaS2_gs.gpw',
 
 responseGS.get_potential_energy()
 responseGS.write('gsresponse.gpw', 'all')
+
+# 3) Dielectric function
 
 df = DielectricFunction('gsresponse.gpw', eta=25e-3, domega0=0.01,
                         integrationmode='tetrahedron integration')
