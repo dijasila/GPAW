@@ -205,8 +205,8 @@ class BSE:
         ci, cf = self.con_n[0], self.con_n[-1] + 1
         for ik, iK in enumerate(myKrange):
             pair = get_pair(pd0, 0, iK, vi, vf, ci, cf)
-            n_n = np.arange(self.nv)
-            m_m = np.arange(self.nc)
+            n_n = np.arange(self.nv) + pair.kpt1.n1
+            m_m = np.arange(self.nc) + pair.kpt2.n1
 
             if self.gw_skn is not None:
                 iKq = self.calc.wfs.kd.find_k_plus_q(self.q_c, [iK])[0]
@@ -221,7 +221,7 @@ class BSE:
                                      optical_limit=optical_limit,
                                      direction=self.direction,
                                      Q_aGii=Q_aGii,
-                                     extend_head=False)[0]
+                                     extend_head=False)  # [0]
         if self.eshift is not None:
             deps_kmn[np.where(df_Kmn[myKrange] > 1.0e-3)] += self.eshift
             deps_kmn[np.where(df_Kmn[myKrange] < -1.0e-3)] -= self.eshift
