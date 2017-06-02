@@ -1,11 +1,10 @@
 from __future__ import print_function, division
 
-import sys
-
 import numpy as np
 from scipy.spatial import Delaunay
 
 from ase.utils import devnull
+from ase.utils import convert_string_to_fd
 from ase.utils.timing import timer, Timer
 
 from _gpaw import tetrahedron_weight
@@ -15,11 +14,11 @@ from gpaw.utilities.blas import gemm, rk, czher, mmm
 from gpaw.utilities.progressbar import ProgressBar
 from functools import partial
 
-
+ 
 class Integrator():
 
     def __init__(self, cell_cv, comm=mpi.world,
-                 txt=sys.stdout, timer=None, nblocks=1):
+                 txt='-', timer=None, nblocks=1):
         """Baseclass for Brillouin zone integration and band summation.
 
         Simple class to calculate integrals over Brilloun zones
@@ -47,7 +46,7 @@ class Integrator():
             txt = devnull
         elif isinstance(txt, str):
             txt = open(txt, 'w')
-        self.fd = txt
+        self.fd = convert_string_to_fd(txt, comm)
 
         self.timer = timer or Timer()
 
