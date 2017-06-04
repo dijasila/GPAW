@@ -265,7 +265,7 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None):
     '''Calculates the magnetic moments inside all PAW spheres'''
     
     from gpaw.wannier90 import get_spinorbit_projections
-    from gpaw.utilities import unpack, unpack2
+    from gpaw.utilities import unpack
 
     if nbands is None:
         nbands = calc.get_number_of_bands()
