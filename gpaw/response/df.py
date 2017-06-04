@@ -492,7 +492,7 @@ class DielectricFunction:
             not make sense to apply it here. Instead one should define the
             polarizability by
 
-                alpha * eps_M = -L / (4 * pi) * <v_ind>
+                alpha * eps_M^{-1} = -L / (4 * pi) * <v_ind>
 
             where <v_ind> = 4 * pi * \chi / q^2 is the averaged induced
             potential (relative to the strength of the  external potential).

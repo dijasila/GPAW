@@ -261,6 +261,68 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     E_so = np.sum(e_mk.T * f_km)
     return E_so - E
 
+def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None):
+    '''Calculates the magnetic moments inside all PAW spheres'''
+    
+    from gpaw.wannier90 import get_spinorbit_projections
+    from gpaw.utilities import unpack, unpack2
+
+    if nbands is None:
+        nbands = calc.get_number_of_bands()
+    Nk = len(calc.get_ibz_k_points())
+
+    C_ss = np.array([[np.cos(theta/2) * np.exp(-1.0j * phi/2),
+                      -np.sin(theta/2) * np.exp(-1.0j * phi/2)],
+                     [np.sin(theta/2) * np.exp(1.0j * phi/2),
+                      np.cos(theta/2) * np.exp(1.0j * phi/2)]])
+
+    m_av = []
+    e_mk, v_knm = get_spinorbit_eigenvalues(calc, 
+                                            theta=theta,
+                                            phi=phi,
+                                            return_wfs=True,
+                                            bands=range(nbands))
+
+    for a in range(len(calc.atoms)):
+        N0_p = calc.density.setups[a].N0_p
+        N0_ij = unpack(N0_p)
+        
+        Dx_ij = np.zeros_like(N0_ij, complex)
+        Dy_ij = np.zeros_like(N0_ij, complex)
+        Dz_ij = np.zeros_like(N0_ij, complex)
+        tot = 0.0
+        for ik in range(Nk):
+            P_ami = get_spinorbit_projections(calc, ik, v_knm[ik])
+
+            P_smi = np.array([P_ami[a][:, ::2], P_ami[a][:, 1::2]])
+            P_smi = np.dot(C_ss, np.swapaxes(P_smi, 0, 1))
+
+            P0_mi = P_smi[0]
+            P1_mi = P_smi[1]
+
+            f0_n = calc.get_occupation_numbers(kpt=ik, spin=0)
+            f1_n = calc.get_occupation_numbers(kpt=ik, spin=1)
+            f_n = np.zeros(2 * len(f0_n))
+            f_n[::2] = f0_n
+            f_n[1::2] = f1_n
+            f_nn = np.diagflat(f_n[:len(P0_mi)])
+            tot += f_nn[0, 0]
+
+            Dx_ij += P0_mi.conj().T.dot(f_nn).dot(P1_mi)
+            Dx_ij += P1_mi.conj().T.dot(f_nn).dot(P0_mi)
+            Dy_ij -= 1.0j * P0_mi.conj().T.dot(f_nn).dot(P1_mi)
+            Dy_ij += 1.0j * P1_mi.conj().T.dot(f_nn).dot(P0_mi)
+            Dz_ij += P0_mi.conj().T.dot(f_nn).dot(P0_mi)
+            Dz_ij -= P1_mi.conj().T.dot(f_nn).dot(P1_mi)
+
+        mx = np.sum(N0_ij * Dx_ij).real
+        my = np.sum(N0_ij * Dy_ij).real
+        mz = np.sum(N0_ij * Dz_ij).real
+        
+        m_av.append([mx, my, mz])
+
+    return m_av
+
 def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
                            inversion_center=[0, 0, 0], deg_tol=1.0e-6, 
                            tol=1.0e-6):
