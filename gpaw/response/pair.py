@@ -822,14 +822,17 @@ class PairDensity:
 
         wfs = self.calc.wfs
         kd = wfs.kd
+            
+        # Parse kpoint: is k_c an index or a vector
 
-        if type(k_c) is np.int64:
+        try:
+            K = self.find_kpoint(k_c)
+            shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
+        except ValueError:
+            # Fall back to index
             K = k_c
             shift0_c = np.array([0, 0, 0])
             k_c = None
-        else:
-            K = self.find_kpoint(k_c)
-            shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
 
         if block:
             nblocks = self.blockcomm.size
@@ -1047,10 +1050,18 @@ class PairDensity:
         pb.finish()
 
     @timer('Get kpoint pair')
-    def get_kpoint_pair(self, pd, s, k_c, n1, n2, m1, m2,
-                        load_wfs=True, block=True):
+    def get_kpoint_pair(self, pd, s, Kork_c, n1, n2, m1, m2,
+                        load_wfs=True, block=False):
         # wfs = self.calc.wfs
         # bzk_kc = wfs.kd.bzk_kc
+
+        if isinstance(Kork_c, int):
+            # If k_c is an integer then it refers to
+            # the index of the kpoint in the BZ
+            k_c = self.calc.wfs.kd.bzk_kc[Kork_c]
+        else:
+            k_c = Kork_c
+
         q_c = pd.kd.bzk_kc[0]
         with self.timer('get k-points'):
             kpt1 = self.get_k_point(s, k_c, n1, n2, load_wfs=load_wfs)
@@ -1067,9 +1078,11 @@ class PairDensity:
     @timer('get_pair_density')
     def get_pair_density(self, pd, kptpair, n_n, m_m,
                          optical_limit=False, intraband=False,
-                         Q_aGii=None):
+                         Q_aGii=None, block=False, direction=2,
+                         extend_head=True):
         """Get pair density for a kpoint pair."""
         ol = optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0)
+        eh = extend_head
         cpd = self.calculate_pair_densities  # General pair densities
         opd = self.optical_pair_density  # Interband pair densities / q
 
@@ -1081,7 +1094,11 @@ class PairDensity:
         Q_G = kptpair.Q_G  # Fourier components of kpoint pair
         nG = len(Q_G)
 
-        n_nmG = np.zeros((len(n_n), len(m_m), nG + 2 * ol), pd.dtype)
+        if extend_head:
+            n_nmG = np.zeros((len(n_n), len(m_m), nG + 2 * ol), pd.dtype)
+        else:
+            n_nmG = np.zeros((len(n_n), len(m_m), nG), pd.dtype)
+
         for j, n in enumerate(n_n):
             Q_G = kptpair.Q_G
             with self.timer('conj'):
@@ -1089,10 +1106,15 @@ class PairDensity:
             with self.timer('paw'):
                 C1_aGi = [np.dot(Q_Gii, P1_ni[n - kpt1.na].conj())
                           for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
-                n_nmG[j, :, 2 * ol:] = cpd(ut1cc_R, C1_aGi, kpt2, pd, Q_G)
+                n_nmG[j, :, 2 * ol * eh:] = cpd(ut1cc_R, C1_aGi, kpt2, pd, Q_G,
+                                                block=block)
             if optical_limit:
-                n_nmG[j, :, 0:3] = opd(n, m_m, kpt1, kpt2)
-
+                if extend_head:
+                    n_nmG[j, :, 0:3] = opd(n, m_m, kpt1, kpt2,
+                                           block=block)
+                else:
+                    n_nmG[j, :, 0] = opd(n, m_m, kpt1, kpt2,
+                                         block=block)[:, direction]
         return n_nmG
 
     @timer('get_pair_momentum')
@@ -1171,7 +1193,8 @@ class PairDensity:
         return n_nmvG
 
     @timer('Calculate pair-densities')
-    def calculate_pair_densities(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G):
+    def calculate_pair_densities(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G,
+                                 block=True):
         """Calculate FFT of pair-densities and add PAW corrections.
 
         ut1cc_R: 3-d complex ndarray
@@ -1201,7 +1224,7 @@ class PairDensity:
             for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
                 gemm(1.0, C1_Gi, P2_mi, 1.0, n_mG[:myblocksize], 't')
 
-        if self.blockcomm.size == 1:
+        if not block or self.blockcomm.size == 1:
             return n_mG
         else:
             n_MG = pd.empty(kpt2.blocksize * self.blockcomm.size)
@@ -1209,7 +1232,7 @@ class PairDensity:
             return n_MG[:kpt2.n2 - kpt2.n1]
 
     @timer('Optical limit')
-    def optical_pair_velocity(self, n, m_m, kpt1, kpt2):
+    def optical_pair_velocity(self, n, m_m, kpt1, kpt2, block=False):
         if self.ut_sKnvR is None or kpt1.K not in self.ut_sKnvR[kpt1.s]:
             self.ut_sKnvR = self.calculate_derivatives(kpt1)
 
@@ -1237,7 +1260,7 @@ class PairDensity:
         for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
             gemm(1.0, C_vi, P_mi, 1.0, n0_mv[:blockbands], 'c')
 
-        if self.blockcomm.size > 1:
+        if block and self.blockcomm.size > 1:
             n0_Mv = np.empty((kpt2.blocksize * self.blockcomm.size, 3),
                              dtype=complex)
             self.blockcomm.all_gather(n0_mv, n0_Mv)
@@ -1245,13 +1268,15 @@ class PairDensity:
 
         return -1j * n0_mv
 
-    def optical_pair_density(self, n, m_m, kpt1, kpt2):
+    def optical_pair_density(self, n, m_m, kpt1, kpt2,
+                             block=False):
         # Relative threshold for perturbation theory
         threshold = self.threshold
 
         eps1 = kpt1.eps_n[n - kpt1.n1]
         deps_m = (eps1 - kpt2.eps_n)[m_m - kpt2.n1]
-        n0_mv = self.optical_pair_velocity(n, m_m, kpt1, kpt2)
+        n0_mv = self.optical_pair_velocity(n, m_m, kpt1, kpt2,
+                                           block=block)
 
         deps_m = deps_m.copy()
         deps_m[deps_m == 0.0] = np.inf

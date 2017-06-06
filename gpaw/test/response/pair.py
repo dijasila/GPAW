@@ -28,8 +28,8 @@ for q_c in [[0, 0, 0], [1. / 4, 0, 0]]:
     ol = np.allclose(q_c, 0.0)
     qd = KPointDescriptor([q_c])
     pd = PWDescriptor(pair.ecut, calc.wfs.gd, complex, qd)
-    kptpair = pair.get_kpoint_pair(pd, s=0, k_c=[0, 0, 0],
-                                   n1=0, n2=nb, m1=0, m2=nb)
+    kptpair = pair.get_kpoint_pair(pd, 0, [0, 0, 0],
+                                   0, nb, 0, nb)
     deps_nm = kptpair.get_transition_energies(np.arange(0, nb),
                                               np.arange(0, nb))
 

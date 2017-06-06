@@ -433,8 +433,8 @@ class Chi0:
         # Are we calculating the optical limit.
         optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0)
 
-        # Reset PAW correction in case momentum has changed
-        self.Q_aGii = None
+        # Reset PAW correction in case momentum has change
+        self.Q_aGii = self.pair.initialize_paw_corrections(pd)
         A_wxx = chi0_wGG  # Change notation
 
         # Initialize integrator. The integrator class is a general class
@@ -554,6 +554,7 @@ class Chi0:
 
         if wings:
             mat_kwargs['extend_head'] = True
+            mat_kwargs['block'] = False
             if self.eta == 0:
                 extraargs['eta'] = self.eta
             # This is horrible but we need to update the wings manually
@@ -584,7 +585,6 @@ class Chi0:
                 ht = HilbertTransform(np.array(omega_w), self.eta,
                                       timeordered=self.timeordered)
                 ht(A_wxx)
-
                 if wings:
                     ht(chi0_wxvx)
 
@@ -667,8 +667,8 @@ class Chi0:
         else:
             PWSA.symmetrize_wGG(tmpA_wxx)
             if wings:
-                chi0_wxvG[:] += chi0_wxvx[..., 2:]
-                chi0_wvv[:] += chi0_wxvx[:, 0, :3, :3]
+                chi0_wxvG += chi0_wxvx[..., 2:]
+                chi0_wvv += chi0_wxvx[:, 0, :3, :3]
                 PWSA.symmetrize_wxvG(chi0_wxvG)
                 PWSA.symmetrize_wvv(chi0_wvv)
         self.redistribute(tmpA_wxx, A_wxx)
@@ -760,7 +760,7 @@ class Chi0:
                            m1=None, m2=None,
                            pd=None, kd=None,
                            symmetry=None, integrationmode=None,
-                           extend_head=True):
+                           extend_head=True, block=True):
         """A function that returns pair-densities.
 
         A pair density is defined as::
@@ -809,12 +809,13 @@ class Chi0:
             self.Q_aGii = self.pair.initialize_paw_corrections(pd)
 
         kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
-                                            m1, m2)
+                                            m1, m2, block=block)
+
         m_m = np.arange(m1, m2)
         n_n = np.arange(n1, n2)
         
         n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
-                                           Q_aGii=self.Q_aGii)
+                                           Q_aGii=self.Q_aGii, block=block)
 
         if integrationmode is None:
             n_nmG *= weight
