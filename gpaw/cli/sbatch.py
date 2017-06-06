@@ -6,6 +6,7 @@ usage = """gpaw sbatch [-0] -- [sbatch options] script.py [script options]
    or: gpaw sbatch [-0] -- [sbatch options] python -m module [module options]
 """
 
+
 class CLICommand:
     short_description = 'Submit a GPAW Python script via sbatch.'
 
