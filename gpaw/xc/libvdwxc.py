@@ -56,7 +56,7 @@ for a spin-polarized system.  This is not entirely rigorous, so the
 calculation cannot be considered a true vdW-DF-family calculation."""
 _VDW_NUMERICAL_CODES = {'vdW-DF': 1,
                         'vdW-DF2': 2,
-                        'vdW-DF-CX': 3}
+                        'vdW-DF-cx': 3}
 
 
 class LibVDWXC(object):
@@ -484,83 +484,83 @@ class VDWXC(XCFunctional):
         self.timer.stop('van der Waals')
 
 
-def vdw_df(*args, **kwargs):
-    stencil = kwargs.pop('stencil', 2)
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_PBE_R+LDA_C_PW'),
-                                  stencil=stencil),
-                 name='vdW-DF', *args, **kwargs)
+def vdw_df(**kwargs):
+    kwargs1 = dict(name='vdW-DF', setup_name='revPBE',
+                   semilocal_xc=GGA(LibXC('GGA_X_PBE_R+LDA_C_PW'),
+                                    stencil=kwargs.pop('stencil', 2)))
+    kwargs1.update(kwargs)
+    return VDWXC(**kwargs1)
 
 
-def vdw_df2(*args, **kwargs):
-    stencil = kwargs.pop('stencil', 2)
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_RPW86+LDA_C_PW'),
-                                  stencil=stencil),
-                 name='vdW-DF2', *args, **kwargs)
+def vdw_df2(**kwargs):
+    kwargs1 = dict(name='vdW-DF2', setup_name='PBE',
+                   semilocal_xc=GGA(LibXC('GGA_X_RPW86+LDA_C_PW'),
+                                    stencil=kwargs.pop('stencil', 2)))
+    kwargs1.update(kwargs)
+    return VDWXC(**kwargs1)
 
-
-def vdw_df_cx(*args, **kwargs):
-    stencil = kwargs.pop('stencil', 2)
-    try:
-        # Exists in libxc 2.2.2 or newer (or maybe from older)
+def vdw_df_cx(**kwargs):
+    # cx semilocal exchange is in libxc 2.2.2 or newer (or maybe from older)
+    kernel = kwargs.get('kernel')
+    if kernel is None:
         kernel = LibXC('GGA_X_LV_RPW86+LDA_C_PW')
-    except NameError:
-        kernel = CXGGAKernel()
 
-    # Hidden debug feature
-    if kwargs.get('gga_backend') == 'purepython':
-        kernel = CXGGAKernel()
-        kwargs.pop('gga_backend')
-    assert 'gga_backend' not in kwargs
-
-    return VDWXC(semilocal_xc=GGA(kernel, stencil=stencil),
-                 name='vdW-DF-CX', *args, **kwargs)
+    kwargs1 = dict(name='vdW-DF-cx', setup_name='PBE',
+                   # PBEsol is most correct but not distributed by default.
+                   semilocal_xc=GGA(kernel, stencil=kwargs.pop('stencil', 2)))
+    kwargs1.update(kwargs)
+    return VDWXC(**kwargs1)
 
 
-def vdw_optPBE(*args, **kwargs):
-    stencil = kwargs.pop('stencil', 2)
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_OPTPBE_VDW+LDA_C_PW'),
-                                  stencil=stencil),
-                 name='vdW-optPBE', libvdwxc_name='vdW-DF', *args, **kwargs)
+def vdw_optPBE(**kwargs):
+    kwargs1 = dict(name='vdW-optPBE', libvdwxc_name='vdW-DF', setup_name='PBE',
+                   semilocal_xc=GGA(LibXC('GGA_X_OPTPBE_VDW+LDA_C_PW'),
+                                    stencil=kwargs.pop('stencil', 2)))
+    kwargs1.update(kwargs)
+    return VDWXC(**kwargs1)
 
 
-def vdw_optB88(*args, **kwargs):
-    stencil = kwargs.pop('stencil', 2)
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_OPTB88_VDW+LDA_C_PW'),
-                                  stencil=stencil),
-                 name='optB88', libvdwxc_name='vdW-DF', *args, **kwargs)
+def vdw_optB88(**kwargs):
+    kwargs1 = dict(name='optB88', libvdwxc_name='vdW-DF', setup_name='PBE',
+                   semilocal_xc=GGA(LibXC('GGA_X_OPTB88_VDW+LDA_C_PW'),
+                                    stencil=kwargs.pop('stencil', 2)))
+    kwargs1.update(kwargs)
+    return VDWXC(**kwargs1)
 
 
-def vdw_C09(*args, **kwargs):
-    stencil = kwargs.pop('stencil', 2)
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_C09X+LDA_C_PW'),
-                                  stencil=stencil),
-                 name='vdW-C09', libvdwxc_name='vdW-DF', *args, **kwargs)
+def vdw_C09(**kwargs):
+    kwargs1 = dict(name='vdW-C09', libvdwxc_name='vdW-DF', setup_name='PBE',
+                   semilocal_xc=GGA(LibXC('GGA_X_C09X+LDA_C_PW'),
+                                    stencil=kwargs.pop('stencil', 2)))
+    kwargs1.update(kwargs)
+    return VDWXC(**kwargs1)
 
 
-def vdw_beef(*args, **kwargs):
-    stencil = kwargs.pop('stencil', 2)
+def vdw_beef(**kwargs):
     # Kernel parameters stolen from vdw.py
     from gpaw.xc.bee import BEEVDWKernel
     kernel = BEEVDWKernel('BEE2', None,
                           0.600166476948828631066,
                           0.399833523051171368934)
-    return VDWXC(semilocal_xc=GGA(kernel, stencil=stencil), name='vdW-BEEF',
-                 setup_name='PBE', libvdwxc_name='vdW-DF2',
-                 *args, **kwargs)
+    kwargs1 = dict(name='vdW-BEEF', libvdwxc_name='vdW-DF2', setup_name='PBE',
+                   semilocal_xc=GGA(kernel, stencil=kwargs.pop('stencil', 2)))
+    kwargs1.update(kwargs)
+    return VDWXC(**kwargs1)
 
 
-def vdw_mbeef(*args, **kwargs):
-    stencil = kwargs.pop('stencil', 2)
+def vdw_mbeef(**kwargs):
     # Note: Parameters taken from vdw.py
     from gpaw.xc.bee import BEEVDWKernel
     kernel = BEEVDWKernel('BEE3', None, 0.405258352, 0.356642240)
-    return VDWXC(semilocal_xc=MGGA(kernel, stencil=stencil), name='vdW-mBEEF',
-                 setup_name='PBEsol', libvdwxc_name='vdW-DF2',
-                 vdwcoef=0.886774972)
+    kwargs1 = dict(name='vdW-mBEEF', setup_name='PBEsol',
+                   libvdwxc_name='vdW-DF2', vdwcoef=0.886774972,
+                   semilocal_xc=MGGA(kernel, stencil=kwargs.pop('stencil', 2)))
+    kwargs1.update(kwargs)
+    return VDWXC(**kwargs1)
 
 
 # String to functional mapping
-def get_libvdwxc_functional(name, *args, **kwargs):
+def get_libvdwxc_functional(name, **kwargs):
     if 'name' in kwargs:
         name2 = kwargs.pop('name')
         assert name == name2
@@ -578,10 +578,11 @@ def get_libvdwxc_functional(name, *args, **kwargs):
         from gpaw.xc import XC
         semilocal_xc = XC(semilocal_xc)
 
-    func = funcs[name](*args, **kwargs)
+    func = funcs[name](**kwargs)
     if semilocal_xc is not None:
         assert semilocal_xc.name == func.semilocal_xc.name
     return func
+
 
 class CXGGAKernel:
     def __init__(self, just_kidding=False):
@@ -591,7 +592,7 @@ class CXGGAKernel:
         if self.just_kidding:
             self.name = 'purepython rPW86_with_%s' % self.lda_c.name
         else:
-            self.name = 'purepython CX'
+            self.name = 'purepython cx'
 
     def calculate(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         e_g[:] = 0.0
