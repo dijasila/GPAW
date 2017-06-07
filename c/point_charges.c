@@ -11,12 +11,13 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
     double rc;
     double rc2;
     double width;
+    double nm;
     PyArrayObject* cqm_v_obj;
     PyArrayObject* vext_G_obj;
     PyArrayObject* rhot_G_obj = 0;
     PyArrayObject* F_pv_obj = 0;
-    if (!PyArg_ParseTuple(args, "OOOOOdddOO|OO", &beg_v_obj, &h_v_obj, &q_p_obj,
-                          &R_pv_obj, &com_pv_obj, &rc, &rc2, &width, &cqm_v_obj, 
+    if (!PyArg_ParseTuple(args, "OOOOOddddOO|OO", &beg_v_obj, &h_v_obj, &q_p_obj,
+                          &R_pv_obj, &com_pv_obj, &rc, &rc2, &width, &nm, &cqm_v_obj, 
                           &vext_G_obj, &rhot_G_obj, &F_pv_obj))
     return NULL;
 
@@ -90,6 +91,7 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
                     else {
                         // Calculate forces:
                         double w;  // -(dv/dr)/r
+                        double o = 0.0;
                         if (rc < 0.0) {
                             double x = (d * d * d * d * d +
                                         rc * rc * rc * rc * rc);
@@ -102,8 +104,8 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
                                 w = 0.0;
                             else if (dc > rc12) {
                                 double x = (dc - rc12) / width;
-                                w = (6 * x * (1 - x) / width +
-                                     (1 - x * x * (3 - 2 * x)) / d) / (d * d);
+                                w = (1 - x * x * (3 - 2 * x)) / (d * d * d);
+                                o = 6 * x * (1 - x) / (width * dc * d);
                             }
                             else if (d > rc)
                                 w = 1 / (d * d * d);
@@ -116,10 +118,11 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
                                      (rc * rc * rc));
                             }
                         w *= q_p[p] * rhot_G[G] * dV;
+                        o *= q_p[p] * rhot_G[G] * dV;
                         double* F_v = F_pv + 3 * p;
-                        F_v[0] -= w * dx;
-                        F_v[1] -= w * dy;
-                        F_v[2] -= w * dz;
+                        F_v[0] -= w * dx - o * dxc;
+                        F_v[1] -= w * dy - o * dyc;
+                        F_v[2] -= w * dz - o * dzc;
                     }
                 }
             }
