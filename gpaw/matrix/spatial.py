@@ -21,7 +21,7 @@ class SpatialMatrix(Matrix):
             c.comm_to_be_summed_over = self.comm
             assert opb in 'TH' and b.comm is self.comm
 
-    def matrix_elements(self, other, out, hermitian=False):
+    def matrix_elements(self, other, out=None, hermitian=False):
         if out is None:
             out = Matrix(len(self), len(other))
         self.mmm(self.dv, 'C', other, 'T', 0.0, out)
@@ -78,7 +78,7 @@ class UniformGridWaveFunctions(SpatialMatrix):
         plt.show()
 
 
-class PlaneWaveExpansions(SpatialMatrix):
+class PlaneWaveExpansionWaveFunctions(SpatialMatrix):
     def __init__(self, M, pd, data, q=-1, dist=None):
         orig = data
         if pd.dtype == float:

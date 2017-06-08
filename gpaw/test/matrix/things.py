@@ -3,8 +3,8 @@ import numpy as np
 # from gpaw.mpi import world
 # from gpaw.fd_operators import Laplace
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.matrix import (Matrix, UniformGridFunctions, AtomBlockMatrix,
-                         AtomCenteredFunctions, PlaneWaveExpansions,
+from gpaw.matrix import (Matrix, UniformGridWaveFunctions, AtomBlockMatrix,
+                         AtomCenteredFunctions, PlaneWaveExpansionWaveFunctions,
                          UniformGridDensity)
 from gpaw.spline import Spline
 
@@ -16,7 +16,7 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
     phi_M.set_positions(spositions)
     nbands = len(phi_M)
     if desc.mode == 'fd':
-        create = UniformGridFunctions
+        create = UniformGridWaveFunctions
     else:
         create = PlaneWaveExpansions
     psi_n = create(nbands, desc, dtype=dtype, kpt=kpt,
