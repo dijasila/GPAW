@@ -350,9 +350,8 @@ tests = [
     'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
     'exx/AA_enthalpy.py',                   # ~119s
-    'response/df_block_par_test_na_plasmons.py',  # ~120
-    'response/df_block_par_test_na_plasmons_tetrahedron_integration.py',
-    # ~120s
+    'response/na_plasmons.py',
+    'response/na_plasmons_tetrahedron.py',  # ~120s
     'lcao/tdgllbsc.py',                     # ~132s
     'solvation/forces.py',                  # ~140s
     'response/gw_MoS2_cut.py',
@@ -423,9 +422,8 @@ if mpi.size < 4:
                 'parallel/diamond_gllb.py',
                 'parallel/lcao_parallel_kpt.py',
                 'parallel/fd_parallel_kpt.py',
-                'response/df_block_par_test_na_plasmons.py',
-                'response/df_block_par_test_na_plasmons_' +
-                'tetrahedron_integration.py']
+                'response/na_plasmons.py',
+                'response/na_plasmons_tetrahedron.py']
 
 
 if mpi.size != 4:
