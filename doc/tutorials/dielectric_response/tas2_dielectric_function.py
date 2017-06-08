@@ -29,13 +29,13 @@ calc = GPAW(mode=PW(600),
 
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
-calc.write('TaS2_gs.gpw')
+calc.write('TaS2-gs.gpw')
 
 # 2) Unoccupied bands
 
 kpts = find_high_symmetry_monkhorst_pack('TaS2_gs.gpw', density=5.0)
 
-responseGS = GPAW('TaS2_gs.gpw',
+responseGS = GPAW('TaS2-gs.gpw',
                   fixdensity=True,
                   kpts=kpts,
                   parallel={'band': 1},
@@ -43,11 +43,11 @@ responseGS = GPAW('TaS2_gs.gpw',
                   convergence={'bands': 50})
 
 responseGS.get_potential_energy()
-responseGS.write('gsresponse.gpw', 'all')
+responseGS.write('TaS2-gsresponse.gpw', 'all')
 
 # 3) Dielectric function
 
-df = DielectricFunction('gsresponse.gpw', eta=25e-3, domega0=0.01,
+df = DielectricFunction('TaS2-gsresponse.gpw', eta=25e-3, domega0=0.01,
                         integrationmode='tetrahedron integration')
 
 df1tetra_w, df2tetra_w = df.get_dielectric_function(direction='x')
