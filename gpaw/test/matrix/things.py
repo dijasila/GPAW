@@ -5,7 +5,7 @@ import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.matrix import (Matrix, UniformGridWaveFunctions, AtomBlockMatrix,
                          AtomCenteredFunctions, PlaneWaveExpansionWaveFunctions,
-                         UniformGridDensity)
+                         UniformGridDensity, ProjectionMatrix)
 from gpaw.spline import Spline
 
 
@@ -37,8 +37,8 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
     psi2_n = psi_n.new()
     psi2_n[:] = S_nn.T * psi_n
 
-    (psi2_n.C * psi2_n).integrate(out=S_nn)
-    (pt_I.C * psi2_n).integrate(out=P_In)
+    psi2_n.matrix_elements(psi2_n, out=S_nn)
+    pt_I.matrix_elements(psi2_n, out=P_In)
     dSP_In[:] = dS_II * P_In
     norm = S_nn.a.trace()
     S_nn += P_In.H * dSP_In

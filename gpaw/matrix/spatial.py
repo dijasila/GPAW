@@ -67,8 +67,9 @@ class UniformGridWaveFunctions(SpatialMatrix):
         return s
 
     def new(self, buf=None):
-        return UniformGridFunctions(self.shape[0], self.gd, self.dtype, buf,
-                                    None, self.dist)
+        return UniformGridWaveFunctions(self.shape[0], self.gd, self.dtype,
+                                        buf,
+                                        None, self.dist)
 
     def plot(self):
         import matplotlib.pyplot as plt
@@ -141,7 +142,7 @@ class AtomCenteredFunctions:
             self.lfc.lfc.lcao_to_grid(coef_M, a, -1)
             coef_M[M] = 0.0
 
-    def matrix_elements(self, other, out, hermetian):
+    def matrix_elements(self, other, out, hermetian=False):
         self.lfc.integrate(other.array, self.dictview(out), -1)
 
     def dictview(self, matrix):
@@ -173,6 +174,10 @@ class UniformGridDensity:
 
 
 class ProjectionMatrix(Matrix):
+    pass
+
+
+class HMMM:
     def __init__(self, M, comm, dtype, P_ani, dist):
         if isinstance(P_ani, dict):
             self.atom_indices = []
@@ -218,3 +223,4 @@ class ProjectionMatrix(Matrix):
                 c.a[:, I1:I2] = np.dot(self.a[:, I1:I2], M_ii)
         else:
             SpatialMatrix.mmm(self, alpha, opa, b, opb, beta, c)
+0
