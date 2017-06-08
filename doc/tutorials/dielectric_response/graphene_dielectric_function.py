@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from ase import Atoms
 from ase.units import Hartree, Bohr
+from ase.utils import seterr
 
 from gpaw import GPAW, FermiDirac
 from gpaw.wavefunctions.pw import PW
@@ -63,8 +64,9 @@ if world.rank == 0:
     plt.plot(omega_w, df2tetra.imag * 2, label='Tetrahedron')
     # Analytical result for graphene
     sigmainter = 1 / 4.  # The surface conductivity of graphene
-    dfanalytic = 1 + (4 * np.pi * 1j / (omega_w / Hartree) *
-                      sigmainter / (c / Bohr))
+    with seterr(divide='ignore', invalid='ignore'):
+        dfanalytic = 1 + (4 * np.pi * 1j / (omega_w / Hartree) *
+                          sigmainter / (c / Bohr))
 
     plt.plot(omega_w, dfanalytic.imag, label='Analytic')
 
