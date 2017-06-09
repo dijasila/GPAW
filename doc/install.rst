@@ -145,7 +145,7 @@ one core::
     $ gpaw test -j 4
 
 Please report errors to the ``gpaw-developers`` mailing list so that we
-can fix them (see :ref:`mail lists`).
+can fix them (see :ref:`mail list`).
 
 If tests pass, and the parallel version is built, test the parallel code::
 

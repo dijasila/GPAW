@@ -295,8 +295,7 @@ class GPAW(PAW, Calculator):
 
             if self.wfs.nspins == 2:
                 magmom = self.occupations.magmom
-                magmom_a = self.density.estimate_magnetic_moments(
-                    total=magmom)
+                magmom_a = self.density.estimate_magnetic_moments()
                 self.log('Total magnetic moment: %f' % magmom)
                 self.log('Local magnetic moments:')
                 symbols = self.atoms.get_chemical_symbols()
@@ -1040,4 +1039,11 @@ class GPAW(PAW, Calculator):
         print_cell(self.wfs.gd, self.atoms.pbc, self.log)
         print_positions(self.atoms, self.log)
         self.log.fd.flush()
+
+        # Write timing info now before the interpreter shuts down:
+        self.__del__()
+
+        # Disable timing output during shut-down:
+        del self.timer
+
         raise SystemExit

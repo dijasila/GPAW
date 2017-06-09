@@ -26,7 +26,7 @@ fermi-level.  See below how to extract the potential using the
 If we use periodic boundary conditions in all directions:
 
 .. literalinclude:: dipole.py
-    :lines: 16-19
+    :lines: 15-18
 
 the electrostatic potential will be periodic and average to zero:
 
@@ -38,7 +38,7 @@ region away from the slab.  This can be achieved by using a dipole
 correction:
 
 .. literalinclude:: dipole.py
-    :lines: 21-25
+    :lines: 20-24
 
 .. image:: corrected.png
 

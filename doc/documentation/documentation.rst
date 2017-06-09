@@ -30,8 +30,8 @@ Developers should consult the :ref:`devel` pages.
    advanced_topics
    literature
    introduction_to_paw
-   
+
 If you can not find what you are looking for in any of the above,
-please consult the :ref:`mail lists`.
+please consult the :ref:`mail list`.
 
 .. _pdf file on PAW theory: paw_note.pdf

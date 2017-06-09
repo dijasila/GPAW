@@ -14,6 +14,10 @@ Git master branch
   Please use ``--gpaw dry_run=N`` and ``--gpaw debug=True`` instead
   (or ``--gpaw dry_run=N,debug=True`` for both).
 
+* The :meth:`ase.atoms.get_magnetic_moments` method will no longer be
+  scaled to sum up to the total magnetic moment.  Instead, the magnetic
+  moments integrated inside the atomic PAW spheres will be returned.
+
 
 Version 1.2.0
 =============
@@ -65,6 +69,7 @@ Version 1.2.0
 * XC objects can now be specified as dictionaries, allowing GGAs and MGGAs
   with custom stencils: ``GPAW(xc={'name': 'PBE', 'stencil': 2})``
 
+* Support for spin-polarized vdW-DF functionals (svdW-DF) with libvdwxc.
 
 Version 1.1.0
 =============

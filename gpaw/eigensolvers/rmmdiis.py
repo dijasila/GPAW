@@ -48,7 +48,7 @@ class RMMDIIS(Eigensolver):
 
     def todict(self):
         return {'name': 'rmm-diis', 'niter': self.niter}
-        
+
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do a single RMM-DIIS iteration for the kpoint"""
 
@@ -232,7 +232,7 @@ class RMMDIIS(Eigensolver):
                 # Do not perform DIIS if error is small
                 # if abs(error_block / B) < self.rtol:
                 #     break
-                
+
                 # Update the subspace
                 psit_diis_nxG[nit:B * self.niter:self.niter] = psit_xG
                 R_diis_nxG[nit:B * self.niter:self.niter] = R_xG
@@ -306,7 +306,7 @@ class RMMDIIS(Eigensolver):
             dpsit_xG = self.preconditioner(R_xG, kpt, ekin_x)
             self.timer.stop('precondition')
             self.timer.start('Update psi')
-                
+
             if self.trial_step is not None:
                 lam_x[:] = self.trial_step
             for lam, psit_G, dpsit_G in zip(lam_x, psit_xG, dpsit_xG):
@@ -320,7 +320,7 @@ class RMMDIIS(Eigensolver):
             #     norm += np.vdot(P_xi[0], np.inner(dO_ii, P_xi[0]))
             # norm = comm.sum(np.real(norm).item())
             # psit_xG /= np.sqrt(norm)
-            
+
         self.timer.stop('RMM-DIIS')
         return error, psit_nG
 
