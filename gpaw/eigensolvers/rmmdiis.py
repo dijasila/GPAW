@@ -75,9 +75,6 @@ class RMMDIIS(Eigensolver):
         if self.niter > 1:
             psit_diis_nxG = wfs.empty(B * self.niter, q=kpt.q)
             R_diis_nxG = wfs.empty(B * self.niter, q=kpt.q)
-            # P_diis_anxi = wfs.pt.dict(B * self.niter)
-            eig_n = np.zeros(self.niter)  # eigenvalues for diagonalization
-                                          # not needed in any step
 
         error = 0.0
         for n1 in range(0, wfs.bd.mynbands, B):
@@ -265,7 +262,8 @@ class RMMDIIS(Eigensolver):
                         alpha_i = np.linalg.solve(A_nn, x_n)[:-1]
                         self.timer.stop('Linear solve')
                         self.timer.start('Update trial vectors')
-                        psit_xG[ib] = alpha_i[nit] * psit_diis_nxG[istart + nit]
+                        psit_xG[ib] = alpha_i[nit] * psit_diis_nxG[istart +
+                                                                   nit]
                         R_xG[ib] = alpha_i[nit] * R_diis_nxG[istart + nit]
                         for i in range(nit):
                             # axpy(alpha_i[i], psit_diis_nxG[istart + i],
@@ -334,4 +332,3 @@ class RMMDIIS(Eigensolver):
         repr_string += '       use_rayleigh: %s\n' % self.use_rayleigh
         repr_string += '       trial_step: %s' % self.trial_step
         return repr_string
-
