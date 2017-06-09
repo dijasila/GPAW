@@ -119,7 +119,6 @@ class PointChargePotential(ExternalPotential):
         self.rc = rc / Bohr
         self.rc2 = rc2 / Bohr
         self.width = width / Bohr
-        self.nm = 0.0
         if positions is not None:
             self.set_positions(positions)
         else:
@@ -143,15 +142,6 @@ class PointChargePotential(ExternalPotential):
         """Update positions."""
         if com_pv is not None:
             self.com_pv = np.asarray(com_pv) / Bohr
-            # Count number of atoms in mol
-            N  = self.com_pv[0]
-            nm = 0.0
-            for i, arr in enumerate(self.com_pv):
-                if (N == arr).all():
-                    nm += 1.0
-                else:
-                    break
-            self.nm = nm
         else:
             self.com_pv = None
 
@@ -169,7 +159,7 @@ class PointChargePotential(ExternalPotential):
             self.rcc = rcc * Bohr
         _gpaw.pc_potential(gd.beg_c, gd.h_cv.diagonal().copy(),
                            self.q_p, self.R_pv, self.com_pv,
-                           self.rc, self.rc2, self.width, self.nm,
+                           self.rc, self.rc2, self.width,
                            cqm_v, self.vext_g)
 
     def get_forces(self, calc):
@@ -181,7 +171,7 @@ class PointChargePotential(ExternalPotential):
         _gpaw.pc_potential(gd.beg_c, gd.h_cv.diagonal().copy(),
                            self.q_p, self.R_pv, self.com_pv,
                            self.rc, self.rc2, self.width,
-                           self.nm, cqm_v,
+                           cqm_v,
                            self.vext_g, dens.rhot_g, F_pv)
         gd.comm.sum(F_pv)
         return F_pv * Hartree / Bohr
