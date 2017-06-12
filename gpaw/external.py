@@ -126,6 +126,9 @@ class PointChargePotential(ExternalPotential):
 
         if abs(self.q_p).max() < 1e-14:
             warnings.warn('No charges!')
+        if self.rc < 0. and self.rc2 < np.inf:
+            warnings.warn('Long range cutoff chosen but will not be applied\
+                           for negative inner cutoff values!')
 
     def __str__(self):
         return ('Point-charge potential '
@@ -135,25 +138,41 @@ class PointChargePotential(ExternalPotential):
                         (self.rc2 - self.width) * Bohr,
                         self.rc2 * Bohr))
 
-    def set_positions(self, R_pv):
+    def set_positions(self, R_pv, com_pv=None):
         """Update positions."""
+        if com_pv is not None:
+            self.com_pv = np.asarray(com_pv) / Bohr
+        else:
+            self.com_pv = None
+
         self.R_pv = np.asarray(R_pv) / Bohr
         self.vext_g = None
+
+    def _molecule_distances(self, gd):
+        if self.com_pv is not None:
+            return gd.cell_cv.sum(0) / 2 - self.com_pv
 
     def calculate_potential(self, gd):
         assert gd.orthogonal
         self.vext_g = gd.zeros()
+
+        dcom_pv = self._molecule_distances(gd)
+
         _gpaw.pc_potential(gd.beg_c, gd.h_cv.diagonal().copy(),
-                           self.q_p, self.R_pv, self.rc, self.rc2, self.width,
-                           self.vext_g)
+                           self.q_p, self.R_pv,
+                           self.rc, self.rc2, self.width,
+                           self.vext_g, dcom_pv)
 
     def get_forces(self, calc):
         """Calculate forces from QM charge density on point-charges."""
         dens = calc.density
         F_pv = np.zeros_like(self.R_pv)
         gd = dens.finegd
+        dcom_pv = self._molecule_distances(gd)
+
         _gpaw.pc_potential(gd.beg_c, gd.h_cv.diagonal().copy(),
-                           self.q_p, self.R_pv, self.rc, self.rc2, self.width,
-                           self.vext_g, dens.rhot_g, F_pv)
+                           self.q_p, self.R_pv,
+                           self.rc, self.rc2, self.width,
+                           self.vext_g, dcom_pv, dens.rhot_g, F_pv)
         gd.comm.sum(F_pv)
         return F_pv * Hartree / Bohr
