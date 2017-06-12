@@ -148,30 +148,31 @@ class PointChargePotential(ExternalPotential):
         self.R_pv = np.asarray(R_pv) / Bohr
         self.vext_g = None
 
+    def _molecule_distances(self, gd):
+        if self.com_pv is not None:
+            return gd.cell_cv.sum(0) / 2 - self.com_pv
+
     def calculate_potential(self, gd):
         assert gd.orthogonal
         self.vext_g = gd.zeros()
-        cqm_v = np.diag(gd.N_c * gd.h_cv) / 2.0
 
-        # For testingi
-        if self.com_pv is not None:
-            rcc = np.linalg.norm(cqm_v - self.com_pv[0])
-            self.rcc = rcc * Bohr
+        dcom_pv = self._molecule_distances(gd)
+
         _gpaw.pc_potential(gd.beg_c, gd.h_cv.diagonal().copy(),
-                           self.q_p, self.R_pv, self.com_pv,
+                           self.q_p, self.R_pv,
                            self.rc, self.rc2, self.width,
-                           cqm_v, self.vext_g)
+                           self.vext_g, dcom_pv)
 
     def get_forces(self, calc):
         """Calculate forces from QM charge density on point-charges."""
         dens = calc.density
         F_pv = np.zeros_like(self.R_pv)
         gd = dens.finegd
-        cqm_v = np.diag(gd.N_c * gd.h_cv) / 2.0
+        dcom_pv = self._molecule_distances(gd)
+
         _gpaw.pc_potential(gd.beg_c, gd.h_cv.diagonal().copy(),
-                           self.q_p, self.R_pv, self.com_pv,
+                           self.q_p, self.R_pv,
                            self.rc, self.rc2, self.width,
-                           cqm_v,
-                           self.vext_g, dens.rhot_g, F_pv)
+                           self.vext_g, dcom_pv, dens.rhot_g, F_pv)
         gd.comm.sum(F_pv)
         return F_pv * Hartree / Bohr
