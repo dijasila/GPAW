@@ -150,7 +150,7 @@ class PointChargePotential(ExternalPotential):
 
     def _molecule_distances(self, gd):
         if self.com_pv is not None:
-            return gd.cell_cv.sum(0) / 2 - self.com_pv
+            return self.com_pv - gd.cell_cv.sum(0) / 2
 
     def calculate_potential(self, gd):
         assert gd.orthogonal

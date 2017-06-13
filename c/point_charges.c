@@ -58,10 +58,10 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
                     double d  = sqrt(dx * dx + dy * dy + dz * dz);
                     double dc, dxc, dyc, dzc;
                     if (dcom_pv == 0) {
-                        dc = 0.0;
-                        dxc = 0.0;
-                        dyc = 0.0;
-                        dzc = 0.0;
+                        dc = d;
+                        dxc = dx;
+                        dyc = dy;
+                        dzc = dz;
                     } else {
                         const double* dcom_v = dcom_pv + 3 * p;
                         dxc = dcom_v[0];
@@ -127,9 +127,9 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
                         w *= q_p[p] * rhot_G[G] * dV;
                         o *= q_p[p] * rhot_G[G] * dV;
                         double* F_v = F_pv + 3 * p;
-                        F_v[0] -= w * dx - o * dxc;
-                        F_v[1] -= w * dy - o * dyc;
-                        F_v[2] -= w * dz - o * dzc;
+                        F_v[0] -= w * dx + o * dxc;
+                        F_v[1] -= w * dy + o * dyc;
+                        F_v[2] -= w * dz + o * dzc;
                     }
                 }
             }
