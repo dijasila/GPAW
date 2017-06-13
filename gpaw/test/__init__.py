@@ -456,7 +456,7 @@ if not compiled_with_sl():
 
 if not compiled_with_libvdwxc():
     exclude.append('vdw/libvdwxc_functionals.py')
-    exclude.append('vdw/libvdwxc_h2o.py')
+    exclude.append('vdw/libvdwxc_h2.py')
     exclude.append('vdw/libvdwxc_mbeef.py')
     exclude.append('vdw/libvdwxc_spin.py')
 
