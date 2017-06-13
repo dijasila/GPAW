@@ -177,7 +177,6 @@ tests = [
     'pseudopotential/ah.py',                # ~2s
     'lcao/restart.py',                      # ~2s
     'lcao/tddft.py',                        # ~2s
-    'vdw/libvdwxc_h2o.py',                  # ~2s
     'lcao/gllb_si.py',                      # ~2s
     'fileio/wfs_io.py',                     # ~3s
     'lrtddft/2.py',                         # ~3s
@@ -187,6 +186,7 @@ tests = [
     'pw/fulldiagk.py',                      # ~3s
     'ext_potential/external.py',            # ~3s
     'lcao/atomic_corrections.py',           # ~3s
+    'vdw/libvdwxc_h2.py',                   # ~3s
     'generic/mixer.py',                     # ~3s
     'parallel/lcao_projections.py',         # ~3s
     'lcao/h2o.py',                          # ~3s
