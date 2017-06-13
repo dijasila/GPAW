@@ -212,11 +212,22 @@ class FFTDistribution:
         self.domains_out = Domains([get_domains(N_c[i], parsize_c[i])
                                     for i in range(3)])
 
-        # The auxiliary gd actually is used *only* for the rank/parpos
-        # correspondence.  The actual domains it defines are unused!!
-        self.aux_gd = gd.new_descriptor(comm=gd.comm, parsize_c=parsize_c)
-        parpos_c = self.aux_gd.get_processor_position_from_rank()
+        if parsize_c[1] == 1 and parsize_c[2] == 1:
+            def aux_rank_to_parpos(rank=gd.comm.rank):
+                return np.array([rank, 0, 0], int)
+        else:
+            # For 2D distributions we use a grid descriptor.  We could
+            # actually use a grid descriptor always, but that causes trouble
+            # when there are more cores than grid points, which could well
+            # be the case when the distribution is only 1D.
+            #
+            # The auxiliary gd actually is used *only* for the rank/parpos
+            # correspondence.  The actual domains it defines are unused!!
+            aux_gd = gd.new_descriptor(comm=gd.comm, parsize_c=parsize_c)
+            aux_rank_to_parpos = aux_gd.get_processor_position_from_rank
 
+        parpos_c = aux_rank_to_parpos()
+        self.aux_rank_to_parpos = aux_rank_to_parpos
         self.local_output_size_c = tuple(self.domains_out.get_box(parpos_c)[1])
 
     def block_zeros(self, shape=(),):
@@ -226,13 +237,13 @@ class FFTDistribution:
         general_redistribute(self.input_gd.comm,
                              self.domains_in, self.domains_out,
                              self.input_gd.get_processor_position_from_rank,
-                             self.aux_gd.get_processor_position_from_rank,
+                             self.aux_rank_to_parpos,
                              a_xg, b_xg, behavior='overwrite')
 
     def block2gd_add(self, a_xg, b_xg):
         general_redistribute(self.input_gd.comm,
                              self.domains_out, self.domains_in,
-                             self.aux_gd.get_processor_position_from_rank,
+                             self.aux_rank_to_parpos,
                              self.input_gd.get_processor_position_from_rank,
                              a_xg, b_xg, behavior='add')
 
