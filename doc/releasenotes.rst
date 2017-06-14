@@ -14,9 +14,11 @@ Git master branch
   Please use ``--gpaw dry_run=N`` and ``--gpaw debug=True`` instead
   (or ``--gpaw dry_run=N,debug=True`` for both).
 
-* The :meth:`ase.atoms.get_magnetic_moments` method will no longer be
+* The :meth:`ase.Atoms.get_magnetic_moments` method will no longer be
   scaled to sum up to the total magnetic moment.  Instead, the magnetic
   moments integrated inside the atomic PAW spheres will be returned.
+
+* New *sbatch* sub-command for GPAW's :ref:`cli`.
 
 
 Version 1.2.0
@@ -70,6 +72,7 @@ Version 1.2.0
   with custom stencils: ``GPAW(xc={'name': 'PBE', 'stencil': 2})``
 
 * Support for spin-polarized vdW-DF functionals (svdW-DF) with libvdwxc.
+
 
 Version 1.1.0
 =============
@@ -302,8 +305,7 @@ Version 0.9.0
 
 * GPAW should now work also with NumPy 1.6.
 
-* Much improved :ref:`command line tool` now based on the `new
-  tool`_ in ASE.
+* Much improved :ref:`cli` now based on the `new tool`_ in ASE.
 
 
 .. _new tool: https://wiki.fysik.dtu.dk/ase/ase/cmdline.html
