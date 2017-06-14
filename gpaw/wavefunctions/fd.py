@@ -65,12 +65,9 @@ class FDWaveFunctions(FDPWWaveFunctions):
         return self.gd.bytecount(self.dtype)
 
     def set_setups(self, setups):
-        self.pt = LFC(self.gd, [setup.pt_j for setup in setups],
+        self.pt_I = LFC(self.gd, [setup.pt_j for setup in setups],
                       self.kd, dtype=self.dtype, forces=True)
         FDPWWaveFunctions.set_setups(self, setups)
-
-    def set_positions(self, spos_ac, atom_partition=None):
-        FDPWWaveFunctions.set_positions(self, spos_ac, atom_partition)
 
     def __str__(self):
         s = 'Wave functions: Uniform real-space grid\n'

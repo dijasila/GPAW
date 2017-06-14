@@ -176,31 +176,8 @@ class WaveFunctions:
                     D_sp[s] = pack(setup.symmetrize(a, D_aii,
                                                     self.kd.symmetry.a_sa))
 
-    def set_positions(self, spos_ac, atom_partition=None):
+    def set_positions(self, spos_ac):
         self.positions_set = False
-        # rank_a = self.gd.get_ranks_from_positions(spos_ac)
-        # atom_partition = AtomPartition(self.gd.comm, rank_a)
-        # XXX pass AtomPartition around instead of spos_ac?
-        # All the classes passing around spos_ac end up needing the ranks
-        # anyway.
-
-        if atom_partition is None:
-            rank_a = self.gd.get_ranks_from_positions(spos_ac)
-            atom_partition = AtomPartition(self.gd.comm, rank_a)
-
-        if self.atom_partition is not None and self.kpt_u[0].P_ani is not None:
-            self.timer.start('Redistribute')
-            mynks = len(self.kpt_u)
-
-            def get_empty(a):
-                ni = self.setups[a].ni
-                return np.empty((mynks, self.bd.mynbands, ni), self.dtype)
-            self.atom_partition.redistribute(atom_partition,
-                                             [kpt.P_ani for kpt in self.kpt_u],
-                                             get_empty)
-            self.timer.stop('Redistribute')
-
-        self.atom_partition = atom_partition
         self.kd.symmetry.check(spos_ac)
 
     def allocate_arrays_for_projections(self, my_atom_indices):

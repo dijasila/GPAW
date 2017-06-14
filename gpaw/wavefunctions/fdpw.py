@@ -45,11 +45,11 @@ class FDPWWaveFunctions(WaveFunctions):
     def set_setups(self, setups):
         WaveFunctions.set_setups(self, setups)
 
-    def set_positions(self, spos_ac, atom_partition=None):
-        WaveFunctions.set_positions(self, spos_ac, atom_partition)
+    def set_positions(self, spos_ac, rank_a):
+        WaveFunctions.set_positions(self, spos_ac)
         self.orthonormalized = False
-        self.pt.set_positions(spos_ac)
-        self.allocate_arrays_for_projections(self.pt.my_atom_indices)
+        self.pt_I.set_positions(spos_ac, rank_a)
+        self.kpt_u[:].P_In.set_ranks(rank_a)
         self.positions_set = True
 
     def make_overlap(self):
