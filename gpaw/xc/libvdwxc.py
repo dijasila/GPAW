@@ -347,11 +347,23 @@ class VDWXC(XCFunctional):
     def get_description(self):
         lines = []
         app = lines.append
-        # XXXXXXXXXXXXXXXXXXX
-        #app(self.libvdwxc.get_description())
-        app('GGA kernel: %s' % self.semilocal_xc.kernel.name)
-        #app('libvdwxc parameters for non-local correlation:')
-        #app(self.libvdwxc.tostring())
+        app('{} with libvdwxc'.format(self.name))
+        mode = self.libvdwxc.mode
+        ncores = self.libvdwxc.comm.size
+        cores = 'core' if ncores == 1 else 'cores'
+        if mode == 'mpi':
+            mode = 'mpi with {} {}'.format(ncores, cores)
+        elif mode == 'pfft':
+            nx, ny = self.libvdwxc.pfft_grid
+            mode = 'pfft with {} x {} {}'.format(nx, ny, cores)
+        app('Mode: {}'.format(mode))
+        app('Semilocal: {}'.format(self.semilocal_xc.kernel.name))
+        if self.libvdwxc.vdw_functional_name != self.name:
+            app('Corresponding non-local functional: {}'
+                .format(self.libvdwxc.vdw_functional_name))
+        app('Local blocksize: {} x {} x {}'
+            .format(*self.distribution.local_output_size_c))
+        app('PAW datasets: {}'.format(self.get_setup_name()))
         return '\n'.join(lines)
 
     def summary(self, log):
