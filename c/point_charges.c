@@ -24,7 +24,7 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
     const double *q_p = PyArray_DATA(q_p_obj);
     const double *R_pv = PyArray_DATA(R_pv_obj);
     const double *dcom_pv = 0;
-    if ((PyObject*)dcom_pv != Py_None)
+    if ((PyObject*)dcom_pv_obj != Py_None)
         dcom_pv = PyArray_DATA(dcom_pv_obj);
     double *vext_G = PyArray_DATA(vext_G_obj);
 
