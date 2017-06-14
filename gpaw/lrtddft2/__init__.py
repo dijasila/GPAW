@@ -364,13 +364,18 @@ class LrTDDFT2:
             # Initialize wfs, paw corrections and xc, if not done yet
             # FIXME: CHECK THIS STUFF, DOES GLLB WORK???
             if not self.calc_ready:
-                self.calc.converge_wave_functions()
+                if not self.calc.scf.converged:
+                    # Do not allow new scf cycles,
+                    # it could change the wave function signs after every restart.
+                    raise RuntimeError('Converge wave functions first.')
                 spos_ac = self.calc.initialize_positions()
                 self.calc.occupations.calculate(self.calc.wfs)
                 self.calc.wfs.initialize(self.calc.density,
                                          self.calc.hamiltonian, spos_ac)
                 self.xc.initialize(self.calc.density, self.calc.hamiltonian,
                                    self.calc.wfs, self.calc.occupations)
+                if self.calc.wfs.mode == 'lcao':
+                    self.calc.wfs.initialize_wave_functions_from_lcao()
                 self.calc_ready = True
 
         # Singles logic
