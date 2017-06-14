@@ -4,7 +4,7 @@ from ase import Atoms
 from ase.calculators.tip4p import TIP4P, epsilon0, sigma0, rOH, angleHOH
 from ase.calculators.qmmm import EIQMMM, LJInteractions, Embedding
 from ase.constraints import FixBondLengths
-from ase.optimize import BFGS
+from ase.optimize import LBFGS
 from ase.optimize.precon import PreconLBFGS, Exp
 from gpaw import GPAW
 
@@ -34,7 +34,7 @@ for selection in [[0, 1, 2], [3, 4, 5]]:
                         vacuum=4,
                         embedding=Embedding(rc=0.2, rc2=20, width=1),
                         output=name + '.out')
-    opt = BFGS(dimer, trajectory=name + '.traj')
+    opt = LBFGS(dimer, trajectory=name + '.traj')
     opt.run(0.02)
 
     monomer = dimer[selection]
@@ -46,9 +46,9 @@ for selection in [[0, 1, 2], [3, 4, 5]]:
     be = dimer.get_potential_energy() - e0
     d = dimer.get_distance(0, 3)
     print(name, be, d)
-    if name == '012----------':
-        assert abs(be - -0.260) < 0.002
-        assert abs(d - 2.79) < 0.02
-    if 0:  # else:
-        assert abs(be - -0.346) < 0.002
+    if name == '012':
+        assert abs(be - -0.288) < 0.002
+        assert abs(d - 2.76) < 0.02
+    else:
+        assert abs(be - -0.316) < 0.002
         assert abs(d - 2.67) < 0.02
