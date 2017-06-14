@@ -298,8 +298,6 @@ class VDWXC(XCFunctional):
         self._pfft_grid = pfft_grid
         self._vdwcoef = vdwcoef
         self.accept_partial_decomposition = accept_partial_decomposition
-        # To be completely rigorous and avoid the wrath of the functionalists,
-        # we must write a warning if we run spin-polarized.
         self._nspins = 1
 
         self.last_nonlocal_energy = None
@@ -340,7 +338,6 @@ class VDWXC(XCFunctional):
         return dct
 
     def set_grid_descriptor(self, gd):
-        #self.initialize_backend(gd)
         XCFunctional.set_grid_descriptor(self, gd)
         self.semilocal_xc.set_grid_descriptor(gd)
 
@@ -378,8 +375,6 @@ class VDWXC(XCFunctional):
         log('Semilocal %s energy: %.6f' % (self.semilocal_xc.kernel.name,
                                            esl * Hartree))
         log('(Not including atomic contributions)')
-        #if self._nspins != 1:
-        #    log('Warning: {}'.format(spinwarning))
 
     def get_setup_name(self):
         return self.setup_name
@@ -410,16 +405,8 @@ class VDWXC(XCFunctional):
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.timer = hamiltonian.timer  # fragile object robbery
         self.semilocal_xc.initialize(density, hamiltonian, wfs, occupations)
-        #self.timer.start('initialize')
-        #try:
-        #    gd = density.xc_redistributor.aux_gd  # fragile
-        #except AttributeError:
-        #    gd = density.finegd
         gd = self.gd
-        if density.nspins != 1:
-            #import warnings
-            #warnings.warn(spinwarning)
-            self._nspins = density.nspins
+        self._nspins = density.nspins
 
         self.initialize_backend(self.gd)
 
@@ -440,9 +427,7 @@ class VDWXC(XCFunctional):
                              'decomposition.' %
                              (gd.comm.size, wfs.world.size,
                               ' x '.join(str(N) for N in gd.N_c)))
-        #self._initialize(gd)
         # TODO Here we could decide FFT padding.
-        #self.timer.stop('initialize')
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         """Calculate energy and potential.
@@ -468,40 +453,15 @@ class VDWXC(XCFunctional):
             semiloc.process_mgga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
         else:
             semiloc.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-        #self.semilocal_xc.calculate_impl(gd, n_sg, v_sg, e_g)
         self.last_semilocal_energy = e_g.sum() * self.gd.dv
         self.timer.stop('semilocal')
-        #energy = GGA.calculate(self, gd, n_sg, v_sg, e_g=None)
-
-        #nspins = len(n_sg)
-        #if nspins == 1:
-        #    n_g = n_sg[0]
-        #    sigma_g = sigma_xg[0]
-        #    v_g = v_sg[0]
-        #    dedsigma_g = dedsigma_xg[0]
-        #elif nspins == 2:
-            #n_g = n_sg.sum(0)
-            #sigma_g = sigma_xg[0] + 2 * sigma_xg[1] + sigma_xg[2]
-            #v_g = np.zeros_like(n_g)
-            #dedsigma_g = np.zeros_like(n_g)
-        #else:
-        #    raise ValueError('Strange number of spins {0}'.format(nspins))
 
         energy_nonlocal = self.redist_wrapper.calculate(n_sg, sigma_xg,
                                                         v_sg, dedsigma_xg)
-        #if nspins == 2:
-        #    dedsigma_xg[0] += dedsigma_g
-        #    dedsigma_xg[1] += 2 * dedsigma_g
-        #    dedsigma_xg[2] += dedsigma_g
-        #    v_sg += v_g[None]
-
         # Note: Redistwrapper handles vdwcoef.  For now
 
         add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg, v_sg)
 
-        # XXXXXXXXXXXXXXXX ignoring vdwcoef
-
-        # XXXXXXXXXXXXXXXX ugly
         self.last_nonlocal_energy = energy_nonlocal
         e_g[0, 0, 0] += energy_nonlocal / self.gd.dv
         self.timer.stop('van der Waals')
