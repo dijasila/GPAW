@@ -212,11 +212,22 @@ class FFTDistribution:
         self.domains_out = Domains([get_domains(N_c[i], parsize_c[i])
                                     for i in range(3)])
 
-        # The auxiliary gd actually is used *only* for the rank/parpos
-        # correspondence.  The actual domains it defines are unused!!
-        self.aux_gd = gd.new_descriptor(comm=gd.comm, parsize_c=parsize_c)
-        parpos_c = self.aux_gd.get_processor_position_from_rank()
+        if parsize_c[1] == 1 and parsize_c[2] == 1:
+            def aux_rank_to_parpos(rank=gd.comm.rank):
+                return np.array([rank, 0, 0], int)
+        else:
+            # For 2D distributions we use a grid descriptor.  We could
+            # actually use a grid descriptor always, but that causes trouble
+            # when there are more cores than grid points, which could well
+            # be the case when the distribution is only 1D.
+            #
+            # The auxiliary gd actually is used *only* for the rank/parpos
+            # correspondence.  The actual domains it defines are unused!!
+            aux_gd = gd.new_descriptor(comm=gd.comm, parsize_c=parsize_c)
+            aux_rank_to_parpos = aux_gd.get_processor_position_from_rank
 
+        parpos_c = aux_rank_to_parpos()
+        self.aux_rank_to_parpos = aux_rank_to_parpos
         self.local_output_size_c = tuple(self.domains_out.get_box(parpos_c)[1])
 
     def block_zeros(self, shape=(),):
@@ -226,13 +237,13 @@ class FFTDistribution:
         general_redistribute(self.input_gd.comm,
                              self.domains_in, self.domains_out,
                              self.input_gd.get_processor_position_from_rank,
-                             self.aux_gd.get_processor_position_from_rank,
+                             self.aux_rank_to_parpos,
                              a_xg, b_xg, behavior='overwrite')
 
     def block2gd_add(self, a_xg, b_xg):
         general_redistribute(self.input_gd.comm,
                              self.domains_out, self.domains_in,
-                             self.aux_gd.get_processor_position_from_rank,
+                             self.aux_rank_to_parpos,
                              self.input_gd.get_processor_position_from_rank,
                              a_xg, b_xg, behavior='add')
 
@@ -287,8 +298,6 @@ class VDWXC(XCFunctional):
         self._pfft_grid = pfft_grid
         self._vdwcoef = vdwcoef
         self.accept_partial_decomposition = accept_partial_decomposition
-        # To be completely rigorous and avoid the wrath of the functionalists,
-        # we must write a warning if we run spin-polarized.
         self._nspins = 1
 
         self.last_nonlocal_energy = None
@@ -329,18 +338,29 @@ class VDWXC(XCFunctional):
         return dct
 
     def set_grid_descriptor(self, gd):
-        #self.initialize_backend(gd)
         XCFunctional.set_grid_descriptor(self, gd)
         self.semilocal_xc.set_grid_descriptor(gd)
 
     def get_description(self):
         lines = []
         app = lines.append
-        # XXXXXXXXXXXXXXXXXXX
-        #app(self.libvdwxc.get_description())
-        app('GGA kernel: %s' % self.semilocal_xc.kernel.name)
-        #app('libvdwxc parameters for non-local correlation:')
-        #app(self.libvdwxc.tostring())
+        app('{} with libvdwxc'.format(self.name))
+        mode = self.libvdwxc.mode
+        ncores = self.libvdwxc.comm.size
+        cores = 'core' if ncores == 1 else 'cores'
+        if mode == 'mpi':
+            mode = 'mpi with {} {}'.format(ncores, cores)
+        elif mode == 'pfft':
+            nx, ny = self.libvdwxc.pfft_grid
+            mode = 'pfft with {} x {} {}'.format(nx, ny, cores)
+        app('Mode: {}'.format(mode))
+        app('Semilocal: {}'.format(self.semilocal_xc.kernel.name))
+        if self.libvdwxc.vdw_functional_name != self.name:
+            app('Corresponding non-local functional: {}'
+                .format(self.libvdwxc.vdw_functional_name))
+        app('Local blocksize: {} x {} x {}'
+            .format(*self.distribution.local_output_size_c))
+        app('PAW datasets: {}'.format(self.get_setup_name()))
         return '\n'.join(lines)
 
     def summary(self, log):
@@ -355,8 +375,6 @@ class VDWXC(XCFunctional):
         log('Semilocal %s energy: %.6f' % (self.semilocal_xc.kernel.name,
                                            esl * Hartree))
         log('(Not including atomic contributions)')
-        #if self._nspins != 1:
-        #    log('Warning: {}'.format(spinwarning))
 
     def get_setup_name(self):
         return self.setup_name
@@ -387,16 +405,8 @@ class VDWXC(XCFunctional):
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.timer = hamiltonian.timer  # fragile object robbery
         self.semilocal_xc.initialize(density, hamiltonian, wfs, occupations)
-        #self.timer.start('initialize')
-        #try:
-        #    gd = density.xc_redistributor.aux_gd  # fragile
-        #except AttributeError:
-        #    gd = density.finegd
         gd = self.gd
-        if density.nspins != 1:
-            #import warnings
-            #warnings.warn(spinwarning)
-            self._nspins = density.nspins
+        self._nspins = density.nspins
 
         self.initialize_backend(self.gd)
 
@@ -417,9 +427,7 @@ class VDWXC(XCFunctional):
                              'decomposition.' %
                              (gd.comm.size, wfs.world.size,
                               ' x '.join(str(N) for N in gd.N_c)))
-        #self._initialize(gd)
         # TODO Here we could decide FFT padding.
-        #self.timer.stop('initialize')
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         """Calculate energy and potential.
@@ -445,40 +453,15 @@ class VDWXC(XCFunctional):
             semiloc.process_mgga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
         else:
             semiloc.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-        #self.semilocal_xc.calculate_impl(gd, n_sg, v_sg, e_g)
         self.last_semilocal_energy = e_g.sum() * self.gd.dv
         self.timer.stop('semilocal')
-        #energy = GGA.calculate(self, gd, n_sg, v_sg, e_g=None)
-
-        #nspins = len(n_sg)
-        #if nspins == 1:
-        #    n_g = n_sg[0]
-        #    sigma_g = sigma_xg[0]
-        #    v_g = v_sg[0]
-        #    dedsigma_g = dedsigma_xg[0]
-        #elif nspins == 2:
-            #n_g = n_sg.sum(0)
-            #sigma_g = sigma_xg[0] + 2 * sigma_xg[1] + sigma_xg[2]
-            #v_g = np.zeros_like(n_g)
-            #dedsigma_g = np.zeros_like(n_g)
-        #else:
-        #    raise ValueError('Strange number of spins {0}'.format(nspins))
 
         energy_nonlocal = self.redist_wrapper.calculate(n_sg, sigma_xg,
                                                         v_sg, dedsigma_xg)
-        #if nspins == 2:
-        #    dedsigma_xg[0] += dedsigma_g
-        #    dedsigma_xg[1] += 2 * dedsigma_g
-        #    dedsigma_xg[2] += dedsigma_g
-        #    v_sg += v_g[None]
-
         # Note: Redistwrapper handles vdwcoef.  For now
 
         add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg, v_sg)
 
-        # XXXXXXXXXXXXXXXX ignoring vdwcoef
-
-        # XXXXXXXXXXXXXXXX ugly
         self.last_nonlocal_energy = energy_nonlocal
         e_g[0, 0, 0] += energy_nonlocal / self.gd.dv
         self.timer.stop('van der Waals')
