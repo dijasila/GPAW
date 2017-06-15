@@ -22,8 +22,10 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
     psi_n = create(nbands, desc, dtype=dtype, kpt=kpt,
                    collinear=collinear, dist=bcomm)
     psi_n[:] = phi_M
+    print(psi_n.array.max())
     # psi_n.plot()
     S_nn = psi_n.matrix_elements(psi_n, hermitian=True)
+    print(S_nn.a)
     pt_I = AtomCenteredFunctions(desc, proj)
     pt_I.set_positions(spositions)
     P_In = ProjectionMatrix(len(pt_I), len(psi_n), dtype=dtype, dist=(bcomm, 1, -1))
@@ -32,6 +34,7 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
     dS_II = AtomBlockMatrix(dS_aii)
     dSP_In[:] = dS_II * P_In
     S_nn += P_In.H * dSP_In
+    print(S_nn.a)
     S_nn.cholesky()
     S_nn.inv()
     psi2_n = psi_n.new()

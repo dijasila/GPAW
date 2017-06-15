@@ -4,11 +4,15 @@ from gpaw.matrix.matrix import Matrix, Product
 from gpaw.lfc import LFC
 
 
-class SpatialMatrix(Matrix):
+class SpatialMatrix:
     def __init__(self, M, N, dtype, data, dist):
-        Matrix.__init__(self, M, N, dtype, data, dist)
+        self.matrix = Matrix(M, N, dtype, data, dist)
         self.comm_to_be_summed_over = None
         self.comm = None
+        self.dtype = self.matrix.dtype
+
+    def __len__(self):
+        return len(self.matrix)
 
     def finish_sums(self):
         if self.comm_to_be_summed_over and not self.transposed:
@@ -16,7 +20,7 @@ class SpatialMatrix(Matrix):
         self.comm_to_be_summed_over = None
 
     def mmm(self, alpha, opa, b, opb, beta, c):
-        Matrix.mmm(self, alpha, opa, b, opb, beta, c)
+        self.matrix.mmm(alpha, opa, b.matrix, opb, beta, c)
         if opa in 'NC' and self.comm:
             c.comm_to_be_summed_over = self.comm
             assert opb in 'TH' and b.comm is self.comm
@@ -27,20 +31,18 @@ class SpatialMatrix(Matrix):
         self.mmm(self.dv, 'C', other, 'T', 0.0, out)
         return out
 
-    def rotate(self, M_nn, out):
+    def rotaaaaaaaaaaaaaaaaaaaaaaate(self, M_nn, out):
         if out is None:
             out = self.new()
-        M_nn.matrix_multiply(1.0, 'N', self, 'N', 0.0, out)
+        M_nn.matrix_multiply(1.0, 'N', self.matrix, 'N', 0.0, out.matrix)
         return out
 
     def apply(self, func, out):
         func(self.array, out.array)
 
-    def __setitem_________________(self, i, x):
-        if isinstance(i, int):
-            self.array[i] = x;asdf
-        else:
-            Matrix.__setitem__(self, i, x)
+    def __setitem__(self, i, x):
+        assert i == slice(None)
+        x.eval(self.matrix)
 
     def __getitem_______________(self, i):
         assert self.dist.shape[0] == self.shape[0]
@@ -52,10 +54,11 @@ class UniformGridWaveFunctions(SpatialMatrix):
                  spin=0, collinear=True):
         ngpts = gd.get_size_of_global_array().prod()
         SpatialMatrix.__init__(self, nbands, ngpts, dtype, data, dist)
+        M = self.matrix
         if data is None:
-            self.a = self.a.reshape(-1).reshape(self.dist.shape)
-            self.transposed = False
-        self.array = self.a.reshape((-1,) + tuple(gd.n_c))
+            M.a = M.a.reshape(-1).reshape(M.dist.shape)
+            M.transposed = False
+        M.array = self.array = M.a.reshape((-1,) + tuple(gd.n_c))
         self.gd = gd
         self.dv = gd.dv
         self.comm = gd.comm
@@ -67,9 +70,9 @@ class UniformGridWaveFunctions(SpatialMatrix):
         return s
 
     def new(self, buf=None):
-        return UniformGridWaveFunctions(self.shape[0], self.gd, self.dtype,
+        return UniformGridWaveFunctions(len(self), self.gd, self.dtype,
                                         buf,
-                                        None, self.dist)
+                                        None, self.matrix.dist)
 
     def plot(self):
         import matplotlib.pyplot as plt
@@ -131,8 +134,8 @@ class AtomCenteredFunctions:
     def __len__(self):
         return self.nfuncs
 
-    def set_positions(self, spos):
-        self.lfc.set_positions(spos)
+    def set_positions(self, spos_ac, rank_a=None):
+        self.lfc.set_positions(spos_ac)
 
     def eval(self, out):
         out.array[:] = 0.0
@@ -140,6 +143,7 @@ class AtomCenteredFunctions:
         for M, a in enumerate(out.array):
             coef_M[M] = 1.0
             self.lfc.lfc.lcao_to_grid(coef_M, a, -1)
+            print(M, a.ptp())
             coef_M[M] = 0.0
 
     def matrix_elements(self, other, out, hermetian=False):

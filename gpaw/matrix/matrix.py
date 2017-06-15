@@ -133,6 +133,8 @@ class Op:
             assert op == 'N'
             M = M.M
             op = M.op
+        elif hasattr(M, 'matrix'):
+            M = M.matrix
         self.M = M
         self.op = op
 
