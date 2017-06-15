@@ -397,7 +397,7 @@ class LrTDDFT2:
         # K-matrix logic
         if self.recalculate == 'all' or self.recalculate == 'matrix':
             # delete files
-            if self.parent_comm.rank == 0:
+            if self.lr_comms.parent_comm.rank == 0:
                 for ready_file in glob.glob(self.basefilename +
                                             '.ready_rows.*'):
                     os.remove(ready_file)
