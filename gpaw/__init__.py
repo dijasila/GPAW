@@ -54,7 +54,8 @@ profile = False
 
 def parse_extra_parameters(arg):
     from ase.cli.run import str2dict
-    return str2dict(arg)
+    return {key.replace('-', '_'): value
+            for key, value in str2dict(arg).items()}
 
 
 i = 1
