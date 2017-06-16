@@ -34,6 +34,8 @@ Git master branch
 * There is now a web-page documenting the use of the in development version
   of GPAW: https://wiki.fysik.dtu.dk/gpaw/dev/.
 
+* BSE + spin?
+
 
 Version 1.2.0
 =============
