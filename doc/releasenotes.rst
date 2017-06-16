@@ -11,8 +11,28 @@ Git master branch
 :git:`master <>`.
 
 * :ref:`command line options` ``--dry-run`` and ``--debug`` have been removed.
-  Please use ``--gpaw dry_run=N`` and ``--gpaw debug=True`` instead
-  (or ``--gpaw dry_run=N,debug=True`` for both).
+  Please use ``--gpaw dry-run=N`` and ``--gpaw debug=True`` instead
+  (or ``--gpaw dry-run=N,debug=True`` for both).
+
+* The :meth:`ase.Atoms.get_magnetic_moments` method will no longer be
+  scaled to sum up to the total magnetic moment.  Instead, the magnetic
+  moments integrated inside the atomic PAW spheres will be returned.
+
+* New *sbatch* sub-command for GPAW's :ref:`cli`.
+
+* Support added for ASE's new `ase band-structure` command.
+
+* Tetrahedra ...
+
+* GGA and MGGA neighbors=2 ...
+
+* Long-range cutoff for QMMM calculations can now be per molecule instead of
+  only per point charge.
+
+* Python 2.6 no longer supported.
+
+* There is now a web-page documenting the use of the in development version
+  of GPAW: https://wiki.fysik.dtu.dk/gpaw/dev/.
 
 
 Version 1.2.0
@@ -66,6 +86,7 @@ Version 1.2.0
   with custom stencils: ``GPAW(xc={'name': 'PBE', 'stencil': 2})``
 
 * Support for spin-polarized vdW-DF functionals (svdW-DF) with libvdwxc.
+
 
 Version 1.1.0
 =============
@@ -298,8 +319,7 @@ Version 0.9.0
 
 * GPAW should now work also with NumPy 1.6.
 
-* Much improved :ref:`command line tool` now based on the `new
-  tool`_ in ASE.
+* Much improved :ref:`cli` now based on the `new tool`_ in ASE.
 
 
 .. _new tool: https://wiki.fysik.dtu.dk/ase/ase/cmdline.html

@@ -187,7 +187,7 @@ BEEF-vdW ensemble error estimates on a quantity.
    and D. C. Langreth, Higher-accuracy van der Waals density functional,
    Physical Review B, 82, 081101 (2010)
 
- .. [#vdW-DF-cx] K. Berland and P. Hyldgaard, Exchange functional that tests
+.. [#vdW-DF-cx] K. Berland and P. Hyldgaard, Exchange functional that tests
    the robustness of the plasmon description of the van der Waals density
    functional, Physical Review B 89, 035412 (2014)
 

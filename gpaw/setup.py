@@ -77,10 +77,10 @@ def create_setup(symbol, xc='LDA', lmax=0,
                               'Please install the SG15 setups using, '
                               'e.g., "gpaw install-data".' % upfname)
             setupdata = UPFSetupData(upfpath)
-            if xc.name != 'PBE':
+            if xc.get_setup_name() != 'PBE':
                 raise ValueError('SG15 pseudopotentials support only the PBE '
                                  'functional.  This calculation would use '
-                                 'the %s functional.' % xc.name)
+                                 'the %s functional.' % xc.get_setup_name())
         else:
             setupdata = SetupData(symbol, xc.get_setup_name(),
                                   type, True,

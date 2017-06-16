@@ -295,8 +295,7 @@ class GPAW(PAW, Calculator):
 
             if self.wfs.nspins == 2:
                 magmom = self.occupations.magmom
-                magmom_a = self.density.estimate_magnetic_moments(
-                    total=magmom)
+                magmom_a = self.density.estimate_magnetic_moments()
                 self.log('Total magnetic moment: %f' % magmom)
                 self.log('Local magnetic moments:')
                 symbols = self.atoms.get_chemical_symbols()
@@ -651,6 +650,10 @@ class GPAW(PAW, Calculator):
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
+        description = xc.get_description()
+        if description is not None:
+            self.log('XC parameters: {}\n'
+                     .format('\n  '.join(description.splitlines())))
 
         if xc.name == 'GLLBSC' and olddens is not None:
             xc.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)

@@ -22,8 +22,9 @@ class DielectricFunction:
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  gate_voltage=None, truncation=None, disable_point_group=False,
-                 disable_time_reversal=False, use_more_memory=1,
-                 unsymmetrized=True, eshift=None):
+                 disable_time_reversal=False, scissor=None,
+                 integrationmode=None, pbc=None, rate=0.0,
+                 omegacutlower=None, omegacutupper=None):
         """Creates a DielectricFunction object.
 
         calc: str
@@ -86,12 +87,17 @@ class DielectricFunction:
                          txt=txt, gate_voltage=gate_voltage,
                          disable_point_group=disable_point_group,
                          disable_time_reversal=disable_time_reversal,
-                         use_more_memory=use_more_memory,
-                         unsymmetrized=unsymmetrized, eshift=eshift)
+                         scissor=scissor, integrationmode=integrationmode,
+                         pbc=pbc, rate=rate)
 
         self.name = name
 
         self.omega_w = self.chi0.omega_w
+        if omegacutlower is not None:
+            inds_w = np.logical_and(self.omega_w > omegacutlower / Hartree,
+                                    self.omega_w < omegacutupper / Hartree)
+            self.omega_w = self.omega_w[inds_w]
+
         nw = len(self.omega_w)
 
         world = self.chi0.world
@@ -150,8 +156,10 @@ class DielectricFunction:
         print('Reading from', name, file=self.chi0.fd)
         fd = open(name, 'rb')
         omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(fd)
-        assert np.allclose(omega_w, self.omega_w)
+        for omega in self.omega_w:
+            assert omega in omega_w
 
+        wmin = np.argmin(np.abs(np.min(self.omega_w) - omega_w))
         world = self.chi0.world
 
         nw = len(omega_w)
@@ -159,10 +167,12 @@ class DielectricFunction:
 
         if chi0_wGG is not None:
             # Old file format:
-            chi0_wGG = chi0_wGG[self.w1:self.w2].copy()
+            chi0_wGG = chi0_wGG[wmin + self.w1:self.w2].copy()
         else:
             if world.rank == 0:
                 chi0_wGG = np.empty((self.mynw, nG, nG), complex)
+                for _ in range(wmin):
+                    pickle.load(fd)
                 for chi0_GG in chi0_wGG:
                     chi0_GG[:] = pickle.load(fd)
                 tmp_wGG = np.empty((self.mynw, nG, nG), complex)
@@ -176,6 +186,11 @@ class DielectricFunction:
             else:
                 chi0_wGG = np.empty((self.w2 - self.w1, nG, nG), complex)
                 world.receive(chi0_wGG, 0)
+
+        if chi0_wvv is not None:
+            chi0_wxvG = chi0_wxvG[wmin:wmin + nw]
+            chi0_wvv = chi0_wvv[wmin:wmin + nw]
+
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     def collect(self, a_w):
@@ -452,7 +467,6 @@ class DielectricFunction:
 
         return eels_NLFC_w, eels_LFC_w
 
-
     def get_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
                            filename='polarizability.csv', pbc=None):
         """Calculate the polarizability alpha.
@@ -671,7 +685,7 @@ class DielectricFunction:
             return r * Bohr, w_w, eig, omega0, eigen0, v_ind, n_ind
 
     def get_spatial_eels(self, q_c=[0, 0, 0], direction='x',
-                         w_max=None, filename='eels'):
+                         w_max=None, filename='eels', r=None, perpdir=None):
         """Spatially resolved loss spectrum.
 
         The spatially resolved loss spectrum is calculated as the inverse
@@ -694,50 +708,67 @@ class DielectricFunction:
         """
 
         assert self.chi0.world.size == 1
+
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c,
                                            symmetric=False)
-        r = pd.gd.get_grid_point_coordinates()
-        ix = r.shape[1] / 2
-        iy = r.shape[2] / 2
-        iz = r.shape[3] / 2
-        if direction == 'x':
-            r = r[:, :, iy, iz]
-            perpdir = [1, 2]
-        if direction == 'y':
-            r = r[:, ix, :, iz]
-            perpdir = [0, 2]
-        if direction == 'z':
-            r = r[:, ix, iy, :]
-            perpdir = [0, 1]
+
+        if r is None:
+            r = pd.gd.get_grid_point_coordinates()
+            ix = r.shape[1] // 2 * 0
+            iy = r.shape[2] // 2 * 0
+            iz = r.shape[3] // 2
+            if direction == 'x':
+                r = r[:, :, iy, iz]
+                perpdir = [1, 2]
+            if direction == 'y':
+                r = r[:, ix, :, iz]
+                perpdir = [0, 2]
+            if direction == 'z':
+                r = r[:, ix, iy, :]
+                perpdir = [0, 1]
 
         nG = e_wGG.shape[1]
         Gvec = pd.G_Qv[pd.Q_qG[0]]
         Glist = []
+
         # Only use G-vectors that are zero along electron beam
         # due to \delta(w-G\dot v_e )
+        q_v = pd.K_qv[0]
         for iG in range(nG):
-            if Gvec[iG, perpdir[0]] == 0 and Gvec[iG, perpdir[1]] == 0:
+            if perpdir is not None:
+                if Gvec[iG, perpdir[0]] == 0 and Gvec[iG, perpdir[1]] == 0:
+                    Glist.append(iG)
+            elif not np.abs(np.dot(q_v, Gvec[iG])) < \
+                 np.linalg.norm(q_v) * np.linalg.norm(Gvec[iG]):
                 Glist.append(iG)
         qG = Gvec[Glist] + pd.K_qv
+
         w_w = self.omega_w * Hartree
         if w_max:
             w_w = w_w[np.where(w_w < w_max)]
         Nw = len(w_w)
         qGr = np.inner(qG, r.T).T
         phase = np.exp(1j * qGr)
-
         V_G = (4 * pi) / np.diagonal(np.inner(qG, qG))
         phase2 = np.exp(-1j * qGr) * V_G
         E_wrr = np.zeros([Nw, r.shape[1], r.shape[1]])
         E_wr = np.zeros([Nw, r.shape[1]])
+        Eavg_w = np.zeros([Nw], complex)
+        Ec_wr = np.zeros([Nw, r.shape[1]], complex)
         for i in range(Nw):
-            Vchi_GG = (np.linalg.inv(e_wGG[i, Glist, :][:, Glist]) -
-                       np.eye(len(Glist)))
+            Vchi_GG = (np.linalg.inv(e_wGG[i]) -
+                       np.eye(nG))[Glist, :][:, Glist]
+
+            qG_G = np.sum(qG**2, axis=1)**0.5
+            Eavg_w[i] = np.trace(Vchi_GG * np.diag(V_G * qG_G))
+
             # Fourier transform:
             E_wrr[i] = -np.imag(np.dot(np.dot(phase, Vchi_GG), phase2.T))
             E_wr[i] = np.diagonal(E_wrr[i])
+            Ec_wr[i] = np.diagonal(np.dot(np.dot(phase, Vchi_GG *
+                                                 np.diag(qG_G)), phase2.T))
         pickle.dump((r * Bohr, w_w, E_wr), open('%s.pickle' % filename, 'wb'),
                     pickle.HIGHEST_PROTOCOL)
 
-        return r * Bohr, w_w, E_wr
+        return r * Bohr, w_w, E_wr, Ec_wr, Eavg_w

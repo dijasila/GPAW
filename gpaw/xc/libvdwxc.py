@@ -56,7 +56,7 @@ for a spin-polarized system.  This is not entirely rigorous, so the
 calculation cannot be considered a true vdW-DF-family calculation."""
 _VDW_NUMERICAL_CODES = {'vdW-DF': 1,
                         'vdW-DF2': 2,
-                        'vdW-DF-CX': 3}
+                        'vdW-DF-cx': 3}
 
 
 class LibVDWXC(object):
@@ -212,11 +212,22 @@ class FFTDistribution:
         self.domains_out = Domains([get_domains(N_c[i], parsize_c[i])
                                     for i in range(3)])
 
-        # The auxiliary gd actually is used *only* for the rank/parpos
-        # correspondence.  The actual domains it defines are unused!!
-        self.aux_gd = gd.new_descriptor(comm=gd.comm, parsize_c=parsize_c)
-        parpos_c = self.aux_gd.get_processor_position_from_rank()
+        if parsize_c[1] == 1 and parsize_c[2] == 1:
+            def aux_rank_to_parpos(rank=gd.comm.rank):
+                return np.array([rank, 0, 0], int)
+        else:
+            # For 2D distributions we use a grid descriptor.  We could
+            # actually use a grid descriptor always, but that causes trouble
+            # when there are more cores than grid points, which could well
+            # be the case when the distribution is only 1D.
+            #
+            # The auxiliary gd actually is used *only* for the rank/parpos
+            # correspondence.  The actual domains it defines are unused!!
+            aux_gd = gd.new_descriptor(comm=gd.comm, parsize_c=parsize_c)
+            aux_rank_to_parpos = aux_gd.get_processor_position_from_rank
 
+        parpos_c = aux_rank_to_parpos()
+        self.aux_rank_to_parpos = aux_rank_to_parpos
         self.local_output_size_c = tuple(self.domains_out.get_box(parpos_c)[1])
 
     def block_zeros(self, shape=(),):
@@ -226,13 +237,13 @@ class FFTDistribution:
         general_redistribute(self.input_gd.comm,
                              self.domains_in, self.domains_out,
                              self.input_gd.get_processor_position_from_rank,
-                             self.aux_gd.get_processor_position_from_rank,
+                             self.aux_rank_to_parpos,
                              a_xg, b_xg, behavior='overwrite')
 
     def block2gd_add(self, a_xg, b_xg):
         general_redistribute(self.input_gd.comm,
                              self.domains_out, self.domains_in,
-                             self.aux_gd.get_processor_position_from_rank,
+                             self.aux_rank_to_parpos,
                              self.input_gd.get_processor_position_from_rank,
                              a_xg, b_xg, behavior='add')
 
@@ -287,8 +298,6 @@ class VDWXC(XCFunctional):
         self._pfft_grid = pfft_grid
         self._vdwcoef = vdwcoef
         self.accept_partial_decomposition = accept_partial_decomposition
-        # To be completely rigorous and avoid the wrath of the functionalists,
-        # we must write a warning if we run spin-polarized.
         self._nspins = 1
 
         self.last_nonlocal_energy = None
@@ -318,29 +327,40 @@ class VDWXC(XCFunctional):
         return '{0} [libvdwxc/{1}]'.format(self.name, qualifier)
 
     def todict(self):
-        dct = dict(type='libvdwxc',
+        dct = dict(backend='libvdwxc',
                    semilocal_xc=self.semilocal_xc.name,
                    name=self.name,
-                   mode=self._mode,
-                   pfft_grid=self._pfft_grid,
+                   #mode=self._mode,
+                   #pfft_grid=self._pfft_grid,
                    libvdwxc_name=self._libvdwxc_name,
                    setup_name=self.setup_name,
                    vdwcoef=self._vdwcoef)
         return dct
 
     def set_grid_descriptor(self, gd):
-        #self.initialize_backend(gd)
         XCFunctional.set_grid_descriptor(self, gd)
         self.semilocal_xc.set_grid_descriptor(gd)
 
     def get_description(self):
         lines = []
         app = lines.append
-        # XXXXXXXXXXXXXXXXXXX
-        #app(self.libvdwxc.get_description())
-        app('GGA kernel: %s' % self.semilocal_xc.kernel.name)
-        #app('libvdwxc parameters for non-local correlation:')
-        #app(self.libvdwxc.tostring())
+        app('{} with libvdwxc'.format(self.name))
+        mode = self.libvdwxc.mode
+        ncores = self.libvdwxc.comm.size
+        cores = 'core' if ncores == 1 else 'cores'
+        if mode == 'mpi':
+            mode = 'mpi with {} {}'.format(ncores, cores)
+        elif mode == 'pfft':
+            nx, ny = self.libvdwxc.pfft_grid
+            mode = 'pfft with {} x {} {}'.format(nx, ny, cores)
+        app('Mode: {}'.format(mode))
+        app('Semilocal: {}'.format(self.semilocal_xc.kernel.name))
+        if self.libvdwxc.vdw_functional_name != self.name:
+            app('Corresponding non-local functional: {}'
+                .format(self.libvdwxc.vdw_functional_name))
+        app('Local blocksize: {} x {} x {}'
+            .format(*self.distribution.local_output_size_c))
+        app('PAW datasets: {}'.format(self.get_setup_name()))
         return '\n'.join(lines)
 
     def summary(self, log):
@@ -355,8 +375,6 @@ class VDWXC(XCFunctional):
         log('Semilocal %s energy: %.6f' % (self.semilocal_xc.kernel.name,
                                            esl * Hartree))
         log('(Not including atomic contributions)')
-        #if self._nspins != 1:
-        #    log('Warning: {}'.format(spinwarning))
 
     def get_setup_name(self):
         return self.setup_name
@@ -387,16 +405,8 @@ class VDWXC(XCFunctional):
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.timer = hamiltonian.timer  # fragile object robbery
         self.semilocal_xc.initialize(density, hamiltonian, wfs, occupations)
-        #self.timer.start('initialize')
-        #try:
-        #    gd = density.xc_redistributor.aux_gd  # fragile
-        #except AttributeError:
-        #    gd = density.finegd
         gd = self.gd
-        if density.nspins != 1:
-            #import warnings
-            #warnings.warn(spinwarning)
-            self._nspins = density.nspins
+        self._nspins = density.nspins
 
         self.initialize_backend(self.gd)
 
@@ -417,9 +427,7 @@ class VDWXC(XCFunctional):
                              'decomposition.' %
                              (gd.comm.size, wfs.world.size,
                               ' x '.join(str(N) for N in gd.N_c)))
-        #self._initialize(gd)
         # TODO Here we could decide FFT padding.
-        #self.timer.stop('initialize')
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         """Calculate energy and potential.
@@ -445,122 +453,100 @@ class VDWXC(XCFunctional):
             semiloc.process_mgga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
         else:
             semiloc.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-        #self.semilocal_xc.calculate_impl(gd, n_sg, v_sg, e_g)
         self.last_semilocal_energy = e_g.sum() * self.gd.dv
         self.timer.stop('semilocal')
-        #energy = GGA.calculate(self, gd, n_sg, v_sg, e_g=None)
-
-        #nspins = len(n_sg)
-        #if nspins == 1:
-        #    n_g = n_sg[0]
-        #    sigma_g = sigma_xg[0]
-        #    v_g = v_sg[0]
-        #    dedsigma_g = dedsigma_xg[0]
-        #elif nspins == 2:
-            #n_g = n_sg.sum(0)
-            #sigma_g = sigma_xg[0] + 2 * sigma_xg[1] + sigma_xg[2]
-            #v_g = np.zeros_like(n_g)
-            #dedsigma_g = np.zeros_like(n_g)
-        #else:
-        #    raise ValueError('Strange number of spins {0}'.format(nspins))
 
         energy_nonlocal = self.redist_wrapper.calculate(n_sg, sigma_xg,
                                                         v_sg, dedsigma_xg)
-        #if nspins == 2:
-        #    dedsigma_xg[0] += dedsigma_g
-        #    dedsigma_xg[1] += 2 * dedsigma_g
-        #    dedsigma_xg[2] += dedsigma_g
-        #    v_sg += v_g[None]
-
         # Note: Redistwrapper handles vdwcoef.  For now
 
         add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg, v_sg)
 
-        # XXXXXXXXXXXXXXXX ignoring vdwcoef
-
-        # XXXXXXXXXXXXXXXX ugly
         self.last_nonlocal_energy = energy_nonlocal
         e_g[0, 0, 0] += energy_nonlocal / self.gd.dv
         self.timer.stop('van der Waals')
 
 
-def vdw_df(*args, **kwargs):
-    stencil = kwargs.pop('stencil', 2)
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_PBE_R+LDA_C_PW'),
-                                  stencil=stencil),
-                 name='vdW-DF', *args, **kwargs)
+def vdw_df(**kwargs):
+    kwargs1 = dict(name='vdW-DF', setup_name='revPBE',
+                   semilocal_xc=GGA(LibXC('GGA_X_PBE_R+LDA_C_PW'),
+                                    stencil=kwargs.pop('stencil', 2)))
+    kwargs1.update(kwargs)
+    return VDWXC(**kwargs1)
 
 
-def vdw_df2(*args, **kwargs):
-    stencil = kwargs.pop('stencil', 2)
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_RPW86+LDA_C_PW'),
-                                  stencil=stencil),
-                 name='vdW-DF2', *args, **kwargs)
+def vdw_df2(**kwargs):
+    kwargs1 = dict(name='vdW-DF2', setup_name='PBE',
+                   semilocal_xc=GGA(LibXC('GGA_X_RPW86+LDA_C_PW'),
+                                    stencil=kwargs.pop('stencil', 2)))
+    kwargs1.update(kwargs)
+    return VDWXC(**kwargs1)
 
-
-def vdw_df_cx(*args, **kwargs):
-    stencil = kwargs.pop('stencil', 2)
-    try:
-        # Exists in libxc 2.2.2 or newer (or maybe from older)
+def vdw_df_cx(**kwargs):
+    # cx semilocal exchange is in libxc 2.2.2 or newer (or maybe from older)
+    kernel = kwargs.get('kernel')
+    if kernel is None:
         kernel = LibXC('GGA_X_LV_RPW86+LDA_C_PW')
-    except NameError:
-        kernel = CXGGAKernel()
 
-    # Hidden debug feature
-    if kwargs.get('gga_backend') == 'purepython':
-        kernel = CXGGAKernel()
-        kwargs.pop('gga_backend')
-    assert 'gga_backend' not in kwargs
-
-    return VDWXC(semilocal_xc=GGA(kernel, stencil=stencil),
-                 name='vdW-DF-CX', *args, **kwargs)
+    kwargs1 = dict(name='vdW-DF-cx', setup_name='PBE',
+                   # PBEsol is most correct but not distributed by default.
+                   semilocal_xc=GGA(kernel, stencil=kwargs.pop('stencil', 2)))
+    kwargs1.update(kwargs)
+    return VDWXC(**kwargs1)
 
 
-def vdw_optPBE(*args, **kwargs):
-    stencil = kwargs.pop('stencil', 2)
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_OPTPBE_VDW+LDA_C_PW'),
-                                  stencil=stencil),
-                 name='vdW-optPBE', libvdwxc_name='vdW-DF', *args, **kwargs)
+def vdw_optPBE(**kwargs):
+    kwargs1 = dict(name='vdW-optPBE', libvdwxc_name='vdW-DF', setup_name='PBE',
+                   semilocal_xc=GGA(LibXC('GGA_X_OPTPBE_VDW+LDA_C_PW'),
+                                    stencil=kwargs.pop('stencil', 2)))
+    kwargs1.update(kwargs)
+    return VDWXC(**kwargs1)
 
 
-def vdw_optB88(*args, **kwargs):
-    stencil = kwargs.pop('stencil', 2)
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_OPTB88_VDW+LDA_C_PW'),
-                                  stencil=stencil),
-                 name='optB88', libvdwxc_name='vdW-DF', *args, **kwargs)
+def vdw_optB88(**kwargs):
+    kwargs1 = dict(name='optB88', libvdwxc_name='vdW-DF', setup_name='PBE',
+                   semilocal_xc=GGA(LibXC('GGA_X_OPTB88_VDW+LDA_C_PW'),
+                                    stencil=kwargs.pop('stencil', 2)))
+    kwargs1.update(kwargs)
+    return VDWXC(**kwargs1)
 
 
-def vdw_C09(*args, **kwargs):
-    stencil = kwargs.pop('stencil', 2)
-    return VDWXC(semilocal_xc=GGA(LibXC('GGA_X_C09X+LDA_C_PW'),
-                                  stencil=stencil),
-                 name='vdW-C09', libvdwxc_name='vdW-DF', *args, **kwargs)
+def vdw_C09(**kwargs):
+    kwargs1 = dict(name='vdW-C09', libvdwxc_name='vdW-DF', setup_name='PBE',
+                   semilocal_xc=GGA(LibXC('GGA_X_C09X+LDA_C_PW'),
+                                    stencil=kwargs.pop('stencil', 2)))
+    kwargs1.update(kwargs)
+    return VDWXC(**kwargs1)
 
 
-def vdw_beef(*args, **kwargs):
-    stencil = kwargs.pop('stencil', 2)
+def vdw_beef(**kwargs):
     # Kernel parameters stolen from vdw.py
     from gpaw.xc.bee import BEEVDWKernel
     kernel = BEEVDWKernel('BEE2', None,
                           0.600166476948828631066,
                           0.399833523051171368934)
-    return VDWXC(semilocal_xc=GGA(kernel, stencil=stencil), name='vdW-BEEF',
-                 setup_name='PBE', libvdwxc_name='vdW-DF2',
-                 *args, **kwargs)
+    kwargs1 = dict(name='vdW-BEEF', libvdwxc_name='vdW-DF2', setup_name='PBE',
+                   semilocal_xc=GGA(kernel, stencil=kwargs.pop('stencil', 2)))
+    kwargs1.update(kwargs)
+    return VDWXC(**kwargs1)
 
 
-def vdw_mbeef(*args, **kwargs):
-    stencil = kwargs.pop('stencil', 2)
+def vdw_mbeef(**kwargs):
     # Note: Parameters taken from vdw.py
     from gpaw.xc.bee import BEEVDWKernel
     kernel = BEEVDWKernel('BEE3', None, 0.405258352, 0.356642240)
-    return VDWXC(semilocal_xc=MGGA(kernel, stencil=stencil), name='vdW-mBEEF',
-                 setup_name='PBEsol', libvdwxc_name='vdW-DF2',
-                 vdwcoef=0.886774972)
+    kwargs1 = dict(name='vdW-mBEEF', setup_name='PBEsol',
+                   libvdwxc_name='vdW-DF2', vdwcoef=0.886774972,
+                   semilocal_xc=MGGA(kernel, stencil=kwargs.pop('stencil', 2)))
+    kwargs1.update(kwargs)
+    return VDWXC(**kwargs1)
 
 
 # String to functional mapping
-def get_libvdwxc_functional(name, *args, **kwargs):
+def get_libvdwxc_functional(name, **kwargs):
+    if 'name' in kwargs:
+        name2 = kwargs.pop('name')
+        assert name == name2
     funcs = {'vdW-DF': vdw_df,
              'vdW-DF2': vdw_df2,
              'vdW-DF-cx': vdw_df_cx,
@@ -569,8 +555,17 @@ def get_libvdwxc_functional(name, *args, **kwargs):
              'C09-vdW': vdw_C09,
              'BEEF-vdW':  vdw_beef,
              'mBEEF-vdW': vdw_mbeef}
-    func = funcs[name]
-    return func(*args, **kwargs)
+
+    semilocal_xc = kwargs.pop('semilocal_xc', None)
+    if semilocal_xc is not None:
+        from gpaw.xc import XC
+        semilocal_xc = XC(semilocal_xc)
+
+    func = funcs[name](**kwargs)
+    if semilocal_xc is not None:
+        assert semilocal_xc.name == func.semilocal_xc.name
+    return func
+
 
 class CXGGAKernel:
     def __init__(self, just_kidding=False):
@@ -580,7 +575,7 @@ class CXGGAKernel:
         if self.just_kidding:
             self.name = 'purepython rPW86_with_%s' % self.lda_c.name
         else:
-            self.name = 'purepython CX'
+            self.name = 'purepython cx'
 
     def calculate(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         e_g[:] = 0.0
