@@ -174,7 +174,8 @@ class LCAOWaveFunctions(WaveFunctions):
             my_atom_indices = self.atomic_correction.get_a_values()
         else:
             my_atom_indices = self.basis_functions.my_atom_indices
-        self.allocate_arrays_for_projections(my_atom_indices)
+
+        #self.allocate_arrays_for_projections(my_atom_indices)
 
         S_MM = None  # allow garbage collection of old S_qMM after redist
         S_qMM = self.ksl.distribute_overlap_matrix(S_qMM, root=-1)

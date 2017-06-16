@@ -30,7 +30,7 @@ class BaseAtomicCorrection:
         dH_aii = dH_asp.partition.arraydict([setup.dO_ii.shape
                                              for setup in wfs.setups],
                                             dtype=wfs.dtype)
-        
+
         for a in avalues:
             dH_aii[a][:] = yy * unpack(dH_asp[a][kpt.s])
         self.calculate(wfs, kpt.q, dH_aii, H_MM)
@@ -59,7 +59,7 @@ class BaseAtomicCorrection:
         return False
 
     def calculate_projections(self, wfs, kpt):
-        for a, P_ni in kpt.P_ani.items():
+        for a, P_ni in kpt.P_In.items():
             # ATLAS can't handle uninitialized output array:
             P_ni.fill(117)
             gemm(1.0, wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
@@ -105,7 +105,7 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         evenpart = EvenPartitioning(self.orig_partition.comm,
                                     self.orig_partition.natoms)
         self.even_partition = evenpart.as_atom_partition()
-    
+
     def get_a_values(self):
         return self.orig_partition.my_indices  # XXXXXXXXXX
         #return self.even_partition.my_indices
@@ -241,7 +241,7 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         self.inner = inner
         self.outer = outer
 
-        
+
 class ScipyAtomicCorrection(DistributedAtomicCorrection):
     name = 'scipy'
     description = 'distributed and sparse using scipy'
@@ -278,7 +278,7 @@ class ScipyAtomicCorrection(DistributedAtomicCorrection):
             for q in range(nq):
                 Psparse_qIM[q][I_a[a3]:I_a[a3] + ni_a[a3],
                                M_a[a1]:M_a[a1] + nao_a[a1]] = P_qim[q]
-        
+
         self.Psparse_qIM = [x.tocsr() for x in Psparse_qIM]
 
     def calculate(self, wfs, q, dX_aii, X_MM):
@@ -294,7 +294,7 @@ class ScipyAtomicCorrection(DistributedAtomicCorrection):
             I2 = I1 + wfs.setups[a].ni
             dXsparse_II[I1:I2, I1:I2] = dX_aii[a]
         dXsparse_II = dXsparse_II.tocsr()
-        
+
         Psparse_MI = Psparse_IM[:, Mstart:Mstop].transpose().conjugate()
         Xsparse_MM = Psparse_MI.dot(dXsparse_II.dot(Psparse_IM))
         X_MM[:, :] += Xsparse_MM.todense()

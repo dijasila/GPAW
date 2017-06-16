@@ -294,7 +294,21 @@ class AtomBlockMatrix:
 
 
 class ProjectionMatrix(Matrix):
-    pass
+    def __init__(self, nproj_a, nbands, gd, bcomm, rank_a):
+        self.indices = []
+        I1 = 0
+        for a, ni in enumerate(nproj_a):
+            if gd.comm.rank == rank_a[a]:
+                I2 = I1 + ni
+                self.indices.append((a, I1, I2))
+                I1 = I2
+
+        Matrix.__init__(self, I2, nbands, dist=(bcomm, 1, -1))
+        self.rank_a = rank_a
+
+    def items(self):
+        for a, I1, I2 in self.indices:
+            yield a, self.a[I1:I2].T
 
 
 class HMMM:

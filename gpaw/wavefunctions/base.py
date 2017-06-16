@@ -3,7 +3,7 @@ from ase.units import Hartree
 
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.blas import gemm, axpy
-from gpaw.utilities.partition import AtomPartition
+from gpaw.matrix import ProjectionMatrix
 
 
 class WaveFunctions:
@@ -176,21 +176,14 @@ class WaveFunctions:
                     D_sp[s] = pack(setup.symmetrize(a, D_aii,
                                                     self.kd.symmetry.a_sa))
 
-    def set_positions(self, spos_ac):
+    def set_positions(self, spos_ac, rank_a):
         self.positions_set = False
         self.kd.symmetry.check(spos_ac)
-
-    def allocate_arrays_for_projections(self, my_atom_indices):
-        if not self.positions_set and self.kpt_u[0].P_ani is not None:
-            # Projections have been read from file - don't delete them!
-            pass
-        else:
-            for kpt in self.kpt_u:
-                kpt.P_ani = {}
-            for a in my_atom_indices:
-                ni = self.setups[a].ni
-                for kpt in self.kpt_u:
-                    kpt.P_ani[a] = np.empty((self.bd.mynbands, ni), self.dtype)
+        nproj = [setup.ni for setup in self.setups]
+        for kpt in self.kpt_u:
+            kpt.P_In = ProjectionMatrix(nproj, self.bd.nbands,
+                                        self.gd, self.bd.comm,
+                                        rank_a)
 
     def collect_eigenvalues(self, k, s):
         return self.collect_array('eps_n', k, s)

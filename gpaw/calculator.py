@@ -431,10 +431,10 @@ class GPAW(PAW, Calculator):
         spos_ac = atoms.get_scaled_positions() % 1.0
 
         rank_a = self.wfs.gd.get_ranks_from_positions(spos_ac)
-        atom_partition = AtomPartition(self.wfs.gd.comm, rank_a, name='gd')
-        self.wfs.set_positions(spos_ac, atom_partition)
-        self.density.set_positions(spos_ac, atom_partition)
-        self.hamiltonian.set_positions(spos_ac, atom_partition)
+        #atom_partition = AtomPartition(self.wfs.gd.comm, rank_a, name='gd')
+        self.wfs.set_positions(spos_ac, rank_a)
+        self.density.set_positions(spos_ac, rank_a)
+        self.hamiltonian.set_positions(spos_ac, rank_a)
 
         return spos_ac
 

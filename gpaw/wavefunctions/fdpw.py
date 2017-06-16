@@ -46,11 +46,9 @@ class FDPWWaveFunctions(WaveFunctions):
         WaveFunctions.set_setups(self, setups)
 
     def set_positions(self, spos_ac, rank_a):
-        WaveFunctions.set_positions(self, spos_ac)
+        WaveFunctions.set_positions(self, spos_ac, rank_a)
         self.orthonormalized = False
         self.pt_I.set_positions(spos_ac, rank_a)
-        for kpt in self.kpt_u:
-            kpt.P_In.set_ranks(rank_a)
         self.positions_set = True
 
     def make_overlap(self):
