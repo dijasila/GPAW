@@ -715,7 +715,7 @@ class BSE:
         if world.rank == 0 and filename is not None:
             f = open(filename, 'w')
             for iw, w in enumerate(w_w):
-                print('%.6f, %.6f, %.6f' %
+                print('%.9f, %.9f, %.9f' %
                       (w, epsilon_w[iw].real, epsilon_w[iw].imag), file=f)
             f.close()
         world.barrier()
@@ -758,7 +758,7 @@ class BSE:
         if world.rank == 0 and filename is not None:
             f = open(filename, 'w')
             for iw, w in enumerate(w_w):
-                print('%.6f, %.6f' % (w, eels_w[iw]), file=f)
+                print('%.9f, %.9f' % (w, eels_w[iw]), file=f)
             f.close()
         world.barrier()
 
@@ -808,7 +808,7 @@ class BSE:
         if world.rank == 0 and filename is not None:
             fd = open(filename, 'w')
             for iw, w in enumerate(w_w):
-                print('%.6f, %.6f, %.6f' %
+                print('%.9f, %.9f, %.9f' %
                       (w, alpha_w[iw].real, alpha_w[iw].imag), file=fd)
             fd.close()
 
@@ -847,7 +847,7 @@ class BSE:
         if world.rank == 0 and filename is not None:
             fd = open(filename, 'w')
             for iw, w in enumerate(w_w):
-                print('%.6f, %.6f' % (w, abs_w[iw]), file=fd)
+                print('%.9f, %.9f' % (w, abs_w[iw]), file=fd)
             fd.close()
 
         print('Calculation completed at:', ctime(), file=self.fd)
