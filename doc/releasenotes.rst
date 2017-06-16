@@ -34,7 +34,12 @@ Git master branch
 * There is now a web-page documenting the use of the in development version
   of GPAW: https://wiki.fysik.dtu.dk/gpaw/dev/.
 
-* BSE + spin?
+* BSE calculations for spin-polarized systems.
+
+* Calculation of magnetic anisotropy.
+
+* Calculation of vectorial magnetic moments inside PAW spheres based on
+  spin-orbit spinors.
 
 
 Version 1.2.0
