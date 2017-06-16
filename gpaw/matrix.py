@@ -275,3 +275,71 @@ class Product:
         assert a.op == 'C' or a.M.dtype == float and a.op == 'N'
         assert b.op == 'N'
         return a.M.integrate(b.M, out, hermetian)
+
+
+class AtomBlockMatrix:
+    def __init__(self, M_aii):
+        self.M_aii = list(M_aii)
+
+    def mmm(self, alpha, opa, b, opb, beta, out):
+        assert opa == 'N'
+        assert opb == 'N'
+        assert beta == 0.0
+        I1 = 0
+        for M_ii in self.M_aii:
+            I2 = I1 + len(M_ii)
+            out.a[I1:I2] = np.dot(M_ii, b.a[I1:I2])
+            I1 = I2
+        return out
+
+
+class ProjectionMatrix(Matrix):
+    pass
+
+
+class HMMM:
+    def __init__(self, M, comm, dtype, P_ani, dist):
+        if isinstance(P_ani, dict):
+            self.atom_indices = []
+            self.slices = []
+            I1 = 0
+            for a, P_ni in P_ani.items():
+                I2 = I1 + P_ni.shape[1]
+                self.atom_indices.append(a)
+                self.slices.append((I1, I2))
+                I1 = I2
+
+            P_nI = np.empty((M, I1), dtype)
+            for P_ni, (I1, I2) in zip(P_ani.values(), self.slices):
+                P_nI[:, I1:I2] = P_ni
+        else:
+            P_nI = P_ani
+
+        SpatialMatrix.__init__(self, M, P_nI.shape[1], dtype, P_nI, dist)
+        self.comm = comm
+
+    def new(self):
+        P_nI = np.empty_like(self.a)
+        pm = ProjectionMatrix(self.shape[0], self.comm, self.dtype, P_nI,
+                              self.dist)
+        pm.atom_indices = self.atom_indices
+        pm.slices = self.slices
+        return pm
+
+    def __iter__(self):
+        P_nI = self.data
+        for I1, I2 in self.slices:
+            yield P_nI[:, I1:I2]
+
+    def extract_to(self, P_ani):
+        P_nI = self.a
+        for P_ni, (I1, I2) in zip(P_ani.values(), self.slices):
+            P_ni[:] = P_nI[:, I1:I2]
+
+    def mmm(self, alpha, opa, b, opb, beta, c):
+        if isinstance(b, PAWMatrix):
+            assert (alpha, beta, opa, opb) == (1, 0, 'N', 'N')
+            for (I1, I2), M_ii in zip(self.slices, b.M_aii):
+                c.a[:, I1:I2] = np.dot(self.a[:, I1:I2], M_ii)
+        else:
+            SpatialMatrix.mmm(self, alpha, opa, b, opb, beta, c)

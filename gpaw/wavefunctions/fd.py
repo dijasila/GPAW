@@ -4,8 +4,8 @@ from ase.units import Bohr
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.kpoint import KPoint
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.lfc import LocalizedFunctionsCollection as LFC
-from gpaw.matrix import UniformGridWaveFunctions
+from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
+from gpaw.wavefunctions import UniformGridWaveFunctions
 from gpaw.mpi import serial_comm
 from gpaw.preconditioner import Preconditioner
 from gpaw.transformers import Transformer
@@ -54,8 +54,9 @@ class FDWaveFunctions(FDPWWaveFunctions):
         for kpt in self.kpt_u:
             if kpt.dist is not None:
                 return
-            kpt.psit_n = UniformGridMatrix(self.bd.nbands, self.gd, self.dtype,
-                                           kpt.psit_nG, kpt.q, dist)
+            kpt.psit_n = UniformGridWaveFunctions(
+                self.bd.nbands, self.gd, self.dtype,
+                kpt.psit_nG, kpt.q, dist)
             kpt.dist = dist
 
     def integrate(self, a_xg, b_yg=None, global_integral=True):
@@ -65,8 +66,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
         return self.gd.bytecount(self.dtype)
 
     def set_setups(self, setups):
-        self.pt_I = LFC(self.gd, [setup.pt_j for setup in setups],
-                      self.kd, dtype=self.dtype, forces=True)
+        self.pt_I = ACF(self.gd, [setup.pt_j for setup in setups],
+                        self.kd)  # , dtype=self.dtype, forces=True)
         FDPWWaveFunctions.set_setups(self, setups)
 
     def __str__(self):
@@ -148,8 +149,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
         kd = KPointDescriptor(self.kd.bzk_kc, nspins=self.nspins)
         kd.set_communicator(serial_comm)
 
-        self.pt = LFC(self.gd, [setup.pt_j for setup in self.setups],
-                      kd, dtype=self.dtype)
+        self.pt_I = ACF(self.gd, [setup.pt_j for setup in self.setups],
+                        kd, dtype=self.dtype)
         self.pt.set_positions(atoms.get_scaled_positions())
 
         self.initialize_wave_functions_from_restart_file()

@@ -3,9 +3,9 @@ import numpy as np
 # from gpaw.mpi import world
 # from gpaw.fd_operators import Laplace
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.matrix import (Matrix, UniformGridWaveFunctions, AtomBlockMatrix,
-                         AtomCenteredFunctions, PlaneWaveExpansionWaveFunctions,
-                         UniformGridDensity, ProjectionMatrix)
+from gpaw.matrix import AtomBlockMatrix, ProjectionMatrix
+from gpaw.atom_centered_functions import AtomCenteredFunctions
+from gpaw.wavefunctions import UniformGridWaveFunctions
 from gpaw.spline import Spline
 
 
@@ -18,7 +18,7 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
     if desc.mode == 'fd':
         create = UniformGridWaveFunctions
     else:
-        create = PlaneWaveExpansions
+        pass  # create = PlaneWaveExpansionWaveFunctions
     psi_n = create(nbands, desc, dtype=dtype, kpt=kpt,
                    collinear=collinear, dist=bcomm)
     psi_n[:] = phi_M
@@ -28,7 +28,8 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
     print(S_nn.a)
     pt_I = AtomCenteredFunctions(desc, proj)
     pt_I.set_positions(spositions)
-    P_In = ProjectionMatrix(len(pt_I), len(psi_n), dtype=dtype, dist=(bcomm, 1, -1))
+    P_In = ProjectionMatrix(len(pt_I), len(psi_n),
+                            dtype=dtype, dist=(bcomm, 1, -1))
     pt_I.matrix_elements(psi_n, out=P_In)
     dSP_In = P_In.new()
     dS_II = AtomBlockMatrix(dS_aii)
@@ -45,12 +46,14 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
     dSP_In[:] = dS_II * P_In
     norm = S_nn.a.trace()
     S_nn += P_In.H * dSP_In
-    print(S_nn.a)
+    print(S_nn.a, norm)
 
+    """
     nt = UniformGridDensity(desc, spinpolarized, collinear)
     f_n = np.ones(len(psi_n))  # ???
     nt.from_wave_functions(psi2_n, f_n)
     nt.integrate()
+    """
 
     # kin(psit2_n, psit_n)
     # H_nn = Matrix((nbands, nbands), dtype, dist=?????)
