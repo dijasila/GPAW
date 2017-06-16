@@ -843,7 +843,7 @@ class GPAW(PAW, Calculator):
         dens = self.density
         kwargs = dict(
             gd=dens.gd, finegd=dens.finegd,
-            nspins=dens.nspins,
+            spinpolarized=dens.spinpolarized,
             setups=dens.setups,
             timer=self.timer,
             xc=xc,

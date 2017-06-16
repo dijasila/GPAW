@@ -3,7 +3,7 @@ from ase.units import Hartree
 
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.blas import gemm, axpy
-from gpaw.matrix import ProjectionMatrix
+from gpaw.matrix import Matrix
 
 
 class WaveFunctions:
@@ -179,11 +179,9 @@ class WaveFunctions:
     def set_positions(self, spos_ac, rank_a):
         self.positions_set = False
         self.kd.symmetry.check(spos_ac)
-        nproj = [setup.ni for setup in self.setups]
         for kpt in self.kpt_u:
-            kpt.P_In = ProjectionMatrix(nproj, self.bd.nbands,
-                                        self.gd, self.bd.comm,
-                                        rank_a)
+            kpt.P_In = Matrix(self.pt_I.mynfuncs, self.bd.nbands,
+                              dist=(self.bd.comm, 1, -1))
 
     def collect_eigenvalues(self, k, s):
         return self.collect_array('eps_n', k, s)

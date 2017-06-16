@@ -21,25 +21,46 @@ ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
 
 
+class AtomBlockHamiltonian:
+    def __init__(self, spinpolarized, collinear):
+        self.spinpolarized = spinpolarized
+
+        self.rank_a = None
+
+    def set_ranks(self, rank_a):
+        self.rank_a = rank_a
+
+    def multiply(self, alpha, opa, b, opb, beta, out):
+        assert opa == 'N'
+        assert opb == 'N'
+        assert beta == 0.0
+        I1 = 0
+        for M_ii in self.M_aii:
+            I2 = I1 + len(M_ii)
+            out.a[I1:I2] = np.dot(M_ii, b.a[I1:I2])
+            I1 = I2
+        return out
+
+
 class Hamiltonian(object):
 
-    def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
+    def __init__(self, gd, finegd, spinpolarized, setups, timer, xc, world,
                  redistributor, vext=None):
         self.gd = gd
         self.finegd = finegd
-        self.nspins = nspins
+        self.spinpolarized = spinpolarized
+        self.nspins = 1 + spinpolarized
+        self.collinear = True
         self.setups = setups
         self.timer = timer
         self.xc = xc
         self.world = world
         self.redistributor = redistributor
 
-        self.atomdist = None
-        self.dH_asp = None
-        self.vt_sG = None
-        self.vHt_g = None
-        self.vt_sg = None
-        self.atom_partition = None
+        self.dH_II = AtomBlockHamiltonian(spinpolarized, True)  # collinear)
+        self.vt = None  # coarse grid
+        self.vHt2 = None  # fine grid
+        self.vt2 = None  # fine grid
 
         # Energy contributioons that sum up to e_total_free:
         self.e_kinetic = None
@@ -61,24 +82,6 @@ class Hamiltonian(object):
         self.vext = vext  # external potential
 
         self.positions_set = False
-
-    @property
-    def dH_asp(self):
-        assert isinstance(self._dH_asp, ArrayDict) or self._dH_asp is None
-        # self._dH_asp.check_consistency()
-        return self._dH_asp
-
-    @dH_asp.setter
-    def dH_asp(self, value):
-        if isinstance(value, dict):
-            tmp = self.setups.empty_atomic_matrix(self.nspins,
-                                                  self.atom_partition)
-            tmp.update(value)
-            value = tmp
-        assert isinstance(value, ArrayDict) or value is None, type(value)
-        if value is not None:
-            value.check_consistency()
-        self._dH_asp = value
 
     def __str__(self):
         s = 'Hamiltonian:\n'
@@ -132,33 +135,10 @@ class Hamiltonian(object):
                 .format(wf1, wf2))
             log()
 
-    def set_positions_without_ruining_everything(self, spos_ac,
-                                                 atom_partition):
-        self.spos_ac = spos_ac
-        rank_a = atom_partition.rank_a
-
-        # If both old and new atomic ranks are present, start a blank dict if
-        # it previously didn't exist but it will needed for the new atoms.
-        # XXX what purpose does this serve?  In what case does it happen?
-        # How would one even go about figuring it out?  Why does it all have
-        # to be so unreadable? -Ask
-        #
-        if (self.atom_partition is not None and
-            self.dH_asp is None and (rank_a == self.gd.comm.rank).any()):
-            self.dH_asp = {}
-
-        if self.atom_partition is not None and self.dH_asp is not None:
-            self.timer.start('Redistribute')
-            self.dH_asp.redistribute(atom_partition)
-            self.timer.stop('Redistribute')
-
-        self.atom_partition = atom_partition
-        self.atomdist = self.redistributor.get_atom_distributions(spos_ac)
-
-    def set_positions(self, spos_ac, atom_partition):
+    def set_positions(self, spos_ac, rank_a):
         self.vbar.set_positions(spos_ac)
         self.xc.set_positions(spos_ac)
-        self.set_positions_without_ruining_everything(spos_ac, atom_partition)
+        self.dH_II.set_ranks(rank_a)
         self.positions_set = True
 
     def aoom(self, DM, a, l, scale=1):
@@ -535,10 +515,11 @@ class Hamiltonian(object):
 
 
 class RealSpaceHamiltonian(Hamiltonian):
-    def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
+    def __init__(self, gd, finegd, spinpolarized, setups, timer, xc, world,
                  vext=None,
                  psolver=None, stencil=3, redistributor=None):
-        Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
+        Hamiltonian.__init__(self, gd, finegd, spinpolarized,
+                             setups, timer, xc,
                              world, vext=vext,
                              redistributor=redistributor)
 

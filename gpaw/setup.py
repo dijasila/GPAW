@@ -241,7 +241,6 @@ class BaseSetup:
         ni = self.ni
 
         D_sii = np.zeros((nspins, ni, ni))
-        D_sp = np.zeros((nspins, ni * (ni + 1) // 2))
         nj = len(self.l_j)
         j = 0
         i = 0
@@ -260,9 +259,7 @@ class BaseSetup:
             j += 1
             i += 2 * l + 1
             ib += 2 * l + 1
-        for s in range(nspins):
-            D_sp[s] = pack(D_sii[s])
-        return D_sp
+        return D_sii
 
     def symmetrize(self, a, D_aii, map_sa):
         D_ii = np.zeros((self.ni, self.ni))

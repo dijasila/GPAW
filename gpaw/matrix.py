@@ -27,7 +27,7 @@ class NoDistribution:
     def __str__(self):
         return 'NoDistribution({}x{})'.format(*self.shape)
 
-    def mmm(self, alpha, a, opa, b, opb, beta, c):
+    def multiply(self, alpha, a, opa, b, opb, beta, c):
         if beta == 0.0:
             c2 = alpha * np.dot(op(a.a, opa), op(b.a, opb))
         else:
@@ -97,7 +97,7 @@ class BLACSDistribution:
                                         self.shape,
                                         self.desc[4:6:1]])))
 
-    def mmm(self, alpha, a, opa, b, opb, beta, destination):
+    def multiply(self, alpha, a, opa, b, opb, beta, destination):
         M, Ka = a.shape
         Kb, N = b.shape
         if opa == 'T':
@@ -227,7 +227,7 @@ class Matrix:
     def H(self):
         return Op(self, 'H')
 
-    def mmm(self, alpha, opa, b, opb, beta, out):
+    def multiply(self, alpha, opa, b, opb, beta, out):
         if opa == 'Ccccccccccccccccccccccccc' and self.dtype == float:
             opa = 'N'
         if out is None:
@@ -240,7 +240,7 @@ class Matrix:
             else:
                 N = b.shape[0]
             out = Matrix(M, N)
-        self.dist.mmm(alpha, self, opa, b, opb, beta, out)
+        self.dist.multiply(alpha, self, opa, b, opb, beta, out)
         return out
 
     def cholesky(self):
@@ -267,7 +267,7 @@ class Product:
     def eval(self, out=None, beta=0.0, alpha=1.0):
         a = self.a
         b = self.b
-        return a.M.mmm(alpha, a.op, b.M, b.op, beta, out)
+        return a.M.multiply(alpha, a.op, b.M, b.op, beta, out)
 
     def integrate(self, out=None, hermetian=False):
         a = self.a
@@ -281,7 +281,7 @@ class AtomBlockMatrix:
     def __init__(self, M_aii):
         self.M_aii = list(M_aii)
 
-    def mmm(self, alpha, opa, b, opb, beta, out):
+    def multiply(self, alpha, opa, b, opb, beta, out):
         assert opa == 'N'
         assert opb == 'N'
         assert beta == 0.0
@@ -293,12 +293,12 @@ class AtomBlockMatrix:
         return out
 
 
-class ProjectionMatrix(Matrix):
-    def __init__(self, nproj_a, nbands, gd, bcomm, rank_a):
+class ProjectionMatrixxxxxxxxxxxxxxxxxxx(Matrix):
+    def __init__(self, nproj_a, nbands, acomm, bcomm, rank_a):
         self.indices = []
         I1 = 0
         for a, ni in enumerate(nproj_a):
-            if gd.comm.rank == rank_a[a]:
+            if acomm.rank == rank_a[a]:
                 I2 = I1 + ni
                 self.indices.append((a, I1, I2))
                 I1 = I2
@@ -350,10 +350,10 @@ class HMMM:
         for P_ni, (I1, I2) in zip(P_ani.values(), self.slices):
             P_ni[:] = P_nI[:, I1:I2]
 
-    def mmm(self, alpha, opa, b, opb, beta, c):
+    def multiply(self, alpha, opa, b, opb, beta, c):
         if isinstance(b, PAWMatrix):
             assert (alpha, beta, opa, opb) == (1, 0, 'N', 'N')
             for (I1, I2), M_ii in zip(self.slices, b.M_aii):
                 c.a[:, I1:I2] = np.dot(self.a[:, I1:I2], M_ii)
         else:
-            SpatialMatrix.mmm(self, alpha, opa, b, opb, beta, c)
+            SpatialMatrix.multiply(self, alpha, opa, b, opb, beta, c)

@@ -3,7 +3,7 @@ import numpy as np
 # from gpaw.mpi import world
 # from gpaw.fd_operators import Laplace
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.matrix import AtomBlockMatrix, ProjectionMatrix
+from gpaw.matrix import AtomBlockMatrix, Matrix
 from gpaw.atom_centered_functions import AtomCenteredFunctions
 from gpaw.wavefunctions import UniformGridWaveFunctions
 from gpaw.spline import Spline
@@ -12,7 +12,7 @@ from gpaw.spline import Spline
 def test(desc, kd, spositions, proj, basis, dS_aii,
          bcomm=None,
          spinpolarized=False, collinear=True, kpt=None, dtype=None):
-    phi_M = AtomCenteredFunctions(desc, basis)  # , [kpt])
+    phi_M = AtomCenteredFunctions(desc, basis, kd)  # , [kpt])
     phi_M.set_positions(spositions)
     nbands = len(phi_M)
     if desc.mode == 'fd':
@@ -26,10 +26,10 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
     # psi_n.plot()
     S_nn = psi_n.matrix_elements(psi_n, hermitian=True)
     print(S_nn.a)
-    pt_I = AtomCenteredFunctions(desc, proj)
+    pt_I = AtomCenteredFunctions(desc, proj, kd)
     pt_I.set_positions(spositions)
-    P_In = ProjectionMatrix(len(pt_I), len(psi_n),
-                            dtype=dtype, dist=(bcomm, 1, -1))
+    P_In = Matrix(pt_I.mynfuncs, len(psi_n),
+                  dtype=dtype, dist=(bcomm, 1, -1))
     pt_I.matrix_elements(psi_n, out=P_In)
     dSP_In = P_In.new()
     dS_II = AtomBlockMatrix(dS_aii)

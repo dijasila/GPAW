@@ -4,36 +4,76 @@
 
 """This module defines a density class."""
 
-from __future__ import print_function
+from __future__ import print_function, division
 from math import pi, sqrt
 
 import numpy as np
 from ase.units import Bohr
 
 from gpaw import debug
+from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
 from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
-from gpaw.lfc import LFC, BasisFunctions
+from gpaw.lfc import BasisFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.utilities import (unpack2, unpack_atomic_matrices,
                             pack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
-from gpaw.mpi import SerialCommunicator
 from gpaw.arraydict import ArrayDict
 
 
 class NullBackgroundCharge:
     charge = 0.0
-    
+
     def set_grid_descriptor(self, gd):
         pass
-    
+
     def add_charge_to(self, rhot_g):
         pass
-        
+
     def add_fourier_space_charge_to(self, pd, rhot_q):
         pass
+
+
+class UniformGridDensity:
+    def __init__(self, gd, spinpolarized, collinear):
+        self.gd = gd
+        self.spinpolarized = spinpolarized
+        shape = (2, 2) if not collinear else (1 + spinpolarized,)
+        self.array = gd.empty(shape)
+
+    def initialize_with_pseudo_core_density(self, nct):
+        self.array[0] = 0.0
+        nct.lfc.add(self.array[0], 1 / (1 + self.spinpolarized))
+        if self.spinpolarized:
+            self.array[1] = self.array[0]
+
+    def add_from_basis_set(self, basis, D_II):
+        basis.add_to_density(self.array,
+                             {a: D_sii.diagonal(0, 1, 2)
+                              for a, D_sii in D_II.D_asii.items()})
+
+
+class AtomBlockDensityMatrix:
+    def __init__(self, setups, spinpolarized=False, collinear=True,
+                 comm=None, rank_a=None):
+        self.setups = setups
+        self.spinpolarized = spinpolarized
+
+        self.D_asii = {}
+        self.rank_a = None
+
+    def initialize(self, charge, magmom_a, hund):
+        for a, M in enumerate(magmom_a):
+            f_si = self.setups[a].calculate_initial_occupation_numbers(
+                abs(M), hund, charge=charge, nspins=1 + self.spinpolarized)
+            if M < 0:
+                f_si = f_si[::-1]
+            self.D_asii[a] = self.setups[a].initialize_density_matrix(f_si)
+
+    def set_ranks(self, rank_a):
+        self.rank_a = rank_a
 
 
 class Density(object):
@@ -63,7 +103,8 @@ class Density(object):
 
         self.gd = gd
         self.finegd = finegd
-        self.nspins = nspins
+        self.spinpolarized = nspins == 2
+        self.collinear = True
         self.charge = float(charge)
         self.redistributor = redistributor
         self.atomdist = None
@@ -76,16 +117,13 @@ class Density(object):
 
         self.charge_eps = 1e-7
 
-        self.D_asp = None
+        self.D_II = None
         self.Q_aL = None
 
-        self.nct_G = None
-        self.nt_sG = None
-        self.rhot_g = None
-        self.nt_sg = None
-        self.nt_g = None
-
-        self.atom_partition = None
+        self.nct = None
+        self.nt = None
+        self.rhot = None
+        self.finent = None
 
         self.fixed = False
         # XXX at least one test will fail because None has no 'reset()'
@@ -113,45 +151,27 @@ class Density(object):
             log('Spin contamination: %f electrons' % sc)
         except (TypeError, AttributeError):
             pass
-            
+
     def initialize(self, setups, timer, magmom_a, hund):
         self.timer = timer
         self.setups = setups
         self.hund = hund
         self.magmom_a = magmom_a
+        self.D_II = AtomBlockDensityMatrix(self.setups, self.spinpolarized,
+                                           self.collinear)
 
     def reset(self):
         # TODO: reset other parameters?
-        self.nt_sG = None
+        self.nt = None
 
-    def set_positions_without_ruining_everything(self, spos_ac,
-                                                 atom_partition):
-        rank_a = atom_partition.rank_a
-        # If both old and new atomic ranks are present, start a blank dict if
-        # it previously didn't exist but it will needed for the new atoms.
-        if (self.atom_partition is not None and
-            self.D_asp is None and (rank_a == self.gd.comm.rank).any()):
-            self.D_asp = self.setups.empty_atomic_matrix(self.nspins,
-                                                         self.atom_partition)
-
-        if (self.atom_partition is not None and self.D_asp is not None and
-            not isinstance(self.gd.comm, SerialCommunicator)):
-            self.timer.start('Redistribute')
-            self.D_asp.redistribute(atom_partition)
-            self.timer.stop('Redistribute')
-
-        self.atom_partition = atom_partition
-        self.atomdist = self.redistributor.get_atom_distributions(spos_ac)
-
-    def set_positions(self, spos_ac, atom_partition):
-        self.set_positions_without_ruining_everything(spos_ac, atom_partition)
+    def set_positions(self, spos_ac, rank_a):
+        self.D_II.set_ranks(rank_a)
         self.nct.set_positions(spos_ac)
         self.ghat.set_positions(spos_ac)
         self.mixer.reset()
 
-        self.nt_sg = None
-        self.nt_g = None
-        self.rhot_g = None
+        self.nt = None
+        self.rhot = None
         self.Q_aL = None
 
     def calculate_pseudo_density(self, wfs):
@@ -160,27 +180,8 @@ class Density(object):
         nt_sG will be equal to nct_G plus the contribution from
         wfs.add_to_density().
         """
-        wfs.calculate_density_contribution(self.nt_sG)
-        self.nt_sG += self.nct_G
-
-    @property
-    def D_asp(self):
-        if self._D_asp is not None:
-            assert isinstance(self._D_asp, ArrayDict), type(self._D_asp)
-            self._D_asp.check_consistency()
-        return self._D_asp
-
-    @D_asp.setter
-    def D_asp(self, value):
-        if isinstance(value, dict):
-            tmp = self.setups.empty_atomic_matrix(self.nspins,
-                                                  self.atom_partition)
-            tmp.update(value)
-            value = tmp
-        assert isinstance(value, ArrayDict) or value is None, type(value)
-        if value is not None:
-            value.check_consistency()
-        self._D_asp = value
+        self.nt.initialize_with_pseudo_core_density(self.nct)
+        wfs.calculate_density_contribution(self.nt)
 
     def update(self, wfs):
         self.timer.start('Density')
@@ -225,7 +226,7 @@ class Density(object):
         assert isinstance(self.mixer, MixerWrapper), self.mixer
         self.error = self.mixer.mix(self.nt_sG, self.D_asp)
         assert self.error is not None, self.mixer
-        
+
         comp_charge = None
         self.interpolate_pseudo_density(comp_charge)
         self.calculate_pseudo_charge()
@@ -239,10 +240,10 @@ class Density(object):
 
         comp_charge = 0.0
         Ddist_asp = self.atomdist.to_aux(self.D_asp)
-        
+
         def shape(a):
             return self.setups[a].Delta_pL.shape[1],
-            
+
         self.Q_aL = ArrayDict(Ddist_asp.partition, shape)
         for a, D_sp in Ddist_asp.items():
             Q_L = self.Q_aL[a] = np.dot(D_sp.sum(0),
@@ -251,18 +252,6 @@ class Density(object):
             comp_charge += Q_L[0]
 
         return Ddist_asp.partition.comm.sum(comp_charge) * sqrt(4 * pi)
-
-    def get_initial_occupations(self, a):
-        # distribute charge on all atoms
-        # XXX interaction with background charge may be finicky
-        c = (self.charge - self.background_charge.charge) / len(self.setups)
-        M = self.magmom_a[a]
-        f_si = self.setups[a].calculate_initial_occupation_numbers(
-            abs(M), self.hund, charge=c, nspins=self.nspins)
-
-        if M < 0:
-            f_si = f_si[::-1].copy()
-        return f_si
 
     def initialize_from_atomic_densities(self, basis_functions):
         """Initialize D_asp, nt_sG and Q_aL from atomic densities.
@@ -279,23 +268,13 @@ class Density(object):
 
         self.log('Density initialized from atomic densities')
 
-        self.D_asp = self.setups.empty_atomic_matrix(self.nspins,
-                                                     self.atom_partition)
-        f_asi = {}
-        for a in basis_functions.atom_indices:
-            f_asi[a] = self.get_initial_occupations(a)
+        c = (self.charge - self.background_charge.charge) / len(self.setups)
+        self.D_II.initialize(c, self.magmom_a, self.hund)
 
-        # D_asp does not have the same distribution as the basis functions,
-        # so we have to loop over atoms separately.
-        for a in self.D_asp:
-            f_si = f_asi.get(a)
-            if f_si is None:
-                f_si = self.get_initial_occupations(a)
-            self.D_asp[a][:] = self.setups[a].initialize_density_matrix(f_si)
-
-        self.nt_sG = self.gd.zeros(self.nspins)
-        basis_functions.add_to_density(self.nt_sG, f_asi)
-        self.nt_sG += self.nct_G
+        self.nt = UniformGridDensity(self.gd, self.spinpolarized,
+                                     self.collinear)
+        self.nt.initialize_with_pseudo_core_density(self.nct)
+        self.nt.add_from_basis_set(basis_functions, self.D_II)
         self.calculate_normalized_charges_and_mix()
 
     def initialize_from_wavefunctions(self, wfs):
@@ -328,11 +307,12 @@ class Density(object):
         if mixer is None:
             mixer = {}
         if isinstance(mixer, dict):
-            mixer = get_mixer_from_keywords(self.gd.pbc_c.any(), self.nspins,
+            mixer = get_mixer_from_keywords(self.gd.pbc_c.any(),
+                                            1 + self.spinpolarized,
                                             **mixer)
         if not hasattr(mixer, 'mix'):
             raise ValueError('Not a mixer: %s' % mixer)
-        self.mixer = MixerWrapper(mixer, self.nspins, self.gd)
+        self.mixer = MixerWrapper(mixer, 1 + self.spinpolarized, self.gd)
 
     def estimate_magnetic_moments(self, total=None):
         magmom_a = np.zeros_like(self.magmom_a)
@@ -561,20 +541,20 @@ class Density(object):
             D_asp.check_consistency()
 
         self.initialize_directly_from_arrays(nt_sG, D_asp)
-        
+
     def initialize_from_other_density(self, dens, kptband_comm):
         """Redistribute pseudo density and atomic density matrices.
-        
+
         Collect dens.nt_sG and dens.D_asp to world master and distribute."""
-        
+
         new_nt_sG = redistribute_array(dens.nt_sG, dens.gd, self.gd,
                                        self.nspins, kptband_comm)
-    
+
         self.atom_partition, self.atomdist, D_asp = \
             redistribute_atomic_matrices(dens.D_asp, self.gd, self.nspins,
                                          self.setups, self.redistributor,
                                          kptband_comm)
-        
+
         self.initialize_directly_from_arrays(new_nt_sG, D_asp)
 
 
@@ -599,16 +579,14 @@ class RealSpaceDensity(Density):
                 spline_aj.append([])
             else:
                 spline_aj.append([setup.nct])
-        self.nct = LFC(self.gd, spline_aj,
+        self.nct = ACF(self.gd, spline_aj,
                        integral=[setup.Nct for setup in setups],
-                       forces=True, cut=True)
-        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
-                        integral=sqrt(4 * pi), forces=True)
+                       cut=True)
+        self.ghat = ACF(self.finegd, [setup.ghat_l for setup in setups],
+                        integral=sqrt(4 * pi))
 
     def set_positions(self, spos_ac, rank_a=None):
         Density.set_positions(self, spos_ac, rank_a)
-        self.nct_G = self.gd.zeros()
-        self.nct.add(self.nct_G, 1.0 / self.nspins)
 
     def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
@@ -679,7 +657,7 @@ def redistribute_array(nt_sG, gd1, gd2, nspins, kptband_comm):
         gd2.distribute(nt_sG, new_nt_sG)
     kptband_comm.broadcast(new_nt_sG, 0)
     return new_nt_sG
-    
+
 
 def redistribute_atomic_matrices(D_asp, gd2, nspins, setups, redistributor,
                                  kptband_comm):
@@ -690,7 +668,7 @@ def redistribute_atomic_matrices(D_asp, gd2, nspins, setups, redistributor,
     D_asp = setups.empty_atomic_matrix(nspins, atom_partition)
     spos_ac = np.zeros((natoms, 3))  # XXXX
     atomdist = redistributor.get_atom_distributions(spos_ac)
-    
+
     if gd2.comm.rank == 0:
         if kptband_comm.rank > 0:
             nP = sum(setup.ni * (setup.ni + 1) // 2

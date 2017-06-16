@@ -6,8 +6,8 @@ from gpaw.lfc import LFC
 class AtomCenteredFunctions:
     dtype = float
 
-    def __init__(self, desc, functions, kd):
-        self.lfc = LFC(desc, functions)
+    def __init__(self, desc, functions, kd=None, integral=None, cut=False):
+        self.lfc = LFC(desc, functions, integral=integral, cut=cut)
         self.atom_indices = []
         self.slices = []
         I1 = 0
@@ -17,6 +17,7 @@ class AtomCenteredFunctions:
             self.slices.append((I1, I2))
             I1 = I2
         self.nfuncs = I2
+        self.mynfuncs = I2
 
     def __len__(self):
         return self.nfuncs
