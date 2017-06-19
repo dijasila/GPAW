@@ -113,8 +113,8 @@ class GPAWLogger(object):
                     value = value.todict()
                 if isinstance(value, dict):
                     sep = ',\n     ' + ' ' * len(key)
-                    s = sep.join('{0}: {1}'.format(*item)
-                                 for item in sorted(value.items()))
+                    keys = sorted(value, key=lambda k: (str(type(k)), k))
+                    s = sep.join('{0}: {1}'.format(k, value[k]) for k in keys)
                     self('  {0}: {{{1}}}'.format(key, s))
                 elif hasattr(value, '__len__'):
                     value = np.asarray(value)
