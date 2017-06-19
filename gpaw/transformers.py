@@ -48,7 +48,7 @@ class _Transformer:
 
             inpoints = (gdin.n_c[0] + 2 * nn - 1) * (gdin.n_c[1] + 2 * nn - 1)
             outpoints = gdout.n_c[0] * gdout.n_c[1]
-            
+
             if inpoints > outpoints:
                 points = ' x '.join([str(N) for N in gdin.N_c])
                 raise ValueError('Cannot construct interpolator.  Grid %s '
@@ -67,14 +67,14 @@ class _Transformer:
             comm = gdin.comm.get_c_object()
         else:
             comm = None
-        
+
         self.transformer = _gpaw.Transformer(gdin.n_c, gdout.n_c,
                                              2 * nn, pad_cd,
                                              neighborpad_cd, skip_cd,
                                              gdin.neighbor_cd,
                                              dtype == float, comm,
                                              self.interpolate)
-        
+
     def apply(self, input, output=None, phases=None):
         if output is None:
             output = self.gdout.empty(input.shape[:-3], dtype=self.dtype)
@@ -92,6 +92,7 @@ class TransformerWrapper:
         self.ngpin = transformer.ngpin
         self.ngpout = transformer.ngpout
         self.nn = transformer.nn
+        self.gdout = transformer.gdout
 
     def apply(self, input, output=None, phases=None):
         assert is_contiguous(input, self.dtype)
@@ -104,7 +105,7 @@ class TransformerWrapper:
                  phases.shape == (3, 2)))
 
         return self.transformer.apply(input, output, phases)
-        
+
     def get_async_sizes(self):
         return self.transformer.get_async_sizes()
 
@@ -115,13 +116,13 @@ def Transformer(gdin, gdout, nn=1, dtype=float):
         if debug:
             t = TransformerWrapper(t)
         return t
-        
+
     class T:
         nn = 1
-        
+
         def apply(self, input, output, phases=None):
             output[:] = input
-            
+
     return T()
 
 

@@ -20,7 +20,6 @@ from gpaw.utilities import (unpack2, unpack_atomic_matrices,
                             pack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
-from gpaw.arraydict import ArrayDict
 
 
 class NullBackgroundCharge:
@@ -40,8 +39,23 @@ class UniformGridDensity:
     def __init__(self, gd, spinpolarized, collinear):
         self.gd = gd
         self.spinpolarized = spinpolarized
+        self.collinear = collinear
+
         shape = (2, 2) if not collinear else (1 + spinpolarized,)
         self.array = gd.empty(shape)
+
+    def arrays(self):
+        for a in self.array:
+            if self.collinear:
+                yield a
+            else:
+                for b in a:
+                    yield b
+
+    def get_electron_density(self):
+        if self.collinear:
+            return self.array.sum(0)
+        return ...
 
     def initialize_with_pseudo_core_density(self, nct):
         self.array[0] = 0.0
@@ -49,10 +63,33 @@ class UniformGridDensity:
         if self.spinpolarized:
             self.array[1] = self.array[0]
 
-    def add_from_basis_set(self, basis, D_II):
-        basis.add_to_density(self.array,
-                             {a: D_sii.diagonal(0, 1, 2)
-                              for a, D_sii in D_II.D_asii.items()})
+    def add_from_basis_set(self, basis, f_asi):
+        basis.add_to_density(self.array, f_asi)
+
+    def normalize(self, total_charge):
+        """Normalize pseudo density."""
+        pseudo_charge = self.gd.integrate(self.array).sum()
+        x = -total_charge / pseudo_charge
+        self.array *= x
+
+    def interpolate(self, interpolator, redistributor):
+        out = UniformGridDensity(interpolator.gdout, self.spinpolarized,
+                                 self.collinear)
+        for a, b in zip(self.arrays(), out.arrays()):
+            c = redistributor.distribute(a)
+            interpolator.apply(c, b)
+
+            # With periodic boundary conditions, the interpolation will
+            # conserve the number of electrons.
+            if not self.gd.pbc_c.all():
+                # With zero-boundary conditions in one or more directions,
+                # this is not the case.
+                C = self.gd.integrate(c)
+                if abs(C) > 1.0e-14:
+                    B = out.gd.integrate(b)
+                    b *= C / B
+
+        return out
 
 
 class AtomBlockDensityMatrix:
@@ -60,20 +97,42 @@ class AtomBlockDensityMatrix:
                  comm=None, rank_a=None):
         self.setups = setups
         self.spinpolarized = spinpolarized
+        self.comm = comm
+        self.rank_a = rank_a
 
         self.D_asii = {}
-        self.rank_a = None
 
     def initialize(self, charge, magmom_a, hund):
+        f_asi = {}
         for a, M in enumerate(magmom_a):
             f_si = self.setups[a].calculate_initial_occupation_numbers(
                 abs(M), hund, charge=charge, nspins=1 + self.spinpolarized)
             if M < 0:
                 f_si = f_si[::-1]
             self.D_asii[a] = self.setups[a].initialize_density_matrix(f_si)
+            f_asi[a] = f_si
+        return f_asi
 
     def set_ranks(self, rank_a):
         self.rank_a = rank_a
+
+    def calculate_multipole_moments(self):
+        """Calculate multipole moments of compensation charges.
+
+        Returns the total compensation charge in units of electron
+        charge, so the number will be negative because of the
+        dominating contribution from the nuclear charge."""
+
+        comp_charge = 0.0
+        Q_aL = {}
+        for a, D_sii in self.D_asii.items():
+            setup = self.setups[a]
+            Q_L = np.einsum('sij,ijL->L', D_sii, setup.Delta_iiL)
+            Q_L[0] += setup.Delta0
+            comp_charge += Q_L[0]
+            Q_aL[a] = Q_L
+
+        return self.comm.sum(comp_charge) * sqrt(4 * pi), Q_aL
 
 
 class Density(object):
@@ -107,7 +166,6 @@ class Density(object):
         self.collinear = True
         self.charge = float(charge)
         self.redistributor = redistributor
-        self.atomdist = None
 
         # This can contain e.g. a Jellium background charge
         if background_charge is None:
@@ -120,7 +178,9 @@ class Density(object):
         self.D_II = None
         self.Q_aL = None
 
-        self.nct = None
+        self.nct_a = None
+        self.ghat_aL = None
+
         self.nt = None
         self.rhot = None
         self.finent = None
@@ -158,7 +218,7 @@ class Density(object):
         self.hund = hund
         self.magmom_a = magmom_a
         self.D_II = AtomBlockDensityMatrix(self.setups, self.spinpolarized,
-                                           self.collinear)
+                                           self.collinear, comm=self.gd.comm)
 
     def reset(self):
         # TODO: reset other parameters?
@@ -166,8 +226,8 @@ class Density(object):
 
     def set_positions(self, spos_ac, rank_a):
         self.D_II.set_ranks(rank_a)
-        self.nct.set_positions(spos_ac)
-        self.ghat.set_positions(spos_ac)
+        self.nct_a.set_positions(spos_ac)
+        self.ghat_aL.set_positions(spos_ac)
         self.mixer.reset()
 
         self.nt = None
@@ -180,7 +240,7 @@ class Density(object):
         nt_sG will be equal to nct_G plus the contribution from
         wfs.add_to_density().
         """
-        self.nt.initialize_with_pseudo_core_density(self.nct)
+        self.nt.initialize_with_pseudo_core_density(self.nct_a)
         wfs.calculate_density_contribution(self.nt)
 
     def update(self, wfs):
@@ -202,56 +262,13 @@ class Density(object):
         self.timer.stop('Mix')
         self.timer.stop('Density')
 
-    def normalize(self, comp_charge=None):
-        """Normalize pseudo density."""
-        if comp_charge is None:
-            comp_charge = self.calculate_multipole_moments()
-
-        pseudo_charge = self.gd.integrate(self.nt_sG).sum()
-
-        if (pseudo_charge + self.charge + comp_charge -
-            self.background_charge.charge != 0):
-            if pseudo_charge != 0:
-                x = (self.background_charge.charge - self.charge -
-                     comp_charge) / pseudo_charge
-                self.nt_sG *= x
-            else:
-                # Use homogeneous background:
-                volume = self.gd.get_size_of_global_array().prod() * self.gd.dv
-                total_charge = (self.charge + comp_charge -
-                                self.background_charge.charge)
-                self.nt_sG[:] = -total_charge / volume
-
     def mix(self, comp_charge):
         assert isinstance(self.mixer, MixerWrapper), self.mixer
-        self.error = self.mixer.mix(self.nt_sG, self.D_asp)
+        self.error = self.mixer.mix(self.nt.array, self.D_II.D_asii)
         assert self.error is not None, self.mixer
 
-        comp_charge = None
-        self.interpolate_pseudo_density(comp_charge)
+        self.interpolate_pseudo_density()
         self.calculate_pseudo_charge()
-
-    def calculate_multipole_moments(self):
-        """Calculate multipole moments of compensation charges.
-
-        Returns the total compensation charge in units of electron
-        charge, so the number will be negative because of the
-        dominating contribution from the nuclear charge."""
-
-        comp_charge = 0.0
-        Ddist_asp = self.atomdist.to_aux(self.D_asp)
-
-        def shape(a):
-            return self.setups[a].Delta_pL.shape[1],
-
-        self.Q_aL = ArrayDict(Ddist_asp.partition, shape)
-        for a, D_sp in Ddist_asp.items():
-            Q_L = self.Q_aL[a] = np.dot(D_sp.sum(0),
-                                        self.setups[a].Delta_pL)
-            Q_L[0] += self.setups[a].Delta0
-            comp_charge += Q_L[0]
-
-        return Ddist_asp.partition.comm.sum(comp_charge) * sqrt(4 * pi)
 
     def initialize_from_atomic_densities(self, basis_functions):
         """Initialize D_asp, nt_sG and Q_aL from atomic densities.
@@ -269,12 +286,12 @@ class Density(object):
         self.log('Density initialized from atomic densities')
 
         c = (self.charge - self.background_charge.charge) / len(self.setups)
-        self.D_II.initialize(c, self.magmom_a, self.hund)
+        f_asi = self.D_II.initialize(c, self.magmom_a, self.hund)
 
         self.nt = UniformGridDensity(self.gd, self.spinpolarized,
                                      self.collinear)
-        self.nt.initialize_with_pseudo_core_density(self.nct)
-        self.nt.add_from_basis_set(basis_functions, self.D_II)
+        self.nt.initialize_with_pseudo_core_density(self.nct_a)
+        self.nt.add_from_basis_set(basis_functions, f_asi)
         self.calculate_normalized_charges_and_mix()
 
     def initialize_from_wavefunctions(self, wfs):
@@ -299,8 +316,10 @@ class Density(object):
         # improperly initialized mixer
 
     def calculate_normalized_charges_and_mix(self):
-        comp_charge = self.calculate_multipole_moments()
-        self.normalize(comp_charge)
+        comp_charge, self.Q_aL = self.D_II.calculate_multipole_moments()
+        total_charge = (self.charge + comp_charge -
+                        self.background_charge.charge)
+        self.nt.normalize(total_charge)
         self.mix(comp_charge)
 
     def set_mixer(self, mixer):
@@ -488,8 +507,8 @@ class Density(object):
             arrays.subnode(name, size)
 
         lfs = mem.subnode('Localized functions')
-        for name, obj in [('nct', self.nct),
-                          ('ghat', self.ghat)]:
+        for name, obj in [('nct', self.nct_a),
+                          ('ghat', self.ghat_aL)]:
             obj.estimate_memory(lfs.subnode(name))
         self.mixer.estimate_memory(mem.subnode('Mixer'), self.gd)
 
@@ -579,60 +598,20 @@ class RealSpaceDensity(Density):
                 spline_aj.append([])
             else:
                 spline_aj.append([setup.nct])
-        self.nct = ACF(self.gd, spline_aj,
-                       integral=[setup.Nct for setup in setups],
-                       cut=True)
-        self.ghat = ACF(self.finegd, [setup.ghat_l for setup in setups],
-                        integral=sqrt(4 * pi))
+        self.nct_a = ACF(self.gd, spline_aj,
+                         integral=[setup.Nct for setup in setups],
+                         cut=True)
+        self.ghat_aL = ACF(self.finegd, [setup.ghat_l for setup in setups],
+                           integral=sqrt(4 * pi))
 
-    def set_positions(self, spos_ac, rank_a=None):
-        Density.set_positions(self, spos_ac, rank_a)
-
-    def interpolate_pseudo_density(self, comp_charge=None):
+    def interpolate_pseudo_density(self):
         """Interpolate pseudo density to fine grid."""
-        if comp_charge is None:
-            comp_charge = self.calculate_multipole_moments()
-
-        self.nt_sg = self.distribute_and_interpolate(self.nt_sG, self.nt_sg)
-
-        # With periodic boundary conditions, the interpolation will
-        # conserve the number of electrons.
-        if not self.gd.pbc_c.all():
-            # With zero-boundary conditions in one or more directions,
-            # this is not the case.
-            pseudo_charge = (self.background_charge.charge - self.charge -
-                             comp_charge)
-            if abs(pseudo_charge) > 1.0e-14:
-                x = (pseudo_charge /
-                     self.finegd.integrate(self.nt_sg).sum())
-                self.nt_sg *= x
-
-    def interpolate(self, in_xR, out_xR=None):
-        """Interpolate array(s)."""
-
-        # ndim will be 3 in finite-difference mode and 1 when working
-        # with the AtomPAW class (spherical atoms and 1d grids)
-        ndim = self.gd.ndim
-
-        if out_xR is None:
-            out_xR = self.finegd.empty(in_xR.shape[:-ndim])
-
-        a_xR = in_xR.reshape((-1,) + in_xR.shape[-ndim:])
-        b_xR = out_xR.reshape((-1,) + out_xR.shape[-ndim:])
-
-        for in_R, out_R in zip(a_xR, b_xR):
-            self.interpolator.apply(in_R, out_R)
-
-        return out_xR
-
-    def distribute_and_interpolate(self, in_xR, out_xR=None):
-        in_xR = self.redistributor.distribute(in_xR)
-        return self.interpolate(in_xR, out_xR)
+        self.finent = self.nt.interpolate(self.interpolator,
+                                          self.redistributor)
 
     def calculate_pseudo_charge(self):
-        self.nt_g = self.nt_sg.sum(axis=0)
-        self.rhot_g = self.nt_g.copy()
-        self.ghat.add(self.rhot_g, self.Q_aL)
+        self.rhot_g = self.finent.get_electron_density()
+        self.ghat_aL.add_to(self.rhot_g, self.Q_aL)
         self.background_charge.add_charge_to(self.rhot_g)
 
         if debug:

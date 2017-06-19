@@ -25,6 +25,9 @@ class AtomCenteredFunctions:
     def set_positions(self, spos_ac, rank_a=None):
         self.lfc.set_positions(spos_ac)
 
+    def add_to(self, array, coefs):
+        self.lfc.add(array, coefs)
+
     def eval(self, out):
         out.array[:] = 0.0
         coef_M = np.zeros(len(self))

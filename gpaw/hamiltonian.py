@@ -21,6 +21,43 @@ ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
 
 
+class UniformGridPotential:
+    def __init__(self, gd, spinpolarized, collinear):
+        self.gd = gd
+        self.spinpolarized = spinpolarized
+        self.collinear = collinear
+
+        shape = (2, 2) if not collinear else (1 + spinpolarized,)
+        self.array = gd.empty(shape)
+
+    def arrays(self):
+        for a in self.array:
+            if self.collinear:
+                yield a
+            else:
+                for b in a:
+                    yield b
+
+    def interpolate(self, interpolator, redistributor):
+        out = UniformGridDensity(interpolator.gdout, self.spinpolarized,
+                                 self.collinear)
+        for a, b in zip(self.arrays(), out.arrays()):
+            c = redistributor.distribute(a)
+            interpolator.apply(c, b)
+
+            # With periodic boundary conditions, the interpolation will
+            # conserve the number of electrons.
+            if not self.gd.pbc_c.all():
+                # With zero-boundary conditions in one or more directions,
+                # this is not the case.
+                C = self.gd.integrate(c)
+                if abs(C) > 1.0e-14:
+                    B = out.gd.integrate(b)
+                    b *= C / B
+
+        return out
+
+
 class AtomBlockHamiltonian:
     def __init__(self, spinpolarized, collinear):
         self.spinpolarized = spinpolarized
@@ -198,9 +235,10 @@ class Hamiltonian(object):
             return A, V
 
     def initialize(self):
-        self.vt_sg = self.finegd.empty(self.nspins)
+        self.vt = UniformGridPotential(self.gd,
+                                       self.spinpolarized, self.collinear)
+        self.finevt = None
         self.vHt_g = self.finegd.zeros()
-        self.vt_sG = self.gd.empty(self.nspins)
         self.poisson.initialize()
 
     def update(self, density):
@@ -212,7 +250,7 @@ class Hamiltonian(object):
 
         self.timer.start('Hamiltonian')
 
-        if self.vt_sg is None:
+        if self.vt is None:
             with self.timer('Initialize Hamiltonian'):
                 self.initialize()
 
