@@ -588,7 +588,7 @@ class GPAW(PAW, Calculator):
                 par.charge)
 
         if nbands <= 0:
-            nbands = int(nvalence + M + 0.5) // 2 + (-nbands)
+            nbands = max(1, int(nvalence + M + 0.5) // 2 + (-nbands))
 
         if nvalence > 2 * nbands and not orbital_free:
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
