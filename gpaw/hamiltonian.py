@@ -69,6 +69,51 @@ class AtomBlockHamiltonian:
             I1 = I2
         return out
 
+    def update(self, D_II, xc):
+        e_kinetic = 0.0
+        e_coulomb = 0.0
+        e_zero = 0.0
+        e_external = 0.0
+        e_xc = 0.0
+
+
+        for a, D_sp in D_asp.items():
+            W_L = W_aL[a]
+            setup = self.setups[a]
+
+            D_p = D_sp.sum(0)
+            dH_p = (setup.K_p + setup.M_p +
+                    setup.MB_p + 2.0 * np.dot(setup.M_pp, D_p) +
+                    np.dot(setup.Delta_pL, W_L))
+            e_kinetic += np.dot(setup.K_p, D_p) + setup.Kc
+            e_zero += setup.MB + np.dot(setup.MB_p, D_p)
+            e_coulomb += setup.M + np.dot(D_p, (setup.M_p +
+                                                np.dot(setup.M_pp, D_p)))
+
+            dH_asp[a] = dH_sp = np.zeros_like(D_sp)
+
+            if setup.HubU is not None:
+                dH_sii = hubbard(setup, D_sii)
+            dH_sp += dH_p
+            if self.ref_dH_asp:
+                dH_sp += self.ref_dH_asp[a]
+
+        self.timer.start('XC Correction')
+        for a, D_sp in D_asp.items():
+            e_xc += self.xc.calculate_paw_correction(self.setups[a], D_sp,
+                                                     dH_asp[a], a=a)
+        self.timer.stop('XC Correction')
+
+        for a, D_sp in D_asp.items():
+            e_kinetic -= (D_sp * dH_asp[a]).sum()  # NCXXX
+
+        self.dH_asp = self.atomdist.from_work(dH_asp)
+        self.timer.stop('Atomic')
+
+        # Make corrections due to non-local xc:
+        self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
+        e_kinetic += self.xc.get_kinetic_energy_correction() / self.world.size
+        return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
 class Hamiltonian(object):
 
@@ -174,62 +219,6 @@ class Hamiltonian(object):
         self.vbar_a.add_to(self.vbar_r)
         self.positions_set = True
 
-    def aoom(self, DM, a, l, scale=1):
-        """Atomic Orbital Occupation Matrix.
-
-        Determine the Atomic Orbital Occupation Matrix (aoom) for a
-        given l-quantum number.
-
-        This operation, takes the density matrix (DM), which for
-        example is given by unpack2(D_asq[i][spin]), and corrects for
-        the overlap between the selected orbitals (l) upon which the
-        the density is expanded (ex <p|p*>,<p|p>,<p*|p*> ).
-
-        Returned is only the "corrected" part of the density matrix,
-        which represents the orbital occupation matrix for l=2 this is
-        a 5x5 matrix.
-        """
-        S = self.setups[a]
-        l_j = S.l_j
-        lq = S.lq
-        nl = np.where(np.equal(l_j, l))[0]
-        V = np.zeros(np.shape(DM))
-        if len(nl) == 2:
-            aa = nl[0] * len(l_j) - (nl[0] - 1) * nl[0] // 2
-            bb = nl[1] * len(l_j) - (nl[1] - 1) * nl[1] // 2
-            ab = aa + nl[1] - nl[0]
-
-            if not scale:
-                lq_a = lq[aa]
-                lq_ab = lq[ab]
-                lq_b = lq[bb]
-            else:
-                lq_a = 1
-                lq_ab = lq[ab] / lq[aa]
-                lq_b = lq[bb] / lq[aa]
-
-            # and the correct entrances in the DM
-            nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
-            mm = (2 * np.array(l_j) + 1)[0:nl[1]].sum()
-
-            # finally correct and add the four submatrices of NC_DM
-            A = DM[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] * lq_a
-            B = DM[nn:nn + 2 * l + 1, mm:mm + 2 * l + 1] * lq_ab
-            C = DM[mm:mm + 2 * l + 1, nn:nn + 2 * l + 1] * lq_ab
-            D = DM[mm:mm + 2 * l + 1, mm:mm + 2 * l + 1] * lq_b
-
-            V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] = lq_a
-            V[nn:nn + 2 * l + 1, mm:mm + 2 * l + 1] = lq_ab
-            V[mm:mm + 2 * l + 1, nn:nn + 2 * l + 1] = lq_ab
-            V[mm:mm + 2 * l + 1, mm:mm + 2 * l + 1] = lq_b
-
-            return A + B + C + D, V
-        else:
-            nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
-            A = DM[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] * lq[-1]
-            V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] = lq[-1]
-            return A, V
-
     def initialize(self):
         self.finevt = UniformGridPotential(self.finegd,
                                            self.spinpolarized, self.collinear)
@@ -275,87 +264,8 @@ class Hamiltonian(object):
 
     def update_corrections(self, dens, W_aL):
         self.timer.start('Atomic')
-        self.dH_asp = None  # XXXX
 
-        e_kinetic = 0.0
-        e_coulomb = 0.0
-        e_zero = 0.0
-        e_external = 0.0
-        e_xc = 0.0
-
-        D_asp = self.atomdist.to_work(dens.D_asp)
-        dH_asp = self.setups.empty_atomic_matrix(self.nspins, D_asp.partition)
-
-        for a, D_sp in D_asp.items():
-            W_L = W_aL[a]
-            setup = self.setups[a]
-
-            D_p = D_sp.sum(0)
-            dH_p = (setup.K_p + setup.M_p +
-                    setup.MB_p + 2.0 * np.dot(setup.M_pp, D_p) +
-                    np.dot(setup.Delta_pL, W_L))
-            e_kinetic += np.dot(setup.K_p, D_p) + setup.Kc
-            e_zero += setup.MB + np.dot(setup.MB_p, D_p)
-            e_coulomb += setup.M + np.dot(D_p, (setup.M_p +
-                                                np.dot(setup.M_pp, D_p)))
-
-            dH_asp[a] = dH_sp = np.zeros_like(D_sp)
-
-            if setup.HubU is not None:
-                nspins = len(D_sp)
-
-                l_j = setup.l_j
-                l = setup.Hubl
-                scale = setup.Hubs
-                nl = np.where(np.equal(l_j, l))[0]
-                nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
-
-                for D_p, H_p in zip(D_sp, dH_asp[a]):
-                    [N_mm, V] = self.aoom(unpack2(D_p), a, l, scale)
-                    N_mm = N_mm / 2 * nspins
-
-                    Eorb = setup.HubU / 2. * (N_mm -
-                                              np.dot(N_mm, N_mm)).trace()
-                    Vorb = setup.HubU * (0.5 * np.eye(2 * l + 1) - N_mm)
-                    e_xc += Eorb
-                    if nspins == 1:
-                        # add contribution of other spin manyfold
-                        e_xc += Eorb
-
-                    if len(nl) == 2:
-                        mm = (2 * np.array(l_j) + 1)[0:nl[1]].sum()
-
-                        V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] *= Vorb
-                        V[mm:mm + 2 * l + 1, nn:nn + 2 * l + 1] *= Vorb
-                        V[nn:nn + 2 * l + 1, mm:mm + 2 * l + 1] *= Vorb
-                        V[mm:mm + 2 * l + 1, mm:mm + 2 * l + 1] *= Vorb
-                    else:
-                        V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] *= Vorb
-
-                    Htemp = unpack(H_p)
-                    Htemp += V
-                    H_p[:] = pack2(Htemp)
-
-            dH_sp += dH_p
-            if self.ref_dH_asp:
-                dH_sp += self.ref_dH_asp[a]
-
-        self.timer.start('XC Correction')
-        for a, D_sp in D_asp.items():
-            e_xc += self.xc.calculate_paw_correction(self.setups[a], D_sp,
-                                                     dH_asp[a], a=a)
-        self.timer.stop('XC Correction')
-
-        for a, D_sp in D_asp.items():
-            e_kinetic -= (D_sp * dH_asp[a]).sum()  # NCXXX
-
-        self.dH_asp = self.atomdist.from_work(dH_asp)
-        self.timer.stop('Atomic')
-
-        # Make corrections due to non-local xc:
-        self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
-        e_kinetic += self.xc.get_kinetic_energy_correction() / self.world.size
-        return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
+        self.dH_II.update(dens.D_II, self.xc)
 
     def get_energy(self, occ):
         self.e_kinetic = self.e_kinetic0 + occ.e_band
