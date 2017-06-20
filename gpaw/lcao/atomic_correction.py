@@ -24,15 +24,10 @@ class BaseAtomicCorrection:
         assert op in ['back', 'forth']
         return dX_asp
 
-    def calculate_hamiltonian(self, wfs, kpt, dH_asp, H_MM, yy):
-        avalues = self.get_a_values()
+    def calculate_hamiltonian(self, wfs, kpt, dH_II, H_MM, yy):
+        # avalues = self.get_a_values()
 
-        dH_aii = dH_asp.partition.arraydict([setup.dO_ii.shape
-                                             for setup in wfs.setups],
-                                            dtype=wfs.dtype)
-
-        for a in avalues:
-            dH_aii[a][:] = yy * unpack(dH_asp[a][kpt.s])
+        dH_aii = {a: yy * dH_sii[kpt.s] for a, dH_sii in dH_II.dH_asii.items()}
         self.calculate(wfs, kpt.q, dH_aii, H_MM)
 
     def add_overlap_correction(self, wfs, S_qMM):
