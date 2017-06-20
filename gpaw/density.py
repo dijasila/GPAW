@@ -57,11 +57,8 @@ class UniformGridDensity:
             return self.array.sum(0)
         return ...
 
-    def initialize_with_pseudo_core_density(self, nct):
-        self.array[0] = 0.0
-        nct.lfc.add(self.array[0], 1 / (1 + self.spinpolarized))
-        if self.spinpolarized:
-            self.array[1] = self.array[0]
+    def initialize_with_pseudo_core_density(self, nct_R):
+        self.array[:] = nct_R
 
     def add_from_basis_set(self, basis, f_asi):
         basis.add_to_density(self.array, f_asi)
@@ -176,13 +173,16 @@ class Density(object):
         self.charge_eps = 1e-7
 
         self.D_II = None
+
         self.Q_aL = None
 
         self.nct_a = None
         self.ghat_aL = None
 
+        self.nct_R = None
+        self.rhot_r = None
+
         self.nt = None
-        self.rhot = None
         self.finent = None
 
         self.fixed = False
@@ -230,6 +230,9 @@ class Density(object):
         self.ghat_aL.set_positions(spos_ac)
         self.mixer.reset()
 
+        self.nct_R = self.gd.zeros()
+        self.nct_a.add_to(self.nct_R, 1 / (1 + self.spinpolarized))
+
         self.nt = None
         self.rhot = None
         self.Q_aL = None
@@ -240,7 +243,7 @@ class Density(object):
         nt_sG will be equal to nct_G plus the contribution from
         wfs.add_to_density().
         """
-        self.nt.initialize_with_pseudo_core_density(self.nct_a)
+        self.nt.initialize_with_pseudo_core_density(self.nct_R)
         wfs.calculate_density_contribution(self.nt)
 
     def update(self, wfs):
@@ -290,7 +293,7 @@ class Density(object):
 
         self.nt = UniformGridDensity(self.gd, self.spinpolarized,
                                      self.collinear)
-        self.nt.initialize_with_pseudo_core_density(self.nct_a)
+        self.nt.initialize_with_pseudo_core_density(self.nct_R)
         self.nt.add_from_basis_set(basis_functions, f_asi)
         self.calculate_normalized_charges_and_mix()
 
@@ -610,12 +613,12 @@ class RealSpaceDensity(Density):
                                           self.redistributor)
 
     def calculate_pseudo_charge(self):
-        self.rhot_g = self.finent.get_electron_density()
-        self.ghat_aL.add_to(self.rhot_g, self.Q_aL)
-        self.background_charge.add_charge_to(self.rhot_g)
+        self.rhot_r = self.finent.get_electron_density()
+        self.ghat_aL.add_to(self.rhot_r, self.Q_aL)
+        self.background_charge.add_charge_to(self.rhot_r)
 
         if debug:
-            charge = self.finegd.integrate(self.rhot_g) + self.charge
+            charge = self.finegd.integrate(self.rhot_r) + self.charge
             if abs(charge) > self.charge_eps:
                 raise RuntimeError('Charge not conserved: excess=%.9f' %
                                    charge)

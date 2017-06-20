@@ -7,14 +7,12 @@
 import numpy as np
 from ase.units import Ha
 
-from gpaw.arraydict import ArrayDict
+from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
 from gpaw.external import create_external_potential
-from gpaw.lfc import LFC
 from gpaw.poisson import create_poisson_solver
 from gpaw.transformers import Transformer
 from gpaw.utilities import (pack2, unpack, unpack2,
                             unpack_atomic_matrices, pack_atomic_matrices)
-from gpaw.utilities.partition import AtomPartition
 
 
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
@@ -38,22 +36,15 @@ class UniformGridPotential:
                 for b in a:
                     yield b
 
-    def interpolate(self, interpolator, redistributor):
-        out = UniformGridDensity(interpolator.gdout, self.spinpolarized,
-                                 self.collinear)
+    def restrict(self, restrictor, redistributor):
+        out = UniformGridPotential(restrictor.gdout, self.spinpolarized,
+                                   self.collinear)
         for a, b in zip(self.arrays(), out.arrays()):
-            c = redistributor.distribute(a)
-            interpolator.apply(c, b)
-
-            # With periodic boundary conditions, the interpolation will
-            # conserve the number of electrons.
-            if not self.gd.pbc_c.all():
-                # With zero-boundary conditions in one or more directions,
-                # this is not the case.
-                C = self.gd.integrate(c)
-                if abs(C) > 1.0e-14:
-                    B = out.gd.integrate(b)
-                    b *= C / B
+            if redistributor.enabled:
+                c = restrictor.apply(a)
+                redistributor.collect(c, b)
+            else:
+                restrictor.apply(a, output=b)
 
         return out
 
@@ -96,8 +87,11 @@ class Hamiltonian(object):
 
         self.dH_II = AtomBlockHamiltonian(spinpolarized, True)  # collinear)
         self.vt = None  # coarse grid
-        self.vHt2 = None  # fine grid
-        self.vt2 = None  # fine grid
+        self.vHt_r = None  # fine grid
+        self.finevt = None  # fine grid
+
+        self.vbar_a = None
+        self.vbar_R = None
 
         # Energy contributioons that sum up to e_total_free:
         self.e_kinetic = None
@@ -168,14 +162,16 @@ class Hamiltonian(object):
 
             wf1 = (vacuum - fermilevel + correction) * Ha
             wf2 = (vacuum - fermilevel - correction) * Ha
-            log('Dipole-layer corrected work functions: {0}, {1} eV'
+            log('Dipole-layer corrected work functions: {}, {} eV'
                 .format(wf1, wf2))
             log()
 
     def set_positions(self, spos_ac, rank_a):
-        self.vbar.set_positions(spos_ac)
+        self.vbar_a.set_positions(spos_ac)
         self.xc.set_positions(spos_ac)
         self.dH_II.set_ranks(rank_a)
+        self.vbar_r = self.finegd.zeros()
+        self.vbar_a.add_to(self.vbar_r)
         self.positions_set = True
 
     def aoom(self, DM, a, l, scale=1):
@@ -235,10 +231,10 @@ class Hamiltonian(object):
             return A, V
 
     def initialize(self):
-        self.vt = UniformGridPotential(self.gd,
-                                       self.spinpolarized, self.collinear)
-        self.finevt = None
-        self.vHt_g = self.finegd.zeros()
+        self.finevt = UniformGridPotential(self.finegd,
+                                           self.spinpolarized, self.collinear)
+        self.vt = None
+        self.vHt_r = self.finegd.zeros()
         self.poisson.initialize()
 
     def update(self, density):
@@ -572,19 +568,8 @@ class RealSpaceHamiltonian(Hamiltonian):
         # Restrictor function for the potential:
         self.restrictor = Transformer(self.finegd, self.redistributor.aux_gd,
                                       stencil)
-        self.restrict = self.restrictor.apply
 
-        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
-                        forces=True)
-        self.vbar_g = None
-
-    def restrict_and_collect(self, a_xg, b_xg=None, phases=None):
-        if self.redistributor.enabled:
-            tmp_xg = self.restrictor.apply(a_xg, output=None, phases=phases)
-            b_xg = self.redistributor.collect(tmp_xg, b_xg)
-        else:
-            b_xg = self.restrictor.apply(a_xg, output=b_xg, phases=phases)
-        return b_xg
+        self.vbar_a = ACF(self.finegd, [[setup.vbar] for setup in setups])
 
     def __str__(self):
         s = Hamiltonian.__str__(self)
@@ -596,85 +581,69 @@ class RealSpaceHamiltonian(Hamiltonian):
         s += '  Poisson solver: %s' % self.poisson.get_description()
         return s
 
-    def set_positions(self, spos_ac, rank_a):
-        Hamiltonian.set_positions(self, spos_ac, rank_a)
-        if self.vbar_g is None:
-            self.vbar_g = self.finegd.empty()
-        self.vbar_g[:] = 0.0
-        self.vbar.add(self.vbar_g)
-
     def update_pseudo_potential(self, dens):
         self.timer.start('vbar')
-        e_zero = self.finegd.integrate(self.vbar_g, dens.nt_g,
+        e_zero = self.finegd.integrate(self.vbar_r, dens.finent.array.sum(0),
                                        global_integral=False)
 
-        vt_g = self.vt_sg[0]
-        vt_g[:] = self.vbar_g
+        vt_r = self.finevt.array[0]
+        vt_r[:] = self.vbar_r
         self.timer.stop('vbar')
 
         e_external = 0.0
         if self.vext is not None:
-            vext_g = self.vext.get_potential(self.finegd)
-            vt_g += vext_g
-            e_external = self.finegd.integrate(vext_g, dens.rhot_g,
+            vext_r = self.vext.get_potential(self.finegd)
+            vt_r += vext_r
+            e_external = self.finegd.integrate(vext_r, dens.rhot_r,
                                                global_integral=False)
 
         if self.nspins == 2:
-            self.vt_sg[1] = vt_g
+            self.finevt.array[1] = vt_r
 
         self.timer.start('XC 3D grid')
-        e_xc = self.xc.calculate(self.finegd, dens.nt_sg, self.vt_sg)
+        e_xc = self.xc.calculate(self.finegd, dens.finent.array,
+                                 self.finevt.array)
         e_xc /= self.finegd.comm.size
         self.timer.stop('XC 3D grid')
 
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
-        self.npoisson = self.poisson.solve(self.vHt_g, dens.rhot_g,
+        self.npoisson = self.poisson.solve(self.vHt_r, dens.rhot_r,
                                            charge=-dens.charge)
         self.timer.stop('Poisson')
 
-        self.timer.start('Hartree integrate/restrict')
-        e_coulomb = 0.5 * self.finegd.integrate(self.vHt_g, dens.rhot_g,
+        self.timer.start('Hartree integrate')
+        e_coulomb = 0.5 * self.finegd.integrate(self.vHt_r, dens.rhot_r,
                                                 global_integral=False)
 
-        for vt_g in self.vt_sg:
-            vt_g += self.vHt_g
+        for vt_r in self.finevt.array:
+            vt_r += self.vHt_r
 
-        self.timer.stop('Hartree integrate/restrict')
+        self.timer.stop('Hartree integrate')
         return np.array([e_coulomb, e_zero, e_external, e_xc])
 
     def calculate_kinetic_energy(self, density):
-        # XXX new timer item for kinetic energy?
-        self.timer.start('Hartree integrate/restrict')
-        self.restrict_and_collect(self.vt_sg, self.vt_sG)
+        with self.timer('Hartree restrict'):
+            self.vt = self.finevt.restrict(self.restrictor, self.redistributor)
 
         e_kinetic = 0.0
         s = 0
-        for vt_G, nt_G in zip(self.vt_sG, density.nt_sG):
+        for vt_R, nt_R in zip(self.vt.array, density.nt.array):
             if self.ref_vt_sG is not None:
-                vt_G += self.ref_vt_sG[s]
+                vt_R += self.ref_vt_sG[s]
 
-            if s < self.nspins:
-                e_kinetic -= self.gd.integrate(vt_G, nt_G - density.nct_G,
+                e_kinetic -= self.gd.integrate(vt_R, nt_R - density.nct_R,
                                                global_integral=False)
-            else:
-                e_kinetic -= self.gd.integrate(vt_G, nt_G,
-                                               global_integral=False)
+            assert self.collinear
             s += 1
-        self.timer.stop('Hartree integrate/restrict')
+
         return e_kinetic
 
     def calculate_atomic_hamiltonians(self, dens):
-        def getshape(a):
-            return sum(2 * l + 1 for l, _ in enumerate(self.setups[a].ghat_l)),
-        W_aL = ArrayDict(self.atomdist.aux_partition, getshape, float)
+        v_r = self.vHt_r
         if self.vext:
-            vext_g = self.vext.get_potential(self.finegd)
-            dens.ghat.integrate(self.vHt_g + vext_g, W_aL)
-        else:
-            dens.ghat.integrate(self.vHt_g, W_aL)
-
-        return self.atomdist.to_work(self.atomdist.from_aux(W_aL))
+            v_r = v_r + self.vext.get_potential(self.finegd)
+        return dens.ghat_aL.integrate(v_r)
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
         if self.nspins == 2:

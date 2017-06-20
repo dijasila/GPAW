@@ -6,13 +6,13 @@ from gpaw.lfc import LFC
 class AtomCenteredFunctions:
     dtype = float
 
-    def __init__(self, desc, functions, kd=None, integral=None, cut=False):
-        self.lfc = LFC(desc, functions, integral=integral, cut=cut)
+    def __init__(self, desc, functions_a, kd=None, integral=None, cut=False):
+        self.lfc = LFC(desc, functions_a, integral=integral, cut=cut)
         self.atom_indices = []
         self.slices = []
         I1 = 0
-        for a, f in enumerate(functions):
-            I2 = I1 + len(f)
+        for a, functions in enumerate(functions_a):
+            I2 = I1 + sum(f.l * 2 + 1 for f in functions)
             self.atom_indices.append(a)
             self.slices.append((I1, I2))
             I1 = I2
@@ -25,8 +25,16 @@ class AtomCenteredFunctions:
     def set_positions(self, spos_ac, rank_a=None):
         self.lfc.set_positions(spos_ac)
 
-    def add_to(self, array, coefs):
+    def add_to(self, array, coefs=1.0):
         self.lfc.add(array, coefs)
+
+    def integrate(self, array, out=None):
+        if out is None:
+            print(self.atom_indices, self.slices)
+            out = {a: np.empty(I2 - I1)
+                   for a, (I1, I2) in zip(self.atom_indices, self.slices)}
+        self.lfc.integrate(array, out)
+        return out
 
     def eval(self, out):
         out.array[:] = 0.0
