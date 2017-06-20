@@ -869,11 +869,8 @@ directions.
 ::
 
   from gpaw import GPAW
-  from gpaw.poisson import PoissonSolver
-  from gpaw.dipole_correction import DipoleCorrection
 
-  poissonsolver = PoissonSolver()
-  correction = DipoleCorrection(poissonsolver, 2) # 2 == z-axis
+  correction = {'dipolelayer':'xy'} # xy == z-axis
   calc = GPAW(poissonsolver=correction)
 
 Without dipole correction, the potential will approach 0 at all
