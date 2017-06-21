@@ -1,7 +1,6 @@
 import numpy as np
 
 from gpaw.utilities.blas import gemm
-from gpaw.utilities import unpack
 from gpaw.utilities.partition import EvenPartitioning
 
 
@@ -27,7 +26,8 @@ class BaseAtomicCorrection:
     def calculate_hamiltonian(self, wfs, kpt, dH_II, H_MM, yy):
         # avalues = self.get_a_values()
 
-        dH_aii = {a: yy * dH_sii[kpt.s] for a, dH_sii in dH_II.dH_asii.items()}
+        dH_aii = {a: yy * dH_sii[kpt.s]
+                  for a, dH_sii in dH_II.dH_asii.items()}
         self.calculate(wfs, kpt.q, dH_aii, H_MM)
 
     def add_overlap_correction(self, wfs, S_qMM):
@@ -54,10 +54,15 @@ class BaseAtomicCorrection:
         return False
 
     def calculate_projections(self, wfs, kpt):
-        for a, P_ni in kpt.P_In.items():
+        I1 = 0
+        for a, P_qMi in sorted(wfs.P_aqMi.items()):
+            P_Mi = P_qMi[kpt.q]
+            I2 = I1 + P_Mi.shape[1]
+            P_ni = kpt.P_In.array[I1:I2].T
             # ATLAS can't handle uninitialized output array:
             P_ni.fill(117)
-            gemm(1.0, wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
+            gemm(1.0, P_Mi, kpt.C_nM, 0.0, P_ni, 'n')
+            I1 = I2
 
 
 class DenseAtomicCorrection(BaseAtomicCorrection):
@@ -103,7 +108,7 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
 
     def get_a_values(self):
         return self.orig_partition.my_indices  # XXXXXXXXXX
-        #return self.even_partition.my_indices
+        # return self.even_partition.my_indices
 
     def redistribute(self, wfs, dX_asp, type='asp', op='forth'):
         if type not in ['asp', 'aii']:
@@ -153,7 +158,7 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         # One could choose a set of a3 to optimize the load balance.
         # Right now the load balance will be "random" and probably
         # not very good.
-        #innerloops = 0
+        # innerloops = 0
 
         setups = wfs.setups
 
@@ -195,18 +200,18 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
                     # Humm.  The following works with gamma point
                     # but not with kpts.  XXX take a look at this.
                     # also, it doesn't work with a2 < a1 for some reason.
-                    #if a2 > a1:
-                    #    continue
+                    # if a2 > a1:
+                    #     continue
                     a2M1 = M_a[a2]
                     a2M2 = a2M1 + wfs.setups[a2].nao
                     P2_im = wfs.P_aaqim[(a3, a2)][q]
                     P1dXP2_mm = np.dot(P1dX_mi, P2_im)
                     X_mM[:, a2M1:a2M2] += P1dXP2_mm
-                    #innerloops += 1
-                    #if wfs.world.rank == 0:
-                    #    print 'y', y
-                    #if a1 != a2:
-                    #    X_MM[a2M1:a2M2, a1M1:a1M2] += P1dXP2_mm.T.conj()
+                    # innerloops += 1
+                    # if wfs.world.rank == 0:
+                    #     print 'y', y
+                    # if a1 != a2:
+                    #     X_MM[a2M1:a2M2, a1M1:a1M2] += P1dXP2_mm.T.conj()
 
             a2_a = wfs.P_neighbors_a[a3]
 
@@ -297,7 +302,7 @@ class ScipyAtomicCorrection(DistributedAtomicCorrection):
     def calculate_projections(self, wfs, kpt):
         if self.implements_distributed_projections():
             P_In = self.Psparse_qIM[kpt.q].dot(kpt.C_nM.T)
-            #for a in self.even_partition.my_indices: # XXXXXXX
+            # for a in self.even_partition.my_indices: # XXXXXXX
             for a in self.orig_partition.my_indices:
                 I1 = self.I_a[a]
                 I2 = I1 + wfs.setups[a].ni

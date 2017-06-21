@@ -169,10 +169,10 @@ class FDPWWaveFunctions(WaveFunctions):
         self.wrap_wave_function_arrays_in_fancy_objects()
 
         psit_n = kpt.psit_n
-        P_nI = kpt.P_nI
+        P_In = kpt.P_In
 
         with self.timer('projections'):
-            psit_n.project(self.pt, P_nI)
+            self.pt_I.matrix_elements(psit_n, out=P_In)
 
         dS_II = AtomBlockMatrix(self.setups[a].dO_ii for a in kpt.P_ani)
 

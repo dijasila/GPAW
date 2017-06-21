@@ -110,6 +110,12 @@ class LCAOWaveFunctions(WaveFunctions):
                                    self.ksl)
 
     def set_positions(self, spos_ac, atom_partition=None):
+        class GRR:
+            pass
+
+        self.pt_I = GRR()
+        self.pt_I.mynfuncs = sum(setup.ni for setup in self.setups)
+
         with self.timer('Basic WFS set positions'):
             WaveFunctions.set_positions(self, spos_ac, atom_partition)
 
