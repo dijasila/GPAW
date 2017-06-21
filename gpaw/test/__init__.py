@@ -452,7 +452,9 @@ if mpi.size != 1 and not compiled_with_sl():
                 'response/au02_absorption.py']
 
 if not compiled_with_sl():
-    exclude.append('lcao/atomic_corrections.py')
+    exclude += ['lcao/atomic_corrections.py',
+                'response/na_plasmons.py',
+                'response/na_plasmons_tetrahedron.py']
 
 if not compiled_with_libvdwxc():
     exclude.append('vdw/libvdwxc_functionals.py')
