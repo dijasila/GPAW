@@ -59,7 +59,7 @@ def get_radial_potential(calc, a, ai):
 
     # Coulomb force from nucleus
     fc_g = a.Z / r_g**2
-    
+
     # Hartree force
     rho_g = 4 * np.pi * r_g**2 * dr_g * np.sum(n_sg, axis=0)
     fh_g = -np.array([np.sum(rho_g[:ig]) for ig in range(len(r_g))]) / r_g**2
@@ -76,11 +76,11 @@ def get_radial_potential(calc, a, ai):
 
     return f_g / r_g
 
-    
+
 def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
                               return_wfs=False, scale=1.0,
                               theta=0.0, phi=0.0):
-    
+
     if bands is None:
         bands = np.arange(calc.get_number_of_bands())
 
@@ -108,7 +108,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
         Ng = len(v_g)
         phi_jg = a.data.phi_jg
 
-        #dVL_svii = np.zeros((Ns, 3, a.ni, a.ni), complex)
+        # dVL_svii = np.zeros((Ns, 3, a.ni, a.ni), complex)
         dVL_vii = np.zeros((3, a.ni, a.ni), complex)
         N1 = 0
         for j1, l1 in enumerate(a.l_j):
@@ -135,16 +135,16 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
         s_kvm = []
 
     # Hamiltonian with SO in KS basis
-    # The even indices in H_mm are spin up along \hat n defined by \theta, phi 
-    # Basis change matrix for constructing Pauli matrices in \theta,\phi basis: 
+    # The even indices in H_mm are spin up along \hat n defined by \theta, phi
+    # Basis change matrix for constructing Pauli matrices in \theta,\phi basis:
     #     \sigma_i^n = C^\dag\sigma_i C
-    C_ss = np.array([[np.cos(theta/2) * np.exp(-1.0j * phi/2),
-                      -np.sin(theta/2) * np.exp(-1.0j * phi/2)],
-                     [np.sin(theta/2) * np.exp(1.0j * phi/2),
-                      np.cos(theta/2) * np.exp(1.0j * phi/2)]])
-    sx_ss = np.array([[0, 1],[1, 0]], complex)
-    sy_ss = np.array([[0, -1.0j],[1.0j, 0]], complex)
-    sz_ss = np.array([[1, 0],[0, -1]], complex)
+    C_ss = np.array([[np.cos(theta / 2) * np.exp(-1.0j * phi / 2),
+                      -np.sin(theta / 2) * np.exp(-1.0j * phi / 2)],
+                     [np.sin(theta / 2) * np.exp(1.0j * phi / 2),
+                      np.cos(theta / 2) * np.exp(1.0j * phi / 2)]])
+    sx_ss = np.array([[0, 1], [1, 0]], complex)
+    sy_ss = np.array([[0, -1.0j], [1.0j, 0]], complex)
+    sz_ss = np.array([[1, 0], [0, -1]], complex)
     sx_ss = C_ss.T.conj().dot(sx_ss).dot(C_ss)
     sy_ss = C_ss.T.conj().dot(sy_ss).dot(C_ss)
     sz_ss = C_ss.T.conj().dot(sz_ss).dot(C_ss)
@@ -158,7 +158,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
         H_mm[i2, i2] = e_skn[1, k]
         for ai in range(Na):
             Pt_sni = [calc.wfs.kpt_u[k + s * Nk].P_ani[ai][bands]
-                     for s in range(Ns)]
+                      for s in range(Ns)]
             Ni = len(Pt_sni[0][0])
             P_sni = np.zeros((2, 2 * Nn, Ni), complex)
             dVL_vii = dVL_avii[ai] * scale * alpha**2 / 4.0 * Ha
@@ -210,7 +210,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
         else:
             return np.array(e_km).T
 
-            
+
 def set_calculator(calc, e_km, v_knm=None, width=None):
     from gpaw.occupations import FermiDirac
     from ase.units import Hartree
@@ -218,7 +218,7 @@ def set_calculator(calc, e_km, v_knm=None, width=None):
     if width is None:
         width = calc.occupations.width * Hartree
     calc.wfs.bd.nbands *= 2
-    #calc.wfs.nspins = 1
+    # calc.wfs.nspins = 1
     for kpt in calc.wfs.kpt_u:
         kpt.eps_n = e_km[kpt.k] / Hartree
         kpt.f_n = np.zeros_like(kpt.eps_n)
@@ -234,8 +234,8 @@ def set_calculator(calc, e_km, v_knm=None, width=None):
 
 
 def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
-    '''Calculates the sum of occupied spinorbit eigenvalues. Returns the result
-    relative to the sum of eigenvalues without spinorbit coupling'''
+    """Calculates the sum of occupied spinorbit eigenvalues. Returns the result
+    relative to the sum of eigenvalues without spinorbit coupling"""
 
     e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)
                        for k in range(len(calc.get_ibz_k_points()))]
@@ -249,7 +249,7 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
                        for k in range(len(calc.get_ibz_k_points()))]
                       for s in range(2)])
     f_kn = np.reshape(np.swapaxes(f_skn, 0, 1), (len(f_skn[0]),
-                                                 2 * len(f_skn[0,0])))
+                                                 2 * len(f_skn[0, 0])))
     f_kn = np.sort(f_kn, 1)[:, ::-1]
     E = np.sum(e_kn * f_kn)
 
@@ -261,9 +261,10 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     E_so = np.sum(e_mk.T * f_km)
     return E_so - E
 
+
 def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None):
-    '''Calculates the magnetic moments inside all PAW spheres'''
-    
+    """Calculates the magnetic moments inside all PAW spheres"""
+
     from gpaw.wannier90 import get_spinorbit_projections
     from gpaw.utilities import unpack
 
@@ -271,13 +272,13 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None):
         nbands = calc.get_number_of_bands()
     Nk = len(calc.get_ibz_k_points())
 
-    C_ss = np.array([[np.cos(theta/2) * np.exp(-1.0j * phi/2),
-                      -np.sin(theta/2) * np.exp(-1.0j * phi/2)],
-                     [np.sin(theta/2) * np.exp(1.0j * phi/2),
-                      np.cos(theta/2) * np.exp(1.0j * phi/2)]])
+    C_ss = np.array([[np.cos(theta / 2) * np.exp(-1.0j * phi / 2),
+                      -np.sin(theta / 2) * np.exp(-1.0j * phi / 2)],
+                     [np.sin(theta / 2) * np.exp(1.0j * phi / 2),
+                      np.cos(theta / 2) * np.exp(1.0j * phi / 2)]])
 
     m_av = []
-    e_mk, v_knm = get_spinorbit_eigenvalues(calc, 
+    e_mk, v_knm = get_spinorbit_eigenvalues(calc,
                                             theta=theta,
                                             phi=phi,
                                             return_wfs=True,
@@ -286,7 +287,7 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None):
     for a in range(len(calc.atoms)):
         N0_p = calc.density.setups[a].N0_p
         N0_ij = unpack(N0_p)
-        
+
         Dx_ij = np.zeros_like(N0_ij, complex)
         Dy_ij = np.zeros_like(N0_ij, complex)
         Dz_ij = np.zeros_like(N0_ij, complex)
@@ -318,18 +319,19 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None):
         mx = np.sum(N0_ij * Dx_ij).real
         my = np.sum(N0_ij * Dy_ij).real
         mz = np.sum(N0_ij * Dz_ij).real
-        
+
         m_av.append([mx, my, mz])
 
     return m_av
 
+
 def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
-                           inversion_center=[0, 0, 0], deg_tol=1.0e-6, 
+                           inversion_center=[0, 0, 0], deg_tol=1.0e-6,
                            tol=1.0e-6):
-    '''Calculates parity eigenvalues at time-reversal invariant k-points.
+    """Calculates parity eigenvalues at time-reversal invariant k-points.
     Only works in plane wave mode.
-    '''
-    
+    """
+
     kpt_c = calc.get_ibz_k_points()[ik]
     if Nv is None:
         Nv = int(calc.get_number_of_electrons() / 2)
@@ -349,7 +351,7 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
                     n_n.append(n2)
                     used_n.append(n2)
             e_in.append(n_n)
-    
+
     print()
     print(' Inversion center at: %s' % inversion_center)
     print(' Calculating inversion eigenvalues at k = %s' % kpt_c)
@@ -403,7 +405,7 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
                 # Only include one of the degenerate pair of eigenvalues
                 Pm = np.sign(P_eig).tolist().count(-1)
                 Pp = np.sign(P_eig).tolist().count(1)
-                P_n = Pm / 2 * [-1] + Pp / 2 * [1]
+                P_n = Pm // 2 * [-1] + Pp // 2 * [1]
             print('%s: %s' % (str(n_n)[1:-1], str(P_n)[1:-1]))
             p_n += P_n
         else:
