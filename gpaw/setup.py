@@ -68,7 +68,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
             from gpaw.lcao.bsse import GhostSetupData
             setupdata = GhostSetupData(symbol)
         elif type == 'sg15':
-            from gpaw.upf import UPFSetupData
+            from gpaw.upf import read_sg15
             upfname = '%s_ONCV_PBE-*.upf' % symbol
             upfpath, source = search_for_file(upfname, world=world)
             if source is None:
@@ -76,7 +76,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
                               'in any GPAW search path.  '
                               'Please install the SG15 setups using, '
                               'e.g., "gpaw install-data".' % upfname)
-            setupdata = UPFSetupData(upfpath)
+            setupdata = read_sg15(upfpath)
             if xc.get_setup_name() != 'PBE':
                 raise ValueError('SG15 pseudopotentials support only the PBE '
                                  'functional.  This calculation would use '
