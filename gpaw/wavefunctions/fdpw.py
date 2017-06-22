@@ -174,7 +174,8 @@ class FDPWWaveFunctions(WaveFunctions):
         with self.timer('projections'):
             self.pt_I.matrix_elements(psit_n, out=P_In)
 
-        dS_II = AtomBlockMatrix(self.setups[a].dO_ii for a in kpt.P_ani)
+        dS_II = AtomBlockMatrix(self.setups[a].dO_ii
+                                for a in kpt.P_In.my_atom_indices)
 
         S_nn = self.M_nn
         dSP_nI = P_nI.new()

@@ -293,22 +293,21 @@ class AtomBlockMatrix:
         return out
 
 
-class ProjectionMatrixxxxxxxxxxxxxxxxxxx(Matrix):
-    def __init__(self, nproj_a, nbands, acomm, bcomm, rank_a):
+class ProjectionMatrix(Matrix):
+    def __init__(self, nproj_a, nbands, acomm, bcomm, rank_a, collinear=True):
         self.indices = []
+        self.my_atom_indices = []
         I1 = 0
         for a, ni in enumerate(nproj_a):
             if acomm.rank == rank_a[a]:
+                self.my_atom_indices.append(a)
                 I2 = I1 + ni
                 self.indices.append((a, I1, I2))
                 I1 = I2
 
         Matrix.__init__(self, I2, nbands, dist=(bcomm, 1, -1))
-        self.rank_a = rank_a
 
-    def items(self):
-        for a, I1, I2 in self.indices:
-            yield a, self.a[I1:I2].T
+        self.rank_a = rank_a
 
 
 class HMMM:
