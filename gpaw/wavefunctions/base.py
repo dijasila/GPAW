@@ -180,8 +180,8 @@ class WaveFunctions:
         self.positions_set = False
         self.kd.symmetry.check(spos_ac)
         for kpt in self.kpt_u:
-            kpt.P_In = Matrix(self.pt_I.mynfuncs, self.bd.nbands,
-                              dist=(self.bd.comm, 1, -1))
+            kpt.P_In = ProjectionMatrix(self.pt_I.mynfuncs, self.bd.nbands,
+                                        dist=(self.bd.comm, 1, -1))
 
     def collect_eigenvalues(self, k, s):
         return self.collect_array('eps_n', k, s)
