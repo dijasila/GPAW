@@ -26,6 +26,10 @@ class AtomCenteredFunctions:
         self.lfc.set_positions(spos_ac)
 
     def add_to(self, array, coefs=1.0):
+        if not isinstance(array, np.ndarray):
+            array = array.array
+        if not isinstance(coefs, (float, dict)):
+            coefs = coefs.todict()
         self.lfc.add(array, coefs)
 
     def integrate(self, array, out=None):

@@ -95,25 +95,20 @@ class Eigensolver:
         """Implemented in subclasses."""
         raise NotImplementedError
 
-    def calculate_residuals(self, kpt, wfs, hamiltonian, psit_xG, P_axi, eps_x,
-                            R_xG, n_x=None, calculate_change=False):
+    def calculate_residuals(self, kpt, wfs, ham, psit_n, P_In, eps_n, dS_II,
+                            R_n, C_In, n_x=None, calculate_change=False):
         """Calculate residual.
 
         From R=Ht*psit calculate R=H*psit-eps*S*psit."""
 
-        for R_G, eps, psit_G in zip(R_xG, eps_x, psit_xG):
-            axpy(-eps, psit_G, R_G)
+        for R, eps, psit in zip(R_n.array, eps_n, psit_n.array):
+            axpy(-eps, psit, R)
 
-        c_axi = {}
-        for a, P_xi in P_axi.items():
-            dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
-            dO_ii = hamiltonian.setups[a].dO_ii
-            c_xi = (np.dot(P_xi, dH_ii) -
-                    np.dot(P_xi * eps_x[:, np.newaxis], dO_ii))
-            c_axi[a] = c_xi
-        hamiltonian.xc.add_correction(kpt, psit_xG, R_xG, P_axi, c_axi, n_x,
-                                      calculate_change)
-        wfs.pt.add(R_xG, c_axi, kpt.q)
+        C_In[:] = ham.dH_II * P_In
+        C_In.add_product(-1, dS_II, P_In, eps_n)
+        ham.xc.add_correction(kpt, psit_n, R_n, P_In, C_In, n_x,
+                              calculate_change)
+        wfs.pt_I.add_to(R_n, C_In)
 
     @timer('Subspace diag')
     def subspace_diagonalize(self, ham, wfs, kpt):

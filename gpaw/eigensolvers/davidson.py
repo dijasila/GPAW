@@ -81,6 +81,8 @@ class Davidson(Eigensolver):
         P2_In = P_In.new()
         dMP_In = P_In.new()
         M_nn = wfs.work_matrix_nn
+        dS_II = AtomBlockMatrix(wfs.setups[a].dO_ii
+                                for a in kpt.P_In.my_atom_indices)
 
         if self.keep_htpsit:
             R_n = psit_n.new(buf=self.Htpsit_nG)
@@ -91,8 +93,8 @@ class Davidson(Eigensolver):
             # wfs.apply_pseudo_hamiltonian(kpt, ham, psit_nG, R_nG)
             # wfs.pt.integrate(psit_nG, kpt.P_ani, kpt.q)
 
-        self.calculate_residuals(kpt, wfs, ham, psit_n.array,
-                                 kpt.P_ani, kpt.eps_n, R_n.array)
+        self.calculate_residuals(kpt, wfs, ham, psit_n,
+                                 P_In, kpt.eps_n, dS_II, R_n, P2_In)
 
         weights = self.weights(kpt)
 
@@ -115,20 +117,17 @@ class Davidson(Eigensolver):
                 print(error, norms)
 
             Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
-            dH_II = AtomBlockMatrix(unpack(ham.dH_asp[a][kpt.s])
-                                    for a in kpt.P_ani)
-            dS_II = AtomBlockMatrix(wfs.setups[a].dO_ii for a in kpt.P_ani)
 
             def mat(a_n, b_n, Pa_In, dM_II, Pb_In, C_nn,
                     hermitian=False, M_nn=M_nn):
                 """Fill C_nn with <a|b> matrix elements."""
-                (a_n.C * b_n).integrate(out=M_nn, hermitian=hermitian)
-                dMP_In[:] = Pb_In * dM_II
-                M_nn += Pa_In.C * dMP_In.T
-                C_nn[:] = M_nn
+                a_n.matrix_elements(b_n, out=M_nn, hermitian=hermitian)
+                dMP_In[:] = dM_II * Pb_In
+                M_nn += Pa_In.H * dMP_In
+                C_nn[:] = M_nn.array
 
             # Calculate projections
-            psit2_n.project(wfs.pt, P2_In)
+            wfs.pt_I.matrix_elements(psit2_n, out=P2_In)
 
             psit2_n.apply(Ht, out=R_n)
 
@@ -137,11 +136,11 @@ class Davidson(Eigensolver):
                 S_NN[:B, :B] = np.eye(B)
 
                 # <psi2 | H | psi>
-                mat(R_n, psit_n, P2_In, dH_II, P_In, H_NN[:B, B:])
+                mat(R_n, psit_n, P2_In, ham.dH_II, P_In, H_NN[:B, B:])
                 # <psi2 | S | psi>
                 mat(psit2_n, psit_n, P2_In, dS_II, P_In, S_NN[:B, B:])
                 # <psi2 | H | psi2>
-                mat(R_n, psit2_n, P2_In, dH_II, P2_In, H_NN[B:, B:], True)
+                mat(R_n, psit2_n, P2_In, ham.dH_II, P2_In, H_NN[B:, B:], True)
                 # <psi2 | S | psi2>
                 mat(psit2_n, psit2_n, P2_In, dS_II, P2_In, S_NN[B:, B:])
 
@@ -166,19 +165,21 @@ class Davidson(Eigensolver):
             kpt.eps_n[:] = eps_N[bd.get_slice()]
 
             with self.timer('rotate_psi'):
-                M_nn[:] = H_NN[:B, :B]
+                M_nn.array[:] = H_NN[:B, :B]
                 R_n[:] = M_nn.T * psit_n
-                dMP_In[:] = M_nn.T * P_In
-                M_nn[:] = H_NN[B:, :B]
+                dMP_In[:] = P_In * M_nn
+                M_nn.array[:] = H_NN[B:, :B]
                 R_n += M_nn.T * psit2_n
-                dMP_In += M_nn.T * P2_In
+                dMP_In += P2_In * M_nn
                 psit_n[:] = R_n
-                dMP_In.extract_to(kpt.P_ani)
+                kpt.P_In, dMP_In = dMP_In, kpt.P_In
+                P_In = kpt.P_In
 
             if nit < self.niter - 1:
                 psit_n.apply(Ht, out=R_n)
-                self.calculate_residuals(kpt, wfs, ham, psit_n.array,
-                                         kpt.P_ani, kpt.eps_n, R_n.array)
+                self.calculate_residuals(kpt, wfs, ham, psit_n,
+                                         P_In, kpt.eps_n, dS_II, R_n,
+                                         P2_In)
 
         #error = gd.comm.sum(error)
         return error

@@ -35,6 +35,10 @@ class ArrayWaveFunctions:
         assert i == slice(None)
         x.eval(self.matrix)
 
+    def __iadd__(self, other):
+        other.eval(self.matrix, 1.0)
+        return self
+
     def eval(self, matrix):
         matrix.array[:] = self.matrix.array
 

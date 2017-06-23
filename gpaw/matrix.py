@@ -318,6 +318,17 @@ class ProjectionMatrix(Matrix):
             self.nproj_a, self.shape[1], self.acomm, self.bcomm,
             self.rank_a, self.collinear, self.spin)
 
+    def add_product(self, factor, dS_II, P_In, eps_n):
+        assert factor == -1.0
+        I1 = 0
+        for dS_ii in dS_II.M_aii:
+            I2 = I1 + len(dS_ii)
+            self.array[I1:I2] -= np.dot(dS_ii, P_In.array[I1:I2] * eps_n)
+            I1 = I2
+
+    def todict(self):
+        return {a: self.array[I1:I2].T for a, I1, I2 in self.indices}
+
 
 class HMMM:
     def __init__(self, M, comm, dtype, P_ani, dist):
