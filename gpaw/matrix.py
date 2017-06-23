@@ -29,34 +29,34 @@ class NoDistribution:
 
     def multiply(self, alpha, a, opa, b, opb, beta, c):
         if beta == 0.0:
-            c2 = alpha * np.dot(op(a.a, opa), op(b.a, opb))
+            c2 = alpha * np.dot(op(a.array, opa), op(b.array, opb))
         else:
             assert beta == 1.0
-            c2 = c.a + alpha * np.dot(op(a.a, opa), op(b.a, opb))
-        c.a[:] = c2
+            c2 = c.array + alpha * np.dot(op(a.array, opa), op(b.array, opb))
+        c.array[:] = c2
         return
         #return
         # print(self is b, self is b.source)
         print('hej')
         if opa == 'C' and opb == 'T':
             assert not a.transposed and not b.transposed and c.transposed
-            blas.mmm(alpha, b.a, 'n', a.a, 'c', beta, c.a.T, 'n')
+            blas.mmm(alpha, b.array, 'n', a.array, 'c', beta, c.array.T, 'n')
         elif opa == 'T' and opb == 'N' and a.transposed:
             assert not b.transposed and not c.transposed
-            blas.mmm(alpha, a.a.T, 'n', b.a, 'n', beta, c.a)
+            blas.mmm(alpha, a.array.T, 'n', b.array, 'n', beta, c.array)
         else:
             assert not a.transposed and not b.transposed and c.transposed
             assert opa != 'C' and opb != 'C'
-            print(c.a)
-            blas.mmm(alpha, a.a, opa.lower(), b.a, opb.lower(), beta, c.a, 'n')#.T)
-        if abs(c.a-c2).max() > 0.000001:
+            print(c.array)
+            blas.mmm(alpha, a.array, opa.lower(), b.array, opb.lower(), beta, c.array, 'n')#.T)
+        if abs(c.array-c2).max() > 0.000001:
             print(self, alpha, a, opa, b, opb, beta, c)
             print(a.transposed, b.transposed, c.transposed)
-            print(c.a)
+            print(c.array)
             print(c2)
-            print(np.dot(a.a[0], b.a[1]))
+            print(np.dot(a.array[0], b.array[1]))
             1 / 0
-        c.a[:] = c2
+        c.array[:] = c2
 
     def cholesky(self, S_nn):
         S_nn[:] = linalg.cholesky(S_nn)
@@ -104,8 +104,8 @@ class BLACSDistribution:
             M, Ka = Ka, M
         if opb == 'T':
             Kb, N = N, Kb
-        _gpaw.pblas_gemm(N, M, Ka, alpha, b.a, a.a,
-                         beta, destination.a,
+        _gpaw.pblas_gemm(N, M, Ka, alpha, b.array, a.array,
+                         beta, destination.array,
                          b.dist.desc, a.dist.desc, destination.dist.desc,
                          opb, opa)
 
@@ -161,13 +161,11 @@ class Matrix:
         self.dist = dist
 
         if data is None:
-            self.a = np.empty(dist.shape, self.dtype, order='F')
+            self.array = np.empty(dist.shape, self.dtype, order='F')
         else:
-            self.a = data
+            self.array = data.reshape(dist.shape)
 
-        self.array = self.a
-
-        self.transposed = self.a.flags['F_CONTIGUOUS']
+        self.transposed = self.array.flags['F_CONTIGUOUS']
 
     def __len__(self):
         return self.shape[0]
@@ -192,17 +190,17 @@ class Matrix:
     def __array_____(self, dtype):
         assert self.dtype == dtype
         assert self.dist.serial
-        return self.a
+        return self.array
 
     def evallllllllll(self, destination=None, beta=0):
         if destination is None:
             destination = ...
         assert destination.dist == self.dist
         if beta == 0:
-            destination.a[:] = self.a
+            destination.array[:] = self.array
         else:
             assert beta == 1
-            destination.a += self.a
+            destination.array += self.array
         return destination
 
     def __iadd__(self, x):
@@ -245,32 +243,32 @@ class Matrix:
 
     def cholesky(self):
         self.finish_sums()
-        self.dist.cholesky(self.a)
+        self.dist.cholesky(self.array)
 
     def inv(self):
         self.finish_sums()
-        self.dist.inv(self.a)
+        self.dist.inv(self.array)
 
     def eigh(self, eps_n):
         self.finish_sums()
-        self.dist.eigh(self.a, eps_n)
+        self.dist.eigh(self.array, eps_n)
 
 
 class Product:
     def __init__(self, a, b):
-        self.a = a
+        self.array = a
         self.b = b
 
     def __str__(self):
         return str(self.things)
 
     def eval(self, out=None, beta=0.0, alpha=1.0):
-        a = self.a
+        a = self.array
         b = self.b
         return a.M.multiply(alpha, a.op, b.M, b.op, beta, out)
 
     def integrate(self, out=None, hermetian=False):
-        a = self.a
+        a = self.array
         b = self.b
         assert a.op == 'C' or a.M.dtype == float and a.op == 'N'
         assert b.op == 'N'
@@ -288,13 +286,21 @@ class AtomBlockMatrix:
         I1 = 0
         for M_ii in self.M_aii:
             I2 = I1 + len(M_ii)
-            out.a[I1:I2] = np.dot(M_ii, b.a[I1:I2])
+            out.array[I1:I2] = np.dot(M_ii, b.array[I1:I2])
             I1 = I2
         return out
 
 
 class ProjectionMatrix(Matrix):
-    def __init__(self, nproj_a, nbands, acomm, bcomm, rank_a, collinear=True):
+    def __init__(self, nproj_a, nbands, acomm, bcomm, rank_a,
+                 collinear=True, spin=0):
+        self.nproj_a = nproj_a
+        self.acomm = acomm
+        self.bcomm = bcomm
+        self.rank_a = rank_a
+        self.collinear = collinear
+        self.spin = spin
+
         self.indices = []
         self.my_atom_indices = []
         I1 = 0
@@ -307,7 +313,10 @@ class ProjectionMatrix(Matrix):
 
         Matrix.__init__(self, I2, nbands, dist=(bcomm, 1, -1))
 
-        self.rank_a = rank_a
+    def new(self):
+        return ProjectionMatrix(
+            self.nproj_a, self.shape[1], self.acomm, self.bcomm,
+            self.rank_a, self.collinear, self.spin)
 
 
 class HMMM:
@@ -332,7 +341,7 @@ class HMMM:
         self.comm = comm
 
     def new(self):
-        P_nI = np.empty_like(self.a)
+        P_nI = np.empty_like(self.array)
         pm = ProjectionMatrix(self.shape[0], self.comm, self.dtype, P_nI,
                               self.dist)
         pm.atom_indices = self.atom_indices
@@ -345,7 +354,7 @@ class HMMM:
             yield P_nI[:, I1:I2]
 
     def extract_to(self, P_ani):
-        P_nI = self.a
+        P_nI = self.array
         for P_ni, (I1, I2) in zip(P_ani.values(), self.slices):
             P_ni[:] = P_nI[:, I1:I2]
 
@@ -353,6 +362,6 @@ class HMMM:
         if isinstance(b, PAWMatrix):
             assert (alpha, beta, opa, opb) == (1, 0, 'N', 'N')
             for (I1, I2), M_ii in zip(self.slices, b.M_aii):
-                c.a[:, I1:I2] = np.dot(self.a[:, I1:I2], M_ii)
+                c.array[:, I1:I2] = np.dot(self.array[:, I1:I2], M_ii)
         else:
             SpatialMatrix.multiply(self, alpha, opa, b, opb, beta, c)

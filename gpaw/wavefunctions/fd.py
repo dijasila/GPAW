@@ -82,7 +82,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.kin.apply(psit_xG, Htpsit_xG, kpt.phase_cd)
         ham.apply_local_potential(psit_xG, Htpsit_xG, kpt.s)
         ham.xc.apply_orbital_dependent_hamiltonian(
-            kpt, psit_xG, Htpsit_xG, ham.dH_asp)
+            kpt, psit_xG, Htpsit_xG, ham.dH_II)
         self.timer.stop('Apply hamiltonian')
 
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):

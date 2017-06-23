@@ -6,6 +6,6 @@ B = Matrix(N, N, data=np.ones((N, N)))
 
 C = (A * B).eval()
 C[:] = A * B
-print(C.a)
+print(C.array)
 C += A * B
-print(C.a)
+print(C.array)

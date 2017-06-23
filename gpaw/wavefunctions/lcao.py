@@ -109,15 +109,9 @@ class LCAOWaveFunctions(WaveFunctions):
             eigensolver.initialize(self.gd, self.dtype, self.setups.nao,
                                    self.ksl)
 
-    def set_positions(self, spos_ac, atom_partition=None):
-        class GRR:
-            pass
-
-        self.pt_I = GRR()
-        self.pt_I.mynfuncs = sum(setup.ni for setup in self.setups)
-
+    def set_positions(self, spos_ac, rank_a):
         with self.timer('Basic WFS set positions'):
-            WaveFunctions.set_positions(self, spos_ac, atom_partition)
+            WaveFunctions.set_positions(self, spos_ac, rank_a)
 
         with self.timer('Basis functions set positions'):
             self.basis_functions.set_positions(spos_ac)

@@ -436,14 +436,14 @@ class GPAW(PAW, Calculator):
         self.density.set_positions(spos_ac, rank_a)
         self.hamiltonian.set_positions(spos_ac, rank_a)
 
-        return spos_ac
+        return spos_ac, rank_a
 
     def set_positions(self, atoms=None):
         """Update the positions of the atoms and initialize wave functions."""
-        spos_ac = self.initialize_positions(atoms)
+        spos_ac, rank_a = self.initialize_positions(atoms)
 
         nlcao, nrand = self.wfs.initialize(self.density, self.hamiltonian,
-                                           spos_ac)
+                                           spos_ac, rank_a)
         if nlcao + nrand:
             self.log('Creating initial wave functions:')
             if nlcao:

@@ -25,7 +25,7 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
     print(psi_n.array.max())
     # psi_n.plot()
     S_nn = psi_n.matrix_elements(psi_n, hermitian=True)
-    print(S_nn.a)
+    print(S_nn.array)
     pt_I = AtomCenteredFunctions(desc, proj, kd)
     pt_I.set_positions(spositions)
     P_In = Matrix(pt_I.mynfuncs, len(psi_n),
@@ -35,7 +35,7 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
     dS_II = AtomBlockMatrix(dS_aii)
     dSP_In[:] = dS_II * P_In
     S_nn += P_In.H * dSP_In
-    print(S_nn.a)
+    print(S_nn.array)
     S_nn.cholesky()
     S_nn.inv()
     psi2_n = psi_n.new()
@@ -44,9 +44,9 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
     psi2_n.matrix_elements(psi2_n, out=S_nn)
     pt_I.matrix_elements(psi2_n, out=P_In)
     dSP_In[:] = dS_II * P_In
-    norm = S_nn.a.trace()
+    norm = S_nn.array.trace()
     S_nn += P_In.H * dSP_In
-    print(S_nn.a, norm)
+    print(S_nn.array, norm)
 
     """
     nt = UniformGridDensity(desc, spinpolarized, collinear)

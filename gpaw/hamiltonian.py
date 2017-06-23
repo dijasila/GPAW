@@ -60,16 +60,16 @@ class AtomBlockHamiltonian:
     def set_ranks(self, rank_a):
         self.rank_a = rank_a
 
-    def multiply(self, alpha, opa, b, opb, beta, out):
+    def multiply(self, alpha, opa, P1_In, opb, beta, P2_In):
         assert opa == 'N'
         assert opb == 'N'
         assert beta == 0.0
-        I1 = 0
-        for M_ii in self.M_aii:
-            I2 = I1 + len(M_ii)
-            out.a[I1:I2] = np.dot(M_ii, b.a[I1:I2])
-            I1 = I2
-        return out
+
+        for a, I1, I2 in P2_In.indices:
+            dH_ii = self.dH_asii[a][P2_In.spin]
+            P2_In.array[I1:I2] = np.dot(dH_ii, P1_In.array[I1:I2])
+
+        return P2_In
 
     def update(self, D_II, W_aL, xc, world, timer):
         # kinetic, coulomb, zero, external, xc:
@@ -336,8 +336,9 @@ class Hamiltonian(object):
             are not applied and calculate_projections is ignored.
 
         """
-        vt_G = self.vt_sG[s]
+        vt_G = self.vt.array[s]
         if psit_nG.ndim == 3:
+            hjgkjg
             Htpsit_nG += psit_nG * vt_G
         else:
             for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):

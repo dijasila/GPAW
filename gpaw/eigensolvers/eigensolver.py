@@ -140,21 +140,19 @@ class Eigensolver:
             raise NotImplementedError
 
         psit_n = kpt.psit_n
-        tmp_n = psit_n.new(buf=wfs.work_array_nG)
-        H_nn = wfs.M_nn
-        P_nI = kpt.P_nI
-        dHP_nI = P_nI.new()
+        tmp_n = psit_n.new(buf=wfs.work_array)
+        H_nn = wfs.work_matrix_nn
+        P_In = kpt.P_In
+        dHP_In = P_In.new()
 
         Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
-        dH_II = AtomBlockMatrix(unpack(ham.dH_asp[a][kpt.s])
-                                for a in kpt.P_ani)
 
         with self.timer('calc_h_matrix'):
-            psit_n.apply(Ht, tmp_n)
-            psit_n.matrix_elements(tmp_n, H_nn, hermitian=True)
-            dHP_nI[:] = P_nI * dH_II
-            H_nn += P_nI.C * dHP_nI.T
-            ham.xc.correct_hamiltonian_matrix(kpt, H_nn.a)
+            psit_n.apply(Ht, out=tmp_n)
+            psit_n.matrix_elements(tmp_n, out=H_nn, hermitian=True)
+            dHP_In[:] = ham.dH_II * P_In
+            H_nn += P_In.H * dHP_In
+            ham.xc.correct_hamiltonian_matrix(kpt, H_nn.array)
 
         with wfs.timer('diagonalize'):
             H_nn.eigh(kpt.eps_n)
@@ -166,10 +164,10 @@ class Eigensolver:
                 Htpsit_n[:] = H_nn.T * tmp_n
             tmp_n[:] = H_nn.T * psit_n
             psit_n[:] = tmp_n
-            dHP_nI[:] = H_nn.T * P_nI
-            dHP_nI.extract_to(kpt.P_ani)
+            dHP_In[:] = P_In * H_nn
+            P_In.array = dHP_In.array
             # Rotate orbital dependent XC stuff:
-            ham.xc.rotate(kpt, H_nn.a)
+            ham.xc.rotate(kpt, H_nn.array)
 
         if self.keep_htpsit:
             return kpt.psit_nG, Htpsit_n.array

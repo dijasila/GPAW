@@ -25,22 +25,24 @@ class FDPWWaveFunctions(WaveFunctions):
 
         self.overlap = self.make_overlap()
 
-        self._M_nn = None  # storage for H, S, ...
-        self._work_array_nG = None
+        self._work_matrix_nn = None  # storage for H, S, ...
+        self._work_array = None
 
     @property
-    def work_array_nG(self):
-        if self._work_array_nG is None:
-            self._work_array_nG = self.empty(self.bd.mynbands)
-        return self._work_array_nG
+    def work_array(self):
+        if self._work_array is None:
+            self._work_array = self.empty(self.bd.mynbands)
+        return self._work_array
 
     @property
-    def M_nn(self):
+    def work_matrix_nn(self):
         """Get Matrix object for H, S, ..."""
-        if self._M_nn is None:
-            self._M_nn = Matrix(self.bd.nbands, self.bd.nbands, self.dtype,
-                                dist=(self.bd.comm, self.bd.comm.size))
-        return self._M_nn
+        if self._work_matrix_nn is None:
+            self._work_matrix_nn = Matrix(
+                self.bd.nbands, self.bd.nbands,
+                self.dtype,
+                dist=(self.bd.comm, self.bd.comm.size))
+        return self._work_matrix_nn
 
     def set_setups(self, setups):
         WaveFunctions.set_setups(self, setups)
@@ -54,7 +56,7 @@ class FDPWWaveFunctions(WaveFunctions):
     def make_overlap(self):
         return Overlap(self.timer)
 
-    def initialize(self, density, hamiltonian, spos_ac):
+    def initialize(self, density, hamiltonian, spos_ac, rank_a):
         """Initialize wave-functions, density and hamiltonian.
 
         Return (nlcao, nrand) tuple with number of bands intialized from
@@ -86,7 +88,7 @@ class FDPWWaveFunctions(WaveFunctions):
 
         if self.kpt_u[0].psit_nG is None:
             nlcao = self.initialize_wave_functions_from_basis_functions(
-                basis_functions, density, hamiltonian, spos_ac)
+                basis_functions, density, hamiltonian, spos_ac, rank_a)
             nrand = self.bd.nbands - nlcao
         else:
             # We got everything from file:
@@ -97,7 +99,7 @@ class FDPWWaveFunctions(WaveFunctions):
     def initialize_wave_functions_from_basis_functions(self,
                                                        basis_functions,
                                                        density, hamiltonian,
-                                                       spos_ac):
+                                                       spos_ac, rank_a):
         self.timer.start('LCAO initialization')
         lcaoksl, lcaobd = self.initksl, self.initksl.bd
         lcaowfs = LCAOWaveFunctions(lcaoksl, self.gd, self.nvalence,
@@ -107,7 +109,7 @@ class FDPWWaveFunctions(WaveFunctions):
         lcaowfs.basis_functions = basis_functions
         lcaowfs.timer = self.timer
         self.timer.start('Set positions (LCAO WFS)')
-        lcaowfs.set_positions(spos_ac, self.atom_partition)
+        lcaowfs.set_positions(spos_ac, rank_a)
         self.timer.stop('Set positions (LCAO WFS)')
 
         eigensolver = DirectLCAO()
@@ -177,15 +179,13 @@ class FDPWWaveFunctions(WaveFunctions):
         dS_II = AtomBlockMatrix(self.setups[a].dO_ii
                                 for a in kpt.P_In.my_atom_indices)
 
-        S_nn = self.M_nn
-        dSP_nI = P_nI.new()
+        S_nn = self.work_matrix_nn
+        dSP_In = P_In.new()
 
         with self.timer('calc_s_matrix'):
             psit_n.matrix_elements(psit_n, S_nn)
-            print(S_nn.a)
-            dSP_nI[:] = P_nI * dS_II
-            S_nn += P_nI.C * dSP_nI.T
-            print(S_nn.a)
+            dSP_In[:] = dS_II * P_In
+            S_nn += P_In.H * dSP_In
 
         with self.timer('inverse-cholesky'):
             assert self.bd.comm.size == 1
@@ -193,12 +193,12 @@ class FDPWWaveFunctions(WaveFunctions):
             S_nn.inv()
             # S_nn now contains the inverse of the Cholesky factorization
 
-        psit2_n = psit_n.new(buf=self.work_array_nG)
+        psit2_n = psit_n.new(buf=self.work_array)
         with self.timer('rotate_psi_s'):
             psit2_n[:] = S_nn.T * psit_n
+            dSP_In[:] = P_In * S_nn
             psit_n[:] = psit2_n
-            dSP_nI[:] = S_nn.T * P_nI
-            dSP_nI.extract_to(kpt.P_ani)
+            P_In.array = dSP_In.array
 
     def calculate_forces(self, hamiltonian, F_av):
         # Calculate force-contribution from k-points:

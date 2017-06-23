@@ -76,7 +76,7 @@ class Davidson(Eigensolver):
         self.subspace_diagonalize(ham, wfs, kpt)
 
         psit_n = kpt.psit_n
-        psit2_n = psit_n.new(buf=wfs.work_array_nG)
+        psit2_n = psit_n.new(buf=wfs.work_array)
         P_nI = kpt.P_nI
         P2_nI = P_nI.new()
         dMP_nI = P_nI.new()
