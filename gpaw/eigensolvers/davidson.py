@@ -77,10 +77,10 @@ class Davidson(Eigensolver):
 
         psit_n = kpt.psit_n
         psit2_n = psit_n.new(buf=wfs.work_array)
-        P_nI = kpt.P_nI
-        P2_nI = P_nI.new()
-        dMP_nI = P_nI.new()
-        M_nn = wfs.M_nn
+        P_In = kpt.P_In
+        P2_In = P_In.new()
+        dMP_In = P_In.new()
+        M_nn = wfs.work_matrix_nn
 
         if self.keep_htpsit:
             R_n = psit_n.new(buf=self.Htpsit_nG)
@@ -119,16 +119,16 @@ class Davidson(Eigensolver):
                                     for a in kpt.P_ani)
             dS_II = AtomBlockMatrix(wfs.setups[a].dO_ii for a in kpt.P_ani)
 
-            def mat(a_n, b_n, Pa_nI, dM_II, Pb_nI, C_nn,
+            def mat(a_n, b_n, Pa_In, dM_II, Pb_In, C_nn,
                     hermitian=False, M_nn=M_nn):
                 """Fill C_nn with <a|b> matrix elements."""
                 (a_n.C * b_n).integrate(out=M_nn, hermitian=hermitian)
-                dMP_nI[:] = Pb_nI * dM_II
-                M_nn += Pa_nI.C * dMP_nI.T
+                dMP_In[:] = Pb_In * dM_II
+                M_nn += Pa_In.C * dMP_In.T
                 C_nn[:] = M_nn
 
             # Calculate projections
-            psit2_n.project(wfs.pt, P2_nI)
+            psit2_n.project(wfs.pt, P2_In)
 
             psit2_n.apply(Ht, out=R_n)
 
@@ -137,13 +137,13 @@ class Davidson(Eigensolver):
                 S_NN[:B, :B] = np.eye(B)
 
                 # <psi2 | H | psi>
-                mat(R_n, psit_n, P2_nI, dH_II, P_nI, H_NN[:B, B:])
+                mat(R_n, psit_n, P2_In, dH_II, P_In, H_NN[:B, B:])
                 # <psi2 | S | psi>
-                mat(psit2_n, psit_n, P2_nI, dS_II, P_nI, S_NN[:B, B:])
+                mat(psit2_n, psit_n, P2_In, dS_II, P_In, S_NN[:B, B:])
                 # <psi2 | H | psi2>
-                mat(R_n, psit2_n, P2_nI, dH_II, P2_nI, H_NN[B:, B:], True)
+                mat(R_n, psit2_n, P2_In, dH_II, P2_In, H_NN[B:, B:], True)
                 # <psi2 | S | psi2>
-                mat(psit2_n, psit2_n, P2_nI, dS_II, P2_nI, S_NN[B:, B:])
+                mat(psit2_n, psit2_n, P2_In, dS_II, P2_In, S_NN[B:, B:])
 
             with self.timer('diagonalize'):
                 #if gd.comm.rank == 0 and bd.comm.rank == 0:
@@ -168,12 +168,12 @@ class Davidson(Eigensolver):
             with self.timer('rotate_psi'):
                 M_nn[:] = H_NN[:B, :B]
                 R_n[:] = M_nn.T * psit_n
-                dMP_nI[:] = M_nn.T * P_nI
+                dMP_In[:] = M_nn.T * P_In
                 M_nn[:] = H_NN[B:, :B]
                 R_n += M_nn.T * psit2_n
-                dMP_nI += M_nn.T * P2_nI
+                dMP_In += M_nn.T * P2_In
                 psit_n[:] = R_n
-                dMP_nI.extract_to(kpt.P_ani)
+                dMP_In.extract_to(kpt.P_ani)
 
             if nit < self.niter - 1:
                 psit_n.apply(Ht, out=R_n)
