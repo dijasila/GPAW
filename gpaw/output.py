@@ -16,6 +16,9 @@ def print_cell(gd, pbc_c, log):
                tuple(Bohr * gd.cell_cv[c]) +
                (gd.N_c[c], Bohr * h_c[c])))
     log()
+    h_eff = gd.dv**(1.0 / 3.0) * Bohr
+    log('Effecive grid spacing dv^(1/3) = {}'.format(h_eff))
+    log()
 
 
 def print_positions(atoms, log):
