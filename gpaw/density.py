@@ -248,20 +248,20 @@ class Density(object):
 
     def __str__(self):
         s = 'Densities:\n'
-        s += '  Coarse grid: {0}*{1}*{2} grid\n'.format(*self.gd.N_c)
-        s += '  Fine grid: {0}*{1}*{2} grid\n'.format(*self.finegd.N_c)
-        s += '  Total Charge: {0:.6f}'.format(self.charge)
+        s += '  Coarse grid: {}*{}*{} grid\n'.format(*self.gd.N_c)
+        s += '  Fine grid: {}*{}*{} grid\n'.format(*self.finegd.N_c)
+        s += '  Total Charge: {:.6f}'.format(self.charge)
         if self.fixed:
             s += '\n  Fixed'
         return s
 
     def summary(self, atoms, magmom, log):
-        if self.nspins == 1:
+        if not self.spinpolarized:
             return
         try:
             # XXX This doesn't always work, HGH, SIC, ...
             sc = self.get_spin_contamination(atoms, int(magmom < 0))
-            log('Spin contamination: %f electrons' % sc)
+            log('Spin contamination: {sc:.6f} electrons'.format(sc=sc))
         except (TypeError, AttributeError):
             pass
 
