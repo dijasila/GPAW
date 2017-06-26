@@ -34,7 +34,6 @@ class AtomCenteredFunctions:
 
     def integrate(self, array, out=None):
         if out is None:
-            print(self.atom_indices, self.slices)
             out = {a: np.empty(I2 - I1)
                    for a, (I1, I2) in zip(self.atom_indices, self.slices)}
         self.lfc.integrate(array, out)
@@ -46,7 +45,6 @@ class AtomCenteredFunctions:
         for M, a in enumerate(out.array):
             coef_M[M] = 1.0
             self.lfc.lfc.lcao_to_grid(coef_M, a, -1)
-            print(M, a.ptp())
             coef_M[M] = 0.0
 
     def matrix_elements(self, other, out, hermetian=False):

@@ -1,8 +1,8 @@
 import numpy as np
 from ase.units import Hartree
 
-from gpaw.utilities import pack, unpack2
-from gpaw.utilities.blas import gemm, axpy
+from gpaw.utilities import pack
+from gpaw.utilities.blas import axpy
 from gpaw.matrix import ProjectionMatrix
 
 
@@ -105,78 +105,6 @@ class WaveFunctions:
         D_sii[kpt.s] += np.outer(P_i.conj(), P_i).real
         D_sp = [pack(D_ii) for D_ii in D_sii]
         return D_sp
-
-    def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
-        if kpt.rho_MM is not None:
-            P_Mi = self.P_aqMi[a][kpt.q]
-            rhoP_Mi = np.zeros_like(P_Mi)
-            D_ii = np.zeros(D_sii[kpt.s].shape, kpt.rho_MM.dtype)
-            gemm(1.0, P_Mi, kpt.rho_MM, 0.0, rhoP_Mi)
-            gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
-            D_sii[kpt.s] += D_ii.real
-        else:
-            P_ni = kpt.P_ani[a]
-            D_sii[kpt.s] += np.dot(P_ni.T.conj() * f_n, P_ni).real
-
-        if hasattr(kpt, 'c_on'):
-            for ne, c_n in zip(kpt.ne_o, kpt.c_on):
-                d_nn = ne * np.outer(c_n.conj(), c_n)
-                D_sii[kpt.s] += np.dot(P_ni.T.conj(), np.dot(d_nn, P_ni)).real
-
-    def calculate_atomic_density_matrices(self, D_asp):
-        """Calculate atomic density matrices from projections."""
-        f_un = [kpt.f_n for kpt in self.kpt_u]
-        self.calculate_atomic_density_matrices_with_occupation(D_asp, f_un)
-
-    def calculate_atomic_density_matrices_with_occupation(self, D_asp, f_un):
-        """Calculate atomic density matrices from projections with
-        custom occupation f_un."""
-
-        # Parameter check (if user accidentally passes f_n instead of f_un)
-        if f_un[0] is not None:  # special case for transport calculations...
-            assert isinstance(f_un[0], np.ndarray)
-        # Varying f_n used in calculation of response part of GLLB-potential
-        for a, D_sp in D_asp.items():
-            ni = self.setups[a].ni
-            D_sii = np.zeros((len(D_sp), ni, ni))
-            for f_n, kpt in zip(f_un, self.kpt_u):
-                self.calculate_atomic_density_matrices_k_point(D_sii, kpt, a,
-                                                               f_n)
-            D_sp[:] = [pack(D_ii) for D_ii in D_sii]
-            self.kptband_comm.sum(D_sp)
-
-        self.symmetrize_atomic_density_matrices(D_asp)
-
-    def symmetrize_atomic_density_matrices(self, D_asp):
-        if len(self.kd.symmetry.op_scc) == 0:
-            return
-
-        if hasattr(D_asp, 'redistribute'):
-            a_sa = self.kd.symmetry.a_sa
-            D_asp.redistribute(self.atom_partition.as_serial())
-            for s in range(self.nspins):
-                D_aii = [unpack2(D_asp[a][s])
-                         for a in range(len(D_asp))]
-                for a, D_ii in enumerate(D_aii):
-                    setup = self.setups[a]
-                    D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
-            D_asp.redistribute(self.atom_partition)
-        else:
-            all_D_asp = []
-            for a, setup in enumerate(self.setups):
-                D_sp = D_asp.get(a)
-                if D_sp is None:
-                    ni = setup.ni
-                    D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
-                self.gd.comm.broadcast(D_sp, self.atom_partition.rank_a[a])
-                all_D_asp.append(D_sp)
-
-            for s in range(self.nspins):
-                D_aii = [unpack2(D_sp[s]) for D_sp in all_D_asp]
-                for a, D_sp in D_asp.items():
-                    setup = self.setups[a]
-                    D_sp[s] = pack(setup.symmetrize(a, D_aii,
-                                                    self.kd.symmetry.a_sa))
 
     def set_positions(self, spos_ac, rank_a):
         self.positions_set = False

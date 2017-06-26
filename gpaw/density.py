@@ -15,7 +15,6 @@ from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
 from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
 from gpaw.lfc import BasisFunctions
-from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.utilities import (unpack2, unpack_atomic_matrices,
                             pack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
@@ -128,8 +127,62 @@ class AtomBlockDensityMatrix:
             Q_L[0] += setup.Delta0
             comp_charge += Q_L[0]
             Q_aL[a] = Q_L
-
         return self.comm.sum(comp_charge) * sqrt(4 * pi), Q_aL
+
+    def update(self, wfs):
+        for D_sii in self.D_asii.values():
+            D_sii[:] = 0.0
+
+        for kpt in wfs.kpt_u:
+            self.update1(kpt)
+
+        for D_sii in self.D_asii.values():
+            wfs.kptband_comm.sum(D_sii)
+
+        self.symmetrize(wfs.kd.symmetry)
+
+    def update1(self, kpt):
+        P_In = kpt.P_In
+        if kpt.rho_MM is None:
+            for a, I1, I2 in P_In.indices:
+                P_in = P_In.array[I1:I2]
+                self.D_asii[a][P_In.spin] += np.dot(P_in.conj() * kpt.f_n,
+                                                    P_in.T).real
+        else:
+            P_Mi = self.P_aqMi[a][kpt.q]
+            rhoP_Mi = np.zeros_like(P_Mi)
+            D_ii = np.zeros(D_sii[kpt.s].shape, kpt.rho_MM.dtype)
+            gemm(1.0, P_Mi, kpt.rho_MM, 0.0, rhoP_Mi)
+            gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
+            D_sii[kpt.s] += D_ii.real
+
+        if hasattr(kpt, 'c_on'):
+            for ne, c_n in zip(kpt.ne_o, kpt.c_on):
+                d_nn = ne * np.outer(c_n.conj(), c_n)
+                D_sii[kpt.s] += np.dot(P_ni.T.conj(), np.dot(d_nn, P_ni)).real
+
+    def symmetrize(self, symmetry):
+        if len(symmetry.op_scc) == 0:
+            return
+
+        all_D_asii = self.broadcast()
+
+        for s in range(1 + self.spinpolarized):
+            D_aii = [D_sii[s] for D_sii in all_D_asii]
+            for a, D_sii in self.D_asii.items():
+                setup = self.setups[a]
+                D_sii[s] = setup.symmetrize(a, D_aii, symmetry.a_sa)
+
+    def broadcast(self):
+        D_asii = []
+        for a, setup in enumerate(self.setups):
+            D_sii = self.D_asii.get(a)
+            if D_sii is None:
+                ni = setup.ni
+                D_sii = np.empty((self.nspins, ni, ni))
+            self.comm.broadcast(D_sii, self.rank_a[a])
+            D_asii.append(D_sii)
+        return D_asii
 
 
 class Density(object):
@@ -251,18 +304,16 @@ class Density(object):
         with self.timer('Pseudo density'):
             self.calculate_pseudo_density(wfs)
         with self.timer('Atomic density matrices'):
-            wfs.calculate_atomic_density_matrices(self.D_asp)
+            self.D_II.update(wfs)
         with self.timer('Multipole moments'):
-            comp_charge = self.calculate_multipole_moments()
+            comp_charge, self.Q_aL = self.D_II.calculate_multipole_moments()
 
-        if isinstance(wfs, LCAOWaveFunctions):
-            self.timer.start('Normalize')
-            self.normalize(comp_charge)
-            self.timer.stop('Normalize')
+        if wfs.mode == 'lcao':
+            with self.timer('Normalize'):
+                self.normalize(comp_charge)
 
-        self.timer.start('Mix')
-        self.mix(comp_charge)
-        self.timer.stop('Mix')
+        with self.timer('Mix'):
+            self.mix(comp_charge)
         self.timer.stop('Density')
 
     def mix(self, comp_charge):
@@ -271,6 +322,7 @@ class Density(object):
         assert self.error is not None, self.mixer
 
         self.interpolate_pseudo_density()
+        comp_charge, self.Q_aL = self.D_II.calculate_multipole_moments()
         self.calculate_pseudo_charge()
 
     def initialize_from_atomic_densities(self, basis_functions):

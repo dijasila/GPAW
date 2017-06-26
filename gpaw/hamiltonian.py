@@ -539,8 +539,8 @@ class RealSpaceHamiltonian(Hamiltonian):
             if self.ref_vt_sG is not None:
                 vt_R += self.ref_vt_sG[s]
 
-                e_kinetic -= self.gd.integrate(vt_R, nt_R - dens.nct_R,
-                                               global_integral=False)
+            e_kinetic -= self.gd.integrate(vt_R, nt_R - dens.nct_R,
+                                           global_integral=False)
             assert self.collinear
             s += 1
 
