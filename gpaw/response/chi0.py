@@ -479,7 +479,7 @@ class Chi0:
             # which essentially means that too large domains will be
             # integrated. We normalize by vol(BZ) / vol(domain) to make
             # sure that to fix this.
-            domainvol = convex_hull_volume(PWSA.unfold_kpoints(bzk_kv))
+            domainvol = convex_hull_volume(bzk_kv) * PWSA.how_many_symmetries()
             bzvol = (2 * np.pi)**3 / self.vol
             factor = bzvol / domainvol
         else:
@@ -745,7 +745,7 @@ class Chi0:
             bzk_kc = np.array([self.calc.wfs.kd.bzk_kc[K_K[0]] for
                                K_K in K_gK])
         elif integrationmode == 'tetrahedron integration':
-            bzk_kc = PWSA.get_reduced_kd().bzk_kc
+            bzk_kc = PWSA.get_reduced_kd(pbc_c=self.pbc).bzk_kc
             if (~self.pbc).any():
                 bzk_kc = np.append(bzk_kc,
                                    bzk_kc + (~self.pbc).astype(int),
