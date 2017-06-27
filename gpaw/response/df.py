@@ -157,7 +157,7 @@ class DielectricFunction:
         fd = open(name, 'rb')
         omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(fd)
         for omega in self.omega_w:
-            assert omega in omega_w
+            assert np.any(np.abs(omega - omega_w) < 1e-8)
 
         wmin = np.argmin(np.abs(np.min(self.omega_w) - omega_w))
         world = self.chi0.world
