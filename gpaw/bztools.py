@@ -267,8 +267,8 @@ def get_ibz_vertices(cell_cv, U_scc=None, time_reversal=None):
     N_xv = G_xv / (((G_xv**2).sum(1))**0.5)[:, np.newaxis]
 
     tp_sxv = (point_sv[:, np.newaxis] - G_xv[np.newaxis] / 2.)
-    delta_sxv = ((tp_sxv * N_xv[np.newaxis]).sum(2)[..., np.newaxis]
-                 * N_xv[np.newaxis])
+    delta_sxv = ((tp_sxv * N_xv[np.newaxis]).sum(2)[..., np.newaxis] *
+                 N_xv[np.newaxis])
     points_xv = (point_sv[:, np.newaxis] - 2 * delta_sxv).reshape((-1, 3))
     points_xv = np.concatenate([point_sv, points_xv])
     voronoi = Voronoi(points_xv)
@@ -309,7 +309,9 @@ def get_bz(calc, returnlatticeibz=False):
     return get_reduced_bz(cell_cv, cU_scc, False, returnlatticeibz)
 
 
-def get_reduced_bz(cell_cv, cU_scc, time_reversal, returnlatticeibz=False):
+def get_reduced_bz(cell_cv, cU_scc, time_reversal, returnlatticeibz=False,
+                   pbc_c=np.ones(3, bool)):
+
     """Reduce the BZ using the crystal symmetries to obtain the IBZ.
 
     Parameters
@@ -320,7 +322,8 @@ def get_reduced_bz(cell_cv, cU_scc, time_reversal, returnlatticeibz=False):
         Crystal symmetry operations.
     time_reversal : bool
         Switch for time reversal.
-
+    pbc: bool or [bool, bool, bool]
+        Periodic bcs
     """
 
     # Lattice symmetries
@@ -335,7 +338,7 @@ def get_reduced_bz(cell_cv, cU_scc, time_reversal, returnlatticeibz=False):
     latibzk_kc = ibzk_kc.copy()
 
     # Expand lattice IBZ to crystal IBZ
-    ibzk_kc = expand_ibz(lU_scc, cU_scc, ibzk_kc)
+    ibzk_kc = expand_ibz(lU_scc, cU_scc, ibzk_kc, pbc_c=pbc_c)
 
     # Fold out to full BZ
     bzk_kc = unique_rows(np.concatenate(np.dot(ibzk_kc,
@@ -347,7 +350,7 @@ def get_reduced_bz(cell_cv, cU_scc, time_reversal, returnlatticeibz=False):
         return bzk_kc, ibzk_kc
 
 
-def expand_ibz(lU_scc, cU_scc, ibzk_kc):
+def expand_ibz(lU_scc, cU_scc, ibzk_kc, pbc_c=np.ones(3, bool)):
     """Expand IBZ from lattice group to crystal group.
 
     Parameters
@@ -390,6 +393,9 @@ def expand_ibz(lU_scc, cU_scc, ibzk_kc):
     nibzk_kc = ibzk_kc
     U0_cc = cosets[0][0]  # Origin
 
+    if np.any(~pbc_c):
+        nonpbcind = np.argwhere(~pbc_c)
+
     # Once the coests are known the irreducible zone is given by picking one
     # operation from each coset. To make sure that the IBZ produced is simply
     # connected we compute the volume of the convex hull of the produced IBZ
@@ -403,6 +409,11 @@ def expand_ibz(lU_scc, cU_scc, ibzk_kc):
         U_scc = np.concatenate([np.array(U_scc), [U0_cc]])
         tmpk_kc = unfold_points(ibzk_kc, U_scc)
         volumenew = convex_hull_volume(tmpk_kc)
+
+        if np.any(~pbc_c):
+            # Compute the area instead
+            volumenew /= (tmpk_kc[:, nonpbcind].max() -
+                          tmpk_kc[:, nonpbcind].min())
 
         if volumenew < volume:
             nibzk_kc = tmpk_kc
@@ -439,7 +450,8 @@ def tetrahedron_volume(a, b, c, d):
         Volume of tetrahedron.
 
     """
-    return np.abs(np.einsum('ij,ij->i', a-d, np.cross(b-d, c-d))) / 6
+    return np.abs(np.einsum('ij,ij->i', a - d,
+                            np.cross(b - d, c - d))) / 6
 
 
 def convex_hull_volume(pts):

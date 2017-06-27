@@ -341,7 +341,7 @@ class PWSymmetryAnalyzer:
 
         return bzk_kc
 
-    def get_reduced_kd(self):
+    def get_reduced_kd(self, pbc_c=np.ones(3, bool)):
         # Get the little group of q
         U_scc = []
         for s in self.s_s:
@@ -352,7 +352,8 @@ class PWSymmetryAnalyzer:
         # Determine the irreducible BZ
         bzk_kc, ibzk_kc = get_reduced_bz(self.pd.gd.cell_cv,
                                          U_scc,
-                                         False)
+                                         False,
+                                         pbc_c=pbc_c)
 
         n = 3
         N_xc = np.indices((n, n, n)).reshape((3, n**3)).T - n // 2
