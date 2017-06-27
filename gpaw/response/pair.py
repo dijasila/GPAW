@@ -632,10 +632,13 @@ class PairDensity:
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None, nblocks=1,
-                 gate_voltage=None, scissor=None):
+                 gate_voltage=None, scissor=None, eshift=None):
 
         if ecut is not None:
             ecut /= Hartree
+
+        if eshift is not None:
+            eshift /= Hartree
 
         if scissor is not None:
             for op in scissor:
@@ -702,6 +705,8 @@ class PairDensity:
         self.nocc1 = None  # number of completely filled bands
         self.nocc2 = None  # number of non-empty bands
         self.count_occupied_bands()
+        if eshift is not None:
+            self.add_eshift(eshift)
 
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
@@ -754,6 +759,19 @@ class PairDensity:
         f_n[tmp <= 100] = 1 / (1 + np.exp(tmp[tmp <= 100]))
         f_n[tmp > 100] = 0.0
         return f_n
+
+    def add_eshift(self, eshift=0):
+        """Shifts unoccupied bands by eshift"""
+        print('Shifting unoccupied bands by %.2f eV' % (eshift * Hartree),
+              file=self.fd)
+        for kpt in self.calc.wfs.kpt_u:
+            # Should only be applied to semiconductors
+            f_n = kpt.f_n / kpt.weight
+            if not all([f_n[i] > 1. - self.ftol or f_n[i] < self.ftol
+                        for i in range(len(f_n))]):
+                raise AssertionError('Eshift should only be applied ' +
+                                     'to semiconductors and insulators.')
+            kpt.eps_n[self.nocc1:] += eshift
 
     def count_occupied_bands(self):
         self.nocc1 = 9999999
