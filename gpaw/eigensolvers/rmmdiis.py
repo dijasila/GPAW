@@ -71,14 +71,10 @@ class RMMDIIS(Eigensolver):
         errors_x = np.zeros(B)
         state_done = np.zeros(B, dtype=bool)
 
-        errors_n = np.zeros(wfs.bd.mynbands)
         # Arrays needed for DIIS step
         if self.niter > 1:
             psit_diis_nxG = wfs.empty(B * self.niter, q=kpt.q)
             R_diis_nxG = wfs.empty(B * self.niter, q=kpt.q)
-            # P_diis_anxi = wfs.pt.dict(B * self.niter)
-            eig_n = np.zeros(self.niter)  # eigenvalues for diagonalization
-                                          # not needed in any step
 
         error = 0.0
         for n1 in range(0, wfs.bd.mynbands, B):
@@ -117,7 +113,6 @@ class RMMDIIS(Eigensolver):
                         weight = 0.0
                 errors_x[n - n1] = weight * integrate(R_xG[n - n1],
                                                       R_xG[n - n1])
-                errors_n[n] = errors_x[n - n1]
             comm.sum(errors_x)
             error += np.sum(errors_x)
 
@@ -267,7 +262,8 @@ class RMMDIIS(Eigensolver):
                         alpha_i = np.linalg.solve(A_nn, x_n)[:-1]
                         self.timer.stop('Linear solve')
                         self.timer.start('Update trial vectors')
-                        psit_xG[ib] = alpha_i[nit] * psit_diis_nxG[istart + nit]
+                        psit_xG[ib] = alpha_i[nit] * psit_diis_nxG[istart +
+                                                                   nit]
                         R_xG[ib] = alpha_i[nit] * R_diis_nxG[istart + nit]
                         for i in range(nit):
                             # axpy(alpha_i[i], psit_diis_nxG[istart + i],
@@ -299,23 +295,6 @@ class RMMDIIS(Eigensolver):
                                              P_axi, kpt.eps_n[n_x], R_xG, n_x,
                                              calculate_change=True)
                     self.timer.stop('Calculate residuals')
-                    self.timer.start('Calculate errors')
-                    errors_new_x = np.zeros(B)
-                    # errors_x[:] = 0.0
-                    for n in range(n1, n2):
-                        if kpt.f_n is None:
-                            weight = kpt.weight
-                        else:
-                            weight = kpt.f_n[n]
-                        if self.nbands_converge != 'occupied':
-                            if wfs.bd.global_index(n) < self.nbands_converge:
-                                weight = kpt.weight
-                            else:
-                                weight = 0.0
-                        errors_new_x[n - n1] += weight * integrate(
-                            R_xG[n - n1], R_xG[n - n1])
-                    comm.sum(errors_x)
-                    self.timer.stop('Calculate errors')
 
             self.timer.stop('DIIS step')
             # Final trial step

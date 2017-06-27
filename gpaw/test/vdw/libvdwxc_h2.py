@@ -1,26 +1,26 @@
+from __future__ import print_function
 from ase.build import molecule
-from gpaw import GPAW, Mixer
+from gpaw import GPAW, Mixer, Davidson, PW
 from gpaw.xc.libvdwxc import vdw_df
 
-system = molecule('H2O')
-system.center(vacuum=1.5)
+system = molecule('H2')
+system.center(vacuum=1.0)
 system.pbc = 1
 
 def calculate(mode):
     kwargs = dict(mode=mode,
-                  basis='szp(dzp)',
+                  basis='sz(dzp)',
+                  eigensolver=Davidson(4) if mode != 'lcao' else None,
                   xc=vdw_df(),
-                  mixer=Mixer(0.3, 5, 10.))
+                  h=0.25,
+                  convergence=dict(energy=1e-6),
+                  mixer=Mixer(0.5, 5, 10.))
     calc = GPAW(**kwargs)
-    def stopcalc():
-        calc.scf.converged = True
-    calc.attach(stopcalc, 6)
-
     system.set_calculator(calc)
     system.get_potential_energy()
     return calc
 
-for mode in ['fd', 'pw', 'lcao']:
+for mode in ['fd', PW(150), 'lcao']:
     calc = calculate(mode)
 
 E1 = calc.get_potential_energy()
@@ -37,4 +37,5 @@ system2.positions[0, 0] += 1e-13
 print('reconverge')
 E3 = system2.get_potential_energy()
 err2 = abs(E3 - E2)
-assert err2 < 5e-6  # Around SCF precision
+print('error', err2)
+assert err2 < 1e-6  # Around SCF precision

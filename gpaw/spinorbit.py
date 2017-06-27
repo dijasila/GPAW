@@ -72,10 +72,9 @@ def get_radial_potential(calc, a, ai):
                        for s in range(Ns)])
     fxc_g = np.sum(fxc_sg, axis=0) / Ns
 
-    # f_sg = np.tile(fc_g, (Ns, 1)) + np.tile(fh_g, (Ns, 1)) + fxc_sg
-    f_sg = np.tile(fc_g + fh_g + fxc_g, (Ns, 1))
+    f_g = fc_g + fh_g + fxc_g
 
-    return f_sg[:] / r_g
+    return f_g / r_g
 
 
 def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
@@ -84,15 +83,6 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
 
     if bands is None:
         bands = np.arange(calc.get_number_of_bands())
-
-    # Rotation matrix
-    Ry_vv = np.array([[np.cos(theta), 0.0, -np.sin(theta)],
-                      [0.0, 1.0, 0.0],
-                      [np.sin(theta), 0, np.cos(theta)]])
-    Rz_vv = np.array([[np.cos(phi), np.sin(phi), 0.0],
-                      [-np.sin(phi), np.cos(phi), 0.0],
-                      [0.0, 0.0, 1.0]])
-    R_vv = np.dot(Ry_vv, Rz_vv)
 
     Na = len(calc.atoms)
     Nk = len(calc.get_ibz_k_points())
@@ -111,92 +101,109 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
                            for k in range(Nk)] for s in range(2)])
 
     # <phi_i|dV_adr / r * L_v|phi_j>
-    dVL_asvii = []
+    dVL_avii = []
     for ai in range(Na):
         a = calc.wfs.setups[ai]
-        v_sg = get_radial_potential(calc, a, ai)
-        Ng = len(v_sg[0])
+        v_g = get_radial_potential(calc, a, ai)
+        Ng = len(v_g)
         phi_jg = a.data.phi_jg
 
-        dVL_svii = np.zeros((Ns, 3, a.ni, a.ni), complex)
+        # dVL_svii = np.zeros((Ns, 3, a.ni, a.ni), complex)
+        dVL_vii = np.zeros((3, a.ni, a.ni), complex)
         N1 = 0
         for j1, l1 in enumerate(a.l_j):
             Nm = 2 * l1 + 1
             N2 = 0
             for j2, l2 in enumerate(a.l_j):
                 if l1 == l2:
-                    f_sg = phi_jg[j1][:Ng] * v_sg[:] * phi_jg[j2][:Ng]
-                    I_s = a.xc_correction.rgd.integrate(f_sg) / (4 * np.pi)
-                    for s in range(Ns):
-                        dVL_svii[s, :, N1:N1 + Nm, N2:N2 + Nm] = [
-                            Lx_lmm[l1] * I_s[s],
-                            Ly_lmm[l1] * I_s[s],
-                            Lz_lmm[l1] * I_s[s]]
+                    f_g = phi_jg[j1][:Ng] * v_g * phi_jg[j2][:Ng]
+                    I = a.xc_correction.rgd.integrate(f_g) / (4 * np.pi)
+                    dVL_vii[0, N1:N1 + Nm, N2:N2 + Nm] = I * Lx_lmm[l1]
+                    dVL_vii[1, N1:N1 + Nm, N2:N2 + Nm] = I * Ly_lmm[l1]
+                    dVL_vii[2, N1:N1 + Nm, N2:N2 + Nm] = I * Lz_lmm[l1]
                 else:
                     pass
                 N2 += 2 * l2 + 1
             N1 += Nm
-        # Rotate to direction defined by theta and phi
-        dVL_vsii = np.dot(R_vv, np.swapaxes(dVL_svii, 1, 2))
-        dVL_svii = np.swapaxes(dVL_vsii, 0, 1)
-        dVL_asvii.append(dVL_svii)
+        dVL_avii.append(dVL_vii)
 
     e_km = []
-    if return_spin:
-        # s_x = np.array([[0, 1.0], [1.0, 0]])
-        # s_y = np.array([[0, -1.0j], [1.0j, 0]])
-        # s_z = np.array([[1.0, 0], [0, -1.0]])
-        s_km = []
     if return_wfs:
         v_knm = []
+    if return_spin:
+        v_knm = []
+        s_kvm = []
 
     # Hamiltonian with SO in KS basis
-    # The even indices in H_mm are spin up along z
+    # The even indices in H_mm are spin up along \hat n defined by \theta, phi
+    # Basis change matrix for constructing Pauli matrices in \theta,\phi basis:
+    #     \sigma_i^n = C^\dag\sigma_i C
+    C_ss = np.array([[np.cos(theta / 2) * np.exp(-1.0j * phi / 2),
+                      -np.sin(theta / 2) * np.exp(-1.0j * phi / 2)],
+                     [np.sin(theta / 2) * np.exp(1.0j * phi / 2),
+                      np.cos(theta / 2) * np.exp(1.0j * phi / 2)]])
+    sx_ss = np.array([[0, 1], [1, 0]], complex)
+    sy_ss = np.array([[0, -1.0j], [1.0j, 0]], complex)
+    sz_ss = np.array([[1, 0], [0, -1]], complex)
+    sx_ss = C_ss.T.conj().dot(sx_ss).dot(C_ss)
+    sy_ss = C_ss.T.conj().dot(sy_ss).dot(C_ss)
+    sz_ss = C_ss.T.conj().dot(sz_ss).dot(C_ss)
+
     for k in range(Nk):
+        # Evaluate H in a basis of S_z eigenstates
         H_mm = np.zeros((2 * Nn, 2 * Nn), complex)
         i1 = np.arange(0, 2 * Nn, 2)
         i2 = np.arange(1, 2 * Nn, 2)
-        H_mm[i1, i1] += e_skn[0, k, :]
-        H_mm[i2, i2] += e_skn[1, k, :]
+        H_mm[i1, i1] = e_skn[0, k]
+        H_mm[i2, i2] = e_skn[1, k]
         for ai in range(Na):
-            P_sni = [calc.wfs.kpt_u[k + s * Nk].P_ani[ai][bands]
-                     for s in range(Ns)]
-            dVL_svii = dVL_asvii[ai] * scale * alpha**2 / 4.0 * Ha
+            Pt_sni = [calc.wfs.kpt_u[k + s * Nk].P_ani[ai][bands]
+                      for s in range(Ns)]
+            Ni = len(Pt_sni[0][0])
+            P_sni = np.zeros((2, 2 * Nn, Ni), complex)
+            dVL_vii = dVL_avii[ai] * scale * alpha**2 / 4.0 * Ha
             if Ns == 1:
-                P_ni = P_sni[0]
-                Hso_nvn = np.dot(np.dot(P_ni.conj(), dVL_svii[0]), P_ni.T)
-                H_mm[::2, ::2] += Hso_nvn[:, 2, :]
-                H_mm[1::2, 1::2] -= Hso_nvn[:, 2, :]
-                H_mm[::2, 1::2] += Hso_nvn[:, 0, :] - 1.0j * Hso_nvn[:, 1, :]
-                H_mm[1::2, ::2] += Hso_nvn[:, 0, :] + 1.0j * Hso_nvn[:, 1, :]
+                P_sni[0, ::2] = Pt_sni[0]
+                P_sni[1, 1::2] = Pt_sni[0]
             else:
-                P0_ni = P_sni[0]
-                P1_ni = P_sni[1]
-                Hso00_nvn = np.dot(np.dot(P0_ni.conj(), dVL_svii[0]), P0_ni.T)
-                Hso11_nvn = np.dot(np.dot(P1_ni.conj(), dVL_svii[1]), P1_ni.T)
-                Hso01_nvn = np.dot(np.dot(P0_ni.conj(), dVL_svii[0]), P1_ni.T)
-                Hso10_nvn = np.dot(np.dot(P1_ni.conj(), dVL_svii[1]), P0_ni.T)
-                H_mm[::2, ::2] += Hso00_nvn[:, 2, :]
-                H_mm[1::2, 1::2] -= Hso11_nvn[:, 2, :]
-                H_mm[::2, 1::2] += (Hso01_nvn[:, 0, :] -
-                                    1.0j * Hso01_nvn[:, 1, :])
-                H_mm[1::2, ::2] += (Hso10_nvn[:, 0, :] +
-                                    1.0j * Hso10_nvn[:, 1, :])
+                P_sni[0, ::2] = Pt_sni[0]
+                P_sni[1, 1::2] = Pt_sni[1]
+            H_ssii = np.zeros((2, 2, Ni, Ni), complex)
+            H_ssii[0, 0] = dVL_vii[2]
+            H_ssii[0, 1] = dVL_vii[0] - 1.0j * dVL_vii[1]
+            H_ssii[1, 0] = dVL_vii[0] + 1.0j * dVL_vii[1]
+            H_ssii[1, 1] = -dVL_vii[2]
+
+            # Tranform to theta, phi basis
+            H_ssii = np.tensordot(C_ss, H_ssii, ([0, 1]))
+            H_ssii = np.tensordot(C_ss.T.conj(), H_ssii, ([1, 1]))
+            for s1 in range(2):
+                for s2 in range(2):
+                    H_ii = H_ssii[s1, s2]
+                    P1_mi = P_sni[s1]
+                    P2_mi = P_sni[s2]
+                    H_mm += np.dot(np.dot(P1_mi.conj(), H_ii), P2_mi.T)
 
         e_m, v_snm = np.linalg.eigh(H_mm)
         e_km.append(e_m)
-        if return_wfs:
+        if return_wfs or return_spin:
             v_knm.append(v_snm)
         if return_spin:
-            s_m = np.sum(np.abs(v_snm[::2, :])**2, axis=0)
-            s_m -= np.sum(np.abs(v_snm[1::2, :])**2, axis=0)
-            s_km.append(s_m)
+            sx_m = []
+            sy_m = []
+            sz_m = []
+            for m in range(2 * Nn):
+                v_sn = np.array([v_snm[::2, m], v_snm[1::2, m]])
+                sx_m.append(np.trace(v_sn.T.conj().dot(sx_ss).dot(v_sn)))
+                sy_m.append(np.trace(v_sn.T.conj().dot(sy_ss).dot(v_sn)))
+                sz_m.append(np.trace(v_sn.T.conj().dot(sz_ss).dot(v_sn)))
+            s_kvm.append([sx_m, sy_m, sz_m])
 
     if return_spin:
         if return_wfs:
-            return np.array(e_km).T, np.array(s_km).T, v_knm
+            return np.array(e_km).T, np.array(s_kvm).real, v_knm
         else:
-            return np.array(e_km).T, np.array(s_km).T
+            return np.array(e_km).T, np.array(s_kvm).real
     else:
         if return_wfs:
             return np.array(e_km).T, v_knm
@@ -211,7 +218,7 @@ def set_calculator(calc, e_km, v_knm=None, width=None):
     if width is None:
         width = calc.occupations.width * Hartree
     calc.wfs.bd.nbands *= 2
-    calc.wfs.nspins = 1
+    # calc.wfs.nspins = 1
     for kpt in calc.wfs.kpt_u:
         kpt.eps_n = e_km[kpt.k] / Hartree
         kpt.f_n = np.zeros_like(kpt.eps_n)
@@ -226,11 +233,104 @@ def set_calculator(calc, e_km, v_knm=None, width=None):
         kpt.weight *= 2
 
 
+def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
+    """Calculates the sum of occupied spinorbit eigenvalues. Returns the result
+    relative to the sum of eigenvalues without spinorbit coupling"""
+
+    e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)
+                       for k in range(len(calc.get_ibz_k_points()))]
+                      for s in range(2)])
+    e_kn = np.reshape(np.swapaxes(e_skn, 0, 1), (len(e_skn[0]),
+                                                 2 * len(e_skn[0, 0])))
+    e_kn = np.sort(e_kn, 1)
+    if nbands is None:
+        nbands = len(e_skn[0, 0])
+    f_skn = np.array([[calc.get_occupation_numbers(kpt=k, spin=s)
+                       for k in range(len(calc.get_ibz_k_points()))]
+                      for s in range(2)])
+    f_kn = np.reshape(np.swapaxes(f_skn, 0, 1), (len(f_skn[0]),
+                                                 2 * len(f_skn[0, 0])))
+    f_kn = np.sort(f_kn, 1)[:, ::-1]
+    E = np.sum(e_kn * f_kn)
+
+    e_mk = get_spinorbit_eigenvalues(calc, theta=theta, phi=phi,
+                                     bands=range(nbands))
+    set_calculator(calc, e_mk.T, width=width)
+    f_km = np.array([calc.get_occupation_numbers(kpt=k)
+                     for k in range(len(calc.get_ibz_k_points()))])
+    E_so = np.sum(e_mk.T * f_km)
+    return E_so - E
+
+
+def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None):
+    """Calculates the magnetic moments inside all PAW spheres"""
+
+    from gpaw.wannier90 import get_spinorbit_projections
+    from gpaw.utilities import unpack
+
+    if nbands is None:
+        nbands = calc.get_number_of_bands()
+    Nk = len(calc.get_ibz_k_points())
+
+    C_ss = np.array([[np.cos(theta / 2) * np.exp(-1.0j * phi / 2),
+                      -np.sin(theta / 2) * np.exp(-1.0j * phi / 2)],
+                     [np.sin(theta / 2) * np.exp(1.0j * phi / 2),
+                      np.cos(theta / 2) * np.exp(1.0j * phi / 2)]])
+
+    m_av = []
+    e_mk, v_knm = get_spinorbit_eigenvalues(calc,
+                                            theta=theta,
+                                            phi=phi,
+                                            return_wfs=True,
+                                            bands=range(nbands))
+
+    for a in range(len(calc.atoms)):
+        N0_p = calc.density.setups[a].N0_p
+        N0_ij = unpack(N0_p)
+
+        Dx_ij = np.zeros_like(N0_ij, complex)
+        Dy_ij = np.zeros_like(N0_ij, complex)
+        Dz_ij = np.zeros_like(N0_ij, complex)
+        tot = 0.0
+        for ik in range(Nk):
+            P_ami = get_spinorbit_projections(calc, ik, v_knm[ik])
+
+            P_smi = np.array([P_ami[a][:, ::2], P_ami[a][:, 1::2]])
+            P_smi = np.dot(C_ss, np.swapaxes(P_smi, 0, 1))
+
+            P0_mi = P_smi[0]
+            P1_mi = P_smi[1]
+
+            f0_n = calc.get_occupation_numbers(kpt=ik, spin=0)
+            f1_n = calc.get_occupation_numbers(kpt=ik, spin=1)
+            f_n = np.zeros(2 * len(f0_n))
+            f_n[::2] = f0_n
+            f_n[1::2] = f1_n
+            f_nn = np.diagflat(f_n[:len(P0_mi)])
+            tot += f_nn[0, 0]
+
+            Dx_ij += P0_mi.conj().T.dot(f_nn).dot(P1_mi)
+            Dx_ij += P1_mi.conj().T.dot(f_nn).dot(P0_mi)
+            Dy_ij -= 1.0j * P0_mi.conj().T.dot(f_nn).dot(P1_mi)
+            Dy_ij += 1.0j * P1_mi.conj().T.dot(f_nn).dot(P0_mi)
+            Dz_ij += P0_mi.conj().T.dot(f_nn).dot(P0_mi)
+            Dz_ij -= P1_mi.conj().T.dot(f_nn).dot(P1_mi)
+
+        mx = np.sum(N0_ij * Dx_ij).real
+        my = np.sum(N0_ij * Dy_ij).real
+        mz = np.sum(N0_ij * Dz_ij).real
+
+        m_av.append([mx, my, mz])
+
+    return m_av
+
+
 def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
-                           inversion_center=[0, 0, 0], deg_tol=1.0e-6, tol=1.0e-6):
-    '''Calculates parity eigenvalues at time-reversal invariant k-points.
+                           inversion_center=[0, 0, 0], deg_tol=1.0e-6,
+                           tol=1.0e-6):
+    """Calculates parity eigenvalues at time-reversal invariant k-points.
     Only works in plane wave mode.
-    '''
+    """
 
     kpt_c = calc.get_ibz_k_points()[ik]
     if Nv is None:

@@ -175,7 +175,6 @@ tests = [
     'pseudopotential/ah.py',                # ~2s
     'lcao/restart.py',                      # ~2s
     'lcao/tddft.py',                        # ~2s
-    'vdw/libvdwxc_h2o.py',                  # ~2s
     'lcao/gllb_si.py',                      # ~2s
     'fileio/wfs_io.py',                     # ~3s
     'lrtddft/2.py',                         # ~3s
@@ -185,6 +184,7 @@ tests = [
     'pw/fulldiagk.py',                      # ~3s
     'ext_potential/external.py',            # ~3s
     'lcao/atomic_corrections.py',           # ~3s
+    'vdw/libvdwxc_h2.py',                   # ~3s
     'generic/mixer.py',                     # ~3s
     'parallel/lcao_projections.py',         # ~3s
     'lcao/h2o.py',                          # ~3s
@@ -249,10 +249,11 @@ tests = [
     'gllb/ne.py',                           # ~7s
     'lcao/force.py',                        # ~7s
     'xc/pplda.py',                          # ~7s
+    'response/test_unit_sphere_area.py',    # ~7s
     'fileio/restart_density.py',            # ~8s
     'rpa/rpa_energy_Ni.py',                 # ~8s
     'tddft/be_nltd_ip.py',                  # ~8s
-    'ibzqpt.py',                       # ~8s
+    'ibzqpt.py',                            # ~8s
     'generic/si_primitive.py',              # ~9s
     'tddft/ehrenfest_nacl.py',              # ~9s
     'lcao/fd2lcao_restart.py',              # ~9s
@@ -347,6 +348,8 @@ tests = [
     'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
     'exx/AA_enthalpy.py',                   # ~119s
+    'response/na_plasmons.py',
+    'response/na_plasmons_tetrahedron.py',  # ~120s
     'lcao/tdgllbsc.py',                     # ~132s
     'solvation/forces.py',                  # ~140s
     'response/gw_MoS2_cut.py',
@@ -416,7 +419,9 @@ if mpi.size < 4:
                 'fileio/parallel.py',
                 'parallel/diamond_gllb.py',
                 'parallel/lcao_parallel_kpt.py',
-                'parallel/fd_parallel_kpt.py']
+                'parallel/fd_parallel_kpt.py',
+                'response/na_plasmons.py',
+                'response/na_plasmons_tetrahedron.py']
 
 
 if mpi.size != 4:
@@ -445,11 +450,13 @@ if mpi.size != 1 and not compiled_with_sl():
                 'response/au02_absorption.py']
 
 if not compiled_with_sl():
-    exclude.append('lcao/atomic_corrections.py')
+    exclude += ['lcao/atomic_corrections.py',
+                'response/na_plasmons.py',
+                'response/na_plasmons_tetrahedron.py']
 
 if not compiled_with_libvdwxc():
     exclude.append('vdw/libvdwxc_functionals.py')
-    exclude.append('vdw/libvdwxc_h2o.py')
+    exclude.append('vdw/libvdwxc_h2.py')
     exclude.append('vdw/libvdwxc_mbeef.py')
     exclude.append('vdw/libvdwxc_spin.py')
 

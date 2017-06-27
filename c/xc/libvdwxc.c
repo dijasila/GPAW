@@ -187,6 +187,7 @@ PyObject* libvdwxc_init_mpi(PyObject* self, PyObject* args)
     }
 
     if(!vdwxc_has_mpi()) {
+        PyErr_SetString(PyExc_ImportError, "libvdwxc not compiled with MPI.");
         return NULL;
     }
 
@@ -210,10 +211,11 @@ PyObject* libvdwxc_init_pfft(PyObject* self, PyObject* args)
     }
 
     if(!vdwxc_has_pfft()) {
+        PyErr_SetString(PyExc_ImportError, "libvdwxc not compiled with PFFT.");
         return NULL;
     }
 
-#if defined(PARALLEL) && defined(LIBVDWXC_HAS_MPI)
+#if defined(PARALLEL)
     vdwxc_data* vdw = unpack_vdwxc_pointer(vdwxc_obj);
     MPI_Comm comm = unpack_gpaw_comm(gpaw_comm_obj);
     vdwxc_init_pfft(*vdw, comm, nproc1, nproc2);
