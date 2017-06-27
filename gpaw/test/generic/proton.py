@@ -37,7 +37,7 @@ for d in D:
     assert abs(f1 + f2).max() < 0.01
     E.append(e)
     F.append(f1[0, 2])
-    
+
 E = np.array(E)
 FF = (E[2:] - E[:-2]) / (D[2] - D[0])  # numerical force
 print(abs(F[1:-1] - FF).max())

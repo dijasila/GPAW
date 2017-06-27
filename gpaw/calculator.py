@@ -588,7 +588,7 @@ class GPAW(PAW, Calculator):
                 par.charge)
 
         if nbands <= 0:
-            nbands = int(nvalence + M + 0.5) // 2 + (-nbands)
+            nbands = max(1, int(nvalence + M + 0.5) // 2 + (-nbands))
 
         if nvalence > 2 * nbands and not orbital_free:
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
@@ -650,6 +650,10 @@ class GPAW(PAW, Calculator):
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
+        description = xc.get_description()
+        if description is not None:
+            self.log('XC parameters: {}\n'
+                     .format('\n  '.join(description.splitlines())))
 
         if xc.name == 'GLLBSC' and olddens is not None:
             xc.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)

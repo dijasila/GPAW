@@ -59,12 +59,10 @@ to large corrections. First, we need to do a regular groundstate calculation
 to obtain the converged density. This is done with the script
 :download:`Pt_gs.py`. We then calculate the band structure at fixed density
 along a certain Brillouin zone path with the script :download:`Pt_bands.py`.
-Note that the wavefunctions are saved in the .gpw file, since these will
-needed for the spin-orbit calculation. Finally the full spin-orbit coupled
-bandstructure is calculated and plotted with the following script
-:download:`plot_Pt_bands.py`. The spin-orbit calculation takes on the order of
-a second, while the preceding scripts takes much longer and should be
-submitted to a cluster - possibly parallelized. The band structure without
+Finally the full spin-orbit coupled bandstructure is calculated and plotted 
+with the following script :download:`plot_Pt_bands.py`. The spin-orbit 
+calculation takes on the order of a second, while the preceding scripts takes 
+a bit longer and could be parallelized. The band structure without
 spin-orbit coupling is shown as dashed grey lines. Note that we only plot
 every second spin-orbit band, since time-reversal symmetry along with
 inversion symmetry dictates that all bands are two-fold degenerate (you can

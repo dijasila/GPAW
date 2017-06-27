@@ -33,7 +33,7 @@ calc.write('TaS2-gs.gpw')
 
 # 2) Unoccupied bands
 
-kpts = find_high_symmetry_monkhorst_pack('TaS2_gs.gpw', density=5.0)
+kpts = find_high_symmetry_monkhorst_pack('TaS2-gs.gpw', density=5.0)
 
 responseGS = GPAW('TaS2-gs.gpw',
                   fixdensity=True,
