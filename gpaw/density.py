@@ -184,6 +184,16 @@ class AtomBlockDensityMatrix:
             D_asii.append(D_sii)
         return D_asii
 
+    def estimate_magnetic_moments(self):
+        magmom_a = np.zeros(self.rank_a.shape)
+        if self.spinpolarized:
+            for a, D_sii in self.D_asii.items():
+                magmom_a[a] = np.einsum('ij,ij',
+                                        D_sii[0] - D_sii[1],
+                                        self.setups[a].N0_ii)
+            self.comm.sum(magmom_a)
+        return magmom_a
+
 
 class Density(object):
     """Density object.
@@ -389,12 +399,7 @@ class Density(object):
         self.mixer = MixerWrapper(mixer, 1 + self.spinpolarized, self.gd)
 
     def estimate_magnetic_moments(self):
-        magmom_a = np.zeros_like(self.magmom_a)
-        if self.nspins == 2:
-            for a, D_sp in self.D_asp.items():
-                magmom_a[a] = np.dot(D_sp[0] - D_sp[1], self.setups[a].N0_p)
-            self.gd.comm.sum(magmom_a)
-        return magmom_a
+        return self.D_II.estimate_magnetic_moments()
 
     def get_correction(self, a, spin):
         """Integrated atomic density correction.

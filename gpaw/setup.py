@@ -490,7 +490,7 @@ class LeanSetup(BaseSetup):
         self.basis = s.basis  # we don't need nao if we use this instead
         # Can also get rid of the phit_j splines if need be
 
-        self.N0_p = s.N0_p  # req. by estimate_magnetic_moments
+        self.N0_ii = s.N0_ii  # req. by estimate_magnetic_moments
         self.nabla_iiv = s.nabla_iiv  # req. by lrtddft
         self.rnabla_iiv = s.rnabla_iiv  # req. by lrtddft
         self.rxnabla_iiv = s.rxnabla_iiv  # req. by lrtddft2
@@ -740,8 +740,8 @@ class Setup(BaseSetup):
 
         T_Lqp = self.calculate_T_Lqp(lcut, nq, _np, nj, jlL_i)
         (g_lg, n_qg, nt_qg, Delta_lq, self.Lmax, self.Delta_pL, Delta0,
-         self.N0_p) = self.get_compensation_charges(phi_jg, phit_jg, _np,
-                                                    T_Lqp)
+         self.N0_ii) = self.get_compensation_charges(phi_jg, phit_jg, _np,
+                                                     T_Lqp)
         self.Delta0 = Delta0
         self.g_lg = g_lg
 
@@ -961,9 +961,10 @@ class Setup(BaseSetup):
         gcutmax = self.rgd.round(rcutmax)
         N0_q = np.dot(n_qg[:, :gcutmax], (r_g**2 * dr_g)[:gcutmax])
         N0_p = np.dot(N0_q, T_Lqp[0]) * sqrt(4 * pi)
+        N0_ii = unpack(N0_p)
 
         return (g_lg[:, :gcut2].copy(), n_qg, nt_qg,
-                Delta_lq, Lmax, Delta_pL, Delta0, N0_p)
+                Delta_lq, Lmax, Delta_pL, Delta0, N0_ii)
 
     def get_derivative_integrals(self, rgd, phi_jg, phit_jg):
         """Calculate PAW-correction matrix elements of nabla.

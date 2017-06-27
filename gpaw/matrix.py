@@ -194,7 +194,7 @@ class Matrix:
 
     def evallllllllll(self, destination=None, beta=0):
         if destination is None:
-            destination = ...
+            destination = 42
         assert destination.dist == self.dist
         if beta == 0:
             destination.array[:] = self.array
