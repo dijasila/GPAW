@@ -710,8 +710,9 @@ class BSE:
 
         """Check f-sum rule."""
         nv = self.calc.wfs.setups.nvalence
-        dw_w = w_w[1:] - w_w[:-1]
-        weps_w = (w_w[1:] + w_w[:-1]) * (epsilon_w[1:] + epsilon_w[:-1]) / 4
+        dw_w = (w_w[1:] - w_w[:-1]) / Hartree
+        weps_w = ((w_w[1:] + w_w[:-1]) / Hartree *
+                  (epsilon_w[1:] + epsilon_w[:-1]) / 4)
         N = np.dot(dw_w, weps_w.imag) * self.vol / (2 * np.pi**2)
         print(file=self.fd)
         print('Checking f-sum rule:', file=self.fd)
