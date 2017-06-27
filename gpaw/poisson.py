@@ -691,3 +691,26 @@ class FixedBoundaryPoissonSolver(FDPoissonSolver):
             self.gd.distribute(global_phi_g, phi_g)
         else:
             phi_g[:] = phi_g3
+
+
+class ReciprocalSpacePoissonSolver:
+    def __init__(self, pd, realpbc_c):
+        self.pd = pd
+        self.realpbc_c = realpbc_c
+        self.G2_q = pd.G2_qG[0][1:]
+
+    def initialize(self):
+        pass
+
+    def get_stencil(self):
+        return '????'
+
+    def estimate_memory(self, mem):
+        pass
+
+    def todict(self):
+        return {}
+
+    def solve(self, vHt_q, dens):
+        vHt_q[:] = 4 * pi * dens.rhot_q
+        vHt_q[1:] /= self.G2_q

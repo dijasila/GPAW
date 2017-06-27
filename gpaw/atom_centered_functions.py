@@ -1,13 +1,17 @@
 import numpy as np
 
-from gpaw.lfc import LFC
-
 
 class AtomCenteredFunctions:
     dtype = float
 
-    def __init__(self, desc, functions_a, kd=None, integral=None, cut=False):
-        self.lfc = LFC(desc, functions_a, integral=integral, cut=cut)
+    def __init__(self, desc, functions_a, kd=None, integral=None, cut=False,
+                 comm=None, blocksize=None):
+        if desc.__class__.__name__ == 'PWDescriptor':
+            from gpaw.wavefunctions.pw import PWLFC
+            self.lfc = PWLFC(desc, functions_a, blocksize=blocksize, comm=comm)
+        else:
+            from gpaw.lfc import LFC
+            self.lfc = LFC(desc, functions_a, integral=integral, cut=cut)
         self.atom_indices = []
         self.slices = []
         I1 = 0
@@ -16,8 +20,8 @@ class AtomCenteredFunctions:
             self.atom_indices.append(a)
             self.slices.append((I1, I2))
             I1 = I2
-        self.nfuncs = I2
-        self.mynfuncs = I2
+        self.nfuncs = I1
+        self.mynfuncs = I1
 
     def __len__(self):
         return self.nfuncs

@@ -3,19 +3,17 @@ from __future__ import print_function, division
 import numbers
 from math import pi
 from math import factorial as fac
-from distutils.version import LooseVersion
 
 import numpy as np
 import ase.units as units
 from ase.utils.timing import timer
 
 import gpaw.fftw as fftw
+from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
-from gpaw.density import Density
 from gpaw.lfc import BaseLFC
 from gpaw.lcao.overlap import fbt
-from gpaw.hamiltonian import Hamiltonian
 from gpaw.wavefunctions import PlaneWaveExpansionWaveFunctions
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
@@ -521,7 +519,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 self.ng_k[kpt.k] = len(self.pd.Q_qG[kpt.q])
         self.kd.comm.sum(self.ng_k)
 
-        self.pt = PWLFC([setup.pt_j for setup in setups], self.pd)
+        self.pt_I = ACF(self.pd, [setup.pt_j for setup in setups])
 
         FDPWWaveFunctions.set_setups(self, setups)
 
@@ -942,7 +940,7 @@ def ft(spline):
 
 
 class PWLFC(BaseLFC):
-    def __init__(self, spline_aj, pd, blocksize=5000, comm=None):
+    def __init__(self, pd, spline_aj, blocksize=5000, comm=None):
         """Reciprocal-space plane-wave localized function collection.
 
         spline_aj: list of list of spline objects
@@ -1263,233 +1261,3 @@ class PWLFC(BaseLFC):
         for a, I1, I2 in self.indices:
             stress -= self.eikR_qa[q][a] * (c_axi[a] * c_xI[..., I1:I2]).sum()
         return stress.real
-
-
-class PseudoCoreKineticEnergyDensityLFC(PWLFC):
-    def add(self, tauct_R):
-        tauct_R += self.pd.ifft(1.0 / self.pd.gd.dv * self.expand(-1).sum(0))
-
-    def derivative(self, dedtaut_R, dF_aiv):
-        PWLFC.derivative(self, self.pd.fft(dedtaut_R), dF_aiv)
-
-
-class ReciprocalSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, charge, redistributor,
-                 background_charge=None):
-        assert gd.comm.size == 1
-        serial_finegd = finegd.new_descriptor(comm=gd.comm)
-
-        from gpaw.utilities.grid import GridRedistributor
-        noredist = GridRedistributor(redistributor.comm,
-                                     redistributor.broadcast_comm, gd, gd)
-        Density.__init__(self, gd, serial_finegd, nspins, charge,
-                         redistributor=noredist,
-                         background_charge=background_charge)
-
-        self.pd2 = PWDescriptor(None, gd)
-        self.pd3 = PWDescriptor(None, serial_finegd)
-
-        self.G3_G = self.pd2.map(self.pd3)
-
-        self.xc_redistributor = GridRedistributor(redistributor.comm,
-                                                  redistributor.comm,
-                                                  serial_finegd, finegd)
-
-    def initialize(self, setups, timer, magmom_av, hund):
-        Density.initialize(self, setups, timer, magmom_av, hund)
-
-        spline_aj = []
-        for setup in setups:
-            if setup.nct is None:
-                spline_aj.append([])
-            else:
-                spline_aj.append([setup.nct])
-        self.nct = PWLFC(spline_aj, self.pd2)
-
-        self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3,
-                          blocksize=256, comm=self.xc_redistributor.comm)
-
-    def set_positions(self, spos_ac, atom_partition):
-        Density.set_positions(self, spos_ac, atom_partition)
-        self.nct_q = self.pd2.zeros()
-        self.nct.add(self.nct_q, 1.0 / self.nspins)
-        self.nct_G = self.pd2.ifft(self.nct_q)
-
-    def interpolate_pseudo_density(self, comp_charge=None):
-        """Interpolate pseudo density to fine grid."""
-        if comp_charge is None:
-            comp_charge = self.calculate_multipole_moments()
-
-        if self.nt_sg is None:
-            self.nt_sg = self.finegd.empty(self.nspins)
-            self.nt_sQ = self.pd2.empty(self.nspins)
-
-        for nt_G, nt_Q, nt_g in zip(self.nt_sG, self.nt_sQ, self.nt_sg):
-            nt_g[:], nt_Q[:] = self.pd2.interpolate(nt_G, self.pd3)
-
-    def interpolate(self, in_xR, out_xR=None):
-        """Interpolate array(s)."""
-        if out_xR is None:
-            out_xR = self.finegd.empty(in_xR.shape[:-3])
-
-        a_xR = in_xR.reshape((-1,) + in_xR.shape[-3:])
-        b_xR = out_xR.reshape((-1,) + out_xR.shape[-3:])
-
-        for in_R, out_R in zip(a_xR, b_xR):
-            out_R[:] = self.pd2.interpolate(in_R, self.pd3)[0]
-
-        return out_xR
-
-    distribute_and_interpolate = interpolate
-
-    def calculate_pseudo_charge(self):
-        self.nt_Q = self.nt_sQ.sum(axis=0)
-        self.rhot_q = self.pd3.zeros()
-        self.rhot_q[self.G3_G] = self.nt_Q * 8
-        self.ghat.add(self.rhot_q, self.Q_aL)
-        self.background_charge.add_fourier_space_charge_to(self.pd3,
-                                                           self.rhot_q)
-        self.rhot_q[0] = 0.0
-
-    def get_pseudo_core_kinetic_energy_density_lfc(self):
-        return PseudoCoreKineticEnergyDensityLFC(
-            [[setup.tauct] for setup in self.setups], self.pd2)
-
-    def calculate_dipole_moment(self):
-        if LooseVersion(np.__version__) < '1.6.0':
-            raise NotImplementedError
-        pd = self.pd3
-        N_c = pd.tmp_Q.shape
-
-        m0_q, m1_q, m2_q = [i_G == 0
-                            for i_G in np.unravel_index(pd.Q_qG[0], N_c)]
-        rhot_q = self.rhot_q.imag
-        rhot_cs = [rhot_q[m1_q & m2_q],
-                   rhot_q[m0_q & m2_q],
-                   rhot_q[m0_q & m1_q]]
-        d_c = [np.dot(rhot_s[1:], 1.0 / np.arange(1, len(rhot_s)))
-               for rhot_s in rhot_cs]
-        return -np.dot(d_c, pd.gd.cell_cv) / pi * pd.gd.dv
-
-
-class ReciprocalSpacePoissonSolver:
-    def __init__(self, pd, realpbc_c):
-        self.pd = pd
-        self.realpbc_c = realpbc_c
-        self.G2_q = pd.G2_qG[0][1:]
-
-    def initialize(self):
-        pass
-
-    def get_stencil(self):
-        return '????'
-
-    def estimate_memory(self, mem):
-        pass
-
-    def todict(self):
-        return {}
-
-    def solve(self, vHt_q, dens):
-        vHt_q[:] = 4 * pi * dens.rhot_q
-        vHt_q[1:] /= self.G2_q
-
-
-class ReciprocalSpaceHamiltonian(Hamiltonian):
-    def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
-                 world, vext=None,
-                 psolver=None, redistributor=None, realpbc_c=None):
-
-        assert gd.comm.size == 1
-        assert finegd.comm.size == 1
-        assert redistributor is not None  # XXX should not be like this
-        Hamiltonian.__init__(self, gd, finegd, nspins, setups,
-                             timer, xc, world, vext=vext,
-                             redistributor=redistributor)
-
-        self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)
-        self.pd2 = pd2
-        self.pd3 = pd3
-
-        self.vHt_q = pd3.empty()
-
-        if psolver is None:
-            psolver = ReciprocalSpacePoissonSolver(pd3, realpbc_c)
-        elif isinstance(psolver, dict):
-            direction = psolver['dipolelayer']
-            assert len(psolver) == 1
-            from gpaw.dipole_correction import DipoleCorrection
-            psolver = DipoleCorrection(
-                ReciprocalSpacePoissonSolver(pd3, realpbc_c), direction)
-        self.poisson = psolver
-        self.npoisson = 0
-
-    def set_positions(self, spos_ac, atom_partition):
-        Hamiltonian.set_positions(self, spos_ac, atom_partition)
-        self.vbar_Q = self.pd2.zeros()
-        self.vbar.add(self.vbar_Q)
-
-    def update_pseudo_potential(self, dens):
-        self.ebar = self.pd2.integrate(self.vbar_Q, dens.nt_sQ.sum(0))
-
-        with self.timer('Poisson'):
-            self.poisson.solve(self.vHt_q, dens)
-            self.epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
-
-        self.vt_Q = self.vbar_Q + self.vHt_q[dens.G3_G] / 8
-        self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
-
-        self.timer.start('XC 3D grid')
-        nt_dist_sg = dens.xc_redistributor.distribute(dens.nt_sg)
-        vxct_dist_sg = dens.xc_redistributor.aux_gd.zeros(self.nspins)
-        self.exc = self.xc.calculate(dens.xc_redistributor.aux_gd,
-                                     nt_dist_sg, vxct_dist_sg)
-        vxct_sg = dens.xc_redistributor.collect(vxct_dist_sg)
-
-        for vt_G, vxct_g in zip(self.vt_sG, vxct_sg):
-            vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
-            vt_G += vxc_G
-            self.vt_Q += vxc_Q / self.nspins
-        self.timer.stop('XC 3D grid')
-
-        eext = 0.0
-
-        return np.array([self.epot, self.ebar, eext, self.exc])
-
-    def calculate_atomic_hamiltonians(self, density):
-        W_aL = {}
-        for a in density.D_asp:
-            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
-        density.ghat.integrate(self.vHt_q, W_aL)
-        return W_aL
-
-    def calculate_kinetic_energy(self, density):
-        ekin = 0.0
-        for vt_G, nt_G in zip(self.vt_sG, density.nt_sG):
-            ekin -= self.gd.integrate(vt_G, nt_G)
-        ekin += self.gd.integrate(self.vt_sG, density.nct_G).sum()
-        return ekin
-
-    def restrict(self, in_xR, out_xR=None):
-        """Restrict array."""
-        if out_xR is None:
-            out_xR = self.gd.empty(in_xR.shape[:-3])
-
-        a_xR = in_xR.reshape((-1,) + in_xR.shape[-3:])
-        b_xR = out_xR.reshape((-1,) + out_xR.shape[-3:])
-
-        for in_R, out_R in zip(a_xR, b_xR):
-            out_R[:] = self.pd3.restrict(in_R, self.pd2)[0]
-
-        return out_xR
-
-    restrict_and_collect = restrict
-
-    def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
-        dens.ghat.derivative(self.vHt_q, ghat_aLv)
-        dens.nct.derivative(self.vt_Q, nct_av)
-        self.vbar.derivative(dens.nt_sQ.sum(0), vbar_av)
-
-    def get_electrostatic_potential(self, dens):
-        self.poisson.solve(self.vHt_q, dens)
-        return self.pd3.ifft(self.vHt_q)

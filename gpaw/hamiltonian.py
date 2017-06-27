@@ -574,3 +574,104 @@ class RealSpaceHamiltonian(Hamiltonian):
             assert self.poisson.c == 2
             v_g[:, :, 0] = self.poisson.correction
         return v_g
+
+
+class ReciprocalSpaceHamiltonian(Hamiltonian):
+    def __init__(self, gd, finegd, pd2, pd3, spinpolarized, setups, timer, xc,
+                 world, vext=None,
+                 psolver=None, redistributor=None, realpbc_c=None):
+
+        assert gd.comm.size == 1
+        assert finegd.comm.size == 1
+        assert redistributor is not None  # XXX should not be like this
+        Hamiltonian.__init__(self, gd, finegd, spinpolarized, setups,
+                             timer, xc, world, vext=vext,
+                             redistributor=redistributor)
+
+        self.vbar_a = ACF(pd2, [[setup.vbar] for setup in setups])
+        self.pd2 = pd2
+        self.pd3 = pd3
+
+        self.vHt_q = pd3.empty()
+
+        from gpaw.poisson import ReciprocalSpacePoissonSolver
+        if psolver is None:
+            psolver = ReciprocalSpacePoissonSolver(pd3, realpbc_c)
+        elif isinstance(psolver, dict):
+            direction = psolver['dipolelayer']
+            assert len(psolver) == 1
+            from gpaw.dipole_correction import DipoleCorrection
+            psolver = DipoleCorrection(
+                ReciprocalSpacePoissonSolver(pd3, realpbc_c), direction)
+        self.poisson = psolver
+        self.npoisson = 0
+
+    def set_positions(self, spos_ac, atom_partition):
+        Hamiltonian.set_positions(self, spos_ac, atom_partition)
+        self.vbar_Q = self.pd2.zeros()
+        self.vbar.add(self.vbar_Q)
+
+    def update_pseudo_potential(self, dens):
+        self.ebar = self.pd2.integrate(self.vbar_Q, dens.nt_sQ.sum(0))
+
+        with self.timer('Poisson'):
+            self.poisson.solve(self.vHt_q, dens)
+            self.epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
+
+        self.vt_Q = self.vbar_Q + self.vHt_q[dens.G3_G] / 8
+        self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
+
+        self.timer.start('XC 3D grid')
+        nt_dist_sg = dens.xc_redistributor.distribute(dens.nt_sg)
+        vxct_dist_sg = dens.xc_redistributor.aux_gd.zeros(self.nspins)
+        self.exc = self.xc.calculate(dens.xc_redistributor.aux_gd,
+                                     nt_dist_sg, vxct_dist_sg)
+        vxct_sg = dens.xc_redistributor.collect(vxct_dist_sg)
+
+        for vt_G, vxct_g in zip(self.vt_sG, vxct_sg):
+            vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
+            vt_G += vxc_G
+            self.vt_Q += vxc_Q / self.nspins
+        self.timer.stop('XC 3D grid')
+
+        eext = 0.0
+
+        return np.array([self.epot, self.ebar, eext, self.exc])
+
+    def calculate_atomic_hamiltonians(self, density):
+        W_aL = {}
+        for a in density.D_asp:
+            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
+        density.ghat.integrate(self.vHt_q, W_aL)
+        return W_aL
+
+    def calculate_kinetic_energy(self, density):
+        ekin = 0.0
+        for vt_G, nt_G in zip(self.vt_sG, density.nt_sG):
+            ekin -= self.gd.integrate(vt_G, nt_G)
+        ekin += self.gd.integrate(self.vt_sG, density.nct_G).sum()
+        return ekin
+
+    def restrict(self, in_xR, out_xR=None):
+        """Restrict array."""
+        if out_xR is None:
+            out_xR = self.gd.empty(in_xR.shape[:-3])
+
+        a_xR = in_xR.reshape((-1,) + in_xR.shape[-3:])
+        b_xR = out_xR.reshape((-1,) + out_xR.shape[-3:])
+
+        for in_R, out_R in zip(a_xR, b_xR):
+            out_R[:] = self.pd3.restrict(in_R, self.pd2)[0]
+
+        return out_xR
+
+    restrict_and_collect = restrict
+
+    def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
+        dens.ghat.derivative(self.vHt_q, ghat_aLv)
+        dens.nct.derivative(self.vt_Q, nct_av)
+        self.vbar.derivative(dens.nt_sQ.sum(0), vbar_av)
+
+    def get_electrostatic_potential(self, dens):
+        self.poisson.solve(self.vHt_q, dens)
+        return self.pd3.ifft(self.vHt_q)

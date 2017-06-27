@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) 2003  CAMP
-# Please see the accompanying LICENSE file for further information.
-
 """This module defines a density class."""
 
 from __future__ import print_function, division
@@ -9,6 +5,7 @@ from math import pi, sqrt
 
 import numpy as np
 from ase.units import Bohr
+from distutils.version import LooseVersion
 
 from gpaw import debug
 from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
@@ -19,6 +16,7 @@ from gpaw.utilities import (unpack2, unpack_atomic_matrices,
                             pack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
+from gpaw.wavefunctions.pw import PWLFC, PWDescriptor
 
 
 class NullBackgroundCharge:
@@ -677,12 +675,119 @@ class RealSpaceDensity(Density):
                                    charge)
 
     def get_pseudo_core_kinetic_energy_density_lfc(self):
-        return LFC(self.gd,
+        return ACF(self.gd,
                    [[setup.tauct] for setup in self.setups],
                    forces=True, cut=True)
 
     def calculate_dipole_moment(self):
         return self.finegd.calculate_dipole_moment(self.rhot_g)
+
+
+class PseudoCoreKineticEnergyDensityLFC(PWLFC):
+    def add(self, tauct_R):
+        tauct_R += self.pd.ifft(1.0 / self.pd.gd.dv * self.expand(-1).sum(0))
+
+    def derivative(self, dedtaut_R, dF_aiv):
+        PWLFC.derivative(self, self.pd.fft(dedtaut_R), dF_aiv)
+
+
+class ReciprocalSpaceDensity(Density):
+    def __init__(self, gd, finegd, nspins, charge, redistributor,
+                 background_charge=None):
+        assert gd.comm.size == 1
+        serial_finegd = finegd.new_descriptor(comm=gd.comm)
+
+        from gpaw.utilities.grid import GridRedistributor
+        noredist = GridRedistributor(redistributor.comm,
+                                     redistributor.broadcast_comm, gd, gd)
+        Density.__init__(self, gd, serial_finegd, nspins, charge,
+                         redistributor=noredist,
+                         background_charge=background_charge)
+
+        self.pd2 = PWDescriptor(None, gd)
+        self.pd3 = PWDescriptor(None, serial_finegd)
+
+        self.G3_G = self.pd2.map(self.pd3)
+
+        self.xc_redistributor = GridRedistributor(redistributor.comm,
+                                                  redistributor.comm,
+                                                  serial_finegd, finegd)
+
+    def initialize(self, setups, timer, magmom_av, hund):
+        Density.initialize(self, setups, timer, magmom_av, hund)
+
+        spline_aj = []
+        for setup in setups:
+            if setup.nct is None:
+                spline_aj.append([])
+            else:
+                spline_aj.append([setup.nct])
+        self.nct_a = ACF(self.pd2, spline_aj)
+
+        self.ghat = ACF(self.pd3, [setup.ghat_l for setup in setups],
+                        blocksize=256, comm=self.xc_redistributor.comm)
+
+    def set_positions(self, spos_ac, atom_partition):
+        Density.set_positions(self, spos_ac, atom_partition)
+        self.nct_q = self.pd2.zeros()
+        self.nct.add(self.nct_q, 1.0 / self.nspins)
+        self.nct_G = self.pd2.ifft(self.nct_q)
+
+    def interpolate_pseudo_density(self, comp_charge=None):
+        """Interpolate pseudo density to fine grid."""
+        if comp_charge is None:
+            comp_charge = self.calculate_multipole_moments()
+
+        if self.nt_sg is None:
+            self.nt_sg = self.finegd.empty(self.nspins)
+            self.nt_sQ = self.pd2.empty(self.nspins)
+
+        for nt_G, nt_Q, nt_g in zip(self.nt_sG, self.nt_sQ, self.nt_sg):
+            nt_g[:], nt_Q[:] = self.pd2.interpolate(nt_G, self.pd3)
+
+    def interpolate(self, in_xR, out_xR=None):
+        """Interpolate array(s)."""
+        if out_xR is None:
+            out_xR = self.finegd.empty(in_xR.shape[:-3])
+
+        a_xR = in_xR.reshape((-1,) + in_xR.shape[-3:])
+        b_xR = out_xR.reshape((-1,) + out_xR.shape[-3:])
+
+        for in_R, out_R in zip(a_xR, b_xR):
+            out_R[:] = self.pd2.interpolate(in_R, self.pd3)[0]
+
+        return out_xR
+
+    distribute_and_interpolate = interpolate
+
+    def calculate_pseudo_charge(self):
+        self.nt_Q = self.nt_sQ.sum(axis=0)
+        self.rhot_q = self.pd3.zeros()
+        self.rhot_q[self.G3_G] = self.nt_Q * 8
+        self.ghat.add(self.rhot_q, self.Q_aL)
+        self.background_charge.add_fourier_space_charge_to(self.pd3,
+                                                           self.rhot_q)
+        self.rhot_q[0] = 0.0
+
+    def get_pseudo_core_kinetic_energy_density_lfc(self):
+        return PseudoCoreKineticEnergyDensityLFC(
+            [[setup.tauct] for setup in self.setups], self.pd2)
+
+    def calculate_dipole_moment(self):
+        if LooseVersion(np.__version__) < '1.6.0':
+            raise NotImplementedError
+        pd = self.pd3
+        N_c = pd.tmp_Q.shape
+
+        m0_q, m1_q, m2_q = [i_G == 0
+                            for i_G in np.unravel_index(pd.Q_qG[0], N_c)]
+        rhot_q = self.rhot_q.imag
+        rhot_cs = [rhot_q[m1_q & m2_q],
+                   rhot_q[m0_q & m2_q],
+                   rhot_q[m0_q & m1_q]]
+        d_c = [np.dot(rhot_s[1:], 1.0 / np.arange(1, len(rhot_s)))
+               for rhot_s in rhot_cs]
+        return -np.dot(d_c, pd.gd.cell_cv) / pi * pd.gd.dv
 
 
 def redistribute_array(nt_sG, gd1, gd2, nspins, kptband_comm):

@@ -9,14 +9,13 @@ from ase.utils.timing import Timer
 
 import gpaw
 import gpaw.mpi as mpi
-import gpaw.wavefunctions.pw as pw
 from gpaw import dry_run, memory_estimate_depth
 from gpaw.band_descriptor import BandDescriptor
-from gpaw.density import RealSpaceDensity
+from gpaw.density import RealSpaceDensity, ReciprocalSpaceDensity
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.forces import calculate_forces
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.hamiltonian import RealSpaceHamiltonian
+from gpaw.hamiltonian import RealSpaceHamiltonian, ReciprocalSpaceHamiltonian
 from gpaw.io.logger import GPAWLogger
 from gpaw.io import Reader, Writer
 from gpaw.jellium import create_background_charge
@@ -32,7 +31,6 @@ from gpaw.symmetry import Symmetry
 from gpaw.stress import calculate_stress
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
-from gpaw.utilities.partition import AtomPartition
 from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.xc import XC
 from gpaw.xc.sic import SIC
@@ -430,7 +428,7 @@ class GPAW(PAW, Calculator):
         spos_ac = atoms.get_scaled_positions() % 1.0
 
         rank_a = self.wfs.gd.get_ranks_from_positions(spos_ac)
-        #atom_partition = AtomPartition(self.wfs.gd.comm, rank_a, name='gd')
+        # atom_partition = AtomPartition(self.wfs.gd.comm, rank_a, name='gd')
         self.wfs.set_positions(spos_ac, rank_a)
         self.density.set_positions(spos_ac, rank_a)
         self.hamiltonian.set_positions(spos_ac, rank_a)
@@ -664,10 +662,6 @@ class GPAW(PAW, Calculator):
 
         self.log('Number of atoms:', natoms)
         self.log('Number of atomic orbitals:', self.wfs.setups.nao)
-        if self.nbands_parallelization_adjustment != 0:
-            self.log(
-                'Adjusting number of bands by %+d to match parallelization' %
-                self.nbands_parallelization_adjustment)
         self.log('Number of bands in calculation:', self.wfs.bd.nbands)
         self.log('Bands to converge: ', end='')
         n = par.convergence.get('bands', 'occupied')
@@ -838,7 +832,7 @@ class GPAW(PAW, Calculator):
             self.density = RealSpaceDensity(stencil=mode.interpolation,
                                             **kwargs)
         else:
-            self.density = pw.ReciprocalSpaceDensity(**kwargs)
+            self.density = ReciprocalSpaceDensity(**kwargs)
 
         self.log(self.density, '\n')
 
@@ -859,7 +853,7 @@ class GPAW(PAW, Calculator):
                                                     **kwargs)
             xc.set_grid_descriptor(self.hamiltonian.finegd)  # XXX
         else:
-            self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
+            self.hamiltonian = ReciprocalSpaceHamiltonian(
                 pd2=dens.pd2, pd3=dens.pd3, realpbc_c=self.atoms.pbc, **kwargs)
             xc.set_grid_descriptor(dens.xc_redistributor.aux_gd)  # XXX
 
@@ -922,14 +916,6 @@ class GPAW(PAW, Calculator):
         kd.set_communicator(kpt_comm)
 
         parstride_bands = self.parallel['stridebands']
-
-        # Unfortunately we need to remember that we adjusted the
-        # number of bands so we can print a warning if it differs
-        # from the number specified by the user.  (The number can
-        # be inferred from the input parameters, but it's tricky
-        # because we allow negative numbers)
-        self.nbands_parallelization_adjustment = 0#-nbands % band_comm.size
-        nbands += self.nbands_parallelization_adjustment
 
         bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
