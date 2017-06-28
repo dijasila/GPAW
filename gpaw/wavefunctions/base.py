@@ -48,7 +48,8 @@ class WaveFunctions:
         self.timer = timer
         self.atom_partition = None
 
-        self.kpt_u = kd.create_k_points(self.gd)
+        self.mykpts = kd.create_k_points(self.gd)
+        self.kpt_u = self.mykpts
 
         self.eigensolver = None
         self.positions_set = False

@@ -31,12 +31,12 @@ class AtomCenteredFunctions:
     def set_positions(self, spos_ac, rank_a=None):
         self.lfc.set_positions(spos_ac)
 
-    def add_to(self, array, coefs=1.0):
+    def add_to(self, array, coefs=1.0, force_real_space=False):
         if not isinstance(array, np.ndarray):
             array = array.array
         if not isinstance(coefs, (float, dict)):
             coefs = coefs.todict()
-        if self.space == 'reciprocal' and isinstance(coefs, float):
+        if self.space == 'reciprocal' and force_real_space:
             pd = self.lfc.pd
             array += pd.ifft(coefs / pd.gd.dv * self.lfc.expand(-1).sum(0))
         else:

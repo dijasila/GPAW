@@ -37,52 +37,48 @@ class UniformGridDensity:
         self.spinpolarized = spinpolarized
         self.collinear = collinear
 
-        shape = (2, 2) if not collinear else (1 + spinpolarized,)
+        shape = (4,) if not collinear else (1 + spinpolarized,)
         self.array = gd.empty(shape)
-
-    def arrays(self):
-        for a in self.array:
-            if self.collinear:
-                yield a
-            else:
-                for b in a:
-                    yield b
-
-    def get_electron_density(self):
-        if self.collinear:
-            return self.array.sum(0)
-        return ...
-
-    def initialize_with_pseudo_core_density(self, nct_R):
-        self.array[:] = nct_R
+        self.density = self.array[0]
+        self.magnetization = self.array[1:]
 
     def add_from_basis_set(self, basis, f_asi):
         basis.add_to_density(self.array, f_asi)
 
     def normalize(self, total_charge):
         """Normalize pseudo density."""
-        pseudo_charge = self.gd.integrate(self.array).sum()
+        pseudo_charge = self.gd.integrate(self.density)
         x = -total_charge / pseudo_charge
-        self.array *= x
+        self.density *= x
 
-    def interpolate(self, interpolator, redistributor):
-        out = UniformGridDensity(interpolator.gdout, self.spinpolarized,
-                                 self.collinear)
-        for a, b in zip(self.arrays(), out.arrays()):
-            c = redistributor.distribute(a)
-            interpolator.apply(c, b)
+    def interpolate(self, finegd, interpolate, redistribute):
+        """Interpolate pseudo density to fine grid."""
+        finent = UniformGridDensity(finegd, self.spinpolarized,
+                                    self.collinear)
+
+        # Somet representation of the total density that the interpolator
+        # returns:
+        density = None
+
+        for a, b in zip(self.array, finent.array):
+            a = redistribute(a)
+            c = interpolate(a, b)
+
+            if density is None:
+                # fisrt time through loop: total density
+                density = c
 
             # With periodic boundary conditions, the interpolation will
             # conserve the number of electrons.
             if not self.gd.pbc_c.all():
                 # With zero-boundary conditions in one or more directions,
                 # this is not the case.
-                C = self.gd.integrate(c)
-                if abs(C) > 1.0e-14:
-                    B = out.gd.integrate(b)
-                    b *= C / B
+                A = self.gd.integrate(a)
+                if abs(A) > 1.0e-14:
+                    B = self.finegd.integrate(b)
+                    b *= A / B
 
-        return out
+        return finent, density
 
 
 class AtomBlockDensityMatrix:
@@ -90,6 +86,7 @@ class AtomBlockDensityMatrix:
                  comm=None, rank_a=None):
         self.setups = setups
         self.spinpolarized = spinpolarized
+        self.collinear = collinear
         self.comm = comm
         self.rank_a = rank_a
 
@@ -120,7 +117,7 @@ class AtomBlockDensityMatrix:
         Q_aL = {}
         for a, D_sii in self.D_asii.items():
             setup = self.setups[a]
-            Q_L = np.einsum('sij,ijL->L', D_sii, setup.Delta_iiL)
+            Q_L = np.einsum('ij,ijL', D_sii[0], setup.Delta_iiL)
             Q_L[0] += setup.Delta0
             comp_charge += Q_L[0]
             Q_aL[a] = Q_L
@@ -130,7 +127,7 @@ class AtomBlockDensityMatrix:
         for D_sii in self.D_asii.values():
             D_sii[:] = 0.0
 
-        for kpt in wfs.kpt_u:
+        for kpt in wfs.mykpts:
             self.update1(kpt)
 
         for D_sii in self.D_asii.values():
@@ -138,13 +135,29 @@ class AtomBlockDensityMatrix:
 
         self.symmetrize(wfs.kd.symmetry)
 
+    def _update(self, D_sii, P_ni, f_n, spin):
+        if self.collinear:
+            D_ii = np.dot(P_ni.T.conj() * f_n, P_ni).real
+            if self.spinpolarized:
+                D_sii[0] += D_ii
+                D_sii[1] += (1 - 2 * spin) * D_ii
+            else:
+                D_sii[0] += D_ii
+        else:
+            n, i = P_ni.shape
+            P_nsi = P_ni.reshape((n // 2, 2, i))
+            D_ssii = np.einsum('isn,ntj->stij', P_nsi.T.conj() * f_n, P_nsi)
+            D_sii[0] = D_ssii[0, 0].real + D_ssii[1, 1].real
+            D_sii[1] = 2 * D_ssii[0, 1].real  # ???
+            D_sii[1] = 2 * D_ssii[0, 1].imag  # ???
+            D_sii[3] = D_ssii[0, 0].real - D_ssii[1, 1].real
+
     def update1(self, kpt):
         P_In = kpt.P_In
         if kpt.rho_MM is None:
             for a, I1, I2 in P_In.indices:
-                P_in = P_In.array[I1:I2]
-                self.D_asii[a][P_In.spin] += np.dot(P_in.conj() * kpt.f_n,
-                                                    P_in.T).real
+                P_ni = P_In.array[I1:I2].T
+                self._update(self.D_asii[a], P_ni, kpt.f_n, P_In.spin)
         else:
             P_Mi = self.P_aqMi[a][kpt.q]
             rhoP_Mi = np.zeros_like(P_Mi)
@@ -186,8 +199,7 @@ class AtomBlockDensityMatrix:
         if self.spinpolarized:
             for a, D_sii in self.D_asii.items():
                 magmom_a[a] = np.einsum('ij,ij',
-                                        D_sii[0] - D_sii[1],
-                                        self.setups[a].N0_ii)
+                                        D_sii[1], self.setups[a].N0_ii)
             self.comm.sum(magmom_a)
         return magmom_a
 
@@ -291,7 +303,7 @@ class Density:
         self.mixer.reset()
 
         self.nct_R = self.gd.zeros()
-        self.nct_a.add_to(self.nct_R, 1 / (1 + self.spinpolarized))
+        self.nct_a.add_to(self.nct_R, force_real_space=True)
 
         self.nt = None
         self.Q_aL = None
@@ -302,7 +314,7 @@ class Density:
         nt_sG will be equal to nct_G plus the contribution from
         wfs.add_to_density().
         """
-        self.nt.initialize_with_pseudo_core_density(self.nct_R)
+        self.nt.density[:] = self.nct_R
         wfs.calculate_density_contribution(self.nt)
 
     def update(self, wfs):
@@ -328,8 +340,6 @@ class Density:
         assert self.error is not None, self.mixer
 
         self.interpolate_pseudo_density()
-        comp_charge, self.Q_aL = self.D_II.calculate_multipole_moments()
-        self.calculate_pseudo_charge()
 
     def initialize_from_atomic_densities(self, basis_functions):
         """Initialize D_asp, nt_sG and Q_aL from atomic densities.
@@ -351,7 +361,7 @@ class Density:
 
         self.nt = UniformGridDensity(self.gd, self.spinpolarized,
                                      self.collinear)
-        self.nt.initialize_with_pseudo_core_density(self.nct_R)
+        self.nt.density[:] = self.nct_R
         self.nt.add_from_basis_set(basis_functions, f_asi)
         self.calculate_normalized_charges_and_mix()
 
@@ -500,6 +510,7 @@ class RealSpaceDensity(Density):
         Density.__init__(self, gd, finegd, nspins, charge, redistributor,
                          background_charge=background_charge)
         self.stencil = stencil
+        self.interpolator = None
 
     def initialize(self, setups, timer, magmom_a, hund):
         Density.initialize(self, setups, timer, magmom_a, hund)
@@ -522,12 +533,14 @@ class RealSpaceDensity(Density):
 
     def interpolate_pseudo_density(self):
         """Interpolate pseudo density to fine grid."""
-        self.finent = self.nt.interpolate(self.interpolator,
-                                          self.redistributor)
+        self.finent, self.rhot_r = self.nt.interpolate(
+            self.finegd,
+            self.interpolator.apply,
+            self.redistributor.distribute)
 
-    def calculate_pseudo_charge(self):
-        self.rhot_r = self.finent.get_electron_density()
-        self.ghat_aL.add_to(self.rhot_r, self.Q_aL)
+        comp_charge, Q_aL = self.D_II.calculate_multipole_moments()
+
+        self.ghat_aL.add_to(self.rhot_r, Q_aL)
         self.background_charge.add_charge_to(self.rhot_r)
 
         if debug:
@@ -568,6 +581,9 @@ class ReciprocalSpaceDensity(Density):
                                                   redistributor.comm,
                                                   serial_finegd, finegd)
 
+        self.rhot_q = None
+        self.nt_Q = None
+
     def initialize(self, setups, timer, magmom_av, hund):
         Density.initialize(self, setups, timer, magmom_av, hund)
 
@@ -582,17 +598,24 @@ class ReciprocalSpaceDensity(Density):
         self.ghat_aL = ACF(self.pd3, [setup.ghat_l for setup in setups],
                            blocksize=256, comm=self.xc_redistributor.comm)
 
-    def interpolate_pseudo_density(self, comp_charge=None):
+    def interpolate_pseudo_density(self):
         """Interpolate pseudo density to fine grid."""
-        if comp_charge is None:
-            comp_charge = self.calculate_multipole_moments()
 
-        if self.nt_sg is None:
-            self.nt_sg = self.finegd.empty(self.nspins)
-            self.nt_sQ = self.pd2.empty(self.nspins)
+        def interpolate(a, b):
+            b[:], c = self.pd2.interpolate(a, self.pd3)
+            return c
 
-        for nt_G, nt_Q, nt_g in zip(self.nt_sG, self.nt_sQ, self.nt_sg):
-            nt_g[:], nt_Q[:] = self.pd2.interpolate(nt_G, self.pd3)
+        self.finent, self.nt_Q = self.nt.interpolate(self.finegd, interpolate,
+                                                     lambda a: a)
+
+        comp_charge, Q_aL = self.D_II.calculate_multipole_moments()
+
+        self.rhot_q = self.pd3.zeros()
+        self.rhot_q[self.G3_G] = self.nt_Q * 8
+        self.ghat_aL.add_to(self.rhot_q, Q_aL)
+        self.background_charge.add_fourier_space_charge_to(self.pd3,
+                                                           self.rhot_q)
+        self.rhot_q[0] = 0.0
 
     def interpolate(self, in_xR, out_xR=None):
         """Interpolate array(s)."""
@@ -608,15 +631,6 @@ class ReciprocalSpaceDensity(Density):
         return out_xR
 
     distribute_and_interpolate = interpolate
-
-    def calculate_pseudo_charge(self):
-        self.nt_Q = self.nt_sQ.sum(axis=0)
-        self.rhot_q = self.pd3.zeros()
-        self.rhot_q[self.G3_G] = self.nt_Q * 8
-        self.ghat.add(self.rhot_q, self.Q_aL)
-        self.background_charge.add_fourier_space_charge_to(self.pd3,
-                                                           self.rhot_q)
-        self.rhot_q[0] = 0.0
 
     def calculate_dipole_moment(self):
         if LooseVersion(np.__version__) < '1.6.0':

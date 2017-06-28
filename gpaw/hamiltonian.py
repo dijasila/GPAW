@@ -137,7 +137,6 @@ class Hamiltonian(object):
         self.finevt = None  # fine grid
 
         self.vbar_a = None
-        self.vbar_r = None
 
         # Energy contributioons that sum up to e_total_free:
         self.e_kinetic = None
@@ -215,8 +214,6 @@ class Hamiltonian(object):
         self.vbar_a.set_positions(spos_ac)
         self.xc.set_positions(spos_ac)
         self.dH_II.set_ranks(rank_a)
-        self.vbar_r = self.finegd.zeros()
-        self.vbar_a.add_to(self.vbar_r)
         self.positions_set = True
 
     def initialize(self):
@@ -478,6 +475,9 @@ class RealSpaceHamiltonian(Hamiltonian):
                                       stencil)
 
         self.vbar_a = ACF(self.finegd, [[setup.vbar] for setup in setups])
+        self.vbar_r = None
+
+        self.npoisson = None
 
     def __str__(self):
         s = Hamiltonian.__str__(self)
@@ -488,6 +488,11 @@ class RealSpaceHamiltonian(Hamiltonian):
               '(%d. degree polynomial)\n' % degree)
         s += '  Poisson solver: %s' % self.poisson.get_description()
         return s
+
+    def set_positions(self, spos_ac, rank_a):
+        Hamiltonian.set_positions(self, spos_ac, rank_a)
+        self.vbar_r = self.finegd.zeros()
+        self.vbar_a.add_to(self.vbar_r)
 
     def update_pseudo_potential(self, dens):
         self.timer.start('vbar')
@@ -595,6 +600,8 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.pd2 = pd2
         self.pd3 = pd3
 
+        self.vbar_Q = None
+
         self.vHt_q = pd3.empty()
 
         from gpaw.poisson import ReciprocalSpacePoissonSolver
@@ -609,13 +616,13 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.poisson = psolver
         self.npoisson = 0
 
-    def set_positions(self, spos_ac, atom_partition):
-        Hamiltonian.set_positions(self, spos_ac, atom_partition)
+    def set_positions(self, spos_ac, rank_a):
+        Hamiltonian.set_positions(self, spos_ac, rank_a)
         self.vbar_Q = self.pd2.zeros()
-        self.vbar.add(self.vbar_Q)
+        self.vbar_a.add_to(self.vbar_Q)
 
     def update_pseudo_potential(self, dens):
-        self.ebar = self.pd2.integrate(self.vbar_Q, dens.nt_sQ.sum(0))
+        self.ebar = self.pd2.integrate(self.vbar_Q, dens.nt_Q)
 
         with self.timer('Poisson'):
             self.poisson.solve(self.vHt_q, dens)
