@@ -287,11 +287,10 @@ class GPAW(PAW, Calculator):
             self.results['energy'] = e_extrapolated * Ha
             self.results['free_energy'] = e_free * Ha
 
-            if not self.atoms.pbc.all():
-                dipole_v = self.density.calculate_dipole_moment() * Bohr
-                self.log('Dipole moment: ({0:.6f}, {1:.6f}, {2:.6f}) |e|*Ang\n'
-                         .format(*dipole_v))
-                self.results['dipole'] = dipole_v
+            dipole_v = self.density.calculate_dipole_moment() * Bohr
+            self.log('Dipole moment: ({0:.6f}, {1:.6f}, {2:.6f}) |e|*Ang\n'
+                     .format(*dipole_v))
+            self.results['dipole'] = dipole_v
 
             if self.wfs.nspins == 2:
                 magmom = self.occupations.magmom
