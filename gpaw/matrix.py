@@ -35,7 +35,7 @@ class NoDistribution:
             c2 = c.array + alpha * np.dot(op(a.array, opa), op(b.array, opb))
         c.array[:] = c2
         return
-        #return
+
         # print(self is b, self is b.source)
         print('hej')
         if opa == 'C' and opb == 'T':
@@ -48,8 +48,9 @@ class NoDistribution:
             assert not a.transposed and not b.transposed and c.transposed
             assert opa != 'C' and opb != 'C'
             print(c.array)
-            blas.mmm(alpha, a.array, opa.lower(), b.array, opb.lower(), beta, c.array, 'n')#.T)
-        if abs(c.array-c2).max() > 0.000001:
+            blas.mmm(alpha, a.array, opa.lower(), b.array, opb.lower(), beta,
+                     c.array, 'n')  # .T)
+        if abs(c.array - c2).max() > 0.000001:
             print(self, alpha, a, opa, b, opb, beta, c)
             print(a.transposed, b.transposed, c.transposed)
             print(c.array)

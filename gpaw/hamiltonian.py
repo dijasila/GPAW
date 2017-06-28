@@ -8,6 +8,7 @@ import numpy as np
 from ase.units import Ha
 
 from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
+from gpaw.debug import frozen
 from gpaw.external import create_external_potential
 from gpaw.poisson import create_poisson_solver
 from gpaw.transformers import Transformer
@@ -136,7 +137,7 @@ class Hamiltonian(object):
         self.finevt = None  # fine grid
 
         self.vbar_a = None
-        self.vbar_R = None
+        self.vbar_r = None
 
         # Energy contributioons that sum up to e_total_free:
         self.e_kinetic = None
@@ -454,6 +455,7 @@ class Hamiltonian(object):
             self.poisson.set_grid_descriptor(self.finegd)
 
 
+@frozen
 class RealSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, spinpolarized, setups, timer, xc, world,
                  vext=None,
@@ -576,6 +578,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         return v_g
 
 
+@frozen
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, spinpolarized, setups, timer, xc,
                  world, vext=None,

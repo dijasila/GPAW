@@ -9,14 +9,13 @@ from distutils.version import LooseVersion
 
 from gpaw import debug
 from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
+from gpaw.debug import frozen
 from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
-from gpaw.lfc import BasisFunctions
-from gpaw.utilities import (unpack2, unpack_atomic_matrices,
-                            pack_atomic_matrices)
+from gpaw.utilities import unpack_atomic_matrices, pack_atomic_matrices
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
-from gpaw.wavefunctions.pw import PWLFC, PWDescriptor
+from gpaw.wavefunctions.pw import PWDescriptor
 
 
 class NullBackgroundCharge:
@@ -193,31 +192,25 @@ class AtomBlockDensityMatrix:
         return magmom_a
 
 
-class Density(object):
+class Density:
     """Density object.
 
-    Attributes:
-     =============== =====================================================
      ``gd``          Grid descriptor for coarse grids.
      ``finegd``      Grid descriptor for fine grids.
      ``interpolate`` Function for interpolating the electron density.
      ``mixer``       ``DensityMixer`` object.
-     =============== =====================================================
 
-    Soft and smooth pseudo functions on uniform 3D grids:
-     ========== =========================================
+     Soft and smooth pseudo functions on uniform 3D grids:
+
      ``nt_sG``  Electron density on the coarse grid.
      ``nt_sg``  Electron density on the fine grid.
      ``nt_g``   Electron density on the fine grid.
      ``rhot_g`` Charge density on the fine grid.
      ``nct_G``  Core electron-density on the coarse grid.
-     ========== =========================================
     """
 
     def __init__(self, gd, finegd, nspins, charge, redistributor,
                  background_charge=None):
-        """Create the Density object."""
-
         self.gd = gd
         self.finegd = finegd
         self.spinpolarized = nspins == 2
@@ -247,12 +240,18 @@ class Density(object):
         self.finent = None
 
         self.fixed = False
+        self.hund = False
+        self.mixer = None
+        self.magmom_a = None
+        self.log = None
+
         # XXX at least one test will fail because None has no 'reset()'
         # So we need DummyMixer I guess
         self.set_mixer(None)
 
         self.timer = nulltimer
         self.error = None
+        self.setups = None
 
     def __str__(self):
         s = 'Densities:\n'
@@ -281,7 +280,7 @@ class Density(object):
         self.D_II = AtomBlockDensityMatrix(self.setups, self.spinpolarized,
                                            self.collinear, comm=self.gd.comm)
 
-    def reset(self):
+    def resettttttttttttttttt(self):
         # TODO: reset other parameters?
         self.nt = None
 
@@ -295,7 +294,6 @@ class Density(object):
         self.nct_a.add_to(self.nct_R, 1 / (1 + self.spinpolarized))
 
         self.nt = None
-        self.rhot = None
         self.Q_aL = None
 
     def calculate_pseudo_density(self, wfs):
@@ -410,143 +408,6 @@ class Density(object):
             np.dot(self.D_asp[a][spin], setup.Delta_pL[:, 0]) +
             setup.Delta0 / self.nspins)
 
-    def get_all_electron_density(self, atoms=None, gridrefinement=2,
-                                 spos_ac=None, skip_core=False):
-        """Return real all-electron density array.
-
-           Usage: Either get_all_electron_density(atoms) or
-                         get_all_electron_density(spos_ac=spos_ac)
-
-           skip_core=True theoretically returns the
-                          all-electron valence density (use with
-                          care; will not in general integrate
-                          to valence)
-        """
-        if spos_ac is None:
-            spos_ac = atoms.get_scaled_positions() % 1.0
-
-        # Refinement of coarse grid, for representation of the AE-density
-        # XXXXXXXXXXXX think about distribution depending on gridrefinement!
-        if gridrefinement == 1:
-            gd = self.redistributor.aux_gd
-            n_sg = self.nt_sG.copy()
-            # This will get the density with the same distribution
-            # as finegd:
-            n_sg = self.redistributor.distribute(n_sg)
-        elif gridrefinement == 2:
-            gd = self.finegd
-            if self.nt_sg is None:
-                self.interpolate_pseudo_density()
-            n_sg = self.nt_sg.copy()
-        elif gridrefinement == 4:
-            # Extra fine grid
-            gd = self.finegd.refine()
-
-            # Interpolation function for the density:
-            interpolator = Transformer(self.finegd, gd, 3)  # XXX grids!
-
-            # Transfer the pseudo-density to the fine grid:
-            n_sg = gd.empty(self.nspins)
-            if self.nt_sg is None:
-                self.interpolate_pseudo_density()
-            for s in range(self.nspins):
-                interpolator.apply(self.nt_sg[s], n_sg[s])
-        else:
-            raise NotImplementedError
-
-        # Add corrections to pseudo-density to get the AE-density
-        splines = {}
-        phi_aj = []
-        phit_aj = []
-        nc_a = []
-        nct_a = []
-        for a, id in enumerate(self.setups.id_a):
-            if id in splines:
-                phi_j, phit_j, nc, nct = splines[id]
-            else:
-                # Load splines:
-                phi_j, phit_j, nc, nct = self.setups[a].get_partial_waves()[:4]
-                splines[id] = (phi_j, phit_j, nc, nct)
-            phi_aj.append(phi_j)
-            phit_aj.append(phit_j)
-            nc_a.append([nc])
-            nct_a.append([nct])
-
-        # Create localized functions from splines
-        phi = BasisFunctions(gd, phi_aj)
-        phit = BasisFunctions(gd, phit_aj)
-        nc = LFC(gd, nc_a)
-        nct = LFC(gd, nct_a)
-        phi.set_positions(spos_ac)
-        phit.set_positions(spos_ac)
-        nc.set_positions(spos_ac)
-        nct.set_positions(spos_ac)
-
-        I_sa = np.zeros((self.nspins, len(spos_ac)))
-        a_W = np.empty(len(phi.M_W), np.intc)
-        W = 0
-        for a in phi.atom_indices:
-            nw = len(phi.sphere_a[a].M_w)
-            a_W[W:W + nw] = a
-            W += nw
-
-        x_W = phi.create_displacement_arrays()[0]
-        D_asp = self.D_asp  # XXX really?
-
-        rho_MM = np.zeros((phi.Mmax, phi.Mmax))
-        for s, I_a in enumerate(I_sa):
-            M1 = 0
-            for a, setup in enumerate(self.setups):
-                ni = setup.ni
-                D_sp = D_asp.get(a)
-                if D_sp is None:
-                    D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
-                else:
-                    I_a[a] = ((setup.Nct) / self.nspins -
-                              sqrt(4 * pi) *
-                              np.dot(D_sp[s], setup.Delta_pL[:, 0]))
-
-                    if not skip_core:
-                        I_a[a] -= setup.Nc / self.nspins
-
-                if gd.comm.size > 1:
-                    gd.comm.broadcast(D_sp, D_asp.partition.rank_a[a])
-                M2 = M1 + ni
-                rho_MM[M1:M2, M1:M2] = unpack2(D_sp[s])
-                M1 = M2
-
-            assert np.all(n_sg[s].shape == phi.gd.n_c)
-            phi.lfc.ae_valence_density_correction(rho_MM, n_sg[s], a_W, I_a,
-                                                  x_W)
-            phit.lfc.ae_valence_density_correction(-rho_MM, n_sg[s], a_W, I_a,
-                                                   x_W)
-
-        a_W = np.empty(len(nc.M_W), np.intc)
-        W = 0
-        for a in nc.atom_indices:
-            nw = len(nc.sphere_a[a].M_w)
-            a_W[W:W + nw] = a
-            W += nw
-        scale = 1.0 / self.nspins
-
-        for s, I_a in enumerate(I_sa):
-
-            if not skip_core:
-                nc.lfc.ae_core_density_correction(scale, n_sg[s], a_W, I_a)
-
-            nct.lfc.ae_core_density_correction(-scale, n_sg[s], a_W, I_a)
-            gd.comm.sum(I_a)
-            N_c = gd.N_c
-            g_ac = np.around(N_c * spos_ac).astype(int) % N_c - gd.beg_c
-
-            if not skip_core:
-
-                for I, g_c in zip(I_a, g_ac):
-                    if (g_c >= 0).all() and (g_c < gd.n_c).all():
-                        n_sg[s][tuple(g_c)] -= I / gd.dv
-
-        return n_sg, gd
-
     def estimate_memory(self, mem):
         nspins = self.nspins
         nbytes = self.gd.bytecount()
@@ -631,6 +492,7 @@ class Density(object):
         self.initialize_directly_from_arrays(new_nt_sG, D_asp)
 
 
+@frozen
 class RealSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, charge, redistributor,
                  stencil=3,
@@ -671,8 +533,8 @@ class RealSpaceDensity(Density):
         if debug:
             charge = self.finegd.integrate(self.rhot_r) + self.charge
             if abs(charge) > self.charge_eps:
-                raise RuntimeError('Charge not conserved: excess=%.9f' %
-                                   charge)
+                raise RuntimeError('Charge not conserved: excess={}'
+                                   .format(charge))
 
     def get_pseudo_core_kinetic_energy_density_lfc(self):
         return ACF(self.gd,
@@ -683,14 +545,7 @@ class RealSpaceDensity(Density):
         return self.finegd.calculate_dipole_moment(self.rhot_g)
 
 
-class PseudoCoreKineticEnergyDensityLFC(PWLFC):
-    def add(self, tauct_R):
-        tauct_R += self.pd.ifft(1.0 / self.pd.gd.dv * self.expand(-1).sum(0))
-
-    def derivative(self, dedtaut_R, dF_aiv):
-        PWLFC.derivative(self, self.pd.fft(dedtaut_R), dF_aiv)
-
-
+@frozen
 class ReciprocalSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, charge, redistributor,
                  background_charge=None):
@@ -724,14 +579,8 @@ class ReciprocalSpaceDensity(Density):
                 spline_aj.append([setup.nct])
         self.nct_a = ACF(self.pd2, spline_aj)
 
-        self.ghat = ACF(self.pd3, [setup.ghat_l for setup in setups],
-                        blocksize=256, comm=self.xc_redistributor.comm)
-
-    def set_positions(self, spos_ac, atom_partition):
-        Density.set_positions(self, spos_ac, atom_partition)
-        self.nct_q = self.pd2.zeros()
-        self.nct.add(self.nct_q, 1.0 / self.nspins)
-        self.nct_G = self.pd2.ifft(self.nct_q)
+        self.ghat_aL = ACF(self.pd3, [setup.ghat_l for setup in setups],
+                           blocksize=256, comm=self.xc_redistributor.comm)
 
     def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
@@ -768,10 +617,6 @@ class ReciprocalSpaceDensity(Density):
         self.background_charge.add_fourier_space_charge_to(self.pd3,
                                                            self.rhot_q)
         self.rhot_q[0] = 0.0
-
-    def get_pseudo_core_kinetic_energy_density_lfc(self):
-        return PseudoCoreKineticEnergyDensityLFC(
-            [[setup.tauct] for setup in self.setups], self.pd2)
 
     def calculate_dipole_moment(self):
         if LooseVersion(np.__version__) < '1.6.0':

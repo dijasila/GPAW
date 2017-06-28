@@ -7,9 +7,11 @@ class AtomCenteredFunctions:
     def __init__(self, desc, functions_a, kd=None, integral=None, cut=False,
                  comm=None, blocksize=None):
         if desc.__class__.__name__ == 'PWDescriptor':
+            self.space = 'reciprocal'
             from gpaw.wavefunctions.pw import PWLFC
             self.lfc = PWLFC(desc, functions_a, blocksize=blocksize, comm=comm)
         else:
+            self.space = 'real'
             from gpaw.lfc import LFC
             self.lfc = LFC(desc, functions_a, integral=integral, cut=cut)
         self.atom_indices = []
@@ -34,7 +36,14 @@ class AtomCenteredFunctions:
             array = array.array
         if not isinstance(coefs, (float, dict)):
             coefs = coefs.todict()
-        self.lfc.add(array, coefs)
+        if self.space == 'reciprocal' and isinstance(coefs, float):
+            pd = self.lfc.pd
+            array += pd.ifft(coefs / pd.gd.dv * self.lfc.expand(-1).sum(0))
+        else:
+            self.lfc.add(array, coefs)
+
+    def derivative(self, dedtaut_R, dF_aiv):
+        1 / 0  # PWLFC.derivative(self, self.pd.fft(dedtaut_R), dF_aiv)
 
     def integrate(self, array, out=None):
         if out is None:
