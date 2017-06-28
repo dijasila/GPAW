@@ -615,6 +615,8 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
                 ReciprocalSpacePoissonSolver(pd3, realpbc_c), direction)
         self.poisson = psolver
         self.npoisson = 0
+        self.e_stress = None
+        self.vt_Q = None
 
     def set_positions(self, spos_ac, rank_a):
         Hamiltonian.set_positions(self, spos_ac, rank_a)
@@ -622,23 +624,23 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vbar_a.add_to(self.vbar_Q)
 
     def update_pseudo_potential(self, dens):
-        self.ebar = self.pd2.integrate(self.vbar_Q, dens.nt_Q)
+        ebar = self.pd2.integrate(self.vbar_Q, dens.nt_Q)
 
         with self.timer('Poisson'):
             self.poisson.solve(self.vHt_q, dens)
-            self.epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
+            epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
 
         self.vt_Q = self.vbar_Q + self.vHt_q[dens.G3_G] / 8
-        self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
+        self.vt.array[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
-        nt_dist_sg = dens.xc_redistributor.distribute(dens.nt_sg)
+        nt_dist_sg = dens.xc_redistributor.distribute(dens.nt.array)
         vxct_dist_sg = dens.xc_redistributor.aux_gd.zeros(self.nspins)
-        self.exc = self.xc.calculate(dens.xc_redistributor.aux_gd,
-                                     nt_dist_sg, vxct_dist_sg)
+        exc = self.xc.calculate(dens.xc_redistributor.aux_gd,
+                                nt_dist_sg, vxct_dist_sg)
         vxct_sg = dens.xc_redistributor.collect(vxct_dist_sg)
 
-        for vt_G, vxct_g in zip(self.vt_sG, vxct_sg):
+        for vt_G, vxct_g in zip(self.vt.array, vxct_sg):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
             vt_G += vxc_G
             self.vt_Q += vxc_Q / self.nspins
@@ -646,7 +648,9 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         eext = 0.0
 
-        return np.array([self.epot, self.ebar, eext, self.exc])
+        self.e_stress = ebar + epot
+
+        return np.array([epot, ebar, eext, exc])
 
     def calculate_atomic_hamiltonians(self, density):
         W_aL = {}
