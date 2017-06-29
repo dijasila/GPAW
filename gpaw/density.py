@@ -52,13 +52,11 @@ class UniformGridDensity:
         self.density *= x
 
     def interpolate(self, finegd, interpolate, redistribute):
-        """Interpolate pseudo density to fine grid."""
+        """Interpolate pseudo density and magnetization to fine grid."""
         finent = UniformGridDensity(finegd, self.spinpolarized,
                                     self.collinear)
 
-        # Somet representation of the total density that the interpolator
-        # returns:
-        density = None
+        density = None  # total density that the interpolator returns
 
         for a, b in zip(self.array, finent.array):
             a = redistribute(a)
@@ -75,7 +73,7 @@ class UniformGridDensity:
                 # this is not the case.
                 A = self.gd.integrate(a)
                 if abs(A) > 1.0e-14:
-                    B = self.finegd.integrate(b)
+                    B = finent.gd.integrate(b)
                     b *= A / B
 
         return finent, density
@@ -555,7 +553,7 @@ class RealSpaceDensity(Density):
                    forces=True, cut=True)
 
     def calculate_dipole_moment(self):
-        return self.finegd.calculate_dipole_moment(self.rhot_g)
+        return self.finegd.calculate_dipole_moment(self.rhot_r)
 
 
 @frozen

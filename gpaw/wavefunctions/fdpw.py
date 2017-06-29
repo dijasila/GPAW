@@ -202,8 +202,8 @@ class FDPWWaveFunctions(WaveFunctions):
 
     def calculate_forces(self, hamiltonian, F_av):
         # Calculate force-contribution from k-points:
-        F_av.fill(0.0)
-        F_aniv = self.pt.dict(self.bd.mynbands, derivative=True)
+        F_av[:] = 0.0
+        F_aniv = None
         dH_asp = hamiltonian.dH_asp
         for kpt in self.kpt_u:
             self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)

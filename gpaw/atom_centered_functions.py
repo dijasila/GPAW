@@ -42,7 +42,10 @@ class AtomCenteredFunctions:
         else:
             self.lfc.add(array, coefs)
 
-    def derivative(self, dedtaut_R, dF_aiv):
+    def derivativeeeee(self, array, out=None):
+        if out is None:
+            out = {a: np.empty(I2 - I1)
+                   for a, (I1, I2) in zip(self.atom_indices, self.slices)}
         1 / 0  # PWLFC.derivative(self, self.pd.fft(dedtaut_R), dF_aiv)
 
     def integrate(self, array, out=None):
@@ -60,7 +63,9 @@ class AtomCenteredFunctions:
             self.lfc.lfc.lcao_to_grid(coef_M, a, -1)
             coef_M[M] = 0.0
 
-    def matrix_elements(self, other, out, hermetian=False):
+    def matrix_elements(self, other, out, hermetian=False, derivative=False):
+        if dervivative:
+            1 / 0
         self.lfc.integrate(other.array, self.dictview(out), -1)
 
     def dictview(self, matrix):

@@ -236,8 +236,8 @@ class Hamiltonian(object):
             with self.timer('Initialize Hamiltonian'):
                 self.initialize()
 
-        finegrid_energies = self.update_pseudo_potential(dens)
-        coarsegrid_e_kinetic = self.calculate_kinetic_energy(dens)
+        coarsegrid_e_kinetic, finegrid_energies = \
+            self.update_pseudo_potential(dens)
 
         with self.timer('Calculate atomic Hamiltonians'):
             W_aL = self.calculate_atomic_hamiltonians(dens)
@@ -533,9 +533,7 @@ class RealSpaceHamiltonian(Hamiltonian):
             vt_r += self.vHt_r
 
         self.timer.stop('Hartree integrate')
-        return np.array([e_coulomb, e_zero, e_external, e_xc])
 
-    def calculate_kinetic_energy(self, dens):
         with self.timer('Hartree restrict'):
             self.vt = self.finevt.restrict(self.restrictor, self.redistributor)
 
@@ -550,7 +548,7 @@ class RealSpaceHamiltonian(Hamiltonian):
             assert self.collinear
             s += 1
 
-        return e_kinetic
+        return e_kinetic, np.array([e_coulomb, e_zero, e_external, e_xc])
 
     def calculate_atomic_hamiltonians(self, dens):
         v_r = self.vHt_r
@@ -630,11 +628,14 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             self.poisson.solve(self.vHt_q, dens)
             epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
 
+        self.vt = UniformGridPotential(self.gd,
+                                       self.spinpolarized, self.collinear)
+
         self.vt_Q = self.vbar_Q + self.vHt_q[dens.G3_G] / 8
         self.vt.array[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
-        nt_dist_sg = dens.xc_redistributor.distribute(dens.nt.array)
+        nt_dist_sg = dens.xc_redistributor.distribute(dens.finent.array)
         vxct_dist_sg = dens.xc_redistributor.aux_gd.zeros(self.nspins)
         exc = self.xc.calculate(dens.xc_redistributor.aux_gd,
                                 nt_dist_sg, vxct_dist_sg)
@@ -650,21 +651,15 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         self.e_stress = ebar + epot
 
-        return np.array([epot, ebar, eext, exc])
-
-    def calculate_atomic_hamiltonians(self, density):
-        W_aL = {}
-        for a in density.D_asp:
-            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
-        density.ghat.integrate(self.vHt_q, W_aL)
-        return W_aL
-
-    def calculate_kinetic_energy(self, density):
         ekin = 0.0
-        for vt_G, nt_G in zip(self.vt_sG, density.nt_sG):
+        for vt_G, nt_G in zip(self.vt.array, dens.nt.array):
             ekin -= self.gd.integrate(vt_G, nt_G)
-        ekin += self.gd.integrate(self.vt_sG, density.nct_G).sum()
-        return ekin
+        ekin += self.gd.integrate(self.vt.array, dens.nct_R).sum()
+
+        return ekin, np.array([epot, ebar, eext, exc])
+
+    def calculate_atomic_hamiltonians(self, dens):
+        return dens.ghat_aL.integrate(self.vHt_q)
 
     def restrict(self, in_xR, out_xR=None):
         """Restrict array."""

@@ -32,7 +32,6 @@ class ArrayWaveFunctions:
         func(self.array, out.array)
 
     def __setitem__(self, i, x):
-        assert i == slice(None)
         x.eval(self.matrix)
 
     def __iadd__(self, other):
@@ -84,7 +83,36 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
 
 
 class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
-    pass
+    def __init__(self, nbands, pd, dtype=None, data=None, kpt=None, dist=None,
+                 spin=0, collinear=True):
+        ngpts = gd.get_size_of_global_array().prod()
+        ArrayWaveFunctions.__init__(self, nbands, ngpts, dtype, data, dist)
+
+        M = self.matrix
+
+        if data is None:
+            M.array = M.array.reshape(-1).reshape(M.dist.shape)
+            M.transposed = False
+
+        self.myshape = (M.dist.shape[0],) + tuple(gd.n_c)
+        self.gd = gd
+        self.dv = gd.dv
+        self.comm = gd.comm
+
+    @property
+    def array(self):
+        return self.matrix.array.reshape(self.myshape)
+
+    def __repr__(self):
+        s = ArrayWaveFunctions.__repr__(self).split('(')[1][:-1]
+        shape = self.gd.get_size_of_global_array()
+        s = 'UniformGridWaveFunctions({}, gpts={}x{}x{})'.format(s, *shape)
+        return s
+
+    def new(self, buf=None):
+        return UniformGridWaveFunctions(len(self), self.gd, self.dtype,
+                                        buf,
+                                        None, self.matrix.dist)
 
 
 """
