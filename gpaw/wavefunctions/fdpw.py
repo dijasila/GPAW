@@ -32,6 +32,8 @@ class FDPWWaveFunctions(WaveFunctions):
     def work_array(self):
         if self._work_array is None:
             self._work_array = self.empty(self.bd.mynbands)
+            print('A', self._work_array.dtype)
+        print('B', self._work_array.shape)
         return self._work_array
 
     @property

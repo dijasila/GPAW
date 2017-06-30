@@ -545,9 +545,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
         Htpsit_xG[:] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG
         for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
             psit_R = self.pd.ifft(psit_G, kpt.q)
-            Htpsit_G += self.pd.fft(psit_R * ham.vt_sG[kpt.s], kpt.q)
+            Htpsit_G += self.pd.fft(psit_R * ham.vt.array[kpt.s], kpt.q)
         ham.xc.apply_orbital_dependent_hamiltonian(
-            kpt, psit_xG, Htpsit_xG, ham.dH_asp)
+            kpt, psit_xG, Htpsit_xG, ham.dH_II)
 
     def add_orbital_density(self, nt_G, kpt, n):
         axpy(1.0, abs(self.pd.ifft(kpt.psit_nG[n], kpt.q))**2, nt_G)

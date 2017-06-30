@@ -1,3 +1,5 @@
+import numpy as np
+
 from gpaw.matrix import Matrix
 
 
@@ -85,67 +87,31 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
 class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, pd, dtype=None, data=None, kpt=None, dist=None,
                  spin=0, collinear=True):
-        ngpts = gd.get_size_of_global_array().prod()
-        ArrayWaveFunctions.__init__(self, nbands, ngpts, dtype, data, dist)
-
-        M = self.matrix
-
-        if data is None:
-            M.array = M.array.reshape(-1).reshape(M.dist.shape)
-            M.transposed = False
-
-        self.myshape = (M.dist.shape[0],) + tuple(gd.n_c)
-        self.gd = gd
-        self.dv = gd.dv
-        self.comm = gd.comm
-
-    @property
-    def array(self):
-        return self.matrix.array.reshape(self.myshape)
-
-    def __repr__(self):
-        s = ArrayWaveFunctions.__repr__(self).split('(')[1][:-1]
-        shape = self.gd.get_size_of_global_array()
-        s = 'UniformGridWaveFunctions({}, gpts={}x{}x{})'.format(s, *shape)
-        return s
-
-    def new(self, buf=None):
-        return UniformGridWaveFunctions(len(self), self.gd, self.dtype,
-                                        buf,
-                                        None, self.matrix.dist)
-
-
-"""
-    def __init__(self, M, pd, data, q=-1, dist=None):
-        orig = data
+        self.array = data
         if pd.dtype == float:
             data = data.view(float)
-        ArrayWaveFunctions.__init__(self, M, data.shape[1], pd.dtype,
-                                    data, dist)
-        self.array = orig
+        mynbands, ng = data.shape
+        ArrayWaveFunctions.__init__(self, nbands, ng, dtype, data, dist)
         self.pd = pd
-        self.q = q
         self.dv = pd.gd.dv / pd.gd.N_c.prod()
 
-    def __getitem______________________(self, i):
-        assert self.distribution.shape[0] == self.shape[0]
-        return self.array[i]
+    def multiply(self, alpha, opa, b, opb, beta, c):
+        if opa == 'C' and opb == 'T' and beta == 0:
+            if self.pd.dtype == complex:
+                ArrayWaveFunctions.multiply(self, alpha, opa, b, opb, beta, c)
+            else:
+                ArrayWaveFunctions.multiply(self, 2 * alpha,
+                                            opa, b, opb, beta, c)
+                c.array -= alpha * np.outer(self.matrix.array[:, 0],
+                                            b.matrix.array[:, 0])
+        else:
+            1 / 0
 
     def new(self, buf=None):
         if buf is not None:
-            buf = buf.ravel()[:self.array.size]
-            buf.shape = self.array.shape
-        return PWExpansionMatrix(self.shape[0], self.pd, buf, self.q,
-                                 self.dist)
-
-    def multiply(self, alpha, opa, b, opb, beta, c):
-        if (self.pd.dtype == float and opa in 'NC' and
-            isinstance(b, PWExpansionMatrix)):
-            assert opa == 'C' and opb == 'T' and beta == 0
-            a = self
-            c.a[:] = np.dot(a.a, b.a.T)
-            c.a *= 2 * alpha
-            c.a -= alpha * np.outer(a.a[:, 0], b.a[:, 0])
-        else:
-            SpatialMatrix.multiply(self, alpha, opa, b, opb, beta, c)
-"""
+            array = self.array
+            buf = buf.ravel()[:array.size]
+            buf.shape = array.shape
+        return PlaneWaveExpansionWaveFunctions(len(self), self.pd, self.dtype,
+                                               buf,
+                                               None, self.matrix.dist)

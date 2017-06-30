@@ -64,7 +64,7 @@ class AtomCenteredFunctions:
             coef_M[M] = 0.0
 
     def matrix_elements(self, other, out, hermetian=False, derivative=False):
-        if dervivative:
+        if derivative:
             1 / 0
         self.lfc.integrate(other.array, self.dictview(out), -1)
 
