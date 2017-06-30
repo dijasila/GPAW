@@ -22,6 +22,70 @@ def create_occupation_number_object(name, **kwargs):
     raise ValueError('Unknown occupation number object name: ' + name)
 
 
+def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
+    """Calculate occupation numbers from eigenvalues.
+
+    occ: dict
+        Example: {'name': 'fermi-dirac', 'width': 0.05}.
+    eps_skn: ndarray, shape=(nspins, nibzkpts, nbands)
+        Eigenvalues.
+    weight_k: ndarray, shape=(nibzkpts,)
+        Weights of k-points in IBZ (must sum to 1).
+    nelectrons: int or float
+        Number of electrons.
+
+    Returns a tuple containing:
+
+    * f_skn (sums to nelectrons)
+    * fermi-level
+    * magnetic moment
+    * entropy as -S*T
+    """
+
+    from gpaw.grid_descriptor import GridDescriptor
+    from gpaw.mpi import serial_comm
+
+    occ = create_occupation_number_object(**occ)
+
+    eps_skn = np.asarray(eps_skn)
+    weight_k = np.asarray(weight_k)
+    nspins, nkpts, nbands = eps_skn.shape
+    f_skn = np.empty_like(eps_skn)
+
+    class SimpleNamespace:
+        """Same as types.SimpleNamespace from Python 3.3+."""
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
+    wfs = SimpleNamespace(kpt_u=[],
+                          nvalence=nelectrons,
+                          nspins=nspins,
+                          kptband_comm=serial_comm,
+                          world=serial_comm,
+                          gd=GridDescriptor([4, 4, 4], [1.0, 1.0, 1.0]),
+                          bd=SimpleNamespace(nbands=nbands,
+                                             collect=lambda x: x,
+                                             comm=serial_comm),
+                          kd=SimpleNamespace(mynks=nspins * nkpts,
+                                             comm=serial_comm,
+                                             nspins=nspins,
+                                             nibzkpts=nkpts,
+                                             weight_k=weight_k,
+                                             collect=lambda x, broadcast: x))
+
+    for s in range(nspins):
+        for k in range(nkpts):
+            kpt = SimpleNamespace(s=s,
+                                  weight=weight_k[k] * 2 / nspins,
+                                  eps_n=eps_skn[s, k],
+                                  f_n=f_skn[s, k])
+            wfs.kpt_u.append(kpt)
+
+    occ.calculate(wfs)
+
+    return f_skn, occ.fermilevel, occ.magmom, occ.e_entropy
+
+
 def findroot(func, x, tol=1e-10):
     """Function used for locating Fermi level."""
     xmin = -np.inf
@@ -451,7 +515,7 @@ class SmoothDistribution(ZeroKelvin):
         data = np.empty(4)
 
         def f(x, data=data):
-            data.fill(0.0)
+            data[:] = 0.0
             for kpt in wfs.kpt_u:
                 if kpt.s in spins:
                     data += self.distribution(kpt, x)

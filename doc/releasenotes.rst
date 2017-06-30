@@ -41,6 +41,10 @@ Git master branch
 * Calculation of vectorial magnetic moments inside PAW spheres based on
   spin-orbit spinors.
 
+* Added a simple :func:`gpaw.occupations.occupation_numbers` function for
+  calculating occupation numbers, fermi-level, mognetic moment, and entropy
+  from eigenvalues and k-point weights.
+
 
 Version 1.2.0
 =============
