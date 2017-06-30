@@ -42,7 +42,7 @@ Git master branch
   spin-orbit spinors.
 
 * Added a simple :func:`gpaw.occupations.occupation_numbers` function for
-  calculating occupation numbers, fermi-level, mognetic moment, and entropy
+  calculating occupation numbers, fermi-level, magnetic moment, and entropy
   from eigenvalues and k-point weights.
 
 
