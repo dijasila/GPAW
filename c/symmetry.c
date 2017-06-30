@@ -29,15 +29,16 @@ PyObject* symmetrize(PyObject *self, PyObject *args)
 
     const double* a_g = (const double*)PyArray_DATA(a_g_obj);
     double* b_g = (double*)PyArray_DATA(b_g_obj);
+#pragma omp simd
     for (int g0 = 0; g0 < ng0; g0++)
-        for (int g1 = 0; g1 < ng1; g1++)
-	    for (int g2 = 0; g2 < ng2; g2++) {
-	      int p0 = ((C[0] * g0 + C[3] * g1 + C[6] * g2) % ng0 + ng0) % ng0;
-	      int p1 = ((C[1] * g0 + C[4] * g1 + C[7] * g2) % ng1 + ng1) % ng1;
-	      int p2 = ((C[2] * g0 + C[5] * g1 + C[8] * g2) % ng2 + ng2) % ng2;
-              b_g[(p0 * ng1 + p1) * ng2 + p2] += *a_g++;
-	    }
-    
+      for (int g1 = 0; g1 < ng1; g1++)
+        for (int g2 = 0; g2 < ng2; g2++) {
+          int p0 = ((C[0] * g0 + C[3] * g1 + C[6] * g2) % ng0 + ng0) % ng0;
+          int p1 = ((C[1] * g0 + C[4] * g1 + C[7] * g2) % ng1 + ng1) % ng1;
+          int p2 = ((C[2] * g0 + C[5] * g1 + C[8] * g2) % ng2 + ng2) % ng2;
+          b_g[(p0 * ng1 + p1) * ng2 + p2] += a_g[(g0 * ng1 + g1) * ng2 + g2];
+        }
+
     Py_RETURN_NONE;
 }
 
