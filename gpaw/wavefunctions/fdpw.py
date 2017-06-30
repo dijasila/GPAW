@@ -32,8 +32,6 @@ class FDPWWaveFunctions(WaveFunctions):
     def work_array(self):
         if self._work_array is None:
             self._work_array = self.empty(self.bd.mynbands)
-            print('A', self._work_array.dtype)
-        print('B', self._work_array.shape)
         return self._work_array
 
     @property
@@ -202,18 +200,18 @@ class FDPWWaveFunctions(WaveFunctions):
             psit_n[:] = psit2_n
             P_In.array = dSP_In.array
 
-    def calculate_forces(self, hamiltonian, F_av):
+    def calculate_forces(self, ham, F_av):
         # Calculate force-contribution from k-points:
         F_av[:] = 0.0
         F_aniv = None
-        dH_asp = hamiltonian.dH_asp
+        dH_asii = ham.dH_II.dH_asii
         for kpt in self.kpt_u:
-            self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)
-            for a, F_niv in F_aniv.items():
-                F_niv = F_niv.conj()
+            F_aniv = self.pt_I.matrix_elements(kpt.psit_n, out=F_aniv,
+                                               derivative=True)
+            for a, P_ni in kpt.P_In.items():
+                F_niv = F_aniv[0].conj()
                 F_niv *= kpt.f_n[:, np.newaxis, np.newaxis]
-                dH_ii = unpack(dH_asp[a][kpt.s])
-                P_ni = kpt.P_ani[a]
+                dH_ii = dH_asii[a][kpt.s]
                 F_vii = np.dot(np.dot(F_niv.transpose(), P_ni), dH_ii)
                 F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
                 dO_ii = self.setups[a].dO_ii

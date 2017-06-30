@@ -14,13 +14,11 @@ class AtomCenteredFunctions:
             self.space = 'real'
             from gpaw.lfc import LFC
             self.lfc = LFC(desc, functions_a, integral=integral, cut=cut)
-        self.atom_indices = []
-        self.slices = []
+        self.indices = []
         I1 = 0
         for a, functions in enumerate(functions_a):
             I2 = I1 + sum(f.l * 2 + 1 for f in functions)
-            self.atom_indices.append(a)
-            self.slices.append((I1, I2))
+            self.indices.append((a, I1, I2))
             I1 = I2
         self.nfuncs = I1
         self.mynfuncs = I1
@@ -42,7 +40,7 @@ class AtomCenteredFunctions:
         else:
             self.lfc.add(array, coefs)
 
-    def derivativeeeee(self, array, out=None):
+    def derivativeeeee(self, a, out=None):
         if out is None:
             out = {a: np.empty(I2 - I1)
                    for a, (I1, I2) in zip(self.atom_indices, self.slices)}
@@ -50,8 +48,7 @@ class AtomCenteredFunctions:
 
     def integrate(self, array, out=None):
         if out is None:
-            out = {a: np.empty(I2 - I1)
-                   for a, (I1, I2) in zip(self.atom_indices, self.slices)}
+            out = {a: np.empty(I2 - I1) for a, I1, I2 in self.indices}
         self.lfc.integrate(array, out)
         return out
 
@@ -65,12 +62,18 @@ class AtomCenteredFunctions:
 
     def matrix_elements(self, other, out, hermetian=False, derivative=False):
         if derivative:
-            1 / 0
+            if out is None:
+                N = other.myshape[0]
+                out = out = {a: np.empty((N, I2 - I1, 3), other.dtype)
+                             for a, I1, I2 in self.indices}
+            self.lfc.derivative(other.array, out)
+            return out
+
         self.lfc.integrate(other.array, self.dictview(out), -1)
 
     def dictview(self, matrix):
         M_In = matrix.array
         M_ani = {}
-        for a, (I1, I2) in zip(self.atom_indices, self.slices):
+        for a, I1, I2 in self.indices:
             M_ani[a] = M_In[I1:I2].T
         return M_ani

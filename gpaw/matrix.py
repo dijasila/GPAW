@@ -327,8 +327,12 @@ class ProjectionMatrix(Matrix):
             self.array[I1:I2] -= np.dot(dS_ii, P_In.array[I1:I2] * eps_n)
             I1 = I2
 
+    def items(self):
+        for a, I1, I2 in self.indices:
+            yield a, self.array[I1:I2].T
+
     def todict(self):
-        return {a: self.array[I1:I2].T for a, I1, I2 in self.indices}
+        return dict(self.items())
 
 
 class HMMM:

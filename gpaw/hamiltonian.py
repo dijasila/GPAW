@@ -676,10 +676,11 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
     restrict_and_collect = restrict
 
-    def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
-        dens.ghat.derivative(self.vHt_q, ghat_aLv)
-        dens.nct.derivative(self.vt_Q, nct_av)
-        self.vbar.derivative(dens.nt_sQ.sum(0), vbar_av)
+    def calculate_forces2(self, dens):
+        ghat_aLv = dens.ghat_aL.derivative(self.vHt_q)
+        nct_av = dens.nct_a.derivative(self.vt_Q)
+        vbar_av = self.vbar.derivative(dens.nt_Q)
+        return ghat_aLv, nct_av, vbar_av
 
     def get_electrostatic_potential(self, dens):
         self.poisson.solve(self.vHt_q, dens)

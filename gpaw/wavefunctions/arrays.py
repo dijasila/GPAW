@@ -94,6 +94,7 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
         ArrayWaveFunctions.__init__(self, nbands, ng, dtype, data, dist)
         self.pd = pd
         self.dv = pd.gd.dv / pd.gd.N_c.prod()
+        self.myshape = (self.matrix.dist.shape[0], ng)
 
     def multiply(self, alpha, opa, b, opb, beta, c):
         if opa == 'C' and opb == 'T' and beta == 0:
