@@ -48,7 +48,6 @@ else
      /* Weighted Jacobi relaxation for the equation "operator" b = src
         a contains the temporariry array holding also the boundary values. */
 
-  double temp;
   a += (s->j[0] + s->j[1] + s->j[2]) / 2;
   for (int i0 = 0; i0 < s->n[0]; i0++)
     {
