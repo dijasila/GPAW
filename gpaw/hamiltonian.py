@@ -26,21 +26,22 @@ class UniformGridPotential:
         self.spinpolarized = spinpolarized
         self.collinear = collinear
 
-        shape = (2, 2) if not collinear else (1 + spinpolarized,)
-        self.array = gd.empty(shape)
+        if not collinear:
+            assert spinpolarized
+            self.array = gd.empty(4)
+        else:
+            self.array = gd.empty(1 + spinpolarized)
 
-    def arrays(self):
-        for a in self.array:
-            if self.collinear:
-                yield a
-            else:
-                for b in a:
-                    yield b
+    @property
+    def potential(self):
+        if not self.collinear or not self.spinpolarized:
+            return self.array[0]
+        return self.array.mean(0)
 
     def restrict(self, restrictor, redistributor):
         out = UniformGridPotential(restrictor.gdout, self.spinpolarized,
                                    self.collinear)
-        for a, b in zip(self.arrays(), out.arrays()):
+        for a, b in zip(self.array, out.array):
             if redistributor.enabled:
                 c = restrictor.apply(a)
                 redistributor.collect(c, b)
@@ -287,24 +288,20 @@ class Hamiltonian(object):
         self.ref_dH_asp = self.atomdist.to_work(ref_dH_asp)
 
     def calculate_forces(self, dens, F_av):
-        ghat_aLv = dens.ghat.dict(derivative=True)
-        nct_av = dens.nct.dict(derivative=True)
-        vbar_av = self.vbar.dict(derivative=True)
-
-        self.calculate_forces2(dens, ghat_aLv, nct_av, vbar_av)
-        F_coarsegrid_av = np.zeros_like(F_av)
+        ghat_aLv, nct_av, vbar_av = self.calculate_forces2(dens)
 
         # Force from compensation charges:
         for a, dF_Lv in ghat_aLv.items():
             F_av[a] += np.dot(dens.Q_aL[a], dF_Lv)
 
         # Force from smooth core charge:
-        for a, dF_v in nct_av.items():
-            F_coarsegrid_av[a] += dF_v[0]
+        F_coarsegrid_av = np.zeros_like(F_av)
+        for a, dF_xv in nct_av.items():
+            F_coarsegrid_av[a] = dF_xv[0]
 
         # Force from zero potential:
-        for a, dF_v in vbar_av.items():
-            F_av[a] += dF_v[0]
+        for a, dF_xv in vbar_av.items():
+            F_av[a] += dF_xv[0]
 
         self.xc.add_forces(F_av)
         self.gd.comm.sum(F_coarsegrid_av, 0)
@@ -333,13 +330,10 @@ class Hamiltonian(object):
             are not applied and calculate_projections is ignored.
 
         """
+        assert self.collinear
         vt_G = self.vt.array[s]
-        if psit_nG.ndim == 3:
-            hjgkjg
-            Htpsit_nG += psit_nG * vt_G
-        else:
-            for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
-                Htpsit_G += psit_G * vt_G
+        for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
+            Htpsit_G += psit_G * vt_G
 
     def apply(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):
         """Apply the Hamiltonian operator to a set of vectors.
@@ -496,7 +490,7 @@ class RealSpaceHamiltonian(Hamiltonian):
 
     def update_pseudo_potential(self, dens):
         self.timer.start('vbar')
-        e_zero = self.finegd.integrate(self.vbar_r, dens.finent.array.sum(0),
+        e_zero = self.finegd.integrate(self.vbar_r, dens.finent.density,
                                        global_integral=False)
 
         vt_r = self.finevt.array[0]
@@ -556,19 +550,17 @@ class RealSpaceHamiltonian(Hamiltonian):
             v_r = v_r + self.vext.get_potential(self.finegd)
         return dens.ghat_aL.integrate(v_r)
 
-    def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
-        if self.nspins == 2:
-            vt_G = self.vt_sG.mean(0)
-        else:
-            vt_G = self.vt_sG[0]
+    def calculate_forces2(self, dens):
+        vbar_av = self.vbar.derivative(dens.finent.density)
 
-        self.vbar.derivative(dens.nt_g, vbar_av)
+        vHt_r = self.vHt_r
         if self.vext:
-            vext_g = self.vext.get_potential(self.finegd)
-            dens.ghat.derivative(self.vHt_g + vext_g, ghat_aLv)
-        else:
-            dens.ghat.derivative(self.vHt_g, ghat_aLv)
-        dens.nct.derivative(vt_G, nct_av)
+            vHt_r = vHt_r + self.vext.get_potential(self.finegd)
+        ghat_aLv = dens.ghat_aL.derivative(self.vHt_g)
+
+        nct_av = dens.nct.derivative(self.vt.potential)
+
+        return ghat_aLv, nct_av, vbar_av
 
     def get_electrostatic_potential(self, dens):
         self.update(dens)
