@@ -9,7 +9,6 @@ from ase.constraints import FixAtoms
 from ase.optimize import QuasiNewton
 from ase.neb import NEBtools
 from ase.autoneb import AutoNEB
-import os
 
 size = mpi.world.size
 rank = mpi.world.rank
