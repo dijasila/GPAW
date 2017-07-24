@@ -551,7 +551,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         return dens.ghat_aL.integrate(v_r)
 
     def calculate_forces2(self, dens):
-        vbar_av = self.vbar.derivative(dens.finent.density)
+        vbar_av = self.vbar_a.derivative(dens.finent.density)
 
         vHt_r = self.vHt_r
         if self.vext:
