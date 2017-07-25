@@ -8,7 +8,7 @@ import numpy as np
 from ase.units import Ha
 
 from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
-from gpaw.debug import frozen
+from gpaw.utilities.debug import frozen
 from gpaw.external import create_external_potential
 from gpaw.poisson import create_poisson_solver
 from gpaw.transformers import Transformer

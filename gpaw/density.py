@@ -9,7 +9,7 @@ from distutils.version import LooseVersion
 
 from gpaw import debug
 from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
-from gpaw.debug import frozen
+from gpaw.utilities.debug import frozen
 from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
 from gpaw.utilities import unpack_atomic_matrices, pack_atomic_matrices
