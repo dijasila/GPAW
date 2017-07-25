@@ -209,7 +209,7 @@ class FDPWWaveFunctions(WaveFunctions):
             F_aniv = self.pt_I.matrix_elements(kpt.psit_n, out=F_aniv,
                                                derivative=True)
             for a, P_ni in kpt.P_In.items():
-                F_niv = F_aniv[0].conj()
+                F_niv = F_aniv[a].conj()
                 F_niv *= kpt.f_n[:, np.newaxis, np.newaxis]
                 dH_ii = dH_asii[a][kpt.s]
                 F_vii = np.dot(np.dot(F_niv.transpose(), P_ni), dH_ii)
