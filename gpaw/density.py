@@ -51,33 +51,6 @@ class UniformGridDensity:
         x = -total_charge / pseudo_charge
         self.density *= x
 
-    def interpolate(self, finegd, interpolate, redistribute):
-        """Interpolate pseudo density and magnetization to fine grid."""
-        finent = UniformGridDensity(finegd, self.spinpolarized,
-                                    self.collinear)
-
-        density = None  # total density that the interpolator returns
-
-        for a, b in zip(self.array, finent.array):
-            a = redistribute(a)
-            c = interpolate(a, b)
-
-            if density is None:
-                # fisrt time through loop: total density
-                density = c
-
-            # With periodic boundary conditions, the interpolation will
-            # conserve the number of electrons.
-            if not self.gd.pbc_c.all():
-                # With zero-boundary conditions in one or more directions,
-                # this is not the case.
-                A = self.gd.integrate(a)
-                if abs(A) > 1.0e-14:
-                    B = finent.gd.integrate(b)
-                    b *= A / B
-
-        return finent, density
-
 
 class AtomBlockDensityMatrix:
     def __init__(self, setups, spinpolarized=False, collinear=True,
@@ -97,8 +70,8 @@ class AtomBlockDensityMatrix:
                 abs(M), hund, charge=charge, nspins=1 + self.spinpolarized)
             if M < 0:
                 f_si = f_si[::-1]
-            self.D_asii[a] = self.setups[a].initialize_density_matrix(f_si)
             f_asi[a] = f_si
+            self.D_asii[a] = self.setups[a].initialize_density_matrix(f_si)
         return f_asi
 
     def set_ranks(self, rank_a):
@@ -145,10 +118,10 @@ class AtomBlockDensityMatrix:
             n, i = P_ni.shape
             P_nsi = P_ni.reshape((n // 2, 2, i))
             D_ssii = np.einsum('isn,ntj->stij', P_nsi.T.conj() * f_n, P_nsi)
-            D_sii[0] = D_ssii[0, 0].real + D_ssii[1, 1].real
-            D_sii[1] = 2 * D_ssii[0, 1].real  # ???
-            D_sii[1] = 2 * D_ssii[0, 1].imag  # ???
-            D_sii[3] = D_ssii[0, 0].real - D_ssii[1, 1].real
+            D_sii[0] += D_ssii[0, 0].real + D_ssii[1, 1].real
+            D_sii[1] += 2 * D_ssii[0, 1].real  # ???
+            D_sii[2] += 2 * D_ssii[0, 1].imag  # ???
+            D_sii[3] += D_ssii[0, 0].real - D_ssii[1, 1].real
 
     def update1(self, kpt):
         P_In = kpt.P_In
@@ -336,7 +309,6 @@ class Density:
         assert isinstance(self.mixer, MixerWrapper), self.mixer
         self.error = self.mixer.mix(self.nt.array, self.D_II.D_asii)
         assert self.error is not None, self.mixer
-
         self.interpolate_pseudo_density()
 
     def initialize_from_atomic_densities(self, basis_functions):
@@ -531,10 +503,25 @@ class RealSpaceDensity(Density):
 
     def interpolate_pseudo_density(self):
         """Interpolate pseudo density to fine grid."""
-        self.finent, self.rhot_r = self.nt.interpolate(
-            self.finegd,
-            self.interpolator.apply,
-            self.redistributor.distribute)
+
+        self.finent = UniformGridDensity(self.finegd, self.spinpolarized,
+                                         self.collinear)
+
+        for a, b in zip(self.nt.array, self.finent.array):
+            a = self.redistributor.distribute(a)
+            self.interpolator.apply(a, b)
+
+        # With periodic boundary conditions, the interpolation will
+        # conserve the number of electrons.
+        if not self.gd.pbc_c.all():
+            # With zero-boundary conditions in one or more directions,
+            # this is not the case.
+            A = self.gd.integrate(self.nt.density)
+            if abs(A) > 1.0e-14:
+                B = self.finegd.integrate(self.finent.density)
+                self.finent.array *= A / B
+
+        self.rhot_r = self.finent.density.copy()
 
         comp_charge, Q_aL = self.D_II.calculate_multipole_moments()
 

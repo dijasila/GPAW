@@ -40,11 +40,11 @@ class AtomCenteredFunctions:
         else:
             self.lfc.add(array, coefs)
 
-    def derivativeeeee(self, a, out=None):
+    def derivative(self, array, out=None):
         if out is None:
-            out = {a: np.empty(I2 - I1)
-                   for a, (I1, I2) in zip(self.atom_indices, self.slices)}
-        1 / 0  # PWLFC.derivative(self, self.pd.fft(dedtaut_R), dF_aiv)
+            out = {a: np.empty((I2 - I1, 3)) for a, I1, I2 in self.indices}
+        self.lfc.derivative(array, out)
+        return out
 
     def integrate(self, array, out=None):
         if out is None:

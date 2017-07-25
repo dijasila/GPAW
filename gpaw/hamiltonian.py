@@ -556,9 +556,9 @@ class RealSpaceHamiltonian(Hamiltonian):
         vHt_r = self.vHt_r
         if self.vext:
             vHt_r = vHt_r + self.vext.get_potential(self.finegd)
-        ghat_aLv = dens.ghat_aL.derivative(self.vHt_g)
+        ghat_aLv = dens.ghat_aL.derivative(self.vHt_r)
 
-        nct_av = dens.nct.derivative(self.vt.potential)
+        nct_av = dens.nct_a.derivative(self.vt.potential)
 
         return ghat_aLv, nct_av, vbar_av
 
