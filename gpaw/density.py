@@ -586,12 +586,13 @@ class ReciprocalSpaceDensity(Density):
     def interpolate_pseudo_density(self):
         """Interpolate pseudo density to fine grid."""
 
-        def interpolate(a, b):
-            b[:], c = self.pd2.interpolate(a, self.pd3)
-            return c
+        self.finent = UniformGridDensity(self.finegd, self.spinpolarized,
+                                         self.collinear)
 
-        self.finent, self.nt_Q = self.nt.interpolate(self.finegd, interpolate,
-                                                     lambda a: a)
+        self.finent.density[:], self.nt_Q = self.pd2.interpolate(self.nt.density, self.pd3)
+
+        for a, b in zip(self.nt.array[1:], self.finent.array[1:]):
+            b[:], _ = self.pd2.interpolate(a, self.pd3)
 
         comp_charge, Q_aL = self.D_II.calculate_multipole_moments()
 

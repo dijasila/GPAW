@@ -671,7 +671,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     def calculate_forces2(self, dens):
         ghat_aLv = dens.ghat_aL.derivative(self.vHt_q)
         nct_av = dens.nct_a.derivative(self.vt_Q)
-        vbar_av = self.vbar.derivative(dens.nt_Q)
+        vbar_av = self.vbar_a.derivative(dens.nt_Q)
         return ghat_aLv, nct_av, vbar_av
 
     def get_electrostatic_potential(self, dens):
