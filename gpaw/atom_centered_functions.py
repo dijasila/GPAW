@@ -52,6 +52,9 @@ class AtomCenteredFunctions:
         self.lfc.integrate(array, out)
         return out
 
+    def stress_tensor_contribution(self, a_q, b_ax=1.0, q=-1):
+        return self.lfc.stress_tensor_contribution(a_q, b_ax, q)
+
     def eval(self, out):
         out.array[:] = 0.0
         coef_M = np.zeros(len(self))

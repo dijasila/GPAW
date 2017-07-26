@@ -1,7 +1,6 @@
 import numpy as np
 import ase.units as units
 
-from gpaw.utilities import unpack
 from gpaw.wavefunctions.pw import PWWaveFunctions
 
 
@@ -33,26 +32,25 @@ def calculate_stress(calc):
         for v2 in range(3):
             s_vv[v1, v2] += pd.integrate(p_G, dens.rhot_q *
                                          G_Gv[:, v1] * G_Gv[:, v2])
-    s_vv += dens.ghat.stress_tensor_contribution(ham.vHt_q, dens.Q_aL)
 
-    s_vv += ham.vbar.stress_tensor_contribution(dens.nt_sQ.sum(0))
-
-    s_vv += dens.nct.stress_tensor_contribution(ham.vt_Q)
+    s_vv += dens.ghat_aL.stress_tensor_contribution(ham.vHt_q, dens.Q_aL)
+    s_vv += ham.vbar_a.stress_tensor_contribution(dens.nt_Q)
+    s_vv += dens.nct_a.stress_tensor_contribution(ham.vt_Q)
 
     s0 = 0.0
     s0_vv = 0.0
     for kpt in wfs.kpt_u:
         a_ani = {}
-        for a, P_ni in kpt.P_ani.items():
+        for a, P_ni in kpt.P_In.items():
             Pf_ni = P_ni * kpt.f_n[:, None]
-            dH_ii = unpack(ham.dH_asp[a][kpt.s])
+            dH_ii = ham.dH_II.dH_asii[a][kpt.s]
             dS_ii = ham.setups[a].dO_ii
             a_ni = (np.dot(Pf_ni, dH_ii) -
                     np.dot(Pf_ni * kpt.eps_n[:, None], dS_ii))
             s0 += np.vdot(P_ni, a_ni)
             a_ani[a] = 2 * a_ni.conj()
-        s0_vv += wfs.pt.stress_tensor_contribution(kpt.psit_nG, a_ani,
-                                                   q=kpt.q)
+        s0_vv += wfs.pt_I.stress_tensor_contribution(kpt.psit_nG, a_ani,
+                                                     q=kpt.q)
     s0_vv -= s0.real * np.eye(3)
     wfs.bd.comm.sum(s0_vv)
     wfs.kd.comm.sum(s0_vv)
