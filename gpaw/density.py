@@ -25,13 +25,13 @@ from gpaw.arraydict import ArrayDict
 
 class NullBackgroundCharge:
     charge = 0.0
-    
+
     def set_grid_descriptor(self, gd):
         pass
-    
+
     def add_charge_to(self, rhot_g):
         pass
-        
+
     def add_fourier_space_charge_to(self, pd, rhot_q):
         pass
 
@@ -113,7 +113,7 @@ class Density(object):
             log('Spin contamination: %f electrons' % sc)
         except (TypeError, AttributeError):
             pass
-            
+
     def initialize(self, setups, timer, magmom_a, hund):
         self.timer = timer
         self.setups = setups
@@ -225,7 +225,7 @@ class Density(object):
         assert isinstance(self.mixer, MixerWrapper), self.mixer
         self.error = self.mixer.mix(self.nt_sG, self.D_asp)
         assert self.error is not None, self.mixer
-        
+
         comp_charge = None
         self.interpolate_pseudo_density(comp_charge)
         self.calculate_pseudo_charge()
@@ -239,10 +239,10 @@ class Density(object):
 
         comp_charge = 0.0
         Ddist_asp = self.atomdist.to_aux(self.D_asp)
-        
+
         def shape(a):
             return self.setups[a].Delta_pL.shape[1],
-            
+
         self.Q_aL = ArrayDict(Ddist_asp.partition, shape)
         for a, D_sp in Ddist_asp.items():
             Q_L = self.Q_aL[a] = np.dot(D_sp.sum(0),
@@ -334,16 +334,12 @@ class Density(object):
             raise ValueError('Not a mixer: %s' % mixer)
         self.mixer = MixerWrapper(mixer, self.nspins, self.gd)
 
-    def estimate_magnetic_moments(self, total=None):
+    def estimate_magnetic_moments(self):
         magmom_a = np.zeros_like(self.magmom_a)
         if self.nspins == 2:
             for a, D_sp in self.D_asp.items():
                 magmom_a[a] = np.dot(D_sp[0] - D_sp[1], self.setups[a].N0_p)
             self.gd.comm.sum(magmom_a)
-        if total is not None:
-            momsum = magmom_a.sum()
-            if abs(total) > 1e-7 and abs(momsum) > 1e-7:
-                magmom_a *= total / momsum
         return magmom_a
 
     def get_correction(self, a, spin):
@@ -561,20 +557,20 @@ class Density(object):
             D_asp.check_consistency()
 
         self.initialize_directly_from_arrays(nt_sG, D_asp)
-        
+
     def initialize_from_other_density(self, dens, kptband_comm):
         """Redistribute pseudo density and atomic density matrices.
-        
+
         Collect dens.nt_sG and dens.D_asp to world master and distribute."""
-        
+
         new_nt_sG = redistribute_array(dens.nt_sG, dens.gd, self.gd,
                                        self.nspins, kptband_comm)
-    
+
         self.atom_partition, self.atomdist, D_asp = \
             redistribute_atomic_matrices(dens.D_asp, self.gd, self.nspins,
                                          self.setups, self.redistributor,
                                          kptband_comm)
-        
+
         self.initialize_directly_from_arrays(new_nt_sG, D_asp)
 
 
@@ -679,7 +675,7 @@ def redistribute_array(nt_sG, gd1, gd2, nspins, kptband_comm):
         gd2.distribute(nt_sG, new_nt_sG)
     kptband_comm.broadcast(new_nt_sG, 0)
     return new_nt_sG
-    
+
 
 def redistribute_atomic_matrices(D_asp, gd2, nspins, setups, redistributor,
                                  kptband_comm):
@@ -690,7 +686,7 @@ def redistribute_atomic_matrices(D_asp, gd2, nspins, setups, redistributor,
     D_asp = setups.empty_atomic_matrix(nspins, atom_partition)
     spos_ac = np.zeros((natoms, 3))  # XXXX
     atomdist = redistributor.get_atom_distributions(spos_ac)
-    
+
     if gd2.comm.rank == 0:
         if kptband_comm.rank > 0:
             nP = sum(setup.ni * (setup.ni + 1) // 2

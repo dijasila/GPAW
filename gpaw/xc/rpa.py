@@ -294,9 +294,9 @@ class RPACorrelation:
                     # Chi0 will be summed again over chicomm, so we divide
                     # by its size:
                     chi0_swGG *= a
-                    if chi0_swxvG is not None:
-                        chi0_swxvG *= a
-                        chi0_swvv *= a
+                    #if chi0_swxvG is not None:
+                    #    chi0_swxvG *= a
+                    #    chi0_swvv *= a
 
             self.energy_qi.append(energy_i)
             self.write()
@@ -335,7 +335,7 @@ class RPACorrelation:
             chi0_wxvG = None
             chi0_wvv = None
         chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv,
-                        m1, m2, [0, 1])
+                        m1, m2, spins='all', extend_head=False)
 
         print('E_c(q) = ', end='', file=self.fd)
 

@@ -48,7 +48,7 @@ class RMMDIIS(Eigensolver):
 
     def todict(self):
         return {'name': 'rmm-diis', 'niter': self.niter}
-        
+
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do a single RMM-DIIS iteration for the kpoint"""
 
@@ -71,14 +71,10 @@ class RMMDIIS(Eigensolver):
         errors_x = np.zeros(B)
         state_done = np.zeros(B, dtype=bool)
 
-        errors_n = np.zeros(wfs.bd.mynbands)
         # Arrays needed for DIIS step
         if self.niter > 1:
             psit_diis_nxG = wfs.empty(B * self.niter, q=kpt.q)
             R_diis_nxG = wfs.empty(B * self.niter, q=kpt.q)
-            # P_diis_anxi = wfs.pt.dict(B * self.niter)
-            eig_n = np.zeros(self.niter)  # eigenvalues for diagonalization
-                                          # not needed in any step
 
         error = 0.0
         for n1 in range(0, wfs.bd.mynbands, B):
@@ -89,7 +85,7 @@ class RMMDIIS(Eigensolver):
                 B = n2 - n1
                 P_axi = dict((a, P_xi[:B]) for a, P_xi in P_axi.items())
                 dR_xG = dR_xG[:B]
-                
+
             n_x = np.arange(n1, n2)
             psit_xG = psit_nG[n1:n2]
 
@@ -117,7 +113,6 @@ class RMMDIIS(Eigensolver):
                         weight = 0.0
                 errors_x[n - n1] = weight * integrate(R_xG[n - n1],
                                                       R_xG[n - n1])
-                errors_n[n] = errors_x[n - n1]
             comm.sum(errors_x)
             error += np.sum(errors_x)
 
@@ -234,7 +229,7 @@ class RMMDIIS(Eigensolver):
                 # Do not perform DIIS if error is small
                 # if abs(error_block / B) < self.rtol:
                 #     break
-                
+
                 # Update the subspace
                 psit_diis_nxG[nit:B * self.niter:self.niter] = psit_xG
                 R_diis_nxG[nit:B * self.niter:self.niter] = R_xG
@@ -267,7 +262,8 @@ class RMMDIIS(Eigensolver):
                         alpha_i = np.linalg.solve(A_nn, x_n)[:-1]
                         self.timer.stop('Linear solve')
                         self.timer.start('Update trial vectors')
-                        psit_xG[ib] = alpha_i[nit] * psit_diis_nxG[istart + nit]
+                        psit_xG[ib] = alpha_i[nit] * psit_diis_nxG[istart +
+                                                                   nit]
                         R_xG[ib] = alpha_i[nit] * R_diis_nxG[istart + nit]
                         for i in range(nit):
                             # axpy(alpha_i[i], psit_diis_nxG[istart + i],
@@ -299,23 +295,6 @@ class RMMDIIS(Eigensolver):
                                              P_axi, kpt.eps_n[n_x], R_xG, n_x,
                                              calculate_change=True)
                     self.timer.stop('Calculate residuals')
-                    self.timer.start('Calculate errors')
-                    errors_new_x = np.zeros(B)
-                    # errors_x[:] = 0.0
-                    for n in range(n1, n2):
-                        if kpt.f_n is None:
-                            weight = kpt.weight
-                        else:
-                            weight = kpt.f_n[n]
-                        if self.nbands_converge != 'occupied':
-                            if wfs.bd.global_index(n) < self.nbands_converge:
-                                weight = kpt.weight
-                            else:
-                                weight = 0.0
-                        errors_new_x[n-n1] += weight * integrate(R_xG[n - n1],
-                                                                 R_xG[n - n1])
-                    comm.sum(errors_x)
-                    self.timer.stop('Calculate errors')
 
             self.timer.stop('DIIS step')
             # Final trial step
@@ -325,7 +304,7 @@ class RMMDIIS(Eigensolver):
             dpsit_xG = self.preconditioner(R_xG, kpt, ekin_x)
             self.timer.stop('precondition')
             self.timer.start('Update psi')
-                
+
             if self.trial_step is not None:
                 lam_x[:] = self.trial_step
             for lam, psit_G, dpsit_G in zip(lam_x, psit_xG, dpsit_xG):
@@ -339,7 +318,7 @@ class RMMDIIS(Eigensolver):
             #     norm += np.vdot(P_xi[0], np.inner(dO_ii, P_xi[0]))
             # norm = comm.sum(np.real(norm).item())
             # psit_xG /= np.sqrt(norm)
-            
+
         self.timer.stop('RMM-DIIS')
         return error, psit_nG
 
@@ -353,4 +332,3 @@ class RMMDIIS(Eigensolver):
         repr_string += '       use_rayleigh: %s\n' % self.use_rayleigh
         repr_string += '       trial_step: %s' % self.trial_step
         return repr_string
-

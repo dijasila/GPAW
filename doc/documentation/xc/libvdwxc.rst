@@ -5,8 +5,9 @@ libvdwxc
 
 `libvdwxc <https://gitlab.com/libvdwxc/libvdwxc>`_
 is a library which provides fast and scalable
-implementations of non-local van der Waals density functionals from
-vdW-DF, vdW-DF2, vdW-DF-CX.  To use libvdwxc, you need to install it
+implementations of non-local van der Waals density functionals in the
+vdW-DF family.
+To use libvdwxc, you need to install it
 and compile GPAW with it.  libvdwxc can be used with other semilocal
 functionals like optPBE, optB88, and BEEF-vdW.
 

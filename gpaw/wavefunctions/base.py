@@ -231,7 +231,6 @@ class WaveFunctions:
 
         kpt_u = self.kpt_u
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
-
         if self.kd.comm.rank == kpt_rank:
             a_nx = getattr(kpt_u[u], name)
 
@@ -470,6 +469,11 @@ class WaveFunctions:
         for u, kpt in enumerate(self.kpt_u):
             eps_n = r.proxy('eigenvalues', kpt.s, kpt.k)[nslice]
             f_n = r.proxy('occupations', kpt.s, kpt.k)[nslice]
+            x = self.bd.mynbands - len(f_n)  # missing bands?
+            if x > 0:
+                # Working on a real fix to this parallelization problem ...
+                f_n = np.pad(f_n, (0, x), 'constant')
+                eps_n = np.pad(eps_n, (0, x), 'constant')
             if reader.version > 0:
                 f_n *= kpt.weight  # skip for old tar-files gpw's
                 eps_n /= reader.ha
