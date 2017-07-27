@@ -43,7 +43,7 @@ is divisible by a high power of 2."""
 
 def create_poisson_solver(name='fd', **kwargs):
     if name == 'fft':
-        return FFTPoissonSolver()
+        return FFTPoissonSolver(**kwargs)
     if name == 'fdtd':
         from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
         return FDTDPoissonSolver(**kwargs)

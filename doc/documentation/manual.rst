@@ -877,6 +877,22 @@ non-periodic boundaries.  With dipole correction, there will be a
 potential difference across the system depending on the size of the
 dipole moment.
 
+Other parameters in this dictionary are forwarded to the
+Poisson solver::
+
+    GPAW(poissonsolver={'dipolelayer': 'xy', 'name': 'fd', 'relax': 'GS'})
+
+An alternative Poisson solver based on Fourier transforms is available
+for fully periodic calculations::
+
+   GPAW(poissonsolver={'name': 'fft'})
+
+The FFT Poisson solver will reduce the dependence on the grid spacing and
+is in general less picky about the grid.  It may be beneficial for
+non-periodic systems as well, but the system must be set up explicitly
+as periodic and hence should be well padded with vacuum in non-periodic
+directions to avoid unphysical interactions across the cell boundary.
+
 
 .. _manual_stencils:
 
