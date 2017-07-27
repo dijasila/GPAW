@@ -57,7 +57,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
             kpt.psit_n = UniformGridWaveFunctions(
                 self.bd.nbands, self.gd, self.dtype,
-                kpt.psit_nG, kpt.q, dist)
+                kpt.psit_nG, kpt.q, dist, kpt.s)
 
     def integrate(self, a_xg, b_yg=None, global_integral=True):
         return self.gd.integrate(a_xg, b_yg, global_integral)

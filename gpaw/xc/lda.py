@@ -28,7 +28,6 @@ class LDARadialExpansion:
         return E, dEdD_sqL
 
 
-
 def calculate_paw_correction(expansion,
                              setup, D_sp, dEdD_sp=None,
                              addcoredensity=True, a=None):
@@ -77,7 +76,6 @@ class LDARadialCalculator:
         dedn_sg = rgd.zeros(nspins)
         self.kernel.calculate(e_g, n_sg, dedn_sg)
         return e_g, dedn_sg
-
 
 
 class LDA(XCFunctional):

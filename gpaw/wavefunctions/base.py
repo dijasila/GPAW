@@ -85,7 +85,7 @@ class WaveFunctions:
         """Calculate contribution to pseudo density from wave functions.
 
         Array entries are written to (not added to)."""
-        nt.array.fill(0.0)
+        nt.array[:] = 0.0
         for kpt in self.kpt_u:
             self.add_to_density_from_k_point(nt.array, kpt)
         self.kptband_comm.sum(nt.array)
