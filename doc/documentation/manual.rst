@@ -877,6 +877,10 @@ non-periodic boundaries.  With dipole correction, there will be a
 potential difference across the system depending on the size of the
 dipole moment.
 
+Other parameters in this dictionary are forwarded to the
+Poisson solver::
+
+    GPAW(poissonsolver={'dipolelayer': 'xy', 'name': 'fd', 'relax': 'GS'})
 
 .. _manual_stencils:
 
