@@ -284,6 +284,8 @@ and :download:`plot_EELS.py`
 One can compare the results with literature  \ [#Rubio]_.
 
 
+.. _tetrahedron:
+
 Example 3: Tetrahedron integration (experimental)
 =================================================
 

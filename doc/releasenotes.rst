@@ -10,6 +10,8 @@ Git master branch
 
 :git:`master <>`.
 
+* Corresponding ASE release: ASE-3.14.1.
+
 * :ref:`command line options` ``--dry-run`` and ``--debug`` have been removed.
   Please use ``--gpaw dry-run=N`` and ``--gpaw debug=True`` instead
   (or ``--gpaw dry-run=N,debug=True`` for both).
@@ -20,23 +22,26 @@ Git master branch
 
 * New *sbatch* sub-command for GPAW's :ref:`cli`.
 
-* Support added for ASE's new `ase band-structure` command.
+* Support added for ASE's new *band-structure* :ref:`ase:cli`::
 
-* Tetrahedra ...
+  $ ase band-structure xxx.gpw -p GKLM
 
-* GGA and MGGA neighbors=2 ...
+* Added :ref:`tetrahedron method <tetrahedron>` for calculation the density
+  response function.
 
-* Long-range cutoff for QMMM calculations can now be per molecule instead of
-  only per point charge.
+* GGA and MGGA neighbors=2 ... ???
+
+* Long-range cutoff for :mod:`~ase.calculators.qmmm` calculations can now be
+  per molecule instead of only per point charge.
 
 * Python 2.6 no longer supported.
 
 * There is now a web-page documenting the use of the in development version
   of GPAW: https://wiki.fysik.dtu.dk/gpaw/dev/.
 
-* BSE calculations for spin-polarized systems.
+* :ref:`BSE <bse tutorial>` calculations for spin-polarized systems.
 
-* Calculation of magnetic anisotropy.
+* Calculation of :ref:`magnetic anisotropy <magnetic anisotropy>`.
 
 * Calculation of vectorial magnetic moments inside PAW spheres based on
   spin-orbit spinors.
