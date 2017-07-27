@@ -620,7 +620,7 @@ class OmegaMatrix:
         nij = int(f.readline())
         full = np.zeros((nij, nij))
         for ij in range(nij):
-            l = list(map(float, f.readline().split()))
+            l = [float(x) for x in f.readline().split()]
             full[ij, ij:] = l
             full[ij:, ij] = l
         self.full = full

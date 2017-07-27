@@ -140,6 +140,7 @@ tests = [
     'generic/proton.py',
     'atoms_mismatch.py',
     'setup_basis_spec.py',
+    'overlap.py',
     'pw/direct.py',
     'vdw/libvdwxc_spin.py',                 # ~1s
     'timing.py',                            # ~1s

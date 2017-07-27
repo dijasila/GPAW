@@ -277,7 +277,7 @@ class LrTDDFT(ExcitationList):
         # check if already diagonalized
         p = f.tell()
         s = f.readline()
-        if 1 and s != '# Eigenvalues\n':
+        if s != '# Eigenvalues\n':
             # go back to previous position
             f.seek(p)
         else:
@@ -290,7 +290,7 @@ class LrTDDFT(ExcitationList):
             timer.start('read eigenvectors')
             f.readline()
             for i in range(n):
-                self[i].f = np.array(list(map(float, f.readline().split())))
+                self[i].f = np.array([float(x) for x in f.readline().split()])
                 self[i].kss = self.kss
             timer.stop('read eigenvectors')
         timer.stop('read diagonalized')
@@ -409,7 +409,7 @@ class LrTDDFT(ExcitationList):
         self.diagonalize()
         other.diagonalize()
         ov_pp = self.Om.kss.overlap(ov_nn, other.Om.kss)
-	# ov[pLm, pLo] = Om[pLm, :pKm]* ov[:pKm, pLo]
+        # ov[pLm, pLo] = Om[pLm, :pKm]* ov[:pKm, pLo]
         return np.dot(self.Om.eigenvectors.conj(),
                       # ov[pKm, pLo] = ov[pKm, :pKo] Om[pLo, :pKo].T
                       np.dot(ov_pp, other.Om.eigenvectors.T))

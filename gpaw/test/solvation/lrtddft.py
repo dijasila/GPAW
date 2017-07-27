@@ -6,8 +6,8 @@ from gpaw.cluster import Cluster
 from gpaw.lrtddft import LrTDDFT
 from gpaw import PoissonSolver
 
-h=0.3
-vac=3
+h = 0.3
+vac = 3.0
 
 atoms = Cluster(molecule('H2'))
 atoms.minimal_box(vac, h)
@@ -16,18 +16,16 @@ atoms.minimal_box(vac, h)
 calc = solv.SolvationGPAW(
     xc='PBE', h=0.2,  # non-solvent DFT parameters
     nbands=3,
-    convergence={'energy':0.1, 'eigenstates':0.01, 'density':0.1},
-    **solv.get_HW14_water_kwargs()
-)
+    convergence={'energy': 0.1, 'eigenstates': 0.01, 'density': 0.1},
+    **solv.get_HW14_water_kwargs())
+
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 print(id(calc.hamiltonian.poisson.dielectric))
 print(id(calc.hamiltonian.dielectric))
 
 
-"""
-We test the agreement of a pure RPA kernel with setting eps to 1
-"""
+# We test the agreement of a pure RPA kernel with setting eps to 1
 lr = LrTDDFT(calc, poisson=PoissonSolver(nn=calc.hamiltonian.poisson.nn))
 lr.diagonalize()
 
