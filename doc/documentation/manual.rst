@@ -208,13 +208,13 @@ given in the following sections.
 
 Deprecated keywords (in favour of the ``parallel`` keyword) include:
 
-=================  =========  ===================  ============================
-keyword            type       default value        description
-=================  =========  ===================  ============================
-``parsize``        *seq*                           Parallel
-                                                   :ref:`manual_parsize_domain`
-``parsize_bands``  ``int``    ``1``                :ref:`manual_parsize_bands`
-=================  =========  ===================  ============================
+=================  =========  =============  ============================
+keyword            type       default value  description
+=================  =========  =============  ============================
+``parsize``        *seq*                     Parallel
+                                             :ref:`manual_parsize_domain`
+``parsize_bands``  ``int``    ``1``          :ref:`manual_parsize_bands`
+=================  =========  =============  ============================
 
 
 .. _manual_mode:
@@ -223,7 +223,7 @@ Finite-difference, plane-wave or LCAO mode
 ------------------------------------------
 
 Finite-difference:
-    The default mode (``mode='fd'``) is Finite Differece. This means that
+    The default mode (``mode='fd'``) is Finite Difference. This means that
     the wave functions will be expanded on a real space grid.
 
 LCAO:
@@ -328,11 +328,18 @@ generalized gradient approximation (GGA) type, and the last two are
 For the list of all functionals available in GPAW see :ref:`overview_xc`.
 
 GPAW uses the functionals from libxc_ by default.
-Keywords are based on the names in the libxc :file:`'xc_funcs.h'` header file (the leading ``'XC_'`` should be removed from those names).
-Valid keywords are strings or combinations of exchange and correlation string
-joined by **+** (plus).
-For example, "the" (most common) LDA approximation in chemistry
-corresponds to ``'LDA_X+LDA_C_VWN'``.
+Keywords are based on the names in the libxc :file:`'xc_funcs.h'` header
+file (the leading ``'XC_'`` should be removed from those names). Valid
+keywords are strings or combinations of exchange and correlation string
+joined by **+** (plus). For example, "the" (most common) LDA approximation
+in chemistry corresponds to ``'LDA_X+LDA_C_VWN'``.
+
+XC functionals can also be specified as dictionaries. This is useful for
+functionals that depend on one or more parameters. For example, to use a
+stencil with two nearest neighbours for the density-gradient with the PBE
+functional, use ``xc={'name': 'PBE', 'stencil': 2}``. The ``stencil``
+keyword applies to any GGA or MGGA. Some functionals may take other
+parameters; see their respective documentation pages.
 
 Hybrid functionals (the feature is described at :ref:`exx`)
 require the setups containing exx information to be generated.
@@ -861,11 +868,8 @@ directions.
 ::
 
   from gpaw import GPAW
-  from gpaw.poisson import PoissonSolver
-  from gpaw.dipole_correction import DipoleCorrection
 
-  poissonsolver = PoissonSolver()
-  correction = DipoleCorrection(poissonsolver, 2) # 2 == z-axis
+  correction = {'dipolelayer': 'xy'}
   calc = GPAW(poissonsolver=correction)
 
 Without dipole correction, the potential will approach 0 at all
@@ -1138,5 +1142,5 @@ argument                         description
              parameters: The PBE0 model
 .. [#B3LYP]  P. J. Stephens, F. J. Devlin, C. F. Chabalowski, and M.J. Frisch,
              *J. Phys. Chem.* **98** 11623-11627 (1994)
-             Ab-Initio Calculation of Vibrational Absorption and Circular-Dichroism
-             Spectra Using Density-Functional Force-Fields
+             Ab-Initio Calculation of Vibrational Absorption and
+             Circular-Dichroism Spectra Using Density-Functional Force-Fields

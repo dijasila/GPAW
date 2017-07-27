@@ -15,11 +15,11 @@ kpts, x, X = bandpath([G, Z, F, G, L], a.cell, npoints=200)
 calc = GPAW('gs_Bi2Se3.gpw',
             kpts=kpts,
             symmetry='off',
-            parallel={'band': 16},
+            fixdensity=True,
             txt='Bi2Se3_bands.txt')
-calc.diagonalize_full_hamiltonian(nbands=48, scalapack=(4, 4, 32))
+calc.get_potential_energy()
 
-calc.write('Bi2Se3_bands.gpw', mode='all')
+calc.write('Bi2Se3_bands.gpw')
 
 with paropen('kpath.dat', 'w') as f:
     for k in x:

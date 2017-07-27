@@ -28,18 +28,19 @@ for q_c in [[0, 0, 0], [1. / 4, 0, 0]]:
     ol = np.allclose(q_c, 0.0)
     qd = KPointDescriptor([q_c])
     pd = PWDescriptor(pair.ecut, calc.wfs.gd, complex, qd)
-    kptpair = pair.get_kpoint_pair(pd, s=0, K=0, n1=0, n2=nb, m1=0, m2=nb)
+    kptpair = pair.get_kpoint_pair(pd, 0, [0, 0, 0],
+                                   0, nb, 0, nb)
     deps_nm = kptpair.get_transition_energies(np.arange(0, nb),
                                               np.arange(0, nb))
 
-    n_nmG, n_nmv, _ = pair.get_pair_density(pd, kptpair, np.arange(0, nb),
-                                            np.arange(0, nb), optical_limit=ol)
+    n_nmG = pair.get_pair_density(pd, kptpair, np.arange(0, nb),
+                                  np.arange(0, nb), optical_limit=ol)
 
     n_nmvG = pair.get_pair_momentum(pd, kptpair, np.arange(0, nb),
                                     np.arange(0, nb))
 
     if ol:
-        n2_nmv = np.zeros_like(n_nmv)
+        n2_nmv = np.zeros((nb, nb, 3), complex)
         for n in range(0, nb):
             n2_nmv[n] = pair.optical_pair_velocity(n, np.arange(0, nb),
                                                    kptpair.kpt1,
@@ -49,7 +50,6 @@ for q_c in [[0, 0, 0], [1. / 4, 0, 0]]:
     assert not np.isnan(n_nmG).any()
     assert not np.isnan(n_nmvG).any()
     if ol:
-        assert not np.isnan(n_nmv).any()
         assert not np.isnan(n2_nmv).any()
 
     # PAW correction test
@@ -82,12 +82,12 @@ for q_c in [[0, 0, 0], [1. / 4, 0, 0]]:
 
     n2_nmG = np.diagonal(np.dot(G_Gv, n_nmvG), axis1=0, axis2=3).copy()
     if ol:
-        n2_nmG[..., 0] = n_nmvG[..., 0, 0]
+        n2_nmG[..., 0] = n_nmvG[..., 2, 0]
     
     # Left hand side and right hand side of
     # continuity eq.: d/dr x J + d/dt n = 0
-    lhs_nmG = n2_nmG - G2_G[np.newaxis, np.newaxis] / 2. * n_nmG
-    rhs_nmG = - deps_nm[..., np.newaxis] * n_nmG
+    lhs_nmG = n2_nmG - G2_G[np.newaxis, np.newaxis] / 2. * n_nmG[..., 2 * ol:]
+    rhs_nmG = - deps_nm[..., np.newaxis] * n_nmG[..., 2 * ol:]
 
     err = np.abs(lhs_nmG - rhs_nmG)
     maxerr = np.max(err)

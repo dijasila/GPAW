@@ -51,7 +51,7 @@ class GWQEHCorrection(PairDensity):
             For example: ['3H-MoS2', graphene', '10H-WS2'] gives 3 layers of
             H-MoS2, 1 layer of graphene and 10 layers of H-WS2.
             The name of the layers should correspond to building block files:
-            "<name>-chi.pckl" in the local repository. 
+            "<name>-chi.npz" in the local repository.
         d: array of floats
             Interlayer distances for neighboring layers in Ang.
             Length of array = number of layers - 1
@@ -141,10 +141,12 @@ class GWQEHCorrection(PairDensity):
 
         # Calculate screened potential of Heterostructure
         if dW_qw is None:
-            try: 
-                self.qqeh, self.wqeh, dW_qw = pickle.load(
-                    open(filename + '_dW_qw.pckl', 'rb'))
-            except:
+            try:
+                data = np.load(filename + "_dW_qw.npz")
+                self.qqeh = data['qqeh']
+                self.wqeh = data['wqeh']
+                dW_qw = data['dW_qw']
+            except IOError:
                 dW_qw = self.calculate_W_QEH(structure, d, layer)
         else:
             self.qqeh = qqeh
@@ -313,10 +315,6 @@ class GWQEHCorrection(PairDensity):
         return self.sigma_sin, self.dsigma_sin
 
     def calculate_qp_correction(self):
-        if self.filename:
-            pckl = self.filename + '_qeh.pckl'
-        else:
-            pckl = 'qeh.pckl'
 
         if self.complete:
             print('Self-energy loaded from file', file=self.fd)
@@ -395,12 +393,12 @@ class GWQEHCorrection(PairDensity):
                 'qp_sin': self.qp_sin,
                 'Qp_sin': self.Qp_sin}
         if self.world.rank == 0:
-            with open(self.filename + '_qeh.pckl', 'wb') as fd:
-                pickle.dump(data, fd) 
+            np.savez(self.filename + '_qeh.npz',
+                     **data)
 
     def load_state_file(self):
         try:
-            data = pickle.load(open(self.filename + '_qeh.pckl', 'rb'))
+            data = np.load(self.filename + '_qeh.npz')
         except IOError:
             return False
         else:
@@ -516,8 +514,11 @@ class GWQEHCorrection(PairDensity):
         self.qqeh = HS.q_abs
 
         if self.world.rank == 0:
-            pickle.dump((self.qqeh, self.wqeh, dW_qw), 
-                        open(self.filename + '_dW_qw.pckl', 'wb'))
+            data = {'qqeh': self.qqeh,
+                    'wqeh': self.wqeh,
+                    'dW_qw': dW_qw}
+            np.savez(self.filename + "_dW_qw.npz",
+                     **data)
 
         return dW_qw
 

@@ -201,6 +201,10 @@ class PAW:
         """Return k-points in the irreducible part of the Brillouin zone."""
         return self.wfs.kd.ibzk_kc.copy()
 
+    def get_bz_to_ibz_map(self):
+        """Return indices from BZ to IBZ."""
+        return self.wfs.kd.bz2ibz_k.copy()
+
     def get_k_point_weights(self):
         """Weights of the k-points.
 

@@ -81,5 +81,5 @@ Further information:
 
    faeq
 
-For comments and questions, write to the :ref:`mail lists`.  You
+For comments and questions, write to the :ref:`mail list`.  You
 can also search in the mailing list archives on the same page.
