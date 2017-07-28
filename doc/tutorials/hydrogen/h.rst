@@ -38,4 +38,4 @@ Since the H atom is spherically symmetric, one can solve the problem
 on a 1-d grid.  GPAW has a program to do this called ``aeatom.py``.
 It can be used like this::
 
-    $ python -m gpaw.atom.aeatom -p H
+    $ python3 -m gpaw.atom.aeatom -p H

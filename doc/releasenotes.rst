@@ -61,7 +61,7 @@ Version 1.2.0
 * New file-format for gpw-files.  Reading of old files should still work.
   Look inside the new files with::
 
-      $ python -m ase.io.ulm abc.gpw
+      $ python3 -m ase.io.ulm abc.gpw
 
 * Simple syntax for specifying BZ paths introduced:
   ``kpts={'path': 'GXK', 'npoints': 50}``.

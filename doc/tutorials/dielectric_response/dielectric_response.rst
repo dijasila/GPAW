@@ -471,7 +471,7 @@ Useful tips
 Use dry_run option to get an overview of a calculation (especially useful for
 heavy calculations!)::
 
-    python filename.py --gpaw=df_dry_run=8
+    $ python3 filename.py --gpaw=df-dry-run=8
 
 .. Note ::
 
