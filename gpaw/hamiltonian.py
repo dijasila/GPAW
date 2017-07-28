@@ -605,22 +605,21 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             self.poisson.solve(self.vHt_q, dens)
             epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
 
-        self.vt = UniformGridPotential(self.gd,
-                                       self.spinpolarized, self.collinear)
+        self.vt_sR = self.gd.empty(1 + self.spinpolarized)
 
         self.vt_Q = self.vbar_Q + self.vHt_q[dens.G3_G] / 8
-        self.vt.array[:] = self.pd2.ifft(self.vt_Q)
+        self.vt_sR[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
-        nt_dist_sr = dens.xc_redistributor.distribute(dens.finent.array)
+        nt_dist_sr = dens.xc_redistributor.distribute(dens.nt_sr)
         vxct_dist_sr = dens.xc_redistributor.aux_gd.zeros(self.nspins)
         exc = self.xc.calculate(dens.xc_redistributor.aux_gd,
                                 nt_dist_sr, vxct_dist_sr)
         vxct_sr = dens.xc_redistributor.collect(vxct_dist_sr)
 
-        for vt_G, vxct_g in zip(self.vt.array, vxct_sr):
-            vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
-            vt_G += vxc_G
+        for vt_R, vxct_r in zip(self.vt_sR, vxct_sr):
+            vxc_R, vxc_Q = self.pd3.restrict(vxct_r, self.pd2)
+            vt_R += vxc_R
             self.vt_Q += vxc_Q / self.nspins
         self.timer.stop('XC 3D grid')
 
@@ -629,9 +628,9 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.e_stress = ebar + epot
 
         ekin = 0.0
-        for vt_G, nt_G in zip(self.vt.array, dens.nt.array):
-            ekin -= self.gd.integrate(vt_G, nt_G)
-        ekin += self.gd.integrate(self.vt.array, dens.nct_R).sum()
+        for vt_R, nt_R in zip(self.vt_sR, dens.nt_sR):
+            ekin -= self.gd.integrate(vt_R, nt_R)
+        ekin += self.gd.integrate(self.vt_sR, dens.nct_R).sum()
 
         return ekin, np.array([epot, ebar, eext, exc])
 

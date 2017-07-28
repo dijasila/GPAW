@@ -21,7 +21,7 @@ def calculate_stress(calc):
 
     s_vv = wfs.get_kinetic_stress().real
 
-    s_vv += ham.xc.stress_tensor_contribution(dens.finent.array)
+    s_vv += ham.xc.stress_tensor_contribution(dens.nt_sr)
 
     pd = dens.pd3
     p_G = 4 * np.pi * dens.rhot_q
