@@ -89,8 +89,7 @@ class AtomBlockDensityMatrix:
     def _update(self, D_sii, P_ni, f_n, spin):
         if self.collinear:
             D_ii = np.dot(P_ni.T.conj() * f_n, P_ni).real
-            if self.spinpolarized:
-                D_sii[spin] += D_ii
+            D_sii[spin] += D_ii
         else:
             n, i = P_ni.shape
             P_nsi = P_ni.reshape((n // 2, 2, i))
