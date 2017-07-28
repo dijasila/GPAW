@@ -81,18 +81,18 @@ class WaveFunctions:
     def add_orbital_density(self, nt_G, kpt, n):
         self.add_realspace_orbital_to_density(nt_G, kpt.psit_nG[n])
 
-    def calculate_density_contribution(self, nt):
+    def calculate_density_contribution(self, nt_sR):
         """Calculate contribution to pseudo density from wave functions.
 
         Array entries are written to (not added to)."""
-        nt.array[:] = 0.0
+        nt_sR[:] = 0.0
         for kpt in self.kpt_u:
-            self.add_to_density_from_k_point(nt.array, kpt)
-        self.kptband_comm.sum(nt.array)
+            self.add_to_density_from_k_point(nt_sR, kpt)
+        self.kptband_comm.sum(nt_sR)
 
         self.timer.start('Symmetrize density')
-        for array in nt.array:
-            self.kd.symmetry.symmetrize(array, self.gd)
+        for nt_R in nt_sR:
+            self.kd.symmetry.symmetrize(nt_R, self.gd)
         self.timer.stop('Symmetrize density')
 
     def add_to_density_from_k_point(self, nt_sG, kpt):

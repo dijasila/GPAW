@@ -20,37 +20,7 @@ ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
 
 
-class UniformGridPotential:
-    def __init__(self, gd, spinpolarized, collinear):
-        self.gd = gd
-        self.spinpolarized = spinpolarized
-        self.collinear = collinear
-
-        if not collinear:
-            assert spinpolarized
-            self.array = gd.empty(4)
-        else:
-            self.array = gd.empty(1 + spinpolarized)
-
-    @property
-    def potential(self):
-        if not self.collinear or not self.spinpolarized:
-            return self.array[0]
-        return self.array.mean(0)
-
-    def restrict(self, restrictor, redistributor):
-        out = UniformGridPotential(restrictor.gdout, self.spinpolarized,
-                                   self.collinear)
-        for a, b in zip(self.array, out.array):
-            if redistributor.enabled:
-                c = restrictor.apply(a)
-                redistributor.collect(c, b)
-            else:
-                restrictor.apply(a, output=b)
-
-        return out
-
-
+@frozen
 class AtomBlockHamiltonian:
     def __init__(self, setups, spinpolarized, collinear):
         self.setups = setups
@@ -117,8 +87,7 @@ class AtomBlockHamiltonian:
         return [e_kinetic, e_coulomb, e_zero, 0.0, e_xc]
 
 
-class Hamiltonian(object):
-
+class Hamiltonian:
     def __init__(self, gd, finegd, spinpolarized, setups, timer, xc, world,
                  redistributor, vext=None):
         self.gd = gd
@@ -133,9 +102,9 @@ class Hamiltonian(object):
         self.redistributor = redistributor
 
         self.dH_II = AtomBlockHamiltonian(setups, spinpolarized, True)
-        self.vt = None  # coarse grid
+        self.vt_sR = None  # coarse grid
         self.vHt_r = None  # fine grid
-        self.finevt = None  # fine grid
+        self.vt_sr = None  # fine grid
 
         self.vbar_a = None
 
@@ -159,6 +128,16 @@ class Hamiltonian(object):
         self.vext = vext  # external potential
 
         self.positions_set = False
+
+    @property
+    def vt_sG(self):
+        asdf
+        return self.vt_sR
+
+    @property
+    def vt_sg(self):
+        asdf
+        return self.vt_sr
 
     def __str__(self):
         s = 'Hamiltonian:\n'
@@ -202,8 +181,8 @@ class Hamiltonian(object):
                 vacuum = 0.0
             else:
                 axes = (c, (c + 1) % 3, (c + 2) % 3)
-                v_g = self.pd3.ifft(self.vHt_q).transpose(axes)
-                vacuum = v_g[0].mean()
+                v_r = self.pd3.ifft(self.vHt_q).transpose(axes)
+                vacuum = v_r[0].mean()
 
             wf1 = (vacuum - fermilevel + correction) * Ha
             wf2 = (vacuum - fermilevel - correction) * Ha
@@ -218,9 +197,8 @@ class Hamiltonian(object):
         self.positions_set = True
 
     def initialize(self):
-        self.finevt = UniformGridPotential(self.finegd,
-                                           self.spinpolarized, self.collinear)
-        self.vt = None
+        self.vt_sr = self.finegd.empty(1 + self.spinpolarized)
+        self.vt_sR = None
         self.vHt_r = self.finegd.zeros()
         self.poisson.initialize()
 
@@ -233,7 +211,7 @@ class Hamiltonian(object):
 
         self.timer.start('Hamiltonian')
 
-        if self.vt is None:
+        if self.vt_sR is None:
             with self.timer('Initialize Hamiltonian'):
                 self.initialize()
 
@@ -306,9 +284,10 @@ class Hamiltonian(object):
         self.xc.add_forces(F_av)
         self.gd.comm.sum(F_coarsegrid_av, 0)
         self.finegd.comm.sum(F_av, 0)
+
         F_av += F_coarsegrid_av
 
-    def apply_local_potential(self, psit_nG, Htpsit_nG, s):
+    def apply_local_potential(self, psit_nR, Htpsit_nR, s):
         """Apply the Hamiltonian operator to a set of vectors.
 
         XXX Parameter description is deprecated!
@@ -323,7 +302,7 @@ class Hamiltonian(object):
             k-point object defined in kpoint.py.
         calculate_projections: bool
             When True, the integrals of projector times vectors
-            P_ni = <p_i | a_nG> are calculated.
+            P_ni = <p_i | a_nR> are calculated.
             When False, existing P_uni are used
         local_part_only: bool
             When True, the non-local atomic parts of the Hamiltonian
@@ -331,37 +310,37 @@ class Hamiltonian(object):
 
         """
         assert self.collinear
-        vt_G = self.vt.array[s]
-        for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
-            Htpsit_G += psit_G * vt_G
+        vt_R = self.vt_sR[s]
+        for psit_R, Htpsit_R in zip(psit_nR, Htpsit_nR):
+            Htpsit_R += psit_R * vt_R
 
-    def apply(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):
+    def apply(self, a_xR, b_xR, wfs, kpt, calculate_P_ani=True):
         """Apply the Hamiltonian operator to a set of vectors.
 
         Parameters:
 
-        a_nG: ndarray
+        a_nR: ndarray
             Set of vectors to which the overlap operator is applied.
-        b_nG: ndarray, output
-            Resulting S times a_nG vectors.
+        b_nR: ndarray, output
+            Resulting S times a_nR vectors.
         wfs: WaveFunctions
             Wave-function object defined in wavefunctions.py
         kpt: KPoint object
             k-point object defined in kpoint.py.
         calculate_P_ani: bool
             When True, the integrals of projector times vectors
-            P_ni = <p_i | a_nG> are calculated.
+            P_ni = <p_i | a_nR> are calculated.
             When False, existing P_ani are used
 
         """
 
-        wfs.kin.apply(a_xG, b_xG, kpt.phase_cd)
-        self.apply_local_potential(a_xG, b_xG, kpt.s)
-        shape = a_xG.shape[:-3]
+        wfs.kin.apply(a_xR, b_xR, kpt.phase_cd)
+        self.apply_local_potential(a_xR, b_xR, kpt.s)
+        shape = a_xR.shape[:-3]
         P_axi = wfs.pt.dict(shape)
 
         if calculate_P_ani:  # TODO calculate_P_ani=False is experimental
-            wfs.pt.integrate(a_xG, P_axi, kpt.q)
+            wfs.pt.integrate(a_xR, P_axi, kpt.q)
         else:
             for a, P_ni in kpt.P_ani.items():
                 P_axi[a][:] = P_ni
@@ -369,16 +348,16 @@ class Hamiltonian(object):
         for a, P_xi in P_axi.items():
             dH_ii = unpack(self.dH_asp[a][kpt.s])
             P_axi[a] = np.dot(P_xi, dH_ii)
-        wfs.pt.add(b_xG, P_axi, kpt.q)
+        wfs.pt.add(b_xR, P_axi, kpt.q)
 
     def get_xc_difference(self, xc, dens):
         """Calculate non-selfconsistent XC-energy difference."""
-        if dens.nt_sg is None:
+        if dens.nt_sr is None:
             dens.interpolate_pseudo_density()
-        nt_sg = dens.nt_sg
+        nt_sr = dens.nt_sr
         if hasattr(xc, 'hybrid'):
             xc.calculate_exx()
-        finegd_e_xc = xc.calculate(dens.finegd, nt_sg)
+        finegd_e_xc = xc.calculate(dens.finegd, nt_sr)
         D_asp = self.atomdist.to_work(dens.D_asp)
         atomic_e_xc = 0.0
         for a, D_sp in D_asp.items():
@@ -391,9 +370,9 @@ class Hamiltonian(object):
         nbytes = self.gd.bytecount()
         nfinebytes = self.finegd.bytecount()
         arrays = mem.subnode('Arrays', 0)
-        arrays.subnode('vHt_g', nfinebytes)
-        arrays.subnode('vt_sG', self.nspins * nbytes)
-        arrays.subnode('vt_sg', self.nspins * nfinebytes)
+        arrays.subnode('vHt_r', nfinebytes)
+        arrays.subnode('vt_sR', self.nspins * nbytes)
+        arrays.subnode('vt_sr', self.nspins * nfinebytes)
         self.xc.estimate_memory(mem.subnode('XC'))
         self.poisson.estimate_memory(mem.subnode('Poisson'))
         self.vbar.estimate_memory(mem.subnode('vbar'))
@@ -407,7 +386,7 @@ class Hamiltonian(object):
             writer.write(name, energy)
 
         writer.write(
-            potential=self.gd.collect(self.vt_sG) * Ha,
+            potential=self.gd.collect(self.vt_sR) * Ha,
             atomic_hamiltonian_matrices=pack_atomic_matrices(self.dH_asp) * Ha)
 
         self.xc.write(writer.child('xc'))
@@ -427,8 +406,8 @@ class Hamiltonian(object):
 
         # Read pseudo potential on the coarse grid
         # and broadcast on kpt/band comm:
-        self.vt_sG = self.gd.empty(self.nspins)
-        self.gd.distribute(h.potential / reader.ha, self.vt_sG)
+        self.vt_sR = self.gd.empty(self.nspins)
+        self.gd.distribute(h.potential / reader.ha, self.vt_sR)
 
         self.atom_partition = AtomPartition(self.gd.comm,
                                             np.zeros(len(self.setups), int),
@@ -490,10 +469,10 @@ class RealSpaceHamiltonian(Hamiltonian):
 
     def update_pseudo_potential(self, dens):
         self.timer.start('vbar')
-        e_zero = self.finegd.integrate(self.vbar_r, dens.finent.density,
-                                       global_integral=False)
+        e_zero = self.finegd.integrate(self.vbar_r, dens.nt_sr,
+                                       global_integral=False).sum()
 
-        vt_r = self.finevt.array[0]
+        vt_r = self.vt_sr[0]
         vt_r[:] = self.vbar_r
         self.timer.stop('vbar')
 
@@ -505,11 +484,10 @@ class RealSpaceHamiltonian(Hamiltonian):
                                                global_integral=False)
 
         if self.nspins == 2:
-            self.finevt.array[1] = vt_r
+            self.vt_sr[1] = vt_r
 
         self.timer.start('XC 3D grid')
-        e_xc = self.xc.calculate(self.finegd, dens.finent.array,
-                                 self.finevt.array)
+        e_xc = self.xc.calculate(self.finegd, dens.nt_sr, self.vt_sr)
         e_xc /= self.finegd.comm.size
         self.timer.stop('XC 3D grid')
 
@@ -523,17 +501,23 @@ class RealSpaceHamiltonian(Hamiltonian):
         e_coulomb = 0.5 * self.finegd.integrate(self.vHt_r, dens.rhot_r,
                                                 global_integral=False)
 
-        for vt_r in self.finevt.array:
+        for vt_r in self.vt_sr:
             vt_r += self.vHt_r
 
         self.timer.stop('Hartree integrate')
 
         with self.timer('Hartree restrict'):
-            self.vt = self.finevt.restrict(self.restrictor, self.redistributor)
+            self.vt_sR = self.restrictor.gdout.empty(1 + self.spinpolarized)
+            for a, b in zip(self.vt_sr, self.vt_sR):
+                if self.redistributor.enabled:
+                    c = self.restrictor.apply(a)
+                    self.redistributor.collect(c, b)
+                else:
+                    self.restrictor.apply(a, output=b)
 
         e_kinetic = 0.0
         s = 0
-        for vt_R, nt_R in zip(self.vt.array, dens.nt.array):
+        for vt_R, nt_R in zip(self.vt_sR, dens.nt_sR):
             if self.ref_vt_sG is not None:
                 vt_R += self.ref_vt_sG[s]
 
@@ -551,26 +535,27 @@ class RealSpaceHamiltonian(Hamiltonian):
         return dens.ghat_aL.integrate(v_r)
 
     def calculate_forces2(self, dens):
-        vbar_av = self.vbar_a.derivative(dens.finent.density)
+        vbar_av = self.vbar_a.derivative(dens.nt_r)
 
         vHt_r = self.vHt_r
         if self.vext:
             vHt_r = vHt_r + self.vext.get_potential(self.finegd)
         ghat_aLv = dens.ghat_aL.derivative(self.vHt_r)
 
-        nct_av = dens.nct_a.derivative(self.vt.potential)
+        vt_R = self.vt_sR.mean(0) if self.spinpolarized else self.vt_sR[0]
+        nct_av = dens.nct_a.derivative(vt_R)
 
         return ghat_aLv, nct_av, vbar_av
 
     def get_electrostatic_potential(self, dens):
         self.update(dens)
 
-        v_g = self.finegd.collect(self.vHt_g, broadcast=True)
-        v_g = self.finegd.zero_pad(v_g)
+        v_r = self.finegd.collect(self.vHt_r, broadcast=True)
+        v_r = self.finegd.zero_pad(v_r)
         if hasattr(self.poisson, 'correction'):
             assert self.poisson.c == 2
-            v_g[:, :, 0] = self.poisson.correction
-        return v_g
+            v_r[:, :, 0] = self.poisson.correction
+        return v_r
 
 
 @frozen
@@ -627,13 +612,13 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vt.array[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
-        nt_dist_sg = dens.xc_redistributor.distribute(dens.finent.array)
-        vxct_dist_sg = dens.xc_redistributor.aux_gd.zeros(self.nspins)
+        nt_dist_sr = dens.xc_redistributor.distribute(dens.finent.array)
+        vxct_dist_sr = dens.xc_redistributor.aux_gd.zeros(self.nspins)
         exc = self.xc.calculate(dens.xc_redistributor.aux_gd,
-                                nt_dist_sg, vxct_dist_sg)
-        vxct_sg = dens.xc_redistributor.collect(vxct_dist_sg)
+                                nt_dist_sr, vxct_dist_sr)
+        vxct_sr = dens.xc_redistributor.collect(vxct_dist_sr)
 
-        for vt_G, vxct_g in zip(self.vt.array, vxct_sg):
+        for vt_G, vxct_g in zip(self.vt.array, vxct_sr):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
             vt_G += vxc_G
             self.vt_Q += vxc_Q / self.nspins

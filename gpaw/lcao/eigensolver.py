@@ -91,7 +91,7 @@ class DirectLCAO(object):
                 s = kpt.s
                 wfs.timer.start('Potential matrix')
                 Vt_xMM = wfs.basis_functions.calculate_potential_matrices(
-                    hamiltonian.vt.array[s])
+                    hamiltonian.vt_sR[s])
                 wfs.timer.stop('Potential matrix')
             self.iterate_one_k_point(hamiltonian, wfs, kpt, Vt_xMM)
 
