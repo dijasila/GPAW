@@ -13,7 +13,7 @@ from ase.utils import basestring, StringIO
 from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
 from gpaw.gaunt import gaunt, nabla
-from gpaw.utilities import unpack, pack
+from gpaw.utilities import unpack
 from gpaw.rotation import rotation
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.xc import XC

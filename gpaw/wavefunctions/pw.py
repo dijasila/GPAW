@@ -14,7 +14,7 @@ from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.lfc import BaseLFC
 from gpaw.lcao.overlap import fbt
-from gpaw.wavefunctions import PlaneWaveExpansionWaveFunctions
+from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline

@@ -5,7 +5,7 @@ from gpaw.fd_operators import Laplace, Gradient
 from gpaw.kpoint import KPoint
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
-from gpaw.wavefunctions import UniformGridWaveFunctions
+from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
 from gpaw.mpi import serial_comm
 from gpaw.preconditioner import Preconditioner
 from gpaw.transformers import Transformer

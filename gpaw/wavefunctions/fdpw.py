@@ -8,7 +8,6 @@ from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.lfc import BasisFunctions
 from gpaw.matrix import Matrix, AtomBlockMatrix
 from gpaw.overlap import Overlap
-from gpaw.utilities import unpack
 from gpaw.utilities.timing import nulltimer
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
@@ -228,7 +227,7 @@ class FDPWWaveFunctions(WaveFunctions):
                     d_nn += ne * np.outer(c_n.conj(), c_n)
                 for a, F_niv in F_aniv.items():
                     F_niv = F_niv.conj()
-                    dH_ii = unpack(dH_asp[a][kpt.s])
+                    dH_ii = dH_asii[a][kpt.s]
                     Q_ni = np.dot(d_nn, kpt.P_ani[a])
                     F_vii = np.dot(np.dot(F_niv.transpose(), Q_ni), dH_ii)
                     F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]

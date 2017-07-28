@@ -131,12 +131,12 @@ class Hamiltonian:
 
     @property
     def vt_sG(self):
-        asdf
+        1 / 0
         return self.vt_sR
 
     @property
     def vt_sg(self):
-        asdf
+        1 / 0
         return self.vt_sr
 
     def __str__(self):
@@ -409,9 +409,9 @@ class Hamiltonian:
         self.vt_sR = self.gd.empty(self.nspins)
         self.gd.distribute(h.potential / reader.ha, self.vt_sR)
 
-        self.atom_partition = AtomPartition(self.gd.comm,
-                                            np.zeros(len(self.setups), int),
-                                            name='hamiltonian-init-serial')
+        # self.atom_partition = AtomPartition(self.gd.comm,
+        #                                     np.zeros(len(self.setups), int),
+        #                                     name='hamiltonian-init-serial')
 
         # Read non-local part of hamiltonian
         self.dH_asp = {}

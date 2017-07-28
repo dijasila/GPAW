@@ -10,10 +10,6 @@ functions.
 """
 import numpy as np
 
-from gpaw.utilities.tools import tri2full
-from gpaw import extra_parameters
-from gpaw.utilities.lapack import diagonalize
-
 
 class Overlap:
     """Overlap operator S

@@ -2,7 +2,6 @@ from functools import partial
 
 from ase.utils.timing import timer
 import numpy as np
-import scipy.linalg as linalg
 
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.matrix import AtomBlockMatrix

@@ -17,7 +17,7 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
 from gpaw.utilities import mlsqr
-from gpaw.utilities.blas import rk, r2k, gemv, gemm
+from gpaw.utilities.blas import rk, r2k, gemm
 
 
 # Remove this:  XXX
