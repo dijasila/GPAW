@@ -50,7 +50,7 @@ ind = LrTDDFTInducedField(paw=calc, lr=lr, frequencies=frequencies,
                           folding=folding, width=width, kickdir=kickdir)
 ind.calculate_induced_field(gridrefinement=2,
                             from_density='comp',
-                            poisson_eps=poisson_eps,
+                            poissonsolver=poissonsolver,
                             extend_N_cd=3 * np.ones((3, 2), int),
                             deextend=True)
 
