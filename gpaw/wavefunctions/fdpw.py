@@ -43,8 +43,55 @@ class FDPWWaveFunctions(WaveFunctions):
     def set_orthonormalized(self, flag):
         self.orthonormalized = flag
 
+    def add_pseudo_partial_waves(self, lfc, multiplier=1.0):
+        """Add localized functions times current projections (P_ani).
+
+        Effectively "cut and paste" wavefunctions when moving the atoms.
+        This should yield better initial wavefunctions at each step in
+        relaxations.  Use multiplier -1 to subtract and +1 to add."""
+        # XXX this will only work with 'single-zeta type' basis functions.
+        # We should pick the correct ones to use.  In fact it should be
+        # strictly phit_j because those are orthonormal to projectors.
+
+        # This is not a real 'basis' functions object because those
+        # enumerate their states differently.  We could construct a
+        # better guess by using a larger basis for this, but that would
+        # require explicit calculation of the coefficients.
+
+        # We want to ignore projectors for fictional unbound states.
+        # That means always picking only some of the lowest functions, i.e.
+        # a lower number of 'i' indices:
+        ni_a = {}
+
+        for a, P_ni in self.kpt_u[0].P_ani.items():
+            setup = self.setups[a]
+            nj = len(setup.phit_j)
+            ni_a[a] = sum(2 * l + 1 for l in setup.l_j[:nj])
+
+        for kpt in self.kpt_u:
+            P_ani = {}
+            for a in kpt.P_ani:
+                P_ani[a] =  multiplier * kpt.P_ani[a][:, :ni_a[a]]
+            lfc.add(kpt.psit_nG, c_axi=P_ani, q=kpt.q)
+
     def set_positions(self, spos_ac, atom_partition=None):
+        move_wfs = self.kpt_u[0].psit_nG is not None
+
+        if move_wfs:
+            # Subtract pseudo partial waves times projections at old positions:
+            bfs = self.get_pseudo_partial_waves()
+            bfs.set_positions(self.spos_ac)
+            self.add_pseudo_partial_waves(bfs, multiplier=-1.0)
+
         WaveFunctions.set_positions(self, spos_ac, atom_partition)
+
+        if move_wfs:
+            # Add pseudo partial waves times projections at new positions:
+            # (The projections dictionary was updated by the superclass
+            #  in case some atoms moved between domains)
+            bfs.set_positions(spos_ac)
+            self.add_pseudo_partial_waves(bfs, multiplier=1.0)
+
         self.set_orthonormalized(False)
         self.pt.set_positions(spos_ac)
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
