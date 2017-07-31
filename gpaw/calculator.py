@@ -262,7 +262,7 @@ class GPAW(PAW, Calculator):
                 self.scf = None
                 self.initialize(atoms)
 
-            self.set_positions(atoms)
+            self.set_positions(atoms, move_wfs=True)
 
         if not self.initialized:
             self.initialize(atoms)
@@ -415,7 +415,7 @@ class GPAW(PAW, Calculator):
             else:
                 raise TypeError('Unknown keyword argument: "%s"' % key)
 
-    def initialize_positions(self, atoms=None):
+    def initialize_positions(self, atoms=None, move_wfs=False):
         """Update the positions of the atoms."""
         self.log('Initializing position-dependent things.\n')
         if atoms is None:
@@ -430,15 +430,15 @@ class GPAW(PAW, Calculator):
 
         rank_a = self.wfs.gd.get_ranks_from_positions(spos_ac)
         atom_partition = AtomPartition(self.wfs.gd.comm, rank_a, name='gd')
-        self.wfs.set_positions(spos_ac, atom_partition)
+        self.wfs.set_positions(spos_ac, atom_partition, move_wfs=move_wfs)
         self.density.set_positions(spos_ac, atom_partition)
         self.hamiltonian.set_positions(spos_ac, atom_partition)
 
         return spos_ac
 
-    def set_positions(self, atoms=None):
+    def set_positions(self, atoms=None, move_wfs=False):
         """Update the positions of the atoms and initialize wave functions."""
-        spos_ac = self.initialize_positions(atoms)
+        spos_ac = self.initialize_positions(atoms, move_wfs=move_wfs)
 
         nlcao, nrand = self.wfs.initialize(self.density, self.hamiltonian,
                                            spos_ac)

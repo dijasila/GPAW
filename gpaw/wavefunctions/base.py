@@ -177,7 +177,7 @@ class WaveFunctions:
                     D_sp[s] = pack(setup.symmetrize(a, D_aii,
                                                     self.kd.symmetry.a_sa))
 
-    def set_positions(self, spos_ac, atom_partition=None):
+    def set_positions(self, spos_ac, atom_partition=None, move_wfs=False):
         self.positions_set = False
         # rank_a = self.gd.get_ranks_from_positions(spos_ac)
         # atom_partition = AtomPartition(self.gd.comm, rank_a)

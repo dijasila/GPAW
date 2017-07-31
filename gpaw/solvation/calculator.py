@@ -49,8 +49,8 @@ class SolvationGPAW(GPAW):
 
         self.log(self.hamiltonian)
 
-    def initialize_positions(self, atoms=None):
-        spos_ac = GPAW.initialize_positions(self, atoms)
+    def initialize_positions(self, atoms=None, move_wfs=False):
+        spos_ac = GPAW.initialize_positions(self, atoms, move_wfs=move_wfs)
         self.hamiltonian.update_atoms(self.atoms, self.log)
         return spos_ac
 

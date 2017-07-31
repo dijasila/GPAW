@@ -74,9 +74,9 @@ class FDPWWaveFunctions(WaveFunctions):
                 P_ani[a] =  multiplier * kpt.P_ani[a][:, :ni_a[a]]
             lfc.add(kpt.psit_nG, c_axi=P_ani, q=kpt.q)
 
-    def set_positions(self, spos_ac, atom_partition=None):
-        move_wfs = (self.kpt_u[0].psit_nG is not None
-                    and self.spos_ac is not None)
+    def set_positions(self, spos_ac, atom_partition=None, move_wfs=False):
+        move_wfs &= (self.kpt_u[0].psit_nG is not None
+                     and self.spos_ac is not None)
 
         if move_wfs:
             # Subtract pseudo partial waves times projections at old positions:
