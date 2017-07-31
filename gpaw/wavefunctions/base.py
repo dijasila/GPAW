@@ -114,7 +114,7 @@ class WaveFunctions:
         for kpt in self.kpt_u:
             kpt.P_In = ProjectionMatrix(nproj_a, self.bd.nbands,
                                         self.gd.comm, self.bd.comm, rank_a,
-                                        self.collinear, kpt.s)
+                                        self.collinear, kpt.s, self.dtype)
 
     def collect_eigenvalues(self, k, s):
         return self.collect_array('eps_n', k, s)

@@ -59,6 +59,8 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
         self.myshape = (M.dist.shape[0],) + tuple(gd.n_c)
         self.gd = gd
         self.dv = gd.dv
+        self.kpt = kpt
+        self.spin = spin
         self.comm = gd.comm
 
     @property
@@ -74,7 +76,8 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
     def new(self, buf=None):
         return UniformGridWaveFunctions(len(self), self.gd, self.dtype,
                                         buf,
-                                        None, self.matrix.dist)
+                                        self.kpt, self.matrix.dist,
+                                        self.spin)
 
     def plot(self):
         import matplotlib.pyplot as plt

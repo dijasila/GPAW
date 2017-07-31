@@ -13,7 +13,8 @@ class AtomCenteredFunctions:
         else:
             self.space = 'real'
             from gpaw.lfc import LFC
-            self.lfc = LFC(desc, functions_a, integral=integral, cut=cut)
+            self.lfc = LFC(desc, functions_a, kd=kd,
+                           integral=integral, cut=cut)
         self.indices = []
         I1 = 0
         for a, functions in enumerate(functions_a):
@@ -31,14 +32,19 @@ class AtomCenteredFunctions:
 
     def add_to(self, array, coefs=1.0, force_real_space=False):
         if not isinstance(array, np.ndarray):
+            kpt = array.kpt
             array = array.array
+        else:
+            kpt = -1
+
         if not isinstance(coefs, (float, dict)):
             coefs = coefs.todict()
+
         if self.space == 'reciprocal' and force_real_space:
             pd = self.lfc.pd
             array += pd.ifft(coefs / pd.gd.dv * self.lfc.expand(-1).sum(0))
         else:
-            self.lfc.add(array, coefs)
+            self.lfc.add(array, coefs, kpt)
 
     def derivative(self, array, out=None):
         if out is None:
@@ -69,7 +75,7 @@ class AtomCenteredFunctions:
                 N = other.myshape[0]
                 out = out = {a: np.empty((N, I2 - I1, 3), other.dtype)
                              for a, I1, I2 in self.indices}
-            self.lfc.derivative(other.array, out)
+            self.lfc.derivative(other.array, out, other.kpt)
             return out
 
         self.lfc.integrate(other.array, self.dictview(out), -1)

@@ -111,13 +111,13 @@ class BLACSDistribution:
                          opb, opa)
 
     def cholesky(self, S_nn):
-        lapack.cholesky(S_nn)
+        1 / 0  # 1 / 0  # lapack.cholesky(S_nn)
 
     def inverse_cholesky(self, S_nn):
-        lapack.inv(S_nn)
+        1 / 0  # lapack.inv(S_nn)
 
     def diagonalize(self, H_nn, eps_n):
-        lapack.diagonalize(H_nn, eps_n)
+        1 / 0  # lapack.diagonalize(H_nn, eps_n)
 
 
 def create_distribution(M, N, comm=None, r=1, c=1, b=None):
@@ -184,7 +184,7 @@ class Matrix:
     def __setitem__(self, i, x):
         # assert i == slice(None)
         if isinstance(x, np.ndarray):
-            sssssself.array[:] = x
+            1 / 0  # sssssself.array[:] = x
         else:
             x.eval(self)
 
@@ -294,7 +294,7 @@ class AtomBlockMatrix:
 
 class ProjectionMatrix(Matrix):
     def __init__(self, nproj_a, nbands, acomm, bcomm, rank_a,
-                 collinear=True, spin=0):
+                 collinear=True, spin=0, dtype=float):
         self.nproj_a = nproj_a
         self.acomm = acomm
         self.bcomm = bcomm
@@ -312,12 +312,12 @@ class ProjectionMatrix(Matrix):
                 self.indices.append((a, I1, I2))
                 I1 = I2
 
-        Matrix.__init__(self, I2, nbands, dist=(bcomm, 1, -1))
+        Matrix.__init__(self, I2, nbands, dtype, dist=(bcomm, 1, -1))
 
     def new(self):
         return ProjectionMatrix(
             self.nproj_a, self.shape[1], self.acomm, self.bcomm,
-            self.rank_a, self.collinear, self.spin)
+            self.rank_a, self.collinear, self.spin, self.dtype)
 
     def add_product(self, factor, dS_II, P_In, eps_n):
         assert factor == -1.0
@@ -335,6 +335,7 @@ class ProjectionMatrix(Matrix):
         return dict(self.items())
 
 
+"""
 class HMMM:
     def __init__(self, M, comm, dtype, P_ani, dist):
         if isinstance(P_ani, dict):
@@ -381,3 +382,4 @@ class HMMM:
                 c.array[:, I1:I2] = np.dot(self.array[:, I1:I2], M_ii)
         else:
             SpatialMatrix.multiply(self, alpha, opa, b, opb, beta, c)
+"""

@@ -5,7 +5,7 @@ import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.matrix import AtomBlockMatrix, Matrix
 from gpaw.atom_centered_functions import AtomCenteredFunctions
-from gpaw.wavefunctions import UniformGridWaveFunctions
+from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
 from gpaw.spline import Spline
 
 

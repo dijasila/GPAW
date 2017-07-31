@@ -26,7 +26,7 @@ class BaseAtomicCorrection:
     def calculate_hamiltonian(self, wfs, kpt, dH_II, H_MM, yy):
         # avalues = self.get_a_values()
 
-        dH_aii = {a: yy * dH_sii[kpt.s]
+        dH_aii = {a: yy * dH_sii[kpt.s].astype(wfs.dtype)
                   for a, dH_sii in dH_II.dH_asii.items()}
         self.calculate(wfs, kpt.q, dH_aii, H_MM)
 
