@@ -82,6 +82,10 @@ class FDWaveFunctions(FDPWWaveFunctions):
             kpt, psit_xG, Htpsit_xG, ham.dH_asp)
         self.timer.stop('Apply hamiltonian')
 
+    def get_pseudo_partial_waves(self):
+        return LFC(self.gd, [setup.phit_j for setup in self.setups],
+                   kd=self.kd, cut=True, dtype=self.dtype)
+
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
         # Used in calculation of response part of GLLB-potential
         nt_G = nt_sG[kpt.s]

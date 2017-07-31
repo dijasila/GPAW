@@ -527,6 +527,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         FDPWWaveFunctions.set_setups(self, setups)
 
+    def get_pseudo_partial_waves(self):
+        return PWLFC([setup.phit_j for setup in self.setups], self.pd)
+
     def __str__(self):
         s = 'Wave functions: Plane wave expansion\n'
         s += '  Cutoff energy: %.3f eV\n' % (self.pd.ecut * units.Hartree)
