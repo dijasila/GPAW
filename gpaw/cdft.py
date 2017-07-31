@@ -9,6 +9,7 @@ import numpy as np
 from scipy.optimize import minimize
 
 from gpaw.external import ExternalPotential
+from gpaw.utilities.tools import coordinates
             
         
 class CDFT(Calculator):
@@ -100,7 +101,7 @@ def gaussians(gd, positions, numbers):
     sigmas = radii * min(covalent_radii) + 0.5
     result_R = gd.zeros()
     for pos, Z, rc, sigma in zip(positions, numbers, cutoffs, sigmas):
-        d2_R = ((r_Rv - pos)**2).sum(3)
+        d2_R = coordinates(gd, origin = pos, tiny = 0)[1]
         a_R = Z / (sigma * (2 * np.pi)**0.5) * np.exp(-d2_R / (2 * sigma**2))
         a_R[d2_R > rc**2] = 0.0
         result_R += a_R
