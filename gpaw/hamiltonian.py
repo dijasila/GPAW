@@ -241,6 +241,7 @@ class Hamiltonian:
 
     def get_energy(self, occ):
         self.e_kinetic = self.e_kinetic0 + occ.e_band
+        print(self.e_kinetic0, occ.e_band)
         self.e_entropy = occ.e_entropy
 
         self.e_total_free = (self.e_kinetic + self.e_coulomb +

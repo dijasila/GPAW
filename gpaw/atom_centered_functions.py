@@ -78,7 +78,7 @@ class AtomCenteredFunctions:
             self.lfc.derivative(other.array, out, other.kpt)
             return out
 
-        self.lfc.integrate(other.array, self.dictview(out), -1)
+        self.lfc.integrate(other.array, self.dictview(out), other.kpt)
 
     def dictview(self, matrix):
         M_In = matrix.array

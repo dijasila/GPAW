@@ -261,7 +261,8 @@ class Density:
         self.mixer.reset()
 
         self.nct_R = self.gd.zeros()
-        self.nct_a.add_to(self.nct_R, 1 / (1 + self.spinpolarized), force_real_space=True)
+        self.nct_a.add_to(self.nct_R, 1 / (1 + self.spinpolarized),
+                          force_real_space=True)
 
         self.nt_sR = None
         self.Q_aL = None

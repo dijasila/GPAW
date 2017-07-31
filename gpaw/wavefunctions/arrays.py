@@ -97,6 +97,8 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
         ArrayWaveFunctions.__init__(self, nbands, ng, dtype, data, dist)
         self.pd = pd
         self.dv = pd.gd.dv / pd.gd.N_c.prod()
+        self.kpt = kpt
+        self.spin = spin
         self.myshape = (self.matrix.dist.shape[0], ng)
 
     def multiply(self, alpha, opa, b, opb, beta, c):
@@ -118,4 +120,5 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
             buf.shape = array.shape
         return PlaneWaveExpansionWaveFunctions(len(self), self.pd, self.dtype,
                                                buf,
-                                               None, self.matrix.dist)
+                                               self.kpt, self.matrix.dist,
+                                               self.spin)
