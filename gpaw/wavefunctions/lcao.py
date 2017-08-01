@@ -201,7 +201,7 @@ class LCAOWaveFunctions(WaveFunctions):
         self.S_qMM = S_qMM
         self.T_qMM = T_qMM
 
-    def initialize(self, density, hamiltonian, spos_ac):
+    def initialize(self, density, hamiltonian, spos_ac, rank_a):
         self.timer.start('LCAO WFS Initialize')
         if density.nt_sG is None:
             if self.kpt_u[0].f_n is None or self.kpt_u[0].C_nM is None:
