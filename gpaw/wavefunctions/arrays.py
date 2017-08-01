@@ -26,7 +26,7 @@ class ArrayWaveFunctions:
 
     def matrix_elements(self, other, out=None, hermitian=False):
         if out is None:
-            out = Matrix(len(self), len(other))
+            out = Matrix(len(self), len(other), dtype=self.dtype)
         self.multiply(self.dv, 'C', other, 'T', 0.0, out)
         return out
 

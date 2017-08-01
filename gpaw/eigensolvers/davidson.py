@@ -82,6 +82,17 @@ class Davidson(Eigensolver):
         dS_II = AtomBlockMatrix(wfs.setups[a].dO_ii
                                 for a in kpt.P_In.my_atom_indices)
 
+        def matrix_elements(a_n, b_n, Pa_In, dM_II, Pb_In, C_nn,
+                            hermitian=False, M_nn=M_nn):
+            """Fill C_nn with <a|b> matrix elements."""
+            a_n.matrix_elements(b_n, out=M_nn, hermitian=hermitian)
+            dMP_In[:] = dM_II * Pb_In
+            M_nn += Pa_In.H * dMP_In
+            C_nn[:] = M_nn.array
+
+        #mat(psit_n, psit_n, P_In, dS_II, P_In, S_NN[:B, :B])
+        #print(S_NN[:B,:B])
+
         if self.keep_htpsit:
             R_n = psit_n.new(buf=self.Htpsit_nG)
         else:
@@ -115,14 +126,6 @@ class Davidson(Eigensolver):
 
             Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
-            def mat(a_n, b_n, Pa_In, dM_II, Pb_In, C_nn,
-                    hermitian=False, M_nn=M_nn):
-                """Fill C_nn with <a|b> matrix elements."""
-                a_n.matrix_elements(b_n, out=M_nn, hermitian=hermitian)
-                dMP_In[:] = dM_II * Pb_In
-                M_nn += Pa_In.H * dMP_In
-                C_nn[:] = M_nn.array
-
             # Calculate projections
             wfs.pt_I.matrix_elements(psit2_n, out=P2_In)
 
@@ -131,30 +134,35 @@ class Davidson(Eigensolver):
             with self.timer('calc. matrices'):
                 H_NN[:B, :B] = np.diag(kpt.eps_n)
                 S_NN[:B, :B] = np.eye(B)
+                M = matrix_elements
 
                 # <psi2 | H | psi>
-                mat(R_n, psit_n, P2_In, ham.dH_II, P_In, H_NN[:B, B:])
+                M(R_n, psit_n, P2_In, ham.dH_II, P_In, H_NN[B:, :B])
                 # <psi2 | S | psi>
-                mat(psit2_n, psit_n, P2_In, dS_II, P_In, S_NN[:B, B:])
+                M(psit2_n, psit_n, P2_In, dS_II, P_In, S_NN[B:, :B])
                 # <psi2 | H | psi2>
-                mat(R_n, psit2_n, P2_In, ham.dH_II, P2_In, H_NN[B:, B:], True)
+                M(R_n, psit2_n, P2_In, ham.dH_II, P2_In, H_NN[B:, B:], True)
                 # <psi2 | S | psi2>
-                mat(psit2_n, psit2_n, P2_In, dS_II, P2_In, S_NN[B:, B:])
+                M(psit2_n, psit2_n, P2_In, dS_II, P2_In, S_NN[B:, B:])
 
             with self.timer('diagonalize'):
                 #if gd.comm.rank == 0 and bd.comm.rank == 0:
-                #H_NN[B:, :B] = 0.0
-                #S_NN[B:, :B] = 0.0
-                from gpaw.utilities.lapack import general_diagonalize
-
-                #eps_N, H_NN[:] = linalg.eigh(H_NN, S_NN,
-                #                             lower=False,
-                #                             check_finite=not False)
-                H_NN[B:, :B] = H_NN[:B, B:]
-                S_NN[B:, :B] = S_NN[:B, B:]
-                general_diagonalize(H_NN, eps_N, S_NN)
-                H_NN = H_NN.T.copy()
-
+                H_NN[:B, B:] = 0.0
+                S_NN[:B, B:] = 0.0
+                #from gpaw.utilities.lapack import general_diagonalize
+                from scipy.linalg import eigh
+                eps_N, H_NN[:] = eigh(H_NN, S_NN,
+                                             lower=True,
+                                             check_finite=not False)
+                #H_NN[:B, B:] = H_NN[B:, :B].conj().T
+                #S_NN[:B, B:] = S_NN[B:, :B].conj().T
+                #h=H_NN.copy()
+                #s=S_NN.copy()
+                #general_diagonalize(H_NN, eps_N, S_NN)
+                #H_NN = H_NN.T.copy()
+                #print('???????', np.dot(h.T, H_NN[:,0]) -
+                #      eps_N[0] * np.dot(s.T, H_NN[:,0]))
+                #print(np.dot(H_NN.conj().T, np.dot(s.T, H_NN)))
             #gd.comm.broadcast(H_2n2n, 0)
             #gd.comm.broadcast(eps_2n, 0)
             #bd.comm.broadcast(H_2n2n, 0)
@@ -170,8 +178,26 @@ class Davidson(Eigensolver):
                 R_n += M_nn.T * psit2_n
                 dMP_In += P2_In * M_nn
                 psit_n[:] = R_n
-                kpt.P_In, dMP_In = dMP_In, kpt.P_In
+                kpt.P_In.array[:] = dMP_In.array
+                #kpt.P_In, dMP_In = dMP_In, kpt.P_In
                 P_In = kpt.P_In
+
+            #psit_n.apply(Ht, out=R_n)
+            #mat(R_n, psit_n, P_In, ham.dH_II, P_In, H_NN[:B, :B])
+            #mat(psit_n, psit_n, P_In, dS_II, P_In, S_NN[:B, :B])
+            #dS_ii = wfs.setups[0].dO_ii
+            if 0:
+                print('SSSSS',
+                  np.vdot(psit_n.array[0], psit_n.array[0]) *
+                  wfs.gd.dv +
+                  np.dot(P_In.array[:5,0].conj(),
+                         np.dot(dS_ii, P_In.array[:5,0])) +
+                  np.dot(P_In.array[5:,0].conj(),
+                         np.dot(dS_ii, P_In.array[5:,0]))
+                  )
+            #print(eps_N)
+            #print(H_NN[:B, :B])
+            #print(S_NN[:B, :B])
 
             if nit < self.niter - 1:
                 psit_n.apply(Ht, out=R_n)

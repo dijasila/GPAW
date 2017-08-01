@@ -3,6 +3,7 @@ import numpy as np
 # from gpaw.mpi import world
 # from gpaw.fd_operators import Laplace
 from gpaw.grid_descriptor import GridDescriptor
+from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.matrix import AtomBlockMatrix, Matrix
 from gpaw.atom_centered_functions import AtomCenteredFunctions
 from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
@@ -11,7 +12,7 @@ from gpaw.spline import Spline
 
 def test(desc, kd, spositions, proj, basis, dS_aii,
          bcomm=None,
-         spinpolarized=False, collinear=True, kpt=None, dtype=None):
+         spinpolarized=False, collinear=True, kpt=-1, dtype=None):
     phi_M = AtomCenteredFunctions(desc, basis, kd)  # , [kpt])
     phi_M.set_positions(spositions)
     nbands = len(phi_M)
@@ -21,7 +22,8 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
         pass  # create = PlaneWaveExpansionWaveFunctions
     psi_n = create(nbands, desc, dtype=dtype, kpt=kpt,
                    collinear=collinear, dist=bcomm)
-    psi_n[:] = phi_M
+    phi_M.eval(psi_n)
+    print(psi_n.array.real[:,10,10])
     print(psi_n.array.max())
     # psi_n.plot()
     S_nn = psi_n.matrix_elements(psi_n, hermitian=True)
@@ -75,3 +77,7 @@ basis = [[b, b2], [b, b2]]
 dS_aii = [np.array([[0.3]]), np.array([[0.3]])]
 
 test(gd, None, spos, proj, basis, dS_aii)
+
+kd = KPointDescriptor([[0, 0, 0.25]])
+# kd.gamma = False
+test(gd, kd, spos, proj, basis, dS_aii, kpt=0, dtype=complex)

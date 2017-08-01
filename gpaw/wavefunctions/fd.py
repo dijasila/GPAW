@@ -67,7 +67,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def set_setups(self, setups):
         self.pt_I = ACF(self.gd, [setup.pt_j for setup in setups],
-                        self.kd)  # , dtype=self.dtype, forces=True)
+                        self.kd, dtype=self.dtype)
         FDPWWaveFunctions.set_setups(self, setups)
 
     def __str__(self):
@@ -107,7 +107,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             for d_n, psi0_G in zip(d_nn, kpt.psit_nG):
                 for d, psi_G in zip(d_n, kpt.psit_nG):
                     if abs(d) > 1.e-12:
-                        nt_G += (psi0_G.conj() * d * psi_G).real
+                        nt_R += (psi0_G.conj() * d * psi_G).real
 
     def calculate_kinetic_energy_density(self):
         if self.taugrad_v is None:

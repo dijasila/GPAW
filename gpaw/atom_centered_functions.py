@@ -4,7 +4,8 @@ import numpy as np
 class AtomCenteredFunctions:
     dtype = float
 
-    def __init__(self, desc, functions_a, kd=None, integral=None, cut=False,
+    def __init__(self, desc, functions_a, kd=None, dtype=float,
+                 integral=None, cut=False,
                  comm=None, blocksize=None):
         if desc.__class__.__name__ == 'PWDescriptor':
             self.space = 'reciprocal'
@@ -13,7 +14,7 @@ class AtomCenteredFunctions:
         else:
             self.space = 'real'
             from gpaw.lfc import LFC
-            self.lfc = LFC(desc, functions_a, kd=kd,
+            self.lfc = LFC(desc, functions_a, kd=kd, dtype=dtype,
                            integral=integral, cut=cut)
         self.indices = []
         I1 = 0
@@ -62,11 +63,11 @@ class AtomCenteredFunctions:
         return self.lfc.stress_tensor_contribution(a_q, b_ax, q)
 
     def eval(self, out):
-        out.array[:] = 0.0
-        coef_M = np.zeros(len(self))
-        for M, a in enumerate(out.array):
+        out.matrix.array[:] = 0.0
+        coef_M = np.zeros(len(self), out.dtype)
+        for M, a in enumerate(out.matrix.array):
             coef_M[M] = 1.0
-            self.lfc.lfc.lcao_to_grid(coef_M, a, -1)
+            self.lfc.lfc.lcao_to_grid(coef_M, a, out.kpt)
             coef_M[M] = 0.0
 
     def matrix_elements(self, other, out, hermetian=False, derivative=False):
