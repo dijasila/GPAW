@@ -62,6 +62,7 @@ class GPAW(PAW, Calculator):
         'mixer': None,
         'eigensolver': None,
         'background_charge': None,
+        'experimental': {'move_wfs_with_atoms': True},
         'external': None,
         'random': False,
         'hund': False,
@@ -262,7 +263,8 @@ class GPAW(PAW, Calculator):
                 self.scf = None
                 self.initialize(atoms)
 
-            self.set_positions(atoms, move_wfs=True)
+            move_wfs = self.parameters.experimental['move_wfs_with_atoms']
+            self.set_positions(atoms, move_wfs=move_wfs)
 
         if not self.initialized:
             self.initialize(atoms)
@@ -387,7 +389,7 @@ class GPAW(PAW, Calculator):
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof']:
+                       'eigensolver', 'idiotproof', 'experimental']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
