@@ -65,8 +65,10 @@ class FDPWWaveFunctions(WaveFunctions):
 
         for a, P_ni in self.kpt_u[0].P_ani.items():
             setup = self.setups[a]
-            nj = len(setup.phit_j)
-            ni_a[a] = sum(2 * l + 1 for l in setup.l_j[:nj])
+            l_j = [phit.get_angular_momentum_number()
+                   for phit in setup.get_actual_atomic_orbitals()]
+            assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
+            ni_a[a] = sum(2 * l + 1 for l in l_j)
 
         for kpt in self.kpt_u:
             P_ani = {}
