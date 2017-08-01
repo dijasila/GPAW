@@ -9,10 +9,11 @@ from distutils.version import LooseVersion
 
 from gpaw import debug
 from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
-from gpaw.utilities.debug import frozen
 from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
 from gpaw.utilities import unpack_atomic_matrices, pack_atomic_matrices
+from gpaw.utilities.blas import gemm
+from gpaw.utilities.debug import frozen
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
 from gpaw.wavefunctions.pw import PWDescriptor
@@ -79,7 +80,7 @@ class AtomBlockDensityMatrix:
             D_sii[:] = 0.0
 
         for kpt in wfs.mykpts:
-            self.update1(kpt)
+            self.update1(kpt, wfs)
 
         for D_sii in self.D_asii.values():
             wfs.kptband_comm.sum(D_sii)
@@ -99,23 +100,26 @@ class AtomBlockDensityMatrix:
             D_sii[2] += 2 * D_ssii[0, 1].imag  # ???
             D_sii[3] += D_ssii[0, 0].real - D_ssii[1, 1].real
 
-    def update1(self, kpt):
-        P_In = kpt.P_In
+    def update1(self, kpt, wfs):
         if kpt.rho_MM is None:
+            P_In = kpt.P_In
             for a, I1, I2 in P_In.indices:
                 P_ni = P_In.array[I1:I2].T
                 self._update(self.D_asii[a], P_ni, kpt.f_n, P_In.spin)
         else:
-            P_Mi = self.P_aqMi[a][kpt.q]
-            rhoP_Mi = np.zeros_like(P_Mi)
-            D_ii = np.zeros(D_sii[kpt.s].shape, kpt.rho_MM.dtype)
-            gemm(1.0, P_Mi, kpt.rho_MM, 0.0, rhoP_Mi)
-            gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
-            D_sii[kpt.s] += D_ii.real
+            for a, P_qMi in wfs.P_aqMi.items():
+                P_Mi = P_qMi[kpt.q]
+                rhoP_Mi = np.zeros_like(P_Mi)
+                D_ii = np.zeros(self.D_asii[a][kpt.s].shape, kpt.rho_MM.dtype)
+                gemm(1.0, P_Mi, kpt.rho_MM, 0.0, rhoP_Mi)
+                gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
+                self.D_asii[a][kpt.s] += D_ii.real
 
         if hasattr(kpt, 'c_on'):
+            1 / 0
             for ne, c_n in zip(kpt.ne_o, kpt.c_on):
                 d_nn = ne * np.outer(c_n.conj(), c_n)
+                D_sii = ...
                 D_sii[kpt.s] += np.dot(P_ni.T.conj(), np.dot(d_nn, P_ni)).real
 
     def symmetrize(self, symmetry):
@@ -215,12 +219,12 @@ class Density:
 
     @property
     def nt_sG(self):
-        sdg
+        1 / 0
         return self.nt_sR
 
     @property
     def nt_sg(self):
-        asdf
+        1 / 0
         return self.nt_sr
 
     def __str__(self):

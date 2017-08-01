@@ -4,9 +4,7 @@ from functools import partial
 import numpy as np
 from ase.utils.timing import timer
 
-from gpaw.matrix import AtomBlockMatrix
 from gpaw.utilities.blas import axpy
-from gpaw.utilities import unpack
 from gpaw.xc.hybrid import HybridXC
 
 
