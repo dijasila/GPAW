@@ -86,16 +86,16 @@ class FDWaveFunctions(FDPWWaveFunctions):
             kpt, psit_xG, Htpsit_xG, ham.dH_II)
         self.timer.stop('Apply hamiltonian')
 
-    def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
+    def add_to_density_from_k_point_with_occupation(self, nt_sR, kpt, f_n):
         # Used in calculation of response part of GLLB-potential
-        nt_G = nt_sG[kpt.s]
+        nt_R = nt_sR[kpt.s]
         if self.dtype == float:
             for f, psit_G in zip(f_n, kpt.psit_nG):
-                axpy(f, psit_G**2, nt_G)
+                axpy(f, psit_G**2, nt_R)
         else:
-            for f, psit_G in zip(f_n, kpt.psit_nG):
-                axpy(f, psit_G.real**2, nt_G)
-                axpy(f, psit_G.imag**2, nt_G)
+            for f, psit_R in zip(f_n, kpt.psit_nG):
+                axpy(f, psit_R.real**2, nt_R)
+                axpy(f, psit_R.imag**2, nt_R)
 
         # Hack used in delta-scf calculations:
         if hasattr(kpt, 'c_on'):

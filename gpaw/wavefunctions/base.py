@@ -95,8 +95,8 @@ class WaveFunctions:
             self.kd.symmetry.symmetrize(nt_R, self.gd)
         self.timer.stop('Symmetrize density')
 
-    def add_to_density_from_k_point(self, nt_sG, kpt):
-        self.add_to_density_from_k_point_with_occupation(nt_sG, kpt, kpt.f_n)
+    def add_to_density_from_k_point(self, nt_sR, kpt):
+        self.add_to_density_from_k_point_with_occupation(nt_sR, kpt, kpt.f_n)
 
     def get_orbital_density_matrix(self, a, kpt, n):
         """Add the nth band density from kpt to density matrix D_sp"""

@@ -5,6 +5,7 @@ from math import pi, sqrt
 
 import numpy as np
 from ase.units import Bohr
+from ase.utils.timing import timer
 from distutils.version import LooseVersion
 
 from gpaw import debug
@@ -119,7 +120,7 @@ class AtomBlockDensityMatrix:
             1 / 0
             for ne, c_n in zip(kpt.ne_o, kpt.c_on):
                 d_nn = ne * np.outer(c_n.conj(), c_n)
-                D_sii = ...
+                D_sii = 42
                 D_sii[kpt.s] += np.dot(P_ni.T.conj(), np.dot(d_nn, P_ni)).real
 
     def symmetrize(self, symmetry):
@@ -280,23 +281,18 @@ class Density:
         self.nt_sR[:] = self.nct_R
         wfs.calculate_density_contribution(self.nt_sR)
 
+    @timer('Density')
     def update(self, wfs):
-        self.timer.start('Density')
-        with self.timer('Pseudo density'):
-            self.calculate_pseudo_density(wfs)
-        with self.timer('Atomic density matrices'):
-            self.D_II.update(wfs)
-        with self.timer('Multipole moments'):
-            comp_charge, self.Q_aL = self.D_II.calculate_multipole_moments()
+        self.calculate_pseudo_density(wfs)
+        self.D_II.update(wfs)
+        comp_charge, self.Q_aL = self.D_II.calculate_multipole_moments()
 
         if wfs.mode == 'lcao':
-            with self.timer('Normalize'):
-                self.normalize(comp_charge)
+            self.normalize(comp_charge)
 
-        with self.timer('Mix'):
-            self.mix(comp_charge)
-        self.timer.stop('Density')
+        self.mix(comp_charge)
 
+    @timer('Mix')
     def mix(self, comp_charge):
         assert isinstance(self.mixer, MixerWrapper), self.mixer
         self.error = self.mixer.mix(self.nt_sR, self.D_II.D_asii)
@@ -326,10 +322,10 @@ class Density:
         basis_functions.add_to_density(self.nt_sR, f_asi)
         self.calculate_normalized_charges_and_mix()
 
+    @timer('Density initialized from wave functions')
     def initialize_from_wavefunctions(self, wfs):
         """Initialize D_asp, nt_sR and Q_aL from wave functions."""
         self.log('Density initialized from wave functions')
-        self.timer.start('Density initialized from wave functions')
         self.nt_sR = self.gd.empty(self.nspins)
         self.calculate_pseudo_density(wfs)
         D_asp = self.setups.empty_atomic_matrix(self.nspins,
@@ -337,7 +333,6 @@ class Density:
         wfs.calculate_atomic_density_matrices(D_asp)
         self.D_asp = D_asp
         self.calculate_normalized_charges_and_mix()
-        self.timer.stop('Density initialized from wave functions')
 
     def initialize_directly_from_arrays(self, nt_sR, D_asp):
         """Set D_asp and nt_sR directly."""
@@ -498,7 +493,6 @@ class RealSpaceDensity(Density):
         """Interpolate pseudo density to fine grid."""
 
         comp_charge, Q_aL = self.D_II.calculate_multipole_moments()
-
         self.nt_sr = self.finegd.empty(1 + self.spinpolarized)
 
         for a, b in zip(self.nt_sR, self.nt_sr):
