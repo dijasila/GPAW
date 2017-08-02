@@ -90,9 +90,6 @@ class Davidson(Eigensolver):
             M_nn += Pa_In.H * dMP_In
             C_nn[:] = M_nn.array
 
-        #mat(psit_n, psit_n, P_In, dS_II, P_In, S_NN[:B, :B])
-        #print(S_NN[:B,:B])
-
         if self.keep_htpsit:
             R_n = psit_n.new(buf=self.Htpsit_nG)
         else:
@@ -120,7 +117,7 @@ class Davidson(Eigensolver):
 
             if self.normalize:
                 norms = [integrate(psit2_G) for psit2_G in psit2_n.array]
-                #gd.comm.sum(norm_n)
+                # gd.comm.sum(norm_n)
                 for norm, psit2_G in zip(norms, psit2_n.array):
                     psit2_G *= norm**-0.5
 
@@ -146,27 +143,23 @@ class Davidson(Eigensolver):
                 M(psit2_n, psit2_n, P2_In, dS_II, P2_In, S_NN[B:, B:])
 
             with self.timer('diagonalize'):
-                #if gd.comm.rank == 0 and bd.comm.rank == 0:
+                # if gd.comm.rank == 0 and bd.comm.rank == 0:
                 H_NN[:B, B:] = 0.0
                 S_NN[:B, B:] = 0.0
-                #from gpaw.utilities.lapack import general_diagonalize
+                # from gpaw.utilities.lapack import general_diagonalize
                 from scipy.linalg import eigh
                 eps_N, H_NN[:] = eigh(H_NN, S_NN,
-                                             lower=True,
-                                             check_finite=not False)
-                #H_NN[:B, B:] = H_NN[B:, :B].conj().T
-                #S_NN[:B, B:] = S_NN[B:, :B].conj().T
-                #h=H_NN.copy()
-                #s=S_NN.copy()
-                #general_diagonalize(H_NN, eps_N, S_NN)
-                #H_NN = H_NN.T.copy()
-                #print('???????', np.dot(h.T, H_NN[:,0]) -
-                #      eps_N[0] * np.dot(s.T, H_NN[:,0]))
-                #print(np.dot(H_NN.conj().T, np.dot(s.T, H_NN)))
-            #gd.comm.broadcast(H_2n2n, 0)
-            #gd.comm.broadcast(eps_2n, 0)
-            #bd.comm.broadcast(H_2n2n, 0)
-            #bd.comm.broadcast(eps_2n, 0)
+                                      lower=True,
+                                      check_finite=not False)
+                # H_NN[:B, B:] = H_NN[B:, :B].conj().T
+                # S_NN[:B, B:] = S_NN[B:, :B].conj().T
+                # general_diagonalize(H_NN, eps_N, S_NN)
+                # H_NN = H_NN.T.copy()
+
+            # gd.comm.broadcast(H_2n2n, 0)
+            # gd.comm.broadcast(eps_2n, 0)
+            # bd.comm.broadcast(H_2n2n, 0)
+            # bd.comm.broadcast(eps_2n, 0)
 
             kpt.eps_n[:] = eps_N[bd.get_slice()]
 
@@ -179,25 +172,8 @@ class Davidson(Eigensolver):
                 dMP_In += P2_In * M_nn
                 psit_n[:] = R_n
                 kpt.P_In.array[:] = dMP_In.array
-                #kpt.P_In, dMP_In = dMP_In, kpt.P_In
+                # kpt.P_In, dMP_In = dMP_In, kpt.P_In
                 P_In = kpt.P_In
-
-            #psit_n.apply(Ht, out=R_n)
-            #mat(R_n, psit_n, P_In, ham.dH_II, P_In, H_NN[:B, :B])
-            #mat(psit_n, psit_n, P_In, dS_II, P_In, S_NN[:B, :B])
-            #dS_ii = wfs.setups[0].dO_ii
-            if 0:
-                print('SSSSS',
-                  np.vdot(psit_n.array[0], psit_n.array[0]) *
-                  wfs.gd.dv +
-                  np.dot(P_In.array[:5,0].conj(),
-                         np.dot(dS_ii, P_In.array[:5,0])) +
-                  np.dot(P_In.array[5:,0].conj(),
-                         np.dot(dS_ii, P_In.array[5:,0]))
-                  )
-            #print(eps_N)
-            #print(H_NN[:B, :B])
-            #print(S_NN[:B, :B])
 
             if nit < self.niter - 1:
                 psit_n.apply(Ht, out=R_n)
@@ -205,5 +181,5 @@ class Davidson(Eigensolver):
                                          P_In, kpt.eps_n, dS_II, R_n,
                                          P2_In)
 
-        #error = gd.comm.sum(error)
+        # error = gd.comm.sum(error)
         return error

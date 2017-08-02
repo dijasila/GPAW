@@ -1,6 +1,9 @@
 from __future__ import print_function
+
 import numpy as np
 from ase.units import Ha, alpha, Bohr
+
+from gpaw.utilities import unpack, unpack2
 from gpaw.xc import XC
 
 
@@ -50,7 +53,7 @@ def get_radial_potential(calc, a, ai):
     dr_g = rgd.dr_g
     Ns = calc.wfs.nspins
 
-    D_sp = calc.density.D_asp[ai]
+    D_sp = [unpack2(D_ii) for D_ii in calc.density.D_II.D_asii[ai]]
     B_pq = a.xc_correction.B_pqL[:, :, 0]
     n_qg = a.xc_correction.n_qg
     D_sq = np.dot(D_sp, B_pq)
@@ -266,7 +269,6 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None):
     """Calculates the magnetic moments inside all PAW spheres"""
 
     from gpaw.wannier90 import get_spinorbit_projections
-    from gpaw.utilities import unpack
 
     if nbands is None:
         nbands = calc.get_number_of_bands()

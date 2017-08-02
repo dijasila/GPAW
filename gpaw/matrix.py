@@ -3,6 +3,7 @@ import numpy as np
 import scipy.linalg as linalg
 import gpaw.utilities.blas as blas
 import _gpaw
+from gpaw.utilities import pack2, unpack
 
 
 global_blacs_context_store = {}
@@ -306,6 +307,27 @@ class AtomBlockMatrix:
             self.comm.broadcast(M_sii, self.rank_a[a])
             M_asii.append(M_sii)
         return M_asii
+
+    def pack(self):
+        M_asii = self.broadcast()
+        P = sum(ni * (ni + 1) // 2 for ni in self.size_a)
+        M_sP = np.empty((self.nspins, P))
+        P1 = 0
+        for ni, M_sii in zip(self.size_a, M_asii):
+            P2 = P1 + ni * (ni + 1) // 2
+            M_sP[:, P1:P2] = [pack2(M_ii) for M_ii in M_sii]
+            P1 = P2
+        return M_sP
+
+    def unpack(self, M_sP):
+        assert len(self.M_asii) == 0
+        if M_sP is None:
+            return
+        P1 = 0
+        for a, ni in enumerate(self.size_a):
+            P2 = P1 + ni * (ni + 1) // 2
+            self.M_asii[a][:] = [unpack(M_p) for M_p in M_sP[:, P1:P2]]
+            P1 = P2
 
 
 class ProjectionMatrix(Matrix):

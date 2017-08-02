@@ -375,7 +375,7 @@ class Hamiltonian:
 
         writer.write(
             potential=self.gd.collect(self.vt_sR) * Ha,
-            atomic_hamiltonian_matrices=pack_atomic_matrices(self.dH_asp) * Ha)
+            atomic_hamiltonian_matrices=self.dH_II.pack() * Ha)
 
         self.xc.write(writer.child('xc'))
 
@@ -402,11 +402,7 @@ class Hamiltonian:
         #                                     name='hamiltonian-init-serial')
 
         # Read non-local part of hamiltonian
-        self.dH_asp = {}
-        dH_sP = h.atomic_hamiltonian_matrices / reader.ha
-
-        if self.gd.comm.rank == 0:
-            self.dH_asp = unpack_atomic_matrices(dH_sP, self.setups)
+        self.dH_II.unpack(h.atomic_hamiltonian_matrices / reader.ha)
 
         if hasattr(self.poisson, 'read'):
             self.poisson.read(reader)

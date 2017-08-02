@@ -15,7 +15,6 @@ from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.debug import frozen
-from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
 from gpaw.wavefunctions.pw import PWDescriptor
 
@@ -328,14 +327,6 @@ class Density:
         self.normalize(comp_charge)
         self.mix(comp_charge)
 
-    def initialize_directly_from_arrays(self, nt_sR, D_asp):
-        """Set D_asp and nt_sR directly."""
-        self.nt_sR = nt_sR
-        self.D_asp = D_asp
-        D_asp.check_consistency()
-        # No calculate multipole moments?  Tests will fail because of
-        # improperly initialized mixer
-
     def normalize(self, comp_charge):
         total_charge = (self.charge + comp_charge -
                         self.background_charge.charge)
@@ -417,45 +408,28 @@ class Density:
         return gd.integrate(dt_sr)
 
     def write(self, writer):
+        D_sP = self.D_II.pack()
         writer.write(density=self.gd.collect(self.nt_sR) / Bohr**3,
-                     atomic_density_matrices=
-                     pack_atomic_matrices(self.D_asp))
+                     atomic_density_matrices=D_sP)
 
     def read(self, reader):
-        nt_sR = self.gd.empty(self.nspins)
-        self.gd.distribute(reader.density.density, nt_sR)
-        nt_sR *= reader.bohr**3
+        self.nt_sR = self.gd.empty(self.nspins)
+        self.gd.distribute(reader.density.density, self.nt_sR)
+        self.nt_sR *= reader.bohr**3
 
         # Read atomic density matrices
-        natoms = len(self.setups)
-        atom_partition = AtomPartition(self.gd.comm, np.zeros(natoms, int),
-                                       'density-gd')
-        D_asp = self.setups.empty_atomic_matrix(self.nspins, atom_partition)
-        self.atom_partition = atom_partition  # XXXXXX
-        spos_ac = np.zeros((natoms, 3))  # XXXX
-        self.atomdist = self.redistributor.get_atom_distributions(spos_ac)
-
         D_sP = reader.density.atomic_density_matrices
-        if self.gd.comm.rank == 0:
-            D_asp.update(unpack_atomic_matrices(D_sP, self.setups))
-            D_asp.check_consistency()
-
-        self.initialize_directly_from_arrays(nt_sR, D_asp)
+        self.D_II.unpack(D_sP)
 
     def initialize_from_other_density(self, dens, kptband_comm):
         """Redistribute pseudo density and atomic density matrices.
 
         Collect dens.nt_sR and dens.D_asp to world master and distribute."""
 
-        new_nt_sR = redistribute_array(dens.nt_sR, dens.gd, self.gd,
-                                       self.nspins, kptband_comm)
+        self.nt_sR = redistribute_array(dens.nt_sR, dens.gd, self.gd,
+                                        self.nspins, kptband_comm)
 
-        self.atom_partition, self.atomdist, D_asp = \
-            redistribute_atomic_matrices(dens.D_asp, self.gd, self.nspins,
-                                         self.setups, self.redistributor,
-                                         kptband_comm)
-
-        self.initialize_directly_from_arrays(new_nt_sR, D_asp)
+        self.D_II.redistribute(dens)
 
 
 @frozen
@@ -630,24 +604,3 @@ def redistribute_array(nt_sR, gd1, gd2, nspins, kptband_comm):
         gd2.distribute(nt_sR, new_nt_sR)
     kptband_comm.broadcast(new_nt_sR, 0)
     return new_nt_sR
-
-
-def redistribute_atomic_matrices(D_asp, gd2, nspins, setups, redistributor,
-                                 kptband_comm):
-    D_sP = pack_atomic_matrices(D_asp)
-    natoms = len(setups)
-    atom_partition = AtomPartition(gd2.comm, np.zeros(natoms, int),
-                                   'density-gd')
-    D_asp = setups.empty_atomic_matrix(nspins, atom_partition)
-    spos_ac = np.zeros((natoms, 3))  # XXXX
-    atomdist = redistributor.get_atom_distributions(spos_ac)
-
-    if gd2.comm.rank == 0:
-        if kptband_comm.rank > 0:
-            nP = sum(setup.ni * (setup.ni + 1) // 2
-                     for setup in setups)
-            D_sP = np.empty((nspins, nP))
-        kptband_comm.broadcast(D_sP, 0)
-        D_asp.update(unpack_atomic_matrices(D_sP, setups))
-        D_asp.check_consistency()
-    return atom_partition, atomdist, D_asp

@@ -164,8 +164,8 @@ class PAW:
         self.calculate(system_changes=[])
         self.density.fixed = fixed
 
-    def diagonalize_full_hamiltonian(self, nbands=None, ecut=None, scalapack=None,
-                                     expert=False):
+    def diagonalize_full_hamiltonian(self, nbands=None, ecut=None,
+                                     scalapack=None, expert=False):
         if not self.initialized:
             self.initialize()
         nbands = self.wfs.diagonalize_full_hamiltonian(
@@ -221,49 +221,49 @@ class PAW:
         1)."""
 
         if gridrefinement == 1:
-            nt_sG = self.density.nt_sG
+            nt_sR = self.density.nt_sR
             gd = self.density.gd
         elif gridrefinement == 2:
             if self.density.nt_sg is None:
                 self.density.interpolate_pseudo_density()
-            nt_sG = self.density.nt_sg
+            nt_sR = self.density.nt_sg
             gd = self.density.finegd
         else:
             raise NotImplementedError
 
         if spin is None:
             if self.density.nspins == 1:
-                nt_G = nt_sG[0]
+                nt_R = nt_sR[0]
             else:
-                nt_G = nt_sG.sum(axis=0)
+                nt_R = nt_sR.sum(axis=0)
         else:
             if self.density.nspins == 1:
-                nt_G = 0.5 * nt_sG[0]
+                nt_R = 0.5 * nt_sR[0]
             else:
-                nt_G = nt_sG[spin]
+                nt_R = nt_sR[spin]
 
-        nt_G = gd.collect(nt_G, broadcast)
+        nt_R = gd.collect(nt_R, broadcast)
 
-        if nt_G is None:
+        if nt_R is None:
             return None
 
         if pad:
-            nt_G = gd.zero_pad(nt_G)
+            nt_R = gd.zero_pad(nt_R)
 
-        return nt_G / Bohr**3
+        return nt_R / Bohr**3
 
     get_pseudo_valence_density = get_pseudo_density  # Don't use this one!
 
     def get_effective_potential(self, spin=0, pad=True, broadcast=True):
         """Return pseudo effective-potential."""
-        vt_G = self.hamiltonian.gd.collect(self.hamiltonian.vt_sG[spin],
+        vt_R = self.hamiltonian.gd.collect(self.hamiltonian.vt_sR[spin],
                                            broadcast=broadcast)
-        if vt_G is None:
+        if vt_R is None:
             return None
 
         if pad:
-            vt_G = self.hamiltonian.gd.zero_pad(vt_G)
-        return vt_G * Ha
+            vt_R = self.hamiltonian.gd.zero_pad(vt_R)
+        return vt_R * Ha
 
     def get_electrostatic_potential(self):
         """Return the electrostatic potential.
@@ -299,29 +299,29 @@ class PAW:
                                  pad=True, broadcast=True, collect=True,
                                  skip_core=False):
         """Return reconstructed all-electron density array."""
-        n_sG, gd = self.density.get_all_electron_density(
+        n_sR, gd = self.density.get_all_electron_density(
             self.atoms, gridrefinement=gridrefinement, skip_core=skip_core)
         if spin is None:
             if self.density.nspins == 1:
-                n_G = n_sG[0]
+                n_R = n_sR[0]
             else:
-                n_G = n_sG.sum(axis=0)
+                n_R = n_sR.sum(axis=0)
         else:
             if self.density.nspins == 1:
-                n_G = 0.5 * n_sG[0]
+                n_R = 0.5 * n_sR[0]
             else:
-                n_G = n_sG[spin]
+                n_R = n_sR[spin]
 
         if collect:
-            n_G = gd.collect(n_G, broadcast)
+            n_R = gd.collect(n_R, broadcast)
 
-        if n_G is None:
+        if n_R is None:
             return None
 
         if pad:
-            n_G = gd.zero_pad(n_G)
+            n_R = gd.zero_pad(n_R)
 
-        return n_G / Bohr**3
+        return n_R / Bohr**3
 
     def get_fermi_level(self):
         """Return the Fermi-level(s)."""
@@ -361,12 +361,12 @@ class PAW:
         from gpaw.analyse.wignerseitz import wignerseitz
         atom_index = wignerseitz(self.wfs.gd, self.atoms)
 
-        nt_G = self.density.nt_sG[spin]
+        nt_R = self.density.nt_sR[spin]
         weight_a = np.empty(len(self.atoms))
         for a in range(len(self.atoms)):
             # XXX Optimize! No need to integrate in zero-region
             smooth = self.wfs.gd.integrate(np.where(atom_index == a,
-                                                    nt_G, 0.0))
+                                                    nt_R, 0.0))
             correction = self.density.get_correction(a, spin)
             weight_a[a] = smooth + correction
 
@@ -498,24 +498,24 @@ class PAW:
             self.initialize_positions()
 
         if pad:
-            psit_G = self.get_pseudo_wave_function(band, kpt, spin, broadcast,
+            psit_R = self.get_pseudo_wave_function(band, kpt, spin, broadcast,
                                                    pad=False,
                                                    periodic=periodic)
-            if psit_G is None:
+            if psit_R is None:
                 return
             else:
-                return self.wfs.gd.zero_pad(psit_G)
+                return self.wfs.gd.zero_pad(psit_R)
 
-        psit_G = self.wfs.get_wave_function_array(band, kpt, spin,
+        psit_R = self.wfs.get_wave_function_array(band, kpt, spin,
                                                   periodic=periodic)
         if broadcast:
             if not self.wfs.world.rank == 0:
-                psit_G = self.wfs.gd.empty(dtype=self.wfs.dtype,
+                psit_R = self.wfs.gd.empty(dtype=self.wfs.dtype,
                                            global_array=True)
-            self.wfs.world.broadcast(psit_G, 0)
-            return psit_G / Bohr**1.5
+            self.wfs.world.broadcast(psit_R, 0)
+            return psit_R / Bohr**1.5
         elif self.wfs.world.rank == 0:
-            return psit_G / Bohr**1.5
+            return psit_R / Bohr**1.5
 
     def get_eigenvalues(self, kpt=0, spin=0, broadcast=True):
         """Return eigenvalue array."""
