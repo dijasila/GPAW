@@ -79,8 +79,8 @@ class Davidson(Eigensolver):
         P2_In = P_In.new()
         dMP_In = P_In.new()
         M_nn = wfs.work_matrix_nn
-        dS_II = AtomBlockMatrix(wfs.setups[a].dO_ii
-                                for a in kpt.P_In.my_atom_indices)
+        dS_II = AtomBlockMatrix({a: wfs.setups[a].dO_ii
+                                for a in kpt.P_In.my_atom_indices})
 
         def matrix_elements(a_n, b_n, Pa_In, dM_II, Pb_In, C_nn,
                             hermitian=False, M_nn=M_nn):

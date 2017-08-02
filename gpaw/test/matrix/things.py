@@ -74,7 +74,7 @@ b2 = Spline(0, 1.7, [-1, -0.5, -0.2, 0.1, 0.0])
 
 proj = [[p], [p]]
 basis = [[b, b2], [b, b2]]
-dS_aii = [np.array([[0.3]]), np.array([[0.3]])]
+dS_aii = {0: np.array([[0.3]]), 1: np.array([[0.3]])}
 
 test(gd, None, spos, proj, basis, dS_aii)
 

@@ -10,9 +10,9 @@ from distutils.version import LooseVersion
 
 from gpaw import debug
 from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
+from gpaw.matrix import AtomBlockMatrix
 from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
-from gpaw.utilities import unpack_atomic_matrices, pack_atomic_matrices
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.debug import frozen
 from gpaw.utilities.partition import AtomPartition
@@ -34,7 +34,7 @@ class NullBackgroundCharge:
 
 
 @frozen
-class AtomBlockDensityMatrix:
+class AtomBlockDensityMatrix(AtomBlockMatrix):
     def __init__(self, setups, spinpolarized=False, collinear=True,
                  comm=None, rank_a=None):
         self.setups = setups
@@ -45,19 +45,20 @@ class AtomBlockDensityMatrix:
 
         self.D_asii = {}
 
+        AtomBlockMatrix.__init__(self, self.D_asii, 1 + spinpolarized,
+                                 [setup.ni for setup in setups])
+
     def initialize(self, charge, magmom_a, hund):
         f_asi = {}
         for a, M in enumerate(magmom_a):
             f_si = self.setups[a].calculate_initial_occupation_numbers(
-                abs(M), hund, charge=charge, nspins=1 + self.spinpolarized)
+                abs(M), hund, charge=charge / len(self.setups),
+                nspins=1 + self.spinpolarized)
             if M < 0:
                 f_si = f_si[::-1]
             f_asi[a] = f_si
             self.D_asii[a] = self.setups[a].initialize_density_matrix(f_si)
         return f_asi
-
-    def set_ranks(self, rank_a):
-        self.rank_a = rank_a
 
     def calculate_multipole_moments(self):
         """Calculate multipole moments of compensation charges.
@@ -135,17 +136,6 @@ class AtomBlockDensityMatrix:
                 setup = self.setups[a]
                 D_sii[s] = setup.symmetrize(a, D_aii, symmetry.a_sa)
 
-    def broadcast(self):
-        D_asii = []
-        for a, setup in enumerate(self.setups):
-            D_sii = self.D_asii.get(a)
-            if D_sii is None:
-                ni = setup.ni
-                D_sii = np.empty((self.nspins, ni, ni))
-            self.comm.broadcast(D_sii, self.rank_a[a])
-            D_asii.append(D_sii)
-        return D_asii
-
     def estimate_magnetic_moments(self):
         magmom_a = np.zeros(self.rank_a.shape)
         if self.spinpolarized:
@@ -177,6 +167,7 @@ class Density:
                  background_charge=None):
         self.gd = gd
         self.finegd = finegd
+        self.nspins = nspins
         self.spinpolarized = nspins == 2
         self.collinear = True
         self.charge = float(charge)
@@ -260,7 +251,7 @@ class Density:
         self.nt_sR = None
 
     def set_positions(self, spos_ac, rank_a):
-        self.D_II.set_ranks(rank_a)
+        self.D_II.rank_a = rank_a
         self.nct_a.set_positions(spos_ac)
         self.ghat_aL.set_positions(spos_ac)
         self.mixer.reset()
@@ -296,7 +287,6 @@ class Density:
     def mix(self, comp_charge):
         assert isinstance(self.mixer, MixerWrapper), self.mixer
         self.error = self.mixer.mix(self.nt_sR, self.D_II.D_asii)
-        assert self.error is not None, self.mixer
         self.interpolate_pseudo_density()
 
     def initialize_from_atomic_densities(self, basis_functions):
@@ -314,13 +304,15 @@ class Density:
 
         self.log('Density initialized from atomic densities')
 
-        c = (self.charge - self.background_charge.charge) / len(self.setups)
+        c = self.charge - self.background_charge.charge
         f_asi = self.D_II.initialize(c, self.magmom_a, self.hund)
 
         self.nt_sR = self.gd.empty(1 + self.spinpolarized)
         self.nt_sR[:] = self.nct_R
         basis_functions.add_to_density(self.nt_sR, f_asi)
-        self.calculate_normalized_charges_and_mix()
+        comp_charge, self.Q_aL = self.D_II.calculate_multipole_moments()
+        self.normalize(comp_charge)
+        self.mix(comp_charge)
 
     @timer('Density initialized from wave functions')
     def initialize_from_wavefunctions(self, wfs):
@@ -332,7 +324,9 @@ class Density:
                                                 wfs.atom_partition)
         wfs.calculate_atomic_density_matrices(D_asp)
         self.D_asp = D_asp
-        self.calculate_normalized_charges_and_mix()
+        comp_charge, self.Q_aL = self.D_II.calculate_multipole_moments()
+        self.normalize(comp_charge)
+        self.mix(comp_charge)
 
     def initialize_directly_from_arrays(self, nt_sR, D_asp):
         """Set D_asp and nt_sR directly."""
@@ -342,14 +336,17 @@ class Density:
         # No calculate multipole moments?  Tests will fail because of
         # improperly initialized mixer
 
-    def calculate_normalized_charges_and_mix(self):
-        comp_charge, self.Q_aL = self.D_II.calculate_multipole_moments()
+    def normalize(self, comp_charge):
         total_charge = (self.charge + comp_charge -
                         self.background_charge.charge)
         pseudo_charge = self.gd.integrate(self.nt_sR).sum()
-        x = -total_charge / pseudo_charge
-        self.nt_sR *= x
-        self.mix(comp_charge)
+        if pseudo_charge != 0:
+            x = -total_charge / pseudo_charge
+            self.nt_sR *= x
+        else:
+            # Use homogeneous background:
+            volume = self.gd.get_size_of_global_array().prod() * self.gd.dv
+            self.nt_sR[:] = -total_charge / volume
 
     def set_mixer(self, mixer):
         if mixer is None:
@@ -421,7 +418,8 @@ class Density:
 
     def write(self, writer):
         writer.write(density=self.gd.collect(self.nt_sR) / Bohr**3,
-                     atomic_density_matrices=pack_atomic_matrices(self.D_asp))
+                     atomic_density_matrices=
+                     pack_atomic_matrices(self.D_asp))
 
     def read(self, reader):
         nt_sR = self.gd.empty(self.nspins)
@@ -625,13 +623,13 @@ class ReciprocalSpaceDensity(Density):
         return -np.dot(d_c, pd.gd.cell_cv) / pi * pd.gd.dv
 
 
-def redistribute_array(nt_sG, gd1, gd2, nspins, kptband_comm):
-    nt_sG = gd1.collect(nt_sG)
-    new_nt_sG = gd2.empty(nspins)
+def redistribute_array(nt_sR, gd1, gd2, nspins, kptband_comm):
+    nt_sR = gd1.collect(nt_sR)
+    new_nt_sR = gd2.empty(nspins)
     if kptband_comm.rank == 0:
-        gd2.distribute(nt_sG, new_nt_sG)
-    kptband_comm.broadcast(new_nt_sG, 0)
-    return new_nt_sG
+        gd2.distribute(nt_sR, new_nt_sR)
+    kptband_comm.broadcast(new_nt_sR, 0)
+    return new_nt_sR
 
 
 def redistribute_atomic_matrices(D_asp, gd2, nspins, setups, redistributor,

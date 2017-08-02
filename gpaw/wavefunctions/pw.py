@@ -715,12 +715,12 @@ class PWWaveFunctions(FDPWWaveFunctions):
             x_G = self.pd.zeros(q=q)
             x_G[G] = 1.0
             H_GG[G - G1] += (self.pd.gd.dv / N *
-                             self.pd.fft(ham.vt_sG[s] *
+                             self.pd.fft(ham.vt_sR[s] *
                                          self.pd.ifft(x_G, q), q))
 
         S_GG.ravel()[G1::npw + 1] = self.pd.gd.dv / N
 
-        f_IG = self.pt.expand(q)
+        f_IG = self.pt_I.lfc.expand(q)
         nI = len(f_IG)
         dH_II = np.zeros((nI, nI))
         dS_II = np.zeros((nI, nI))

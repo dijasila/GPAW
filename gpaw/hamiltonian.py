@@ -8,13 +8,13 @@ import numpy as np
 from ase.units import Ha
 
 from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
-from gpaw.utilities.debug import frozen
 from gpaw.external import create_external_potential
 from gpaw.hubbard import hubbard
+from gpaw.matrix import AtomBlockMatrix
 from gpaw.poisson import create_poisson_solver
 from gpaw.transformers import Transformer
-from gpaw.utilities import (pack, unpack,
-                            unpack_atomic_matrices, pack_atomic_matrices)
+from gpaw.utilities import pack, unpack
+from gpaw.utilities.debug import frozen
 
 
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
@@ -22,27 +22,14 @@ ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
 
 
 @frozen
-class AtomBlockHamiltonian:
+class AtomBlockHamiltonian(AtomBlockMatrix):
     def __init__(self, setups, spinpolarized, collinear):
         self.setups = setups
-        self.spinpolarized = spinpolarized
 
-        self.rank_a = None
         self.dH_asii = {}
 
-    def set_ranks(self, rank_a):
-        self.rank_a = rank_a
-
-    def multiply(self, alpha, opa, P1_In, opb, beta, P2_In):
-        assert opa == 'N'
-        assert opb == 'N'
-        assert beta == 0.0
-
-        for a, I1, I2 in P2_In.indices:
-            dH_ii = self.dH_asii[a][P2_In.spin]
-            P2_In.array[I1:I2] = np.dot(dH_ii, P1_In.array[I1:I2])
-
-        return P2_In
+        AtomBlockMatrix.__init__(self, self.dH_asii, spinpolarized + 1,
+                                 [setup.ni for setup in setups])
 
     def update(self, D_II, W_aL, xc, world, timer):
         # kinetic, coulomb, zero, external, xc:
@@ -121,7 +108,7 @@ class Hamiltonian:
         self.e_total_extrapolated = None
         self.e_kinetic0 = None
 
-        self.ref_vt_sG = None
+        self.ref_vt_sR = None
         self.ref_dH_asp = None
 
         if isinstance(vext, dict):
@@ -194,7 +181,7 @@ class Hamiltonian:
     def set_positions(self, spos_ac, rank_a):
         self.vbar_a.set_positions(spos_ac)
         self.xc.set_positions(spos_ac)
-        self.dH_II.set_ranks(rank_a)
+        self.dH_II.rank_a = rank_a
         self.positions_set = True
 
     def initialize(self):
@@ -254,16 +241,16 @@ class Hamiltonian:
 
     def linearize_to_xc(self, new_xc, dens):
         # Store old hamiltonian
-        ref_vt_sG = self.vt_sG.copy()
+        ref_vt_sR = self.vt_sR.copy()
         ref_dH_asp = self.dH_asp.copy()
         self.xc = new_xc
         self.xc.set_positions(self.spos_ac)
         self.update(dens)
 
-        ref_vt_sG -= self.vt_sG
+        ref_vt_sR -= self.vt_sR
         for a, dH_sp in self.dH_asp.items():
             ref_dH_asp[a] -= dH_sp
-        self.ref_vt_sG = ref_vt_sG
+        self.ref_vt_sR = ref_vt_sR
         self.ref_dH_asp = self.atomdist.to_work(ref_dH_asp)
 
     def calculate_forces(self, dens, F_av):
@@ -519,8 +506,8 @@ class RealSpaceHamiltonian(Hamiltonian):
         e_kinetic = 0.0
         s = 0
         for vt_R, nt_R in zip(self.vt_sR, dens.nt_sR):
-            if self.ref_vt_sG is not None:
-                vt_R += self.ref_vt_sG[s]
+            if self.ref_vt_sR is not None:
+                vt_R += self.ref_vt_sR[s]
 
             e_kinetic -= self.gd.integrate(vt_R, nt_R - dens.nct_R,
                                            global_integral=False)

@@ -29,9 +29,9 @@ for l in range(4):
     print(l)
     s = Spline(l, rc, 2 * x**1.5 / np.pi * np.exp(-x * r**2))
 
-    lfc = PWLFC([[s]], pd)
-    lfcr = PWLFC([[s]], pdr)
-    
+    lfc = PWLFC(pd, [[s]])
+    lfcr = PWLFC(pdr, [[s]])
+
     c_axi = {0: np.zeros((1, 2 * l + 1), complex)}
     c_axi[0][0, 0] = 1.9
     cr_axi = {0: np.zeros((1, 2 * l + 1))}

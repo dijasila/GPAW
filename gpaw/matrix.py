@@ -277,19 +277,35 @@ class Product:
 
 
 class AtomBlockMatrix:
-    def __init__(self, M_aii):
-        self.M_aii = list(M_aii)
+    def __init__(self, M_asii, nspins=None, size_a=None):
+        self.M_asii = M_asii
+        self.nspins = nspins
+        self.size_a = size_a
 
-    def multiply(self, alpha, opa, b, opb, beta, out):
+        self.rank_a = None
+
+    def multiply(self, alpha, opa, P1_In, opb, beta, P2_In):
         assert opa == 'N'
         assert opb == 'N'
         assert beta == 0.0
-        I1 = 0
-        for M_ii in self.M_aii:
-            I2 = I1 + len(M_ii)
-            out.array[I1:I2] = np.dot(M_ii, b.array[I1:I2])
-            I1 = I2
-        return out
+
+        for a, I1, I2 in P2_In.indices:
+            M_ii = self.M_asii[a]
+            if M_ii.ndim == 3:
+                M_ii = M_ii[P2_In.spin]
+            P2_In.array[I1:I2] = np.dot(M_ii, P1_In.array[I1:I2])
+
+        return P2_In
+
+    def broadcast(self):
+        M_asii = []
+        for a, ni in enumerate(self.size_a):
+            M_sii = self.M_asii.get(a)
+            if M_sii is None:
+                M_sii = np.empty((self.nspins, ni, ni))
+            self.comm.broadcast(M_sii, self.rank_a[a])
+            M_asii.append(M_sii)
+        return M_asii
 
 
 class ProjectionMatrix(Matrix):
@@ -312,7 +328,7 @@ class ProjectionMatrix(Matrix):
                 self.indices.append((a, I1, I2))
                 I1 = I2
 
-        Matrix.__init__(self, I2, nbands, dtype, dist=(bcomm, 1, -1))
+        Matrix.__init__(self, I1, nbands, dtype, dist=(bcomm, 1, -1))
 
     def new(self):
         return ProjectionMatrix(
@@ -321,11 +337,9 @@ class ProjectionMatrix(Matrix):
 
     def add_product(self, factor, dS_II, P_In, eps_n):
         assert factor == -1.0
-        I1 = 0
-        for dS_ii in dS_II.M_aii:
-            I2 = I1 + len(dS_ii)
+        for a, I1, I2 in P_In.indices:
+            dS_ii = dS_II.M_asii[a]
             self.array[I1:I2] -= np.dot(dS_ii, P_In.array[I1:I2] * eps_n)
-            I1 = I2
 
     def items(self):
         for a, I1, I2 in self.indices:

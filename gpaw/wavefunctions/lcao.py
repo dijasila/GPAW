@@ -203,7 +203,7 @@ class LCAOWaveFunctions(WaveFunctions):
 
     def initialize(self, density, hamiltonian, spos_ac, rank_a):
         self.timer.start('LCAO WFS Initialize')
-        if density.nt_sG is None:
+        if density.nt_sR is None:
             if self.kpt_u[0].f_n is None or self.kpt_u[0].C_nM is None:
                 density.initialize_from_atomic_densities(self.basis_functions)
             else:
@@ -247,12 +247,12 @@ class LCAOWaveFunctions(WaveFunctions):
         """Dummy function to ensure compatibility to fd mode"""
         self.initialize_wave_functions_from_lcao()
 
-    def add_orbital_density(self, nt_G, kpt, n):
+    def add_orbital_density(self, nt_R, kpt, n):
         rank, u = self.kd.get_rank_and_index(kpt.s, kpt.k)
         assert rank == self.kd.comm.rank
         assert self.kpt_u[u] is kpt
-        psit_G = self._get_wave_function_array(u, n, realspace=True)
-        self.add_realspace_orbital_to_density(nt_G, psit_G)
+        psit_R = self._get_wave_function_array(u, n, realspace=True)
+        self.add_realspace_orbital_to_density(nt_R, psit_R)
 
     def calculate_density_matrix(self, f_n, C_nM, rho_MM=None):
         self.timer.start('Calculate density matrix')
@@ -297,7 +297,7 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.stop('Calculate density matrix')
         return rho_MM
 
-    def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
+    def add_to_density_from_k_point_with_occupation(self, nt_sR, kpt, f_n):
         """Add contribution to pseudo electron-density. Do not use the standard
         occupation numbers, but ones given with argument f_n."""
         # Custom occupations are used in calculation of response potential
@@ -315,10 +315,10 @@ class LCAOWaveFunctions(WaveFunctions):
         else:
             rho_MM = kpt.rho_MM
         self.timer.start('Construct density')
-        self.basis_functions.construct_density(rho_MM, nt_sG[kpt.s], kpt.q)
+        self.basis_functions.construct_density(rho_MM, nt_sR[kpt.s], kpt.q)
         self.timer.stop('Construct density')
 
-    def add_to_kinetic_density_from_k_point(self, taut_G, kpt):
+    def add_to_kinetic_density_from_k_point(self, taut_R, kpt):
         raise NotImplementedError('Kinetic density calculation for LCAO '
                                   'wavefunctions is not implemented.')
 
@@ -372,7 +372,7 @@ class LCAOWaveFunctions(WaveFunctions):
                 return _slices(my_atom_indices)
 
         dH_asp = hamiltonian.dH_asp
-        vt_sG = hamiltonian.vt_sG
+        vt_sR = hamiltonian.vt_sR
 
         #
         #         -----                    -----
@@ -467,8 +467,8 @@ class LCAOWaveFunctions(WaveFunctions):
                 self.timer.start('Potential')
                 rhoT_mM = ksl.distribute_to_columns(rhoT_mm, desc)
 
-                vt_G = vt_sG[kpt.s]
-                Fpot_av += bfs.calculate_force_contribution(vt_G, rhoT_mM,
+                vt_R = vt_sR[kpt.s]
+                Fpot_av += bfs.calculate_force_contribution(vt_R, rhoT_mM,
                                                             kpt.q)
                 del rhoT_mM
                 self.timer.stop('Potential')
@@ -777,8 +777,8 @@ class LCAOWaveFunctions(WaveFunctions):
             Fpot_av = np.zeros_like(F_av)
 
             for u, kpt in enumerate(self.kpt_u):
-                vt_G = vt_sG[kpt.s]
-                Fpot_av += bfs.calculate_force_contribution(vt_G, rhoT_uMM[u],
+                vt_R = vt_sR[kpt.s]
+                Fpot_av += bfs.calculate_force_contribution(vt_R, rhoT_uMM[u],
                                                             kpt.q)
             self.timer.stop('Potential')
 
@@ -869,12 +869,12 @@ class LCAOWaveFunctions(WaveFunctions):
         C_M = kpt.C_nM[n]
 
         if realspace:
-            psit_G = self.gd.zeros(dtype=self.dtype)
-            self.basis_functions.lcao_to_grid(C_M, psit_G, kpt.q)
+            psit_R = self.gd.zeros(dtype=self.dtype)
+            self.basis_functions.lcao_to_grid(C_M, psit_R, kpt.q)
             if periodic and self.dtype == complex:
                 k_c = self.kd.ibzk_kc[kpt.k]
-                return self.gd.plane_wave(-k_c) * psit_G
-            return psit_G
+                return self.gd.plane_wave(-k_c) * psit_R
+            return psit_R
         else:
             return C_M
 
