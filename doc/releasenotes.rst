@@ -50,6 +50,9 @@ Git master branch
   calculating occupation numbers, fermi-level, magnetic moment, and entropy
   from eigenvalues and k-point weights.
 
+* Norm-conserving potentials (HGH and SG15) now subtract the Hartree
+  energies of the compensation charges.
+  The total energy of an isolated nucleus will now be zero.
 
 Version 1.2.0
 =============
