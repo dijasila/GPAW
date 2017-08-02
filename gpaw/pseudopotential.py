@@ -225,6 +225,7 @@ class PseudoPotential(BaseSetup):
         self.xc_correction = None
 
         r, l_comp, g_comp = data.get_compensation_charge_functions()
+        assert l_comp == [0]  # Presumably only spherical charges
         self.ghat_l = [Spline(l, r[-1], g) for l, g in zip(l_comp, g_comp)]
         self.rcgauss = data.rcgauss
 
@@ -237,7 +238,7 @@ class PseudoPotential(BaseSetup):
 
         self.E = 0.0
         self.Kc = 0.0
-        self.M = 0.0
+        self.M = -data.Eh_compcharge
         self.M_p = np.zeros(_np)
         self.M_pp = np.zeros((_np, _np))
 

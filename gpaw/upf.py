@@ -21,7 +21,8 @@ from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.setup_data import search_for_file
 from gpaw.basis_data import Basis, BasisFunction
 from gpaw.pseudopotential import (PseudoPotential, screen_potential,
-                                  figure_out_valence_states)
+                                  figure_out_valence_states,
+                                  get_radial_hartree_energy)
 from gpaw.spline import Spline
 from gpaw.utilities import pack2, divrl
 
@@ -365,7 +366,8 @@ class UPFSetupData:
 
         vbar_g, ghat_g = screen_potential(data['r'], vlocal_unscreened,
                                           self.Nv)
-
+        self.Eh_compcharge = get_radial_hartree_energy(data['r'][:len(ghat_g)],
+                                                       ghat_g)
         self.vbar_g = self._interp(vbar_g) * np.sqrt(4.0 * np.pi)
         self.ghat_lg = [4.0 * np.pi / self.Nv * self._interp(ghat_g)]
 

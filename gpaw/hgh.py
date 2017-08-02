@@ -165,6 +165,7 @@ class HGHSetupData:
                 pass
         self.f_ln = f_ln
         self.f_j = f_j
+        self.Eh_compcharge = 0.0
 
     def find_cutoff(self, r_g, dr_g, f_g, sqrtailnorm=1e-5):
         g = len(r_g)
