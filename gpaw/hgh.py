@@ -75,7 +75,7 @@ class HGHSetupData:
             else:
                 hghdata = setups[symbol]
         self.hghdata = hghdata
-        
+
         chemsymbol = hghdata.symbol
         if '.' in chemsymbol:
             chemsymbol, sc = chemsymbol.split('.')
@@ -253,10 +253,10 @@ class HGHSetupData:
 
     def get_compensation_charge_functions(self):
         alpha = self.rcgauss**-2
-        
+
         rcutgauss = self.rcgauss * 5.0
         # smaller values break charge conservation
-        
+
         r = np.linspace(0.0, rcutgauss, 100)
         g = alpha**1.5 * np.exp(-alpha * r**2) * 4.0 / np.sqrt(np.pi)
         g[-1] = 0.0
@@ -499,7 +499,7 @@ def parse_hgh_setup(lines):
         #    h_n.pop()
         # Actually the above causes trouble.  Probably it messes up state
         # ordering or something else that shouldn't have any effect.
-        
+
         vnl = VNonLocal(l, r0, h_n)
         v_l.append(vnl)
         if l > 2:
