@@ -6,7 +6,8 @@ from ase.data import atomic_numbers
 from gpaw.utilities import pack2
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.atom.configurations import configurations
-from gpaw.pseudopotential import PseudoPotential
+from gpaw.pseudopotential import PseudoPotential, get_radial_hartree_energy
+
 
 setups = {}  # Filled out during parsing below
 sc_setups = {}  # Semicore
@@ -166,6 +167,12 @@ class HGHSetupData:
         self.f_ln = f_ln
         self.f_j = f_j
         self.Eh_compcharge = 0.0
+
+        r_g, lcomp, ghat = self.get_compensation_charge_functions()
+        assert lcomp == [0] and len(ghat) == 1
+        renormalized_ghat = self.Nv / (4.0 * np.pi) * ghat[0]
+        self.Eh_compcharge = get_radial_hartree_energy(r_g, renormalized_ghat)
+
 
     def find_cutoff(self, r_g, dr_g, f_g, sqrtailnorm=1e-5):
         g = len(r_g)
