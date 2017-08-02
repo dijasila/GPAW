@@ -15,11 +15,11 @@ class XAS:
         self.cell_cv = np.array(wfs.gd.cell_cv)
         assert wfs.world.size == 1 #assert not mpi.parallel
         #assert wfs.gd.orthogonal
-        
+
         #
         # to allow spin polarized calclulation
         #
-        
+
         nkpts = len(wfs.kd.ibzk_kc)
 
         # the following lines are to stop the user to make mistakes
@@ -47,21 +47,21 @@ class XAS:
                     self.list_kpts.append(i)
                 print(self.list_kpts)
             assert len(self.list_kpts) == nkpts
-                        
+
             #find number of occupied orbitals, if no fermi smearing
             nocc = 0.
             for i in self.list_kpts:
                 nocc += sum(wfs.kpt_u[i].f_n)
             nocc = int(nocc + 0.5)
             print("nocc", nocc)
-                 
+
 
         # look for the center with the corehole
         if center is not None:
             #print "center", center
             setup = wfs.setups[center]
             a = center
-            
+
         else:
             for a, setup in enumerate(wfs.setups):
                 if setup.phicorehole_g is not None:
@@ -87,14 +87,14 @@ class XAS:
                 "wrong keyword for 'mode', use 'xas', 'xes' or 'all'")
 
         self.n = n
-            
+
         self.eps_n = np.empty(nkpts * n)
         self.sigma_cn = np.empty((3, nkpts * n), complex)
         n1 = 0
         for kpt in wfs.kpt_u:
             if kpt.s != spin:
                 continue
-            
+
             n2 = n1 + n
             self.eps_n[n1:n2] = kpt.eps_n[n_start:n_end] * Hartree
             P_ni = kpt.P_ani[a][n_start:n_end]
@@ -112,7 +112,7 @@ class XAS:
         """Calculate spectra.
 
         Parameters:
-        
+
         fwhm:
           the full width half maximum in eV for gaussian broadening
         linbroad:
@@ -138,12 +138,12 @@ class XAS:
           defined by proj keyword, a_stick and a_c will have length len(proj)
         stick:
           if False return broadened spectrum, if True return stick spectrum
-          
+
         Symmtrization has been moved inside get_spectra because we want to
         symmtrice squares of transition dipoles."""
-        
+
         # eps_n = self.eps_n[k_in*self.n: (k_in+1)*self.n -1]
-         
+
         # proj keyword, check normalization of incoming vectors
         if proj_xyz:
             proj_3 = np.array([[1,0,0],[0,1,0],[0,0,1]], float)
@@ -160,20 +160,20 @@ class XAS:
                 if sum(p ** 2) ** 0.5 != 1.0:
                     print("proj_2 %s not normalized" %i)
                     proj_2[i] /=  sum(p ** 2) ** 0.5
-            
+
             proj_tmp = np.zeros((proj_3.shape[0] + proj_2.shape[0], 3), float)
-                
+
             for i, p in enumerate(proj_3):
                 proj_tmp[i,:] = proj_3[i,:]
 
             for i, p in enumerate(proj_2):
                 proj_tmp[proj_3.shape[0] + i,:] = proj_2[i,:]
-        
+
             proj_3 = proj_tmp.copy()
-        
+
         # now symmetrize
         sigma2_cn = np.zeros((proj_3.shape[0], self.sigma_cn.shape[1]),float)
-        
+
         if self.symmetry is not None:
             for i,p in enumerate(proj_3):
                 for op_cc in self.symmetry.op_scc:
@@ -182,12 +182,12 @@ class XAS:
                     s_tmp = np.dot(p, np.dot(op_vv, self.sigma_cn))
                     sigma2_cn[i,:] += (s_tmp * np.conjugate(s_tmp) ).real
             sigma2_cn /= len(self.symmetry.op_scc)
-            
+
         else:
             for i,p in enumerate(proj_3):
                 s_tmp = np.dot(p, self.sigma_cn)
                 sigma2_cn[i,:] += (s_tmp * np.conjugate(s_tmp) ).real
-                
+
         eps_n = self.eps_n[:]
 
         if kpoint is not None:
@@ -196,8 +196,8 @@ class XAS:
         else:
             eps_start = 0
             eps_end = len(self.eps_n)
-            
-       
+
+
         # return stick spectrum if stick=True
         if stick:
             e_stick = eps_n[eps_start:eps_end]
@@ -213,13 +213,13 @@ class XAS:
                 emin = min(eps_n) - 2 * fwhm
                 emax = max(eps_n) + 2 * fwhm
                 e = emin + np.arange(N + 1) * ((emax - emin) / N)
-            
+
             a_c = np.zeros((len(sigma2_cn), len(e)))
-            
+
             if linbroad is None:
                 #constant broadening fwhm
                 alpha = 4 * log(2) / fwhm**2
-            
+
                 for n, eps in enumerate(eps_n[eps_start:eps_end]):
                     x = -alpha * (e - eps)**2
                     x = np.clip(x, -100.0, 100.0)
@@ -243,12 +243,12 @@ class XAS:
                         alpha = 4*log(2) / fwhm_lin**2
                     elif eps >= lin_e2:
                         alpha =  4*log(2) / fwhm2**2
-                        
+
                     x = -alpha * (e - eps)**2
                     x = np.clip(x, -100.0, 100.0)
                     a_c += np.outer(sigma2_cn[:, n],
                                      (alpha / pi)**0.5 * np.exp(x))
-                
+
             return  e, a_c
 
 
@@ -270,7 +270,7 @@ class RecursionMethod:
 
             self.k1 = wfs.kd.comm.rank * self.nmykpts
             self.k2 = self.k1 + self.nmykpts
-            
+
             print("k1", self.k1, "k2",self.k2)
 
             # put spin and weight index in the columns corresponding
@@ -281,7 +281,7 @@ class RecursionMethod:
             for n, i in enumerate(range(self.k1, self.k2)):
                 self.spin_k[i] = wfs.kpt_u[n].s
                 self.weight_k[i] = wfs.kpt_u[n].weight
-                     
+
             self.op_scc = None
             if wfs.kd.symmetry is not None:
                 self.op_scc = wfs.kd.symmetry.op_scc
@@ -290,11 +290,11 @@ class RecursionMethod:
             self.k2 = None
             self.wfs = None
             wfs = None
-            
+
         self.tol = tol
         self.maxiter = maxiter
 
-     
+
         if filename is not None:
             self.read(filename)
             if wfs is not None:
@@ -328,7 +328,7 @@ class RecursionMethod:
             self.w_ucG = w_kcG[i].copy()
             self.wold_ucG = wold_kcG[i].copy()
             self.y_ucG = y_kcG[i].copy()
-            
+
     def write(self, filename, mode=''):
         assert self.wfs is not None
         kpt_comm = self.wfs.kd.comm
@@ -346,7 +346,7 @@ class RecursionMethod:
                 kpt_comm.gather(self.b_uci, 0, b_kci)
                 kpt_comm.sum(self.spin_k, 0)
                 kpt_comm.sum(self.weight_k, 0)
-                
+
                 a_kci.shape = (self.nkpts, dim, ni)
                 b_kci.shape = (self.nkpts, dim, ni)
                 data = {'ab': (a_kci, b_kci),
@@ -359,7 +359,7 @@ class RecursionMethod:
                 kpt_comm.gather(self.b_uci, 0)
                 kpt_comm.sum(self.spin_k, 0)
                 kpt_comm.sum(self.weight_k, 0)
-            
+
         if mode == 'all':
             w0_ucG = gd.collect(self.w_ucG)
             wold0_ucG = gd.collect(self.wold_ucG)
@@ -385,11 +385,11 @@ class RecursionMethod:
             pickle.dump(data, open(filename, 'wb'))
 
     def allocate_tmp_arrays(self):
-        
+
         self.tmp1_cG = self.wfs.gd.zeros(self.dim, self.wfs.dtype)
         self.tmp2_cG = self.wfs.gd.zeros(self.dim, self.wfs.dtype)
         self.z_cG = self.wfs.gd.zeros(self.dim, self.wfs.dtype)
-        
+
     def initialize_start_vector(self, proj=None, proj_xyz=True):
         # proj is one list of vectors [[e1_x,e1_y,e1_z],[e2_x,e2_y,e2_z]]
         #( or [ex,ey,ez] if only one projection )
@@ -397,10 +397,10 @@ class RecursionMethod:
         # default is to only calculate the averaged spectrum
         # if proj_xyz is True, keep projection in x,y,z, if False
         # only calculate the projections in proj
-        
+
         # Create initial wave function:
         nmykpts = self.nmykpts
-        
+
         for a, setup in enumerate(self.wfs.setups):
             if setup.phicorehole_g is not None:
                 break
@@ -415,7 +415,7 @@ class RecursionMethod:
             proj_2 = np.array(proj,float)
             if len(proj_2.shape) == 1:
                 proj_2 = np.array([proj],float)
-            
+
             for i,p in enumerate(proj_2):
                 if sum(p ** 2) ** 0.5 != 1.0:
                     print("proj_2 %s not normalized" %i)
@@ -445,11 +445,11 @@ class RecursionMethod:
         self.w_ucG = self.wfs.gd.zeros((nmykpts, self.dim), self.wfs.dtype)
         self.wold_ucG = self.wfs.gd.zeros((nmykpts, self.dim), self.wfs.dtype)
         self.y_ucG = self.wfs.gd.zeros((nmykpts, self.dim), self.wfs.dtype)
-            
+
         self.a_uci = np.zeros((nmykpts, self.dim, 0), self.wfs.dtype)
         self.b_uci = np.zeros((nmykpts, self.dim, 0), self.wfs.dtype)
 
-        A_aci = self.wfs.pt.dict(3, zero=True)
+        A_aci = self.wfs.pt_I.lfc.dict(3, zero=True)
         if a in A_aci:
             A_aci[a] = A_ci.astype(self.wfs.dtype)
         for u in range(nmykpts):
@@ -486,18 +486,18 @@ class RecursionMethod:
         y_cG = self.y_ucG[u]
         wold_cG = self.wold_ucG[u]
         z_cG = self.z_cG
-        
+
         self.solver(w_cG, self.z_cG, u)
         I_c = np.reshape(integrate(np.conjugate(z_cG) * w_cG)**-0.5,
                          (self.dim, 1, 1, 1))
         z_cG *= I_c
         w_cG *= I_c
-        
+
         if i != 0:
             b_c = 1.0 / I_c
         else:
             b_c = np.reshape(np.zeros(self.dim), (self.dim, 1, 1, 1))
-    
+
         self.hamiltonian.apply(z_cG, y_cG, self.wfs, self.wfs.kpt_u[u])
         a_c = np.reshape(integrate(np.conjugate(z_cG) * y_cG), (self.dim, 1, 1, 1))
         wnew_cG = (y_cG - a_c * w_cG - b_c * wold_cG)
@@ -525,12 +525,12 @@ class RecursionMethod:
         #        "The core hole is always in spin 0: please use spin=0")
 
         n = len(eps_s)
-                
+
         sigma_cn = np.zeros((self.dim, n))
         if imax is None:
             imax = self.a_uci.shape[2]
         eps_n = (eps_s + delta * 1.0j) / Hartree
-                
+
         # if a certain k-point is chosen
         if kpoint is not None:
              for c in range(self.dim):
@@ -544,7 +544,7 @@ class RecursionMethod:
                     for c in range(self.dim):
                         sigma_cn[c] += weight*self.continued_fraction(eps_n, k, c,
                                                                       0, imax).imag
-                        
+
         if self.op_scc is not None:
             sigma0_cn = sigma_cn
             sigma_cn = np.zeros((self.dim, n))
@@ -587,10 +587,10 @@ class RecursionMethod:
                     sigma_tmp += np.outer(sigma_cn[:, n],
                                         (alpha / pi)**0.5 * np.exp(x))
             sigma_cn = sigma_tmp
-                    
+
 
         return sigma_cn
-    
+
     def solve(self, w_cG, z_cG, u):
         # exact inverse overlap
         self.wfs.overlap.apply_inverse(w_cG, self.tmp1_cG, self.wfs,
@@ -610,12 +610,12 @@ class RecursionMethod:
         z_cG[:] =  w_cG
         self.u = u
 
-    
+
 
     def sum(self, a):
         self.wfs.gd.comm.sum(a)
         return a
-    
+
     def __call__(self, in_cG, out_cG):
         """Function that is called by CG. It returns S~-1Sx_in in x_out
         """
@@ -640,7 +640,7 @@ class RecursionMethod:
         b_uci = np.empty((n1, n2, ni + nsteps*ntimes), type_code)
         a_uci[:, :, :ni]  = self.a_uci
         b_uci[:, :, :ni]  = self.b_uci
-        
+
         ni1 = ni
         ni2 = ni +nsteps
         for i in range(ntimes):
@@ -655,7 +655,7 @@ class RecursionMethod:
 def write_spectrum(a,b, filename):
     f=open(filename, 'w')
     print(f, a.shape, b.shape)
-    
+
     for i in range(a.shape[0]):
         print("%g" % a[i], b[0,i] +b[1,i] +b[2,i], end=' ', file=f)
         for b2 in b:
@@ -664,4 +664,4 @@ def write_spectrum(a,b, filename):
     f.close()
 
 
-                                                                                                                 
+

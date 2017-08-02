@@ -209,49 +209,21 @@ class WaveFunctions:
         the (k,s) pair, for this rank, send to the global master."""
 
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
+        world_rank = kpt_rank * self.gd.comm.size * self.bd.comm.size
 
-        natoms = self.atom_partition.natoms
-        nproj = sum(setup.ni for setup in self.setups)
+        if self.kd.comm.rank == kpt_rank:
+            P_nI = self.mykpts[u].P_In.collect()
+            if self.world.rank == 0:
+                return P_nI
+            if P_nI is not None:
+                assert self.world.rank == world_rank
+                self.world.send(P_nI, 0)
 
         if self.world.rank == 0:
-            if kpt_rank == 0:
-                P_ani = self.kpt_u[u].P_ani
-            all_P_ni = np.empty((self.bd.nbands, nproj), self.dtype)
-            for band_rank in range(self.bd.comm.size):
-                nslice = self.bd.get_slice(band_rank)
-                i = 0
-                for a in range(natoms):
-                    ni = self.setups[a].ni
-                    if kpt_rank == 0 and band_rank == 0 and a in P_ani:
-                        P_ni = P_ani[a]
-                    else:
-                        P_ni = np.empty((self.bd.mynbands, ni), self.dtype)
-                        # XXX will fail with nonstandard communicator nesting
-                        world_rank = (self.atom_partition.rank_a[a] +
-                                      kpt_rank * self.gd.comm.size *
-                                      self.bd.comm.size +
-                                      band_rank * self.gd.comm.size)
-                        self.world.receive(P_ni, world_rank, 1303 + a)
-                    all_P_ni[nslice, i:i + ni] = P_ni
-                    i += ni
-                assert i == nproj
-
-            if asdict:
-                i = 0
-                P_ani = {}
-                for a in range(natoms):
-                    ni = self.setups[a].ni
-                    P_ani[a] = all_P_ni[:, i:i + ni]
-                    i += ni
-                return P_ani
-
-            return all_P_ni
-
-        elif self.kd.comm.rank == kpt_rank:  # plain else works too...
-            P_ani = self.kpt_u[u].P_ani
-            for a in range(natoms):
-                if a in P_ani:
-                    self.world.ssend(P_ani[a], 0, 1303 + a)
+            nproj = sum(setup.ni for setup in self.setups)
+            P_nI = np.empty((self.bd.nbands, nproj), self.dtype)
+            self.world.receive(P_nI, world_rank)
+            return P_nI
 
     def get_wave_function_array(self, n, k, s, realspace=True, periodic=False):
         """Return pseudo-wave-function array on master.

@@ -327,7 +327,7 @@ class AtomBlockMatrix:
         P1 = 0
         for a, ni in enumerate(self.size_a):
             P2 = P1 + ni * (ni + 1) // 2
-            self.M_asii[a][:] = [unpack(M_p) for M_p in M_sP[:, P1:P2]]
+            self.M_asii[a] = np.array([unpack(M_p) for M_p in M_sP[:, P1:P2]])
             P1 = P2
 
 
@@ -370,6 +370,48 @@ class ProjectionMatrix(Matrix):
 
     def todict(self):
         return dict(self.items())
+
+    def collect(self):
+        assert self.acomm.size == 1
+        assert self.bcomm.size == 1
+        return self.array.T
+        """
+        natoms = self.atom_partition.natoms
+
+        if self.world.rank == 0:
+            if kpt_rank == 0:
+                P_ani = self.kpt_u[u].P_ani
+            all_P_ni = np.empty((self.bd.nbands, nproj), self.dtype)
+            for band_rank in range(self.bd.comm.size):
+                nslice = self.bd.get_slice(band_rank)
+                i = 0
+                for a in range(natoms):
+                    ni = self.setups[a].ni
+                    if kpt_rank == 0 and band_rank == 0 and a in P_ani:
+                        P_ni = P_ani[a]
+                    else:
+                        P_ni = np.empty((self.bd.mynbands, ni), self.dtype)
+                        # XXX will fail with nonstandard communicator nesting
+                        world_rank = (self.atom_partition.rank_a[a] +
+                                      kpt_rank * self.gd.comm.size *
+                                      self.bd.comm.size +
+                                      band_rank * self.gd.comm.size)
+                        self.world.receive(P_ni, world_rank, 1303 + a)
+                    all_P_ni[nslice, i:i + ni] = P_ni
+                    i += ni
+                assert i == nproj
+
+            if asdict:
+                i = 0
+                P_ani = {}
+                for a in range(natoms):
+                    ni = self.setups[a].ni
+                    P_ani[a] = all_P_ni[:, i:i + ni]
+                    i += ni
+                return P_ani
+
+            return all_P_ni
+        """
 
 
 """

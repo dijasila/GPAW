@@ -111,7 +111,7 @@ class LrTDDFT(ExcitationList):
                 self.xc = calculator.hamiltonian.xc.name
             if calculator.parameters.mode != 'lcao':
                 calculator.converge_wave_functions()
-            if calculator.density.nct_G is None:
+            if calculator.density.nct_R is None:
                 spos_ac = calculator.initialize_positions()
                 calculator.wfs.initialize(calculator.density,
                                           calculator.hamiltonian, spos_ac)

@@ -238,7 +238,7 @@ class PseudoPotential(BaseSetup):
         self.rcutfilter = None
         self.rcore = None
 
-        self.N0_p = np.zeros(_np)  # not really implemented
+        self.N0_ii = np.zeros((self.ni, self.ni))  # not really implemented
         self.nabla_iiv = None
         self.rnabla_iiv = None
         self.rxnabla_iiv = None

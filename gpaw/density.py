@@ -49,6 +49,8 @@ class AtomBlockDensityMatrix(AtomBlockMatrix):
     def initialize(self, charge, magmom_a, hund):
         f_asi = {}
         for a, M in enumerate(magmom_a):
+            if self.rank_a[a] != self.comm.rank:
+                continue
             f_si = self.setups[a].calculate_initial_occupation_numbers(
                 abs(M), hund, charge=charge / len(self.setups),
                 nspins=1 + self.spinpolarized)
@@ -76,6 +78,14 @@ class AtomBlockDensityMatrix(AtomBlockMatrix):
         return self.comm.sum(comp_charge) * sqrt(4 * pi), Q_aL
 
     def update(self, wfs):
+        for a, rank in enumerate(self.rank_a):
+            if rank == self.comm.rank:
+                if a not in self.D_asii:
+                    ni = self.size_a[a]
+                    self.D_asii[a] = np.empty((self.nspins, ni, ni))
+            else:
+                assert a not in self.D_asii
+
         for D_sii in self.D_asii.values():
             D_sii[:] = 0.0
 
@@ -176,15 +186,16 @@ class Density:
             background_charge = NullBackgroundCharge()
         background_charge.set_grid_descriptor(self.finegd)
         self.background_charge = background_charge
+        self.log = None
 
         self.charge_eps = 1e-7
 
         self.D_II = None
 
-        self.Q_aL = None
-
         self.nct_a = None
         self.ghat_aL = None
+
+        self.Q_aL = None
 
         self.nct_R = None
         self.rhot_r = None
@@ -197,7 +208,6 @@ class Density:
         self.hund = False
         self.mixer = None
         self.magmom_a = None
-        self.log = None
 
         # XXX at least one test will fail because None has no 'reset()'
         # So we need DummyMixer I guess
@@ -244,9 +254,13 @@ class Density:
         self.D_II = AtomBlockDensityMatrix(self.setups, self.spinpolarized,
                                            self.collinear, comm=self.gd.comm)
 
-    def resettttttttttttttttt(self):
-        # TODO: reset other parameters?
+    def reset(self):
+        self.Q_aL = None
+        self.nct_R = None
+        self.rhot_r = None
         self.nt_sR = None
+        self.nt_sr = None
+        self.nt_r = None
 
     def set_positions(self, spos_ac, rank_a):
         self.D_II.rank_a = rank_a
