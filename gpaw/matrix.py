@@ -278,9 +278,10 @@ class Product:
 
 
 class AtomBlockMatrix:
-    def __init__(self, M_asii, nspins=None, size_a=None):
+    def __init__(self, M_asii, nspins=None, comm=None, size_a=None):
         self.M_asii = M_asii
         self.nspins = nspins
+        self.comm = comm
         self.size_a = size_a
 
         self.rank_a = None

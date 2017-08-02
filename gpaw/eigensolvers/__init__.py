@@ -23,8 +23,8 @@ def get_eigensolver(eigensolver, mode, convergence=None):
     if isinstance(eigensolver, dict):
         eigensolver = eigensolver.copy()
         name = eigensolver.pop('name')
-        eigensolver = {'rmm-diis': RMMDIIS,
-                       'cg': CG,
+        eigensolver = {'rmm-diis': Davidson,#RMMDIIS,
+                       'cg': Davidson,#CG,
                        'dav': Davidson,
                        'lcao': DirectLCAO,
                        'direct': DirectPW

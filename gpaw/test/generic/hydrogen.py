@@ -20,7 +20,7 @@ e1 = hydrogen.get_potential_energy()
 equal(e1, 0.526939, 0.001)
 
 dens = hydrogen.calc.density
-c = dens.gd.find_center(dens.nt_sG[0]) * Bohr
+c = dens.gd.find_center(dens.nt_sR[0]) * Bohr
 equal(abs(c - a / 2).max(), 0, 1e-13)
 
 kT = 0.001

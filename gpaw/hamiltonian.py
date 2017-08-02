@@ -23,12 +23,13 @@ ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
 
 @frozen
 class AtomBlockHamiltonian(AtomBlockMatrix):
-    def __init__(self, setups, spinpolarized, collinear):
+    def __init__(self, setups, spinpolarized, collinear, comm):
         self.setups = setups
 
         self.dH_asii = {}
 
         AtomBlockMatrix.__init__(self, self.dH_asii, spinpolarized + 1,
+                                 comm,
                                  [setup.ni for setup in setups])
 
     def update(self, D_II, W_aL, xc, world, timer):
@@ -89,7 +90,8 @@ class Hamiltonian:
         self.world = world
         self.redistributor = redistributor
 
-        self.dH_II = AtomBlockHamiltonian(setups, spinpolarized, True)
+        self.dH_II = AtomBlockHamiltonian(setups, spinpolarized,
+                                          True, gd.comm)
         self.vt_sR = None  # coarse grid
         self.vHt_r = None  # fine grid
         self.vt_sr = None  # fine grid

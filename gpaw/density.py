@@ -39,12 +39,11 @@ class AtomBlockDensityMatrix(AtomBlockMatrix):
         self.setups = setups
         self.spinpolarized = spinpolarized
         self.collinear = collinear
-        self.comm = comm
         self.rank_a = rank_a
 
         self.D_asii = {}
 
-        AtomBlockMatrix.__init__(self, self.D_asii, 1 + spinpolarized,
+        AtomBlockMatrix.__init__(self, self.D_asii, 1 + spinpolarized, comm,
                                  [setup.ni for setup in setups])
 
     def initialize(self, charge, magmom_a, hund):
@@ -319,10 +318,7 @@ class Density:
         self.log('Density initialized from wave functions')
         self.nt_sR = self.gd.empty(self.nspins)
         self.calculate_pseudo_density(wfs)
-        D_asp = self.setups.empty_atomic_matrix(self.nspins,
-                                                wfs.atom_partition)
-        wfs.calculate_atomic_density_matrices(D_asp)
-        self.D_asp = D_asp
+        self.D_II.update(wfs)
         comp_charge, self.Q_aL = self.D_II.calculate_multipole_moments()
         self.normalize(comp_charge)
         self.mix(comp_charge)
