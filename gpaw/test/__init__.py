@@ -263,7 +263,8 @@ tests = [
     'ext_potential/constant_e_field.py',    # ~9s
     'complex.py',                           # ~9s
     'vdw/quick.py',                         # ~9s
-    'lrtddft/Al2_lrtddft.py',               # ~10s
+    'lrtddft2/H2O-lcao.py',                 # ~10s
+    'lrtddft2/Al2.py',                      # ~10s
     'ralda/ralda_energy_N2.py',             # ~10s
     'parallel/lcao_complicated.py',         # ~10s
     'generic/bulk.py',                      # ~10s
@@ -472,10 +473,14 @@ def get_test_path(test):
     return os.path.join(gpaw.__path__[0], 'test', test)
 
 
-for test in tests + exclude:
-    assert os.path.exists(get_test_path(test)), 'No such file: %s' % test
-
 exclude = set(exclude)
+
+
+def check_file_lists():
+    for test in tests + list(exclude):
+        assert os.path.exists(get_test_path(test)), \
+            ('No such file: {}.  Test list or test exclusion list mentions '
+             'files that do not exist.'.format(test))
 
 
 class TestRunner:
@@ -495,6 +500,10 @@ class TestRunner:
             self.log = devnull
         self.n = max([len(test) for test in tests])
         self.setup_paths = setup_paths[:]
+
+        # Check *all* the files, not just the ones we are supposed to be
+        # running right now:
+        check_file_lists()
 
     def run(self):
         self.log.write('=' * 77 + '\n')
