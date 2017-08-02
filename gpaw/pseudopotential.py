@@ -5,10 +5,22 @@ from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.basis_data import Basis, BasisFunction
 from gpaw.setup import BaseSetup
 from gpaw.spline import Spline
-from gpaw.utilities import erf
+from gpaw.utilities import erf, hartree as hartree_solve
 
 
 null_spline = Spline(0, 1.0, [0., 0., 0.])
+
+
+def get_radial_hartree_energy(r_g, rho_g):
+    """Get energy of l=0 compensation charge on equidistant radial grid."""
+
+    # At least in some cases the zeroth point is moved to 1e-8 or so to
+    # prevent division by zero and the like, so:
+    dr = r_g[2] - r_g[1]
+    rho_r_dr_g = dr * r_g * rho_g
+    vh_r_g = np.zeros(len(r_g))  # "r * vhartree"
+    hartree_solve(0, rho_r_dr_g, r_g, vh_r_g)
+    return 2.0 * np.pi * (rho_r_dr_g * vh_r_g).sum()
 
 
 def screen_potential(r, v, charge, rcut=None, a=None):
