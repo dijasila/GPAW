@@ -30,9 +30,8 @@ def fulldiag(filename, bands=None, scalapack=1, dry_run=False):
     print('Maximum matrix size: {0}x{0} = {1:.3f} MB'.format(ng, mem))
 
 
-
 class CLICommand:
-    short_description = fulldiag.__doc__
+    short_description = 'Calculate all or some eigenvectors/values for fixed H'
 
     @staticmethod
     def add_arguments(parser):

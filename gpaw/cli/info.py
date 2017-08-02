@@ -41,7 +41,7 @@ def info():
 
 
 class CLICommand:
-    short_description = info.__doc__
+    short_description = info.__doc__.rstrip('.')
 
     @staticmethod
     def add_arguments(parser):
