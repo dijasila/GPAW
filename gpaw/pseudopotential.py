@@ -51,13 +51,14 @@ def screen_potential(r, v, charge, rcut=None, a=None):
     else:
         icut = np.searchsorted(r, rcut)
     rcut = r[icut]
-    rshort = r[:icut]
+    rshort = r[:icut].copy()
+    assert rshort[0] == 0.0
+    rshort[0] = 1e-10
 
     if a is None:
         a = rcut / 5.0  # XXX why is this so important?
     vcomp = np.zeros_like(rshort)
-    vcomp = charge * erf(rshort / (np.sqrt(2.0) * a)) / rshort.clip(1e-10,
-                                                                    np.inf)
+    vcomp = charge * erf(rshort / (np.sqrt(2.0) * a)) / rshort
     # XXX divide by r
     rhocomp = charge * (np.sqrt(2.0 * np.pi) * a)**(-3) * \
         np.exp(-0.5 * (rshort / a)**2)
