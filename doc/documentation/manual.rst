@@ -735,7 +735,8 @@ There exist three special names that, if used, do not specify a file name:
 * ``'ghost'`` is used to indicated a *ghost* atom in LCAO mode,
   see :ref:`ghost-atoms`.
 
-.. _SG15 optimized norm-conserving Vanderbilt pseudopotentials: http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/
+.. _SG15 optimized norm-conserving Vanderbilt pseudopotentials:
+    http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/
 
 If a dictionary contains both chemical element specifications *and*
 atomic number specifications, the latter is dominant.
@@ -909,15 +910,24 @@ this::
 
 This will give an accuracy of `O(h^{2n})`, where ``n`` must be between
 1 and 6.  The default value is ``n=3``.
+Similarly, for the Kohn-Sham equation, you can use::
 
     from gpaw import GPAW, FD
-    calc = GPAW(mode=FD(nn=3, interpolation=3))
+    calc = GPAW(mode=FD(nn=n, interpolation=3))
 
-With the ``stencils=(a, b)`` keyword, you can set the accuracy of the
-stencil used for the Kohn-Sham equation to `O(h^{2a})`.  The ``b``
-parameter (between 1 and 4) controls the accuracy of the
-interpolation of the density from the coarse grid to the fine grid.
-Default values are ``stencils=(3, 3)``.
+where the default value is also ``n=3``.
+
+In PW-mode, the interpolation of the density from the coarse grid to the
+fine grid is done with FFT's.  In FD and LCAO mode, tri-quintic interpolation
+is used (5. degree polynomium)::
+
+    from gpaw import GPAW, FD
+    calc = GPAW(mode=FD(interpolation=n))
+    # or
+    from gpaw import GPAW, LCAO
+    calc = GPAW(mode=LCAO(interpolation=n))
+
+The order of polynomium is `2n-1` and the default value is ``n=3``.
 
 
 .. _manual_hund:
