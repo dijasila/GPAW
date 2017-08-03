@@ -907,7 +907,7 @@ This will give an accuracy of `O(h^{2n})`, where ``n`` must be between
 Similarly, for the Kohn-Sham equation, you can use::
 
     from gpaw import GPAW, FD
-    calc = GPAW(mode=FD(nn=n, interpolation=3))
+    calc = GPAW(mode=FD(nn=n))
 
 where the default value is also ``n=3``.
 
@@ -921,7 +921,8 @@ is used (5. degree polynomium)::
     from gpaw import GPAW, LCAO
     calc = GPAW(mode=LCAO(interpolation=n))
 
-The order of polynomium is `2n-1` and the default value is ``n=3``.
+The order of polynomium is `2n-1`, default value is ``n=3`` and ``n`` must be
+between 1 and 4 (linear, cubic, quintic, heptic).
 
 
 .. _manual_hund:
