@@ -4,6 +4,7 @@ import pickle
 import numpy as np
 from math import pi
 import ase.units
+from ase.parallel import world
 from ase.utils import devnull
 import sys
 import os
@@ -1074,6 +1075,7 @@ class BuildingBlock():
         if self.load_chi_file():
             if self.complete:
                 print('Building block loaded from file', file=self.fd)
+        world.barrier()
 
     def calculate_building_block(self, add_intraband=False):
         if self.complete:
@@ -1161,6 +1163,7 @@ class BuildingBlock():
         if self.world.rank == 0:
             np.savez_compressed(filename + '-chi.npz',
                                 **data)
+        world.barrier()
 
     def load_chi_file(self):
         try:
