@@ -207,19 +207,10 @@ class GPAW(PAW, Calculator):
         self.scf.read(reader)
         self.wfs.read(reader)
 
-        # We need to do this in a better way:  XXX
-        from gpaw.utilities.partition import AtomPartition
-        atom_partition = AtomPartition(self.wfs.gd.comm,
-                                       np.zeros(len(self.atoms), dtype=int))
-        self.wfs.atom_partition = atom_partition
-        self.density.atom_partition = atom_partition
-        self.hamiltonian.atom_partition = atom_partition
         spos_ac = self.atoms.get_scaled_positions() % 1.0
         rank_a = self.density.gd.get_ranks_from_positions(spos_ac)
-        new_atom_partition = AtomPartition(self.density.gd.comm, rank_a)
-        for obj in [self.density, self.hamiltonian]:
-            obj.set_positions_without_ruining_everything(spos_ac,
-                                                         new_atom_partition)
+        self.density.set_positions(spos_ac, rank_a)
+        self.hamiltonian.set_positions(spos_ac, rank_a)
 
         self.hamiltonian.xc.read(reader)
 

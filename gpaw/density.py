@@ -266,14 +266,14 @@ class Density:
         self.D_II.rank_a = rank_a
         self.nct_a.set_positions(spos_ac)
         self.ghat_aL.set_positions(spos_ac)
-        self.mixer.reset()
+        #self.nt_sR = None
+        #self.Q_aL = None
 
-        self.nct_R = self.gd.zeros()
-        self.nct_a.add_to(self.nct_R, 1 / (1 + self.spinpolarized),
-                          force_real_space=True)
-
-        self.nt_sR = None
-        self.Q_aL = None
+    def update_pseudo_core_density(self):
+        if self.nct_R is None:
+            self.nct_R = self.gd.zeros()
+            self.nct_a.add_to(self.nct_R, 1 / (1 + self.spinpolarized),
+                              force_real_space=True)
 
     def calculate_pseudo_density(self, wfs):
         """Calculate nt_sR from scratch.
@@ -281,6 +281,7 @@ class Density:
         nt_sR will be equal to nct_R plus the contribution from
         wfs.add_to_density().
         """
+        self.update_pseudo_core_density()
         self.nt_sR[:] = self.nct_R
         wfs.calculate_density_contribution(self.nt_sR)
 
@@ -320,10 +321,12 @@ class Density:
         f_asi = self.D_II.initialize(c, self.magmom_a, self.hund)
 
         self.nt_sR = self.gd.empty(1 + self.spinpolarized)
+        self.update_pseudo_core_density()
         self.nt_sR[:] = self.nct_R
         basis_functions.add_to_density(self.nt_sR, f_asi)
         comp_charge, self.Q_aL = self.D_II.calculate_multipole_moments()
         self.normalize(comp_charge)
+        self.mixer.reset()
         self.mix(comp_charge)
 
     @timer('Density initialized from wave functions')
@@ -335,6 +338,7 @@ class Density:
         self.D_II.update(wfs)
         comp_charge, self.Q_aL = self.D_II.calculate_multipole_moments()
         self.normalize(comp_charge)
+        self.mixer.reset()
         self.mix(comp_charge)
 
     def normalize(self, comp_charge):

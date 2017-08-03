@@ -13,7 +13,7 @@ from gpaw.hubbard import hubbard
 from gpaw.matrix import AtomBlockMatrix
 from gpaw.poisson import create_poisson_solver
 from gpaw.transformers import Transformer
-from gpaw.utilities import pack, unpack
+from gpaw.utilities import pack, unpack, pack2
 from gpaw.utilities.debug import frozen
 
 
@@ -128,6 +128,11 @@ class Hamiltonian:
     def vt_sg(self):
         1 / 0
         return self.vt_sr
+
+    @property
+    def dH_asp(self):
+        return {a: np.array([pack2(dH_ii) for dH_ii in dH_sii])
+                for a, dH_sii in self.dH_II.dH_asii.items()}
 
     def __str__(self):
         s = 'Hamiltonian:\n'
