@@ -371,7 +371,6 @@ class UPFSetupData:
         self.vbar_g = self._interp(vbar_g) * np.sqrt(4.0 * np.pi)
         self.ghat_lg = [4.0 * np.pi / self.Nv * self._interp(ghat_g)]
 
-        # XXX Subtract Hartree energy of compensation charge as reference
 
     def get_jargs(self):
         projectors = list(self.data['projectors'])
@@ -456,18 +455,25 @@ class UPFSetupData:
             m1start = m1stop
         return pack2(H_ii)
 
-    def get_local_potential(self):
-        vbar = Spline(0, self.rgd.r_g[len(self.vbar_g) - 1], self.vbar_g)
+    def get_local_potential(self, filter=None):
+        vbar_g = self.vbar_g.copy()
+        rcut = self.rgd.r_g[len(vbar_g) - 1]
+        if filter is not None:
+            filter(self.rgd, rcut, vbar_g, l=0)
+        vbar = Spline(0, rcut, vbar_g)
         return vbar
 
     # XXXXXXXXXXXXXXXXX stolen from hghsetupdata
-    def get_projectors(self):
+    def get_projectors(self, filter=None):
         # XXX equal-range projectors still required for some reason
         maxlen = max([len(pt_g) for pt_g in self.pt_jg])
         pt_j = []
         for l, pt1_g in zip(self.l_j, self.pt_jg):
-            pt2_g = self.rgd.zeros()[:maxlen]
-            pt2_g[:len(pt1_g)] = divrl(pt1_g, l, self.rgd.r_g[:len(pt1_g)])
+            pt2_g = np.zeros(maxlen)
+            pt2_g[:len(pt1_g)] = pt1_g
+            if filter is not None:
+                filter(self.rgd, self.rgd.r_g[maxlen], pt2_g, l=l)
+            pt2_g = divrl(pt2_g, l, self.rgd.r_g[:maxlen])
             spline = Spline(l, self.rgd.r_g[maxlen - 1], pt2_g)
             pt_j.append(spline)
         return pt_j
@@ -522,9 +528,11 @@ class UPFSetupData:
         return b
 
     def build(self, xcfunc, lmax, basis, filter=None):
+        # XXX better to create basis functions after filtering?
+        # Although basis functions are not meant for same grid
         if basis is None:
             basis = self.create_basis_functions()
-        return PseudoPotential(self, basis)
+        return PseudoPotential(self, basis, filter)
 
 
 def main_plot():

@@ -52,8 +52,8 @@ def screen_potential(r, v, charge, rcut=None, a=None):
         icut = np.searchsorted(r, rcut)
     rcut = r[icut]
     rshort = r[:icut].copy()
-    assert rshort[0] == 0.0
-    rshort[0] = 1e-10
+    if rshort[0] < 1e-16:
+        rshort[0] = 1e-10
 
     if a is None:
         a = rcut / 5.0  # XXX why is this so important?
@@ -181,7 +181,7 @@ def pseudoplot(pp, show=True):
 
 
 class PseudoPotential(BaseSetup):
-    def __init__(self, data, basis=None):
+    def __init__(self, data, basis=None, filter=None):
         self.data = data
 
         self.R_sii = None
@@ -204,7 +204,7 @@ class PseudoPotential(BaseSetup):
         self.nj = len(data.l_j)
 
         self.ni = sum([2 * l + 1 for l in data.l_j])
-        self.pt_j = data.get_projectors()
+        self.pt_j = data.get_projectors(filter=filter)
         if len(self.pt_j) == 0:
             assert False  # not sure yet about the consequences of
             # cleaning this up in the other classes
@@ -231,7 +231,7 @@ class PseudoPotential(BaseSetup):
         self.rcgauss = data.rcgauss
 
         # accuracy is rather sensitive to this
-        self.vbar = data.get_local_potential()
+        self.vbar = data.get_local_potential(filter=filter)
 
         _np = self.ni * (self.ni + 1) // 2
         self.Delta0 = data.Delta0
