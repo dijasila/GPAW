@@ -39,7 +39,7 @@ class MGGA(XCFunctional):
         if self.tauct_G is None:
             self.tauct_G = self.wfs.gd.empty()
         self.tauct_G[:] = 0.0
-        self.tauct.add(self.tauct_G)
+        self.tauct.add_to(self.tauct_G, force_real_space=True)
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)

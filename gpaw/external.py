@@ -18,16 +18,16 @@ def create_external_potential(name, **kwargs):
 
 
 class ExternalPotential:
-    vext_g = None
+    vext_r = None
 
     def get_potential(self, gd):
         """Get the potential on a regular 3-d grid.
 
         Will only call calculate_potential() the first time."""
 
-        if self.vext_g is None:
+        if self.vext_r is None:
             self.calculate_potential(gd)
-        return self.vext_g
+        return self.vext_r
 
     def calculate_potential(self, gd):
         raise NotImplementedError
@@ -42,7 +42,7 @@ class ConstantPotential(ExternalPotential):
         return 'Constant potential: {0:.3f} eV'.format(self.constant * Hartree)
 
     def calculate_potential(self, gd):
-        self.vext_g = gd.zeros() + self.constant
+        self.vext_r = gd.zeros() + self.constant
 
     def todict(self):
         return {'name': 'ConstantPotential',
@@ -76,8 +76,8 @@ class ConstantElectricField(ExternalPotential):
                     .format(axis_v))
 
         center_v = 0.5 * gd.cell_cv.sum(0)
-        r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-        self.vext_g = np.dot(r_gv - center_v, self.field_v)
+        r_rv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
+        self.vext_r = np.dot(r_rv - center_v, self.field_v)
 
     def todict(self):
         strength = (self.field_v**2).sum()**0.5
@@ -146,7 +146,7 @@ class PointChargePotential(ExternalPotential):
             self.com_pv = None
 
         self.R_pv = np.asarray(R_pv) / Bohr
-        self.vext_g = None
+        self.vext_r = None
 
     def _molecule_distances(self, gd):
         if self.com_pv is not None:
@@ -154,14 +154,14 @@ class PointChargePotential(ExternalPotential):
 
     def calculate_potential(self, gd):
         assert gd.orthogonal
-        self.vext_g = gd.zeros()
+        self.vext_r = gd.zeros()
 
         dcom_pv = self._molecule_distances(gd)
 
         _gpaw.pc_potential(gd.beg_c, gd.h_cv.diagonal().copy(),
                            self.q_p, self.R_pv,
                            self.rc, self.rc2, self.width,
-                           self.vext_g, dcom_pv)
+                           self.vext_r, dcom_pv)
 
     def get_forces(self, calc):
         """Calculate forces from QM charge density on point-charges."""
@@ -173,6 +173,6 @@ class PointChargePotential(ExternalPotential):
         _gpaw.pc_potential(gd.beg_c, gd.h_cv.diagonal().copy(),
                            self.q_p, self.R_pv,
                            self.rc, self.rc2, self.width,
-                           self.vext_g, dcom_pv, dens.rhot_g, F_pv)
+                           self.vext_r, dcom_pv, dens.rhot_r, F_pv)
         gd.comm.sum(F_pv)
         return F_pv * Hartree / Bohr

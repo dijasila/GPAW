@@ -823,7 +823,7 @@ class PairDensity:
 
         wfs = self.calc.wfs
         kd = wfs.kd
-            
+
         # Parse kpoint: is k_c an index or a vector
 
         try:

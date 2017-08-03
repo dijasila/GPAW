@@ -320,10 +320,11 @@ class C_Response(Contribution):
                 nt_G[:] = 0.0
                 self.wfs.add_orbital_density(nt_G, kpt, lumo_n)
                 E = 0.0
+                P_ani = kpt.P_ani
                 for a in self.density.D_asp:
                     D_sp = self.Dxc_D_asp[a]
                     Dresp_sp = self.Dxc_Dresp_asp[a]
-                    P_ni = kpt.P_ani[a]
+                    P_ni = P_ani[a]
                     Dwf_p = pack(np.outer(P_ni[lumo_n].T.conj(),
                                           P_ni[lumo_n]).real)
                     E += self.integrate_sphere(a, Dresp_sp, D_sp, Dwf_p,

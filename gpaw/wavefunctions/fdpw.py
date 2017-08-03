@@ -82,7 +82,7 @@ class FDPWWaveFunctions(WaveFunctions):
         else:  # XXX???
             # We didn't even touch density, but some combinations in paw.set()
             # will make it necessary to do this for some reason.
-            density.calculate_normalized_charges_and_mix()
+            pass#density.calculate_normalized_charges_and_mix()
         hamiltonian.update(density)
 
         if self.kpt_u[0].psit_nG is None:
@@ -225,10 +225,10 @@ class FDPWWaveFunctions(WaveFunctions):
                                 dtype=complex)
                 for ne, c_n in zip(kpt.ne_o, kpt.c_on):
                     d_nn += ne * np.outer(c_n.conj(), c_n)
-                for a, F_niv in F_aniv.items():
-                    F_niv = F_niv.conj()
+                for a, P_ni in kpt.P_In.items():
+                    F_niv = F_aniv[a].conj()
                     dH_ii = dH_asii[a][kpt.s]
-                    Q_ni = np.dot(d_nn, kpt.P_ani[a])
+                    Q_ni = np.dot(d_nn, P_ni)
                     F_vii = np.dot(np.dot(F_niv.transpose(), Q_ni), dH_ii)
                     F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
                     dO_ii = self.setups[a].dO_ii

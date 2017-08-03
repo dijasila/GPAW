@@ -219,12 +219,10 @@ class Density:
 
     @property
     def nt_sG(self):
-        1 / 0
         return self.nt_sR
 
     @property
     def nt_sg(self):
-        1 / 0
         return self.nt_sr
 
     def __str__(self):
@@ -513,7 +511,7 @@ class RealSpaceDensity(Density):
     def get_pseudo_core_kinetic_energy_density_lfc(self):
         return ACF(self.gd,
                    [[setup.tauct] for setup in self.setups],
-                   forces=True, cut=True)
+                   cut=True)
 
     def calculate_dipole_moment(self):
         return self.finegd.calculate_dipole_moment(self.rhot_r)
@@ -594,6 +592,11 @@ class ReciprocalSpaceDensity(Density):
         return out_xR
 
     distribute_and_interpolate = interpolate
+
+    def get_pseudo_core_kinetic_energy_density_lfc(self):
+        return ACF(self.pd,
+                   [[setup.tauct] for setup in self.setups],
+                   cut=True)
 
     def calculate_dipole_moment(self):
         if LooseVersion(np.__version__) < '1.6.0':

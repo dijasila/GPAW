@@ -354,13 +354,7 @@ class WaveFunctions:
             kpt.f_n = f_n
             if self.gd.comm.rank == 0:
                 P_nI = r.proxy('projections', kpt.s, kpt.k)[:]
-            I1 = 0
-            kpt.P_ani = {}
-            for a, setup in enumerate(self.setups):
-                I2 = I1 + setup.ni
-                if self.gd.comm.rank == 0:
-                    kpt.P_ani[a] = np.array(P_nI[nslice, I1:I2], self.dtype)
-                I1 = I2
+                kpt.P_In.array[:] = P_nI[nslice].T
 
 
 def eigenvalue_string(wfs, comment=' '):

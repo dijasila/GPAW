@@ -277,9 +277,10 @@ class HF:
 
                 v_aL = paw.density.ghat.dict()
                 paw.density.ghat.integrate(self.vt_g, v_aL)
+                P_ani = kpt.P_ani
                 for a, v_L in v_aL.items():
                     v_ii = unpack(np.dot(paw.wfs.setups[a].Delta_pL, v_L))
-                    P_ni = kpt.P_ani[a]
+                    P_ni = P_ani[a]
                     h_nn[:, n1] += f2 * np.dot(P_ni, np.dot(v_ii, P_ni[n2]))
                     if n1 != n2:
                         h_nn[:, n2] += f1 * np.dot(P_ni,

@@ -343,6 +343,7 @@ class ProjectionMatrix(Matrix):
 
         self.indices = []
         self.my_atom_indices = []
+        self.map = {}
         I1 = 0
         for a, ni in enumerate(nproj_a):
             if acomm.rank == rank_a[a]:
@@ -350,6 +351,7 @@ class ProjectionMatrix(Matrix):
                 I2 = I1 + ni
                 self.indices.append((a, I1, I2))
                 I1 = I2
+                self.map[a] = (I1, I2)
 
         Matrix.__init__(self, I1, nbands, dtype, dist=(bcomm, 1, -1))
 
@@ -366,7 +368,14 @@ class ProjectionMatrix(Matrix):
 
     def items(self):
         for a, I1, I2 in self.indices:
-            yield a, self.array[I1:I2].T
+            yield a, self.array[I1:I2]
+
+    def __getitem__(self, a):
+        I1, I2 = self.map[a]
+        return self.array[I1:I2]
+
+    def __contains__(self, a):
+        return a in self.map
 
     def todict(self):
         return dict(self.items())

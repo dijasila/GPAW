@@ -82,7 +82,6 @@ class KPoint:
 
         self.eps_n = None
         self.f_n = None
-        #self.P_ani = None
         self.P_In = None
 
         # Only one of these two will be used:
@@ -98,6 +97,10 @@ class KPoint:
         self.psit_n = None
 
         #self.dist = None  # BLACS distribution of bands
+
+    @property
+    def P_ani(self):
+        return self.P_In.todict()
 
 
 class GlobalKPoint(KPoint):

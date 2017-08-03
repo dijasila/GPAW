@@ -13,7 +13,7 @@ def dots(*args):
     x = args[0]
     for M in args[1:]:
         x = np.dot(x, M)
-    return x        
+    return x
 
 
 def normalize(U, U2=None, norms=None):
@@ -26,11 +26,11 @@ def normalize(U, U2=None, norms=None):
         for n, col in zip(norms2, U.T):
             col *= n / la.norm(col)
     else:
-         for n, col1, col2 in zip(norms2, U.T, U2.T):
-             norm = np.sqrt(np.vdot(col1, col1) + np.vdot(col2, col2))
-             col1 *= n / norm
-             col2 *= n / norm
-      
+        for n, col1, col2 in zip(norms2, U.T, U2.T):
+            norm = np.sqrt(np.vdot(col1, col1) + np.vdot(col2, col2))
+            col1 *= n / norm
+            col2 *= n / norm
+
 
 def normalize2(C, S):
     C /= np.sqrt(dots(dagger(C), S, C).diagonal())
@@ -38,16 +38,16 @@ def normalize2(C, S):
 
 def get_rot(F_MM, V_oM, L):
     eps_M, U_MM = la.eigh(F_MM)
-    indices = eps_M.real.argsort()[-L:] 
+    indices = eps_M.real.argsort()[-L:]
     U_Ml = U_MM[:, indices]
     U_Ml /= np.sqrt(dots(U_Ml.T.conj(), F_MM, U_Ml).diagonal())
 
     U_ow = V_oM.copy()
     U_lw = np.dot(U_Ml.T.conj(), F_MM)
     for col1, col2 in zip(U_ow.T, U_lw.T):
-         norm = np.sqrt(np.vdot(col1, col1) + np.vdot(col2, col2))
-         col1 /= norm
-         col2 /= norm
+        norm = np.sqrt(np.vdot(col1, col1) + np.vdot(col2, col2))
+        col1 /= norm
+        col2 /= norm
     return U_ow, U_lw, U_Ml
 
 
@@ -111,24 +111,23 @@ def get_lcao_projections_HSP(calc, bfs=None, spin=0, projectionsonly=True):
     atomic_correction = DenseAtomicCorrection()
     atomic_correction.initialize(P_aqMi, 0, nao)
     atomic_correction.add_overlap_correction(calc.wfs, S_qMM)
-    #calc.wfs.P_aqMi = P_aqMi
-    #for q, S_MM in enumerate(S_qMM):
-    #    atomic_correction.calculate_manual(wfs, q, 
-    #atomic_correction.add_overlap_correction(calc.wfs, S_qMM)
+    # calc.wfs.P_aqMi = P_aqMi
+    # for q, S_MM in enumerate(S_qMM):
+    #     atomic_correction.calculate_manual(wfs, q,
+    # atomic_correction.add_overlap_correction(calc.wfs, S_qMM)
     calc.wfs.gd.comm.sum(S_qMM)
     calc.wfs.gd.comm.sum(T_qMM)
-    
-    
+
     # Calculate projections
     V_qnM = np.zeros((nq, calc.wfs.bd.nbands, nao), dtype)
     for kpt in calc.wfs.kpt_u:
         if kpt.s != spin:
             continue
         V_nM = V_qnM[kpt.q]
-        #bfs.integrate2(kpt.psit_nG[:], V_nM, kpt.q) # all bands to save time
-        for n, V_M in enumerate(V_nM): # band-by-band to save memory
+        # bfs.integrate2(kpt.psit_nG[:], V_nM, kpt.q) # all bands to save time
+        for n, V_M in enumerate(V_nM):  # band-by-band to save memory
             bfs.integrate2(kpt.psit_nG[n][:], V_M, kpt.q)
-        for a, P_ni in kpt.P_ani.items():
+        for a, P_ni in kpt.P_In.items():
             dS_ii = calc.wfs.setups[a].dO_ii
             P_Mi = P_aqMi[a][kpt.q]
             V_nM += np.dot(P_ni, np.inner(dS_ii, P_Mi).conj())
@@ -150,7 +149,7 @@ def get_lcao_projections_HSP(calc, bfs=None, spin=0, projectionsonly=True):
             H_MM += np.dot(P_Mi, np.inner(dH_ii, P_Mi).conj())
     comm.sum(H_qMM)
     H_qMM += T_qMM
-    
+
     # Fill in the upper triangles of H and S
     for H_MM, S_MM in zip(H_qMM, S_qMM):
         tri2full(H_MM)
@@ -173,7 +172,7 @@ def convert_projection_data(symbols, V_qnM, H_qMM, S_qMM, P_aqMi,
     for a, P_qMi in P_aqMi.items():
         P2_aqMi[a] = P_qMi[:, mask, :]
     return V_qnM, H_qMM, S_qMM, P2_aqMi
-    
+
 
 def get_phs(calc, s=0):
     return get_lcao_projections_HSP(calc, bfs=None,
@@ -181,7 +180,7 @@ def get_phs(calc, s=0):
 
 
 class ProjectedWannierFunctions:
-    def __init__(self, projections, h_lcao, s_lcao, eigenvalues, kpoints, 
+    def __init__(self, projections, h_lcao, s_lcao, eigenvalues, kpoints,
                  L_k=None, M_k=None, N=None, fixedenergy=None):
         """projections[n,i] = <psi_n|f_i>
            h_lcao[i1, i2] = <f_i1|h|f_i2>
@@ -190,13 +189,13 @@ class ProjectedWannierFunctions:
            L: Number of extra degrees of freedom
            M: Number of states to exactly span
            N: Total number of bands in the calculation
-           
+
            Methods:
            -- get_hamiltonian_and_overlap_matrix --
            will return the hamiltonian and identity operator
-           in the projected wannier function basis. 
+           in the projected wannier function basis.
            The following steps are performed:
-            
+
            1) calculate_edf       -> self.b_il
            2) calculate_rotations -> self.Uo_mi and self.Uu_li
            3) calculate_overlaps  -> self.S_ii
@@ -213,22 +212,23 @@ class ProjectedWannierFunctions:
            m fixed eigenstate index
            k k-point index
            """
-         
+
         self.eps_kn = eigenvalues
         self.ibzk_kc = kpoints
         self.nk = len(self.ibzk_kc)
-        self.V_kni = projections   #<psi_n1|f_i1>
+        self.V_kni = projections  # <psi_n1|f_i1>
         self.dtype = self.V_kni.dtype
         self.Nw = self.V_kni.shape[2]
-        self.s_lcao_kii = s_lcao #F_ii[i1,i2] = <f_i1|f_i2>
+        self.s_lcao_kii = s_lcao  # F_ii[i1,i2] = <f_i1|f_i2>
         self.h_lcao_kii = h_lcao
 
         if N is None:
             N = self.V_kni.shape[1]
         self.N = N
-        
+
         if fixedenergy is None:
-            raise NotImplementedError('Only fixedenergy is implemented for now')
+            raise NotImplementedError(
+                'Only fixedenergy is implemented for now')
         else:
             self.fixedenergy = fixedenergy
             self.M_k = [sum(eps_n <= fixedenergy) for eps_n in self.eps_kn]
@@ -257,36 +257,36 @@ class ProjectedWannierFunctions:
         To use the infinite band limit set useibl=True.
         N is the total number of bands to use.
         """
-        
+
         for k, L in enumerate(self.L_k):
-            if L==0:
-                assert L!=0, 'L_k=0 for k=%i. Not implemented' % k
-        
+            if L == 0:
+                assert L != 0, 'L_k=0 for k=%i. Not implemented' % k
+
         self.Vo_kni = [V_ni[:M] for V_ni, M in zip(self.V_kni, self.M_k)]
-        
-        self.Fo_kii = np.asarray([np.dot(dagger(Vo_ni), Vo_ni) 
+
+        self.Fo_kii = np.asarray([np.dot(dagger(Vo_ni), Vo_ni)
                                   for Vo_ni in self.Vo_kni])
-        
+
         if useibl:
             self.Fu_kii = self.s_lcao_kii - self.Fo_kii
         else:
-            self.Vu_kni = [V_ni[M:self.N] 
+            self.Vu_kni = [V_ni[M:self.N]
                            for V_ni, M in zip(self.V_kni, self.M_k)]
-            self.Fu_kii = np.asarray([np.dot(dagger(Vu_ni), Vu_ni) 
+            self.Fu_kii = np.asarray([np.dot(dagger(Vu_ni), Vu_ni)
                                      for Vu_ni in self.Vu_kni])
-        self.b_kil = [] 
+        self.b_kil = []
         for Fu_ii, L in zip(self.Fu_kii, self.L_k):
             b_i, b_ii = la.eigh(Fu_ii)
-            ls = b_i.real.argsort()[-L:] 
-            b_il = b_ii[:, ls] #pick out the eigenvec with largest eigenvals.
-            normalize2(b_il, Fu_ii) #normalize the EDF: <phi_l|phi_l> = 1
+            ls = b_i.real.argsort()[-L:]
+            b_il = b_ii[:, ls]  # pick out the eigenvec with largest eigenvals.
+            normalize2(b_il, Fu_ii)  # normalize the EDF: <phi_l|phi_l> = 1
             self.b_kil.append(b_il)
 
     def calculate_rotations(self):
         Uo_kni = [Vo_ni.copy() for Vo_ni in self.Vo_kni]
-        Uu_kli = [np.dot(dagger(b_il), Fu_ii) 
+        Uu_kli = [np.dot(dagger(b_il), Fu_ii)
                   for b_il, Fu_ii in zip(self.b_kil, self.Fu_kii)]
-        #Normalize such that <omega_i|omega_i> = <f_i|f_i>
+        # Normalize such that <omega_i|omega_i> = <f_i|f_i>
         for Uo_ni, Uu_li, s_ii in zip(Uo_kni, Uu_kli, self.s_lcao_kii):
             normalize(Uo_ni, Uu_li, s_ii.diagonal())
         self.Uo_kni = Uo_kni
@@ -295,8 +295,8 @@ class ProjectedWannierFunctions:
     def calculate_overlaps(self):
         Wo_kii = [np.dot(dagger(Uo_ni), Uo_ni) for Uo_ni in self.Uo_kni]
         Wu_kii = [np.dot(dagger(Uu_li), Uu_li) for Uu_li in self.Uu_kli]
-        #Wu_kii = [dots(dagger(Uu_li), dagger(b_il), Fu_ii, b_il, Uu_li) 
-        #for Uu_li, b_il, Fu_ii in zip(self.Uu_kli, self.b_kil, self.Fu_kii)]
+        # Wu_kii = [dots(dagger(Uu_li), dagger(b_il), Fu_ii, b_il, Uu_li)
+        # for Uu_li, b_il, Fu_ii in zip(self.Uu_kli, self.b_kil, self.Fu_kii)]
         self.S_kii = np.asarray(Wo_kii) + np.asarray(Wu_kii)
 
     def get_condition_number(self):
@@ -308,22 +308,22 @@ class ProjectedWannierFunctions:
         """
 
         epso_kn = [eps_n[:M] for eps_n, M in zip(self.eps_kn, self.M_k)]
-        self.Ho_kii = np.asarray([np.dot(dagger(Uo_ni) * epso_n, Uo_ni) 
-                                  for Uo_ni, epso_n in zip(self.Uo_kni, 
+        self.Ho_kii = np.asarray([np.dot(dagger(Uo_ni) * epso_n, Uo_ni)
+                                  for Uo_ni, epso_n in zip(self.Uo_kni,
                                                            epso_kn)])
 
         if self.h_lcao_kii is not None and useibl:
             print("Using h_lcao and infinite band limit")
             Huf_kii = [h_lcao_ii - np.dot(dagger(Vo_ni) * epso_n, Vo_ni)
-                       for h_lcao_ii, Vo_ni, epso_n in zip(self.h_lcao_kii, 
-                                                           self.Vo_kni, 
+                       for h_lcao_ii, Vo_ni, epso_n in zip(self.h_lcao_kii,
+                                                           self.Vo_kni,
                                                            epso_kn)]
             self.Huf_kii = np.asarray(Huf_kii)
         else:
             print("Using finite band limit (not using h_lcao)")
-            epsu_kn = [eps_n[M:self.N] 
+            epsu_kn = [eps_n[M:self.N]
                        for eps_n, M in zip(self.eps_kn, self.M_k)]
-            Huf_kii = [np.dot(dagger(Vu_ni) * epsu_n, Vu_ni) 
+            Huf_kii = [np.dot(dagger(Vu_ni) * epsu_n, Vu_ni)
                        for Vu_ni, epsu_n in zip(self.Vu_kni, epsu_kn)]
             self.Huf_kii = np.asarray(Huf_kii)
 
@@ -345,19 +345,20 @@ class ProjectedWannierFunctions:
         Sinv_kii = np.asarray([la.inv(S_ii) for S_ii in self.S_kii])
 
         normo_kn = np.asarray([dots(Uo_ni, Sinv_ii, dagger(Uo_ni)).diagonal()
-                    for Uo_ni, Sinv_ii in zip(self.Uo_kni, Sinv_kii)])
-        
-        Vu_kni = np.asarray([V_ni[M:self.N] 
+                               for Uo_ni, Sinv_ii in
+                               zip(self.Uo_kni, Sinv_kii)])
+
+        Vu_kni = np.asarray([V_ni[M:self.N]
                              for V_ni, M in zip(self.V_kni, self.M_k)])
 
-        Pu_kni = [dots(Vu_ni, b_il, Uu_li) 
-                for Vu_ni, b_il, Uu_li in zip(Vu_kni, self.b_kil, self.Uu_kli)]
+        Pu_kni = [dots(Vu_ni, b_il, Uu_li)
+                  for Vu_ni, b_il, Uu_li in
+                  zip(Vu_kni, self.b_kil, self.Uu_kli)]
 
         normu_kn = np.asarray([dots(Pu_ni, Sinv_ii, dagger(Pu_ni)).diagonal()
-                    for Pu_ni, Sinv_ii in zip(Pu_kni, Sinv_kii)])
+                               for Pu_ni, Sinv_ii in zip(Pu_kni, Sinv_kii)])
 
         return np.hstack((normo_kn, normu_kn))
-        
 
     def calculate_functions(self, calc, basis, k=0):
         from gpaw.io import FileReference
@@ -369,19 +370,18 @@ class ProjectedWannierFunctions:
 
         basis_functions = get_bfs(calc)
         b_il, Uu_li, Vo_ni = self.b_kil[k], self.Uu_kli[k], self.Vo_kni[k]
-        a_iG = -np.tensordot(Vo_ni, psit_nG, axes=[0, 0])# a_iG = -fo_iG
-        #self.fo_iG = -a_iG.copy()#f projected onto the occupied subspace
+        a_iG = -np.tensordot(Vo_ni, psit_nG, axes=[0, 0])  # a_iG = -fo_iG
+        # self.fo_iG = -a_iG.copy()#f projected onto the occupied subspace
         C_iM = np.identity(self.Nw, dtype=self.dtype)
-        basis_functions.lcao_to_grid(C_iM, a_iG, q=-1) # a_iG=fu_iG=f_iG-fo_iG
-        #self.f_iG = self.fo_iG + a_iG # check
-        a_iG = np.tensordot(b_il, a_iG, axes=[0, 0])   # a_iG = EDF
+        basis_functions.lcao_to_grid(C_iM, a_iG, q=-1)  # a_iG=fu_iG=f_iG-fo_iG
+        # self.f_iG = self.fo_iG + a_iG # check
+        a_iG = np.tensordot(b_il, a_iG, axes=[0, 0])  # a_iG = EDF
         a_iG = np.tensordot(Uu_li, a_iG, axes=[0, 0])  # a_iG = wu_iG
-        a_iG+=np.tensordot(Uo_ni, psit_nG, axes=[0, 0])# ai_G = wu_iG+wo_iG
+        a_iG += np.tensordot(Uo_ni, psit_nG, axes=[0, 0])  # ai_G = wu_iG+wo_iG
         self.w_iG = a_iG
 
-
     def get_mlwf_initial_guess(self):
-        """calculate initial guess for maximally localized 
+        """calculate initial guess for maximally localized
         wannier functions. Does not work for the infinite band limit.
         cu_nl: rotation coefficents of unoccupied states
         U_ii: rotation matrix of eigenstates and edf.

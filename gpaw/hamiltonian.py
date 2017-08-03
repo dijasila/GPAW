@@ -121,12 +121,10 @@ class Hamiltonian:
 
     @property
     def vt_sG(self):
-        1 / 0
         return self.vt_sR
 
     @property
     def vt_sg(self):
-        1 / 0
         return self.vt_sr
 
     @property

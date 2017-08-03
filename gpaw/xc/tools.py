@@ -7,7 +7,7 @@ from gpaw.utilities import unpack
 
 def vxc(paw, xc=None, coredensity=True):
     """Calculate XC-contribution to eigenvalues."""
-    
+
     ham = paw.hamiltonian
     dens = paw.density
     wfs = paw.wfs
@@ -21,7 +21,7 @@ def vxc(paw, xc=None, coredensity=True):
         dens.interpolate_pseudo_density()
 
     thisisatest = not True
-    
+
     if xc.orbital_dependent:
         paw.get_xc_difference(xc)
 
@@ -36,7 +36,7 @@ def vxc(paw, xc=None, coredensity=True):
     dvxc_asii = {}
     for a, D_sp in dens.D_asp.items():
         dvxc_sp = np.zeros_like(D_sp)
-        xc.calculate_paw_correction(wfs.setups[a], D_sp, dvxc_sp, a=a, 
+        xc.calculate_paw_correction(wfs.setups[a], D_sp, dvxc_sp, a=a,
                                     addcoredensity=coredensity)
         dvxc_asii[a] = [unpack(dvxc_p) for dvxc_p in dvxc_sp]
         if thisisatest:
@@ -51,8 +51,9 @@ def vxc(paw, xc=None, coredensity=True):
             vxc_n[n] = wfs.gd.integrate((psit_G * psit_G.conj()).real,
                                         vxct_G, global_integral=False)
 
+        P_ani = kpt.P_ani
         for a, dvxc_sii in dvxc_asii.items():
-            P_ni = kpt.P_ani[a]
+            P_ni = P_ani[a]
             vxc_n += (np.dot(P_ni, dvxc_sii[kpt.s]) *
                       P_ni.conj()).sum(1).real
 
