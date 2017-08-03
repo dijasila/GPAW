@@ -6,7 +6,7 @@ from ase.data import atomic_numbers
 from gpaw.utilities import pack2
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.atom.configurations import configurations
-from gpaw.pseudopotential import (PseudoPotential, get_radial_hartree_energy)
+from gpaw.pseudopotential import PseudoPotential, get_radial_hartree_energy
 
 
 setups = {}  # Filled out during parsing below

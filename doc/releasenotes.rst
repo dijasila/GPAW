@@ -52,7 +52,8 @@ Git master branch
 
 * Norm-conserving potentials (HGH and SG15) now subtract the Hartree
   energies of the compensation charges.
-  The total energy of an isolated nucleus will now be zero.
+  The total energy of an isolated pseudoatom stripped of all valence electrons
+  will now be zero.
 
 * HGH and SG15 pseudopotentials are now Fourier-filtered at runtime
   as appropriate for the given grid spacing.  Using them now requires scipy.
