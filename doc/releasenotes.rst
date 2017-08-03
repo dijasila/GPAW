@@ -54,6 +54,9 @@ Git master branch
   energies of the compensation charges.
   The total energy of an isolated nucleus will now be zero.
 
+* HGH and SG15 pseudopotentials are now Fourier-filtered at runtime
+  as appropriate for the given grid spacing.  Using them now requires scipy.
+
 Version 1.2.0
 =============
 
