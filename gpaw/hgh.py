@@ -6,8 +6,7 @@ from ase.data import atomic_numbers
 from gpaw.utilities import pack2
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.atom.configurations import configurations
-from gpaw.pseudopotential import (PseudoPotential, get_radial_hartree_energy,
-                                  projectors_to_splines)
+from gpaw.pseudopotential import (PseudoPotential, get_radial_hartree_energy)
 
 
 setups = {}  # Filled out during parsing below
@@ -167,7 +166,6 @@ class HGHSetupData:
                 pass
         self.f_ln = f_ln
         self.f_j = f_j
-        self.Eh_compcharge = 0.0
 
         r_g, lcomp, ghat = self.get_compensation_charge_functions()
         assert lcomp == [0] and len(ghat) == 1
@@ -280,7 +278,6 @@ class HGHSetupData:
         setup = PseudoPotential(self, basis)
         setup.fingerprint = hashlib.md5(str(self.hghdata).encode()).hexdigest()
         return setup
-
 
 def create_local_shortrange_potential(r_g, rloc, c_n):
     rr_g = r_g / rloc  # "Relative r"

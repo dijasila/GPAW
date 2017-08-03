@@ -22,7 +22,6 @@ from gpaw.setup_data import search_for_file
 from gpaw.basis_data import Basis, BasisFunction
 from gpaw.pseudopotential import (PseudoPotential, screen_potential,
                                   figure_out_valence_states,
-                                  projectors_to_splines,
                                   get_radial_hartree_energy)
 from gpaw.spline import Spline
 from gpaw.utilities import pack2, divrl
