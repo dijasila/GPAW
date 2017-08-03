@@ -2,7 +2,7 @@
 
 from ase.utils import basestring
 
-from gpaw.eigensolvers.rmmdiis import RMMDIIS
+# from gpaw.eigensolvers.rmmdiis import RMMDIIS
 from gpaw.eigensolvers.cg import CG
 from gpaw.eigensolvers.davidson import Davidson
 from gpaw.eigensolvers.direct import DirectPW
@@ -23,8 +23,8 @@ def get_eigensolver(eigensolver, mode, convergence=None):
     if isinstance(eigensolver, dict):
         eigensolver = eigensolver.copy()
         name = eigensolver.pop('name')
-        eigensolver = {'rmm-diis': Davidson,#RMMDIIS,
-                       'cg': Davidson,#CG,
+        eigensolver = {'rmm-diis': Davidson,  # RMMDIIS,
+                       'cg': Davidson,  # CG,
                        'dav': Davidson,
                        'lcao': DirectLCAO,
                        'direct': DirectPW
