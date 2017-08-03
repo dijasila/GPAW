@@ -22,6 +22,7 @@ from gpaw.setup_data import search_for_file
 from gpaw.basis_data import Basis, BasisFunction
 from gpaw.pseudopotential import (PseudoPotential, screen_potential,
                                   figure_out_valence_states,
+                                  projectors_to_splines,
                                   get_radial_hartree_energy)
 from gpaw.spline import Spline
 from gpaw.utilities import pack2, divrl
@@ -412,7 +413,7 @@ class UPFSetupData:
                 add('l=%d f=%s' % (state.l, state.occupation))
             indent -= 2
         add('Local potential cutoff: %s'
-            % self.get_local_potential().get_cutoff())
+            % self.rgd.r_g[len(self.vbar_g) - 1])
         add('Comp charge cutoff:     %s'
             % self.rgd.r_g[len(self.ghat_lg[0]) - 1])
         add('File: %s' % self.filename)
@@ -454,29 +455,6 @@ class UPFSetupData:
                 m2start = m2stop
             m1start = m1stop
         return pack2(H_ii)
-
-    def get_local_potential(self, filter=None):
-        vbar_g = self.vbar_g.copy()
-        rcut = self.rgd.r_g[len(vbar_g) - 1]
-        if filter is not None:
-            filter(self.rgd, rcut, vbar_g, l=0)
-        vbar = Spline(0, rcut, vbar_g)
-        return vbar
-
-    # XXXXXXXXXXXXXXXXX stolen from hghsetupdata
-    def get_projectors(self, filter=None):
-        # XXX equal-range projectors still required for some reason
-        maxlen = max([len(pt_g) for pt_g in self.pt_jg])
-        pt_j = []
-        for l, pt1_g in zip(self.l_j, self.pt_jg):
-            pt2_g = np.zeros(maxlen)
-            pt2_g[:len(pt1_g)] = pt1_g
-            if filter is not None:
-                filter(self.rgd, self.rgd.r_g[maxlen], pt2_g, l=l)
-            pt2_g = divrl(pt2_g, l, self.rgd.r_g[:maxlen])
-            spline = Spline(l, self.rgd.r_g[maxlen - 1], pt2_g)
-            pt_j.append(spline)
-        return pt_j
 
     def _interp(self, func):
         r_g = self.rgd.r_g

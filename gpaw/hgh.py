@@ -6,7 +6,8 @@ from ase.data import atomic_numbers
 from gpaw.utilities import pack2
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.atom.configurations import configurations
-from gpaw.pseudopotential import PseudoPotential, get_radial_hartree_energy
+from gpaw.pseudopotential import (PseudoPotential, get_radial_hartree_energy,
+                                  projectors_to_splines)
 
 
 setups = {}  # Filled out during parsing below
@@ -244,16 +245,6 @@ class HGHSetupData:
             pl.plot(r_g, pt_g, label=label)
         pl.legend()
 
-    def get_projectors(self):
-        # XXX equal-range projectors still required for some reason
-        maxlen = max([len(pt_g) for pt_g in self.pt_jg])
-        pt_j = []
-        for l, pt1_g in zip(self.l_j, self.pt_jg):
-            pt2_g = self.rgd.zeros()[:maxlen]
-            pt2_g[:len(pt1_g)] = pt1_g
-            pt_j.append(self.rgd.spline(pt2_g, self.rgd.r_g[maxlen - 1], l))
-        return pt_j
-
     def create_basis_functions(self):
         from gpaw.pseudopotential import generate_basis_functions
         return generate_basis_functions(self)
@@ -268,10 +259,6 @@ class HGHSetupData:
         g = alpha**1.5 * np.exp(-alpha * r**2) * 4.0 / np.sqrt(np.pi)
         g[-1] = 0.0
         return r, [0], [g]
-
-    def get_local_potential(self):
-        n = len(self.vbar_g)
-        return self.rgd.spline(self.vbar_g, self.rgd.r_g[n - 1])
 
     def build(self, xcfunc, lmax, basis, filter=None):
         if basis is None:
