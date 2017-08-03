@@ -2,11 +2,14 @@
 
 from ase.utils import basestring
 
-# from gpaw.eigensolvers.rmmdiis import RMMDIIS
+from gpaw.eigensolvers.rmmdiis import RMMDIIS
 from gpaw.eigensolvers.cg import CG
 from gpaw.eigensolvers.davidson import Davidson
 from gpaw.eigensolvers.direct import DirectPW
 from gpaw.lcao.eigensolver import DirectLCAO
+
+__all__ = ['RMMDIIS', 'CG', 'Davidson', 'DirectLCAO', 'DirectPW',
+           'get_eigensolver']
 
 
 def get_eigensolver(eigensolver, mode, convergence=None):

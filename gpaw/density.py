@@ -282,8 +282,9 @@ class Density:
         wfs.add_to_density().
         """
         self.update_pseudo_core_density()
-        self.nt_sR[:] = self.nct_R
+        self.nt_sR[:] = 0.0
         wfs.calculate_density_contribution(self.nt_sR)
+        self.nt_sR += self.nct_R
 
     @timer('Density')
     def update(self, wfs):
