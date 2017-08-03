@@ -706,7 +706,8 @@ class GPAW(PAW, Calculator):
 
             def filter(rgd, rcut, f_r, l=0):
                 gcut = np.pi / h - 2 / rcut / gamma
-                f_r[:] = rgd.filter(f_r, rcut * gamma, gcut, l)
+                ftmp = rgd.filter(f_r, rcut * gamma, gcut, l)
+                f_r[:] = ftmp[:len(f_r)]
         else:
             filter = self.parameters.filter
 
