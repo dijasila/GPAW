@@ -260,6 +260,20 @@ class HGHSetupData:
         g[-1] = 0.0
         return r, [0], [g]
 
+    def get_projectors(self):
+        # XXX equal-range projectors still required for some reason
+        maxlen = max([len(pt_g) for pt_g in self.pt_jg])
+        pt_j = []
+        for l, pt1_g in zip(self.l_j, self.pt_jg):
+            pt2_g = self.rgd.zeros()[:maxlen]
+            pt2_g[:len(pt1_g)] = pt1_g
+            pt_j.append(self.rgd.spline(pt2_g, self.rgd.r_g[maxlen - 1], l))
+        return pt_j
+
+    def get_local_potential(self):
+        n = len(self.vbar_g)
+        return self.rgd.spline(self.vbar_g, self.rgd.r_g[n - 1], l=0)
+
     def build(self, xcfunc, lmax, basis, filter=None):
         if basis is None:
             basis = self.create_basis_functions()

@@ -11,6 +11,7 @@ from gpaw.utilities import erf, divrl, hartree as hartree_solve
 null_spline = Spline(0, 1.0, [0., 0., 0.])
 
 
+# XXX Not used at the moment; see comment below about rgd splines.
 def projectors_to_splines(rgd, l_j, pt_jg, filter=None):
     # This function exists because both HGH and SG15 needs to do
     # exactly the same thing.
@@ -24,17 +25,19 @@ def projectors_to_splines(rgd, l_j, pt_jg, filter=None):
         if filter is not None:
             filter(rgd, rgd.r_g[maxlen], pt2_g, l=l)
         pt2_g = divrl(pt2_g, l, rgd.r_g[:maxlen])
-        spline = Spline(l, rgd.r_g[maxlen - 1], pt2_g)
+        spline = rgd.spline(pt2_g, rgd.r_g[maxlen - 1], l=l)
         pt_j.append(spline)
     return pt_j
 
 
+# XXX not used at the moment
 def local_potential_to_spline(rgd, vbar_g, filter=None):
     vbar_g = vbar_g.copy()
     rcut = rgd.r_g[len(vbar_g) - 1]
     if filter is not None:
         filter(rgd, rcut, vbar_g, l=0)
-    vbar = Spline(0, rcut, vbar_g)
+    #vbar = Spline(0, rcut, vbar_g)
+    vbar = rgd.spline(vbar_g, rgd.r_g[len(vbar_g) - 1], l=0)
     return vbar
 
 
@@ -231,8 +234,9 @@ class PseudoPotential(BaseSetup):
         self.nj = len(data.l_j)
 
         self.ni = sum([2 * l + 1 for l in data.l_j])
-        self.pt_j = projectors_to_splines(data.rgd, data.l_j, data.pt_jg,
-                                          filter=filter)
+        #self.pt_j = projectors_to_splines(data.rgd, data.l_j, data.pt_jg,
+        #                                  filter=filter)
+        self.pt_j = data.get_projectors()
 
         if len(self.pt_j) == 0:
             assert False  # not sure yet about the consequences of
@@ -260,8 +264,14 @@ class PseudoPotential(BaseSetup):
         self.rcgauss = data.rcgauss
 
         # accuracy is rather sensitive to this
-        self.vbar = local_potential_to_spline(data.rgd, data.vbar_g,
-                                              filter=filter)
+        #self.vbar = local_potential_to_spline(data.rgd, data.vbar_g,
+        #                                      filter=filter)
+        self.vbar = data.get_local_potential()
+        # XXX HGH and UPF use different radial grids, and this for
+        # some reason makes it difficult to use the exact same code to
+        # construct vbar and projectors.  This should be fixed since
+        # either type of rgd should be able to always produce a valid
+        # and equivalent spline transparently.
 
         _np = self.ni * (self.ni + 1) // 2
         self.Delta0 = data.Delta0

@@ -456,6 +456,22 @@ class UPFSetupData:
             m1start = m1stop
         return pack2(H_ii)
 
+    def get_local_potential(self):
+        vbar = Spline(0, self.rgd.r_g[len(self.vbar_g) - 1], self.vbar_g)
+        return vbar
+
+    # XXXXXXXXXXXXXXXXX stolen from hghsetupdataf
+    def get_projectors(self):
+        # XXX equal-range projectors still required for some reason
+        maxlen = max([len(pt_g) for pt_g in self.pt_jg])
+        pt_j = []
+        for l, pt1_g in zip(self.l_j, self.pt_jg):
+            pt2_g = self.rgd.zeros()[:maxlen]
+            pt2_g[:len(pt1_g)] = divrl(pt1_g, l, self.rgd.r_g[:len(pt1_g)])
+            spline = Spline(l, self.rgd.r_g[maxlen - 1], pt2_g)
+            pt_j.append(spline)
+        return pt_j
+
     def _interp(self, func):
         r_g = self.rgd.r_g
         gcut = len(func)
