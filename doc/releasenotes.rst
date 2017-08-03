@@ -50,6 +50,11 @@ Git master branch
   calculating occupation numbers, fermi-level, magnetic moment, and entropy
   from eigenvalues and k-point weights.
 
+* Deprecated calculator-keyword ``dtype``.  If you need to force the datatype
+  of the wave functions to be complex, then use something like::
+
+      calc = GPAW(mode=PW(ecut=500, force_complex_dtype=True))
+
 
 Version 1.2.0
 =============

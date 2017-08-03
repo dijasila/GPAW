@@ -516,12 +516,6 @@ key                default   description
 ``tolerance``      ``1e-7``  Relative tolerance
 =================  ========  ===============================
 
-.. note::
-
-    If you are using version 0.10 or earlier, you can use
-    ``usesymm=False`` to turn off all point-group symmetries and
-    ``usesymm=None`` to turn off also time-reversal symmetry.
-
 
 .. _manual_random:
 
