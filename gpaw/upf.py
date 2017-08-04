@@ -21,7 +21,8 @@ from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.setup_data import search_for_file
 from gpaw.basis_data import Basis, BasisFunction
 from gpaw.pseudopotential import (PseudoPotential, screen_potential,
-                                  figure_out_valence_states)
+                                  figure_out_valence_states,
+                                  get_radial_hartree_energy)
 from gpaw.spline import Spline
 from gpaw.utilities import pack2, divrl
 
@@ -365,11 +366,11 @@ class UPFSetupData:
 
         vbar_g, ghat_g = screen_potential(data['r'], vlocal_unscreened,
                                           self.Nv)
-
+        self.Eh_compcharge = get_radial_hartree_energy(data['r'][:len(ghat_g)],
+                                                       ghat_g)
         self.vbar_g = self._interp(vbar_g) * np.sqrt(4.0 * np.pi)
         self.ghat_lg = [4.0 * np.pi / self.Nv * self._interp(ghat_g)]
 
-        # XXX Subtract Hartree energy of compensation charge as reference
 
     def get_jargs(self):
         projectors = list(self.data['projectors'])
@@ -411,7 +412,7 @@ class UPFSetupData:
                 add('l=%d f=%s' % (state.l, state.occupation))
             indent -= 2
         add('Local potential cutoff: %s'
-            % self.get_local_potential().get_cutoff())
+            % self.rgd.r_g[len(self.vbar_g) - 1])
         add('Comp charge cutoff:     %s'
             % self.rgd.r_g[len(self.ghat_lg[0]) - 1])
         add('File: %s' % self.filename)
@@ -458,7 +459,7 @@ class UPFSetupData:
         vbar = Spline(0, self.rgd.r_g[len(self.vbar_g) - 1], self.vbar_g)
         return vbar
 
-    # XXXXXXXXXXXXXXXXX stolen from hghsetupdata
+    # XXXXXXXXXXXXXXXXX stolen from hghsetupdataf
     def get_projectors(self):
         # XXX equal-range projectors still required for some reason
         maxlen = max([len(pt_g) for pt_g in self.pt_jg])
@@ -520,9 +521,11 @@ class UPFSetupData:
         return b
 
     def build(self, xcfunc, lmax, basis, filter=None):
+        # XXX better to create basis functions after filtering?
+        # Although basis functions are not meant for same grid
         if basis is None:
             basis = self.create_basis_functions()
-        return PseudoPotential(self, basis)
+        return PseudoPotential(self, basis, filter)
 
 
 def main_plot():
