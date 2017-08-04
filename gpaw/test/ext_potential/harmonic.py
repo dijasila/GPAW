@@ -16,7 +16,7 @@ x = Atoms(cell=(a, a, a))  # no atoms
 class HarmonicPotential(ExternalPotential):
     def calculate_potential(self, gd):
         r_vg = gd.get_grid_point_coordinates()
-        self.vext_g = 0.5 * ((r_vg - a / Bohr / 2)**2).sum(0)
+        self.set_potential(0.5 * ((r_vg - a / Bohr / 2)**2).sum(0))
 
 
 calc = GPAW(charge=-8,

@@ -19,6 +19,9 @@ class AtomicBlocks:
 
         self.rank_a = None
 
+    def __getitem__(self, a):
+        return self.M_asii[a]
+
     def broadcast(self):
         M_asii = []
         for a, ni in enumerate(self.size_a):

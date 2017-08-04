@@ -3,7 +3,7 @@ from __future__ import print_function
 import numpy as np
 from ase.units import Ha, alpha, Bohr
 
-from gpaw.utilities import unpack, unpack2
+from gpaw.utilities import unpack, pack
 from gpaw.xc import XC
 
 
@@ -53,7 +53,7 @@ def get_radial_potential(calc, a, ai):
     dr_g = rgd.dr_g
     Ns = calc.wfs.nspins
 
-    D_sp = [unpack2(D_ii) for D_ii in calc.density.D_II.D_asii[ai]]
+    D_sp = [pack(D_ii) for D_ii in calc.density.D[ai]]
     B_pq = a.xc_correction.B_pqL[:, :, 0]
     n_qg = a.xc_correction.n_qg
     D_sq = np.dot(D_sp, B_pq)

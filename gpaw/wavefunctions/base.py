@@ -102,7 +102,7 @@ class WaveFunctions:
         """Add the nth band density from kpt to density matrix D_sp"""
         ni = self.setups[a].ni
         D_sii = np.zeros((self.nspins, ni, ni))
-        P_i = kpt.P[a][n]
+        P_i = kpt.P[a][:, n]
         D_sii[kpt.s] += np.outer(P_i.conj(), P_i).real
         D_sp = [pack(D_ii) for D_ii in D_sii]
         return D_sp
@@ -212,7 +212,7 @@ class WaveFunctions:
         world_rank = kpt_rank * self.gd.comm.size * self.bd.comm.size
 
         if self.kd.comm.rank == kpt_rank:
-            P_nI = self.mykpts[u].P.collect()
+            P_nI = self.mykpts[u].P.collect().T
             if self.world.rank == 0:
                 return P_nI
             if P_nI is not None:
@@ -312,16 +312,15 @@ class WaveFunctions:
     def write(self, writer):
         writer.write(kpts=self.kd)
         nproj = sum(setup.ni for setup in self.setups)
-        writer.add_array(
-            'projections',
-            (self.nspins, self.kd.nibzkpts, self.bd.nbands, nproj),
-            self.dtype)
+        shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands, nproj)
+
+        writer.add_array('projections', shape, self.dtype)
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 P_nI = self.collect_projections(k, s)
                 writer.fill(P_nI)
 
-        shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
+        shape = shape[:3]
 
         writer.add_array('eigenvalues', shape)
         for s in range(self.nspins):
@@ -354,7 +353,7 @@ class WaveFunctions:
             kpt.f_n = f_n
             if self.gd.comm.rank == 0:
                 P_nI = r.proxy('projections', kpt.s, kpt.k)[:]
-                kpt.P.P_In.array[:] = P_nI[nslice].T
+                kpt.P.matrix.array[:] = P_nI[nslice].T
 
 
 def eigenvalue_string(wfs, comment=' '):

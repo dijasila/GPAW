@@ -200,11 +200,11 @@ class FDPWWaveFunctions(WaveFunctions):
         # Calculate force-contribution from k-points:
         F_av[:] = 0.0
         F_aniv = None
-        dH_asii = ham.dH_II.dH_asii
+        dH_asii = ham.dH.dH_asii
         for kpt in self.kpt_u:
             F_aniv = self.pt_I.matrix_elements(kpt.psit_n, out=F_aniv,
                                                derivative=True)
-            for a, P_in in kpt.items():
+            for a, P_in in kpt.P.items():
                 F_niv = F_aniv[a].conj()
                 F_niv *= kpt.f_n[:, np.newaxis, np.newaxis]
                 dH_ii = dH_asii[a][kpt.s]

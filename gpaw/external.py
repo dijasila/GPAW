@@ -29,6 +29,9 @@ class ExternalPotential:
             self.calculate_potential(gd)
         return self.vext_r
 
+    def set_potential(self, vext_r):
+        self.vext_r = vext_r
+
     def calculate_potential(self, gd):
         raise NotImplementedError
 

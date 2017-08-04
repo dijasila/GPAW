@@ -43,7 +43,7 @@ def calculate_stress(calc):
         a_ani = {}
         for a, P_in in kpt.P.items():
             Pf_ni = P_in.T * kpt.f_n[:, None]
-            dH_ii = ham.dH_II.dH_asii[a][kpt.s]
+            dH_ii = ham.dH[a][kpt.s]
             dS_ii = ham.setups[a].dO_ii
             a_ni = (np.dot(Pf_ni, dH_ii) -
                     np.dot(Pf_ni * kpt.eps_n[:, None], dS_ii))

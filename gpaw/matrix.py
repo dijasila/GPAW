@@ -167,7 +167,7 @@ class Matrix:
         else:
             self.array = data.reshape(dist.shape)
 
-        self.transposed = self.array.flags['F_CONTIGUOUS']
+        #self.transposed = self.array.flags['F_CONTIGUOUS']
 
     def __len__(self):
         return self.shape[0]
