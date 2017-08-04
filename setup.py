@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2003-2016  CAMP
+# Copyright (C) 2003-2017 CAMd
 # Please see the accompanying LICENSE file for further information.
 
 import distutils
@@ -10,7 +10,7 @@ import re
 import sys
 from distutils.command.build_ext import build_ext as _build_ext
 from distutils.command.build_scripts import build_scripts as _build_scripts
-from distutils.core import setup, Extension
+from setuptools import setup, find_packages, Extension
 from glob import glob
 
 from config import (get_system_config, get_parallel_config,
@@ -60,11 +60,6 @@ except ImportError:
     print('ASE not found. GPAW git hash not written.')
 
 platform_id = ''
-
-packages = []
-for dirname, dirnames, filenames in os.walk('gpaw'):
-        if '__init__.py' in filenames:
-            packages.append(dirname.replace('/', '.'))
 
 import_numpy = True
 if '--ignore-numpy' in sys.argv:
@@ -225,7 +220,9 @@ setup(name='gpaw',
       url='https://wiki.fysik.dtu.dk/gpaw',
       license='GPLv3+',
       platforms=['unix'],
-      packages=packages,
+      packages=find_packages(),
+      entry_points={'console_scripts': ['gpaw=gpaw.cli.main:main']},
+      install_requires=['ase'],
       ext_modules=extensions,
       scripts=scripts,
       cmdclass={'build_ext': build_ext,
