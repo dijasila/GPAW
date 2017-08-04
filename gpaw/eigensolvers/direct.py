@@ -26,7 +26,7 @@ class DirectPW(Eigensolver):
         md.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n,
                                   iu=wfs.bd.nbands)
         kpt.eps_n[:] = eps_n[:wfs.bd.nbands]
-        wfs.pt_I.matrix_elements(kpt.psit_n, kpt.P_In)
+        wfs.pt_I.matrix_elements(kpt.psit_n, kpt.P.matrix)
         self.timer.stop('DirectPW')
         error = 0.0
         return error, psit_nG[:wfs.bd.nbands]

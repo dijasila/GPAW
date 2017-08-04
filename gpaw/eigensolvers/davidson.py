@@ -75,7 +75,7 @@ class Davidson(Eigensolver):
 
         psit_n = kpt.psit_n
         psit2_n = psit_n.new(buf=wfs.work_array)
-        P_In = kpt.P_In
+        P_In = kpt.P.matrix
         P2_In = P_In.new()
         dMP_In = P_In.new()
         M_nn = wfs.work_matrix_nn
@@ -171,9 +171,8 @@ class Davidson(Eigensolver):
                 R_n += M_nn.T * psit2_n
                 dMP_In += P2_In * M_nn
                 psit_n[:] = R_n
-                kpt.P_In.array[:] = dMP_In.array
-                # kpt.P_In, dMP_In = dMP_In, kpt.P_In
-                P_In = kpt.P_In
+                P_In, dMP_In = dMP_In, P_In
+                kpt.P.matrix = P_In
 
             if nit < self.niter - 1:
                 psit_n.apply(Ht, out=R_n)

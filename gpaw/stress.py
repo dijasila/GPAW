@@ -41,13 +41,13 @@ def calculate_stress(calc):
     s0_vv = 0.0
     for kpt in wfs.kpt_u:
         a_ani = {}
-        for a, P_ni in kpt.P_In.items():
-            Pf_ni = P_ni * kpt.f_n[:, None]
+        for a, P_in in kpt.P.items():
+            Pf_ni = P_in.T * kpt.f_n[:, None]
             dH_ii = ham.dH_II.dH_asii[a][kpt.s]
             dS_ii = ham.setups[a].dO_ii
             a_ni = (np.dot(Pf_ni, dH_ii) -
                     np.dot(Pf_ni * kpt.eps_n[:, None], dS_ii))
-            s0 += np.vdot(P_ni, a_ni)
+            s0 += np.vdot(P_in.T, a_ni)
             a_ani[a] = 2 * a_ni.conj()
         s0_vv += wfs.pt_I.stress_tensor_contribution(kpt.psit_nG, a_ani,
                                                      q=kpt.q)

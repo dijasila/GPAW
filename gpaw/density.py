@@ -112,7 +112,7 @@ class AtomBlockDensityMatrix(AtomBlockMatrix):
 
     def update1(self, kpt, wfs):
         if kpt.rho_MM is None:
-            P_In = kpt.P_In
+            P_In = kpt.P.matrix
             for a, I1, I2 in P_In.indices:
                 P_ni = P_In.array[I1:I2].T
                 self._update(self.D_asii[a], P_ni, kpt.f_n, P_In.spin)

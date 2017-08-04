@@ -103,7 +103,12 @@ class Eigensolver:
             axpy(-eps, psit, R)
 
         C_In[:] = ham.dH_II * P_In
-        C_In.add_product(-1, dS_II, P_In, eps_n)
+        I1 = 0
+        for a, dS_ii in sorted(dS_II.M_asii.items()):
+            I2 = I1 + len(dS_ii)
+            C_In.array[I1:I2] -= np.dot(dS_ii, P_In.array[I1:I2] * eps_n)
+            I1 = I2
+
         ham.xc.add_correction(kpt, psit_n, R_n, P_In, C_In, n_x,
                               calculate_change)
         wfs.pt_I.add_to(R_n, C_In)
@@ -135,16 +140,15 @@ class Eigensolver:
         psit_n = kpt.psit_n
         tmp_n = psit_n.new(buf=wfs.work_array)
         H_nn = wfs.work_matrix_nn
-        P_In = kpt.P_In
-        dHP_In = P_In.new()
+        dHP = kpt.P.new()
 
         Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
         with self.timer('calc_h_matrix'):
             psit_n.apply(Ht, out=tmp_n)
             psit_n.matrix_elements(tmp_n, out=H_nn, hermitian=True)
-            dHP_In[:] = ham.dH_II * P_In
-            H_nn += P_In.H * dHP_In
+            ham.dH.apply(kpt.P, out=dHP)
+            H_nn += kpt.P.matrix.H * dHP.matrix
             ham.xc.correct_hamiltonian_matrix(kpt, H_nn.array)
 
         with wfs.timer('diagonalize'):
@@ -157,8 +161,8 @@ class Eigensolver:
                 Htpsit_n[:] = H_nn.T * tmp_n
             tmp_n[:] = H_nn.T * psit_n
             psit_n[:] = tmp_n
-            dHP_In[:] = P_In * H_nn
-            P_In.array = dHP_In.array
+            dHP.matrix[:] = kpt.P.matrix * H_nn
+            kpt.P.matrix = dHP.matrix
             # Rotate orbital dependent XC stuff:
             ham.xc.rotate(kpt, H_nn.array)
 

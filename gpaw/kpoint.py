@@ -82,7 +82,7 @@ class KPoint:
 
         self.eps_n = None
         self.f_n = None
-        self.P_In = None
+        self.P = None
 
         # Only one of these two will be used:
         self.psit_nG = None  # wave functions on 3D grid or PW expansion
@@ -100,7 +100,7 @@ class KPoint:
 
     @property
     def P_ani(self):
-        return self.P_In.todict()
+        return self.P.todict()
 
 
 class GlobalKPoint(KPoint):

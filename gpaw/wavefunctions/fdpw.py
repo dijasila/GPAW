@@ -170,13 +170,13 @@ class FDPWWaveFunctions(WaveFunctions):
         self.wrap_wave_function_arrays_in_fancy_objects()
 
         psit_n = kpt.psit_n
-        P_In = kpt.P_In
+        P_In = kpt.P.matrix
 
         with self.timer('projections'):
             self.pt_I.matrix_elements(psit_n, out=P_In)
 
         dS_II = AtomBlockMatrix({a: self.setups[a].dO_ii
-                                for a in kpt.P_In.my_atom_indices})
+                                for a in kpt.P.my_atom_indices})
 
         S_nn = self.work_matrix_nn
         dSP_In = P_In.new()

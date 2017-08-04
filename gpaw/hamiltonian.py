@@ -8,9 +8,9 @@ import numpy as np
 from ase.units import Ha
 
 from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
+from gpaw.blocks import AtomicBlocks
 from gpaw.external import create_external_potential
 from gpaw.hubbard import hubbard
-from gpaw.matrix import AtomBlockMatrix
 from gpaw.poisson import create_poisson_solver
 from gpaw.transformers import Transformer
 from gpaw.utilities import pack, unpack, pack2
@@ -22,15 +22,23 @@ ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
 
 
 @frozen
-class AtomBlockHamiltonian(AtomBlockMatrix):
+class AtomBlockHamiltonian(AtomicBlocks):
     def __init__(self, setups, spinpolarized, collinear, comm):
         self.setups = setups
 
         self.dH_asii = {}
 
-        AtomBlockMatrix.__init__(self, self.dH_asii, spinpolarized + 1,
-                                 comm,
-                                 [setup.ni for setup in setups])
+        AtomicBlocks.__init__(self, self.dH_asii, spinpolarized + 1,
+                              comm,
+                              [setup.ni for setup in setups])
+
+    def apply(self, P, out):
+        for a, I1, I2 in self.indices:
+            M_ii = self.M_asii[a]
+            print(a,I1,I2,M_ii.shape)
+            if M_ii.ndim == 3:
+                M_ii = M_ii[P2_In.spin]
+            P2_In.array[I1:I2] = np.dot(M_ii, P1_In.array[I1:I2])
 
     def update(self, D_II, W_aL, xc, world, timer):
         # kinetic, coulomb, zero, external, xc:

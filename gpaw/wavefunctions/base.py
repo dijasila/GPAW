@@ -3,7 +3,7 @@ from ase.units import Hartree
 
 from gpaw.utilities import pack
 from gpaw.utilities.blas import axpy
-from gpaw.matrix import ProjectionMatrix
+from gpaw.projections import Projections
 
 
 class WaveFunctions:
@@ -102,7 +102,7 @@ class WaveFunctions:
         """Add the nth band density from kpt to density matrix D_sp"""
         ni = self.setups[a].ni
         D_sii = np.zeros((self.nspins, ni, ni))
-        P_i = kpt.P_ani[a][n]
+        P_i = kpt.P[a][n]
         D_sii[kpt.s] += np.outer(P_i.conj(), P_i).real
         D_sp = [pack(D_ii) for D_ii in D_sii]
         return D_sp
@@ -112,9 +112,9 @@ class WaveFunctions:
         self.kd.symmetry.check(spos_ac)
         nproj_a = [setup.ni for setup in self.setups]
         for kpt in self.kpt_u:
-            kpt.P_In = ProjectionMatrix(nproj_a, self.bd.nbands,
-                                        self.gd.comm, self.bd.comm, rank_a,
-                                        self.collinear, kpt.s, self.dtype)
+            kpt.P = Projections(nproj_a, self.bd.nbands,
+                                self.gd.comm, self.bd.comm, rank_a,
+                                self.collinear, kpt.s, self.dtype)
 
     def collect_eigenvalues(self, k, s):
         return self.collect_array('eps_n', k, s)
@@ -212,7 +212,7 @@ class WaveFunctions:
         world_rank = kpt_rank * self.gd.comm.size * self.bd.comm.size
 
         if self.kd.comm.rank == kpt_rank:
-            P_nI = self.mykpts[u].P_In.collect()
+            P_nI = self.mykpts[u].P.collect()
             if self.world.rank == 0:
                 return P_nI
             if P_nI is not None:
@@ -354,7 +354,7 @@ class WaveFunctions:
             kpt.f_n = f_n
             if self.gd.comm.rank == 0:
                 P_nI = r.proxy('projections', kpt.s, kpt.k)[:]
-                kpt.P_In.array[:] = P_nI[nslice].T
+                kpt.P.P_In.array[:] = P_nI[nslice].T
 
 
 def eigenvalue_string(wfs, comment=' '):

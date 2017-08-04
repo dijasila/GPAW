@@ -58,7 +58,7 @@ class BaseAtomicCorrection:
         for a, P_qMi in sorted(wfs.P_aqMi.items()):
             P_Mi = P_qMi[kpt.q]
             I2 = I1 + P_Mi.shape[1]
-            P_ni = kpt.P_In.array[I1:I2].T
+            P_ni = kpt.P.matrix.array[I1:I2].T
             # ATLAS can't handle uninitialized output array:
             P_ni.fill(117)
             gemm(1.0, P_Mi, kpt.C_nM, 0.0, P_ni, 'n')
@@ -306,7 +306,7 @@ class ScipyAtomicCorrection(DistributedAtomicCorrection):
             for a in self.orig_partition.my_indices:
                 I1 = self.I_a[a]
                 I2 = I1 + wfs.setups[a].ni
-                kpt.P_ani[a][:, :] = P_In[I1:I2, :].T.conj()
+                kpt.P[a][:] = P_In[I1:I2, :].conj()
         else:
             DistributedAtomicCorrection.calculate_projections(self, wfs, kpt)
 
