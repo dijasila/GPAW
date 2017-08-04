@@ -22,7 +22,7 @@ ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
 
 
 @frozen
-class AtomBlockHamiltonian(AtomicBlocks):
+class AtomicHamiltonians(AtomicBlocks):
     def __init__(self, setups, spinpolarized, collinear, comm):
         self.setups = setups
 
@@ -33,12 +33,10 @@ class AtomBlockHamiltonian(AtomicBlocks):
                               [setup.ni for setup in setups])
 
     def apply(self, P, out):
-        for a, I1, I2 in self.indices:
+        for a, I1, I2 in P.indices:
             M_ii = self.M_asii[a]
-            print(a,I1,I2,M_ii.shape)
-            if M_ii.ndim == 3:
-                M_ii = M_ii[P2_In.spin]
-            P2_In.array[I1:I2] = np.dot(M_ii, P1_In.array[I1:I2])
+            M_ii = M_ii[P.spin]
+            out.matrix.array[I1:I2] = np.dot(M_ii, P.matrix.array[I1:I2])
 
     def update(self, D_II, W_aL, xc, world, timer):
         # kinetic, coulomb, zero, external, xc:
@@ -98,8 +96,8 @@ class Hamiltonian:
         self.world = world
         self.redistributor = redistributor
 
-        self.dH_II = AtomBlockHamiltonian(setups, spinpolarized,
-                                          True, gd.comm)
+        self.dH = AtomicHamiltonians(setups, spinpolarized,
+                                        True, gd.comm)
         self.vt_sR = None  # coarse grid
         self.vHt_r = None  # fine grid
         self.vt_sr = None  # fine grid
@@ -138,7 +136,7 @@ class Hamiltonian:
     @property
     def dH_asp(self):
         return {a: np.array([pack2(dH_ii) for dH_ii in dH_sii])
-                for a, dH_sii in self.dH_II.dH_asii.items()}
+                for a, dH_sii in self.dH.dH_asii.items()}
 
     def __str__(self):
         s = 'Hamiltonian:\n'
@@ -194,7 +192,7 @@ class Hamiltonian:
     def set_positions(self, spos_ac, rank_a):
         self.vbar_a.set_positions(spos_ac)
         self.xc.set_positions(spos_ac)
-        self.dH_II.rank_a = rank_a
+        self.dH.rank_a = rank_a
         self.positions_set = True
 
     def initialize(self):
@@ -222,8 +220,8 @@ class Hamiltonian:
         with self.timer('Calculate atomic Hamiltonians'):
             W_aL = self.calculate_atomic_hamiltonians(dens)
 
-        atomic_energies = self.dH_II.update(dens.D_II, W_aL, self.xc,
-                                            self.world, self.timer)
+        atomic_energies = self.dH.update(dens.D, W_aL, self.xc,
+                                         self.world, self.timer)
 
         # Make energy contributions summable over world:
         finegrid_energies *= self.finegd.comm.size / float(self.world.size)
@@ -388,7 +386,7 @@ class Hamiltonian:
 
         writer.write(
             potential=self.gd.collect(self.vt_sR) * Ha,
-            atomic_hamiltonian_matrices=self.dH_II.pack() * Ha)
+            atomic_hamiltonian_matrices=self.dH.pack() * Ha)
 
         self.xc.write(writer.child('xc'))
 
@@ -415,7 +413,7 @@ class Hamiltonian:
         #                                     name='hamiltonian-init-serial')
 
         # Read non-local part of hamiltonian
-        self.dH_II.unpack(h.atomic_hamiltonian_matrices / reader.ha)
+        self.dH.unpack(h.atomic_hamiltonian_matrices / reader.ha)
 
         if hasattr(self.poisson, 'read'):
             self.poisson.read(reader)

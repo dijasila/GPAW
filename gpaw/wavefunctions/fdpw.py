@@ -6,7 +6,7 @@ from ase.utils.timing import timer
 from gpaw import extra_parameters
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.lfc import BasisFunctions
-from gpaw.matrix import Matrix, AtomBlockMatrix
+from gpaw.matrix import Matrix
 from gpaw.overlap import Overlap
 from gpaw.utilities.timing import nulltimer
 from gpaw.wavefunctions.base import WaveFunctions
@@ -170,21 +170,18 @@ class FDPWWaveFunctions(WaveFunctions):
         self.wrap_wave_function_arrays_in_fancy_objects()
 
         psit_n = kpt.psit_n
-        P_In = kpt.P.matrix
+        P = kpt.P
 
         with self.timer('projections'):
-            self.pt_I.matrix_elements(psit_n, out=P_In)
-
-        dS_II = AtomBlockMatrix({a: self.setups[a].dO_ii
-                                for a in kpt.P.my_atom_indices})
+            self.pt_I.matrix_elements(psit_n, out=P)
 
         S_nn = self.work_matrix_nn
-        dSP_In = P_In.new()
+        dSP = P.new()
 
         with self.timer('calc_s_matrix'):
             psit_n.matrix_elements(psit_n, S_nn)
-            dSP_In[:] = dS_II * P_In
-            S_nn += P_In.H * dSP_In
+            self.setups.dS.apply(P, out=dSP)
+            S_nn += P.matrix.H * dSP.matrix
 
         with self.timer('inverse-cholesky'):
             assert self.bd.comm.size == 1
@@ -195,9 +192,9 @@ class FDPWWaveFunctions(WaveFunctions):
         psit2_n = psit_n.new(buf=self.work_array)
         with self.timer('rotate_psi_s'):
             psit2_n[:] = S_nn.T * psit_n
-            dSP_In[:] = P_In * S_nn
+            dSP.matrix[:] = P.matrix * S_nn
             psit_n[:] = psit2_n
-            P_In.array = dSP_In.array
+            kpt.P = dSP
 
     def calculate_forces(self, ham, F_av):
         # Calculate force-contribution from k-points:
@@ -207,14 +204,14 @@ class FDPWWaveFunctions(WaveFunctions):
         for kpt in self.kpt_u:
             F_aniv = self.pt_I.matrix_elements(kpt.psit_n, out=F_aniv,
                                                derivative=True)
-            for a, P_ni in kpt.P_In.items():
+            for a, P_in in kpt.items():
                 F_niv = F_aniv[a].conj()
                 F_niv *= kpt.f_n[:, np.newaxis, np.newaxis]
                 dH_ii = dH_asii[a][kpt.s]
-                F_vii = np.dot(np.dot(F_niv.transpose(), P_ni), dH_ii)
+                F_vii = np.dot(np.dot(F_niv.transpose(), P_in.T), dH_ii)
                 F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
                 dO_ii = self.setups[a].dO_ii
-                F_vii -= np.dot(np.dot(F_niv.transpose(), P_ni), dO_ii)
+                F_vii -= np.dot(np.dot(F_niv.transpose(), P_in.T), dO_ii)
                 F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
 
             # Hack used in delta-scf calculations:

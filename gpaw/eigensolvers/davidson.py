@@ -4,7 +4,6 @@ from ase.utils.timing import timer
 import numpy as np
 
 from gpaw.eigensolvers.eigensolver import Eigensolver
-from gpaw.matrix import AtomBlockMatrix
 
 
 class Davidson(Eigensolver):
@@ -75,20 +74,19 @@ class Davidson(Eigensolver):
 
         psit_n = kpt.psit_n
         psit2_n = psit_n.new(buf=wfs.work_array)
-        P_In = kpt.P.matrix
-        P2_In = P_In.new()
-        dMP_In = P_In.new()
+        P = kpt.P
+        P2 = P.new()
+        dMP = P.new()
         M_nn = wfs.work_matrix_nn
-        dS_II = AtomBlockMatrix({a: wfs.setups[a].dO_ii
-                                for a in kpt.P_In.my_atom_indices})
+        dS = wfs.setups.dS
 
-        def matrix_elements(a_n, b_n, Pa_In, dM_II, Pb_In, C_nn,
-                            hermitian=False, M_nn=M_nn):
+        def matrix_elements(a_n, b_n, Pa, dM, Pb, C_nn, hermitian=False,
+                            tmp_nn=M_nn):
             """Fill C_nn with <a|b> matrix elements."""
-            a_n.matrix_elements(b_n, out=M_nn, hermitian=hermitian)
-            dMP_In[:] = dM_II * Pb_In
-            M_nn += Pa_In.H * dMP_In
-            C_nn[:] = M_nn.array
+            a_n.matrix_elements(b_n, out=tmp_nn, hermitian=hermitian)
+            dM.apply(Pb, out=dMP)
+            tmp_nn += Pa.matrix.H * dMP.matrix
+            C_nn[:] = tmp_nn.array
 
         if self.keep_htpsit:
             R_n = psit_n.new(buf=self.Htpsit_nG)
@@ -100,7 +98,7 @@ class Davidson(Eigensolver):
             # wfs.pt.integrate(psit_nG, kpt.P_ani, kpt.q)
 
         self.calculate_residuals(kpt, wfs, ham, psit_n,
-                                 P_In, kpt.eps_n, dS_II, R_n, P2_In)
+                                 P, kpt.eps_n, R_n, P2)
 
         weights = self.weights(kpt)
 
@@ -111,9 +109,9 @@ class Davidson(Eigensolver):
             for psit_G, R_G, psit2_G in zip(psit_n.array,
                                             R_n.array,
                                             psit2_n.array):
-                P = self.preconditioner
-                ekin = P.calculate_kinetic_energy(psit_G, kpt)
-                psit2_G[:] = P(R_G, kpt, ekin)
+                pre = self.preconditioner
+                ekin = pre.calculate_kinetic_energy(psit_G, kpt)
+                psit2_G[:] = pre(R_G, kpt, ekin)
 
             if self.normalize:
                 norms = [integrate(psit2_G) for psit2_G in psit2_n.array]
@@ -124,7 +122,7 @@ class Davidson(Eigensolver):
             Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
             # Calculate projections
-            wfs.pt_I.matrix_elements(psit2_n, out=P2_In)
+            wfs.pt_I.matrix_elements(psit2_n, out=P2)
 
             psit2_n.apply(Ht, out=R_n)
 
@@ -134,13 +132,13 @@ class Davidson(Eigensolver):
                 M = matrix_elements
 
                 # <psi2 | H | psi>
-                M(R_n, psit_n, P2_In, ham.dH_II, P_In, H_NN[B:, :B])
+                M(R_n, psit_n, P2, ham.dH, P, H_NN[B:, :B])
                 # <psi2 | S | psi>
-                M(psit2_n, psit_n, P2_In, dS_II, P_In, S_NN[B:, :B])
+                M(psit2_n, psit_n, P2, dS, P, S_NN[B:, :B])
                 # <psi2 | H | psi2>
-                M(R_n, psit2_n, P2_In, ham.dH_II, P2_In, H_NN[B:, B:], True)
+                M(R_n, psit2_n, P2, ham.dH, P2, H_NN[B:, B:], True)
                 # <psi2 | S | psi2>
-                M(psit2_n, psit2_n, P2_In, dS_II, P2_In, S_NN[B:, B:])
+                M(psit2_n, psit2_n, P2, dS, P2, S_NN[B:, B:])
 
             with self.timer('diagonalize'):
                 # if gd.comm.rank == 0 and bd.comm.rank == 0:
@@ -166,19 +164,18 @@ class Davidson(Eigensolver):
             with self.timer('rotate_psi'):
                 M_nn.array[:] = H_NN[:B, :B]
                 R_n[:] = M_nn.T * psit_n
-                dMP_In[:] = P_In * M_nn
+                dMP.matrix[:] = P.matrix * M_nn
                 M_nn.array[:] = H_NN[B:, :B]
                 R_n += M_nn.T * psit2_n
-                dMP_In += P2_In * M_nn
+                dMP.matrix += P2.matrix * M_nn
                 psit_n[:] = R_n
-                P_In, dMP_In = dMP_In, P_In
-                kpt.P.matrix = P_In
+                P, dMP = dMP, P
+                kpt.P = P
 
             if nit < self.niter - 1:
                 psit_n.apply(Ht, out=R_n)
                 self.calculate_residuals(kpt, wfs, ham, psit_n,
-                                         P_In, kpt.eps_n, dS_II, R_n,
-                                         P2_In)
+                                         P, kpt.eps_n, R_n, P2)
 
         # error = gd.comm.sum(error)
         return error

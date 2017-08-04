@@ -1,3 +1,8 @@
+import numpy as np
+
+from gpaw.utilities import pack2, unpack
+
+
 class AtomicBlocks:
     def __init__(self, M_asii, nspins=None, comm=None, size_a=None):
         self.M_asii = M_asii
@@ -5,12 +10,12 @@ class AtomicBlocks:
         self.comm = comm
         self.size_a = size_a
 
-        self.indices = []
-        I1 = 0
-        for a, M_sii in sorted(M_asii.items()):
-            I2 = I1 + M_sii.shape[-1]
-            self.indices.append((a, I1, I2))
-            I1 = I2
+        # self.indices = []
+        # I1 = 0
+        # for a, M_sii in sorted(M_asii.items()):
+        #     I2 = I1 + M_sii.shape[-1]
+        #     self.indices.append((a, I1, I2))
+        #     I1 = I2
 
         self.rank_a = None
 
@@ -44,3 +49,13 @@ class AtomicBlocks:
             P2 = P1 + ni * (ni + 1) // 2
             self.M_asii[a] = np.array([unpack(M_p) for M_p in M_sP[:, P1:P2]])
             P1 = P2
+
+
+class OverlapCorrections:
+    def __init__(self, setups):
+        self.setups = setups
+
+    def apply(self, P, out):
+        for a, I1, I2 in P.indices:
+            dS_ii = self.setups[a].dO_ii
+            out.matrix.array[I1:I2] = np.dot(dS_ii, P.matrix.array[I1:I2])

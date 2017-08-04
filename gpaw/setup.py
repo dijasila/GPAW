@@ -12,6 +12,7 @@ from ase.utils import basestring, StringIO
 
 from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
+from gpaw.blocks import OverlapCorrections
 from gpaw.gaunt import gaunt, nabla
 from gpaw.utilities import unpack
 from gpaw.rotation import rotation
@@ -1241,6 +1242,8 @@ class Setups(list):
             self.core_charge += n * (setup.Z - setup.Nv - setup.Nc)
             self.nvalence += n * setup.Nv
             self.nao += n * setup.nao
+
+        self.dS = OverlapCorrections(self)
 
     def __str__(self):
         # Write PAW setup information in order of appearance:

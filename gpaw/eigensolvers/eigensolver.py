@@ -93,8 +93,8 @@ class Eigensolver:
         """Implemented in subclasses."""
         raise NotImplementedError
 
-    def calculate_residuals(self, kpt, wfs, ham, psit_n, P_In, eps_n, dS_II,
-                            R_n, C_In, n_x=None, calculate_change=False):
+    def calculate_residuals(self, kpt, wfs, ham, psit_n, P, eps_n,
+                            R_n, C, n_x=None, calculate_change=False):
         """Calculate residual.
 
         From R=Ht*psit calculate R=H*psit-eps*S*psit."""
@@ -102,16 +102,15 @@ class Eigensolver:
         for R, eps, psit in zip(R_n.array, eps_n, psit_n.array):
             axpy(-eps, psit, R)
 
-        C_In[:] = ham.dH_II * P_In
-        I1 = 0
-        for a, dS_ii in sorted(dS_II.M_asii.items()):
-            I2 = I1 + len(dS_ii)
-            C_In.array[I1:I2] -= np.dot(dS_ii, P_In.array[I1:I2] * eps_n)
-            I1 = I2
+        ham.dH.apply(P, out=C)
+        for a, I1, I2 in P.indices:
+            dS_ii = ham.setups[a].dO_ii
+            C.matrix.array[I1:I2] -= np.dot(dS_ii,
+                                            P.matrix.array[I1:I2] * eps_n)
 
-        ham.xc.add_correction(kpt, psit_n, R_n, P_In, C_In, n_x,
+        ham.xc.add_correction(kpt, psit_n, R_n, P, C, n_x,
                               calculate_change)
-        wfs.pt_I.add_to(R_n, C_In)
+        wfs.pt_I.add_to(R_n, C)
 
     @timer('Subspace diag')
     def subspace_diagonalize(self, ham, wfs, kpt):

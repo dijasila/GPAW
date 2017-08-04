@@ -10,7 +10,7 @@ from distutils.version import LooseVersion
 
 from gpaw import debug
 from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
-from gpaw.matrix import AtomBlockMatrix
+from gpaw.blocks import AtomicBlocks
 from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
 from gpaw.utilities.blas import gemm
@@ -33,7 +33,7 @@ class NullBackgroundCharge:
 
 
 @frozen
-class AtomBlockDensityMatrix(AtomBlockMatrix):
+class AtomicDensityMatrices(AtomicBlocks):
     def __init__(self, setups, spinpolarized=False, collinear=True,
                  comm=None, rank_a=None):
         self.setups = setups
@@ -43,8 +43,8 @@ class AtomBlockDensityMatrix(AtomBlockMatrix):
 
         self.D_asii = {}
 
-        AtomBlockMatrix.__init__(self, self.D_asii, 1 + spinpolarized, comm,
-                                 [setup.ni for setup in setups])
+        AtomicBlocks.__init__(self, self.D_asii, 1 + spinpolarized, comm,
+                              [setup.ni for setup in setups])
 
     def initialize(self, charge, magmom_a, hund):
         f_asi = {}
@@ -113,9 +113,9 @@ class AtomBlockDensityMatrix(AtomBlockMatrix):
     def update1(self, kpt, wfs):
         if kpt.rho_MM is None:
             P_In = kpt.P.matrix
-            for a, I1, I2 in P_In.indices:
+            for a, I1, I2 in kpt.P.indices:
                 P_ni = P_In.array[I1:I2].T
-                self._update(self.D_asii[a], P_ni, kpt.f_n, P_In.spin)
+                self._update(self.D_asii[a], P_ni, kpt.f_n, kpt.P.spin)
         else:
             for a, P_qMi in wfs.P_aqMi.items():
                 P_Mi = P_qMi[kpt.q]
@@ -190,7 +190,7 @@ class Density:
 
         self.charge_eps = 1e-7
 
-        self.D_II = None
+        self.D = None
 
         self.nct_a = None
         self.ghat_aL = None
@@ -249,8 +249,8 @@ class Density:
         self.setups = setups
         self.hund = hund
         self.magmom_a = magmom_a
-        self.D_II = AtomBlockDensityMatrix(self.setups, self.spinpolarized,
-                                           self.collinear, comm=self.gd.comm)
+        self.D = AtomicDensityMatrices(self.setups, self.spinpolarized,
+                                       self.collinear, comm=self.gd.comm)
 
     def reset(self):
         self.Q_aL = None
@@ -261,7 +261,7 @@ class Density:
         self.nt_r = None
 
     def set_positions(self, spos_ac, rank_a):
-        self.D_II.rank_a = rank_a
+        self.D.rank_a = rank_a
         self.nct_a.set_positions(spos_ac)
         self.ghat_aL.set_positions(spos_ac)
         #self.nt_sR = None
@@ -287,8 +287,8 @@ class Density:
     @timer('Density')
     def update(self, wfs):
         self.calculate_pseudo_density(wfs)
-        self.D_II.update(wfs)
-        comp_charge, self.Q_aL = self.D_II.calculate_multipole_moments()
+        self.D.update(wfs)
+        comp_charge, self.Q_aL = self.D.calculate_multipole_moments()
 
         if wfs.mode == 'lcao':
             self.normalize(comp_charge)
@@ -298,7 +298,7 @@ class Density:
     @timer('Mix')
     def mix(self, comp_charge):
         assert isinstance(self.mixer, MixerWrapper), self.mixer
-        self.error = self.mixer.mix(self.nt_sR, self.D_II.D_asii)
+        self.error = self.mixer.mix(self.nt_sR, self.D.D_asii)
         self.interpolate_pseudo_density()
 
     def initialize_from_atomic_densities(self, basis_functions):
@@ -317,13 +317,13 @@ class Density:
         self.log('Density initialized from atomic densities')
 
         c = self.charge - self.background_charge.charge
-        f_asi = self.D_II.initialize(c, self.magmom_a, self.hund)
+        f_asi = self.D.initialize(c, self.magmom_a, self.hund)
 
         self.nt_sR = self.gd.empty(1 + self.spinpolarized)
         self.update_pseudo_core_density()
         self.nt_sR[:] = self.nct_R
         basis_functions.add_to_density(self.nt_sR, f_asi)
-        comp_charge, self.Q_aL = self.D_II.calculate_multipole_moments()
+        comp_charge, self.Q_aL = self.D.calculate_multipole_moments()
         self.normalize(comp_charge)
         self.mixer.reset()
         self.mix(comp_charge)
@@ -334,8 +334,8 @@ class Density:
         self.log('Density initialized from wave functions')
         self.nt_sR = self.gd.empty(self.nspins)
         self.calculate_pseudo_density(wfs)
-        self.D_II.update(wfs)
-        comp_charge, self.Q_aL = self.D_II.calculate_multipole_moments()
+        self.D.update(wfs)
+        comp_charge, self.Q_aL = self.D.calculate_multipole_moments()
         self.normalize(comp_charge)
         self.mixer.reset()
         self.mix(comp_charge)
@@ -364,7 +364,7 @@ class Density:
         self.mixer = MixerWrapper(mixer, 1 + self.spinpolarized, self.gd)
 
     def estimate_magnetic_moments(self):
-        return self.D_II.estimate_magnetic_moments()
+        return self.D.estimate_magnetic_moments()
 
     def get_correction(self, a, spin):
         """Integrated atomic density correction.
@@ -421,7 +421,7 @@ class Density:
         return gd.integrate(dt_sr)
 
     def write(self, writer):
-        D_sP = self.D_II.pack()
+        D_sP = self.D.pack()
         writer.write(density=self.gd.collect(self.nt_sR) / Bohr**3,
                      atomic_density_matrices=D_sP)
 
@@ -432,7 +432,7 @@ class Density:
 
         # Read atomic density matrices
         D_sP = reader.density.atomic_density_matrices
-        self.D_II.unpack(D_sP)
+        self.D.unpack(D_sP)
 
     def initialize_from_other_density(self, dens, kptband_comm):
         """Redistribute pseudo density and atomic density matrices.
@@ -442,7 +442,7 @@ class Density:
         self.nt_sR = redistribute_array(dens.nt_sR, dens.gd, self.gd,
                                         self.nspins, kptband_comm)
 
-        self.D_II.redistribute(dens)
+        self.D.redistribute(dens)
 
 
 @frozen
@@ -477,7 +477,7 @@ class RealSpaceDensity(Density):
     def interpolate_pseudo_density(self):
         """Interpolate pseudo density to fine grid."""
 
-        comp_charge, Q_aL = self.D_II.calculate_multipole_moments()
+        comp_charge, Q_aL = self.D.calculate_multipole_moments()
         self.nt_sr = self.finegd.empty(1 + self.spinpolarized)
 
         for a, b in zip(self.nt_sR, self.nt_sr):
@@ -569,7 +569,7 @@ class ReciprocalSpaceDensity(Density):
             nt_r[:], nts_Q = self.pd2.interpolate(nt_R, self.pd3)
             self.nt_Q += nts_Q
 
-        comp_charge, Q_aL = self.D_II.calculate_multipole_moments()
+        comp_charge, Q_aL = self.D.calculate_multipole_moments()
 
         self.rhot_q = self.pd3.zeros()
         self.rhot_q[self.G3_G] = self.nt_Q * 8

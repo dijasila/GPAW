@@ -39,7 +39,7 @@ class AtomCenteredFunctions:
             kpt = -1
 
         if not isinstance(coefs, (float, dict)):
-            coefs = coefs.todict()
+            coefs = {a: P_in.T for a, P_in in coefs.items()}
 
         if self.space == 'reciprocal' and force_real_space:
             pd = self.lfc.pd
@@ -79,7 +79,7 @@ class AtomCenteredFunctions:
             self.lfc.derivative(other.array, out, other.kpt)
             return out
 
-        self.lfc.integrate(other.array, self.dictview(out), other.kpt)
+        self.lfc.integrate(other.array, self.dictview(out.matrix), other.kpt)
 
     def dictview(self, matrix):
         M_In = matrix.array

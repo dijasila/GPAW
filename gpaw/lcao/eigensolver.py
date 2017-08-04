@@ -41,7 +41,7 @@ class DirectLCAO(object):
         # But no one would want that for a practical calculation anyway.
         #dH_asp = wfs.atomic_correction.redistribute(wfs, hamiltonian.dH_asp)
         # XXXXX fix atomic corrections
-        dH_II = hamiltonian.dH_II
+        dH = hamiltonian.dH
 
         if Vt_xMM is None:
             wfs.timer.start('Potential matrix')
@@ -70,7 +70,7 @@ class DirectLCAO(object):
         #
         name = wfs.atomic_correction.__class__.__name__
         wfs.timer.start(name)
-        wfs.atomic_correction.calculate_hamiltonian(wfs, kpt, dH_II, H_MM, yy)
+        wfs.atomic_correction.calculate_hamiltonian(wfs, kpt, dH, H_MM, yy)
         wfs.timer.stop(name)
 
         wfs.timer.start('Distribute overlap matrix')

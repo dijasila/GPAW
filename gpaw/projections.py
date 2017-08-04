@@ -1,5 +1,3 @@
-import numpy as np
-
 from gpaw.matrix import Matrix
 
 
@@ -29,8 +27,8 @@ class Projections:
 
     def new(self):
         return Projections(
-            self.nproj_a, self.shape[1], self.acomm, self.bcomm,
-            self.rank_a, self.collinear, self.spin, self.dtype)
+            self.nproj_a, self.matrix.shape[1], self.acomm, self.bcomm,
+            self.rank_a, self.collinear, self.spin, self.matrix.dtype)
 
     def items(self):
         for a, I1, I2 in self.indices:
