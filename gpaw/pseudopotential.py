@@ -5,10 +5,52 @@ from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.basis_data import Basis, BasisFunction
 from gpaw.setup import BaseSetup
 from gpaw.spline import Spline
-from gpaw.utilities import erf
+from gpaw.utilities import erf, divrl, hartree as hartree_solve
 
 
 null_spline = Spline(0, 1.0, [0., 0., 0.])
+
+
+# XXX Not used at the moment; see comment below about rgd splines.
+def projectors_to_splines(rgd, l_j, pt_jg, filter=None):
+    # This function exists because both HGH and SG15 needs to do
+    # exactly the same thing.
+    #
+    # XXX equal-range projectors still required for some reason
+    maxlen = max([len(pt_g) for pt_g in pt_jg])
+    pt_j = []
+    for l, pt1_g in zip(l_j, pt_jg):
+        pt2_g = np.zeros(maxlen)
+        pt2_g[:len(pt1_g)] = pt1_g
+        if filter is not None:
+            filter(rgd, rgd.r_g[maxlen], pt2_g, l=l)
+        pt2_g = divrl(pt2_g, l, rgd.r_g[:maxlen])
+        spline = rgd.spline(pt2_g, rgd.r_g[maxlen - 1], l=l)
+        pt_j.append(spline)
+    return pt_j
+
+
+# XXX not used at the moment
+def local_potential_to_spline(rgd, vbar_g, filter=None):
+    vbar_g = vbar_g.copy()
+    rcut = rgd.r_g[len(vbar_g) - 1]
+    if filter is not None:
+        filter(rgd, rcut, vbar_g, l=0)
+    #vbar = Spline(0, rcut, vbar_g)
+    vbar = rgd.spline(vbar_g, rgd.r_g[len(vbar_g) - 1], l=0)
+    return vbar
+
+
+def get_radial_hartree_energy(r_g, rho_g):
+    """Get energy of l=0 compensation charge on equidistant radial grid."""
+
+    # At least in some cases the zeroth point is moved to 1e-8 or so to
+    # prevent division by zero and the like, so:
+    dr = r_g[2] - r_g[1]
+    rho_r_dr_g = dr * r_g * rho_g
+    vh_r_g = np.zeros(len(r_g))  # "r * vhartree"
+    hartree_solve(0, rho_r_dr_g, r_g, vh_r_g)
+    return 2.0 * np.pi * (rho_r_dr_g * vh_r_g).sum()
 
 
 def screen_potential(r, v, charge, rcut=None, a=None):
@@ -39,13 +81,14 @@ def screen_potential(r, v, charge, rcut=None, a=None):
     else:
         icut = np.searchsorted(r, rcut)
     rcut = r[icut]
-    rshort = r[:icut]
+    rshort = r[:icut].copy()
+    if rshort[0] < 1e-16:
+        rshort[0] = 1e-10
 
     if a is None:
         a = rcut / 5.0  # XXX why is this so important?
     vcomp = np.zeros_like(rshort)
-    vcomp = charge * erf(rshort / (np.sqrt(2.0) * a)) / rshort.clip(1e-10,
-                                                                    np.inf)
+    vcomp = charge * erf(rshort / (np.sqrt(2.0) * a)) / rshort
     # XXX divide by r
     rhocomp = charge * (np.sqrt(2.0 * np.pi) * a)**(-3) * \
         np.exp(-0.5 * (rshort / a)**2)
@@ -168,7 +211,7 @@ def pseudoplot(pp, show=True):
 
 
 class PseudoPotential(BaseSetup):
-    def __init__(self, data, basis=None):
+    def __init__(self, data, basis=None, filter=None):
         self.data = data
 
         self.R_sii = None
@@ -191,7 +234,10 @@ class PseudoPotential(BaseSetup):
         self.nj = len(data.l_j)
 
         self.ni = sum([2 * l + 1 for l in data.l_j])
+        #self.pt_j = projectors_to_splines(data.rgd, data.l_j, data.pt_jg,
+        #                                  filter=filter)
         self.pt_j = data.get_projectors()
+
         if len(self.pt_j) == 0:
             assert False  # not sure yet about the consequences of
             # cleaning this up in the other classes
@@ -213,11 +259,19 @@ class PseudoPotential(BaseSetup):
         self.xc_correction = None
 
         r, l_comp, g_comp = data.get_compensation_charge_functions()
+        assert l_comp == [0]  # Presumably only spherical charges
         self.ghat_l = [Spline(l, r[-1], g) for l, g in zip(l_comp, g_comp)]
         self.rcgauss = data.rcgauss
 
         # accuracy is rather sensitive to this
+        #self.vbar = local_potential_to_spline(data.rgd, data.vbar_g,
+        #                                      filter=filter)
         self.vbar = data.get_local_potential()
+        # XXX HGH and UPF use different radial grids, and this for
+        # some reason makes it difficult to use the exact same code to
+        # construct vbar and projectors.  This should be fixed since
+        # either type of rgd should be able to always produce a valid
+        # and equivalent spline transparently.
 
         _np = self.ni * (self.ni + 1) // 2
         self.Delta0 = data.Delta0
@@ -225,7 +279,7 @@ class PseudoPotential(BaseSetup):
 
         self.E = 0.0
         self.Kc = 0.0
-        self.M = 0.0
+        self.M = -data.Eh_compcharge
         self.M_p = np.zeros(_np)
         self.M_pp = np.zeros((_np, _np))
 

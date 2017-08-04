@@ -18,7 +18,7 @@ from config import (get_system_config, get_parallel_config,
                     write_configuration, build_interpreter, get_config_vars)
 
 
-assert sys.version_info >= (2, 6)
+assert sys.version_info >= (2, 7)
 
 # Get the current version number:
 with open('gpaw/__init__.py') as fd:
@@ -205,7 +205,7 @@ setup(name='gpaw',
       long_description=long_description,
       maintainer='GPAW-community',
       maintainer_email='gpaw-users@listserv.fysik.dtu.dk',
-      url='http://wiki.fysik.dtu.dk/gpaw',
+      url='https://wiki.fysik.dtu.dk/gpaw',
       license='GPLv3+',
       platforms=['unix'],
       packages=find_packages(),
