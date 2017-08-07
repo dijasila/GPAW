@@ -13,6 +13,7 @@ from gpaw.atom_centered_functions import AtomCenteredFunctions as ACF
 from gpaw.blocks import AtomicBlocks
 from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
+from gpaw.utilities import pack
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.debug import frozen
 from gpaw.utilities.timing import nulltimer
@@ -225,6 +226,11 @@ class Density:
     def nt_sg(self):
         return self.nt_sr
 
+    @property
+    def D_asp(self):
+        return {a: np.array([pack(D_ii) for D_ii in D_sii])
+                for a, D_sii in self.D.D_asii.items()}
+
     def __str__(self):
         s = 'Densities:\n'
         s += '  Coarse grid: {}*{}*{} grid\n'.format(*self.gd.N_c)
@@ -264,8 +270,8 @@ class Density:
         self.D.rank_a = rank_a
         self.nct_a.set_positions(spos_ac)
         self.ghat_aL.set_positions(spos_ac)
-        #self.nt_sR = None
-        #self.Q_aL = None
+        # self.nt_sR = None
+        # self.Q_aL = None
 
     def update_pseudo_core_density(self):
         if self.nct_R is None:
@@ -279,9 +285,9 @@ class Density:
         nt_sR will be equal to nct_R plus the contribution from
         wfs.add_to_density().
         """
-        self.update_pseudo_core_density()
         self.nt_sR[:] = 0.0
         wfs.calculate_density_contribution(self.nt_sR)
+        self.update_pseudo_core_density()
         self.nt_sR += self.nct_R
 
     @timer('Density')
@@ -334,6 +340,8 @@ class Density:
         self.log('Density initialized from wave functions')
         self.nt_sR = self.gd.empty(self.nspins)
         self.calculate_pseudo_density(wfs)
+        for kpt in wfs.mykpts:
+            wfs.pt_I.matrix_elements(kpt.psit_n, kpt.P)
         self.D.update(wfs)
         comp_charge, self.Q_aL = self.D.calculate_multipole_moments()
         self.normalize(comp_charge)

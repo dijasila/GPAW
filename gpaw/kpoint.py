@@ -96,15 +96,14 @@ class KPoint:
         # UniformGridMatrix/PWExpansionMatrix wrapper:
         self.psit_n = None
 
-        #self.dist = None  # BLACS distribution of bands
+        # self.dist = None  # BLACS distribution of bands
 
     @property
     def P_ani(self):
-        return self.P.todict()
+        return {a: P_in.T for a, P_in in self.P.items()}
 
 
 class GlobalKPoint(KPoint):
-
     def update(self, wfs):
         """Distribute requested kpoint data across the kpoint communicator."""
 

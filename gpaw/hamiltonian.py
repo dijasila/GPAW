@@ -97,7 +97,7 @@ class Hamiltonian:
         self.redistributor = redistributor
 
         self.dH = AtomicHamiltonians(setups, spinpolarized,
-                                        True, gd.comm)
+                                     True, gd.comm)
         self.vt_sR = None  # coarse grid
         self.vHt_r = None  # fine grid
         self.vt_sr = None  # fine grid
@@ -357,7 +357,7 @@ class Hamiltonian:
         if hasattr(xc, 'hybrid'):
             xc.calculate_exx()
         finegd_e_xc = xc.calculate(dens.finegd, nt_sr)
-        D_asp = self.atomdist.to_work(dens.D_asp)
+        D_asp = dens.D_asp
         atomic_e_xc = 0.0
         for a, D_sp in D_asp.items():
             setup = self.setups[a]
@@ -535,7 +535,8 @@ class RealSpaceHamiltonian(Hamiltonian):
         vHt_r = self.vHt_r
         if self.vext:
             vHt_r = vHt_r + self.vext.get_potential(self.finegd)
-        ghat_aLv = dens.ghat_aL.derivative(self.vHt_r)
+
+        ghat_aLv = dens.ghat_aL.derivative(vHt_r)
 
         vt_R = self.vt_sR.mean(0) if self.spinpolarized else self.vt_sR[0]
         nct_av = dens.nct_a.derivative(vt_R)

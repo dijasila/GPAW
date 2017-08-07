@@ -71,7 +71,7 @@ class Multipole:
 
         if self.gd is None:
             self.initialize(calculator.density.finegd)
-        q_L = self.expand(-calculator.density.rhot_g)
+        q_L = self.expand(-calculator.density.rhot_r)
 
         f = paropen(filename, mode)
 

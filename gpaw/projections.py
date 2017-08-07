@@ -7,10 +7,10 @@ class Projections:
         self.nproj_a = nproj_a
         self.acomm = acomm
         self.bcomm = bcomm
-        self.rank_a = rank_a
         self.collinear = collinear
         self.spin = spin
 
+        self.rank_a = rank_a
         self.indices = []
         self.my_atom_indices = []
         self.map = {}

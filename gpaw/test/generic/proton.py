@@ -13,7 +13,7 @@ a = 4.5
 H = Atoms('H', [(a / 2, a / 2, a / 2)],
           pbc=0,
           cell=(a, a, a))
-calc = GPAW(nbands=1, h=0.2, charge=1, txt='H.txt')
+calc = GPAW(nbands=1, h=0.2, charge=1)#, txt='H.txt')
 H.set_calculator(calc)
 e0 = H.get_potential_energy()
 assert abs(e0 + calc.get_reference_energy()) < 0.014

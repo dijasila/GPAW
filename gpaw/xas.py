@@ -453,7 +453,7 @@ class RecursionMethod:
         if a in A_aci:
             A_aci[a] = A_ci.astype(self.wfs.dtype)
         for u in range(nmykpts):
-            self.wfs.pt.add(self.w_ucG[u], A_aci, u)
+            self.wfs.pt_I.lfc.add(self.w_ucG[u], A_aci, u)
 
     def run(self, nsteps, inverse_overlap="exact"):
 

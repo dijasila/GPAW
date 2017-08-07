@@ -215,12 +215,11 @@ class LCAOWaveFunctions(WaveFunctions):
             if hamiltonian.xc.type == 'GLLB':
                 hamiltonian.xc.initialize_from_atomic_orbitals(
                     self.basis_functions)
-
         else:
             # After a restart, nt_sg doesn't exist yet, so we'll have to
             # make sure it does.  Of course, this should have been taken care
             # of already by this time, so we should improve the code elsewhere
-            density.calculate_normalized_charges_and_mix()
+            pass#density.calculate_normalized_charges_and_mix()
 
         hamiltonian.update(density)
         self.timer.stop('LCAO WFS Initialize')

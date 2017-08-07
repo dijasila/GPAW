@@ -803,8 +803,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         self.set_positions(atoms.get_scaled_positions(),
                            np.zeros(len(atoms), int))
-        self.kpt_u[0].P_ani = None
-        self.allocate_arrays_for_projections(self.pt.my_atom_indices)
 
         myslice = bd.get_slice()
 
@@ -851,7 +849,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             del psit_nG
 
             with self.timer('Projections'):
-                self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                self.pt_I.matrix_elements(kpt.psit_n, out=kpt.P)
 
             kpt.f_n = None
 

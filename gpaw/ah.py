@@ -39,6 +39,7 @@ class AppelbaumHamann(BaseSetup):
         x_g = np.exp(-alpha * r2_g)
         self.ghat_l = [Spline(0, rc, 4 * alpha**1.5 / np.pi**0.5 * x_g)]
         self.vbar = Spline(0, rc, 2 * np.pi**0.5 * (v1 + v2 * r2_g) * x_g)
+        self.Delta_iiL = np.zeros((1, 1, 1))
         self.Delta_pL = np.zeros((1, 1))
         self.Delta0 = -4 / (4 * np.pi)**0.5
         self.lmax = 0
@@ -71,7 +72,7 @@ class AppelbaumHamann(BaseSetup):
         return np.array([(2.0, 2.0 / 3, 2.0 / 3, 2.0 / 3)])
 
     def initialize_density_matrix(self, f_si):
-        return np.zeros((len(f_si), 1))
+        return np.zeros((len(f_si), 1, 1))
 
     def get_default_nbands(self):
         return 3

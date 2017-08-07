@@ -44,7 +44,7 @@ class AtomicBlocks:
         return M_sP
 
     def unpack(self, M_sP):
-        assert len(self.M_asii) == 0
+        self.M_asii.clear()
         if M_sP is None:
             return
         P1 = 0

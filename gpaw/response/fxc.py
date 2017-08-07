@@ -4,12 +4,14 @@
 from __future__ import print_function
 
 import numpy as np
-from gpaw.xc import XC
-from gpaw.sphere.lebedev import weight_n, R_nv
-from gpaw.mpi import world, rank, size
-from gpaw.io.tar import Reader
 from ase.utils.timing import Timer
 from ase.units import Bohr, Ha
+
+from gpaw.io.tar import Reader
+from gpaw.mpi import world, rank, size
+from gpaw.sphere.lebedev import weight_n, R_nv
+from gpaw.utilities import pack
+from gpaw.xc import XC
 
 
 def get_xc_kernel(pd, chi0, functional='ALDA', chi0_wGG=None):
@@ -42,7 +44,7 @@ def get_xc_kernel(pd, chi0, functional='ALDA', chi0_wGG=None):
         r = Reader('fhxc_%s_%s_%s_%s.gpw' %
                    ('', functional, pd.ecut * Ha, 0))
         Kxc_sGG = np.array([r.get('fhxc_sGsG')])
-        
+
         v_G = 4 * np.pi / pd.G2_qG[0]
         Kxc_sGG[0] -= np.diagflat(v_G)
 
@@ -75,7 +77,7 @@ def get_xc_kernel(pd, chi0, functional='ALDA', chi0_wGG=None):
 
 def calculate_Kxc(pd, calc, functional='ALDA', density_cut=None):
     """ALDA kernel"""
-    
+
     gd = pd.gd
     npw = pd.ngmax
     nG = pd.gd.N_c
@@ -84,7 +86,7 @@ def calculate_Kxc(pd, calc, functional='ALDA', density_cut=None):
     nt_sG = calc.density.nt_sG
     R_av = calc.atoms.positions / Bohr
     setups = calc.wfs.setups
-    D_asp = calc.density.D_asp
+    D = calc.density.D
 
     # The soft part
     # assert np.abs(nt_sG[0].shape - nG).sum() == 0
@@ -134,7 +136,7 @@ def calculate_Kxc(pd, calc, functional='ALDA', density_cut=None):
             Y_nL = setup.xc_correction.Y_nL
             dv_g = rgd.dv_g
 
-            D_sp = D_asp[a]
+            D_sp = [pack(D_ii) for D_ii in D[a]]
             B_pqL = setup.xc_correction.B_pqL
             D_sLq = np.inner(D_sp, B_pqL.T)
             nspins = len(D_sp)
@@ -162,18 +164,18 @@ def calculate_Kxc(pd, calc, functional='ALDA', density_cut=None):
                 ft_sg[:] = 0.0
                 nt_sg = np.dot(Y_L, nt_sLg)
                 if x_only:
-                    ft_sg = nspins * (4 / 9.) * (A_x
-                                                 * (nspins * nt_sg)**(-2 / 3.))
+                    ft_sg = nspins * (4 / 9.) * (A_x *
+                                                 (nspins * nt_sg)**(-2 / 3.))
                 else:
                     xc.calculate_fxc(rgd, nt_sg, ft_sg)
                 for i in range(len(rgd.r_g)):
-                    coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n])
-                                     * rgd.r_g[i])
+                    coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n]) *
+                                     rgd.r_g[i])
                     for s in range(len(f_sg)):
                         KxcPAW_sGG[s] += w * np.dot(coef_GG,
                                                     (f_sg[s, i] -
-                                                     ft_sg[s, i])
-                                                    * dv_g[i]) * coefatoms_GG
+                                                     ft_sg[s, i]) *
+                                                    dv_g[i]) * coefatoms_GG
 
     world.sum(KxcPAW_sGG)
     Kxc_sGG += KxcPAW_sGG
@@ -184,10 +186,10 @@ def calculate_Kxc(pd, calc, functional='ALDA', density_cut=None):
 
     return Kxc_sGG / vol
 
-    
+
 def calculate_lr_kernel(pd, calc, alpha=0.2):
     """Long range kernel: fxc = \alpha / |q+G|^2"""
-    
+
     assert pd.kd.gamma
 
     f_G = np.zeros(len(pd.G2_qG[0]))
@@ -195,13 +197,13 @@ def calculate_lr_kernel(pd, calc, alpha=0.2):
     f_G[1:] = -alpha / pd.G2_qG[0][1:]
 
     return np.array([np.diag(f_G)])
-    
-    
+
+
 def calculate_dm_kernel(pd, calc):
     """Density matrix kernel"""
-    
+
     assert pd.kd.gamma
-    
+
     nv = calc.wfs.setups.nvalence
     psit_nG = np.array([calc.wfs.kpt_u[0].psit_nG[n]
                         for n in range(4 * nv)])
@@ -211,16 +213,16 @@ def calculate_dm_kernel(pd, calc):
 
     maxG2 = np.max(pd.G2_qG[0])
     cut_G = np.arange(calc.wfs.pd.ngmax)[calc.wfs.pd.G2_qG[0] <= maxG2]
-    
+
     G_G = pd.G2_qG[0]**0.5
     G_G[0] = 1.0
-    
+
     Kxc_GG = np.diagflat(4 * np.pi / G_G**2)
     Kxc_GG = np.dot(Kxc_GG, rho_GG.take(cut_G, 0).take(cut_G, 1))
     Kxc_GG -= 4 * np.pi * np.diagflat(1.0 / G_G**2)
 
     return np.array([Kxc_GG])
-    
+
 
 def calculate_bootstrap_kernel(pd, chi0_GG, fd):
     """Bootstrap kernel PRL 107, 186401"""
@@ -237,13 +239,13 @@ def calculate_bootstrap_kernel(pd, chi0_GG, fd):
 
     fxc_GG = np.zeros((nG, nG), dtype=complex)
     dminv_GG = np.zeros((nG, nG), dtype=complex)
-                
+
     for iscf in range(120):
         dminvold_GG = dminv_GG.copy()
         Kxc_GG = K_GG + fxc_GG
 
-        chi_GG = np.dot(np.linalg.inv(np.eye(nG, nG)
-                                      - np.dot(chi0_GG, Kxc_GG)), chi0_GG)
+        chi_GG = np.dot(np.linalg.inv(np.eye(nG, nG) -
+                                      np.dot(chi0_GG, Kxc_GG)), chi0_GG)
         dminv_GG = np.eye(nG, nG) + np.dot(K_GG, chi_GG)
 
         alpha = dminv_GG[0, 0] / (K_GG[0, 0] * chi0_GG[0, 0])
@@ -256,5 +258,5 @@ def calculate_bootstrap_kernel(pd, chi0_GG, fd):
             break
         if iscf > 100:
             print('Too many fxc scf steps !', file=fd)
-    
+
     return np.array([fxc_GG])

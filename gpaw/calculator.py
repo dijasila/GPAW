@@ -227,7 +227,7 @@ class GPAW(PAW, Calculator):
         if 'positions' not in system_changes:
             if self.hamiltonian:
                 if self.hamiltonian.vext:
-                    if self.hamiltonian.vext.vext_g is None:
+                    if self.hamiltonian.vext.vext_r is None:
                         # QMMM atoms have moved:
                         system_changes.append('positions')
         return system_changes
