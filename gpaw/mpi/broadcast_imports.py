@@ -5,6 +5,23 @@ import imp
 from gpaw.mpi import world, broadcast
 
 
+"""Provide mechanism to broadcast imports from master to other processes.
+
+This reduces file system strain.
+
+Use:
+
+  with globally_broadcast_imports():
+      <execute import statements>
+
+This temporarily overrides the Python import mechanism so that
+
+  1) master executes and caches import metadata and bytecode
+  2) import metadata and bytecode are broadcast to all processes
+  3) other processes execute the import statements from memory
+
+"""
+
 class ModuleData:
     def __init__(self, vars, code):
         self.vars = vars
@@ -113,12 +130,19 @@ class BroadCaster:
         assert self.oldmetapath is None
         self.oldmetapath = sys.meta_path
         if world.rank != 0:
+            # Here we wait for the master process to finish all its
+            # imports; the master process will broadcast its results
+            # from its __exit__ method, but we slaves need to receive
+            # those data in order to start importing.
             self.broadcast()
 
+        # Override standard import finder/loader:
         sys.meta_path = [OurFinder(self.module_cache)]
 
     def __exit__(self, *args):
         assert len(sys.meta_path) == 1
+
+        # Restore import loader to its former glory:
         sys.meta_path = self.oldmetapath
         if world.rank == 0:
             self.broadcast()
