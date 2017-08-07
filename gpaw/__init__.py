@@ -239,14 +239,20 @@ def initialize_data_paths():
 initialize_data_paths()
 
 
-from gpaw.calculator import GPAW
-from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
-from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
-from gpaw.poisson import PoissonSolver
-from gpaw.occupations import FermiDirac, MethfesselPaxton
-from gpaw.wavefunctions.lcao import LCAO
-from gpaw.wavefunctions.pw import PW
-from gpaw.wavefunctions.fd import FD
+from gpaw.mpi import world
+from gpaw.mpi.broadcast_imports import globally_broadcast_imports
+
+
+with globally_broadcast_imports():
+    from gpaw.calculator import GPAW
+    from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
+    from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
+    from gpaw.poisson import PoissonSolver
+    from gpaw.occupations import FermiDirac, MethfesselPaxton
+    from gpaw.wavefunctions.lcao import LCAO
+    from gpaw.wavefunctions.pw import PW
+    from gpaw.wavefunctions.fd import FD
+
 
 RMM_DIIS = RMMDIIS
 
