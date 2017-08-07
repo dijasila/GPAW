@@ -239,7 +239,6 @@ def initialize_data_paths():
 initialize_data_paths()
 
 
-from gpaw.mpi import world
 from gpaw.mpi.broadcast_imports import globally_broadcast_imports
 
 

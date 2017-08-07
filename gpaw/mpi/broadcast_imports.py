@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import marshal
 import imp
@@ -16,11 +17,12 @@ Use:
 
 This temporarily overrides the Python import mechanism so that
 
-  1) master executes and caches import metadata and bytecode
-  2) import metadata and bytecode are broadcast to all processes
+  1) master executes and caches import metadata and code
+  2) import metadata and code are broadcast to all processes
   3) other processes execute the import statements from memory
 
 """
+
 
 class ModuleData:
     def __init__(self, vars, code):
@@ -53,26 +55,27 @@ class OurLoader:
         else:
             return self.load_from_cache(name)
 
-        return module
-
     def load_and_cache(self, name):
         module = self.load_as_normal(name)
 
         # Some data, like __path__, is not included in the code.
         # We must manually handle these:
         module_vars = {}
-        for var in ['__path__', '__package__', '__file__']:
+
+        # XXX is this guaranteed to be complete?
+        for var in ['__path__', '__package__', '__file__', '__cached__']:
             if hasattr(module, var):
                 module_vars[var] = getattr(module, var)
 
-        # Load module code, if the module actually comes from a file:
+        # Load module code, if the module actually comes from a file, and
+        # the file is a python-file (not e.g. C extensions like .so):
+        code = None
         if hasattr(module, '__file__'):
-            with open(module.__file__, 'rb') as fd:
-                code = fd.read()
-        else:
-            # This is a built-in, probably, and the other process will
-            # can load it itself
-            code = None
+            filename = module.__file__
+            if any(filename.endswith(extension)
+                   for extension in ['.py', '.pyc', 'pyo']):
+                with open(filename, 'rb') as fd:
+                    code = fd.read()
 
         self.module_cache[name] = ModuleData(module_vars, code)
         return module
@@ -80,24 +83,18 @@ class OurLoader:
     def load_from_cache(self, name):
         module_data = self.module_cache[name]
 
-        if '__file__' not in module_data.vars:
-            module = self.load_as_normal(name)
-            return module
+        if module_data.code is None:
+            return self.load_as_normal(name)
 
         #print("I'm rank {}. Making new module {}.".
         #      format(world.rank, name))
 
-        # Load, ignoring checksum and time stamp:
-        try:
+        if sys.version_info[0] == 2:
+            # Load, ignoring checksum and time stamp.
+            # 8 is header length (12 in py3, if we need that someday)
             code = marshal.loads(module_data.code[8:])
-        except ValueError as err:
-            # Loading Python extensions this way is not
-            # supported -- only pyc files.
-            # We fall back to the standard loading mechanism.
-            if str(err).startswith('bad marshal data'):
-                assert name.startswith('_')  # C extensions
-                module = self.load_as_normal(name)
-                return module
+        else:
+            code = module_data.code
 
         imp.acquire_lock()  # Required in threaded applications
 
@@ -111,7 +108,9 @@ class OurLoader:
         # by the loader and not the code itself:
         for var in module_data.vars:
             setattr(module, var, module_data.vars[var])
-            exec code in module.__dict__
+
+        exec(code, module.__dict__)
+
         imp.release_lock()
         return module
 
