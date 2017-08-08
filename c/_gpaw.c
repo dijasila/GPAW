@@ -7,6 +7,8 @@
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #include <numpy/arrayobject.h>
 
+#define PY3 (PY_MAJOR_VERSION >= 3)
+
 #ifdef GPAW_HPM
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
 PyObject* ibm_hpm_stop(PyObject *self, PyObject *args);
@@ -77,6 +79,7 @@ PyObject* vdw2(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
 PyObject* spline_to_grid(PyObject *self, PyObject *args);
 PyObject* NewLFCObject(PyObject *self, PyObject *args);
+PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args);
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
 PyObject* new_blacs_context(PyObject *self, PyObject *args);
 PyObject* get_blacs_gridinfo(PyObject* self, PyObject *args);
@@ -181,6 +184,7 @@ static PyMethodDef functions[] = {
     {"pc_potential", pc_potential, METH_VARARGS, 0},
     {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
     {"LFC", NewLFCObject, METH_VARARGS, 0},
+    {"globally_broadcast_bytes", globally_broadcast_bytes, METH_VARARGS, 0},
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
     {"new_blacs_context", new_blacs_context, METH_VARARGS, NULL},
     {"get_blacs_gridinfo", get_blacs_gridinfo, METH_VARARGS, NULL},
@@ -253,7 +257,7 @@ extern PyTypeObject TransformerType;
 extern PyTypeObject XCFunctionalType;
 extern PyTypeObject lxcXCFunctionalType;
 
-#if PY_MAJOR_VERSION >= 3
+#if PY3
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
     "_gpaw",
@@ -293,7 +297,7 @@ static PyObject* moduleinit(void)
     if (PyType_Ready(&lxcXCFunctionalType) < 0)
         return NULL;
 
-#if PY_MAJOR_VERSION >= 3
+#if PY3
     PyObject* m = PyModule_Create(&moduledef);
 #else
     PyObject* m = Py_InitModule3("_gpaw", functions,
@@ -326,7 +330,7 @@ static PyObject* moduleinit(void)
 #ifndef GPAW_INTERPRETER
 
 
-#if PY_MAJOR_VERSION >= 3
+#if PY3
 PyMODINIT_FUNC PyInit__gpaw(void)
 {
     return moduleinit();
@@ -340,7 +344,7 @@ PyMODINIT_FUNC init_gpaw(void)
 
 #else // ifndef GPAW_INTERPRETER
 
-#if PY_MAJOR_VERSION >= 3
+#if PY3
 #define moduleinit0 moduleinit
 #else
 void moduleinit0(void) { moduleinit(); }
@@ -349,8 +353,34 @@ void moduleinit0(void) { moduleinit(); }
 #include <mpi.h>
 
 
-#define PY3 (PY_MAJOR_VERSION >= 3)
 
+PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args)
+{
+    MPI_Comm comm = MPI_COMM_WORLD;
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+
+    PyObject *pybytes;
+    if(!PyArg_ParseTuple(args, "O", &pybytes)){
+        return NULL;
+    }
+    long size;
+    if(rank == 0) {
+        size = PyBytes_Size(pybytes);  // Py_ssize_t --> long
+    }
+    MPI_Bcast(&size, 1, MPI_LONG, 0, comm);
+
+    char *dst = (char *)malloc(size);
+    if(rank == 0) {
+        char *src = PyBytes_AsString(pybytes);  // Read-only
+        memcpy(dst, src, size);
+    }
+    MPI_Bcast(dst, size, MPI_BYTE, 0, comm);
+
+    PyObject *value = PyBytes_FromStringAndSize(dst, size);
+    free(dst);
+    return value;
+}
 
 int
 main(int argc, char **argv)
@@ -400,9 +430,14 @@ main(int argc, char **argv)
 #endif
     }
 
+    // Py_Main undocumentedly decrefs many objects.  Therefore, although
+    // we should really be decreffing both pynewargv, sys_mod and the
+    // imported GPAW module, we cannot - it would segfault.
+    //
+    // The likely reason for this is that it is a bit hacky to do
+    // Python things and also call Py_Main.
+    // One could replace Py_Main with something else, but that is a major change.
     int status = Py_Main(newargc, newargv);
-
-    //Py_DECREF(pynewargv);  WTF?
 
 #if PY3
     for(int i=0; i < newargc; i++) {
@@ -413,7 +448,7 @@ main(int argc, char **argv)
     Py_Finalize();
     MPI_Finalize();
 
-#if PY_MAJOR_VERSION >= 3
+#if PY3
     for (int i = 0; i < argc; i++)
         free(wargv2[i]);
 #endif
