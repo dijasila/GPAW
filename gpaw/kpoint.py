@@ -82,10 +82,10 @@ class KPoint:
 
         self.eps_n = None
         self.f_n = None
-        self.P_ani = None
+        self.P = None
 
         # Only one of these two will be used:
-        self.psit_nG = None  # wave functions on 3D grid
+        #self.psit_nG = None  # wave functions on 3D grid or PW expansion
         self.C_nM = None     # LCAO coefficients for wave functions XXX
 
         self.rho_MM = None
@@ -93,9 +93,17 @@ class KPoint:
         self.S_MM = None
         self.T_MM = None
 
+        # UniformGridMatrix/PWExpansionMatrix wrapper:
+        self.psit_n = None
+
+        # self.dist = None  # BLACS distribution of bands
+
+    @property
+    def P_ani(self):
+        return {a: P_in.T for a, P_in in self.P.items()}
+
 
 class GlobalKPoint(KPoint):
-
     def update(self, wfs):
         """Distribute requested kpoint data across the kpoint communicator."""
 
