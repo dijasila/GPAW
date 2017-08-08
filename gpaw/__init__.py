@@ -3,16 +3,9 @@
 
 """Main gpaw module."""
 
-import os
+
 import sys
-import warnings
-from distutils.util import get_platform
 
-from os.path import join, isfile
-
-import numpy as np
-
-assert not np.version.version.startswith('1.6.0')
 
 __version__ = '1.3.0b1'
 __ase_version_required__ = '3.14.1'
@@ -52,8 +45,46 @@ extra_parameters = {}
 profile = False
 
 
+# XXXX must avoid copying this somehow.  (From ase)
+#Replaces: from ase.cli.run import str2dict
+def str2dict(s, namespace={}, sep='='):
+    """Convert comma-separated key=value string to dictionary.
+
+    Examples:
+
+    >>> str2dict('xc=PBE,nbands=200,parallel={band:4}')
+    {'xc': 'PBE', 'nbands': 200, 'parallel': {'band': 4}}
+    >>> str2dict('a=1.2,b=True,c=ab,d=1,2,3,e={f:42,g:cd}')
+    {'a': 1.2, 'c': 'ab', 'b': True, 'e': {'g': 'cd', 'f': 42}, 'd': (1, 2, 3)}
+    """
+
+    def myeval(value):
+        try:
+            value = eval(value, namespace)
+        except (NameError, SyntaxError):
+            pass
+        return value
+
+    dct = {}
+    s = (s + ',').split(sep)
+    for i in range(len(s) - 1):
+        key = s[i]
+        m = s[i + 1].rfind(',')
+        value = s[i + 1][:m]
+        if value[0] == '{':
+            assert value[-1] == '}'
+            value = str2dict(value[1:-1], namespace, ':')
+        elif value[0] == '(':
+            assert value[-1] == ')'
+            value = [myeval(t) for t in value[1:-1].split(',')]
+        else:
+            value = myeval(value)
+        dct[key] = value
+        s[i + 1] = s[i + 1][m + 1:]
+    return dct
+
+
 def parse_extra_parameters(arg):
-    from ase.cli.run import str2dict
     return {key.replace('-', '_'): value
             for key, value in str2dict(arg).items()}
 
@@ -184,25 +215,21 @@ while len(sys.argv) > i:
 dry_run = extra_parameters.pop('dry_run', 0)
 debug = extra_parameters.pop('debug', False)
 
+
+from gpaw.broadcast_imports import globally_broadcast_imports
+
+with globally_broadcast_imports():
+    import os
+    from os.path import join, isfile
+    import warnings
+    from distutils.util import get_platform
+
+
 # Check for typos:
 for p in extra_parameters:
     # We should get rid of most of these!
     if p not in {'sic', 'log2ng', 'PK', 'vdw0', 'df_dry_run', 'usenewlfc'}:
         warnings.warn('Unknown parameter: ' + p)
-
-if debug:
-    np.seterr(over='raise', divide='raise', invalid='raise', under='ignore')
-
-    oldempty = np.empty
-
-    def empty(*args, **kwargs):
-        a = oldempty(*args, **kwargs)
-        try:
-            a.fill(np.nan)
-        except ValueError:
-            a.fill(-1000000)
-        return a
-    np.empty = empty
 
 
 build_path = join(__path__[0], '..', 'build')
@@ -239,10 +266,29 @@ def initialize_data_paths():
 initialize_data_paths()
 
 
-from gpaw.mpi.broadcast_imports import globally_broadcast_imports
+def enable_numpy_debug(np):
+    np.seterr(over='raise', divide='raise', invalid='raise',
+              under='ignore')
+
+    oldempty = np.empty
+
+    def empty(*args, **kwargs):
+        a = oldempty(*args, **kwargs)
+        try:
+            a.fill(np.nan)
+        except ValueError:
+            a.fill(-1000000)
+        return a
+    np.empty = empty
 
 
 with globally_broadcast_imports():
+    import numpy as np
+    assert not np.version.version.startswith('1.6.0')
+
+    if debug:
+        enable_numpy_debug(np)
+
     from gpaw.calculator import GPAW
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO

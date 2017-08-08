@@ -2,8 +2,15 @@ from __future__ import print_function
 import sys
 import marshal
 import imp
+import pickle
 
-from gpaw.mpi import world, broadcast
+try:
+    import _gpaw
+except ImportError:
+    we_are_gpaw_python = False
+else:
+    we_are_gpaw_python = True
+    world = _gpaw.Communicator()
 
 
 """Provide mechanism to broadcast imports from master to other processes.
@@ -22,6 +29,44 @@ This temporarily overrides the Python import mechanism so that
   3) other processes execute the import statements from memory
 
 """
+
+
+#from gpaw.mpi import world, broadcast
+
+
+# XXXX rewrite in C properly
+def broadcast(obj, root, comm):
+    """Broadcast a Python object across an MPI communicator and return it."""
+    if comm.rank == root:
+        assert obj is not None
+        b = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
+    else:
+        assert obj is None
+        b = None
+    b = broadcast_bytes(b, root, comm)
+    if comm.rank == root:
+        return obj
+    else:
+        return pickle.loads(b)
+
+
+# XXX rewrite in C properly (no numpy)
+import numpy as np
+def broadcast_bytes(b, root, comm):
+    """Broadcast a bytes across an MPI communicator and return it."""
+    if comm.rank == root:
+        assert isinstance(b, bytes)
+        n = np.array(len(b), int)
+    else:
+        assert b is None
+        n = np.zeros(1, int)
+    comm.broadcast(n, root)
+    if comm.rank == root:
+        b = np.fromstring(b, np.int8)
+    else:
+        b = np.zeros(n, np.int8)
+    comm.broadcast(b, root)
+    return b.tostring()
 
 
 class ModuleData:
@@ -98,6 +143,7 @@ class OurLoader:
 
         imp.acquire_lock()  # Required in threaded applications
 
+        print('{} load {}'.format(world.rank, name))
         module = imp.new_module(name)
 
         # To properly handle circular and submodule imports, we must
@@ -150,5 +196,16 @@ class BroadCaster:
         self.module_cache = broadcast(self.module_cache, root=0, comm=world)
 
 
+class NoBroadCaster:
+    def __enter__(self):
+        pass
+
+    def __exit__(self, *args):
+        pass
+
+
 def globally_broadcast_imports():
-    return BroadCaster()
+    if we_are_gpaw_python:
+        return BroadCaster()
+    else:
+        return NoBroadCaster()
