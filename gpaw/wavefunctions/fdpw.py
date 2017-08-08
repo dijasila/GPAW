@@ -71,7 +71,7 @@ class FDPWWaveFunctions(WaveFunctions):
         elif not isinstance(self.kpt_u[0].psit_nG, np.ndarray):
             self.initialize_wave_functions_from_restart_file()
 
-        if self.kpt_u[0].psit_nG is not None:
+        if self.kpt_u[0].psit_n is not None:
             density.initialize_from_wavefunctions(self)
         elif density.nt_sR is None:
             density.initialize_from_atomic_densities(basis_functions)

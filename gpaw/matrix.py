@@ -1,9 +1,8 @@
 import numpy as np
-
 import scipy.linalg as linalg
-import gpaw.utilities.blas as blas
+
 import _gpaw
-from gpaw.utilities import pack2, unpack
+import gpaw.utilities.blas as blas
 
 
 global_blacs_context_store = {}
@@ -167,7 +166,7 @@ class Matrix:
         else:
             self.array = data.reshape(dist.shape)
 
-        #self.transposed = self.array.flags['F_CONTIGUOUS']
+        # self.transposed = self.array.flags['F_CONTIGUOUS']
 
     def __len__(self):
         return self.shape[0]

@@ -270,6 +270,7 @@ class Density:
         self.D.rank_a = rank_a
         self.nct_a.set_positions(spos_ac)
         self.ghat_aL.set_positions(spos_ac)
+        self.mixer.reset()
         # self.nt_sR = None
         # self.Q_aL = None
 
@@ -341,6 +342,8 @@ class Density:
         self.nt_sR = self.gd.empty(self.nspins)
         self.calculate_pseudo_density(wfs)
         for kpt in wfs.mykpts:
+            if kpt.psit_n is None:
+                break
             wfs.pt_I.matrix_elements(kpt.psit_n, kpt.P)
         self.D.update(wfs)
         comp_charge, self.Q_aL = self.D.calculate_multipole_moments()

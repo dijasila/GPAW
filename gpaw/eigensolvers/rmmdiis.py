@@ -52,7 +52,7 @@ class RMMDIIS(Eigensolver):
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do a single RMM-DIIS iteration for the kpoint"""
 
-        psit_nG, R_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
+        self.subspace_diagonalize(hamiltonian, wfs, kpt)
 
         self.timer.start('RMM-DIIS')
         self.timer.start('Calculate residuals')

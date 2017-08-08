@@ -85,7 +85,7 @@ class KPoint:
         self.P = None
 
         # Only one of these two will be used:
-        self.psit_nG = None  # wave functions on 3D grid or PW expansion
+        #self.psit_nG = None  # wave functions on 3D grid or PW expansion
         self.C_nM = None     # LCAO coefficients for wave functions XXX
 
         self.rho_MM = None
