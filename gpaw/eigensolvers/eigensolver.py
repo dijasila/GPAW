@@ -165,11 +165,6 @@ class Eigensolver:
             # Rotate orbital dependent XC stuff:
             ham.xc.rotate(kpt, H_nn.array)
 
-        if self.keep_htpsit:
-            return kpt.psit_nG, Htpsit_n.array
-        else:
-            return kpt.psit_nG, None
-
     def estimate_memory(self, mem, wfs):
         gridmem = wfs.bytes_per_wave_function()
 

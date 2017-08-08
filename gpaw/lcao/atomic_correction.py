@@ -71,7 +71,6 @@ class DenseAtomicCorrection(BaseAtomicCorrection):
 
     def gobble_data(self, wfs):
         self.initialize(wfs.P_aqMi, wfs.ksl.Mstart, wfs.ksl.Mstop)
-        self.orig_partition = wfs.atom_partition  # XXXXXXXXXXXXXXXXXXXXX
 
     def initialize(self, P_aqMi, Mstart, Mstop):
         self.P_aqMi = P_aqMi

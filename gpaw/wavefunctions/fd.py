@@ -49,16 +49,6 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def empty(self, n=(), global_array=False, realspace=False, q=-1):
         return self.gd.empty(n, self.dtype, global_array)
 
-    def wrap_wave_function_arrays_in_fancy_objects(self):
-        dist = (self.bd.comm, self.bd.comm.size)
-        for kpt in self.mykpts:
-            if kpt.psit_n is not None:
-                return
-
-            kpt.psit_n = UniformGridWaveFunctions(
-                self.bd.nbands, self.gd, self.dtype,
-                kpt.psit_nG, kpt.q, dist, kpt.s)
-
     def integrate(self, a_xg, b_yg=None, global_integral=True):
         return self.gd.integrate(a_xg, b_yg, global_integral)
 
@@ -90,10 +80,10 @@ class FDWaveFunctions(FDPWWaveFunctions):
         # Used in calculation of response part of GLLB-potential
         nt_R = nt_sR[kpt.s]
         if self.dtype == float:
-            for f, psit_G in zip(f_n, kpt.psit_nG):
+            for f, psit_G in zip(f_n, kpt.psit_n.array):
                 axpy(f, psit_G**2, nt_R)
         else:
-            for f, psit_R in zip(f_n, kpt.psit_nG):
+            for f, psit_R in zip(f_n, kpt.psit_n.array):
                 axpy(f, psit_R.real**2, nt_R)
                 axpy(f, psit_R.imag**2, nt_R)
 
@@ -226,37 +216,38 @@ class FDWaveFunctions(FDPWWaveFunctions):
         if 'values' not in reader.wave_functions:
             return
 
+        dist = (self.bd.comm, self.bd.comm.size)
+
         c = reader.bohr**1.5
         if reader.version < 0:
             c = 1  # old gpw file
-        for kpt in self.kpt_u:
+
+        for kpt in self.mykpts:
             # We may not be able to keep all the wave
             # functions in memory - so psit_nG will be a special type of
             # array that is really just a reference to a file:
-            kpt.psit_nG = reader.wave_functions.proxy('values', kpt.s, kpt.k)
-            kpt.psit_nG.scale = c
+            psit_nG = reader.wave_functions.proxy('values', kpt.s, kpt.k)
+            psit_nG.scale = c
 
-        if self.world.size == 1:
-            return
+            kpt.psit_n = UniformGridWaveFunctions(
+                self.bd.nbands, self.gd, self.dtype,
+                psit_nG, kpt.q, dist, kpt.s)
 
-        # Read to memory:
-        for kpt in self.kpt_u:
-            psit_nG = kpt.psit_nG
-            kpt.psit_nG = self.empty(self.bd.mynbands)
-            # Read band by band to save memory
-            for myn, psit_G in enumerate(kpt.psit_nG):
-                n = self.bd.global_index(myn)
-                if self.gd.comm.rank == 0:
-                    big_psit_G = np.asarray(psit_nG[n], self.dtype)
-                else:
-                    big_psit_G = None
-                self.gd.distribute(big_psit_G, psit_G)
+        if self.world.size > 1:
+            for kpt in self.mykpts:
+                kpt.psit_n.read_from_file()
 
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
+        dist = (self.bd.comm, self.bd.comm.size)
         for kpt in self.kpt_u:
-            kpt.psit_nG = self.gd.zeros(self.bd.mynbands, self.dtype)
+            kpt.psit_n = UniformGridWaveFunctions(
+                self.bd.nbands, self.gd, self.dtype,
+                kpt=kpt.q, dist=dist, spin=kpt.s)
+
+            kpt.psit_n.array[:] = 0.0
             basis_functions.lcao_to_grid(kpt.C_nM,
-                                         kpt.psit_nG[:mynbands], kpt.q)
+                                         kpt.psit_n.array[:mynbands],
+                                         kpt.q)
             kpt.C_nM = None
 
     def random_wave_functions(self, nao):
@@ -282,7 +273,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             np.random.seed(4 + self.world.rank)
 
             for kpt in self.kpt_u:
-                for psit_G in kpt.psit_nG[nao:]:
+                for psit_G in kpt.psit_n.array[nao:]:
                     if self.dtype == float:
                         psit_G2[:] = (np.random.random(shape) - 0.5) * scale
                     else:
@@ -308,7 +299,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             np.random.seed(4 + self.world.rank)
 
             for kpt in self.kpt_u:
-                for psit_G in kpt.psit_nG[nao:]:
+                for psit_G in kpt.psit_n.array[nao:]:
                     if self.dtype == float:
                         psit_G1[:] = (np.random.random(shape) - 0.5) * scale
                     else:
@@ -327,7 +318,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             np.random.seed(4 + self.world.rank)
 
             for kpt in self.kpt_u:
-                for psit_G in kpt.psit_nG[nao:]:
+                for psit_G in kpt.psit_n.array[nao:]:
                     if self.dtype == float:
                         psit_G[:] = (np.random.random(shape) - 0.5) * scale
                     else:

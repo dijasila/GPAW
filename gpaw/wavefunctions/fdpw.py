@@ -3,7 +3,6 @@ import numpy as np
 
 from ase.utils.timing import timer
 
-from gpaw import extra_parameters
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.lfc import BasisFunctions
 from gpaw.matrix import Matrix
@@ -61,17 +60,20 @@ class FDPWWaveFunctions(WaveFunctions):
         Return (nlcao, nrand) tuple with number of bands intialized from
         LCAO and random numbers, respectively."""
 
-        if self.kpt_u[0].psit_nG is None:
+        if self.mykpts[0].psit_n is None:
             basis_functions = BasisFunctions(self.gd,
                                              [setup.phit_j
                                               for setup in self.setups],
                                              self.kd, dtype=self.dtype,
                                              cut=True)
             basis_functions.set_positions(spos_ac)
-        elif not isinstance(self.kpt_u[0].psit_nG, np.ndarray):
-            self.initialize_wave_functions_from_restart_file()
+        else:
+            print('READ')
+            for kpt in self.mykpts:
+                if not kpt.psit_n.in_memory:
+                    kpt.read_from_file()
 
-        if self.kpt_u[0].psit_n is not None:
+        if self.mykpts[0].psit_n is not None:
             density.initialize_from_wavefunctions(self)
         elif density.nt_sR is None:
             density.initialize_from_atomic_densities(basis_functions)
@@ -85,7 +87,7 @@ class FDPWWaveFunctions(WaveFunctions):
             pass#density.calculate_normalized_charges_and_mix()
         hamiltonian.update(density)
 
-        if self.kpt_u[0].psit_nG is None:
+        if self.mykpts[0].psit_n is None:
             nlcao = self.initialize_wave_functions_from_basis_functions(
                 basis_functions, density, hamiltonian, spos_ac, rank_a)
             nrand = self.bd.nbands - nlcao
@@ -119,7 +121,7 @@ class FDPWWaveFunctions(WaveFunctions):
         eigensolver.iterate(hamiltonian, lcaowfs)
 
         # Transfer coefficients ...
-        for kpt, lcaokpt in zip(self.kpt_u, lcaowfs.kpt_u):
+        for kpt, lcaokpt in zip(self.mykpts, lcaowfs.mykpts):
             kpt.C_nM = lcaokpt.C_nM
 
         # and get rid of potentially big arrays early:
@@ -139,35 +141,13 @@ class FDPWWaveFunctions(WaveFunctions):
 
         return lcaobd.nbands
 
-    def initialize_wave_functions_from_restart_file(self):
-        if isinstance(self.kpt_u[0].psit_nG, np.ndarray):
-            return
-
-        # Calculation started from a restart file.  Copy data
-        # from the file to memory:
-        for kpt in self.kpt_u:
-            file_nG = kpt.psit_nG
-            kpt.psit_nG = self.empty(self.bd.mynbands, q=kpt.q)
-            if extra_parameters.get('sic'):
-                kpt.W_nn = np.zeros((self.bd.nbands, self.bd.nbands),
-                                    dtype=self.dtype)
-            # Read band by band to save memory
-            for n, psit_G in enumerate(kpt.psit_nG):
-                if self.gd.comm.rank == 0:
-                    big_psit_G = file_nG[n][:].astype(psit_G.dtype)
-                else:
-                    big_psit_G = None
-                self.gd.distribute(big_psit_G, psit_G)
-
     @timer('Orthonormalize')
     def orthonormalize(self, kpt=None):
         if kpt is None:
-            for kpt in self.kpt_u:
+            for kpt in self.mykpts:
                 self.orthonormalize(kpt)
             self.orthonormalized = True
             return
-
-        self.wrap_wave_function_arrays_in_fancy_objects()
 
         psit_n = kpt.psit_n
         P = kpt.P
@@ -201,7 +181,7 @@ class FDPWWaveFunctions(WaveFunctions):
         F_av[:] = 0.0
         F_aniv = None
         dH_asii = ham.dH.dH_asii
-        for kpt in self.kpt_u:
+        for kpt in self.mykpts:
             F_aniv = self.pt_I.matrix_elements(kpt.psit_n, out=F_aniv,
                                                derivative=True)
             for a, P_in in kpt.P.items():
@@ -239,7 +219,7 @@ class FDPWWaveFunctions(WaveFunctions):
 
     def estimate_memory(self, mem):
         gridbytes = self.bytes_per_wave_function()
-        n = len(self.kpt_u) * self.bd.mynbands
+        n = len(self.mykpts) * self.bd.mynbands
         mem.subnode('Arrays psit_nG', n * gridbytes)
         self.eigensolver.estimate_memory(mem.subnode('Eigensolver'), self)
         ni = sum(dataset.ni for dataset in self.setups) / self.gd.comm.size

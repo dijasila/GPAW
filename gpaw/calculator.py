@@ -201,13 +201,14 @@ class GPAW(PAW, Calculator):
 
         self.initialize(reading=True)
 
-        self.set_positions()
+        self.wfs.read(reader)
+
+        #self.set_positions()
 
         self.density.read(reader)
         self.hamiltonian.read(reader)
         self.occupations.read(reader)
         self.scf.read(reader)
-        self.wfs.read(reader)
 
         #spos_ac = self.atoms.get_scaled_positions() % 1.0
         #rank_a = self.density.gd.get_ranks_from_positions(spos_ac)

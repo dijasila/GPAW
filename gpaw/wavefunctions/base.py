@@ -46,7 +46,6 @@ class WaveFunctions:
         self.kd = kd
         self.kptband_comm = kptband_comm
         self.timer = timer
-        self.atom_partition = None
 
         self.mykpts = kd.create_k_points(self.gd)
         self.kpt_u = self.mykpts
@@ -110,11 +109,6 @@ class WaveFunctions:
     def set_positions(self, spos_ac, rank_a):
         self.positions_set = False
         self.kd.symmetry.check(spos_ac)
-        nproj_a = [setup.ni for setup in self.setups]
-        for kpt in self.kpt_u:
-            kpt.P = Projections(nproj_a, self.bd.nbands,
-                                self.gd.comm, self.bd.comm, rank_a,
-                                self.collinear, kpt.s, self.dtype)
 
     def collect_eigenvalues(self, k, s):
         return self.collect_array('eps_n', k, s)
@@ -337,6 +331,8 @@ class WaveFunctions:
 
     def read(self, reader):
         nslice = self.bd.get_slice()
+        nproj_a = [setup.ni for setup in self.setups]
+        rank_a = np.zeros(len(nproj_a), int)
         r = reader.wave_functions
         for u, kpt in enumerate(self.kpt_u):
             eps_n = r.proxy('eigenvalues', kpt.s, kpt.k)[nslice]
@@ -351,6 +347,9 @@ class WaveFunctions:
                 eps_n /= reader.ha
             kpt.eps_n = eps_n
             kpt.f_n = f_n
+            kpt.P = Projections(nproj_a, self.bd.nbands,
+                                self.gd.comm, self.bd.comm, rank_a,
+                                self.collinear, kpt.s, self.dtype)
             if self.gd.comm.rank == 0:
                 P_nI = r.proxy('projections', kpt.s, kpt.k)[:]
                 kpt.P.matrix.array[:] = P_nI[nslice].T

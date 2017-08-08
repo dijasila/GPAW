@@ -3,15 +3,44 @@ import numpy as np
 from gpaw.matrix import Matrix
 
 
+class MatrixInFile:
+    def __init__(self, M, N, dtype, data, dist):
+        self.shape = (M, N)
+        self.dtype = dtype
+        self.data = data
+        self.dist = dist
+
+    def read(self):
+        matrix = Matrix(*self.shape, self.dtype, dist=self.dist)
+        # Read band by band to save memory
+        for myn, psit_G in enumerate(kpt.psit_nG):
+            n = self.bd.global_index(myn)
+            if self.gd.comm.rank == 0:
+                big_psit_G = np.asarray(psit_nG[n], self.dtype)
+            else:
+                big_psit_G = None
+            self.gd.distribute(big_psit_G, psit_G)
+        return matrix
+
+
 class ArrayWaveFunctions:
     def __init__(self, M, N, dtype, data, dist):
-        self.matrix = Matrix(M, N, dtype, data, dist)
+        if data is None or isinstance(data, np.ndarray):
+            self.matrix = Matrix(M, N, dtype, data, dist)
+            self.in_memory = True
+        else:
+            self.matrix = MatrixInFile(M, N, dtype, data, dist)
+            self.in_memory = False
         self.comm_to_be_summed_over = None
         self.comm = None
         self.dtype = self.matrix.dtype
 
     def __len__(self):
         return len(self.matrix)
+
+    def read_from_file(self):
+        self.matrix = self.matrix.read()
+        self.in_memory = True
 
     def finish_sumssss(self):
         if self.comm_to_be_summed_over and not self.transposed:
