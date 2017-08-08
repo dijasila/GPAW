@@ -348,6 +348,10 @@ void moduleinit0(void) { moduleinit(); }
 
 #include <mpi.h>
 
+
+#define PY3 (PY_MAJOR_VERSION >= 3)
+
+
 int
 main(int argc, char **argv)
 {
@@ -360,7 +364,8 @@ main(int argc, char **argv)
         exit(1);
 #endif // GPAW_OMP
 
-#if PY_MAJOR_VERSION >= 3
+#if PY3
+#define PyChar wchar_t
     wchar_t* wargv[argc];
     wchar_t* wargv2[argc];
     for (int i = 0; i < argc; i++) {
@@ -370,13 +375,41 @@ main(int argc, char **argv)
         mbstowcs(wargv[i], argv[i], n);
     }
 #else
+#define PyChar char
     char** wargv = argv;
 #endif
 
     Py_SetProgramName(wargv[0]);
     PyImport_AppendInittab("_gpaw", &moduleinit0);
     Py_Initialize();
-    int status = Py_Main(argc, wargv);
+
+    PySys_SetArgvEx(argc, wargv, 0);
+    PyImport_ImportModule("gpaw");
+    PyObject *sys_mod = PyImport_ImportModule("sys");
+
+    PyObject *pynewargv = PyObject_GetAttrString(sys_mod, "argv");
+    int newargc = PyList_Size(pynewargv);
+
+    PyChar *newargv[newargc];
+    for(int i=0; i < newargc; i++) {
+        PyObject* arg = PyList_GetItem(pynewargv, i);
+#if PY3
+        newargv[i] = PyUnicode_AsWideCharString(arg, NULL);
+#else
+        newargv[i] = PyString_AsString(arg);
+#endif
+    }
+
+    int status = Py_Main(newargc, newargv);
+
+    //Py_DECREF(pynewargv);  WTF?
+
+#if PY3
+    for(int i=0; i < newargc; i++) {
+        PyMem_Free(newargv[i]);
+    }
+#endif
+
     Py_Finalize();
     MPI_Finalize();
 
