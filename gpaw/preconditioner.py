@@ -1,5 +1,4 @@
-# Copyright (C) 2003  CAMP
-# Please see the accompanying LICENSE file for further information.
+import numpy as np
 
 from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace
@@ -32,10 +31,12 @@ class Preconditioner:
         return None
         
     def __call__(self, residuals, kpt, ekin=None):
-        nb = len(residuals) # number of bands
+        if residuals.ndim == 3:
+            return self.__call__(residuals[np.newaxis], kpt)[0]
+        nb = len(residuals)  # number of bands
         phases = kpt.phase_cd
         step = self.step
-        d0, q0 = self.scratch0[:,:nb]
+        d0, q0 = self.scratch0[:, :nb]
         r1, d1, q1 = self.scratch1[:, :nb]
         r2, d2, q2 = self.scratch2[:, :nb]
         self.restrictor0(-residuals, r1, phases)
@@ -58,4 +59,3 @@ class Preconditioner:
         axpy(-step, q0, d0)  # d0 -= step * q0
         d0 *= -1.0
         return d0
-
