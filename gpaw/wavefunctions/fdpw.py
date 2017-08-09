@@ -13,16 +13,33 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 class FDPWWaveFunctions(WaveFunctions):
     """Base class for finite-difference and planewave classes."""
-    def __init__(self, diagksl, orthoksl, initksl, *args, **kwargs):
+    def __init__(self, initksl, *args, **kwargs):
         WaveFunctions.__init__(self, *args, **kwargs)
 
-        self.diagksl = diagksl
-        self.orthoksl = orthoksl
         self.initksl = initksl
 
         self.set_orthonormalized(False)
 
         self.overlap = self.make_overlap()
+
+        self._work_matrix_nn = None  # storage for H, S, ...
+        self._work_array = None
+
+    @property
+    def work_array(self):
+        if self._work_array is None:
+            self._work_array = self.empty(self.bd.mynbands)
+        return self._work_array
+
+    @property
+    def work_matrix_nn(self):
+        """Get Matrix object for H, S, ..."""
+        if self._work_matrix_nn is None:
+            self._work_matrix_nn = Matrix(
+                self.bd.nbands, self.bd.nbands,
+                self.dtype,
+                dist=(self.bd.comm, self.bd.comm.size))
+        return self._work_matrix_nn
 
     def __str__(self):
         if self.diagksl.buffer_size is not None:
@@ -160,10 +177,40 @@ class FDPWWaveFunctions(WaveFunctions):
                     big_psit_G = None
                 self.gd.distribute(big_psit_G, psit_G)
 
-    def orthonormalize(self):
-        for kpt in self.kpt_u:
-            self.overlap.orthonormalize(self, kpt)
-        self.set_orthonormalized(True)
+    @timer('Orthonormalize')
+    def orthonormalize(self, kpt=None):
+        if kpt is None:
+            for kpt in self.mykpts:
+                self.orthonormalize(kpt)
+            self.orthonormalized = True
+            return
+
+        psit_n = kpt.psit_n
+        P = kpt.P
+
+        with self.timer('projections'):
+            self.pt_I.matrix_elements(psit_n, out=P)
+
+        S_nn = self.work_matrix_nn
+        dSP = P.new()
+
+        with self.timer('calc_s_matrix'):
+            psit_n.matrix_elements(psit_n, S_nn)
+            self.setups.dS.apply(P, out=dSP)
+            S_nn += P.matrix.H * dSP.matrix
+
+        with self.timer('inverse-cholesky'):
+            assert self.bd.comm.size == 1
+            S_nn.cholesky()
+            S_nn.inv()
+            # S_nn now contains the inverse of the Cholesky factorization
+
+        psit2_n = psit_n.new(buf=self.work_array)
+        with self.timer('rotate_psi_s'):
+            psit2_n[:] = S_nn.T * psit_n
+            dSP.matrix[:] = P.matrix * S_nn
+            psit_n[:] = psit2_n
+            kpt.P = dSP
 
     def calculate_forces(self, hamiltonian, F_av):
         # Calculate force-contribution from k-points:
