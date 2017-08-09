@@ -6,6 +6,9 @@
 #include <Python.h>
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #include <numpy/arrayobject.h>
+#ifdef PARALLEL
+#include <mpi.h>
+#endif
 
 #define PY3 (PY_MAJOR_VERSION >= 3)
 
@@ -257,6 +260,40 @@ extern PyTypeObject TransformerType;
 extern PyTypeObject XCFunctionalType;
 extern PyTypeObject lxcXCFunctionalType;
 
+PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args)
+{
+    PyObject *pybytes;
+    if(!PyArg_ParseTuple(args, "O", &pybytes)){
+        return NULL;
+    }
+
+#ifdef PARALLEL
+    MPI_Comm comm = MPI_COMM_WORLD;
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+
+    long size;
+    if(rank == 0) {
+        size = PyBytes_Size(pybytes);  // Py_ssize_t --> long
+    }
+    MPI_Bcast(&size, 1, MPI_LONG, 0, comm);
+
+    char *dst = (char *)malloc(size);
+    if(rank == 0) {
+        char *src = PyBytes_AsString(pybytes);  // Read-only
+        memcpy(dst, src, size);
+    }
+    MPI_Bcast(dst, size, MPI_BYTE, 0, comm);
+
+    PyObject *value = PyBytes_FromStringAndSize(dst, size);
+    free(dst);
+    return value;
+#else
+    return pybytes;
+#endif
+}
+
+
 #if PY3
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
@@ -350,37 +387,6 @@ PyMODINIT_FUNC init_gpaw(void)
 void moduleinit0(void) { moduleinit(); }
 #endif
 
-#include <mpi.h>
-
-
-
-PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args)
-{
-    MPI_Comm comm = MPI_COMM_WORLD;
-    int rank;
-    MPI_Comm_rank(comm, &rank);
-
-    PyObject *pybytes;
-    if(!PyArg_ParseTuple(args, "O", &pybytes)){
-        return NULL;
-    }
-    long size;
-    if(rank == 0) {
-        size = PyBytes_Size(pybytes);  // Py_ssize_t --> long
-    }
-    MPI_Bcast(&size, 1, MPI_LONG, 0, comm);
-
-    char *dst = (char *)malloc(size);
-    if(rank == 0) {
-        char *src = PyBytes_AsString(pybytes);  // Read-only
-        memcpy(dst, src, size);
-    }
-    MPI_Bcast(dst, size, MPI_BYTE, 0, comm);
-
-    PyObject *value = PyBytes_FromStringAndSize(dst, size);
-    free(dst);
-    return value;
-}
 
 int
 main(int argc, char **argv)
