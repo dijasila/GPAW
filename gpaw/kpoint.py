@@ -85,22 +85,23 @@ class KPoint:
         self.P = None
 
         # Only one of these two will be used:
-        #self.psit_nG = None  # wave functions on 3D grid or PW expansion
-        self.C_nM = None     # LCAO coefficients for wave functions XXX
+        self.psit_n = None  # UniformGridMatrix/PWExpansionMatrix
+        self.C_nM = None  # LCAO coefficients for wave functions
 
+        # LCAO stuff:
         self.rho_MM = None
-
         self.S_MM = None
         self.T_MM = None
 
-        # UniformGridMatrix/PWExpansionMatrix wrapper:
-        self.psit_n = None
-
-        # self.dist = None  # BLACS distribution of bands
-
     @property
     def P_ani(self):
-        return {a: P_in.T for a, P_in in self.P.items()}
+        if self.P is not None:
+            return {a: P_in.T for a, P_in in self.P.items()}
+
+    @property
+    def psit_nG(self):
+        if self.self.psit_n is not None:
+            self.psit_n.array
 
 
 class GlobalKPoint(KPoint):

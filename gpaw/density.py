@@ -11,12 +11,14 @@ import numpy as np
 from ase.units import Bohr
 
 from gpaw import debug
+from gpaw.blocks import AtomicBlocks
 from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC, BasisFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.utilities import (unpack2, unpack_atomic_matrices,
                             pack_atomic_matrices)
+from gpaw.utilities.debug import frozen
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
 from gpaw.mpi import SerialCommunicator
@@ -45,9 +47,9 @@ class AtomicDensityMatrices(AtomicBlocks):
         self.collinear = collinear
         self.rank_a = rank_a
 
-        self.D_asii = {}
+        self.D_asp = {}
 
-        AtomicBlocks.__init__(self, self.D_asii, 1 + spinpolarized, comm,
+        AtomicBlocks.__init__(self, self.D_asp, 1 + spinpolarized, comm,
                               [setup.ni for setup in setups])
 
     def initialize(self, charge, magmom_a, hund):
@@ -61,7 +63,7 @@ class AtomicDensityMatrices(AtomicBlocks):
             if M < 0:
                 f_si = f_si[::-1]
             f_asi[a] = f_si
-            self.D_asii[a] = self.setups[a].initialize_density_matrix(f_si)
+            self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
         return f_asi
 
     def calculate_multipole_moments(self):
@@ -73,9 +75,9 @@ class AtomicDensityMatrices(AtomicBlocks):
 
         comp_charge = 0.0
         Q_aL = {}
-        for a, D_sii in self.D_asii.items():
+        for a, D_sp in self.D_asp.items():
             setup = self.setups[a]
-            Q_L = np.einsum('sij,ijL->L', D_sii, setup.Delta_iiL)
+            Q_L = np.dot(D_sp.sum(0), setup.Delta_pL)
             Q_L[0] += setup.Delta0
             comp_charge += Q_L[0]
             Q_aL[a] = Q_L
@@ -86,18 +88,19 @@ class AtomicDensityMatrices(AtomicBlocks):
             if rank == self.comm.rank:
                 if a not in self.D_asii:
                     ni = self.size_a[a]
-                    self.D_asii[a] = np.empty((self.nspins, ni, ni))
+                    self.D_asp[a] = np.empty((self.nspins,
+                                              ni * (ni + 1) // 2))
             else:
-                assert a not in self.D_asii
+                assert a not in self.D_asp
 
-        for D_sii in self.D_asii.values():
-            D_sii[:] = 0.0
+        for D_sp in self.D_asp.values():
+            D_sp[:] = 0.0
 
         for kpt in wfs.mykpts:
             self.update1(kpt, wfs)
 
-        for D_sii in self.D_asii.values():
-            wfs.kptband_comm.sum(D_sii)
+        for D_sp in self.D_asp.values():
+            wfs.kptband_comm.sum(D_sp)
 
         self.symmetrize(wfs.kd.symmetry)
 
