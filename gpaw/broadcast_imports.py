@@ -22,14 +22,23 @@ import marshal
 import imp
 import pickle
 
+
+# When running in parallel, the _gpaw module exists right from the
+# start.  Else it may not yet be defined.  So if we have _gpaw, *and*
+# _gpaw defines the Communicator, then this is truly parallel.
+# Otherwise, nothing matters anymore.
+
 try:
-    # If we start from gpaw-python, we already have _gpaw.
-    # Else, _gpaw is only defined later
     import _gpaw
 except ImportError:
-    world = None
+    we_are_gpaw_python = False
 else:
+    we_are_gpaw_python = hasattr(_gpaw, 'Communicator')
+
+if we_are_gpaw_python:
     world = _gpaw.Communicator()
+else:
+    world = None
 
 
 def broadcast(obj):
