@@ -1,18 +1,3 @@
-from __future__ import print_function
-import sys
-import marshal
-import imp
-import pickle
-
-try:
-    import _gpaw
-except ImportError:
-    we_are_gpaw_python = False
-else:
-    we_are_gpaw_python = True
-    world = _gpaw.Communicator()
-
-
 """Provide mechanism to broadcast imports from master to other processes.
 
 This reduces file system strain.
@@ -31,42 +16,32 @@ This temporarily overrides the Python import mechanism so that
 """
 
 
-#from gpaw.mpi import world, broadcast
+from __future__ import print_function
+import sys
+import marshal
+import imp
+import pickle
+
+try:
+    # If we start from gpaw-python, we already have _gpaw.
+    # Else, _gpaw is only defined later
+    import _gpaw
+except ImportError:
+    world = None
+else:
+    world = _gpaw.Communicator()
 
 
-# XXXX rewrite in C properly
-def broadcast(obj, root, comm):
-    """Broadcast a Python object across an MPI communicator and return it."""
-    if comm.rank == root:
-        assert obj is not None
-        b = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
+def broadcast(obj):
+    if world.rank == 0:
+        buf = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
     else:
         assert obj is None
-        b = None
-    b = broadcast_bytes(b, root, comm)
-    if comm.rank == root:
-        return obj
-    else:
-        return pickle.loads(b)
+        buf = None
 
-
-# XXX rewrite in C properly (no numpy)
-import numpy as np
-def broadcast_bytes(b, root, comm):
-    """Broadcast a bytes across an MPI communicator and return it."""
-    if comm.rank == root:
-        assert isinstance(b, bytes)
-        n = np.array(len(b), int)
-    else:
-        assert b is None
-        n = np.zeros(1, int)
-    comm.broadcast(n, root)
-    if comm.rank == root:
-        b = np.fromstring(b, np.int8)
-    else:
-        b = np.zeros(n, np.int8)
-    comm.broadcast(b, root)
-    return b.tostring()
+    buf = _gpaw.globally_broadcast_bytes(buf)
+    newobj = pickle.loads(buf)
+    return newobj
 
 
 class ModuleData:
@@ -91,7 +66,6 @@ class OurLoader:
 
     def load_module(self, name):
         if name in sys.modules:
-            #print('had {} already'.format(name))
             return sys.modules[name]
 
 
@@ -131,9 +105,6 @@ class OurLoader:
         if module_data.code is None:
             return self.load_as_normal(name)
 
-        #print("I'm rank {}. Making new module {}.".
-        #      format(world.rank, name))
-
         if sys.version_info[0] == 2:
             # Load, ignoring checksum and time stamp.
             # 8 is header length (12 in py3, if we need that someday)
@@ -172,7 +143,7 @@ class BroadCaster:
         self.module_cache = {} if world.rank == 0 else None
 
     def __enter__(self):
-        assert self.oldmetapath is None
+        #assert self.oldmetapath is None, self.oldmetapath
         self.oldmetapath = sys.meta_path
         if world.rank != 0:
             # Here we wait for the master process to finish all its
@@ -186,14 +157,22 @@ class BroadCaster:
 
     def __exit__(self, *args):
         assert len(sys.meta_path) == 1
+        sys.meta_path = self.oldmetapath
 
         # Restore import loader to its former glory:
-        sys.meta_path = self.oldmetapath
         if world.rank == 0:
             self.broadcast()
 
+        self.module_cache = {} if world.rank == 0 else None
+
     def broadcast(self):
-        self.module_cache = broadcast(self.module_cache, root=0, comm=world)
+        if world.rank == 0:
+            print('0 send {} modules'.format(len(self.module_cache)))
+        else:
+            print('rank', world.rank, 'recv', self.module_cache)
+        self.module_cache = broadcast(self.module_cache)
+        if world.rank != 0:
+            print('recvd {} modules'.format(len(self.module_cache)))
 
 
 class NoBroadCaster:
@@ -204,8 +183,7 @@ class NoBroadCaster:
         pass
 
 
-def globally_broadcast_imports():
-    if we_are_gpaw_python:
-        return BroadCaster()
-    else:
-        return NoBroadCaster()
+if world is None:
+    globally_broadcast_imports = NoBroadCaster()
+else:
+    globally_broadcast_imports = BroadCaster()
