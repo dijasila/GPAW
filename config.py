@@ -109,7 +109,7 @@ def get_system_config(define_macros, undef_macros,
 
         # We should probably add something to allow for user-installed BLAS?
 
-    elif machine in ['x86_64', 'ppc64', 'ppc64le', 'aarch64']:
+    elif machine in ['x86_64', 'ppc64', 'ppc64le', 'aarch64', 's390x']:
 
         #    _
         # \/|_||_    |_ |_|
