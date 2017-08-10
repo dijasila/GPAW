@@ -358,9 +358,11 @@ static PyObject* moduleinit(void)
     Py_INCREF(&TransformerType);
     Py_INCREF(&XCFunctionalType);
     Py_INCREF(&lxcXCFunctionalType);
-
+#ifndef PARALLEL
+    // gpaw-python needs to import arrays at the right time, so this is
+    // done in main().  In serial, we just do it here:
     import_array1(NULL);
-
+#endif
     return m;
 }
 
@@ -420,9 +422,19 @@ main(int argc, char **argv)
     Py_Initialize();
 
     PySys_SetArgvEx(argc, wargv, 0);
-    PyImport_ImportModule("gpaw");
     PyObject *sys_mod = PyImport_ImportModule("sys");
 
+    // This will broadcast a ton of imports
+    PyImport_ImportModule("gpaw");
+
+    // We already imported the Python parts of numpy.  If we want, we can
+    // later attempt to broadcast the numpy C API imports, too.
+    import_array1(NULL);
+
+    // Unfortunately calling Py_Main will set sys.argv.
+    // We already changed sys.argv when importing GPAW (unfortunately!)
+    // and must therefore take out the current, modified sys.argv
+    // so we can feed that back into Py_Main.
     PyObject *pynewargv = PyObject_GetAttrString(sys_mod, "argv");
     int newargc = PyList_Size(pynewargv);
 
