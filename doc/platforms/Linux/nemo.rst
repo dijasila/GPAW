@@ -1,8 +1,8 @@
-======
-justus
-======
+====
+nemo
+====
 
-Information about `justus <https://www.bwhpc-c5.de/wiki/index.php/BwForCluster_Chemistry>`__.
+Information about `nemo <http://www.hpc.uni-freiburg.de/nemo>`__.
 
 Building GPAW
 =============
@@ -22,7 +22,7 @@ The setups must be installed first::
   tar xzf gpaw-setups-0.9.11271.tar.gz
 
 Let gpaw know about the setups::
-
+  
   export GPAW_SETUP_PATH=$GPAW_SETUP_SOURCE/gpaw-setups-0.9.11271
 
 Using the module environment
@@ -34,7 +34,7 @@ It is very handy to add our installation to the module environment::
   mkdir -p modulefiles/gpaw-setups
   cd modulefiles/gpaw-setups
   echo -e "#%Module1.0\nprepend-path       GPAW_SETUP_PATH    $GPAW_SETUP_SOURCE/gpaw-setups-0.9.11271" > 0.9.11271
-
+  
 We need to let the system know about our modules::
 
   module use $HOME/modulefiles
@@ -46,9 +46,9 @@ such that we also see them with::
 libxc
 -----
 
-GPAW relies on libxc (see the `libxc web site <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`__).
-To install libxc we assume that ``MYLIBXCDIR`` is set to
-the directory where you want to install
+GPAW relies on libxc (see the `libxc web site <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`__). 
+To install libxc we assume that ``MYLIBXCDIR`` is set to 
+the directory where you want to install 
 (e.g. ``MYLIBXCDIR=$HOME/source/libxc``)::
 
  mkdir -p $MYLIBXCDIR
@@ -61,12 +61,12 @@ the directory where you want to install
  make |tee make.log
  make install
 
-This will have installed the libs ``$MYLIBXCDIR/libxc-2.0.2/install/lib``
+This will have installed the libs ``$MYLIBXCDIR/libxc-2.0.2/install/lib`` 
 and the C header
 files to ``$MYLIBXCDIR/libxc-2.0.2/install/include``.
 We create a module for libxc::
 
-  cd
+  cd	
   mkdir modulefiles/libxc
   cd modulefiles/libxc
 
@@ -96,15 +96,15 @@ We add our installation to the module environment::
   cd
   mkdir -p modulefiles/ase
   cd modulefiles/ase
-
+  
 Edit the module file  :file:`3.13.0` that should read::
 
   #%Module1.0
 
-  if {![is-loaded numlib/python_scipy]} {module load numlib/python_scipy}
+  module load devel/python/3.13.0
 
   #           change this to your path
-  set asehome /home/fr/fr_fr/fr_mw767/source/ase/3.13.0
+  set asehome /home/fr/fr_fr/fr_mw767/source/ase/python-ase-3.9.1.4567
   prepend-path       PYTHONPATH    $asehome
   prepend-path       PATH          $asehome/tools
 
@@ -134,7 +134,7 @@ and edit the module file  :file:`trunk` that should read::
 
   #%Module1.0
 
-  if {![is-loaded numlib/python_scipy]} {module load numlib/python_scipy}
+  module load devel/python/3.6.0
 
   #           change this to your path
   set asehome /home/fr/fr_fr/fr_mw767/source/ase/trunk
@@ -166,16 +166,17 @@ A specific tag can be loaded by::
  git checkout 1.2.0
 
 We have to modify the file :file:`customize.py` to
-:download:`customize_justus.py`
+:download:`customize_nemo.py`
 
-.. literalinclude:: customize_justus.py
+.. literalinclude:: customize_nemo.py
 
 To build GPAW use::
 
  module purge
  module load libxc
- module load ase
  module load mpi/impi
+ module load numlib/mkl
+ module load ase
 
  cd $GPAW_SOURCE/trunk
  mkdir install
@@ -195,21 +196,23 @@ the file  :file:`trunk` that should read::
  if {![is-loaded ase]} {module load ase}
  if {![is-loaded libxc]} {module load libxc}
  if {![is-loaded mpi]}  {module load mpi/impi}
+ if {![is-loaded numlib/mkl]}  {module load numlib/mkl}
  if {![is-loaded gpaw-setups]}  {module load gpaw-setups}
 
  # change this to your needs
  set gpawhome /home/fr/fr_fr/fr_mw767/source/gpaw/trunk/install
  prepend-path    PATH                 $gpawhome/bin
- prepend-path    PYTHONPATH           $gpawhome/lib/python3.5/site-packages/
+ prepend-path    PYTHONPATH           $gpawhome/lib/python3.6/site-packages/
  setenv          GPAW_PYTHON          $gpawhome/bin/gpaw-python
 
 Running GPAW
 ------------
 
-A gpaw script :file:`test.py` can be submitted to run on 8 cpus like this::
+A gpaw script :file:`test.py` can be submitted to run on 20 cpus like this::
 
   > module load gpaw
-  > gpaw-runscript test.py 8
-  using justus
-  run.justus written
-  > msub run.justus
+  > gpaw-runscript test.py 20
+  using nemo
+  run.nemo written
+  > msub run.nemo
+

@@ -516,12 +516,6 @@ key                default   description
 ``tolerance``      ``1e-7``  Relative tolerance
 =================  ========  ===============================
 
-.. note::
-
-    If you are using version 0.10 or earlier, you can use
-    ``usesymm=False`` to turn off all point-group symmetries and
-    ``usesymm=None`` to turn off also time-reversal symmetry.
-
 
 .. _manual_random:
 
@@ -735,7 +729,8 @@ There exist three special names that, if used, do not specify a file name:
 * ``'ghost'`` is used to indicated a *ghost* atom in LCAO mode,
   see :ref:`ghost-atoms`.
 
-.. _SG15 optimized norm-conserving Vanderbilt pseudopotentials: http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/
+.. _SG15 optimized norm-conserving Vanderbilt pseudopotentials:
+    http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/
 
 If a dictionary contains both chemical element specifications *and*
 atomic number specifications, the latter is dominant.
@@ -877,6 +872,22 @@ non-periodic boundaries.  With dipole correction, there will be a
 potential difference across the system depending on the size of the
 dipole moment.
 
+Other parameters in this dictionary are forwarded to the
+Poisson solver::
+
+    GPAW(poissonsolver={'dipolelayer': 'xy', 'name': 'fd', 'relax': 'GS'})
+
+An alternative Poisson solver based on Fourier transforms is available
+for fully periodic calculations::
+
+   GPAW(poissonsolver={'name': 'fft'})
+
+The FFT Poisson solver will reduce the dependence on the grid spacing and
+is in general less picky about the grid.  It may be beneficial for
+non-periodic systems as well, but the system must be set up explicitly
+as periodic and hence should be well padded with vacuum in non-periodic
+directions to avoid unphysical interactions across the cell boundary.
+
 
 .. _manual_stencils:
 
@@ -893,15 +904,25 @@ this::
 
 This will give an accuracy of `O(h^{2n})`, where ``n`` must be between
 1 and 6.  The default value is ``n=3``.
+Similarly, for the Kohn-Sham equation, you can use::
 
     from gpaw import GPAW, FD
-    calc = GPAW(mode=FD(nn=3, interpolation=3))
+    calc = GPAW(mode=FD(nn=n))
 
-With the ``stencils=(a, b)`` keyword, you can set the accuracy of the
-stencil used for the Kohn-Sham equation to `O(h^{2a})`.  The ``b``
-parameter (between 1 and 4) controls the accuracy of the
-interpolation of the density from the coarse grid to the fine grid.
-Default values are ``stencils=(3, 3)``.
+where the default value is also ``n=3``.
+
+In PW-mode, the interpolation of the density from the coarse grid to the
+fine grid is done with FFT's.  In FD and LCAO mode, tri-quintic interpolation
+is used (5. degree polynomium)::
+
+    from gpaw import GPAW, FD
+    calc = GPAW(mode=FD(interpolation=n))
+    # or
+    from gpaw import GPAW, LCAO
+    calc = GPAW(mode=LCAO(interpolation=n))
+
+The order of polynomium is `2n-1`, default value is ``n=3`` and ``n`` must be
+between 1 and 4 (linear, cubic, quintic, heptic).
 
 
 .. _manual_hund:

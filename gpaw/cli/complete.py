@@ -44,7 +44,7 @@ commands = {
     'diag':
         ['-b', '--bands', '-s', '--scalapack', '-0', '--dry-run'],
     'dos':
-        ['-p', '--plot', '-w', '--width'],
+        ['-p', '--plot', '-i', '--integrated', '-w', '--width'],
     'gpw':
         [''],
     'install-data':

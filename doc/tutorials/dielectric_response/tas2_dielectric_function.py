@@ -52,7 +52,7 @@ df = DielectricFunction('TaS2-gsresponse.gpw', eta=25e-3, domega0=0.01,
 
 df1tetra_w, df2tetra_w = df.get_dielectric_function(direction='x')
 
-df = DielectricFunction('gsresponse.gpw', eta=25e-3,
+df = DielectricFunction('TaS2-gsresponse.gpw', eta=25e-3,
                         domega0=0.01)
 df1_w, df2_w = df.get_dielectric_function(direction='x')
 omega_w = df.get_frequencies()

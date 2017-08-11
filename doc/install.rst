@@ -27,14 +27,14 @@ that has MPI_ functionality built in.
 
 There are several ways to install GPAW:
 
-* On a lucky day it's as simple as ``pip install -U gpaw`` as
+* On a lucky day it's as simple as ``pip3 install -U gpaw`` as
   described :ref:`below <installation using pip>`.
 
 * Alternatively, you can :ref:`download <download>` the source code,
   edit :git:`customize.py` to tell the install script which libraries you
   want to link to and where they
   can be found (see :ref:`customizing installation`) and then install with a
-  ``python setup.py install --user`` as described :ref:`here <install
+  ``python3 setup.py install --user`` as described :ref:`here <install
   with distutils>`.
 
 * There may be a package for your Linux distribution that you can use
@@ -56,9 +56,9 @@ There are several ways to install GPAW:
 Requirements
 ============
 
-* Python_ 2.6-3.5
+* Python_ 2.7-3.5
 * NumPy_ 1.6.1 or later (base N-dimensional array package)
-* ASE_ 3.13 or later (atomic simulation environment)
+* ASE_ 3.14.1 or later (atomic simulation environment)
 * a C-compiler
 * LibXC_ 2.0.1 or later
 * BLAS_ and LAPACK_ libraries
@@ -97,11 +97,11 @@ Installation using ``pip``
 The simplest way to install GPAW is using pip_ and the GPAW package from
 the Python package index (PyPI_)::
 
-    $ pip install --upgrade --user gpaw
+    $ pip3 install --upgrade --user gpaw
 
 This will compile and install GPAW (both ``_gpaw.so`` and all the Python
 files) in your ``~/.local/lib/pythonX.Y/site-packages`` folder where
-Python can automatically find it.  The ``pip`` command will also place
+Python can automatically find it.  The ``pip3`` command will also place
 the command line tool :command:`gpaw` in the ``~/.local/bin`` folder, so
 make sure you have that in your :envvar:`PATH` environment variable.  If
 you have an ``mpicc`` command on your system then there will also be a
@@ -236,7 +236,7 @@ Install with setup.py
 If you have the source code, you can use the install script (:git:`setup.py`)
 to compile and install the code::
 
-    $ python setup.py install --user
+    $ python3 setup.py install --user
 
 
 .. _parallel installation:

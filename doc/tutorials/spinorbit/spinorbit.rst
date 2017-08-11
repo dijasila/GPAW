@@ -12,14 +12,14 @@ close to the nucleii, we only consider contributions from inside the PAW
 augmentation spheres where the all-electron states can be expanded as
 
 .. math::
-    
+
     |\psi_{nk}\rangle=
     \sum_{ai}\langle\tilde p_i^a|\tilde\psi_{nk}\rangle|\phi_i^a\rangle
 
 The full Bloch Hamiltonian in a basis of scalar relativistic states becomes
 
 .. math::
-    
+
     H_{nn'\sigma\sigma'}(k)=
     \varepsilon_{nk\sigma}\delta_{nn'\sigma\sigma'}+
     \langle\psi_{nk\sigma}|H^{SO}(k)|\psi_{n'k\sigma'}\rangle=
@@ -41,7 +41,7 @@ obtain the eigenstates of the full spin-orbit Hamiltonian as well as the spin
 character along the z axis. The spin character is defined as
 
 .. math::
-    
+
     s_{mk}\equiv\langle mk|\sigma_z|mk\rangle
 
 and is useful for analyzing the degree of spin-orbit induced hybridization
@@ -59,9 +59,9 @@ to large corrections. First, we need to do a regular groundstate calculation
 to obtain the converged density. This is done with the script
 :download:`Pt_gs.py`. We then calculate the band structure at fixed density
 along a certain Brillouin zone path with the script :download:`Pt_bands.py`.
-Finally the full spin-orbit coupled bandstructure is calculated and plotted 
-with the following script :download:`plot_Pt_bands.py`. The spin-orbit 
-calculation takes on the order of a second, while the preceding scripts takes 
+Finally the full spin-orbit coupled bandstructure is calculated and plotted
+with the following script :download:`plot_Pt_bands.py`. The spin-orbit
+calculation takes on the order of a second, while the preceding scripts takes
 a bit longer and could be parallelized. The band structure without
 spin-orbit coupling is shown as dashed grey lines. Note that we only plot
 every second spin-orbit band, since time-reversal symmetry along with
@@ -139,7 +139,7 @@ terms ofthe parity eigenvalues of occupied states at the parity invariant
 points in the Brillouin zone. It is given by [#Kane]_
 
 .. math::
-    
+
     (-1)^{\nu}=\prod_a\prod_m\xi_m(\Lambda_a)
 
 where `\xi_m` are the parity eigenvalues of Kramers pairs of occupied bands at
@@ -164,6 +164,8 @@ obtained with :download:`parity.py`. Note that the product of parity
 eigenvalues at `\Gamma` changes from -1 to 1 when spin-orbit coupling is added
 and the `\nu` thus changes from 0 to 1.
 
+
+.. _magnetic anisotropy:
 
 Magnetic anisotropy of hcp Co
 =============================

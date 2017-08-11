@@ -222,7 +222,7 @@ def polarizability(exlist, omega, form='v',
             alpha += ex.get_dipole_tensor(form=form) / (
                 (ex.energy * Hartree)**2 - omega**2)
     else:
-        alpha = np.zeros_like(omega, dtype=float)
+        alpha = np.zeros_like(omega)
         for ex in exlist:
             alpha += ex.get_oscillator_strength(form=form)[index] / (
                 (ex.energy * Hartree)**2 - omega**2)

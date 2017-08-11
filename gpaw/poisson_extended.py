@@ -12,7 +12,7 @@ from gpaw.utilities.extend_grid import extended_grid_descriptor, \
 
 class ExtendedPoissonSolver(FDPoissonSolver):
     """ExtendedPoissonSolver
-    
+
     Parameter syntax:
 
     moment_corrections = [{'moms': moms_list1, 'center': center1},
@@ -74,7 +74,7 @@ class ExtendedPoissonSolver(FDPoissonSolver):
     def set_grid_descriptor(self, gd):
         if self.is_extended:
             self.gd_original = gd
-            assert np.all(self.gd_original.N_c < self.extended['finegpts']), \
+            assert np.all(self.gd_original.N_c <= self.extended['finegpts']), \
                 'extended grid has to be larger than the original one'
             gd, _, _ = extended_grid_descriptor(
                 gd,
@@ -112,16 +112,16 @@ class ExtendedPoissonSolver(FDPoissonSolver):
 
         if self.is_extended:
             if not self.gd.orthogonal or self.gd.pbc_c.any():
-                raise NotImplementedError('Only orthogonal unit cells' +
-                                          'and non-periodic boundary' +
+                raise NotImplementedError('Only orthogonal unit cells '
+                                          'and non-periodic boundary '
                                           'conditions are tested')
             self.rho_g = self.gd.zeros()
             self.phi_g = self.gd.zeros()
 
         if self.moment_corrections is not None:
             if not self.gd.orthogonal or self.gd.pbc_c.any():
-                raise NotImplementedError('Only orthogonal unit cells' +
-                                          'and non-periodic boundary' +
+                raise NotImplementedError('Only orthogonal unit cells '
+                                          'and non-periodic boundary '
                                           'conditions are tested')
             self.load_moment_corrections_gauss()
 
