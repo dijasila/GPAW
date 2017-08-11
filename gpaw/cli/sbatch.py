@@ -37,7 +37,6 @@ class CLICommand:
             for line in open(arg):
                 if line.startswith('#SBATCH'):
                     script += line
-
         script += ('cd $SLURM_SUBMIT_DIR\n')
         script += ('OMP_NUM_THREADS=1 '
                    'mpiexec `echo $GPAW_MPI_OPTIONS` gpaw-python {}\n'
