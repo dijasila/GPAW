@@ -11,12 +11,14 @@ import numpy as np
 from ase.units import Bohr
 
 from gpaw import debug
+from gpaw.blocks import AtomicBlocks
 from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC, BasisFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.utilities import (unpack2, unpack_atomic_matrices,
                             pack_atomic_matrices)
+from gpaw.utilities.debug import frozen
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
 from gpaw.mpi import SerialCommunicator

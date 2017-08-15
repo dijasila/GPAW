@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+from ase.utils.timing import timer
 
 from gpaw import extra_parameters
 from gpaw.lcao.eigensolver import DirectLCAO
