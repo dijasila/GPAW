@@ -2,7 +2,7 @@ import numpy as np
 from gpaw.poisson_extended import ExtendedPoissonSolver as EPS
 #from gpaw.utilities import h2gpts
 from gpaw.dipole_correction import dipole_correction
-from ase.units import Bohr, Ha
+#from ase.units import Bohr, Ha
 
 
 # XXX add class description

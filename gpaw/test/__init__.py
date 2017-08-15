@@ -361,6 +361,7 @@ tests = [
     'response/gwsi.py',                     # ~147s
     'response/graphene.py',                 # ~160s
     'response/symmetry.py',                 # ~300s
+    'poisson_image_h3o+.py'                 # ~180s
     'pw/moleculecg.py',                     # duration unknown
     'potential.py',                         # duration unknown
     'lcao/pair_and_coulomb.py',             # duration unknown
