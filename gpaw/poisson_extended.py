@@ -111,7 +111,7 @@ class ExtendedPoissonSolver(FDPoissonSolver):
         FDPoissonSolver.initialize(self, load_gauss=load_gauss)
 
         if self.is_extended:
-            if not self.gd.orthogonal or self.gd.pbc_c.any():
+            if not self.gd.orthogonal or self.gd.pbc_c.all():
                 raise NotImplementedError('Only orthogonal unit cells '
                                           'and non-periodic boundary '
                                           'conditions are tested')
