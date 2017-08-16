@@ -21,6 +21,16 @@ ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
 
 
+class HamiltonianCorrections:
+    def __init__(self, ham):
+        self.ham = ham
+
+    def apply(self, P, out):
+        for a, I1, I2 in P.indices:
+            dH_ii = unpack(self.ham.dH_asp[a][P.spin])
+            out.matrix.array[I1:I2] = np.dot(dH_ii, P.matrix.array[I1:I2])
+
+
 class Hamiltonian(object):
 
     def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
@@ -61,6 +71,8 @@ class Hamiltonian(object):
         self.vext = vext  # external potential
 
         self.positions_set = False
+
+        self.dH = HamiltonianCorrections(self)
 
     @property
     def dH_asp(self):

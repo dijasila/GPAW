@@ -93,14 +93,14 @@ class Eigensolver:
         """Implemented in subclasses."""
         raise NotImplementedError
 
-    def calculate_residuals(self, kpt, wfs, ham, psit_n, P, eps_n,
-                            R_n, C, n_x=None, calculate_change=False):
+    def calculate_residuals(self, kpt, wfs, ham, psit, P, eps_n,
+                            R, C, n_x=None, calculate_change=False):
         """Calculate residual.
 
         From R=Ht*psit calculate R=H*psit-eps*S*psit."""
 
-        for R, eps, psit in zip(R_n.array, eps_n, psit_n.array):
-            axpy(-eps, psit, R)
+        for R_G, eps, psit_G in zip(R.array, eps_n, psit.array):
+            axpy(-eps, psit_G, R_G)
 
         ham.dH.apply(P, out=C)
         for a, I1, I2 in P.indices:
@@ -108,9 +108,9 @@ class Eigensolver:
             C.matrix.array[I1:I2] -= np.dot(dS_ii,
                                             P.matrix.array[I1:I2] * eps_n)
 
-        ham.xc.add_correction(kpt, psit_n, R_n, P, C, n_x,
+        ham.xc.add_correction(kpt, psit, R, P, C, n_x,
                               calculate_change)
-        wfs.pt_I.add_to(R_n, C)
+        wfs.pt.add(R.array, {a: C_in.T for a, C_in in C.items()}, kpt.q)
 
     @timer('Subspace diag')
     def subspace_diagonalize(self, ham, wfs, kpt):
@@ -136,16 +136,16 @@ class Eigensolver:
         if self.band_comm.size > 1 and wfs.bd.strided:
             raise NotImplementedError
 
-        psit_n = kpt.psit_n
-        tmp_n = psit_n.new(buf=wfs.work_array)
+        psit = kpt.psit
+        tmp = psit.new(buf=wfs.work_array)
         H_nn = wfs.work_matrix_nn
         dHP = kpt.P.new()
 
         Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
         with self.timer('calc_h_matrix'):
-            psit_n.apply(Ht, out=tmp_n)
-            psit_n.matrix_elements(tmp_n, out=H_nn, hermitian=True)
+            psit.apply(Ht, out=tmp)
+            psit.matrix_elements(tmp, out=H_nn, hermitian=True)
             ham.dH.apply(kpt.P, out=dHP)
             H_nn += kpt.P.matrix.H * dHP.matrix
             ham.xc.correct_hamiltonian_matrix(kpt, H_nn.array)
@@ -156,10 +156,10 @@ class Eigensolver:
 
         with self.timer('rotate_psi'):
             if self.keep_htpsit:
-                Htpsit_n = psit_n.new(buf=self.Htpsit_nG)
-                Htpsit_n[:] = H_nn.T * tmp_n
-            tmp_n[:] = H_nn.T * psit_n
-            psit_n[:] = tmp_n
+                Htpsit = psit.new(buf=self.Htpsit_nG)
+                Htpsit[:] = H_nn.T * tmp
+            tmp[:] = H_nn.T * psit
+            psit[:] = tmp
             dHP.matrix[:] = kpt.P.matrix * H_nn
             kpt.P.matrix = dHP.matrix
             # Rotate orbital dependent XC stuff:

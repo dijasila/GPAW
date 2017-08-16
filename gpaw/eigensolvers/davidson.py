@@ -72,8 +72,8 @@ class Davidson(Eigensolver):
 
         self.subspace_diagonalize(ham, wfs, kpt)
 
-        psit_n = kpt.psit_n
-        psit2_n = psit_n.new(buf=wfs.work_array)
+        psit = kpt.psit
+        psit2 = psit.new(buf=wfs.work_array)
         P = kpt.P
         P2 = P.new()
         dMP = P.new()
@@ -89,7 +89,7 @@ class Davidson(Eigensolver):
             C_nn[:] = tmp_nn.array
 
         if self.keep_htpsit:
-            R_n = psit_n.new(buf=self.Htpsit_nG)
+            R = psit.new(buf=self.Htpsit_nG)
         else:
             1 / 0
             # R_nG = wfs.empty(mynbands, q=kpt.q)
@@ -97,34 +97,34 @@ class Davidson(Eigensolver):
             # wfs.apply_pseudo_hamiltonian(kpt, ham, psit_nG, R_nG)
             # wfs.pt.integrate(psit_nG, kpt.P_ani, kpt.q)
 
-        self.calculate_residuals(kpt, wfs, ham, psit_n,
-                                 P, kpt.eps_n, R_n, P2)
+        self.calculate_residuals(kpt, wfs, ham, psit,
+                                 P, kpt.eps_n, R, P2)
 
         weights = self.weights(kpt)
 
         for nit in range(self.niter):
             if nit == self.niter - 1:
-                error = np.dot(weights, [integrate(R_G) for R_G in R_n.array])
+                error = np.dot(weights, [integrate(R_G) for R_G in R.array])
 
-            for psit_G, R_G, psit2_G in zip(psit_n.array,
-                                            R_n.array,
-                                            psit2_n.array):
+            for psit_G, R_G, psit2_G in zip(psit.array,
+                                            R.array,
+                                            psit2.array):
                 pre = self.preconditioner
                 ekin = pre.calculate_kinetic_energy(psit_G, kpt)
                 psit2_G[:] = pre(R_G, kpt, ekin)
 
             if self.normalize:
-                norms = [integrate(psit2_G) for psit2_G in psit2_n.array]
+                norms = [integrate(psit2_G) for psit2_G in psit2.array]
                 # gd.comm.sum(norm_n)
-                for norm, psit2_G in zip(norms, psit2_n.array):
+                for norm, psit2_G in zip(norms, psit2.array):
                     psit2_G *= norm**-0.5
 
             Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
             # Calculate projections
-            wfs.pt_I.matrix_elements(psit2_n, out=P2)
+            wfs.pt.matrix_elements(psit2, out=P2)
 
-            psit2_n.apply(Ht, out=R_n)
+            psit2.apply(Ht, out=R)
 
             with self.timer('calc. matrices'):
                 H_NN[:B, :B] = np.diag(kpt.eps_n)
@@ -132,13 +132,13 @@ class Davidson(Eigensolver):
                 M = matrix_elements
 
                 # <psi2 | H | psi>
-                M(R_n, psit_n, P2, ham.dH, P, H_NN[B:, :B])
+                M(R, psit, P2, ham.dH, P, H_NN[B:, :B])
                 # <psi2 | S | psi>
-                M(psit2_n, psit_n, P2, dS, P, S_NN[B:, :B])
+                M(psit2, psit, P2, dS, P, S_NN[B:, :B])
                 # <psi2 | H | psi2>
-                M(R_n, psit2_n, P2, ham.dH, P2, H_NN[B:, B:], True)
+                M(R, psit2, P2, ham.dH, P2, H_NN[B:, B:], True)
                 # <psi2 | S | psi2>
-                M(psit2_n, psit2_n, P2, dS, P2, S_NN[B:, B:])
+                M(psit2, psit2, P2, dS, P2, S_NN[B:, B:])
 
             with self.timer('diagonalize'):
                 # if gd.comm.rank == 0 and bd.comm.rank == 0:
@@ -163,19 +163,19 @@ class Davidson(Eigensolver):
 
             with self.timer('rotate_psi'):
                 M_nn.array[:] = H_NN[:B, :B]
-                R_n[:] = M_nn.T * psit_n
+                R[:] = M_nn.T * psit
                 dMP.matrix[:] = P.matrix * M_nn
                 M_nn.array[:] = H_NN[B:, :B]
-                R_n += M_nn.T * psit2_n
+                R += M_nn.T * psit2
                 dMP.matrix += P2.matrix * M_nn
-                psit_n[:] = R_n
+                psit[:] = R
                 P, dMP = dMP, P
                 kpt.P = P
 
             if nit < self.niter - 1:
-                psit_n.apply(Ht, out=R_n)
-                self.calculate_residuals(kpt, wfs, ham, psit_n,
-                                         P, kpt.eps_n, R_n, P2)
+                psit.apply(Ht, out=R)
+                self.calculate_residuals(kpt, wfs, ham, psit,
+                                         P, kpt.eps_n, R, P2)
 
         # error = gd.comm.sum(error)
         return error

@@ -252,8 +252,9 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
         for kpt in self.kpt_u:
             kpt.psit = UniformGridWaveFunctions(
-                self.bd.nbands, self.gd, self.dtype, kpt=kpt.k, dist=None,
+                self.bd.nbands, self.gd, self.dtype, kpt=kpt.q, dist=None,
                 spin=kpt.s, collinear=True)
+            kpt.psit_nG[:] = 0.0
             basis_functions.lcao_to_grid(kpt.C_nM,
                                          kpt.psit_nG[:mynbands], kpt.q)
             kpt.C_nM = None
