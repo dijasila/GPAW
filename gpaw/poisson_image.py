@@ -1,8 +1,6 @@
 import numpy as np
 from gpaw.poisson_extended import ExtendedPoissonSolver as EPS
-#from gpaw.utilities import h2gpts
 from gpaw.dipole_correction import dipole_correction
-#from ase.units import Bohr, Ha
 
 
 # XXX add class description
@@ -45,12 +43,16 @@ class EPS2(EPS):
         #print("pot shift: {}".format(potential_shift*Ha))
 
         # shift dipole potential to be zero at "electrode"
-        if self.side == 'left':
-            offset = (dvHt_g).mean(0).mean(0)[0]
+        L = 0.0 if self.side == 'left' else 1.0
+        # Scaled positions, right?
+        bc_rank = self.gd_original.get_rank_from_position([0., 0., L])
+        if self.gd_original.comm.rank == bc_rank:
+            boundary_value = np.array([dvHt_g[0, 0, L]])
+            assert abs(dvHt_g[: ,: , L] - boundary_value).all() < 1.e-6
         else:
-            offset = (dvHt_g).mean(0).mean(0)[-1]  
-        dvHt_g -= offset
-        
+            boundary_value = np.empty(1, dtype=float)
+        self.gd_original.comm.broadcast(boundary_value, bc_rank)
+        dvHt_g -= boundary_value[0]
         vHt_g -= dvHt_g
 
         iters = super(EPS2, self).solve(vHt_g, rhot_g + drhot_g, **kwargs)

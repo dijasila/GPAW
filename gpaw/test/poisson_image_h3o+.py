@@ -1,8 +1,6 @@
-import numpy as np
 from ase.build import molecule
 from gpaw import GPAW
 from gpaw.utilities import h2gpts
-from gpaw.mpi import world
 from gpaw.poisson_image import EPS2
 from ase.parallel import parprint
 
