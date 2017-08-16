@@ -497,9 +497,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                    gd, nvalence, setups, bd, dtype,
                                    world, kd, kptband_comm, timer)
 
-        self.orthoksl.gd = self.pd
-        self.matrixoperator = MatrixOperator(self.orthoksl)
-
     def empty(self, n=(), global_array=False, realspace=False,
               q=-1):
         if realspace:

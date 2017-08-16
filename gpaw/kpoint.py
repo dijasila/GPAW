@@ -85,7 +85,7 @@ class KPoint:
         self.P = None
 
         # Only one of these two will be used:
-        self.psit_n = None  # UniformGridMatrix/PWExpansionMatrix
+        self.psit = None  # UniformGridMatrix/PWExpansionMatrix
         self.C_nM = None  # LCAO coefficients for wave functions
 
         # LCAO stuff:
@@ -100,8 +100,8 @@ class KPoint:
 
     @property
     def psit_nG(self):
-        if self.self.psit_n is not None:
-            self.psit_n.array
+        if self.psit is not None:
+            return self.psit.array
 
 
 class GlobalKPoint(KPoint):

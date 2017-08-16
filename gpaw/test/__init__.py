@@ -129,7 +129,6 @@ tests = [
     'poisson/poisson.py',
     'poisson/poisson_asym.py',
     'parallel/arraydict_redist.py',
-    'parallel/overlap.py',
     'parallel/scalapack.py',
     'gauss_wave.py',
     'fd_ops/transformations.py',

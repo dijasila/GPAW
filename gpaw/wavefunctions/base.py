@@ -1,6 +1,7 @@
 import numpy as np
 from ase.units import Hartree
 
+from gpaw.projections import Projections
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.blas import gemm, axpy
 from gpaw.utilities.partition import AtomPartition
@@ -208,12 +209,13 @@ class WaveFunctions:
             # Projections have been read from file - don't delete them!
             pass
         else:
+            nproj_a = [setup.ni for setup in self.setups]
+            rank_a = self.atom_partition.rank_a
             for kpt in self.kpt_u:
-                kpt.P_ani = {}
-            for a in my_atom_indices:
-                ni = self.setups[a].ni
-                for kpt in self.kpt_u:
-                    kpt.P_ani[a] = np.empty((self.bd.mynbands, ni), self.dtype)
+                kpt.P = Projections(
+                    nproj_a,
+                    self.bd.nbands, self.gd.comm, self.bd.comm, rank_a,
+                    collinear=True, spin=kpt.s, dtype=self.dtype)
 
     def collect_eigenvalues(self, k, s):
         return self.collect_array('eps_n', k, s)

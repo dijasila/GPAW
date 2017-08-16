@@ -663,10 +663,6 @@ class GPAW(PAW, Calculator):
 
         self.log('Number of atoms:', natoms)
         self.log('Number of atomic orbitals:', self.wfs.setups.nao)
-        if self.nbands_parallelization_adjustment != 0:
-            self.log(
-                'Adjusting number of bands by %+d to match parallelization' %
-                self.nbands_parallelization_adjustment)
         self.log('Number of bands in calculation:', self.wfs.bd.nbands)
         self.log('Bands to converge: ', end='')
         n = par.convergence.get('bands', 'occupied')

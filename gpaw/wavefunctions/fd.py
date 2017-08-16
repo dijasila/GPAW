@@ -5,13 +5,13 @@ from gpaw.kpoint import KPoint
 from gpaw.mpi import serial_comm
 from gpaw.utilities.blas import axpy
 from gpaw.transformers import Transformer
-from gpaw.hs_operators import MatrixOperator
 from gpaw.preconditioner import Preconditioner
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.wavefunctions.mode import Mode
+from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
 
 
 class FD(Mode):
@@ -251,7 +251,9 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
         for kpt in self.kpt_u:
-            kpt.psit_nG = self.gd.zeros(self.bd.mynbands, self.dtype)
+            kpt.psit = UniformGridWaveFunctions(
+                self.bd.nbands, self.gd, self.dtype, kpt=kpt.k, dist=None,
+                spin=kpt.s, collinear=True)
             basis_functions.lcao_to_grid(kpt.C_nM,
                                          kpt.psit_nG[:mynbands], kpt.q)
             kpt.C_nM = None
