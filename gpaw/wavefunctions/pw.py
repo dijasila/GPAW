@@ -25,6 +25,7 @@ from gpaw.utilities.blas import rk, r2k, gemv, gemm, axpy
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
+from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
 
 
 class PW(Mode):
@@ -883,7 +884,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
             basis_functions.lcao_to_grid(kpt.C_nM, psit_nR, kpt.q)
             kpt.C_nM = None
 
-            kpt.psit_nG = self.pd.empty(self.bd.mynbands, q=kpt.q)
+            kpt.psit = PlaneWaveExpansionWaveFunctions(
+                self.bd.nbands, self.pd, self.dtype, kpt=kpt.q, dist=None,
+                spin=kpt.s, collinear=True)
             for n in range(mynbands):
                 kpt.psit_nG[n] = self.pd.fft(psit_nR[n] * emikr_R, kpt.q)
 
