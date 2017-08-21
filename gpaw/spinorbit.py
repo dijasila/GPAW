@@ -80,6 +80,27 @@ def get_radial_potential(calc, a, ai):
 def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
                               return_wfs=False, scale=1.0,
                               theta=0.0, phi=0.0):
+    """
+    Parameters:
+        calc: Calculator
+            GPAW calculator
+        bands: list of ints
+            list of band indices for which to calculate soc.
+        gw_kn: (ns, nk, nb) or (nk, nb)-shape array
+            use eigenvalues in gw_kn instead of from calc.get_eigenvalues
+        return_spin: bool
+            should the spin projection be calculated and returned.
+        return_wfs: bool
+            flag for returning wave functions
+        scale: float
+            scale the spinorbit coupling by this amount
+        theta: float
+            angle in radians
+        phi: float
+            angle in radians
+    Returns:
+        out: e_mk or (e_mk, s_kvm) or (e_mk, wfs_knm) or (e_mk, s_kvm, wfs_knm)
+   """
 
     if bands is None:
         bands = np.arange(calc.get_number_of_bands())
