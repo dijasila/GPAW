@@ -88,17 +88,26 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
     Nk = len(calc.get_ibz_k_points())
     Ns = calc.wfs.nspins
     Nn = len(bands)
+    if gw_kn is not None:
+        gw_skn = gw_kn.copy()
+        if gw_skn.ndim == 2:  # it is gw_kn
+            gw_skn = gw_skn[np.newaxis]
+        assert Ns == gw_skn.shape[0]
+        assert Nk == gw_skn.shape[1]
+        assert Nn == gw_skn.shape[2]
+
     if Ns == 1:
-        if gw_kn is None:
+        if gw_skn is None:
             e_kn = [calc.get_eigenvalues(kpt=k)[bands] for k in range(Nk)]
         else:
-            assert Nk == len(gw_kn)
-            assert Nn == len(gw_kn.T)
-            e_kn = gw_kn
+            e_kn = gw_skn[0]
         e_skn = np.array([e_kn, e_kn])
     else:
-        e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)[bands]
-                           for k in range(Nk)] for s in range(2)])
+        if gw_skn is None:
+            e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)[bands]
+                               for k in range(Nk)] for s in range(2)])
+        else:
+            e_skn = gw_skn.copy()
 
     # <phi_i|dV_adr / r * L_v|phi_j>
     dVL_avii = []
