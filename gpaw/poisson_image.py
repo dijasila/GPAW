@@ -5,6 +5,14 @@ from gpaw.dipole_correction import dipole_correction
 
 # XXX add class description
 
+# TODO
+# Documentation
+# Working examples
+# 'right' gives very wrong results, why?
+# allow arbitrary directions?
+# Automatically assign gpts2, users shouldn't be bothered with this
+# Extend grid only on required side, not both. Makes grid 2* size, instead of 3*
+
 class EPS2(EPS):
     def __init__(self, direction, side, *args, **kwargs):
         super(EPS2, self).__init__(*args, **kwargs)
@@ -13,7 +21,9 @@ class EPS2(EPS):
         self.direction = direction
         self.c = direction
         # left or right side for mirror charge?
+        assert side == 'left' or side == 'right'
         self.side = side
+        self.correction = None
 
     def set_grid_descriptor(self, gd):
         super(EPS2, self).set_grid_descriptor(gd)
@@ -34,25 +44,27 @@ class EPS2(EPS):
 
     # Stolen from dipole_correction.fdsolve
     def solve(self, vHt_g, rhot_g, **kwargs):
-        drhot_g, dvHt_g, potential_shift = dipole_correction(self.direction,
+        drhot_g, dvHt_g, self.correction = dipole_correction(self.direction,
                                                              self.gd_original,
                                                              rhot_g)
 
         #print("drhot_g[z]: {}".format(drhot_g.mean(0).mean(0)))
         #print("dvHt_g[z]: {}".format(dvHt_g.mean(0).mean(0)*Ha))
-        #print("pot shift: {}".format(potential_shift*Ha))
+        #print("pot shift: {}".format(self.correction*Ha))
 
         # shift dipole potential to be zero at "electrode"
-        L = 0.0 if self.side == 'left' else 1.0
-        # Scaled positions, right?
-        bc_rank = self.gd_original.get_rank_from_position([0., 0., L])
-        if self.gd_original.comm.rank == bc_rank:
-            boundary_value = np.array([dvHt_g[0, 0, L]])
-            assert abs(dvHt_g[: ,: , L] - boundary_value).all() < 1.e-6
-        else:
-            boundary_value = np.empty(1, dtype=float)
-        self.gd_original.comm.broadcast(boundary_value, bc_rank)
-        dvHt_g -= boundary_value[0]
+        
+	# XXX Use self.correction to shift the potential. The question is 
+	# is just, how do you figure out, if it's + or - 
+	if self.side == 'right':
+            # XXX "right" doesn't work. This ugly fix helps, but it's still wrong.
+            drhot_g *= -1.
+            dvHt_g *= -1.
+            #self.correction *= -1. 
+
+        dvHt_g -= self.correction
+	# XXX hamiltonian.get_electrostatic_potential() uses this one. We don't like that.
+	self.correction = 0.0
         vHt_g -= dvHt_g
 
         iters = super(EPS2, self).solve(vHt_g, rhot_g + drhot_g, **kwargs)
@@ -100,9 +112,6 @@ class EPS2(EPS):
             # Have to cut first element...
             rho_central = rho_central[:, :, 1:]
             rho_xy[:, :, oldcellstop:] -= rho_central[:, :, ::-1]
-            print rho_xy.sum(0).sum(0)
-        else:
-            raise NotImplementedError
                 
         mirror_rho = redist.back(rho_xy)
         rho = mirror_rho
