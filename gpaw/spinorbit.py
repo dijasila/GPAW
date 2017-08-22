@@ -118,13 +118,13 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
         assert Nn == gw_skn.shape[2]
 
     if Ns == 1:
-        if gw_skn is None:
+        if gw_kn is None:
             e_kn = [calc.get_eigenvalues(kpt=k)[bands] for k in range(Nk)]
         else:
             e_kn = gw_skn[0]
         e_skn = np.array([e_kn, e_kn])
     else:
-        if gw_skn is None:
+        if gw_kn is None:
             e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)[bands]
                                for k in range(Nk)] for s in range(2)])
         else:
