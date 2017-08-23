@@ -9,6 +9,25 @@ from gpaw import GPAW
 from gpaw.utilities.dos import raw_orbital_LDOS, delta
 
 
+class CLICommand:
+    short_description = 'Calculate density of states from gpw-file'
+
+    @staticmethod
+    def add_arguments(parser):
+        parser.add_argument('gpw', metavar='gpw-file')
+        parser.add_argument('csv', nargs='?', metavar='csv-file')
+        parser.add_argument('-p', '--plot', action='store_true')
+        parser.add_argument('-i', '--integrated', action='store_true')
+        parser.add_argument('-w', '--width', type=float, default=0.1)
+        parser.add_argument('-a', '--atom')
+        parser.add_argument('-n', '--points', type=int, default=400)
+
+    @staticmethod
+    def run(args):
+        dos(args.gpw, args.plot, args.csv, args.width, args.integrated,
+            args.atom)
+
+
 def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False,
         projection=None):
     """Calculate density of states.
@@ -30,18 +49,22 @@ def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False,
     if projection is None:
         D = [dos.get_dos(spin) for spin in range(calc.get_number_of_spins())]
     else:
+        D = []
         for p in projection.split(','):
-            a, ll = p.split('-')
-            if a.isnumber():
-                A = [int(a)]
+            s, ll = p.split('-')
+            if s.isdigit():
+                A = [int(s)]
             else:
-                A = [a for a, symbol in calc.atoms.symbols if symbol == a]
+                A = [a for a, symbol in
+                     enumerate(calc.atoms.get_chemical_symbols())
+                     if symbol == s]
             for spin in range(calc.get_number_of_spins()):
                 for l in ll:
-                    dos = 0.0
+                    d = 0.0
                     for a in A:
-                        dos += ldos(calc, a, spin, l, width)
-                    D.append(dos)
+                        d += ldos(calc, a, spin, l, width, dos.energies)
+                    print(A)
+                    D.append(d)
 
     if integrated:
         de = dos.energies[1] - dos.energies[0]
@@ -78,21 +101,4 @@ def ldos(calc, a, spin, l, width, energies):
         w = weights[kd.bz2ibz_k]
         w.shape = tuple(kd.N_c) + (-1,)
         dos = ltidos(calc.atoms.cell, eigs, energies, w)
-
-
-class CLICommand:
-    short_description = 'Calculate density of states from gpw-file'
-
-    @staticmethod
-    def add_arguments(parser):
-        parser.add_argument('gpw', metavar='gpw-file')
-        parser.add_argument('csv', nargs='?', metavar='csv-file')
-        parser.add_argument('-p', '--plot', action='store_true')
-        parser.add_argument('-i', '--integrated', action='store_true')
-        parser.add_argument('-w', '--width', type=float, default=0.1)
-        parser.add_argument('-a', '--atom')
-
-    @staticmethod
-    def run(args):
-        dos(args.gpw, args.plot, args.csv, args.width, args.integrated,
-            args.atom)
+    return dos
