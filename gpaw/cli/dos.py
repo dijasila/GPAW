@@ -2,12 +2,14 @@ from __future__ import print_function
 import sys
 
 import numpy as np
-from ase.dft.dos import DOS
+from ase.dft.dos import DOS, ltidos
+from ase.units import Ha
 
 from gpaw import GPAW
+from gpaw.utilities.dos import raw_orbital_LDOS, delta
 
 
-def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False
+def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False,
         projection=None):
     """Calculate density of states.
 
@@ -29,21 +31,17 @@ def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False
         D = [dos.get_dos(spin) for spin in range(calc.get_number_of_spins())]
     else:
         for p in projection.split(','):
-            a, l = p.split('-')
+            a, ll = p.split('-')
             if a.isnumber():
                 A = [int(a)]
             else:
-                A = [a for a, symbol in cals.atoms.symbols if symbol == a]
-            for a in A:
-                energies, weights = ldos(calc, a, s, l)
-                energies.shape = (kd.nibzkpts, -1)
-                energies = energies[kd.bz2ibz_k]
-                energies.shape = tuple(kd.N_c) + (-1,)
-                weights.shape = (kd.nibzkpts, -1)
-                weights /= kd.weight_k[:, np.newaxis]
-                w = weights[kd.bz2ibz_k]
-                w.shape = tuple(kd.N_c) + (-1,)
-                p = ltidos(calc.atoms.cell, energies * Ha, e, w)
+                A = [a for a, symbol in calc.atoms.symbols if symbol == a]
+            for spin in range(calc.get_number_of_spins()):
+                for l in ll:
+                    dos = 0.0
+                    for a in A:
+                        dos += ldos(calc, a, spin, l, width)
+                    D.append(dos)
 
     if integrated:
         de = dos.energies[1] - dos.energies[0]
@@ -63,6 +61,25 @@ def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False
         plt.show()
 
 
+def ldos(calc, a, spin, l, width, energies):
+    eigs, weights = raw_orbital_LDOS(calc, a, spin, l)
+    eigs *= Ha
+    if width > 0.0:
+        dos = 0.0
+        for e, w in zip(eigs, weights):
+            dos += w * delta(energies, e, width)
+    else:
+        kd = calc.wfs.kd
+        eigs.shape = (kd.nibzkpts, -1)
+        eigs = eigs[kd.bz2ibz_k]
+        eigs.shape = tuple(kd.N_c) + (-1,)
+        weights.shape = (kd.nibzkpts, -1)
+        weights /= kd.weight_k[:, np.newaxis]
+        w = weights[kd.bz2ibz_k]
+        w.shape = tuple(kd.N_c) + (-1,)
+        dos = ltidos(calc.atoms.cell, eigs, energies, w)
+
+
 class CLICommand:
     short_description = 'Calculate density of states from gpw-file'
 
@@ -73,7 +90,9 @@ class CLICommand:
         parser.add_argument('-p', '--plot', action='store_true')
         parser.add_argument('-i', '--integrated', action='store_true')
         parser.add_argument('-w', '--width', type=float, default=0.1)
+        parser.add_argument('-a', '--atom')
 
     @staticmethod
     def run(args):
-        dos(args.gpw, args.plot, args.csv, args.width, args.integrated)
+        dos(args.gpw, args.plot, args.csv, args.width, args.integrated,
+            args.atom)
