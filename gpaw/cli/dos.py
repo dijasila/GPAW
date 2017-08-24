@@ -20,16 +20,20 @@ class CLICommand:
         parser.add_argument('-i', '--integrated', action='store_true')
         parser.add_argument('-w', '--width', type=float, default=0.1)
         parser.add_argument('-a', '--atom')
+        parser.add_argument('-r', '--range', default=':')
         parser.add_argument('-n', '--points', type=int, default=400)
 
     @staticmethod
     def run(args):
+        emin, _, emax = args.range.partition(':')
+        emin = float(emin) if emin else None
+        emax = float(emax) if emax else None
         dos(args.gpw, args.plot, args.csv, args.width, args.integrated,
-            args.atom)
+            args.atom, emin, emax, args.points)
 
 
 def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False,
-        projection=None):
+        projection=None, emin=None, emax=None, npoints=400):
     """Calculate density of states.
 
     filename: str
@@ -45,25 +49,32 @@ def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False,
 
     """
     calc = GPAW(filename, txt=None)
-    dos = DOS(calc, width)
+    dos = DOS(calc, width, (emin, emax), npoints)
+
+    nspins = calc.get_number_of_spins()
+    spinlabels = [''] if nspins == 1 else [' up', ' dn']
+
     if projection is None:
-        D = [dos.get_dos(spin) for spin in range(calc.get_number_of_spins())]
+        D = [dos.get_dos(spin) for spin in range(nspins)]
+        labels = ['DOS' + sl for sl in spinlabels]
     else:
         D = []
+        labels = []
         for p in projection.split(','):
             s, ll = p.split('-')
             if s.isdigit():
                 A = [int(s)]
+                s = '#' + s
             else:
                 A = [a for a, symbol in
                      enumerate(calc.atoms.get_chemical_symbols())
                      if symbol == s]
-            for spin in range(calc.get_number_of_spins()):
+            for spin in range(nspins):
                 for l in ll:
                     d = 0.0
                     for a in A:
                         d += ldos(calc, a, spin, l, width, dos.energies)
-                    print(A)
+                    labels.append(s + '-' + l + spinlabels[spin])
                     D.append(d)
 
     if integrated:
@@ -79,8 +90,9 @@ def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False,
             fd.close()
     if plot:
         import matplotlib.pyplot as plt
-        for y in D:
-            plt.plot(dos.energies, y)
+        for y, label in zip(D, labels):
+            plt.plot(dos.energies, y, label=label)
+        plt.legend()
         plt.show()
 
 
