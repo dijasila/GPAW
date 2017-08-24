@@ -10,18 +10,27 @@ from gpaw.utilities.dos import raw_orbital_LDOS, delta
 
 
 class CLICommand:
-    short_description = 'Calculate density of states from gpw-file'
+    short_description = 'Calculate (projected) density of states from gpw-file'
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument('gpw', metavar='gpw-file')
-        parser.add_argument('csv', nargs='?', metavar='csv-file')
-        parser.add_argument('-p', '--plot', action='store_true')
-        parser.add_argument('-i', '--integrated', action='store_true')
-        parser.add_argument('-w', '--width', type=float, default=0.1)
-        parser.add_argument('-a', '--atom')
-        parser.add_argument('-r', '--range', default=':')
-        parser.add_argument('-n', '--points', type=int, default=400)
+        add = parser.add_argument
+        add('gpw', metavar='gpw-file')
+        add('csv', nargs='?', metavar='csv-file')
+        add('-p', '--plot', action='store_true',
+            help='Plot the DOS.')
+        add('-i', '--integrated', action='store_true',
+            help='Calculate integrated DOS.')
+        add('-w', '--width', type=float, default=0.1,
+            help='Width of Gaussian.  Use 0.0 to use linear tetrahedron '
+            'interpolation.')
+        add('-a', '--atom', help='Project onto atoms: "Cu-spd,H-s" or use '
+            'atom indices "12-spdf".')
+        add('-r', '--range', default=':', metavar='e1:e2',
+            help='Energy range.  Examples: " -2:2", ":10.0", " -5:". '
+            'Note that for a negative start energy, you need to use quotes '
+            'and prepend a space!')
+        add('-n', '--points', type=int, default=400, help='Number of points.')
 
     @staticmethod
     def run(args):
