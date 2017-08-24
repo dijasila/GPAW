@@ -789,7 +789,7 @@ class PairDensity:
 
         wfs = self.calc.wfs
         kd = wfs.kd
-            
+
         # Parse kpoint: is k_c an index or a vector
 
         try:
@@ -1428,7 +1428,6 @@ class PairDensity:
 
     @timer('Initialize PAW corrections')
     def initialize_paw_corrections(self, pd, soft=False):
-        print('Initializing PAW Corrections', file=self.fd)
         wfs = self.calc.wfs
         q_v = pd.K_qv[0]
         optical_limit = np.allclose(q_v, 0)
