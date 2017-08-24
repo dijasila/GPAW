@@ -90,6 +90,9 @@ def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False,
         de = dos.energies[1] - dos.energies[0]
         dos.energies += de / 2
         D = [np.cumsum(d) * de for d in D]
+        ylabel = 'iDOS [electrons]'
+    else:
+        ylabel = 'DOS [electrons/eV]'
 
     if output:
         fd = sys.stdout if output == '-' else open(output, 'w')
@@ -102,12 +105,15 @@ def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False,
         for y, label in zip(D, labels):
             plt.plot(dos.energies, y, label=label)
         plt.legend()
+        plt.ylabel(ylabel)
+        plt.xlabel('$\epsilon-\epsilon_F$ [eV]')
         plt.show()
 
 
 def ldos(calc, a, spin, l, width, energies):
     eigs, weights = raw_orbital_LDOS(calc, a, spin, l)
     eigs *= Ha
+    eigs -= calc.get_fermi_level()
     if width > 0.0:
         dos = 0.0
         for e, w in zip(eigs, weights):
