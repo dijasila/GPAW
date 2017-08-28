@@ -46,7 +46,7 @@ commands = {
     'dos':
         ['-p', '--plot', '-i', '--integrated', '-w', '--width'],
     'gpw':
-        [''],
+        ['-w', '--remove-wave-functions'],
     'install-data':
         ['--version', '--tarball', '--list-all', '--gpaw', '--sg15',
          '--basis', '--test', '--register', '--no-register'],
