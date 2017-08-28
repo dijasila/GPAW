@@ -26,6 +26,8 @@ class CLICommand:
             'interpolation.')
         add('-a', '--atom', help='Project onto atoms: "Cu-spd,H-s" or use '
             'atom indices "12-spdf".')
+        add('-t', '--total', action='store_true',
+            help='Show both PDOS and total DOS.')
         add('-r', '--range', default=':', metavar='e1:e2',
             help='Energy range.  Examples: " -2:2", ":10.0", " -5:". '
             'Note that for a negative start energy, you need to use quotes '
@@ -38,11 +40,11 @@ class CLICommand:
         emin = float(emin) if emin else None
         emax = float(emax) if emax else None
         dos(args.gpw, args.plot, args.csv, args.width, args.integrated,
-            args.atom, emin, emax, args.points)
+            args.atom, emin, emax, args.points, args.total)
 
 
 def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False,
-        projection=None, emin=None, emax=None, npoints=400):
+        projection=None, emin=None, emax=None, npoints=400, show_total=None):
     """Calculate density of states.
 
     filename: str
@@ -63,12 +65,13 @@ def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False,
     nspins = calc.get_number_of_spins()
     spinlabels = [''] if nspins == 1 else [' up', ' dn']
 
-    if projection is None:
+    if projection is None or show_total:
         D = [dos.get_dos(spin) for spin in range(nspins)]
         labels = ['DOS' + sl for sl in spinlabels]
     else:
         D = []
         labels = []
+    if projection is not None:
         for p in projection.split(','):
             s, ll = p.split('-')
             if s.isdigit():
@@ -78,6 +81,8 @@ def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False,
                 A = [a for a, symbol in
                      enumerate(calc.atoms.get_chemical_symbols())
                      if symbol == s]
+                if not A:
+                    raise ValueError('No such atom: ' + s)
             for spin in range(nspins):
                 for l in ll:
                     d = 0.0
