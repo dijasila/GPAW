@@ -37,7 +37,7 @@ touch ../gpaw-web-page.lock
 cd ../ase; git checkout web-page -q; pip install .
 git clean -fdx
 git checkout web-page -q
-git pull
+git pull -q &> /dev/null
 python setup.py install
 cd doc; sphinx-build -b html -d build/doctrees . build/html
 mv doc/build/html gpaw-web-page
@@ -46,7 +46,7 @@ cd ../ase; git checkout master -q; pip install .
 git clean -fdx doc
 rm -r build
 git checkout master -q
-git pull
+git pull -q &> /dev/null
 python setup.py install
 cd doc; sphinx-build -b html -d build/doctrees . build/html
 mv doc/build/html gpaw-web-page/dev
