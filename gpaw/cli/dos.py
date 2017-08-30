@@ -28,17 +28,17 @@ class CLICommand:
             'atom indices "12-spdf".')
         add('-t', '--total', action='store_true',
             help='Show both PDOS and total DOS.')
-        add('-r', '--range', default=':', metavar='e1:e2',
-            help='Energy range.  Examples: " -2:2", ":10.0", " -5:". '
-            'Note that for a negative start energy, you need to use quotes '
-            'and prepend a space!')
+        add('-r', '--range', nargs=2, metavar=('emin', 'emax'),
+            help='Energy range in eV relative to Fermi level.')
         add('-n', '--points', type=int, default=400, help='Number of points.')
 
     @staticmethod
     def run(args):
-        emin, _, emax = args.range.partition(':')
-        emin = float(emin) if emin else None
-        emax = float(emax) if emax else None
+        if args.range is None:
+            emin = None
+            emax = None
+        else:
+            emin, emax = (float(e) for e in args.range)
         dos(args.gpw, args.plot, args.csv, args.width, args.integrated,
             args.atom, emin, emax, args.points, args.total)
 
