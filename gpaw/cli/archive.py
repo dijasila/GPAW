@@ -5,7 +5,8 @@ from gpaw import archive
 
 description = """Archive gpw-file in ARC/<id>.gpw and add row to database
 in ARC/gpw.db@id=<id> where <id> is a uniqe integer id.  The folder ARC
-defaults to ~/.gpaw/archive/ or $GPAW_ARCHIVE_FOLDER."""
+defaults to ~/.gpaw/archive/ or $GPAW_ARCHIVE_FOLDER.  Wave functions
+will be stripped from the copy of gpw-file."""
 
 
 class CLICommand:

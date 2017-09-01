@@ -2,6 +2,18 @@ import os
 
 
 def archive(gpwfile, folder=None, key_value_pairs={}):
+    """Add gpw-file to archive and add row to database.
+
+    Copy gpw-file to ARC/<id>.gpw and add row to database
+    in ARC/gpw.db@id=<id> where <id> is a uniqe integer id.  The folder ARC
+    defaults to ~/.gpaw/archive/ or $GPAW_ARCHIVE_FOLDER.
+
+    Note that the wave-functions will *not* be written to the archive.
+
+    The keys and values in key_value_pairs will be added to the row written
+    to the database file.
+    """
+
     import ase.io.ulm as ulm
     from ase.db import connect
     import gpaw

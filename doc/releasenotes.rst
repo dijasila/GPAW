@@ -67,6 +67,9 @@ Git master branch
   Also, one can now use linear tetrahedron interpolation for the calculation
   of the (P)DOS.
 
+* New ``gpaw archive`` sub-command of the :ref:`cli`.  See the
+  :func:`gpaw.archive` function for more details.
+
 
 Version 1.2.0
 =============

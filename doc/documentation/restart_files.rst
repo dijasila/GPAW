@@ -1,8 +1,8 @@
 .. _restart_files:
 
-=============
-Restart files
-=============
+=========================
+Restart files (gpw-files)
+=========================
 
 Writing restart files
 =====================
@@ -35,3 +35,9 @@ By adding the option txt=None you can suppress text output when restarting
 (e.g. when plotting a DOS)::
 
   atoms, calc = restart('xyz.gpw', txt=None)
+
+
+Archiving restart files
+=======================
+
+.. autofunction:: gpaw.archive
