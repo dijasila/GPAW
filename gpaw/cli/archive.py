@@ -10,7 +10,7 @@ defaults to ~/.gpaw/archive/ or $GPAW_ARCHIVE_FOLDER."""
 
 class CLICommand:
     short_description = 'Archive gpw-file in central repository'
-    description = long_description
+    description = description
 
     @staticmethod
     def add_arguments(parser):
