@@ -3,14 +3,14 @@ import os
 from gpaw import archive
 
 
-long_description = """Archive gpw-file in ARC/<id>.gpw and add row to database
+description = """Archive gpw-file in ARC/<id>.gpw and add row to database
 in ARC/gpw.db@id=<id> where <id> is a uniqe integer id.  The folder ARC
 defaults to ~/.gpaw/archive/ or $GPAW_ARCHIVE_FOLDER."""
 
 
 class CLICommand:
     short_description = 'Archive gpw-file in central repository'
-    long_description = long_description
+    description = long_description
 
     @staticmethod
     def add_arguments(parser):
