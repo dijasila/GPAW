@@ -771,12 +771,3 @@ class PAW:
         pc = PointChargePotential(q_p, rc=rc, rc2=rc2, width=width)
         self.set(external=pc)
         return pc
-
-    def write2db(self, db, **kwargs):
-        if isinstance(db, str):
-            from ase.db import connect
-            db = connect(db)
-        id = db.write(self.atoms, **kwargs)
-        folder = ...
-        return id
-        

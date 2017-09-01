@@ -22,7 +22,8 @@ __all__ = ['GPAW',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
-           'PW', 'LCAO', 'restart', 'FD']
+           'PW', 'LCAO', 'restart', 'FD',
+           'archive']
 
 
 class ConvergenceError(Exception):
@@ -50,6 +51,7 @@ sl_lrtddft = None
 buffer_size = None
 extra_parameters = {}
 profile = False
+archive_folder = None
 
 
 def parse_extra_parameters(arg):
@@ -247,6 +249,7 @@ from gpaw.occupations import FermiDirac, MethfesselPaxton
 from gpaw.wavefunctions.lcao import LCAO
 from gpaw.wavefunctions.pw import PW
 from gpaw.wavefunctions.fd import FD
+from gpaw.io.archive import archive
 
 RMM_DIIS = RMMDIIS
 
@@ -298,5 +301,6 @@ def read_rc_file():
             # Read file in ~/.gpaw/rc.py
             with open(rc) as fd:
                 exec(fd.read())
+
 
 read_rc_file()

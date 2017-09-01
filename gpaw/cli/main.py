@@ -18,6 +18,7 @@ commands = [
     ('test', 'gpaw.test.test'),
     ('atom', 'gpaw.atom.aeatom'),
     ('diag', 'gpaw.fulldiag'),
+    ('archive', 'gpaw.cli.archive'),
     # ('quick', 'gpaw.cli.quick'),
     ('python', 'gpaw.cli.python'),
     ('sbatch', 'gpaw.cli.sbatch'),

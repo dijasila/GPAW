@@ -24,6 +24,8 @@ def match(word, *suffixes):
 
 # Beginning of computer generated data:
 commands = {
+    'archive':
+        ['-k', '--key-value-pairs'],
     'atom':
         ['-f', '--xc-functional', '-a', '--add', '--spin-polarized', '-d',
          '--dirac', '-p', '--plot', '-e', '--exponents', '-l',
