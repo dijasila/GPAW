@@ -1454,9 +1454,15 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             self.vt_Q += vxc_Q / self.nspins
         self.timer.stop('XC 3D grid')
 
-        eext = 0.0
+        e_external = 0.0
+        if self.vext is not None:
+            vext_g = self.vext.get_potential(self.gd)
+            for vt_g in self.vt_sG:
+                vt_g += vext_g
+            e_external = self.gd.integrate(vext_g, dens.rhot_g,
+                                           global_integral=False)
 
-        return np.array([self.epot, self.ebar, eext, self.exc])
+        return np.array([self.epot, self.ebar, e_external, self.exc])
 
     def calculate_atomic_hamiltonians(self, density):
         W_aL = {}
