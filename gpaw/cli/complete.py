@@ -44,11 +44,11 @@ commands = {
     'diag':
         ['-b', '--bands', '-s', '--scalapack', '-0', '--dry-run'],
     'dos':
-        ['-p', '--plot', '-w', '--width'],
+        ['-p', '--plot', '-i', '--integrated', '-w', '--width', '-a',
+         '--atom', '-t', '--total', '-r', '--range', '-n',
+         '--points'],
     'gpw':
-        [''],
-    'info':
-        [''],
+        ['-w', '--remove-wave-functions'],
     'install-data':
         ['--version', '--tarball', '--list-all', '--gpaw', '--sg15',
          '--basis', '--test', '--register', '--no-register'],
@@ -64,7 +64,7 @@ commands = {
          '--interactive', '-c', '--collection', '--modify',
          '--after', '-w', '--write', '-W', '--write-all'],
     'sbatch':
-        [''],
+        ['-0', '--dry-run'],
     'symmetry':
         [''],
     'test':

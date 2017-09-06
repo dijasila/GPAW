@@ -16,7 +16,7 @@ this :download:`Al_fcc.py` to a place in your file area:
 Read the script and try to get an idea of what it will do. Run the
 script by typing::
 
-  $ python Al_fcc.py
+  $ python3 Al_fcc.py
 
 The program will pop up a window showing the bulk structure.  Verify
 that the structure indeed is fcc. Try to identify the closepacked (111)

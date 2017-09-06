@@ -22,7 +22,7 @@ The setups must be installed first::
   tar xzf gpaw-setups-0.9.11271.tar.gz
 
 Let gpaw know about the setups::
-  
+
   export GPAW_SETUP_PATH=$GPAW_SETUP_SOURCE/gpaw-setups-0.9.11271
 
 Using the module environment
@@ -34,7 +34,7 @@ It is very handy to add our installation to the module environment::
   mkdir -p modulefiles/gpaw-setups
   cd modulefiles/gpaw-setups
   echo -e "#%Module1.0\nprepend-path       GPAW_SETUP_PATH    $GPAW_SETUP_SOURCE/gpaw-setups-0.9.11271" > 0.9.11271
-  
+
 We need to let the system know about our modules::
 
   module use $HOME/modulefiles
@@ -46,9 +46,9 @@ such that we also see them with::
 libxc
 -----
 
-GPAW relies on libxc (see the `libxc web site <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`__). 
-To install libxc we assume that ``MYLIBXCDIR`` is set to 
-the directory where you want to install 
+GPAW relies on libxc (see the `libxc web site <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`__).
+To install libxc we assume that ``MYLIBXCDIR`` is set to
+the directory where you want to install
 (e.g. ``MYLIBXCDIR=$HOME/source/libxc``)::
 
  mkdir -p $MYLIBXCDIR
@@ -61,12 +61,12 @@ the directory where you want to install
  make |tee make.log
  make install
 
-This will have installed the libs ``$MYLIBXCDIR/libxc-2.0.2/install/lib`` 
+This will have installed the libs ``$MYLIBXCDIR/libxc-2.0.2/install/lib``
 and the C header
 files to ``$MYLIBXCDIR/libxc-2.0.2/install/include``.
 We create a module for libxc::
 
-  cd	
+  cd
   mkdir modulefiles/libxc
   cd modulefiles/libxc
 
@@ -96,7 +96,7 @@ We add our installation to the module environment::
   cd
   mkdir -p modulefiles/ase
   cd modulefiles/ase
-  
+
 Edit the module file  :file:`3.13.0` that should read::
 
   #%Module1.0
@@ -150,7 +150,7 @@ We create a place for gpaw and get the trunk version::
  GPAW_SOURCE=$PWD/source/gpaw
  mkdir -p $GPAW_SOURCE
  cd $GPAW_SOURCE
- git clone https://gitlab.com/gpaw/gpaw.git
+ git clone https://gitlab.com/gpaw/gpaw.git trunk
 
 The current trunk version can then be updated by::
 
@@ -213,4 +213,3 @@ A gpaw script :file:`test.py` can be submitted to run on 8 cpus like this::
   using justus
   run.justus written
   > msub run.justus
-

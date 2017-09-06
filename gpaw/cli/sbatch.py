@@ -6,6 +6,7 @@ usage = """gpaw sbatch [-0] -- [sbatch options] script.py [script options]
    or: gpaw sbatch [-0] -- [sbatch options] python -m module [module options]
 """
 
+
 class CLICommand:
     short_description = 'Submit a GPAW Python script via sbatch.'
 
@@ -36,6 +37,7 @@ class CLICommand:
             for line in open(arg):
                 if line.startswith('#SBATCH'):
                     script += line
+        script += ('cd $SLURM_SUBMIT_DIR\n')
         script += ('OMP_NUM_THREADS=1 '
                    'mpiexec `echo $GPAW_MPI_OPTIONS` gpaw-python {}\n'
                    .format(' '.join(args.arguments[i:])))

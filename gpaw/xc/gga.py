@@ -172,11 +172,16 @@ class GGA(XCFunctional):
     def __init__(self, kernel, stencil=1):
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
-        self.stencil_order = stencil
+        self.stencil_range = stencil
 
     def set_grid_descriptor(self, gd):
         XCFunctional.set_grid_descriptor(self, gd)
-        self.grad_v = get_gradient_ops(gd, self.stencil_order)
+        self.grad_v = get_gradient_ops(gd, self.stencil_range)
+
+    def todict(self):
+        d = super(GGA, self).todict()
+        d['stencil'] = self.stencil_range
+        return d
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)

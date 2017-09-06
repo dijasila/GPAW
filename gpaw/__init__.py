@@ -5,6 +5,7 @@
 
 import os
 import sys
+import warnings
 from distutils.util import get_platform
 
 from os.path import join, isfile
@@ -14,7 +15,7 @@ import numpy as np
 assert not np.version.version.startswith('1.6.0')
 
 __version__ = '1.3.0b1'
-__ase_version_required__ = '3.13.0'
+__ase_version_required__ = '3.14.1'
 
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
@@ -53,7 +54,8 @@ profile = False
 
 def parse_extra_parameters(arg):
     from ase.cli.run import str2dict
-    return str2dict(arg)
+    return {key.replace('-', '_'): value
+            for key, value in str2dict(arg).items()}
 
 
 i = 1
@@ -181,6 +183,12 @@ while len(sys.argv) > i:
 
 dry_run = extra_parameters.pop('dry_run', 0)
 debug = extra_parameters.pop('debug', False)
+
+# Check for typos:
+for p in extra_parameters:
+    # We should get rid of most of these!
+    if p not in {'sic', 'log2ng', 'PK', 'vdw0', 'df_dry_run', 'usenewlfc'}:
+        warnings.warn('Unknown parameter: ' + p)
 
 if debug:
     np.seterr(over='raise', divide='raise', invalid='raise', under='ignore')

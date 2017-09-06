@@ -120,7 +120,7 @@ Please perform the following steps:
 
  - analyse the results::
 
-    python ../memory_bandwidth.py
+    python3 ../memory_bandwidth.py
 
  - to estimate performance run the benchmark on the maximal number the cores only::
 
@@ -599,7 +599,7 @@ Please perform the following steps:
 
  - analyse the results::
 
-    python scaling.py -v --dir=. --pattern="b256H2O_112_04x04m64.grid_*_" b256H2O
+    python3 scaling.py -v --dir=. --pattern="b256H2O_112_04x04m64.grid_*_" b256H2O
 
    Niflheim results:
 
@@ -758,7 +758,7 @@ Please perform the following steps:
 
  - analyse the results::
 
-    python scaling.py -v --dir=. --pattern="Au_cluster_240_05x05m64.grid_*_" Au_cluster
+    python3 scaling.py -v --dir=. --pattern="Au_cluster_240_05x05m64.grid_*_" Au_cluster
 
    A typical output may look like
    (example given for Intel Xeon dual-socket, quad-core L5k CPUs, 2.5 GHz,

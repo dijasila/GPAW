@@ -36,15 +36,16 @@ void *Z(bmgs_fd_worker)(void *threadarg)
 
     for (int i1 = 0; i1 < s->n[1]; i1++)
       {
+#pragma omp simd
         for (int i2 = 0; i2 < s->n[2]; i2++)
           {
             T x = 0.0;
             for (int c = 0; c < s->ncoefs; c++)
-              x += aa[s->offsets[c]] * s->coefs[c];
-            *bb++ = x;
-            aa++;
+              x += aa[s->offsets[c]+i2] * s->coefs[c];
+            bb[i2] = x;
           }
-        aa += s->j[2];
+        bb += s->n[2];
+        aa += s->j[2] + s->n[2];
       }
   }
   return NULL;

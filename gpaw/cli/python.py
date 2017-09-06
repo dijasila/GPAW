@@ -7,4 +7,4 @@ class CLICommand:
 
     @staticmethod
     def run(args):
-        pass
+        print('Use: gpaw -P <nproc> python -- <arguments>')

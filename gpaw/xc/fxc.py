@@ -176,10 +176,10 @@ class FXCCorrelation(RPACorrelation):
             chi0_swxvG = range(2)  # Not used
             chi0_swvv = range(2)  # Not used
         chi0._calculate(pd, chi0_swGG[0], chi0_swxvG[0], chi0_swvv[0],
-                        m1, m2, [0])
+                        m1, m2, [0], extend_head=False)
         if len(chi0_swGG) == 2:
             chi0._calculate(pd, chi0_swGG[1], chi0_swxvG[1], chi0_swvv[1],
-                            m1, m2, [1])
+                            m1, m2, [1], extend_head=False)
         print('E_c(q) = ', end='', file=self.fd)
 
         if self.nblocks > 1:
@@ -188,10 +188,12 @@ class FXCCorrelation(RPACorrelation):
                 nredist = np.product(chi0_0wGG.shape)
                 chi0.redistribute(chi0_swGG[1], A2_x[nredist:])
                 chi0_swGG = A2_x[:2 * nredist].reshape((2,) + chi0_0wGG.shape)
+                chi0_swGG = np.swapaxes(chi0_swGG,2,3)
             else:
                 chi0_0wGG = chi0.redistribute(chi0_swGG[0], A2_x)
                 nredist = np.product(chi0_0wGG.shape)
                 chi0_swGG = A2_x[:1 * nredist].reshape((1,) + chi0_0wGG.shape)
+                chi0_swGG = np.swapaxes(chi0_swGG,2,3)
 
         if not pd.kd.gamma:
             e = self.calculate_energy(pd, chi0_swGG, cut_G)

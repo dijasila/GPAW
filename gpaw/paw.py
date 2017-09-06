@@ -411,7 +411,7 @@ class PAW:
 
     def get_orbital_ldos(self, a,
                          spin=0, angular='spdf', npts=201, width=None,
-                         nbands=None):
+                         nbands=None, spinorbit=False):
         """The Local Density of States, using atomic orbital basis functions.
 
         Project wave functions onto an atom orbital at atom ``a``, and
@@ -427,11 +427,17 @@ class PAW:
         calculation if one has many bands in the calculator but is only
         interested in the DOS at low energies.
         """
+        from gpaw.utilities.dos import (raw_orbital_LDOS,
+                                        raw_spinorbit_orbital_LDOS, fold)
         if width is None:
             width = 0.1
 
-        from gpaw.utilities.dos import raw_orbital_LDOS, fold
-        energies, weights = raw_orbital_LDOS(self, a, spin, angular, nbands)
+        if not spinorbit:
+            energies, weights = raw_orbital_LDOS(self, a, spin, angular,
+                                                 nbands)
+        else:
+            energies, weights = raw_spinorbit_orbital_LDOS(self, a, spin,
+                                                           angular)
         return fold(energies * Ha, weights, npts, width)
 
     def get_lcao_dos(self, atom_indices=None, basis_indices=None,

@@ -66,7 +66,7 @@ td_calc.propagate(time_step, iterations // 2, 'na2_td_dm.dat', 'na2_td.gpw')
 # Calculate induced electric field
 ind.calculate_induced_field(gridrefinement=2,
                             from_density='comp',
-                            poisson_eps=poisson_eps,
+                            poissonsolver=poissonsolver,
                             extend_N_cd=3 * np.ones((3, 2), int),
                             deextend=True)
 
