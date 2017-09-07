@@ -112,6 +112,13 @@ class PS2AE:
         return psi_R * Bohr**-1.5
 
     def get_electrostatic_potential(self, ae=True, rcgauss=0.02):
+        """Interpolate electrstatic potential.
+
+        ae: bool
+            Add PAW correction to get the all-electron potential.
+        rcgauss: float
+            Width of gaussian used to represent the nuclear charge.
+        """
         gd = self.calc.hamiltonian.finegd
         v_r = self.calc.get_electrostatic_potential() / Ha
         gd1 = GridDescriptor(gd.N_c, gd.cell_cv, comm=serial_comm)
