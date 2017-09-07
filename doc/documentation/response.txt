@@ -49,3 +49,11 @@
 2016-09-28 10.1039/c6cp05188j Strong 1D localization and highly anisotropic electron-hole masses in heavy-halogen functionalized graphenes
 2016-09-29 10.1103/PhysRevB.94.125444 Band-gap control in phosphorene/BN structures from first-principles calculations
 2016-10-06 10.1103/PhysRevB.94.155406 Efficient many-body calculations for two-dimensional materials using exact limits for the screened potential: Band gaps of MoS2, h-BN, and phosphorene
+2016-10-27 10.1103/PhysRevB.94.155310 Strain dependence of band gaps and exciton energies in pure and mixed transition-metal dichalcogenides
+2017-04-11 10.1038/s41699-017-0003-9 Probing the local nature of excitons and plasmons in few-layer MoS2
+2017-04-24 10.1038/ncomms15133 Band structure engineered layered metals for low-loss plasmonics
+2017-05-26 10.1103/PhysRevB.95.195158 Convergence behavior of the random phase approximation renormalized correlation energy
+2017-06-05 10.1103/PhysRevB.95.235405 Quantum-size effects in the loss function of Pb(111) thin films: An ab initio study
+2017-06-07 10.1088/1361-648X/aa6c4f Robust theoretical modelling of core ionisation edges for quantitative electron energy loss spectroscopy of B- and N-doped graphene
+2017-06-14 10.1103/PhysRevB.95.235123 Periodic GW calculations in the Gaussian and plane-waves scheme
+2017-06-15 10.1088/2053-1583/aa6531 Band structure engineering in van der Waals heterostructures via dielectric screening: the G Delta W method
