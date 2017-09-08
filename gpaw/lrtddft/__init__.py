@@ -396,10 +396,15 @@ class LrTDDFT(ExcitationList):
 
         Parameters
         ----------
+<<<<<<< HEAD
         ov_: array
             Pair density overlap factors from a displaced calculator.
+=======
+        ov_nn: array
+            Wave function overlap factors from a displaced calculator.
+>>>>>>> 4685fc0aaf63e35099ba9fe86752bffff539b120
             Index 0 corresponds to our own wavefunctions and
-            index 1 to the displaced wavefunctions
+            index 1 to the others wavefunctions
 
         Returns
         -------

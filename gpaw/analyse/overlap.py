@@ -9,10 +9,22 @@ class Overlap:
         self.gd = self.calc.wfs.gd
 
     def pseudo(self, other):
-        """Overlap with pseudo wave functions only"""
+        """Overlap with pseudo wave functions only
+
+        Parameter
+        ---------
+        other: gpaw
+            gpaw-object containing pseudo wave functions
+
+        Returns
+        -------
+        out: array
+            u_ij =  \int dx mypsitilde_i^*(x) otherpsitilde_j(x)
+        """
         no = other.get_number_of_bands() * other.density.nspins
         assert(self.calc.density.nspins == 1)
         assert(other.density.nspins == 1)
+
         overlap_nn = np.zeros((self.n, no), dtype=self.calc.wfs.dtype)
         psit_nG = self.calc.wfs.kpt_u[0].psit_nG
         norm_n = self.gd.integrate(psit_nG.conj() * psit_nG)
