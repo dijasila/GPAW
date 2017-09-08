@@ -324,8 +324,8 @@ class KSSingles(ExcitationList):
         ----------
         ov_nn: array
             Wave function overlap factors from a displaced calculator.
-            Index 0 corresponds to our own wavefunctions and
-            index 1 to the displaced wavefunctions
+            Index 0 corresponds to our own wavefunctions conjugated and
+            index 1 to the others wavefunctions
 
         Returns
         -------

@@ -9,7 +9,18 @@ class Overlap:
         self.gd = self.calc.wfs.gd
 
     def pseudo(self, other):
-        """Overlap with pseudo wave functions only"""
+        """Overlap with pseudo wave functions only
+
+        Parameter
+        ---------
+        other: gpaw
+            gpaw-object containing pseudo wave functions
+
+        Returns
+        -------
+        out: array
+            u_ij =  \int dx mypsitilde_i^*(x) otherpsitilde_j(x)
+        """
         no = other.get_number_of_bands()
         #    spin1 = calc1.get_number_of_spins() == 2
         #    spin2 = calc2.get_number_of_spins() == 2
