@@ -29,6 +29,8 @@ PAW dataset for Li with a frozen 1s orbital
 Electrostatic potential
 -----------------------
 
+The relevant formulas can be found here: :ref:`electrostatic potential`.
+
 Here is how to extract the AE potential from a gpw-file using the
 :meth:`~gpaw.utilities.ps2ae.PS2AE.get_electrostatic_potential` method:
 
