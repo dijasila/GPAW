@@ -392,12 +392,12 @@ class LrTDDFT(ExcitationList):
         mpi.world.barrier()
 
     def overlap(self, ov_nn, other):
-        """Matrix element overlap determined from Kohn-Sham overlaps.
+        """Matrix element overlap determined from pair density overlaps.
 
         Parameters
         ----------
         ov_: array
-            Wave function overlap factors from a displaced calculator.
+            Pair density overlap factors from a displaced calculator.
             Index 0 corresponds to our own wavefunctions and
             index 1 to the displaced wavefunctions
 
