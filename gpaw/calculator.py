@@ -8,6 +8,7 @@ from ase.utils import basestring, plural
 from ase.utils.timing import Timer
 
 import gpaw
+
 import gpaw.mpi as mpi
 import gpaw.wavefunctions.pw as pw
 from gpaw import dry_run, memory_estimate_depth
@@ -21,6 +22,7 @@ from gpaw.io.logger import GPAWLogger
 from gpaw.io import Reader, Writer
 from gpaw.jellium import create_background_charge
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.kpt_refine import create_kpoint_descriptor_with_refinement
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.occupations import create_occupation_number_object
 from gpaw.output import (print_cell, print_positions,
@@ -52,6 +54,7 @@ class GPAW(PAW, Calculator):
         'h': None,  # Angstrom
         'gpts': None,
         'kpts': [(0.0, 0.0, 0.0)],
+        'kpt_refine': None,
         'nbands': None,
         'charge': 0,
         'setups': {},
@@ -404,7 +407,7 @@ class GPAW(PAW, Calculator):
                 self.hamiltonian = None
                 self.density = None
                 self.wfs = None
-            elif key in ['kpts', 'nbands', 'symmetry']:
+            elif key in ['kpts', 'kpt_refine', 'nbands', 'symmetry']:
                 self.wfs = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'dtype', 'mode']:
                 self.density = None
@@ -865,19 +868,38 @@ class GPAW(PAW, Calculator):
 
         self.log(self.hamiltonian, '\n')
 
+    def create_kpoint_descriptor(self, nspins):
+        par = self.parameters
+
+        bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
+        if par.kpt_refine is None:
+            kd = KPointDescriptor(bzkpts_kc, nspins)
+
+            self.timer.start('Set symmetry')
+            kd.set_symmetry(self.atoms, self.symmetry, comm=self.world)
+            self.timer.stop('Set symmetry')
+
+        else:
+            self.timer.start('Set k-point refinement')
+            kd = create_kpoint_descriptor_with_refinement(par.kpt_refine,
+                                           bzkpts_kc, nspins, self.atoms,
+                                           self.symmetry, comm=self.world,
+                                           timer=self.timer)
+            self.timer.stop('Set k-point refinement')
+            # Update quantities which might have changed, if symmetry was changed
+            self.symmetry = kd.symmetry
+            self.setups.set_symmetry(kd.symmetry)
+
+        self.log(kd)
+        
+        return kd
+
     def create_wave_functions(self, mode, realspace,
                               nspins, nbands, nao, nvalence, setups,
                               magmom_a, cell_cv, pbc_c):
         par = self.parameters
 
-        bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
-        kd = KPointDescriptor(bzkpts_kc, nspins)
-
-        self.timer.start('Set symmetry')
-        kd.set_symmetry(self.atoms, self.symmetry, comm=self.world)
-        self.timer.stop('Set symmetry')
-
-        self.log(kd)
+        kd = self.create_kpoint_descriptor(nspins)  
 
         parallelization = mpi.Parallelization(self.world,
                                               nspins * kd.nibzkpts)

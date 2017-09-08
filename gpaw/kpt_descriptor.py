@@ -160,6 +160,11 @@ class KPointDescriptor:
         self.bz2bz_ks = np.arange(self.nbzkpts)[:, np.newaxis]
         self.nibzkpts = self.nbzkpts
         self.nks = self.nibzkpts * self.nspins
+        if self.N_c is None:
+            self.monkhorst = False
+            self.refine_info = None
+        else:
+            self.monkhorst = True
 
         self.set_communicator(mpi.serial_comm)
 
@@ -173,7 +178,7 @@ class KPointDescriptor:
             s += '\n1 k-point (Gamma)'
         else:
             s += '\n%d k-points' % self.nbzkpts
-            if self.N_c is not None:
+            if self.monkhorst:
                 s += ': %d x %d x %d Monkhorst-Pack grid' % tuple(self.N_c)
                 if self.offset_c.any():
                     s += ' + ['
@@ -187,16 +192,21 @@ class KPointDescriptor:
         s += ('\n%d k-point%s in the irreducible part of the Brillouin zone\n'
               % (self.nibzkpts, ' s'[1:self.nibzkpts]))
 
-        w_k = self.weight_k * self.nbzkpts
-        assert np.allclose(w_k, w_k.round())
-        w_k = w_k.round()
+        if self.monkhorst:
+            w_k = self.weight_k * self.nbzkpts
+            assert np.allclose(w_k, w_k.round())
+            w_k = w_k.round()
 
         s += '       k-points in crystal coordinates                weights\n'
         for k in range(self.nibzkpts):
             if k < 10 or k == self.nibzkpts - 1:
-                s += ('%4d:   %12.8f  %12.8f  %12.8f     %6d/%d\n' %
-                      ((k,) + tuple(self.ibzk_kc[k]) +
-                       (w_k[k], self.nbzkpts)))
+                if self.monkhorst:
+                    s += ('%4d:   %12.8f  %12.8f  %12.8f     %6d/%d\n' %
+                          ((k,) + tuple(self.ibzk_kc[k]) +
+                           (w_k[k], self.nbzkpts)))
+                else:
+                    s += ('%4d:   %12.8f  %12.8f  %12.8f     %12.8f\n' %
+                          ((k,) + tuple(self.ibzk_kc[k]) + (self.weight_k[k],)))
             elif k == 10:
                 s += '          ...\n'
         return s
