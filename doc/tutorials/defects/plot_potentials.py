@@ -13,9 +13,9 @@ plt.plot(z, Vdiff, '-', label=
          '$[V^{V_\mathrm{Ga}^{-3}}_\mathrm{el}(z) - V^{0}_\mathrm{el}(z) ]$')
 
 plt.axhline(-0.138, ls='dashed')
-plt.axhline(0.0, ls='-',color='grey')
+plt.axhline(0. 0, ls='-',color='grey')
 plt.xlabel('$z$ (A))', fontsize=18)
 plt.ylabel('Planar averages (eV)', fontsize=18)
 plt.legend(loc='upper right')
-plt.xlim((z[0],z[-1]))
+plt.xlim((z[0], z[-1]))
 plt.savefig('planaraverages.png')
