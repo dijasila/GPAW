@@ -10,14 +10,12 @@ atoms.center(vacuum=5.0)
 
 atoms.pbc = (1,1,0)
 gpts = h2gpts(0.2, atoms.cell, idiv=16)
-extgpts = (gpts[0], gpts[1], gpts[2] * 2)
 
 calc = GPAW(mode='lcao',
             gpts=gpts,
             charge=1,
             basis='dzp',
-            poissonsolver=EPS2(direction=2, side='left',
-                               extended={'gpts': extgpts, 'useprev': True}),
+            poissonsolver=EPS2(direction=2, side='left'),
             txt='gpaw_h3o+.txt')
 
 atoms.calc = calc
@@ -27,8 +25,6 @@ pot = calc.get_electrostatic_potential().mean(0).mean(0)
 parprint('Potential[1]', pot[1])
 parprint('Potential[-1]', pot[-1])
 
-assert abs(pot[1] - -0.220660556026) < 1e-3
-assert abs(pot[-1] - -6.61986899999) < 1e-3
-# assert abs(pot[1] - -0.04969663) < 1e-3
-# assert abs(pot[-1] - -6.56813735) < 1e-3
-
+# pot[0] is forced zero by gpaw anyway
+assert abs(pot[1] - -0.147600381554) < 1e-3
+assert abs(pot[-1] - -6.6186799574) < 1e-3
