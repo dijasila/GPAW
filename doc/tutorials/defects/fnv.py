@@ -1,7 +1,6 @@
 import numpy as np
 # from ase.lattice import bulk
 from ase.units import Bohr, Hartree
-from ase import Atoms
 from gpaw import GPAW
 # from gpaw.wavefunctions.pw import PW
 
@@ -72,7 +71,7 @@ def calculate_z_avg_model_potential(rho_G, calc):
     assert(np.isclose(G2_G[selectedG[0]], 0.0))
     selectedG.pop(0)
     zs = []
-    Vs
+    Vs = []
     for ix in np.arange(nrz):
         phase_G = np.exp(1j * (G_Gv[selectedG, 2] * z_g[ix]))
         V = (np.sum(phase_G * rho_G[selectedG] / (G2_G[selectedG]))
@@ -92,3 +91,8 @@ def calculate_z_avg_model_potential(rho_G, calc):
 z, v_model = calculate_z_avg_model_potential(rho_G, pristine)
 v_0 = pristine.get_electrostatic_potential().mean(0).mean(0)
 v_X = defect.get_electrostatic_potential().mean(0).mean(0)
+np.savez('data.npz',
+         z=z,
+         v_0=v_0,
+         v_X=v_X,
+         v_model=v_model)

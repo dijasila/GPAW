@@ -1,6 +1,6 @@
 from ase import Atoms
 from ase.parallel import paropen
-from gpaw import GPAW, FermiDirac
+from gpaw import GPAW, FermiDirac, PW
 
 # Script to get the total energies of a supercell
 # of GaAs with and without a Ga vacancy
@@ -30,13 +30,10 @@ GaAs = Atoms(symbols=formula,
              pbc=(1, 1, 1))
 
 GaAsdef = GaAs.repeat((N, N, N))
-print(len(GaAsdef))
-view(GaAs.repeat((N, N, N)))
+
 GaAsdef.pop(0)  # Make the supercell and a Ga vacancy
-print(len(GaAsdef))
-view(GaAsdef)
-exit()
-calc = GPAW(mode='fd',
+
+calc = GPAW(mode=PW(300),
             kpts={'size': (2, 2, 2), 'gamma': False},
             xc='LDA',
             charge=q,
@@ -47,7 +44,7 @@ calc = GPAW(mode='fd',
 GaAsdef.set_calculator(calc)
 Edef = GaAsdef.get_potential_energy()
 
-calc.write('GaAs.Ga_vac.gpw')
+calc.write('GaAs.Ga_vac_pw.gpw')
 
 # Now for the pristine case
 
@@ -60,9 +57,9 @@ calc = GPAW(**parameters)
 GaAspris.set_calculator(calc)
 Epris = GaAspris.get_potential_energy()
 
-calc.write('GaAs.pristine.gpw')
+calc.write('GaAs.pristine_pw.gpw')
 
-outfile = paropen('results.dat', 'w')
+outfile = paropen('results_pw.dat', 'w')
 s = '# cell_size defective_energy pristine_energy difference \n'
 outfile.write(s)
 s = (str(N) + ' '
