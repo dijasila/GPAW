@@ -1,24 +1,24 @@
 import numpy as np
 # from ase.lattice import bulk
 from ase.units import Bohr, Hartree
-from gpaw import GPAW
+from gpaw import GPAW, PW, restart
 # from gpaw.wavefunctions.pw import PW
 
-pristine = GPAW('GaAs.pristine.gpw')
+atoms, pristine = restart('GaAs.pristine.gpw')
 defect = GPAW('GaAs.Ga_vac.gpw')
-atoms = pristine.atoms
+calc = GPAW(mode=PW(500),
+            kpts={'size': (1, 1, 1),
+                  'gamma': True},
+            dtype=complex,
+            symmetry='off')
 
-pd = pristine.wfs.pd
+calc.initialize(atoms)
+
+pd = calc.wfs.pd
 G_Gv = pd.get_reciprocal_vectors(q=0, add_q=False)  # \vec{G} in Bohr^-1
 G2_G = pd.G2_qG[0]  # |\vec{G}|^2 in Bohr^-2
 
 nG = len(G2_G)
-
-# Gaussian
-# rho_r = q  * (2 \pi sigma^2)^-1.5 * exp(-0.5*r^2/sigma^2)
-# If r = sigma * \sqrt(2 ln 2), rho_r = 0.5 * rho_0
-# i.e. FWHM = 2 * sigma * \sqrt(2 ln 2)
-# sigma = FWHM / ( 2 \sqrt(2 ln 2))
 
 q = -3.0  # charge in units of electron charge
 FWHM = 2.0  # in Bohr
@@ -72,11 +72,12 @@ def calculate_z_avg_model_potential(rho_G, calc):
     selectedG.pop(0)
     zs = []
     Vs = []
-    for ix in np.arange(nrz):
-        phase_G = np.exp(1j * (G_Gv[selectedG, 2] * z_g[ix]))
+    for idx in np.arange(nrz):
+        phase_G = np.exp(1j * (G_Gv[selectedG, 2] * z_g[idx]))
         V = (np.sum(phase_G * rho_G[selectedG] / (G2_G[selectedG]))
              * Hartree * 4.0 * np.pi / (epsilon * Omega))
-        s = str(z_g[ix]) + ' ' + str(np.real(V)) + ' ' + str(np.imag(V)) + '\n'
+        # s = (str(z_g[idx]) + ' '
+        #      + str(np.real(V)) + ' ' + str(np.imag(V)) + '\n')
         zs.append(z_g[idx])
         Vs.append(V)
 
@@ -88,11 +89,17 @@ def calculate_z_avg_model_potential(rho_G, calc):
     # outfilepotential.write(s)
 
 
-z, v_model = calculate_z_avg_model_potential(rho_G, pristine)
+r_3xyz = pristine.density.gd.refine().get_grid_point_coordinates()
+z_g = 1.0 * r_3xyz[2].flatten()
+nrz = np.shape(r_3xyz)[3]
+z_grid = np.array([z_g[idx] for idx in range(nrz)])
+z, v_model = calculate_z_avg_model_potential(rho_G, calc)
 v_0 = pristine.get_electrostatic_potential().mean(0).mean(0)
 v_X = defect.get_electrostatic_potential().mean(0).mean(0)
 np.savez('data.npz',
-         z=z,
+         El=El * Hartree,
+         z_model=z,
+         z_grid=z_grid,
          v_0=v_0,
          v_X=v_X,
          v_model=v_model)
