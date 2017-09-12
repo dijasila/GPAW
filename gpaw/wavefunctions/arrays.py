@@ -119,6 +119,8 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
 class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, pd, dtype=None, data=None, kpt=None, dist=None,
                  spin=0, collinear=True):
+        if data is None:
+            data = pd.empty(nbands)
         self.array = data
         if pd.dtype == float:
             data = data.view(float)

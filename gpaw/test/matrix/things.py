@@ -4,7 +4,7 @@ import numpy as np
 # from gpaw.fd_operators import Laplace
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.matrix import AtomBlockMatrix, Matrix
+from gpaw.matrix import Matrix
 from gpaw.atom_centered_functions import AtomCenteredFunctions
 from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
 from gpaw.spline import Spline

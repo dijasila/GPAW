@@ -1158,6 +1158,10 @@ class PWLFC(BaseLFC):
 
         return c_axi
 
+    def matrix_elements(self, psit, out):
+        P_ani = {a: P_in.T for a, P_in in out.items()}
+        self.integrate(psit.array, P_ani, psit.kpt)
+
     def derivative(self, a_xG, c_axiv, q=-1):
         c_vxI = np.zeros((3,) + a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
         b_vxI = c_vxI.reshape((3, np.prod(c_vxI.shape[1:-1], dtype=int),
