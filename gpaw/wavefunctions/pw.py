@@ -13,7 +13,6 @@ import gpaw.fftw as fftw
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.density import Density
-from gpaw.hs_operators import MatrixOperator
 from gpaw.lfc import BaseLFC
 from gpaw.lcao.overlap import fbt
 from gpaw.hamiltonian import Hamiltonian

@@ -23,7 +23,7 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
     psi_n = create(nbands, desc, dtype=dtype, kpt=kpt,
                    collinear=collinear, dist=bcomm)
     phi_M.eval(psi_n)
-    print(psi_n.array.real[:,10,10])
+    print(psi_n.array.real[:, 10, 10])
     print(psi_n.array.max())
     # psi_n.plot()
     S_nn = psi_n.matrix_elements(psi_n, hermitian=True)
@@ -34,7 +34,7 @@ def test(desc, kd, spositions, proj, basis, dS_aii,
                   dtype=dtype, dist=(bcomm, 1, -1))
     pt_I.matrix_elements(psi_n, out=P_In)
     dSP_In = P_In.new()
-    dS_II = AtomBlockMatrix(dS_aii)
+    dS_II = None  # AtomBlockMatrix(dS_aii)
     dSP_In[:] = dS_II * P_In
     S_nn += P_In.H * dSP_In
     print(S_nn.array)

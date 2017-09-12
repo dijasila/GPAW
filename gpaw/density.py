@@ -11,14 +11,12 @@ import numpy as np
 from ase.units import Bohr
 
 from gpaw import debug
-from gpaw.blocks import AtomicBlocks
 from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC, BasisFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.utilities import (unpack2, unpack_atomic_matrices,
                             pack_atomic_matrices)
-from gpaw.utilities.debug import frozen
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
 from gpaw.mpi import SerialCommunicator
@@ -36,129 +34,6 @@ class NullBackgroundCharge:
 
     def add_fourier_space_charge_to(self, pd, rhot_q):
         pass
-
-
-@frozen
-class AtomicDensityMatrices(AtomicBlocks):
-    def __init__(self, setups, spinpolarized=False, collinear=True,
-                 comm=None, rank_a=None):
-        self.setups = setups
-        self.spinpolarized = spinpolarized
-        self.collinear = collinear
-        self.rank_a = rank_a
-
-        self.D_asp = {}
-
-        AtomicBlocks.__init__(self, self.D_asp, 1 + spinpolarized, comm,
-                              [setup.ni for setup in setups])
-
-    def initialize(self, charge, magmom_a, hund):
-        f_asi = {}
-        for a, M in enumerate(magmom_a):
-            if self.rank_a[a] != self.comm.rank:
-                continue
-            f_si = self.setups[a].calculate_initial_occupation_numbers(
-                abs(M), hund, charge=charge / len(self.setups),
-                nspins=1 + self.spinpolarized)
-            if M < 0:
-                f_si = f_si[::-1]
-            f_asi[a] = f_si
-            self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
-        return f_asi
-
-    def calculate_multipole_moments(self):
-        """Calculate multipole moments of compensation charges.
-
-        Returns the total compensation charge in units of electron
-        charge, so the number will be negative because of the
-        dominating contribution from the nuclear charge."""
-
-        comp_charge = 0.0
-        Q_aL = {}
-        for a, D_sp in self.D_asp.items():
-            setup = self.setups[a]
-            Q_L = np.dot(D_sp.sum(0), setup.Delta_pL)
-            Q_L[0] += setup.Delta0
-            comp_charge += Q_L[0]
-            Q_aL[a] = Q_L
-        return self.comm.sum(comp_charge) * sqrt(4 * pi), Q_aL
-
-    def update(self, wfs):
-        for a, rank in enumerate(self.rank_a):
-            if rank == self.comm.rank:
-                if a not in self.D_asii:
-                    ni = self.size_a[a]
-                    self.D_asp[a] = np.empty((self.nspins,
-                                              ni * (ni + 1) // 2))
-            else:
-                assert a not in self.D_asp
-
-        for D_sp in self.D_asp.values():
-            D_sp[:] = 0.0
-
-        for kpt in wfs.mykpts:
-            self.update1(kpt, wfs)
-
-        for D_sp in self.D_asp.values():
-            wfs.kptband_comm.sum(D_sp)
-
-        self.symmetrize(wfs.kd.symmetry)
-
-    def _update(self, D_sii, P_ni, f_n, spin):
-        if self.collinear:
-            D_ii = np.dot(P_ni.T.conj() * f_n, P_ni).real
-            D_sii[spin] += D_ii
-        else:
-            n, i = P_ni.shape
-            P_nsi = P_ni.reshape((n // 2, 2, i))
-            D_ssii = np.einsum('isn,ntj->stij', P_nsi.T.conj() * f_n, P_nsi)
-            D_sii[0] += D_ssii[0, 0].real + D_ssii[1, 1].real
-            D_sii[1] += 2 * D_ssii[0, 1].real  # ???
-            D_sii[2] += 2 * D_ssii[0, 1].imag  # ???
-            D_sii[3] += D_ssii[0, 0].real - D_ssii[1, 1].real
-
-    def update1(self, kpt, wfs):
-        if kpt.rho_MM is None:
-            P_In = kpt.P.matrix
-            for a, I1, I2 in kpt.P.indices:
-                P_ni = P_In.array[I1:I2].T
-                self._update(self.D_asii[a], P_ni, kpt.f_n, kpt.P.spin)
-        else:
-            for a, P_qMi in wfs.P_aqMi.items():
-                P_Mi = P_qMi[kpt.q]
-                rhoP_Mi = np.zeros_like(P_Mi)
-                D_ii = np.zeros(self.D_asii[a][kpt.s].shape, kpt.rho_MM.dtype)
-                gemm(1.0, P_Mi, kpt.rho_MM, 0.0, rhoP_Mi)
-                gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
-                self.D_asii[a][kpt.s] += D_ii.real
-
-        if hasattr(kpt, 'c_on'):
-            1 / 0
-            for ne, c_n in zip(kpt.ne_o, kpt.c_on):
-                d_nn = ne * np.outer(c_n.conj(), c_n)
-                D_sii = 42
-                D_sii[kpt.s] += np.dot(P_ni.T.conj(), np.dot(d_nn, P_ni)).real
-
-    def symmetrize(self, symmetry):
-        if len(symmetry.op_scc) == 0:
-            return
-
-        all_D_asii = self.broadcast()
-
-        for s in range(1 + self.spinpolarized):
-            D_aii = [D_sii[s] for D_sii in all_D_asii]
-            for a, D_sii in self.D_asii.items():
-                setup = self.setups[a]
-                D_sii[s] = setup.symmetrize(a, D_aii, symmetry.a_sa)
-
-    def estimate_magnetic_moments(self):
-        magmom_a = np.zeros(self.rank_a.shape)
-        if self.spinpolarized:
-            for a, D_sii in self.D_asii.items():
-                magmom_a[a] = np.einsum('ij,ij', D_sii[0] - D_sii[1],
-                                        self.setups[a].N0_ii)
-            self.comm.sum(magmom_a)
-        return magmom_a
 
 
 class Density(object):
