@@ -468,6 +468,8 @@ class WaveFunctions:
     def read(self, reader):
         nslice = self.bd.get_slice()
         r = reader.wave_functions
+        nproj_a = [setup.ni for setup in self.setups]
+        rank_a = np.zeros(len(nproj_a), int)
         for u, kpt in enumerate(self.kpt_u):
             eps_n = r.proxy('eigenvalues', kpt.s, kpt.k)[nslice]
             f_n = r.proxy('occupations', kpt.s, kpt.k)[nslice]
@@ -481,15 +483,13 @@ class WaveFunctions:
                 eps_n /= reader.ha
             kpt.eps_n = eps_n
             kpt.f_n = f_n
+            kpt.P = Projections(
+                nproj_a,
+                self.bd.nbands, self.gd.comm, self.bd.comm, rank_a,
+                collinear=True, spin=kpt.s, dtype=self.dtype)
             if self.gd.comm.rank == 0:
                 P_nI = r.proxy('projections', kpt.s, kpt.k)[:]
-            I1 = 0
-            kpt.P_ani = {}
-            for a, setup in enumerate(self.setups):
-                I2 = I1 + setup.ni
-                if self.gd.comm.rank == 0:
-                    kpt.P_ani[a] = np.array(P_nI[nslice, I1:I2], self.dtype)
-                I1 = I2
+                kpt.P.matrix.array[:] = P_nI.T
 
 
 def eigenvalue_string(wfs, comment=' '):
