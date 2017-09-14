@@ -416,19 +416,12 @@ class PWDescriptor:
         G3_Q[pd.Q_qG[q]] = np.arange(len(pd.Q_qG[q]))
         return G3_Q[Q3_G]
 
-    def gemm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
+    def gemmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
         """Helper function for MatrixOperator class."""
         if self.dtype == float:
             psit_nG = psit_nG.view(float)
             newpsit_mG = newpsit_mG.view(float)
         gemm(alpha, psit_nG, C_mn, beta, newpsit_mG)
-
-    def gemv(self, alpha, psit_nG, C_n, beta, newpsit_G, trans='t'):
-        """Helper function for CG eigensolver."""
-        if self.dtype == float:
-            psit_nG = psit_nG.view(float)
-            newpsit_G = newpsit_G.view(float)
-        gemv(alpha, psit_nG, C_n, beta, newpsit_G, trans)
 
 
 def count_reciprocal_vectors(ecut, gd, q_c):

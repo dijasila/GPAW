@@ -9,7 +9,6 @@ from ase.units import Hartree
 from gpaw.utilities.blas import axpy, gemv
 from gpaw.utilities import unpack
 from gpaw.eigensolvers.eigensolver import Eigensolver
-from gpaw.hs_operators import reshape
 from gpaw import extra_parameters
 
 
@@ -64,13 +63,13 @@ class CG(Eigensolver):
         Eigensolver.initialize(self, wfs)
         self.overlap = wfs.overlap
 
-    def iterate_one_k_point(self, hamiltonian, wfs, kpt):
+    def iterate_one_k_point(self, ham, wfs, kpt):
         """Do conjugate gradient iterations for the k-point"""
+        self.timer.start('CG')
 
         niter = self.niter
 
-        phi_G = wfs.empty(q=kpt.q)
-        phi_old_G = wfs.empty(q=kpt.q)
+        phi_G, phi_old_G, Htphi_G = wfs.empty(3, q=kpt.q)
 
         comm = wfs.gd.comm
         if self.tw_coeff:
@@ -82,35 +81,33 @@ class CG(Eigensolver):
             # same number.  What on earth is the meaning of this?
             #
             # Also the parameter tw_coeff is undocumented.  What is it?
-            hamiltonian.vt_sG /= self.tw_coeff
+            ham.vt_sG /= self.tw_coeff
             # Assuming the ordering in dH_asp and wfs is the same
-            for a in hamiltonian.dH_asp.keys():
-                hamiltonian.dH_asp[a] /= self.tw_coeff
+            for a in ham.dH_asp.keys():
+                ham.dH_asp[a] /= self.tw_coeff
 
-        psit_nG, Htpsit_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
+        psit = kpt.psit
+        R = psit.new(buf=wfs.work_array)
+        P = kpt.P
+        P2 = P.new()
 
-        # Note that psit_nG is now in self.operator.work1_nG and
-        # Htpsit_nG is in kpt.psit_nG!
+        self.subspace_diagonalize(ham, wfs, kpt)
 
-        R_nG = reshape(self.Htpsit_nG, psit_nG.shape)
-        Htphi_G = R_nG[0]
+        Htpsit = psit.new(buf=self.Htpsit_nG)
 
-        R_nG[:] = Htpsit_nG
-        self.timer.start('Residuals')
-        self.calculate_residuals(kpt, wfs, hamiltonian, psit_nG,
-                                 kpt.P_ani, kpt.eps_n, R_nG)
-        self.timer.stop('Residuals')
-
-        self.timer.start('CG')
+        R.array[:] = Htpsit.array
+        self.calculate_residuals(kpt, wfs, ham, psit,
+                                 P, kpt.eps_n, R, P2)
 
         total_error = 0.0
         for n in range(self.nbands):
             if extra_parameters.get('PK', False):
                 N = n + 1
             else:
-                N = psit_nG.shape[0] + 1
-            R_G = R_nG[n]
-            Htpsit_G = Htpsit_nG[n]
+                N = self.nbands
+            R_G = R.array[n]
+            Htpsit_G = Htpsit.array[n]
+            psit_G = psit.array[n]
             gamma_old = 1.0
             phi_old_G[:] = 0.0
             error = np.real(wfs.integrate(R_G, R_G))
@@ -118,10 +115,10 @@ class CG(Eigensolver):
                 if (error * Hartree**2 < self.tolerance / self.nbands):
                     break
 
-                ekin = self.preconditioner.calculate_kinetic_energy(
-                    psit_nG[n:n + 1], kpt)
+                ekin = self.preconditioner.calculate_kinetic_energy(psit_G,
+                                                                    kpt)
 
-                pR_G = self.preconditioner(R_nG[n:n + 1], kpt, ekin)
+                pR_G = self.preconditioner(R_G, kpt, ekin)
 
                 # New search direction
                 gamma = comm.sum(np.vdot(pR_G, R_G).real)
@@ -136,7 +133,7 @@ class CG(Eigensolver):
                 # Orthonormalize phi_G to all bands
                 self.timer.start('CG: orthonormalize')
                 self.timer.start('CG: overlap')
-                overlap_n = wfs.integrate(psit_nG[:N], phi_G,
+                overlap_n = wfs.integrate(psit.array[:N], phi_G,
                                           global_integral=False)
                 self.timer.stop('CG: overlap')
                 self.timer.start('CG: overlap2')
@@ -148,9 +145,9 @@ class CG(Eigensolver):
                 self.timer.stop('CG: overlap2')
                 comm.sum(overlap_n)
 
-                # phi_G -= overlap_n * kpt.psit_nG
-                wfs.matrixoperator.gd.gemv(-1.0, psit_nG[:N], overlap_n,
-                                           1.0, phi_G, 'n')
+                gemv(-1.0, psit.array[:N].view(wfs.dtype), overlap_n,
+                     1.0, phi_G.view(wfs.dtype), 'n')
+
                 for a, P2_i in P2_ai.items():
                     P_ni = kpt.P_ani[a]
                     gemv(-1.0, P_ni[:N], overlap_n, 1.0, P2_i, 'n')
@@ -167,7 +164,7 @@ class CG(Eigensolver):
 
                 # find optimum linear combination of psit_G and phi_G
                 an = kpt.eps_n[n]
-                wfs.apply_pseudo_hamiltonian(kpt, hamiltonian,
+                wfs.apply_pseudo_hamiltonian(kpt, ham,
                                              phi_G.reshape((1,) + phi_G.shape),
                                              Htphi_G.reshape((1,) +
                                                              Htphi_G.shape))
@@ -175,7 +172,7 @@ class CG(Eigensolver):
                 c = wfs.integrate(phi_G, Htphi_G, global_integral=False)
                 for a, P2_i in P2_ai.items():
                     P_i = kpt.P_ani[a][n]
-                    dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+                    dH_ii = unpack(ham.dH_asp[a][kpt.s])
                     b += dot(P2_i, dot(dH_ii, P_i.conj()))
                     c += dot(P2_i, dot(dH_ii, P2_i.conj()))
                 b = comm.sum(float(np.real(b)))
@@ -193,9 +190,9 @@ class CG(Eigensolver):
                             b * sin(2.0 * theta))
 
                 kpt.eps_n[n] = enew
-                psit_nG[n] *= cos(theta)
+                psit_G *= cos(theta)
                 # kpt.psit_nG[n] += sin(theta) * phi_G
-                axpy(sin(theta), phi_G, psit_nG[n])
+                axpy(sin(theta), phi_G, psit_G)
                 for a, P2_i in P2_ai.items():
                     P_i = kpt.P_ani[a][n]
                     P_i *= cos(theta)
@@ -206,13 +203,13 @@ class CG(Eigensolver):
                     # Htpsit_G += sin(theta) * Htphi_G
                     axpy(sin(theta), Htphi_G, Htpsit_G)
                     # adjust residuals
-                    R_G[:] = Htpsit_G - kpt.eps_n[n] * psit_nG[n]
+                    R_G[:] = Htpsit_G - kpt.eps_n[n] * psit_G
 
                     coef_ai = wfs.pt.dict()
                     for a, coef_i in coef_ai.items():
                         P_i = kpt.P_ani[a][n]
                         dO_ii = wfs.setups[a].dO_ii
-                        dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+                        dH_ii = unpack(ham.dH_asp[a][kpt.s])
                         coef_i[:] = (dot(P_i, dH_ii) -
                                      dot(P_i * kpt.eps_n[n], dO_ii))
                     wfs.pt.add(R_G, coef_ai, kpt.q)
@@ -235,13 +232,13 @@ class CG(Eigensolver):
             total_error += weight * error
             # if nit == 3:
             #   print >> self.f, "cg:iters", n, nit+1
-        if self.tw_coeff: #undo the scaling for calculating energies
+        if self.tw_coeff:  # undo the scaling for calculating energies
             for i in range(len(kpt.eps_n)):
                 kpt.eps_n[i] *= self.tw_coeff
-            hamiltonian.vt_sG *= self.tw_coeff
+            ham.vt_sG *= self.tw_coeff
             # Assuming the ordering in dH_asp and wfs is the same
-            for a in hamiltonian.dH_asp.keys():
-                hamiltonian.dH_asp[a] *= self.tw_coeff
+            for a in ham.dH_asp.keys():
+                ham.dH_asp[a] *= self.tw_coeff
 
         self.timer.stop('CG')
-        return total_error, psit_nG
+        return total_error
