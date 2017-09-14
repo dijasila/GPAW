@@ -102,10 +102,19 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
         s = 'UniformGridWaveFunctions({}, gpts={}x{}x{})'.format(s, *shape)
         return s
 
-    def new(self, buf=None):
-        return UniformGridWaveFunctions(len(self), self.gd, self.dtype,
+    def new(self, buf=None, dist='inherit', nbands=None):
+        if dist == 'inherit':
+            dist = self.matrix.dist
+        return UniformGridWaveFunctions(nbands or len(self),
+                                        self.gd, self.dtype,
                                         buf,
-                                        self.kpt, self.matrix.dist,
+                                        self.kpt, dist,
+                                        self.spin)
+
+    def view(self, n1, n2):
+        return UniformGridWaveFunctions(n2 - n1, self.gd, self.dtype,
+                                        self.array[n1:n2],
+                                        self.kpt, None,
                                         self.spin)
 
     def plot(self):
@@ -120,7 +129,7 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, pd, dtype=None, data=None, kpt=None, dist=None,
                  spin=0, collinear=True):
         if data is None:
-            data = pd.empty(nbands)
+            data = pd.empty(nbands, q=kpt)
         self.array = data
         if pd.dtype == float:
             data = data.view(float)
@@ -144,12 +153,21 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
         else:
             1 / 0
 
-    def new(self, buf=None):
+    def new(self, buf=None, dist='inherit', nbands=None):
         if buf is not None:
             array = self.array
             buf = buf.ravel()[:array.size]
             buf.shape = array.shape
-        return PlaneWaveExpansionWaveFunctions(len(self), self.pd, self.dtype,
+        if dist == 'inherit':
+            dist = self.matrix.dist
+        return PlaneWaveExpansionWaveFunctions(nbands or len(self),
+                                               self.pd, self.dtype,
                                                buf,
-                                               self.kpt, self.matrix.dist,
+                                               self.kpt, dist,
+                                               self.spin)
+
+    def view(self, n1, n2):
+        return PlaneWaveExpansionWaveFunctions(n2 - n1, self.pd, self.dtype,
+                                               self.array[n1:n2],
+                                               self.kpt, None,
                                                self.spin)

@@ -25,9 +25,12 @@ class Projections:
 
         self.matrix = Matrix(I1, nbands, dtype, dist=(bcomm, 1, -1))
 
-    def new(self):
+    def new(self, bcomm='inherit', nbands=None):
+        if bcomm == 'inherit':
+            bcomm = self.bcomm
         return Projections(
-            self.nproj_a, self.matrix.shape[1], self.acomm, self.bcomm,
+            self.nproj_a, nbands or self.matrix.shape[1],
+            self.acomm, bcomm,
             self.rank_a, self.collinear, self.spin, self.matrix.dtype)
 
     def items(self):

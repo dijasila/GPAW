@@ -14,11 +14,11 @@ class Preconditioner:
         self.kin1 = Laplace(gd1, -0.5, 1, dtype)
         self.kin2 = Laplace(gd2, -0.5, 1, dtype)
         self.scratch0 = gd0.zeros((2, block), dtype, False)
-        self.scratch1 = gd1.zeros((3, block),dtype, False)
+        self.scratch1 = gd1.zeros((3, block), dtype, False)
         self.scratch2 = gd2.zeros((3, block), dtype, False)
         self.step = 0.66666666 / kin0.get_diagonal_element()
 
-        self.restrictor_object0 = Transformer(gd0, gd1, 1,dtype)
+        self.restrictor_object0 = Transformer(gd0, gd1, 1, dtype)
         self.restrictor_object1 = Transformer(gd1, gd2, 1, dtype)
         self.interpolator_object2 = Transformer(gd2, gd1, 1, dtype)
         self.interpolator_object1 = Transformer(gd1, gd0, 1, dtype)
@@ -29,7 +29,7 @@ class Preconditioner:
 
     def calculate_kinetic_energy(self, psit_xG, kpt):
         return None
-        
+
     def __call__(self, residuals, kpt, ekin=None):
         if residuals.ndim == 3:
             return self.__call__(residuals[np.newaxis], kpt)[0]

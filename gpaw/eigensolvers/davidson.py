@@ -97,10 +97,11 @@ class Davidson(Eigensolver):
             # wfs.apply_pseudo_hamiltonian(kpt, ham, psit_nG, R_nG)
             # wfs.pt.integrate(psit_nG, kpt.P_ani, kpt.q)
 
-        self.calculate_residuals(kpt, wfs, ham, psit,
-                                 P, kpt.eps_n, R, P2)
+        self.calculate_residuals(kpt, wfs, ham, psit, P, kpt.eps_n, R, P2)
 
         weights = self.weights(kpt)
+
+        Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
         for nit in range(self.niter):
             if nit == self.niter - 1:
@@ -118,8 +119,6 @@ class Davidson(Eigensolver):
                 # gd.comm.sum(norm_n)
                 for norm, psit2_G in zip(norms, psit2.array):
                     psit2_G *= norm**-0.5
-
-            Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
             # Calculate projections
             wfs.pt.matrix_elements(psit2, out=P2)
