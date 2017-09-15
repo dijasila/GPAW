@@ -185,7 +185,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 kpt_u.append(kpt2)
 
         self.kd = kd
-        self.kpt_u = kpt_u
+        self.mykpts = kpt_u
 
     def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
         assert realspace

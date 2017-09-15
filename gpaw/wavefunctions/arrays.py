@@ -7,19 +7,21 @@ class MatrixInFile:
     def __init__(self, M, N, dtype, data, dist):
         self.shape = (M, N)
         self.dtype = dtype
-        self.data = data
+        self.array = data
         self.dist = create_distribution(M, N, *dist)
 
-    def read(self):
-        matrix = Matrix(*self.shape, self.dtype, dist=self.dist)
+    def read(self, gd):
+        matrix = Matrix(*self.shape, self.dtype, dist=self.dist, order='C')
         # Read band by band to save memory
-        for myn, psit_G in enumerate(matrix.data):
-            n = self.bd.global_index(myn)
-            if self.gd.comm.rank == 0:
-                big_psit_G = np.asarray(self.data[n], self.dtype)
+        shape = gd.get_size_of_global_array()
+        for myn, psit_G in enumerate(matrix.array):
+            n = self.dist.global_index(myn)
+            if gd.comm.rank == 0:
+                big_psit_G = np.asarray(self.array[n], self.dtype)
             else:
                 big_psit_G = None
-            self.gd.distribute(big_psit_G, psit_G)
+            gd.distribute(big_psit_G, psit_G.reshape(shape))
+
         return matrix
 
 
@@ -39,7 +41,7 @@ class ArrayWaveFunctions:
         return len(self.matrix)
 
     def read_from_file(self):
-        self.matrix = self.matrix.read()
+        self.matrix = self.matrix.read(self.gd)
         self.in_memory = True
 
     def finish_sumssss(self):
@@ -136,6 +138,7 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
         mynbands, ng = data.shape
         ArrayWaveFunctions.__init__(self, nbands, ng, dtype, data, dist)
         self.pd = pd
+        self.gd = pd.gd
         self.dv = pd.gd.dv / pd.gd.N_c.prod()
         self.kpt = kpt
         self.spin = spin

@@ -70,17 +70,19 @@ class FDPWWaveFunctions(WaveFunctions):
         Return (nlcao, nrand) tuple with number of bands intialized from
         LCAO and random numbers, respectively."""
 
-        if self.kpt_u[0].psit_nG is None:
+        if self.mykpts[0].psit is None:
             basis_functions = BasisFunctions(self.gd,
                                              [setup.phit_j
                                               for setup in self.setups],
                                              self.kd, dtype=self.dtype,
                                              cut=True)
             basis_functions.set_positions(spos_ac)
-        elif not isinstance(self.kpt_u[0].psit_nG, np.ndarray):
-            self.initialize_wave_functions_from_restart_file()
+        else:
+            for kpt in self.mykpts:
+                if not kpt.psit.in_memory:
+                    kpt.psit.read_from_file()
 
-        if self.kpt_u[0].psit_nG is not None:
+        if self.mykpts[0].psit is not None:
             density.initialize_from_wavefunctions(self)
         elif density.nt_sG is None:
             density.initialize_from_atomic_densities(basis_functions)
@@ -94,7 +96,7 @@ class FDPWWaveFunctions(WaveFunctions):
             density.calculate_normalized_charges_and_mix()
         hamiltonian.update(density)
 
-        if self.kpt_u[0].psit_nG is None:
+        if self.mykpts[0].psit is None:
             nlcao = self.initialize_wave_functions_from_basis_functions(
                 basis_functions, density, hamiltonian, spos_ac)
             nrand = self.bd.nbands - nlcao
@@ -150,26 +152,6 @@ class FDPWWaveFunctions(WaveFunctions):
         self.timer.stop('LCAO initialization')
 
         return lcaobd.nbands
-
-    def initialize_wave_functions_from_restart_file(self):
-        if isinstance(self.kpt_u[0].psit_nG, np.ndarray):
-            return
-
-        # Calculation started from a restart file.  Copy data
-        # from the file to memory:
-        for kpt in self.kpt_u:
-            file_nG = kpt.psit_nG
-            kpt.psit_nG = self.empty(self.bd.mynbands, q=kpt.q)
-            if extra_parameters.get('sic'):
-                kpt.W_nn = np.zeros((self.bd.nbands, self.bd.nbands),
-                                    dtype=self.dtype)
-            # Read band by band to save memory
-            for n, psit_G in enumerate(kpt.psit_nG):
-                if self.gd.comm.rank == 0:
-                    big_psit_G = file_nG[n][:].astype(psit_G.dtype)
-                else:
-                    big_psit_G = None
-                self.gd.distribute(big_psit_G, psit_G)
 
     @timer('Orthonormalize')
     def orthonormalize(self, kpt=None):

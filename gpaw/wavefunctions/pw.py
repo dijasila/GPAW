@@ -20,7 +20,7 @@ from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
 from gpaw.utilities import unpack
-from gpaw.utilities.blas import rk, r2k, gemv, gemm, axpy
+from gpaw.utilities.blas import rk, r2k, gemm, axpy
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
@@ -416,7 +416,8 @@ class PWDescriptor:
         G3_Q[pd.Q_qG[q]] = np.arange(len(pd.Q_qG[q]))
         return G3_Q[Q3_G]
 
-    def gemmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
+    def gemmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm(self, alpha, psit_nG, C_mn, beta,
+                                           newpsit_mG):
         """Helper function for MatrixOperator class."""
         if self.dtype == float:
             psit_nG = psit_nG.view(float)
@@ -672,24 +673,19 @@ class PWWaveFunctions(FDPWWaveFunctions):
             c = 1  # old gpw file
         for kpt in self.kpt_u:
             ng = self.ng_k[kpt.k]
-            kpt.psit_nG = reader.wave_functions.proxy('coefficients',
-                                                      kpt.s, kpt.k)
-            kpt.psit_nG.scale = c
-            kpt.psit_nG.length_of_last_dimension = ng
+            psit_nG = reader.wave_functions.proxy('coefficients', kpt.s, kpt.k)
+            psit_nG.scale = c
+            psit_nG.length_of_last_dimension = ng
 
-        if self.world.size == 1:
-            return
+            kpt.psit = PlaneWaveExpansionWaveFunctions(
+                self.bd.nbands, self.pd, self.dtype, psit_nG,
+                kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
+                spin=kpt.s, collinear=True)
 
-        # Read to memory:
-        for kpt in self.kpt_u:
-            psit_nG = kpt.psit_nG
-            kpt.psit_nG = self.empty(self.bd.mynbands, q=kpt.q)
-            ng = self.ng_k[kpt.k]
-            for myn, psit_G in enumerate(kpt.psit_nG):
-                n = self.bd.global_index(myn)
-                # XXX number of bands could have been rounded up!
-                if n < len(psit_nG):
-                    psit_G[:] = psit_nG[n]
+        if self.world.size > 1:
+            # Read to memory:
+            for kpt in self.kpt_u:
+                kpt.psit.read_from_file()
 
     def hs(self, ham, q=-1, s=0, md=None):
         npw = len(self.pd.Q_qG[q])
@@ -801,7 +797,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             scalapack = False
 
         self.set_positions(atoms.get_scaled_positions())
-        self.kpt_u[0].P_ani = None
+        self.mykpts[0].P = None
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
 
         myslice = bd.get_slice()

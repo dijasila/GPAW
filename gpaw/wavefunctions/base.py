@@ -49,12 +49,17 @@ class WaveFunctions:
         self.timer = timer
         self.atom_partition = None
 
-        self.kpt_u = kd.create_k_points(self.gd)
+        self.mykpts = kd.create_k_points(self.gd)
 
         self.eigensolver = None
         self.positions_set = False
 
         self.set_setups(setups)
+
+    @property
+    def kpt_u(self):
+        """Old name."""
+        return self.mykpts
 
     def __str__(self):
         return '  Eigensolver: ' + str(self.eigensolver)
@@ -205,7 +210,7 @@ class WaveFunctions:
         self.kd.symmetry.check(spos_ac)
 
     def allocate_arrays_for_projections(self, my_atom_indices):
-        if not self.positions_set and self.kpt_u[0].P_ani is not None:
+        if not self.positions_set and self.mykpts[0].P is not None:
             # Projections have been read from file - don't delete them!
             pass
         else:
@@ -421,7 +426,7 @@ class WaveFunctions:
         n = self.nvalence // 2
         band_rank, myn = self.bd.who_has(n - 1)
         homo = -np.inf
-        if self.bd.rank == band_rank:
+        if self.bd.comm.rank == band_rank:
             for kpt in self.kpt_u:
                 if kpt.s == spin:
                     homo = max(kpt.eps_n[myn], homo)
@@ -430,7 +435,7 @@ class WaveFunctions:
         lumo = np.inf
         if n < self.bd.nbands:  # there are not enough bands for LUMO
             band_rank, myn = self.bd.who_has(n)
-            if self.bd.rank == band_rank:
+            if self.bd.comm.rank == band_rank:
                 for kpt in self.kpt_u:
                     if kpt.s == spin:
                         lumo = min(kpt.eps_n[myn], lumo)

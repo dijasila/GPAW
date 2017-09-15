@@ -27,6 +27,9 @@ class NoDistribution:
     def __str__(self):
         return 'NoDistribution({}x{})'.format(*self.shape)
 
+    def global_index(self, n):
+        return n
+
     def multiply(self, alpha, a, opa, b, opb, beta, c):
         if beta == 0.0:
             c2 = alpha * np.dot(op(a.array, opa), op(b.array, opb))
@@ -146,7 +149,7 @@ class Op:
 
 
 class Matrix:
-    def __init__(self, M, N, dtype=None, data=None, dist=None):
+    def __init__(self, M, N, dtype=None, data=None, dist=None, order='F'):
         self.shape = (M, N)
 
         if dtype is None:
@@ -162,7 +165,7 @@ class Matrix:
         self.dist = dist
 
         if data is None:
-            self.array = np.empty(dist.shape, self.dtype, order='F')
+            self.array = np.empty(dist.shape, self.dtype, order=order)
         else:
             self.array = data.reshape(dist.shape)
 
