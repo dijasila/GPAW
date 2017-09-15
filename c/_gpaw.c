@@ -6,6 +6,11 @@
 #include <Python.h>
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #include <numpy/arrayobject.h>
+#ifdef PARALLEL
+#include <mpi.h>
+#endif
+
+#define PY3 (PY_MAJOR_VERSION >= 3)
 
 #ifdef GPAW_HPM
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
@@ -77,6 +82,7 @@ PyObject* vdw2(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
 PyObject* spline_to_grid(PyObject *self, PyObject *args);
 PyObject* NewLFCObject(PyObject *self, PyObject *args);
+PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args);
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
 PyObject* new_blacs_context(PyObject *self, PyObject *args);
 PyObject* get_blacs_gridinfo(PyObject* self, PyObject *args);
@@ -181,6 +187,7 @@ static PyMethodDef functions[] = {
     {"pc_potential", pc_potential, METH_VARARGS, 0},
     {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
     {"LFC", NewLFCObject, METH_VARARGS, 0},
+    {"globally_broadcast_bytes", globally_broadcast_bytes, METH_VARARGS, 0},
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
     {"new_blacs_context", new_blacs_context, METH_VARARGS, NULL},
     {"get_blacs_gridinfo", get_blacs_gridinfo, METH_VARARGS, NULL},
@@ -253,7 +260,41 @@ extern PyTypeObject TransformerType;
 extern PyTypeObject XCFunctionalType;
 extern PyTypeObject lxcXCFunctionalType;
 
-#if PY_MAJOR_VERSION >= 3
+PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args)
+{
+    PyObject *pybytes;
+    if(!PyArg_ParseTuple(args, "O", &pybytes)){
+        return NULL;
+    }
+
+#ifdef PARALLEL
+    MPI_Comm comm = MPI_COMM_WORLD;
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+
+    long size;
+    if(rank == 0) {
+        size = PyBytes_Size(pybytes);  // Py_ssize_t --> long
+    }
+    MPI_Bcast(&size, 1, MPI_LONG, 0, comm);
+
+    char *dst = (char *)malloc(size);
+    if(rank == 0) {
+        char *src = PyBytes_AsString(pybytes);  // Read-only
+        memcpy(dst, src, size);
+    }
+    MPI_Bcast(dst, size, MPI_BYTE, 0, comm);
+
+    PyObject *value = PyBytes_FromStringAndSize(dst, size);
+    free(dst);
+    return value;
+#else
+    return pybytes;
+#endif
+}
+
+
+#if PY3
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
     "_gpaw",
@@ -293,7 +334,7 @@ static PyObject* moduleinit(void)
     if (PyType_Ready(&lxcXCFunctionalType) < 0)
         return NULL;
 
-#if PY_MAJOR_VERSION >= 3
+#if PY3
     PyObject* m = PyModule_Create(&moduledef);
 #else
     PyObject* m = Py_InitModule3("_gpaw", functions,
@@ -317,16 +358,18 @@ static PyObject* moduleinit(void)
     Py_INCREF(&TransformerType);
     Py_INCREF(&XCFunctionalType);
     Py_INCREF(&lxcXCFunctionalType);
-
+#ifndef PARALLEL
+    // gpaw-python needs to import arrays at the right time, so this is
+    // done in main().  In serial, we just do it here:
     import_array1(NULL);
-
+#endif
     return m;
 }
 
 #ifndef GPAW_INTERPRETER
 
 
-#if PY_MAJOR_VERSION >= 3
+#if PY3
 PyMODINIT_FUNC PyInit__gpaw(void)
 {
     return moduleinit();
@@ -340,13 +383,12 @@ PyMODINIT_FUNC init_gpaw(void)
 
 #else // ifndef GPAW_INTERPRETER
 
-#if PY_MAJOR_VERSION >= 3
+#if PY3
 #define moduleinit0 moduleinit
 #else
 void moduleinit0(void) { moduleinit(); }
 #endif
 
-#include <mpi.h>
 
 int
 main(int argc, char **argv)
@@ -360,7 +402,8 @@ main(int argc, char **argv)
         exit(1);
 #endif // GPAW_OMP
 
-#if PY_MAJOR_VERSION >= 3
+#if PY3
+#define PyChar wchar_t
     wchar_t* wargv[argc];
     wchar_t* wargv2[argc];
     for (int i = 0; i < argc; i++) {
@@ -370,17 +413,60 @@ main(int argc, char **argv)
         mbstowcs(wargv[i], argv[i], n);
     }
 #else
+#define PyChar char
     char** wargv = argv;
 #endif
 
     Py_SetProgramName(wargv[0]);
     PyImport_AppendInittab("_gpaw", &moduleinit0);
     Py_Initialize();
-    int status = Py_Main(argc, wargv);
+
+    PySys_SetArgvEx(argc, wargv, 0);
+    PyObject *sys_mod = PyImport_ImportModule("sys");
+
+    // This will broadcast a ton of imports
+    PyImport_ImportModule("gpaw");
+
+    // We already imported the Python parts of numpy.  If we want, we can
+    // later attempt to broadcast the numpy C API imports, too.
+    import_array1(NULL);
+
+    // Unfortunately calling Py_Main will set sys.argv.
+    // We already changed sys.argv when importing GPAW (unfortunately!)
+    // and must therefore take out the current, modified sys.argv
+    // so we can feed that back into Py_Main.
+    PyObject *pynewargv = PyObject_GetAttrString(sys_mod, "argv");
+    int newargc = PyList_Size(pynewargv);
+
+    PyChar *newargv[newargc];
+    for(int i=0; i < newargc; i++) {
+        PyObject* arg = PyList_GetItem(pynewargv, i);
+#if PY3
+        newargv[i] = PyUnicode_AsWideCharString(arg, NULL);
+#else
+        newargv[i] = PyString_AsString(arg);
+#endif
+    }
+
+    // Py_Main undocumentedly decrefs many objects.  Therefore, although
+    // we should really be decreffing both pynewargv, sys_mod and the
+    // imported GPAW module, we cannot - it would segfault.
+    //
+    // The likely reason for this is that it is a bit hacky to do
+    // Python things and also call Py_Main.
+    // One could replace Py_Main with something else, but that is a major change.
+    int status = Py_Main(newargc, newargv);
+
+#if PY3
+    for(int i=0; i < newargc; i++) {
+        PyMem_Free(newargv[i]);
+    }
+#endif
+
     Py_Finalize();
     MPI_Finalize();
 
-#if PY_MAJOR_VERSION >= 3
+#if PY3
     for (int i = 0; i < argc; i++)
         free(wargv2[i]);
 #endif
