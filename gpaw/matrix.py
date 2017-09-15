@@ -92,11 +92,11 @@ class BLACSDistribution:
         self.desc = np.array([1, context, N, M, bc, br, 0, 0, lld], np.intc)
 
     def __str__(self):
-        return ('BLACSDistribution(global={0}, local={1}, blocksize={2})'
-                .format(*('{0}x{1}'.format(*shape)
-                          for shape in [self.desc[2:4:1],
+        return ('BLACSDistribution(global={}, local={}, blocksize={})'
+                .format(*('{}x{}'.format(*shape)
+                          for shape in [self.desc[2:4],
                                         self.shape,
-                                        self.desc[4:6:1]])))
+                                        self.desc[4:6]])))
 
     def multiply(self, alpha, a, opa, b, opb, beta, destination):
         M, Ka = a.shape

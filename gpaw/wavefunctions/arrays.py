@@ -1,6 +1,6 @@
 import numpy as np
 
-from gpaw.matrix import Matrix
+from gpaw.matrix import Matrix, create_distribution
 
 
 class MatrixInFile:
@@ -8,7 +8,7 @@ class MatrixInFile:
         self.shape = (M, N)
         self.dtype = dtype
         self.data = data
-        self.dist = dist
+        self.dist = create_distribution(M, N, *dist)
 
     def read(self):
         matrix = Matrix(*self.shape, self.dtype, dist=self.dist)

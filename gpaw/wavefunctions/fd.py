@@ -223,31 +223,23 @@ class FDWaveFunctions(FDPWWaveFunctions):
         c = reader.bohr**1.5
         if reader.version < 0:
             c = 1  # old gpw file
+
         for kpt in self.kpt_u:
             # We may not be able to keep all the wave
             # functions in memory - so psit_nG will be a special type of
             # array that is really just a reference to a file:
-            kpt.psit_nG = reader.wave_functions.proxy('values', kpt.s, kpt.k)
-            kpt.psit_nG.scale = c
+            psit_nG = reader.wave_functions.proxy('values', kpt.s, kpt.k)
+            psit_nG.scale = c
 
-        if self.world.size == 1:
-            return
+            kpt.psit = UniformGridWaveFunctions(
+                self.bd.nbands, self.gd, self.dtype, psit_nG,
+                kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
+                spin=kpt.s, collinear=True)
 
-        # Read to memory:
-        for kpt in self.kpt_u:
-            psit_nG = kpt.psit_nG
-            kpt.psit_nG = self.empty(self.bd.mynbands)
-            # Read band by band to save memory
-            for myn, psit_G in enumerate(kpt.psit_nG):
-                n = self.bd.global_index(myn)
-                # XXX number of bands could have been rounded up!
-                if n >= len(psit_nG):
-                    break
-                if self.gd.comm.rank == 0:
-                    big_psit_G = np.asarray(psit_nG[n], self.dtype)
-                else:
-                    big_psit_G = None
-                self.gd.distribute(big_psit_G, psit_G)
+        if self.world.size > 1:
+            # Read to memory:
+            for kpt in self.kpt_u:
+                kpt.psit.read_from_file()
 
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
         for kpt in self.kpt_u:
