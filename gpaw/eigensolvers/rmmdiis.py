@@ -65,10 +65,10 @@ class RMMDIIS(Eigensolver):
         R = psit.new(buf=self.Htpsit_nG)
 
         self.timer.start('RMM-DIIS')
-        self.timer.start('Calculate residuals')
         if self.keep_htpsit:
-            self.calculate_residuals(kpt, wfs, ham, psit, P, kpt.eps_n, R, P2)
-        self.timer.stop('Calculate residuals')
+            with self.timer('Calculate residuals'):
+                self.calculate_residuals(kpt, wfs, ham, psit, P, kpt.eps_n,
+                                         R, P2)
 
         def integrate(a_G, b_G):
             return np.real(wfs.integrate(a_G, b_G, global_integral=False))
@@ -81,7 +81,6 @@ class RMMDIIS(Eigensolver):
         P = P.new(bcomm=None, nbands=B)
         P2 = P.new()
         errors_x = np.zeros(B)
-        state_done = np.zeros(B, dtype=bool)
 
         # Arrays needed for DIIS step
         if self.niter > 1:
@@ -94,7 +93,6 @@ class RMMDIIS(Eigensolver):
 
         error = 0.0
         for n1 in range(0, wfs.bd.mynbands, B):
-            state_done[:] = False
             n2 = n1 + B
             if n2 > wfs.bd.mynbands:
                 n2 = wfs.bd.mynbands
@@ -107,17 +105,13 @@ class RMMDIIS(Eigensolver):
             n_x = np.arange(n1, n2)
             psitb = psit.view(n1, n2)
 
-            self.timer.start('Calculate residuals')
-            if self.keep_htpsit:
+            with self.timer('Calculate residuals'):
                 Rb = R.view(n1, n2)
-            else:
-                1 / 0
-                # R_xG = wfs.empty(B, q=kpt.q)
-                # wfs.apply_pseudo_hamiltonian(kpt, ham, psit_xG, R_xG)
-                # wfs.pt.integrate(psit_xG, P_axi, kpt.q)
-                # self.calculate_residuals(kpt, wfs, ham, psit_xG,
-                #                         P_axi, kpt.eps_n[n_x], R_xG, n_x)
-            self.timer.stop('Calculate residuals')
+                if not self.keep_htpsit:
+                    psitb.apply(Ht, out=Rb)
+                    wfs.pt.matrix_elements(psitb, out=P)
+                    self.calculate_residuals(kpt, wfs, ham, psitb,
+                                             P, kpt.eps_n[n_x], Rb, P2, n_x)
 
             errors_x[:] = 0.0
             for n in range(n1, n2):
@@ -135,39 +129,32 @@ class RMMDIIS(Eigensolver):
                 R_diis_nxG[:B * self.niter:self.niter] = Rb.array
 
             # Precondition the residual:
-            self.timer.start('precondition')
-            # ekin_x = self.preconditioner.calculate_kinetic_energy(
-            #     R_xG, kpt)
-            ekin_x = self.preconditioner.calculate_kinetic_energy(
-                psitb.array, kpt)
-            dpsit.array[:] = self.preconditioner(Rb.array, kpt, ekin_x)
-            self.timer.stop('precondition')
+            with self.timer('precondition'):
+                ekin_x = self.preconditioner.calculate_kinetic_energy(
+                    psitb.array, kpt)
+                dpsit.array[:] = self.preconditioner(Rb.array, kpt, ekin_x)
 
             # Calculate the residual of dpsit_G, dR_G = (H - e S) dpsit_G:
             # self.timer.start('Apply Hamiltonian')
             dpsit.apply(Ht, out=dR)
             # self.timer.stop('Apply Hamiltonian')
-            self.timer.start('projections')
-            wfs.pt.matrix_elements(dpsit, out=P)
-            self.timer.stop('projections')
+            with self.timer('projections'):
+                wfs.pt.matrix_elements(dpsit, out=P)
 
-            self.timer.start('Calculate residuals')
-            self.calculate_residuals(kpt, wfs, ham, dpsit,
-                                     P, kpt.eps_n[n_x], dR, P2, n_x,
-                                     calculate_change=True)
-            self.timer.stop('Calculate residuals')
+            with self.timer('Calculate residuals'):
+                self.calculate_residuals(kpt, wfs, ham, dpsit,
+                                         P, kpt.eps_n[n_x], dR, P2, n_x,
+                                         calculate_change=True)
 
             # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
-            self.timer.start('Find lambda')
-            RdR_x = np.array([integrate(dR_G, R_G)
-                              for R_G, dR_G in zip(Rb.array, dR.array)])
-            dRdR_x = np.array([integrate(dR_G, dR_G) for dR_G in dR.array])
-            comm.sum(RdR_x)
-            comm.sum(dRdR_x)
-            lam_x = -RdR_x / dRdR_x
-            self.timer.stop('Find lambda')
+            with self.timer('Find lambda'):
+                RdR_x = np.array([integrate(dR_G, R_G)
+                                  for R_G, dR_G in zip(Rb.array, dR.array)])
+                dRdR_x = np.array([integrate(dR_G, dR_G) for dR_G in dR.array])
+                comm.sum(RdR_x)
+                comm.sum(dRdR_x)
+                lam_x = -RdR_x / dRdR_x
 
-            # print "Lam_x:", lam_x
             # Limit abs(lam) to [0.15, 1.0]
             if self.limit_lambda:
                 upper = self.limit_lambda['upper']
@@ -184,13 +171,13 @@ class RMMDIIS(Eigensolver):
             # lam_x[:] = 0.1
 
             # New trial wavefunction and residual
-            self.timer.start('Update psi')
-            for lam, psit_G, dpsit_G, R_G, dR_G in zip(lam_x, psitb.array,
-                                                       dpsit.array, Rb.array,
-                                                       dR.array):
-                axpy(lam, dpsit_G, psit_G)  # psit_G += lam * dpsit_G
-                axpy(lam, dR_G, R_G)  # R_G += lam** dR_G
-            self.timer.stop('Update psi')
+            with self.timer('Update psi'):
+                for lam, psit_G, dpsit_G, R_G, dR_G in zip(
+                        lam_x, psitb.array,
+                        dpsit.array, Rb.array,
+                        dR.array):
+                    axpy(lam, dpsit_G, psit_G)  # psit_G += lam * dpsit_G
+                    axpy(lam, dR_G, R_G)  # R_G += lam** dR_G
 
             self.timer.start('DIIS step')
             # DIIS step
@@ -209,8 +196,6 @@ class RMMDIIS(Eigensolver):
                 # self.timer.stop('projections')
                 if nit > 1 or self.limit_lambda:
                     for ib in range(B):
-                        if state_done[ib]:
-                            continue
                         istart = ib * self.niter
                         iend = istart + nit + 1
 
@@ -227,9 +212,9 @@ class RMMDIIS(Eigensolver):
                         x_n = np.zeros(nit + 2, wfs.dtype)
                         x_n[-1] = -1.0
                         self.timer.stop('Construct matrix')
-                        self.timer.start('Linear solve')
-                        alpha_i = np.linalg.solve(A_nn, x_n)[:-1]
-                        self.timer.stop('Linear solve')
+                        with self.timer('Linear solve'):
+                            alpha_i = np.linalg.solve(A_nn, x_n)[:-1]
+
                         self.timer.start('Update trial vectors')
                         psitb.array[ib] = alpha_i[nit] * psit_diis_nxG[istart +
                                                                        nit]
@@ -246,11 +231,9 @@ class RMMDIIS(Eigensolver):
                         self.timer.stop('Update trial vectors')
 
                 if nit < self.niter - 1:
-                    self.timer.start('precondition')
-                    # ekin_x = self.preconditioner.calculate_kinetic_energy(
-                    #     R_xG, kpt)
-                    dpsit.array[:] = self.preconditioner(Rb.array, kpt, ekin_x)
-                    self.timer.stop('precondition')
+                    with self.timer('precondition'):
+                        dpsit.array[:] = self.preconditioner(Rb.array, kpt,
+                                                             ekin_x)
 
                     for psit_G, lam, dpsit_G in zip(psitb.array, lam_x,
                                                     dpsit.array):
@@ -260,33 +243,22 @@ class RMMDIIS(Eigensolver):
                     self.timer.start('Calculate residuals')
                     psitb.apply(Ht, out=Rb)
                     wfs.pt.matrix_elements(psitb, out=P)
-                    self.calculate_residuals(kpt, wfs, ham, dpsit,
+                    self.calculate_residuals(kpt, wfs, ham, psitb,
                                              P, kpt.eps_n[n_x], Rb, P2, n_x,
                                              calculate_change=True)
                     self.timer.stop('Calculate residuals')
 
             self.timer.stop('DIIS step')
             # Final trial step
-            self.timer.start('precondition')
-            # ekin_x = self.preconditioner.calculate_kinetic_energy(
-            #     R_xG, kpt)
-            dpsit.array[:] = self.preconditioner(Rb.array, kpt, ekin_x)
-            self.timer.stop('precondition')
-            self.timer.start('Update psi')
+            with self.timer('precondition'):
+                dpsit.array[:] = self.preconditioner(Rb.array, kpt, ekin_x)
 
+            self.timer.start('Update psi')
             if self.trial_step is not None:
                 lam_x[:] = self.trial_step
             for lam, psit_G, dpsit_G in zip(lam_x, psitb.array, dpsit.array):
                 axpy(lam, dpsit_G, psit_G)  # psit_G += lam * dpsit_G
             self.timer.stop('Update psi')
-
-            # norm = wfs.integrate(psit_xG[0], psit_xG[0])
-            # wfs.pt.integrate(psit_xG, P_axi, kpt.q)
-            # for a, P_xi in P_axi.items():
-            #     dO_ii = wfs.setups[a].dO_ii
-            #     norm += np.vdot(P_xi[0], np.inner(dO_ii, P_xi[0]))
-            # norm = comm.sum(np.real(norm).item())
-            # psit_xG /= np.sqrt(norm)
 
         self.timer.stop('RMM-DIIS')
         return error
