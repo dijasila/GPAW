@@ -841,7 +841,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 r = Redistributor(bd.comm, md2, md3)
                 psit_nG = r.redistribute(psit_nG)
 
-            kpt.psit_nG = psit_nG[:bd.mynbands].copy()
+            kpt.psit = PlaneWaveExpansionWaveFunctions(
+                self.bd.nbands, self.pd, self.dtype,
+                psit_nG[:bd.mynbands].copy(),
+                kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
+                spin=kpt.s, collinear=True)
             del psit_nG
 
             with self.timer('Projections'):

@@ -96,7 +96,10 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
 
     @property
     def array(self):
-        return self.matrix.array.reshape(self.myshape)
+        if self.in_memory:
+            return self.matrix.array.reshape(self.myshape)
+        else:
+            return self.matrix.array
 
     def __repr__(self):
         s = ArrayWaveFunctions.__repr__(self).split('(')[1][:-1]

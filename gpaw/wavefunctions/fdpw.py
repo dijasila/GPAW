@@ -78,9 +78,7 @@ class FDPWWaveFunctions(WaveFunctions):
                                              cut=True)
             basis_functions.set_positions(spos_ac)
         else:
-            for kpt in self.mykpts:
-                if not kpt.psit.in_memory:
-                    kpt.psit.read_from_file()
+            self.initialize_wave_functions_from_restart_file()
 
         if self.mykpts[0].psit is not None:
             density.initialize_from_wavefunctions(self)
@@ -105,6 +103,11 @@ class FDPWWaveFunctions(WaveFunctions):
             nlcao = 0
             nrand = 0
         return nlcao, nrand
+
+    def initialize_wave_functions_from_restart_file(self):
+        for kpt in self.mykpts:
+            if not kpt.psit.in_memory:
+                kpt.psit.read_from_file()
 
     def initialize_wave_functions_from_basis_functions(self,
                                                        basis_functions,

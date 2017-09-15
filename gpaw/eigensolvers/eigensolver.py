@@ -108,7 +108,10 @@ class Eigensolver:
             C.matrix.array[I1:I2] -= np.dot(dS_ii,
                                             P.matrix.array[I1:I2] * eps_n)
 
-        ham.xc.add_correction(kpt, psit, R, P, C, n_x,
+        ham.xc.add_correction(kpt, psit.array, R.array,
+                              {a: P_in.T for a, P_in in P.items()},
+                              {a: C_in.T for a, C_in in C.items()},
+                              n_x,
                               calculate_change)
         wfs.pt.add(R.array, {a: C_in.T for a, C_in in C.items()}, kpt.q)
 
