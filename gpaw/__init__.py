@@ -213,6 +213,18 @@ arch = '%s-%s' % (get_platform(), sys.version[0:3])
 sys.path.insert(0, join(build_path, 'lib.' + arch))
 
 
+#print('hello world from gpaw __init__!')
+def main():
+    sys.argv = sys.argv[1:]
+    #print('hello from gpaw main', sys.argv)
+    import runpy
+    script = sys.argv[0]
+
+    # Stacktraces can be shortened by running script with
+    # PyExec_AnyFile and friends.  Might be nicer
+    runpy.run_path(script, run_name='__main__')
+    #execfile(sys.argv[0])
+
 def get_gpaw_python_path():
     paths = os.environ['PATH'].split(os.pathsep)
     paths.insert(0, join(build_path, 'bin.' + arch))
