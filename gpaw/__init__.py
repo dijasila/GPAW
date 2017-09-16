@@ -213,17 +213,22 @@ arch = '%s-%s' % (get_platform(), sys.version[0:3])
 sys.path.insert(0, join(build_path, 'lib.' + arch))
 
 
-#print('hello world from gpaw __init__!')
 def main():
-    sys.argv = sys.argv[1:]
-    #print('hello from gpaw main', sys.argv)
     import runpy
-    script = sys.argv[0]
+    from argparse import ArgumentParser, Action, REMAINDER
+
+    p = ArgumentParser(description='Run a parallel GPAW calculation.')
+    p.add_argument('script', metavar='SCRIPT',
+                   help='calculation')
+    p.add_argument('options', metavar='...',
+                   help='options forwarded to SCRIPT', nargs=REMAINDER)
+    args = p.parse_args()
+    sys.argv = [args.script] + args.options
 
     # Stacktraces can be shortened by running script with
     # PyExec_AnyFile and friends.  Might be nicer
-    runpy.run_path(script, run_name='__main__')
-    #execfile(sys.argv[0])
+    runpy.run_path(args.script, run_name='__main__')
+
 
 def get_gpaw_python_path():
     paths = os.environ['PATH'].split(os.pathsep)
