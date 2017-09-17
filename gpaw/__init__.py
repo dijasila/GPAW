@@ -1,3 +1,4 @@
+# encoding: utf-8
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
@@ -37,148 +38,219 @@ class PoissonConvergenceError(ConvergenceError):
     pass
 
 
-# Check for special command line arguments:
-memory_estimate_depth = 2
-parsize_domain = None
-parsize_bands = None
-augment_grids = False
-sl_default = None
-sl_diagonalize = None
-sl_inverse_cholesky = None
-sl_lcao = None
-sl_lrtddft = None
-buffer_size = None
-extra_parameters = {}
-profile = False
-
-
 def parse_extra_parameters(arg):
     from ase.cli.run import str2dict
     return {key.replace('-', '_'): value
             for key, value in str2dict(arg).items()}
 
 
-i = 1
-while len(sys.argv) > i:
-    arg = sys.argv[i]
-    if arg.startswith('--memory-estimate-depth'):
-        memory_estimate_depth = -1
-        if len(arg.split('=')) == 2:
-            memory_estimate_depth = int(arg.split('=')[1])
-    elif arg.startswith('--domain-decomposition='):
-        parsize_domain = [int(n) for n in arg.split('=')[1].split(',')]
-        if len(parsize_domain) == 1:
-            parsize_domain = parsize_domain[0]
-        else:
-            assert len(parsize_domain) == 3
-    elif arg.startswith('--state-parallelization='):
-        parsize_bands = int(arg.split('=')[1])
-    elif arg.startswith('--augment-grids='):
-        augment_grids = bool(int(arg.split('=')[1]))
-    elif arg.startswith('--sl_default='):
-        # --sl_default=nprow,npcol,mb,cpus_per_node
-        # use 'd' for the default of one or more of the parameters
-        # --sl_default=default to use all default values
-        sl_args = [n for n in arg.split('=')[1].split(',')]
-        if len(sl_args) == 1:
-            assert sl_args[0] == 'default'
-            sl_default = ['d'] * 3
-        else:
-            sl_default = []
-            assert len(sl_args) == 3
-            for sl_args_index in range(len(sl_args)):
-                assert sl_args[sl_args_index] is not None
-                if sl_args[sl_args_index] is not 'd':
-                    assert int(sl_args[sl_args_index]) > 0
-                    sl_default.append(int(sl_args[sl_args_index]))
-                else:
-                    sl_default.append(sl_args[sl_args_index])
-    elif arg.startswith('--sl_diagonalize='):
-        # --sl_diagonalize=nprow,npcol,mb,cpus_per_node
-        # use 'd' for the default of one or more of the parameters
-        # --sl_diagonalize=default to use all default values
-        sl_args = [n for n in arg.split('=')[1].split(',')]
-        if len(sl_args) == 1:
-            assert sl_args[0] == 'default'
-            sl_diagonalize = ['d'] * 3
-        else:
-            sl_diagonalize = []
-            assert len(sl_args) == 3
-            for sl_args_index in range(len(sl_args)):
-                assert sl_args[sl_args_index] is not None
-                if sl_args[sl_args_index] is not 'd':
-                    assert int(sl_args[sl_args_index]) > 0
-                    sl_diagonalize.append(int(sl_args[sl_args_index]))
-                else:
-                    sl_diagonalize.append(sl_args[sl_args_index])
-    elif arg.startswith('--sl_inverse_cholesky='):
-        # --sl_inverse_cholesky=nprow,npcol,mb,cpus_per_node
-        # use 'd' for the default of one or more of the parameters
-        # --sl_inverse_cholesky=default to use all default values
-        sl_args = [n for n in arg.split('=')[1].split(',')]
-        if len(sl_args) == 1:
-            assert sl_args[0] == 'default'
-            sl_inverse_cholesky = ['d'] * 3
-        else:
-            sl_inverse_cholesky = []
-            assert len(sl_args) == 3
-            for sl_args_index in range(len(sl_args)):
-                assert sl_args[sl_args_index] is not None
-                if sl_args[sl_args_index] is not 'd':
-                    assert int(sl_args[sl_args_index]) > 0
-                    sl_inverse_cholesky.append(int(sl_args[sl_args_index]))
-                else:
-                    sl_inverse_cholesky.append(sl_args[sl_args_index])
-    elif arg.startswith('--sl_lcao='):
-        # --sl_lcao=nprow,npcol,mb,cpus_per_node
-        # use 'd' for the default of one or more of the parameters
-        # --sl_lcao=default to use all default values
-        sl_args = [n for n in arg.split('=')[1].split(',')]
-        if len(sl_args) == 1:
-            assert sl_args[0] == 'default'
-            sl_lcao = ['d'] * 3
-        else:
-            sl_lcao = []
-            assert len(sl_args) == 3
-            for sl_args_index in range(len(sl_args)):
-                assert sl_args[sl_args_index] is not None
-                if sl_args[sl_args_index] is not 'd':
-                    assert int(sl_args[sl_args_index]) > 0
-                    sl_lcao.append(int(sl_args[sl_args_index]))
-                else:
-                    sl_lcao.append(sl_args[sl_args_index])
-    elif arg.startswith('--sl_lrtddft='):
-        # --sl_lcao=nprow,npcol,mb,cpus_per_node
-        # use 'd' for the default of one or more of the parameters
-        # --sl_lcao=default to use all default values
-        sl_args = [n for n in arg.split('=')[1].split(',')]
-        if len(sl_args) == 1:
-            assert sl_args[0] == 'default'
-            sl_lrtddft = ['d'] * 3
-        else:
-            sl_lrtddft = []
-            assert len(sl_args) == 3
-            for sl_args_index in range(len(sl_args)):
-                assert sl_args[sl_args_index] is not None
-                if sl_args[sl_args_index] is not 'd':
-                    assert int(sl_args[sl_args_index]) > 0
-                    sl_lrtddft.append(int(sl_args[sl_args_index]))
-                else:
-                    sl_lrtddft.append(sl_args[sl_args_index])
-    elif arg.startswith('--buffer_size='):
-        # Buffer size for MatrixOperator in MB
-        buffer_size = int(arg.split('=')[1])
-    elif arg.startswith('--gpaw='):
-        extra_parameters = parse_extra_parameters(arg[7:])
-    elif arg == '--gpaw':
-        extra_parameters = parse_extra_parameters(sys.argv.pop(i + 1))
-    elif arg.startswith('--profile='):
-        profile = arg.split('=')[1]
+is_gpaw_python = '_gpaw' in sys.builtin_module_names
+
+
+def parse_arguments():
+    from argparse import ArgumentParser, Action, REMAINDER
+
+    p = ArgumentParser(usage='%(prog)s [OPTION ...] SCRIPT [SCRIPTOPTION ...]',
+                       description='Run a parallel GPAW calculation.')
+    p.add_argument('--memory-estimate-depth', default=2, type=int, metavar='N',
+                   dest='memory_estimate_depth',
+                   help='print memory estimate of object tree to N levels')
+    p.add_argument('--domain-decomposition',
+                   metavar='N or X,Y,Z', dest='parsize_domain',
+                   help='use N or X × Y × Z cores for domain decomposition.')
+    p.add_argument('--state-parallelization', metavar='N', type=int,
+                   dest='parsize_bands',
+                   help='use N cores for state/band/orbital parallelization')
+    p.add_argument('--augment-grids', action='store_true',
+                   dest='augment_grids',
+                   help='when possible, redistribute real-space arrays on '
+                   'cores otherwise used for k-point/band parallelization')
+    p.add_argument('--buffer-size', type=float, metavar='SIZE',
+                   help='buffer size for MatrixOperator in MiB')
+    p.add_argument('--profile', action='store_true', dest='profile',
+                   help='run profiler')
+    p.add_argument('--gpaw', metavar='VAR=VALUE', action='append', default=[],
+                   dest='gpaw_extra_kwargs',
+                   help='extra (hacky) GPAW keyword arguments')
+    p.add_argument('script', metavar='SCRIPT',
+                   help='calculation')
+    p.add_argument('options', metavar='...',
+                   help='options forwarded to SCRIPT', nargs=REMAINDER)
+
+    if is_gpaw_python:
+        argv = sys.argv[1:]
     else:
-        i += 1
-        continue
-    # Delete used command line argument:
-    del sys.argv[i]
+        argv = sys.argv[:1]  # Effectively disable command line args
+
+    args = p.parse_args(argv)
+    extra_parameters = {}
+
+    sys.argv = [args.script] + args.options
+
+    if args.parsize_domain:
+        parsize = [int(n) for n in args.parsize_domain.split(',')]
+        if len(parsize) == 1:
+            parsize = parsize[0]
+        else:
+            assert len(parsize) == 3
+        args.parsize_domain = parsize
+
+    for extra_kwarg in args.gpaw_extra_kwargs:
+        keyword, value = extra_kwarg.split('=')
+        parse_extra_parameters(extra_kwarg)
+        extra_parameters[keyword] = value
+
+    return extra_parameters, args
+
+
+extra_parameters, gpaw_args = parse_arguments()
+
+# Check for special command line arguments:
+memory_estimate_depth = gpaw_args.memory_estimate_depth
+parsize_domain = gpaw_args.parsize_domain
+parsize_bands = gpaw_args.parsize_bands
+augment_grids = gpaw_args.augment_grids
+# We deprecate the sl_xxx parameters being set from command line.
+# People can satisfy their lusts by setting gpaw.sl_default = something
+# if they are perverted enough to use global variables.
+sl_default = None
+sl_diagonalize = None
+sl_inverse_cholesky = None
+sl_lcao = None
+sl_lrtddft = None
+buffer_size = gpaw_args.buffer_size
+profile = gpaw_args.profile
+
+
+def main():
+    import runpy
+    # Stacktraces can be shortened by running script with
+    # PyExec_AnyFile and friends.  Might be nicer
+    runpy.run_path(gpaw_args.script, run_name='__main__')
+
+
+def old_parse_args():
+    i = 1
+    while len(sys.argv) > i:
+        arg = sys.argv[i]
+        if arg.startswith('--memory-estimate-depth'):
+            memory_estimate_depth = -1
+            if len(arg.split('=')) == 2:
+                memory_estimate_depth = int(arg.split('=')[1])
+        elif arg.startswith('--domain-decomposition='):
+            parsize_domain = [int(n) for n in arg.split('=')[1].split(',')]
+            if len(parsize_domain) == 1:
+                parsize_domain = parsize_domain[0]
+            else:
+                assert len(parsize_domain) == 3
+        elif arg.startswith('--state-parallelization='):
+            parsize_bands = int(arg.split('=')[1])
+        elif arg.startswith('--augment-grids='):
+            augment_grids = bool(int(arg.split('=')[1]))
+        elif arg.startswith('--sl_default='):
+            # --sl_default=nprow,npcol,mb,cpus_per_node
+            # use 'd' for the default of one or more of the parameters
+            # --sl_default=default to use all default values
+            sl_args = [n for n in arg.split('=')[1].split(',')]
+            if len(sl_args) == 1:
+                assert sl_args[0] == 'default'
+                sl_default = ['d'] * 3
+            else:
+                sl_default = []
+                assert len(sl_args) == 3
+                for sl_args_index in range(len(sl_args)):
+                    assert sl_args[sl_args_index] is not None
+                    if sl_args[sl_args_index] is not 'd':
+                        assert int(sl_args[sl_args_index]) > 0
+                        sl_default.append(int(sl_args[sl_args_index]))
+                    else:
+                        sl_default.append(sl_args[sl_args_index])
+        elif arg.startswith('--sl_diagonalize='):
+            # --sl_diagonalize=nprow,npcol,mb,cpus_per_node
+            # use 'd' for the default of one or more of the parameters
+            # --sl_diagonalize=default to use all default values
+            sl_args = [n for n in arg.split('=')[1].split(',')]
+            if len(sl_args) == 1:
+                assert sl_args[0] == 'default'
+                sl_diagonalize = ['d'] * 3
+            else:
+                sl_diagonalize = []
+                assert len(sl_args) == 3
+                for sl_args_index in range(len(sl_args)):
+                    assert sl_args[sl_args_index] is not None
+                    if sl_args[sl_args_index] is not 'd':
+                        assert int(sl_args[sl_args_index]) > 0
+                        sl_diagonalize.append(int(sl_args[sl_args_index]))
+                    else:
+                        sl_diagonalize.append(sl_args[sl_args_index])
+        elif arg.startswith('--sl_inverse_cholesky='):
+            # --sl_inverse_cholesky=nprow,npcol,mb,cpus_per_node
+            # use 'd' for the default of one or more of the parameters
+            # --sl_inverse_cholesky=default to use all default values
+            sl_args = [n for n in arg.split('=')[1].split(',')]
+            if len(sl_args) == 1:
+                assert sl_args[0] == 'default'
+                sl_inverse_cholesky = ['d'] * 3
+            else:
+                sl_inverse_cholesky = []
+                assert len(sl_args) == 3
+                for sl_args_index in range(len(sl_args)):
+                    assert sl_args[sl_args_index] is not None
+                    if sl_args[sl_args_index] is not 'd':
+                        assert int(sl_args[sl_args_index]) > 0
+                        sl_inverse_cholesky.append(int(sl_args[sl_args_index]))
+                    else:
+                        sl_inverse_cholesky.append(sl_args[sl_args_index])
+        elif arg.startswith('--sl_lcao='):
+            # --sl_lcao=nprow,npcol,mb,cpus_per_node
+            # use 'd' for the default of one or more of the parameters
+            # --sl_lcao=default to use all default values
+            sl_args = [n for n in arg.split('=')[1].split(',')]
+            if len(sl_args) == 1:
+                assert sl_args[0] == 'default'
+                sl_lcao = ['d'] * 3
+            else:
+                sl_lcao = []
+                assert len(sl_args) == 3
+                for sl_args_index in range(len(sl_args)):
+                    assert sl_args[sl_args_index] is not None
+                    if sl_args[sl_args_index] is not 'd':
+                        assert int(sl_args[sl_args_index]) > 0
+                        sl_lcao.append(int(sl_args[sl_args_index]))
+                    else:
+                        sl_lcao.append(sl_args[sl_args_index])
+        elif arg.startswith('--sl_lrtddft='):
+            # --sl_lcao=nprow,npcol,mb,cpus_per_node
+            # use 'd' for the default of one or more of the parameters
+            # --sl_lcao=default to use all default values
+            sl_args = [n for n in arg.split('=')[1].split(',')]
+            if len(sl_args) == 1:
+                assert sl_args[0] == 'default'
+                sl_lrtddft = ['d'] * 3
+            else:
+                sl_lrtddft = []
+                assert len(sl_args) == 3
+                for sl_args_index in range(len(sl_args)):
+                    assert sl_args[sl_args_index] is not None
+                    if sl_args[sl_args_index] is not 'd':
+                        assert int(sl_args[sl_args_index]) > 0
+                        sl_lrtddft.append(int(sl_args[sl_args_index]))
+                    else:
+                        sl_lrtddft.append(sl_args[sl_args_index])
+        elif arg.startswith('--buffer_size='):
+            # Buffer size for MatrixOperator in MB
+            buffer_size = int(arg.split('=')[1])
+        elif arg.startswith('--gpaw='):
+            extra_parameters = parse_extra_parameters(arg[7:])
+        elif arg == '--gpaw':
+            extra_parameters = parse_extra_parameters(sys.argv.pop(i + 1))
+        elif arg.startswith('--profile='):
+            profile = arg.split('=')[1]
+        else:
+            i += 1
+            continue
+        # Delete used command line argument:
+        del sys.argv[i]
 
 
 dry_run = extra_parameters.pop('dry_run', 0)
@@ -211,23 +283,6 @@ arch = '%s-%s' % (get_platform(), sys.version[0:3])
 # If we are running the code from the source directory, then we will
 # want to use the extension from the distutils build directory:
 sys.path.insert(0, join(build_path, 'lib.' + arch))
-
-
-def main():
-    import runpy
-    from argparse import ArgumentParser, Action, REMAINDER
-
-    p = ArgumentParser(description='Run a parallel GPAW calculation.')
-    p.add_argument('script', metavar='SCRIPT',
-                   help='calculation')
-    p.add_argument('options', metavar='...',
-                   help='options forwarded to SCRIPT', nargs=REMAINDER)
-    args = p.parse_args()
-    sys.argv = [args.script] + args.options
-
-    # Stacktraces can be shortened by running script with
-    # PyExec_AnyFile and friends.  Might be nicer
-    runpy.run_path(args.script, run_name='__main__')
 
 
 def get_gpaw_python_path():
