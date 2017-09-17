@@ -67,8 +67,8 @@ def parse_arguments():
                    'cores otherwise used for k-point/band parallelization')
     p.add_argument('--buffer-size', type=float, metavar='SIZE',
                    help='buffer size for MatrixOperator in MiB')
-    p.add_argument('--profile', action='store_true', dest='profile',
-                   help='run profiler')
+    p.add_argument('--profile', metavar='FILE', dest='profile',
+                   help='run profiler and save stats to FILE')
     p.add_argument('--gpaw', metavar='VAR=VALUE', action='append', default=[],
                    dest='gpaw_extra_kwargs',
                    help='extra (hacky) GPAW keyword arguments')
@@ -85,7 +85,8 @@ def parse_arguments():
     args = p.parse_args(argv)
     extra_parameters = {}
 
-    sys.argv = [args.script] + args.options
+    if is_gpaw_python:
+        sys.argv = [args.script] + args.options
 
     if args.parsize_domain:
         parsize = [int(n) for n in args.parsize_domain.split(',')]
