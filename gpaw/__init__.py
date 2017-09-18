@@ -89,7 +89,7 @@ def parse_arguments():
     if is_gpaw_python:
         argv = sys.argv[1:]
     else:
-        argv = sys.argv[:1]  # Effectively disable command line args
+        argv = ['python']  # Effectively disable command line args
 
     args = p.parse_args(argv)
     extra_parameters = {}
