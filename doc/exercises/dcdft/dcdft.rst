@@ -51,7 +51,7 @@ temperature. Copy this :download:`dcdft_gpaw.py` to a place in your file area:
 Read the script and try to understand it. Run the
 script by typing::
 
-  $ python dcdft_gpaw.py
+  $ python3 dcdft_gpaw.py
 
 It should take about 15 minutes to run the script.
 Note that you can start several instances of the script

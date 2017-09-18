@@ -1277,7 +1277,7 @@ def generate_all():
 
 
 class CLICommand:
-    short_description = 'Calculate density of states from gpw-file'
+    short_description = 'Create PAW dataset'
 
     @staticmethod
     def add_arguments(parser):

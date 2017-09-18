@@ -17,7 +17,7 @@ Mayavi from the command line like shown :mod:`here <ase.visualize.mlab>`.
 
 It's a good idea to create a short alias like this::
 
-    $ alias iso="python -m ase.visualize.mlab -C gpaw"
+    $ alias iso="python3 -m ase.visualize.mlab -C gpaw"
 
 so that you can simply do::
 
@@ -44,7 +44,7 @@ Alternatively, use this little :download:`Python script <xy.py>`:
 
 ::
 
-    $ python <path-to-script>/xy.py abc.csv
+    $ python3 <path-to-script>/xy.py abc.csv
 
 
 Writing 3-d data to cube files
@@ -67,7 +67,7 @@ Square roots are calculated like this: ``2**0.5`` or ``sqrt(2)`` (the
 Integer division
 ----------------
 
-In python, ``/`` is used for both integer- and float
+In Python, ``/`` is used for both integer- and float
 divisions. Integer division is only performed if both sides of the
 operator are integers (you can always force an integer division by
 using ``//``)::

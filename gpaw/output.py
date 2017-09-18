@@ -4,9 +4,9 @@ import numpy as np
 from ase.units import Bohr
 from ase.data import chemical_symbols
 
-        
+
 def print_cell(gd, pbc_c, log):
-    
+
     log("""Unit cell:
            periodic     x           y           z      points  spacing""")
     h_c = gd.get_grid_spacings()
@@ -15,6 +15,9 @@ def print_cell(gd, pbc_c, log):
             % ((c + 1, ['no ', 'yes'][int(pbc_c[c])]) +
                tuple(Bohr * gd.cell_cv[c]) +
                (gd.N_c[c], Bohr * h_c[c])))
+    log()
+    h_eff = gd.dv**(1.0 / 3.0) * Bohr
+    log('Effective grid spacing dv^(1/3) = {:.4f}'.format(h_eff))
     log()
 
 
@@ -27,8 +30,8 @@ def print_positions(atoms, log):
         log('{0:>4} {1:3} {2:11.6f} {3:11.6f} {4:11.6f}'
             .format(a, symbol, *pos_v))
     log()
-    
-    
+
+
 def print_parallelization_details(wfs, dens, log):
     nibzkpts = wfs.kd.nibzkpts
 

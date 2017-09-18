@@ -23,7 +23,7 @@ This is the first ASE script we have seen so far, so a few comments
 are in order:
 
 * At the top is a series of *import statements*.  These load the
-  python modules we are going to use.
+  Python modules we are going to use.
 * An :class:`~ase.Atoms` object is created, specifying an initial
   (possibly bad) guess for the atomic positions.
 * An :class:`~ase.calculators.emt.EMT` calculator is created.  A

@@ -85,9 +85,8 @@ class Hamiltonian(object):
         s += ('  XC and Coulomb potentials evaluated on a {0}*{1}*{2} grid\n'
               .format(*self.finegd.N_c))
         s += '  Using the %s Exchange-Correlation functional\n' % self.xc.name
-        desc = self.xc.get_description()
-        if desc is not None:
-            s += '  Details:\n    {0}\n'.format('\n'.join(desc.splitlines()))
+        # We would get the description of the XC functional here,
+        # except the thing has probably not been fully initialized yet.
         if self.vext is not None:
             s += '  External potential:\n    {0}\n'.format(self.vext)
         return s

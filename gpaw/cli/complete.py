@@ -44,10 +44,8 @@ commands = {
     'diag':
         ['-b', '--bands', '-s', '--scalapack', '-0', '--dry-run'],
     'dos':
-        ['-p', '--plot', '-w', '--width'],
+        ['-p', '--plot', '-i', '--integrated', '-w', '--width'],
     'gpw':
-        [''],
-    'info':
         [''],
     'install-data':
         ['--version', '--tarball', '--list-all', '--gpaw', '--sg15',
@@ -64,7 +62,7 @@ commands = {
          '--interactive', '-c', '--collection', '--modify',
          '--after', '-w', '--write', '-W', '--write-all'],
     'sbatch':
-        [''],
+        ['-0', '--dry-run'],
     'symmetry':
         [''],
     'test':

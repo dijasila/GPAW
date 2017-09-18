@@ -31,7 +31,7 @@ and compile GPAW's C-extension using the :download:`compile.sh` script::
 
 Submit jobs to the queue with::
 
-    $ gpaw sbatch my-script.py -- -p xeon8 -N 2 -n 16
+    $ gpaw sbatch -- -p xeon8 -N 2 -n 16 my-script.py
 
 Type ``gpaw sbatch -h`` for help.
 

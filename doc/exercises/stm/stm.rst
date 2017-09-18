@@ -17,7 +17,7 @@ calculating local density of states.
 The STM image can be calculated with the
 :git:`~doc/exercises/stm/stm.py` script::
 
-  $ python stm.py HAl100.gpw
+  $ python3 stm.py HAl100.gpw
 
 Try the following:
 

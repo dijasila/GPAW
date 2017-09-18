@@ -30,7 +30,7 @@ extra_link_args = [
     ',-rpath=/home/opt/common/acml-gfortran-64bit-4.4.0/lib'
     ',-rpath=/home/opt/el6/' + nodetype + '/hdf5-1.8.10-' + nodetype + '-tm-gfortran-openmpi-1.6.3-1/lib'
     ',-rpath=/home/opt/el6/' + nodetype + '/libxc-12045-' + nodetype + '-gfortran-1/lib']
-extra_compile_args =['-O3', '-std=c99', '-fPIC', '-Wall']
+extra_compile_args =['-O3', '-std=c99', '-fPIC', '-Wall', '-Wno-unknown-pragmas']
 define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
 define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
 mpicompiler = '/home/opt/el6/' + nodetype + '/openmpi-1.6.3-' + nodetype + '-tm-gfortran-1/bin/mpicc'

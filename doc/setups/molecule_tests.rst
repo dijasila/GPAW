@@ -28,7 +28,7 @@ Bond lengths
 Bondlengths in Å:
 
 .. csv-table::
-   :file: bondlengths.csv		
+   :file: bondlengths.csv
    :header: dimer, GPAW, reference, error
 
 Atomization energies
@@ -48,7 +48,9 @@ References
        J. Paier, R. Hirschl, M. Marsman and G. Kresse,
        J. Chem. Phys. 122, 234102 (2005)
 
-.. [2] "Molecular and Solid State Tests of Density Functional
+..
+
+  [2] "Molecular and Solid State Tests of Density Functional
        Approximations: LSD, GGAs, and Meta-GGAs", S. Kurth,
        J. P. Perdew and P. Blaha, Int. J. Quant. Chem. 75, 889-909
        (1999)
@@ -56,4 +58,6 @@ References
 .. [3] "Comment on 'Generalized Gradient Approximation Made Simple'",
        Y. Zhang and W. Yang, Phys. Rev. Lett.
 
-.. [4] Reply to [3]_, J. P. Perdew, K. Burke and M. Ernzerhof
+..
+
+  [4] Reply to [3]_, J. P. Perdew, K. Burke and M. Ernzerhof
