@@ -48,10 +48,12 @@ is_gpaw_python = '_gpaw' in sys.builtin_module_names
 
 
 def parse_arguments():
-    from argparse import ArgumentParser, Action, REMAINDER
+    from argparse import ArgumentParser, REMAINDER
 
     p = ArgumentParser(usage='%(prog)s [OPTION ...] SCRIPT [SCRIPTOPTION ...]',
                        description='Run a parallel GPAW calculation.')
+    p.add_argument('--module', '-m', action='store_true',
+                   help='run library module given as SCRIPT')
     p.add_argument('--memory-estimate-depth', default=2, type=int, metavar='N',
                    dest='memory_estimate_depth',
                    help='print memory estimate of object tree to N levels')
@@ -127,7 +129,12 @@ def main():
     import runpy
     # Stacktraces can be shortened by running script with
     # PyExec_AnyFile and friends.  Might be nicer
-    runpy.run_path(gpaw_args.script, run_name='__main__')
+    if gpaw_args.module:
+        # Consider gpaw-python [-m MODULE] [SCRIPT]
+        # vs       gpaw-python [-m] [MODULE_OR_SCRIPT] (current implementation)
+        runpy.run_module(gpaw_args.script, run_name='__main__')
+    else:
+        runpy.run_path(gpaw_args.script, run_name='__main__')
 
 
 def old_parse_args():
