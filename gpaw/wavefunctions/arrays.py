@@ -11,7 +11,8 @@ class MatrixInFile:
         self.dist = create_distribution(M, N, *dist)
 
     def read(self, gd):
-        matrix = Matrix(*self.shape, self.dtype, dist=self.dist, order='C')
+        matrix = Matrix(*self.shape, dtype=self.dtype, dist=self.dist,
+                        order='C')
         # Read band by band to save memory
         shape = gd.get_size_of_global_array()
         for myn, psit_G in enumerate(matrix.array):
