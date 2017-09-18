@@ -17,7 +17,7 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
 from gpaw.utilities import mlsqr
-from gpaw.utilities.blas import rk, r2k, gemv, gemm
+from gpaw.utilities.blas import rk, r2k, gemm
 
 
 # Remove this:  XXX
@@ -321,7 +321,7 @@ class GridDescriptor(Domain):
         else:
             return result
 
-    def gemmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
+    def gemmmmmmmmmmmmmmmmmmmmm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
         """Helper function for MatrixOperator class."""
         gemm(alpha, psit_nG, C_mn, beta, newpsit_mG)
 
