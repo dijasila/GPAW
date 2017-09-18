@@ -30,12 +30,14 @@ for n, color in enumerate(['green', 'red']):
 
     # Raw PS wfs:
     ps0 = hli.calc.get_pseudo_wave_function(n, pad=True)
-    gd0 = hli.calc.wfs.gd
-    i = ps0.shape[0] // 2
-    x = gd0.coords(2) * Bohr
-    plt.plot(x, ps0[i, i], 'o', color=color)
+    gd = hli.calc.wfs.gd
+    I = ps0.shape[0] // 2
+    X = gd.coords(2) * Bohr
+    plt.plot(X, ps0[I, I], 'o', color=color)
 
 plt.plot(x, 0 * x, 'k')
 plt.xlabel('z [Ang]')
+plt.ylabel('wave functions [Ang$^{-3/2}$]')
 plt.legend()
 plt.savefig('hli.png')
+hli.calc.write('hli.gpw')
