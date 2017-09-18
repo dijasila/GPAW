@@ -50,8 +50,11 @@ is_gpaw_python = '_gpaw' in sys.builtin_module_names
 def parse_arguments():
     from argparse import ArgumentParser, REMAINDER
 
-    p = ArgumentParser(usage='%(prog)s [OPTION ...] SCRIPT [SCRIPTOPTION ...]',
+    p = ArgumentParser(usage='%(prog)s [OPTION ...] [-c | -m] SCRIPT'
+                       ' [ARG ...]',
                        description='Run a parallel GPAW calculation.')
+    p.add_argument('--command', '-c', action='store_true',
+                   help='execute Python string given as SCRIPT')
     p.add_argument('--module', '-m', action='store_true',
                    help='run library module given as SCRIPT')
     p.add_argument('--memory-estimate-depth', default=2, type=int, metavar='N',
@@ -75,9 +78,9 @@ def parse_arguments():
                    dest='gpaw_extra_kwargs',
                    help='extra (hacky) GPAW keyword arguments')
     p.add_argument('script', metavar='SCRIPT',
-                   help='calculation')
-    p.add_argument('options', metavar='...',
-                   help='options forwarded to SCRIPT', nargs=REMAINDER)
+                   help='calculation script')
+    p.add_argument('options', metavar='ARG',
+                   help='arguments forwarded to SCRIPT', nargs=REMAINDER)
 
     if is_gpaw_python:
         argv = sys.argv[1:]
@@ -86,6 +89,9 @@ def parse_arguments():
 
     args = p.parse_args(argv)
     extra_parameters = {}
+
+    if args.command and args.module:
+        p.error('-c and -m are mutually exclusive')
 
     if is_gpaw_python:
         sys.argv = [args.script] + args.options
@@ -108,6 +114,7 @@ def parse_arguments():
 
 extra_parameters, gpaw_args = parse_arguments()
 
+
 # Check for special command line arguments:
 memory_estimate_depth = gpaw_args.memory_estimate_depth
 parsize_domain = gpaw_args.parsize_domain
@@ -129,12 +136,17 @@ def main():
     import runpy
     # Stacktraces can be shortened by running script with
     # PyExec_AnyFile and friends.  Might be nicer
-    if gpaw_args.module:
-        # Consider gpaw-python [-m MODULE] [SCRIPT]
-        # vs       gpaw-python [-m] [MODULE_OR_SCRIPT] (current implementation)
+    if gpaw_args.command:
+        d = {'__name__': '__main__'}
+        exec(gpaw_args.command, d, d)
+    elif gpaw_args.module:
+        # Python has: python [-m MOD] [-c CMD] [SCRIPT]
+        # We use a much better way: gpaw-python [-m | -c] SCRIPT
         runpy.run_module(gpaw_args.script, run_name='__main__')
     else:
         runpy.run_path(gpaw_args.script, run_name='__main__')
+
+    # Todo, if we want: interactive interpreter.
 
 
 def old_parse_args():
