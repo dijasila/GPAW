@@ -57,6 +57,10 @@ def parse_arguments():
                    help='execute Python string given as SCRIPT')
     p.add_argument('--module', '-m', action='store_true',
                    help='run library module given as SCRIPT')
+    p.add_argument('-W', metavar='argument',
+                   action='append', default=[], dest='warnings',
+                   help='warning control.  See the documentation of -W for '
+                   'the Python interpreter')
     p.add_argument('--memory-estimate-depth', default=2, type=int, metavar='N',
                    dest='memory_estimate_depth',
                    help='print memory estimate of object tree to N levels')
@@ -95,6 +99,22 @@ def parse_arguments():
 
     if is_gpaw_python:
         sys.argv = [args.script] + args.options
+
+    for w in args.warnings:
+        warn_args = w.split(':')
+        assert len(warn_args) <= 5
+
+        # Conversions between -W syntax and warnings.filterwarnings:
+        if warn_args[0] == 'all':
+            warn_args[0] = 'always'
+        if len(warn_args) >= 3:
+            # e.g. 'UserWarning' -> UserWarning
+            warn_args[2] = globals().get(warn_args[2])
+        if len(warn_args) == 5:
+            warn_args[4] = int(warn_args[4])
+
+        print(warn_args)
+        warnings.filterwarnings(*warn_args, append=True)
 
     if args.parsize_domain:
         parsize = [int(n) for n in args.parsize_domain.split(',')]
@@ -138,7 +158,7 @@ def main():
     # PyExec_AnyFile and friends.  Might be nicer
     if gpaw_args.command:
         d = {'__name__': '__main__'}
-        exec(gpaw_args.command, d, d)
+        exec(gpaw_args.script, d, d)
     elif gpaw_args.module:
         # Python has: python [-m MOD] [-c CMD] [SCRIPT]
         # We use a much better way: gpaw-python [-m | -c] SCRIPT
