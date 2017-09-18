@@ -6,7 +6,7 @@ import numpy as np
 from numpy import dot
 from ase.units import Hartree
 
-from gpaw.utilities.blas import axpy, gemv
+from gpaw.utilities.blas import axpy, gemv, mmm
 from gpaw.utilities import unpack
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw import extra_parameters
@@ -140,8 +140,9 @@ class CG(Eigensolver):
                 for a, P2_i in P2_ai.items():
                     P_ni = kpt.P_ani[a]
                     dO_ii = wfs.setups[a].dO_ii
-                    gemv(1.0, P_ni[:N].conjugate(), np.inner(dO_ii, P2_i),
-                         1.0, overlap_n)
+                    mmm(1.0, P_ni[:N].conjugate(), 'n',
+                        np.dot(dO_ii, P2_i).reshape(-1, 1), 'n',
+                        1.0, overlap_n.reshape(-1, 1))
                 self.timer.stop('CG: overlap2')
                 comm.sum(overlap_n)
 
@@ -150,12 +151,13 @@ class CG(Eigensolver):
 
                 for a, P2_i in P2_ai.items():
                     P_ni = kpt.P_ani[a]
-                    gemv(-1.0, P_ni[:N], overlap_n, 1.0, P2_i, 'n')
+                    mmm(-1.0, overlap_n.reshape(1, -1), 'n', P_ni[:N], 'n',
+                        1.0, P2_i.reshape(1, -1))
 
                 norm = wfs.integrate(phi_G, phi_G, global_integral=False)
                 for a, P2_i in P2_ai.items():
                     dO_ii = wfs.setups[a].dO_ii
-                    norm += np.vdot(P2_i, np.inner(dO_ii, P2_i))
+                    norm += np.vdot(P2_i, np.dot(dO_ii, P2_i))
                 norm = comm.sum(float(np.real(norm)))
                 phi_G /= sqrt(norm)
                 for P2_i in P2_ai.values():
