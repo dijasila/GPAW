@@ -1,7 +1,18 @@
 from math import pi
 
 import numpy as np
-from scipy.special import spherical_jn
+try:
+    from scipy.special import spherical_jn
+
+    def sphj(n, z):
+        return spherical_jn(range(n), z)
+
+except ImportError:
+    from scipy.special import sph_jn
+
+    def sphj(n, z):
+        return sph_jn(n - 1, z)[0]
+
 
 from gpaw.gaunt import nabla, gaunt
 from gpaw.spherical_harmonics import Y
@@ -64,7 +75,6 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
     ni = len(L_i)
     nj = len(l_j)
     lmax = max(l_j) * 2 + 1
-    ll = np.arange(lmax)
 
     if setup is not None:
         assert ni == setup.ni and nj == setup.nj
@@ -92,7 +102,7 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
 
         # Calculating spherical bessel function
         for g, r in enumerate(r_g):
-            j_lg[:, g] = spherical_jn(ll, k * r)
+            j_lg[:, g] = sphj(lmax, k * r)
 
         for li in range(lmax):
             # Radial part
@@ -170,7 +180,6 @@ def two_phi_nabla_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
     ni = len(L_i)
     nj = len(l_j)
     lmax = max(l_j) * 2 + 1
-    ll = np.arange(lmax)
 
     ljdef = 3
     l2max = max(l_j) * (max(l_j) > ljdef) + ljdef * (max(l_j) <= ljdef)
@@ -210,7 +219,7 @@ def two_phi_nabla_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
 
         # Calculating spherical bessel function
         for g, r in enumerate(r_g):
-            j_lg[:, g] = spherical_jn(ll, k * r)
+            j_lg[:, g] = sphj(lmax, k * r)
 
         for li in range(lmax):
             # Radial part
