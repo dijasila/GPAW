@@ -175,7 +175,10 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     Psit_nG = Psit_nG.copy()
                     for Psit_G in Psit_nG:
                         Psit_G[:] = self.kd.transform_wave_function(Psit_G, k)
-                kpt2.psit_nG = self.gd.empty(self.bd.nbands, dtype=self.dtype)
+                kpt.psit = UniformGridWaveFunctions(
+                    self.bd.nbands, self.gd, self.dtype, psit_nG,
+                    kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
+                    spin=kpt.s, collinear=True)
                 self.gd.distribute(Psit_nG, kpt2.psit_nG)
 
                 # Calculate PAW projections:
@@ -242,7 +245,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 kpt.psit.read_from_file()
 
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
-        for kpt in self.kpt_u:
+        for kpt in self.mykpts:
             kpt.psit = UniformGridWaveFunctions(
                 self.bd.nbands, self.gd, self.dtype, kpt=kpt.q, dist=None,
                 spin=kpt.s, collinear=True)

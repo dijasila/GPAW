@@ -20,11 +20,6 @@ calc = GPAW(h=h,
             convergence=conv,
             occupations=FermiDirac(0.1, fixmagmom=True))
 bulk.set_calculator(calc)
-e = bulk.get_potential_energy()
-niter = calc.get_number_of_iterations()
+bulk.get_potential_energy()
 mom = calc.get_magnetic_moment()
 equal(mom, mom0, 1e-5)
-
-energy_tolerance = 0.0002
-niter_tolerance = 0
-equal(e, -20.3251, energy_tolerance)
