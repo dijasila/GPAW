@@ -47,13 +47,12 @@ class PW(Mode):
         self.dedecut = dedecut
         self.pulay_stress = (None
                              if pulay_stress is None
-                             else pulay_stress * Ang**3 / Ha)
+                             else pulay_stress * Bohr**3 / Ha)
 
         assert pulay_stress is None or dedecut is None
 
         if cell is None:
             self.cell_cv = None
-            assert pulay_stress is None
         else:
             self.cell_cv = cell / Bohr
 
@@ -61,17 +60,17 @@ class PW(Mode):
 
     def __call__(self, diagksl, orthoksl, initksl, gd, *args, **kwargs):
         dedepsilon = 0.0
+        volume = abs(np.linalg.det(gd.cell_cv))
 
         if self.cell_cv is None:
             ecut = self.ecut
         else:
-            volume = abs(np.linalg.det(gd.cell_cv))
             volume0 = abs(np.linalg.det(self.cell_cv))
             ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
-            if self.pulay_stress is not None:
-                dedepsilon = self.pulay_stress * volume0
 
-        if self.dedecut is not None:
+        if self.pulay_stress is not None:
+            dedepsilon = self.pulay_stress * volume
+        elif self.dedecut is not None:
             dedepsilon = self.dedecut * 2 / 3 * ecut
 
         wfs = PWWaveFunctions(ecut, self.fftwflags,
@@ -560,7 +559,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         stress = self.dedepsilon / self.gd.volume * Ha / Bohr**3
         dedecut = 1.5 * self.dedepsilon / self.ecut
         s += ('  Pulay-stress correction: {:.6f} eV/Ang^3 '
-              '(de/decut={:.6f})'.format(stress, dedecut))
+              '(de/decut={:.6f})\n'.format(stress, dedecut))
 
         if fftw.FFTPlan is fftw.NumpyFFTPlan:
             s += "  Using Numpy's FFT\n"
