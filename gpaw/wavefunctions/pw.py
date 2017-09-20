@@ -37,10 +37,18 @@ class PW(Mode):
 
         ecut: float
             Plane-wave cutoff in eV.
+        dedecut: float or None
+            Estimate of derivative of total energy with respect to
+            plane-wave cutoff.  Used to calculate pulay_stress.
+        pulay_stress: float or None
+            Pulay-stress correction.
         fftwflags: int
             Flags for making FFTW plan (default is ESTIMATE).
         cell: 3x3 ndarray
-            Use this unit cell to chose the planewaves."""
+            Use this unit cell to chose the planewaves.
+
+        Only one of dedecut and pulay_stress can be used.
+        """
 
         self.ecut = ecut / Ha
         self.fftwflags = fftwflags
@@ -85,6 +93,10 @@ class PW(Mode):
         dct['ecut'] = self.ecut * Ha
         if self.cell_cv is not None:
             dct['cell'] = self.cell_cv * Bohr
+        if self.pulay_stress is not None:
+            dct['pulay_stress'] = self.pulay_stress * Ha / Bohr**3
+        if self.dedecut is not None:
+            dct['dedecut'] = self.dedecut
         return dct
 
 
