@@ -5,8 +5,6 @@ from gpaw.dipole_correction import dipole_correction
 from gpaw.utilities.extend_grid import extended_grid_descriptor
 from gpaw.utilities.timing import nulltimer
 
-from ase.utils.timing import timer
-
 # TODO
 # 1. Documentation
 # 2. Working examples (there is a test already)
@@ -70,6 +68,13 @@ class ImagePoissonSolver(EPS):
         assert side == 'left' or side == 'right'
         self.side = side
         self.correction = None
+
+    def todict(self):
+        dct = super(ImagePoissonSolver, self).todict()
+        dct['name'] = 'ifd'
+        dct['direction'] = self.c
+        dct['side'] = self.side
+        return dct
 
     def set_grid_descriptor(self, gd):
         # super(ImagePoissonSolver, self).set_grid_descriptor(gd)
