@@ -80,14 +80,13 @@ class PW(Mode):
             dedepsilon = self.pulay_stress * volume
         elif self.dedecut is not None:
             if self.dedecut == 'estimate':
-                dedepsilon = self.setups.estimate_dedecut(ecut) * 2 / 3 * ecut
+                dedepsilon = 'estimate'
             else:
                 dedepsilon = self.dedecut * 2 / 3 * ecut
 
-        wfs = PWWaveFunctions(ecut, self.fftwflags,
+        wfs = PWWaveFunctions(ecut, self.fftwflags, dedepsilon,
                               diagksl, orthoksl, initksl, gd, *args,
                               **kwargs)
-        wfs.dedepsilon = dedepsilon
 
         return wfs
 
@@ -511,12 +510,13 @@ class Preconditioner:
 class PWWaveFunctions(FDPWWaveFunctions):
     mode = 'pw'
 
-    def __init__(self, ecut, fftwflags,
+    def __init__(self, ecut, fftwflags, dedepsilon,
                  diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
         self.fftwflags = fftwflags
+        self.dedepsilon = dedepsilon  # Pulay correction for stress tensor
 
         self.ng_k = None  # number of G-vectors for all IBZ k-points
 
@@ -526,8 +526,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         self.orthoksl.gd = self.pd
         self.matrixoperator = MatrixOperator(self.orthoksl)
-
-        self.dedepsilon = 0.0  # Pulay correction for stress tensor
 
     def empty(self, n=(), global_array=False, realspace=False,
               q=-1):
@@ -559,6 +557,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.pt = PWLFC([setup.pt_j for setup in setups], self.pd)
 
         FDPWWaveFunctions.set_setups(self, setups)
+
+        if self.dedepsilon == 'estimate':
+            dedecut = self.setups.estimate_dedecut(self.ecut)
+            self.dedepsilon = dedecut * 2 / 3 * self.ecut
 
     def __str__(self):
         s = 'Wave functions: Plane wave expansion\n'
