@@ -79,7 +79,10 @@ class PW(Mode):
         if self.pulay_stress is not None:
             dedepsilon = self.pulay_stress * volume
         elif self.dedecut is not None:
-            dedepsilon = self.dedecut * 2 / 3 * ecut
+            if self.dedecut == 'estimate':
+                dedepsilon = self.setups.estimate_dedecut(ecut) * 2 / 3 * ecut
+            else:
+                dedepsilon = self.dedecut * 2 / 3 * ecut
 
         wfs = PWWaveFunctions(ecut, self.fftwflags,
                               diagksl, orthoksl, initksl, gd, *args,
