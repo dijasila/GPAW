@@ -1,6 +1,5 @@
 import numpy as np
 from gpaw.poisson_extended import ExtendedPoissonSolver as EPS
-from gpaw.poisson import FDPoissonSolver
 from gpaw.dipole_correction import dipole_correction
 from gpaw.utilities.extend_grid import extended_grid_descriptor
 from gpaw.utilities.timing import nulltimer
@@ -42,24 +41,13 @@ class ImagePoissonSolver(EPS):
 
     def __init__(self, direction, side, nn=3, relax='J', eps=2e-10,
                  maxiter=1000, extended=None, timer=nulltimer):
-        # super(ImagePoissonSolver, self).__init__(*args, **kwargs)
-        FDPoissonSolver.__init__(self, nn=nn, relax=relax,
-                                 eps=eps, maxiter=maxiter,
-                                 remove_moment=None)
-
-        self.timer = timer
-        self.moment_corrections = None
-        # Broadcast over band, kpt, etc. communicators required?
-        self.requires_broadcast = False
-        self.is_extended = True
         if extended is None:
             extended={'useprev': True}
-        self.extended = extended
-
-        assert 'useprev' in extended.keys(), 'useprev parameter is missing'
-        if self.extended.get('comm') is not None:
-            self.requires_broadcast = True
-
+        extended['skip_init_gpts'] = True
+        super(ImagePoissonSolver, self).__init__(nn=nn, relax=relax, eps=eps,
+                                                 maxiter=maxiter,
+                                                 moment_corrections=None, extended=extended,timer=timer)
+ 
         # XXX Currently z-direction only. Fix this
         assert direction == 2
         self.direction = direction
@@ -69,6 +57,7 @@ class ImagePoissonSolver(EPS):
         self.side = side
         self.correction = None
 
+
     def todict(self):
         dct = super(ImagePoissonSolver, self).todict()
         dct['name'] = 'ifd'
@@ -77,26 +66,22 @@ class ImagePoissonSolver(EPS):
         return dct
 
     def set_grid_descriptor(self, gd):
-        # super(ImagePoissonSolver, self).set_grid_descriptor(gd)
-        self.gd_original = gd
-        finegpts = self.gd_original.N_c.copy()
+        finegpts = gd.N_c.copy()
         finegpts[self.c] *= 2
         self.extended['finegpts'] = finegpts
         self.extended['gpts'] = finegpts // 2
-        extend_N_cd = np.zeros((3,2), dtype=int)
+        self.extended['N_cd'] = np.zeros((3,2), dtype=int)
         if  self.side == 'left':
-            extend_N_cd[self.c,0] = self.gd_original.N_c[self.c]
+            self.extended['N_cd'][self.c,0] = gd.N_c[self.c]
         else:
-            extend_N_cd[self.c,1] = self.gd_original.N_c[self.c]
-        gd, _, _ = extended_grid_descriptor(gd, extend_N_cd=extend_N_cd,
-                                            extcomm=self.extended.get('comm'))
-
-        FDPoissonSolver.set_grid_descriptor(self, gd)
+            self.extended['N_cd'][self.c,1] = gd.N_c[self.c]
 
         # Allow only orthogonal cells for sanities sake
         assert gd.orthogonal
         # This is not supposed to be used with all periodic boundary conditions...
-        assert not self.gd.pbc_c[self.direction]
+        #assert not self.gd.pbc_c[self.direction]
+
+        super(ImagePoissonSolver, self).set_grid_descriptor(gd)
 
     def get_description(self):
         description = super(ImagePoissonSolver, self).get_description()

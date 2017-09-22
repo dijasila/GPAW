@@ -63,10 +63,13 @@ class ExtendedPoissonSolver(FDPoissonSolver):
         if extended is not None:
             self.is_extended = True
             self.extended = extended
-            assert 'gpts' in extended.keys(), 'gpts parameter is missing'
-            self.extended['gpts'] = np.array(self.extended['gpts'])
-            # Multiply gpts by 2 to get gpts on fine grid
-            self.extended['finegpts'] = self.extended['gpts'] * 2
+            if not 'skip_init_gpts' in self.extended.keys():
+                self.extended['skip_init_gpts'] = False
+            if not self.extended['skip_init_gpts']:
+                assert 'gpts' in extended.keys(), 'gpts parameter is missing'
+                self.extended['gpts'] = np.array(self.extended['gpts'])
+                # Multiply gpts by 2 to get gpts on fine grid
+                self.extended['finegpts'] = self.extended['gpts'] * 2
             assert 'useprev' in extended.keys(), 'useprev parameter is missing'
             if self.extended.get('comm') is not None:
                 self.requires_broadcast = True
@@ -76,10 +79,16 @@ class ExtendedPoissonSolver(FDPoissonSolver):
             self.gd_original = gd
             assert np.all(self.gd_original.N_c <= self.extended['finegpts']), \
                 'extended grid has to be larger than the original one'
-            gd, _, _ = extended_grid_descriptor(
-                gd,
-                N_c=self.extended['finegpts'],
-                extcomm=self.extended.get('comm'))
+            if 'N_cd' in self.extended.keys():
+                gd, _, _ = extended_grid_descriptor(
+                    gd,
+                    extend_N_cd=self.extended['N_cd'],
+                    extcomm=self.extended.get('comm'))
+            else:
+                gd, _, _ = extended_grid_descriptor(
+                    gd,
+                    N_c=self.extended['finegpts'],
+                    extcomm=self.extended.get('comm'))
         FDPoissonSolver.set_grid_descriptor(self, gd)
 
     def get_description(self):
