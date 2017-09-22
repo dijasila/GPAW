@@ -199,23 +199,23 @@ we save the gpw files for further processing.  Also, note that we do not
 perform a relaxation for the system with the defect.  Altogether this script
 takes around 20 minutes to complete using 8 processors.
 
-.. literalinclude:: gaas222.py
+.. literalinclude:: gaas.py
 
-By reading the ``results.dat`` text file we obtain an uncorrected
-total energy difference `(E[X^q] - E_0)_\mathrm{uncorrected}` of 21.78 eV.
+By subtracting the energy of the pristine system from the energy of the
+defective system, we obtain an uncorrected total energy difference `(E[X^q] -
+E_0)_\mathrm{uncorrected}` of 21.78 eV.
 
 We now calculate the FNV corrections.  Here we take a dielectric constant of
 12.7 which is the clamped-ion static limit (i.e. the low frequency dielectric
 constant excluding the effects of ionic relaxation).  We use a Gaussian model
-charge centred at (0,0,0) with a FWHM of 2 Bohr.
+charge centred at (0, 0, 0) with a FWHM of 2 Bohr.
 
-The SCRIPT/FUNCTION takes the gpw
-files of the defective and pristine calculation as input, as well as the
-gaussian parameters and dielectric constant.
+The script fnv.py takes the gpw files of the defective and pristine calculation
+as input, as well as the gaussian parameters and dielectric constant, and
+calculates the different terms in the correction scheme. For this case, the
+calculated value of `E_l` is -1.28 eV.
 
-For this case, the calculated value of `E_l` is -1.28 eV
-
-The SCRIPT/FUNCTION also produces an output file ``model_potentials.dat``
+The script also produces an output file ``electrostatic_data.npz``
 which gives the function `\Delta V(z)` introduced above, and also the planar
 averages of the model potential and the difference between the planar
 averages of the defective and pristine electrostatic potentials.  The data
