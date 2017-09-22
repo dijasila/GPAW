@@ -49,6 +49,9 @@ def create_poisson_solver(name='fd', **kwargs):
         return FDTDPoissonSolver(**kwargs)
     elif name == 'fd':
         return PoissonSolver(**kwargs)
+    elif name == 'ifd':
+        from gpaw.poisson_image import ImagePoissonSolver
+        return ImagePoissonSolver(**kwargs)
     1 / 0
 
 
