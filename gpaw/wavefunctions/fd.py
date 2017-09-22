@@ -37,10 +37,12 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def __init__(self, stencil, diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd,
-                 dtype, world, kd, kptband_comm, timer):
+                 dtype, world, kd, kptband_comm, timer, reuse_wfs_method=None):
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
-                                   gd, nvalence, setups, bd,
-                                   dtype, world, kd, kptband_comm, timer)
+                                   reuse_wfs_method=reuse_wfs_method,
+                                   gd=gd, nvalence=nvalence, setups=setups,
+                                   bd=bd, dtype=dtype, world=world, kd=kd,
+                                   kptband_comm=kptband_comm, timer=timer)
 
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype)
@@ -63,9 +65,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
                       self.kd, dtype=self.dtype, forces=True)
         FDPWWaveFunctions.set_setups(self, setups)
 
-    def set_positions(self, spos_ac, atom_partition=None, move_wfs=False):
-        FDPWWaveFunctions.set_positions(self, spos_ac, atom_partition,
-                                        move_wfs=move_wfs)
+    def set_positions(self, spos_ac, atom_partition=None):
+        FDPWWaveFunctions.set_positions(self, spos_ac, atom_partition)
 
     def __str__(self):
         s = 'Wave functions: Uniform real-space grid\n'
@@ -84,7 +85,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.timer.stop('Apply hamiltonian')
 
     def get_pseudo_partial_waves(self):
-        phit_aj = [setup.get_actual_atomic_orbitals() for setup in self.setups]
+        phit_aj = [setup.phit_j for setup in self.setups]
         return LFC(self.gd, phit_aj, kd=self.kd, cut=True, dtype=self.dtype)
 
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):

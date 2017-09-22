@@ -11,14 +11,151 @@ from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 
+class NullWfsMover:
+    description = 'Wavefunctions reused if atoms move'
+
+    def initialize(self, lcaowfs):
+        pass
+
+    def cut_wfs(self, wfs):
+        return lambda spos_ac: None
+
+
+class PseudoPartialWaveWfsMover:
+    description = 'Improved wavefunction reuse through dual PAW basis'
+
+    def initialize(self, lcaowfs):
+        pass
+
+    def cut_wfs(self, wfs):
+        ni_a = {}
+
+        #for a, P_ni in wfs.kpt_u[0].P_ani.items():
+        for a in range(len(wfs.setups)):
+            setup = wfs.setups[a]
+            l_j = [phit.get_angular_momentum_number()
+                   for phit in setup.get_actual_atomic_orbitals()]
+            assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
+            ni_a[a] = sum(2 * l + 1 for l in l_j)
+
+        phit = wfs.get_pseudo_partial_waves()
+        phit.set_positions(wfs.spos_ac)
+
+        def add_phit_to_wfs(multiplier):
+            for kpt in wfs.kpt_u:
+                P_ani = {}
+                for a in kpt.P_ani:
+                    P_ani[a] =  multiplier * kpt.P_ani[a][:, :ni_a[a]]
+                phit.add(kpt.psit_nG, c_axi=P_ani, q=kpt.q)
+
+        add_phit_to_wfs(-1.0)
+
+        def paste(spos_ac):
+            phit.set_positions(spos_ac)
+            add_phit_to_wfs(1.0)
+
+        return paste
+
+
+class LCAOWfsMover:
+    description = 'Improved wavefunction reuse through full LCAO basis'
+
+    def initialize(self, lcaowfs):
+        self.bfs = lcaowfs.basis_functions
+        self.tci = lcaowfs.tci
+        self.S_qMM = lcaowfs.S_qMM
+        self.P_aqMi = lcaowfs.P_aqMi
+
+    def cut_wfs(self, wfs):
+        bfs = self.bfs
+        nq = len(wfs.kd.ibzk_qc)
+        nao = wfs.setups.nao
+        S_qMM = np.empty((nq, nao, nao), wfs.dtype)  # XXX distrib
+        T_qMM = np.empty((nq, nao, nao), wfs.dtype)
+        P_aqMi = {}
+        for a in bfs.my_atom_indices:
+            ni = wfs.setups[a].ni
+            P_aqMi[a] = np.empty((nq, nao, ni), wfs.dtype)
+
+        from gpaw.lcao.atomic_correction import get_atomic_correction
+        corr = get_atomic_correction('dense')
+        from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
+        tci = NewTCI(wfs.gd.cell_cv, wfs.gd.pbc_c, wfs.setups,
+                     wfs.kd.ibzk_qc, wfs.kd.gamma)
+
+        #wfs.tci.set_matrix_distribution(Mstart, mynao)
+        tci.calculate(wfs.spos_ac, S_qMM, T_qMM, P_aqMi)
+        corr.initialize(P_aqMi, wfs.initksl.Mstart, wfs.initksl.Mstop)
+        #corr.add_overlap_correction(wfs, S_qMM)
+        assert len(S_qMM) == 1
+        #print(S_qMM[0])
+
+        #coefs = []
+        #for kpt in wfs.kpt_u:
+        kpt = wfs.kpt_u[0]
+        S_MM = S_qMM[0]
+        from gpaw.utilities.tools import tri2full
+        tri2full(S_MM)
+        X_nM = np.zeros((wfs.bd.mynbands, wfs.setups.nao), wfs.dtype)
+        bfs.integrate2(kpt.psit_nG, c_xM=X_nM, q=kpt.q)
+        c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
+
+
+        def add_bfs_to_wfs(multiplier):
+            bfs.lcao_to_grid(C_xM=c_nM * multiplier,
+                             psit_xG=kpt.psit_nG, q=kpt.q)
+
+        add_bfs_to_wfs(-1.0)
+
+        def paste(spos_ac):
+            bfs.set_positions(spos_ac)
+            add_bfs_to_wfs(1.0)
+
+        return paste
+        #coefs.append(X_nM)
+
+        #if multiplier == -1.0:
+        #    wfs.X_nM = X_nM
+        #else:
+        #    X_nM = wfs.X_nM
+
+        #for u, kpt in enumerate(wfs.kpt_u):
+            #if multiplier == -1.0:
+
+            #else:
+        #invS_MM = np.linalg.inv(S_MM)
+        #c_nM = np.dot(invS_MM.T, X_nM.T).T.copy()
+        #c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
+        #if multiplier == -1.0:
+        #    wfs.prev_c = c_nM
+        #else:
+        #    c_nM = wfs.prev_c
+        #c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
+
+
+
 class FDPWWaveFunctions(WaveFunctions):
     """Base class for finite-difference and planewave classes."""
-    def __init__(self, diagksl, orthoksl, initksl, *args, **kwargs):
-        WaveFunctions.__init__(self, *args, **kwargs)
+    def __init__(self, diagksl, orthoksl, initksl, reuse_wfs_method=None,
+                 **kwargs):
+        WaveFunctions.__init__(self, **kwargs)
 
         self.diagksl = diagksl
         self.orthoksl = orthoksl
         self.initksl = initksl
+        if reuse_wfs_method is None:
+            wfs_mover = NullWfsMover()
+        elif hasattr(reuse_wfs_method, 'cut_wfs'):
+            wfs_mover = reuse_wfs_method
+        elif reuse_wfs_method == 'paw':
+            wfs_mover = PseudoPartialWaveWfsMover()
+        elif reuse_wfs_method == 'lcao':
+            wfs_mover = LCAOWfsMover()
+        else:
+            raise ValueError('Strange way to reuse wfs: {}'
+                             .format(reuse_wfs_method))
+
+        self.wfs_mover = wfs_mover
 
         self.set_orthonormalized(False)
 
@@ -43,7 +180,7 @@ class FDPWWaveFunctions(WaveFunctions):
     def set_orthonormalized(self, flag):
         self.orthonormalized = flag
 
-    def add_pseudo_partial_waves(self, lfc, multiplier=1.0):
+    def add_pseudo_partial_waves(self, lfc, spos_ac, multiplier=1.0):
         """Add localized functions times current projections (P_ani).
 
         Effectively "cut and paste" wavefunctions when moving the atoms.
@@ -61,39 +198,99 @@ class FDPWWaveFunctions(WaveFunctions):
         # We want to ignore projectors for fictional unbound states.
         # That means always picking only some of the lowest functions, i.e.
         # a lower number of 'i' indices:
-        ni_a = {}
+        #ni_a = {}
 
-        for a, P_ni in self.kpt_u[0].P_ani.items():
-            setup = self.setups[a]
-            l_j = [phit.get_angular_momentum_number()
-                   for phit in setup.get_actual_atomic_orbitals()]
-            assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
-            ni_a[a] = sum(2 * l + 1 for l in l_j)
+        #for a, P_ni in self.kpt_u[0].P_ani.items():
+        #    setup = self.setups[a]
+        #    l_j = [phit.get_angular_momentum_number()
+        #           for phit in setup.phit_j]#get_actual_atomic_orbitals()]
+        #    assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
+        #    ni_a[a] = sum(2 * l + 1 for l in l_j)
 
-        for kpt in self.kpt_u:
-            P_ani = {}
-            for a in kpt.P_ani:
-                P_ani[a] =  multiplier * kpt.P_ani[a][:, :ni_a[a]]
-            lfc.add(kpt.psit_nG, c_axi=P_ani, q=kpt.q)
 
-    def set_positions(self, spos_ac, atom_partition=None, move_wfs=False):
-        move_wfs &= (self.kpt_u[0].psit_nG is not None
-                     and self.spos_ac is not None)
+        nq = len(self.kd.ibzk_qc)
+        nao = self.setups.nao
+        S_qMM = np.empty((nq, nao, nao), self.dtype)  # XXX distrib
+        T_qMM = np.empty((nq, nao, nao), self.dtype)
+        P_aqMi = {}
+        for a in lfc.my_atom_indices:
+            ni = self.setups[a].ni
+            P_aqMi[a] = np.empty((nq, nao, ni), self.dtype)
+
+        from gpaw.lcao.atomic_correction import get_atomic_correction
+        corr = get_atomic_correction('dense')
+        from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
+        tci = NewTCI(self.gd.cell_cv, self.gd.pbc_c, self.setups,
+                     self.kd.ibzk_qc, self.kd.gamma)
+
+        #self.tci.set_matrix_distribution(Mstart, mynao)
+        tci.calculate(spos_ac, S_qMM, T_qMM, P_aqMi)
+        corr.initialize(P_aqMi, self.initksl.Mstart, self.initksl.Mstop)
+        #corr.add_overlap_correction(self, S_qMM)
+        assert len(S_qMM) == 1
+        print(S_qMM[0])
+
+        #coefs = []
+        #for kpt in self.kpt_u:
+        kpt = self.kpt_u[0]
+        S_MM = S_qMM[0]
+        from gpaw.utilities.tools import tri2full
+        tri2full(S_MM)
+        X_nM = np.zeros((self.bd.mynbands, self.setups.nao), self.dtype)
+        lfc.integrate2(kpt.psit_nG, c_xM=X_nM, q=kpt.q)
+        #coefs.append(X_nM)
+
+        if multiplier == -1.0:
+            self.X_nM = X_nM
+        else:
+            X_nM = self.X_nM
+
+        #for u, kpt in enumerate(self.kpt_u):
+            #if multiplier == -1.0:
+
+            #else:
+        #invS_MM = np.linalg.inv(S_MM)
+        #c_nM = np.dot(invS_MM.T, X_nM.T).T.copy()
+        c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
+        if multiplier == -1.0:
+            self.prev_c = c_nM
+        else:
+            c_nM = self.prev_c
+        #c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
+        lfc.lcao_to_grid(C_xM=c_nM * multiplier,
+                         psit_xG=kpt.psit_nG, q=kpt.q)
+
+
+        #if 0:  # Using projections
+        #    for kpt in self.kpt_u:
+        #        P_ani = {}
+        #        for a in kpt.P_ani:
+        #            P_ani[a] =  multiplier * kpt.P_ani[a][:, :ni_a[a]]
+        #        lfc.add(kpt.psit_nG, c_axi=P_ani, q=kpt.q)
+
+    def set_positions(self, spos_ac, atom_partition=None):
+        move_wfs = (self.kpt_u[0].psit_nG is not None
+                    and self.spos_ac is not None)
 
         if move_wfs:
+            paste_wfs = self.wfs_mover.cut_wfs(self)
+        #if move_wfs:
             # Subtract pseudo partial waves times projections at old positions:
-            bfs = self.get_pseudo_partial_waves()
-            bfs.set_positions(self.spos_ac)
-            self.add_pseudo_partial_waves(bfs, multiplier=-1.0)
+        #    bfs = self.get_pseudo_partial_waves()
+        #    bfs.set_positions(self.spos_ac)
+        #    self.add_pseudo_partial_waves(bfs, self.spos_ac, multiplier=-1.0)
 
         WaveFunctions.set_positions(self, spos_ac, atom_partition)
 
         if move_wfs:
+            paste_wfs(spos_ac)
+
+        #if move_wfs:
             # Add pseudo partial waves times projections at new positions:
             # (The projections dictionary was updated by the superclass
             #  in case some atoms moved between domains)
-            bfs.set_positions(spos_ac)
-            self.add_pseudo_partial_waves(bfs, multiplier=1.0)
+        #    bfs.set_positions(spos_ac)
+        #    self.add_pseudo_partial_waves(bfs, spos_ac, multiplier=1.0)
 
         self.set_orthonormalized(False)
         self.pt.set_positions(spos_ac)
@@ -172,6 +369,8 @@ class FDPWWaveFunctions(WaveFunctions):
         # Transfer coefficients ...
         for kpt, lcaokpt in zip(self.kpt_u, lcaowfs.kpt_u):
             kpt.C_nM = lcaokpt.C_nM
+
+        self.wfs_mover.initialize(lcaowfs)
 
         # and get rid of potentially big arrays early:
         del eigensolver, lcaowfs
