@@ -63,43 +63,44 @@ class LCAOWfsMover:
     def initialize(self, lcaowfs):
         self.bfs = lcaowfs.basis_functions
         self.tci = lcaowfs.tci
-        self.S_qMM = lcaowfs.S_qMM
-        self.P_aqMi = lcaowfs.P_aqMi
+        #self.S_qMM = lcaowfs.S_qMM
+        #self.P_aqMi = lcaowfs.P_aqMi
 
     def cut_wfs(self, wfs):
         bfs = self.bfs
+        bfs.set_positions(wfs.spos_ac)
+
         nq = len(wfs.kd.ibzk_qc)
         nao = wfs.setups.nao
-        S_qMM = np.empty((nq, nao, nao), wfs.dtype)  # XXX distrib
-        T_qMM = np.empty((nq, nao, nao), wfs.dtype)
+        S_qMM = np.empty((nq, nao, nao), wfs.dtype)  # XXX distribution?
+        T_qMM = np.empty((nq, nao, nao), wfs.dtype)  # XXX do not calculate at all
         P_aqMi = {}
         for a in bfs.my_atom_indices:
             ni = wfs.setups[a].ni
             P_aqMi[a] = np.empty((nq, nao, ni), wfs.dtype)
 
-        from gpaw.lcao.atomic_correction import get_atomic_correction
-        corr = get_atomic_correction('dense')
-        from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
-        tci = NewTCI(wfs.gd.cell_cv, wfs.gd.pbc_c, wfs.setups,
-                     wfs.kd.ibzk_qc, wfs.kd.gamma)
+        #from gpaw.lcao.atomic_correction import get_atomic_correction
+        #corr = get_atomic_correction('dense')
+        #from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
+        #tci = NewTCI(wfs.gd.cell_cv, wfs.gd.pbc_c, wfs.setups,
+        #             wfs.kd.ibzk_qc, wfs.kd.gamma)
 
         #wfs.tci.set_matrix_distribution(Mstart, mynao)
-        tci.calculate(wfs.spos_ac, S_qMM, T_qMM, P_aqMi)
-        corr.initialize(P_aqMi, wfs.initksl.Mstart, wfs.initksl.Mstop)
+        self.tci.calculate(wfs.spos_ac, S_qMM, T_qMM, P_aqMi)
+        #corr.initialize(P_aqMi, wfs.initksl.Mstart, wfs.initksl.Mstop)
         #corr.add_overlap_correction(wfs, S_qMM)
         assert len(S_qMM) == 1
-        #print(S_qMM[0])
+        print(S_qMM[0])
 
-        #coefs = []
-        #for kpt in wfs.kpt_u:
         kpt = wfs.kpt_u[0]
         S_MM = S_qMM[0]
         from gpaw.utilities.tools import tri2full
         tri2full(S_MM)
+        wfs.gd.comm.sum(S_MM)
         X_nM = np.zeros((wfs.bd.mynbands, wfs.setups.nao), wfs.dtype)
         bfs.integrate2(kpt.psit_nG, c_xM=X_nM, q=kpt.q)
+        wfs.gd.comm.sum(X_nM)
         c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
-
 
         def add_bfs_to_wfs(multiplier):
             bfs.lcao_to_grid(C_xM=c_nM * multiplier,
@@ -112,26 +113,6 @@ class LCAOWfsMover:
             add_bfs_to_wfs(1.0)
 
         return paste
-        #coefs.append(X_nM)
-
-        #if multiplier == -1.0:
-        #    wfs.X_nM = X_nM
-        #else:
-        #    X_nM = wfs.X_nM
-
-        #for u, kpt in enumerate(wfs.kpt_u):
-            #if multiplier == -1.0:
-
-            #else:
-        #invS_MM = np.linalg.inv(S_MM)
-        #c_nM = np.dot(invS_MM.T, X_nM.T).T.copy()
-        #c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
-        #if multiplier == -1.0:
-        #    wfs.prev_c = c_nM
-        #else:
-        #    c_nM = wfs.prev_c
-        #c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
-
 
 
 class FDPWWaveFunctions(WaveFunctions):
