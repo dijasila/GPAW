@@ -17,8 +17,8 @@ class NullWfsMover:
     def initialize(self, lcaowfs):
         pass
 
-    def cut_wfs(self, wfs):
-        return lambda spos_ac: None
+    def cut_wfs(self, wfs, spos_ac):
+        pass
 
 
 class PseudoPartialWaveWfsMover:
@@ -27,7 +27,7 @@ class PseudoPartialWaveWfsMover:
     def initialize(self, lcaowfs):
         pass
 
-    def cut_wfs(self, wfs):
+    def cut_wfs(self, wfs, spos_ac):
         ni_a = {}
 
         #for a, P_ni in wfs.kpt_u[0].P_ani.items():
@@ -50,7 +50,7 @@ class PseudoPartialWaveWfsMover:
 
         add_phit_to_wfs(-1.0)
 
-        def paste(spos_ac):
+        def paste():
             phit.set_positions(spos_ac)
             add_phit_to_wfs(1.0)
 
@@ -58,17 +58,33 @@ class PseudoPartialWaveWfsMover:
 
 
 class LCAOWfsMover:
+    """Move wavefunctions with atoms according to LCAO basis.
+
+    Approximate wavefunctions as a linear combination of atomic
+    orbitals, then subtract that linear combination and re-add
+    it after moving the atoms using the same coefficients.
+
+    The coefficients c are determined by the equation
+
+               /    *  _  ^  ~   _   _    --
+      X     =  | Phi  (r) S psi (r) dr =  >  S      c
+       n mu    /    mu         n          --  mu nu  nu n
+                                          nu
+
+    We calculate X directly and then solve for c.
+    """
     description = 'Improved wavefunction reuse through full LCAO basis'
 
     def initialize(self, lcaowfs):
         self.bfs = lcaowfs.basis_functions
         self.tci = lcaowfs.tci
-        #self.S_qMM = lcaowfs.S_qMM
-        #self.P_aqMi = lcaowfs.P_aqMi
 
-    def cut_wfs(self, wfs):
+    def cut_wfs(self, wfs, spos_ac):
+        # XXX Must forward vars from LCAO initialization object
+        # in order to not need to recalculate them.
+        # Also, if we get the vars from the LCAO init object,
+        # we can rely on those parallelization settings without danger.
         bfs = self.bfs
-        bfs.set_positions(wfs.spos_ac)
 
         nq = len(wfs.kd.ibzk_qc)
         nao = wfs.setups.nao
@@ -79,40 +95,41 @@ class LCAOWfsMover:
             ni = wfs.setups[a].ni
             P_aqMi[a] = np.empty((nq, nao, ni), wfs.dtype)
 
-        #from gpaw.lcao.atomic_correction import get_atomic_correction
-        #corr = get_atomic_correction('dense')
-        #from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
-        #tci = NewTCI(wfs.gd.cell_cv, wfs.gd.pbc_c, wfs.setups,
-        #             wfs.kd.ibzk_qc, wfs.kd.gamma)
-
-        #wfs.tci.set_matrix_distribution(Mstart, mynao)
+        from gpaw.lcao.atomic_correction import get_atomic_correction
+        corr = get_atomic_correction('dense')
+        # We can inherit S_qMM and P_aqMi from the initialization in the
+        # first step, then recalculate them for subsequent steps.
         self.tci.calculate(wfs.spos_ac, S_qMM, T_qMM, P_aqMi)
-        #corr.initialize(P_aqMi, wfs.initksl.Mstart, wfs.initksl.Mstop)
-        #corr.add_overlap_correction(wfs, S_qMM)
-        assert len(S_qMM) == 1
-        print(S_qMM[0])
+        del T_qMM  # XXX
+        corr.initialize(P_aqMi, wfs.initksl.Mstart, wfs.initksl.Mstop)
+        corr.add_overlap_correction(wfs, S_qMM)
+        wfs.gd.comm.sum(S_qMM)
+        c_unM = []
+        for kpt in wfs.kpt_u:
+            S_MM = S_qMM[kpt.q]
+            X_nM = np.zeros((wfs.bd.mynbands, wfs.setups.nao), wfs.dtype)
+            # XXX use some blocksize to reduce memory usage?
+            opsit_nG = np.zeros_like(kpt.psit_nG)
+            wfs.overlap.apply(kpt.psit_nG, opsit_nG, wfs, kpt,
+                              calculate_P_ani=True)
+            bfs.integrate2(opsit_nG, c_xM=X_nM, q=kpt.q)
+            wfs.gd.comm.sum(X_nM)
 
-        kpt = wfs.kpt_u[0]
-        S_MM = S_qMM[0]
-        from gpaw.utilities.tools import tri2full
-        tri2full(S_MM)
-        wfs.gd.comm.sum(S_MM)
-        X_nM = np.zeros((wfs.bd.mynbands, wfs.setups.nao), wfs.dtype)
-        bfs.integrate2(kpt.psit_nG, c_xM=X_nM, q=kpt.q)
-        wfs.gd.comm.sum(X_nM)
-        c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
+            # Mind band parallelization / ScaLAPACK
+            # Actually we can probably ignore ScaLAPACK for FD/PW calculations
+            # since we never adapted Davidson to those.  Although people
+            # may have requested ScaLAPACK for LCAO initialization.
+            c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
 
-        def add_bfs_to_wfs(multiplier):
-            bfs.lcao_to_grid(C_xM=c_nM * multiplier,
-                             psit_xG=kpt.psit_nG, q=kpt.q)
+            #c_nM *= 0  # This disables the whole mechanism
+            bfs.lcao_to_grid(C_xM=-c_nM, psit_xG=kpt.psit_nG, q=kpt.q)
+            c_unM.append(c_nM)
 
-        add_bfs_to_wfs(-1.0)
+        del opsit_nG
 
-        def paste(spos_ac):
-            bfs.set_positions(spos_ac)
-            add_bfs_to_wfs(1.0)
-
-        return paste
+        bfs.set_positions(spos_ac)
+        for u, kpt in enumerate(wfs.kpt_u):
+            bfs.lcao_to_grid(C_xM=c_unM[u], psit_xG=kpt.psit_nG, q=kpt.q)
 
 
 class FDPWWaveFunctions(WaveFunctions):
@@ -254,24 +271,15 @@ class FDPWWaveFunctions(WaveFunctions):
                     and self.spos_ac is not None)
 
         if move_wfs:
-            paste_wfs = self.wfs_mover.cut_wfs(self)
-        #if move_wfs:
-            # Subtract pseudo partial waves times projections at old positions:
-        #    bfs = self.get_pseudo_partial_waves()
-        #    bfs.set_positions(self.spos_ac)
-        #    self.add_pseudo_partial_waves(bfs, self.spos_ac, multiplier=-1.0)
+            paste_wfs = self.wfs_mover.cut_wfs(self, spos_ac)
 
+        # This will update the positions -- and transfer, if necessary --
+        # the projection matrices which may be necessary for updating
+        # the wavefunctions.
         WaveFunctions.set_positions(self, spos_ac, atom_partition)
 
-        if move_wfs:
-            paste_wfs(spos_ac)
-
-        #if move_wfs:
-            # Add pseudo partial waves times projections at new positions:
-            # (The projections dictionary was updated by the superclass
-            #  in case some atoms moved between domains)
-        #    bfs.set_positions(spos_ac)
-        #    self.add_pseudo_partial_waves(bfs, spos_ac, multiplier=1.0)
+        if move_wfs and paste_wfs is not None:
+            paste_wfs()
 
         self.set_orthonormalized(False)
         self.pt.set_positions(spos_ac)
