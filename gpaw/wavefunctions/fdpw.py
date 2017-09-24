@@ -87,10 +87,22 @@ class LCAOWfsMover:
     """
     description = 'Improved wavefunction reuse through full LCAO basis'
 
+    # TODO/FIXME
+    # * Get rid of the unnecessary T matrix
+    # * Only recalculate S/P when necessary (not first time)
+    # * Full parallelization support (ScaLAPACK, check scipy atomic correction)
+    #   Also replace np.linalg.solve by parallel/efficient thing
+    # * Broken with PW mode because PW mode has very funny P_ani shapes.
+    #   Also PW does not use the overlap object; this may be related
+    # * Can we use updated S matrix to construct better guess?
+
     def initialize(self, lcaowfs):
         self.bfs = lcaowfs.basis_functions
         self.tci = lcaowfs.tci
         self.atomic_correction = lcaowfs.atomic_correction
+        self.S_qMM = lcaowfs.S_qMM
+        self.T_qMM = lcaowfs.T_qMM  # Get rid of this
+        self.P_aqMi = lcaowfs.P_aqMi
 
     def cut_wfs(self, wfs, spos_ac):
         # XXX Must forward vars from LCAO initialization object
@@ -101,22 +113,21 @@ class LCAOWfsMover:
 
         nq = len(wfs.kd.ibzk_qc)
         nao = wfs.setups.nao
-        S_qMM = np.empty((nq, nao, nao), wfs.dtype)  # XXX distribution?
-        T_qMM = np.empty((nq, nao, nao), wfs.dtype)  # XXX do not calculate at all
-        P_aqMi = {}
-        for a in bfs.my_atom_indices:
-            ni = wfs.setups[a].ni
-            P_aqMi[a] = np.empty((nq, nao, ni), wfs.dtype)
+        P_aqMi = self.P_aqMi
+        S_qMM = self.S_qMM
 
-        #from gpaw.lcao.atomic_correction import get_atomic_correction
-        #corr = get_atomic_correction('dense')
         # We can inherit S_qMM and P_aqMi from the initialization in the
         # first step, then recalculate them for subsequent steps.
-        self.tci.calculate(wfs.spos_ac, S_qMM, T_qMM, P_aqMi)
-        del T_qMM  # XXX
-        self.atomic_correction.initialize(P_aqMi, wfs.initksl.Mstart, wfs.initksl.Mstop)
+        wfs.timer.start('reuse wfs')
+        wfs.timer.start('tci calculate')
+        self.tci.calculate(wfs.spos_ac, S_qMM, self.T_qMM, P_aqMi)  # kill T
+        wfs.timer.stop('tci calculate')
+        self.atomic_correction.initialize(P_aqMi,
+                                          wfs.initksl.Mstart, wfs.initksl.Mstop)
         #self.atomic_correction.gobble_data(wfs)
+        wfs.timer.start('lcao overlap correction')
         self.atomic_correction.add_overlap_correction(wfs, S_qMM)
+        wfs.timer.stop('lcao overlap correction')
         wfs.gd.comm.sum(S_qMM)
         c_unM = []
         for kpt in wfs.kpt_u:
@@ -124,10 +135,16 @@ class LCAOWfsMover:
             X_nM = np.zeros((wfs.bd.mynbands, wfs.setups.nao), wfs.dtype)
             # XXX use some blocksize to reduce memory usage?
             opsit_nG = np.zeros_like(kpt.psit_nG)
+            wfs.timer.start('wfs overlap')
             wfs.overlap.apply(kpt.psit_nG, opsit_nG, wfs, kpt,
                               calculate_P_ani=False)
+            wfs.timer.stop('wfs overlap')
+            wfs.timer.start('bfs integrate')
             bfs.integrate2(opsit_nG, c_xM=X_nM, q=kpt.q)
+            wfs.timer.stop('bfs integrate')
+            wfs.timer.start('gd comm sum')
             wfs.gd.comm.sum(X_nM)
+            wfs.timer.stop('gd comm sum')
 
             # Mind band parallelization / ScaLAPACK
             # Actually we can probably ignore ScaLAPACK for FD/PW calculations
@@ -136,14 +153,24 @@ class LCAOWfsMover:
             c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
 
             #c_nM *= 0  # This disables the whole mechanism
+            wfs.timer.start('lcao to grid')
             bfs.lcao_to_grid(C_xM=-c_nM, psit_xG=kpt.psit_nG, q=kpt.q)
+            wfs.timer.stop('lcao to grid')
             c_unM.append(c_nM)
 
         del opsit_nG
 
+        wfs.timer.start('bfs set pos')
         bfs.set_positions(spos_ac)
+        wfs.timer.stop('bfs set pos')
+
+        # Is it possible to recalculate the overlaps and make use of how
+        # they have changed here?
+        wfs.timer.start('re-add wfs')
         for u, kpt in enumerate(wfs.kpt_u):
             bfs.lcao_to_grid(C_xM=c_unM[u], psit_xG=kpt.psit_nG, q=kpt.q)
+        wfs.timer.stop('re-add wfs')
+        wfs.timer.stop('reuse wfs')
 
 
 class FDPWWaveFunctions(WaveFunctions):
