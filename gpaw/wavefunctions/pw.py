@@ -51,8 +51,8 @@ class PW(Mode):
 
         Mode.__init__(self, force_complex_dtype)
 
-    def __call__(self, diagksl, orthoksl, initksl, wfs_reuse_method,
-                 gd, *args, **kwargs):
+    def __call__(self, diagksl, orthoksl, initksl,
+                 gd, **kwargs):
         if self.cell_cv is None:
             ecut = self.ecut
         else:
@@ -61,8 +61,7 @@ class PW(Mode):
             ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
 
         wfs = PWWaveFunctions(ecut, self.fftwflags,
-                              diagksl, orthoksl, initksl, gd, *args,
-                              wfs_reuse_method=wfs_reuse_method,
+                              diagksl, orthoksl, initksl, gd=gd,
                               **kwargs)
         return wfs
 
@@ -484,7 +483,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     def __init__(self, ecut, fftwflags,
                  diagksl, orthoksl, initksl,
-                 wfs_reuse_method,
+                 reuse_wfs_method,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
@@ -493,7 +492,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.ng_k = None  # number of G-vectors for all IBZ k-points
 
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
-                                   wfs_reuse_method=wfs_reuse_method,
+                                   reuse_wfs_method=reuse_wfs_method,
                                    gd=gd, nvalence=nvalence, setups=setups,
                                    bd=bd, dtype=dtype, world=world, kd=kd,
                                    kptband_comm=kptband_comm, timer=timer)
