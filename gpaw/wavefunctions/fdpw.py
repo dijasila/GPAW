@@ -111,7 +111,7 @@ class LCAOWfsMover:
             # XXX use some blocksize to reduce memory usage?
             opsit_nG = np.zeros_like(kpt.psit_nG)
             wfs.overlap.apply(kpt.psit_nG, opsit_nG, wfs, kpt,
-                              calculate_P_ani=True)
+                              calculate_P_ani=False)
             bfs.integrate2(opsit_nG, c_xM=X_nM, q=kpt.q)
             wfs.gd.comm.sum(X_nM)
 
