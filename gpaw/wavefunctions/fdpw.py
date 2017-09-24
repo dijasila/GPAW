@@ -22,6 +22,18 @@ class NullWfsMover:
 
 
 class PseudoPartialWaveWfsMover:
+    """Move wavefunctions with atoms according to PAW basis
+
+    Wavefunctions are approximated around atom a as
+
+       ~          --  ~ a      ~a    ~
+      psi (r)  ~  >  phi (r) < p  | psi >
+         n        --    i       i      n
+                  ai
+
+    This quantity is then subtracted and re-added at the new
+    positions.
+    """
     description = 'Improved wavefunction reuse through dual PAW basis'
 
     def initialize(self, lcaowfs):
@@ -78,6 +90,7 @@ class LCAOWfsMover:
     def initialize(self, lcaowfs):
         self.bfs = lcaowfs.basis_functions
         self.tci = lcaowfs.tci
+        self.atomic_correction = lcaowfs.atomic_correction
 
     def cut_wfs(self, wfs, spos_ac):
         # XXX Must forward vars from LCAO initialization object
@@ -95,14 +108,15 @@ class LCAOWfsMover:
             ni = wfs.setups[a].ni
             P_aqMi[a] = np.empty((nq, nao, ni), wfs.dtype)
 
-        from gpaw.lcao.atomic_correction import get_atomic_correction
-        corr = get_atomic_correction('dense')
+        #from gpaw.lcao.atomic_correction import get_atomic_correction
+        #corr = get_atomic_correction('dense')
         # We can inherit S_qMM and P_aqMi from the initialization in the
         # first step, then recalculate them for subsequent steps.
         self.tci.calculate(wfs.spos_ac, S_qMM, T_qMM, P_aqMi)
         del T_qMM  # XXX
-        corr.initialize(P_aqMi, wfs.initksl.Mstart, wfs.initksl.Mstop)
-        corr.add_overlap_correction(wfs, S_qMM)
+        self.atomic_correction.initialize(P_aqMi, wfs.initksl.Mstart, wfs.initksl.Mstop)
+        #self.atomic_correction.gobble_data(wfs)
+        self.atomic_correction.add_overlap_correction(wfs, S_qMM)
         wfs.gd.comm.sum(S_qMM)
         c_unM = []
         for kpt in wfs.kpt_u:
