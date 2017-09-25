@@ -37,7 +37,7 @@ class PW(Mode):
 
         ecut: float
             Plane-wave cutoff in eV.
-        dedecut: float or None
+        dedecut: float or None or 'estimate'
             Estimate of derivative of total energy with respect to
             plane-wave cutoff.  Used to calculate pulay_stress.
         pulay_stress: float or None
