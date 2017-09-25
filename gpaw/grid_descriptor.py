@@ -85,7 +85,7 @@ class GridDescriptor(Domain):
         parsize_c: tuple of 3 ints, a single int or None
             Number of domains.
 
-        Note that if pbc_c[c] is True, then the actual number of gridpoints
+        Note that if pbc_c[c] is False, then the actual number of gridpoints
         along axis c is one less than N_c[c].
 
         Attributes:

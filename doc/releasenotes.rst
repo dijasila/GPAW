@@ -70,6 +70,9 @@ Git master branch
 * New ``gpaw archive`` sub-command of the :ref:`cli`.  See the
   :func:`gpaw.archive` function for more details.
 
+* The :class:`gpaw.utilities.ps2ae.PS2AE` tool can now also calculate the
+  all-electron electrostatic potential.
+
 
 Version 1.2.0
 =============
