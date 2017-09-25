@@ -62,6 +62,8 @@ class InverseOverlapPreconditioner:
 
 class FDTDDFTMode(FD):
     def __call__(self, *args, **kwargs):
+        reuse_wfs_method = kwargs.pop('reuse_wfs_method', None)
+        assert reuse_wfs_method is None
         return TimeDependentWaveFunctions(self.nn, *args, **kwargs)
 
 
