@@ -263,8 +263,7 @@ class GPAW(PAW, Calculator):
                 self.scf = None
                 self.initialize(atoms)
 
-            #move_wfs = self.parameters.experimental['move_wfs_with_atoms']
-            self.set_positions(atoms)#, move_wfs=move_wfs)
+            self.set_positions(atoms)
 
         if not self.initialized:
             self.initialize(atoms)
@@ -417,7 +416,7 @@ class GPAW(PAW, Calculator):
             else:
                 raise TypeError('Unknown keyword argument: "%s"' % key)
 
-    def initialize_positions(self, atoms=None):#, move_wfs=False):
+    def initialize_positions(self, atoms=None):
         """Update the positions of the atoms."""
         self.log('Initializing position-dependent things.\n')
         if atoms is None:
@@ -432,15 +431,15 @@ class GPAW(PAW, Calculator):
 
         rank_a = self.wfs.gd.get_ranks_from_positions(spos_ac)
         atom_partition = AtomPartition(self.wfs.gd.comm, rank_a, name='gd')
-        self.wfs.set_positions(spos_ac, atom_partition)#, move_wfs=move_wfs)
+        self.wfs.set_positions(spos_ac, atom_partition)
         self.density.set_positions(spos_ac, atom_partition)
         self.hamiltonian.set_positions(spos_ac, atom_partition)
 
         return spos_ac
 
-    def set_positions(self, atoms=None):#, move_wfs=False):
+    def set_positions(self, atoms=None):
         """Update the positions of the atoms and initialize wave functions."""
-        spos_ac = self.initialize_positions(atoms)#, move_wfs=move_wfs)
+        spos_ac = self.initialize_positions(atoms)
 
         nlcao, nrand = self.wfs.initialize(self.density, self.hamiltonian,
                                            spos_ac)
@@ -948,7 +947,6 @@ class GPAW(PAW, Calculator):
 
         wfs_kwargs = dict(gd=gd, nvalence=nvalence, setups=setups,
                           bd=bd, dtype=dtype, world=self.world, kd=kd,
-                          reuse_wfs_method=par.experimental['reuse_wfs_method'],
                           kptband_comm=kptband_comm, timer=self.timer)
 
         if self.parallel['sl_auto']:
@@ -1034,7 +1032,10 @@ class GPAW(PAW, Calculator):
                                                dtype, nao=nao,
                                                timer=self.timer)
 
-            self.wfs = mode(diagksl, orthoksl, initksl, **wfs_kwargs)
+            reuse_wfs_method = par.experimental['reuse_wfs_method']
+            self.wfs = mode(diagksl, orthoksl, initksl,
+                            reuse_wfs_method=reuse_wfs_method,
+                            **wfs_kwargs)
         else:
             self.wfs = mode(self, **wfs_kwargs)
 
