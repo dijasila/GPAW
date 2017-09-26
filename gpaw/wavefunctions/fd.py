@@ -176,7 +176,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     for Psit_G in Psit_nG:
                         Psit_G[:] = self.kd.transform_wave_function(Psit_G, k)
                 kpt.psit = UniformGridWaveFunctions(
-                    self.bd.nbands, self.gd, self.dtype, psit_nG,
+                    self.bd.nbands, self.gd, self.dtype, Psit_nG,
                     kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
                     spin=kpt.s, collinear=True)
                 self.gd.distribute(Psit_nG, kpt2.psit_nG)
