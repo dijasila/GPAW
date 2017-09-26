@@ -28,7 +28,7 @@ class CLICommand:
                 key, value = kv.split('=')
                 kvp[key] = value
 
-        id, folder = archive(args.filename, None, args.key_value_pairs)
+        id, folder = archive(args.filename, None, kvp)
 
         print('ID: ', id)
         print('GPW:', os.path.join(folder, '{}.gpw'.format(id)))
