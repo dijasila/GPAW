@@ -5,6 +5,7 @@
 #include "extensions.h"
 #include "localized_functions.h"
 #include "bmgs/bmgs.h"
+#include "spline.h"
 #include <complex.h>
 
 #ifdef GPAW_NO_UNDERSCORE_BLAS
@@ -47,6 +48,81 @@ void cut(const double* a, const int n[3], const int c[3],
         }
       a += n[2] * (n[1] - m[1]);
     }
+}
+
+PyObject *tci_overlap(PyObject *self, PyObject *args)
+{
+    /*
+    Calculate two-center integral overlaps:
+
+             --       --          l      _
+      x   =  >  s (r) >  G       r  Y   (r)
+       LL'   --  l    --  LL'L''     L''
+              l       L''
+    */
+    int la, lb;
+    PyObject *spline_l;
+    double r;
+
+    PyArrayObject *G_LLL_obj, *rlY_L_obj, *x_mi_obj;
+
+    if (!PyArg_ParseTuple(args, "iiOOdOO", &la, &lb, &G_LLL_obj, &spline_l, &r,
+                          &rlY_L_obj, &x_mi_obj))
+        return NULL;
+    SplineObject *spline_obj;
+    bmgsspline *spline;
+
+    double *x_mi = (double *) PyArray_DATA(x_mi_obj);  // dtype
+    double *G_LLL = (double *) PyArray_DATA(G_LLL_obj);
+    double *rlY_L = (double *) PyArray_DATA(rlY_L_obj);
+
+    int Lastart = la * la;
+    int Lbstart = lb * lb;
+
+    int l = (la + lb) % 2;
+    int nsplines = PyList_Size(spline_l);
+    int ispline;
+    int itemsize = PyArray_ITEMSIZE(G_LLL_obj);
+    npy_intp *strides = PyArray_STRIDES(G_LLL_obj);
+    int stride0 = strides[0] / itemsize;
+    int stride1 = strides[1] / itemsize;
+    npy_intp *xstrides = PyArray_STRIDES(x_mi_obj);
+
+    int xstride = xstrides[0] / itemsize;
+
+    G_LLL += Lastart * stride0 + Lbstart * stride1;
+
+    for(ispline=0; ispline < nsplines; ispline++, l+=2) {
+        int Lstart = l * l;
+        spline_obj = (SplineObject*)PyList_GET_ITEM(spline_l, ispline);
+        spline = &spline_obj->spline;
+        double s = bmgs_splinevalue(spline, r);
+
+        if(fabs(s) < 1e-10) {
+            continue;
+        }
+
+        int nm1 = 2 * la + 1;
+        int nm2 = 2 * lb + 1;
+
+        int m1, m2, L;
+        int nL = 2 * l + 1;
+        double srlY_L[2 * l + 1];  // Variable but very small alloc on stack
+        for(L=0; L < nL; L++) {
+            srlY_L[L] = s * rlY_L[Lstart + L];
+        }
+
+        for(m1=0; m1 < nm1; m1++) {
+            for(m2=0; m2 < nm2; m2++) {
+                double x = 0.0;
+                for(L=0; L < nL; L++) {
+                    x += G_LLL[stride0 * m1 + stride1 * m2 + Lstart + L] * srlY_L[L];
+                }
+                x_mi[m1 * xstride + m2] += x;
+            }
+        }
+    }
+    Py_RETURN_NONE;
 }
 
 
