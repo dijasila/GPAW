@@ -32,11 +32,11 @@ class NoDistribution:
 
     def multiply(self, alpha, a, opa, b, opb, beta, c):
         if beta == 0.0:
-            c2 = alpha * np.dot(op(a.array, opa), op(b.array, opb))
+            c2 = alpha * np.dot(op(a._array, opa), op(b._array, opb))
         else:
             assert beta == 1.0
-            c2 = c.array + alpha * np.dot(op(a.array, opa), op(b.array, opb))
-        c.array[:] = c2
+            c2 = c._array + alpha * np.dot(op(a._array, opa), op(b._array, opb))
+        c._array[:] = c2
         return
 
         # print(self is b, self is b.source)
@@ -165,11 +165,16 @@ class Matrix:
         self.dist = dist
 
         if data is None:
-            self.array = np.empty(dist.shape, self.dtype, order=order)
+            self._array = np.empty(dist.shape, self.dtype, order=order)
         else:
-            self.array = data.reshape(dist.shape)
+            self._array = data.reshape(dist.shape)
 
-        # self.transposed = self.array.flags['F_CONTIGUOUS']
+        self.comm_to_be_summed_over = None
+
+    @property
+    def array(self):
+        self.finish_sums()
+        return self._array
 
     def __len__(self):
         return self.shape[0]
@@ -182,7 +187,9 @@ class Matrix:
         return Matrix(*self.shape, dtype=self.dtype, dist=self.dist)
 
     def finish_sums(self):
-        pass
+        if self.comm_to_be_summed_over is not None:
+            self.comm_to_be_summed_over.sum(self._array.T, 0)
+        self.comm_to_be_summed_over = None
 
     def __setitem__(self, i, x):
         # assert i == slice(None)
@@ -246,15 +253,12 @@ class Matrix:
         return out
 
     def cholesky(self):
-        self.finish_sums()
         self.dist.cholesky(self.array)
 
     def inv(self):
-        self.finish_sums()
         self.dist.inv(self.array)
 
     def eigh(self, eps_n):
-        self.finish_sums()
         self.dist.eigh(self.array, eps_n)
 
 

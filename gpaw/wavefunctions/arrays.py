@@ -34,7 +34,6 @@ class ArrayWaveFunctions:
         else:
             self.matrix = MatrixInFile(M, N, dtype, data, dist)
             self.in_memory = False
-        self.comm_to_be_summed_over = None
         self.comm = None
         self.dtype = self.matrix.dtype
 
@@ -44,11 +43,6 @@ class ArrayWaveFunctions:
     def read_from_file(self):
         self.matrix = self.matrix.read(self.gd)
         self.in_memory = True
-
-    def finish_sumssss(self):
-        if self.comm_to_be_summed_over and not self.transposed:
-            self.comm_to_be_summed_over.sum(self.a, 0)
-        self.comm_to_be_summed_over = None
 
     def multiply(self, alpha, opa, b, opb, beta, c):
         self.matrix.multiply(alpha, opa, b.matrix, opb, beta, c)
@@ -79,14 +73,13 @@ class ArrayWaveFunctions:
 class UniformGridWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, gd, dtype=None, data=None, kpt=None, dist=None,
                  spin=0, collinear=True):
-        ngpts = gd.get_size_of_global_array().prod()
+        ngpts = gd.n_c.prod()
         ArrayWaveFunctions.__init__(self, nbands, ngpts, dtype, data, dist)
 
         M = self.matrix
 
         if data is None:
-            M.array = M.array.reshape(-1).reshape(M.dist.shape)
-            M.transposed = False
+            M._array = M._array.reshape(-1).reshape(M.dist.shape)
 
         self.myshape = (M.dist.shape[0],) + tuple(gd.n_c)
         self.gd = gd

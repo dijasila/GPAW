@@ -140,23 +140,23 @@ class Davidson(Eigensolver):
                 M(psit2, psit2, P2, dS, P2, S_NN[B:, B:])
 
             with self.timer('diagonalize'):
-                # if gd.comm.rank == 0 and bd.comm.rank == 0:
-                H_NN[:B, B:] = 0.0
-                S_NN[:B, B:] = 0.0
-                # from gpaw.utilities.lapack import general_diagonalize
-                from scipy.linalg import eigh
-                eps_N, H_NN[:] = eigh(H_NN, S_NN,
-                                      lower=True,
-                                      check_finite=not False)
+                if wfs.gd.comm.rank == 0 and bd.comm.rank == 0:
+                    H_NN[:B, B:] = 0.0
+                    S_NN[:B, B:] = 0.0
+                    # from gpaw.utilities.lapack import general_diagonalize
+                    from scipy.linalg import eigh
+                    eps_N, H_NN[:] = eigh(H_NN, S_NN,
+                                          lower=True,
+                                          check_finite=not False)
                 # H_NN[:B, B:] = H_NN[B:, :B].conj().T
                 # S_NN[:B, B:] = S_NN[B:, :B].conj().T
                 # general_diagonalize(H_NN, eps_N, S_NN)
                 # H_NN = H_NN.T.copy()
 
-            # gd.comm.broadcast(H_2n2n, 0)
-            # gd.comm.broadcast(eps_2n, 0)
-            # bd.comm.broadcast(H_2n2n, 0)
-            # bd.comm.broadcast(eps_2n, 0)
+            wfs.gd.comm.broadcast(H_NN, 0)
+            wfs.gd.comm.broadcast(eps_N, 0)
+            bd.comm.broadcast(H_NN, 0)
+            bd.comm.broadcast(eps_N, 0)
 
             kpt.eps_n[:] = eps_N[bd.get_slice()]
 
@@ -176,5 +176,5 @@ class Davidson(Eigensolver):
                 self.calculate_residuals(kpt, wfs, ham, psit,
                                          P, kpt.eps_n, R, P2)
 
-        # error = gd.comm.sum(error)
+        error = wfs.gd.comm.sum(error)
         return error
