@@ -185,8 +185,11 @@ class FDPWWaveFunctions(WaveFunctions):
 
         psit2 = psit.new(buf=self.work_array)
         with self.timer('rotate_psi_s'):
+            print(S_nn.array)
             psit2[:] = S_nn.T * psit
+            print(S_nn.array)
             dSP.matrix[:] = P.matrix * S_nn
+            print(S_nn.array);asdf
             psit[:] = psit2
             kpt.P = dSP
 

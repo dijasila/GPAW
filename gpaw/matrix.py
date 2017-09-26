@@ -32,11 +32,11 @@ class NoDistribution:
 
     def multiply(self, alpha, a, opa, b, opb, beta, c):
         if beta == 0.0:
-            c2 = alpha * np.dot(op(a._array, opa), op(b._array, opb))
+            c2 = alpha * np.dot(op(a.array, opa), op(b.array, opb))
         else:
             assert beta == 1.0
-            c2 = c._array + alpha * np.dot(op(a._array, opa), op(b._array, opb))
-        c._array[:] = c2
+            c2 = c.array + alpha * np.dot(op(a.array, opa), op(b.array, opb))
+        c.array[:] = c2
         return
 
         # print(self is b, self is b.source)
@@ -148,6 +148,19 @@ class Op:
         return Product(self, other)
 
 
+def sum_needed(method):
+    def new_method(self, *args):
+        if self.state == 'a sum is needed':
+            self.comm.sum(self.array.T, 0)
+        if self.comm is None or self.comm.rank == 0:
+            method(self, *args)
+        if self.comm is not None and self.comm.size > 1:
+            self.state = 'result only on master'
+        else:
+            self.state = 'fine'
+    return new_method
+
+
 class Matrix:
     def __init__(self, M, N, dtype=None, data=None, dist=None, order='F'):
         self.shape = (M, N)
@@ -165,16 +178,12 @@ class Matrix:
         self.dist = dist
 
         if data is None:
-            self._array = np.empty(dist.shape, self.dtype, order=order)
+            self.array = np.empty(dist.shape, self.dtype, order=order)
         else:
-            self._array = data.reshape(dist.shape)
+            self.array = data.reshape(dist.shape)
 
-        self.comm_to_be_summed_over = None
-
-    @property
-    def array(self):
-        self.finish_sums()
-        return self._array
+        self.comm = None
+        self.state = 'fine'
 
     def __len__(self):
         return self.shape[0]
@@ -186,33 +195,12 @@ class Matrix:
     def new(self):
         return Matrix(*self.shape, dtype=self.dtype, dist=self.dist)
 
-    def finish_sums(self):
-        if self.comm_to_be_summed_over is not None:
-            self.comm_to_be_summed_over.sum(self._array.T, 0)
-        self.comm_to_be_summed_over = None
-
     def __setitem__(self, i, x):
         # assert i == slice(None)
         if isinstance(x, np.ndarray):
             1 / 0  # sssssself.array[:] = x
         else:
             x.eval(self)
-
-    def __array_____(self, dtype):
-        assert self.dtype == dtype
-        assert self.dist.serial
-        return self.array
-
-    def evallllllllll(self, destination=None, beta=0):
-        if destination is None:
-            destination = 42
-        assert destination.dist == self.dist
-        if beta == 0:
-            destination.array[:] = self.array
-        else:
-            assert beta == 1
-            destination.array += self.array
-        return destination
 
     def __iadd__(self, x):
         x.eval(self, 1.0)
@@ -237,6 +225,13 @@ class Matrix:
         return Op(self, 'H')
 
     def multiply(self, alpha, opa, b, opb, beta, out):
+        if self.state == 'result only on master':
+            self.comm.broadcast(self.array.T, 0)
+            self.state == 'fine'
+        if b.state == 'result only on master':
+            b.comm.broadcast(b.array.T, 0)
+            b.state == 'fine'
+
         if opa == 'Ccccccccccccccccccccccccc' and self.dtype == float:
             opa = 'N'
         if out is None:
@@ -249,15 +244,19 @@ class Matrix:
             else:
                 N = b.shape[0]
             out = Matrix(M, N)
+
         self.dist.multiply(alpha, self, opa, b, opb, beta, out)
         return out
 
+    @sum_needed
     def cholesky(self):
         self.dist.cholesky(self.array)
 
+    @sum_needed
     def inv(self):
         self.dist.inv(self.array)
 
+    @sum_needed
     def eigh(self, eps_n):
         self.dist.eigh(self.array, eps_n)
 

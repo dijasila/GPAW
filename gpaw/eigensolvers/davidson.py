@@ -86,6 +86,7 @@ class Davidson(Eigensolver):
             a_n.matrix_elements(b_n, out=tmp_nn, hermitian=hermitian)
             dM.apply(Pb, out=dMP)
             tmp_nn += Pa.matrix.H * dMP.matrix
+            wfs.gd.comm.sum(tmp_nn.array.T, 0)
             C_nn[:] = tmp_nn.array
 
         if self.keep_htpsit:

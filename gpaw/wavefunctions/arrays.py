@@ -47,7 +47,9 @@ class ArrayWaveFunctions:
     def multiply(self, alpha, opa, b, opb, beta, c):
         self.matrix.multiply(alpha, opa, b.matrix, opb, beta, c)
         if opa in 'NC' and self.comm:
-            c.comm_to_be_summed_over = self.comm
+            if self.comm.size > 1:
+                c.comm = self.comm
+                c.state = 'a sum is needed'
             assert opb in 'TH' and b.comm is self.comm
 
     def matrix_elements(self, other, out=None, hermitian=False):
@@ -79,7 +81,7 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
         M = self.matrix
 
         if data is None:
-            M._array = M._array.reshape(-1).reshape(M.dist.shape)
+            M.array = M.array.reshape(-1).reshape(M.dist.shape)
 
         self.myshape = (M.dist.shape[0],) + tuple(gd.n_c)
         self.gd = gd
