@@ -52,11 +52,15 @@ from ase.neighborlist import NeighborList
 from ase.data import covalent_radii
 from ase.units import Bohr
 
+import _gpaw
 from gpaw.gaunt import gaunt
 from gpaw.spherical_harmonics import Yl, nablarlYL
 from gpaw.spline import Spline
 from gpaw.utilities.tools import tri2full
 from gpaw import extra_parameters
+from gpaw.utilities.timing import nulltimer
+
+timer = nulltimer  # XXX global timer object, only for hacking
 
 UL = 'L'
 
@@ -132,8 +136,11 @@ class OverlapExpansion(BaseOverlapExpansionSet):
     def __init__(self, la, lb, spline_l):
         self.la = la
         self.lb = lb
+        self.lmaxgaunt = max(la, lb)
         self.spline_l = spline_l
+        self.lmaxspline = (la + lb) % 2 + 2 * len(self.spline_l)
         BaseOverlapExpansionSet.__init__(self, (2 * la + 1, 2 * lb + 1))
+        self.cspline_l = [spline.spline for spline in self.spline_l]
 
     def get_gaunt(self, l):
         la = self.la
@@ -153,17 +160,24 @@ class OverlapExpansion(BaseOverlapExpansionSet):
             yield l, spline, G_mmm
             l += 2
 
-    def evaluate(self, r, rlY_lm):
+    def old_evaluate(self, r, rlY_lm):
         """Get overlap between localized functions.
 
         Apply Gaunt coefficients to the list of real-space splines
         describing the overlap integral."""
+        timer.start('oe eval')
         x_mi = self.zeros()
         for l, spline, G_mmm in self.gaunt_iter():
             s = spline(r)
             if abs(s) > 1e-10:
                 x_mi += s * np.dot(G_mmm, rlY_lm[l])
+        timer.stop('oe eval')
         return x_mi
+
+    def evaluate(self, r, rlY_lm, G_LLL, x_mi):
+        timer.start('C')
+        _gpaw.tci_overlap(self.la, self.lb, G_LLL, self.cspline_l, r, rlY_lm, x_mi)
+        timer.stop('C')
 
     def derivative(self, r, Rhat_c, rlY_lm, drlYdR_lmc):
         """Get derivative of overlap between localized functions.
@@ -186,6 +200,8 @@ class TwoSiteOverlapExpansions(BaseOverlapExpansionSet):
         shape = (sum([2 * l + 1 for l in la_j]),
                  sum([2 * l + 1 for l in lb_j]))
         BaseOverlapExpansionSet.__init__(self, shape)
+        self.lmaxgaunt = max(oe.lmaxgaunt for oe in oe_jj.ravel())
+        self.lmaxspline = max(oe.lmaxspline for oe in oe_jj.ravel())
 
     def slice(self, x_xMM):
         assert x_xMM.shape[-2:] == self.shape
@@ -201,9 +217,13 @@ class TwoSiteOverlapExpansions(BaseOverlapExpansionSet):
             Ma1 = Ma2
 
     def evaluate(self, r, rlY_lm):
+        timer.start('tsoe eval')
         x_MM = self.zeros()
+        G_LLL = gaunt(self.lmaxgaunt)
+        rlY_L = rlY_lm.toarray(self.lmaxspline)
         for x_mm, oe in self.slice(x_MM):
-            x_mm += oe.evaluate(r, rlY_lm)
+            oe.evaluate(r, rlY_L, G_LLL, x_mm)
+        timer.stop('tsoe eval')
         return x_MM
 
     def derivative(self, r, Rhat, rlY_lm, drlYdR_lmc):
@@ -292,10 +312,10 @@ class BlacsOverlapExpansions(BaseOverlapExpansionSet):
         self.msoe = msoe
         self.local_indices = local_indices
         BaseOverlapExpansionSet.__init__(self, msoe.shape)
-        
+
         self.Mmystart = Mmystart
         self.mynao = mynao
-        
+
         M_a = msoe.M1_a
         natoms = len(M_a)
         a = 0
@@ -303,11 +323,11 @@ class BlacsOverlapExpansions(BaseOverlapExpansionSet):
             a += 1
         a -= 1
         self.astart = a
-        
+
         while a < natoms and M_a[a] < Mmystart + mynao:
             a += 1
         self.aend = a
-            
+
     def evaluate_slice(self, disp, x_xqNM):
         a1 = disp.a1
         a2 = disp.a2
@@ -331,17 +351,17 @@ class BlacsOverlapExpansions(BaseOverlapExpansionSet):
         #if a1 in self.local_indices and a2 < a1 and (self.astart <=
         #                                             a2 < self.aend):
         #    self.evaluate_slice(disp.reverse(), x_xqNM)
-        
 
 
-            
+
+
 class SimpleAtomIter:
     def __init__(self, cell_cv, spos1_ac, spos2_ac, offsetsteps=0):
         self.cell_cv = cell_cv
         self.spos1_ac = spos1_ac
         self.spos2_ac = spos2_ac
         self.offsetsteps = offsetsteps
-    
+
     def iter(self):
         """Yield all atom index pairs and corresponding displacements."""
         offsetsteps = self.offsetsteps
@@ -353,7 +373,7 @@ class SimpleAtomIter:
                 for offset in offsets:
                     R_c = np.dot(spos2_c - spos1_c + offset, self.cell_cv)
                     yield a1, a2, R_c, offset
-        
+
 
 class NeighborPairs:
     """Class for looping over pairs of atoms using a neighbor list."""
@@ -363,7 +383,7 @@ class NeighborPairs:
         self.atoms = Atoms('X%d' % len(cutoff_a), cell=cell_cv, pbc=pbc_c)
         # Warning: never use self.atoms.get_scaled_positions() for
         # anything.  Those positions suffer from roundoff errors!
-        
+
     def set_positions(self, spos_ac):
         self.spos_ac = spos_ac
         self.atoms.set_scaled_positions(spos_ac)
@@ -498,7 +518,7 @@ class TwoSiteOverlapCalculator:
 class ManySiteOverlapCalculator:
     def __init__(self, twosite_calculator, I1_a, I2_a):
         """Create VeryManyOverlaps object.
-        
+
         twosite_calculator: instance of TwoSiteOverlapCalculator
         I_a: mapping from atom index (as in spos_a) to unique atom type"""
         self.twosite_calculator = twosite_calculator
@@ -551,23 +571,23 @@ class AtomicDisplacement:
     def evaluate_direct_without_phases(self, oe):
         return oe.evaluate(self.r, self.rlY_lm)
 
-
     # XXX clean up unnecessary methods
     def overlap_without_phases(self, oe):
         return oe.evaluate(self.r, self.rlY_lm)
-        
+
     def _evaluate_without_phases(self, oe):
         return self.overlap_without_phases(oe)
 
     def evaluate_overlap(self, oe, dst_xqmm):
         src_xmm = self._evaluate_without_phases(oe)
+        timer.start('phases')
         self.phases.apply(src_xmm, dst_xqmm)
+        timer.stop('phases')
 
     def reverse(self):
         return self.factory.displacementclass(self.factory, self.a2, self.a1,
                                               -self.R_c, -self.offset,
                                               self.phases.inverse())
-                                              
 
 class LazySphericalHarmonics:
     """Class for caching spherical harmonics as they are calculated.
@@ -577,13 +597,15 @@ class LazySphericalHarmonics:
     def __init__(self, R_c):
         self.R_c = np.asarray(R_c)
         self.Y_lm = {}
+        self.Y_lm1 = np.empty(0)
         self.dYdr_lmc = {}
+        self.lmax = 0
 
     def evaluate(self, l):
         rlY_m = np.empty(2 * l + 1)
         Yl(l, self.R_c, rlY_m)
         return rlY_m
-        
+
     def __getitem__(self, l):
         Y_m = self.Y_lm.get(l)
         if Y_m is None:
@@ -591,7 +613,15 @@ class LazySphericalHarmonics:
             self.Y_lm[l] = Y_m
         return Y_m
 
-        
+    def toarray(self, lmax):
+        if lmax > self.lmax:
+            self.Y_lm1 = np.concatenate([self.Y_lm1] +
+                                       [self.evaluate(l)
+                                        for l in range(self.lmax, lmax)])
+            self.lmax = lmax
+        return self.Y_lm1
+
+
 class LazySphericalHarmonicsDerivative(LazySphericalHarmonics):
     def evaluate(self, l):
         drlYdR_mc = np.empty((2 * l + 1, 3))
@@ -605,12 +635,12 @@ class DerivativeAtomicDisplacement(AtomicDisplacement):
     def _set_spherical_harmonics(self, R_c):
         self.rlY_lm = LazySphericalHarmonics(R_c)
         self.drlYdr_lmc = LazySphericalHarmonicsDerivative(R_c)
-        
+
         if R_c.any():
             self.Rhat_c = R_c / self.r
         else:
             self.Rhat_c = np.zeros(3)
-    
+
     def evaluate_derivative(self, oe, dst_xqmm):
         oe.derivative(self.r, self.Rhat_c, self.rlY_lm, self.drlYdr_lmc)
 
@@ -624,7 +654,7 @@ class DerivativeAtomicDisplacement(AtomicDisplacement):
 class NullPhases:
     def __init__(self, ibzk_qc, offset):
         pass
-    
+
     def apply(self, src_xMM, dst_qxMM):
         assert len(dst_qxMM) == 1
         dst_qxMM[0][:] += src_xMM
@@ -632,7 +662,7 @@ class NullPhases:
     def inverse(self):
         return self
 
-    
+
 class BlochPhases:
     def __init__(self, ibzk_qc, offset):
         self.phase_q = np.exp(-2j * pi * np.dot(ibzk_qc, offset))
@@ -647,7 +677,7 @@ class BlochPhases:
     def inverse(self):
         return BlochPhases(-self.ibzk_qc, self.offset)
 
-        
+
 class TwoCenterIntegralCalculator:
     # This class knows how to apply phases, and whether to call the
     # various derivative() or evaluate() methods
@@ -686,6 +716,7 @@ class NewTwoCenterIntegrals:
         self.ibzk_qc = ibzk_qc
         self.gamma = gamma
 
+        timer.start('tci init')
         cutoff_I = []
         setups_I = setups.setups.values()
         I_setup = {}
@@ -693,13 +724,13 @@ class NewTwoCenterIntegrals:
             I_setup[setup] = I
             cutoff_I.append(max([func.get_cutoff()
                                  for func in setup.phit_j + setup.pt_j]))
-        
+
         I_a = []
         for setup in setups:
             I_a.append(I_setup[setup])
 
         cutoff_a = [cutoff_I[I] for I in I_a]
-        
+
         self.cutoff_a = cutoff_a # convenient for writing the new new overlap
         self.I_a = I_a
         self.setups_I = setups_I
@@ -724,21 +755,23 @@ class NewTwoCenterIntegrals:
         self.calculate = self.evaluate # XXX compatibility
 
         self.set_matrix_distribution(None, None)
-        
+        timer.stop('tci init')
+
     def set_matrix_distribution(self, Mmystart, mynao):
         """Distribute matrices using BLACS."""
         # Range of basis functions for BLACS distribution of matrices:
         self.Mmystart = Mmystart
         self.mynao = mynao
         self.blacs = mynao is not None
-        
+
     def calculate_expansions(self):
+        timer.start('tci calc exp')
         phit_Ij = [setup.phit_j for setup in self.setups_I]
         l_Ij = []
         for phit_j in phit_Ij:
             l_Ij.append([phit.get_angular_momentum_number()
                          for phit in phit_j])
-        
+
         pt_l_Ij = [setup.l_j for setup in self.setups_I]
         pt_Ij = [setup.pt_j for setup in self.setups_I]
         phit_Ijq = self.msoc.transform(phit_Ij)
@@ -751,6 +784,7 @@ class NewTwoCenterIntegrals:
         self.T_expansions = msoc.calculate_kinetic_expansions(l_Ij, phit_Ijq)
         self.P_expansions = msoc.calculate_expansions(l_Ij, phit_Ijq,
                                                       pt_l_Ij, pt_Ijq)
+        timer.stop('tci calc exp')
 
     def _calculate(self, calc, spos_ac, Theta_qxMM, T_qxMM, P_aqxMi):
         Theta_qxMM.fill(0.0)
@@ -768,7 +802,7 @@ class NewTwoCenterIntegrals:
                             (a1, a2, offset[0], offset[1], offset[2])
                 raise RuntimeError('Atoms too close!\n' + txt)
 
-       
+
         self.atompairs.set_positions(spos_ac)
 
         if self.blacs:
@@ -783,11 +817,13 @@ class NewTwoCenterIntegrals:
                                                      P_aqxMi),
                           DomainDecomposedExpansions(self.T_expansions,
                                                      P_aqxMi)]
-            
+
         expansions.append(ManySiteDictionaryWrapper(self.P_expansions,
                                                     P_aqxMi))
         arrays = [Theta_qxMM, T_qxMM, P_aqxMi]
+        timer.start('tci calculate')
         calc.calculate(OppositeDirection(self.atompairs), expansions, arrays)
+        timer.stop('tci calculate')
 
     def evaluate(self, spos_ac, Theta_qMM, T_qMM, P_aqMi):
         calc = TwoCenterIntegralCalculator(self.ibzk_qc, derivative=False)
