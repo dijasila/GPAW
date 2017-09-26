@@ -1,5 +1,7 @@
 import os
 
+from gpaw.mpi import world
+
 
 def archive(gpwfile, folder=None, key_value_pairs={}):
     """Add gpw-file to archive and add row to database.
@@ -36,6 +38,7 @@ def archive(gpwfile, folder=None, key_value_pairs={}):
                   filepath=os.path.abspath(gpwfile),
                   filename=os.path.basename(gpwfile),
                   key_value_pairs=key_value_pairs)
-    ulm.copy(gpwfile, os.path.join(folder, str(id) + '.gpw'),
-             exclude={'.wave_functions.values'})
+    if world.rank == 0:
+        ulm.copy(gpwfile, os.path.join(folder, str(id) + '.gpw'),
+                 exclude={'.wave_functions.values'})
     return id, folder
