@@ -23,7 +23,8 @@ class Projections:
                 I1 = I2
                 self.map[a] = (I1, I2)
 
-        self.matrix = Matrix(I1, nbands, dtype, dist=(bcomm, 1, -1))
+        self.matrix = Matrix(I1, nbands, dtype, dist=(bcomm, 1, bcomm.size),
+                             order='C')
 
     def new(self, bcomm='inherit', nbands=None):
         if bcomm == 'inherit':
@@ -38,6 +39,7 @@ class Projections:
             yield a, self.matrix.array[I1:I2]
 
     def __getitem__(self, a):
+        asdfgkljh
         I1, I2 = self.map[a]
         return self.matrix.array[I1:I2]
 
@@ -45,6 +47,7 @@ class Projections:
         return a in self.map
 
     def todict(self):
+        asdfgjkh
         return dict(self.items())
 
     def collect(self):
