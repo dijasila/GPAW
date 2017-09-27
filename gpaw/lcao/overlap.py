@@ -174,16 +174,16 @@ class OverlapExpansion(BaseOverlapExpansionSet):
         timer.stop('oe eval')
         return x_mi
 
-    def evaluate(self, r, rlY_lm, G_LLL, x_mi):
-        timer.start('C')
-        _gpaw.tci_overlap(self.la, self.lb, G_LLL, self.cspline_l, r, rlY_lm, x_mi)
-        timer.stop('C')
+    def evaluate(self, r, rlY_lm, G_LLL, x_mi, _nil=np.empty(0)):
+        _gpaw.tci_overlap(self.la, self.lb, G_LLL, self.cspline_l, r, rlY_lm, x_mi,
+                          False, _nil, _nil, _nil)
 
-    def derivative(self, r, Rhat_c, rlY_lm, drlYdR_lmc):
+    def old_derivative(self, r, Rhat_c, rlY_lm, G_LLL, drlYdR_lmc):
         """Get derivative of overlap between localized functions.
 
         This function assumes r > 0.  If r = 0, i.e. if the functions
         reside on the same atom, the derivative is zero in any case."""
+        timer.start('oldderiv')
         dxdR_cmi = self.zeros((3,))
         for l, spline, G_mmm in self.gaunt_iter():
             x, dxdr = spline.get_value_and_derivative(r)
@@ -191,8 +191,30 @@ class OverlapExpansion(BaseOverlapExpansionSet):
                 GrlY_mi = np.dot(G_mmm, rlY_lm[l])
                 dxdR_cmi += dxdr * Rhat_c[:, None, None] * GrlY_mi
                 dxdR_cmi += x * np.dot(G_mmm, drlYdR_lmc[l]).transpose(2, 0, 1)
+        timer.stop('oldderiv')
         return dxdR_cmi
 
+    def derivative(self, r, Rhat_c, rlY_lm, G_LLL, drlYdR_lmc):
+        timer.start('deriv')
+        lmax = self.lmaxspline
+        rlY_L = rlY_lm.toarray(lmax=lmax)
+        drlYdR_Lc = drlYdR_lmc.toarray(lmax=lmax)
+        dxdR_cmi = self.zeros((3,))
+        x_mi = self.zeros()
+        timer.start('cderiv')
+        _gpaw.tci_overlap(self.la, self.lb, G_LLL, self.cspline_l, r, rlY_L, x_mi,
+                          True, Rhat_c, drlYdR_Lc, dxdR_cmi)
+        #dxdR_cmi_old = self.old_derivative(r, Rhat_c, rlY_lm, G_LLL, drlYdR_lmc)
+
+        #err = np.abs(dxdR_cmi_old - dxdR_cmi).max()
+        #if err > 1e-8:
+        #    print(dxdR_cmi_old[0])
+        #    print(dxdR_cmi[0])
+        #    print(err)
+        #    raise ValueError
+        timer.stop('cderiv')
+        timer.stop('deriv')
+        return dxdR_cmi
 
 class TwoSiteOverlapExpansions(BaseOverlapExpansionSet):
     def __init__(self, la_j, lb_j, oe_jj):
@@ -228,8 +250,12 @@ class TwoSiteOverlapExpansions(BaseOverlapExpansionSet):
 
     def derivative(self, r, Rhat, rlY_lm, drlYdR_lmc):
         x_cMM = self.zeros((3,))
+        G_LLL = gaunt(self.lmaxgaunt)
+        #rlY_L = rlY_lm.toarray(self.lmaxspline)
+        #drlYdR_lmc = drlYdR_lmc.toarray(self.lmaxspline)
+        #print(drlYdR_lmc.shape)
         for x_cmm, oe in self.slice(x_cMM):
-            x_cmm += oe.derivative(r, Rhat, rlY_lm, drlYdR_lmc)
+            x_cmm += oe.derivative(r, Rhat, rlY_lm, G_LLL, drlYdR_lmc)
         return x_cMM
 
 
@@ -598,7 +624,7 @@ class LazySphericalHarmonics:
         self.R_c = np.asarray(R_c)
         self.Y_lm = {}
         self.Y_lm1 = np.empty(0)
-        self.dYdr_lmc = {}
+        #self.dYdr_lmc = {}
         self.lmax = 0
 
     def evaluate(self, l):
@@ -616,8 +642,8 @@ class LazySphericalHarmonics:
     def toarray(self, lmax):
         if lmax > self.lmax:
             self.Y_lm1 = np.concatenate([self.Y_lm1] +
-                                       [self.evaluate(l)
-                                        for l in range(self.lmax, lmax)])
+                                        [self.evaluate(l).ravel()
+                                         for l in range(self.lmax, lmax)])
             self.lmax = lmax
         return self.Y_lm1
 

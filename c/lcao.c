@@ -50,7 +50,8 @@ void cut(const double* a, const int n[3], const int c[3],
     }
 }
 
-PyObject *tci_overlap(PyObject *self, PyObject *args)
+// XXX todo delete
+PyObject *tci_overlap_old(PyObject *self, PyObject *args)
 {
     /*
     Calculate two-center integral overlaps:
@@ -72,7 +73,7 @@ PyObject *tci_overlap(PyObject *self, PyObject *args)
     SplineObject *spline_obj;
     bmgsspline *spline;
 
-    double *x_mi = (double *) PyArray_DATA(x_mi_obj);  // dtype
+    double *x_mi = (double *) PyArray_DATA(x_mi_obj);
     double *G_LLL = (double *) PyArray_DATA(G_LLL_obj);
     double *rlY_L = (double *) PyArray_DATA(rlY_L_obj);
 
@@ -107,11 +108,15 @@ PyObject *tci_overlap(PyObject *self, PyObject *args)
 
         int m1, m2, L;
         int nL = 2 * l + 1;
-        double srlY_L[2 * l + 1];  // Variable but very small alloc on stack
+        double srlY_L[nL];  // Variable but very small alloc on stack
         for(L=0; L < nL; L++) {
             srlY_L[L] = s * rlY_L[Lstart + L];
         }
 
+
+        //GrlY_mi = np.dot(G_mmm, rlY_lm[l])
+        //dxdR_cmi += dsdr * Rhat_c[:, None, None] * GrlY_mi
+        //dxdR_cmi += s * np.dot(G_mmm, drlYdR_lmc[l]).transpose(2, 0, 1)
         for(m1=0; m1 < nm1; m1++) {
             for(m2=0; m2 < nm2; m2++) {
                 double x = 0.0;
@@ -124,6 +129,146 @@ PyObject *tci_overlap(PyObject *self, PyObject *args)
     }
     Py_RETURN_NONE;
 }
+
+
+PyObject *tci_overlap(PyObject *self, PyObject *args)
+{
+    /*
+    Calculate two-center integral overlaps:
+
+             --       --          l      _
+      x   =  >  s (r) >  G       r  Y   (r)
+       LL'   --  l    --  LL'L''     L''
+              l       L''
+    */
+    int la, lb;
+    PyArrayObject *G_LLL_obj;
+    PyObject *spline_l;
+    double r;
+
+    PyArrayObject *rlY_L_obj, *x_mi_obj;
+    int is_derivative;
+    PyArrayObject *Rhat_c_obj, *drlYdR_Lc_obj, *dxdR_cmi_obj;
+
+    if (!PyArg_ParseTuple(args, "iiOOdOOiOOO", &la, &lb, &G_LLL_obj, &spline_l,
+                          &r, &rlY_L_obj, &x_mi_obj,
+                          &is_derivative,
+                          &Rhat_c_obj, &drlYdR_Lc_obj,
+                          &dxdR_cmi_obj))
+        return NULL;
+
+
+    // The convention is to pass np.empty(0) to signify no derivative.
+    //int is_derivative = PyArray_SIZE(dxdR_cmi_obj);
+
+    SplineObject *spline_obj;
+    bmgsspline *spline;
+
+    double *x_mi = (double *) PyArray_DATA(x_mi_obj);
+    double *G_LLL = (double *) PyArray_DATA(G_LLL_obj);
+    double *rlY_L = (double *) PyArray_DATA(rlY_L_obj);
+
+    double *Rhat_c = (double *) PyArray_DATA(Rhat_c_obj);
+    double *drlYdR_Lc = (double *) PyArray_DATA(drlYdR_Lc_obj);
+    double *dxdR_cmi = (double *) PyArray_DATA(dxdR_cmi_obj);
+
+    int Lastart = la * la;
+    int Lbstart = lb * lb;
+
+    int l = (la + lb) % 2;
+    int nsplines = PyList_Size(spline_l);
+    int ispline;
+
+    int itemsize = PyArray_ITEMSIZE(G_LLL_obj);
+    npy_intp *strides = PyArray_STRIDES(G_LLL_obj);
+    npy_intp *xstrides = PyArray_STRIDES(x_mi_obj);
+    int stride0 = strides[0] / itemsize;
+    int stride1 = strides[1] / itemsize;
+    int xstride = xstrides[0] / itemsize;
+
+    G_LLL += Lastart * stride0 + Lbstart * stride1;
+
+    for(ispline=0; ispline < nsplines; ispline++, l+=2) {
+        int Lstart = l * l;
+        spline_obj = (SplineObject*)PyList_GET_ITEM(spline_l, ispline);
+        spline = &spline_obj->spline;
+        double s, dsdr;
+        if(is_derivative) {
+            bmgs_get_value_and_derivative(spline, r, &s, &dsdr);
+        } else {
+            s = bmgs_splinevalue(spline, r);
+        }
+
+        if(fabs(s) < 1e-10) {
+            continue;
+        }
+
+        int nm1 = 2 * la + 1;
+        int nm2 = 2 * lb + 1;
+
+        int m1, m2, L;
+        int nL = 2 * l + 1;
+        double srlY_L[2 * l + 1];  // Variable but very small alloc on stack
+        for(L=0; L < nL; L++) {
+            srlY_L[L] = s * rlY_L[Lstart + L];
+        }
+
+        //if(!is_derivative) {
+        if(!is_derivative) {
+            for(m1=0; m1 < nm1; m1++) {
+                for(m2=0; m2 < nm2; m2++) {
+                    double x = 0.0;
+                    for(L=0; L < nL; L++) {
+                        x += G_LLL[stride0 * m1 + stride1 * m2 + Lstart + L] * srlY_L[L];
+                    }
+                    x_mi[m1 * xstride + m2] += x;
+                }
+            }
+            continue;
+        }
+
+        //printf("grrr\n");
+        // Derivative only
+        int c;
+
+        npy_intp *dxdRstrides = PyArray_STRIDES(dxdR_cmi_obj);
+        int dxdRstride0 = dxdRstrides[0] / itemsize;
+        int dxdRstride1 = dxdRstrides[1] / itemsize;
+
+        double dsdr_Rhat_c[3];
+        for(c=0; c < 3; c++) {
+            dsdr_Rhat_c[c] = dsdr * Rhat_c[c];
+        }
+
+        double s_drlYdR_Lc[nL * 3];
+        for(L=0; L < nL; L++) {
+            for(c=0; c < 3; c++) {
+                s_drlYdR_Lc[L * 3 + c] = s * drlYdR_Lc[(Lstart + L) * 3 + c];
+            }
+        }
+
+        for(m1=0; m1 < nm1; m1++) {
+            for(m2=0; m2 < nm2; m2++) {
+                double GrlY_mi = 0.0;
+                for(L=0; L < nL; L++) {
+                    GrlY_mi += G_LLL[stride0 * m1 + stride1 * m2 + Lstart + L] * rlY_L[Lstart + L];
+                }
+                for(c=0; c < 3; c++) {
+                    double derivative = 0.0;
+                    derivative += dsdr_Rhat_c[c] * GrlY_mi;
+                    for(L=0; L < nL; L++) {
+                        derivative += G_LLL[stride0 * m1 + stride1 * m2 + Lstart + L] * s_drlYdR_Lc[L * 3 + c];
+                    }
+                    dxdR_cmi[dxdRstride0 * c + dxdRstride1 * m1 + m2] += derivative;
+                }
+            }
+        }
+    }
+
+    Py_RETURN_NONE;
+}
+
+
 
 
 PyObject * overlap(PyObject* self, PyObject *args)
