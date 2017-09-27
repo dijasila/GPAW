@@ -194,27 +194,12 @@ class OverlapExpansion(BaseOverlapExpansionSet):
         timer.stop('oldderiv')
         return dxdR_cmi
 
-    def derivative(self, r, Rhat_c, rlY_lm, G_LLL, drlYdR_lmc):
-        timer.start('deriv')
-        lmax = self.lmaxspline
-        rlY_L = rlY_lm.toarray(lmax=lmax)
-        drlYdR_Lc = drlYdR_lmc.toarray(lmax=lmax)
-        dxdR_cmi = self.zeros((3,))
-        x_mi = self.zeros()
-        timer.start('cderiv')
-        _gpaw.tci_overlap(self.la, self.lb, G_LLL, self.cspline_l, r, rlY_L, x_mi,
+    def derivative(self, r, Rhat_c, rlY_L, G_LLL, drlYdR_Lc, dxdR_cmi,
+                   _nil=np.empty(0)):
+        #timer.start('deriv')
+        _gpaw.tci_overlap(self.la, self.lb, G_LLL, self.cspline_l, r, rlY_L, _nil,
                           True, Rhat_c, drlYdR_Lc, dxdR_cmi)
-        #dxdR_cmi_old = self.old_derivative(r, Rhat_c, rlY_lm, G_LLL, drlYdR_lmc)
-
-        #err = np.abs(dxdR_cmi_old - dxdR_cmi).max()
-        #if err > 1e-8:
-        #    print(dxdR_cmi_old[0])
-        #    print(dxdR_cmi[0])
-        #    print(err)
-        #    raise ValueError
-        timer.stop('cderiv')
-        timer.stop('deriv')
-        return dxdR_cmi
+        #timer.stop('deriv')
 
 class TwoSiteOverlapExpansions(BaseOverlapExpansionSet):
     def __init__(self, la_j, lb_j, oe_jj):
@@ -251,11 +236,11 @@ class TwoSiteOverlapExpansions(BaseOverlapExpansionSet):
     def derivative(self, r, Rhat, rlY_lm, drlYdR_lmc):
         x_cMM = self.zeros((3,))
         G_LLL = gaunt(self.lmaxgaunt)
-        #rlY_L = rlY_lm.toarray(self.lmaxspline)
-        #drlYdR_lmc = drlYdR_lmc.toarray(self.lmaxspline)
+        rlY_L = rlY_lm.toarray(self.lmaxspline)
+        drlYdR_Lc = drlYdR_lmc.toarray(self.lmaxspline)
         #print(drlYdR_lmc.shape)
         for x_cmm, oe in self.slice(x_cMM):
-            x_cmm += oe.derivative(r, Rhat, rlY_lm, G_LLL, drlYdR_lmc)
+            oe.derivative(r, Rhat, rlY_L, G_LLL, drlYdR_Lc, x_cmm)
         return x_cMM
 
 
