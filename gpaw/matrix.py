@@ -148,19 +148,6 @@ class Op:
         return Product(self, other)
 
 
-def sum_needed(method):
-    def new_method(self, *args):
-        if self.state == 'a sum is needed':
-            self.comm.sum(self.array.T, 0)
-        if self.comm is None or self.comm.rank == 0:
-            method(self, *args)
-        if self.comm is not None and self.comm.size > 1:
-            self.state = 'result only on master'
-        else:
-            self.state = 'fine'
-    return new_method
-
-
 class Matrix:
     def __init__(self, M, N, dtype=None, data=None, dist=None, order='F'):
         self.shape = (M, N)
@@ -225,13 +212,6 @@ class Matrix:
         return Op(self, 'H')
 
     def multiply(self, alpha, opa, b, opb, beta, out):
-        if self.state == 'result only on master':
-            self.comm.broadcast(self.array.T, 0)
-            self.state == 'fine'
-        if b.state == 'result only on master':
-            b.comm.broadcast(b.array.T, 0)
-            b.state == 'fine'
-
         if opa == 'Ccccccccccccccccccccccccc' and self.dtype == float:
             opa = 'N'
         if out is None:
@@ -248,17 +228,25 @@ class Matrix:
         self.dist.multiply(alpha, self, opa, b, opb, beta, out)
         return out
 
-    @sum_needed
-    def cholesky(self):
-        self.dist.cholesky(self.array)
+    def invcholesky(self):
+        if self.state == 'a sum is needed':
+            self.comm.sum(self.array.T, 0)
+        if self.comm is None or self.comm.rank == 0:
+            self.dist.cholesky(self.array)
+            self.dist.inv(self.array)
+        if self.comm is not None and self.comm.size > 1:
+            self.comm.broadcast(self.array.T, 0)
+            self.state == 'fine'
 
-    @sum_needed
-    def inv(self):
-        self.dist.inv(self.array)
-
-    @sum_needed
     def eigh(self, eps_n):
-        self.dist.eigh(self.array, eps_n)
+        if self.state == 'a sum is needed':
+            self.comm.sum(self.array.T, 0)
+        if self.comm is None or self.comm.rank == 0:
+            self.dist.eigh(self.array, eps_n)
+        if self.comm is not None and self.comm.size > 1:
+            self.comm.broadcast(self.array.T, 0)
+            self.comm.broadcast(eps_n, 0)
+            self.state == 'fine'
 
 
 class Product:
