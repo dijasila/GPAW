@@ -57,10 +57,35 @@ PyObject *tci_overlap(PyObject *self, PyObject *args)
     Calculate two-center integral overlaps:
 
              --       --          l      _
-      x   =  >  s (r) >  G       r  Y   (r)
+      X   =  >  s (r) >  G       r  Y   (r)
        LL'   --  l    --  LL'L''     L''
               l       L''
+
+    or derivatives
+
+    / dX \       ^ --        --        l     _
+    | -- |    =  R >   s'(r) > G      r Y   (r)
+    \ dR /LL'      --   l    -- LL'L''   L''
+                    l        L''
+                                           l  _
+                   --       --        / d r Y(r) \
+                 + >  s (r) > G       | -----    |    ,
+                   --  l    -- LL'L'' \   dR     /L''
+                    l       L''
+                                                        ^
+    where dR denotes movement of one of the centers and R is a unit vector
+    parallel to the displacement vector r.
+
+    Without derivatives, Rhat_c_obj, drLYdR_Lc_obj, and dxdR_cmi_obj must still
+    be numpy arrays but are otherwise ignored (may have size 0).
+
+    With derivatives, x_mi_obj can be likewise ignored.
+
+    Depending on what is requested, some arrays are not used, but must
+    still be given as valid numpy arrays (can be size 0).
+
     */
+
     int la, lb;
     PyArrayObject *G_LLL_obj;
     PyObject *spline_l;
@@ -77,9 +102,6 @@ PyObject *tci_overlap(PyObject *self, PyObject *args)
                           &dxdR_cmi_obj))
         return NULL;
 
-
-    // The convention is to pass np.empty(0) to signify no derivative.
-    //int is_derivative = PyArray_SIZE(dxdR_cmi_obj);
 
     SplineObject *spline_obj;
     bmgsspline *spline;
@@ -133,7 +155,6 @@ PyObject *tci_overlap(PyObject *self, PyObject *args)
             srlY_L[L] = s * rlY_L[Lstart + L];
         }
 
-        //if(!is_derivative) {
         if(!is_derivative) {
             for(m1=0; m1 < nm1; m1++) {
                 for(m2=0; m2 < nm2; m2++) {
@@ -166,6 +187,8 @@ PyObject *tci_overlap(PyObject *self, PyObject *args)
             }
         }
 
+        // This loop can probably be written a lot better, but it turns out
+        // it is so fast that we need not worry for a long time.
         for(m1=0; m1 < nm1; m1++) {
             for(m2=0; m2 < nm2; m2++) {
                 double GrlY_mi = 0.0;
