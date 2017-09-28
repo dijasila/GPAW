@@ -1,4 +1,5 @@
 from gpaw.matrix import Matrix
+from gpaw.mpi import serial_comm
 
 
 class Projections:
@@ -29,6 +30,8 @@ class Projections:
     def new(self, bcomm='inherit', nbands=None):
         if bcomm == 'inherit':
             bcomm = self.bcomm
+        elif bcomm is None:
+            bcomm = serial_comm
         return Projections(
             self.nproj_a, nbands or self.matrix.shape[1],
             self.acomm, bcomm,

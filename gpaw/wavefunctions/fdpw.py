@@ -169,23 +169,23 @@ class FDPWWaveFunctions(WaveFunctions):
         with self.timer('projections'):
             self.pt.matrix_elements(psit, out=P)
 
-        S_nn = self.work_matrix_nn
+        S = self.work_matrix_nn
         dSP = P.new()
 
         with self.timer('calc_s_matrix'):
-            psit.matrix_elements(psit, S_nn)
+            psit.matrix_elements(psit, S)
             self.setups.dS.apply(P, out=dSP)
-            S_nn += P.matrix.H * dSP.matrix
+            S += P.matrix.H * dSP.matrix
 
         with self.timer('inverse-cholesky'):
             assert self.bd.comm.size == 1
-            S_nn.invcholesky()
+            S.invcholesky()
             # S_nn now contains the inverse of the Cholesky factorization
 
         psit2 = psit.new(buf=self.work_array)
         with self.timer('rotate_psi_s'):
-            psit2[:] = S_nn.T * psit
-            dSP.matrix[:] = P.matrix * S_nn
+            psit2[:] = S.T * psit
+            dSP.matrix[:] = P.matrix * S
             psit[:] = psit2
             kpt.P = dSP
 

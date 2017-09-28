@@ -77,17 +77,19 @@ class Davidson(Eigensolver):
         P = kpt.P
         P2 = P.new()
         dMP = P.new()
-        M_nn = wfs.work_matrix_nn
+        M = wfs.work_matrix_nn
         dS = wfs.setups.dS
+        comm = wfs.gd.comm
 
-        def matrix_elements(a_n, b_n, Pa, dM, Pb, C_nn, hermitian=False,
-                            tmp_nn=M_nn):
+        def matrix_elements(a, b, Pa, dM, Pb, C_nn, hermitian=False,
+                            tmp=M):
             """Fill C_nn with <a|b> matrix elements."""
-            a_n.matrix_elements(b_n, out=tmp_nn, hermitian=hermitian)
+            a.matrix_elements(b, out=tmp, hermitian=hermitian)
             dM.apply(Pb, out=dMP)
-            tmp_nn += Pa.matrix.H * dMP.matrix
-            wfs.gd.comm.sum(tmp_nn.array.T, 0)
-            C_nn[:] = tmp_nn.array
+            tmp += Pa.matrix.H * dMP.matrix
+            comm.sum(tmp.array.T, 0)
+            if comm.rank == 0:
+                C_nn[:] = tmp.array
 
         if self.keep_htpsit:
             R = psit.new(buf=self.Htpsit_nG)
@@ -116,8 +118,9 @@ class Davidson(Eigensolver):
                 psit2_G[:] = pre(R_G, kpt, ekin)
 
             if self.normalize:
-                norms = [integrate(psit2_G) for psit2_G in psit2.array]
-                # gd.comm.sum(norm_n)
+                norms = np.array([integrate(psit2_G)
+                                  for psit2_G in psit2.array])
+                comm.sum(norms)
                 for norm, psit2_G in zip(norms, psit2.array):
                     psit2_G *= norm**-0.5
 
@@ -129,22 +132,21 @@ class Davidson(Eigensolver):
             with self.timer('calc. matrices'):
                 H_NN[:B, :B] = np.diag(kpt.eps_n)
                 S_NN[:B, :B] = np.eye(B)
-                M = matrix_elements
+                me = matrix_elements
 
                 # <psi2 | H | psi>
-                M(R, psit, P2, ham.dH, P, H_NN[B:, :B])
+                me(R, psit, P2, ham.dH, P, H_NN[B:, :B])
                 # <psi2 | S | psi>
-                M(psit2, psit, P2, dS, P, S_NN[B:, :B])
+                me(psit2, psit, P2, dS, P, S_NN[B:, :B])
                 # <psi2 | H | psi2>
-                M(R, psit2, P2, ham.dH, P2, H_NN[B:, B:], True)
+                me(R, psit2, P2, ham.dH, P2, H_NN[B:, B:], True)
                 # <psi2 | S | psi2>
-                M(psit2, psit2, P2, dS, P2, S_NN[B:, B:])
+                me(psit2, psit2, P2, dS, P2, S_NN[B:, B:])
 
             with self.timer('diagonalize'):
-                if wfs.gd.comm.rank == 0 and bd.comm.rank == 0:
+                if comm.rank == 0 and bd.comm.rank == 0:
                     H_NN[:B, B:] = 0.0
                     S_NN[:B, B:] = 0.0
-                    # from gpaw.utilities.lapack import general_diagonalize
                     from scipy.linalg import eigh
                     eps_N, H_NN[:] = eigh(H_NN, S_NN,
                                           lower=True,
@@ -154,20 +156,20 @@ class Davidson(Eigensolver):
                 # general_diagonalize(H_NN, eps_N, S_NN)
                 # H_NN = H_NN.T.copy()
 
-            wfs.gd.comm.broadcast(H_NN, 0)
-            wfs.gd.comm.broadcast(eps_N, 0)
+            comm.broadcast(H_NN, 0)
+            comm.broadcast(eps_N, 0)
             bd.comm.broadcast(H_NN, 0)
             bd.comm.broadcast(eps_N, 0)
 
             kpt.eps_n[:] = eps_N[bd.get_slice()]
 
             with self.timer('rotate_psi'):
-                M_nn.array[:] = H_NN[:B, :B]
-                R[:] = M_nn.T * psit
-                dMP.matrix[:] = P.matrix * M_nn
-                M_nn.array[:] = H_NN[B:, :B]
-                R += M_nn.T * psit2
-                dMP.matrix += P2.matrix * M_nn
+                M.array[:] = H_NN[:B, :B]
+                R[:] = M.T * psit
+                dMP.matrix[:] = P.matrix * M
+                M.array[:] = H_NN[B:, :B]
+                R += M.T * psit2
+                dMP.matrix += P2.matrix * M
                 psit[:] = R
                 P, dMP = dMP, P
                 kpt.P = P

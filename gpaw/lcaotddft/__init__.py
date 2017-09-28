@@ -7,7 +7,7 @@ from ase.units import Bohr, Hartree
 
 from gpaw import GPAW
 from gpaw.external import ConstantElectricField
-from gpaw.utilities.blas import gemm
+from gpaw.utilities.blas import mmm
 from gpaw.mixer import DummyMixer
 from gpaw.tddft.units import attosec_to_autime, autime_to_attosec
 from gpaw.xc import XC
@@ -16,7 +16,7 @@ from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
                                       scalapack_inverse, scalapack_solve,
                                       scalapack_zero, pblas_tran,
                                       scalapack_set)
-                                     
+
 from time import localtime
 
 
@@ -37,7 +37,7 @@ class KickHamiltonian:
             dHtmp_asp[a] = np.dot(setup.Delta_pL, W_L).reshape((1, -1))
         self.dH_asp = ham.atomdist.from_aux(dHtmp_asp)
 
-        
+
 class LCAOTDDFT(GPAW):
     def __init__(self, filename=None,
                  propagator='cn', fxc=None, **kwargs):
@@ -55,7 +55,7 @@ class LCAOTDDFT(GPAW):
         if filename is not None:
             #self.initialize()
             self.set_positions()
-            
+
     def read(self, filename):
         reader = GPAW.read(self, filename)
         if 'tddft' in reader:
@@ -68,7 +68,7 @@ class LCAOTDDFT(GPAW):
         writer.child('tddft').write(time=self.time,
                                     niter=self.niter,
                                     kick_strength=self.kick_strength)
-        
+
     def propagate_wfs(self, sourceC_nm, targetC_nm, S_MM, H_MM, dt):
         if self.propagator == 'cn':
             return self.linear_propagator(sourceC_nm, targetC_nm, S_MM, H_MM,
@@ -147,7 +147,7 @@ class LCAOTDDFT(GPAW):
                 solve(S_MM - 0.5j * H_MM * dt,
                       np.dot(S_MM + 0.5j * H_MM * dt,
                              sourceC_nM.T.conjugate())).T.conjugate()
-        
+
         self.timer.stop('Linear solve')
 
     def taylor_propagator(self, sourceC_nM, targetC_nM, S_MM, H_MM, dt):
@@ -212,7 +212,7 @@ class LCAOTDDFT(GPAW):
                                       tempC_nM.T.conjugate())).T.conjugate()
                     targetC_nM += tempC_nM
             self.density.gd.comm.broadcast(targetC_nM, 0)
-                
+
         self.timer.stop('Taylor propagator')
 
     def absorption_kick(self, kick_strength):
@@ -333,7 +333,8 @@ class LCAOTDDFT(GPAW):
         for k, kpt in enumerate(self.wfs.kpt_u):
             for a, P_ni in kpt.P_ani.items():
                 P_ni.fill(117)
-                gemm(1.0, self.wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
+                mmm(1.0, self.wfs.P_aqMi[a][kpt.q], 't', kpt.C_nM, 't', 0.0, P_ni.T)
+                #gemm(1.0, self.wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
         self.timer.stop('LCAO update projectors')
 
     def get_hamiltonian(self, kpt):
@@ -455,7 +456,7 @@ class LCAOTDDFT(GPAW):
                           ln(abs(norm) + 1e-16) / ln(10)))
                 self.dm_file.flush()
             self.propagate_single(self.time_step)
-            
+
         self.call_observers(self.niter, final=True)
         if self.wfs.world.rank == 0:
             self.dm_file.close()

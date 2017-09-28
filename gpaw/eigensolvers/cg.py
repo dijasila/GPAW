@@ -140,9 +140,8 @@ class CG(Eigensolver):
                 for a, P2_i in P2_ai.items():
                     P_ni = kpt.P_ani[a]
                     dO_ii = wfs.setups[a].dO_ii
-                    mmm(1.0, P_ni[:N].conjugate(), 'n',
-                        np.dot(dO_ii, P2_i).reshape(-1, 1), 'n',
-                        1.0, overlap_n.reshape(-1, 1))
+                    overlap_n += np.dot(P_ni[:N].conjugate(),
+                                        np.dot(dO_ii, P2_i))
                 self.timer.stop('CG: overlap2')
                 comm.sum(overlap_n)
 
@@ -151,8 +150,7 @@ class CG(Eigensolver):
 
                 for a, P2_i in P2_ai.items():
                     P_ni = kpt.P_ani[a]
-                    mmm(-1.0, overlap_n.reshape(1, -1), 'n', P_ni[:N], 'n',
-                        1.0, P2_i.reshape(1, -1))
+                    P2_i -= np.dot(overlap_n, P_ni[:N])
 
                 norm = wfs.integrate(phi_G, phi_G, global_integral=False)
                 for a, P2_i in P2_ai.items():

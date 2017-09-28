@@ -141,32 +141,32 @@ class Eigensolver:
 
         psit = kpt.psit
         tmp = psit.new(buf=wfs.work_array)
-        H_nn = wfs.work_matrix_nn
+        H = wfs.work_matrix_nn
         dHP = kpt.P.new()
 
         Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
         with self.timer('calc_h_matrix'):
             psit.apply(Ht, out=tmp)
-            psit.matrix_elements(tmp, out=H_nn, hermitian=True)
+            psit.matrix_elements(tmp, out=H, hermitian=True)
             ham.dH.apply(kpt.P, out=dHP)
-            H_nn += kpt.P.matrix.H * dHP.matrix
-            ham.xc.correct_hamiltonian_matrix(kpt, H_nn.array)
+            H += kpt.P.matrix.H * dHP.matrix
+            ham.xc.correct_hamiltonian_matrix(kpt, H.array)
 
         with wfs.timer('diagonalize'):
-            H_nn.eigh(kpt.eps_n)
-            # H_nn now contains the eigenvectors
+            H.eigh(kpt.eps_n)
+            # H now contains the eigenvectors
 
         with self.timer('rotate_psi'):
             if self.keep_htpsit:
                 Htpsit = psit.new(buf=self.Htpsit_nG)
-                Htpsit[:] = H_nn.T * tmp
-            tmp[:] = H_nn.T * psit
+                Htpsit[:] = H.T * tmp
+            tmp[:] = H.T * psit
             psit[:] = tmp
-            dHP.matrix[:] = kpt.P.matrix * H_nn
+            dHP.matrix[:] = kpt.P.matrix * H
             kpt.P.matrix = dHP.matrix
             # Rotate orbital dependent XC stuff:
-            ham.xc.rotate(kpt, H_nn.array)
+            ham.xc.rotate(kpt, H.array)
 
     def estimate_memory(self, mem, wfs):
         gridmem = wfs.bytes_per_wave_function()
