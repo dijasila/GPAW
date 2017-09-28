@@ -1,6 +1,6 @@
 import numpy as np
 
-from gpaw.utilities.blas import gemm
+from gpaw.utilities.blas import gemm, mmm
 from gpaw.utilities import unpack
 from gpaw.utilities.partition import EvenPartitioning
 
@@ -30,7 +30,7 @@ class BaseAtomicCorrection:
         dH_aii = dH_asp.partition.arraydict([setup.dO_ii.shape
                                              for setup in wfs.setups],
                                             dtype=wfs.dtype)
-        
+
         for a in avalues:
             dH_aii[a][:] = yy * unpack(dH_asp[a][kpt.s])
         self.calculate(wfs, kpt.q, dH_aii, H_MM)
@@ -62,7 +62,8 @@ class BaseAtomicCorrection:
         for a, P_ni in kpt.P_ani.items():
             # ATLAS can't handle uninitialized output array:
             P_ni.fill(117)
-            gemm(1.0, wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
+            # gemm(1.0, wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
+            mmm(1.0, wfs.P_aqMi[a][kpt.q], 't', kpt.C_nM, 't', 0.0, P_ni.T)
 
 
 class DenseAtomicCorrection(BaseAtomicCorrection):
@@ -105,10 +106,10 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         evenpart = EvenPartitioning(self.orig_partition.comm,
                                     self.orig_partition.natoms)
         self.even_partition = evenpart.as_atom_partition()
-    
+
     def get_a_values(self):
         return self.orig_partition.my_indices  # XXXXXXXXXX
-        #return self.even_partition.my_indices
+        # return self.even_partition.my_indices
 
     def redistribute(self, wfs, dX_asp, type='asp', op='forth'):
         if type not in ['asp', 'aii']:
@@ -158,7 +159,7 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         # One could choose a set of a3 to optimize the load balance.
         # Right now the load balance will be "random" and probably
         # not very good.
-        #innerloops = 0
+        # innerloops = 0
 
         setups = wfs.setups
 
@@ -200,18 +201,18 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
                     # Humm.  The following works with gamma point
                     # but not with kpts.  XXX take a look at this.
                     # also, it doesn't work with a2 < a1 for some reason.
-                    #if a2 > a1:
-                    #    continue
+                    # if a2 > a1:
+                    #     continue
                     a2M1 = M_a[a2]
                     a2M2 = a2M1 + wfs.setups[a2].nao
                     P2_im = wfs.P_aaqim[(a3, a2)][q]
                     P1dXP2_mm = np.dot(P1dX_mi, P2_im)
                     X_mM[:, a2M1:a2M2] += P1dXP2_mm
-                    #innerloops += 1
-                    #if wfs.world.rank == 0:
-                    #    print 'y', y
-                    #if a1 != a2:
-                    #    X_MM[a2M1:a2M2, a1M1:a1M2] += P1dXP2_mm.T.conj()
+                    # innerloops += 1
+                    # if wfs.world.rank == 0:
+                    #     print 'y', y
+                    # if a1 != a2:
+                    #     X_MM[a2M1:a2M2, a1M1:a1M2] += P1dXP2_mm.T.conj()
 
             a2_a = wfs.P_neighbors_a[a3]
 
@@ -241,7 +242,7 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         self.inner = inner
         self.outer = outer
 
-        
+
 class ScipyAtomicCorrection(DistributedAtomicCorrection):
     name = 'scipy'
     description = 'distributed and sparse using scipy'
@@ -278,7 +279,7 @@ class ScipyAtomicCorrection(DistributedAtomicCorrection):
             for q in range(nq):
                 Psparse_qIM[q][I_a[a3]:I_a[a3] + ni_a[a3],
                                M_a[a1]:M_a[a1] + nao_a[a1]] = P_qim[q]
-        
+
         self.Psparse_qIM = [x.tocsr() for x in Psparse_qIM]
 
     def calculate(self, wfs, q, dX_aii, X_MM):
@@ -294,7 +295,7 @@ class ScipyAtomicCorrection(DistributedAtomicCorrection):
             I2 = I1 + wfs.setups[a].ni
             dXsparse_II[I1:I2, I1:I2] = dX_aii[a]
         dXsparse_II = dXsparse_II.tocsr()
-        
+
         Psparse_MI = Psparse_IM[:, Mstart:Mstop].transpose().conjugate()
         Xsparse_MM = Psparse_MI.dot(dXsparse_II.dot(Psparse_IM))
         X_MM[:, :] += Xsparse_MM.todense()
@@ -302,7 +303,7 @@ class ScipyAtomicCorrection(DistributedAtomicCorrection):
     def calculate_projections(self, wfs, kpt):
         if self.implements_distributed_projections():
             P_In = self.Psparse_qIM[kpt.q].dot(kpt.C_nM.T)
-            #for a in self.even_partition.my_indices: # XXXXXXX
+            # for a in self.even_partition.my_indices: # XXXXXXX
             for a in self.orig_partition.my_indices:
                 I1 = self.I_a[a]
                 I2 = I1 + wfs.setups[a].ni
