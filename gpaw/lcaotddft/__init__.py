@@ -333,8 +333,7 @@ class LCAOTDDFT(GPAW):
         for k, kpt in enumerate(self.wfs.kpt_u):
             for a, P_ni in kpt.P_ani.items():
                 P_ni.fill(117)
-                mmm(1.0, self.wfs.P_aqMi[a][kpt.q], 't', kpt.C_nM, 't', 0.0, P_ni.T)
-                #gemm(1.0, self.wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
+                mmm(1.0, kpt.C_nM, 'n', self.wfs.P_aqMi[a][kpt.q], 'n', 0.0, P_ni)
         self.timer.stop('LCAO update projectors')
 
     def get_hamiltonian(self, kpt):

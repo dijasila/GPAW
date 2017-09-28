@@ -1,17 +1,18 @@
 import numpy as np
 from ase.units import Bohr
 
-from gpaw.kpoint import KPoint
-from gpaw.mpi import serial_comm
-from gpaw.utilities.blas import axpy
-from gpaw.transformers import Transformer
-from gpaw.preconditioner import Preconditioner
 from gpaw.fd_operators import Laplace, Gradient
+from gpaw.kpoint import KPoint
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
-from gpaw.wavefunctions.mode import Mode
+from gpaw.mpi import serial_comm
+from gpaw.preconditioner import Preconditioner
+from gpaw.projections import Projections
+from gpaw.transformers import Transformer
+from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
+from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
+from gpaw.wavefunctions.mode import Mode
 
 
 class FD(Mode):
@@ -182,8 +183,12 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 self.gd.distribute(Psit_nG, kpt2.psit_nG)
 
                 # Calculate PAW projections:
-                kpt2.P_ani = self.pt.dict(len(kpt.psit_nG))
-                self.pt.integrate(kpt2.psit_nG, kpt2.P_ani, k)
+                nproj_a = [setup.ni for setup in self.setups]
+                kpt2.P = Projections(
+                    nproj_a,
+                    self.bd.nbands, self.gd.comm, self.bd.comm, kpt.P.rank_a,
+                    collinear=True, spin=s, dtype=self.dtype)
+                self.pt.matrix_elements(kpt2.psit, out=kpt2.P)
 
                 kpt_u.append(kpt2)
 

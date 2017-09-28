@@ -211,7 +211,7 @@ class BaseLFC:
                 ni = self.get_function_count(a)
                 c_axi[a] = np.empty(shape + (ni,), self.dtype)
                 if zero:
-                    c_axi[a].fill(0.0)
+                    c_axi[a][:] = 0.0
             return c_axi
 
     def estimate_memory(self, mem):
@@ -433,12 +433,12 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             sphere = self.sphere_a[a]
             M2 = M1 + sphere.Mmax
             if c_xi is None:
-                c_ix = np.empty((sphere.Mmax,) + xshape, dtype)
-                b_axi[a] = c_ix.T
-                requests.append(comm.receive(c_ix, sphere.rank, a, False))
+                c_xi = np.empty(xshape + (sphere.Mmax,), dtype)
+                b_axi[a] = c_xi
+                requests.append(comm.receive(c_xi, sphere.rank, a, False))
             else:
                 for r in sphere.ranks:
-                    requests.append(comm.send(c_xi.T, r, a, False))
+                    requests.append(comm.send(c_xi.copy(), r, a, False))
 
             M1 = M2
 
