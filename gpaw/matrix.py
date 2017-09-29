@@ -31,17 +31,6 @@ class NoDistribution:
         return n
 
     def multiply(self, alpha, a, opa, b, opb, beta, c):
-        if beta == 0.0:
-            c2 = alpha * np.dot(op(a.array, opa), op(b.array, opb))
-        else:
-            assert beta == 1.0
-            c2 = c.array + alpha * np.dot(op(a.array, opa), op(b.array, opb))
-
-        # c.array[:] = c2
-        # return
-
-        # print(self is b, self is b.source)
-        # print('hej')
         if opa == 'C' and opb == 'T':
             blas.mmm(alpha, b.array, 'n', a.array, 'c', beta, c.array.T)
         elif opa == 'H' and opb == 'N':
@@ -53,12 +42,19 @@ class NoDistribution:
         else:
             1 / 0
 
-        if c2.size and abs(c.array - c2).max() > 0.000001:
-            print(self, alpha, a, opa, b, opb, beta, c)
-            print(c.array)
-            print(c2)
-            1 / 0
-        c.array[:] = c2
+        if 0:
+            if beta == 0.0:
+                c2 = alpha * np.dot(op(a.array, opa), op(b.array, opb))
+            else:
+                assert beta == 1.0
+                c2 = c.array + alpha * np.dot(op(a.array, opa),
+                                              op(b.array, opb))
+
+            if c2.size and abs(c.array - c2).max() > 0.000001:
+                print(self, alpha, a, opa, b, opb, beta, c)
+                print(c.array)
+                print(c2)
+                1 / 0
 
     def cholesky(self, S_nn):
         S_nn[:] = linalg.cholesky(S_nn)
