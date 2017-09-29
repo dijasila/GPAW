@@ -211,7 +211,8 @@ class Chi0:
 
         self.timer = timer or Timer()
 
-        self.pair = PairDensity(calc, ecut, ftol, threshold,
+        self.pair = PairDensity(calc, self.response, ecut, 
+                                ftol, threshold,
                                 real_space_derivatives, world, txt,
                                 self.timer,
                                 nblocks=nblocks, gate_voltage=gate_voltage)
