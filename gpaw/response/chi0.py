@@ -451,8 +451,6 @@ class Chi0:
             for parts of the code that do not support this feature i.e., GW
             RPA total energy and RALDA.
         """
-        print('chi0 response, pair response: ' + self.response + ' ' + 
-              self.pair.get_response())
         
         # Parse spins
         wfs = self.calc.wfs
