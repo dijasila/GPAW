@@ -1,3 +1,13 @@
+"""
+REMEMBER TO:
+remove ##density## where functionality is general
+
+NOTE:
+# - original code
+## - new code
+"""
+
+
 from __future__ import print_function, division
 
 from time import ctime
@@ -108,9 +118,9 @@ def frequency_grid(domega0, omega2, omegamax):
 
 
 class Chi0:
-    """Class for calculating the density response function."""
+    """Class for calculating response functions."""
 
-    def __init__(self, calc,
+    def __init__(self, calc, response='density',
                  frequencies=None, domega0=0.1, omega2=10.0, omegamax=None,
                  ecut=50, hilbert=True, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
@@ -125,6 +135,12 @@ class Chi0:
         
         Parameters
         ----------
+        calc : str
+            The groundstate calculation file that the linear response
+            calculation is based on.
+        response : str
+            Type of response function. Currently collinear scalar options 
+            'density' and 'spin' are implemented.
         frequencies : ndarray or None
             Array of frequencies to evaluate the response function at. If None,
             frequencies are determined using the frequency_grid function in
@@ -134,14 +150,14 @@ class Chi0:
         ecut : float
             Energy cutoff.
         hilbert : bool
-            Switch for hilbert transform. If True, the full density response
+            Switch for hilbert transform. If True, the full ##density## response
             is determined from a hilbert transform of its spectral function.
             This is typically much faster, but does not work for imaginary
             frequencies.
         nbands : int
             Maximum band index to include.
         timeordered : bool
-            Switch for calculating the time ordered density response function.
+            Switch for calculating the time ordered ##density## response function.
             In this case the hilbert transform cannot be used.
         eta : float
             Artificial broadening of spectra.
@@ -155,7 +171,7 @@ class Chi0:
             Switch for calculating nabla matrix elements (in the optical limit)
             using a real space finite difference approximation.
         intraband : bool
-            Switch for including the intraband contribution to the density
+            Switch for including the intraband contribution to the ##density##
             response function.
         world : MPI comm instance
             MPI communicator.
@@ -190,6 +206,8 @@ class Chi0:
             Class for calculating matrix elements of pairs of wavefunctions.
 
         """
+        
+        self.response = response
 
         self.timer = timer or Timer()
 
@@ -295,7 +313,17 @@ class Chi0:
                   file=self.fd)
         else:
             print('Using integration method: PointIntegrator', file=self.fd)
-
+    
+    def get_response(self):
+        """ Return the type of response function """
+        assert self.response == self.pair.get_response()
+        return self.response
+    
+    def set_response(self, response):
+        """ Set the type of response function """
+        self.response = response
+        self.pair.set_response(response)
+    
     def find_maximum_frequency(self):
         """Determine the maximum electron-hole pair transition energy."""
         self.epsmin = 10000.0
@@ -312,7 +340,7 @@ class Chi0:
         return self.epsmax - self.epsmin
 
     def calculate(self, q_c, spin='all', A_x=None):
-        """Calculate density response function.
+        """Calculate ##density## response function.
 
         Parameters
         ----------
@@ -329,11 +357,11 @@ class Chi0:
         pd : Planewave descriptor
             Planewave descriptor for q_c.
         chi0_wGG : ndarray
-            The density response function.
+            The ##density## response function.
         chi0_wxvG : ndarray or None
-            (Only in optical limit) Wings of the density response function.
+            (Only in optical limit) Wings of the ##density## response function.
         chi0_wvv : ndarray or None
-            (Only in optical limit) Head of density response function.
+            (Only in optical limit) Head of ##density## response function.
 
         """
         wfs = self.calc.wfs
@@ -393,7 +421,7 @@ class Chi0:
     @timer('Calculate CHI_0')
     def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins,
                    extend_head=True):
-        """In-place calculation of the density response function.
+        """In-place calculation of the ##density## response function.
         
         Parameters
         ----------
@@ -402,11 +430,11 @@ class Chi0:
         pd : Planewave descriptor
             Planewave descriptor for q_c.
         chi0_wGG : ndarray
-            The density response function.
+            The ##density## response function.
         chi0_wxvG : ndarray or None
-            Wings of the density response function.
+            Wings of the ##density## response function.
         chi0_wvv : ndarray or None
-            Head of density response function.
+            Head of ##density## response function.
         m1 : int
             Lower band cutoff for band summation
         m2 : int
@@ -422,7 +450,9 @@ class Chi0:
             for parts of the code that do not support this feature i.e., GW
             RPA total energy and RALDA.
         """
-
+        print('chi0 response, pair response: ' + self.response + ' ' + 
+              self.pair.get_response())
+        
         # Parse spins
         wfs = self.calc.wfs
         if spins == 'all':
@@ -517,7 +547,7 @@ class Chi0:
             # If eta is 0 then we must be working with imaginary frequencies.
             # In this case chi is hermitian and it is therefore possible to
             # reduce the computational costs by a only computing half of the
-            # density response function.
+            # ##density## response function.
             kind = 'hermitian response function'
         elif self.hilbert:
             # The spectral function integrator assumes that the form of the
@@ -544,8 +574,8 @@ class Chi0:
             chi0_wxvG /= prefactor
             chi0_wvv /= prefactor
 
-        # Integrate density response function
-        print('Integrating density response function.', file=self.fd)
+        # Integrate ##density## response function
+        print('Integrating ##density## response function.', file=self.fd)
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=(self.get_matrix_element,  # Integrand
@@ -582,7 +612,7 @@ class Chi0:
 
         if self.hilbert:
             # The integrator only returns the spectral function and a Hilbert
-            # transform is performed to return the real part of the density
+            # transform is performed to return the real part of the ##density##
             # response function.
             with self.timer('Hilbert transform'):
                 omega_w = self.wd.get_data()  # Get frequencies
@@ -613,7 +643,7 @@ class Chi0:
 
             # Not so elegant solution but it works
             plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
-            print('Integrating intraband density response.', file=self.fd)
+            print('Integrating intraband ##density## response.', file=self.fd)
 
             # Depending on which integration method is used we
             # have to pass different arguments
@@ -655,10 +685,10 @@ class Chi0:
             print((self.plasmafreq_vv**0.5 * Hartree).round(2),
                   file=self.fd)
 
-        # The density response function is integrated only over the IBZ. The
+        # The ##density## response function is integrated only over the IBZ. The
         # chi calculated above must therefore be extended to include the
         # response from the full BZ. This extension can be performed as a
-        # simple post processing of the density response function that makes
+        # simple post processing of the ##density## response function that makes
         # sure that the response function fulfills the symmetries of the little
         # group of q. Due to the specific details of the implementation the chi
         # calculated above is normalized by the number of symmetries (as seen
@@ -678,7 +708,7 @@ class Chi0:
                 PWSA.symmetrize_wvv(chi0_wvv)
         self.redistribute(tmpA_wxx, A_wxx)
 
-        # If point summation was used then the normalization of the density
+        # If point summation was used then the normalization of the ##density##
         # response function is not right and we have to make up for this
         # fact.
 

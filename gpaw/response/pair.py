@@ -628,7 +628,7 @@ class PWSymmetryAnalyzer:
 
 
 class PairDensity:
-    def __init__(self, calc, ecut=50,
+    def __init__(self, calc, response='density', ecut=50,
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
@@ -639,7 +639,8 @@ class PairDensity:
 
         if gate_voltage is not None:
             gate_voltage = gate_voltage / Hartree
-
+        
+        self.reponse = response
         self.ecut = ecut
         self.ftol = ftol
         self.threshold = threshold
@@ -694,7 +695,15 @@ class PairDensity:
         kd = self.calc.wfs.kd
         self.KDTree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
         print('Number of blocks:', nblocks, file=self.fd)
-
+    
+    def get_response(self):
+        """ Return the type of response function """
+        return self.response
+    
+    def set_response(self, response):
+        """ Set the type of response function """
+        self.response = response
+    
     def find_kpoint(self, k_c):
         return self.KDTree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
 
