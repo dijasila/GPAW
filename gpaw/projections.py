@@ -61,6 +61,8 @@ class Projections:
             mynbands = P_In.shape[1]
             for rank in range(self.acomm.size):
                 nI = self.nproj_a[rank_a == rank].sum()
+                if nI == 0:
+                    continue
                 P2_In = np.empty((nI, mynbands), P_In.dtype, order='F')
                 I1 = 0
                 myI1 = 0
@@ -76,7 +78,8 @@ class Projections:
                 else:
                     self.acomm.send(P2_In.T, rank)
         else:
-            self.acomm.receive(P.matrix.array.T, 0)
+            if P.matrix.array.size > 0:
+                self.acomm.receive(P.matrix.array.T, 0)
         return P
 
     def collect(self):

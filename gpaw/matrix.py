@@ -36,29 +36,27 @@ class NoDistribution:
         else:
             assert beta == 1.0
             c2 = c.array + alpha * np.dot(op(a.array, opa), op(b.array, opb))
-        c.array[:] = c2
-        return
+
+        # c.array[:] = c2
+        # return
 
         # print(self is b, self is b.source)
-        print('hej')
+        # print('hej')
         if opa == 'C' and opb == 'T':
-            assert not a.transposed and not b.transposed and c.transposed
-            blas.mmm(alpha, b.array, 'n', a.array, 'c', beta, c.array.T, 'n')
-        elif opa == 'T' and opb == 'N' and a.transposed:
-            assert not b.transposed and not c.transposed
+            blas.mmm(alpha, b.array, 'n', a.array, 'c', beta, c.array.T)
+        elif opa == 'H' and opb == 'N':
+            blas.mmm(alpha, b.array.T, 'n', a.array.T, 'c', beta, c.array.T)
+        elif opa == 'T' and opb == 'N':
             blas.mmm(alpha, a.array.T, 'n', b.array, 'n', beta, c.array)
+        elif opa == 'N' and opb == 'N':
+            blas.mmm(alpha, b.array.T, 'n', a.array.T, 'n', beta, c.array.T)
         else:
-            assert not a.transposed and not b.transposed and c.transposed
-            assert opa != 'C' and opb != 'C'
-            print(c.array)
-            blas.mmm(alpha, a.array, opa.lower(), b.array, opb.lower(), beta,
-                     c.array, 'n')  # .T)
-        if abs(c.array - c2).max() > 0.000001:
+            1 / 0
+
+        if c2.size and abs(c.array - c2).max() > 0.000001:
             print(self, alpha, a, opa, b, opb, beta, c)
-            print(a.transposed, b.transposed, c.transposed)
             print(c.array)
             print(c2)
-            print(np.dot(a.array[0], b.array[1]))
             1 / 0
         c.array[:] = c2
 
@@ -83,9 +81,14 @@ class BLACSDistribution:
             global_blacs_context_store[key] = context
 
         if b is None:
-            assert c == 1
-            br = (M + r - 1) // r
-            bc = N
+            if c == 1:
+                br = (M + r - 1) // r
+                bc = N
+            elif r == 1:
+                br = M
+                bc = (N + c - 1) // c
+            else:
+                raise ValueError('Please specify block size!')
         else:
             br = bc = b
 
@@ -97,11 +100,13 @@ class BLACSDistribution:
     def __str__(self):
         return ('BLACSDistribution(global={}, local={}, blocksize={})'
                 .format(*('{}x{}'.format(*shape)
-                          for shape in [self.desc[2:4],
+                          for shape in [self.desc[3:1:-1],
                                         self.shape,
-                                        self.desc[4:6]])))
+                                        self.desc[5:3:-1]])))
 
     def multiply(self, alpha, a, opa, b, opb, beta, destination):
+        print(alpha, a, opa, b, opb, beta, destination)
+
         M, Ka = a.shape
         Kb, N = b.shape
         if opa == 'T':
