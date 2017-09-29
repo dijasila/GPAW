@@ -195,16 +195,11 @@ class WaveFunctions:
             atom_partition = AtomPartition(self.gd.comm, rank_a)
 
         if self.atom_partition is not None and self.kpt_u[0].P_ani is not None:
-            self.timer.start('Redistribute')
-            mynks = len(self.kpt_u)
-
-            def get_empty(a):
-                ni = self.setups[a].ni
-                return np.empty((mynks, self.bd.mynbands, ni), self.dtype)
-            self.atom_partition.redistribute(atom_partition,
-                                             [kpt.P_ani for kpt in self.kpt_u],
-                                             get_empty)
-            self.timer.stop('Redistribute')
+            with self.timer('Redistribute'):
+                for kpt in self.mykpts:
+                    assert (self.atom_partition.rank_a == kpt.P.rank_a).all()
+                    kpt.P = kpt.P.redist(atom_partition.rank_a)
+                    assert (atom_partition.rank_a == kpt.P.rank_a).all()
 
         self.atom_partition = atom_partition
         self.kd.symmetry.check(spos_ac)
@@ -318,11 +313,11 @@ class WaveFunctions:
 
         if self.kd.comm.rank == kpt_rank:
             kpt = self.mykpts[u]
-            P_nI = kpt.P.collect().T
+            P_In = kpt.P.collect()
             if self.world.rank == 0:
-                return P_nI
-            if P_nI is not None:
-                self.kd.comm.send(P_nI, 0)
+                return P_In.T
+            if P_In is not None:
+                self.kd.comm.send(P_In.T, 0)
         if self.world.rank == 0:
             nproj = sum(setup.ni for setup in self.setups)
             P_nI = np.empty((self.bd.nbands, nproj), self.dtype)

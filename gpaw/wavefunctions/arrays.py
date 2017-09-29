@@ -14,14 +14,13 @@ class MatrixInFile:
         matrix = Matrix(*self.shape, dtype=self.dtype, dist=self.dist,
                         order='C')
         # Read band by band to save memory
-        shape = gd.get_size_of_global_array()
         for myn, psit_G in enumerate(matrix.array):
             n = self.dist.global_index(myn)
             if gd.comm.rank == 0:
                 big_psit_G = np.asarray(self.array[n], self.dtype)
             else:
                 big_psit_G = None
-            gd.distribute(big_psit_G, psit_G.reshape(shape))
+            gd.distribute(big_psit_G, psit_G.reshape(gd.n_c))
 
         return matrix
 
