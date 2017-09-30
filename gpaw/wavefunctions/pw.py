@@ -25,6 +25,7 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
 from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
+import _gpaw
 
 
 class PW(Mode):
@@ -1168,6 +1169,22 @@ class PWLFC(BaseLFC):
             l, f_qG = self.lf_aj[a][j]
             f_IG[I1:I2] = (emiGR_Ga[:, a] * f_qG[q][G1:G2] * (-1.0j)**l *
                            self.Y_qLG[q][l**2:(l + 1)**2, G1:G2])
+        return f_IG
+
+    def expand(self, q=-1, G1=0, G2=None):
+        #self.timer.start('expand')
+        if G2 is None:
+            G2 = self.Y_qLG[q].shape[1]
+        G_Qv = self.pd.G_Qv[self.pd.Q_qG[q][G1:G2]]
+        f_IG = np.empty((self.nI, G2 - G1), complex)
+        emiGRbuf_G = np.empty(len(G_Qv), complex)
+
+        Y_LG = self.Y_qLG[q]
+
+        _gpaw.pwlfc_expand(G_Qv, self.pos_av,
+                           self.lf_aj, Y_LG, q, G1, G2,
+                           f_IG, emiGRbuf_G)
+        #self.timer.stop('expand')
         return f_IG
 
     def block(self, q=-1, serial=True):
