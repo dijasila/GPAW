@@ -10,6 +10,13 @@ Git master branch
 
 :git:`master <>`.
 
+ * No changes yet
+
+Version 1.3.0
+=============
+
+02 October 2017: :git:`1.3.0 <../1.3.0>`
+
 * Corresponding ASE release: ASE-3.14.1.
 
 * :ref:`command line options` ``--dry-run`` and ``--debug`` have been removed.
