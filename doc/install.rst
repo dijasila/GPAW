@@ -81,7 +81,7 @@ Optional, but highly recommended:
 .. _BLACS: http://www.netlib.org/blacs/
 .. _LAPACK: http://www.netlib.org/lapack/
 .. _ScaLAPACK: http://www.netlib.org/scalapack/
-.. _PyPI: https://pypi.python.org/pypi/gpaw
+.. _PyPI: https://pypi.org/project/gpaw
 .. _PIP: https://pip.pypa.io/en/stable/
 .. _ASE: https://wiki.fysik.dtu.dk/ase
 .. _FFTW: http://www.fftw.org/
@@ -198,9 +198,7 @@ folder is).
     dates of older releases can be found there.
 
 .. _gpaw-1.3.0.tar.gz:
-    https://pypi.python.org/packages/3c/ed/
-    c06fc0960c1ddc8bb5ae6a23d1164ffa78324758a3bfb50c677278bef14a/
-    gpaw-1.3.0.tar.gz
+    https://pypi.org/packages/source/g/gpaw/gpaw-1.3.0.tar.gz
 
 
 .. _customizing installation:
