@@ -1,9 +1,9 @@
 from __future__ import print_function
-import numpy as np
+
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.xc.sic import SIC
-from gpaw.test import equal
+
 a = 7.0
 atom = Atoms('N', magmoms=[3], cell=(a, a, a))
 molecule = Atoms('N2', positions=[(0, 0, 0), (0, 0, 1.14)], cell=(a, a, a))

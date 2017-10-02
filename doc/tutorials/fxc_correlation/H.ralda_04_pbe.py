@@ -8,9 +8,8 @@ resultfile = paropen('H.ralda.DFT_corr_energies.txt', 'a')
 H = Atoms('H', [(0, 0, 0)])
 H.set_pbc(True)
 H.center(vacuum=2.0)
-calc = GPAW(mode=PW(300),
+calc = GPAW(mode=PW(300, force_complex_dtype=True),
             hund=True,
-            dtype=complex,
             txt='H.ralda_01_lda.output.txt',
             xc='PBE')
 

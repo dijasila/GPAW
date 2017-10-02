@@ -6,7 +6,8 @@ from ase.data import atomic_numbers
 from gpaw.utilities import pack2
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.atom.configurations import configurations
-from gpaw.pseudopotential import PseudoPotential
+from gpaw.pseudopotential import PseudoPotential, get_radial_hartree_energy
+
 
 setups = {}  # Filled out during parsing below
 sc_setups = {}  # Semicore
@@ -75,7 +76,7 @@ class HGHSetupData:
             else:
                 hghdata = setups[symbol]
         self.hghdata = hghdata
-        
+
         chemsymbol = hghdata.symbol
         if '.' in chemsymbol:
             chemsymbol, sc = chemsymbol.split('.')
@@ -166,6 +167,12 @@ class HGHSetupData:
         self.f_ln = f_ln
         self.f_j = f_j
 
+        r_g, lcomp, ghat = self.get_compensation_charge_functions()
+        assert lcomp == [0] and len(ghat) == 1
+        renormalized_ghat = self.Nv / (4.0 * np.pi) * ghat[0]
+        self.Eh_compcharge = get_radial_hartree_energy(r_g, renormalized_ghat)
+
+
     def find_cutoff(self, r_g, dr_g, f_g, sqrtailnorm=1e-5):
         g = len(r_g)
         acc_sqrnorm = 0.0
@@ -236,6 +243,21 @@ class HGHSetupData:
             pl.plot(r_g, pt_g, label=label)
         pl.legend()
 
+    def create_basis_functions(self):
+        from gpaw.pseudopotential import generate_basis_functions
+        return generate_basis_functions(self)
+
+    def get_compensation_charge_functions(self):
+        alpha = self.rcgauss**-2
+
+        rcutgauss = self.rcgauss * 5.0
+        # smaller values break charge conservation
+
+        r = np.linspace(0.0, rcutgauss, 100)
+        g = alpha**1.5 * np.exp(-alpha * r**2) * 4.0 / np.sqrt(np.pi)
+        g[-1] = 0.0
+        return r, [0], [g]
+
     def get_projectors(self):
         # XXX equal-range projectors still required for some reason
         maxlen = max([len(pt_g) for pt_g in self.pt_jg])
@@ -246,24 +268,9 @@ class HGHSetupData:
             pt_j.append(self.rgd.spline(pt2_g, self.rgd.r_g[maxlen - 1], l))
         return pt_j
 
-    def create_basis_functions(self):
-        from gpaw.pseudopotential import generate_basis_functions
-        return generate_basis_functions(self)
-
-    def get_compensation_charge_functions(self):
-        alpha = self.rcgauss**-2
-        
-        rcutgauss = self.rcgauss * 5.0
-        # smaller values break charge conservation
-        
-        r = np.linspace(0.0, rcutgauss, 100)
-        g = alpha**1.5 * np.exp(-alpha * r**2) * 4.0 / np.sqrt(np.pi)
-        g[-1] = 0.0
-        return r, [0], [g]
-
     def get_local_potential(self):
         n = len(self.vbar_g)
-        return self.rgd.spline(self.vbar_g, self.rgd.r_g[n - 1])
+        return self.rgd.spline(self.vbar_g, self.rgd.r_g[n - 1], l=0)
 
     def build(self, xcfunc, lmax, basis, filter=None):
         if basis is None:
@@ -271,7 +278,6 @@ class HGHSetupData:
         setup = PseudoPotential(self, basis)
         setup.fingerprint = hashlib.md5(str(self.hghdata).encode()).hexdigest()
         return setup
-
 
 def create_local_shortrange_potential(r_g, rloc, c_n):
     rr_g = r_g / rloc  # "Relative r"
@@ -498,7 +504,7 @@ def parse_hgh_setup(lines):
         #    h_n.pop()
         # Actually the above causes trouble.  Probably it messes up state
         # ordering or something else that shouldn't have any effect.
-        
+
         vnl = VNonLocal(l, r0, h_n)
         v_l.append(vnl)
         if l > 2:

@@ -7,7 +7,7 @@ Platforms and architectures
 Linux:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    Linux/CentOS
    Linux/Fedora
@@ -31,6 +31,7 @@ Linux:
    Linux/monolith
    Linux/murska
    Linux/nanolab_EL4
+   Linux/nemo
    Linux/neolith
    Linux/newcell
    Linux/r410_psmn.ens-lyon

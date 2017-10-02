@@ -4,7 +4,7 @@ See:
 
     Ravishankar Sundararaman and T. A. Arias:
     Phys. Rev. B 87, 165122 (2013)
-    
+
     Regularization of the Coulomb singularity in exact exchange by
     Wigner-Seitz truncated interactions: Towards chemical accuracy
     in nontrivial systems
@@ -23,29 +23,30 @@ from gpaw.grid_descriptor import GridDescriptor
 
 
 class WignerSeitzTruncatedCoulomb:
-    def __init__(self, cell_cv, nk_c, txt=sys.stdout):
+    def __init__(self, cell_cv, nk_c, txt=None):
+        txt = txt or sys.stdout
         self.nk_c = nk_c
         bigcell_cv = cell_cv * nk_c[:, np.newaxis]
         L_c = (np.linalg.inv(bigcell_cv)**2).sum(0)**-0.5
-        
+
         rc = 0.5 * L_c.min()
         print('Inner radius for %dx%dx%d Wigner-Seitz cell: %.3f Ang' %
               (tuple(nk_c) + (rc * Bohr,)), file=txt)
-        
+
         self.a = 5 / rc
         print('Range-separation parameter: %.3f Ang^-1' % (self.a / Bohr),
               file=txt)
-        
+
 #        nr_c = [get_efficient_fft_size(2 * int(L * self.a * 1.5))
         nr_c = [get_efficient_fft_size(2 * int(L * self.a * 3.0))
                 for L in L_c]
         print('FFT size for calculating truncated Coulomb: %dx%dx%d' %
               tuple(nr_c), file=txt)
-        
+
         self.gd = GridDescriptor(nr_c, bigcell_cv, comm=mpi.serial_comm)
         v_R = self.gd.empty()
         v_i = v_R.ravel()
-        
+
         pos_iv = self.gd.get_grid_point_coordinates().reshape((3, -1)).T
         corner_jv = np.dot(np.indices((2, 2, 2)).reshape((3, 8)).T, bigcell_cv)
         for i, pos_v in enumerate(pos_iv):
@@ -54,9 +55,9 @@ class WignerSeitzTruncatedCoulomb:
                 v_i[i] = 2 * self.a / pi**0.5
             else:
                 v_i[i] = erf(self.a * r) / r
-                
+
         self.K_Q = np.fft.fftn(v_R) * self.gd.dv
-        
+
     def get_potential(self, pd, q_v=None):
         q_c = pd.kd.bzk_kc[0]
         shift_c = (q_c * self.nk_c).round().astype(int)
@@ -73,7 +74,7 @@ class WignerSeitzTruncatedCoulomb:
         if q_v is not None:
             qG_Gv += q_v
         G2_G = np.sum(qG_Gv**2, axis=1)
-        #G2_G = pd.G2_qG[0]
+        # G2_G = pd.G2_qG[0]
         a = self.a
         if pd.kd.gamma:
             K_G[0] += pi / a**2

@@ -9,6 +9,19 @@ from gpaw.xc.gga import GGA
 from gpaw.xc.mgga import MGGA
 
 
+def xc_string_to_dict(string):
+    """Convert XC specification string to dictionary.
+
+    'name:key1=value1:...' -> {'name': <name>, key1: value1, ...}."""
+    tokens = string.split(':')
+
+    d = {'name': tokens[0]}
+    for token in tokens[1:]:
+        kw, val = token.split('=')
+        d[kw] = val
+    return d
+
+
 def XC(kernel, parameters=None):
     """Create XCFunctional object.
 
@@ -25,31 +38,31 @@ def XC(kernel, parameters=None):
     See xc_funcs.h for the complete list.  """
 
     if isinstance(kernel, basestring):
-        # We have the option of implementing a string specification
-        # minilanguage for xc keywords like 'vdW-DF:type=libvdwxc'
-        kernel = {'name': kernel}
+        kernel = xc_string_to_dict(kernel)
 
+    kwargs = {}
     if isinstance(kernel, dict):
         kwargs = kernel.copy()
         name = kwargs.pop('name')
-        xctype = kwargs.pop('type', None)
+        backend = kwargs.pop('backend', None)
 
-        if xctype == 'libvdwxc':
+        if backend == 'libvdwxc' or name == 'vdW-DF-cx':
             # Must handle libvdwxc before old vdw implementation to override
-            # behaviour for 'name'
-            from gpaw.xc.libvdwxc import VDWXC
-            return VDWXC(name=name, **kwargs)
+            # behaviour for 'name'.  Also, cx is not implemented by the old
+            # vdW module, so that always refers to libvdwxc.
+            from gpaw.xc.libvdwxc import get_libvdwxc_functional
+            return get_libvdwxc_functional(name=name, **kwargs)
 
         if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
                     'C09-vdW', 'mBEEF-vdW', 'BEEF-vdW']:
             from gpaw.xc.vdw import VDWFunctional
-            return VDWFunctional(name)
+            return VDWFunctional(name, **kwargs)
         elif name in ['EXX', 'PBE0', 'B3LYP']:
             from gpaw.xc.hybrid import HybridXC
             return HybridXC(name, **kwargs)
         elif name in ['HSE03', 'HSE06']:
             from gpaw.xc.exx import EXX
-            return EXX(name)
+            return EXX(name, **kwargs)
         elif name == 'BEE1':
             from gpaw.xc.bee import BEE1
             kernel = BEE1(parameters)
@@ -59,6 +72,7 @@ def XC(kernel, parameters=None):
         elif name.startswith('GLLB'):
             from gpaw.xc.gllb.nonlocalfunctionalfactory import \
                 NonLocalFunctionalFactory
+            # Pass kwargs somewhere?
             xc = NonLocalFunctionalFactory().get_functional_by_name(name)
             xc.print_functional()
             return xc
@@ -67,17 +81,17 @@ def XC(kernel, parameters=None):
             kernel = LB94()
         elif name == 'TB09':
             from gpaw.xc.tb09 import TB09
-            return TB09()
+            return TB09(**kwargs)
         elif name.startswith('ODD_'):
             from ODD import ODDFunctional
-            return ODDFunctional(name[4:])
+            return ODDFunctional(name[4:], **kwargs)
         elif name.endswith('PZ-SIC'):
             try:
                 from ODD import PerdewZungerSIC as SIC
-                return SIC(xc=name[:-7])
+                return SIC(xc=name[:-7], **kwargs)
             except:
                 from gpaw.xc.sic import SIC
-                return SIC(xc=name[:-7])
+                return SIC(xc=name[:-7], **kwargs)
         elif name in ['TPSS', 'M06-L', 'M06L', 'revTPSS']:
             if name == 'M06L':
                 name = 'M06-L'
@@ -103,11 +117,11 @@ def XC(kernel, parameters=None):
             kernel = LibXC(name)
 
     if kernel.type == 'LDA':
-        return LDA(kernel)
+        return LDA(kernel, **kwargs)
     elif kernel.type == 'GGA':
-        return GGA(kernel)
+        return GGA(kernel, **kwargs)
     else:
-        return MGGA(kernel)
+        return MGGA(kernel, **kwargs)
 
 
 def xc(filename, xc, ecut=None):

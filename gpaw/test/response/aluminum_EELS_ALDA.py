@@ -1,21 +1,14 @@
 from __future__ import print_function
 import numpy as np
-import sys
-import os
 import time
 
-from ase.units import Bohr
 from ase.build import bulk
-from ase.utils import devnull
 from ase.parallel import parprint
 
 from gpaw import GPAW, PW
 from gpaw.test import findpeak
-from gpaw.atom.basis import BasisMaker
 from gpaw.response.df import DielectricFunction
-from gpaw.mpi import serial_comm, rank, size, world
-from gpaw.wavefunctions.pw import PW
-
+from gpaw.mpi import size, world
 
 assert size <= 4**3
 

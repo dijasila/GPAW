@@ -12,10 +12,10 @@ M_ = [-0.5, 0, 0]
 K_ = [-1 / 3., -1 / 3., 0]
 kpts, x, X = bandpath([M, K, G, K_, M_], layer.cell, npoints=1000)
 
-calc = GPAW('WS2_gs.gpw', kpts=kpts, symmetry='off')
-calc.diagonalize_full_hamiltonian(nbands=100)
+calc = GPAW('WS2_gs.gpw', kpts=kpts, symmetry='off', fixdensity=True)
+calc.get_potential_energy()
 
-calc.write('WS2_bands.gpw', mode='all')
+calc.write('WS2_bands.gpw')
 
 f = paropen('WS2_kpath.dat', 'w')
 for k in x:

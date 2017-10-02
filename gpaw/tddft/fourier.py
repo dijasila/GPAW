@@ -1,6 +1,8 @@
 
 import numpy as np
 
+from gpaw.io import Reader, Writer
+
 from gpaw import debug
 from gpaw.utilities import is_contiguous
 from gpaw.analyse.observers import Observer

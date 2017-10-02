@@ -5,7 +5,6 @@ from gpaw.utilities.tools import coordinates
 from gpaw.utilities.gauss import Gaussian
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.test import equal
-from gpaw.mpi import world
 from gpaw.poisson import PoissonSolver
 
 def norm(a):

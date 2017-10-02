@@ -3,7 +3,6 @@ from ase import Atoms
 from ase.neighborlist import NeighborList
 
 from gpaw.lcao.overlap import AtomicDisplacement, TwoCenterIntegralCalculator
-from gpaw.utilities.partition import EvenPartitioning
 
 
 class DistsAndOffsets:

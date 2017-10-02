@@ -15,7 +15,7 @@ Bug report
   mailing list (see :ref:`contact`).
 
   Please provide the failing script as well as the information about your
-  environment (processor architecture, versions of python and numpy).
+  environment (processor architecture, versions of Python and NumPy).
   Then we (or other users) can help you to find out if it is a bug.
 
   Another advantage of reporting bugs on the mailing list: often other

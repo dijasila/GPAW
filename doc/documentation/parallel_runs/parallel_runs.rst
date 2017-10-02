@@ -24,9 +24,9 @@ the unit cell.  This choice can be overruled, see
 
 Before starting a parallel calculation, it might be useful to check how the
 parallelization corresponding to the given number of processes would be done
-with ``--dry-run`` command line option::
+with ``--gpaw dry-run=N`` command line option::
 
-  python script.py --dry-run=8
+    $ python3 script.py --gpaw dry-run=8
 
 The output will contain also the "Calculator" RAM Memory estimate per process.
 
@@ -46,7 +46,7 @@ Simple submit tool
 Instead writing a file with the line "mpirun ... gpaw-python script.py" and
 then submitting it to a queueing system, it is simpler to automate this::
 
-  #!/usr/bin/env python
+  #!/usr/bin/env python3
   from sys import argv
   import os
   options = ' '.join(argv[1:-1])
@@ -90,7 +90,7 @@ By default it uses the following environment variables to write the runscript:
 variable        meaning
 =============== ===================================
 HOSTNAME        name used to assing host type
-PYTHONPATH      path for python
+PYTHONPATH      path for Python
 GPAW_PYTHON     where to find gpaw-python
 GPAW_SETUP_PATH where to find the setups
 GPAW_MAIL       where to send emails about the jobs
@@ -317,7 +317,7 @@ More information about these topics can be found here:
 
    band_parallelization/band_parallelization
 
-   
+
 .. _manual_ScaLAPACK:
 
 ScaLAPACK

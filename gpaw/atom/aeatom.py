@@ -691,14 +691,14 @@ class AllElectronAtom:
                 n_g = ch.calculate_density(n)
                 rave = self.rgd.integrate(n_g, 1)
                 gave = self.rgd.round(rave)
-                fr_g *= np.sign(fr_g[gave], 0)
+                fr_g *= np.sign(fr_g[gave])
                 plt.plot(self.rgd.r_g, fr_g,
                          ls=ls, lw=lw, color=colors[n + ch.l], label=name)
 
         plt.legend(loc='best')
         plt.xlabel('r [Bohr]')
         plt.ylabel('$r\\phi(r)$')
-        plt.axis(xmax=rc)
+        plt.axis(xmin=0, xmax=rc)
         plt.show()
 
     def logarithmic_derivative(self, l, energies, rcut):
@@ -760,33 +760,39 @@ class AllElectronAtom:
         return exx
 
 
-def build_parser():
-    from optparse import OptionParser
+class CLICommand:
+    short_description = 'Solve radial equation for an atom'
 
-    parser = OptionParser(usage='gwap atom [options] element')
-    parser.add_option('-f', '--xc-functional', type='string', default='LDA',
-                      help='Exchange-Correlation functional ' +
-                      '(default value LDA)',
-                      metavar='<XC>')
-    parser.add_option('-a', '--add', metavar='states',
-                      help='Add electron(s). Use "1s0.5a" to add 0.5 1s ' +
-                      'electrons to the alpha-spin channel (use "b" for ' +
-                      'beta-spin).  The number of electrons defaults to ' +
-                      'one. Examples: "1s", "2p2b", "4f0.1b,3d-0.1a".')
-    parser.add_option('--spin-polarized', action='store_true')
-    parser.add_option('-d', '--dirac', action='store_true')
-    parser.add_option('-p', '--plot', action='store_true')
-    parser.add_option('-e', '--exponents',
-                      help='Exponents a: exp(-a*r^2).  Use "-e 0.1:20.0:30" ' +
-                      'to get 30 exponents from 0.1 to 20.0.')
-    parser.add_option('-l', '--logarithmic-derivatives',
-                      metavar='spdfg,e1:e2:de,radius',
-                      help='Plot logarithmic derivatives. ' +
-                      'Example: -l spdf,-1:1:0.05,1.3. ' +
-                      'Energy range and/or radius can be left out.')
-    parser.add_option('-r', '--refine', action='store_true')
-    parser.add_option('-s', '--scalar-relativistic', action='store_true')
-    return parser
+    @staticmethod
+    def add_arguments(parser):
+        add = parser.add_argument
+        add('symbol')
+        add('-f', '--xc-functional', type=str, default='LDA',
+            help='Exchange-Correlation functional ' +
+            '(default value LDA)',
+            metavar='<XC>')
+        add('-a', '--add', metavar='states',
+            help='Add electron(s). Use "1s0.5a" to add 0.5 1s ' +
+            'electrons to the alpha-spin channel (use "b" for ' +
+            'beta-spin).  The number of electrons defaults to ' +
+            'one. Examples: "1s", "2p2b", "4f0.1b,3d-0.1a".')
+        add('--spin-polarized', action='store_true')
+        add('-d', '--dirac', action='store_true')
+        add('-p', '--plot', action='store_true')
+        add('-e', '--exponents',
+            help='Exponents a: exp(-a*r^2).  Use "-e 0.1:20.0:30" ' +
+            'to get 30 exponents from 0.1 to 20.0.')
+        add('-l', '--logarithmic-derivatives',
+            metavar='spdfg,e1:e2:de,radius',
+            help='Plot logarithmic derivatives. ' +
+            'Example: -l spdf,-1:1:0.05,1.3. ' +
+            'Energy range and/or radius can be left out.')
+        add('-r', '--refine', action='store_true')
+        add('-s', '--scalar-relativistic', action='store_true')
+
+    @staticmethod
+    def run(args):
+        main(args)
 
 
 def parse_ld_str(s, energies=None, r=2.0):
@@ -802,23 +808,18 @@ def parse_ld_str(s, energies=None, r=2.0):
     return lvalues, energies, r
 
 
-def main(args=None):
-    parser = build_parser()
-    opt, args = parser.parse_args(args)
-
-    if len(args) != 1:
-        parser.error('Incorrect number of arguments')
-    symbol = args[0]
+def main(args):
+    symbol = args.symbol
 
     nlfs = []
-    if opt.add:
-        for x in opt.add.split(','):
+    if args.add:
+        for x in args.add.split(','):
             n = int(x[0])
             l = 'spdfg'.find(x[1])
             x = x[2:]
             if x and x[-1] in 'ab':
                 s = int(x[-1] == 'b')
-                opt.spin_polarized = True
+                args.spin_polarized = True
                 x = x[:-1]
             else:
                 s = None
@@ -829,13 +830,13 @@ def main(args=None):
             nlfs.append((n, l, f, s))
 
     aea = AllElectronAtom(symbol,
-                          xc=opt.xc_functional,
-                          spinpol=opt.spin_polarized,
-                          dirac=opt.dirac)
+                          xc=args.xc_functional,
+                          spinpol=args.spin_polarized,
+                          dirac=args.dirac)
 
     kwargs = {}
-    if opt.exponents:
-        parts = opt.exponents.split(':')
+    if args.exponents:
+        parts = args.exponents.split(':')
         kwargs['alpha1'] = float(parts[0])
         if len(parts) > 1:
             kwargs['alpha2'] = float(parts[1])
@@ -848,15 +849,15 @@ def main(args=None):
     aea.initialize(**kwargs)
     aea.run()
 
-    if opt.refine:
+    if args.refine:
         aea.refine()
 
-    if opt.scalar_relativistic:
+    if args.scalar_relativistic:
         aea.scalar_relativistic = True
         aea.refine()
 
-    if opt.logarithmic_derivatives:
-        lvalues, energies, r = parse_ld_str(opt.logarithmic_derivatives,
+    if args.logarithmic_derivatives:
+        lvalues, energies, r = parse_ld_str(args.logarithmic_derivatives,
                                             (-1, 1, 0.05))
         import matplotlib.pyplot as plt
         for l in lvalues:
@@ -864,9 +865,5 @@ def main(args=None):
             plt.plot(energies, ld, colors[l])
         plt.show()
 
-    if opt.plot:
+    if args.plot:
         aea.plot_wave_functions()
-
-
-if __name__ == '__main__':
-    main()

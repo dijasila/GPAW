@@ -42,8 +42,11 @@ w4 = calc.get_pseudo_wave_function(0, 1)
 e4 = calc.get_eigenvalues(1)
 
 for w in [w2, w3, w4]:
-    assert abs(abs(w[1, 2, 3]) - abs(w1[1, 2, 3])) < 1e-7
+    err = abs(abs(w[1, 2, 3]) - abs(w1[1, 2, 3]))
+    assert err < 1e-7, err
 
 for e in [e2, e3, e4]:
-    assert abs(e[0] - e1[0]) < 2e-9, abs(e[0] - e1[0])
-    assert abs(e[-1] - e2[-1]) < 1e-10
+    err = abs(e[0] - e1[0])
+    assert err < 2e-9, err
+    err = abs(e[-1] - e2[-1])
+    assert err < 1e-10, err

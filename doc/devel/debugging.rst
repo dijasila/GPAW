@@ -7,7 +7,13 @@ Debugging
 Python debugging
 ================
 
-Even though some debugging can done just with print statements, a real debugger offers several advantages. It is possible, for example, to set breakpoints in certain files or functions, execute the code step by step, examine and change values of variables. Python contains a standard debugger *pdb*. A script can be started under the debugger control as *python -m pdb script.py* (python 2.4) or *python /path_to_pdb/pdb.py script.py* (python 2.3). Now, before the execution of the script starts one enters the debugger prompt. The most important debugger commands are:
+Even though some debugging can done just with print statements, a real
+debugger offers several advantages. It is possible, for example, to set
+breakpoints in certain files or functions, execute the code step by step,
+examine and change values of variables. Python contains a standard debugger
+*pdb*. A script can be started under the debugger control as *python3 -m pdb
+script.py*. Now before the execution of the script starts one enters the
+debugger prompt. The most important debugger commands are:
 
 h(elp) [command]
 
@@ -48,7 +54,7 @@ documentation <http://docs.python.org/library/pdb.html>`_.
 
 An example session might look like::
 
-  corona1 ~/gpaw/trunk/test> python -m pdb H.py
+  corona1 ~/gpaw/trunk/test> python3 -m pdb H.py
   > /home/csc/jenkovaa/gpaw/trunk/test/H.py(1)?()
   -> from gpaw import GPAW
   (Pdb) l 11,5
@@ -74,7 +80,11 @@ An example session might look like::
   [Atom('H', (2.0, 2.0, 2.0))]
 
 
-Emacs has a special mode for python debugging which can be invoked as *M-x pdb*. After that one has to give the command to start the debugger (e.g. python -m pdb script.py). Emacs opens two windows, one for the debugger command prompt and one which shows the source code and the current point of execution. Breakpoints can be set also on the source-code window.
+Emacs has a special mode for Python debugging which can be invoked as *M-x
+pdb*. After that one has to give the command to start the debugger (e.g.
+python3 -m pdb script.py). Emacs opens two windows, one for the debugger
+command prompt and one which shows the source code and the current point of
+execution. Breakpoints can be set also on the source-code window.
 
 
 C debugging
@@ -102,12 +112,12 @@ applies to *gdb*::
   Starting program: /usr/bin/python2.4 H.py
 
     ... output ...
-  
+
   Breakpoint 2, Operator_apply (self=0x2a98f8f670, args=0x2a9af73b78)
     at c/operators.c:83
   (gdb)
 
-One can also do combined C and python debugging by starting the input
+One can also do combined C and Python debugging by starting the input
 script as ``run -m pdb H.py`` i.e::
 
   sepeli ~/gpaw/trunk/test> gdb python

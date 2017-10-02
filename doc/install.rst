@@ -27,14 +27,14 @@ that has MPI_ functionality built in.
 
 There are several ways to install GPAW:
 
-* On a lucky day it's as simple as ``pip install -U gpaw`` as
+* On a lucky day it's as simple as ``pip3 install -U gpaw`` as
   described :ref:`below <installation using pip>`.
 
 * Alternatively, you can :ref:`download <download>` the source code,
   edit :git:`customize.py` to tell the install script which libraries you
   want to link to and where they
   can be found (see :ref:`customizing installation`) and then install with a
-  ``python setup.py install --user`` as described :ref:`here <install
+  ``python3 setup.py install --user`` as described :ref:`here <install
   with distutils>`.
 
 * There may be a package for your Linux distribution that you can use
@@ -56,9 +56,9 @@ There are several ways to install GPAW:
 Requirements
 ============
 
-* Python_ 2.6-3.5
+* Python_ 2.7-3.5
 * NumPy_ 1.6.1 or later (base N-dimensional array package)
-* ASE_ 3.13 or later (atomic simulation environment)
+* ASE_ 3.14.1 or later (atomic simulation environment)
 * a C-compiler
 * LibXC_ 2.0.1 or later
 * BLAS_ and LAPACK_ libraries
@@ -81,7 +81,7 @@ Optional, but highly recommended:
 .. _BLACS: http://www.netlib.org/blacs/
 .. _LAPACK: http://www.netlib.org/lapack/
 .. _ScaLAPACK: http://www.netlib.org/scalapack/
-.. _PyPI: https://pypi.python.org/pypi/gpaw
+.. _PyPI: https://pypi.org/project/gpaw
 .. _PIP: https://pip.pypa.io/en/stable/
 .. _ASE: https://wiki.fysik.dtu.dk/ase
 .. _FFTW: http://www.fftw.org/
@@ -97,11 +97,11 @@ Installation using ``pip``
 The simplest way to install GPAW is using pip_ and the GPAW package from
 the Python package index (PyPI_)::
 
-    $ pip install --upgrade --user gpaw
+    $ pip3 install --upgrade --user gpaw
 
 This will compile and install GPAW (both ``_gpaw.so`` and all the Python
 files) in your ``~/.local/lib/pythonX.Y/site-packages`` folder where
-Python can automatically find it.  The ``pip`` command will also place
+Python can automatically find it.  The ``pip3`` command will also place
 the command line tool :command:`gpaw` in the ``~/.local/bin`` folder, so
 make sure you have that in your :envvar:`PATH` environment variable.  If
 you have an ``mpicc`` command on your system then there will also be a
@@ -110,9 +110,9 @@ you have an ``mpicc`` command on your system then there will also be a
 Check that you have installed everything in the correct places::
 
     $ gpaw info
-    
+
 To check the compiled parallel features (like ScaLAPACK), you need to run::
-    
+
     $ gpaw-python $(which gpaw) info
 
 
@@ -166,26 +166,26 @@ Sou can get the source from a tar-file or from Git:
 :Tar-file:
 
     You can get the source as a tar-file for the
-    latest stable release (gpaw-1.2.0.tar.gz_) or the latest
+    latest stable release (gpaw-1.3.0.tar.gz_) or the latest
     development snapshot (`<snapshot.tar.gz>`_).
 
     Unpack and make a soft link::
 
-        $ tar -xf gpaw-1.2.0.tar.gz
-        $ ln -s gpaw-1.2.0 gpaw
+        $ tar -xf gpaw-1.3.0.tar.gz
+        $ ln -s gpaw-1.3.0 gpaw
+
+    Here is a `list of tarballs <https://pypi.python.org/simple/gpaw/>`__.
 
 :Git clone:
 
-    Alternatively, you can get the source for the the development version
-    from https://gitlab.com/gpaw/gpaw like this::
+    Alternatively, you can get the source for the latest stable release from
+    https://gitlab.com/gpaw/gpaw like this::
+
+        $ git clone -b 1.3.0 https://gitlab.com/gpaw/gpaw.git
+
+    or if you want the development version::
 
         $ git clone https://gitlab.com/gpaw/gpaw.git
-
-    If you want the latest stable release you should clone and then *checkout*
-    the ``1.2.0`` tag like this::
-
-        $ git clone https://gitlab.com/gpaw/gpaw.git
-        $ git checkout 1.2.0
 
 Add ``~/gpaw`` to your :envvar:`PYTHONPATH` environment variable and add
 ``~/gpaw/tools`` to :envvar:`PATH` (assuming ``~/gpaw`` is where your GPAW
@@ -197,10 +197,8 @@ folder is).
     See the :ref:`releasenotes` for which tags are available.  Also the
     dates of older releases can be found there.
 
-.. _gpaw-1.2.0.tar.gz:
-    https://pypi.python.org/packages/3c/ed/
-    c06fc0960c1ddc8bb5ae6a23d1164ffa78324758a3bfb50c677278bef14a/
-    gpaw-1.2.0.tar.gz
+.. _gpaw-1.3.0.tar.gz:
+    https://pypi.org/packages/source/g/gpaw/gpaw-1.3.0.tar.gz
 
 
 .. _customizing installation:
@@ -234,7 +232,7 @@ Install with setup.py
 If you have the source code, you can use the install script (:git:`setup.py`)
 to compile and install the code::
 
-    $ python setup.py install --user
+    $ python3 setup.py install --user
 
 
 .. _parallel installation:

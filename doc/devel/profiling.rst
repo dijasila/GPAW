@@ -59,7 +59,7 @@ the pstats_ documentation if you want to do more fancy things.
    is a good idea to run the code in debug mode - this will wrap
    calls to C-code in Python functions::
 
-     $ python script.py --debug
+     $ python3 script.py --debug
 
 .. tip::
 
@@ -73,6 +73,6 @@ the pstats_ documentation if you want to do more fancy things.
 
    Use::
 
-     $ python script.py --profile=-
+     $ python3 script.py --profile=-
 
    to write the report directly to standard output.

@@ -7,7 +7,6 @@ import numpy as np
 
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.blas import dotu
-from gpaw.utilities.blas import dotc
 from gpaw.mpi import rank
 
 class CSCG:
@@ -118,7 +117,7 @@ class CSCG:
 
         # if scale < eps, then convergence check breaks down
         if (scale < self.eps).any():
-            raise RuntimeError("CSCG method detected underflow for squared norm of right-hand side (scale = %le < eps = %le)." % (scale,eps))
+            raise RuntimeError("CSCG method detected underflow for squared norm of right-hand side (scale = %le < eps = %le)." % (scale, self.eps))
 
         #print 'Scale = ', scale
 

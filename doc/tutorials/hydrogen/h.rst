@@ -19,7 +19,7 @@ hydrogen nucleus and also because of the cusp in the wave function:
 
 You can look at the energy convergence with this command::
 
-    $ ase-gui H.ae.txt
+    $ ase gui H.ae.txt
 
 Let's do the same calculation with a PAW setup.  Replace the ``h.calc
 =`` line with this::
@@ -35,7 +35,6 @@ Using a 1-d radial grid
 =======================
 
 Since the H atom is spherically symmetric, one can solve the problem
-on a 1-d grid.  GPAW has a program to do this called ``aeatom.py``.
-It can be used like this::
+on a 1-d grid.  You can do that on the command line like this::
 
-    $ python -m gpaw.atom.aeatom -p H
+    $ gpaw atom H -p

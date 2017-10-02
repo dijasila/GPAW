@@ -37,7 +37,7 @@ class KPoint:
         Rank of the CPU that does the matrix diagonalization of
         H_nn and the Cholesky decomposition of S_nn.
     """
-    
+
     def __init__(self, weight, s, k, q, phase_cd):
         """Construct k-point object.
 
@@ -79,7 +79,7 @@ class KPoint:
         self.k = k  # k-point index
         self.q = q  # local k-point index
         self.phase_cd = phase_cd
-        
+
         self.eps_n = None
         self.f_n = None
         self.P_ani = None
@@ -89,7 +89,7 @@ class KPoint:
         self.C_nM = None     # LCAO coefficients for wave functions XXX
 
         self.rho_MM = None
-        
+
         self.S_MM = None
         self.T_MM = None
 
@@ -154,4 +154,3 @@ class GlobalKPoint(KPoint):
             ni = wfs.setups[a].ni
             self.P_ani[a] = my_P_ni[:, i:i + ni]  # copy?
             i += ni
-

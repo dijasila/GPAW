@@ -198,6 +198,11 @@ class RadialGridDescriptor:
 
         G_k = np.linspace(0, pi / h, N // 2 + 1)
 
+        # Zeropad the function to same length as coordinates:
+        fpad_g = np.zeros(len(self.r_g))
+        fpad_g[:len(f_g)] = f_g
+        f_g = fpad_g
+
         from scipy.interpolate import InterpolatedUnivariateSpline
         if l < 2:
             f_x = InterpolatedUnivariateSpline(self.r_g, f_g)(r_x)

@@ -1,9 +1,7 @@
-import os
-
 from ase import Atom 
+
 from gpaw import GPAW
 from gpaw.cluster import Cluster
-from gpaw.test import equal
 from gpaw.analyse.eed import ExteriorElectronDensity
 
 fwfname='H2_kpt441_wf.gpw'

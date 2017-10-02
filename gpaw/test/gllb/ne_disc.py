@@ -1,5 +1,5 @@
-import os
-from ase import *
+from ase import Atom, Atoms
+
 from gpaw import GPAW, restart
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters

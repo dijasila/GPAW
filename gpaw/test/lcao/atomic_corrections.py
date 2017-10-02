@@ -24,7 +24,7 @@ corrections = [DenseAtomicCorrection(), DistributedAtomicCorrection()]
 
 #corrections.pop() # XXXXXXXXXXXXXXXXXXXXXXXXXXXX
 try:
-    import scipy
+    import scipy  # noqa
 except ImportError:
     pass
 else:

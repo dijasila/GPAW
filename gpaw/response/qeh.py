@@ -4,6 +4,7 @@ import pickle
 import numpy as np
 from math import pi
 import ase.units
+from ase.parallel import world
 from ase.utils import devnull
 import sys
 import os
@@ -68,20 +69,14 @@ class Heterostructure:
         for n, name in enumerate(structure):
             if name not in namelist:
                 namelist.append(name)
-                name += '-chi.pckl'
-                fd = open(name, 'rb')
-                data = load(fd)
-                try:  # new format
-                    q = data['q_abs']
-                    w = data['omega_w']
-                    zi = data['z']
-                    chim = data['chiM_qw']
-                    chid = data['chiD_qw']
-                    drhom = data['drhoM_qz']
-                    drhod = data['drhoD_qz']
-                except TypeError:  # old format
-                    q, w, chim, chid, zi, drhom, drhod = data
-
+                data = np.load(name + '-chi.npz')
+                q = data['q_abs']
+                w = data['omega_w']
+                zi = data['z']
+                chim = data['chiM_qw']
+                chid = data['chiD_qw']
+                drhom = data['drhoM_qz']
+                drhod = data['drhoD_qz']
                 if qmax is not None:
                     qindex = np.argmin(abs(q - qmax * Bohr)) + 1
                 else:
@@ -667,7 +662,7 @@ class Heterostructure:
 
             eels_qw[iq, :] *= 1. / N * 4 * np.pi / self.q_abs[iq]**2
 
-        eels_qw = self.collect_q(eels_qw)
+        eels_qw = self.collect_qw(eels_qw)
 
         return self.q_abs / Bohr, self.frequencies * Hartree, \
             - (Bohr * eels_qw).imag
@@ -963,7 +958,7 @@ class BuildingBlock():
         """Creates a BuildingBlock object.
 
         filename: str
-            used to save data file: filename-chi.pckl
+            used to save data file: filename-chi.npz
         df: DielectricFunction object
             Determines how linear response calculation is performed
         isotropic_q: bool
@@ -1080,6 +1075,7 @@ class BuildingBlock():
         if self.load_chi_file():
             if self.complete:
                 print('Building block loaded from file', file=self.fd)
+        world.barrier()
 
     def calculate_building_block(self, add_intraband=False):
         if self.complete:
@@ -1165,27 +1161,27 @@ class BuildingBlock():
                 'drhoD_qz': self.drhoD_qz}
 
         if self.world.rank == 0:
-            with open(filename + '-chi.pckl', 'wb') as fd:
-                pickle.dump(data, fd, pickle.HIGHEST_PROTOCOL)
+            np.savez_compressed(filename + '-chi.npz',
+                                **data)
+        world.barrier()
 
     def load_chi_file(self):
         try:
-            data = load(open(self.filename + '-chi.pckl', 'rb'))
+            data = np.load(self.filename + '-chi.npz')
         except IOError:
             return False
+        if (np.all(data['omega_w'] == self.omega_w) and
+            np.all(data['q_cs'] == self.q_cs) and
+            np.all(data['z'] == self.z)):
+            self.nq = data['last_q']
+            self.complete = data['complete']
+            self.chiM_qw = data['chiM_qw']
+            self.chiD_qw = data['chiD_qw']
+            self.drhoM_qz = data['drhoM_qz']
+            self.drhoD_qz = data['drhoD_qz']
+            return True
         else:
-            if (np.all(data['omega_w'] == self.omega_w) and
-                np.all(data['q_cs'] == self.q_cs) and
-                np.all(data['z'] == self.z)):
-                self.nq = data['last_q']
-                self.complete = data['complete']
-                self.chiM_qw = data['chiM_qw']
-                self.chiD_qw = data['chiD_qw']
-                self.drhoM_qz = data['drhoM_qz']
-                self.drhoD_qz = data['drhoD_qz']
-                return True
-            else:
-                return False
+            return False
 
     def interpolate_to_grid(self, q_grid, w_grid):
 
@@ -1298,8 +1294,8 @@ def check_building_blocks(BBfiles=None):
     BBfiles: list of str
         list of names of BB files
     """
-    name = BBfiles[0] + '-chi.pckl'
-    data = load(open(name, 'rb'))
+    name = BBfiles[0] + '-chi.npz'
+    data = np.load(name)
     try:
         q = data['q_abs'].copy()
         w = data['omega_w'].copy()
@@ -1307,8 +1303,7 @@ def check_building_blocks(BBfiles=None):
         # Skip test for old format:
         return True
     for name in BBfiles[1:]:
-        name += '-chi.pckl'
-        data = load(open(name, 'rb'))
+        data = np.load(name + '-chi.npz')
         if not ((data['q_abs'] == q).all and
                 (data['omega_w'] == w).all):
             return False
@@ -1339,15 +1334,14 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
     q_max = 1000
     w_max = 1000
     for name in BBfiles:
-        data = load(open(name + '-chi.pckl', 'rb'))
+        data = np.load(open(name + '-chi.npz', 'rb'))
         q_abs = data['q_abs']
         q_max = np.min([q_abs[-1], q_max])
         ow = data['omega_w']
         w_max = np.min([ow[-1], w_max])
 
     if BBmotherfile is not None:
-        name = BBmotherfile + '-chi.pckl'
-        data = load(open(name, 'rb'))
+        data = np.load(BBmotherfile + "-chi.npz")
         q_grid = data['q_abs']
         w_grid = data['omega_w']
     else:
@@ -1362,7 +1356,7 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
     w_grid = np.array(w_grid)
     for name in BBfiles:
         assert data['isotropic_q']
-        data = load(open(name + '-chi.pckl', 'rb'))
+        data = np.load(name + '-chi.npz')
         q_abs = data['q_abs']
         w = data['omega_w']
         z = data['z']
@@ -1436,8 +1430,8 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
                 'drhoD_qz': drhoD_qz,
                 'isotropic_q': True}
 
-        with open(name + '_int-chi.pckl', 'wb') as fd:
-            pickle.dump(data, fd, pickle.HIGHEST_PROTOCOL)
+        np.savez_compressed(name + "_int-chi.npz",
+                            **data)
 
 
 def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,
@@ -1480,7 +1474,7 @@ def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,
     drhoM_qz = np.zeros([nq, len(z)], dtype=complex)  # induced density
     drhoD_qz = np.zeros([nq, len(z)], dtype=complex)  # induced dipole density
     for iq in range(nq):
-        if not iq == 0:
+        if iq != 0:
             omega_w, pd, chi_wGG, q0 = read_chi_wGG(filenames[iq])
         if q0 is not None:
             q = q0
@@ -1523,9 +1517,15 @@ def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,
     densities and z array (all in Bohr)
     """
     if name is not None:
-        pickle.dump((np.array(q_list_abs), omega_w, chiM_qw, chiD_qw,
-                     z, drhoM_qz, drhoD_qz), open(name + '-chi.pckl', 'wb'),
-                    pickle.HIGHEST_PROTOCOL)
+        arrays = [np.array(q_list_abs), omega_w, chiM_qw, chiD_qw,
+                  z, drhoM_qz, drhoD_qz]
+        names = ['q_abs', 'omega_w', 'z',
+                 'chiM_qw', 'chiD_qw',
+                 'drhoM_qz', 'drhoD_qz']
+        data = {}
+        for array, name in zip(arrays, names):
+            data[name] = array
+        np.save(name + '-chi.npz', **data)
     return np.array(q_list_abs) / Bohr, omega_w * Hartree, chiM_qw, \
         chiD_qw, z, drhoM_qz, drhoD_qz
 
@@ -1550,7 +1550,7 @@ def expand_layers(structure):
             name = name[1:]
         try:
             num = int(num)
-        except:
+        except ValueError:
             num = 1
         for n in range(num):
             newlist.append(name)

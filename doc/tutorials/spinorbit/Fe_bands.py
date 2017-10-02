@@ -13,15 +13,16 @@ N = points['N']
 H_z = [H[0], -H[1], -H[2]]
 G_yz = [2 * H[0], 0.0, 0.0]
 
-kpts, x, X = bandpath([G, H, G_yz], layer.cell, npoints=500)
+kpts, x, X = bandpath([G, H, G_yz], layer.cell, npoints=1000)
 calc = GPAW('Fe_gs.gpw',
             kpts=kpts,
+            fixdensity=True,
             symmetry='off',
             txt='Fe_bands.txt',
             parallel={'band': 1})
-calc.diagonalize_full_hamiltonian()
+calc.get_potential_energy()
 
-calc.write('Fe_bands.gpw', mode='all')
+calc.write('Fe_bands.gpw')
 
 f = paropen('Fe_kpath.dat', 'w')
 for k in x:

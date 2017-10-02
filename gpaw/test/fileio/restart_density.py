@@ -1,9 +1,12 @@
-from __future__ import division
-from gpaw import GPAW, restart
-from ase import Atoms
-from gpaw.test import equal
+from __future__ import print_function, division
+
 from math import sqrt
+
 import numpy as np
+from ase import Atoms
+
+from gpaw import GPAW, restart
+from gpaw.test import equal
 
 
 d = 3.0

@@ -5,6 +5,7 @@
 
 import os
 import sys
+import warnings
 from distutils.util import get_platform
 
 from os.path import join, isfile
@@ -13,15 +14,15 @@ import numpy as np
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '1.2.0'
-__ase_version_required__ = '3.13.0'
+__version__ = '1.3.0'
+__ase_version_required__ = '3.15.0'
 
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
-           'PW', 'LCAO', 'restart']
+           'PW', 'LCAO', 'restart', 'FD']
 
 
 class ConvergenceError(Exception):
@@ -37,9 +38,6 @@ class PoissonConvergenceError(ConvergenceError):
 
 
 # Check for special command line arguments:
-debug = False
-trace = False
-dry_run = 0
 memory_estimate_depth = 2
 parsize_domain = None
 parsize_bands = None
@@ -52,23 +50,18 @@ sl_lrtddft = None
 buffer_size = None
 extra_parameters = {}
 profile = False
+
+
+def parse_extra_parameters(arg):
+    from ase.cli.run import str2dict
+    return {key.replace('-', '_'): value
+            for key, value in str2dict(arg).items()}
+
+
 i = 1
 while len(sys.argv) > i:
     arg = sys.argv[i]
-    if arg.startswith('--gpaw-'):
-        # Found old-style gpaw command line argument:
-        arg = '--' + arg[7:]
-        raise RuntimeError('Warning: Use %s instead of %s.' %
-                           (arg, sys.argv[i]))
-    if arg == '--trace':
-        trace = True
-    elif arg == '--debug':
-        debug = True
-    elif arg.startswith('--dry-run'):
-        dry_run = 1
-        if len(arg.split('=')) == 2:
-            dry_run = int(arg.split('=')[1])
-    elif arg.startswith('--memory-estimate-depth'):
+    if arg.startswith('--memory-estimate-depth'):
         memory_estimate_depth = -1
         if len(arg.split('=')) == 2:
             memory_estimate_depth = int(arg.split('=')[1])
@@ -176,9 +169,9 @@ while len(sys.argv) > i:
         # Buffer size for MatrixOperator in MB
         buffer_size = int(arg.split('=')[1])
     elif arg.startswith('--gpaw='):
-        extra_parameters = eval('dict(%s)' % arg[7:])
+        extra_parameters = parse_extra_parameters(arg[7:])
     elif arg == '--gpaw':
-        extra_parameters = eval('dict(%s)' % sys.argv.pop(i + 1))
+        extra_parameters = parse_extra_parameters(sys.argv.pop(i + 1))
     elif arg.startswith('--profile='):
         profile = arg.split('=')[1]
     else:
@@ -186,6 +179,16 @@ while len(sys.argv) > i:
         continue
     # Delete used command line argument:
     del sys.argv[i]
+
+
+dry_run = extra_parameters.pop('dry_run', 0)
+debug = extra_parameters.pop('debug', False)
+
+# Check for typos:
+for p in extra_parameters:
+    # We should get rid of most of these!
+    if p not in {'sic', 'log2ng', 'PK', 'vdw0', 'df_dry_run', 'usenewlfc'}:
+        warnings.warn('Unknown parameter: ' + p)
 
 if debug:
     np.seterr(over='raise', divide='raise', invalid='raise', under='ignore')
@@ -227,7 +230,7 @@ def initialize_data_paths():
         setup_paths[:] = os.environ['GPAW_SETUP_PATH'].split(os.pathsep)
     except KeyError:
         if os.pathsep == ';':
-            seltup_paths[:] = [r'C:\gpaw-setups']
+            setup_paths[:] = [r'C:\gpaw-setups']
         else:
             setup_paths[:] = ['/usr/local/share/gpaw-setups',
                               '/usr/share/gpaw-setups']
@@ -252,29 +255,6 @@ def restart(filename, Class=GPAW, **kwargs):
     calc = Class(filename, **kwargs)
     atoms = calc.get_atoms()
     return atoms, calc
-
-
-if trace:
-    indent = '    '
-    path = __path__[0]
-    from gpaw.mpi import world
-    if world.size > 1:
-        indent = 'CPU%d    ' % world.rank
-
-    def f(frame, event, arg):
-        global indent
-        f = frame.f_code.co_filename
-        if not f.startswith(path):
-            return
-
-        if event == 'call':
-            print(('%s%s:%d(%s)' % (indent, f[len(path):], frame.f_lineno,
-                                    frame.f_code.co_name)))
-            indent += '| '
-        elif event == 'return':
-            indent = indent[:-2]
-
-    sys.setprofile(f)
 
 
 if profile:

@@ -165,7 +165,7 @@ class LrTDDFPTSolveLayout:
         if self.solve_matrix_descr.blacsgrid.is_active():
             _gpaw.scalapack_solve(A_solve, self.solve_matrix_descr.asarray(), b_solve, self.solve_vector_descr.asarray())
             if info != 0:
-                raise RuntimeEror('scalapack_solve error: %d' % info)
+                raise RuntimeError('scalapack_solve error: %d' % info)
         
 
         self.vector_out_redist.redistribute(b_solve, b_orig)
@@ -351,7 +351,7 @@ class LrTDDFTLayouts:
         if self.solve_descr2a.blacsgrid.is_active():
             _gpaw.scalapack_solve(A_nn, self.solve_descr2a.asarray(), b_n, self.solve_descr2b.asarray())
             if info != 0:
-                raise RuntimeEror('scalapack_solve error: %d' % info
+                raise RuntimeError('scalapack_solve error: %d' % info
 )
         self.redist_solve_out_2b.redistribute(b_n, b_N)
 

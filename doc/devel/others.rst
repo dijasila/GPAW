@@ -1,5 +1,7 @@
-Miscellaneous objects
-=====================
+Miscellaneous objects and functions
+===================================
+
+.. autofunction:: gpaw.occupations.occupation_numbers
 
 .. autoclass:: gpaw.lfc.NewLocalizedFunctionsCollection
     :members:
