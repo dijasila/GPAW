@@ -178,16 +178,14 @@ Sou can get the source from a tar-file or from Git:
 
 :Git clone:
 
-    Alternatively, you can get the source for the the development version
-    from https://gitlab.com/gpaw/gpaw like this::
+    Alternatively, you can get the source for the latest stable release from
+    https://gitlab.com/gpaw/gpaw like this::
+
+        $ git clone -b 1.2.0 https://gitlab.com/gpaw/gpaw.git
+
+    or if you want the development version::
 
         $ git clone https://gitlab.com/gpaw/gpaw.git
-
-    If you want the latest stable release you should clone and then *checkout*
-    the ``1.2.0`` tag like this::
-
-        $ git clone https://gitlab.com/gpaw/gpaw.git
-        $ git checkout 1.2.0
 
 Add ``~/gpaw`` to your :envvar:`PYTHONPATH` environment variable and add
 ``~/gpaw/tools`` to :envvar:`PATH` (assuming ``~/gpaw`` is where your GPAW
