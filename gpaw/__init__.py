@@ -15,7 +15,7 @@ import numpy as np
 assert not np.version.version.startswith('1.6.0')
 
 __version__ = '1.3.1b1'
-__ase_version_required__ = '3.14.1'
+__ase_version_required__ = '3.15.0'
 
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
