@@ -58,7 +58,7 @@ Requirements
 
 * Python_ 2.7-3.5
 * NumPy_ 1.6.1 or later (base N-dimensional array package)
-* ASE_ 3.14.1 or later (atomic simulation environment)
+* ASE_ 3.15.0 or later (atomic simulation environment)
 * a C-compiler
 * LibXC_ 2.0.1 or later
 * BLAS_ and LAPACK_ libraries

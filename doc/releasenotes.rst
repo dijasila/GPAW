@@ -17,7 +17,7 @@ Version 1.3.0
 
 02 October 2017: :git:`1.3.0 <../1.3.0>`
 
-* Corresponding ASE release: ASE-3.14.1.
+* Corresponding ASE release: ASE-3.15.0.
 
 * :ref:`command line options` ``--dry-run`` and ``--debug`` have been removed.
   Please use ``--gpaw dry-run=N`` and ``--gpaw debug=True`` instead
