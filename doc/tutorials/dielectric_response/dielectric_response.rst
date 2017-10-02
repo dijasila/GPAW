@@ -275,13 +275,8 @@ different  `\mathbf{q}`.  You can also get the script here:
 Results on graphite
 -------------------
 
-<<<<<<< HEAD
-The figure shown here is generated from script: :download:`graphite_EELS.py` and
-:download:`plot_EELS.py`
-=======
 The figure shown here is generated from script: :download:`graphite_EELS.py`
 and :download:`plot_EELS.py`
->>>>>>> grr
 
 .. image:: graphite_EELS.png
            :height: 500 px
@@ -289,10 +284,6 @@ and :download:`plot_EELS.py`
 One can compare the results with literature  \ [#Rubio]_.
 
 
-<<<<<<< HEAD
-Technical details:
-======================
-=======
 .. _tetrahedron:
 
 Example 3: Tetrahedron integration (experimental)
@@ -457,7 +448,6 @@ significant. The algebraic expression are therefore evaluated in C.
 Technical details:
 ==================
 
->>>>>>> grr
 There are few points about the implementation that we emphasize:
 
 * The code is parallelized over kpoints and occupied bands. The
@@ -547,26 +537,15 @@ Details of the DF object
              get_polarizability, get_eels_spectrum
 
 
-<<<<<<< HEAD
-
-
-.. [#Kresse] M. Gajdoš, K. Hummer, G. Kresse, J. Furthmüller and F. Bechstedt,
-              Linear optical properties in the projected-augmented wave methodology,
-=======
 .. [#Kresse] M. Gajdoš, K. Hummer, G. Kresse, J. Furthmüller and F. Bechstedt,
               Linear optical properties in the projected-augmented
               wave methodology,
->>>>>>> grr
               *Phys. Rev. B* **73**, 045112 (2006).
 
 
 .. [#Rubio] A. G. Marinopoulos, L. Reining, A. Rubio and V. Olevano,
-<<<<<<< HEAD
-             Ab initio study of the optical absorption and wave-vector-dependent dielectric response of graphite,
-=======
              Ab initio study of the optical absorption and
              wave-vector-dependent dielectric response of graphite,
->>>>>>> grr
              *Phys. Rev. B* **69**, 245419 (2004).
 
 
