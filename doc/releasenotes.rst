@@ -12,10 +12,11 @@ Git master branch
 
  * No changes yet
 
+
 Version 1.3.0
 =============
 
-02 October 2017: :git:`1.3.0 <../1.3.0>`
+2 October 2017: :git:`1.3.0 <../1.3.0>`
 
 * Corresponding ASE release: ASE-3.14.1.
 
@@ -35,8 +36,6 @@ Version 1.3.0
 
 * Added :ref:`tetrahedron method <tetrahedron>` for calculation the density
   response function.
-
-* GGA and MGGA neighbors=2 ... ???
 
 * Long-range cutoff for :mod:`~ase.calculators.qmmm` calculations can now be
   per molecule instead of only per point charge.
