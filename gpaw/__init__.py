@@ -14,7 +14,7 @@ import numpy as np
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '1.3.0'
+__version__ = '1.3.1b1'
 __ase_version_required__ = '3.14.1'
 
 __all__ = ['GPAW',
