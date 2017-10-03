@@ -188,10 +188,12 @@ class FXCCorrelation(RPACorrelation):
                 nredist = np.product(chi0_0wGG.shape)
                 chi0.redistribute(chi0_swGG[1], A2_x[nredist:])
                 chi0_swGG = A2_x[:2 * nredist].reshape((2,) + chi0_0wGG.shape)
+                chi0_swGG = np.swapaxes(chi0_swGG,2,3)
             else:
                 chi0_0wGG = chi0.redistribute(chi0_swGG[0], A2_x)
                 nredist = np.product(chi0_0wGG.shape)
                 chi0_swGG = A2_x[:1 * nredist].reshape((1,) + chi0_0wGG.shape)
+                chi0_swGG = np.swapaxes(chi0_swGG,2,3)
 
         if not pd.kd.gamma:
             e = self.calculate_energy(pd, chi0_swGG, cut_G)

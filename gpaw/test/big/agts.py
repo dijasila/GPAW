@@ -17,17 +17,17 @@ class AGTSJob:
 
         Example:
 
-        >>> job = AGTSJob('doc/devel/256H2O', 'b256H2O.py --sl_default=4,4,16')
+        >>> job = AGTSJob('doc/devel/256H2O', 'b256H2O.py --gpaw=debug=True')
         >>> job.dir
         'doc/devel/256H2O'
         >>> job.script
         'b256H2O.py'
         >>> job.args
-        '--sl_default=4,4,16'
+        '--gpaw=debug=True'
         >>> job.name
-        'b256H2O.py_--sl_default=4,4,16'
+        'b256H2O.py_--gpaw=debug=True'
         >>> job.absname
-        'doc/devel/256H2O/b256H2O.py_--sl_default=4,4,16'
+        'doc/devel/256H2O/b256H2O.py_--gpaw=debug=True'
         """
 
         if ' ' in script:

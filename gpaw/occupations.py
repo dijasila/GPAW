@@ -23,10 +23,10 @@ def create_occupation_number_object(name, **kwargs):
 
 
 def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
-    """Calculate occupation numbers from eigenvalues.
+    """Calculate occupation numbers from eigenvalues in eV.
 
     occ: dict
-        Example: {'name': 'fermi-dirac', 'width': 0.05}.
+        Example: {'name': 'fermi-dirac', 'width': 0.05} (width in eV).
     eps_skn: ndarray, shape=(nspins, nibzkpts, nbands)
         Eigenvalues.
     weight_k: ndarray, shape=(nibzkpts,)
@@ -47,7 +47,7 @@ def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
 
     occ = create_occupation_number_object(**occ)
 
-    eps_skn = np.asarray(eps_skn)
+    eps_skn = np.asarray(eps_skn) / Hartree
     weight_k = np.asarray(weight_k)
     nspins, nkpts, nbands = eps_skn.shape
     f_skn = np.empty_like(eps_skn)

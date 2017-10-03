@@ -45,7 +45,7 @@ def get_auto_pfft_grid(size):
     nproc1 = size
     nproc2 = 1
     while nproc1 > nproc2 and nproc1 % 2 == 0:
-        nproc1 /= 2
+        nproc1 //= 2
         nproc2 *= 2
     return nproc1, nproc2
 

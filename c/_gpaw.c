@@ -391,6 +391,35 @@ void moduleinit0(void) { moduleinit(); }
 
 
 int
+run_gpaw()
+{
+    int status = -1;
+
+    PyObject *gpaw_mod = NULL, *pymain = NULL;
+
+    gpaw_mod = PyImport_ImportModule("gpaw");
+    if(gpaw_mod == NULL) {
+        status = 3;  // Basic import failure
+    } else {
+        pymain = PyObject_GetAttrString(gpaw_mod, "main");
+    }
+
+    if(pymain == NULL) {
+        status = 4;  // gpaw.main does not exist for some reason
+    } else {
+        // Returns Py_None or NULL (error after calling user script)
+        PyObject *pyreturn = PyObject_CallFunction(pymain, "");
+        status = (pyreturn == NULL);
+        Py_XDECREF(pyreturn);
+    }
+
+    Py_XDECREF(pymain);
+    Py_XDECREF(gpaw_mod);
+    return status;
+}
+
+
+int
 main(int argc, char **argv)
 {
 #ifndef GPAW_OMP
@@ -422,46 +451,20 @@ main(int argc, char **argv)
     Py_Initialize();
 
     PySys_SetArgvEx(argc, wargv, 0);
-    PyObject *sys_mod = PyImport_ImportModule("sys");
+    //PyObject *sys_mod = PyImport_ImportModule("sys");
 
     // This will broadcast a ton of imports
-    PyImport_ImportModule("gpaw");
+    //PyImport_ImportModule("gpaw");
 
     // We already imported the Python parts of numpy.  If we want, we can
     // later attempt to broadcast the numpy C API imports, too.
     import_array1(NULL);
 
-    // Unfortunately calling Py_Main will set sys.argv.
-    // We already changed sys.argv when importing GPAW (unfortunately!)
-    // and must therefore take out the current, modified sys.argv
-    // so we can feed that back into Py_Main.
-    PyObject *pynewargv = PyObject_GetAttrString(sys_mod, "argv");
-    int newargc = PyList_Size(pynewargv);
+    int status = run_gpaw();
 
-    PyChar *newargv[newargc];
-    for(int i=0; i < newargc; i++) {
-        PyObject* arg = PyList_GetItem(pynewargv, i);
-#if PY3
-        newargv[i] = PyUnicode_AsWideCharString(arg, NULL);
-#else
-        newargv[i] = PyString_AsString(arg);
-#endif
+    if(status != 0) {
+        PyErr_Print();
     }
-
-    // Py_Main undocumentedly decrefs many objects.  Therefore, although
-    // we should really be decreffing both pynewargv, sys_mod and the
-    // imported GPAW module, we cannot - it would segfault.
-    //
-    // The likely reason for this is that it is a bit hacky to do
-    // Python things and also call Py_Main.
-    // One could replace Py_Main with something else, but that is a major change.
-    int status = Py_Main(newargc, newargv);
-
-#if PY3
-    for(int i=0; i < newargc; i++) {
-        PyMem_Free(newargv[i]);
-    }
-#endif
 
     Py_Finalize();
     MPI_Finalize();

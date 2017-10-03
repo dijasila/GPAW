@@ -15,9 +15,9 @@ e_nk -= calc.get_fermi_level()
 for e_k in e_nk:
     plt.plot(x, e_k, '--', c='0.5')
 
-e_nk, s_kvn = get_spinorbit_eigenvalues(calc, return_spin=True, theta=np.pi/2)
+e_nk, s_kvn = get_spinorbit_eigenvalues(calc, return_spin=True)
 e_nk -= calc.get_fermi_level()
-s_nk = (s_kvn[:, 0].T + 1.0) / 2.0
+s_nk = (s_kvn[:, 2].T + 1.0) / 2.0
 
 plt.xticks(X, [r'$\mathrm{M}$', r'$\mathrm{K}$', r'$\Gamma$', 
                r'$\mathrm{-K}$', r'$\mathrm{-M}$'], size=20)
