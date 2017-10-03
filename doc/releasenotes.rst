@@ -10,18 +10,23 @@ Git master branch
 
 :git:`master <>`.
 
+* Command-line arguments for BLACS/ScaLAPACK
+  have been
+  removed in favour of the :ref:`parallel keyword
+  <manual_parallelization_types>`.  For example instead of running
+  ``gpaw-python --sl_diagonalize=4,4,64``, set the parallelization
+  within the script using
+  ``GPAW(parallel={'sl_diagonalize': (4, 4, 64)})``.
+
 * When run through the ordinary Python interpreter, GPAW will now only
   intercept and use command-line options of the form ``--gpaw
-  key=value``.  See also below.
+  key1=value1,key2=value2,...`` or ``--gpaw=key1=value1,key2=value2,...``.
 
 * ``gpaw-python`` now takes :ref:`command line options` directly
-  instead of stealing them from ``sys.argv``.
+  instead of stealing them from ``sys.argv``, passing the remaining
+  ones to the script:
   Example: ``gpaw-python --gpaw=debug=True myscript.py myscript_arguments``.
-  Command-line arguments for BLACS/ScaLAPACK have been
-  removed in favour of the :ref:`parallel keyword
-  <manual_parallelization_types>`
   See also ``gpaw-python --help``.
-
 
 Version 1.3.0
 =============
