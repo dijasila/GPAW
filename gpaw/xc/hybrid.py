@@ -309,7 +309,7 @@ class HybridXC(HybridXCBase):
         for a, P_ni in kpt.P_ani.items():
             H_nn[:nbands, :nbands] += symmetrize(np.inner(P_ni[:nbands],
                                                           kpt.vxx_ani[a]))
-        self.gd.comm.sum(H_nn.T)
+        self.gd.comm.sum(H_nn)
 
         H_nn[:nocc, nocc:] = 0.0
         H_nn[nocc:, :nocc] = 0.0

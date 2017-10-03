@@ -4,6 +4,7 @@ from functools import partial
 import numpy as np
 from ase.utils.timing import timer
 
+from gpaw.matrix import matrix_matrix_multiply as mmm
 from gpaw.utilities.blas import axpy
 from gpaw.xc.hybrid import HybridXC
 
@@ -148,9 +149,9 @@ class Eigensolver:
 
         with self.timer('calc_h_matrix'):
             psit.apply(Ht, out=tmp)
-            psit.matrix_elements(tmp, out=H, hermitian=True)
+            psit.matrix_elements(tmp, out=H, symmetric=True)
             ham.dH.apply(kpt.P, out=dHP)
-            H += kpt.P.matrix.H * dHP.matrix
+            mmm(1.0, kpt.P, 'H', dHP, 'N', 1.0, H, symmetric=True)
             ham.xc.correct_hamiltonian_matrix(kpt, H.array)
 
         with wfs.timer('diagonalize'):
@@ -160,10 +161,10 @@ class Eigensolver:
         with self.timer('rotate_psi'):
             if self.keep_htpsit:
                 Htpsit = psit.new(buf=self.Htpsit_nG)
-                Htpsit[:] = H.T * tmp
-            tmp[:] = H.T * psit
+                mmm(1.0, H, 'T', tmp, 'N', 0.0, Htpsit)
+            mmm(1.0, H, 'T', psit, 'N', 0.0, tmp)
             psit[:] = tmp
-            dHP.matrix[:] = kpt.P.matrix * H
+            mmm(1.0, kpt.P, 'N', H, 'N', 0.0, dHP)
             kpt.P.matrix = dHP.matrix
             # Rotate orbital dependent XC stuff:
             ham.xc.rotate(kpt, H.array)

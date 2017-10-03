@@ -11,8 +11,7 @@ class MatrixInFile:
         self.dist = create_distribution(M, N, *dist)
 
     def read(self, gd):
-        matrix = Matrix(*self.shape, dtype=self.dtype, dist=self.dist,
-                        order='C')
+        matrix = Matrix(*self.shape, dtype=self.dtype, dist=self.dist)
         # Read band by band to save memory
         for myn, psit_G in enumerate(matrix.array):
             n = self.dist.global_index(myn)
@@ -43,18 +42,18 @@ class ArrayWaveFunctions:
         self.matrix = self.matrix.read(self.gd)
         self.in_memory = True
 
-    def multiply(self, alpha, opa, b, opb, beta, c):
-        self.matrix.multiply(alpha, opa, b.matrix, opb, beta, c)
+    def multiply(self, alpha, opa, b, opb, beta, c, symmetric):
+        self.matrix.multiply(alpha, opa, b.matrix, opb, beta, c, symmetric)
         if opa in 'NC' and self.comm:
             if self.comm.size > 1:
                 c.comm = self.comm
                 c.state = 'a sum is needed'
             assert opb in 'TH' and b.comm is self.comm
 
-    def matrix_elements(self, other, out=None, hermitian=False):
+    def matrix_elements(self, other, out=None, symmetric=False):
         if out is None:
             out = Matrix(len(self), len(other), dtype=self.dtype)
-        self.multiply(self.dv, 'C', other, 'T', 0.0, out)
+        self.multiply(self.dv, 'C', other, 'T', 0.0, out, symmetric)
         return out
 
     def apply(self, func, out):
@@ -142,13 +141,14 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
         self.spin = spin
         self.myshape = (self.matrix.dist.shape[0], ng)
 
-    def multiply(self, alpha, opa, b, opb, beta, c):
+    def multiply(self, alpha, opa, b, opb, beta, c, symmetric):
         if opa == 'C' and opb == 'T' and beta == 0:
             if self.pd.dtype == complex:
-                ArrayWaveFunctions.multiply(self, alpha, opa, b, opb, beta, c)
+                ArrayWaveFunctions.multiply(self, alpha, opa, b, opb, beta, c,
+                                            symmetric)
             else:
                 ArrayWaveFunctions.multiply(self, 2 * alpha,
-                                            opa, b, opb, beta, c)
+                                            opa, b, opb, beta, c, symmetric)
                 c.array -= alpha * np.outer(self.matrix.array[:, 0],
                                             b.matrix.array[:, 0])
         else:

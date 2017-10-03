@@ -4,6 +4,7 @@ from ase.utils.timing import timer
 import numpy as np
 
 from gpaw.eigensolvers.eigensolver import Eigensolver
+from gpaw.matrix import matrix_matrix_multiply as mmm
 
 
 class Davidson(Eigensolver):
@@ -81,13 +82,13 @@ class Davidson(Eigensolver):
         dS = wfs.setups.dS
         comm = wfs.gd.comm
 
-        def matrix_elements(a, b, Pa, dM, Pb, C_nn, hermitian=False,
+        def matrix_elements(a, b, Pa, dM, Pb, C_nn, symmetric=False,
                             tmp=M):
             """Fill C_nn with <a|b> matrix elements."""
-            a.matrix_elements(b, out=tmp, hermitian=hermitian)
+            a.matrix_elements(b, out=tmp, symmetric=symmetric)
             dM.apply(Pb, out=dMP)
-            tmp += Pa.matrix.H * dMP.matrix
-            comm.sum(tmp.array.T, 0)
+            mmm(1.0, Pa, 'H', dMP, 'N', 1.0, tmp)
+            comm.sum(tmp.array, 0)
             if comm.rank == 0:
                 C_nn[:] = tmp.array
 
@@ -165,11 +166,11 @@ class Davidson(Eigensolver):
 
             with self.timer('rotate_psi'):
                 M.array[:] = H_NN[:B, :B]
-                R[:] = M.T * psit
-                dMP.matrix[:] = P.matrix * M
+                mmm(1.0, M, 'T', psit, 'N', 0.0, R)
+                mmm(1.0, P, 'N', M, 'N', 0.0, dMP)
                 M.array[:] = H_NN[B:, :B]
-                R += M.T * psit2
-                dMP.matrix += P2.matrix * M
+                mmm(1.0, M, 'T', psit2, 'N', 1.0, R)
+                mmm(1.0, P2, 'N', M, 'N', 1.0, dMP)
                 psit[:] = R
                 P, dMP = dMP, P
                 kpt.P = P

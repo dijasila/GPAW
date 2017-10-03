@@ -4,7 +4,7 @@ from ase.utils.timing import timer
 
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.lfc import BasisFunctions
-from gpaw.matrix import Matrix
+from gpaw.matrix import Matrix, matrix_matrix_multiply as mmm
 from gpaw.overlap import Overlap
 from gpaw.utilities import unpack
 from gpaw.utilities.timing import nulltimer
@@ -173,9 +173,9 @@ class FDPWWaveFunctions(WaveFunctions):
         dSP = P.new()
 
         with self.timer('calc_s_matrix'):
-            psit.matrix_elements(psit, S)
+            psit.matrix_elements(psit, S, symmetric=True)
             self.setups.dS.apply(P, out=dSP)
-            S += P.matrix.H * dSP.matrix
+            mmm(1.0, P, 'H', dSP, 'N', 1.0, S, symmetric=True)
 
         with self.timer('inverse-cholesky'):
             assert self.bd.comm.size == 1
@@ -184,8 +184,8 @@ class FDPWWaveFunctions(WaveFunctions):
 
         psit2 = psit.new(buf=self.work_array)
         with self.timer('rotate_psi_s'):
-            psit2[:] = S.T * psit
-            dSP.matrix[:] = P.matrix * S
+            mmm(1.0, S, 'T', psit, 'N', 0.0, psit2)
+            mmm(1.0, P, 'N', S, 'N', 0.0, dSP)
             psit[:] = psit2
             kpt.P = dSP
 

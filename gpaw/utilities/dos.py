@@ -139,7 +139,10 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
         # dictionary lookup later
         a = len(wfs.setups) + a
 
+    I1 = sum(setup.ni for setup in wfs.setups[:a])
     setup = wfs.setups[a]
+    I2 = I1 + setup.ni
+
     energies = np.empty(nb * nk)
     weights_xi = np.empty((nb * nk, setup.ni))
     x = 0
@@ -147,9 +150,9 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
         eps_n = wfs.collect_eigenvalues(k=k, s=spin)
         if len(eps_n) > 0:
             energies[x:x + nb] = eps_n[:nb]
-        P_ani = wfs.collect_projections(k, spin, asdict=True)
-        if P_ani is not None:
-            weights_xi[x:x + nb, :] = w * np.absolute(P_ani[a][:nb, :])**2
+        P_nI = wfs.collect_projections(k, spin, asdict=True)
+        if P_nI is not None:
+            weights_xi[x:x + nb, :] = w * abs(P_nI[:nb, I1:I2])**2
         x += nb
 
     wfs.world.broadcast(energies, 0)

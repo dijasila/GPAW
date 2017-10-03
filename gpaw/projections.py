@@ -26,8 +26,7 @@ class Projections:
                 I1 = I2
                 self.map[a] = (I1, I2)
 
-        self.matrix = Matrix(I1, nbands, dtype, dist=(bcomm, 1, bcomm.size),
-                             order='F')
+        self.matrix = Matrix(I1, nbands, dtype, dist=(bcomm, 1, bcomm.size))
 
     def new(self, bcomm='inherit', nbands=None, rank_a=None):
         if bcomm == 'inherit':
@@ -63,7 +62,7 @@ class Projections:
                 nI = self.nproj_a[rank_a == rank].sum()
                 if nI == 0:
                     continue
-                P2_In = np.empty((nI, mynbands), P_In.dtype, order='F')
+                P2_In = np.empty((nI, mynbands), P_In.dtype)
                 I1 = 0
                 myI1 = 0
                 for a, ni in enumerate(self.nproj_a):
@@ -76,10 +75,10 @@ class Projections:
                 if rank == 0:
                     P.matrix.array[:] = P2_In
                 else:
-                    self.acomm.send(P2_In.T, rank)
+                    self.acomm.send(P2_In, rank)
         else:
             if P.matrix.array.size > 0:
-                self.acomm.receive(P.matrix.array.T, 0)
+                self.acomm.receive(P.matrix.array, 0)
         return P
 
     def collect(self):
@@ -101,8 +100,7 @@ class Projections:
     def collect_atoms(self, P):
         if self.acomm.rank == 0:
             nproj = sum(self.nproj_a)
-            P_In = np.empty((nproj, P.array.shape[1]),
-                            dtype=P.array.dtype, order='F')
+            P_In = np.empty((nproj, P.array.shape[1]), dtype=P.array.dtype)
 
             I1 = 0
             myI1 = 0
@@ -113,13 +111,10 @@ class Projections:
                     P_In[I1:I2] = P.array[myI1:myI2]
                     myI1 = myI2
                 else:
-                    P_in = P_In[I1:I2]
-                    tmp_in = np.empty(P_in.shape, dtype=P_in.dtype)
-                    self.acomm.receive(tmp_in, rank)
-                    P_in[:] = tmp_in
+                    self.acomm.receive(P_In[I1:I2], rank)
                 I1 = I2
             return P_In
         else:
             for a, I1, I2 in self.indices:
-                self.acomm.send(P.array[I1:I2].copy(), 0)
+                self.acomm.send(P.array[I1:I2], 0)
             return None

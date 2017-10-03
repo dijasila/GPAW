@@ -8,6 +8,18 @@ import gpaw.utilities.blas as blas
 global_blacs_context_store = {}
 
 
+def matrix(M):
+    if isinstance(M, Matrix):
+        return M
+    return matrix(M.matrix)
+
+
+def matrix_matrix_multiply(alpha, a, opa, b, opb, beta, c, symmetric=True):
+    return matrix(a).multiply(alpha, opa, matrix(b), opb,
+                              beta, c if c is None else matrix(c),
+                              symmetric)
+
+
 def op(a, opa):
     if opa == 'N':
         return a
@@ -30,15 +42,22 @@ class NoDistribution:
     def global_index(self, n):
         return n
 
-    def multiply(self, alpha, a, opa, b, opb, beta, c):
-        if opa == 'C' and opb == 'T':
-            blas.mmm(alpha, b.array, 'n', a.array, 'c', beta, c.array.T)
+    def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
+        if opa == 'C' and opb == 'T' and beta == 0.0:
+            if c.array.dtype == float:
+                blas.mmm(alpha, a.array, 'n', b.array, 't', 0.0, c.array)
+            else:
+                blas.mmm(alpha, b.array, 'n', a.array, 'c', 0.0, c.array)
+                if symmetric:
+                    np.negative(c.array.imag, c.array.imag)
+                else:
+                    c.array[:] = c.array.copy().T
         elif opa == 'H' and opb == 'N':
-            blas.mmm(alpha, b.array.T, 'n', a.array.T, 'c', beta, c.array.T)
+            blas.mmm(alpha, a.array, 'c', b.array, 'n', beta, c.array)
         elif opa == 'T' and opb == 'N':
-            blas.mmm(alpha, a.array.T, 'n', b.array, 'n', beta, c.array)
+            blas.mmm(alpha, a.array, 't', b.array, 'n', beta, c.array)
         elif opa == 'N' and opb == 'N':
-            blas.mmm(alpha, b.array.T, 'n', a.array.T, 'n', beta, c.array.T)
+            blas.mmm(alpha, a.array, 'n', b.array, 'n', beta, c.array)
         else:
             1 / 0
 
@@ -55,6 +74,9 @@ class NoDistribution:
                 print(c.array)
                 print(c2)
                 1 / 0
+
+    def redist(self, M1, M2):
+        M2.array[:] = M1.array
 
     def cholesky(self, S_nn):
         S_nn[:] = linalg.cholesky(S_nn)
@@ -100,7 +122,7 @@ class BLACSDistribution:
                                         self.shape,
                                         self.desc[5:3:-1]])))
 
-    def multiply(self, alpha, a, opa, b, opb, beta, destination):
+    def multiply(self, alpha, a, opa, b, opb, beta, destination, symmetric):
         print(alpha, a, opa, b, opb, beta, destination)
 
         M, Ka = a.shape
@@ -113,6 +135,13 @@ class BLACSDistribution:
                          beta, destination.array,
                          b.dist.desc, a.dist.desc, destination.dist.desc,
                          opb, opa)
+
+    def redist(self, M1, M2):
+        _gpaw.scalapack_redist(self.desc, M2.desc,
+                               M1.array, M2.array,
+                               subN, subM,
+                               ja + 1, ia + 1, jb + 1, ib + 1,  # 1-indexing
+                               self.supercomm_bg.context, 'G')
 
     def cholesky(self, S_nn):
         1 / 0  # 1 / 0  # lapack.cholesky(S_nn)
@@ -132,25 +161,8 @@ def create_distribution(M, N, comm=None, r=1, c=1, b=None):
     return BLACSDistribution(M, N, comm, r, c, b)
 
 
-class Op:
-    def __init__(self, M, op='N'):
-        if isinstance(M, Op):
-            assert op == 'N'
-            M = M.M
-            op = M.op
-        elif hasattr(M, 'matrix'):
-            M = M.matrix
-        self.M = M
-        self.op = op
-
-    def __mul__(self, other):
-        if not isinstance(other, Op):
-            other = Op(other)
-        return Product(self, other)
-
-
 class Matrix:
-    def __init__(self, M, N, dtype=None, data=None, dist=None, order='F'):
+    def __init__(self, M, N, dtype=None, data=None, dist=None):
         self.shape = (M, N)
 
         if dtype is None:
@@ -166,7 +178,7 @@ class Matrix:
         self.dist = dist
 
         if data is None:
-            self.array = np.empty(dist.shape, self.dtype, order=order)
+            self.array = np.empty(dist.shape, self.dtype)
         else:
             self.array = data.reshape(dist.shape)
 
@@ -194,78 +206,32 @@ class Matrix:
         x.eval(self, 1.0)
         return self
 
-    def __mul__(self, other):
-        return Product(Op(self), Op(other))
-
-    def __rmul__(self, other):
-        return Product(Op(other), Op(self))
-
-    @property
-    def T(self):
-        return Op(self, 'T')
-
-    @property
-    def C(self):
-        return Op(self, 'C')
-
-    @property
-    def H(self):
-        return Op(self, 'H')
-
-    def multiply(self, alpha, opa, b, opb, beta, out):
-        if opa == 'Ccccccccccccccccccccccccc' and self.dtype == float:
-            opa = 'N'
+    def multiply(self, alpha, opa, b, opb, beta=0.0, out=None,
+                 symmetric=False):
         if out is None:
-            if opa in 'NC':
-                M = self.shape[0]
-            else:
-                M = self.shape[1]
-            if opb in 'NC':
-                N = b.shape[1]
-            else:
-                N = b.shape[0]
-            out = Matrix(M, N)
-
-        self.dist.multiply(alpha, self, opa, b, opb, beta, out)
+            out = Matrix()
+        self.dist.multiply(alpha, self, opa, b, opb, beta, out, symmetric)
         return out
+
+    def redist(self, other):
+        self.dist.redist(self, other)
 
     def invcholesky(self):
         if self.state == 'a sum is needed':
-            self.comm.sum(self.array.T, 0)
+            self.comm.sum(self.array, 0)
         if self.comm is None or self.comm.rank == 0:
             self.dist.cholesky(self.array)
             self.dist.inv(self.array)
         if self.comm is not None and self.comm.size > 1:
-            self.comm.broadcast(self.array.T, 0)
+            self.comm.broadcast(self.array, 0)
             self.state == 'fine'
 
     def eigh(self, eps_n):
         if self.state == 'a sum is needed':
-            self.comm.sum(self.array.T, 0)
+            self.comm.sum(self.array, 0)
         if self.comm is None or self.comm.rank == 0:
             self.dist.eigh(self.array, eps_n)
         if self.comm is not None and self.comm.size > 1:
-            self.comm.broadcast(self.array.T, 0)
+            self.comm.broadcast(self.array, 0)
             self.comm.broadcast(eps_n, 0)
             self.state == 'fine'
-
-
-class Product:
-    def __init__(self, a, b):
-        self.array = a
-        self.b = b
-
-    def __str__(self):
-        return str(self.things)
-
-    def eval(self, out=None, beta=0.0, alpha=1.0):
-        a = self.array
-        b = self.b
-        return a.M.multiply(alpha, a.op, b.M, b.op, beta, out)
-
-    def integrate(self, out=None, hermetian=False):
-        a = self.array
-        b = self.b
-        assert a.op == 'C' or a.M.dtype == float and a.op == 'N'
-        assert b.op == 'N'
-        return a.M.integrate(b.M, out, hermetian)

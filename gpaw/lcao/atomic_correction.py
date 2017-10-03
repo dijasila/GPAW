@@ -62,8 +62,7 @@ class BaseAtomicCorrection:
         for a, P_ni in kpt.P_ani.items():
             # ATLAS can't handle uninitialized output array:
             P_ni.fill(117)
-            # gemm(1.0, wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
-            mmm(1.0, kpt.C_nM, 'n', wfs.P_aqMi[a][kpt.q], 'n', 0.0, P_ni)
+            mmm(1.0, wfs.P_aqMi[a][kpt.q], 't', kpt.C_nM, 't', 0.0, P_ni.T)
 
 
 class DenseAtomicCorrection(BaseAtomicCorrection):
