@@ -47,12 +47,13 @@ def parse_extra_parameters(arg):
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
 
 
-def parse_arguments():
+def parse_arguments(argv):
     from argparse import ArgumentParser, REMAINDER
 
     p = ArgumentParser(usage='%(prog)s [OPTION ...] [-c | -m] SCRIPT'
                        ' [ARG ...]',
                        description='Run a parallel GPAW calculation.')
+
     p.add_argument('--command', '-c', action='store_true',
                    help='execute Python string given as SCRIPT')
     p.add_argument('--module', '-m', action='store_true',
@@ -78,21 +79,16 @@ def parse_arguments():
                    help='buffer size for MatrixOperator in MiB')
     p.add_argument('--profile', metavar='FILE', dest='profile',
                    help='run profiler and save stats to FILE')
-    p.add_argument('--gpaw', metavar='VAR=VALUE', action='append', default=[],
+    p.add_argument('--gpaw', metavar='VAR=VALUE[, ...]', action='append', default=[],
                    dest='gpaw_extra_kwargs',
                    help='extra (hacky) GPAW keyword arguments')
-    p.add_argument('script', metavar='SCRIPT',
-                   help='calculation script')
+    if is_gpaw_python:  # SCRIPT mandatory for gpaw-python
+        p.add_argument('script', metavar='SCRIPT',
+                       help='calculation script')
     p.add_argument('options', metavar='ARG',
                    help='arguments forwarded to SCRIPT', nargs=REMAINDER)
 
-    if is_gpaw_python:
-        argv = sys.argv[1:]
-    else:
-        argv = ['python']  # Effectively disable command line args
-
-    args = p.parse_args(argv)
-    extra_parameters = {}
+    args = p.parse_args(argv[1:])
 
     if args.command and args.module:
         p.error('-c and -m are mutually exclusive')
@@ -101,19 +97,18 @@ def parse_arguments():
         sys.argv = [args.script] + args.options
 
     for w in args.warnings:
+        # Need to convert between python -W syntax to call warnings.filterwarnings():
         warn_args = w.split(':')
         assert len(warn_args) <= 5
 
-        # Conversions between -W syntax and warnings.filterwarnings:
         if warn_args[0] == 'all':
             warn_args[0] = 'always'
         if len(warn_args) >= 3:
-            # e.g. 'UserWarning' -> UserWarning
+            # e.g. 'UserWarning' (string) -> UserWarning (class)
             warn_args[2] = globals().get(warn_args[2])
         if len(warn_args) == 5:
             warn_args[4] = int(warn_args[4])
 
-        print(warn_args)
         warnings.filterwarnings(*warn_args, append=True)
 
     if args.parsize_domain:
@@ -124,15 +119,39 @@ def parse_arguments():
             assert len(parsize) == 3
         args.parsize_domain = parsize
 
+    extra_parameters = {}
     for extra_kwarg in args.gpaw_extra_kwargs:
-        keyword, value = extra_kwarg.split('=')
-        parse_extra_parameters(extra_kwarg)
-        extra_parameters[keyword] = value
+        extra_parameters.update(parse_extra_parameters(extra_kwarg))
 
     return extra_parameters, args
 
 
-extra_parameters, gpaw_args = parse_arguments()
+
+if is_gpaw_python:
+    extra_parameters, gpaw_args = parse_arguments(sys.argv)
+else:
+    # Ignore the arguments; rely on --gpaw only as below.
+    extra_parameters, gpaw_args = parse_arguments([sys.argv[0]])
+
+
+def parse_gpaw_args():
+    extra_parameters = {}
+    i = 1
+    while i < len(sys.argv):
+        arg = sys.argv[i]
+        if arg.startswith('--gpaw='):
+            sys.argv.pop(i)
+            extra_parameters.update(parse_extra_parameters(arg[7:]))
+            continue
+            break
+        elif arg == '--gpaw':
+            sys.argv.pop(i)
+            extra_parameters.update(parse_extra_parameters(sys.argv.pop(i)))
+            continue
+            break
+        i += 1
+    return extra_parameters
+extra_parameters.update(parse_gpaw_args())
 
 
 # Check for special command line arguments:
