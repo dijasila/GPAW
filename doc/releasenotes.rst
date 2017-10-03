@@ -10,7 +10,17 @@ Git master branch
 
 :git:`master <>`.
 
- * No changes yet
+* When run through the ordinary Python interpreter, GPAW will now only
+  intercept and use command-line options of the form ``--gpaw
+  key=value``.  See also below.
+
+* ``gpaw-python`` now takes :ref:`command line options` directly
+  instead of stealing them from ``sys.argv``.
+  Example: ``gpaw-python --gpaw=debug=True myscript.py myscript_arguments``.
+  Command-line arguments for BLACS/ScaLAPACK have been
+  removed in favour of the :ref:`parallel keyword
+  <manual_parallelization_types>`
+  See also ``gpaw-python --help``.
 
 
 Version 1.3.0
