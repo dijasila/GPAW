@@ -75,9 +75,6 @@ class NoDistribution:
                 print(c2)
                 1 / 0
 
-    def redist(self, M1, M2):
-        M2.array[:] = M1.array
-
     def cholesky(self, S_nn):
         S_nn[:] = linalg.cholesky(S_nn)
 
@@ -92,6 +89,8 @@ class BLACSDistribution:
     serial = False
 
     def __init__(self, M, N, comm, r, c, b):
+        self.comm = comm
+
         key = (comm, r, c)
         context = global_blacs_context_store.get(key)
         if context is None:
@@ -111,6 +110,9 @@ class BLACSDistribution:
             br = bc = b
 
         n, m = _gpaw.get_blacs_local_shape(context, N, M, bc, br, 0, 0)
+        if n < 0:
+            assert m < 0
+            n = m = 0
         self.shape = (m, n)
         lld = max(1, n)
         self.desc = np.array([1, context, N, M, bc, br, 0, 0, lld], np.intc)
@@ -136,13 +138,6 @@ class BLACSDistribution:
                          b.dist.desc, a.dist.desc, destination.dist.desc,
                          opb, opa)
 
-    def redist(self, M1, M2):
-        _gpaw.scalapack_redist(self.desc, M2.desc,
-                               M1.array, M2.array,
-                               subN, subM,
-                               ja + 1, ia + 1, jb + 1, ib + 1,  # 1-indexing
-                               self.supercomm_bg.context, 'G')
-
     def cholesky(self, S_nn):
         1 / 0  # 1 / 0  # lapack.cholesky(S_nn)
 
@@ -151,6 +146,14 @@ class BLACSDistribution:
 
     def diagonalize(self, H_nn, eps_n):
         1 / 0  # lapack.diagonalize(H_nn, eps_n)
+
+
+def redist(dist1, M1, dist2, M2, context):
+    _gpaw.scalapack_redist(dist1.desc, dist2.desc,
+                           M1, M2,
+                           *dist1.desc[2:4],
+                           1, 1, 1, 1,  # 1-indexing
+                           context, 'G')
 
 
 def create_distribution(M, N, comm=None, r=1, c=1, b=None):
@@ -214,7 +217,16 @@ class Matrix:
         return out
 
     def redist(self, other):
-        self.dist.redist(self, other)
+        if isinstance(self.dist, NoDistribution):
+            if isinstance(other.dist, NoDistribution):
+                other.array[:] = self.array
+            else:
+                dist = create_distribution(*self.shape, other.dist.comm, 1, 1)
+                redist(dist, self.array, other.dist, other.array,
+                       other.dist.desc[1])
+        else:
+            redist(self.dist, self.array, other.dist, other.array,
+                   other.dist.desc[1])
 
     def invcholesky(self):
         if self.state == 'a sum is needed':
