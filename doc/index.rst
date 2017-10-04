@@ -41,7 +41,7 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
 News
 ====
 
-* :ref:`GPAW version 1.3.0 <releasenotes>` released (02 October 2017).
+* :ref:`GPAW version 1.3.0 <releasenotes>` released (2 October 2017).
 
 * Supported by NOMAD_ (Mar 1 2017)
 
