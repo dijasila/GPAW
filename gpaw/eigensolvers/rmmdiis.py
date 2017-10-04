@@ -109,7 +109,7 @@ class RMMDIIS(Eigensolver):
                 Rb = R.view(n1, n2)
                 if not self.keep_htpsit:
                     psitb.apply(Ht, out=Rb)
-                    wfs.pt.matrix_elements(psitb, out=P)
+                    psitb.matrix_elements(wfs.pt, out=P)
                     self.calculate_residuals(kpt, wfs, ham, psitb,
                                              P, kpt.eps_n[n_x], Rb, P2, n_x)
 
@@ -139,7 +139,7 @@ class RMMDIIS(Eigensolver):
             dpsit.apply(Ht, out=dR)
             # self.timer.stop('Apply Hamiltonian')
             with self.timer('projections'):
-                wfs.pt.matrix_elements(dpsit, out=P)
+                dpsit.matrix_elements(wfs.pt, out=P)
 
             with self.timer('Calculate residuals'):
                 self.calculate_residuals(kpt, wfs, ham, dpsit,
@@ -242,7 +242,7 @@ class RMMDIIS(Eigensolver):
                     # Calculate the new residuals
                     self.timer.start('Calculate residuals')
                     psitb.apply(Ht, out=Rb)
-                    wfs.pt.matrix_elements(psitb, out=P)
+                    psitb.matrix_elements(wfs.pt, out=P)
                     self.calculate_residuals(kpt, wfs, ham, psitb,
                                              P, kpt.eps_n[n_x], Rb, P2, n_x,
                                              calculate_change=True)

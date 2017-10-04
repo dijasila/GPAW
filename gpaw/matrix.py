@@ -2,6 +2,7 @@ import numpy as np
 import scipy.linalg as linalg
 
 import _gpaw
+from gpaw import debug
 import gpaw.utilities.blas as blas
 
 
@@ -20,16 +21,6 @@ def matrix_matrix_multiply(alpha, a, opa, b, opb, beta, c, symmetric=True):
                               symmetric)
 
 
-def op(a, opa):
-    if opa == 'N':
-        return a
-    if opa == 'C':
-        return a.conj()
-    if opa == 'T':
-        return a.T
-    return a.T.conj()
-
-
 class NoDistribution:
     serial = True
 
@@ -43,46 +34,21 @@ class NoDistribution:
         return n
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
-        if opa == 'C' and opb == 'T' and beta == 0.0:
-            if c.array.dtype == float:
-                blas.mmm(alpha, a.array, 'n', b.array, 't', 0.0, c.array)
-            else:
-                blas.mmm(alpha, b.array, 'n', a.array, 'c', 0.0, c.array)
-                if symmetric:
-                    np.negative(c.array.imag, c.array.imag)
-                else:
-                    c.array[:] = c.array.copy().T
-        elif opa == 'H' and opb == 'N':
-            blas.mmm(alpha, a.array, 'c', b.array, 'n', beta, c.array)
-        elif opa == 'T' and opb == 'N':
-            blas.mmm(alpha, a.array, 't', b.array, 'n', beta, c.array)
-        elif opa == 'N' and opb == 'N':
-            blas.mmm(alpha, a.array, 'n', b.array, 'n', beta, c.array)
-        else:
-            1 / 0
+        blas.mmm(alpha, a.array, opa.lower(), b.array, opb.lower(),
+                 beta, c.array)
 
-        if 0:
-            if beta == 0.0:
-                c2 = alpha * np.dot(op(a.array, opa), op(b.array, opb))
-            else:
-                assert beta == 1.0
-                c2 = c.array + alpha * np.dot(op(a.array, opa),
-                                              op(b.array, opb))
+    def invcholesky(self, S):
+        L_nn = linalg.cholesky(S.array, lower=True, overwrite_a=True,
+                               check_finite=debug)
+        S.array[:] = linalg.inv(L_nn, overwrite_a=True, check_finite=debug)
 
-            if c2.size and abs(c.array - c2).max() > 0.000001:
-                print(self, alpha, a, opa, b, opb, beta, c)
-                print(c.array)
-                print(c2)
-                1 / 0
-
-    def cholesky(self, S_nn):
-        S_nn[:] = linalg.cholesky(S_nn)
-
-    def inv(self, S_nn):
-        S_nn[:] = linalg.inv(S_nn)
-
-    def eigh(self, H_nn, eps_n):
-        eps_n[:], H_nn[:] = linalg.eigh(H_nn)
+    def eigh(self, H_nn, eps_n, cc=False):
+        if cc and H_nn.dtype == complex:
+            np.negative(H_nn.imag, H_nn.imag)
+        eps_n[:], H_nn[:] = linalg.eigh(H_nn,
+                                        lower=True,  # ???
+                                        overwrite_a=True,
+                                        check_finite=debug)
 
 
 class BLACSDistribution:
@@ -125,62 +91,25 @@ class BLACSDistribution:
                                         self.desc[5:3:-1]])))
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
-        print(alpha, a, opa, b, opb, beta, c)
-        print(a.dist.desc, b.dist.desc, c.dist.desc)
-        print(global_blacs_context_store)
-        if opa == 'C' and opb == 'T' and beta == 0.0:
-            if c.array.dtype == float:
-                M, Ka = a.shape
-                N = b.shape[0]
-                # blas.mmm(alpha, a.array, 'n', b.array, 't', 0.0, c.array)
-                _gpaw.pblas_gemm(N, M, Ka, alpha, b.array, a.array,
-                                 beta, c.array,
-                                 b.dist.desc, a.dist.desc, c.dist.desc,
-                                 'T', 'N')
-            else:
-                1 / 0
-        elif opa == 'H' and opb == 'N':
-            # blas.mmm(alpha, a.array, 'c', b.array, 'n', beta, c.array)
-            Ka, M = a.shape
-            N = b.shape[1]
-            _gpaw.pblas_gemm(N, M, Ka, alpha, b.array, a.array,
-                             beta, c.array,
-                             b.dist.desc, a.dist.desc, c.dist.desc,
-                             'N', 'T')
-        """
-        elif opa == 'T' and opb == 'N':
-            blas.mmm(alpha, a.array, 't', b.array, 'n', beta, c.array)
-        elif opa == 'N' and opb == 'N':
-            blas.mmm(alpha, a.array, 'n', b.array, 'n', beta, c.array)
-        else:
-            1 / 0
-            else:
-                blas.mmm(alpha, b.array, 'n', a.array, 'c', 0.0, c.array)
-                if symmetric:
-                    np.negative(c.array.imag, c.array.imag)
-                else:
-                    c.array[:] = c.array.copy().T
-
-        M, Ka = a.shape
-        Kb, N = b.shape
-        if opa == 'T':
-            M, Ka = Ka, M
-        if opb == 'T':
-            Kb, N = N, Kb
+        # print(alpha, a, opa, b, opb, beta, c)
+        # print(a.dist.desc, b.dist.desc, c.dist.desc)
+        Ka, M = a.shape
+        N, Kb = b.shape
+        if opa == 'N':
+            Ka, M = M, Ka
+        if opb == 'N':
+            N, Kb = Kb, N
         _gpaw.pblas_gemm(N, M, Ka, alpha, b.array, a.array,
-                         beta, destination.array,
-                         b.dist.desc, a.dist.desc, destination.dist.desc,
+                         beta, c.array,
+                         b.dist.desc, a.dist.desc, c.dist.desc,
                          opb, opa)
-        """
 
-    def cholesky(self, S_nn):
-        1 / 0  # 1 / 0  # lapack.cholesky(S_nn)
-
-    def inverse_cholesky(self, S_nn):
-        1 / 0  # lapack.inv(S_nn)
-
-    def diagonalize(self, H_nn, eps_n):
-        1 / 0  # lapack.diagonalize(H_nn, eps_n)
+    def invcholesky(self, S):
+        M = S.new(dist=(self.comm, 1, 1))
+        S.redist(M)
+        if self.comm.rank == 0:
+            NoDistribution.invcholesky('self', M)
+        M.redist(S)
 
 
 def redist(dist1, M1, dist2, M2, context):
@@ -230,8 +159,9 @@ class Matrix:
         dist = str(self.dist).split('(')[1]
         return 'Matrix({}: {}'.format(self.dtype.name, dist)
 
-    def new(self):
-        return Matrix(*self.shape, dtype=self.dtype, dist=self.dist)
+    def new(self, dist='inherit'):
+        return Matrix(*self.shape, dtype=self.dtype,
+                      dist=self.dist if dist == 'inherit' else dist)
 
     def __setitem__(self, i, x):
         # assert i == slice(None)
@@ -260,24 +190,25 @@ class Matrix:
                 redist(dist, self.array, other.dist, other.array,
                        other.dist.desc[1])
         else:
-            redist(self.dist, self.array, other.dist, other.array,
-                   max(self.dist.desc[1], other.dist.desc[1]))
+            #ctx = max(self.dist.desc[1], other.dist.desc[1])  # ???
+            ctx = min((d[4] * d[5], d[1])
+                      for d in [self.dist.desc, other.dist.desc])[1]
+            redist(self.dist, self.array, other.dist, other.array, ctx)
 
     def invcholesky(self):
         if self.state == 'a sum is needed':
             self.comm.sum(self.array, 0)
         if self.comm is None or self.comm.rank == 0:
-            self.dist.cholesky(self.array)
-            self.dist.inv(self.array)
+            self.dist.invcholesky(self)
         if self.comm is not None and self.comm.size > 1:
             self.comm.broadcast(self.array, 0)
             self.state == 'fine'
 
-    def eigh(self, eps_n):
+    def eigh(self, eps_n, cc=False):
         if self.state == 'a sum is needed':
             self.comm.sum(self.array, 0)
         if self.comm is None or self.comm.rank == 0:
-            self.dist.eigh(self.array, eps_n)
+            self.dist.eigh(self.array, eps_n, cc)
         if self.comm is not None and self.comm.size > 1:
             self.comm.broadcast(self.array, 0)
             self.comm.broadcast(eps_n, 0)

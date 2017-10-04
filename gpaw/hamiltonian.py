@@ -28,7 +28,8 @@ class HamiltonianCorrections:
     def apply(self, P, out):
         for a, I1, I2 in P.indices:
             dH_ii = unpack(self.ham.dH_asp[a][P.spin])
-            out.matrix.array[I1:I2] = np.dot(dH_ii, P.matrix.array[I1:I2])
+            out.matrix.array[:, I1:I2] = np.dot(P.matrix.array[:, I1:I2],
+                                                dH_ii)
 
 
 class Hamiltonian(object):

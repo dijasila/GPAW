@@ -44,16 +44,22 @@ class ArrayWaveFunctions:
 
     def multiply(self, alpha, opa, b, opb, beta, c, symmetric):
         self.matrix.multiply(alpha, opa, b.matrix, opb, beta, c, symmetric)
-        if opa in 'NC' and self.comm:
+        if opa == 'N' and self.comm:
             if self.comm.size > 1:
                 c.comm = self.comm
                 c.state = 'a sum is needed'
-            assert opb in 'TH' and b.comm is self.comm
+            assert opb in 'TC' and b.comm is self.comm
 
-    def matrix_elements(self, other, out=None, symmetric=False):
+    def matrix_elements(self, other, out=None, symmetric=False, cc=False):
         if out is None:
             out = Matrix(len(self), len(other), dtype=self.dtype)
-        self.multiply(self.dv, 'C', other, 'T', 0.0, out, symmetric)
+        if isinstance(other, ArrayWaveFunctions):
+            assert cc
+            self.multiply(self.dv, 'N', other, 'C', 0.0, out, symmetric)
+        else:
+            assert not cc
+            P_ani = {a: P_ni for a, P_ni in out.items()}
+            other.integrate(self.array, P_ani, self.kpt)
         return out
 
     def apply(self, func, out):
@@ -140,6 +146,25 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
         self.kpt = kpt
         self.spin = spin
         self.myshape = (self.matrix.dist.shape[0], ng)
+
+    def matrix_elements(self, other, out=None, symmetric=False, cc=False):
+        if isinstance(other, ArrayWaveFunctions):
+            assert cc
+            if out is None:
+                out = Matrix(len(self), len(other), dtype=self.dtype)
+            if self.dtype == complex:
+                self.matrix.multiply(self.dv, 'N', other.matrix, 'C',
+                                     0.0, out, symmetric)
+            else:
+                self.matrix.multiply(2 * self.dv, 'N', other.matrix, 'T',
+                                     0.0, out, symmetric)
+                out.array -= self.dv * np.outer(self.matrix.array[:, 0],
+                                                other.matrix.array[:, 0])
+        else:
+            assert not cc
+            P_ani = {a: P_ni for a, P_ni in out.items()}
+            other.integrate(self.array, P_ani, self.kpt)
+        return out
 
     def multiply(self, alpha, opa, b, opb, beta, c, symmetric):
         if opa == 'C' and opb == 'T' and beta == 0:

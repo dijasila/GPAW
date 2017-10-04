@@ -96,7 +96,7 @@ class KPoint:
     @property
     def P_ani(self):
         if self.P is not None:
-            return {a: P_in.T for a, P_in in self.P.items()}
+            return {a: P_ni for a, P_ni in self.P.items()}
 
     @property
     def psit_nG(self):

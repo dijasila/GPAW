@@ -3,6 +3,7 @@ from functools import partial
 from ase.utils.timing import timer
 import numpy as np
 
+from gpaw import debug
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.matrix import matrix_matrix_multiply as mmm
 
@@ -77,7 +78,7 @@ class Davidson(Eigensolver):
         psit2 = psit.new(buf=wfs.work_array)
         P = kpt.P
         P2 = P.new()
-        dMP = P.new()
+        P3 = P.new()
         M = wfs.work_matrix_nn
         dS = wfs.setups.dS
         comm = wfs.gd.comm
@@ -85,11 +86,13 @@ class Davidson(Eigensolver):
         def matrix_elements(a, b, Pa, dM, Pb, C_nn, symmetric=False,
                             tmp=M):
             """Fill C_nn with <a|b> matrix elements."""
-            a.matrix_elements(b, out=tmp, symmetric=symmetric)
-            dM.apply(Pb, out=dMP)
-            mmm(1.0, Pa, 'H', dMP, 'N', 1.0, tmp)
+            a.matrix_elements(b, out=tmp, symmetric=symmetric, cc=True)
+            dM.apply(Pb, out=P3)
+            mmm(1.0, Pa, 'N', P3, 'C', 1.0, tmp)
             comm.sum(tmp.array, 0)
             if comm.rank == 0:
+                if wfs.dtype == complex:
+                    np.negative(tmp.array.imag, tmp.array.imag)
                 C_nn[:] = tmp.array
 
         if self.keep_htpsit:
@@ -126,7 +129,7 @@ class Davidson(Eigensolver):
                     psit2_G *= norm**-0.5
 
             # Calculate projections
-            wfs.pt.matrix_elements(psit2, out=P2)
+            psit2.matrix_elements(wfs.pt, out=P2)
 
             psit2.apply(Ht, out=R)
 
@@ -146,16 +149,14 @@ class Davidson(Eigensolver):
 
             with self.timer('diagonalize'):
                 if comm.rank == 0 and bd.comm.rank == 0:
-                    H_NN[:B, B:] = 0.0
-                    S_NN[:B, B:] = 0.0
+                    if debug:
+                        H_NN[:B, B:] = 0.0
+                        S_NN[:B, B:] = 0.0
                     from scipy.linalg import eigh
                     eps_N, H_NN[:] = eigh(H_NN, S_NN,
                                           lower=True,
-                                          check_finite=not False)
-                # H_NN[:B, B:] = H_NN[B:, :B].conj().T
-                # S_NN[:B, B:] = S_NN[B:, :B].conj().T
+                                          check_finite=debug)
                 # general_diagonalize(H_NN, eps_N, S_NN)
-                # H_NN = H_NN.T.copy()
 
             comm.broadcast(H_NN, 0)
             comm.broadcast(eps_N, 0)
@@ -167,12 +168,12 @@ class Davidson(Eigensolver):
             with self.timer('rotate_psi'):
                 M.array[:] = H_NN[:B, :B]
                 mmm(1.0, M, 'T', psit, 'N', 0.0, R)
-                mmm(1.0, P, 'N', M, 'N', 0.0, dMP)
+                mmm(1.0, M, 'T', P, 'N', 0.0, P3)
                 M.array[:] = H_NN[B:, :B]
                 mmm(1.0, M, 'T', psit2, 'N', 1.0, R)
-                mmm(1.0, P2, 'N', M, 'N', 1.0, dMP)
+                mmm(1.0, M, 'T', P2, 'N', 1.0, P3)
                 psit[:] = R
-                P, dMP = dMP, P
+                P, P3 = P3, P
                 kpt.P = P
 
             if nit < self.niter - 1:

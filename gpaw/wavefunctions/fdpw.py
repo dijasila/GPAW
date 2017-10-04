@@ -167,27 +167,26 @@ class FDPWWaveFunctions(WaveFunctions):
         P = kpt.P
 
         with self.timer('projections'):
-            self.pt.matrix_elements(psit, out=P)
+            psit.matrix_elements(self.pt, out=P)
 
         S = self.work_matrix_nn
-        dSP = P.new()
+        P2 = P.new()
 
         with self.timer('calc_s_matrix'):
-            psit.matrix_elements(psit, S, symmetric=True)
-            self.setups.dS.apply(P, out=dSP)
-            mmm(1.0, P, 'H', dSP, 'N', 1.0, S, symmetric=True)
+            psit.matrix_elements(psit, S, symmetric=True, cc=True)
+            self.setups.dS.apply(P, out=P2)
+            mmm(1.0, P, 'N', P2, 'C', 1.0, S, symmetric=True)
 
         with self.timer('inverse-cholesky'):
-            assert self.bd.comm.size == 1
             S.invcholesky()
             # S_nn now contains the inverse of the Cholesky factorization
 
         psit2 = psit.new(buf=self.work_array)
         with self.timer('rotate_psi_s'):
-            mmm(1.0, S, 'T', psit, 'N', 0.0, psit2)
-            mmm(1.0, P, 'N', S, 'N', 0.0, dSP)
+            mmm(1.0, S, 'N', psit, 'N', 0.0, psit2)
+            mmm(1.0, S, 'N', P, 'N', 0.0, P2)
             psit[:] = psit2
-            kpt.P = dSP
+            kpt.P = P2
 
     def calculate_forces(self, hamiltonian, F_av):
         # Calculate force-contribution from k-points:

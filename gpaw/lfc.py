@@ -605,10 +605,6 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         for request in srequests:
             comm.wait(request)
 
-    def matrix_elements(self, psit, out):
-        P_ani = {a: P_in.T for a, P_in in out.items()}
-        self.integrate(psit.array, P_ani, psit.kpt)
-
     def derivative(self, a_xG, c_axiv, q=-1):
         """Calculate x-, y-, and z-derivatives of localized function integrals.
 

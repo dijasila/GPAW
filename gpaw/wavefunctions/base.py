@@ -213,8 +213,8 @@ class WaveFunctions:
             rank_a = self.atom_partition.rank_a
             for kpt in self.kpt_u:
                 kpt.P = Projections(
-                    nproj_a,
-                    self.bd.nbands, self.gd.comm, self.bd.comm, rank_a,
+                    self.bd.nbands, nproj_a,
+                    self.gd.comm, self.bd.comm, rank_a,
                     collinear=True, spin=kpt.s, dtype=self.dtype)
 
     def collect_eigenvalues(self, k, s):
@@ -313,11 +313,11 @@ class WaveFunctions:
 
         if self.kd.comm.rank == kpt_rank:
             kpt = self.mykpts[u]
-            P_In = kpt.P.collect()
+            P_nI = kpt.P.collect()
             if self.world.rank == 0:
-                return P_In.T
-            if P_In is not None:
-                self.kd.comm.send(P_In.T, 0)
+                return P_nI
+            if P_nI is not None:
+                self.kd.comm.send(P_nI, 0)
         if self.world.rank == 0:
             nproj = sum(setup.ni for setup in self.setups)
             P_nI = np.empty((self.bd.nbands, nproj), self.dtype)
@@ -454,12 +454,12 @@ class WaveFunctions:
             kpt.eps_n = eps_n
             kpt.f_n = f_n
             kpt.P = Projections(
-                nproj_a,
-                self.bd.nbands, self.gd.comm, self.bd.comm, rank_a,
+                self.bd.nbands, nproj_a,
+                self.gd.comm, self.bd.comm, rank_a,
                 collinear=True, spin=kpt.s, dtype=self.dtype)
             if self.gd.comm.rank == 0:
                 P_nI = r.proxy('projections', kpt.s, kpt.k)[:]
-                kpt.P.matrix.array[:] = P_nI.T
+                kpt.P.matrix.array[:] = P_nI
 
 
 def eigenvalue_string(wfs, comment=' '):

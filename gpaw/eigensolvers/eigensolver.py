@@ -106,15 +106,15 @@ class Eigensolver:
         ham.dH.apply(P, out=C)
         for a, I1, I2 in P.indices:
             dS_ii = ham.setups[a].dO_ii
-            C.matrix.array[I1:I2] -= np.dot(dS_ii,
-                                            P.matrix.array[I1:I2] * eps_n)
+            C.matrix.array[:, I1:I2] -= np.dot(P.matrix.array[:, I1:I2] *
+                                               eps_n[:, np.newaxis], dS_ii)
 
         ham.xc.add_correction(kpt, psit.array, R.array,
-                              {a: P_in.T for a, P_in in P.items()},
-                              {a: C_in.T for a, C_in in C.items()},
+                              {a: P_ni for a, P_ni in P.items()},
+                              {a: C_ni for a, C_ni in C.items()},
                               n_x,
                               calculate_change)
-        wfs.pt.add(R.array, {a: C_in.T for a, C_in in C.items()}, kpt.q)
+        wfs.pt.add(R.array, {a: C_ni for a, C_ni in C.items()}, kpt.q)
 
     @timer('Subspace diag')
     def subspace_diagonalize(self, ham, wfs, kpt):
@@ -143,19 +143,19 @@ class Eigensolver:
         psit = kpt.psit
         tmp = psit.new(buf=wfs.work_array)
         H = wfs.work_matrix_nn
-        dHP = kpt.P.new()
+        P2 = kpt.P.new()
 
         Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
         with self.timer('calc_h_matrix'):
             psit.apply(Ht, out=tmp)
-            psit.matrix_elements(tmp, out=H, symmetric=True)
-            ham.dH.apply(kpt.P, out=dHP)
-            mmm(1.0, kpt.P, 'H', dHP, 'N', 1.0, H, symmetric=True)
+            psit.matrix_elements(tmp, out=H, symmetric=True, cc=True)
+            ham.dH.apply(kpt.P, out=P2)
+            mmm(1.0, kpt.P, 'N', P2, 'C', 1.0, H, symmetric=True)
             ham.xc.correct_hamiltonian_matrix(kpt, H.array)
 
         with wfs.timer('diagonalize'):
-            H.eigh(kpt.eps_n)
+            H.eigh(kpt.eps_n, cc=True)
             # H now contains the eigenvectors
 
         with self.timer('rotate_psi'):
@@ -164,8 +164,8 @@ class Eigensolver:
                 mmm(1.0, H, 'T', tmp, 'N', 0.0, Htpsit)
             mmm(1.0, H, 'T', psit, 'N', 0.0, tmp)
             psit[:] = tmp
-            mmm(1.0, kpt.P, 'N', H, 'N', 0.0, dHP)
-            kpt.P.matrix = dHP.matrix
+            mmm(1.0, H, 'T', kpt.P, 'N', 0.0, P2)
+            kpt.P.matrix = P2.matrix
             # Rotate orbital dependent XC stuff:
             ham.xc.rotate(kpt, H.array)
 

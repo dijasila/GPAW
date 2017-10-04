@@ -61,4 +61,5 @@ class OverlapCorrections:
     def apply(self, P, out):
         for a, I1, I2 in P.indices:
             dS_ii = self.setups[a].dO_ii
-            out.matrix.array[I1:I2] = np.dot(dS_ii, P.matrix.array[I1:I2])
+            out.matrix.array[:, I1:I2] = np.dot(P.matrix.array[:, I1:I2],
+                                                dS_ii)
