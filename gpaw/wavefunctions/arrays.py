@@ -62,8 +62,10 @@ class ArrayWaveFunctions:
             other.integrate(self.array, P_ani, self.kpt)
         return out
 
-    def apply(self, func, out):
+    def apply(self, func, out=None):
+        out = out or self.new()
         func(self.array, out.array)
+        return out
 
     def __setitem__(self, i, x):
         x.eval(self.matrix)

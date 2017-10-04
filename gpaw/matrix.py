@@ -42,13 +42,13 @@ class NoDistribution:
                                check_finite=debug)
         S.array[:] = linalg.inv(L_nn, overwrite_a=True, check_finite=debug)
 
-    def eigh(self, H_nn, eps_n, cc=False):
-        if cc and H_nn.dtype == complex:
-            np.negative(H_nn.imag, H_nn.imag)
-        eps_n[:], H_nn[:] = linalg.eigh(H_nn,
-                                        lower=True,  # ???
-                                        overwrite_a=True,
-                                        check_finite=debug)
+    def eigh(self, H, eps_n, cc=False):
+        if cc and H.dtype == complex:
+            np.negative(H.array.imag, H.array.imag)
+        eps_n[:], H.array[:] = linalg.eigh(H.array,
+                                           lower=True,  # ???
+                                           overwrite_a=True,
+                                           check_finite=debug)
 
 
 class BLACSDistribution:
@@ -105,17 +105,27 @@ class BLACSDistribution:
                          opb, opa)
 
     def invcholesky(self, S):
-        M = S.new(dist=(self.comm, 1, 1))
-        S.redist(M)
+        S0 = S.new(dist=(self.comm, 1, 1))
+        S.redist(S0)
         if self.comm.rank == 0:
-            NoDistribution.invcholesky('self', M)
-        M.redist(S)
+            NoDistribution.invcholesky('self', S0)
+        S0.redist(S)
+
+    def eigh(self, H, eps_n, cc=False):
+        H0 = H.new(dist=(self.comm, 1, 1))
+        eps = Matrix(H.shape[0], 1, data=eps_n, dist=(self.comm, -1, 1))
+        eps0 = Matrix(H.shape[0], 1, dist=(self.comm, 1, 1))
+        H.redist(H0)
+        if self.comm.rank == 0:
+            NoDistribution.eigh('self', H0, eps0.array[:, 0], cc)
+        H0.redist(H)
+        eps0.redist(eps)
 
 
 def redist(dist1, M1, dist2, M2, context):
     _gpaw.scalapack_redist(dist1.desc, dist2.desc,
                            M1, M2,
-                           *dist1.desc[2:4],
+                           dist1.desc[2], dist1.desc[3],
                            1, 1, 1, 1,  # 1-indexing
                            context, 'G')
 
@@ -125,7 +135,10 @@ def create_distribution(M, N, comm=None, r=1, c=1, b=None):
         assert r == 1 and abs(c) == 1 or c == 1 and abs(r) == 1
         return NoDistribution(M, N)
 
-    return BLACSDistribution(M, N, comm, r, c, b)
+    return BLACSDistribution(M, N, comm,
+                             r if r != -1 else comm.size,
+                             c if c != -1 else comm.size,
+                             b)
 
 
 class Matrix:
@@ -182,6 +195,8 @@ class Matrix:
         return out
 
     def redist(self, other):
+        if self is other:
+            return
         if isinstance(self.dist, NoDistribution):
             if isinstance(other.dist, NoDistribution):
                 other.array[:] = self.array
@@ -208,7 +223,7 @@ class Matrix:
         if self.state == 'a sum is needed':
             self.comm.sum(self.array, 0)
         if self.comm is None or self.comm.rank == 0:
-            self.dist.eigh(self.array, eps_n, cc)
+            self.dist.eigh(self, eps_n, cc)
         if self.comm is not None and self.comm.size > 1:
             self.comm.broadcast(self.array, 0)
             self.comm.broadcast(eps_n, 0)

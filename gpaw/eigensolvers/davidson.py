@@ -83,32 +83,34 @@ class Davidson(Eigensolver):
         dS = wfs.setups.dS
         comm = wfs.gd.comm
 
-        def matrix_elements(a, b, Pa, dM, Pb, C_nn, symmetric=False,
-                            tmp=M):
+        if bd.comm.size > 1:
+            M0 = M.new(dist=(bd.comm, 1, 1))
+        else:
+            M0 = M
+
+        def matrix_elements(a, b, Pa, dM, Pb, C_nn, symmetric=False):
             """Fill C_nn with <a|b> matrix elements."""
-            a.matrix_elements(b, out=tmp, symmetric=symmetric, cc=True)
+            a.matrix_elements(b, out=M, symmetric=symmetric, cc=True)
             dM.apply(Pb, out=P3)
-            mmm(1.0, Pa, 'N', P3, 'C', 1.0, tmp)
-            comm.sum(tmp.array, 0)
+            mmm(1.0, Pa, 'N', P3, 'C', 1.0, M)
+            comm.sum(M.array, 0)
             if comm.rank == 0:
                 if wfs.dtype == complex:
-                    np.negative(tmp.array.imag, tmp.array.imag)
-                C_nn[:] = tmp.array
+                    np.negative(M.array.imag, M.array.imag)
+                M.redist(M0)
+                if bd.comm.rank == 0:
+                    C_nn[:] = M0.array
+
+        Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
         if self.keep_htpsit:
             R = psit.new(buf=self.Htpsit_nG)
         else:
-            1 / 0
-            # R_nG = wfs.empty(mynbands, q=kpt.q)
-            # psit2_nG = wfs.empty(mynbands, q=kpt.q)
-            # wfs.apply_pseudo_hamiltonian(kpt, ham, psit_nG, R_nG)
-            # wfs.pt.integrate(psit_nG, kpt.P_ani, kpt.q)
+            R = psit.apply(Ht)
 
         self.calculate_residuals(kpt, wfs, ham, psit, P, kpt.eps_n, R, P2)
 
         weights = self.weights(kpt)
-
-        Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
         for nit in range(self.niter):
             if nit == self.niter - 1:
@@ -153,6 +155,8 @@ class Davidson(Eigensolver):
                         H_NN[:B, B:] = 0.0
                         S_NN[:B, B:] = 0.0
                     from scipy.linalg import eigh
+                    print(H_NN)
+                    print(S_NN)
                     eps_N, H_NN[:] = eigh(H_NN, S_NN,
                                           lower=True,
                                           check_finite=debug)
@@ -166,10 +170,14 @@ class Davidson(Eigensolver):
             kpt.eps_n[:] = eps_N[bd.get_slice()]
 
             with self.timer('rotate_psi'):
-                M.array[:] = H_NN[:B, :B]
+                if comm.rank == 0 and bd.comm.rank == 0:
+                    M0.array[:] = H_NN[:B, :B]
+                M0.redist(M)
                 mmm(1.0, M, 'T', psit, 'N', 0.0, R)
                 mmm(1.0, M, 'T', P, 'N', 0.0, P3)
-                M.array[:] = H_NN[B:, :B]
+                if comm.rank == 0 and bd.comm.rank == 0:
+                    M0.array[:] = H_NN[B:, :B]
+                M0.redist(M)
                 mmm(1.0, M, 'T', psit2, 'N', 1.0, R)
                 mmm(1.0, M, 'T', P2, 'N', 1.0, P3)
                 psit[:] = R
