@@ -150,7 +150,7 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
         eps_n = wfs.collect_eigenvalues(k=k, s=spin)
         if len(eps_n) > 0:
             energies[x:x + nb] = eps_n[:nb]
-        P_nI = wfs.collect_projections(k, spin, asdict=True)
+        P_nI = wfs.collect_projections(k, spin)
         if P_nI is not None:
             weights_xi[x:x + nb, :] = w * abs(P_nI[:nb, I1:I2])**2
         x += nb

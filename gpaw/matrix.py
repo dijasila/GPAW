@@ -124,8 +124,42 @@ class BLACSDistribution:
                                         self.shape,
                                         self.desc[5:3:-1]])))
 
-    def multiply(self, alpha, a, opa, b, opb, beta, destination, symmetric):
-        print(alpha, a, opa, b, opb, beta, destination)
+    def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
+        print(alpha, a, opa, b, opb, beta, c)
+        print(a.dist.desc, b.dist.desc, c.dist.desc)
+        print(global_blacs_context_store)
+        if opa == 'C' and opb == 'T' and beta == 0.0:
+            if c.array.dtype == float:
+                M, Ka = a.shape
+                N = b.shape[0]
+                # blas.mmm(alpha, a.array, 'n', b.array, 't', 0.0, c.array)
+                _gpaw.pblas_gemm(N, M, Ka, alpha, b.array, a.array,
+                                 beta, c.array,
+                                 b.dist.desc, a.dist.desc, c.dist.desc,
+                                 'T', 'N')
+            else:
+                1 / 0
+        elif opa == 'H' and opb == 'N':
+            # blas.mmm(alpha, a.array, 'c', b.array, 'n', beta, c.array)
+            Ka, M = a.shape
+            N = b.shape[1]
+            _gpaw.pblas_gemm(N, M, Ka, alpha, b.array, a.array,
+                             beta, c.array,
+                             b.dist.desc, a.dist.desc, c.dist.desc,
+                             'N', 'T')
+        """
+        elif opa == 'T' and opb == 'N':
+            blas.mmm(alpha, a.array, 't', b.array, 'n', beta, c.array)
+        elif opa == 'N' and opb == 'N':
+            blas.mmm(alpha, a.array, 'n', b.array, 'n', beta, c.array)
+        else:
+            1 / 0
+            else:
+                blas.mmm(alpha, b.array, 'n', a.array, 'c', 0.0, c.array)
+                if symmetric:
+                    np.negative(c.array.imag, c.array.imag)
+                else:
+                    c.array[:] = c.array.copy().T
 
         M, Ka = a.shape
         Kb, N = b.shape
@@ -137,6 +171,7 @@ class BLACSDistribution:
                          beta, destination.array,
                          b.dist.desc, a.dist.desc, destination.dist.desc,
                          opb, opa)
+        """
 
     def cholesky(self, S_nn):
         1 / 0  # 1 / 0  # lapack.cholesky(S_nn)
@@ -226,7 +261,7 @@ class Matrix:
                        other.dist.desc[1])
         else:
             redist(self.dist, self.array, other.dist, other.array,
-                   other.dist.desc[1])
+                   max(self.dist.desc[1], other.dist.desc[1]))
 
     def invcholesky(self):
         if self.state == 'a sum is needed':
