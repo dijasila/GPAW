@@ -17,9 +17,11 @@ This temporarily overrides the Python import mechanism so that
 
 import sys
 import importlib
+import importlib.util
 from importlib.machinery import PathFinder, ModuleSpec
 import pickle
 import marshal
+import types
 
 try:
     import _gpaw
@@ -33,45 +35,67 @@ if we_are_gpaw_python:
 else:
     world = None
 
+
 paths = {}
 sources = {}
 
 
 def broadcast(obj):
     if world.rank == 0:
-        buf = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
+        buf = marshal.dumps(obj)
+        #buf = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
     else:
         assert obj is None
         buf = None
 
     buf = _gpaw.globally_broadcast_bytes(buf)
-    newobj = pickle.loads(buf)
+    #newobj = pickle.loads(buf)
+    newobj = marshal.loads(buf)
     return newobj
 
 
 class BroadcastLoader:
-    def __init__(self, loader, code_cache):
-        self.loader = loader
+    def __init__(self, spec, code_cache):
+        #self.loader = loader
         self.code_cache = code_cache
+        self.spec = spec
+        self.loader = None if spec is None else spec.loader
 
     def load_module(self, fullname):
         if world.rank == 0:
-            print('loadmod0', fullname)
-            code = self.loader.get_code(fullname)
-            self.code_cache[fullname] = marshal.dumps(code)
-            mod = self.loader.load_module(fullname)
-            assert fullname in sys.modules
-            return mod
-        else:
-            print('loadmod1', fullname)
-            code = marshal.loads(self.code_cache[fullname])
-            print('code ok')
-            module = type(sys)(fullname)
-            print('mod ok')
-            exec(code, module.__dict__)
-            print('exec ok')
+            #print('import', fullname)
+            spec = self.spec
+            if world.rank == 0:
+                code = self.loader.get_code(fullname)
+                searchloc = spec.submodule_search_locations
+                metadata = (searchloc, spec.origin)
+                self.code_cache[fullname] = (metadata, code)
+
+            metadata, code = self.code_cache[fullname]
+            searchloc = metadata[0]
+            #spec = ModuleSpec(fullname, None,
+            #                  is_package=searchloc is not None)
+
+            # XXX should searchloc really be set here??
+            #if searchloc is not None:
+            #    spec.submodule_search_locations += searchloc
+            #print('GRRR0 SPEC', spec)
+
+            module = importlib.util.module_from_spec(spec)
             sys.modules[fullname] = module
-            print('mod ok', fullname)
+            exec(code, module.__dict__)
+            return module
+        else:
+            # Must set __file__, maybe other things?
+
+            #print('loadmod1', fullname)
+            #print('GRRR1 SPEC', self.spec)
+            metadata, code = self.code_cache[fullname]
+            origin = metadata[1]
+            module = importlib.util.module_from_spec(self.spec)
+            sys.modules[fullname] = module
+            module.__file__ = origin
+            exec(code, module.__dict__)
             return module
 
 class BroadcastImporter:
@@ -80,21 +104,44 @@ class BroadcastImporter:
         #self.origins = {}
 
     def find_spec(self, fullname, path=None, target=None):
+        #print('find', fullname)
         if world.rank == 0:
-            print('findspec0', fullname)
+
             spec = PathFinder.find_spec(fullname, path, target)
             if spec is None:
                 return None
-            spec.loader = BroadcastLoader(spec.loader, self.code_cache)
+
+            #print('found', spec)
+            loader = spec.loader
+            code = loader.get_code(fullname)
+            if code is None:  # C extensions
+                return None
+
+            loader = BroadcastLoader(spec, self.code_cache)
+            #print('loader ok')
+            assert fullname == spec.name
+
+            searchloc = spec.submodule_search_locations
+            spec = ModuleSpec(fullname, loader, origin=spec.origin,
+                              is_package=searchloc is not None)
+            if searchloc is not None:
+                spec.submodule_search_locations += searchloc
+            #spec.loader = BroadcastLoader(spec, self.code_cache)
             return spec
         else:
-            print('findspec1', fullname)
+            #print('findspec1', fullname)
+            if not fullname in self.code_cache:
+                return PathFinder.find_spec(fullname, path, target)
+
+            searchloc, origin = self.code_cache[fullname][0]
             loader = BroadcastLoader(None, self.code_cache)
-            refspec = PathFinder.find_spec(fullname, path, target)  # XXX
-            retval = ModuleSpec(fullname, loader)
-            print(refspec)
-            print(retval)
-            return retval
+            spec = ModuleSpec(fullname, loader, origin=origin,
+                              is_package=searchloc is not None)
+            if searchloc is not None:
+                spec.submodule_search_locations += searchloc
+            loader.spec = spec  # XXX loader.loader is still None
+            #print('ARGGG', spec)
+            return spec
 
     def broadcast(self):
         if world.rank == 0:
@@ -110,7 +157,7 @@ class BroadcastImporter:
         if world.rank != 0:
             self.broadcast()
 
-    def __exit__(self):
+    def __exit__(self, *args):
         if world.rank == 0:
             self.broadcast()
         self.code_cache = {}
@@ -124,7 +171,7 @@ globally_broadcast_imports = BroadcastImporter()
 #if world.rank != 0:
 #    importer.broadcast()
 
-import pyg3t
+#import pyg3t
 #import pyg3t
 #from pyg3t import util
 #import ase
@@ -333,3 +380,18 @@ if 0:
         globally_broadcast_imports = NullBroadCaster()
     else:
         globally_broadcast_imports = BroadCaster()
+
+
+def main():
+    b = BroadcastImporter()
+    import sys
+    print(sys.modules)
+    b.__enter__()
+    print(sys.meta_path)
+    print('import')
+    import pyg3t
+    assert 'pyg3t' in sys.modules
+    b.__exit__()
+
+if __name__ == '__main__':
+    main()

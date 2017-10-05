@@ -5,7 +5,6 @@
 """Main gpaw module."""
 
 import sys
-#print('now', list(sorted(sys.modules)))
 
 from gpaw.broadcast_imports import globally_broadcast_imports
 
@@ -14,12 +13,12 @@ globally_broadcast_imports.__enter__()
 import os
 import sys
 import warnings
+import distutils
 from distutils.util import get_platform
-
 from os.path import join, isfile
-globally_broadcast_imports.__exit__()
 
 import numpy as np
+
 
 assert not np.version.version.startswith('1.6.0')
 
@@ -317,7 +316,6 @@ def read_rc_file():
             with open(rc) as fd:
                 exec(fd.read())
 
-read_rc_file()
 
-#from gpaw.mpi import world
-#world.barrier()
+read_rc_file()
+globally_broadcast_imports.__exit__()
