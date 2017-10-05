@@ -5,6 +5,7 @@
 """Main gpaw module."""
 
 import sys
+#print('now', list(sorted(sys.modules)))
 
 from gpaw.broadcast_imports import globally_broadcast_imports
 
@@ -16,6 +17,7 @@ import warnings
 from distutils.util import get_platform
 
 from os.path import join, isfile
+globally_broadcast_imports.__exit__()
 
 import numpy as np
 
@@ -54,11 +56,14 @@ is_gpaw_python = '_gpaw' in sys.builtin_module_names
 
 
 def parse_arguments(argv):
-    from argparse import ArgumentParser, REMAINDER
+    from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
 
     p = ArgumentParser(usage='%(prog)s [OPTION ...] [-c | -m] SCRIPT'
                        ' [ARG ...]',
-                       description='Run a parallel GPAW calculation.')
+                       description='Run a parallel GPAW calculation.\n\n'
+                       'Compiled with:\n  Python {}'
+                       .format(sys.version.replace('\n', '')),
+                       formatter_class=RawDescriptionHelpFormatter)
 
     p.add_argument('--command', '-c', action='store_true',
                    help='execute Python string given as SCRIPT')
@@ -314,6 +319,5 @@ def read_rc_file():
 
 read_rc_file()
 
-globally_broadcast_imports.__exit__()
-from gpaw.mpi import world
-world.barrier()
+#from gpaw.mpi import world
+#world.barrier()

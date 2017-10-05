@@ -361,7 +361,7 @@ static PyObject* moduleinit(void)
 #ifndef PARALLEL
     // gpaw-python needs to import arrays at the right time, so this is
     // done in main().  In serial, we just do it here:
-    import_array1(NULL);
+    import_array1(0);
 #endif
     return m;
 }
@@ -396,6 +396,7 @@ run_gpaw()
     int status = -1;
 
     PyObject *gpaw_mod = NULL, *pymain = NULL;
+    import_array1(0);
 
     gpaw_mod = PyImport_ImportModule("gpaw");
     if(gpaw_mod == NULL) {
@@ -403,6 +404,9 @@ run_gpaw()
     } else {
         pymain = PyObject_GetAttrString(gpaw_mod, "main");
     }
+
+    // We already imported the Python parts of numpy.  If we want, we can
+    // later attempt to broadcast the numpy C API imports, too.
 
     if(pymain == NULL) {
         status = 4;  // gpaw.main does not exist for some reason
@@ -455,10 +459,6 @@ main(int argc, char **argv)
 
     // This will broadcast a ton of imports
     //PyImport_ImportModule("gpaw");
-
-    // We already imported the Python parts of numpy.  If we want, we can
-    // later attempt to broadcast the numpy C API imports, too.
-    import_array1(NULL);
 
     int status = run_gpaw();
 
