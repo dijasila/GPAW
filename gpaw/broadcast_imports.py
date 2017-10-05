@@ -15,18 +15,22 @@ This temporarily overrides the Python import mechanism so that
 
 """
 
+from __future__ import print_function
 import sys
+import marshal
 import importlib
 import importlib.util
 from importlib.machinery import PathFinder, ModuleSpec
-import marshal
-import types
 
 try:
     import _gpaw
 except ImportError:
     we_are_gpaw_python = False
 else:
+    # When running in parallel, the _gpaw module exists right from the
+    # start.  Else it may not yet be defined.  So if we have _gpaw, *and*
+    # _gpaw defines the Communicator, then this is truly parallel.
+    # Otherwise, nothing matters anymore.
     we_are_gpaw_python = hasattr(_gpaw, 'Communicator')
 
 if we_are_gpaw_python:
@@ -39,7 +43,7 @@ paths = {}
 sources = {}
 
 
-def broadcast(obj):
+def marshal_broadcast(obj):
     if world.rank == 0:
         buf = marshal.dumps(obj)
     else:
@@ -47,8 +51,7 @@ def broadcast(obj):
         buf = None
 
     buf = _gpaw.globally_broadcast_bytes(buf)
-    newobj = marshal.loads(buf)
-    return newobj
+    return marshal.loads(buf)
 
 
 class BroadcastLoader:
@@ -58,30 +61,25 @@ class BroadcastLoader:
 
     def load_module(self, fullname):
         if world.rank == 0:
-            spec = self.spec
-
             # Load from file and store in cache:
-            code = spec.loader.get_code(fullname)
-            searchloc = spec.submodule_search_locations
-            metadata = (searchloc, spec.origin)
+            code = self.spec.loader.get_code(fullname)
+            metadata = (self.spec.submodule_search_locations, self.spec.origin)
             self.module_cache[fullname] = (metadata, code)
+            # We could execute the default mechanism to load the module here.
+            # Instead we load from cache using our own loader, like on the
+            # other cores.
 
-            metadata, code = self.module_cache[fullname]
-            searchloc = metadata[0]
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[fullname] = module
-            exec(code, module.__dict__)
-            return module
-        else:
-            # This is mostly the same as above, but when debugging
-            # it is nice to be able to modify master/others separately
-            metadata, code = self.module_cache[fullname]
-            origin = metadata[1]
-            module = importlib.util.module_from_spec(self.spec)
-            sys.modules[fullname] = module
-            module.__file__ = origin
-            exec(code, module.__dict__)
-            return module
+        return self.load_from_cache(fullname)
+
+    def load_from_cache(self, fullname):
+        metadata, code = self.module_cache[fullname]
+        module = importlib.util.module_from_spec(self.spec)
+        origin = metadata[1]
+        module.__file__ = origin
+        sys.modules[fullname] = module
+        exec(code, module.__dict__)
+        return module
+
 
 class BroadcastImporter:
     def __init__(self):
@@ -89,13 +87,11 @@ class BroadcastImporter:
 
     def find_spec(self, fullname, path=None, target=None):
         if world.rank == 0:
-
             spec = PathFinder.find_spec(fullname, path, target)
             if spec is None:
                 return None
 
-            loader = spec.loader
-            code = loader.get_code(fullname)
+            code = spec.loader.get_code(fullname)
             if code is None:  # C extensions
                 return None
 
@@ -110,6 +106,7 @@ class BroadcastImporter:
             return spec
         else:
             if not fullname in self.module_cache:
+                # Could this in principle interfere with builtin imports?
                 return PathFinder.find_spec(fullname, path, target)
 
             searchloc, origin = self.module_cache[fullname][0]
@@ -124,12 +121,15 @@ class BroadcastImporter:
     def broadcast(self):
         if world.rank == 0:
             print('bcast {} modules'.format(len(self.module_cache)))
-            broadcast(self.module_cache)
+            marshal_broadcast(self.module_cache)
         else:
-            self.module_cache = broadcast(None)
+            self.module_cache = marshal_broadcast(None)
             print('recv {} modules'.format(len(self.module_cache)))
 
     def __enter__(self):
+        # There is the question of whether we lose anything by inserting
+        # ourselves further on in the meta_path list.  Maybe not, and maybe
+        # that is a less violent act.
         sys.meta_path.insert(0, self)
         if world.rank != 0:
             self.broadcast()
@@ -146,30 +146,8 @@ globally_broadcast_imports = BroadcastImporter()
 
 
 if 0:
-    from __future__ import print_function
-    import sys
-    import marshal
     import imp
     import pickle
-
-
-    # When running in parallel, the _gpaw module exists right from the
-    # start.  Else it may not yet be defined.  So if we have _gpaw, *and*
-    # _gpaw defines the Communicator, then this is truly parallel.
-    # Otherwise, nothing matters anymore.
-
-    try:
-        import _gpaw
-    except ImportError:
-        we_are_gpaw_python = False
-    else:
-        we_are_gpaw_python = hasattr(_gpaw, 'Communicator')
-
-    if we_are_gpaw_python:
-        world = _gpaw.Communicator()
-    else:
-        world = None
-
 
     def broadcast(obj):
         if world.rank == 0:
@@ -340,18 +318,3 @@ if 0:
         globally_broadcast_imports = NullBroadCaster()
     else:
         globally_broadcast_imports = BroadCaster()
-
-
-def main():
-    b = BroadcastImporter()
-    import sys
-    print(sys.modules)
-    b.__enter__()
-    print(sys.meta_path)
-    print('import')
-    import pyg3t
-    assert 'pyg3t' in sys.modules
-    b.__exit__()
-
-if __name__ == '__main__':
-    main()
