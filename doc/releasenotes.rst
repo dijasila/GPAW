@@ -63,6 +63,13 @@ Git master branch
 * HGH and SG15 pseudopotentials are now Fourier-filtered at runtime
   as appropriate for the given grid spacing.  Using them now requires scipy.
 
+* The ``gpaw dos`` sub-command of the :ref:`cli` can now show projected DOS.
+  Also, one can now use linear tetrahedron interpolation for the calculation
+  of the (P)DOS.
+
+* The :class:`gpaw.utilities.ps2ae.PS2AE` tool can now also calculate the
+  all-electron electrostatic potential.
+
 
 Version 1.2.0
 =============

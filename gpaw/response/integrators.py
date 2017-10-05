@@ -18,7 +18,7 @@ from functools import partial
 class Integrator():
 
     def __init__(self, cell_cv, comm=mpi.world,
-                 txt='-', timer=None, nblocks=1):
+                 txt='-', timer=None, nblocks=1, eshift=0.0):
         """Baseclass for Brillouin zone integration and band summation.
 
         Simple class to calculate integrals over Brilloun zones
@@ -29,6 +29,7 @@ class Integrator():
         """
 
         self.comm = comm
+        self.eshift = eshift
         self.nblocks = nblocks
         self.vol = abs(np.linalg.det(cell_cv))
         if nblocks == 1:
@@ -207,6 +208,7 @@ class PointIntegrator(Integrator):
         """Update chi."""
 
         omega_w = wd.get_data()
+        deps_m += self.eshift * np.sign(deps_m)
         if timeordered:
             deps1_m = deps_m + 1j * eta * np.sign(deps_m)
             deps2_m = deps1_m
@@ -228,6 +230,7 @@ class PointIntegrator(Integrator):
     def update_hermitian(self, n_mG, deps_m, wd, chi0_wGG):
         """If eta=0 use hermitian update."""
         omega_w = wd.get_data()
+        deps_m += self.eshift * np.sign(deps_m)
 
         for w, omega in enumerate(omega_w):
             if self.blockcomm.size == 1:
@@ -248,6 +251,7 @@ class PointIntegrator(Integrator):
 
         self.timer.start('prep')
         omega_w = wd.get_data()
+        deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
         w_m = wd.get_closest_index(o_m)
         o1_m = omega_w[w_m]
