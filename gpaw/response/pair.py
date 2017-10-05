@@ -896,9 +896,16 @@ class PairDensity:
             for K_k in PWSA.group_kpoints(Kstar_k):
                 # Let the first kpoint of the group represent
                 # the rest of the kpoints
+                if hasattr(self.calc.wfs.kd, 'refine_info'):
+                    label_k = self.calc.wfs.kd.refine_info.label_k
+                    indexes = np.where(label_k[K_k] != 'zero')[0]
+                    if len(indexes) == 0:
+                        continue
+                    K_k = K_k[indexes]
                 K1 = K_k[0]
                 # In this way wavefunctions are only loaded into
                 # memory for this particular set of kpoints
+
                 kptpair = self.get_kpoint_pair(pd, s, K1, n1, n2, m1, m2)
                 kpt1 = kptpair.get_k1()  # kpt1 = k
 
@@ -908,7 +915,13 @@ class PairDensity:
 
                 if unsymmetrized:
                     # Number of times kpoints are mapped into themselves
-                    weight = np.sqrt(PWSA.how_many_symmetries() / len(K_k))
+                    if hasattr(self.calc.wfs.kd, 'refine_info'):
+                        weight = sum(self.calc.wfs.kd.refine_info.weight_k[K_k])
+                        if weight < 1e-6:
+                            continue
+                        weight = np.sqrt(PWSA.how_many_symmetries() / weight)
+                    else:
+                        weight = np.sqrt(PWSA.how_many_symmetries() / len(K_k))
 
                 # Use kpt2 to compute intraband transitions
                 # These conditions are sufficient to make sure
@@ -1032,6 +1045,14 @@ class PairDensity:
         q_c = pd.kd.bzk_kc[0]
         with self.timer('get k-points'):
             kpt1 = self.get_k_point(s, k_c, n1, n2, load_wfs=load_wfs)
+            if hasattr(self.calc.wfs.kd, 'refine_info'):
+                # Small hack: If we're using grid refinement, and the q is tiny
+                # then we can pretend q = 0 for the coarse grid... it's an
+                # approximation...
+                K = self.find_kpoint(k_c)
+                if (self.calc.wfs.kd.refine_info.almostoptical and
+                    self.calc.wfs.kd.refine_info.label_k[K] == 'mh'):
+                    q_c = np.array([0., 0., 0.])
             # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
             kpt2 = self.get_k_point(s, k_c + q_c, m1, m2,
                                     load_wfs=load_wfs, block=block)

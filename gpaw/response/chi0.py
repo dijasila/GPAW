@@ -494,7 +494,11 @@ class Chi0:
                      (wfs.nspins * (2 * np.pi)**3))  # Remember prefactor
 
         if self.integrationmode is None:
-            prefactor *= len(bzk_kv) / self.calc.wfs.kd.nbzkpts
+            if hasattr(self.calc.wfs.kd, 'refine_info'):
+                nbzkpts = self.calc.wfs.kd.refine_info.mhnbzkpts
+            else:
+                nbzkpts = self.calc.wfs.kd.nbzkpts
+            prefactor *= len(bzk_kv) / nbzkpts
 
         # The functions that are integrated are defined in the bottom
         # of this file and take a number of constant keyword arguments
