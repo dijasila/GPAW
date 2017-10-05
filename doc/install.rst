@@ -58,7 +58,7 @@ Requirements
 
 * Python_ 2.7-3.5
 * NumPy_ 1.6.1 or later (base N-dimensional array package)
-* ASE_ 3.14.1 or later (atomic simulation environment)
+* ASE_ 3.15.0 or later (atomic simulation environment)
 * a C-compiler
 * LibXC_ 2.0.1 or later
 * BLAS_ and LAPACK_ libraries
@@ -81,7 +81,7 @@ Optional, but highly recommended:
 .. _BLACS: http://www.netlib.org/blacs/
 .. _LAPACK: http://www.netlib.org/lapack/
 .. _ScaLAPACK: http://www.netlib.org/scalapack/
-.. _PyPI: https://pypi.python.org/pypi/gpaw
+.. _PyPI: https://pypi.org/project/gpaw
 .. _PIP: https://pip.pypa.io/en/stable/
 .. _ASE: https://wiki.fysik.dtu.dk/ase
 .. _FFTW: http://www.fftw.org/
@@ -166,28 +166,26 @@ Sou can get the source from a tar-file or from Git:
 :Tar-file:
 
     You can get the source as a tar-file for the
-    latest stable release (gpaw-1.2.0.tar.gz_) or the latest
+    latest stable release (gpaw-1.3.0.tar.gz_) or the latest
     development snapshot (`<snapshot.tar.gz>`_).
 
     Unpack and make a soft link::
 
-        $ tar -xf gpaw-1.2.0.tar.gz
-        $ ln -s gpaw-1.2.0 gpaw
+        $ tar -xf gpaw-1.3.0.tar.gz
+        $ ln -s gpaw-1.3.0 gpaw
 
     Here is a `list of tarballs <https://pypi.python.org/simple/gpaw/>`__.
 
 :Git clone:
 
-    Alternatively, you can get the source for the the development version
-    from https://gitlab.com/gpaw/gpaw like this::
+    Alternatively, you can get the source for the latest stable release from
+    https://gitlab.com/gpaw/gpaw like this::
+
+        $ git clone -b 1.3.0 https://gitlab.com/gpaw/gpaw.git
+
+    or if you want the development version::
 
         $ git clone https://gitlab.com/gpaw/gpaw.git
-
-    If you want the latest stable release you should clone and then *checkout*
-    the ``1.2.0`` tag like this::
-
-        $ git clone https://gitlab.com/gpaw/gpaw.git
-        $ git checkout 1.2.0
 
 Add ``~/gpaw`` to your :envvar:`PYTHONPATH` environment variable and add
 ``~/gpaw/tools`` to :envvar:`PATH` (assuming ``~/gpaw`` is where your GPAW
@@ -199,10 +197,8 @@ folder is).
     See the :ref:`releasenotes` for which tags are available.  Also the
     dates of older releases can be found there.
 
-.. _gpaw-1.2.0.tar.gz:
-    https://pypi.python.org/packages/3c/ed/
-    c06fc0960c1ddc8bb5ae6a23d1164ffa78324758a3bfb50c677278bef14a/
-    gpaw-1.2.0.tar.gz
+.. _gpaw-1.3.0.tar.gz:
+    https://pypi.org/packages/source/g/gpaw/gpaw-1.3.0.tar.gz
 
 
 .. _customizing installation:
