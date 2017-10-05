@@ -14,6 +14,7 @@ from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
 from gpaw.gaunt import gaunt, nabla
 from gpaw.utilities import unpack, pack
+from gpaw.utilities.ekin import ekin, dekindecut
 from gpaw.rotation import rotation
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.xc import XC
@@ -1282,6 +1283,16 @@ class Setups(list):
         Dshapes_a = [(ns, setup.ni * (setup.ni + 1) // 2)
                      for setup in self]
         return atom_partition.arraydict(Dshapes_a)
+
+    def estimate_dedecut(self, ecut):
+        dedecut = 0.0
+        e = {}
+        for id in self.id_a:
+            if id not in e:
+                G, de, e0 = ekin(self.setups[id])
+                e[id] = -dekindecut(G, de, ecut)
+            dedecut += e[id]
+        return dedecut
 
 
 def types2atomtypes(symbols, types, default):

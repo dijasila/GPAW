@@ -22,6 +22,7 @@ from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
 class DatasetGenerationError(Exception):
     pass
 
+
 parameters = {
     # 1-2:
     'H1': ('1s,s,p', 0.9),
@@ -1318,7 +1319,8 @@ class CLICommand:
         add('-a', '--alpha', type=float)
         add('-b', '--create-basis-set', action='store_true')
         add('--nlcc', action='store_true',
-            help='Use NLCC-style pseudo core density (for vdW-DF functionals).')
+            help='Use NLCC-style pseudo core density '
+            '(for vdW-DF functionals).')
         add('--core-hole')
         add('-e', '--electrons', type=int)
         add('-o', '--output')

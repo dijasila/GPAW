@@ -139,7 +139,7 @@ The p-valence basis sets can be easily obtained for the appropriate elements
 with the :command:`gpaw install-data` tool using the following options::
 
     $ gpaw install-data {<directory>} --basis --version=pvalence
-    
+
 See :ref:`installation of paw datasets` for more information on basis set
 installation. It is again reminded that these basis sets are not thoroughly
 tested and **it is essential to benchmark the performance of the basis sets
@@ -159,9 +159,9 @@ silver, and gold clusters.
 For further details of the basis sets, as well as their construction and
 performance, see [#Rossi2015]_. For convenience, these basis sets can be easily
 obtained with::
-    
+
     $ gpaw install-data {<directory>} --basis --version=coopt
-    
+
 See :ref:`installation of paw datasets` for basis set installation. Finally,
 it is again emphasized that when using the basis sets, **it is essential to
 benchmark their suitability for your application**.
@@ -172,8 +172,7 @@ Parallelization
 
 LCAO-TDDFT is parallelized using ScaLAPACK. It runs without ScaLAPACK, but in this case only a single core is used for linear alrebra.
 
- * Use ``parallel={'sl_default':(N,M,64)}``;  See :ref:`manual_parallel`.
- * ScaLAPACK can be also enabled by specifying --sl_default=N,M,64 in command line.
+ * Use ``parallel={'sl_default':(N, M, 64)}``;  See :ref:`manual_parallel`.
  * It is necessary that N*M equals the total number of cores used by the calculator, and ``max(N,M)*64 < nbands``. The block size 64 can be changed to, e.g., 16 if necessary.
  * Apart from parallelization of linear algrebra, normal domain and band parallelizations can be used. As in ground-state LCAO calculations, use band parallelization to reduce memory consumption.
 
