@@ -35,7 +35,6 @@ Using a 1-d radial grid
 =======================
 
 Since the H atom is spherically symmetric, one can solve the problem
-on a 1-d grid.  GPAW has a program to do this called ``aeatom.py``.
-It can be used like this::
+on a 1-d grid.  You can do that on the command line like this::
 
-    $ python3 -m gpaw.atom.aeatom -p H
+    $ gpaw atom H -p
