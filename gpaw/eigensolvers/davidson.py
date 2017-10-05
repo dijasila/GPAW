@@ -8,6 +8,11 @@ from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.matrix import matrix_matrix_multiply as mmm
 
 
+class DummyArray:
+    def __getitem__(self, x):
+        return None
+
+
 class Davidson(Eigensolver):
     """Simple Davidson eigensolver
 
@@ -33,6 +38,9 @@ class Davidson(Eigensolver):
                 'See https://trac.fysik.dtu.dk/projects/gpaw/ticket/248')
 
         self.orthonormalization_required = False
+        self.H_NN = DummyArray()
+        self.S_NN = DummyArray()
+        self.eps_N = DummyArray()
 
     def __repr__(self):
         return 'Davidson(niter=%d, smin=%r, normalize=%r)' % (
@@ -45,10 +53,12 @@ class Davidson(Eigensolver):
         Eigensolver.initialize(self, wfs)
         self.overlap = wfs.overlap
 
-        # Allocate arrays
-        self.H_2n2n = np.empty((2 * self.nbands, 2 * self.nbands), self.dtype)
-        self.S_2n2n = np.empty((2 * self.nbands, 2 * self.nbands), self.dtype)
-        self.eps_2n = np.empty(2 * self.nbands)
+        if wfs.gd.comm.rank == 0 and wfs.bd.comm.rank == 0:
+            # Allocate arrays
+            B = self.nbands
+            self.H_NN = np.empty((2 * B, 2 * B), self.dtype)
+            self.S_NN = np.empty((2 * B, 2 * B), self.dtype)
+            self.eps_N = np.empty(2 * B)
 
     def estimate_memory(self, mem, wfs):
         Eigensolver.estimate_memory(self, mem, wfs)
@@ -65,9 +75,9 @@ class Davidson(Eigensolver):
         bd = wfs.bd
         B = bd.nbands
 
-        H_NN = self.H_2n2n
-        S_NN = self.S_2n2n
-        eps_N = self.eps_2n
+        H_NN = self.H_NN
+        S_NN = self.S_NN
+        eps_N = self.eps_N
 
         def integrate(a_G):
             return np.real(wfs.integrate(a_G, a_G, global_integral=False))
@@ -112,6 +122,10 @@ class Davidson(Eigensolver):
 
         weights = self.weights(kpt)
 
+        e_N = bd.collect(kpt.eps_n)
+        if e_N is not None:
+            eps_N[:B] = e_N
+
         for nit in range(self.niter):
             if nit == self.niter - 1:
                 error = np.dot(weights, [integrate(R_G) for R_G in R.array])
@@ -136,8 +150,6 @@ class Davidson(Eigensolver):
             psit2.apply(Ht, out=R)
 
             with self.timer('calc. matrices'):
-                H_NN[:B, :B] = np.diag(kpt.eps_n)
-                S_NN[:B, :B] = np.eye(B)
                 me = matrix_elements
 
                 # <psi2 | H | psi>
@@ -151,23 +163,18 @@ class Davidson(Eigensolver):
 
             with self.timer('diagonalize'):
                 if comm.rank == 0 and bd.comm.rank == 0:
+                    H_NN[:B, :B] = np.diag(eps_N[:B])
+                    S_NN[:B, :B] = np.eye(B)
                     if debug:
                         H_NN[:B, B:] = 0.0
                         S_NN[:B, B:] = 0.0
                     from scipy.linalg import eigh
-                    print(H_NN)
-                    print(S_NN)
                     eps_N, H_NN[:] = eigh(H_NN, S_NN,
                                           lower=True,
                                           check_finite=debug)
                 # general_diagonalize(H_NN, eps_N, S_NN)
 
-            comm.broadcast(H_NN, 0)
-            comm.broadcast(eps_N, 0)
-            bd.comm.broadcast(H_NN, 0)
-            bd.comm.broadcast(eps_N, 0)
-
-            kpt.eps_n[:] = eps_N[bd.get_slice()]
+            bd.distribute(eps_N[:B], kpt.eps_n)
 
             with self.timer('rotate_psi'):
                 if comm.rank == 0 and bd.comm.rank == 0:

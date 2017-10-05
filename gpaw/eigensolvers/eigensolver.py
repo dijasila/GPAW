@@ -156,7 +156,8 @@ class Eigensolver:
 
         with wfs.timer('diagonalize'):
             H.eigh(kpt.eps_n, cc=True)
-            # H now contains the eigenvectors
+            # H.array[:, n] now contains the n'th eigenvector and eps_n[n]
+            # the n'th eigenvalue
 
         with self.timer('rotate_psi'):
             if self.keep_htpsit:

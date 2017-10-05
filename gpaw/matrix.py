@@ -201,11 +201,11 @@ class Matrix:
             if isinstance(other.dist, NoDistribution):
                 other.array[:] = self.array
             else:
-                dist = create_distribution(*self.shape, other.dist.comm, 1, 1)
+                M, N = self.shape
+                dist = create_distribution(M, N, other.dist.comm, 1, 1)
                 redist(dist, self.array, other.dist, other.array,
                        other.dist.desc[1])
         else:
-            #ctx = max(self.dist.desc[1], other.dist.desc[1])  # ???
             ctx = min((d[4] * d[5], d[1])
                       for d in [self.dist.desc, other.dist.desc])[1]
             redist(self.dist, self.array, other.dist, other.array, ctx)
