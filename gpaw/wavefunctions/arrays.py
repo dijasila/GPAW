@@ -135,13 +135,10 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
 class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, pd, dtype=None, data=None, kpt=None, dist=None,
                  spin=0, collinear=True):
-        if data is None:
-            data = pd.empty(nbands, q=kpt)
-        self.array = data
-        if pd.dtype == float:
-            data = data.view(float)
-        mynbands, ng = data.shape
+        hmmmm assert data is None
+        ng = len(pd.Q_qG[kpt])
         ArrayWaveFunctions.__init__(self, nbands, ng, dtype, data, dist)
+        # self.array = self.matrix.array.view(self.dtype)
         self.pd = pd
         self.gd = pd.gd
         self.dv = pd.gd.dv / pd.gd.N_c.prod()

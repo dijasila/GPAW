@@ -95,7 +95,9 @@ class Projections:
         if self.acomm.size == 1:
             return P.array
 
-        return self.collect_atoms(P).T
+        P_In = self.collect_atoms(P)
+        if P_In is not None:
+            return P_In.T
 
     def collect_atoms(self, P):
         if self.acomm.rank == 0:

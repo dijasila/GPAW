@@ -10,7 +10,7 @@ from gpaw.matrix import matrix_matrix_multiply as mmm
 
 class DummyArray:
     def __getitem__(self, x):
-        return None
+        return np.nan
 
 
 class Davidson(Eigensolver):
@@ -98,6 +98,11 @@ class Davidson(Eigensolver):
         else:
             M0 = M
 
+        if comm.rank == 0:
+            e_N = bd.collect(kpt.eps_n)
+            if e_N is not None:
+                eps_N[:B] = e_N
+
         def matrix_elements(a, b, Pa, dM, Pb, C_nn, symmetric=False):
             """Fill C_nn with <a|b> matrix elements."""
             a.matrix_elements(b, out=M, symmetric=symmetric, cc=True)
@@ -121,10 +126,6 @@ class Davidson(Eigensolver):
         self.calculate_residuals(kpt, wfs, ham, psit, P, kpt.eps_n, R, P2)
 
         weights = self.weights(kpt)
-
-        e_N = bd.collect(kpt.eps_n)
-        if e_N is not None:
-            eps_N[:B] = e_N
 
         for nit in range(self.niter):
             if nit == self.niter - 1:
@@ -174,17 +175,21 @@ class Davidson(Eigensolver):
                                           check_finite=debug)
                 # general_diagonalize(H_NN, eps_N, S_NN)
 
-            bd.distribute(eps_N[:B], kpt.eps_n)
+            if comm.rank == 0:
+                bd.distribute(eps_N[:B], kpt.eps_n)
+            comm.broadcast(kpt.eps_n, 0)
 
             with self.timer('rotate_psi'):
-                if comm.rank == 0 and bd.comm.rank == 0:
+                if comm.rank == 0:
                     M0.array[:] = H_NN[:B, :B]
-                M0.redist(M)
+                    M0.redist(M)
+                comm.broadcast(M.array, 0)
                 mmm(1.0, M, 'T', psit, 'N', 0.0, R)
                 mmm(1.0, M, 'T', P, 'N', 0.0, P3)
-                if comm.rank == 0 and bd.comm.rank == 0:
+                if comm.rank == 0:
                     M0.array[:] = H_NN[B:, :B]
-                M0.redist(M)
+                    M0.redist(M)
+                comm.broadcast(M.array, 0)
                 mmm(1.0, M, 'T', psit2, 'N', 1.0, R)
                 mmm(1.0, M, 'T', P2, 'N', 1.0, P3)
                 psit[:] = R

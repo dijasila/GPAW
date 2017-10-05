@@ -877,7 +877,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt.C_nM = None
 
             kpt.psit = PlaneWaveExpansionWaveFunctions(
-                self.bd.nbands, self.pd, self.dtype, kpt=kpt.q, dist=None,
+                self.bd.nbands, self.pd, self.dtype, kpt=kpt.q,
+                dist=(self.bd.comm, -1, 1),
                 spin=kpt.s, collinear=True)
             for n in range(mynbands):
                 kpt.psit_nG[n] = self.pd.fft(psit_nR[n] * emikr_R, kpt.q)

@@ -171,6 +171,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 kpt2.eps_n = kpt.eps_n.copy()
 
                 # Transform wave functions using symmetry operation:
+                'needs fixing' + 1
                 Psit_nG = self.gd.collect(kpt.psit_nG)
                 if Psit_nG is not None:
                     Psit_nG = Psit_nG.copy()
