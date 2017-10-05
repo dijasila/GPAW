@@ -28,6 +28,19 @@ Git master branch
   Example: ``gpaw-python --gpaw=debug=True myscript.py myscript_arguments``.
   See also ``gpaw-python --help``.
 
+* Two new parameters for specifying the Pulay stress. Directly like this::
+
+      GPAW(mode=PW(ecut, pulay_stress=...), ...)
+
+  or indirectly::
+
+      GPAW(mode=PW(ecut, dedecut=...), ...)
+
+  via the formula `\sigma_P=(2/3)E_{\text{cut}}dE/dE_{\text{cut}}/V`.  Use
+  ``dedecut='estimate'`` to use an estimate from the kinetic energy of an
+  isolated atom.
+
+
 Version 1.3.0
 =============
 
