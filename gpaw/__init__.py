@@ -89,9 +89,12 @@ def parse_arguments(argv):
                    help='buffer size for MatrixOperator in MiB')
     p.add_argument('--profile', metavar='FILE', dest='profile',
                    help='run profiler and save stats to FILE')
-    p.add_argument('--gpaw', metavar='VAR=VALUE[, ...]', action='append', default=[],
+    p.add_argument('--gpaw', metavar='VAR=VALUE[, ...]', action='append',
+                   default=[],
                    dest='gpaw_extra_kwargs',
                    help='extra (hacky) GPAW keyword arguments')
+    p.add_argument('--benchmark-imports', action='store_true',
+                   help='count distributed/non-distributed imports')
     if is_gpaw_python:  # SCRIPT mandatory for gpaw-python
         p.add_argument('script', metavar='SCRIPT',
                        help='calculation script')
@@ -107,7 +110,8 @@ def parse_arguments(argv):
         sys.argv = [args.script] + args.options
 
     for w in args.warnings:
-        # Need to convert between python -W syntax to call warnings.filterwarnings():
+        # Need to convert between python -W syntax to
+        # call warnings.filterwarnings():
         warn_args = w.split(':')
         assert len(warn_args) <= 5
 
