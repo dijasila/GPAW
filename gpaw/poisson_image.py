@@ -1,7 +1,6 @@
 import numpy as np
 from gpaw.poisson_extended import ExtendedPoissonSolver as EPS
 from gpaw.dipole_correction import dipole_correction
-from gpaw.utilities.extend_grid import extended_grid_descriptor
 from gpaw.utilities.timing import nulltimer
 
 # TODO
