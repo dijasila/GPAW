@@ -1,13 +1,3 @@
-"""
-REMEMBER TO:
-remove ##density## where functionality is general
-
-NOTE:
-# - original code
-## - new code
-"""
-
-
 from __future__ import print_function, division
 
 from time import ctime
@@ -150,14 +140,14 @@ class Chi0:
         ecut : float
             Energy cutoff.
         hilbert : bool
-            Switch for hilbert transform. If True, the full ##density## response
+            Switch for hilbert transform. If True, the full density response
             is determined from a hilbert transform of its spectral function.
             This is typically much faster, but does not work for imaginary
             frequencies.
         nbands : int
             Maximum band index to include.
         timeordered : bool
-            Switch for calculating the time ordered ##density## response function.
+            Switch for calculating the time ordered density response function.
             In this case the hilbert transform cannot be used.
         eta : float
             Artificial broadening of spectra.
@@ -171,7 +161,7 @@ class Chi0:
             Switch for calculating nabla matrix elements (in the optical limit)
             using a real space finite difference approximation.
         intraband : bool
-            Switch for including the intraband contribution to the ##density##
+            Switch for including the intraband contribution to the density
             response function.
         world : MPI comm instance
             MPI communicator.
@@ -194,7 +184,8 @@ class Chi0:
         integrationmode : str
             Integrator for the kpoint integration.
             If == 'tetrahedron integration' then the kpoint integral is
-            performed using the linear tetrahedron method.
+            performed using the linear tetrahedron method. Note: there might be
+            problems using tetrahedron integration to calculate spin response.
         pbc : list
             Periodic directions of the system. Defaults to [True, True, True].
         eshift : float
@@ -208,7 +199,8 @@ class Chi0:
         """
         
         self.response = response
-
+        
+        
         self.timer = timer or Timer()
 
         self.pair = PairDensity(calc, self.response, ecut, 
@@ -269,6 +261,9 @@ class Chi0:
         self.omega2 = omega2 / Hartree
         self.omegamax = None if omegamax is None else omegamax / Hartree
         self.nbands = nbands or self.calc.wfs.bd.nbands
+        
+        if self.response == 'spin':
+            intraband = False # Irrelevant for spin flips
         self.include_intraband = intraband
 
         omax = self.find_maximum_frequency()
@@ -323,6 +318,8 @@ class Chi0:
     def set_response(self, response):
         """ Set the type of response function """
         self.response = response
+        if self.response == 'spin':
+            self.include_intraband = False # Irrelevant for spin flips
         self.pair.set_response(response)
     
     def find_maximum_frequency(self):
@@ -341,15 +338,17 @@ class Chi0:
         return self.epsmax - self.epsmin
 
     def calculate(self, q_c, spin='all', A_x=None):
-        """Calculate ##density## response function.
+        """Calculate response function.
 
         Parameters
         ----------
         q_c : list or ndarray
             Momentum vector.
         spin : str or int
-            If 'all' then include all spins. If 0 or 1, only include this
-            specific spin.
+            If 'all' then include all spins. 
+            If 0 or 1, only include this specific spin.
+            If 'pm' calculate chi^{+-}_0
+            If 'mp' calculate chi^{-+}_0
         A_x : ndarray
             Output array. If None, the output array is created.
 
@@ -358,17 +357,21 @@ class Chi0:
         pd : Planewave descriptor
             Planewave descriptor for q_c.
         chi0_wGG : ndarray
-            The ##density## response function.
+            The response function.
         chi0_wxvG : ndarray or None
-            (Only in optical limit) Wings of the ##density## response function.
+            (Only in optical limit) Wings of the response function.
         chi0_wvv : ndarray or None
-            (Only in optical limit) Head of ##density## response function.
+            (Only in optical limit) Head of response function.
 
         """
         wfs = self.calc.wfs
 
         if spin == 'all':
             spins = range(wfs.nspins)
+        elif spin == 'pm':
+            spins = [0]
+        elif spin == 'mp':
+            spins = [1]
         else:
             assert spin in range(wfs.nspins)
             spins = [spin]
@@ -422,7 +425,7 @@ class Chi0:
     @timer('Calculate CHI_0')
     def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins,
                    extend_head=True):
-        """In-place calculation of the ##density## response function.
+        """In-place calculation of the response function.
         
         Parameters
         ----------
@@ -431,18 +434,19 @@ class Chi0:
         pd : Planewave descriptor
             Planewave descriptor for q_c.
         chi0_wGG : ndarray
-            The ##density## response function.
+            The response function.
         chi0_wxvG : ndarray or None
-            Wings of the ##density## response function.
+            Wings of the response function.
         chi0_wvv : ndarray or None
-            Head of ##density## response function.
+            Head of response function.
         m1 : int
             Lower band cutoff for band summation
         m2 : int
             Upper band cutoff for band summation
         spins : str or list(ints)
-            If 'all' then include all spins. If [0] or [1], only include this
-            specific spin.
+            If 'all' then include all spins. 
+            If [0] or [1], only include this specific spin (and flip it,
+            if calculating spin response).
         extend_head : bool
             If True: Extend the wings and head of chi in the optical limit to
             take into account the non-analytic nature of chi. Effectively
@@ -456,6 +460,10 @@ class Chi0:
         wfs = self.calc.wfs
         if spins == 'all':
             spins = range(wfs.nspins)
+        elif spins == 'pm':
+            spins = [0]
+        elif spins == 'mp':
+            spins = [1]
         else:
             for spin in spins:
                 assert spin in range(wfs.nspins)
@@ -546,7 +554,7 @@ class Chi0:
             # If eta is 0 then we must be working with imaginary frequencies.
             # In this case chi is hermitian and it is therefore possible to
             # reduce the computational costs by a only computing half of the
-            # ##density## response function.
+            # response function.
             kind = 'hermitian response function'
         elif self.hilbert:
             # The spectral function integrator assumes that the form of the
@@ -573,8 +581,8 @@ class Chi0:
             chi0_wxvG /= prefactor
             chi0_wvv /= prefactor
 
-        # Integrate ##density## response function
-        print('Integrating ##density## response function.', file=self.fd)
+        # Integrate response function
+        print('Integrating response function.', file=self.fd)
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=(self.get_matrix_element,  # Integrand
@@ -611,7 +619,7 @@ class Chi0:
 
         if self.hilbert:
             # The integrator only returns the spectral function and a Hilbert
-            # transform is performed to return the real part of the ##density##
+            # transform is performed to return the real part of the density
             # response function.
             with self.timer('Hilbert transform'):
                 omega_w = self.wd.get_data()  # Get frequencies
@@ -642,7 +650,7 @@ class Chi0:
 
             # Not so elegant solution but it works
             plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
-            print('Integrating intraband ##density## response.', file=self.fd)
+            print('Integrating intraband density response.', file=self.fd)
 
             # Depending on which integration method is used we
             # have to pass different arguments
@@ -684,10 +692,10 @@ class Chi0:
             print((self.plasmafreq_vv**0.5 * Hartree).round(2),
                   file=self.fd)
 
-        # The ##density## response function is integrated only over the IBZ. The
+        # The response function is integrated only over the IBZ. The
         # chi calculated above must therefore be extended to include the
         # response from the full BZ. This extension can be performed as a
-        # simple post processing of the ##density## response function that makes
+        # simple post processing of the response function that makes
         # sure that the response function fulfills the symmetries of the little
         # group of q. Due to the specific details of the implementation the chi
         # calculated above is normalized by the number of symmetries (as seen
@@ -707,7 +715,7 @@ class Chi0:
                 PWSA.symmetrize_wvv(chi0_wvv)
         self.redistribute(tmpA_wxx, A_wxx)
 
-        # If point summation was used then the normalization of the ##density##
+        # If point summation was used then the normalization of the
         # response function is not right and we have to make up for this
         # fact.
 
@@ -799,10 +807,12 @@ class Chi0:
 
         A pair density is defined as::
 
-         <snk| e^(-i (q + G) r) |smk+q>,
+         <snk| e^(-i (q + G) r) |s'mk+q>,
 
-        where s is spin, n and m are band indices, k is
-        the kpoint and q is the momentum transfer.
+        where s and s' are spins, n and m are band indices, k is
+        the kpoint and q is the momentum transfer. For dielectric
+        reponse s'=s, for spin reponse s' is flipped with respect
+        to s.
         
         Parameters
         ----------
@@ -890,7 +900,11 @@ class Chi0:
         ik1 = kd.bz2ibz_k[K1]
         ik2 = kd.bz2ibz_k[K2]
         kpt1 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik1]
-        kpt2 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik2]
+        if self.response == 'spin':
+                s2 = 1-s
+            else:
+                s2 = s
+        kpt2 = wfs.kpt_u[s2 * wfs.kd.nibzkpts + ik2]
         deps_nm = np.subtract(kpt1.eps_n[n1:n2][:, np.newaxis],
                               kpt2.eps_n[m1:m2])
 

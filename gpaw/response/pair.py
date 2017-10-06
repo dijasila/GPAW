@@ -1042,7 +1042,11 @@ class PairDensity:
         with self.timer('get k-points'):
             kpt1 = self.get_k_point(s, k_c, n1, n2, load_wfs=load_wfs)
             # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            kpt2 = self.get_k_point(s, k_c + q_c, m1, m2,
+            if self.response == 'spin':
+                s2 = 1-s
+            else:
+                s2 = s
+            kpt2 = self.get_k_point(s2, k_c + q_c, m1, m2,
                                     load_wfs=load_wfs, block=block)
 
         with self.timer('fft indices'):
