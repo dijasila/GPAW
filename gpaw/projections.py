@@ -85,8 +85,7 @@ class Projections:
         if self.bcomm.size == 1:
             P = self.matrix
         else:
-            comm = self.bcomm.new_communicator([0])
-            P = self.matrix.new(dist=comm)
+            P = self.matrix.new(dist=(self.bcomm, 1, 1))
             self.matrix.redist(P)
 
         if self.bcomm.rank > 0:

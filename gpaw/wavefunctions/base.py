@@ -458,7 +458,7 @@ class WaveFunctions:
                 self.gd.comm, self.bd.comm, rank_a,
                 collinear=True, spin=kpt.s, dtype=self.dtype)
             if self.gd.comm.rank == 0:
-                P_nI = r.proxy('projections', kpt.s, kpt.k)[:]
+                P_nI = r.proxy('projections', kpt.s, kpt.k)[nslice]
                 kpt.P.matrix.array[:] = P_nI
 
 

@@ -163,7 +163,7 @@ class Matrix:
             self.array = data.reshape(dist.shape)
 
         self.comm = None
-        self.state = 'fine'
+        self.state = 'everything is fine'
 
     def __len__(self):
         return self.shape[0]
@@ -217,7 +217,7 @@ class Matrix:
             self.dist.invcholesky(self)
         if self.comm is not None and self.comm.size > 1:
             self.comm.broadcast(self.array, 0)
-            self.state == 'fine'
+            self.state == 'everything is fine'
 
     def eigh(self, eps_n, cc=False):
         if self.state == 'a sum is needed':
@@ -227,4 +227,8 @@ class Matrix:
         if self.comm is not None and self.comm.size > 1:
             self.comm.broadcast(self.array, 0)
             self.comm.broadcast(eps_n, 0)
-            self.state == 'fine'
+            self.state == 'everything is fine'
+
+    def complex_conjugate(self):
+        if self.dtype == complex:
+            np.negative(self.array.imag, self.array.imag)

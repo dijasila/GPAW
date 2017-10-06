@@ -110,8 +110,7 @@ class Davidson(Eigensolver):
             mmm(1.0, Pa, 'N', P3, 'C', 1.0, M)
             comm.sum(M.array, 0)
             if comm.rank == 0:
-                if wfs.dtype == complex:
-                    np.negative(M.array.imag, M.array.imag)
+                M.complex_conjugate()
                 M.redist(M0)
                 if bd.comm.rank == 0:
                     C_nn[:] = M0.array

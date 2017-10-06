@@ -135,16 +135,27 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
 class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, pd, dtype=None, data=None, kpt=None, dist=None,
                  spin=0, collinear=True):
-        hmmmm assert data is None
         ng = len(pd.Q_qG[kpt])
+        if data is not None:
+            assert ng == data.shape[1] or ng == data.length_of_last_dimension
+            assert data.dtype == complex
+        if dtype == float:
+            ng *= 2
+            if data is not None:
+                data = data.view(float)
         ArrayWaveFunctions.__init__(self, nbands, ng, dtype, data, dist)
-        # self.array = self.matrix.array.view(self.dtype)
         self.pd = pd
         self.gd = pd.gd
         self.dv = pd.gd.dv / pd.gd.N_c.prod()
         self.kpt = kpt
         self.spin = spin
-        self.myshape = (self.matrix.dist.shape[0], ng)
+
+    @property
+    def array(self):
+        if self.dtype == float and isinstance(self.matrix, Matrix):
+            return self.matrix.array.view(complex)
+        else:
+            return self.matrix.array
 
     def matrix_elements(self, other, out=None, symmetric=False, cc=False):
         if isinstance(other, ArrayWaveFunctions):
@@ -155,28 +166,17 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                 self.matrix.multiply(self.dv, 'N', other.matrix, 'C',
                                      0.0, out, symmetric)
             else:
+                tmp_G = self.matrix.array[:, 0].copy()
+                x = 0.5**0.5 if self is other else 0.5
+                self.matrix.array[:, 0] *= x
                 self.matrix.multiply(2 * self.dv, 'N', other.matrix, 'T',
                                      0.0, out, symmetric)
-                out.array -= self.dv * np.outer(self.matrix.array[:, 0],
-                                                other.matrix.array[:, 0])
+                self.matrix.array[:, 0] = tmp_G
         else:
             assert not cc
             P_ani = {a: P_ni for a, P_ni in out.items()}
             other.integrate(self.array, P_ani, self.kpt)
         return out
-
-    def multiply(self, alpha, opa, b, opb, beta, c, symmetric):
-        if opa == 'C' and opb == 'T' and beta == 0:
-            if self.pd.dtype == complex:
-                ArrayWaveFunctions.multiply(self, alpha, opa, b, opb, beta, c,
-                                            symmetric)
-            else:
-                ArrayWaveFunctions.multiply(self, 2 * alpha,
-                                            opa, b, opb, beta, c, symmetric)
-                c.array -= alpha * np.outer(self.matrix.array[:, 0],
-                                            b.matrix.array[:, 0])
-        else:
-            1 / 0
 
     def new(self, buf=None, dist='inherit', nbands=None):
         if buf is not None:
