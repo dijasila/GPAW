@@ -901,9 +901,9 @@ class Chi0:
         ik2 = kd.bz2ibz_k[K2]
         kpt1 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik1]
         if self.response == 'spin':
-                s2 = 1-s
-            else:
-                s2 = s
+            s2 = 1-s
+        else:
+            s2 = s
         kpt2 = wfs.kpt_u[s2 * wfs.kd.nibzkpts + ik2]
         deps_nm = np.subtract(kpt1.eps_n[n1:n2][:, np.newaxis],
                               kpt2.eps_n[m1:m2])
