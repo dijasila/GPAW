@@ -97,6 +97,12 @@ class BroadcastLoader:
         exec(code, module.__dict__)
         return module
 
+    def __str__(self):
+        return ('<{} for {}:{} [{} modules cached]>'
+                .format(self.__class__.__name__,
+                        self.spec.name, self.spec.origin,
+                        len(self.module_cache)))
+
 
 class BroadcastImporter:
     def __init__(self):
