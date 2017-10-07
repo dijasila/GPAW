@@ -10,10 +10,8 @@ from gpaw.broadcast_imports import broadcast_imports
 
 with broadcast_imports:
     import os
-    import sys
     import runpy
     import warnings
-    import distutils
     from distutils.util import get_platform
     from os.path import join, isfile
     from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
