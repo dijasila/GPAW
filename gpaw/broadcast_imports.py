@@ -13,14 +13,23 @@ This temporarily overrides the Python import mechanism so that
   2) import metadata and code are broadcast to all processes
   3) other processes execute the import statements from memory
 
+Warning: Do not perform any parallel operations while broadcast imports
+are enabled.  Non-master processes assume that they will receive module
+data and will crash or deadlock if master sends anything else.
 """
+
 
 from __future__ import print_function
 import sys
 import marshal
-import importlib
-import importlib.util
-from importlib.machinery import PathFinder, ModuleSpec
+
+py2 = sys.version_info[0] == 2
+
+if not py2:
+    import importlib
+    import importlib.util
+    from importlib.machinery import PathFinder, ModuleSpec
+
 
 try:
     import _gpaw
@@ -51,7 +60,13 @@ def marshal_broadcast(obj):
         buf = None
 
     buf = _gpaw.globally_broadcast_bytes(buf)
-    return marshal.loads(buf)
+    try:
+        return marshal.loads(buf)
+    except ValueError as err:
+        msg = ('Parallel import failure -- probably received garbage.  '
+               'Error was: {}.  This may happen if parallel operations are '
+               'performed while parallel imports are enabled.'.format(err))
+        raise ImportError(msg)
 
 
 class BroadcastLoader:
@@ -76,6 +91,8 @@ class BroadcastLoader:
         module = importlib.util.module_from_spec(self.spec)
         origin = metadata[1]
         module.__file__ = origin
+        # __package__, __path__, __cached__?
+        module.__loader__ = self
         sys.modules[fullname] = module
         exec(code, module.__dict__)
         return module
@@ -120,13 +137,16 @@ class BroadcastImporter:
 
     def broadcast(self):
         if world.rank == 0:
-            print('bcast {} modules'.format(len(self.module_cache)))
+            #print('bcast {} modules'.format(len(self.module_cache)))
             marshal_broadcast(self.module_cache)
         else:
             self.module_cache = marshal_broadcast(None)
-            print('recv {} modules'.format(len(self.module_cache)))
+            #print('recv {} modules'.format(len(self.module_cache)))
 
-    def __enter__(self):
+    def enable(self):
+        if world is None or py2:
+            return
+
         # There is the question of whether we lose anything by inserting
         # ourselves further on in the meta_path list.  Maybe not, and maybe
         # that is a less violent act.
@@ -134,15 +154,24 @@ class BroadcastImporter:
         if world.rank != 0:
             self.broadcast()
 
-    def __exit__(self, *args):
+    def disable(self):
+        if world is None or py2:
+            return
+
         if world.rank == 0:
             self.broadcast()
         self.module_cache = {}
         myself = sys.meta_path.pop(0)
         assert myself is self
 
+    def __enter__(self):
+        self.enable()
 
-globally_broadcast_imports = BroadcastImporter()
+    def __exit__(self, *args):
+        self.disable()
+
+
+broadcast_imports = BroadcastImporter()
 
 
 if 0:
@@ -304,17 +333,3 @@ if 0:
             self.module_findcache = broadcast(self.module_findcache)
             if world.rank != 0:
                 print('recvd {} modules'.format(len(self.module_cache)))
-
-
-    class NullBroadCaster:
-        def __enter__(self):
-            pass
-
-        def __exit__(self, *args):
-            pass
-
-
-    if world is None:
-        globally_broadcast_imports = NullBroadCaster()
-    else:
-        globally_broadcast_imports = BroadCaster()
