@@ -7,6 +7,7 @@ import gpaw.utilities.blas as blas
 
 
 global_blacs_context_store = {}
+global_blacs_context_refcount = {}
 
 
 def matrix(M):
@@ -42,7 +43,8 @@ class NoDistribution:
                                check_finite=debug)
         S.array[:] = linalg.inv(L_nn, overwrite_a=True, check_finite=debug)
 
-    def eigh(self, H, eps_n, cc=False):
+    def eigh(self, H, eps_n, cc=False, rows=1, columns=1, blocksize=None):
+        assert rows == 1 and columns == 1
         if cc and H.dtype == complex:
             np.negative(H.array.imag, H.array.imag)
         eps_n[:], H.array[:] = linalg.eigh(H.array,
@@ -56,12 +58,17 @@ class BLACSDistribution:
 
     def __init__(self, M, N, comm, r, c, b):
         self.comm = comm
+        self.rows = r
+        self.columns = c
 
         key = (comm, r, c)
         context = global_blacs_context_store.get(key)
         if context is None:
             context = _gpaw.new_blacs_context(comm.get_c_object(), c, r, 'R')
             global_blacs_context_store[key] = context
+            global_blacs_context_refcount[context] = 1
+        else:
+            global_blacs_context_refcount[context] += 1
 
         if b is None:
             if c == 1:
@@ -82,6 +89,17 @@ class BLACSDistribution:
         lld = max(1, n)
         self.desc = np.array([1, context, N, M, bc, br, 0, 0, lld], np.intc)
 
+    def __del__(self):
+        ctx = self.desc[1]
+        refcount = global_blacs_context_refcount[ctx]
+        if refcount == 1:
+            del global_blacs_context_refcount[ctx]
+            key = (self.comm, self.rows, self.columns)
+            del global_blacs_context_store[key]
+            _gpaw.blacs_destroy(ctx)
+        else:
+            global_blacs_context_refcount[ctx] = refcount - 1
+
     def __str__(self):
         return ('BLACSDistribution(global={}, local={}, blocksize={})'
                 .format(*('{}x{}'.format(*shape)
@@ -101,10 +119,11 @@ class BLACSDistribution:
             Ka, M = M, Ka
         if opb == 'N':
             N, Kb = Kb, N
-        _gpaw.pblas_gemm(N, M, Ka, alpha, b.array, a.array,
-                         beta, c.array,
-                         b.dist.desc, a.dist.desc, c.dist.desc,
-                         opb, opa)
+        info = _gpaw.pblas_gemm(N, M, Ka, alpha, b.array, a.array,
+                                beta, c.array,
+                                b.dist.desc, a.dist.desc, c.dist.desc,
+                                opb, opa)
+        assert info, info
 
     def invcholesky(self, S):
         S0 = S.new(dist=(self.comm, 1, 1))
@@ -113,13 +132,22 @@ class BLACSDistribution:
             NoDistribution.invcholesky('self', S0)
         S0.redist(S)
 
-    def eigh(self, H, eps_n, cc=False):
-        H0 = H.new(dist=(self.comm, 1, 1))
+    def eigh(self, H, eps_n, cc=False, rows=1, columns=1, blocksize=None):
+        dist = (self.comm, rows, columns, blocksize)
+        H0 = H.new(dist=dist)
         eps = Matrix(H.shape[0], 1, data=eps_n, dist=(self.comm, -1, 1))
-        eps0 = Matrix(H.shape[0], 1, dist=(self.comm, 1, 1))
+        eps0 = Matrix(H.shape[0], 1, dist=dist)
         H.redist(H0)
-        if self.comm.rank == 0:
+        if rows * columns == 1 and self.comm.rank == 0:
             NoDistribution.eigh('self', H0, eps0.array[:, 0], cc)
+        else:
+            if cc and H.dtype == complex:
+                array = H0.array.conj()
+            else:
+                array = H0.array.copy()
+            info = _gpaw.scalapack_diagonalize_dc(array, H0.dist.desc, 'U',
+                                                  H0.array, eps0.array[:, 0])
+            assert info, info
         H0.redist(H)
         eps0.redist(eps)
 
@@ -221,11 +249,11 @@ class Matrix:
             self.comm.broadcast(self.array, 0)
             self.state == 'everything is fine'
 
-    def eigh(self, eps_n, cc=False):
+    def eigh(self, eps_n, cc=False, rows=1, columns=1, blocksize=None):
         if self.state == 'a sum is needed':
             self.comm.sum(self.array, 0)
         if self.comm is None or self.comm.rank == 0:
-            self.dist.eigh(self, eps_n, cc)
+            self.dist.eigh(self, eps_n, cc, rows, columns, blocksize)
         if self.comm is not None and self.comm.size > 1:
             self.comm.broadcast(self.array, 0)
             self.comm.broadcast(eps_n, 0)

@@ -158,8 +158,9 @@ class Eigensolver:
             ham.xc.correct_hamiltonian_matrix(kpt, H.array)
 
         with wfs.timer('diagonalize'):
+            r, c, b = wfs.sl_diagonalize
             # Complex conjugate before diagonalizing:
-            H.eigh(kpt.eps_n, cc=True)
+            H.eigh(kpt.eps_n, cc=True, rows=r, columns=c, blocksize=b)
             # H.array[:, n] now contains the n'th eigenvector and eps_n[n]
             # the n'th eigenvalue
 

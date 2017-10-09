@@ -36,10 +36,10 @@ class FD(Mode):
 class FDWaveFunctions(FDPWWaveFunctions):
     mode = 'fd'
 
-    def __init__(self, stencil, initksl,
+    def __init__(self, stencil, sl_diagonalize, initksl,
                  gd, nvalence, setups, bd,
                  dtype, world, kd, kptband_comm, timer):
-        FDPWWaveFunctions.__init__(self, initksl,
+        FDPWWaveFunctions.__init__(self, sl_diagonalize, initksl,
                                    gd, nvalence, setups, bd,
                                    dtype, world, kd, kptband_comm, timer)
 

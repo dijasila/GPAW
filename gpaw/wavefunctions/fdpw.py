@@ -14,9 +14,10 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 class FDPWWaveFunctions(WaveFunctions):
     """Base class for finite-difference and planewave classes."""
-    def __init__(self, initksl, *args, **kwargs):
+    def __init__(self, sl_diagonalize, initksl, *args, **kwargs):
         WaveFunctions.__init__(self, *args, **kwargs)
 
+        self.sl_diagonalize = sl_diagonalize
         self.initksl = initksl
 
         self.set_orthonormalized(False)

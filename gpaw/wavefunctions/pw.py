@@ -479,7 +479,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     mode = 'pw'
 
     def __init__(self, ecut, fftwflags,
-                 initksl,
+                 sl_diagonalize, initksl,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
@@ -487,7 +487,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         self.ng_k = None  # number of G-vectors for all IBZ k-points
 
-        FDPWWaveFunctions.__init__(self, initksl,
+        FDPWWaveFunctions.__init__(self, sl_diagonalize, initksl,
                                    gd, nvalence, setups, bd, dtype,
                                    world, kd, kptband_comm, timer)
 

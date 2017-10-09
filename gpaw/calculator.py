@@ -996,7 +996,10 @@ class GPAW(PAW, Calculator):
                                                dtype, nao=nao,
                                                timer=self.timer)
 
-            self.wfs = mode(initksl, **wfs_kwargs)
+            sl_diagonalize = self.parallel['sl_diagnalize']
+            if sl_diagonalize is None:
+                sl_diagonalize = sl_default
+            self.wfs = mode(sl_diagonalize, initksl, **wfs_kwargs)
         else:
             self.wfs = mode(self, **wfs_kwargs)
 
