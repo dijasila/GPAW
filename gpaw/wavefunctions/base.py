@@ -317,7 +317,7 @@ class WaveFunctions:
             if self.world.rank == 0:
                 return P_nI
             if P_nI is not None:
-                self.kd.comm.send(P_nI, 0)
+                self.kd.comm.send(np.ascontiguousarray(P_nI), 0)
         if self.world.rank == 0:
             nproj = sum(setup.ni for setup in self.setups)
             P_nI = np.empty((self.bd.nbands, nproj), self.dtype)

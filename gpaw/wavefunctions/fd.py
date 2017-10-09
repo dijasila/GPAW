@@ -160,7 +160,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 ik = self.kd.bz2ibz_k[k]
                 r, u = self.kd.get_rank_and_index(s, ik)
                 assert r == 0
-                kpt = self.kpt_u[u]
+                kpt = self.mykpts[u]
 
                 phase_cd = np.exp(2j * np.pi * self.gd.sdisp_cd *
                                   kd.bzk_kc[k, :, np.newaxis])
@@ -171,14 +171,12 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 kpt2.eps_n = kpt.eps_n.copy()
 
                 # Transform wave functions using symmetry operation:
-                'needs fixing' + 1
                 Psit_nG = self.gd.collect(kpt.psit_nG)
                 if Psit_nG is not None:
-                    Psit_nG = Psit_nG.copy()
                     for Psit_G in Psit_nG:
                         Psit_G[:] = self.kd.transform_wave_function(Psit_G, k)
                 kpt2.psit = UniformGridWaveFunctions(
-                    self.bd.nbands, self.gd, self.dtype, Psit_nG,
+                    self.bd.nbands, self.gd, self.dtype,
                     kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
                     spin=kpt.s, collinear=True)
                 self.gd.distribute(Psit_nG, kpt2.psit_nG)
@@ -189,6 +187,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     self.bd.nbands, nproj_a,
                     self.gd.comm, self.bd.comm, kpt.P.rank_a,
                     collinear=True, spin=s, dtype=self.dtype)
+
                 kpt2.psit.matrix_elements(self.pt, out=kpt2.P)
 
                 kpt_u.append(kpt2)

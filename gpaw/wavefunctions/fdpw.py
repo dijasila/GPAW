@@ -101,6 +101,7 @@ class FDPWWaveFunctions(WaveFunctions):
             # We got everything from file:
             nlcao = 0
             nrand = 0
+
         return nlcao, nrand
 
     def initialize_wave_functions_from_restart_file(self):

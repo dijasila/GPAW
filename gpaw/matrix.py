@@ -66,7 +66,7 @@ class BLACSDistribution:
         if b is None:
             if c == 1:
                 br = (M + r - 1) // r
-                bc = N
+                bc = max(1, N)
             elif r == 1:
                 br = M
                 bc = (N + c - 1) // c
@@ -76,8 +76,7 @@ class BLACSDistribution:
             br = bc = b
 
         n, m = _gpaw.get_blacs_local_shape(context, N, M, bc, br, 0, 0)
-        if n < 0:
-            assert m < 0
+        if n < 0 or m < 0:
             n = m = 0
         self.shape = (m, n)
         lld = max(1, n)
@@ -89,6 +88,9 @@ class BLACSDistribution:
                           for shape in [self.desc[3:1:-1],
                                         self.shape,
                                         self.desc[5:3:-1]])))
+
+    def global_index(self, myi):
+        return self.comm.rank * int(self.desc[5]) + myi
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
         # print(alpha, a, opa, b, opb, beta, c)

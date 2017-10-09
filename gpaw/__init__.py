@@ -299,4 +299,5 @@ def read_rc_file():
             with open(rc) as fd:
                 exec(fd.read())
 
+
 read_rc_file()

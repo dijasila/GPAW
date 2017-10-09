@@ -10,7 +10,7 @@ class MatrixInFile:
         self.array = data
         self.dist = create_distribution(M, N, *dist)
 
-    def read(self, gd):
+    def read(self, gd, shape):
         matrix = Matrix(*self.shape, dtype=self.dtype, dist=self.dist)
         # Read band by band to save memory
         for myn, psit_G in enumerate(matrix.array):
@@ -19,7 +19,7 @@ class MatrixInFile:
                 big_psit_G = np.asarray(self.array[n], self.dtype)
             else:
                 big_psit_G = None
-            gd.distribute(big_psit_G, psit_G.reshape(gd.n_c))
+            gd.distribute(big_psit_G, psit_G.reshape(shape))
 
         return matrix
 
@@ -39,7 +39,7 @@ class ArrayWaveFunctions:
         return len(self.matrix)
 
     def read_from_file(self):
-        self.matrix = self.matrix.read(self.gd)
+        self.matrix = self.matrix.read(self.gd, self.myshape[1:])
         self.in_memory = True
 
     def multiply(self, alpha, opa, b, opb, beta, c, symmetric):
@@ -135,7 +135,7 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
 class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, pd, dtype=None, data=None, kpt=None, dist=None,
                  spin=0, collinear=True):
-        ng = len(pd.Q_qG[kpt])
+        ng = ng0 = len(pd.Q_qG[kpt])
         if data is not None:
             assert ng == data.shape[1] or ng == data.length_of_last_dimension
             assert data.dtype == complex
@@ -149,6 +149,7 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
         self.dv = pd.gd.dv / pd.gd.N_c.prod()
         self.kpt = kpt
         self.spin = spin
+        self.myshape = (self.matrix.dist.shape[0], ng0)
 
     @property
     def array(self):
