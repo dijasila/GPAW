@@ -301,15 +301,15 @@ class HybridXC(HybridXCBase):
         if not hasattr(kpt, 'vxx_ani'):
             return
 
-        if self.gd.comm.rank > 0:
-            H_nn[:] = 0.0
+        #if self.gd.comm.rank > 0:
+        #    H_nn[:] = 0.0
 
         nocc = self.nocc_s[kpt.s]
         nbands = len(kpt.vt_nG)
         for a, P_ni in kpt.P_ani.items():
             H_nn[:nbands, :nbands] += symmetrize(np.inner(P_ni[:nbands],
                                                           kpt.vxx_ani[a]))
-        self.gd.comm.sum(H_nn)
+        #self.gd.comm.sum(H_nn)
 
         H_nn[:nocc, nocc:] = 0.0
         H_nn[nocc:, :nocc] = 0.0

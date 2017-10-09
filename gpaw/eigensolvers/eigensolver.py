@@ -148,6 +148,9 @@ class Eigensolver:
         Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
         with self.timer('calc_h_matrix'):
+            # We calculate the complex conjugate of H, because
+            # that is what is most efficient with BLAS given the layout of
+            # our matrices.
             psit.apply(Ht, out=tmp)
             psit.matrix_elements(tmp, out=H, symmetric=True, cc=True)
             ham.dH.apply(kpt.P, out=P2)
@@ -155,6 +158,7 @@ class Eigensolver:
             ham.xc.correct_hamiltonian_matrix(kpt, H.array)
 
         with wfs.timer('diagonalize'):
+            # Complex conjugate before diagonalizing:
             H.eigh(kpt.eps_n, cc=True)
             # H.array[:, n] now contains the n'th eigenvector and eps_n[n]
             # the n'th eigenvalue
@@ -168,7 +172,7 @@ class Eigensolver:
             mmm(1.0, H, 'T', kpt.P, 'N', 0.0, P2)
             kpt.P.matrix = P2.matrix
             # Rotate orbital dependent XC stuff:
-            ham.xc.rotate(kpt, H.array)
+            ham.xc.rotate(kpt, H.array.T)
 
     def estimate_memory(self, mem, wfs):
         gridmem = wfs.bytes_per_wave_function()
