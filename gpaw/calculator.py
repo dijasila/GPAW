@@ -977,7 +977,8 @@ class GPAW(PAW, Calculator):
 
         elif mode.name == 'fd' or mode.name == 'pw':
             # Use (at most) all available LCAO for initialization
-            lcaonbands = min(nbands, nao // band_comm.size * band_comm.size)
+            #lcaonbands = min(nbands, nao // band_comm.size * band_comm.size)
+            lcaonbands = min(nbands, nao)# // band_comm.size * band_comm.size)
 
             try:
                 lcaobd = BandDescriptor(lcaonbands, band_comm,
