@@ -22,6 +22,7 @@ from gpaw.io import Reader, Writer
 from gpaw.jellium import create_background_charge
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
+from gpaw.matrix import suggest_blocking
 from gpaw.occupations import create_occupation_number_object
 from gpaw.output import (print_cell, print_positions,
                          print_parallelization_details)
@@ -945,22 +946,9 @@ class GPAW(PAW, Calculator):
                     val is not None):
                     raise ValueError("Cannot use 'sl_auto' together "
                                      "with '%s'" % key)
+
             max_scalapack_cpus = bd.comm.size * gd.comm.size
-            nprow = max_scalapack_cpus
-            npcol = 1
-
-            # Get a sort of reasonable number of columns/rows
-            while npcol < nprow and nprow % 2 == 0:
-                npcol *= 2
-                nprow //= 2
-            assert npcol * nprow == max_scalapack_cpus
-
-            # ScaLAPACK creates trouble if there aren't at least a few
-            # whole blocks; choose block size so there will always be
-            # several blocks.  This will crash for small test systems,
-            # but so will ScaLAPACK in any case
-            blocksize = min(-(-nbands // 4), 64)
-            sl_default = (nprow, npcol, blocksize)
+            sl_default = suggest_blocking(nbands, max_scalapack_cpus)
         else:
             sl_default = self.parallel['sl_default']
 
@@ -996,10 +984,7 @@ class GPAW(PAW, Calculator):
                                                dtype, nao=nao,
                                                timer=self.timer)
 
-            sl_diagonalize = self.parallel['sl_diagnalize']
-            if sl_diagonalize is None:
-                sl_diagonalize = sl_default
-            self.wfs = mode(sl_diagonalize, initksl, **wfs_kwargs)
+            self.wfs = mode(self.parallel, initksl, **wfs_kwargs)
         else:
             self.wfs = mode(self, **wfs_kwargs)
 

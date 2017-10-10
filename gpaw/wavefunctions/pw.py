@@ -51,7 +51,7 @@ class PW(Mode):
 
         Mode.__init__(self, force_complex_dtype)
 
-    def __call__(self, initksl, gd, *args, **kwargs):
+    def __call__(self, parallel, initksl, gd, *args, **kwargs):
         if self.cell_cv is None:
             ecut = self.ecut
         else:
@@ -60,7 +60,7 @@ class PW(Mode):
             ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
 
         wfs = PWWaveFunctions(ecut, self.fftwflags,
-                              initksl, gd, *args,
+                              parallel, initksl, gd, *args,
                               **kwargs)
         return wfs
 
@@ -479,7 +479,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     mode = 'pw'
 
     def __init__(self, ecut, fftwflags,
-                 sl_diagonalize, initksl,
+                 parallel, initksl,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
@@ -487,7 +487,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         self.ng_k = None  # number of G-vectors for all IBZ k-points
 
-        FDPWWaveFunctions.__init__(self, sl_diagonalize, initksl,
+        FDPWWaveFunctions.__init__(self, parallel, initksl,
                                    gd, nvalence, setups, bd, dtype,
                                    world, kd, kptband_comm, timer)
 

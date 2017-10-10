@@ -357,6 +357,7 @@ class HybridXC(HybridXCBase):
         if kpt.f_n is None:
             return
 
+        U_nn = U_nn.copy()
         nocc = self.nocc_s[kpt.s]
         if len(kpt.vt_nG) == nocc:
             U_nn = U_nn[:nocc, :nocc]

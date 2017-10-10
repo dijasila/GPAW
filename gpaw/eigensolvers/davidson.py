@@ -51,7 +51,7 @@ class Davidson(Eigensolver):
 
     def initialize(self, wfs):
         Eigensolver.initialize(self, wfs)
-        self.overlap = wfs.overlap
+        #self.overlap = wfs.overlap
 
         if wfs.gd.comm.rank == 0 and wfs.bd.comm.rank == 0:
             # Allocate arrays

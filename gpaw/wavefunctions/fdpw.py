@@ -4,8 +4,9 @@ from ase.utils.timing import timer
 
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.lfc import BasisFunctions
-from gpaw.matrix import Matrix, matrix_matrix_multiply as mmm
-from gpaw.overlap import Overlap
+from gpaw.matrix import (Matrix, matrix_matrix_multiply as mmm,
+                         suggest_blocking)
+#from gpaw.overlap import Overlap
 from gpaw.utilities import unpack
 from gpaw.utilities.timing import nulltimer
 from gpaw.wavefunctions.base import WaveFunctions
@@ -14,15 +15,21 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 class FDPWWaveFunctions(WaveFunctions):
     """Base class for finite-difference and planewave classes."""
-    def __init__(self, sl_diagonalize, initksl, *args, **kwargs):
+    def __init__(self, parallel, initksl, *args, **kwargs):
         WaveFunctions.__init__(self, *args, **kwargs)
 
-        self.sl_diagonalize = sl_diagonalize
+        self.scalapack_parameters = parallel['sl_diagonalize']
+        if self.scalapack_parameters == 'auto':
+            self.scalapack_parameters = suggest_blocking(self.bd.nbands,
+                                                         self.bd.comm.size)
+        elif self.scalapack_parameters is None:
+            self.scalapack_parameters = (1, 1, None)
+
         self.initksl = initksl
 
         self.set_orthonormalized(False)
 
-        self.overlap = self.make_overlap()
+        #self.overlap = self.make_overlap()
 
         self._work_matrix_nn = None  # storage for H, S, ...
         self._work_array = None

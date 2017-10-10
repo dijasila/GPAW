@@ -22,6 +22,28 @@ def matrix_matrix_multiply(alpha, a, opa, b, opb, beta, c, symmetric=True):
                               symmetric)
 
 
+def suggest_blocking(N, ncpus):
+    """Suggest blocking of NxN matrix."""
+
+    nprow = ncpus
+    npcol = 1
+
+    # Get a sort of reasonable number of columns/rows
+    while npcol < nprow and nprow % 2 == 0:
+        npcol *= 2
+        nprow //= 2
+
+    assert npcol * nprow == ncpus
+
+    # ScaLAPACK creates trouble if there aren't at least a few
+    # whole blocks; choose block size so there will always be
+    # several blocks.  This will crash for small test systems,
+    # but so will ScaLAPACK in any case
+    blocksize = min(-(-N // 4), 64)
+
+    return nprow, npcol, blocksize
+
+
 class NoDistribution:
     serial = True
 

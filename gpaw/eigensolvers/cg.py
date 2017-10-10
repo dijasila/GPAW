@@ -61,7 +61,6 @@ class CG(Eigensolver):
                              'parallelization.  This calculation parallelizes '
                              'over %d band groups.' % wfs.bd.comm.size)
         Eigensolver.initialize(self, wfs)
-        self.overlap = wfs.overlap
 
     def iterate_one_k_point(self, ham, wfs, kpt):
         """Do conjugate gradient iterations for the k-point"""
