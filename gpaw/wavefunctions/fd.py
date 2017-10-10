@@ -169,18 +169,17 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 kpt2 = KPoint(weight, s, k, k, phase_cd)
                 kpt2.f_n = kpt.f_n / kpt.weight / kd.nbzkpts * 2 / self.nspins
                 kpt2.eps_n = kpt.eps_n.copy()
-
                 # Transform wave functions using symmetry operation:
                 Psit_nG = self.gd.collect(kpt.psit_nG)
                 if Psit_nG is not None:
+                    Psit_nG = Psit_nG.copy()
                     for Psit_G in Psit_nG:
                         Psit_G[:] = self.kd.transform_wave_function(Psit_G, k)
                 kpt2.psit = UniformGridWaveFunctions(
                     self.bd.nbands, self.gd, self.dtype,
-                    kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
+                    kpt=k, dist=(self.bd.comm, self.bd.comm.size),
                     spin=kpt.s, collinear=True)
                 self.gd.distribute(Psit_nG, kpt2.psit_nG)
-
                 # Calculate PAW projections:
                 nproj_a = [setup.ni for setup in self.setups]
                 kpt2.P = Projections(
@@ -189,7 +188,6 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     collinear=True, spin=s, dtype=self.dtype)
 
                 kpt2.psit.matrix_elements(self.pt, out=kpt2.P)
-
                 kpt_u.append(kpt2)
 
         self.kd = kd
