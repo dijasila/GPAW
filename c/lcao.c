@@ -81,9 +81,6 @@ PyObject *tci_overlap(PyObject *self, PyObject *args)
 
     With derivatives, x_mi_obj can be likewise ignored.
 
-    Depending on what is requested, some arrays are not used, but must
-    still be given as valid numpy arrays (can be size 0).
-
     */
 
     int la, lb;
