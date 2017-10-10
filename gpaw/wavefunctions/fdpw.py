@@ -68,8 +68,8 @@ class FDPWWaveFunctions(WaveFunctions):
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
         self.positions_set = True
 
-    def make_overlap(self):
-        return Overlap(self.timer)
+    # def make_overlap(self):
+    #     return Overlap(self.timer)
 
     def initialize(self, density, hamiltonian, spos_ac):
         """Initialize wave-functions, density and hamiltonian.

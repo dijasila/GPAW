@@ -111,8 +111,10 @@ class BLACSDistribution:
         lld = max(1, n)
         self.desc = np.array([1, context, N, M, bc, br, 0, 0, lld], np.intc)
 
-    def __del__(self):
+    def __del_______(self):
         ctx = self.desc[1]
+        if ctx == -1:
+            return
         refcount = global_blacs_context_refcount[ctx]
         if refcount == 1:
             del global_blacs_context_refcount[ctx]
@@ -141,11 +143,10 @@ class BLACSDistribution:
             Ka, M = M, Ka
         if opb == 'N':
             N, Kb = Kb, N
-        info = _gpaw.pblas_gemm(N, M, Ka, alpha, b.array, a.array,
-                                beta, c.array,
-                                b.dist.desc, a.dist.desc, c.dist.desc,
-                                opb, opa)
-        assert info, info
+        _gpaw.pblas_gemm(N, M, Ka, alpha, b.array, a.array,
+                         beta, c.array,
+                         b.dist.desc, a.dist.desc, c.dist.desc,
+                         opb, opa)
 
     def invcholesky(self, S):
         S0 = S.new(dist=(self.comm, 1, 1))
@@ -160,8 +161,9 @@ class BLACSDistribution:
         eps = Matrix(H.shape[0], 1, data=eps_n, dist=(self.comm, -1, 1))
         eps0 = Matrix(H.shape[0], 1, dist=dist)
         H.redist(H0)
-        if rows * columns == 1 and self.comm.rank == 0:
-            NoDistribution.eigh('self', H0, eps0.array[:, 0], cc)
+        if rows * columns == 1:
+            if self.comm.rank == 0:
+                NoDistribution.eigh('self', H0, eps0.array[:, 0], cc)
         else:
             if cc and H.dtype == complex:
                 array = H0.array.conj()

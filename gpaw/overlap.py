@@ -18,7 +18,7 @@ class Overlap:
     overlap operator to a set of wavefunctions.
     """
 
-    def __init__(self, timer):
+    def __init__(self, timer=None):
         """Create the Overlap operator."""
         self.timer = timer
 
@@ -39,7 +39,6 @@ class Overlap:
             When False, existing P_ani are used
 
         """
-        self.timer.start('Apply overlap')
         b_xG[:] = a_xG
         shape = a_xG.shape[:-3]
         P_axi = wfs.pt.dict(shape)
@@ -54,7 +53,6 @@ class Overlap:
             P_axi[a] = np.dot(P_xi, wfs.setups[a].dO_ii)
             # gemm(1.0, wfs.setups[a].dO_ii, P_xi, 0.0, P_xi, 'n')
         wfs.pt.add(b_xG, P_axi, kpt.q) # b_xG += sum_ai pt^a_i P_axi
-        self.timer.stop('Apply overlap')
 
     def apply_inverse(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):
         """Apply approximative inverse overlap operator to wave functions."""
