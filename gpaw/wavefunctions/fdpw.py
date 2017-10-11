@@ -18,12 +18,7 @@ class FDPWWaveFunctions(WaveFunctions):
     def __init__(self, parallel, initksl, *args, **kwargs):
         WaveFunctions.__init__(self, *args, **kwargs)
 
-        self.scalapack_parameters = parallel['sl_diagonalize']
-        if self.scalapack_parameters == 'auto':
-            self.scalapack_parameters = suggest_blocking(self.bd.nbands,
-                                                         self.bd.comm.size)
-        elif self.scalapack_parameters is None:
-            self.scalapack_parameters = (1, 1, None)
+        self.scalapack_parameters = parallel
 
         self.initksl = initksl
 

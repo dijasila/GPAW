@@ -158,11 +158,20 @@ class Eigensolver:
             ham.xc.correct_hamiltonian_matrix(kpt, H.array)
 
         with wfs.timer('diagonalize'):
-            r, c, b = wfs.scalapack_parameters
+            slcomm, r, c, b = wfs.scalapack_parameters
+            if r == c == 1:
+                slcomm = None
+            else:
+                ranks = [rbd * wfs.gd.comm.size + rgd
+                         for rgd in range(wfs.gd.comm.size)
+                         for rbd in range(wfs.bd.comm.size)]
+                slcomm = slcomm.new_communicator(ranks)
+                print(ranks,r,c,b)
             # Complex conjugate before diagonalizing:
-            H.eigh(kpt.eps_n, cc=True, rows=r, columns=c, blocksize=b)
+            eps_n = H.eigh(cc=True, scalapack=(slcomm, r, c, b))
             # H.array[:, n] now contains the n'th eigenvector and eps_n[n]
             # the n'th eigenvalue
+            kpt.eps_n = eps_n[wfs.bd.get_slice()]
 
         with self.timer('rotate_psi'):
             if self.keep_htpsit:

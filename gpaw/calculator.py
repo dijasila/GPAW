@@ -984,7 +984,10 @@ class GPAW(PAW, Calculator):
                                                dtype, nao=nao,
                                                timer=self.timer)
 
-            self.wfs = mode(self.parallel, initksl, **wfs_kwargs)
+            sl = (domainband_comm,) + (self.parallel['sl_diagonalize'] or
+                                       sl_default or
+                                       (1, 1, None))
+            self.wfs = mode(sl, initksl, **wfs_kwargs)
         else:
             self.wfs = mode(self, **wfs_kwargs)
 
