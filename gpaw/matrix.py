@@ -3,6 +3,7 @@ import scipy.linalg as linalg
 
 import _gpaw
 from gpaw import debug
+from gpaw.mpi import serial_comm
 import gpaw.utilities.blas as blas
 
 
@@ -44,7 +45,10 @@ def suggest_blocking(N, ncpus):
 
 
 class NoDistribution:
-    serial = True
+    comm = serial_comm
+    rows = 1
+    columns = 1
+    blocksize = None
 
     def __init__(self, M, N):
         self.shape = (M, N)
@@ -63,16 +67,6 @@ class NoDistribution:
         L_nn = linalg.cholesky(S.array, lower=True, overwrite_a=True,
                                check_finite=debug)
         S.array[:] = linalg.inv(L_nn, overwrite_a=True, check_finite=debug)
-
-    def eigh(self, H, cc, slcomm, rows, columns, blocksize):
-        assert rows == columns == 1
-        if cc and H.dtype == complex:
-            np.negative(H.array.imag, H.array.imag)
-        eps, H.array.T[:] = linalg.eigh(H.array,
-                                        lower=True,  # ???
-                                        overwrite_a=True,
-                                        check_finite=debug)
-        return eps
 
 
 class BLACSDistribution:
@@ -140,28 +134,6 @@ class BLACSDistribution:
             NoDistribution.invcholesky('self', S0)
         S0.redist(S)
 
-    def eigh(self, H, cc, slcomm, rows, columns, blocksize):
-        dist = (slcomm or self.comm, rows, columns, blocksize)
-        H0 = H.new(dist=dist)
-        H.redist(H0)
-        eps = np.empty(H.shape[0])
-        if rows == columns == 1:
-            if self.comm.rank == 0:
-                eps = NoDistribution.eigh('self', H0, cc,
-                                          None, 1, 1, None)
-            self.comm.broadcast(eps, 0)
-        else:
-            if cc and H.dtype == complex:
-                array = H0.array.conj()
-            else:
-                array = H0.array.copy()
-            info = _gpaw.scalapack_diagonalize_dc(array, H0.dist.desc, 'U',
-                                                  H0.array, eps)
-            assert info == 0, info
-
-        H0.redist(H)
-        return eps
-
 
 def redist(dist1, M1, dist2, M2, context):
     _gpaw.scalapack_redist(dist1.desc, dist2.desc,
@@ -203,7 +175,7 @@ class Matrix:
         else:
             self.array = data.reshape(dist.shape)
 
-        self.comm = None
+        self.comm = serial_comm
         self.state = 'everything is fine'
 
     def __len__(self):
@@ -235,7 +207,7 @@ class Matrix:
         self.dist.multiply(alpha, self, opa, b, opb, beta, out, symmetric)
         return out
 
-    def redist(self, other,c=None):
+    def redist(self, other):
         if self is other:
             return
         d1 = self.dist
@@ -253,7 +225,7 @@ class Matrix:
                 M, N = self.shape
                 d2 = create_distribution(M, N, d1.comm, 1, 1)
                 redist(d1, self.array, d2, other.array,
-                       d2.desc[1])
+                       d1.desc[1])
                 return
             if d2.comm.size > d1.comm.size:
                 M, N = self.shape
@@ -281,21 +253,56 @@ class Matrix:
             self.state == 'everything is fine'
 
     def eigh(self, cc=False, scalapack=(None, 1, 1, None)):
+        slcomm, rows, columns, blocksize = scalapack
+
         if self.state == 'a sum is needed':
             self.comm.sum(self.array, 0)
 
-        slcomm, rows, columns, blocksize = scalapack
-        if rows == columns == 1 and self.comm is not None and self.comm.rank > 0:
-            eps_n = np.empty(self.shape[0])
-        else:
-            eps_n = self.dist.eigh(self, cc, slcomm, rows, columns, blocksize)
+        slcomm = slcomm or self.dist.comm
+        dist = (slcomm, rows, columns, blocksize)
 
-        assert (self.state == 'a sum is needed') == (self.comm is not None and self.comm.size > 1)
-        if self.comm is not None and self.comm.size > 1:
+        redist = (rows != self.dist.rows or
+                  columns != self.dist.columns or
+                  blocksize != self.dist.blocksize)
+
+        if redist:
+            H = self.new(dist=dist)
+            self.redist(H)
+        else:
+            assert self.dist.comm.size == slcomm.size
+            H = self
+
+        eps = np.empty(H.shape[0])
+
+        if rows * columns == 1:
+            if self.comm.rank == 0 and self.dist.comm.rank == 0:
+                if cc and H.dtype == complex:
+                    np.negative(H.array.imag, H.array.imag)
+                eps[:], H.array.T[:] = linalg.eigh(H.array,
+                                                   lower=True,  # ???
+                                                   overwrite_a=True,
+                                                   check_finite=debug)
+            self.dist.comm.broadcast(eps, 0)
+        else:
+            if cc and H.dtype == complex:
+                array = H.array.conj()
+            else:
+                array = H.array.copy()
+            info = _gpaw.scalapack_diagonalize_dc(array, H.dist.desc, 'U',
+                                                  H.array, eps)
+            assert info == 0, info
+
+        if redist:
+            H.redist(self)
+
+        assert (self.state == 'a sum is needed') == (
+            self.comm is not None and self.comm.size > 1)
+        if self.comm.size > 1:
             self.comm.broadcast(self.array, 0)
-            self.comm.broadcast(eps_n, 0)
+            self.comm.broadcast(eps, 0)
             self.state == 'everything is fine'
-        return eps_n
+
+        return eps
 
     def complex_conjugate(self):
         if self.dtype == complex:

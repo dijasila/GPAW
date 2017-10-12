@@ -4,9 +4,7 @@ from ase.utils.timing import timer
 
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.lfc import BasisFunctions
-from gpaw.matrix import (Matrix, matrix_matrix_multiply as mmm,
-                         suggest_blocking)
-#from gpaw.overlap import Overlap
+from gpaw.matrix import Matrix, matrix_matrix_multiply as mmm
 from gpaw.utilities import unpack
 from gpaw.utilities.timing import nulltimer
 from gpaw.wavefunctions.base import WaveFunctions
@@ -23,8 +21,6 @@ class FDPWWaveFunctions(WaveFunctions):
         self.initksl = initksl
 
         self.set_orthonormalized(False)
-
-        #self.overlap = self.make_overlap()
 
         self._work_matrix_nn = None  # storage for H, S, ...
         self._work_array = None
@@ -62,9 +58,6 @@ class FDPWWaveFunctions(WaveFunctions):
         self.pt.set_positions(spos_ac)
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
         self.positions_set = True
-
-    # def make_overlap(self):
-    #     return Overlap(self.timer)
 
     def initialize(self, density, hamiltonian, spos_ac):
         """Initialize wave-functions, density and hamiltonian.
