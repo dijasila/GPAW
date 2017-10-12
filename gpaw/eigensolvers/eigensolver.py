@@ -166,20 +166,19 @@ class Eigensolver:
                          for rgd in range(wfs.gd.comm.size)
                          for rbd in range(wfs.bd.comm.size)]
                 slcomm = slcomm.new_communicator(ranks)
-                print(ranks,r,c,b)
             # Complex conjugate before diagonalizing:
             eps_n = H.eigh(cc=True, scalapack=(slcomm, r, c, b))
-            # H.array[:, n] now contains the n'th eigenvector and eps_n[n]
+            # H.array[n, :] now contains the n'th eigenvector and eps_n[n]
             # the n'th eigenvalue
             kpt.eps_n = eps_n[wfs.bd.get_slice()]
 
         with self.timer('rotate_psi'):
             if self.keep_htpsit:
                 Htpsit = psit.new(buf=self.Htpsit_nG)
-                mmm(1.0, H, 'T', tmp, 'N', 0.0, Htpsit)
-            mmm(1.0, H, 'T', psit, 'N', 0.0, tmp)
+                mmm(1.0, H, 'N', tmp, 'N', 0.0, Htpsit)
+            mmm(1.0, H, 'N', psit, 'N', 0.0, tmp)
             psit[:] = tmp
-            mmm(1.0, H, 'T', kpt.P, 'N', 0.0, P2)
+            mmm(1.0, H, 'N', kpt.P, 'N', 0.0, P2)
             kpt.P.matrix = P2.matrix
             # Rotate orbital dependent XC stuff:
             ham.xc.rotate(kpt, H.array.T)

@@ -68,10 +68,10 @@ class NoDistribution:
         assert rows == columns == 1
         if cc and H.dtype == complex:
             np.negative(H.array.imag, H.array.imag)
-        eps, H.array[:] = linalg.eigh(H.array,
-                                      lower=True,  # ???
-                                      overwrite_a=True,
-                                      check_finite=debug)
+        eps, H.array.T[:] = linalg.eigh(H.array,
+                                        lower=True,  # ???
+                                        overwrite_a=True,
+                                        check_finite=debug)
         return eps
 
 
