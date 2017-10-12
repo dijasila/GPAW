@@ -363,7 +363,7 @@ static PyObject* moduleinit(void)
 #ifndef PARALLEL
     // gpaw-python needs to import arrays at the right time, so this is
     // done in main().  In serial, we just do it here:
-    import_array1(NULL);
+    import_array1(0);
 #endif
     return m;
 }
@@ -460,7 +460,7 @@ main(int argc, char **argv)
 
     // We already imported the Python parts of numpy.  If we want, we can
     // later attempt to broadcast the numpy C API imports, too.
-    import_array1(NULL);
+    import_array1(0);
 
     int status = run_gpaw();
 
