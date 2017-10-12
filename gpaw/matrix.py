@@ -132,7 +132,9 @@ class BLACSDistribution:
         S.redist(S0)
         if self.comm.rank == 0:
             NoDistribution.invcholesky('self', S0)
+        print(S0.array)
         S0.redist(S)
+        print(S.array)
 
 
 def redist(dist1, M1, dist2, M2, context):
@@ -212,30 +214,59 @@ class Matrix:
             return
         d1 = self.dist
         d2 = other.dist
-        if isinstance(d1, NoDistribution):
-            if isinstance(d2, NoDistribution):
-                other.array[:] = self.array
+        n1 = d1.rows * d1.columns
+        n2 = d2.rows * d2.columns
+        if n1 == n2 == 1:
+            other.array[:] = self.array
+            return
+        c = d1.comm if d1.comm.size > d2.comm.size else d2.comm
+        n = max(n1, n2)
+        if n < c.size:
+            c = c.new_communicator(np.arange(n))
+        if c is not None:
+            M, N = self.shape
+            d1 = create_distribution(M, N, c,
+                                     d1.rows, d1.columns, d1.blocksize)
+            d2 = create_distribution(M, N, c,
+                                     d2.rows, d2.columns, d2.blocksize)
+            if n1 == n:
+                ctx = d1.desc[1]
             else:
-                M, N = self.shape
-                dist = create_distribution(M, N, other.dist.comm, 1, 1)
-                redist(dist, self.array, other.dist, other.array,
-                       other.dist.desc[1])
-        else:
+                ctx = d2.desc[1]
+            redist(d1, self.array, d2, other.array, ctx)
+        return
+                #dist = create_distribution(M, N, other.dist.comm, 1, 1)
+                #redist(dist, self.array, other.dist, other.array,
+                #       other.dist.desc[1])
+        if 0:#else:
             if isinstance(d2, NoDistribution):
                 M, N = self.shape
-                d2 = create_distribution(M, N, d1.comm, 1, 1)
-                redist(d1, self.array, d2, other.array,
-                       d1.desc[1])
+                n = d1.rows * d1.columns
+                c = d1.comm
+                if n < c.size:
+                    c = c.new_communicator(np.arange(n))
+                    if c is not None:
+                        d1 = create_distribution(M, N, c, d1.rows, d1.columns,
+                                                 d1.blocksize)
+                if c is not None:
+                    d2 = create_distribution(M, N, c, 1, 1)
+                    redist(d1, self.array, d2, other.array,
+                           d1.desc[1])
+                #d2 = create_distribution(M, N, d1.comm, 1, 1)
+                #redist(d1, self.array, d2, other.array,
+                #       d1.desc[1])
                 return
             if d2.comm.size > d1.comm.size:
                 M, N = self.shape
-                d1 = create_distribution(M, N, d2.comm, d1.rows, d1.columns, d1.blocksize)
+                d1 = create_distribution(M, N, d2.comm, d1.rows, d1.columns,
+                                         d1.blocksize)
                 redist(d1, self.array, d2, other.array,
                        d2.desc[1])
                 return
             if d2.comm.size < d1.comm.size:
                 M, N = self.shape
-                d2 = create_distribution(M, N, d1.comm, d2.rows, d2.columns, d2.blocksize)
+                d2 = create_distribution(M, N, d1.comm, d2.rows, d2.columns,
+                                         d2.blocksize)
                 redist(d1, self.array, d2, other.array,
                        d1.desc[1])
                 return
@@ -283,7 +314,7 @@ class Matrix:
                                                    overwrite_a=True,
                                                    check_finite=debug)
             self.dist.comm.broadcast(eps, 0)
-        else:
+        elif slcomm.rank < rows * columns:
             if cc and H.dtype == complex:
                 array = H.array.conj()
             else:
@@ -292,6 +323,7 @@ class Matrix:
                                                   H.array, eps)
             assert info == 0, info
 
+        print(slcomm.rank, rows, columns)
         if redist:
             H.redist(self)
 
