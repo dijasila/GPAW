@@ -16,7 +16,7 @@ def matrix(M):
     return matrix(M.matrix)
 
 
-def matrix_matrix_multiply(alpha, a, opa, b, opb, beta, c, symmetric=True):
+def matrix_matrix_multiply(alpha, a, opa, b, opb, beta, c, symmetric=False):
     return matrix(a).multiply(alpha, opa, matrix(b), opb,
                               beta, c if c is None else matrix(c),
                               symmetric)
@@ -60,10 +60,22 @@ class NoDistribution:
         return n
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
-        blas.mmm(alpha, a.array, opa.lower(), b.array, opb.lower(),
-                 beta, c.array)
+        if symmetric:
+            assert opa == 'N'
+            assert opb == 'C' or opb == 'T' and a.dtype == float
+            if a is b:
+                blas.rk(alpha, a.array, beta, c.array)
+            else:
+                if beta == 1.0 and a.shape[1] == 0:
+                    return
+                blas.r2k(0.5 * alpha, a.array, b.array, beta, c.array)
+        else:
+            blas.mmm(alpha, a.array, opa.lower(), b.array, opb.lower(),
+                     beta, c.array)
 
     def invcholesky(self, S):
+        if debug:
+            S.array[np.triu_indices(S.shape[0], 1)] = 42.0
         L_nn = linalg.cholesky(S.array, lower=True, overwrite_a=True,
                                check_finite=debug)
         S.array[:] = linalg.inv(L_nn, overwrite_a=True, check_finite=debug)
@@ -114,18 +126,30 @@ class BLACSDistribution:
         return self.comm.rank * int(self.desc[5]) + myi
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
-        # print(alpha, a, opa, b, opb, beta, c)
-        # print(a.dist.desc, b.dist.desc, c.dist.desc)
-        Ka, M = a.shape
-        N, Kb = b.shape
-        if opa == 'N':
-            Ka, M = M, Ka
-        if opb == 'N':
-            N, Kb = Kb, N
-        _gpaw.pblas_gemm(N, M, Ka, alpha, b.array, a.array,
-                         beta, c.array,
-                         b.dist.desc, a.dist.desc, c.dist.desc,
-                         opb, opa)
+        if symmetric:
+            assert opa == 'N' and opb == 'C'
+            N, K = a.shape
+            if a is b:
+                _gpaw.pblas_rk(N, K, 0.5 * alpha, a.array,
+                               beta, c.array,
+                               a.dist.desc, c.dist.desc,
+                               'U')
+            else:
+                _gpaw.pblas_r2k(N, K, alpha, b.array, a.array,
+                                beta, c.array,
+                                b.dist.desc, a.dist.desc, c.dist.desc,
+                                'U')
+        else:
+            Ka, M = a.shape
+            N, Kb = b.shape
+            if opa == 'N':
+                Ka, M = M, Ka
+            if opb == 'N':
+                N, Kb = Kb, N
+            _gpaw.pblas_gemm(N, M, Ka, alpha, b.array, a.array,
+                             beta, c.array,
+                             b.dist.desc, a.dist.desc, c.dist.desc,
+                             opb, opa)
 
     def invcholesky(self, S):
         S0 = S.new(dist=(self.comm, 1, 1))
@@ -232,45 +256,6 @@ class Matrix:
             else:
                 ctx = d2.desc[1]
             redist(d1, self.array, d2, other.array, ctx)
-        return
-                #dist = create_distribution(M, N, other.dist.comm, 1, 1)
-                #redist(dist, self.array, other.dist, other.array,
-                #       other.dist.desc[1])
-        if 0:#else:
-            if isinstance(d2, NoDistribution):
-                M, N = self.shape
-                n = d1.rows * d1.columns
-                c = d1.comm
-                if n < c.size:
-                    c = c.new_communicator(np.arange(n))
-                    if c is not None:
-                        d1 = create_distribution(M, N, c, d1.rows, d1.columns,
-                                                 d1.blocksize)
-                if c is not None:
-                    d2 = create_distribution(M, N, c, 1, 1)
-                    redist(d1, self.array, d2, other.array,
-                           d1.desc[1])
-                #d2 = create_distribution(M, N, d1.comm, 1, 1)
-                #redist(d1, self.array, d2, other.array,
-                #       d1.desc[1])
-                return
-            if d2.comm.size > d1.comm.size:
-                M, N = self.shape
-                d1 = create_distribution(M, N, d2.comm, d1.rows, d1.columns,
-                                         d1.blocksize)
-                redist(d1, self.array, d2, other.array,
-                       d2.desc[1])
-                return
-            if d2.comm.size < d1.comm.size:
-                M, N = self.shape
-                d2 = create_distribution(M, N, d1.comm, d2.rows, d2.columns,
-                                         d2.blocksize)
-                redist(d1, self.array, d2, other.array,
-                       d1.desc[1])
-                return
-            ctx = min((d[4] * d[5], d[1])
-                      for d in [self.dist.desc, other.dist.desc])[1]
-            redist(self.dist, self.array, other.dist, other.array, ctx)
 
     def invcholesky(self):
         if self.state == 'a sum is needed':
@@ -305,26 +290,18 @@ class Matrix:
 
         if rows * columns == 1:
             if self.comm.rank == 0 and self.dist.comm.rank == 0:
-                #print(0,H.array)
                 if cc and H.dtype == complex:
                     np.negative(H.array.imag, H.array.imag)
                 eps[:], H.array.T[:] = linalg.eigh(H.array,
                                                    lower=True,  # ???
                                                    overwrite_a=True,
                                                    check_finite=debug)
-                #print(0,H.array/H.array[:,:1])
             self.dist.comm.broadcast(eps, 0)
         elif slcomm.rank < rows * columns:
             assert cc
-            #print(slcomm.rank, H.array)
-            #if cc and H.dtype == complex:
-            #    array = H.array.conj()
-            #else:
             array = H.array.copy()
             info = _gpaw.scalapack_diagonalize_dc(array, H.dist.desc, 'U',
                                                   H.array, eps)
-            #np.negative(H.array.imag, H.array.imag)
-            #print(slcomm.rank, H.array/H.array[:,:1])
             assert info == 0, info
 
         if redist:
