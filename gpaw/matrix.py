@@ -305,20 +305,26 @@ class Matrix:
 
         if rows * columns == 1:
             if self.comm.rank == 0 and self.dist.comm.rank == 0:
+                #print(0,H.array)
                 if cc and H.dtype == complex:
                     np.negative(H.array.imag, H.array.imag)
                 eps[:], H.array.T[:] = linalg.eigh(H.array,
                                                    lower=True,  # ???
                                                    overwrite_a=True,
                                                    check_finite=debug)
+                #print(0,H.array/H.array[:,:1])
             self.dist.comm.broadcast(eps, 0)
         elif slcomm.rank < rows * columns:
-            if cc and H.dtype == complex:
-                array = H.array.conj()
-            else:
-                array = H.array.copy()
+            assert cc
+            #print(slcomm.rank, H.array)
+            #if cc and H.dtype == complex:
+            #    array = H.array.conj()
+            #else:
+            array = H.array.copy()
             info = _gpaw.scalapack_diagonalize_dc(array, H.dist.desc, 'U',
                                                   H.array, eps)
+            #np.negative(H.array.imag, H.array.imag)
+            #print(slcomm.rank, H.array/H.array[:,:1])
             assert info == 0, info
 
         if redist:
