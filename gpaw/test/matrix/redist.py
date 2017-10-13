@@ -1,10 +1,8 @@
-import numpy as np
-from gpaw.matrix import Matrix, matrix_matrix_multiply as mmm, create_distribution
+from gpaw.matrix import Matrix
 from gpaw.mpi import world
 
 N = 6
-#create_distribution(N, N, world, 2, 1, None)
-#asdfjkhasdjjjjj
+
 if world.rank < 2:
     comm = world.new_communicator([0, 1])
 else:

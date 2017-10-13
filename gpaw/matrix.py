@@ -132,9 +132,7 @@ class BLACSDistribution:
         S.redist(S0)
         if self.comm.rank == 0:
             NoDistribution.invcholesky('self', S0)
-        print(S0.array)
         S0.redist(S)
-        print(S.array)
 
 
 def redist(dist1, M1, dist2, M2, context):
@@ -323,7 +321,6 @@ class Matrix:
                                                   H.array, eps)
             assert info == 0, info
 
-        print(slcomm.rank, rows, columns)
         if redist:
             H.redist(self)
 
