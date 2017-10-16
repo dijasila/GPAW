@@ -38,10 +38,12 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def __init__(self, stencil, parallel, initksl,
                  gd, nvalence, setups, bd,
-                 dtype, world, kd, kptband_comm, timer):
+                 dtype, world, kd, kptband_comm, timer, reuse_wfs_method=None):
         FDPWWaveFunctions.__init__(self, parallel, initksl,
-                                   gd, nvalence, setups, bd,
-                                   dtype, world, kd, kptband_comm, timer)
+                                   reuse_wfs_method=reuse_wfs_method,
+                                   gd=gd, nvalence=nvalence, setups=setups,
+                                   bd=bd, dtype=dtype, world=world, kd=kd,
+                                   kptband_comm=kptband_comm, timer=timer)
 
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype)
@@ -80,6 +82,11 @@ class FDWaveFunctions(FDPWWaveFunctions):
         ham.xc.apply_orbital_dependent_hamiltonian(
             kpt, psit_xG, Htpsit_xG, ham.dH_asp)
         self.timer.stop('Apply hamiltonian')
+
+    def get_pseudo_partial_waves(self):
+        phit_aj = [setup.get_actual_atomic_orbitals()
+                   for setup in self.setups]
+        return LFC(self.gd, phit_aj, kd=self.kd, cut=True, dtype=self.dtype)
 
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
         # Used in calculation of response part of GLLB-potential
@@ -169,6 +176,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 kpt2 = KPoint(weight, s, k, k, phase_cd)
                 kpt2.f_n = kpt.f_n / kpt.weight / kd.nbzkpts * 2 / self.nspins
                 kpt2.eps_n = kpt.eps_n.copy()
+
                 # Transform wave functions using symmetry operation:
                 Psit_nG = self.gd.collect(kpt.psit_nG)
                 if Psit_nG is not None:

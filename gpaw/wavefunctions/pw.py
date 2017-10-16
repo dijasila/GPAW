@@ -6,7 +6,7 @@ from math import factorial as fac
 from distutils.version import LooseVersion
 
 import numpy as np
-import ase.units as units
+from ase.units import Ha, Bohr
 from ase.utils.timing import timer
 
 import gpaw.fftw as fftw
@@ -31,44 +31,74 @@ class PW(Mode):
     name = 'pw'
 
     def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None,
+                 pulay_stress=None, dedecut=None,
                  force_complex_dtype=False):
         """Plane-wave basis mode.
 
         ecut: float
             Plane-wave cutoff in eV.
+        dedecut: float or None or 'estimate'
+            Estimate of derivative of total energy with respect to
+            plane-wave cutoff.  Used to calculate pulay_stress.
+        pulay_stress: float or None
+            Pulay-stress correction.
         fftwflags: int
             Flags for making FFTW plan (default is ESTIMATE).
         cell: 3x3 ndarray
-            Use this unit cell to chose the planewaves."""
+            Use this unit cell to chose the planewaves.
 
-        self.ecut = ecut / units.Hartree
+        Only one of dedecut and pulay_stress can be used.
+        """
+
+        self.ecut = ecut / Ha
         self.fftwflags = fftwflags
+        self.dedecut = dedecut
+        self.pulay_stress = (None
+                             if pulay_stress is None
+                             else pulay_stress * Bohr**3 / Ha)
+
+        assert pulay_stress is None or dedecut is None
 
         if cell is None:
             self.cell_cv = None
         else:
-            self.cell_cv = cell / units.Bohr
+            self.cell_cv = cell / Bohr
 
         Mode.__init__(self, force_complex_dtype)
 
-    def __call__(self, parallel, initksl, gd, *args, **kwargs):
+    def __call__(self, parallel, initksl, gd, **kwargs):
+        dedepsilon = 0.0
+        volume = abs(np.linalg.det(gd.cell_cv))
+
         if self.cell_cv is None:
             ecut = self.ecut
         else:
-            volume = abs(np.linalg.det(gd.cell_cv))
             volume0 = abs(np.linalg.det(self.cell_cv))
             ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
 
-        wfs = PWWaveFunctions(ecut, self.fftwflags,
-                              parallel, initksl, gd, *args,
+        if self.pulay_stress is not None:
+            dedepsilon = self.pulay_stress * volume
+        elif self.dedecut is not None:
+            if self.dedecut == 'estimate':
+                dedepsilon = 'estimate'
+            else:
+                dedepsilon = self.dedecut * 2 / 3 * ecut
+
+        wfs = PWWaveFunctions(ecut, self.fftwflags, dedepsilon,
+                              parallel, initksl, gd=gd,
                               **kwargs)
+
         return wfs
 
     def todict(self):
         dct = Mode.todict(self)
-        dct['ecut'] = self.ecut * units.Hartree
+        dct['ecut'] = self.ecut * Ha
         if self.cell_cv is not None:
-            dct['cell'] = self.cell_cv * units.Bohr
+            dct['cell'] = self.cell_cv * Bohr
+        if self.pulay_stress is not None:
+            dct['pulay_stress'] = self.pulay_stress * Ha / Bohr**3
+        if self.dedecut is not None:
+            dct['dedecut'] = self.dedecut
         return dct
 
 
@@ -478,18 +508,33 @@ class Preconditioner:
 class PWWaveFunctions(FDPWWaveFunctions):
     mode = 'pw'
 
+<<<<<<< HEAD
     def __init__(self, ecut, fftwflags,
                  parallel, initksl,
+=======
+    def __init__(self, ecut, fftwflags, dedepsilon,
+                 diagksl, orthoksl, initksl,
+                 reuse_wfs_method,
+>>>>>>> master
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
         self.fftwflags = fftwflags
+        self.dedepsilon = dedepsilon  # Pulay correction for stress tensor
 
         self.ng_k = None  # number of G-vectors for all IBZ k-points
 
+<<<<<<< HEAD
         FDPWWaveFunctions.__init__(self, parallel, initksl,
                                    gd, nvalence, setups, bd, dtype,
                                    world, kd, kptband_comm, timer)
+=======
+        FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
+                                   reuse_wfs_method=reuse_wfs_method,
+                                   gd=gd, nvalence=nvalence, setups=setups,
+                                   bd=bd, dtype=dtype, world=world, kd=kd,
+                                   kptband_comm=kptband_comm, timer=timer)
+>>>>>>> master
 
     def empty(self, n=(), global_array=False, realspace=False,
               q=-1):
@@ -522,15 +567,30 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         FDPWWaveFunctions.set_setups(self, setups)
 
+        if self.dedepsilon == 'estimate':
+            dedecut = self.setups.estimate_dedecut(self.ecut)
+            self.dedepsilon = dedecut * 2 / 3 * self.ecut
+
+    def get_pseudo_partial_waves(self):
+        return PWLFC([setup.get_actual_atomic_orbitals()
+                      for setup in self.setups], self.pd)
+
     def __str__(self):
         s = 'Wave functions: Plane wave expansion\n'
-        s += '  Cutoff energy: %.3f eV\n' % (self.pd.ecut * units.Hartree)
+        s += '  Cutoff energy: %.3f eV\n' % (self.pd.ecut * Ha)
+
         if self.dtype == float:
             s += ('  Number of coefficients: %d (reduced to %d)\n' %
                   (self.pd.ngmax * 2 - 1, self.pd.ngmax))
         else:
             s += ('  Number of coefficients (min, max): %d, %d\n' %
                   (self.pd.ngmin, self.pd.ngmax))
+
+        stress = self.dedepsilon / self.gd.volume * Ha / Bohr**3
+        dedecut = 1.5 * self.dedepsilon / self.ecut
+        s += ('  Pulay-stress correction: {:.6f} eV/Ang^3 '
+              '(de/decut={:.6f})\n'.format(stress, dedecut))
+
         if fftw.FFTPlan is fftw.NumpyFFTPlan:
             s += "  Using Numpy's FFT\n"
         else:
@@ -619,7 +679,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             (self.nspins, self.kd.nibzkpts, self.bd.nbands, self.pd.ngmax),
             complex)
 
-        c = units.Bohr**-1.5
+        c = Bohr**-1.5
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 for n in range(self.bd.nbands):
@@ -750,7 +810,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         if nbands is None and ecut is None:
             nbands = self.pd.ngmin // S * S
         elif nbands is None:
-            ecut /= units.Hartree
+            ecut /= Ha
             vol = abs(np.linalg.det(self.gd.cell_cv))
             nbands = int(vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
 
