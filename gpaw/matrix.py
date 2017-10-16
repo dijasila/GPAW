@@ -1,3 +1,4 @@
+"""BLACS distributed matrix object."""
 import numpy as np
 import scipy.linalg as linalg
 
@@ -7,23 +8,38 @@ from gpaw.mpi import serial_comm
 import gpaw.utilities.blas as blas
 
 
-global_blacs_context_store = {}
+_global_blacs_context_store = {}
 
 
-def matrix(M):
-    if isinstance(M, Matrix):
-        return M
-    return matrix(M.matrix)
+def matrix_matrix_multiply(alpha, a, opa, b, opb, beta=0.0, c=None,
+                           symmetric=False):
+    """BLAS-style matrix-matrix multiplication.
 
+    Will use dgemm/zgemm/dsyrk/zherk/dsyr2k/zher2k as apropriate or the
+    equivalent PBLAS functions for distributed matrices.
 
-def matrix_matrix_multiply(alpha, a, opa, b, opb, beta, c, symmetric=False):
-    return matrix(a).multiply(alpha, opa, matrix(b), opb,
-                              beta, c if c is None else matrix(c),
-                              symmetric)
+    The coefficients alpha and beta are of type float.  Matrices a, b and c
+    must have same type (float or complex).  The strings apa and opb must be
+    'N', 'T', or 'C' .  For opa='N' and opb='N', the operation performed is
+    equivalent to::
+
+        c.array[:] =  alpha * np.dot(a.array, b.array) + beta * c.array
+
+    Replace a.array with a.array.T or a.array.T.conj() for opa='T' and 'C'
+    resprctively (similarly for opb).
+
+    Use symmetric=True if the result matrix is symmetric/hermetian
+    (only lower half of c will be evaluated).
+    """
+    return _matrix(a).multiply(alpha, opa, _matrix(b), opb,
+                               beta, c if c is None else _matrix(c),
+                               symmetric)
 
 
 def suggest_blocking(N, ncpus):
-    """Suggest blocking of NxN matrix."""
+    """Suggest blocking of NxN matrix.
+
+    Returns rows, columns, blocksize tuple."""
 
     nprow = ncpus
     npcol = 1
@@ -44,142 +60,23 @@ def suggest_blocking(N, ncpus):
     return nprow, npcol, blocksize
 
 
-class NoDistribution:
-    comm = serial_comm
-    rows = 1
-    columns = 1
-    blocksize = None
-
-    def __init__(self, M, N):
-        self.shape = (M, N)
-
-    def __str__(self):
-        return 'NoDistribution({}x{})'.format(*self.shape)
-
-    def global_index(self, n):
-        return n
-
-    def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
-        if symmetric:
-            assert opa == 'N'
-            assert opb == 'C' or opb == 'T' and a.dtype == float
-            if a is b:
-                blas.rk(alpha, a.array, beta, c.array)
-            else:
-                if beta == 1.0 and a.shape[1] == 0:
-                    return
-                blas.r2k(0.5 * alpha, a.array, b.array, beta, c.array)
-        else:
-            blas.mmm(alpha, a.array, opa.lower(), b.array, opb.lower(),
-                     beta, c.array)
-
-    def invcholesky(self, S):
-        if debug:
-            S.array[np.triu_indices(S.shape[0], 1)] = 42.0
-        L_nn = linalg.cholesky(S.array, lower=True, overwrite_a=True,
-                               check_finite=debug)
-        S.array[:] = linalg.inv(L_nn, overwrite_a=True, check_finite=debug)
-
-
-class BLACSDistribution:
-    serial = False
-
-    def __init__(self, M, N, comm, r, c, b):
-        self.comm = comm
-        self.rows = r
-        self.columns = c
-        self.blocksize = b
-
-        key = (comm, r, c)
-        context = global_blacs_context_store.get(key)
-        if context is None:
-            context = _gpaw.new_blacs_context(comm.get_c_object(), c, r, 'R')
-            global_blacs_context_store[key] = context
-
-        if b is None:
-            if c == 1:
-                br = (M + r - 1) // r
-                bc = max(1, N)
-            elif r == 1:
-                br = M
-                bc = (N + c - 1) // c
-            else:
-                raise ValueError('Please specify block size!')
-        else:
-            br = bc = b
-
-        n, m = _gpaw.get_blacs_local_shape(context, N, M, bc, br, 0, 0)
-        if n < 0 or m < 0:
-            n = m = 0
-        self.shape = (m, n)
-        lld = max(1, n)
-        self.desc = np.array([1, context, N, M, bc, br, 0, 0, lld], np.intc)
-
-    def __str__(self):
-        return ('BLACSDistribution(global={}, local={}, blocksize={})'
-                .format(*('{}x{}'.format(*shape)
-                          for shape in [self.desc[3:1:-1],
-                                        self.shape,
-                                        self.desc[5:3:-1]])))
-
-    def global_index(self, myi):
-        return self.comm.rank * int(self.desc[5]) + myi
-
-    def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
-        if symmetric:
-            assert opa == 'N' and opb == 'C'
-            N, K = a.shape
-            if a is b:
-                _gpaw.pblas_rk(N, K, 0.5 * alpha, a.array,
-                               beta, c.array,
-                               a.dist.desc, c.dist.desc,
-                               'U')
-            else:
-                _gpaw.pblas_r2k(N, K, alpha, b.array, a.array,
-                                beta, c.array,
-                                b.dist.desc, a.dist.desc, c.dist.desc,
-                                'U')
-        else:
-            Ka, M = a.shape
-            N, Kb = b.shape
-            if opa == 'N':
-                Ka, M = M, Ka
-            if opb == 'N':
-                N, Kb = Kb, N
-            _gpaw.pblas_gemm(N, M, Ka, alpha, b.array, a.array,
-                             beta, c.array,
-                             b.dist.desc, a.dist.desc, c.dist.desc,
-                             opb, opa)
-
-    def invcholesky(self, S):
-        S0 = S.new(dist=(self.comm, 1, 1))
-        S.redist(S0)
-        if self.comm.rank == 0:
-            NoDistribution.invcholesky('self', S0)
-        S0.redist(S)
-
-
-def redist(dist1, M1, dist2, M2, context):
-    _gpaw.scalapack_redist(dist1.desc, dist2.desc,
-                           M1, M2,
-                           dist1.desc[2], dist1.desc[3],
-                           1, 1, 1, 1,  # 1-indexing
-                           context, 'G')
-
-
-def create_distribution(M, N, comm=None, r=1, c=1, b=None):
-    if comm is None or comm.size == 1:
-        assert r == 1 and abs(c) == 1 or c == 1 and abs(r) == 1
-        return NoDistribution(M, N)
-
-    return BLACSDistribution(M, N, comm,
-                             r if r != -1 else comm.size,
-                             c if c != -1 else comm.size,
-                             b)
-
-
 class Matrix:
     def __init__(self, M, N, dtype=None, data=None, dist=None):
+        """Matrix object.
+
+        M: int
+            Rows.
+        N: int
+            Columns.
+        dtype: type
+            Data type (float or complex).
+        dist: tuple or None
+            BLACS distribution given as (communicator, rows, colums, blocksize)
+            tuple.  Default is None meaning no distribution.
+        data: ndarray or None.
+            Numpy ndarray to use for starage.  By default, a new ndarray
+            will be allocated.
+            """
         self.shape = (M, N)
 
         if dtype is None:
@@ -210,6 +107,11 @@ class Matrix:
         return 'Matrix({}: {}'.format(self.dtype.name, dist)
 
     def new(self, dist='inherit'):
+        """Create new matrix of same shape and dtype.
+
+        Default is to use same BLACS distribution.  Use dist to use another
+        distribution.
+        """
         return Matrix(*self.shape, dtype=self.dtype,
                       dist=self.dist if dist == 'inherit' else dist)
 
@@ -226,12 +128,26 @@ class Matrix:
 
     def multiply(self, alpha, opa, b, opb, beta=0.0, out=None,
                  symmetric=False):
+        """BLAS-style Matrix-matrix multiplication.
+
+        See matrix_matrix_multipliction() for details.
+        """
         if out is None:
-            out = Matrix()
+            assert beta == 0.0
+            if opa == 'N':
+                M = self.shape[0]
+            else:
+                M = self.shape[1]
+            if opb == 'N':
+                N = b.shape[0]
+            else:
+                N = b.shape[1]
+            out = Matrix(M, N, self.dtype, dist=self.dist)
         self.dist.multiply(alpha, self, opa, b, opb, beta, out, symmetric)
         return out
 
     def redist(self, other):
+        """Redistribute to other BLACS layout."""
         if self is other:
             return
         d1 = self.dist
@@ -258,6 +174,10 @@ class Matrix:
             redist(d1, self.array, d2, other.array, ctx)
 
     def invcholesky(self):
+        """Inverse of Cholesky decomposition.
+
+        Only the lower part is used.
+        """
         if self.state == 'a sum is needed':
             self.comm.sum(self.array, 0)
         if self.comm is None or self.comm.rank == 0:
@@ -267,6 +187,16 @@ class Matrix:
             self.state == 'everything is fine'
 
     def eigh(self, cc=False, scalapack=(None, 1, 1, None)):
+        """Calculate eigenvectors and eigenvalues.
+
+        Matrix must be symmetric/hermitian and stored in lower half.
+
+        cc: bool
+            Complex conjugate matrix before finding eigenvalues.
+        scalapack: tuple
+            BLACS distribution for ScaLapack to use.  Default is to do serial
+            diagonalization.
+        """
         slcomm, rows, columns, blocksize = scalapack
 
         if self.state == 'a sum is needed':
@@ -317,5 +247,150 @@ class Matrix:
         return eps
 
     def complex_conjugate(self):
+        """Inplace complex conjugation."""
         if self.dtype == complex:
             np.negative(self.array.imag, self.array.imag)
+
+
+def _matrix(M):
+    """Dig out Matrix object from wrapper(s)."""
+    if isinstance(M, Matrix):
+        return M
+    return _matrix(M.matrix)
+
+
+class NoDistribution:
+    comm = serial_comm
+    rows = 1
+    columns = 1
+    blocksize = None
+
+    def __init__(self, M, N):
+        self.shape = (M, N)
+
+    def __str__(self):
+        return 'NoDistribution({}x{})'.format(*self.shape)
+
+    def global_index(self, n):
+        return n
+
+    def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
+        if symmetric:
+            assert opa == 'N'
+            assert opb == 'C' or opb == 'T' and a.dtype == float
+            if a is b:
+                blas.rk(alpha, a.array, beta, c.array)
+            else:
+                if beta == 1.0 and a.shape[1] == 0:
+                    return
+                blas.r2k(0.5 * alpha, a.array, b.array, beta, c.array)
+        else:
+            blas.mmm(alpha, a.array, opa.lower(), b.array, opb.lower(),
+                     beta, c.array)
+
+    def invcholesky(self, S):
+        if debug:
+            S.array[np.triu_indices(S.shape[0], 1)] = 42.0
+        L_nn = linalg.cholesky(S.array, lower=True, overwrite_a=True,
+                               check_finite=debug)
+        S.array[:] = linalg.inv(L_nn, overwrite_a=True, check_finite=debug)
+
+
+class BLACSDistribution:
+    serial = False
+
+    def __init__(self, M, N, comm, r, c, b):
+        self.comm = comm
+        self.rows = r
+        self.columns = c
+        self.blocksize = b
+
+        key = (comm, r, c)
+        context = _global_blacs_context_store.get(key)
+        if context is None:
+            context = _gpaw.new_blacs_context(comm.get_c_object(), c, r, 'R')
+            _global_blacs_context_store[key] = context
+
+        if b is None:
+            if c == 1:
+                br = (M + r - 1) // r
+                bc = max(1, N)
+            elif r == 1:
+                br = M
+                bc = (N + c - 1) // c
+            else:
+                raise ValueError('Please specify block size!')
+        else:
+            br = bc = b
+
+        n, m = _gpaw.get_blacs_local_shape(context, N, M, bc, br, 0, 0)
+        if n < 0 or m < 0:
+            n = m = 0
+        self.shape = (m, n)
+        lld = max(1, n)
+        self.desc = np.array([1, context, N, M, bc, br, 0, 0, lld], np.intc)
+
+    def __str__(self):
+        return ('BLACSDistribution(global={}, local={}, blocksize={})'
+                .format(*('{}x{}'.format(*shape)
+                          for shape in [self.desc[3:1:-1],
+                                        self.shape,
+                                        self.desc[5:3:-1]])))
+
+    def global_index(self, myi):
+        return self.comm.rank * int(self.desc[5]) + myi
+
+    def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
+        if symmetric:
+            assert opa == 'N'
+            assert opb == 'C' or opb == 'T' and a.dtype == float
+            N, K = a.shape
+            if a is b:
+                _gpaw.pblas_rk(N, K, 0.5 * alpha, a.array,
+                               beta, c.array,
+                               a.dist.desc, c.dist.desc,
+                               'U')
+            else:
+                _gpaw.pblas_r2k(N, K, alpha, b.array, a.array,
+                                beta, c.array,
+                                b.dist.desc, a.dist.desc, c.dist.desc,
+                                'U')
+        else:
+            Ka, M = a.shape
+            N, Kb = b.shape
+            if opa == 'N':
+                Ka, M = M, Ka
+            if opb == 'N':
+                N, Kb = Kb, N
+            _gpaw.pblas_gemm(N, M, Ka, alpha, b.array, a.array,
+                             beta, c.array,
+                             b.dist.desc, a.dist.desc, c.dist.desc,
+                             opb, opa)
+
+    def invcholesky(self, S):
+        S0 = S.new(dist=(self.comm, 1, 1))
+        S.redist(S0)
+        if self.comm.rank == 0:
+            NoDistribution.invcholesky('self', S0)
+        S0.redist(S)
+
+
+def redist(dist1, M1, dist2, M2, context):
+    _gpaw.scalapack_redist(dist1.desc, dist2.desc,
+                           M1, M2,
+                           dist1.desc[2], dist1.desc[3],
+                           1, 1, 1, 1,  # 1-indexing
+                           context, 'G')
+
+
+def create_distribution(M, N, comm=None, r=1, c=1, b=None):
+    if comm is None or comm.size == 1:
+        assert r == 1 and abs(c) == 1 or c == 1 and abs(r) == 1
+        return NoDistribution(M, N)
+
+    return BLACSDistribution(M, N, comm,
+                             r if r != -1 else comm.size,
+                             c if c != -1 else comm.size,
+                             b)
+
+
