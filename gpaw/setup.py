@@ -12,7 +12,7 @@ from ase.utils import basestring, StringIO
 
 from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
-from gpaw.blocks import OverlapCorrections
+from gpaw.overlap import OverlapCorrections
 from gpaw.gaunt import gaunt, nabla
 from gpaw.utilities import unpack, pack
 from gpaw.utilities.ekin import ekin, dekindecut

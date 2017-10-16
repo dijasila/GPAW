@@ -11,6 +11,20 @@ functions.
 import numpy as np
 
 
+class OverlapCorrections:
+    def __init__(self, setups):
+        self.setups = setups
+
+    def apply(self, P, out=None):
+        if out is None:
+            out = P.new()
+        for a, I1, I2 in P.indices:
+            dS_ii = self.setups[a].dO_ii
+            out.matrix.array[:, I1:I2] = np.dot(P.matrix.array[:, I1:I2],
+                                                dS_ii)
+        return out
+
+
 class Overlap:
     """Overlap operator S
 
@@ -70,4 +84,3 @@ class Overlap:
         for a, P_xi in P_axi.items():
             P_axi[a] = np.dot(P_xi, wfs.setups[a].dC_ii)
         wfs.pt.add(b_xG, P_axi, kpt.q)
-

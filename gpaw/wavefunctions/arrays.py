@@ -62,6 +62,9 @@ class ArrayWaveFunctions:
             other.integrate(self.array, P_ani, self.kpt)
         return out
 
+    def add(self, lfc, coefs):
+        lfc.add(self.array, dict(coefs.items()), self.kpt)
+
     def apply(self, func, out=None):
         out = out or self.new()
         func(self.array, out.array)

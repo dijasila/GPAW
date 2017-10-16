@@ -508,14 +508,9 @@ class Preconditioner:
 class PWWaveFunctions(FDPWWaveFunctions):
     mode = 'pw'
 
-<<<<<<< HEAD
-    def __init__(self, ecut, fftwflags,
-                 parallel, initksl,
-=======
     def __init__(self, ecut, fftwflags, dedepsilon,
-                 diagksl, orthoksl, initksl,
+                 parallel, initksl,
                  reuse_wfs_method,
->>>>>>> master
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
@@ -524,17 +519,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         self.ng_k = None  # number of G-vectors for all IBZ k-points
 
-<<<<<<< HEAD
         FDPWWaveFunctions.__init__(self, parallel, initksl,
-                                   gd, nvalence, setups, bd, dtype,
-                                   world, kd, kptband_comm, timer)
-=======
-        FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
                                    reuse_wfs_method=reuse_wfs_method,
                                    gd=gd, nvalence=nvalence, setups=setups,
                                    bd=bd, dtype=dtype, world=world, kd=kd,
                                    kptband_comm=kptband_comm, timer=timer)
->>>>>>> master
 
     def empty(self, n=(), global_array=False, realspace=False,
               q=-1):

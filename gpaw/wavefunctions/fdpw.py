@@ -111,8 +111,6 @@ class LCAOWfsMover:
         # we can rely on those parallelization settings without danger.
         bfs = self.bfs
 
-        nq = len(wfs.kd.ibzk_qc)
-        nao = wfs.setups.nao
         P_aqMi = self.P_aqMi
         S_qMM = self.S_qMM
 
@@ -123,8 +121,9 @@ class LCAOWfsMover:
         self.tci.calculate(wfs.spos_ac, S_qMM, self.T_qMM, P_aqMi)  # kill T
         wfs.timer.stop('tci calculate')
         self.atomic_correction.initialize(P_aqMi,
-                                          wfs.initksl.Mstart, wfs.initksl.Mstop)
-        #self.atomic_correction.gobble_data(wfs)
+                                          wfs.initksl.Mstart,
+                                          wfs.initksl.Mstop)
+        # self.atomic_correction.gobble_data(wfs)
         wfs.timer.start('lcao overlap correction')
         self.atomic_correction.add_overlap_correction(wfs, S_qMM)
         wfs.timer.stop('lcao overlap correction')
@@ -134,17 +133,16 @@ class LCAOWfsMover:
             S_MM = S_qMM[kpt.q]
             X_nM = np.zeros((wfs.bd.mynbands, wfs.setups.nao), wfs.dtype)
             # XXX use some blocksize to reduce memory usage?
-            opsit_nG = np.zeros_like(kpt.psit_nG)
-            wfs.timer.start('wfs overlap')
-            wfs.overlap.apply(kpt.psit_nG, opsit_nG, wfs, kpt,
-                              calculate_P_ani=False)
-            wfs.timer.stop('wfs overlap')
-            wfs.timer.start('bfs integrate')
-            bfs.integrate2(opsit_nG, c_xM=X_nM, q=kpt.q)
-            wfs.timer.stop('bfs integrate')
-            wfs.timer.start('gd comm sum')
-            wfs.gd.comm.sum(X_nM)
-            wfs.timer.stop('gd comm sum')
+            with wfs.timer('wfs overlap'):
+                opsit = kpt.psit.new()
+                opsit.array[:] = kpt.psit.array
+                opsit.add(wfs.pt, wfs.setups.dS.apply(kpt.P))
+
+            with wfs.timer('bfs integrate'):
+                bfs.integrate2(opsit.array, c_xM=X_nM, q=kpt.q)
+
+            with wfs.timer('gd comm sum'):
+                wfs.gd.comm.sum(X_nM)
 
             # Mind band parallelization / ScaLAPACK
             # Actually we can probably ignore ScaLAPACK for FD/PW calculations
@@ -152,17 +150,16 @@ class LCAOWfsMover:
             # may have requested ScaLAPACK for LCAO initialization.
             c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
 
-            #c_nM *= 0  # This disables the whole mechanism
-            wfs.timer.start('lcao to grid')
-            bfs.lcao_to_grid(C_xM=-c_nM, psit_xG=kpt.psit_nG, q=kpt.q)
-            wfs.timer.stop('lcao to grid')
+            # c_nM *= 0  # This disables the whole mechanism
+            with wfs.timer('lcao to grid'):
+                bfs.lcao_to_grid(C_xM=-c_nM, psit_xG=kpt.psit_nG, q=kpt.q)
+
             c_unM.append(c_nM)
 
-        del opsit_nG
+        del opsit
 
-        wfs.timer.start('bfs set pos')
-        bfs.set_positions(spos_ac)
-        wfs.timer.stop('bfs set pos')
+        with wfs.timer('bfs set pos'):
+            bfs.set_positions(spos_ac)
 
         # Is it possible to recalculate the overlaps and make use of how
         # they have changed here?
