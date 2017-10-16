@@ -321,10 +321,6 @@ class GridDescriptor(Domain):
         else:
             return result
 
-    def gemmmmmmmmmmmmmmmmmmmmm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
-        """Helper function for MatrixOperator class."""
-        gemm(alpha, psit_nG, C_mn, beta, newpsit_mG)
-
     def coarsen(self):
         """Return coarsened `GridDescriptor` object.
 

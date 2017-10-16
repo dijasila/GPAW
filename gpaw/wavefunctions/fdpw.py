@@ -42,7 +42,6 @@ class PseudoPartialWaveWfsMover:
     def cut_wfs(self, wfs, spos_ac):
         ni_a = {}
 
-        #for a, P_ni in wfs.kpt_u[0].P_ani.items():
         for a in range(len(wfs.setups)):
             setup = wfs.setups[a]
             l_j = [phit.get_angular_momentum_number()
@@ -57,7 +56,7 @@ class PseudoPartialWaveWfsMover:
             for kpt in wfs.kpt_u:
                 P_ani = {}
                 for a in kpt.P_ani:
-                    P_ani[a] =  multiplier * kpt.P_ani[a][:, :ni_a[a]]
+                    P_ani[a] = multiplier * kpt.P_ani[a][:, :ni_a[a]]
                 phit.add(kpt.psit_nG, c_axi=P_ani, q=kpt.q)
 
         add_phit_to_wfs(-1.0)
@@ -242,15 +241,14 @@ class FDPWWaveFunctions(WaveFunctions):
         # We want to ignore projectors for fictional unbound states.
         # That means always picking only some of the lowest functions, i.e.
         # a lower number of 'i' indices:
-        #ni_a = {}
+        # ni_a = {}
 
-        #for a, P_ni in self.kpt_u[0].P_ani.items():
-        #    setup = self.setups[a]
-        #    l_j = [phit.get_angular_momentum_number()
-        #           for phit in setup.phit_j]#get_actual_atomic_orbitals()]
-        #    assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
-        #    ni_a[a] = sum(2 * l + 1 for l in l_j)
-
+        # for a, P_ni in self.kpt_u[0].P_ani.items():
+        #     setup = self.setups[a]
+        #     l_j = [phit.get_angular_momentum_number()
+        #            for phit in setup.phit_j]#get_actual_atomic_orbitals()]
+        #     assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
+        #     ni_a[a] = sum(2 * l + 1 for l in l_j)
 
         nq = len(self.kd.ibzk_qc)
         nao = self.setups.nao
@@ -267,54 +265,53 @@ class FDPWWaveFunctions(WaveFunctions):
         tci = NewTCI(self.gd.cell_cv, self.gd.pbc_c, self.setups,
                      self.kd.ibzk_qc, self.kd.gamma)
 
-        #self.tci.set_matrix_distribution(Mstart, mynao)
+        # self.tci.set_matrix_distribution(Mstart, mynao)
         tci.calculate(spos_ac, S_qMM, T_qMM, P_aqMi)
         corr.initialize(P_aqMi, self.initksl.Mstart, self.initksl.Mstop)
-        #corr.add_overlap_correction(self, S_qMM)
+        # corr.add_overlap_correction(self, S_qMM)
         assert len(S_qMM) == 1
         print(S_qMM[0])
 
-        #coefs = []
-        #for kpt in self.kpt_u:
+        # coefs = []
+        # for kpt in self.kpt_u:
         kpt = self.kpt_u[0]
         S_MM = S_qMM[0]
         from gpaw.utilities.tools import tri2full
         tri2full(S_MM)
         X_nM = np.zeros((self.bd.mynbands, self.setups.nao), self.dtype)
         lfc.integrate2(kpt.psit_nG, c_xM=X_nM, q=kpt.q)
-        #coefs.append(X_nM)
+        # coefs.append(X_nM)
 
         if multiplier == -1.0:
             self.X_nM = X_nM
         else:
             X_nM = self.X_nM
 
-        #for u, kpt in enumerate(self.kpt_u):
-            #if multiplier == -1.0:
+        # for u, kpt in enumerate(self.kpt_u):
+        #     if multiplier == -1.0:
 
-            #else:
-        #invS_MM = np.linalg.inv(S_MM)
-        #c_nM = np.dot(invS_MM.T, X_nM.T).T.copy()
+        #     else:
+        # invS_MM = np.linalg.inv(S_MM)
+        # c_nM = np.dot(invS_MM.T, X_nM.T).T.copy()
         c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
         if multiplier == -1.0:
             self.prev_c = c_nM
         else:
             c_nM = self.prev_c
-        #c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
+        # c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
         lfc.lcao_to_grid(C_xM=c_nM * multiplier,
                          psit_xG=kpt.psit_nG, q=kpt.q)
 
-
-        #if 0:  # Using projections
-        #    for kpt in self.kpt_u:
-        #        P_ani = {}
-        #        for a in kpt.P_ani:
-        #            P_ani[a] =  multiplier * kpt.P_ani[a][:, :ni_a[a]]
-        #        lfc.add(kpt.psit_nG, c_axi=P_ani, q=kpt.q)
+        # if 0:  # Using projections
+        #     for kpt in self.kpt_u:
+        #         P_ani = {}
+        #         for a in kpt.P_ani:
+        #             P_ani[a] =  multiplier * kpt.P_ani[a][:, :ni_a[a]]
+        #         lfc.add(kpt.psit_nG, c_axi=P_ani, q=kpt.q)
 
     def set_positions(self, spos_ac, atom_partition=None):
-        move_wfs = (self.kpt_u[0].psit_nG is not None
-                    and self.spos_ac is not None)
+        move_wfs = (self.kpt_u[0].psit_nG is not None and
+                    self.spos_ac is not None)
 
         if move_wfs:
             paste_wfs = self.wfs_mover.cut_wfs(self, spos_ac)
