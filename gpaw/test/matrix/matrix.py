@@ -19,3 +19,7 @@ A0.redist(B)
 mmm(2.0, A, 'N', B, 'C', 0.0, C)
 C.redist(C0)
 print(C0.array)
+C.array[:] = 777
+mmm(2.0, A, 'N', B, 'C', 0.0, C, symmetric=True)
+C.redist(C0)
+print(C0.array)

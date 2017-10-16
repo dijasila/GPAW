@@ -351,7 +351,7 @@ class BLACSDistribution:
                                a.dist.desc, c.dist.desc,
                                'U')
             else:
-                _gpaw.pblas_r2k(N, K, alpha, b.array, a.array,
+                _gpaw.pblas_r2k(N, K, 0.5 * alpha, b.array, a.array,
                                 beta, c.array,
                                 b.dist.desc, a.dist.desc, c.dist.desc,
                                 'U')
