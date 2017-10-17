@@ -502,7 +502,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     def __init__(self, ecut, fftwflags, dedepsilon,
                  parallel, initksl,
-                 reuse_wfs_method,
+                 reuse_wfs_method, collinear,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
@@ -513,6 +513,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         FDPWWaveFunctions.__init__(self, parallel, initksl,
                                    reuse_wfs_method=reuse_wfs_method,
+                                   collinear=collinear,
                                    gd=gd, nvalence=nvalence, setups=setups,
                                    bd=bd, dtype=dtype, world=world, kd=kd,
                                    kptband_comm=kptband_comm, timer=timer)
@@ -721,7 +722,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt.psit = PlaneWaveExpansionWaveFunctions(
                 self.bd.nbands, self.pd, self.dtype, psit_nG,
                 kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
-                spin=kpt.s, collinear=True)
+                spin=kpt.s, collinear=self.collinear)
 
         if self.world.size > 1:
             # Read to memory:
@@ -886,7 +887,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 self.bd.nbands, self.pd, self.dtype,
                 psit_nG[:bd.mynbands].copy(),
                 kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
-                spin=kpt.s, collinear=True)
+                spin=kpt.s, collinear=self.collinear)
             del psit_nG
 
             with self.timer('Projections'):
@@ -920,7 +921,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt.psit = PlaneWaveExpansionWaveFunctions(
                 self.bd.nbands, self.pd, self.dtype, kpt=kpt.q,
                 dist=(self.bd.comm, -1, 1),
-                spin=kpt.s, collinear=True)
+                spin=kpt.s, collinear=self.collinear)
             for n in range(mynbands):
                 kpt.psit_nG[n] = self.pd.fft(psit_nR[n] * emikr_R, kpt.q)
 
@@ -1318,7 +1319,7 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
 
 class ReciprocalSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, charge, redistributor,
+    def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
                  background_charge=None):
         assert gd.comm.size == 1
         serial_finegd = finegd.new_descriptor(comm=gd.comm)
@@ -1326,7 +1327,7 @@ class ReciprocalSpaceDensity(Density):
         from gpaw.utilities.grid import GridRedistributor
         noredist = GridRedistributor(redistributor.comm,
                                      redistributor.broadcast_comm, gd, gd)
-        Density.__init__(self, gd, serial_finegd, nspins, charge,
+        Density.__init__(self, gd, serial_finegd, nspins, collinear, charge,
                          redistributor=noredist,
                          background_charge=background_charge)
 
