@@ -180,9 +180,27 @@ class Matrix:
         """
         if self.state == 'a sum is needed':
             self.comm.sum(self.array, 0)
-        if self.comm is None or self.comm.rank == 0:
-            self.dist.invcholesky(self)
-        if self.comm is not None and self.comm.size > 1:
+
+        if self.comm.rank == 0:
+            if self.dist.comm.size > 1:
+                S = self.new(dist=(self.comm, 1, 1))
+                self.redist(S)
+            else:
+                S = self
+            if self.dist.comm.rank == 0:
+                if debug:
+                    S.array[np.triu_indices(S.shape[0], 1)] = 42.0
+                L_nn = linalg.cholesky(S.array,
+                                       lower=True,
+                                       overwrite_a=True,
+                                       check_finite=debug)
+                S.array[:] = linalg.inv(L_nn,
+                                        overwrite_a=True,
+                                        check_finite=debug)
+            if S is not self:
+                S.redist(self)
+
+        if self.comm.size > 1:
             self.comm.broadcast(self.array, 0)
             self.state == 'everything is fine'
 
@@ -238,7 +256,7 @@ class Matrix:
             H.redist(self)
 
         assert (self.state == 'a sum is needed') == (
-            self.comm is not None and self.comm.size > 1)
+            self.comm.size > 1)
         if self.comm.size > 1:
             self.comm.broadcast(self.array, 0)
             self.comm.broadcast(eps, 0)
@@ -287,13 +305,6 @@ class NoDistribution:
         else:
             blas.mmm(alpha, a.array, opa.lower(), b.array, opb.lower(),
                      beta, c.array)
-
-    def invcholesky(self, S):
-        if debug:
-            S.array[np.triu_indices(S.shape[0], 1)] = 42.0
-        L_nn = linalg.cholesky(S.array, lower=True, overwrite_a=True,
-                               check_finite=debug)
-        S.array[:] = linalg.inv(L_nn, overwrite_a=True, check_finite=debug)
 
 
 class BLACSDistribution:
@@ -366,13 +377,6 @@ class BLACSDistribution:
                              beta, c.array,
                              b.dist.desc, a.dist.desc, c.dist.desc,
                              opb, opa)
-
-    def invcholesky(self, S):
-        S0 = S.new(dist=(self.comm, 1, 1))
-        S.redist(S0)
-        if self.comm.rank == 0:
-            NoDistribution.invcholesky('self', S0)
-        S0.redist(S)
 
 
 def redist(dist1, M1, dist2, M2, context):
