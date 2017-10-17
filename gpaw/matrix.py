@@ -346,7 +346,7 @@ class BLACSDistribution:
             assert opb == 'C' or opb == 'T' and a.dtype == float
             N, K = a.shape
             if a is b:
-                _gpaw.pblas_rk(N, K, 0.5 * alpha, a.array,
+                _gpaw.pblas_rk(N, K, alpha, a.array,
                                beta, c.array,
                                a.dist.desc, c.dist.desc,
                                'U')
