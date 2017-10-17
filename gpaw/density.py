@@ -57,13 +57,14 @@ class Density(object):
      ========== =========================================
     """
 
-    def __init__(self, gd, finegd, nspins, charge, redistributor,
+    def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
                  background_charge=None):
         """Create the Density object."""
 
         self.gd = gd
         self.finegd = finegd
         self.nspins = nspins
+        self.collinear = collinear
         self.charge = float(charge)
         self.redistributor = redistributor
         self.atomdist = None
@@ -77,10 +78,13 @@ class Density(object):
         self.charge_eps = 1e-7
 
         self.D_asp = None
+        self.M_avp = None
         self.Q_aL = None
 
         self.nct_G = None
         self.nt_sG = None
+        self.mt_vG = None
+        self.nmt_xG = None
         self.rhot_g = None
         self.nt_sg = None
         self.nt_g = None
@@ -160,7 +164,7 @@ class Density(object):
         nt_sG will be equal to nct_G plus the contribution from
         wfs.add_to_density().
         """
-        wfs.calculate_density_contribution(self.nt_sG)
+        wfs.calculate_density_contribution(self.nt_sG, self.mt_vG)
         self.nt_sG += self.nct_G
 
     @property
@@ -256,9 +260,11 @@ class Density(object):
         # distribute charge on all atoms
         # XXX interaction with background charge may be finicky
         c = (self.charge - self.background_charge.charge) / len(self.setups)
-        M = self.magmom_a[a]
+        M_v = self.magmom_av[a]
+        M = np.linalg.norm(M_v)
         f_si = self.setups[a].calculate_initial_occupation_numbers(
             abs(M), self.hund, charge=c, nspins=self.nspins)
+
 
         if M < 0:
             f_si = f_si[::-1].copy()
