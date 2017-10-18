@@ -1339,6 +1339,10 @@ class ReciprocalSpaceDensity(Density):
         self.xc_redistributor = GridRedistributor(redistributor.comm,
                                                   redistributor.comm,
                                                   serial_finegd, finegd)
+        self.nct_q = None
+        self.nt_sQ = None
+        self.nt_Q = None
+        self.rhot_q = None
 
     def initialize(self, setups, timer, magmom_av, hund):
         Density.initialize(self, setups, timer, magmom_av, hund)
@@ -1441,14 +1445,14 @@ class ReciprocalSpacePoissonSolver:
 
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
-    def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
-                 world, vext=None,
+    def __init__(self, gd, finegd, pd2, pd3, nspins, collinear,
+                 setups, timer, xc, world, vext=None,
                  psolver=None, redistributor=None, realpbc_c=None):
 
         assert gd.comm.size == 1
         assert finegd.comm.size == 1
         assert redistributor is not None  # XXX should not be like this
-        Hamiltonian.__init__(self, gd, finegd, nspins, setups,
+        Hamiltonian.__init__(self, gd, finegd, nspins, collinear, setups,
                              timer, xc, world, vext=vext,
                              redistributor=redistributor)
 
@@ -1468,6 +1472,12 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
                 ReciprocalSpacePoissonSolver(pd3, realpbc_c), direction)
         self.poisson = psolver
         self.npoisson = 0
+
+        self.vbar_Q = None
+        self.vt_Q = None
+        self.ebar = None
+        self.epot = None
+        self.exc = None
 
     def set_positions(self, spos_ac, atom_partition):
         Hamiltonian.set_positions(self, spos_ac, atom_partition)

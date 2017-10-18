@@ -14,6 +14,7 @@ from gpaw.poisson import create_poisson_solver
 from gpaw.transformers import Transformer
 from gpaw.utilities import (pack2, unpack, unpack2,
                             unpack_atomic_matrices, pack_atomic_matrices)
+from gpaw.utilities.debug import frozen
 from gpaw.utilities.partition import AtomPartition
 
 
@@ -35,18 +36,22 @@ class HamiltonianCorrections:
         return out
 
 
-class Hamiltonian(object):
+@frozen
+class Hamiltonian:
 
-    def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
+    def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
                  redistributor, vext=None):
         self.gd = gd
         self.finegd = finegd
         self.nspins = nspins
+        self.collinear = collinear
         self.setups = setups
         self.timer = timer
         self.xc = xc
         self.world = world
         self.redistributor = redistributor
+
+        self.ncomponents = self.nspins if self.collinear else 1 + 3
 
         self.atomdist = None
         self.dH_asp = None
@@ -75,26 +80,20 @@ class Hamiltonian(object):
         self.vext = vext  # external potential
 
         self.positions_set = False
+        self.spos_ac = None
 
         self.dH = HamiltonianCorrections(self)
 
-    @property
-    def dH_asp(self):
-        assert isinstance(self._dH_asp, ArrayDict) or self._dH_asp is None
-        # self._dH_asp.check_consistency()
-        return self._dH_asp
-
-    @dH_asp.setter
-    def dH_asp(self, value):
+    def update_atomic_hamiltonians(self, value):
         if isinstance(value, dict):
-            tmp = self.setups.empty_atomic_matrix(self.nspins,
+            tmp = self.setups.empty_atomic_matrix(self.ncomponents,
                                                   self.atom_partition)
             tmp.update(value)
             value = tmp
         assert isinstance(value, ArrayDict) or value is None, type(value)
         if value is not None:
             value.check_consistency()
-        self._dH_asp = value
+        self.dH_asp = value
 
     def __str__(self):
         s = 'Hamiltonian:\n'
@@ -160,7 +159,7 @@ class Hamiltonian(object):
         #
         if (self.atom_partition is not None and
             self.dH_asp is None and (rank_a == self.gd.comm.rank).any()):
-            self.dH_asp = {}
+            self.update_atomic_hamiltonians({})
 
         if self.atom_partition is not None and self.dH_asp is not None:
             self.timer.start('Redistribute')
@@ -276,7 +275,7 @@ class Hamiltonian(object):
 
     def update_corrections(self, dens, W_aL):
         self.timer.start('Atomic')
-        self.dH_asp = None  # XXXX
+        self.update_atomic_hamiltonians(None)  # XXXX
 
         e_kinetic = 0.0
         e_coulomb = 0.0
@@ -285,7 +284,8 @@ class Hamiltonian(object):
         e_xc = 0.0
 
         D_asp = self.atomdist.to_work(dens.D_asp)
-        dH_asp = self.setups.empty_atomic_matrix(self.nspins, D_asp.partition)
+        dH_asp = self.setups.empty_atomic_matrix(self.ncomponentss,
+                                                 D_asp.partition)
 
         for a, D_sp in D_asp.items():
             W_L = W_aL[a]
@@ -350,7 +350,7 @@ class Hamiltonian(object):
         for a, D_sp in D_asp.items():
             e_kinetic -= (D_sp * dH_asp[a]).sum()  # NCXXX
 
-        self.dH_asp = self.atomdist.from_work(dH_asp)
+        self.update_atomic_hamiltonians(self.atomdist.from_work(dH_asp))
         self.timer.stop('Atomic')
 
         # Make corrections due to non-local xc:
@@ -538,11 +538,12 @@ class Hamiltonian(object):
                                             name='hamiltonian-init-serial')
 
         # Read non-local part of hamiltonian
-        self.dH_asp = {}
+        self.update_atomic_hamiltonians({})
         dH_sP = h.atomic_hamiltonian_matrices / reader.ha
 
         if self.gd.comm.rank == 0:
-            self.dH_asp = unpack_atomic_matrices(dH_sP, self.setups)
+            self.update_atomic_hamiltonians(
+                unpack_atomic_matrices(dH_sP, self.setups))
 
         if hasattr(self.poisson, 'read'):
             self.poisson.read(reader)
