@@ -86,7 +86,7 @@ class WaveFunctions:
     def add_orbital_density(self, nt_G, kpt, n):
         self.add_realspace_orbital_to_density(nt_G, kpt.psit_nG[n])
 
-    def calculate_density_contribution(self, nt_sG):
+    def calculate_density_contribution(self, nt_sG, mt_vG=None):
         """Calculate contribution to pseudo density from wave functions.
 
         Array entries are written to (not added to)."""

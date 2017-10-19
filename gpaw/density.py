@@ -176,7 +176,7 @@ class Density:
         nt_sG will be equal to nct_G plus the contribution from
         wfs.add_to_density().
         """
-        wfs.calculate_density_contribution(self.nmt_sG)
+        wfs.calculate_density_contribution(self.nt_sG, self.mt_vG)
         self.nt_sG += self.nct_G
 
     #@property
@@ -331,7 +331,9 @@ class Density:
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""
         self.log('Density initialized from wave functions')
         self.timer.start('Density initialized from wave functions')
-        self.nt_sG = self.gd.empty(self.nspins)
+        self.nmt_xG = self.gd.zeros(self.ncomponents)
+        self.nt_sG = self.nmt_xG[:self.nspins]
+        self.mt_vG = self.nmt_xG[self.nspins:]
         self.calculate_pseudo_density(wfs)
         self.update_atomic_density_matricies(
             self.setups.empty_atomic_matrix(self.ncomponents,
@@ -342,7 +344,11 @@ class Density:
 
     def initialize_directly_from_arrays(self, nt_sG, D_asp):
         """Set D_asp and nt_sG directly."""
-        self.nt_sG = nt_sG
+        self.nmt_xG = self.gd.zeros(self.ncomponents)
+        self.nt_sG = self.nmt_xG[:self.nspins]
+        self.mt_vG = self.nmt_xG[self.nspins:]
+        self.nt_sG[:] = nt_sG
+
         self.update_atomic_density_matricies(D_asp)
         D_asp.check_consistency()
         # No calculate multipole moments?  Tests will fail because of
@@ -364,7 +370,7 @@ class Density:
         self.mixer = MixerWrapper(mixer, self.nspins, self.gd)
 
     def estimate_magnetic_moments(self):
-        magmom_a = np.zeros_like(self.magmom_a)
+        magmom_a = np.zeros_like(self.magmom_av[:, 0])
         if self.nspins == 2:
             for a, D_sp in self.D_asp.items():
                 magmom_a[a] = np.dot(D_sp[0] - D_sp[1], self.setups[a].N0_p)

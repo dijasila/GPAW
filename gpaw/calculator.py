@@ -483,7 +483,7 @@ class GPAW(PAW, Calculator):
         assert len(pbc_c) == 3
         magmom_a = atoms.get_initial_magnetic_moments()
 
-        if par['experimental']['magmoms'] is not None:
+        if par['experimental'].get('magmoms') is not None:
             magmom_av = np.array(par['experimental']['magmoms'])
             collinear = False
         else:
@@ -610,7 +610,7 @@ class GPAW(PAW, Calculator):
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
 
-        self.create_occupations(42.0, orbital_free)
+        self.create_occupations(magmom_av[:, 2].sum(), orbital_free)
 
         if self.scf is None:
             self.create_scf(nvalence, mode)
@@ -768,7 +768,7 @@ class GPAW(PAW, Calculator):
         if self.wfs is not None:
             self.occupations.calculate(self.wfs)
 
-        #self.occupations.magmom = magmom
+        self.occupations.magmom = magmom
 
         self.log(self.occupations)
 
@@ -1013,7 +1013,7 @@ class GPAW(PAW, Calculator):
                             collinear=collinear,
                             **wfs_kwargs)
         else:
-            self.wfs = mode(self, **wfs_kwargs)
+            self.wfs = mode(self, collinear=collinear, **wfs_kwargs)
 
         self.log(self.wfs, '\n')
 

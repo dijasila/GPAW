@@ -18,7 +18,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         # solvation related arguments:
         cavity, dielectric, interactions,
         # RealSpaceHamiltonian arguments:
-        gd, finegd, nspins, setups, timer, xc, world,
+        gd, finegd, nspins, collinear, setups, timer, xc, world,
         redistributor, vext=None, psolver=None,
         stencil=3):
         """Constructor of SolvationRealSpaceHamiltonian class.
@@ -41,7 +41,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         self.gradient = None
         RealSpaceHamiltonian.__init__(
             self,
-            gd, finegd, nspins, setups, timer, xc, world,
+            gd, finegd, nspins, collinear, setups, timer, xc, world,
             vext=vext, psolver=psolver,
             stencil=stencil, redistributor=redistributor)
 
