@@ -7,7 +7,7 @@ from gpaw.xc.libxc import LibXC
 from gpaw.xc.lda import LDA
 from gpaw.xc.gga import GGA
 from gpaw.xc.mgga import MGGA
-from gpaw.xc.noncollinear import NonCollinearXC
+from gpaw.xc.noncollinear import NonCollinearLDAKernel
 
 
 def xc_string_to_dict(string):
@@ -118,9 +118,9 @@ def XC(kernel, parameters=None, collinear=True):
             kernel = LibXC(name)
 
     if kernel.type == 'LDA':
-        xc = LDA(kernel, **kwargs)
         if not collinear:
-            xc = NonCollinearXC(xc)
+            kernel = NonCollinearLDAKernel(kernel)
+        xc = LDA(kernel, **kwargs)
         return xc
 
     elif kernel.type == 'GGA':
