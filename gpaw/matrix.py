@@ -183,7 +183,7 @@ class Matrix:
 
         if self.comm.rank == 0:
             if self.dist.comm.size > 1:
-                S = self.new(dist=(self.comm, 1, 1))
+                S = self.new(dist=(self.dist.comm, 1, 1))
                 self.redist(S)
             else:
                 S = self
