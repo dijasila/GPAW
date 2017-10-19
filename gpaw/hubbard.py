@@ -1,8 +1,8 @@
 import numpy as np
 
 
-def hubbard(setup, D_sii):
-    nspins = len(D_sii)
+def hubbard(setup, D_sp):
+    nspins = len(D_sp)
 
     l_j = setup.l_j
     l = setup.Hubl
@@ -10,10 +10,8 @@ def hubbard(setup, D_sii):
     nl = np.where(np.equal(l_j, l))[0]
     nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
 
-    e_xc = 0.0
-    dH_sii = []
-    for D_ii in D_sii:
-        [N_mm, V] = aoom(setup, D_ii, l, scale)
+    for D_p, H_p in zip(D_sp, dH_asp[a]):
+        [N_mm, V] = self.aoom(unpack2(D_p), a, l, scale)
         N_mm = N_mm / 2 * nspins
 
         Eorb = setup.HubU / 2. * (N_mm -
@@ -34,11 +32,12 @@ def hubbard(setup, D_sii):
         else:
             V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] *= Vorb
 
-        dH_sii.append(V)
-    return dH_sii
+        Htemp = unpack(H_p)
+        Htemp += V
+        H_p[:] = pack2(Htemp)
 
 
-def aoom(setup, DM, l, scale=1):
+def aoom(setup, DM, a, l, scale=1):
     """Atomic Orbital Occupation Matrix.
 
     Determine the Atomic Orbital Occupation Matrix (aoom) for a

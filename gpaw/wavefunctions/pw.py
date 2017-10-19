@@ -928,6 +928,12 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def random_wave_functions(self, mynao):
         rs = np.random.RandomState(self.world.rank)
         for kpt in self.kpt_u:
+            if kpt.psit is None:
+                kpt.psit = PlaneWaveExpansionWaveFunctions(
+                    self.bd.nbands, self.pd, self.dtype, kpt=kpt.q,
+                    dist=(self.bd.comm, -1, 1),
+                    spin=kpt.s, collinear=self.collinear)
+
             psit_nG = kpt.psit_nG[mynao:]
             weight_G = 1.0 / (1.0 + self.pd.G2_qG[kpt.q])
             psit_nG.real = rs.uniform(-1, 1, psit_nG.shape) * weight_G

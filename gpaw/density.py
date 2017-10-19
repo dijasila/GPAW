@@ -604,12 +604,15 @@ class Density:
 
 
 class RealSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, charge, redistributor,
+    def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
                  stencil=3,
                  background_charge=None):
-        Density.__init__(self, gd, finegd, nspins, charge, redistributor,
+        Density.__init__(self, gd, finegd, nspins, collinear,
+                         charge, redistributor,
                          background_charge=background_charge)
         self.stencil = stencil
+
+        self.interpolator = None
 
     def initialize(self, setups, timer, magmom_a, hund):
         Density.initialize(self, setups, timer, magmom_a, hund)

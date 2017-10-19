@@ -360,8 +360,12 @@ class FDPWWaveFunctions(WaveFunctions):
         hamiltonian.update(density)
 
         if self.mykpts[0].psit is None:
-            nlcao = self.initialize_wave_functions_from_basis_functions(
-                basis_functions, density, hamiltonian, spos_ac)
+            if self.collinear:
+                nlcao = self.initialize_wave_functions_from_basis_functions(
+                    basis_functions, density, hamiltonian, spos_ac)
+            else:
+                self.random_wave_functions(0)
+                nlcao = 0
             nrand = self.bd.nbands - nlcao
         else:
             # We got everything from file:
