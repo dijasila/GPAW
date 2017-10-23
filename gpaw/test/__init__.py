@@ -325,6 +325,7 @@ tests = [
     'xc/revPBE_Li.py',                      # ~26s
     'ofdft/ofdft_scale.py',                 # ~26s
     'parallel/lcao_parallel_kpt.py',        # ~29s
+    'lrtddft/placzek_profeta_albrecht.py',  # ~29s
     'corehole/h2o_dks.py',                  # ~30s
     'mgga/nsc_MGGA.py',                     # ~32s
     'solvation/spinpol.py',                 # ~32s
