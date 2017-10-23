@@ -278,7 +278,7 @@ class Density:
             nspins=self.nspins if self.collinear else 2)
 
         if self.collinear:
-            if M < 0:
+            if M_v[2] < 0:
                 f_si = f_si[::-1].copy()
         else:
             f_i = f_si.sum(0)
