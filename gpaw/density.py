@@ -37,7 +37,7 @@ class NullBackgroundCharge:
         pass
 
 
-@frozen
+#@frozen
 class Density:
     """Density object.
 
@@ -147,8 +147,9 @@ class Density:
         # it previously didn't exist but it will needed for the new atoms.
         if (self.atom_partition is not None and
             self.D_asp is None and (rank_a == self.gd.comm.rank).any()):
-            self.update_atomic_density_matricies(
-                self.setups.empty_atomic_matrix(N, self.atom_partition))
+            self.update_atomic_density_matrices(
+                self.setups.empty_atomic_matrix(self.ncomponents,
+                                                self.atom_partition))
 
         if (self.atom_partition is not None and self.D_asp is not None and
             not isinstance(self.gd.comm, SerialCommunicator)):
@@ -179,14 +180,14 @@ class Density:
         wfs.calculate_density_contribution(self.nt_sG, self.mt_vG)
         self.nt_sG += self.nct_G
 
-    #@property
-    #def D_asp(self):
+    # @property
+    # def D_asp(self):
     #    if self._D_asp is not None:
     #        assert isinstance(self._D_asp, ArrayDict), type(self._D_asp)
     #        self._D_asp.check_consistency()
     #    return self._D_asp
 
-    def update_atomic_density_matricies(self, value):
+    def update_atomic_density_matrices(self, value):
         if isinstance(value, dict):
             tmp = self.setups.empty_atomic_matrix(self.ncomponents,
                                                   self.atom_partition)
@@ -304,7 +305,7 @@ class Density:
 
         self.log('Density initialized from atomic densities')
 
-        self.update_atomic_density_matricies(
+        self.update_atomic_density_matrices(
             self.setups.empty_atomic_matrix(self.ncomponents,
                                             self.atom_partition))
 
@@ -335,7 +336,7 @@ class Density:
         self.nt_sG = self.nmt_xG[:self.nspins]
         self.mt_vG = self.nmt_xG[self.nspins:]
         self.calculate_pseudo_density(wfs)
-        self.update_atomic_density_matricies(
+        self.update_atomic_density_matrices(
             self.setups.empty_atomic_matrix(self.ncomponents,
                                             wfs.atom_partition))
         wfs.calculate_atomic_density_matrices(self.D_asp)
@@ -349,7 +350,7 @@ class Density:
         self.mt_vG = self.nmt_xG[self.nspins:]
         self.nt_sG[:] = nt_sG
 
-        self.update_atomic_density_matricies(D_asp)
+        self.update_atomic_density_matrices(D_asp)
         D_asp.check_consistency()
         # No calculate multipole moments?  Tests will fail because of
         # improperly initialized mixer

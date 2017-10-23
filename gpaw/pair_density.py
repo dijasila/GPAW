@@ -8,7 +8,7 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC, BasisFunctions
 
 # XXX Document what is the difference between PairDensity2 and 1.
 class PairDensity2:
-    def  __init__(self, density, atoms, finegrid):
+    def __init__(self, density, atoms, finegrid):
         """Initialization needs a paw instance, and whether the compensated
         pair density should be on the fine grid (boolean)"""
 
@@ -45,7 +45,7 @@ class PairDensity2:
         else:
             # copy values
             rhot_g[:] = nt_G
-        
+
         # Determine the compensation charges for each nucleus
         Q_aL = {}
         for a, P_ni in self.P_ani.items():
@@ -57,7 +57,7 @@ class PairDensity2:
             # allowed to pack as used in the scalar product with
             # the symmetric array Delta_pL
             D_p = pack(D_ii, tolerance=1e30)
-            
+
             # Determine compensation charge coefficients:
             Q_aL[a] = np.dot(D_p, self.density.setups[a].Delta_pL)
 
@@ -71,7 +71,7 @@ class PairDensity2:
 class PairDensity:
     def __init__(self, paw):
         self.set_paw(paw)
-        
+
     def set_paw(self, paw):
         """basic initialisation knowing"""
         self.wfs = paw.wfs
@@ -87,12 +87,12 @@ class PairDensity:
         if self.lcao:
             assert paw.wfs.dtype == float
             self.wfs = paw.wfs
-        
+
     def initialize(self, kpt, i, j):
         """initialize yourself with the wavefunctions"""
         self.i = i
         self.j = j
-        
+
         if kpt is not None:
             self.spin = kpt.s
             self.k = kpt.k
@@ -154,7 +154,7 @@ class PairDensity:
             # allowed to pack as used in the scalar product with
             # the symmetric array Delta_pL
             D_p = pack(D_ii)
-            
+
             # Determine compensation charge coefficients:
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
 
@@ -169,13 +169,13 @@ class PairDensity:
                                         integral=sqrt(4 * pi))
                 self.density.Ghat.set_positions(self.spos_ac)
             self.density.Ghat.add(rhot_g, Q_aL)
-                
+
         return rhot_g
 
     def with_ae_corrections(self, finegrid=False):
         """Get pair density including the AE corrections"""
         nij_g = self.get(finegrid)
-        
+
         # Generate the density matrix
         D_ap = {}
 #        D_aii = {}
@@ -187,11 +187,11 @@ class PairDensity:
             # so that we can pack
             D_ap[a] = pack(D_ii)
 #            D_aii[a] = D_ii
-        
+
         # Load partial waves if needed
         if ((finegrid and (not hasattr(self, 'phi'))) or
             ((not finegrid) and (not hasattr(self, 'Phi')))):
-            
+
             # Splines
             splines = {}
             phi_aj = []
@@ -205,7 +205,7 @@ class PairDensity:
                     splines[id] = (phi_j, phit_j)
                 phi_aj.append(phi_j)
                 phit_aj.append(phit_j)
-            
+
             # Store partial waves as class variables
             if finegrid:
                 gd = self.density.finegd
@@ -219,7 +219,7 @@ class PairDensity:
                 self.__class__.Phit = BasisFunctions(gd, phit_aj)
                 self.__class__.Phi.set_positions(self.spos_ac)
                 self.__class__.Phit.set_positions(self.spos_ac)
-        
+
         # Add AE corrections
         if finegrid:
             phi = self.phi
@@ -229,7 +229,7 @@ class PairDensity:
             phi = self.Phi
             phit = self.Phit
             gd = self.density.gd
-        
+
         rho_MM = np.zeros((phi.Mmax, phi.Mmax))
         M1 = 0
         for a, setup in enumerate(self.setups):
@@ -248,7 +248,7 @@ class PairDensity:
             M2 = M1 + ni
             rho_MM[M1:M2, M1:M2] = D_ii
             M1 = M2
-        
+
         # construct_density assumes symmetric rho_MM and
         # takes only the upper half of it
         phi.construct_density(rho_MM, nij_g, q=-1)
@@ -257,7 +257,8 @@ class PairDensity:
 #        phi.lfc.ae_valence_density_correction(
 #            rho_MM, nij_g, np.zeros(len(phi.M_W), np.intc), np.zeros(self.na))
 #        phit.lfc.ae_valence_density_correction(
-#            -rho_MM, nij_g, np.zeros(len(phit.M_W), np.intc), np.zeros(self.na))
-            
+#            -rho_MM, nij_g, np.zeros(len(phit.M_W), np.intc),
+#            np.zeros(self.na))
+
         return nij_g
 

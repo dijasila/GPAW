@@ -531,7 +531,7 @@ class GPAW(PAW, Calculator):
             if natoms != 1:
                 raise ValueError('hund=True arg only valid for single atoms!')
             spinpol = True
-            magmom_av[0, 0] = self.setups[0].get_hunds_rule_moment(par.charge)
+            magmom_av[0, 2] = self.setups[0].get_hunds_rule_moment(par.charge)
 
         if collinear:
             magnetic = magmom_av.any()

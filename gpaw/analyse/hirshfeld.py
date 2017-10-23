@@ -81,7 +81,7 @@ class HirshfeldDensity(RealSpaceDensity):
         # initialize
         self.initialize(setups,
                         self.calculator.timer,
-                        np.zeros(len(atoms)), False)
+                        np.zeros((len(atoms), 3)), False)
         self.set_mixer(None)
 
         # FIXME nparray causes partitionong.py test to fail

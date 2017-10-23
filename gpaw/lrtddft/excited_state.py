@@ -278,6 +278,7 @@ class ExcitedState(GPAW):
         lr = self.lrtddft
         self.density = ExcitedStateDensity(
             gsdensity.gd, gsdensity.finegd, lr.kss.npspins,
+            gsdensity.collinear,
             gsdensity.charge,
             method=method, redistributor=gsdensity.redistributor)
         index = self.index.apply(self.lrtddft)
@@ -396,6 +397,12 @@ class ExcitedStateDensity(RealSpaceDensity):
     def __init__(self, *args, **kwargs):
         self.method = kwargs.pop('method', 'dipole')
         RealSpaceDensity.__init__(self, *args, **kwargs)
+        self.lrtddft = None
+        self.index = None
+        self.gsdensity = None
+        self.nbands = None
+        self.wocc_sn = None
+        self.wunocc_sn = None
 
     def initialize(self, lrtddft, index):
         self.lrtddft = lrtddft
@@ -435,7 +442,7 @@ class ExcitedStateDensity(RealSpaceDensity):
             repeats = self.nspins // self.gsdensity.nspins
             # XXX does this work always?
             D_asp[a] = (1. * D_sp).repeat(repeats, axis=0)
-        self.D_asp = D_asp
+        self.update_atomic_density_matrices(D_asp)
 
     def update(self, wfs):
         self.timer.start('Density')

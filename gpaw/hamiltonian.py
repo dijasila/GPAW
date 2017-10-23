@@ -250,9 +250,9 @@ class Hamiltonian:
             dH_asp[a] = dH_sp = np.zeros_like(D_sp)
 
             if setup.HubU is not None:
-                eU, dHU_p = hubbard(setup, D_sp)
+                eU, dHU_sp = hubbard(setup, D_sp)
                 e_xc += eU
-                dH_p += dHU_p
+                dH_sp[:] = dHU_sp
 
             dH_sp += dH_p
             if self.ref_dH_asp:
