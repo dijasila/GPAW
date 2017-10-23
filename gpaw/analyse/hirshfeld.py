@@ -17,11 +17,11 @@ class HirshfeldDensity(RealSpaceDensity):
         self.calculator = calculator
         dens = calculator.density
         RealSpaceDensity.__init__(self, dens.gd, dens.finegd,
-                                  dens.nspins, 0,
+                                  dens.nspins, collinear=True, charge=0.0,
                                   stencil=dens.stencil,
                                   redistributor=dens.redistributor)
         self.log = calculator.log
-        
+
     def set_positions(self, spos_ac, atom_partition):
         """HirshfeldDensity builds a hack density object to calculate
         all electron density

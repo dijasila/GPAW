@@ -613,9 +613,10 @@ class TimeDependentWaveFunctions(FDWaveFunctions):
                  setups, bd, dtype, world, kd, kptband_comm, timer):
         assert dtype == complex
         FDWaveFunctions.__init__(self, stencil, parallel, initksl,
-                                 gd, nvalence, collinear,
+                                 gd, nvalence,
                                  setups, bd, dtype, world,
-                                 kd, kptband_comm, timer=timer)
+                                 kd, kptband_comm,
+                                 collinear=collinear, timer=timer)
         self.overlap = self.make_overlap()
 
     def make_overlap(self):

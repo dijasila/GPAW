@@ -9,11 +9,11 @@ from ase.units import Ha
 
 from gpaw.arraydict import ArrayDict
 from gpaw.external import create_external_potential
+from gpaw.hubbard import hubbard
 from gpaw.lfc import LFC
 from gpaw.poisson import create_poisson_solver
 from gpaw.transformers import Transformer
-from gpaw.utilities import (pack2, unpack, unpack2,
-                            unpack_atomic_matrices, pack_atomic_matrices)
+from gpaw.utilities import unpack, unpack_atomic_matrices, pack_atomic_matrices
 from gpaw.utilities.debug import frozen
 from gpaw.utilities.partition import AtomPartition
 
@@ -175,7 +175,6 @@ class Hamiltonian:
         self.set_positions_without_ruining_everything(spos_ac, atom_partition)
         self.positions_set = True
 
-
     def initialize(self):
         self.vt_sg = self.finegd.empty(self.nspins)
         self.vHt_g = self.finegd.zeros()
@@ -251,7 +250,9 @@ class Hamiltonian:
             dH_asp[a] = dH_sp = np.zeros_like(D_sp)
 
             if setup.HubU is not None:
-                1 / 0
+                eU, dHU_p = hubbard(setup, D_sp)
+                e_xc += eU
+                dH_p += dHU_p
 
             dH_sp += dH_p
             if self.ref_dH_asp:

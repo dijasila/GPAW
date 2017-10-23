@@ -49,6 +49,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             setattr(self, 'e_' + ia.subscript, None)
         self.new_atoms = None
         self.vt_ia_g = None
+        self.e_el_free = None
+        self.e_el_extrapolated = None
 
     def __str__(self):
         s = RealSpaceHamiltonian.__str__(self) + '\n'
