@@ -79,8 +79,8 @@ def parse_arguments(argv):
                    help='buffer size for MatrixOperator in MiB')
     p.add_argument('--profile', metavar='FILE', dest='profile',
                    help='run profiler and save stats to FILE')
-    p.add_argument('--gpaw', metavar='VAR=VALUE[, ...]', action='append', default=[],
-                   dest='gpaw_extra_kwargs',
+    p.add_argument('--gpaw', metavar='VAR=VALUE[, ...]', action='append',
+                   default=[], dest='gpaw_extra_kwargs',
                    help='extra (hacky) GPAW keyword arguments')
     if is_gpaw_python:  # SCRIPT mandatory for gpaw-python
         p.add_argument('script', metavar='SCRIPT',
@@ -97,7 +97,8 @@ def parse_arguments(argv):
         sys.argv = [args.script] + args.options
 
     for w in args.warnings:
-        # Need to convert between python -W syntax to call warnings.filterwarnings():
+        # Need to convert between python -W syntax to call
+        # warnings.filterwarnings():
         warn_args = w.split(':')
         assert len(warn_args) <= 5
 
@@ -126,7 +127,6 @@ def parse_arguments(argv):
     return extra_parameters, args
 
 
-
 if is_gpaw_python:
     extra_parameters, gpaw_args = parse_arguments(sys.argv)
 else:
@@ -151,6 +151,8 @@ def parse_gpaw_args():
             break
         i += 1
     return extra_parameters
+
+
 extra_parameters.update(parse_gpaw_args())
 
 
@@ -271,10 +273,10 @@ if profile:
 
     def f(prof, filename):
         prof.disable()
-        from gpaw.mpi import rank
         if filename == '-':
             prof.print_stats('time')
         else:
+            from gpaw.mpi import rank
             prof.dump_stats(filename + '.%04d' % rank)
     atexit.register(f, prof, profile)
     prof.enable()
