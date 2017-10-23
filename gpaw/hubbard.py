@@ -1,6 +1,6 @@
 import numpy as np
 
-from gpaw.utilities import pack, unpack2
+from gpaw.utilities import pack2, unpack2
 
 
 def hubbard(setup, D_sp):
@@ -36,7 +36,7 @@ def hubbard(setup, D_sp):
         else:
             V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] *= Vorb
 
-        dH_sp.append(pack(V))
+        dH_sp.append(pack2(V))
 
     return e_xc, dH_sp
 
