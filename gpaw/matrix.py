@@ -139,10 +139,12 @@ class Matrix:
             else:
                 M = self.shape[1]
             if opb == 'N':
-                N = b.shape[0]
-            else:
                 N = b.shape[1]
-            out = Matrix(M, N, self.dtype, dist=self.dist)
+            else:
+                N = b.shape[0]
+            out = Matrix(M, N, self.dtype,
+                         dist=(self.dist.comm, self.dist.rows,
+                               self.dist.columns))
         self.dist.multiply(alpha, self, opa, b, opb, beta, out, symmetric)
         return out
 

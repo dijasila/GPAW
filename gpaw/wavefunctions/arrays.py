@@ -1,6 +1,7 @@
 import numpy as np
 
-from gpaw.matrix import Matrix, create_distribution
+from gpaw.matrix import (Matrix, create_distribution,
+                         matrix_matrix_multiply as mmm)
 
 
 class MatrixInFile:
@@ -53,12 +54,15 @@ class ArrayWaveFunctions:
     def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
                         operator=None, result=None):
         if out is None:
-            out = Matrix(len(self), len(other), dtype=self.dtype)
-        if isinstance(other, ArrayWaveFunctions):
+            out = Matrix(len(self), len(other or self), dtype=self.dtype,
+                         dist=(self.matrix.dist.comm,
+                               self.matrix.dist.rows,
+                               self.matrix.dist.columns))
+        if other is None or isinstance(other, ArrayWaveFunctions):
             assert cc
-            if operator:
-                assert symmetric and other is None
-                self.operate_and_multiply(self.dv, out, operator, result)
+            if other is None:
+                assert symmetric
+                operate_and_multiply(self, self.dv, out, operator, result)
             else:
                 self.multiply(self.dv, 'N', other, 'C', 0.0, out, symmetric)
         else:
@@ -84,38 +88,6 @@ class ArrayWaveFunctions:
 
     def eval(self, matrix):
         matrix.array[:] = self.matrix.array
-
-    def operate_and_multiply(self, dv, out, operator, result):
-        comm = self.matrix.dist.comm
-        array = self.matrix.array
-        mynbands = len(array)
-        bs = mynbands
-        tmp = np.empty_like(array[:bs])
-        for r in range(comm.size):
-            n1 = 0
-            while True:
-                n2 = n1 + bs
-                if n2 > mynbands:
-                    n2 = mynbands
-                    tmp = tmp[:n2 - n1]
-
-                if r < comm.size - 1:
-                    requests = [
-                        comm.send(array[n1:n2], (comm.rank + r) % comm.size,
-                                  True),
-                        comm.receive(tmp, (comm.rank - r) % comm.size, True)]
-
-                if r == 0:
-                    operator(array, result)
-
-                mmm()
-
-                if r < comm.size - 1:
-                    comm.wait(requests)
-
-                if n2 == mynbands:
-                    break
-                n1 = n2
 
 
 class UniformGridWaveFunctions(ArrayWaveFunctions):
@@ -237,3 +209,55 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                                                self.array[n1:n2],
                                                self.kpt, None,
                                                self.spin)
+
+
+def operate_and_multiply(psit1, dv, out, operator, psit2):
+    comm = psit1.matrix.dist.comm
+    mynbands = len(psit1.matrix.array)
+    bs = mynbands
+    tmp = psit1.new(nbands=bs, dist=None)
+    half = comm.size // 2
+    psit = psit1.view(0, mynbands)
+    for r in range(half + 1):
+        n1 = 0
+        while True:
+            n2 = n1 + bs
+            if n2 > mynbands:
+                n2 = mynbands
+
+            rrequest = None
+            srequest = None
+
+            if r < half:
+                srank = (comm.rank + r + 1) % comm.size
+                rrank = (comm.rank - r - 1) % comm.size
+                skip = (comm.size % 2 == 0 and r == half - 1)
+
+                if not (skip and comm.rank < half):
+                    print(r, comm.rank, 'R', rrank)
+                    rrequest = comm.receive(tmp.array, rrank, 11, False)
+                if not (skip and comm.rank >= half):
+                    print(r, comm.rank, 'S', srank)
+                    srequest = comm.send(psit1.array, srank, 11, False)
+
+            if r == 0:
+                if operator:
+                    operator(psit1, psit2)
+                else:
+                    psit2 = psit
+
+            if r <= comm.rank:
+                m12 = mmm(dv, psit, 'N', psit2, 'C', 0.0, symmetric=(r == 0))
+                n1 = ((comm.rank - r) % comm.size) * mynbands
+                n2 = n1 + mynbands
+                out.array[:, n1:n2] = m12.array
+
+            if rrequest:
+                comm.wait(rrequest)
+            if srequest:
+                comm.wait(srequest)
+
+            if 1:#n2 == mynbands:
+                break
+            n1 = n2
+        psit = tmp
