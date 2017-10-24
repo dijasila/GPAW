@@ -35,10 +35,11 @@ class WaveFunctions:
         MPI-communicator for parallelization over **k**-points.
     """
 
-    def __init__(self, gd, nvalence, setups, bd, dtype,
+    def __init__(self, gd, nvalence, setups, bd, dtype, collinear,
                  world, kd, kptband_comm, timer):
         self.gd = gd
         self.nspins = kd.nspins
+        self.collinear = collinear
         self.nvalence = nvalence
         self.bd = bd
         self.dtype = dtype
@@ -85,7 +86,7 @@ class WaveFunctions:
     def add_orbital_density(self, nt_G, kpt, n):
         self.add_realspace_orbital_to_density(nt_G, kpt.psit_nG[n])
 
-    def calculate_density_contribution(self, nt_sG):
+    def calculate_density_contribution(self, nt_sG, mt_vG=None):
         """Calculate contribution to pseudo density from wave functions.
 
         Array entries are written to (not added to)."""
@@ -217,7 +218,7 @@ class WaveFunctions:
                 kpt.P = Projections(
                     self.bd.nbands, nproj_a,
                     self.gd.comm, self.bd.comm, rank_a,
-                    collinear=True, spin=kpt.s, dtype=self.dtype)
+                    collinear=self.collinear, spin=kpt.s, dtype=self.dtype)
 
     def collect_eigenvalues(self, k, s):
         return self.collect_array('eps_n', k, s)
@@ -458,7 +459,7 @@ class WaveFunctions:
             kpt.P = Projections(
                 self.bd.nbands, nproj_a,
                 self.gd.comm, self.bd.comm, rank_a,
-                collinear=True, spin=kpt.s, dtype=self.dtype)
+                collinear=self.collinear, spin=kpt.s, dtype=self.dtype)
             if self.gd.comm.rank == 0:
                 P_nI = r.proxy('projections', kpt.s, kpt.k)[nslice]
                 kpt.P.matrix.array[:] = P_nI

@@ -61,7 +61,7 @@ class LCAOWaveFunctions(WaveFunctions):
                  dtype, world, kd, kptband_comm, timer,
                  atomic_correction=None):
         WaveFunctions.__init__(self, gd, nvalence, setups, bd,
-                               dtype, world, kd, kptband_comm, timer)
+                               dtype, True, world, kd, kptband_comm, timer)
         self.ksl = ksl
         self.S_qMM = None
         self.T_qMM = None

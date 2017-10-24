@@ -1,8 +1,10 @@
 import numpy as np
 
+from gpaw.utilities import pack2, unpack2
 
-def hubbard(setup, D_sii):
-    nspins = len(D_sii)
+
+def hubbard(setup, D_sp):
+    nspins = len(D_sp)
 
     l_j = setup.l_j
     l = setup.Hubl
@@ -11,9 +13,9 @@ def hubbard(setup, D_sii):
     nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
 
     e_xc = 0.0
-    dH_sii = []
-    for D_ii in D_sii:
-        [N_mm, V] = aoom(setup, D_ii, l, scale)
+    dH_sp = []
+    for D_p in D_sp:
+        N_mm, V = aoom(setup, unpack2(D_p), l, scale)
         N_mm = N_mm / 2 * nspins
 
         Eorb = setup.HubU / 2. * (N_mm -
@@ -34,8 +36,9 @@ def hubbard(setup, D_sii):
         else:
             V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] *= Vorb
 
-        dH_sii.append(V)
-    return dH_sii
+        dH_sp.append(pack2(V))
+
+    return e_xc, dH_sp
 
 
 def aoom(setup, DM, l, scale=1):

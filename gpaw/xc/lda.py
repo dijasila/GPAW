@@ -28,7 +28,6 @@ class LDARadialExpansion:
         return E, dEdD_sqL
 
 
-
 def calculate_paw_correction(expansion,
                              setup, D_sp, dEdD_sp=None,
                              addcoredensity=True, a=None):
@@ -77,7 +76,6 @@ class LDARadialCalculator:
         dedn_sg = rgd.zeros(nspins)
         self.kernel.calculate(e_g, n_sg, dedn_sg)
         return e_g, dedn_sg
-
 
 
 class LDA(XCFunctional):
@@ -192,7 +190,8 @@ def lda_c(spin, e, n, v, zeta):
         e1, decdrs_1 = G(rs ** 0.5,
                          0.015545, 0.20548, 14.1189, 6.1977, 3.3662, 0.62517)
         alpha, dalphadrs = G(rs ** 0.5,
-                         0.016887, 0.11125, 10.357, 3.6231, 0.88026, 0.49671)
+                             0.016887, 0.11125, 10.357, 3.6231, 0.88026,
+                             0.49671)
         alpha *= -1.
         dalphadrs *= -1.
         zp = 1.0 + zeta
@@ -208,7 +207,7 @@ def lda_c(spin, e, n, v, zeta):
                   decdrs_1 * f * zeta4 +
                   dalphadrs * f * x * IF2)
         decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
-                   f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
+                    f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
         ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
         e[:] += n * ec
         v[0] += ec - rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta
@@ -218,12 +217,12 @@ def lda_c(spin, e, n, v, zeta):
 def G(rtrs, gamma, alpha1, beta1, beta2, beta3, beta4):
     Q0 = -2.0 * gamma * (1.0 + alpha1 * rtrs * rtrs)
     Q1 = 2.0 * gamma * rtrs * (beta1 +
-                           rtrs * (beta2 +
-                                   rtrs * (beta3 +
-                                           rtrs * beta4)))
+                               rtrs * (beta2 +
+                                       rtrs * (beta3 +
+                                               rtrs * beta4)))
     G1 = Q0 * np.log(1.0 + 1.0 / Q1)
     dQ1drs = gamma * (beta1 / rtrs + 2.0 * beta2 +
-                  rtrs * (3.0 * beta3 + 4.0 * beta4 * rtrs))
+                      rtrs * (3.0 * beta3 + 4.0 * beta4 * rtrs))
     dGdrs = -2.0 * gamma * alpha1 * G1 / Q0 - Q0 * dQ1drs / (Q1 * (Q1 + 1.0))
     return G1, dGdrs
 

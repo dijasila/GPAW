@@ -50,12 +50,17 @@ class ArrayWaveFunctions:
                 c.state = 'a sum is needed'
             assert opb in 'TC' and b.comm is self.comm
 
-    def matrix_elements(self, other, out=None, symmetric=False, cc=False):
+    def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
+                        operator=None, result=None):
         if out is None:
             out = Matrix(len(self), len(other), dtype=self.dtype)
         if isinstance(other, ArrayWaveFunctions):
             assert cc
-            self.multiply(self.dv, 'N', other, 'C', 0.0, out, symmetric)
+            if operator:
+                assert symmetric and other is None
+                self.operate_and_multiply(self.dv, out, operator, result)
+            else:
+                self.multiply(self.dv, 'N', other, 'C', 0.0, out, symmetric)
         else:
             assert not cc
             P_ani = {a: P_ni for a, P_ni in out.items()}
@@ -79,6 +84,38 @@ class ArrayWaveFunctions:
 
     def eval(self, matrix):
         matrix.array[:] = self.matrix.array
+
+    def operate_and_multiply(self, dv, out, operator, result):
+        comm = self.matrix.dist.comm
+        array = self.matrix.array
+        mynbands = len(array)
+        bs = mynbands
+        tmp = np.empty_like(array[:bs])
+        for r in range(comm.size):
+            n1 = 0
+            while True:
+                n2 = n1 + bs
+                if n2 > mynbands:
+                    n2 = mynbands
+                    tmp = tmp[:n2 - n1]
+
+                if r < comm.size - 1:
+                    requests = [
+                        comm.send(array[n1:n2], (comm.rank + r) % comm.size,
+                                  True),
+                        comm.receive(tmp, (comm.rank - r) % comm.size, True)]
+
+                if r == 0:
+                    operator(array, result)
+
+                mmm()
+
+                if r < comm.size - 1:
+                    comm.wait(requests)
+
+                if n2 == mynbands:
+                    break
+                n1 = n2
 
 
 class UniformGridWaveFunctions(ArrayWaveFunctions):

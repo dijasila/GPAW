@@ -11,6 +11,7 @@ import numpy as np
 from ase.units import Bohr
 
 from gpaw import debug
+from gpaw.utilities.debug import frozen
 from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC, BasisFunctions
@@ -36,7 +37,8 @@ class NullBackgroundCharge:
         pass
 
 
-class Density(object):
+#@frozen
+class Density:
     """Density object.
 
     Attributes:
@@ -57,16 +59,19 @@ class Density(object):
      ========== =========================================
     """
 
-    def __init__(self, gd, finegd, nspins, charge, redistributor,
+    def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
                  background_charge=None):
         """Create the Density object."""
 
         self.gd = gd
         self.finegd = finegd
         self.nspins = nspins
+        self.collinear = collinear
         self.charge = float(charge)
         self.redistributor = redistributor
         self.atomdist = None
+
+        self.ncomponents = self.nspins if self.collinear else 1 + 3
 
         # This can contain e.g. a Jellium background charge
         if background_charge is None:
@@ -77,23 +82,34 @@ class Density(object):
         self.charge_eps = 1e-7
 
         self.D_asp = None
+        self.M_avp = None
         self.Q_aL = None
 
         self.nct_G = None
         self.nt_sG = None
+        self.mt_vG = None
+        self.nmt_xG = None
         self.rhot_g = None
         self.nt_sg = None
         self.nt_g = None
 
         self.atom_partition = None
 
+        self.setups = None
+        self.hund = None
+        self.magmom_av = None
+
         self.fixed = False
         # XXX at least one test will fail because None has no 'reset()'
         # So we need DummyMixer I guess
+        self.mixer = None
         self.set_mixer(None)
 
         self.timer = nulltimer
         self.error = None
+        self.nct = None
+        self.ghat = None
+        self.log = None
 
     def __str__(self):
         s = 'Densities:\n'
@@ -114,11 +130,11 @@ class Density(object):
         except (TypeError, AttributeError):
             pass
 
-    def initialize(self, setups, timer, magmom_a, hund):
+    def initialize(self, setups, timer, magmom_av, hund):
         self.timer = timer
         self.setups = setups
         self.hund = hund
-        self.magmom_a = magmom_a
+        self.magmom_av = magmom_av
 
     def reset(self):
         # TODO: reset other parameters?
@@ -131,8 +147,9 @@ class Density(object):
         # it previously didn't exist but it will needed for the new atoms.
         if (self.atom_partition is not None and
             self.D_asp is None and (rank_a == self.gd.comm.rank).any()):
-            self.D_asp = self.setups.empty_atomic_matrix(self.nspins,
-                                                         self.atom_partition)
+            self.update_atomic_density_matrices(
+                self.setups.empty_atomic_matrix(self.ncomponents,
+                                                self.atom_partition))
 
         if (self.atom_partition is not None and self.D_asp is not None and
             not isinstance(self.gd.comm, SerialCommunicator)):
@@ -160,27 +177,26 @@ class Density(object):
         nt_sG will be equal to nct_G plus the contribution from
         wfs.add_to_density().
         """
-        wfs.calculate_density_contribution(self.nt_sG)
+        wfs.calculate_density_contribution(self.nt_sG, self.mt_vG)
         self.nt_sG += self.nct_G
 
-    @property
-    def D_asp(self):
-        if self._D_asp is not None:
-            assert isinstance(self._D_asp, ArrayDict), type(self._D_asp)
-            self._D_asp.check_consistency()
-        return self._D_asp
+    # @property
+    # def D_asp(self):
+    #    if self._D_asp is not None:
+    #        assert isinstance(self._D_asp, ArrayDict), type(self._D_asp)
+    #        self._D_asp.check_consistency()
+    #    return self._D_asp
 
-    @D_asp.setter
-    def D_asp(self, value):
+    def update_atomic_density_matrices(self, value):
         if isinstance(value, dict):
-            tmp = self.setups.empty_atomic_matrix(self.nspins,
+            tmp = self.setups.empty_atomic_matrix(self.ncomponents,
                                                   self.atom_partition)
             tmp.update(value)
             value = tmp
         assert isinstance(value, ArrayDict) or value is None, type(value)
         if value is not None:
             value.check_consistency()
-        self._D_asp = value
+        self.D_asp = value
 
     def update(self, wfs):
         self.timer.start('Density')
@@ -256,12 +272,22 @@ class Density(object):
         # distribute charge on all atoms
         # XXX interaction with background charge may be finicky
         c = (self.charge - self.background_charge.charge) / len(self.setups)
-        M = self.magmom_a[a]
+        M_v = self.magmom_av[a]
+        M = np.linalg.norm(M_v)
         f_si = self.setups[a].calculate_initial_occupation_numbers(
-            abs(M), self.hund, charge=c, nspins=self.nspins)
+            M, self.hund, charge=c,
+            nspins=self.nspins if self.collinear else 2)
 
-        if M < 0:
-            f_si = f_si[::-1].copy()
+        if self.collinear:
+            if M_v[2] < 0:
+                f_si = f_si[::-1].copy()
+        else:
+            f_i = f_si.sum(0)
+            fm_i = f_si[0] - f_si[1]
+            f_si = np.empty((4, len(f_i)))
+            f_si[0] = f_i
+            f_si[1:] = M_v[:, np.newaxis] / M * fm_i
+
         return f_si
 
     def initialize_from_atomic_densities(self, basis_functions):
@@ -279,8 +305,10 @@ class Density(object):
 
         self.log('Density initialized from atomic densities')
 
-        self.D_asp = self.setups.empty_atomic_matrix(self.nspins,
-                                                     self.atom_partition)
+        self.update_atomic_density_matrices(
+            self.setups.empty_atomic_matrix(self.ncomponents,
+                                            self.atom_partition))
+
         f_asi = {}
         for a in basis_functions.atom_indices:
             f_asi[a] = self.get_initial_occupations(a)
@@ -293,8 +321,10 @@ class Density(object):
                 f_si = self.get_initial_occupations(a)
             self.D_asp[a][:] = self.setups[a].initialize_density_matrix(f_si)
 
-        self.nt_sG = self.gd.zeros(self.nspins)
-        basis_functions.add_to_density(self.nt_sG, f_asi)
+        self.nmt_xG = self.gd.zeros(self.ncomponents)
+        self.nt_sG = self.nmt_xG[:self.nspins]
+        self.mt_vG = self.nmt_xG[self.nspins:]
+        basis_functions.add_to_density(self.nmt_xG, f_asi)
         self.nt_sG += self.nct_G
         self.calculate_normalized_charges_and_mix()
 
@@ -302,19 +332,25 @@ class Density(object):
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""
         self.log('Density initialized from wave functions')
         self.timer.start('Density initialized from wave functions')
-        self.nt_sG = self.gd.empty(self.nspins)
+        self.nmt_xG = self.gd.zeros(self.ncomponents)
+        self.nt_sG = self.nmt_xG[:self.nspins]
+        self.mt_vG = self.nmt_xG[self.nspins:]
         self.calculate_pseudo_density(wfs)
-        D_asp = self.setups.empty_atomic_matrix(self.nspins,
-                                                wfs.atom_partition)
-        wfs.calculate_atomic_density_matrices(D_asp)
-        self.D_asp = D_asp
+        self.update_atomic_density_matrices(
+            self.setups.empty_atomic_matrix(self.ncomponents,
+                                            wfs.atom_partition))
+        wfs.calculate_atomic_density_matrices(self.D_asp)
         self.calculate_normalized_charges_and_mix()
         self.timer.stop('Density initialized from wave functions')
 
     def initialize_directly_from_arrays(self, nt_sG, D_asp):
         """Set D_asp and nt_sG directly."""
-        self.nt_sG = nt_sG
-        self.D_asp = D_asp
+        self.nmt_xG = self.gd.zeros(self.ncomponents)
+        self.nt_sG = self.nmt_xG[:self.nspins]
+        self.mt_vG = self.nmt_xG[self.nspins:]
+        self.nt_sG[:] = nt_sG
+
+        self.update_atomic_density_matrices(D_asp)
         D_asp.check_consistency()
         # No calculate multipole moments?  Tests will fail because of
         # improperly initialized mixer
@@ -335,7 +371,7 @@ class Density(object):
         self.mixer = MixerWrapper(mixer, self.nspins, self.gd)
 
     def estimate_magnetic_moments(self):
-        magmom_a = np.zeros_like(self.magmom_a)
+        magmom_a = np.zeros_like(self.magmom_av[:, 0])
         if self.nspins == 2:
             for a, D_sp in self.D_asp.items():
                 magmom_a[a] = np.dot(D_sp[0] - D_sp[1], self.setups[a].N0_p)
@@ -575,12 +611,15 @@ class Density(object):
 
 
 class RealSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, charge, redistributor,
+    def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
                  stencil=3,
                  background_charge=None):
-        Density.__init__(self, gd, finegd, nspins, charge, redistributor,
+        Density.__init__(self, gd, finegd, nspins, collinear,
+                         charge, redistributor,
                          background_charge=background_charge)
         self.stencil = stencil
+
+        self.interpolator = None
 
     def initialize(self, setups, timer, magmom_a, hund):
         Density.initialize(self, setups, timer, magmom_a, hund)

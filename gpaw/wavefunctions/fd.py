@@ -38,9 +38,11 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def __init__(self, stencil, parallel, initksl,
                  gd, nvalence, setups, bd,
-                 dtype, world, kd, kptband_comm, timer, reuse_wfs_method=None):
+                 dtype, world, kd, kptband_comm, timer, reuse_wfs_method=None,
+                 collinear=True):
         FDPWWaveFunctions.__init__(self, parallel, initksl,
                                    reuse_wfs_method=reuse_wfs_method,
+                                   collinear=collinear,
                                    gd=gd, nvalence=nvalence, setups=setups,
                                    bd=bd, dtype=dtype, world=world, kd=kd,
                                    kptband_comm=kptband_comm, timer=timer)

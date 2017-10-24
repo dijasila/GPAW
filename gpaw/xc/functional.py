@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class XCFunctional(object):
+class XCFunctional:
     orbital_dependent = False
 
     def __init__(self, name, type):
@@ -57,7 +57,6 @@ class XCFunctional(object):
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
         raise NotImplementedError
-        #return setup.xc_correction.calculate(self, D_sp, dEdD_sp)
 
     def set_positions(self, spos_ac, atom_partition=None):
         pass

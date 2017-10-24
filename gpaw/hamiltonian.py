@@ -9,11 +9,12 @@ from ase.units import Ha
 
 from gpaw.arraydict import ArrayDict
 from gpaw.external import create_external_potential
+from gpaw.hubbard import hubbard
 from gpaw.lfc import LFC
 from gpaw.poisson import create_poisson_solver
 from gpaw.transformers import Transformer
-from gpaw.utilities import (pack2, unpack, unpack2,
-                            unpack_atomic_matrices, pack_atomic_matrices)
+from gpaw.utilities import unpack, unpack_atomic_matrices, pack_atomic_matrices
+from gpaw.utilities.debug import frozen
 from gpaw.utilities.partition import AtomPartition
 
 
@@ -35,18 +36,22 @@ class HamiltonianCorrections:
         return out
 
 
-class Hamiltonian(object):
+@frozen
+class Hamiltonian:
 
-    def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
+    def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
                  redistributor, vext=None):
         self.gd = gd
         self.finegd = finegd
         self.nspins = nspins
+        self.collinear = collinear
         self.setups = setups
         self.timer = timer
         self.xc = xc
         self.world = world
         self.redistributor = redistributor
+
+        self.ncomponents = self.nspins if self.collinear else 1 + 3
 
         self.atomdist = None
         self.dH_asp = None
@@ -75,26 +80,20 @@ class Hamiltonian(object):
         self.vext = vext  # external potential
 
         self.positions_set = False
+        self.spos_ac = None
 
         self.dH = HamiltonianCorrections(self)
 
-    @property
-    def dH_asp(self):
-        assert isinstance(self._dH_asp, ArrayDict) or self._dH_asp is None
-        # self._dH_asp.check_consistency()
-        return self._dH_asp
-
-    @dH_asp.setter
-    def dH_asp(self, value):
+    def update_atomic_hamiltonians(self, value):
         if isinstance(value, dict):
-            tmp = self.setups.empty_atomic_matrix(self.nspins,
+            tmp = self.setups.empty_atomic_matrix(self.ncomponents,
                                                   self.atom_partition)
             tmp.update(value)
             value = tmp
         assert isinstance(value, ArrayDict) or value is None, type(value)
         if value is not None:
             value.check_consistency()
-        self._dH_asp = value
+        self.dH_asp = value
 
     def __str__(self):
         s = 'Hamiltonian:\n'
@@ -160,7 +159,7 @@ class Hamiltonian(object):
         #
         if (self.atom_partition is not None and
             self.dH_asp is None and (rank_a == self.gd.comm.rank).any()):
-            self.dH_asp = {}
+            self.update_atomic_hamiltonians({})
 
         if self.atom_partition is not None and self.dH_asp is not None:
             self.timer.start('Redistribute')
@@ -175,62 +174,6 @@ class Hamiltonian(object):
         self.xc.set_positions(spos_ac)
         self.set_positions_without_ruining_everything(spos_ac, atom_partition)
         self.positions_set = True
-
-    def aoom(self, DM, a, l, scale=1):
-        """Atomic Orbital Occupation Matrix.
-
-        Determine the Atomic Orbital Occupation Matrix (aoom) for a
-        given l-quantum number.
-
-        This operation, takes the density matrix (DM), which for
-        example is given by unpack2(D_asq[i][spin]), and corrects for
-        the overlap between the selected orbitals (l) upon which the
-        the density is expanded (ex <p|p*>,<p|p>,<p*|p*> ).
-
-        Returned is only the "corrected" part of the density matrix,
-        which represents the orbital occupation matrix for l=2 this is
-        a 5x5 matrix.
-        """
-        S = self.setups[a]
-        l_j = S.l_j
-        lq = S.lq
-        nl = np.where(np.equal(l_j, l))[0]
-        V = np.zeros(np.shape(DM))
-        if len(nl) == 2:
-            aa = nl[0] * len(l_j) - (nl[0] - 1) * nl[0] // 2
-            bb = nl[1] * len(l_j) - (nl[1] - 1) * nl[1] // 2
-            ab = aa + nl[1] - nl[0]
-
-            if not scale:
-                lq_a = lq[aa]
-                lq_ab = lq[ab]
-                lq_b = lq[bb]
-            else:
-                lq_a = 1
-                lq_ab = lq[ab] / lq[aa]
-                lq_b = lq[bb] / lq[aa]
-
-            # and the correct entrances in the DM
-            nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
-            mm = (2 * np.array(l_j) + 1)[0:nl[1]].sum()
-
-            # finally correct and add the four submatrices of NC_DM
-            A = DM[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] * lq_a
-            B = DM[nn:nn + 2 * l + 1, mm:mm + 2 * l + 1] * lq_ab
-            C = DM[mm:mm + 2 * l + 1, nn:nn + 2 * l + 1] * lq_ab
-            D = DM[mm:mm + 2 * l + 1, mm:mm + 2 * l + 1] * lq_b
-
-            V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] = lq_a
-            V[nn:nn + 2 * l + 1, mm:mm + 2 * l + 1] = lq_ab
-            V[mm:mm + 2 * l + 1, nn:nn + 2 * l + 1] = lq_ab
-            V[mm:mm + 2 * l + 1, mm:mm + 2 * l + 1] = lq_b
-
-            return A + B + C + D, V
-        else:
-            nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
-            A = DM[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] * lq[-1]
-            V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] = lq[-1]
-            return A, V
 
     def initialize(self):
         self.vt_sg = self.finegd.empty(self.nspins)
@@ -276,7 +219,7 @@ class Hamiltonian(object):
 
     def update_corrections(self, dens, W_aL):
         self.timer.start('Atomic')
-        self.dH_asp = None  # XXXX
+        self.update_atomic_hamiltonians(None)  # XXXX
 
         e_kinetic = 0.0
         e_coulomb = 0.0
@@ -285,13 +228,17 @@ class Hamiltonian(object):
         e_xc = 0.0
 
         D_asp = self.atomdist.to_work(dens.D_asp)
-        dH_asp = self.setups.empty_atomic_matrix(self.nspins, D_asp.partition)
+        dH_asp = self.setups.empty_atomic_matrix(self.ncomponents,
+                                                 D_asp.partition)
 
         for a, D_sp in D_asp.items():
             W_L = W_aL[a]
             setup = self.setups[a]
 
-            D_p = D_sp.sum(0)
+            if self.nspins == 2:
+                D_p = D_sp.sum(0)
+            else:
+                D_p = D_sp[0]
             dH_p = (setup.K_p + setup.M_p +
                     setup.MB_p + 2.0 * np.dot(setup.M_pp, D_p) +
                     np.dot(setup.Delta_pL, W_L))
@@ -303,39 +250,9 @@ class Hamiltonian(object):
             dH_asp[a] = dH_sp = np.zeros_like(D_sp)
 
             if setup.HubU is not None:
-                nspins = len(D_sp)
-
-                l_j = setup.l_j
-                l = setup.Hubl
-                scale = setup.Hubs
-                nl = np.where(np.equal(l_j, l))[0]
-                nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
-
-                for D_p, H_p in zip(D_sp, dH_asp[a]):
-                    [N_mm, V] = self.aoom(unpack2(D_p), a, l, scale)
-                    N_mm = N_mm / 2 * nspins
-
-                    Eorb = setup.HubU / 2. * (N_mm -
-                                              np.dot(N_mm, N_mm)).trace()
-                    Vorb = setup.HubU * (0.5 * np.eye(2 * l + 1) - N_mm)
-                    e_xc += Eorb
-                    if nspins == 1:
-                        # add contribution of other spin manyfold
-                        e_xc += Eorb
-
-                    if len(nl) == 2:
-                        mm = (2 * np.array(l_j) + 1)[0:nl[1]].sum()
-
-                        V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] *= Vorb
-                        V[mm:mm + 2 * l + 1, nn:nn + 2 * l + 1] *= Vorb
-                        V[nn:nn + 2 * l + 1, mm:mm + 2 * l + 1] *= Vorb
-                        V[mm:mm + 2 * l + 1, mm:mm + 2 * l + 1] *= Vorb
-                    else:
-                        V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] *= Vorb
-
-                    Htemp = unpack(H_p)
-                    Htemp += V
-                    H_p[:] = pack2(Htemp)
+                eU, dHU_sp = hubbard(setup, D_sp)
+                e_xc += eU
+                dH_sp[:] = dHU_sp
 
             dH_sp += dH_p
             if self.ref_dH_asp:
@@ -350,11 +267,11 @@ class Hamiltonian(object):
         for a, D_sp in D_asp.items():
             e_kinetic -= (D_sp * dH_asp[a]).sum()  # NCXXX
 
-        self.dH_asp = self.atomdist.from_work(dH_asp)
+        self.update_atomic_hamiltonians(self.atomdist.from_work(dH_asp))
         self.timer.stop('Atomic')
 
         # Make corrections due to non-local xc:
-        self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
+        #self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
         e_kinetic += self.xc.get_kinetic_energy_correction() / self.world.size
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
@@ -538,11 +455,12 @@ class Hamiltonian(object):
                                             name='hamiltonian-init-serial')
 
         # Read non-local part of hamiltonian
-        self.dH_asp = {}
+        self.update_atomic_hamiltonians({})
         dH_sP = h.atomic_hamiltonian_matrices / reader.ha
 
         if self.gd.comm.rank == 0:
-            self.dH_asp = unpack_atomic_matrices(dH_sP, self.setups)
+            self.update_atomic_hamiltonians(
+                unpack_atomic_matrices(dH_sP, self.setups))
 
         if hasattr(self.poisson, 'read'):
             self.poisson.read(reader)
@@ -550,10 +468,11 @@ class Hamiltonian(object):
 
 
 class RealSpaceHamiltonian(Hamiltonian):
-    def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
+    def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
                  vext=None,
                  psolver=None, stencil=3, redistributor=None):
-        Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
+        Hamiltonian.__init__(self, gd, finegd, nspins, collinear,
+                             setups, timer, xc,
                              world, vext=vext,
                              redistributor=redistributor)
 
@@ -572,7 +491,9 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
                         forces=True)
+
         self.vbar_g = None
+        self.npoisson = None
 
     def restrict_and_collect(self, a_xg, b_xg=None, phases=None):
         if self.redistributor.enabled:

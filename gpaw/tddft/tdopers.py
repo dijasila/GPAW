@@ -586,15 +586,15 @@ class TimeDependentOverlap(Overlap):
             multi_scale(beta, p, nvec)
             p += z
 
-            self.apply(p,q,wfs,kpt, calculate_P_ani)
+            self.apply(p, q, wfs, kpt, calculate_P_ani)
 
             multi_zdotu(alpha, p, q, nvec)
-            alpha = rho/alpha
+            alpha = rho / alpha
 
             multi_zaxpy(alpha, p, x, nvec)
             multi_zaxpy(-alpha, q, r, nvec)
 
-            multi_zdotu(normr2, r,r, nvec)
+            multi_zdotu(normr2, r, r, nvec)
 
             #rhoc = rho.copy()
             rho_prev[:] = rho.copy()
@@ -609,12 +609,14 @@ class TimeDependentOverlap(Overlap):
 
 
 class TimeDependentWaveFunctions(FDWaveFunctions):
-    def __init__(self, stencil, parallel, initksl, gd, nvalence, setups,
-                 bd, dtype, world, kd, kptband_comm, timer):
+    def __init__(self, stencil, parallel, initksl, gd, nvalence, collinear,
+                 setups, bd, dtype, world, kd, kptband_comm, timer):
         assert dtype == complex
         FDWaveFunctions.__init__(self, stencil, parallel, initksl,
-                                 gd, nvalence, setups, bd, dtype, world,
-                                 kd, kptband_comm, timer=timer)
+                                 gd, nvalence,
+                                 setups, bd, dtype, world,
+                                 kd, kptband_comm,
+                                 collinear=collinear, timer=timer)
         self.overlap = self.make_overlap()
 
     def make_overlap(self):
