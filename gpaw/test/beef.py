@@ -12,9 +12,9 @@ d = 0.75
 
 gen('H', xcname='PBEsol')
 
-for xc, E0, dE0 in [('mBEEF', 4.90, 0.17),
+for xc, E0, dE0 in [('mBEEF', 4.95, 0.17),
                     ('BEEF-vdW', 5.17, 0.19),
-                    ('mBEEF-vdW', 4.79, 0.36)]:
+                    ('mBEEF-vdW', 4.84, 0.36)]:
     print(xc)
     if not newlibxc and xc[0] == 'm':
         print('Skipped')

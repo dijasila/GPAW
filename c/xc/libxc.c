@@ -801,7 +801,11 @@ lxcXCFunctional_tb09(lxcXCFunctionalObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "dOOOOOO",
                           &c, &n_g, &sigma_g, &lapl_g, &tau_g, &v_g, &vx_g))
         return NULL;
+#if XC_MAJOR_VERSION >= 4
+    xc_func_set_ext_params(self->functional[0], &c);
+#else
     xc_mgga_x_tb09_set_params(self->functional[0], c);
+#endif
     xc_mgga_vxc(self->functional[0], PyArray_DIM(n_g, 0),
                 PyArray_DATA(n_g),
                 PyArray_DATA(sigma_g),
