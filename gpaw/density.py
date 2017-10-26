@@ -11,7 +11,6 @@ import numpy as np
 from ase.units import Bohr
 
 from gpaw import debug
-from gpaw.utilities.debug import frozen
 from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC, BasisFunctions
@@ -37,7 +36,6 @@ class NullBackgroundCharge:
         pass
 
 
-#@frozen
 class Density:
     """Density object.
 
