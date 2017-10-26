@@ -1,7 +1,6 @@
 import numpy as np
 
-from gpaw.matrix import (Matrix, create_distribution,
-                         matrix_matrix_multiply as mmm)
+from gpaw.matrix import Matrix, create_distribution
 
 
 class MatrixInFile:
@@ -219,6 +218,14 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
 
 
 def operate_and_multiply(psit1, dv, out, operator, psit2):
+    comm = psit1.matrix.dist.comm
+    if len(psit1) % comm.size != 0:
+        if operator is None:
+            psit2 = psit1
+        else:
+            operator(psit1.array, psit2.array)
+        return psit1.matrix_elements(psit2, out=out, symmetric=True, cc=True)
+
     if psit1.comm:
         if psit2 is not None:
             assert psit2.comm is psit1.comm
@@ -226,7 +233,6 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
             out.comm = psit1.comm
             out.state = 'a sum is needed'
 
-    comm = psit1.matrix.dist.comm
     mynbands = len(psit1.matrix.array)
     bs = mynbands
     buf1 = psit1.new(nbands=bs, dist=None)
@@ -264,7 +270,7 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
                     psit2 = psit
 
             if not (comm.size % 2 == 0 and r == half and comm.rank < half):
-                m12 = mmm(dv, psit2, 'N', psit, 'C', 0.0, symmetric=(r == 0))
+                m12 = psit2.matrix_elements(psit, symmetric=(r == 0), cc=True)
                 n1 = ((comm.rank - r) % comm.size) * mynbands
                 n2 = n1 + mynbands
                 #print(r, comm.rank, psit.array.shape,
