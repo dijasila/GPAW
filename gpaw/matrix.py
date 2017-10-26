@@ -242,6 +242,8 @@ class Matrix:
             if self.comm.rank == 0 and self.dist.comm.rank == 0:
                 if cc and H.dtype == complex:
                     np.negative(H.array.imag, H.array.imag)
+                if debug:
+                    H.array[np.triu_indices(H.shape[0], 1)] = 42.0
                 eps[:], H.array.T[:] = linalg.eigh(H.array,
                                                    lower=True,  # ???
                                                    overwrite_a=True,
