@@ -446,7 +446,7 @@ class FDPWWaveFunctions(WaveFunctions):
         P2 = P.new()
 
         with self.timer('calc_s_matrix'):
-            psit.matrix_elements(psit, S, symmetric=True, cc=True)
+            psit.matrix_elements(out=S, symmetric=True, cc=True)
             self.setups.dS.apply(P, out=P2)
             mmm(1.0, P, 'N', P2, 'C', 1.0, S, symmetric=True)
 

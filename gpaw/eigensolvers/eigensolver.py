@@ -151,8 +151,9 @@ class Eigensolver:
             # We calculate the complex conjugate of H, because
             # that is what is most efficient with BLAS given the layout of
             # our matrices.
-            psit.apply(Ht, out=tmp)
-            psit.matrix_elements(tmp, out=H, symmetric=True, cc=True)
+            #psit.apply(Ht, out=tmp)
+            psit.matrix_elements(operator=Ht, result=tmp, out=H,
+                                 symmetric=True, cc=True)
             ham.dH.apply(kpt.P, out=P2)
             mmm(1.0, kpt.P, 'N', P2, 'C', 1.0, H, symmetric=True)
             ham.xc.correct_hamiltonian_matrix(kpt, H.array)

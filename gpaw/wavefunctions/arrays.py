@@ -170,12 +170,19 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
         else:
             return self.matrix.array
 
-    def matrix_elements(self, other, out=None, symmetric=False, cc=False):
-        if isinstance(other, ArrayWaveFunctions):
-            assert cc
+    def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
+                        operator=None, result=None):
+        if other is None or isinstance(other, ArrayWaveFunctions):
             if out is None:
-                out = Matrix(len(self), len(other), dtype=self.dtype)
-            if self.dtype == complex:
+                out = Matrix(len(self), len(other or self), dtype=self.dtype,
+                             dist=(self.matrix.dist.comm,
+                                   self.matrix.dist.rows,
+                                   self.matrix.dist.columns))
+            assert cc
+            if other is None:
+                assert symmetric
+                operate_and_multiply(self, self.dv, out, operator, result)
+            elif self.dtype == complex:
                 self.matrix.multiply(self.dv, 'N', other.matrix, 'C',
                                      0.0, out, symmetric)
             else:
@@ -212,12 +219,22 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
 
 
 def operate_and_multiply(psit1, dv, out, operator, psit2):
+    if psit1.comm:
+        if psit2 is not None:
+            assert psit2.comm is psit1.comm
+        if psit1.comm.size > 1:
+            out.comm = psit1.comm
+            out.state = 'a sum is needed'
+
     comm = psit1.matrix.dist.comm
     mynbands = len(psit1.matrix.array)
     bs = mynbands
-    tmp = psit1.new(nbands=bs, dist=None)
+    buf1 = psit1.new(nbands=bs, dist=None)
+    buf2 = psit1.new(nbands=bs, dist=None)
     half = comm.size // 2
     psit = psit1.view(0, mynbands)
+    if psit2 is not None:
+        psit2 = psit2.view(0, mynbands)
     for r in range(half + 1):
         n1 = 0
         while True:
@@ -234,22 +251,26 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
                 skip = (comm.size % 2 == 0 and r == half - 1)
 
                 if not (skip and comm.rank < half):
-                    print(r, comm.rank, 'R', rrank)
-                    rrequest = comm.receive(tmp.array, rrank, 11, False)
+                    #print(r, comm.rank, 'R', rrank)
+                    rrequest = comm.receive(buf1.array, rrank, 11, False)
                 if not (skip and comm.rank >= half):
-                    print(r, comm.rank, 'S', srank)
+                    #print(r, comm.rank, 'S', srank)
                     srequest = comm.send(psit1.array, srank, 11, False)
 
             if r == 0:
                 if operator:
-                    operator(psit1, psit2)
+                    operator(psit1.array, psit2.array)
                 else:
                     psit2 = psit
 
-            if r <= comm.rank:
-                m12 = mmm(dv, psit, 'N', psit2, 'C', 0.0, symmetric=(r == 0))
+            if not (comm.size % 2 == 0 and r == half and comm.rank < half):
+                m12 = mmm(dv, psit2, 'N', psit, 'C', 0.0, symmetric=(r == 0))
                 n1 = ((comm.rank - r) % comm.size) * mynbands
                 n2 = n1 + mynbands
+                #print(r, comm.rank, psit.array.shape,
+                #      psit.array[:, 0,0,0].real, psit2.array[:, 0,0,0].real, n1,
+                #      m12.array.real)
+                #assert np.isfinite(m12.array).all(), (r, comm.rank)
                 out.array[:, n1:n2] = m12.array
 
             if rrequest:
@@ -257,7 +278,29 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
             if srequest:
                 comm.wait(srequest)
 
-            if 1:#n2 == mynbands:
+            if 1:  # n2 == mynbands:
                 break
             n1 = n2
-        psit = tmp
+        psit = buf1
+        buf1, buf2 = buf2, buf1
+
+    requests = []
+    blocks = []
+    nrows = (comm.size - 1) // 2
+    for row in range(nrows):
+        for column in range(comm.size - nrows + row, comm.size):
+            if comm.rank == row:
+                n1 = column * mynbands
+                n2 = n1 + mynbands
+                requests.append(comm.send(out.array[:, n1:n2].T.conj().copy(),
+                                          column, 12, False))
+            elif comm.rank == column:
+                n1 = row * mynbands
+                n2 = n1 + mynbands
+                block = np.empty((mynbands, mynbands), out.dtype)
+                blocks.append((n1, n2, block))
+                requests.append(comm.receive(block, row, 12, False))
+    comm.waitall(requests)
+    for n1, n2, block in blocks:
+        out.array[:, n1:n2] = block
+        
