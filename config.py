@@ -148,7 +148,7 @@ def get_system_config(define_macros, undef_macros,
                     libdir = dir
                     break
             if openblas:  # prefer openblas
-                libraries += ['openblas']
+                libraries += ['openblas', 'lapack']
                 library_dirs += [libdir]
             else:
                 if atlas:  # then atlas
