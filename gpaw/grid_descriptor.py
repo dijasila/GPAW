@@ -68,7 +68,7 @@ class GridDescriptor(Domain):
 
     ndim = 3  # dimension of ndarrays
 
-    def __init__(self, N_c, cell_cv=(1, 1, 1), pbc_c=True,
+    def __init__(self, N_c, cell_cv=[1, 1, 1], pbc_c=True,
                  comm=None, parsize_c=None):
         """Construct grid-descriptor object.
 
