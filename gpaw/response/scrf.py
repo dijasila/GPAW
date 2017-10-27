@@ -321,6 +321,40 @@ class SpinChargeResponseFunction:
         return pd, chi0_wGG, np.array(chi_wGG)
     
     
+    def get_density_response_function(self, xc='RPA', q_c=[0, 0, 0], q_v=None,
+                                      direction='x', filename='drf.csv'):
+        """Calculate the density response function.
+        
+        Returns macroscopic density response function:
+        drf0_w, drf_xc_w = SpinChargeResponseFunction.get_density_response_function()
+        
+        """
+        
+        self.chi0.set_response('density')
+        
+        pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c, direction=direction)
+        
+        drf0_w = np.zeros(len(chi_wGG), dtype=complex)
+        drf_xc_w = np.zeros(len(chi_wGG), dtype=complex)
+
+        for w, (chi0_GG, chi_GG) in enumerate(zip(chi0_wGG, chi_wGG)):
+            drf0_w[w] = chi0_GG[0, 0]
+            drf_xc_w[w] = chi_GG[0, 0]
+
+        drf0_w = self.collect(drf0_w)
+        drf_xc_w = self.collect(drf_xc_w)
+
+        if filename is not None and mpi.rank == 0:
+            with open(filename, 'w') as fd:
+                for omega, drf0, drf_xc in zip(self.omega_w * Hartree,
+                                                  drf0_w,
+                                                  drf_xc_w):
+                    print('%.6f, %.6f, %.6f, %.6f, %.6f' %
+                          (omega, drf0.real, drf0.imag, drf_xc.real, drf_xc.imag),
+                          file=fd)
+
+        return drf0_w, drf_xc_w    
+
     def get_spin_response_function(self, xc='RPA', q_c=[0, 0, 0], q_v=None,
                                    direction='x', filename='srf.csv'):
         """Calculate the spin response function.
