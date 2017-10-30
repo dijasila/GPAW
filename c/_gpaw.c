@@ -76,6 +76,7 @@ PyObject* NewlxcXCFunctionalObject(PyObject *self, PyObject *args);
 PyObject* lxcXCFuncNum(PyObject *self, PyObject *args);
 PyObject* exterior_electron_density_region(PyObject *self, PyObject *args);
 PyObject* plane_wave_grid(PyObject *self, PyObject *args);
+PyObject* tci_overlap(PyObject *self, PyObject *args);
 PyObject* overlap(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
 PyObject* vdw2(PyObject *self, PyObject *args);
@@ -181,6 +182,7 @@ static PyMethodDef functions[] = {
     {"lxcXCFunctional", NewlxcXCFunctionalObject, METH_VARARGS, 0},
     {"lxcXCFuncNum", lxcXCFuncNum, METH_VARARGS, 0},
     {"overlap", overlap, METH_VARARGS, 0},
+    {"tci_overlap", tci_overlap, METH_VARARGS, 0},
     {"vdw", vdw, METH_VARARGS, 0},
     {"vdw2", vdw2, METH_VARARGS, 0},
     {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
@@ -361,7 +363,7 @@ static PyObject* moduleinit(void)
 #ifndef PARALLEL
     // gpaw-python needs to import arrays at the right time, so this is
     // done in main().  In serial, we just do it here:
-    import_array1(NULL);
+    import_array1(0);
 #endif
     return m;
 }
@@ -458,7 +460,7 @@ main(int argc, char **argv)
 
     // We already imported the Python parts of numpy.  If we want, we can
     // later attempt to broadcast the numpy C API imports, too.
-    import_array1(NULL);
+    import_array1(0);
 
     int status = run_gpaw();
 

@@ -65,6 +65,7 @@ class GPAW(PAW, Calculator):
         'mixer': None,
         'eigensolver': None,
         'background_charge': None,
+        'experimental': {'reuse_wfs_method': None},
         'external': None,
         'random': False,
         'hund': False,
@@ -390,7 +391,7 @@ class GPAW(PAW, Calculator):
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof']:
+                       'eigensolver', 'idiotproof', 'experimental']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
@@ -1054,7 +1055,10 @@ class GPAW(PAW, Calculator):
                                                dtype, nao=nao,
                                                timer=self.timer)
 
-            self.wfs = mode(diagksl, orthoksl, initksl, **wfs_kwargs)
+            reuse_wfs_method = par.experimental['reuse_wfs_method']
+            self.wfs = mode(diagksl, orthoksl, initksl,
+                            reuse_wfs_method=reuse_wfs_method,
+                            **wfs_kwargs)
         else:
             self.wfs = mode(self, **wfs_kwargs)
 

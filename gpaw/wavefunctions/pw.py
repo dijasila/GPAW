@@ -66,7 +66,7 @@ class PW(Mode):
 
         Mode.__init__(self, force_complex_dtype)
 
-    def __call__(self, diagksl, orthoksl, initksl, gd, *args, **kwargs):
+    def __call__(self, diagksl, orthoksl, initksl, gd, **kwargs):
         dedepsilon = 0.0
         volume = abs(np.linalg.det(gd.cell_cv))
 
@@ -85,8 +85,7 @@ class PW(Mode):
                 dedepsilon = self.dedecut * 2 / 3 * ecut
 
         wfs = PWWaveFunctions(ecut, self.fftwflags, dedepsilon,
-                              diagksl, orthoksl, initksl, gd, *args,
-                              **kwargs)
+                              diagksl, orthoksl, initksl, gd=gd, **kwargs)
 
         return wfs
 
@@ -512,6 +511,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     def __init__(self, ecut, fftwflags, dedepsilon,
                  diagksl, orthoksl, initksl,
+                 reuse_wfs_method,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
@@ -521,8 +521,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.ng_k = None  # number of G-vectors for all IBZ k-points
 
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
-                                   gd, nvalence, setups, bd, dtype,
-                                   world, kd, kptband_comm, timer)
+                                   reuse_wfs_method=reuse_wfs_method,
+                                   gd=gd, nvalence=nvalence, setups=setups,
+                                   bd=bd, dtype=dtype, world=world, kd=kd,
+                                   kptband_comm=kptband_comm, timer=timer)
 
         self.orthoksl.gd = self.pd
         self.matrixoperator = MatrixOperator(self.orthoksl)
@@ -561,6 +563,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
         if self.dedepsilon == 'estimate':
             dedecut = self.setups.estimate_dedecut(self.ecut)
             self.dedepsilon = dedecut * 2 / 3 * self.ecut
+
+    def get_pseudo_partial_waves(self):
+        return PWLFC([setup.get_actual_atomic_orbitals()
+                      for setup in self.setups], self.pd)
 
     def __str__(self):
         s = 'Wave functions: Plane wave expansion\n'
