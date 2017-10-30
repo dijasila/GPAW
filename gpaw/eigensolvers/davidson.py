@@ -51,7 +51,6 @@ class Davidson(Eigensolver):
 
     def initialize(self, wfs):
         Eigensolver.initialize(self, wfs)
-        #self.overlap = wfs.overlap
 
         if wfs.gd.comm.rank == 0 and wfs.bd.comm.rank == 0:
             # Allocate arrays
@@ -103,18 +102,6 @@ class Davidson(Eigensolver):
             if e_N is not None:
                 eps_N[:B] = e_N
 
-        def matrix_elements(a, b, Pa, dM, Pb, C_nn, symmetric=False):
-            """Fill C_nn with <a|b> matrix elements."""
-            a.matrix_elements(b, out=M, symmetric=symmetric, cc=True)
-            dM.apply(Pb, out=P3)
-            mmm(1.0, Pa, 'N', P3, 'C', 1.0, M)
-            comm.sum(M.array, 0)
-            if comm.rank == 0:
-                M.complex_conjugate()
-                M.redist(M0)
-                if bd.comm.rank == 0:
-                    C_nn[:] = M0.array
-
         Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
         if self.keep_htpsit:
@@ -149,17 +136,37 @@ class Davidson(Eigensolver):
 
             psit2.apply(Ht, out=R)
 
+            def copy(M, C_nn):
+                comm.sum(M.array, 0)
+                if comm.rank == 0:
+                    M.complex_conjugate()
+                    M.redist(M0)
+                    if bd.comm.rank == 0:
+                        C_nn[:] = M0.array
+
             with self.timer('calc. matrices'):
-                me = matrix_elements
+                # <psi2 | H | psi2>
+                psit2.matrix_elements(operator=Ht, result=R, out=M,
+                                      symmetric=True, cc=True)
+                ham.dH.apply(P2, out=P3)
+                mmm(1.0, P2, 'N', P3, 'C', 1.0, M)
+                copy(M, H_NN[B:, B:])
 
                 # <psi2 | H | psi>
-                me(R, psit, P2, ham.dH, P, H_NN[B:, :B])
-                # <psi2 | S | psi>
-                me(psit2, psit, P2, dS, P, S_NN[B:, :B])
-                # <psi2 | H | psi2>
-                me(R, psit2, P2, ham.dH, P2, H_NN[B:, B:], True)
+                R.matrix_elements(psit, out=M, cc=True)
+                mmm(1.0, P3, 'N', P, 'C', 1.0, M)
+                copy(M, H_NN[B:, :B])
+
                 # <psi2 | S | psi2>
-                me(psit2, psit2, P2, dS, P2, S_NN[B:, B:])
+                psit2.matrix_elements(out=M, symmetric=True, cc=True)
+                dS.apply(P2, out=P3)
+                mmm(1.0, P2, 'N', P3, 'C', 1.0, M)
+                copy(M, S_NN[B:, B:])
+
+                # <psi2 | S | psi>
+                psit2.matrix_elements(psit, out=M, cc=True)
+                mmm(1.0, P3, 'N', P, 'C', 1.0, M)
+                copy(M, S_NN[B:, :B])
 
             with self.timer('diagonalize'):
                 if comm.rank == 0 and bd.comm.rank == 0:
