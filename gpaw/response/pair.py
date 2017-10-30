@@ -896,12 +896,6 @@ class PairDensity:
             for K_k in PWSA.group_kpoints(Kstar_k):
                 # Let the first kpoint of the group represent
                 # the rest of the kpoints
-                if hasattr(self.calc.wfs.kd, 'refine_info'):
-                    label_k = self.calc.wfs.kd.refine_info.label_k
-                    indexes = np.where(label_k[K_k] != 'zero')[0]
-                    if len(indexes) == 0:
-                        continue
-                    K_k = K_k[indexes]
                 K1 = K_k[0]
                 # In this way wavefunctions are only loaded into
                 # memory for this particular set of kpoints
@@ -915,13 +909,7 @@ class PairDensity:
 
                 if unsymmetrized:
                     # Number of times kpoints are mapped into themselves
-                    if hasattr(self.calc.wfs.kd, 'refine_info'):
-                        weight = sum(self.calc.wfs.kd.refine_info.weight_k[K_k])
-                        if weight < 1e-6:
-                            continue
-                        weight = np.sqrt(PWSA.how_many_symmetries() / weight)
-                    else:
-                        weight = np.sqrt(PWSA.how_many_symmetries() / len(K_k))
+                    weight = np.sqrt(PWSA.how_many_symmetries() / len(K_k))
 
                 # Use kpt2 to compute intraband transitions
                 # These conditions are sufficient to make sure
