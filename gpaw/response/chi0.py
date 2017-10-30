@@ -809,6 +809,12 @@ class Chi0:
             Pair densities.
         """
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
+
+        if hasattr(self.calc.wfs.kd, 'refine_info'):
+            K1 = self.pair.find_kpoint(k_c)
+            if self.calc.wfs.kd.refine_info.label_k[K1] == 'zero':
+                return None
+
         q_c = pd.kd.bzk_kc[0]
         optical_limit = np.allclose(q_c, 0.0)
         nG = pd.ngmax
