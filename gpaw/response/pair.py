@@ -394,7 +394,11 @@ class PWSymmetryAnalyzer:
 
         for K_k in K_gK:
             if K in K_k:
-                return len(K_k)
+                if hasattr(self.kd, 'refine_info'):
+                    weight = sum(self.kd.refine_info.weight_k[K_k])
+                    return weight
+                else:
+                    return len(K_k)
 
     def get_kpoint_mapping(self, K1, K2):
         """Get index of symmetry for mapping between K1 and K2"""
