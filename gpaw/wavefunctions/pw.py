@@ -585,9 +585,18 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def apply_pseudo_hamiltonian(self, kpt, ham, psit_xG, Htpsit_xG):
         """Apply the non-pseudo Hamiltonian i.e. without PAW corrections."""
         Htpsit_xG[:] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG
-        for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
-            psit_R = self.pd.ifft(psit_G, kpt.q)
-            Htpsit_G += self.pd.fft(psit_R * ham.vt_sG[kpt.s], kpt.q)
+        if self.collinear:
+            for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
+                psit_R = self.pd.ifft(psit_G, kpt.q)
+                Htpsit_G += self.pd.fft(psit_R * ham.vt_sG[kpt.s], kpt.q)
+        else:
+            v, x, iy, z = ham.vt_sG
+            iy *= 1j
+            for psit_sG, Htpsit_sG in zip(psit_xG, Htpsit_xG):
+                a = self.pd.ifft(psit_sG[0], kpt.q)
+                b = self.pd.ifft(psit_sG[1], kpt.q)
+                Htpsit_sG[0] += self.pd.fft(a * (v + z) + b * (x - iy), kpt.q)
+                Htpsit_sG[1] += self.pd.fft(a * (x + iy) + b * (v - z), kpt.q)
         ham.xc.apply_orbital_dependent_hamiltonian(
             kpt, psit_xG, Htpsit_xG, ham.dH_asp)
 
@@ -934,10 +943,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     dist=(self.bd.comm, -1, 1),
                     spin=kpt.s, collinear=self.collinear)
 
-            psit_nG = kpt.psit_nG[mynao:]
+            array = kpt.psit.array[mynao:]
             weight_G = 1.0 / (1.0 + self.pd.G2_qG[kpt.q])
-            psit_nG.real = rs.uniform(-1, 1, psit_nG.shape) * weight_G
-            psit_nG.imag = rs.uniform(-1, 1, psit_nG.shape) * weight_G
+            array.real = rs.uniform(-1, 1, array.shape) * weight_G
+            array.imag = rs.uniform(-1, 1, array.shape) * weight_G
 
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)

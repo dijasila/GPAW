@@ -199,7 +199,8 @@ class FDPWWaveFunctions(WaveFunctions):
     @property
     def work_array(self):
         if self._work_array is None:
-            self._work_array = self.empty(self.bd.mynbands)
+            self._work_array = self.empty(self.bd.mynbands *
+                                          (1 if self.collinear else 2))
         return self._work_array
 
     @property
@@ -270,7 +271,6 @@ class FDPWWaveFunctions(WaveFunctions):
         corr.initialize(P_aqMi, self.initksl.Mstart, self.initksl.Mstop)
         # corr.add_overlap_correction(self, S_qMM)
         assert len(S_qMM) == 1
-        print(S_qMM[0])
 
         # coefs = []
         # for kpt in self.kpt_u:

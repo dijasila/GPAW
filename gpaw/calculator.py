@@ -946,7 +946,7 @@ class GPAW(PAW, Calculator):
         gd = self.create_grid_descriptor(N_c, cell_cv, pbc_c,
                                          domain_comm, parsize_domain)
 
-        if hasattr(self, 'time') or mode.force_complex_dtype:
+        if hasattr(self, 'time') or mode.force_complex_dtype or not collinear:
             dtype = complex
         else:
             if kd.gamma:

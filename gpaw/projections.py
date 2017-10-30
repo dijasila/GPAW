@@ -12,6 +12,7 @@ class Projections:
         self.bcomm = bcomm
         self.collinear = collinear
         self.spin = spin
+        self.nbands = nbands
 
         self.rank_a = rank_a
         self.indices = []
@@ -26,6 +27,9 @@ class Projections:
                 I1 = I2
                 self.map[a] = (I1, I2)
 
+        if not collinear:
+            nbands *= 2
+
         self.matrix = Matrix(nbands, I1, dtype, dist=(bcomm, bcomm.size, 1))
 
     def new(self, bcomm='inherit', nbands=None, rank_a=None):
@@ -33,8 +37,9 @@ class Projections:
             bcomm = self.bcomm
         elif bcomm is None:
             bcomm = serial_comm
+
         return Projections(
-            nbands or self.matrix.shape[0], self.nproj_a,
+            nbands or self.nbands, self.nproj_a,
             self.acomm, bcomm,
             self.rank_a if rank_a is None else rank_a,
             self.collinear, self.spin, self.matrix.dtype)
