@@ -234,59 +234,44 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
             out.state = 'a sum is needed'
 
     mynbands = len(psit1.matrix.array)
-    bs = mynbands
-    buf1 = psit1.new(nbands=bs, dist=None)
-    buf2 = psit1.new(nbands=bs, dist=None)
+    buf1 = psit1.new(nbands=mynbands, dist=None)
+    buf2 = psit1.new(nbands=mynbands, dist=None)
     half = comm.size // 2
     psit = psit1.view(0, mynbands)
     if psit2 is not None:
         psit2 = psit2.view(0, mynbands)
+
     for r in range(half + 1):
-        n1 = 0
-        while True:
-            n2 = n1 + bs
-            if n2 > mynbands:
-                n2 = mynbands
+        rrequest = None
+        srequest = None
 
-            rrequest = None
-            srequest = None
+        if r < half:
+            srank = (comm.rank + r + 1) % comm.size
+            rrank = (comm.rank - r - 1) % comm.size
+            skip = (comm.size % 2 == 0 and r == half - 1)
 
-            if r < half:
-                srank = (comm.rank + r + 1) % comm.size
-                rrank = (comm.rank - r - 1) % comm.size
-                skip = (comm.size % 2 == 0 and r == half - 1)
+            if not (skip and comm.rank < half):
+                rrequest = comm.receive(buf1.array, rrank, 11, False)
+            if not (skip and comm.rank >= half):
+                srequest = comm.send(psit1.array, srank, 11, False)
 
-                if not (skip and comm.rank < half):
-                    #print(r, comm.rank, 'R', rrank)
-                    rrequest = comm.receive(buf1.array, rrank, 11, False)
-                if not (skip and comm.rank >= half):
-                    #print(r, comm.rank, 'S', srank)
-                    srequest = comm.send(psit1.array, srank, 11, False)
+        if r == 0:
+            if operator:
+                operator(psit1.array, psit2.array)
+            else:
+                psit2 = psit
 
-            if r == 0:
-                if operator:
-                    operator(psit1.array, psit2.array)
-                else:
-                    psit2 = psit
+        if not (comm.size % 2 == 0 and r == half and comm.rank < half):
+            m12 = psit2.matrix_elements(psit, symmetric=(r == 0), cc=True)
+            n1 = ((comm.rank - r) % comm.size) * mynbands
+            n2 = n1 + mynbands
+            out.array[:, n1:n2] = m12.array
 
-            if not (comm.size % 2 == 0 and r == half and comm.rank < half):
-                m12 = psit2.matrix_elements(psit, symmetric=(r == 0), cc=True)
-                n1 = ((comm.rank - r) % comm.size) * mynbands
-                n2 = n1 + mynbands
-                #print(r, comm.rank, psit.array.shape,
-                #      psit.array[:, 0,0,0].real, psit2.array[:, 0,0,0].real, n1,
-                #      m12.array.real)
-                #assert np.isfinite(m12.array).all(), (r, comm.rank)
-                out.array[:, n1:n2] = m12.array
+        if rrequest:
+            comm.wait(rrequest)
+        if srequest:
+            comm.wait(srequest)
 
-            if rrequest:
-                comm.wait(rrequest)
-            if srequest:
-                comm.wait(srequest)
-
-            if 1:  # n2 == mynbands:
-                break
-            n1 = n2
         psit = buf1
         buf1, buf2 = buf2, buf1
 

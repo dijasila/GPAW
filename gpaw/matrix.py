@@ -145,6 +145,9 @@ class Matrix:
             out = Matrix(M, N, self.dtype,
                          dist=(self.dist.comm, self.dist.rows,
                                self.dist.columns))
+        if alpha == 1.0 and opa == 'N' and opb == 'N':
+            return fastmmm(self, b, beta, out)
+
         self.dist.multiply(alpha, self, opa, b, opb, beta, out, symmetric)
         return out
 
@@ -402,3 +405,35 @@ def create_distribution(M, N, comm=None, r=1, c=1, b=None):
                              b)
 
 
+def fastmmm(m1, m2, beta, m3):
+    comm = m1.dist.comm
+    if comm.size == 1 or len(m1) % comm.size != 0:
+        return m1.multiply(1.0, 'N', m2, 'N', beta, m3)
+
+    n = len(m1.array)
+    buf1 = m2.array
+    buf2 = np.empty_like(buf1)
+
+    for r in range(comm.size - 1):
+        rrequest = None
+        srequest = None
+
+        srank = (comm.rank - r - 1) % comm.size
+        rrank = (comm.rank + r + 1) % comm.size
+        rrequest = comm.receive(buf2, rrank, 21, False)
+        srequest = comm.send(m1.array, srank, 21, False)
+
+        n1 = r * n
+        n2 = n1 + n
+        blas.mmm(1.0, m1.array[:, n1:n2], 'N', buf1, 'N', beta, m3.array)
+
+        comm.wait(rrequest)
+        comm.wait(srequest)
+
+        if r == 0:
+            buf1 = np.empty_like(buf2)
+
+        buf1, buf2 = buf2, buf1
+
+    blas.mmm(1.0, m1.array[:, n1:n2], 'N', buf1, 'N', beta, m3.array)
+    return m3
