@@ -55,9 +55,13 @@ class Hamiltonian:
 
         self.atomdist = None
         self.dH_asp = None
+        self.vt_xG = None
         self.vt_sG = None
+        self.vt_vG = None
         self.vHt_g = None
+        self.vt_xg = None
         self.vt_sg = None
+        self.vt_vg = None
         self.atom_partition = None
 
         # Energy contributioons that sum up to e_total_free:
@@ -176,9 +180,13 @@ class Hamiltonian:
         self.positions_set = True
 
     def initialize(self):
-        self.vt_sg = self.finegd.empty(self.nspins)
+        self.vt_xg = self.finegd.empty(self.ncomponents)
+        self.vt_sg = self.vt_xg[:self.nspins]
+        self.vt_vg = self.vt_xg[self.nspins:]
         self.vHt_g = self.finegd.zeros()
-        self.vt_sG = self.gd.empty(self.nspins)
+        self.vt_xG = self.gd.empty(self.ncomponents)
+        self.vt_sG = self.vt_xG[:self.nspins]
+        self.vt_vG = self.vt_xG[self.nspins:]
         self.poisson.initialize()
 
     def update(self, density):

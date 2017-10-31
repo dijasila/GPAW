@@ -1510,16 +1510,20 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
-        nt_dist_sg = dens.xc_redistributor.distribute(dens.nt_sg)
-        vxct_dist_sg = dens.xc_redistributor.aux_gd.zeros(self.nspins)
+        nt_dist_xg = dens.xc_redistributor.distribute(dens.nt_xg)
+        vxct_dist_xg = np.zeros_like(nt_dist_xg)
         self.exc = self.xc.calculate(dens.xc_redistributor.aux_gd,
-                                     nt_dist_sg, vxct_dist_sg)
-        vxct_sg = dens.xc_redistributor.collect(vxct_dist_sg)
+                                     nt_dist_xg, vxct_dist_xg)
+        vxct_xg = dens.xc_redistributor.collect(vxct_dist_xg)
 
-        for vt_G, vxct_g in zip(self.vt_sG, vxct_sg):
+        x = 0
+        for vt_G, vxct_g in zip(self.vt_xG, vxct_xg):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
             vt_G += vxc_G
-            self.vt_Q += vxc_Q / self.nspins
+            if x < self.ncomponenets:
+                self.vt_Q += vxc_Q / self.nspins
+            x += 1
+
         self.timer.stop('XC 3D grid')
 
         eext = 0.0
