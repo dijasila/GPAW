@@ -132,6 +132,7 @@ class Matrix:
 
         See matrix_matrix_multipliction() for details.
         """
+        dist = self.dist
         if out is None:
             assert beta == 0.0
             if opa == 'N':
@@ -143,12 +144,12 @@ class Matrix:
             else:
                 N = b.shape[0]
             out = Matrix(M, N, self.dtype,
-                         dist=(self.dist.comm, self.dist.rows,
-                               self.dist.columns))
+                         dist=(dist.comm, dist.rows, dist.columns))
         if alpha == 1.0 and opa == 'N' and opb == 'N':
-            return fastmmm(self, b, beta, out)
+            if dist.comm.size > 1 and len(self) % dist.comm.size == 0:
+                return fastmmm(self, b, beta, out)
 
-        self.dist.multiply(alpha, self, opa, b, opb, beta, out, symmetric)
+        dist.multiply(alpha, self, opa, b, opb, beta, out, symmetric)
         return out
 
     def redist(self, other):
@@ -407,8 +408,6 @@ def create_distribution(M, N, comm=None, r=1, c=1, b=None):
 
 def fastmmm(m1, m2, beta, m3):
     comm = m1.dist.comm
-    if comm.size == 1 or len(m1) % comm.size != 0:
-        return m1.multiply(1.0, 'N', m2, 'N', beta, m3)
 
     n = len(m1.array)
     buf1 = m2.array
