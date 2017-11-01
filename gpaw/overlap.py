@@ -20,8 +20,7 @@ class OverlapCorrections:
             out = P.new()
         for a, I1, I2 in P.indices:
             dS_ii = self.setups[a].dO_ii
-            out.matrix.array[:, I1:I2] = np.dot(P.matrix.array[:, I1:I2],
-                                                dS_ii)
+            out.array[..., I1:I2] = np.dot(P.array[..., I1:I2], dS_ii)
         return out
 
 

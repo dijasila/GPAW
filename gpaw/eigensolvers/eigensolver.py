@@ -37,7 +37,7 @@ class Eigensolver:
             self.keep_htpsit = False
 
         if self.keep_htpsit:
-            self.Htpsit_nG = wfs.empty(self.nbands)
+            self.Htpsit_nG = np.empty_like(wfs.work_array)
 
         # Preconditioner for the electronic gradients:
         self.preconditioner = wfs.make_preconditioner(self.blocksize)

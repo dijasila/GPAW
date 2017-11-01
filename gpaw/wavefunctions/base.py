@@ -86,7 +86,7 @@ class WaveFunctions:
     def add_orbital_density(self, nt_G, kpt, n):
         self.add_realspace_orbital_to_density(nt_G, kpt.psit_nG[n])
 
-    def calculate_density_contribution(self, nt_sG, mt_vG=None):
+    def calculate_density_contribution(self, nt_sG):
         """Calculate contribution to pseudo density from wave functions.
 
         Array entries are written to (not added to)."""
@@ -121,8 +121,17 @@ class WaveFunctions:
             gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
             D_sii[kpt.s] += D_ii.real
         else:
-            P_ni = kpt.P_ani[a]
-            D_sii[kpt.s] += np.dot(P_ni.T.conj() * f_n, P_ni).real
+            if self.collinear:
+                P_ni = kpt.P[a]
+                D_sii[kpt.s] += np.dot(P_ni.T.conj() * f_n, P_ni).real
+            else:
+                P_nsi = kpt.P[a]
+                D_ssii = np.einsum('nsi,n,nzj->szij',
+                                   P_nsi.conj(), f_n, P_nsi)
+                D_sii[0] += (D_ssii[0, 0] + D_ssii[0, 0]).real
+                D_sii[1] += 2 * D_ssii[0, 1].real
+                D_sii[1] += 2 * D_ssii[0, 1].imag
+                D_sii[3] += (D_ssii[0, 0] - D_ssii[0, 0]).real
 
         if hasattr(kpt, 'c_on'):
             for ne, c_n in zip(kpt.ne_o, kpt.c_on):

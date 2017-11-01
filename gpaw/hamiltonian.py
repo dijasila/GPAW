@@ -31,8 +31,7 @@ class HamiltonianCorrections:
             out = P.new()
         for a, I1, I2 in P.indices:
             dH_ii = unpack(self.ham.dH_asp[a][P.spin])
-            out.matrix.array[:, I1:I2] = np.dot(P.matrix.array[:, I1:I2],
-                                                dH_ii)
+            out.array[..., I1:I2] = np.dot(P.array[..., I1:I2], dH_ii)
         return out
 
 

@@ -79,7 +79,10 @@ class Davidson(Eigensolver):
         eps_N = self.eps_N
 
         def integrate(a_G):
-            return np.real(wfs.integrate(a_G, a_G, global_integral=False))
+            if wfs.collinear:
+                return np.real(wfs.integrate(a_G, a_G, global_integral=False))
+            return sum(np.real(wfs.integrate(b_G, b_G, global_integral=False))
+                       for b_G in a_G)
 
         self.subspace_diagonalize(ham, wfs, kpt)
 
@@ -117,14 +120,17 @@ class Davidson(Eigensolver):
             if nit == self.niter - 1:
                 error = np.dot(weights, [integrate(R_G) for R_G in R.array])
 
-            for psit_G, R_G, psit2_G in zip(psit.array,
-                                            R.array,
-                                            psit2.array):
+            shape = psit.array.shape
+            if not wfs.collinear:
+                shape = (-1,) + shape[2:]
+            for psit_G, R_G, psit2_G in zip(psit.array.reshape(shape),
+                                            R.array.reshape(shape),
+                                            psit2.array.reshape(shape)):
                 pre = self.preconditioner
                 ekin = pre.calculate_kinetic_energy(psit_G, kpt)
                 psit2_G[:] = pre(R_G, kpt, ekin)
 
-            if self.normalize:
+            if 0:#self.normalize:
                 norms = np.array([integrate(psit2_G)
                                   for psit2_G in psit2.array])
                 comm.sum(norms)

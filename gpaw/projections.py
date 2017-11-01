@@ -24,13 +24,18 @@ class Projections:
                 self.my_atom_indices.append(a)
                 I2 = I1 + ni
                 self.indices.append((a, I1, I2))
-                I1 = I2
                 self.map[a] = (I1, I2)
+                I1 = I2
 
         if not collinear:
-            nbands *= 2
+            I1 *= 2
 
         self.matrix = Matrix(nbands, I1, dtype, dist=(bcomm, bcomm.size, 1))
+
+        if collinear:
+            self.array = self.matrix.array
+        else:
+            self.array = self.matrix.array.reshape((-1, 2, I1 // 2))
 
     def new(self, bcomm='inherit', nbands=None, rank_a=None):
         if bcomm == 'inherit':
@@ -46,11 +51,11 @@ class Projections:
 
     def items(self):
         for a, I1, I2 in self.indices:
-            yield a, self.matrix.array[:, I1:I2]
+            yield a, self.array[..., I1:I2]
 
-    def __getitemmmmmmmm__(self, a):
+    def __getitem__(self, a):
         I1, I2 = self.map[a]
-        return self.matrix.array[I1:I2]
+        return self.array[..., I1:I2]
 
     def __contains__(self, a):
         return a in self.map
