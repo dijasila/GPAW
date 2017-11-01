@@ -149,7 +149,7 @@ class Davidson(Eigensolver):
                 psit2.matrix_elements(operator=Ht, result=R, out=M,
                                       symmetric=True, cc=True)
                 ham.dH.apply(P2, out=P3)
-                mmm(1.0, P2, 'N', P3, 'C', 1.0, M)
+                mmm(1.0, P2, 'N', P3, 'C', 1.0, M)#, symmetric=True)
                 copy(M, H_NN[B:, B:])
 
                 # <psi2 | H | psi>
@@ -173,8 +173,8 @@ class Davidson(Eigensolver):
                     H_NN[:B, :B] = np.diag(eps_N[:B])
                     S_NN[:B, :B] = np.eye(B)
                     if debug:
-                        H_NN[:B, B:] = 0.0
-                        S_NN[:B, B:] = 0.0
+                        H_NN[np.triu_indices(2 * B, 1)] = 42.0
+                        S_NN[np.triu_indices(2 * B, 1)] = 42.0
                     from scipy.linalg import eigh
                     eps_N, H_NN[:] = eigh(H_NN, S_NN,
                                           lower=True,

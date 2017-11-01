@@ -153,36 +153,36 @@ PyObject* mmm(PyObject *self, PyObject *args)
     char* trans2;
     Py_complex beta;
     PyArrayObject* M3;
-    
+
     if (!PyArg_ParseTuple(args, "DOsOsDO",
                           &alpha, &M1, &trans1, &M2, &trans2, &beta, &M3))
         return NULL;
-        
+
     int m = PyArray_DIM(M3, 1);
     int n = PyArray_DIM(M3, 0);
     int k;
-    
+
     int bytes = PyArray_ITEMSIZE(M3);
     int lda = MAX(1, PyArray_STRIDE(M2, 0) / bytes);
     int ldb = MAX(1, PyArray_STRIDE(M1, 0) / bytes);
     int ldc = MAX(1, PyArray_STRIDE(M3, 0) / bytes);
-    
+
     void* a = PyArray_DATA(M2);
     void* b = PyArray_DATA(M1);
     void* c = PyArray_DATA(M3);
 
-    if (*trans2 == 'n')
+    if (*trans2 == 'N' || *trans2 == 'n')
         k = PyArray_DIM(M2, 0);
     else
         k = PyArray_DIM(M2, 1);
-        
+
     if (bytes == 8)
         dgemm_(trans2, trans1, &m, &n, &k,
                &(alpha.real), a, &lda, b, &ldb, &(beta.real), c, &ldc);
     else
         zgemm_(trans2, trans1, &m, &n, &k,
                &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
-        
+
     Py_RETURN_NONE;
 }
 
@@ -299,9 +299,9 @@ PyObject* rk(PyObject *self, PyObject *args)
         return NULL;
 
     int n = PyArray_DIMS(c)[0];
-    
+
     int k, lda;
-    
+
     if (*trans == 'c') {
         k = PyArray_DIMS(a)[1];
         for (int d = 2; d < PyArray_NDIM(a); d++)
@@ -312,7 +312,7 @@ PyObject* rk(PyObject *self, PyObject *args)
         k = PyArray_DIMS(a)[0];
         lda = n;
     }
-    
+
     int ldc = PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1];
     if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
         dsyrk_("u", trans, &n, &k,

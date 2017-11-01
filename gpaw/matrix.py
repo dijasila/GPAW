@@ -132,6 +132,7 @@ class Matrix:
 
         See matrix_matrix_multipliction() for details.
         """
+        dist = self.dist
         if out is None:
             assert beta == 0.0
             if opa == 'N':
@@ -143,9 +144,12 @@ class Matrix:
             else:
                 N = b.shape[0]
             out = Matrix(M, N, self.dtype,
-                         dist=(self.dist.comm, self.dist.rows,
-                               self.dist.columns))
-        self.dist.multiply(alpha, self, opa, b, opb, beta, out, symmetric)
+                         dist=(dist.comm, dist.rows, dist.columns))
+        if alpha == 1.0 and beta == 0.0 and opa == 'N' and opb == 'N':
+            if dist.comm.size > 1 and len(self) % dist.comm.size == 0:
+                return fastmmm(self, b, out)
+
+        dist.multiply(alpha, self, opa, b, opb, beta, out, symmetric)
         return out
 
     def redist(self, other):
@@ -307,8 +311,7 @@ class NoDistribution:
                     return
                 blas.r2k(0.5 * alpha, a.array, b.array, beta, c.array)
         else:
-            blas.mmm(alpha, a.array, opa.lower(), b.array, opb.lower(),
-                     beta, c.array)
+            blas.mmm(alpha, a.array, opa, b.array, opb, beta, c.array)
 
 
 class BLACSDistribution:
@@ -402,3 +405,37 @@ def create_distribution(M, N, comm=None, r=1, c=1, b=None):
                              b)
 
 
+def fastmmm(m1, m2, m3):
+    comm = m1.dist.comm
+
+    n = len(m1.array)
+    buf1 = m2.array
+    buf2 = np.empty_like(buf1)
+
+    beta = 0.0
+
+    for r in range(comm.size - 1):
+        rrank = (comm.rank + r + 1) % comm.size
+        srank = (comm.rank - r - 1) % comm.size
+        rrequest = comm.receive(buf2, rrank, 21, False)
+        srequest = comm.send(m2.array, srank, 21, False)
+
+        n1 = (comm.rank + r) % comm.size * n
+        n2 = n1 + n
+        blas.mmm(1.0, m1.array[:, n1:n2], 'N', buf1, 'N', beta, m3.array)
+
+        beta = 1.0
+
+        if r == 0:
+            buf1 = np.empty_like(buf2)
+
+        buf1, buf2 = buf2, buf1
+
+        comm.wait(rrequest)
+        comm.wait(srequest)
+
+    n1 = rrank * n
+    n2 = n1 + n
+    blas.mmm(1.0, m1.array[:, n1:n2], 'N', buf1, 'N', beta, m3.array)
+
+    return m3

@@ -29,14 +29,14 @@ def mmm(alpha, a, opa, b, opb, beta, c):
     matrices.
     """
 
-    assert opa in 'ntc'
-    assert opb in 'ntc'
+    assert opa in 'NTC'
+    assert opb in 'NTC'
 
-    if opa == 'n':
+    if opa == 'N':
         a1, a2 = a.shape
     else:
         a2, a1 = a.shape
-    if opb == 'n':
+    if opb == 'N':
         b1, b2 = b.shape
     else:
         b2, b1 = b.shape
