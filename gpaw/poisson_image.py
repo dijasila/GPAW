@@ -45,8 +45,9 @@ class ImagePoissonSolver(EPS):
         extended['skip_init_gpts'] = True
         super(ImagePoissonSolver, self).__init__(nn=nn, relax=relax, eps=eps,
                                                  maxiter=maxiter,
-                                                 moment_corrections=None, extended=extended,timer=timer)
- 
+                                                 moment_corrections=None,
+                                                 extended=extended,timer=timer)
+
         # XXX Currently z-direction only. Fix this
         assert direction == 2
         self.direction = direction
@@ -96,14 +97,14 @@ class ImagePoissonSolver(EPS):
                                                              rhot_g)
 
         # shift dipole potential to be zero at "electrode"
-        
-        # XXX Use self.correction to shift the potential. The question is 
-        # is just, how do you figure out, if it's + or - 
+
+        # XXX Use self.correction to shift the potential. The question is
+        # is just, how do you figure out, if it's + or -
         if self.side == 'right':
             # XXX "right" doesn't work. This ugly fix helps, but it's still wrong.
             drhot_g *= -1.
             dvHt_g *= -1.
-            #self.correction *= -1. 
+            #self.correction *= -1.
 
         dvHt_g -= self.correction
         # XXX hamiltonian.get_electrostatic_potential() uses this one. We don't like that.
@@ -112,7 +113,7 @@ class ImagePoissonSolver(EPS):
 
         iters = super(ImagePoissonSolver, self).solve(vHt_g, rhot_g + drhot_g,
                                                       **kwargs)
-        
+
         vHt_g += dvHt_g
         return iters
 
@@ -120,7 +121,7 @@ class ImagePoissonSolver(EPS):
                zero_initial_phi=False):
 
         from gpaw.utilities.grid_redistribute import AlignedGridRedistributor
-        
+
         # Redistribute grid distriptor to reduce communication later.
         # Aka each rank has whole z-domain.
         gd = self.gd

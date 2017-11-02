@@ -20,7 +20,7 @@ calc = GPAW(mode='lcao',
 
 atoms.calc = calc
 atoms.get_potential_energy()
-pot = calc.get_electrostatic_potential().mean(0).mean(0) 
+pot = calc.get_electrostatic_potential().mean(0).mean(0)
 
 parprint('Potential[1]', pot[1])
 parprint('Potential[-1]', pot[-1])
