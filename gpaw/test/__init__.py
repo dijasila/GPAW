@@ -270,6 +270,7 @@ tests = [
     'generic/bulk.py',                      # ~10s
     'sic/scfsic_h2.py',                     # ~10s
     'lcao/bulk.py',                         # ~11s
+    'reuse_wfs.py',                         # ~11s
     'generic/2Al.py',                       # ~11s
     'lrtddft/kssingles_Be.py',              # ~11s
     'generic/relax.py',                     # ~11s

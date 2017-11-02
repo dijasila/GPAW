@@ -52,6 +52,7 @@ class WaveFunctions:
 
         self.eigensolver = None
         self.positions_set = False
+        self.spos_ac = None
 
         self.set_setups(setups)
 
@@ -202,6 +203,7 @@ class WaveFunctions:
 
         self.atom_partition = atom_partition
         self.kd.symmetry.check(spos_ac)
+        self.spos_ac = spos_ac
 
     def allocate_arrays_for_projections(self, my_atom_indices):
         if not self.positions_set and self.kpt_u[0].P_ani is not None:
