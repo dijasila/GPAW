@@ -103,7 +103,7 @@ class Eigensolver:
         for R_G, eps, psit_G in zip(R.array, eps_n, psit.array):
             axpy(-eps, psit_G, R_G)
 
-        ham.dH.apply(P, out=C)
+        ham.dH(P, out=C)
         for a, I1, I2 in P.indices:
             dS_ii = ham.setups[a].dO_ii
             C.matrix.array[:, I1:I2] -= np.dot(P.matrix.array[:, I1:I2] *
@@ -156,9 +156,10 @@ class Eigensolver:
             #                     symmetric=True, cc=True)
             psit.matrix_elements(operator=Ht, result=tmp, out=H,
                                  symmetric=True, cc=True)
-            ham.dH.apply(kpt.P, out=P2)
+            ham.dH(kpt.P, out=P2)
             mmm(1.0, kpt.P, 'N', P2, 'C', 1.0, H, symmetric=True)
             ham.xc.correct_hamiltonian_matrix(kpt, H.array)
+            print(H.array)
 
         with wfs.timer('diagonalize'):
             slcomm, r, c, b = wfs.scalapack_parameters

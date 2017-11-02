@@ -273,7 +273,7 @@ class KPointDescriptor:
         kd.set_communicator(comm)
         return kd
 
-    def create_k_points(self, gd):
+    def create_k_points(self, gd, collinear):
         """Return a list of KPoints."""
 
         sdisp_cd = gd.sdisp_cd
@@ -289,6 +289,8 @@ class KPointDescriptor:
             else:
                 phase_cd = np.exp(2j * np.pi *
                                   sdisp_cd * self.ibzk_kc[k, :, np.newaxis])
+            if not collinear:
+                s = None
             kpt_u.append(KPoint(weight, s, k, q, phase_cd))
 
         return kpt_u

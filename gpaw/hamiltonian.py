@@ -4,6 +4,8 @@
 
 """This module defines a Hamiltonian."""
 
+import functools
+
 import numpy as np
 from ase.units import Ha
 
@@ -22,17 +24,22 @@ ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
 
 
-class HamiltonianCorrections:
-    def __init__(self, ham):
-        self.ham = ham
-
-    def apply(self, P, out=None):
-        if out is None:
-            out = P.new()
-        for a, I1, I2 in P.indices:
-            dH_ii = unpack(self.ham.dH_asp[a][P.spin])
-            out.array[..., I1:I2] = np.dot(P.array[..., I1:I2], dH_ii)
-        return out
+def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
+    if out is None:
+        out = P.new()
+    for a, I1, I2 in P.indices:
+        if collinear:
+            dH_ii = unpack(dH_asp[a][P.spin])
+            out.array[:, I1:I2] = np.dot(P.array[:, I1:I2], dH_ii)
+        else:
+            dH_xp = dH_asp[a]
+            dH_ii = unpack(dH_xp[0])
+            dH_vii = [unpack(dH_p) for dH_p in dH_xp[1:]]
+            out.array[:, 0, I1:I2] = np.dot(P.array[:, 0, I1:I2],
+                                            dH_ii + dH_vii[2])
+            out.array[:, 1, I1:I2] = np.dot(P.array[:, 1, I1:I2],
+                                            dH_ii - dH_vii[2])
+    return out
 
 
 @frozen
@@ -85,7 +92,10 @@ class Hamiltonian:
         self.positions_set = False
         self.spos_ac = None
 
-        self.dH = HamiltonianCorrections(self)
+    @property
+    def dH(self):
+        return functools.partial(apply_non_local_hamilton,
+                                 self.dH_asp, self.collinear)
 
     def update_atomic_hamiltonians(self, value):
         if isinstance(value, dict):
@@ -261,7 +271,7 @@ class Hamiltonian:
                 e_xc += eU
                 dH_sp[:] = dHU_sp
 
-            dH_sp += dH_p
+            dH_sp[:self.nspins] += dH_p
             if self.ref_dH_asp:
                 dH_sp += self.ref_dH_asp[a]
 
@@ -272,7 +282,7 @@ class Hamiltonian:
         self.timer.stop('XC Correction')
 
         for a, D_sp in D_asp.items():
-            e_kinetic -= (D_sp * dH_asp[a]).sum()  # NCXXX
+            e_kinetic -= (D_sp[:self.nspins] * dH_asp[a][:self.nspins]).sum()  # NCXXX
 
         self.update_atomic_hamiltonians(self.atomdist.from_work(dH_asp))
         self.timer.stop('Atomic')

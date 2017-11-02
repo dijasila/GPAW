@@ -154,7 +154,7 @@ class Davidson(Eigensolver):
                 # <psi2 | H | psi2>
                 psit2.matrix_elements(operator=Ht, result=R, out=M,
                                       symmetric=True, cc=True)
-                ham.dH.apply(P2, out=P3)
+                ham.dH(P2, out=P3)
                 mmm(1.0, P2, 'N', P3, 'C', 1.0, M)#, symmetric=True)
                 copy(M, H_NN[B:, B:])
 

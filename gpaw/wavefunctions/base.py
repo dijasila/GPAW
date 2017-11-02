@@ -50,7 +50,7 @@ class WaveFunctions:
         self.timer = timer
         self.atom_partition = None
 
-        self.mykpts = kd.create_k_points(self.gd)
+        self.mykpts = kd.create_k_points(self.gd, collinear)
 
         self.eigensolver = None
         self.positions_set = False
@@ -223,7 +223,7 @@ class WaveFunctions:
         else:
             nproj_a = [setup.ni for setup in self.setups]
             rank_a = self.atom_partition.rank_a
-            for kpt in self.kpt_u:
+            for kpt in self.mykpts:
                 kpt.P = Projections(
                     self.bd.nbands, nproj_a,
                     self.gd.comm, self.bd.comm, rank_a,
