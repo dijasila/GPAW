@@ -617,6 +617,9 @@ class GPAW(PAW, Calculator):
 
         self.create_symmetry(magmom_av, cell_cv)
 
+        if not collinear:
+            nbands *= 2
+
         if not self.wfs:
             self.create_wave_functions(mode, realspace,
                                        nspins, collinear, nbands, nao,

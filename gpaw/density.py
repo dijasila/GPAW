@@ -4,7 +4,6 @@
 
 """This module defines a density class."""
 
-from __future__ import print_function
 from math import pi, sqrt
 
 import numpy as np
@@ -229,7 +228,7 @@ class Density:
             if pseudo_charge != 0:
                 x = (self.background_charge.charge - self.charge -
                      comp_charge) / pseudo_charge
-                self.nt_sG *= x
+                self.nt_xG *= x
             else:
                 # Use homogeneous background:
                 volume = self.gd.get_size_of_global_array().prod() * self.gd.dv
@@ -261,7 +260,7 @@ class Density:
 
         self.Q_aL = ArrayDict(Ddist_asp.partition, shape)
         for a, D_sp in Ddist_asp.items():
-            Q_L = self.Q_aL[a] = np.dot(D_sp.sum(0),
+            Q_L = self.Q_aL[a] = np.dot(D_sp[:self.nspins].sum(0),
                                         self.setups[a].Delta_pL)
             Q_L[0] += self.setups[a].Delta0
             comp_charge += Q_L[0]

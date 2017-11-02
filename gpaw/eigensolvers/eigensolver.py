@@ -159,7 +159,6 @@ class Eigensolver:
             ham.dH(kpt.P, out=P2)
             mmm(1.0, kpt.P, 'N', P2, 'C', 1.0, H, symmetric=True)
             ham.xc.correct_hamiltonian_matrix(kpt, H.array)
-            print(H.array)
 
         with wfs.timer('diagonalize'):
             slcomm, r, c, b = wfs.scalapack_parameters

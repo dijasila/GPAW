@@ -360,7 +360,7 @@ class FDPWWaveFunctions(WaveFunctions):
         hamiltonian.update(density)
 
         if self.mykpts[0].psit is None:
-            if self.collinear:
+            if 1:#self.collinear:
                 nlcao = self.initialize_wave_functions_from_basis_functions(
                     basis_functions, density, hamiltonian, spos_ac)
             else:
@@ -398,7 +398,12 @@ class FDPWWaveFunctions(WaveFunctions):
         lcaowfs.set_positions(spos_ac, self.atom_partition)
         self.timer.stop('Set positions (LCAO WFS)')
 
-        eigensolver = DirectLCAO()
+        if self.collinear:
+            eigensolver = DirectLCAO()
+        else:
+            from gpaw.xc.noncollinear import NonCollinearLCAOEigensolver
+            eigensolver = NonCollinearLCAOEigensolver()
+
         eigensolver.initialize(self.gd, self.dtype, self.setups.nao, lcaoksl)
 
         # XXX when density matrix is properly distributed, be sure to
