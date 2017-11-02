@@ -175,11 +175,15 @@ class Davidson(Eigensolver):
                     if debug:
                         H_NN[np.triu_indices(2 * B, 1)] = 42.0
                         S_NN[np.triu_indices(2 * B, 1)] = 42.0
-                    from scipy.linalg import eigh
-                    eps_N, H_NN[:] = eigh(H_NN, S_NN,
-                                          lower=True,
-                                          check_finite=debug)
-                # general_diagonalize(H_NN, eps_N, S_NN)
+                    if 0:
+                        from scipy.linalg import eigh
+                        eps_N, H_NN[:] = eigh(H_NN, S_NN,
+                                              lower=True,
+                                              check_finite=debug)
+                    else:
+                        from gpaw.utilities import general_diagonalize
+                        eps_N = np.empty(2 * B)
+                        general_diagonalize(H_NN, eps_N, S_NN)
 
             if comm.rank == 0:
                 bd.distribute(eps_N[:B], kpt.eps_n)
@@ -190,14 +194,14 @@ class Davidson(Eigensolver):
                     M0.array[:] = H_NN[:B, :B]
                     M0.redist(M)
                 comm.broadcast(M.array, 0)
-                mmm(1.0, M, 'T', psit, 'N', 0.0, R)
-                mmm(1.0, M, 'T', P, 'N', 0.0, P3)
+                mmm(1.0, M, 'N', psit, 'N', 0.0, R)
+                mmm(1.0, M, 'N', P, 'N', 0.0, P3)
                 if comm.rank == 0:
-                    M0.array[:] = H_NN[B:, :B]
+                    M0.array[:] = H_NN[:B, B:]
                     M0.redist(M)
                 comm.broadcast(M.array, 0)
-                mmm(1.0, M, 'T', psit2, 'N', 1.0, R)
-                mmm(1.0, M, 'T', P2, 'N', 1.0, P3)
+                mmm(1.0, M, 'N', psit2, 'N', 1.0, R)
+                mmm(1.0, M, 'N', P2, 'N', 1.0, P3)
                 psit[:] = R
                 P, P3 = P3, P
                 kpt.P = P
