@@ -10,6 +10,10 @@ Git master branch
 
 :git:`master <>`.
 
+* Broadcast imports (Python3 only): Master process broadcasts most module
+  files at import time to reduce file system overhead in parallel
+  calculations.
+
 * Command-line arguments for BLACS/ScaLAPACK
   have been
   removed in favour of the :ref:`parallel keyword
