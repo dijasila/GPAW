@@ -181,7 +181,7 @@ class Davidson(Eigensolver):
                                               lower=True,
                                               check_finite=debug)
                     else:
-                        from gpaw.utilities import general_diagonalize
+                        from gpaw.utilities.lapack import general_diagonalize
                         eps_N = np.empty(2 * B)
                         general_diagonalize(H_NN, eps_N, S_NN)
 
