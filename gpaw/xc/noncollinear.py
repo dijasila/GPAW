@@ -66,12 +66,13 @@ class NonCollinearLCAOEigensolver(DirectLCAO):
         H2_MM[:M, :M] = H_xMM[0] + H_xMM[3]
         H2_MM[M:, M:] = H_xMM[0] - H_xMM[3]
 
-        kpt.eps_n = np.empty(wfs.bd.mynbands * 2)
-        kpt.C_nM = np.empty((wfs.bd.mynbands, 2 * M), complex)
+        kpt.eps_n = np.empty(2 * wfs.bd.mynbands)
 
         diagonalization_string = repr(self.diagonalizer)
         wfs.timer.start(diagonalization_string)
-        print(H2_MM, S2_MM, kpt.eps_n, kpt.C_nM)
-        self.diagonalizer.diagonalize(H2_MM, kpt.C_nM, kpt.eps_n, S2_MM)
-        print(H2_MM, S2_MM, kpt.eps_n, kpt.C_nM);asdf
+        from gpaw.utilities.lapack import general_diagonalize
+        general_diagonalize(H2_MM, kpt.eps_n, S2_MM)
+        kpt.C_nM = H2_MM
+        #self.diagonalizer.diagonalize(H2_MM, kpt.C_nM, kpt.eps_n, S2_MM)
         wfs.timer.stop(diagonalization_string)
+        kpt.C_nM.shape = (wfs.bd.mynbands * 4, M)

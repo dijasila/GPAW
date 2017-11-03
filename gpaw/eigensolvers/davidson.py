@@ -120,14 +120,10 @@ class Davidson(Eigensolver):
             if nit == self.niter - 1:
                 error = np.dot(weights, [integrate(R_G) for R_G in R.array])
 
-            shape = psit.array.shape
-            if not wfs.collinear:
-                shape = (-1,) + shape[2:]
-            for psit_G, R_G, psit2_G in zip(psit.array.reshape(shape),
-                                            R.array.reshape(shape),
-                                            psit2.array.reshape(shape)):
+            for psit_G, R_G, psit2_G in zip(psit.array, R.array, psit2.array):
                 pre = self.preconditioner
                 ekin = pre.calculate_kinetic_energy(psit_G, kpt)
+                print(ekin, psit_G.shape)
                 psit2_G[:] = pre(R_G, kpt, ekin)
 
             if 0:#self.normalize:

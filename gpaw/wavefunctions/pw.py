@@ -482,8 +482,8 @@ class Preconditioner:
         if psit_xG.ndim == 1:
             return self.calculate_kinetic_energy(psit_xG[np.newaxis], kpt)[0]
         G2_G = self.G2_qG[kpt.q]
-        return [self.pd.integrate(0.5 * G2_G * psit_G, psit_G)
-                for psit_G in psit_xG]
+        return np.array([self.pd.integrate(0.5 * G2_G * psit_G, psit_G)
+                         for psit_G in psit_xG])
 
     def __call__(self, R_xG, kpt, ekin_x):
         if R_xG.ndim == 1:
@@ -495,6 +495,17 @@ class Preconditioner:
             a_G = 27.0 + x_G * (18.0 + x_G * (12.0 + x_G * 8.0))
             PR_G[:] = -4.0 / 3 / ekin * R_G * a_G / (a_G + 16.0 * x_G**4)
         return PR_xG
+
+
+class NonCollinearPreconditioner(Preconditioner):
+    def calculate_kinetic_energy(self, psit_xsG, kpt):
+        shape = psit_xsG.shape
+        ekin_xs = Preconditioner.calculate_kinetic_energy(
+            self, psit_xsG.reshape((-1, shape[-1])), kpt)
+        return ekin_xs.reshape(shape[:-1]).sum(-1)
+
+    def __call__(self, R_sG, kpt, ekin):
+        return Preconditioner.__call__(self, R_sG, kpt, [ekin, ekin]).sum(0)
 
 
 class PWWaveFunctions(FDPWWaveFunctions):
@@ -580,7 +591,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return s + FDPWWaveFunctions.__str__(self)
 
     def make_preconditioner(self, block=1):
-        return Preconditioner(self.pd.G2_qG, self.pd)
+        if self.collinear:
+            return Preconditioner(self.pd.G2_qG, self.pd)
+        return NonCollinearPreconditioner(self.pd.G2_qG, self.pd)
 
     def apply_pseudo_hamiltonian(self, kpt, ham, psit_xG, Htpsit_xG):
         """Apply the non-pseudo Hamiltonian i.e. without PAW corrections."""
@@ -922,12 +935,13 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         return nbands
 
-    def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
+    def initialize_from_lcao_coefficients(self, basis_functions):
         N_c = self.gd.N_c
 
-        psit_nR = self.gd.empty(mynbands, self.dtype)
+        N = len(self.mykpts[0].C_nM)
+        psit_nR = self.gd.empty(N, self.dtype)
 
-        for kpt in self.kpt_u:
+        for kpt in self.mykpts:
             if self.kd.gamma:
                 emikr_R = 1.0
             else:
@@ -937,18 +951,19 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
             psit_nR[:] = 0.0
             basis_functions.lcao_to_grid(kpt.C_nM, psit_nR, kpt.q)
-            print(kpt.C_nM.shape, kpt.C_nM)
-            print(psit_nR.shape)
             kpt.C_nM = None
 
             kpt.psit = PlaneWaveExpansionWaveFunctions(
                 self.bd.nbands, self.pd, self.dtype, kpt=kpt.q,
                 dist=(self.bd.comm, -1, 1),
                 spin=kpt.s, collinear=self.collinear)
-            for n in range(mynbands):
-                kpt.psit_nG[n] = self.pd.fft(psit_nR[n] * emikr_R, kpt.q)
-        asdf
+
+            for psit_G, psit_R in zip(kpt.psit.array.reshape((N, -1)),
+                                      psit_nR):
+                psit_G[:] = self.pd.fft(psit_R * emikr_R, kpt.q)
+
     def random_wave_functions(self, mynao):
+        detsdfgsdf
         rs = np.random.RandomState(self.world.rank)
         for kpt in self.kpt_u:
             if kpt.psit is None:
@@ -1550,6 +1565,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         eext = 0.0
 
+        print([self.epot, self.ebar, eext, self.exc])
         return np.array([self.epot, self.ebar, eext, self.exc])
 
     def calculate_atomic_hamiltonians(self, density):

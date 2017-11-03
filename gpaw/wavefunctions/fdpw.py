@@ -419,12 +419,10 @@ class FDPWWaveFunctions(WaveFunctions):
         # and get rid of potentially big arrays early:
         del eigensolver, lcaowfs
 
-        self.timer.start('LCAO to grid')
-        self.initialize_from_lcao_coefficients(basis_functions,
-                                               lcaobd.mynbands)
-        self.timer.stop('LCAO to grid')
+        with self.timer('LCAO to grid'):
+            self.initialize_from_lcao_coefficients(basis_functions)
 
-        if self.bd.mynbands > lcaobd.mynbands:
+        if self.collinear and self.bd.mynbands > lcaobd.mynbands:
             # Add extra states.  If the number of atomic orbitals is
             # less than the desired number of bands, then extra random
             # wave functions are added.

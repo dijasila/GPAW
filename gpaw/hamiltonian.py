@@ -282,7 +282,7 @@ class Hamiltonian:
         self.timer.stop('XC Correction')
 
         for a, D_sp in D_asp.items():
-            e_kinetic -= (D_sp[:self.nspins] * dH_asp[a][:self.nspins]).sum()  # NCXXX
+            e_kinetic -= (D_sp * dH_asp[a]).sum()  # NCXXX
 
         self.update_atomic_hamiltonians(self.atomdist.from_work(dH_asp))
         self.timer.stop('Atomic')
