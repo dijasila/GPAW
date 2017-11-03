@@ -270,9 +270,7 @@ class SpinChargeResponseFunction:
                     K_GG = np.diag(Ktrunc_G / Kbare_G)
             else:
                 K_GG = np.eye(nG, dtype=complex)
-        elif response == 'spin':
-            nG = len(chi0_wGG[0,0])
-        
+                
         
         if pd.kd.gamma:
             if isinstance(direction, str):
@@ -294,8 +292,7 @@ class SpinChargeResponseFunction:
                                     chi0_wGG=chi0_wGG)
             if response == 'density':
                 K_GG += Kxc_sGG[0] / vsqr_G / vsqr_G[:, np.newaxis]
-            elif response == 'spin':
-                K_GG = Kxc_sGG # REMARK: kernal for spin reponse not yet implemented
+            # REMARK: kernal for spin reponse not yet implemented
         elif response == 'spin': # Spin response in RPA is chi0
             chi_wGG = chi0_wGG
             return pd, chi0_wGG, chi_wGG
@@ -313,9 +310,7 @@ class SpinChargeResponseFunction:
                     chi0_GG /= vsqr_G * vsqr_G[:, np.newaxis]
                     chi_GG /= vsqr_G * vsqr_G[:, np.newaxis]
             elif response == 'spin':
-                chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
-                                              np.dot(chi0_GG, K_GG)),
-                                chi0_GG)
+                raise Exception('Currently only RPA implemented for spin response')
             chi_wGG.append(chi_GG)
 
         return pd, chi0_wGG, np.array(chi_wGG)
