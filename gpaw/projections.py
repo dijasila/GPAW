@@ -33,9 +33,16 @@ class Projections:
         self.matrix = Matrix(nbands, I1, dtype, dist=(bcomm, bcomm.size, 1))
 
         if collinear:
-            self.array = self.matrix.array
+            self.myshape = self.matrix.array.shape
         else:
-            self.array = self.matrix.array.reshape((-1, 2, I1 // 2))
+            self.myshape = (len(self.matrix.array), 2, I1 // 2)
+
+    @property
+    def array(self):
+        if self.collinear:
+            return self.matrix.array
+        else:
+            return self.matrix.array.reshape(self.myshape)
 
     def new(self, bcomm='inherit', nbands=None, rank_a=None):
         if bcomm == 'inherit':

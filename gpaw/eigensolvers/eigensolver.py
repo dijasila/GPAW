@@ -106,8 +106,8 @@ class Eigensolver:
         ham.dH(P, out=C)
         for a, I1, I2 in P.indices:
             dS_ii = ham.setups[a].dO_ii
-            C.matrix.array[:, I1:I2] -= np.dot(P.matrix.array[:, I1:I2] *
-                                               eps_n[:, np.newaxis], dS_ii)
+            C.array[..., I1:I2] -= np.dot((P.array[..., I1:I2].T * eps_n).T,
+                                          dS_ii)
 
         ham.xc.add_correction(kpt, psit.array, R.array,
                               {a: P_ni for a, P_ni in P.items()},

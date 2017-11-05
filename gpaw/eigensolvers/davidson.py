@@ -123,7 +123,6 @@ class Davidson(Eigensolver):
             for psit_G, R_G, psit2_G in zip(psit.array, R.array, psit2.array):
                 pre = self.preconditioner
                 ekin = pre.calculate_kinetic_energy(psit_G, kpt)
-                print(ekin, psit_G.shape)
                 psit2_G[:] = pre(R_G, kpt, ekin)
 
             if 0:#self.normalize:
@@ -178,9 +177,12 @@ class Davidson(Eigensolver):
                         H_NN[np.triu_indices(2 * B, 1)] = 42.0
                         S_NN[np.triu_indices(2 * B, 1)] = 42.0
                     from scipy.linalg import eigh
+                    #print(S_NN)
+                    #print(H_NN)
                     eps_N, H_NN[:] = eigh(H_NN, S_NN,
                                           lower=True,
                                           check_finite=debug)
+                    #print(eps_N);asdg
                 # general_diagonalize(H_NN, eps_N, S_NN)
 
             if comm.rank == 0:
