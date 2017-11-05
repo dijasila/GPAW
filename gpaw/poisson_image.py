@@ -4,11 +4,9 @@ from gpaw.dipole_correction import dipole_correction
 from gpaw.utilities.timing import nulltimer
 
 # TODO
-# 1. Documentation
-# 2. Working examples (there is a test already)
-# 3. 'right' gives very wrong results, why? implicit zero of omitted first array
+# 1. 'right' gives very wrong results, why? implicit zero of omitted first array
 #    element?
-# 4. allow arbitrary directions?
+# 2. allow arbitrary directions?
 
 class ImagePoissonSolver(EPS):
     """ Extended Poisson solver with image/mirror charges

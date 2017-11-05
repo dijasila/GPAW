@@ -116,3 +116,20 @@ scratch.
    When extended grid is in use, the implementation neglects the ``phi``
    parameter given to the ``solver.solve()`` due to its incompatibility
    with the extended grid.
+
+
+Image charges
+-------------
+
+The standard Poisson solvers do not allow for charged systems and mixed boundary
+conditions, as can be found for example in charged slab calculations. In this
+case one can use the ``ImagePoissonSolver``, which creates a perfect absorber
+in the z=0 plane. This is achieved by extending the grid for the Poisson solver
+and creating image charges for z < 0, such that the total charge is zero and the
+potential at z= 0 is zero. The solver can be set up as follows::
+
+  from gpaw.poisson_image import ImagePoissonSolver
+  poissonsolver=ImagePoissonSolver(direction=2, side='left')
+
+Currently, the non-periodic direction needs to be z and only orthorhombic cells
+are supported.
