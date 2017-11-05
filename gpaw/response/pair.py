@@ -903,7 +903,6 @@ class PairDensity:
                 K1 = K_k[0]
                 # In this way wavefunctions are only loaded into
                 # memory for this particular set of kpoints
-
                 kptpair = self.get_kpoint_pair(pd, s, K1, n1, n2, m1, m2)
                 kpt1 = kptpair.get_k1()  # kpt1 = k
 
@@ -1037,14 +1036,6 @@ class PairDensity:
         q_c = pd.kd.bzk_kc[0]
         with self.timer('get k-points'):
             kpt1 = self.get_k_point(s, k_c, n1, n2, load_wfs=load_wfs)
-            if hasattr(self.calc.wfs.kd, 'refine_info'):
-                # Small hack: If we're using grid refinement, and the q is tiny
-                # then we can pretend q = 0 for the coarse grid... it's an
-                # approximation...
-                K = self.find_kpoint(k_c)
-                if (self.calc.wfs.kd.refine_info.almostoptical and
-                    self.calc.wfs.kd.refine_info.label_k[K] == 'mh'):
-                    q_c = np.array([0., 0., 0.])
             # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
             kpt2 = self.get_k_point(s, k_c + q_c, m1, m2,
                                     load_wfs=load_wfs, block=block)

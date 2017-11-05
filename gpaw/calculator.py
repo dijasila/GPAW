@@ -8,7 +8,6 @@ from ase.utils import basestring, plural
 from ase.utils.timing import Timer
 
 import gpaw
-
 import gpaw.mpi as mpi
 import gpaw.wavefunctions.pw as pw
 from gpaw import dry_run, memory_estimate_depth
