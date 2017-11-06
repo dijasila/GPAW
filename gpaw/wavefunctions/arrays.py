@@ -172,7 +172,9 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
 
     @property
     def array(self):
-        if self.dtype == float and isinstance(self.matrix, Matrix):
+        if not self.in_memory:
+            return self.matrix.array
+        elif self.dtype == float:
             return self.matrix.array.view(complex)
         else:
             return self.matrix.array.reshape(self.myshape)
