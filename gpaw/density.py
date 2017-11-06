@@ -238,9 +238,7 @@ class Density:
 
     def mix(self, comp_charge):
         assert isinstance(self.mixer, MixerWrapper), self.mixer
-        self.error = self.mixer.mix(self.nt_xG, {a: D_sp[:]
-                                                 for a, D_sp
-                                                 in self.D_asp.items()})
+        self.error = self.mixer.mix(self.nt_xG, self.D_asp)
         assert self.error is not None, self.mixer
 
         comp_charge = None

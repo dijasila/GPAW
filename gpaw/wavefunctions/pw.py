@@ -630,7 +630,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 p12 = p1.conj() * p2
                 nt_xR[0] += f * (p11 + p22)
                 nt_xR[1] += 2 * f * p12.real
-                nt_xR[3] += 2 * f * p12.imag
+                nt_xR[2] += 2 * f * p12.imag
                 nt_xR[3] += f * (p11 - p22)
 
     def calculate_kinetic_energy_density(self):

@@ -35,10 +35,14 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
             dH_xp = dH_asp[a]
             dH_ii = unpack(dH_xp[0])
             dH_vii = [unpack(dH_p) for dH_p in dH_xp[1:]]
-            out.array[:, 0, I1:I2] = np.dot(P.array[:, 0, I1:I2],
-                                            dH_ii + dH_vii[2])
-            out.array[:, 1, I1:I2] = np.dot(P.array[:, 1, I1:I2],
-                                            dH_ii - dH_vii[2])
+            out.array[:, 0, I1:I2] = (np.dot(P.array[:, 0, I1:I2],
+                                             dH_ii + dH_vii[2]) +
+                                      np.dot(P.array[:, 1, I1:I2],
+                                             dH_vii[0] - 1j * dH_vii[1]))
+            out.array[:, 1, I1:I2] = (np.dot(P.array[:, 1, I1:I2],
+                                             dH_ii - dH_vii[2]) +
+                                      np.dot(P.array[:, 0, I1:I2],
+                                             dH_vii[0] + 1j * dH_vii[1]))
     return out
 
 
