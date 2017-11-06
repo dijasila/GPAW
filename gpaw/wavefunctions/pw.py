@@ -958,7 +958,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 dist=(self.bd.comm, -1, 1),
                 spin=kpt.s, collinear=self.collinear)
 
-            for psit_G, psit_R in zip(kpt.psit.array.reshape((N, -1)),
+            psit_nG = kpt.psit.array
+            for psit_G, psit_R in zip(psit_nG.reshape((-1, psit_nG.shape[-1])),
                                       psit_nR):
                 psit_G[:] = self.pd.fft(psit_R * emikr_R, kpt.q)
 
