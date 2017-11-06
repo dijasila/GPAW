@@ -238,7 +238,9 @@ class Density:
 
     def mix(self, comp_charge):
         assert isinstance(self.mixer, MixerWrapper), self.mixer
-        self.error = self.mixer.mix(self.nt_sG, self.D_asp)
+        self.error = self.mixer.mix(self.nt_xG, {a: D_sp[:]
+                                                 for a, D_sp
+                                                 in self.D_asp.items()})
         assert self.error is not None, self.mixer
 
         comp_charge = None
@@ -362,12 +364,14 @@ class Density:
     def set_mixer(self, mixer):
         if mixer is None:
             mixer = {}
+        ns = self.ncomponents**2 * self.nspins
         if isinstance(mixer, dict):
-            mixer = get_mixer_from_keywords(self.gd.pbc_c.any(), self.nspins,
+            mixer = get_mixer_from_keywords(self.gd.pbc_c.any(),
+                                            ns,
                                             **mixer)
         if not hasattr(mixer, 'mix'):
             raise ValueError('Not a mixer: %s' % mixer)
-        self.mixer = MixerWrapper(mixer, self.nspins, self.gd)
+        self.mixer = MixerWrapper(mixer, ns , self.gd)
 
     def estimate_magnetic_moments(self):
         magmom_a = np.zeros_like(self.magmom_av[:, 0])

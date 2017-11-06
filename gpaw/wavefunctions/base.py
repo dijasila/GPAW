@@ -128,10 +128,10 @@ class WaveFunctions:
                 P_nsi = kpt.P[a]
                 D_ssii = np.einsum('nsi,n,nzj->szij',
                                    P_nsi.conj(), f_n, P_nsi)
-                D_sii[0] += (D_ssii[0, 0] + D_ssii[0, 0]).real
+                D_sii[0] += (D_ssii[0, 0] + D_ssii[1, 1]).real
                 D_sii[1] += 2 * D_ssii[0, 1].real
-                D_sii[1] += 2 * D_ssii[0, 1].imag
-                D_sii[3] += (D_ssii[0, 0] - D_ssii[0, 0]).real
+                D_sii[2] += 2 * D_ssii[0, 1].imag
+                D_sii[3] += (D_ssii[0, 0] - D_ssii[1, 1]).real
 
         if hasattr(kpt, 'c_on'):
             for ne, c_n in zip(kpt.ne_o, kpt.c_on):

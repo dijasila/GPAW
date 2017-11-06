@@ -1565,7 +1565,6 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         eext = 0.0
 
-        print([self.epot, self.ebar, eext, self.exc])
         return np.array([self.epot, self.ebar, eext, self.exc])
 
     def calculate_atomic_hamiltonians(self, density):
@@ -1577,7 +1576,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
     def calculate_kinetic_energy(self, density):
         ekin = 0.0
-        for vt_G, nt_G in zip(self.vt_sG, density.nt_sG):
+        for vt_G, nt_G in zip(self.vt_xG, density.nt_xG):
             ekin -= self.gd.integrate(vt_G, nt_G)
         ekin += self.gd.integrate(self.vt_sG, density.nct_G).sum()
         return ekin
