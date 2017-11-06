@@ -295,17 +295,18 @@ class GPAW(PAW, Calculator):
                      .format(*dipole_v))
             self.results['dipole'] = dipole_v
 
-            if self.wfs.nspins == 2:
-                magmom = self.occupations.magmom
-                magmom_a = self.density.estimate_magnetic_moments()
-                self.log('Total magnetic moment: %f' % magmom)
+            if self.wfs.nspins == 2 or not self.density.collinear:
+                totmom_v, magmom_av = self.density.estimate_magnetic_moments()
+                self.log('Total magnetic moment: ({:.6f}, {:.6f}, {:.6f})'
+                         .format(*totmom_v))
                 self.log('Local magnetic moments:')
                 symbols = self.atoms.get_chemical_symbols()
-                for a, mom in enumerate(magmom_a):
-                    self.log('{:4} {:2} {:.6f}'.format(a, symbols[a], mom))
+                for a, mom_v in enumerate(magmom_av):
+                    self.log('{:4} {:2} ({:.6f}, {:.6f}, {:.6f})'
+                             .format(a, symbols[a], *mom_v))
                 self.log()
                 self.results['magmom'] = self.occupations.magmom
-                self.results['magmoms'] = magmom_a
+                self.results['magmoms'] = magmom_av[:, 2].copy()
 
             self.summary()
 

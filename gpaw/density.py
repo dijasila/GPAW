@@ -369,15 +369,30 @@ class Density:
                                             **mixer)
         if not hasattr(mixer, 'mix'):
             raise ValueError('Not a mixer: %s' % mixer)
-        self.mixer = MixerWrapper(mixer, ns , self.gd)
+        self.mixer = MixerWrapper(mixer, ns, self.gd)
 
     def estimate_magnetic_moments(self):
-        magmom_a = np.zeros_like(self.magmom_av[:, 0])
+        magmom_av = np.zeros_like(self.magmom_av)
+        magmom_v = np.zeros(3)
         if self.nspins == 2:
             for a, D_sp in self.D_asp.items():
-                magmom_a[a] = np.dot(D_sp[0] - D_sp[1], self.setups[a].N0_p)
-            self.gd.comm.sum(magmom_a)
-        return magmom_a
+                M_p = D_sp[0] - D_sp[1]
+                magmom_av[a, 2] = np.dot(M_p, self.setups[a].N0_p)
+                magmom_v[2] += (np.dot(M_p, self.setups[a].Delta_pL[:, 0]) *
+                                sqrt(4 * pi))
+            self.gd.comm.sum(magmom_av)
+            self.gd.comm.sum(magmom_v)
+            magmom_v[2] += self.gd.integrate(self.nt_sG[0] - self.nt_sG[1])
+        elif not self.collinear:
+            for a, D_sp in self.D_asp.items():
+                magmom_av[a] = np.dot(D_sp[1:4], self.setups[a].N0_p)
+                magmom_v += (np.dot(D_sp[1:4], self.setups[a].Delta_pL[:, 0]) *
+                             sqrt(4 * pi))
+                self.gd.comm.sum(magmom_av)
+                self.gd.comm.sum(magmom_v)
+                magmom_v += self.gd.integrate(self.nt_vG)
+
+        return magmom_v, magmom_av
 
     def get_correction(self, a, spin):
         """Integrated atomic density correction.
