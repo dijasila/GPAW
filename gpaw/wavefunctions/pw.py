@@ -963,7 +963,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 psit_G[:] = self.pd.fft(psit_R * emikr_R, kpt.q)
 
     def random_wave_functions(self, mynao):
-        detsdfgsdf
         rs = np.random.RandomState(self.world.rank)
         for kpt in self.kpt_u:
             if kpt.psit is None:
