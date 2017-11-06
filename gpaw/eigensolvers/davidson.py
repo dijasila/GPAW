@@ -182,8 +182,6 @@ class Davidson(Eigensolver):
                     eps_N, H_NN[:] = eigh(H_NN, S_NN,
                                           lower=True,
                                           check_finite=debug)
-                    #print(eps_N);asdg
-                # general_diagonalize(H_NN, eps_N, S_NN)
 
             if comm.rank == 0:
                 bd.distribute(eps_N[:B], kpt.eps_n)
@@ -191,17 +189,17 @@ class Davidson(Eigensolver):
 
             with self.timer('rotate_psi'):
                 if comm.rank == 0:
-                    M0.array[:] = H_NN[:B, :B]
+                    M0.array[:] = H_NN[:B, :B].T
                     M0.redist(M)
                 comm.broadcast(M.array, 0)
-                mmm(1.0, M, 'T', psit, 'N', 0.0, R)
-                mmm(1.0, M, 'T', P, 'N', 0.0, P3)
+                mmm(1.0, M, 'N', psit, 'N', 0.0, R)
+                mmm(1.0, M, 'N', P, 'N', 0.0, P3)
                 if comm.rank == 0:
-                    M0.array[:] = H_NN[B:, :B]
+                    M0.array[:] = H_NN[B:, :B].T
                     M0.redist(M)
                 comm.broadcast(M.array, 0)
-                mmm(1.0, M, 'T', psit2, 'N', 1.0, R)
-                mmm(1.0, M, 'T', P2, 'N', 1.0, P3)
+                mmm(1.0, M, 'N', psit2, 'N', 1.0, R)
+                mmm(1.0, M, 'N', P2, 'N', 1.0, P3)
                 psit[:] = R
                 P, P3 = P3, P
                 kpt.P = P
