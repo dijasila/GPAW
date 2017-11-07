@@ -485,7 +485,7 @@ class GPAW(PAW, Calculator):
         magmom_a = atoms.get_initial_magnetic_moments()
 
         if par['experimental'].get('magmoms') is not None:
-            magmom_av = np.array(par['experimental']['magmoms'])
+            magmom_av = np.array(par['experimental']['magmoms'], float)
             collinear = False
         else:
             magmom_av = np.zeros((natoms, 3))

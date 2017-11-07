@@ -291,6 +291,7 @@ class KPointDescriptor:
                                   sdisp_cd * self.ibzk_kc[k, :, np.newaxis])
             if not collinear:
                 s = None
+                weight *= 0.5
             kpt_u.append(KPoint(weight, s, k, q, phase_cd))
 
         return kpt_u

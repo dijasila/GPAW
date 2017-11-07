@@ -505,7 +505,7 @@ class SmoothDistribution(ZeroKelvin):
         # XXX broadcast would be better!
         return wfs.kptband_comm.sum(fermilevel)
 
-    def find_fermi_level(self, wfs, ne, fermilevel, spins=(0, 1, None)):
+    def find_fermi_level(self, wfs, ne, fermilevel, spins={0, 1, None}):
         niter = 0
 
         x = self.fermilevel
