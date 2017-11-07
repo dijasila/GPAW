@@ -10,7 +10,7 @@ from gpaw.matrix import matrix_matrix_multiply as mmm
 
 class DummyArray:
     def __getitem__(self, x):
-        return np.nan
+        return np.empty((0, 0))
 
 
 class Davidson(Eigensolver):
