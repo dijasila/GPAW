@@ -505,7 +505,7 @@ class SmoothDistribution(ZeroKelvin):
         # XXX broadcast would be better!
         return wfs.kptband_comm.sum(fermilevel)
 
-    def find_fermi_level(self, wfs, ne, fermilevel, spins=(0, 1)):
+    def find_fermi_level(self, wfs, ne, fermilevel, spins=(0, 1, None)):
         niter = 0
 
         x = self.fermilevel
@@ -556,7 +556,7 @@ class FermiDirac(SmoothDistribution):
         y /= z
         y -= np.log(z)
         e_entropy = kpt.weight * y.sum() * self.width
-        sign = 1 - kpt.s * 2
+        sign = 1 - kpt.s * 2 if kpt.s is not None else 0.0
         return np.array([n, dnde, n * sign, e_entropy])
 
     def extrapolate_energy_to_zero_width(self, E):
