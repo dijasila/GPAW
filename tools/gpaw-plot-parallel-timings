@@ -99,8 +99,8 @@ class Entry:
 
 class EntryCollection:
     def __init__(self, entries):
-        #tstart = min([entry.t1 for entry in entries])
-        #tstop = max([entry.t2 for entry in entries])
+        # tstart = min([entry.t1 for entry in entries])
+        # tstop = max([entry.t2 for entry in entries])
 
         try:
             scf_cycle_starttimes = [entry.get_first_occurrence(opts.align).t1
@@ -116,15 +116,15 @@ class EntryCollection:
 
         for entry in entries:
             assert entry.level == -1
-            #start_time = entry.t1
+            # start_time = entry.t1
             sync_time = entry.t1
             for child in entry.iterate():
-                if child.name == 'SCF-cycle': # hardcoded name!
+                if child.name == 'SCF-cycle':  # hardcoded name!
                     sync_time = child.t1
                     break
             entry.normalize(sync_time - max_diff)
 
-            #entry.normalize(tstart, tstop)
+            # entry.normalize(tstart, tstop)
         self.entries = entries
         self.totals = self.get_totals()
 
@@ -156,12 +156,12 @@ def get_timings(fname):
                 assert name == head.name
                 head.stop(t)
                 head = head.parent
-        except StandardError: # guard against interrupted file I/O
+        except StandardError:  # guard against interrupted file I/O
             pass
-    while head != root: # If file is incomplete, cut remaining timers short
+    while head != root:  # If file is incomplete, cut remaining timers short
         head.stop(t)
         head = head.parent
-    #assert head == root
+    # assert head == root
     root.t1 = root.children[0].t1
     root.stop(root.children[-1].t2)
     return root
@@ -222,7 +222,7 @@ for rank, rootnode in enumerate(alltimings):
         dt = t2 - t1
         if child.name not in styles:
             if entries.totals[child.name] < opts.threshold:
-                #color, hatch = ('k', '')
+                # color, hatch = ('k', '')
                 continue
             else:
                 color, hatch = getstyle(nstyles_used)
@@ -263,8 +263,8 @@ if not opts.nolegend:
     nameax.set_xticks([])
 
     # Roughly 36 elements fit in the window.  For each 36, add another column
-    # Only two columns will fit.  People will have to maximize the thing if they
-    # have hundreds of different timers somehow.
+    # Only two columns will fit.  People will have to maximize the thing
+    # if they have hundreds of different timers somehow.
     ncolumns = 1 + len(ordered_names) // 36
 
     for name in ordered_names:
