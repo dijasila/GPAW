@@ -146,7 +146,7 @@ class Matrix:
             out = Matrix(M, N, self.dtype,
                          dist=(dist.comm, dist.rows, dist.columns))
         if alpha == 1.0 and beta == 0.0 and opa == 'N' and opb == 'N':
-            if dist.comm.size > 1 and len(self) % dist.comm.size == 0:
+            if dist.comm.size > 1:
                 return fastmmm(self, b, out)
 
         dist.multiply(alpha, self, opa, b, opb, beta, out, symmetric)
@@ -408,21 +408,32 @@ def create_distribution(M, N, comm=None, r=1, c=1, b=None):
 def fastmmm(m1, m2, m3):
     comm = m1.dist.comm
 
-    n = len(m1.array)
     buf1 = m2.array
-    buf2 = np.empty_like(buf1)
 
     beta = 0.0
 
-    for r in range(comm.size - 1):
-        rrank = (comm.rank + r + 1) % comm.size
-        srank = (comm.rank - r - 1) % comm.size
-        rrequest = comm.receive(buf2, rrank, 21, False)
-        srequest = comm.send(m2.array, srank, 21, False)
+    N = len(m1)
+    n = (N + comm.size - 1) // comm.size
 
-        n1 = (comm.rank + r) % comm.size * n
-        n2 = n1 + n
+    for r in range(comm.size):
+        if r == 0:
+            buf2 = np.empty_like(buf1)
+
+        if r < comm.rank - 1:
+            rrank = (comm.rank + r + 1) % comm.size
+            rn1 = min(rrank * n, N)
+            rn2 = min(rn1 + n, N)
+            rrequest = comm.receive(buf2[:rn2 - rn1], rrank, 21, False)
+            srank = (comm.rank - r - 1) % comm.size
+            srequest = comm.send(m2.array, srank, 21, False)
+
+        r0 = (comm.rank + r) % comm.size
+        n1 = min(r0 * n, N)
+        n2 = min(n1 + n, N)
         blas.mmm(1.0, m1.array[:, n1:n2], 'N', buf1, 'N', beta, m3.array)
+
+        if r == comm.rank - 1:
+            break
 
         beta = 1.0
 
@@ -433,9 +444,5 @@ def fastmmm(m1, m2, m3):
 
         comm.wait(rrequest)
         comm.wait(srequest)
-
-    n1 = rrank * n
-    n2 = n1 + n
-    blas.mmm(1.0, m1.array[:, n1:n2], 'N', buf1, 'N', beta, m3.array)
 
     return m3
