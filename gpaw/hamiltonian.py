@@ -282,7 +282,8 @@ class Hamiltonian:
         self.timer.start('XC Correction')
         for a, D_sp in D_asp.items():
             e_xc += self.xc.calculate_paw_correction(self.setups[a], D_sp,
-                                                     dH_asp[a], a=a)
+                                                     dH_asp[a], a=a,
+                                                     collinear=self.collinear)
         self.timer.stop('XC Correction')
 
         for a, D_sp in D_asp.items():
