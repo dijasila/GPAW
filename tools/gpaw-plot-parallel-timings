@@ -287,7 +287,7 @@ if not opts.nointeractive:
 
     # Create interactive axes
     iax = fig.add_axes((p.left, p.top, p.right - p.left, 1 - p.top),
-                       axisbg=fig.get_facecolor())
+                       facecolor=fig.get_facecolor())
     ibg = iax.patch
     for s in iax.get_children():
         if s != ibg:
@@ -311,8 +311,13 @@ if not opts.nointeractive:
         # but it'll be very slow
         iax.draw_artist(ibg)
         iax.draw_artist(itext)
-        fig.canvas.update()
-        fig.canvas.flush_events()
+
+        canvas = fig.canvas
+        if hasattr(canvas, 'update'):
+            canvas.update()  # matplotlib 0.x
+        else:
+            canvas.draw()  # matplotlib 2.x
+        canvas.flush_events()
 
     fig.canvas.mpl_connect('button_press_event', print_name_event)
 
