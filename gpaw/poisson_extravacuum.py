@@ -46,10 +46,10 @@ class ExtraVacuumPoissonSolver:
             # 1.1. Construct coarse chain on the small grid
             self.coarser_i = []
             gd = self.gd_small_fine
-            N_c = self.N_large_fine_c
+            N_c = self.N_large_fine_c.copy()
             for i in range(self.Ncoar):
                 gd2 = gd.coarsen()
-                self.coarser_i[i].append(Transformer(gd, gd2, self.nn_coarse))
+                self.coarser_i.append(Transformer(gd, gd2, self.nn_coarse))
                 N_c /= 2
                 gd = gd2
             self.gd_small_coar = gd
@@ -60,7 +60,7 @@ class ExtraVacuumPoissonSolver:
         # 1.2. Construct coarse extended grid
         self.gd_large_coar, _, _ = extended_grid_descriptor(self.gd_small_coar, N_c=N_c)
 
-        # Initialize poisson solvers
+        # Initialize poissonsolvers
         self.ps_large_coar.set_grid_descriptor(self.gd_large_coar)
         if not self.use_coarse:
             return
@@ -69,12 +69,17 @@ class ExtraVacuumPoissonSolver:
         if self.use_aux_grid:
             # 2.1. Construct an auxiliary grid that is the small grid plus
             # a buffer region allowing Laplace and refining with the used stencils
-            buf = self.nn_refine ** self.Ncoar * self.nn_laplace
+            buf = self.nn_refine
+            for i in range(self.Ncoar):
+                buf = 2 * buf + self.nn_refine
+            buf += self.nn_laplace
+            div = 2**self.Ncoar
+            if buf % div != 0:
+                buf += div - buf % div
             N_c = self.gd_small_fine.N_c + 2 * buf
-            div = 2 ** self.Ncoar
-            for c, N in enumerate(N_c):
-                if N % div != 0:
-                    N_c[c] += div - N % div
+            if np.any(N_c > self.N_large_fine_c):
+                self.use_aux_grid = False
+                N_c = self.N_large_fine_c
             self.gd_aux_fine, _, _ = extended_grid_descriptor(self.gd_small_fine, N_c=N_c)
         else:
             self.gd_aux_fine, _, _ = extended_grid_descriptor(self.gd_small_fine, N_c=self.N_large_fine_c)
@@ -85,25 +90,29 @@ class ExtraVacuumPoissonSolver:
         # 2.3 Construct refine chain
         self.refiner_i = []
         gd = self.gd_aux_fine
-        N_c = gd.N_c
+        N_c = gd.N_c.copy()
         for i in range(self.Ncoar):
             gd2 = gd.coarsen()
-            self.refiner_i[i].append(Transformer(gd2, gd, self.nn_refine))
+            self.refiner_i.append(Transformer(gd2, gd, self.nn_refine))
             N_c /= 2
             gd = gd2
+        self.refiner_i = self.refiner_i[::-1]
         self.gd_aux_coar = gd
 
         if self.use_aux_grid:
             # 2.4 Construct large coarse grid from aux grid
             self.gd_large_coar_from_aux, _, _ = extended_grid_descriptor(self.gd_aux_coar, N_c=self.gd_large_coar.N_c)
-            assert np.all(self.gd_large_coar_from_aux.Nc == self.gd_large_coar.Nc) and np.all(self.gd_large_coar_from_aux.h_cv == self.gd_large_coar.h_cv)
+            assert np.all(self.gd_large_coar_from_aux.N_c == self.gd_large_coar.N_c) and np.all(self.gd_large_coar_from_aux.h_cv == self.gd_large_coar.h_cv)
 
     def initialize(self):
-        self.ps_small_fine.initialize(self.gd_small_fine)
-        self.ps_large_coar.initialize(self.gd_large_coar)
-
         # Allocate arrays
         self.phi_large_coar_g = self.gd_large_coar.zeros()
+
+        # Initialize poissonsolvers
+        self.ps_large_coar.initialize(self.gd_large_coar)
+        if not self.use_coarse:
+            return
+        self.ps_small_fine.initialize(self.gd_small_fine)
 
     def solve(self, phi, rho, **kwargs):
         phi_small_fine_g = phi
@@ -115,6 +124,8 @@ class ExtraVacuumPoissonSolver:
             for coarser in self.coarser_i:
                 tmp_g = coarser.apply(tmp_g)
             rho_small_coar_g = tmp_g
+        else:
+            rho_small_coar_g = rho_small_fine_g
 
         # 1.2. Extend rho to the large grid
         rho_large_coar_g = self.gd_large_coar.zeros()
@@ -124,7 +135,7 @@ class ExtraVacuumPoissonSolver:
         niter_large = self.ps_large_coar.solve(self.phi_large_coar_g, rho_large_coar_g, **kwargs)
 
         if not self.use_coarse:
-            deextend_array(self.gd_small_fine, self.gd_large_coar, self.phi_large_coar_g, phi_small_fine_g)
+            deextend_array(self.gd_small_fine, self.gd_large_coar, phi_small_fine_g, self.phi_large_coar_g)
             return niter_large
 
         if self.use_aux_grid:
@@ -138,7 +149,7 @@ class ExtraVacuumPoissonSolver:
         tmp_g = phi_aux_coar_g
         for refiner in self.refiner_i:
             tmp_g = refiner.apply(tmp_g)
-        phi_aux_fine = tmp_g
+        phi_aux_fine_g = tmp_g
 
         # 3.2 Calculate the corresponding density with Laplace
         # (the refined coarse density would not accurately match with the potential)
