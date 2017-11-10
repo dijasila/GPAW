@@ -1,5 +1,8 @@
 import numpy as np
 
+from ase.units import Bohr
+from ase.geometry import cell_to_cellpar
+
 from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace
 
@@ -16,8 +19,7 @@ class ExtraVacuumPoissonSolver:
                  nn_coarse=3, nn_refine=3, nn_laplace=3,
                  use_aux_grid=True):
         # TODO: Alternative options: vacuum size and h
-        # Multiply gpts by 2 to get gpts on fine grid
-        self.N_large_fine_c = np.array(gpts, dtype=int) * 2
+        self.N_large_fine_c = np.array(gpts, dtype=int)
         self.Ncoar = coarses  # coar == coarse
         if self.Ncoar > 0:
             self.use_coarse = True
@@ -180,12 +182,39 @@ class ExtraVacuumPoissonSolver:
         return
 
     def get_description(self):
-        lines = ['%s' % (self.__class__.__name__)]
+        line = '%s with ' % self.__class__.__name__
+        if self.use_coarse:
+            line += 'large and small grids'
+        else:
+            line += 'large grid'
+        lines = [line]
+
+        def add_line(line, pad=0):
+            lines.extend(['%s%s' % (' ' * pad, line)])
+
+        def get_cell(ps):
+            descr = ps.get_description().replace('\n', '\n%s' % (' ' * 8))
+            add_line('Poisson solver: %s' % descr, 8)
+            if hasattr(ps, 'gd'):
+                gd = ps.gd
+                par = cell_to_cellpar(gd.cell_cv * Bohr)
+                add_line('Grid: {:8d} x {:8d} x {:8d} points'.format(*gd.N_c), 8)
+                add_line('      {:8.2f} x {:8.2f} x {:8.2f} AA'.format(*par[:3]), 8)
+                h_eff = gd.dv**(1.0 / 3.0) * Bohr
+                add_line('      Effective grid spacing dv^(1/3) = {:.4f}'.format(h_eff), 8)
+
+        add_line('Large grid:', 4)
+        get_cell(self.ps_large_coar)
+
+        if self.use_coarse:
+            add_line('Small grid:', 4)
+            get_cell(self.ps_small_fine)
+
         return '\n'.join(lines)
 
     def todict(self):
         d = {'name': self.__class__.__name__}
-        d['gpts'] = self.N_large_fine_c / 2
+        d['gpts'] = self.N_large_fine_c
         d['coarses'] = self.Ncoar
         d['nn_coarse'] = self.nn_coarse
         d['nn_refine'] = self.nn_refine
