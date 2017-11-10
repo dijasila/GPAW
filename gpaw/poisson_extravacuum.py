@@ -109,10 +109,10 @@ class ExtraVacuumPoissonSolver:
         self.phi_large_coar_g = self.gd_large_coar.zeros()
 
         # Initialize poissonsolvers
-        self.ps_large_coar.initialize(self.gd_large_coar)
+        self.ps_large_coar.initialize()
         if not self.use_coarse:
             return
-        self.ps_small_fine.initialize(self.gd_small_fine)
+        self.ps_small_fine.initialize()
 
     def solve(self, phi, rho, **kwargs):
         phi_small_fine_g = phi
