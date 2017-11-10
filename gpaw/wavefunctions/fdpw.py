@@ -455,7 +455,7 @@ class FDPWWaveFunctions(WaveFunctions):
 
         with self.timer('inverse-cholesky'):
             S.invcholesky()
-            # S_nn now contains the inverse of the Cholesky factorization
+            # S now contains the inverse of the Cholesky factorization
 
         psit2 = psit.new(buf=self.work_array)
         with self.timer('rotate_psi_s'):
@@ -466,7 +466,34 @@ class FDPWWaveFunctions(WaveFunctions):
 
     def calculate_forces(self, hamiltonian, F_av):
         # Calculate force-contribution from k-points:
-        F_av.fill(0.0)
+        F_av[:] = 0.0
+
+        if not self.collinear:
+            F_ansiv = self.pt.dict(2 * self.bd.mynbands, derivative=True)
+            dH_axp = hamiltonian.dH_asp
+            for kpt in self.kpt_u:
+                array = kpt.psit.array
+                self.pt.derivative(array.reshape((-1, array.shape[-1])),
+                                   F_ansiv, kpt.q)
+                for a, F_nsiv in F_ansiv.items():
+                    F_nsiv = F_nsiv.reshape((self.bd.mynbands,
+                                             2, -1, 3)).conj()
+                    F_nsiv *= kpt.f_n[:, np.newaxis, np.newaxis, np.newaxis]
+                    dH_ii = unpack(dH_axp[a][0])
+                    #dH_vii = [unpack(dH_p) for dH_p in dH_axp[a][1:]]
+                    #P_nsi = kpt.P[a]
+                    #F_vii = np.dot(np.dot(F_niv.transpose(), P_ni), dH_ii)
+                    #F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
+                    #dO_ii = self.setups[a].dO_ii
+                    #F_vii -= np.dot(np.dot(F_niv.transpose(), P_ni), dO_ii)
+                    #F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
+
+            self.bd.comm.sum(F_av, 0)
+
+            if self.bd.comm.rank == 0:
+                self.kd.comm.sum(F_av, 0)
+            return
+
         F_aniv = self.pt.dict(self.bd.mynbands, derivative=True)
         dH_asp = hamiltonian.dH_asp
         for kpt in self.kpt_u:

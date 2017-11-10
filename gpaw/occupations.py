@@ -251,6 +251,7 @@ class ZeroKelvin(OccupationNumbers):
         """Fill in occupation numbers.
 
         return HOMO and LUMO energies."""
+
         N = len(f_n)
         if ne == N * weight:
             f_n[:] = weight
@@ -356,13 +357,16 @@ class ZeroKelvin(OccupationNumbers):
     def spin_paired(self, wfs):
         homo = -np.inf
         lumo = np.inf
+        if wfs.collinear:
+            ne = 0.5 * self.nvalence
+        else:
+            ne = self.nvalence
         for kpt in wfs.kpt_u:
             eps_n = wfs.bd.collect(kpt.eps_n)
             if wfs.bd.comm.rank == 0:
                 f_n = wfs.bd.empty(global_array=True)
                 hom, lum = self.occupy(f_n, eps_n,
-                                       0.5 * self.nvalence *
-                                       kpt.weight, kpt.weight)
+                                       ne * kpt.weight, kpt.weight)
                 homo = max(homo, hom)
                 lumo = min(lumo, lum)
             else:
