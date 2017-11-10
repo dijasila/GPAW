@@ -135,6 +135,7 @@ class ExtraVacuumPoissonSolver:
 
         # 1.3 Solve potential on the large coarse grid
         niter_large = self.ps_large_coar.solve(self.phi_large_coar_g, rho_large_coar_g, **kwargs)
+        rho_large_coar_g = None
 
         if not self.use_coarse:
             deextend_array(self.gd_small_fine, self.gd_large_coar, phi_small_fine_g, self.phi_large_coar_g)
@@ -151,6 +152,7 @@ class ExtraVacuumPoissonSolver:
         tmp_g = phi_aux_coar_g
         for refiner in self.refiner_i:
             tmp_g = refiner.apply(tmp_g)
+        phi_aux_coar_g = None
         phi_aux_fine_g = tmp_g
 
         # 3.2 Calculate the corresponding density with Laplace
@@ -161,8 +163,10 @@ class ExtraVacuumPoissonSolver:
         # 3.3 De-extend the potential and density to the small grid
         cor_phi_small_fine_g = self.gd_small_fine.empty()
         deextend_array(self.gd_small_fine, self.gd_aux_fine, cor_phi_small_fine_g, phi_aux_fine_g)
+        phi_aux_fine_g = None
         cor_rho_small_fine_g = self.gd_small_fine.empty()
         deextend_array(self.gd_small_fine, self.gd_aux_fine, cor_rho_small_fine_g, rho_aux_fine_g)
+        rho_aux_fine_g = None
 
         # 3.4 Remove the correcting density and potential
         rho_small_fine_g -= cor_rho_small_fine_g
@@ -178,8 +182,14 @@ class ExtraVacuumPoissonSolver:
         return (niter_large, niter_small)
 
     def estimate_memory(self, mem):
-        # TODO
-        return
+        self.ps_large_coar.estimate_memory(mem.subnode('Large grid Poisson'))
+        self.ps_small_fine.estimate_memory(mem.subnode('Small grid Poisson'))
+        mem.subnode('Large coarse phi', self.gd_large_coar.bytecount())
+        tmp = max(self.gd_large_coar.bytecount(),
+                  self.gd_aux_coar.bytecount(),
+                  self.gd_aux_fine.bytecount() * 2 + self.gd_small_fine.bytecount(),
+                  self.gd_aux_fine.bytecount() + self.gd_small_fine.bytecount() * 2)
+        mem.subnode('Temporary arrays', tmp)
 
     def get_description(self):
         line = '%s with ' % self.__class__.__name__
