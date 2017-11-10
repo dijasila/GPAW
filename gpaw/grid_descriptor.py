@@ -647,7 +647,8 @@ class GridDescriptor(Domain):
         """
         s_Gc = (np.indices(self.n_c, dtype).T + self.beg_c) / self.N_c
         cell_cv = self.N_c * self.h_cv
-        s_Gc -= np.linalg.solve(cell_cv.T, r_v)
+        r_c =  np.linalg.solve(cell_cv.T, r_v)
+        s_Gc -= np.where(self.pbc_c, r_c % 1.0, r_c)
 
         if mic:
             # XXX do the correction twice works better
