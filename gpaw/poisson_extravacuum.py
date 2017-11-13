@@ -118,7 +118,7 @@ class ExtraVacuumPoissonSolver:
 
     def solve(self, phi, rho, **kwargs):
         phi_small_fine_g = phi
-        rho_small_fine_g = rho
+        rho_small_fine_g = rho.copy()
 
         if self.use_coarse:
             # 1.1. Coarse rho on the small grid
@@ -186,7 +186,7 @@ class ExtraVacuumPoissonSolver:
         if self.use_coarse:
             self.ps_small_fine.estimate_memory(mem.subnode('Small grid Poisson'))
         mem.subnode('Large coarse phi', self.gd_large_coar.bytecount())
-        tmp = self.gd_large_coar.bytecount()
+        tmp = max(self.gd_small_fine.bytecount(), self.gd_large_coar.bytecount())
         if self.use_coarse:
             tmp = max(tmp,
                       self.gd_aux_coar.bytecount(),
