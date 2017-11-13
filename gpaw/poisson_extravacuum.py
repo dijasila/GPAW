@@ -20,6 +20,22 @@ def ext_gd(gd, **kwargs):
 class ExtraVacuumPoissonSolver(_PoissonSolver):
     """Wrapper around PoissonSolver extending the vacuum size.
 
+       Poisson equation is solved on the large grid defined by `gpts`
+       using `poissonsolver_large`.
+
+       If `coarses` is given, then the large grid is first coarsed
+       `coarses` times from to the original grid. Then, the coarse
+       potential is used to correct the boundary conditions
+       of the potential calculated on the original (small, fine)
+       grid by `poissonsolver_small`.
+
+       The parameters `nn_*` control the finite difference stencils
+       used in the coarsening, refining, and Laplace.
+
+       If the parameter `use_aux_grid` is `True`, an auxiliary
+       medium-sized grid is used between the large and small grids.
+       The parameter does not affect the result but can be used to
+       achieve speed-up depending on the grid sizes.
        """
 
     def __init__(self, gpts, poissonsolver_large,
