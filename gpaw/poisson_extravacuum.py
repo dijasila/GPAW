@@ -183,12 +183,15 @@ class ExtraVacuumPoissonSolver:
 
     def estimate_memory(self, mem):
         self.ps_large_coar.estimate_memory(mem.subnode('Large grid Poisson'))
-        self.ps_small_fine.estimate_memory(mem.subnode('Small grid Poisson'))
+        if self.use_coarse:
+            self.ps_small_fine.estimate_memory(mem.subnode('Small grid Poisson'))
         mem.subnode('Large coarse phi', self.gd_large_coar.bytecount())
-        tmp = max(self.gd_large_coar.bytecount(),
-                  self.gd_aux_coar.bytecount(),
-                  self.gd_aux_fine.bytecount() * 2 + self.gd_small_fine.bytecount(),
-                  self.gd_aux_fine.bytecount() + self.gd_small_fine.bytecount() * 2)
+        tmp = self.gd_large_coar.bytecount()
+        if self.use_coarse:
+            tmp = max(tmp,
+                      self.gd_aux_coar.bytecount(),
+                      self.gd_aux_fine.bytecount() * 2 + self.gd_small_fine.bytecount(),
+                      self.gd_aux_fine.bytecount() + self.gd_small_fine.bytecount() * 2)
         mem.subnode('Temporary arrays', tmp)
 
     def get_description(self):
