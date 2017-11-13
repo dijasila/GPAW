@@ -10,12 +10,18 @@ from gpaw.utilities.extend_grid import extended_grid_descriptor, \
     extend_array, deextend_array
 
 
+def ext_gd(gd1, gd2):
+    egd, _, _ = extended_grid_descriptor(gd1, gd2)
+    return egd
+
+
 class ExtraVacuumPoissonSolver:
     """Wrapper around PoissonSolver extending the vacuum size.
-    
+
        """
 
-    def __init__(self, gpts, poissonsolver_large, poissonsolver_small=None, coarses=0,
+    def __init__(self, gpts, poissonsolver_large,
+                 poissonsolver_small=None, coarses=0,
                  nn_coarse=3, nn_refine=3, nn_laplace=3,
                  use_aux_grid=True):
         # TODO: Alternative options: vacuum size and h
@@ -60,7 +66,7 @@ class ExtraVacuumPoissonSolver:
             N_c = self.N_large_fine_c
 
         # 1.2. Construct coarse extended grid
-        self.gd_large_coar, _, _ = extended_grid_descriptor(self.gd_small_coar, N_c=N_c)
+        self.gd_large_coar = ext_gd(self.gd_small_coar, N_c=N_c)
 
         # Initialize poissonsolvers
         self.ps_large_coar.set_grid_descriptor(self.gd_large_coar)
@@ -70,7 +76,8 @@ class ExtraVacuumPoissonSolver:
 
         if self.use_aux_grid:
             # 2.1. Construct an auxiliary grid that is the small grid plus
-            # a buffer region allowing Laplace and refining with the used stencils
+            # a buffer region allowing Laplace and refining
+            # with the used stencils
             buf = self.nn_refine
             for i in range(self.Ncoar):
                 buf = 2 * buf + self.nn_refine
@@ -82,12 +89,14 @@ class ExtraVacuumPoissonSolver:
             if np.any(N_c > self.N_large_fine_c):
                 self.use_aux_grid = False
                 N_c = self.N_large_fine_c
-            self.gd_aux_fine, _, _ = extended_grid_descriptor(self.gd_small_fine, N_c=N_c)
+            self.gd_aux_fine = ext_gd(self.gd_small_fine, N_c=N_c)
         else:
-            self.gd_aux_fine, _, _ = extended_grid_descriptor(self.gd_small_fine, N_c=self.N_large_fine_c)
+            self.gd_aux_fine = ext_gd(self.gd_small_fine,
+                                      N_c=self.N_large_fine_c)
 
         # 2.2 Construct Laplace on the aux grid
-        self.laplace_aux_fine = Laplace(self.gd_aux_fine, - 0.25 / np.pi, self.nn_laplace)
+        self.laplace_aux_fine = Laplace(self.gd_aux_fine, - 0.25 / np.pi,
+                                        self.nn_laplace)
 
         # 2.3 Construct refine chain
         self.refiner_i = []
@@ -103,8 +112,12 @@ class ExtraVacuumPoissonSolver:
 
         if self.use_aux_grid:
             # 2.4 Construct large coarse grid from aux grid
-            self.gd_large_coar_from_aux, _, _ = extended_grid_descriptor(self.gd_aux_coar, N_c=self.gd_large_coar.N_c)
-            assert np.all(self.gd_large_coar_from_aux.N_c == self.gd_large_coar.N_c) and np.all(self.gd_large_coar_from_aux.h_cv == self.gd_large_coar.h_cv)
+            self.gd_large_coar_from_aux = ext_gd(self.gd_aux_coar,
+                                                 N_c=self.gd_large_coar.N_c)
+            # Check the consistency of the grids
+            gd1 = self.gd_large_coar
+            gd2 = self.gd_large_coar_from_aux
+            assert np.all(gd1.N_c == gd2.N_c) and np.all(gd1.h_cv == gd2.h_cv)
 
     def initialize(self):
         # Allocate arrays
@@ -131,20 +144,24 @@ class ExtraVacuumPoissonSolver:
 
         # 1.2. Extend rho to the large grid
         rho_large_coar_g = self.gd_large_coar.zeros()
-        extend_array(self.gd_small_coar, self.gd_large_coar, rho_small_coar_g, rho_large_coar_g)
+        extend_array(self.gd_small_coar, self.gd_large_coar,
+                     rho_small_coar_g, rho_large_coar_g)
 
         # 1.3 Solve potential on the large coarse grid
-        niter_large = self.ps_large_coar.solve(self.phi_large_coar_g, rho_large_coar_g, **kwargs)
+        niter_large = self.ps_large_coar.solve(self.phi_large_coar_g,
+                                               rho_large_coar_g, **kwargs)
         rho_large_coar_g = None
 
         if not self.use_coarse:
-            deextend_array(self.gd_small_fine, self.gd_large_coar, phi_small_fine_g, self.phi_large_coar_g)
+            deextend_array(self.gd_small_fine, self.gd_large_coar,
+                           phi_small_fine_g, self.phi_large_coar_g)
             return niter_large
 
         if self.use_aux_grid:
             # 2.1 De-extend the potential to the auxiliary grid
             phi_aux_coar_g = self.gd_aux_coar.empty()
-            deextend_array(self.gd_aux_coar, self.gd_large_coar_from_aux, phi_aux_coar_g, self.phi_large_coar_g)
+            deextend_array(self.gd_aux_coar, self.gd_large_coar_from_aux,
+                           phi_aux_coar_g, self.phi_large_coar_g)
         else:
             phi_aux_coar_g = self.phi_large_coar_g
 
@@ -156,16 +173,19 @@ class ExtraVacuumPoissonSolver:
         phi_aux_fine_g = tmp_g
 
         # 3.2 Calculate the corresponding density with Laplace
-        # (the refined coarse density would not accurately match with the potential)
+        # (the refined coarse density would not accurately match with
+        # the potential)
         rho_aux_fine_g = self.gd_aux_fine.empty()
         self.laplace_aux_fine.apply(phi_aux_fine_g, rho_aux_fine_g)
 
         # 3.3 De-extend the potential and density to the small grid
         cor_phi_small_fine_g = self.gd_small_fine.empty()
-        deextend_array(self.gd_small_fine, self.gd_aux_fine, cor_phi_small_fine_g, phi_aux_fine_g)
+        deextend_array(self.gd_small_fine, self.gd_aux_fine,
+                       cor_phi_small_fine_g, phi_aux_fine_g)
         phi_aux_fine_g = None
         cor_rho_small_fine_g = self.gd_small_fine.empty()
-        deextend_array(self.gd_small_fine, self.gd_aux_fine, cor_rho_small_fine_g, rho_aux_fine_g)
+        deextend_array(self.gd_small_fine, self.gd_aux_fine,
+                       cor_rho_small_fine_g, rho_aux_fine_g)
         rho_aux_fine_g = None
 
         # 3.4 Remove the correcting density and potential
@@ -173,25 +193,30 @@ class ExtraVacuumPoissonSolver:
         phi_small_fine_g -= cor_phi_small_fine_g
 
         # 3.5 Solve potential on the small grid
-        niter_small = self.ps_small_fine.solve(phi_small_fine_g, rho_small_fine_g, **kwargs)
+        niter_small = self.ps_small_fine.solve(phi_small_fine_g,
+                                               rho_small_fine_g, **kwargs)
 
         # 3.6 Correct potential and density
         phi_small_fine_g += cor_phi_small_fine_g
-        #rho_small_fine_g += cor_rho_small_fine_g
+        # rho_small_fine_g += cor_rho_small_fine_g
 
         return (niter_large, niter_small)
 
     def estimate_memory(self, mem):
         self.ps_large_coar.estimate_memory(mem.subnode('Large grid Poisson'))
         if self.use_coarse:
-            self.ps_small_fine.estimate_memory(mem.subnode('Small grid Poisson'))
+            ps = self.ps_small_fine
+            ps.estimate_memory(mem.subnode('Small grid Poisson'))
         mem.subnode('Large coarse phi', self.gd_large_coar.bytecount())
-        tmp = max(self.gd_small_fine.bytecount(), self.gd_large_coar.bytecount())
+        tmp = max(self.gd_small_fine.bytecount(),
+                  self.gd_large_coar.bytecount())
         if self.use_coarse:
             tmp = max(tmp,
                       self.gd_aux_coar.bytecount(),
-                      self.gd_aux_fine.bytecount() * 2 + self.gd_small_fine.bytecount(),
-                      self.gd_aux_fine.bytecount() + self.gd_small_fine.bytecount() * 2)
+                      self.gd_aux_fine.bytecount() * 2 +
+                      self.gd_small_fine.bytecount(),
+                      self.gd_aux_fine.bytecount() +
+                      self.gd_small_fine.bytecount() * 2)
         mem.subnode('Temporary arrays', tmp)
 
     def get_description(self):
@@ -211,10 +236,13 @@ class ExtraVacuumPoissonSolver:
             if hasattr(ps, 'gd'):
                 gd = ps.gd
                 par = cell_to_cellpar(gd.cell_cv * Bohr)
-                add_line('Grid: {:8d} x {:8d} x {:8d} points'.format(*gd.N_c), 8)
-                add_line('      {:8.2f} x {:8.2f} x {:8.2f} AA'.format(*par[:3]), 8)
                 h_eff = gd.dv**(1.0 / 3.0) * Bohr
-                add_line('      Effective grid spacing dv^(1/3) = {:.4f}'.format(h_eff), 8)
+                l1 = '{:8d} x {:8d} x {:8d} points'.format(*gd.N_c)
+                l2 = '{:8.2f} x {:8.2f} x {:8.2f} AA'.format(*par[:3])
+                l3 = 'Effective grid spacing dv^(1/3) = {:.4f}'.format(h_eff)
+                add_line('Grid: %s' % l1, 8)
+                add_line('      %s' % l2, 8)
+                add_line('      %s' % l3, 8)
 
         add_line('Large grid:', 4)
         get_cell(self.ps_large_coar)
