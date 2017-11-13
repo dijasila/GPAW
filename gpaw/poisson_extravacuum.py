@@ -5,6 +5,8 @@ from ase.geometry import cell_to_cellpar
 
 from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace
+from gpaw.poisson import _PoissonSolver
+from gpaw.poisson import create_poisson_solver
 
 from gpaw.utilities.extend_grid import extended_grid_descriptor, \
     extend_array, deextend_array
@@ -15,7 +17,7 @@ def ext_gd(gd, **kwargs):
     return egd
 
 
-class ExtraVacuumPoissonSolver:
+class ExtraVacuumPoissonSolver(_PoissonSolver):
     """Wrapper around PoissonSolver extending the vacuum size.
 
        """
@@ -31,8 +33,11 @@ class ExtraVacuumPoissonSolver:
             self.use_coarse = True
         else:
             self.use_coarse = False
-        self.ps_small_fine = poissonsolver_small
-        self.ps_large_coar = poissonsolver_large  # coar == coarse
+        self.ps_large_coar = create_poisson_solver(poissonsolver_large)
+        if self.use_coarse:
+            self.ps_small_fine = create_poisson_solver(poissonsolver_small)
+        else:
+            assert poissonsolver_small is None
         self.nn_coarse = nn_coarse
         self.nn_refine = nn_refine
         self.nn_laplace = nn_laplace
