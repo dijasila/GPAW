@@ -10,8 +10,8 @@ from gpaw.utilities.extend_grid import extended_grid_descriptor, \
     extend_array, deextend_array
 
 
-def ext_gd(gd1, gd2):
-    egd, _, _ = extended_grid_descriptor(gd1, gd2)
+def ext_gd(gd, **kwargs):
+    egd, _, _ = extended_grid_descriptor(gd, **kwargs)
     return egd
 
 
@@ -262,5 +262,8 @@ class ExtraVacuumPoissonSolver:
         d['nn_laplace'] = self.nn_laplace
         d['use_aux_grid'] = self.use_aux_grid
         d['poissonsolver_large'] = self.ps_large_coar.todict()
-        d['poissonsolver_small'] = self.ps_small_fine.todict()
+        if self.use_coarse:
+            d['poissonsolver_small'] = self.ps_small_fine.todict()
+        else:
+            d['poissonsolver_small'] = None
         return d
