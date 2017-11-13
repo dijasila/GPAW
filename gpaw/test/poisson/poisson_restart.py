@@ -50,13 +50,13 @@ for poissonsolver in poissonsolver_i:
                                  'eigenstates': 1.0})
         atoms.set_calculator(calc)
         energy = atoms.get_potential_energy()
-        ps = calc.hamiltonian.poisson
+        descr = calc.hamiltonian.poisson.get_description()
         calc.write('%s_gs.gpw' % name, mode='all')
 
         # Restart ground state
         calc = GPAW('%s_gs.gpw' % name, txt=None)
-        ps1 = calc.hamiltonian.poisson
-        assert ps.get_description() == ps1.get_description(), \
+        ps = calc.hamiltonian.poisson
+        assert descr == ps.get_description(), \
             'poisson solver has changed in GPAW / %s' % mode
 
         # Time-propagation TDDFT
@@ -65,6 +65,6 @@ for poissonsolver in poissonsolver_i:
         else:
             TDDFT = GRIDTDDFT
         calc = TDDFT('%s_gs.gpw' % name, txt=None)
-        ps1 = calc.hamiltonian.poisson
-        assert ps.get_description() == ps1.get_description(), \
+        ps = calc.hamiltonian.poisson
+        assert descr == ps.get_description(), \
             'poisson solver has changed in TDDFT / %s' % mode
