@@ -243,6 +243,7 @@ tests = [
     'pw/h.py',                              # ~7s
     'lrtddft/apmb.py',                      # ~7s
     'pseudopotential/hgh_h2o.py',           # ~7s
+    'poisson/poisson_restart.py',           # ~7s
     'poisson/poisson_extravacuum.py',       # ~7s
     'fdtd/ed_wrapper.py',                   # ~7s
     'fdtd/ed_shapes.py',                    # ~7s
