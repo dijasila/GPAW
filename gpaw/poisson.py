@@ -42,14 +42,23 @@ is divisible by a high power of 2."""
 
 
 def create_poisson_solver(name='fd', **kwargs):
-    if name == 'fft':
+    if isinstance(name, _PoissonSolver):
+        return name
+    elif isinstance(name, dict):
+        kwargs.update(name)
+        return create_poisson_solver(**kwargs)
+    elif name == 'fft':
         return FFTPoissonSolver(**kwargs)
-    if name == 'fdtd':
+    elif name == 'fdtd':
         from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
         return FDTDPoissonSolver(**kwargs)
     elif name == 'fd':
         return PoissonSolver(**kwargs)
-    1 / 0
+    elif name == 'ExtraVacuumPoissonSolver':
+        from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
+        return ExtraVacuumPoissonSolver(**kwargs)
+    else:
+        raise RuntimeError('Unknown poisson solver: %s' % name)
 
 
 def PoissonSolver(dipolelayer=None, **kwargs):
@@ -58,7 +67,34 @@ def PoissonSolver(dipolelayer=None, **kwargs):
     return FDPoissonSolver(**kwargs)
 
 
-class BasePoissonSolver(object):
+class _PoissonSolver(object):
+    """Abstract PoissonSolver class
+
+       This class defines an interface and a common ancestor
+       for various PoissonSolver implementations (including wrappers)."""
+    def __init__(self):
+        return
+
+    def set_grid_descriptor(self, gd):
+        return
+
+    def initialize(self):
+        return
+
+    def solve(self):
+        return 0
+
+    def todict(self):
+        return {}
+
+    def get_description(self):
+        return ''
+
+    def estimate_memory(self, mem):
+        return
+
+
+class BasePoissonSolver(_PoissonSolver):
     def __init__(self, eps=None, remove_moment=None, use_charge_center=False):
         self.gd = None
         self.remove_moment = remove_moment
@@ -87,7 +123,6 @@ class BasePoissonSolver(object):
             lines.append('    Compensate for charged system using center of '
                          'majority charge')
         return '\n'.join(lines)
-
 
     def solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
               zero_initial_phi=False):
@@ -421,7 +456,7 @@ class FDPoissonSolver(BasePoissonSolver):
         return representation
 
 
-class NoInteractionPoissonSolver:
+class NoInteractionPoissonSolver(_PoissonSolver):
     relax_method = 0
     nn = 1
 
