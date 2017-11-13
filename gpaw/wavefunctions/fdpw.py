@@ -480,13 +480,16 @@ class FDPWWaveFunctions(WaveFunctions):
                                              2, -1, 3)).conj()
                     F_nsiv *= kpt.f_n[:, np.newaxis, np.newaxis, np.newaxis]
                     dH_ii = unpack(dH_axp[a][0])
-                    #dH_vii = [unpack(dH_p) for dH_p in dH_axp[a][1:]]
-                    #P_nsi = kpt.P[a]
-                    #F_vii = np.dot(np.dot(F_niv.transpose(), P_ni), dH_ii)
-                    #F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
-                    #dO_ii = self.setups[a].dO_ii
-                    #F_vii -= np.dot(np.dot(F_niv.transpose(), P_ni), dO_ii)
-                    #F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
+                    dH_vii = [unpack(dH_p) for dH_p in dH_axp[a][1:]]
+                    dH_ssii = np.array(
+                        [[dH_ii + dH_vii[2], dH_vii[0] - 1j * dH_vii[1]],
+                         [dH_vii[0] + 1j * dH_vii[1], dH_ii - dH_vii[2]]])
+                    P_nsi = kpt.P[a]
+                    F_v = np.einsum('nsiv,stij,ntj', F_nsiv, dH_ssii, P_nsi)
+                    F_nsiv *= kpt.eps_n[:, np.newaxis, np.newaxis, np.newaxis]
+                    dO_ii = self.setups[a].dO_ii
+                    F_v -= np.einsum('nsiv,ij,nsj', F_nsiv, dO_ii, P_nsi)
+                    F_av[a] += 2 * F_v.real
 
             self.bd.comm.sum(F_av, 0)
 
