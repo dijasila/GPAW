@@ -190,15 +190,15 @@ class BasePoissonSolver(_PoissonSolver):
                 rho_sign = rho * charge_sign
                 rho_sign[np.where(rho_sign < 0)] = 0
                 absolute_charge = self.gd.integrate(rho_sign)
-                center = - self.gd.calculate_dipole_moment(rho_sign) \
-                        / absolute_charge
+                center = - (self.gd.calculate_dipole_moment(rho_sign) /
+                            absolute_charge)
                 border_offset = np.inner(self.gd.h_cv, np.array((7, 7, 7)))
                 borders = np.inner(self.gd.h_cv, self.gd.N_c)
                 borders -= border_offset
                 if np.any(center > borders) or np.any(center < border_offset):
-                    raise RuntimeError(
-                            'Poisson solver: center of charge outside' + \
-                            ' borders - please increase box')
+                    raise RuntimeError('Poisson solver: '
+                                       'center of charge outside borders '
+                                       '- please increase box')
                     center[np.where(center > borders)] = borders
                 self.load_gauss(center=center)
             else:
@@ -236,6 +236,7 @@ class BasePoissonSolver(_PoissonSolver):
     def initialize(self, load_gauss=False):
         if load_gauss:
             self.load_gauss()
+
 
 class FDPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
@@ -596,8 +597,8 @@ class FixedBoundaryPoissonSolver(FDPoissonSolver):
         self.d1, self.d2, self.d3 = self.gd.N_c
         self.r_distribution = np.array_split(np.arange(self.d3),
                                              self.gd.comm.size)
-        self.comm_reshape = not (self.gd.parsize_c[0] == 1
-                                 and self.gd.parsize_c[1] == 1)
+        self.comm_reshape = not (self.gd.parsize_c[0] == 1 and
+                                 self.gd.parsize_c[1] == 1)
 
     def solve(self, phi_g, rho_g, charge=None):
         if charge is None:
