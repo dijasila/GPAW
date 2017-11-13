@@ -8,6 +8,7 @@ from gpaw.grid_descriptor import GridDescriptor
 
 
 do_output = False
+do_plot = False
 poissoneps = 1e-16
 
 if do_output:
@@ -35,7 +36,7 @@ for z0 in [1, 2]:
         np.exp(-20 * np.sum((coord_vg.T - np.array([.5, .5, z0])).T**2,
                             axis=0))
 
-if do_output:
+if do_plot:
     big_rho_g = gd.collect(rho_g)
     if gd.comm.rank == 0:
         import matplotlib.pyplot as plt
@@ -52,7 +53,7 @@ if do_output:
 
 
 def plot_phi(phi_g):
-    if do_output:
+    if do_plot:
         big_phi_g = gd.collect(phi_g)
         if gd.comm.rank == 0:
             global ploti
@@ -74,7 +75,8 @@ def poisson_solve(gd, rho_g, poisson):
     npoisson = poisson.solve(phi_g, rho_g)
     t1 = time.time()
     if do_output:
-        print('Iterations: %s, Time: %.3f s' % (str(npoisson), t1 - t0))
+        if gd.comm.rank == 0:
+            print('Iterations: %s, Time: %.3f s' % (str(npoisson), t1 - t0))
     return phi_g, npoisson
 
 
@@ -159,6 +161,6 @@ for coarses in [1, 2, 3]:
             phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
             compare(phi_g, phiref_g, 0.0, 1e-24)
 
-if do_output:
+if do_plot:
     if gd.comm.rank == 0:
         plt.show()
