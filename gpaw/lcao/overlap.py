@@ -207,8 +207,12 @@ class TwoSiteOverlapExpansions(BaseOverlapExpansionSet):
         shape = (sum([2 * l + 1 for l in la_j]),
                  sum([2 * l + 1 for l in lb_j]))
         BaseOverlapExpansionSet.__init__(self, shape)
-        self.lmaxgaunt = max(oe.lmaxgaunt for oe in oe_jj.ravel())
-        self.lmaxspline = max(oe.lmaxspline for oe in oe_jj.ravel())
+        if oe_jj.size == 0:
+            self.lmaxgaunt = 0
+            self.lmaxspline = 0
+        else:
+            self.lmaxgaunt = max(oe.lmaxgaunt for oe in oe_jj.ravel())
+            self.lmaxspline = max(oe.lmaxspline for oe in oe_jj.ravel())
 
     def slice(self, x_xMM):
         assert x_xMM.shape[-2:] == self.shape
