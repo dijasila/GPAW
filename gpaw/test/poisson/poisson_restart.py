@@ -10,6 +10,8 @@ from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
 name = 'Na2'
 poissoneps = 1e-16
 gpts = np.array([16, 16, 24])
+# Uncomment the following line if you want to run the test with 4 cpus
+# gpts *= 2
 
 
 def PS(**kwargs):
