@@ -76,22 +76,22 @@ class _PoissonSolver(object):
         return
 
     def set_grid_descriptor(self, gd):
-        return
+        raise RuntimeError('Virtual member function called')
 
     def initialize(self):
-        return
+        raise RuntimeError('Virtual member function called')
 
     def solve(self):
-        return 0
+        raise RuntimeError('Virtual member function called')
 
     def todict(self):
-        return {}
+        raise RuntimeError('Virtual member function called')
 
     def get_description(self):
-        return ''
+        raise RuntimeError('Virtual member function called')
 
     def estimate_memory(self, mem):
-        return
+        raise RuntimeError('Virtual member function called')
 
 
 class BasePoissonSolver(_PoissonSolver):
