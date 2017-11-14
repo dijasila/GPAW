@@ -14,8 +14,10 @@ from gpaw.external import create_external_potential
 from gpaw.hubbard import hubbard
 from gpaw.lfc import LFC
 from gpaw.poisson import create_poisson_solver
+from gpaw.spinorbit import soc
 from gpaw.transformers import Transformer
-from gpaw.utilities import unpack, unpack_atomic_matrices, pack_atomic_matrices
+from gpaw.utilities import (unpack, pack2, unpack_atomic_matrices,
+                            pack_atomic_matrices)
 from gpaw.utilities.debug import frozen
 from gpaw.utilities.partition import AtomPartition
 
@@ -95,6 +97,7 @@ class Hamiltonian:
 
         self.positions_set = False
         self.spos_ac = None
+        self.soc = False
 
     @property
     def dH(self):
@@ -103,8 +106,9 @@ class Hamiltonian:
 
     def update_atomic_hamiltonians(self, value):
         if isinstance(value, dict):
+            dtype = complex if self.soc else float
             tmp = self.setups.empty_atomic_matrix(self.ncomponents,
-                                                  self.atom_partition)
+                                                  self.atom_partition, dtype)
             tmp.update(value)
             value = tmp
         assert isinstance(value, ArrayDict) or value is None, type(value)
@@ -249,8 +253,9 @@ class Hamiltonian:
         e_xc = 0.0
 
         D_asp = self.atomdist.to_work(dens.D_asp)
+        dtype = complex if self.soc else float
         dH_asp = self.setups.empty_atomic_matrix(self.ncomponents,
-                                                 D_asp.partition)
+                                                 D_asp.partition, dtype)
 
         for a, D_sp in D_asp.items():
             W_L = W_aL[a]
@@ -268,16 +273,24 @@ class Hamiltonian:
             e_coulomb += setup.M + np.dot(D_p, (setup.M_p +
                                                 np.dot(setup.M_pp, D_p)))
 
-            dH_asp[a] = dH_sp = np.zeros_like(D_sp)
+            if self.soc:
+                dH_vii = soc(setup, self.xc, D_sp)
+                dH_sp = np.zeros_like(D_sp, dtype=complex)
+                dH_sp[1:] = pack2(dH_vii)
+            else:
+                dH_sp = np.zeros_like(D_sp)
 
             if setup.HubU is not None:
                 eU, dHU_sp = hubbard(setup, D_sp)
                 e_xc += eU
-                dH_sp[:] = dHU_sp
+                dH_sp += dHU_sp
 
             dH_sp[:self.nspins] += dH_p
+
             if self.ref_dH_asp:
                 dH_sp += self.ref_dH_asp[a]
+
+            dH_asp[a] = dH_sp
 
         self.timer.start('XC Correction')
         for a, D_sp in D_asp.items():
@@ -287,7 +300,7 @@ class Hamiltonian:
         self.timer.stop('XC Correction')
 
         for a, D_sp in D_asp.items():
-            e_kinetic -= (D_sp * dH_asp[a]).sum()  # NCXXX
+            e_kinetic -= (D_sp * dH_asp[a]).sum().real
 
         self.update_atomic_hamiltonians(self.atomdist.from_work(dH_asp))
         self.timer.stop('Atomic')
@@ -306,6 +319,17 @@ class Hamiltonian:
                              self.e_entropy)
         self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
             self.e_total_free)
+
+        if 0:
+            print(self.e_total_free,
+                  self.e_total_extrapolated,
+                  self.e_kinetic,
+                  self.e_kinetic0,
+                  self.e_coulomb,
+                  self.e_external,
+                  self.e_zero,
+                  self.e_xc,
+                  self.e_entropy)
 
         return self.e_total_free
 

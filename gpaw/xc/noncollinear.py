@@ -52,7 +52,6 @@ class NonCollinearLCAOEigensolver(DirectLCAO):
                                                      root=0,
                                                      add_kinetic=(x == 0))
             H_xMM.append(H_MM)
-
         kpt.s = None
 
         S_MM = wfs.S_qMM[kpt.q]

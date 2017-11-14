@@ -484,8 +484,8 @@ class GPAW(PAW, Calculator):
         assert len(pbc_c) == 3
         magmom_a = atoms.get_initial_magnetic_moments()
 
-        if par['experimental'].get('magmoms') is not None:
-            magmom_av = np.array(par['experimental']['magmoms'], float)
+        if par.experimental.get('magmoms') is not None:
+            magmom_av = np.array(par.experimental['magmoms'], float)
             collinear = False
         else:
             magmom_av = np.zeros((natoms, 3))
@@ -884,6 +884,7 @@ class GPAW(PAW, Calculator):
                 pd2=dens.pd2, pd3=dens.pd3, realpbc_c=self.atoms.pbc, **kwargs)
             xc.set_grid_descriptor(dens.xc_redistributor.aux_gd)  # XXX
 
+        self.hamiltonian.soc = self.parameters.experimental.get('soc')
         self.log(self.hamiltonian, '\n')
 
     def create_wave_functions(self, mode, realspace,

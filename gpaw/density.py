@@ -283,9 +283,10 @@ class Density:
         else:
             f_i = f_si.sum(0)
             fm_i = f_si[0] - f_si[1]
-            f_si = np.empty((4, len(f_i)))
+            f_si = np.zeros((4, len(f_i)))
             f_si[0] = f_i
-            f_si[1:] = M_v[:, np.newaxis] / M * fm_i
+            if M > 0:
+                f_si[1:] = M_v[:, np.newaxis] / M * fm_i
 
         return f_si
 
