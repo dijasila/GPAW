@@ -166,6 +166,49 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
         return energies, weights
 
 
+def raw_spinorbit_orbital_LDOS(paw, a, spin, angular='spdf'):
+    """Like former, but with spinorbit coupling."""
+
+    from gpaw.spinorbit import get_spinorbit_eigenvalues
+    from gpaw.wannier90 import get_spinorbit_projections
+
+    e_mk, v_knm = get_spinorbit_eigenvalues(paw, return_wfs=True)
+    e_mk /= Hartree
+    ns = paw.wfs.nspins
+    w_k = paw.wfs.kd.weight_k
+    nk = len(w_k)
+    nb = len(e_mk)
+
+    if a < 0:
+        # Allow list-style negative indices; we'll need the positive a for the
+        # dictionary lookup later
+        a = len(paw.wfs.setups) + a
+
+    setup = paw.wfs.setups[a]
+    energies = np.empty(nb * nk)
+    weights_xi = np.empty((nb * nk, setup.ni))
+    x = 0
+    for k, w in enumerate(w_k):
+        energies[x:x + nb] = e_mk[:, k]
+        P_ami = get_spinorbit_projections(paw, k, v_knm[k])
+        if ns == 2:
+            weights_xi[x:x + nb, :] = w * np.absolute(P_ami[a][:, spin::2])**2
+        else:
+            weights_xi[x:x + nb, :] = w * np.absolute(P_ami[a][:, 0::2])**2 / 2
+            weights_xi[x:x + nb, :] += w * np.absolute(P_ami[a][:, 1::2])**2  / 2
+        x += nb
+
+    if angular is None:
+        return energies, weights_xi
+    elif isinstance(angular, int):
+        return energies, weights_xi[:, angular]
+    else:
+        projectors = get_angular_projectors(setup, angular, type='bound')
+        weights = np.sum(np.take(weights_xi,
+                                 indices=projectors, axis=1), axis=1)
+        return energies, weights
+
+
 def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
     """Returns a list of eigenvalues, and their weights on a given molecule
 

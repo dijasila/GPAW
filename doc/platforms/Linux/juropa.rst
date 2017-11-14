@@ -87,7 +87,7 @@ Example batch job script for GPAW (512 cores, 30 minutes)::
   #!/bin/bash -x
   #MSUB -l nodes=64:ppn=8
   #MSUB -l walltime=0:30:00
-  
+
   cd $PBS_O_WORKDIR
   export PYTHONPATH="MY_INSTALLATION_DIR/ase/lib64/python"
   export PYTHONPATH="$PYTHONPATH":"MY_INSTALLATION_DIR/gpaw/svn/lib64/python"
@@ -96,7 +96,7 @@ Example batch job script for GPAW (512 cores, 30 minutes)::
 
   export PSP_ONDEMAND=1
 
-  mpiexec -np 512 -x $GPAW_PYTHON my_input.py --sl_default=4,4,64
+  mpiexec -np 512 -x $GPAW_PYTHON my_input.py
 
 Note that **-x** flag for *mpiexec* is needed for exporting the environment 
 variables to MPI tasks. The environment variable ``PSP_ONDEMAND`` can decrease 
