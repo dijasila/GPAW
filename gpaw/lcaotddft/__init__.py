@@ -46,6 +46,7 @@ class LCAOTDDFT(GPAW):
         self.niter = 0
         self.kick_strength = np.zeros(3)
         self.tddft_initialized = False
+        self.action = None
         self.fxc = fxc
         self.propagator = propagator
         if filename is None:
@@ -63,12 +64,14 @@ class LCAOTDDFT(GPAW):
             self.time = reader.tddft.time
             self.niter = reader.tddft.niter
             self.kick_strength = reader.tddft.kick_strength
+        # TODO: read fxc
 
     def _write(self, writer, mode):
         GPAW._write(self, writer, mode)
         writer.child('tddft').write(time=self.time,
                                     niter=self.niter,
                                     kick_strength=self.kick_strength)
+        # TODO: write fxc
 
     def propagate_wfs(self, sourceC_nm, targetC_nm, S_MM, H_MM, dt):
         if self.propagator == 'sicn':
@@ -239,6 +242,13 @@ class LCAOTDDFT(GPAW):
                 kick_hamiltonian, self.wfs, kpt, add_kinetic=False, root=-1)
             for i in range(10):
                 self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 0.1)
+
+        # Update density and Hamiltonian
+        self.update_hamiltonian()
+
+        # Call observers after kick
+        self.action = 'kick'
+        self.call_observers(self.niter)
         self.timer.stop('Kick')
 
     def blacs_mm_to_global(self, H_mm):
@@ -260,6 +270,11 @@ class LCAOTDDFT(GPAW):
     def tddft_init(self):
         if self.tddft_initialized:
             return
+
+        self.timer.start('Initialize TDDFT')
+        assert self.wfs.dtype == complex
+        assert len(self.wfs.kpt_u) == 1
+
         self.blacs = self.wfs.ksl.using_blacs
         if self.blacs:
             self.ksl = ksl = self.wfs.ksl
@@ -322,10 +337,29 @@ class LCAOTDDFT(GPAW):
 
         # Reset the density mixer
         self.density.set_mixer(DummyMixer())
-        self.tddft_initialized = True
+
+        # Update density and Hamiltonian
+        self.update_hamiltonian()
+
+        # Call observers before propagation
+        self.action = 'init'
+        self.call_observers(self.niter)
+
+        if self.niter == 0:
+            # Initialize fxc
+            if self.fxc is not None:
+                for k, kpt in enumerate(self.wfs.kpt_u):
+                    kpt.deltaXC_H_MM = self.get_hamiltonian(kpt)
+                    self.hamiltonian.xc = XC(self.fxc)
+                    self.update_hamiltonian()
+                    assert len(self.wfs.kpt_u) == 1  # TODO: Why?
+                    kpt.deltaXC_H_MM -= self.get_hamiltonian(kpt)
+
+        # Allocate kpt.C2_nM arrays
         for k, kpt in enumerate(self.wfs.kpt_u):
-            kpt.C2_nM = kpt.C_nM.copy()
-            # kpt.firstC_nM = kpt.C_nM.copy()
+            kpt.C2_nM = np.empty_like(kpt.C_nM)
+        self.tddft_initialized = True
+        self.timer.stop('Initialize TDDFT')
 
     def update_projectors(self):
         self.timer.start('LCAO update projectors')
@@ -386,84 +420,46 @@ class LCAOTDDFT(GPAW):
                 # (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
                 #    = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
                 self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
+
+            # 4. Calculate new density and Hamiltonian
+            self.update_hamiltonian()
+            # TODO: this Hamiltonian does not contain fxc
         else:
             raise RuntimeError('Unknown propagator: %s' % self.propagator)
 
-        self.niter += 1
         self.time += dt
 
-    def propagate(self, time_step=10, iterations=2000, out='lcao.dm',
-                  dump_interval=50):
-        assert self.wfs.dtype == complex
-        assert len(self.wfs.kpt_u) == 1
-
-        time_step *= attosec_to_autime
-        self.time_step = time_step
-        self.dump_interval = dump_interval
-        self.tdmaxiter = self.niter + iterations
-
-        if self.wfs.world.rank == 0:
-            if self.time < self.time_step:
-                self.dm_file = open(out, 'w')
-
-                header = ('# Kick = [%22.12le, %22.12le, %22.12le]\n' %
-                          (self.kick_strength[0], self.kick_strength[1],
-                           self.kick_strength[2]))
-                header += ('# %15s %15s %22s %22s %22s\n' %
-                           ('time', 'norm', 'dmx', 'dmy', 'dmz'))
-                self.dm_file.write(header)
-                self.dm_file.flush()
-                self.log('About to do %d propagation steps.' % iterations)
-            else:
-                self.dm_file = open(out, 'a')
-                self.log('About to continue from iteration %d and do %d '
-                         'propagation steps' % (self.niter, self.tdmaxiter))
+    def propagate(self, time_step=10, iterations=2000):
         self.tddft_init()
 
-        # Initialize fxc
-        for k, kpt in enumerate(self.wfs.kpt_u):
-            if self.fxc is not None:
-                if self.time == 0.0:
-                    kpt.deltaXC_H_MM = self.get_hamiltonian(kpt)
-                    self.hamiltonian.xc = XC(self.fxc)
-                    self.update_hamiltonian()
-                    assert len(self.wfs.kpt_u) == 1
-                    kpt.deltaXC_H_MM -= self.get_hamiltonian(kpt)
+        time_step *= attosec_to_autime
+        maxiter = self.niter + iterations
 
-        dm0 = None  # Initial dipole moment
+        if self.niter == 0:
+            self.log('About to do %d propagation steps' % iterations)
+        else:
+            self.log('About to continue from iteration %d and do %d more '
+                     'propagation steps' % (self.niter, iterations))
+
         self.timer.start('Propagate')
-        while self.niter < self.tdmaxiter:
-            dm = self.density.finegd.calculate_dipole_moment(
-                self.density.rhot_g)
-            if dm0 is None:
-                dm0 = dm
+        while self.niter < maxiter:
+            # Propagate one step
+            self.propagate_single(time_step)
 
+            # Call registered callback functions
+            self.action = 'propagate'
+            self.call_observers(self.niter)
+
+            # Print output
+            # TODO: rewrite as an observer
             norm = self.density.finegd.integrate(self.density.rhot_g)
-            line = ('%20.8lf %20.8le %22.12le %22.12le %22.12le'
-                    % (self.time, norm, dm[0], dm[1], dm[2]))
             T = localtime()
-            if self.wfs.world.rank == 0:
-                print(line, file=self.dm_file)
 
-            if self.wfs.world.rank == 0 and self.niter % 1 == 0:
+            if self.niter % 1 == 0:
                 self.log('iter: %3d  %02d:%02d:%02d %11.2f   %9.1f' %
                          (self.niter, T[3], T[4], T[5],
                           self.time * autime_to_attosec,
                           ln(abs(norm) + 1e-16) / ln(10)))
-                self.dm_file.flush()
+            self.niter += 1
 
-            # Calculate H(t)
-            self.update_hamiltonian()
-            # TODO: this Hamiltonian does not contain fxc
-
-            # Call registered callback functions
-            self.call_observers(self.niter)
-
-            self.propagate_single(self.time_step)
-
-        # Do not call observers in the end!
-        # The density and hamiltonian are not correct at this point!
-
-        if self.wfs.world.rank == 0:
-            self.dm_file.close()
         self.timer.stop('Propagate')
