@@ -129,7 +129,7 @@ A full G0W0 calculation with (8x8x8) k-points and extrapolated to infinite cutof
 Another method for carrying out the frequency integration is the Plasmon Pole
 approximation (PPA). Read more about it here :ref:`gw_theory_ppa`. This is
 turned on by setting ``ppa = True`` in the G0W0 calculator (see
-:download:`C_converged_ppa.py`). Carrying out a full G0W0 calculation with the PPA
+:download:`C_converged_ppa.py`). Carrying out a full `G_0W_0` calculation with the PPA
 using (8x8x8) k-points and extrapolating from calculations at a cutoff of 300
 and 400 eV gives a direct band gap of 7.52 eV, which is in very good agreement
 with the result for the full frequency integration but the calculation took
@@ -164,10 +164,29 @@ specific method can be found here:
     __ https://journals.aps.org/prb/abstract/10.1103/PhysRevB.94.155406
 
 How to set up a 2D slab of MoS2 and calculate the band structure can be found in
-:download:`MoS2_gs_GW.py`. The results are not converged but a band gap of 2.57 eV
-is obtained.
-The band structure can be visualized with the :download:`MoS2_bs_plot.py` script
-resulting in the figure below:
+:download:`MoS2_gs_GW.py`. The results are not converged but a band gap of 2.57 eV is obtained.
+
+Including vertex corrections
+============================
+Vertex corrections can be included through the use of a xc kernel known from TDDFT. The vertex corrections can be included in the polarizability and/or the self-energy. It is only physically well justified to include it in both quantities simultaneously. This leads to the `GW\Gamma` method. In the `GW\Gamma` method, the xc kernel mainly improves the description of short-range correlation which manifests itself in improved absolute band positions. Only including the vertex in the polarizability or the self-energy results in the `GWP` and `GW\Sigma`  method respectively. All three options are available in GPAW. More information can be found here:
+
+    \P. S. Schmidt, C. E. Patrick, and K. S. Thygesen
+
+    `Simple vertex correction improves GW band energies of bulk and
+    two-dimensional crystals`__
+
+    To appear in Physical Review B.
+
+    __ https://arxiv.org/abs/1711.02922
+
+.. note::
+    Including vertex corrections is currently not possible for spin-polarized systems.
+
+A `GW\Gamma` calculation requires that 3 additional keywords are specified in the GW calculator: Which kernel to use: ``xc='rALDA'``, ``xc='rAPBE'`` etc.. How to construct the kernel: ``av_scheme='wavevector'`` or ``av_scheme='density'``. The wavevector scheme is preferred here. How to apply the kernel: ``fxc_mode = 'GWG'``, ``fxc_mode='GWP'`` or ``fxc_mode='GWS'``.
+
+Carrying on with the ground state calculation from :download:`MoS2_gs_GW.py`, the GWG calculation is done with :download:`MoS2_GWG.py`.
+
+The GW and GWG band structure can be visualized with the :download:`MoS2_bs_plot.py` script resulting in the figure below. Here, the effect of the vertex is to shift the bands upwards by around 0.5 eV whilst leaving the band gap almost unaffected.
 
 .. image:: MoS2_bs.png
     :height: 400 px
