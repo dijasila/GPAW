@@ -4,6 +4,7 @@ from math import log as ln
 import numpy as np
 from numpy.linalg import inv, solve
 from ase.units import Bohr, Hartree
+from ase.utils.timing import timer
 
 from gpaw import GPAW
 from gpaw.external import ConstantElectricField
@@ -16,7 +17,7 @@ from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
                                       scalapack_inverse, scalapack_solve,
                                       scalapack_zero, pblas_tran,
                                       scalapack_set)
-                                     
+
 from time import localtime
 
 
@@ -37,7 +38,7 @@ class KickHamiltonian:
             dHtmp_asp[a] = np.dot(setup.Delta_pL, W_L).reshape((1, -1))
         self.dH_asp = ham.atomdist.from_aux(dHtmp_asp)
 
-        
+
 class LCAOTDDFT(GPAW):
     def __init__(self, filename=None,
                  propagator='cn', fxc=None, **kwargs):
@@ -55,7 +56,7 @@ class LCAOTDDFT(GPAW):
         if filename is not None:
             #self.initialize()
             self.set_positions()
-            
+
     def read(self, filename):
         reader = GPAW.read(self, filename)
         if 'tddft' in reader:
@@ -68,7 +69,7 @@ class LCAOTDDFT(GPAW):
         writer.child('tddft').write(time=self.time,
                                     niter=self.niter,
                                     kick_strength=self.kick_strength)
-        
+
     def propagate_wfs(self, sourceC_nm, targetC_nm, S_MM, H_MM, dt):
         if self.propagator == 'cn':
             return self.linear_propagator(sourceC_nm, targetC_nm, S_MM, H_MM,
@@ -147,7 +148,7 @@ class LCAOTDDFT(GPAW):
                 solve(S_MM - 0.5j * H_MM * dt,
                       np.dot(S_MM + 0.5j * H_MM * dt,
                              sourceC_nM.T.conjugate())).T.conjugate()
-        
+
         self.timer.stop('Linear solve')
 
     def taylor_propagator(self, sourceC_nM, targetC_nM, S_MM, H_MM, dt):
@@ -212,7 +213,7 @@ class LCAOTDDFT(GPAW):
                                       tempC_nM.T.conjugate())).T.conjugate()
                     targetC_nM += tempC_nM
             self.density.gd.comm.broadcast(targetC_nM, 0)
-                
+
         self.timer.stop('Taylor propagator')
 
     def absorption_kick(self, kick_strength):
@@ -268,8 +269,7 @@ class LCAOTDDFT(GPAW):
             blocksize = ksl.blocksize
 
             from gpaw.blacs import Redistributor
-            if self.wfs.world.rank == 0:
-                print('BLACS Parallelization')
+            self.log('BLACS Parallelization')
 
             # Parallel grid descriptors
             grid = ksl.blockgrid
@@ -351,57 +351,44 @@ class LCAOTDDFT(GPAW):
         self.density.update(self.wfs)
         self.hamiltonian.update(self.density)
 
+    @timer('propagate_single')
     def propagate_single(self, dt):
-        # --------------
-        # Predictor step
-        # --------------
-        # 1. Calculate H(t)
-        self.save_wfs()  # kpt.C2_nM = kpt.C_nM
-        # 2. H_MM(t) = <M|H(t)|H>
-        #    Solve Psi(t+dt) from (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt) =
-        #                              (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
-
-        for k, kpt in enumerate(self.wfs.kpt_u):
-            if self.fxc is not None:
-                if self.time == 0.0:
-                    kpt.deltaXC_H_MM = self.get_hamiltonian(kpt)
-                    self.hamiltonian.xc = XC(self.fxc)
-                    self.update_hamiltonian()
-                    assert len(self.wfs.kpt_u) == 1
-                    kpt.deltaXC_H_MM -= self.get_hamiltonian(kpt)
-
-        self.update_hamiltonian()
-
-        # Call registered callback functions
-        self.call_observers(self.niter)
-
-        for k, kpt in enumerate(self.wfs.kpt_u):
-            kpt.H0_MM = self.get_hamiltonian(kpt)
-            if self.fxc is not None:
-                kpt.H0_MM += kpt.deltaXC_H_MM
-            self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
-        # ---------------
-        # Propagator step
-        # ---------------
-        # 1. Calculate H(t+dt)
-        self.update_hamiltonian()
-        # 2. Estimate H(t+0.5*dt) ~ H(t) + H(t+dT)
-        for k, kpt in enumerate(self.wfs.kpt_u):
-            kpt.H0_MM *= 0.5
-            if self.fxc is not None:
-                #  Store this to H0_MM and maybe save one extra H_MM of
-                # memory?
-                kpt.H0_MM += 0.5 * (self.get_hamiltonian(kpt) +
-                                    kpt.deltaXC_H_MM)
-            else:
+        if self.propagator == 'cn':
+            # --------------
+            # Predictor step
+            # --------------
+            # 1. Store current C_nM
+            self.save_wfs()  # kpt.C2_nM = kpt.C_nM
+            for k, kpt in enumerate(self.wfs.kpt_u):
+                # H_MM(t) = <M|H(t)|M>
+                kpt.H0_MM = self.get_hamiltonian(kpt)
+                if self.fxc is not None:
+                    kpt.H0_MM += kpt.deltaXC_H_MM
+                # 2. Solve Psi(t+dt) from (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt) =
+                #                         (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
+                self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
+            # ---------------
+            # Propagator step
+            # ---------------
+            # 1. Calculate H(t+dt)
+            self.update_hamiltonian()
+            # 2. Estimate H(t+0.5*dt) ~ H(t) + H(t+dT)
+            for k, kpt in enumerate(self.wfs.kpt_u):
+                kpt.H0_MM *= 0.5
                 #  Store this to H0_MM and maybe save one extra H_MM of
                 # memory?
                 kpt.H0_MM += 0.5 * self.get_hamiltonian(kpt)
 
-            # 3. Solve Psi(t+dt) from
-            # (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
-            #    = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
-            self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
+                if self.fxc is not None:
+                    kpt.H0_MM += 0.5 * kpt.deltaXC_H_MM
+
+                # 3. Solve Psi(t+dt) from
+                # (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
+                #    = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
+                self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
+        else:
+            raise RuntimeError('Unknown propagator: %s' % self.propagator)
+
         self.niter += 1
         self.time += dt
 
@@ -433,6 +420,16 @@ class LCAOTDDFT(GPAW):
                          'propagation steps' % (self.niter, self.tdmaxiter))
         self.tddft_init()
 
+        # Initialize fxc
+        for k, kpt in enumerate(self.wfs.kpt_u):
+            if self.fxc is not None:
+                if self.time == 0.0:
+                    kpt.deltaXC_H_MM = self.get_hamiltonian(kpt)
+                    self.hamiltonian.xc = XC(self.fxc)
+                    self.update_hamiltonian()
+                    assert len(self.wfs.kpt_u) == 1
+                    kpt.deltaXC_H_MM -= self.get_hamiltonian(kpt)
+
         dm0 = None  # Initial dipole moment
         self.timer.start('Propagate')
         while self.niter < self.tdmaxiter:
@@ -454,9 +451,19 @@ class LCAOTDDFT(GPAW):
                           self.time * autime_to_attosec,
                           ln(abs(norm) + 1e-16) / ln(10)))
                 self.dm_file.flush()
+
+            # Calculate H(t)
+            self.update_hamiltonian()
+            # TODO: this Hamiltonian does not contain fxc
+
+            # Call registered callback functions
+            self.call_observers(self.niter)
+
             self.propagate_single(self.time_step)
-            
-        self.call_observers(self.niter, final=True)
+
+        # Do not call observers in the end!
+        # The density and hamiltonian are not correct at this point!
+
         if self.wfs.world.rank == 0:
             self.dm_file.close()
         self.timer.stop('Propagate')
