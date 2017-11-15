@@ -29,6 +29,7 @@ def get_system_config(define_macros, undef_macros,
     if import_numpy:
         import numpy
         include_dirs += [numpy.get_include()]
+        # See https://stackoverflow.com/questions/19919905/how-to-bootstrap-numpy-installation-in-setup-py
 
     # libxc
     libraries += ['xc']
