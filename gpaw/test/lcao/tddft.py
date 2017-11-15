@@ -24,7 +24,6 @@ if world.size > 3:
 
 calc = LCAOTDDFT(xc=xc, h=h, basis=b, nbands=N,
                  charge=c, convergence={'density': 1e-6},
-                 propagator='cn',
                  parallel=parallel)
 atoms.set_calculator(calc)
 atoms.get_potential_energy()

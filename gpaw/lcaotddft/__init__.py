@@ -41,7 +41,7 @@ class KickHamiltonian:
 
 class LCAOTDDFT(GPAW):
     def __init__(self, filename=None,
-                 propagator='cn', fxc=None, **kwargs):
+                 propagator='sicn', fxc=None, **kwargs):
         self.time = 0.0
         self.niter = 0
         self.kick_strength = np.zeros(3)
@@ -71,7 +71,7 @@ class LCAOTDDFT(GPAW):
                                     kick_strength=self.kick_strength)
 
     def propagate_wfs(self, sourceC_nm, targetC_nm, S_MM, H_MM, dt):
-        if self.propagator == 'cn':
+        if self.propagator == 'sicn':
             return self.linear_propagator(sourceC_nm, targetC_nm, S_MM, H_MM,
                                           dt)
         raise NotImplementedError
@@ -353,7 +353,7 @@ class LCAOTDDFT(GPAW):
 
     @timer('propagate_single')
     def propagate_single(self, dt):
-        if self.propagator == 'cn':
+        if self.propagator == 'sicn':
             # --------------
             # Predictor step
             # --------------
