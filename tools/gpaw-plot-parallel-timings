@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import re
 from optparse import OptionParser
 import matplotlib.pyplot as plt
 
@@ -27,17 +28,15 @@ else:
     plotstarttime = 0
     plotendtime = None
 
-fname = fnames[0]
-
-
 # We will read/store absolute timings T1 and T2, which are probably 1e9.
 # For the plot we want timings relative to some starting point.
 class Call:
-    def __init__(self, name, T1, level):
+    def __init__(self, name, T1, level, rankno):
         self.name = name
         self.level = level  # nesting level
         self.T1 = T1
         self.T2 = None
+        self.rankno = rankno
 
 
 fig = plt.figure()
@@ -63,46 +62,60 @@ class Function:
 functions = {}
 functionslist = []
 maxlevel = 0
-ongoing = []
 
 
-with open(fname) as fd:
-    for line in fd:
-        line = line.strip()
-        part1, part2, action = line.rsplit(' ', 2)
-        tokens = part1.split(' ', 3)
-        T = float(tokens[2])
-        name = tokens[3]
+# Example: 'T42  >>  12.34  name  (5.51s)    started'
+pattern = r'T\d+ \S+ (\S+) (.+?) \(.*?\) (started|stopped)'
 
-        if action == 'started':
-            level = len(ongoing)
-            maxlevel = max(level, maxlevel)
-            call = Call(name, T1=T, level=level)
-            if name not in functions:
-                function = Function(name, len(functions))
-                functions[name] = function
-                functionslist.append(function)
-            ongoing.append(call)
-        else:
-            assert action == 'stopped', action
-            call = ongoing.pop()
-            assert name == call.name
-            level = len(ongoing)
-            call.T2 = T
-            functions[name].calls.append(call)
+for rankno, fname in enumerate(fnames):
+    ongoing = []
+    with open(fname) as fd:
+        for line in fd:
+            m = re.match(pattern, line)
+            if m is None:
+                failing_line = line
+                break  # Bad syntax
+
+            line = line.strip()
+            part1, part2, action = line.rsplit(' ', 2)
+            tokens = part1.split(' ', 3)
+            T = float(tokens[2])
+            name = tokens[3]
+
+            if action == 'started':
+                level = len(ongoing)
+                maxlevel = max(level, maxlevel)
+                call = Call(name, T1=T, level=level, rankno=rankno)
+                if name not in functions:
+                    function = Function(name, len(functions))
+                    functions[name] = function
+                    functionslist.append(function)
+                ongoing.append(call)
+            elif action == 'stopped':
+                assert action == 'stopped', action
+                call = ongoing.pop()
+                assert name == call.name
+                #level = len(ongoing)
+                call.T2 = T
+                functions[name].calls.append(call)
+
+        # If we failed there may still be lines left.  If there are no
+        # lines left, only last line was mangled (file was incomplete) and
+        # that is okay.  Otherwise it's an error:
+        for line in fd:
+            p.error('Bad syntax: {}'.format(failing_line))
 
 
-# End any remaining ongoing calls:
-for call in ongoing:
-    call.T2 = T
-    functions[call.name].calls.append(call)
+    # End any remaining ongoing calls:
+    for call in ongoing:
+        call.T2 = T
+        functions[call.name].calls.append(call)
 
 Tstart = functionslist[0].calls[0].T1
 if plotendtime is None:
     plotendtime = T - Tstart
 
 
-thebars = {}
 for name in sorted(functions):
     function = functions[name]
     plotcalls = []
@@ -118,7 +131,8 @@ for name in sorted(functions):
     bar = ax.bar(left=[call.T1 - Tstart for call in plotcalls],
                  height=[1.0] * len(plotcalls),
                  width=[call.T2 - call.T1 for call in plotcalls],
-                 bottom=[call.level for call in plotcalls],
+                 bottom=[call.level + call.rankno * (maxlevel + 1)
+                         for call in plotcalls],
                  color=function.color,
                  hatch=function.hatch,
                  edgecolor='black',
@@ -126,7 +140,6 @@ for name in sorted(functions):
                  label=function.name)
     for child in bar.get_children():
         patch_name_p.append((child, name))
-    thebars[name] = bar
     ax.axis(xmin=plotstarttime, xmax=plotendtime)
 
 
