@@ -1,5 +1,4 @@
 from __future__ import print_function
-from math import log as ln
 
 import numpy as np
 from numpy.linalg import inv, solve
@@ -10,15 +9,14 @@ from gpaw import GPAW
 from gpaw.external import ConstantElectricField
 from gpaw.utilities.blas import gemm
 from gpaw.mixer import DummyMixer
-from gpaw.tddft.units import attosec_to_autime, autime_to_attosec
+from gpaw.tddft.units import attosec_to_autime
 from gpaw.xc import XC
+from gpaw.lcaotddft.logger import Logger
 
 from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
                                       scalapack_inverse, scalapack_solve,
                                       scalapack_zero, pblas_tran,
                                       scalapack_set)
-
-from time import localtime
 
 
 class KickHamiltonian:
@@ -358,6 +356,9 @@ class LCAOTDDFT(GPAW):
         # Allocate kpt.C2_nM arrays
         for k, kpt in enumerate(self.wfs.kpt_u):
             kpt.C2_nM = np.empty_like(kpt.C_nM)
+
+        # Add logger
+        Logger(self)
         self.tddft_initialized = True
         self.timer.stop('Initialize TDDFT')
 
@@ -450,16 +451,6 @@ class LCAOTDDFT(GPAW):
             self.action = 'propagate'
             self.call_observers(self.niter)
 
-            # Print output
-            # TODO: rewrite as an observer
-            norm = self.density.finegd.integrate(self.density.rhot_g)
-            T = localtime()
-
-            if self.niter % 1 == 0:
-                self.log('iter: %3d  %02d:%02d:%02d %11.2f   %9.1f' %
-                         (self.niter, T[3], T[4], T[5],
-                          self.time * autime_to_attosec,
-                          ln(abs(norm) + 1e-16) / ln(10)))
             self.niter += 1
 
         self.timer.stop('Propagate')
