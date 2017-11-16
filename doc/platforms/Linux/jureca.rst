@@ -106,7 +106,7 @@ We create a place for gpaw and get the trunk version::
 The current trunk version can then be updated by::
 
   cd $GPAW_SOURCE/trunk
-  svn up
+  git pull
 
 We use the installed version of libxc and our ase/trunk::
 
