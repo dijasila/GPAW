@@ -7,13 +7,15 @@ from gpaw.analyse.observers import Observer
 from gpaw.tddft.units import autime_to_attosec
 
 
-class Logger(Observer):
+class TDDFTLogger(Observer):
 
     def __init__(self, paw):
         Observer.__init__(self)
         assert hasattr(paw, 'time') and hasattr(paw, 'niter'), 'Use TDDFT'
+        self.timer = paw.timer
         paw.attach(self, 1, paw)
 
+    @timer('TDDFTLogger update')
     def update(self, paw):
         density = paw.density
         norm = density.finegd.integrate(density.rhot_g)

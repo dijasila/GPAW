@@ -11,7 +11,7 @@ from gpaw.utilities.blas import gemm
 from gpaw.mixer import DummyMixer
 from gpaw.tddft.units import attosec_to_autime
 from gpaw.xc import XC
-from gpaw.lcaotddft.logger import Logger
+from gpaw.lcaotddft.logger import TDDFTLogger
 
 from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
                                       scalapack_inverse, scalapack_solve,
@@ -358,7 +358,7 @@ class LCAOTDDFT(GPAW):
             kpt.C2_nM = np.empty_like(kpt.C_nM)
 
         # Add logger
-        Logger(self)
+        TDDFTLogger(self)
         self.tddft_initialized = True
         self.timer.stop('Initialize TDDFT')
 
