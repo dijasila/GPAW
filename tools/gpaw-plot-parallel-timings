@@ -28,6 +28,7 @@ else:
     plotstarttime = 0
     plotendtime = None
 
+
 # We will read/store absolute timings T1 and T2, which are probably 1e9.
 # For the plot we want timings relative to some starting point.
 class Call:
@@ -95,7 +96,6 @@ for rankno, fname in enumerate(fnames):
                 assert action == 'stopped', action
                 call = ongoing.pop()
                 assert name == call.name
-                #level = len(ongoing)
                 call.T2 = T
                 functions[name].calls.append(call)
 
@@ -104,7 +104,6 @@ for rankno, fname in enumerate(fnames):
         # that is okay.  Otherwise it's an error:
         for line in fd:
             p.error('Bad syntax: {}'.format(failing_line))
-
 
     # End any remaining ongoing calls:
     for call in ongoing:
