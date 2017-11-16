@@ -1,22 +1,16 @@
 from time import localtime
 from math import log as ln
 
-from ase.utils.timing import timer
-
-from gpaw.analyse.observers import Observer
+from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.tddft.units import autime_to_attosec
 
 
-class TDDFTLogger(Observer):
+class TDDFTLogger(TDDFTObserver):
 
-    def __init__(self, paw):
-        Observer.__init__(self)
-        assert hasattr(paw, 'time') and hasattr(paw, 'niter'), 'Use TDDFT'
-        self.timer = paw.timer
-        paw.attach(self, 1, paw)
+    def __init__(self, paw, interval=1):
+        TDDFTObserver.__init__(self, paw, interval)
 
-    @timer('TDDFTLogger update')
-    def update(self, paw):
+    def _update(self, paw):
         density = paw.density
         norm = density.finegd.integrate(density.rhot_g)
         T = localtime()

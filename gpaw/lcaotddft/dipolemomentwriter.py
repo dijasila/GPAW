@@ -1,22 +1,16 @@
-from ase.utils.timing import timer
-
-from gpaw.analyse.observers import Observer
+from gpaw.lcaotddft.observer import TDDFTObserver
 
 
-class DipoleMomentWriter(Observer):
+class DipoleMomentWriter(TDDFTObserver):
 
-    def __init__(self, filename, paw):
-        Observer.__init__(self)
-        assert hasattr(paw, 'time') and hasattr(paw, 'niter'), 'Use TDDFT'
-        self.timer = paw.timer
+    def __init__(self, filename, paw, interval=1):
+        TDDFTObserver.__init__(self, paw, interval)
         self.master = paw.world.rank == 0
         if self.master:
             if paw.niter == 0:
                 self.fd = open(filename, 'w')
             else:
                 self.fd = open(filename, 'a')
-
-        paw.attach(self, 1, paw)
 
     def _write(self, line):
         if self.master:
@@ -44,8 +38,7 @@ class DipoleMomentWriter(Observer):
                 (time, norm, dm[0], dm[1], dm[2]))
         self._write(line)
 
-    @timer('DipoleMomentWriter update')
-    def update(self, paw):
+    def _update(self, paw):
         if paw.action == 'init':
             self._write_header(paw)
         elif paw.action == 'kick':
