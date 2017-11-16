@@ -134,7 +134,7 @@ class LCAOTDDFT(GPAW):
         self.tddft_initialized = True
         self.timer.stop('Initialize TDDFT')
 
-    def update_projectors(self):
+    def update_projectors(self):  # TODO: move to propagator?
         self.timer.start('LCAO update projectors')
         # Loop over all k-points
         for k, kpt in enumerate(self.wfs.kpt_u):
@@ -143,13 +143,13 @@ class LCAOTDDFT(GPAW):
                 gemm(1.0, self.wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
         self.timer.stop('LCAO update projectors')
 
-    def get_hamiltonian(self, kpt):
+    def get_hamiltonian(self, kpt):  # TODO: move to propagator?
         eig = self.wfs.eigensolver
         H_MM = eig.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs,
                                                 kpt, root=-1)
         return H_MM
 
-    def update_hamiltonian(self):
+    def update_hamiltonian(self):  # TODO: move to propagator?
         self.update_projectors()
         self.density.update(self.wfs)
         self.hamiltonian.update(self.density)
