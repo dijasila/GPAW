@@ -8,7 +8,7 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC, BasisFunctions
 
 # XXX Document what is the difference between PairDensity2 and 1.
 class PairDensity2:
-    def  __init__(self, density, atoms, finegrid):
+    def  __init__(self, density, spos_ac, finegrid):
         """Initialization needs a paw instance, and whether the compensated
         pair density should be on the fine grid (boolean)"""
 
@@ -20,7 +20,7 @@ class PairDensity2:
                                [setup.ghat_l
                                 for setup in density.setups],
                                integral=sqrt(4 * pi))
-            density.Ghat.set_positions(atoms.get_scaled_positions() % 1.0)
+            density.Ghat.set_positions(spos_ac)
 
     def initialize(self, kpt, n1, n2):
         """Set wave function indices."""
@@ -78,7 +78,7 @@ class PairDensity:
         self.lcao = paw.parameters.mode == 'lcao'
         self.density = paw.density
         self.setups = paw.wfs.setups
-        self.spos_ac = paw.atoms.get_scaled_positions()
+        self.spos_ac = paw.spos_ac
 
         self.spin = 0
         self.k = 0
