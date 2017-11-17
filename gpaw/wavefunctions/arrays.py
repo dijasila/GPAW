@@ -228,14 +228,6 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
 
 
 def operate_and_multiply(psit1, dv, out, operator, psit2):
-    comm = psit1.matrix.dist.comm
-    if len(psit1) % comm.size != 0:
-        if operator is None:
-            psit2 = psit1
-        else:
-            operator(psit1.array, psit2.array)
-        return psit1.matrix_elements(psit2, out=out, symmetric=True, cc=True)
-
     if psit1.comm:
         if psit2 is not None:
             assert psit2.comm is psit1.comm
@@ -243,9 +235,13 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
             out.comm = psit1.comm
             out.state = 'a sum is needed'
 
+    comm = psit1.matrix.dist.comm
+    N = len(psit1)
+    n = (N + comm.size - 1) // comm.size
     mynbands = len(psit1.matrix.array)
-    buf1 = psit1.new(nbands=mynbands, dist=None)
-    buf2 = psit1.new(nbands=mynbands, dist=None)
+
+    buf1 = psit1.new(nbands=n, dist=None)
+    buf2 = psit1.new(nbands=n, dist=None)
     half = comm.size // 2
     psit = psit1.view(0, mynbands)
     if psit2 is not None:
@@ -259,10 +255,11 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
             srank = (comm.rank + r + 1) % comm.size
             rrank = (comm.rank - r - 1) % comm.size
             skip = (comm.size % 2 == 0 and r == half - 1)
-
-            if not (skip and comm.rank < half):
-                rrequest = comm.receive(buf1.array, rrank, 11, False)
-            if not (skip and comm.rank >= half):
+            n1 = min(rrank * n, N)
+            n2 = min(n1 + n, N)
+            if not (skip and comm.rank < half) and n2 > n1:
+                rrequest = comm.receive(buf1.array[:n2 - n1], rrank, 11, False)
+            if not (skip and comm.rank >= half) and len(psit1.array) > 0:
                 srequest = comm.send(psit1.array, srank, 11, False)
 
         if r == 0:
@@ -273,9 +270,9 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
 
         if not (comm.size % 2 == 0 and r == half and comm.rank < half):
             m12 = psit2.matrix_elements(psit, symmetric=(r == 0), cc=True)
-            n1 = ((comm.rank - r) % comm.size) * mynbands
-            n2 = n1 + mynbands
-            out.array[:, n1:n2] = m12.array
+            n1 = min(((comm.rank - r) % comm.size) * n, N)
+            n2 = min(n1 + n, N)
+            out.array[:, n1:n2] = m12.array[:, :n2 - n1]
 
         if rrequest:
             comm.wait(rrequest)
@@ -291,17 +288,20 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
     for row in range(nrows):
         for column in range(comm.size - nrows + row, comm.size):
             if comm.rank == row:
-                n1 = column * mynbands
-                n2 = n1 + mynbands
-                requests.append(comm.send(out.array[:, n1:n2].T.conj().copy(),
-                                          column, 12, False))
+                n1 = min(column * n, N)
+                n2 = min(n1 + n, N)
+                if mynbands > 0 and n2 > n1:
+                    requests.append(
+                        comm.send(out.array[:, n1:n2].T.conj().copy(),
+                                  column, 12, False))
             elif comm.rank == column:
-                n1 = row * mynbands
-                n2 = n1 + mynbands
-                block = np.empty((mynbands, mynbands), out.dtype)
-                blocks.append((n1, n2, block))
-                requests.append(comm.receive(block, row, 12, False))
+                n1 = min(row * n, N)
+                n2 = min(n1 + n, N)
+                if mynbands > 0 and n2 > n1:
+                    block = np.empty((mynbands, n2 - n1), out.dtype)
+                    blocks.append((n1, n2, block))
+                    requests.append(comm.receive(block, row, 12, False))
+
     comm.waitall(requests)
     for n1, n2, block in blocks:
         out.array[:, n1:n2] = block
-        

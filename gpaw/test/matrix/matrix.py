@@ -23,3 +23,12 @@ C.array[:] = 777
 mmm(2.0, A, 'N', A, 'C', 0.0, C, symmetric=True)
 C.redist(C0)
 print(C0.array)
+
+N = 5
+G = 7
+A = Matrix(N, N, dist=(world, world.size, 1), dtype=complex)
+B = Matrix(N, G, dist=(world, world.size, 1), dtype=complex)
+C = Matrix(N, G, dist=(world, world.size, 1), dtype=complex)
+A.array[:] = 1.0
+B.array[:] = 1.0
+mmm(1.0, A, 'N', B, 'N', 0.0, C)
