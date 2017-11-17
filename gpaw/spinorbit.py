@@ -64,15 +64,17 @@ def get_radial_potential(calc, a, ai):
     rho_g = 4 * np.pi * r_g**2 * dr_g * np.sum(n_sg, axis=0)
     fh_g = -np.array([np.sum(rho_g[:ig]) for ig in range(len(r_g))]) / r_g**2
 
+    f_g = fc_g + fh_g
     # xc force
     xc = XC(calc.get_xc_functional())
-    v_sg = np.zeros_like(n_sg)
-    xc.calculate_spherical(a.xc_correction.rgd, n_sg, v_sg)
-    fxc_sg = np.array([a.xc_correction.rgd.derivative(v_sg[s])
-                       for s in range(Ns)])
-    fxc_g = np.sum(fxc_sg, axis=0) / Ns
+    if xc.name not in ['GLLBSC']:
+        v_sg = np.zeros_like(n_sg)
+        xc.calculate_spherical(a.xc_correction.rgd, n_sg, v_sg)
+        fxc_sg = np.array([a.xc_correction.rgd.derivative(v_sg[s])
+                           for s in range(Ns)])
+        fxc_g = np.sum(fxc_sg, axis=0) / Ns
 
-    f_g = fc_g + fh_g + fxc_g
+        f_g += fxc_g
 
     return f_g / r_g
 

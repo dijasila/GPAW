@@ -28,6 +28,10 @@ p.add_option('--unit', default='s',
 p.add_option('--align', default='SCF-cycle', metavar='TIMER',
              help='align timings of all processes to first call of '
              'TIMER[=%default].')
+p.add_option('--nolegend', action='store_true',
+             help='do not plot the separate legend figure')
+p.add_option('--nointeractive', action='store_true',
+             help='disable interactive legend')
 opts, fnames = p.parse_args()
 
 timeunit = {'s': 1.0, 'm': 60.0, 'h': 3600.0}[opts.unit]
@@ -95,8 +99,8 @@ class Entry:
 
 class EntryCollection:
     def __init__(self, entries):
-        #tstart = min([entry.t1 for entry in entries])
-        #tstop = max([entry.t2 for entry in entries])
+        # tstart = min([entry.t1 for entry in entries])
+        # tstop = max([entry.t2 for entry in entries])
 
         try:
             scf_cycle_starttimes = [entry.get_first_occurrence(opts.align).t1
@@ -112,15 +116,15 @@ class EntryCollection:
 
         for entry in entries:
             assert entry.level == -1
-            #start_time = entry.t1
+            # start_time = entry.t1
             sync_time = entry.t1
             for child in entry.iterate():
-                if child.name == 'SCF-cycle': # hardcoded name!
+                if child.name == 'SCF-cycle':  # hardcoded name!
                     sync_time = child.t1
                     break
             entry.normalize(sync_time - max_diff)
 
-            #entry.normalize(tstart, tstop)
+            # entry.normalize(tstart, tstop)
         self.entries = entries
         self.totals = self.get_totals()
 
@@ -152,12 +156,12 @@ def get_timings(fname):
                 assert name == head.name
                 head.stop(t)
                 head = head.parent
-        except StandardError: # guard against interrupted file I/O
+        except StandardError:  # guard against interrupted file I/O
             pass
-    while head != root: # If file is incomplete, cut remaining timers short
+    while head != root:  # If file is incomplete, cut remaining timers short
         head.stop(t)
         head = head.parent
-    #assert head == root
+    # assert head == root
     root.t1 = root.children[0].t1
     root.stop(root.children[-1].t2)
     return root
@@ -181,17 +185,12 @@ entries = EntryCollection(alltimings)
 
 ordered_names = []
 fig = plt.figure(figsize=(12, 8))
-fig2 = plt.figure(figsize=(10, 8))
 ax = fig.add_subplot(111)
-fig.subplots_adjust(left=0.08, right=.95, bottom=0.07, top=.99)
-#nameax = fig.add_subplot(122)
-nameax = fig2.add_subplot(111)
-nameax.set_yticks([])
-nameax.set_xticks([])
-#nameax = [fig2.add_subplot(2, 2, i + 1) for i in range(4)]
+fig.subplots_adjust(left=0.08, right=.95, bottom=0.07, top=.95)
 
 styles = {}
 bars = {}  # matplotlib objects for legend
+patch_name_p = []
 
 thecolors = ['blue', 'green', 'red', 'cyan', 'magenta', 'yellow',
              'darkred', 'indigo', 'springgreen', 'purple']
@@ -223,7 +222,7 @@ for rank, rootnode in enumerate(alltimings):
         dt = t2 - t1
         if child.name not in styles:
             if entries.totals[child.name] < opts.threshold:
-                #color, hatch = ('k', '')
+                # color, hatch = ('k', '')
                 continue
             else:
                 color, hatch = getstyle(nstyles_used)
@@ -247,6 +246,7 @@ for rank, rootnode in enumerate(alltimings):
                      hatch=hatch,
                      label='__nolegend__')
         bars[child.name] = bar
+        patch_name_p.append((bar.get_children()[0], child.name))
 
 ax.set_ylabel('rank')
 ax.set_yticks(range(len(metadata)))
@@ -256,23 +256,64 @@ ax.set_xlabel('time / %s' % opts.unit)
 ax.axis(xmin=plotstarttime, xmax=plotendtime,
         ymin=-plot_vertical_adjustment - 0.1)
 
-# Roughly 36 elements fit in the window.  For each 36, add another column
-# Only two columns will fit.  People will have to maximize the thing if they
-# have hundreds of different timers somehow.
-ncolumns = 1 + len(ordered_names) // 36
+if not opts.nolegend:
+    fig2 = plt.figure(figsize=(10, 8))
+    nameax = fig2.add_subplot(111)
+    nameax.set_yticks([])
+    nameax.set_xticks([])
 
-for name in ordered_names:
-    color, hatch = styles[name]
-    nameax.bar([0], [0], [0], [0],
-               color=color, hatch=hatch, label=name)
+    # Roughly 36 elements fit in the window.  For each 36, add another column
+    # Only two columns will fit.  People will have to maximize the thing
+    # if they have hundreds of different timers somehow.
+    ncolumns = 1 + len(ordered_names) // 36
 
-nameax.legend(ordered_names,
-              handlelength=2.5,
-              labelspacing=0.0,
-              fontsize='large',
-              ncol=ncolumns,
-              mode='expand',
-              frameon=True,
-              loc='best')
+    for name in ordered_names:
+        color, hatch = styles[name]
+        nameax.bar([0], [0], [0], [0],
+                   color=color, hatch=hatch, label=name)
+
+    nameax.legend(ordered_names,
+                  handlelength=2.5,
+                  labelspacing=0.0,
+                  fontsize='large',
+                  ncol=ncolumns,
+                  mode='expand',
+                  frameon=True,
+                  loc='best')
+
+if not opts.nointeractive:
+    default_text = 'Click on a patch to get the name'
+    p = fig.subplotpars
+
+    # Create interactive axes
+    iax = fig.add_axes((p.left, p.top, p.right - p.left, 1 - p.top),
+                       axisbg=fig.get_facecolor())
+    ibg = iax.patch
+    for s in iax.get_children():
+        if s != ibg:
+            s.set_visible(False)
+    itext = iax.text(0.5, 0.5, default_text, va='center', ha='center',
+                     transform=iax.transAxes)
+
+    def print_name_event(event):
+        text = default_text
+        # Do action based on the chosen tool
+        # tb = fig.canvas.manager.toolbar
+        # if tb.mode != '':
+        #     return
+        for patch, name in patch_name_p:
+            if patch.contains(event)[0]:
+                text = name
+                break
+        itext.set_text(text)
+        # The next lines can be replace with
+        # fig.canvas.draw()
+        # but it'll be very slow
+        iax.draw_artist(ibg)
+        iax.draw_artist(itext)
+        fig.canvas.update()
+        fig.canvas.flush_events()
+
+    fig.canvas.mpl_connect('button_press_event', print_name_event)
 
 plt.show()

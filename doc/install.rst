@@ -276,29 +276,29 @@ few extra tips:
 * Typically when building GPAW one has to modify customize.py in a manner
   similar to the following::
 
-    library_dirs += ['/my/path/to/libxc/2.0.2/install/lib']
-    include_dirs += ['/my/path/to/libxc/2.0.2/install/include']
+    library_dirs += ['/my/path/to/libxc/4.0.1/install/lib']
+    include_dirs += ['/my/path/to/libxc/4.0.1/install/include']
 
   or if you don't want to modify your customize.py, you can add these lines to
   your .bashrc::
 
-    export C_INCLUDE_PATH=/my/path/to/libxc/2.0.2/install/include
-    export LIBRARY_PATH=/my/path/to/libxc/2.0.2/install/lib
-    export LD_LIBRARY_PATH=/my/path/to/libxc/2.0.2/install/lib
+    export C_INCLUDE_PATH=/my/path/to/libxc/4.0.1/install/include
+    export LIBRARY_PATH=/my/path/to/libxc/4.0.1/install/lib
+    export LD_LIBRARY_PATH=/my/path/to/libxc/4.0.1/install/lib
 
 Example::
 
-    wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-2.0.2.tar.gz -O libxc-2.0.2.tar.gz
-    tar -xf libxc-2.0.2.tar.gz
-    cd libxc-2.0.2
-    ./configure --enable-shared --prefix=$HOME/xc
+    wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-4.0.1.tar.gz -O libxc-4.0.1.tar.gz
+    tar -xf libxc-4.0.1.tar.gz
+    cd libxc-4.0.1
+    ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc-4.0.1
     make
     make install
 
     # add these to your .bashrc:
-    export C_INCLUDE_PATH=~/xc/include
-    export LIBRARY_PATH=~/xc/lib
-    export LD_LIBRARY_PATH=~/xc/lib
+    export C_INCLUDE_PATH=~/libxc-4.0.1/include
+    export LIBRARY_PATH=~/libxc-4.0.1/lib
+    export LD_LIBRARY_PATH=~/libxc-4.0.1/lib
 
 
 .. _envvars:
