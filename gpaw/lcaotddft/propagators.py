@@ -3,7 +3,6 @@ from numpy.linalg import inv, solve
 
 from gpaw.io import Reader
 
-from gpaw.utilities.blas import gemm
 from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
                                       scalapack_inverse, scalapack_solve,
                                       scalapack_zero, pblas_tran,
@@ -40,6 +39,7 @@ class Propagator(object):
 
     def propagate(self, time, time_step):
         raise RuntimeError('Virtual member function called')
+
 
 class LCAOPropagator(Propagator):
 

@@ -22,7 +22,7 @@ class WaveFunctionWriter(TDDFTObserver):
 
     def _update(self, paw):
         self.writer.write(time=paw.time, action=paw.action)
-        w = w.child('wave_functions')
+        w = self.writer.child('wave_functions')
         paw.wfs.write_wave_functions(w)
         paw.wfs.write_occupations(w)
         self.writer.sync()
