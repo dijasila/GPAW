@@ -16,3 +16,6 @@ class TDDFTObserver(Observer):
 
     def _update(self, paw):
         raise RuntimeError('Virtual member function called')
+
+    def __del__(self):
+        Observer.__del__(self)

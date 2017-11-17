@@ -45,9 +45,7 @@ class DipoleMomentWriter(TDDFTObserver):
             self._write_kick(paw)
         self._write_dm(paw)
 
-    def close(self):
+    def __del__(self):
         if self.master:
             self.fd.close()
-
-    def __del__(self):
-        self.close()
+        TDDFTObserver.__del__(self)
