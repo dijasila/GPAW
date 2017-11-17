@@ -91,8 +91,9 @@ class LDA(XCFunctional):
         self.kernel.calculate(e_g, n_sg, v_sg)
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
-                                 addcoredensity=True, a=None,
-                                 collinear=True):
+                                 addcoredensity=True, a=None):
+        from gpaw.xc.noncollinear import NonCollinearLDAKernel
+        collinear = not isinstance(self.kernel, NonCollinearLDAKernel)
         rcalc = LDARadialCalculator(self.kernel)
         expansion = LDARadialExpansion(rcalc, collinear)
         return calculate_paw_correction(expansion,

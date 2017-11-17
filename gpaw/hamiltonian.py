@@ -295,8 +295,7 @@ class Hamiltonian:
         self.timer.start('XC Correction')
         for a, D_sp in D_asp.items():
             e_xc += self.xc.calculate_paw_correction(self.setups[a], D_sp,
-                                                     dH_asp[a], a=a,
-                                                     collinear=self.collinear)
+                                                     dH_asp[a], a=a)
         self.timer.stop('XC Correction')
 
         for a, D_sp in D_asp.items():
@@ -306,7 +305,7 @@ class Hamiltonian:
         self.timer.stop('Atomic')
 
         # Make corrections due to non-local xc:
-        #self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
+        # self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
         e_kinetic += self.xc.get_kinetic_energy_correction() / self.world.size
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
