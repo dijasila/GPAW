@@ -113,6 +113,7 @@ class LCAOWaveFunctions(WaveFunctions):
                                    self.ksl)
 
     def set_positions(self, spos_ac, atom_partition=None, move_wfs=False):
+        self.spos_ac = spos_ac
         with self.timer('Basic WFS set positions'):
             WaveFunctions.set_positions(self, spos_ac, atom_partition)
 
@@ -204,6 +205,11 @@ class LCAOWaveFunctions(WaveFunctions):
         self.T_qMM = T_qMM
 
     def initialize(self, density, hamiltonian, spos_ac):
+        self.spos_ac = spos_ac
+        # Note: The above line exists also in set_positions.
+        # This is guaranteed to be correct, but we can probably remove one.
+        # Of course no human can understand the initialization process,
+        # so this will be some other day.
         self.timer.start('LCAO WFS Initialize')
         if density.nt_sG is None:
             if self.kpt_u[0].f_n is None or self.kpt_u[0].C_nM is None:
@@ -327,7 +333,6 @@ class LCAOWaveFunctions(WaveFunctions):
     def calculate_forces(self, hamiltonian, F_av):
         self.timer.start('LCAO forces')
 
-        spos_ac = self.tci.atoms.get_scaled_positions() % 1.0
         ksl = self.ksl
         nao = ksl.nao
         mynao = ksl.mynao
@@ -351,7 +356,7 @@ class LCAOWaveFunctions(WaveFunctions):
             for a in self.basis_functions.my_atom_indices:
                 ni = self.setups[a].ni
                 dPdR_aqvMi[a] = np.empty((nq, 3, nao, ni), dtype)
-            tci.calculate_derivative(spos_ac, dThetadR_qvMM, dTdR_qvMM,
+            tci.calculate_derivative(self.spos_ac, dThetadR_qvMM, dTdR_qvMM,
                                      dPdR_aqvMi)
             gd.comm.sum(dThetadR_qvMM)
             gd.comm.sum(dTdR_qvMM)
@@ -536,16 +541,13 @@ class LCAOWaveFunctions(WaveFunctions):
             Fkin2_av = np.zeros_like(F_av)
             Ftheta2_av = np.zeros_like(F_av)
 
-            cell_cv = tci.atoms.cell
-            spos_ac = tci.atoms.get_scaled_positions() % 1.0
-
             overlapcalc = TwoCenterIntegralCalculator(self.kd.ibzk_qc,
                                                       derivative=False)
 
             # XXX this is not parallel *AT ALL*.
             self.timer.start('Get neighbors')
             nl = tci.atompairs.pairs.neighbors
-            r_and_offset_aao = get_r_and_offsets(nl, spos_ac, cell_cv)
+            r_and_offset_aao = get_r_and_offsets(nl, self.spos_ac, gd.cell_cv)
             atompairs = sorted(r_and_offset_aao.keys())
             self.timer.stop('Get neighbors')
 
