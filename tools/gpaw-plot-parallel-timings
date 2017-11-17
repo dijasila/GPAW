@@ -2,6 +2,7 @@
 
 import re
 from optparse import OptionParser
+import numpy as np
 import matplotlib.pyplot as plt
 
 p = OptionParser(usage='%prog [OPTION] FILE...',
@@ -13,6 +14,9 @@ p = OptionParser(usage='%prog [OPTION] FILE...',
 p.add_option('--interval', metavar='TIME1:TIME2',
              help='plot only timings within TIME1 and TIME2 '
              'after start of calculation.')
+p.add_option('--align', metavar='NAME', default='SCF-cycle',
+             help='horizontally align timings of different ranks at first '
+             'call of NAME [default=%default]')
 p.add_option('--nolegend', action='store_true',
              help='do not plot the separate legend figure')
 p.add_option('--nointeractive', action='store_true',
@@ -38,6 +42,14 @@ class Call:
         self.T1 = T1
         self.T2 = None
         self.rankno = rankno
+
+    @property
+    def t1(self):
+        return self.T1 - alignments[self.rankno]
+
+    @property
+    def t2(self):
+        return self.T2 - alignments[self.rankno]
 
 
 fig = plt.figure()
@@ -68,25 +80,32 @@ maxlevel = 0
 # Example: 'T42  >>  12.34  name  (5.51s)    started'
 pattern = r'T\d+ \S+ (\S+) (.+?) \(.*?\) (started|stopped)'
 
+alignments = []
+firstcallsbyrank = []
+#Tmin = np.inf
+Tmax = -np.inf
 for rankno, fname in enumerate(fnames):
+    alignment = None
     ongoing = []
     with open(fname) as fd:
-        for line in fd:
+        for lineno, line in enumerate(fd):
             m = re.match(pattern, line)
             if m is None:
                 failing_line = line
                 break  # Bad syntax
 
-            line = line.strip()
-            part1, part2, action = line.rsplit(' ', 2)
-            tokens = part1.split(' ', 3)
-            T = float(tokens[2])
-            name = tokens[3]
+            T, name, action = m.group(1, 2, 3)
+            T = float(T)
 
             if action == 'started':
                 level = len(ongoing)
                 maxlevel = max(level, maxlevel)
                 call = Call(name, T1=T, level=level, rankno=rankno)
+                if lineno == 0:
+                    assert len(firstcallsbyrank) == rankno
+                    firstcallsbyrank.append(call)
+                if alignment is None and name == opts.align:
+                    alignment = call.T1
                 if name not in functions:
                     function = Function(name, len(functions))
                     functions[name] = function
@@ -105,29 +124,35 @@ for rankno, fname in enumerate(fnames):
         for line in fd:
             p.error('Bad syntax: {}'.format(failing_line))
 
+    assert alignment is not None, 'Cannot align to "{}"'.format(opts.align)
+    alignments.append(alignment)
+    Tmax = max(T, Tmax)
+
     # End any remaining ongoing calls:
     for call in ongoing:
         call.T2 = T
         functions[call.name].calls.append(call)
 
-Tstart = functionslist[0].calls[0].T1
-if plotendtime is None:
-    plotendtime = T - Tstart
+tmin = min([call.t1 for call in firstcallsbyrank])
+alignments = [a + tmin for a in alignments]  # Now timings start at 0
 
+
+if plotendtime is None:
+    plotendtime = Tmax - Tmin
 
 for name in sorted(functions):
     function = functions[name]
     plotcalls = []
     for call in function.calls:
         # Skip timings that fall out of the viewed interval:
-        if call.T2 - Tstart < plotstarttime:
+        if call.t2 < plotstarttime:
             continue
-        if call.T1 - Tstart > plotendtime:
+        if call.t1 > plotendtime:
             continue
         plotcalls.append(call)
 
     # Shift: maxlevel, rank
-    bar = ax.bar(left=[call.T1 - Tstart for call in plotcalls],
+    bar = ax.bar(left=[call.t1 for call in plotcalls],
                  height=[1.0] * len(plotcalls),
                  width=[call.T2 - call.T1 for call in plotcalls],
                  bottom=[call.level + call.rankno * (maxlevel + 1)
@@ -142,10 +167,8 @@ for name in sorted(functions):
     ax.axis(xmin=plotstarttime, xmax=plotendtime)
 
 
-ncolumns = 1 + len(functionslist) // 32
-
-
 if not opts.nolegend:
+    ncolumns = 1 + len(functionslist) // 32
     namefig = plt.figure()
     nameax = namefig.add_subplot(111)
 
