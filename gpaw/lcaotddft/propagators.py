@@ -36,11 +36,10 @@ class Propagator(object):
 
     def initialize(self, paw):
         self.timer = paw.timer
-        self.fxc = paw.fxc
         self.log = paw.log
 
     def propagate(self, time, time_step):
-        raise RuntimeError('Virtual member function called')
+        raise NotImplementedError()
 
 
 class LCAOPropagator(Propagator):
@@ -285,7 +284,7 @@ class SICNPropagator(ECNPropagator):
         for k, kpt in enumerate(self.wfs.kpt_u):
             # H_MM(t) = <M|H(t)|M>
             kpt.H0_MM = self.get_hamiltonian(kpt)
-            if self.fxc is not None:
+            if hasattr(kpt, 'deltaXC_H_MM'):
                 kpt.H0_MM += kpt.deltaXC_H_MM
             # 2. Solve Psi(t+dt) from (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt) =
             #                         (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
@@ -302,7 +301,7 @@ class SICNPropagator(ECNPropagator):
             # memory?
             kpt.H0_MM += 0.5 * self.get_hamiltonian(kpt)
 
-            if self.fxc is not None:
+            if hasattr(kpt, 'deltaXC_H_MM'):
                 kpt.H0_MM += 0.5 * kpt.deltaXC_H_MM
 
             # 3. Solve Psi(t+dt) from

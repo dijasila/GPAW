@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import numpy as np
 from ase.units import Bohr, Hartree
 
@@ -9,6 +7,7 @@ from gpaw.utilities.blas import gemm
 from gpaw.mixer import DummyMixer
 from gpaw.tddft.units import attosec_to_autime
 from gpaw.xc import XC
+from gpaw.xc.kernel import XCNull
 from gpaw.lcaotddft.logger import TDDFTLogger
 from gpaw.lcaotddft.propagators import create_propagator
 
@@ -39,7 +38,8 @@ class LCAOTDDFT(GPAW):
         self.kick_strength = np.zeros(3)
         self.tddft_initialized = False
         self.action = None
-        self.fxc = fxc
+        self.fxc_name = fxc
+
         self.propagator = create_propagator(propagator)
         if filename is None:
             kwargs['mode'] = kwargs.get('mode', 'lcao')
@@ -50,20 +50,45 @@ class LCAOTDDFT(GPAW):
             # self.initialize()
             self.set_positions()
 
+    def _write(self, writer, mode):
+        GPAW._write(self, writer, mode)
+        w = writer.child('tddft')
+        w.write(time=self.time,
+                niter=self.niter,
+                kick_strength=self.kick_strength)
+        if self.has_fxc:
+            self.write_fxc(w.child('fxc'))
+
+    def write_fxc(self, writer):
+        wfs = self.wfs
+        writer.write(name=self.fxc_name)
+        writer.add_array('deltaXC_H_MM',
+                         (wfs.nspins, wfs.kd.nibzkpts,
+                          wfs.setups.nao, wfs.setups.nao),
+                         dtype=wfs.dtype)
+        for s in range(wfs.nspins):
+            for k in range(wfs.kd.nibzkpts):
+                H_MM = wfs.collect_auxiliary('deltaXC_H_MM', k, s,
+                        shape=(wfs.setups.nao, wfs.setups.nao),
+                        dtype=wfs.dtype)
+                writer.fill(H_MM)
+
     def read(self, filename):
         reader = GPAW.read(self, filename)
         if 'tddft' in reader:
-            self.time = reader.tddft.time
-            self.niter = reader.tddft.niter
-            self.kick_strength = reader.tddft.kick_strength
-        # TODO: read fxc
+            r = reader.tddft
+            self.time = r.time
+            self.niter = r.niter
+            self.kick_strength = r.kick_strength
+            if 'fxc' in r:
+                self.read_fxc(r.fxc)
 
-    def _write(self, writer, mode):
-        GPAW._write(self, writer, mode)
-        writer.child('tddft').write(time=self.time,
-                                    niter=self.niter,
-                                    kick_strength=self.kick_strength)
-        # TODO: write fxc
+    def read_fxc(self, reader):
+        assert self.fxc_name is None or self.fxc_name == reader.name
+        self.fxc_name = reader.name
+        wfs = self.wfs
+        for kpt in wfs.kpt_u:
+            kpt.deltaXC_H_MM = reader.proxy('deltaXC_H_MM', kpt.s, kpt.k)[:]
 
     def absorption_kick(self, kick_strength):
         self.tddft_init()
@@ -115,6 +140,9 @@ class LCAOTDDFT(GPAW):
         # Update density and Hamiltonian
         self.update_hamiltonian()
 
+        # Initialize fxc
+        self.initialize_fxc()
+
         # Add logger
         TDDFTLogger(self)
 
@@ -122,18 +150,31 @@ class LCAOTDDFT(GPAW):
         self.action = 'init'
         self.call_observers(self.niter)
 
-        if self.niter == 0:
-            # Initialize fxc
-            if self.fxc is not None:
-                for k, kpt in enumerate(self.wfs.kpt_u):
-                    kpt.deltaXC_H_MM = self.get_hamiltonian(kpt)
-                    self.hamiltonian.xc = XC(self.fxc)
-                    self.update_hamiltonian()
-                    assert len(self.wfs.kpt_u) == 1  # TODO: Why?
-                    kpt.deltaXC_H_MM -= self.get_hamiltonian(kpt)
-
         self.tddft_initialized = True
         self.timer.stop('Initialize TDDFT')
+
+    def initialize_fxc(self):
+        self.has_fxc = self.fxc_name is not None
+        if not self.has_fxc:
+            return
+
+        # Calculate deltaXC: 1. take current H_MM
+        if self.niter == 0:
+            for k, kpt in enumerate(self.wfs.kpt_u):
+                kpt.deltaXC_H_MM = self.get_hamiltonian_matrix(kpt)
+
+        # Update hamiltonian.xc
+        if self.fxc_name == 'RPA':
+            xc = XCNull()
+        else:
+            xc = self.fxc_name
+        self.hamiltonian.xc = XC(xc)
+        self.update_hamiltonian()
+
+        # Calculate deltaXC: 2. update with new H_MM
+        if self.niter == 0:
+            for k, kpt in enumerate(self.wfs.kpt_u):
+                kpt.deltaXC_H_MM -= self.get_hamiltonian_matrix(kpt)
 
     def update_projectors(self):  # TODO: move to propagator?
         self.timer.start('LCAO update projectors')
@@ -144,7 +185,7 @@ class LCAOTDDFT(GPAW):
                 gemm(1.0, self.wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
         self.timer.stop('LCAO update projectors')
 
-    def get_hamiltonian(self, kpt):  # TODO: move to propagator?
+    def get_hamiltonian_matrix(self, kpt):  # TODO: move to propagator?
         eig = self.wfs.eigensolver
         H_MM = eig.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs,
                                                 kpt, root=-1)
