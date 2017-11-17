@@ -2,7 +2,6 @@
 
 import re
 from optparse import OptionParser
-import numpy as np
 import matplotlib.pyplot as plt
 
 p = OptionParser(usage='%prog [OPTION] FILE...',
@@ -72,18 +71,16 @@ class Function:
         self.calls = []
 
 
+# Example: 'T42  >>  12.34  name  (5.51s)    started'
+pattern = r'T\d+ \S+ (\S+) (.+?) \(.*?\) (started|stopped)'
 functions = {}
 functionslist = []
 maxlevel = 0
-
-
-# Example: 'T42  >>  12.34  name  (5.51s)    started'
-pattern = r'T\d+ \S+ (\S+) (.+?) \(.*?\) (started|stopped)'
-
 alignments = []
 firstcallsbyrank = []
-#Tmin = np.inf
-Tmax = -np.inf
+lastcallsbyrank = []
+
+
 for rankno, fname in enumerate(fnames):
     alignment = None
     ongoing = []
@@ -126,19 +123,20 @@ for rankno, fname in enumerate(fnames):
 
     assert alignment is not None, 'Cannot align to "{}"'.format(opts.align)
     alignments.append(alignment)
-    Tmax = max(T, Tmax)
 
     # End any remaining ongoing calls:
     for call in ongoing:
         call.T2 = T
         functions[call.name].calls.append(call)
+    lastcallsbyrank.append(call)
 
-tmin = min([call.t1 for call in firstcallsbyrank])
-alignments = [a + tmin for a in alignments]  # Now timings start at 0
+tmp_tmin = min([call.t1 for call in firstcallsbyrank])
+alignments = [a + tmp_tmin for a in alignments]  # Now timings start at 0
+tmax = max([call.t2 for call in lastcallsbyrank])
 
 
 if plotendtime is None:
-    plotendtime = Tmax - Tmin
+    plotendtime = tmax
 
 for name in sorted(functions):
     function = functions[name]
