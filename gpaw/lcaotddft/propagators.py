@@ -1,5 +1,6 @@
 import numpy as np
 from numpy.linalg import inv, solve
+from gpaw.utilities.blas import gemm
 
 from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
                                       scalapack_inverse, scalapack_solve,
@@ -39,6 +40,26 @@ class ECNPropagator(Propagator):
     def __init__(self):
         return
 
+    def update_projectors(self):
+        self.timer.start('LCAO update projectors')
+        # Loop over all k-points
+        for k, kpt in enumerate(self.wfs.kpt_u):
+            for a, P_ni in kpt.P_ani.items():
+                P_ni.fill(117)
+                gemm(1.0, self.wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
+        self.timer.stop('LCAO update projectors')
+
+    def get_hamiltonian(self, kpt):
+        eig = self.wfs.eigensolver
+        H_MM = eig.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs,
+                                                kpt, root=-1)
+        return H_MM
+
+    def update_hamiltonian(self):
+        self.update_projectors()
+        self.density.update(self.wfs)
+        self.hamiltonian.update(self.density)
+
     def initialize(self, paw, hamiltonian=None):
         Propagator.initialize(self, paw)
         # Take references from paw
@@ -48,8 +69,6 @@ class ECNPropagator(Propagator):
         if hamiltonian is None:
             hamiltonian = paw.hamiltonian
         self.hamiltonian = hamiltonian
-        self.get_hamiltonian = paw.get_hamiltonian
-        self.update_hamiltonian = paw.update_hamiltonian
 
         self.blacs = self.wfs.ksl.using_blacs
         if self.blacs:
