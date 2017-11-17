@@ -1,7 +1,9 @@
 import numpy as np
 from numpy.linalg import inv, solve
-from gpaw.utilities.blas import gemm
 
+from gpaw.io import Reader
+
+from gpaw.utilities.blas import gemm
 from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
                                       scalapack_inverse, scalapack_solve,
                                       scalapack_zero, pblas_tran,
@@ -22,6 +24,10 @@ def create_propagator(name, **kwargs):
         raise RuntimeError('Unknown propagator: %s' % name)
 
 
+def equal(a, b, eps=1e-16):
+    return abs(a - b) < eps
+
+
 class Propagator(object):
 
     def __init__(self):
@@ -30,23 +36,27 @@ class Propagator(object):
     def initialize(self, paw):
         self.timer = paw.timer
         self.fxc = paw.fxc
+        self.log = paw.log
 
     def propagate(self, time, time_step):
         raise RuntimeError('Virtual member function called')
 
-
-class ECNPropagator(Propagator):
+class LCAOPropagator(Propagator):
 
     def __init__(self):
         return
+
+    def initialize(self, paw):
+        Propagator.initialize(self, paw)
+        self.wfs = paw.wfs
+        self.density = paw.density
+        self.hamiltonian = paw.hamiltonian
 
     def update_projectors(self):
         self.timer.start('LCAO update projectors')
         # Loop over all k-points
         for k, kpt in enumerate(self.wfs.kpt_u):
-            for a, P_ni in kpt.P_ani.items():
-                P_ni.fill(117)
-                gemm(1.0, self.wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
+            self.wfs.atomic_correction.calculate_projections(self.wfs, kpt)
         self.timer.stop('LCAO update projectors')
 
     def get_hamiltonian(self, kpt):
@@ -60,15 +70,49 @@ class ECNPropagator(Propagator):
         self.density.update(self.wfs)
         self.hamiltonian.update(self.density)
 
+
+class ReplayPropagator(LCAOPropagator):
+
+    def __init__(self, filename):
+        self.reader = Reader(filename)
+        version = self.reader.version
+        if version != 1:
+            raise RuntimeError('Unknown version %s' % version)
+        self.readi = 1
+        self.readN = len(self.reader)
+
+    def _align_read(self, time):
+        while self.readi < self.readN:
+            r = self.reader[self.readi]
+            if equal(r.time, time):
+                break
+            self.readi += 1
+        if self.readi == self.readN:
+            raise RuntimeError('Time not found: %f' % time)
+
+    def propagate(self, time, time_step):
+        next_time = time + time_step
+        self._align_read(next_time)
+        r = self.reader[self.readi].wave_functions
+        self.wfs.read_wave_functions(r)
+        self.wfs.read_occupations(r)
+        self.readi += 1
+        self.update_hamiltonian()
+        return next_time
+
+    def __del__(self):
+        self.reader.close()
+
+
+class ECNPropagator(LCAOPropagator):
+
+    def __init__(self):
+        return
+
     def initialize(self, paw, hamiltonian=None):
-        Propagator.initialize(self, paw)
-        # Take references from paw
-        self.wfs = paw.wfs
-        self.log = paw.log
-        self.density = paw.density
-        if hamiltonian is None:
-            hamiltonian = paw.hamiltonian
-        self.hamiltonian = hamiltonian
+        LCAOPropagator.initialize(self, paw)
+        if hamiltonian is not None:
+            self.hamiltonian = hamiltonian
 
         self.blacs = self.wfs.ksl.using_blacs
         if self.blacs:
