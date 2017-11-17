@@ -76,9 +76,9 @@ class LCAOTDDFT(GPAW):
         # normalize
         direction = self.kick_strength / magnitude
 
-        self.log('Applying absorption kick')
-        self.log('Magnitude: %.8f hartree/bohr' % magnitude)
-        self.log('Direction: %.4f %.4f %.4f' % tuple(direction))
+        self.log('----  Applying absorption kick')
+        self.log('----  Magnitude: %.8f hartree/bohr' % magnitude)
+        self.log('----  Direction: %.4f %.4f %.4f' % tuple(direction))
 
         # Create hamiltonian object for absorption kick
         cef = ConstantElectricField(magnitude * Hartree / Bohr, direction)
@@ -115,6 +115,9 @@ class LCAOTDDFT(GPAW):
         # Update density and Hamiltonian
         self.update_hamiltonian()
 
+        # Add logger
+        TDDFTLogger(self)
+
         # Call observers before propagation
         self.action = 'init'
         self.call_observers(self.niter)
@@ -129,8 +132,6 @@ class LCAOTDDFT(GPAW):
                     assert len(self.wfs.kpt_u) == 1  # TODO: Why?
                     kpt.deltaXC_H_MM -= self.get_hamiltonian(kpt)
 
-        # Add logger
-        TDDFTLogger(self)
         self.tddft_initialized = True
         self.timer.stop('Initialize TDDFT')
 
@@ -161,10 +162,10 @@ class LCAOTDDFT(GPAW):
         maxiter = self.niter + iterations
 
         if self.niter == 0:
-            self.log('About to do %d propagation steps' % iterations)
+            self.log('----  About to do %d propagation steps' % iterations)
         else:
-            self.log('About to continue from iteration %d and do %d more '
-                     'propagation steps' % (self.niter, iterations))
+            self.log('----  About to continue from iteration %d and '
+                     'do %d more propagation steps' % (self.niter, iterations))
 
         self.timer.start('Propagate')
         while self.niter < maxiter:
