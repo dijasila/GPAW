@@ -19,6 +19,8 @@ def create_propagator(name, **kwargs):
         return SICNPropagator(**kwargs)
     elif name == 'ecn':
         return ECNPropagator(**kwargs)
+    elif name.endswith('.ulm'):
+        return ReplayPropagator(name)
     else:
         raise RuntimeError('Unknown propagator: %s' % name)
 
