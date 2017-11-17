@@ -274,9 +274,7 @@ class ProjectorPairOverlap(Overlap, GridPairOverlap):
         """
         #self.B_aa = overlap_projectors(wfs.gd, wfs.pt, wfs.setups)
 
-        #spos_ac = wfs.pt.spos_ac # not in NewLFC
-        spos_ac = atoms.get_scaled_positions() % 1.0
-        self.B_aa = self.calculate_overlaps(spos_ac, wfs.pt)
+        self.B_aa = self.calculate_overlaps(wfs.spos_ac, wfs.pt)
 
         # Create two-center (block-diagonal) coefficients for overlap operator
         dO_aa = np.zeros((nproj, nproj), dtype=float) #always float?
