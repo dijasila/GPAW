@@ -9,7 +9,9 @@ from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
 
 
 def create_propagator(name, **kwargs):
-    if isinstance(name, Propagator):
+    if name is None:
+        return create_propagator('sicn')
+    elif isinstance(name, Propagator):
         return name
     elif isinstance(name, dict):
         kwargs.update(name)
@@ -37,11 +39,17 @@ class Propagator(object):
         self.timer = paw.timer
         self.log = paw.log
 
-    def kick(self, time):
+    def kick(self, hamiltonian, time):
         raise NotImplementedError()
 
     def propagate(self, time, time_step):
         raise NotImplementedError()
+
+    def todict(self):
+        raise NotImplementedError()
+
+    def get_description(self):
+        return '%s' % self.__class__.__name__
 
 
 class LCAOPropagator(Propagator):
@@ -60,7 +68,8 @@ class ReplayPropagator(LCAOPropagator):
 
     def __init__(self, filename):
         LCAOPropagator.__init__(self)
-        self.reader = Reader(filename)
+        self.filename = filename
+        self.reader = Reader(self.filename)
         version = self.reader.version
         if version != 1:
             raise RuntimeError('Unknown version %s' % version)
@@ -88,6 +97,12 @@ class ReplayPropagator(LCAOPropagator):
 
     def __del__(self):
         self.reader.close()
+
+    def todict(self):
+        return {'name': self.filename}
+
+    def get_description(self):
+        return '%s from file %s' % (self.__class__.__name__, self.filename)
 
 
 class ECNPropagator(LCAOPropagator):
@@ -150,13 +165,11 @@ class ECNPropagator(LCAOPropagator):
                 scalapack_zero(self.mm_block_descriptor, kpt.T_MM, 'U')
 
     def propagate(self, time, time_step):
-        # TODO: this is only for kick!!
         for kpt in self.wfs.kpt_u:
-            H_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
-                self.hamiltonian, self.wfs, kpt, add_kinetic=False, root=-1)
-            self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, H_MM,
-                               time_step)
-        return time
+            H_MM = self.hamiltonian.get_hamiltonian_matrix(kpt)
+            self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, H_MM, time_step)
+        self.hamiltonian.update()
+        return time + time_step
 
     def propagate_wfs(self, sourceC_nM, targetC_nM, S_MM, H_MM, dt):
         self.timer.start('Linear solve')
@@ -249,6 +262,9 @@ class ECNPropagator(LCAOPropagator):
         self.wfs.world.barrier()
         return target
 
+    def todict(self):
+        return {'name': 'ecn'}
+
 
 class SICNPropagator(ECNPropagator):
 
@@ -273,7 +289,7 @@ class SICNPropagator(ECNPropagator):
         # Update Hamiltonian (and density)
         self.hamiltonian.update()
 
-    def propagate(self, time, dt):
+    def propagate(self, time, time_step):
         # --------------
         # Predictor step
         # --------------
@@ -282,9 +298,11 @@ class SICNPropagator(ECNPropagator):
         for kpt in self.wfs.kpt_u:
             # H_MM(t) = <M|H(t)|M>
             kpt.H0_MM = self.hamiltonian.get_hamiltonian_matrix(kpt)
-            # 2. Solve Psi(t+dt) from (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt) =
-            #                         (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
-            self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
+            # 2. Solve Psi(t+dt) from
+            #    (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt)
+            #       = (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
+            self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
+                               time_step)
         # ---------------
         # Propagator step
         # ---------------
@@ -295,17 +313,21 @@ class SICNPropagator(ECNPropagator):
             kpt.H0_MM *= 0.5
             kpt.H0_MM += 0.5 * self.hamiltonian.get_hamiltonian_matrix(kpt)
             # 3. Solve Psi(t+dt) from
-            # (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
-            #    = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
-            self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
-
+            #    (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
+            #       = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
+            self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
+                               time_step)
+            kpt.H0_MM = None
         # 4. Calculate new Hamiltonian (and density)
         self.hamiltonian.update()
-        return time + dt
+        return time + time_step
 
     def save_wfs(self):
         for kpt in self.wfs.kpt_u:
             kpt.C2_nM[:] = kpt.C_nM
+
+    def todict(self):
+        return {'name': 'sicn'}
 
 
 class TaylorPropagator(Propagator):

@@ -13,7 +13,7 @@ from gpaw.tddft.units import attosec_to_autime
 
 class LCAOTDDFT(GPAW):
     def __init__(self, filename=None,
-                 propagator='sicn', fxc=None, **kwargs):
+                 propagator=None, fxc=None, **kwargs):
         self.time = 0.0
         self.niter = 0
         self.kick_strength = np.zeros(3)
@@ -21,7 +21,7 @@ class LCAOTDDFT(GPAW):
         self.action = None
         self.td_hamiltonian = TimeDependentHamiltonian(fxc=fxc)
 
-        self.propagator = create_propagator(propagator)
+        self.propagator = propagator
         if filename is None:
             kwargs['mode'] = kwargs.get('mode', 'lcao')
         GPAW.__init__(self, filename, **kwargs)
@@ -33,11 +33,13 @@ class LCAOTDDFT(GPAW):
 
     def _write(self, writer, mode):
         GPAW._write(self, writer, mode)
-        w = writer.child('tddft')
-        w.write(time=self.time,
-                niter=self.niter,
-                kick_strength=self.kick_strength)
-        self.td_hamiltonian.write(w.child('td_hamiltonian'))
+        if self.tddft_initialized:
+            w = writer.child('tddft')
+            w.write(time=self.time,
+                    niter=self.niter,
+                    kick_strength=self.kick_strength,
+                    propagator=self.propagator.todict())
+            self.td_hamiltonian.write(w.child('td_hamiltonian'))
 
     def read(self, filename):
         reader = GPAW.read(self, filename)
@@ -46,23 +48,37 @@ class LCAOTDDFT(GPAW):
             self.time = r.time
             self.niter = r.niter
             self.kick_strength = r.kick_strength
-            if 'td_hamiltonian' in r:
-                self.td_hamiltonian.wfs = self.wfs
-                self.td_hamiltonian.read(r.td_hamiltonian)
+            if self.propagator is None:
+                self.propagator = r.propagator
+            else:
+                self.log('Note! Propagator changed!')
+            self.td_hamiltonian.wfs = self.wfs
+            self.td_hamiltonian.read(r.td_hamiltonian)
 
     def tddft_init(self):
         if self.tddft_initialized:
             return
 
-        self.timer.start('Initialize TDDFT')
+        self.log('-----------------------------------')
+        self.log('Initializing time-propagation TDDFT')
+        self.log('-----------------------------------')
+        self.log()
+
         assert self.wfs.dtype == complex
         assert len(self.wfs.kpt_u) == 1
+
+        self.timer.start('Initialize TDDFT')
 
         # Initialize Hamiltonian
         self.td_hamiltonian.initialize(self)
 
         # Initialize propagator
+        self.propagator = create_propagator(self.propagator)
         self.propagator.initialize(self)
+
+        self.log('Propagator:')
+        self.log(self.propagator.get_description())
+        self.log()
 
         # Add logger
         TDDFTLogger(self)
