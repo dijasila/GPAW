@@ -1,6 +1,6 @@
 from ase import Atoms, Atom
 from ase.vibrations.placzek import Placzek
-from ase.parallel import world, parprint, DummyMPI
+from ase.parallel import world, DummyMPI
 
 from gpaw import GPAW
 from gpaw.lrtddft.kssingle import KSSingles
