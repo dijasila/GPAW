@@ -212,9 +212,15 @@ class KSSingles(ExcitationList):
         else:
             f = fh
 
-        if not f.readline().startswith('# KSSingles'):
-            raise RuntimeError(f.name + ' is not a ' +
-                               self.__class__.__name__ + ' data file')
+        # there can be other information, i.e. the LrTDDFT header
+        try:
+            content = f.read()
+            f.seek(content.index('# KSSingles'))
+            del(content)
+            f.readline()
+        except ValueError:
+            raise RuntimeError(f.name + ' does not contain ' +
+                               self.__class__.__name__ + ' data')
         
         words = f.readline().split()
         n = int(words[0])
