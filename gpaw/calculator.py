@@ -456,7 +456,7 @@ class GPAW(PAW, Calculator):
 
         self.wfs.eigensolver.reset()
         self.scf.reset()
-        print_positions(self.atoms, self.log)
+        print_positions(self.atoms, self.log, self.density.magmom_av)
 
     def initialize(self, atoms=None, reading=False):
         """Inexpensive initialization."""
@@ -1025,7 +1025,7 @@ class GPAW(PAW, Calculator):
     def dry_run(self):
         # Can be overridden like in gpaw.atom.atompaw
         print_cell(self.wfs.gd, self.atoms.pbc, self.log)
-        print_positions(self.atoms, self.log)
+        print_positions(self.atoms, self.log, self.density.magmom_av)
         self.log.fd.flush()
 
         # Write timing info now before the interpreter shuts down:
