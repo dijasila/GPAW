@@ -73,25 +73,25 @@ class _PoissonSolver(object):
        This class defines an interface and a common ancestor
        for various PoissonSolver implementations (including wrappers)."""
     def __init__(self):
-        return
+        object.__init__(self)
 
     def set_grid_descriptor(self, gd):
-        raise RuntimeError('Virtual member function called')
+        raise NotImplementedError()
 
     def initialize(self):
-        raise RuntimeError('Virtual member function called')
+        raise NotImplementedError()
 
     def solve(self):
-        raise RuntimeError('Virtual member function called')
+        raise NotImplementedError()
 
     def todict(self):
-        raise RuntimeError('Virtual member function called')
+        raise NotImplementedError()
 
     def get_description(self):
-        raise RuntimeError('Virtual member function called')
+        return self.__class__.__name__
 
     def estimate_memory(self, mem):
-        raise RuntimeError('Virtual member function called')
+        raise NotImplementedError()
 
 
 class BasePoissonSolver(_PoissonSolver):
