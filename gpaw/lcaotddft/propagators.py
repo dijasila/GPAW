@@ -265,9 +265,7 @@ class SICNPropagator(ECNPropagator):
         self.save_wfs()  # kpt.C2_nM = kpt.C_nM
         for k, kpt in enumerate(self.wfs.kpt_u):
             # H_MM(t) = <M|H(t)|M>
-            kpt.H0_MM = self.hamiltonian.get_H_MM(kpt)
-            if hasattr(kpt, 'deltaXC_H_MM'):
-                kpt.H0_MM += kpt.deltaXC_H_MM
+            kpt.H0_MM = self.hamiltonian.get_hamiltonian_matrix(kpt)
             # 2. Solve Psi(t+dt) from (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt) =
             #                         (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
             self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
@@ -276,24 +274,17 @@ class SICNPropagator(ECNPropagator):
         # ---------------
         # 1. Calculate H(t+dt)
         self.hamiltonian.update()
-        # 2. Estimate H(t+0.5*dt) ~ H(t) + H(t+dT)
         for k, kpt in enumerate(self.wfs.kpt_u):
+            # 2. Estimate H(t+0.5*dt) ~ 0.5 * [ H(t) + H(t+dt) ]
             kpt.H0_MM *= 0.5
-            #  Store this to H0_MM and maybe save one extra H_MM of
-            # memory?
-            kpt.H0_MM += 0.5 * self.hamiltonian.get_H_MM(kpt)
-
-            if hasattr(kpt, 'deltaXC_H_MM'):
-                kpt.H0_MM += 0.5 * kpt.deltaXC_H_MM
-
+            kpt.H0_MM += 0.5 * self.hamiltonian.get_hamiltonian_matrix(kpt)
             # 3. Solve Psi(t+dt) from
             # (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
             #    = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
             self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
 
-        # 4. Calculate new density and Hamiltonian
+        # 4. Calculate new Hamiltonian (and density)
         self.hamiltonian.update()
-        # TODO: this Hamiltonian does not contain fxc
         return time + dt
 
     def save_wfs(self):

@@ -68,14 +68,19 @@ class TimeDependentHamiltonian(object):
         self.update()
 
         # Initialize fxc
+        self.initialize_fxc(niter)
+
+    def initialize_fxc(self, niter):
         self.has_fxc = self.fxc_name is not None
         if not self.has_fxc:
             return
 
+        get_H_MM = self.get_hamiltonian_matrix
+
         # Calculate deltaXC: 1. take current H_MM
         if niter == 0:
             for k, kpt in enumerate(self.wfs.kpt_u):
-                kpt.deltaXC_H_MM = self.get_H_MM(kpt)
+                kpt.deltaXC_H_MM = get_H_MM(kpt, addfxc=False)
 
         # Update hamiltonian.xc
         if self.fxc_name == 'RPA':
@@ -88,7 +93,7 @@ class TimeDependentHamiltonian(object):
         # Calculate deltaXC: 2. update with new H_MM
         if niter == 0:
             for k, kpt in enumerate(self.wfs.kpt_u):
-                kpt.deltaXC_H_MM -= self.get_H_MM(kpt)
+                kpt.deltaXC_H_MM -= get_H_MM(kpt, addfxc=False)
 
     def update_projectors(self):
         self.timer.start('LCAO update projectors')
@@ -97,9 +102,11 @@ class TimeDependentHamiltonian(object):
             self.wfs.atomic_correction.calculate_projections(self.wfs, kpt)
         self.timer.stop('LCAO update projectors')
 
-    def get_H_MM(self, kpt):
+    def get_hamiltonian_matrix(self, kpt, addfxc=True):
         get_matrix = self.wfs.eigensolver.calculate_hamiltonian_matrix
         H_MM = get_matrix(self.hamiltonian, self.wfs, kpt, root=-1)
+        if addfxc and self.has_fxc:
+            H_MM += kpt.deltaXC_H_MM
         return H_MM
 
     def update(self):
