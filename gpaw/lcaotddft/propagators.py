@@ -51,25 +51,7 @@ class LCAOPropagator(Propagator):
         Propagator.initialize(self, paw)
         self.wfs = paw.wfs
         self.density = paw.density
-        self.hamiltonian = paw.hamiltonian
-
-    def update_projectors(self):
-        self.timer.start('LCAO update projectors')
-        # Loop over all k-points
-        for k, kpt in enumerate(self.wfs.kpt_u):
-            self.wfs.atomic_correction.calculate_projections(self.wfs, kpt)
-        self.timer.stop('LCAO update projectors')
-
-    def get_hamiltonian(self, kpt):
-        eig = self.wfs.eigensolver
-        H_MM = eig.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs,
-                                                kpt, root=-1)
-        return H_MM
-
-    def update_hamiltonian(self):
-        self.update_projectors()
-        self.density.update(self.wfs)
-        self.hamiltonian.update(self.density)
+        self.hamiltonian = paw.td_hamiltonian
 
 
 class ReplayPropagator(LCAOPropagator):
@@ -98,7 +80,7 @@ class ReplayPropagator(LCAOPropagator):
         self.wfs.read_wave_functions(r)
         self.wfs.read_occupations(r)
         self.readi += 1
-        self.update_hamiltonian()
+        self.hamiltonian.update()
         return next_time
 
     def __del__(self):
@@ -283,7 +265,7 @@ class SICNPropagator(ECNPropagator):
         self.save_wfs()  # kpt.C2_nM = kpt.C_nM
         for k, kpt in enumerate(self.wfs.kpt_u):
             # H_MM(t) = <M|H(t)|M>
-            kpt.H0_MM = self.get_hamiltonian(kpt)
+            kpt.H0_MM = self.hamiltonian.get_H_MM(kpt)
             if hasattr(kpt, 'deltaXC_H_MM'):
                 kpt.H0_MM += kpt.deltaXC_H_MM
             # 2. Solve Psi(t+dt) from (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt) =
@@ -293,13 +275,13 @@ class SICNPropagator(ECNPropagator):
         # Propagator step
         # ---------------
         # 1. Calculate H(t+dt)
-        self.update_hamiltonian()
+        self.hamiltonian.update()
         # 2. Estimate H(t+0.5*dt) ~ H(t) + H(t+dT)
         for k, kpt in enumerate(self.wfs.kpt_u):
             kpt.H0_MM *= 0.5
             #  Store this to H0_MM and maybe save one extra H_MM of
             # memory?
-            kpt.H0_MM += 0.5 * self.get_hamiltonian(kpt)
+            kpt.H0_MM += 0.5 * self.hamiltonian.get_H_MM(kpt)
 
             if hasattr(kpt, 'deltaXC_H_MM'):
                 kpt.H0_MM += 0.5 * kpt.deltaXC_H_MM
@@ -310,7 +292,7 @@ class SICNPropagator(ECNPropagator):
             self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
 
         # 4. Calculate new density and Hamiltonian
-        self.update_hamiltonian()
+        self.hamiltonian.update()
         # TODO: this Hamiltonian does not contain fxc
         return time + dt
 
