@@ -30,10 +30,12 @@ def print_positions(atoms, log):
     log(plot(atoms))
     log('\nPositions:')
     symbols = atoms.get_chemical_symbols()
+    magmom_a = atoms.get_initial_magnetic_moments()
     for a, pos_v in enumerate(atoms.get_positions()):
         symbol = symbols[a]
-        log('{0:>4} {1:3} {2:11.6f} {3:11.6f} {4:11.6f}'
-            .format(a, symbol, *pos_v))
+        moment = magmom_a[a]
+        log('{0:>4} {1:3} {2[0]:11.6f} {2[1]:11.6f} {2[2]:11.6f}    ({3:7.4f})'
+            .format(a, symbol, pos_v, moment))
     log()
 
 
