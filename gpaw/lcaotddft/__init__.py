@@ -1,13 +1,14 @@
 import numpy as np
+
 from ase.units import Bohr, Hartree
 
 from gpaw import GPAW
 from gpaw.external import ConstantElectricField
-from gpaw.tddft.units import attosec_to_autime
+from gpaw.lcaotddft.hamiltonian import KickHamiltonian
+from gpaw.lcaotddft.hamiltonian import TimeDependentHamiltonian
 from gpaw.lcaotddft.logger import TDDFTLogger
 from gpaw.lcaotddft.propagators import create_propagator
-from gpaw.lcaotddft.hamiltonian import TimeDependentHamiltonian
-from gpaw.lcaotddft.hamiltonian import KickHamiltonian
+from gpaw.tddft.units import attosec_to_autime
 
 
 class LCAOTDDFT(GPAW):
@@ -49,41 +50,6 @@ class LCAOTDDFT(GPAW):
                 self.td_hamiltonian.wfs = self.wfs
                 self.td_hamiltonian.read(r.td_hamiltonian)
 
-    def absorption_kick(self, kick_strength):
-        self.tddft_init()
-        self.timer.start('Kick')
-        self.kick_strength = np.array(kick_strength, dtype=float)
-
-        # magnitude
-        magnitude = np.sqrt(np.sum(self.kick_strength**2))
-
-        # normalize
-        direction = self.kick_strength / magnitude
-
-        self.log('----  Applying absorption kick')
-        self.log('----  Magnitude: %.8f hartree/bohr' % magnitude)
-        self.log('----  Direction: %.4f %.4f %.4f' % tuple(direction))
-
-        # Create hamiltonian object for absorption kick
-        cef = ConstantElectricField(magnitude * Hartree / Bohr, direction)
-        kick_hamiltonian = KickHamiltonian(self, cef)
-
-        # Use explicit propagator for the kick
-        kick_propagator = create_propagator(name='ecn')
-        kick_propagator.initialize(self, kick_hamiltonian)
-        for i in range(10):
-            kick_propagator.propagate(self.time, 0.1)
-
-        # Update density and Hamiltonian
-        self.td_hamiltonian.update()
-
-        # Call observers after kick
-        self.action = 'kick'
-        self.call_observers(self.niter)
-
-        self.niter += 1
-        self.timer.stop('Kick')
-
     def tddft_init(self):
         if self.tddft_initialized:
             return
@@ -108,6 +74,34 @@ class LCAOTDDFT(GPAW):
         self.tddft_initialized = True
         self.timer.stop('Initialize TDDFT')
 
+    def absorption_kick(self, kick_strength):
+        self.tddft_init()
+
+        self.timer.start('Kick')
+
+        self.kick_strength = np.array(kick_strength, dtype=float)
+        magnitude = np.sqrt(np.sum(self.kick_strength**2))
+        direction = self.kick_strength / magnitude
+
+        self.log('----  Applying absorption kick')
+        self.log('----  Magnitude: %.8f Hartree/Bohr' % magnitude)
+        self.log('----  Direction: %.4f %.4f %.4f' % tuple(direction))
+
+        # Create hamiltonian object for absorption kick
+        cef = ConstantElectricField(magnitude * Hartree / Bohr, direction)
+        kick_hamiltonian = KickHamiltonian(self, cef)
+
+        # Propagate kick
+        self.propagator.kick(kick_hamiltonian, self.time)
+
+        # Call observers after kick
+        self.action = 'kick'
+        self.call_observers(self.niter)
+
+        self.niter += 1
+
+        self.timer.stop('Kick')
+
     def propagate(self, time_step=10, iterations=2000):
         self.tddft_init()
 
@@ -126,5 +120,4 @@ class LCAOTDDFT(GPAW):
             self.call_observers(self.niter)
 
             self.niter += 1
-
         self.timer.stop('Propagate')

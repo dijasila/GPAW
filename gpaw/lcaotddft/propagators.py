@@ -2,7 +2,6 @@ import numpy as np
 from numpy.linalg import inv, solve
 
 from gpaw.io import Reader
-
 from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
                                       scalapack_inverse, scalapack_solve,
                                       scalapack_zero, pblas_tran,
@@ -37,6 +36,9 @@ class Propagator(object):
     def initialize(self, paw):
         self.timer = paw.timer
         self.log = paw.log
+
+    def kick(self, time):
+        raise NotImplementedError()
 
     def propagate(self, time, time_step):
         raise NotImplementedError()
@@ -147,6 +149,7 @@ class ECNPropagator(LCAOPropagator):
                 scalapack_zero(self.mm_block_descriptor, kpt.T_MM, 'U')
 
     def propagate(self, time, time_step):
+        # TODO: this is only for kick!!
         for k, kpt in enumerate(self.wfs.kpt_u):
             H_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
                 self.hamiltonian, self.wfs, kpt, add_kinetic=False, root=-1)
@@ -256,6 +259,18 @@ class SICNPropagator(ECNPropagator):
         # Allocate kpt.C2_nM arrays
         for k, kpt in enumerate(self.wfs.kpt_u):
             kpt.C2_nM = np.empty_like(kpt.C_nM)
+
+    def kick(self, hamiltonian, time):
+        # Propagate
+        get_matrix = self.wfs.eigensolver.calculate_hamiltonian_matrix
+        for k, kpt in enumerate(self.wfs.kpt_u):
+            Vkick_MM = get_matrix(hamiltonian, self.wfs, kpt,
+                                  add_kinetic=False, root=-1)
+            for i in range(10):
+                self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 0.1)
+
+        # Update Hamiltonian (and density)
+        self.hamiltonian.update()
 
     def propagate(self, time, dt):
         # --------------

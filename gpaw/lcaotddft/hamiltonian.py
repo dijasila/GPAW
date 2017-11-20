@@ -6,9 +6,9 @@ from gpaw.xc.kernel import XCNull
 
 
 class KickHamiltonian(object):
-    def __init__(self, calc, ext):
-        ham = calc.hamiltonian
-        dens = calc.density
+    def __init__(self, paw, ext):
+        ham = paw.hamiltonian
+        dens = paw.density
         vext_g = ext.get_potential(ham.finegd)
         self.vt_sG = [ham.restrict_and_collect(vext_g)]
         self.dH_asp = ham.setups.empty_atomic_matrix(1, ham.atom_partition)
