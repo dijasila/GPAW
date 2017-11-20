@@ -1,7 +1,7 @@
 from ase import Atoms, Atom
 from ase.vibrations.resonant_raman import ResonantRaman
 from ase.vibrations.albrecht import Albrecht
-from ase.parallel import world, parprint, DummyMPI
+from ase.parallel import world, DummyMPI
 
 from gpaw import GPAW
 from gpaw.lrtddft.kssingle import KSSingles
