@@ -164,6 +164,18 @@ class ECNPropagator(LCAOPropagator):
                 scalapack_zero(self.mm_block_descriptor, kpt.S_MM, 'U')
                 scalapack_zero(self.mm_block_descriptor, kpt.T_MM, 'U')
 
+    def kick(self, hamiltonian, time):
+        # Propagate
+        get_matrix = self.wfs.eigensolver.calculate_hamiltonian_matrix
+        for kpt in self.wfs.kpt_u:
+            Vkick_MM = get_matrix(hamiltonian, self.wfs, kpt,
+                                  add_kinetic=False, root=-1)
+            for i in range(10):
+                self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 0.1)
+
+        # Update Hamiltonian (and density)
+        self.hamiltonian.update()
+
     def propagate(self, time, time_step):
         for kpt in self.wfs.kpt_u:
             H_MM = self.hamiltonian.get_hamiltonian_matrix(kpt)
@@ -276,18 +288,6 @@ class SICNPropagator(ECNPropagator):
         # Allocate kpt.C2_nM arrays
         for kpt in self.wfs.kpt_u:
             kpt.C2_nM = np.empty_like(kpt.C_nM)
-
-    def kick(self, hamiltonian, time):
-        # Propagate
-        get_matrix = self.wfs.eigensolver.calculate_hamiltonian_matrix
-        for kpt in self.wfs.kpt_u:
-            Vkick_MM = get_matrix(hamiltonian, self.wfs, kpt,
-                                  add_kinetic=False, root=-1)
-            for i in range(10):
-                self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 0.1)
-
-        # Update Hamiltonian (and density)
-        self.hamiltonian.update()
 
     def propagate(self, time, time_step):
         # --------------
