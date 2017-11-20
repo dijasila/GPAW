@@ -10,7 +10,47 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.14.1.
+* Broadcast imports (Python3 only): Master process broadcasts most module
+  files at import time to reduce file system overhead in parallel
+  calculations.
+
+* Command-line arguments for BLACS/ScaLAPACK
+  have been
+  removed in favour of the :ref:`parallel keyword
+  <manual_parallelization_types>`.  For example instead of running
+  ``gpaw-python --sl_diagonalize=4,4,64``, set the parallelization
+  within the script using
+  ``GPAW(parallel={'sl_diagonalize': (4, 4, 64)})``.
+
+* When run through the ordinary Python interpreter, GPAW will now only
+  intercept and use command-line options of the form ``--gpaw
+  key1=value1,key2=value2,...`` or ``--gpaw=key1=value1,key2=value2,...``.
+
+* ``gpaw-python`` now takes :ref:`command line options` directly
+  instead of stealing them from ``sys.argv``, passing the remaining
+  ones to the script:
+  Example: ``gpaw-python --gpaw=debug=True myscript.py myscript_arguments``.
+  See also ``gpaw-python --help``.
+
+* Two new parameters for specifying the Pulay stress. Directly like this::
+
+      GPAW(mode=PW(ecut, pulay_stress=...), ...)
+
+  or indirectly::
+
+      GPAW(mode=PW(ecut, dedecut=...), ...)
+
+  via the formula `\sigma_P=(2/3)E_{\text{cut}}dE/dE_{\text{cut}}/V`.  Use
+  ``dedecut='estimate'`` to use an estimate from the kinetic energy of an
+  isolated atom.
+
+
+Version 1.3.0
+=============
+
+2 October 2017: :git:`1.3.0 <../1.3.0>`
+
+* Corresponding ASE release: ASE-3.15.0.
 
 * :ref:`command line options` ``--dry-run`` and ``--debug`` have been removed.
   Please use ``--gpaw dry-run=N`` and ``--gpaw debug=True`` instead
@@ -28,8 +68,6 @@ Git master branch
 
 * Added :ref:`tetrahedron method <tetrahedron>` for calculation the density
   response function.
-
-* GGA and MGGA neighbors=2 ... ???
 
 * Long-range cutoff for :mod:`~ase.calculators.qmmm` calculations can now be
   per molecule instead of only per point charge.
@@ -66,6 +104,9 @@ Git master branch
 * The ``gpaw dos`` sub-command of the :ref:`cli` can now show projected DOS.
   Also, one can now use linear tetrahedron interpolation for the calculation
   of the (P)DOS.
+
+* The :class:`gpaw.utilities.ps2ae.PS2AE` tool can now also calculate the
+  all-electron electrostatic potential.
 
 
 Version 1.2.0

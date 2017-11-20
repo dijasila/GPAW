@@ -59,6 +59,8 @@ def calculate_stress(calc):
     wfs.kd.comm.sum(s0_vv)
     s_vv += s0_vv
 
+    s_vv += wfs.dedepsilon * np.eye(3)
+
     vol = calc.atoms.get_volume() / units.Bohr**3
     s_vv = 0.5 / vol * (s_vv + s_vv.T)
 
@@ -70,7 +72,7 @@ def calculate_stress(calc):
                       np.dot(U_cc, cell_cv)).T
         sigma_vv += np.dot(np.dot(M_vv.T, s_vv), M_vv)
     sigma_vv /= len(wfs.kd.symmetry.op_scc)
-    
+
     # Make sure all agree on the result (redundant calculation on
     # different cores involving BLAS might give slightly different
     # results):
@@ -78,8 +80,8 @@ def calculate_stress(calc):
 
     calc.log('Stress tensor:')
     for sigma_v in sigma_vv:
-        calc.log('%12.6f %12.6f %12.6f' %
-                 tuple(units.Hartree / units.Bohr**3 * sigma_v))
+        calc.log('{:13.6f}{:13.6f}{:13.6f}'
+                 .format(*(units.Ha / units.Bohr**3 * sigma_v)))
 
     calc.timer.stop('Stress tensor')
 

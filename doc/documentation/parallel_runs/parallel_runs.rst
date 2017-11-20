@@ -339,10 +339,8 @@ benefit from ScaLAPACK; otherwise, the default serial LAPACK might as
 well be used.
 
 The ScaLAPACK parameters
-are defined either using the aforementioned ``'sl_...'`` entry in the parallel
-keyword dictionary (recommended) such as ``sl_default=(m, n, block)``,
-or alternatively using a command line argument such as
-``--sl_default=m,n,block``.
+are defined using the parallel
+keyword dictionary, e.g., ``sl_default=(m, n, block)``.
 
 A block size of 64 has been found to be a universally good choice both
 in all modes.
@@ -372,13 +370,9 @@ possible to use different ScaLAPACK parameters in the LCAO
 initialization and the FD calculation by using two of the ScaLAPACK
 keywords in tandem, e.g::
 
-   --sl_lcao=p,q,pb --sl_default=m,n,mb
+  GPAW(..., parallel={'sl_lcao': (p, q, p), 'sl_default': (m, n, mb)})
 
 where ``p``, ``q``, ``pb``, ``m``, ``n``, and ``mb`` all
 have different values. The most general case is the combination
-of three ScaLAPACK keywords, e.g::
-
-   --sl_lcao=p,q,pb --sl_diagonalize=m,n,mb  --sl_inverse_cholesky=r,s,rb
-
-however, we do not presently support ``m != r``, ``n != s``,  and
-``mb != rb``.  We may implement this in the future.
+of three ScaLAPACK keywords.
+Note that some combinations of keywords may not be supported.

@@ -8,16 +8,19 @@ import traceback
 import atexit
 import pickle
 
-from ase.utils import gcd
 import numpy as np
 
 from gpaw import debug
 from gpaw import dry_run as dry_run_size
-from gpaw.utilities import is_contiguous
 
 import _gpaw
 
 MASTER = 0
+
+
+def is_contiguous(*args, **kwargs):
+    from gpaw.utilities import is_contiguous
+    return is_contiguous(*args, **kwargs)
 
 
 class _Communicator:
@@ -721,6 +724,7 @@ def distribute_cpus(parsize_domain, parsize_bands,
     else:
         # Plane wave mode:
         if parsize_bands is None:
+            from ase.utils import gcd
             parsize_bands = comm.size // gcd(nsk, comm.size)
 
     p = Parallelization(comm, nsk)

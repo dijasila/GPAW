@@ -36,7 +36,7 @@ Install required Python packages::
 Install and test ASE::
 
     $ pip install --upgrade --user ase
-    $ python -m ase.test
+    $ python -m ase test
 
 Install GPAW::
 
