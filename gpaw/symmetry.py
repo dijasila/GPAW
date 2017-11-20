@@ -4,8 +4,7 @@
 # Please see the accompanying LICENSE file for further information.
 from __future__ import print_function, division
 
-import functools
-
+from ase.io import read
 from ase.utils import gcd
 import numpy as np
 
@@ -85,7 +84,7 @@ class Symmetry:
         self.point_group = point_group
         self.time_reversal = time_reversal
         self.do_not_symmetrize_the_density = do_not_symmetrize_the_density
-        
+
         # Disable fractional translations for non-periodic boundary conditions:
         if not self.pbc_c.all():
             self.symmorphic = True
@@ -257,7 +256,8 @@ class Symmetry:
         nsym = len(U_scc)
 
         time_reversal = self.time_reversal and not self.has_inversion
-        bz2bz_ks = map_k_points(bzk_kc, U_scc, time_reversal, comm, self.tol)
+        bz2bz_ks = map_k_points(bzk_kc, U_scc, time_reversal,
+                                comm, self.tol)
 
         bz2bz_k = -np.ones(nbzkpts + 1, int)
         ibz2bz_k = []
@@ -404,7 +404,7 @@ class Symmetry:
                 'Symmetries with fractional translations: {0}'.format(nft))
 
         # X-Y grid of symmetry matrices:
-        
+
         lines.append('')
         nx = 6 if self.symmorphic else 3
         ns = len(self.op_scc)
@@ -468,6 +468,83 @@ def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
     return bz2bz_ks
 
 
+def map_k_points_fast(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-7):
+    """Find symmetry relations between k-points.
+
+    This is a Python-wrapper for a C-function that does the hard work
+    which is distributed over comm.
+
+    The map bz2bz_ks is returned.  If there is a k2 for which::
+
+      = _    _    _
+      U q  = q  + N,
+       s k1   k2
+
+    where N is a vector of integers, then bz2bz_ks[k1, s] = k2, otherwise
+    if there is a k2 for which::
+
+      = _     _    _
+      U q  = -q  + N,
+       s k1    k2
+
+    then bz2bz_ks[k1, s + nsym] = k2, where nsym = len(U_scc).  Otherwise
+    bz2bz_ks[k1, s] = -1.
+    """
+
+    nbzkpts = len(bzk_kc)
+
+    if time_reversal:
+        U_scc = np.concatenate([U_scc, -U_scc])
+
+    bz2bz_ks = np.zeros((nbzkpts, len(U_scc)), int)
+    bz2bz_ks[:] = -1
+
+    for s, U_cc in enumerate(U_scc):
+        # Find mapped kpoints
+        Ubzk_kc = np.dot(bzk_kc, U_cc.T)
+
+        # Do some work on the input
+        k_kc = np.concatenate([bzk_kc, Ubzk_kc])
+        k_kc = np.mod(np.mod(k_kc, 1), 1)
+        aglomerate_points(k_kc, tol)
+        k_kc = k_kc.round(-np.log10(tol).astype(int))
+        k_kc = np.mod(k_kc, 1)
+
+        # Find the lexicographical order
+        order = np.lexsort(k_kc.T)
+        k_kc = k_kc[order]
+        diff_kc = np.diff(k_kc, axis=0)
+        equivalentpairs_k = np.array((diff_kc == 0).all(1),
+                                     bool)
+
+        # Mapping array.
+        orders = np.array([order[:-1][equivalentpairs_k],
+                           order[1:][equivalentpairs_k]])
+
+        # This has to be true.
+        assert (orders[0] < nbzkpts).all()
+        assert (orders[1] >= nbzkpts).all()
+        bz2bz_ks[orders[1] - nbzkpts, s] = orders[0]
+
+    return bz2bz_ks
+
+
+def aglomerate_points(k_kc, tol):
+    nd = k_kc.shape[1]
+    nbzkpts = len(k_kc)
+    inds_kc = np.argsort(k_kc, axis=0)
+    for c in range(nd):
+        sk_k = k_kc[inds_kc[:, c], c]
+        dk_k = np.diff(sk_k)
+
+        # Partition the kpoints into groups
+        pt_K = np.argwhere(dk_k > tol)[:, 0]
+        pt_K = np.append(np.append(0, pt_K + 1), 2 * nbzkpts)
+        for i in range(len(pt_K) - 1):
+            k_kc[inds_kc[pt_K[i]:pt_K[i + 1], c],
+                 c] = k_kc[inds_kc[pt_K[i], c], c]
+
+
 def atoms2symmetry(atoms, id_a=None):
     """Create symmetry object from atoms object."""
     if id_a is None:
@@ -478,15 +555,16 @@ def atoms2symmetry(atoms, id_a=None):
     symmetry.analyze(atoms.get_scaled_positions())
     return symmetry
 
-    
-def analyze_atoms(filename):
-    """Analyse symmetry.
-    
-    filename: str
-        filename containing atomic positions and unit cell."""
-        
-    import sys
-    from ase.io import read
-    atoms = read(filename)
-    symmetry = atoms2symmetry(atoms)
-    symmetry.print_symmetries(sys.stdout)
+
+class CLICommand:
+    short_description = 'Analyse symmetry'
+
+    @staticmethod
+    def add_arguments(parser):
+        parser.add_argument('filename')
+
+    @staticmethod
+    def run(args):
+        atoms = read(args.filename)
+        symmetry = atoms2symmetry(atoms)
+        print(symmetry)

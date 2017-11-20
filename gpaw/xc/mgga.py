@@ -13,13 +13,14 @@ from gpaw.sphere.lebedev import weight_n
 class MGGA(XCFunctional):
     orbital_dependent = True
 
-    def __init__(self, kernel):
+    def __init__(self, kernel, stencil=1):
         """Meta GGA functional."""
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
+        self.stencil = stencil
 
     def set_grid_descriptor(self, gd):
-        self.grad_v = get_gradient_ops(gd)
+        self.grad_v = get_gradient_ops(gd, self.stencil)
         XCFunctional.set_grid_descriptor(self, gd)
 
     def get_setup_name(self):

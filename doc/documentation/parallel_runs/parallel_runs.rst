@@ -24,9 +24,9 @@ the unit cell.  This choice can be overruled, see
 
 Before starting a parallel calculation, it might be useful to check how the
 parallelization corresponding to the given number of processes would be done
-with ``--dry-run`` command line option::
+with ``--gpaw dry-run=N`` command line option::
 
-  python script.py --dry-run=8
+    $ python3 script.py --gpaw dry-run=8
 
 The output will contain also the "Calculator" RAM Memory estimate per process.
 
@@ -46,7 +46,7 @@ Simple submit tool
 Instead writing a file with the line "mpirun ... gpaw-python script.py" and
 then submitting it to a queueing system, it is simpler to automate this::
 
-  #!/usr/bin/env python
+  #!/usr/bin/env python3
   from sys import argv
   import os
   options = ' '.join(argv[1:-1])
@@ -90,7 +90,7 @@ By default it uses the following environment variables to write the runscript:
 variable        meaning
 =============== ===================================
 HOSTNAME        name used to assing host type
-PYTHONPATH      path for python
+PYTHONPATH      path for Python
 GPAW_PYTHON     where to find gpaw-python
 GPAW_SETUP_PATH where to find the setups
 GPAW_MAIL       where to send emails about the jobs
@@ -317,7 +317,7 @@ More information about these topics can be found here:
 
    band_parallelization/band_parallelization
 
-   
+
 .. _manual_ScaLAPACK:
 
 ScaLAPACK
@@ -339,10 +339,8 @@ benefit from ScaLAPACK; otherwise, the default serial LAPACK might as
 well be used.
 
 The ScaLAPACK parameters
-are defined either using the aforementioned ``'sl_...'`` entry in the parallel
-keyword dictionary (recommended) such as ``sl_default=(m, n, block)``,
-or alternatively using a command line argument such as
-``--sl_default=m,n,block``.
+are defined using the parallel
+keyword dictionary, e.g., ``sl_default=(m, n, block)``.
 
 A block size of 64 has been found to be a universally good choice both
 in all modes.
@@ -372,13 +370,9 @@ possible to use different ScaLAPACK parameters in the LCAO
 initialization and the FD calculation by using two of the ScaLAPACK
 keywords in tandem, e.g::
 
-   --sl_lcao=p,q,pb --sl_default=m,n,mb
+  GPAW(..., parallel={'sl_lcao': (p, q, p), 'sl_default': (m, n, mb)})
 
 where ``p``, ``q``, ``pb``, ``m``, ``n``, and ``mb`` all
 have different values. The most general case is the combination
-of three ScaLAPACK keywords, e.g::
-
-   --sl_lcao=p,q,pb --sl_diagonalize=m,n,mb  --sl_inverse_cholesky=r,s,rb
-
-however, we do not presently support ``m != r``, ``n != s``,  and
-``mb != rb``.  We may implement this in the future.
+of three ScaLAPACK keywords.
+Note that some combinations of keywords may not be supported.

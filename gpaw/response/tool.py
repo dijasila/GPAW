@@ -126,10 +126,10 @@ def lorz_fit(x,y, npeak=1, initpara = None):
 
     if initpara is None:
         if npeak == 1:
-            initpara[i] = np.array([1., 0., 0., 0.1])
+            initpara = np.array([1., 0., 0., 0.1])
         if npeak == 2:
-            initpara[i] = np.array([1., 0., 0., 0.1,
-                                    3., 0., 0., 0.1])
+            initpara = np.array([1., 0., 0., 0.1,
+                                 3., 0., 0., 0.1])
     p0 = initpara
     
     result = leastsq(residual, p0, args=(x, y), maxfev=2000)

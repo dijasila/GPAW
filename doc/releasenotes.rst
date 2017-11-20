@@ -10,6 +10,104 @@ Git master branch
 
 :git:`master <>`.
 
+* Broadcast imports (Python3 only): Master process broadcasts most module
+  files at import time to reduce file system overhead in parallel
+  calculations.
+
+* Command-line arguments for BLACS/ScaLAPACK
+  have been
+  removed in favour of the :ref:`parallel keyword
+  <manual_parallelization_types>`.  For example instead of running
+  ``gpaw-python --sl_diagonalize=4,4,64``, set the parallelization
+  within the script using
+  ``GPAW(parallel={'sl_diagonalize': (4, 4, 64)})``.
+
+* When run through the ordinary Python interpreter, GPAW will now only
+  intercept and use command-line options of the form ``--gpaw
+  key1=value1,key2=value2,...`` or ``--gpaw=key1=value1,key2=value2,...``.
+
+* ``gpaw-python`` now takes :ref:`command line options` directly
+  instead of stealing them from ``sys.argv``, passing the remaining
+  ones to the script:
+  Example: ``gpaw-python --gpaw=debug=True myscript.py myscript_arguments``.
+  See also ``gpaw-python --help``.
+
+* Two new parameters for specifying the Pulay stress. Directly like this::
+
+      GPAW(mode=PW(ecut, pulay_stress=...), ...)
+
+  or indirectly::
+
+      GPAW(mode=PW(ecut, dedecut=...), ...)
+
+  via the formula `\sigma_P=(2/3)E_{\text{cut}}dE/dE_{\text{cut}}/V`.  Use
+  ``dedecut='estimate'`` to use an estimate from the kinetic energy of an
+  isolated atom.
+
+
+Version 1.3.0
+=============
+
+2 October 2017: :git:`1.3.0 <../1.3.0>`
+
+* Corresponding ASE release: ASE-3.15.0.
+
+* :ref:`command line options` ``--dry-run`` and ``--debug`` have been removed.
+  Please use ``--gpaw dry-run=N`` and ``--gpaw debug=True`` instead
+  (or ``--gpaw dry-run=N,debug=True`` for both).
+
+* The :meth:`ase.Atoms.get_magnetic_moments` method will no longer be
+  scaled to sum up to the total magnetic moment.  Instead, the magnetic
+  moments integrated inside the atomic PAW spheres will be returned.
+
+* New *sbatch* sub-command for GPAW's :ref:`cli`.
+
+* Support added for ASE's new *band-structure* :ref:`ase:cli`::
+
+  $ ase band-structure xxx.gpw -p GKLM
+
+* Added :ref:`tetrahedron method <tetrahedron>` for calculation the density
+  response function.
+
+* Long-range cutoff for :mod:`~ase.calculators.qmmm` calculations can now be
+  per molecule instead of only per point charge.
+
+* Python 2.6 no longer supported.
+
+* There is now a web-page documenting the use of the in development version
+  of GPAW: https://wiki.fysik.dtu.dk/gpaw/dev/.
+
+* :ref:`BSE <bse tutorial>` calculations for spin-polarized systems.
+
+* Calculation of :ref:`magnetic anisotropy <magnetic anisotropy>`.
+
+* Calculation of vectorial magnetic moments inside PAW spheres based on
+  spin-orbit spinors.
+
+* Added a simple :func:`gpaw.occupations.occupation_numbers` function for
+  calculating occupation numbers, fermi-level, magnetic moment, and entropy
+  from eigenvalues and k-point weights.
+
+* Deprecated calculator-keyword ``dtype``.  If you need to force the datatype
+  of the wave functions to be complex, then use something like::
+
+      calc = GPAW(mode=PW(ecut=500, force_complex_dtype=True))
+
+* Norm-conserving potentials (HGH and SG15) now subtract the Hartree
+  energies of the compensation charges.
+  The total energy of an isolated pseudoatom stripped of all valence electrons
+  will now be zero.
+
+* HGH and SG15 pseudopotentials are now Fourier-filtered at runtime
+  as appropriate for the given grid spacing.  Using them now requires scipy.
+
+* The ``gpaw dos`` sub-command of the :ref:`cli` can now show projected DOS.
+  Also, one can now use linear tetrahedron interpolation for the calculation
+  of the (P)DOS.
+
+* The :class:`gpaw.utilities.ps2ae.PS2AE` tool can now also calculate the
+  all-electron electrostatic potential.
+
 
 Version 1.2.0
 =============
@@ -21,7 +119,7 @@ Version 1.2.0
 * New file-format for gpw-files.  Reading of old files should still work.
   Look inside the new files with::
 
-      $ python -m ase.io.ulm abc.gpw
+      $ python3 -m ase.io.ulm abc.gpw
 
 * Simple syntax for specifying BZ paths introduced:
   ``kpts={'path': 'GXK', 'npoints': 50}``.
@@ -57,6 +155,11 @@ Version 1.2.0
 
 * It is now possible to carry out GW calculations with eigenvalue self-
   consistency in G. See this tutorial :ref:`gw-GW0`.
+
+* XC objects can now be specified as dictionaries, allowing GGAs and MGGAs
+  with custom stencils: ``GPAW(xc={'name': 'PBE', 'stencil': 2})``
+
+* Support for spin-polarized vdW-DF functionals (svdW-DF) with libvdwxc.
 
 
 Version 1.1.0
@@ -290,8 +393,7 @@ Version 0.9.0
 
 * GPAW should now work also with NumPy 1.6.
 
-* Much improved :ref:`command line tool` now based on the `new
-  tool`_ in ASE.
+* Much improved :ref:`cli` now based on the `new tool`_ in ASE.
 
 
 .. _new tool: https://wiki.fysik.dtu.dk/ase/ase/cmdline.html

@@ -1,7 +1,18 @@
 from math import pi
 
 import numpy as np
-from scipy.special.specfun import sphj
+try:
+    from scipy.special import spherical_jn
+
+    def sphj(n, z):
+        return spherical_jn(range(n), z)
+
+except ImportError:
+    from scipy.special import sph_jn
+
+    def sphj(n, z):
+        return sph_jn(n - 1, z)[0]
+
 
 from gpaw.gaunt import nabla, gaunt
 from gpaw.spherical_harmonics import Y
@@ -13,7 +24,7 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
     """Calculate PAW-correction matrix elements with planewaves.
 
     ::
-    
+
       /  _       _   ik.r     _     ~   _   ik.r ~   _
       | dr [phi (r) e    phi (r) - phi (r) e    phi (r)]
       /        1            2         1            2
@@ -30,7 +41,7 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
 
     if Gend is None:
         Gend = len(k_Gv)
-        
+
     if setup is not None:
         rgd = setup.rgd
         l_j = setup.l_j
@@ -83,7 +94,7 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
                                phit_jg[j1] * phit_jg[j2])
 
     G_LLL = gaunt(max(l_j))
-    
+
     # Loop over G vectors
     for iG in range(Gstart, Gend):
         kk = k_Gv[iG]
@@ -91,7 +102,7 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
 
         # Calculating spherical bessel function
         for g, r in enumerate(r_g):
-            j_lg[:, g] = sphj(lmax - 1, k * r)[1]
+            j_lg[:, g] = sphj(lmax, k * r)
 
         for li in range(lmax):
             # Radial part
@@ -114,7 +125,7 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
                                         kk[0] / k,
                                         kk[1] / k,
                                         kk[2] / k) * (-1j)**li
-    
+
     phi_Gii *= 4 * pi
 
     return phi_Gii.reshape(npw, ni * ni)
@@ -126,7 +137,7 @@ def two_phi_nabla_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
     """Calculate PAW-correction matrix elements with planewaves and gradient.
 
     ::
-    
+
       /  _       _   ik.r d       _     ~   _   ik.r d   ~   _
       | dr [phi (r) e     -- phi (r) - phi (r) e     -- phi (r)]
       /        1          dx    2         1          dx    2
@@ -135,7 +146,7 @@ def two_phi_nabla_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
 
     if Gend is None:
         Gend = len(k_Gv)
-        
+
     if setup is not None:
         rgd = setup.rgd
         l_j = setup.l_j
@@ -169,7 +180,7 @@ def two_phi_nabla_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
     ni = len(L_i)
     nj = len(l_j)
     lmax = max(l_j) * 2 + 1
-    
+
     ljdef = 3
     l2max = max(l_j) * (max(l_j) > ljdef) + ljdef * (max(l_j) <= ljdef)
     G_LLL = gaunt(l2max)
@@ -185,7 +196,7 @@ def two_phi_nabla_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
     R_vii = np.zeros((3, ni, ni))
     phi_vGii = np.zeros((3, npw, ni, ni), dtype=complex)
     j_lg = np.zeros((lmax, ng))
-    
+
     # Store (phi_j1 * dphidr_j2 - phit_j1 * dphitdr_j2) for further use
     tmp_jjg = np.zeros((nj, nj, ng))
     tmpder_jjg = np.zeros((nj, nj, ng))
@@ -208,7 +219,7 @@ def two_phi_nabla_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
 
         # Calculating spherical bessel function
         for g, r in enumerate(r_g):
-            j_lg[:, g] = sphj(lmax - 1, k * r)[1]
+            j_lg[:, g] = sphj(lmax, k * r)
 
         for li in range(lmax):
             # Radial part
@@ -238,11 +249,12 @@ def two_phi_nabla_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
                             j2 = j_i[i2]
                             l2 = l_j[j2]
 
-                            R_vii[v, i1, i2] = ((4 * pi / 3)**0.5 *
-                                                np.dot(G_LLL[L1, L2],
-                                                       G_LLL[Lv, li**2 + mi])
-                                                * (R1_jj[j1, j2] - l2 *
-                                                   R2_jj[j1, j2]))
+                            R_vii[v, i1, i2] = (
+                                (4 * pi / 3)**0.5 *
+                                np.dot(G_LLL[L1, L2],
+                                       G_LLL[Lv, li**2 + mi]) *
+                                (R1_jj[j1, j2] - l2 *
+                                 R2_jj[j1, j2]))
 
                             R_vii[v, i1, i2] += (R2_jj[j1, j2] *
                                                  np.dot(G_LLL[L1, li**2 + mi],

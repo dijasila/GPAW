@@ -52,6 +52,7 @@ class WaveFunctions:
 
         self.eigensolver = None
         self.positions_set = False
+        self.spos_ac = None
 
         self.set_setups(setups)
 
@@ -202,6 +203,7 @@ class WaveFunctions:
 
         self.atom_partition = atom_partition
         self.kd.symmetry.check(spos_ac)
+        self.spos_ac = spos_ac
 
     def allocate_arrays_for_projections(self, my_atom_indices):
         if not self.positions_set and self.kpt_u[0].P_ani is not None:
@@ -231,7 +233,6 @@ class WaveFunctions:
 
         kpt_u = self.kpt_u
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
-
         if self.kd.comm.rank == kpt_rank:
             a_nx = getattr(kpt_u[u], name)
 
@@ -265,7 +266,7 @@ class WaveFunctions:
             self.kd.comm.receive(b_nx, kpt_rank, 1301)
             return b_nx
 
-        return np.nan  # see comment in get_wave_function_array() method
+        return np.zeros(0)  # see comment in get_wave_function_array() method
 
     def collect_auxiliary(self, value, k, s, shape=1, dtype=float):
         """Helper method for collecting band-independent scalars/arrays.
@@ -302,7 +303,7 @@ class WaveFunctions:
             self.kd.comm.receive(b_o, kpt_rank, 1302)
             return b_o
 
-    def collect_projections(self, k, s):
+    def collect_projections(self, k, s, asdict=False):
         """Helper method for collecting projector overlaps across domains.
 
         For the parallel case find the rank in kpt_comm that contains
@@ -335,6 +336,16 @@ class WaveFunctions:
                     all_P_ni[nslice, i:i + ni] = P_ni
                     i += ni
                 assert i == nproj
+
+            if asdict:
+                i = 0
+                P_ani = {}
+                for a in range(natoms):
+                    ni = self.setups[a].ni
+                    P_ani[a] = all_P_ni[:, i:i + ni]
+                    i += ni
+                return P_ani
+
             return all_P_ni
 
         elif self.kd.comm.rank == kpt_rank:  # plain else works too...
@@ -460,6 +471,11 @@ class WaveFunctions:
         for u, kpt in enumerate(self.kpt_u):
             eps_n = r.proxy('eigenvalues', kpt.s, kpt.k)[nslice]
             f_n = r.proxy('occupations', kpt.s, kpt.k)[nslice]
+            x = self.bd.mynbands - len(f_n)  # missing bands?
+            if x > 0:
+                # Working on a real fix to this parallelization problem ...
+                f_n = np.pad(f_n, (0, x), 'constant')
+                eps_n = np.pad(eps_n, (0, x), 'constant')
             if reader.version > 0:
                 f_n *= kpt.weight  # skip for old tar-files gpw's
                 eps_n /= reader.ha

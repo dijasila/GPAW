@@ -11,6 +11,16 @@ from gpaw.eigensolvers.rmm_diis import RMM_DIIS
 from gpaw.eigensolvers.cg import CG
 from gpaw.eigensolvers.davidson import Davidson
 from gpaw.lcao.eigensolver import DirectLCAO
+__all__ = ['PoissonSolver',
+           'Mixer',
+           'MixerSum',
+           'MixerDif',
+           'FermiDirac',
+           'ZeroKelvin',
+           'RMM_DIIS',
+           'CG',
+           'Davidson',
+           'DirectLCAO']
 
 def build_parser():
     usage = '%prog [OPTIONS] [FILE...]'
@@ -42,7 +52,7 @@ def kwargs2str(**kwargs):
 
 
 def str2kwargs(string):
-    from numpy import array  # eval may need this
+    from numpy import array  # noqa eval may need this
     kwargs = eval(string)
     assert isinstance(kwargs, dict)
     return kwargs

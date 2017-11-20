@@ -43,134 +43,44 @@ is divisible by a high power of 2."""
 
 def create_poisson_solver(name='fd', **kwargs):
     if name == 'fft':
-        return FFTPoissonSolver()
+        return FFTPoissonSolver(**kwargs)
     if name == 'fdtd':
         from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
         return FDTDPoissonSolver(**kwargs)
     elif name == 'fd':
         return PoissonSolver(**kwargs)
     1 / 0
-    
+
 
 def PoissonSolver(dipolelayer=None, **kwargs):
     if dipolelayer is not None:
         return DipoleCorrection(PoissonSolver(**kwargs), dipolelayer)
     return FDPoissonSolver(**kwargs)
-    
 
-class FDPoissonSolver:
-    def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, use_charge_center=False):
-        self.relax = relax
-        self.nn = nn
-        self.eps = eps
-        self.charged_periodic_correction = None
-        self.maxiter = maxiter
+
+class BasePoissonSolver(object):
+    def __init__(self, eps=None, remove_moment=None, use_charge_center=False):
+        self.gd = None
         self.remove_moment = remove_moment
         self.use_charge_center = use_charge_center
-
-        # Relaxation method
-        if relax == 'GS':
-            # Gauss-Seidel
-            self.relax_method = 1
-        elif relax == 'J':
-            # Jacobi
-            self.relax_method = 2
-        else:
-            raise NotImplementedError('Relaxation method %s' % relax)
-
-        self.description = None
+        self.eps = eps
 
     def todict(self):
-        return {'name': 'fd', 'nn': self.nn, 'relax': self.relax,
-                'eps': self.eps, 'remove_moment': self.remove_moment}
-        
-    def get_stencil(self):
-        return self.nn
-
-    def create_laplace(self, gd, scale=1.0, n=1, dtype=float):
-        """Instantiate and return a Laplace operator
-
-        Allows subclasses to change the Laplace operator
-        """
-        return Laplace(gd, scale, n, dtype)
-
-    def set_grid_descriptor(self, gd):
-        # Should probably be renamed initialize
-        self.gd = gd
-        scale = -0.25 / pi
-
-        if self.nn == 'M':
-            if not gd.orthogonal:
-                raise RuntimeError('Cannot use Mehrstellen stencil with '
-                                   'non orthogonal cell.')
-
-            self.operators = [LaplaceA(gd, -scale)]
-            self.B = LaplaceB(gd)
-        else:
-            self.operators = [self.create_laplace(gd, scale, self.nn)]
-            self.B = None
-
-        self.interpolators = []
-        self.restrictors = []
-
-        level = 0
-        self.presmooths = [2]
-        self.postsmooths = [1]
-
-        # Weights for the relaxation,
-        # only used if 'J' (Jacobi) is chosen as method
-        self.weights = [2.0 / 3.0]
-
-        while level < 8:
-            try:
-                gd2 = gd.coarsen()
-            except ValueError:
-                break
-            self.operators.append(self.create_laplace(gd2, scale, 1))
-            self.interpolators.append(Transformer(gd2, gd))
-            self.restrictors.append(Transformer(gd, gd2))
-            self.presmooths.append(4)
-            self.postsmooths.append(4)
-            self.weights.append(1.0)
-            level += 1
-            gd = gd2
-
-        self.levels = level
-
-        if self.operators[-1].gd.N_c.max() > 36:
-            # Try to warn exactly once no matter how one uses the solver.
-            if gd.comm.parent is None:
-                warn = (gd.comm.rank == 0)
-            else:
-                warn = (gd.comm.parent.rank == 0)
-
-            if warn:
-                warntxt = '\n'.join([POISSON_GRID_WARNING, '',
-                                     self.get_description()])
-            else:
-                warntxt = ('Poisson warning from domain rank %d'
-                           % self.gd.comm.rank)
-
-            # Warn from all ranks to avoid deadlocks.
-            warnings.warn(warntxt, stacklevel=2)
+        d = {'name': 'basepoisson'}
+        if self.eps is not None:
+            d['eps'] = self.eps
+        if self.remove_moment:
+            d['remove_moment'] = self.remove_moment
+        if self.use_charge_center:
+            d['use_charge_center'] = self.use_charge_center
+        return d
 
     def get_description(self):
-        name = {1: 'Gauss-Seidel', 2: 'Jacobi'}[self.relax_method]
-        coarsest_grid = self.operators[-1].gd.N_c
-        coarsest_grid_string = ' x '.join([str(N) for N in coarsest_grid])
-        assert self.levels + 1 == len(self.operators)
-        lines = ['%s solver with %d multi-grid levels'
-                 % (name, self.levels + 1),
-                 '    Coarsest grid: %s points' % coarsest_grid_string]
-        if coarsest_grid.max() > 24:
-            # This friendly warning has lower threshold than the big long
-            # one that we print when things are really bad.
-            lines.extend(['    Warning: Coarse grid has more than 24 points.',
-                          '             More multi-grid levels recommended.'])
-        lines.extend(['    Stencil: %s' % self.operators[0].description,
-                      '    Tolerance: %e' % self.eps,
-                      '    Max iterations: %d' % self.maxiter])
+        # The idea is that the subclass writes a header and main parameters,
+        # then adds the below string.
+        lines = []
+        if self.eps is not None:
+            lines.append('    Tolerance: %e' % self.eps),
         if self.remove_moment is not None:
             lines.append('    Remove moments up to L=%d' % self.remove_moment)
         if self.use_charge_center:
@@ -178,34 +88,6 @@ class FDPoissonSolver:
                          'majority charge')
         return '\n'.join(lines)
 
-    def initialize(self, load_gauss=False):
-        # Should probably be renamed allocate
-        gd = self.gd
-        self.rhos = [gd.empty()]
-        self.phis = [None]
-        self.residuals = [gd.empty()]
-        for level in range(self.levels):
-            gd2 = gd.coarsen()
-            self.phis.append(gd2.empty())
-            self.rhos.append(gd2.empty())
-            self.residuals.append(gd2.empty())
-            gd = gd2
-        assert len(self.phis) == len(self.rhos)
-        level += 1
-        assert level == self.levels
-
-        self.step = 0.66666666 / self.operators[0].get_diagonal_element()
-        self.presmooths[level] = 8
-        self.postsmooths[level] = 8
-
-        if load_gauss:
-            self.load_gauss()
-
-    def load_gauss(self, center=None):
-        if not hasattr(self, 'rho_gauss') or center is not None:
-            gauss = Gaussian(self.gd, center=center)
-            self.rho_gauss = gauss.get_gauss(0)
-            self.phi_gauss = gauss.get_gauss_pot(0)
 
     def solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
               zero_initial_phi=False):
@@ -310,6 +192,155 @@ class FDPoissonSolver:
                    ' boundary conditions')
             raise NotImplementedError(msg)
 
+    def load_gauss(self, center=None):
+        if not hasattr(self, 'rho_gauss') or center is not None:
+            gauss = Gaussian(self.gd, center=center)
+            self.rho_gauss = gauss.get_gauss(0)
+            self.phi_gauss = gauss.get_gauss_pot(0)
+
+    def initialize(self, load_gauss=False):
+        if load_gauss:
+            self.load_gauss()
+
+class FDPoissonSolver(BasePoissonSolver):
+    def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
+                 remove_moment=None, use_charge_center=False):
+        super(FDPoissonSolver, self).__init__(
+            eps=eps,
+            remove_moment=remove_moment,
+            use_charge_center=use_charge_center)
+        self.relax = relax
+        self.nn = nn
+        self.charged_periodic_correction = None
+        self.maxiter = maxiter
+
+        # Relaxation method
+        if relax == 'GS':
+            # Gauss-Seidel
+            self.relax_method = 1
+        elif relax == 'J':
+            # Jacobi
+            self.relax_method = 2
+        else:
+            raise NotImplementedError('Relaxation method %s' % relax)
+
+        self.description = None
+
+    def todict(self):
+        d = super(FDPoissonSolver, self).todict()
+        d.update({'name': 'fd', 'nn': self.nn, 'relax': self.relax})
+        return d
+
+    def get_stencil(self):
+        return self.nn
+
+    def create_laplace(self, gd, scale=1.0, n=1, dtype=float):
+        """Instantiate and return a Laplace operator
+
+        Allows subclasses to change the Laplace operator
+        """
+        return Laplace(gd, scale, n, dtype)
+
+    def set_grid_descriptor(self, gd):
+        # Should probably be renamed initialize
+        self.gd = gd
+        scale = -0.25 / pi
+
+        if self.nn == 'M':
+            if not gd.orthogonal:
+                raise RuntimeError('Cannot use Mehrstellen stencil with '
+                                   'non orthogonal cell.')
+
+            self.operators = [LaplaceA(gd, -scale)]
+            self.B = LaplaceB(gd)
+        else:
+            self.operators = [self.create_laplace(gd, scale, self.nn)]
+            self.B = None
+
+        self.interpolators = []
+        self.restrictors = []
+
+        level = 0
+        self.presmooths = [2]
+        self.postsmooths = [1]
+
+        # Weights for the relaxation,
+        # only used if 'J' (Jacobi) is chosen as method
+        self.weights = [2.0 / 3.0]
+
+        while level < 8:
+            try:
+                gd2 = gd.coarsen()
+            except ValueError:
+                break
+            self.operators.append(self.create_laplace(gd2, scale, 1))
+            self.interpolators.append(Transformer(gd2, gd))
+            self.restrictors.append(Transformer(gd, gd2))
+            self.presmooths.append(4)
+            self.postsmooths.append(4)
+            self.weights.append(1.0)
+            level += 1
+            gd = gd2
+
+        self.levels = level
+
+        if self.operators[-1].gd.N_c.max() > 36:
+            # Try to warn exactly once no matter how one uses the solver.
+            if gd.comm.parent is None:
+                warn = (gd.comm.rank == 0)
+            else:
+                warn = (gd.comm.parent.rank == 0)
+
+            if warn:
+                warntxt = '\n'.join([POISSON_GRID_WARNING, '',
+                                     self.get_description()])
+            else:
+                warntxt = ('Poisson warning from domain rank %d'
+                           % self.gd.comm.rank)
+
+            # Warn from all ranks to avoid deadlocks.
+            warnings.warn(warntxt, stacklevel=2)
+
+    def get_description(self):
+        name = {1: 'Gauss-Seidel', 2: 'Jacobi'}[self.relax_method]
+        coarsest_grid = self.operators[-1].gd.N_c
+        coarsest_grid_string = ' x '.join([str(N) for N in coarsest_grid])
+        assert self.levels + 1 == len(self.operators)
+        lines = ['%s solver with %d multi-grid levels'
+                 % (name, self.levels + 1),
+                 '    Coarsest grid: %s points' % coarsest_grid_string]
+        if coarsest_grid.max() > 24:
+            # This friendly warning has lower threshold than the big long
+            # one that we print when things are really bad.
+            lines.extend(['    Warning: Coarse grid has more than 24 points.',
+                          '             More multi-grid levels recommended.'])
+        lines.extend(['    Stencil: %s' % self.operators[0].description,
+                      '    Max iterations: %d' % self.maxiter])
+        lines.append(super(FDPoissonSolver, self).get_description())
+        return '\n'.join(lines)
+
+    def initialize(self, load_gauss=False):
+        # Should probably be renamed allocate
+        gd = self.gd
+        self.rhos = [gd.empty()]
+        self.phis = [None]
+        self.residuals = [gd.empty()]
+        for level in range(self.levels):
+            gd2 = gd.coarsen()
+            self.phis.append(gd2.empty())
+            self.rhos.append(gd2.empty())
+            self.residuals.append(gd2.empty())
+            gd = gd2
+        assert len(self.phis) == len(self.rhos)
+        level += 1
+        assert level == self.levels
+
+        self.step = 0.66666666 / self.operators[0].get_diagonal_element()
+        self.presmooths[level] = 8
+        self.postsmooths[level] = 8
+
+        super(FDPoissonSolver, self).initialize(load_gauss)
+
     def solve_neutral(self, phi, rho, eps=2e-10):
         self.phis[0] = phi
 
@@ -366,10 +397,10 @@ class FDPoissonSolver:
             residual -= self.rhos[level]
             error = self.gd.comm.sum(np.dot(residual.ravel(),
                                             residual.ravel())) * self.gd.dv
-            
+
             # How about this instead:
             # error = self.gd.comm.max(abs(residual).max())
-            
+
             return error
 
     def estimate_memory(self, mem):
@@ -385,7 +416,7 @@ class FDPoissonSolver:
         mem.subnode('rho, phi, residual [%d levels]' % self.levels, nbytes)
 
     def __repr__(self):
-        template = 'PoissonSolver(relax=\'%s\', nn=%s, eps=%e)'
+        template = 'FDPoissonSolver(relax=\'%s\', nn=%s, eps=%e)'
         representation = template % (self.relax, repr(self.nn), self.eps)
         return representation
 
@@ -410,20 +441,21 @@ class NoInteractionPoissonSolver:
         pass
 
 
-class FFTPoissonSolver(FDPoissonSolver):
+class FFTPoissonSolver(BasePoissonSolver):
     """FFT Poisson solver for general unit cells."""
     # XXX it is criminally outrageous that this inherits from PoissonSolver!
 
     relax_method = 0
     nn = 999
 
-    def __init__(self, eps=0.0):
-        self.charged_periodic_correction = None
-        self.remove_moment = None
-        self.eps = eps
+    def __init__(self):
+        super(FFTPoissonSolver, self).__init__()
 
     def get_description(self):
         return 'Parallel FFT'
+
+    def todict(self):
+        return {'name': 'fft'}
 
     def set_grid_descriptor(self, gd):
         # We will probably want to use this on non-periodic grids too...
@@ -435,10 +467,11 @@ class FFTPoissonSolver(FDPoissonSolver):
         self.transp_yz_1_x = AlignedGridRedistributor(self.transp_1_yz_x.gd2,
                                                       0, 1)
 
-    def initialize(self):
+    def initialize(self, load_gauss=False):
         gd = self.transp_yz_1_x.gd2
         k2_Q, N3 = construct_reciprocal(gd, distributed=True)
         self.poisson_factor_Q = 4.0 * np.pi / k2_Q
+        super(FFTPoissonSolver, self).initialize(load_gauss)
 
     def solve_neutral(self, phi_g, rho_g, eps=None):
         # Will be a bit more efficient if reduced dimension is always

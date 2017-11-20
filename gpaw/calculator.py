@@ -62,6 +62,7 @@ class GPAW(PAW, Calculator):
         'mixer': None,
         'eigensolver': None,
         'background_charge': None,
+        'experimental': {'reuse_wfs_method': None},
         'external': None,
         'random': False,
         'hund': False,
@@ -287,16 +288,14 @@ class GPAW(PAW, Calculator):
             self.results['energy'] = e_extrapolated * Ha
             self.results['free_energy'] = e_free * Ha
 
-            if not self.atoms.pbc.all():
-                dipole_v = self.density.calculate_dipole_moment() * Bohr
-                self.log('Dipole moment: ({0:.6f}, {1:.6f}, {2:.6f}) |e|*Ang\n'
-                         .format(*dipole_v))
-                self.results['dipole'] = dipole_v
+            dipole_v = self.density.calculate_dipole_moment() * Bohr
+            self.log('Dipole moment: ({0:.6f}, {1:.6f}, {2:.6f}) |e|*Ang\n'
+                     .format(*dipole_v))
+            self.results['dipole'] = dipole_v
 
             if self.wfs.nspins == 2:
                 magmom = self.occupations.magmom
-                magmom_a = self.density.estimate_magnetic_moments(
-                    total=magmom)
+                magmom_a = self.density.estimate_magnetic_moments()
                 self.log('Total magnetic moment: %f' % magmom)
                 self.log('Local magnetic moments:')
                 symbols = self.atoms.get_chemical_symbols()
@@ -389,7 +388,7 @@ class GPAW(PAW, Calculator):
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof']:
+                       'eigensolver', 'idiotproof', 'experimental']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
@@ -589,7 +588,7 @@ class GPAW(PAW, Calculator):
                 par.charge)
 
         if nbands <= 0:
-            nbands = int(nvalence + M + 0.5) // 2 + (-nbands)
+            nbands = max(1, int(nvalence + M + 0.5) // 2 + (-nbands))
 
         if nvalence > 2 * nbands and not orbital_free:
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
@@ -651,6 +650,10 @@ class GPAW(PAW, Calculator):
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
+        description = xc.get_description()
+        if description is not None:
+            self.log('XC parameters: {}\n'
+                     .format('\n  '.join(description.splitlines())))
 
         if xc.name == 'GLLBSC' and olddens is not None:
             xc.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)
@@ -704,7 +707,8 @@ class GPAW(PAW, Calculator):
 
             def filter(rgd, rcut, f_r, l=0):
                 gcut = np.pi / h - 2 / rcut / gamma
-                f_r[:] = rgd.filter(f_r, rcut * gamma, gcut, l)
+                ftmp = rgd.filter(f_r, rcut * gamma, gcut, l)
+                f_r[:] = ftmp[:len(f_r)]
         else:
             filter = self.parameters.filter
 
@@ -1029,7 +1033,10 @@ class GPAW(PAW, Calculator):
                                                dtype, nao=nao,
                                                timer=self.timer)
 
-            self.wfs = mode(diagksl, orthoksl, initksl, **wfs_kwargs)
+            reuse_wfs_method = par.experimental['reuse_wfs_method']
+            self.wfs = mode(diagksl, orthoksl, initksl,
+                            reuse_wfs_method=reuse_wfs_method,
+                            **wfs_kwargs)
         else:
             self.wfs = mode(self, **wfs_kwargs)
 
@@ -1040,4 +1047,11 @@ class GPAW(PAW, Calculator):
         print_cell(self.wfs.gd, self.atoms.pbc, self.log)
         print_positions(self.atoms, self.log)
         self.log.fd.flush()
+
+        # Write timing info now before the interpreter shuts down:
+        self.__del__()
+
+        # Disable timing output during shut-down:
+        del self.timer
+
         raise SystemExit

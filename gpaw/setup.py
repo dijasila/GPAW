@@ -14,6 +14,7 @@ from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
 from gpaw.gaunt import gaunt, nabla
 from gpaw.utilities import unpack, pack
+from gpaw.utilities.ekin import ekin, dekindecut
 from gpaw.rotation import rotation
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.xc import XC
@@ -68,7 +69,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
             from gpaw.lcao.bsse import GhostSetupData
             setupdata = GhostSetupData(symbol)
         elif type == 'sg15':
-            from gpaw.upf import UPFSetupData
+            from gpaw.upf import read_sg15
             upfname = '%s_ONCV_PBE-*.upf' % symbol
             upfpath, source = search_for_file(upfname, world=world)
             if source is None:
@@ -76,11 +77,11 @@ def create_setup(symbol, xc='LDA', lmax=0,
                               'in any GPAW search path.  '
                               'Please install the SG15 setups using, '
                               'e.g., "gpaw install-data".' % upfname)
-            setupdata = UPFSetupData(upfpath)
-            if xc.name != 'PBE':
+            setupdata = read_sg15(upfpath)
+            if xc.get_setup_name() != 'PBE':
                 raise ValueError('SG15 pseudopotentials support only the PBE '
                                  'functional.  This calculation would use '
-                                 'the %s functional.' % xc.name)
+                                 'the %s functional.' % xc.get_setup_name())
         else:
             setupdata = SetupData(symbol, xc.get_setup_name(),
                                   type, True,
@@ -110,6 +111,20 @@ class BaseSetup:
 
     def get_basis_description(self):
         return self.basis.get_description()
+
+    def get_actual_atomic_orbitals(self):
+        """Get those states phit that represent a real atomic state.
+
+        This typically corresponds to the (truncated) partial waves (PAW) or
+        a single-zeta basis."""
+        phit_j = []
+        # The zip may cut off part of phit_j if there are more states than
+        # projectors.  This should be the correct behaviour for all the
+        # currently supported PAW/pseudopotentials.
+        for n, phit in zip(self.n_j, self.phit_j):
+            if n > 0:
+                phit_j.append(phit)
+        return phit_j
 
     def calculate_initial_occupation_numbers(self, magmom, hund, charge,
                                              nspins, f_j=None):
@@ -641,13 +656,17 @@ class Setup(BaseSetup):
 
         self.gcutmin = rgd.ceil(min(rcut_j))
 
+        vbar_g = data.vbar_g
+
         if data.generator_version < 2:
             # Find Fourier-filter cutoff radius:
             gcutfilter = data.get_max_projector_cutoff()
         elif filter:
             rc = rcutmax
-            filter(rgd, rc, data.vbar_g)
+            vbar_g = vbar_g.copy()
+            filter(rgd, rc, vbar_g)
 
+            pt_jg = [pt_g.copy() for pt_g in pt_jg]
             for l, pt_g in zip(l_j, pt_jg):
                 filter(rgd, rc, pt_g, l)
 
@@ -665,7 +684,7 @@ class Setup(BaseSetup):
             gcutfilter = rgd.ceil(rcutfilter)
 
         self.rcutfilter = rcutfilter = r_g[gcutfilter]
-        assert (data.vbar_g[gcutfilter:] == 0).all()
+        assert (vbar_g[gcutfilter:] == 0).all()
 
         ni = 0
         i = 0
@@ -698,7 +717,7 @@ class Setup(BaseSetup):
                 self.A_ci = None
 
         # Construct splines:
-        self.vbar = rgd.spline(data.vbar_g, rcutfilter)
+        self.vbar = rgd.spline(vbar_g, rcutfilter)
 
         rcore, nc_g, nct_g, nct = self.construct_core_densities(data)
         self.rcore = rcore
@@ -728,7 +747,7 @@ class Setup(BaseSetup):
         phit_jg = np.array([phit_g[:gcut2].copy() for phit_g in phit_jg])
         self.nc_g = nc_g = nc_g[:gcut2].copy()
         self.nct_g = nct_g = nct_g[:gcut2].copy()
-        vbar_g = data.vbar_g[:gcut2].copy()
+        vbar_g = vbar_g[:gcut2].copy()
 
         extra_xc_data = dict(data.extra_xc_data)
         # Cut down the GLLB related extra data
@@ -1278,6 +1297,16 @@ class Setups(list):
         Dshapes_a = [(ns, setup.ni * (setup.ni + 1) // 2)
                      for setup in self]
         return atom_partition.arraydict(Dshapes_a)
+
+    def estimate_dedecut(self, ecut):
+        dedecut = 0.0
+        e = {}
+        for id in self.id_a:
+            if id not in e:
+                G, de, e0 = ekin(self.setups[id])
+                e[id] = -dekindecut(G, de, ecut)
+            dedecut += e[id]
+        return dedecut
 
 
 def types2atomtypes(symbols, types, default):

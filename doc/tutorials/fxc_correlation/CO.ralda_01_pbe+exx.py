@@ -6,13 +6,12 @@ from gpaw.mixer import MixerSum
 from gpaw.xc.exx import EXX
 from gpaw.wavefunctions.pw import PW
 
-# CO ------------------------------------------
+# CO
 
 CO = Atoms('CO', [(0, 0, 0), (0, 0, 1.1283)])
 CO.set_pbc(True)
 CO.center(vacuum=3.0)
-calc = GPAW(mode=PW(600),
-            dtype=complex,
+calc = GPAW(mode=PW(600, force_complex_dtype=True),
             xc='PBE',
             txt='CO.ralda_01_CO_pbe.txt',
             convergence={'density': 1.e-6})
@@ -27,14 +26,13 @@ E0_hf = exx.get_total_energy()
 calc.diagonalize_full_hamiltonian()
 calc.write('CO.ralda.pbe_wfcs_CO.gpw', mode='all')
 
-# C -------------------------------------------
+# C
 
 C = Atoms('C')
 C.set_pbc(True)
 C.set_cell(CO.cell)
 C.center()
-calc = GPAW(mode=PW(600),
-            dtype=complex,
+calc = GPAW(mode=PW(600, force_complex_dtype=True),
             xc='PBE',
             mixer=MixerSum(beta=0.1, nmaxold=5, weight=50.0),
             hund=True,
@@ -56,14 +54,13 @@ f.close()
 calc.diagonalize_full_hamiltonian()
 calc.write('CO.ralda.pbe_wfcs_C.gpw', mode='all')
 
-# O -------------------------------------------
+# O
 
 O = Atoms('O')
 O.set_pbc(True)
 O.set_cell(CO.cell)
 O.center()
-calc = GPAW(mode=PW(600),
-            dtype=complex,
+calc = GPAW(mode=PW(600, force_complex_dtype=True),
             xc='PBE',
             mixer=MixerSum(beta=0.1, nmaxold=5, weight=50.0),
             hund=True,

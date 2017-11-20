@@ -1,7 +1,6 @@
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.test import equal
-from gpaw.poisson import PoissonSolver
 
 """The purpose of this test is to make sure that wfs-dependent
 functionals do not produce wrong results due to incorrect saving of

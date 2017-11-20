@@ -1,7 +1,7 @@
 from __future__ import print_function
+
 from ase.build import bulk
 
-from gpaw.atom.generator import Generator
 from gpaw import GPAW, Davidson, Mixer, PW
 from gpaw.xc.libvdwxc import vdw_mbeef
 
@@ -20,7 +20,7 @@ calc = GPAW(mode=PW(200), xc=vdw_mbeef(),
 system.calc = calc
 e = system.get_potential_energy()
 
-ref = -60.50368932260335
+ref = -60.557653422801671
 err = abs(e - ref)
 print('e=%r ref=%r err=%r' % (e, ref, err))
 assert err < 1e-6

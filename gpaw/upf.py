@@ -21,7 +21,8 @@ from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.setup_data import search_for_file
 from gpaw.basis_data import Basis, BasisFunction
 from gpaw.pseudopotential import (PseudoPotential, screen_potential,
-                                  figure_out_valence_states)
+                                  figure_out_valence_states,
+                                  get_radial_hartree_energy)
 from gpaw.spline import Spline
 from gpaw.utilities import pack2, divrl
 
@@ -234,17 +235,39 @@ def parse_upf(fname):
     return pp
 
 
+sg15_special_valence_states = {'Re': ([5, 5, 6, 5], [0, 1, 0, 2], [2., 6., 2., 5.]),
+                               'Os': ([5, 5, 6, 5], [0, 1, 0, 2], [2., 6., 2., 6.]),
+                               'Ir': ([5, 5, 6, 5], [0, 1, 0, 2], [2., 6., 2., 7.])}
+
+
+def read_sg15(fname):
+    data = parse_upf(fname)
+    symbol = data['header']['element']
+    valence_states = None
+
+    states_nlf = sg15_special_valence_states.get(symbol)
+    if states_nlf is not None:
+        valence_states = [UPFStateSpec(index=None, label=None, n=n, l=l,
+                                       values=None, occupation=f)
+                          for n, l, f in zip(*states_nlf)]
+
+    data = UPFSetupData(data, filename=fname, valence_states=valence_states)
+    return data
+
+
 class UPFSetupData:
-    def __init__(self, data):
+    def __init__(self, data, valence_states=None, filename=None):
         # data can be string (filename)
         # or dict (that's what we are looking for).
         # Maybe just a symbol would also be fine if we know the
         # filename to look for.
         if isinstance(data, basestring):
-            self.filename = data
+            filename = data
             data = parse_upf(data)
-        else:
-            self.filename = '[N/A]'
+        elif filename is None:
+            filename = '[N/A]'
+
+        self.filename = filename
 
         assert isinstance(data, dict)
         self.data = data  # more or less "raw" data from the file
@@ -301,16 +324,14 @@ class UPFSetupData:
         self.HubU = None # XXX
         self.lq = None # XXX
 
-        #if data['states']:
-        #    states_lmax = max([state.l for state in data['states']])
-        #else:
-        #    states_lmax = 1 # XXXX
+        if valence_states is None:
+            valence_states = data['states']
 
-        if data['states']:
-            states_lmax = max([state.l for state in data['states']])
+        if valence_states:
+            states_lmax = max([state.l for state in valence_states])
             f_ln = [[] for _ in range(1 + states_lmax)]
             electroncount = 0.0
-            for state in data['states']:
+            for state in valence_states:
                 # Where should the electrons be in the inner list??
                 # This is probably wrong and will lead to bad initialization
                 f_ln[state.l].append(state.occupation)
@@ -318,9 +339,9 @@ class UPFSetupData:
                 # The Cl.pz-hgh.UPF from quantum espresso has only 6
                 # but should have 7 electrons.  Oh well....
             #err = abs(electroncount - self.Nv)
-            self.f_j = [state.occupation for state in data['states']]
-            self.n_j = [state.n for state in data['states']]
-            self.l_orb_j = [state.l for state in data['states']]
+            self.f_j = [state.occupation for state in valence_states]
+            self.n_j = [state.n for state in valence_states]
+            self.l_orb_j = [state.l for state in valence_states]
             self.f_ln = f_ln
         else:
             self.n_j, self.l_orb_j, self.f_j, self.f_ln = \
@@ -345,11 +366,11 @@ class UPFSetupData:
 
         vbar_g, ghat_g = screen_potential(data['r'], vlocal_unscreened,
                                           self.Nv)
-
+        self.Eh_compcharge = get_radial_hartree_energy(data['r'][:len(ghat_g)],
+                                                       ghat_g)
         self.vbar_g = self._interp(vbar_g) * np.sqrt(4.0 * np.pi)
         self.ghat_lg = [4.0 * np.pi / self.Nv * self._interp(ghat_g)]
 
-        # XXX Subtract Hartree energy of compensation charge as reference
 
     def get_jargs(self):
         projectors = list(self.data['projectors'])
@@ -391,7 +412,7 @@ class UPFSetupData:
                 add('l=%d f=%s' % (state.l, state.occupation))
             indent -= 2
         add('Local potential cutoff: %s'
-            % self.get_local_potential().get_cutoff())
+            % self.rgd.r_g[len(self.vbar_g) - 1])
         add('Comp charge cutoff:     %s'
             % self.rgd.r_g[len(self.ghat_lg[0]) - 1])
         add('File: %s' % self.filename)
@@ -438,7 +459,7 @@ class UPFSetupData:
         vbar = Spline(0, self.rgd.r_g[len(self.vbar_g) - 1], self.vbar_g)
         return vbar
 
-    # XXXXXXXXXXXXXXXXX stolen from hghsetupdata
+    # XXXXXXXXXXXXXXXXX stolen from hghsetupdataf
     def get_projectors(self):
         # XXX equal-range projectors still required for some reason
         maxlen = max([len(pt_g) for pt_g in self.pt_jg])
@@ -500,9 +521,11 @@ class UPFSetupData:
         return b
 
     def build(self, xcfunc, lmax, basis, filter=None):
+        # XXX better to create basis functions after filtering?
+        # Although basis functions are not meant for same grid
         if basis is None:
             basis = self.create_basis_functions()
-        return PseudoPotential(self, basis)
+        return PseudoPotential(self, basis, filter)
 
 
 def main_plot():

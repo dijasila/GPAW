@@ -23,7 +23,7 @@ This is the first ASE script we have seen so far, so a few comments
 are in order:
 
 * At the top is a series of *import statements*.  These load the
-  python modules we are going to use.
+  Python modules we are going to use.
 * An :class:`~ase.Atoms` object is created, specifying an initial
   (possibly bad) guess for the atomic positions.
 * An :class:`~ase.calculators.emt.EMT` calculator is created.  A
@@ -46,7 +46,7 @@ are in order:
 
 This will print the (decreasing) total energy for each iteration until
 it converges, leaving the file :file:`h2.emt.traj` in the working
-directory.  Use the command :command:`ase-gui` to view the
+directory.  Use the command :command:`ase gui` to view the
 trajectory file, showing each step of the optimization.
 
 Structure optimization of :mol:`H_2O` with EMT and GPAW
@@ -90,7 +90,7 @@ is printed with the energy and convergence measures.  After the
 calculation the energy contributions, band energies and forces are
 listed.
 
-Use :command:`ase-gui` to visualize and compare bond lenghts and bond
+Use :command:`ase gui` to visualize and compare bond lenghts and bond
 angles to the EMT result.  Bond lengths and angles are shown
 automatically if you select two or three atoms at a time.
 

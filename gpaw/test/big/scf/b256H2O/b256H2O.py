@@ -19,14 +19,11 @@
 
 # Is it an extreme case of https://trac.fysik.dtu.dk/projects/gpaw/ticket/51 ?
 
-import os
 import sys
 
 from ase import Atoms
 
 from gpaw import GPAW
-from gpaw import ConvergenceError
-from gpaw.mpi import rank
 
 from gpaw.eigensolvers.rmm_diis_old import RMM_DIIS
 

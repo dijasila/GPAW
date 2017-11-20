@@ -1,14 +1,11 @@
-import os
-from math import pi, cos, sin
-from ase import Atom, Atoms
-from ase.parallel import rank, barrier
-from gpaw import GPAW, FermiDirac
-from gpaw.test import equal, gen
-from gpaw.xas import  * #XAS, RecursionMethod
 import numpy as np
-from gpaw import setup_paths
-#setup_paths.insert(0, '.')
 
+from ase import Atom, Atoms
+
+from gpaw import GPAW, FermiDirac
+from gpaw.test import gen
+from gpaw.xas import XAS
+import gpaw.mpi as mpi
 
 # Generate setup for oxygen with half a core-hole:
 gen('Si', name='hch1s', corehole=(1, 0, 0.5))

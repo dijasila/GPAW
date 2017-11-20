@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import gc
 import sys
@@ -61,16 +62,19 @@ def wrap_pylab(names=[]):
     """Use Agg backend and prevent windows from popping up."""
     import matplotlib
     matplotlib.use('Agg')
-    import pylab
+    import matplotlib.pyplot as plt
+    import ase.visualize
 
     def show(names=names):
         if names:
             name = names.pop(0)
         else:
             name = 'fig.png'
-        pylab.savefig(name)
+        plt.savefig(name)
 
-    pylab.show = show
+    plt.show = show
+
+    ase.visualize.view = lambda *args, **kwargs: None
 
 
 tests = [
@@ -136,7 +140,9 @@ tests = [
     'generic/proton.py',
     'atoms_mismatch.py',
     'setup_basis_spec.py',
+    'overlap.py',
     'pw/direct.py',
+    'vdw/libvdwxc_spin.py',                 # ~1s
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
     'lcao/density.py',                      # ~1s
@@ -172,7 +178,6 @@ tests = [
     'pseudopotential/ah.py',                # ~2s
     'lcao/restart.py',                      # ~2s
     'lcao/tddft.py',                        # ~2s
-    'vdw/libvdwxc_h2o.py',                  # ~2s
     'lcao/gllb_si.py',                      # ~2s
     'fileio/wfs_io.py',                     # ~3s
     'lrtddft/2.py',                         # ~3s
@@ -182,6 +187,7 @@ tests = [
     'pw/fulldiagk.py',                      # ~3s
     'ext_potential/external.py',            # ~3s
     'lcao/atomic_corrections.py',           # ~3s
+    'vdw/libvdwxc_h2.py',                   # ~3s
     'generic/mixer.py',                     # ~3s
     'parallel/lcao_projections.py',         # ~3s
     'lcao/h2o.py',                          # ~3s
@@ -246,26 +252,30 @@ tests = [
     'gllb/ne.py',                           # ~7s
     'lcao/force.py',                        # ~7s
     'xc/pplda.py',                          # ~7s
+    'response/test_unit_sphere_area.py',    # ~7s
     'fileio/restart_density.py',            # ~8s
     'rpa/rpa_energy_Ni.py',                 # ~8s
     'tddft/be_nltd_ip.py',                  # ~8s
-    'test_ibzqpt.py',                       # ~8s
+    'ibzqpt.py',                            # ~8s
     'generic/si_primitive.py',              # ~9s
     'tddft/ehrenfest_nacl.py',              # ~9s
     'lcao/fd2lcao_restart.py',              # ~9s
     'ext_potential/constant_e_field.py',    # ~9s
     'complex.py',                           # ~9s
     'vdw/quick.py',                         # ~9s
-    'lrtddft/Al2_lrtddft.py',               # ~10s
+    'lrtddft2/H2O-lcao.py',                 # ~10s
+    'lrtddft2/Al2.py',                      # ~10s
     'ralda/ralda_energy_N2.py',             # ~10s
     'parallel/lcao_complicated.py',         # ~10s
     'generic/bulk.py',                      # ~10s
     'sic/scfsic_h2.py',                     # ~10s
     'lcao/bulk.py',                         # ~11s
+    'reuse_wfs.py',                         # ~11s
     'generic/2Al.py',                       # ~11s
     'lrtddft/kssingles_Be.py',              # ~11s
     'generic/relax.py',                     # ~11s
     'solvation/adm12.py',                   # ~11s
+    'solvation/lrtddft.py',                 # ~12s
     'dscf/dscf_lcao.py',                    # ~12s
     'generic/8Si.py',                       # ~12s
     'utilities/partitioning.py',            # ~12s
@@ -344,6 +354,8 @@ tests = [
     'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
     'exx/AA_enthalpy.py',                   # ~119s
+    'response/na_plasmons.py',
+    'response/na_plasmons_tetrahedron.py',  # ~120s
     'lcao/tdgllbsc.py',                     # ~132s
     'solvation/forces.py',                  # ~140s
     'response/gw_MoS2_cut.py',
@@ -413,7 +425,9 @@ if mpi.size < 4:
                 'fileio/parallel.py',
                 'parallel/diamond_gllb.py',
                 'parallel/lcao_parallel_kpt.py',
-                'parallel/fd_parallel_kpt.py']
+                'parallel/fd_parallel_kpt.py',
+                'response/na_plasmons.py',
+                'response/na_plasmons_tetrahedron.py']
 
 
 if mpi.size != 4:
@@ -437,15 +451,20 @@ if mpi.size != 1 and not compiled_with_sl():
                 'pw/expert_diag.py',
                 'pw/fulldiag.py',
                 'pw/fulldiagk.py',
+                'response/gw_hBN_extrapolate.py',
+                'response/gw0_hBN.py',
                 'response/au02_absorption.py']
 
 if not compiled_with_sl():
-    exclude.append('lcao/atomic_corrections.py')
+    exclude += ['lcao/atomic_corrections.py',
+                'response/na_plasmons.py',
+                'response/na_plasmons_tetrahedron.py']
 
 if not compiled_with_libvdwxc():
     exclude.append('vdw/libvdwxc_functionals.py')
-    exclude.append('vdw/libvdwxc_h2o.py')
+    exclude.append('vdw/libvdwxc_h2.py')
     exclude.append('vdw/libvdwxc_mbeef.py')
+    exclude.append('vdw/libvdwxc_spin.py')
 
 if LooseVersion(np.__version__) < '1.6.0':
     exclude.append('response/chi0.py')
@@ -454,10 +473,15 @@ if LooseVersion(np.__version__) < '1.6.0':
 def get_test_path(test):
     return os.path.join(gpaw.__path__[0], 'test', test)
 
-for test in tests + exclude:
-    assert os.path.exists(get_test_path(test)), 'No such file: %s' % test
 
 exclude = set(exclude)
+
+
+def check_file_lists():
+    for test in tests + list(exclude):
+        assert os.path.exists(get_test_path(test)), \
+            ('No such file: {}.  Test list or test exclusion list mentions '
+             'files that do not exist.'.format(test))
 
 
 class TestRunner:
@@ -478,6 +502,10 @@ class TestRunner:
         self.n = max([len(test) for test in tests])
         self.setup_paths = setup_paths[:]
 
+        # Check *all* the files, not just the ones we are supposed to be
+        # running right now:
+        check_file_lists()
+
     def run(self):
         self.log.write('=' * 77 + '\n')
         if not self.show_output:
@@ -497,7 +525,7 @@ class TestRunner:
                         ntests, time.time() - t0))
         self.log.write('Tests skipped: %d\n' % len(self.skipped))
         if self.failed:
-            self.log.write('Tests failed: %d\n' % len(self.failed))
+            print('Tests failed:', len(self.failed), file=self.log)
         else:
             self.log.write('All tests passed!\n')
         self.log.write('=' * 77 + '\n')
@@ -665,7 +693,3 @@ class TestRunner:
         if self.jobs > 1:
             self.log.write('%*s' % (-self.n, test))
         self.log.write('%10.3f  %s\n' % (t, text))
-
-
-if __name__ == '__main__':
-    TestRunner(tests).run()

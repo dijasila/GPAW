@@ -120,7 +120,7 @@ class PAW:
 
         The PAW object must be initialize()'d, but needs not have large
         arrays allocated."""
-        # NOTE.  This should work with --dry-run=N
+        # NOTE.  This should work with "--gpaw dry_run=N"
         #
         # However, the initial overhead estimate is wrong if this method
         # is called within a real mpirun/gpaw-python context.
@@ -183,6 +183,7 @@ class PAW:
 
         'LDA', 'PBE', ..."""
 
+        return self.parameters.get('xc', 'LDA')
         return self.hamiltonian.xc.name
 
     def get_number_of_spins(self):
@@ -199,6 +200,10 @@ class PAW:
     def get_ibz_k_points(self):
         """Return k-points in the irreducible part of the Brillouin zone."""
         return self.wfs.kd.ibzk_kc.copy()
+
+    def get_bz_to_ibz_map(self):
+        """Return indices from BZ to IBZ."""
+        return self.wfs.kd.bz2ibz_k.copy()
 
     def get_k_point_weights(self):
         """Weights of the k-points.
@@ -406,7 +411,7 @@ class PAW:
 
     def get_orbital_ldos(self, a,
                          spin=0, angular='spdf', npts=201, width=None,
-                         nbands=None):
+                         nbands=None, spinorbit=False):
         """The Local Density of States, using atomic orbital basis functions.
 
         Project wave functions onto an atom orbital at atom ``a``, and
@@ -422,11 +427,17 @@ class PAW:
         calculation if one has many bands in the calculator but is only
         interested in the DOS at low energies.
         """
+        from gpaw.utilities.dos import (raw_orbital_LDOS,
+                                        raw_spinorbit_orbital_LDOS, fold)
         if width is None:
             width = 0.1
 
-        from gpaw.utilities.dos import raw_orbital_LDOS, fold
-        energies, weights = raw_orbital_LDOS(self, a, spin, angular, nbands)
+        if not spinorbit:
+            energies, weights = raw_orbital_LDOS(self, a, spin, angular,
+                                                 nbands)
+        else:
+            energies, weights = raw_spinorbit_orbital_LDOS(self, a, spin,
+                                                           angular)
         return fold(energies * Ha, weights, npts, width)
 
     def get_lcao_dos(self, atom_indices=None, basis_indices=None,
@@ -519,8 +530,7 @@ class PAW:
             if self.wfs.world.rank != 0:
                 eps_n = np.empty(self.wfs.bd.nbands)
             self.wfs.world.broadcast(eps_n, 0)
-        if eps_n is not None:
-            return eps_n * Ha
+        return eps_n * Ha
 
     def get_occupation_numbers(self, kpt=0, spin=0, broadcast=True):
         """Return occupation array."""

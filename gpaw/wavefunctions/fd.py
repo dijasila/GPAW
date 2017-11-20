@@ -30,17 +30,19 @@ class FD(Mode):
         dct['nn'] = self.nn
         dct['interpolation'] = self.interpolation
         return dct
-        
+
 
 class FDWaveFunctions(FDPWWaveFunctions):
     mode = 'fd'
 
     def __init__(self, stencil, diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd,
-                 dtype, world, kd, kptband_comm, timer):
+                 dtype, world, kd, kptband_comm, timer, reuse_wfs_method=None):
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
-                                   gd, nvalence, setups, bd,
-                                   dtype, world, kd, kptband_comm, timer)
+                                   reuse_wfs_method=reuse_wfs_method,
+                                   gd=gd, nvalence=nvalence, setups=setups,
+                                   bd=bd, dtype=dtype, world=world, kd=kd,
+                                   kptband_comm=kptband_comm, timer=timer)
 
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype)
@@ -70,10 +72,10 @@ class FDWaveFunctions(FDPWWaveFunctions):
         s = 'Wave functions: Uniform real-space grid\n'
         s += '  Kinetic energy operator: %s\n' % self.kin.description
         return s + FDPWWaveFunctions.__str__(self)
-        
+
     def make_preconditioner(self, block=1):
         return Preconditioner(self.gd, self.kin, self.dtype, block)
-    
+
     def apply_pseudo_hamiltonian(self, kpt, ham, psit_xG, Htpsit_xG):
         self.timer.start('Apply hamiltonian')
         self.kin.apply(psit_xG, Htpsit_xG, kpt.phase_cd)
@@ -81,6 +83,11 @@ class FDWaveFunctions(FDPWWaveFunctions):
         ham.xc.apply_orbital_dependent_hamiltonian(
             kpt, psit_xG, Htpsit_xG, ham.dH_asp)
         self.timer.stop('Apply hamiltonian')
+
+    def get_pseudo_partial_waves(self):
+        phit_aj = [setup.get_actual_atomic_orbitals()
+                   for setup in self.setups]
+        return LFC(self.gd, phit_aj, kd=self.kd, cut=True, dtype=self.dtype)
 
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
         # Used in calculation of response part of GLLB-potential
@@ -152,7 +159,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.initialize_wave_functions_from_restart_file()
 
         weight = 2.0 / kd.nspins / kd.nbzkpts
-        
+
         # Build new list of k-points:
         kpt_u = []
         for s in range(self.nspins):
@@ -162,7 +169,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 r, u = self.kd.get_rank_and_index(s, ik)
                 assert r == 0
                 kpt = self.kpt_u[u]
-            
+
                 phase_cd = np.exp(2j * np.pi * self.gd.sdisp_cd *
                                   kd.bzk_kc[k, :, np.newaxis])
 
@@ -170,7 +177,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 kpt2 = KPoint(weight, s, k, k, phase_cd)
                 kpt2.f_n = kpt.f_n / kpt.weight / kd.nbzkpts * 2 / self.nspins
                 kpt2.eps_n = kpt.eps_n.copy()
-                
+
                 # Transform wave functions using symmetry operation:
                 Psit_nG = self.gd.collect(kpt.psit_nG)
                 if Psit_nG is not None:
@@ -183,7 +190,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 # Calculate PAW projections:
                 kpt2.P_ani = self.pt.dict(len(kpt.psit_nG))
                 self.pt.integrate(kpt2.psit_nG, kpt2.P_ani, k)
-                
+
                 kpt_u.append(kpt2)
 
         self.kd = kd
@@ -209,7 +216,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             (self.nspins, self.kd.nibzkpts, self.bd.nbands) +
             tuple(self.gd.get_size_of_global_array()),
             self.dtype)
-        
+
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 for n in range(self.bd.nbands):
@@ -250,7 +257,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 else:
                     big_psit_G = None
                 self.gd.distribute(big_psit_G, psit_G)
-        
+
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
         for kpt in self.kpt_u:
             kpt.psit_nG = self.gd.zeros(self.bd.mynbands, self.dtype)
@@ -262,7 +269,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         """Generate random wave functions."""
 
         gpts = self.gd.N_c[0] * self.gd.N_c[1] * self.gd.N_c[2]
-        
+
         if self.bd.nbands < gpts / 64:
             gd1 = self.gd.coarsen()
             gd2 = gd1.coarsen()
@@ -291,7 +298,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     interpolate2(psit_G2, psit_G1, kpt.phase_cd)
                     interpolate1(psit_G1, psit_G, kpt.phase_cd)
             np.random.set_state(old_state)
-        
+
         elif gpts / 64 <= self.bd.nbands < gpts / 8:
             gd1 = self.gd.coarsen()
 
@@ -316,7 +323,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
                     interpolate1(psit_G1, psit_G, kpt.phase_cd)
             np.random.set_state(old_state)
-               
+
         else:
             shape = tuple(self.gd.n_c)
             scale = np.sqrt(12 / abs(np.linalg.det(self.gd.cell_cv)))

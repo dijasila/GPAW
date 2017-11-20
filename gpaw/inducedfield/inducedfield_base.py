@@ -170,8 +170,7 @@ class BaseInducedField(object):
                                 gridrefinement=2,
                                 extend_N_cd=None,
                                 deextend=False,
-                                poisson_nn=3, poisson_relax='J',
-                                poisson_eps=1e-20,
+                                poissonsolver=None,
                                 gradient_n=3):
         if self.has_field and \
            from_density == self.field_from_density and \
@@ -207,15 +206,19 @@ class BaseInducedField(object):
         Fef_wvg = gd.zeros((self.nw, self.nv,), dtype=self.dtype)
         Ffe_wg = gd.zeros((self.nw,), dtype=float)
 
+        # Poissonsolver
+        if poissonsolver is None:
+            poissonsolver = PoissonSolver(eps=1e-20)
+        poissonsolver.set_grid_descriptor(gd)
+        poissonsolver.initialize()
+
         for w in range(self.nw):
             # TODO: better output of progress
             # parprint('%d' % w)
             calculate_field(gd, Frho_wg[w], self.Fbgef_v,
                             Fphi_wg[w], Fef_wvg[w], Ffe_wg[w],
+                            poissonsolver=poissonsolver,
                             nv=self.nv,
-                            poisson_nn=poisson_nn,
-                            poisson_relax=poisson_relax,
-                            poisson_eps=poisson_eps,
                             gradient_n=gradient_n)
 
         # De-extend grid
@@ -411,8 +414,9 @@ class BaseInducedField(object):
 
 def calculate_field(gd, rho_g, bgef_v,
                     phi_g, ef_vg, fe_g,  # preallocated numpy arrays
-                    nv=3, poisson_nn=3, poisson_relax='J',
-                    gradient_n=3, poisson_eps=1e-20):
+                    poissonsolver,
+                    nv=3,
+                    gradient_n=3):
 
     dtype = rho_g.dtype
     yes_complex = dtype == complex
@@ -421,13 +425,6 @@ def calculate_field(gd, rho_g, bgef_v,
     ef_vg[:] = 0.0
     fe_g[:] = 0.0
     tmp_g = gd.zeros(dtype=float)
-
-    # Poissonsolver
-    poissonsolver = PoissonSolver(nn=poisson_nn,
-                                  relax=poisson_relax,
-                                  eps=poisson_eps)
-    poissonsolver.set_grid_descriptor(gd)
-    poissonsolver.initialize()
 
     # Potential, real part
     poissonsolver.solve(tmp_g, rho_g.real.copy())

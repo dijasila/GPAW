@@ -17,17 +17,17 @@ class AGTSJob:
 
         Example:
 
-        >>> job = AGTSJob('doc/devel/256H2O', 'b256H2O.py --sl_default=4,4,16')
+        >>> job = AGTSJob('doc/devel/256H2O', 'b256H2O.py --gpaw=debug=True')
         >>> job.dir
         'doc/devel/256H2O'
         >>> job.script
         'b256H2O.py'
         >>> job.args
-        '--sl_default=4,4,16'
+        '--gpaw=debug=True'
         >>> job.name
-        'b256H2O.py_--sl_default=4,4,16'
+        'b256H2O.py_--gpaw=debug=True'
         >>> job.absname
-        'doc/devel/256H2O/b256H2O.py_--sl_default=4,4,16'
+        'doc/devel/256H2O/b256H2O.py_--gpaw=debug=True'
         """
 
         if ' ' in script:
@@ -376,6 +376,7 @@ def main():
                           version='%prog 0.1')
     parser.add_option('-c', '--clean', action='store_true')
     parser.add_option('-r', '--run')
+    parser.add_option('-p', '--partition')
     parser.add_option('-C', '--copy-created-files')
 
     opt, args = parser.parse_args()
@@ -418,7 +419,7 @@ def main():
             cluster = TestCluster()
         elif opt.run == 'niflheim':
             from gpaw.test.big.niflheim import NiflheimCluster
-            cluster = NiflheimCluster()
+            cluster = NiflheimCluster(partition=opt.partition)
         elif opt.run == 'gbar':
             from gpaw.test.big.gbar import GbarCluster
             cluster = GbarCluster()

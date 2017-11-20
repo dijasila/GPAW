@@ -25,7 +25,7 @@ usually by smaller than the default value).
 The program takes cube input files. It does *not* support units, and
 assumes atomic units for the density (`\text{bohr}^{-3}`).
 
-A simple python script for making a
+A simple Python script for making a
 cube file, ready for the Bader program, could be:
 
 >>> from ase.io import write
@@ -41,9 +41,9 @@ Note that it is strongly recommended to use version 0.26b or higher of
 the program, and the examples below refer to this version.
 
 .. seealso::
-    
+
     :ref:`all electron density`
-    
+
 
 Example: The water molecule
 ---------------------------
@@ -51,7 +51,7 @@ Example: The water molecule
 The following example shows how to do Bader analysis for a water molecule.
 
 First do a ground state calculation, and save the density as a cube file:
-    
+
 .. literalinclude:: h2o.py
 
 Then analyse the density cube file by running (use *bader -h* for a
@@ -61,7 +61,7 @@ description of the possible options)::
 
 This will produce a number of files. The *ACF.dat* file, contains a
 summary of the Bader analysis:
-    
+
 .. literalinclude:: ACF.dat
 
 Revealing that 0.58 electrons have been transferred from each

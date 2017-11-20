@@ -93,15 +93,17 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
     if len(bzk_kc) > 1 or np.any(bzk_kc[0] != [0, 0, 0]):
         dtype = complex
 
-    kpts_grid = get_monkhorst_pack_size_and_offset(bzk_kc)[0]
+    kpts_grid, kpts_shift = get_monkhorst_pack_size_and_offset(bzk_kc)
 
     # kpts in the transport direction
     nkpts_p = kpts_grid[dir]
-    bzk_p_kc = monkhorst_pack((nkpts_p, 1, 1))[:, 0]
+    bzk_p_kc = monkhorst_pack((nkpts_p, 1, 1))[:, 0] + kpts_shift[dir]
     weight_p_k = 1. / nkpts_p
 
     # kpts in the transverse directions
-    bzk_t_kc = monkhorst_pack(tuple(kpts_grid[transverse_dirs]) + (1, ))
+    offset = np.zeros((3,))
+    offset[:len(transverse_dirs)] = kpts_shift[transverse_dirs]
+    bzk_t_kc = monkhorst_pack(tuple(kpts_grid[transverse_dirs]) + (1, )) + offset
     if 'time_reversal' not in symmetry:
         symmetry['time_reversal'] = True
     if symmetry['time_reversal']:

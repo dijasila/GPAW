@@ -50,17 +50,17 @@ if scalapack:
 
 # - static linking:
 if 0:
-    include_dirs += ['/home/user/libxc-2.0.1-1/include']
-    extra_link_args += ['/home/user/libxc-2.0.1-1/lib/libxc.a']
+    include_dirs += ['/home/user/libxc-4.0.1/include']
+    extra_link_args += ['/home/user/libxc-4.0.1/lib/libxc.a']
     if 'xc' in libraries:
         libraries.remove('xc')
 
 # - dynamic linking (requires rpath or setting LD_LIBRARY_PATH at runtime):
 if 0:
-    include_dirs += ['/home/user/libxc-2.0.1-1/include']
-    library_dirs += ['/home/user/libxc-2.0.1-1/lib']
+    include_dirs += ['/home/user/libxc-4.0.1/include']
+    library_dirs += ['/home/user/libxc-4.0.1/lib']
     # You can use rpath to avoid changing LD_LIBRARY_PATH:
-    # extra_link_args += ['-Wl,-rpath=/home/user/libxc-2.0.1-1/lib']
+    extra_link_args += ['-Wl,-rpath=/home/user/libxc-4.0.1/lib']
     if 'xc' not in libraries:
         libraries.append('xc')
 
@@ -80,3 +80,4 @@ if 0:
     compiler = 'mpicc'
     define_macros += [('PARALLEL', '1')]
     mpicompiler = None
+

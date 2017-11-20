@@ -3,7 +3,7 @@ from __future__ import print_function
 import os
 
 from ase import Atom, Atoms
-from gpaw import GPAW, Mixer, restart, FermiDirac
+from gpaw import GPAW, restart, FermiDirac
 from gpaw.test import equal
 
 energy_tolerance = 0.0001

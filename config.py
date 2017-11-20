@@ -102,22 +102,22 @@ def get_system_config(define_macros, undef_macros,
 
     elif sys.platform == 'darwin':
 
-        extra_compile_args += ['-Wall', '-std=c99']
+        extra_compile_args += ['-Wall', '-Wno-unknown-pragmas', '-std=c99']
         include_dirs += ['/usr/include/malloc']
         library_dirs += ['/usr/local/lib']   # libxc installed with Homebrew
         extra_link_args += ['-framework', 'Accelerate']  # BLAS
 
         # We should probably add something to allow for user-installed BLAS?
 
-    elif machine in ['x86_64', 'ppc64', 'ppc64le', 'aarch64']:
+    elif machine in ['x86_64', 'ppc64', 'ppc64le', 'aarch64', 's390x']:
 
         #    _
         # \/|_||_    |_ |_|
         # /\|_||_| _ |_|  |
         #
 
-        extra_compile_args += ['-Wall', '-std=c99']
-        
+        extra_compile_args += ['-Wall', '-Wno-unknown-pragmas', '-std=c99']
+
         # Look for ACML libraries:
         acml = glob('/opt/acml*/g*64/lib')
         if len(acml) > 0:
@@ -148,7 +148,7 @@ def get_system_config(define_macros, undef_macros,
                     libdir = dir
                     break
             if openblas:  # prefer openblas
-                libraries += ['openblas']
+                libraries += ['openblas', 'lapack']
                 library_dirs += [libdir]
             else:
                 if atlas:  # then atlas
@@ -176,7 +176,7 @@ def get_system_config(define_macros, undef_macros,
 
     elif platform.machine().startswith('arm'):
 
-        extra_compile_args += ['-Wall', '-std=c99']
+        extra_compile_args += ['-Wall', '-Wno-unknown-pragmas', '-std=c99']
 
         atlas = False
         for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
@@ -219,7 +219,7 @@ def get_system_config(define_macros, undef_macros,
         # ||_||_||_|
         #
 
-        extra_compile_args += ['-Wall', '-std=c99']
+        extra_compile_args += ['-Wall', '-Wno-unknown-pragmas', '-std=c99']
 
         if 'MKL_ROOT' in os.environ:
             mklbasedir = [os.environ['MKL_ROOT']]
@@ -284,7 +284,7 @@ def get_system_config(define_macros, undef_macros,
                 libraries += ['g2c']
 
     else:
-        extra_compile_args += ['-Wall', '-std=c99']
+        extra_compile_args += ['-Wall', '-Wno-unknown-pragmas', '-std=c99']
 
         atlas = False
         for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:

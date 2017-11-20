@@ -1,4 +1,4 @@
-.. _electrostatic_potential:
+.. _electrostatic potential:
 
 ===============================
 Note on electrostatic potential

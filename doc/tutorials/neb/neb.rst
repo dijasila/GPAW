@@ -17,6 +17,6 @@ then each of the three internal images will be parallelized over 4 cpu's.
 
 The results are read with::
 
-  $ ase-gui -n -1 neb?.traj
+  $ ase gui -n -1 neb?.traj
 
 The energy barrier is found to be ~0.3 eV for LDA.

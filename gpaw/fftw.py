@@ -112,21 +112,31 @@ if lib is None:
     FFTPlan = NumpyFFTPlan
 else:
     FFTPlan = FFTWPlan
+
+    lib.fftw_execute.argtypes = [ctypes.c_void_p]
+    lib.fftw_destroy_plan.argtypes = [ctypes.c_void_p]
+
     lib.fftw_plan_dft_3d.argtypes = [
         ctypes.c_int, ctypes.c_int, ctypes.c_int,
         np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
         np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
         ctypes.c_int, ctypes.c_uint]
+    lib.fftw_plan_dft_3d.restype = ctypes.c_void_p
+    
     lib.fftw_plan_dft_r2c_3d.argtypes = [
         ctypes.c_int, ctypes.c_int, ctypes.c_int,
         np.ctypeslib.ndpointer(dtype=float, ndim=3),
         np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
         ctypes.c_uint]
+    lib.fftw_plan_dft_r2c_3d.restype = ctypes.c_void_p
+    
     lib.fftw_plan_dft_c2r_3d.argtypes = [
         ctypes.c_int, ctypes.c_int, ctypes.c_int,
         np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
         np.ctypeslib.ndpointer(dtype=float, ndim=3),
         ctypes.c_uint]
+    lib.fftw_plan_dft_c2r_3d.restype = ctypes.c_void_p
+    
     try:
         lib.fftw_plan_with_nthreads.argtypes = [ctypes.c_int]
     except AttributeError:

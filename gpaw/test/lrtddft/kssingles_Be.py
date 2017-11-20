@@ -1,8 +1,6 @@
-import os
 import numpy as np
 
-from ase import Atom, Atoms
-from ase.optimize import BFGS
+from ase import Atoms
 from ase.parallel import parprint
 from ase.units import Hartree
 

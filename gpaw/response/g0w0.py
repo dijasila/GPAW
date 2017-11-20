@@ -29,7 +29,7 @@ import os
 
 class G0W0(PairDensity):
     def __init__(self, calc, filename='gw', restartfile=None,
-                 kpts=None, bands=None, nbands=None, ppa=False,
+                 kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
                  truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
                  domega0=0.025, omega2=10.0, anisotropy_correction=False,
@@ -57,10 +57,14 @@ class G0W0(PairDensity):
         kpts: list
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.
-        bands: tuple
-            Range of band indices, like (n1, n2+1), to calculate the quasi
-            particle energies for. Note that the second band index is not
-            included.
+        bands: tuple of two ints
+            Range of band indices, like (n1, n2), to calculate the quasi
+            particle energies for. Bands n where n1<=n<n2 will be
+            calculated.  Note that the second band index is not included.
+        relbands: tuple of two ints
+            Same as *bands* except that the numbers are relative to the
+            number of occupied bands.
+            E.g. (-1, 1) will use HOMO+LUMO.
         ecut: float
             Plane wave cut-off energy in eV.
         ecut_extrapolation: bool or array
@@ -213,6 +217,12 @@ class G0W0(PairDensity):
 
         self.kpts = list(select_kpts(kpts, self.calc))
 
+        if bands is not None and relbands is not None:
+            raise ValueError('Use bands or relbands!')
+
+        if relbands is not None:
+            bands = [self.calc.wfs.nvalence // 2 + b for b in relbands]
+
         if bands is None:
             bands = [0, self.nocc2]
 
@@ -274,8 +284,6 @@ class G0W0(PairDensity):
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
-
-        assert self.calc.wfs.nspins == 1
 
         txt.flush()
 
@@ -614,7 +622,6 @@ class G0W0(PairDensity):
                     real_space_derivatives=False,
                     txt=self.filename + '.w.txt',
                     timer=self.timer,
-                    keep_occupied_states=True,
                     nblocks=self.blockcomm.size,
                     gate_voltage=self.gate_voltage,
                     **parameters)
@@ -763,7 +770,8 @@ class G0W0(PairDensity):
             chi0_wxvG = None
             chi0_wvv = None
 
-        chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, [0])
+        chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2,
+                        range(self.nspins), extend_head=False)
 
         if len(self.ecut_e) > 1:
             # Add chi from previous cutoff with remaining bands
