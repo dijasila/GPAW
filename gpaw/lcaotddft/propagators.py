@@ -31,7 +31,7 @@ def equal(a, b, eps=1e-16):
 class Propagator(object):
 
     def __init__(self):
-        return
+        object.__init__(self)
 
     def initialize(self, paw):
         self.timer = paw.timer
@@ -47,7 +47,7 @@ class Propagator(object):
 class LCAOPropagator(Propagator):
 
     def __init__(self):
-        return
+        Propagator.__init__(self)
 
     def initialize(self, paw):
         Propagator.initialize(self, paw)
@@ -59,6 +59,7 @@ class LCAOPropagator(Propagator):
 class ReplayPropagator(LCAOPropagator):
 
     def __init__(self, filename):
+        LCAOPropagator.__init__(self)
         self.reader = Reader(filename)
         version = self.reader.version
         if version != 1:
@@ -92,7 +93,7 @@ class ReplayPropagator(LCAOPropagator):
 class ECNPropagator(LCAOPropagator):
 
     def __init__(self):
-        return
+        LCAOPropagator.__init__(self)
 
     def initialize(self, paw, hamiltonian=None):
         LCAOPropagator.initialize(self, paw)
@@ -150,7 +151,7 @@ class ECNPropagator(LCAOPropagator):
 
     def propagate(self, time, time_step):
         # TODO: this is only for kick!!
-        for k, kpt in enumerate(self.wfs.kpt_u):
+        for kpt in self.wfs.kpt_u:
             H_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
                 self.hamiltonian, self.wfs, kpt, add_kinetic=False, root=-1)
             self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, H_MM,
@@ -252,18 +253,18 @@ class ECNPropagator(LCAOPropagator):
 class SICNPropagator(ECNPropagator):
 
     def __init__(self):
-        return
+        ECNPropagator.__init__(self)
 
     def initialize(self, paw):
         ECNPropagator.initialize(self, paw)
         # Allocate kpt.C2_nM arrays
-        for k, kpt in enumerate(self.wfs.kpt_u):
+        for kpt in self.wfs.kpt_u:
             kpt.C2_nM = np.empty_like(kpt.C_nM)
 
     def kick(self, hamiltonian, time):
         # Propagate
         get_matrix = self.wfs.eigensolver.calculate_hamiltonian_matrix
-        for k, kpt in enumerate(self.wfs.kpt_u):
+        for kpt in self.wfs.kpt_u:
             Vkick_MM = get_matrix(hamiltonian, self.wfs, kpt,
                                   add_kinetic=False, root=-1)
             for i in range(10):
@@ -278,7 +279,7 @@ class SICNPropagator(ECNPropagator):
         # --------------
         # 1. Store current C_nM
         self.save_wfs()  # kpt.C2_nM = kpt.C_nM
-        for k, kpt in enumerate(self.wfs.kpt_u):
+        for kpt in self.wfs.kpt_u:
             # H_MM(t) = <M|H(t)|M>
             kpt.H0_MM = self.hamiltonian.get_hamiltonian_matrix(kpt)
             # 2. Solve Psi(t+dt) from (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt) =
@@ -289,7 +290,7 @@ class SICNPropagator(ECNPropagator):
         # ---------------
         # 1. Calculate H(t+dt)
         self.hamiltonian.update()
-        for k, kpt in enumerate(self.wfs.kpt_u):
+        for kpt in self.wfs.kpt_u:
             # 2. Estimate H(t+0.5*dt) ~ 0.5 * [ H(t) + H(t+dt) ]
             kpt.H0_MM *= 0.5
             kpt.H0_MM += 0.5 * self.hamiltonian.get_hamiltonian_matrix(kpt)
@@ -303,13 +304,14 @@ class SICNPropagator(ECNPropagator):
         return time + dt
 
     def save_wfs(self):
-        for k, kpt in enumerate(self.wfs.kpt_u):
+        for kpt in self.wfs.kpt_u:
             kpt.C2_nM[:] = kpt.C_nM
 
 
 class TaylorPropagator(Propagator):
 
     def __init__(self):
+        Propagator.__init__(self)
         raise NotImplementedError('TaylorPropagator not implemented')
 
     def initialize(self, paw):

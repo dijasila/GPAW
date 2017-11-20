@@ -79,7 +79,7 @@ class TimeDependentHamiltonian(object):
 
         # Calculate deltaXC: 1. take current H_MM
         if niter == 0:
-            for k, kpt in enumerate(self.wfs.kpt_u):
+            for kpt in self.wfs.kpt_u:
                 kpt.deltaXC_H_MM = get_H_MM(kpt, addfxc=False)
 
         # Update hamiltonian.xc
@@ -92,13 +92,13 @@ class TimeDependentHamiltonian(object):
 
         # Calculate deltaXC: 2. update with new H_MM
         if niter == 0:
-            for k, kpt in enumerate(self.wfs.kpt_u):
+            for kpt in self.wfs.kpt_u:
                 kpt.deltaXC_H_MM -= get_H_MM(kpt, addfxc=False)
 
     def update_projectors(self):
         self.timer.start('LCAO update projectors')
         # Loop over all k-points
-        for k, kpt in enumerate(self.wfs.kpt_u):
+        for kpt in self.wfs.kpt_u:
             self.wfs.atomic_correction.calculate_projections(self.wfs, kpt)
         self.timer.stop('LCAO update projectors')
 
