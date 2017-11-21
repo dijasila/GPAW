@@ -9,18 +9,18 @@ class Projections:
                  collinear=True, spin=0, dtype=float):
         self.nproj_a = np.asarray(nproj_a)
         self.atom_partition = atom_partition
-        acomm = atom_partition.comm  # XXX remove
         self.bcomm = bcomm
         self.collinear = collinear
         self.spin = spin
 
-        self.rank_a = atom_partition.rank_a  # XXX remove
         self.indices = []
         self.my_atom_indices = []
         self.map = {}
         I1 = 0
+
+        rank = atom_partition.comm.rank
         for a, ni in enumerate(nproj_a):
-            if acomm.rank == self.rank_a[a]:
+            if rank == self.atom_partition.rank_a[a]:
                 self.my_atom_indices.append(a)
                 I2 = I1 + ni
                 self.indices.append((a, I1, I2))
@@ -106,7 +106,7 @@ class Projections:
 
             I1 = 0
             myI1 = 0
-            for nproj, rank in zip(self.nproj_a, self.rank_a):
+            for nproj, rank in zip(self.nproj_a, self.atom_partition.rank_a):
                 I2 = I1 + nproj
                 if rank == 0:
                     myI2 = myI1 + nproj

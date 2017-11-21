@@ -199,9 +199,9 @@ class WaveFunctions:
         if self.atom_partition is not None and self.kpt_u[0].P_ani is not None:
             with self.timer('Redistribute'):
                 for kpt in self.mykpts:
-                    assert (self.atom_partition.rank_a == kpt.P.rank_a).all()
+                    assert self.atom_partition == kpt.P.atom_partition
                     kpt.P = kpt.P.redist(atom_partition)
-                    assert (atom_partition.rank_a == kpt.P.rank_a).all()
+                    assert atom_partition == kpt.P.atom_partition
 
         self.atom_partition = atom_partition
         self.kd.symmetry.check(spos_ac)

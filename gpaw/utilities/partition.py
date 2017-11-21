@@ -219,6 +219,18 @@ class AtomPartition:
         self.natoms = len(rank_a)
         self.name = name
 
+    def __eq__(self, other):
+        try:
+            comm = other.comm
+            rank_a = other.rank_a
+        except AttributeError:
+            return False
+        return (self.comm.compare(comm) in ['ident', 'congruent']
+                and (self.rank_a == rank_a).all())
+
+    def __ne__(self, other):
+        return not self == other
+
     def as_serial(self):
         return AtomPartition(self.comm, np.zeros(self.natoms, int),
                              name='%s-serial' % self.name)
