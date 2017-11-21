@@ -81,7 +81,7 @@ class ReplayPropagator(LCAOPropagator):
         self.read_index = 1
         self.read_count = len(self.reader)
 
-    def _align_read(self, time):
+    def _align_read_index(self, time):
         while self.read_index < self.read_count:
             r = self.reader[self.read_index]
             if equal(r.time, time):
@@ -92,7 +92,7 @@ class ReplayPropagator(LCAOPropagator):
 
     def propagate(self, time, time_step):
         next_time = time + time_step
-        self._align_read(next_time)
+        self._align_read_index(next_time)
         r = self.reader[self.read_index].wave_functions
         self.wfs.read_wave_functions(r)
         self.wfs.read_occupations(r)
