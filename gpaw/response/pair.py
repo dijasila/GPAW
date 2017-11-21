@@ -681,7 +681,7 @@ class PairDensity:
         else:
             self.add_gate_voltage(gate_voltage=0)
 
-        self.spos_ac = calc.atoms.get_scaled_positions()
+        self.spos_ac = calc.spos_ac
 
         self.nocc1 = None  # number of completely filled bands
         self.nocc2 = None  # number of non-empty bands

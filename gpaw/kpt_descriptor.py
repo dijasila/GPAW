@@ -218,6 +218,8 @@ class KPointDescriptor:
 
         self.symmetry = symmetry
 
+        # XXX we pass the whole atoms object just to complain if its PBCs
+        # are not how we like them
         for c, periodic in enumerate(atoms.pbc):
             if not periodic and not np.allclose(self.bzk_kc[:, c], 0.0):
                 raise ValueError('K-points can only be used with PBCs!')

@@ -10,6 +10,7 @@ from gpaw.atom.all_electron import AllElectron
 from gpaw.sphere.lebedev import weight_n, R_nv
 
 
+# XXX why on earth is this necessary?
 def get_scaled_positions(atoms, positions):
     """COPY PASTE FROM ASE! Get positions relative to unit cell.
    

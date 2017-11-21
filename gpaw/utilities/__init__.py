@@ -262,9 +262,8 @@ def load_balance(paw, atoms):
         paw.initialize(atoms)
     except SystemExit:
         pass
-    spos_ac = paw.atoms.get_scaled_positions() % 1.0
     atoms_r = np.zeros(paw.wfs.world.size)
-    rnk_a = paw.wfs.gd.get_ranks_from_positions(spos_ac)
+    rnk_a = paw.wfs.gd.get_ranks_from_positions(paw.spos_ac)
     for rnk in rnk_a:
         atoms_r[rnk] += 1
     max_atoms = max(atoms_r)
@@ -273,7 +272,7 @@ def load_balance(paw, atoms):
     stddev_atoms = sqrt((atoms_r**2).sum() / paw.wfs.world.size - ave_atoms**2)
     print("Information about load balancing")
     print("--------------------------------")
-    print("Number of atoms:", len(spos_ac))
+    print("Number of atoms:", len(paw.spos_ac))
     print("Number of CPUs:", paw.wfs.world.size)
     print("Max. number of atoms/CPU:   ", max_atoms)
     print("Min. number of atoms/CPU:   ", min_atoms)

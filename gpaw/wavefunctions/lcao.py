@@ -113,7 +113,6 @@ class LCAOWaveFunctions(WaveFunctions):
                                    self.ksl)
 
     def set_positions(self, spos_ac, atom_partition=None, move_wfs=False):
-        self.spos_ac = spos_ac
         with self.timer('Basic WFS set positions'):
             WaveFunctions.set_positions(self, spos_ac, atom_partition)
 
@@ -205,7 +204,6 @@ class LCAOWaveFunctions(WaveFunctions):
         self.T_qMM = T_qMM
 
     def initialize(self, density, hamiltonian, spos_ac):
-        self.spos_ac = spos_ac
         # Note: The above line exists also in set_positions.
         # This is guaranteed to be correct, but we can probably remove one.
         # Of course no human can understand the initialization process,
