@@ -5,21 +5,22 @@ from gpaw.mpi import serial_comm
 
 
 class Projections:
-    def __init__(self, nbands, nproj_a, acomm, bcomm, rank_a,
+    def __init__(self, nbands, nproj_a, atom_partition, bcomm,
                  collinear=True, spin=0, dtype=float):
         self.nproj_a = np.asarray(nproj_a)
-        self.acomm = acomm
+        self.atom_partition = atom_partition
+        self.acomm = atom_partition.comm  # XXX remove
         self.bcomm = bcomm
         self.collinear = collinear
         self.spin = spin
 
-        self.rank_a = rank_a
+        self.rank_a = atom_partition.rank_a  # XXX remove
         self.indices = []
         self.my_atom_indices = []
         self.map = {}
         I1 = 0
         for a, ni in enumerate(nproj_a):
-            if acomm.rank == rank_a[a]:
+            if self.acomm.rank == self.rank_a[a]:
                 self.my_atom_indices.append(a)
                 I2 = I1 + ni
                 self.indices.append((a, I1, I2))
@@ -28,16 +29,15 @@ class Projections:
 
         self.matrix = Matrix(nbands, I1, dtype, dist=(bcomm, bcomm.size, 1))
 
-    def new(self, bcomm='inherit', nbands=None, rank_a=None):
+    def new(self, bcomm='inherit', nbands=None, atom_partition=None):
         if bcomm == 'inherit':
             bcomm = self.bcomm
         elif bcomm is None:
             bcomm = serial_comm
         return Projections(
             nbands or self.matrix.shape[0], self.nproj_a,
-            self.acomm, bcomm,
-            self.rank_a if rank_a is None else rank_a,
-            self.collinear, self.spin, self.matrix.dtype)
+            self.atom_partition if atom_partition is None else atom_partition,
+            bcomm, self.collinear, self.spin, self.matrix.dtype)
 
     def items(self):
         for a, I1, I2 in self.indices:
@@ -53,8 +53,9 @@ class Projections:
     def todicttttt(self):
         return dict(self.items())
 
-    def redist(self, rank_a):
-        P = self.new(rank_a=rank_a)
+    def redist(self, atom_partition):
+        P = self.new(atom_partition=atom_partition)
+        rank_a = atom_partition.rank_a
         P_In = self.collect_atoms(self.matrix)
         if self.acomm.rank == 0:
             mynbands = P_In.shape[1]

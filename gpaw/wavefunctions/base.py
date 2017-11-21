@@ -200,7 +200,7 @@ class WaveFunctions:
             with self.timer('Redistribute'):
                 for kpt in self.mykpts:
                     assert (self.atom_partition.rank_a == kpt.P.rank_a).all()
-                    kpt.P = kpt.P.redist(atom_partition.rank_a)
+                    kpt.P = kpt.P.redist(atom_partition)
                     assert (atom_partition.rank_a == kpt.P.rank_a).all()
 
         self.atom_partition = atom_partition
@@ -213,11 +213,11 @@ class WaveFunctions:
             pass
         else:
             nproj_a = [setup.ni for setup in self.setups]
-            rank_a = self.atom_partition.rank_a
             for kpt in self.kpt_u:
                 kpt.P = Projections(
                     self.bd.nbands, nproj_a,
-                    self.gd.comm, self.bd.comm, rank_a,
+                    self.atom_partition,
+                    self.bd.comm,
                     collinear=self.collinear, spin=kpt.s, dtype=self.dtype)
 
     def collect_eigenvalues(self, k, s):
@@ -442,7 +442,8 @@ class WaveFunctions:
         nslice = self.bd.get_slice()
         r = reader.wave_functions
         nproj_a = [setup.ni for setup in self.setups]
-        rank_a = np.zeros(len(nproj_a), int)
+        atom_partition = AtomPartition(self.gd.comm,
+                                       np.zeros(len(nproj_a), int))
         for u, kpt in enumerate(self.kpt_u):
             eps_n = r.proxy('eigenvalues', kpt.s, kpt.k)[nslice]
             f_n = r.proxy('occupations', kpt.s, kpt.k)[nslice]
@@ -458,7 +459,7 @@ class WaveFunctions:
             kpt.f_n = f_n
             kpt.P = Projections(
                 self.bd.nbands, nproj_a,
-                self.gd.comm, self.bd.comm, rank_a,
+                atom_partition, self.bd.comm,
                 collinear=self.collinear, spin=kpt.s, dtype=self.dtype)
             if self.gd.comm.rank == 0:
                 P_nI = r.proxy('projections', kpt.s, kpt.k)[nslice]
