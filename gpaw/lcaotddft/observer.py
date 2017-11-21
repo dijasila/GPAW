@@ -15,7 +15,18 @@ class TDDFTObserver(Observer):
         self.timer.stop('%s update' % self.__class__.__name__)
 
     def _update(self, paw):
-        raise RuntimeError('Virtual member function called')
+        raise NotImplementedError()
+
+    # def write_restart(self):
+    #     """Write restart file.
+
+    #     Optional function for writing restart file in sync with TDDFT
+    #     restart file.
+    #     """
+    #     pass
+
+    def __str__(self):
+        return self.__class__.__name__
 
     def __del__(self):
         Observer.__del__(self)
