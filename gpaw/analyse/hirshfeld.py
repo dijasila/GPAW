@@ -1,3 +1,4 @@
+import inspect
 import numpy as np
 
 from ase import Atoms
@@ -8,19 +9,24 @@ from gpaw.setup import Setups
 from gpaw.xc import XC
 from gpaw.utilities.tools import coordinates
 from gpaw.utilities.partition import AtomPartition
+from gpaw.io.logger import GPAWLogger
 
 
 class HirshfeldDensity(RealSpaceDensity):
     """Density as sum of atomic densities."""
 
-    def __init__(self, calculator):
+    def __init__(self, calculator, log=None):
         self.calculator = calculator
         dens = calculator.density
         RealSpaceDensity.__init__(self, dens.gd, dens.finegd,
                                   dens.nspins, 0,
                                   stencil=dens.stencil,
                                   redistributor=dens.redistributor)
-        self.log = calculator.log
+        self.log = GPAWLogger(world=world)
+        if log is None:
+            self.log.fd = None
+        else:
+            self.log.fd = log
         
     def set_positions(self, spos_ac, atom_partition):
         """HirshfeldDensity builds a hack density object to calculate
@@ -44,7 +50,18 @@ class HirshfeldDensity(RealSpaceDensity):
     def get_density(self, atom_indices=None, gridrefinement=2):
         """Get sum of atomic densities from the given atom list.
 
-        All atoms are taken if the list is not given."""
+        Parameters
+        ----------
+        atom_indices : list_like
+            All atoms are taken if the list is not given.
+        gridrefinement : 1, 2, 4
+            Gridrefinement given to get_all_electron_density
+
+        Returns
+        -------
+        type
+             spin summed density, grid_descriptor
+        """
 
         all_atoms = self.calculator.get_atoms()
         if atom_indices is None:
@@ -100,7 +117,6 @@ class HirshfeldDensity(RealSpaceDensity):
 
 
 class HirshfeldPartitioning:
-
     """Partion space according to the Hirshfeld method.
 
     After: F. L. Hirshfeld Theoret. Chim.Acta 44 (1977) 129-138
@@ -120,6 +136,14 @@ class HirshfeldPartitioning:
 
     def get_calculator(self):
         return self.calculator
+
+    def get_effective_volume_ratios(self):
+        """Return the list of effective volume to free volume ratios."""
+        self.initialize()
+        ratios = []
+        for a, atom in enumerate(self.atoms):
+            ratios.append(self.get_effective_volume_ratio(a))
+        return np.array(ratios)
 
     def get_effective_volume_ratio(self, atom_index):
         """Effective volume to free volume ratio.
@@ -172,11 +196,3 @@ class HirshfeldPartitioning:
 #            charge = atom.number - finegd.integrate(weight_g * den_g)
             charges.append(atom.number - finegd.integrate(weight_g * den_g))
         return charges
-
-    def get_effective_volume_ratios(self):
-        """Return the list of effective volume to free volume ratios."""
-        self.initialize()
-        ratios = []
-        for a, atom in enumerate(self.atoms):
-            ratios.append(self.get_effective_volume_ratio(a))
-        return np.array(ratios)
