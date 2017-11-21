@@ -5,6 +5,7 @@ from gpaw.lcaotddft.observer import TDDFTObserver
 
 class WaveFunctionWriter(TDDFTObserver):
     version = 1
+    ulmtag = 'WF'
 
     def __init__(self, filename, paw, interval=1):
         TDDFTObserver.__init__(self, paw, interval)
@@ -14,11 +15,13 @@ class WaveFunctionWriter(TDDFTObserver):
             raise NotImplementedError('Band parallelization not tested!')
 
         if paw.niter == 0:
-            self.writer = Writer(filename, paw.world, mode='w', tag='WF')
+            self.writer = Writer(filename, paw.world, mode='w',
+                                 tag=self.__class__.ulmtag)
             self.writer.write(version=self.__class__.version)
             self.writer.sync()
         else:
-            self.writer = Writer(filename, paw.world, mode='a', tag='WF')
+            self.writer = Writer(filename, paw.world, mode='a',
+                                 tag=self.__class__.ulmtag)
 
     def _update(self, paw):
         self.writer.write(time=paw.time, action=paw.action)

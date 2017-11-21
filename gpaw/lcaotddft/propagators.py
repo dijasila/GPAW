@@ -1,7 +1,6 @@
 import numpy as np
 from numpy.linalg import inv, solve
 
-from gpaw.io import Reader
 from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
                                       scalapack_inverse, scalapack_solve,
                                       scalapack_zero, pblas_tran,
@@ -67,32 +66,37 @@ class LCAOPropagator(Propagator):
 class ReplayPropagator(LCAOPropagator):
 
     def __init__(self, filename, update='all'):
+        from gpaw.io import Reader
+        from gpaw.lcaotddft.wfwriter import WaveFunctionWriter
         LCAOPropagator.__init__(self)
         self.filename = filename
         self.update_mode = update
         self.reader = Reader(self.filename)
+        tag = self.reader.get_tag()
+        if tag != WaveFunctionWriter.ulmtag:
+            raise RuntimeError('Unknown tag %s' % tag)
         version = self.reader.version
-        if version != 1:
+        if version != WaveFunctionWriter.version:
             raise RuntimeError('Unknown version %s' % version)
-        self.readi = 1
-        self.readN = len(self.reader)
+        self.read_index = 1
+        self.read_count = len(self.reader)
 
     def _align_read(self, time):
-        while self.readi < self.readN:
-            r = self.reader[self.readi]
+        while self.read_index < self.read_count:
+            r = self.reader[self.read_index]
             if equal(r.time, time):
                 break
-            self.readi += 1
-        if self.readi == self.readN:
+            self.read_index += 1
+        if self.read_index == self.read_count:
             raise RuntimeError('Time not found: %f' % time)
 
     def propagate(self, time, time_step):
         next_time = time + time_step
         self._align_read(next_time)
-        r = self.reader[self.readi].wave_functions
+        r = self.reader[self.read_index].wave_functions
         self.wfs.read_wave_functions(r)
         self.wfs.read_occupations(r)
-        self.readi += 1
+        self.read_index += 1
         self.hamiltonian.update(self.update_mode)
         return next_time
 
