@@ -64,6 +64,7 @@ class TimeDependentHamiltonian(object):
         niter = paw.niter
 
         # Reset the density mixer
+        # XXX: density mixer is not written to the gpw file
         self.density.set_mixer(DummyMixer())
         self.update()
 
