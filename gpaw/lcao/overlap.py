@@ -47,8 +47,7 @@ from math import pi, factorial as fac
 import numpy as np
 from numpy.fft import ifft
 
-from ase import Atoms
-from ase.neighborlist import NeighborList
+from ase.neighborlist import PrimitiveNeighborList
 from ase.data import covalent_radii
 from ase.units import Bohr
 
@@ -389,19 +388,18 @@ class SimpleAtomIter:
 class NeighborPairs:
     """Class for looping over pairs of atoms using a neighbor list."""
     def __init__(self, cutoff_a, cell_cv, pbc_c, self_interaction):
-        self.neighbors = NeighborList(cutoff_a, skin=0, sorted=True,
-                                      self_interaction=self_interaction)
-        self.atoms = Atoms('X%d' % len(cutoff_a), cell=cell_cv, pbc=pbc_c)
-        # Warning: never use self.atoms.get_scaled_positions() for
-        # anything.  Those positions suffer from roundoff errors!
+        self.neighbors = PrimitiveNeighborList(cutoff_a, skin=0, sorted=True,
+                                          self_interaction=self_interaction,
+                                          use_scaled_positions=True)
+        self.cell_cv = cell_cv
+        self.pbc_c = pbc_c
 
     def set_positions(self, spos_ac):
         self.spos_ac = spos_ac
-        self.atoms.set_scaled_positions(spos_ac)
-        self.neighbors.update(self.atoms)
+        self.neighbors.update(self.pbc_c, self.cell_cv, spos_ac)
 
     def iter(self):
-        cell_cv = self.atoms.cell
+        cell_cv = self.cell_cv
         for a1, spos1_c in enumerate(self.spos_ac):
             a2_a, offsets = self.neighbors.get_neighbors(a1)
             for a2, offset in zip(a2_a, offsets):
@@ -749,7 +747,6 @@ class NewTwoCenterIntegrals:
                                                                 cell_cv,
                                                                 pbc_c,
                                                                 True))
-        self.atoms = self.atompairs.pairs.atoms # XXX compatibility
 
         scale = 0.01 # XXX minimal distance scale
         cutoff_close_a = [covalent_radii[s.Z] / Bohr * scale for s in setups]
