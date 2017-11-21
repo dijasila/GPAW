@@ -9,7 +9,7 @@ class Projections:
                  collinear=True, spin=0, dtype=float):
         self.nproj_a = np.asarray(nproj_a)
         self.atom_partition = atom_partition
-        self.acomm = atom_partition.comm  # XXX remove
+        acomm = atom_partition.comm  # XXX remove
         self.bcomm = bcomm
         self.collinear = collinear
         self.spin = spin
@@ -20,7 +20,7 @@ class Projections:
         self.map = {}
         I1 = 0
         for a, ni in enumerate(nproj_a):
-            if self.acomm.rank == self.rank_a[a]:
+            if acomm.rank == self.rank_a[a]:
                 self.my_atom_indices.append(a)
                 I2 = I1 + ni
                 self.indices.append((a, I1, I2))
@@ -57,9 +57,9 @@ class Projections:
         P = self.new(atom_partition=atom_partition)
         rank_a = atom_partition.rank_a
         P_In = self.collect_atoms(self.matrix)
-        if self.acomm.rank == 0:
+        if self.atom_partition.comm.rank == 0:
             mynbands = P_In.shape[1]
-            for rank in range(self.acomm.size):
+            for rank in range(self.atom_partition.comm.size):
                 nI = self.nproj_a[rank_a == rank].sum()
                 if nI == 0:
                     continue
@@ -76,10 +76,10 @@ class Projections:
                 if rank == 0:
                     P.matrix.array[:] = P2_nI
                 else:
-                    self.acomm.send(P2_nI, rank)
+                    self.atom_partition.comm.send(P2_nI, rank)
         else:
             if P.matrix.array.size > 0:
-                self.acomm.receive(P.matrix.array, 0)
+                self.atom_partition.comm.receive(P.matrix.array, 0)
         return P
 
     def collect(self):
@@ -92,7 +92,7 @@ class Projections:
         if self.bcomm.rank > 0:
             return None
 
-        if self.acomm.size == 1:
+        if self.atom_partition.comm.size == 1:
             return P.array
 
         P_In = self.collect_atoms(P)
@@ -100,7 +100,7 @@ class Projections:
             return P_In.T
 
     def collect_atoms(self, P):
-        if self.acomm.rank == 0:
+        if self.atom_partition.comm.rank == 0:
             nproj = sum(self.nproj_a)
             P_In = np.empty((nproj, P.array.shape[0]), dtype=P.array.dtype)
 
@@ -113,10 +113,10 @@ class Projections:
                     P_In[I1:I2] = P.array[:, myI1:myI2].T
                     myI1 = myI2
                 else:
-                    self.acomm.receive(P_In[I1:I2], rank)
+                    self.atom_partition.comm.receive(P_In[I1:I2], rank)
                 I1 = I2
             return P_In
         else:
             for a, I1, I2 in self.indices:
-                self.acomm.send(P.array[:, I1:I2].T.copy(), 0)
+                self.atom_partition.comm.send(P.array[:, I1:I2].T.copy(), 0)
             return None
