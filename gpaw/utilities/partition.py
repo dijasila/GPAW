@@ -253,7 +253,7 @@ class AtomPartition:
                         assert a not in d_ax
                         atomdict_ax[u][a] = b_x[u]
                 def get_sendbuffer(self, a):
-                    return np.array([d_ax.pop(a) for d_ax in atomdict_ax])
+                    return np.array([d_ax.data.pop(a) for d_ax in atomdict_ax])
         else:
             class Redist:
                 def get_recvbuffer(self, a):
@@ -262,7 +262,7 @@ class AtomPartition:
                     assert a not in atomdict_ax
                     atomdict_ax[a] = b_x
                 def get_sendbuffer(self, a):
-                    return atomdict_ax.pop(a)
+                    return atomdict_ax.data.pop(a)
 
         try:
             general_redistribute(self.comm, self.rank_a,
