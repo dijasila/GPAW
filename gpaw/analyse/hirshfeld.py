@@ -9,6 +9,7 @@ from gpaw.setup import Setups
 from gpaw.xc import XC
 from gpaw.utilities.tools import coordinates
 from gpaw.utilities.partition import AtomPartition
+from gpaw.mpi import world
 from gpaw.io.logger import GPAWLogger
 
 
