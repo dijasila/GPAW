@@ -88,6 +88,7 @@ class TimeDependentHamiltonian(object):
             xc = XCNull()
         else:
             xc = self.fxc_name
+        # XXX: xc is not written to the gpw file
         self.hamiltonian.xc = XC(xc)
         self.update()
 
