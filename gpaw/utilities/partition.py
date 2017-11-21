@@ -73,7 +73,7 @@ class AtomicMatrixDistributor:
 
         # First receive one-to-one from everywhere.
         # assert dHdist_asp.partition == self.work_partition
-        dHdist_asp = dHdist_asp.deepcopy()
+        dHdist_asp = dHdist_asp.copy()
         dHdist_asp.redistribute(self.grid_unique_partition)
 
         dH_asp = ArrayDict(self.grid_partition, dHdist_asp.shapes_a,

@@ -45,7 +45,7 @@ def unpack_atomic_matrices(M_sP, setups):
 
     
 def pack_atomic_matrices(M_asp):
-    M2_asp = M_asp.deepcopy()
+    M2_asp = M_asp.copy()
     M2_asp.redistribute(M2_asp.partition.as_serial())
     return M2_asp.toarray(axis=1)
     
