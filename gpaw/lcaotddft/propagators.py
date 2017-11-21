@@ -21,7 +21,7 @@ def create_propagator(name, **kwargs):
     elif name == 'ecn':
         return ECNPropagator(**kwargs)
     elif name.endswith('.ulm'):
-        return ReplayPropagator(name)
+        return ReplayPropagator(name, **kwargs)
     else:
         raise RuntimeError('Unknown propagator: %s' % name)
 
@@ -66,9 +66,10 @@ class LCAOPropagator(Propagator):
 
 class ReplayPropagator(LCAOPropagator):
 
-    def __init__(self, filename):
+    def __init__(self, filename, update='all'):
         LCAOPropagator.__init__(self)
         self.filename = filename
+        self.update_mode = update
         self.reader = Reader(self.filename)
         version = self.reader.version
         if version != 1:
@@ -92,17 +93,21 @@ class ReplayPropagator(LCAOPropagator):
         self.wfs.read_wave_functions(r)
         self.wfs.read_occupations(r)
         self.readi += 1
-        self.hamiltonian.update()
+        self.hamiltonian.update(self.update_mode)
         return next_time
 
     def __del__(self):
         self.reader.close()
 
     def todict(self):
-        return {'name': self.filename}
+        return {'name': self.filename,
+                'update': self.update_mode}
 
     def get_description(self):
-        return '%s from file %s' % (self.__class__.__name__, self.filename)
+        lines = [self.__class__.__name__]
+        lines += ['    File: %s' % (self.filename)]
+        lines += ['    Update: %s' % (self.update_mode)]
+        return '\n'.join(lines)
 
 
 class ECNPropagator(LCAOPropagator):

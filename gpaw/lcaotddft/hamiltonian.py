@@ -111,7 +111,9 @@ class TimeDependentHamiltonian(object):
             H_MM += kpt.deltaXC_H_MM
         return H_MM
 
-    def update(self):
-        self.update_projectors()
-        self.density.update(self.wfs)
-        self.hamiltonian.update(self.density)
+    def update(self, mode='all'):
+        if mode in ['all', 'density']:
+            self.update_projectors()
+            self.density.update(self.wfs)
+        if mode in ['all']:
+            self.hamiltonian.update(self.density)
