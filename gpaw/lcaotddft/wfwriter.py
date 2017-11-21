@@ -5,7 +5,7 @@ from gpaw.lcaotddft.observer import TDDFTObserver
 
 class WaveFunctionWriter(TDDFTObserver):
     version = 1
-    ulmtag = 'WF'
+    ulmtag = 'WFW'
 
     def __init__(self, filename, paw, interval=1):
         TDDFTObserver.__init__(self, paw, interval)
