@@ -145,7 +145,7 @@ class ArrayDict:
         newrank_a = self.partition.rank_a % dist_comm.size
         masters_only_partition = AtomPartition(self.partition.comm, newrank_a)
         dst_partition = AtomPartition(dist_comm, newrank_a)
-        copy = self.deepcopy()
+        copy = self.copy()
         copy.redistribute(masters_only_partition)
 
         dst = ArrayDict(dst_partition, self.shapes_a, dtype=self.dtype,

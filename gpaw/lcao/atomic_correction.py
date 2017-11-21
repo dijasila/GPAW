@@ -124,9 +124,9 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
 
         # XXXXXXXXXXXXXXXXXX
         if 1:
-            return dX_asp.deepcopy()
+            return dX_asp.copy()
 
-        dX_asp = dX_asp.deepcopy()
+        dX_asp = dX_asp.copy()
         if op == 'forth':
             even = self.orig_partition.as_even_partition()
             dX_asp.redistribute(even)
