@@ -145,9 +145,11 @@ class Matrix:
                 N = b.shape[0]
             out = Matrix(M, N, self.dtype,
                          dist=(dist.comm, dist.rows, dist.columns))
-        if alpha == 1.0 and beta == 0.0 and opa == 'N' and opb == 'N':
-            if dist.comm.size > 1:
+        if dist.comm.size > 1:
+            if alpha == 1.0 and beta == 0.0 and opa == 'N' and opb == 'N':
                 return fastmmm(self, b, out)
+            if alpha == 1.0 and beta == 1.0 and opa == 'N' and opb == 'C':
+                return fastmmm2(self, b, out)
 
         dist.multiply(alpha, self, opa, b, opb, beta, out, symmetric)
         return out
@@ -326,8 +328,13 @@ class BLACSDistribution:
         key = (comm, r, c)
         context = _global_blacs_context_store.get(key)
         if context is None:
-            context = _gpaw.new_blacs_context(comm.get_c_object(), c, r, 'R')
-            _global_blacs_context_store[key] = context
+            try:
+                context = _gpaw.new_blacs_context(comm.get_c_object(),
+                                                  c, r, 'R')
+            except AttributeError:
+                pass
+            else:
+                _global_blacs_context_store[key] = context
 
         if b is None:
             if c == 1:
@@ -341,12 +348,20 @@ class BLACSDistribution:
         else:
             br = bc = b
 
-        n, m = _gpaw.get_blacs_local_shape(context, N, M, bc, br, 0, 0)
+        if context is None:
+            assert b is None
+            assert c == 1
+            n = N
+            m = min((comm.rank + 1) * br, M) - min(comm.rank * br, M)
+        else:
+            n, m = _gpaw.get_blacs_local_shape(context, N, M, bc, br, 0, 0)
         if n < 0 or m < 0:
             n = m = 0
         self.shape = (m, n)
         lld = max(1, n)
-        self.desc = np.array([1, context, N, M, bc, br, 0, 0, lld], np.intc)
+        if context is not None:
+            self.desc = np.array([1, context, N, M, bc, br, 0, 0, lld],
+                                 np.intc)
 
     def __str__(self):
         return ('BLACSDistribution(global={}, local={}, blocksize={})'
