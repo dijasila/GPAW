@@ -105,6 +105,7 @@ class Density:
 
         self.D_asp = None
         self.Q = CompensationChargeExpansionCoefficients([])
+        self.Q_aL = None
 
         self.nct_G = None
         self.nt_xG = None
@@ -269,6 +270,7 @@ class Density:
     def calculate_multipole_moments(self):
         D_asp = self.atomdist.to_aux(self.D_asp)
         Q_aL = self.Q.calculate(D_asp, self.nspins)
+        self.Q_aL = Q_aL
         return self.Q.get_charge(Q_aL), Q_aL
 
     def get_initial_occupations(self, a):
