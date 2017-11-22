@@ -467,24 +467,23 @@ def fastmmm(m1, m2, m3):
     return m3
 
 
-def fastmmm2(m1, m2, out):
-    if m1.comm:
-        assert m2.comm is m1.comm
-        if m1.comm.size > 1:
-            assert out.comm == m1.comm
+def fastmmm2(a, b, out):
+    if a.comm:
+        assert b.comm is a.comm
+        if a.comm.size > 1:
+            assert out.comm == a.comm
             assert out.state == 'a sum is needed'
 
-    comm = m1.dist.comm
-    M, N = m1.shape
+    comm = a.dist.comm
+    M, N = a.shape
     m = (M + comm.size - 1) // comm.size
-    mym = len(m1.array)
+    mym = len(a.array)
 
-    buf1 = m1.new((m, N), dist=None)
-    buf2 = m1.new((m, N), dist=None)
+    buf1 = np.empty((m, N), dtype=a.dtype)
+    buf2 = np.empty((m, N), dtype=a.dtype)
     half = comm.size // 2
-    m = psit1.view(0, mynbands)
-    if psit2 is not None:
-        psit2 = psit2.view(0, mynbands)
+    aa = a.array
+    bb = b.array
 
     for r in range(half + 1):
         rrequest = None
@@ -494,31 +493,32 @@ def fastmmm2(m1, m2, out):
             srank = (comm.rank + r + 1) % comm.size
             rrank = (comm.rank - r - 1) % comm.size
             skip = (comm.size % 2 == 0 and r == half - 1)
-            n1 = min(rrank * n, N)
-            n2 = min(n1 + n, N)
-            if not (skip and comm.rank < half) and n2 > n1:
-                rrequest = comm.receive(buf1.array[:n2 - n1], rrank, 11, False)
-            if not (skip and comm.rank >= half) and len(psit1.array) > 0:
-                srequest = comm.send(psit1.array, srank, 11, False)
-
-        if r == 0:
-            if operator:
-                operator(psit1.array, psit2.array)
-            else:
-                psit2 = psit
+            m1 = min(rrank * m, M)
+            m2 = min(m1 + m, M)
+            if not (skip and comm.rank < half) and m2 > m1:
+                rrequest = comm.receive(buf1[:m2 - m1], rrank, 11, False)
+            if not (skip and comm.rank >= half) and mym > 0:
+                srequest = comm.send(bb, srank, 11, False)
 
         if not (comm.size % 2 == 0 and r == half and comm.rank < half):
-            m12 = psit2.matrix_elements(psit, symmetric=(r == 0), cc=True)
-            n1 = min(((comm.rank - r) % comm.size) * n, N)
-            n2 = min(n1 + n, N)
-            out.array[:, n1:n2] = m12.array[:, :n2 - n1]
+            m1 = min(((comm.rank - r) % comm.size) * m, M)
+            m2 = min(m1 + m, M)
+            if r == 0:
+                #symmmmmmmmmmmmmmmmmmmmmmetricccccccccccccccc
+                blas.mmm(1.0, aa, 'N', bb, 'C', 1.0, out.array[:, m1:m2])
+            else:
+                beta = 1.0 if r <= comm.rank else 0.0
+                blas.mmm(1.0, aa, 'N', buf2[:m2 - m1], 'C',
+                         beta, out.array[:, m1:m2])
+                #print(comm.rank, r, beta, out.array, m1, m2)
+            # out.array[:, m1:m2] = m12.array[:, :m2 - m1]
 
         if rrequest:
             comm.wait(rrequest)
         if srequest:
             comm.wait(srequest)
 
-        psit = buf1
+        bb = buf1
         buf1, buf2 = buf2, buf1
 
     requests = []
@@ -527,21 +527,22 @@ def fastmmm2(m1, m2, out):
     for row in range(nrows):
         for column in range(comm.size - nrows + row, comm.size):
             if comm.rank == row:
-                n1 = min(column * n, N)
-                n2 = min(n1 + n, N)
-                if mynbands > 0 and n2 > n1:
+                m1 = min(column * m, M)
+                m2 = min(m1 + m, M)
+                if mym > 0 and m2 > m1:
                     requests.append(
-                        comm.send(out.array[:, n1:n2].T.conj().copy(),
+                        comm.send(out.array[:, m1:m2].T.conj().copy(),
                                   column, 12, False))
             elif comm.rank == column:
-                n1 = min(row * n, N)
-                n2 = min(n1 + n, N)
-                if mynbands > 0 and n2 > n1:
-                    block = np.empty((mynbands, n2 - n1), out.dtype)
-                    blocks.append((n1, n2, block))
+                m1 = min(row * m, M)
+                m2 = min(m1 + m, M)
+                if mym > 0 and m2 > m1:
+                    block = np.empty((mym, m2 - m1), out.dtype)
+                    blocks.append((m1, m2, block))
                     requests.append(comm.receive(block, row, 12, False))
 
     comm.waitall(requests)
-    for n1, n2, block in blocks:
-        out.array[:, n1:n2] = block
-    
+    for m1, m2, block in blocks:
+        out.array[:, m1:m2] += block
+
+    return out
