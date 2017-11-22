@@ -104,13 +104,10 @@ class Density:
         self.charge_eps = 1e-7
 
         self.D_asp = None
-        self.M_avp = None
         self.Q = CompensationChargeExpansionCoefficients([])
 
         self.nct_G = None
         self.nt_xG = None
-        self.nt_sG = None
-        self.nt_vG = None
         self.rhot_g = None
         self.nt_xg = None
         self.nt_sg = None
@@ -134,6 +131,14 @@ class Density:
         self.nct = None
         self.ghat = None
         self.log = None
+
+    @property
+    def nt_sG(self):
+        return None if self.nt_xG is None else self.nt_xG[:self.nspins]
+
+    @property
+    def nt_vG(self):
+        return None if self.nt_xG is None else self.nt_xG[self.nspins:]
 
     def __str__(self):
         s = 'Densities:\n'
@@ -163,7 +168,7 @@ class Density:
 
     def reset(self):
         # TODO: reset other parameters?
-        self.nt_sG = None
+        self.nt_xG = None
 
     def set_positions_without_ruining_everything(self, spos_ac,
                                                  atom_partition):
@@ -202,7 +207,7 @@ class Density:
         wfs.add_to_density().
         """
         wfs.calculate_density_contribution(self.nt_xG)
-        self.nt_sG += self.nct_G
+        self.nt_sG[:] += self.nct_G
 
     def update_atomic_density_matrices(self, value):
         if isinstance(value, dict):
@@ -323,10 +328,8 @@ class Density:
             self.D_asp[a][:] = self.setups[a].initialize_density_matrix(f_si)
 
         self.nt_xG = self.gd.zeros(self.ncomponents)
-        self.nt_sG = self.nt_xG[:self.nspins]
-        self.nt_vG = self.nt_xG[self.nspins:]
         basis_functions.add_to_density(self.nt_xG, f_asi)
-        self.nt_sG += self.nct_G
+        self.nt_sG[:] += self.nct_G
         self.calculate_normalized_charges_and_mix()
 
     def initialize_from_wavefunctions(self, wfs):
@@ -334,8 +337,6 @@ class Density:
         self.log('Density initialized from wave functions')
         self.timer.start('Density initialized from wave functions')
         self.nt_xG = self.gd.zeros(self.ncomponents)
-        self.nt_sG = self.nt_xG[:self.nspins]
-        self.nt_vG = self.nt_xG[self.nspins:]
         self.calculate_pseudo_density(wfs)
         self.update_atomic_density_matrices(
             self.setups.empty_atomic_matrix(self.ncomponents,
@@ -347,8 +348,6 @@ class Density:
     def initialize_directly_from_arrays(self, nt_sG, D_asp):
         """Set D_asp and nt_sG directly."""
         self.nt_xG = self.gd.zeros(self.ncomponents)
-        self.nt_sG = self.nt_xG[:self.nspins]
-        self.nt_vG = self.nt_xG[self.nspins:]
         self.nt_sG[:] = nt_sG
 
         self.update_atomic_density_matrices(D_asp)
@@ -388,9 +387,10 @@ class Density:
                 magmom_av[a] = np.dot(D_sp[1:4], self.setups[a].N0_p)
                 magmom_v += (np.dot(D_sp[1:4], self.setups[a].Delta_pL[:, 0]) *
                              sqrt(4 * pi))
-                self.gd.comm.sum(magmom_av)
-                self.gd.comm.sum(magmom_v)
-                magmom_v += self.gd.integrate(self.nt_vG)
+            # XXXX probably untested code
+            self.gd.comm.sum(magmom_av)
+            self.gd.comm.sum(magmom_v)
+            magmom_v += self.gd.integrate(self.nt_vG)
 
         return magmom_v, magmom_av
 
