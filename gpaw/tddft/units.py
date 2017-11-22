@@ -23,3 +23,8 @@ aufrequency_to_eV = Hartree # 1 autime^(-1) ~ 27.2 eV
 assert eV_to_aufrequency == eV_to_hartree * hartree_to_aufrequency
 assert aufrequency_to_eV == aufrequency_to_hartree * hartree_to_eV
 
+# Short-hand names
+eV_to_au = eV_to_aufrequency
+au_to_eV = aufrequency_to_eV
+as_to_au = attosec_to_autime
+au_to_as = autime_to_attosec
