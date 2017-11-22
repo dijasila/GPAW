@@ -1410,7 +1410,7 @@ class ReciprocalSpaceDensity(Density):
     def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
         if comp_charge is None:
-            comp_charge = self.calculate_multipole_moments()
+            comp_charge, _Q_aL = self.calculate_multipole_moments()
 
         if self.nt_xg is None:
             self.nt_xg = self.finegd.empty(self.ncomponents)
@@ -1445,7 +1445,8 @@ class ReciprocalSpaceDensity(Density):
     def calculate_pseudo_charge(self):
         self.rhot_q = self.pd3.zeros()
         self.rhot_q[self.G3_G] = self.nt_Q * 8
-        self.ghat.add(self.rhot_q, self.Q_aL)
+        Q_aL = self.Q.calculate(self.D_asp, self.nspins)
+        self.ghat.add(self.rhot_q, Q_aL)
         self.background_charge.add_fourier_space_charge_to(self.pd3,
                                                            self.rhot_q)
         self.rhot_q[0] = 0.0

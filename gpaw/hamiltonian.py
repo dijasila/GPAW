@@ -355,8 +355,9 @@ class Hamiltonian:
         F_coarsegrid_av = np.zeros_like(F_av)
 
         # Force from compensation charges:
+        _Q, Q_aL = dens.calculate_multipole_moments()
         for a, dF_Lv in ghat_aLv.items():
-            F_av[a] += np.dot(dens.Q_aL[a], dF_Lv)
+            F_av[a] += np.dot(Q_aL[a], dF_Lv)
 
         # Force from smooth core charge:
         for a, dF_v in nct_av.items():
