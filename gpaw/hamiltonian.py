@@ -4,6 +4,8 @@
 
 """This module defines a Hamiltonian."""
 
+import functools
+
 import numpy as np
 from ase.units import Ha
 
@@ -12,8 +14,10 @@ from gpaw.external import create_external_potential
 from gpaw.hubbard import hubbard
 from gpaw.lfc import LFC
 from gpaw.poisson import create_poisson_solver
+from gpaw.spinorbit import soc
 from gpaw.transformers import Transformer
-from gpaw.utilities import unpack, unpack_atomic_matrices, pack_atomic_matrices
+from gpaw.utilities import (unpack, pack2, unpack_atomic_matrices,
+                            pack_atomic_matrices)
 from gpaw.utilities.debug import frozen
 from gpaw.utilities.partition import AtomPartition
 
@@ -22,18 +26,26 @@ ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
 
 
-class HamiltonianCorrections:
-    def __init__(self, ham):
-        self.ham = ham
-
-    def apply(self, P, out=None):
-        if out is None:
-            out = P.new()
-        for a, I1, I2 in P.indices:
-            dH_ii = unpack(self.ham.dH_asp[a][P.spin])
-            out.matrix.array[:, I1:I2] = np.dot(P.matrix.array[:, I1:I2],
-                                                dH_ii)
-        return out
+def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
+    if out is None:
+        out = P.new()
+    for a, I1, I2 in P.indices:
+        if collinear:
+            dH_ii = unpack(dH_asp[a][P.spin])
+            out.array[:, I1:I2] = np.dot(P.array[:, I1:I2], dH_ii)
+        else:
+            dH_xp = dH_asp[a]
+            dH_ii = unpack(dH_xp[0])
+            dH_vii = [unpack(dH_p) for dH_p in dH_xp[1:]]
+            out.array[:, 0, I1:I2] = (np.dot(P.array[:, 0, I1:I2],
+                                             dH_ii + dH_vii[2]) +
+                                      np.dot(P.array[:, 1, I1:I2],
+                                             dH_vii[0] - 1j * dH_vii[1]))
+            out.array[:, 1, I1:I2] = (np.dot(P.array[:, 1, I1:I2],
+                                             dH_ii - dH_vii[2]) +
+                                      np.dot(P.array[:, 0, I1:I2],
+                                             dH_vii[0] + 1j * dH_vii[1]))
+    return out
 
 
 @frozen
@@ -55,9 +67,13 @@ class Hamiltonian:
 
         self.atomdist = None
         self.dH_asp = None
+        self.vt_xG = None
         self.vt_sG = None
+        self.vt_vG = None
         self.vHt_g = None
+        self.vt_xg = None
         self.vt_sg = None
+        self.vt_vg = None
         self.atom_partition = None
 
         # Energy contributioons that sum up to e_total_free:
@@ -81,13 +97,18 @@ class Hamiltonian:
 
         self.positions_set = False
         self.spos_ac = None
+        self.soc = False
 
-        self.dH = HamiltonianCorrections(self)
+    @property
+    def dH(self):
+        return functools.partial(apply_non_local_hamilton,
+                                 self.dH_asp, self.collinear)
 
     def update_atomic_hamiltonians(self, value):
         if isinstance(value, dict):
+            dtype = complex if self.soc else float
             tmp = self.setups.empty_atomic_matrix(self.ncomponents,
-                                                  self.atom_partition)
+                                                  self.atom_partition, dtype)
             tmp.update(value)
             value = tmp
         assert isinstance(value, ArrayDict) or value is None, type(value)
@@ -176,9 +197,13 @@ class Hamiltonian:
         self.positions_set = True
 
     def initialize(self):
-        self.vt_sg = self.finegd.empty(self.nspins)
+        self.vt_xg = self.finegd.empty(self.ncomponents)
+        self.vt_sg = self.vt_xg[:self.nspins]
+        self.vt_vg = self.vt_xg[self.nspins:]
         self.vHt_g = self.finegd.zeros()
-        self.vt_sG = self.gd.empty(self.nspins)
+        self.vt_xG = self.gd.empty(self.ncomponents)
+        self.vt_sG = self.vt_xG[:self.nspins]
+        self.vt_vG = self.vt_xG[self.nspins:]
         self.poisson.initialize()
 
     def update(self, density):
@@ -228,8 +253,9 @@ class Hamiltonian:
         e_xc = 0.0
 
         D_asp = self.atomdist.to_work(dens.D_asp)
+        dtype = complex if self.soc else float
         dH_asp = self.setups.empty_atomic_matrix(self.ncomponents,
-                                                 D_asp.partition)
+                                                 D_asp.partition, dtype)
 
         for a, D_sp in D_asp.items():
             W_L = W_aL[a]
@@ -247,16 +273,24 @@ class Hamiltonian:
             e_coulomb += setup.M + np.dot(D_p, (setup.M_p +
                                                 np.dot(setup.M_pp, D_p)))
 
-            dH_asp[a] = dH_sp = np.zeros_like(D_sp)
+            if self.soc:
+                dH_vii = soc(setup, self.xc, D_sp)
+                dH_sp = np.zeros_like(D_sp, dtype=complex)
+                dH_sp[1:] = pack2(dH_vii)
+            else:
+                dH_sp = np.zeros_like(D_sp)
 
             if setup.HubU is not None:
                 eU, dHU_sp = hubbard(setup, D_sp)
                 e_xc += eU
-                dH_sp[:] = dHU_sp
+                dH_sp += dHU_sp
 
-            dH_sp += dH_p
+            dH_sp[:self.nspins] += dH_p
+
             if self.ref_dH_asp:
                 dH_sp += self.ref_dH_asp[a]
+
+            dH_asp[a] = dH_sp
 
         self.timer.start('XC Correction')
         for a, D_sp in D_asp.items():
@@ -265,13 +299,13 @@ class Hamiltonian:
         self.timer.stop('XC Correction')
 
         for a, D_sp in D_asp.items():
-            e_kinetic -= (D_sp * dH_asp[a]).sum()  # NCXXX
+            e_kinetic -= (D_sp * dH_asp[a]).sum().real
 
         self.update_atomic_hamiltonians(self.atomdist.from_work(dH_asp))
         self.timer.stop('Atomic')
 
         # Make corrections due to non-local xc:
-        #self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
+        # self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
         e_kinetic += self.xc.get_kinetic_energy_correction() / self.world.size
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
@@ -284,6 +318,17 @@ class Hamiltonian:
                              self.e_entropy)
         self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
             self.e_total_free)
+
+        if 0:
+            print(self.e_total_free,
+                  self.e_total_extrapolated,
+                  self.e_kinetic,
+                  self.e_kinetic0,
+                  self.e_coulomb,
+                  self.e_external,
+                  self.e_zero,
+                  self.e_xc,
+                  self.e_entropy)
 
         return self.e_total_free
 

@@ -4,7 +4,6 @@
 
 """This module defines a density class."""
 
-from __future__ import print_function
 from math import pi, sqrt
 
 import numpy as np
@@ -84,11 +83,13 @@ class Density:
         self.Q_aL = None
 
         self.nct_G = None
+        self.nt_xG = None
         self.nt_sG = None
-        self.mt_vG = None
-        self.nmt_xG = None
+        self.nt_vG = None
         self.rhot_g = None
+        self.nt_xg = None
         self.nt_sg = None
+        self.nt_vg = None
         self.nt_g = None
 
         self.atom_partition = None
@@ -175,7 +176,7 @@ class Density:
         nt_sG will be equal to nct_G plus the contribution from
         wfs.add_to_density().
         """
-        wfs.calculate_density_contribution(self.nt_sG, self.mt_vG)
+        wfs.calculate_density_contribution(self.nt_xG)
         self.nt_sG += self.nct_G
 
     # @property
@@ -227,7 +228,7 @@ class Density:
             if pseudo_charge != 0:
                 x = (self.background_charge.charge - self.charge -
                      comp_charge) / pseudo_charge
-                self.nt_sG *= x
+                self.nt_xG *= x
             else:
                 # Use homogeneous background:
                 volume = self.gd.get_size_of_global_array().prod() * self.gd.dv
@@ -237,7 +238,7 @@ class Density:
 
     def mix(self, comp_charge):
         assert isinstance(self.mixer, MixerWrapper), self.mixer
-        self.error = self.mixer.mix(self.nt_sG, self.D_asp)
+        self.error = self.mixer.mix(self.nt_xG, self.D_asp)
         assert self.error is not None, self.mixer
 
         comp_charge = None
@@ -259,7 +260,7 @@ class Density:
 
         self.Q_aL = ArrayDict(Ddist_asp.partition, shape)
         for a, D_sp in Ddist_asp.items():
-            Q_L = self.Q_aL[a] = np.dot(D_sp.sum(0),
+            Q_L = self.Q_aL[a] = np.dot(D_sp[:self.nspins].sum(0),
                                         self.setups[a].Delta_pL)
             Q_L[0] += self.setups[a].Delta0
             comp_charge += Q_L[0]
@@ -282,9 +283,10 @@ class Density:
         else:
             f_i = f_si.sum(0)
             fm_i = f_si[0] - f_si[1]
-            f_si = np.empty((4, len(f_i)))
+            f_si = np.zeros((4, len(f_i)))
             f_si[0] = f_i
-            f_si[1:] = M_v[:, np.newaxis] / M * fm_i
+            if M > 0:
+                f_si[1:] = M_v[:, np.newaxis] / M * fm_i
 
         return f_si
 
@@ -319,10 +321,10 @@ class Density:
                 f_si = self.get_initial_occupations(a)
             self.D_asp[a][:] = self.setups[a].initialize_density_matrix(f_si)
 
-        self.nmt_xG = self.gd.zeros(self.ncomponents)
-        self.nt_sG = self.nmt_xG[:self.nspins]
-        self.mt_vG = self.nmt_xG[self.nspins:]
-        basis_functions.add_to_density(self.nmt_xG, f_asi)
+        self.nt_xG = self.gd.zeros(self.ncomponents)
+        self.nt_sG = self.nt_xG[:self.nspins]
+        self.nt_vG = self.nt_xG[self.nspins:]
+        basis_functions.add_to_density(self.nt_xG, f_asi)
         self.nt_sG += self.nct_G
         self.calculate_normalized_charges_and_mix()
 
@@ -330,9 +332,9 @@ class Density:
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""
         self.log('Density initialized from wave functions')
         self.timer.start('Density initialized from wave functions')
-        self.nmt_xG = self.gd.zeros(self.ncomponents)
-        self.nt_sG = self.nmt_xG[:self.nspins]
-        self.mt_vG = self.nmt_xG[self.nspins:]
+        self.nt_xG = self.gd.zeros(self.ncomponents)
+        self.nt_sG = self.nt_xG[:self.nspins]
+        self.nt_vG = self.nt_xG[self.nspins:]
         self.calculate_pseudo_density(wfs)
         self.update_atomic_density_matrices(
             self.setups.empty_atomic_matrix(self.ncomponents,
@@ -343,9 +345,9 @@ class Density:
 
     def initialize_directly_from_arrays(self, nt_sG, D_asp):
         """Set D_asp and nt_sG directly."""
-        self.nmt_xG = self.gd.zeros(self.ncomponents)
-        self.nt_sG = self.nmt_xG[:self.nspins]
-        self.mt_vG = self.nmt_xG[self.nspins:]
+        self.nt_xG = self.gd.zeros(self.ncomponents)
+        self.nt_sG = self.nt_xG[:self.nspins]
+        self.nt_vG = self.nt_xG[self.nspins:]
         self.nt_sG[:] = nt_sG
 
         self.update_atomic_density_matrices(D_asp)
@@ -362,19 +364,34 @@ class Density:
         if mixer is None:
             mixer = {}
         if isinstance(mixer, dict):
-            mixer = get_mixer_from_keywords(self.gd.pbc_c.any(), self.nspins,
-                                            **mixer)
+            mixer = get_mixer_from_keywords(self.gd.pbc_c.any(),
+                                            self.nspins, **mixer)
         if not hasattr(mixer, 'mix'):
             raise ValueError('Not a mixer: %s' % mixer)
         self.mixer = MixerWrapper(mixer, self.nspins, self.gd)
 
     def estimate_magnetic_moments(self):
-        magmom_a = np.zeros_like(self.magmom_av[:, 0])
+        magmom_av = np.zeros_like(self.magmom_av)
+        magmom_v = np.zeros(3)
         if self.nspins == 2:
             for a, D_sp in self.D_asp.items():
-                magmom_a[a] = np.dot(D_sp[0] - D_sp[1], self.setups[a].N0_p)
-            self.gd.comm.sum(magmom_a)
-        return magmom_a
+                M_p = D_sp[0] - D_sp[1]
+                magmom_av[a, 2] = np.dot(M_p, self.setups[a].N0_p)
+                magmom_v[2] += (np.dot(M_p, self.setups[a].Delta_pL[:, 0]) *
+                                sqrt(4 * pi))
+            self.gd.comm.sum(magmom_av)
+            self.gd.comm.sum(magmom_v)
+            magmom_v[2] += self.gd.integrate(self.nt_sG[0] - self.nt_sG[1])
+        elif not self.collinear:
+            for a, D_sp in self.D_asp.items():
+                magmom_av[a] = np.dot(D_sp[1:4], self.setups[a].N0_p)
+                magmom_v += (np.dot(D_sp[1:4], self.setups[a].Delta_pL[:, 0]) *
+                             sqrt(4 * pi))
+                self.gd.comm.sum(magmom_av)
+                self.gd.comm.sum(magmom_v)
+                magmom_v += self.gd.integrate(self.nt_vG)
+
+        return magmom_v, magmom_av
 
     def get_correction(self, a, spin):
         """Integrated atomic density correction.

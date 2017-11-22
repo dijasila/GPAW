@@ -1,7 +1,6 @@
 from __future__ import print_function
 import numpy as np
 from ase.units import Ha, alpha, Bohr
-from gpaw.xc import XC
 
 
 s = np.array([[0.0]])
@@ -40,22 +39,23 @@ d[3, 1] = -1.0j
 Lz_lmm = [s, p, d]
 
 
-def get_radial_potential(calc, a, ai):
+def get_radial_potential(a, xc, D_sp):
     """Calculates dV/dr / r for the effective potential.
     Below, f_g denotes dV/dr = minus the radial force"""
 
     rgd = a.xc_correction.rgd
-    r_g = rgd.r_g
+    r_g = rgd.r_g.copy()
     r_g[0] = 1.0e-12
     dr_g = rgd.dr_g
-    Ns = calc.wfs.nspins
 
-    D_sp = calc.density.D_asp[ai]
     B_pq = a.xc_correction.B_pqL[:, :, 0]
     n_qg = a.xc_correction.n_qg
     D_sq = np.dot(D_sp, B_pq)
     n_sg = np.dot(D_sq, n_qg) / (4 * np.pi)**0.5
-    n_sg[:] += a.xc_correction.nc_g / Ns
+    Ns = len(D_sp)
+    if Ns == 4:
+        Ns = 1
+    n_sg[:Ns] += a.xc_correction.nc_g / Ns
 
     # Coulomb force from nucleus
     fc_g = a.Z / r_g**2
@@ -64,17 +64,40 @@ def get_radial_potential(calc, a, ai):
     rho_g = 4 * np.pi * r_g**2 * dr_g * np.sum(n_sg, axis=0)
     fh_g = -np.array([np.sum(rho_g[:ig]) for ig in range(len(r_g))]) / r_g**2
 
+    f_g = fc_g + fh_g
     # xc force
-    xc = XC(calc.get_xc_functional())
-    v_sg = np.zeros_like(n_sg)
-    xc.calculate_spherical(a.xc_correction.rgd, n_sg, v_sg)
-    fxc_sg = np.array([a.xc_correction.rgd.derivative(v_sg[s])
-                       for s in range(Ns)])
-    fxc_g = np.sum(fxc_sg, axis=0) / Ns
-
-    f_g = fc_g + fh_g + fxc_g
+    if xc.name != 'GLLBSC':
+        v_sg = np.zeros_like(n_sg)
+        xc.calculate_spherical(a.xc_correction.rgd, n_sg, v_sg)
+        fxc_g = np.mean([a.xc_correction.rgd.derivative(v_g) for v_g in v_sg],
+                        axis=0)
+        f_g += fxc_g
 
     return f_g / r_g
+
+
+def soc(a, xc, D_sp):
+    v_g = get_radial_potential(a, xc, D_sp)
+    Ng = len(v_g)
+    phi_jg = a.data.phi_jg
+
+    dVL_vii = np.zeros((3, a.ni, a.ni), complex)
+    N1 = 0
+    for j1, l1 in enumerate(a.l_j):
+        Nm = 2 * l1 + 1
+        N2 = 0
+        for j2, l2 in enumerate(a.l_j):
+            if l1 == l2:
+                f_g = phi_jg[j1][:Ng] * v_g * phi_jg[j2][:Ng]
+                I = a.xc_correction.rgd.integrate(f_g) / (4 * np.pi)
+                dVL_vii[0, N1:N1 + Nm, N2:N2 + Nm] = I * Lx_lmm[l1]
+                dVL_vii[1, N1:N1 + Nm, N2:N2 + Nm] = I * Ly_lmm[l1]
+                dVL_vii[2, N1:N1 + Nm, N2:N2 + Nm] = I * Lz_lmm[l1]
+            else:
+                pass
+            N2 += 2 * l2 + 1
+        N1 += Nm
+    return dVL_vii * alpha**2 / 4.0
 
 
 def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
@@ -134,28 +157,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
     dVL_avii = []
     for ai in range(Na):
         a = calc.wfs.setups[ai]
-        v_g = get_radial_potential(calc, a, ai)
-        Ng = len(v_g)
-        phi_jg = a.data.phi_jg
-
-        # dVL_svii = np.zeros((Ns, 3, a.ni, a.ni), complex)
-        dVL_vii = np.zeros((3, a.ni, a.ni), complex)
-        N1 = 0
-        for j1, l1 in enumerate(a.l_j):
-            Nm = 2 * l1 + 1
-            N2 = 0
-            for j2, l2 in enumerate(a.l_j):
-                if l1 == l2:
-                    f_g = phi_jg[j1][:Ng] * v_g * phi_jg[j2][:Ng]
-                    I = a.xc_correction.rgd.integrate(f_g) / (4 * np.pi)
-                    dVL_vii[0, N1:N1 + Nm, N2:N2 + Nm] = I * Lx_lmm[l1]
-                    dVL_vii[1, N1:N1 + Nm, N2:N2 + Nm] = I * Ly_lmm[l1]
-                    dVL_vii[2, N1:N1 + Nm, N2:N2 + Nm] = I * Lz_lmm[l1]
-                else:
-                    pass
-                N2 += 2 * l2 + 1
-            N1 += Nm
-        dVL_avii.append(dVL_vii)
+        dVL_avii.append(soc(a, calc.hamiltonian.xc, calc.density.D_asp[ai]))
 
     e_km = []
     if return_wfs:
@@ -191,7 +193,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
                       for s in range(Ns)]
             Ni = len(Pt_sni[0][0])
             P_sni = np.zeros((2, 2 * Nn, Ni), complex)
-            dVL_vii = dVL_avii[ai] * scale * alpha**2 / 4.0 * Ha
+            dVL_vii = dVL_avii[ai] * scale * Ha
             if Ns == 1:
                 P_sni[0, ::2] = Pt_sni[0]
                 P_sni[1, 1::2] = Pt_sni[0]

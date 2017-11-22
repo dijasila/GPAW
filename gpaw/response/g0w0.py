@@ -285,8 +285,6 @@ class G0W0(PairDensity):
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
 
-        assert self.calc.wfs.nspins == 1
-
         txt.flush()
 
     @timer('G0W0')
@@ -772,8 +770,8 @@ class G0W0(PairDensity):
             chi0_wxvG = None
             chi0_wvv = None
 
-        chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, [0],
-                        extend_head=False)
+        chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2,
+                        range(self.nspins), extend_head=False)
 
         if len(self.ecut_e) > 1:
             # Add chi from previous cutoff with remaining bands

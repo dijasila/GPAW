@@ -21,14 +21,14 @@ class Unfold:
                  calc=None,
                  M=None,
                  spinorbit=None):
-                   
+
         self.name = name
         self.calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
         self.M = np.array(M, dtype=float)
         self.spinorbit = spinorbit
-                      
+
         self.gd = self.calc.wfs.gd.new_descriptor()
-        
+
         self.kd = self.calc.wfs.kd
         if self.calc.wfs.mode is 'pw':
             self.pd = self.calc.wfs.pd
@@ -40,9 +40,9 @@ class Unfold:
         self.bcell_cv = 2 * np.pi * self.gd.icell_cv
         self.vol = self.gd.volume
         self.BZvol = (2 * np.pi)**3 / self.vol
-        
+
         self.nb = self.calc.get_number_of_bands()
-        
+
         self.v_Knm = None
         if spinorbit:
             if mpi.world.rank == 0:
@@ -52,7 +52,7 @@ class Unfold:
                                                               return_wfs=True)
             if mpi.world.rank == 0:
                 print('Done with the spinorbit Corrections')
-                                                    
+
     def get_K_index(self, K):
         """Find the index of a given K."""
 
@@ -65,7 +65,7 @@ class Unfold:
         """Not all the G vectors are relevant for the bands unfolding,
         but only the ones that match the PC reciprocal vectors.
         This function finds the relevant ones."""
-      
+
         G_Gv_temp = self.pd.get_reciprocal_vectors(q=iK, add_q=False)
         G_Gc_temp = np.dot(G_Gv_temp, np.linalg.inv(self.bcell_cv))
 
@@ -78,12 +78,12 @@ class Unfold:
             if all(check) or all(check2):
                 iG_list.append(iG)
                 g_list.append(G)
-        
+
         return np.array(iG_list), np.array(g_list)
 
     def get_G_index(self, iK, G, G_list):
         """Find the index of a given G."""
-     
+
         G_list -= G
         sumG = np.sum(abs(G_list), axis=1)
         iG = np.where(sumG < 1e-5)[0]
@@ -109,7 +109,7 @@ class Unfold:
             psi_list_mG = []
             for i in range(len(psi_mgrid)):
                 psi_list_mG.append(self.pd.fft(psi_mgrid[i], iK))
-                
+
             psi_mG = np.array(psi_list_mG)
             return psi_mG
         else:
@@ -118,10 +118,10 @@ class Unfold:
             for i in range(psi_mgrid.shape[0]):
                 u0_list_mG.append(self.pd.fft(psi_mgrid[i, 0], iK))
                 u1_list_mG.append(self.pd.fft(psi_mgrid[i, 1], iK))
-                
+
             u0_mG = np.array(u0_list_mG)
             u1_mG = np.array(u1_list_mG)
-                            
+
             u_mG = np.zeros((len(u0_mG),
                              2,
                              u0_mG.shape[1]), complex)
@@ -129,17 +129,17 @@ class Unfold:
             u_mG[:, 0] = u0_mG
             u_mG[:, 1] = u1_mG
             return u_mG
-    
+
     def get_spectral_weights_k(self, k_t):
         """Returns the spectral weights for a given k in the PC:
-            
+
             P_mK(k_t) = \sum_n |<Km|k_t n>|**2
-        
+
         which can be shown to be equivalent to:
-        
+
             P_mK(k_t) = \sum_g |C_Km(g+k_t-K)|**2
         """
-  
+
         K_c, G_t = find_K_from_k(k_t, self.M)
         iK = self.get_K_index(K_c)
         iG_list, g_list = self.get_g(iK)
@@ -147,11 +147,11 @@ class Unfold:
 
         G_Gv = self.pd.get_reciprocal_vectors(q=iK, add_q=False)
         G_Gc = np.dot(G_Gv, np.linalg.inv(self.bcell_cv))
-       
+
         igG_t_list = []
         for g in gG_t_list:
             igG_t_list.append(self.get_G_index(iK, g.copy(), G_Gc.copy()))
-        
+
         C_mG = self.get_pw_wavefunctions_k(iK)
         P_m = []
         if not self.spinorbit:
@@ -170,17 +170,17 @@ class Unfold:
                     P += (np.linalg.norm(C_mG[m, 0, iG])**2 +
                           np.linalg.norm(C_mG[m, 1, iG])**2)
                 P_m.append(P / norm)
-        
+
         return np.array(P_m)
 
     def get_spectral_weights(self, kpoints, filename=None):
         """Collect the spectral weights for the k points in the kpoints list.
-        
+
         This function is parallelized over k's."""
 
         Nk = len(kpoints)
         Nb = self.nb
-        
+
         world = mpi.world
         if filename is None:
             try:
@@ -191,7 +191,7 @@ class Unfold:
                 P_Km = []
                 if world.rank == 0:
                     print('Getting EigenValues and Weights')
-                
+
                 e_Km = np.zeros((Nk, Nb))
                 P_Km = np.zeros((Nk, Nb))
                 myk = range(0, Nk)[world.rank::world.size]
@@ -202,7 +202,7 @@ class Unfold:
                     iK = self.get_K_index(K_c)
                     e_Km[ik] = self.get_eigenvalues(iK)
                     P_Km[ik] = self.get_spectral_weights_k(k)
-                    
+
                 world.barrier()
                 world.sum(e_Km)
                 world.sum(P_Km)
@@ -216,24 +216,24 @@ class Unfold:
             e_mK, P_mK = pickle.load(open(filename, 'rb'))
 
         return e_mK, P_mK
-  
+
     def spectral_function(self, kpts, x, X, points_name, width=0.002,
                           npts=10000, filename=None):
         """Returns the spectral function for all the ks in kpoints:
-                                                                                            
+
                                               eta / pi
-                                                                                      
+
             A_k(e) = \sum_m  P_mK(k) x  ---------------------
-                                                                              
+
                                         (e - e_mk)**2 + eta**2
-                                                                               
- 
+
+
         at each k-points defined on npts energy points in the range
         [emin, emax]. The width keyword is FWHM = 2 * eta."""
 
         Nk = len(kpts)
         A_ke = np.zeros((Nk, npts), float)
-        
+
         world = mpi.world
         e_mK, P_mK = self.get_spectral_weights(kpts, filename)
         if world.rank == 0:
@@ -241,7 +241,7 @@ class Unfold:
         emin = np.min(e_mK) - 5 * width
         emax = np.max(e_mK) + 5 * width
         e = np.linspace(emin, emax, npts)
-            
+
         for ik in range(Nk):
             for ie in range(len(e_mK[:, ik])):
                 e0 = e_mK[ie, ik]
@@ -260,7 +260,7 @@ def find_K_from_k(k, M):
 
     KG = np.dot(M, k)
     G = np.zeros(3, dtype=int)
-    
+
     for i in range(3):
         if KG[i] > 0.5000001:
             G[i] = int(np.round(KG[i]))
@@ -275,14 +275,14 @@ def find_K_from_k(k, M):
 def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Knm=None):
     """Get the list of WaveFunction for a given iK. For spinors the number of
     bands is doubled and a spin dimension is added."""
- 
+
     N_c = calc.wfs.gd.N_c
     k_c = calc.wfs.kd.ibzk_kc[iK]
     Nb = calc.wfs.bd.nbands
     Ns = calc.wfs.nspins
     eikr_R = np.exp(-2j * np.pi * np.dot(np.indices(N_c).T,
                                          k_c / N_c).T)
-    
+
     if calc.wfs.mode == 'lcao' and not calc.wfs.positions_set:
         calc.initialize_positions()
 
@@ -294,14 +294,14 @@ def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Knm=None):
         v_nm = v_Knm[iK].copy()
         v0_mn = v_nm[::2].T
         v1_mn = v_nm[1::2].T
-            
+
         u0_ngrid = np.array(
             [calc.wfs.get_wave_function_array(n, iK, 0) * eikr_R
              for n in range(Nb)])
         u1_ngrid = np.array(
             [calc.wfs.get_wave_function_array(n, iK, (Ns - 1)) * eikr_R
              for n in range(Nb)])
-            
+
         u0_mG = np.swapaxes(np.dot(v0_mn, np.swapaxes(u0_ngrid, 0, 2)), 1, 2)
         u1_mG = np.swapaxes(np.dot(v1_mn, np.swapaxes(u1_ngrid, 0, 2)), 1, 2)
         ut_mgrid = np.zeros((len(u0_mG),
@@ -335,15 +335,15 @@ def plot_spectral_function(filename, color='blue', eref=None,
         emin = e.min()
     if emax is None:
         emax = e.max()
-   
+
     A_ke /= np.max(A_ke)
     A_ek = A_ke.T
     A_ekc = np.reshape(A_ek, (A_ek.shape[0], A_ek.shape[1]))
 
     mycmap = make_colormap(color)
-    
+
     plt.figure()
-    
+
     plt.plot([0, x[-1]], 2 * [0.0], '--', c='0.5')
     plt.imshow(A_ekc + 0.23,
                cmap=mycmap,
@@ -352,7 +352,7 @@ def plot_spectral_function(filename, color='blue', eref=None,
                vmin=0.,
                vmax=1,
                extent=[0, x[-1], e.min(), e.max()])
-    
+
     for k in X[1:-1]:
         plt.plot([k, k], [emin, emax], lw=0.5, c='0.5')
     plt.xticks(X, points_name, size=20)
@@ -380,7 +380,7 @@ def plot_band_structure(e_mK, P_mK, x, X, points_name,
         weights_mK = P_mK.copy()
     else:
         weights_mK *= P_mK.copy()
-        
+
     plt.figure()
     plt.plot([0, x[-1]], 2 * [0.0], '--', c='0.5')
     plt.scatter(np.tile(x, len(e_mK)), e_mK.reshape(-1),
@@ -416,7 +416,7 @@ def make_colormap(main_color):
                            (0.25, 1.0, 1.0),
                            (0.5, 0.0, 0.0),
                            (1.0, 0.0, 0.0)),
-  
+
                  'blue': ((0.0, 1.0, 1.0),
                           (0.25, 1.0, 1.0),
                           (0.5, 1.0, 1.0),
@@ -453,7 +453,7 @@ def make_colormap(main_color):
                           (0.25, 1.0, 1.0),
                           (0.5, 0.0, 0.0),
                           (1.0, 0.0, 0.0)),
-                  
+
                  'alpha': ((0.0, 0.0, 0.0),
                            (0.25, 0.1, 0.1),
                            (0.5, 1.0, 1.0),
@@ -467,7 +467,7 @@ def get_vacuum_level(calc, plot_pot=False):
     """Get the vacuum energy level from a given calculator."""
 
     calc.restore_state()
-    if calc.wfs.mode is 'pw':
+    if calc.wfs.mode == 'pw':
         vHt_g = calc.hamiltonian.pd3.ifft(calc.hamiltonian.vHt_q) * Hartree
     else:
         vHt_g = calc.hamiltonian.vHt_g * Hartree

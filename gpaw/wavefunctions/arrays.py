@@ -25,7 +25,10 @@ class MatrixInFile:
 
 
 class ArrayWaveFunctions:
-    def __init__(self, M, N, dtype, data, dist):
+    def __init__(self, M, N, dtype, data, dist, collinear):
+        self.collinear = collinear
+        if not collinear:
+            N *= 2
         if data is None or isinstance(data, np.ndarray):
             self.matrix = Matrix(M, N, dtype, data, dist)
             self.in_memory = True
@@ -93,7 +96,8 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, gd, dtype=None, data=None, kpt=None, dist=None,
                  spin=0, collinear=True):
         ngpts = gd.n_c.prod()
-        ArrayWaveFunctions.__init__(self, nbands, ngpts, dtype, data, dist)
+        ArrayWaveFunctions.__init__(self, nbands, ngpts, dtype, data, dist,
+                                    collinear)
 
         M = self.matrix
 
@@ -148,26 +152,32 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                  spin=0, collinear=True):
         ng = ng0 = len(pd.Q_qG[kpt])
         if data is not None:
-            assert ng == data.shape[1] or ng == data.length_of_last_dimension
+            assert ng == data.shape[-1] or ng == data.length_of_last_dimension
             assert data.dtype == complex
         if dtype == float:
             ng *= 2
             if data is not None:
                 data = data.view(float)
-        ArrayWaveFunctions.__init__(self, nbands, ng, dtype, data, dist)
+        ArrayWaveFunctions.__init__(self, nbands, ng, dtype, data, dist,
+                                    collinear)
         self.pd = pd
         self.gd = pd.gd
         self.dv = pd.gd.dv / pd.gd.N_c.prod()
         self.kpt = kpt
         self.spin = spin
-        self.myshape = (self.matrix.dist.shape[0], ng0)
+        if collinear:
+            self.myshape = (self.matrix.dist.shape[0], ng0)
+        else:
+            self.myshape = (self.matrix.dist.shape[0], 2, ng0)
 
     @property
     def array(self):
-        if self.dtype == float and isinstance(self.matrix, Matrix):
+        if not self.in_memory:
+            return self.matrix.array
+        elif self.dtype == float:
             return self.matrix.array.view(complex)
         else:
-            return self.matrix.array
+            return self.matrix.array.reshape(self.myshape)
 
     def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
                         operator=None, result=None):
@@ -208,13 +218,13 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                                                self.pd, self.dtype,
                                                buf,
                                                self.kpt, dist,
-                                               self.spin)
+                                               self.spin, self.collinear)
 
     def view(self, n1, n2):
         return PlaneWaveExpansionWaveFunctions(n2 - n1, self.pd, self.dtype,
                                                self.array[n1:n2],
                                                self.kpt, None,
-                                               self.spin)
+                                               self.spin, self.collinear)
 
 
 def operate_and_multiply(psit1, dv, out, operator, psit2):

@@ -35,7 +35,8 @@ It is very handy to add our installation to the module environment::
   cd modulefiles/gpaw-setups
   echo -e "#%Module1.0\nprepend-path       GPAW_SETUP_PATH    $GPAW_SETUP_SOURCE/gpaw-setups-0.9.11271" > 0.9.11271
   
-We need to let the system know about our modules::
+We need to let the system know about our modules
+(add this command to ``~/.profile`` or ``~/.bashrc`` to execute automatically)::
 
   module use $HOME/modulefiles
 
@@ -101,10 +102,10 @@ Edit the module file  :file:`3.13.0` that should read::
 
   #%Module1.0
 
-  module load devel/python/3.13.0
+  module load devel/python/3.6.0
 
   #           change this to your path
-  set asehome /home/fr/fr_fr/fr_mw767/source/ase/python-ase-3.9.1.4567
+  set asehome /home/fr/fr_fr/fr_mw767/source/ase/3.13.0
   prepend-path       PYTHONPATH    $asehome
   prepend-path       PATH          $asehome/tools
 

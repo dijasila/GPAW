@@ -199,7 +199,8 @@ class FDPWWaveFunctions(WaveFunctions):
     @property
     def work_array(self):
         if self._work_array is None:
-            self._work_array = self.empty(self.bd.mynbands)
+            self._work_array = self.empty(self.bd.mynbands *
+                                          (1 if self.collinear else 2))
         return self._work_array
 
     @property
@@ -270,7 +271,6 @@ class FDPWWaveFunctions(WaveFunctions):
         corr.initialize(P_aqMi, self.initksl.Mstart, self.initksl.Mstop)
         # corr.add_overlap_correction(self, S_qMM)
         assert len(S_qMM) == 1
-        print(S_qMM[0])
 
         # coefs = []
         # for kpt in self.kpt_u:
@@ -360,7 +360,7 @@ class FDPWWaveFunctions(WaveFunctions):
         hamiltonian.update(density)
 
         if self.mykpts[0].psit is None:
-            if self.collinear:
+            if 1:#self.collinear:
                 nlcao = self.initialize_wave_functions_from_basis_functions(
                     basis_functions, density, hamiltonian, spos_ac)
             else:
@@ -398,7 +398,12 @@ class FDPWWaveFunctions(WaveFunctions):
         lcaowfs.set_positions(spos_ac, self.atom_partition)
         self.timer.stop('Set positions (LCAO WFS)')
 
-        eigensolver = DirectLCAO()
+        if self.collinear:
+            eigensolver = DirectLCAO()
+        else:
+            from gpaw.xc.noncollinear import NonCollinearLCAOEigensolver
+            eigensolver = NonCollinearLCAOEigensolver()
+
         eigensolver.initialize(self.gd, self.dtype, self.setups.nao, lcaoksl)
 
         # XXX when density matrix is properly distributed, be sure to
@@ -414,12 +419,10 @@ class FDPWWaveFunctions(WaveFunctions):
         # and get rid of potentially big arrays early:
         del eigensolver, lcaowfs
 
-        self.timer.start('LCAO to grid')
-        self.initialize_from_lcao_coefficients(basis_functions,
-                                               lcaobd.mynbands)
-        self.timer.stop('LCAO to grid')
+        with self.timer('LCAO to grid'):
+            self.initialize_from_lcao_coefficients(basis_functions)
 
-        if self.bd.mynbands > lcaobd.mynbands:
+        if self.collinear and self.bd.mynbands > lcaobd.mynbands:
             # Add extra states.  If the number of atomic orbitals is
             # less than the desired number of bands, then extra random
             # wave functions are added.
@@ -452,7 +455,7 @@ class FDPWWaveFunctions(WaveFunctions):
 
         with self.timer('inverse-cholesky'):
             S.invcholesky()
-            # S_nn now contains the inverse of the Cholesky factorization
+            # S now contains the inverse of the Cholesky factorization
 
         psit2 = psit.new(buf=self.work_array)
         with self.timer('rotate_psi_s'):
@@ -463,7 +466,37 @@ class FDPWWaveFunctions(WaveFunctions):
 
     def calculate_forces(self, hamiltonian, F_av):
         # Calculate force-contribution from k-points:
-        F_av.fill(0.0)
+        F_av[:] = 0.0
+
+        if not self.collinear:
+            F_ansiv = self.pt.dict(2 * self.bd.mynbands, derivative=True)
+            dH_axp = hamiltonian.dH_asp
+            for kpt in self.kpt_u:
+                array = kpt.psit.array
+                self.pt.derivative(array.reshape((-1, array.shape[-1])),
+                                   F_ansiv, kpt.q)
+                for a, F_nsiv in F_ansiv.items():
+                    F_nsiv = F_nsiv.reshape((self.bd.mynbands,
+                                             2, -1, 3)).conj()
+                    F_nsiv *= kpt.f_n[:, np.newaxis, np.newaxis, np.newaxis]
+                    dH_ii = unpack(dH_axp[a][0])
+                    dH_vii = [unpack(dH_p) for dH_p in dH_axp[a][1:]]
+                    dH_ssii = np.array(
+                        [[dH_ii + dH_vii[2], dH_vii[0] - 1j * dH_vii[1]],
+                         [dH_vii[0] + 1j * dH_vii[1], dH_ii - dH_vii[2]]])
+                    P_nsi = kpt.P[a]
+                    F_v = np.einsum('nsiv,stij,ntj', F_nsiv, dH_ssii, P_nsi)
+                    F_nsiv *= kpt.eps_n[:, np.newaxis, np.newaxis, np.newaxis]
+                    dO_ii = self.setups[a].dO_ii
+                    F_v -= np.einsum('nsiv,ij,nsj', F_nsiv, dO_ii, P_nsi)
+                    F_av[a] += 2 * F_v.real
+
+            self.bd.comm.sum(F_av, 0)
+
+            if self.bd.comm.rank == 0:
+                self.kd.comm.sum(F_av, 0)
+            return
+
         F_aniv = self.pt.dict(self.bd.mynbands, derivative=True)
         dH_asp = hamiltonian.dH_asp
         for kpt in self.kpt_u:

@@ -12,6 +12,7 @@ class Projections:
         self.bcomm = bcomm
         self.collinear = collinear
         self.spin = spin
+        self.nbands = nbands
 
         self.indices = []
         self.map = {}
@@ -22,28 +23,44 @@ class Projections:
             ni = nproj_a[a]
             I2 = I1 + ni
             self.indices.append((a, I1, I2))
-            I1 = I2
             self.map[a] = (I1, I2)
+            I1 = I2
+
+        if not collinear:
+            I1 *= 2
 
         self.matrix = Matrix(nbands, I1, dtype, dist=(bcomm, bcomm.size, 1))
+
+        if collinear:
+            self.myshape = self.matrix.array.shape
+        else:
+            self.myshape = (len(self.matrix.array), 2, I1 // 2)
+
+    @property
+    def array(self):
+        if self.collinear:
+            return self.matrix.array
+        else:
+            return self.matrix.array.reshape(self.myshape)
 
     def new(self, bcomm='inherit', nbands=None, atom_partition=None):
         if bcomm == 'inherit':
             bcomm = self.bcomm
         elif bcomm is None:
             bcomm = serial_comm
+
         return Projections(
-            nbands or self.matrix.shape[0], self.nproj_a,
+            nbands or self.nbands, self.nproj_a,
             self.atom_partition if atom_partition is None else atom_partition,
             bcomm, self.collinear, self.spin, self.matrix.dtype)
 
     def items(self):
         for a, I1, I2 in self.indices:
-            yield a, self.matrix.array[:, I1:I2]
+            yield a, self.array[..., I1:I2]
 
-    def __getitemmmmmmmm__(self, a):
+    def __getitem__(self, a):
         I1, I2 = self.map[a]
-        return self.matrix.array[I1:I2]
+        return self.array[..., I1:I2]
 
     def __contains__(self, a):
         return a in self.map

@@ -10,6 +10,10 @@ Git master branch
 
 :git:`master <>`.
 
+* Broadcast imports (Python3 only): Master process broadcasts most module
+  files at import time to reduce file system overhead in parallel
+  calculations.
+
 * Command-line arguments for BLACS/ScaLAPACK
   have been
   removed in favour of the :ref:`parallel keyword
@@ -39,6 +43,8 @@ Git master branch
   via the formula `\sigma_P=(2/3)E_{\text{cut}}dE/dE_{\text{cut}}/V`.  Use
   ``dedecut='estimate'`` to use an estimate from the kinetic energy of an
   isolated atom.
+
+* Non-collinear magnetism for plane-wave mode.
 
 
 Version 1.3.0

@@ -43,18 +43,18 @@ def unpack_atomic_matrices(M_sP, setups):
         P1 = P2
     return M_asp
 
-    
+
 def pack_atomic_matrices(M_asp):
     M2_asp = M_asp.copy()
     M2_asp.redistribute(M2_asp.partition.as_serial())
     return M2_asp.toarray(axis=1)
-    
+
 
 def h2gpts(h, cell_cv, idiv=4):
     """Convert grid spacing to number of grid points divisible by idiv.
 
     Note that units of h and cell_cv must match!
-    
+
     h: float
         Desired grid spacing in.
     cell_cv: 3x3 ndarray
@@ -64,7 +64,7 @@ def h2gpts(h, cell_cv, idiv=4):
     L_c = (np.linalg.inv(cell_cv)**2).sum(0)**-0.5
     return np.maximum(idiv, (L_c / h / idiv + 0.5).astype(int) * idiv)
 
-    
+
 def is_contiguous(array, dtype=None):
     """Check for contiguity and type."""
     if dtype is None:
@@ -118,7 +118,7 @@ def hartree(l, nrdr, r, vr):
     assert len(r) >= len(vr)
     return _gpaw.hartree(l, nrdr, r, vr)
 
-    
+
 def packed_index(i1, i2, ni):
     """Return a packed index"""
     if i1 > i2:
@@ -146,13 +146,13 @@ def unpack(M):
     assert is_contiguous(M)
     n = int(sqrt(0.25 + 2.0 * len(M)))
     M2 = np.zeros((n, n), M.dtype.char)
-    if M.dtype.char == complex:
+    if M.dtype == complex:
         _gpaw.unpack_complex(M, M2)
     else:
         _gpaw.unpack(M, M2)
     return M2
 
-    
+
 def unpack2(M):
     """Unpack 1D array to 2D, assuming a packing as in ``pack``."""
     M2 = unpack(M)
@@ -160,20 +160,22 @@ def unpack2(M):
     M2.flat[0::len(M2) + 1] *= 2  # rescale diagonal to original size
     return M2
 
-    
+
 def pack(A):
     """Pack a 2D array to 1D, adding offdiagonal terms.
-    
+
     The matrix::
-    
+
            / a00 a01 a02 \
        A = | a10 a11 a12 |
            \ a20 a21 a22 /
-                
+
     is transformed to the vector::
-    
+
       (a00, a01 + a10, a02 + a20, a11, a12 + a21, a22)
     """
+    if A.ndim == 3:
+        return np.array([pack(a) for a in A])
     assert A.ndim == 2
     assert A.shape[0] == A.shape[1]
     assert A.dtype in [float, complex]
@@ -182,8 +184,10 @@ def pack(A):
 
 def pack2(M2, tolerance=1e-10):
     """Pack a 2D array to 1D, averaging offdiagonal terms."""
+    if M2.ndim == 3:
+        return np.array([pack2(m2) for m2 in M2])
     n = len(M2)
-    M = np.zeros(n * (n + 1) // 2, M2.dtype.char)
+    M = np.zeros(n * (n + 1) // 2, M2.dtype)
     p = 0
     for r in range(n):
         M[p] = M2[r, r]
@@ -212,7 +216,7 @@ def element_from_packed(M, i, j):
         return .5 * M[p]
     else:
         return .5 * np.conjugate(M[p])
-    
+
 
 def logfile(name, rank=0):
     """Create file object from name.
@@ -305,7 +309,7 @@ def mlsqr(order, cutoff, coords_nc, N_c, beg_c, data_g, target_n):
     assert is_contiguous(target_n, float)
 
     return _gpaw.mlsqr(order, cutoff, coords_nc, N_c, beg_c, data_g, target_n)
-    
+
 
 def interpolate_mlsqr(dg_c, vt_g, order):
     """Interpolate a point using moving least squares algorithm.
@@ -345,7 +349,7 @@ def interpolate_mlsqr(dg_c, vt_g, order):
             weight = lsqr_weight(np.sum((dg_c - np.array([i, j, k]))**2))
             result.append(weight * vt_g[i][j][k])
         return np.array(result)
-    
+
     X = np.fromfunction(fill_X, vt_g.shape)
     y = np.fromfunction(fill_w, vt_g.shape)
 

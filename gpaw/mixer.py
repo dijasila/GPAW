@@ -580,7 +580,7 @@ class MixerWrapper:
         else:
             lines.append('Damping of long wave oscillations: %g' % self.weight)
         return '\n  '.join(lines)
-                            
+
 
 # Helper function to define old-style interfaces to mixers.
 # Defines and returns a function which looks like a mixer class

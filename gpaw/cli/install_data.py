@@ -135,10 +135,10 @@ def main(args, parser):
     if not args.directory:
         print_setups_info(parser)
         print()
-        print('Run ase install-data DIR to install newest setups into DIR.')
-        print('Run ase install-data DIR --version=VERSION to install VERSION '
+        print('Run gpaw install-data DIR to install newest setups into DIR.')
+        print('Run gpaw install-data DIR --version=VERSION to install VERSION '
               '(from above).')
-        print('See ase install-data --help for more info.')
+        print('See gpaw install-data --help for more info.')
         raise SystemExit
 
     targetpath = args.directory

@@ -79,7 +79,10 @@ class Davidson(Eigensolver):
         eps_N = self.eps_N
 
         def integrate(a_G):
-            return np.real(wfs.integrate(a_G, a_G, global_integral=False))
+            if wfs.collinear:
+                return np.real(wfs.integrate(a_G, a_G, global_integral=False))
+            return sum(np.real(wfs.integrate(b_G, b_G, global_integral=False))
+                       for b_G in a_G)
 
         self.subspace_diagonalize(ham, wfs, kpt)
 
@@ -117,14 +120,12 @@ class Davidson(Eigensolver):
             if nit == self.niter - 1:
                 error = np.dot(weights, [integrate(R_G) for R_G in R.array])
 
-            for psit_G, R_G, psit2_G in zip(psit.array,
-                                            R.array,
-                                            psit2.array):
+            for psit_G, R_G, psit2_G in zip(psit.array, R.array, psit2.array):
                 pre = self.preconditioner
                 ekin = pre.calculate_kinetic_energy(psit_G, kpt)
                 psit2_G[:] = pre(R_G, kpt, ekin)
 
-            if self.normalize:
+            if 0:#self.normalize:
                 norms = np.array([integrate(psit2_G)
                                   for psit2_G in psit2.array])
                 comm.sum(norms)
@@ -148,7 +149,7 @@ class Davidson(Eigensolver):
                 # <psi2 | H | psi2>
                 psit2.matrix_elements(operator=Ht, result=R, out=M,
                                       symmetric=True, cc=True)
-                ham.dH.apply(P2, out=P3)
+                ham.dH(P2, out=P3)
                 mmm(1.0, P2, 'N', P3, 'C', 1.0, M)#, symmetric=True)
                 copy(M, H_NN[B:, B:])
 
@@ -176,6 +177,8 @@ class Davidson(Eigensolver):
                         H_NN[np.triu_indices(2 * B, 1)] = 42.0
                         S_NN[np.triu_indices(2 * B, 1)] = 42.0
                     from scipy.linalg import eigh
+                    #print(S_NN)
+                    #print(H_NN)
                     eps_N, H_NN[:] = eigh(H_NN, S_NN,
                                           lower=True,
                                           check_finite=debug)

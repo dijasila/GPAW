@@ -295,17 +295,18 @@ class GPAW(PAW, Calculator):
                      .format(*dipole_v))
             self.results['dipole'] = dipole_v
 
-            if self.wfs.nspins == 2:
-                magmom = self.occupations.magmom
-                magmom_a = self.density.estimate_magnetic_moments()
-                self.log('Total magnetic moment: %f' % magmom)
+            if self.wfs.nspins == 2 or not self.density.collinear:
+                totmom_v, magmom_av = self.density.estimate_magnetic_moments()
+                self.log('Total magnetic moment: ({:.6f}, {:.6f}, {:.6f})'
+                         .format(*totmom_v))
                 self.log('Local magnetic moments:')
                 symbols = self.atoms.get_chemical_symbols()
-                for a, mom in enumerate(magmom_a):
-                    self.log('{:4} {:2} {:.6f}'.format(a, symbols[a], mom))
+                for a, mom_v in enumerate(magmom_av):
+                    self.log('{:4} {:2} ({:9.6f}, {:9.6f}, {:9.6f})'
+                             .format(a, symbols[a], *mom_v))
                 self.log()
                 self.results['magmom'] = self.occupations.magmom
-                self.results['magmoms'] = magmom_a
+                self.results['magmoms'] = magmom_av[:, 2].copy()
 
             self.summary()
 
@@ -455,7 +456,7 @@ class GPAW(PAW, Calculator):
 
         self.wfs.eigensolver.reset()
         self.scf.reset()
-        print_positions(self.atoms, self.log)
+        print_positions(self.atoms, self.log, self.density.magmom_av)
 
     def initialize(self, atoms=None, reading=False):
         """Inexpensive initialization."""
@@ -483,8 +484,8 @@ class GPAW(PAW, Calculator):
         assert len(pbc_c) == 3
         magmom_a = atoms.get_initial_magnetic_moments()
 
-        if par['experimental'].get('magmoms') is not None:
-            magmom_av = np.array(par['experimental']['magmoms'])
+        if par.experimental.get('magmoms') is not None:
+            magmom_av = np.array(par.experimental['magmoms'], float)
             collinear = False
         else:
             magmom_av = np.zeros((natoms, 3))
@@ -616,6 +617,9 @@ class GPAW(PAW, Calculator):
             self.create_scf(nvalence, mode)
 
         self.create_symmetry(magmom_av, cell_cv)
+
+        if not collinear:
+            nbands *= 2
 
         if not self.wfs:
             self.create_wave_functions(mode, realspace,
@@ -880,6 +884,7 @@ class GPAW(PAW, Calculator):
                 pd2=dens.pd2, pd3=dens.pd3, realpbc_c=self.atoms.pbc, **kwargs)
             xc.set_grid_descriptor(dens.xc_redistributor.aux_gd)  # XXX
 
+        self.hamiltonian.soc = self.parameters.experimental.get('soc')
         self.log(self.hamiltonian, '\n')
 
     def create_wave_functions(self, mode, realspace,
@@ -946,7 +951,7 @@ class GPAW(PAW, Calculator):
         gd = self.create_grid_descriptor(N_c, cell_cv, pbc_c,
                                          domain_comm, parsize_domain)
 
-        if hasattr(self, 'time') or mode.force_complex_dtype:
+        if hasattr(self, 'time') or mode.force_complex_dtype or not collinear:
             dtype = complex
         else:
             if kd.gamma:
@@ -1020,7 +1025,7 @@ class GPAW(PAW, Calculator):
     def dry_run(self):
         # Can be overridden like in gpaw.atom.atompaw
         print_cell(self.wfs.gd, self.atoms.pbc, self.log)
-        print_positions(self.atoms, self.log)
+        print_positions(self.atoms, self.log, self.density.magmom_av)
         self.log.fd.flush()
 
         # Write timing info now before the interpreter shuts down:
