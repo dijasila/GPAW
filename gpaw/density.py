@@ -182,7 +182,7 @@ class Density:
                                                 self.atom_partition))
 
         if (self.atom_partition is not None and self.D_asp is not None and
-            not isinstance(self.gd.comm, SerialCommunicator)):
+            self.gd.comm.size > 1):
             self.timer.start('Redistribute')
             self.D_asp.redistribute(atom_partition)
             self.timer.stop('Redistribute')
@@ -239,10 +239,8 @@ class Density:
         self.timer.stop('Mix')
         self.timer.stop('Density')
 
-    def normalize(self, comp_charge=None):
+    def normalize(self, comp_charge):
         """Normalize pseudo density."""
-        if comp_charge is None:
-            comp_charge, _Q_aL = self.calculate_multipole_moments()
 
         pseudo_charge = self.gd.integrate(self.nt_sG).sum()
 
