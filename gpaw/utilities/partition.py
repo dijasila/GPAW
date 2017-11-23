@@ -226,7 +226,7 @@ class AtomPartition:
         except AttributeError:
             return False
         return (self.comm.compare(comm) in ['ident', 'congruent']
-                and (self.rank_a == rank_a).all())
+                and np.array_equal(self.rank_a, rank_a))
 
     def __ne__(self, other):
         return not self == other
