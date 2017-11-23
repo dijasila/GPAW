@@ -146,6 +146,8 @@ class Matrix:
             out = Matrix(M, N, self.dtype,
                          dist=(dist.comm, dist.rows, dist.columns))
         if dist.comm.size > 1:
+            # Special cases that don't need scalapack - most likely also
+            # faster:
             if alpha == 1.0 and opa == 'N' and opb == 'N':
                 return fastmmm(self, b, out, beta)
             if alpha == 1.0 and beta == 1.0 and opa == 'N' and opb == 'C':
