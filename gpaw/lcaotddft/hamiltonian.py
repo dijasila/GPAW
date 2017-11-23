@@ -4,6 +4,8 @@ from gpaw.mixer import DummyMixer
 from gpaw.xc import XC
 from gpaw.xc.kernel import XCNull
 
+from gpaw.lcaotddft.utilities import collect_uMM
+
 
 class KickHamiltonian(object):
     def __init__(self, paw, ext):
