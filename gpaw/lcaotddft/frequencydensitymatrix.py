@@ -152,7 +152,7 @@ class FrequencyDensityMatrix(TDDFTObserver):
             setattr(self, arg, getattr(reader, arg))
         wfs = self.wfs
         self.rho0_uMM = read_uMM(wfs, reader, 'rho0_uMM')
-        self.rho0_dtype = self.rho0_uMM[u].dtype
+        self.rho0_dtype = self.rho0_uMM[0].dtype
         wlist = range(len(self.omega_w))
         self.FReDrho_uwMM = read_uwMM(wfs, reader, 'FReDrho_uwMM', wlist)
         self.FImDrho_uwMM = read_uwMM(wfs, reader, 'FImDrho_uwMM', wlist)
