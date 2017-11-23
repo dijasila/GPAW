@@ -223,7 +223,7 @@ class WaveFunctions:
     def collect_occupations(self, k, s):
         return self.collect_array('f_n', k, s)
 
-    def collect_array(self, value, k, s, subset=None):
+    def collect_array(self, name, k, s, subset=None):
         """Helper method for collect_eigenvalues and collect_occupations.
 
         For the parallel case find the rank in kpt_comm that contains
@@ -234,10 +234,7 @@ class WaveFunctions:
         kpt_u = self.kpt_u
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
         if self.kd.comm.rank == kpt_rank:
-            if isinstance(value, str):
-                a_nx = getattr(kpt_u[u], value)
-            else:
-                a_nx = value[u]  # assumed list
+            a_nx = getattr(kpt_u[u], name)
 
             if subset is not None:
                 a_nx = a_nx[subset]
@@ -259,10 +256,7 @@ class WaveFunctions:
 
         elif self.world.rank == 0 and kpt_rank != 0:
             # Only used to determine shape and dtype of receiving buffer:
-            if isinstance(value, str):
-                a_nx = getattr(kpt_u[0], value)
-            else:
-                a_nx = value[u]  # assumed list
+            a_nx = getattr(kpt_u[0], name)
 
             if subset is not None:
                 a_nx = a_nx[subset]
