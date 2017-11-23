@@ -33,6 +33,7 @@ class BaseAtomicCorrection:
 
         for a in avalues:
             dH_aii[a][:] = yy * unpack(dH_asp[a][kpt.s])
+
         self.calculate(wfs, kpt.q, dH_aii, H_MM)
 
     def add_overlap_correction(self, wfs, S_qMM):
@@ -124,9 +125,9 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
 
         # XXXXXXXXXXXXXXXXXX
         if 1:
-            return dX_asp.deepcopy()
+            return dX_asp.copy()
 
-        dX_asp = dX_asp.deepcopy()
+        dX_asp = dX_asp.copy()
         if op == 'forth':
             even = self.orig_partition.as_even_partition()
             dX_asp.redistribute(even)

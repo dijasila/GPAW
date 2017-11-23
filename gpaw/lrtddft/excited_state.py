@@ -460,7 +460,7 @@ class ExcitedStateDensity(RealSpaceDensity):
                                                               f_un)
         self.timer.stop('Atomic density matrices')
         self.timer.start('Multipole moments')
-        comp_charge = self.calculate_multipole_moments()
+        comp_charge, _Q_aL = self.calculate_multipole_moments()
         self.timer.stop('Multipole moments')
 
         if isinstance(wfs, LCAOWaveFunctions):
@@ -478,7 +478,7 @@ class ExcitedStateDensity(RealSpaceDensity):
         """
         nvspins = wfs.kd.nspins
         npspins = self.nspins
-        self.nt_sG = self.gd.zeros(npspins)
+        self.nt_xG = self.gd.zeros(self.ncomponents)
 
         for s in range(npspins):
             for kpt in wfs.kpt_u:
@@ -488,4 +488,4 @@ class ExcitedStateDensity(RealSpaceDensity):
                                           self.wunocc_sn[s]),
                                          kpt.psit_nG):
                         axpy(f, psit_G ** 2, self.nt_sG[s])
-        self.nt_sG += self.nct_G
+        self.nt_sG[:] += self.nct_G

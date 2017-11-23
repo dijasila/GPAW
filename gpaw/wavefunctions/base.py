@@ -50,7 +50,7 @@ class WaveFunctions:
         self.timer = timer
         self.atom_partition = None
 
-        self.mykpts = kd.create_k_points(self.gd)
+        self.mykpts = kd.create_k_points(self.gd, collinear)
 
         self.eigensolver = None
         self.positions_set = False
@@ -86,7 +86,7 @@ class WaveFunctions:
     def add_orbital_density(self, nt_G, kpt, n):
         self.add_realspace_orbital_to_density(nt_G, kpt.psit_nG[n])
 
-    def calculate_density_contribution(self, nt_sG, mt_vG=None):
+    def calculate_density_contribution(self, nt_sG):
         """Calculate contribution to pseudo density from wave functions.
 
         Array entries are written to (not added to)."""
@@ -121,8 +121,17 @@ class WaveFunctions:
             gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
             D_sii[kpt.s] += D_ii.real
         else:
-            P_ni = kpt.P_ani[a]
-            D_sii[kpt.s] += np.dot(P_ni.T.conj() * f_n, P_ni).real
+            if self.collinear:
+                P_ni = kpt.P[a]
+                D_sii[kpt.s] += np.dot(P_ni.T.conj() * f_n, P_ni).real
+            else:
+                P_nsi = kpt.P[a]
+                D_ssii = np.einsum('nsi,n,nzj->szij',
+                                   P_nsi.conj(), f_n, P_nsi)
+                D_sii[0] += (D_ssii[0, 0] + D_ssii[1, 1]).real
+                D_sii[1] += 2 * D_ssii[0, 1].real
+                D_sii[2] += 2 * D_ssii[0, 1].imag
+                D_sii[3] += (D_ssii[0, 0] - D_ssii[1, 1]).real
 
         if hasattr(kpt, 'c_on'):
             for ne, c_n in zip(kpt.ne_o, kpt.c_on):
@@ -199,25 +208,25 @@ class WaveFunctions:
         if self.atom_partition is not None and self.kpt_u[0].P_ani is not None:
             with self.timer('Redistribute'):
                 for kpt in self.mykpts:
-                    assert (self.atom_partition.rank_a == kpt.P.rank_a).all()
-                    kpt.P = kpt.P.redist(atom_partition.rank_a)
-                    assert (atom_partition.rank_a == kpt.P.rank_a).all()
+                    assert self.atom_partition == kpt.P.atom_partition
+                    kpt.P = kpt.P.redist(atom_partition)
+                    assert atom_partition == kpt.P.atom_partition
 
         self.atom_partition = atom_partition
         self.kd.symmetry.check(spos_ac)
         self.spos_ac = spos_ac
 
-    def allocate_arrays_for_projections(self, my_atom_indices):
+    def allocate_arrays_for_projections(self, my_atom_indices):  # XXX unused
         if not self.positions_set and self.mykpts[0].P is not None:
             # Projections have been read from file - don't delete them!
             pass
         else:
             nproj_a = [setup.ni for setup in self.setups]
-            rank_a = self.atom_partition.rank_a
-            for kpt in self.kpt_u:
+            for kpt in self.mykpts:
                 kpt.P = Projections(
                     self.bd.nbands, nproj_a,
-                    self.gd.comm, self.bd.comm, rank_a,
+                    self.atom_partition,
+                    self.bd.comm,
                     collinear=self.collinear, spin=kpt.s, dtype=self.dtype)
 
     def collect_eigenvalues(self, k, s):
@@ -442,7 +451,8 @@ class WaveFunctions:
         nslice = self.bd.get_slice()
         r = reader.wave_functions
         nproj_a = [setup.ni for setup in self.setups]
-        rank_a = np.zeros(len(nproj_a), int)
+        atom_partition = AtomPartition(self.gd.comm,
+                                       np.zeros(len(nproj_a), int))
         for u, kpt in enumerate(self.kpt_u):
             eps_n = r.proxy('eigenvalues', kpt.s, kpt.k)[nslice]
             f_n = r.proxy('occupations', kpt.s, kpt.k)[nslice]
@@ -458,7 +468,7 @@ class WaveFunctions:
             kpt.f_n = f_n
             kpt.P = Projections(
                 self.bd.nbands, nproj_a,
-                self.gd.comm, self.bd.comm, rank_a,
+                atom_partition, self.bd.comm,
                 collinear=self.collinear, spin=kpt.s, dtype=self.dtype)
             if self.gd.comm.rank == 0:
                 P_nI = r.proxy('projections', kpt.s, kpt.k)[nslice]

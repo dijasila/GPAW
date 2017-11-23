@@ -44,6 +44,8 @@ Git master branch
   ``dedecut='estimate'`` to use an estimate from the kinetic energy of an
   isolated atom.
 
+* Non-collinear magnetism for plane-wave mode.
+
 
 Version 1.3.0
 =============

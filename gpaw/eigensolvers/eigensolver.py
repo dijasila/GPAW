@@ -37,7 +37,7 @@ class Eigensolver:
             self.keep_htpsit = False
 
         if self.keep_htpsit:
-            self.Htpsit_nG = wfs.empty(self.nbands)
+            self.Htpsit_nG = np.empty_like(wfs.work_array)
 
         # Preconditioner for the electronic gradients:
         self.preconditioner = wfs.make_preconditioner(self.blocksize)
@@ -103,11 +103,11 @@ class Eigensolver:
         for R_G, eps, psit_G in zip(R.array, eps_n, psit.array):
             axpy(-eps, psit_G, R_G)
 
-        ham.dH.apply(P, out=C)
+        ham.dH(P, out=C)
         for a, I1, I2 in P.indices:
             dS_ii = ham.setups[a].dO_ii
-            C.matrix.array[:, I1:I2] -= np.dot(P.matrix.array[:, I1:I2] *
-                                               eps_n[:, np.newaxis], dS_ii)
+            C.array[..., I1:I2] -= np.dot((P.array[..., I1:I2].T * eps_n).T,
+                                          dS_ii)
 
         ham.xc.add_correction(kpt, psit.array, R.array,
                               {a: P_ni for a, P_ni in P.items()},
@@ -156,7 +156,7 @@ class Eigensolver:
             #                     symmetric=True, cc=True)
             psit.matrix_elements(operator=Ht, result=tmp, out=H,
                                  symmetric=True, cc=True)
-            ham.dH.apply(kpt.P, out=P2)
+            ham.dH(kpt.P, out=P2)
             mmm(1.0, kpt.P, 'N', P2, 'C', 1.0, H, symmetric=True)
             ham.xc.correct_hamiltonian_matrix(kpt, H.array)
 

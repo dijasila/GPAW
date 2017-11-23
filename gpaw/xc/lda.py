@@ -7,12 +7,16 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 
 
 class LDARadialExpansion:
-    def __init__(self, rcalc):
+    def __init__(self, rcalc, collinear=True):
         self.rcalc = rcalc
+        self.collinear = collinear
 
     def __call__(self, rgd, D_sLq, n_qg, nc0_sg):
         n_sLg = np.dot(D_sLq, n_qg)
-        n_sLg[:, 0] += nc0_sg
+        if self.collinear:
+            n_sLg[:, 0] += nc0_sg
+        else:
+            n_sLg[0, 0] += 4 * nc0_sg[0]
 
         dEdD_sqL = np.zeros_like(np.transpose(D_sLq, (0, 2, 1)))
 
@@ -88,8 +92,10 @@ class LDA(XCFunctional):
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
+        from gpaw.xc.noncollinear import NonCollinearLDAKernel
+        collinear = not isinstance(self.kernel, NonCollinearLDAKernel)
         rcalc = LDARadialCalculator(self.kernel)
-        expansion = LDARadialExpansion(rcalc)
+        expansion = LDARadialExpansion(rcalc, collinear)
         return calculate_paw_correction(expansion,
                                         setup, D_sp, dEdD_sp,
                                         addcoredensity, a)

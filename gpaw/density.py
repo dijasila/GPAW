@@ -4,7 +4,6 @@
 
 """This module defines a density class."""
 
-from __future__ import print_function
 from math import pi, sqrt
 
 import numpy as np
@@ -19,8 +18,33 @@ from gpaw.utilities import (unpack2, unpack_atomic_matrices,
                             pack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
-from gpaw.mpi import SerialCommunicator
 from gpaw.arraydict import ArrayDict
+
+
+class CompensationChargeExpansionCoefficients:
+    def __init__(self, setups, nspins):
+        self.setups = setups
+        self.nspins = nspins
+
+    def calculate(self, D_asp):
+        """Calculate multipole moments of compensation charges.
+
+        Returns the total compensation charge in units of electron
+        charge, so the number will be negative because of the
+        dominating contribution from the nuclear charge."""
+        atom_partition = D_asp.partition
+        shape_a = [(setup.Delta_pL.shape[1],) for setup in self.setups]
+        Q_aL = atom_partition.arraydict(shape_a, dtype=float)
+        for a, D_sp in D_asp.items():
+            setup = self.setups[a]
+            Q_L = np.dot(D_sp[:self.nspins].sum(0), setup.Delta_pL)
+            Q_L[0] += setup.Delta0
+            Q_aL[a] = Q_L
+        return Q_aL
+
+    def get_charge(self, Q_aL):
+        local_charge = sqrt(4 * pi) * sum(Q_L[0] for Q_L in Q_aL.values())
+        return Q_aL.partition.comm.sum(local_charge)
 
 
 class NullBackgroundCharge:
@@ -80,15 +104,15 @@ class Density:
         self.charge_eps = 1e-7
 
         self.D_asp = None
-        self.M_avp = None
+        self.Q = CompensationChargeExpansionCoefficients([], self.nspins)
         self.Q_aL = None
 
         self.nct_G = None
-        self.nt_sG = None
-        self.mt_vG = None
-        self.nmt_xG = None
+        self.nt_xG = None
         self.rhot_g = None
+        self.nt_xg = None
         self.nt_sg = None
+        self.nt_vg = None
         self.nt_g = None
 
         self.atom_partition = None
@@ -108,6 +132,14 @@ class Density:
         self.nct = None
         self.ghat = None
         self.log = None
+
+    @property
+    def nt_sG(self):
+        return None if self.nt_xG is None else self.nt_xG[:self.nspins]
+
+    @property
+    def nt_vG(self):
+        return None if self.nt_xG is None else self.nt_xG[self.nspins:]
 
     def __str__(self):
         s = 'Densities:\n'
@@ -131,12 +163,13 @@ class Density:
     def initialize(self, setups, timer, magmom_av, hund):
         self.timer = timer
         self.setups = setups
+        self.Q = CompensationChargeExpansionCoefficients(setups, self.nspins)
         self.hund = hund
         self.magmom_av = magmom_av
 
     def reset(self):
         # TODO: reset other parameters?
-        self.nt_sG = None
+        self.nt_xG = None
 
     def set_positions_without_ruining_everything(self, spos_ac,
                                                  atom_partition):
@@ -150,7 +183,7 @@ class Density:
                                                 self.atom_partition))
 
         if (self.atom_partition is not None and self.D_asp is not None and
-            not isinstance(self.gd.comm, SerialCommunicator)):
+            self.gd.comm.size > 1):
             self.timer.start('Redistribute')
             self.D_asp.redistribute(atom_partition)
             self.timer.stop('Redistribute')
@@ -167,7 +200,6 @@ class Density:
         self.nt_sg = None
         self.nt_g = None
         self.rhot_g = None
-        self.Q_aL = None
 
     def calculate_pseudo_density(self, wfs):
         """Calculate nt_sG from scratch.
@@ -175,15 +207,8 @@ class Density:
         nt_sG will be equal to nct_G plus the contribution from
         wfs.add_to_density().
         """
-        wfs.calculate_density_contribution(self.nt_sG, self.mt_vG)
-        self.nt_sG += self.nct_G
-
-    # @property
-    # def D_asp(self):
-    #    if self._D_asp is not None:
-    #        assert isinstance(self._D_asp, ArrayDict), type(self._D_asp)
-    #        self._D_asp.check_consistency()
-    #    return self._D_asp
+        wfs.calculate_density_contribution(self.nt_xG)
+        self.nt_sG[:] += self.nct_G
 
     def update_atomic_density_matrices(self, value):
         if isinstance(value, dict):
@@ -203,7 +228,7 @@ class Density:
         with self.timer('Atomic density matrices'):
             wfs.calculate_atomic_density_matrices(self.D_asp)
         with self.timer('Multipole moments'):
-            comp_charge = self.calculate_multipole_moments()
+            comp_charge, _Q_aL = self.calculate_multipole_moments()
 
         if isinstance(wfs, LCAOWaveFunctions):
             self.timer.start('Normalize')
@@ -215,10 +240,8 @@ class Density:
         self.timer.stop('Mix')
         self.timer.stop('Density')
 
-    def normalize(self, comp_charge=None):
+    def normalize(self, comp_charge):
         """Normalize pseudo density."""
-        if comp_charge is None:
-            comp_charge = self.calculate_multipole_moments()
 
         pseudo_charge = self.gd.integrate(self.nt_sG).sum()
 
@@ -227,9 +250,13 @@ class Density:
             if pseudo_charge != 0:
                 x = (self.background_charge.charge - self.charge -
                      comp_charge) / pseudo_charge
-                self.nt_sG *= x
+                self.nt_xG *= x
             else:
-                # Use homogeneous background:
+                # Use homogeneous background.
+                #
+                # We have to use the volume per actual grid point,
+                # which is not the same as gd.volume as the latter
+                # includes ghost points.
                 volume = self.gd.get_size_of_global_array().prod() * self.gd.dv
                 total_charge = (self.charge + comp_charge -
                                 self.background_charge.charge)
@@ -237,7 +264,7 @@ class Density:
 
     def mix(self, comp_charge):
         assert isinstance(self.mixer, MixerWrapper), self.mixer
-        self.error = self.mixer.mix(self.nt_sG, self.D_asp)
+        self.error = self.mixer.mix(self.nt_xG, self.D_asp)
         assert self.error is not None, self.mixer
 
         comp_charge = None
@@ -245,26 +272,10 @@ class Density:
         self.calculate_pseudo_charge()
 
     def calculate_multipole_moments(self):
-        """Calculate multipole moments of compensation charges.
-
-        Returns the total compensation charge in units of electron
-        charge, so the number will be negative because of the
-        dominating contribution from the nuclear charge."""
-
-        comp_charge = 0.0
-        Ddist_asp = self.atomdist.to_aux(self.D_asp)
-
-        def shape(a):
-            return self.setups[a].Delta_pL.shape[1],
-
-        self.Q_aL = ArrayDict(Ddist_asp.partition, shape)
-        for a, D_sp in Ddist_asp.items():
-            Q_L = self.Q_aL[a] = np.dot(D_sp.sum(0),
-                                        self.setups[a].Delta_pL)
-            Q_L[0] += self.setups[a].Delta0
-            comp_charge += Q_L[0]
-
-        return Ddist_asp.partition.comm.sum(comp_charge) * sqrt(4 * pi)
+        D_asp = self.atomdist.to_aux(self.D_asp)
+        Q_aL = self.Q.calculate(D_asp)
+        self.Q_aL = Q_aL
+        return self.Q.get_charge(Q_aL), Q_aL
 
     def get_initial_occupations(self, a):
         # distribute charge on all atoms
@@ -282,9 +293,10 @@ class Density:
         else:
             f_i = f_si.sum(0)
             fm_i = f_si[0] - f_si[1]
-            f_si = np.empty((4, len(f_i)))
+            f_si = np.zeros((4, len(f_i)))
             f_si[0] = f_i
-            f_si[1:] = M_v[:, np.newaxis] / M * fm_i
+            if M > 0:
+                f_si[1:] = M_v[:, np.newaxis] / M * fm_i
 
         return f_si
 
@@ -319,20 +331,16 @@ class Density:
                 f_si = self.get_initial_occupations(a)
             self.D_asp[a][:] = self.setups[a].initialize_density_matrix(f_si)
 
-        self.nmt_xG = self.gd.zeros(self.ncomponents)
-        self.nt_sG = self.nmt_xG[:self.nspins]
-        self.mt_vG = self.nmt_xG[self.nspins:]
-        basis_functions.add_to_density(self.nmt_xG, f_asi)
-        self.nt_sG += self.nct_G
+        self.nt_xG = self.gd.zeros(self.ncomponents)
+        basis_functions.add_to_density(self.nt_xG, f_asi)
+        self.nt_sG[:] += self.nct_G
         self.calculate_normalized_charges_and_mix()
 
     def initialize_from_wavefunctions(self, wfs):
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""
         self.log('Density initialized from wave functions')
         self.timer.start('Density initialized from wave functions')
-        self.nmt_xG = self.gd.zeros(self.ncomponents)
-        self.nt_sG = self.nmt_xG[:self.nspins]
-        self.mt_vG = self.nmt_xG[self.nspins:]
+        self.nt_xG = self.gd.zeros(self.ncomponents)
         self.calculate_pseudo_density(wfs)
         self.update_atomic_density_matrices(
             self.setups.empty_atomic_matrix(self.ncomponents,
@@ -343,9 +351,7 @@ class Density:
 
     def initialize_directly_from_arrays(self, nt_sG, D_asp):
         """Set D_asp and nt_sG directly."""
-        self.nmt_xG = self.gd.zeros(self.ncomponents)
-        self.nt_sG = self.nmt_xG[:self.nspins]
-        self.mt_vG = self.nmt_xG[self.nspins:]
+        self.nt_xG = self.gd.zeros(self.ncomponents)
         self.nt_sG[:] = nt_sG
 
         self.update_atomic_density_matrices(D_asp)
@@ -354,7 +360,7 @@ class Density:
         # improperly initialized mixer
 
     def calculate_normalized_charges_and_mix(self):
-        comp_charge = self.calculate_multipole_moments()
+        comp_charge, _Q_aL = self.calculate_multipole_moments()
         self.normalize(comp_charge)
         self.mix(comp_charge)
 
@@ -362,19 +368,35 @@ class Density:
         if mixer is None:
             mixer = {}
         if isinstance(mixer, dict):
-            mixer = get_mixer_from_keywords(self.gd.pbc_c.any(), self.nspins,
-                                            **mixer)
+            mixer = get_mixer_from_keywords(self.gd.pbc_c.any(),
+                                            self.nspins, **mixer)
         if not hasattr(mixer, 'mix'):
             raise ValueError('Not a mixer: %s' % mixer)
         self.mixer = MixerWrapper(mixer, self.nspins, self.gd)
 
     def estimate_magnetic_moments(self):
-        magmom_a = np.zeros_like(self.magmom_av[:, 0])
+        magmom_av = np.zeros_like(self.magmom_av)
+        magmom_v = np.zeros(3)
         if self.nspins == 2:
             for a, D_sp in self.D_asp.items():
-                magmom_a[a] = np.dot(D_sp[0] - D_sp[1], self.setups[a].N0_p)
-            self.gd.comm.sum(magmom_a)
-        return magmom_a
+                M_p = D_sp[0] - D_sp[1]
+                magmom_av[a, 2] = np.dot(M_p, self.setups[a].N0_p)
+                magmom_v[2] += (np.dot(M_p, self.setups[a].Delta_pL[:, 0]) *
+                                sqrt(4 * pi))
+            self.gd.comm.sum(magmom_av)
+            self.gd.comm.sum(magmom_v)
+            magmom_v[2] += self.gd.integrate(self.nt_sG[0] - self.nt_sG[1])
+        elif not self.collinear:
+            for a, D_sp in self.D_asp.items():
+                magmom_av[a] = np.dot(D_sp[1:4], self.setups[a].N0_p)
+                magmom_v += (np.dot(D_sp[1:4], self.setups[a].Delta_pL[:, 0]) *
+                             sqrt(4 * pi))
+            # XXXX probably untested code
+            self.gd.comm.sum(magmom_av)
+            self.gd.comm.sum(magmom_v)
+            magmom_v += self.gd.integrate(self.nt_vG)
+
+        return magmom_v, magmom_av
 
     def get_correction(self, a, spin):
         """Integrated atomic density correction.
@@ -646,7 +668,7 @@ class RealSpaceDensity(Density):
     def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
         if comp_charge is None:
-            comp_charge = self.calculate_multipole_moments()
+            comp_charge, _Q_aL = self.calculate_multipole_moments()
 
         self.nt_sg = self.distribute_and_interpolate(self.nt_sG, self.nt_sg)
 
@@ -687,7 +709,8 @@ class RealSpaceDensity(Density):
     def calculate_pseudo_charge(self):
         self.nt_g = self.nt_sg.sum(axis=0)
         self.rhot_g = self.nt_g.copy()
-        self.ghat.add(self.rhot_g, self.Q_aL)
+        Q_aL = self.Q.calculate(self.D_asp)
+        self.ghat.add(self.rhot_g, Q_aL)
         self.background_charge.add_charge_to(self.rhot_g)
 
         if debug:

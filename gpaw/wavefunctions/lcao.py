@@ -59,9 +59,10 @@ class LCAOWaveFunctions(WaveFunctions):
 
     def __init__(self, ksl, gd, nvalence, setups, bd,
                  dtype, world, kd, kptband_comm, timer,
-                 atomic_correction=None):
+                 atomic_correction=None, collinear=True):
         WaveFunctions.__init__(self, gd, nvalence, setups, bd,
-                               dtype, True, world, kd, kptband_comm, timer)
+                               dtype, collinear, world, kd,
+                               kptband_comm, timer)
         self.ksl = ksl
         self.S_qMM = None
         self.T_qMM = None

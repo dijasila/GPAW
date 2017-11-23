@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function, division
+from __future__ import division
 import numbers
 from math import pi
 from math import factorial as fac
@@ -482,8 +482,8 @@ class Preconditioner:
         if psit_xG.ndim == 1:
             return self.calculate_kinetic_energy(psit_xG[np.newaxis], kpt)[0]
         G2_G = self.G2_qG[kpt.q]
-        return [self.pd.integrate(0.5 * G2_G * psit_G, psit_G)
-                for psit_G in psit_xG]
+        return np.array([self.pd.integrate(0.5 * G2_G * psit_G, psit_G)
+                         for psit_G in psit_xG])
 
     def __call__(self, R_xG, kpt, ekin_x):
         if R_xG.ndim == 1:
@@ -495,6 +495,17 @@ class Preconditioner:
             a_G = 27.0 + x_G * (18.0 + x_G * (12.0 + x_G * 8.0))
             PR_G[:] = -4.0 / 3 / ekin * R_G * a_G / (a_G + 16.0 * x_G**4)
         return PR_xG
+
+
+class NonCollinearPreconditioner(Preconditioner):
+    def calculate_kinetic_energy(self, psit_xsG, kpt):
+        shape = psit_xsG.shape
+        ekin_xs = Preconditioner.calculate_kinetic_energy(
+            self, psit_xsG.reshape((-1, shape[-1])), kpt)
+        return ekin_xs.reshape(shape[:-1]).sum(-1)
+
+    def __call__(self, R_sG, kpt, ekin):
+        return Preconditioner.__call__(self, R_sG, kpt, [ekin, ekin])
 
 
 class PWWaveFunctions(FDPWWaveFunctions):
@@ -580,24 +591,47 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return s + FDPWWaveFunctions.__str__(self)
 
     def make_preconditioner(self, block=1):
-        return Preconditioner(self.pd.G2_qG, self.pd)
+        if self.collinear:
+            return Preconditioner(self.pd.G2_qG, self.pd)
+        return NonCollinearPreconditioner(self.pd.G2_qG, self.pd)
 
     def apply_pseudo_hamiltonian(self, kpt, ham, psit_xG, Htpsit_xG):
         """Apply the non-pseudo Hamiltonian i.e. without PAW corrections."""
         Htpsit_xG[:] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG
-        for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
-            psit_R = self.pd.ifft(psit_G, kpt.q)
-            Htpsit_G += self.pd.fft(psit_R * ham.vt_sG[kpt.s], kpt.q)
+        if self.collinear:
+            for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
+                psit_R = self.pd.ifft(psit_G, kpt.q)
+                Htpsit_G += self.pd.fft(psit_R * ham.vt_sG[kpt.s], kpt.q)
+        else:
+            v, x, y, z = ham.vt_xG
+            iy = y * 1j
+            for psit_sG, Htpsit_sG in zip(psit_xG, Htpsit_xG):
+                a = self.pd.ifft(psit_sG[0], kpt.q)
+                b = self.pd.ifft(psit_sG[1], kpt.q)
+                Htpsit_sG[0] += self.pd.fft(a * (v + z) + b * (x - iy), kpt.q)
+                Htpsit_sG[1] += self.pd.fft(a * (x + iy) + b * (v - z), kpt.q)
         ham.xc.apply_orbital_dependent_hamiltonian(
             kpt, psit_xG, Htpsit_xG, ham.dH_asp)
 
     def add_orbital_density(self, nt_G, kpt, n):
         axpy(1.0, abs(self.pd.ifft(kpt.psit_nG[n], kpt.q))**2, nt_G)
 
-    def add_to_density_from_k_point_with_occupation(self, nt_sR, kpt, f_n):
-        nt_R = nt_sR[kpt.s]
-        for f, psit_G in zip(f_n, kpt.psit_nG):
-            nt_R += f * abs(self.pd.ifft(psit_G, kpt.q))**2
+    def add_to_density_from_k_point_with_occupation(self, nt_xR, kpt, f_n):
+        if self.collinear:
+            nt_R = nt_xR[kpt.s]
+            for f, psit_G in zip(f_n, kpt.psit_nG):
+                nt_R += f * abs(self.pd.ifft(psit_G, kpt.q))**2
+        else:
+            for f, psit_sG in zip(f_n, kpt.psit.array):
+                p1 = self.pd.ifft(psit_sG[0], kpt.q)
+                p2 = self.pd.ifft(psit_sG[1], kpt.q)
+                p11 = p1.real**2 + p1.imag**2
+                p22 = p2.real**2 + p2.imag**2
+                p12 = p1.conj() * p2
+                nt_xR[0] += f * (p11 + p22)
+                nt_xR[1] += 2 * f * p12.real
+                nt_xR[2] += 2 * f * p12.imag
+                nt_xR[3] += f * (p11 - p22)
 
     def calculate_kinetic_energy_density(self):
         if self.kpt_u[0].f_n is None:
@@ -901,12 +935,13 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         return nbands
 
-    def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
+    def initialize_from_lcao_coefficients(self, basis_functions):
         N_c = self.gd.N_c
 
-        psit_nR = self.gd.empty(mynbands, self.dtype)
+        N = len(self.mykpts[0].C_nM)
+        psit_nR = self.gd.empty(N, self.dtype)
 
-        for kpt in self.kpt_u:
+        for kpt in self.mykpts:
             if self.kd.gamma:
                 emikr_R = 1.0
             else:
@@ -922,8 +957,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 self.bd.nbands, self.pd, self.dtype, kpt=kpt.q,
                 dist=(self.bd.comm, -1, 1),
                 spin=kpt.s, collinear=self.collinear)
-            for n in range(mynbands):
-                kpt.psit_nG[n] = self.pd.fft(psit_nR[n] * emikr_R, kpt.q)
+
+            psit_nG = kpt.psit.array
+            for psit_G, psit_R in zip(psit_nG.reshape((-1, psit_nG.shape[-1])),
+                                      psit_nR):
+                psit_G[:] = self.pd.fft(psit_R * emikr_R, kpt.q)
 
     def random_wave_functions(self, mynao):
         rs = np.random.RandomState(self.world.rank)
@@ -934,10 +972,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     dist=(self.bd.comm, -1, 1),
                     spin=kpt.s, collinear=self.collinear)
 
-            psit_nG = kpt.psit_nG[mynao:]
+            array = kpt.psit.array[mynao:]
             weight_G = 1.0 / (1.0 + self.pd.G2_qG[kpt.q])
-            psit_nG.real = rs.uniform(-1, 1, psit_nG.shape) * weight_G
-            psit_nG.imag = rs.uniform(-1, 1, psit_nG.shape) * weight_G
+            array.real = rs.uniform(-1, 1, array.shape) * weight_G
+            array.imag = rs.uniform(-1, 1, array.shape) * weight_G
 
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)
@@ -1346,7 +1384,6 @@ class ReciprocalSpaceDensity(Density):
                                                   redistributor.comm,
                                                   serial_finegd, finegd)
         self.nct_q = None
-        self.nt_sQ = None
         self.nt_Q = None
         self.rhot_q = None
 
@@ -1373,14 +1410,22 @@ class ReciprocalSpaceDensity(Density):
     def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
         if comp_charge is None:
-            comp_charge = self.calculate_multipole_moments()
+            comp_charge, _Q_aL = self.calculate_multipole_moments()
 
-        if self.nt_sg is None:
-            self.nt_sg = self.finegd.empty(self.nspins)
-            self.nt_sQ = self.pd2.empty(self.nspins)
+        if self.nt_xg is None:
+            self.nt_xg = self.finegd.empty(self.ncomponents)
+            self.nt_sg = self.nt_xg[:self.nspins]
+            self.nt_vg = self.nt_xg[self.nspins:]
+            self.nt_Q = self.pd2.empty()
 
-        for nt_G, nt_Q, nt_g in zip(self.nt_sG, self.nt_sQ, self.nt_sg):
-            nt_g[:], nt_Q[:] = self.pd2.interpolate(nt_G, self.pd3)
+        self.nt_Q[:] = 0.0
+
+        x = 0
+        for nt_G, nt_g in zip(self.nt_xG, self.nt_xg):
+            nt_g[:], nt_Q = self.pd2.interpolate(nt_G, self.pd3)
+            if x < self.nspins:
+                self.nt_Q += nt_Q
+            x += 1
 
     def interpolate(self, in_xR, out_xR=None):
         """Interpolate array(s)."""
@@ -1398,10 +1443,10 @@ class ReciprocalSpaceDensity(Density):
     distribute_and_interpolate = interpolate
 
     def calculate_pseudo_charge(self):
-        self.nt_Q = self.nt_sQ.sum(axis=0)
         self.rhot_q = self.pd3.zeros()
         self.rhot_q[self.G3_G] = self.nt_Q * 8
-        self.ghat.add(self.rhot_q, self.Q_aL)
+        Q_aL = self.Q.calculate(self.D_asp)
+        self.ghat.add(self.rhot_q, Q_aL)
         self.background_charge.add_fourier_space_charge_to(self.pd3,
                                                            self.rhot_q)
         self.rhot_q[0] = 0.0
@@ -1491,7 +1536,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vbar.add(self.vbar_Q)
 
     def update_pseudo_potential(self, dens):
-        self.ebar = self.pd2.integrate(self.vbar_Q, dens.nt_sQ.sum(0))
+        self.ebar = self.pd2.integrate(self.vbar_Q, dens.nt_Q)
 
         with self.timer('Poisson'):
             self.poisson.solve(self.vHt_q, dens)
@@ -1501,16 +1546,22 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
-        nt_dist_sg = dens.xc_redistributor.distribute(dens.nt_sg)
-        vxct_dist_sg = dens.xc_redistributor.aux_gd.zeros(self.nspins)
+        nt_dist_xg = dens.xc_redistributor.distribute(dens.nt_xg)
+        vxct_dist_xg = np.zeros_like(nt_dist_xg)
         self.exc = self.xc.calculate(dens.xc_redistributor.aux_gd,
-                                     nt_dist_sg, vxct_dist_sg)
-        vxct_sg = dens.xc_redistributor.collect(vxct_dist_sg)
+                                     nt_dist_xg, vxct_dist_xg)
+        vxct_xg = dens.xc_redistributor.collect(vxct_dist_xg)
 
-        for vt_G, vxct_g in zip(self.vt_sG, vxct_sg):
+        x = 0
+        for vt_G, vxct_g in zip(self.vt_xG, vxct_xg):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
-            vt_G += vxc_G
-            self.vt_Q += vxc_Q / self.nspins
+            if x < self.nspins:
+                vt_G += vxc_G
+                self.vt_Q += vxc_Q / self.nspins
+            else:
+                vt_G[:] = vxc_G
+            x += 1
+
         self.timer.stop('XC 3D grid')
 
         eext = 0.0
@@ -1526,7 +1577,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
     def calculate_kinetic_energy(self, density):
         ekin = 0.0
-        for vt_G, nt_G in zip(self.vt_sG, density.nt_sG):
+        for vt_G, nt_G in zip(self.vt_xG, density.nt_xG):
             ekin -= self.gd.integrate(vt_G, nt_G)
         ekin += self.gd.integrate(self.vt_sG, density.nct_G).sum()
         return ekin
@@ -1549,7 +1600,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
         dens.ghat.derivative(self.vHt_q, ghat_aLv)
         dens.nct.derivative(self.vt_Q, nct_av)
-        self.vbar.derivative(dens.nt_sQ.sum(0), vbar_av)
+        self.vbar.derivative(dens.nt_Q, vbar_av)
 
     def get_electrostatic_potential(self, dens):
         self.poisson.solve(self.vHt_q, dens)
