@@ -4,8 +4,8 @@ from gpaw.mixer import DummyMixer
 from gpaw.xc import XC
 from gpaw.xc.kernel import XCNull
 
-from gpaw.lcaotddft.utilities import collect_uMM
-from gpaw.lcaotddft.utilities import distribute_MM
+from gpaw.lcaotddft.utilities import read_uMM
+from gpaw.lcaotddft.utilities import write_uMM
 
 
 class KickHamiltonian(object):
@@ -37,14 +37,7 @@ class TimeDependentHamiltonian(object):
     def write_fxc(self, writer):
         wfs = self.wfs
         writer.write(name=self.fxc_name)
-        M = wfs.setups.nao
-        writer.add_array('deltaXC_H_uMM',
-                         (wfs.nspins, wfs.kd.nibzkpts, M, M),
-                         dtype=wfs.dtype)
-        for s in range(wfs.nspins):
-            for k in range(wfs.kd.nibzkpts):
-                H_MM = collect_uMM(wfs, self.deltaXC_H_uMM, s, k)
-                writer.fill(H_MM)
+        write_uMM(wfs, writer, 'deltaXC_H_uMM', self.deltaXC_H_uMM)
 
     def read(self, reader):
         if 'fxc' in reader:
@@ -53,13 +46,7 @@ class TimeDependentHamiltonian(object):
     def read_fxc(self, reader):
         assert self.fxc_name is None or self.fxc_name == reader.name
         self.fxc_name = reader.name
-        wfs = self.wfs
-        self.deltaXC_H_uMM = []
-        for kpt in wfs.kpt_u:
-            # TODO: does this read on all the ksl ranks in vain?
-            deltaXC_H_MM = reader.proxy('deltaXC_H_uMM', kpt.s, kpt.k)[:]
-            deltaXC_H_MM = distribute_MM(wfs, deltaXC_H_MM)
-            self.deltaXC_H_uMM.append(deltaXC_H_MM)
+        self.deltaXC_H_uMM = read_uMM(self.wfs, reader, 'deltaXC_H_uMM')
 
     def initialize(self, paw):
         self.timer = paw.timer

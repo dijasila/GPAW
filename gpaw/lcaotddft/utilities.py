@@ -79,3 +79,48 @@ def distribute_MM(wfs, a_MM):
     a_mm = ksl.mmdescriptor.empty(dtype=dtype)
     MM2mm.redistribute(a_MM, a_mm)
     return a_mm
+
+def write_uMM(wfs, writer, name, a_uMM):
+    return write_uwMM(wfs, writer, name, a_uMM, wlist=None)
+
+def write_uwMM(wfs, writer, name, a_uwMM, wlist):
+    NM = wfs.ksl.nao
+    dtype = a_uwMM[0][0].dtype
+    if wlist is None:
+        shape = (NM, NM)
+        wlist = [None]
+    else:
+        shape = (len(wlist), NM, NM)
+
+    writer.add_array(name,
+                     (wfs.nspins, wfs.kd.nibzkpts) + shape, dtype=dtype)
+    for s in range(wfs.nspins):
+        for k in range(wfs.kd.nibzkpts):
+            for w in wlist:
+                a_MM = collect_uwMM(wfs, a_uwMM, s, k, w)
+                writer.fill(a_MM)
+
+def read_uMM(wfs, reader, name):
+    return read_uwMM(wfs, reader, name, wlist=None)
+
+def read_uwMM(wfs, reader, name, wlist):
+    a_uwMM = []
+    if wlist is None:
+        wlist = [None]
+    else:
+        assert not None in wlist
+    for kpt in wfs.kpt_u:
+        a_wMM = []
+        for w in wlist:
+            indices = (kpt.s, kpt.k)
+            if w is not None:
+                indices += (w,)
+            # TODO: does this read on all the ksl ranks in vain?
+            a_MM = reader.proxy(name, *indices)[:]
+            a_MM = distribute_MM(wfs, a_MM)
+            if w is None:
+                a_wMM = a_MM
+            else:
+                a_wMM.append(a_MM)
+        a_uwMM.append(a_wMM)
+    return a_uwMM
