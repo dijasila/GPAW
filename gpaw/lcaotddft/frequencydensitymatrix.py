@@ -29,6 +29,7 @@ class FrequencyDensityMatrix(TDDFTObserver):
         self.wfs = paw.wfs
         self.has_initialized = False
         self.restart_filename = restart_filename
+        self.time = paw.time
 
         assert self.world.rank == self.wfs.world.rank
 
@@ -159,6 +160,8 @@ class FrequencyDensityMatrix(TDDFTObserver):
         version = reader.version
         if version != self.__class__.version:
             raise RuntimeError('Unknown version %s' % version)
+        if reader.time != self.time:
+            raise RuntimeError('Timestamp do not match with the calculator')
         for arg in ['time', 'omega_w', 'folding', 'width']:
             setattr(self, arg, getattr(reader, arg))
         wfs = self.wfs
