@@ -947,6 +947,8 @@ class Parallelization:
         for group, name in zip([self.kpt, self.domain, self.band],
                                ['k-point', 'domain', 'band']):
             if group is not None:
+                assert group > 0, ('Bad: Only {} cores requested for '
+                                   '{} parallelization'.format(group, name))
                 if self.size % group != 0:
                     msg = ('Cannot parallelize as the '
                            'communicator size %d is not divisible by the '
