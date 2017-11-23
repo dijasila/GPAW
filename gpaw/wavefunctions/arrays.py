@@ -13,8 +13,10 @@ class MatrixInFile:
     def read(self, gd, shape):
         matrix = Matrix(*self.shape, dtype=self.dtype, dist=self.dist)
         # Read band by band to save memory
+        rows = self.dist.rows
+        blocksize = (self.shape[0] + rows - 1) // rows
         for myn, psit_G in enumerate(matrix.array):
-            n = self.dist.global_index(myn)
+            n = self.dist.comm.rank * blocksize + myn
             if gd.comm.rank == 0:
                 big_psit_G = np.asarray(self.array[n], self.dtype)
             else:
