@@ -1445,7 +1445,7 @@ class ReciprocalSpaceDensity(Density):
     def calculate_pseudo_charge(self):
         self.rhot_q = self.pd3.zeros()
         self.rhot_q[self.G3_G] = self.nt_Q * 8
-        Q_aL = self.Q.calculate(self.D_asp, self.nspins)
+        Q_aL = self.Q.calculate(self.D_asp)
         self.ghat.add(self.rhot_q, Q_aL)
         self.background_charge.add_fourier_space_charge_to(self.pd3,
                                                            self.rhot_q)

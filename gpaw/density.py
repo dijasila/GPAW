@@ -22,10 +22,11 @@ from gpaw.arraydict import ArrayDict
 
 
 class CompensationChargeExpansionCoefficients:
-    def __init__(self, setups):
+    def __init__(self, setups, nspins):
         self.setups = setups
+        self.nspins = nspins
 
-    def calculate(self, D_asp, nspins):
+    def calculate(self, D_asp):
         """Calculate multipole moments of compensation charges.
 
         Returns the total compensation charge in units of electron
@@ -36,7 +37,7 @@ class CompensationChargeExpansionCoefficients:
         Q_aL = atom_partition.arraydict(shape_a, dtype=float)
         for a, D_sp in D_asp.items():
             setup = self.setups[a]
-            Q_L = np.dot(D_sp[:nspins].sum(0), setup.Delta_pL)
+            Q_L = np.dot(D_sp[:self.nspins].sum(0), setup.Delta_pL)
             Q_L[0] += setup.Delta0
             Q_aL[a] = Q_L
         return Q_aL
@@ -103,7 +104,7 @@ class Density:
         self.charge_eps = 1e-7
 
         self.D_asp = None
-        self.Q = CompensationChargeExpansionCoefficients([])
+        self.Q = CompensationChargeExpansionCoefficients([], self.nspins)
         self.Q_aL = None
 
         self.nct_G = None
@@ -162,7 +163,7 @@ class Density:
     def initialize(self, setups, timer, magmom_av, hund):
         self.timer = timer
         self.setups = setups
-        self.Q = CompensationChargeExpansionCoefficients(setups)
+        self.Q = CompensationChargeExpansionCoefficients(setups, self.nspins)
         self.hund = hund
         self.magmom_av = magmom_av
 
@@ -268,7 +269,7 @@ class Density:
 
     def calculate_multipole_moments(self):
         D_asp = self.atomdist.to_aux(self.D_asp)
-        Q_aL = self.Q.calculate(D_asp, self.nspins)
+        Q_aL = self.Q.calculate(D_asp)
         self.Q_aL = Q_aL
         return self.Q.get_charge(Q_aL), Q_aL
 
@@ -704,7 +705,7 @@ class RealSpaceDensity(Density):
     def calculate_pseudo_charge(self):
         self.nt_g = self.nt_sg.sum(axis=0)
         self.rhot_g = self.nt_g.copy()
-        Q_aL = self.Q.calculate(self.D_asp, self.nspins)
+        Q_aL = self.Q.calculate(self.D_asp)
         self.ghat.add(self.rhot_g, Q_aL)
         self.background_charge.add_charge_to(self.rhot_g)
 
