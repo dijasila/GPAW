@@ -64,7 +64,7 @@ def get_bfs(calc):
     wfs = calc.wfs
     bfs = BasisFunctions(wfs.gd, [setup.phit_j for setup in wfs.setups],
                          wfs.kd, cut=True)
-    bfs.set_positions(calc.atoms.get_scaled_positions() % 1.)
+    bfs.set_positions(wfs.spos_ac)
     return bfs
 
 
@@ -84,7 +84,6 @@ def get_lcao_projections_HSP(calc, bfs=None, spin=0, projectionsonly=True):
     if calc.wfs.kd.comm.size != 1:
         raise NotImplementedError('Parallelization over spin/kpt not '
                                   'implemented yet.')
-    spos_ac = calc.atoms.get_scaled_positions() % 1.
     comm = calc.wfs.gd.comm
     nq = len(calc.wfs.kd.ibzk_qc)
     nao = calc.wfs.setups.nao
@@ -105,7 +104,7 @@ def get_lcao_projections_HSP(calc, bfs=None, spin=0, projectionsonly=True):
     for a in bfs.my_atom_indices:
         ni = calc.wfs.setups[a].ni
         P_aqMi[a] = np.zeros((nq, nao, ni), dtype)
-    tci.calculate(spos_ac, S_qMM, T_qMM, P_aqMi)
+    tci.calculate(calc.spos_ac, S_qMM, T_qMM, P_aqMi)
 
     from gpaw.lcao.atomic_correction import DenseAtomicCorrection
     atomic_correction = DenseAtomicCorrection()

@@ -434,8 +434,7 @@ class ExcitedStateDensity(RealSpaceDensity):
         RealSpaceDensity.initialize(
             self, calc.wfs.setups, calc.timer, None, False)
 
-        spos_ac = calc.get_atoms().get_scaled_positions() % 1.0
-        self.set_positions(spos_ac, calc.wfs.atom_partition)
+        self.set_positions(calc.spos_ac, calc.wfs.atom_partition)
 
         D_asp = {}
         for a, D_sp in self.gsdensity.D_asp.items():

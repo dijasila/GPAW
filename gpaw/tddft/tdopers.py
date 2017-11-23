@@ -18,7 +18,7 @@ class TimeDependentHamiltonian:
     Hamiltonian to a wavefunction.
     """
 
-    def __init__(self, wfs, atoms, hamiltonian, td_potential):
+    def __init__(self, wfs, spos_ac, hamiltonian, td_potential):
         """Create the TimeDependentHamiltonian-object.
 
         The time-dependent potential object must (be None or) have a member
@@ -56,7 +56,7 @@ class TimeDependentHamiltonian:
 
         self.P = None
 
-        self.spos_ac = atoms.get_scaled_positions() % 1.0
+        self.spos_ac = spos_ac
         self.absorbing_boundary = None
 
     def update(self, density, time):
@@ -316,22 +316,22 @@ class AbsorptionKickHamiltonian:
     Hamiltonian to a wavefunction.
     """
 
-    def __init__(self, wfs, atoms, strength=[0.0, 0.0, 1e-3]):
+    def __init__(self, wfs, spos_ac, strength=[0.0, 0.0, 1e-3]):
         """Create the AbsorptionKickHamiltonian-object.
 
         Parameters
         ----------
         wfs: FDWaveFunctions
             time-independent grid-based wavefunctions
-        atoms: Atoms
-            list of atoms
+        spos_ac: ndarray
+            scaled positions
         strength: float[3]
             strength of the delta field to different directions
 
         """
 
         self.wfs = wfs
-        self.spos_ac = atoms.get_scaled_positions() % 1.0
+        self.spos_ac = spos_ac
 
         # magnitude
         magnitude = np.sqrt(strength[0]*strength[0]

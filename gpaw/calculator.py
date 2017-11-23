@@ -123,6 +123,7 @@ class GPAW(PAW, Calculator):
         self.occupations = None
         self.density = None
         self.hamiltonian = None
+        self.spos_ac = None  # XXX store this in some better way.
 
         self.observers = []  # XXX move to self.scf
         self.initialized = False
@@ -176,13 +177,22 @@ class GPAW(PAW, Calculator):
 
         return writer
 
+    def _set_atoms(self, atoms):
+        self.atoms = atoms
+        # GPAW works in terms of the scaled positions.  We want to
+        # extract the scaled positions in only one place, and that is
+        # here.  No other place may recalculate them, or we might end up
+        # with rounding errors and inconsistencies.
+        self.spos_ac = atoms.get_scaled_positions() % 1.0
+
     def read(self, filename):
         from ase.io.trajectory import read_atoms
         self.log('Reading from {}'.format(filename))
 
         self.reader = reader = Reader(filename)
 
-        self.atoms = read_atoms(reader.atoms)
+        atoms = read_atoms(reader.atoms)
+        self._set_atoms(atoms)
 
         res = reader.results
         self.results = dict((key, res.get(key)) for key in res.keys())
@@ -219,11 +229,10 @@ class GPAW(PAW, Calculator):
         self.wfs.atom_partition = atom_partition
         self.density.atom_partition = atom_partition
         self.hamiltonian.atom_partition = atom_partition
-        spos_ac = self.atoms.get_scaled_positions() % 1.0
-        rank_a = self.density.gd.get_ranks_from_positions(spos_ac)
+        rank_a = self.density.gd.get_ranks_from_positions(self.spos_ac)
         new_atom_partition = AtomPartition(self.density.gd.comm, rank_a)
         for obj in [self.density, self.hamiltonian]:
-            obj.set_positions_without_ruining_everything(spos_ac,
+            obj.set_positions_without_ruining_everything(self.spos_ac,
                                                          new_atom_partition)
 
         self.hamiltonian.xc.read(reader)
@@ -425,27 +434,23 @@ class GPAW(PAW, Calculator):
         if atoms is None:
             atoms = self.atoms
         else:
-            # Save the state of the atoms:
-            self.atoms = atoms.copy()
+            atoms = atoms.copy()
+            self._set_atoms(atoms)
 
         mpi.synchronize_atoms(atoms, self.world)
 
-        spos_ac = atoms.get_scaled_positions() % 1.0
-
-        rank_a = self.wfs.gd.get_ranks_from_positions(spos_ac)
+        rank_a = self.wfs.gd.get_ranks_from_positions(self.spos_ac)
         atom_partition = AtomPartition(self.wfs.gd.comm, rank_a, name='gd')
-        self.wfs.set_positions(spos_ac, atom_partition)
-        self.density.set_positions(spos_ac, atom_partition)
-        self.hamiltonian.set_positions(spos_ac, atom_partition)
-
-        return spos_ac
+        self.wfs.set_positions(self.spos_ac, atom_partition)
+        self.density.set_positions(self.spos_ac, atom_partition)
+        self.hamiltonian.set_positions(self.spos_ac, atom_partition)
 
     def set_positions(self, atoms=None):
         """Update the positions of the atoms and initialize wave functions."""
-        spos_ac = self.initialize_positions(atoms)
+        self.initialize_positions(atoms)
 
         nlcao, nrand = self.wfs.initialize(self.density, self.hamiltonian,
-                                           spos_ac)
+                                           self.spos_ac)
         if nlcao + nrand:
             self.log('Creating initial wave functions:')
             if nlcao:
@@ -466,8 +471,8 @@ class GPAW(PAW, Calculator):
         if atoms is None:
             atoms = self.atoms
         else:
-            # Save the state of the atoms:
-            self.atoms = atoms.copy()
+            atoms = atoms.copy()
+            self._set_atoms(atoms)
 
         par = self.parameters
 
@@ -800,7 +805,7 @@ class GPAW(PAW, Calculator):
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = [id + tuple(m_v) for id, m_v in zip(self.setups.id_a, m_av)]
         self.symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)
-        self.symmetry.analyze(self.atoms.get_scaled_positions())
+        self.symmetry.analyze(self.spos_ac)
         self.setups.set_symmetry(self.symmetry)
 
     def create_eigensolver(self, xc, nbands, mode):

@@ -3,7 +3,7 @@ from gpaw.mpi import world
 import numpy as np
 import time
 from gpaw.lfc import LFC
-from gpaw.analyse.observers import Observer 
+from gpaw.analyse.observers import Observer
 from math import sqrt, pi
 
 #TODO: Rename this file
@@ -13,9 +13,9 @@ class VRespCollector(Observer):
         Observer.__init__(self)
         self.lcao = lcao
         self.filename = filename
-       
+
     def update(self):
-        x_sg = self.lcao.hamiltonian.xc.xcs['RESPONSE'].vt_sG        
+        x_sg = self.lcao.hamiltonian.xc.xcs['RESPONSE'].vt_sG
         x_sg = self.lcao.density.gd.collect(x_sg, broadcast=False)
         iter = self.niter
         if world.rank==0:
@@ -46,9 +46,8 @@ class DensityCollector(Observer):
             print(self.ranges)
             self.ghat = LFC(self.lcao.wfs.gd, [setup.ghat_l for setup in self.lcao.density.setups],
                             integral=sqrt(4 * pi), forces=False)
-            spos_ac = self.lcao.atoms.get_scaled_positions() % 1.0
-            self.ghat.set_positions(spos_ac)
- 
+            self.ghat.set_positions(self.lcao.wfs.spos_ac)
+
             # Clear files
             for rid,rng in enumerate(self.ranges):
                 f = open(self.filename+'.'+str(rid)+'.density','w')
@@ -59,7 +58,7 @@ class DensityCollector(Observer):
                 for i in range(7):
                      print("#", file=f)
                 f.close()
-            
+
         #self.lcao.timer.start('Dump density')
         for rid,rng in enumerate(self.ranges):
             assert len(self.lcao.wfs.kpt_u) == 1
@@ -70,7 +69,7 @@ class DensityCollector(Observer):
                     if not n in rng:
                         f_un[0][myn] = 0.0
             n_sG = self.lcao.wfs.gd.zeros(1)
-            self.lcao.wfs.add_to_density_from_k_point_with_occupation(n_sG, 
+            self.lcao.wfs.add_to_density_from_k_point_with_occupation(n_sG,
                           self.lcao.wfs.kpt_u[0], f_un[0])
 
             self.lcao.wfs.kptband_comm.sum(n_sG)
@@ -133,13 +132,13 @@ class ObsoleteSplitDensityCollector(Observer):
         self.lcao.timer.stop('Split density init')
 
         self.update()
-  
+
     def update(self):
         self.lcao.timer.start('Split density dump')
         iter = self.niter
         if iter % 5 != 0:
             return
-        start = time.time() 
+        start = time.time()
         kpt = self.lcao.wfs.kpt_u[0]
         for i, (f_n, n_sg) in enumerate(zip(self.f_xn, self.n_xsg)):
             n_sg[:] = 0.0 # XXX n_sg just temporary here
@@ -169,7 +168,7 @@ class ObsoleteSplitDensityCollector(Observer):
 atoms = read('../geometries/ag13.traj')
 atoms.center(vacuum=5)
 
-calc = LCAOTDDFT(mode='lcao', dtype=complex, width=0.01, basis='LDA.dz+5p', xc='LDA', h=0.3, 
+calc = LCAOTDDFT(mode='lcao', dtype=complex, width=0.01, basis='LDA.dz+5p', xc='LDA', h=0.3,
                  mixer=Mixer(0.1,4,weight=100))
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
