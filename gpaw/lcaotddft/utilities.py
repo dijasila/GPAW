@@ -3,6 +3,7 @@ import numpy as np
 from gpaw.blacs import BlacsGrid
 from gpaw.blacs import Redistributor
 
+
 def ranks(wfs):
     import time
     time.sleep(wfs.world.rank * 0.1)
@@ -46,10 +47,11 @@ def collect_uwMM(wfs, a_uwMM, s, k, w):
             a_MM = MM_descriptor.empty(dtype=dtype)
             mm2MM.redistribute(a_mm, a_MM)
 
-        # Domain master send a_MM to the global master
+        # KSL master send a_MM to the global master
         if ksl_comm.rank == 0:
             if kpt_rank == 0:
                 assert wfs.world.rank == 0
+                # I have it already
                 return a_MM
             else:
                 wfs.kd.comm.send(a_MM, 0, 2017)
