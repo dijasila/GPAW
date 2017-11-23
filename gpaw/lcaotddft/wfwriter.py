@@ -9,11 +9,6 @@ class WaveFunctionWriter(TDDFTObserver):
 
     def __init__(self, filename, paw, interval=1):
         TDDFTObserver.__init__(self, paw, interval)
-        if len(paw.wfs.kpt_u) != 1:
-            raise NotImplementedError('K-points not tested!')
-        if paw.wfs.bd.comm.size != 1:
-            raise NotImplementedError('Band parallelization not tested!')
-
         if paw.niter == 0:
             self.writer = Writer(filename, paw.world, mode='w',
                                  tag=self.__class__.ulmtag)

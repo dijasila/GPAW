@@ -35,6 +35,7 @@ class TimeDependentHamiltonian(object):
         wfs = self.wfs
         writer.write(name=self.fxc_name)
         M = wfs.setups.nao
+        # TODO: this is broken for scalapack
         writer.add_array('deltaXC_H_MM',
                          (wfs.nspins, wfs.kd.nibzkpts, M, M),
                          dtype=wfs.dtype)

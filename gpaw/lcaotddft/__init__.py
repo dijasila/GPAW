@@ -65,7 +65,6 @@ class LCAOTDDFT(GPAW):
         self.log()
 
         assert self.wfs.dtype == complex
-        assert len(self.wfs.kpt_u) == 1
 
         self.timer.start('Initialize TDDFT')
 

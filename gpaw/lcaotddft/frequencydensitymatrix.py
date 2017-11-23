@@ -3,6 +3,8 @@ import numpy as np
 from gpaw.io import Reader
 from gpaw.io import Writer
 
+from gpaw.blacs import BlacsGrid
+from gpaw.blacs import Redistributor
 from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.tddft.units import eV_to_au
 
@@ -16,31 +18,44 @@ class FrequencyDensityMatrix(TDDFTObserver):
                  folding=None,
                  width=None):
         TDDFTObserver.__init__(self, paw, interval)
-        if len(paw.wfs.kpt_u) != 1:
-            raise NotImplementedError('K-points not tested!')
-
         folding = 'Gauss'
         width = 0.08
         frequencies = [1.0]
         self.world = paw.world
         self.wfs = paw.wfs
         kpt_u = self.wfs.kpt_u
+        ksl = self.wfs.ksl
 
         self.set_folding(folding, width)
+        self.using_blacs = ksl.using_blacs
+        if self.using_blacs:
+            ksl_comm = ksl.block_comm
+            kd_comm = self.wfs.kd.comm
+            assert self.world.size == ksl_comm.size * kd_comm.size
 
         self.omega_w = np.array(frequencies, dtype=float) * eV_to_au
-        Nw = len(self.omega_w)
-        NM = paw.wfs.setups.nao
-        Nu = len(kpt_u)
 
-        self.rho0_uMM = [None] * Nu
-        self.FReDrho_uwMM = [None] * Nu
-        self.FImDrho_uwMM = [None] * Nu
+        def zeros(dtype):
+            if self.using_blacs:
+                return ksl.mmdescriptor.zeros(dtype=dtype)
+            else:
+                return np.zeros((ksl.mynao, ksl.nao), dtype=dtype)
+
+        if self.wfs.gd.pbc_c.any():
+            self.rho0_dtype = complex
+        else:
+            self.rho0_dtype = float
+
+        self.rho0_uMM = []
+        self.FReDrho_uwMM = []
+        self.FImDrho_uwMM = []
         for u, kpt in enumerate(kpt_u):
-            # TODO: does this allocate duplicates on each kpt rank?
-            self.rho0_uMM[u] = np.empty((NM, NM), dtype=float)
-            self.FReDrho_uwMM[u] = np.empty((Nw, NM, NM), dtype=complex)
-            self.FImDrho_uwMM[u] = np.empty((Nw, NM, NM), dtype=complex)
+            self.rho0_uMM.append(zeros(self.rho0_dtype))
+            self.FReDrho_uwMM.append([])
+            self.FImDrho_uwMM.append([])
+            for w, omega in enumerate(self.omega_w):
+                self.FReDrho_uwMM[-1].append(zeros(complex))
+                self.FImDrho_uwMM[-1].append(zeros(complex))
 
     def set_folding(self, folding, width):
         if width is None:
@@ -62,7 +77,16 @@ class FrequencyDensityMatrix(TDDFTObserver):
             raise RuntimeError('Unknown folding: %s' % self.folding)
 
     def _get_density_matrix(self, paw, kpt):
-        return paw.wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM)
+        wfs = paw.wfs
+        if self.using_blacs:
+            ksl = wfs.ksl
+            rho_MM = ksl.calculate_blocked_density_matrix(kpt.f_n, kpt.C_nM)
+        else:
+            rho_MM = wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM)
+            paw.wfs.bd.comm.sum(rho_MM, root=0)
+            # TODO: should the sum over bands be moved to
+            # OrbitalLayouts.calculate_density_matrix()
+        return rho_MM
 
     def _update(self, paw):
         if paw.action == 'init':
@@ -70,8 +94,12 @@ class FrequencyDensityMatrix(TDDFTObserver):
             if paw.niter == 0:
                 for u, kpt in enumerate(self.wfs.kpt_u):
                     rho_MM = self._get_density_matrix(paw, kpt)
-                    assert np.max(np.absolute(rho_MM.imag)) == 0.0
-                    self.rho0_uMM[u][:] = rho_MM.real
+                    if self.rho0_dtype == float:
+                        assert np.max(np.absolute(rho_MM.imag)) == 0.0
+                        rho_MM = rho_MM.real
+                    # print '_get %s %s %s' % (self.ranks(), rho_MM.shape, rho_MM.dtype)
+                    # print '_get %s %s %s\n%s' % (self.ranks(), rho_MM.shape, rho_MM.dtype, rho_MM)
+                    self.rho0_uMM[u][:] = rho_MM
             return
 
         if paw.action == 'kick':
@@ -88,9 +116,6 @@ class FrequencyDensityMatrix(TDDFTObserver):
 
         for u, kpt in enumerate(self.wfs.kpt_u):
             rho_MM = self._get_density_matrix(paw, kpt)
-            print('%2d: %2d/%2d: %s %s' % (u, self.world.rank, self.world.size,
-                                           rho_MM.shape, rho_MM.dtype))
-
             Drho_MM = rho_MM - self.rho0_uMM[u]
             # Update Fourier transforms
             for w, omega in enumerate(self.omega_w):
@@ -106,32 +131,90 @@ class FrequencyDensityMatrix(TDDFTObserver):
                         tag=self.__class__.ulmtag)
         for arg in ['time', 'omega_w', 'folding', 'width']:
             writer.write(arg, getattr(self, arg))
-        self.write_u_array(writer, 'rho0_uMM')
-        self.write_u_array(writer, 'FReDrho_uwMM')
-        self.write_u_array(writer, 'FImDrho_uwMM')
+        self.write_uwMM(writer, 'rho0_uMM', no_w=True)
+        self.write_uwMM(writer, 'FReDrho_uwMM')
+        self.write_uwMM(writer, 'FImDrho_uwMM')
         writer.close()
 
-    def write_u_array(self, writer, name):
+    def write_uwMM(self, writer, name, no_w=False):
         wfs = self.wfs
-        A_uX = getattr(self, name)
-        shape = None
-        dtype = None
-        for A_X in A_uX:
-            if dtype is None:
-                dtype = A_X.dtype
-            assert dtype == A_X.dtype
-            if shape is None:
-                shape = A_X.shape
-            assert shape == A_X.shape
+        NM = wfs.ksl.nao
+        a_uwMM = getattr(self, name)
+        dtype = a_uwMM[0][0].dtype
+        if no_w:
+            shape = (NM, NM)
+            w_i = [None]
+        else:
+            shape = (len(self.omega_w), NM, NM)
+            w_i = range(len(self.omega_w))
+
         writer.add_array(name,
                          (wfs.nspins, wfs.kd.nibzkpts) + shape, dtype=dtype)
         for s in range(wfs.nspins):
             for k in range(wfs.kd.nibzkpts):
-                A_X = wfs.collect_auxiliary(A_uX, k, s,
-                                            shape=shape, dtype=dtype)
-                writer.fill(A_X)
+                for w in w_i:
+                    a_MM = self.collect(a_uwMM, s, k, w)
+                    writer.fill(a_MM)
+
+    def ranks(self):
+        # TODO: this is a debug function
+        import time
+        time.sleep(self.world.rank * 0.1)
+        wfs = self.wfs
+        txt = ''
+        comm_i = [self.world, wfs.world, wfs.gd.comm, wfs.kd.comm,
+                  wfs.bd.comm, wfs.ksl.block_comm]
+        for comm in comm_i:
+            txt += '%2d/%2d ' % (comm.rank, comm.size)
+        return txt
+
+    def collect(self, a_uwMM, s, k, w=None):
+        # This function is based on
+        # gpaw/wavefunctions/base.py: WaveFunctions.collect_auxiliary()
+
+        dtype = a_uwMM[0][0].dtype
+
+        wfs = self.wfs
+        ksl = wfs.ksl
+        NM = ksl.nao
+        kpt_rank, u = wfs.kd.get_rank_and_index(s, k)
+
+        ksl_comm = ksl.block_comm
+
+        if wfs.kd.comm.rank == kpt_rank:
+            if w is None:
+                a_MM = a_uwMM[u]
+            else:
+                a_MM = a_uwMM[u][w]
+
+            # Collect within blacs grid
+            if self.using_blacs:
+                a_mm = a_MM
+                grid = BlacsGrid(ksl_comm, 1, 1)
+                MM_descriptor = grid.new_descriptor(NM, NM, NM, NM)
+                mm2MM = Redistributor(ksl_comm,
+                                      ksl.mmdescriptor,
+                                      MM_descriptor)
+
+                a_MM = MM_descriptor.empty(dtype=dtype)
+                mm2MM.redistribute(a_mm, a_MM)
+
+            # Domain master send a_MM to the global master
+            if ksl_comm.rank == 0:
+                if kpt_rank == 0:
+                    assert self.world.rank == 0
+                    return a_MM
+                else:
+                    wfs.kd.comm.send(a_MM, 0, 2017)
+                    return None
+        elif ksl_comm.rank == 0 and kpt_rank != 0:
+            assert self.world.rank == 0
+            a_MM = np.empty((NM, NM), dtype=dtype)
+            wfs.kd.comm.receive(a_MM, kpt_rank, 2017)
+            return a_MM
 
     def read(self, filename):
+        raise NotImplementedError()
         reader = Reader(filename)
         for arg in ['time', 'omega_w', 'folding', 'width']:
             setattr(self, arg, getattr(reader, arg))
