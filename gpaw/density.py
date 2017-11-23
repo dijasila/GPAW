@@ -252,7 +252,11 @@ class Density:
                      comp_charge) / pseudo_charge
                 self.nt_xG *= x
             else:
-                # Use homogeneous background:
+                # Use homogeneous background.
+                #
+                # We have to use the volume per actual grid point,
+                # which is not the same as gd.volume as the latter
+                # includes ghost points.
                 volume = self.gd.get_size_of_global_array().prod() * self.gd.dv
                 total_charge = (self.charge + comp_charge -
                                 self.background_charge.charge)
