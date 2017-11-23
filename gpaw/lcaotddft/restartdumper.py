@@ -7,11 +7,11 @@ class RestartDumper(TDDFTObserver):
         self.restart_filename = restart_filename
 
     def _update(self, paw):
-        paw.log('%s:' % self.__class__.__name__)
+        if paw.niter == 0:
+            return
+        paw.log('%s activated' % self.__class__.__name__)
         for obs, n, args, kwargs in paw.observers:
             if (isinstance(obs, TDDFTObserver) and
                 hasattr(obs, 'write_restart')):
-                paw.log('Write restart for %s' % obs)
                 obs.write_restart()
-        paw.log('Write GPAW restart')
         paw.write(self.restart_filename, mode='all')

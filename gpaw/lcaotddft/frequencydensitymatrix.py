@@ -30,6 +30,7 @@ class FrequencyDensityMatrix(TDDFTObserver):
         self.has_initialized = False
         self.restart_filename = restart_filename
         self.time = paw.time
+        self.log = paw.log
 
         assert self.world.rank == self.wfs.world.rank
 
@@ -140,6 +141,7 @@ class FrequencyDensityMatrix(TDDFTObserver):
         self.write(self.restart_filename)
 
     def write(self, filename):
+        self.log('%s: Writing to %s' % (self.__class__.__name__, filename))
         writer = Writer(filename, self.world, mode='w',
                         tag=self.__class__.ulmtag)
         writer.write(version=self.__class__.version)
