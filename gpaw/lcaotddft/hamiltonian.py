@@ -43,7 +43,7 @@ class TimeDependentHamiltonian(object):
                          dtype=wfs.dtype)
         for s in range(wfs.nspins):
             for k in range(wfs.kd.nibzkpts):
-                H_MM = collect_uMM(wfs, self.deltaXC_H_uMM, k, s)
+                H_MM = collect_uMM(wfs, self.deltaXC_H_uMM, s, k)
                 writer.fill(H_MM)
 
     def read(self, reader):
