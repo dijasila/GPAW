@@ -67,10 +67,10 @@ class TimeDependentHamiltonian(object):
         self.timer.stop('Initialize TDDFT Hamiltonian')
 
     def initialize_fxc(self, niter):
-        self.timer.start('Initialize fxc')
         self.has_fxc = self.fxc_name is not None
         if not self.has_fxc:
             return
+        self.timer.start('Initialize fxc')
 
         get_H_MM = self.get_hamiltonian_matrix
 
