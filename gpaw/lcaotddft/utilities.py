@@ -3,6 +3,16 @@ import numpy as np
 from gpaw.blacs import BlacsGrid
 from gpaw.blacs import Redistributor
 
+def ranks(wfs):
+    import time
+    time.sleep(wfs.world.rank * 0.1)
+    txt = ''
+    comm_i = [wfs.world, wfs.gd.comm, wfs.kd.comm,
+              wfs.bd.comm, wfs.ksl.block_comm]
+    for comm in comm_i:
+        txt += '%2d/%2d ' % (comm.rank, comm.size)
+    return txt
+
 def collect_uMM(wfs, a_uMM, s, k):
     return collect_uwMM(wfs, a_uMM, s, k, w=None)
 
@@ -49,3 +59,23 @@ def collect_uwMM(wfs, a_uwMM, s, k, w):
         a_MM = np.empty((NM, NM), dtype=dtype)
         wfs.kd.comm.receive(a_MM, kpt_rank, 2017)
         return a_MM
+
+def distribute_MM(wfs, a_MM):
+    ksl = wfs.ksl
+    if not ksl.using_blacs:
+        return a_MM
+
+    dtype = a_MM.dtype
+    ksl_comm = ksl.block_comm
+    NM = ksl.nao
+    grid = BlacsGrid(ksl_comm, 1, 1)
+    MM_descriptor = grid.new_descriptor(NM, NM, NM, NM)
+    MM2mm = Redistributor(ksl_comm,
+                          MM_descriptor,
+                          ksl.mmdescriptor)
+    if ksl_comm.rank != 0:
+        a_MM = MM_descriptor.empty(dtype=dtype)
+
+    a_mm = ksl.mmdescriptor.empty(dtype=dtype)
+    MM2mm.redistribute(a_MM, a_mm)
+    return a_mm

@@ -5,6 +5,7 @@ from gpaw.xc import XC
 from gpaw.xc.kernel import XCNull
 
 from gpaw.lcaotddft.utilities import collect_uMM
+from gpaw.lcaotddft.utilities import distribute_MM
 
 
 class KickHamiltonian(object):
@@ -37,15 +38,12 @@ class TimeDependentHamiltonian(object):
         wfs = self.wfs
         writer.write(name=self.fxc_name)
         M = wfs.setups.nao
-        # TODO: this is broken for scalapack
-        writer.add_array('deltaXC_H_MM',
+        writer.add_array('deltaXC_H_uMM',
                          (wfs.nspins, wfs.kd.nibzkpts, M, M),
                          dtype=wfs.dtype)
         for s in range(wfs.nspins):
             for k in range(wfs.kd.nibzkpts):
-                H_MM = wfs.collect_auxiliary('deltaXC_H_MM', k, s,
-                                             shape=(M, M),
-                                             dtype=wfs.dtype)
+                H_MM = collect_uMM(wfs, self.deltaXC_H_uMM, k, s)
                 writer.fill(H_MM)
 
     def read(self, reader):
@@ -56,8 +54,12 @@ class TimeDependentHamiltonian(object):
         assert self.fxc_name is None or self.fxc_name == reader.name
         self.fxc_name = reader.name
         wfs = self.wfs
+        self.deltaXC_H_uMM = []
         for kpt in wfs.kpt_u:
-            kpt.deltaXC_H_MM = reader.proxy('deltaXC_H_MM', kpt.s, kpt.k)[:]
+            # TODO: does this read on all the ksl ranks in vain?
+            deltaXC_H_MM = reader.proxy('deltaXC_H_uMM', kpt.s, kpt.k)[:]
+            deltaXC_H_MM = distribute_MM(wfs, deltaXC_H_MM)
+            self.deltaXC_H_uMM.append(deltaXC_H_MM)
 
     def initialize(self, paw):
         self.timer = paw.timer
@@ -83,8 +85,9 @@ class TimeDependentHamiltonian(object):
 
         # Calculate deltaXC: 1. take current H_MM
         if niter == 0:
-            for kpt in self.wfs.kpt_u:
-                kpt.deltaXC_H_MM = get_H_MM(kpt, addfxc=False)
+            self.deltaXC_H_uMM = [None] * len(self.wfs.kpt_u)
+            for u, kpt in enumerate(self.wfs.kpt_u):
+                self.deltaXC_H_uMM[u] = get_H_MM(kpt, addfxc=False)
 
         # Update hamiltonian.xc
         if self.fxc_name == 'RPA':
@@ -97,8 +100,8 @@ class TimeDependentHamiltonian(object):
 
         # Calculate deltaXC: 2. update with new H_MM
         if niter == 0:
-            for kpt in self.wfs.kpt_u:
-                kpt.deltaXC_H_MM -= get_H_MM(kpt, addfxc=False)
+            for u, kpt in enumerate(self.wfs.kpt_u):
+                self.deltaXC_H_uMM[u] -= get_H_MM(kpt, addfxc=False)
 
     def update_projectors(self):
         self.timer.start('LCAO update projectors')
@@ -111,7 +114,9 @@ class TimeDependentHamiltonian(object):
         get_matrix = self.wfs.eigensolver.calculate_hamiltonian_matrix
         H_MM = get_matrix(self.hamiltonian, self.wfs, kpt, root=-1)
         if addfxc and self.has_fxc:
-            H_MM += kpt.deltaXC_H_MM
+            kpt_rank, u = self.wfs.kd.get_rank_and_index(kpt.s, kpt.k)
+            assert kpt_rank == self.wfs.kd.comm.rank
+            H_MM += self.deltaXC_H_uMM[u]
         return H_MM
 
     def update(self, mode='all'):
