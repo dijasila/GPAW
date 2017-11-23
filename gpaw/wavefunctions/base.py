@@ -63,9 +63,6 @@ class WaveFunctions:
         """Old name."""
         return self.mykpts
 
-    def __str__(self):
-        return '  Eigensolver: ' + str(self.eigensolver)
-
     def summary(self, log):
         log(eigenvalue_string(self))
 

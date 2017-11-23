@@ -214,9 +214,9 @@ class FDPWWaveFunctions(WaveFunctions):
         return self._work_matrix_nn
 
     def __str__(self):
-        s = 'Diagonalizer layout: ??????????????????'
-        s += 'Orthonormalizer layout: ????????'
-        return WaveFunctions.__str__(self) + s
+        comm, r, c, b = self.scalapack_parameters
+        return ('  ScaLapack parameters: grid={}x{}, blocksize={}'
+                .format(r, c, b))
 
     def set_setups(self, setups):
         WaveFunctions.set_setups(self, setups)
@@ -543,5 +543,3 @@ class FDPWWaveFunctions(WaveFunctions):
         ni = sum(dataset.ni for dataset in self.setups) / self.gd.comm.size
         mem.subnode('Projections', n * ni * np.dtype(self.dtype).itemsize)
         self.pt.estimate_memory(mem.subnode('Projectors'))
-        self.matrixoperator.estimate_memory(mem.subnode('Overlap op'),
-                                            self.dtype)

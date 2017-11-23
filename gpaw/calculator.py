@@ -822,7 +822,7 @@ class GPAW(PAW, Calculator):
 
         self.wfs.set_eigensolver(eigensolver)
 
-        self.log(self.wfs.eigensolver, '\n')
+        self.log('Eigensolver\n  ', self.wfs.eigensolver, '\n')
 
     def create_density(self, realspace, mode, background):
         gd = self.wfs.gd
