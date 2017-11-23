@@ -15,10 +15,12 @@ class FrequencyDensityMatrix(TDDFTObserver):
     version = 1
     ulmtag = 'FDM'
 
-    def __init__(self, paw, interval=1,
+    def __init__(self, paw,
                  frequencies=None,
                  folding=None,
-                 width=None):
+                 width=None,
+                 restart_filename=None,
+                 interval=1):
         TDDFTObserver.__init__(self, paw, interval)
         folding = 'Gauss'
         width = 0.08
@@ -26,6 +28,7 @@ class FrequencyDensityMatrix(TDDFTObserver):
         self.world = paw.world
         self.wfs = paw.wfs
         self.has_initialized = False
+        self.restart_filename = restart_filename
 
         assert self.world.rank == self.wfs.world.rank
 
@@ -131,12 +134,14 @@ class FrequencyDensityMatrix(TDDFTObserver):
                 self.FImDrho_uwMM[u][w] += Drho_MM.imag * f_w[w]
 
     def write_restart(self):
-        pass
-        # self.write(self.restart_filename)
+        if self.restart_filename is None:
+            return
+        self.write(self.restart_filename)
 
     def write(self, filename):
         writer = Writer(filename, self.world, mode='w',
                         tag=self.__class__.ulmtag)
+        writer.write(version=self.__class__.version)
         for arg in ['time', 'omega_w', 'folding', 'width']:
             writer.write(arg, getattr(self, arg))
         wfs = self.wfs
@@ -148,6 +153,12 @@ class FrequencyDensityMatrix(TDDFTObserver):
 
     def read(self, filename):
         reader = Reader(filename)
+        tag = reader.get_tag()
+        if tag != self.__class__.ulmtag:
+            raise RuntimeError('Unknown tag %s' % tag)
+        version = reader.version
+        if version != self.__class__.version:
+            raise RuntimeError('Unknown version %s' % version)
         for arg in ['time', 'omega_w', 'folding', 'width']:
             setattr(self, arg, getattr(reader, arg))
         wfs = self.wfs
