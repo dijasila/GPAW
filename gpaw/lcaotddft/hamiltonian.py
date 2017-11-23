@@ -50,6 +50,7 @@ class TimeDependentHamiltonian(object):
 
     def initialize(self, paw):
         self.timer = paw.timer
+        self.timer.start('Initialize TDDFT Hamiltonian')
         self.wfs = paw.wfs
         self.density = paw.density
         self.hamiltonian = paw.hamiltonian
@@ -57,13 +58,16 @@ class TimeDependentHamiltonian(object):
 
         # Reset the density mixer
         # XXX: density mixer is not written to the gpw file
+        # XXX: so we need to set it always
         self.density.set_mixer(DummyMixer())
         self.update()
 
         # Initialize fxc
         self.initialize_fxc(niter)
+        self.timer.stop('Initialize TDDFT Hamiltonian')
 
     def initialize_fxc(self, niter):
+        self.timer.start('Initialize fxc')
         self.has_fxc = self.fxc_name is not None
         if not self.has_fxc:
             return
@@ -82,6 +86,7 @@ class TimeDependentHamiltonian(object):
         else:
             xc = self.fxc_name
         # XXX: xc is not written to the gpw file
+        # XXX: so we need to set it always
         self.hamiltonian.xc = XC(xc)
         self.update()
 
@@ -89,26 +94,30 @@ class TimeDependentHamiltonian(object):
         if niter == 0:
             for u, kpt in enumerate(self.wfs.kpt_u):
                 self.deltaXC_H_uMM[u] -= get_H_MM(kpt, addfxc=False)
+        self.timer.stop('Initialize fxc')
 
     def update_projectors(self):
-        self.timer.start('LCAO update projectors')
-        # Loop over all k-points
+        self.timer.start('Update projectors')
         for kpt in self.wfs.kpt_u:
             self.wfs.atomic_correction.calculate_projections(self.wfs, kpt)
-        self.timer.stop('LCAO update projectors')
+        self.timer.stop('Update projectors')
 
     def get_hamiltonian_matrix(self, kpt, addfxc=True):
+        self.timer.start('Calculate H_MM')
         get_matrix = self.wfs.eigensolver.calculate_hamiltonian_matrix
         H_MM = get_matrix(self.hamiltonian, self.wfs, kpt, root=-1)
         if addfxc and self.has_fxc:
             kpt_rank, u = self.wfs.kd.get_rank_and_index(kpt.s, kpt.k)
             assert kpt_rank == self.wfs.kd.comm.rank
             H_MM += self.deltaXC_H_uMM[u]
+        self.timer.stop('Calculate H_MM')
         return H_MM
 
     def update(self, mode='all'):
+        self.timer.start('Update TDDFT Hamiltonian')
         if mode in ['all', 'density']:
             self.update_projectors()
             self.density.update(self.wfs)
         if mode in ['all']:
             self.hamiltonian.update(self.density)
+        self.timer.stop('Update TDDFT Hamiltonian')
