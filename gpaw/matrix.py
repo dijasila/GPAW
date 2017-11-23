@@ -171,8 +171,7 @@ class Matrix:
             other.array[:] = self.array
             return
 
-        if n2 == 1:
-            assert d1.blocksize is None
+        if n2 == 1 and d1.blocksize is None:
             assert d2.blocksize is None
             comm = d1.comm
             if comm.rank == 0:
@@ -187,9 +186,8 @@ class Matrix:
                 comm.send(self.array, 0)
             return
 
-        if n1 == 1:
+        if n1 == 1 and d2.blocksize is None:
             assert d1.blocksize is None
-            assert d2.blocksize is None
             comm = d1.comm
             if comm.rank == 0:
                 M = len(self)
