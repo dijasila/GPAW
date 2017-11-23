@@ -709,8 +709,8 @@ class RealSpaceDensity(Density):
     def calculate_pseudo_charge(self):
         self.nt_g = self.nt_sg.sum(axis=0)
         self.rhot_g = self.nt_g.copy()
-        Q_aL = self.Q.calculate(self.D_asp)
-        self.ghat.add(self.rhot_g, Q_aL)
+        self.calculate_multipole_moments()
+        self.ghat.add(self.rhot_g, self.Q_aL)
         self.background_charge.add_charge_to(self.rhot_g)
 
         if debug:
