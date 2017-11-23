@@ -186,13 +186,15 @@ class Davidson(Eigensolver):
 
             with self.timer('rotate_psi'):
                 if comm.rank == 0:
-                    M0.array[:] = H_NN[:B, :B].T
+                    if bd.comm.rank == 0:
+                        M0.array[:] = H_NN[:B, :B].T
                     M0.redist(M)
                 comm.broadcast(M.array, 0)
                 mmm(1.0, M, 'N', psit, 'N', 0.0, R)
                 mmm(1.0, M, 'N', P, 'N', 0.0, P3)
                 if comm.rank == 0:
-                    M0.array[:] = H_NN[B:, :B].T
+                    if bd.comm.rank == 0:
+                        M0.array[:] = H_NN[B:, :B].T
                     M0.redist(M)
                 comm.broadcast(M.array, 0)
                 mmm(1.0, M, 'N', psit2, 'N', 1.0, R)

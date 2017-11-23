@@ -146,10 +146,13 @@ class Matrix:
             out = Matrix(M, N, self.dtype,
                          dist=(dist.comm, dist.rows, dist.columns))
         if dist.comm.size > 1:
-            if alpha == 1.0 and beta == 0.0 and opa == 'N' and opb == 'N':
-                return fastmmm(self, b, out)
+            if alpha == 1.0 and opa == 'N' and opb == 'N':
+                return fastmmm(self, b, out, beta)
             if alpha == 1.0 and beta == 1.0 and opa == 'N' and opb == 'C':
-                return fastmmm2(self, b, out)
+                if symmetric:
+                    return fastmmm2(self, b, out)
+                else:
+                    return fastmmm2notsym(self, b, out)
 
         dist.multiply(alpha, self, opa, b, opb, beta, out, symmetric)
         return out
@@ -165,6 +168,39 @@ class Matrix:
         if n1 == n2 == 1:
             other.array[:] = self.array
             return
+
+        if n2 == 1:
+            assert d1.blocksize is None
+            assert d2.blocksize is None
+            comm = d1.comm
+            if comm.rank == 0:
+                M = len(self)
+                m = (M + comm.size - 1) // comm.size
+                other.array[:m] = self.array
+                for r in range(1, comm.size):
+                    m1 = min(r * m, M)
+                    m2 = min(m1 + m, M)
+                    comm.receive(other.array[m1:m2], r)
+            else:
+                comm.send(self.array, 0)
+            return
+
+        if n1 == 1:
+            assert d1.blocksize is None
+            assert d2.blocksize is None
+            comm = d1.comm
+            if comm.rank == 0:
+                M = len(self)
+                m = (M + comm.size - 1) // comm.size
+                other.array[:] = self.array[:m]
+                for r in range(1, comm.size):
+                    m1 = min(r * m, M)
+                    m2 = min(m1 + m, M)
+                    comm.send(self.array[m1:m2], r)
+            else:
+                comm.receive(other.array, 0)
+            return
+
         c = d1.comm if d1.comm.size > d2.comm.size else d2.comm
         n = max(n1, n2)
         if n < c.size:
@@ -420,12 +456,10 @@ def create_distribution(M, N, comm=None, r=1, c=1, b=None):
                              b)
 
 
-def fastmmm(m1, m2, m3):
+def fastmmm(m1, m2, m3, beta):
     comm = m1.dist.comm
 
     buf1 = m2.array
-
-    beta = 0.0
 
     N = len(m1)
     n = (N + comm.size - 1) // comm.size
@@ -498,7 +532,7 @@ def fastmmm2(a, b, out):
             if not (skip and comm.rank < half) and m2 > m1:
                 rrequest = comm.receive(buf1[:m2 - m1], rrank, 11, False)
             if not (skip and comm.rank >= half) and mym > 0:
-                srequest = comm.send(bb, srank, 11, False)
+                srequest = comm.send(b.array, srank, 11, False)
 
         if not (comm.size % 2 == 0 and r == half and comm.rank < half):
             m1 = min(((comm.rank - r) % comm.size) * m, M)
@@ -544,5 +578,52 @@ def fastmmm2(a, b, out):
     comm.waitall(requests)
     for m1, m2, block in blocks:
         out.array[:, m1:m2] += block
+
+    return out
+
+
+def fastmmm2notsym(a, b, out):
+    if a.comm:
+        assert b.comm is a.comm
+        if a.comm.size > 1:
+            assert out.comm == a.comm
+            assert out.state == 'a sum is needed'
+
+    comm = a.dist.comm
+    M, N = a.shape
+    m = (M + comm.size - 1) // comm.size
+    mym = len(a.array)
+
+    buf1 = np.empty((m, N), dtype=a.dtype)
+    buf2 = np.empty((m, N), dtype=a.dtype)
+    aa = a.array
+    bb = b.array
+
+    for r in range(comm.size):
+        rrequest = None
+        srequest = None
+
+        if r < comm.size - 1:
+            srank = (comm.rank + r + 1) % comm.size
+            rrank = (comm.rank - r - 1) % comm.size
+            m1 = min(rrank * m, M)
+            m2 = min(m1 + m, M)
+            if m2 > m1:
+                rrequest = comm.receive(buf1[:m2 - m1], rrank, 11, False)
+            if mym > 0:
+                srequest = comm.send(b.array, srank, 11, False)
+
+        m1 = min(((comm.rank - r) % comm.size) * m, M)
+        m2 = min(m1 + m, M)
+        #symmmmmmmmmmmmmmmmmmmmmmetricccccccccccccccc ??
+        blas.mmm(1.0, aa, 'N', bb[:m2 - m1], 'C', 1.0, out.array[:, m1:m2])
+
+        if rrequest:
+            comm.wait(rrequest)
+        if srequest:
+            comm.wait(srequest)
+
+        bb = buf1
+        buf1, buf2 = buf2, buf1
 
     return out

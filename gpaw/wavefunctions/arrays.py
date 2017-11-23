@@ -51,7 +51,7 @@ class ArrayWaveFunctions:
             assert opb in 'TC' and b.comm is self.comm
 
     def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
-                        operator=None, result=None):
+                        operator=None, result=None, serial=False):
         if out is None:
             out = Matrix(len(self), len(other or self), dtype=self.dtype,
                          dist=(self.matrix.dist.comm,
@@ -62,6 +62,10 @@ class ArrayWaveFunctions:
             if other is None:
                 assert symmetric
                 operate_and_multiply(self, self.dv, out, operator, result)
+            elif not serial:
+                assert not symmetric
+                operate_and_multiply_not_symmetric(self, self.dv, out,
+                                                   other)
             else:
                 self.multiply(self.dv, 'N', other, 'C', 0.0, out, symmetric)
         else:
@@ -170,7 +174,7 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
             return self.matrix.array
 
     def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
-                        operator=None, result=None):
+                        operator=None, result=None, serial=False):
         if other is None or isinstance(other, ArrayWaveFunctions):
             if out is None:
                 out = Matrix(len(self), len(other or self), dtype=self.dtype,
@@ -181,6 +185,10 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
             if other is None:
                 assert symmetric
                 operate_and_multiply(self, self.dv, out, operator, result)
+            elif not serial:
+                assert not symmetric
+                operate_and_multiply_not_symmetric(self, self.dv, out,
+                                                   other)
             elif self.dtype == complex:
                 self.matrix.multiply(self.dv, 'N', other.matrix, 'C',
                                      0.0, out, symmetric)
@@ -259,7 +267,8 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
                 psit2 = psit
 
         if not (comm.size % 2 == 0 and r == half and comm.rank < half):
-            m12 = psit2.matrix_elements(psit, symmetric=(r == 0), cc=True)
+            m12 = psit2.matrix_elements(psit, symmetric=(r == 0), cc=True,
+                                        serial=True)
             n1 = min(((comm.rank - r) % comm.size) * n, N)
             n2 = min(n1 + n, N)
             out.array[:, n1:n2] = m12.array[:, :n2 - n1]
@@ -295,3 +304,49 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
     comm.waitall(requests)
     for n1, n2, block in blocks:
         out.array[:, n1:n2] = block
+
+
+def operate_and_multiply_not_symmetric(psit1, dv, out, psit2):
+    if psit1.comm:
+        if psit2 is not None:
+            assert psit2.comm is psit1.comm
+        if psit1.comm.size > 1:
+            out.comm = psit1.comm
+            out.state = 'a sum is needed'
+
+    comm = psit1.matrix.dist.comm
+    N = len(psit1)
+    n = (N + comm.size - 1) // comm.size
+    mynbands = len(psit1.matrix.array)
+
+    buf1 = psit1.new(nbands=n, dist=None)
+    buf2 = psit1.new(nbands=n, dist=None)
+
+    psit1 = psit1.view(0, mynbands)
+    psit = psit2.view(0, mynbands)
+    for r in range(comm.size):
+        rrequest = None
+        srequest = None
+
+        if r < comm.size - 1:
+            srank = (comm.rank + r + 1) % comm.size
+            rrank = (comm.rank - r - 1) % comm.size
+            n1 = min(rrank * n, N)
+            n2 = min(n1 + n, N)
+            if n2 > n1:
+                rrequest = comm.receive(buf1.array[:n2 - n1], rrank, 11, False)
+            if len(psit1.array) > 0:
+                srequest = comm.send(psit2.array, srank, 11, False)
+
+        m12 = psit1.matrix_elements(psit, cc=True, serial=True)
+        n1 = min(((comm.rank - r) % comm.size) * n, N)
+        n2 = min(n1 + n, N)
+        out.array[:, n1:n2] = m12.array[:, :n2 - n1]
+
+        if rrequest:
+            comm.wait(rrequest)
+        if srequest:
+            comm.wait(srequest)
+
+        psit = buf1
+        buf1, buf2 = buf2, buf1
