@@ -4,7 +4,10 @@ from gpaw.io import Reader
 from gpaw.io import Writer
 
 from gpaw.lcaotddft.observer import TDDFTObserver
-from gpaw.lcaotddft.utilities import collect_uwMM
+from gpaw.lcaotddft.utilities import read_uMM
+from gpaw.lcaotddft.utilities import read_uwMM
+from gpaw.lcaotddft.utilities import write_uMM
+from gpaw.lcaotddft.utilities import write_uwMM
 from gpaw.tddft.units import eV_to_au
 
 
@@ -22,39 +25,46 @@ class FrequencyDensityMatrix(TDDFTObserver):
         frequencies = [1.0]
         self.world = paw.world
         self.wfs = paw.wfs
-        kpt_u = self.wfs.kpt_u
-        ksl = self.wfs.ksl
+        self.has_initialized = False
+
+        assert self.world.rank == self.wfs.world.rank
 
         self.set_folding(folding, width)
-        self.using_blacs = ksl.using_blacs
+        self.using_blacs = self.wfs.ksl.using_blacs
         if self.using_blacs:
-            ksl_comm = ksl.block_comm
+            ksl_comm = self.wfs.ksl.block_comm
             kd_comm = self.wfs.kd.comm
             assert self.world.size == ksl_comm.size * kd_comm.size
 
         self.omega_w = np.array(frequencies, dtype=float) * eV_to_au
 
-        def zeros(dtype):
-            if self.using_blacs:
-                return ksl.mmdescriptor.zeros(dtype=dtype)
-            else:
-                return np.zeros((ksl.mynao, ksl.nao), dtype=dtype)
+    def initialize(self):
+        if self.has_initialized:
+            return
 
         if self.wfs.gd.pbc_c.any():
             self.rho0_dtype = complex
         else:
             self.rho0_dtype = float
 
+        def zeros(dtype):
+            ksl = self.wfs.ksl
+            if self.using_blacs:
+                return ksl.mmdescriptor.zeros(dtype=dtype)
+            else:
+                return np.zeros((ksl.mynao, ksl.nao), dtype=dtype)
+
         self.rho0_uMM = []
         self.FReDrho_uwMM = []
         self.FImDrho_uwMM = []
-        for u, kpt in enumerate(kpt_u):
+        for kpt in self.wfs.kpt_u:
             self.rho0_uMM.append(zeros(self.rho0_dtype))
             self.FReDrho_uwMM.append([])
             self.FImDrho_uwMM.append([])
-            for w, omega in enumerate(self.omega_w):
+            for omega in self.omega_w:
                 self.FReDrho_uwMM[-1].append(zeros(complex))
                 self.FImDrho_uwMM[-1].append(zeros(complex))
+        self.has_initialized = True
 
     def set_folding(self, folding, width):
         if width is None:
@@ -90,14 +100,13 @@ class FrequencyDensityMatrix(TDDFTObserver):
     def _update(self, paw):
         if paw.action == 'init':
             self.time = paw.time
+            self.initialize()
             if paw.niter == 0:
                 for u, kpt in enumerate(self.wfs.kpt_u):
                     rho_MM = self._get_density_matrix(paw, kpt)
                     if self.rho0_dtype == float:
                         assert np.max(np.absolute(rho_MM.imag)) == 0.0
                         rho_MM = rho_MM.real
-                    # print '_get %s %s %s' % (self.ranks(), rho_MM.shape, rho_MM.dtype)
-                    # print '_get %s %s %s\n%s' % (self.ranks(), rho_MM.shape, rho_MM.dtype, rho_MM)
                     self.rho0_uMM[u][:] = rho_MM
             return
 
@@ -130,54 +139,22 @@ class FrequencyDensityMatrix(TDDFTObserver):
                         tag=self.__class__.ulmtag)
         for arg in ['time', 'omega_w', 'folding', 'width']:
             writer.write(arg, getattr(self, arg))
-        self.write_uwMM(writer, 'rho0_uMM', no_w=True)
-        self.write_uwMM(writer, 'FReDrho_uwMM')
-        self.write_uwMM(writer, 'FImDrho_uwMM')
+        wfs = self.wfs
+        write_uMM(wfs, writer, 'rho0_uMM', self.rho0_uMM)
+        wlist = range(len(self.omega_w))
+        write_uwMM(wfs, writer, 'FReDrho_uwMM', self.FReDrho_uwMM, wlist)
+        write_uwMM(wfs, writer, 'FImDrho_uwMM', self.FImDrho_uwMM, wlist)
         writer.close()
 
-    def write_uwMM(self, writer, name, no_w=False):
-        wfs = self.wfs
-        NM = wfs.ksl.nao
-        a_uwMM = getattr(self, name)
-        dtype = a_uwMM[0][0].dtype
-        if no_w:
-            shape = (NM, NM)
-            w_i = [None]
-        else:
-            shape = (len(self.omega_w), NM, NM)
-            w_i = range(len(self.omega_w))
-
-        writer.add_array(name,
-                         (wfs.nspins, wfs.kd.nibzkpts) + shape, dtype=dtype)
-        for s in range(wfs.nspins):
-            for k in range(wfs.kd.nibzkpts):
-                for w in w_i:
-                    a_MM = collect_uwMM(wfs, a_uwMM, s, k, w)
-                    writer.fill(a_MM)
-
-    def ranks(self):
-        # TODO: this is a debug function
-        import time
-        time.sleep(self.world.rank * 0.1)
-        wfs = self.wfs
-        txt = ''
-        comm_i = [self.world, wfs.world, wfs.gd.comm, wfs.kd.comm,
-                  wfs.bd.comm, wfs.ksl.block_comm]
-        for comm in comm_i:
-            txt += '%2d/%2d ' % (comm.rank, comm.size)
-        return txt
-
     def read(self, filename):
-        raise NotImplementedError()
         reader = Reader(filename)
         for arg in ['time', 'omega_w', 'folding', 'width']:
             setattr(self, arg, getattr(reader, arg))
-        self.read_u_array(reader, 'rho0_uMM')
-        self.read_u_array(reader, 'FReDrho_uwMM')
-        self.read_u_array(reader, 'FImDrho_uwMM')
-        reader.close()
-
-    def read_u_array(self, reader, name):
         wfs = self.wfs
-        for u, kpt in enumerate(wfs.kpt_u):
-            getattr(self, name)[u] = reader.proxy(name, kpt.s, kpt.k)[:]
+        self.rho0_uMM = read_uMM(wfs, reader, 'rho0_uMM')
+        self.rho0_dtype = self.rho0_uMM[u].dtype
+        wlist = range(len(self.omega_w))
+        self.FReDrho_uwMM = read_uwMM(wfs, reader, 'FReDrho_uwMM', wlist)
+        self.FImDrho_uwMM = read_uwMM(wfs, reader, 'FImDrho_uwMM', wlist)
+        reader.close()
+        self.has_initialized = True
