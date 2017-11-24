@@ -10,8 +10,7 @@ kpts_kc = None
 s = Spline(l=0, rmax=2.0, f_g=np.array([1, 0.9, 0.1, 0.0]))
 p = Spline(l=1, rmax=2.0, f_g=np.array([1, 0.9, 0.1, 0.0]))
 spline_aj = [[s], [s, p]]
-c = LFC(gd, spline_aj, cut=True, forces=True)
-c.set_positions(spos_ac)
+c = LFC(spline_aj, spos_ac, gd, cut=True, forces=True)
 C_ani = c.dict(3, zero=True)
 if 1 in C_ani:
     C_ani[1][:, 1:] = np.eye(3)
@@ -46,6 +45,3 @@ for v in range(3):
         C0_n /= -2 * eps
         assert abs(C0_n - d_aniv[0][:, 0, v]).max() < 1e-8
     pos_av[0, v] += eps
- 
-
-    

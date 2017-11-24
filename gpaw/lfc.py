@@ -5,7 +5,7 @@ import numpy as np
 from ase.units import Bohr
 
 import _gpaw
-from gpaw import debug, extra_parameters
+from gpaw import debug
 from gpaw.grid_descriptor import GridDescriptor, GridBoundsError
 from gpaw.utilities import smallest_safe_grid_spacing
 
@@ -196,6 +196,7 @@ class Sphere:
 # Quick hack: base class to share basic functionality across LFC classes
 class BaseLFC:
     def dict(self, shape=(), derivative=False, zero=False):
+        self._update()
         if isinstance(shape, int):
             shape = (shape,)
         if derivative:
@@ -222,15 +223,17 @@ class BaseLFC:
         mem.setsize(nbytes / self.gd.comm.size)  # Assume equal distribution
 
 
-class NewLocalizedFunctionsCollection(BaseLFC):
-    """New LocalizedFunctionsCollection
+from gpaw.utilities.debug import frozen
+@frozen
+class LocalizedFunctionsCollection(BaseLFC):
+    """LocalizedFunctionsCollection
 
     Utilizes that localized functions can be stored on a spherical subset of
     the uniform grid, as opposed to LocalizedFunctionsCollection which is just
     a wrapper around the old localized_functions which use rectangular grids.
 
     """
-    def __init__(self, gd, spline_aj,
+    def __init__(self, spline_aj, spos_ac, gd,
                  kd=None, cut=False, dtype=float,
                  integral=None, forces=None):
         self.gd = gd
@@ -258,23 +261,40 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         else:
             self.integral_a = None
 
+        self.M_a = None
+        self.M_W = None
+        self.G_B = None
+        self.W_B = None
+        self.A_Wgm = None
+        self.pos_Wv = None
+        self.phase_qW = None
+        self.atom_indices = None
         self.my_atom_indices = None
+        self.lfc = None
+
+        self.spos_ac = None
+        self.update_required = True
+
+        self.set_positions(spos_ac)
 
     def set_positions(self, spos_ac):
         assert len(spos_ac) == len(self.sphere_a)
-        spos_ac = np.asarray(spos_ac)
+        self.spos_ac = np.asarray(spos_ac)
         movement = False
-        for a, (spos_c, sphere) in enumerate(zip(spos_ac, self.sphere_a)):
+        for a, (spos_c, sphere) in enumerate(zip(self.spos_ac,
+                                                 self.sphere_a)):
             try:
                 movement |= sphere.set_position(spos_c, self.gd, self.cut)
             except GridBoundsError as e:
                 e.args = ['Atom %d too close to edge: %s' % (a, str(e))]
                 raise
 
-        if movement or self.my_atom_indices is None:
-            self._update(spos_ac)
+        self.update_required = movement or self.my_atom_indices is None
 
-    def _update(self, spos_ac):
+    def _update(self):
+        if not self.update_required:
+            return
+
         nB = 0
         nW = 0
         self.my_atom_indices = []
@@ -299,7 +319,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         self.Mmax = M
 
-        natoms = len(spos_ac)
+        natoms = len(self.spos_ac)
         # Holm-Nielsen check:
         if ((self.gd.comm.sum(float(sum(self.my_atom_indices))) !=
              natoms * (natoms - 1) // 2)):
@@ -322,7 +342,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             nw = len(sphere.M_w)
             self.M_W[W:W + nw] = self.M_a[a] + np.array(sphere.M_w)
             sdisp_Wc[W:W + nw] = sphere.sdisp_wc
-            self.pos_Wv[W:W + nw] = np.dot(spos_ac[a] -
+            self.pos_Wv[W:W + nw] = np.dot(self.spos_ac[a] -
                                            np.array(sphere.sdisp_wc),
                                            self.gd.cell_cv)
             for G_b in sphere.G_wb:
@@ -403,6 +423,8 @@ class NewLocalizedFunctionsCollection(BaseLFC):
            x       --  xi    i
                    a,i
         """
+
+        self._update()
 
         assert not self.use_global_indices
         if q == -1:
@@ -547,6 +569,8 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                    /     x       i
 
         """
+        self._update()
+
         assert not self.use_global_indices
         if q == -1:
             assert self.dtype == float
@@ -628,6 +652,8 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         Notice that d Phi^a_i / dR^a_v == - d Phi^a_i / d v.
 
         """
+
+        self._update()
 
         assert not self.use_global_indices
 
@@ -923,25 +949,25 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         return self.sphere_a[a].get_function_count()
 
 
-class BasisFunctions(NewLocalizedFunctionsCollection):
+class BasisFunctions(LocalizedFunctionsCollection):
     def __init__(self, gd, spline_aj, kd=None, cut=False, dtype=float,
                  integral=None, forces=None):
-        NewLocalizedFunctionsCollection.__init__(self, gd, spline_aj,
-                                                 kd, cut,
-                                                 dtype, integral,
-                                                 forces)
+        LocalizedFunctionsCollection.__init__(self, gd, spline_aj,
+                                              kd, cut,
+                                              dtype, integral,
+                                              forces)
         self.use_global_indices = True
 
         self.Mstart = None
         self.Mstop = None
 
     def set_positions(self, spos_ac):
-        NewLocalizedFunctionsCollection.set_positions(self, spos_ac)
+        LocalizedFunctionsCollection.set_positions(self, spos_ac)
         self.Mstart = 0
         self.Mstop = self.Mmax
 
     def _update(self, spos_ac):
-        sdisp_Wc = NewLocalizedFunctionsCollection._update(self, spos_ac)
+        sdisp_Wc = LocalizedFunctionsCollection._update(self, spos_ac)
 
         if not self.gamma or self.dtype == complex:
             self.x_W, self.sdisp_xc = self.create_displacement_arrays(sdisp_Wc)
@@ -1182,137 +1208,6 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
             M1 = max(0, M1)
             F_av[a, :] = 2.0 * F_vM[:, M1:M2].sum(axis=1)
         return F_av
-
-
-from gpaw.localized_functions import LocFuncs, LocFuncBroadcaster
-from gpaw.mpi import run
-
-
-class OldLocalizedFunctionsCollection(BaseLFC):
-    def __init__(self, gd, spline_aj, kpt_comm=None,
-                 cut=False, dtype=float,
-                 integral=None, forces=False):
-
-        self.gd = gd
-        self.spline_aj = spline_aj
-        self.cut = cut
-        self.forces = forces
-        self.dtype = dtype
-        self.integral_a = integral
-
-        self.spos_ac = None
-        self.lfs_a = {}
-        self.ibzk_qc = None
-        self.gamma = True
-        self.kpt_comm = kpt_comm
-
-        self.my_atom_indices = None
-
-    def set_positions(self, spos_ac):
-        if self.kpt_comm:
-            lfbc = LocFuncBroadcaster(self.kpt_comm)
-        else:
-            lfbc = None
-
-        for a, spline_j in enumerate(self.spline_aj):
-            if self.spos_ac is None or (self.spos_ac[a] != spos_ac[a]).any():
-                lfs = LocFuncs(spline_j, self.gd, spos_ac[a],
-                               self.dtype, self.cut, self.forces, lfbc)
-                if len(lfs.box_b) > 0:
-                    if not self.gamma:
-                        lfs.set_phase_factors(self.ibzk_qc)
-                    self.lfs_a[a] = lfs
-                elif a in self.lfs_a:
-                    del self.lfs_a[a]
-
-        if lfbc:
-            lfbc.broadcast()
-
-        rank = self.gd.comm.rank
-        self.my_atom_indices = [a for a, lfs in self.lfs_a.items()
-                                if lfs.root == rank]
-        self.my_atom_indices.sort()
-        self.atom_indices = [a for a, lfs in self.lfs_a.items()]
-        self.atom_indices.sort()
-
-        if debug:
-            # Holm-Nielsen check:
-            natoms = len(spos_ac)
-            assert (self.gd.comm.sum(float(sum(self.my_atom_indices))) ==
-                    natoms * (natoms - 1) // 2)
-
-        if self.integral_a is not None:
-            if isinstance(self.integral_a, (float, int)):
-                integral = self.integral_a
-                for a in self.atom_indices:
-                    self.lfs_a[a].normalize(integral)
-            else:
-                for a in self.atom_indices:
-                    lfs = self.lfs_a[a]
-                    integral = self.integral_a[a]
-                    if abs(integral) > 1e-15:
-                        lfs.normalize(integral)
-        self.spos_ac = spos_ac
-
-    def get_dtype(self):  # old LFC uses the dtype attribute for dicts
-        return self.dtype
-
-    def add(self, a_xG, c_axi=1.0, q=-1):
-        if isinstance(c_axi, float):
-            assert q == -1
-            c_xi = np.array([c_axi])
-            run([lfs.iadd(a_xG, c_xi) for lfs in self.lfs_a.values()])
-        else:
-            run([self.lfs_a[a].iadd(a_xG, c_axi.get(a), q, True)
-                 for a in self.atom_indices])
-
-    def integrate(self, a_xG, c_axi, q=-1):
-        for c_xi in c_axi.values():
-            c_xi.fill(0.0)
-        run([self.lfs_a[a].iintegrate(a_xG, c_axi.get(a), q)
-             for a in self.atom_indices])
-
-    def derivative(self, a_xG, c_axiv, q=-1):
-        for c_xiv in c_axiv.values():
-            c_xiv.fill(0.0)
-        run([self.lfs_a[a].iderivative(a_xG, c_axiv.get(a), q)
-             for a in self.atom_indices])
-
-    def add1(self, n_g, scale, I_a):
-        scale_i = np.array([scale], float)
-        for lfs in self.lfs_a.values():
-            lfs.add(n_g, scale_i)
-        for a, lfs in self.lfs_a.items():
-            I_ic = np.zeros((1, 4))
-            for box in lfs.box_b:
-                box.norm(I_ic)
-            I_a[a] += I_ic[0, 0] * scale
-
-    def add2(self, n_g, D_asp, s, scale, I_a):
-        for a, lfs in self.lfs_a.items():
-            I_a[a] += lfs.add_density2(n_g, scale * D_asp[a][s])
-
-    def get_function_count(self, a):
-        return self.lfs_a[a].ni
-
-    def estimate_memory(self, mem):
-        count = 0
-        for spline_j in self.spline_aj:
-            for spline in spline_j:
-                l = spline.get_angular_momentum_number()
-                sidelength = 2 * spline.get_cutoff()
-                count += (2 * l + 1) * sidelength**3 / self.gd.dv
-        bytes = count * mem.floatsize / self.gd.comm.size
-        mem.subnode('Boxes', bytes)
-        if self.forces:
-            mem.subnode('Derivatives', 3 * bytes)
-        mem.subnode('Work', bytes)
-
-
-if extra_parameters.get('usenewlfc', True):
-    LocalizedFunctionsCollection = NewLocalizedFunctionsCollection
-else:
-    LocalizedFunctionsCollection = OldLocalizedFunctionsCollection
 
 
 def LFC(gd, spline_aj, kd=None,
