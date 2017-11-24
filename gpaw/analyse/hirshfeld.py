@@ -85,7 +85,7 @@ class HirshfeldDensity(RealSpaceDensity):
                         np.zeros(len(atoms)), False)
         self.set_mixer(None)
 
-        # FIXME nparray causes partitionong.py test to fail
+        rank_a = self.gd.get_ranks_from_positions(spos_ac)
         self.set_positions(spos_ac, AtomPartition(self.gd.comm, rank_a))
         basis_functions = BasisFunctions(self.gd,
                                          [setup.phit_j
