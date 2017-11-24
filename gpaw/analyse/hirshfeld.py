@@ -67,26 +67,10 @@ class HirshfeldDensity(RealSpaceDensity):
         if atom_indices is None:
             atom_indices = range(len(all_atoms))
 
-        density = self.calculator.density
-        spos_ac = all_atoms.get_scaled_positions()
-        rank_a = self.finegd.get_ranks_from_positions(spos_ac)
+        # select atoms and get arrays
+        atoms = self.calculator.get_atoms()[atom_indices]
+        rank_a = self.calculator.density.atom_partition.rank_a[atom_indices]
 
-        density.set_positions(all_atoms.get_scaled_positions(),
-                              AtomPartition(self.finegd.comm, rank_a))
-
-        # select atoms
-        atoms = []
-        D_asp = {}
-        rank_a = []
-        all_D_asp = self.calculator.density.D_asp
-        all_rank_a = self.calculator.density.atom_partition.rank_a
-        for a in atom_indices:
-            if a in all_D_asp:
-                D_asp[len(atoms)] = all_D_asp.get(a)
-            atoms.append(all_atoms[a])
-            rank_a.append(all_rank_a[a])
-        atoms = Atoms(atoms,
-                      cell=all_atoms.get_cell(), pbc=all_atoms.get_pbc())
         spos_ac = atoms.get_scaled_positions()
         Z_a = atoms.get_atomic_numbers()
 
@@ -103,7 +87,6 @@ class HirshfeldDensity(RealSpaceDensity):
 
         # FIXME nparray causes partitionong.py test to fail
         self.set_positions(spos_ac, AtomPartition(self.gd.comm, rank_a))
-        self.D_asp = D_asp
         basis_functions = BasisFunctions(self.gd,
                                          [setup.phit_j
                                           for setup in self.setups],
@@ -134,6 +117,11 @@ class HirshfeldPartitioning:
         density_ok = np.where(density_g > self.density_cutoff)
         self.invweight_g[density_ok] = 1.0 / density_g[density_ok]
 
+        den_sg, gd = self.calculator.density.get_all_electron_density(
+            self.atoms)
+        assert(gd == self.calculator.density.finegd)
+        self.den_g = den_sg.sum(axis=0)
+
     def get_calculator(self):
         return self.calculator
 
@@ -150,12 +138,7 @@ class HirshfeldPartitioning:
 
         After: Tkatchenko and Scheffler PRL 102 (2009) 073005, eq. (7)
         """
-        atoms = self.atoms
         finegd = self.calculator.density.finegd
-
-        den_sg, gd = self.calculator.density.get_all_electron_density(atoms)
-        den_g = den_sg.sum(axis=0)
-        assert(gd == finegd)
         denfree_g, gd = self.hdensity.get_density([atom_index])
         assert(gd == finegd)
 
@@ -166,7 +149,7 @@ class HirshfeldPartitioning:
 
         weight_g = denfree_g * self.invweight_g
 
-        nom = finegd.integrate(r3_g * den_g * weight_g)
+        nom = finegd.integrate(r3_g * self.den_g * weight_g)
         denom = finegd.integrate(r3_g * denfree_g)
 
         return nom / denom
