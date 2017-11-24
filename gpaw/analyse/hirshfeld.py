@@ -1,6 +1,5 @@
 import numpy as np
 
-from ase import Atoms
 from ase.units import Bohr
 from gpaw.density import RealSpaceDensity
 from gpaw.lfc import BasisFunctions
