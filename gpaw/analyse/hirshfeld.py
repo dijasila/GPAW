@@ -67,10 +67,8 @@ class HirshfeldDensity(RealSpaceDensity):
         if atom_indices is None:
             atom_indices = range(len(all_atoms))
 
-        # select atoms and get arrays
+        # select atoms
         atoms = self.calculator.get_atoms()[atom_indices]
-        rank_a = self.calculator.density.atom_partition.rank_a[atom_indices]
-
         spos_ac = atoms.get_scaled_positions()
         Z_a = atoms.get_atomic_numbers()
 
@@ -84,7 +82,6 @@ class HirshfeldDensity(RealSpaceDensity):
                         self.calculator.timer,
                         np.zeros(len(atoms)), False)
         self.set_mixer(None)
-
         rank_a = self.gd.get_ranks_from_positions(spos_ac)
         self.set_positions(spos_ac, AtomPartition(self.gd.comm, rank_a))
         basis_functions = BasisFunctions(self.gd,
