@@ -230,7 +230,8 @@ class NewLocalizedFunctionsCollection(BaseLFC):
     a wrapper around the old localized_functions which use rectangular grids.
 
     """
-    def __init__(self, gd, spline_aj, kd=None, cut=False, dtype=float,
+    def __init__(self, gd, spline_aj,
+                 kd=None, cut=False, dtype=float,
                  integral=None, forces=None):
         self.gd = gd
         self.sphere_a = [Sphere(spline_j) for spline_j in spline_aj]
@@ -1182,6 +1183,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
             F_av[a, :] = 2.0 * F_vM[:, M1:M2].sum(axis=1)
         return F_av
 
+
 from gpaw.localized_functions import LocFuncs, LocFuncBroadcaster
 from gpaw.mpi import run
 
@@ -1306,6 +1308,7 @@ class OldLocalizedFunctionsCollection(BaseLFC):
             mem.subnode('Derivatives', 3 * bytes)
         mem.subnode('Work', bytes)
 
+
 if extra_parameters.get('usenewlfc', True):
     LocalizedFunctionsCollection = NewLocalizedFunctionsCollection
 else:
@@ -1342,6 +1345,7 @@ def test():
     plt.contourf(n_G[20, :, :])
     plt.axis('equal')
     plt.show()
+
 
 if __name__ == '__main__':
     test()

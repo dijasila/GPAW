@@ -515,7 +515,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                  parallel, initksl,
                  reuse_wfs_method, collinear,
                  gd, nvalence, setups, bd, dtype,
-                 world, kd, kptband_comm, timer):
+                 world, kd, kptband_comm, timer, spos_ac):
         self.ecut = ecut
         self.fftwflags = fftwflags
         self.dedepsilon = dedepsilon  # Pulay correction for stress tensor
@@ -523,6 +523,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.ng_k = None  # number of G-vectors for all IBZ k-points
 
         FDPWWaveFunctions.__init__(self, parallel, initksl,
+                                   spos_ac=spos_ac,
                                    reuse_wfs_method=reuse_wfs_method,
                                    collinear=collinear,
                                    gd=gd, nvalence=nvalence, setups=setups,
@@ -556,7 +557,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 self.ng_k[kpt.k] = len(self.pd.Q_qG[kpt.q])
         self.kd.comm.sum(self.ng_k)
 
-        self.pt = PWLFC([setup.pt_j for setup in setups], self.pd)
+        self.pt = PWLFC([setup.pt_j for setup in setups],
+                        self.spos_ac,
+                        self.pd)
 
         FDPWWaveFunctions.set_setups(self, setups)
 
@@ -1059,8 +1062,6 @@ class PWLFC(BaseLFC):
                 blocksize = None
         self.blocksize = blocksize
 
-        self.set_positions(spos_ac)
-
         self.my_atom_indices = np.arange(len(spos_ac))
 
         self.indices = []
@@ -1149,8 +1150,6 @@ class PWLFC(BaseLFC):
             self.eikR_qa = np.exp(2j * pi * np.dot(kd.ibzk_qc, spos_ac.T))
 
     def expand(self, q=-1, G1=0, G2=None):
-        if not self.initialized:
-            self.initialize()
         if G2 is None:
             G2 = self.Y_qLG[q].shape[1]
         f_IG = np.empty((self.nI, G2 - G1), complex)
@@ -1163,6 +1162,9 @@ class PWLFC(BaseLFC):
         return f_IG
 
     def block(self, q=-1, serial=True):
+        if not self.initialized:
+            self.initialize()
+
         nG = self.Y_qLG[q].shape[1]
         iblock = 0
         if self.blocksize:

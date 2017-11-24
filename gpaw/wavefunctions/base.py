@@ -36,7 +36,7 @@ class WaveFunctions:
     """
 
     def __init__(self, gd, nvalence, setups, bd, dtype, collinear,
-                 world, kd, kptband_comm, timer):
+                 world, kd, kptband_comm, timer, spos_ac):
         self.gd = gd
         self.nspins = kd.nspins
         self.collinear = collinear
@@ -48,13 +48,13 @@ class WaveFunctions:
         self.kd = kd
         self.kptband_comm = kptband_comm
         self.timer = timer
+        self.spos_ac = spos_ac
         self.atom_partition = None
 
         self.mykpts = kd.create_k_points(self.gd, collinear)
 
         self.eigensolver = None
         self.positions_set = False
-        self.spos_ac = None
 
         self.set_setups(setups)
 
