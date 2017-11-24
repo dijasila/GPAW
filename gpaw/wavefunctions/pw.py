@@ -1025,9 +1025,10 @@ def ft(spline):
 
     return Spline(l, k_q[-1], f_q)
 
-
+from gpaw.utilities.debug import frozen
+@frozen
 class PWLFC(BaseLFC):
-    def __init__(self, spline_aj, pd, blocksize=5000, comm=None):
+    def __init__(self, spline_aj, spos_ac, pd, blocksize=5000, comm=None):
         """Reciprocal-space plane-wave localized function collection.
 
         spline_aj: list of list of spline objects
@@ -1058,21 +1059,29 @@ class PWLFC(BaseLFC):
                 blocksize = None
         self.blocksize = blocksize
 
+        self.set_positions(spos_ac)
+
+        self.my_atom_indices = np.arange(len(spos_ac))
+
+        self.indices = []
+        I1 = 0
+        for a in self.my_atom_indices:
+            I2 = I1 + sum(2 * spline.l + 1 for spline in spline_aj[a])
+            self.indices.append((a, I1, I2))
+            I1 = I2
+        self.nI = I1
+
         # These are set later in set_potitions():
         self.eikR_qa = None
-        self.my_atom_indices = None
-        self.indices = None
         self.pos_av = None
-        self.nI = None
 
         if comm is None:
             comm = pd.gd.comm
         self.comm = comm
 
-    def initialize(self):
-        if self.initialized:
-            return
+        self.set_positions(spos_ac)
 
+    def initialize(self):
         cache = {}
         lmax = -1
 
@@ -1132,25 +1141,16 @@ class PWLFC(BaseLFC):
                 j += 1
 
     def set_positions(self, spos_ac):
-        self.initialize()
+        self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
         kd = self.pd.kd
         if kd is None or kd.gamma:
             self.eikR_qa = np.ones((1, len(spos_ac)))
         else:
             self.eikR_qa = np.exp(2j * pi * np.dot(kd.ibzk_qc, spos_ac.T))
 
-        self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
-
-        self.my_atom_indices = np.arange(len(spos_ac))
-        self.indices = []
-        I1 = 0
-        for a in self.my_atom_indices:
-            I2 = I1 + self.get_function_count(a)
-            self.indices.append((a, I1, I2))
-            I1 = I2
-        self.nI = I1
-
     def expand(self, q=-1, G1=0, G2=None):
+        if not self.initialized:
+            self.initialize()
         if G2 is None:
             G2 = self.Y_qLG[q].shape[1]
         f_IG = np.empty((self.nI, G2 - G1), complex)

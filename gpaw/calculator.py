@@ -966,7 +966,8 @@ class GPAW(PAW, Calculator):
 
         wfs_kwargs = dict(gd=gd, nvalence=nvalence, setups=setups,
                           bd=bd, dtype=dtype, world=self.world, kd=kd,
-                          kptband_comm=kptband_comm, timer=self.timer)
+                          kptband_comm=kptband_comm, timer=self.timer,
+                          spos_ac=self.spos_ac)
 
         if self.parallel['sl_auto']:
             # Choose scalapack parallelization automatically
