@@ -45,8 +45,6 @@ class Integrator():
 
         if comm.rank != 0:
             txt = devnull
-        elif isinstance(txt, str):
-            txt = open(txt, 'w')
         self.fd = convert_string_to_fd(txt, comm)
 
         self.timer = timer or Timer()
