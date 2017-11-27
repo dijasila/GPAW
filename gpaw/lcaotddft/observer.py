@@ -5,9 +5,9 @@ class TDDFTObserver(Observer):
 
     def __init__(self, paw, interval):
         Observer.__init__(self, interval)
-        assert hasattr(paw, 'time') and hasattr(paw, 'niter'), 'Use TDDFT'
         self.timer = paw.timer
-        paw.attach(self, interval, paw)
+        if hasattr(paw, 'time') and hasattr(paw, 'niter'):
+            paw.attach(self, interval, paw)
 
     def update(self, paw):
         self.timer.start('%s update' % self.__class__.__name__)

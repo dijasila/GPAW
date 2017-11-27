@@ -15,31 +15,38 @@ class FrequencyDensityMatrix(TDDFTObserver):
     version = 1
     ulmtag = 'FDM'
 
-    def __init__(self, paw,
+    def __init__(self,
+                 paw,
+                 filename=None,
                  frequencies=None,
                  folding=None,
                  width=None,
                  restart_filename=None,
                  interval=1):
         TDDFTObserver.__init__(self, paw, interval)
-        folding = 'Gauss'
-        width = 0.08
-        frequencies = [1.0]
+        self.has_initialized = False
+        self.filename = filename
+        self.restart_filename = restart_filename
         self.world = paw.world
         self.wfs = paw.wfs
-        self.has_initialized = False
-        self.restart_filename = restart_filename
-        self.time = paw.time
         self.log = paw.log
-
-        assert self.world.rank == self.wfs.world.rank
-
-        self.set_folding(folding, width)
         self.using_blacs = self.wfs.ksl.using_blacs
         if self.using_blacs:
             ksl_comm = self.wfs.ksl.block_comm
             kd_comm = self.wfs.kd.comm
             assert self.world.size == ksl_comm.size * kd_comm.size
+
+        assert self.world.rank == self.wfs.world.rank
+
+        if filename is not None:
+            self.read(filename)
+            return
+
+        folding = 'Gauss'
+        width = 0.08
+        frequencies = [1.0]
+        self.time = paw.time
+        self.set_folding(folding, width * eV_to_au)
 
         self.omega_w = np.array(frequencies, dtype=float) * eV_to_au
 
@@ -79,7 +86,7 @@ class FrequencyDensityMatrix(TDDFTObserver):
         if self.folding is None:
             self.width = None
         else:
-            self.width = width * eV_to_au
+            self.width = width
 
         if self.folding is None:
             self.envelope = lambda t: 1.0
@@ -104,7 +111,8 @@ class FrequencyDensityMatrix(TDDFTObserver):
 
     def _update(self, paw):
         if paw.action == 'init':
-            self.time = paw.time
+            if self.time != paw.time:
+                raise RuntimeError('Timestamp do not match with the calculator')
             self.initialize()
             if paw.niter == 0:
                 for u, kpt in enumerate(self.wfs.kpt_u):
@@ -162,10 +170,9 @@ class FrequencyDensityMatrix(TDDFTObserver):
         version = reader.version
         if version != self.__class__.version:
             raise RuntimeError('Unknown version %s' % version)
-        if reader.time != self.time:
-            raise RuntimeError('Timestamp do not match with the calculator')
         for arg in ['time', 'omega_w', 'folding', 'width']:
             setattr(self, arg, getattr(reader, arg))
+        self.set_folding(self.folding, self.width)
         wfs = self.wfs
         self.rho0_uMM = read_uMM(wfs, reader, 'rho0_uMM')
         self.rho0_dtype = self.rho0_uMM[0].dtype
