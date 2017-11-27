@@ -3,7 +3,7 @@ from gpaw.lcaotddft.observer import TDDFTObserver
 
 class DipoleMomentWriter(TDDFTObserver):
 
-    def __init__(self, filename, paw, interval=1):
+    def __init__(self, paw, filename, interval=1):
         TDDFTObserver.__init__(self, paw, interval)
         self.master = paw.world.rank == 0
         if self.master:

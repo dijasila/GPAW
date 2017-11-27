@@ -7,7 +7,7 @@ class WaveFunctionWriter(TDDFTObserver):
     version = 1
     ulmtag = 'WFW'
 
-    def __init__(self, filename, paw, interval=1):
+    def __init__(self, paw, filename, interval=1):
         TDDFTObserver.__init__(self, paw, interval)
         if paw.niter == 0:
             self.writer = Writer(filename, paw.world, mode='w',
