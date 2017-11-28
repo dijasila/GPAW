@@ -2,6 +2,14 @@ import numpy as np
 
 from gpaw.tddft.units import eV_to_au
 
+
+def frequencies(frequencies, folding, width, units='eV'):
+    f_w = []
+    for freq in frequencies:
+        f_w.append(Frequency(freq, folding, width, units))
+    return f_w
+
+
 class Frequency(object):
     def __init__(self, frequency, folding, width, units='eV'):
         self.frequency = frequency
@@ -22,7 +30,7 @@ class Frequency(object):
         elif units != 'au':
             raise RuntimeError('Unknown units: %s' % units)
 
-        if not self.folding in [None, 'Gauss', 'Lorentz']:
+        if self.folding not in [None, 'Gauss', 'Lorentz']:
             raise RuntimeError('Unknown folding: %s' % self.folding)
 
     def envelope(self, time):
