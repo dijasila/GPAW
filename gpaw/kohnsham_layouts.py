@@ -94,7 +94,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
     """ScaLAPACK Dense Linear Algebra.
 
     This class is instantiated in LCAO.  Not for casual use, at least for now.
-    
+
     Requires two distributors and three descriptors for initialization
     as well as grid descriptors and band descriptors. Distributors are
     for cols2blocks (1D -> 2D BLACS grid) and blocks2cols (2D -> 1D
@@ -115,7 +115,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         nbands = bd.nbands
         self.blocksize = blocksize
         self.mynbands = mynbands = bd.mynbands
-        
+
         self.orbital_comm = self.bd.comm
         self.naoblocksize = naoblocksize = -((-nao) // self.orbital_comm.size)
         self.nao = nao
@@ -147,7 +147,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         # The array will then be trimmed and broadcast across
         # the grid descriptor's communicator.
         self.nM_unique_descriptor = self.single_column_grid.new_descriptor(
-            nbands, nao, mynbands, nao)
+            nbands, nao, bd.maxmynbands, nao)
 
         # Fully blocked grid for diagonalization with many CPUs:
         self.mmdescriptor = self.blockgrid.new_descriptor(nao, nao, blocksize,
@@ -170,8 +170,8 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         dtype = S_mm.dtype
         eps_M = np.empty(C_nM.shape[-1])  # empty helps us debug
         subM, subN = outdescriptor.gshape
-        
         C_mm = blockdescriptor.zeros(dtype=dtype)
+
         self.timer.start('General diagonalize')
         # general_diagonalize_ex may have a buffer overflow, so
         # we no longer use it
@@ -181,7 +181,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         blockdescriptor.general_diagonalize_dc(H_mm, S_mm.copy(), C_mm, eps_M,
                                                UL='L')
         self.timer.stop('General diagonalize')
- 
+
         # Make C_nM compatible with the redistributor
         self.timer.start('Redistribute coefs')
         if outdescriptor:
@@ -220,14 +220,14 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         xshape = S_qmM.shape[:-2]
         nm, nM = S_qmM.shape[-2:]
         S_qmM = S_qmM.reshape(-1, nm, nM)
-        
+
         blockdesc = self.mmdescriptor
         coldesc = self.mM_unique_descriptor
         S_qmm = blockdesc.zeros(len(S_qmM), S_qmM.dtype)
 
         if not coldesc:  # XXX ugly way to sort out inactive ranks
             S_qmM = coldesc.zeros(len(S_qmM), S_qmM.dtype)
-        
+
         self.timer.start('Scalapack redistribute')
         for S_mM, S_mm in zip(S_qmM, S_qmm):
             self.mM2mm.redistribute(S_mM, S_mm)
@@ -235,7 +235,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
                 if blockdesc.active:
                     pblas_tran(1.0, S_mm.copy(), 1.0, S_mm,
                                blockdesc, blockdesc)
-                
+
         self.timer.stop('Scalapack redistribute')
         return S_qmm.reshape(xshape + blockdesc.shape)
 
@@ -246,7 +246,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         nbands = self.bd.nbands
         nao = self.nao
         dtype = C_nM.dtype
-        
+
         self.nMdescriptor.checkassert(C_nM)
         if self.gd.rank == 0:
             Cf_nM = (C_nM * f_n[:, None]).conj()
@@ -260,13 +260,13 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         Cf_mm = self.mmdescriptor.zeros(dtype=dtype)
         r.redistribute(Cf_nM, Cf_mm, nbands, nao)
         del Cf_nM
-        
+
         C_mm = self.mmdescriptor.zeros(dtype=dtype)
         r.redistribute(C_nM, C_mm, nbands, nao)
         # no use to delete C_nM as it's in the input...
 
         rho_mm = self.mmdescriptor.zeros(dtype=dtype)
-        
+
         pblas_simple_gemm(self.mmdescriptor,
                           self.mmdescriptor,
                           self.mmdescriptor,
@@ -278,10 +278,10 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
         Presently this function performs the usual scalapack 3-step trick:
         redistribute-numbercrunching-backdistribute.
-        
-        
+
+
         Notes on future performance improvement.
-        
+
         As per the current framework, C_nM exists as copies on each
         domain, i.e. this is not parallel over domains.  We'd like to
         correct this and have an efficient distribution using e.g. the
@@ -289,12 +289,12 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
         The diagonalization routine and other parts of the code should
         however be changed to accommodate the following scheme:
-        
+
         Keep coefficients in C_mm form after the diagonalization.
         rho_mm can then be directly calculated from C_mm without
         redistribution, after which we only need to redistribute
         rho_mm across domains.
-        
+
         """
         dtype = C_nM.dtype
         rho_mm = self.calculate_blocked_density_matrix(f_n, C_nM)
@@ -329,7 +329,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         # there's trouble with the more efficient version
         if rho_mM is None:
             rho_mM = self.mMdescriptor.zeros(dtype=C_nM.dtype)
-        
+
         Cf_nM = (C_nM * f_n[:, None]).conj()
         pblas_simple_gemm(self.nMdescriptor, self.nMdescriptor,
                           self.mMdescriptor, Cf_nM, C_nM, rho_mM, transa='T')
@@ -353,7 +353,7 @@ class OrbitalLayouts(KohnShamLayouts):
                                  timer)
         self.mMdescriptor = MatrixDescriptor(nao, nao)
         self.nMdescriptor = MatrixDescriptor(bd.mynbands, nao)
-        
+
         self.Mstart = 0
         self.Mstop = nao
         self.Mmax = nao
@@ -373,7 +373,7 @@ class OrbitalLayouts(KohnShamLayouts):
         self.gd.comm.broadcast(eps_M, 0)
         eps_n[:] = eps_M[self.bd.get_slice()]
         C_nM[:] = H_MM[self.bd.get_slice()]
-    
+
     def _diagonalize(self, H_MM, S_MM, eps_M):
         """Serial diagonalize via LAPACK."""
         # This is replicated computation but ultimately avoids
