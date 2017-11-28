@@ -3,6 +3,7 @@ import numpy as np
 from gpaw.io import Reader
 from gpaw.io import Writer
 
+from gpaw.lcaotddft.frequency import Frequency
 from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import read_uwMM
@@ -19,8 +20,6 @@ class FrequencyDensityMatrix(TDDFTObserver):
                  paw,
                  filename=None,
                  frequencies=None,
-                 folding=None,
-                 width=None,
                  restart_filename=None,
                  interval=1):
         TDDFTObserver.__init__(self, paw, interval)
@@ -42,13 +41,10 @@ class FrequencyDensityMatrix(TDDFTObserver):
             self.read(filename)
             return
 
-        folding = 'Gauss'
-        width = 0.08
-        frequencies = [1.0]
         self.time = paw.time
-        self.set_folding(folding, width * eV_to_au)
-
-        self.omega_w = np.array(frequencies, dtype=float) * eV_to_au
+        if isinstance(frequencies, Frequency):
+            frequencies = [frequencies]
+        self.frequency_w = frequencies
 
     def initialize(self):
         if self.has_initialized:
@@ -73,29 +69,10 @@ class FrequencyDensityMatrix(TDDFTObserver):
             self.rho0_uMM.append(zeros(self.rho0_dtype))
             self.FReDrho_uwMM.append([])
             self.FImDrho_uwMM.append([])
-            for omega in self.omega_w:
+            for freq in self.frequency_w:
                 self.FReDrho_uwMM[-1].append(zeros(complex))
                 self.FImDrho_uwMM[-1].append(zeros(complex))
         self.has_initialized = True
-
-    def set_folding(self, folding, width):
-        if width is None:
-            folding = None
-
-        self.folding = folding
-        if self.folding is None:
-            self.width = None
-        else:
-            self.width = width
-
-        if self.folding is None:
-            self.envelope = lambda t: 1.0
-        elif self.folding == 'Gauss':
-            self.envelope = lambda t: np.exp(- 0.5 * self.width**2 * t**2)
-        elif self.folding == 'Lorentz':
-            self.envelope = lambda t: np.exp(- self.width * t)
-        else:
-            raise RuntimeError('Unknown folding: %s' % self.folding)
 
     def _get_density_matrix(self, paw, kpt):
         wfs = paw.wfs
@@ -131,17 +108,21 @@ class FrequencyDensityMatrix(TDDFTObserver):
         time_step = paw.time - self.time
         self.time = paw.time
 
-        # Complex exponential with envelope
-        f_w = (np.exp(1.0j * self.omega_w * self.time) *
-               self.envelope(self.time) * time_step)
+        exp_w = []
+        for w, freq in enumerate(self.frequency_w):
+            # Complex exponential with envelope
+            exp = (np.exp(1.0j * freq.frequency * self.time) *
+                   freq.envelope(self.time) * time_step)
+            exp_w.append(exp)
+
 
         for u, kpt in enumerate(self.wfs.kpt_u):
             rho_MM = self._get_density_matrix(paw, kpt)
             Drho_MM = rho_MM - self.rho0_uMM[u]
-            # Update Fourier transforms
-            for w, omega in enumerate(self.omega_w):
-                self.FReDrho_uwMM[u][w] += Drho_MM.real * f_w[w]
-                self.FImDrho_uwMM[u][w] += Drho_MM.imag * f_w[w]
+            for w, freq in enumerate(self.frequency_w):
+                # Update Fourier transforms
+                self.FReDrho_uwMM[u][w] += Drho_MM.real * exp_w[w]
+                self.FImDrho_uwMM[u][w] += Drho_MM.imag * exp_w[w]
 
     def write_restart(self):
         if self.restart_filename is None:
@@ -153,11 +134,11 @@ class FrequencyDensityMatrix(TDDFTObserver):
         writer = Writer(filename, self.world, mode='w',
                         tag=self.__class__.ulmtag)
         writer.write(version=self.__class__.version)
-        for arg in ['time', 'omega_w', 'folding', 'width']:
-            writer.write(arg, getattr(self, arg))
+        writer.write(time=self.time)
+        writer.write(frequency_w=[f.todict() for f in self.frequency_w])
         wfs = self.wfs
         write_uMM(wfs, writer, 'rho0_uMM', self.rho0_uMM)
-        wlist = range(len(self.omega_w))
+        wlist = range(len(self.frequency_w))
         write_uwMM(wfs, writer, 'FReDrho_uwMM', self.FReDrho_uwMM, wlist)
         write_uwMM(wfs, writer, 'FImDrho_uwMM', self.FImDrho_uwMM, wlist)
         writer.close()
@@ -170,13 +151,12 @@ class FrequencyDensityMatrix(TDDFTObserver):
         version = reader.version
         if version != self.__class__.version:
             raise RuntimeError('Unknown version %s' % version)
-        for arg in ['time', 'omega_w', 'folding', 'width']:
-            setattr(self, arg, getattr(reader, arg))
-        self.set_folding(self.folding, self.width)
+        self.time = reader.time
+        self.frequency_w = [Frequency(**f) for f in reader.frequency_w]
         wfs = self.wfs
         self.rho0_uMM = read_uMM(wfs, reader, 'rho0_uMM')
         self.rho0_dtype = self.rho0_uMM[0].dtype
-        wlist = range(len(self.omega_w))
+        wlist = range(len(self.frequency_w))
         self.FReDrho_uwMM = read_uwMM(wfs, reader, 'FReDrho_uwMM', wlist)
         self.FImDrho_uwMM = read_uwMM(wfs, reader, 'FImDrho_uwMM', wlist)
         reader.close()
