@@ -189,8 +189,13 @@ if not opts.nointeractive:
     p = fig.subplotpars
 
     # Create interactive axes
-    iax = fig.add_axes((p.left, p.top, p.right - p.left, 1 - p.top),
-                       facecolor=fig.get_facecolor())
+    box = (p.left, p.top, p.right - p.left, 1 - p.top)
+    fc = fig.get_facecolor()
+    try:
+        iax = fig.add_axes(box, facecolor=fc)  # matplotlib 2.x
+    except AttributeError:
+        iax = fig.add_axes(box, axisbg=fc)  # matplotlib 1.x
+
     ibg = iax.patch
     for s in iax.get_children():
         if s != ibg:
