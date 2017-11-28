@@ -15,13 +15,13 @@ def ranks(wfs):
     return txt
 
 def collect_uMM(wfs, a_uMM, s, k):
-    return collect_uwMM(wfs, a_uMM, s, k, w=None)
+    return collect_wuMM(wfs, [a_uMM], 0, s, k)
 
-def collect_uwMM(wfs, a_uwMM, s, k, w):
+def collect_wuMM(wfs, a_wuMM, w, s, k):
     # This function is based on
     # gpaw/wavefunctions/base.py: WaveFunctions.collect_auxiliary()
 
-    dtype = a_uwMM[0][0].dtype
+    dtype = a_wuMM[0][0].dtype
 
     ksl = wfs.ksl
     NM = ksl.nao
@@ -30,10 +30,7 @@ def collect_uwMM(wfs, a_uwMM, s, k, w):
     ksl_comm = ksl.block_comm
 
     if wfs.kd.comm.rank == kpt_rank:
-        if w is None:
-            a_MM = a_uwMM[u]
-        else:
-            a_MM = a_uwMM[u][w]
+        a_MM = a_wuMM[w][u]
 
         # Collect within blacs grid
         if ksl.using_blacs:
@@ -83,46 +80,32 @@ def distribute_MM(wfs, a_MM):
     return a_mm
 
 def write_uMM(wfs, writer, name, a_uMM):
-    return write_uwMM(wfs, writer, name, a_uMM, wlist=None)
+    return write_wuMM(wfs, writer, name, [a_uMM], wlist=[0])
 
-def write_uwMM(wfs, writer, name, a_uwMM, wlist):
+def write_wuMM(wfs, writer, name, a_wuMM, wlist):
     NM = wfs.ksl.nao
-    dtype = a_uwMM[0][0].dtype
-    if wlist is None:
-        shape = (NM, NM)
-        wlist = [None]
-    else:
-        shape = (len(wlist), NM, NM)
-
+    dtype = a_wuMM[0][0].dtype
     writer.add_array(name,
-                     (wfs.nspins, wfs.kd.nibzkpts) + shape, dtype=dtype)
-    for s in range(wfs.nspins):
-        for k in range(wfs.kd.nibzkpts):
-            for w in wlist:
-                a_MM = collect_uwMM(wfs, a_uwMM, s, k, w)
+                     (len(wlist), wfs.nspins, wfs.kd.nibzkpts, NM, NM),
+                     dtype=dtype)
+    for w in wlist:
+        for s in range(wfs.nspins):
+            for k in range(wfs.kd.nibzkpts):
+                a_MM = collect_wuMM(wfs, a_wuMM, w, s, k)
                 writer.fill(a_MM)
 
 def read_uMM(wfs, reader, name):
-    return read_uwMM(wfs, reader, name, wlist=None)
+    return read_wuMM(wfs, reader, name, wlist=[0])[0]
 
-def read_uwMM(wfs, reader, name, wlist):
-    a_uwMM = []
-    if wlist is None:
-        wlist = [None]
-    else:
-        assert not None in wlist
-    for kpt in wfs.kpt_u:
-        a_wMM = []
-        for w in wlist:
-            indices = (kpt.s, kpt.k)
-            if w is not None:
-                indices += (w,)
+def read_wuMM(wfs, reader, name, wlist):
+    a_wuMM = []
+    for w in wlist:
+        a_uMM = []
+        for kpt in wfs.kpt_u:
+            indices = (w, kpt.s, kpt.k)
             # TODO: does this read on all the ksl ranks in vain?
             a_MM = reader.proxy(name, *indices)[:]
             a_MM = distribute_MM(wfs, a_MM)
-            if w is None:
-                a_wMM = a_MM
-            else:
-                a_wMM.append(a_MM)
-        a_uwMM.append(a_wMM)
-    return a_uwMM
+            a_uMM.append(a_MM)
+        a_wuMM.append(a_uMM)
+    return a_wuMM

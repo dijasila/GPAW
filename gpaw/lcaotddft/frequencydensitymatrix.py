@@ -6,9 +6,9 @@ from gpaw.io import Writer
 from gpaw.lcaotddft.frequency import Frequency
 from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.lcaotddft.utilities import read_uMM
-from gpaw.lcaotddft.utilities import read_uwMM
+from gpaw.lcaotddft.utilities import read_wuMM
 from gpaw.lcaotddft.utilities import write_uMM
-from gpaw.lcaotddft.utilities import write_uwMM
+from gpaw.lcaotddft.utilities import write_wuMM
 from gpaw.tddft.units import eV_to_au
 
 
@@ -63,15 +63,16 @@ class FrequencyDensityMatrix(TDDFTObserver):
                 return np.zeros((ksl.mynao, ksl.nao), dtype=dtype)
 
         self.rho0_uMM = []
-        self.FReDrho_uwMM = []
-        self.FImDrho_uwMM = []
         for kpt in self.wfs.kpt_u:
             self.rho0_uMM.append(zeros(self.rho0_dtype))
-            self.FReDrho_uwMM.append([])
-            self.FImDrho_uwMM.append([])
-            for freq in self.frequency_w:
-                self.FReDrho_uwMM[-1].append(zeros(complex))
-                self.FImDrho_uwMM[-1].append(zeros(complex))
+        self.FReDrho_wuMM = []
+        self.FImDrho_wuMM = []
+        for freq in self.frequency_w:
+            self.FReDrho_wuMM.append([])
+            self.FImDrho_wuMM.append([])
+            for kpt in self.wfs.kpt_u:
+                self.FReDrho_wuMM[-1].append(zeros(complex))
+                self.FImDrho_wuMM[-1].append(zeros(complex))
         self.has_initialized = True
 
     def _get_density_matrix(self, paw, kpt):
@@ -115,14 +116,13 @@ class FrequencyDensityMatrix(TDDFTObserver):
                    freq.envelope(self.time) * time_step)
             exp_w.append(exp)
 
-
         for u, kpt in enumerate(self.wfs.kpt_u):
             rho_MM = self._get_density_matrix(paw, kpt)
             Drho_MM = rho_MM - self.rho0_uMM[u]
             for w, freq in enumerate(self.frequency_w):
                 # Update Fourier transforms
-                self.FReDrho_uwMM[u][w] += Drho_MM.real * exp_w[w]
-                self.FImDrho_uwMM[u][w] += Drho_MM.imag * exp_w[w]
+                self.FReDrho_wuMM[w][u] += Drho_MM.real * exp_w[w]
+                self.FImDrho_wuMM[w][u] += Drho_MM.imag * exp_w[w]
 
     def write_restart(self):
         if self.restart_filename is None:
@@ -137,10 +137,10 @@ class FrequencyDensityMatrix(TDDFTObserver):
         writer.write(time=self.time)
         writer.write(frequency_w=[f.todict() for f in self.frequency_w])
         wfs = self.wfs
-        write_uMM(wfs, writer, 'rho0_uMM', self.rho0_uMM)
+        write_uMM(wfs, writer, 'rho0_skMM', self.rho0_uMM)
         wlist = range(len(self.frequency_w))
-        write_uwMM(wfs, writer, 'FReDrho_uwMM', self.FReDrho_uwMM, wlist)
-        write_uwMM(wfs, writer, 'FImDrho_uwMM', self.FImDrho_uwMM, wlist)
+        write_wuMM(wfs, writer, 'FReDrho_wskMM', self.FReDrho_wuMM, wlist)
+        write_wuMM(wfs, writer, 'FImDrho_wskMM', self.FImDrho_wuMM, wlist)
         writer.close()
 
     def read(self, filename):
@@ -154,10 +154,10 @@ class FrequencyDensityMatrix(TDDFTObserver):
         self.time = reader.time
         self.frequency_w = [Frequency(**f) for f in reader.frequency_w]
         wfs = self.wfs
-        self.rho0_uMM = read_uMM(wfs, reader, 'rho0_uMM')
+        self.rho0_uMM = read_uMM(wfs, reader, 'rho0_skMM')
         self.rho0_dtype = self.rho0_uMM[0].dtype
         wlist = range(len(self.frequency_w))
-        self.FReDrho_uwMM = read_uwMM(wfs, reader, 'FReDrho_uwMM', wlist)
-        self.FImDrho_uwMM = read_uwMM(wfs, reader, 'FImDrho_uwMM', wlist)
+        self.FReDrho_wuMM = read_wuMM(wfs, reader, 'FReDrho_wskMM', wlist)
+        self.FImDrho_wuMM = read_wuMM(wfs, reader, 'FImDrho_wskMM', wlist)
         reader.close()
         self.has_initialized = True
