@@ -17,7 +17,7 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
 from gpaw.utilities import mlsqr
-from gpaw.utilities.blas import rk, r2k, gemv, gemm
+from gpaw.utilities.blas import rk, r2k, gemm
 
 
 # Remove this:  XXX
@@ -68,7 +68,7 @@ class GridDescriptor(Domain):
 
     ndim = 3  # dimension of ndarrays
 
-    def __init__(self, N_c, cell_cv=(1, 1, 1), pbc_c=True,
+    def __init__(self, N_c, cell_cv=[1, 1, 1], pbc_c=True,
                  comm=None, parsize_c=None):
         """Construct grid-descriptor object.
 
@@ -320,14 +320,6 @@ class GridDescriptor(Domain):
             return result.item()
         else:
             return result
-
-    def gemm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
-        """Helper function for MatrixOperator class."""
-        gemm(alpha, psit_nG, C_mn, beta, newpsit_mG)
-
-    def gemv(self, alpha, psit_nG, C_n, beta, newpsit_G, trans='t'):
-        """Helper function for CG eigensolver."""
-        gemv(alpha, psit_nG, C_n, beta, newpsit_G, trans)
 
     def coarsen(self):
         """Return coarsened `GridDescriptor` object.

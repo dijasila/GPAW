@@ -18,7 +18,7 @@ class HirshfeldDensity(RealSpaceDensity):
         self.calculator = calculator
         dens = calculator.density
         RealSpaceDensity.__init__(self, dens.gd, dens.finegd,
-                                  dens.nspins, 0,
+                                  dens.nspins, collinear=True, charge=0.0,
                                   stencil=dens.stencil,
                                   redistributor=dens.redistributor)
         self.log = GPAWLogger(world=world)
@@ -26,7 +26,7 @@ class HirshfeldDensity(RealSpaceDensity):
             self.log.fd = None
         else:
             self.log.fd = log
-        
+
     def set_positions(self, spos_ac, atom_partition):
         """HirshfeldDensity builds a hack density object to calculate
         all electron density
@@ -79,7 +79,7 @@ class HirshfeldDensity(RealSpaceDensity):
         # initialize
         self.initialize(setups,
                         self.calculator.timer,
-                        np.zeros(len(atoms)), False)
+                        np.zeros((len(atoms), 3)), False)
         self.set_mixer(None)
         rank_a = self.gd.get_ranks_from_positions(spos_ac)
         self.set_positions(spos_ac, AtomPartition(self.gd.comm, rank_a))

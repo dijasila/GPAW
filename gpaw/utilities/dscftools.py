@@ -134,11 +134,10 @@ def dscf_kpoint_overlaps(paw, phasemod=True, broadcast=True):
             psit0_nG = eirk_G[np.newaxis,...]*kpt0.psit_nG
 
             P0_ani = paw.wfs.pt.dict(bd.mynbands)
-            spos_ac = atoms.get_scaled_positions() % 1.0
             for a, P0_ni in P0_ani.items():
                 # Expanding the exponential exp(ikr)=exp(ikR)*exp(ik(r-R))
                 # and neglecting the changed P_ani integral exp(ik(r-R))~1
-                P0_ni[:] = np.exp(2j*np.pi*np.sum(spos_ac[a]*(k_c-k0_c), axis=0)) * kpt0.P_ani[a]
+                P0_ni[:] = np.exp(2j*np.pi*np.sum(paw.spos_ac[a]*(k_c-k0_c), axis=0)) * kpt0.P_ani[a]
 
             ## NB: No exp(ikr) approximate here, but has a parallelization bug
             #kpt0_rank, myu0 = kd.get_rank_and_index(kpt0.s, kpt0.k)
@@ -474,8 +473,7 @@ def dscf_load_band(filename, paw, molecule=None):
 
     # Find domain ranks for each atom
     atoms = paw.get_atoms()
-    spos_ac = atoms.get_scaled_positions() % 1.0
-    rank_a = gd.get_ranks_from_positions(spos_ac)
+    rank_a = gd.get_ranks_from_positions(paw.spos_ac)
     #my_atom_indices = np.argwhere(rank_a == gd.comm.rank).ravel()
     #assert np.all(my_atom_indices == paw.wfs.pt.my_atom_indices)
     assert r.dimension('nproj') == sum([setup.ni for setup in paw.wfs.setups])

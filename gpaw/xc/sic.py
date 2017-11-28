@@ -807,6 +807,9 @@ class SICSpin:
                 V_u = ...
 
         """
+        if self.gd.comm.rank > 0:
+            return
+
         nocc = self.nocc
         nvirt = H_nn.shape[0] - nocc
 

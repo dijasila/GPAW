@@ -19,10 +19,10 @@ parallel = dict()
 basekwargs = dict(mode='fd',
                   eigensolver='rmm-diis',
                   maxiter=3,
-                  #basis='dzp',
-                  #nbands=18,
+                  # basis='dzp',
+                  # nbands=18,
                   nbands=6,
-                  kpts=(4,4,4), # 8 kpts in the IBZ
+                  kpts=(4, 4, 4),  # 8 kpts in the IBZ
                   parallel=parallel)
 
 Eref = None
@@ -91,7 +91,7 @@ def run(formula='H2O', vacuum=1.5, cell=None, pbc=1, **morekwargs):
         print(formula, vacuum, cell, pbc, morekwargs, file=stderr)
         print(parallel, file=stderr)
         raise AssertionError(msg)
-        
+
 
 # reference:
 # kpt-parallelization = 8,
@@ -121,7 +121,7 @@ basekwargs = dict(mode='fd',
                   eigensolver='rmm-diis',
                   maxiter=3,
                   nbands=6,
-                  kpts=(4,4,4), # 8 kpts in the IBZ
+                  kpts=(4, 4, 4),  # 8 kpts in the IBZ
                   parallel=parallel)
 
 Eref = None
