@@ -18,12 +18,14 @@ class FrequencyDensityMatrix(TDDFTObserver):
 
     def __init__(self,
                  paw,
+                 dmat,
                  filename=None,
                  frequencies=None,
                  restart_filename=None,
                  interval=1):
         TDDFTObserver.__init__(self, paw, interval)
         self.has_initialized = False
+        self.dmat = dmat
         self.filename = filename
         self.restart_filename = restart_filename
         self.world = paw.world
@@ -55,37 +57,18 @@ class FrequencyDensityMatrix(TDDFTObserver):
         else:
             self.rho0_dtype = float
 
-        def zeros(dtype):
-            ksl = self.wfs.ksl
-            if self.using_blacs:
-                return ksl.mmdescriptor.zeros(dtype=dtype)
-            else:
-                return np.zeros((ksl.mynao, ksl.nao), dtype=dtype)
-
         self.rho0_uMM = []
         for kpt in self.wfs.kpt_u:
-            self.rho0_uMM.append(zeros(self.rho0_dtype))
+            self.rho0_uMM.append(self.dmat.zeros(self.rho0_dtype))
         self.FReDrho_wuMM = []
         self.FImDrho_wuMM = []
         for freq in self.frequency_w:
             self.FReDrho_wuMM.append([])
             self.FImDrho_wuMM.append([])
             for kpt in self.wfs.kpt_u:
-                self.FReDrho_wuMM[-1].append(zeros(complex))
-                self.FImDrho_wuMM[-1].append(zeros(complex))
+                self.FReDrho_wuMM[-1].append(self.dmat.zeros(complex))
+                self.FImDrho_wuMM[-1].append(self.dmat.zeros(complex))
         self.has_initialized = True
-
-    def _get_density_matrix(self, paw, kpt):
-        wfs = paw.wfs
-        if self.using_blacs:
-            ksl = wfs.ksl
-            rho_MM = ksl.calculate_blocked_density_matrix(kpt.f_n, kpt.C_nM)
-        else:
-            rho_MM = wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM)
-            paw.wfs.bd.comm.sum(rho_MM, root=0)
-            # TODO: should the sum over bands be moved to
-            # OrbitalLayouts.calculate_density_matrix()
-        return rho_MM
 
     def _update(self, paw):
         if paw.action == 'init':
@@ -93,8 +76,9 @@ class FrequencyDensityMatrix(TDDFTObserver):
                 raise RuntimeError('Timestamp do not match with the calculator')
             self.initialize()
             if paw.niter == 0:
+                rho_uMM = self.dmat.get_density_matrix(paw.niter)
                 for u, kpt in enumerate(self.wfs.kpt_u):
-                    rho_MM = self._get_density_matrix(paw, kpt)
+                    rho_MM = rho_uMM[u]
                     if self.rho0_dtype == float:
                         assert np.max(np.absolute(rho_MM.imag)) == 0.0
                         rho_MM = rho_MM.real
@@ -116,9 +100,9 @@ class FrequencyDensityMatrix(TDDFTObserver):
                    freq.envelope(self.time) * time_step)
             exp_w.append(exp)
 
+        rho_uMM = self.dmat.get_density_matrix(paw.niter)
         for u, kpt in enumerate(self.wfs.kpt_u):
-            rho_MM = self._get_density_matrix(paw, kpt)
-            Drho_MM = rho_MM - self.rho0_uMM[u]
+            Drho_MM = rho_uMM[u] - self.rho0_uMM[u]
             for w, freq in enumerate(self.frequency_w):
                 # Update Fourier transforms
                 self.FReDrho_wuMM[w][u] += Drho_MM.real * exp_w[w]
