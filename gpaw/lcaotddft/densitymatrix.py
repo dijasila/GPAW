@@ -5,7 +5,7 @@ class DensityMatrix(object):
     def __init__(self, paw):
         self.wfs = paw.wfs
         self.using_blacs = self.wfs.ksl.using_blacs
-        self.tag = object()
+        self.tag = None
 
     def zeros(self, dtype):
         ksl = self.wfs.ksl
@@ -25,8 +25,8 @@ class DensityMatrix(object):
             # OrbitalLayouts.calculate_density_matrix()
         return rho_MM
 
-    def get_density_matrix(self, tag):
-        if self.tag != tag:
+    def get_density_matrix(self, tag=None):
+        if tag is None or self.tag != tag:
             self.rho_uMM = []
             for u, kpt in enumerate(self.wfs.kpt_u):
                 rho_MM = self._calculate_density_matrix(self.wfs, kpt)
