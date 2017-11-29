@@ -46,6 +46,7 @@ There are several ways to install GPAW:
 .. seealso::
 
     * Using :ref:`homebrew` on MacOSX.
+    * Using :ref:`anaconda`.  
     * Tips and tricks for installation on many :ref:`platforms and
       architectures`.
     * :ref:`troubleshooting`.
