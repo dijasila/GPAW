@@ -9,12 +9,13 @@ from gpaw.lcaotddft.hamiltonian import KickHamiltonian
 from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.utilities.tools import tri2full
-from gpaw.tddft.units import eV_to_au
 
 
 class KohnShamDecomposition(object):
     version = 1
     ulmtag = 'KSD'
+    readwrite_attrs = ['fermilevel', 'only_ia', 'w_p', 'f_p', 'ia_p',
+                       'P_p', 'dm_vp']
 
     def __init__(self, paw=None, filename=None):
         self.filename = filename
@@ -112,18 +113,18 @@ class KohnShamDecomposition(object):
         for p in range(Np):
             P = np.ravel_multi_index(ia_p[p], (Nn, Nn))
             P_p.append(P)
-        NP = Nn * Nn
         P_p = np.array(P_p)
 
         dm_vMM = []
         for v in range(3):
-            direction = np.array([0.]*3)
+            direction = np.zeros(3, dtype=float)
             direction[v] = 1.0
             magnitude = 1.0
             cef = ConstantElectricField(magnitude * Hartree / Bohr, direction)
             kick_hamiltonian = KickHamiltonian(paw, cef)
             dm_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
-                kick_hamiltonian, paw.wfs, self.wfs.kpt_u[u], add_kinetic=False, root=-1)
+                kick_hamiltonian, paw.wfs, self.wfs.kpt_u[u],
+                add_kinetic=False, root=-1)
             tri2full(dm_MM)  # TODO: do not use this
             dm_vMM.append(dm_MM)
 
@@ -136,16 +137,7 @@ class KohnShamDecomposition(object):
         dm_vnn = np.array(dm_vnn)
         dm_vP = dm_vnn.reshape(3, -1)
 
-        if 1:
-            dm_vp = dm_vP[:,P_p]
-        else:
-            dm_pv = np.zeros((Np, 3)) * np.nan
-            for p in range(Np):
-                i = i_p[p]
-                a = a_p[p]
-                for v in range(3):
-                    dm_pv[p,v] = dm_vnn[v][i,a]
-        #print dm_pv
+        dm_vp = dm_vP[:, P_p]
 
         self.w_p = w_p
         self.f_p = f_p
@@ -171,7 +163,7 @@ class KohnShamDecomposition(object):
         # write_un(wfs, writer, 'eig_un', self.eig_un)
         # write_un(wfs, writer, 'occ_un', self.occ_un)
 
-        for arg in ['fermilevel', 'only_ia', 'w_p', 'f_p', 'ia_p', 'P_p', 'dm_vp']:
+        for arg in self.readwrite_attrs:
             writer.write(arg, getattr(self, arg))
 
         writer.close()
@@ -200,7 +192,7 @@ class KohnShamDecomposition(object):
             self.eig_un.append(kpt.eps_n)
             self.occ_un.append(kpt.f_n)
 
-        for arg in ['fermilevel', 'only_ia', 'w_p', 'f_p', 'ia_p', 'P_p', 'dm_vp']:
+        for arg in self.readwrite_attrs:
             setattr(self, arg, getattr(reader, arg))
 
         reader.close()
@@ -223,14 +215,14 @@ class KohnShamDecomposition(object):
         return rho_up
 
     def M_ia_from_M_p(self, M_p):
-        i_p = self.ia_p[:,0]
-        a_p = self.ia_p[:,1]
+        i_p = self.ia_p[:, 0]
+        a_p = self.ia_p[:, 1]
         imin = np.min(i_p)
         imax = np.max(i_p)
         amin = np.min(a_p)
         amax = np.max(a_p)
 
-        M_ia = np.zeros((imax-imin+1, amax-amin+1), dtype=M_p.dtype)
+        M_ia = np.zeros((imax - imin + 1, amax - amin + 1), dtype=M_p.dtype)
         for M, i, a in zip(M_p, i_p, a_p):
             M_ia[i - imin, a - amin] = M
         return M_ia

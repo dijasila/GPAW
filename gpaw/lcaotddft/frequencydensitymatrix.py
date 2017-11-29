@@ -9,7 +9,6 @@ from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import read_wuMM
 from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.lcaotddft.utilities import write_wuMM
-from gpaw.tddft.units import eV_to_au
 
 
 class FrequencyDensityMatrix(TDDFTObserver):
@@ -73,7 +72,8 @@ class FrequencyDensityMatrix(TDDFTObserver):
     def _update(self, paw):
         if paw.action == 'init':
             if self.time != paw.time:
-                raise RuntimeError('Timestamp do not match with the calculator')
+                raise RuntimeError('Timestamp do not match with '
+                                   'the calculator')
             self.initialize()
             if paw.niter == 0:
                 rho_uMM = self.dmat.get_density_matrix(paw.niter)
