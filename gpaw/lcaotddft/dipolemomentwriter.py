@@ -1,11 +1,14 @@
+import numpy as np
+
 from gpaw.lcaotddft.observer import TDDFTObserver
 
 
 class DipoleMomentWriter(TDDFTObserver):
 
-    def __init__(self, paw, filename, interval=1):
+    def __init__(self, paw, filename, center=False, interval=1):
         TDDFTObserver.__init__(self, paw, interval)
         self.master = paw.world.rank == 0
+        self.do_center = center
         if self.master:
             if paw.niter == 0:
                 self.fd = open(filename, 'w')
@@ -29,11 +32,22 @@ class DipoleMomentWriter(TDDFTObserver):
         line = '# Kick = [%22.12le, %22.12le, %22.12le]\n' % tuple(kick)
         self._write(line)
 
+    def calculate_dipole_moment(self, gd, rho_g):
+        center_v = 0.5 * gd.cell_cv.sum(0)
+        r_vg = gd.get_grid_point_coordinates()
+        dm_v = np.zeros(3, dtype=float)
+        for v in range(3):
+            dm_v[v] = -gd.integrate((r_vg[v] - center_v[v]) * rho_g)
+        return dm_v
+
     def _write_dm(self, paw):
         time = paw.time
         density = paw.density
         norm = density.finegd.integrate(density.rhot_g)
-        dm = density.finegd.calculate_dipole_moment(density.rhot_g)
+        if self.do_center:
+            dm = self.calculate_dipole_moment(density.finegd, density.rhot_g)
+        else:
+            dm = density.finegd.calculate_dipole_moment(density.rhot_g)
         line = ('%20.8lf %20.8le %22.12le %22.12le %22.12le\n' %
                 (time, norm, dm[0], dm[1], dm[2]))
         self._write(line)
