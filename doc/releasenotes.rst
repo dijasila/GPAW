@@ -10,7 +10,8 @@ Git master branch
 
 :git:`master <>`.
 
-* Experimental support for calculations with non-collinear spin.
+* Experimental support for calculations with non-collinear spins
+  (plane-wave mode only).
   Use ``GPAW(experimental={'magmoms': magmoms})``, where ``magmoms``
   is an array magnetic moment vectors of shape ``(len(atoms), 3)``.
 
@@ -18,7 +19,8 @@ Git master branch
   group size.  Number of bands will no longer be automatically adjusted
   to fit parallelization.
 
-* Major code refactoring to facilitate work with parallel arrays.
+* Major code refactoring to facilitate work with parallel arrays.  See new
+  module: :mod:`gpaw.matrix`.
 
 * Better reuse of wavefunctions when atoms are displaced.  This can
   improve performance of optimizations and dynamics in FD and PW mode.
@@ -65,8 +67,6 @@ Git master branch
   via the formula `\sigma_P=(2/3)E_{\text{cut}}dE/dE_{\text{cut}}/V`.  Use
   ``dedecut='estimate'`` to use an estimate from the kinetic energy of an
   isolated atom.
-
-* Non-collinear magnetism for plane-wave mode.
 
 
 Version 1.3.0
