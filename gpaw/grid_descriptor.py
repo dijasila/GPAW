@@ -639,11 +639,14 @@ class GridDescriptor(Domain):
         """
         s_Gc = (np.indices(self.n_c, dtype).T + self.beg_c) / self.N_c
         cell_cv = self.N_c * self.h_cv
-        s_Gc -= np.linalg.solve(cell_cv.T, r_v)
+        r_c =  np.linalg.solve(cell_cv.T, r_v)
+        # do the correction twice works better because of rounding errors
+        # e.g.: -1.56250000e-25 % 1.0 = 1.0,
+        #      but (-1.56250000e-25 % 1.0) % 1.0 = 0.0
+        r_c = np.where(self.pbc_c, r_c % 1.0, r_c)
+        s_Gc -= np.where(self.pbc_c, r_c % 1.0, r_c)
 
         if mic:
-            # XXX do the correction twice works better
-            s_Gc -= self.pbc_c * (2 * s_Gc).astype(int)
             s_Gc -= self.pbc_c * (2 * s_Gc).astype(int)
             # sanity check
             assert((s_Gc * self.pbc_c >= -0.5).all())
