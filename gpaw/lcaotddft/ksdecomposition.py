@@ -314,46 +314,32 @@ class KohnShamDecomposition(object):
 
         raise RuntimeError('Unknown density type: %s' % density_type)
 
-    def get_contributions_table(self, rho_up, minweight=0.01):
-        raise NotImplementedError()
-        assert len(rho_up) == 1, 'K-points not implemented'
-        u = 0
-        rho_p = rho_up[u]
+    def get_contributions_table(self, weight_p, minweight=0.01,
+                                zero_fermilevel=True):
+        assert weight_p.dtype == float
+        u = 0  # TODO
 
-        # Weight
-        weight_ip = []
-        weightname_i = []
-        weightname_i.append('% rho_p**2')
-        weight_ip.append(rho_p**2 / np.sum(rho_p**2) * 100)
-        #for v in range(3):
-        #    weight_p = 2 * self.dm_vp[:,v] * rho_p / Hartree**2
-        #    weightname_i.append('alpha_%s' % 'xyz'[v])
-        #    weight_ip.append(weight_p)
-        #    weightname_i.append('%% alpha_%s**2' % 'xyz'[v])
-        #    weight_ip.append(weight_p**2 / np.sum(weight_p**2) * 100)
-
-        weight_ip = np.array(weight_ip)
-
-        Ni = weight_ip.shape[0]
-
-        fmt_i = ['%14.12f'] * Ni
-        p_s = np.argsort(np.absolute(weight_ip[0]))[::-1]
-        restweight_i = np.zeros(Ni)
-        totweight_i = np.zeros(Ni)
+        absweight_p = np.absolute(weight_p)
+        tot_weight = weight_p.sum()
+        rest_weight = tot_weight
+        eig_n = self.eig_un[u]
+        if zero_fermilevel:
+            eig_n -= self.fermilevel
 
         txt = ''
-        txt += ('# %6s %3s  %3s  %14s' + ' %14s' * Ni) % (
-                ('p', 'i', 'a', 'Ediff (eV)') + tuple(weightname_i))
+        txt += ('# %6s %3s(%8s)  %3s(%8s)  %12s %14s\n' %
+                ('p', 'i', 'eV', 'a', 'eV', 'Ediff (eV)', 'weight'))
+        p_s = np.argsort(absweight_p)[::-1]
         for s, p in enumerate(p_s):
             i, a = self.ia_p[p]
-            if weight_ip[0,p] > minweight:
-                print ("  %6s %3d->%3d: %14.8f " + ' '.join(fmt_i)) % ((p, i,
-                    a, self.w_p[p] * Hartree) + tuple(weight_ip[:,p]))
-            else:
-                restweight_i += weight_ip[:,p]
-            totweight_i += weight_ip[:,p]
-        print ("  %15s: %14s " + ' '.join(fmt_i)) % (('rest', '') + tuple(restweight_i))
-        print ("  %15s: %14s " + ' '.join(fmt_i)) % (('total', '') + tuple(totweight_i))
-
-
-
+            if absweight_p[p] < minweight:
+                break
+            txt += ('  %6s %3d(%8.3f)->%3d(%8.3f): %12.4f %+14.4f\n' %
+                    (p, i, eig_n[i] * Hartree, a, eig_n[a] * Hartree,
+                     self.w_p[p] * Hartree, weight_p[p]))
+            rest_weight -= weight_p[p]
+        txt += ('  %15s: %14s %+14.8f\n' %
+                ('rest', '', rest_weight))
+        txt += ('  %15s: %14s %+14.8f\n' %
+                ('total', '', tot_weight))
+        return txt
