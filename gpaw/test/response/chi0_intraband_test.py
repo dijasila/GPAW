@@ -46,7 +46,8 @@ df1 = DielectricFunction('intraband_spinpaired.gpw',
                          ecut=10,
                          rate=0.1,
                          integrationmode='tetrahedron integration',
-                         name='intraband_spinpaired')
+                         name='intraband_spinpaired',
+                         txt='intraband_spinpaired_df.txt')
 
 df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
 df1NLFCy, df1LFCy = df1.get_dielectric_function(direction='y')
@@ -64,7 +65,8 @@ df2 = DielectricFunction('intraband_spinpolarized.gpw',
                          ecut=10,
                          rate=0.1,
                          integrationmode='tetrahedron integration',
-                         name='intraband_spinpolarized')
+                         name='intraband_spinpolarized',
+                         txt='intraband_spinpolarized_df.txt')
 
 df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
 df2NLFCy, df2LFCy = df2.get_dielectric_function(direction='y')
@@ -90,14 +92,14 @@ equal(wp1, wpref, 0.1)
 w1, I1 = findpeak(w_w, -(1. / df1LFCx).imag)
 w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
 equal(w1, w2, 1e-2)
-equal(I1, I2, 1e-2)
+equal(I1, I2, 1e-1)
 
 w1, I1 = findpeak(w_w, -(1. / df1LFCy).imag)
 w2, I2 = findpeak(w_w, -(1. / df2LFCy).imag)
 equal(w1, w2, 1e-2)
-equal(I1, I2, 1e-2)
+equal(I1, I2, 1e-1)
 
 w1, I1 = findpeak(w_w, -(1. / df1LFCz).imag)
 w2, I2 = findpeak(w_w, -(1. / df2LFCz).imag)
 equal(w1, w2, 1e-2)
-equal(I1, I2, 1e-2)
+equal(I1, I2, 1e-1)
