@@ -1,18 +1,41 @@
+import re
 import numpy as np
 
 from gpaw.lcaotddft.observer import TDDFTObserver
 
+def convert_repr(r):
+    # Integer
+    try:
+        return int(r)
+    except ValueError:
+        pass
+    # Boolean
+    b = {repr(False): False, repr(True): True}.get(r, None)
+    if b is not None:
+        return b
+    # String
+    s = r[1:-1]
+    if repr(s) == r:
+        return s
+    raise RuntimeError('Unknown value: %s' % r)
+
 
 class DipoleMomentWriter(TDDFTObserver):
+    version = 1
 
-    def __init__(self, paw, filename, center=False, interval=1):
+    def __init__(self, paw, filename, center=False, density='comp', interval=1):
         TDDFTObserver.__init__(self, paw, interval)
         self.master = paw.world.rank == 0
-        self.do_center = center
-        if self.master:
-            if paw.niter == 0:
+        if paw.niter == 0:
+            # Initialize
+            self.do_center = center
+            self.density_type = density
+            if self.master:
                 self.fd = open(filename, 'w')
-            else:
+        else:
+            # Read and continue
+            self.read_header(filename)
+            if self.master:
                 self.fd = open(filename, 'a')
 
     def _write(self, line):
@@ -23,9 +46,29 @@ class DipoleMomentWriter(TDDFTObserver):
     def _write_header(self, paw):
         if paw.niter != 0:
             return
-        line = ('# %15s %15s %22s %22s %22s\n' %
-                ('time', 'norm', 'dmx', 'dmy', 'dmz'))
+        line = '# %s[version=%s]' % (self.__class__.__name__, self.version)
+        line += ('(center=%s, density=%s)\n' %
+                 (repr(self.do_center), repr(self.density_type)))
+        line += ('# %15s %15s %22s %22s %22s\n' %
+                 ('time', 'norm', 'dmx', 'dmy', 'dmz'))
         self._write(line)
+
+    def read_header(self, filename):
+        with open(filename, 'r') as f:
+            line = f.readline()
+        m_i = re.split("[^a-zA-Z0-9_=']+", line[2:])
+        assert m_i.pop(0) == self.__class__.__name__
+        for m in m_i:
+            if '=' not in m:
+                continue
+            k, v = m.split('=')
+            v = convert_repr(v)
+            if k == 'version':
+                assert v == self.version
+                continue
+            # Translate key
+            k = {'center': 'do_center', 'density': 'density_type'}[k]
+            setattr(self, k, v)
 
     def _write_kick(self, paw):
         kick = paw.kick_strength
@@ -37,17 +80,29 @@ class DipoleMomentWriter(TDDFTObserver):
         r_vg = gd.get_grid_point_coordinates()
         dm_v = np.zeros(3, dtype=float)
         for v in range(3):
-            dm_v[v] = -gd.integrate((r_vg[v] - center_v[v]) * rho_g)
+            dm_v[v] = - gd.integrate((r_vg[v] - center_v[v]) * rho_g)
         return dm_v
 
     def _write_dm(self, paw):
         time = paw.time
         density = paw.density
-        norm = density.finegd.integrate(density.rhot_g)
-        if self.do_center:
-            dm = self.calculate_dipole_moment(density.finegd, density.rhot_g)
+        if self.density_type == 'comp':
+            rho_g = density.rhot_g
+            gd = density.finegd
+        elif self.density_type == 'pseudo':
+            rho_g = density.nt_sg.sum(axis=0)
+            gd = density.finegd
+        elif self.density_type == 'pseudocoarse':
+            rho_g = density.nt_sG.sum(axis=0)
+            gd = density.gd
         else:
-            dm = density.finegd.calculate_dipole_moment(density.rhot_g)
+            raise RuntimeError('Unknown density type: %s' % self.density_type)
+
+        norm = gd.integrate(rho_g)
+        if self.do_center:
+            dm = self.calculate_dipole_moment(gd, rho_g)
+        else:
+            dm = gd.calculate_dipole_moment(rho_g)
         line = ('%20.8lf %20.8le %22.12le %22.12le %22.12le\n' %
                 (time, norm, dm[0], dm[1], dm[2]))
         self._write(line)
