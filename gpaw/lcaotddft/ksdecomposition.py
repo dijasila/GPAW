@@ -260,7 +260,8 @@ class KohnShamDecomposition(object):
         dm_v = - np.dot(self.dm_vp, rho_p)
         return dm_v
 
-    def get_density(self, rho_up, pseudo=False):
+    def get_density(self, rho_up, density='comp'):
+        density_type = density
         assert len(rho_up) == 1, 'K-points not implemented'
         u = 0
         kpt = self.wfs.kpt_u[u]
@@ -279,13 +280,21 @@ class KohnShamDecomposition(object):
         assert kpt.q == 0
         rho_MM = rho_MM.astype(self.wfs.dtype)
         self.wfs.basis_functions.construct_density(rho_MM, rho_G, kpt.q)
-        rho_G += self.density.nct_G
+
+        # Uncomment this if you want to add the static part
+        # rho_G += self.density.nct_G
+
+        if density_type == 'pseudocoarse':
+            return rho_G
 
         rho_g = self.density.finegd.zeros()
         self.density.distribute_and_interpolate(rho_G, rho_g)
         rho_G = None
 
-        if not pseudo:
+        if density_type == 'pseudo':
+            return rho_g
+
+        if density_type == 'comp':
             D_asp = self.density.atom_partition.arraydict(
                 self.density.D_asp.shapes_a)
             Q_aL = {}
@@ -301,7 +310,9 @@ class KohnShamDecomposition(object):
             tmp_g = self.density.finegd.zeros()
             self.density.ghat.add(tmp_g, Q_aL)
             rho_g += tmp_g
-        return rho_g
+            return rho_g
+
+        raise RuntimeError('Unknown density type: %s' % density_type)
 
     def get_contributions_table(self, rho_up, minweight=0.01):
         raise NotImplementedError()
