@@ -8,6 +8,7 @@ from gpaw.external import ConstantElectricField
 from gpaw.lcaotddft.hamiltonian import KickHamiltonian
 from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import write_uMM
+from gpaw.utilities import pack
 from gpaw.utilities.tools import tri2full
 
 
@@ -23,6 +24,7 @@ class KohnShamDecomposition(object):
         self.world = paw.world
         self.log = paw.log
         self.wfs = paw.wfs
+        self.density = paw.density
 
         if self.wfs.bd.comm.size > 1:
             raise RuntimeError('Band parallelization is not supported')
@@ -52,7 +54,8 @@ class KohnShamDecomposition(object):
         self.occ_un = []
         for kpt in self.wfs.kpt_u:
             S_MM = kpt.S_MM
-            assert S_MM.dtype == float
+            assert np.max(np.absolute(S_MM.imag)) == 0.0
+            S_MM = S_MM.real
             self.S_uMM.append(S_MM)
 
             C_nM = kpt.C_nM
@@ -211,19 +214,28 @@ class KohnShamDecomposition(object):
 
         # Remove de-excitation terms
         rho_p = rho_P[self.P_p]
+        if self.only_ia:
+            rho_p *= 2
+
         rho_up = [rho_p]
         return rho_up
 
-    def M_ia_from_M_p(self, M_p):
+    def ialims(self):
         i_p = self.ia_p[:, 0]
         a_p = self.ia_p[:, 1]
         imin = np.min(i_p)
         imax = np.max(i_p)
         amin = np.min(a_p)
         amax = np.max(a_p)
+        return imin, imax, amin, amax
 
+    def M_p_to_M_ia(self, M_p):
+        return self.M_ia_from_M_p(M_p)
+
+    def M_ia_from_M_p(self, M_p):
+        imin, imax, amin, amax = self.ialims()
         M_ia = np.zeros((imax - imin + 1, amax - amin + 1), dtype=M_p.dtype)
-        for M, i, a in zip(M_p, i_p, a_p):
+        for M, (i, a) in zip(M_p, self.ia_p):
             M_ia[i - imin, a - amin] = M
         return M_ia
 
@@ -234,14 +246,62 @@ class KohnShamDecomposition(object):
         plt.xlabel('a')
         plt.ylabel('i')
 
+    def get_dipole_moment_contributions(self, rho_up):
+        assert len(rho_up) == 1, 'K-points not implemented'
+        u = 0
+        rho_p = rho_up[u]
+        dmrho_vp = - self.dm_vp * rho_p
+        return dmrho_vp
+
     def get_dipole_moment(self, rho_up):
         assert len(rho_up) == 1, 'K-points not implemented'
         u = 0
         rho_p = rho_up[u]
-        dm_v = -np.dot(self.dm_vp, rho_p)
-        if self.only_ia:
-            dm_v *= 2
+        dm_v = - np.dot(self.dm_vp, rho_p)
         return dm_v
+
+    def get_density(self, rho_up, pseudo=False):
+        assert len(rho_up) == 1, 'K-points not implemented'
+        u = 0
+        kpt = self.wfs.kpt_u[u]
+        rho_p = rho_up[u]
+        C0_nM = self.C0_unM[u]
+
+        rho_ia = self.M_ia_from_M_p(rho_p)
+        imin, imax, amin, amax = self.ialims()
+        C0_iM = C0_nM[imin:(imax + 1)]
+        C0_aM = C0_nM[amin:(amax + 1)]
+
+        rho_MM = np.dot(C0_iM.T, np.dot(rho_ia, C0_aM.conj()))
+        rho_MM = 0.5 * (rho_MM + rho_MM.T)
+
+        rho_G = self.density.gd.zeros()
+        assert kpt.q == 0
+        rho_MM = rho_MM.astype(self.wfs.dtype)
+        self.wfs.basis_functions.construct_density(rho_MM, rho_G, kpt.q)
+        rho_G += self.density.nct_G
+
+        rho_g = self.density.finegd.zeros()
+        self.density.distribute_and_interpolate(rho_G, rho_g)
+        rho_G = None
+
+        if not pseudo:
+            D_asp = self.density.atom_partition.arraydict(
+                self.density.D_asp.shapes_a)
+            Q_aL = {}
+            for a, D_sp in D_asp.items():
+                P_Mi = self.wfs.P_aqMi[a][kpt.q]
+                assert np.max(np.absolute(P_Mi.imag)) == 0
+                P_Mi = P_Mi.real
+                assert P_Mi.dtype == float
+                D_ii = np.dot(np.dot(P_Mi.T.conj(), rho_MM), P_Mi)
+                D_sp[:] = pack(D_ii)[np.newaxis, :]
+                Q_aL[a] = np.dot(D_sp.sum(axis=0),
+                                 self.wfs.setups[a].Delta_pL)
+            tmp_g = self.density.finegd.zeros()
+            self.density.ghat.add(tmp_g, Q_aL)
+            rho_g += tmp_g
+        return rho_g
 
     def get_contributions_table(self, rho_up, minweight=0.01):
         raise NotImplementedError()
