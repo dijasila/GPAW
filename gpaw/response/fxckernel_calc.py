@@ -92,15 +92,16 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
             if self.xc == 'RPA':
                 fv = np.eye(nG)
             elif self.xc == 'range_RPA':
-                    fv = np.exp(-0.25 * (G_G * self.range_rc) ** 2.0)
+                raise NotImplementedError
+#                    fv = np.exp(-0.25 * (G_G * self.range_rc) ** 2.0)
 
             elif self.linear_kernel:
-                    r = affopen('fhxc_%s_%s_%s_%s.ulm' %
-                                (self.tag, self.xc, self.ecut_max, iq))
-                    fv = r.fhxc_sGsG
-                    
-                    if cut_G is not None:
-                        fv = fv.take(cut_G, 0).take(cut_G, 1)
+                r = affopen('fhxc_%s_%s_%s_%s.ulm' %
+                            (self.tag, self.xc, self.ecut_max, iq))
+                fv = r.fhxc_sGsG
+                
+                if cut_G is not None:
+                    fv = fv.take(cut_G, 0).take(cut_G, 1)
                         
             elif not self.dyn_kernel:
                 # static kernel which does not scale with lambda
