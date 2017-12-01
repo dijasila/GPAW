@@ -4,6 +4,12 @@
 Time-propagation TDDFT
 ======================
 
+Optical photoabsorption spectrum as well as nonlinear effects can be
+studied using time propagation TDDFT. This approach
+scales better than linear response, but the prefactor is so large that
+for small and moderate systems linear response is significantly
+faster.
+
 
 ------------
 Ground state

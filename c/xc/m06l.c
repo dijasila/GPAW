@@ -446,6 +446,7 @@ c_m06l_para(m06l_params *p, const FLOAT *rho, const FLOAT *sigmatmp, const FLOAT
 
   *energy = (Ec_ss[0] + Ec_ss[1] + Ec_ab)/dens1;
   //printf("Ec_ss %.9e, Ec_ss %.9e, Ec_ab %.9e\n", Ec_ss[0], Ec_ss[1], Ec_ab);
+
 	  
   //derivative for the total correlation energy
   if(p->common.nspin== XC_UNPOLARIZED)
@@ -689,6 +690,7 @@ XC(mgga_x_m06l)(void *p, const FLOAT *rho, const FLOAT *sigma, const FLOAT *tau,
     FLOAT en;
     x_m06l_para(p, rho[0], sigma[0], tau[0], &en, dedd, vsigma, dedtau);
     *e = en/(rho[0]+rho[1]);
+
   }else{
   
   

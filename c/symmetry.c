@@ -22,13 +22,13 @@ PyObject* symmetrize(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "OOO", &a_g_obj, &b_g_obj, &op_cc_obj)) 
         return NULL;
 
-    const long* C = (const long*)op_cc_obj->data;
-    int ng0 = a_g_obj->dimensions[0];
-    int ng1 = a_g_obj->dimensions[1];
-    int ng2 = a_g_obj->dimensions[2];
+    const long* C = (const long*)PyArray_DATA(op_cc_obj);
+    int ng0 = PyArray_DIMS(a_g_obj)[0];
+    int ng1 = PyArray_DIMS(a_g_obj)[1];
+    int ng2 = PyArray_DIMS(a_g_obj)[2];
 
-    const double* a_g = (const double*)a_g_obj->data;
-    double* b_g = (double*)b_g_obj->data;
+    const double* a_g = (const double*)PyArray_DATA(a_g_obj);
+    double* b_g = (double*)PyArray_DATA(b_g_obj);
     for (int g0 = 0; g0 < ng0; g0++)
         for (int g1 = 0; g1 < ng1; g1++)
 	    for (int g2 = 0; g2 < ng2; g2++) {
@@ -53,15 +53,15 @@ PyObject* symmetrize_wavefunction(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "OOOOO", &a_g_obj, &b_g_obj, &op_cc_obj, &kpt0_obj, &kpt1_obj)) 
         return NULL;
 
-    const long* C = (const long*)op_cc_obj->data;
-    const double* kpt0 = (const double*) kpt0_obj->data;
-    const double* kpt1 = (const double*) kpt1_obj->data;
-    int ng0 = a_g_obj->dimensions[0];
-    int ng1 = a_g_obj->dimensions[1];
-    int ng2 = a_g_obj->dimensions[2];
+    const long* C = (const long*)PyArray_DATA(op_cc_obj);
+    const double* kpt0 = (const double*) PyArray_DATA(kpt0_obj);
+    const double* kpt1 = (const double*) PyArray_DATA(kpt1_obj);
+    int ng0 = PyArray_DIMS(a_g_obj)[0];
+    int ng1 = PyArray_DIMS(a_g_obj)[1];
+    int ng2 = PyArray_DIMS(a_g_obj)[2];
     
-    const double complex* a_g = (const double complex*)a_g_obj->data;
-    double complex* b_g = (double complex*)b_g_obj->data;
+    const double complex* a_g = (const double complex*)PyArray_DATA(a_g_obj);
+    double complex* b_g = (double complex*)PyArray_DATA(b_g_obj);
     
     for (int g0 = 0; g0 < ng0; g0++)
         for (int g1 = 0; g1 < ng1; g1++)
@@ -95,16 +95,16 @@ PyObject* symmetrize_return_index(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "OOOOO", &a_g_obj, &b_g_obj, &op_cc_obj, &kpt0_obj, &kpt1_obj)) 
         return NULL;
 
-    const long* C = (const long*)op_cc_obj->data;
-    const double* kpt0 = (const double*) kpt0_obj->data;
-    const double* kpt1 = (const double*) kpt1_obj->data;
+    const long* C = (const long*)PyArray_DATA(op_cc_obj);
+    const double* kpt0 = (const double*) PyArray_DATA(kpt0_obj);
+    const double* kpt1 = (const double*) PyArray_DATA(kpt1_obj);
 
-    int ng0 = a_g_obj->dimensions[0];
-    int ng1 = a_g_obj->dimensions[1];
-    int ng2 = a_g_obj->dimensions[2];
+    int ng0 = PyArray_DIMS(a_g_obj)[0];
+    int ng1 = PyArray_DIMS(a_g_obj)[1];
+    int ng2 = PyArray_DIMS(a_g_obj)[2];
     
-    unsigned long* a_g = (unsigned long*)a_g_obj->data;
-    double complex* b_g = (double complex*)b_g_obj->data;
+    unsigned long* a_g = (unsigned long*)PyArray_DATA(a_g_obj);
+    double complex* b_g = (double complex*)PyArray_DATA(b_g_obj);
     
     for (int g0 = 0; g0 < ng0; g0++)
         for (int g1 = 0; g1 < ng1; g1++)
@@ -137,14 +137,14 @@ PyObject* symmetrize_with_index(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "OOOO", &a_g_obj, &b_g_obj, &index_g_obj, &phase_g_obj)) 
         return NULL;
 
-    int ng0 = a_g_obj->dimensions[0];
-    int ng1 = a_g_obj->dimensions[1];
-    int ng2 = a_g_obj->dimensions[2];
+    int ng0 = PyArray_DIMS(a_g_obj)[0];
+    int ng1 = PyArray_DIMS(a_g_obj)[1];
+    int ng2 = PyArray_DIMS(a_g_obj)[2];
     
-    const unsigned long* index_g = (const unsigned long*)index_g_obj->data;
-    const double complex* phase_g = (const double complex*)phase_g_obj->data;
-    const double complex* a_g = (const double complex*)a_g_obj->data;
-    double complex* b_g = (double complex*)b_g_obj->data;
+    const unsigned long* index_g = (const unsigned long*)PyArray_DATA(index_g_obj);
+    const double complex* phase_g = (const double complex*)PyArray_DATA(phase_g_obj);
+    const double complex* a_g = (const double complex*)PyArray_DATA(a_g_obj);
+    double complex* b_g = (double complex*)PyArray_DATA(b_g_obj);
  
    
     for (int g0 = 0; g0 < ng0; g0++)
@@ -171,12 +171,12 @@ PyObject* map_k_points(PyObject *self, PyObject *args)
 			   &tol, &bz2bz_ks_obj, &ka, &kb)) 
         return NULL;
 
-    const long* U_scc = (const long*)U_scc_obj->data;
-    const double* bzk_kc = (const double*)bzk_kc_obj->data;
-    long* bz2bz_ks = (long*)bz2bz_ks_obj->data;
+    const long* U_scc = (const long*)PyArray_DATA(U_scc_obj);
+    const double* bzk_kc = (const double*)PyArray_DATA(bzk_kc_obj);
+    long* bz2bz_ks = (long*)PyArray_DATA(bz2bz_ks_obj);
 
-    int nbzkpts = bzk_kc_obj->dimensions[0];
-    int nsym = U_scc_obj->dimensions[0];
+    int nbzkpts = PyArray_DIMS(bzk_kc_obj)[0];
+    int nsym = PyArray_DIMS(U_scc_obj)[0];
 
     for (int k1 = ka; k1 < kb; k1++) {
         const double* q = bzk_kc + k1 * 3;

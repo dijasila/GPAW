@@ -7,11 +7,6 @@
 #To append use the form
 #     libraries += ['somelib','otherlib']
 
-# Valid values for scalapack are False, or True:
-# False (the default) - no ScaLapack compiled in
-# True - ScaLapack compiled in
-#scalapack = True
-
 #compiler = 'mpcc'
 #libraries = []
 #libraries += []
@@ -55,3 +50,18 @@
 #mpi_define_macros += []
 
 #platform_id = ''
+
+#hdf5 = True
+
+# Valid values for scalapack are False, or True:
+# False (the default) - no ScaLapack compiled in
+# True - ScaLapack compiled in
+# Warning! At least scalapack 2.0.1 is required!
+# See https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
+scalapack = False
+
+if scalapack:
+    libraries += ['scalapack']
+    library_dirs += []
+    define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
+    define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]

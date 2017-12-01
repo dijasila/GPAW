@@ -18,13 +18,15 @@ from gpaw.xc.hybrid import HybridXCBase
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.utilities import pack, unpack2, packed_index, logfile, erf
-        
+from gpaw.utilities.ewald import madelung
+
 
 class HybridXC(HybridXCBase):
     orbital_dependent = True
 
     def __init__(self, name, hybrid=None, xc=None,
-                 alpha=None, skip_gamma=False,
+                 alpha=None, 
+                 gamma_point=1,
                  method='standard',
                  bandstructure=False,
                  logfilename='-', bands=None,
@@ -44,8 +46,10 @@ class HybridXC(HybridXCBase):
             adiabatic-connection dissipation fluctuation formula.
         alpha: float
             XXX describe
-        skip_gamma: bool
-            Skip k2-k1=0 interactions.
+        gamma_point: bool
+            0: Skip k2-k1=0 interactions.
+            1: Use the alpha method.
+            2: Integrate the gamma point.
         bandstructure: bool
             Calculate bandstructure instead of just the total energy.
         bands: list of int
@@ -61,7 +65,7 @@ class HybridXC(HybridXCBase):
         self.alpha = alpha
         self.fcut = fcut
 
-        self.skip_gamma = skip_gamma
+        self.gamma_point = gamma_point
         self.method = method
         self.bandstructure = bandstructure
         self.bands = bands
@@ -105,6 +109,8 @@ class HybridXC(HybridXCBase):
                                  addcoredensity, a)
     
     def initialize(self, dens, ham, wfs, occupations):
+        assert wfs.bd.comm.size == 1
+
         self.xc.initialize(dens, ham, wfs, occupations)
 
         self.dens = dens
@@ -158,7 +164,7 @@ class HybridXC(HybridXCBase):
         noccmax = self.nocc_sk.max()
         self.log('Number of occupied bands (min, max): %d, %d' %
                  (noccmin, noccmax))
-
+        
         self.log('Number of valence electrons:', self.wfs.setups.nvalence)
 
         if self.bandstructure:
@@ -174,18 +180,28 @@ class HybridXC(HybridXCBase):
             else:
                 noccmax = max(max(self.bands) + 1, noccmax)
 
+        N_c = self.kd.N_c
+
         vol = wfs.gd.dv * wfs.gd.N_c.prod()
         if self.alpha is None:
             alpha = 6 * vol**(2 / 3.0) / pi**2
         else:
             alpha = self.alpha
-        self.gamma = self.calculate_gamma(vol, alpha)
-        
+        if self.gamma_point == 1:
+            self.gamma = self.calculate_gamma(vol, alpha)
+        else:
+            kcell_cv = wfs.gd.cell_cv.copy()
+            kcell_cv[0] *= N_c[0]
+            kcell_cv[1] *= N_c[1]
+            kcell_cv[2] *= N_c[2]
+            #qvol = (2*np.pi)**3 / vol / N_c.prod()
+            #self.gamma = 4*np.pi * (3*qvol / (4*np.pi))**(1/3.) / qvol
+            self.gamma = madelung(kcell_cv) * vol * N_c.prod() / (4*np.pi)
+
         self.log('Value of alpha parameter: %.3f Bohr^2' % alpha)
         self.log('Value of gamma parameter: %.3f Bohr^2' % self.gamma)
             
         # Construct all possible q=k2-k1 vectors:
-        N_c = self.kd.N_c
         i_qc = np.indices(N_c * 2 - 1).transpose((1, 2, 3, 0)).reshape((-1, 3))
         self.bzq_qc = (i_qc - N_c + 1.0) / N_c
         self.q0 = ((N_c * 2 - 1).prod() - 1) // 2  # index of q=(0,0,0)
@@ -379,13 +395,13 @@ class HybridXC(HybridXCBase):
         if abs(self.bzq_qc[q] - q_c).sum() > 1e-7:
             return
 
-        if self.skip_gamma and q == self.q0:
+        if self.gamma_point == 0 and q == self.q0:
             return
 
         nocc1 = self.nocc_sk[s, k1]
         nocc2 = self.nocc_sk[s, k2]
 
-        # Is k2 in the 1. BZ?
+        # Is k2 in the IBZ?
         is_ibz2 = (self.kd.ibz2bz_k[k2] == K2)
 
         for n2 in range(self.wfs.bd.nbands):
@@ -704,14 +720,14 @@ class KPoint:
         # Total number of projector functions:
         I = sum([P_ni.shape[1] for P_ni in self.P_ani.values()])
         
-        kpt.P_In = np.empty((I, wfs.bd.nbands), wfs.dtype)
+        kpt.P_nI = np.empty((wfs.bd.nbands, I), wfs.dtype)
 
         kpt.P_ani = {}
         I1 = 0
         assert self.P_ani.keys() == range(len(self.P_ani))  # ???
         for a, P_ni in self.P_ani.items():
             I2 = I1 + P_ni.shape[1]
-            kpt.P_ani[a] = kpt.P_In[I1:I2].T
+            kpt.P_ani[a] = kpt.P_nI[:, I1:I2]
             I1 = I2
 
         kpt.k = (self.k + 1) % self.kd.nibzkpts
@@ -721,19 +737,20 @@ class KPoint:
         
     def start_sending(self, rank):
         assert self.P_ani.keys() == range(len(self.P_ani))  # ???
-        P_In = np.concatenate([P_ni.T for P_ni in self.P_ani.values()])
+        P_nI = np.hstack([P_ni for P_ni in self.P_ani.values()])
+        P_nI = np.ascontiguousarray(P_nI)
         self.requests += [
             self.kd.comm.send(self.psit_nG, rank, block=False, tag=1),
             self.kd.comm.send(self.f_n, rank, block=False, tag=2),
             self.kd.comm.send(self.eps_n, rank, block=False, tag=3),
-            self.kd.comm.send(P_In, rank, block=False, tag=4)]
+            self.kd.comm.send(P_nI, rank, block=False, tag=4)]
         
     def start_receiving(self, rank):
         self.requests += [
             self.kd.comm.receive(self.psit_nG, rank, block=False, tag=1),
             self.kd.comm.receive(self.f_n, rank, block=False, tag=2),
             self.kd.comm.receive(self.eps_n, rank, block=False, tag=3),
-            self.kd.comm.receive(self.P_In, rank, block=False, tag=4)]
+            self.kd.comm.receive(self.P_nI, rank, block=False, tag=4)]
     
     def wait(self):
         self.kd.comm.waitall(self.requests)

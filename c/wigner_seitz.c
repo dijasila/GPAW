@@ -29,7 +29,7 @@ PyObject *exterior_electron_density_region(PyObject *self, PyObject *args)
     return NULL;
 
   long *aindex = LONGP(ai);
-  int natoms = aatom_c->dimensions[0];
+  int natoms = PyArray_DIM(aatom_c, 0);
   double *atom_c = DOUBLEP(aatom_c);
   long *beg = LONGP(beg_c);
   long *end = LONGP(end_c);

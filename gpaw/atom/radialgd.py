@@ -1,3 +1,5 @@
+from __future__ import division
+
 from math import pi
 
 import numpy as np
@@ -188,7 +190,7 @@ class RadialGridDescriptor:
     def pseudize(self, a_g, gc, l=0, points=4):
         """Construct smooth continuation of a_g for g<gc.
         
-        Returns (b_g, c_p) such that b_g=a_g for g >= gc and::
+        Returns (b_g, c_p[P-1]) such that b_g=a_g for g >= gc and::
         
                 P-1      2(P-1-p)+l
             b = Sum c_p r
@@ -204,12 +206,12 @@ class RadialGridDescriptor:
         c_p = np.polyfit(r_i**2, a_g[i] / r_i**l, points - 1)
         b_g = a_g.copy()
         b_g[:gc] = np.polyval(c_p, r_g[:gc]**2) * r_g[:gc]**l
-        return b_g, c_p
+        return b_g, c_p[-1]
 
     def pseudize_normalized(self, a_g, gc, l=0, points=3):
         """Construct normalized smooth continuation of a_g for g<gc.
         
-        Returns (b_g, c_p) such that b_g=a_g for g >= gc and::
+        Same as pseudize() with also this constraint::
         
             /        2  /        2
             | dr b(r) = | dr a(r)
@@ -233,8 +235,71 @@ class RadialGridDescriptor:
 
         from scipy.optimize import fsolve
         fsolve(f, x0)
-        return b_g, c_x
+        return b_g, c_x[-1]
+
+    def jpseudize(self, a_g, gc, l=0, points=4):
+        """Construct spherical Bessel function continuation of a_g for g<gc.
         
+        Returns (b_g, b(0)/r^l) such that b_g=a_g for g >= gc and::
+        
+                P-2
+            b = Sum c_p j (q r )
+             g  p=0      l  p g
+
+        for g < gc+P, where.
+        """
+
+        from scipy.special import sph_jn
+        from scipy.optimize import brentq
+
+        if a_g[gc] == 0:
+            return self.zeros(), 0.0
+
+        assert isinstance(gc, int) and gc > 10
+
+        zeros_l = [[1, 2, 3, 4, 5, 6],
+                   [1.430,  2.459,  3.471,  4.477,  5.482,  6.484],
+                   [1.835,  2.895,  3.923,  4.938,  5.949,  6.956],
+                   [2.224,  3.316,  4.360,  5.387,  6.405,  7.418]]
+        
+        # Logarithmic derivative:
+        ld = np.dot([-1 / 60, 3 / 20, -3 / 4, 0, 3 / 4, -3 / 20, 1 / 60],
+                    a_g[gc - 3:gc + 4]) / a_g[gc] / self.dr_g[gc]
+        
+        rc = self.r_g[gc]
+
+        def f(q):
+            j, dj = (y[-1] for y in sph_jn(l, q * rc))
+            return dj * q - j * ld
+
+        j_pg = self.empty(points - 1)
+        q_p = np.empty(points - 1)
+
+        zeros = zeros_l[l]
+        if rc * ld > l:
+            z1 = zeros[0]
+            zeros = zeros[1:]
+        else:
+            z1 = 0
+        x = 0.01
+        for p, z2 in enumerate(zeros[:points - 1]):
+            q = brentq(f, z1 * pi / rc + x, z2 * pi / rc - x)
+            j_pg[p] = [sph_jn(l, q * r)[0][-1] for r in self.r_g]
+            q_p[p] = q
+            z1 = z2
+
+        r_g = self.r_g
+
+        C_dg = [[0, 0, 0, 1, 0, 0, 0],
+                [1 / 90, -3 / 20, 3 / 2, -49 / 18, 3 / 2, -3 / 20, 1 / 90],
+                [1 / 8, -1, 13 / 8, 0, -13 / 8, 1, -1 / 8],
+                [-1 / 6, 2, -13 / 2, 28 / 3, -13 / 2, 2, -1 / 6]][:points - 1]
+        c_p = np.linalg.solve(np.dot(C_dg, j_pg[:, gc - 3:gc + 4].T),
+                              np.dot(C_dg, a_g[gc - 3:gc + 4]))
+        b_g = a_g.copy()
+        b_g[:gc+2] = np.dot(c_p, j_pg[:, :gc + 2])
+        return b_g, np.dot(c_p, q_p**l) * 2**l * fac[l] / fac[2 * l + 1]
+
     def plot(self, a_g, n=0, rc=4.0, show=False):
         import matplotlib.pyplot as plt
         r_g = self.r_g[:len(a_g)]

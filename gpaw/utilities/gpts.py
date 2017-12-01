@@ -1,5 +1,5 @@
 import numpy as np
-from ase.units import Bohr
+from ase.units import Bohr, Hartree
 
 from gpaw.utilities import h2gpts
 from gpaw.wavefunctions.pw import PW

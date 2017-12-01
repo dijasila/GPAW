@@ -13,8 +13,6 @@ calculation and has references to the code.  It is a good idea to have
 :ref:`the big picture <the_big_picture>` in front of you when reading
 this page.
 
-For special topics, look at the :ref:`special_topics`
-
 * Initial wave functions and densities (todo)
 * Finding the ground state (todo)
 * ...

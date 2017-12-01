@@ -93,8 +93,20 @@ to get the architectures implemented and the available options. As an example, u
 
   $ gpaw-runscript script.py 32
 
-to write a job sumission script running script.py on 32 cpus. The tool tries to guess the architecture/host automatically.
+to write a job sumission script running script.py on 32 cpus. 
+The tool tries to guess the architecture/host automatically.
 
+By default it uses the following environment variables to write the runscript:
+
+=============== ===================================
+variable        meaning                            
+=============== ===================================
+HOSTNAME        name used to assing host type
+PYTHONPATH      path for python
+GPAW_PYTHON     where to find gpaw-python
+GPAW_SETUP_PATH where to find the setups
+GPAW_MAIL       where to send emails about the jobs
+=============== ===================================
 
 Writing to files
 ================

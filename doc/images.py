@@ -56,7 +56,7 @@ marco_master.pdf        mortensen_paw.pdf
 """.split()
 
 logos = """
-logo-csc.png  logo-fmf.png   logo-hut.png  logo-tree.png
+logo-csc.png  logo-fmf.png   logo-aalto.png  logo-tree.png
 logo-dtu.png  logo-gpaw.png  logo-jyu.png  logo-tut.png  logo-anl.png
 logo-suncat.png logo-slac-center.png
 """.split()
@@ -101,6 +101,9 @@ get('performance', 'dacapoperf.png  goldwire.png  gridperf.png'.split(),
 get('tutorials/negfstm', ['fullscan.png', 'linescan.png'])
 
 get('tutorials/xas', ['h2o_xas_3.png', 'h2o_xas_4.png'])
+
+# workshop2013 photo
+get('workshop13', ['workshop13_01_33-1.jpg'], '_static')
 
 # files from jjwww
 

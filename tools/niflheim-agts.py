@@ -49,7 +49,7 @@ def fail(subject, email=None, filename='/dev/null', mailer='mail'):
 
 if '--dir' in sys.argv:
     i = sys.argv.index('--dir')
-    dir = sys.argv[i+1]
+    dir = os.path.abspath(sys.argv[i+1])
 else:
     dir = 'agts'
 
@@ -146,7 +146,7 @@ sfile = os.path.join(dir, 'status.log')
 attach = sfile
 if not nfailed:
     subject += ' succeeded'
-    fail(subject, email, attach)
+    fail(subject, email, attach, mailer='mutt')
 else:
     subject += ' failed'
     # attach failed tests error files

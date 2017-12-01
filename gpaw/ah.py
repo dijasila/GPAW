@@ -22,12 +22,11 @@ class AppelbaumHamann(BaseSetup):
         self.v1 = v1
         self.v2 = v2
         
-        self.natoms = 0
         self.E = 0.0
         self.Z = 14
         self.Nc = 10
         self.Nv = 4
-        self.niAO = None
+        self.nao = None
         nullspline = Spline(0, 0.5, [0., 0., 0.])
         self.pt_j = [nullspline]
         self.ni = 1
@@ -60,7 +59,7 @@ class AppelbaumHamann(BaseSetup):
             basis = Basis('Si', basis)
         self.basis = basis
         self.phit_j = self.basis.tosplines()
-        self.niAO = self.basis.nao
+        self.nao = self.basis.nao
     
     def print_info(self, text):
         text('Appelbaum-Hamann pseudo potential')

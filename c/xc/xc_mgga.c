@@ -25,7 +25,9 @@ void init_mgga(void** params, int code, int nspin) {
   } else if (code==22) {
     finfo = &revtpss_info;
   } else {
+    // this should never happen.  forces a crash.
     assert(code>=20 && code <=22);
+    finfo = NULL;
   }
   *params = malloc(finfo->size);
   init_common(*params, code, nspin, finfo);

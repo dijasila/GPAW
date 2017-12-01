@@ -1,10 +1,14 @@
 from ase import *
+from ase.dft.bee import BEEF_Ensemble
 from gpaw import GPAW
-from gpaw.xc.bee import BEEF_Ensemble
+from gpaw.test import equal
 import numpy as np
 
 xc = 'BEEF-vdW'
 d = 0.75
+tol1 = 1.e-10
+tol2 = 1.e-2
+tol3 = 1.e-1
 
 # H2 molecule
 h2 = Atoms('H2',[[0.,0.,0.],[0.,0.,d]])
@@ -31,12 +35,12 @@ de_h = ens.get_ensemble_energies()
 # forces
 f0 = f[0].sum()
 f1 = f[1].sum()
-assert abs(f0 + f1) < 1.e-10
-assert abs(f0 - 1.04) < 1.e-2
+equal(f0, -f1, tol1)
+equal(f0, 1.044, tol2)
 
 # binding energy
 E_bind = 2*e_h - e_h2
 dE_bind = 2*de_h[:] - de_h2[:]
 dE_bind = np.std(dE_bind)
-assert abs(E_bind - 5.125) < 1.e-2
-assert abs(dE_bind - 0.204) < 1.e-2
+equal(E_bind, 5.126, tol2)
+equal(dE_bind, 0.2, tol3)

@@ -27,7 +27,7 @@ def get_bf_centers(atoms, basis=None):
     else:
         if not calc.initialized:
             calc.initialize(atoms)
-        nao_a = [calc.wfs.setups[a].niAO for a in range(len(atoms))]
+        nao_a = [calc.wfs.setups[a].nao for a in range(len(atoms))]
     pos_ic = []
     for pos, nao in zip(atoms.get_positions(), nao_a):
         pos_ic.extend(pos[None].repeat(nao, 0))
@@ -42,7 +42,7 @@ def get_bfi(calc, a_list):
     bfs_list = []
     for a in a_list:
         M = calc.wfs.basis_functions.M_a[a]
-        bfs_list += range(M, M + calc.wfs.setups[a].niAO)
+        bfs_list += range(M, M + calc.wfs.setups[a].nao)
     return bfs_list
 
 
@@ -72,7 +72,7 @@ def get_mulliken(calc, a_list):
         Q_M = np.dot(rho_MM, S_MM).diagonal()
         for a in a_list:
             M1 = calc.wfs.basis_functions.M_a[a]
-            M2 = M1 + calc.wfs.setups[a].niAO
+            M2 = M1 + calc.wfs.setups[a].nao
             Q_a[a] += np.sum(Q_M[M1:M2])
     return Q_a        
 

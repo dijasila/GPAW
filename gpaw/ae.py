@@ -19,7 +19,7 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.Z = 1
         self.Nc = 0
         self.Nv = 1
-        self.niAO = None
+        self.nao = None
         self.pt_j = []
         self.ni = 0
         self.l_j = []
@@ -57,7 +57,7 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.basis = basis
         self.phit_j = self.basis.tosplines()
         self.f_j = [1.0]
-        self.niAO = self.basis.nao
+        self.nao = self.basis.nao
     
     def print_info(self, text):
         text('Hydrogen all-electron potential')

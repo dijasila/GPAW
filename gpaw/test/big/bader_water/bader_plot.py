@@ -4,6 +4,8 @@ rc('font', **{'family':'serif','sans-serif':['cm'],'serif':['cm']})
 rc('text', usetex=True)
 import pylab as pl
 
+# this test required texlive-latex
+
 width_pt = 360.0               # Get this from LaTeX using \showthe\columnwidth
 inch = 1.0 / 72.27             # Convert pt to inch
 golden_mean = (pl.sqrt(5)-1.0) / 2.0     # Aesthetic ratio

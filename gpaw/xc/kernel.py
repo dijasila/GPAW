@@ -11,7 +11,8 @@ codes = {
     'PW91': 14,
     'TPSS': 20,
     'M06L': 21,
-    'revTPSS': 22}
+    'revTPSS': 22
+    }
 # NOTE: when adding MGGA functionals to the above
 # list, self.type must be set to MGGA in XCKernel:__init__
         

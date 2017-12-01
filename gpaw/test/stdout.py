@@ -21,7 +21,7 @@ try:
                      cell=(a, a, a),
                      calculator=calc)
     f = hydrogen.get_forces()
-except:
+except Exception:
     sys.stdout = out
     sys.stderr = err
     raise

@@ -40,7 +40,7 @@ extra_link_args = []
 extra_compile_args = []
 runtime_library_dirs = []
 extra_objects = []
-define_macros = []
+define_macros = [('NPY_NO_DEPRECATED_API', 7)]
 undef_macros = []
 
 mpi_libraries = []
@@ -183,16 +183,6 @@ if 'clean' in sys.argv:
         os.remove(gpawbin)
 
 sources = glob('c/*.c') + ['c/bmgs/bmgs.c']
-
-# libxc sources
-#sources = sources + glob('c/libxc/src/*.c')
-#sources2remove = ['c/libxc/src/test.c',
-#                  'c/libxc/src/xc_f.c',
-#                  'c/libxc/src/work_gga_x.c',
-#                  'c/libxc/src/work_lda.c',
-#                  'c/hdf5.c',
-#                  ]
-
 sources = sources + glob('c/xc/*.c')
 
 check_dependencies(sources)
@@ -231,7 +221,8 @@ if hdf5:
 
 scripts = [join('tools', script)
            for script in ('gpaw', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
-                          'gpaw-mpisim')]
+                          'gpaw-mpisim', 'gpaw-mapfile-bgp',
+                          'gpaw-mapfile-cray')]
 
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     extra_link_args, extra_compile_args,

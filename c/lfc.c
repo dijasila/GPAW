@@ -46,7 +46,7 @@ static void lfc_dealloc(LFCObject *self)
 
 PyObject* calculate_potential_matrix(LFCObject *self, PyObject *args);
 PyObject* calculate_potential_matrices(LFCObject *self, PyObject *args);
-PyObject* integrate(LFCObject *self, PyObject *args);
+PyObject* lfcintegrate(LFCObject *self, PyObject *args);
 PyObject* derivative(LFCObject *self, PyObject *args);
 PyObject* normalized_derivative(LFCObject *self, PyObject *args);
 PyObject* construct_density(LFCObject *self, PyObject *args);
@@ -69,7 +69,7 @@ static PyMethodDef lfc_methods[] = {
     {"calculate_potential_matrices",
      (PyCFunction)calculate_potential_matrices, METH_VARARGS, 0},
     {"integrate",
-     (PyCFunction)integrate, METH_VARARGS, 0},
+     (PyCFunction)lfcintegrate, METH_VARARGS, 0},
     {"derivative",
      (PyCFunction)derivative, METH_VARARGS, 0},
     {"normalized_derivative",
@@ -128,11 +128,11 @@ static PyTypeObject LFCType = {
 PyObject * NewLFCObject(PyObject *obj, PyObject *args)
 {
   PyObject* A_Wgm_obj;
-  const PyArrayObject* M_W_obj;
-  const PyArrayObject* G_B_obj;
-  const PyArrayObject* W_B_obj;
+  PyArrayObject* M_W_obj;
+  PyArrayObject* G_B_obj;
+  PyArrayObject* W_B_obj;
   double dv;
-  const PyArrayObject* phase_kW_obj;
+  PyArrayObject* phase_kW_obj;
   int cuda = 0;
 
   if (!PyArg_ParseTuple(args, "OOOOdO|i",
@@ -149,19 +149,19 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
 #endif
   self->dv = dv;
 
-  const int* M_W = (const int*)M_W_obj->data;
-  self->G_B = (int*)G_B_obj->data;
-  self->W_B = (int*)W_B_obj->data;
+  const int* M_W = (const int*)PyArray_DATA(M_W_obj);
+  self->G_B = (int*)PyArray_DATA(G_B_obj);
+  self->W_B = (int*)PyArray_DATA(W_B_obj);
 
-  if (phase_kW_obj->dimensions[0] > 0) {
+  if (PyArray_DIMS(phase_kW_obj)[0] > 0) {
     self->bloch_boundary_conditions = true;
-    self->phase_kW = (double complex*)phase_kW_obj->data;
+    self->phase_kW = (double complex*)PyArray_DATA(phase_kW_obj);
   }
   else {
     self->bloch_boundary_conditions = false;
   }
 
-  int nB = G_B_obj->dimensions[0];
+  int nB = PyArray_DIMS(G_B_obj)[0];
   int nW = PyList_Size(A_Wgm_obj);
 
   self->nW = nW;
@@ -194,12 +194,11 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
 
   int nmmax = 0;
   for (int W = 0; W < nW; W++) {
-    const PyArrayObject* A_gm_obj = \
-      (const PyArrayObject*)PyList_GetItem(A_Wgm_obj, W);
+    PyArrayObject* A_gm_obj = (PyArrayObject*)PyList_GetItem(A_Wgm_obj, W);
     LFVolume* volume = &self->volume_W[W];
-    volume->A_gm = (const double*)A_gm_obj->data;
-    self->ngm_W[W] = A_gm_obj->dimensions[0] * A_gm_obj->dimensions[1];
-    volume->nm = A_gm_obj->dimensions[1];
+    volume->A_gm = (const double*)PyArray_DATA(A_gm_obj);
+    self->ngm_W[W] = PyArray_DIMS(A_gm_obj)[0] * PyArray_DIMS(A_gm_obj)[1];
+    volume->nm = PyArray_DIMS(A_gm_obj)[1];
     volume->M = M_W[W];
     volume->W = W;
     if (volume->nm > nmmax)
@@ -220,7 +219,7 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
 
 PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
 {
-  const PyArrayObject* vt_G_obj;
+  PyArrayObject* vt_G_obj;
   PyArrayObject* Vt_MM_obj;
   int k;
   int Mstart;
@@ -230,14 +229,14 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
                         &Mstart, &Mstop))
     return NULL; 
 
-  const double* vt_G = (const double*)vt_G_obj->data;
+  const double* vt_G = (const double*)PyArray_DATA(vt_G_obj);
 
-  int nM = Vt_MM_obj->dimensions[1];
+  int nM = PyArray_DIMS(Vt_MM_obj)[1];
   double dv = lfc->dv;
   double* work_gm = lfc->work_gm;
   Py_BEGIN_ALLOW_THREADS;
   if (!lfc->bloch_boundary_conditions) {
-    double* Vt_MM = (double*)Vt_MM_obj->data;
+    double* Vt_MM = (double*)PyArray_DATA(Vt_MM_obj);
     GRID_LOOP_START(lfc, -1) { // ORDINARY/GAMMA-POINT
       for (int i1 = 0; i1 < ni; i1++) {
 	LFVolume* v1 = volume_i + i1;
@@ -278,7 +277,7 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
     GRID_LOOP_STOP(lfc, -1);
   }
   else {
-    complex double* Vt_MM = (complex double*)Vt_MM_obj->data;
+    complex double* Vt_MM = (complex double*)PyArray_DATA(Vt_MM_obj);
     GRID_LOOP_START(lfc, k) {  // KPOINT CALC POT MATRIX
       for (int i1 = 0; i1 < ni; i1++) {
         LFVolume* v1 = volume_i + i1;
@@ -328,7 +327,7 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
 
 PyObject* calculate_potential_matrices(LFCObject *lfc, PyObject *args)
 {
-    const PyArrayObject* vt_G_obj;
+    PyArrayObject* vt_G_obj;
     PyArrayObject* Vt_xMM_obj;
     PyArrayObject* x_W_obj;
     int Mstart;
@@ -338,13 +337,14 @@ PyObject* calculate_potential_matrices(LFCObject *lfc, PyObject *args)
 			  &Mstart, &Mstop))
         return NULL; 
 
-    const double* vt_G = (const double*)vt_G_obj->data;
+    const double* vt_G = (const double*)PyArray_DATA(vt_G_obj);
 
-    int nM = Vt_xMM_obj->dimensions[2];
+    int nM = PyArray_DIMS(Vt_xMM_obj)[2];
     double dv = lfc->dv;
     double* work_gm = lfc->work_gm;
-    double* Vt_xMM = (double*)Vt_xMM_obj->data;
-    int* x_W = (int*)x_W_obj->data;
+    double* Vt_xMM = (double*)PyArray_DATA(Vt_xMM_obj);
+    int* x_W = (int*)PyArray_DATA(x_W_obj);
+
     Py_BEGIN_ALLOW_THREADS;
     GRID_LOOP_START(lfc, -1) {
         for (int i1 = 0; i1 < ni; i1++) {
@@ -394,25 +394,25 @@ PyObject* calculate_potential_matrices(LFCObject *lfc, PyObject *args)
     Py_RETURN_NONE;
 }
 
-PyObject* integrate(LFCObject *lfc, PyObject *args)
+PyObject* lfcintegrate(LFCObject *lfc, PyObject *args)
 {
-  const PyArrayObject* a_xG_obj;
+  PyArrayObject* a_xG_obj;
   PyArrayObject* c_xM_obj;
   int q;
 
   if (!PyArg_ParseTuple(args, "OOi", &a_xG_obj, &c_xM_obj, &q))
     return NULL; 
 
-  int nd = a_xG_obj->nd;
-  npy_intp* dims = a_xG_obj->dimensions;
+  int nd = PyArray_NDIM(a_xG_obj);
+  npy_intp* dims = PyArray_DIMS(a_xG_obj);
   int nx = PyArray_MultiplyList(dims, nd - 3);
   int nG = PyArray_MultiplyList(dims + nd - 3, 3);
-  int nM = c_xM_obj->dimensions[c_xM_obj->nd - 1];
+  int nM = PyArray_DIMS(c_xM_obj)[PyArray_NDIM(c_xM_obj) - 1];
   double dv = lfc->dv;
   Py_BEGIN_ALLOW_THREADS;
   if (!lfc->bloch_boundary_conditions) {
-    const double* a_G = (const double*)a_xG_obj->data;
-    double* c_M = (double*)c_xM_obj->data;
+    const double* a_G = (const double*)PyArray_DATA(a_xG_obj);
+    double* c_M = (double*)PyArray_DATA(c_xM_obj);
     for (int x = 0; x < nx; x++) {
       GRID_LOOP_START(lfc, -1) {
         for (int i = 0; i < ni; i++) {
@@ -435,8 +435,8 @@ PyObject* integrate(LFCObject *lfc, PyObject *args)
     }
   }
   else {
-    const complex double* a_G = (const complex double*)a_xG_obj->data;
-    complex double* c_M = (complex double*)c_xM_obj->data;
+    const complex double* a_G = (const complex double*)PyArray_DATA(a_xG_obj);
+    complex double* c_M = (complex double*)PyArray_DATA(c_xM_obj);
     for (int x = 0; x < nx; x++) {
       GRID_LOOP_START(lfc, q) {
         for (int i = 0; i < ni; i++) {
@@ -465,7 +465,7 @@ PyObject* integrate(LFCObject *lfc, PyObject *args)
 
 PyObject* construct_density(LFCObject *lfc, PyObject *args)
 {
-  const PyArrayObject* rho_MM_obj;
+  PyArrayObject* rho_MM_obj;
   PyArrayObject* nt_G_obj;
   int k;
   int Mstart, Mstop;
@@ -474,14 +474,14 @@ PyObject* construct_density(LFCObject *lfc, PyObject *args)
                         &Mstart, &Mstop))
     return NULL; 
   
-  double* nt_G = (double*)nt_G_obj->data;
+  double* nt_G = (double*)PyArray_DATA(nt_G_obj);
   
-  int nM = rho_MM_obj->dimensions[1];
+  int nM = PyArray_DIMS(rho_MM_obj)[1];
   
   double* work_gm = lfc->work_gm;
   Py_BEGIN_ALLOW_THREADS;
   if (!lfc->bloch_boundary_conditions) {
-    const double* rho_MM = (const double*)rho_MM_obj->data;
+    const double* rho_MM = (const double*)PyArray_DATA(rho_MM_obj);
     GRID_LOOP_START(lfc, -1) {
       for (int i1 = 0; i1 < ni; i1++) {
         LFVolume* v1 = volume_i + i1;
@@ -529,7 +529,7 @@ PyObject* construct_density(LFCObject *lfc, PyObject *args)
     GRID_LOOP_STOP(lfc, -1);
   }
   else {
-    const double complex* rho_MM = (const double complex*)rho_MM_obj->data;
+    const double complex* rho_MM = (const double complex*)PyArray_DATA(rho_MM_obj);
     GRID_LOOP_START(lfc, k) {
       for (int i1 = 0; i1 < ni; i1++) {
         LFVolume* v1 = volume_i + i1;
@@ -604,14 +604,15 @@ PyObject* construct_density(LFCObject *lfc, PyObject *args)
 
 PyObject* construct_density1(LFCObject *lfc, PyObject *args)
 {
-  const PyArrayObject* f_M_obj;
+  PyArrayObject* f_M_obj;
   PyArrayObject* nt_G_obj;
   
   if (!PyArg_ParseTuple(args, "OO", &f_M_obj, &nt_G_obj))
     return NULL; 
   
-  const double* f_M = (const double*)f_M_obj->data;
-  double* nt_G = (double*)nt_G_obj->data;
+  const double* f_M = (const double*)PyArray_DATA(f_M_obj);
+  double* nt_G = (double*)PyArray_DATA(nt_G_obj);
+
   Py_BEGIN_ALLOW_THREADS;
   GRID_LOOP_START(lfc, -1) {
     for (int i = 0; i < ni; i++) {
@@ -630,7 +631,7 @@ PyObject* construct_density1(LFCObject *lfc, PyObject *args)
 
 PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
 {
-  const PyArrayObject* c_M_obj;
+  PyArrayObject* c_M_obj;
   PyArrayObject* psit_G_obj;
   int k;
 
@@ -638,9 +639,9 @@ PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
     return NULL; 
   Py_BEGIN_ALLOW_THREADS;  
   if (!lfc->bloch_boundary_conditions) {
-    if (c_M_obj->descr->type_num == PyArray_DOUBLE) {
-      const double* c_M = (const double*)c_M_obj->data;
-      double* psit_G = (double*)psit_G_obj->data;
+    if (PyArray_DESCR(c_M_obj)->type_num == NPY_DOUBLE) {
+      const double* c_M = (const double*)PyArray_DATA(c_M_obj);
+      double* psit_G = (double*)PyArray_DATA(psit_G_obj);
       GRID_LOOP_START(lfc, -1) {
         for (int i = 0; i < ni; i++) {
           LFVolume* v = volume_i + i;
@@ -654,8 +655,8 @@ PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
       GRID_LOOP_STOP(lfc, -1);
     }
     else {
-      const double complex* c_M = (const double complex*)c_M_obj->data;
-      double complex* psit_G = (double complex*)psit_G_obj->data;
+      const double complex* c_M = (const double complex*)PyArray_DATA(c_M_obj);
+      double complex* psit_G = (double complex*)PyArray_DATA(psit_G_obj);
       GRID_LOOP_START(lfc, -1) {
         for (int i = 0; i < ni; i++) {
           LFVolume* v = volume_i + i;
@@ -670,8 +671,8 @@ PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
     }
   }
   else {
-    const double complex* c_M = (const double complex*)c_M_obj->data;
-    double complex* psit_G = (double complex*)psit_G_obj->data;
+    const double complex* c_M = (const double complex*)PyArray_DATA(c_M_obj);
+    double complex* psit_G = (double complex*)PyArray_DATA(psit_G_obj);
     GRID_LOOP_START(lfc, k) {
       for (int i = 0; i < ni; i++) {
         LFVolume* v = volume_i + i;
@@ -697,7 +698,7 @@ PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
 // for k-points
 PyObject* lcao_to_grid_k(LFCObject *lfc, PyObject *args)
 {
-    const PyArrayObject* c_xM_obj;
+    PyArrayObject* c_xM_obj;
     PyArrayObject* psit_xG_obj;
     int k;
     int Mblock;
@@ -706,14 +707,14 @@ PyObject* lcao_to_grid_k(LFCObject *lfc, PyObject *args)
 			  &Mblock))
         return NULL; 
   
-    const double complex* c_xM = (const double complex*)c_xM_obj->data;
-    double complex* psit_xG = (double complex*)psit_xG_obj->data;
+    const double complex* c_xM = (const double complex*)PyArray_DATA(c_xM_obj);
+    double complex* psit_xG = (double complex*)PyArray_DATA(psit_xG_obj);
 
-    int nd = psit_xG_obj->nd;
-    npy_intp* dims = psit_xG_obj->dimensions;
+    int nd = PyArray_NDIM(psit_xG_obj);
+    npy_intp* dims = PyArray_DIMS(psit_xG_obj);
     int nx = PyArray_MultiplyList(dims, nd - 3);
     int Gmax = PyArray_MultiplyList(dims + nd - 3, 3);
-    int Mmax = c_xM_obj->dimensions[c_xM_obj->nd - 1];
+    int Mmax = PyArray_DIMS(c_xM_obj)[PyArray_NDIM(c_xM_obj) - 1];
 
     double complex* tmp_GM = 0;
     Py_BEGIN_ALLOW_THREADS;
@@ -766,22 +767,23 @@ PyObject* lcao_to_grid_k(LFCObject *lfc, PyObject *args)
 
 PyObject* add(LFCObject *lfc, PyObject *args)
 {
-  const PyArrayObject* c_xM_obj;
+  PyArrayObject* c_xM_obj;
   PyArrayObject* a_xG_obj;
   int q;
 
   if (!PyArg_ParseTuple(args, "OOi", &c_xM_obj, &a_xG_obj, &q))
     return NULL; 
 
-  int nd = a_xG_obj->nd;
-  npy_intp* dims = a_xG_obj->dimensions;
+  int nd = PyArray_NDIM(a_xG_obj);
+  npy_intp* dims = PyArray_DIMS(a_xG_obj);
   int nx = PyArray_MultiplyList(dims, nd - 3);
   int nG = PyArray_MultiplyList(dims + nd - 3, 3);
-  int nM = c_xM_obj->dimensions[c_xM_obj->nd - 1];
+  int nM = PyArray_DIMS(c_xM_obj)[PyArray_NDIM(c_xM_obj) - 1];
+
   Py_BEGIN_ALLOW_THREADS;
   if (!lfc->bloch_boundary_conditions) {
-    const double* c_M = (const double*)c_xM_obj->data;
-    double* a_G = (double*)a_xG_obj->data;
+    const double* c_M = (const double*)PyArray_DATA(c_xM_obj);
+    double* a_G = (double*)PyArray_DATA(a_xG_obj);
     for (int x = 0; x < nx; x++) {
       GRID_LOOP_START(lfc, -1) {
         for (int i = 0; i < ni; i++) {
@@ -799,8 +801,8 @@ PyObject* add(LFCObject *lfc, PyObject *args)
     }
   }
   else {
-    const double complex* c_M = (const double complex*)c_xM_obj->data;
-    double complex* a_G = (double complex*)a_xG_obj->data;
+    const double complex* c_M = (const double complex*)PyArray_DATA(c_xM_obj);
+    double complex* a_G = (double complex*)PyArray_DATA(a_xG_obj);
     for (int x = 0; x < nx; x++) {
       GRID_LOOP_START(lfc, q) {
         for (int i = 0; i < ni; i++) {
@@ -828,7 +830,7 @@ PyObject* add(LFCObject *lfc, PyObject *args)
 
 PyObject* spline_to_grid(PyObject *self, PyObject *args)
 {
-  const SplineObject* spline_obj;
+  SplineObject* spline_obj;
   PyArrayObject* beg_c_obj;
   PyArrayObject* end_c_obj;
   PyArrayObject* pos_v_obj;
@@ -902,13 +904,13 @@ PyObject* spline_to_grid(PyObject *self, PyObject *args)
   PyArrayObject* A_gm_obj = (PyArrayObject*)PyArray_SimpleNew(2, gm_dims, 
                                                               NPY_DOUBLE);
   
-  memcpy(A_gm_obj->data, A_gm, ngm * sizeof(double));
+  memcpy(PyArray_DATA(A_gm_obj), A_gm, ngm * sizeof(double));
   free(A_gm);
   
   npy_intp B_dims[1] = {nB};
   PyArrayObject* G_B_obj = (PyArrayObject*)PyArray_SimpleNew(1, B_dims,
                                                              NPY_INT);
-  memcpy(G_B_obj->data, G_B, nB * sizeof(int));
+  memcpy(PyArray_DATA(G_B_obj), G_B, nB * sizeof(int));
   free(G_B);
 
   // PyObjects created in the C code will be initialized with a refcount
@@ -925,7 +927,7 @@ PyObject* spline_to_grid(PyObject *self, PyObject *args)
 // Maybe some kind of preprocessor thing
 PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
 {
-  const PyArrayObject* vt_G_obj;
+  PyArrayObject* vt_G_obj;
   PyArrayObject* DVt_MM_obj;
   PyArrayObject* h_cv_obj;
   PyArrayObject* n_c_obj;
@@ -941,20 +943,20 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
                         &pos_Wc_obj, &Mstart, &Mstop))
     return NULL;
 
-  const double* vt_G = (const double*)vt_G_obj->data;
-  const double* h_cv = (const double*)h_cv_obj->data;
-  const long* n_c = (const long*)n_c_obj->data;
+  const double* vt_G = (const double*)PyArray_DATA(vt_G_obj);
+  const double* h_cv = (const double*)PyArray_DATA(h_cv_obj);
+  const long* n_c = (const long*)PyArray_DATA(n_c_obj);
   const SplineObject** spline_obj_M = \
-    (const SplineObject**)spline_obj_M_obj->data;
-  const double (*pos_Wc)[3] = (const double (*)[3])pos_Wc_obj->data;
+    (const SplineObject**)PyArray_DATA(spline_obj_M_obj);
+  const double (*pos_Wc)[3] = (const double (*)[3])PyArray_DATA(pos_Wc_obj);
 
   long* beg_c = LONGP(beg_c_obj);
-  int nM = DVt_MM_obj->dimensions[1];
+  int nM = PyArray_DIMS(DVt_MM_obj)[1];
   double* work_gm = lfc->work_gm;
   double dv = lfc->dv;
   Py_BEGIN_ALLOW_THREADS;
   if (!lfc->bloch_boundary_conditions) {
-    double* DVt_MM = (double*)DVt_MM_obj->data;
+    double* DVt_MM = (double*)PyArray_DATA(DVt_MM_obj);
     {
       GRID_LOOP_START(lfc, -1) {
         // In one grid loop iteration, only z changes.
@@ -1052,7 +1054,7 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
 
   }
   else {
-    complex double* DVt_MM = (complex double*)DVt_MM_obj->data;
+    complex double* DVt_MM = (complex double*)PyArray_DATA(DVt_MM_obj);
     {
       GRID_LOOP_START(lfc, k) {
         // In one grid loop iteration, only z changes.
@@ -1157,7 +1159,7 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
 // Maybe some kind of preprocessor thing
 PyObject* calculate_potential_matrix_force_contribution(LFCObject *lfc, PyObject *args)
 {
-  const PyArrayObject* vt_G_obj;
+  PyArrayObject* vt_G_obj;
   PyArrayObject* rho_MM_obj;
   PyArrayObject* F_M_obj;
   PyArrayObject* h_cv_obj;
@@ -1175,21 +1177,21 @@ PyObject* calculate_potential_matrix_force_contribution(LFCObject *lfc, PyObject
                         &pos_Wc_obj, &Mstart, &Mstop))
     return NULL;
 
-  const double* vt_G = (const double*)vt_G_obj->data;
-  const double* h_cv = (const double*)h_cv_obj->data;
-  const long* n_c = (const long*)n_c_obj->data;
+  const double* vt_G = (const double*)PyArray_DATA(vt_G_obj);
+  const double* h_cv = (const double*)PyArray_DATA(h_cv_obj);
+  const long* n_c = (const long*)PyArray_DATA(n_c_obj);
   const SplineObject** spline_obj_M = \
-    (const SplineObject**)spline_obj_M_obj->data;
-  const double (*pos_Wc)[3] = (const double (*)[3])pos_Wc_obj->data;
-  double* F_M = (double*)F_M_obj->data;
+    (const SplineObject**)PyArray_DATA(spline_obj_M_obj);
+  const double (*pos_Wc)[3] = (const double (*)[3])PyArray_DATA(pos_Wc_obj);
+  double* F_M = (double*)PyArray_DATA(F_M_obj);
 
   long* beg_c = LONGP(beg_c_obj);
-  int nM = rho_MM_obj->dimensions[1];
+  int nM = PyArray_DIMS(rho_MM_obj)[1];
   double* work_gm = lfc->work_gm;
   double dv = lfc->dv;
   Py_BEGIN_ALLOW_THREADS;
   if (!lfc->bloch_boundary_conditions) {
-    double* rho_MM = (double*)rho_MM_obj->data;
+    double* rho_MM = (double*)PyArray_DATA(rho_MM_obj);
     {
       GRID_LOOP_START(lfc, -1) {
         // In one grid loop iteration, only z changes.
@@ -1289,7 +1291,7 @@ PyObject* calculate_potential_matrix_force_contribution(LFCObject *lfc, PyObject
 
   }
   else {
-    complex double* rho_MM = (complex double*)rho_MM_obj->data;
+    complex double* rho_MM = (complex double*)PyArray_DATA(rho_MM_obj);
     {
       GRID_LOOP_START(lfc, k) {
         // In one grid loop iteration, only z changes.
@@ -1394,7 +1396,7 @@ PyObject* calculate_potential_matrix_force_contribution(LFCObject *lfc, PyObject
 
 PyObject* derivative(LFCObject *lfc, PyObject *args)
 {
-  const PyArrayObject* a_xG_obj;
+  PyArrayObject* a_xG_obj;
   PyArrayObject* c_xMv_obj;
   PyArrayObject* h_cv_obj;
   PyArrayObject* n_c_obj;
@@ -1409,22 +1411,22 @@ PyObject* derivative(LFCObject *lfc, PyObject *args)
                         &pos_Wc_obj, &q))
     return NULL; 
 
-  int nd = a_xG_obj->nd;
-  npy_intp* dims = a_xG_obj->dimensions;
+  int nd = PyArray_NDIM(a_xG_obj);
+  npy_intp* dims = PyArray_DIMS(a_xG_obj);
   int nx = PyArray_MultiplyList(dims, nd - 3);
   int nG = PyArray_MultiplyList(dims + nd - 3, 3);
-  int nM = c_xMv_obj->dimensions[c_xMv_obj->nd - 2];
+  int nM = PyArray_DIMS(c_xMv_obj)[PyArray_NDIM(c_xMv_obj) - 2];
 
-  const double* h_cv = (const double*)h_cv_obj->data;
-  const long* n_c = (const long*)n_c_obj->data;
-  const double (*pos_Wc)[3] = (const double (*)[3])pos_Wc_obj->data;
+  const double* h_cv = (const double*)PyArray_DATA(h_cv_obj);
+  const long* n_c = (const long*)PyArray_DATA(n_c_obj);
+  const double (*pos_Wc)[3] = (const double (*)[3])PyArray_DATA(pos_Wc_obj);
 
   long* beg_c = LONGP(beg_c_obj);
 
   Py_BEGIN_ALLOW_THREADS;
   if (!lfc->bloch_boundary_conditions) {
-    const double* a_G = (const double*)a_xG_obj->data;
-    double* c_Mv = (double*)c_xMv_obj->data;
+    const double* a_G = (const double*)PyArray_DATA(a_xG_obj);
+    double* c_Mv = (double*)PyArray_DATA(c_xMv_obj);
     for (int x = 0; x < nx; x++) {
       GRID_LOOP_START(lfc, -1) {
         // In one grid loop iteration, only i2 changes.
@@ -1484,8 +1486,8 @@ PyObject* derivative(LFCObject *lfc, PyObject *args)
     }
   }
   else {
-    const complex double* a_G = (const complex double*)a_xG_obj->data;
-    complex double* c_Mv = (complex double*)c_xMv_obj->data;
+    const complex double* a_G = (const complex double*)PyArray_DATA(a_xG_obj);
+    complex double* c_Mv = (complex double*)PyArray_DATA(c_xMv_obj);
     for (int x = 0; x < nx; x++) {
       GRID_LOOP_START(lfc, q) {
         // In one grid loop iteration, only i2 changes.
@@ -1550,7 +1552,7 @@ PyObject* derivative(LFCObject *lfc, PyObject *args)
 
 PyObject* normalized_derivative(LFCObject *lfc, PyObject *args)
 {
-  const PyArrayObject* a_G_obj;
+  PyArrayObject* a_G_obj;
   PyArrayObject* c_Mv_obj;
   PyArrayObject* h_cv_obj;
   PyArrayObject* n_c_obj;
@@ -1564,12 +1566,12 @@ PyObject* normalized_derivative(LFCObject *lfc, PyObject *args)
                         &pos_Wc_obj))
     return NULL; 
 
-  const double* h_cv = (const double*)h_cv_obj->data;
-  const long* n_c = (const long*)n_c_obj->data;
-  const double (*pos_Wc)[3] = (const double (*)[3])pos_Wc_obj->data;
+  const double* h_cv = (const double*)PyArray_DATA(h_cv_obj);
+  const long* n_c = (const long*)PyArray_DATA(n_c_obj);
+  const double (*pos_Wc)[3] = (const double (*)[3])PyArray_DATA(pos_Wc_obj);
   long* beg_c = LONGP(beg_c_obj);
-  const double* a_G = (const double*)a_G_obj->data;
-  double* c_Mv = (double*)c_Mv_obj->data;
+  const double* a_G = (const double*)PyArray_DATA(a_G_obj);
+  double* c_Mv = (double*)PyArray_DATA(c_Mv_obj);
   Py_BEGIN_ALLOW_THREADS;
   GRID_LOOP_START(lfc, -1) {
     int i2 = Ga % n_c[2] + beg_c[2];
@@ -1640,60 +1642,78 @@ PyObject* normalized_derivative(LFCObject *lfc, PyObject *args)
 
 PyObject* ae_valence_density_correction(LFCObject *lfc, PyObject *args)
 {
-  const PyArrayObject* rho_MM_obj;
-  PyArrayObject* n_G_obj;
-  const PyArrayObject* a_W_obj;
-  PyArrayObject* I_a_obj;
-
-  if (!PyArg_ParseTuple(args, "OOOO", &rho_MM_obj, &n_G_obj,
-                        &a_W_obj, &I_a_obj))
-    return NULL; 
+    PyArrayObject* rho_MM_obj;
+    PyArrayObject* n_G_obj;
+    PyArrayObject* a_W_obj;
+    PyArrayObject* I_a_obj;
+    PyArrayObject* x_W_obj;
+    
+    if (!PyArg_ParseTuple(args, "OOOOO", &rho_MM_obj, &n_G_obj,
+			  &a_W_obj, &I_a_obj, &x_W_obj))
+        return NULL; 
   
-  double* n_G = (double*)n_G_obj->data;
-  int* a_W = (int*)a_W_obj->data;
-  double* I_a = (double*)I_a_obj->data;
-  const double* rho_MM = (const double*)rho_MM_obj->data;
+    double* n_G = (double*)PyArray_DATA(n_G_obj);
+    int* a_W = (int*)PyArray_DATA(a_W_obj);
+    double* I_a = (double*)PyArray_DATA(I_a_obj);
+    const double* rho_MM = (const double*)PyArray_DATA(rho_MM_obj);
+    int* x_W = (int*)PyArray_DATA(x_W_obj);
 
-  int nM = rho_MM_obj->dimensions[0];
-  Py_BEGIN_ALLOW_THREADS;
-  GRID_LOOP_START(lfc, -1) {
-    for (int i = 0; i < ni; i++) {
-      LFVolume* v = volume_i + i;
-      int M = v->M;
-      int nm = v->nm;
-      const double* rho_mm = rho_MM + M * nM + M;
-      double Ia = 0.0;
-      for (int g = 0; g < nG; g++) {
-        double density = 0.0;
-        for (int m2 = 0; m2 < nm; m2++)
-          for (int m1 = 0; m1 < nm; m1++)
-            density += (rho_mm[m2 + m1 * nM] *
-                  v->A_gm[g * nm + m1] * v->A_gm[g * nm + m2]);
-        n_G[Ga + g] += density;
-        Ia += density;
-      }
-      I_a[a_W[v->W]] += Ia * lfc->dv;
+    int nM = PyArray_DIMS(rho_MM_obj)[0];
+
+    Py_BEGIN_ALLOW_THREADS;
+    GRID_LOOP_START(lfc, -1) {
+        for (int i1 = 0; i1 < ni; i1++) {
+	    LFVolume* v1 = volume_i + i1;
+	    int x1 = x_W[v1->W];
+	    int a1 = a_W[v1->W];
+	    int M1 = v1->M;
+	    int nm1 = v1->nm;
+	    double Ia = 0.0;
+	    for (int i2 = 0; i2 < ni; i2++) {
+	        LFVolume* v2 = volume_i + i2;
+		int x2 = x_W[v2->W];
+		if (x1 != x2)
+		    continue;
+		int a2 = a_W[v2->W];
+		if (a1 != a2)
+		    continue;
+		int M2 = v2->M;
+		int nm2 = v2->nm;
+		const double* rho_mm = rho_MM + M1 * nM + M2;
+		for (int g = 0; g < nG; g++) {
+		    double density = 0.0;
+		    for (int m2 = 0; m2 < nm2; m2++)
+		        for (int m1 = 0; m1 < nm1; m1++)
+			    density += (rho_mm[m2 + m1 * nM] *
+					v1->A_gm[g * nm1 + m1] *
+					v2->A_gm[g * nm2 + m2]);
+		    n_G[Ga + g] += density;
+		    Ia += density;
+		}
+	    }
+	    I_a[a1] += Ia * lfc->dv;
+	}
     }
-  }
-  GRID_LOOP_STOP(lfc, -1);
-  Py_END_ALLOW_THREADS;
-  Py_RETURN_NONE;
+    GRID_LOOP_STOP(lfc, -1);
+    Py_END_ALLOW_THREADS;
+    Py_RETURN_NONE;
 }
 
 PyObject* ae_core_density_correction(LFCObject *lfc, PyObject *args)
 {
   double scale;
   PyArrayObject* n_G_obj;
-  const PyArrayObject* a_W_obj;
+  PyArrayObject* a_W_obj;
   PyArrayObject* I_a_obj;
 
   if (!PyArg_ParseTuple(args, "dOOO", &scale, &n_G_obj,
                         &a_W_obj, &I_a_obj))
     return NULL; 
   
-  double* n_G = (double*)n_G_obj->data;
-  int* a_W = (int*)a_W_obj->data;
-  double* I_a = (double*)I_a_obj->data;
+  double* n_G = (double*)PyArray_DATA(n_G_obj);
+  int* a_W = (int*)PyArray_DATA(a_W_obj);
+  double* I_a = (double*)PyArray_DATA(I_a_obj);
+
   Py_BEGIN_ALLOW_THREADS;
   GRID_LOOP_START(lfc, -1) {
     for (int i = 0; i < ni; i++) {

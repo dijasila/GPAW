@@ -380,6 +380,7 @@ lxcXCFunctional_CalculateFXC_FD_SpinPaired(lxcXCFunctionalObject *self, PyObject
 
 static double *scratch=NULL;
 static double *scratch_d=NULL;
+
 // we don't use lapl, but libxc needs space for them.
 static double *scratch_lapl=NULL;
 static double *scratch_vlapl=NULL;
@@ -495,10 +496,10 @@ static void data2block(const xcinfo *info,
       // use input arrays instead to save time. have to
       // copy n_g however, because of the NMIN patch.
       if (inlist->p[i].special&N_SG) {
-	for (int i=0; i<blocksize; i++) block[i] = (ptr[i]<NMIN) ? NMIN : ptr[i];
+        for (int i=0; i<blocksize; i++) block[i] = (ptr[i]<NMIN) ? NMIN : ptr[i];
       } else {
-	// lli2010 and cpo changed this to also copy sigma/tau for the GPU version
-	for (int i=0; i<blocksize; i++) block[i] = ptr[i];
+        // lli2010 and cpo changed this to also copy sigma/tau for the GPU version
+        for (int i=0; i<blocksize; i++) block[i] = ptr[i];
       }
     }
   }
@@ -573,6 +574,7 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
                         &py_tau_sg, &py_dedtau_sg))
     return NULL;
   Py_BEGIN_ALLOW_THREADS;
+
   xcinfo info;
   info.nspin = self->nspin;
   info.spinpolarized = (info.nspin==2);
@@ -629,7 +631,9 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
   double *inblock[MAXPTR];
   double *outblock[MAXPTR];
   int insize, outsize;
-  setupblockptrs(scratch, &info, &inlist, &outlist, &inblock[0], &outblock[0], blocksize, &insize, &outsize);
+
+  setupblockptrs(scratch, &info, &inlist, &outlist, &inblock[0], &outblock[0],
+          blocksize, &insize, &outsize);
 
   double *inblock_d[MAXPTR];
   double *outblock_d[MAXPTR];
@@ -637,12 +641,13 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
   int gpu[2];
   gpu[0] = (self->functional[0]->info->number > 1000);
   gpu[1] = 0;
-  if(self->functional[1] != NULL){
+  if (self->functional[1] != NULL) {
     gpu[1] = (self->functional[1]->info->number > 1000);
-  } 
+  }
 
-  if(gpu[0] || gpu[1]){
-    setupblockptrs(scratch_d, &info, &inlist, &outlist, &inblock_d[0], &outblock_d[0], blocksize, &insize, &outsize);
+  if (gpu[0] || gpu[1]) {
+    setupblockptrs(scratch_d, &info, &inlist, &outlist, &inblock_d[0],
+            &outblock_d[0], blocksize, &insize, &outsize);
   }
 
   do {
@@ -651,7 +656,7 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
 
     double **in;
     double **out;
-    if(gpu[0] || gpu[1]){
+    if (gpu[0] || gpu[1]) {
       cudaMemcpy(inblock_d[0], inblock[0], insize, cudaMemcpyHostToDevice);
     }
 
@@ -662,11 +667,11 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
       int noutcopy=0;
 
       if (gpu[i]) {
-	in = inblock_d;
-	out = outblock_d;
+        in = inblock_d;
+        out = outblock_d;
       } else {
-	in = inblock;
-	out = outblock;
+        in = inblock;
+        out = outblock;
       }
 
       double *n_sg = in[0];
@@ -692,13 +697,13 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
           noutcopy = 3; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
         case XC_FAMILY_MGGA:
-	  xc_mgga_exc_vxc(func, blocksize, n_sg, sigma_xg, scratch_lapl, tau_sg,
+          xc_mgga_exc_vxc(func, blocksize, n_sg, sigma_xg, scratch_lapl, tau_sg,
                           e_g, dedn_sg, dedsigma_xg, scratch_vlapl, dedtau_sg);
           noutcopy = 4; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
         }
 
-      if(gpu[i]){
+      if (gpu[i]) {
         cudaMemcpy(outblock[0], outblock_d[0], outsize, cudaMemcpyDeviceToHost);
       }
 
@@ -778,10 +783,13 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
 
   assert(inlist.num < MAXPTR);
   assert(outlist.num < MAXPTR);
-  int insize, outsize;
+
   double *inblock[MAXPTR];
   double *outblock[MAXPTR];
-  setupblockptrs(scratch, &info, &inlist, &outlist, &inblock[0], &outblock[0], blocksize,&insize,&outsize);
+  int insize, outsize;
+
+  setupblockptrs(scratch, &info, &inlist, &outlist, &inblock[0], &outblock[0],
+          blocksize, &insize, &outsize);
 
   double *inblock_d[MAXPTR];
   double *outblock_d[MAXPTR];
@@ -789,14 +797,14 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
   int gpu[2];
   gpu[0] = (self->functional[0]->info->number > 1000);
   gpu[1] = 0;
-  if(self->functional[1] != NULL){
+  if (self->functional[1] != NULL) {
     gpu[1] = (self->functional[1]->info->number > 1000);
   }
 
-  if(gpu[0] || gpu[1]){
-    setupblockptrs(scratch_d, &info, &inlist, &outlist, &inblock_d[0], &outblock_d[0], blocksize, &insize, &outsize);
+  if (gpu[0] || gpu[1]) {
+    setupblockptrs(scratch_d, &info, &inlist, &outlist, &inblock_d[0],
+            &outblock_d[0], blocksize, &insize, &outsize);
   }
-
 
   do {
     blocksize = blocksize<remaining ? blocksize : remaining;
@@ -804,7 +812,7 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
 
     double **in;
     double **out;
-    if(gpu[0] || gpu[1]){
+    if (gpu[0] || gpu[1]) {
       cudaMemcpy(inblock_d[0], inblock[0], insize, cudaMemcpyHostToDevice);
     }
     double *n_sg_cpu = inblock[0];
@@ -841,7 +849,7 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
           noutcopy = 3; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
         case XC_FAMILY_MGGA:
-          // not supported by GPAW yet
+          // not supported by GPAW yet, so crash
           assert (func->info->family!=XC_FAMILY_MGGA);
           break;
         }
@@ -864,6 +872,7 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
     remaining -= blocksize;
   } while (remaining>0);
   Py_END_ALLOW_THREADS;
+
   Py_RETURN_NONE;
 }
 
@@ -901,7 +910,7 @@ static PyTypeObject lxcXCFunctionalType = {
 PyObject * NewlxcXCFunctionalObject(PyObject *obj, PyObject *args)
 {
   int xc, x, c; /* functionals identifier number */
-  int nspin; /* XC_UNPOLARIZED or XC_POLARIZED  */  
+  int nspin; /* XC_UNPOLARIZED or XC_POLARIZED  */
 
   if (!scratch) {
     scratch = (double*)malloc(LIBXCSCRATCHSIZE*sizeof(double));

@@ -3,4 +3,4 @@ import shutil
 
 machine = os.environ.get('MACHINE', 'TEST')
 shutil.rmtree(machine, ignore_errors=True)
-os.system(' . prepare.sh')
+os.system('sh prepare.sh')

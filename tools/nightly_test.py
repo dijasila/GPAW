@@ -18,7 +18,7 @@ def fail(msg, email=None, filename='/dev/null'):
 
 if '--dir' in sys.argv:
     i = sys.argv.index('--dir')
-    dir = sys.argv[i+1]
+    dir = os.path.abspath(sys.argv[i+1])
 else:
     dir = None
 

@@ -108,6 +108,7 @@ tests = [
     'atoms_too_close.py',
     'noncollinear/xcgrid3d.py',
     'vdwradii.py',
+    'lcao_restart.py',
     'ase3k.py',
     'parallel/ut_kptops.py',
     'fileio/idiotproof_setup.py',
@@ -126,6 +127,9 @@ tests = [
     'lcao_density.py',
     'parallel/overlap.py',
     'restart.py',
+    # numpy/scipy tests fail randomly
+    #'numpy_test.py',
+    #'scipy_test.py',
     'gemv.py',
     'ylexpand.py',
     'potential.py',
@@ -251,10 +255,13 @@ tests = [
     'si_xas.py',
     'atomize.py',
     'ralda_energy_H2.py',
+    'ralda_energy_N2.py',
+    'ralda_energy_Ni.py',
     'Cu.py',
     'restart_band_structure.py',
     'ne_disc.py',
     'exx_coarse.py',
+    'exx_unocc.py',
     'Hubbard_U_Zn.py',
     'muffintinpot.py',
     'diamond_gllb.py',
@@ -275,8 +282,9 @@ tests = [
     'td_na2.py',
     'rpa_energy_N2.py',
     'beefvdw.py',
+    #'mbeef.py',
     'wannierk.py',
-    'rpa_Na.py',
+    'rpa_energy_Na.py',
     'coreeig.py',
     'pw/si_stress.py',
     'P_ai.py',
@@ -296,6 +304,7 @@ tests = [
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
     'bse_silicon.py',
+    'bse_MoS2_cut.py',    
     'parallel/pblas.py',
     'parallel/scalapack.py',
     'parallel/scalapack_diag_simple.py',
@@ -333,8 +342,12 @@ if mpi.size > 1:
                 #'cmrtest/cmr_append.py',
                 #'cmrtest/Li2_atomize.py',
                 'lcao_pair_and_coulomb.py',
+                'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
-                'pw/davidson_pw.py']
+                'pw/davidson_pw.py',
+                # scipy.weave fails often in parallel due to ~/.python*_compiled
+                # https://github.com/scipy/scipy/issues/1895
+                'scipy_test.py']
 
 if mpi.size > 2:
     exclude += ['neb.py']
@@ -362,6 +375,8 @@ if mpi.size == 1 or not compiled_with_sl():
 
 if mpi.size != 1 and not compiled_with_sl():
     exclude += ['ralda_energy_H2.py',
+                'ralda_energy_N2.py',
+                'ralda_energy_Ni.py',
                 'bse_sym.py',
                 'bse_silicon.py']
 
@@ -490,7 +505,7 @@ class TestRunner:
                 skip = True
             else:
                 failed = True
-        except:
+        except Exception:
             failed = True
 
         mpi.ibarrier(timeout=60.0)  # guard against parallel hangs

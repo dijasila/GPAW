@@ -20,24 +20,7 @@ avoided by calling the ``update()`` function at intervals smaller than
 import time
 import math
 import sys
-
-from gpaw.cuda import debug_sync,get_context
-
-try:
-    import pytau
-except ImportError:
-    pass
-
-try:
-    from _gpaw import hpm_start, hpm_stop
-except ImportError:
-    pass
-
-try:
-    from _gpaw import craypat_region_begin
-    from _gpaw import craypat_region_end
-except ImportError:
-    pass
+from gpaw.cuda import debug_sync, get_context
 
 import gpaw.mpi as mpi
 MASTER = 0
@@ -183,7 +166,7 @@ class NullTimer:
     def __init__(self): pass
     def start(self, name): pass
     def stop(self, name=None): pass
-    def gettime(self, name):
+    def get_time(self, name):
         return 0.0
     def write(self, out=sys.stdout): pass
     def write_now(self, mark=''): pass
@@ -242,7 +225,7 @@ class StepTimer(Timer):
     def write_now(self, mark=''):
         self.stop(self.now)
         if self.alwaysprint or mpi.rank == MASTER:
-            print >> self.out, self.name, mark, self.gettime(self.now)
+            print >> self.out, self.name, mark, self.get_time(self.now)
         self.out.flush()
         del self.timers[self.now]
         self.start(self.now)
@@ -260,6 +243,8 @@ class TAUTimer(Timer):
 
     def __init__(self):
         Timer.__init__(self)
+        import pytau
+        self.pytau = pytau
         self.tau_timers = {}
         pytau.setNode(mpi.rank)
         self.tau_timers[self.top_level] = pytau.profileTimer(self.top_level)
@@ -267,19 +252,19 @@ class TAUTimer(Timer):
 
     def start(self, name):
         Timer.start(self, name)
-        self.tau_timers[name] = pytau.profileTimer(name)
-        pytau.start(self.tau_timers[name])
+        self.tau_timers[name] = self.pytau.profileTimer(name)
+        self.pytau.start(self.tau_timers[name])
         
     def stop(self, name=None):
         Timer.stop(self, name)
-        pytau.stop(self.tau_timers[name])
+        self.pytau.stop(self.tau_timers[name])
 
     def write(self, out=sys.stdout):
         Timer.write(self, out)
         if self.merge:
-            pytau.dbMergeDump()
+            self.pytau.dbMergeDump()
         else:
-            pytau.stop(self.tau_timers[self.top_level])
+            self.pytau.stop(self.tau_timers[self.top_level])
 
         
 class HPMTimer(Timer):
@@ -297,21 +282,24 @@ class HPMTimer(Timer):
 
     def __init__(self):
         Timer.__init__(self)
+        from _gpaw import hpm_start, hpm_stop
+        self.hpm_start = hpm_start
+        self.hpm_stop = hpm_stop
         hpm_start(self.top_level)
 
     def start(self, name):
         Timer.start(self, name)
         if name in self.compatible:
-            hpm_start(name)
+            self.hpm_start(name)
         
     def stop(self, name=None):
         Timer.stop(self, name)
         if name in self.compatible:
-            hpm_stop(name)
+            self.hpm_stop(name)
 
     def write(self, out=sys.stdout):
         Timer.write(self, out)
-        hpm_stop(self.top_level)
+        self.hpm_stop(self.top_level)
 
 class CrayPAT_timer(Timer):
     """Interface to CrayPAT API. In addition to regular timers,
@@ -321,6 +309,9 @@ class CrayPAT_timer(Timer):
 
     def __init__(self, print_levels=4):
         Timer.__init__(self, print_levels)
+        from _gpaw import craypat_region_begin, craypat_region_end
+        self.craypat_region_begin = craypat_region_begin
+        self.craypat_region_end = craypat_region_end
         self.regions = {}
         self.region_id = 5 # leave room for regions in C
 
@@ -332,10 +323,10 @@ class CrayPAT_timer(Timer):
             id = self.region_id
             self.regions[name] = id
             self.region_id += 1
-        craypat_region_begin(id, name)
+        self.craypat_region_begin(id, name)
 
     def stop(self, name=None):
         Timer.stop(self, name)
         id = self.regions[name]
-        craypat_region_end(id)
+        self.craypat_region_end(id)
 

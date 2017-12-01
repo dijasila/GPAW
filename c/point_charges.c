@@ -29,7 +29,7 @@ PyObject *pc_potential_value(PyObject *self, PyObject *args)
     return NULL;
 
   double *pos_c = DOUBLEP(posi_c);
-  int npc = pci_nc->dimensions[0];
+  int npc = PyArray_DIMS(pci_nc)[0];
   double *pc_nc = DOUBLEP(pci_nc);
   double *q_n = DOUBLEP(qi_n);
 
@@ -49,7 +49,7 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
     return NULL;
 
   double *pot = DOUBLEP(poti);
-  int npc = pci_nc->dimensions[0];
+  int npc = PyArray_DIMS(pci_nc)[0];
   double *pc_nc = DOUBLEP(pci_nc);
   long *beg = LONGP(beg_c);
   long *end = LONGP(end_c);

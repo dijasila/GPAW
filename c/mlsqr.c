@@ -76,7 +76,7 @@ PyObject* mlsqr(PyObject *self, PyObject *args)
       // xxx yyy zzz zyz
       coeffs = 20;
     }
-  int points = coords->dimensions[0];
+  int points = PyArray_DIM(coords, 0);
 
   double* coord_nc = DOUBLEP(coords);
   double* grid_points = DOUBLEP(N_c);
@@ -97,8 +97,8 @@ PyObject* mlsqr(PyObject *self, PyObject *args)
   double* work = GPAW_MALLOC(double, coeffs*source_points);
 
   // The multipliers for each dimension
-  int ldx = data->dimensions[1]*data->dimensions[2];
-  int ldy = data->dimensions[2];
+  int ldx = PyArray_DIM(data, 1) * PyArray_DIM(data, 2);
+  int ldy = PyArray_DIM(data, 2);
   int ldz = 1;
 
   // For each point to be interpolated
@@ -114,9 +114,9 @@ PyObject* mlsqr(PyObject *self, PyObject *args)
       int cz2 = (int) round(z);
 
       // Scaled to grid
-      int cx = safemod(cx2,data->dimensions[0]);
-      int cy = safemod(cy2,data->dimensions[1]);
-      int cz = safemod(cz2,data->dimensions[2]);
+      int cx = safemod(cx2, PyArray_DIM(data, 0));
+      int cy = safemod(cy2, PyArray_DIM(data, 1));
+      int cz = safemod(cz2, PyArray_DIM(data, 2));
 
       double* i_X = X;
       double* i_b = b;
@@ -171,9 +171,9 @@ PyObject* mlsqr(PyObject *self, PyObject *args)
 		  *i_X++ = w*sz*sz*sy; // zzy
 		}
 
-	      *i_b++ = w*data_g[ safemod(cx+dx, data->dimensions[0]) * ldx +
-				 safemod(cy+dy, data->dimensions[1]) * ldy +
-				 safemod(cz+dz, data->dimensions[2]) * ldz ];
+	      *i_b++ = w*data_g[ safemod(cx+dx,  PyArray_DIM(data, 0)) * ldx +
+				 safemod(cy+dy,  PyArray_DIM(data, 1)) * ldy +
+				 safemod(cz+dz,  PyArray_DIM(data, 2)) * ldz ];
 	    }
 
       int info = 0;

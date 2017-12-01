@@ -95,18 +95,19 @@ def gemm(alpha, a, b, beta, c, transa='n', cuda=False, hybrid=False):
             assert c.strides[1] == c.itemsize
             assert a.shape[1:] == b.shape[1:]
             assert c.shape == (b.shape[0], a.shape[0])
-            
+
     assert (type(a) == type(b) and type(b) == type(c))
 
-
-    if isinstance(a,gpaw.cuda.gpuarray.GPUArray) and  isinstance(b,gpaw.cuda.gpuarray.GPUArray) and isinstance(c,gpaw.cuda.gpuarray.GPUArray):
+    if isinstance(a,gpaw.cuda.gpuarray.GPUArray) \
+            and isinstance(b,gpaw.cuda.gpuarray.GPUArray) \
+            and isinstance(c,gpaw.cuda.gpuarray.GPUArray):
         if gpaw.cuda.debug:
             a_cpu=a.get()
             b_cpu=b.get()
             c_cpu=c.get()
             _gpaw.gemm(alpha, a_cpu, b_cpu, beta, c_cpu, transa)
 
-        _gpaw.gemm_cuda_gpu(alpha, a.gpudata,a.shape, b.gpudata, 
+        _gpaw.gemm_cuda_gpu(alpha, a.gpudata, a.shape, b.gpudata,
                             b.shape,beta, c.gpudata, c.shape, a.dtype,
                             transa, hybrid)
         if gpaw.cuda.debug:
@@ -115,8 +116,9 @@ def gemm(alpha, a, b, beta, c, transa='n', cuda=False, hybrid=False):
         a_gpu = gpaw.cuda.gpuarray.to_gpu(a)
         b_gpu = gpaw.cuda.gpuarray.to_gpu(b)
         c_gpu = gpaw.cuda.gpuarray.to_gpu(c)
-        _gpaw.gemm_cuda_gpu(alpha, a_gpu.gpudata, a.shape, b_gpu.gpudata, 
-                            b.shape,beta, c_gpu.gpudata, c.shape, a.dtype, transa)
+        _gpaw.gemm_cuda_gpu(alpha, a_gpu.gpudata, a.shape, b_gpu.gpudata,
+                            b.shape,beta, c_gpu.gpudata, c.shape, a.dtype,
+                            transa)
         c_gpu.get(c)
     else:
         _gpaw.gemm(alpha, a, b, beta, c, transa)

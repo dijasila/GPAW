@@ -54,8 +54,6 @@ correction:
 
 .. warning::
 
-    * The dipole correction currently does not support non-orthorhombic
-      unit cells.
     * Information about use of a dipole correction is currently not
       written to the gpw file.  See below how to restart such a
       calculation.

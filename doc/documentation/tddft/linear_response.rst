@@ -7,55 +7,20 @@ Linear response TDDFT
 Ground state
 ============
 
-The linear response TDDFT calculation needs a converged ground state calculation with a set of unoccupied states. The standard eigensolver 'rmm-diis' should not be used for the calculation of unoccupied states, better use 'dav' or 'cg'::
+The linear response TDDFT calculation needs a converged ground state calculation with a set of unoccupied states. The standard eigensolver 'rmm-diis' should not be used for the calculation of unoccupied states, better use 'dav' or 'cg':
 
-  from gpaw import GPAW
-  from gpaw.cluster import Cluster
-  from gpaw.lrtddft import LrTDDFT
-
-  ffname='PBE_125bands.gpw'
-  s = Cluster(filename='structure.xyz')
-  c = GPAW(xc='PBE', nbands=125,
-           convergence={'bands':120},
-           eigensolver='dav', charge=1)
-  s.set_calculator(c)
-  try:
-      s.get_potential_energy()
-  except:
-      pass
-  # write everything out (also the wave functions)
-  c.write(ffname, 'all')
-
+.. literalinclude:: Be_gs_8bands.py
 
 Calculating the Omega Matrix
 ============================
 
-The next step is to calculate the Omega Matrix from the ground state orbitals::
+The next step is to calculate the Omega Matrix from the ground state orbitals:
 
-  from gpaw import GPAW
-  from gpaw.lrtddft import LrTDDFT
+.. literalinclude:: Be_8bands_lrtddft.py
 
-  ifname = 'PBE_125bands.gpw'
-  c = GPAW(ifname)
+alternatively one can also restrict the number of transitions by their energy:
 
-  istart=30 # band index of the first occ. band to consider
-  jend=120  # band index of the last unocc. band to consider
-  lr = LrTDDFT(c, xc='LDA', istart=istart, jend=jend, 
-               nspins=2) # force the calculation of triplet excitations also
-  lr.write('lr.dat.gz')
-
-alternatively one can also restrict the number of transitions by their energy::
-
-  from gpaw import GPAW
-  from gpaw.lrtddft import LrTDDFT
-
-  ifname = 'PBE_125bands.gpw'
-  c = GPAW(ifname)
-
-  dE = 2.5 # maximal Kohn-Sham transition energy to consider
-  lr = LrTDDFT(c, xc='LDA', energy_range=dE,
-               nspins=2) # force the calculation of triplet excitations also
-  lr.write('lr.dat.gz')
+.. literalinclude:: Be_8bands_lrtddft_dE.py
 
 Note, that parallelization over spin does not work here. As a workaround,
 domain decomposition only (``parallel={'domain': world.size}``, 

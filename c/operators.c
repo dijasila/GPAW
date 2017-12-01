@@ -331,8 +331,8 @@ static PyObject * Operator_apply(OperatorObject *self,
     return NULL;
 
   int nin = 1;
-  if (input->nd == 4)
-    nin = input->dimensions[0];
+  if (PyArray_NDIM(input) == 4)
+    nin = PyArray_DIMS(input)[0];
 
   boundary_conditions* bc = self->bc;
   const int* size1 = bc->size1;
@@ -344,8 +344,9 @@ static PyObject * Operator_apply(OperatorObject *self,
   double* out = DOUBLEP(output);
   const double_complex* ph;
 
-  bool real = (input->descr->type_num == PyArray_DOUBLE);
+  bool real = (PyArray_DESCR(input)->type_num == NPY_DOUBLE);
   Py_BEGIN_ALLOW_THREADS;
+
   if (real)
     ph = 0;
   else
@@ -495,7 +496,7 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
   if (self == NULL)
     return NULL;
 
-  self->stencil = bmgs_stencil(coefs->dimensions[0], DOUBLEP(coefs),
+  self->stencil = bmgs_stencil(PyArray_DIMS(coefs)[0], DOUBLEP(coefs),
                                LONGP(offsets), range, LONGP(size));
 
   const long (*nb)[2] = (const long (*)[2])LONGP(neighbors);

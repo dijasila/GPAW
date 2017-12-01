@@ -53,17 +53,17 @@ void cut(const double* a, const int n[3], const int c[3],
 PyObject * overlap(PyObject* self, PyObject *args)
 {
   PyObject* lfs_b_obj;
-  const PyArrayObject* m_b_obj;
-  const PyArrayObject* phase_bk_obj;
-  const PyArrayObject* vt_sG_obj;
+  PyArrayObject* m_b_obj;
+  PyArrayObject* phase_bk_obj;
+  PyArrayObject* vt_sG_obj;
   PyArrayObject* Vt_skmm_obj;
   if (!PyArg_ParseTuple(args, "OOOOO", &lfs_b_obj, &m_b_obj, &phase_bk_obj,
 			&vt_sG_obj, &Vt_skmm_obj))
     return NULL;
 
-  int nk = phase_bk_obj->dimensions[1];
-  int nm = Vt_skmm_obj->dimensions[2];
-  int nspins = vt_sG_obj->dimensions[0];
+  int nk = PyArray_DIMS(phase_bk_obj)[1];
+  int nm = PyArray_DIMS(Vt_skmm_obj)[2];
+  int nspins = PyArray_DIMS(vt_sG_obj)[0];
 
   const long *m_b = LONGP(m_b_obj);
   const double complex *phase_bk = COMPLEXP(phase_bk_obj);

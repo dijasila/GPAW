@@ -115,10 +115,10 @@ PyObject* diagonalize(PyObject *self, PyObject *args)
   PyArrayObject* w;
   if (!PyArg_ParseTuple(args, "OO", &a, &w))
     return NULL;
-  int n = a->dimensions[0];
+  int n = PyArray_DIMS(a)[0];
   int lda = n;
   int info = 0;
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       int lwork = 3 * n + 1;
       double* work = GPAW_MALLOC(double, lwork);
@@ -151,7 +151,7 @@ PyObject* diagonalize_mr3(PyObject *self, PyObject *args)
   char jobz = 'V';
   char range = 'A';
   char uplo = 'U';
-  int n = a->dimensions[0];
+  int n = PyArray_DIMS(a)[0];
   int lda = MAX(1, n);
   double vl, vu;
   int il, iu;
@@ -160,7 +160,7 @@ PyObject* diagonalize_mr3(PyObject *self, PyObject *args)
   int ldz = lda;
   int info = 0;
   int* isuppz = GPAW_MALLOC(int, 2*m);
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       /* Minimum workspace plus a little extra */
       int lwork = 26 * n + 1;
@@ -209,12 +209,12 @@ PyObject* general_diagonalize(PyObject *self, PyObject *args)
   PyArrayObject* b;
   if (!PyArg_ParseTuple(args, "OOO", &a, &w, &b))
     return NULL;
-  int n = a->dimensions[0];
+  int n = PyArray_DIMS(a)[0];
   int lda = MAX(1, n);
   int ldb = lda;
   int itype = 1;
   int info = 0;
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       int lwork = 3 * n + 1;
       double* work = GPAW_MALLOC(double, lwork);
@@ -244,11 +244,11 @@ PyObject* inverse_cholesky(PyObject *self, PyObject *args)
   PyArrayObject* a;
   if (!PyArg_ParseTuple(args, "O", &a))
     return NULL;
-  int n = a->dimensions[0];
+  int n = PyArray_DIMS(a)[0];
   int lda = MAX(1, n);
   int info = 0;
 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       dpotrf_("U", &n, (void*)DOUBLEP(a), &lda, &info);
       if (info == 0)
@@ -325,10 +325,10 @@ PyObject* right_eigenvectors(PyObject *self, PyObject *args)
   PyArrayObject* w; /* eigenvalues */
   if (!PyArg_ParseTuple(args, "OOO", &A, &w, &v))
     return NULL;
-  int n = A->dimensions[0];
+  int n = PyArray_DIMS(A)[0];
   int lda = n;
   int info = 0;
-  if (A->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(A)->type_num == NPY_DOUBLE)
     {
       int lwork = -1;
       double* work = GPAW_MALLOC(double, 1);
@@ -369,13 +369,13 @@ PyObject* inverse_general(PyObject *self, PyObject *args)
   PyArrayObject* a;
   if (!PyArg_ParseTuple(args, "O", &a))
     return NULL;
-  int n = a->dimensions[0];
+  int n = PyArray_DIMS(a)[0];
   int m = n;
   int lda = n;
   int lwork = n;
   int* ipiv = GPAW_MALLOC(int, n);
   int info = 0;
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       double* work = GPAW_MALLOC(double, lwork);
       dgetrf_(&n, &m, DOUBLEP(a), &lda, ipiv, &info);
@@ -398,12 +398,12 @@ PyObject* inverse_symmetric(PyObject *self, PyObject *args)
   PyArrayObject* a;
   if (!PyArg_ParseTuple(args, "O", &a))
     return NULL;
-  int n = a->dimensions[0];
+  int n = PyArray_DIMS(a)[0];
   int lda = n;
   int lwork =n;
   int* ipiv = GPAW_MALLOC(int, n);
   int info = 0;
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       double* work = GPAW_MALLOC(double, lwork);
       dsytrf_("U", &n, DOUBLEP(a), &lda, ipiv, work, &lwork, &info);
@@ -428,10 +428,10 @@ PyObject* linear_solve_band(PyObject *self, PyObject *args)
  int  kl, ku, info=0, *ipiv;
  if(!PyArg_ParseTuple(args,"OOii",&a, &b,&kl,&ku))
    return NULL;
-int n=a->dimensions[0];
-int ldab=a->dimensions[1];
-int ldb=b->dimensions[0];
-int nrhs=b->dimensions[1];
+int n=PyArray_DIMS(a)[0];
+int ldab=PyArray_DIMS(a)[1];
+int ldb=PyArray_DIMS(b)[0];
+int nrhs=PyArray_DIMS(b)[1];
    ipiv = GPAW_MALLOC(int, n);
    zgbsv_(&n, &kl,&ku, &nrhs, (void*)COMPLEXP(a), &ldab, ipiv, (void*)COMPLEXP(b), &ldb, &info);
    free(ipiv);

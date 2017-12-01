@@ -24,13 +24,15 @@ PyObject* WritePLT(PyObject *self, PyObject *args)
     return NULL; 
 
   /* must be 3D */
-  if(go->nd != 3) return NULL; 
+  if(PyArray_NDIM(go) != 3) return NULL; 
 
   double* g = DOUBLEP(go);
   double* h = DOUBLEP(ho);
 
   write_plt_file(fname,
-		 go->dimensions[0],go->dimensions[1],go->dimensions[2],
+		 PyArray_DIM(go, 0),
+		 PyArray_DIM(go, 1),
+		 PyArray_DIM(go, 2),
 		 0.,0.,0.,
 		 h[0],h[1],h[2],
 		 g);

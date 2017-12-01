@@ -146,7 +146,7 @@ I/O
 
 All necessary informations of the system are read from ``file = 'filename.gpw'`` which must contain the wavefunctions. This is done by performing ``calc.write('groundstate.gpw', 'all')`` after the groundstate calculation. GW supports grid mode, planewave and LCAO basis.
 
-Especially for big systems, it might be reasonable to determine the exact exchange contributions seperately and store them in a pickle file which can be read by defining ``exxfile = 'filename.pckl'``. The band and k-point indices must match the ones used for the GW calculation. The pickle file needs to contain the following data:
+Especially for big systems, it might be reasonable to determine the exact exchange contributions seperately and store them in a pickle file which can be read by defining ``exxfile = 'filename.pckl'`` (see below). The band and k-point indices must match the ones used for the GW calculation. The pickle file needs to contain the following data:
 
 ================= ==============================================================================
 ``gwkpt_k``       list of k-point indices
@@ -164,7 +164,7 @@ See the GW tutorial for an example: :ref:`gw_tutorial`
 
 The output is written to ``txt = 'filename.out'`` which summarizes the input and results and gives an estimation of the timing while the calculation is running. An additional file ``df.out`` is created for the calculation of the dielectric matrix.
 
-All results are also stored in a pickle file called ``GW.pckl``, which contains all data listed in the table above and addionally ``Sigma_skn``, ``Z_skn`` and ``QP_skn`` for the self energy contributions, renormalization factors and the quasi-particle bandstructure, respectively.
+All results are also stored in a pickle file called ``GW.pckl`` by default, which contains all data listed in the table above and addionally ``Sigma_skn``, ``Z_skn`` and ``QP_skn`` for the self energy contributions, renormalization factors and the quasi-particle bandstructure, respectively.
 
 Convergence
 ===========
@@ -208,10 +208,27 @@ keyword            type               default value        description
 ``E0``             ``float``          27.2114 (eV)         Frequency for fitting PPA
 ``hilbert_trans``  ``bool``           False                False = method 1, True = method 2
 ``wpar``           ``int``            1                    Parallelization in energy
-``vcut``           ``str``            None                 Coulomb cutoff ('2D', '1D' or '0D')
-``exxfile``        ``str``            None                 filename from which EXX contributions are read
+``vcut``           ``str``            None                 Coulomb cutoff (currently, only '2D' supported)
 ``txt``            ``str``            None                 Output filename
 =================  =================  ===================  ===============================================
+
+Functions
+=========
+
+``get_exact_exchange(ecut=None, communicator=world, file='EXX.pckl')``
+
+calculates exact exchange and Kohn-Sham exchange-correlation contributions for given ``bands`` and ``kpoints``
+and stores everything in a pickle file.
+
+In planewave mode ``ecut`` is taken from the groundstate calculation.
+Otherwise, it can be chosen independently from the actual GW calculation. The value needs to be given in eV.
+Note that the exact exchange and GW may converge differently with respect to ``ecut``.
+
+``get_QP_spectrum(exxfile='EXX.pckl', file='GW.pckl')``
+
+calculates GW quasi-particle spectrum reading exact exchange and exchange-correlation contribution from ``exxfile``
+and stores all results in a pickle file.
+
 
 References
 ==========

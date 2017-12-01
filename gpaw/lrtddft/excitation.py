@@ -34,11 +34,11 @@ class ExcitationList(list):
         return np.array(el)
 
     def get_trk(self):
-        """Evaluate the Thonmas Reiche Kuhn sum rule"""
+        """Evaluate the Thomas Reiche Kuhn sum rule"""
         trkm = np.zeros((3))
         for ex in self:
-            trkm += ex.get_energy()*ex.get_dipol_me()**2
-        return 2.*trkm # scale to get the number of electrons
+            trkm += ex.get_energy() * ex.get_dipol_me()**2
+        return 2. * trkm # scale to get the number of electrons XXX spinpol ?
     
     def get_polarizabilities(self, lmax=7):
         """Calculate the Polarisabilities

@@ -6,6 +6,8 @@ from gpaw import restart, GPAW
 from gpaw.poisson import PoissonSolver
 from gpaw.dipole_correction import DipoleCorrection
 
+# this test requires OpenEXR-libs
+
 for name in ['zero', 'periodic', 'corrected']:
     if name == 'corrected':
         calc = GPAW(name, txt=None,

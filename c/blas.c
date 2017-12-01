@@ -74,9 +74,9 @@ void zgemv_(char *trans, int *m, int * n,
 	    void *x, int *incx, void *beta,
 	    void *y, int *incy);
 double ddot_(int *n, void *dx, int *incx, void *dy, int *incy);
-void zdotu_(void *ret_val, int *n, 
+void zdotu_(void *ret_val, int *n,
 	    void *zx, int *incx, void *zy, int *incy);
-void zdotc_(void *ret_val, int *n, 
+void zdotc_(void *ret_val, int *n,
 	    void *zx, int *incx, void *zy, int *incy);
 
 PyObject* scal(PyObject *self, PyObject *args)
@@ -85,16 +85,17 @@ PyObject* scal(PyObject *self, PyObject *args)
   PyArrayObject* x;
   if (!PyArg_ParseTuple(args, "DO", &alpha, &x))
     return NULL;
-  int n = x->dimensions[0];
+  int n = PyArray_DIMS(x)[0];
   Py_BEGIN_ALLOW_THREADS;
-  for (int d = 1; d < x->nd; d++)
-    n *= x->dimensions[d];
+  for (int d = 1; d < PyArray_NDIM(x); d++)
+    n *= PyArray_DIMS(x)[d];
   int incx = 1;
 
-  if (x->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(x)->type_num == NPY_DOUBLE)
     dscal_(&n, &(alpha.real), DOUBLEP(x), &incx);
   else
     zscal_(&n, &alpha, (void*)COMPLEXP(x), &incx);
+
   Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
 }
@@ -113,27 +114,27 @@ PyObject* gemm(PyObject *self, PyObject *args)
   Py_BEGIN_ALLOW_THREADS;
   if (transa == 'n')
     {
-      m = a->dimensions[1];
-      for (int i = 2; i < a->nd; i++)
-	m *= a->dimensions[i];
-      k = a->dimensions[0];
-      lda = MAX(1, m);
-      ldb = MAX(1, b->strides[0] / b->strides[1]);
-      ldc = MAX(1, c->strides[0] / c->strides[c->nd - 1]);
+      m = PyArray_DIMS(a)[1];
+      for (int i = 2; i < PyArray_NDIM(a); i++)
+	m *= PyArray_DIMS(a)[i];
+      k = PyArray_DIMS(a)[0];
+      lda = MAX(1, PyArray_STRIDES(a)[0] / PyArray_STRIDES(a)[PyArray_NDIM(a) - 1]);
+      ldb = MAX(1, PyArray_STRIDES(b)[0] / PyArray_STRIDES(b)[1]);
+      ldc = MAX(1, PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[PyArray_NDIM(c) - 1]);
     }
   else
     {
-      k = a->dimensions[1];
-      for (int i = 2; i < a->nd; i++)
-	k *= a->dimensions[i];
-      m = a->dimensions[0];
+      k = PyArray_DIMS(a)[1];
+      for (int i = 2; i < PyArray_NDIM(a); i++)
+	k *= PyArray_DIMS(a)[i];
+      m = PyArray_DIMS(a)[0];
       lda = MAX(1, k);
-      ldb = MAX(1, b->strides[0] / b->strides[b->nd - 1]);
-      ldc = MAX(1, c->strides[0] / c->strides[1]);
+      ldb = MAX(1, PyArray_STRIDES(b)[0] / PyArray_STRIDES(b)[PyArray_NDIM(b) - 1]);
+      ldc = MAX(1, PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1]);
 
     }
-  int n = b->dimensions[0];
-  if (a->descr->type_num == PyArray_DOUBLE)
+  int n = PyArray_DIMS(b)[0];
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     dgemm_(&transa, "n", &m, &n, &k,
            &(alpha.real),
            DOUBLEP(a), &lda,
@@ -164,33 +165,34 @@ PyObject* gemv(PyObject *self, PyObject *args)
     return NULL;
 
   int m, n, lda, itemsize, incx, incy;
+
   Py_BEGIN_ALLOW_THREADS;
   if (trans == 'n')
     {
-      m = a->dimensions[1];
-      for (int i = 2; i < a->nd; i++)
-	m *= a->dimensions[i];
-      n = a->dimensions[0];
+      m = PyArray_DIMS(a)[1];
+      for (int i = 2; i < PyArray_NDIM(a); i++)
+	m *= PyArray_DIMS(a)[i];
+      n = PyArray_DIMS(a)[0];
       lda = m;
     }
   else
     {
-      n = a->dimensions[0];
-      for (int i = 1; i < a->nd-1; i++)
-	n *= a->dimensions[i];
-      m = a->dimensions[a->nd-1];
+      n = PyArray_DIMS(a)[0];
+      for (int i = 1; i < PyArray_NDIM(a)-1; i++)
+	n *= PyArray_DIMS(a)[i];
+      m = PyArray_DIMS(a)[PyArray_NDIM(a)-1];
       lda = m;
     }
 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     itemsize = sizeof(double);
   else
     itemsize = sizeof(double_complex);
 
-  incx = x->strides[0]/itemsize;
+  incx = PyArray_STRIDES(x)[0]/itemsize;
   incy = 1;
 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     dgemv_(&trans, &m, &n,
            &(alpha.real),
            DOUBLEP(a), &lda,
@@ -217,12 +219,12 @@ PyObject* axpy(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "DOO", &alpha, &x, &y))
     return NULL;
   Py_BEGIN_ALLOW_THREADS;
-  int n = x->dimensions[0];
-  for (int d = 1; d < x->nd; d++)
-    n *= x->dimensions[d];
+  int n = PyArray_DIMS(x)[0];
+  for (int d = 1; d < PyArray_NDIM(x); d++)
+    n *= PyArray_DIMS(x)[d];
   int incx = 1;
   int incy = 1;
-  if (x->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(x)->type_num == NPY_DOUBLE)
     daxpy_(&n, &(alpha.real),
            DOUBLEP(x), &incx,
            DOUBLEP(y), &incy);
@@ -241,10 +243,10 @@ PyObject* czher(PyObject *self, PyObject *args)
   PyArrayObject* a;
   if (!PyArg_ParseTuple(args, "dOO", &alpha, &x, &a))
     return NULL;
-  int n = x->dimensions[0];
+  int n = PyArray_DIMS(x)[0];
   Py_BEGIN_ALLOW_THREADS;
-  for (int d = 1; d < x->nd; d++)
-    n *= x->dimensions[d];
+  for (int d = 1; d < PyArray_NDIM(x); d++)
+    n *= PyArray_DIMS(x)[d];
 
   int incx = 1;
   int lda = MAX(1, n);
@@ -264,13 +266,13 @@ PyObject* rk(PyObject *self, PyObject *args)
   PyArrayObject* c;
   if (!PyArg_ParseTuple(args, "dOdO", &alpha, &a, &beta, &c))
     return NULL;
-  int n = a->dimensions[0];
-  int k = a->dimensions[1];
+  int n = PyArray_DIMS(a)[0];
+  int k = PyArray_DIMS(a)[1];
   Py_BEGIN_ALLOW_THREADS;
-  for (int d = 2; d < a->nd; d++)
-    k *= a->dimensions[d];
-  int ldc = c->strides[0] / c->strides[1];
-  if (a->descr->type_num == PyArray_DOUBLE)
+  for (int d = 2; d < PyArray_NDIM(a); d++)
+    k *= PyArray_DIMS(a)[d];
+  int ldc = PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1];
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     dsyrk_("u", "t", &n, &k,
            &alpha, DOUBLEP(a), &k, &beta,
            DOUBLEP(c), &ldc);
@@ -291,13 +293,13 @@ PyObject* r2k(PyObject *self, PyObject *args)
   PyArrayObject* c;
   if (!PyArg_ParseTuple(args, "DOOdO", &alpha, &a, &b, &beta, &c))
     return NULL;
-  int n = a->dimensions[0];
-  int k = a->dimensions[1];
+  int n = PyArray_DIMS(a)[0];
+  int k = PyArray_DIMS(a)[1];
   Py_BEGIN_ALLOW_THREADS;
-  for (int d = 2; d < a->nd; d++)
-    k *= a->dimensions[d];
-  int ldc = c->strides[0] / c->strides[1];
-  if (a->descr->type_num == PyArray_DOUBLE)
+  for (int d = 2; d < PyArray_NDIM(a); d++)
+    k *= PyArray_DIMS(a)[d];
+  int ldc = PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1];
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     dsyr2k_("u", "t", &n, &k,
             (double*)(&alpha), DOUBLEP(a), &k,
             DOUBLEP(b), &k, &beta,
@@ -317,23 +319,22 @@ PyObject* dotc(PyObject *self, PyObject *args)
   PyArrayObject* b;
   if (!PyArg_ParseTuple(args, "OO", &a, &b))
     return NULL;
-  int n = a->dimensions[0];
-
-  for (int i = 1; i < a->nd; i++)
-    n *= a->dimensions[i];
+  int n = PyArray_DIMS(a)[0];
+  for (int i = 1; i < PyArray_NDIM(a); i++)
+    n *= PyArray_DIMS(a)[i];
   int incx = 1;
   int incy = 1;
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       double result;
       Py_BEGIN_ALLOW_THREADS;
       result = ddot_(&n, (void*)DOUBLEP(a),
-		     &incx, (void*)DOUBLEP(b), &incy);
+	     &incx, (void*)DOUBLEP(b), &incy);
       Py_END_ALLOW_THREADS;
       return PyFloat_FromDouble(result);
     }
   else
-    {      
+    {
       double_complex* ap = COMPLEXP(a);
       double_complex* bp = COMPLEXP(b);
       double_complex result;
@@ -352,17 +353,17 @@ PyObject* dotu(PyObject *self, PyObject *args)
   PyArrayObject* b;
   if (!PyArg_ParseTuple(args, "OO", &a, &b))
     return NULL;
-  int n = a->dimensions[0];
-  for (int i = 1; i < a->nd; i++)
-    n *= a->dimensions[i];
+  int n = PyArray_DIMS(a)[0];
+  for (int i = 1; i < PyArray_NDIM(a); i++)
+    n *= PyArray_DIMS(a)[i];
   int incx = 1;
   int incy = 1;
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       double result;
       Py_BEGIN_ALLOW_THREADS;
       result = ddot_(&n, (void*)DOUBLEP(a),
-		     &incx, (void*)DOUBLEP(b), &incy);
+	     &incx, (void*)DOUBLEP(b), &incy);
       Py_END_ALLOW_THREADS;
       return PyFloat_FromDouble(result);
     }
@@ -372,8 +373,7 @@ PyObject* dotu(PyObject *self, PyObject *args)
       double_complex* bp = COMPLEXP(b);
       double_complex result;
       Py_BEGIN_ALLOW_THREADS;
-      zdotu_(&result, &n, ap,
-	     &incx, bp, &incy);
+      zdotu_(&result, &n, ap, &incx, bp, &incy);
       Py_END_ALLOW_THREADS;
       return PyComplex_FromDoubles(creal(result), cimag(result));
     }
@@ -387,13 +387,13 @@ PyObject* multi_dotu(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "OOO", &a, &b, &c)) 
     return NULL;
   Py_BEGIN_ALLOW_THREADS;
-  int n0 = a->dimensions[0];
-  int n = a->dimensions[1];
-  for (int i = 2; i < a->nd; i++)
-    n *= a->dimensions[i];
+  int n0 = PyArray_DIMS(a)[0];
+  int n = PyArray_DIMS(a)[1];
+  for (int i = 2; i < PyArray_NDIM(a); i++)
+    n *= PyArray_DIMS(a)[i];
   int incx = 1;
   int incy = 1;
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       double *ap = DOUBLEP(a);
       double *bp = DOUBLEP(b);
@@ -432,17 +432,17 @@ PyObject* multi_axpy(PyObject *self, PyObject *args)
   PyArrayObject* y;
   if (!PyArg_ParseTuple(args, "OOO", &alpha, &x, &y)) 
     return NULL;
-  int n0 = x->dimensions[0];
-  int n = x->dimensions[1];
+  int n0 = PyArray_DIMS(x)[0];
+  int n = PyArray_DIMS(x)[1];
   Py_BEGIN_ALLOW_THREADS;
-  for (int d = 2; d < x->nd; d++)
-    n *= x->dimensions[d];
+  for (int d = 2; d < PyArray_NDIM(x); d++)
+    n *= PyArray_DIMS(x)[d];
   int incx = 1;
   int incy = 1;
 
-   if (alpha->descr->type_num == PyArray_DOUBLE)
+   if (PyArray_DESCR(alpha)->type_num == NPY_DOUBLE)
     {
-      if (x->descr->type_num == PyArray_CDOUBLE)
+      if (PyArray_DESCR(x)->type_num == NPY_CDOUBLE)
 	n *= 2;
       double *ap = DOUBLEP(alpha);
       double *xp = DOUBLEP(x);

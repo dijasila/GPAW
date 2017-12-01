@@ -221,7 +221,7 @@ class ConstantElectricField(ElectrostaticPotential):
             self.center = np.array(center) / Bohr
 
         # normalise the direction
-        dir = np.array(direction)
+        dir = np.array(direction, float)
         dir /= np.sqrt(np.dot(dir, dir))
         self.direction = dir
         

@@ -63,27 +63,18 @@
 
 	  <h3>GPAW</h3>
 	  <ul class="this-page-menu">
-	    <li><a href="{{ pathto('features_and_algorithms') }}">Overview</a></li>
+	    <li><a href="{{ pathto('documentation/documentation') }}">Documentation</a></li>
 	    <li><a href="{{ pathto('download') }}">Download</a></li>
 	    <li><a href="{{ pathto('setups/setups') }}">Setups</a></li>
             <li><a href="{{ pathto('tutorials/tutorials') }}">Tutorials</a></li>
-	    <!-- <li><a href="{{ pathto('exercises/exercises') }}">Exercises</a></li> -->
-
-	    <li><a href="{{ pathto('documentation/documentation') }}">Documentation</a></li>
-	    <!-- <li><a href="{{ pathto('manual') }}">Manual</a></li> -->
+	    <li><a href="{{ pathto('exercises/exercises') }}">Exercises</a></li>
+	    <li><a href="{{ pathto('faq') }}">FAQ</a></li>
+	    <li><a href="{{ pathto('features_and_algorithms') }}">Features</a></li>
             <li><a href="{{ pathto('performance') }}">Performance</a></li>
             <li><a href="{{ pathto('devel/releasenotes') }}">Release Notes</a></li>
-	    <li><a href="{{ pathto('faq') }}">FAQ</a></li>
             <li><a href="{{ pathto('mailinglists') }}">Mailing lists</a></li>
             <li><a href="{{ pathto('documentation/literature') }}#citations-of-the-gpaw-method-papers">Publications</a></li>
             <li><a href="{{ pathto('genindex') }}">Index</a></li>
-	  </ul>
-	  <h3>Summer School 2012</h3>
-	  <ul class="this-page-menu">
-	    <li><a href="{{ pathto('exercises/summerschool12') }}">Instructions</a></li>
-	    <li><a href="{{ pathto('exercises/exercises') }}">Exercises</a></li>
-	    <li><a href="{{ pathto('exercises/faeq') }}">Exercises-FAQ</a></li>
-	    <li><a href="http://www.gbar.dtu.dk/">Computer Lab docs</a></li>
 	  </ul>
 	  <h3>Development</h3>
 	  <ul class="this-page-menu">
@@ -97,7 +88,18 @@
           <ul>
             <li><a href="https://wiki.fysik.dtu.dk/ase/">ASE Web Page</a></li>
           </ul>
-
+	  <h3>Workshop 2013</h3>
+	  <ul class="this-page-menu">
+	    <li><a href="{{ pathto('devel/workshop') }}">Program</a></li>
+	  </ul>
+<!--	  <h3>Summer School 2012</h3>
+	  <ul class="this-page-menu">
+	    <li><a href="{{ pathto('exercises/summerschool12') }}">Instructions</a></li>
+	    <li><a href="{{ pathto('exercises/exercises') }}">Exercises</a></li>
+	    <li><a href="{{ pathto('exercises/faeq') }}">Exercises-FAQ</a></li>
+	    <li><a href="http://www.gbar.dtu.dk/">Computer Lab docs</a></li>
+	  </ul>
+-->
           {%- if display_toc and current_page_name not in ['index', 'contents'] %}
             <h3>This page</h3>
             {{ toc }}

@@ -11,6 +11,7 @@ defaults = { 'err'   : None,
              'mail'  : None,
              'mem'   : None,
              'name'  : None,
+             'depth' : 1,
              'cores' : 2,
              'out'   : None,
              'qsys'  : 'pbs',
@@ -29,12 +30,12 @@ hosts = { 'batman'                   : 'pbs_batman',
           'opaali.phys.jyu.fi'       : 'sge',
           'sepeli.csc.fi'            : 'sepeli',
           'bwui.bfg.uni-freiburg.de' : 'bwg',
+          'globus.bfg.uni-freiburg.de' : 'bwg',
           'globus'                   : 'bwg',
           'ui.bfg.uni'               : 'pbs_bfg',
-          'xc2n992'                  : 'xc2',
-          'xc2n993'                  : 'xc2',
-          'xc2.rz.uni-karlsruhe.de'  : 'xc2',
-          'juropa.fz-juelich.de'     : 'juropa'
+          r'xc2(.*)'                 : 'xc2',
+          'juropa.fz-juelich.de'     : 'juropa',
+	  r'jj(.*)'                  : 'juropa'
           }
 
 platforms = { 'aix5' : 'loadleveler' }
@@ -519,6 +520,8 @@ parser.add_option("-M", "--Memory", action='count', default=None,
                   help='request large memory cores (host specific)')
 parser.add_option("-n", "--name", dest='name',
                   help='Name of the job (def: name of parent directory)')
+parser.add_option("-d", "--depth", dest='depth',
+                  help='depth of directories for naming (def: 1)')
 parser.add_option("-o", "--outfile", dest='outfile',
                   help='Name of the output file (def: script.out)')
 parser.add_option("-p", "--parameters", dest='parameters',
@@ -542,6 +545,9 @@ if opt.Memory is not None:
 if opt.name:
     set['name'] = str(opt.name)
 
+if opt.depth:
+    set['depth'] = int(opt.depth)
+
 if opt.outfile:
     set['out'] = str(opt.outfile)
 
@@ -557,7 +563,11 @@ if opt.smt:
 if len(args):
     set['script'] = args[0]
     if len(args) > 1:
-        set['cores'] = int(args[1])
+        try:
+            set['cores'] = int(args[1])
+        except ValueError:
+            raise ValueError('Number of cores must be integer. ' +
+                             'See gpaw-runscript -h')
 
 # ............................................................
 
@@ -576,9 +586,15 @@ else:
             dummy, hostname = os.popen4('hostname -s')
             host = hostname.readline().split()
 
-    if hosts.has_key(host):
-        set['qsys']=hosts[host]
-        print 'hostname',host,'found,',
+    def has_key_regexp(dictionary, expression):
+        for key in dictionary:
+            if re.match(key, expression):
+                return dictionary[key]
+        return False
+
+    if has_key_regexp(hosts, host):
+        set['qsys'] = has_key_regexp(hosts, host)
+        print 'hostname', host, 'found,',
     elif platforms.has_key(sys.platform):
         set['qsys'] = platforms[sys.platform]
         print 'platform', sys.platform, 'found,',
@@ -587,7 +603,7 @@ else:
         list_systems(RunScript)
         sys.exit()
 
-print 'using',set['qsys']
+print 'using', set['qsys']
 
 # ............................................................
 # check necessary environment variables
@@ -628,7 +644,10 @@ if set['err'] is None:
 if set['wd'] is None:
     set['wd'] = os.getcwd()
 if set['name'] is None:
-    name = os.getcwd().split('/')[-1]
+    nl = os.getcwd().split('/')[-set['depth']:]
+    name = nl[0]
+    for string in nl[1:]:
+        name += '_' + string
     # avoid beginning with a number
     if name[0].isdigit():
         name = 'j' + name 

@@ -48,9 +48,9 @@ static INLINE void* gpaw_malloc(size_t n)
 #endif
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
-#define INTP(a) ((int*) ((a)->data))
-#define LONGP(a) ((long*)((a)->data))
-#define DOUBLEP(a) ((double*)((a)->data))
-#define COMPLEXP(a) ((double_complex*)((a)->data))
+#define INTP(a) ((int*)PyArray_DATA(a))
+#define LONGP(a) ((long*)PyArray_DATA(a))
+#define DOUBLEP(a) ((double*)PyArray_DATA(a))
+#define COMPLEXP(a) ((double_complex*)PyArray_DATA(a))
 
 #endif //H_EXTENSIONS

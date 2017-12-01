@@ -14,7 +14,7 @@ TODO: non-gamma-point test
 import numpy as np
 from ase.structure import molecule
 
-from gpaw import GPAW
+from gpaw import GPAW, ConvergenceError
 from gpaw.utilities.blas import axpy
 
 system = molecule('H2O')
@@ -27,7 +27,7 @@ calc = GPAW(mode='lcao',
 system.set_calculator(calc)
 try:
     system.get_potential_energy()
-except:
+except ConvergenceError:
     pass
 
 wfs = calc.wfs

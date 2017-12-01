@@ -767,6 +767,121 @@ def run(iterators):
         except StopIteration:
             return results
 
+class Parallelization:
+    def __init__(self, comm, nspinkpts):
+        self.comm = comm
+        self.size = comm.size
+        self.nspinkpts = nspinkpts
+        
+        self.kpt = None
+        self.domain = None
+        self.band = None
+        
+        self.nclaimed = 1
+        self.navail = comm.size
+
+    def set(self, kpt=None, domain=None, band=None):
+        if kpt is not None:
+            self.kpt = kpt
+        if domain is not None:
+            self.domain = domain
+        if band is not None:
+            self.band = band
+        
+        nclaimed = 1
+        for group, name in zip([self.kpt, self.domain, self.band], 
+                               ['k-point', 'domain', 'band']):
+            if group is not None:
+                if self.size % group != 0:
+                    msg = ('Cannot paralllize as the '
+                           'communicator size %d is not divisible by the '
+                           'requested number %d of ranks for %s '
+                           'parallelization' % (self.size, group, name))
+                    raise ValueError(msg)
+                nclaimed *= group
+        navail = self.size // nclaimed
+        
+        assert self.size % nclaimed == 0
+        assert self.size % navail == 0
+
+        self.navail = navail
+        self.nclaimed = nclaimed        
+
+    def get_communicator_sizes(self, kpt=None, domain=None, band=None):
+        self.set(kpt=kpt, domain=domain, band=band)
+        self.autofinalize()
+        return self.kpt, self.domain, self.band
+
+    def build_communicators(self, kpt=None, domain=None, band=None):
+        self.set(kpt=kpt, domain=domain, band=band)
+        self.autofinalize()
+        
+        comm = self.comm
+        rank = comm.rank
+        communicators = {}
+        parent_stride = self.size
+        offset = 0
+
+        # Build communicators in hierachical manner
+        # The ranks in the first group have largest separation while
+        # the ranks in the last group are next to each other
+        for group, name in zip([self.kpt, self.band, self.domain], 
+                               ['k-point', 'band', 'domain']):
+            stride = parent_stride // group
+            # First rank in this group
+            r0 = rank % stride + offset
+            # Last rank in this group
+            r1 = r0 + stride * group
+            ranks = np.arange(r0, r1, stride)
+            communicators[name] = comm.new_communicator(ranks)
+            parent_stride = stride
+            # Offset for the next communicator
+            offset += communicators[name].rank * stride
+
+        # return domain_comm, kpt_comm, band_comm
+        return (communicators['domain'], communicators['k-point'], 
+                communicators['band'])
+
+        return domain_comm, kpt_comm, band_comm
+    
+    def autofinalize(self):
+        if self.kpt is None:
+            self.set(kpt=self.get_optimal_kpt_parallelization())
+        if self.domain is None:
+            self.set(domain=self.navail)
+        if self.band is None:
+            self.set(band=self.navail)
+    
+    def get_optimal_kpt_parallelization(self, kptprioritypower=1.4):
+        if self.domain == 1 and self.band == 1:
+            # Use all the CPUs for k-point parallelization
+            return self.navail
+        ncpuvalues, wastevalues = self.find_kpt_parallelizations()
+        scores = ((self.navail // ncpuvalues) 
+                  * ncpuvalues**kptprioritypower)**(1.0 - wastevalues)
+        arg = np.argmax(scores)
+        ncpus = ncpuvalues[arg]
+        return ncpus
+
+    def find_kpt_parallelizations(self):
+        nspinkpts = self.nspinkpts
+        ncpuvalues = []
+        wastevalues = []
+        
+        ncpus = nspinkpts
+        while ncpus > 0:
+            if self.navail % ncpus == 0:
+                nkptsmin = nspinkpts // ncpus
+                nkptsmax = -(-nspinkpts // ncpus)
+                effort = nkptsmax * ncpus
+                efficiency = nspinkpts / float(effort)
+                waste = 1.0 - efficiency
+                wastevalues.append(waste)
+                ncpuvalues.append(ncpus)
+            ncpus -= 1
+        return np.array(ncpuvalues), np.array(wastevalues)
+
+
 def cleanup():
     error = getattr(sys, 'last_type', None)
     if error is not None: # else: Python script completed or raise SystemExit
