@@ -12,8 +12,36 @@ from ase.utils.timing import Timer
 from ase.units import Bohr, Ha
 
 
+def get_xc_spin_kernel(pd, chi0, functional='ALDA_X', sigma_cut=None, density_cut=None):
+    """ XC kernels for (collinear) spin polarized calculations
+    Currently only spin-response kernels are implemented
+    
+    sigma_cut: float
+        cutoff spin density difference below which f_xc is evaluated in unpolarized limit (to make sure divergent terms cancel out correctly)
+    density_cut: float
+        cutoff density below which f_xc is set to zero (currently only checked if sigma < sigmacut)
+    """
+    
+    calc = chi0.calc
+    fd = chi0.fd
+    nspins = len(calc.density.nt_sG)
+    assert nspins == 2
+    
+    if functional in ['ALDA_X']:
+        # Adiabatic kernel
+        print("Calculating %s spin kernel" % functional, file=fd)
+        Kxc_GG = calculate_spin_Kxc(pd, calc, functional=functional)
+    else:
+        raise ValueError("%s spin kernel not implemented" % functional)
+    
+    return Kxc_GG
+
+
 def get_xc_kernel(pd, chi0, functional='ALDA', chi0_wGG=None):
-    """Factory function that calls the relevant functions below"""
+    """ XC kernels for spin neutral calculations
+    Only density response kernels are implemented
+    Factory function that calls the relevant functions below
+    """
 
     calc = chi0.calc
     fd = chi0.fd
@@ -96,7 +124,7 @@ def calculate_Kxc(pd, calc, functional='ALDA', density_cut=None):
         x_only = True
         A_x = -3. / 4. * (3. / np.pi)**(1. / 3.)
         nspins = len(nt_sG)
-        assert nspins in [1, 2]
+        assert nspins == 1
         fxc_sg = nspins**(1. / 3.) * 4. / 9. * A_x * nt_sG**(-2. / 3.)
     else:
         assert len(nt_sG) == 1
@@ -187,6 +215,146 @@ def calculate_Kxc(pd, calc, functional='ALDA', density_cut=None):
         Kxc_sGG[:, :, 0] = 0.0
 
     return Kxc_sGG / vol
+
+
+def calculate_spin_Kxc(pd, calc, functional='ALDA_X', sigma_cut=None, density_cut=None):
+    """ Adiabatic kernel
+    Currently only an explicit version of ALDA_X is available
+    
+    sigma_cut: float
+        cutoff spin density difference below which f_xc is evaluated in unpolarized limit (to make sure divergent terms cancel out correctly)
+    density_cut: float
+        cutoff density below which f_xc is set to zero (currently only checked if sigma < sigmacut)
+    """
+
+    gd = pd.gd
+    npw = pd.ngmax
+    nG = pd.gd.N_c
+    vol = pd.gd.volume
+    G_Gv = pd.get_reciprocal_vectors()
+    nt_sG = calc.density.nt_sG
+    R_av = calc.atoms.positions / Bohr
+    setups = calc.wfs.setups
+    D_asp = calc.density.D_asp
+    
+    nspins = len(nt_sG)
+    assert nspins == 2
+    
+    # The soft part
+    if functional == 'ALDA_X':
+        x_only = True
+        A_x = -3. / 4. * (3. / np.pi)**(1. / 3.)
+        
+        # Mask small sigma
+        st_cutted_G = nt_sG[0] - nt_sG[1]
+        if not sigma_cut:
+            fxc_G = 8. / 3. * A_x * 2**(-2. / 3.) * ( nt_sG[0]**(1./3.) - nt_sG[1]**(1./3.) ) / ( st_cutted_G )
+        else:
+            s_cut = st_cutted_G < sigma_cut
+            s_uncut = np.invert(s_cut)
+            st_cutted_G *= s_uncut
+            fxc_G = 8. / 3. * A_x * 2**(-2. / 3.) * ( nt_sG[0]**(1./3.) - nt_sG[1]**(1./3.) ) / ( st_cutted_G + s_cut ) * s_uncut
+        
+            # Mask small density
+            nt_cutted_G = nt_sG[0]*s_cut + nt_sG[0]*s_cut
+            if not density_cut:
+                fxc_G += 8. / 9. * A_x * ( nt_cutted_G + s_uncut )**( -2. / 3. ) * s_cut
+            else:
+                n_cut = nt_cutted_G < density_cut
+                n_uncut = np.invert(n_cut)
+                nt_cutted_G *= n_uncut
+                fxc_G += 8. / 9. * A_x * ( nt_cutted_G + n_cut )**( -2. / 3. ) * n_uncut
+        
+    else:
+        raise ValueError("%s spin kernel not implemented" % functional)
+        #x_only = False
+        #fxc_sg = np.zeros_like(nt_sG)
+        #xc = XC(functional[1:])
+        #xc.calculate_fxc(gd, nt_sG, fxc_sg)
+
+    #if density_cut is not None:
+    #    fxc_sg[np.where(nt_sG * len(nt_sG) < density_cut)] = 0.0
+
+    # FFT fxc(r)
+    nG0 = nG[0] * nG[1] * nG[2]
+    tmp_sg = [np.fft.fftn(fxc_sg[s]) * vol / nG0 for s in range(len(nt_sG))]
+
+    Kxc_sGG = np.zeros((len(fxc_sg), npw, npw), dtype=complex)
+    for s in range(len(fxc_sg)):
+        for iG, iQ in enumerate(pd.Q_qG[0]):
+            iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
+            for jG, jQ in enumerate(pd.Q_qG[0]):
+                jQ_c = (np.unravel_index(jQ, nG) + nG // 2) % nG - nG // 2
+                ijQ_c = (iQ_c - jQ_c)
+                if (abs(ijQ_c) < nG // 2).all():
+                    Kxc_sGG[s, iG, jG] = tmp_sg[s][tuple(ijQ_c)]
+
+    # The PAW part
+    KxcPAW_sGG = np.zeros_like(Kxc_sGG)
+    dG_GGv = np.zeros((npw, npw, 3))
+    for v in range(3):
+        dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
+
+    for a, setup in enumerate(setups):
+        if rank == a % size:
+            rgd = setup.xc_correction.rgd
+            n_qg = setup.xc_correction.n_qg
+            nt_qg = setup.xc_correction.nt_qg
+            nc_g = setup.xc_correction.nc_g
+            nct_g = setup.xc_correction.nct_g
+            Y_nL = setup.xc_correction.Y_nL
+            dv_g = rgd.dv_g
+
+            D_sp = D_asp[a]
+            B_pqL = setup.xc_correction.B_pqL
+            D_sLq = np.inner(D_sp, B_pqL.T)
+            nspins = len(D_sp)
+
+            f_sg = rgd.empty(nspins)
+            ft_sg = rgd.empty(nspins)
+
+            n_sLg = np.dot(D_sLq, n_qg)
+            nt_sLg = np.dot(D_sLq, nt_qg)
+
+            # Add core density
+            n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
+            nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
+
+            coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
+            for n, Y_L in enumerate(Y_nL):
+                w = weight_n[n]
+                f_sg[:] = 0.0
+                n_sg = np.dot(Y_L, n_sLg)
+                if x_only:
+                    f_sg = nspins * (4 / 9.) * A_x * (nspins * n_sg)**(-2 / 3.)
+                else:
+                    xc.calculate_fxc(rgd, n_sg, f_sg)
+
+                ft_sg[:] = 0.0
+                nt_sg = np.dot(Y_L, nt_sLg)
+                if x_only:
+                    ft_sg = nspins * (4 / 9.) * (A_x
+                                                 * (nspins * nt_sg)**(-2 / 3.))
+                else:
+                    xc.calculate_fxc(rgd, nt_sg, ft_sg)
+                for i in range(len(rgd.r_g)):
+                    coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n])
+                                     * rgd.r_g[i])
+                    for s in range(len(f_sg)):
+                        KxcPAW_sGG[s] += w * np.dot(coef_GG,
+                                                    (f_sg[s, i] -
+                                                     ft_sg[s, i])
+                                                    * dv_g[i]) * coefatoms_GG
+
+    world.sum(KxcPAW_sGG)
+    Kxc_sGG += KxcPAW_sGG
+
+    if pd.kd.gamma:
+        Kxc_sGG[:, 0, :] = 0.0
+        Kxc_sGG[:, :, 0] = 0.0
+
+    return Kxc_sGG / vol
+
 
 
 def calculate_lr_kernel(pd, calc, alpha=0.2):
