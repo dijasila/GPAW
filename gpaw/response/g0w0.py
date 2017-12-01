@@ -20,7 +20,8 @@ from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.kernels import get_integrated_kernel
-from gpaw.response.fxckernel_calc import calculate_kernel, set_flags
+from gpaw.response.fxckernel_calc import calculate_kernel
+from gpaw.xc.fxc import set_flags
 from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
 from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.tools import vxc
@@ -92,9 +93,10 @@ class G0W0(PairDensity):
             is possible to get the standard GW results at the same time 
             (almost for free).
         av_scheme: str
-            'wavevector' or 'density'. Method to construct kernel. Only 
-            'wavevector' has been tested here. 'Density' has been tested for 
-            total energy calculations (rALDA etc.)
+            'wavevector'. Method to construct kernel. Only 
+            'wavevector' has been tested and works here. The implementation 
+            could be extended to include the 'density' method which has been 
+            tested for total energy calculations (rALDA etc.)
         Eg: float
             Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel. 
             If None the DFT gap is used.
@@ -216,6 +218,9 @@ class G0W0(PairDensity):
         self.av_scheme = av_scheme
         self.fxc_mode = fxc_mode
         self.do_GW_too = do_GW_too
+
+        if not self.av_scheme == None:
+            assert self.av_scheme == 'wavevector'
 
         if not self.fxc_mode == 'GW':
             assert self.xc != 'RPA'

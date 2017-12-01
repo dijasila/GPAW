@@ -18,7 +18,6 @@ from gpaw.utilities.blas import gemmdot, axpy
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.xc.rpa import RPACorrelation
 
-
 class FXCCorrelation(RPACorrelation):
     def __init__(self, calc, xc='RPA', filename=None,
                  skip_gamma=False, qsym=True, nlambda=8,
@@ -49,7 +48,7 @@ class FXCCorrelation(RPACorrelation):
         self.av_scheme = av_scheme  # Either 'density' or 'wavevector'
         self.Eg = Eg                # Band gap in eV
 
-        self.set_flags()
+        set_flags(self)
 
         if tag is None:
 
@@ -469,64 +468,6 @@ class FXCCorrelation(RPACorrelation):
         self.blockcomm.all_gather(np.array(e_w), E_w)
         energy = np.dot(E_w, self.weight_w) / (2 * np.pi)
         return energy
-
-    def set_flags(self):
-        """ Based on chosen fxc and av. scheme set up true-false flags """
-
-        if self.xc not in ('RPA',
-                           'range_RPA',  # range separated RPA a la Bruneval
-                           'rALDA',      # renormalized kernels
-                           'rAPBE',
-                           'range_rALDA',
-                           'rALDAns',    # no spin (ns)
-                           'rAPBEns',
-                           'rALDAc',     # rALDA + correlation
-                           'CP',         # Constantin Pitarke
-                           'CP_dyn',     # Dynamical form of CP
-                           'CDOP',       # Corradini et al
-                           'CDOPs',      # CDOP without local term
-                           'JGMs'):      # simplified jellium-with-gap kernel
-            raise '%s kernel not recognized' % self.xc
-
-        if (self.xc == 'rALDA' or self.xc == 'rAPBE'):
-
-            if self.av_scheme is None:
-                self.av_scheme = 'density'
-                # Two-point scheme default for rALDA and rAPBE
-
-            self.spin_kernel = True
-            # rALDA/rAPBE are the only kernels which have spin-dependent forms
-
-        else:
-            self.spin_kernel = False
-
-        if self.av_scheme == 'density':
-            assert (self.xc == 'rALDA' or self.xc == 'rAPBE'
-                    ), ('Two-point density average ' +
-                        'only implemented for rALDA and rAPBE')
-
-        elif self.xc not in ('RPA', 'range_RPA'):
-            self.av_scheme = 'wavevector'
-        else:
-            self.av_scheme = None
-
-        if self.xc in ('rALDAns', 'rAPBEns', 'range_RPA',
-                       'RPA', 'rALDA', 'rAPBE', 'range_rALDA'):
-            self.linear_kernel = True  # Scales linearly with coupling constant
-        else:
-            self.linear_kernel = False
-
-        if self.xc == 'CP_dyn':
-            self.dyn_kernel = True
-        else:
-            self.dyn_kernel = False
-
-        if self.xc == 'JGMs':
-            assert (self.Eg is not None), 'JGMs kernel requires a band gap!'
-            self.Eg /= Ha  # Convert from eV
-        else:
-            self.Eg = None
-
 
 class KernelWave:
 
@@ -1773,3 +1714,64 @@ class KernelDens:
 
         return fxc_sg[:, ::2, ::2, ::2]
 """
+def set_flags(self):
+    """ Based on chosen fxc and av. scheme set up true-false flags """
+
+    if self.xc not in ('RPA',
+                       'range_RPA',  # range separated RPA a la Bruneval
+                       'rALDA',      # renormalized kernels
+                       'rAPBE',
+                       'range_rALDA',
+                       'rALDAns',    # no spin (ns)
+                       'rAPBEns',
+                       'rALDAc',     # rALDA + correlation
+                       'CP',         # Constantin Pitarke
+                       'CP_dyn',     # Dynamical form of CP
+                       'CDOP',       # Corradini et al
+                       'CDOPs',      # CDOP without local term
+                       'JGMs',       # simplified jellium-with-gap kernel
+                       'JGMsx',      # simplified jellium-with-gap kernel,
+                                     # constructed with exchange part only
+                                     # so that it scales linearly with l
+                       'ALDA'        # standard ALDA
+                       ):
+        raise RuntimeError('%s kernel not recognized' % self.xc)
+
+    if (self.xc == 'rALDA' or self.xc == 'rAPBE' or self.xc == 'ALDA'):
+
+        if self.av_scheme is None:
+            self.av_scheme = 'density'
+            # Two-point scheme default for rALDA and rAPBE
+
+        self.spin_kernel = True
+            # rALDA/rAPBE are the only kernels which have spin-dependent forms
+
+    else:
+        self.spin_kernel = False
+
+    if self.av_scheme == 'density':
+        assert (self.xc == 'rALDA' or self.xc == 'rAPBE' or self.xc == 'ALDA'
+               ), ('Two-point density average ' +
+                   'only implemented for rALDA and rAPBE')
+
+    elif self.xc not in ('RPA', 'range_RPA'):
+        self.av_scheme = 'wavevector'
+    else:
+        self.av_scheme = None
+
+    if self.xc in ('rALDAns', 'rAPBEns', 'range_RPA', 'JGMsx',
+                   'RPA', 'rALDA', 'rAPBE', 'range_rALDA','ALDA'):
+            self.linear_kernel = True  # Scales linearly with coupling constant
+    else:
+        self.linear_kernel = False
+
+    if self.xc == 'CP_dyn':
+        self.dyn_kernel = True
+    else:
+        self.dyn_kernel = False
+
+    if self.xc == 'JGMs' or self.xc == 'JGMsx':
+        assert (self.Eg is not None), 'JGMs kernel requires a band gap!'
+        self.Eg /= Ha # Convert from eV
+    else:
+        self.Eg = None
