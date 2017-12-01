@@ -201,7 +201,7 @@ class GPAW(PAW, Calculator):
         self.log.print_dict(dct)
         self.log()
 
-        self.initialize(reading=True)
+        self.initialize(reading=True, atoms=self.atoms)
 
         self.density.read(reader)
         self.hamiltonian.read(reader)
@@ -486,7 +486,7 @@ class GPAW(PAW, Calculator):
         # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
             if isinstance(par.xc, (basestring, dict)):
-                xc = XC(par.xc)
+                xc = XC(par.xc, atoms=atoms)
             else:
                 xc = par.xc
         else:

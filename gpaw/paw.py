@@ -546,6 +546,7 @@ class PAW:
             xc = XC(xc)
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
+        xc.set_grid_descriptor(self.density.finegd)
         xc.set_positions(self.atoms.get_scaled_positions() % 1.0)
         if xc.orbital_dependent:
             self.converge_wave_functions()
