@@ -132,6 +132,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
     Nk = len(calc.get_ibz_k_points())
     Ns = calc.wfs.nspins
     Nn = len(bands)
+
     if gw_kn is not None:
         gw_skn = gw_kn.copy()
         if gw_skn.ndim == 2:  # it is gw_kn
