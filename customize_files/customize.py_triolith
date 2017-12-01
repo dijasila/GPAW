@@ -28,31 +28,26 @@ To append use the form
     libraries += ['somelib', 'otherlib']
 """
 
-library_dirs = ['/appl/opt/cluster_studio_xe2016/compilers_and_libraries_2016.0.109/linux/mkl/lib/intel64_lin']
-#                '/appl/opt/cluster_studio_xe2016/compilers_and_libraries_2016.0.109/linux/mpi/intel64/lib']
-#extra_link_args = []
-extra_compile_args = ['-std=c99']
+library_dirs = ['/software/intel/composer_xe_2013.4.183/mkl/lib/intel64']
+extra_link_args = ['-Nmkl','-mkl=cluster','-Nmpi']
+extra_compile_args = ['-std=c99','-Nmkl','-Nmpi']
 
-compiler = 'gcc'
-mpicompiler = 'mpicc'  # use None if you don't want to build a gpaw-python
-mpilinker = 'mpicc'
+compiler = 'icc'
+mpicompiler = 'icc'  # use None if you don't want to build a gpaw-python
+mpilinker = 'icc'
 # platform_id = ''
-scalapack = False
+scalapack = True
 # hdf5 = False
 
 # Use ScaLAPACK:
 # Warning! At least scalapack 2.0.1 is required!
 # See https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
-if 1:
-    libraries += ['mkl_intel_lp64','mkl_sequential','mkl_core']
+if scalapack:
+    libraries += ['mkl_scalapack_lp64','mkl_blacs_openmpi_lp64']
     define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
     define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
-    libraries.remove('f77blas')
+    libraries.remove('blas')
     libraries.remove('lapack')
-    libraries.remove('cblas')
-    libraries.remove('atlas')
-    define_macros += [("GPAW_ASYNC",1)]
-    define_macros += [("GPAW_MPI2",1)]
 
 # LibXC:
 # In order to link libxc installed in a non-standard location
@@ -60,8 +55,8 @@ if 1:
 
 # - static linking:
 #if 0:
-include_dirs += ['/appl/nano/libxc/2.1.3/include']
-extra_link_args += ['/appl/nano/libxc/2.1.3/lib/libxc.a']
+include_dirs += ['/software/apps/gpaw/0.10.0.11364/build01/libxc/include']
+extra_link_args += ['/software/apps/gpaw/0.10.0.11364/build01/libxc/lib/libxc.a']
 #    if 'xc' in libraries:
 libraries.remove('xc')
 
@@ -89,7 +84,3 @@ if 0:
     define_macros += [('PARALLEL', '1')]
     mpicompiler = None
 	    
-# Debug:
-#extra_link_args += ['-g']
-#extra_compile_args += ['-O0', '-g']
-#define_macros += [('GPAW_MPI_DEBUG', 1)]
