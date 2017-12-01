@@ -3,6 +3,7 @@ import numpy as np
 
 from gpaw.lcaotddft.observer import TDDFTObserver
 
+
 def convert_repr(r):
     # Integer
     try:
@@ -23,7 +24,8 @@ def convert_repr(r):
 class DipoleMomentWriter(TDDFTObserver):
     version = 1
 
-    def __init__(self, paw, filename, center=False, density='comp', interval=1):
+    def __init__(self, paw, filename, center=False, density='comp',
+                 interval=1):
         TDDFTObserver.__init__(self, paw, interval)
         self.master = paw.world.rank == 0
         if paw.niter == 0:
