@@ -75,8 +75,11 @@ class DipoleMomentWriter(TDDFTObserver):
         line = '# Kick = [%22.12le, %22.12le, %22.12le]\n' % tuple(kick)
         self._write(line)
 
-    def calculate_dipole_moment(self, gd, rho_g):
-        center_v = 0.5 * gd.cell_cv.sum(0)
+    def calculate_dipole_moment(self, gd, rho_g, center=True):
+        if center:
+            center_v = 0.5 * gd.cell_cv.sum(0)
+        else:
+            center_v = np.zeros(3, dtype=float)
         r_vg = gd.get_grid_point_coordinates()
         dm_v = np.zeros(3, dtype=float)
         for v in range(3):
@@ -99,10 +102,8 @@ class DipoleMomentWriter(TDDFTObserver):
             raise RuntimeError('Unknown density type: %s' % self.density_type)
 
         norm = gd.integrate(rho_g)
-        if self.do_center:
-            dm = self.calculate_dipole_moment(gd, rho_g)
-        else:
-            dm = gd.calculate_dipole_moment(rho_g)
+        # dm = self.calculate_dipole_moment(gd, rho_g, center=self.do_center)
+        dm = gd.calculate_dipole_moment(rho_g, center=self.do_center)
         line = ('%20.8lf %20.8le %22.12le %22.12le %22.12le\n' %
                 (time, norm, dm[0], dm[1], dm[2]))
         self._write(line)
