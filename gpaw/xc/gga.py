@@ -262,7 +262,7 @@ class PurePythonGGAKernel:
         if mu_g is not None:
             self.mu = mu_g
             self.beta = beta_g
-            
+
         # spin-paired:
         if len(n_sg) == 1:
             n = n_sg[0]
