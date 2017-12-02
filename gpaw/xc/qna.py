@@ -59,32 +59,8 @@ class QNARadialCalculator: #(GGARadialCalculator):
         (e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg,
          b_vsg) = radial_gga_vars(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
 
-        if QNA.force_atoms is not None:
-            atoms = QNA.force_atoms
-            QNA.Pa.set_positions(atoms.get_scaled_positions() % 1.0)
-        else:
-            atoms = QNA.atoms
+        QNA.qna_kernel_calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
 
-        if len(n_sg.shape) > 2:
-            mu_g, beta_g = QNA.calculate_spatial_parameters(atoms)
-            dedmu_g = QNA.dedmu_g
-            dedbeta_g = QNA.dedbeta_g
-        else:
-            # For atoms, use always atomwise mu and beta parameters
-            mu, beta = QNA.parameters[QNA.atoms[QNA.current_atom].symbol]
-            mu_g = np.zeros_like(n_sg[0])
-            beta_g = np.zeros_like(n_sg[0])
-            mu_g[:] = mu
-            beta_g[:] = beta
-            dedmu_g = None
-            dedbeta_g = None
- 
-        #Enable to use PBE always
-        #mu_g[:] = 0.2195149727645171
-        #beta_g[:] = 0.06672455060314922
-
-        QNA.kernel.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, mu_g=mu_g,
-                              beta_g=beta_g, dedmu_g=dedmu_g, dedbeta_g=dedbeta_g)
         vv_sg = add_radial_gradient_correction(rgd, sigma_xg,
                                                dedsigma_xg, a_sg)
         return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
@@ -92,7 +68,7 @@ class QNARadialCalculator: #(GGARadialCalculator):
 
 class QNA(GGA):
     def __init__(self, atoms, parameters, qna_setup_name='PBE', alpha=2.0, force_atoms=None):
-        kernel = PurePythonGGAKernel('QNA', kappa=0.804, mu=np.nan, beta=np.nan) #kappa=0.804
+        kernel = PurePythonGGAKernel('QNA', kappa=0.804, mu=np.nan, beta=np.nan)
         GGA.__init__(self, kernel)
         self.atoms = atoms
         self.parameters = parameters
@@ -153,16 +129,9 @@ class QNA(GGA):
         self.Pa.add(denominator, eye_a)
         mu_g /= denominator
         beta_g /= denominator
-        if 0:
-            from ase.io import write
-            #write('mu_raw.cube', atoms, data=mu_g)
-            write('denominator.cube', atoms, data=denominator)
-            asd
         return mu_g, beta_g
 
-    def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)
-
+    def qna_kernel_calculate(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         if self.force_atoms is not None:
             atoms = self.force_atoms
             self.Pa.set_positions(atoms.get_scaled_positions() % 1.0)
@@ -186,44 +155,6 @@ class QNA(GGA):
         #Enable to use PBE always
         #mu_g[:] = 0.2195149727645171
         #beta_g[:] = 0.06672455060314922
-
-        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg, mu_g=mu_g,
-                              beta_g=beta_g, dedmu_g=dedmu_g, dedbeta_g=dedbeta_g)
-        add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
-                                dedsigma_xg, v_sg)
-
-    """
-    def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
-        if self.force_atoms is not None:
-            atoms = self.force_atoms
-            self.Pa.set_positions(atoms.get_scaled_positions() % 1.0)
-        else:
-            atoms = self.atoms
-
-        if len(n_sg.shape) > 2:
-            mu_g, beta_g = self.calculate_spatial_parameters(atoms)
-            dedmu_g = self.dedmu_g
-            dedbeta_g = self.dedbeta_g
-        else:
-            # For atoms, use always atomwise mu and beta parameters
-            mu, beta = self.parameters[self.atoms[self.current_atom].symbol]
-            mu_g = np.zeros_like(n_sg[0])
-            beta_g = np.zeros_like(n_sg[0])
-            mu_g[:] = mu
-            beta_g[:] = beta
-            dedmu_g = None
-            dedbeta_g = None
- 
-        #Enable to use PBE always
-        #mu_g[:] = 0.2195149727645171
-        #beta_g[:] = 0.06672455060314922
-
-        print(mu_g)
-        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg, mu_g=mu_g, beta_g=beta_g, dedmu_g=dedmu_g, dedbeta_g=dedbeta_g)
-
-        # Integrate dedmu_g
-        #print(self.gd.integrate(dedmu_g))
-        #asd
 
         # Write mu and beta fields
         if 0:
@@ -232,96 +163,18 @@ class QNA(GGA):
             write('beta_g.cube', atoms, data=beta_g)
             asd
 
-        # Write exc
-        if 0:
-            from ase.io import write
-            write('exc.cube', self.atoms, data=e_g)
-            asd
+        return self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg, mu_g=mu_g,
+                                     beta_g=beta_g, dedmu_g=dedmu_g, dedbeta_g=dedbeta_g)
 
-        # Write reduced gradient s
-        if 0:
-            from ase.io import write
-            C0I = 0.238732414637843
-            C2 = 0.26053088059892404
-            rs = (C0I / n_sg[0])**(1 / 3.)
-            red_grad = np.sqrt(sigma_xg[0])*(C2*rs/n_sg[0])
-            write('s.cube', self.atoms, data=red_grad)
-            asd
-        
-        # Write XC potential
-        #from ase.io import write
-        #write('XC_potential.cube', self.atoms, data=v_sg[0])
-        #asd
 
-        # Write dFxc_ds
-        if 0:
-            dx = 1.0e-3 
-            e2_g = np.zeros_like(e_g)
-            e3_g = np.zeros_like(e_g)
-            exLDA = np.zeros_like(e_g)
-            muLDA = np.zeros_like(mu_g)
-            betaLDA = np.zeros_like(beta_g)
-            muLDA[:] = 0.000001
-            betaLDA[:] = 0.000001
-            self.kernel.calculate(e2_g, n_sg, v_sg, sigma_xg + dx, dedsigma_xg, mu_g=mu_g, beta_g=beta_g)
-            self.kernel.calculate(e3_g, n_sg, v_sg, sigma_xg - dx, dedsigma_xg, mu_g=mu_g, beta_g=beta_g)
-            self.kernel.calculate(exLDA, n_sg, v_sg, sigma_xg, dedsigma_xg, mu_g=muLDA, beta_g=betaLDA)
-            from ase.io import write
-            write('dFxc_dsigma.cube', self.atoms, data=(e2_g-e3_g)/(2*dx)/exLDA)
-            asd
-            
-        # Write the ratio of two XCs
-        if 0:
-            mu2_g = np.zeros_like(mu_g)
-            mu3_g = np.zeros_like(mu_g)
-            mu2_g[:] = 0.219515
-            mu3_g[:] = 0.000001
-            beta2_g = np.zeros_like(beta_g)
-            beta3_g = np.zeros_like(beta_g)
-            beta2_g[:] = 0.066725
-            beta3_g[:] = 0.000001
-            e2_g = np.zeros_like(e_g)
-            e3_g = np.zeros_like(e_g)
-            self.kernel.calculate(e2_g, n_sg, v_sg, sigma_xg, dedsigma_xg, mu_g=mu2_g, beta_g=beta2_g)
-            self.kernel.calculate(e3_g, n_sg, v_sg, sigma_xg, dedsigma_xg, mu_g=mu3_g, beta_g=beta3_g)
-            from ase.io import write
-            write('exc_ratio.cube', self.atoms, data=e2_g/e3_g)
-            asd
-        
-        # Calculate XC potential numerically
-        if 0:
-            e2_g = np.zeros_like(e_g)
-            e3_g = np.zeros_like(e_g)
-            self.kernel.calculate(e2_g, n_sg + 1.0e-6, v_sg, sigma_xg, dedsigma_xg, mu_g=mu_g, beta_g=beta_g)
-            self.kernel.calculate(e3_g, n_sg - 1.0e-6, v_sg, sigma_xg, dedsigma_xg, mu_g=mu_g, beta_g=beta_g)
-            from ase.io import write
-            write('vxc_numerical.cube', self.atoms, data=(e2_g-e3_g)/2e-6)
-            asd
+    def calculate_impl(self, gd, n_sg, v_sg, e_g):
+        sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)
 
-        if 0:
-            e2_g = np.zeros_like(e_g)
-            e3_g = np.zeros_like(e_g)
-            self.kernel.calculate(e2_g, n_sg, v_sg, sigma_xg, dedsigma_xg, mu_g=mu_g+1e-6, beta_g=beta_g)
-            self.kernel.calculate(e3_g, n_sg, v_sg, sigma_xg, dedsigma_xg, mu_g=mu_g-1e-6, beta_g=beta_g)
-            from ase.io import write
-            #write('dedmu_analytic.cube', self.atoms, data=dedmu_g)
-            #write('dedmu_numerical.cube', self.atoms, data=(e2_g-e3_g)/2e-6)
-            #write('dedmu_div.cube', self.atoms, data=(e2_g-e3_g)/2e-6 / dedmu_g)
-            #print(dedmu_g)
-            asd
+        self.qna_kernel_calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
 
-        if 0:
-            e2_g = np.zeros_like(e_g)
-            e3_g = np.zeros_like(e_g)
-            self.kernel.calculate(e2_g, n_sg, v_sg, sigma_xg, dedsigma_xg, mu_g=mu_g, beta_g=beta_g+1e-4)
-            self.kernel.calculate(e3_g, n_sg, v_sg, sigma_xg, dedsigma_xg, mu_g=mu_g, beta_g=beta_g-1e-4)
-            from ase.io import write
-            write('dedbeta_analytic.cube', self.atoms, data=dedbeta_g)
-            write('dedbeta_numerical.cube', self.atoms, data=(e2_g-e3_g)/2e-4)
-            write('dedbeta_div.cube', self.atoms, data=(e2_g-e3_g)/2e-4 / dedbeta_g)
-            asd
-    """        
-        
+        add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
+                                dedsigma_xg, v_sg)
+
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
@@ -386,32 +239,7 @@ class QNA(GGA):
         v_sg = self.gd.zeros(nspins)
         e_g = self.gd.empty()
 
-        if self.force_atoms is not None:
-            atoms = self.force_atoms
-            self.Pa.set_positions(atoms.get_scaled_positions() % 1.0)
-        else:
-            atoms = self.atoms
-
-        if len(n_sg.shape) > 2:
-            mu_g, beta_g = self.calculate_spatial_parameters(atoms)
-            dedmu_g = self.dedmu_g
-            dedbeta_g = self.dedbeta_g
-        else:
-            # For atoms, use always atomwise mu and beta parameters
-            mu, beta = self.parameters[self.atoms[self.current_atom].symbol]
-            mu_g = np.zeros_like(n_sg[0])
-            beta_g = np.zeros_like(n_sg[0])
-            mu_g[:] = mu
-            beta_g[:] = beta
-            dedmu_g = None
-            dedbeta_g = None
- 
-        #Enable to use PBE always
-        #mu_g[:] = 0.2195149727645171
-        #beta_g[:] = 0.06672455060314922
-
-        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg, mu_g=mu_g,
-                              beta_g=beta_g, dedmu_g=dedmu_g, dedbeta_g=dedbeta_g)
+        self.qna_kernel_calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
 
         def integrate(a1_g, a2_g=None):
             return self.gd.integrate(a1_g, a2_g, global_integral=False)
@@ -435,19 +263,6 @@ class QNA(GGA):
                                                    gradn_svg[1, v2],
                                                    dedsigma_xg[2]) * 2
         return stress_vv
-
-
-
-    #def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
-    #                             addcoredensity=True, a=None):
-    #    self.current_atom = a
-    #    return GGA.calculate_paw_correction(self, setup, D_sp, dEdD_sp=dEdD_sp,
-    #                                         addcoredensity=addcoredensity, a=a)
-
-    #def calculate_gga_qna_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
-    #    return self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-
-    #calculate_gga_radial = calculate_gga_qna_radial
 
     def get_setup_name(self):
         return self.qna_setup_name
@@ -478,7 +293,6 @@ class QNA(GGA):
         part2 = -part1 * mu_g
         c_axiv = self.Pa.dict(derivative=True)
         self.Pa.derivative(part1, c_axiv)
-        #print "mu Force before",F_av[0][0]
         old = F_av.copy()
         for atom in self.atoms:
             F_av[atom.index] -= c_axiv[atom.index][0][:] * mu_a[atom.index][0]
@@ -486,21 +300,16 @@ class QNA(GGA):
         self.Pa.derivative(part2, c_axiv)
         for atom in self.atoms:
             F_av[atom.index] -= c_axiv[atom.index][0][:]
-        #print "mu Force after",F_av[0][0]
 
         # beta
         part1 = -self.dedbeta_g / denominator
         part2 = -part1 * beta_g
         c_axiv = self.Pa.dict(derivative=True)
         self.Pa.derivative(part1, c_axiv)
-        #print "beta Force before",F_av[0][0]
         for atom in self.atoms:
             F_av[atom.index] -= c_axiv[atom.index][0][:] * beta_a[atom.index][0]
         c_axiv = self.Pa.dict(derivative=True)
         self.Pa.derivative(part2, c_axiv)
         for atom in self.atoms:
             F_av[atom.index] -= c_axiv[atom.index][0][:]
-        #print "beta Force after",F_av[0][0]
 
-        #from ase.units import Hartree, Bohr
-        #print "Analytic Correction", (F_av[0][0] - old[0][0])* (Hartree / Bohr)
