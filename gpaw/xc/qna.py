@@ -269,7 +269,7 @@ class QNA(GGA):
         return self.qna_setup_name
     
     def get_description(self):
-        return "QNA Parameters"+str(self.parameters)
+        return "QNA Parameters: "+str(self.parameters)
 
     def add_forces(self, F_av):
         mu_g = self.gd.zeros()
