@@ -1,40 +1,64 @@
-#from gpaw.xc.functional import XCFunctional
+from gpaw.xc.lda import calculate_paw_correction
 from gpaw.xc.gga import PurePythonGGAKernel, GGA, gga_vars
 from gpaw.xc.gga import add_gradient_correction, radial_gga_vars
 from gpaw.xc.gga import add_radial_gradient_correction
 from gpaw.xc.gga import GGARadialCalculator, GGARadialExpansion
 import numpy as np
-#from ase.neighborlist import NeighborList
-#from ase.units import Bohr
-#import sys
 from gpaw.lfc import LFC
 from gpaw.spline import Spline
-#from ase.parallel import parprint
 from math import sqrt, pi
 from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
 from gpaw.xc.gga import calculate_sigma
 
-# TODO: User GGARadialCalcualtor from gga.py
-class QNARadialCalculator: #(GGARadialCalculator):
-    def __init__(self, kernel):
-        self.kernel = kernel
-        #GGARadialCalculator.__init__(self, kernel)
+class QNAKernel:
+    def __init__(self, qna):
+        self.qna = qna
+        self.type = 'GGA'
+        self.name = 'QNA'
+        self.gga_kernel = PurePythonGGAKernel('QNA', kappa=0.804, mu=np.nan, beta=np.nan)
 
-    def __call__(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n, QNA):
-        (e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg,
-         b_vsg) = radial_gga_vars(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
+    def calculate(self, e_g, n_sg, dedn_sg,
+                  sigma_xg, dedsigma_xg,
+                  tau_sg=None, dedtau_sg=None, mu_g=None, beta_g=None, dedmu_g=None, dedbeta_g=None):
+        #if self.force_atoms is not None:
+        #    atoms = self.force_atoms
+        #    self.Pa.set_positions(atoms.get_scaled_positions() % 1.0)
+        #else:
+        atoms = self.qna.atoms
 
-        QNA.qna_kernel_calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
+        if len(n_sg.shape) > 2: 
+            # 3D xc calculation
+            mu_g, beta_g = self.qna.calculate_spatial_parameters(atoms)
+            dedmu_g = self.qna.dedmu_g
+            dedbeta_g = self.qna.dedbeta_g
+        else:
+            # Atomic xc calculation: use always atomwise mu and beta parameters
+            mu, beta = self.qna.parameters[atoms[self.qna.current_atom].symbol]
+            mu_g = np.zeros_like(n_sg[0])
+            beta_g = np.zeros_like(n_sg[0])
+            mu_g[:] = mu
+            beta_g[:] = beta
+            dedmu_g = None
+            dedbeta_g = None
+ 
+        #Enable to use PBE always
+        #mu_g[:] = 0.2195149727645171
+        #beta_g[:] = 0.06672455060314922
 
-        vv_sg = add_radial_gradient_correction(rgd, sigma_xg,
-                                               dedsigma_xg, a_sg)
-        return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
+        # Write mu and beta fields
+        if 0:
+            from ase.io import write
+            write('mu_g.cube', atoms, data=mu_g)
+            write('beta_g.cube', atoms, data=beta_g)
+            asd
 
+        return self.gga_kernel.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, mu_g=mu_g,
+                                         beta_g=beta_g, dedmu_g=dedmu_g, dedbeta_g=dedbeta_g)
 
 class QNA(GGA):
     def __init__(self, atoms, parameters, qna_setup_name='PBE', alpha=2.0, force_atoms=None):
-        kernel = PurePythonGGAKernel('QNA', kappa=0.804, mu=np.nan, beta=np.nan)
+        kernel = QNAKernel(self)
         GGA.__init__(self, kernel)
         self.atoms = atoms
         self.parameters = parameters
@@ -97,106 +121,11 @@ class QNA(GGA):
         beta_g /= denominator
         return mu_g, beta_g
 
-    def qna_kernel_calculate(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
-        if self.force_atoms is not None:
-            atoms = self.force_atoms
-            self.Pa.set_positions(atoms.get_scaled_positions() % 1.0)
-        else:
-            atoms = self.atoms
-
-        if len(n_sg.shape) > 2:
-            mu_g, beta_g = self.calculate_spatial_parameters(atoms)
-            dedmu_g = self.dedmu_g
-            dedbeta_g = self.dedbeta_g
-        else:
-            # For atoms, use always atomwise mu and beta parameters
-            mu, beta = self.parameters[self.atoms[self.current_atom].symbol]
-            mu_g = np.zeros_like(n_sg[0])
-            beta_g = np.zeros_like(n_sg[0])
-            mu_g[:] = mu
-            beta_g[:] = beta
-            dedmu_g = None
-            dedbeta_g = None
- 
-        #Enable to use PBE always
-        #mu_g[:] = 0.2195149727645171
-        #beta_g[:] = 0.06672455060314922
-
-        # Write mu and beta fields
-        if 0:
-            from ase.io import write
-            write('mu_g.cube', atoms, data=mu_g)
-            write('beta_g.cube', atoms, data=beta_g)
-            asd
-
-        return self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg, mu_g=mu_g,
-                                     beta_g=beta_g, dedmu_g=dedmu_g, dedbeta_g=dedbeta_g)
-
-
-    def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)
-
-        self.qna_kernel_calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-
-        add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
-                                dedsigma_xg, v_sg)
-
-
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
         self.current_atom = a
-        rcalc = QNARadialCalculator(self.kernel)
-        expansion = GGARadialExpansion(rcalc, self)
-        xcc = setup.xc_correction
-        if xcc is None:
-            return 0.0
-
-        rgd = xcc.rgd
-        nspins = len(D_sp)
-
-        if addcoredensity:
-            nc0_sg = rgd.empty(nspins)
-            nct0_sg = rgd.empty(nspins)
-            nc0_sg[:] = sqrt(4 * pi) / nspins * xcc.nc_g
-            nct0_sg[:] = sqrt(4 * pi) / nspins * xcc.nct_g
-            if xcc.nc_corehole_g is not None and nspins == 2:
-                nc0_sg[0] -= 0.5 * sqrt(4 * pi) * xcc.nc_corehole_g
-                nc0_sg[1] += 0.5 * sqrt(4 * pi) * xcc.nc_corehole_g
-        else:
-            nc0_sg = 0
-            nct0_sg = 0
-
-        D_sLq = np.inner(D_sp, xcc.B_pqL.T)
-
-        e, dEdD_sqL = expansion(rgd, D_sLq, xcc.n_qg, nc0_sg)
-        et, dEtdD_sqL = expansion(rgd, D_sLq, xcc.nt_qg, nct0_sg)
-
-        if dEdD_sp is not None:
-            dEdD_sp += np.inner((dEdD_sqL - dEtdD_sqL).reshape((nspins, -1)),
-                                xcc.B_pqL.reshape((len(xcc.B_pqL), -1)))
-
-        if addcoredensity:
-            return e - et - xcc.e_xc0
-        else:
-            return e - et
-
-
-    def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
-        dndr_sg = np.empty_like(n_sg)
-        for n_g, dndr_g in zip(n_sg, dndr_sg):
-            rgd.derivative(n_g, dndr_g)
-        if e_g is None:
-            e_g = rgd.empty()
-
-        rcalc = QNARadialCalculator(self.kernel)
-
-        e_g[:], dedn_sg = rcalc(rgd, n_sg[:, np.newaxis],
-                                [1.0],
-                                dndr_sg[:, np.newaxis],
-                                np.zeros((1, 3)), n=None, QNA=self)[:2]
-        v_sg[:] = dedn_sg
-        return rgd.integrate(e_g)
-
+        return GGA.calculate_paw_correction(self, setup, D_sp, dEdD_sp,
+                                            addcoredensity, a)
 
     def stress_tensor_contribution(self, n_sg):
         sigma_xg, gradn_svg = calculate_sigma(self.gd, self.grad_v, n_sg)
