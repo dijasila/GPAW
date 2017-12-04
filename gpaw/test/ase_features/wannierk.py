@@ -19,7 +19,7 @@ if 1:
     si.calc.write('Si-bz.gpw', mode='all')
     print((e1, e2))
 
-    
+
 def wan(calc):
     centers = [([0.125, 0.125, 0.125], 0, 1.5),
                ([0.125, 0.625, 0.125], 0, 1.5),
@@ -45,6 +45,7 @@ def wan(calc):
                                     cell=calc.atoms.cell)
         view(watoms)
     return x
+
 
 calc1 = GPAW('Si-bz.gpw', txt=None, communicator=serial_comm)
 x1 = wan(calc1)

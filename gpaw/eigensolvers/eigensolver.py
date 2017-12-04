@@ -1,11 +1,17 @@
 """Module defining an eigensolver base-class."""
+from functools import partial
 
 import numpy as np
+from ase.utils.timing import timer
 
+from gpaw.matrix import matrix_matrix_multiply as mmm
 from gpaw.utilities.blas import axpy
-from gpaw.utilities import unpack
-from gpaw.hs_operators import reshape
 from gpaw.xc.hybrid import HybridXC
+
+
+def reshape(a_x, shape):
+    """Get an ndarray of size shape from a_x buffer."""
+    return a_x.ravel()[:np.prod(shape)].reshape(shape)
 
 
 class Eigensolver:
@@ -16,7 +22,7 @@ class Eigensolver:
         self.error = np.inf
         self.blocksize = blocksize
         self.orthonormalization_required = True
-        
+
     def initialize(self, wfs):
         self.timer = wfs.timer
         self.world = wfs.world
@@ -24,16 +30,14 @@ class Eigensolver:
         self.band_comm = wfs.bd.comm
         self.dtype = wfs.dtype
         self.bd = wfs.bd
-        self.ksl = wfs.diagksl
         self.nbands = wfs.bd.nbands
         self.mynbands = wfs.bd.mynbands
-        self.operator = wfs.matrixoperator
 
-        if self.mynbands != self.nbands or self.operator.nblocks != 1:
+        if wfs.bd.comm.size > 1:
             self.keep_htpsit = False
 
         if self.keep_htpsit:
-            self.Htpsit_nG = wfs.empty(self.nbands)
+            self.Htpsit_nG = np.empty_like(wfs.work_array)
 
         # Preconditioner for the electronic gradients:
         self.preconditioner = wfs.make_preconditioner(self.blocksize)
@@ -41,65 +45,79 @@ class Eigensolver:
         for kpt in wfs.kpt_u:
             if kpt.eps_n is None:
                 kpt.eps_n = np.empty(self.mynbands)
-        
+
         self.initialized = True
 
     def reset(self):
         self.initialized = False
 
-    def iterate(self, hamiltonian, wfs):
+    def weights(self, kpt):
+        if self.nbands_converge == 'occupied':
+            if kpt.f_n is None:
+                weights = np.empty(self.bd.mynbands)
+                weights[:] = kpt.weight
+            else:
+                weights = kpt.f_n
+        else:
+            weights = np.zeros(self.bd.mynbands)
+            n = self.nbands_converge - self.bd.beg
+            if n > 0:
+                weights[:n] = kpt.weight
+        return weights
+
+    def iterate(self, ham, wfs):
         """Solves eigenvalue problem iteratively
 
         This method is inherited by the actual eigensolver which should
         implement *iterate_one_k_point* method for a single iteration of
         a single kpoint.
         """
-        
+
         if not self.initialized:
-            if isinstance(hamiltonian.xc, HybridXC):
+            if isinstance(ham.xc, HybridXC):
                 self.blocksize = wfs.bd.mynbands
             self.initialize(wfs)
 
         error = 0.0
         for kpt in wfs.kpt_u:
             if not wfs.orthonormalized:
-                wfs.overlap.orthonormalize(wfs, kpt)
-            e, psit_nG = self.iterate_one_k_point(hamiltonian, wfs, kpt)
+                wfs.orthonormalize(kpt)
+            e = self.iterate_one_k_point(ham, wfs, kpt)
             error += e
             if self.orthonormalization_required:
-                wfs.overlap.orthonormalize(wfs, kpt, psit_nG)
-            else:
-                kpt.psit_nG[:] = psit_nG[:]
+                wfs.orthonormalize(kpt)
 
-        wfs.set_orthonormalized(True)
-
+        wfs.orthonormalized = True
         self.error = self.band_comm.sum(self.kpt_comm.sum(error))
 
-    def iterate_one_k_point(self, hamiltonian, kpt):
+    def iterate_one_k_point(self, ham, kpt):
         """Implemented in subclasses."""
         raise NotImplementedError
 
-    def calculate_residuals(self, kpt, wfs, hamiltonian, psit_xG, P_axi, eps_x,
-                            R_xG, n_x=None, calculate_change=False):
+    def calculate_residuals(self, kpt, wfs, ham, psit, P, eps_n,
+                            R, C, n_x=None, calculate_change=False):
         """Calculate residual.
 
         From R=Ht*psit calculate R=H*psit-eps*S*psit."""
-        
-        for R_G, eps, psit_G in zip(R_xG, eps_x, psit_xG):
+
+        for R_G, eps, psit_G in zip(R.array, eps_n, psit.array):
             axpy(-eps, psit_G, R_G)
 
-        c_axi = {}
-        for a, P_xi in P_axi.items():
-            dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
-            dO_ii = hamiltonian.setups[a].dO_ii
-            c_xi = (np.dot(P_xi, dH_ii) -
-                    np.dot(P_xi * eps_x[:, np.newaxis], dO_ii))
-            c_axi[a] = c_xi
-        hamiltonian.xc.add_correction(kpt, psit_xG, R_xG, P_axi, c_axi, n_x,
-                                      calculate_change)
-        wfs.pt.add(R_xG, c_axi, kpt.q)
-        
-    def subspace_diagonalize(self, hamiltonian, wfs, kpt):
+        ham.dH(P, out=C)
+        for a, I1, I2 in P.indices:
+            dS_ii = ham.setups[a].dO_ii
+            C.array[..., I1:I2] -= np.dot((P.array[..., I1:I2].T * eps_n).T,
+                                          dS_ii)
+
+        ham.xc.add_correction(kpt, psit.array, R.array,
+                              {a: P_ni for a, P_ni in P.items()},
+                              {a: C_ni for a, C_ni in C.items()},
+                              n_x,
+                              calculate_change)
+        wfs.pt.add(R.array, {a: C_ni for a, C_ni in C.items()}, kpt.q)
+
+    @timer('Subspace diag')
+    def subspace_diagonalize(self, ham, wfs, kpt):
         """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
 
         *Htpsit_nG* is a work array of same size as psit_nG which contains
@@ -115,61 +133,58 @@ class Eigensolver:
         and that the integrals of projector functions and wave functions
         *P_ani* are already calculated.
 
-        Return ratated wave functions and H applied to the rotated
+        Return rotated wave functions and H applied to the rotated
         wave functions if self.keep_htpsit is True.
         """
 
         if self.band_comm.size > 1 and wfs.bd.strided:
             raise NotImplementedError
 
-        self.timer.start('Subspace diag')
+        psit = kpt.psit
+        tmp = psit.new(buf=wfs.work_array)
+        H = wfs.work_matrix_nn
+        P2 = kpt.P.new()
 
-        psit_nG = kpt.psit_nG
-        P_ani = kpt.P_ani
-        dH_asp = hamiltonian.dH_asp
+        Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
-        if self.keep_htpsit:
-            Htpsit_nG = reshape(self.Htpsit_nG, psit_nG.shape)
-        else:
-            Htpsit_nG = None
+        with self.timer('calc_h_matrix'):
+            # We calculate the complex conjugate of H, because
+            # that is what is most efficient with BLAS given the layout of
+            # our matrices.
+            #psit.apply(Ht, out=tmp)
+            #psit.matrix_elements(tmp, out=H,
+            #                     symmetric=True, cc=True)
+            psit.matrix_elements(operator=Ht, result=tmp, out=H,
+                                 symmetric=True, cc=True)
+            ham.dH(kpt.P, out=P2)
+            mmm(1.0, kpt.P, 'N', P2, 'C', 1.0, H, symmetric=True)
+            ham.xc.correct_hamiltonian_matrix(kpt, H.array)
 
-        def H(psit_xG):
-            if self.keep_htpsit:
-                result_xG = Htpsit_nG
+        with wfs.timer('diagonalize'):
+            slcomm, r, c, b = wfs.scalapack_parameters
+            if r == c == 1:
+                slcomm = None
             else:
-                result_xG = reshape(self.operator.work1_xG, psit_xG.shape)
-            wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
-                                         result_xG)
-            return result_xG
+                ranks = [rbd * wfs.gd.comm.size + rgd
+                         for rgd in range(wfs.gd.comm.size)
+                         for rbd in range(wfs.bd.comm.size)]
+                slcomm = slcomm.new_communicator(ranks)
+            # Complex conjugate before diagonalizing:
+            eps_n = H.eigh(cc=True, scalapack=(slcomm, r, c, b))
+            # H.array[n, :] now contains the n'th eigenvector and eps_n[n]
+            # the n'th eigenvalue
+            kpt.eps_n = eps_n[wfs.bd.get_slice()]
 
-        def dH(a, P_ni):
-            return np.dot(P_ni, unpack(dH_asp[a][kpt.s]))
-
-        self.timer.start('calc_h_matrix')
-        H_nn = self.operator.calculate_matrix_elements(psit_nG, P_ani,
-                                                       H, dH)
-        hamiltonian.xc.correct_hamiltonian_matrix(kpt, H_nn)
-        self.timer.stop('calc_h_matrix')
-
-        diagonalization_string = repr(self.ksl)
-        wfs.timer.start(diagonalization_string)
-        self.ksl.diagonalize(H_nn, kpt.eps_n)
-        # H_nn now contains the result of the diagonalization.
-        wfs.timer.stop(diagonalization_string)
-
-        self.timer.start('rotate_psi')
-        psit_nG = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
-        if self.keep_htpsit:
-            Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_nG,
-                                                      out_nG=kpt.psit_nG)
-
-        # Rotate orbital dependent XC stuff:
-        hamiltonian.xc.rotate(kpt, H_nn)
-
-        self.timer.stop('rotate_psi')
-        self.timer.stop('Subspace diag')
-
-        return psit_nG, Htpsit_nG
+        with self.timer('rotate_psi'):
+            if self.keep_htpsit:
+                Htpsit = psit.new(buf=self.Htpsit_nG)
+                mmm(1.0, H, 'N', tmp, 'N', 0.0, Htpsit)
+            mmm(1.0, H, 'N', psit, 'N', 0.0, tmp)
+            psit[:] = tmp
+            mmm(1.0, H, 'N', kpt.P, 'N', 0.0, P2)
+            kpt.P.matrix = P2.matrix
+            # Rotate orbital dependent XC stuff:
+            ham.xc.rotate(kpt, H.array.T)
 
     def estimate_memory(self, mem, wfs):
         gridmem = wfs.bytes_per_wave_function()

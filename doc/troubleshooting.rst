@@ -27,10 +27,3 @@ Try also::
 
 This will perform a calculation for a single spin-polarized hydrogen atom
 parallelized with spin up on one processor and spin down on the other.
-
-If you enabled ScaLAPACK, do::
-
-    $ mpirun -np 2 gpaw-python ~/gpaw/test/CH4.py --sl_default=1,2,2
-
-This will enable ScaLAPACK's diagonalization on a 1x2 BLACS grid
-with the block size of 2.

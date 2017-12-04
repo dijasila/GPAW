@@ -62,6 +62,8 @@ class InverseOverlapPreconditioner:
 
 class FDTDDFTMode(FD):
     def __call__(self, *args, **kwargs):
+        reuse_wfs_method = kwargs.pop('reuse_wfs_method', None)
+        assert reuse_wfs_method is None
         return TimeDependentWaveFunctions(self.nn, *args, **kwargs)
 
 
@@ -148,7 +150,7 @@ class TDDFT(GPAW):
 
         # Time-dependent variables and operators
         self.td_potential = td_potential
-        self.td_hamiltonian = TimeDependentHamiltonian(self.wfs, self.atoms,
+        self.td_hamiltonian = TimeDependentHamiltonian(self.wfs, self.spos_ac,
                                                        self.hamiltonian,
                                                        td_potential)
         self.td_overlap = self.wfs.overlap  # TODO remove this property
@@ -514,7 +516,7 @@ class TDDFT(GPAW):
         self.kick_strength = np.array(kick_strength)
 
         abs_kick_hamiltonian = AbsorptionKickHamiltonian(
-            self.wfs, self.atoms,
+            self.wfs, self.spos_ac,
             np.array(kick_strength, float))
         abs_kick = AbsorptionKick(self.wfs, abs_kick_hamiltonian,
                                   self.td_overlap, self.solver,

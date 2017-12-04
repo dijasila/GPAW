@@ -1088,7 +1088,6 @@ The possible keys are:
   Print also which parallelization settings would be employed when run on
   ``nprocs`` processors.
 
-
 .. tip::
 
     Extra key-value pairs will be available for development work::
@@ -1099,7 +1098,7 @@ The possible keys are:
         {'a': 1, 'b': 2.3}
 
 
-Other command-line arguments:
+Other command-line arguments are accepted directly by ``gpaw-python``:
 
 ===============================  =============================================
 argument                         description
@@ -1127,20 +1126,9 @@ argument                         description
                                  the ``band`` argument in the
                                  :ref:`parallel <manual_parallel>` keyword.
                                  See :ref:`manual_parsize_bands` for details.
-``--sl_...=m,n,mb``
-                                 Specify ScaLAPACK / BLACS parameters for
-                                 diagonalization (``--sl_default``),
-                                 inverse Cholesky factorization
-                                 (``--sl_inverse_cholesky``) and LCAO general
-                                 diagonalization (``--sl_lcao``) respectively.
-                                 Use ``--sl_default`` to specify all three
-                                 of the above at once or just the default
-                                 value for those not explicitly given.
-                                 Allowed values are equivalent to those of
-                                 the four ``sl_...`` arguments in the
-                                 :ref:`parallel <manual_parallel>` keyword.
-                                 Requires GPAW to be built with ScaLAPACK.
 ===============================  =============================================
+
+Please see ``gpaw-python --help`` for details.
 
 
 .. [#LDA]    J. P. Perdew and Y. Wang,

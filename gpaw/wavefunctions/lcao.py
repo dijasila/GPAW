@@ -59,9 +59,10 @@ class LCAOWaveFunctions(WaveFunctions):
 
     def __init__(self, ksl, gd, nvalence, setups, bd,
                  dtype, world, kd, kptband_comm, timer,
-                 atomic_correction=None):
+                 atomic_correction=None, collinear=True):
         WaveFunctions.__init__(self, gd, nvalence, setups, bd,
-                               dtype, world, kd, kptband_comm, timer)
+                               dtype, collinear, world, kd,
+                               kptband_comm, timer)
         self.ksl = ksl
         self.S_qMM = None
         self.T_qMM = None
@@ -104,7 +105,7 @@ class LCAOWaveFunctions(WaveFunctions):
         s += '  Diagonalizer: %s\n' % self.ksl.get_description()
         s += '  Atomic Correction: %s\n' % self.atomic_correction.description
         s += '  Datatype: %s\n' % self.dtype.__name__
-        return s + WaveFunctions.__str__(self)
+        return s
 
     def set_eigensolver(self, eigensolver):
         WaveFunctions.set_eigensolver(self, eigensolver)
@@ -112,7 +113,7 @@ class LCAOWaveFunctions(WaveFunctions):
             eigensolver.initialize(self.gd, self.dtype, self.setups.nao,
                                    self.ksl)
 
-    def set_positions(self, spos_ac, atom_partition=None):
+    def set_positions(self, spos_ac, atom_partition=None, move_wfs=False):
         with self.timer('Basic WFS set positions'):
             WaveFunctions.set_positions(self, spos_ac, atom_partition)
 
@@ -126,7 +127,6 @@ class LCAOWaveFunctions(WaveFunctions):
         nq = len(self.kd.ibzk_qc)
         nao = self.setups.nao
         mynbands = self.bd.mynbands
-
         Mstop = self.ksl.Mstop
         Mstart = self.ksl.Mstart
         mynao = Mstop - Mstart
@@ -204,6 +204,10 @@ class LCAOWaveFunctions(WaveFunctions):
         self.T_qMM = T_qMM
 
     def initialize(self, density, hamiltonian, spos_ac):
+        # Note: The above line exists also in set_positions.
+        # This is guaranteed to be correct, but we can probably remove one.
+        # Of course no human can understand the initialization process,
+        # so this will be some other day.
         self.timer.start('LCAO WFS Initialize')
         if density.nt_sG is None:
             if self.kpt_u[0].f_n is None or self.kpt_u[0].C_nM is None:
@@ -240,9 +244,13 @@ class LCAOWaveFunctions(WaveFunctions):
 
         (This may or may not work in band-parallel case!)
         """
+        from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
         bfs = self.basis_functions
-        for kpt in self.kpt_u:
-            kpt.psit_nG = self.gd.zeros(self.bd.nbands, self.dtype)
+        for kpt in self.mykpts:
+            kpt.psit = UniformGridWaveFunctions(
+                self.bd.nbands, self.gd, self.dtype, kpt=kpt.q, dist=None,
+                spin=kpt.s, collinear=True)
+            kpt.psit_nG[:] = 0.0
             bfs.lcao_to_grid(kpt.C_nM, kpt.psit_nG[:self.bd.mynbands], kpt.q)
 
     def initialize_wave_functions_from_restart_file(self):
@@ -327,7 +335,6 @@ class LCAOWaveFunctions(WaveFunctions):
     def calculate_forces(self, hamiltonian, F_av):
         self.timer.start('LCAO forces')
 
-        spos_ac = self.tci.atoms.get_scaled_positions() % 1.0
         ksl = self.ksl
         nao = ksl.nao
         mynao = ksl.mynao
@@ -351,7 +358,7 @@ class LCAOWaveFunctions(WaveFunctions):
             for a in self.basis_functions.my_atom_indices:
                 ni = self.setups[a].ni
                 dPdR_aqvMi[a] = np.empty((nq, 3, nao, ni), dtype)
-            tci.calculate_derivative(spos_ac, dThetadR_qvMM, dTdR_qvMM,
+            tci.calculate_derivative(self.spos_ac, dThetadR_qvMM, dTdR_qvMM,
                                      dPdR_aqvMi)
             gd.comm.sum(dThetadR_qvMM)
             gd.comm.sum(dTdR_qvMM)
@@ -536,16 +543,13 @@ class LCAOWaveFunctions(WaveFunctions):
             Fkin2_av = np.zeros_like(F_av)
             Ftheta2_av = np.zeros_like(F_av)
 
-            cell_cv = tci.atoms.cell
-            spos_ac = tci.atoms.get_scaled_positions() % 1.0
-
             overlapcalc = TwoCenterIntegralCalculator(self.kd.ibzk_qc,
                                                       derivative=False)
 
             # XXX this is not parallel *AT ALL*.
             self.timer.start('Get neighbors')
             nl = tci.atompairs.pairs.neighbors
-            r_and_offset_aao = get_r_and_offsets(nl, spos_ac, cell_cv)
+            r_and_offset_aao = get_r_and_offsets(nl, self.spos_ac, gd.cell_cv)
             atompairs = sorted(r_and_offset_aao.keys())
             self.timer.stop('Get neighbors')
 

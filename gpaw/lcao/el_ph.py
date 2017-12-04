@@ -18,27 +18,27 @@ class ElectronPhononCouplingMatrix:
     by the electron phonon interaction.
 
     ::
-   
+
                   __                   _____
                   \     l   cc        /  h             cc
         H      =   )   M   c   c     /------   ( b  + b   ),
          el-ph    /_    ij  i   j  \/   2 W       l    l
                     l,ij                     l
-    
+
     where the electron phonon coupling matrix is given by::
-                
+
             l           ___
             M   = < i | \ /  V   * v  |j>
              ij          'u   eff   l
-  
+
     """
-    
+
     def __init__(self, atoms, indices=None, name='v', delta=0.005, nfree=2,
                  derivativemethod='tci'):
         assert nfree in [2, 4]
         self.nfree = nfree
         self.delta = delta
-        
+
         if indices is None:
             indices = range(len(self.atoms))
         self.calc = atoms.get_calculator()
@@ -56,10 +56,10 @@ class ElectronPhononCouplingMatrix:
             self.get_dP_aMix = get_tci_dP_aMix
         else:
             raise ValueError('derivativemethod must be grid, grid2, or tci')
-    
+
     def run(self):
         if not isfile(self.name + '.eq.pckl'):
-            
+
             self.calc.calculate(self.atoms)
             Vt_G = self.calc.get_effective_potential(pad=False)
             Vt_G = self.calc.wfs.gd.collect(Vt_G, broadcast=True) / Hartree
@@ -78,7 +78,7 @@ class ElectronPhononCouplingMatrix:
                     tmpdH_sp[:] = dH_asp[a]
                 gd_comm.sum(tmpdH_sp)
                 alldH_asp[a] = tmpdH_sp
-                
+
             forces = self.atoms.get_forces()
             self.calc.write('eq.gpw')
 
@@ -128,7 +128,7 @@ class ElectronPhononCouplingMatrix:
                         barrier()
                         self.atoms.positions[a, j] = p[a, j]
         self.atoms.set_positions(p)
-    
+
     def get_gradient(self):
         """Calculates gradient"""
         nx = len(self.indices) * 3
@@ -145,7 +145,7 @@ class ElectronPhononCouplingMatrix:
                 name = '%s.%d%s' % (self.name,a,'xyz'[i])
                 vtm_G, dHm_asp = pickle.load(open(name + '-.pckl', 'rb'))
                 vtp_G, dHp_asp = pickle.load(open(name + '+.pckl', 'rb'))
-                
+
 
                 if self.nfree==4:
                     vtmm_G, dHmm_asp = pickle.load(open(name+'--.pckl', 'rb'))
@@ -180,7 +180,7 @@ class ElectronPhononCouplingMatrix:
         In short frequencies and mode vectors must be given in ase units.
 
         ::
-        
+
                   d                   d  ~
             < w | -- v | w' > = < w | -- v | w'>
                   dP                  dP
@@ -223,7 +223,6 @@ class ElectronPhononCouplingMatrix:
 
         from gpaw import restart
         atoms, calc = restart('eq.gpw', txt=None)
-        spos_ac = atoms.get_scaled_positions()
         if calc.wfs.S_qMM is None:
             calc.initialize(atoms)
             calc.initialize_positions(atoms)
@@ -259,14 +258,14 @@ class ElectronPhononCouplingMatrix:
         Ma_lii = {}
         for f, mode in modes.items():
             Ma_lii[f] = np.zeros_like(M_lii.values()[0])
-        
+
         timer.write_now('Starting gradient of dH^a part')
         for f, mode in modes.items():
             mo = []
             for a in self.indices:
                 mo.append(mode[a])
             mode = np.asarray(mo).flatten()
-            
+
             for a, ddH_spx in ddH_aspx.items():
                 ddHdP_sp = np.dot(ddH_spx, mode)
                 ddHdP_ii = unpack2(ddHdP_sp[spin])
@@ -274,12 +273,11 @@ class ElectronPhononCouplingMatrix:
         timer.write_now('Finished gradient of dH^a part')
 
         timer.write_now('Starting gradient of projectors part')
-        spos_ac = self.atoms.get_scaled_positions() % 1.0
-        dP_aMix = self.get_dP_aMix(spos_ac, wfs, q, timer)
+        dP_aMix = self.get_dP_aMix(calc.spos_ac, wfs, q, timer)
         timer.write_now('Finished gradient of projectors part')
 
         dH_asp = pickle.load(open('v.eq.pckl', 'rb'))[1]
-        
+
         Mb_lii = {}
         for f, mode in modes.items():
             Mb_lii[f] = np.zeros_like(M_lii.values()[0])
@@ -294,7 +292,7 @@ class ElectronPhononCouplingMatrix:
                 # It is related to how the derivative of projector
                 # functions in GPAW is calculated.
                 # More thorough explanations, anyone...?
-                
+
         # Units of M_lii are Hartree/(Bohr * sqrt(m_e))
         for mode in M_lii.keys():
             M_lii[mode] += Ma_lii[mode] + Mb_lii[mode]
@@ -375,7 +373,7 @@ def get_tci_dP_aMix(spos_ac, wfs, q, *args, **kwargs):
     nq = len(wfs.ibzk_qc)
     for a, setup in enumerate(wfs.setups):
         dP_aqxMi[a] = np.zeros((nq, 3, nao, setup.ni), wfs.dtype)
-    
+
     calc = TwoCenterIntegralCalculator(wfs.ibzk_qc, derivative=True)
     expansions = ManySiteDictionaryWrapper(wfs.tci.P_expansions, dP_aqxMi)
     calc.calculate(wfs.tci.atompairs, [expansions], [dP_aqxMi])

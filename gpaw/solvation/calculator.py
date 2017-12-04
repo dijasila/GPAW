@@ -38,6 +38,7 @@ class SolvationGPAW(GPAW):
             *self.stuff_for_hamiltonian,
             gd=dens.gd, finegd=dens.finegd,
             nspins=dens.nspins,
+            collinear=dens.collinear,
             setups=dens.setups,
             timer=self.timer,
             xc=xc,

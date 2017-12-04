@@ -90,7 +90,7 @@ class ETSFWriter:
         var('atom_species', ('number_of_atoms',), specie_a + 1)
         var('reduced_atom_positions',
             ('number_of_atoms', 'number_of_reduced_dimensions'),
-            atoms.get_scaled_positions())
+            calc.spos_ac)
         var('atomic_numbers', ('number_of_atom_species',),
             np.array(numbers, dtype=float))
         var('valence_charges', ('number_of_atom_species',),

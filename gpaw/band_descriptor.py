@@ -81,20 +81,24 @@ class BandDescriptor:
 
         if comm is None:
             comm = serial_comm
+
         self.comm = comm
-        self.rank = self.comm.rank
-
         self.nbands = nbands
-
-        if self.nbands % self.comm.size != 0:
-            raise RuntimeError('Cannot distribute %d bands to %d processors' %
-                               (self.nbands, self.comm.size))
-
-        self.mynbands = self.nbands // self.comm.size
         self.strided = strided
 
-        nslice = self.get_slice()
-        self.beg, self.end, self.step = nslice.indices(self.nbands)
+        self.maxmynbands = (nbands + comm.size - 1) // comm.size
+
+        if strided:
+            assert nbands % comm.size == 0
+            self.beg = comm.rank
+            self.end = nbands
+            self.step = comm.size
+            self.mynbands = self.maxmynbands
+        else:
+            self.beg = min(nbands, comm.rank * self.maxmynbands)
+            self.end = min(nbands, self.beg + self.maxmynbands)
+            self.mynbands = self.end - self.beg
+            self.step = 1
 
     def __len__(self):
         return self.mynbands
@@ -109,8 +113,7 @@ class BandDescriptor:
             nstride = self.comm.size
             nslice = slice(band_rank, None, nstride)
         else:
-            n0 = band_rank * self.mynbands
-            nslice = slice(n0, n0 + self.mynbands)
+            nslice = slice(self.beg, self.end)
         return nslice
 
     def get_band_indices(self, band_rank=None):
@@ -132,18 +135,18 @@ class BandDescriptor:
         if self.strided:
             myn, band_rank = divmod(n, self.comm.size)
         else:
-            band_rank, myn = divmod(n, self.mynbands)
+            band_rank, myn = divmod(n, self.maxmynbands)
         return band_rank, myn
 
     def global_index(self, myn, band_rank=None):
         """Convert rank information and local index to global index."""
         if band_rank is None:
             band_rank = self.comm.rank
+
         if self.strided:
-            n = band_rank + myn * self.comm.size
-        else:
-            n = band_rank * self.mynbands + myn
-        return n
+            return band_rank + myn * self.comm.size
+
+        return band_rank * self.maxmynbands + myn
 
     def get_size_of_global_array(self):
         return (self.nbands,)
@@ -193,12 +196,14 @@ class BandDescriptor:
 
         # Optimization for blocked groups
         if not self.strided:
+            if self.comm.size * self.maxmynbands > self.nbands:
+                return self.nasty_non_strided_collect(a_nx, broadcast)
             if broadcast:
                 A_nx = self.empty(xshape, a_nx.dtype, global_array=True)
                 self.comm.all_gather(a_nx, A_nx)
                 return A_nx
 
-            if self.rank == 0:
+            if self.comm.rank == 0:
                 A_nx = self.empty(xshape, a_nx.dtype, global_array=True)
             else:
                 A_nx = None
@@ -206,7 +211,7 @@ class BandDescriptor:
             return A_nx
 
         # Collect all arrays on the master:
-        if self.rank != 0:
+        if self.comm.rank != 0:
             # There can be several sends before the corresponding receives
             # are posted, so use syncronous send here
             self.comm.ssend(a_nx, 0, 3011)
@@ -234,16 +239,38 @@ class BandDescriptor:
         """ distribute full array B_nx to band groups, result in
         b_nx. b_nx must be allocated."""
 
-        if self.comm.size == 1:
+        S = self.comm.size
+
+        if S == 1:
             b_nx[:] = B_nx
             return
 
         # Optimization for blocked groups
         if not self.strided:
-            self.comm.scatter(B_nx, b_nx, 0)
+            M2 = self.maxmynbands
+            if M2 * S == self.nbands:
+                self.comm.scatter(B_nx, b_nx, 0)
+                return
+
+            if self.comm.rank == 0:
+                C_nx = np.empty((S * M2,) + B_nx.shape[1:], B_nx.dtype)
+                C_nx[:self.nbands] = B_nx
+            else:
+                C_nx = None
+
+            if self.mynbands < M2:
+                c_nx = np.empty((M2,) + b_nx.shape[1:], b_nx.dtype)
+            else:
+                c_nx = b_nx
+
+            self.comm.scatter(C_nx, c_nx, 0)
+
+            if self.mynbands < M2:
+                b_nx[:] = c_nx[:self.mynbands]
+
             return
 
-        if self.rank != 0:
+        if self.comm.rank != 0:
             self.comm.receive(b_nx, 0, 421)
             return
         else:
@@ -261,3 +288,32 @@ class BandDescriptor:
 
             for request, a_nx in requests:
                 self.comm.wait(request)
+
+    def nasty_non_strided_collect(self, a_nx, broadcast):
+        xshape = a_nx.shape[1:]
+        if broadcast:
+            A_nx = self.nasty_non_strided_collect(a_nx, False)
+            if A_nx is None:
+                A_nx = self.empty(xshape, a_nx.dtype, global_array=True)
+            self.comm.broadcast(A_nx)
+            return A_nx
+
+        S = self.comm.size
+        M2 = self.maxmynbands
+        if self.comm.rank == 0:
+            A_nx = np.empty((S * M2,) + xshape, a_nx.dtype)
+        else:
+            A_nx = None
+
+        if self.mynbands < M2:
+            b_nx = np.empty((M2,) + xshape, a_nx.dtype)
+            b_nx[:self.mynbands] = a_nx
+        else:
+            b_nx = a_nx
+
+        self.comm.gather(b_nx, 0, A_nx)
+
+        if self.comm.rank > 0:
+            return
+
+        return A_nx[:self.nbands]

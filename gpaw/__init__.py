@@ -1,16 +1,24 @@
+# encoding: utf-8
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
 """Main gpaw module."""
 
-import os
 import sys
-import warnings
-from distutils.util import get_platform
 
-from os.path import join, isfile
+from gpaw.broadcast_imports import broadcast_imports
 
-import numpy as np
+with broadcast_imports:
+    import os
+    import runpy
+    import warnings
+    from distutils.util import get_platform
+    from os.path import join, isfile
+    from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
+
+    import numpy as np
+    from ase.cli.run import str2dict
+
 
 assert not np.version.version.startswith('1.6.0')
 
@@ -37,148 +45,157 @@ class PoissonConvergenceError(ConvergenceError):
     pass
 
 
+def parse_extra_parameters(arg):
+    return {key.replace('-', '_'): value
+            for key, value in str2dict(arg).items()}
+
+
+is_gpaw_python = '_gpaw' in sys.builtin_module_names
+
+
+def parse_arguments(argv):
+    p = ArgumentParser(usage='%(prog)s [OPTION ...] [-c | -m] SCRIPT'
+                       ' [ARG ...]',
+                       description='Run a parallel GPAW calculation.\n\n'
+                       'Compiled with:\n  Python {}'
+                       .format(sys.version.replace('\n', '')),
+                       formatter_class=RawDescriptionHelpFormatter)
+
+    p.add_argument('--command', '-c', action='store_true',
+                   help='execute Python string given as SCRIPT')
+    p.add_argument('--module', '-m', action='store_true',
+                   help='run library module given as SCRIPT')
+    p.add_argument('-W', metavar='argument',
+                   action='append', default=[], dest='warnings',
+                   help='warning control.  See the documentation of -W for '
+                   'the Python interpreter')
+    p.add_argument('--memory-estimate-depth', default=2, type=int, metavar='N',
+                   dest='memory_estimate_depth',
+                   help='print memory estimate of object tree to N levels')
+    p.add_argument('--domain-decomposition',
+                   metavar='N or X,Y,Z', dest='parsize_domain',
+                   help='use N or X × Y × Z cores for domain decomposition.')
+    p.add_argument('--state-parallelization', metavar='N', type=int,
+                   dest='parsize_bands',
+                   help='use N cores for state/band/orbital parallelization')
+    p.add_argument('--augment-grids', action='store_true',
+                   dest='augment_grids',
+                   help='when possible, redistribute real-space arrays on '
+                   'cores otherwise used for k-point/band parallelization')
+    p.add_argument('--buffer-size', type=float, metavar='SIZE',
+                   help='buffer size for MatrixOperator in MiB')
+    p.add_argument('--profile', metavar='FILE', dest='profile',
+                   help='run profiler and save stats to FILE')
+    p.add_argument('--gpaw', metavar='VAR=VALUE[, ...]', action='append',
+                   default=[], dest='gpaw_extra_kwargs',
+                   help='extra (hacky) GPAW keyword arguments')
+    p.add_argument('--benchmark-imports', action='store_true',
+                   help='count distributed/non-distributed imports')
+    if is_gpaw_python:  # SCRIPT mandatory for gpaw-python
+        p.add_argument('script', metavar='SCRIPT',
+                       help='calculation script')
+    p.add_argument('options', metavar='ARG',
+                   help='arguments forwarded to SCRIPT', nargs=REMAINDER)
+
+    args = p.parse_args(argv[1:])
+
+    if args.command and args.module:
+        p.error('-c and -m are mutually exclusive')
+
+    if is_gpaw_python:
+        sys.argv = [args.script] + args.options
+
+    for w in args.warnings:
+        # Need to convert between python -W syntax to call
+        # warnings.filterwarnings():
+        warn_args = w.split(':')
+        assert len(warn_args) <= 5
+
+        if warn_args[0] == 'all':
+            warn_args[0] = 'always'
+        if len(warn_args) >= 3:
+            # e.g. 'UserWarning' (string) -> UserWarning (class)
+            warn_args[2] = globals().get(warn_args[2])
+        if len(warn_args) == 5:
+            warn_args[4] = int(warn_args[4])
+
+        warnings.filterwarnings(*warn_args, append=True)
+
+    if args.parsize_domain:
+        parsize = [int(n) for n in args.parsize_domain.split(',')]
+        if len(parsize) == 1:
+            parsize = parsize[0]
+        else:
+            assert len(parsize) == 3
+        args.parsize_domain = parsize
+
+    extra_parameters = {}
+    for extra_kwarg in args.gpaw_extra_kwargs:
+        extra_parameters.update(parse_extra_parameters(extra_kwarg))
+
+    return extra_parameters, args
+
+
+if is_gpaw_python:
+    extra_parameters, gpaw_args = parse_arguments(sys.argv)
+else:
+    # Ignore the arguments; rely on --gpaw only as below.
+    extra_parameters, gpaw_args = parse_arguments([sys.argv[0]])
+
+
+def parse_gpaw_args():
+    extra_parameters = {}
+    i = 1
+    while i < len(sys.argv):
+        arg = sys.argv[i]
+        if arg.startswith('--gpaw='):
+            sys.argv.pop(i)
+            extra_parameters.update(parse_extra_parameters(arg[7:]))
+            continue
+            break
+        elif arg == '--gpaw':
+            sys.argv.pop(i)
+            extra_parameters.update(parse_extra_parameters(sys.argv.pop(i)))
+            continue
+            break
+        i += 1
+    return extra_parameters
+
+
+extra_parameters.update(parse_gpaw_args())
+
+
 # Check for special command line arguments:
-memory_estimate_depth = 2
-parsize_domain = None
-parsize_bands = None
-augment_grids = False
+memory_estimate_depth = gpaw_args.memory_estimate_depth
+parsize_domain = gpaw_args.parsize_domain
+parsize_bands = gpaw_args.parsize_bands
+augment_grids = gpaw_args.augment_grids
+# We deprecate the sl_xxx parameters being set from command line.
+# People can satisfy their lusts by setting gpaw.sl_default = something
+# if they are perverted enough to use global variables.
 sl_default = None
 sl_diagonalize = None
 sl_inverse_cholesky = None
 sl_lcao = None
 sl_lrtddft = None
-buffer_size = None
-extra_parameters = {}
-profile = False
+buffer_size = gpaw_args.buffer_size
+profile = gpaw_args.profile
 
 
-def parse_extra_parameters(arg):
-    from ase.cli.run import str2dict
-    return {key.replace('-', '_'): value
-            for key, value in str2dict(arg).items()}
-
-
-i = 1
-while len(sys.argv) > i:
-    arg = sys.argv[i]
-    if arg.startswith('--memory-estimate-depth'):
-        memory_estimate_depth = -1
-        if len(arg.split('=')) == 2:
-            memory_estimate_depth = int(arg.split('=')[1])
-    elif arg.startswith('--domain-decomposition='):
-        parsize_domain = [int(n) for n in arg.split('=')[1].split(',')]
-        if len(parsize_domain) == 1:
-            parsize_domain = parsize_domain[0]
-        else:
-            assert len(parsize_domain) == 3
-    elif arg.startswith('--state-parallelization='):
-        parsize_bands = int(arg.split('=')[1])
-    elif arg.startswith('--augment-grids='):
-        augment_grids = bool(int(arg.split('=')[1]))
-    elif arg.startswith('--sl_default='):
-        # --sl_default=nprow,npcol,mb,cpus_per_node
-        # use 'd' for the default of one or more of the parameters
-        # --sl_default=default to use all default values
-        sl_args = [n for n in arg.split('=')[1].split(',')]
-        if len(sl_args) == 1:
-            assert sl_args[0] == 'default'
-            sl_default = ['d'] * 3
-        else:
-            sl_default = []
-            assert len(sl_args) == 3
-            for sl_args_index in range(len(sl_args)):
-                assert sl_args[sl_args_index] is not None
-                if sl_args[sl_args_index] is not 'd':
-                    assert int(sl_args[sl_args_index]) > 0
-                    sl_default.append(int(sl_args[sl_args_index]))
-                else:
-                    sl_default.append(sl_args[sl_args_index])
-    elif arg.startswith('--sl_diagonalize='):
-        # --sl_diagonalize=nprow,npcol,mb,cpus_per_node
-        # use 'd' for the default of one or more of the parameters
-        # --sl_diagonalize=default to use all default values
-        sl_args = [n for n in arg.split('=')[1].split(',')]
-        if len(sl_args) == 1:
-            assert sl_args[0] == 'default'
-            sl_diagonalize = ['d'] * 3
-        else:
-            sl_diagonalize = []
-            assert len(sl_args) == 3
-            for sl_args_index in range(len(sl_args)):
-                assert sl_args[sl_args_index] is not None
-                if sl_args[sl_args_index] is not 'd':
-                    assert int(sl_args[sl_args_index]) > 0
-                    sl_diagonalize.append(int(sl_args[sl_args_index]))
-                else:
-                    sl_diagonalize.append(sl_args[sl_args_index])
-    elif arg.startswith('--sl_inverse_cholesky='):
-        # --sl_inverse_cholesky=nprow,npcol,mb,cpus_per_node
-        # use 'd' for the default of one or more of the parameters
-        # --sl_inverse_cholesky=default to use all default values
-        sl_args = [n for n in arg.split('=')[1].split(',')]
-        if len(sl_args) == 1:
-            assert sl_args[0] == 'default'
-            sl_inverse_cholesky = ['d'] * 3
-        else:
-            sl_inverse_cholesky = []
-            assert len(sl_args) == 3
-            for sl_args_index in range(len(sl_args)):
-                assert sl_args[sl_args_index] is not None
-                if sl_args[sl_args_index] is not 'd':
-                    assert int(sl_args[sl_args_index]) > 0
-                    sl_inverse_cholesky.append(int(sl_args[sl_args_index]))
-                else:
-                    sl_inverse_cholesky.append(sl_args[sl_args_index])
-    elif arg.startswith('--sl_lcao='):
-        # --sl_lcao=nprow,npcol,mb,cpus_per_node
-        # use 'd' for the default of one or more of the parameters
-        # --sl_lcao=default to use all default values
-        sl_args = [n for n in arg.split('=')[1].split(',')]
-        if len(sl_args) == 1:
-            assert sl_args[0] == 'default'
-            sl_lcao = ['d'] * 3
-        else:
-            sl_lcao = []
-            assert len(sl_args) == 3
-            for sl_args_index in range(len(sl_args)):
-                assert sl_args[sl_args_index] is not None
-                if sl_args[sl_args_index] is not 'd':
-                    assert int(sl_args[sl_args_index]) > 0
-                    sl_lcao.append(int(sl_args[sl_args_index]))
-                else:
-                    sl_lcao.append(sl_args[sl_args_index])
-    elif arg.startswith('--sl_lrtddft='):
-        # --sl_lcao=nprow,npcol,mb,cpus_per_node
-        # use 'd' for the default of one or more of the parameters
-        # --sl_lcao=default to use all default values
-        sl_args = [n for n in arg.split('=')[1].split(',')]
-        if len(sl_args) == 1:
-            assert sl_args[0] == 'default'
-            sl_lrtddft = ['d'] * 3
-        else:
-            sl_lrtddft = []
-            assert len(sl_args) == 3
-            for sl_args_index in range(len(sl_args)):
-                assert sl_args[sl_args_index] is not None
-                if sl_args[sl_args_index] is not 'd':
-                    assert int(sl_args[sl_args_index]) > 0
-                    sl_lrtddft.append(int(sl_args[sl_args_index]))
-                else:
-                    sl_lrtddft.append(sl_args[sl_args_index])
-    elif arg.startswith('--buffer_size='):
-        # Buffer size for MatrixOperator in MB
-        buffer_size = int(arg.split('=')[1])
-    elif arg.startswith('--gpaw='):
-        extra_parameters = parse_extra_parameters(arg[7:])
-    elif arg == '--gpaw':
-        extra_parameters = parse_extra_parameters(sys.argv.pop(i + 1))
-    elif arg.startswith('--profile='):
-        profile = arg.split('=')[1]
+def main():
+    # Stacktraces can be shortened by running script with
+    # PyExec_AnyFile and friends.  Might be nicer
+    if gpaw_args.command:
+        d = {'__name__': '__main__'}
+        exec(gpaw_args.script, d, d)
+    elif gpaw_args.module:
+        # Python has: python [-m MOD] [-c CMD] [SCRIPT]
+        # We use a much better way: gpaw-python [-m | -c] SCRIPT
+        runpy.run_module(gpaw_args.script, run_name='__main__')
     else:
-        i += 1
-        continue
-    # Delete used command line argument:
-    del sys.argv[i]
+        runpy.run_path(gpaw_args.script, run_name='__main__')
+
+    # Todo, if we want: interactive interpreter.
 
 
 dry_run = extra_parameters.pop('dry_run', 0)
@@ -238,15 +255,15 @@ def initialize_data_paths():
 
 initialize_data_paths()
 
-
-from gpaw.calculator import GPAW
-from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
-from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
-from gpaw.poisson import PoissonSolver
-from gpaw.occupations import FermiDirac, MethfesselPaxton
-from gpaw.wavefunctions.lcao import LCAO
-from gpaw.wavefunctions.pw import PW
-from gpaw.wavefunctions.fd import FD
+with broadcast_imports:
+    from gpaw.calculator import GPAW
+    from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
+    from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
+    from gpaw.poisson import PoissonSolver
+    from gpaw.occupations import FermiDirac, MethfesselPaxton
+    from gpaw.wavefunctions.lcao import LCAO
+    from gpaw.wavefunctions.pw import PW
+    from gpaw.wavefunctions.fd import FD
 
 RMM_DIIS = RMMDIIS
 
@@ -264,10 +281,10 @@ if profile:
 
     def f(prof, filename):
         prof.disable()
-        from gpaw.mpi import rank
         if filename == '-':
             prof.print_stats('time')
         else:
+            from gpaw.mpi import rank
             prof.dump_stats(filename + '.%04d' % rank)
     atexit.register(f, prof, profile)
     prof.enable()
@@ -298,5 +315,6 @@ def read_rc_file():
             # Read file in ~/.gpaw/rc.py
             with open(rc) as fd:
                 exec(fd.read())
+
 
 read_rc_file()
