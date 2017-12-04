@@ -1,6 +1,5 @@
 import numpy as np
 from gpaw import GPAW, PW
-from ase import Atoms
 from ase.parallel import parprint
 from ase.lattice.compounds import L1_2
 
