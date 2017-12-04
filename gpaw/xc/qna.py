@@ -2,7 +2,7 @@
 from gpaw.xc.gga import PurePythonGGAKernel, GGA, gga_vars
 from gpaw.xc.gga import add_gradient_correction, radial_gga_vars
 from gpaw.xc.gga import add_radial_gradient_correction
-#from gpaw.xc.gga import GGARadialCalculator, GGARadialExpansion
+from gpaw.xc.gga import GGARadialCalculator, GGARadialExpansion
 import numpy as np
 #from ase.neighborlist import NeighborList
 #from ase.units import Bohr
@@ -14,41 +14,6 @@ from math import sqrt, pi
 from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
 from gpaw.xc.gga import calculate_sigma
-
-# TODO: Use RadialExpansion from gga.py
-class QNARadialExpansion:
-    def __init__(self, rcalc):
-        self.rcalc = rcalc
-
-    def __call__(self, rgd, D_sLq, n_qg, nc0_sg, QNA):
-        n_sLg = np.dot(D_sLq, n_qg)
-        n_sLg[:, 0] += nc0_sg
-
-        dndr_sLg = np.empty_like(n_sLg)
-        for n_Lg, dndr_Lg in zip(n_sLg, dndr_sLg):
-            for n_g, dndr_g in zip(n_Lg, dndr_Lg):
-                rgd.derivative(n_g, dndr_g)
-
-        nspins, Lmax, nq = D_sLq.shape
-        dEdD_sqL = np.zeros((nspins, nq, Lmax))
-
-        E = 0.0
-        for n, Y_L in enumerate(Y_nL[:, :Lmax]):
-            w = weight_n[n]
-            rnablaY_Lv = rnablaY_nLv[n, :Lmax]
-            e_g, dedn_sg, b_vsg, dedsigma_xg = \
-                self.rcalc(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n, QNA)
-            dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
-                               n_qg.T)[:, :, np.newaxis] * (w * Y_L)
-            dedsigma_xg *= rgd.dr_g
-            B_vsg = dedsigma_xg[::2] * b_vsg
-            if nspins == 2:
-                B_vsg += 0.5 * dedsigma_xg[1] * b_vsg[:, ::-1]
-            B_vsq = np.dot(B_vsg, n_qg.T)
-            dEdD_sqL += 8 * pi * w * np.inner(rnablaY_Lv, B_vsq.T).T
-            E += w * rgd.integrate(e_g)
-
-        return E, dEdD_sqL
 
 # TODO: User GGARadialCalcualtor from gga.py
 class QNARadialCalculator: #(GGARadialCalculator):
@@ -181,7 +146,7 @@ class QNA(GGA):
                                  addcoredensity=True, a=None):
         self.current_atom = a
         rcalc = QNARadialCalculator(self.kernel)
-        expansion = QNARadialExpansion(rcalc)
+        expansion = GGARadialExpansion(rcalc, self)
         xcc = setup.xc_correction
         if xcc is None:
             return 0.0
@@ -203,8 +168,8 @@ class QNA(GGA):
 
         D_sLq = np.inner(D_sp, xcc.B_pqL.T)
 
-        e, dEdD_sqL = expansion(rgd, D_sLq, xcc.n_qg, nc0_sg, self)
-        et, dEtdD_sqL = expansion(rgd, D_sLq, xcc.nt_qg, nct0_sg, self)
+        e, dEdD_sqL = expansion(rgd, D_sLq, xcc.n_qg, nc0_sg)
+        et, dEtdD_sqL = expansion(rgd, D_sLq, xcc.nt_qg, nct0_sg)
 
         if dEdD_sp is not None:
             dEdD_sp += np.inner((dEdD_sqL - dEtdD_sqL).reshape((nspins, -1)),

@@ -11,8 +11,9 @@ from gpaw.xc.functional import XCFunctional
 
 
 class GGARadialExpansion:
-    def __init__(self, rcalc):
+    def __init__(self, rcalc, *args):
         self.rcalc = rcalc
+        self.args = args
 
     def __call__(self, rgd, D_sLq, n_qg, nc0_sg):
         n_sLg = np.dot(D_sLq, n_qg)
@@ -31,7 +32,7 @@ class GGARadialExpansion:
             w = weight_n[n]
             rnablaY_Lv = rnablaY_nLv[n, :Lmax]
             e_g, dedn_sg, b_vsg, dedsigma_xg = \
-                self.rcalc(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n)
+                self.rcalc(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n, *self.args)
             dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
                                n_qg.T)[:, :, np.newaxis] * (w * Y_L)
             dedsigma_xg *= rgd.dr_g

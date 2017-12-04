@@ -18,7 +18,7 @@ atoms = L1_2(['Au','Cu'],latticeconstant=3.74)
 # Displace atoms to have non-zero forces in the first place
 atoms[0].position[0] += 0.1 
 
-dx_array = [-0.001, 0.000, 0.001]
+dx_array = [-0.005, 0.000, 0.005]
 E = []
 
 for i,dx in enumerate(dx_array):
@@ -41,4 +41,4 @@ F_err = F_num - F
 parprint('Analytical force = ',F)
 parprint('Numerical  force = ',F_num)
 parprint('Difference       = ',F_err)
-assert abs(F_err) < 5e-3
+assert abs(F_err) < 1.5e-3
