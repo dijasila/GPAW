@@ -203,25 +203,30 @@ class KSSingles(ExcitationList):
 
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
+        def fail(f):
+            raise RuntimeError(f.name + ' does not contain ' +
+                               self.__class__.__name__ + ' data')
         if fh is None:
             if filename.endswith('.gz'):
                 import gzip
                 f = gzip.open(filename, 'rt')
             else:
                 f = open(filename, 'r')
+
+            # there can be other information, i.e. the LrTDDFT header
+            try:
+                content = f.read()
+                f.seek(content.index('# KSSingles'))
+                del(content)
+                f.readline()
+            except ValueError:
+                fail(f)
         else:
             f = fh
+            # we assume to be at the right place and read the header
+            if not f.readline().strip() == '# KSSingles':
+                fail(f)
 
-        # there can be other information, i.e. the LrTDDFT header
-        try:
-            content = f.read()
-            f.seek(content.index('# KSSingles'))
-            del(content)
-            f.readline()
-        except ValueError:
-            raise RuntimeError(f.name + ' does not contain ' +
-                               self.__class__.__name__ + ' data')
-        
         words = f.readline().split()
         n = int(words[0])
         if len(words) == 1:
