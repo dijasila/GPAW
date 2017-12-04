@@ -47,8 +47,7 @@ from math import pi, factorial as fac
 import numpy as np
 from numpy.fft import ifft
 
-from ase import Atoms
-from ase.neighborlist import NeighborList
+from ase.neighborlist import PrimitiveNeighborList
 from ase.data import covalent_radii
 from ase.units import Bohr
 
@@ -175,7 +174,8 @@ class OverlapExpansion(BaseOverlapExpansionSet):
         return x_mi
 
     def evaluate(self, r, rlY_lm, G_LLL, x_mi, _nil=np.empty(0)):
-        _gpaw.tci_overlap(self.la, self.lb, G_LLL, self.cspline_l, r, rlY_lm, x_mi,
+        _gpaw.tci_overlap(self.la, self.lb, G_LLL, self.cspline_l,
+                          r, rlY_lm, x_mi,
                           False, _nil, _nil, _nil)
 
     def old_derivative(self, r, Rhat_c, rlY_lm, G_LLL, drlYdR_lmc):
@@ -196,10 +196,12 @@ class OverlapExpansion(BaseOverlapExpansionSet):
 
     def derivative(self, r, Rhat_c, rlY_L, G_LLL, drlYdR_Lc, dxdR_cmi,
                    _nil=np.empty(0)):
-        #timer.start('deriv')
-        _gpaw.tci_overlap(self.la, self.lb, G_LLL, self.cspline_l, r, rlY_L, _nil,
+        # timer.start('deriv')
+        _gpaw.tci_overlap(self.la, self.lb, G_LLL, self.cspline_l,
+                          r, rlY_L, _nil,
                           True, Rhat_c, drlYdR_Lc, dxdR_cmi)
-        #timer.stop('deriv')
+        # timer.stop('deriv')
+
 
 class TwoSiteOverlapExpansions(BaseOverlapExpansionSet):
     def __init__(self, la_j, lb_j, oe_jj):
@@ -207,8 +209,12 @@ class TwoSiteOverlapExpansions(BaseOverlapExpansionSet):
         shape = (sum([2 * l + 1 for l in la_j]),
                  sum([2 * l + 1 for l in lb_j]))
         BaseOverlapExpansionSet.__init__(self, shape)
-        self.lmaxgaunt = max(oe.lmaxgaunt for oe in oe_jj.ravel())
-        self.lmaxspline = max(oe.lmaxspline for oe in oe_jj.ravel())
+        if oe_jj.size == 0:
+            self.lmaxgaunt = 0
+            self.lmaxspline = 0
+        else:
+            self.lmaxgaunt = max(oe.lmaxgaunt for oe in oe_jj.ravel())
+            self.lmaxspline = max(oe.lmaxspline for oe in oe_jj.ravel())
 
     def slice(self, x_xMM):
         assert x_xMM.shape[-2:] == self.shape
@@ -238,7 +244,7 @@ class TwoSiteOverlapExpansions(BaseOverlapExpansionSet):
         G_LLL = gaunt(self.lmaxgaunt)
         rlY_L = rlY_lm.toarray(self.lmaxspline)
         drlYdR_Lc = drlYdR_lmc.toarray(self.lmaxspline)
-        #print(drlYdR_lmc.shape)
+        # print(drlYdR_lmc.shape)
         for x_cmm, oe in self.slice(x_cMM):
             oe.derivative(r, Rhat, rlY_L, G_LLL, drlYdR_Lc, x_cmm)
         return x_cMM
@@ -297,6 +303,7 @@ class DomainDecomposedExpansions(BaseOverlapExpansionSet):
         if disp.a2 in self.local_indices:
             self.msoe.evaluate_slice(disp, x_xqMM)
 
+
 class ManySiteDictionaryWrapper(DomainDecomposedExpansions):
     # Used with dictionaries such as P_aqMi and dPdR_aqcMi
     # Works only with NeighborPairs, not SimpleAtomIter, since it
@@ -317,6 +324,7 @@ class ManySiteDictionaryWrapper(DomainDecomposedExpansions):
             x2_qxmi, oe2 = self.getslice(disp.a2, disp.a1, x_aqxMi)
             rdisp = disp.reverse()
             rdisp.evaluate_overlap(oe2, x2_qxmi)
+
 
 class BlacsOverlapExpansions(BaseOverlapExpansionSet):
     def __init__(self, msoe, local_indices, Mmystart, mynao):
@@ -343,7 +351,7 @@ class BlacsOverlapExpansions(BaseOverlapExpansionSet):
         a1 = disp.a1
         a2 = disp.a2
         if a2 in self.local_indices and (self.astart <= a1 < self.aend):
-            #assert a2 <= a1
+            # assert a2 <= a1
             msoe = self.msoe
             I1 = msoe.I1_a[a1]
             I2 = msoe.I2_a[a2]
@@ -357,13 +365,11 @@ class BlacsOverlapExpansions(BaseOverlapExpansionSet):
             Mstart2 = msoe.M2_a[a2]
             Mend2 = Mstart2 + tsoe.shape[1]
             x_xqNM[..., Mstart1b:Mend1b, Mstart2:Mend2] += \
-                        x_qxmm[..., Mstart1b - Mstart1:Mend1b - Mstart1, :]
+                x_qxmm[..., Mstart1b - Mstart1:Mend1b - Mstart1, :]
         # This is all right as long as we are only interested in a2 <= a1
-        #if a1 in self.local_indices and a2 < a1 and (self.astart <=
-        #                                             a2 < self.aend):
-        #    self.evaluate_slice(disp.reverse(), x_xqNM)
-
-
+        # if a1 in self.local_indices and a2 < a1 and (self.astart <=
+        #                                              a2 < self.aend):
+        #     self.evaluate_slice(disp.reverse(), x_xqNM)
 
 
 class SimpleAtomIter:
@@ -389,19 +395,18 @@ class SimpleAtomIter:
 class NeighborPairs:
     """Class for looping over pairs of atoms using a neighbor list."""
     def __init__(self, cutoff_a, cell_cv, pbc_c, self_interaction):
-        self.neighbors = NeighborList(cutoff_a, skin=0, sorted=True,
-                                      self_interaction=self_interaction)
-        self.atoms = Atoms('X%d' % len(cutoff_a), cell=cell_cv, pbc=pbc_c)
-        # Warning: never use self.atoms.get_scaled_positions() for
-        # anything.  Those positions suffer from roundoff errors!
+        self.neighbors = PrimitiveNeighborList(cutoff_a, skin=0, sorted=True,
+                                          self_interaction=self_interaction,
+                                          use_scaled_positions=True)
+        self.cell_cv = cell_cv
+        self.pbc_c = pbc_c
 
     def set_positions(self, spos_ac):
         self.spos_ac = spos_ac
-        self.atoms.set_scaled_positions(spos_ac)
-        self.neighbors.update(self.atoms)
+        self.neighbors.update(self.pbc_c, self.cell_cv, spos_ac)
 
     def iter(self):
-        cell_cv = self.atoms.cell
+        cell_cv = self.cell_cv
         for a1, spos1_c in enumerate(self.spos_ac):
             a2_a, offsets = self.neighbors.get_neighbors(a1)
             for a2, offset in zip(a2_a, offsets):
@@ -453,7 +458,8 @@ class FourierTransformer:
         self.k_q = np.arange(self.Q // 2) * self.dk
 
     def transform(self, spline):
-        assert spline.get_cutoff() <= self.rcmax, '%s vs %s' % (spline.get_cutoff(), self.rcmax)
+        assert spline.get_cutoff() <= self.rcmax, (spline.get_cutoff(),
+                                                   self.rcmax)
         l = spline.get_angular_momentum_number()
         f_g = spline.map(self.r_g)
         f_q = fbt(l, f_g, self.r_g, self.k_q)
@@ -600,6 +606,7 @@ class AtomicDisplacement:
                                               -self.R_c, -self.offset,
                                               self.phases.inverse())
 
+
 class LazySphericalHarmonics:
     """Class for caching spherical harmonics as they are calculated.
 
@@ -609,7 +616,7 @@ class LazySphericalHarmonics:
         self.R_c = np.asarray(R_c)
         self.Y_lm = {}
         self.Y_lm1 = np.empty(0)
-        #self.dYdr_lmc = {}
+        # self.dYdr_lmc = {}
         self.lmax = 0
 
     def evaluate(self, l):
@@ -658,7 +665,7 @@ class DerivativeAtomicDisplacement(AtomicDisplacement):
     def derivative_without_phases(self, oe):
         return oe.derivative(self.r, self.Rhat_c, self.rlY_lm, self.drlYdr_lmc)
 
-    def _evaluate_without_phases(self, oe): # override
+    def _evaluate_without_phases(self, oe):  # override
         return self.derivative_without_phases(oe)
 
 
@@ -713,8 +720,8 @@ class TwoCenterIntegralCalculator:
 
     def iter(self, atompairs):
         for a1, a2, R_c, offset in atompairs.iter():
-            #if a1 == a2 and self.derivative:
-            #    continue
+            # if a1 == a2 and self.derivative:
+            #     continue
             phase_applier = self.phaseclass(self.ibzk_qc, offset)
             yield self.displacementclass(self, a1, a2, R_c, offset,
                                          phase_applier)
@@ -742,16 +749,15 @@ class NewTwoCenterIntegrals:
 
         cutoff_a = [cutoff_I[I] for I in I_a]
 
-        self.cutoff_a = cutoff_a # convenient for writing the new new overlap
+        self.cutoff_a = cutoff_a  # convenient for writing the new new overlap
         self.I_a = I_a
         self.setups_I = setups_I
         self.atompairs = PairsWithSelfinteraction(NeighborPairs(cutoff_a,
                                                                 cell_cv,
                                                                 pbc_c,
                                                                 True))
-        self.atoms = self.atompairs.pairs.atoms # XXX compatibility
 
-        scale = 0.01 # XXX minimal distance scale
+        scale = 0.01  # XXX minimal distance scale
         cutoff_close_a = [covalent_radii[s.Z] / Bohr * scale for s in setups]
         self.atoms_close = NeighborPairs(cutoff_close_a, cell_cv, pbc_c, False)
 
@@ -763,7 +769,7 @@ class NewTwoCenterIntegrals:
         self.msoc = ManySiteOverlapCalculator(tsoc, I_a, I_a)
         self.calculate_expansions()
 
-        self.calculate = self.evaluate # XXX compatibility
+        self.calculate = self.evaluate  # XXX compatibility
 
         self.set_matrix_distribution(None, None)
         timer.stop('tci init')
@@ -803,16 +809,15 @@ class NewTwoCenterIntegrals:
         for P_qxMi in P_aqxMi.values():
             P_qxMi.fill(0.0)
 
-        if 1: # XXX
+        if 1:  # XXX
             self.atoms_close.set_positions(spos_ac)
-            wrk = [x for x in  self.atoms_close.iter()]
+            wrk = [x for x in self.atoms_close.iter()]
             if len(wrk) != 0:
                 txt = ''
                 for a1, a2, R_c, offset in wrk:
                     txt += 'Atom %d and Atom %d in cell (%d, %d, %d)\n' % \
-                            (a1, a2, offset[0], offset[1], offset[2])
+                        (a1, a2, offset[0], offset[1], offset[2])
                 raise RuntimeError('Atoms too close!\n' + txt)
-
 
         self.atompairs.set_positions(spos_ac)
 
@@ -855,7 +860,7 @@ class NewTwoCenterIntegrals:
                 for X_MM in X_cMM:
                     tri2full(X_MM, UL=UL, map=antihermitian)
 
-    calculate_derivative = derivative # XXX compatibility
+    calculate_derivative = derivative  # XXX compatibility
 
     def estimate_memory(self, mem):
         mem.subnode('TCI not impl.', 0)

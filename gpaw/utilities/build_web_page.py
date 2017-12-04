@@ -34,7 +34,7 @@ from gpaw import __version__
 
 cmds = """\
 touch ../gpaw-web-page.lock
-cd ../ase; git checkout web-page -q; pip install .
+cd ../ase; git checkout web-page -q; git pull -q; pip install .
 git clean -fdx
 git checkout web-page -q
 git pull -q &> /dev/null

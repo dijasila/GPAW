@@ -1,6 +1,7 @@
 from __future__ import print_function
 import numpy as np
 from ase.build import molecule
+from ase.parallel import parprint, world
 
 from gpaw import GPAW
 from gpaw.cluster import Cluster
@@ -32,23 +33,24 @@ def show(c2):
     c2.calculate(H2)
     lr2 = LrTDDFT(c2)
     ov = Overlap(c1).pseudo(c2)
-    print('wave function overlap:\n', ov)
+    parprint('wave function overlap:\n', ov)
     ovkss = lr1.kss.overlap(ov, lr2.kss)
-    print('KSSingles overlap:\n', ovkss)
+    parprint('KSSingles overlap:\n', ovkss)
     ovlr = lr1.overlap(ov, lr2)
-    print('LrTDDFT overlap:\n', ovlr)
+    parprint('LrTDDFT overlap:\n', ovlr)
 
 
-print('cg --------')
+parprint('cg --------')
 c2 = GPAW(h=h, txt=txt, eigensolver='cg', nbands=nbands + 1,
           convergence={'eigenstates':nbands + 1})
 show(c2)
 
-print('spin --------')
+parprint('spin --------')
 c2 = GPAW(h=h, txt=txt, spinpol=True, nbands=nbands + 1,
+          parallel={'domain': world.size},
           convergence={'eigenstates':nbands + 1})
 try:
     show(c2)
     raise
 except AssertionError:
-    print('Not ready')
+    parprint('Not ready')

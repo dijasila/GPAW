@@ -12,6 +12,7 @@ from ase.utils import basestring, StringIO
 
 from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
+from gpaw.overlap import OverlapCorrections
 from gpaw.gaunt import gaunt, nabla
 from gpaw.utilities import unpack, pack
 from gpaw.utilities.ekin import ekin, dekindecut
@@ -1263,6 +1264,8 @@ class Setups(list):
             self.nvalence += n * setup.Nv
             self.nao += n * setup.nao
 
+        self.dS = OverlapCorrections(self)
+
     def __str__(self):
         # Write PAW setup information in order of appearance:
         ids = set()
@@ -1293,10 +1296,10 @@ class Setups(list):
         for setup in self.setups.values():
             setup.calculate_rotations(R_slmm)
 
-    def empty_atomic_matrix(self, ns, atom_partition):
+    def empty_atomic_matrix(self, ns, atom_partition, dtype=float):
         Dshapes_a = [(ns, setup.ni * (setup.ni + 1) // 2)
                      for setup in self]
-        return atom_partition.arraydict(Dshapes_a)
+        return atom_partition.arraydict(Dshapes_a, dtype)
 
     def estimate_dedecut(self, ecut):
         dedecut = 0.0

@@ -63,8 +63,7 @@ to install gpaw yourself.
 
 We first get ASE trunk::
 
-  cd
-  ASE_SOURCE=$PWD/source/ase
+  ASE_SOURCE=$HOME/source/ase
   mkdir -p $ASE_SOURCE
   cd $ASE_SOURCE
   git clone https://gitlab.com/ase/ase.git trunk
@@ -82,36 +81,38 @@ We add our installation to the module environment::
 
 and edit the module file  :file:`trunk` that should read::
 
-  #%Module
+  #%Module1.0
 
   if {![is-loaded intel-para]} {module load intel-para}
-  if {![is-loaded Python/2.7.10]} {module load Python/2.7.10}
+  if {![is-loaded Python]} {module load Python}
+  if {![is-loaded SciPy-Stack]} {module load SciPy-Stack}
 
-  # change this to your $HOME
-  set HOME /homec/hfr04/hfr047
+  # customize the following according to your taste
+  set HOME $env(HOME)
 
   set asehome $HOME/source/ase/trunk
-
   prepend-path       PYTHONPATH    $asehome
-  prepend-path       PATH          $asehome/tools
+  prepend-path       PATH          $asehome/bin:$asehome/tools
 
 We create a place for gpaw and get the trunk version::
 
-  cd
-  GPAW_SOURCE=$PWD/source/gpaw
+  # customize the following according to your taste
+  GPAW_SOURCE=$HOME/source/gpaw
+
   mkdir -p $GPAW_SOURCE
   cd $GPAW_SOURCE
-  svn checkout https://svn.fysik.dtu.dk/projects/gpaw/trunk trunk
+  git clone https://gitlab.com/gpaw/gpaw.git trunk
 
 The current trunk version can then be updated by::
 
   cd $GPAW_SOURCE/trunk
-  svn up
+  git pull
 
 We use the installed version of libxc and our ase/trunk::
 
+  module purge
   module load intel-para
-  module load libxc
+  module load Libxc
   module load ase/trunk
 
 and install using
@@ -132,16 +133,16 @@ and the module file  :file:`trunk` should read::
 
   #%Module1.0
 
-  if {![is-loaded ase/trunk]} {module load ase/trunk}
-  if {![is-loaded libxc]} {module load libxc}
+  if {![is-loaded ase/trunk]} {module load ase}
+  if {![is-loaded Libxc]} {module load Libxc}
   if {![is-loaded gpaw-setups]}  {module load gpaw-setups}
 
-  # change this to your $HOME
-  set HOME /homec/hfr04/hfr047
+  # customize the following according to your taste
+  set HOME $env(HOME)
 
   set gpawhome $HOME/source/gpaw/trunk/install
   prepend-path    PATH                 $gpawhome/bin
-  prepend-path    PYTHONPATH           $gpawhome/lib/python
+  prepend-path    PYTHONPATH           $gpawhome/lib/python3.6/site-packages
   setenv          GPAW_PYTHON          $gpawhome/bin/gpaw-python
 
 
@@ -152,3 +153,6 @@ Job scripts can be written using::
 
   gpaw-runscript -h
 
+and the jobs sumitted as::
+    
+  sbatch run.jureca

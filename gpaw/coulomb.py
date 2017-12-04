@@ -227,7 +227,8 @@ class HF:
         self.nspins = paw.wfs.nspins
         self.nbands = paw.wfs.bd.nbands
         self.restrict = paw.hamiltonian.restrict
-        self.pair_density = PairDensity(paw.density, paw.atoms, finegrid=True)
+        self.pair_density = PairDensity(paw.density, paw.spos_ac,
+                                        finegrid=True)
         self.dv = paw.wfs.gd.dv
         self.dtype = paw.wfs.dtype
         self.setups = paw.wfs.setups

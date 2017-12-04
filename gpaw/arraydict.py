@@ -21,7 +21,7 @@ class TableKeyMapping:
         return self.a2key_a[a]
 
 
-class ArrayDict(dict):
+class ArrayDict:
     """Distributed dictionary of fixed-size, fixed-dtype arrays.
 
     Implements a map [0, ..., N] -> [A0, ..., AN]
@@ -32,13 +32,13 @@ class ArrayDict(dict):
     which is consistent with that of the underlying atom partition."""
     def __init__(self, partition, shapes_a, dtype=float, d=None,
                  keymap=None):
-        dict.__init__(self)
         self.partition = partition
         if callable(shapes_a):
             shapes_a = [shapes_a(a) for a in range(self.partition.natoms)]
         self.shapes_a = shapes_a  # global
         assert len(shapes_a) == partition.natoms
         self.dtype = dtype
+        self.data = {}
 
         # This will be a terrible hack to make it easier to customize
         # the "keys".  Normally keys are 0...N and correspond to
@@ -48,7 +48,7 @@ class ArrayDict(dict):
         if keymap is None:
             keymap = DefaultKeyMapping()
         self.keymap = keymap
-        
+
         if d is None:
             for a in partition.my_indices:
                 self[a] = np.empty(self.shapes_a[a], dtype=dtype)
@@ -65,9 +65,6 @@ class ArrayDict(dict):
     #
     #  -askhl
     def copy(self):
-        return self.deepcopy()
-
-    def deepcopy(self):
         copy = ArrayDict(self.partition, self.shapes_a, dtype=self.dtype,
                          keymap=self.keymap)
         for a in self:
@@ -75,11 +72,11 @@ class ArrayDict(dict):
         return copy
 
     def update(self, d):
-        dict.update(self, d)
+        self.data.update(d)
         self.check_consistency()
 
     def __getitem__(self, a):
-        value = dict.__getitem__(self, a)
+        value = self.data[a]
         assert value.shape == self.shapes_a[a]
         assert value.dtype == self.dtype
         return value
@@ -88,7 +85,7 @@ class ArrayDict(dict):
         assert value.shape == self.shapes_a[a], \
             'defined shape %s vs new %s' % (self.shapes_a[a], value.shape)
         assert value.dtype == self.dtype
-        dict.__setitem__(self, a, value)
+        self.data[a] = value
 
     def redistribute(self, partition):
         """Redistribute according to specified partition."""
@@ -101,7 +98,7 @@ class ArrayDict(dict):
 
     def check_consistency(self):
         k1 = set(self.partition.my_indices)
-        k2 = set(dict.keys(self))
+        k2 = set(self.data.keys())
         assert k1 == k2, 'Required keys %s different from actual %s' % (k1, k2)
         for a, array in self.items():
             assert array.dtype == self.dtype
@@ -138,17 +135,17 @@ class ArrayDict(dict):
         # whose parent is self.comm.
         #
         # We want our own data replicated on each
-        
+
         # XXX direct comparison of communicators are unsafe as we do not use
         # MPI_Comm_compare
-        
+
         #assert subpartition.comm.parent == self.partition.comm
         from gpaw.utilities.partition import AtomPartition
 
         newrank_a = self.partition.rank_a % dist_comm.size
         masters_only_partition = AtomPartition(self.partition.comm, newrank_a)
         dst_partition = AtomPartition(dist_comm, newrank_a)
-        copy = self.deepcopy()
+        copy = self.copy()
         copy.redistribute(masters_only_partition)
 
         dst = ArrayDict(dst_partition, self.shapes_a, dtype=self.dtype,
@@ -187,3 +184,12 @@ class ArrayDict(dict):
                                       self.partition.comm.rank,
                                       self.partition.comm.size,
                                       text)
+
+    def get(self, a):
+        return self.data.get(a)
+
+    def __len__(self):
+        return len(self.data)
+
+    def asarraydict(self):
+        return self

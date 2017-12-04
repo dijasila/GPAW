@@ -29,7 +29,7 @@ class DirectPW(Eigensolver):
         wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
         self.timer.stop('DirectPW')
         error = 0.0
-        return error, psit_nG[:wfs.bd.nbands]
+        return error
 
     def __repr__(self):
         return 'DirectPW eigensolver'

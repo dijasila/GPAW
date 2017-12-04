@@ -278,6 +278,7 @@ class ExcitedState(GPAW):
         lr = self.lrtddft
         self.density = ExcitedStateDensity(
             gsdensity.gd, gsdensity.finegd, lr.kss.npspins,
+            gsdensity.collinear,
             gsdensity.charge,
             method=method, redistributor=gsdensity.redistributor)
         index = self.index.apply(self.lrtddft)
@@ -396,6 +397,12 @@ class ExcitedStateDensity(RealSpaceDensity):
     def __init__(self, *args, **kwargs):
         self.method = kwargs.pop('method', 'dipole')
         RealSpaceDensity.__init__(self, *args, **kwargs)
+        self.lrtddft = None
+        self.index = None
+        self.gsdensity = None
+        self.nbands = None
+        self.wocc_sn = None
+        self.wunocc_sn = None
 
     def initialize(self, lrtddft, index):
         self.lrtddft = lrtddft
@@ -427,15 +434,14 @@ class ExcitedStateDensity(RealSpaceDensity):
         RealSpaceDensity.initialize(
             self, calc.wfs.setups, calc.timer, None, False)
 
-        spos_ac = calc.get_atoms().get_scaled_positions() % 1.0
-        self.set_positions(spos_ac, calc.wfs.atom_partition)
+        self.set_positions(calc.spos_ac, calc.wfs.atom_partition)
 
         D_asp = {}
         for a, D_sp in self.gsdensity.D_asp.items():
             repeats = self.nspins // self.gsdensity.nspins
             # XXX does this work always?
             D_asp[a] = (1. * D_sp).repeat(repeats, axis=0)
-        self.D_asp = D_asp
+        self.update_atomic_density_matrices(D_asp)
 
     def update(self, wfs):
         self.timer.start('Density')
@@ -453,7 +459,7 @@ class ExcitedStateDensity(RealSpaceDensity):
                                                               f_un)
         self.timer.stop('Atomic density matrices')
         self.timer.start('Multipole moments')
-        comp_charge = self.calculate_multipole_moments()
+        comp_charge, _Q_aL = self.calculate_multipole_moments()
         self.timer.stop('Multipole moments')
 
         if isinstance(wfs, LCAOWaveFunctions):
@@ -471,7 +477,7 @@ class ExcitedStateDensity(RealSpaceDensity):
         """
         nvspins = wfs.kd.nspins
         npspins = self.nspins
-        self.nt_sG = self.gd.zeros(npspins)
+        self.nt_xG = self.gd.zeros(self.ncomponents)
 
         for s in range(npspins):
             for kpt in wfs.kpt_u:
@@ -481,4 +487,4 @@ class ExcitedStateDensity(RealSpaceDensity):
                                           self.wunocc_sn[s]),
                                          kpt.psit_nG):
                         axpy(f, psit_G ** 2, self.nt_sG[s])
-        self.nt_sG += self.nct_G
+        self.nt_sG[:] += self.nct_G

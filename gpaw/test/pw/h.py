@@ -1,6 +1,5 @@
 from ase.build import molecule
-from gpaw import GPAW
-from gpaw.wavefunctions.pw import PW
+from gpaw import GPAW, PW
 from gpaw.mpi import world
 
 a = molecule('H', pbc=1)
@@ -22,4 +21,3 @@ e = a.get_potential_energy()
 f = a.get_forces()
 assert abs(e - e0) < 7e-5, abs(e - e0)
 assert abs(f).max() < 1e-10, abs(f).max()
-

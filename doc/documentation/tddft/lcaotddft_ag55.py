@@ -21,7 +21,7 @@ poissonsolver = PoissonSolver(eps=1e-16, remove_moment=1 + 3)
 calc = GPAW(xc='GLLBSC', basis='GLLBSC.dz', h=0.3, nbands=352, mode='lcao',
             convergence=convergence, poissonsolver=poissonsolver,
             occupations=FermiDirac(0.1),
-            parallel={'sl_default': (8, 8, 32), 'band': 2})
+            parallel={'sl_default': (8, 6, 32), 'band': 2})
 atoms.set_calculator(calc)
 # Relax the ground state
 atoms.get_potential_energy()
@@ -30,7 +30,7 @@ calc.write('ag55.gpw', mode='all')
 
 # Restart and calculate time propagation
 td_calc = LCAOTDDFT('ag55.gpw',
-                    parallel={'sl_default': (8, 8, 32), 'band': 2})
+                    parallel={'sl_default': (8, 6, 32), 'band': 2})
 
 td_calc.absorption_kick([1e-5, 0.0, 0.0])
 td_calc.propagate(20, 500, 'ag55.dm')

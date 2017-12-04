@@ -24,6 +24,11 @@ class MakeWaveFunctions:
         return AtomWaveFunctions(self.gd, *args, **kwargs)
 
 
+class AtomWaveFunctionsArray:
+    def __init__(self, psit_nG):
+        self.array = psit_nG
+
+
 class AtomWaveFunctions(WaveFunctions):
     mode = 'atompaw'
 
@@ -106,8 +111,8 @@ class AtomEigensolver:
 
         for kpt in wfs.kpt_u:
             kpt.eps_n = np.empty(wfs.bd.nbands)
-            kpt.psit_nG = self.gd.empty(wfs.bd.nbands)
-            kpt.P_ani = {0: np.zeros((wfs.bd.nbands, len(dS_ii)))}
+            kpt.psit = AtomWaveFunctionsArray(self.gd.empty(wfs.bd.nbands))
+            kpt.P = {0: np.zeros((len(dS_ii), wfs.bd.nbands))}
 
         self.initialized = True
 
