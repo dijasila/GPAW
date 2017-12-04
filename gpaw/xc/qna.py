@@ -1,8 +1,8 @@
 #from gpaw.xc.functional import XCFunctional
 from gpaw.xc.gga import PurePythonGGAKernel, GGA, gga_vars
 from gpaw.xc.gga import add_gradient_correction, radial_gga_vars
-from gpaw.xc.gga import GGARadialCalculator, add_radial_gradient_correction
-from gpaw.xc.gga import GGARadialExpansion
+from gpaw.xc.gga import add_radial_gradient_correction
+#from gpaw.xc.gga import GGARadialCalculator, GGARadialExpansion
 import numpy as np
 #from ase.neighborlist import NeighborList
 #from ase.units import Bohr
@@ -15,6 +15,7 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
 from gpaw.xc.gga import calculate_sigma
 
+# TODO: Use RadialExpansion from gga.py
 class QNARadialExpansion:
     def __init__(self, rcalc):
         self.rcalc = rcalc
@@ -49,7 +50,7 @@ class QNARadialExpansion:
 
         return E, dEdD_sqL
 
-
+# TODO: User GGARadialCalcualtor from gga.py
 class QNARadialCalculator: #(GGARadialCalculator):
     def __init__(self, kernel):
         self.kernel = kernel
