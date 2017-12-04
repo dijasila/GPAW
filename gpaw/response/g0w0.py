@@ -3,6 +3,7 @@ from __future__ import division, print_function
 import functools
 import pickle
 from math import pi
+import warnings
 
 import numpy as np
 from ase.dft.kpoints import monkhorst_pack
@@ -37,6 +38,7 @@ class G0W0(PairDensity):
                  truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
                  domega0=0.025, omega2=10.0, q0_correction=False,
+                 anisotropy_correction=None,
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
                  world=mpi.world, ecut_extrapolation=False,
@@ -122,7 +124,9 @@ class G0W0(PairDensity):
             specified amount.
         q0_correction: bool
             Analytic correction to the q=0 contribution applicable to 2D
-            systems.
+            systems. 
+        anisotropy_correction: bool
+            Old term for the q0_correction.
         nblocks: int
             Number of blocks chi0 should be distributed in so each core
             does not have to store the entire matrix. This is to reduce
@@ -251,7 +255,12 @@ class G0W0(PairDensity):
         self.E0 = E0 / Ha
         self.domega0 = domega0 / Ha
         self.omega2 = omega2 / Ha
-        self.ac = q0_correction
+        if anisotropy_correction is not None:
+            self.ac = anisotropy_correction
+            warnings.warn('anisotropy_correction changed name to q0_correction. Please update your script(s).')
+        else:
+            self.ac = q0_correction
+
         if self.ac:
             assert self.truncation == '2D'
             self.x0density = 0.1  # ? 0.01
