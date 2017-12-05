@@ -19,6 +19,7 @@ def create_external_potential(name, **kwargs):
 
 class ExternalPotential:
     vext_g = None
+    vext_q = None
 
     def get_potential(self, gd):
         """Get the potential on a regular 3-d grid.
@@ -28,6 +29,17 @@ class ExternalPotential:
         if self.vext_g is None:
             self.calculate_potential(gd)
         return self.vext_g
+
+    def get_potentialq(self, gd, pd3)
+        """Get the potential on a regular 3-d grid in real space.
+
+        Will only call calculate_potential() the first time."""
+
+        if self.vext_q is None:
+            vext_g = self.get_potential(gd)
+            self.vext_q = pd3.fft(vext_g)
+
+        return self.vext_q
 
     def calculate_potential(self, gd):
         raise NotImplementedError

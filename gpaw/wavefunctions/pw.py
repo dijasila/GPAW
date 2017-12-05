@@ -1547,34 +1547,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         if self.vext is not None:
             gd = self.finegd
-            vext_g = self.vext.get_potential(gd)
-
-            for c in range(3):
-                ng = gd.N_c[c]
-                cs = abs(gd.cell_cv[c, c])
-                nz0 = 0        # XXX: should not be hard coded!
-
-                """Introduction of an error function in order
-                   to counter the discontinuity at the boundary"""
-                for i in range(-5, 5):
-                    erfun = -erf(0.25 * float(-i)) + 1
-                    if c == 0:
-                        vext_g[(i - nz0) % ng, :, :] = \
-                            vext_g[(-6-nz0) % ng, :, :] -\
-                            erfun * (vext_g[(-6 - nz0) % ng, :, :] -
-                            vext_g[(5-nz0) % ng, :, :]) / 2
-                    elif c == 1:
-                        vext_g[:, (i - nz0) % ng, :] = \
-                            vext_g[:, (-6-nz0) % ng, :] -\
-                            erfun * (vext_g[:, (-6 - nz0) % ng, :] -
-                            vext_g[:, (5-nz0) % ng, :]) / 2
-                    else:
-                        vext_g[:, :, (i-nz0) % ng] = \
-                            vext_g[:, :, (-6-nz0) % ng] -\
-                            erfun * (vext_g[:, :, (-6 - nz0) % ng] -
-                            vext_g[:, :, (5-nz0) % ng]) / 2
-
-            self.vext_q = self.pd3.fft(vext_g)
+            vext_q = self.vext.get_potentialq(gd, self.pd3)
             self.vt_Q += self.vext_q[dens.G3_G] / 8
             self.e_external = self.pd3.integrate(self.vext_q, dens.rhot_q)
 
@@ -1606,7 +1579,8 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         for a in density.D_asp:
             W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
         if self.vext:
-            density.ghat.integrate(self.vHt_q+self.vext_q, W_aL)
+            vext_q = self.vext.get_potential(gd, self.pd3)
+            density.ghat.integrate(self.vHt_q+vext_q, W_aL)
         else:
             density.ghat.integrate(self.vHt_q, W_aL)
         return W_aL
@@ -1635,7 +1609,8 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
         if self.vext:
-            dens.ghat.derivative(self.vHt_q+self.vext_q, ghat_aLv)
+            vext_q = self.vext.get_potential(gd, self.pd3)
+            dens.ghat.derivative(self.vHt_q+vext_q, ghat_aLv)
         else:
             dens.ghat.derivative(self.vHt_q, ghat_aLv)
         dens.nct.derivative(self.vt_Q, nct_av)
