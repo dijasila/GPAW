@@ -19,7 +19,7 @@ from gpaw.hamiltonian import Hamiltonian
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
-from gpaw.utilities import unpack, erf
+from gpaw.utilities import unpack
 from gpaw.utilities.blas import rk, r2k, gemm, axpy
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions

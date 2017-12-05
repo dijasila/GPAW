@@ -30,7 +30,7 @@ class ExternalPotential:
             self.calculate_potential(gd)
         return self.vext_g
 
-    def get_potentialq(self, gd, pd3)
+    def get_potentialq(self, gd, pd3):
         """Get the potential on a regular 3-d grid in real space.
 
         Will only call calculate_potential() the first time."""
