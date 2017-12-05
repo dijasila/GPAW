@@ -2,13 +2,11 @@ from gpaw.xc.lda import calculate_paw_correction
 from gpaw.xc.gga import PurePythonGGAKernel, GGA, gga_vars
 from gpaw.xc.gga import add_gradient_correction, radial_gga_vars
 from gpaw.xc.gga import add_radial_gradient_correction
-from gpaw.xc.gga import GGARadialCalculator, GGARadialExpansion
+from gpaw.xc.gga import GGARadialExpansion
 import numpy as np
 from gpaw.lfc import LFC
 from gpaw.spline import Spline
 from math import sqrt, pi
-from gpaw.sphere.lebedev import Y_nL, weight_n
-from gpaw.xc.pawcorrection import rnablaY_nLv
 from gpaw.xc.gga import calculate_sigma
 
 class QNAKernel:
@@ -21,11 +19,11 @@ class QNAKernel:
     def calculate(self, e_g, n_sg, dedn_sg,
                   sigma_xg, dedsigma_xg,
                   tau_sg=None, dedtau_sg=None, mu_g=None, beta_g=None, dedmu_g=None, dedbeta_g=None):
-        #if self.force_atoms is not None:
-        #    atoms = self.force_atoms
-        #    self.Pa.set_positions(atoms.get_scaled_positions() % 1.0)
-        #else:
-        atoms = self.qna.atoms
+        if self.qna.override_atoms is not None:
+            atoms = self.qna.override_atoms
+            self.qna.Pa.set_positions(atoms.get_scaled_positions() % 1.0)
+        else:
+            atoms = self.qna.atoms
 
         if len(n_sg.shape) > 2: 
             # 3D xc calculation
@@ -51,20 +49,21 @@ class QNAKernel:
             from ase.io import write
             write('mu_g.cube', atoms, data=mu_g)
             write('beta_g.cube', atoms, data=beta_g)
-            asd
+            raise SystemExit
 
         return self.gga_kernel.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, mu_g=mu_g,
                                          beta_g=beta_g, dedmu_g=dedmu_g, dedbeta_g=dedbeta_g)
 
 class QNA(GGA):
-    def __init__(self, atoms, parameters, qna_setup_name='PBE', alpha=2.0, force_atoms=None):
+    def __init__(self, atoms, parameters, qna_setup_name='PBE', alpha=2.0, override_atoms=None):
+        # override_atoms is only used to test the partial derivatives of xc-functional
         kernel = QNAKernel(self)
         GGA.__init__(self, kernel)
         self.atoms = atoms
         self.parameters = parameters
         self.qna_setup_name = qna_setup_name
         self.alpha = alpha
-        self.force_atoms = force_atoms
+        self.override_atoms = override_atoms
         self.orbital_dependent = False
 
     def todict(self):
@@ -87,14 +86,11 @@ class QNA(GGA):
         r_i = np.linspace(0, rcut, points + 1)
         rcgauss = 1.2
         g_g = 2 / rcgauss**3 / np.pi * np.exp(-((r_i / rcgauss)**2)**self.alpha)
+
         # Values too close to zero can cause numerical problems especially with
-        # forces (some parts of the mu and beta field can become negative),
-        # so we clip them:
+        # forces (some parts of the mu and beta field can become negative)
         g_g[ np.where( g_g < l_lim ) ] = l_lim
-        # non-numpy version:
-        #for i in range(len(g_g)):
-        #    if g_g[i] < l_lim:
-        #        g_g[i] = l_lim
+
         spline = Spline(l=0, rmax=rcut, f_g=g_g)
         spline_j = [[ spline ]] * len(self.atoms)
         self.Pa = LFC(gd, spline_j)
@@ -126,7 +122,7 @@ class QNA(GGA):
         self.current_atom = a
         return GGA.calculate_paw_correction(self, setup, D_sp, dEdD_sp,
                                             addcoredensity, a)
-
+    """
     def stress_tensor_contribution(self, n_sg):
         sigma_xg, gradn_svg = calculate_sigma(self.gd, self.grad_v, n_sg)
         nspins = len(n_sg)
@@ -158,6 +154,7 @@ class QNA(GGA):
                                                    gradn_svg[1, v2],
                                                    dedsigma_xg[2]) * 2
         return stress_vv
+       """
 
     def get_setup_name(self):
         return self.qna_setup_name
