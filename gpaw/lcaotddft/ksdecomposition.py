@@ -327,19 +327,19 @@ class KohnShamDecomposition(object):
             eig_n -= self.fermilevel
 
         txt = ''
-        txt += ('# %6s %3s(%8s)  %3s(%8s)  %12s %14s\n' %
+        txt += ('# %6s %3s(%8s)    %3s(%8s)  %12s %14s\n' %
                 ('p', 'i', 'eV', 'a', 'eV', 'Ediff (eV)', 'weight'))
         p_s = np.argsort(absweight_p)[::-1]
         for s, p in enumerate(p_s):
             i, a = self.ia_p[p]
             if absweight_p[p] < minweight:
                 break
-            txt += ('  %6s %3d(%8.3f)->%3d(%8.3f): %12.4f %+14.4f\n' %
+            txt += ('  %6s %3d(%8.3f) -> %3d(%8.3f): %12.4f %+14.4f\n' %
                     (p, i, eig_n[i] * Hartree, a, eig_n[a] * Hartree,
                      self.w_p[p] * Hartree, weight_p[p]))
             rest_weight -= weight_p[p]
-        txt += ('  %15s: %14s %+14.8f\n' %
+        txt += ('  %37s: %12s %+14.4f\n' %
                 ('rest', '', rest_weight))
-        txt += ('  %15s: %14s %+14.8f\n' %
+        txt += ('  %37s: %12s %+14.4f\n' %
                 ('total', '', tot_weight))
         return txt
