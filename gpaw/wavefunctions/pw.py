@@ -19,7 +19,7 @@ from gpaw.hamiltonian import Hamiltonian
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
-from gpaw.utilities import unpack
+from gpaw.utilities import unpack, erf
 from gpaw.utilities.blas import rk, r2k, gemm, axpy
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
@@ -1543,6 +1543,41 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             self.epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
 
         self.vt_Q = self.vbar_Q + self.vHt_q[dens.G3_G] / 8
+        self.e_external = 0.0
+
+        if self.vext is not None:
+            gd = self.finegd
+            vext_g = self.vext.get_potential(gd)
+
+            for c in range(3):
+                ng = gd.N_c[c]
+                cs = abs(gd.cell_cv[c, c])
+                nz0 = 0        # XXX: should not be hard coded!
+
+                """Introduction of an error function in order
+                   to counter the discontinuity at the boundary"""
+                for i in range(-5, 5):
+                    erfun = -erf(0.25 * float(-i)) + 1
+                    if c == 0:
+                        vext_g[(i - nz0) % ng, :, :] = \
+                            vext_g[(-6-nz0) % ng, :, :] -\
+                            erfun * (vext_g[(-6 - nz0) % ng, :, :] -
+                            vext_g[(5-nz0) % ng, :, :]) / 2
+                    elif c == 1:
+                        vext_g[:, (i - nz0) % ng, :] = \
+                            vext_g[:, (-6-nz0) % ng, :] -\
+                            erfun * (vext_g[:, (-6 - nz0) % ng, :] -
+                            vext_g[:, (5-nz0) % ng, :]) / 2
+                    else:
+                        vext_g[:, :, (i-nz0) % ng] = \
+                            vext_g[:, :, (-6-nz0) % ng] -\
+                            erfun * (vext_g[:, :, (-6 - nz0) % ng] -
+                            vext_g[:, :, (5-nz0) % ng]) / 2
+
+            self.vext_q = self.pd3.fft(vext_g)
+            self.vt_Q += self.vext_q[dens.G3_G] / 8
+            self.e_external = self.pd3.integrate(self.vext_q, dens.rhot_q)
+
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
@@ -1564,21 +1599,16 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         self.timer.stop('XC 3D grid')
 
-        self.e_external = 0.0
-        if self.vext is not None:
-            vext_g = self.vext.get_potential(self.gd)
-            for vt_g in self.vt_sG:
-                vt_g += vext_g
-            self.e_external = self.gd.integrate(vext_g, dens.rhot_g,
-                                           global_integral=False)
-
         return np.array([self.epot, self.ebar, self.e_external, self.exc])
 
     def calculate_atomic_hamiltonians(self, density):
         W_aL = {}
         for a in density.D_asp:
             W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
-        density.ghat.integrate(self.vHt_q, W_aL)
+        if self.vext:
+            density.ghat.integrate(self.vHt_q+self.vext_q, W_aL)
+        else:
+            density.ghat.integrate(self.vHt_q, W_aL)
         return W_aL
 
     def calculate_kinetic_energy(self, density):
@@ -1604,7 +1634,10 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     restrict_and_collect = restrict
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
-        dens.ghat.derivative(self.vHt_q, ghat_aLv)
+        if self.vext:
+            dens.ghat.derivative(self.vHt_q+self.vext_q, ghat_aLv)
+        else:
+            dens.ghat.derivative(self.vHt_q, ghat_aLv)
         dens.nct.derivative(self.vt_Q, nct_av)
         self.vbar.derivative(dens.nt_Q, vbar_av)
 
