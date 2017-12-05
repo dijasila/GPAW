@@ -80,6 +80,7 @@ def wrap_pylab(names=[]):
 tests = [
     'xc/qna_force.py',
     'xc/qna_stress.py',
+    'xc/qna_band.py',
     'linalg/gemm_complex.py',
     'ase_features/ase3k_version.py',
     'kpt.py',
