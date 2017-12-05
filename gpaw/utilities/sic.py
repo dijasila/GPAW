@@ -50,7 +50,7 @@ class NSCFSIC:
                 
         sic = SIC(finegrid=True, coulomb_factor=1, xc_factor=1)
         sic.initialize(self.paw.density, self.paw.hamiltonian, self.paw.wfs)
-        sic.set_positions(self.paw.atoms.get_scaled_positions())
+        sic.set_positions(self.paw.spos_ac)
         
         print('Valence electron sic ')
         print('%10s%10s%10s%10s%10s%10s' % ('spin', 'k-point', 'band',

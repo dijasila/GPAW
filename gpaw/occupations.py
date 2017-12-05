@@ -23,10 +23,10 @@ def create_occupation_number_object(name, **kwargs):
 
 
 def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
-    """Calculate occupation numbers from eigenvalues.
+    """Calculate occupation numbers from eigenvalues in eV.
 
     occ: dict
-        Example: {'name': 'fermi-dirac', 'width': 0.05}.
+        Example: {'name': 'fermi-dirac', 'width': 0.05} (width in eV).
     eps_skn: ndarray, shape=(nspins, nibzkpts, nbands)
         Eigenvalues.
     weight_k: ndarray, shape=(nibzkpts,)
@@ -47,7 +47,7 @@ def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
 
     occ = create_occupation_number_object(**occ)
 
-    eps_skn = np.asarray(eps_skn)
+    eps_skn = np.asarray(eps_skn) / Hartree
     weight_k = np.asarray(weight_k)
     nspins, nkpts, nbands = eps_skn.shape
     f_skn = np.empty_like(eps_skn)
@@ -251,6 +251,7 @@ class ZeroKelvin(OccupationNumbers):
         """Fill in occupation numbers.
 
         return HOMO and LUMO energies."""
+
         N = len(f_n)
         if ne == N * weight:
             f_n[:] = weight
@@ -356,13 +357,16 @@ class ZeroKelvin(OccupationNumbers):
     def spin_paired(self, wfs):
         homo = -np.inf
         lumo = np.inf
+        if wfs.collinear:
+            ne = 0.5 * self.nvalence
+        else:
+            ne = self.nvalence
         for kpt in wfs.kpt_u:
             eps_n = wfs.bd.collect(kpt.eps_n)
             if wfs.bd.comm.rank == 0:
                 f_n = wfs.bd.empty(global_array=True)
                 hom, lum = self.occupy(f_n, eps_n,
-                                       0.5 * self.nvalence *
-                                       kpt.weight, kpt.weight)
+                                       ne * kpt.weight, kpt.weight)
                 homo = max(homo, hom)
                 lumo = min(lumo, lum)
             else:
@@ -505,7 +509,7 @@ class SmoothDistribution(ZeroKelvin):
         # XXX broadcast would be better!
         return wfs.kptband_comm.sum(fermilevel)
 
-    def find_fermi_level(self, wfs, ne, fermilevel, spins=(0, 1)):
+    def find_fermi_level(self, wfs, ne, fermilevel, spins={0, 1, None}):
         niter = 0
 
         x = self.fermilevel
@@ -556,7 +560,7 @@ class FermiDirac(SmoothDistribution):
         y /= z
         y -= np.log(z)
         e_entropy = kpt.weight * y.sum() * self.width
-        sign = 1 - kpt.s * 2
+        sign = 1 - kpt.s * 2 if kpt.s is not None else 0.0
         return np.array([n, dnde, n * sign, e_entropy])
 
     def extrapolate_energy_to_zero_width(self, E):

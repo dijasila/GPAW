@@ -127,7 +127,7 @@ def main(args):
     if mpi.rank == 0:
         info()
         print('Running tests in', tmpdir)
-        print('Jobs: {0}, Cores: {1}, debug-mode: {2}'
+        print('Jobs: {}, Cores: {}, debug-mode: {}'
               .format(args.jobs, mpi.size, debug))
     failed = TestRunner(tests, jobs=args.jobs,
                         show_output=args.show_output).run()
@@ -135,7 +135,6 @@ def main(args):
     if mpi.rank == 0:
         if len(failed) > 0:
             open('failed-tests.txt', 'w').write('\n'.join(failed) + '\n')
-        elif not args.keep_tmpdir:
+        if not args.keep_tmpdir:
             os.system('rm -rf ' + tmpdir)
     return failed
-    

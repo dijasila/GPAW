@@ -631,22 +631,11 @@ class PairDensity:
     def __init__(self, calc, ecut=50,
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
-                 world=mpi.world, txt='-', timer=None, nblocks=1,
-                 gate_voltage=None, scissor=None, eshift=None):
+                 world=mpi.world, txt='-', timer=None,
+                 nblocks=1, gate_voltage=None):
 
         if ecut is not None:
             ecut /= Hartree
-
-        if eshift is not None:
-            eshift /= Hartree
-
-        if scissor is not None:
-            for op in scissor:
-                if isinstance(op, list):
-                    op[0] /= Hartree
-                    op[1] /= Hartree
-                elif isinstance(op, dict):
-                    op['add'] = op['add'] / Hartree
 
         if gate_voltage is not None:
             gate_voltage = gate_voltage / Hartree
@@ -656,7 +645,6 @@ class PairDensity:
         self.threshold = threshold
         self.real_space_derivatives = real_space_derivatives
         self.gate_voltage = gate_voltage
-        self.scissor = scissor
 
         self.timer = timer or Timer()
 
@@ -688,25 +676,16 @@ class PairDensity:
 
         self.fermi_level = self.calc.occupations.get_fermi_level()
 
-        if scissor is not None:
-            for op in scissor:
-                if isinstance(op, list):
-                    self.apply_scissor_operator(op[0], op[1])
-                elif isinstance(op, dict):
-                    self.apply_bands_scissor(op)
-
         if gate_voltage is not None:
             self.add_gate_voltage(gate_voltage)
         else:
             self.add_gate_voltage(gate_voltage=0)
 
-        self.spos_ac = calc.atoms.get_scaled_positions()
+        self.spos_ac = calc.spos_ac
 
         self.nocc1 = None  # number of completely filled bands
         self.nocc2 = None  # number of non-empty bands
         self.count_occupied_bands()
-        if eshift is not None:
-            self.add_eshift(eshift)
 
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
@@ -729,24 +708,6 @@ class PairDensity:
             kpt.f_n = (self.shift_occupations(kpt.eps_n, gate_voltage) *
                        kpt.weight)
 
-    def apply_scissor_operator(self, at_energy=0, displace=0):
-        """Applies scissor operator."""
-        args = (displace * Hartree, at_energy * Hartree)
-        print('Fermi-level %.2f eV' % (self.fermi_level * Hartree),
-              file=self.fd)
-        print('Applying scissor op.: %.2f for e_n > %.2f' % args,
-              file=self.fd)
-        at_energy = self.fermi_level + at_energy
-        for kpt in self.calc.wfs.kpt_u:
-            kpt.eps_n[kpt.eps_n > at_energy] += displace
-
-    def apply_bands_scissor(self, op):
-        """Applies scissor operator."""
-        print('Applying scissor op.: %.2f ' % (op['add'] * Hartree) +
-              ' for bands ', op['bands'], file=self.fd)
-        for kpt in self.calc.wfs.kpt_u:
-            kpt.eps_n[op['bands']] += op['add']
-
     def shift_occupations(self, eps_n, gate_voltage):
         """Shift fermilevel."""
         fermi = self.fermi_level
@@ -759,19 +720,6 @@ class PairDensity:
         f_n[tmp <= 100] = 1 / (1 + np.exp(tmp[tmp <= 100]))
         f_n[tmp > 100] = 0.0
         return f_n
-
-    def add_eshift(self, eshift=0):
-        """Shifts unoccupied bands by eshift"""
-        print('Shifting unoccupied bands by %.2f eV' % (eshift * Hartree),
-              file=self.fd)
-        for kpt in self.calc.wfs.kpt_u:
-            # Should only be applied to semiconductors
-            f_n = kpt.f_n / kpt.weight
-            if not all([f_n[i] > 1. - self.ftol or f_n[i] < self.ftol
-                        for i in range(len(f_n))]):
-                raise AssertionError('Eshift should only be applied ' +
-                                     'to semiconductors and insulators.')
-            kpt.eps_n[self.nocc1:] += eshift
 
     def count_occupied_bands(self):
         self.nocc1 = 9999999
@@ -841,7 +789,7 @@ class PairDensity:
 
         wfs = self.calc.wfs
         kd = wfs.kd
-            
+
         # Parse kpoint: is k_c an index or a vector
 
         try:
@@ -1480,7 +1428,6 @@ class PairDensity:
 
     @timer('Initialize PAW corrections')
     def initialize_paw_corrections(self, pd, soft=False):
-        print('Initializing PAW Corrections', file=self.fd)
         wfs = self.calc.wfs
         q_v = pd.K_qv[0]
         optical_limit = np.allclose(q_v, 0)

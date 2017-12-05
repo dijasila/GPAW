@@ -79,7 +79,7 @@ class PS2AE:
 
         self.dphi = LFC(self.gd, dphi_aj, kd=self.calc.wfs.kd.copy(),
                         dtype=self.calc.wfs.dtype)
-        self.dphi.set_positions(self.calc.atoms.get_scaled_positions())
+        self.dphi.set_positions(self.calc.spos_ac)
 
     def get_wave_function(self, n, k=0, s=0, ae=True):
         """Interpolate wave function.
@@ -112,6 +112,16 @@ class PS2AE:
         return psi_R * Bohr**-1.5
 
     def get_electrostatic_potential(self, ae=True, rcgauss=0.02):
+        """Interpolate electrostatic potential.
+
+        Return value in eV.
+
+        ae: bool
+            Add PAW correction to get the all-electron potential.
+        rcgauss: float
+            Width of gaussian (in Angstrom) used to represent the nuclear
+            charge.
+        """
         gd = self.calc.hamiltonian.finegd
         v_r = self.calc.get_electrostatic_potential() / Ha
         gd1 = GridDescriptor(gd.N_c, gd.cell_cv, comm=serial_comm)
@@ -145,5 +155,5 @@ class PS2AE:
             dv_a1.append([rgd.spline(dv_g, points=POINTS)])
 
         dv = LFC(self.gd, dv_a1)
-        dv.set_positions(self.calc.atoms.get_scaled_positions())
+        dv.set_positions(self.calc.spos_ac)
         dv.add(v_R)

@@ -120,7 +120,7 @@ class Chi0:
                  disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True,
                  scissor=None, integrationmode=None,
-                 pbc=None, rate=0.0, eshift=None):
+                 pbc=None, rate=0.0, eshift=0.0):
         """Construct Chi0 object.
         
         Parameters
@@ -196,13 +196,13 @@ class Chi0:
         self.pair = PairDensity(calc, ecut, ftol, threshold,
                                 real_space_derivatives, world, txt,
                                 self.timer,
-                                nblocks=nblocks, gate_voltage=gate_voltage,
-                                scissor=scissor, eshift=eshift)
+                                nblocks=nblocks, gate_voltage=gate_voltage)
 
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
         self.integrationmode = integrationmode
+        self.eshift = eshift / Hartree
 
         calc = self.pair.calc
         self.calc = calc
@@ -447,20 +447,24 @@ class Chi0:
                                          comm=self.world,
                                          timer=self.timer,
                                          txt=self.fd,
+                                         eshift=self.eshift,
                                          nblocks=self.nblocks)
             intnoblock = PointIntegrator(self.pair.calc.wfs.gd.cell_cv,
                                          comm=self.world,
                                          timer=self.timer,
+                                         eshift=self.eshift,
                                          txt=self.fd)
         elif self.integrationmode == 'tetrahedron integration':
             integrator = TetrahedronIntegrator(self.pair.calc.wfs.gd.cell_cv,
                                                comm=self.world,
                                                timer=self.timer,
+                                               eshift=self.eshift,
                                                txt=self.fd,
                                                nblocks=self.nblocks)
             intnoblock = TetrahedronIntegrator(self.pair.calc.wfs.gd.cell_cv,
                                                comm=self.world,
                                                timer=self.timer,
+                                               eshift=self.eshift,
                                                txt=self.fd)
         else:
             print('Integration mode ' + self.integrationmode +
@@ -632,20 +636,20 @@ class Chi0:
                                  **extraargs)  # Extra args for int. method
 
             # Again, not so pretty but that's how it is
-            self.plasmafreq_vv = plasmafreq_wvv[0].copy()
+            plasmafreq_vv = plasmafreq_wvv[0].copy()
             if self.blockcomm.rank == 0:
                 if extend_head:
-                    A_wxx[:, :3, :3] += (self.plasmafreq_vv[np.newaxis] /
+                    A_wxx[:, :3, :3] += (plasmafreq_vv[np.newaxis] /
                                          (self.omega_w[:, np.newaxis,
                                                        np.newaxis] +
                                           1e-10 + self.rate * 1j)**2)
                 else:
-                    A_wxx[:, 0, 0] += (self.plasmafreq_vv[2, 2] /
+                    A_wxx[:, 0, 0] += (plasmafreq_vv[2, 2] /
                                        (self.omega_w + 1e-10 +
                                         self.rate * 1j)**2)
 
             # Save the plasmafrequency
-            self.plasmafreq_vv = 4 * np.pi * self.plasmafreq_vv * prefactor
+            self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv * prefactor
             PWSA.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
             print('Plasma frequency:', file=self.fd)
             print((self.plasmafreq_vv**0.5 * Hartree).round(2),

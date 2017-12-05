@@ -31,8 +31,8 @@ def pawexxvv(atomdata, D_ii):
                     V += atomdata.M_pp[p13, p24] * D_ii[i3, i4]
             V_ii[i1, i2] = V
     return V_ii
-    
-    
+
+
 def select_kpts(kpts, calc):
     """Function to process input parameters that take a list of k-points given
     in different format and returns a list of indices of the corresponding
@@ -40,10 +40,10 @@ def select_kpts(kpts, calc):
     if kpts is None:
         # Do all k-points in the IBZ:
         return np.arange(calc.wfs.kd.nibzkpts)
-    
+
     if np.asarray(kpts).ndim == 1:
         return kpts
-    
+
     # Find k-points:
     bzk_Kc = calc.get_bz_k_points()
     indices = []
@@ -56,12 +56,12 @@ def select_kpts(kpts, calc):
         k = calc.wfs.kd.bz2ibz_k[K]
         indices.append(k)
     return indices
-    
-    
+
+
 class EXX(PairDensity):
     def __init__(self, calc, xc=None, kpts=None, bands=None, ecut=None,
                  omega=None, world=mpi.world, txt=sys.stdout, timer=None):
-    
+
         PairDensity.__init__(self, calc, ecut, world=world, txt=txt,
                              timer=timer)
 
@@ -82,29 +82,29 @@ class EXX(PairDensity):
         elif xc == 'B3LYP':
             self.exx_fraction = 0.2
             xc = XC('HYB_GGA_XC_B3LYP')
-            
+
         self.xc = xc
         self.omega = omega
         self.exc = np.nan  # density dependent part of xc-energy
-        
+
         self.kpts = select_kpts(kpts, self.calc)
-        
+
         if bands is None:
             # Do all occupied bands:
             bands = [0, self.nocc2]
-        
+
         print('Calculating exact exchange contributions for band index',
               '%d-%d' % (bands[0], bands[1] - 1), file=self.fd)
         print('for IBZ k-points with indices:',
               ', '.join(str(i) for i in self.kpts), file=self.fd)
-        
+
         self.bands = bands
 
         if self.ecut is None:
             self.ecut = self.calc.wfs.pd.ecut
         print('Plane-wave cutoff: %.3f eV' % (self.ecut * Hartree),
               file=self.fd)
-        
+
         shape = (self.calc.wfs.nspins, len(self.kpts), bands[1] - bands[0])
         self.exxvv_sin = np.zeros(shape)   # valence-valence exchange energies
         self.exxvc_sin = np.zeros(shape)   # valence-core exchange energies
@@ -119,27 +119,28 @@ class EXX(PairDensity):
 
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
         self.distribute_k_points_and_bands(0, self.nocc2)
-        
+
         # All occupied states:
         self.mykpts = [self.get_k_point(s, K, n1, n2)
                        for s, K, n1, n2 in self.mysKn1n2]
 
-        print('Using Wigner-Seitz truncated coulomb interaction.',
-              file=self.fd)
-        self.wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
-                                                self.calc.wfs.kd.N_c,
-                                                self.fd)
+        if omega is None:
+            print('Using Wigner-Seitz truncated coulomb interaction.',
+                  file=self.fd)
+            self.wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
+                                                    self.calc.wfs.kd.N_c,
+                                                    self.fd)
         self.iG_qG = {}  # cache
-            
+
         # PAW matrices:
         self.V_asii = []  # valence-valence correction
         self.C_aii = []   # valence-core correction
         self.initialize_paw_exx_corrections()
-        
+
     def calculate(self):
         kd = self.calc.wfs.kd
         nspins = self.calc.wfs.nspins
-        
+
         for s in range(nspins):
             for i, k1 in enumerate(self.kpts):
                 K1 = kd.ibz2bz_k[k1]
@@ -148,11 +149,11 @@ class EXX(PairDensity):
                 for kpt2 in self.mykpts:
                     if kpt2.s == s:
                         self.calculate_q(i, kpt1, kpt2)
-                
+
                 self.calculate_paw_exx_corrections(i, kpt1)
 
         self.world.sum(self.exxvv_sin)
-        
+
         # Calculate total energy if we have everything needed:
         if (len(self.kpts) == kd.nibzkpts and
             self.bands[0] == 0 and
@@ -169,30 +170,30 @@ class EXX(PairDensity):
                               ('total', self.exx)]:
                 print('%16s%11.3f eV' % (kind + ':', exx * Hartree),
                       file=self.fd)
-            
+
             self.exc = self.calculate_hybrid_correction()
 
         exx_sin = self.exxvv_sin + self.exxvc_sin
         print('EXX eigenvalue contributions in eV:', file=self.fd)
         print(np.array_str(exx_sin * Hartree, precision=3), file=self.fd)
-    
+
     def get_exx_energy(self):
         return self.exx * Hartree
-    
+
     def get_total_energy(self):
         ham = self.calc.hamiltonian
         return (self.exx * self.exx_fraction + self.exc +
                 ham.e_total_free - ham.e_xc) * Hartree
-        
+
     def get_eigenvalue_contributions(self):
         b1, b2 = self.bands
         e_sin = vxc(self.calc, self.xc)[:, self.kpts, b1:b2] / Hartree
         e_sin += (self.exxvv_sin + self.exxvc_sin) * self.exx_fraction
         return e_sin * Hartree
-        
+
     def calculate_q(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
-        
+
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
         qd = KPointDescriptor([q_c])
         pd = PWDescriptor(self.ecut, wfs.gd, wfs.dtype, kd=qd)
@@ -201,7 +202,7 @@ class EXX(PairDensity):
                                    kpt1.shift_c - kpt2.shift_c)
 
         Q_aGii = self.initialize_paw_corrections(pd, soft=True)
-        
+
         for n in range(kpt1.n2 - kpt1.n1):
             ut1cc_R = kpt1.ut_nR[n].conj()
             C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
@@ -258,7 +259,7 @@ class EXX(PairDensity):
     def calculate_paw_exx_corrections(self, i, kpt):
         x = self.calc.wfs.nspins / self.world.size
         s = kpt.s
-        
+
         for V_sii, C_ii, P_ni in zip(self.V_asii, self.C_aii, kpt.P_ani):
             V_ii = V_sii[s]
             v_n = (np.dot(P_ni, V_ii) * P_ni.conj()).sum(axis=1).real

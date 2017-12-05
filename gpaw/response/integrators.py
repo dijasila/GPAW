@@ -14,11 +14,11 @@ from gpaw.utilities.blas import gemm, rk, czher, mmm
 from gpaw.utilities.progressbar import ProgressBar
 from functools import partial
 
- 
+
 class Integrator():
 
     def __init__(self, cell_cv, comm=mpi.world,
-                 txt='-', timer=None, nblocks=1):
+                 txt='-', timer=None, nblocks=1, eshift=0.0):
         """Baseclass for Brillouin zone integration and band summation.
 
         Simple class to calculate integrals over Brilloun zones
@@ -29,6 +29,7 @@ class Integrator():
         """
 
         self.comm = comm
+        self.eshift = eshift
         self.nblocks = nblocks
         self.vol = abs(np.linalg.det(cell_cv))
         if nblocks == 1:
@@ -44,8 +45,6 @@ class Integrator():
 
         if comm.rank != 0:
             txt = devnull
-        elif isinstance(txt, str):
-            txt = open(txt, 'w')
         self.fd = convert_string_to_fd(txt, comm)
 
         self.timer = timer or Timer()
@@ -207,6 +206,7 @@ class PointIntegrator(Integrator):
         """Update chi."""
 
         omega_w = wd.get_data()
+        deps_m += self.eshift * np.sign(deps_m)
         if timeordered:
             deps1_m = deps_m + 1j * eta * np.sign(deps_m)
             deps2_m = deps1_m
@@ -228,6 +228,7 @@ class PointIntegrator(Integrator):
     def update_hermitian(self, n_mG, deps_m, wd, chi0_wGG):
         """If eta=0 use hermitian update."""
         omega_w = wd.get_data()
+        deps_m += self.eshift * np.sign(deps_m)
 
         for w, omega in enumerate(omega_w):
             if self.blockcomm.size == 1:
@@ -237,7 +238,7 @@ class PointIntegrator(Integrator):
             else:
                 x_m = 2 * deps_m / (omega.imag**2 + deps_m**2)
                 mynx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
-                mmm(1.0, mynx_mG, 'c', n_mG, 'n', 1.0, chi0_wGG[w])
+                mmm(1.0, mynx_mG, 'C', n_mG, 'N', 1.0, chi0_wGG[w])
 
     @timer('CHI_0 spectral function update')
     def update_hilbert(self, n_mG, deps_m, wd, chi0_wGG):
@@ -248,6 +249,7 @@ class PointIntegrator(Integrator):
 
         self.timer.start('prep')
         omega_w = wd.get_data()
+        deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
         w_m = wd.get_closest_index(o_m)
         o1_m = omega_w[w_m]
@@ -290,7 +292,7 @@ class PointIntegrator(Integrator):
         else:
             deps1_m = deps_m + 1j * eta
             deps2_m = deps_m - 1j * eta
-                    
+
         for w, omega in enumerate(omega_w):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
@@ -308,7 +310,7 @@ class PointIntegrator(Integrator):
                 break
             o1, o2 = omega_w[w:w + 2]
             assert o1 <= o <= o2, (o1, o, o2)
-            
+
             p = 1 / (o2 - o1)**2
             p1 = p * (o2 - o)
             p2 = p * (o - o1)
