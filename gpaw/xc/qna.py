@@ -1,12 +1,7 @@
-from gpaw.xc.lda import calculate_paw_correction
-from gpaw.xc.gga import PurePythonGGAKernel, GGA, gga_vars
-from gpaw.xc.gga import add_gradient_correction, radial_gga_vars
-from gpaw.xc.gga import add_radial_gradient_correction
-from gpaw.xc.gga import GGARadialExpansion
+from gpaw.xc.gga import PurePythonGGAKernel, GGA
 import numpy as np
 from gpaw.lfc import LFC
 from gpaw.spline import Spline
-from math import sqrt, pi
 from gpaw.xc.gga import calculate_sigma
 
 class QNAKernel:
@@ -121,40 +116,6 @@ class QNA(GGA):
         self.current_atom = a
         return GGA.calculate_paw_correction(self, setup, D_sp, dEdD_sp,
                                             addcoredensity, a)
-    """
-    def stress_tensor_contribution(self, n_sg):
-        sigma_xg, gradn_svg = calculate_sigma(self.gd, self.grad_v, n_sg)
-        nspins = len(n_sg)
-        dedsigma_xg = self.gd.empty(nspins * 2 - 1)
-        v_sg = self.gd.zeros(nspins)
-        e_g = self.gd.empty()
-
-        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-
-        def integrate(a1_g, a2_g=None):
-            return self.gd.integrate(a1_g, a2_g, global_integral=False)
-
-        P = integrate(e_g)
-        for v_g, n_g in zip(v_sg, n_sg):
-            P -= integrate(v_g, n_g)
-        for sigma_g, dedsigma_g in zip(sigma_xg, dedsigma_xg):
-            P -= 2 * integrate(sigma_g, dedsigma_g)
-        stress_vv = P * np.eye(3)
-        for v1 in range(3):
-            for v2 in range(3):
-                stress_vv[v1, v2] -= integrate(gradn_svg[0, v1] *
-                                               gradn_svg[0, v2],
-                                               dedsigma_xg[0]) * 2
-                if nspins == 2:
-                    stress_vv[v1, v2] -= integrate(gradn_svg[0, v1] *
-                                                   gradn_svg[1, v2],
-                                                   dedsigma_xg[1]) * 2
-                    stress_vv[v1, v2] -= integrate(gradn_svg[1, v1] *
-                                                   gradn_svg[1, v2],
-                                                   dedsigma_xg[2]) * 2
-        return stress_vv
-       """
-
     def get_setup_name(self):
         return self.qna_setup_name
     
