@@ -1,13 +1,7 @@
-from gpaw.xc.lda import calculate_paw_correction
-from gpaw.xc.gga import PurePythonGGAKernel, GGA, gga_vars
-from gpaw.xc.gga import add_gradient_correction, radial_gga_vars
-from gpaw.xc.gga import add_radial_gradient_correction
-from gpaw.xc.gga import GGARadialExpansion
+from gpaw.xc.gga import PurePythonGGAKernel, GGA
 import numpy as np
 from gpaw.lfc import LFC
 from gpaw.spline import Spline
-from math import sqrt, pi
-from gpaw.xc.gga import calculate_sigma
 
 class QNAKernel:
     def __init__(self, qna):
@@ -153,7 +147,7 @@ class QNA(GGA):
                                                    gradn_svg[1, v2],
                                                    dedsigma_xg[2]) * 2
         return stress_vv
-       """
+    """
 
     def get_setup_name(self):
         return self.qna_setup_name
