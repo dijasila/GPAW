@@ -35,7 +35,8 @@ It is very handy to add our installation to the module environment::
   cd modulefiles/gpaw-setups
   echo -e "#%Module1.0\nprepend-path       GPAW_SETUP_PATH    $GPAW_SETUP_SOURCE/gpaw-setups-0.9.11271" > 0.9.11271
 
-We need to let the system know about our modules::
+We need to let the system know about our modules
+(add this command to ``~/.profile`` or ``~/.bashrc`` to execute automatically)::
 
   module use $HOME/modulefiles
 

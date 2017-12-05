@@ -76,6 +76,7 @@ PyObject* NewlxcXCFunctionalObject(PyObject *self, PyObject *args);
 PyObject* lxcXCFuncNum(PyObject *self, PyObject *args);
 PyObject* exterior_electron_density_region(PyObject *self, PyObject *args);
 PyObject* plane_wave_grid(PyObject *self, PyObject *args);
+PyObject* tci_overlap(PyObject *self, PyObject *args);
 PyObject* overlap(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
 PyObject* vdw2(PyObject *self, PyObject *args);
@@ -181,6 +182,7 @@ static PyMethodDef functions[] = {
     {"lxcXCFunctional", NewlxcXCFunctionalObject, METH_VARARGS, 0},
     {"lxcXCFuncNum", lxcXCFuncNum, METH_VARARGS, 0},
     {"overlap", overlap, METH_VARARGS, 0},
+    {"tci_overlap", tci_overlap, METH_VARARGS, 0},
     {"vdw", vdw, METH_VARARGS, 0},
     {"vdw2", vdw2, METH_VARARGS, 0},
     {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
@@ -360,8 +362,8 @@ static PyObject* moduleinit(void)
     Py_INCREF(&lxcXCFunctionalType);
 #ifndef PARALLEL
     // gpaw-python needs to import arrays at the right time, so this is
-    // done in main().  In serial, we just do it here:
-    import_array1(NULL);
+    // done in gpaw_main().  In serial, we just do it here:
+    import_array1(0);
 #endif
     return m;
 }
@@ -391,7 +393,7 @@ void moduleinit0(void) { moduleinit(); }
 
 
 int
-run_gpaw()
+gpaw_main()
 {
     int status = -1;
 
@@ -406,8 +408,14 @@ run_gpaw()
 
     if(pymain == NULL) {
         status = 4;  // gpaw.main does not exist for some reason
+        //PyErr_Print();
     } else {
         // Returns Py_None or NULL (error after calling user script)
+        // We already imported the Python parts of numpy.  If we want, we can
+        // later attempt to broadcast the numpy C API imports, too.
+        // However I don't know how many files they are, and we need to
+        // figure out how to broadcast extension modules (shared objects).
+        import_array1(0);
         PyObject *pyreturn = PyObject_CallFunction(pymain, "");
         status = (pyreturn == NULL);
         Py_XDECREF(pyreturn);
@@ -451,16 +459,7 @@ main(int argc, char **argv)
     Py_Initialize();
 
     PySys_SetArgvEx(argc, wargv, 0);
-    //PyObject *sys_mod = PyImport_ImportModule("sys");
-
-    // This will broadcast a ton of imports
-    //PyImport_ImportModule("gpaw");
-
-    // We already imported the Python parts of numpy.  If we want, we can
-    // later attempt to broadcast the numpy C API imports, too.
-    import_array1(NULL);
-
-    int status = run_gpaw();
+    int status = gpaw_main();
 
     if(status != 0) {
         PyErr_Print();

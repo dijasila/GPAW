@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function, division
+from __future__ import division
 import numbers
 from math import pi
 from math import factorial as fac
@@ -13,7 +13,6 @@ import gpaw.fftw as fftw
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.density import Density
-from gpaw.hs_operators import MatrixOperator
 from gpaw.lfc import BaseLFC
 from gpaw.lcao.overlap import fbt
 from gpaw.hamiltonian import Hamiltonian
@@ -21,10 +20,11 @@ from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
 from gpaw.utilities import unpack
-from gpaw.utilities.blas import rk, r2k, gemv, gemm, axpy
+from gpaw.utilities.blas import rk, r2k, gemm, axpy
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
+from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
 
 
 class PW(Mode):
@@ -66,7 +66,7 @@ class PW(Mode):
 
         Mode.__init__(self, force_complex_dtype)
 
-    def __call__(self, diagksl, orthoksl, initksl, gd, *args, **kwargs):
+    def __call__(self, parallel, initksl, gd, **kwargs):
         dedepsilon = 0.0
         volume = abs(np.linalg.det(gd.cell_cv))
 
@@ -85,7 +85,7 @@ class PW(Mode):
                 dedepsilon = self.dedecut * 2 / 3 * ecut
 
         wfs = PWWaveFunctions(ecut, self.fftwflags, dedepsilon,
-                              diagksl, orthoksl, initksl, gd, *args,
+                              parallel, initksl, gd=gd,
                               **kwargs)
 
         return wfs
@@ -446,20 +446,6 @@ class PWDescriptor:
         G3_Q[pd.Q_qG[q]] = np.arange(len(pd.Q_qG[q]))
         return G3_Q[Q3_G]
 
-    def gemm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
-        """Helper function for MatrixOperator class."""
-        if self.dtype == float:
-            psit_nG = psit_nG.view(float)
-            newpsit_mG = newpsit_mG.view(float)
-        gemm(alpha, psit_nG, C_mn, beta, newpsit_mG)
-
-    def gemv(self, alpha, psit_nG, C_n, beta, newpsit_G, trans='t'):
-        """Helper function for CG eigensolver."""
-        if self.dtype == float:
-            psit_nG = psit_nG.view(float)
-            newpsit_G = newpsit_G.view(float)
-        gemv(alpha, psit_nG, C_n, beta, newpsit_G, trans)
-
 
 def count_reciprocal_vectors(ecut, gd, q_c):
     N_c = gd.N_c
@@ -493,25 +479,41 @@ class Preconditioner:
         self.pd = pd
 
     def calculate_kinetic_energy(self, psit_xG, kpt):
+        if psit_xG.ndim == 1:
+            return self.calculate_kinetic_energy(psit_xG[np.newaxis], kpt)[0]
         G2_G = self.G2_qG[kpt.q]
-        return [self.pd.integrate(0.5 * G2_G * psit_G, psit_G)
-                for psit_G in psit_xG]
+        return np.array([self.pd.integrate(0.5 * G2_G * psit_G, psit_G)
+                         for psit_G in psit_xG])
 
     def __call__(self, R_xG, kpt, ekin_x):
+        if R_xG.ndim == 1:
+            return self.__call__(R_xG[np.newaxis], kpt, [ekin_x])[0]
         G2_G = self.G2_qG[kpt.q]
         PR_xG = np.empty_like(R_xG)
         for PR_G, R_G, ekin in zip(PR_xG, R_xG, ekin_x):
             x_G = 1 / ekin / 3 * G2_G
             a_G = 27.0 + x_G * (18.0 + x_G * (12.0 + x_G * 8.0))
-            PR_G[:] = 4.0 / 3 / ekin * R_G * a_G / (a_G + 16.0 * x_G**4)
-        return -PR_xG
+            PR_G[:] = -4.0 / 3 / ekin * R_G * a_G / (a_G + 16.0 * x_G**4)
+        return PR_xG
+
+
+class NonCollinearPreconditioner(Preconditioner):
+    def calculate_kinetic_energy(self, psit_xsG, kpt):
+        shape = psit_xsG.shape
+        ekin_xs = Preconditioner.calculate_kinetic_energy(
+            self, psit_xsG.reshape((-1, shape[-1])), kpt)
+        return ekin_xs.reshape(shape[:-1]).sum(-1)
+
+    def __call__(self, R_sG, kpt, ekin):
+        return Preconditioner.__call__(self, R_sG, kpt, [ekin, ekin])
 
 
 class PWWaveFunctions(FDPWWaveFunctions):
     mode = 'pw'
 
     def __init__(self, ecut, fftwflags, dedepsilon,
-                 diagksl, orthoksl, initksl,
+                 parallel, initksl,
+                 reuse_wfs_method, collinear,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
@@ -520,12 +522,12 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         self.ng_k = None  # number of G-vectors for all IBZ k-points
 
-        FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
-                                   gd, nvalence, setups, bd, dtype,
-                                   world, kd, kptband_comm, timer)
-
-        self.orthoksl.gd = self.pd
-        self.matrixoperator = MatrixOperator(self.orthoksl)
+        FDPWWaveFunctions.__init__(self, parallel, initksl,
+                                   reuse_wfs_method=reuse_wfs_method,
+                                   collinear=collinear,
+                                   gd=gd, nvalence=nvalence, setups=setups,
+                                   bd=bd, dtype=dtype, world=world, kd=kd,
+                                   kptband_comm=kptband_comm, timer=timer)
 
     def empty(self, n=(), global_array=False, realspace=False,
               q=-1):
@@ -562,6 +564,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
             dedecut = self.setups.estimate_dedecut(self.ecut)
             self.dedepsilon = dedecut * 2 / 3 * self.ecut
 
+    def get_pseudo_partial_waves(self):
+        return PWLFC([setup.get_actual_atomic_orbitals()
+                      for setup in self.setups], self.pd)
+
     def __str__(self):
         s = 'Wave functions: Plane wave expansion\n'
         s += '  Cutoff energy: %.3f eV\n' % (self.pd.ecut * Ha)
@@ -585,24 +591,47 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return s + FDPWWaveFunctions.__str__(self)
 
     def make_preconditioner(self, block=1):
-        return Preconditioner(self.pd.G2_qG, self.pd)
+        if self.collinear:
+            return Preconditioner(self.pd.G2_qG, self.pd)
+        return NonCollinearPreconditioner(self.pd.G2_qG, self.pd)
 
     def apply_pseudo_hamiltonian(self, kpt, ham, psit_xG, Htpsit_xG):
         """Apply the non-pseudo Hamiltonian i.e. without PAW corrections."""
         Htpsit_xG[:] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG
-        for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
-            psit_R = self.pd.ifft(psit_G, kpt.q)
-            Htpsit_G += self.pd.fft(psit_R * ham.vt_sG[kpt.s], kpt.q)
+        if self.collinear:
+            for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
+                psit_R = self.pd.ifft(psit_G, kpt.q)
+                Htpsit_G += self.pd.fft(psit_R * ham.vt_sG[kpt.s], kpt.q)
+        else:
+            v, x, y, z = ham.vt_xG
+            iy = y * 1j
+            for psit_sG, Htpsit_sG in zip(psit_xG, Htpsit_xG):
+                a = self.pd.ifft(psit_sG[0], kpt.q)
+                b = self.pd.ifft(psit_sG[1], kpt.q)
+                Htpsit_sG[0] += self.pd.fft(a * (v + z) + b * (x - iy), kpt.q)
+                Htpsit_sG[1] += self.pd.fft(a * (x + iy) + b * (v - z), kpt.q)
         ham.xc.apply_orbital_dependent_hamiltonian(
             kpt, psit_xG, Htpsit_xG, ham.dH_asp)
 
     def add_orbital_density(self, nt_G, kpt, n):
         axpy(1.0, abs(self.pd.ifft(kpt.psit_nG[n], kpt.q))**2, nt_G)
 
-    def add_to_density_from_k_point_with_occupation(self, nt_sR, kpt, f_n):
-        nt_R = nt_sR[kpt.s]
-        for f, psit_G in zip(f_n, kpt.psit_nG):
-            nt_R += f * abs(self.pd.ifft(psit_G, kpt.q))**2
+    def add_to_density_from_k_point_with_occupation(self, nt_xR, kpt, f_n):
+        if self.collinear:
+            nt_R = nt_xR[kpt.s]
+            for f, psit_G in zip(f_n, kpt.psit_nG):
+                nt_R += f * abs(self.pd.ifft(psit_G, kpt.q))**2
+        else:
+            for f, psit_sG in zip(f_n, kpt.psit.array):
+                p1 = self.pd.ifft(psit_sG[0], kpt.q)
+                p2 = self.pd.ifft(psit_sG[1], kpt.q)
+                p11 = p1.real**2 + p1.imag**2
+                p22 = p2.real**2 + p2.imag**2
+                p12 = p1.conj() * p2
+                nt_xR[0] += f * (p11 + p22)
+                nt_xR[1] += 2 * f * p12.real
+                nt_xR[2] += 2 * f * p12.imag
+                nt_xR[3] += f * (p11 - p22)
 
     def calculate_kinetic_energy_density(self):
         if self.kpt_u[0].f_n is None:
@@ -720,24 +749,19 @@ class PWWaveFunctions(FDPWWaveFunctions):
             c = 1  # old gpw file
         for kpt in self.kpt_u:
             ng = self.ng_k[kpt.k]
-            kpt.psit_nG = reader.wave_functions.proxy('coefficients',
-                                                      kpt.s, kpt.k)
-            kpt.psit_nG.scale = c
-            kpt.psit_nG.length_of_last_dimension = ng
+            psit_nG = reader.wave_functions.proxy('coefficients', kpt.s, kpt.k)
+            psit_nG.scale = c
+            psit_nG.length_of_last_dimension = ng
 
-        if self.world.size == 1:
-            return
+            kpt.psit = PlaneWaveExpansionWaveFunctions(
+                self.bd.nbands, self.pd, self.dtype, psit_nG,
+                kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
+                spin=kpt.s, collinear=self.collinear)
 
-        # Read to memory:
-        for kpt in self.kpt_u:
-            psit_nG = kpt.psit_nG
-            kpt.psit_nG = self.empty(self.bd.mynbands, q=kpt.q)
-            ng = self.ng_k[kpt.k]
-            for myn, psit_G in enumerate(kpt.psit_nG):
-                n = self.bd.global_index(myn)
-                # XXX number of bands could have been rounded up!
-                if n < len(psit_nG):
-                    psit_G[:] = psit_nG[n]
+        if self.world.size > 1:
+            # Read to memory:
+            for kpt in self.kpt_u:
+                kpt.psit.read_from_file()
 
     def hs(self, ham, q=-1, s=0, md=None):
         npw = len(self.pd.Q_qG[q])
@@ -849,7 +873,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             scalapack = False
 
         self.set_positions(atoms.get_scaled_positions())
-        self.kpt_u[0].P_ani = None
+        self.mykpts[0].P = None
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
 
         myslice = bd.get_slice()
@@ -893,7 +917,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 r = Redistributor(bd.comm, md2, md3)
                 psit_nG = r.redistribute(psit_nG)
 
-            kpt.psit_nG = psit_nG[:bd.mynbands].copy()
+            kpt.psit = PlaneWaveExpansionWaveFunctions(
+                self.bd.nbands, self.pd, self.dtype,
+                psit_nG[:bd.mynbands].copy(),
+                kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
+                spin=kpt.s, collinear=self.collinear)
             del psit_nG
 
             with self.timer('Projections'):
@@ -907,12 +935,13 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         return nbands
 
-    def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
+    def initialize_from_lcao_coefficients(self, basis_functions):
         N_c = self.gd.N_c
 
-        psit_nR = self.gd.empty(mynbands, self.dtype)
+        N = len(self.mykpts[0].C_nM)
+        psit_nR = self.gd.empty(N, self.dtype)
 
-        for kpt in self.kpt_u:
+        for kpt in self.mykpts:
             if self.kd.gamma:
                 emikr_R = 1.0
             else:
@@ -924,17 +953,29 @@ class PWWaveFunctions(FDPWWaveFunctions):
             basis_functions.lcao_to_grid(kpt.C_nM, psit_nR, kpt.q)
             kpt.C_nM = None
 
-            kpt.psit_nG = self.pd.empty(self.bd.mynbands, q=kpt.q)
-            for n in range(mynbands):
-                kpt.psit_nG[n] = self.pd.fft(psit_nR[n] * emikr_R, kpt.q)
+            kpt.psit = PlaneWaveExpansionWaveFunctions(
+                self.bd.nbands, self.pd, self.dtype, kpt=kpt.q,
+                dist=(self.bd.comm, -1, 1),
+                spin=kpt.s, collinear=self.collinear)
+
+            psit_nG = kpt.psit.array
+            for psit_G, psit_R in zip(psit_nG.reshape((-1, psit_nG.shape[-1])),
+                                      psit_nR):
+                psit_G[:] = self.pd.fft(psit_R * emikr_R, kpt.q)
 
     def random_wave_functions(self, mynao):
         rs = np.random.RandomState(self.world.rank)
         for kpt in self.kpt_u:
-            psit_nG = kpt.psit_nG[mynao:]
+            if kpt.psit is None:
+                kpt.psit = PlaneWaveExpansionWaveFunctions(
+                    self.bd.nbands, self.pd, self.dtype, kpt=kpt.q,
+                    dist=(self.bd.comm, -1, 1),
+                    spin=kpt.s, collinear=self.collinear)
+
+            array = kpt.psit.array[mynao:]
             weight_G = 1.0 / (1.0 + self.pd.G2_qG[kpt.q])
-            psit_nG.real = rs.uniform(-1, 1, psit_nG.shape) * weight_G
-            psit_nG.imag = rs.uniform(-1, 1, psit_nG.shape) * weight_G
+            array.real = rs.uniform(-1, 1, array.shape) * weight_G
+            array.imag = rs.uniform(-1, 1, array.shape) * weight_G
 
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)
@@ -1196,6 +1237,10 @@ class PWLFC(BaseLFC):
 
         return c_axi
 
+    def matrix_elements(self, psit, out):
+        P_ani = {a: P_in.T for a, P_in in out.items()}
+        self.integrate(psit.array, P_ani, psit.kpt)
+
     def derivative(self, a_xG, c_axiv, q=-1):
         c_vxI = np.zeros((3,) + a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
         b_vxI = c_vxI.reshape((3, np.prod(c_vxI.shape[1:-1], dtype=int),
@@ -1318,7 +1363,7 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
 
 class ReciprocalSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, charge, redistributor,
+    def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
                  background_charge=None):
         assert gd.comm.size == 1
         serial_finegd = finegd.new_descriptor(comm=gd.comm)
@@ -1326,7 +1371,7 @@ class ReciprocalSpaceDensity(Density):
         from gpaw.utilities.grid import GridRedistributor
         noredist = GridRedistributor(redistributor.comm,
                                      redistributor.broadcast_comm, gd, gd)
-        Density.__init__(self, gd, serial_finegd, nspins, charge,
+        Density.__init__(self, gd, serial_finegd, nspins, collinear, charge,
                          redistributor=noredist,
                          background_charge=background_charge)
 
@@ -1338,6 +1383,9 @@ class ReciprocalSpaceDensity(Density):
         self.xc_redistributor = GridRedistributor(redistributor.comm,
                                                   redistributor.comm,
                                                   serial_finegd, finegd)
+        self.nct_q = None
+        self.nt_Q = None
+        self.rhot_q = None
 
     def initialize(self, setups, timer, magmom_av, hund):
         Density.initialize(self, setups, timer, magmom_av, hund)
@@ -1362,14 +1410,22 @@ class ReciprocalSpaceDensity(Density):
     def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
         if comp_charge is None:
-            comp_charge = self.calculate_multipole_moments()
+            comp_charge, _Q_aL = self.calculate_multipole_moments()
 
-        if self.nt_sg is None:
-            self.nt_sg = self.finegd.empty(self.nspins)
-            self.nt_sQ = self.pd2.empty(self.nspins)
+        if self.nt_xg is None:
+            self.nt_xg = self.finegd.empty(self.ncomponents)
+            self.nt_sg = self.nt_xg[:self.nspins]
+            self.nt_vg = self.nt_xg[self.nspins:]
+            self.nt_Q = self.pd2.empty()
 
-        for nt_G, nt_Q, nt_g in zip(self.nt_sG, self.nt_sQ, self.nt_sg):
-            nt_g[:], nt_Q[:] = self.pd2.interpolate(nt_G, self.pd3)
+        self.nt_Q[:] = 0.0
+
+        x = 0
+        for nt_G, nt_g in zip(self.nt_xG, self.nt_xg):
+            nt_g[:], nt_Q = self.pd2.interpolate(nt_G, self.pd3)
+            if x < self.nspins:
+                self.nt_Q += nt_Q
+            x += 1
 
     def interpolate(self, in_xR, out_xR=None):
         """Interpolate array(s)."""
@@ -1387,10 +1443,10 @@ class ReciprocalSpaceDensity(Density):
     distribute_and_interpolate = interpolate
 
     def calculate_pseudo_charge(self):
-        self.nt_Q = self.nt_sQ.sum(axis=0)
         self.rhot_q = self.pd3.zeros()
         self.rhot_q[self.G3_G] = self.nt_Q * 8
-        self.ghat.add(self.rhot_q, self.Q_aL)
+        Q_aL = self.Q.calculate(self.D_asp)
+        self.ghat.add(self.rhot_q, Q_aL)
         self.background_charge.add_fourier_space_charge_to(self.pd3,
                                                            self.rhot_q)
         self.rhot_q[0] = 0.0
@@ -1440,14 +1496,14 @@ class ReciprocalSpacePoissonSolver:
 
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
-    def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
-                 world, vext=None,
+    def __init__(self, gd, finegd, pd2, pd3, nspins, collinear,
+                 setups, timer, xc, world, vext=None,
                  psolver=None, redistributor=None, realpbc_c=None):
 
         assert gd.comm.size == 1
         assert finegd.comm.size == 1
         assert redistributor is not None  # XXX should not be like this
-        Hamiltonian.__init__(self, gd, finegd, nspins, setups,
+        Hamiltonian.__init__(self, gd, finegd, nspins, collinear, setups,
                              timer, xc, world, vext=vext,
                              redistributor=redistributor)
 
@@ -1468,13 +1524,19 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.poisson = psolver
         self.npoisson = 0
 
+        self.vbar_Q = None
+        self.vt_Q = None
+        self.ebar = None
+        self.epot = None
+        self.exc = None
+
     def set_positions(self, spos_ac, atom_partition):
         Hamiltonian.set_positions(self, spos_ac, atom_partition)
         self.vbar_Q = self.pd2.zeros()
         self.vbar.add(self.vbar_Q)
 
     def update_pseudo_potential(self, dens):
-        self.ebar = self.pd2.integrate(self.vbar_Q, dens.nt_sQ.sum(0))
+        self.ebar = self.pd2.integrate(self.vbar_Q, dens.nt_Q)
 
         with self.timer('Poisson'):
             self.poisson.solve(self.vHt_q, dens)
@@ -1484,16 +1546,22 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
-        nt_dist_sg = dens.xc_redistributor.distribute(dens.nt_sg)
-        vxct_dist_sg = dens.xc_redistributor.aux_gd.zeros(self.nspins)
+        nt_dist_xg = dens.xc_redistributor.distribute(dens.nt_xg)
+        vxct_dist_xg = np.zeros_like(nt_dist_xg)
         self.exc = self.xc.calculate(dens.xc_redistributor.aux_gd,
-                                     nt_dist_sg, vxct_dist_sg)
-        vxct_sg = dens.xc_redistributor.collect(vxct_dist_sg)
+                                     nt_dist_xg, vxct_dist_xg)
+        vxct_xg = dens.xc_redistributor.collect(vxct_dist_xg)
 
-        for vt_G, vxct_g in zip(self.vt_sG, vxct_sg):
+        x = 0
+        for vt_G, vxct_g in zip(self.vt_xG, vxct_xg):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
-            vt_G += vxc_G
-            self.vt_Q += vxc_Q / self.nspins
+            if x < self.nspins:
+                vt_G += vxc_G
+                self.vt_Q += vxc_Q / self.nspins
+            else:
+                vt_G[:] = vxc_G
+            x += 1
+
         self.timer.stop('XC 3D grid')
 
         eext = 0.0
@@ -1509,7 +1577,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
     def calculate_kinetic_energy(self, density):
         ekin = 0.0
-        for vt_G, nt_G in zip(self.vt_sG, density.nt_sG):
+        for vt_G, nt_G in zip(self.vt_xG, density.nt_xG):
             ekin -= self.gd.integrate(vt_G, nt_G)
         ekin += self.gd.integrate(self.vt_sG, density.nct_G).sum()
         return ekin
@@ -1532,7 +1600,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
         dens.ghat.derivative(self.vHt_q, ghat_aLv)
         dens.nct.derivative(self.vt_Q, nct_av)
-        self.vbar.derivative(dens.nt_sQ.sum(0), vbar_av)
+        self.vbar.derivative(dens.nt_Q, vbar_av)
 
     def get_electrostatic_potential(self, dens):
         self.poisson.solve(self.vHt_q, dens)

@@ -82,20 +82,29 @@ class KPoint:
 
         self.eps_n = None
         self.f_n = None
-        self.P_ani = None
+        self.P = None
 
         # Only one of these two will be used:
-        self.psit_nG = None  # wave functions on 3D grid
-        self.C_nM = None     # LCAO coefficients for wave functions XXX
+        self.psit = None  # UniformGridMatrix/PWExpansionMatrix
+        self.C_nM = None  # LCAO coefficients for wave functions
 
+        # LCAO stuff:
         self.rho_MM = None
-
         self.S_MM = None
         self.T_MM = None
 
+    @property
+    def P_ani(self):
+        if self.P is not None:
+            return {a: P_ni for a, P_ni in self.P.items()}
+
+    @property
+    def psit_nG(self):
+        if self.psit is not None:
+            return self.psit.array
+
 
 class GlobalKPoint(KPoint):
-
     def update(self, wfs):
         """Distribute requested kpoint data across the kpoint communicator."""
 

@@ -13,18 +13,18 @@ from gpaw.wavefunctions.fd import FDWaveFunctions
 
 class TimeDependentHamiltonian:
     """Time-dependent Hamiltonian, H(t)
-    
+
     This class contains information required to apply time-dependent
     Hamiltonian to a wavefunction.
     """
-    
-    def __init__(self, wfs, atoms, hamiltonian, td_potential):
+
+    def __init__(self, wfs, spos_ac, hamiltonian, td_potential):
         """Create the TimeDependentHamiltonian-object.
-        
+
         The time-dependent potential object must (be None or) have a member
         function strength(self,time), which provides the strength of the
         time-dependent external potential to x-direction at the given time.
-        
+
         Parameters
         ----------
         wfs: FDWaveFunctions
@@ -39,7 +39,7 @@ class TimeDependentHamiltonian:
         self.hamiltonian = hamiltonian
         self.td_potential = td_potential
         self.time = self.old_time = 0
-        
+
         # internal smooth potential
         self.vt_sG = hamiltonian.gd.zeros(hamiltonian.nspins)
 
@@ -56,12 +56,12 @@ class TimeDependentHamiltonian:
 
         self.P = None
 
-        self.spos_ac = atoms.get_scaled_positions() % 1.0
+        self.spos_ac = spos_ac
         self.absorbing_boundary = None
-        
+
     def update(self, density, time):
         """Updates the time-dependent Hamiltonian.
-    
+
         Parameters
         ----------
         density: Density
@@ -74,11 +74,11 @@ class TimeDependentHamiltonian:
 
         self.old_time = self.time = time
         self.hamiltonian.update(density)
-        
+
     def half_update(self, density, time):
         """Updates the time-dependent Hamiltonian, in such a way, that a
         half of the old Hamiltonian is kept and the other half is updated.
-        
+
         Parameters
         ----------
         density: Density
@@ -88,7 +88,7 @@ class TimeDependentHamiltonian:
             the current time
 
         """
-        
+
         self.old_time = self.time
         self.time = time
 
@@ -109,7 +109,7 @@ class TimeDependentHamiltonian:
 
     def half_apply_local_potential(self, psit_nG, Htpsit_nG, s):
         """Apply the half-difference Hamiltonian operator to a set of vectors.
-        
+
         Parameters:
 
         psit_nG: ndarray
@@ -118,7 +118,7 @@ class TimeDependentHamiltonian:
             resulting H applied to psit_nG vectors.
         s: int
             spin index of k-point object defined in kpoint.py.
-        
+
         """
         # Does exactly the same as Hamiltonian.apply_local_potential
         # but uses the difference between vt_sG at time t and t+dt.
@@ -132,7 +132,7 @@ class TimeDependentHamiltonian:
     def half_apply(self, kpt, psit, hpsit, calculate_P_ani=True):
         """Applies the half-difference of the time-dependent Hamiltonian
         to the wavefunction psit of the k-point kpt.
-        
+
         Parameters
         ----------
         kpt: Kpoint
@@ -178,7 +178,7 @@ class TimeDependentHamiltonian:
     def apply(self, kpt, psit, hpsit, calculate_P_ani=True):
         """Applies the time-dependent Hamiltonian to the wavefunction psit of
         the k-point kpt.
-        
+
         Parameters
         ----------
         kpt: Kpoint
@@ -239,13 +239,13 @@ class TimeDependentHamiltonian:
                              0.5 * strength(self.old_time),
                              kpt)
 
-            
+
     def set_absorbing_boundary(self, absorbing_boundary):
         """ Sets up the absorbing boundary.
             Parameters:
             absorbing_boundary: absorbing boundary object of any kind.
         """
-        
+
         self.absorbing_boundary = absorbing_boundary
         self.absorbing_boundary.set_up(self.hamiltonian.gd)
         if self.absorbing_boundary.type == 'PML':
@@ -276,8 +276,8 @@ class TimeDependentHamiltonian:
         shape = psit_nG.shape[:-3]
         P_axi = wfs.pt.dict(shape)
         wfs.pt.integrate(psit_nG, P_axi, kpt.q)
-        
-            
+
+
         #Coefficients for calculating P \psi_n
         # P = -i sum_a v_a P^a, P^a = T^{\dagger} \nabla_{R_a} T
         w_ani = wfs.pt.dict(wfs.bd.mynbands, zero=True)
@@ -300,7 +300,7 @@ class TimeDependentHamiltonian:
                 pt_ni = np.dot(dpt_ni, dO_ii)
                 #pt_aniv[a] = np.dot(Dpt_ni, dO_ii)
                 w_ani[a] += (dphi_ni + pt_ni) * v_atom[a,c]
-                        
+
             w_ani[a] *= complex(0,1)
             #dO_ani[a] *= complex(0,1)
 
@@ -311,28 +311,28 @@ class TimeDependentHamiltonian:
 # AbsorptionKickHamiltonian
 class AbsorptionKickHamiltonian:
     """Absorption kick Hamiltonian, p.r
-    
+
     This class contains information required to apply absorption kick
     Hamiltonian to a wavefunction.
     """
-    
-    def __init__(self, wfs, atoms, strength=[0.0, 0.0, 1e-3]):
+
+    def __init__(self, wfs, spos_ac, strength=[0.0, 0.0, 1e-3]):
         """Create the AbsorptionKickHamiltonian-object.
 
         Parameters
         ----------
         wfs: FDWaveFunctions
             time-independent grid-based wavefunctions
-        atoms: Atoms
-            list of atoms
+        spos_ac: ndarray
+            scaled positions
         strength: float[3]
             strength of the delta field to different directions
 
         """
 
         self.wfs = wfs
-        self.spos_ac = atoms.get_scaled_positions() % 1.0
-        
+        self.spos_ac = spos_ac
+
         # magnitude
         magnitude = np.sqrt(strength[0]*strength[0]
                              + strength[1]*strength[1]
@@ -346,11 +346,11 @@ class AbsorptionKickHamiltonian:
 
         # hamiltonian
         self.abs_hamiltonian = np.array([self.dp[0], self.dp[1], self.dp[2]])
-        
+
 
     def update(self, density, time):
         """Dummy function = does nothing. Required to have correct interface.
-        
+
         Parameters
         ----------
         density: Density or None
@@ -360,10 +360,10 @@ class AbsorptionKickHamiltonian:
 
         """
         pass
-        
+
     def half_update(self, density, time):
         """Dummy function = does nothing. Required to have correct interface.
-        
+
         Parameters
         ----------
         density: Density or None
@@ -373,11 +373,11 @@ class AbsorptionKickHamiltonian:
 
         """
         pass
-        
+
     def apply(self, kpt, psit, hpsit, calculate_P_ani=True):
         """Applies the absorption kick Hamiltonian to the wavefunction psit of
         the k-point kpt.
-        
+
         Parameters
         ----------
         kpt: Kpoint
@@ -399,30 +399,30 @@ class AbsorptionKickHamiltonian:
         add_linear_field(self.wfs, self.spos_ac,
                          psit, hpsit,
                          self.abs_hamiltonian, kpt)
-        
+
 
 # Overlap
 class TimeDependentOverlap(Overlap):
     """Time-dependent overlap operator S(t)
-    
+
     This class contains information required to apply time-dependent
     overlap operator to a set of wavefunctions.
     """
-    
-    def __init__(self, ksl, timer):
+
+    def __init__(self, timer):
         """Creates the TimeDependentOverlap-object.
-        
+
         Parameters
         ----------
         XXX TODO
 
         """
-        Overlap.__init__(self, ksl, timer)
+        Overlap.__init__(self, timer)
 
     def update_k_point_projections(self, wfs, kpt, psit=None):
         """Updates the projector function overlap integrals
         with the wavefunctions of a given k-point.
-        
+
         Parameters
         ----------
         wfs: TimeDependentWaveFunctions
@@ -441,7 +441,7 @@ class TimeDependentOverlap(Overlap):
 
     def update(self, wfs):
         """Updates the time-dependent overlap operator.
-        
+
         Parameters
         ----------
         wfs: TimeDependentWaveFunctions
@@ -450,7 +450,7 @@ class TimeDependentOverlap(Overlap):
         """
         for kpt in wfs.kpt_u:
             self.update_k_point_projections(wfs, kpt)
-    
+
     def half_update(self, wfs):
         """Updates the time-dependent overlap operator, in such a way,
         that a half of the old overlap operator is kept and the other half
@@ -476,7 +476,7 @@ class TimeDependentOverlap(Overlap):
 
         # !!! FIX ME !!! update overlap operator/projectors/...
         pass
-    
+
     #def apply(self, psit, spsit, wfs, kpt, calculate_P_ani=True):
     #    """Apply the time-dependent overlap operator to the wavefunction
     #    psit of the k-point kpt.
@@ -503,7 +503,7 @@ class TimeDependentOverlap(Overlap):
     def apply_inverse(self, a_nG, b_nG, wfs, kpt, calculate_P_ani=True, use_cg=True):
         """Apply the approximative time-dependent inverse overlap operator
         to the wavefunction psit of the k-point kpt.
-    
+
         Parameters
         ----------
         a_nG: List of coarse grids
@@ -521,7 +521,7 @@ class TimeDependentOverlap(Overlap):
             When False, existing P_uni are used
         use_cg: bool
             When True, use conjugate gradient method to solve for inverse.
-    
+
         """
         if not use_cg:
             self.timer.start('Apply approximate inverse overlap')
@@ -586,15 +586,15 @@ class TimeDependentOverlap(Overlap):
             multi_scale(beta, p, nvec)
             p += z
 
-            self.apply(p,q,wfs,kpt, calculate_P_ani)
+            self.apply(p, q, wfs, kpt, calculate_P_ani)
 
             multi_zdotu(alpha, p, q, nvec)
-            alpha = rho/alpha
+            alpha = rho / alpha
 
             multi_zaxpy(alpha, p, x, nvec)
             multi_zaxpy(-alpha, q, r, nvec)
 
-            multi_zdotu(normr2, r,r, nvec)
+            multi_zdotu(normr2, r, r, nvec)
 
             #rhoc = rho.copy()
             rho_prev[:] = rho.copy()
@@ -609,22 +609,25 @@ class TimeDependentOverlap(Overlap):
 
 
 class TimeDependentWaveFunctions(FDWaveFunctions):
-    def __init__(self, stencil, diagksl, orthoksl, initksl, gd, nvalence, setups,
-                 bd, dtype, world, kd, kptband_comm, timer):
+    def __init__(self, stencil, parallel, initksl, gd, nvalence, collinear,
+                 setups, bd, dtype, world, kd, kptband_comm, timer):
         assert dtype == complex
-        FDWaveFunctions.__init__(self, stencil, diagksl, orthoksl, initksl,
-                                 gd, nvalence, setups, bd, dtype, world,
-                                 kd, kptband_comm, timer=timer)
+        FDWaveFunctions.__init__(self, stencil, parallel, initksl,
+                                 gd, nvalence,
+                                 setups, bd, dtype, world,
+                                 kd, kptband_comm,
+                                 collinear=collinear, timer=timer)
+        self.overlap = self.make_overlap()
 
     def make_overlap(self):
-        return TimeDependentOverlap(self.orthoksl, self.timer)
+        return TimeDependentOverlap(self.timer)
 
     def calculate_forces(self, hamiltonian, F_av):
         """ Calculate wavefunction forces with optional corrections for
             Ehrenfest dynamics
         """
 
-            
+
         #If td_correction is not none, we replace the overlap part of the
         #force, sum_n f_n eps_n < psit_n | dO / dR_a | psit_n>, with
         #sum_n f_n <psit_n | H S^-1 D^a + c.c. | psit_n >, with D^a
@@ -670,7 +673,7 @@ class TimeDependentWaveFunctions(FDWaveFunctions):
                 F_vii_sinvh_dpt = -np.dot(np.dot(FdH1_niv.transpose(), G_ni), dO_ii)
                 F_vii_sinvh_dphi = -np.dot(nabla_iiv.transpose(2,0,1), np.dot(fP_ni.conj().transpose(), G_ni))
                 F_vii += F_vii_sinvh_dpt + F_vii_sinvh_dphi
-                                    
+
                 #F_av_dO[a] += 2 * F_vii_dO.real.trace(0,1,2)
                 #F_av_dH[a] += 2 * F_vii_dH.real.trace(0,1,2)
                 F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
@@ -727,14 +730,14 @@ class DummyDensity:
 # Density
 class TimeDependentDensity(DummyDensity):
     """Time-dependent density rho(t)
-    
+
     This class contains information required to get the time-dependent
     density.
     """
-    
+
     def __init__(self, paw):
         """Creates the TimeDependentDensity-object.
-        
+
         Parameters
         ----------
         paw: PAW
@@ -745,7 +748,7 @@ class TimeDependentDensity(DummyDensity):
 
     def update(self):
         """Updates the time-dependent density.
-        
+
         Parameters
         ----------
         None
@@ -754,10 +757,10 @@ class TimeDependentDensity(DummyDensity):
         #for kpt in self.wfs.kpt_u:
         #    self.wfs.pt.integrate(kpt.psit_nG, kpt.P_ani)
         self.density.update(self.wfs)
-       
+
     def get_density(self):
         """Returns the current density.
-        
+
         Parameters
         ----------
         None
@@ -768,9 +771,9 @@ class TimeDependentDensity(DummyDensity):
 
 def add_linear_field(wfs, spos_ac, a_nG, b_nG, strength, kpt):
     """Adds (does NOT apply) linear field.
-    
+
     ::
-        
+
         f(x,y,z) = str_x * x + str_y * y + str_z * z to wavefunctions.
 
     Parameters:

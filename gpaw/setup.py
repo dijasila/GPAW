@@ -12,6 +12,7 @@ from ase.utils import basestring, StringIO
 
 from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
+from gpaw.overlap import OverlapCorrections
 from gpaw.gaunt import gaunt, nabla
 from gpaw.utilities import unpack, pack
 from gpaw.utilities.ekin import ekin, dekindecut
@@ -111,6 +112,20 @@ class BaseSetup:
 
     def get_basis_description(self):
         return self.basis.get_description()
+
+    def get_actual_atomic_orbitals(self):
+        """Get those states phit that represent a real atomic state.
+
+        This typically corresponds to the (truncated) partial waves (PAW) or
+        a single-zeta basis."""
+        phit_j = []
+        # The zip may cut off part of phit_j if there are more states than
+        # projectors.  This should be the correct behaviour for all the
+        # currently supported PAW/pseudopotentials.
+        for n, phit in zip(self.n_j, self.phit_j):
+            if n > 0:
+                phit_j.append(phit)
+        return phit_j
 
     def calculate_initial_occupation_numbers(self, magmom, hund, charge,
                                              nspins, f_j=None):
@@ -1249,6 +1264,8 @@ class Setups(list):
             self.nvalence += n * setup.Nv
             self.nao += n * setup.nao
 
+        self.dS = OverlapCorrections(self)
+
     def __str__(self):
         # Write PAW setup information in order of appearance:
         ids = set()
@@ -1279,10 +1296,10 @@ class Setups(list):
         for setup in self.setups.values():
             setup.calculate_rotations(R_slmm)
 
-    def empty_atomic_matrix(self, ns, atom_partition):
+    def empty_atomic_matrix(self, ns, atom_partition, dtype=float):
         Dshapes_a = [(ns, setup.ni * (setup.ni + 1) // 2)
                      for setup in self]
-        return atom_partition.arraydict(Dshapes_a)
+        return atom_partition.arraydict(Dshapes_a, dtype)
 
     def estimate_dedecut(self, ecut):
         dedecut = 0.0

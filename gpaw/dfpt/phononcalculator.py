@@ -164,13 +164,8 @@ class PhononCalculator:
 
     def initialize(self):
         """Initialize response calculator and perturbation."""
-
-        # Get scaled atomic positions
-        spos_ac = self.atoms.get_scaled_positions()
-
-        self.perturbation.initialize(spos_ac)
-        self.response_calc.initialize(spos_ac)
-
+        self.perturbation.initialize(self.calc.spos_ac)
+        self.response_calc.initialize(self.calc.spos_ac)
         self.initialized = True
 
     def __getstate__(self):

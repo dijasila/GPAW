@@ -5,7 +5,6 @@ from ase.units import Bohr
 
 
 class Wannier90:
-    
     def __init__(self, calc, seed=None, bands=None, orbitals_ai=None,
                  spin=0):
 
@@ -81,7 +80,7 @@ def write_input(calc,
 
     f = open(seed + '.win', 'w')
 
-    pos_ac = calc.atoms.get_scaled_positions()
+    pos_ac = calc.spos_ac
 
     print('begin projections', file=f)
     for ia, orbitals_i in enumerate(orbitals_ai):

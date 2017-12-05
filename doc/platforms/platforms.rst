@@ -49,6 +49,7 @@ MacOSX:
    :maxdepth: 1
 
    MacOSX/homebrew
+   MacOSX/anaconda
 
 AIX:
 
