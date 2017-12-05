@@ -90,7 +90,6 @@ class QNA(GGA):
         # Values too close to zero can cause numerical problems especially with
         # forces (some parts of the mu and beta field can become negative)
         g_g[ np.where( g_g < l_lim ) ] = l_lim
-
         spline = Spline(l=0, rmax=rcut, f_g=g_g)
         spline_j = [[ spline ]] * len(self.atoms)
         self.Pa = LFC(gd, spline_j)
@@ -130,7 +129,7 @@ class QNA(GGA):
         v_sg = self.gd.zeros(nspins)
         e_g = self.gd.empty()
 
-        self.qna_kernel_calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
 
         def integrate(a1_g, a2_g=None):
             return self.gd.integrate(a1_g, a2_g, global_integral=False)
