@@ -1579,7 +1579,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         for a in density.D_asp:
             W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
         if self.vext:
-            vext_q = self.vext.get_potential(gd, self.pd3)
+            vext_q = self.vext.get_potential(self.finegd, self.pd3)
             density.ghat.integrate(self.vHt_q+vext_q, W_aL)
         else:
             density.ghat.integrate(self.vHt_q, W_aL)
@@ -1609,7 +1609,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
         if self.vext:
-            vext_q = self.vext.get_potential(gd, self.pd3)
+            vext_q = self.vext.get_potential(self.finegd, self.pd3)
             dens.ghat.derivative(self.vHt_q+vext_q, ghat_aLv)
         else:
             dens.ghat.derivative(self.vHt_q, ghat_aLv)
