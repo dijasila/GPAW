@@ -214,7 +214,7 @@ class GPAW(PAW, Calculator):
         self.log.print_dict(dct)
         self.log()
 
-        self.initialize(reading=True, atoms=self.atoms)
+        self.initialize(reading=True)
 
         self.density.read(reader)
         self.hamiltonian.read(reader)
