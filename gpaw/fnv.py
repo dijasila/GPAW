@@ -1,149 +1,175 @@
 import numpy as np
-from ase import Atoms
+from scipy.interpolate import interp1d
 # from ase.lattice import bulk
-from ase.units import Bohr, Hartree
-
-from gpaw import GPAW
-from gpaw.wavefunctions.pw import PW
-
-cs = '224'
-
-pristine = np.loadtxt('GaAs.' + cs + '.pristine.V_av.dat')
-defective = np.loadtxt('GaAs.' + cs + '.Ga_vac.V_av.dat')
-model = np.loadtxt('GaAs.' + cs + '.model.V_av.dat')
-diff1 = defective[:, 1] - pristine[:, 1]
-dV = model[:, 1] - diff1
-print '# z model-defective+pristine defective-pristine'
-for z, V, diff in zip(pristine[:, 0], dV, diff1):
-    s = str(z) + ' ' + str(V) + ' ' + str(diff)
-    print(s)
+from ase.units import Bohr, Hartree as Ha
+from gpaw import GPAW, PW
+# from gpaw.wavefunctions.pw import PW
 
 
-cx = 2
-cy = 2
-cz = 4
-a = 5.628
+class FNV:
+    def __init__(self, pristine, defect, q, FWHM, model='gaussian',
+                 shift=None):
+        if isinstance(pristine, str):
+            pristine = GPAW(pristine, txt=None)
+        if isinstance(defect, str):
+            defect = GPAW(defect, txt=None)
+        calc = GPAW(mode=PW(500),
+                    kpts={'size': (1, 1, 1),
+                          'gamma': True},
+                    dtype=complex,
+                    symmetry='off')
+        atoms = pristine.atoms.copy()
+        calc.initialize(atoms)
+        self.pristine = pristine
+        self.defect = defect
+        self.calc = calc
+        self.q = q
+        self.FWHM = FWHM
+        self.sigma = self.FWHM / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+        self.model = model
+        self.pd = self.calc.wfs.pd
+        if shift is not None:
+            shift = shift / Bohr
+        self.shift = shift
+        self.G_Gv = self.pd.get_reciprocal_vectors(q=0,
+                                                   add_q=False)  # G in Bohr^-1
+        self.G2_G = self.pd.G2_qG[0]  # |\vec{G}|^2 in Bohr^-2
+        if model == 'gaussian':
+            self.rho_G = self.calculate_gaussian_density()
+        self.Omega = atoms.get_volume() / (Bohr ** 3.0)  # Cubic Bohr
+        self.data = None
+        self.El = None
 
-lattice = np.array([[a, 0.0, 0.0],
-                    [0.0, a, 0.0],
-                    [0.0, 0.0, a]])
+    def calculate_potentials(self, epsilon):
+        if self.data is not None and self.data['epsilon'] == epsilon:
+            return self.data
+        r_3xyz = self.pristine.density.gd.refine().get_grid_point_coordinates()
+        nrz = np.shape(r_3xyz)[3]
+        z = (1.0 * r_3xyz[2].flatten())[:nrz]
+        V_0 = - self.pristine.get_electrostatic_potential().mean(0).mean(0)
+        V_X = - self.defect.get_electrostatic_potential().mean(0).mean(0)
+        np.shape(V_X)
+        np.shape(V_0)
+        z_model, V_model = self.calculate_z_avg_model_potential(epsilon)
+        print(z_model)
+        print(z)
+        print(V_model)
+        V_model = interp1d(z_model, V_model, kind='cubic')(z)
+        np.shape(V_model)
+        data = {'epsilon': epsilon,
+                'z': z,
+                'V_0': V_0,
+                'V_X': V_X,
+                'V_model': V_model,
+                'D_V': V_model - V_X + V_0}
+        self.data = data
+        return data
 
-basiccell = Atoms(symbols='H',
-                  scaled_positions=[[0.0, 0.0, 0.0]],
-                  cell=lattice,
-                  pbc=[1, 1, 1])
+    def average(self, z, V):
+        N = len(V)
+        shift = self.shift
+        if shift is not None:
+            z_shift = shift[2]
+            crossover = np.where(z_shift < z)[0][0]
+            new_indices = np.arange(crossover, crossover + N) % N
+            V = V[new_indices]
+        middle = N // 2
+        points = range(middle - N // 8, middle + N // 8 + 1)
+        restricted = V[points]
+        V_mean = np.mean(restricted)
+        print(V_mean)
+        return V_mean
 
-# basiccell = bulk('SiC', 'zincblende', a=4.36)
+    def calculate_formation_energies(self, epsilon):
+        E_0 = self.pristine.get_potential_energy()
+        E_X = self.defect.get_potential_energy()
+        El = self.calculate_lattice_electrostatics(epsilon)
+        data = self.calculate_potentials(epsilon)
+        Delta_V = self.average(data['z'], data['D_V'])
+        return (E_X - E_0, E_X - E_0 - El + Delta_V * self.q)
 
-supercell_size = (cx, cy, cz)
-unitcell = basiccell.repeat(supercell_size)
+    def calculate_gaussian_density(self):
+        # Fourier transformed gaussian:
+        if self.shift is not None:
+            phase = np.exp(1j * (self.G_Gv * self.shift).sum(axis=1))
+        else:
+            phase = 1
+        rho_G = self.q * np.exp(-0.5 * self.G2_G * self.sigma * self.sigma)
+        return rho_G * phase
 
-calc = GPAW(mode=PW(20 * Hartree),
-            kpts={'size': (1, 1, 1),
-                  'gamma': True},
-            dtype=complex,
-            symmetry='off')
-calc.initialize(unitcell)
+    def calculate_lattice_electrostatics(self, epsilon):
+        if self.El is not None and self.El['epsilon'] == epsilon:
+            return self.El['El']
+        Elp = 0.0
+        for rho, G2 in zip(self.rho_G, self.G2_G):
+            if np.isclose(G2, 0.0):
+                print('Skipping G^2=0 contribution to Elp')
+                continue
+            Elp += 2.0 * np.pi / (epsilon * self.Omega) * rho * rho / G2
+        El = (Elp - q * q / (2 * epsilon * self.sigma * np.sqrt(np.pi))) * Ha
+        self.El = {'El': El, 'epsilon': epsilon}
+        return El
 
-G_Gv = calc.wfs.pd.get_reciprocal_vectors(q=0,
-                                          add_q=False)  # \vec{G} in Bohr^-1
-G2_G = calc.wfs.pd.G2_qG[0]  # |\vec{G}|^2 # In Bohr^-2
+    def calculate_z_avg_model_potential(self, epsilon):
+        r_3xyz = self.calc.density.gd.refine().get_grid_point_coordinates()
 
-nG = len(G2_G)
+        nrz = np.shape(r_3xyz)[3]
 
-# Gaussian
-# rho_r = q  * (2 \pi sigma^2)^-1.5 * exp(-0.5*r^2/sigma^2)
-# If r = sigma * \sqrt(2 ln 2), rho_r = 0.5 * rho_0
-# i.e. FWHM = 2 * sigma * \sqrt(2 ln 2)
-# sigma = FWHM / ( 2 \sqrt(2 ln 2))
+        cell = self.calc.atoms.get_cell()
+        vox3 = cell[2, :] / Bohr / nrz
 
-q = -3.0  # charge in units of electron charge
-FWHM = 2.0  # in Bohr
-sigma = FWHM / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+        # The grid is arranged with z increasing fastest, then y
+        # then x (like a cube file)
+        z_g = 1.0 * r_3xyz[2].flatten()
 
-epsilon = 12.7  # dielectric medium
+        selectedG = []
+        for iG, G in enumerate(self.G_Gv):
+            if np.isclose(G[0], 0.0) and np.isclose(G[1], 0.0):
+                selectedG.append(iG)
 
-rho_G = q * np.exp(-0.5*G2_G*sigma*sigma)  # Fourier transform of Gaussian
+        assert(np.isclose(self.G2_G[selectedG[0]], 0.0))
+        selectedG.pop(0)
+        zs = []
+        Vs = []
+        for idx in np.arange(nrz):
+            phase_G = np.exp(1j * (self.G_Gv[selectedG, 2] * z_g[idx]))
+            V = (np.sum(phase_G * self.rho_G[selectedG]
+                        / (self.G2_G[selectedG]))
+                 * Ha * 4.0 * np.pi / (epsilon * self.Omega))
+            # s = (str(z_g[idx]) + ' '
+            #      + str(np.real(V)) + ' ' + str(np.imag(V)) + '\n')
+            zs.append(z_g[idx])
+            Vs.append(V)
 
-Omega = unitcell.get_volume() / (Bohr ** 3.0)  # Cubic Bohr
-
-Elp = 0.0
-
-for rho, G2 in zip(rho_G, G2_G):
-    if np.isclose(G2, 0.0):
-        print('Hi!')
-        continue
-    Elp += 2.0 * np.pi / (epsilon * Omega) * rho * rho / G2
-
-El = Elp - q * q / (2 * epsilon * sigma * np.sqrt(np.pi))
-print(El*Hartree)
-
-# r[:,ix,iy,iz] gives point ix iy iz in Bohr
-r_3xyz = calc.density.gd.refine().get_grid_point_coordinates()
-
-nrx = np.shape(r_3xyz)[1]
-nry = np.shape(r_3xyz)[2]
-nrz = np.shape(r_3xyz)[3]
-
-nx = nrx * nry * nrz
+        V = (np.sum(self.rho_G[selectedG] / (self.G2_G[selectedG]))
+             * Ha * 4.0 * np.pi / (epsilon * self.Omega))
+        zs.append(vox3[2] * nrz)
+        Vs.append(V)
+        return np.array(zs), np.array(Vs)
 
 
-cellall = unitcell.get_cell()  # Voxels for cube file
-vox1 = cellall[0, :] / Bohr / nrx
-vox2 = cellall[1, :] / Bohr / nry
-vox3 = cellall[2, :] / Bohr / nrz
+if __name__ == '__main__':
+    FWHM = 2.0
+    q = -3
+    epsilon = 12.7
+    formation_energies = []
+    repeats = [1, 2, 3, 4]
+    for repeat in repeats:
+        pristine = 'GaAs{0}{0}{0}.pristine.gpw'.format(repeat)
+        defect = 'GaAs{0}{0}{0}.Ga_vac.gpw'.format(repeat)
+        fnv = FNV(pristine=pristine,
+                  defect=defect,
+                  q=q,
+                  FWHM=FWHM)
+        electrostatic_data = fnv.calculate_potentials(epsilon)
+        formation_energies.append(fnv.calculate_formation_energies(epsilon))
+        np.savez('electrostatic_data_{0}{0}{0}.npz'.format(repeat),
+                 **electrostatic_data)
 
-# This way uses that the grid is arranged with z increasing fastest, then y
-# then x (like a cube file)
-x_g = 1.0 * r_3xyz[0].flatten()
-y_g = 1.0 * r_3xyz[1].flatten()
-z_g = 1.0 * r_3xyz[2].flatten()
-
-selectedG = []
-for iG, G in enumerate(G_Gv):  # Only need (0, 0, Gz) G vectors for z average
-    if np.isclose(G[0], 0.0) and np.isclose(G[1], 0.0):
-        selectedG.append(iG)
-
-potential = True
-zread = True
-if potential:
-    if zread:
-        z_g = np.loadtxt('input_z.'+str(cx)+str(cy)+str(cz)+'.dat')
-        nrz = len(z_g)
-#   Then the potential
-#   Set the V(G=0) term to zero:
-    assert(np.isclose(G2_G[selectedG[0]], 0.0))
-    selectedG.pop(0)
-
-    outfilepotential = open('potential.zav.model.dat', 'w')
-    for ix in np.arange(nrz):
-        phase_G = np.exp(1j * (G_Gv[selectedG, 2] * z_g[ix]))
-        V = (np.sum(phase_G * rho_G[selectedG] / (G2_G[selectedG]))
-             * Hartree * 4.0 * np.pi / (epsilon * Omega))
-        s = str(z_g[ix]) + ' ' + str(np.real(V)) + ' ' + str(np.imag(V)) + '\n'
-        outfilepotential.write(s)
-
-    # Add the periodic repeat of the zero term again (helps for integration)
-    if not zread:
-        V = (np.sum(rho_G[selectedG]/(G2_G[selectedG]))
-             * Hartree * 4.0 * np.pi / (epsilon * Omega))
-        s = (str(vox3[2] * nrz) + ' '
-             + str(np.real(V)) + ' '
-             + str(np.imag(V)) + '\n')
-        outfilepotential.write(s)
-
-calc = GPAW('../cell_224/GaAs.Ga_vac.gpw', txt=None)
-# calc = GPAW('../cell_224/GaAs.pristine.gpw', txt=None)
-calc.restore_state()
-v = (-1.0) * calc.hamiltonian.vHt_g * Hartree  # eV; potential energy = qV
-
-v_z = v.mean(0).mean(0)
-z_z = np.linspace(0, calc.atoms.cell[2, 2], len(v_z) + 1, endpoint=True)
-
-for iv in np.arange(len(v_z)):
-    z = z_z[iv]
-    v = v_z[iv]
-    print(str(z/Bohr) + ' ' + str(v))
-
-# Last point
-print(str(z_z[-1]/Bohr) + ' ' + str(v_z[0]))
+    formation_energies = np.array(formation_energies)
+    uncorrected = formation_energies[:, 0]
+    corrected = formation_energies[:, 1]
+    np.savez('formation_energies.npz',
+             repeats=np.array(repeats),
+             corrected=corrected,
+             uncorrected=uncorrected)
