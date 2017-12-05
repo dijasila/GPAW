@@ -42,4 +42,5 @@ parprint('Analytical force = ',F)
 parprint('Numerical  force = ',F_num)
 parprint('Difference       = ',F_err)
 assert abs(F_err) < 1.5e-3
-assert abs(E[-1]-270.179014) < 2e-6
+print("Energy error:", E[-1]--270.179014)
+assert abs(E[-1]-270.179014) < 2e-5
