@@ -2,7 +2,6 @@ from gpaw.xc.gga import PurePythonGGAKernel, GGA
 import numpy as np
 from gpaw.lfc import LFC
 from gpaw.spline import Spline
-from gpaw.xc.gga import calculate_sigma
 
 class QNAKernel:
     def __init__(self, qna):
