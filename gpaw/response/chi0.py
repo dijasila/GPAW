@@ -598,8 +598,7 @@ class Chi0:
         # Only compute the intraband response if there are partially
         # unoccupied bands and only if the user has not disabled its
         # calculation using the include_intraband keyword.
-        if optical_limit and (self.nocc1 != self.nocc2 and
-                              self.include_intraband):
+        if optical_limit and self.nocc1 != self.nocc2:
             # The intraband response is essentially just the calculation
             # of the free space Drude plasma frequency. The calculation is
             # similarly to the interband transitions documented above.
@@ -637,7 +636,7 @@ class Chi0:
 
             # Again, not so pretty but that's how it is
             plasmafreq_vv = plasmafreq_wvv[0].copy()
-            if self.blockcomm.rank == 0:
+            if self.blockcomm.rank == 0 and self.include_intraband:
                 if extend_head:
                     A_wxx[:, :3, :3] += (plasmafreq_vv[np.newaxis] /
                                          (self.omega_w[:, np.newaxis,
