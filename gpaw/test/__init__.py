@@ -267,7 +267,7 @@ tests = [
     'ralda/ralda_energy_N2.py',             # ~10s
     'parallel/lcao_complicated.py',         # ~10s
     'generic/bulk.py',                      # ~10s
-    #'sic/scfsic_h2.py',                     # ~10s
+    'sic/scfsic_h2.py',                     # ~10s
     'lcao/bulk.py',                         # ~11s
     'reuse_wfs.py',                         # ~11s
     'generic/2Al.py',                       # ~11s
@@ -345,7 +345,7 @@ tests = [
     'parallel/diamond_gllb.py',             # ~59s
     'beef.py',
     'response/chi0.py',                     # ~71s
-    #'sic/scfsic_n2.py',                     # ~73s
+    'sic/scfsic_n2.py',                     # ~73s
     'lrtddft/3.py',                         # ~75s
     'pathological/nonlocalset.py',          # ~82s
     'response/gw0_hBN.py',                  # ~82s
