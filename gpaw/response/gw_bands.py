@@ -15,11 +15,12 @@ class GWBands:
 
     def __init__(self,
                  calc=None,
+                 comm=None,
                  gw_file=None,
                  kpoints=None,
                  bandrange=None):
 
-            self.calc = GPAW(calc, txt=None)
+            self.calc = GPAW(calc, communicator=comm, txt=None)
             if gw_file is not None:
                 self.gw_file = pickle.load(open(gw_file, 'rb'),encoding='bytes')
             self.kpoints = kpoints
@@ -126,24 +127,24 @@ class GWBands:
         """Gets the spinorbit corrections to the eigenvalues"""
         calc = self.calc
         bandrange = self.bandrange
-        print(bandrange[0])
+
         if not dft:
-            e_kn = self.gw_file['qp'][0]
-            print('Shape')
-            print(e_kn[:, bandrange[0]:bandrange[-1]].shape)
+            try:
+                e_kn = self.gw_file['qp'][0]
+            except:
+                e_kn = self.gw_file[b'qp'][0]
         else:
             if eig_file is not None:
                 e_kn = pickle.load(open(eig_file))[0]
             else:
-                e_kn = self.get_dft_eigenvalues()
+                e_kn = self.get_dft_eigenvalues()[:,bandrange[0]:bandrange[-1]]
 
         eSO_nk, s_nk, v_knm = get_spinorbit_eigenvalues(
             calc,
             return_spin=return_spin, return_wfs=return_wfs,
-            bands=range(bandrange[0], bandrange[-1]),
-            gw_kn=e_kn[:, :bandrange[-1] - bandrange[0]])
+            bands=range(bandrange[0], bandrange[-1]+1),
+            gw_kn=e_kn)
 
-        # eSO_kn = np.sort(e_skn,axis=2)
         e_kn = eSO_nk.T
         return e_kn, v_knm
 
@@ -171,7 +172,10 @@ class GWBands:
             e_kn = pickle.load(open(eig_file))[0]
         else:
             if not dft:
-                e_kn = self.gw_file['qp'][0]
+                try:
+                    e_kn = self.gw_file['qp'][0]
+                except:
+                    e_kn = self.gw_file[b'qp'][0]
             else:
                 e_kn = self.get_dft_eigenvalues()
         e_kn = np.sort(e_kn, axis=1)
@@ -193,19 +197,18 @@ class GWBands:
                 eGW_kn[ik, n] = e_kn[ibzkpt, n]
 
         N_occ = (eGW_kn[0] < ef).sum()
+        print(N_occ, bandrange[0])
         # N_occ = int(self.calc.get_number_of_electrons()/2)
         print(' ')
-        print('The number of Occupied bands is:', N_occ + bandrange[0])
+        if SO:
+            print('The number of Occupied bands is:', N_occ + 2.*bandrange[0])
+        else:
+            print('The number of Occupied bands is:', N_occ + bandrange[0])
         gap = (eGW_kn[:, N_occ].min() - eGW_kn[:, N_occ - 1].max())
         print('The bandgap is: %f' % gap)
-        print('The valence band is at k=', x_x[eGW_kn[:, N_occ - 1].argmax()])
-        print('The conduction band is at k=', x_x[eGW_kn[:, N_occ].argmin()])
+
         vbm = eGW_kn[:, N_occ - 1].max() - evac
-        #  eGW_kn[abs(x_x-X[2]).argmin(),N_occ-1] - evac
         cbm = eGW_kn[:, N_occ].min() - evac
-        # eGW_kn[abs(x_x-X[2]).argmin(),N_occ] - evac
-        print('The valence band at K is=', vbm)
-        print('The conduction band at K is=', cbm)
 
         if interpolate:
             xfit_k = np.linspace(x_x[0], x_x[-1], nk_Int)
@@ -224,13 +227,8 @@ class GWBands:
                        'gap': gap,
                        'vbm': vbm,
                        'cbm': cbm}
-            if not SO:
-                return results
-            else:
-                print('At the moment I cannot return the interpolated '
-                      'wavefuctions with SO=True, so be happy with what you '
-                      'got!')
-                return results
+
+            return results
         else:
             results = {'x_k': x_x,
                        'X': X,
@@ -240,8 +238,5 @@ class GWBands:
                        'gap': gap,
                        'vbm': vbm,
                        'cbm': cbm}
-            if not SO:
-                return results
-            else:
-                results.update({'v_knm': 3})
-                return results
+            return results
+
