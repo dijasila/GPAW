@@ -3,7 +3,7 @@ import numpy as np
 from gpaw.io import Reader
 from gpaw.io import Writer
 
-from gpaw.lcaotddft.frequency import FoldedFrequencies
+from gpaw.tddft.folding import FoldedFrequencies
 from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import read_wuMM
