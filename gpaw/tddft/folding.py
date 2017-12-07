@@ -60,9 +60,16 @@ class Folding(object):
         if self.folding not in [None, 'Gauss', 'Lorentz']:
             raise RuntimeError('Unknown folding: %s' % self.folding)
 
+        if self.folding is None:
+            self.fwhm = 0.0
+        elif self.folding == 'Gauss':
+            self.fwhm = self.width * (2. * np.sqrt(2. * np.log(2.0)))
+        elif self.folding == 'Lorentz':
+            self.fwhm = 2. * self.width
+
     def envelope(self, time):
         if self.folding is None:
-            return 1.0
+            return 0 * time + 1
         elif self.folding == 'Gauss':
             return np.exp(- 0.5 * self.width**2 * time**2)
         elif self.folding == 'Lorentz':
