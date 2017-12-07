@@ -3,7 +3,7 @@ import numpy as np
 from gpaw.io import Reader
 from gpaw.io import Writer
 
-from gpaw.lcaotddft.frequency import Frequency
+from gpaw.lcaotddft.frequency import FoldedFrequencies
 from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import read_wuMM
@@ -43,9 +43,10 @@ class FrequencyDensityMatrix(TDDFTObserver):
             return
 
         self.time = paw.time
-        if isinstance(frequencies, Frequency):
+        if isinstance(frequencies, FoldedFrequencies):
             frequencies = [frequencies]
-        self.frequency_w = frequencies
+        self.foldedfreqs_f = frequencies
+        self.Nw = np.sum([len(ff.frequencies) for ff in self.foldedfreqs_f])
 
     def initialize(self):
         if self.has_initialized:
@@ -61,7 +62,7 @@ class FrequencyDensityMatrix(TDDFTObserver):
             self.rho0_uMM.append(self.dmat.zeros(self.rho0_dtype))
         self.FReDrho_wuMM = []
         self.FImDrho_wuMM = []
-        for freq in self.frequency_w:
+        for w in range(self.Nw):
             self.FReDrho_wuMM.append([])
             self.FImDrho_wuMM.append([])
             for kpt in self.wfs.kpt_u:
@@ -93,20 +94,20 @@ class FrequencyDensityMatrix(TDDFTObserver):
         time_step = paw.time - self.time
         self.time = paw.time
 
+        # Complex exponentials with envelope
         exp_w = []
-        for w, freq in enumerate(self.frequency_w):
-            # Complex exponential with envelope
-            exp = (np.exp(1.0j * freq.frequency * self.time) *
-                   freq.folding.envelope(self.time) * time_step)
-            exp_w.append(exp)
+        for ff in self.foldedfreqs_f:
+            exp_i = (np.exp(1.0j * ff.frequencies * self.time) *
+                     ff.folding.envelope(self.time) * time_step)
+            exp_w.extend(exp_i.tolist())
 
-        rho_uMM = self.dmat.get_density_matrix(paw.niter)
+        rho_uMM = self.dmat.get_density_matrix((paw.niter, paw.action))
         for u, kpt in enumerate(self.wfs.kpt_u):
             Drho_MM = rho_uMM[u] - self.rho0_uMM[u]
-            for w, freq in enumerate(self.frequency_w):
+            for w, exp in enumerate(exp_w):
                 # Update Fourier transforms
-                self.FReDrho_wuMM[w][u] += Drho_MM.real * exp_w[w]
-                self.FImDrho_wuMM[w][u] += Drho_MM.imag * exp_w[w]
+                self.FReDrho_wuMM[w][u] += Drho_MM.real * exp
+                self.FImDrho_wuMM[w][u] += Drho_MM.imag * exp
 
     def write_restart(self):
         if self.restart_filename is None:
@@ -119,10 +120,10 @@ class FrequencyDensityMatrix(TDDFTObserver):
                         tag=self.__class__.ulmtag)
         writer.write(version=self.__class__.version)
         writer.write(time=self.time)
-        writer.write(frequency_w=[f.todict() for f in self.frequency_w])
+        writer.write(foldedfreqs_f=[ff.todict() for ff in self.foldedfreqs_f])
         wfs = self.wfs
         write_uMM(wfs, writer, 'rho0_skMM', self.rho0_uMM)
-        wlist = range(len(self.frequency_w))
+        wlist = range(self.Nw)
         write_wuMM(wfs, writer, 'FReDrho_wskMM', self.FReDrho_wuMM, wlist)
         write_wuMM(wfs, writer, 'FImDrho_wskMM', self.FImDrho_wuMM, wlist)
         writer.close()
@@ -136,11 +137,13 @@ class FrequencyDensityMatrix(TDDFTObserver):
         if version != self.__class__.version:
             raise RuntimeError('Unknown version %s' % version)
         self.time = reader.time
-        self.frequency_w = [Frequency(**f) for f in reader.frequency_w]
+        self.foldedfreqs_f = [FoldedFrequencies(**ff)
+                              for ff in reader.foldedfreqs_f]
+        self.Nw = np.sum([len(ff.frequencies) for ff in self.foldedfreqs_f])
         wfs = self.wfs
         self.rho0_uMM = read_uMM(wfs, reader, 'rho0_skMM')
         self.rho0_dtype = self.rho0_uMM[0].dtype
-        wlist = range(len(self.frequency_w))
+        wlist = range(self.Nw)
         self.FReDrho_wuMM = read_wuMM(wfs, reader, 'FReDrho_wskMM', wlist)
         self.FImDrho_wuMM = read_wuMM(wfs, reader, 'FImDrho_wskMM', wlist)
         reader.close()

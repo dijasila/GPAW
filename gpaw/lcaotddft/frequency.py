@@ -8,9 +8,8 @@ def frequencies(frequencies, foldings, widths, units='eV'):
     f_w = []
     for folding in np.array([foldings]).ravel():
         for width in np.array([widths]).ravel():
-            folding = Folding(folding, width)
-            for freq in np.array([frequencies]).ravel():
-                f_w.append(Frequency(freq, folding, units))
+            folding = Folding(folding, width, units)
+            f_w.append(FoldedFrequencies(frequencies, folding, units))
     return f_w
 
 
@@ -22,9 +21,10 @@ def convert_to_au(val, units='eV'):
     raise RuntimeError('Unknown units: %s' % units)
 
 
-class Frequency(object):
-    def __init__(self, frequency, folding, units='eV'):
-        self.frequency = convert_to_au(float(frequency), units=units)
+class FoldedFrequencies(object):
+    def __init__(self, frequencies, folding, units='eV'):
+        freqs = np.array([frequencies], dtype=float).ravel()
+        self.frequencies = convert_to_au(freqs, units=units)
         if isinstance(folding, dict):
             self.folding = Folding(**folding)
         else:
@@ -32,7 +32,7 @@ class Frequency(object):
 
     def todict(self):
         d = dict(units='au')
-        for arg in ['frequency', 'folding']:
+        for arg in ['frequencies', 'folding']:
             val = getattr(self, arg)
             if hasattr(val, 'todict'):
                 val = val.todict()
@@ -40,7 +40,10 @@ class Frequency(object):
         return d
 
     def __repr__(self):
-        return '%.5f eV w %s' % (self.frequency * au_to_eV, self.folding)
+        s = 'With %s: ' % self.folding
+        s += ', '.join(['%.5f' % (f * au_to_eV) for f in self.frequencies])
+        s += ' eV'
+        return s
 
 
 class Folding(object):
