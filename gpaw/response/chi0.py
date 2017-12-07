@@ -648,7 +648,11 @@ class Chi0:
                                         self.rate * 1j)**2)
 
             # Save the plasmafrequency
-            self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv * prefactor
+            try:
+                self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv * prefactor
+            except AttributeError:
+                self.plasmafreq_vv = 4 * np.pi * plasmafreq_vv * prefactor
+
             PWSA.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
             print('Plasma frequency:', file=self.fd)
             print((self.plasmafreq_vv**0.5 * Hartree).round(2),
@@ -883,7 +887,10 @@ class Chi0:
         if self.integrationmode is None:
             f_n = kpt1.f_n
             width = self.calc.occupations.width
-            dfde_n = - 1. / width * (f_n - f_n**2.0)
+            if width > 1e-15:
+                dfde_n = - 1. / width * (f_n - f_n**2.0)
+            else:
+                dfde_n = np.zeros_like(f_n)
             vel_nv *= np.sqrt(-dfde_n[:, np.newaxis])
             weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
                              symmetry.how_many_symmetries())
