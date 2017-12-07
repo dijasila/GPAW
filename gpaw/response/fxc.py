@@ -12,14 +12,14 @@ from ase.utils.timing import Timer
 from ase.units import Bohr, Ha
 
 
-def get_xc_spin_kernel(pd, chi0, functional='ALDA_X', sigma_cut=None, density_cut=None):
+def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', sigma_cut=None, density_cut=None):
     """ XC kernels for (collinear) spin polarized calculations
-    Currently only spin-response kernels are implemented
+    Currently only spin-response kernels are implemented and only with ALDA
     
     sigma_cut: float
         cutoff spin density difference below which f_xc is evaluated in unpolarized limit (to make sure divergent terms cancel out correctly)
     density_cut: float
-        cutoff density below which f_xc is set to zero (currently only checked if sigma < sigmacut)
+        cutoff density below which f_xc is set to zero
     """
     
     calc = chi0.calc
@@ -27,10 +27,10 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_X', sigma_cut=None, density_cu
     nspins = len(calc.density.nt_sG)
     assert nspins == 2
     
-    if functional in ['ALDA_X']:
+    if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
         # Adiabatic kernel
         print("Calculating %s spin kernel" % functional, file=fd)
-        Kxc_GG = calculate_spin_Kxc(pd, calc, functional=functional)
+        Kxc_GG = calculate_spin_Kxc(pd, calc, functional=functional, sigma_cut=sigma_cut, density_cut=density_cut)
     else:
         raise ValueError("%s spin kernel not implemented" % functional)
     
@@ -217,16 +217,18 @@ def calculate_Kxc(pd, calc, functional='ALDA', density_cut=None):
     return Kxc_sGG / vol
 
 
-def calculate_spin_Kxc(pd, calc, functional='ALDA_X', sigma_cut=None, density_cut=None):
+def calculate_spin_Kxc(pd, calc, functional='ALDA_x', sigma_cut=None, density_cut=None):
     """ Adiabatic kernel
-    Currently only an explicit version of ALDA_X is available
+    Currently only ALDA is available
+    ALDA_x is an explicit version writting in this script
+    ALDA_X uses the libxc package
     
     sigma_cut: float
         cutoff spin density difference below which f_xc is evaluated in unpolarized limit (to make sure divergent terms cancel out correctly)
     density_cut: float
-        cutoff density below which f_xc is set to zero (currently only checked if sigma < sigmacut)
+        cutoff density below which f_xc is set to zero
     """
-
+        
     gd = pd.gd
     npw = pd.ngmax
     nG = pd.gd.N_c
@@ -239,55 +241,91 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_X', sigma_cut=None, density_cu
     
     nspins = len(nt_sG)
     assert nspins == 2
+    assert functional in ['ALDA_x', 'ALDA_X', 'ALDA']
     
-    # The soft part
-    if functional == 'ALDA_X':
-        x_only = True
-        A_x = -3. / 4. * (3. / np.pi)**(1. / 3.)
+    
+    def _calculate_pol_fxc(gd, n_sG, s_G):
+        """ Calculate polarized fxc """
+        
+        assert np.shape(s_G) == np.shape(n_sG[0])
+        
+        if functional == 'ALDA_x':
+            return - (6./np.pi)**(1./3.) * ( n_sG[0]**(1./3.) - n_sG[1]**(1./3.) ) / s_G
+        else:
+            v_sG = np.zeros(np.shape(n_sG))
+            xc = XC(functional[1:])
+            xc.calculate(gd, n_sG, v_sg = v_sG)
+            return (v_sG[0] - v_sG[1]) / s_G
+    
+    
+    def _calculate_unpol_fxc(gd, n_G):
+        """ Calculate unpolarized fxc """
+        if functional == 'ALDA_x':
+            return - (3./np.pi)**(1./3.) / 3. * n_G**(-2./3.)
+        else:
+            n_sg = np.array([n_G]) # Needs spin channel in array
+            fxc_sg = np.zeros(np.shape(n_sg))
+            xc = XC(functional[1:])
+            xc.calculate_fxc(gd, n_sg, fxc_sg)
+            return fxc_sg[0]
+            
+    
+    def add_fxc(gd, n_sG, fxc_G):
+        """ Calculate fxc, using the cutoffs from input above """
         
         # Mask small sigma
-        st_cutted_G = nt_sG[0] - nt_sG[1]
-        if not sigma_cut:
-            fxc_G = 8. / 3. * A_x * 2**(-2. / 3.) * ( nt_sG[0]**(1./3.) - nt_sG[1]**(1./3.) ) / ( st_cutted_G )
+        n_G, s_G = None, None
+        if sigma_cut:
+            s_G = n_sG[0] - n_sG[1]
+            s_small_G = np.abs(s_G) < sigma_cut
         else:
-            s_cut = st_cutted_G < sigma_cut
-            s_uncut = np.invert(s_cut)
-            st_cutted_G *= s_uncut
-            fxc_G = 8. / 3. * A_x * 2**(-2. / 3.) * ( nt_sG[0]**(1./3.) - nt_sG[1]**(1./3.) ) / ( st_cutted_G + s_cut ) * s_uncut
+            s_small_G = np.full(np.shape(n_sG[0]), False, np.array(False).dtype)
+            
+        # Mask small n
+        if density_cut:
+            n_G = n_sG[0] + n_sG[1]
+            n_pos_G = n_G > density_cut
+        else:
+            n_pos_G = np.full(np.shape(n_sG[0]), True, np.array(True).dtype)
         
-            # Mask small density
-            nt_cutted_G = nt_sG[0]*s_cut + nt_sG[0]*s_cut
-            if not density_cut:
-                fxc_G += 8. / 9. * A_x * ( nt_cutted_G + s_uncut )**( -2. / 3. ) * s_cut
-            else:
-                n_cut = nt_cutted_G < density_cut
-                n_uncut = np.invert(n_cut)
-                nt_cutted_G *= n_uncut
-                fxc_G += 8. / 9. * A_x * ( nt_cutted_G + n_cut )**( -2. / 3. ) * n_uncut
+        # Don't use small sigma limit if n is small
+        s_small_G = np.logical_and(s_small_G, n_pos_G)
+    
+        # In small sigma limit, use unpolarized fxc
+        if s_small_G.any():
+            if not density_cut: # Calculate it, if not done previously
+                n_G = n_sG[0] + n_sG[1]
+            fxc_G[s_small_G] += _calculate_unpol_fxc(gd, n_G)[s_small_G]
         
-    else:
-        raise ValueError("%s spin kernel not implemented" % functional)
-        #x_only = False
-        #fxc_sg = np.zeros_like(nt_sG)
-        #xc = XC(functional[1:])
-        #xc.calculate_fxc(gd, nt_sG, fxc_sg)
-
-    #if density_cut is not None:
-    #    fxc_sg[np.where(nt_sG * len(nt_sG) < density_cut)] = 0.0
-
+        # Set fxc to zero if n is small
+        s_fin_G = np.logical_and(np.invert(s_small_G), n_pos_G)
+        
+        # Above both sigma_cut and density_cut calculate polarized fxc
+        if s_fin_G.any():
+            if not sigma_cut:
+                s_G = n_sG[0] - n_sG[1] # Calculate it, if not done previously
+            fxc_G[s_fin_G] += _calculate_pol_fxc(gd, n_sG, s_G = s_G)[s_fin_G]
+        
+        return
+        
+        
+    # The soft part
+    fxc_G = np.zeros(np.shape(nt_sG[0]))
+    add_fxc(gd, nt_sG, fxc_G)
+    
+    
     # FFT fxc(r)
     nG0 = nG[0] * nG[1] * nG[2]
-    tmp_sg = [np.fft.fftn(fxc_sg[s]) * vol / nG0 for s in range(len(nt_sG))]
+    tmp_sg = [np.fft.fftn(fxc_G) * vol / nG0]
 
-    Kxc_sGG = np.zeros((len(fxc_sg), npw, npw), dtype=complex)
-    for s in range(len(fxc_sg)):
-        for iG, iQ in enumerate(pd.Q_qG[0]):
-            iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
-            for jG, jQ in enumerate(pd.Q_qG[0]):
-                jQ_c = (np.unravel_index(jQ, nG) + nG // 2) % nG - nG // 2
-                ijQ_c = (iQ_c - jQ_c)
-                if (abs(ijQ_c) < nG // 2).all():
-                    Kxc_sGG[s, iG, jG] = tmp_sg[s][tuple(ijQ_c)]
+    Kxc_sGG = np.zeros((1, npw, npw), dtype=complex)
+    for iG, iQ in enumerate(pd.Q_qG[0]):
+        iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
+        for jG, jQ in enumerate(pd.Q_qG[0]):
+            jQ_c = (np.unravel_index(jQ, nG) + nG // 2) % nG - nG // 2
+            ijQ_c = (iQ_c - jQ_c)
+            if (abs(ijQ_c) < nG // 2).all():
+                Kxc_sGG[0, iG, jG] = tmp_sg[0][tuple(ijQ_c)]
 
     # The PAW part
     KxcPAW_sGG = np.zeros_like(Kxc_sGG)
@@ -310,8 +348,8 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_X', sigma_cut=None, density_cu
             D_sLq = np.inner(D_sp, B_pqL.T)
             nspins = len(D_sp)
 
-            f_sg = rgd.empty(nspins)
-            ft_sg = rgd.empty(nspins)
+            f_sg = rgd.empty(1)
+            ft_sg = rgd.empty(1)
 
             n_sLg = np.dot(D_sLq, n_qg)
             nt_sLg = np.dot(D_sLq, nt_qg)
@@ -323,28 +361,23 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_X', sigma_cut=None, density_cu
             coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
             for n, Y_L in enumerate(Y_nL):
                 w = weight_n[n]
+                
                 f_sg[:] = 0.0
                 n_sg = np.dot(Y_L, n_sLg)
-                if x_only:
-                    f_sg = nspins * (4 / 9.) * A_x * (nspins * n_sg)**(-2 / 3.)
-                else:
-                    xc.calculate_fxc(rgd, n_sg, f_sg)
+                add_fxc(rgd, n_sg, f_sg[0])
 
                 ft_sg[:] = 0.0
                 nt_sg = np.dot(Y_L, nt_sLg)
-                if x_only:
-                    ft_sg = nspins * (4 / 9.) * (A_x
-                                                 * (nspins * nt_sg)**(-2 / 3.))
-                else:
-                    xc.calculate_fxc(rgd, nt_sg, ft_sg)
+                add_fxc(rgd, nt_sg, ft_sg)
+                
                 for i in range(len(rgd.r_g)):
                     coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n])
                                      * rgd.r_g[i])
-                    for s in range(len(f_sg)):
-                        KxcPAW_sGG[s] += w * np.dot(coef_GG,
-                                                    (f_sg[s, i] -
-                                                     ft_sg[s, i])
-                                                    * dv_g[i]) * coefatoms_GG
+                    
+                    KxcPAW_sGG[0] += w * np.dot(coef_GG,
+                                                (f_sg[0, i] -
+                                                 ft_sg[0, i])
+                                                * dv_g[i]) * coefatoms_GG
 
     world.sum(KxcPAW_sGG)
     Kxc_sGG += KxcPAW_sGG
@@ -353,7 +386,7 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_X', sigma_cut=None, density_cu
         Kxc_sGG[:, 0, :] = 0.0
         Kxc_sGG[:, :, 0] = 0.0
 
-    return Kxc_sGG / vol
+    return Kxc_sGG[0] / vol
 
 
 
