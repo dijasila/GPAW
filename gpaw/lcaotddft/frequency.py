@@ -6,17 +6,45 @@ from gpaw.tddft.units import eV_to_au
 
 def frequencies(frequencies, foldings, widths, units='eV'):
     f_w = []
-    for freq in np.array([frequencies]).ravel():
-        for folding in np.array([foldings]).ravel():
-            for width in np.array([widths]).ravel():
-                f_w.append(Frequency(freq, folding, width, units))
+    for folding in np.array([foldings]).ravel():
+        for width in np.array([widths]).ravel():
+            folding = Folding(folding, width)
+            for freq in np.array([frequencies]).ravel():
+                f_w.append(Frequency(freq, folding, units))
     return f_w
 
 
-class Frequency(object):
-    def __init__(self, frequency, folding, width, units='eV'):
-        self.frequency = float(frequency)
+def convert_to_au(val, units='eV'):
+    if units == 'eV':
+        return val * eV_to_au
+    elif units == 'au':
+        return val
+    raise RuntimeError('Unknown units: %s' % units)
 
+
+class Frequency(object):
+    def __init__(self, frequency, folding, units='eV'):
+        self.frequency = convert_to_au(float(frequency), units=units)
+        if isinstance(folding, dict):
+            self.folding = Folding(**folding)
+        else:
+            self.folding = folding
+
+    def todict(self):
+        d = dict(units='au')
+        for arg in ['frequency', 'folding']:
+            val = getattr(self, arg)
+            if hasattr(val, 'todict'):
+                val = val.todict()
+            d[arg] = val
+        return d
+
+    def __repr__(self):
+        return '%.5f eV w %s' % (self.frequency * au_to_eV, self.folding)
+
+
+class Folding(object):
+    def __init__(self, folding, width, units='eV'):
         if width is None:
             folding = None
 
@@ -24,14 +52,7 @@ class Frequency(object):
         if self.folding is None:
             self.width = None
         else:
-            self.width = float(width)
-
-        if units == 'eV':
-            for arg in ['frequency', 'width']:
-                if getattr(self, arg) is not None:
-                    setattr(self, arg, getattr(self, arg) * eV_to_au)
-        elif units != 'au':
-            raise RuntimeError('Unknown units: %s' % units)
+            self.width = convert_to_au(float(width), units=units)
 
         if self.folding not in [None, 'Gauss', 'Lorentz']:
             raise RuntimeError('Unknown folding: %s' % self.folding)
@@ -46,13 +67,11 @@ class Frequency(object):
 
     def todict(self):
         d = dict(units='au')
-        for arg in ['frequency', 'folding', 'width']:
+        for arg in ['folding', 'width']:
             d[arg] = getattr(self, arg)
         return d
 
     def __repr__(self):
-        s = '%.5f eV' % (self.frequency * au_to_eV)
         if self.folding is None:
-            return s
-        s += ' w %s(%.5f eV)' % (self.folding, self.width * au_to_eV)
-        return s
+            return 'No folding'
+        return '%s(%.5f eV)' % (self.folding, self.width * au_to_eV)

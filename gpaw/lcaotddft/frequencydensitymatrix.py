@@ -97,7 +97,7 @@ class FrequencyDensityMatrix(TDDFTObserver):
         for w, freq in enumerate(self.frequency_w):
             # Complex exponential with envelope
             exp = (np.exp(1.0j * freq.frequency * self.time) *
-                   freq.envelope(self.time) * time_step)
+                   freq.folding.envelope(self.time) * time_step)
             exp_w.append(exp)
 
         rho_uMM = self.dmat.get_density_matrix(paw.niter)
