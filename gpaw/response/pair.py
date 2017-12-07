@@ -1281,8 +1281,13 @@ class PairDensity:
 
         # Only works with Fermi-Dirac distribution
         assert isinstance(self.calc.occupations, FermiDirac)
-        dfde_n = -1 / width * (f_n - f_n**2.0)  # Analytical derivative
-        partocc_n = np.abs(dfde_n) > 1e-5  # Is part. occupied?
+        if width > 1e-9:
+            dfde_n = -1 / width * (f_n - f_n**2.0)  # Analytical derivative
+            partocc_n = np.abs(dfde_n) > 1e-5  # Is part. occupied?
+        else:
+            # Just include all bands to be sure
+            partocc_n = np.ones(len(f_n), dtype=bool)
+
         if only_partially_occupied and not partocc_n.any():
             return None
 
