@@ -368,7 +368,7 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_x', sigma_cut=None, density_cu
 
                 ft_sg[:] = 0.0
                 nt_sg = np.dot(Y_L, nt_sLg)
-                add_fxc(rgd, nt_sg, ft_sg)
+                add_fxc(rgd, nt_sg, ft_sg[0])
                 
                 for i in range(len(rgd.r_g)):
                     coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n])
