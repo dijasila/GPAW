@@ -8,13 +8,15 @@ class Overlap:
         self.n = calc.get_number_of_bands() * calc.density.nspins
         self.gd = self.calc.wfs.gd
 
-    def pseudo(self, other):
+    def pseudo(self, other, normalize=True):
         """Overlap with pseudo wave functions only
 
         Parameter
         ---------
         other: gpaw
             gpaw-object containing pseudo wave functions
+        normalize: bool
+            normalize pseudo wave functions in the overlap integral
 
         Returns
         -------
@@ -32,7 +34,8 @@ class Overlap:
         normo_n = other.wfs.gd.integrate(psito_nG.conj() * psito_nG)
         for i in range(self.n):
             p_nG = np.repeat(psit_nG[i].conj()[np.newaxis], no, axis=0)
-            overlap_nn[i] = (self.gd.integrate(p_nG * psito_nG) /
-                np.sqrt(np.repeat(norm_n[i], no) * normo_n))
+            overlap_nn[i] = self.gd.integrate(p_nG * psito_nG)
+            if normalize:
+                overlap_nn[i] /= np.sqrt(np.repeat(norm_n[i], no) * normo_n)
         return overlap_nn
 
