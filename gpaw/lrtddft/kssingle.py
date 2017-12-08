@@ -336,7 +336,7 @@ class KSSingles(ExcitationList):
         ov_nn: array
             Wave function overlap factors from a displaced calculator.
             Index 0 corresponds to our own wavefunctions conjugated and
-            index 1 to the others wavefunctions
+            index 1 to the others' wavefunctions
 
         Returns
         -------
@@ -349,7 +349,7 @@ class KSSingles(ExcitationList):
         i1_p = [ex.i for ex in other]
         j1_p = [ex.j for ex in other]
         for p0, ex0 in enumerate(self):
-            ov_pp[p0,:] = ov_nn[ex0.i, i1_p] * ov_nn[ex0.j, j1_p].conj()
+            ov_pp[p0, :] = ov_nn[ex0.i, i1_p].conj() * ov_nn[ex0.j, j1_p]
         return ov_pp
 
 
