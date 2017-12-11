@@ -247,12 +247,9 @@ class GGA(XCFunctional):
 
 
 class PurePythonGGAKernel:
-    def __init__(self, name, kappa=None, mu=None, beta=None):
+    def __init__(self, name):
         self.type = 'GGA'
-        if kappa is None:
-            self.name, self.kappa, self.mu, self.beta = pbe_constants(name)
-        else:
-            self.name, self.kappa, self.mu, self.beta = name, kappa, mu, beta
+        self.name, self.kappa, self.mu, self.beta = pbe_constants(name)
 
     def calculate(self, e_g, n_sg, dedn_sg,
                   sigma_xg, dedsigma_xg,
@@ -266,15 +263,12 @@ class PurePythonGGAKernel:
             n[n < 1e-20] = 1e-40
 
             # exchange
-            res = gga_x(self.name, 0, n, sigma_xg[0], self.kappa, self.mu_g)
+            res = gga_x(self.name, 0, n, sigma_xg[0], self.kappa, self.mu)
             ex, rs, dexdrs, dexda2 = res
-            if dedmu_g is not None:
-                dedmu_g[:] = dedmu * n
             # correlation
-            res = gga_c(self.name, 0, n, sigma_xg[0], 0, self.beta_g)
+            res = gga_c(self.name, 0, n, sigma_xg[0], 0, self.beta)
             ec, rs_, decdrs, decda2, decdzeta = res
-            if dedbeta_g is not None:
-                dedbeta_g[:] = decdbeta * n
+
             e_g[:] += n * (ex + ec)
             dedn_sg[:] += ex + ec - rs * (dexdrs + decdrs) / 3.
             dedsigma_xg[:] += n * (dexda2 + decda2)
@@ -291,14 +285,15 @@ class PurePythonGGAKernel:
             zeta = 0.5 * (na - nb) / n
 
             # exchange
-            exa, rsa, dexadrs, dexada2 = gga_x(            
-                self.name, 1, na, 4.0 * sigma_xg[0], self.kappa, self.mu_g)
+            exa, rsa, dexadrs, dexada2 = gga_x(
+                self.name, 1, na, 4.0 * sigma_xg[0], self.kappa, self.mu)
             exb, rsb, dexbdrs, dexbda2 = gga_x(
-                self.name, 1, nb, 4.0 * sigma_xg[2], self.kappa, self.mu_g)
+                self.name, 1, nb, 4.0 * sigma_xg[2], self.kappa, self.mu)
             a2 = sigma_xg[0] + 2.0 * sigma_xg[1] + sigma_xg[2]
             # correlation
             ec, rs, decdrs, decda2, decdzeta = gga_c(
-                self.name, 1, n, a2, zeta, self.beta_g)
+                self.name, 1, n, a2, zeta, self.beta)
+
             e_g[:] += 0.5 * (na * exa + nb * exb) + n * ec
             dedn_sg[0][:] += (exa + ec - (rsa * dexadrs + rs * decdrs) / 3.0
                               - (zeta - 1.0) * decdzeta)
