@@ -73,8 +73,10 @@ class DipoleMomentWriter(TDDFTObserver):
             setattr(self, k, v)
 
     def _write_kick(self, paw):
+        time = paw.time
         kick = paw.kick_strength
-        line = '# Kick = [%22.12le, %22.12le, %22.12le]\n' % tuple(kick)
+        line = '# Kick = [%22.12le, %22.12le, %22.12le]; ' % tuple(kick)
+        line += 'Time = %.8lf\n' % time
         self._write(line)
 
     def calculate_dipole_moment(self, gd, rho_g, center=True):
