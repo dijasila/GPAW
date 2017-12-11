@@ -256,13 +256,9 @@ class PurePythonGGAKernel:
 
     def calculate(self, e_g, n_sg, dedn_sg,
                   sigma_xg, dedsigma_xg,
-                  tau_sg=None, dedtau_sg=None, mu_g=None, beta_g=None, dedmu_g=None, dedbeta_g=None):
+                  tau_sg=None, dedtau_sg=None):
         e_g[:] = 0.
         dedsigma_xg[:] = 0.
-
-        if mu_g is not None:
-            self.mu = mu_g
-            self.beta = beta_g
 
         # spin-paired:
         if len(n_sg) == 1:
@@ -270,13 +266,13 @@ class PurePythonGGAKernel:
             n[n < 1e-20] = 1e-40
 
             # exchange
-            res = gga_x(self.name, 0, n, sigma_xg[0], self.kappa, self.mu)
-            ex, rs, dexdrs, dexda2, dedmu = res
+            res = gga_x(self.name, 0, n, sigma_xg[0], self.kappa, self.mu_g)
+            ex, rs, dexdrs, dexda2 = res
             if dedmu_g is not None:
                 dedmu_g[:] = dedmu * n
             # correlation
-            res = gga_c(self.name, 0, n, sigma_xg[0], 0, self.beta)
-            ec, rs_, decdrs, decda2, decdzeta, decdbeta = res
+            res = gga_c(self.name, 0, n, sigma_xg[0], 0, self.beta_g)
+            ec, rs_, decdrs, decda2, decdzeta = res
             if dedbeta_g is not None:
                 dedbeta_g[:] = decdbeta * n
             e_g[:] += n * (ex + ec)
@@ -295,18 +291,14 @@ class PurePythonGGAKernel:
             zeta = 0.5 * (na - nb) / n
 
             # exchange
-            exa, rsa, dexadrs, dexada2, dedmua = gga_x(            
-                self.name, 1, na, 4.0 * sigma_xg[0], self.kappa, self.mu)
-            exb, rsb, dexbdrs, dexbda2, dedmub = gga_x(
-                self.name, 1, nb, 4.0 * sigma_xg[2], self.kappa, self.mu)
+            exa, rsa, dexadrs, dexada2 = gga_x(            
+                self.name, 1, na, 4.0 * sigma_xg[0], self.kappa, self.mu_g)
+            exb, rsb, dexbdrs, dexbda2 = gga_x(
+                self.name, 1, nb, 4.0 * sigma_xg[2], self.kappa, self.mu_g)
             a2 = sigma_xg[0] + 2.0 * sigma_xg[1] + sigma_xg[2]
-            if dedmu_g is not None:
-                dedmu_g[:] = 0.5 * (na * dedmua + nb * dedmub)
             # correlation
-            ec, rs, decdrs, decda2, decdzeta, decdbeta = gga_c(
-                self.name, 1, n, a2, zeta, self.beta)
-            if dedbeta_g is not None:
-                dedbeta_g[:] = decdbeta * n
+            ec, rs, decdrs, decda2, decdzeta = gga_c(
+                self.name, 1, n, a2, zeta, self.beta_g)
             e_g[:] += 0.5 * (na * exa + nb * exb) + n * ec
             dedn_sg[0][:] += (exa + ec - (rsa * dexadrs + rs * decdrs) / 3.0
                               - (zeta - 1.0) * decdzeta)
@@ -315,7 +307,6 @@ class PurePythonGGAKernel:
             dedsigma_xg[0][:] += 2.0 * na * dexada2 + n * decda2
             dedsigma_xg[1][:] += 2.0 * n * decda2
             dedsigma_xg[2][:] += 2.0 * nb * dexbda2 + n * decda2
-
 
 def pbe_constants(name):
     if name == 'pyPBE':
@@ -339,7 +330,8 @@ def pbe_constants(name):
     return name, kappa, mu, beta
 
 # a2 = |grad n|^2
-def gga_x(name, spin, n, a2, kappa, mu):
+def gga_x(name, spin, n, a2, kappa, mu, dedmu_g=None):
+    # if dedmu is given, calculate also d(e_x)/d(mu)
     assert spin in [0, 1]
 
     C0I, C1, C2, C3, CC1, CC2, IF2, GAMMA = gga_constants()
@@ -368,13 +360,15 @@ def gga_x(name, spin, n, a2, kappa, mu):
     ds2drs = 8.0 * c * a2 / rs
     dexdrs = dexdrs * Fx + ex * dFxds2 * ds2drs
     dexda2 = ex * dFxds2 * c
-    dedmu = ex * s2 / (1 + mu*s2 / kappa) **2 #TODO: Make this line optional
+    if dedmu_g is not None:
+        dedmu_g[:] = ex * s2 / (1 + mu*s2 / kappa) **2
     ex *= Fx
 
-    return ex, rs, dexdrs, dexda2, dedmu
+    return ex, rs, dexdrs, dexda2
 
 
-def gga_c(name, spin, n, a2, zeta, BETA):
+def gga_c(name, spin, n, a2, zeta, BETA, decdbeta_g=None):
+    # If decdbeta is specified, calculate also d(e_c)/d(beta)
     assert spin in [0, 1]
     from gpaw.xc.lda import G
 
@@ -436,7 +430,7 @@ def gga_c(name, spin, n, a2, zeta, BETA):
 
     A = np.zeros_like(x)
     indices = np.nonzero(y)
-    if type(BETA) == np.ndarray:
+    if isinstance(BETA, np.ndarray):
         A[indices] = (BETA[indices] / (GAMMA * (x[indices] - 1.0)))
     else:
         A[indices] = (BETA / (GAMMA * (x[indices] - 1.0)))
@@ -492,14 +486,14 @@ def gga_c(name, spin, n, a2, zeta, BETA):
             decdzeta += H_ * dzvfdzeta
     ec += H
 
-    if spin == 0:
-        phi3 = 1.0
-    # TODO: Make optional
-    Y = GAMMA * phi3
-    decdbeta = Y / X * t2 / GAMMA
-    decdbeta *= (1 + 2*At2) / (1+At2+At2**2) - (1+At2)*(At2+2*At2**2) / (1+At2+At2**2)**2
+    if decdbeta_g is not None:
+        if spin == 0:
+            phi3 = 1.0
+        Y = GAMMA * phi3
+        decdbeta_g[:] = Y / X * t2 / GAMMA
+        decdbeta_g *= (1 + 2*At2) / (1+At2+At2**2) - (1+At2)*(At2+2*At2**2) / (1+At2+At2**2)**2
         
-    return ec, rs, decdrs, decda2, decdzeta, decdbeta
+    return ec, rs, decdrs, decda2, decdzeta
 
 
 def gga_constants():

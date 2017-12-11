@@ -78,9 +78,6 @@ def wrap_pylab(names=[]):
 
 
 tests = [
-    'xc/qna_force.py',
-    'xc/qna_stress.py',
-    'xc/qna_band.py',
     'linalg/gemm_complex.py',
     'ase_features/ase3k_version.py',
     'kpt.py',
@@ -346,6 +343,9 @@ tests = [
     'vdw/ar2.py',                           # ~53s
     'solvation/forces_symmetry.py',         # ~56s
     'parallel/diamond_gllb.py',             # ~59s
+    'xc/qna_force.py',
+    'xc/qna_stress.py',
+    'xc/qna_band.py',
     'beef.py',
     'response/chi0.py',                     # ~71s
     #'sic/scfsic_n2.py',                     # ~73s

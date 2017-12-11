@@ -2,17 +2,22 @@ from gpaw.xc.gga import PurePythonGGAKernel, GGA
 import numpy as np
 from gpaw.lfc import LFC
 from gpaw.spline import Spline
+from gpaw.xc.gga import gga_x, gga_c
 
 class QNAKernel:
     def __init__(self, qna):
         self.qna = qna
         self.type = 'GGA'
         self.name = 'QNA'
-        self.gga_kernel = PurePythonGGAKernel('QNA', kappa=0.804, mu=np.nan, beta=np.nan)
+        self.kappa = 0.804
 
     def calculate(self, e_g, n_sg, dedn_sg,
                   sigma_xg, dedsigma_xg,
                   tau_sg=None, dedtau_sg=None, mu_g=None, beta_g=None, dedmu_g=None, dedbeta_g=None):
+
+        e_g[:] = 0.
+        dedsigma_xg[:] = 0.
+
         if self.qna.override_atoms is not None:
             atoms = self.qna.override_atoms
             self.qna.Pa.set_positions(atoms.get_scaled_positions() % 1.0)
@@ -45,8 +50,61 @@ class QNAKernel:
             write('beta_g.cube', atoms, data=beta_g)
             raise SystemExit
 
-        return self.gga_kernel.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, mu_g=mu_g,
-                                         beta_g=beta_g, dedmu_g=dedmu_g, dedbeta_g=dedbeta_g)
+        # spin-paired: XXX Copy-paste from gga.py to prevent distruptions to pyGGA
+        if len(n_sg) == 1:
+            n = n_sg[0]
+            n[n < 1e-20] = 1e-40
+
+            # exchange
+            res = gga_x(self.name, 0, n, sigma_xg[0], self.kappa, mu_g, dedmu_g=dedmu_g)
+            ex, rs, dexdrs, dexda2 = res
+
+            if dedmu_g is not None:
+                dedmu_g[:] = n * dedmu_g
+
+            # correlation
+            res = gga_c(self.name, 0, n, sigma_xg[0], 0, beta_g, decdbeta_g=dedbeta_g)
+            ec, rs_, decdrs, decda2, decdzeta = res
+            e_g[:] += n * (ex + ec)
+            dedn_sg[:] += ex + ec - rs * (dexdrs + decdrs) / 3.
+            dedsigma_xg[:] += n * (dexda2 + decda2)
+        # spin-polarized:
+        else:
+            na = 2. * n_sg[0]
+            na[na < 1e-20] = 1e-40
+
+            nb = 2. * n_sg[1]
+            nb[nb < 1e-20] = 1e-40
+
+            n = 0.5 * (na + nb)
+            zeta = 0.5 * (na - nb) / n
+
+            dedmua_g = dedmu_g.copy()
+            dedmub_g = dedmu_g.copy()
+
+            # exchange
+            exa, rsa, dexadrs, dexada2 = gga_x(
+                self.name, 1, na, 4.0 * sigma_xg[0], self.kappa, mu_g, dedmu_g=dedmua_g)
+            exb, rsb, dexbdrs, dexbda2 = gga_x(
+                self.name, 1, nb, 4.0 * sigma_xg[2], self.kappa, mu_g, dedmu_g=dedmub_g)
+            a2 = sigma_xg[0] + 2.0 * sigma_xg[1] + sigma_xg[2]
+            if dedmu_g is not None:
+                dedmu_g[:] = 0.5 * (na * dedmua_g + nb * dedmub_g)
+
+            # correlation
+            ec, rs, decdrs, decda2, decdzeta = gga_c(
+                self.name, 1, n, a2, zeta, self.beta_g, decdbeta_g=dedbeta_g)
+            e_g[:] += 0.5 * (na * exa + nb * exb) + n * ec
+            dedn_sg[0][:] += (exa + ec - (rsa * dexadrs + rs * decdrs) / 3.0
+                              - (zeta - 1.0) * decdzeta)
+            dedn_sg[1][:] += (exb + ec - (rsb * dexbdrs + rs * decdrs) / 3.0
+                              - (zeta + 1.0) * decdzeta)
+            dedsigma_xg[0][:] += 2.0 * na * dexada2 + n * decda2
+            dedsigma_xg[1][:] += 2.0 * n * decda2
+            dedsigma_xg[2][:] += 2.0 * nb * dexbda2 + n * decda2
+
+        if dedbeta_g is not None:
+            dedbeta_g[:] = dedbeta_g * n
 
 class QNA(GGA):
     def __init__(self, atoms, parameters, qna_setup_name='PBE', alpha=2.0, override_atoms=None):
