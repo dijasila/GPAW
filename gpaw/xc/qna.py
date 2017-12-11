@@ -1,4 +1,4 @@
-from gpaw.xc.gga import PurePythonGGAKernel, GGA
+from gpaw.xc.gga import GGA
 import numpy as np
 from gpaw.lfc import LFC
 from gpaw.spline import Spline
