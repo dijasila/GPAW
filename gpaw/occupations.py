@@ -10,6 +10,7 @@ import numpy as np
 from ase.units import Hartree
 
 from gpaw.utilities import erf
+from gpaw.mpi import serial_comm
 
 
 def create_occupation_number_object(name, **kwargs):
@@ -43,7 +44,6 @@ def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
     """
 
     from gpaw.grid_descriptor import GridDescriptor
-    from gpaw.mpi import serial_comm
 
     occ = create_occupation_number_object(**occ)
 
@@ -62,7 +62,8 @@ def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
                           nspins=nspins,
                           kptband_comm=serial_comm,
                           world=serial_comm,
-                          gd=GridDescriptor([4, 4, 4], [1.0, 1.0, 1.0]),
+                          gd=GridDescriptor([4, 4, 4], [1.0, 1.0, 1.0],
+                                            comm=serial_comm),
                           bd=SimpleNamespace(nbands=nbands,
                                              collect=lambda x: x,
                                              comm=serial_comm),
