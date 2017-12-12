@@ -343,3 +343,159 @@ class KohnShamDecomposition(object):
         txt += ('  %37s: %12s %+14.4f\n' %
                 ('total', '', tot_weight))
         return txt
+
+    def plot_TCM(self, weight_p,
+                 occ_energy_min, occ_energy_max,
+                 unocc_energy_min, unocc_energy_max,
+                 delta_energy, sigma, zero_fermilevel=True,
+                 vmax='80%'):
+        import matplotlib.pyplot as plt
+        from matplotlib.gridspec import GridSpec
+
+        # Calculate TCM
+        args = (weight_p,
+                occ_energy_min, occ_energy_max,
+                unocc_energy_min, unocc_energy_max,
+                delta_energy, sigma, zero_fermilevel)
+        r = self.get_TCM(*args)
+        energy_o, energy_u, dos_o, dos_u, tcm_ou, fermilevel = r
+
+        # Start plotting
+        plt.figure(figsize=(8, 8))
+        linecolor = 'k'
+
+        # Generate axis
+        def get_gs(**kwargs):
+            width = 0.84
+            bottom = 0.12
+            left = 0.12
+            return GridSpec(2, 2, width_ratios=[3, 1], height_ratios=[1, 3],
+                            bottom=bottom, top=bottom + width,
+                            left=left, right=left + width,
+                            **kwargs)
+        gs = get_gs(hspace=0.05, wspace=0.05)
+        ax_occ_dos = plt.subplot(gs[0])
+        ax_unocc_dos = plt.subplot(gs[3])
+        ax_tcm = plt.subplot(gs[2])
+        ax_spec = plt.subplot(get_gs(hspace=0.8, wspace=0.8)[1])
+
+        # Plot TCM
+        ax = ax_tcm
+        plt.sca(ax)
+        if isinstance(vmax, str):
+            assert vmax[-1] == '%'
+            tcmmax = max(np.max(tcm_ou), -np.min(tcm_ou))
+            print tcmmax
+            vmax = tcmmax * float(vmax[:-1]) / 100.0
+        vmin = -vmax
+        cmap = 'seismic'
+        plt.pcolormesh(energy_o, energy_u, tcm_ou.T,
+                       cmap=cmap, rasterized=True, vmin=vmin, vmax=vmax)
+        plt.axhline(fermilevel, c=linecolor)
+        plt.axvline(fermilevel, c=linecolor)
+
+        ax.tick_params(axis='both', which='major', pad=2)
+        plt.xlabel(r'Occ. energy $\varepsilon_{o}$ (eV)', labelpad=0)
+        plt.ylabel(r'Unocc. energy $\varepsilon_{u}$ (eV)', labelpad=0)
+        plt.xlim(occ_energy_min, occ_energy_max)
+        plt.ylim(unocc_energy_min, unocc_energy_max)
+
+        # Plot DOSes
+        def plot_DOS(ax, energy_e, dos_e,
+                     energy_min, energy_max,
+                     dos_min, dos_max,
+                     flip=False):
+            ax.xaxis.set_ticklabels([])
+            ax.yaxis.set_ticklabels([])
+            ax.spines['right'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.yaxis.set_ticks_position('left')
+            ax.xaxis.set_ticks_position('bottom')
+            if flip:
+                set_label = ax.set_xlabel
+                fill_between = ax.fill_betweenx
+                set_energy_lim = ax.set_ylim
+                set_dos_lim = ax.set_xlim
+            else:
+                set_label = ax.set_ylabel
+                fill_between = ax.fill_between
+                set_energy_lim = ax.set_xlim
+                set_dos_lim = ax.set_ylim
+            fill_between(energy_e, 0, dos_e, color='b')
+            set_label('DOS', labelpad=0)
+            set_energy_lim(energy_min, energy_max)
+            set_dos_lim(dos_min, dos_max)
+
+        dos_min = 0.0
+        dos_max = max(np.max(dos_o), np.max(dos_u))
+        plot_DOS(ax_occ_dos, energy_o, dos_o,
+                 occ_energy_min, occ_energy_max,
+                 dos_min, dos_max,
+                 flip=False)
+        plot_DOS(ax_unocc_dos, energy_u, dos_u,
+                 unocc_energy_min, unocc_energy_max,
+                 dos_min, dos_max,
+                 flip=True)
+
+        return ax_tcm, ax_occ_dos, ax_unocc_dos, ax_spec
+
+    def get_TCM(self, weight_p,
+                occ_energy_min, occ_energy_max,
+                unocc_energy_min, unocc_energy_max,
+                delta_energy, sigma, zero_fermilevel):
+        assert weight_p.dtype == float
+        u = 0  # TODO
+
+        absweight_p = np.absolute(weight_p)
+
+        eig_n = self.eig_un[u].copy()
+        if zero_fermilevel:
+            eig_n -= self.fermilevel
+            fermilevel = 0.0
+        else:
+            fermilevel = self.fermilevel
+
+        eig_n *= Hartree
+        fermilevel *= Hartree
+
+        # Inclusive arange function
+        def arange(x0, x1, dx):
+            return np.arange(x0, x1 + 0.5 * dx, dx)
+
+        energy_o = arange(occ_energy_min, occ_energy_max, delta_energy)
+        energy_u = arange(unocc_energy_min, unocc_energy_max, delta_energy)
+
+        def gauss_ne(energy_e):
+            energy_ne = energy_e[np.newaxis, :]
+            eig_ne = eig_n[:, np.newaxis]
+            norm = 1.0 / (sigma * np.sqrt(2 * np.pi))
+            return norm * np.exp(-0.5 * (energy_ne - eig_ne)**2 / sigma**2)
+
+        G_no = gauss_ne(energy_o)
+        G_nu = gauss_ne(energy_u)
+
+        # DOS
+        dos_o = 2.0 * np.sum(G_no, axis=0)
+        dos_u = 2.0 * np.sum(G_nu, axis=0)
+        dosmax = max(np.max(dos_o), np.max(dos_u))
+        dos_o /= dosmax
+        dos_u /= dosmax
+
+        def is_between(x, xmin, xmax):
+            return xmin <= x and x <= xmax
+
+        tcm_ou = np.zeros((len(energy_o), len(energy_u)), dtype=weight_p.dtype)
+        p_s = np.argsort(absweight_p)[::-1]
+        for s, p in enumerate(p_s):
+            i, a = self.ia_p[p]
+
+            # TODO: add some extra to these limits based on the Gaussian sigma
+            if not is_between(eig_n[i], occ_energy_min, occ_energy_max):
+                continue
+            if not is_between(eig_n[a], unocc_energy_min, unocc_energy_max):
+                continue
+
+            weight = weight_p[p]
+            G_ou = np.outer(G_no[i], G_nu[a])
+            tcm_ou += weight * G_ou
+        return energy_o, energy_u, dos_o, dos_u, tcm_ou, fermilevel
