@@ -322,7 +322,7 @@ class KohnShamDecomposition(object):
         absweight_p = np.absolute(weight_p)
         tot_weight = weight_p.sum()
         rest_weight = tot_weight
-        eig_n = self.eig_un[u]
+        eig_n = self.eig_un[u].copy()
         if zero_fermilevel:
             eig_n -= self.fermilevel
 
