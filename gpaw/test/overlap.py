@@ -29,6 +29,14 @@ c1 = GPAW(h=h, txt=txt, eigensolver='dav', nbands=nbands,
 c1.calculate(H2)
 lr1 = LrTDDFT(c1)
 
+parprint('sanity --------')
+ov = Overlap(c1).pseudo(c1)
+parprint('pseudo(normalized):\n', ov)
+ov = Overlap(c1).pseudo(c1, False)
+parprint('pseudo(not normalized):\n', ov)
+ov = Overlap(c1).full(c1)
+parprint('full(normalized):\n', ov)
+
 def show(c2):
     c2.calculate(H2)
     lr2 = LrTDDFT(c2)
