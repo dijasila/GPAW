@@ -544,9 +544,9 @@ class PAW:
     def get_xc_difference(self, xc):
         if isinstance(xc, str):
             xc = XC(xc)
+        xc.set_grid_descriptor(self.density.finegd)
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
-        xc.set_grid_descriptor(self.density.finegd)
         xc.set_positions(self.spos_ac)
         if xc.orbital_dependent:
             self.converge_wave_functions()
