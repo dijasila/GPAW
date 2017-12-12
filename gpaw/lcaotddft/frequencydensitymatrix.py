@@ -122,10 +122,10 @@ class FrequencyDensityMatrix(TDDFTObserver):
         writer.write(time=self.time)
         writer.write(foldedfreqs_f=[ff.todict() for ff in self.foldedfreqs_f])
         wfs = self.wfs
-        write_uMM(wfs, writer, 'rho0_skMM', self.rho0_uMM)
+        write_uMM(wfs, writer, 'rho0_uMM', self.rho0_uMM)
         wlist = range(self.Nw)
-        write_wuMM(wfs, writer, 'FReDrho_wskMM', self.FReDrho_wuMM, wlist)
-        write_wuMM(wfs, writer, 'FImDrho_wskMM', self.FImDrho_wuMM, wlist)
+        write_wuMM(wfs, writer, 'FReDrho_wuMM', self.FReDrho_wuMM, wlist)
+        write_wuMM(wfs, writer, 'FImDrho_wuMM', self.FImDrho_wuMM, wlist)
         writer.close()
 
     def read(self, filename):
@@ -141,10 +141,10 @@ class FrequencyDensityMatrix(TDDFTObserver):
                               for ff in reader.foldedfreqs_f]
         self.Nw = np.sum([len(ff.frequencies) for ff in self.foldedfreqs_f])
         wfs = self.wfs
-        self.rho0_uMM = read_uMM(wfs, reader, 'rho0_skMM')
+        self.rho0_uMM = read_uMM(wfs, reader, 'rho0_uMM')
         self.rho0_dtype = self.rho0_uMM[0].dtype
         wlist = range(self.Nw)
-        self.FReDrho_wuMM = read_wuMM(wfs, reader, 'FReDrho_wskMM', wlist)
-        self.FImDrho_wuMM = read_wuMM(wfs, reader, 'FImDrho_wskMM', wlist)
+        self.FReDrho_wuMM = read_wuMM(wfs, reader, 'FReDrho_wuMM', wlist)
+        self.FImDrho_wuMM = read_wuMM(wfs, reader, 'FImDrho_wuMM', wlist)
         reader.close()
         self.has_initialized = True
