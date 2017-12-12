@@ -346,6 +346,7 @@ tests = [
     'xc/qna_force.py',
     'xc/qna_stress.py',
     'xc/qna_band.py',
+    'xc/qna_spinpol.py',
     'beef.py',
     'response/chi0.py',                     # ~71s
     #'sic/scfsic_n2.py',                     # ~73s
