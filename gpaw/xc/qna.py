@@ -79,8 +79,12 @@ class QNAKernel:
             n = 0.5 * (na + nb)
             zeta = 0.5 * (na - nb) / n
 
-            dedmua_g = dedmu_g.copy()
-            dedmub_g = dedmu_g.copy()
+            if dedmu_g is not None:
+                dedmua_g = dedmu_g.copy()
+                dedmub_g = dedmu_g.copy()
+            else:
+                dedmua_g = None
+                dedmub_g = None
 
             # exchange
             exa, rsa, dexadrs, dexada2 = gga_x(
@@ -93,7 +97,7 @@ class QNAKernel:
 
             # correlation
             ec, rs, decdrs, decda2, decdzeta = gga_c(
-                self.name, 1, n, a2, zeta, self.beta_g, decdbeta_g=dedbeta_g)
+                self.name, 1, n, a2, zeta, beta_g, decdbeta_g=dedbeta_g)
             e_g[:] += 0.5 * (na * exa + nb * exb) + n * ec
             dedn_sg[0][:] += (exa + ec - (rsa * dexadrs + rs * decdrs) / 3.0
                               - (zeta - 1.0) * decdzeta)
