@@ -1,5 +1,5 @@
 import numpy as np
-from gpaw import GPAW, PW
+from gpaw import GPAW, PW, Mixer, Davidson
 from ase.parallel import parprint
 from ase.lattice.compounds import L1_2
 
@@ -18,6 +18,10 @@ QNA = {'alpha': 2.0,
 atoms = L1_2(['Au','Cu'],latticeconstant=3.7)
 
 calc = GPAW(mode=PW(ecut),
+            eigensolver=Davidson(2),
+            nbands='120%',
+            mixer=Mixer(0.4, 7, 50.0),
+            parallel=dict(augment_grids=True),
             xc = QNA,
             kpts=kpts,
             txt=name + '.txt'
