@@ -503,7 +503,7 @@ class GPAW(PAW, Calculator):
         # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
             if isinstance(par.xc, (basestring, dict)):
-                xc = XC(par.xc, collinear=collinear)
+                xc = XC(par.xc, collinear=collinear, atoms=atoms)
             else:
                 xc = par.xc
         else:
