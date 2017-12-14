@@ -268,6 +268,7 @@ tests = [
     'ralda/ralda_energy_N2.py',             # ~10s
     'parallel/lcao_complicated.py',         # ~10s
     'generic/bulk.py',                      # ~10s
+    'response/chi0_intraband_test.py',      # ~10s
     #'sic/scfsic_h2.py',                     # ~10s
     'lcao/bulk.py',                         # ~11s
     'reuse_wfs.py',                         # ~11s
@@ -344,6 +345,10 @@ tests = [
     'vdw/ar2.py',                           # ~53s
     'solvation/forces_symmetry.py',         # ~56s
     'parallel/diamond_gllb.py',             # ~59s
+    'xc/qna_force.py',
+    'xc/qna_stress.py',
+    'xc/qna_band.py',
+    'xc/qna_spinpol.py',
     'beef.py',
     'response/chi0.py',                     # ~71s
     #'sic/scfsic_n2.py',                     # ~73s

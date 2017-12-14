@@ -245,7 +245,7 @@ class Chi0:
         if rate == 'eta':
             self.rate = self.eta
         else:
-            self.rate = rate
+            self.rate = rate / Hartree
         self.domega0 = domega0 / Hartree
         self.omega2 = omega2 / Hartree
         self.omegamax = None if omegamax is None else omegamax / Hartree
