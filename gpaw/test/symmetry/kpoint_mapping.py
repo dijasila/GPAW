@@ -15,7 +15,8 @@ def test_mapping(bz2bz_ks, U_scc, bzk_kc, time_reversal=False):
     for k_c, bz2bz_s in zip(bzk_kc, bz2bz_ks):
         delta_sc = (np.dot(U_scc, k_c) -
                     bzk_kc[bz2bz_s, :])[bz2bz_s >= 0]
-        assert (np.mod(np.mod(delta_sc, 1), 1)**2).max() < eps
+        delta_sc = np.abs(delta_sc - delta_sc.round())
+        assert delta_sc.max() < eps
 
 
 # Test kpoint mapping functionality of the gpaw.symmetry module
@@ -31,7 +32,7 @@ time_reversal = False
 
 for gamma in [True, False]:
     for time_reversal in [True, False]:
-        for i, j, k in product(*([range(1, 3)] * 3)):
+        for i, j, k in product(*([range(1, 7)] * 3)):
 
             bzk_kc = monkhorst_pack((i, j, k))
 
