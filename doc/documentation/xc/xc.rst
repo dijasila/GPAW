@@ -14,3 +14,4 @@ XC Functionals
    vdw
    libvdwxc
    vdwcorrection
+   qna
