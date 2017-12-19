@@ -7,11 +7,12 @@ Quasi-non-local exchange correlation approxmation
 
 Rationale
 
---------------------------------
+---------
 Using QNA
---------------------------------
+---------
 
 Code example::
+
   from gpaw import GPAW, PW
   from ase.lattice.compounds import L1_2
 
@@ -29,6 +30,6 @@ Code example::
               txt='AuCu3_QNA.txt')
   atoms.get_potential_energy()
 
+
 .. autoclass:: gpaw.xc.qna.QNA
    :members:
-
