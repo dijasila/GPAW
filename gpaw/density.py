@@ -369,10 +369,10 @@ class Density:
             mixer = {}
         if isinstance(mixer, dict):
             mixer = get_mixer_from_keywords(self.gd.pbc_c.any(),
-                                            self.nspins, **mixer)
+                                            self.ncomponents, **mixer)
         if not hasattr(mixer, 'mix'):
             raise ValueError('Not a mixer: %s' % mixer)
-        self.mixer = MixerWrapper(mixer, self.nspins, self.gd)
+        self.mixer = MixerWrapper(mixer, self.ncomponents, self.gd)
 
     def estimate_magnetic_moments(self):
         magmom_av = np.zeros_like(self.magmom_av)
