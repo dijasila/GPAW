@@ -251,7 +251,7 @@ class SpinChargeResponseFunction:
         
         assert response in ['density', 'spin']
         if response == 'spin':
-            assert functional in ['RPA', 'ALDA_x', 'ALDA_X', 'ALDA']
+            assert xc in ['RPA', 'ALDA_x', 'ALDA_X', 'ALDA']
         
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
         
@@ -326,7 +326,7 @@ class SpinChargeResponseFunction:
             # Invert Dyson eq.
             chi_wGG = []
             for chi0_GG in chi0_wGG:
-                chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
+                chi_GG = np.dot(np.linalg.inv(np.eye(len(chi0_GG)) -
                                               np.dot(chi0_GG, Kxc_GG)),
                                 chi0_GG)
                 chi_wGG.append(chi_GG)
