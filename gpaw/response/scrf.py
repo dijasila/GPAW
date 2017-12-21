@@ -14,7 +14,7 @@ from gpaw.response.chi0 import Chi0
 
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.fxc import get_xc_kernel
+from gpaw.response.fxc import get_xc_kernel, get_xc_spin_kernel
 
 
 
@@ -226,7 +226,8 @@ class SpinChargeResponseFunction:
         return self.omega_w * Hartree
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
-                direction='x', return_VchiV=True, q_v=None):
+                direction='x', return_VchiV=True, q_v=None,
+                density_cut=None, sigma_cut=None):
         """ Returns v^1/2 chi v^1/2 for the density response and chi for the
         spin response. The truncated Coulomb interaction is included as 
         v^-1/2 v_t v^-1/2. This is in order to conform with
@@ -237,13 +238,20 @@ class SpinChargeResponseFunction:
             If 0 or 1, only include this specific spin.
             If 'pm' calculate chi^{+-}_0
             If 'mp' calculate chi^{-+}_0
+        sigma_cut: float
+            cutoff spin density difference below which f_xc is evaluated in 
+            unpolarized limit (to make sure divergent terms cancel out correctly)
+        density_cut: float
+            cutoff density below which f_xc is set to zero
         
-        Note: currently only 'RPA' implemented for spin response.
+        Note: currently only 'RPA', 'ALDA_x', 'ALDA_X' and 'ALDA' are implemented for spin response.
         """
         
         response = self.chi0.get_response()
         
         assert response in ['density', 'spin']
+        if response == 'spin':
+            assert functional in ['RPA', 'ALDA_x', 'ALDA_X', 'ALDA']
         
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
         
@@ -271,7 +279,6 @@ class SpinChargeResponseFunction:
             else:
                 K_GG = np.eye(nG, dtype=complex)
                 
-        
         if pd.kd.gamma:
             if isinstance(direction, str):
                 d_v = {'x': [1, 0, 0],
@@ -285,22 +292,18 @@ class SpinChargeResponseFunction:
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
             
-        if xc != 'RPA':
-            Kxc_sGG = get_xc_kernel(pd,
-                                    self.chi0,
-                                    functional=xc,
-                                    chi0_wGG=chi0_wGG)
-            if response == 'density':
-                K_GG += Kxc_sGG[0] / vsqr_G / vsqr_G[:, np.newaxis]
-            # REMARK: kernal for spin reponse not yet implemented
-        elif response == 'spin': # Spin response in RPA is chi0
-            chi_wGG = chi0_wGG
-            return pd, chi0_wGG, chi_wGG
         
-        # If not spin response in RPA, invert Dyson eq.
-        chi_wGG = []
-        for chi0_GG in chi0_wGG:
-            if response == 'density':
+        if response == 'density':
+            if xc != 'RPA':
+                Kxc_sGG = get_xc_kernel(pd,
+                                        self.chi0,
+                                        functional=xc,
+                                        chi0_wGG=chi0_wGG)
+                K_GG += Kxc_sGG[0] / vsqr_G / vsqr_G[:, np.newaxis]
+               
+            # Invert Dyson eq.
+            chi_wGG = []
+            for chi0_GG in chi0_wGG:
                 """v^1/2 chi0 V^1/2"""
                 chi0_GG[:] = chi0_GG * vsqr_G * vsqr_G[:, np.newaxis]
                 chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
@@ -309,10 +312,25 @@ class SpinChargeResponseFunction:
                 if not return_VchiV:
                     chi0_GG /= vsqr_G * vsqr_G[:, np.newaxis]
                     chi_GG /= vsqr_G * vsqr_G[:, np.newaxis]
-            elif response == 'spin':
-                raise Exception('Currently only RPA implemented for spin response')
-            chi_wGG.append(chi_GG)
-
+                chi_wGG.append(chi_GG)
+        else:
+            if xc != 'RPA':
+                Kxc_GG = get_xc_spin_kernel(pd,
+                                            self.chi0,
+                                            functional=xc,
+                                            sigma_cut=sigma_cut,
+                                            density_cut=density_cut)
+            else: # RPA is non-interacting for the spin response
+                return pd, chi0_wGG, chi0_wGG
+            
+            # Invert Dyson eq.
+            chi_wGG = []
+            for chi0_GG in chi0_wGG:
+                chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
+                                              np.dot(chi0_GG, Kxc_GG)),
+                                chi0_GG)
+                chi_wGG.append(chi_GG)
+        
         return pd, chi0_wGG, np.array(chi_wGG)
     
     
@@ -327,7 +345,8 @@ class SpinChargeResponseFunction:
         
         self.chi0.set_response('density')
         
-        pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c, direction=direction)
+        pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c, direction=direction, 
+                                             return_VchiV = False)
         
         drf0_w = np.zeros(len(chi_wGG), dtype=complex)
         drf_xc_w = np.zeros(len(chi_wGG), dtype=complex)
@@ -350,41 +369,42 @@ class SpinChargeResponseFunction:
 
         return drf0_w, drf_xc_w    
 
-    def get_spin_response_function(self, xc='RPA', q_c=[0, 0, 0], q_v=None,
-                                   direction='x', filename='srf.csv'):
+    def get_spin_response_function(self, xc='ALDA', q_c=[0, 0, 0], q_v=None,
+                                   direction='x', density_cut=None, sigma_cut=None,
+                                   filename='srf.csv', return_VchiV = False):
         """Calculate the spin response function.
         
         Returns macroscopic spin response function:
-        srf_RPA_w, srf_xc_w = SpinChargeResponseFunction.get_spin_response_function()
+        srf0_w, srf_xc_w = SpinChargeResponseFunction.get_spin_response_function()
         
-        REMARK: currently only RPA implemented, that is chi^{pm}=chi^{pm}_0
         """
         
         self.chi0.set_response('spin')
         
         pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c, spin='pm',
-                                             direction=direction)
+                                             direction=direction, density_cut=density_cut,
+                                             sigma_cut=sigma_cut, )
         
-        srf_RPA_w = np.zeros(len(chi_wGG), dtype=complex)
+        srf0_w = np.zeros(len(chi_wGG), dtype=complex)
         srf_xc_w = np.zeros(len(chi_wGG), dtype=complex)
 
         for w, (chi0_GG, chi_GG) in enumerate(zip(chi0_wGG, chi_wGG)):
-            srf_RPA_w[w] = chi0_GG[0, 0]
+            srf0_w[w] = chi0_GG[0, 0]
             srf_xc_w[w] = chi_GG[0, 0]
 
-        srf_RPA_w = self.collect(srf_RPA_w)
+        srf0_w = self.collect(srf0_w)
         srf_xc_w = self.collect(srf_xc_w)
 
         if filename is not None and mpi.rank == 0:
             with open(filename, 'w') as fd:
-                for omega, srf_RPA, srf_xc in zip(self.omega_w * Hartree,
-                                                  srf_RPA_w,
+                for omega, srf0, srf_xc in zip(self.omega_w * Hartree,
+                                                  srf0_w,
                                                   srf_xc_w):
                     print('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                          (omega, srf_RPA.real, srf_RPA.imag, srf_xc.real, srf_xc.imag),
+                          (omega, srf0.real, srf0.imag, srf_xc.real, srf_xc.imag),
                           file=fd)
 
-        return srf_RPA_w, srf_xc_w
+        return srf0_w, srf_xc_w
     
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,

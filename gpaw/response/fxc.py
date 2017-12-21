@@ -384,9 +384,9 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_x', sigma_cut=None, density_cu
 
     if pd.kd.gamma:
         Kxc_GG[0, :] = 0.0
-        Kxc_sGG[:, 0] = 0.0
+        Kxc_GG[:, 0] = 0.0
 
-    return Kxc_sGG[0] / vol
+    return Kxc_GG / vol
 
 
 
