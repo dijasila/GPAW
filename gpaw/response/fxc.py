@@ -316,19 +316,19 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_x', sigma_cut=None, density_cu
     
     # FFT fxc(r)
     nG0 = nG[0] * nG[1] * nG[2]
-    tmp_sg = [np.fft.fftn(fxc_G) * vol / nG0]
+    tmp_g = np.fft.fftn(fxc_G) * vol / nG0
 
-    Kxc_sGG = np.zeros((1, npw, npw), dtype=complex)
+    Kxc_GG = np.zeros((npw, npw), dtype=complex)
     for iG, iQ in enumerate(pd.Q_qG[0]):
         iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
         for jG, jQ in enumerate(pd.Q_qG[0]):
             jQ_c = (np.unravel_index(jQ, nG) + nG // 2) % nG - nG // 2
             ijQ_c = (iQ_c - jQ_c)
             if (abs(ijQ_c) < nG // 2).all():
-                Kxc_sGG[0, iG, jG] = tmp_sg[0][tuple(ijQ_c)]
+                Kxc_GG[iG, jG] = tmp_g[tuple(ijQ_c)]
 
     # The PAW part
-    KxcPAW_sGG = np.zeros_like(Kxc_sGG)
+    KxcPAW_GG = np.zeros_like(Kxc_GG)
     dG_GGv = np.zeros((npw, npw, 3))
     for v in range(3):
         dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
@@ -374,17 +374,17 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_x', sigma_cut=None, density_cu
                     coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n])
                                      * rgd.r_g[i])
                     
-                    KxcPAW_sGG[0] += w * np.dot(coef_GG,
+                    KxcPAW_GG += w * np.dot(coef_GG,
                                                 (f_sg[0, i] -
                                                  ft_sg[0, i])
                                                 * dv_g[i]) * coefatoms_GG
 
-    world.sum(KxcPAW_sGG)
-    Kxc_sGG += KxcPAW_sGG
+    world.sum(KxcPAW_GG)
+    Kxc_GG += KxcPAW_GG
 
     if pd.kd.gamma:
-        Kxc_sGG[:, 0, :] = 0.0
-        Kxc_sGG[:, :, 0] = 0.0
+        Kxc_GG[0, :] = 0.0
+        Kxc_sGG[:, 0] = 0.0
 
     return Kxc_sGG[0] / vol
 
