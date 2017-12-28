@@ -79,7 +79,7 @@ class ExtraVacuumPoissonSolver(_PoissonSolver):
             for i in range(self.Ncoar):
                 gd2 = gd.coarsen()
                 self.coarser_i.append(Transformer(gd, gd2, self.nn_coarse))
-                N_c /= 2
+                N_c //= 2
                 gd = gd2
             self.gd_small_coar = gd
         else:
@@ -126,7 +126,7 @@ class ExtraVacuumPoissonSolver(_PoissonSolver):
         for i in range(self.Ncoar):
             gd2 = gd.coarsen()
             self.refiner_i.append(Transformer(gd2, gd, self.nn_refine))
-            N_c /= 2
+            N_c //= 2
             gd = gd2
         self.refiner_i = self.refiner_i[::-1]
         self.gd_aux_coar = gd
