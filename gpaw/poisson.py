@@ -58,7 +58,7 @@ def create_poisson_solver(name='fd', **kwargs):
         from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
         return ExtraVacuumPoissonSolver(**kwargs)
     else:
-        raise RuntimeError('Unknown poisson solver: %s' % name)
+        raise ValueError('Unknown poisson solver: %s' % name)
 
 
 def PoissonSolver(dipolelayer=None, **kwargs):
