@@ -85,7 +85,7 @@ class _PoissonSolver(object):
         raise NotImplementedError()
 
     def todict(self):
-        raise NotImplementedError()
+        raise NotImplementedError(self.__class__.__name__)
 
     def get_description(self):
         return self.__class__.__name__
@@ -473,7 +473,13 @@ class NoInteractionPoissonSolver(_PoissonSolver):
     def set_grid_descriptor(self, gd):
         pass
 
+    def todict(self):
+        return {'name': 'nointeraction'}
+
     def initialize(self):
+        pass
+
+    def estimate_memory(self, mem):
         pass
 
 
