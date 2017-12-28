@@ -241,6 +241,8 @@ tests = [
     'pw/h.py',                              # ~7s
     'lrtddft/apmb.py',                      # ~7s
     'pseudopotential/hgh_h2o.py',           # ~7s
+    'poisson/poisson_restart.py',           # ~7s
+    'poisson/poisson_extravacuum.py',       # ~7s
     'fdtd/ed_wrapper.py',                   # ~7s
     'fdtd/ed_shapes.py',                    # ~7s
     'fdtd/ed.py',                           # ~12s
@@ -414,6 +416,7 @@ if mpi.size > 1:
 
 if mpi.size > 2:
     exclude += ['ase_features/neb.py',
+                'poisson/poisson_restart.py',
                 'response/pair.py']
 
 if mpi.size < 4:

@@ -42,14 +42,23 @@ is divisible by a high power of 2."""
 
 
 def create_poisson_solver(name='fd', **kwargs):
-    if name == 'fft':
+    if isinstance(name, _PoissonSolver):
+        return name
+    elif isinstance(name, dict):
+        kwargs.update(name)
+        return create_poisson_solver(**kwargs)
+    elif name == 'fft':
         return FFTPoissonSolver(**kwargs)
-    if name == 'fdtd':
+    elif name == 'fdtd':
         from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
         return FDTDPoissonSolver(**kwargs)
     elif name == 'fd':
         return PoissonSolver(**kwargs)
-    1 / 0
+    elif name == 'ExtraVacuumPoissonSolver':
+        from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
+        return ExtraVacuumPoissonSolver(**kwargs)
+    else:
+        raise RuntimeError('Unknown poisson solver: %s' % name)
 
 
 def PoissonSolver(dipolelayer=None, **kwargs):
@@ -58,7 +67,34 @@ def PoissonSolver(dipolelayer=None, **kwargs):
     return FDPoissonSolver(**kwargs)
 
 
-class BasePoissonSolver(object):
+class _PoissonSolver(object):
+    """Abstract PoissonSolver class
+
+       This class defines an interface and a common ancestor
+       for various PoissonSolver implementations (including wrappers)."""
+    def __init__(self):
+        object.__init__(self)
+
+    def set_grid_descriptor(self, gd):
+        raise NotImplementedError()
+
+    def initialize(self):
+        raise NotImplementedError()
+
+    def solve(self):
+        raise NotImplementedError()
+
+    def todict(self):
+        raise NotImplementedError()
+
+    def get_description(self):
+        return self.__class__.__name__
+
+    def estimate_memory(self, mem):
+        raise NotImplementedError()
+
+
+class BasePoissonSolver(_PoissonSolver):
     def __init__(self, eps=None, remove_moment=None, use_charge_center=False):
         self.gd = None
         self.remove_moment = remove_moment
@@ -87,7 +123,6 @@ class BasePoissonSolver(object):
             lines.append('    Compensate for charged system using center of '
                          'majority charge')
         return '\n'.join(lines)
-
 
     def solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
               zero_initial_phi=False):
@@ -155,15 +190,15 @@ class BasePoissonSolver(object):
                 rho_sign = rho * charge_sign
                 rho_sign[np.where(rho_sign < 0)] = 0
                 absolute_charge = self.gd.integrate(rho_sign)
-                center = - self.gd.calculate_dipole_moment(rho_sign) \
-                        / absolute_charge
+                center = - (self.gd.calculate_dipole_moment(rho_sign) /
+                            absolute_charge)
                 border_offset = np.inner(self.gd.h_cv, np.array((7, 7, 7)))
                 borders = np.inner(self.gd.h_cv, self.gd.N_c)
                 borders -= border_offset
                 if np.any(center > borders) or np.any(center < border_offset):
-                    raise RuntimeError(
-                            'Poisson solver: center of charge outside' + \
-                            ' borders - please increase box')
+                    raise RuntimeError('Poisson solver: '
+                                       'center of charge outside borders '
+                                       '- please increase box')
                     center[np.where(center > borders)] = borders
                 self.load_gauss(center=center)
             else:
@@ -201,6 +236,7 @@ class BasePoissonSolver(object):
     def initialize(self, load_gauss=False):
         if load_gauss:
             self.load_gauss()
+
 
 class FDPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
@@ -421,7 +457,7 @@ class FDPoissonSolver(BasePoissonSolver):
         return representation
 
 
-class NoInteractionPoissonSolver:
+class NoInteractionPoissonSolver(_PoissonSolver):
     relax_method = 0
     nn = 1
 
@@ -561,8 +597,8 @@ class FixedBoundaryPoissonSolver(FDPoissonSolver):
         self.d1, self.d2, self.d3 = self.gd.N_c
         self.r_distribution = np.array_split(np.arange(self.d3),
                                              self.gd.comm.size)
-        self.comm_reshape = not (self.gd.parsize_c[0] == 1
-                                 and self.gd.parsize_c[1] == 1)
+        self.comm_reshape = not (self.gd.parsize_c[0] == 1 and
+                                 self.gd.parsize_c[1] == 1)
 
     def solve(self, phi_g, rho_g, charge=None):
         if charge is None:
