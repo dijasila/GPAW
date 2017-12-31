@@ -336,6 +336,11 @@ class FDPoissonSolver(BasePoissonSolver):
             # Warn from all ranks to avoid deadlocks.
             warnings.warn(warntxt, stacklevel=2)
 
+        # The Gaussians depend on the grid as well so we have to 'unload' them
+        if hasattr(self, 'rho_gauss'):
+            del self.rho_gauss
+            del self.phi_gauss
+
     def get_description(self):
         name = {1: 'Gauss-Seidel', 2: 'Jacobi'}[self.relax_method]
         coarsest_grid = self.operators[-1].gd.N_c
