@@ -259,9 +259,9 @@ class FDTDPoissonSolver:
             return self.cl.poisson_solver.get_stencil()
 
     # Initialize both PoissonSolvers
-    def initialize(self):
-        self.qm.poisson_solver.initialize()
-        self.cl.poisson_solver.initialize()
+    #def initialize(self):
+    #    self.qm.poisson_solver._init()
+    #    self.cl.poisson_solver._init()
 
     def set_grid_descriptor(self, qmgd):
         if not self.has_subsystems:
@@ -276,7 +276,7 @@ class FDTDPoissonSolver:
             relax=self.relax,
             remove_moment=self.remove_moment_qm)
         self.qm.poisson_solver.set_grid_descriptor(self.qm.gd)
-        self.qm.poisson_solver.initialize()
+        #self.qm.poisson_solver.initialize()
         self.qm.phi = self.qm.gd.zeros()
         self.qm.rho = self.qm.gd.zeros()
 
@@ -290,7 +290,7 @@ class FDTDPoissonSolver:
             relax=self.relax,
             remove_moment=self.remove_moment_cl)
         self.cl.poisson_solver.set_grid_descriptor(self.cl.gd)
-        self.cl.poisson_solver.initialize()
+        #self.cl.poisson_solver.initialize()
 
         # Initialize classical material,
         # its Poisson solver was generated already

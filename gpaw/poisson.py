@@ -78,9 +78,6 @@ class _PoissonSolver(object):
     def set_grid_descriptor(self, gd):
         raise NotImplementedError()
 
-    def initialize(self):
-        raise NotImplementedError()
-
     def solve(self):
         raise NotImplementedError()
 
@@ -126,6 +123,7 @@ class BasePoissonSolver(_PoissonSolver):
 
     def solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
               zero_initial_phi=False):
+        self._init()
         assert np.all(phi.shape == self.gd.n_c)
         assert np.all(rho.shape == self.gd.n_c)
 
@@ -233,9 +231,6 @@ class BasePoissonSolver(_PoissonSolver):
             self.rho_gauss = gauss.get_gauss(0)
             self.phi_gauss = gauss.get_gauss_pot(0)
 
-    def initialize(self):
-        pass
-
 
 class FDPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
@@ -260,6 +255,7 @@ class FDPoissonSolver(BasePoissonSolver):
             raise NotImplementedError('Relaxation method %s' % relax)
 
         self.description = None
+        self._initialized = False
 
     def todict(self):
         d = super(FDPoissonSolver, self).todict()
@@ -336,10 +332,12 @@ class FDPoissonSolver(BasePoissonSolver):
             # Warn from all ranks to avoid deadlocks.
             warnings.warn(warntxt, stacklevel=2)
 
+        self._initialized = False
         # The Gaussians depend on the grid as well so we have to 'unload' them
         if hasattr(self, 'rho_gauss'):
             del self.rho_gauss
             del self.phi_gauss
+
 
     def get_description(self):
         name = {1: 'Gauss-Seidel', 2: 'Jacobi'}[self.relax_method]
@@ -359,7 +357,9 @@ class FDPoissonSolver(BasePoissonSolver):
         lines.append(super(FDPoissonSolver, self).get_description())
         return '\n'.join(lines)
 
-    def initialize(self):
+    def _init(self):
+        if self._initialized:
+            return
         # Should probably be renamed allocate
         gd = self.gd
         self.rhos = [gd.empty()]
@@ -378,10 +378,10 @@ class FDPoissonSolver(BasePoissonSolver):
         self.step = 0.66666666 / self.operators[0].get_diagonal_element()
         self.presmooths[level] = 8
         self.postsmooths[level] = 8
-
-        super(FDPoissonSolver, self).initialize()
+        self._initialized = True
 
     def solve_neutral(self, phi, rho, eps=2e-10):
+        self._init()
         self.phis[0] = phi
 
         if self.B is None:
@@ -408,6 +408,7 @@ class FDPoissonSolver(BasePoissonSolver):
 
     def iterate2(self, step, level=0):
         """Smooths the solution in every multigrid level"""
+        self._init()
 
         residual = self.residuals[level]
 
@@ -480,9 +481,6 @@ class NoInteractionPoissonSolver(_PoissonSolver):
     def todict(self):
         return {'name': 'nointeraction'}
 
-    def initialize(self):
-        pass
-
     def estimate_memory(self, mem):
         pass
 
@@ -496,6 +494,7 @@ class FFTPoissonSolver(BasePoissonSolver):
 
     def __init__(self):
         super(FFTPoissonSolver, self).__init__()
+        self._initialized = False
 
     def get_description(self):
         return 'Parallel FFT'
@@ -513,13 +512,16 @@ class FFTPoissonSolver(BasePoissonSolver):
         self.transp_yz_1_x = AlignedGridRedistributor(self.transp_1_yz_x.gd2,
                                                       0, 1)
 
-    def initialize(self):
+    def _init(self):
+        if self._initialized:
+            return
         gd = self.transp_yz_1_x.gd2
         k2_Q, N3 = construct_reciprocal(gd, distributed=True)
         self.poisson_factor_Q = 4.0 * np.pi / k2_Q
-        super(FFTPoissonSolver, self).initialize()
+        self._initialized = True
 
     def solve_neutral(self, phi_g, rho_g, eps=None):
+        self._init()
         # Will be a bit more efficient if reduced dimension is always
         # contiguous.  Probably more things can be improved...
         work = fftn(self.transp_x_yz_1.forth(rho_g), axes=[2])

@@ -77,6 +77,7 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
     def solve(self, phi, rho, charge=None, eps=None,
               maxcharge=1e-6,
               zero_initial_phi=False):
+        self._init()
         if self.gd.pbc_c.all():
             actual_charge = self.gd.integrate(rho)
             if abs(actual_charge) > maxcharge:
@@ -89,6 +90,7 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
 
     def restrict_op_weights(self):
         """Restric operator weights to coarse grids."""
+        self._init()
         weights = [self.dielectric.eps_gradeps] + self.op_coarse_weights
         for i, res in enumerate(self.restrictors):
             for j in range(4):
@@ -101,14 +103,16 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
             'solver with',
             'weighted FD solver with dielectric and')
 
-    def initialize(self):
+    def _init(self):
+        if self._initialized:
+            return
         self.operators[0].set_weights(self.dielectric.eps_gradeps)
         self.op_coarse_weights = []
         for operator in self.operators[1:]:
             weights = [gd.empty() for gd in (operator.gd, ) * 4]
             self.op_coarse_weights.append(weights)
             operator.set_weights(weights)
-        return SolvationPoissonSolver.initialize(self)
+        return SolvationPoissonSolver._init(self)
 
 
 class PolarizationPoissonSolver(SolvationPoissonSolver):
@@ -145,6 +149,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
     def solve(self, phi, rho, charge=None, eps=None,
               maxcharge=1e-6,
               zero_initial_phi=False):
+        self._init()
         if self.phi_tilde is None:
             self.phi_tilde = self.gd.zeros()
         phi_tilde = self.phi_tilde
@@ -224,14 +229,17 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
                 'solver with',
                 'ADM12 solver with dielectric and')
 
-    def initialize(self):
+    def _init(self):
+        if self._initialized:
+            return
         self.rho_iter = self.gd.zeros()
         self.d_phi = self.gd.empty()
-        return SolvationPoissonSolver.initialize(self)
+        return SolvationPoissonSolver._init(self)
 
     def solve(self, phi, rho, charge=None, eps=None,
               maxcharge=1e-6,
               zero_initial_phi=False):
+        self._init()
         if self.gd.pbc_c.all():
             actual_charge = self.gd.integrate(rho)
             if abs(actual_charge) > maxcharge:
@@ -241,10 +249,12 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
             self, phi, rho, charge, eps, maxcharge, zero_initial_phi)
 
     def solve_neutral(self, phi, rho, eps=2e-10):
+        self._init()
         self.rho = rho
         return SolvationPoissonSolver.solve_neutral(self, phi, rho, eps)
 
     def iterate2(self, step, level=0):
+        self._init()
         if level == 0:
             epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric.eps_gradeps
             self.gradx.apply(self.phis[0], self.d_phi)
