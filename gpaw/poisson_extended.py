@@ -107,8 +107,8 @@ class ExtendedPoissonSolver(FDPoissonSolver):
         return '\n'.join(lines)
 
     @timer('Poisson initialize')
-    def initialize(self, load_gauss=False):
-        FDPoissonSolver.initialize(self, load_gauss=load_gauss)
+    def initialize(self):
+        FDPoissonSolver.initialize(self)
 
         if self.is_extended:
             if not self.gd.orthogonal or self.gd.pbc_c.any():

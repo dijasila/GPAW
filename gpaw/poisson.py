@@ -233,9 +233,8 @@ class BasePoissonSolver(_PoissonSolver):
             self.rho_gauss = gauss.get_gauss(0)
             self.phi_gauss = gauss.get_gauss_pot(0)
 
-    def initialize(self, load_gauss=False):
-        if load_gauss:
-            self.load_gauss()
+    def initialize(self):
+        pass
 
 
 class FDPoissonSolver(BasePoissonSolver):
@@ -355,7 +354,7 @@ class FDPoissonSolver(BasePoissonSolver):
         lines.append(super(FDPoissonSolver, self).get_description())
         return '\n'.join(lines)
 
-    def initialize(self, load_gauss=False):
+    def initialize(self):
         # Should probably be renamed allocate
         gd = self.gd
         self.rhos = [gd.empty()]
@@ -375,7 +374,7 @@ class FDPoissonSolver(BasePoissonSolver):
         self.presmooths[level] = 8
         self.postsmooths[level] = 8
 
-        super(FDPoissonSolver, self).initialize(load_gauss)
+        super(FDPoissonSolver, self).initialize()
 
     def solve_neutral(self, phi, rho, eps=2e-10):
         self.phis[0] = phi
@@ -509,11 +508,11 @@ class FFTPoissonSolver(BasePoissonSolver):
         self.transp_yz_1_x = AlignedGridRedistributor(self.transp_1_yz_x.gd2,
                                                       0, 1)
 
-    def initialize(self, load_gauss=False):
+    def initialize(self):
         gd = self.transp_yz_1_x.gd2
         k2_Q, N3 = construct_reciprocal(gd, distributed=True)
         self.poisson_factor_Q = 4.0 * np.pi / k2_Q
-        super(FFTPoissonSolver, self).initialize(load_gauss)
+        super(FFTPoissonSolver, self).initialize()
 
     def solve_neutral(self, phi_g, rho_g, eps=None):
         # Will be a bit more efficient if reduced dimension is always

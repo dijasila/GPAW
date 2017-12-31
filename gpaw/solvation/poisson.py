@@ -101,14 +101,14 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
             'solver with',
             'weighted FD solver with dielectric and')
 
-    def initialize(self, load_gauss=False):
+    def initialize(self):
         self.operators[0].set_weights(self.dielectric.eps_gradeps)
         self.op_coarse_weights = []
         for operator in self.operators[1:]:
             weights = [gd.empty() for gd in (operator.gd, ) * 4]
             self.op_coarse_weights.append(weights)
             operator.set_weights(weights)
-        return SolvationPoissonSolver.initialize(self, load_gauss)
+        return SolvationPoissonSolver.initialize(self)
 
 
 class PolarizationPoissonSolver(SolvationPoissonSolver):
@@ -224,10 +224,10 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
                 'solver with',
                 'ADM12 solver with dielectric and')
 
-    def initialize(self, load_gauss=False):
+    def initialize(self):
         self.rho_iter = self.gd.zeros()
         self.d_phi = self.gd.empty()
-        return SolvationPoissonSolver.initialize(self, load_gauss)
+        return SolvationPoissonSolver.initialize(self)
 
     def solve(self, phi, rho, charge=None, eps=None,
               maxcharge=1e-6,

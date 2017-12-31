@@ -259,9 +259,9 @@ class FDTDPoissonSolver:
             return self.cl.poisson_solver.get_stencil()
 
     # Initialize both PoissonSolvers
-    def initialize(self, load_Gauss=False):
-        self.qm.poisson_solver.initialize(load_Gauss)
-        self.cl.poisson_solver.initialize(load_Gauss)
+    def initialize(self):
+        self.qm.poisson_solver.initialize()
+        self.cl.poisson_solver.initialize()
 
     def set_grid_descriptor(self, qmgd):
         if not self.has_subsystems:
