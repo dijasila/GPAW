@@ -10,6 +10,7 @@ import numpy as np
 from ase.units import Bohr
 
 from gpaw import debug
+from gpaw.grid_descriptor import GridArray
 from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC, BasisFunctions
@@ -60,6 +61,22 @@ class NullBackgroundCharge:
         pass
 
 
+class DensityArray(GridArray):
+    @property
+    def nspins(self):
+        return len(self.array) % 3
+    @property
+    def nx(self):
+        return len(self.array)
+
+    @property
+    def a_sG(self):
+        return self[:self.nspins]
+
+    @property
+    def a_vG(self):
+        return self[self.nspins:]
+
 class Density:
     """Density object.
 
@@ -108,7 +125,7 @@ class Density:
         self.Q_aL = None
 
         self.nct_G = None
-        self.nt_xG = None
+        self.ntcoarse = None
         self.rhot_g = None
         self.nt_xg = None
         self.nt_sg = None
@@ -132,6 +149,10 @@ class Density:
         self.nct = None
         self.ghat = None
         self.log = None
+
+    @property
+    def nt_xG(self):
+        return None if self.ntcoarse is None else self.ntcoarse.a
 
     @property
     def nt_sG(self):
@@ -169,7 +190,8 @@ class Density:
 
     def reset(self):
         # TODO: reset other parameters?
-        self.nt_xG = None
+        #self.nt_xG = None
+        self.ntcoarse = None
 
     def set_positions_without_ruining_everything(self, spos_ac,
                                                  atom_partition):
@@ -250,7 +272,7 @@ class Density:
             if pseudo_charge != 0:
                 x = (self.background_charge.charge - self.charge -
                      comp_charge) / pseudo_charge
-                self.nt_xG *= x
+                self.nt_xG[:] *= x
             else:
                 # Use homogeneous background.
                 #
@@ -331,7 +353,7 @@ class Density:
                 f_si = self.get_initial_occupations(a)
             self.D_asp[a][:] = self.setups[a].initialize_density_matrix(f_si)
 
-        self.nt_xG = self.gd.zeros(self.ncomponents)
+        self.ntcoarse = self.gd.izeros(self.ncomponents)
         basis_functions.add_to_density(self.nt_xG, f_asi)
         self.nt_sG[:] += self.nct_G
         self.calculate_normalized_charges_and_mix()
@@ -340,7 +362,7 @@ class Density:
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""
         self.log('Density initialized from wave functions')
         self.timer.start('Density initialized from wave functions')
-        self.nt_xG = self.gd.zeros(self.ncomponents)
+        self.ntcoarse = self.gd.izeros(self.ncomponents)
         self.calculate_pseudo_density(wfs)
         self.update_atomic_density_matrices(
             self.setups.empty_atomic_matrix(self.ncomponents,
@@ -351,7 +373,7 @@ class Density:
 
     def initialize_directly_from_arrays(self, nt_sG, D_asp):
         """Set D_asp and nt_sG directly."""
-        self.nt_xG = self.gd.zeros(self.ncomponents)
+        self.ntcoarse = self.gd.izeros(self.ncomponents)
         self.nt_sG[:] = nt_sG
 
         self.update_atomic_density_matrices(D_asp)
