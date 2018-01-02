@@ -27,6 +27,41 @@ assert (np.array([-1]) % 3)[0] == 2
 NONBLOCKING = False
 
 
+class GridArray(object):
+    def __init__(self, gd, a):
+        self.gd = gd
+        self.a = a
+        assert np.array_equals(a.shape[:-3], self.gshape)
+
+    @property
+    def gshape(self):
+        return tuple(self.gd.n_c)
+
+    @property
+    def xflat(self):
+        return self.a.reshape(-1, *self.gshape)
+
+    @property
+    def xshape(self):
+        return self.a.shape[:-3]
+
+    @property
+    def dtype(self):
+        return self.a.dtype
+
+    def _assimilate(self, array):
+        if not hasattr(array, 'gd'):
+            array = GridArray(self.gd, array)
+        return array
+
+    def integrate(self, b_yg=None, global_integral=True, hermitian=False):
+        if b_yg is not None:
+            b_yg = self._assimilate(b_yg).array
+        return self.gd.integrate(self.array, b_yg=b_yg,
+                                 global_integral=global_integral,
+                                 hermitian=hermitian)
+
+
 class GridBoundsError(ValueError):
     pass
 
@@ -227,6 +262,13 @@ class GridDescriptor(Domain):
 
         return self._new_array(n, dtype, True, global_array, pad)
 
+    def array(self, array):
+        return GridArray(self, array)
+
+    def izeros(self, n=(), dtype=float):
+        a = self.zeros(n, dtype)
+        return GridArray(self, a)
+
     def empty(self, n=(), dtype=float, global_array=False, pad=False):
         """Return new uninitialized 3D array for this domain.
 
@@ -236,6 +278,10 @@ class GridDescriptor(Domain):
         ``global_array=True``."""
 
         return self._new_array(n, dtype, False, global_array, pad)
+
+    def iempty(self, n=(), dtype=float):
+        a = self.empty(n, dtype)
+        return GridArray(self, a)
 
     def _new_array(self, n=(), dtype=float, zero=True,
                    global_array=False, pad=False):
