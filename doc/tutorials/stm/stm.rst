@@ -31,10 +31,17 @@ height and make a contour plot:
 
 .. literalinclude:: stm.py
    :start-after: scan
-   :end-before: figure
+   :end-before: scan2
 
 .. image:: 2d.png
 
+Similarly, we can make a constant height scan and plot it:
+
+.. literalinclude:: stm.py
+   :start-after: 2d.png
+   :end-before: figure
+
+.. image:: 2d_I.png
 
 Linescans
 =========
@@ -42,6 +49,6 @@ Linescans
 Here is how to make a line-scan:
 
 .. literalinclude:: stm.py
-   :start-after: 2d.png
+   :start-after: 2d_I.png
 
 .. image:: line.png
