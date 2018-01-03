@@ -35,7 +35,7 @@ height and make a contour plot:
 
 .. image:: 2d.png
 
-Similarly, we can make a constant height scan (at a height of 8.0 ?~E) and plot it:
+Similarly, we can make a constant height scan (at `z=8.0` Å) and plot it:
 
 .. literalinclude:: stm.py
    :start-after: 2d.png
@@ -50,5 +50,16 @@ Here is how to make a line-scan:
 
 .. literalinclude:: stm.py
    :start-after: 2d_I.png
+   :end-before: biasstart
 
 .. image:: line.png
+
+Scanning tunneling spectroscopy
+===============================
+
+We can also make STS plots (dV/dV curve at specified location; here at `z=8.0` Å above atom 0:
+
+.. literalinclude:: stm.py
+   :start-after: line.png
+
+.. image:: dIdV.png

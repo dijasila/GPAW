@@ -25,3 +25,12 @@ a = atoms.cell[0, 0]
 x, y = stm.linescan(bias, c, [0, 0], [2 * a, 0])
 plt.plot(x, y)
 plt.savefig('line.png')
+biasstart = -2.0
+biasend = 2.0
+biasstep = 0.05
+bias, I, dIdV = stm.sts(0, 0, z, biasstart, biasend, biasstep)
+plt.plot(bias, I, label='I')
+plt.plot(bias, dIdV, label='dIdV')
+plt.xlim(biasstart,biasend)
+plt.legend()
+plt.savefig('dIdV.png')
