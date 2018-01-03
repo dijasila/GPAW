@@ -419,6 +419,9 @@ if mpi.size > 2:
                 'poisson/poisson_restart.py',
                 'response/pair.py']
 
+if mpi.size > 4:
+    exclude += ['poisson/poisson_extravacuum.py']
+
 if mpi.size < 4:
     exclude += ['parallel/fd_parallel.py',
                 'parallel/lcao_parallel.py',
