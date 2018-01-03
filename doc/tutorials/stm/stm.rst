@@ -35,7 +35,7 @@ height and make a contour plot:
 
 .. image:: 2d.png
 
-Similarly, we can make a constant height scan and plot it:
+Similarly, we can make a constant height scan (at a height of 8.0 ?~E) and plot it:
 
 .. literalinclude:: stm.py
    :start-after: 2d.png
