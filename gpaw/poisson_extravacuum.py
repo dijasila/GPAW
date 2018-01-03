@@ -58,6 +58,7 @@ class ExtraVacuumPoissonSolver(_PoissonSolver):
         self.nn_refine = nn_refine
         self.nn_laplace = nn_laplace
         self.use_aux_grid = use_aux_grid
+        self._initialized = False
 
     def set_grid_descriptor(self, gd):
         # If non-periodic boundary conditions is used,
@@ -140,17 +141,23 @@ class ExtraVacuumPoissonSolver(_PoissonSolver):
             gd2 = self.gd_large_coar_from_aux
             assert np.all(gd1.N_c == gd2.N_c) and np.all(gd1.h_cv == gd2.h_cv)
 
-    def initialize(self):
+        self._initialized = False
+
+    def _init(self):
+        if self._initialized:
+            return
         # Allocate arrays
         self.phi_large_coar_g = self.gd_large_coar.zeros()
+        self._initialized = True
 
         # Initialize poissonsolvers
-        self.ps_large_coar.initialize()
-        if not self.use_coarse:
-            return
-        self.ps_small_fine.initialize()
+        #self.ps_large_coar._init()
+        #if not self.use_coarse:
+        #    return
+        #self.ps_small_fine._init()
 
     def solve(self, phi, rho, **kwargs):
+        self._init()
         phi_small_fine_g = phi
         rho_small_fine_g = rho.copy()
 

@@ -77,14 +77,12 @@ class OmegaMatrix:
             self.poisson = poisson
         if finegrid:
             self.poisson.set_grid_descriptor(self.paw.density.finegd)
-            self.poisson.initialize()
 
             self.gd = self.paw.density.finegd
             if finegrid == 1:
                 self.gd = wfs.gd
         else:
             self.poisson.set_grid_descriptor(wfs.gd)
-            self.poisson.initialize()
             self.gd = wfs.gd
         self.restrict = Transformer(self.paw.density.finegd, wfs.gd,
                                     self.paw.density.stencil).apply

@@ -83,7 +83,6 @@ def poisson_solve(gd, rho_g, poisson):
 
 def poisson_init_solve(gd, rho_g, poisson):
     poisson.set_grid_descriptor(gd)
-    poisson.initialize()
     phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
     plot_phi(phi_g)
     return phi_g, npoisson

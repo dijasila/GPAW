@@ -59,7 +59,6 @@ def solve(ps, eps, rho):
         solver = ps(nn=nn, relax='J', eps=accuracy)
     solver.set_dielectric(dielectric)
     solver.set_grid_descriptor(gd)
-    solver.initialize()
     solver.solve(phi, rho)
     return phi
 
