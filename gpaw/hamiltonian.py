@@ -67,13 +67,9 @@ class Hamiltonian:
 
         self.atomdist = None
         self.dH_asp = None
-        self.vt_xG = None
-        self.vt_sG = None
-        self.vt_vG = None
-        self.vHt_g = None
-        self.vt_xg = None
-        self.vt_sg = None
-        self.vt_vg = None
+        self.vtcoarse = None
+        self.vtfine = None
+        self.vHtfine = None
         self.atom_partition = None
 
         # Energy contributioons that sum up to e_total_free:
@@ -98,6 +94,34 @@ class Hamiltonian:
         self.positions_set = False
         self.spos_ac = None
         self.soc = False
+
+    @property
+    def vHt_g(self):
+        return self.vHtfine.a
+
+    @property
+    def vt_xG(self):
+        return self.vtcoarse.a
+
+    @property
+    def vt_sG(self):
+        return self.vt_xG[:self.nspins]
+
+    @property
+    def vt_vG(self):
+        return self.vt_xG[self.nspins:]
+
+    @property
+    def vt_xg(self):
+        return None if self.vtfine is None else self.vtfine.a
+
+    @property
+    def vt_sg(self):
+        return None if self.vtfine is None else self.vt_xg[:self.nspins]
+
+    @property
+    def vt_vg(self):
+        return None if self.vtfine is None else self.vt_xg[self.nspins:]
 
     @property
     def dH(self):
@@ -197,13 +221,9 @@ class Hamiltonian:
         self.positions_set = True
 
     def initialize(self):
-        self.vt_xg = self.finegd.empty(self.ncomponents)
-        self.vt_sg = self.vt_xg[:self.nspins]
-        self.vt_vg = self.vt_xg[self.nspins:]
-        self.vHt_g = self.finegd.zeros()
-        self.vt_xG = self.gd.empty(self.ncomponents)
-        self.vt_sG = self.vt_xG[:self.nspins]
-        self.vt_vG = self.vt_xG[self.nspins:]
+        self.vtfine = self.finegd.iempty(self.ncomponents)
+        self.vHtfine = self.finegd.izeros()
+        self.vtcoarse = self.gd.iempty(self.ncomponents)
 
     def update(self, density):
         """Calculate effective potential.
@@ -492,7 +512,7 @@ class Hamiltonian:
 
         # Read pseudo potential on the coarse grid
         # and broadcast on kpt/band comm:
-        self.vt_sG = self.gd.empty(self.nspins)
+        self.vtcoarse = self.gd.iempty(self.nspins)
         self.gd.distribute(h.potential / reader.ha, self.vt_sG)
 
         self.atom_partition = AtomPartition(self.gd.comm,

@@ -27,11 +27,18 @@ assert (np.array([-1]) % 3)[0] == 2
 NONBLOCKING = False
 
 
+class GridShapeError(ValueError):
+    pass
+
+
 class GridArray(object):
     def __init__(self, gd, a):
         self.gd = gd
         self.a = a
-        assert np.array_equal(a.shape[-3:], self.gshape)
+        if not np.array_equal(self.gshape, a.shape[-3:]):
+            raise GridShapeError('{} grid incompatible with {} array '
+                                 'on rank {}'
+                                 .format(self.gshape, a.shape, self.gd.rank))
 
     @property
     def gshape(self):
@@ -48,6 +55,14 @@ class GridArray(object):
     @property
     def dtype(self):
         return self.a.dtype
+
+    def _new(self, array):
+        return self.__class__(self.gd, array)
+
+    def __getitem__(self, index):
+        # (One can only slice the "x" part of the shape.)
+        array = self.a[index]
+        return self._new(array)
 
     def _assimilate(self, array):
         if not hasattr(array, 'gd'):

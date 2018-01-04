@@ -61,13 +61,21 @@ class NullBackgroundCharge:
         pass
 
 
-class DensityArray(GridArray):
+class SpinGridArray(GridArray):
+
     @property
     def nspins(self):
         return len(self.array) % 3
+
     @property
     def nx(self):
         return len(self.array)
+
+    def spinsum(self):
+        if self.nspins == 1:
+            return self[0]
+        else:
+            return self.a[:2].sum(axis=0)
 
     @property
     def a_sG(self):
@@ -76,6 +84,7 @@ class DensityArray(GridArray):
     @property
     def a_vG(self):
         return self[self.nspins:]
+
 
 class Density:
     """Density object.
