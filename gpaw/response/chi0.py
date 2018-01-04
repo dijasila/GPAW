@@ -768,7 +768,7 @@ class Chi0:
                            m1=None, m2=None,
                            pd=None, kd=None,
                            symmetry=None, integrationmode=None,
-                           extend_head=True, block=True):
+                           extend_head=True, block=True, SO=False):
         """A function that returns pair-densities.
 
         A pair density is defined as::
@@ -828,13 +828,17 @@ class Chi0:
         if integrationmode is None:
             n_nmG *= weight
 
-        df_nm = kptpair.get_occupation_differences(n_n, m_m)
-        df_nm[df_nm <= 1e-20] = 0.0
-        n_nmG *= df_nm[..., np.newaxis]**0.5
+        if not SO:
+            df_nm = kptpair.get_occupation_differences(n_n, m_m)
+            df_nm[df_nm <= 1e-20] = 0.0
+            n_nmG *= df_nm[..., np.newaxis]**0.5
 
         if not extend_head and optical_limit:
             n_nmG = np.copy(n_nmG[:, :, 2:])
             optical_limit = False
+
+        if SO:
+            return n_nmG
 
         if extend_head and optical_limit:
             return n_nmG.reshape(-1, nG + 2 * optical_limit)
