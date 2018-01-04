@@ -477,7 +477,7 @@ class ExcitedStateDensity(RealSpaceDensity):
         """
         nvspins = wfs.kd.nspins
         npspins = self.nspins
-        self.nt_xG = self.gd.zeros(self.ncomponents)
+        self.ntcoarse = self.gd.izeros(self.ncomponents)
 
         for s in range(npspins):
             for kpt in wfs.kpt_u:
