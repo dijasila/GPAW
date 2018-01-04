@@ -135,11 +135,9 @@ class Density:
 
         self.nct_G = None
         self.ntcoarse = None
-        self.rhot_g = None
-        self.nt_xg = None
-        self.nt_sg = None
-        self.nt_vg = None
-        self.nt_g = None
+        self.rhot = None #_g = None
+        self.ntfine = None
+        #self.nt_g = None
 
         self.atom_partition = None
 
@@ -170,6 +168,26 @@ class Density:
     @property
     def nt_vG(self):
         return None if self.nt_xG is None else self.nt_xG[self.nspins:]
+
+    @property
+    def nt_xg(self):
+        return None if self.ntfine is None else self.ntfine.a
+
+    @property
+    def nt_sg(self):
+        return None if self.nt_xg is None else self.nt_xg[:self.nspins]
+
+    @property
+    def nt_vg(self):
+        return None if self.nt_xg is None else self.nt_xg[self.nspins:]
+
+    @property
+    def nt_g(self):
+        return None if self.nt_xg is None else self.nt_sg.sum(axis=0)
+
+    @property
+    def rhot_g(self):
+        return None if self.rhot is None else self.rhot.a
 
     def __str__(self):
         s = 'Densities:\n'
@@ -228,9 +246,11 @@ class Density:
         self.ghat.set_positions(spos_ac)
         self.mixer.reset()
 
-        self.nt_sg = None
-        self.nt_g = None
-        self.rhot_g = None
+        self.ntfine = None
+        self.rhot = None
+        #self.nt_sg = None
+        #self.nt_g = None
+        #self.rhot_g = None
 
     def calculate_pseudo_density(self, wfs):
         """Calculate nt_sG from scratch.
@@ -701,7 +721,8 @@ class RealSpaceDensity(Density):
         if comp_charge is None:
             comp_charge, _Q_aL = self.calculate_multipole_moments()
 
-        self.nt_sg = self.distribute_and_interpolate(self.nt_sG, self.nt_sg)
+        nt_sg = self.distribute_and_interpolate(self.nt_sG, self.nt_sg)
+        self.ntfine = self.finegd.array(nt_sg)
 
         # With periodic boundary conditions, the interpolation will
         # conserve the number of electrons.
@@ -713,7 +734,7 @@ class RealSpaceDensity(Density):
             if abs(pseudo_charge) > 1.0e-14:
                 x = (pseudo_charge /
                      self.finegd.integrate(self.nt_sg).sum())
-                self.nt_sg *= x
+                self.nt_sg[:] *= x
 
     def interpolate(self, in_xR, out_xR=None):
         """Interpolate array(s)."""
@@ -738,8 +759,8 @@ class RealSpaceDensity(Density):
         return self.interpolate(in_xR, out_xR)
 
     def calculate_pseudo_charge(self):
-        self.nt_g = self.nt_sg.sum(axis=0)
-        self.rhot_g = self.nt_g.copy()
+        #self.nt_g = self.nt_sg.sum(axis=0)
+        self.rhot = self.finegd.array(self.nt_g.copy())
         self.calculate_multipole_moments()
         self.ghat.add(self.rhot_g, self.Q_aL)
         self.background_charge.add_charge_to(self.rhot_g)

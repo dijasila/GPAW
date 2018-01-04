@@ -1412,10 +1412,8 @@ class ReciprocalSpaceDensity(Density):
         if comp_charge is None:
             comp_charge, _Q_aL = self.calculate_multipole_moments()
 
-        if self.nt_xg is None:
-            self.nt_xg = self.finegd.empty(self.ncomponents)
-            self.nt_sg = self.nt_xg[:self.nspins]
-            self.nt_vg = self.nt_xg[self.nspins:]
+        if self.ntfine is None:
+            self.ntfine = self.finegd.iempty(self.ncomponents)
             self.nt_Q = self.pd2.empty()
 
         self.nt_Q[:] = 0.0
