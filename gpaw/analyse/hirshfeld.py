@@ -39,9 +39,8 @@ class HirshfeldDensity(RealSpaceDensity):
         self.ghat.set_positions(spos_ac)
         self.mixer.reset()
         # self.nt_sG = None
-        self.nt_sg = None
-        self.nt_g = None
-        self.rhot_g = None
+        self.ntfine = None
+        self.rhot = None
         self.Q_aL = None
         self.nct_G = self.gd.zeros()
         self.nct.add(self.nct_G, 1.0 / self.nspins)
