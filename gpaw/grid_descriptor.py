@@ -31,7 +31,7 @@ class GridArray(object):
     def __init__(self, gd, a):
         self.gd = gd
         self.a = a
-        assert np.array_equals(a.shape[:-3], self.gshape)
+        assert np.array_equal(a.shape[-3:], self.gshape)
 
     @property
     def gshape(self):
