@@ -76,6 +76,13 @@ class GridArray(object):
                                  global_integral=global_integral,
                                  hermitian=hermitian)
 
+    def calculate_dipole_moment(self):
+        return self.gd.calculate_dipole_moment(self.a)
+
+    # Perhaps too magical for the moment:
+    #def __array__(self):
+    #    return self.a
+
 
 class GridBoundsError(ValueError):
     pass

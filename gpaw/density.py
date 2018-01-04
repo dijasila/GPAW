@@ -135,9 +135,8 @@ class Density:
 
         self.nct_G = None
         self.ntcoarse = None
-        self.rhot = None #_g = None
+        self.rhot = None
         self.ntfine = None
-        #self.nt_g = None
 
         self.atom_partition = None
 
@@ -248,9 +247,6 @@ class Density:
 
         self.ntfine = None
         self.rhot = None
-        #self.nt_sg = None
-        #self.nt_g = None
-        #self.rhot_g = None
 
     def calculate_pseudo_density(self, wfs):
         """Calculate nt_sG from scratch.
@@ -766,7 +762,7 @@ class RealSpaceDensity(Density):
         self.background_charge.add_charge_to(self.rhot_g)
 
         if debug:
-            charge = self.finegd.integrate(self.rhot_g) + self.charge
+            charge = self.rhot.integrate() + self.charge
             if abs(charge) > self.charge_eps:
                 raise RuntimeError('Charge not conserved: excess=%.9f' %
                                    charge)
@@ -777,7 +773,7 @@ class RealSpaceDensity(Density):
                    forces=True, cut=True)
 
     def calculate_dipole_moment(self):
-        return self.finegd.calculate_dipole_moment(self.rhot_g)
+        return self.rhot.calculate_dipole_moment()
 
 
 def redistribute_array(nt_sG, gd1, gd2, nspins, kptband_comm):
