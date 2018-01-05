@@ -92,6 +92,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             self.timer.start('Initialize Hamiltonian')
             self.initialize()
             self.timer.stop('Initialize Hamiltonian')
+        potentials = self._potentials
 
         cavity_changed = self.cavity.update(self.new_atoms, density)
         if cavity_changed:
@@ -100,7 +101,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
 
         vt = self.gd.iempty(self.ncomponents)
         # e_coulomb, Ebar, Eext, Exc =
-        finegd_energies = self.update_pseudo_potential(density, vt)
+        finegd_energies = self.update_pseudo_potential(density, potentials, vt)
         self.finegd.comm.sum(finegd_energies)
         ia_changed = [
             ia.update(
@@ -122,8 +123,9 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         Eias = np.array([ia.E for ia in self.interactions])
 
         Ekin1 = self.gd.comm.sum(self.calculate_kinetic_energy(density, vt))
-        W_aL = self.calculate_atomic_hamiltonians(density)
+        W_aL = self.calculate_atomic_hamiltonians(density, potentials)
         dH_axp, atomic_energies = self.calculate_corrections(density, W_aL)
+        self._potentials = potentials
         self._hamop = self.get_hamiltonian_operator(vt, dH_axp)
         self.world.sum(atomic_energies)
 
@@ -142,16 +144,17 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         self.new_atoms = None
         self.timer.stop('Hamiltonian')
 
-    def update_pseudo_potential(self, density, vt):
-        ret = RealSpaceHamiltonian.update_pseudo_potential(self, density, vt)
+    def update_pseudo_potential(self, density, potentials, vt):
+        ret = RealSpaceHamiltonian.update_pseudo_potential(self, density,
+                                                           potentials, vt)
         if not self.cavity.depends_on_el_density:
             return ret
         del_g_del_n_g = self.cavity.del_g_del_n_g
         # XXX optimize numerics
         del_eps_del_g_g = self.dielectric.del_eps_del_g_g
         Veps = -1. / (8. * np.pi) * del_eps_del_g_g * del_g_del_n_g
-        Veps *= self.grad_squared(self.vHt_g)
-        for vt_g in self.vt_sg:
+        Veps *= self.grad_squared(potentials.vHt.a)
+        for vt_g in potentials.vt.a:
             vt_g += Veps
         return ret
 
@@ -180,7 +183,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             return
         del_eps_del_g_g = self.dielectric.del_eps_del_g_g
         fixed = 1 / (8 * np.pi) * del_eps_del_g_g * \
-            self.grad_squared(self.vHt_g)  # XXX grad_vHt_g inexact in bmgs
+            self.grad_squared(self._potentials.vHt.a)  # XXX grad_vHt_g inexact in bmgs
         for a, F_v in enumerate(F_av):
             del_g_del_r_vg = self.cavity.get_del_r_vg(a, dens)
             for v in (0, 1, 2):

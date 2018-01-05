@@ -1493,6 +1493,11 @@ class ReciprocalSpacePoissonSolver:
         vHt_q[1:] /= self.G2_q
 
 
+class PWPotentials:
+    def __init__(self, vHt_q):
+        self.vHt_q = vHt_q
+
+
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, collinear,
                  setups, timer, xc, world, vext=None,
@@ -1508,8 +1513,6 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)
         self.pd2 = pd2
         self.pd3 = pd3
-
-        self.vHt_q = pd3.empty()
 
         if psolver is None:
             psolver = ReciprocalSpacePoissonSolver(pd3, realpbc_c)
@@ -1528,19 +1531,27 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.epot = None
         self.exc = None
 
+    @property
+    def vHt_q(self):
+        return self._potentials.vHt_q
+
+    def allocate_potentials(self):
+        vHt_q = self.pd3.empty()
+        return PWPotentials(vHt_q)
+
     def set_positions(self, spos_ac, atom_partition):
         Hamiltonian.set_positions(self, spos_ac, atom_partition)
         self.vbar_Q = self.pd2.zeros()
         self.vbar.add(self.vbar_Q)
 
-    def update_pseudo_potential(self, dens, vt):
+    def update_pseudo_potential(self, dens, potentials, vt):
         self.ebar = self.pd2.integrate(self.vbar_Q, dens.nt_Q)
 
         with self.timer('Poisson'):
-            self.poisson.solve(self.vHt_q, dens)
-            self.epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
+            self.poisson.solve(potentials.vHt_q, dens)
+            self.epot = 0.5 * self.pd3.integrate(potentials.vHt_q, dens.rhot_q)
 
-        self.vt_Q = self.vbar_Q + self.vHt_q[dens.G3_G] / 8
+        self.vt_Q = self.vbar_Q + potentials.vHt_q[dens.G3_G] / 8
 
         self.timer.start('XC 3D grid')
         nt_dist_xg = dens.xc_redistributor.distribute(dens.nt_xg)
@@ -1567,11 +1578,11 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         return np.array([self.epot, self.ebar, eext, self.exc])
 
-    def calculate_atomic_hamiltonians(self, density):
+    def calculate_atomic_hamiltonians(self, density, potentials):
         W_aL = {}
         for a in density.D_asp:
             W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
-        density.ghat.integrate(self.vHt_q, W_aL)
+        density.ghat.integrate(potentials.vHt_q, W_aL)
         return W_aL
 
     def calculate_kinetic_energy(self, density, vt):

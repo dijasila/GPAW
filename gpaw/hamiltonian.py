@@ -142,6 +142,12 @@ class HamiltonianOperator:
         wfs.pt.add(b_xG, P_axi, kpt.q)
 
 
+class Potentials:
+    def __init__(self, vt, vHt):
+        self.vt = vt
+        self.vHt = vHt
+
+
 @frozen
 class Hamiltonian:
 
@@ -162,8 +168,8 @@ class Hamiltonian:
         self.atomdist = None
         #self.dH_asp = None
         #self.vtcoarse = None
-        self.vtfine = None
-        self.vHtfine = None
+        #self.vtfine = None
+        #self.vHtfine = None
         self.atom_partition = None
 
         # Energy contributioons that sum up to e_total_free:
@@ -189,6 +195,7 @@ class Hamiltonian:
         self.spos_ac = None
         self.soc = False
 
+        self._potentials = None
         self._hamop = None
 
     @property
@@ -197,7 +204,7 @@ class Hamiltonian:
 
     @property
     def vHt_g(self):
-        return self.vHtfine.a
+        return self._potentials.vHt.a
 
     @property
     def vt_xG(self):
@@ -213,15 +220,15 @@ class Hamiltonian:
 
     @property
     def vt_xg(self):
-        return None if self.vtfine is None else self.vtfine.a
+        return None if self._potentials is None else self._potentials.vt.a
 
     @property
     def vt_sg(self):
-        return None if self.vtfine is None else self.vt_xg[:self.nspins]
+        return None if self._potentials is None else self.vt_xg[:self.nspins]
 
     @property
     def vt_vg(self):
-        return None if self.vtfine is None else self.vt_xg[self.nspins:]
+        return None if self._potentials is None else self.vt_xg[self.nspins:]
 
     def empty_dH(self):
         dtype = complex if self.soc else float
@@ -322,10 +329,13 @@ class Hamiltonian:
         self.set_positions_without_ruining_everything(spos_ac, atom_partition)
         self.positions_set = True
 
+    def allocate_potentials(self):
+        vtfine = self.finegd.iempty(self.ncomponents)
+        vHtfine = self.finegd.izeros()
+        return Potentials(vtfine, vHtfine)
+
     def initialize(self):
-        self.vtfine = self.finegd.iempty(self.ncomponents)
-        self.vHtfine = self.finegd.izeros()
-        #self.vtcoarse = self.gd.iempty(self.ncomponents)
+        self._potentials = self.allocate_potentials()
 
     def get_hamiltonian_operator(self, vt, dH_axp):
         return HamiltonianOperator(vt, dH_axp, self.setups, self.xc)
@@ -339,19 +349,20 @@ class Hamiltonian:
 
         self.timer.start('Hamiltonian')
 
-        if self.vtfine is None:
-            with self.timer('Initialize Hamiltonian'):
-                self.initialize()
+        if self._potentials is None:
+            self.initialize()
+        potentials = self._potentials
 
         vt = self.gd.iempty(self.ncomponents)
-        finegrid_energies = self.update_pseudo_potential(density, vt)
+        finegrid_energies = self.update_pseudo_potential(density, potentials, vt)
         coarsegrid_e_kinetic = self.calculate_kinetic_energy(density, vt)
 
         with self.timer('Calculate atomic Hamiltonians'):
-            W_aL = self.calculate_atomic_hamiltonians(density)
+            W_aL = self.calculate_atomic_hamiltonians(density, potentials)
 
         dH_axp, atomic_energies = self.calculate_corrections(density, W_aL)
         self._hamop = self.get_hamiltonian_operator(vt, dH_axp)
+        #self._potentials = potentials
 
         # Make energy contributions summable over world:
         finegrid_energies *= self.finegd.comm.size / float(self.world.size)
@@ -633,12 +644,15 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.vbar_g[:] = 0.0
         self.vbar.add(self.vbar_g)
 
-    def update_pseudo_potential(self, dens, vt):
+    def update_pseudo_potential(self, dens, potentials, vt):
         self.timer.start('vbar')
         e_zero = self.finegd.integrate(self.vbar_g, dens.nt_g,
                                        global_integral=False)
 
-        vt_g = self.vt_sg[0]
+        vt_xg = potentials.vt.a
+        vHt_g = potentials.vHt.a
+
+        vt_g = vt_xg[0]
         vt_g[:] = self.vbar_g
         self.timer.stop('vbar')
 
@@ -650,27 +664,27 @@ class RealSpaceHamiltonian(Hamiltonian):
                                                global_integral=False)
 
         if self.nspins == 2:
-            self.vt_sg[1] = vt_g
+            vt_xg[1] = vt_g
 
         self.timer.start('XC 3D grid')
-        e_xc = self.xc.calculate(self.finegd, dens.nt_sg, self.vt_sg)
+        e_xc = self.xc.calculate(self.finegd, dens.nt_sg, vt_xg[:self.nspins])
         e_xc /= self.finegd.comm.size
         self.timer.stop('XC 3D grid')
 
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
-        self.npoisson = self.poisson.solve(self.vHt_g, dens.rhot_g,
+        self.npoisson = self.poisson.solve(vHt_g, dens.rhot_g,
                                            charge=-dens.charge)
         self.timer.stop('Poisson')
 
         self.timer.start('Hartree integrate/restrict')
-        e_coulomb = 0.5 * self.finegd.integrate(self.vHt_g, dens.rhot_g,
+        e_coulomb = 0.5 * self.finegd.integrate(vHt_g, dens.rhot_g,
                                                 global_integral=False)
 
-        for vt_g in self.vt_sg:
-            vt_g += self.vHt_g
+        for vt_g in vt_xg:
+            vt_g += vHt_g
 
-        self.restrict_and_collect(self.vt_xg, vt.a)
+        self.restrict_and_collect(vt_xg, vt.a)
         self.timer.stop('Hartree integrate/restrict')
         return np.array([e_coulomb, e_zero, e_external, e_xc])
 
@@ -695,15 +709,16 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.timer.stop('Hartree integrate/restrict')
         return e_kinetic
 
-    def calculate_atomic_hamiltonians(self, dens):
+    def calculate_atomic_hamiltonians(self, dens, potentials):
         def getshape(a):
             return sum(2 * l + 1 for l, _ in enumerate(self.setups[a].ghat_l)),
+        vHt_g = potentials.vHt.a
         W_aL = ArrayDict(self.atomdist.aux_partition, getshape, float)
         if self.vext:
             vext_g = self.vext.get_potential(self.finegd)
-            dens.ghat.integrate(self.vHt_g + vext_g, W_aL)
+            dens.ghat.integrate(vHt_g + vext_g, W_aL)
         else:
-            dens.ghat.integrate(self.vHt_g, W_aL)
+            dens.ghat.integrate(vHt_g, W_aL)
 
         return self.atomdist.to_work(self.atomdist.from_aux(W_aL))
 
