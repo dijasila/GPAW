@@ -495,7 +495,7 @@ class RecursionMethod:
         else:
             b_c = np.reshape(np.zeros(self.dim), (self.dim, 1, 1, 1))
 
-        self.hamiltonian.apply(z_cG, y_cG, self.wfs, self.wfs.kpt_u[u])
+        self.hamiltonian._hamop.apply(z_cG, y_cG, self.wfs, self.wfs.kpt_u[u])
         a_c = np.reshape(integrate(np.conjugate(z_cG) * y_cG),
                          (self.dim, 1, 1, 1))
         wnew_cG = (y_cG - a_c * w_cG - b_c * wold_cG)

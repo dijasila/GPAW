@@ -124,8 +124,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         Ekin1 = self.gd.comm.sum(self.calculate_kinetic_energy(density, vt))
         W_aL = self.calculate_atomic_hamiltonians(density)
         dH_axp, atomic_energies = self.calculate_corrections(density, W_aL)
-        from gpaw.hamiltonian import HamiltonianOperator
-        self._hamop = HamiltonianOperator(vt, dH_axp)
+        self._hamop = self.get_hamiltonian_operator(vt, dH_axp)
         self.world.sum(atomic_energies)
 
         energies = atomic_energies

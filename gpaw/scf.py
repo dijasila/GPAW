@@ -58,7 +58,7 @@ class SCFLoop:
 
     def run(self, wfs, ham, dens, occ, log, callback):
         for self.niter in range(1, self.maxiter + 1):
-            wfs.eigensolver.iterate(ham, wfs)
+            wfs.eigensolver.iterate(ham._hamop, wfs)
             occ.calculate(wfs)
 
             energy = ham.get_energy(occ)

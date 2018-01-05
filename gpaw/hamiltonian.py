@@ -49,9 +49,97 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
 
 
 class HamiltonianOperator:
-    def __init__(self, vt, dH_axp):
+    def __init__(self, vt, dH_axp, setups, xc):
         self.vt = vt
         self.dH_axp = dH_axp
+        self.setups = setups  # eigensolver wants dO_ii
+        self.xc = xc  # eigensolver wants xc.apply_orbital_dep._ham.
+
+    @property
+    def collinear(self):
+        return len(self.vt.a) != 4
+
+    @property
+    def nspins(self):
+        return len(self.vt.a) % 3
+
+    @property
+    def vt_sG(self):
+        return self.vt.a[:self.nspins]
+
+    @property
+    def dH_asp(self):
+        return self.dH_axp
+
+    @property
+    def dH(self):
+        return functools.partial(apply_non_local_hamilton,
+                                 self.dH_axp, self.collinear)
+
+    def apply_local_potential(self, psit_nG, Htpsit_nG, s):
+        """Apply the Hamiltonian operator to a set of vectors.
+
+        XXX Parameter description is deprecated!
+
+        Parameters:
+
+        a_nG: ndarray
+            Set of vectors to which the overlap operator is applied.
+        b_nG: ndarray, output
+            Resulting H times a_nG vectors.
+        kpt: KPoint object
+            k-point object defined in kpoint.py.
+        calculate_projections: bool
+            When True, the integrals of projector times vectors
+            P_ni = <p_i | a_nG> are calculated.
+            When False, existing P_uni are used
+        local_part_only: bool
+            When True, the non-local atomic parts of the Hamiltonian
+            are not applied and calculate_projections is ignored.
+
+        """
+        vt_G = self.vt.a[s]
+        if psit_nG.ndim == 3:
+            Htpsit_nG += psit_nG * vt_G
+        else:
+            for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
+                Htpsit_G += psit_G * vt_G
+
+    def apply(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):
+        """Apply the Hamiltonian operator to a set of vectors.
+
+        Parameters:
+
+        a_nG: ndarray
+            Set of vectors to which the overlap operator is applied.
+        b_nG: ndarray, output
+            Resulting S times a_nG vectors.
+        wfs: WaveFunctions
+            Wave-function object defined in wavefunctions.py
+        kpt: KPoint object
+            k-point object defined in kpoint.py.
+        calculate_P_ani: bool
+            When True, the integrals of projector times vectors
+            P_ni = <p_i | a_nG> are calculated.
+            When False, existing P_ani are used
+
+        """
+
+        wfs.kin.apply(a_xG, b_xG, kpt.phase_cd)
+        self.apply_local_potential(a_xG, b_xG, kpt.s)
+        shape = a_xG.shape[:-3]
+        P_axi = wfs.pt.dict(shape)
+
+        if calculate_P_ani:  # TODO calculate_P_ani=False is experimental
+            wfs.pt.integrate(a_xG, P_axi, kpt.q)
+        else:
+            for a, P_ni in kpt.P_ani.items():
+                P_axi[a][:] = P_ni
+
+        for a, P_xi in P_axi.items():
+            dH_ii = unpack(self.dH_axp[a][kpt.s])
+            P_axi[a] = np.dot(P_xi, dH_ii)
+        wfs.pt.add(b_xG, P_axi, kpt.q)
 
 
 @frozen
@@ -134,11 +222,6 @@ class Hamiltonian:
     @property
     def vt_vg(self):
         return None if self.vtfine is None else self.vt_xg[self.nspins:]
-
-    @property
-    def dH(self):
-        return functools.partial(apply_non_local_hamilton,
-                                 self.dH_asp, self.collinear)
 
     def empty_dH(self):
         dtype = complex if self.soc else float
@@ -244,6 +327,9 @@ class Hamiltonian:
         self.vHtfine = self.finegd.izeros()
         #self.vtcoarse = self.gd.iempty(self.ncomponents)
 
+    def get_hamiltonian_operator(self, vt, dH_axp):
+        return HamiltonianOperator(vt, dH_axp, self.setups, self.xc)
+
     def update(self, density):
         """Calculate effective potential.
 
@@ -265,7 +351,7 @@ class Hamiltonian:
             W_aL = self.calculate_atomic_hamiltonians(density)
 
         dH_axp, atomic_energies = self.calculate_corrections(density, W_aL)
-        self._hamop = HamiltonianOperator(vt, dH_axp)
+        self._hamop = self.get_hamiltonian_operator(vt, dH_axp)
 
         # Make energy contributions summable over world:
         finegrid_energies *= self.finegd.comm.size / float(self.world.size)
@@ -413,71 +499,6 @@ class Hamiltonian:
         self.finegd.comm.sum(F_av, 0)
         F_av += F_coarsegrid_av
 
-    def apply_local_potential(self, psit_nG, Htpsit_nG, s):
-        """Apply the Hamiltonian operator to a set of vectors.
-
-        XXX Parameter description is deprecated!
-
-        Parameters:
-
-        a_nG: ndarray
-            Set of vectors to which the overlap operator is applied.
-        b_nG: ndarray, output
-            Resulting H times a_nG vectors.
-        kpt: KPoint object
-            k-point object defined in kpoint.py.
-        calculate_projections: bool
-            When True, the integrals of projector times vectors
-            P_ni = <p_i | a_nG> are calculated.
-            When False, existing P_uni are used
-        local_part_only: bool
-            When True, the non-local atomic parts of the Hamiltonian
-            are not applied and calculate_projections is ignored.
-
-        """
-        vt_G = self.vt_sG[s]
-        if psit_nG.ndim == 3:
-            Htpsit_nG += psit_nG * vt_G
-        else:
-            for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
-                Htpsit_G += psit_G * vt_G
-
-    def apply(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):
-        """Apply the Hamiltonian operator to a set of vectors.
-
-        Parameters:
-
-        a_nG: ndarray
-            Set of vectors to which the overlap operator is applied.
-        b_nG: ndarray, output
-            Resulting S times a_nG vectors.
-        wfs: WaveFunctions
-            Wave-function object defined in wavefunctions.py
-        kpt: KPoint object
-            k-point object defined in kpoint.py.
-        calculate_P_ani: bool
-            When True, the integrals of projector times vectors
-            P_ni = <p_i | a_nG> are calculated.
-            When False, existing P_ani are used
-
-        """
-
-        wfs.kin.apply(a_xG, b_xG, kpt.phase_cd)
-        self.apply_local_potential(a_xG, b_xG, kpt.s)
-        shape = a_xG.shape[:-3]
-        P_axi = wfs.pt.dict(shape)
-
-        if calculate_P_ani:  # TODO calculate_P_ani=False is experimental
-            wfs.pt.integrate(a_xG, P_axi, kpt.q)
-        else:
-            for a, P_ni in kpt.P_ani.items():
-                P_axi[a][:] = P_ni
-
-        for a, P_xi in P_axi.items():
-            dH_ii = unpack(self.dH_asp[a][kpt.s])
-            P_axi[a] = np.dot(P_xi, dH_ii)
-        wfs.pt.add(b_xG, P_axi, kpt.q)
-
     def get_xc_difference(self, xc, density):
         """Calculate non-selfconsistent XC-energy difference."""
         if density.nt_sg is None:
@@ -549,7 +570,7 @@ class Hamiltonian:
         for a, dH_xp in unpack_atomic_matrices(dH_sP, self.setups).items():
             dH_axp[a] = dH_xp
 
-        self._hamop = HamiltonianOperator(vt, dH_axp)
+        self._hamop = self.get_hamiltonian_operator(vt, dH_axp)
         #if self.gd.comm.rank == 0:
         #    self.update_atomic_hamiltonians(
         #        )
