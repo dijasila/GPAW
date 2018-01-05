@@ -1,9 +1,28 @@
-from gpaw.hamiltonian import RealSpaceHamiltonian
+from gpaw.hamiltonian import RealSpaceHamiltonian, KSEnergies
 from gpaw.solvation.poisson import WeightedFDPoissonSolver
 from gpaw.fd_operators import Gradient
 from gpaw.io.logger import indent
 from ase.units import Hartree
 import numpy as np
+
+
+class SolvationKSEnergies(KSEnergies):
+    def __init__(self, solvham):
+        self.energies = KSEnergies()
+        self.solvham = solvham
+
+    def get_energy(self, occ):
+        KSEnergies.get_energy(self, occ)
+        h = self.solvham
+        h.e_el_free = self.e_total_free
+        h.e_el_extrapolated = self.e_total_extrapolated
+
+        for ia in h.interactions:
+            self.e_total_free += getattr(h, 'e_' + ia.subscript)
+        self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
+            self.e_total_free)
+
+        return self.e_total_free
 
 
 class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
@@ -93,6 +112,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             self.initialize()
             self.timer.stop('Initialize Hamiltonian')
         potentials = self._potentials
+        ksenergies = SolvationKSEnergies(self)
+        self._energies = ksenergies
 
         cavity_changed = self.cavity.update(self.new_atoms, density)
         if cavity_changed:
@@ -132,8 +153,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         energies = atomic_energies
         energies[1:] += finegd_energies
         energies[0] += Ekin1
-        (self.e_kinetic0, self.e_coulomb, self.e_zero,
-         self.e_external, self.e_xc) = energies
+        (ksenergies.e_kinetic0, ksenergies.e_coulomb, ksenergies.e_zero,
+         ksenergies.e_external, ksenergies.e_xc) = energies
 
         self.finegd.comm.sum(Eias)
 
@@ -190,22 +211,6 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                 F_v[v] += self.finegd.integrate(
                     fixed * del_g_del_r_vg[v],
                     global_integral=False)
-
-    def get_energy(self, occ):
-        self.e_kinetic = self.e_kinetic0 + occ.e_band
-        self.e_entropy = occ.e_entropy
-        self.e_el_free = (
-            self.e_kinetic + self.e_coulomb + self.e_external + self.e_zero +
-            self.e_xc + self.e_entropy)
-        e_total_free = self.e_el_free
-        for ia in self.interactions:
-            e_total_free += getattr(self, 'e_' + ia.subscript)
-        self.e_total_free = e_total_free
-        self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
-            self.e_total_free)
-        self.e_el_extrapolated = occ.extrapolate_energy_to_zero_width(
-            self.e_el_free)
-        return self.e_total_free
 
     def grad_squared(self, x):
         # XXX ugly

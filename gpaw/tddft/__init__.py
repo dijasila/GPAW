@@ -475,11 +475,12 @@ class TDDFT(GPAW):
         self.Enlkin = H.xc.get_kinetic_energy_correction()
 
         # PAW
-        self.Ekin = H.e_kinetic0 + self.occupations.e_band + self.Enlkin
-        self.e_coulomb = H.e_coulomb
-        self.Eext = H.e_external
-        self.Ebar = H.e_zero
-        self.Exc = H.e_xc
+        e = H._energies
+        self.Ekin = e.e_kinetic0 + self.occupations.e_band + self.Enlkin
+        self.e_coulomb = e.e_coulomb
+        self.Eext = e.e_external
+        self.Ebar = e.e_zero
+        self.Exc = e.e_xc
         self.Etot = self.Ekin + self.e_coulomb + self.Ebar + self.Exc
 
     def get_td_energy(self):

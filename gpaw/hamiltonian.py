@@ -22,10 +22,6 @@ from gpaw.utilities.debug import frozen
 from gpaw.utilities.partition import AtomPartition
 
 
-ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
-                'e_entropy', 'e_total_free', 'e_total_extrapolated']
-
-
 def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
     if out is None:
         out = P.new()
@@ -148,6 +144,54 @@ class Potentials:
         self.vHt = vHt
 
 
+class KSEnergies:
+    names = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
+             'e_entropy', 'e_total_free', 'e_total_extrapolated']
+    def __init__(self):
+        # Energy contributioons that sum up to e_total_free:
+        self.e_kinetic = None
+        self.e_coulomb = None
+        self.e_zero = None
+        self.e_external = None
+        self.e_xc = None
+        self.e_entropy = None
+
+        self.e_total_free = None
+        self.e_total_extrapolated = None
+        self.e_kinetic0 = None
+
+        self.e_band = None
+
+    def etotfree(self):
+        return (self.e_kinetic + self.e_coulomb +
+                self.e_external + self.e_zero + self.e_xc +
+                self.e_entropy)
+
+    def _setfromocc(self, occ):
+        self.e_band = occ.e_band
+        self.e_entropy = occ.e_entropy
+
+    def get_energy(self, occ):
+        self._setfromocc(occ)
+        self.e_kinetic = self.e_kinetic0 + self.e_band
+        self.e_total_free = self.etotfree()
+        self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
+            self.e_total_free)
+
+        if 0:
+            print(self.e_total_free,
+                  self.e_total_extrapolated,
+                  self.e_kinetic,
+                  self.e_kinetic0,
+                  self.e_coulomb,
+                  self.e_external,
+                  self.e_zero,
+                  self.e_xc,
+                  self.e_entropy)
+
+        return self.e_total_free
+
+
 @frozen
 class Hamiltonian:
 
@@ -168,18 +212,6 @@ class Hamiltonian:
         self.atomdist = None
         self.atom_partition = None
 
-        # Energy contributioons that sum up to e_total_free:
-        self.e_kinetic = None
-        self.e_coulomb = None
-        self.e_zero = None
-        self.e_external = None
-        self.e_xc = None
-        self.e_entropy = None
-
-        self.e_total_free = None
-        self.e_total_extrapolated = None
-        self.e_kinetic0 = None
-
         self.ref_vt_sG = None
         self.ref_dH_asp = None
 
@@ -193,6 +225,7 @@ class Hamiltonian:
 
         self._potentials = None
         self._hamop = None
+        self._energies = None
 
     @property
     def dH_asp(self):
@@ -225,6 +258,38 @@ class Hamiltonian:
     @property
     def vt_vg(self):
         return None if self._potentials is None else self.vt_xg[self.nspins:]
+
+    @property
+    def e_total_extrapolated(self):
+        return self._energies.e_total_extrapolated
+
+    @property
+    def e_total_free(self):
+        return self._energies.e_total_free
+
+    @property
+    def e_kinetic(self):
+        return self._energies.e_kinetic
+
+    @property
+    def e_coulomb(self):
+        return self._energies.e_coulomb
+
+    @property
+    def e_external(self):
+        return self._energies.e_external
+
+    @property
+    def e_xc(self):
+        return self._energies.e_xc
+
+    @property
+    def e_entropy(self):
+        return self._energies.e_entropy
+
+    @property
+    def e_zero(self):
+        return self._energies.e_zero
 
     def empty_dH(self):
         dtype = complex if self.soc else float
@@ -335,6 +400,7 @@ class Hamiltonian:
         if self._potentials is None:
             self.initialize()
         potentials = self._potentials
+        self._energies = KSEnergies()
 
         vt = self.gd.iempty(self.ncomponents)
         finegrid_energies = self.update_pseudo_potential(density, potentials, vt)
@@ -357,8 +423,10 @@ class Hamiltonian:
         with self.timer('Communicate'):
             self.world.sum(energies)
 
-        (self.e_kinetic0, self.e_coulomb, self.e_zero,
-         self.e_external, self.e_xc) = energies
+        ksenergies = KSEnergies()
+        (ksenergies.e_kinetic0, ksenergies.e_coulomb, ksenergies.e_zero,
+         ksenergies.e_external, ksenergies.e_xc) = energies
+        self._energies = ksenergies
 
         self.timer.stop('Hamiltonian')
 
@@ -431,27 +499,7 @@ class Hamiltonian:
         return dH_asp, np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
     def get_energy(self, occ):
-        self.e_kinetic = self.e_kinetic0 + occ.e_band
-        self.e_entropy = occ.e_entropy
-
-        self.e_total_free = (self.e_kinetic + self.e_coulomb +
-                             self.e_external + self.e_zero + self.e_xc +
-                             self.e_entropy)
-        self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
-            self.e_total_free)
-
-        if 0:
-            print(self.e_total_free,
-                  self.e_total_extrapolated,
-                  self.e_kinetic,
-                  self.e_kinetic0,
-                  self.e_coulomb,
-                  self.e_external,
-                  self.e_zero,
-                  self.e_xc,
-                  self.e_entropy)
-
-        return self.e_total_free
+        return self._energies.get_energy(occ)
 
     def linearize_to_xc(self, new_xc, density):
         # Store old hamiltonian
@@ -522,8 +570,8 @@ class Hamiltonian:
 
     def write(self, writer):
         # Write all eneriges:
-        for name in ENERGY_NAMES:
-            energy = getattr(self, name)
+        for name in KSEnergies.names:
+            energy = getattr(self._energies, name)
             if energy is not None:
                 energy *= Ha
             writer.write(name, energy)
@@ -541,11 +589,13 @@ class Hamiltonian:
         h = reader.hamiltonian
 
         # Read all energies:
-        for name in ENERGY_NAMES:
+        energies = KSEnergies()
+        for name in KSEnergies.names:
             energy = h.get(name)
             if energy is not None:
                 energy /= reader.ha
-            setattr(self, name, energy)
+            setattr(energies, name, energy)
+        self._energies = energies
 
         # Read pseudo potential on the coarse grid
         # and broadcast on kpt/band comm:
@@ -565,9 +615,6 @@ class Hamiltonian:
             dH_axp[a] = dH_xp
 
         self._hamop = self.get_hamiltonian_operator(vt, dH_axp)
-        #if self.gd.comm.rank == 0:
-        #    self.update_atomic_hamiltonians(
-        #        )
 
         if hasattr(self.poisson, 'read'):
             self.poisson.read(reader)
