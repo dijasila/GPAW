@@ -80,7 +80,7 @@ class CG(Eigensolver):
             # same number.  What on earth is the meaning of this?
             #
             # Also the parameter tw_coeff is undocumented.  What is it?
-            ham.vt_sG /= self.tw_coeff
+            ham.vt_sG[:] /= self.tw_coeff
             # Assuming the ordering in dH_asp and wfs is the same
             for a in ham.dH_asp.keys():
                 ham.dH_asp[a] /= self.tw_coeff
@@ -234,7 +234,7 @@ class CG(Eigensolver):
         if self.tw_coeff:  # undo the scaling for calculating energies
             for i in range(len(kpt.eps_n)):
                 kpt.eps_n[i] *= self.tw_coeff
-            ham.vt_sG *= self.tw_coeff
+            ham.vt_sG[:] *= self.tw_coeff
             # Assuming the ordering in dH_asp and wfs is the same
             for a in ham.dH_asp.keys():
                 ham.dH_asp[a] *= self.tw_coeff
