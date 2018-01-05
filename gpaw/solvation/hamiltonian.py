@@ -107,7 +107,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
 
     def update(self, density):
         self.timer.start('Hamiltonian')
-        if self.vt_sg is None:
+        if self._potentials is None:
             self.timer.start('Initialize Hamiltonian')
             self.initialize()
             self.timer.stop('Initialize Hamiltonian')
@@ -122,8 +122,6 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
 
         vt = self.gd.iempty(self.ncomponents)
         # e_coulomb, Ebar, Eext, Exc =
-        finegd_energies = self.update_pseudo_potential(density, potentials, vt)
-        self.finegd.comm.sum(finegd_energies)
         ia_changed = [
             ia.update(
                 self.new_atoms,
@@ -138,15 +136,23 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                 if self.cavity.depends_on_el_density:
                     self.vt_ia_g += (ia.delta_E_delta_g_g *
                                      self.cavity.del_g_del_n_g)
+        finegd_energies = self.update_pseudo_potential(density, potentials, vt)
+
+        self.finegd.comm.sum(finegd_energies)
         if len(self.interactions) > 0:
-            for vt_g in self.vt_sg:
+            for vt_g in potentials.vt.a[:self.nspins]:
                 vt_g += self.vt_ia_g
         Eias = np.array([ia.E for ia in self.interactions])
+
+        # We did this in update_pseudo_potential but now we updated
+        # the potential so recalculate the thing:
+        self.restrict_and_collect(potentials.vt.a, vt.a)
+        # (FIXME: this)
+
 
         Ekin1 = self.gd.comm.sum(self.calculate_kinetic_energy(density, vt))
         W_aL = self.calculate_atomic_hamiltonians(density, potentials)
         dH_axp, atomic_energies = self.calculate_corrections(density, W_aL)
-        self._potentials = potentials
         self._hamop = self.get_hamiltonian_operator(vt, dH_axp)
         self.world.sum(atomic_energies)
 
@@ -177,6 +183,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         Veps *= self.grad_squared(potentials.vHt.a)
         for vt_g in potentials.vt.a:
             vt_g += Veps
+        sdfkjkjsdfsdkjf
+        #self.restrict_and_collect(vt_xg, vt.a)  XXXXXXXXXXXX?
         return ret
 
     def calculate_forces(self, dens, F_av):
