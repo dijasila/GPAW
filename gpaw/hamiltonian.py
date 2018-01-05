@@ -166,10 +166,6 @@ class Hamiltonian:
         self.ncomponents = self.nspins if self.collinear else 1 + 3
 
         self.atomdist = None
-        #self.dH_asp = None
-        #self.vtcoarse = None
-        #self.vtfine = None
-        #self.vHtfine = None
         self.atom_partition = None
 
         # Energy contributioons that sum up to e_total_free:
@@ -234,19 +230,6 @@ class Hamiltonian:
         dtype = complex if self.soc else float
         return self.setups.empty_atomic_matrix(self.ncomponents,
                                                self.atom_partition, dtype)
-
-    def update_atomic_hamiltonians(self, value):
-        sdfjskjfsdfkj
-        if isinstance(value, dict):
-            dtype = complex if self.soc else float
-            tmp = self.setups.empty_atomic_matrix(self.ncomponents,
-                                                  self.atom_partition, dtype)
-            tmp.update(value)
-            value = tmp
-        assert isinstance(value, ArrayDict) or value is None, type(value)
-        if value is not None:
-            value.check_consistency()
-        self.dH_asp = value
 
     def __str__(self):
         s = 'Hamiltonian:\n'
