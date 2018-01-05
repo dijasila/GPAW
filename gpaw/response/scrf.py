@@ -298,7 +298,8 @@ class SpinChargeResponseFunction:
                 Kxc_sGG = get_xc_kernel(pd,
                                         self.chi0,
                                         functional=xc,
-                                        chi0_wGG=chi0_wGG)
+                                        chi0_wGG=chi0_wGG,
+                                        density_cut=density_cut)
                 K_GG += Kxc_sGG[0] / vsqr_G / vsqr_G[:, np.newaxis]
                
             # Invert Dyson eq.
@@ -335,7 +336,8 @@ class SpinChargeResponseFunction:
     
     
     def get_density_response_function(self, xc='RPA', q_c=[0, 0, 0], q_v=None,
-                                      direction='x', filename='drf.csv'):
+                                      direction='x', density_cut=None,
+                                      filename='drf.csv'):
         """Calculate the density response function.
         
         Returns macroscopic density response function:
@@ -346,7 +348,7 @@ class SpinChargeResponseFunction:
         self.chi0.set_response('density')
         
         pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c, direction=direction, 
-                                             return_VchiV = False)
+                                             return_VchiV = False, density_cut=density_cut)
         
         drf0_w = np.zeros(len(chi_wGG), dtype=complex)
         drf_xc_w = np.zeros(len(chi_wGG), dtype=complex)

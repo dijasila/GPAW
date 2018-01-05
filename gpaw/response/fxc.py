@@ -37,7 +37,7 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', sigma_cut=None, density_cu
     return Kxc_GG
 
 
-def get_xc_kernel(pd, chi0, functional='ALDA', chi0_wGG=None):
+def get_xc_kernel(pd, chi0, functional='ALDA', chi0_wGG=None, density_cut=None):
     """ XC kernels for spin neutral calculations
     Only density response kernels are implemented
     Factory function that calls the relevant functions below
@@ -51,7 +51,7 @@ def get_xc_kernel(pd, chi0, functional='ALDA', chi0_wGG=None):
     if functional[0] == 'A':
         # Standard adiabatic kernel
         print('Calculating %s kernel' % functional, file=fd)
-        Kxc_sGG = calculate_Kxc(pd, calc, functional=functional)
+        Kxc_sGG = calculate_Kxc(pd, calc, functional=functional, density_cut=density_cut)
     elif functional[0] == 'r':
         # Renormalized kernel
         print('Calculating %s kernel' % functional, file=fd)
@@ -326,7 +326,7 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_x', sigma_cut=None, density_cu
             ijQ_c = (iQ_c - jQ_c)
             if (abs(ijQ_c) < nG // 2).all():
                 Kxc_GG[iG, jG] = tmp_g[tuple(ijQ_c)]
-
+    
     # The PAW part
     KxcPAW_GG = np.zeros_like(Kxc_GG)
     dG_GGv = np.zeros((npw, npw, 3))
@@ -381,7 +381,7 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_x', sigma_cut=None, density_cu
 
     world.sum(KxcPAW_GG)
     Kxc_GG += KxcPAW_GG
-
+    
     if pd.kd.gamma:
         Kxc_GG[0, :] = 0.0
         Kxc_GG[:, 0] = 0.0
