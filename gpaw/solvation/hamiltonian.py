@@ -98,8 +98,9 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             self.cavity.update_vol_surf()
             self.dielectric.update(self.cavity)
 
+        vt = self.gd.iempty(self.ncomponents)
         # e_coulomb, Ebar, Eext, Exc =
-        finegd_energies = self.update_pseudo_potential(density)
+        finegd_energies = self.update_pseudo_potential(density, vt)
         self.finegd.comm.sum(finegd_energies)
         ia_changed = [
             ia.update(
@@ -120,11 +121,11 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                 vt_g += self.vt_ia_g
         Eias = np.array([ia.E for ia in self.interactions])
 
-        Ekin1 = self.gd.comm.sum(self.calculate_kinetic_energy(density))
+        Ekin1 = self.gd.comm.sum(self.calculate_kinetic_energy(density, vt))
         W_aL = self.calculate_atomic_hamiltonians(density)
         dH_axp, atomic_energies = self.calculate_corrections(density, W_aL)
         from gpaw.hamiltonian import HamiltonianOperator
-        self._hamop = HamiltonianOperator(dH_axp)
+        self._hamop = HamiltonianOperator(vt, dH_axp)
         self.world.sum(atomic_energies)
 
         energies = atomic_energies
@@ -142,8 +143,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         self.new_atoms = None
         self.timer.stop('Hamiltonian')
 
-    def update_pseudo_potential(self, density):
-        ret = RealSpaceHamiltonian.update_pseudo_potential(self, density)
+    def update_pseudo_potential(self, density, vt):
+        ret = RealSpaceHamiltonian.update_pseudo_potential(self, density, vt)
         if not self.cavity.depends_on_el_density:
             return ret
         del_g_del_n_g = self.cavity.del_g_del_n_g

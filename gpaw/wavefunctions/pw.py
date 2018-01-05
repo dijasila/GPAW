@@ -1533,7 +1533,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vbar_Q = self.pd2.zeros()
         self.vbar.add(self.vbar_Q)
 
-    def update_pseudo_potential(self, dens):
+    def update_pseudo_potential(self, dens, vt):
         self.ebar = self.pd2.integrate(self.vbar_Q, dens.nt_Q)
 
         with self.timer('Poisson'):
@@ -1541,7 +1541,6 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             self.epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
 
         self.vt_Q = self.vbar_Q + self.vHt_q[dens.G3_G] / 8
-        self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
         nt_dist_xg = dens.xc_redistributor.distribute(dens.nt_xg)
@@ -1550,8 +1549,10 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
                                      nt_dist_xg, vxct_dist_xg)
         vxct_xg = dens.xc_redistributor.collect(vxct_dist_xg)
 
+        vt_xG = vt.a
+        vt_xG[:] = self.pd2.ifft(self.vt_Q)
         x = 0
-        for vt_G, vxct_g in zip(self.vt_xG, vxct_xg):
+        for vt_G, vxct_g in zip(vt_xG, vxct_xg):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
             if x < self.nspins:
                 vt_G += vxc_G
@@ -1573,11 +1574,12 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         density.ghat.integrate(self.vHt_q, W_aL)
         return W_aL
 
-    def calculate_kinetic_energy(self, density):
+    def calculate_kinetic_energy(self, density, vt):
         ekin = 0.0
-        for vt_G, nt_G in zip(self.vt_xG, density.nt_xG):
+        vt_xG = vt.a
+        for vt_G, nt_G in zip(vt_xG, density.nt_xG):
             ekin -= self.gd.integrate(vt_G, nt_G)
-        ekin += self.gd.integrate(self.vt_sG, density.nct_G).sum()
+        ekin += self.gd.integrate(vt_xG[:self.nspins], density.nct_G).sum()
         return ekin
 
     def restrict(self, in_xR, out_xR=None):

@@ -49,7 +49,8 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
 
 
 class HamiltonianOperator:
-    def __init__(self, dH_axp):
+    def __init__(self, vt, dH_axp):
+        self.vt = vt
         self.dH_axp = dH_axp
 
 
@@ -72,7 +73,7 @@ class Hamiltonian:
 
         self.atomdist = None
         #self.dH_asp = None
-        self.vtcoarse = None
+        #self.vtcoarse = None
         self.vtfine = None
         self.vHtfine = None
         self.atom_partition = None
@@ -112,7 +113,7 @@ class Hamiltonian:
 
     @property
     def vt_xG(self):
-        return self.vtcoarse.a
+        return self._hamop.vt.a
 
     @property
     def vt_sG(self):
@@ -241,7 +242,7 @@ class Hamiltonian:
     def initialize(self):
         self.vtfine = self.finegd.iempty(self.ncomponents)
         self.vHtfine = self.finegd.izeros()
-        self.vtcoarse = self.gd.iempty(self.ncomponents)
+        #self.vtcoarse = self.gd.iempty(self.ncomponents)
 
     def update(self, density):
         """Calculate effective potential.
@@ -252,18 +253,19 @@ class Hamiltonian:
 
         self.timer.start('Hamiltonian')
 
-        if self.vt_sg is None:
+        if self.vtfine is None:
             with self.timer('Initialize Hamiltonian'):
                 self.initialize()
 
-        finegrid_energies = self.update_pseudo_potential(density)
-        coarsegrid_e_kinetic = self.calculate_kinetic_energy(density)
+        vt = self.gd.iempty(self.ncomponents)
+        finegrid_energies = self.update_pseudo_potential(density, vt)
+        coarsegrid_e_kinetic = self.calculate_kinetic_energy(density, vt)
 
         with self.timer('Calculate atomic Hamiltonians'):
             W_aL = self.calculate_atomic_hamiltonians(density)
 
         dH_axp, atomic_energies = self.calculate_corrections(density, W_aL)
-        self._hamop = HamiltonianOperator(dH_axp)
+        self._hamop = HamiltonianOperator(vt, dH_axp)
 
         # Make energy contributions summable over world:
         finegrid_energies *= self.finegd.comm.size / float(self.world.size)
@@ -532,8 +534,8 @@ class Hamiltonian:
 
         # Read pseudo potential on the coarse grid
         # and broadcast on kpt/band comm:
-        self.vtcoarse = self.gd.iempty(self.nspins)
-        self.gd.distribute(h.potential / reader.ha, self.vt_sG)
+        vt = self.gd.iempty(self.nspins)
+        self.gd.distribute(h.potential / reader.ha, vt.a)
 
         self.atom_partition = AtomPartition(self.gd.comm,
                                             np.zeros(len(self.setups), int),
@@ -547,7 +549,7 @@ class Hamiltonian:
         for a, dH_xp in unpack_atomic_matrices(dH_sP, self.setups).items():
             dH_axp[a] = dH_xp
 
-        self._hamop = HamiltonianOperator(dH_axp)
+        self._hamop = HamiltonianOperator(vt, dH_axp)
         #if self.gd.comm.rank == 0:
         #    self.update_atomic_hamiltonians(
         #        )
@@ -610,7 +612,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.vbar_g[:] = 0.0
         self.vbar.add(self.vbar_g)
 
-    def update_pseudo_potential(self, dens):
+    def update_pseudo_potential(self, dens, vt):
         self.timer.start('vbar')
         e_zero = self.finegd.integrate(self.vbar_g, dens.nt_g,
                                        global_integral=False)
@@ -647,17 +649,18 @@ class RealSpaceHamiltonian(Hamiltonian):
         for vt_g in self.vt_sg:
             vt_g += self.vHt_g
 
+        self.restrict_and_collect(self.vt_xg, vt.a)
         self.timer.stop('Hartree integrate/restrict')
         return np.array([e_coulomb, e_zero, e_external, e_xc])
 
-    def calculate_kinetic_energy(self, density):
+    def calculate_kinetic_energy(self, density, vt):
         # XXX new timer item for kinetic energy?
         self.timer.start('Hartree integrate/restrict')
-        self.restrict_and_collect(self.vt_sg, self.vt_sG)
+        vt_xG = vt.a
 
         e_kinetic = 0.0
         s = 0
-        for vt_G, nt_G in zip(self.vt_sG, density.nt_sG):
+        for vt_G, nt_G in zip(vt_xG[:self.nspins], density.nt_sG):
             if self.ref_vt_sG is not None:
                 vt_G += self.ref_vt_sG[s]
 
