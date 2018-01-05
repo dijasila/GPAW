@@ -133,7 +133,7 @@ class AtomEigensolver:
             kpt = wfs.kpt_u[s]
             N1 = 0
             for l in range(lmax + 1):
-                H = self.T_l[l] + np.diag(hamiltonian.vt_sg[s])
+                H = self.T_l[l] + np.diag(hamiltonian.vt_sG[s])
                 i1 = 0
                 for pt1, l1 in zip(self.pt_j, setup.l_j):
                     i2 = 0
@@ -208,6 +208,13 @@ class AtomBasisFunctions:
             nt_sG += f_asi[0][:, i:i + 1] * (2 * l + 1) / 4 / pi * b_g**2
             i += 2 * l + 1
 
+class AtomGridArray:
+    def __init__(self, gd, a):
+        self.gd = gd
+        self.a = a
+
+    def calculate_dipole_moment(self):
+        return np.zeros(3)
 
 class AtomGridDescriptor(EquidistantRadialGridDescriptor):
     def __init__(self, h, rcut):
@@ -223,6 +230,15 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
         self.dv = (rcut / 2 / ng)**3
         self.orthogonal = False
         self.parsize_c = (1, 1, 1)
+
+    def array(self, array):
+        return AtomGridArray(self, array)
+
+    def iempty(self, *args, **kwargs):
+        return AtomGridArray(self, self.empty(*args, **kwargs))
+
+    def izeros(self, *args, **kwargs):
+        return AtomGridArray(self, self.zeros(*args, **kwargs))
 
     def get_ranks_from_positions(self, spos_ac):
         return np.array([0])

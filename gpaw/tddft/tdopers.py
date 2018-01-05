@@ -196,7 +196,7 @@ class TimeDependentHamiltonian:
 
         """
 
-        self.hamiltonian.apply(psit, hpsit, self.wfs, kpt, calculate_P_ani)
+        self.hamiltonian._hamop.apply(psit, hpsit, self.wfs, kpt, calculate_P_ani)
 
         # PAW correction
         if self.P is not None:
@@ -651,7 +651,7 @@ class TimeDependentWaveFunctions(FDWaveFunctions):
             hpsit = self.gd.zeros(len(kpt.psit_nG), dtype=self.dtype)
             #eps_psit = self.gd.zeros(len(kpt.psit_nG), dtype=self.dtype)
             sinvhpsit = self.gd.zeros(len(kpt.psit_nG), dtype=self.dtype)
-            hamiltonian.apply(kpt.psit_nG, hpsit, self, kpt, calculate_P_ani=True)
+            hamiltonian._hamop.apply(kpt.psit_nG, hpsit, self, kpt, calculate_P_ani=True)
             self.overlap.apply_inverse(hpsit, sinvhpsit, self, kpt, calculate_P_ani=True)
             #print 'sinvhpsit_0_cg - epspsit_0.max', abs(sinvhpsit[0]-eps_psit[0]).max()
             #print 'sinvhpsit_0 - epspsit_0.max', abs(sinvhpsit2[0]-eps_psit[0]).max()
