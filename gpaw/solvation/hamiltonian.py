@@ -14,9 +14,12 @@ class SolvationKSEnergies(KSEnergies):
     def get_energy(self, occ):
         KSEnergies.get_energy(self, occ)
         h = self.solvham
+
+        # Save the 'ordinary' energies under different names:
         h.e_el_free = self.e_total_free
         h.e_el_extrapolated = self.e_total_extrapolated
 
+        # Now we add our own solvation quantities to the 'official' energies:
         for ia in h.interactions:
             self.e_total_free += getattr(h, 'e_' + ia.subscript)
         self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
@@ -144,8 +147,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                 vt_g += self.vt_ia_g
         Eias = np.array([ia.E for ia in self.interactions])
 
-        # We did this in update_pseudo_potential but now we updated
-        # the potential so recalculate the thing:
+        # We restricted already in update_pseudo_potential, but now we updated
+        # the potential!  So re-restrict the thing now that we have the new values:
         self.restrict_and_collect(potentials.vt.a, vt.a)
         # (FIXME: this)
 
@@ -183,7 +186,6 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         Veps *= self.grad_squared(potentials.vHt.a)
         for vt_g in potentials.vt.a:
             vt_g += Veps
-        sdfkjkjsdfsdkjf
         #self.restrict_and_collect(vt_xg, vt.a)  XXXXXXXXXXXX?
         return ret
 
