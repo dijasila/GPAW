@@ -106,7 +106,6 @@ class DielectricFunction:
         self.mynw = (nw + world.size - 1) // world.size
         self.w1 = min(self.mynw * world.rank, nw)
         self.w2 = min(self.w1 + self.mynw, nw)
-        assert self.w1 != self.w2
         self.truncation = truncation
 
     def calculate_chi0(self, q_c):
