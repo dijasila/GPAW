@@ -1494,7 +1494,10 @@ class ReciprocalSpacePoissonSolver:
 
 
 class PWPotentials:
-    def __init__(self, vHt_q):
+    def __init__(self, pd2, pd3, vt_Q, vHt_q):
+        self.pd2 = pd2
+        self.pd3 = pd3
+        self.vt_Q = vt_Q
         self.vHt_q = vHt_q
 
 
@@ -1526,7 +1529,6 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.npoisson = 0
 
         self.vbar_Q = None
-        self.vt_Q = None
         self.ebar = None
         self.epot = None
         self.exc = None
@@ -1535,9 +1537,14 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     def vHt_q(self):
         return self._potentials.vHt_q
 
+    @property
+    def vt_Q(self):
+        return self._potentials.vt_Q
+
     def allocate_potentials(self):
         vHt_q = self.pd3.empty()
-        return PWPotentials(vHt_q)
+        v_Q = self.pd2.empty()
+        return PWPotentials(self.pd2, self.pd3, v_Q, vHt_q)
 
     def set_positions(self, spos_ac, atom_partition):
         Hamiltonian.set_positions(self, spos_ac, atom_partition)
@@ -1551,7 +1558,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             self.poisson.solve(potentials.vHt_q, dens)
             self.epot = 0.5 * self.pd3.integrate(potentials.vHt_q, dens.rhot_q)
 
-        self.vt_Q = self.vbar_Q + potentials.vHt_q[dens.G3_G] / 8
+        potentials.vt_Q[:] = self.vbar_Q + potentials.vHt_q[dens.G3_G] / 8
 
         self.timer.start('XC 3D grid')
         nt_dist_xg = dens.xc_redistributor.distribute(dens.nt_xg)
@@ -1561,13 +1568,13 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         vxct_xg = dens.xc_redistributor.collect(vxct_dist_xg)
 
         vt_xG = vt.a
-        vt_xG[:] = self.pd2.ifft(self.vt_Q)
+        vt_xG[:] = self.pd2.ifft(potentials.vt_Q)
         x = 0
         for vt_G, vxct_g in zip(vt_xG, vxct_xg):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
             if x < self.nspins:
                 vt_G += vxc_G
-                self.vt_Q += vxc_Q / self.nspins
+                potentials.vt_Q += vxc_Q / self.nspins
             else:
                 vt_G[:] = vxc_G
             x += 1
