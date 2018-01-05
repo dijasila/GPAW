@@ -48,6 +48,11 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
     return out
 
 
+class HamiltonianOperator:
+    def __init__(self, dH_axp):
+        self.dH_axp = dH_axp
+
+
 @frozen
 class Hamiltonian:
 
@@ -66,7 +71,7 @@ class Hamiltonian:
         self.ncomponents = self.nspins if self.collinear else 1 + 3
 
         self.atomdist = None
-        self.dH_asp = None
+        #self.dH_asp = None
         self.vtcoarse = None
         self.vtfine = None
         self.vHtfine = None
@@ -94,6 +99,12 @@ class Hamiltonian:
         self.positions_set = False
         self.spos_ac = None
         self.soc = False
+
+        self._hamop = None
+
+    @property
+    def dH_asp(self):
+        return self._hamop.dH_axp
 
     @property
     def vHt_g(self):
@@ -128,7 +139,13 @@ class Hamiltonian:
         return functools.partial(apply_non_local_hamilton,
                                  self.dH_asp, self.collinear)
 
+    def empty_dH(self):
+        dtype = complex if self.soc else float
+        return self.setups.empty_atomic_matrix(self.ncomponents,
+                                               self.atom_partition, dtype)
+
     def update_atomic_hamiltonians(self, value):
+        sdfjskjfsdfkj
         if isinstance(value, dict):
             dtype = complex if self.soc else float
             tmp = self.setups.empty_atomic_matrix(self.ncomponents,
@@ -204,7 +221,8 @@ class Hamiltonian:
         #
         if (self.atom_partition is not None and
             self.dH_asp is None and (rank_a == self.gd.comm.rank).any()):
-            self.update_atomic_hamiltonians({})
+            self._hamop = None
+            #self.update_atomic_hamiltonians({})
 
         if self.atom_partition is not None and self.dH_asp is not None:
             self.timer.start('Redistribute')
@@ -244,7 +262,8 @@ class Hamiltonian:
         with self.timer('Calculate atomic Hamiltonians'):
             W_aL = self.calculate_atomic_hamiltonians(density)
 
-        atomic_energies = self.update_corrections(density, W_aL)
+        dH_axp, atomic_energies = self.calculate_corrections(density, W_aL)
+        self._hamop = HamiltonianOperator(dH_axp)
 
         # Make energy contributions summable over world:
         finegrid_energies *= self.finegd.comm.size / float(self.world.size)
@@ -261,9 +280,9 @@ class Hamiltonian:
 
         self.timer.stop('Hamiltonian')
 
-    def update_corrections(self, dens, W_aL):
+    def calculate_corrections(self, dens, W_aL):
         self.timer.start('Atomic')
-        self.update_atomic_hamiltonians(None)  # XXXX
+        #self.update_atomic_hamiltonians(None)  # XXXX
 
         e_kinetic = 0.0
         e_coulomb = 0.0
@@ -320,13 +339,14 @@ class Hamiltonian:
         for a, D_sp in D_asp.items():
             e_kinetic -= (D_sp * dH_asp[a]).sum().real
 
-        self.update_atomic_hamiltonians(self.atomdist.from_work(dH_asp))
+        dH_asp = self.atomdist.from_work(dH_asp)
+        #self.update_atomic_hamiltonians(self.atomdist.from_work(dH_asp))
         self.timer.stop('Atomic')
 
         # Make corrections due to non-local xc:
         # self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
         e_kinetic += self.xc.get_kinetic_energy_correction() / self.world.size
-        return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
+        return dH_asp, np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
     def get_energy(self, occ):
         self.e_kinetic = self.e_kinetic0 + occ.e_band
@@ -520,12 +540,17 @@ class Hamiltonian:
                                             name='hamiltonian-init-serial')
 
         # Read non-local part of hamiltonian
-        self.update_atomic_hamiltonians({})
+        #self.update_atomic_hamiltonians({})
         dH_sP = h.atomic_hamiltonian_matrices / reader.ha
 
-        if self.gd.comm.rank == 0:
-            self.update_atomic_hamiltonians(
-                unpack_atomic_matrices(dH_sP, self.setups))
+        dH_axp = self.empty_dH()
+        for a, dH_xp in unpack_atomic_matrices(dH_sP, self.setups).items():
+            dH_axp[a] = dH_xp
+
+        self._hamop = HamiltonianOperator(dH_axp)
+        #if self.gd.comm.rank == 0:
+        #    self.update_atomic_hamiltonians(
+        #        )
 
         if hasattr(self.poisson, 'read'):
             self.poisson.read(reader)
