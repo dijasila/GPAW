@@ -1428,7 +1428,7 @@ class ReciprocalSpaceDensity(Density):
     def rhot_q(self):
         return self._finedensity.rhot_q
 
-    def interpolate_pseudo_density(self, comp_charge=None):
+    def interpolate_pseudo_density(self, pseudodensity, finedensity, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
         self._init()
         if comp_charge is None:
@@ -1437,13 +1437,13 @@ class ReciprocalSpaceDensity(Density):
         #ntfine = self.finegd.iempty(self.ncomponents)
         #nt_Q = self.pd2.empty()
 
-        self._finedensity.nt_Q[:] = 0.0
+        finedensity.nt_Q[:] = 0.0
 
         x = 0
-        for nt_G, nt_g in zip(self.nt_xG, self.nt_xg):
+        for nt_G, nt_g in zip(pseudodensity.nt.a, finedensity.nt.a):
             nt_g[:], nt1_Q = self.pd2.interpolate(nt_G, self.pd3)
             if x < self.nspins:
-                self._finedensity.nt_Q += nt1_Q
+                finedensity.nt_Q += nt1_Q
             x += 1
 
     def interpolate(self, in_xR, out_xR=None):

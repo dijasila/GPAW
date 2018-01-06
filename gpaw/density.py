@@ -349,7 +349,9 @@ class Density:
         assert self.error is not None, self.mixer
 
         comp_charge = None
-        self.interpolate_pseudo_density(comp_charge)
+        self._init()
+        self.interpolate_pseudo_density(pseudodensity, self._finedensity,
+                                        comp_charge)
         self.calculate_pseudo_charge()
 
     def calculate_multipole_moments(self, D_axp):
@@ -519,7 +521,7 @@ class Density:
         elif gridrefinement == 2:
             gd = self.finegd
             if self.nt_sg is None:
-                self.interpolate_pseudo_density()
+                self.xxx_interpolate_pseudo_density()
             n_sg = self.nt_sg.copy()
         elif gridrefinement == 4:
             # Extra fine grid
@@ -531,7 +533,7 @@ class Density:
             # Transfer the pseudo-density to the fine grid:
             n_sg = gd.empty(self.nspins)
             if self.nt_sg is None:
-                self.interpolate_pseudo_density()
+                self.xxx_interpolate_pseudo_density()
             for s in range(self.nspins):
                 interpolator.apply(self.nt_sg[s], n_sg[s])
         else:
@@ -713,6 +715,13 @@ class Density:
 
         self.initialize_directly_from_arrays(new_nt_sG, D_asp)
 
+    # XXX kill
+    def xxx_interpolate_pseudo_density(self, comp_charge=None):
+        self._init()
+        return self.interpolate_pseudo_density(self._pseudodensity,
+                                               self._finedensity,
+                                               comp_charge)
+
 
 class RealSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
@@ -749,13 +758,17 @@ class RealSpaceDensity(Density):
         self.nct_G = self.gd.zeros()
         self.nct.add(self.nct_G, 1.0 / self.nspins)
 
-    def interpolate_pseudo_density(self, comp_charge=None):
+    def interpolate_pseudo_density(self, pseudodensity, finedensity,
+                                   comp_charge=None):
         """Interpolate pseudo density to fine grid."""
-        self._init()
         if comp_charge is None:
-            comp_charge, _Q_aL = self.calculate_multipole_moments(self.D_axp)
+            comp_charge, _Q_aL = self.calculate_multipole_moments(
+                pseudodensity.D_axp)
 
-        nt_xg = self.distribute_and_interpolate(self.nt_xG, self.nt_xg)
+        ntfine = finedensity.nt
+
+        nt_xg = self.distribute_and_interpolate(pseudodensity.nt.a, ntfine.a)
+        ntfine.a = nt_xg
 
         # With periodic boundary conditions, the interpolation will
         # conserve the number of electrons.
@@ -766,9 +779,9 @@ class RealSpaceDensity(Density):
                              comp_charge)
             if abs(pseudo_charge) > 1.0e-14:
                 x = (pseudo_charge /
-                     self.finegd.integrate(nt_xg[:self.nspins]).sum())
+                     ntfine.gd.integrate(nt_xg[:self.nspins]).sum())
                 nt_xg[:] *= x
-        self._finedensity.nt = self.finegd.array(nt_xg)
+        #self._finedensity.nt = self.finegd.array(nt_xg)
 
     def interpolate(self, in_xR, out_xR=None):
         """Interpolate array(s)."""

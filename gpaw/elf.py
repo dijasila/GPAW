@@ -89,7 +89,7 @@ class ELF:
 
     def interpolate(self):
 
-        self.density.interpolate_pseudo_density()
+        self.density.xxx_interpolate_pseudo_density()
 
         if self.taut_sg is None:
             self.taut_sg = self.finegd.empty(self.nspins)

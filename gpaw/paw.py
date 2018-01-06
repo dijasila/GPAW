@@ -225,7 +225,7 @@ class PAW:
             gd = self.density.gd
         elif gridrefinement == 2:
             if self.density.nt_sg is None:
-                self.density.interpolate_pseudo_density()
+                self.density.xxx_interpolate_pseudo_density()
             nt_sG = self.density.nt_sg
             gd = self.density.finegd
         else:
@@ -276,7 +276,7 @@ class PAW:
         ham = self.hamiltonian
         dens = self.density
         self.initialize_positions()
-        dens.interpolate_pseudo_density()
+        dens.xxx_interpolate_pseudo_density()
         dens.calculate_pseudo_charge()
         return ham.get_electrostatic_potential(dens) * Ha
 
