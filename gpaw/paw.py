@@ -159,10 +159,10 @@ class PAW:
         self.set_positions()
 
         self.scf.converged = False
-        fixed = self.density.fixed
+        fixed = self.scf.fixdensity
         self.density.fixed = True
         self.calculate(system_changes=[])
-        self.density.fixed = fixed
+        self.scf.fixdensity = fixed
 
     def diagonalize_full_hamiltonian(self, nbands=None, ecut=None, scalapack=None,
                                      expert=False):
