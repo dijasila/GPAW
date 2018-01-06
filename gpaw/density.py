@@ -350,9 +350,10 @@ class Density:
 
         comp_charge = None
         self._init()
-        self.interpolate_pseudo_density(pseudodensity, self._finedensity,
+        finedensity = self._finedensity
+        self.interpolate_pseudo_density(pseudodensity, finedensity,
                                         comp_charge)
-        self.calculate_pseudo_charge()
+        self.calculate_pseudo_charge(pseudodensity.D_axp, finedensity)
 
     def calculate_multipole_moments(self, D_axp):
         D_axp = self.atomdist.to_aux(D_axp)
@@ -805,11 +806,17 @@ class RealSpaceDensity(Density):
         in_xR = self.redistributor.distribute(in_xR)
         return self.interpolate(in_xR, out_xR)
 
-    def calculate_pseudo_charge(self):
-        self._finedensity.rhot.a[:] = self.nt_sg.sum(axis=0)
-        charge, Q_aL = self.calculate_multipole_moments(self.D_axp)
-        self.ghat.add(self.rhot_g, Q_aL)
-        self.background_charge.add_charge_to(self.rhot_g)
+    def xxx_calculate_pseudo_charge(self):
+        return self.calculate_pseudo_charge(self.D_axp, self._finedensity)
+
+    # XXX This is ugly design because finedensity is 'halfway' calculated
+    # But we need a level of abstraction for PW mode
+    def calculate_pseudo_charge(self, D_axp, finedensity):
+        rhot = finedensity.rhot
+        rhot.a[:] = finedensity.nt.a[:self.nspins].sum(axis=0)
+        charge, Q_aL = self.calculate_multipole_moments(D_axp)
+        self.ghat.add(rhot.a, Q_aL)
+        self.background_charge.add_charge_to(rhot.a)
 
         if debug:
             charge = self.rhot.integrate() + self.charge

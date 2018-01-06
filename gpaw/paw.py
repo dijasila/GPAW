@@ -277,7 +277,7 @@ class PAW:
         dens = self.density
         self.initialize_positions()
         dens.xxx_interpolate_pseudo_density()
-        dens.calculate_pseudo_charge()
+        dens.xxx_calculate_pseudo_charge()
         return ham.get_electrostatic_potential(dens) * Ha
 
     def get_pseudo_density_corrections(self):

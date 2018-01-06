@@ -1461,12 +1461,11 @@ class ReciprocalSpaceDensity(Density):
 
     distribute_and_interpolate = interpolate
 
-    def calculate_pseudo_charge(self):
-        rhot_q = self._finedensity.rhot_q
-        #self.rhot_q = self.pd3.zeros()
+    def calculate_pseudo_charge(self, D_axp, finedensity):
+        rhot_q = finedensity.rhot_q
         rhot_q[:] = 0.0
-        rhot_q[self.G3_G] = self._finedensity.nt_Q * 8
-        Q_aL = self.Q.calculate(self.D_asp)
+        rhot_q[self.G3_G] = finedensity.nt_Q * 8
+        Q_aL = self.Q.calculate(D_axp)
         self.ghat.add(rhot_q, Q_aL)
         self.background_charge.add_fourier_space_charge_to(self.pd3,
                                                            rhot_q)
