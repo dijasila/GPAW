@@ -436,27 +436,38 @@ class ExcitedStateDensity(RealSpaceDensity):
 
         self.set_positions(calc.spos_ac, calc.wfs.atom_partition)
 
-        D_asp = {}
-        for a, D_sp in self.gsdensity.D_asp.items():
-            repeats = self.nspins // self.gsdensity.nspins
+        # Code used to take D_axp from the gsdensity.
+        # But D_axp is recalculated anyway so presumably we can skip this.
+        #
+        #D_axp = self.get_D_axp_from_gs()
+
+    #def get_D_axp_from_gs(self):
+    #    D_axp = self.empty_D()
+    #    for a, D_sp in self.gsdensity.D_axp.items():
+    #        repeats = self.nspins // self.gsdensity.nspins
             # XXX does this work always?
-            D_asp[a] = (1. * D_sp).repeat(repeats, axis=0)
-        self.update_atomic_density_matrices(D_asp)
+    #        D_axp[a][:] = (1. * D_sp).repeat(repeats, axis=0)
+    #    return D_axp
 
     def update(self, wfs):
+        self._init()
         self.timer.start('Density')
         self.timer.start('Pseudo density')
-        self.calculate_pseudo_density(wfs)
+        nt = self.gd.izeros(self.ncomponents)
+        self.calculate_pseudo_density(wfs, nt)
         self.timer.stop('Pseudo density')
         self.timer.start('Atomic density matrices')
         f_un = []
+
+        D_axp = self.empty_D()
         for kpt in wfs.kpt_u:
             f_n = kpt.f_n - self.wocc_sn[kpt.s] + self.wunocc_sn[kpt.s]
             if self.nspins > self.gsdensity.nspins:
                 f_n = kpt.f_n - self.wocc_sn[1] + self.wunocc_sn[1]
             f_un.append(f_n)
-        wfs.calculate_atomic_density_matrices_with_occupation(self.D_asp,
-                                                              f_un)
+        wfs.calculate_atomic_density_matrices_with_occupation(D_axp, f_un)
+        from gpaw.density import ValenceDensity
+        self._valencedensity = ValenceDensity(nt, D_axp)
         self.timer.stop('Atomic density matrices')
         self.timer.start('Multipole moments')
         comp_charge, _Q_aL = self.calculate_multipole_moments()
@@ -469,7 +480,7 @@ class ExcitedStateDensity(RealSpaceDensity):
 
         self.timer.stop('Density')
 
-    def calculate_pseudo_density(self, wfs):
+    def calculate_pseudo_density(self, wfs, nt):
         """Calculate nt_sG from scratch.
 
         nt_sG will be equal to nct_G plus the contribution from
@@ -477,7 +488,8 @@ class ExcitedStateDensity(RealSpaceDensity):
         """
         nvspins = wfs.kd.nspins
         npspins = self.nspins
-        self.ntcoarse = self.gd.izeros(self.ncomponents)
+        nt_xG = nt.a
+        #self.ntcoarse = self.gd.izeros(self.ncomponents)
 
         for s in range(npspins):
             for kpt in wfs.kpt_u:
@@ -486,5 +498,5 @@ class ExcitedStateDensity(RealSpaceDensity):
                     for f, psit_G in zip((f_n - self.wocc_sn[s] +
                                           self.wunocc_sn[s]),
                                          kpt.psit_nG):
-                        axpy(f, psit_G ** 2, self.nt_sG[s])
-        self.nt_sG[:] += self.nct_G
+                        axpy(f, psit_G ** 2, nt_xG[s])
+        nt_xG[:] += self.nct_G

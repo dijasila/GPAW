@@ -230,6 +230,7 @@ class Density:
         except (TypeError, AttributeError):
             pass
 
+    # XXXX kill kill
     def initialize(self, setups, timer, magmom_av, hund):
         self.timer = timer
         self.setups = setups
@@ -237,6 +238,7 @@ class Density:
         self.hund = hund
         self.magmom_av = magmom_av
 
+    # kill?
     def reset(self):
         # TODO: reset other parameters?
         #self.nt_xG = None
