@@ -92,6 +92,9 @@ class FineDensity:
         self.rhot = rhot
 
 
+# Mixing takes place purely on the PseudoDensity so actually the mixer
+# (or at least its history and perhaps 'error') should belong to this
+# object.
 class PseudoDensity:
     def __init__(self, nt, D_axp):
         self.nt = nt
@@ -402,9 +405,6 @@ class Density:
 
         self.log('Density initialized from atomic densities')
 
-        #self.update_atomic_density_matrices(
-        #    self.setups.empty_atomic_matrix(self.ncomponents,
-        #                                    self.atom_partition))
         D_axp = self.empty_D()
 
         f_asi = {}
