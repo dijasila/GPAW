@@ -10,14 +10,17 @@ from gpaw.forces import calculate_forces
 
 class SCFLoop:
     """Self-consistent field loop."""
-    def __init__(self, eigenstates=0.1, energy=0.1, density=0.1, force=np.inf,
-                 maxiter=100, niter_fixdensity=None, nvalence=None):
+    def __init__(self, eigenstates=0.1, energy=0.1, density=0.1,
+                 force=np.inf,
+                 maxiter=100, niter_fixdensity=None, nvalence=None,
+                 fixdensity=False):
         self.max_errors = {'eigenstates': eigenstates,
                            'energy': energy,
                            'force': force,
                            'density': density}
         self.maxiter = maxiter
         self.niter_fixdensity = niter_fixdensity
+        self.fixdensity = fixdensity
         self.nvalence = nvalence
 
         self.old_energies = []
@@ -43,6 +46,8 @@ class SCFLoop:
             ('number of iterations: {0}', self.maxiter)]:
             if val < np.inf:
                 s += '  Maximum {0}\n'.format(name.format(val))
+        if self.fixdensity:
+            s += '\nDensity is fixed\n'
         return s
 
     def write(self, writer):
@@ -79,7 +84,7 @@ class SCFLoop:
             if self.converged and self.niter >= self.niter_fixdensity:
                 break
 
-            if self.niter > self.niter_fixdensity and not dens.fixed:
+            if self.niter > self.niter_fixdensity and not self.fixdensity:
                 dens.update(wfs)
                 ham.update(dens)
             else:
@@ -101,7 +106,7 @@ class SCFLoop:
                   'force': np.inf,
                   'energy': np.inf}
 
-        if dens.fixed:
+        if self.fixdensity:
             errors['density'] = 0.0
 
         if len(self.old_energies) >= 3:

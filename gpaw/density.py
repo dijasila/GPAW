@@ -148,7 +148,6 @@ class Density:
         self.hund = None  # kill
         self.magmom_av = None  # kill
 
-        self.fixed = False  # kill
         # XXX at least one test will fail because None has no 'reset()'
         # So we need DummyMixer I guess
         self.mixer = None
@@ -213,8 +212,8 @@ class Density:
         s += '  Coarse grid: {0}*{1}*{2} grid\n'.format(*self.gd.N_c)
         s += '  Fine grid: {0}*{1}*{2} grid\n'.format(*self.finegd.N_c)
         s += '  Total Charge: {0:.6f}'.format(self.charge)
-        if self.fixed:
-            s += '\n  Fixed'
+        #if self.fixed:
+        #    s += '\n  Fixed'
         return s
 
     def summary(self, atoms, magmom, log):

@@ -665,7 +665,7 @@ class GPAW(PAW, Calculator):
             self.log('No density mixing\n')
         else:
             self.log(self.density.mixer, '\n')
-        self.density.fixed = par.fixdensity
+        #self.density.fixed = par.fixdensity
         self.density.log = self.log
 
         if olddens is not None:
@@ -796,7 +796,8 @@ class GPAW(PAW, Calculator):
             cc.get('density', 1.0e-4) * nv,
             cc.get('forces', np.inf) / (Ha / Bohr),
             self.parameters.maxiter,
-            niter_fixdensity, nv)
+            niter_fixdensity, nv,
+            fixdensity=self.parameters.fixdensity)
         self.log(self.scf)
 
     def create_symmetry(self, magmom_av, cell_cv):
