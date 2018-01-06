@@ -33,6 +33,8 @@ class GridShapeError(ValueError):
 
 class GridArray(object):
     def __init__(self, gd, a):
+        assert hasattr(gd, 'new_descriptor')
+        assert hasattr(a, '__array__')
         self.gd = gd
         self.a = a
         if not np.array_equal(self.gshape, a.shape[-3:]):

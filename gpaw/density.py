@@ -27,18 +27,18 @@ class CompensationChargeExpansionCoefficients:
         self.setups = setups
         self.nspins = nspins
 
-    def calculate(self, D_asp):
+    def calculate(self, D_axp):
         """Calculate multipole moments of compensation charges.
 
         Returns the total compensation charge in units of electron
         charge, so the number will be negative because of the
         dominating contribution from the nuclear charge."""
-        atom_partition = D_asp.partition
+        atom_partition = D_axp.partition
         shape_a = [(setup.Delta_pL.shape[1],) for setup in self.setups]
         Q_aL = atom_partition.arraydict(shape_a, dtype=float)
-        for a, D_sp in D_asp.items():
+        for a, D_xp in D_axp.items():
             setup = self.setups[a]
-            Q_L = np.dot(D_sp[:self.nspins].sum(0), setup.Delta_pL)
+            Q_L = np.dot(D_xp[:self.nspins].sum(0), setup.Delta_pL)
             Q_L[0] += setup.Delta0
             Q_aL[a] = Q_L
         return Q_aL
@@ -92,6 +92,12 @@ class FineDensity:
         self.rhot = rhot
 
 
+class ValenceDensity:
+    def __init__(self, nt, D_axp):
+        self.nt = nt
+        self.D_axp = D_axp
+
+
 class Density:
     """Density object.
 
@@ -135,38 +141,47 @@ class Density:
 
         self.charge_eps = 1e-7
 
-        self.D_asp = None
+        #self.D_asp = None
         self.Q = CompensationChargeExpansionCoefficients([], self.nspins)
-        self.Q_aL = None
+        self.Q_aL = None  # kill
 
         self.nct_G = None
-        self.ntcoarse = None
+        #self.ntcoarse = None
         #self.rhot = None
         #self.ntfine = None
 
         self.atom_partition = None
 
         self.setups = None
-        self.hund = None
-        self.magmom_av = None
+        self.hund = None  # kill
+        self.magmom_av = None  # kill
 
-        self.fixed = False
+        self.fixed = False  # kill
         # XXX at least one test will fail because None has no 'reset()'
         # So we need DummyMixer I guess
         self.mixer = None
         self.set_mixer(None)
 
         self.timer = nulltimer
-        self.error = None
+        self.error = None  # kill
         self.nct = None
         self.ghat = None
         self.log = None
 
+        self._valencedensity = None
         self._finedensity = None
 
     @property
+    def D_axp(self):
+        return None if self._valencedensity is None else self._valencedensity.D_axp
+
+    @property
+    def D_asp(self):
+        return self.D_axp
+
+    @property
     def nt_xG(self):
-        return None if self.ntcoarse is None else self.ntcoarse.a
+        return None if self._valencedensity is None else self._valencedensity.nt.a
 
     @property
     def nt_sG(self):
@@ -255,6 +270,10 @@ class Density:
 
         self._finedensity = None
 
+    def empty_D(self):
+        return self.setups.empty_atomic_matrix(self.ncomponents,
+                                               self.atom_partition)
+
     def calculate_pseudo_density(self, wfs):
         """Calculate nt_sG from scratch.
 
@@ -264,16 +283,16 @@ class Density:
         wfs.calculate_density_contribution(self.nt_xG)
         self.nt_sG[:] += self.nct_G
 
-    def update_atomic_density_matrices(self, value):
-        if isinstance(value, dict):
-            tmp = self.setups.empty_atomic_matrix(self.ncomponents,
-                                                  self.atom_partition)
-            tmp.update(value)
-            value = tmp
-        assert isinstance(value, ArrayDict) or value is None, type(value)
-        if value is not None:
-            value.check_consistency()
-        self.D_asp = value
+    #def update_atomic_density_matrices(self, value):
+    #    if isinstance(value, dict):
+    #        tmp = self.setups.empty_atomic_matrix(self.ncomponents,
+    #                                              self.atom_partition)
+    #        tmp.update(value)
+    #        value = tmp
+    #    assert isinstance(value, ArrayDict) or value is None, type(value)
+    #    if value is not None:
+    #        value.check_consistency()
+    #    self.D_asp = value
 
     def allocate_finedensity(self):
         nt = self.finegd.iempty(self.ncomponents)
@@ -286,8 +305,6 @@ class Density:
 
     def update(self, wfs):
         self._init()
-        #if self._finedensity is None:
-        #    self._finedensity = self.allocate_finedensity()
 
         self.timer.start('Density')
         with self.timer('Pseudo density'):
@@ -383,9 +400,10 @@ class Density:
 
         self.log('Density initialized from atomic densities')
 
-        self.update_atomic_density_matrices(
-            self.setups.empty_atomic_matrix(self.ncomponents,
-                                            self.atom_partition))
+        #self.update_atomic_density_matrices(
+        #    self.setups.empty_atomic_matrix(self.ncomponents,
+        #                                    self.atom_partition))
+        D_axp = self.empty_D()
 
         f_asi = {}
         for a in basis_functions.atom_indices:
@@ -393,16 +411,16 @@ class Density:
 
         # D_asp does not have the same distribution as the basis functions,
         # so we have to loop over atoms separately.
-        for a in self.D_asp:
+        for a, D_xp in D_axp.items():
             f_si = f_asi.get(a)
             if f_si is None:
                 f_si = self.get_initial_occupations(a)
-            self.D_asp[a][:] = self.setups[a].initialize_density_matrix(f_si)
+            D_xp[:] = self.setups[a].initialize_density_matrix(f_si)
 
-        self.ntcoarse = self.gd.izeros(self.ncomponents)
-        basis_functions.add_to_density(self.nt_xG, f_asi)
-        self.nt_sG[:] += self.nct_G
-
+        nt = self.gd.izeros(self.ncomponents)
+        basis_functions.add_to_density(nt.a, f_asi)
+        nt.a[:] += self.nct_G
+        self._valencedensity = ValenceDensity(nt, D_axp)
         self._init()
         self.calculate_normalized_charges_and_mix()
 
@@ -410,25 +428,31 @@ class Density:
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""
         self.log('Density initialized from wave functions')
         self.timer.start('Density initialized from wave functions')
-        self.ntcoarse = self.gd.izeros(self.ncomponents)
+        D_axp = self.empty_D()
+        wfs.calculate_atomic_density_matrices(D_axp)
         self._init()
+        nt = self.gd.izeros(self.ncomponents)
+        self._valencedensity = ValenceDensity(nt, D_axp)
         self.calculate_pseudo_density(wfs)
-        self.update_atomic_density_matrices(
-            self.setups.empty_atomic_matrix(self.ncomponents,
-                                            wfs.atom_partition))
-        wfs.calculate_atomic_density_matrices(self.D_asp)
+        # self.update_atomic_density_matrices(
+        #     self.setups.empty_atomic_matrix(self.ncomponents,
+        #                                     wfs.atom_partition))
         self.calculate_normalized_charges_and_mix()
         self.timer.stop('Density initialized from wave functions')
 
-    def initialize_directly_from_arrays(self, nt_sG, D_asp):
+    def initialize_directly_from_arrays(self, nt_xG, D_axp):
         """Set D_asp and nt_sG directly."""
-        self.ntcoarse = self.gd.izeros(self.ncomponents)
-        self.nt_sG[:] = nt_sG
+        assert len(nt_xG) == self.ncomponents
+        nt = self.gd.array(nt_xG)
+        D_axp.check_consistency()
+        assert D_axp.partition is self.atom_partition
+        self._valencedensity = ValenceDensity(nt, D_axp)
 
-        self.update_atomic_density_matrices(D_asp)
-        D_asp.check_consistency()
+        #self.update_atomic_density_matrices(D_asp)
+        #D_asp.check_consistency()
         # No calculate multipole moments?  Tests will fail because of
         # improperly initialized mixer
+        # Should we not mix here?  The other initializers do.
 
     def calculate_normalized_charges_and_mix(self):
         self._init()
