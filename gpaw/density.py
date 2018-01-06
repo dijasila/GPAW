@@ -304,7 +304,7 @@ class Density:
             self.calculate_pseudo_density(wfs, self._pseudodensity)
 
         with self.timer('Multipole moments'):
-            comp_charge, _Q_aL = self.calculate_multipole_moments()
+            comp_charge, _Q_aL = self.calculate_multipole_moments(self.D_axp)
 
         if isinstance(wfs, LCAOWaveFunctions):
             self.timer.start('Normalize')
@@ -347,9 +347,9 @@ class Density:
         self.interpolate_pseudo_density(comp_charge)
         self.calculate_pseudo_charge()
 
-    def calculate_multipole_moments(self):
-        D_asp = self.atomdist.to_aux(self.D_asp)
-        Q_aL = self.Q.calculate(D_asp)
+    def calculate_multipole_moments(self, D_axp):
+        D_axp = self.atomdist.to_aux(D_axp)
+        Q_aL = self.Q.calculate(D_axp)
         self.Q_aL = Q_aL
         return self.Q.get_charge(Q_aL), Q_aL
 
@@ -440,7 +440,7 @@ class Density:
 
     def calculate_normalized_charges_and_mix(self):
         self._init()
-        comp_charge, _Q_aL = self.calculate_multipole_moments()
+        comp_charge, _Q_aL = self.calculate_multipole_moments(self.D_axp)
         self.normalize(comp_charge)
         self.mix(comp_charge)
 
@@ -749,7 +749,7 @@ class RealSpaceDensity(Density):
         """Interpolate pseudo density to fine grid."""
         self._init()
         if comp_charge is None:
-            comp_charge, _Q_aL = self.calculate_multipole_moments()
+            comp_charge, _Q_aL = self.calculate_multipole_moments(self.D_axp)
 
         nt_xg = self.distribute_and_interpolate(self.nt_xG, self.nt_xg)
 
@@ -790,7 +790,7 @@ class RealSpaceDensity(Density):
 
     def calculate_pseudo_charge(self):
         self._finedensity.rhot.a[:] = self.nt_sg.sum(axis=0)
-        self.calculate_multipole_moments()
+        self.calculate_multipole_moments(self.D_axp)
         self.ghat.add(self.rhot_g, self.Q_aL)
         self.background_charge.add_charge_to(self.rhot_g)
 

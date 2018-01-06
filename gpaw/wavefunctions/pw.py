@@ -1432,7 +1432,7 @@ class ReciprocalSpaceDensity(Density):
         """Interpolate pseudo density to fine grid."""
         self._init()
         if comp_charge is None:
-            comp_charge, _Q_aL = self.calculate_multipole_moments()
+            comp_charge, _Q_aL = self.calculate_multipole_moments(self.D_axp)
 
         #ntfine = self.finegd.iempty(self.ncomponents)
         #nt_Q = self.pd2.empty()

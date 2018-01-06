@@ -470,7 +470,7 @@ class ExcitedStateDensity(RealSpaceDensity):
         self._valencedensity = ValenceDensity(nt, D_axp)
         self.timer.stop('Atomic density matrices')
         self.timer.start('Multipole moments')
-        comp_charge, _Q_aL = self.calculate_multipole_moments()
+        comp_charge, _Q_aL = self.calculate_multipole_moments(D_axp)
         self.timer.stop('Multipole moments')
 
         if isinstance(wfs, LCAOWaveFunctions):
