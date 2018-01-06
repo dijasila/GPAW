@@ -73,8 +73,8 @@ class GridArray(object):
 
     def integrate(self, b_yg=None, global_integral=True, hermitian=False):
         if b_yg is not None:
-            b_yg = self._assimilate(b_yg).array
-        return self.gd.integrate(self.array, b_yg=b_yg,
+            b_yg = self._assimilate(b_yg).a
+        return self.gd.integrate(self.a, b_yg=b_yg,
                                  global_integral=global_integral,
                                  hermitian=hermitian)
 

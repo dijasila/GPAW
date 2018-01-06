@@ -4,6 +4,7 @@ import numpy as np
 from ase.atoms import Atoms
 
 from gpaw.calculator import GPAW
+from gpaw.grid_descriptor import GridArray
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.utilities import unpack
@@ -208,7 +209,7 @@ class AtomBasisFunctions:
             nt_sG += f_asi[0][:, i:i + 1] * (2 * l + 1) / 4 / pi * b_g**2
             i += 2 * l + 1
 
-class AtomGridArray:
+class AtomGridArray(GridArray):
     def __init__(self, gd, a):
         self.gd = gd
         self.a = a

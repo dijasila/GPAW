@@ -307,27 +307,31 @@ class Density:
         with self.timer('Multipole moments'):
             comp_charge, _Q_aL = self.calculate_multipole_moments(self.D_axp)
 
+        # XXX better to normalize the charge density.
         if isinstance(wfs, LCAOWaveFunctions):
             self.timer.start('Normalize')
-            self.normalize(comp_charge)
+            self.normalize(comp_charge, self._pseudodensity.nt)
             self.timer.stop('Normalize')
 
         self.timer.start('Mix')
-        self.mix(comp_charge)
+        self.mix(comp_charge, self._pseudodensity)
         self.timer.stop('Mix')
         self.timer.stop('Density')
 
-    def normalize(self, comp_charge):
+    def normalize(self, comp_charge, nt):
         """Normalize pseudo density."""
 
-        pseudo_charge = self.gd.integrate(self.nt_sG).sum()
+        pseudo_charge = self.gd.integrate(nt.a[:self.nspins]).sum()
 
         if (pseudo_charge + self.charge + comp_charge -
             self.background_charge.charge != 0):
             if pseudo_charge != 0:
+                # XXX we should not normalize the PseudoDensity at
+                # all.  We should normalize only the charge density to
+                # the extent necessary.
                 x = (self.background_charge.charge - self.charge -
                      comp_charge) / pseudo_charge
-                self.nt_xG[:] *= x
+                nt.a[:self.nspins] *= x
             else:
                 # Use homogeneous background.
                 #
@@ -337,11 +341,11 @@ class Density:
                 volume = self.gd.get_size_of_global_array().prod() * self.gd.dv
                 total_charge = (self.charge + comp_charge -
                                 self.background_charge.charge)
-                self.nt_sG[:] = -total_charge / volume
+                nt.a[:self.nspins] = -total_charge / volume
 
-    def mix(self, comp_charge):
+    def mix(self, comp_charge, pseudodensity):
         assert isinstance(self.mixer, MixerWrapper), self.mixer
-        self.error = self.mixer.mix(self.nt_xG, self.D_asp)
+        self.error = self.mixer.mix(pseudodensity.nt.a, pseudodensity.D_axp)
         assert self.error is not None, self.mixer
 
         comp_charge = None
@@ -441,8 +445,8 @@ class Density:
     def calculate_normalized_charges_and_mix(self):
         self._init()
         comp_charge, _Q_aL = self.calculate_multipole_moments(self.D_axp)
-        self.normalize(comp_charge)
-        self.mix(comp_charge)
+        self.normalize(comp_charge, self._pseudodensity.nt)
+        self.mix(comp_charge, self._pseudodensity)
 
     def set_mixer(self, mixer):
         if mixer is None:
