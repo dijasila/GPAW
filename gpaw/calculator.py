@@ -178,12 +178,15 @@ class GPAW(PAW, Calculator):
         return writer
 
     def _set_atoms(self, atoms):
-        self.atoms = atoms
+        mpi.synchronize_atoms(atoms, self.world)
         # GPAW works in terms of the scaled positions.  We want to
         # extract the scaled positions in only one place, and that is
         # here.  No other place may recalculate them, or we might end up
         # with rounding errors and inconsistencies.
-        self.spos_ac = atoms.get_scaled_positions() % 1.0
+        spos_ac = atoms.get_scaled_positions() % 1.0
+        self.world.broadcast(spos_ac, 0)
+        self.atoms = atoms
+        self.spos_ac = spos_ac
 
     def read(self, filename):
         from ase.io.trajectory import read_atoms
@@ -438,8 +441,6 @@ class GPAW(PAW, Calculator):
             atoms = atoms.copy()
             self._set_atoms(atoms)
 
-        mpi.synchronize_atoms(atoms, self.world)
-
         rank_a = self.wfs.gd.get_ranks_from_positions(self.spos_ac)
         atom_partition = AtomPartition(self.wfs.gd.comm, rank_a, name='gd')
         self.wfs.set_positions(self.spos_ac, atom_partition)
@@ -498,7 +499,7 @@ class GPAW(PAW, Calculator):
             magmom_av[:, 2] = magmom_a
             collinear = True
 
-        mpi.synchronize_atoms(atoms, self.world)
+        #mpi.synchronize_atoms(atoms, self.world)
 
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
