@@ -142,9 +142,6 @@ class Density:
         self.charge_eps = 1e-7
 
         self.Q = CompensationChargeExpansionCoefficients([], self.nspins)
-        self.Q_aL = None  # kill
-
-
         self.atom_partition = None
 
         self.setups = None
@@ -206,6 +203,10 @@ class Density:
     @property
     def rhot_g(self):
         return None if self._finedensity is None else self._finedensity.rhot.a
+
+    @property
+    def Q_aL(self):
+        return self.calculate_multipole_moments(self.D_axp)[1]
 
     def __str__(self):
         s = 'Densities:\n'
@@ -350,7 +351,6 @@ class Density:
     def calculate_multipole_moments(self, D_axp):
         D_axp = self.atomdist.to_aux(D_axp)
         Q_aL = self.Q.calculate(D_axp)
-        self.Q_aL = Q_aL
         return self.Q.get_charge(Q_aL), Q_aL
 
     def get_initial_occupations(self, a):
@@ -790,8 +790,8 @@ class RealSpaceDensity(Density):
 
     def calculate_pseudo_charge(self):
         self._finedensity.rhot.a[:] = self.nt_sg.sum(axis=0)
-        self.calculate_multipole_moments(self.D_axp)
-        self.ghat.add(self.rhot_g, self.Q_aL)
+        charge, Q_aL = self.calculate_multipole_moments(self.D_axp)
+        self.ghat.add(self.rhot_g, Q_aL)
         self.background_charge.add_charge_to(self.rhot_g)
 
         if debug:

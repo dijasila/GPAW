@@ -466,8 +466,8 @@ class ExcitedStateDensity(RealSpaceDensity):
                 f_n = kpt.f_n - self.wocc_sn[1] + self.wunocc_sn[1]
             f_un.append(f_n)
         wfs.calculate_atomic_density_matrices_with_occupation(D_axp, f_un)
-        from gpaw.density import ValenceDensity
-        self._valencedensity = ValenceDensity(nt, D_axp)
+        from gpaw.density import PseudoDensity
+        self._pseudodensity = PseudoDensity(nt, D_axp)
         self.timer.stop('Atomic density matrices')
         self.timer.start('Multipole moments')
         comp_charge, _Q_aL = self.calculate_multipole_moments(D_axp)
