@@ -92,7 +92,7 @@ class FineDensity:
         self.rhot = rhot
 
 
-class ValenceDensity:
+class PseudoDensity:
     def __init__(self, nt, D_axp):
         self.nt = nt
         self.D_axp = D_axp
@@ -164,12 +164,12 @@ class Density:
         self.ghat = None
         self.log = None
 
-        self._valencedensity = None
+        self._pseudodensity = None
         self._finedensity = None
 
     @property
     def D_axp(self):
-        return None if self._valencedensity is None else self._valencedensity.D_axp
+        return None if self._pseudodensity is None else self._pseudodensity.D_axp
 
     @property
     def D_asp(self):
@@ -177,7 +177,7 @@ class Density:
 
     @property
     def nt_xG(self):
-        return None if self._valencedensity is None else self._valencedensity.nt.a
+        return None if self._pseudodensity is None else self._pseudodensity.nt.a
 
     @property
     def nt_sG(self):
@@ -262,18 +262,28 @@ class Density:
 
         self._finedensity = None
 
+    # XXX kill
     def empty_D(self):
         return self.setups.empty_atomic_matrix(self.ncomponents,
                                                self.atom_partition)
 
-    def calculate_pseudo_density(self, wfs):
-        """Calculate nt_sG from scratch.
+    def allocate_pseudo_density(self):
+        D_axp = self.setups.empty_atomic_matrix(self.ncomponents,
+                                                self.atom_partition)
+        nt = self.gd.iempty(self.ncomponents)
+        return PseudoDensity(nt, D_axp)
+
+    def calculate_pseudo_density(self, wfs, pseudodensity):
+        """Calculate nt_sG and D_axp from scratch.
 
         nt_sG will be equal to nct_G plus the contribution from
         wfs.add_to_density().
         """
-        wfs.calculate_density_contribution(self.nt_xG)
-        self.nt_sG[:] += self.nct_G
+        with self.timer('Pseudo density'):
+            wfs.calculate_density_contribution(pseudodensity.nt.a)
+            pseudodensity.nt.a[:] += self.nct_G
+        with self.timer('Atomic density matrices'):
+            wfs.calculate_atomic_density_matrices(pseudodensity.D_axp)
 
     def allocate_finedensity(self):
         nt = self.finegd.iempty(self.ncomponents)
@@ -288,10 +298,10 @@ class Density:
         self._init()
 
         self.timer.start('Density')
+        if self._pseudodensity is None:
+            self._pseudodensity = self.allocate_pseudo_density()
         with self.timer('Pseudo density'):
-            self.calculate_pseudo_density(wfs)
-        with self.timer('Atomic density matrices'):
-            wfs.calculate_atomic_density_matrices(self.D_asp)
+            self.calculate_pseudo_density(wfs, self._pseudodensity)
 
         with self.timer('Multipole moments'):
             comp_charge, _Q_aL = self.calculate_multipole_moments()
@@ -401,7 +411,7 @@ class Density:
         nt = self.gd.izeros(self.ncomponents)
         basis_functions.add_to_density(nt.a, f_asi)
         nt.a[:] += self.nct_G
-        self._valencedensity = ValenceDensity(nt, D_axp)
+        self._pseudodensity = PseudoDensity(nt, D_axp)
         self._init()
         self.calculate_normalized_charges_and_mix()
 
@@ -409,12 +419,9 @@ class Density:
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""
         self.log('Density initialized from wave functions')
         self.timer.start('Density initialized from wave functions')
-        D_axp = self.empty_D()
-        wfs.calculate_atomic_density_matrices(D_axp)
+        self._pseudo_density = self.allocate_pseudo_density()
+        self.calculate_pseudo_density(wfs, self._pseudodensity)
         self._init()
-        nt = self.gd.izeros(self.ncomponents)
-        self._valencedensity = ValenceDensity(nt, D_axp)
-        self.calculate_pseudo_density(wfs)
         self.calculate_normalized_charges_and_mix()
         self.timer.stop('Density initialized from wave functions')
 
@@ -424,7 +431,7 @@ class Density:
         nt = self.gd.array(nt_xG)
         D_axp.check_consistency()
         assert D_axp.partition is self.atom_partition
-        self._valencedensity = ValenceDensity(nt, D_axp)
+        self._pseudodensity = PseudoDensity(nt, D_axp)
 
         #D_asp.check_consistency()
         # No calculate multipole moments?  Tests will fail because of
