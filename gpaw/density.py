@@ -234,12 +234,6 @@ class Density:
         self.hund = hund
         self.magmom_av = magmom_av
 
-    # kill?
-    def reset(self):
-        # TODO: reset other parameters?
-        #self.nt_xG = None
-        self.ntcoarse = None
-
     def set_positions_without_ruining_everything(self, spos_ac,
                                                  atom_partition):
         rank_a = atom_partition.rank_a

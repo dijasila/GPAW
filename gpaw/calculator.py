@@ -264,7 +264,8 @@ class GPAW(PAW, Calculator):
             self.log('System changes:', ', '.join(system_changes), '\n')
             if system_changes == ['positions']:
                 # Only positions have changed:
-                self.density.reset()
+                #self.density.reset()
+                pass
             else:
                 # Drastic changes:
                 self.wfs = None
