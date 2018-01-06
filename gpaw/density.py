@@ -314,7 +314,9 @@ class Density:
             self.timer.stop('Normalize')
 
         self.timer.start('Mix')
-        self.mix(comp_charge, self._pseudodensity)
+        self.mix(self._pseudodensity)
+        self._init()
+        self.calculate_finegrid_things(self._pseudodensity, self._finedensity)
         self.timer.stop('Mix')
         self.timer.stop('Density')
 
@@ -343,16 +345,19 @@ class Density:
                                 self.background_charge.charge)
                 nt.a[:self.nspins] = -total_charge / volume
 
-    def mix(self, comp_charge, pseudodensity):
+    def mix(self, pseudodensity):
         assert isinstance(self.mixer, MixerWrapper), self.mixer
         self.error = self.mixer.mix(pseudodensity.nt.a, pseudodensity.D_axp)
         assert self.error is not None, self.mixer
 
-        comp_charge = None
-        self._init()
+    def calculate_finegrid_things(self, pseudodensity, finedensity):
+        #self._init()
+        #finedensity = self._finedensity
+        #if self._finedensity is None:
+        #    self._finedensity = self.allocate_finedensity()
         finedensity = self._finedensity
         self.interpolate_pseudo_density(pseudodensity, finedensity,
-                                        comp_charge)
+                                        comp_charge=None)
         self.calculate_pseudo_charge(pseudodensity.D_axp, finedensity)
 
     def calculate_multipole_moments(self, D_axp):
@@ -449,7 +454,9 @@ class Density:
         self._init()
         comp_charge, _Q_aL = self.calculate_multipole_moments(self.D_axp)
         self.normalize(comp_charge, self._pseudodensity.nt)
-        self.mix(comp_charge, self._pseudodensity)
+        self.mix(self._pseudodensity)
+        self.calculate_finegrid_things(self._pseudodensity,
+                                       self._finedensity)
 
     def set_mixer(self, mixer):
         if mixer is None:
