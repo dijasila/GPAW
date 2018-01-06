@@ -226,7 +226,9 @@ class LCAOWaveFunctions(WaveFunctions):
             # After a restart, nt_sg doesn't exist yet, so we'll have to
             # make sure it does.  Of course, this should have been taken care
             # of already by this time, so we should improve the code elsewhere
-            density.calculate_normalized_charges_and_mix()
+            density._init()
+            density.calculate_normalized_charges_and_mix(density._pseudodensity,
+                                                         density._finedensity)
 
         hamiltonian.update(density)
         self.timer.stop('LCAO WFS Initialize')

@@ -356,7 +356,9 @@ class FDPWWaveFunctions(WaveFunctions):
         else:  # XXX???
             # We didn't even touch density, but some combinations in paw.set()
             # will make it necessary to do this for some reason.
-            density.calculate_normalized_charges_and_mix()
+            density._init()
+            density.calculate_normalized_charges_and_mix(density._pseudodensity,
+                                                         density._finedensity)
         hamiltonian.update(density)
 
         if self.mykpts[0].psit is None:

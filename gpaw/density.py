@@ -425,7 +425,8 @@ class Density:
         nt.a[:] += self.nct_G
         self._pseudodensity = PseudoDensity(nt, D_axp)
         self._init()
-        self.calculate_normalized_charges_and_mix()
+        self.calculate_normalized_charges_and_mix(self._pseudodensity,
+                                                  self._finedensity)
 
     def initialize_from_wavefunctions(self, wfs):
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""
@@ -434,7 +435,8 @@ class Density:
         self._pseudo_density = self.allocate_pseudo_density()
         self.calculate_pseudo_density(wfs, self._pseudodensity)
         self._init()
-        self.calculate_normalized_charges_and_mix()
+        self.calculate_normalized_charges_and_mix(self._pseudodensity,
+                                                  self._finedensity)
         self.timer.stop('Density initialized from wave functions')
 
     def initialize_directly_from_arrays(self, nt_xG, D_axp):
@@ -450,13 +452,11 @@ class Density:
         # improperly initialized mixer
         # Should we not mix here?  The other initializers do.
 
-    def calculate_normalized_charges_and_mix(self):
-        self._init()
-        comp_charge, _Q_aL = self.calculate_multipole_moments(self.D_axp)
-        self.normalize(comp_charge, self._pseudodensity.nt)
-        self.mix(self._pseudodensity)
-        self.calculate_finegrid_things(self._pseudodensity,
-                                       self._finedensity)
+    def calculate_normalized_charges_and_mix(self, pseudodensity, finedensity):
+        charge, _Q_aL = self.calculate_multipole_moments(pseudodensity.D_axp)
+        self.normalize(charge, pseudodensity.nt)
+        self.mix(pseudodensity)
+        self.calculate_finegrid_things(pseudodensity, finedensity)
 
     def set_mixer(self, mixer):
         if mixer is None:
