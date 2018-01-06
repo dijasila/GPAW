@@ -141,14 +141,9 @@ class Density:
 
         self.charge_eps = 1e-7
 
-        #self.D_asp = None
         self.Q = CompensationChargeExpansionCoefficients([], self.nspins)
         self.Q_aL = None  # kill
 
-        self.nct_G = None
-        #self.ntcoarse = None
-        #self.rhot = None
-        #self.ntfine = None
 
         self.atom_partition = None
 
@@ -165,6 +160,7 @@ class Density:
         self.timer = nulltimer
         self.error = None  # kill
         self.nct = None
+        self.nct_G = None
         self.ghat = None
         self.log = None
 
@@ -284,17 +280,6 @@ class Density:
         """
         wfs.calculate_density_contribution(self.nt_xG)
         self.nt_sG[:] += self.nct_G
-
-    #def update_atomic_density_matrices(self, value):
-    #    if isinstance(value, dict):
-    #        tmp = self.setups.empty_atomic_matrix(self.ncomponents,
-    #                                              self.atom_partition)
-    #        tmp.update(value)
-    #        value = tmp
-    #    assert isinstance(value, ArrayDict) or value is None, type(value)
-    #    if value is not None:
-    #        value.check_consistency()
-    #    self.D_asp = value
 
     def allocate_finedensity(self):
         nt = self.finegd.iempty(self.ncomponents)
@@ -436,9 +421,6 @@ class Density:
         nt = self.gd.izeros(self.ncomponents)
         self._valencedensity = ValenceDensity(nt, D_axp)
         self.calculate_pseudo_density(wfs)
-        # self.update_atomic_density_matrices(
-        #     self.setups.empty_atomic_matrix(self.ncomponents,
-        #                                     wfs.atom_partition))
         self.calculate_normalized_charges_and_mix()
         self.timer.stop('Density initialized from wave functions')
 
@@ -450,7 +432,6 @@ class Density:
         assert D_axp.partition is self.atom_partition
         self._valencedensity = ValenceDensity(nt, D_axp)
 
-        #self.update_atomic_density_matrices(D_asp)
         #D_asp.check_consistency()
         # No calculate multipole moments?  Tests will fail because of
         # improperly initialized mixer
