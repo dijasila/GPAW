@@ -137,6 +137,11 @@ class HamiltonianOperator:
             P_axi[a] = np.dot(P_xi, dH_ii)
         wfs.pt.add(b_xG, P_axi, kpt.q)
 
+    def write(self, writer):
+        writer.write(
+            potential=self.vt.gd.collect(self.vt.a) * Ha,
+            atomic_hamiltonian_matrices=pack_atomic_matrices(self.dH_axp) * Ha)
+
 
 class Potentials:
     def __init__(self, vt, vHt):
@@ -160,7 +165,17 @@ class KSEnergies:
         self.e_total_extrapolated = None
         self.e_kinetic0 = None
 
-        self.e_band = None
+        self.e_band = None  # delete?
+
+    @classmethod
+    def read(cls, reader):
+        energies = KSEnergies()
+        for name in KSEnergies.names:
+            energy = reader.hamiltonian.get(name)
+            if energy is not None:
+                energy /= reader.ha
+            setattr(energies, name, energy)
+        return energies
 
     def etotfree(self):
         return (self.e_kinetic + self.e_coulomb +
@@ -190,6 +205,13 @@ class KSEnergies:
                   self.e_entropy)
 
         return self.e_total_free
+
+    def write(self, writer):
+        for name in KSEnergies.names:
+            energy = getattr(self, name)
+            if energy is not None:
+                energy *= Ha
+            writer.write(name, energy)
 
 
 @frozen
@@ -570,15 +592,8 @@ class Hamiltonian:
 
     def write(self, writer):
         # Write all eneriges:
-        for name in KSEnergies.names:
-            energy = getattr(self._energies, name)
-            if energy is not None:
-                energy *= Ha
-            writer.write(name, energy)
-
-        writer.write(
-            potential=self.gd.collect(self.vt_sG) * Ha,
-            atomic_hamiltonian_matrices=pack_atomic_matrices(self.dH_asp) * Ha)
+        self._energies.write(writer)
+        self._hamop.write(writer)
 
         self.xc.write(writer.child('xc'))
 
@@ -589,13 +604,7 @@ class Hamiltonian:
         h = reader.hamiltonian
 
         # Read all energies:
-        energies = KSEnergies()
-        for name in KSEnergies.names:
-            energy = h.get(name)
-            if energy is not None:
-                energy /= reader.ha
-            setattr(energies, name, energy)
-        self._energies = energies
+        self._energies = KSEnergies.read(reader)
 
         # Read pseudo potential on the coarse grid
         # and broadcast on kpt/band comm:

@@ -1362,6 +1362,13 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
         PWLFC.derivative(self, self.pd.fft(dedtaut_R), dF_aiv)
 
 
+class PWFineDensity:
+    def __init__(self, nt, nt_Q, rhot_q):
+        self.nt = nt
+        self.nt_Q = nt_Q
+        self.rhot_q = rhot_q
+
+
 class ReciprocalSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
                  background_charge=None):
@@ -1383,9 +1390,9 @@ class ReciprocalSpaceDensity(Density):
         self.xc_redistributor = GridRedistributor(redistributor.comm,
                                                   redistributor.comm,
                                                   serial_finegd, finegd)
-        self.nct_q = None
-        self.nt_Q = None
-        self.rhot_q = None
+        self.nct_q = None  # Can we not just delete this?
+        #self.nt_Q = None
+        #self.rhot_q = None
 
     def initialize(self, setups, timer, magmom_av, hund):
         Density.initialize(self, setups, timer, magmom_av, hund)
@@ -1407,22 +1414,36 @@ class ReciprocalSpaceDensity(Density):
         self.nct.add(self.nct_q, 1.0 / self.nspins)
         self.nct_G = self.pd2.ifft(self.nct_q)
 
+    def allocate_finedensity(self):
+        nt = self.finegd.iempty(self.ncomponents)
+        nt_Q = self.pd2.empty()
+        rhot_q = self.pd3.zeros()
+        return PWFineDensity(nt, nt_Q, rhot_q)
+
+    @property
+    def nt_Q(self):
+        return self._finedensity.nt_Q
+
+    @property
+    def rhot_q(self):
+        return self._finedensity.rhot_q
+
     def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
+        self._init()
         if comp_charge is None:
             comp_charge, _Q_aL = self.calculate_multipole_moments()
 
-        if self.ntfine is None:
-            self.ntfine = self.finegd.iempty(self.ncomponents)
-            self.nt_Q = self.pd2.empty()
+        #ntfine = self.finegd.iempty(self.ncomponents)
+        #nt_Q = self.pd2.empty()
 
-        self.nt_Q[:] = 0.0
+        self._finedensity.nt_Q[:] = 0.0
 
         x = 0
         for nt_G, nt_g in zip(self.nt_xG, self.nt_xg):
-            nt_g[:], nt_Q = self.pd2.interpolate(nt_G, self.pd3)
+            nt_g[:], nt1_Q = self.pd2.interpolate(nt_G, self.pd3)
             if x < self.nspins:
-                self.nt_Q += nt_Q
+                self._finedensity.nt_Q += nt1_Q
             x += 1
 
     def interpolate(self, in_xR, out_xR=None):
@@ -1441,13 +1462,15 @@ class ReciprocalSpaceDensity(Density):
     distribute_and_interpolate = interpolate
 
     def calculate_pseudo_charge(self):
-        self.rhot_q = self.pd3.zeros()
-        self.rhot_q[self.G3_G] = self.nt_Q * 8
+        rhot_q = self._finedensity.rhot_q
+        #self.rhot_q = self.pd3.zeros()
+        rhot_q[:] = 0.0
+        rhot_q[self.G3_G] = self._finedensity.nt_Q * 8
         Q_aL = self.Q.calculate(self.D_asp)
-        self.ghat.add(self.rhot_q, Q_aL)
+        self.ghat.add(rhot_q, Q_aL)
         self.background_charge.add_fourier_space_charge_to(self.pd3,
-                                                           self.rhot_q)
-        self.rhot_q[0] = 0.0
+                                                           rhot_q)
+        rhot_q[0] = 0.0
 
     def get_pseudo_core_kinetic_energy_density_lfc(self):
         return PseudoCoreKineticEnergyDensityLFC(

@@ -86,6 +86,12 @@ class SpinGridArray(GridArray):
         return self[self.nspins:]
 
 
+class FineDensity:
+    def __init__(self, nt, rhot):
+        self.nt = nt
+        self.rhot = rhot
+
+
 class Density:
     """Density object.
 
@@ -135,8 +141,8 @@ class Density:
 
         self.nct_G = None
         self.ntcoarse = None
-        self.rhot = None
-        self.ntfine = None
+        #self.rhot = None
+        #self.ntfine = None
 
         self.atom_partition = None
 
@@ -156,6 +162,8 @@ class Density:
         self.ghat = None
         self.log = None
 
+        self._finedensity = None
+
     @property
     def nt_xG(self):
         return None if self.ntcoarse is None else self.ntcoarse.a
@@ -170,7 +178,7 @@ class Density:
 
     @property
     def nt_xg(self):
-        return None if self.ntfine is None else self.ntfine.a
+        return None if self._finedensity is None else self._finedensity.nt.a
 
     @property
     def nt_sg(self):
@@ -186,7 +194,7 @@ class Density:
 
     @property
     def rhot_g(self):
-        return None if self.rhot is None else self.rhot.a
+        return None if self._finedensity is None else self._finedensity.rhot.a
 
     def __str__(self):
         s = 'Densities:\n'
@@ -245,8 +253,7 @@ class Density:
         self.ghat.set_positions(spos_ac)
         self.mixer.reset()
 
-        self.ntfine = None
-        self.rhot = None
+        self._finedensity = None
 
     def calculate_pseudo_density(self, wfs):
         """Calculate nt_sG from scratch.
@@ -268,12 +275,26 @@ class Density:
             value.check_consistency()
         self.D_asp = value
 
+    def allocate_finedensity(self):
+        nt = self.finegd.iempty(self.ncomponents)
+        rhot = self.finegd.izeros()
+        return FineDensity(nt, rhot)
+
+    def _init(self):  # XXX kill
+        if self._finedensity is None:
+            self._finedensity = self.allocate_finedensity()
+
     def update(self, wfs):
+        self._init()
+        #if self._finedensity is None:
+        #    self._finedensity = self.allocate_finedensity()
+
         self.timer.start('Density')
         with self.timer('Pseudo density'):
             self.calculate_pseudo_density(wfs)
         with self.timer('Atomic density matrices'):
             wfs.calculate_atomic_density_matrices(self.D_asp)
+
         with self.timer('Multipole moments'):
             comp_charge, _Q_aL = self.calculate_multipole_moments()
 
@@ -381,6 +402,8 @@ class Density:
         self.ntcoarse = self.gd.izeros(self.ncomponents)
         basis_functions.add_to_density(self.nt_xG, f_asi)
         self.nt_sG[:] += self.nct_G
+
+        self._init()
         self.calculate_normalized_charges_and_mix()
 
     def initialize_from_wavefunctions(self, wfs):
@@ -388,6 +411,7 @@ class Density:
         self.log('Density initialized from wave functions')
         self.timer.start('Density initialized from wave functions')
         self.ntcoarse = self.gd.izeros(self.ncomponents)
+        self._init()
         self.calculate_pseudo_density(wfs)
         self.update_atomic_density_matrices(
             self.setups.empty_atomic_matrix(self.ncomponents,
@@ -407,6 +431,7 @@ class Density:
         # improperly initialized mixer
 
     def calculate_normalized_charges_and_mix(self):
+        self._init()
         comp_charge, _Q_aL = self.calculate_multipole_moments()
         self.normalize(comp_charge)
         self.mix(comp_charge)
@@ -714,11 +739,11 @@ class RealSpaceDensity(Density):
 
     def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
+        self._init()
         if comp_charge is None:
             comp_charge, _Q_aL = self.calculate_multipole_moments()
 
-        nt_sg = self.distribute_and_interpolate(self.nt_sG, self.nt_sg)
-        self.ntfine = self.finegd.array(nt_sg)
+        nt_xg = self.distribute_and_interpolate(self.nt_xG, self.nt_xg)
 
         # With periodic boundary conditions, the interpolation will
         # conserve the number of electrons.
@@ -729,8 +754,9 @@ class RealSpaceDensity(Density):
                              comp_charge)
             if abs(pseudo_charge) > 1.0e-14:
                 x = (pseudo_charge /
-                     self.finegd.integrate(self.nt_sg).sum())
-                self.nt_sg[:] *= x
+                     self.finegd.integrate(nt_xg[:self.nspins]).sum())
+                nt_xg[:] *= x
+        self._finedensity.nt = self.finegd.array(nt_xg)
 
     def interpolate(self, in_xR, out_xR=None):
         """Interpolate array(s)."""
@@ -755,8 +781,7 @@ class RealSpaceDensity(Density):
         return self.interpolate(in_xR, out_xR)
 
     def calculate_pseudo_charge(self):
-        #self.nt_g = self.nt_sg.sum(axis=0)
-        self.rhot = self.finegd.array(self.nt_g.copy())
+        self._finedensity.rhot.a[:] = self.nt_sg.sum(axis=0)
         self.calculate_multipole_moments()
         self.ghat.add(self.rhot_g, self.Q_aL)
         self.background_charge.add_charge_to(self.rhot_g)
@@ -773,7 +798,7 @@ class RealSpaceDensity(Density):
                    forces=True, cut=True)
 
     def calculate_dipole_moment(self):
-        return self.rhot.calculate_dipole_moment()
+        return self._finedensity.rhot.calculate_dipole_moment()
 
 
 def redistribute_array(nt_sG, gd1, gd2, nspins, kptband_comm):
