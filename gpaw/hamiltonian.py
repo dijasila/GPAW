@@ -615,13 +615,14 @@ class Hamiltonian:
                                             np.zeros(len(self.setups), int),
                                             name='hamiltonian-init-serial')
 
-        # Read non-local part of hamiltonian
-        #self.update_atomic_hamiltonians({})
-        dH_sP = h.atomic_hamiltonian_matrices / reader.ha
 
+        # Read non-local part of hamiltonian
         dH_axp = self.empty_dH()
-        for a, dH_xp in unpack_atomic_matrices(dH_sP, self.setups).items():
-            dH_axp[a] = dH_xp
+        if self.gd.comm.rank == 0:
+            dH_sP = h.atomic_hamiltonian_matrices / reader.ha
+            for a, dH_xp in unpack_atomic_matrices(dH_sP, self.setups).items():
+                dH_axp[a] = dH_xp
+        dH_axp.check_consistency()
 
         self._hamop = self.get_hamiltonian_operator(vt, dH_axp)
 
