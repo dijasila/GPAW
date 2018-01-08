@@ -23,8 +23,7 @@ from __future__ import print_function
 import sys
 import marshal
 
-py_lessthan_35 = (sys.version_info == 2 or
-                  (sys.version_info[0] == 3 and sys.version_info[1] < 5))
+py_lessthan_35 = sys.version_info < (3, 5)
 
 if not py_lessthan_35:
     import importlib
@@ -129,7 +128,7 @@ class BroadcastImporter:
                 spec.submodule_search_locations += searchloc
             return spec
         else:
-            if not fullname in self.module_cache:
+            if fullname not in self.module_cache:
                 # Could this in principle interfere with builtin imports?
                 return PathFinder.find_spec(fullname, path, target)
 
@@ -144,11 +143,11 @@ class BroadcastImporter:
 
     def broadcast(self):
         if world.rank == 0:
-            #print('bcast {} modules'.format(len(self.module_cache)))
+            # print('bcast {} modules'.format(len(self.module_cache)))
             marshal_broadcast(self.module_cache)
         else:
             self.module_cache = marshal_broadcast(None)
-            #print('recv {} modules'.format(len(self.module_cache)))
+            # print('recv {} modules'.format(len(self.module_cache)))
 
     def enable(self):
         if world is None or py_lessthan_35:
@@ -196,12 +195,10 @@ if 0:
         newobj = pickle.loads(buf)
         return newobj
 
-
     class ModuleData:
         def __init__(self, vars, code):
             self.vars = vars
             self.code = code
-
 
     class OurFinder:
         def __init__(self, module_cache, module_findcache):
@@ -211,18 +208,17 @@ if 0:
         def find_module(self, fullname, path):
             if world.rank == 0:
                 moduleinfo = imp.find_module(fullname.split('.')[-1], path)
-                #print(type(fullname), type(path))
-                #print(moduleinfo)
-                #if path is not None:
-                #    path = tuple(path)
-                #self.module_findcache[(fullname, path)] = moduleinfo
+                # print(type(fullname), type(path))
+                # print(moduleinfo)
+                # if path is not None:
+                #     path = tuple(path)
+                # self.module_findcache[(fullname, path)] = moduleinfo
             else:
-                #if path is not None:
-                #    path = tuple(path)
-                #moduleinfo = self.module_findcache[(fullname, path)]
+                # if path is not None:
+                #     path = tuple(path)
+                # moduleinfo = self.module_findcache[(fullname, path)]
                 moduleinfo = None
             return OurLoader(moduleinfo, self.module_cache)
-
 
     class OurLoader:
         def __init__(self, moduleinfo, module_cache):
@@ -300,7 +296,6 @@ if 0:
             sys.modules[name] = module
             return module
 
-
     class BroadCaster:
         def __init__(self):
             self.oldmetapath = None
@@ -308,7 +303,7 @@ if 0:
             self.module_findcache = {} if world.rank == 0 else None
 
         def __enter__(self):
-            #assert self.oldmetapath is None, self.oldmetapath
+            # assert self.oldmetapath is None, self.oldmetapath
             self.oldmetapath = sys.meta_path
             if world.rank != 0:
                 # Here we wait for the master process to finish all its
@@ -318,7 +313,8 @@ if 0:
                 self.broadcast()
 
             # Override standard import finder/loader:
-            sys.meta_path = [OurFinder(self.module_cache, self.module_findcache)]
+            sys.meta_path = [OurFinder(self.module_cache,
+                                       self.module_findcache)]
 
         def __exit__(self, *args):
             assert len(sys.meta_path) == 1
