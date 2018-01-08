@@ -23,7 +23,8 @@ from __future__ import print_function
 import sys
 import marshal
 
-py_lessthan_35 = sys.version_info[0] == 3 and sys.version_info[1] < 5
+py_lessthan_35 = (sys.version_info == 2 or
+                  (sys.version_info[0] == 3 and sys.version_info[1] < 5))
 
 if not py_lessthan_35:
     import importlib
