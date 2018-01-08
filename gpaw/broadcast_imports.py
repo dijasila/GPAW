@@ -23,9 +23,9 @@ from __future__ import print_function
 import sys
 import marshal
 
-py2 = sys.version_info[0] == 2
+py_lessthan_35 = sys.version_info[0] == 3 and sys.version_info[1] < 5
 
-if not py2:
+if not py_lessthan_35:
     import importlib
     import importlib.util
     from importlib.machinery import PathFinder, ModuleSpec
@@ -150,7 +150,7 @@ class BroadcastImporter:
             #print('recv {} modules'.format(len(self.module_cache)))
 
     def enable(self):
-        if world is None or py2:
+        if world is None or py_lessthan_35:
             return
 
         # There is the question of whether we lose anything by inserting
@@ -161,7 +161,7 @@ class BroadcastImporter:
             self.broadcast()
 
     def disable(self):
-        if world is None or py2:
+        if world is None or py_lessthan_35:
             return
 
         if world.rank == 0:
