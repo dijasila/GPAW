@@ -25,6 +25,7 @@ class _Transformer:
         self.nn = nn
         assert 1 <= nn <= 4
         self.dtype = dtype
+        self.cuda=cuda
 
         pad_cd = np.empty((3, 2), int)
         neighborpad_cd = np.empty((3, 2), int)
@@ -65,8 +66,6 @@ class _Transformer:
         self.neighborpad_cd = neighborpad_cd
         self.skip_cd = skip_cd
 
-        self.cuda=cuda
-        
         if gdin.comm.size > 1:
             comm = gdin.comm.get_c_object()
         else:
@@ -81,26 +80,23 @@ class _Transformer:
         
     def apply(self, input, output=None, phases=None):
         if output is None:
-            output = self.gdout.empty(input.shape[:-3], dtype=self.dtype, cuda=self.cuda)
-
-
+            output = self.gdout.empty(input.shape[:-3], dtype=self.dtype,
+                                      cuda=self.cuda)
         assert (type(input) == type(output))
-        
-        if isinstance(input,gpaw.cuda.gpuarray.GPUArray) and  isinstance(output,gpaw.cuda.gpuarray.GPUArray):
-            #print "fd_transformer_apply_cuda_gpu"
+
+        if isinstance(input, gpaw.cuda.gpuarray.GPUArray) \
+                and isinstance(output,gpaw.cuda.gpuarray.GPUArray):
             assert self.cuda
             if gpaw.cuda.debug:
                 input_cpu = input.get()
                 output_cpu = output.get()
                 self.transformer.apply(input_cpu, output_cpu, phases)
-            
             self.transformer.apply_cuda_gpu(input.gpudata, output.gpudata,
-                                            input.shape, input.dtype,phases)
+                                            input.shape, input.dtype, phases)
             if gpaw.cuda.debug:
-                gpaw.cuda.debug_test(output_cpu,output,"transformer")
-        else:    
+                gpaw.cuda.debug_test(output_cpu, output, "transformer")
+        else:
             self.transformer.apply(input, output, phases)
-
         return output
 
     def get_async_sizes(self):

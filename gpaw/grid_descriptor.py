@@ -219,11 +219,14 @@ class GridDescriptor(Domain):
             n = (n,)
 
         shape = n + tuple(shape)
+
         if cuda:
             if zero:
-                return gpaw.cuda.gpuarray.zeros(tuple(int(x) for x in shape), dtype)
+                return gpaw.cuda.gpuarray.zeros(tuple(int(x) for x in shape),
+                                                dtype)
             else:
-                return gpaw.cuda.gpuarray.empty(tuple(int(x) for x in shape), dtype)
+                return gpaw.cuda.gpuarray.empty(tuple(int(x) for x in shape),
+                                                dtype)
         else:
             if zero:
                 return np.zeros(shape, dtype)
@@ -253,11 +256,6 @@ class GridDescriptor(Domain):
 
         assert(not isinstance(_transposed_result, gpaw.cuda.gpuarray.GPUArray))
 
-        #if isinstance(a_xg, gpaw.cuda.gpuarray.GPUArray):
-        #    print "Grid integrate cuda"
-        #else:
-        #    print "Grid integrate"
-        
         if b_yg is None:
             # Only one array:
             result = a_xg.reshape(xshape + (-1,)).sum(axis=-1) * self.dv
@@ -269,9 +267,9 @@ class GridDescriptor(Domain):
             return result
 
         if isinstance(a_xg, gpaw.cuda.gpuarray.GPUArray):
-            nd=a_xg.size/np.prod(a_xg.shape[-3:])
+            nd = a_xg.size / np.prod(a_xg.shape[-3:])
             A_xg = a_xg.reshape((nd,) + a_xg.shape[-3:])
-            nd=b_yg.size/np.prod(b_yg.shape[-3:])
+            nd = b_yg.size / np.prod(b_yg.shape[-3:])
             B_yg = b_yg.reshape((nd,) + b_yg.shape[-3:])
         else:
             A_xg = np.ascontiguousarray(a_xg.reshape((-1,) + a_xg.shape[-3:]))
@@ -284,13 +282,13 @@ class GridDescriptor(Domain):
             global_integral = False
 
         if isinstance(a_xg, gpaw.cuda.gpuarray.GPUArray):
-            result_gpu=gpaw.cuda.gpuarray.to_gpu(result_yx)
+            result_gpu = gpaw.cuda.gpuarray.to_gpu(result_yx)
             if a_xg is b_yg:
-                rk(self.dv, A_xg, 0.0, result_gpu, hybrid = True)
+                rk(self.dv, A_xg, 0.0, result_gpu, hybrid=True)
             elif hermitian:
-                r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_gpu, hybrid = True)
+                r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_gpu, hybrid=True)
             else:
-                gemm(self.dv, A_xg, B_yg, 0.0, result_gpu, 'c', hybrid = True)
+                gemm(self.dv, A_xg, B_yg, 0.0, result_gpu, 'c', hybrid=True)
             result_gpu.get(result_yx)
         else:
             if a_xg is b_yg:
@@ -299,7 +297,6 @@ class GridDescriptor(Domain):
                 r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_yx)
             else:
                 gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
-
         
         if global_integral:
             self.comm.sum(result_yx)
@@ -500,14 +497,15 @@ class GridDescriptor(Domain):
         """
 
         if self.comm.size == 1:
-            if isinstance(b_xg,gpaw.cuda.gpuarray.GPUArray):
-                if isinstance(B_xg,gpaw.cuda.gpuarray.GPUArray):
-                    B_xg_gpu=B_xg
+            if isinstance(b_xg, gpaw.cuda.gpuarray.GPUArray):
+                if isinstance(B_xg, gpaw.cuda.gpuarray.GPUArray):
+                    B_xg_gpu = B_xg
                 else:
-                    B_xg_gpu=gpaw.cuda.gpuarray.to_gpu(B_xg)
-                gpaw.cuda.drv.memcpy_dtod(b_xg.gpudata, B_xg_gpu.gpudata, B_xg_gpu.nbytes)
+                    B_xg_gpu = gpaw.cuda.gpuarray.to_gpu(B_xg)
+                gpaw.cuda.drv.memcpy_dtod(b_xg.gpudata, B_xg_gpu.gpudata,
+                                          B_xg_gpu.nbytes)
             else:
-                b_xg[:] = B_xg            
+                b_xg[:] = B_xg
             return
         
         if self.rank != 0:

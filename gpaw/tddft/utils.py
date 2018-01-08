@@ -1,18 +1,15 @@
 # Written by Lauri Lehtovaara 2008
 
-from gpaw.utilities.blas import axpy,dotc,dotu,scal
-from gpaw.utilities.mblas import multi_axpy,multi_dotc,multi_dotu,multi_scal
-
+from gpaw.utilities.blas import axpy, dotc, dotu, scal
+from gpaw.utilities.mblas import multi_axpy, multi_dotc, multi_dotu, multi_scal
 
 import _gpaw
-
 import gpaw.cuda
 
 class MultiBlas:
-    def __init__(self, gd, timer = None):
+    def __init__(self, gd, timer=None):
         self.gd = gd
         self.timer = None
-        #self.timer = timer
 
     # Multivector ZAXPY: a x + y => y
     def multi_zaxpy(self, a, x, y):
@@ -26,19 +23,17 @@ class MultiBlas:
         if self.timer is not None:
             self.timer.stop('Multi zaxpy')
 
-
     # Multivector dot product, a^H b, where ^H is transpose
-    def multi_zdotc(self, x, y, s = None):
+    def multi_zdotc(self, x, y, s=None):
         if self.timer is not None:
             self.timer.start('Multi zdotc')
-
         ss = multi_dotc(x, y, s)
         if self.gd.comm.size > 1:
             if isinstance(ss, gpaw.cuda.gpuarray.GPUArray):
-                s_cpu = ss.get(pagelocked = True)
+                s_cpu = ss.get(pagelocked=True)
                 self.gd.comm.sum(s_cpu)
                 ss.set(s_cpu)
-            else:    
+            else:
                 self.gd.comm.sum(ss)
         if self.timer is not None:
             self.timer.stop('Multi zdotc')
@@ -47,21 +42,18 @@ class MultiBlas:
     def multi_zdotu(self, x, y, s = None):
         if self.timer is not None:
             self.timer.start('Multi zdotu')
-
         ss = multi_dotu(x, y, s)
         if self.gd.comm.size > 1:
             if isinstance(s, gpaw.cuda.gpuarray.GPUArray):
-                s_cpu = ss.get(pagelocked = True)
+                s_cpu = ss.get(pagelocked=True)
                 self.gd.comm.sum(s_cpu)
                 ss.set(s_cpu)
-            else:    
-                self.gd.comm.sum(ss)        
-
+            else:
+                self.gd.comm.sum(ss)
         if self.timer is not None:
             self.timer.stop('Multi zdotu')
         return ss
 
-            
     # Multiscale: a x => x
     def multi_scale(self, a, x):
         if self.timer is not None:
@@ -70,11 +62,8 @@ class MultiBlas:
             scal(a,x)
         else:
             multi_scal(a,x)
-
         if self.timer is not None:
             self.timer.stop('Multi scale')
-
-
 
 # -------------------------------------------------------------------
 

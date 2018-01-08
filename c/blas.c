@@ -339,8 +339,7 @@ PyObject* dotc(PyObject *self, PyObject *args)
       double_complex* bp = COMPLEXP(b);
       double_complex result;
       Py_BEGIN_ALLOW_THREADS;
-      zdotc_(&result, &n, ap,
-	     &incx, bp, &incy);
+      zdotc_(&result, &n, ap, &incx, bp, &incy);
       Py_END_ALLOW_THREADS;
       return PyComplex_FromDoubles(creal(result), cimag(result));
     }

@@ -1,14 +1,13 @@
 """Module defining an eigensolver base-class."""
 
 import _gpaw
-
 import numpy as np
 
 from gpaw.utilities.mblas import multi_axpy
 from gpaw.utilities.blas import axpy
-
 from gpaw.utilities import unpack
 from gpaw.hs_operators import reshape
+
 
 class Eigensolver:
     def __init__(self, keep_htpsit=True, blocksize=1, cuda=False):
@@ -39,10 +38,12 @@ class Eigensolver:
                 ndouble = 2
             cuda_blocks_min = 16
             cuda_blocks_max = 96 / ndouble
-            self.blocksize=min(cuda_blocks_max,self.mynbands,
-                               wfs.gd.comm.size*cuda_blocks_min,
-                               max((224*224*224)*wfs.gd.comm.size/
-                                   (ndouble*wfs.gd.N_c[0]*wfs.gd.N_c[1]*wfs.gd.N_c[2]),1))
+            self.blocksize = min(
+                    1, cuda_blocks_max, self.mynbands,
+                    wfs.gd.comm.size * cuda_blocks_min,
+                    max((224 * 224 * 224) * wfs.gd.comm.size
+                        / (ndouble * wfs.gd.N_c[0] * wfs.gd.N_c[1]
+                           * wfs.gd.N_c[2])))
         if self.mynbands != self.nbands or self.operator.nblocks != 1:
             self.keep_htpsit = False
 
@@ -51,7 +52,6 @@ class Eigensolver:
 
         # Preconditioner for the electronic gradients:
         self.preconditioner = wfs.make_preconditioner(self.blocksize)
-
 
         for kpt in wfs.kpt_u:
             if kpt.eps_n is None:
@@ -72,7 +72,6 @@ class Eigensolver:
 
         if not self.initialized:
             self.initialize(wfs)
-
 
         error = 0.0
         for kpt in wfs.kpt_u:
@@ -98,9 +97,7 @@ class Eigensolver:
         """Calculate residual.
 
         From R=Ht*psit calculate R=H*psit-eps*S*psit."""
-        multi_axpy(-eps_x,psit_xG,R_xG)
-        #for R_G, eps, psit_G in zip(R_xG, eps_x, psit_xG):
-        #    axpy(-eps, psit_G, R_G)
+        multi_axpy(-eps_x, psit_xG, R_xG)
         c_axi = {}
         for a, P_xi in P_axi.items():
             dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
@@ -175,16 +172,14 @@ class Eigensolver:
         wfs.timer.stop(diagonalization_string)
 
         self.timer.start('rotate_psi')
-
         psit_nG = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
-
         if self.keep_htpsit:
             if self.cuda:
-                Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_nG,
-                                                          out_nG=kpt.psit_nG_gpu)
+                Htpsit_nG = self.operator.matrix_multiply(
+                        H_nn, Htpsit_nG, out_nG=kpt.psit_nG_gpu)
             else:
-                Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_nG,
-                                                          out_nG=kpt.psit_nG)                
+                Htpsit_nG = self.operator.matrix_multiply(
+                        H_nn, Htpsit_nG, out_nG=kpt.psit_nG)
 
         # Rotate orbital dependent XC stuff:
         hamiltonian.xc.rotate(kpt, H_nn)

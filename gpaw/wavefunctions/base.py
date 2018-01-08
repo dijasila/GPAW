@@ -105,7 +105,6 @@ class WaveFunctions(EmptyWaveFunctions):
         nt_sG.fill(0.0)
         for kpt in self.kpt_u:
             self.add_to_density_from_k_point(nt_sG, kpt)
-
         self.band_comm.sum(nt_sG)
         self.kpt_comm.sum(nt_sG)
         
@@ -115,8 +114,7 @@ class WaveFunctions(EmptyWaveFunctions):
         self.timer.stop('Symmetrize density')
 
     def add_to_density_from_k_point(self, nt_sG, kpt):
-            self.add_to_density_from_k_point_with_occupation(nt_sG, kpt, 
-                                                             kpt.f_n)
+        self.add_to_density_from_k_point_with_occupation(nt_sG, kpt, kpt.f_n)
 
     def get_orbital_density_matrix(self, a, kpt, n):
         """Add the nth band density from kpt to density matrix D_sp"""
@@ -423,13 +421,11 @@ class WaveFunctions(EmptyWaveFunctions):
 
     def set_cuda(self, cuda):
         """Enable/disable cuda"""
-        
+
         if cuda == self.cuda:
             return
 
-        self.cuda=cuda
-
+        self.cuda = cuda
         for kpt in self.kpt_u:
             kpt.set_cuda(self.cuda)
-
         self.eigensolver = None

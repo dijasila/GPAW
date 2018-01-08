@@ -6,22 +6,22 @@ try:
 except StandardError as import_error:
     import sys
     class Wrapper(object):
-        import_error=import_error
+        import_error = import_error
         class GPUArray(object):
-            import_error=import_error
-            def __getattr__(self,name):
+            import_error = import_error
+            def __getattr__(self, name):
                 raise self.import_error
-        def __getattr__(self,name):
+        def __getattr__(self, name):
             raise self.import_error
     sys.modules[__name__] = Wrapper()
 else:
-    import pycuda.elementwise as elementwise        
+    import pycuda.elementwise as elementwise
     from pytools import memoize, memoize_method
     import pycuda.driver as drv
     from pycuda.compyte.array import (
         as_strided as _as_strided,
-        f_contiguous_strides as _f_contiguous_strides, 
-        c_contiguous_strides as _c_contiguous_strides, 
+        f_contiguous_strides as _f_contiguous_strides,
+        c_contiguous_strides as _c_contiguous_strides,
         ArrayFlags as _ArrayFlags,
         get_common_dtype as _get_common_dtype_base)
     from pycuda.characterize import has_double_support
@@ -31,9 +31,7 @@ else:
         return _get_common_dtype_base(obj1, obj2, has_double_support())
 
 
-
-
-    # {{{ vector types
+### vector types
 
     class vec:
         pass
@@ -67,16 +65,15 @@ else:
             ]:
             for count in counts:
                 name = "%s%d" % (base_name, count)
-                dtype = np.dtype([
-                    (field_names[i], base_type)
-                    for i in range(count)])
+                dtype = np.dtype(
+                        [(field_names[i], base_type) for i in range(count)])
 
                 register_dtype(dtype, name, alias_ok=True)
 
                 setattr(vec, name, dtype)
 
                 my_field_names = ",".join(field_names[:count])
-                setattr(vec, "make_"+name,
+                setattr(vec, "make_" + name,
                         staticmethod(eval(
                             "lambda %s: array((%s), dtype=my_dtype)"
                             % (my_field_names, my_field_names),
@@ -84,9 +81,8 @@ else:
 
     _create_vector_types()
 
-    # }}}
 
-    # {{{ helper functionality
+### helper functionality
 
     @memoize
     def _splay_backend(n, dev):
@@ -97,7 +93,8 @@ else:
         min_threads = devdata.warp_size
         max_threads = 128
         max_blocks = 4 * devdata.thread_blocks_per_mp \
-                * dev.get_attribute(drv.device_attribute.MULTIPROCESSOR_COUNT)
+                   * dev.get_attribute(
+                           drv.device_attribute.MULTIPROCESSOR_COUNT)
 
         if n < min_threads:
             block_count = 1
@@ -108,16 +105,13 @@ else:
         elif n < (max_blocks * max_threads):
             block_count = max_blocks
             grp = (n + min_threads - 1) // min_threads
-            threads_per_block = ((grp + max_blocks -1) // max_blocks) * min_threads
+            threads_per_block = ((grp + max_blocks -1) // max_blocks)
+                              * min_threads
         else:
             block_count = max_blocks
             threads_per_block = max_threads
 
-        #print "n:%d bc:%d tpb:%d" % (n, block_count, threads_per_block)
         return (block_count, 1), (threads_per_block, 1, 1)
-
-
-
 
     def splay(n, dev=None):
         if dev is None:
@@ -125,11 +119,7 @@ else:
         return _splay_backend(n, dev)
 
 
-
-
-    # }}}
-
-    # {{{ main GPUArray class
+### main GPUArray class
 
     def _make_binary_op(operator):
         def func(self, other):
@@ -142,18 +132,13 @@ else:
             result = self._new_like_me()
 
             func = elementwise.get_binary_op_kernel(
-                    self.dtype, other.dtype, result.dtype,
-                    operator)
+                    self.dtype, other.dtype, result.dtype, operator)
             func.prepared_async_call(self._grid, self._block, None,
                     self.gpudata, other.gpudata, result.gpudata,
                     self.mem_size)
 
             return result
-
         return func
-
-
-
 
     class GPUArray(object):
         """A GPUArray is used to do array-based calculation on the GPU.
@@ -177,17 +162,14 @@ else:
 
             if strides is None:
                 if order == "F":
-                    strides = _f_contiguous_strides(
-                            dtype.itemsize, shape)
+                    strides = _f_contiguous_strides(dtype.itemsize, shape)
                 elif order == "C":
-                    strides = _c_contiguous_strides(
-                            dtype.itemsize, shape)
+                    strides = _c_contiguous_strides(dtype.itemsize, shape)
                 else:
                     raise ValueError("invalid order: %s" % order)
             else:
                 # FIXME: We should possibly perform some plausibility
                 # checking on 'strides' here.
-
                 strides = tuple(strides)
 
             self.shape = shape
@@ -199,7 +181,8 @@ else:
             self.allocator = allocator
             if gpudata is None:
                 if self.size:
-                    self.gpudata = self.allocator(self.size * self.dtype.itemsize)
+                    self.gpudata = self.allocator(
+                            self.size * self.dtype.itemsize)
                 else:
                     self.gpudata = None
 
@@ -208,7 +191,6 @@ else:
                 self.gpudata = gpudata
 
             self.base = base
-
             self._grid, self._block = splay(self.mem_size)
 
         @property
@@ -224,7 +206,6 @@ else:
                 warn("Setting array from one with different strides/storage order. "
                         "This will cease to work in 2013.x.",
                         stacklevel=2)
-
             assert self.flags.forc
 
             if self.size:
@@ -238,9 +219,7 @@ else:
                 warn("Setting array from one with different strides/storage order. "
                         "This will cease to work in 2013.x.",
                         stacklevel=2)
-
             assert self.flags.forc
-
             if not ary.flags.forc:
                 raise RuntimeError("cannot asynchronously set from "
                         "non-contiguous array")
@@ -260,7 +239,6 @@ else:
                 assert ary.size == self.size
                 assert ary.dtype == self.dtype
                 assert ary.flags.forc
-
             assert self.flags.forc, "Array in get() must be contiguous"
 
             if self.size:
@@ -276,7 +254,6 @@ else:
                 assert ary.size == self.size
                 assert ary.dtype == self.dtype
                 assert ary.flags.forc
-
             assert self.flags.forc, "Array in get() must be contiguous"
 
             if self.size:
@@ -296,26 +273,28 @@ else:
         def ptr(self):
             return self.gpudata.__int__()
 
-        # kernel invocation wrappers ----------------------------------------------
-        def _axpbyz(self, selffac, other, otherfac, out, add_timer=None, stream=None):
-            """Compute ``out = selffac * self + otherfac*other``,
+        # kernel invocation wrappers
+        def _axpbyz(self, selffac, other, otherfac, out, add_timer=None,
+                    stream=None):
+            """Compute ``out = selffac * self + otherfac * other``,
             where `other` is a vector.."""
             assert self.shape == other.shape
             if not self.flags.forc or not other.flags.forc:
                 raise RuntimeError("only contiguous arrays may "
                         "be used as arguments to this operation")
 
-            func = elementwise.get_axpbyz_kernel(self.dtype, other.dtype, out.dtype)
+            func = elementwise.get_axpbyz_kernel(self.dtype, other.dtype,
+                                                 out.dtype)
 
             if add_timer is not None:
-                add_timer(3*self.size, func.prepared_timed_call(self._grid,
-                    selffac, self.gpudata, otherfac, other.gpudata,
-                    out.gpudata, self.mem_size))
+                add_timer(3 * self.size, func.prepared_timed_call(
+                    self._grid, selffac, self.gpudata, otherfac,
+                    other.gpudata, out.gpudata, self.mem_size))
             else:
-                func.prepared_async_call(self._grid, self._block, stream,
+                func.prepared_async_call(
+                        self._grid, self._block, stream,
                         selffac, self.gpudata, otherfac, other.gpudata,
                         out.gpudata, self.mem_size)
-
             return out
 
         def _axpbz(self, selffac, other, out, stream=None):
@@ -326,10 +305,10 @@ else:
                         "be used as arguments to this operation")
 
             func = elementwise.get_axpbz_kernel(self.dtype)
-            func.prepared_async_call(self._grid, self._block, stream,
+            func.prepared_async_call(
+                    self._grid, self._block, stream,
                     selffac, self.gpudata,
                     other, out.gpudata, self.mem_size)
-
             return out
 
         def _elwise_multiply(self, other, out, stream=None):
@@ -337,11 +316,11 @@ else:
                 raise RuntimeError("only contiguous arrays may "
                         "be used as arguments to this operation")
 
-            func = elementwise.get_binary_op_kernel(self.dtype, other.dtype, out.dtype, "*")
+            func = elementwise.get_binary_op_kernel(self.dtype, other.dtype,
+                                                    out.dtype, "*")
             func.prepared_async_call(self._grid, self._block, stream,
-                    self.gpudata, other.gpudata,
-                    out.gpudata, self.mem_size)
-
+                                     self.gpudata, other.gpudata,
+                                     out.gpudata, self.mem_size)
             return out
 
         def _rdiv_scalar(self, other, out, stream=None):
@@ -356,9 +335,8 @@ else:
 
             func = elementwise.get_rdivide_elwise_kernel(self.dtype)
             func.prepared_async_call(self._grid, self._block, stream,
-                    self.gpudata, other,
-                    out.gpudata, self.mem_size)
-
+                                     self.gpudata, other,
+                                     out.gpudata, self.mem_size)
             return out
 
         def _div(self, other, out, stream=None):
@@ -367,29 +345,28 @@ else:
             if not self.flags.forc or not other.flags.forc:
                 raise RuntimeError("only contiguous arrays may "
                         "be used as arguments to this operation")
-
             assert self.shape == other.shape
 
-            func = elementwise.get_binary_op_kernel(self.dtype, other.dtype, out.dtype, "/")
+            func = elementwise.get_binary_op_kernel(self.dtype, other.dtype,
+                                                    out.dtype, "/")
             func.prepared_async_call(self._grid, self._block, stream,
-                    self.gpudata, other.gpudata,
-                    out.gpudata, self.mem_size)
-
+                                     self.gpudata, other.gpudata,
+                                     out.gpudata, self.mem_size)
             return out
 
         def _new_like_me(self, dtype=None):
             strides = None
             if dtype is None:
                 dtype = self.dtype
-            else:
-                if dtype == self.dtype:
-                    strides = self.strides
+            elif dtype == self.dtype:
+                strides = self.strides
 
             return self.__class__(self.shape, dtype,
-                    allocator=self.allocator, strides=strides)
+                                  allocator=self.allocator, strides=strides)
 
-        # operators ---------------------------------------------------------------
-        def mul_add(self, selffac, other, otherfac, add_timer=None, stream=None):
+        # operators
+        def mul_add(self, selffac, other, otherfac, add_timer=None,
+                    stream=None):
             """Return `selffac * self + otherfac*other`.
             """
             result = self._new_like_me(_get_common_dtype(self, other))
@@ -426,7 +403,7 @@ else:
                     result = self._new_like_me()
                     return self._axpbz(1, -other, result)
 
-        def __rsub__(self,other):
+        def __rsub__(self, other):
             """Substracts an array by a scalar or an array::
 
                x = n - self
@@ -480,11 +457,11 @@ else:
                 else:
                     # create a new array for the result
                     result = self._new_like_me()
-                    return self._axpbz(1/other, 0, result)
+                    return self._axpbz(1 / other, 0, result)
 
         __truediv__ = __div__
 
-        def __rdiv__(self,other):
+        def __rdiv__(self, other):
             """Divides an array by a scalar or an array::
 
                x = n / self
@@ -499,9 +476,8 @@ else:
 
                 func = elementwise.get_divide_kernel()
                 func.prepared_async_call(self._grid, self._block, None,
-                        other.gpudata, self.gpudata, result.gpudata,
-                        self.mem_size)
-
+                                         other.gpudata, self.gpudata,
+                                         result.gpudata, self.mem_size)
                 return result
             else:
                 if other == 1:
@@ -517,16 +493,16 @@ else:
             """fills the array with the specified value"""
             func = elementwise.get_fill_kernel(self.dtype)
             func.prepared_async_call(self._grid, self._block, stream,
-                    value, self.gpudata, self.mem_size)
-
+                                     value, self.gpudata, self.mem_size)
             return self
 
         def bind_to_texref(self, texref, allow_offset=False):
             return texref.set_address(self.gpudata, self.nbytes,
-                    allow_offset=allow_offset) / self.dtype.itemsize
+                                      allow_offset=allow_offset) \
+                   / self.dtype.itemsize
 
-        def bind_to_texref_ext(self, texref, channels=1, allow_double_hack=False,
-                allow_offset=False):
+        def bind_to_texref_ext(self, texref, channels=1,
+                               allow_double_hack=False, allow_offset=False):
             if not self.flags.forc:
                 raise RuntimeError("only contiguous arrays may "
                         "be used as arguments to this operation")
@@ -544,13 +520,14 @@ else:
                 fmt = drv.dtype_to_array_format(self.dtype)
                 read_as_int = np.integer in self.dtype.type.__mro__
 
-            offset = texref.set_address(self.gpudata, self.nbytes, allow_offset=allow_offset)
+            offset = texref.set_address(self.gpudata, self.nbytes,
+                                        allow_offset=allow_offset)
             texref.set_format(fmt, channels)
 
             if read_as_int:
                 texref.set_flags(texref.get_flags() | drv.TRSF_READ_AS_INTEGER)
 
-            return offset/self.dtype.itemsize
+            return offset / self.dtype.itemsize
 
         def __len__(self):
             """Return the size of the leading dimension of self."""
@@ -563,7 +540,6 @@ else:
             """Return a `GPUArray` of the absolute values of the elements
             of `self`.
             """
-
             result = self._new_like_me()
 
             if self.dtype == np.float32:
@@ -575,8 +551,8 @@ else:
 
             func = elementwise.get_unary_func_kernel(fname, self.dtype)
             func.prepared_async_call(self._grid, self._block, None,
-                    self.gpudata,result.gpudata, self.mem_size)
-
+                                     self.gpudata, result.gpudata,
+                                     self.mem_size)
             return result
 
         def __pow__(self, other):
@@ -586,25 +562,20 @@ else:
                        array = pow(array)
                        array = pow(array,4)
                        array = pow(array,array)
-
             """
-
             if isinstance(other, GPUArray):
                 if not self.flags.forc or not other.flags.forc:
                     raise RuntimeError("only contiguous arrays may "
                             "be used as arguments to this operation")
-
                 assert self.shape == other.shape
 
                 result = self._new_like_me(_get_common_dtype(self, other))
 
                 func = elementwise.get_pow_array_kernel(
                         self.dtype, other.dtype, result.dtype)
-
                 func.prepared_async_call(self._grid, self._block, None,
-                        self.gpudata, other.gpudata, result.gpudata,
-                        self.mem_size)
-
+                                         self.gpudata, other.gpudata,
+                                         result.gpudata, self.mem_size)
                 return result
             else:
                 if not self.flags.forc:
@@ -614,16 +585,14 @@ else:
                 result = self._new_like_me()
                 func = elementwise.get_pow_kernel(self.dtype)
                 func.prepared_async_call(self._grid, self._block, None,
-                        other, self.gpudata, result.gpudata,
-                        self.mem_size)
-
+                                         other, self.gpudata,
+                                         result.gpudata, self.mem_size)
                 return result
 
         def reverse(self, stream=None):
             """Return this array in reversed order. The array is treated
             as one-dimensional.
             """
-
             if not self.flags.forc:
                 raise RuntimeError("only contiguous arrays may "
                         "be used as arguments to this operation")
@@ -632,16 +601,14 @@ else:
 
             func = elementwise.get_reverse_kernel(self.dtype)
             func.prepared_async_call(self._grid, self._block, stream,
-                    self.gpudata, result.gpudata,
-                    self.mem_size)
-
+                                     self.gpudata, result.gpudata,
+                                     self.mem_size)
             return result
 
         def astype(self, dtype, stream=None):
             if not self.flags.forc:
                 raise RuntimeError("only contiguous arrays may "
                         "be used as arguments to this operation")
-
             if dtype == self.dtype:
                 return self
 
@@ -649,9 +616,8 @@ else:
 
             func = elementwise.get_copy_kernel(dtype, self.dtype)
             func.prepared_async_call(self._grid, self._block, stream,
-                    result.gpudata, self.gpudata,
-                    self.mem_size)
-
+                                     result.gpudata, self.gpudata,
+                                     self.mem_size)
             return result
 
         def reshape(self, *shape):
@@ -682,7 +648,8 @@ else:
             if self.shape[-1] * old_itemsize % itemsize != 0:
                 raise ValueError("new type not compatible with array")
 
-            shape = self.shape[:-1] + (self.shape[-1] * old_itemsize // itemsize,)
+            shape = self.shape[:-1]
+                  + (self.shape[-1] * old_itemsize // itemsize,)
 
             return GPUArray(
                     shape=shape,
@@ -691,33 +658,38 @@ else:
                     base=self,
                     gpudata=int(self.gpudata))
 
-        # slicing -----------------------------------------------------------------
+        # slicing
         def __getitem__(self, idx):
             if idx == ():
                 return self
 
             if len(self.shape) > 1:
-                if isinstance(idx,int):
-                    if idx>=self.shape[0]:
+                if isinstance(idx, int):
+                    if idx >= self.shape[0]:
                         raise IndexError("index out of bounds")
                     return GPUArray(
                         shape=self.shape[1:],
                         dtype=self.dtype,
                         allocator=self.allocator,
                         base=self,
-                        gpudata=int(self.gpudata) + self.dtype.itemsize*idx*self.size//len(self))
+                        gpudata=int(self.gpudata)
+                               + self.dtype.itemsize * idx * self.size
+                               // len(self))
                 elif isinstance(idx, slice):
                     start, stop, stride = idx.indices(len(self))
                     return GPUArray(
-                        shape=((stop-start)//stride, ) + self.shape[1:],
+                        shape=((stop - start) // stride,) + self.shape[1:],
                         dtype=self.dtype,
                         allocator=self.allocator,
                         base=self,
-                        gpudata=int(self.gpudata) + self.dtype.itemsize*start*self.size//len(self))
+                        gpudata=int(self.gpudata)
+                               + self.dtype.itemsize * start * self.size
+                               // len(self))
                 raise NotImplementedError("multi-d slicing is not yet implemented")
 
             if not isinstance(idx, slice):
-                raise ValueError("non-slice indexing not supported: %s" % (idx,))
+                raise ValueError("non-slice indexing not supported: %s" \
+                        % (idx,))
 
             l, = self.shape
             start, stop, stride = idx.indices(l)
@@ -726,13 +698,13 @@ else:
                 raise NotImplementedError("strided slicing is not yet implemented")
 
             return GPUArray(
-                    shape=((stop-start)//stride,),
+                    shape=((stop - start) // stride,),
                     dtype=self.dtype,
                     allocator=self.allocator,
                     base=self,
-                    gpudata=int(self.gpudata) + start*self.dtype.itemsize)
+                    gpudata=int(self.gpudata) + start * self.dtype.itemsize)
 
-        # complex-valued business -------------------------------------------------
+        # complex numbers
         @property
         def real(self):
             dtype = self.dtype
@@ -744,9 +716,8 @@ else:
 
                 func = elementwise.get_real_kernel(dtype, real_dtype)
                 func.prepared_async_call(self._grid, self._block, None,
-                        self.gpudata, result.gpudata,
-                        self.mem_size)
-
+                                         self.gpudata, result.gpudata,
+                                         self.mem_size)
                 return result
             else:
                 return self
@@ -766,9 +737,8 @@ else:
 
                 func = elementwise.get_imag_kernel(dtype, real_dtype)
                 func.prepared_async_call(self._grid, self._block, None,
-                        self.gpudata, result.gpudata,
-                        self.mem_size)
-
+                                         self.gpudata, result.gpudata,
+                                         self.mem_size)
                 return result
             else:
                 return zeros_like(self)
@@ -784,9 +754,8 @@ else:
 
                 func = elementwise.get_conj_kernel(dtype)
                 func.prepared_async_call(self._grid, self._block, None,
-                        self.gpudata, result.gpudata,
-                        self.mem_size)
-
+                                         self.gpudata, result.gpudata,
+                                         self.mem_size)
                 return result
             else:
                 return self
@@ -799,9 +768,8 @@ else:
         __lt__ = _make_binary_op("<")
         __gt__ = _make_binary_op(">")
 
-    # }}}
 
-    # {{{ creation helpers
+### creation helpers
 
     def to_gpu(ary, allocator=drv.mem_alloc):
         """converts a numpy array to a GPUArray"""
@@ -847,8 +815,7 @@ else:
         element of the result being greater than stop.
         """
 
-        # argument processing -----------------------------------------------------
-
+        # argument processing
         # Yuck. Thanks, numpy developers. ;)
         from pytools import Record
         class Info(Record):
@@ -901,7 +868,7 @@ else:
         if inf.dtype is None:
             inf.dtype = np.array([inf.start, inf.stop, inf.step]).dtype
 
-        # actual functionality ----------------------------------------------------
+        # actual functionality
         dtype = np.dtype(inf.dtype)
         start = dtype.type(inf.start)
         step = dtype.type(inf.step)
@@ -913,41 +880,34 @@ else:
                     "suggest specifying explicit dtype.")
 
         from math import ceil
-        size = int(ceil((stop-start)/step))
+        size = int(ceil((stop - start) / step))
 
         result = GPUArray((size,), dtype)
 
         func = elementwise.get_arange_kernel(dtype)
-        func.prepared_async_call(result._grid, result._block, kwargs.get("stream"),
-                result.gpudata, start, step, size)
-
+        func.prepared_async_call(result._grid, result._block,
+                                 kwargs.get("stream"),
+                                 result.gpudata, start, step, size)
         return result
 
-    # }}}
 
-    # {{{ take/put
+### take/put
 
     def take(a, indices, out=None, stream=None):
         if out is None:
             out = GPUArray(indices.shape, a.dtype, a.allocator)
-
         assert len(indices.shape) == 1
 
         func, tex_src = elementwise.get_take_kernel(a.dtype, indices.dtype)
         a.bind_to_texref_ext(tex_src[0], allow_double_hack=True)
 
         func.prepared_async_call(out._grid, out._block, stream,
-                indices.gpudata, out.gpudata, indices.size)
-
+                                 indices.gpudata, out.gpudata, indices.size)
         return out
-
-
-
 
     def multi_take(arrays, indices, out=None, stream=None):
         if not len(arrays):
             return []
-
         assert len(indices.shape) == 1
 
         from pytools import single_valued
@@ -966,32 +926,29 @@ else:
         chunk_size = _builtin_min(vec_count, 20)
 
         def make_func_for_chunk_size(chunk_size):
-            return elementwise.get_take_kernel(a_dtype, indices.dtype,
-                    vec_count=chunk_size)
+            return elementwise.get_take_kernel(
+                    a_dtype, indices.dtype, vec_count=chunk_size)
 
         func, tex_src = make_func_for_chunk_size(chunk_size)
 
         for start_i in range(0, len(arrays), chunk_size):
-            chunk_slice = slice(start_i, start_i+chunk_size)
+            chunk_slice = slice(start_i, start_i + chunk_size)
 
             if start_i + chunk_size > vec_count:
-                func, tex_src = make_func_for_chunk_size(vec_count-start_i)
+                func, tex_src = make_func_for_chunk_size(vec_count - start_i)
 
             for i, a in enumerate(arrays[chunk_slice]):
                 a.bind_to_texref_ext(tex_src[i], allow_double_hack=True)
 
-            func.prepared_async_call(indices._grid, indices._block, stream,
+            func.prepared_async_call(
+                    indices._grid, indices._block, stream,
                     indices.gpudata,
                     *([o.gpudata for o in out[chunk_slice]]
                         + [indices.size]))
-
         return out
 
-
-
-
     def multi_take_put(arrays, dest_indices, src_indices, dest_shape=None,
-            out=None, stream=None, src_offsets=None):
+                       out=None, stream=None, src_offsets=None):
         if not len(arrays):
             return []
 
@@ -1039,24 +996,21 @@ else:
         func, tex_src = make_func_for_chunk_size(chunk_size)
 
         for start_i in range(0, len(arrays), chunk_size):
-            chunk_slice = slice(start_i, start_i+chunk_size)
+            chunk_slice = slice(start_i, start_i + chunk_size)
 
             if start_i + chunk_size > vec_count:
-                func, tex_src = make_func_for_chunk_size(vec_count-start_i)
+                func, tex_src = make_func_for_chunk_size(vec_count - start_i)
 
             for src_tr, a in zip(tex_src, arrays[chunk_slice]):
                 a.bind_to_texref_ext(src_tr, allow_double_hack=True)
 
-            func.prepared_async_call(src_indices._grid,  src_indices._block, stream,
-                    dest_indices.gpudata, src_indices.gpudata,
+            func.prepared_async_call(
+                    src_indices._grid, src_indices._block,
+                    stream, dest_indices.gpudata, src_indices.gpudata,
                     *([o.gpudata for o in out[chunk_slice]]
                         + src_offsets_list[chunk_slice]
                         + [src_indices.size]))
-
         return out
-
-
-
 
     def multi_put(arrays, dest_indices, dest_shape=None, out=None, stream=None):
         if not len(arrays):
@@ -1089,27 +1043,25 @@ else:
         func = make_func_for_chunk_size(chunk_size)
 
         for start_i in range(0, len(arrays), chunk_size):
-            chunk_slice = slice(start_i, start_i+chunk_size)
+            chunk_slice = slice(start_i, start_i + chunk_size)
 
             if start_i + chunk_size > vec_count:
-                func = make_func_for_chunk_size(vec_count-start_i)
+                func = make_func_for_chunk_size(vec_count - start_i)
 
-            func.prepared_async_call(dest_indices._grid, dest_indices._block, stream,
+            func.prepared_async_call(
+                    dest_indices._grid, dest_indices._block, stream,
                     dest_indices.gpudata,
                     *([o.gpudata for o in out[chunk_slice]]
                         + [i.gpudata for i in arrays[chunk_slice]]
                         + [dest_indices.size]))
-
         return out
 
-    # }}}
 
-    # {{{ conditionals
+### conditionals
 
     def if_positive(criterion, then_, else_, out=None, stream=None):
         if not (criterion.shape == then_.shape == else_.shape):
             raise ValueError("shapes do not match")
-
         if not (then_.dtype == else_.dtype):
             raise ValueError("dtypes do not match")
 
@@ -1119,38 +1071,31 @@ else:
         if out is None:
             out = empty_like(then_)
 
-        func.prepared_async_call(criterion._grid, criterion._block, stream,
+        func.prepared_async_call(
+                criterion._grid, criterion._block, stream,
                 criterion.gpudata, then_.gpudata, else_.gpudata, out.gpudata,
                 criterion.size)
-
         return out
-
-
-
 
     def _make_binary_minmax_func(which):
         def f(a, b, out=None, stream=None):
             if out is None:
                 out = empty_like(a)
 
-            func = elementwise.get_binary_minmax_kernel(which,
-                    a.dtype, b.dtype, out.dtype)
-
-            func.prepared_async_call(a._grid, a._block, stream,
+            func = elementwise.get_binary_minmax_kernel(
+                    which, a.dtype, b.dtype, out.dtype)
+            func.prepared_async_call(
+                    a._grid, a._block, stream,
                     a.gpudata, b.gpudata, out.gpudata, a.size)
-
             return out
         return f
-
-
-
 
     minimum = _make_binary_minmax_func("min")
     maximum = _make_binary_minmax_func("max")
 
-    # }}}
 
-    # {{{ reductions ------------------------------------------------------------------
+### reductions
+
     def sum(a, dtype=None, stream=None):
         from pycuda.reduction import get_sum_kernel
         krnl = get_sum_kernel(dtype, a.dtype)
@@ -1171,7 +1116,6 @@ else:
             from pycuda.reduction import get_minmax_kernel
             krnl = get_minmax_kernel(what, a.dtype)
             return krnl(a,  stream=stream)
-
         return f
 
     _builtin_min = min
@@ -1185,13 +1129,7 @@ else:
             import pycuda.reduction
             krnl = get_subset_minmax_kernel(what, a.dtype, subset.dtype)
             return krnl(subset, a,  stream=stream)
-
         return f
 
     subset_min = _make_subset_minmax_kernel("min")
     subset_max = _make_subset_minmax_kernel("max")
-
-    # }}}
-
-    # vim: foldmethod=marker
-

@@ -33,7 +33,8 @@ class MatrixOperator:
     async = True
     hermitian = True
 
-    def __init__(self, ksl, nblocks=None, async=None, hermitian=None, cuda=False):
+    def __init__(self, ksl, nblocks=None, async=None, hermitian=None,
+                 cuda=False):
         """The constructor now calculates the work array sizes, but does not
         allocate them. Here is a summary of the relevant variables and the
         cases handled.
@@ -103,7 +104,6 @@ class MatrixOperator:
         ngroups = self.bd.comm.size
         if self.cuda and (self.nblocks > 1 or ngroups > 1):
             print 'Warning: CUDA not implemented for ground state DFT blocking/band parallelization'
-            #raise NotImplementedError(err_str)
 
         G = self.gd.n_c.prod()
 
@@ -318,18 +318,12 @@ class MatrixOperator:
         if B == 1 and J == 1:
             # Simple case:
             Apsit_nG = A(psit_nG)
-
             if self.cuda and isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
-                #A_NN_gpu=gpaw.cuda.gpuarray.to_gpu(A_NN)
-                #self.gd.integrate(psit_nG, Apsit_nG, hermitian=self.hermitian,
-                #                  _transposed_result=A_NN_gpu)
                 self.gd.integrate(psit_nG, Apsit_nG, hermitian=self.hermitian,
                                   _transposed_result=A_NN)
-                #A_NN_gpu.get(A_NN)
             else:
                 self.gd.integrate(psit_nG, Apsit_nG, hermitian=self.hermitian,
                                   _transposed_result=A_NN)
-
             for a, P_ni in P_ani.items():
                 gemm(1.0, P_ni, dA(a, P_ni), 1.0, A_NN, 'c')
             domain_comm.sum(A_NN, 0)
@@ -477,10 +471,11 @@ class MatrixOperator:
                     out_nG = work_nG
                     out_nG.fill(117)  # gemm may not like nan's
                 elif out_nG is psit_nG:
-                    gpaw.cuda.drv.memcpy_dtod(work_nG.gpudata, psit_nG.gpudata, psit_nG.nbytes)
+                    gpaw.cuda.drv.memcpy_dtod(
+                            work_nG.gpudata, psit_nG.gpudata, psit_nG.nbytes)
                     psit_nG = work_nG
-                self.gd.gemm(1.0, psit_nG, gpaw.cuda.gpuarray.to_gpu(C_NN), 0.0, out_nG)
-                #self.work1_xG_gpu=psit_nG
+                self.gd.gemm(1.0, psit_nG, gpaw.cuda.gpuarray.to_gpu(C_NN),
+                             0.0, out_nG)
             else:
                 work_nG = reshape(self.work1_xG, psit_nG.shape)
                 if out_nG is None:
@@ -490,8 +485,6 @@ class MatrixOperator:
                     work_nG[:] = psit_nG
                     psit_nG = work_nG
                 self.gd.gemm(1.0, psit_nG, C_NN, 0.0, out_nG)
-                #self.work1_xG=psit_nG
-                
             if P_ani:
                 for P_ni in P_ani.values():
                     gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
@@ -499,8 +492,7 @@ class MatrixOperator:
         
         # Now it gets nasty! We parallelize over B groups of bands and
         # each grid chunk is divided in J smaller slices (less memory).
-        print "matrix_multiply: Nasty case"
-            
+
         Q = B  # always non-hermitian XXX
         rank = band_comm.rank
         shape = psit_nG.shape

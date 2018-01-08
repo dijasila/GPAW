@@ -20,7 +20,7 @@ void zgemm_(char *transa, char *transb, int *m, int * n,
 	    void *c, int *ldc);
 
 
-#ifdef GPAW_CUDA  
+#ifdef GPAW_CUDA
 void lfc_dealloc_cuda(LFCObject *self);
 PyObject * NewLFCObject_cuda(LFCObject *self, PyObject *args);
 PyObject* add_cuda_gpu(LFCObject *self, PyObject *args);
@@ -36,13 +36,14 @@ static void lfc_dealloc(LFCObject *self)
   free(self->ngm_W);
   free(self->i_W);
   free(self->volume_W);
-#ifdef GPAW_CUDA  
-  if (self->cuda){
+#ifdef GPAW_CUDA
+  if (self->cuda) {
     lfc_dealloc_cuda(self);
   }
 #endif
   PyObject_DEL(self);
 }
+
 
 PyObject* calculate_potential_matrix(LFCObject *self, PyObject *args);
 PyObject* calculate_potential_matrices(LFCObject *self, PyObject *args);
@@ -62,6 +63,7 @@ PyObject* calculate_potential_matrix_force_contribution(LFCObject *self,
 							PyObject *args);
 PyObject* second_derivative(LFCObject *self, PyObject *args);
 PyObject* add_derivative(LFCObject *self, PyObject *args);
+
 
 static PyMethodDef lfc_methods[] = {
     {"calculate_potential_matrix",
@@ -96,7 +98,7 @@ static PyMethodDef lfc_methods[] = {
      (PyCFunction)second_derivative, METH_VARARGS, 0},
     {"add_derivative",
      (PyCFunction)add_derivative, METH_VARARGS, 0},
-#ifdef GPAW_CUDA  
+#ifdef GPAW_CUDA
     {"integrate_cuda_gpu",
      (PyCFunction)integrate_cuda_gpu, METH_VARARGS, 0},
     {"add_cuda_gpu",
@@ -144,7 +146,7 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
   if (self == NULL)
     return NULL;
 
-#ifdef GPAW_CUDA  
+#ifdef GPAW_CUDA
   self->cuda = cuda;
 #endif
   self->dv = dv;
@@ -209,11 +211,11 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
   if (self->bloch_boundary_conditions)
     self->phase_i = GPAW_MALLOC(complex double, nimax);
 
-#ifdef GPAW_CUDA  
+#ifdef GPAW_CUDA
   if (cuda) {
     NewLFCObject_cuda(self, args);
   }
-#endif  
+#endif
   return (PyObject*)self;
 }
 
@@ -409,6 +411,7 @@ PyObject* lfcintegrate(LFCObject *lfc, PyObject *args)
   int nG = PyArray_MultiplyList(dims + nd - 3, 3);
   int nM = PyArray_DIMS(c_xM_obj)[PyArray_NDIM(c_xM_obj) - 1];
   double dv = lfc->dv;
+
   Py_BEGIN_ALLOW_THREADS;
   if (!lfc->bloch_boundary_conditions) {
     const double* a_G = (const double*)PyArray_DATA(a_xG_obj);
@@ -423,8 +426,7 @@ PyObject* lfcintegrate(LFCObject *lfc, PyObject *args)
           for (int gm = 0, G = Ga; G < Gb; G++){
             double av = a_G[G] * dv;
             for (int m = 0; m < nm; m++, gm++){
-	      c_M1[m] += av * A_gm[gm];
-              //c_M1[m] += 1;
+              c_M1[m] += av * A_gm[gm];
             }
           }
         }
@@ -446,10 +448,9 @@ PyObject* lfcintegrate(LFCObject *lfc, PyObject *args)
           const double* A_gm = v->A_gm;
           double complex vphase = phase_i[i] * dv;
           for (int gm = 0, G = Ga; G < Gb; G++){
-            double complex avphase = a_G[G] * vphase/*dv*/;
+            double complex avphase = a_G[G] * vphase;
             for (int m = 0; m < nm; m++, gm++){
               c_M1[m] += avphase * A_gm[gm];
-              //c_M1[m] += 1;
             }
           }
         }
@@ -479,6 +480,7 @@ PyObject* construct_density(LFCObject *lfc, PyObject *args)
   int nM = PyArray_DIMS(rho_MM_obj)[1];
   
   double* work_gm = lfc->work_gm;
+
   Py_BEGIN_ALLOW_THREADS;
   if (!lfc->bloch_boundary_conditions) {
     const double* rho_MM = (const double*)PyArray_DATA(rho_MM_obj);
@@ -637,7 +639,7 @@ PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
 
   if (!PyArg_ParseTuple(args, "OOi", &c_M_obj, &psit_G_obj, &k))
     return NULL; 
-  Py_BEGIN_ALLOW_THREADS;  
+  Py_BEGIN_ALLOW_THREADS;
   if (!lfc->bloch_boundary_conditions) {
     if (PyArray_DESCR(c_M_obj)->type_num == NPY_DOUBLE) {
       const double* c_M = (const double*)PyArray_DATA(c_M_obj);
@@ -717,6 +719,7 @@ PyObject* lcao_to_grid_k(LFCObject *lfc, PyObject *args)
     int Mmax = PyArray_DIMS(c_xM_obj)[PyArray_NDIM(c_xM_obj) - 1];
 
     double complex* tmp_GM = 0;
+
     Py_BEGIN_ALLOW_THREADS;
     for (int Mstart = 0; Mstart < Mmax; Mstart += Mblock) {
         int Mstop = Mstart + Mblock;

@@ -21,7 +21,7 @@ except ImportError:
 from glob import glob
 from os.path import join, isfile
 
-import gpaw.cuda 
+import gpaw.cuda
 
 import numpy as np
 

@@ -70,8 +70,8 @@ class FDOperator:
         self.gd = gd
         self.npoints = len(coef_p)
 
-        self.cuda=cuda
-        
+        self.cuda = cuda
+
         self.operator = _gpaw.Operator(coef_p, offset_p, n_c, mp,
                                        neighbor_cd, dtype == float,
                                        comm, cfd, self.cuda)
@@ -84,11 +84,10 @@ class FDOperator:
         return '<' + self.description + '>'
 
     def apply(self, in_xg, out_xg, phase_cd=None):
-        
         assert (type(in_xg) == type(out_xg))
-         
-        if isinstance(in_xg,gpaw.cuda.gpuarray.GPUArray) and  isinstance(out_xg,gpaw.cuda.gpuarray.GPUArray):
-            #print "fd_operators_apply_cuda_gpu",in_xg.shape
+
+        if isinstance(in_xg, gpaw.cuda.gpuarray.GPUArray)
+                and isinstance(out_xg, gpaw.cuda.gpuarray.GPUArray):
             assert self.cuda
             if gpaw.cuda.debug:
                 in_xg_cpu = in_xg.get()
@@ -97,26 +96,24 @@ class FDOperator:
             self.operator.apply_cuda_gpu(in_xg.gpudata, out_xg.gpudata,
                                          in_xg.shape, in_xg.dtype, phase_cd)
             if gpaw.cuda.debug:
-                gpaw.cuda.debug_test(out_xg_cpu,out_xg,"fd_operator")
+                gpaw.cuda.debug_test(out_xg_cpu, out_xg, "fd_operator")
         else:
-            #print "fd_operators_apply"
             self.operator.apply(in_xg, out_xg, phase_cd)
-        
-    def relax(self, relax_method, f_g, s_g, n, w=None):
 
+    def relax(self, relax_method, f_g, s_g, n, w=None):
         assert (type(f_g) == type(s_g))
 
-        if isinstance(f_g,gpaw.cuda.gpuarray.GPUArray) and  isinstance(s_g,gpaw.cuda.gpuarray.GPUArray):
-            #print "fd_operators_relax_cuda_gpu"
+        if isinstance(f_g, gpaw.cuda.gpuarray.GPUArray)
+                and isinstance(s_g,gpaw.cuda.gpuarray.GPUArray):
             assert self.cuda
             if gpaw.cuda.debug:
-                f_g_cpu=f_g.get()
-                s_g_cpu=s_g.get()
+                f_g_cpu = f_g.get()
+                s_g_cpu = s_g.get()
                 self.operator.relax(relax_method, f_g_cpu, s_g_cpu, n, w)
-
-            self.operator.relax_cuda_gpu(relax_method, f_g.gpudata, s_g.gpudata, n, w)
+            self.operator.relax_cuda_gpu(relax_method, f_g.gpudata,
+                                         s_g.gpudata, n, w)
             if gpaw.cuda.debug:
-                gpaw.cuda.debug_test(f_g_cpu,f_g,"relax")
+                gpaw.cuda.debug_test(f_g_cpu, f_g, "relax")
         else:
             self.operator.relax(relax_method, f_g, s_g, n, w)
 
@@ -141,6 +138,7 @@ if debug:
                     (phase_cd.dtype == complex and
                      phase_cd.shape == (3, 2)))
             _FDOperator.apply(self, in_xg, out_xg, phase_cd)
+
         def relax(self, relax_method, f_g, s_g, n, w=None):
             assert f_g.shape == self.shape
             assert s_g.shape == self.shape
@@ -174,8 +172,8 @@ class Gradient(FDOperator):
                 offset_pc.extend(offset)
 
         FDOperator.__init__(self, coef_p, offset_pc, gd, dtype,
-                            'O(h^%d) %s-gradient stencil' % (2 * n, 'xyz'[v]), cuda=cuda)
-        
+                            'O(h^%d) %s-gradient stencil' % (2 * n, 'xyz'[v]),
+                            cuda=cuda)
 
 def Laplace(gd, scale=1.0, n=1, dtype=float, cuda=False):
         if n == 9:
@@ -302,4 +300,3 @@ class FTLaplace:
 
     def get_diagonal_element(self):
         return self.d
-

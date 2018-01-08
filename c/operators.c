@@ -34,10 +34,8 @@
 #ifdef GPAW_CUDA
 #include <cuda.h>
 #include <cuda_runtime_api.h>
-PyObject * Operator_relax_cuda_gpu(OperatorObject *self,
-				   PyObject *args);
-PyObject * Operator_apply_cuda_gpu(OperatorObject *self,
-				   PyObject *args);
+PyObject* Operator_relax_cuda_gpu(OperatorObject *self, PyObject *args);
+PyObject* Operator_apply_cuda_gpu(OperatorObject *self, PyObject *args);
 #endif
 
 static void Operator_dealloc(OperatorObject *self)
@@ -53,6 +51,7 @@ static void Operator_dealloc(OperatorObject *self)
   PyObject_DEL(self);
 }
 
+
 static PyObject * Operator_relax(OperatorObject *self,
                                  PyObject *args)
 {
@@ -64,6 +63,7 @@ static PyObject * Operator_relax(OperatorObject *self,
   if (!PyArg_ParseTuple(args, "iOOi|d", &relax_method, &func, &source,
                         &nrelax, &w))
     return NULL;
+
   Py_BEGIN_ALLOW_THREADS;
   const boundary_conditions* bc = self->bc;
 
@@ -409,9 +409,11 @@ static PyObject * Operator_apply(OperatorObject *self,
 #endif
   free(wargs);
   free(thds);
+
   Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
 }
+
 
 static PyObject * Operator_get_diagonal_element(OperatorObject *self,
                                               PyObject *args)
@@ -456,6 +458,7 @@ static PyMethodDef Operator_Methods[] = {
     {"get_async_sizes",
      (PyCFunction)Operator_get_async_sizes, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}
+
 };
 
 
@@ -486,7 +489,7 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
   PyObject* comm_obj;
   int cfd;
   int cuda = 0;
-  
+
   if (!PyArg_ParseTuple(args, "OOOiOiOi|i",
                         &coefs, &offsets, &size, &range, &neighbors,
                         &real, &comm_obj, &cfd, &cuda))

@@ -119,7 +119,7 @@ PyObject* papi_mem_info(PyObject *self, PyObject *args);
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args); 
 
-#ifdef GPAW_CUDA  
+#ifdef GPAW_CUDA
 PyObject* gpaw_cuda_init(PyObject *self, PyObject *args);
 PyObject* gpaw_cuda_delete(PyObject *self, PyObject *args);
 PyObject* csign_gpu(PyObject *self, PyObject *args);
@@ -244,7 +244,7 @@ static PyMethodDef functions[] = {
   {"papi_mem_info", papi_mem_info, METH_VARARGS, 0}, 
 #endif // GPAW_PAPI
   {"mlsqr", mlsqr, METH_VARARGS, 0}, 
-#ifdef GPAW_CUDA  
+#ifdef GPAW_CUDA
   {"gpaw_cuda_init", gpaw_cuda_init, METH_VARARGS, 0},
   {"gpaw_cuda_delete", gpaw_cuda_delete, METH_VARARGS, 0},
   {"csign_gpu", csign_gpu, METH_VARARGS, 0},
@@ -325,34 +325,34 @@ main(int argc, char **argv)
 #ifdef CRAYPAT
   PAT_region_begin(1, "C-Initializations");
 #endif
-  
+
 #ifdef CUDA_MPI
-
   // Initialize CUDA before MPI
-
   Py_Initialize();
-  int cuda=0;
 
-  for (int i=0;i<argc;i++)
-    if (strcmp(argv[i],"--cuda")==0)
-      cuda=1;
-  
+  int cuda=0;
+  for (int i=0; i<argc; i++)
+    if (strcmp(argv[i], "--cuda") == 0)
+      cuda = 1;
+
   char* local_rank=getenv("MV2_COMM_WORLD_LOCAL_RANK");
-  if (local_rank==NULL)
-    local_rank=getenv("OMPI_COMM_WORLD_LOCAL_RANK");
-  if (local_rank==NULL)
-    local_rank=getenv("SLURM_LOCALID");
+  if (local_rank == NULL)
+    local_rank = getenv("OMPI_COMM_WORLD_LOCAL_RANK");
+  if (local_rank == NULL)
+    local_rank = getenv("SLURM_LOCALID");
 
   if (cuda) {
     PyRun_SimpleString("import pycuda.driver as drv");
     PyRun_SimpleString("import pycuda.tools as tools");
     PyRun_SimpleString("drv.init()");
-    if (local_rank!=NULL) {
+    if (local_rank != NULL) {
       int cuda_dev, device_count;
-      gpaw_cudaSafeCall(cudaGetDeviceCount(&device_count));
-      cuda_dev=atoi(local_rank)%device_count;      
       char cmd[64];
-      snprintf(cmd,64,"current_dev = drv.Device(%d)",cuda_dev);
+
+      gpaw_cudaSafeCall(cudaGetDeviceCount(&device_count));
+      cuda_dev = atoi(local_rank) % device_count;
+
+      snprintf(cmd, 64, "current_dev = drv.Device(%d)", cuda_dev);
       PyRun_SimpleString(cmd);
       PyRun_SimpleString("cuda_ctx = current_dev.make_context()");
     } else {
@@ -363,7 +363,7 @@ main(int argc, char **argv)
     gpaw_cuda_init_c();
   }
 #endif
-  
+
 #ifndef GPAW_OMP
   assert(MPI_Init(&argc, &argv)==MPI_SUCCESS);
 #else

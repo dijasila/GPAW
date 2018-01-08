@@ -135,6 +135,7 @@ boundary_conditions* bc_init(const long size1[3],
       if (n > bc->maxrecv)
         bc->maxrecv = n;
     }
+
 #ifdef GPAW_CUDA
   bc_init_cuda(bc);
 #endif //GPAW_CUDA

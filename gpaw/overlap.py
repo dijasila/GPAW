@@ -58,7 +58,6 @@ class Overlap:
 
         """
         self.timer.start('Orthonormalize')
-
         if psit_nG is None:
             if kpt.cuda:
                 psit_nG = kpt.psit_nG_gpu
@@ -105,7 +104,8 @@ class Overlap:
 
         self.timer.start('rotate_psi')
         if kpt.cuda:
-            operator.matrix_multiply(C_nn, psit_nG, P_ani, out_nG=kpt.psit_nG_gpu)
+            operator.matrix_multiply(C_nn, psit_nG, P_ani,
+                                     out_nG=kpt.psit_nG_gpu)
         else:
             operator.matrix_multiply(C_nn, psit_nG, P_ani, out_nG=kpt.psit_nG)
 
@@ -130,7 +130,7 @@ class Overlap:
 
         """
         self.timer.start('Apply overlap')
-        if isinstance(a_xG,gpaw.cuda.gpuarray.GPUArray):
+        if isinstance(a_xG, gpaw.cuda.gpuarray.GPUArray):
             gpaw.cuda.drv.memcpy_dtod(b_xG.gpudata, a_xG.gpudata, a_xG.nbytes)
         else:
             b_xG[:] = a_xG
@@ -152,11 +152,10 @@ class Overlap:
     def apply_inverse(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):
         """Apply approximative inverse overlap operator to wave functions."""
 
-        if isinstance(a_xG,gpaw.cuda.gpuarray.GPUArray):
+        if isinstance(a_xG, gpaw.cuda.gpuarray.GPUArray):
             gpaw.cuda.drv.memcpy_dtod(b_xG.gpudata, a_xG.gpudata, a_xG.nbytes)
         else:
             b_xG[:] = a_xG
-            
         shape = a_xG.shape[:-3]
         P_axi = wfs.pt.dict(shape)
 

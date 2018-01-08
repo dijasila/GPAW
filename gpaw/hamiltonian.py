@@ -17,7 +17,6 @@ from gpaw.io import read_atomic_matrices
 from gpaw.utilities.linalg  import elementwise_multiply_add,multi_elementwise_multiply_add
 
 import gpaw.cuda
-
 import _gpaw
 
 class Hamiltonian:
@@ -66,7 +65,7 @@ class Hamiltonian:
         self.timer = timer
         self.xc = xc
 
-        self.cuda = cuda        
+        self.cuda = cuda
         self.use_xc_thread = True
 
         self.collinear = collinear
@@ -81,7 +80,6 @@ class Hamiltonian:
         self.vt_sG = None
         if self.cuda:
             self.vt_sG_gpu = None
-        
         self.vHt_g = None
         self.vt_sg = None
 
@@ -217,14 +215,15 @@ class Hamiltonian:
             self.timer.stop('Initialize Hamiltonian')
 
         if gpaw.cuda.debug and self.cuda:
-            gpaw.cuda.debug_test(self.vt_sG,self.vt_sG_gpu,"Hamiltonian vt_sG")
-            
+            gpaw.cuda.debug_test(
+                    self.vt_sG, self.vt_sG_gpu, "Hamiltonian vt_sG")
+
         Ekin, Epot, Ebar, Eext, Exc, W_aL = \
             self.update_pseudo_potential(density)
 
         if self.cuda:
             self.vt_sG_gpu = gpaw.cuda.gpuarray.to_gpu(self.vt_sG)
-            
+
         self.timer.start('Atomic')
         self.dH_asp = {}
         for a, D_sp in density.D_asp.items():
@@ -376,12 +375,12 @@ class Hamiltonian:
         if isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
             if self.cuda:
                 vt_G = self.vt_sG_gpu[s]
-            else:            
+            else:
                 vt_G = gpaw.cuda.gpuarray.to_gpu(self.vt_sG[s])
             if len(psit_nG.shape) == 3:  # XXX Doesn't GPU arrays have ndim attr?
-                elementwise_multiply_add(psit_nG,vt_G,Htpsit_nG);
+                elementwise_multiply_add(psit_nG, vt_G, Htpsit_nG);
             else:
-                multi_elementwise_multiply_add(psit_nG,vt_G,Htpsit_nG);
+                multi_elementwise_multiply_add(psit_nG, vt_G, Htpsit_nG);
         else:
             vt_G = self.vt_sG[s]
             if len(psit_nG.shape) == 3:  # XXX Doesn't GPU arrays have ndim attr?
@@ -410,8 +409,9 @@ class Hamiltonian:
         
         """
         if gpaw.cuda.debug and self.cuda:
-            gpaw.cuda.debug_test(self.vt_sG,self.vt_sG_gpu,"Hamiltonian vt_sG")
-                
+            gpaw.cuda.debug_test(
+                    self.vt_sG, self.vt_sG_gpu, "Hamiltonian vt_sG")
+
         wfs.kin.apply(a_xG, b_xG, kpt.phase_cd)
         self.apply_local_potential(a_xG, b_xG, kpt.s)
         shape = a_xG.shape[:-3]
@@ -512,7 +512,6 @@ class RealSpaceHamiltonian(Hamiltonian):
         if psolver is None:
             psolver = PoissonSolver(nn=3, relax='J', cuda=self.cuda)
         self.poisson = psolver
-
         try:
             self.poisson.set_grid_descriptor(finegd, cuda=self.cuda)
         except TypeError:
@@ -560,32 +559,30 @@ class RealSpaceHamiltonian(Hamiltonian):
                                          global_integral=False) - Ebar
 
         self.vt_sg[1:self.nspins] = vt_g
-        
+
         self.vt_sg[self.nspins:] = 0.0
 
         if self.use_xc_thread:
             self.timer.start('XC 3D grid + Poisson')
-            xc_thread = XCThread(self.xc, self.finegd, density.nt_sg, self.vt_sg)
+            xc_thread = XCThread(self.xc, self.finegd, density.nt_sg,
+                                 self.vt_sg)
             xc_thread.start()
         else:
             self.timer.start('XC 3D grid')
             Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
             Exc /= self.gd.comm.size
             self.timer.stop('XC 3D grid')
-
-        if not self.use_xc_thread:
             self.timer.start('Poisson')
         # npoisson is the number of iterations:
         self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
                                            charge=-density.charge)
-        if not self.use_xc_thread:
-            self.timer.stop('Poisson')
-
-        if self.use_xc_thread:            
+        if self.use_xc_thread:
             Exc = xc_thread.join()
             Exc /= self.gd.comm.size
             self.timer.stop('XC 3D grid + Poisson')
-            
+        else:
+            self.timer.stop('Poisson')
+
         self.timer.start('Hartree integrate/restrict')
         Epot = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
                                            global_integral=False)

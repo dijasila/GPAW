@@ -8,10 +8,10 @@ from threading import Thread
 class XCThread(Thread):
     def __init__(self, xc, *args):
         Thread.__init__(self, args=args)
-        self.xc=xc
-        
+        self.xc = xc
+
     def run(self):
-        self.Exc=self.xc.calculate(*self._Thread__args)
+        self.Exc = self.xc.calculate(*self._Thread__args)
 
     def join(self):
         Thread.join(self)

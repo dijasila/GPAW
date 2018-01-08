@@ -91,7 +91,6 @@ class Sphere:
             for beg_c, end_c, sdisp_c in gd.get_boxes(spos_c, rcut, cut):
                 A_gm, G_b = self.spline_to_grid(spline, gd, beg_c, end_c,
                                                 spos_c - sdisp_c)
-                #print "A_gm ",A_gm.shape,G_b.shape,l
                 if len(G_b) > 0:
                     self.A_wgm.append(A_gm)
                     self.G_wb.append(G_b)
@@ -308,10 +307,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         self.M_W = np.empty(nW, np.intc)
         self.G_B = np.empty(nB, np.intc)
         self.W_B = np.empty(nB, np.intc)
-        
         self.A_Wgm = []
-        #G_WB_to_gpu = []
-        
         sdisp_Wc = np.empty((nW, 3), int)
         self.pos_Wv = np.empty((nW, 3))        
         
@@ -320,7 +316,6 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         for a in self.atom_indices:
             sphere = self.sphere_a[a]
             self.A_Wgm.extend(sphere.A_wgm)
-            #G_WB_to_gpu.extend(sphere.G_wb)
             nw = len(sphere.M_w)
             self.M_W[W:W + nw] = self.M_a[a] + np.array(sphere.M_w)
             sdisp_Wc[W:W + nw] = sphere.sdisp_wc
@@ -349,8 +344,6 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         self.G_B = self.G_B[indices]
         self.W_B = self.W_B[indices]
 
-        #print "_gpaw.LFC",G_WB_to_gpu[0],type(G_WB_to_gpu),G_WB_to_gpu[0].shape,type(G_WB_to_gpu[0])
-        #print self.phase_qW.dtype,self.phase_qW.shape,self.phase_qW
         self.lfc = _gpaw.LFC(self.A_Wgm, self.M_W, self.G_B, self.W_B,
                              self.gd.dv, self.phase_qW, self.cuda)
 
@@ -420,12 +413,13 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 if self.Mmax > 0 :
                     assert self.cuda
                     if gpaw.cuda.debug:
-                        a_xG_cpu=a_xG.get()
+                        a_xG_cpu = a_xG.get()
                         self.lfc.add(c_xM, a_xG_cpu, q)
-                    c_xM_gpu=gpaw.cuda.gpuarray.to_gpu(c_xM)
-                    self.lfc.add_cuda_gpu(c_xM_gpu.gpudata,c_xM_gpu.shape, a_xG.gpudata,a_xG.shape, q)
+                    c_xM_gpu = gpaw.cuda.gpuarray.to_gpu(c_xM)
+                    self.lfc.add_cuda_gpu(c_xM_gpu.gpudata, c_xM_gpu.shape,
+                                          a_xG.gpudata, a_xG.shape, q)
                     if gpaw.cuda.debug:
-                        gpaw.cuda.debug_test(a_xG_cpu,a_xG,"lfc add")
+                        gpaw.cuda.debug_test(a_xG_cpu, a_xG, "lfc add")
             else:
                 self.lfc.add(c_xM, a_xG, q)
             return
@@ -471,21 +465,19 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             c_xM[..., M1:M2] = c_xi
             M1 = M2
 
-        if isinstance(a_xG,gpaw.cuda.gpuarray.GPUArray):
-            #print "add cuda", self.cuda
-            if self.Mmax > 0 :
+        if isinstance(a_xG, gpaw.cuda.gpuarray.GPUArray):
+            if self.Mmax > 0:
                 assert self.cuda
                 if gpaw.cuda.debug:
-                    a_xG_cpu=a_xG.get()
+                    a_xG_cpu = a_xG.get()
                     self.lfc.add(c_xM, a_xG_cpu, q)
-                c_xM_gpu=gpaw.cuda.gpuarray.to_gpu(c_xM)
-                self.lfc.add_cuda_gpu(c_xM_gpu.gpudata,c_xM_gpu.shape, a_xG.gpudata,a_xG.shape, q)
+                c_xM_gpu = gpaw.cuda.gpuarray.to_gpu(c_xM)
+                self.lfc.add_cuda_gpu(c_xM_gpu.gpudata, c_xM_gpu.shape,
+                                      a_xG.gpudata, a_xG.shape, q)
                 if gpaw.cuda.debug:
-                    gpaw.cuda.debug_test(a_xG_cpu,a_xG,"lfc add")
+                    gpaw.cuda.debug_test(a_xG_cpu, a_xG, "lfc add")
         else:
-            #print "add no cuda", self.cuda
             self.lfc.add(c_xM, a_xG, q)
-
 
     def add_derivative(self, a, v, a_xG, c_axi=1.0, q=-1):
         """Add derivative of localized functions on atom to extended arrays.
@@ -587,29 +579,24 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 assert c_xi.shape[:-1] == xshape
 
         dtype = a_xG.dtype
-                       
+
         if isinstance(a_xG, gpaw.cuda.gpuarray.GPUArray):
-            #print "integrate cuda", self.cuda,self.gd.dv
             assert self.cuda
-            if self.Mmax>0:
-                c_xM_gpu = gpaw.cuda.gpuarray.zeros(xshape + (self.Mmax,), dtype)
-                self.lfc.integrate_cuda_gpu(a_xG.gpudata, a_xG.shape, 
-                                            c_xM_gpu.gpudata, c_xM_gpu.shape, q)
-                #c_xM = np.zeros(xshape + (self.Mmax,), dtype)
-                #self.lfc.integrate(a_xG.get(), c_xM, q)
-                c_xM=c_xM_gpu.get()*self.gd.dv
-                #c_xM=c_xM_gpu.get()
-                #self.lfc.integrate(a_xG.get(), c_xM, q)
+            if self.Mmax > 0:
+                c_xM_gpu = gpaw.cuda.gpuarray.zeros(xshape + (self.Mmax,),
+                                                    dtype)
+                self.lfc.integrate_cuda_gpu(a_xG.gpudata, a_xG.shape,
+                                            c_xM_gpu.gpudata, c_xM_gpu.shape,
+                                            q)
+                c_xM = c_xM_gpu.get() * self.gd.dv
                 if gpaw.cuda.debug:
-                #if 1:
                     assert not np.isnan(c_xM).any()
                     c_xM2 = np.zeros(xshape + (self.Mmax,), dtype)
                     self.lfc.integrate(a_xG.get(), c_xM2, q)
-                    gpaw.cuda.debug_test(c_xM2,c_xM,"lfc integrate")
+                    gpaw.cuda.debug_test(c_xM2, c_xM, "lfc integrate")
             else:
-                c_xM = np.zeros(xshape + (self.Mmax,), dtype) 
+                c_xM = np.zeros(xshape + (self.Mmax,), dtype)
         else:
-            #print "integrate no cuda", self.cuda
             c_xM = np.zeros(xshape + (self.Mmax,), dtype)
             self.lfc.integrate(a_xG, c_xM, q)
         comm = self.gd.comm
@@ -650,10 +637,9 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 else:
                     c_xi[:] = c_xM[..., M1:M2]
             M1 = M2
-        
+
         for request in srequests:
             comm.wait(request)
-
 
     def derivative(self, a_xG, c_axiv, q=-1):
         """Calculate x-, y-, and z-derivatives of localized function integrals.

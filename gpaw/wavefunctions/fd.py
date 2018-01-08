@@ -30,16 +30,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.matrixoperator = MatrixOperator(self.orthoksl, cuda=self.cuda)
 
         if self.cuda:
-            self.nt_G_gpu=None
-            #from pycuda.elementwise import ElementwiseKernel
-            #self.axpysquarez = ElementwiseKernel(
-            #    "double f, const pycuda::complex<double> *a, double *b",
-            #    "b[i] += f*(a[i]._M_re*a[i]._M_re+a[i]._M_im*a[i]._M_im)",
-            #    "axpy_squarez",preamble="#include <pycuda-complex.hpp>")
-            #self.axpysquare = ElementwiseKernel(
-            #    "double f, const double *a, double *b",
-            #    "b[i] += f*a[i]*a[i]",
-            #    "axpy_square")          
+            self.nt_G_gpu = None
 
         self.taugrad_v = None  # initialized by MGGA functional
 
@@ -86,29 +77,24 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
         # Used in calculation of response part of GLLB-potential
-
-        
         if (self.cuda) and (kpt.psit_nG_gpu is not None):
             if self.nt_G_gpu is None:
-                self.nt_G_gpu = gpaw.cuda.gpuarray.empty(nt_sG[kpt.s].shape,nt_sG[kpt.s].dtype)
+                self.nt_G_gpu = gpaw.cuda.gpuarray.empty(
+                        nt_sG[kpt.s].shape, nt_sG[kpt.s].dtype)
             self.nt_G_gpu.set(nt_sG[kpt.s])
             psit_nG = kpt.psit_nG_gpu
-            multi_ax2py(f_n,psit_nG,self.nt_G_gpu)
-
+            multi_ax2py(f_n, psit_nG, self.nt_G_gpu)
         else:
             nt_G = nt_sG[kpt.s]
             psit_nG = kpt.psit_nG
-            
+
             if self.dtype == float:
                 for f, psit_G in zip(f_n, psit_nG):
-                    axpy(f, psit_G*psit_G, nt_G)  # PyCUDA does not support power?
-                    #nt_G+=f*(psit_G**2)
+                    axpy(f, psit_G * psit_G, nt_G)  # PyCUDA does not support power?
             else:
                 for f, psit_G in zip(f_n, psit_nG):
-                    axpy(f, psit_G.real*psit_G.real, nt_G)
-                    axpy(f, psit_G.imag*psit_G.imag, nt_G)
-                    #axpy(f, psit_G.real**2, nt_G)
-                    #axpy(f, psit_G.imag**2, nt_G)
+                    axpy(f, psit_G.real * psit_G.real, nt_G)
+                    axpy(f, psit_G.imag * psit_G.imag, nt_G)
 
         # Hack used in delta-scf calculations:
         if hasattr(kpt, 'c_on'):
@@ -124,7 +110,6 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
         if self.cuda  and (kpt.psit_nG_gpu is not None):
             self.nt_G_gpu.get(nt_sG[kpt.s])
-
 
     def calculate_kinetic_energy_density(self):
         if self.taugrad_v is None:
@@ -358,7 +343,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def cuda_psit_nG_htod(self):
         for kpt in self.kpt_u:
             kpt.cuda_psit_nG_htod()
-        
+
     def cuda_psit_nG_dtoh(self):
         for kpt in self.kpt_u:
             kpt.cuda_psit_nG_dtoh()

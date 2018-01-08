@@ -106,10 +106,8 @@ class PoissonSolver:
     def initialize(self, load_gauss=False):
         # Should probably be renamed allocate
         gd = self.gd
-
         if self.cuda and gpaw.cuda.get_context() == None:
             self.cuda = False
-
         self.rhos = [gd.empty(cuda=self.cuda)]
         self.phis = [None]
         self.residuals = [gd.empty(cuda=self.cuda)]
@@ -119,7 +117,6 @@ class PoissonSolver:
             self.rhos.append(gd2.empty(cuda=self.cuda))
             self.residuals.append(gd2.empty(cuda=self.cuda))
             gd = gd2
-        
         assert len(self.phis) == len(self.rhos)
         level += 1
         assert level == self.levels
@@ -225,12 +222,12 @@ class PoissonSolver:
             else:
                 self.B.apply(gpaw.cuda.gpuarray.to_gpu(rho), self.rhos[0])
         else:
-            self.phis[0] = phi            
+            self.phis[0] = phi
             if self.B is None:
                 self.rhos[0][:] = rho
             else:
                 self.B.apply(rho, self.rhos[0])
-                
+
         niter = 1
         maxiter = self.maxiter
         while self.iterate2(self.step) > eps and niter < maxiter:
@@ -280,43 +277,38 @@ class PoissonSolver:
 
     def iterate2(self, step, level=0):
         """Smooths the solution in every multigrid level"""
+
         residual = self.residuals[level]
-        phi=self.phis[level]
-        rho=self.rhos[level]
 
         if level < self.levels:
             self.operators[level].relax(self.relax_method,
-                                        phi,
-                                        rho,
+                                        self.phis[level],
+                                        self.rhos[level],
                                         self.presmooths[level],
                                         self.weights[level])
-            
-            self.operators[level].apply(phi, residual)            
-            residual -= rho
-                
+
+            self.operators[level].apply(self.phis[level], residual)
+            residual -= self.rhos[level]
             self.restrictors[level].apply(residual,
                                           self.rhos[level + 1])
             self.phis[level + 1].fill(0.0)
             self.iterate2(4.0 * step, level + 1)
             self.interpolators[level].apply(self.phis[level + 1], residual)
-            phi -= residual
+            self.phis[level] -= residual
 
         self.operators[level].relax(self.relax_method,
-                                    phi,
-                                    rho,
+                                    self.phis[level],
+                                    self.rhos[level],
                                     self.postsmooths[level],
                                     self.weights[level])
         if level == 0:
-            self.operators[level].apply(phi, residual)
-            residual -= rho
+            self.operators[level].apply(self.phis[level], residual)
+            residual -= self.rhos[level]
             if isinstance(residual, gpaw.cuda.gpuarray.GPUArray):
-                error = self.gd.comm.sum(dotu(residual,residual)) * self.dv
-                #error = self.gd.comm.sum(np.float64(gpaw.cuda.gpuarray.dot(residual,residual).get())) * self.dv
+                error = self.gd.comm.sum(dotu(residual, residual)) * self.dv
             else:
                 error = self.gd.comm.sum(np.dot(residual.ravel(),
                                                 residual.ravel())) * self.dv
-                #error = self.gd.comm.sum(np.sum(residual*residual)) * self.dv
-            #print error
             return error
 
     def estimate_memory(self, mem):
@@ -390,7 +382,7 @@ class FFTPoissonSolver(PoissonSolver):
     def __init__(self, eps=2e-10):
         self.charged_periodic_correction = None
         self.eps = eps
-        self.cuda=False
+        self.cuda = False
 
     def set_grid_descriptor(self, gd):
         assert gd.pbc_c.all()

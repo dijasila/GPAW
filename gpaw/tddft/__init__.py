@@ -77,7 +77,7 @@ class TDDFT(GPAW):
     
     def __init__(self, filename, td_potential=None, propagator='SICN',
                  propagator_kwargs=None, solver='CSCG', tolerance=1e-8,
-                 cuda=False,**kwargs):
+                 cuda=False, **kwargs):
         """Create TDDFT-object.
         
         Parameters:
@@ -109,7 +109,7 @@ class TDDFT(GPAW):
         # Set initial value of iteration counter
         self.niter = 0
 
-        self.cuda=cuda
+        self.cuda = cuda
 
         # Override default `mixer` and `dtype` given in InputParameters
         kwargs.setdefault('mixer', DummyMixer())
@@ -124,7 +124,6 @@ class TDDFT(GPAW):
         # Initialize paw-object without density mixing
         # NB: TDDFT restart files contain additional information which
         #     will override the initial settings for time/kick/niter.
-
         GPAW.__init__(self, filename, **kwargs)
 
         assert isinstance(self.wfs, TimeDependentWaveFunctions)
@@ -132,10 +131,6 @@ class TDDFT(GPAW):
 
         # Prepare for dipole moment file handle
         self.dm_file = None
-
-        #print "wfs.cuda ",self.wfs.cuda
-        #print "self.cuda ",self.cuda
-        #print "wfs.overlap.cuda ",self.wfs.overlap.cuda 
 
         # Initialize wavefunctions and density 
         # (necessary after restarting from file)
@@ -159,7 +154,8 @@ class TDDFT(GPAW):
         # Time-dependent variables and operators
         self.td_potential = td_potential
         self.td_hamiltonian = TimeDependentHamiltonian(self.wfs, self.atoms,
-                                  self.hamiltonian, td_potential, cuda=self.cuda)
+                                  self.hamiltonian, td_potential,
+                                  cuda=self.cuda)
         self.td_overlap = self.wfs.overlap #TODO remove this property
         self.td_density = TimeDependentDensity(self)
 
@@ -188,11 +184,13 @@ class TDDFT(GPAW):
         if propagator == 'ECN':
             self.propagator = ExplicitCrankNicolson(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, cuda=self.cuda, **propagator_kwargs)
+                self.preconditioner, wfs.gd, self.timer, cuda=self.cuda,
+                **propagator_kwargs)
         elif propagator == 'SICN':
             self.propagator = SemiImplicitCrankNicolson(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, cuda=self.cuda, **propagator_kwargs)
+                self.preconditioner, wfs.gd, self.timer, cuda=self.cuda,
+                **propagator_kwargs)
         elif propagator == 'EFSICN':
             self.propagator = EhrenfestPAWSICN(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
@@ -235,7 +233,7 @@ class TDDFT(GPAW):
 
         self.hpsit = None
         self.eps_tmp = None
-        self.mblas = MultiBlas(wfs.gd,self.timer)
+        self.mblas = MultiBlas(wfs.gd, self.timer)
 
     def set(self, **kwargs):
         p = self.input_parameters
@@ -323,21 +321,18 @@ class TDDFT(GPAW):
         maxiter = self.niter + iterations
 
         self.timer.start('Propagate')
-        
         if self.cuda:
             for kpt in self.wfs.kpt_u:
-                kpt.cuda_psit_nG_htod() 
-        
+                kpt.cuda_psit_nG_htod()
         while self.niter < maxiter:
-            #print "Propagate iter = ",self.niter
             norm = self.density.finegd.integrate(self.density.rhot_g)
 
             # Write dipole moment at every iteration
             if dipole_moment_file is not None:
                 self.update_dipole_moment_file(norm)
 
-            # print output (energy etc.) every 1th iteration 
-            if self.niter % 1 == 0:
+            # print output (energy etc.) every 10th iteration
+            if self.niter % 10 == 0:
                 self.get_td_energy()
                 
                 T = time.localtime()
@@ -371,8 +366,7 @@ class TDDFT(GPAW):
 
         if self.cuda:
             for kpt in self.wfs.kpt_u:
-                kpt.cuda_psit_nG_dtoh() 
-
+                kpt.cuda_psit_nG_dtoh()
         self.timer.stop('Propagate')
 
         # Write final results and close dipole moment file
@@ -447,10 +441,9 @@ class TDDFT(GPAW):
         # self.Eband = sum_i <psi_i|H|psi_j>
         for kpt in kpt_u:
             if self.cuda:
-                psit_nG=kpt.psit_nG_gpu
+                psit_nG = kpt.psit_nG_gpu
             else:
-                psit_nG=kpt.psit_nG
-                
+                psit_nG = kpt.psit_nG
             self.td_hamiltonian.apply(kpt, psit_nG, self.hpsit,
                                       calculate_P_ani=False)
             self.mblas.multi_zdotc(psit_nG, self.hpsit, self.eps_tmp)
@@ -499,17 +492,18 @@ class TDDFT(GPAW):
                                    np.array(kick_strength, float))
         abs_kick = AbsorptionKick(self.wfs, abs_kick_hamiltonian,
                                   self.td_overlap, self.solver,
-                                  self.preconditioner, self.wfs.gd, self.timer, cuda=self.cuda)
+                                  self.preconditioner, self.wfs.gd, self.timer,
+                                  cuda=self.cuda)
 
         if self.cuda:
             for kpt in self.wfs.kpt_u:
-                kpt.cuda_psit_nG_htod() 
-        
+                kpt.cuda_psit_nG_htod()
+
         abs_kick.kick()
 
         if self.cuda:
             for kpt in self.wfs.kpt_u:
-                kpt.cuda_psit_nG_dtoh() 
+                kpt.cuda_psit_nG_dtoh()
 
     def __del__(self):
         """Destructor"""

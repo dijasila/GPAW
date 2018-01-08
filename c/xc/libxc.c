@@ -465,13 +465,13 @@ static void setupblockptrs(double *start, const xcinfo *info,
   for (int i=0; i<inlist->num; i++) {
     inblocklist[i] = next;
     next+=blocksize*inlist->p[i].spinsize;
-    *insize += blocksize*inlist->p[i].spinsize * sizeof(double);
+    *insize += blocksize * inlist->p[i].spinsize * sizeof(double);
   }
   *outsize = 0;
   for (int i=0; i<outlist->num; i++) {
     outblocklist[i] = next;
     next+=blocksize*outlist->p[i].spinsize;
-    *outsize += blocksize*outlist->p[i].spinsize * sizeof(double);
+    *outsize += blocksize * outlist->p[i].spinsize * sizeof(double);
   }
   // check that we fit in the scratch space
   // if we don't, then we need to increase MAXARRAY
@@ -496,10 +496,12 @@ static void data2block(const xcinfo *info,
       // use input arrays instead to save time. have to
       // copy n_g however, because of the NMIN patch.
       if (inlist->p[i].special&N_SG) {
-        for (int i=0; i<blocksize; i++) block[i] = (ptr[i]<NMIN) ? NMIN : ptr[i];
+        for (int i=0; i<blocksize; i++)
+            block[i] = (ptr[i]<NMIN) ? NMIN : ptr[i];
       } else {
         // lli2010 and cpo changed this to also copy sigma/tau for the GPU version
-        for (int i=0; i<blocksize; i++) block[i] = ptr[i];
+        for (int i=0; i<blocksize; i++)
+            block[i] = ptr[i];
       }
     }
   }
@@ -633,7 +635,7 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
   int insize, outsize;
 
   setupblockptrs(scratch, &info, &inlist, &outlist, &inblock[0], &outblock[0],
-          blocksize, &insize, &outsize);
+                 blocksize, &insize, &outsize);
 
   double *inblock_d[MAXPTR];
   double *outblock_d[MAXPTR];
@@ -647,7 +649,7 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
 
   if (gpu[0] || gpu[1]) {
     setupblockptrs(scratch_d, &info, &inlist, &outlist, &inblock_d[0],
-            &outblock_d[0], blocksize, &insize, &outsize);
+                   &outblock_d[0], blocksize, &insize, &outsize);
   }
 
   do {
@@ -704,7 +706,8 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
         }
 
       if (gpu[i]) {
-        cudaMemcpy(outblock[0], outblock_d[0], outsize, cudaMemcpyDeviceToHost);
+        cudaMemcpy(outblock[0], outblock_d[0], outsize,
+                   cudaMemcpyDeviceToHost);
       }
 
       // if we have more than 1 functional, add results
@@ -720,6 +723,7 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
 
     remaining -= blocksize;
   } while (remaining>0);
+
   Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
 }
@@ -789,7 +793,7 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
   int insize, outsize;
 
   setupblockptrs(scratch, &info, &inlist, &outlist, &inblock[0], &outblock[0],
-          blocksize, &insize, &outsize);
+                 blocksize, &insize, &outsize);
 
   double *inblock_d[MAXPTR];
   double *outblock_d[MAXPTR];
@@ -803,7 +807,7 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
 
   if (gpu[0] || gpu[1]) {
     setupblockptrs(scratch_d, &info, &inlist, &outlist, &inblock_d[0],
-            &outblock_d[0], blocksize, &insize, &outsize);
+                   &outblock_d[0], blocksize, &insize, &outsize);
   }
 
   do {
@@ -855,7 +859,8 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
         }
 
       if(gpu[i]){
-        cudaMemcpy(outblock[0], outblock_d[0], outsize, cudaMemcpyDeviceToHost);
+        cudaMemcpy(outblock[0], outblock_d[0], outsize,
+                   cudaMemcpyDeviceToHost);
       }
 
       // if we have more than 1 functional, add results
@@ -918,7 +923,7 @@ PyObject * NewlxcXCFunctionalObject(PyObject *obj, PyObject *args)
     scratch_lapl = (double*)malloc(laplsize);
     memset(scratch_lapl,0,laplsize);
     scratch_vlapl = (double*)malloc(laplsize);
-    cudaMalloc((void **) &scratch_d,LIBXCSCRATCHSIZE*sizeof(double));
+    cudaMalloc((void **) &scratch_d, LIBXCSCRATCHSIZE * sizeof(double));
   }
 
   if (!PyArg_ParseTuple(args, "iiii", &xc, &x, &c, &nspin)) {

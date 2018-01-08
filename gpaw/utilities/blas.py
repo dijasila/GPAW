@@ -15,7 +15,6 @@ import numpy as np
 
 from gpaw.utilities import is_contiguous
 from gpaw import debug
-
 import _gpaw
 
 import gpaw.cuda
@@ -37,19 +36,17 @@ def scal(alpha, x):
             assert x.dtype in [float, complex]
             assert x.flags.contiguous
 
-    if isinstance(x,gpaw.cuda.gpuarray.GPUArray):
+    if isinstance(x, gpaw.cuda.gpuarray.GPUArray):
         if gpaw.cuda.debug:
-            x_cpu=x.get()
+            x_cpu = x.get()
             _gpaw.scal(alpha, x_cpu)
-
         _gpaw.scal_cuda_gpu(alpha, x.gpudata, x.shape, x.dtype)
         if gpaw.cuda.debug:
-            gpaw.cuda.debug_test(x_cpu,x,"scal")
+            gpaw.cuda.debug_test(x_cpu, x, "scal")
     else:
         _gpaw.scal(alpha, x)
 
     
-
 def gemm(alpha, a, b, beta, c, transa='n', cuda=False, hybrid=False):
     """General Matrix Multiply.
 
@@ -76,7 +73,6 @@ def gemm(alpha, a, b, beta, c, transa='n', cuda=False, hybrid=False):
 
     where in case of "c" also complex conjugate of a is taken.
     """
-
     if debug:
         assert np.isfinite(c).all()
     
@@ -95,23 +91,22 @@ def gemm(alpha, a, b, beta, c, transa='n', cuda=False, hybrid=False):
             assert c.strides[1] == c.itemsize
             assert a.shape[1:] == b.shape[1:]
             assert c.shape == (b.shape[0], a.shape[0])
-
     assert (type(a) == type(b) and type(b) == type(c))
 
-    if isinstance(a,gpaw.cuda.gpuarray.GPUArray) \
-            and isinstance(b,gpaw.cuda.gpuarray.GPUArray) \
-            and isinstance(c,gpaw.cuda.gpuarray.GPUArray):
+    if isinstance(a, gpaw.cuda.gpuarray.GPUArray) \
+            and isinstance(b, gpaw.cuda.gpuarray.GPUArray) \
+            and isinstance(c, gpaw.cuda.gpuarray.GPUArray):
         if gpaw.cuda.debug:
-            a_cpu=a.get()
-            b_cpu=b.get()
-            c_cpu=c.get()
+            a_cpu = a.get()
+            b_cpu = b.get()
+            c_cpu = c.get()
             _gpaw.gemm(alpha, a_cpu, b_cpu, beta, c_cpu, transa)
 
         _gpaw.gemm_cuda_gpu(alpha, a.gpudata, a.shape, b.gpudata,
                             b.shape,beta, c.gpudata, c.shape, a.dtype,
                             transa, hybrid)
         if gpaw.cuda.debug:
-            gpaw.cuda.debug_test(c_cpu,c,"gemm")
+            gpaw.cuda.debug_test(c_cpu, c, "gemm")
     elif cuda:
         a_gpu = gpaw.cuda.gpuarray.to_gpu(a)
         b_gpu = gpaw.cuda.gpuarray.to_gpu(b)
@@ -122,9 +117,6 @@ def gemm(alpha, a, b, beta, c, transa='n', cuda=False, hybrid=False):
         c_gpu.get(c)
     else:
         _gpaw.gemm(alpha, a, b, beta, c, transa)
-
-
-
 
 
 def gemv(alpha, a, x, beta, y, trans='t', cuda=False):
@@ -164,24 +156,21 @@ def gemv(alpha, a, x, beta, y, trans='t', cuda=False):
         else:
             assert a.shape[-1] == x.shape[0]
             assert a.shape[:-1] == y.shape
-
-                 
     assert (type(a) == type(x) and type(x) == type(y))
 
-
-    if isinstance(a,gpaw.cuda.gpuarray.GPUArray) and  isinstance(x,gpaw.cuda.gpuarray.GPUArray) and isinstance(y,gpaw.cuda.gpuarray.GPUArray):
+    if isinstance(a, gpaw.cuda.gpuarray.GPUArray) \
+            and isinstance(x, gpaw.cuda.gpuarray.GPUArray) \
+            and isinstance(y, gpaw.cuda.gpuarray.GPUArray):
         if gpaw.cuda.debug:
             a_cpu = a.get()
             x_cpu = x.get()
             y_cpu = y.get()
             _gpaw.gemv(alpha, a_cpu, x_cpu, beta, y_cpu, trans)
-            
-            
+
         _gpaw.gemv_cuda_gpu(alpha, a.gpudata, a.shape, x.gpudata, x.shape, beta,
                             y.gpudata, a.dtype, trans)
-        
         if gpaw.cuda.debug:
-            gpaw.cuda.debug_test(y_cpu,y,"gemv")
+            gpaw.cuda.debug_test(y_cpu, y, "gemv")
     elif cuda:
         a_gpu = gpaw.cuda.gpuarray.to_gpu(a)
         x_gpu = gpaw.cuda.gpuarray.to_gpu(x)
@@ -193,9 +182,6 @@ def gemv(alpha, a, x, beta, y, trans='t', cuda=False):
         _gpaw.gemv(alpha, a, x, beta, y, trans)
  
 
-        
-
-
 def axpy(alpha, x, y, cuda=False):
     """alpha x plus y.
 
@@ -204,7 +190,6 @@ def axpy(alpha, x, y, cuda=False):
       y <- alpha * x + y
       
     """
-
     if debug:
         if isinstance(alpha, complex):
             assert is_contiguous(x, complex) and is_contiguous(y, complex)
@@ -214,23 +199,23 @@ def axpy(alpha, x, y, cuda=False):
             assert x.dtype == y.dtype
             assert x.flags.contiguous and y.flags.contiguous
         assert x.shape == y.shape
-    
     assert type(x) == type(y)
-    
-    if isinstance(x,gpaw.cuda.gpuarray.GPUArray) and isinstance(y,gpaw.cuda.gpuarray.GPUArray):
+
+    if isinstance(x, gpaw.cuda.gpuarray.GPUArray) \
+            and isinstance(y, gpaw.cuda.gpuarray.GPUArray):
         if gpaw.cuda.debug:
-            x_cpu=x.get()
-            y_cpu=y.get()
+            x_cpu = x.get()
+            y_cpu = y.get()
             _gpaw.axpy(alpha, x_cpu, y_cpu)
 
-        _gpaw.axpy_cuda_gpu(alpha, x.gpudata, x.shape, y.gpudata, y.shape, x.dtype)
+        _gpaw.axpy_cuda_gpu(alpha, x.gpudata, x.shape, y.gpudata, y.shape,
+                            x.dtype)
         if gpaw.cuda.debug:
-            gpaw.cuda.debug_test(y_cpu,y,"axpy")
+            gpaw.cuda.debug_test(y_cpu, y, "axpy")
     elif cuda:
-        x_gpu=gpaw.cuda.gpuarray.to_gpu(x)
-        y_gpu=gpaw.cuda.gpuarray.to_gpu(y)
-
-        _gpaw.axpy_cuda_gpu(alpha, x_gpu.gpudata, x.shape, y_gpu.gpudata, 
+        x_gpu = gpaw.cuda.gpuarray.to_gpu(x)
+        y_gpu = gpaw.cuda.gpuarray.to_gpu(y)
+        _gpaw.axpy_cuda_gpu(alpha, x_gpu.gpudata, x.shape, y_gpu.gpudata,
                             y.shape, x.dtype)
         y_gpu.get(y)
     else:
@@ -277,7 +262,6 @@ def rk(alpha, a, beta, c, cuda=False, hybrid=False):
     
     Only the lower triangle of ``c`` will contain sensible numbers.
     """
-
     if debug:
         assert np.isfinite(c).all()
 
@@ -287,29 +271,29 @@ def rk(alpha, a, beta, c, cuda=False, hybrid=False):
         assert a.ndim > 1
         assert c.shape == (a.shape[0], a.shape[0])
         assert c.strides[1] == c.itemsize
-
     assert type(a) == type(c)
-    
-    if isinstance(a,gpaw.cuda.gpuarray.GPUArray) and isinstance(c,gpaw.cuda.gpuarray.GPUArray):
+
+    if isinstance(a, gpaw.cuda.gpuarray.GPUArray) \
+            and isinstance(c, gpaw.cuda.gpuarray.GPUArray):
         if gpaw.cuda.debug:
-            a_cpu=a.get()
-            c_cpu=c.get()
+            a_cpu = a.get()
+            c_cpu = c.get()
             _gpaw.rk(alpha, a_cpu, beta, c_cpu)
 
-        _gpaw.rk_cuda_gpu(alpha, a.gpudata, a.shape,beta, c.gpudata, c.shape, a.dtype,hybrid)
+        _gpaw.rk_cuda_gpu(alpha, a.gpudata, a.shape,beta, c.gpudata,
+                          c.shape, a.dtype,hybrid)
         if gpaw.cuda.debug:
-            gpaw.cuda.debug_test(c_cpu,c,"rk")
+            gpaw.cuda.debug_test(c_cpu, c, "rk")
     elif cuda:
-        a_gpu=gpaw.cuda.gpuarray.to_gpu(a)
-        c_gpu=gpaw.cuda.gpuarray.to_gpu(c)
-
-        _gpaw.rk_cuda_gpu(alpha, a_gpu.gpudata, a.shape,beta, 
+        a_gpu = gpaw.cuda.gpuarray.to_gpu(a)
+        c_gpu = gpaw.cuda.gpuarray.to_gpu(c)
+        _gpaw.rk_cuda_gpu(alpha, a_gpu.gpudata, a.shape,beta,
                           c_gpu.gpudata, c.shape, a.dtype)
         c_gpu.get(c)
     else:
         _gpaw.rk(alpha, a, beta, c)
 
-def r2k(alpha, a, b, beta, c, cuda = False, hybrid = False):
+def r2k(alpha, a, b, beta, c, cuda=False, hybrid=False):
     """Rank-2k update of a matrix.
 
     Performs the operation::
@@ -332,7 +316,6 @@ def r2k(alpha, a, b, beta, c, cuda = False, hybrid = False):
 
     Only the lower triangle of ``c`` will contain sensible numbers.
     """
-
     if debug:
         assert np.isfinite(c).all()
         
@@ -343,27 +326,26 @@ def r2k(alpha, a, b, beta, c, cuda = False, hybrid = False):
         assert a.shape == b.shape
         assert c.shape == (a.shape[0], a.shape[0])
         assert c.strides[1] == c.itemsize
-
-
     assert (type(a) == type(b) and type(b) == type(c))
 
-
-    if isinstance(a,gpaw.cuda.gpuarray.GPUArray) and  isinstance(b,gpaw.cuda.gpuarray.GPUArray) and isinstance(c,gpaw.cuda.gpuarray.GPUArray):
+    if isinstance(a, gpaw.cuda.gpuarray.GPUArray) \
+            and isinstance(b, gpaw.cuda.gpuarray.GPUArray) \
+            and isinstance(c, gpaw.cuda.gpuarray.GPUArray):
         if gpaw.cuda.debug:
-            a_cpu=a.get()
-            b_cpu=b.get()
-            c_cpu=c.get()            
+            a_cpu = a.get()
+            b_cpu = b.get()
+            c_cpu = c.get()
             _gpaw.r2k(alpha, a_cpu, b_cpu, beta, c_cpu)
-            
+
         _gpaw.r2k_cuda_gpu(alpha, a.gpudata, a.shape, b.gpudata,
                            b.shape, beta, c.gpudata, c.shape, a.dtype,
                            hybrid)
         if gpaw.cuda.debug:
-            gpaw.cuda.debug_test(c_cpu,c,"rk2")
+            gpaw.cuda.debug_test(c_cpu, c, "rk2")
     elif cuda:
-        a_gpu=gpaw.cuda.gpuarray.to_gpu(a)
-        b_gpu=gpaw.cuda.gpuarray.to_gpu(b)
-        c_gpu=gpaw.cuda.gpuarray.to_gpu(c)
+        a_gpu = gpaw.cuda.gpuarray.to_gpu(a)
+        b_gpu = gpaw.cuda.gpuarray.to_gpu(b)
+        c_gpu = gpaw.cuda.gpuarray.to_gpu(c)
 
         _gpaw.r2k_cuda_gpu(alpha, a_gpu.gpudata, a.shape,b_gpu.gpudata,
                            b.shape, beta, c_gpu.gpudata, c.shape, a.dtype,
@@ -371,7 +353,6 @@ def r2k(alpha, a, b, beta, c, cuda = False, hybrid = False):
         bc_gpu.get(c)
     else:
         _gpaw.r2k(alpha, a, b, beta, c)
-
 
 def dotc(a, b):
     """Dot product, conjugating the first vector with complex arguments.
@@ -386,26 +367,26 @@ def dotc(a, b):
 
     ``cc`` denotes complex conjugation.
     """
-
     if debug:
         assert ((is_contiguous(a, float) and is_contiguous(b, float)) or
                 (is_contiguous(a, complex) and is_contiguous(b,complex)))
         assert a.shape == b.shape
-
-
     assert (type(a) == type(b))
-    if isinstance(a,gpaw.cuda.gpuarray.GPUArray) and  isinstance(b,gpaw.cuda.gpuarray.GPUArray):
+
+    if isinstance(a, gpaw.cuda.gpuarray.GPUArray) \
+            and isinstance(b, gpaw.cuda.gpuarray.GPUArray):
         if gpaw.cuda.debug:
-            gpu=_gpaw.dotc_cuda_gpu(a.gpudata, a.shape, b.gpudata, a.dtype)
+            gpu = _gpaw.dotc_cuda_gpu(a.gpudata, a.shape, b.gpudata, a.dtype)
             a_cpu = a.get()
             b_cpu = b.get()
             cpu = _gpaw.dotc(a_cpu, b_cpu)
-            gpaw.cuda.debug_test(cpu,gpu,"dotc")
+            gpaw.cuda.debug_test(cpu, gpu, "dotc")
             return gpu
         else:
             return _gpaw.dotc_cuda_gpu(a.gpudata, a.shape, b.gpudata, a.dtype)
     else:
         return _gpaw.dotc(a, b)
+
 
 def dotu(a, b):
     """Dot product, NOT conjugating the first vector with complex arguments.
@@ -420,14 +401,14 @@ def dotu(a, b):
 
 
     """
-
     if debug:
         assert ((is_contiguous(a, float) and is_contiguous(b, float)) or
                 (is_contiguous(a, complex) and is_contiguous(b,complex)))
         assert a.shape == b.shape
-
     assert (type(a) == type(b))
-    if isinstance(a,gpaw.cuda.gpuarray.GPUArray) and  isinstance(b,gpaw.cuda.gpuarray.GPUArray):
+
+    if isinstance(a, gpaw.cuda.gpuarray.GPUArray) \
+            and isinstance(b, gpaw.cuda.gpuarray.GPUArray):
         if gpaw.cuda.debug:
             a_cpu = a.get()
             b_cpu = b.get()
@@ -439,6 +420,7 @@ def dotu(a, b):
             return _gpaw.dotu_cuda_gpu(a.gpudata, a.shape, b.gpudata, a.dtype)
     else:
         return _gpaw.dotu(a, b)
+
 
 def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
     """Matrix multiplication using gemm.
@@ -525,15 +507,8 @@ def _rotate(in_jj, U_ij, a=1., b=0., out_ii=None, work_ij=None):
     gemm(a, U_ij, work_ij, b, out_ii, trans)
     return out_ii
 
+
 if not debug:
-    #scal = _gpaw.scal
-    #gemm = _gpaw.gemm
-    #gemv = _gpaw.gemv
-    #axpy = _gpaw.axpy
-    #rk = _gpaw.rk
-    #r2k = _gpaw.r2k
-    #dotc = _gpaw.dotc
-    #dotu = _gpaw.dotu
     gemmdot = _gemmdot
     rotate = _rotate
 else:

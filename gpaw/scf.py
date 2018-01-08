@@ -44,15 +44,15 @@ class SCFLoop:
 
         if cuda:
             wfs.cuda_psit_nG_htod()
-            
+
         for iter in range(1, self.maxiter + 1):
             wfs.eigensolver.iterate(hamiltonian, wfs)
             occupations.calculate(wfs)
             # XXX ortho, dens, wfs?
+
             energy = hamiltonian.get_energy(occupations)
             self.energies.append(energy)
             self.check_convergence(density, wfs.eigensolver)
-
             yield iter
             
             if self.converged:
@@ -63,7 +63,7 @@ class SCFLoop:
                 hamiltonian.update(density)
             else:
                 hamiltonian.npoisson = 0
-                
+
         # Don't fix the density in the next step:
         self.niter_fixdensity = 0
         if cuda:

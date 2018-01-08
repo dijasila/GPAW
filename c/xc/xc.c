@@ -122,35 +122,35 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
 
   if (PyArray_DIM(n_array, 0) == 1)
     {
-      Py_BEGIN_ALLOW_THREADS;
-      for (int g = 0; g < ng; g++)
-	{
-	  double n = n_g[g];
-	  if (n < NMIN)
-	    n = NMIN;
-	  double rs = pow(C0I / n, THIRD);
-	  double dexdrs;
-	  double dexda2;
-	  double ex;
-	  double decdrs;
-	  double decda2;
-	  double ec;
-	  if (par->gga)
-	    {
-	      double a2 = sigma_g[g];
-	      ex = self->exchange(par, n, rs, a2, &dexdrs, &dexda2);
-	      ec = self->correlation(n, rs, 0.0, a2, 1, 0, &decdrs, 0, &decda2);
-	      dedsigma_g[g] = n * (dexda2 + decda2);
-	    }
-	  else
-	    {
-	      ex = self->exchange(par, n, rs, 0.0, &dexdrs, 0);
-	      ec = self->correlation(n, rs, 0.0, 0.0, 0, 0, &decdrs, 0, 0);
-	    }
-	  e_g[g] = n * (ex + ec);
-	  v_g[g] += ex + ec - rs * (dexdrs + decdrs) / 3.0;
-	}
-      Py_END_ALLOW_THREADS;
+    Py_BEGIN_ALLOW_THREADS;
+    for (int g = 0; g < ng; g++)
+      {
+        double n = n_g[g];
+        if (n < NMIN)
+          n = NMIN;
+        double rs = pow(C0I / n, THIRD);
+        double dexdrs;
+        double dexda2;
+        double ex;
+        double decdrs;
+        double decda2;
+        double ec;
+        if (par->gga)
+          {
+            double a2 = sigma_g[g];
+            ex = self->exchange(par, n, rs, a2, &dexdrs, &dexda2);
+            ec = self->correlation(n, rs, 0.0, a2, 1, 0, &decdrs, 0, &decda2);
+            dedsigma_g[g] = n * (dexda2 + decda2);
+          }
+        else
+          {
+            ex = self->exchange(par, n, rs, 0.0, &dexdrs, 0);
+            ec = self->correlation(n, rs, 0.0, 0.0, 0, 0, &decdrs, 0, 0);
+          }
+        e_g[g] = n * (ex + ec);
+        v_g[g] += ex + ec - rs * (dexdrs + decdrs) / 3.0;
+      }
+    Py_END_ALLOW_THREADS;
     }
   else
     {

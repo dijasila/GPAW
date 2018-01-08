@@ -175,11 +175,10 @@ static PyObject* Transformer_apply(TransformerObject *self, PyObject *args)
 #endif
   free(wargs);
   free(thds);
+
   Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
 }
-
-
 
 static PyObject * Transformer_get_async_sizes(TransformerObject *self, PyObject *args)
 {
@@ -196,7 +195,8 @@ static PyObject * Transformer_get_async_sizes(TransformerObject *self, PyObject 
 static PyMethodDef Transformer_Methods[] = {
     {"apply", (PyCFunction)Transformer_apply, METH_VARARGS, NULL},
 #ifdef GPAW_CUDA
-    {"apply_cuda_gpu", (PyCFunction)Transformer_apply_cuda_gpu, METH_VARARGS, NULL},
+    {"apply_cuda_gpu", (PyCFunction)Transformer_apply_cuda_gpu,
+        METH_VARARGS, NULL},
 #endif
     {"get_async_sizes",
      (PyCFunction)Transformer_get_async_sizes, METH_VARARGS, NULL},

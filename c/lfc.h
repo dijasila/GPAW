@@ -15,7 +15,7 @@ typedef struct
   int W;               // volume number
 } LFVolume;
 
-#ifdef GPAW_CUDA  
+#ifdef GPAW_CUDA
 #include <cuComplex.h>
 
 #ifdef __CUDACC__
@@ -27,7 +27,6 @@ typedef struct
 #define ALIGN(x)
 #endif
 #endif
-
 
 typedef struct ALIGN(16)
 {
@@ -41,7 +40,6 @@ typedef struct ALIGN(16)
   int *GB1;
   int *nGBcum;
   cuDoubleComplex *phase_k;
-
 } LFVolume_gpu;
 #endif
 
@@ -63,7 +61,7 @@ typedef struct
   complex double* phase_i;   // phase factors for current volumes
 
   int nimax;
-#ifdef GPAW_CUDA  
+#ifdef GPAW_CUDA
   int cuda;
   LFVolume_gpu *volume_W_gpu;
   LFVolume_gpu *volume_W_cuda;

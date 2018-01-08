@@ -106,8 +106,7 @@ class PAW(PAWTextOutput):
 
         self.set(**kwargs)
 
-        self.cuda=self.input_parameters.cuda
-        # self.cuda = True
+        self.cuda = self.input_parameters.cuda
 
         if filename is not None:
             # Setups are not saved in the file if the setups were not loaded
@@ -131,8 +130,6 @@ class PAW(PAWTextOutput):
             self.print_cell_and_parameters()
 
         self.observers = []
-
-
 
     def read(self, reader):
         gpaw.io.read(self, reader)
@@ -180,9 +177,9 @@ class PAW(PAWTextOutput):
                 self.wfs.set_eigensolver(None)
 
             if key == 'cuda':
-                self.cuda=kwargs['cuda']
+                self.cuda = kwargs['cuda']
                 continue
-            
+
             if key in ['fixmom', 'mixer',
                        'verbose', 'txt', 'hund', 'random',
                        'eigensolver', 'idiotproof', 'notify']:
@@ -199,7 +196,7 @@ class PAW(PAWTextOutput):
                        'poissonsolver', 'occupations']:
                 self.hamiltonian = None
                 self.occupations = None
-            elif key in ['charge']:                
+            elif key in ['charge']:
                 self.hamiltonian = None
                 self.density = None
                 self.wfs = EmptyWaveFunctions()
@@ -336,7 +333,6 @@ class PAW(PAWTextOutput):
 
         par = self.input_parameters
 
-
         world = par.communicator
         if world is None:
             world = mpi.world
@@ -408,7 +404,7 @@ class PAW(PAWTextOutput):
             self.hamiltonian = None
             if self.wfs:
                 self.wfs.set_cuda(False)
-            self.cuda=False
+            self.cuda = False
             print "Cuda disabled: Hybrid, MGGA and SIC functionals not implemented."
 
         # K-point descriptor
@@ -678,7 +674,8 @@ class PAW(PAWTextOutput):
                         bd, world, kd, self.timer, cuda=self.cuda)
                 elif mode == 'fd':
                     self.wfs = FDWaveFunctions(par.stencils[0], diagksl,
-                                               orthoksl, initksl, *args, cuda=self.cuda)
+                                               orthoksl, initksl, *args,
+                                               cuda=self.cuda)
                 else:
                     # Planewave basis:
                     self.wfs = mode(diagksl, orthoksl, initksl, *args)
