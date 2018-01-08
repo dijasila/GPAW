@@ -44,8 +44,8 @@ class C_Response(Contribution):
         self.damp = damp
 
     def set_positions(self, atoms):
-        d('Response::set_positions', len(self.Dresp_asp),
-          'not doing anything now')
+        #d('Response::set_positions', len(self.Dresp_asp),
+        #  'not doing anything now')
         return
 
         def get_empty(a):
@@ -84,19 +84,20 @@ class C_Response(Contribution):
         self.band_comm = self.wfs.bd.comm
         self.grid_comm = self.gd.comm
         if self.Dresp_asp is None:
-            self.Dresp_asp = {}
-            self.D_asp = {}
             if self.density.D_asp is not None:
+                self.Dresp_asp = self.empty_atomic_matric()
+                self.D_asp = self.empty_atomic_matric()
                 for a in self.density.D_asp:
-                    self.Dresp_asp[a] = np.zeros_like(self.density.D_asp[a])
-                    self.D_asp[a] = np.zeros_like(self.density.D_asp[a])
+                    self.Dresp_asp[a][:] = 0.0
+                    self.D_asp[a][:] = 0.0
+                # XXX Might as well not initialize, as it seems.
                 self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
                 self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
 
             # The response discontinuity is stored here
             self.Dxc_vt_sG = None
-            self.Dxc_Dresp_asp = {}
-            self.Dxc_D_asp = {}
+            self.Dxc_Dresp_asp = None
+            self.Dxc_D_asp = None
 
     def update_potentials(self, nt_sg):
         d('In update response potential')
@@ -265,6 +266,8 @@ class C_Response(Contribution):
                   'can be inaccurate.')
             # homolumo = self.occupations.get_homo_lumo(self.wfs)
 
+        self.Dxc_Dresp_asp = self.empty_atomic_matrix()
+        self.Dxc_D_asp = self.empty_atomic_matrix()
         for a in self.density.D_asp:
             ni = self.setups[a].ni
             self.Dxc_Dresp_asp[a] = np.zeros((self.nlfunc.nspins, ni *
@@ -368,13 +371,11 @@ class C_Response(Contribution):
         # Initialize 'response-density' and density-matrices
         # print('Initializing from atomic orbitals')
         self.Dresp_asp = self.empty_atomic_matrix()
-        self.D_asp = {}
 
         for a in self.density.D_asp.keys():
             ni = self.setups[a].ni
             self.Dresp_asp[a] = np.zeros((self.nlfunc.nspins, ni *
                                           (ni + 1) // 2))
-            self.D_asp[a] = np.zeros((self.nlfunc.nspins, ni * (ni + 1) // 2))
 
         self.D_asp = self.empty_atomic_matrix()
         f_asi = {}
