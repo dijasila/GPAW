@@ -183,7 +183,7 @@ class GPAW(PAW, Calculator):
         # extract the scaled positions in only one place, and that is
         # here.  No other place may recalculate them, or we might end up
         # with rounding errors and inconsistencies.
-        spos_ac = atoms.get_scaled_positions() % 1.0
+        spos_ac = np.ascontiguousarray(atoms.get_scaled_positions()) % 1.0
         self.world.broadcast(spos_ac, 0)
         self.atoms = atoms
         self.spos_ac = spos_ac
