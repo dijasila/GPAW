@@ -326,7 +326,7 @@ Environment variables
 Set these permanently in your :file:`~/.bashrc` file::
 
     $ export PYTHONPATH=~/gpaw:$PYTHONPATH
-    $ export PATH=~gpaw/tools:$PATH
+    $ export PATH=~/gpaw/tools:$PATH
 
 or your :file:`~/.cshrc` file::
 

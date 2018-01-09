@@ -12,6 +12,8 @@ if [ $CPU_ARCH = broadwell ]; then
     export GPAW_MPI_OPTIONS="-mca pml cm -mca mtl psm2"
 elif [ $CPU_ARCH = sandybridge ]; then
     export GPAW_MPI_OPTIONS=""
+elif [ $CPU_ARCH = ivybridge ]; then
+    export GPAW_MPI_OPTIONS=""
 elif [ $CPU_ARCH = nehalem ]; then
     export GPAW_MPI_OPTIONS=""
 fi

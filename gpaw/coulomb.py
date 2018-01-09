@@ -90,7 +90,7 @@ class Coulomb:
                 else:
                     solver = PoissonSolver(nn=2)
                     solver.set_grid_descriptor(self.gd)
-                    solver.initialize(load_gauss=True)
+                    #solver.initialize()
                     self.solve = solver.solve
 
     def coulomb(self, n1, n2=None, Z1=None, Z2=None, method='recip_gauss'):
@@ -185,7 +185,6 @@ class CoulombNEW:
         else:
             self.poisson = PoissonSolver(nn=3)
         self.poisson.set_grid_descriptor(gd)
-        self.poisson.initialize()
         self.setups = setups
 
         # Set coarse ghat

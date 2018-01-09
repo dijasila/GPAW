@@ -50,6 +50,14 @@ class MGGA(XCFunctional):
     def process_mgga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
         taut_sG = self.wfs.calculate_kinetic_energy_density()
         if taut_sG is None:
+            taut_sG = self.wfs.gd.zeros(len(nt_sg))
+
+        if 0: #taut_sG is None:
+            # Below code disabled because it produces garbage in at least
+            # some cases.
+            #
+            # See https://gitlab.com/gpaw/gpaw/issues/124
+            #
             # Initialize with von Weizsaecker kinetic energy density:
             nt0_sg = nt_sg.copy()
             nt0_sg[nt0_sg < 1e-10] = np.inf
