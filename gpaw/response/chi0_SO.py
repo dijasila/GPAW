@@ -88,25 +88,37 @@ class Chi0_SO(Chi0):
 
         n_nmG = np.zeros((nb * 2, nb * 2, nG),
                          dtype=complex)
-        n_nmG[:nb, :nb] = Chi0.get_matrix_element(self, k_v, 0,
+        n_nmG[::2, ::2] = Chi0.get_matrix_element(self, k_v, 0,
                                                   SO=True, **kwargs)
 
         if nspins == 2:
-            n_nmG[nb:, nb:] = Chi0.get_matrix_element(self, k_v, 1,
-                                                      SO=True, **kwargs)
+            n_nmG[1::2, 1::2] = Chi0.get_matrix_element(self, k_v, 1,
+                                                        SO=True, **kwargs)
         else:
-            n_nmG[nb:, nb:] = n_nmG[:nb, :nb]
+            n_nmG[1::2, 1::2] = n_nmG[::2, ::2]
 
-        f1_n = self.socalc.wfs.kpt_u[ik1].f_n
-        f2_n = self.socalc.wfs.kpt_u[ik2].f_n
+        # ###
+        # kptpair = self.pair.get_kpoint_pair(pd, 0, k_c, 0, nb,
+        #                                     0, nb, block=False)
+
+        # df_nm = kptpair.get_occupation_differences(np.arange(nb),
+        #                                            np.arange(nb))
+        # df_nm[df_nm <= 1e-20] = 0.0
+        # n_nmG[::2, ::2] *= df_nm[..., np.newaxis]**0.5
+        # n_nmG[1::2, 1::2] *= df_nm[..., np.newaxis]**0.5
+
+        # ###
+        kpt1 = self.socalc.wfs.kpt_u[ik1]
+        kpt2 = self.socalc.wfs.kpt_u[ik2]
+        f1_n = kpt1.f_n / kpt1.weight
+        f2_n = kpt2.f_n / kpt2.weight
 
         df_nm = (f1_n[:, np.newaxis] - f2_n)
         df_nm[df_nm <= 1e-20] = 0.0
 
-        n_nmG = np.dot(np.dot(v1_nm, n_nmG).T, v2_nm.conj().T).T
+        n_nmG = np.dot(v1_nm.conj(), np.dot(v2_nm, n_nmG))
         n_nmG *= df_nm[..., np.newaxis]**0.5
-        if self.calc.wfs.nspins == 1:
-            n_nmG /= 2**0.5
+        n_nmG /= 2**0.5
 
         return np.array(n_nmG).reshape(-1, nG)
 
@@ -121,28 +133,23 @@ class Chi0_SO(Chi0):
         v1_nm = self.v_knm[ik1]
 
         n1, n2 = v1_nm.shape
-        nb = self.nbands
-        
+        opd = self.pair.optical_pair_velocity
+
         vel_nmv = np.zeros((n1, n2, 3), dtype=complex)
         m_m = np.arange(0, self.nbands)
         kpt1 = self.pair.get_k_point(0, k_c, 0, self.nbands)
         for n in range(self.nbands):
-            vel_nmv[n, :nb] = self.pair.optical_pair_velocity(n, m_m,
-                                                              kpt1, kpt1)
+            vel_nmv[2 * n, ::2] = opd(n, m_m, kpt1, kpt1)
 
         if nspins == 2:
             kpt1 = self.pair.get_k_point(1, k_c, 0, self.nbands)
             for n in range(self.nbands):
-                vel_nmv[nb + n, nb:] = self.pair.optical_pair_velocity(n, m_m,
-                                                                       kpt1,
-                                                                       kpt1)
+                vel_nmv[2 * n + 1, 1::2] = opd(n, m_m, kpt1, kpt1)
         else:
-            vel_nmv[nb:, nb:] = vel_nmv[:nb, :nb]
+            vel_nmv[1::2, 1::2] = vel_nmv[::2, ::2]
 
-        # vel_nmv = np.dot(np.dot(v1_nm, vel_nmv).T, v1_nm.conj().T).T
-
-        if self.calc.wfs.nspins == 1:
-            vel_nmv /= 2**0.5
+        vel_nmv = np.dot(v1_nm.conj(), np.dot(v1_nm, vel_nmv))
+        vel_nmv /= 2**0.5
         vel_nv = np.diagonal(vel_nmv).T
 
         return vel_nv
@@ -153,9 +160,7 @@ class Chi0_SO(Chi0):
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
         K1 = self.pair.find_kpoint(k_c)
         ik1 = kd.bz2ibz_k[K1]
-        # kpt1 = self.pair.get_k_point(0, k_c, 0, self.nbands)
 
-        # return np.concatenate([kpt1.eps_n, kpt1.eps_n])
         return self.e_mk[:, ik1] / Hartree
 
 
