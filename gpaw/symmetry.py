@@ -471,24 +471,21 @@ def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
 def map_k_points_fast(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-7):
     """Find symmetry relations between k-points.
 
-    This is a Python-wrapper for a C-function that does the hard work
-    which is distributed over comm.
+    Performs the same task as map_k_points(), but much faster.
+    This is achieved by finding the symmetry related kpoints using
+    lexical sorting instead of brute force searching.
 
-    The map bz2bz_ks is returned.  If there is a k2 for which::
-
-      = _    _    _
-      U q  = q  + N,
-       s k1   k2
-
-    where N is a vector of integers, then bz2bz_ks[k1, s] = k2, otherwise
-    if there is a k2 for which::
-
-      = _     _    _
-      U q  = -q  + N,
-       s k1    k2
-
-    then bz2bz_ks[k1, s + nsym] = k2, where nsym = len(U_scc).  Otherwise
-    bz2bz_ks[k1, s] = -1.
+    bzk_kc: ndarray
+        kpoint coordinates.
+    U_scc: ndarray
+        Symmetry operations
+    time_reversal: Bool
+        Use time reversal symmetry in mapping.
+    comm:
+        Communicator
+    tol: float
+        When kpoint are closer than tol, they are
+        considered to be identical.
     """
 
     nbzkpts = len(bzk_kc)
