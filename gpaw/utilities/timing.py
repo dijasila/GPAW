@@ -9,7 +9,7 @@ import math
 import functools
 
 import numpy as np
-from ase.utils.timing import Timer
+from ase.utils.timing import Timer as BaseTimer
 from gpaw.cuda import debug_sync, get_context
 
 import gpaw.mpi as mpi
@@ -21,6 +21,23 @@ c0 = time.clock()
 t0 = time.time()
 cputime = 0.0
 trouble = False
+
+
+class Timer(BaseTimer):
+    def synchronize(self):
+        if debug_sync:
+            try:
+                get_context().synchronize()
+            except AttributeError:
+                pass
+
+    def start(self, name):
+        self.synchronize()
+        BaseTimer.start(self, name)
+
+    def stop(self, name):
+        self.synchronize()
+        BaseTimer.stop(self, name)
 
 
 class NullTimer:
