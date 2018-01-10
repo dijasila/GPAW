@@ -16,7 +16,6 @@ solver = HelmholtzSolver(k2=coupling, nn=3)  # Numerical poisson solver
 # solver = PoissonSolver(nn=3)  # Numerical poisson solver
 # solver = HelmholtzSolver(0.16)  # Numerical poisson solver
 solver.set_grid_descriptor(gd)
-solver.initialize()
 xyz, r2 = coordinates(gd)     # Matrix with the square of the radial coordinate
 gauss = Gaussian(gd, a=inv_width)          # An instance of Gaussian
 test_screened_poisson = ScreenedPoissonGaussian(gd, a=inv_width)

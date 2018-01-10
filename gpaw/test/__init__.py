@@ -142,6 +142,7 @@ tests = [
     'overlap.py',
     'pw/direct.py',
     'vdw/libvdwxc_spin.py',                 # ~1s
+    'symmetry/kpoint_mapping.py',           # ~1s
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
     'lcao/density.py',                      # ~1s
@@ -241,6 +242,8 @@ tests = [
     'pw/h.py',                              # ~7s
     'lrtddft/apmb.py',                      # ~7s
     'pseudopotential/hgh_h2o.py',           # ~7s
+    'poisson/poisson_restart.py',           # ~7s
+    'poisson/poisson_extravacuum.py',       # ~7s
     'fdtd/ed_wrapper.py',                   # ~7s
     'fdtd/ed_shapes.py',                    # ~7s
     'fdtd/ed.py',                           # ~12s
@@ -414,7 +417,11 @@ if mpi.size > 1:
 
 if mpi.size > 2:
     exclude += ['ase_features/neb.py',
+                'poisson/poisson_restart.py',
                 'response/pair.py']
+
+if mpi.size > 4:
+    exclude += ['poisson/poisson_extravacuum.py']
 
 if mpi.size < 4:
     exclude += ['parallel/fd_parallel.py',

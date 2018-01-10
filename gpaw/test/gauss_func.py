@@ -17,7 +17,6 @@ Nc = (N, N, N)                # Number of grid points along each axis
 gd = GridDescriptor(Nc, (a,a,a), 0)    # Grid-descriptor object
 solver = PoissonSolver(nn=3)  # Numerical poisson solver
 solver.set_grid_descriptor(gd)
-solver.initialize()
 solve = solver.solve
 xyz, r2 = coordinates(gd)     # Matrix with the square of the radial coordinate
 print(r2.shape)

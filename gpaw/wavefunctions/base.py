@@ -163,32 +163,15 @@ class WaveFunctions:
         if len(self.kd.symmetry.op_scc) == 0:
             return
 
-        if hasattr(D_asp, 'redistribute'):
-            a_sa = self.kd.symmetry.a_sa
-            D_asp.redistribute(self.atom_partition.as_serial())
-            for s in range(self.nspins):
-                D_aii = [unpack2(D_asp[a][s])
-                         for a in range(len(D_asp))]
-                for a, D_ii in enumerate(D_aii):
-                    setup = self.setups[a]
-                    D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
-            D_asp.redistribute(self.atom_partition)
-        else:
-            all_D_asp = []
-            for a, setup in enumerate(self.setups):
-                D_sp = D_asp.get(a)
-                if D_sp is None:
-                    ni = setup.ni
-                    D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
-                self.gd.comm.broadcast(D_sp, self.atom_partition.rank_a[a])
-                all_D_asp.append(D_sp)
-
-            for s in range(self.nspins):
-                D_aii = [unpack2(D_sp[s]) for D_sp in all_D_asp]
-                for a, D_sp in D_asp.items():
-                    setup = self.setups[a]
-                    D_sp[s] = pack(setup.symmetrize(a, D_aii,
-                                                    self.kd.symmetry.a_sa))
+        a_sa = self.kd.symmetry.a_sa
+        D_asp.redistribute(self.atom_partition.as_serial())
+        for s in range(self.nspins):
+            D_aii = [unpack2(D_asp[a][s])
+                     for a in range(len(D_asp))]
+            for a, D_ii in enumerate(D_aii):
+                setup = self.setups[a]
+                D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
+        D_asp.redistribute(self.atom_partition)
 
     def set_positions(self, spos_ac, atom_partition=None):
         self.positions_set = False

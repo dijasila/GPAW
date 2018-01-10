@@ -204,7 +204,6 @@ class Hamiltonian:
         self.vt_xG = self.gd.empty(self.ncomponents)
         self.vt_sG = self.vt_xG[:self.nspins]
         self.vt_vG = self.vt_xG[self.nspins:]
-        self.poisson.initialize()
 
     def update(self, density):
         """Calculate effective potential.
