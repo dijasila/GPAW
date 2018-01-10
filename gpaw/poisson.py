@@ -9,12 +9,13 @@ from numpy.fft import fftn, ifftn, fft2, ifft2
 
 from gpaw import PoissonConvergenceError
 from gpaw.dipole_correction import DipoleCorrection
+from gpaw.domain import decompose_domain
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
+from gpaw.utilities.grid import grid2grid
 from gpaw.utilities.ewald import madelung
-from gpaw.utilities.grid_redistribute import AlignedGridRedistributor
 from gpaw.utilities.tools import construct_reciprocal
 import _gpaw
 
@@ -510,7 +511,6 @@ class FFTPoissonSolver(BasePoissonSolver):
         for c in range(3):
             N_c = gd.N_c.copy()
             N_c[c] = 1  # Will be serial in that direction
-            from gpaw.domain import decompose_domain
             parsize_c = decompose_domain(N_c, gd.comm.size)
             self.grids.append(gd.new_descriptor(parsize_c=parsize_c))
 
@@ -530,7 +530,6 @@ class FFTPoissonSolver(BasePoissonSolver):
 
         gd1 = self.gd
         work1_g = rho_g
-        from gpaw.utilities.grid import grid2grid
 
         for c in range(3):
             gd2 = self.grids[c + 1]
