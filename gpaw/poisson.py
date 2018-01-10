@@ -487,7 +487,6 @@ class NoInteractionPoissonSolver(_PoissonSolver):
 
 class FFTPoissonSolver(BasePoissonSolver):
     """FFT Poisson solver for general unit cells."""
-    # XXX it is criminally outrageous that this inherits from PoissonSolver!
 
     relax_method = 0
     nn = 999
@@ -506,16 +505,20 @@ class FFTPoissonSolver(BasePoissonSolver):
         # We will probably want to use this on non-periodic grids too...
         assert gd.pbc_c.all()
         self.gd = gd
-        self.transp_x_yz_1 = AlignedGridRedistributor(self.gd, 1, 2)
-        self.transp_1_yz_x = AlignedGridRedistributor(self.transp_x_yz_1.gd2,
-                                                      2, 0)
-        self.transp_yz_1_x = AlignedGridRedistributor(self.transp_1_yz_x.gd2,
-                                                      0, 1)
+
+        self.grids = [gd]
+        for c in range(3):
+            N_c = gd.N_c.copy()
+            N_c[c] = 1  # Will be serial in that direction
+            from gpaw.domain import decompose_domain
+            parsize_c = decompose_domain(N_c, gd.comm.size)
+            self.grids.append(gd.new_descriptor(parsize_c=parsize_c))
 
     def _init(self):
         if self._initialized:
             return
-        gd = self.transp_yz_1_x.gd2
+
+        gd = self.grids[-1]
         k2_Q, N3 = construct_reciprocal(gd, distributed=True)
         self.poisson_factor_Q = 4.0 * np.pi / k2_Q
         self._initialized = True
@@ -524,18 +527,32 @@ class FFTPoissonSolver(BasePoissonSolver):
         self._init()
         # Will be a bit more efficient if reduced dimension is always
         # contiguous.  Probably more things can be improved...
-        work = fftn(self.transp_x_yz_1.forth(rho_g), axes=[2])
-        work = fftn(self.transp_1_yz_x.forth(work), axes=[0])
-        work = fftn(self.transp_yz_1_x.forth(work), axes=[1])
-        work *= self.poisson_factor_Q
-        work = self.transp_yz_1_x.back(ifftn(work, axes=[1]))
-        work = self.transp_1_yz_x.back(ifftn(work, axes=[0]))
-        work = self.transp_x_yz_1.back(ifftn(work, axes=[2]).real)
-        phi_g[:] = work
+
+        gd1 = self.gd
+        work1_g = rho_g
+        from gpaw.utilities.grid import grid2grid
+
+        for c in range(3):
+            gd2 = self.grids[c + 1]
+            work2_g = gd2.empty(dtype=work1_g.dtype)
+            grid2grid(gd1.comm, gd1, gd2, work1_g, work2_g)
+            work1_g = fftn(work2_g, axes=[c])
+            gd1 = gd2
+
+        work1_g *= self.poisson_factor_Q
+
+        for c in [2, 1, 0]:
+            gd2 = self.grids[c]
+            work2_g = ifftn(work1_g, axes=[c])
+            work1_g = gd2.empty(dtype=work2_g.dtype)
+            grid2grid(gd1.comm, gd1, gd2, work2_g, work1_g)
+            gd1 = gd2
+
+        phi_g[:] = work1_g.real
         return 1
 
     def estimate_memory(self, mem):
-        mem.subnode('k squared', self.transp_yz_1_x.gd2.bytecount())
+        mem.subnode('k squared', self.grids[-1].bytecount())
 
 
 class FixedBoundaryPoissonSolver(FDPoissonSolver):
