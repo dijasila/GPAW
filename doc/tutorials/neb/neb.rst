@@ -4,8 +4,7 @@
 NEB calculations parallelized over images
 =========================================
 
-The :ase:`Gold atom diffusion on Al(100)
-<tutorials/neb/diffusion.html>` example can be used with GPAW like
+The :ref:`ase:diffusion tutorial` example can be used with GPAW like
 this:
 
 .. literalinclude:: neb.py
@@ -18,6 +17,6 @@ then each of the three internal images will be parallelized over 4 cpu's.
 
 The results are read with::
 
-  $ ag neb_?.traj
+  $ ase-gui -n -1 neb?.traj
 
-The energy barrier is found to be 0.29 eV.
+The energy barrier is found to be ~0.3 eV for LDA.

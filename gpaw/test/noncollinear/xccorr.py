@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import numpy.random as ra
 from gpaw.setup import create_setup
@@ -10,7 +11,7 @@ from gpaw.utilities import pack
 x = 0.0000001
 ra.seed(8)
 for xc in ['LDA']:#, 'PBE']:
-    print xc
+    print(xc)
     xc = XC(xc)
     s = create_setup('N', xc)
     ni = s.ni
@@ -28,7 +29,7 @@ for xc in ['LDA']:#, 'PBE']:
     Dnc_sp[0] = D_sp.sum(0)
     Dnc_sp[3] = D_sp[0] - D_sp[1]
     Enc = xc.calculate_paw_correction(s, Dnc_sp)
-    print E, E-Enc
+    print(E, E-Enc)
     assert abs(E - Enc) < 1e-11
 
     Dnc_sp[1] = 0.1 * Dnc_sp[3]
@@ -36,7 +37,7 @@ for xc in ['LDA']:#, 'PBE']:
     Dnc_sp[3] *= (1 - 0.1**2 - 0.2**2)**0.5
     H_sp = 0 * Dnc_sp
     Enc = xc.calculate_paw_correction(s, Dnc_sp, H_sp)
-    print E, E-Enc
+    print(E, E-Enc)
     assert abs(E - Enc) < 1e-11
 
     dD_sp = x * ra.random((4, nii))
@@ -45,6 +46,6 @@ for xc in ['LDA']:#, 'PBE']:
     Ep = xc.calculate_paw_correction(s, Dnc_sp)
     Dnc_sp -= 2 * dD_sp
     Em = xc.calculate_paw_correction(s, Dnc_sp)
-    print dE, dE - 0.5 * (Ep - Em) / x
+    print(dE, dE - 0.5 * (Ep - Em) / x)
     assert abs(dE - 0.5 * (Ep - Em) / x) < 2e-8
         

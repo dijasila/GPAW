@@ -65,10 +65,10 @@ def hilbert(f, ker=None, nfft=None, axis=0,
     n = f.shape[axis]
 
     # Number of grid points in fft
-    if nfft == None: nfft = 2 * n
+    if nfft is None: nfft = 2 * n
 
     # Generate new kernel if needed
-    if ker == None: ker = eval('hilbert_kernel_' + kerneltype)(nfft)
+    if ker is None: ker = eval('hilbert_kernel_' + kerneltype)(nfft)
 
     # Reshape kernel
     ker_shape = [1,] * len(f.shape)

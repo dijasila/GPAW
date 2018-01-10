@@ -1,6 +1,6 @@
 def agts(queue):
     queue.add('neb.agts.py',
-              walltime=5 * 60,
+              walltime=15 * 60,
               ncpus=12,
               creates=['neb-emt.csv', 'neb-gpaw.csv'])
 

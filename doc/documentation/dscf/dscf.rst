@@ -4,8 +4,6 @@
 Delta Self-Consistent Field
 ===========================
 
-.. default-role:: math
-
 --------------------------------------------
 Linear expansion Delta Self-Consistent Field
 --------------------------------------------
@@ -95,7 +93,7 @@ Exciting the LUMO in CO::
     CO.set_calculator(calc_es)
     lumo = dscf.AEOrbital(calc_es, wf_u, p_uai)
     #lumo = dscf.MolecularOrbital(calc, weights={0: [0, 0, 0,  1],
-                                                 1: [0, 0, 0, -1]})
+    #                                            1: [0, 0, 0, -1]})
     dscf.dscf_calculation(calc_es, [[1.0, lumo, 1]], CO)
 
     E_es = CO.get_potential_energy()
@@ -124,7 +122,7 @@ chemisorbed on transition metals. In such cases the
 traditional Delta Self-Consistent Field breaks down since the orbital
 to be occupied is no longer well described by a single Kohn-Sham state.
 
-The script :svn:`~doc/documentation/dscf/homo.py` calculates 
+The script :git:`~doc/documentation/dscf/homo.py` calculates 
 the HOMO energy of CO adsorbed on-top Pt(111). The script starts
 from scratch, but usually one would start from an optimized configuration
 saved in a file ``gs.gpw``. The script only calculates the total energy of 
@@ -136,7 +134,7 @@ HOMO pseudo-wavefunctions and the projector overlaps are saved. The
 energy range [-100.0, 0.0] means we only include states below the Fermi
 level (default is states above).
 
-The script :svn:`~doc/documentation/dscf/lumo.py` calculates
+The script :git:`~doc/documentation/dscf/lumo.py` calculates
 the LUMO energy of the same system, but is slightly more complicated due to 
 the degeneracy of the `2\pi` orbital. We would like to occupy the `2\pi_y` 
 orbital and  we need to figure out which band (5 or 6) this orbital 
@@ -151,5 +149,3 @@ corresponds to in each k-point before we start the slab calculation.
              Hot electron mediated desorption rates calculated from excited
 	     state potential energy surfaces,
              *Phys. Rev. B* **79**, 035403 (2009)
-
-.. default-role::

@@ -37,8 +37,7 @@ class Phonons(phonons.Phonons):
 
         # Create k-point descriptor
         self.kd = KPointDescriptor(kpts, 1)
-        self.kd.set_symmetry(self.atoms, self.calc.wfs.setups,
-                             usesymm=symmetry)
+        self.kd.set_symmetry(self.atoms, symmetry)
 
         # Overwrite ``N_c`` attribute
         self.N_c = tuple(self.kd.N_c)
@@ -59,7 +58,7 @@ class Phonons(phonons.Phonons):
     def run(self):
         """Overwrite base class member function."""
 
-        raise RuntimeError, "Use only this class for post-processing"
+        raise RuntimeError("Use only this class for post-processing")
     
     def read(self):
         """Read force constants from files."""
@@ -80,8 +79,8 @@ class Phonons(phonons.Phonons):
                     try:
                         fd = open(os.path.join(self.path, filename))
                     except EOFError:
-                        print ("Redo file %s "
-                               % os.path.join(self.path, filename))
+                        print(("Redo file %s "
+                               % os.path.join(self.path, filename)))
                     C_qav_a = pickle.load(fd)
                     fd.close()
                     for a_ in self.indices:

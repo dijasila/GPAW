@@ -19,7 +19,7 @@ six dimensional integral in real space. However, a non-selfconsistent
 method which directly sums up the real-space integral is also available.
 
 
-Doing a vdW-DF calculation 
+Doing a vdW-DF calculation
 ==================================
 
 The selfconsistent FFT method is highly recommended over the real-space method.
@@ -34,6 +34,11 @@ in the GPAW calculator object.
 However, parameters of the FFT algorithm can be assigned non-default values
 by importing the vdW-DF base class.
 
+For larger systems, the van der Waals functionals may be
+computationally expensive.  Consider using :ref:`libvdwxc <libvdwxc-doc>` which typically
+increases the efficiency of the van der Waals evaluation by an order
+of magnitude, and parallelizes to any desired system size.
+
 
 Selfconsistent vdW-DF calculations
 -------------------------------------
@@ -47,7 +52,7 @@ Selfconsistent vdW-DF calculations
 >>> e = atoms.get_potential_energy()
 
 
-Perturbative vdW-DF calculations (non-selfconsistent) 
+Perturbative vdW-DF calculations (non-selfconsistent)
 --------------------------------------------------------
 
 >>> from gpaw import GPAW
@@ -73,8 +78,8 @@ The example below redefines the number of interpolating cubic splines
 
 >>> from ase import *
 >>> from gpaw import GPAW
->>> from gpaw.xc.vdw import FFTVDWFunctional
->>> vdw = FFTVDWFunctional('vdW-DF2',Nalpha=24)
+>>> from gpaw.xc.vdw import VDWFunctional
+>>> vdw = VDWFunctional('vdW-DF2', Nalpha=24)
 >>> atoms = ...
 >>> calc = GPAW(xc=vdw, ...)
 >>> atoms.set_calculator(calc)
@@ -89,8 +94,8 @@ for non-selfconsistent evaluations of the nonlocal correlation energy,
 which might make sense for (very) small systems.
 To use the real-space method one must import a class and set a few parameters:
 
->>> from gpaw.xc.vdw import RealSpaceVDWFunctional
->>> vdw = RealSpaceVDWFunctional('vdW-DF', nspins=1, ncut=0.0005)
+>>> from gpaw.xc.vdw import VDWFunctional
+>>> vdw = VDWFunctional('vdW-DF', fft=False, nspins=1, ncut=0.0005)
 
 where nspins=1 is for spin-paired systems and nspins=2 is used
 for spin-polarized calculations. A cutoff, ncut, defines how small a density
@@ -98,7 +103,7 @@ must be in order not to be included in the 6D integral.
 
 
 BEEF-vdW functional
-==================================
+===================
 
 The BEEF-vdW density functional uses the vdW-DF2 nonlocal correlation
 energy and potential. It is implemented selfconistently in GPAW.
@@ -114,19 +119,17 @@ Below is an example which calculates the BEEF-vdW binding energy
 of molecular H2 (E_bind),
 as well as an ensemble estimate of the binding energy error (dE_bind)
 
-
 >>> from ase import *
 >>> from gpaw import GPAW
->>> from ase.dft.bee import BEEF_Ensemble
->>> import numpy as np
+>>> from ase.dft.bee import BEEFEnsemble
 >>> xc = 'BEEF-vdW'
 >>> h2 = Atoms('H2',[[0.,0.,0.],[0.,0.,0.75]])
->>> h2.center(vacuum=3.)
+>>> h2.center(vacuum=3)
 >>> cell = h2.get_cell()
 >>> calc = GPAW(xc=xc)
 >>> h2.set_calculator(calc)
 >>> e_h2 = h2.get_potential_energy()
->>> ens = BEEF_Ensemble(calc)
+>>> ens = BEEFEnsemble(calc)
 >>> de_h2 = ens.get_ensemble_energies()
 >>> del h2, calc, ens
 >>> h = Atoms('H')
@@ -135,27 +138,27 @@ as well as an ensemble estimate of the binding energy error (dE_bind)
 >>> calc = GPAW(xc=xc)
 >>> h.set_calculator(calc)
 >>> e_h = h.get_potential_energy()
->>> ens = BEEF_Ensemble(calc)
+>>> ens = BEEFEnsemble(calc)
 >>> de_h = ens.get_ensemble_energies()
 >>> E_bind = 2*e_h - e_h2
 >>> dE_bind = 2*de_h[:] - de_h2[:]
->>> dE_bind = np.std(dE_bind)
+>>> dE_bind = dE_bind.std()
 
 
-Note that the BEEF_Ensemble module has recently been moved from GPAW
+Note that the BEEFEnsemble module has recently been moved from GPAW
 to the ASE package.
 The default number of ensemble XC functionals is 2000,
 for which well-converged error estimates should be ensured.
 Therefore, "de_h2" and "de_h" in the example
-are both arrays of 2000 pertubations of a BEEF-vdW total energy.
+are both arrays of 2000 perturbations of a BEEF-vdW total energy.
 The syntax "ens.get_ensemble_energies(N)" changes this number to N.
-The calculator object input to the BEEF_Ensemble class could of course
+The calculator object input to the BEEFEnsemble class could of course
 stem from a restarted GPAW calculation.
 
 It is very important to calculate
 the ensemble statistics correctly. Computing the standard deviation of each
-array of total energy pertubations makes little sense, only the standard
-deviation of the relative energy pertubations should be used for the
+array of total energy perturbations makes little sense, only the standard
+deviation of the relative energy perturbations should be used for the
 BEEF-vdW ensemble error estimates on a quantity.
 
 

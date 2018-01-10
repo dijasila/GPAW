@@ -17,18 +17,31 @@ molecule and save the wave functions in a file (``CO.gpw``).
 Creating wave function cube files
 ---------------------------------
 
-You can get seperate cube files (the format used by Gaussian) for each wavefunction with the script:
+You can get separate cube files (the format used by Gaussian) for each wavefunction with the script:
 
 .. literalinclude:: CO2cube.py
 
-The script produced the files CO_0.cube .. CO_5.cube, which might be viewed using for example `gOpenMol <http://www.csc.fi/gopenmol/>`_ or `VMD <http://www.ks.uiuc.edu/Research/vmd/>`_. 
+The script produced the files CO_0.cube .. CO_5.cube, which might be viewed using for example `jmol <http://jmol.sourceforge.net/>`_ or `VMD <http://www.ks.uiuc.edu/Research/vmd/>`_. 
 
+Plotting wave functions with jmol
+---------------------------------
 
-Creating cube to plt files (gOpenMol)
------------------------------------------
+See http://jmol.sourceforge.net/docs/surface/
 
-The cube files can be transformed to plt format using the program g94cub2pl from the gOpenMol utilities.
+You can visualize an isosurface from a cube file by creating the
+myscript.spt script::
+  
+   #isosurface name cutoff "cubefile"
+   isosurface pos 0.05 "CO_1.cube"
 
+and executing it with jmol::
+
+   jmol -s myscript.spt
+
+You can also save the image directly on the command line::
+
+   jmol -ions myscript.spt -w JPEG:myfile.jpg
+  
 Plotting wave functions with VMD
 --------------------------------
 
@@ -56,11 +69,18 @@ files) with the pull-down menu labeled "Vol".
 **IMPORTANT:** This works best for molecules.  In solids, the
 wavefunctions will be complex, VMD does not handle this well.
 
+Creating cube to plt files (gOpenMol)
+-------------------------------------
 
+**Warning** this section is obsolete!
 
---------------------------------
-Creating wave function plt files
---------------------------------
+The cube files can be transformed to plt format using the program g94cub2pl from the gOpenMol utilities.
+
+----------------------------------------------
+Creating wave function plt files with gOpenMol
+----------------------------------------------
+
+**Warning** this section is obsolete!
 
 One can write out the wave functions in the very compact (binary) `gOpenMol <http://www.csc.fi/gopenmol/>`_ plt format directly:
 

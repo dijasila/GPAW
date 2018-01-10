@@ -4,12 +4,15 @@ import sys
 import time
 import signal
 import traceback
+from distutils.version import LooseVersion
 
 import numpy as np
 
+from ase.utils import devnull
+
 from gpaw.atom.generator import Generator
-from gpaw.atom.configurations import parameters
-from gpaw.utilities import devnull, compiled_with_sl
+from gpaw.atom.configurations import parameters, tf_parameters
+from gpaw.utilities import compiled_with_sl, compiled_with_libvdwxc
 from gpaw import setup_paths
 from gpaw import mpi
 import gpaw
@@ -27,12 +30,26 @@ def equal(x, y, tolerance=0, fail=True, msg=''):
             sys.stderr.write('WARNING: %s\n' % msg)
 
 
+def findpeak(x, y):
+    dx = x[1] - x[0]
+    i = y.argmax()
+    a, b, c = np.polyfit([-1, 0, 1], y[i - 1:i + 2], 2)
+    assert a < 0
+    x = -0.5 * b / a
+    return dx * (i + x), a * x**2 + b * x + c
+
+    
 def gen(symbol, exx=False, name=None, **kwargs):
     if mpi.rank == 0:
         if 'scalarrel' not in kwargs:
             kwargs['scalarrel'] = True
         g = Generator(symbol, **kwargs)
-        g.run(exx=exx, name=name, use_restart_file=False, **parameters[symbol])
+        if 'orbital_free' in kwargs:
+            g.run(exx=exx, name=name, use_restart_file=False,
+                  **tf_parameters.get(symbol, {'rcut': 0.9}))
+        else:
+            g.run(exx=exx, name=name, use_restart_file=False,
+                  **parameters[symbol])
     mpi.world.barrier()
     if setup_paths[0] != '.':
         setup_paths.insert(0, '.')
@@ -55,345 +72,393 @@ def wrap_pylab(names=[]):
 
 
 tests = [
-    'gemm_complex.py',
-    'mpicomm.py',
-    'ase3k_version.py',
-    'numpy_core_multiarray_dot.py',
-    'eigh.py',
-    'lapack.py',
-    'dot.py',
-    'lxc_fxc.py',
-    'blas.py',
-    'erf.py',
-    'gp2.py',
-    'kptpar.py',
-    'non_periodic.py',
-    'parallel/blacsdist.py',
-    'gradient.py',
-    'cg2.py',
+    'linalg/gemm_complex.py',
+    'ase_features/ase3k_version.py',
     'kpt.py',
-    'lf.py',
-    'gd.py',
-    'parallel/compare.py',
-    'pbe_pw91.py',
-    'fsbt.py',
-    'derivatives.py',
-    'Gauss.py',
-    'second_derivative.py',
-    'integral4.py',
-    'parallel/ut_parallel.py',
-    'transformations.py',
-    'parallel/parallel_eigh.py',
-    'spectrum.py',
-    'xc.py',
-    'zher.py',
-    'pbc.py',
-    'lebedev.py',
-    'parallel/ut_hsblacs.py',
-    'parallel/submatrix_redist.py',
-    'occupations.py',
-    'dump_chi0.py',
-    'cluster.py',
-    'pw/interpol.py',
-    'poisson.py',
-    'pw/lfc.py',
-    'pw/reallfc.py',
-    'pw/moleculecg.py',
-    'XC2.py',
-    'multipoletest.py',
-    'nabla.py',
-    'noncollinear/xccorr.py',
-    'gauss_wave.py',
-    'harmonic.py',
-    'atoms_too_close.py',
-    'noncollinear/xcgrid3d.py',
-    'vdwradii.py',
-    'lcao_restart.py',
-    'ase3k.py',
-    'parallel/ut_kptops.py',
-    'fileio/idiotproof_setup.py',
-    'fileio/hdf5_simple.py',
+    'mpicomm.py',
+    'pathological/numpy_core_multiarray_dot.py',
     'fileio/hdf5_noncontiguous.py',
-    'fileio/parallel.py',
-    'timing.py',
-    'coulomb.py',
-    'xcatom.py',
-    'maxrss.py',
-    'proton.py',
-    'keep_htpsit.py',
-    'pw/stresstest.py',
-    'aeatom.py',
-    'numpy_zdotc_graphite.py',
-    'lcao_density.py',
-    'parallel/overlap.py',
-    'restart.py',
-    # numpy/scipy tests fail randomly
-    #'numpy_test.py',
-    #'scipy_test.py',
-    'gemv.py',
-    'ylexpand.py',
-    'potential.py',
-    'wfs_io.py',
-    'fixocc.py',
-    'nonselfconsistentLDA.py',
-    'gga_atom.py',
-    'ds_beta.py',
-    'gauss_func.py',
-    'noncollinear/h.py',
-    'symmetry.py',
-    'usesymm.py',
-    'broydenmixer.py',
-    'mixer.py',
-    'pes.py',
-    'wfs_auto.py',
-    'ewald.py',
-    'refine.py',
-    'revPBE.py',
-    'nonselfconsistent.py',
-    'hydrogen.py',
-    'fileio/file_reference.py',
-    'fixdensity.py',
-    'bee1.py',
-    'spinFe3plus.py',
-    'pw/h.py',
-    'pw/fulldiag.py',
-    'pw/fulldiagk.py',
-    'stdout.py',
-    'parallel/lcao_complicated.py',
-    'pw/slab.py',
-    'spinpol.py',
-    'plt.py',
-    'lcao_pair_and_coulomb.py',
-    'eed.py',
-    'lrtddft2.py',
-    'parallel/hamiltonian.py',
-    'ah.py',
-    'laplace.py',
-    'pw/mgo.py',
-    'lcao_largecellforce.py',
-    'restart2.py',
-    'Cl_minus.py',
-    'fileio/restart_density.py',
-    'external_potential.py',
-    'pw/bulk.py',
-    'pw/fftmixer.py',
-    'mgga_restart.py',
-    'vdw/quick.py',
-    'partitioning.py',
-    'bulk.py',
-    'elf.py',
-    'aluminum_EELS.py',
-    'H_force.py',
-    'parallel/lcao_hamiltonian.py',
-    'fermisplit.py',
-    'parallel/ut_redist.py',
-    'lcao_h2o.py',
-    'cmrtest/cmr_test2.py',
-    'h2o_xas.py',
-    'ne_gllb.py',
-    'exx_acdf.py',
-    'asewannier.py',
-    'exx_q.py',
-    'ut_rsh.py',
-    'ut_csh.py',
-    'spin_contamination.py',
-    'davidson.py',
-    'pw/davidson_pw.py',
-    'cg.py',
-    'gllbatomic.py',
-    'lcao_force.py',
-    'neb.py',
-    'fermilevel.py',
-    'h2o_xas_recursion.py',
-    'diamond_eps.py',
-    'gemm.py',
-    # > 20 sec tests start here
-    'rpa_energy_Ni.py',
-    'si.py',
-    'blocked_rmm_diis.py',
-    'lxc_xcatom.py',
-    'gw_planewave.py',
-    'degeneracy.py',
-    'apmb.py',
+    'eigen/cg2.py',
+    'fd_ops/laplace.py',
+    'linalg/lapack.py',
+    'linalg/eigh.py',
+    'parallel/submatrix_redist.py',
+    'lfc/second_derivative.py',
+    'parallel/parallel_eigh.py',
+    'lfc/gp2.py',
+    'linalg/blas.py',
+    'Gauss.py',
+    'symmetry/check.py',
+    'fd_ops/nabla.py',
+    'linalg/dot.py',
+    'linalg/mmm.py',
+    'xc/lxc_fxc.py',
+    'xc/pbe_pw91.py',
+    'fd_ops/gradient.py',
+    'maths/erf.py',
+    'lfc/lf.py',
+    'maths/fsbt.py',
+    'parallel/compare.py',
+    'vdw/libvdwxc_functionals.py',
+    'radial/integral4.py',
+    'linalg/zher.py',
+    'fd_ops/gd.py',
+    'pw/interpol.py',
+    'poisson/screened_poisson.py',
+    'xc/xc.py',
+    'xc/XC2.py',
+    'radial/yukawa_radial.py',
+    'response/dump_chi0.py',
     'vdw/potential.py',
-    'al_chain.py',
-    'relax.py',
-    'fixmom.py',
-    'CH4.py',
-    'diamond_absorption.py',
-    'simple_stm.py',
-    'gw_method.py',
-    'lcao_bulk.py',
-    'constant_electric_field.py',
-    'parallel/ut_invops.py',
-    'wannier_ethylene.py',
-    'parallel/lcao_projections.py',
-    'guc_force.py',
-    'test_ibzqpt.py',
-    'aedensity.py',
-    'fd2lcao_restart.py',
-    'lcao_bsse.py',
-    'pplda.py',
-    'revPBE_Li.py',
-    'si_primitive.py',
-    'complex.py',
-    'Hubbard_U.py',
-    'ldos.py',
-    'parallel/ut_hsops.py',
-    'pw/hyb.py',
-    'hgh_h2o.py',
-    'vdw/quick_spin.py',
-    'scfsic_h2.py',
-    'lrtddft.py',
-    'dscf_lcao.py',
-    'IP_oxygen.py',
-    'rpa_energy_Si.py',
-    '2Al.py',
-    'jstm.py',
-    'tpss.py',
-    'be_nltd_ip.py',
-    'si_xas.py',
-    'atomize.py',
-    'ralda_energy_H2.py',
-    'ralda_energy_N2.py',
-    'ralda_energy_Ni.py',
-    'Cu.py',
-    'restart_band_structure.py',
-    'ne_disc.py',
-    'exx_coarse.py',
-    'exx_unocc.py',
-    'Hubbard_U_Zn.py',
-    'muffintinpot.py',
-    'diamond_gllb.py',
-    'h2o_dks.py',
-    'aluminum_EELS_lcao.py',
-    'gw_ppa.py',
-    'nscfsic.py',
-    'gw_static.py',
-    # > 100 sec tests start here
-    'exx.py',
-    'pygga.py',
-    'dipole.py',
-    'nsc_MGGA.py',
-    'mgga_sc.py',
-    'MgO_exx_fd_vs_pw.py',
-    'lb94.py',
-    '8Si.py',
-    'td_na2.py',
-    'rpa_energy_N2.py',
-    'beefvdw.py',
-    #'mbeef.py',
-    'wannierk.py',
-    'rpa_energy_Na.py',
-    'coreeig.py',
-    'pw/si_stress.py',
-    'P_ai.py',
-    'ut_tddft.py',
-    'transport.py',
-    'vdw/ar2.py',
-    'bse_sym.py',
-    'aluminum_testcell.py',
-    'au02_absorption.py',
-    'lrtddft3.py',
-    'scfsic_n2.py',
-    'parallel/lcao_parallel.py',
-    'parallel/lcao_parallel_kpt.py',
-    'parallel/fd_parallel.py',
-    'parallel/fd_parallel_kpt.py',
-    'bse_aluminum.py',
-    'bse_diamond.py',
-    'bse_vs_lrtddft.py',
-    'bse_silicon.py',
-    'bse_MoS2_cut.py',    
-    'parallel/pblas.py',
-    'parallel/scalapack.py',
-    'parallel/scalapack_diag_simple.py',
-    'parallel/scalapack_mpirecv_crash.py',
+    'radial/lebedev.py',
+    'fileio/hdf5_simple.py',
+    'occupations.py',
+    'lfc/derivatives.py',
     'parallel/realspace_blacs.py',
-    'AA_exx_enthalpy.py',
-     #'usesymm2.py',
-     #'eigh_perf.py', # Requires LAPACK 3.2.1 or later
-     # XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
-     #'parallel/scalapack_pdlasrt_hang.py',
-     #'dscf_forces.py',
-     #'stark_shift.py',
-    'cmrtest/cmr_test.py',
-    'cmrtest/cmr_test3.py',
-    'cmrtest/cmr_test4.py',
-    'cmrtest/cmr_append.py',
-    'cmrtest/Li2_atomize.py'
-    ]
+    'pw/reallfc.py',
+    'parallel/pblas.py',
+    'fd_ops/non_periodic.py',
+    'spectrum.py',
+    'pw/lfc.py',
+    'gauss_func.py',
+    'multipoletest.py',
+    'noncollinear/xcgrid3d.py',
+    'cluster.py',
+    'poisson/poisson.py',
+    'poisson/poisson_asym.py',
+    'parallel/arraydict_redist.py',
+    'parallel/overlap.py',
+    'parallel/scalapack.py',
+    'gauss_wave.py',
+    'fd_ops/transformations.py',
+    'parallel/blacsdist.py',
+    'pbc.py',
+    'noncollinear/xccorr.py',
+    'atoms_too_close.py',
+    'ext_potential/harmonic.py',
+    'generic/proton.py',
+    'atoms_mismatch.py',
+    'setup_basis_spec.py',
+    'timing.py',                            # ~1s
+    'parallel/ut_parallel.py',              # ~1s
+    'lcao/density.py',                      # ~1s
+    'parallel/hamiltonian.py',              # ~1s
+    'pw/stresstest.py',                     # ~1s
+    'pw/fftmixer.py',                       # ~1s
+    'symmetry/usesymm.py',                  # ~1s
+    'coulomb.py',                           # ~1s
+    'xc/xcatom.py',                         # ~1s
+    'force_as_stop.py',                     # ~1s
+    'vdwradii.py',                          # ~1s
+    'ase_features/ase3k.py',                # ~1s
+    'pathological/numpy_zdotc_graphite.py',  # ~1s
+    'utilities/eed.py',                     # ~1s
+    'lcao/dos.py',                          # ~1s
+    'solvation/pbc_pos_repeat.py',          # ~1s
+    'linalg/gemv.py',                       # ~2s
+    'fileio/idiotproof_setup.py',           # ~2s
+    'radial/ylexpand.py',                   # ~2s
+    'eigen/keep_htpsit.py',                 # ~2s
+    'xc/gga_atom.py',                       # ~2s
+    'generic/hydrogen.py',                  # ~2s
+    'fileio/restart2.py',                   # ~2s
+    'aeatom.py',                            # ~2s
+    'ase_features/plt.py',                  # ~2s
+    'ds_beta.py',                           # ~2s
+    'multipoleH2O.py',                      # ~2s
+    'noncollinear/h.py',                    # ~2s
+    'spinorbit_Kr.py',                      # ~2s
+    'stdout.py',                            # ~2s
+    'lcao/largecellforce.py',               # ~2s
+    'parallel/scalapack_diag_simple.py',    # ~2s
+    'fixdensity.py',                        # ~2s
+    'pseudopotential/ah.py',                # ~2s
+    'lcao/restart.py',                      # ~2s
+    'lcao/tddft.py',                        # ~2s
+    'vdw/libvdwxc_h2o.py',                  # ~2s
+    'lcao/gllb_si.py',                      # ~2s
+    'fileio/wfs_io.py',                     # ~3s
+    'lrtddft/2.py',                         # ~3s
+    'fileio/file_reference.py',             # ~3s
+    'fileio/restart.py',                    # ~3s
+    'broydenmixer.py',                      # ~3s
+    'pw/fulldiagk.py',                      # ~3s
+    'ext_potential/external.py',            # ~3s
+    'lcao/atomic_corrections.py',           # ~3s
+    'generic/mixer.py',                     # ~3s
+    'parallel/lcao_projections.py',         # ~3s
+    'lcao/h2o.py',                          # ~3s
+    'corehole/h2o.py',                      # ~3s
+    'fileio/wfs_auto.py',                   # ~3s
+    'pw/fulldiag.py',                       # ~3s
+    'symmetry/symmetry_ft.py',              # ~3s
+    'response/aluminum_EELS_RPA.py',        # ~3s
+    'poisson/poisson_extended.py',          # ~3s
+    'solvation/vacuum.py',                  # ~3s
+    'pseudopotential/sg15_hydrogen.py',     # ~4s
+    'parallel/augment_grid.py',             # ~4s
+    'utilities/ewald.py',                   # ~4s
+    'symmetry/symmetry.py',                 # ~4s
+    'xc/revPBE.py',                         # ~4s
+    'xc/nonselfconsistentLDA.py',           # ~4s
+    'response/aluminum_EELS_ALDA.py',       # ~4s
+    'spin/spin_contamination.py',           # ~4s
+    'inducedfield_lrtddft.py',              # ~4s
+    'generic/H_force.py',                   # ~4s
+    'symmetry/usesymm2.py',                 # ~4s
+    'mgga/mgga_restart.py',                 # ~4s
+    'fixocc.py',                            # ~4s
+    'spin/spinFe3plus.py',                  # ~4s
+    'fermisplit.py',                        # ~4s
+    'generic/Cl_minus.py',                  # ~4s
+    'lrtddft/pes.py',                       # ~4s
+    'corehole/h2o_recursion.py',            # ~5s
+    'xc/nonselfconsistent.py',              # ~5s
+    'spin/spinpol.py',                      # ~5s
+    'eigen/cg.py',                          # ~5s
+    'parallel/kptpar.py',                   # ~5s
+    'utilities/elf.py',                     # ~5s
+    'eigen/blocked_rmm_diis.py',            # ~5s
+    'pw/slab.py',                           # ~5s
+    'generic/si.py',                        # ~5s
+    'lcao/bsse.py',                         # ~5s
+    'parallel/lcao_hamiltonian.py',         # ~5s
+    'xc/degeneracy.py',                     # ~5s
+    'fileio/refine.py',                     # ~5s
+    'solvation/pbc.py',                     # ~5s
+    'generic/asym_box.py',                  # ~5s
+    'linalg/gemm.py',                       # ~6s
+    'generic/al_chain.py',                  # ~6s
+    'fileio/parallel.py',                   # ~6s
+    'fixmom.py',                            # ~6s
+    'exx/unocc.py',                         # ~6s
+    'eigen/davidson.py',                    # ~6s
+    'parallel/redistribute_grid.py',        # ~7s
+    'aedensity.py',                         # ~7s
+    'pw/h.py',                              # ~7s
+    'lrtddft/apmb.py',                      # ~7s
+    'pseudopotential/hgh_h2o.py',           # ~7s
+    'fdtd/ed_wrapper.py',                   # ~7s
+    'pw/bulk.py',                           # ~7s
+    'gllb/ne.py',                           # ~7s
+    'fdtd/ed.py',                           # ~7s
+    'lcao/force.py',                        # ~7s
+    'xc/pplda.py',                          # ~7s
+    'fileio/restart_density.py',            # ~8s
+    'rpa/rpa_energy_Ni.py',                 # ~8s
+    'tddft/be_nltd_ip.py',                  # ~8s
+    'test_ibzqpt.py',                       # ~8s
+    'generic/si_primitive.py',              # ~9s
+    'inducedfield_td.py',                   # ~9s
+    'tddft/ehrenfest_nacl.py',              # ~9s
+    'lcao/fd2lcao_restart.py',              # ~9s
+    'ext_potential/constant_e_field.py',    # ~9s
+    'complex.py',                           # ~9s
+    'vdw/quick.py',                         # ~9s
+    'lrtddft/Al2_lrtddft.py',               # ~10s
+    'ralda/ralda_energy_N2.py',             # ~10s
+    'parallel/lcao_complicated.py',         # ~10s
+    'generic/bulk.py',                      # ~10s
+    'sic/scfsic_h2.py',                     # ~10s
+    'lcao/bulk.py',                         # ~11s
+    'generic/2Al.py',                       # ~11s
+    'lrtddft/kssingles_Be.py',              # ~11s
+    'generic/relax.py',                     # ~11s
+    'solvation/adm12.py',                   # ~11s
+    'dscf/dscf_lcao.py',                    # ~12s
+    'generic/8Si.py',                       # ~12s
+    'utilities/partitioning.py',            # ~12s
+    'xc/lxc_xcatom.py',                     # ~12s
+    'solvation/sfgcm06.py',                 # ~12s
+    'solvation/sss09.py',                   # ~12s
+    'gllb/atomic.py',                       # ~13s
+    'generic/guc_force.py',                 # ~13s
+    'ralda/ralda_energy_Ni.py',             # ~13s
+    'utilities/simple_stm.py',              # ~13s
+    'ofdft/ofdft_pbc.py',                   # ~13s
+    'fdtd/ed_shapes.py',                    # ~14s
+    'gllb/restart_band_structure.py',       # ~14s
+    'exx/exx.py',                           # ~14s
+    'Hubbard_U.py',                         # ~15s
+    'rpa/rpa_energy_Si.py',                 # ~15s
+    'dipole.py',                            # ~15s
+    'generic/IP_oxygen.py',                 # ~15s
+    'rpa/rpa_energy_Na.py',                 # ~15s
+    'parallel/fd_parallel.py',              # ~15s
+    'solvation/poisson.py',                 # ~15s
+    'solvation/water_water.py',             # ~15s
+    'xc/pygga.py',                          # ~15s
+    'parallel/lcao_parallel.py',            # ~16s
+    'xc/atomize.py',                        # ~16s
+    'lrtddft/excited_state.py',             # ~16s
+    'gllb/ne_disc.py',                      # ~16s
+    'ofdft/ofdft.py',                       # ~17s
+    'response/bse_silicon.py',              # ~18s
+    'tpss.py',                              # ~18s
+    'tddft/td_na2.py',                      # ~18s
+    'exx/coarse.py',                        # ~18s
+    'corehole/si.py',                       # ~18s
+    'mgga/mgga_sc.py',                      # ~19s
+    'Hubbard_U_Zn.py',                      # ~20s
+    # buildbot > 20 sec tests start here (add tests after lrtddft/1.py!)
+    'lrtddft/1.py',                         # ~20s
+    'gllb/spin.py',                         # ~21s
+    'parallel/fd_parallel_kpt.py',          # ~21s
+    'generic/Cu.py',                        # ~21s
+    'vdw/ts09.py',                          # ~21s
+    'response/na_plasmon.py',               # ~22s
+    'fermilevel.py',                        # ~23s
+    'parallel/ut_hsblacs.py',               # ~23s
+    'ralda/ralda_energy_H2.py',             # ~23s
+    'response/diamond_absorption.py',       # ~24s
+    'ralda/ralda_energy_Si.py',             # ~24s
+    'jellium.py',                           # ~24s
+    'utilities/ldos.py',                    # ~25s
+    'solvation/swap_atoms.py',              # ~25s
+    'xc/revPBE_Li.py',                      # ~26s
+    'ofdft/ofdft_scale.py',                 # ~26s
+    'parallel/lcao_parallel_kpt.py',        # ~29s
+    'corehole/h2o_dks.py',                  # ~30s
+    'mgga/nsc_MGGA.py',                     # ~32s
+    'solvation/spinpol.py',                 # ~32s
+    'gllb/diamond.py',                      # ~33s
+    'vdw/quick_spin.py',                    # ~37s
+    'pw/expert_diag.py',                    # ~37s
+    'parallel/ut_hsops.py',                 # ~41s
+    'pathological/LDA_unstable.py',         # ~42s
+    'response/bse_aluminum.py',             # ~42s
+    'response/au02_absorption.py',          # ~44s
+    'ext_potential/point_charge.py',
+    'ase_features/wannierk.py',             # ~45s
+    'ut_tddft.py',                          # ~49s
+    'response/pair.py',                     # ~50s
+    'rpa/rpa_energy_N2.py',                 # ~52s
+    'vdw/ar2.py',                           # ~53s
+    'solvation/forces_symmetry.py',         # ~56s
+    'parallel/diamond_gllb.py',             # ~59s
+    'beef.py',
+    'pw/si_stress.py',                      # ~61s
+    'response/chi0.py',                     # ~71s
+    'sic/scfsic_n2.py',                     # ~73s
+    'transport.py',                         # ~73s
+    'lrtddft/3.py',                         # ~75s
+    'pathological/nonlocalset.py',          # ~82s
+    # buildbot > 100 sec tests start here (add tests after xc/lb94.py!)
+    'xc/lb94.py',                           # ~84s
+    'exx/AA_enthalpy.py',                   # ~119s
+    'lcao/tdgllbsc.py',                     # ~132s
+    'solvation/forces.py',                  # ~140s
+    'response/gw_MoS2_cut.py',
+    'response/gwsi.py',                     # ~147s
+    'response/graphene.py',                 # ~160s
+    'response/symmetry.py',                 # ~300s
+    'pw/moleculecg.py',                     # duration unknown
+    'potential.py',                         # duration unknown
+    'lcao/pair_and_coulomb.py',             # duration unknown
+    'ase_features/asewannier.py',           # duration unknown
+    'pw/davidson_pw.py',                    # duration unknown
+    'ase_features/neb.py',                  # duration unknown
+    'utilities/wannier_ethylene.py',        # duration unknown
+    'muffintinpot.py',                      # duration unknown
+    'sic/nscfsic.py',                       # duration unknown
+    'coreeig.py',                           # duration unknown
+    'response/bse_MoS2_cut.py',             # duration unknown
+    'parallel/scalapack_mpirecv_crash.py']  # duration unknown
+
+# 'symmetry/fractional_translations.py',
+# 'response/graphene_EELS.py', disabled while work is in progress on response code
+
+# 'symmetry/fractional_translations_med.py',
+# 'symmetry/fractional_translations_big.py',
+
+# 'linalg/eigh_perf.py', # Requires LAPACK 3.2.1 or later
+# XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
+# 'parallel/scalapack_pdlasrt_hang.py',
+# 'dscf/dscf_forces.py',
+# 'ext_potential/stark_shift.py',
+
 
 exclude = []
 
 if mpi.size > 1:
-    exclude += ['maxrss.py',
-                'pes.py',
-                'diamond_eps.py',
-                'nscfsic.py',
+    exclude += ['ase_features/asewannier.py',
                 'coreeig.py',
-                'asewannier.py',
-                'wannier_ethylene.py',
-                'muffintinpot.py',
-                'stark_shift.py',
-                'exx_q.py',
+                'ext_potential/stark_shift.py',
+                'spinorbit_Kr.py',
+                'fd_ops/laplace.py',
                 'potential.py',
-                #'cmrtest/cmr_test3.py',
-                #'cmrtest/cmr_append.py',
-                #'cmrtest/Li2_atomize.py',
-                'lcao_pair_and_coulomb.py',
-                'bse_MoS2_cut.py',
+                'lcao/pair_and_coulomb.py',
+                'muffintinpot.py',
                 'pw/moleculecg.py',
                 'pw/davidson_pw.py',
-                # scipy.weave fails often in parallel due to ~/.python*_compiled
+                'sic/nscfsic.py',
+                # scipy.weave fails often in parallel due to
+                # ~/.python*_compiled
                 # https://github.com/scipy/scipy/issues/1895
-                'scipy_test.py']
+                'scipy_test.py',
+                'utilities/wannier_ethylene.py']
 
 if mpi.size > 2:
-    exclude += ['neb.py']
-
+    exclude += ['ase_features/neb.py',
+                'response/pair.py']
+    
 if mpi.size < 4:
-    exclude += ['parallel/pblas.py',
+    exclude += ['parallel/fd_parallel.py',
+                'parallel/lcao_parallel.py',
+                'parallel/pblas.py',
                 'parallel/scalapack.py',
                 'parallel/scalapack_diag_simple.py',
                 'parallel/realspace_blacs.py',
-                'AA_exx_enthalpy.py',
-                'bse_aluminum.py',
-                'bse_diamond.py',
-                'bse_silicon.py',
-                'bse_vs_lrtddft.py',
-                'fileio/parallel.py']
+                'exx/AA_enthalpy.py',
+                'response/bse_aluminum.py',
+                'response/bse_MoS2_cut.py',
+                'fileio/parallel.py',
+                'parallel/diamond_gllb.py',
+                'parallel/lcao_parallel_kpt.py',
+                'parallel/fd_parallel_kpt.py']
+
 
 if mpi.size != 4:
-    exclude += ['parallel/lcao_parallel.py']
-    exclude += ['parallel/fd_parallel.py']
-    exclude += ['parallel/scalapack_mpirecv_crash.py']
-    exclude += ['parallel/scalapack_pdlasrt_hang.py']
+    exclude += ['parallel/scalapack_mpirecv_crash.py',
+                'parallel/scalapack_pdlasrt_hang.py',
+                'response/bse_silicon.py']
 
 if mpi.size == 1 or not compiled_with_sl():
     exclude += ['parallel/submatrix_redist.py']
 
 if mpi.size != 1 and not compiled_with_sl():
-    exclude += ['ralda_energy_H2.py',
-                'ralda_energy_N2.py',
-                'ralda_energy_Ni.py',
-                'bse_sym.py',
-                'bse_silicon.py']
+    exclude += ['ralda/ralda_energy_H2.py',
+                'ralda/ralda_energy_N2.py',
+                'ralda/ralda_energy_Ni.py',
+                'ralda/ralda_energy_Si.py',
+                'response/bse_silicon.py',
+                'response/bse_MoS2_cut.py',
+                'response/gwsi.py',
+                'response/gw_MoS2_cut.py',
+                'rpa/rpa_energy_N2.py',
+                'pw/expert_diag.py',
+                'pw/fulldiag.py',
+                'pw/fulldiagk.py',
+                'response/au02_absorption.py']
 
 if not compiled_with_sl():
-    exclude += ['pw/fulldiag.py',
-                'pw/fulldiagk.py']
+    exclude.append('lcao/atomic_corrections.py')
 
-if mpi.size == 8:
-    exclude += ['transport.py']
+if not compiled_with_libvdwxc():
+    exclude.append('vdw/libvdwxc_functionals.py')
+    exclude.append('vdw/libvdwxc_h2o.py')
 
-if mpi.size != 8:
-    exclude += ['parallel/lcao_parallel_kpt.py']
-    exclude += ['parallel/fd_parallel_kpt.py']
+if LooseVersion(np.__version__) < '1.6.0':
+    exclude.append('response/chi0.py')
 
-for test in exclude:
-    if test in tests:
-        tests.remove(test)
+
+def get_test_path(test):
+    return os.path.join(gpaw.__path__[0], 'test', test)
+
+for test in tests + exclude:
+    assert os.path.exists(get_test_path(test)), 'No such file: %s' % test
+
+exclude = set(exclude)
 
 
 class TestRunner:
@@ -412,7 +477,8 @@ class TestRunner:
         else:
             self.log = devnull
         self.n = max([len(test) for test in tests])
-
+        self.setup_paths = setup_paths[:]
+        
     def run(self):
         self.log.write('=' * 77 + '\n')
         if not self.show_output:
@@ -480,55 +546,85 @@ class TestRunner:
                 j -= 1
 
     def run_one(self, test):
+        exitcode_ok = 0
+        exitcode_skip = 1
+        exitcode_fail = 2
+
         if self.jobs == 1:
             self.log.write('%*s' % (-self.n, test))
             self.log.flush()
 
         t0 = time.time()
-        filename = gpaw.__path__[0] + '/test/' + test
+        filename = get_test_path(test)
 
-        failed = False
+        tb = ''
         skip = False
 
+        if test in exclude:
+            self.register_skipped(test, t0)
+            return exitcode_skip
+
+        dirname = test[:-3]
+        if mpi.rank == 0:
+            os.makedirs(dirname)
+        mpi.world.barrier()
+        cwd = os.getcwd()
+        os.chdir(dirname)
+
         try:
+            setup_paths[:] = self.setup_paths
             loc = {}
-            execfile(filename, loc)
+            exec(compile(open(filename).read(), filename, 'exec'), loc)
             loc.clear()
             del loc
             self.check_garbage()
         except KeyboardInterrupt:
             self.write_result(test, 'STOPPED', t0)
             raise
-        except ImportError, ex:
-            module = ex.args[0].split()[-1].split('.')[0]
-            if module in ['scipy', 'cmr', '_hdf5']:
+        except ImportError as ex:
+            if sys.version_info[0] >= 3:
+                module = ex.name
+            else:
+                module = ex.args[0].split()[-1].split('.')[0]
+            if module in ['scipy', '_gpaw_hdf5']:
                 skip = True
             else:
-                failed = True
+                tb = traceback.format_exc()
+        except AttributeError as ex:
+            if (ex.args[0] ==
+                "'module' object has no attribute 'new_blacs_context'"):
+                skip = True
+            else:
+                tb = traceback.format_exc()
         except Exception:
-            failed = True
+            tb = traceback.format_exc()
+        finally:
+            os.chdir(cwd)
 
         mpi.ibarrier(timeout=60.0)  # guard against parallel hangs
 
-        me = np.array(failed)
+        me = np.array(tb != '')
         everybody = np.empty(mpi.size, bool)
         mpi.world.all_gather(me, everybody)
         failed = everybody.any()
         skip = mpi.world.sum(int(skip))
 
         if failed:
-            self.fail(test, np.argwhere(everybody).ravel(), t0)
-            exitcode = 2
+            self.fail(test, np.argwhere(everybody).ravel(), tb, t0)
+            exitcode = exitcode_fail
         elif skip:
-            self.write_result(test, 'SKIPPED', t0)
-            self.skipped.append(test)
-            exitcode = 1
+            self.register_skipped(test, t0)
+            exitcode = exitcode_skip
         else:
             self.write_result(test, 'OK', t0)
-            exitcode = 0
+            exitcode = exitcode_ok
 
         return exitcode
 
+    def register_skipped(self, test, t0):
+        self.write_result(test, 'SKIPPED', t0)
+        self.skipped.append(test)
+    
     def check_garbage(self):
         gc.collect()
         n = len(gc.garbage)
@@ -537,15 +633,7 @@ class TestRunner:
         assert n == 0, ('Leak: Uncollectable garbage (%d object%s) %s' %
                         (n, 's'[:n > 1], self.garbage))
 
-    def fail(self, test, ranks, t0):
-        if mpi.rank in ranks:
-            if sys.version_info >= (2, 4, 0, 'final', 0):
-                tb = traceback.format_exc()
-            else:  # Python 2.3! XXX
-                tb = ''
-                traceback.print_exc()
-        else:
-            tb = ''
+    def fail(self, test, ranks, tb, t0):
         if mpi.size == 1:
             text = 'FAILED!\n%s\n%s%s' % ('#' * 77, tb, '#' * 77)
             self.write_result(test, text, t0)

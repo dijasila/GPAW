@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Python unit testing framework, based on Erich Gamma's JUnit and Kent Beck's
 Smalltalk testing framework. Parallel support by Christian Glinsvad.
@@ -24,15 +23,17 @@ PARTICULAR PURPOSE.  THE CODE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS,
 AND THERE IS NO OBLIGATION WHATSOEVER TO PROVIDE MAINTENANCE,
 SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 """
-
+from __future__ import print_function
 import sys
 import numpy as np
 from unittest import TestResult, TestCase, TestSuite, \
                      _TextTestResult, TextTestRunner, TestLoader, \
                      FunctionTestCase, TestProgram, defaultTestLoader
+
+from ase.utils import devnull
+
 from gpaw import debug
 from gpaw.mpi import world, broadcast_string
-from gpaw.utilities import devnull
 
 # -------------------------------------------------------------------
 # Exported classes and functions
@@ -60,8 +61,8 @@ else:
 if unittest_version < (1,56):
     _TestCase = TestCase
     class TestCase(_TestCase):
-        assertTrue = _TestCase.failUnless
-        assertFalse = _TestCase.failIf
+        assertTrue = _TestCase.assertTrue
+        assertFalse = _TestCase.assertFalse
 
 # -------------------------------------------------------------------
 # Test framework core
@@ -158,7 +159,7 @@ class ParallelTestResult(TestResult):
         raise NotImplementedError
 
     def addExpectedFailure(self, test, err):
-        """Called when an expected failure/error occured. Not ready!"""
+        """Called when an expected failure/error occurred. Not ready!"""
         raise NotImplementedError
 
     def addUnexpectedSuccess(self, test):
@@ -174,7 +175,7 @@ class ParallelTestCase(TestCase):
 
     def debug(self):
         """Run the test without collecting errors in a TestResult"""
-        print 'WARNING: Test case is strictly serial in debug mode!'
+        print('WARNING: Test case is strictly serial in debug mode!')
         TestCase.debug(self)
 
 
@@ -301,7 +302,7 @@ class ParallelTextTestRunner(TextTestRunner):
         self.comm = comm
         if self.comm.rank != 0:
             stream = devnull
-        elif type(stream) is str:
+        elif isinstance(stream, str):
             self.logfile = stream
             stream = open(self.logfile, 'w', buffering=0)
         TextTestRunner.__init__(self, stream=stream, **kwargs)

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 import time
@@ -88,6 +89,11 @@ class AGTSJob:
                 self.exitcode = int(open('%s.done' % name).readlines()[-1])
                 if self.exitcode:
                     self.set_status('FAILED')
+                    if self.creates:
+                        for filename in self.creates:
+                            path = os.path.join(self.dir, filename)
+                            if os.path.isfile(path):
+                                os.remove(path)
                 else:
                     self.set_status('success')
                     if self.creates:
@@ -121,9 +127,13 @@ class Cluster:
         """Use Agg backend and prevent windows from popping up."""
         fd = open(job.script + '.py', 'w')
         fd.write('from gpaw.test import wrap_pylab\n')
-        fd.write('wrap_pylab(%s)\n' % job.show)
-        fd.write('execfile(%r)\n' % job.script)
+        fd.write('wrap_pylab({0})\n'.format(job.show))
+        fd.write('exec(compile(open({0!r}).read(), {0!r}, "exec"))\n'
+                 .format(job.script))
         fd.close()
+        
+    def tick(self, nrunning):
+        pass
 
 
 class TestCluster(Cluster):
@@ -148,6 +158,26 @@ class TestCluster(Cluster):
                     cmd += 'echo 42 > %s; ' % os.path.join(job.dir, filename)
             cmd += 'echo %d > %s.done' % (exitcode, job.absname)
         os.system('(%s)&' % cmd)
+
+
+class LocalCluster(Cluster):
+    def __init__(self):
+        self.queue = []
+        
+    def submit(self, job):
+        self.queue.append(job)
+        
+    def tick(self, nrunning):
+        if self.queue and nrunning == 0:
+            job = self.queue.pop(0)
+            dir = os.getcwd()
+            os.chdir(job.dir)
+            self.write_pylab_wrapper(job)
+            os.system('(touch %s.start;' % job.name +
+                      'python %s.py %s > %s.output;' %
+                      (job.script, job.args, job.name) +
+                      'echo $? > %s.done)&' % job.name)
+            os.chdir(dir)
 
 
 class AGTSQueue:
@@ -193,15 +223,19 @@ class AGTSQueue:
 
     def locate_tests(self):
         for root, dirs, files in os.walk('.'):
+            if root.startswith('./build'):
+                continue
             for fname in files:
-                if fname.endswith('.agts.py'):
+                if (fname.endswith('agts.py') and
+                    not root.endswith('gpaw/test/big')):
                     yield root, fname
 
     def collect(self):
         """Find agts.py files and collect jobs."""
         for dir, agtsfile in self.locate_tests():
             _global = {}
-            execfile(os.path.join(dir, agtsfile), _global)
+            fname = os.path.join(dir, agtsfile)
+            exec(compile(open(fname).read(), fname, 'exec'), _global)
             self._dir = dir
             _global['agts'](self)
         self.normalize()
@@ -261,13 +295,18 @@ class AGTSQueue:
 
             time.sleep(self.sleeptime)
 
+            nrunning = 0
             for job in jobs:
                 newstatus = job.check_status()
                 if newstatus:
                     self.log(job)
                     if newstatus in ['TIMEOUT', 'FAILED']:
                         self.fail(job)
+                if job.status == 'running':
+                    nrunning += 1
 
+            cluster.tick(nrunning)
+                        
         t = self.get_cpu_time()
         self.fd.write('CPU time: %d:%02d:%02d\n' %
                       (t // 3600, t // 60 % 60, t % 60))
@@ -277,7 +316,8 @@ class AGTSQueue:
     def status(self):
         fd = open('status.log', 'w')
         fd.write('# job                                              ' +
-                 20*' ' + 'status      time   tmax ncpus  deps files id\n')
+                 20 * ' ' +
+                 'status      time   tmax ncpus  deps files id\n')
         for job in self.jobs:
             if job.tstop is not None:
                 t = '%5d' % round(job.tstop - job.tstart)
@@ -358,7 +398,7 @@ def main():
 
     queue.count()
     for state in jobstates:
-        print('%9s %d' % (state, queue.N[state]))
+        print(('%9s %d' % (state, queue.N[state])))
 
     if opt.run:
         for job in queue.jobs:
@@ -375,8 +415,10 @@ def main():
         elif opt.run == 'niflheim':
             from gpaw.test.big.niflheim import NiflheimCluster
             cluster = NiflheimCluster()
+        elif opt.run == 'local':
+            cluster = LocalCluster()
         else:
-            bad
+            1 / 0
 
         queue.run(cluster)
 

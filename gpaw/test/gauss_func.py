@@ -1,3 +1,4 @@
+from __future__ import print_function
 from math import pi, sqrt
 import numpy as np
 from gpaw.utilities.tools import coordinates
@@ -20,7 +21,7 @@ solver.set_grid_descriptor(gd)
 solver.initialize()
 solve = solver.solve
 xyz, r2 = coordinates(gd)     # Matrix with the square of the radial coordinate
-print r2.shape
+print(r2.shape)
 r  = np.sqrt(r2)             # Matrix with the values of the radial coordinate
 nH = np.exp(-2 * r) / pi     # Density of the hydrogen atom
 gauss = Gaussian(gd)          # An instance of Gaussian
@@ -30,23 +31,23 @@ gauss = Gaussian(gd)          # An instance of Gaussian
 # \------------------------------------------------/
 for gL in range(2, 9):
     g = gauss.get_gauss(gL) # a gaussian of gL'th order
-    print '\nGaussian of order', gL
+    print('\nGaussian of order', gL)
     for mL in range(9):
         m = gauss.get_moment(g, mL) # the mL'th moment of g
-        print '  %s\'th moment = %2.6f' % (mL, m)
+        print('  %s\'th moment = %2.6f' % (mL, m))
         equal(m, gL == mL, 1e-4)
 
 # Check the moments of the constructed 1s density
-print '\nDensity of Hydrogen atom'
+print('\nDensity of Hydrogen atom')
 for L in range(4):
     m = gauss.get_moment(nH, L)
-    print '  %s\'th moment = %2.6f' % (L, m)
+    print('  %s\'th moment = %2.6f' % (L, m))
     equal(m, (L == 0) / sqrt(4 * pi), 1.5e-3)
 
 # Check that it is removed correctly
 v = gauss.remove_moment(nH, 0)
 m = gauss.get_moment(nH, 0)
-print '\nZero\'th moment of compensated Hydrogen density =', m
+print('\nZero\'th moment of compensated Hydrogen density =', m)
 equal(m, 0., 1e-7)
 
 
@@ -69,11 +70,11 @@ for L in range(7): # Angular index of gaussian
     residual = gd.integrate((pot - vg)**2)**0.5
 
     # print result
-    print 'L=%s, processor %s of %s: %s'%(
+    print('L=%s, processor %s of %s: %s'%(
         L,
         gd.comm.rank + 1,
         gd.comm.size,
-        residual)
+        residual))
 
     assert residual < 0.6
 

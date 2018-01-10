@@ -8,15 +8,15 @@ When it is time for a new release of the code, here is what you have to do:
 
 * **Warning:** use only three digits release numbers, e.g. *0.7.2*,
 
-* Checkout the :ref:`latest_development_release`,
+* Checkout the master,
 
-* then :ref:`running_tests`.
+* then :ref:`run the tests`.
 
 * If a new ase release is required to pass the tests
   modify ``required_ase_version`` and ``required_ase_svnversion``
-  in :trac:`gpaw/version.py`, and checkin the changes.
+  in :git:`gpaw/__init__.py`, and checkin the changes.
 
-* ``svn up`` and :ref:`running_tests` again.
+* ``svn up`` and :ref:`run the tests` again.
 
 * Make a tag in svn, using the current version number
   (to make sure **not** to include changes done by other developers
@@ -57,4 +57,5 @@ When it is time for a new release of the code, here is what you have to do:
 
   Now the trunk is ready for work on the new version.
 
-* Send announcement email to the ``gpaw-developers`` mailing list (see :ref:`mailing_lists`).
+* Send announcement email to the ``gpaw-developers`` mailing list (see
+  :ref:`mail lists`).

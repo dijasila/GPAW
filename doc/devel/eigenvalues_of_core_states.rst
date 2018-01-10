@@ -4,16 +4,18 @@
 Eigenvalues of core states
 ==========================
 
-.. default-role:: math
-
-Calculating eigenvalues for core states can be useful for XAS, XES and core-level shift calculations.  The eigenvalue of a core state `k` with a wave function `\phi_k^a(\mathbf{r})` located on atom number `a`, can be calculated using this formula:
+Calculating eigenvalues for core states can be useful for XAS, XES and
+core-level shift calculations.  The eigenvalue of a core state `k`
+with a wave function `\phi_k^a(\mathbf{r})` located on atom number
+`a`, can be calculated using this formula:
 
 .. math::
 
   \epsilon_k = \frac{\partial E}{\partial f_k} =
   \frac{\partial}{\partial f_k}(\tilde{E} - \tilde{E}^a + E^a),
 
-where `f_k` is the occupation of the core state.  When `f_k` is varied, `Q_L^a` and `n_c^a(r)` will also vary:
+where `f_k` is the occupation of the core state.  When `f_k` is
+varied, `Q_L^a` and `n_c^a(r)` will also vary:
 
 .. math::
 

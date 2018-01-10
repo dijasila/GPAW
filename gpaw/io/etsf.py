@@ -35,10 +35,10 @@ class ETSFWriter:
         atoms = calc.atoms
         natoms = len(atoms)
         
-        if wfs.symmetry is None:
+        if wfs.kd.symmetry is None:
             op_scc = np.eye(3, dtype=int).reshape((1, 3, 3))
         else:
-            op_scc = wfs.symmetry.op_scc
+            op_scc = wfs.kd.symmetry.op_scc
 
         specie_a = np.empty(natoms, np.int32)
         nspecies = 0
@@ -74,7 +74,7 @@ class ETSFWriter:
             ('symbol_length', 2)]
 
         for name, size in dimensions:
-            print('%-34s %d' % (name, size))
+            print(('%-34s %d' % (name, size)))
             self.nc.createDimension(name, size)
 
         var = self.add_variable
@@ -141,9 +141,9 @@ class ETSFWriter:
                 char = 'i'
             else:
                 char = 'c'
-        print('%-34s %s%s' % (
+        print(('%-34s %s%s' % (
             name, char,
-            tuple([self.nc.dimensions[dim] for dim in dims])))
+            tuple([self.nc.dimensions[dim] for dim in dims]))))
         var = self.nc.createVariable(name, char, dims)
         for attr, value in kwargs.items():
             setattr(var, attr, value)

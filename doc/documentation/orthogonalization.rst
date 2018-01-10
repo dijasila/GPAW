@@ -4,8 +4,6 @@
 Orthogonalizing the wave functions
 ==================================
 
-.. default-role:: math
-
 Let `\tilde{\Psi}_{nG}` be an element of a wave function matrix
 holding the value of `\tilde{\psi}_{n}(\mathbf{r}_G)` (state number
 `n` and grid point number `G`).  Then we can write the
@@ -89,5 +87,3 @@ Bands
 -----
 
 Band parallelization is described at :ref:`Band parallelization <band_parallelization>`.
-
-.. default-role::

@@ -15,7 +15,7 @@ if __name__ == '__main__':
                      'iron/anti.gpw',
                      'iron/non.gpw']:
         sys.argv = ['', '../' + filename]
-        execfile('dos.py')
+        exec(open('dos.py').read())
     if not os.path.islink('ferro.gpw'):
         os.symlink('../iron/ferro.gpw', 'ferro.gpw')
-    execfile('pdos.py')
+    exec(open('pdos.py').read())

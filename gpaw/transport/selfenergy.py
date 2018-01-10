@@ -1,12 +1,14 @@
 from gpaw.transport.tools import dagger, dot
-from gpaw.transport.sparse_matrix import Banded_Sparse_Matrix, Se_Sparse_Matrix
+from gpaw.transport.sparse_matrix import Banded_Sparse_Matrix
 import copy
 import numpy as np
-import cPickle
+import pickle
+
 
 class LeadSelfEnergy:
-    #This object use the sparse_matrix object Banded_Sparse_HSD
-    conv = 1e-8 # Convergence criteria for surface Green function
+    # This object use the sparse_matrix object Banded_Sparse_HSD
+    conv = 1e-8  # Convergence criteria for surface Green function
+    
     def __init__(self, hsd_ii, hsd_ij, data_path=None, direction='left',
                  rotation_mat=None):
         self.hsd_ii = hsd_ii
@@ -27,14 +29,14 @@ class LeadSelfEnergy:
             nid = int(flag[2:])
             nid += self.nid_plus
             flag = str(flag[:2]) + str(nid)
-            fd = file(self.data_path[self.direction] + '/' +
-                      self.direction + '/' + flag, 'r')
-            data = cPickle.load(fd)
+            fd = open(self.data_path[self.direction] + '/' +
+                      self.direction + '/' + flag, 'rb')
+            data = pickle.load(fd)
             return data
         else:
             if self.energy is None or abs(energy - self.energy) > self.tol:
                 self.energy = energy
-                z = energy - self.bias         
+                z = energy - self.bias
                 tau_ij = z * self.hsd_ij.S[self.pk].recover() - \
                                      self.hsd_ij.H[self.s][self.pk].recover()
                 tau_ji = z * dagger(self.hsd_ij.S[self.pk].recover()) - \
@@ -60,7 +62,7 @@ class LeadSelfEnergy:
     
     def get_sgfinv(self, energy):
         """The inverse of the retarded surface Green function"""
-        z = energy - self.bias 
+        z = energy - self.bias
         v_00 = Banded_Sparse_Matrix(complex,
                                      None,
                                      self.hsd_ii.S[self.pk].band_index)

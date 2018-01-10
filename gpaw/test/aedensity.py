@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+from __future__ import print_function
 import numpy as np
 
 from ase import Atom, Atoms
@@ -35,17 +35,15 @@ nt1 = calc.get_pseudo_density(gridrefinement=1)
 Zt1 = nt1.sum() * dv
 nt2 = calc.get_pseudo_density(gridrefinement=2)
 Zt2 = nt2.sum() * dv / 8
-print 'Integral of pseudo density:', Zt1, Zt2
+print('Integral of pseudo density:', Zt1, Zt2)
 equal(Zt1, Zt2, 1e-12)
 
 for gridrefinement in [1, 2, 4]:
     n = calc.get_all_electron_density(gridrefinement=gridrefinement)
     Z = n.sum() * dv / gridrefinement**3
-    print 'Integral of all-electron density:', Z
+    print('Integral of all-electron density:', Z)
     equal(Z, 28, 1e-5)
 
-energy_tolerance = 0.00004
+energy_tolerance = 0.0004
 niter_tolerance = 0
 equal(e, -4.908677, energy_tolerance)
-if niter is not None:
-    equal(niter, 20, niter_tolerance)

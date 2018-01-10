@@ -166,15 +166,15 @@ class STM:
 
         #hamiltoian and overlap matrix of onsite tip and srf
         self.h1, self.s1 = Lead_HS(calc = self.tip, atom_list = tip_atoms, shift = srf_alignv-bias).get_HS()
-        print 'shape of onsite tip', np.shape(self.h1), np.shape(self.s1)
+        print('shape of onsite tip', np.shape(self.h1), np.shape(self.s1))
         self.h2, self.s2 = Lead_HS(calc = self.srf, atom_list = srf_atoms, shift = tip_alignv).get_HS()        
-        print 'shape of onsite srf', np.shape(self.h2), np.shape(self.s2)
+        print('shape of onsite srf', np.shape(self.h2), np.shape(self.s2))
 
         #hamiltoian and overlap matrix of two tip and srf principle layers
         self.h10, self.s10 = Lead_HS(calc = self.tip_pl, atom_list = tip_pl_atoms, shift = tip_pl_alignv).get_HS() #2 and only 2 principle layers
-        print 'shape of pl tip', np.shape(self.h10), np.shape(self.s10) 
+        print('shape of pl tip', np.shape(self.h10), np.shape(self.s10)) 
         self.h20, self.s20 = Lead_HS(calc = self.srf_pl, atom_list = srf_pl_atoms, shift = -bias).get_HS() #2 and only 2 principle layers
-        print 'shape of pl srf', np.shape(self.h20), np.shape(self.s20)
+        print('shape of pl srf', np.shape(self.h20), np.shape(self.s20))
 
         nbf1, nbf2 = len(self.h1), len(self.h2)       #No. of basis functions of onsite tip and surface atoms
         pl1, pl2 = len(self.h10)/2, len(self.h20)/2   #No. of basis functions per principle layer of tip and srf
@@ -183,7 +183,7 @@ class STM:
         #periodic part of the tip
         hs1_dii = self.h10[:pl1, :pl1], self.s10[:pl1, :pl1]
         hs1_dij = self.h10[:pl1, pl1:2*pl1], self.s10[:pl1, pl1:2*pl1]
-        #coupling betwen per. and non. per part of the tip
+        #coupling between per. and non. per part of the tip
         h1_im = np.zeros((pl1, nbf1), complex)
         s1_im = np.zeros((pl1, nbf1), complex)
         h1_im[:pl1, :pl1], s1_im[:pl1, :pl1] = hs1_dij
@@ -192,7 +192,7 @@ class STM:
         #periodic part the surface 
         hs2_dii = self.h20[:pl2, :pl2], self.s20[:pl2, :pl2]
         hs2_dij = self.h20[pl2:2*pl2, :pl2], self.s20[pl2:2*pl2, :pl2]
-        #coupling betwen per. and non. per part of the surface
+        #coupling between per. and non. per part of the surface
         h2_im = np.zeros((pl2, nbf2), complex)
         s2_im = np.zeros((pl2, nbf2), complex)
         h2_im[-pl2:, -pl2:], s2_im[-pl2:, -pl2:] = hs2_dij
@@ -241,7 +241,7 @@ class STM:
                     V_12 = self.get_Vts(pos)
                     I = self.get_current(V_12)
                     self.current[px,py] = I
-                    print 'I = ', I
+                    print('I = ', I)
             return self.current
         if height is None:
             zmin_c = np.round(zmin/Bohr/self.srf.gd.h_c[2]).astype(int)
@@ -257,7 +257,7 @@ class STM:
                         # get current values
                         I = self.get_current(V_12)
                         self.current[px,py,pz-zmin_c] = I
-                        print I
+                        print(I)
             return self.current
 
 
@@ -290,7 +290,7 @@ class STM:
 
     def get_Vts(self, tip_pos):
         # tip_pos is in terms of grid points, showing the tip apex position respect to the surface grid
-        print 'tip_pos is', tip_pos
+        print('tip_pos is', tip_pos)
         tip_apex_c = self.tip_apex_c[0] 
         srf_pos_av = self.srf.atoms.get_positions() / Bohr
         srf_zmax = srf_pos_av[:,2].max()
@@ -348,7 +348,7 @@ class STM:
                         test_overlap1.append(overlap)
                         test_overlap2.append(overlap)
                 k = np.argmax(test_overlap2)
-                if test_overlap1[k] != None:
+                if test_overlap1[k] is not None:
                     V_ts[i1:i2, j1:j2] += (t|sk[k])
                     V_ts[i1:i2, j1:j2] += (t|V_couple|sf[k])
 
@@ -405,7 +405,7 @@ class STM:
         # get the extension of srf basis functions and effective potentials
         srf_extension = np.array([self.srf.gd.N_c[0], self.srf.gd.N_c[1], 0])
         self.srf_extension = srf_extension
-        print 'extension of surface in terms of grids:', srf_extension
+        print('extension of surface in terms of grids:', srf_extension)
         
         # get surface fucntions on small grid with periodic conditions with entension 
         self.srf_coupling_functions = []
@@ -529,7 +529,7 @@ class Lead_HS:
                         test_overlap1.append(overlap)
                         test_overlap2.append(overlap)
                 k = np.argmax(test_overlap2)
-                if test_overlap1[k] != None:
+                if test_overlap1[k] is not None:
                     self.H[i1:i2, j1:j2] += (s|sk[k])
                     self.H[i1:i2, j1:j2] += (s| ext_svt_G |sf[k])
                     self.S[i1:i2, j1:j2] += (s|sf[k])

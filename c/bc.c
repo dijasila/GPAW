@@ -6,10 +6,10 @@
 // Copyright (C) 2003  CAMP
 // Please see the accompanying LICENSE file for further information.
 
+#include "extensions.h"
+#include "bc.h"
 #include <string.h>
 #include <assert.h>
-#include "bc.h"
-#include "extensions.h"
 #include <stdio.h>
 #include <stdlib.h>
 

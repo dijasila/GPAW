@@ -7,6 +7,7 @@ from gpaw.utilities.mblas import multi_axpy
 from gpaw.utilities.blas import axpy
 from gpaw.utilities import unpack
 from gpaw.hs_operators import reshape
+from gpaw.xc.hybrid import HybridXC
 
 
 class Eigensolver:
@@ -22,8 +23,8 @@ class Eigensolver:
     def initialize(self, wfs):
         self.timer = wfs.timer
         self.world = wfs.world
-        self.kpt_comm = wfs.kpt_comm
-        self.band_comm = wfs.band_comm
+        self.kpt_comm = wfs.kd.comm
+        self.band_comm = wfs.bd.comm
         self.dtype = wfs.dtype
         self.bd = wfs.bd
         self.ksl = wfs.diagksl
@@ -69,8 +70,10 @@ class Eigensolver:
         implement *iterate_one_k_point* method for a single iteration of
         a single kpoint.
         """
-
+        
         if not self.initialized:
+            if isinstance(hamiltonian.xc, HybridXC):
+                self.blocksize = wfs.bd.mynbands
             self.initialize(wfs)
 
         error = 0.0
@@ -139,6 +142,7 @@ class Eigensolver:
         else:
             psit_nG = kpt.psit_nG
         P_ani = kpt.P_ani
+        dH_asp = hamiltonian.dH_asp
 
         if self.keep_htpsit:
             Htpsit_nG = reshape(self.Htpsit_nG, psit_nG.shape)
@@ -152,12 +156,10 @@ class Eigensolver:
                 result_xG = reshape(self.operator.work1_xG, psit_xG.shape)
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
                                          result_xG)
-            hamiltonian.xc.apply_orbital_dependent_hamiltonian(
-                kpt, psit_xG, result_xG, hamiltonian.dH_asp)
             return result_xG
 
         def dH(a, P_ni):
-            return np.dot(P_ni, unpack(hamiltonian.dH_asp[a][kpt.s]))
+            return np.dot(P_ni, unpack(dH_asp[a][kpt.s]))
 
         self.timer.start('calc_h_matrix')
         H_nn = self.operator.calculate_matrix_elements(psit_nG, P_ani,

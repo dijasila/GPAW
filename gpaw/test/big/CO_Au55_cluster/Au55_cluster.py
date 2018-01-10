@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atom, Atoms
 from ase.optimize.bfgslinesearch import BFGSLineSearch
 from ase.io import read
@@ -67,5 +68,5 @@ dyn6.run(fmax=0.02)
 e_cocluster_paw = cluster.get_potential_energy()
 
 #Print results
-print 'Adsorption energy of CO on Au cluster (lcao):', e_cocluster_lcao - e_CO_lcao - e_cluster_lcao
-print 'Adsorption energy of CO on Au cluster (paw):', e_cocluster_paw - e_CO_paw - e_cluster_paw
+print('Adsorption energy of CO on Au cluster (lcao):', e_cocluster_lcao - e_CO_lcao - e_cluster_lcao)
+print('Adsorption energy of CO on Au cluster (paw):', e_cocluster_paw - e_CO_paw - e_cluster_paw)

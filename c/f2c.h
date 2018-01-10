@@ -1,4 +1,4 @@
-/* Definitions needed by code transfered with f2c */
+/* Definitions needed by code transferred with f2c */
 #include <stdio.h>
 #include <math.h>
 

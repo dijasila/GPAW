@@ -88,7 +88,7 @@ Writing to separate files
 =========================
 
 In case of large files it is a good idea to write the wave functions
-into seperate files, this can be done in the following way::
+into separate files, this can be done in the following way::
 
   calc.attach(calc.write, n, 'xyz.gpw', mode='gpw:wfs_tmp/psit_Gs%dk%dn%d')
 

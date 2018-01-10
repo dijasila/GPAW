@@ -4,11 +4,9 @@
 Overview
 ========
 
-.. default-role:: math
-
 
 This document describes the most important objects used for a DFT calculation.
-More information can be found in the :epydoc:`API <gpaw>` or in the code.
+More information can be found in the :git:`code <>`.
 
 
 PAW
@@ -22,39 +20,37 @@ This object is the central object for a GPAW calculation::
                              ^        /    +-----------+
                              |    ----      +---------------+
                              |   /     ---->|InputParameters|
-     +-----+              +-----+     /     +---------------+     
-     |Atoms|<-------------| PAW |-----      
-     +-----+              +-----+     \          
+     +-----+              +-----+     /     +---------------+
+     |Atoms|<-------------| PAW |-----
+     +-----+              +-----+     \
                          /   |   \     \            +-----------+
       +-------------+   /    |    ---   ----------->|Occupations|
       |WaveFunctions|<--     v       \              +-----------+
-      +-------------+     +-------+   \   +-------+    
-                          |Density|    -->|SCFLoop|    
+      +-------------+     +-------+   \   +-------+
+                          |Density|    -->|SCFLoop|
                           +-------+       +-------+
 
-The implementation is in :svn:`gpaw/paw.py`.  The
+The implementation is in :git:`gpaw/paw.py`.  The
 :class:`~gpaw.paw.PAW` class doesn't do any part of the actual
 calculation - it only handles the logic of parsing the input
-parameters and setting up the neccesary objects for doing the actual
+parameters and setting up the necessary objects for doing the actual
 work (see figure above).
 
 
-A PAW instance has the following attributes: :attr:`atoms`,
-:attr:`input_parameters`, :attr:`wfs`, :attr:`density`,
-:attr:`hamiltonian`, :attr:`scf`, :attr:`forces`, :attr:`timer`,
-:attr:`occupations`, :attr:`initialized` and :attr:`observers`.
+A PAW instance has the following attributes: ``atoms``,
+``input_parameters``, ``wfs``, ``density``,
+``hamiltonian``, ``scf``, ``forces``, ``timer``,
+``occupations``, ``initialized`` and ``observers``.
 
 
 
 GPAW
 ====
 
-The :class:`~gpaw.aseinterface.GPAW` class
-(:svn:`gpaw/aseinterface.py`), which implements the :ase:`ASE calculator
-interface <ase/calculators/calculators.html#calculator-interface>`,
-inherits from the PAW class, and does unit conversion between GPAW's
-internal atomic units (`\hbar=e=m=1`) and :ase:`ASE's units <ase/units.html>`
-(Angstrom and eV)::
+The :class:`~gpaw.aseinterface.GPAW` class (:git:`gpaw/aseinterface.py`),
+which implements the ASE :ref:`ase:calculator interface`, inherits from the
+PAW class, and does unit conversion between GPAW's internal atomic units
+(`\hbar=e=m=1`) and ASE's :mod:`~ase.units` (Angstrom and eV)::
 
         gpaw          |    ase
   
@@ -174,17 +170,17 @@ objects.
    |BasisFunctions| |        +-------+  |         +----------+
    +--------------+ |        |Overlap|  |         |Projectors|
                     v        +-------+  |         +----------+
-     +------------------+               v                             
-     |TwoCenterIntegrals|     +---------------------+         
-     +------------------+     |KineticEnergyOperator|         
-                              +---------------------+         
+     +------------------+               v
+     |TwoCenterIntegrals|     +---------------------+
+     +------------------+     |KineticEnergyOperator|
+                              +---------------------+
 
-Attributes of the wave function object: :attr:`gd`, :attr:`nspins`,
-:attr:`nbands`, :attr:`mynbands`, :attr:`dtype`, :attr:`world`,
-:attr:`kpt_comm`, :attr:`band_comm`, :attr:`gamma`, :attr:`bzk_kc`,
-:attr:`ibzk_kc`, :attr:`weight_k`, :attr:`symmetry`, :attr:`kpt_comm`,
-:attr:`rank_a`, :attr:`nibzkpts`, :attr:`kpt_u`, :attr:`setups`,
-:attr:`ibzk_qc`, :attr:`eigensolver`, and :attr:`timer`.
+Attributes of the wave function object: ``gd``, ``nspins``,
+``nbands``, ``mynbands``, ``dtype``, ``world``,
+``kpt_comm``, ``band_comm``, ``gamma``, ``bzk_kc``,
+``ibzk_kc``, ``weight_k``, ``symmetry``, ``kpt_comm``,
+``rank_a``, ``nibzkpts``, ``kpt_u``, ``setups``,
+``ibzk_qc``, ``eigensolver``, and ``timer``.
         
 .. _overview_xc:
 
@@ -233,16 +229,14 @@ Example::
     # or, explicitly:
     xc = GGA(LibXC('GGA_X_PBE+GGA_C_PBE'))
 
-In this example, calling the
-:meth:`~gpaw.xc.gga.XCFunctional.calculate` method of the ``xc``
+
+In this example, calling the ``calculate`` method of the ``xc``
 object passing in a :class:`~gpaw.grid_descriptor.GridDescriptor`, an
 input density array and an output array for the potential, the
 :class:`~gpaw.xc.gga.GGA` object will calculate the gradient of the
 density and pass that and the density on to the libxc kernel.
 
 Refer to :ref:`manual_xc` for other examples.
-
-Updating libxc and adding new functionals is described at :ref:`updating_libxc`.
 
 GPAW also has a few non-libxc kernels that one can use like this::
 
@@ -320,11 +314,11 @@ Naming convention for arrays
 A few examples:
 
  =========== =================== ===========================================
- name        shape    
+ name        shape
  =========== =================== ===========================================
  ``spos_c``  ``(3,)``            **S**\ caled **pos**\ ition vector
  ``nt_sG``   ``(2, 24, 24, 24)`` Pseudo-density array
-                                 :math:`\tilde{n}_\sigma(\vec{r})`
+                                 `\tilde{n}_\sigma(\vec{r})`
                                  (``t`` means *tilde*):
                                  two spins, 24*24*24 grid points.
  ``cell_cv`` ``(3, 3)``          Unit cell vectors.
@@ -338,21 +332,21 @@ Commonly used indices:
  =======  ==================================================
  ``a``    Atom number
  ``c``    Unit cell axis-index (0, 1, 2)
- ``v``    *xyz*-index (0, 1, 2)                                    
+ ``v``    *xyz*-index (0, 1, 2)
  ``k``    **k**-point index
  ``q``    **k**-point index (local, i.e. it starts at 0 on each processor)
- ``s``    Spin index (:math:`\sigma`)                           
+ ``s``    Spin index (`\sigma`)
  ``u``    Combined spin and **k**-point index (local)
- ``G``    Three indices into the coarse 3D grid                     
- ``g``    Three indices into the fine 3D grid  
- ``M``    LCAO orbital index (:math:`\mu`)
- ``n``    Principal quantum number *or* band number        
+ ``G``    Three indices into the coarse 3D grid
+ ``g``    Three indices into the fine 3D grid
+ ``M``    LCAO orbital index (`\mu`)
+ ``n``    Principal quantum number *or* band number
  ``l``    Angular momentum quantum number (s, p, d, ...)
- ``m``    Magnetic quantum number (0, 1, ..., 2*l - 1)         
- ``L``    ``l`` and ``m`` (``L = l**2 + m``)                                
- ``j``    Valence orbital number (``n`` and ``l``)               
- ``i``    Valence orbital number (``n``, ``l`` and ``m``)            
- ``q``    ``j1`` and ``j2`` pair                                 
+ ``m``    Magnetic quantum number (0, 1, ..., 2*l - 1)
+ ``L``    ``l`` and ``m`` (``L = l**2 + m``)
+ ``j``    Valence orbital number (``n`` and ``l``)
+ ``i``    Valence orbital number (``n``, ``l`` and ``m``)
+ ``q``    ``j1`` and ``j2`` pair
  ``p``    ``i1`` and ``i2`` pair
  ``r``    CPU-rank
  =======  ==================================================
@@ -396,14 +390,14 @@ When using parallelization over spins, **k**-points, bands and domains,
 four different :ref:`MPI communicators <communicators>` are used:
 
 * *mpi.world*
-   Communicator containing all processors. 
+   Communicator containing all processors.
 * *domain_comm*
-   One *domain_comm* communicator contains the whole real space 
+   One *domain_comm* communicator contains the whole real space
    domain for a selection of the spin/k-point pairs and bands.
-* *kpt_comm* 
-   One *kpt_comm* communicator contains all k-points and spin 
+* *kpt_comm*
+   One *kpt_comm* communicator contains all k-points and spin
    for a selection of bands over part of the real space domain.
-* *band_comm* 
+* *band_comm*
    One *band_comm* communicator contains all bands for a selection
    of k-points and spins over part of the real space domain.
 
@@ -416,7 +410,7 @@ a *domain_comm* rank of zero signifies that the processor is first in
 the group, hence it functions as a domain master.
 
 For an example on how to use an MPI communicator to perform simple
-data communication, please refer to :svn:`~doc/devel/parallelization.py`.
+data communication, please refer to :git:`~doc/devel/parallelization.py`.
 
 To investigate the way GPAW distributes calculated quantities across the
 various MPI groups, simulating an MPI run can be done using ``gpaw-mpisim``::
@@ -449,14 +443,10 @@ various MPI groups, simulating an MPI run can be done using ``gpaw-mpisim``::
 
 
 
-For the case of a :math:`\Gamma`-point calculation without band-parallelization,
-all parallel communication is done in the one *domain_comm* communicator, 
+For the case of a `\Gamma`-point calculation without band-parallelization,
+all parallel communication is done in the one *domain_comm* communicator,
 which in this case is equal to *mpi.world*.
 
 .. [1] J J. Mortensen and L. B. Hansen and K. W. Jacobsen,
        Phys. Rev. B 71 (2005) 035109.
 .. [2] C. Rostgaard, `The Projector Augmented Wave Method <../paw_note.pdf>`_.
-
-
-
-.. default-role::

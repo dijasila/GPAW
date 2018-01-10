@@ -42,8 +42,10 @@ class IncrementalWriter(Writer):
         if array is not None:
             self.fill(array)
 
-    def next(self):
+    def __next__(self):
         self.dims[self._iterkey] += self.dims[self._partkey]
+        
+    next = __next__  # for Python 2
 
     def close(self):
         partdim = '    <dimension length="%s" name="%s"/>' % \

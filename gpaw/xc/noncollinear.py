@@ -5,7 +5,7 @@ import numpy as np
 from gpaw.xc.functional import XCFunctional
 from gpaw.xc.lda import LDA
 from gpaw.xc.libxc import LibXC
-from gpaw.lcao.eigensolver import LCAO
+from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.utilities import unpack
 from gpaw.utilities.blas import gemm
@@ -224,7 +224,7 @@ class NonCollinearFunctional(XCFunctional):
         return e_g, dedn_g, dedm_vg
 
 
-class NonCollinearLCAOEigensolver(LCAO):
+class NonCollinearLCAOEigensolver(DirectLCAO):
     def calculate_hamiltonian_matrix(self, ham, wfs, kpt, root=-1):
 
         assert self.has_initialized
@@ -275,7 +275,8 @@ class NonCollinearLCAOEigensolver(LCAO):
         Mstop = wfs.basis_functions.Mstop
         wfs.timer.stop('Atomic Hamiltonian')
         tri2full(H_MM)
-        for a, P_Mi in kpt.P_aMi.items():
+        for a, P_qMi in wfs.P_aqMi.items():
+            P_Mi = P_qMi[kpt.q]
             dH_ii = np.asarray(unpack(dH_asp[a][s]), wfs.dtype)
             dHP_iM = np.zeros((dH_ii.shape[1], P_Mi.shape[0]), wfs.dtype)
             # (ATLAS can't handle uninitialized output array)
@@ -317,8 +318,8 @@ class NonCollinearLCAOWaveFunctions(LCAOWaveFunctions):
     collinear = False
     ncomp = 2
 
-    def set_positions(self, spos_ac):
-        LCAOWaveFunctions.set_positions(self, spos_ac)
+    def set_positions(self, spos_ac, atom_partition):
+        LCAOWaveFunctions.set_positions(self, spos_ac, atom_partition)
         for kpt in self.kpt_u:
             kpt.C_nM = None
             kpt.C_nsM = np.empty((self.bd.mynbands, 2, self.ksl.nao), complex)
@@ -347,7 +348,7 @@ class NonCollinearLCAOWaveFunctions(LCAOWaveFunctions):
             self.basis_functions.construct_density(rho_MM, nt_G, kpt.q)
 
     def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
-        P_Mi = kpt.P_aMi[a]
+        P_Mi = self.P_aqMi[a][kpt.q]
         rhoP_Mi = np.zeros_like(P_Mi)
         D0_ii = np.zeros(D_sii[0].shape, self.dtype)
         for rho_MM, D_ii in zip(kpt.rho_sMM, D_sii):

@@ -21,28 +21,28 @@ class NiflheimCluster(Cluster):
             if job.ncpus < 4:
                 ppn = '%d:opteron4' % job.ncpus
                 nodes = 1
-                arch = 'linux-x86_64-x3455-2.6'
+                arch = 'linux-x86_64-x3455-el6'
             elif job.ncpus % 16 == 0:
                 ppn = '16:xeon16'
                 nodes = job.ncpus // 16
-                arch = 'linux-x86_64-sl230s-2.6'
+                arch = 'linux-x86_64-sl230s-el6'
             elif job.ncpus % 8 == 0:
                 ppn = '8:xeon8'
                 nodes = job.ncpus // 8
-                arch = 'linux-x86_64-dl160g6-2.6'
+                arch = 'linux-x86_64-dl160g6-el6'
             else:
                 assert job.ncpus % 4 == 0
                 ppn = '4:opteron4'
                 nodes = job.ncpus // 4
-                arch = 'linux-x86_64-x3455-2.6'
+                arch = 'linux-x86_64-x3455-el6'
             queueopts = '-l nodes=%d:ppn=%s' % (nodes, ppn)
         else:
             queueopts = job.queueopts
             # the oldest, hopefully (?) common platform
-            arch = 'linux-x86_64-x3455-2.6'
+            arch = 'linux-x86_64-x3455-el6'
 
         gpaw_python = os.path.join(dir, 'gpaw', 'build',
-                                   'bin.' + arch, 'gpaw-python')
+                                   'bin.' + arch + '-2.6', 'gpaw-python')
 
         submit_pythonpath = ':'.join([
             self.asepath,
@@ -53,11 +53,14 @@ class NiflheimCluster(Cluster):
         run_command = '. /home/opt/modulefiles/modulefiles_el6.sh&& '
         run_command += 'module load NUMPY/1.7.1-1&& '
         run_command += 'module load SCIPY/0.12.0-1&& '
+        run_command += 'module load MATPLOTLIB/1.4.0-1&& '
         run_command += 'module load povray&& '
+        run_command += 'module load bader&& '
         run_command += 'module load ABINIT&& '
         run_command += 'module load DACAPO&& '
         run_command += 'module load SCIENTIFICPYTHON&& '
         run_command += 'module load NWCHEM&& '
+        run_command += 'module load AIMS&& '
         # force gpaw/gpaw/fftw.py to use the right libfftw3.so
         # see https://listserv.fysik.dtu.dk/pipermail/gpaw-developers/2012-July/003045.html
         if 0:  # libfftw3.so crashes
@@ -91,6 +94,7 @@ class NiflheimCluster(Cluster):
             run_command += ' PATH=%s/gpaw/build/bin.%s:$PATH' % (dir, arch) + '&&'
             # we run other codes with asec
             run_command += ' export ASE_ABINIT_COMMAND="mpiexec abinit < PREFIX.files > PREFIX.log"&&'
+            run_command += ' export ASE_AIMS_COMMAND="mpiexec ${AIMS_COMMAND} > aims.out"&&'
         else:
             run_command += 'module load intel-compilers&& '
             run_command += 'module load openmpi&& '

@@ -4,7 +4,7 @@
 Plane wave mode and Stress tensor
 ==========================================================
 
-The major advantage of running DFT calculations on a real space grid, is a very efficient paralleliation scheme when dealing with large systems. However, for small systems it is often faster to use a plane wave basis set instead. In this case all quantities are represented by their Fourier transforms on the periodic super cell and periodic boundary conditions are required. In grid mode, the key convergence parameter is the grid spacing `h`, whereas in planewave mode the corresponding parameter is `E_{cut}=G_{cut}^2/2` (in atomic units). `G_{cut}` determines the maximum size of reciprocal lattice vectors to be included in the plane wave expansion.  
+The major advantage of running DFT calculations on a real space grid, is a very efficient parallelization scheme when dealing with large systems. However, for small systems it is often faster to use a plane wave basis set instead. In this case all quantities are represented by their Fourier transforms on the periodic super cell and periodic boundary conditions are required. In grid mode, the key convergence parameter is the grid spacing `h`, whereas in planewave mode the corresponding parameter is `E_{cut}=G_{cut}^2/2` (in atomic units). `G_{cut}` determines the maximum size of reciprocal lattice vectors to be included in the plane wave expansion.  
 
 Converging the plane wave cutoff
 -------------------------------------
@@ -20,16 +20,24 @@ What grid spacing is needed in order to converge the total energy to within 5 me
 Optimizing the unit cell
 ------------------------
 
+**Warning**: due to difficulties in optimizing cell and positions simultaneously
+:class:`ase.constraints.UnitCellFilter` may produce
+incorrect results. Always verify obtained structures by means of
+performing separate cell
+(see :class:`ase.constraints.StrainFilter`)
+and positions optimizations (see :mod:`ase.optimize`).
+Consider much more tighter fmax than the one used in this tutorial!
+
 In the :ref:`aluminium_exercise` exercise the lattice constant of bulk Al was found by calculating the total energy at various lattice distances. A nice feature e of the plane wave mode is that it allows a simple implementation of the stress tensor, which can be used to optimize unit unit cells of periodic systems directly. The following script performs such an optimization for bulk Si.
 
 .. literalinclude:: stress.py
 
-The calculation uses 12 iterations to find the optimal lattice constant and the relaxation can be viewed with the command line tool ag:
+The calculation uses 12 iterations to find the optimal lattice constant and the relaxation can be viewed with the command line tool ase-gui:
 
 .. highlight:: bash
 
 ::
 
-  $ ag stress.txt
+  $ ase-gui stress.txt
 
 Since we know the experimental lattice constant, we could probably have calculated the PBE lattice constant faster by fitting a parabola to five points in the vicinity of the expermental lattice constant. However, for complicated unit cells with more than one lattice parameter, the stress tensor becomes a highly valuable tool.

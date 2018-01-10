@@ -8,21 +8,21 @@ helper functins for parallel domain decomposition.  """
 
 import numpy as np
 
-UNIFORM = False# distribute grid points uniformly
-               # XXX import this from gpaw.extra_parameters dict ?
+UNIFORM = False  # distribute grid points uniformly
+                 # XXX import this from gpaw.extra_parameters dict ?
 
 
 class Domain:
     """Domain class.
 
-    A ``Domain`` object (in `domain.py`) holds informaion on the unit
+    A ``Domain`` object (in domain.py) holds informaion on the unit
     cell and the boundary conditions"""
 
-    def __init__(self, cell, pbc, comm, parsize, N_c):
+    def __init__(self, cell, pbc, comm, parsize_c, N_c):
         """Create Domain object from a unit cell and boundary conditions.
 
         The arguments are the lengths of the three axes, followed by a
-        tuple of three periodic-boundary condition flags (``bool``'s).
+        tuple of three periodic-boundary condition flags (``bool``s).
 
         Parallel stuff:
          =============== ==================================================
@@ -45,15 +45,13 @@ class Domain:
         self.icell_cv = np.linalg.inv(self.cell_cv).T
         self.xxxucell_cv = np.array([self.cell_cv[x] / cell_c[x]
                                      for x in range(3)])
-        self.xxxiucell_cv = np.linalg.inv(self.xxxucell_cv.T) # Jacobian
+        self.xxxiucell_cv = np.linalg.inv(self.xxxucell_cv.T)  # Jacobian
 
         self.pbc_c = np.asarray(pbc, bool)
 
-        if type(parsize) is int:
+        if isinstance(parsize_c, int):
+            assert parsize_c == comm.size
             parsize_c = None
-            assert parsize == comm.size
-        else:
-            parsize_c = parsize
 
         self.set_decomposition(comm, parsize_c, N_c)
 
@@ -74,27 +72,17 @@ class Domain:
         self.parsize_c = np.array(parsize_c)
 
         self.stride_c = np.array([parsize_c[1] * parsize_c[2],
-                                   parsize_c[2],
-                                   1])
+                                  parsize_c[2],
+                                  1])
 
         if np.product(self.parsize_c) != self.comm.size:
-            raise RuntimeError('Bad domain decomposition!')
+            raise RuntimeError('Bad domain decomposition! '
+                               'CPU counts %s do not multiply to '
+                               'communicator size %d' % (self.parsize_c,
+                                                         self.comm.size))
 
         self.parpos_c = self.get_processor_position_from_rank()
         self.find_neighbor_processors()
-
-    def scale_position(self, pos_v):
-        """Return scaled position.
-
-        Return array with the coordinates scaled to the interval [0,
-        1)."""
-
-        spos_c = np.linalg.solve(self.cell_cv.T, pos_v)
-
-        for c in range(3):
-            if self.pbc_c[c]:
-                spos_c[c] %= 1.0
-        return spos_c
 
     def get_ranks_from_positions(self, spos_ac):
         """Calculate rank of domain containing scaled position."""
@@ -104,11 +92,11 @@ class Domain:
         return np.dot(rnk_ac, self.stride_c)
 
     def get_rank_from_position(self, spos_c):
-        """Calculate rank of domain containing scaled position."""
-        # XXX just return self.get_ranks_from_positions(spos_c)
-        rnk_c = np.floor(spos_c * self.parsize_c).astype(int)
-        assert (rnk_c >= 0).all() and (rnk_c < self.parsize_c).all()
-        return np.dot(rnk_c, self.stride_c)
+        return self.get_ranks_from_positions(np.array([spos_c]))[0]
+
+    def get_rank_from_processor_position(self, parpos_c):
+        return parpos_c[2] + self.parsize_c[2] * \
+            (parpos_c[1] + self.parsize_c[1] * parpos_c[0])
 
     def get_processor_position_from_rank(self, rank=None):
         """Calculate position of a domain in the 3D grid of all domains."""
@@ -151,25 +139,25 @@ class Domain:
                         self.neighbor_cd[c, d] = -1
 
 
-def decompose_domain(ng, p):
+def decompose_domain(ngpts_c, ncores):
     """Determine parsize based on grid size and number of processors.
 
     If global variable UNIFORM is True, the returned parsize will
     result in a uniform distribution of gridpoints amongst processors.
-    
+
     If UNIFORM is False, the returned parsize may result in a variable
     number of points on each cpu.
     """
-    if p == 1:
+    if ncores == 1:
         return (1, 1, 1)
-    n1, n2, n3 = ng
-    plist = prims(p)
+    n1, n2, n3 = ngpts_c
+    plist = prims(ncores)
     pdict = {}
     for n in plist:
         pdict[n] = 0
     for n in plist:
         pdict[n] += 1
-    candidates = factorizations(pdict.items())
+    candidates = factorizations(list(pdict.items()))
     mincost = 10000000000.0
     best = None
     for p1, p2, p3 in candidates:
@@ -191,8 +179,8 @@ def decompose_domain(ng, p):
             mincost = cost
             best = (p1, p2, p3)
     if best is None:
-        raise RuntimeError("Can't decompose a %dx%dx%d grid on %d cpu's!" %
-                           (n1, n2, n3, p))
+        raise RuntimeError("Can't decompose a %dx%dx%d grid on %d CPUs!" %
+                           (n1, n2, n3, ncores))
     return best
 
 
@@ -216,6 +204,7 @@ primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,
           59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113,
           127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181,
           191, 193, 197, 199]
+
 
 def prims(p):
     if p == 1:

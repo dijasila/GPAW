@@ -1,3 +1,4 @@
+from __future__ import print_function
 import pickle
 import numpy as np
 from gpaw.mpi import world
@@ -27,7 +28,7 @@ g0 = NonEqNonIntGreenFunction(hmat, left, right, E_Fermi=fermi,
                               energies=energies)
 g0.SetInfinitesimal(2*de) 
 Ntot = g0.GetTotalParticleNumber()
-if world.rank==0: print 'Total electron number:', Ntot
+if world.rank==0: print('Total electron number:', Ntot)
 se_null = NonEqConstantSelfEnergy(g0, np.zeros((6, 6), complex), 'null')
 se_ion = NonEqConstantSelfEnergy(g0, ion_shift, 'shift')
 se_hartree = Hartree2index(g0, V, initialhartree=np.zeros((6, 6), complex))

@@ -4,8 +4,6 @@
 The residual minimization method
 ================================
 
-.. default-role:: math
-
 Algorithm
 ---------
 
@@ -108,6 +106,3 @@ References
    Phys. Rev. B 52, R5471 (1995),
    "Large Scale Electronic Structure Calculations with Multigrid
    Acceleration"
-
-
-.. default-role::

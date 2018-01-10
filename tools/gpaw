@@ -1,6 +1,3 @@
 #!/usr/bin/env python
-# Emacs: treat this as -*- python -*-
-
-import gpaw
-from ase.tasks.main import run
-run(calcname='gpaw')
+from gpaw.cli.main import main
+main()

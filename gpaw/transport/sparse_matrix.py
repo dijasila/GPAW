@@ -1,15 +1,14 @@
-from gpaw.utilities import unpack
 import numpy as np
-from gpaw.mpi import world, rank
-from gpaw.utilities.blas import gemm
-from gpaw.utilities.timing import Timer
+
+from ase.utils.timing import Timer
+
 from gpaw.utilities.lapack import inverse_general
 from gpaw.transport.tools import get_matrix_index, collect_lead_mat, dot
 import copy
-import _gpaw
+
 
 class Banded_Sparse_HSD:
-    #for lead's hamiltonian, overlap, and density matrix
+    # for lead's hamiltonian, overlap, and density matrix
     def __init__(self, dtype, ns, npk, index=None):
         self.band_index = index
         self.dtype = dtype
@@ -27,7 +26,7 @@ class Banded_Sparse_HSD:
                 self.H[s].append([])
                 self.D[s].append([])
         for k in range(npk):
-            self.S.append([])        
+            self.S.append([])
 
     def reset(self, s, pk, mat, flag='S', init=False):
         assert mat.dtype == self.dtype
@@ -38,20 +37,21 @@ class Banded_Sparse_HSD:
         elif flag == 'D':
             spar = self.D[s]
         if not init:
-            spar[pk].reset(mat)            
-        elif self.band_index != None:
+            spar[pk].reset(mat)
+        elif self.band_index is not None:
             spar[pk] = Banded_Sparse_Matrix(self.dtype, mat, self.band_index)
         else:
             spar[pk] = Banded_Sparse_Matrix(self.dtype, mat)
             self.band_index = spar[pk].band_index
-       
+      
+            
 class Banded_Sparse_Matrix:
     def __init__(self, dtype, mat=None, band_index=None, tol=1e-9):
         self.tol = tol
         self.dtype = dtype
         self.band_index = band_index
-        if mat != None:
-            if band_index == None:
+        if mat is not None:
+            if band_index is None:
                 self.initialize(mat)
             else:
                 self.reset(mat)
@@ -80,11 +80,11 @@ class Banded_Sparse_Matrix:
             #ku -= 1
             #kl -= 1
             ku = dim
-	    kl = dim
+            kl = dim
    
             # storage in the tranpose, bacause column major order for zgbsv_ function
-            length = (kl + ku + 1) * dim - kl * (kl + 1) / 2. - \
-                                                ku * (ku + 1) / 2.
+            length = ((kl + ku + 1) * dim - kl * (kl + 1) // 2 -
+                      ku * (ku + 1) // 2)
             
             self.spar = np.zeros([length], self.dtype)
                 
@@ -107,7 +107,7 @@ class Banded_Sparse_Matrix:
                     index0[j, 2 * kl + i] = n
                     n += 1
             
-            index1 = np.array(index1)        
+            index1 = np.array(index1)
             index2 = np.array(index2)
             
             self.band_index = (kl, ku, index0, index1, index2)
@@ -118,7 +118,7 @@ class Banded_Sparse_Matrix:
         index1 ,index2 = self.band_index[-2:]
         for i in range(len(index1)):
             if index1[i] == n1 and index2[i] == n2:
-                print i
+                print(i)
                 
     def recover(self):
         index0, index1, index2 = self.band_index[-3:]
@@ -134,7 +134,7 @@ class Banded_Sparse_Matrix:
 
     def reset_from_others(self, bds_mm1, bds_mm2, c1, c2):
         assert self.dtype == complex
-        self.spar = c1 * bds_mm1.spar + c2 * bds_mm2.spar 
+        self.spar = c1 * bds_mm1.spar + c2 * bds_mm2.spar
             
     def reset_minus(self, mat, full=False):
         assert self.dtype == complex
@@ -150,13 +150,13 @@ class Banded_Sparse_Matrix:
         if full:
             self.spar += mat[index1, index2]
         else:
-            self.spar += mat.recover()[index1, index2]           
+            self.spar += mat.recover()[index1, index2]
 
     def test_inv_speed(self):
         full_mat = self.recover()
         timer = Timer()
         timer.start('full_numpy')
-        tmp0 = np.linalg.inv(full_mat)
+        np.linalg.inv(full_mat)
         timer.stop('full_numpy')
         
         timer.start('full_lapack')
@@ -171,12 +171,12 @@ class Banded_Sparse_Matrix:
         methods = ['full_numpy', 'full_lapack', 'sparse_lapack']
         for name in methods:
             time = timer.timers[name,]
-            print name, time
+            print(name, time)
             times.append(time)
         
         mintime = np.min(times)
         self.inv_method = methods[np.argmin(times)]
-        print 'mintime', mintime
+        print('mintime', mintime)
                 
     def inv(self):
         #kl, ku, index0 = self.band_index[:3]
@@ -185,7 +185,7 @@ class Banded_Sparse_Matrix:
         #ldab = 2*kl + ku + 1
         #source_mat = self.spar[index0]
         #assert source_mat.flags.contiguous
-        #info = _gpaw.linear_solve_band(source_mat, inv_mat, kl, ku)            
+        #info = _gpaw.linear_solve_band(source_mat, inv_mat, kl, ku)
         #return inv_mat
         return np.linalg.inv(self.recover()).copy()
        
@@ -223,7 +223,7 @@ class Tp_Sparse_HSD:
             spar = self.D[s]
         if not init:
             spar[pk].reset(mat)
-        elif self.band_indices == None:
+        elif self.band_indices is None:
             spar[pk] = Tp_Sparse_Matrix(self.dtype, self.ll_index, mat,
                                                           None, self.extended)
             self.band_indices = spar[pk].band_indices
@@ -231,22 +231,36 @@ class Tp_Sparse_HSD:
             spar[pk] = Tp_Sparse_Matrix(self.dtype, self.ll_index, mat,
                                              self.band_indices, self.extended)
 
-    def append_lead_as_buffer(self, lead_hsd, lead_couple_hsd, ex_index):
+    def append_lead_as_buffer(self, lead_hsd, lead_couple_hsd, ex_index, tp=None):
         assert self.extended == True
         clm = collect_lead_mat
+        if tp is not None:
+            tp.log('append_lead_as_buffer(), npk : {0}  ns : {1}'.format(self.npk, self.ns))
         for pk in range(self.npk):
-            diag_h, upc_h, dwnc_h = clm(lead_hsd, lead_couple_hsd, 0, pk)    
+            if tp is not None:
+                tp.log('append_lead_as_buffer(), pk : {0}'.format(pk))
+            diag_h, upc_h, dwnc_h = clm(lead_hsd, lead_couple_hsd, 0, pk)
             self.S[pk].append_ex_mat(diag_h, upc_h, dwnc_h, ex_index)
             for s in range(self.ns):
+                if tp is not None:
+                    tp.log('append_lead_as_buffer(), s : {0}'.format(s))
+                    tp.log('    clm()')
                 diag_h, upc_h, dwnc_h = clm(lead_hsd,
-                                                  lead_couple_hsd, s, pk, 'H')              
-                self.H[s][pk].append_ex_mat(diag_h, upc_h, dwnc_h, ex_index)                    
+                                                  lead_couple_hsd, s, pk, 'H')
+                if tp is not None:
+                    tp.log('    append_ex_mat()')
+                self.H[s][pk].append_ex_mat(diag_h, upc_h, dwnc_h, ex_index)
+                if tp is not None:
+                    tp.log('    clm()')
                 diag_h, upc_h, dwnc_h = clm(lead_hsd,
-                                                  lead_couple_hsd, s, pk, 'D')                 
-                self.D[s][pk].append_ex_mat(diag_h, upc_h, dwnc_h, ex_index)                 
+                                                  lead_couple_hsd, s, pk, 'D')
+                if tp is not None:
+                    tp.log('    append_ex_mat()')
+                self.D[s][pk].append_ex_mat(diag_h, upc_h, dwnc_h, ex_index, tp=tp)
   
     def calculate_eq_green_function(self, zp, sigma, ex=True, full=False):
         s, pk = self.s, self.pk
+        #print('calculate_eq_green_function() s: {0} pk : {1}'.format(s,pk))
         self.G.reset_from_others(self.S[pk], self.H[s][pk], zp, -1, init=True)
         self.G.substract_sigma(sigma)
         if full:
@@ -257,7 +271,7 @@ class Tp_Sparse_HSD:
             return self.G.recover(ex)
 
     def calculate_ne_green_function(self, zp, sigma, ffocc, ffvir, ex=True):
-        s, pk = self.s, self.pk        
+        s, pk = self.s, self.pk
         self.G.reset_from_others(self.S[pk], self.H[s][pk], zp, -1)
         self.G.substract_sigma(sigma)
         gammaocc = []
@@ -265,21 +279,21 @@ class Tp_Sparse_HSD:
         for ff0, ff1, tgt in zip(ffocc, ffvir, sigma):
             full_tgt = tgt.recover()
             gammaocc.append(ff0 * 1.j * (full_tgt - full_tgt.T.conj()))
-            gammavir.append(ff1 * 1.j * (full_tgt - full_tgt.T.conj()))            
+            gammavir.append(ff1 * 1.j * (full_tgt - full_tgt.T.conj()))
         glesser, ggreater = self.G.calculate_non_equilibrium_green(gammaocc,
                                                                 gammavir, ex)
         return glesser, ggreater
 
     def abstract_sub_green_matrix(self, zp, sigma, l1, l2, inv_mat=None):
-        if inv_mat == None:
-            s, pk = self.s, self.pk        
+        if inv_mat is None:
+            s, pk = self.s, self.pk
             self.G.reset_from_others(self.S[pk], self.H[s][pk], zp, -1)
-            self.G.substract_sigma(sigma)            
+            self.G.substract_sigma(sigma)
             inv_mat = self.G.inv_ne()
             gr_sub = inv_mat[l2][l1][-1]
             return gr_sub, inv_mat
         else:
-            gr_sub = inv_mat[l2][l1][-1]            
+            gr_sub = inv_mat[l2][l1][-1]
             return gr_sub
        
 class Tp_Sparse_Matrix:
@@ -294,9 +308,9 @@ class Tp_Sparse_Matrix:
         self.dtype = dtype
         self.initialize()
         self.band_indices = band_indices
-        if self.band_indices == None:
+        if self.band_indices is None:
             self.initialize_band_indices()
-        if mat != None:
+        if mat is not None:
             self.reset(mat, True)
         
     def initialize_band_indices(self):
@@ -309,7 +323,7 @@ class Tp_Sparse_Matrix:
     def initialize(self):
     # diag_h : diagonal lead_hamiltonian
     # upc_h : superdiagonal lead hamiltonian
-    # dwnc_h : subdiagonal lead hamiltonian 
+    # dwnc_h : subdiagonal lead hamiltonian
         self.diag_h = []
         self.upc_h = []
         self.dwnc_h = []
@@ -332,7 +346,7 @@ class Tp_Sparse_Matrix:
                 self.ex_lead_nlayer.append(len(self.ll_index[i]))
             
             assert (self.ll_index[i][0] == self.mol_index).all()
-            self.nl += self.lead_nlayer[i] - 1       
+            self.nl += self.lead_nlayer[i] - 1
             
             for j in range(self.lead_nlayer[i] - 1):
                 self.diag_h[i].append([])
@@ -343,20 +357,35 @@ class Tp_Sparse_Matrix:
                 self.length += 2 * len1 * len2 + len2 * len2
                 self.nb += len2
             
-            if self.extended:                
+            if self.extended:
                 self.diag_h[i].append([])
                 self.upc_h[i].append([])
                 self.dwnc_h[i].append([])
         self.ex_nb = self.nb
 
-    def append_ex_mat(self, diag_h, upc_h, dwnc_h, ex_index):
+    def append_ex_mat(self, diag_h, upc_h, dwnc_h, ex_index, tp=None):
         assert self.extended
+        if tp is not None:
+            tp.log('        append_ex_mat()')
         for i in range(self.lead_num):
+            if tp is not None:
+                tp.log('        append_ex_mat() i: {0}'.format(i))
             self.diag_h[i][-1] = diag_h[i]
+            if tp is not None:
+                tp.log('        append_ex_mat() diag_h')
             self.upc_h[i][-1] = upc_h[i]
+            if tp is not None:
+                tp.log('        append_ex_mat() upc_h')
             self.dwnc_h[i][-1] = dwnc_h[i]
+            if tp is not None:
+                tp.log('        append_ex_mat() dwnc_h')
             self.ex_ll_index[i].append(ex_index[i])
+            if tp is not None:
+                tp.log('        append_ex_mat() .append')
             self.ex_nb += len(ex_index[i])
+            if tp is not None:
+                tp.log('        append_ex_mat() += len()')
+            
   
     def abstract_layer_info(self):
         self.basis_to_layer = np.empty([self.nb], int)
@@ -372,8 +401,8 @@ class Tp_Sparse_Matrix:
                     self.basis_to_layer[k] = nl
                 nl += 1
 
-        nl = 1                 
-        for i in range(self.lead_num):        
+        nl = 1
+        for i in range(self.lead_num):
             self.neighbour_layers[0][i] = nl
             first = nl
             for j in range(self.lead_nlayer[i] - 1):
@@ -384,7 +413,7 @@ class Tp_Sparse_Matrix:
                 else:
                     self.neighbour_layers[nl][0] = nl - 1
                     if j != self.lead_nlayer[i] - 2:
-                        self.neighbour_layers[nl][1] = nl + 1                    
+                        self.neighbour_layers[nl][1] = nl + 1
                 nl += 1
               
     def reset(self, mat, init=False):
@@ -393,8 +422,8 @@ class Tp_Sparse_Matrix:
         if init:
             self.mol_h = Banded_Sparse_Matrix(self.dtype, mat[ind.T, ind],
                                                self.band_indices[0])
-            if self.band_indices[0] == None:
-                self.band_indices[0] = self.mol_h.band_index            
+            if self.band_indices[0] is None:
+                self.band_indices[0] = self.mol_h.band_index
         else:
             self.mol_h.reset(mat[ind.T, ind])
 
@@ -410,7 +439,7 @@ class Tp_Sparse_Matrix:
                     self.diag_h[i][j] = Banded_Sparse_Matrix(self.dtype,
                                                              mat[ind1.T, ind1],
                                                  self.band_indices[i + 1][j])
-                    if self.band_indices[i + 1][j] == None:
+                    if self.band_indices[i + 1][j] is None:
                         self.band_indices[i + 1][j] = \
                                                   self.diag_h[i][j].band_index
                 else:
@@ -420,6 +449,7 @@ class Tp_Sparse_Matrix:
        
     def reset_from_others(self, tps_mm1, tps_mm2, c1, c2, init=False):
         #self.mol_h = c1 * tps_mm1.mol_h + c2 * tps_mm2.mol_h
+        #print('reset_from_others {0}  {1}'.format(tps_mm1, tps_mm2))
         if init:
             self.mol_h = Banded_Sparse_Matrix(complex)
         
@@ -460,7 +490,7 @@ class Tp_Sparse_Matrix:
         else:
             nb = self.nb
             lead_nlayer = self.lead_nlayer
-            ll_index = self.ll_index            
+            ll_index = self.ll_index
         
         mat = np.zeros([nb, nb], self.dtype)
         ind = get_matrix_index(ll_index[0][0])
@@ -473,11 +503,11 @@ class Tp_Sparse_Matrix:
                 ind = gmi(ll_index[i][j])
                 ind1 = gmi(ll_index[i][j + 1])
                 indr1, indc1 = gmi(ll_index[i][j], ll_index[i][j + 1])
-                indr2, indc2 = gmi(ll_index[i][j + 1], ll_index[i][j])                
+                indr2, indc2 = gmi(ll_index[i][j + 1], ll_index[i][j])
                 mat[ind1.T, ind1] = self.diag_h[i][j].recover()
                 mat[indr1, indc1] = self.upc_h[i][j]
                 mat[indr2, indc2] = self.dwnc_h[i][j]
-        return mat        
+        return mat
 
     def test_inv_eq(self, tol=1e-9):
         tp_mat = copy.deepcopy(self)
@@ -487,23 +517,23 @@ class Tp_Sparse_Matrix:
             mol_h += dot(tp_mat.upc_h[i][0], self.dwnc_h[i][0])
         diff = np.max(abs(mol_h - np.eye(mol_h.shape[0])))
         if diff > tol:
-            print 'warning, mol_diff', diff
+            print('warning, mol_diff', diff)
         for i in range(self.lead_num):
             for j in range(self.lead_nlayer[i] - 2):
                 diag_h = dot(tp_mat.diag_h[i][j].recover(),
                                                   self.diag_h[i][j].recover())
                 diag_h += dot(tp_mat.dwn_h[i][j], self.upc_h[i][j])
-                diag_h += dot(tp_mat.upc_h[i][j + 1], self.dwnc_h[i][j + 1])                
+                diag_h += dot(tp_mat.upc_h[i][j + 1], self.dwnc_h[i][j + 1])
                 diff = np.max(abs(diag_h - np.eye(diag_h.shape[0])))
                 if diff > tol:
-                    print 'warning, diag_diff', i, j, diff
+                    print('warning, diag_diff', i, j, diff)
             j = self.lead_nlayer[i] - 2
             diag_h = dot(tp_mat.diag_h[i][j].recover(),
                                                   self.diag_h[i][j].recover())
             diag_h += dot(tp_mat.dwnc_h[i][j], self.upc_h[i][j])
             diff = np.max(abs(diag_h - np.eye(diag_h.shape[0])))
             if diff > tol:
-                print 'warning, diag_diff', i, j, diff            
+                print('warning, diag_diff', i, j, diff)
                                                 
     def inv_eq(self):
         q_mat = []
@@ -570,7 +600,7 @@ class Tp_Sparse_Matrix:
                 nll_j = self.lead_nlayer[j]
                 for k in range(nll_j - 1):
                     inv_mat[i][j].append([])
-            inv_mat[i].append([])                
+            inv_mat[i].append([])
             
             end = nll - 2
             q_mat[i][end] =  self.diag_h[i][end].inv()
@@ -625,7 +655,7 @@ class Tp_Sparse_Matrix:
                                                  inv_mat[i][i][j + 1])
             inv_mat[i][self.lead_num] = -self.dotdot(qi_mat[i][0],
                                                   self.upc_h[i][0],
-                                                  inv_mat[i][i][0]) 
+                                                  inv_mat[i][i][0])
             
             for j in range(self.lead_num):
                 if j != i:
@@ -634,8 +664,8 @@ class Tp_Sparse_Matrix:
                                                 inv_mat[i][self.lead_num])
                     for k in range(1, nlj - 1):
                         inv_mat[i][j][k] = -self.dotdot(q_mat[j][k], self.dwnc_h[j][k],
-                                                inv_mat[i][j][k - 1])                         
-        return inv_mat 
+                                                inv_mat[i][j][k - 1])
+        return inv_mat
   
   
     def combine_inv_mat(self, inv_mat):
@@ -659,7 +689,7 @@ class Tp_Sparse_Matrix:
         inv_mat = self.inv_ne()
         glesser = self.calculate_keldysh_green(inv_mat, se_less, ex)
         ggreater = self.calculate_keldysh_green(inv_mat, se_great, ex)
-        return glesser, ggreater  
+        return glesser, ggreater
     
     def calculate_keldysh_green(self, inv_mat, keldysh_se, ex=True):
         #se_less less selfenergy, structure  se_1, se_2, se_3,..., se_n
@@ -670,21 +700,21 @@ class Tp_Sparse_Matrix:
             for j in range(nll - 1):
                 self.diag_h[i][j].spar.fill(0.0)
                 self.upc_h[i][j].fill(0.0)
-                self.dwnc_h[i][j].fill(0.0)                    
+                self.dwnc_h[i][j].fill(0.0)
         
         for i in range(self.lead_num):
             # less selfenergy loop
             self.mol_h.reset_plus(self.dotdot(inv_mat[i][self.lead_num],
                                               keldysh_se[i],
                                           inv_mat[i][self.lead_num].T.conj()),
-                                              full=True)            
+                                              full=True)
             for j in range(self.lead_num):
-               # matrix operation loop    
+               # matrix operation loop
                 nlj = self.lead_nlayer[j]
                 self.diag_h[j][0].reset_plus(self.dotdot(inv_mat[i][j][0],
                                                     keldysh_se[i],
                                                  inv_mat[i][j][0].T.conj()),
-                                                      full=True)            
+                                                      full=True)
             
                 self.dwnc_h[j][0] += self.dotdot(inv_mat[i][j][0], keldysh_se[i],
                                            inv_mat[i][self.lead_num].T.conj())
@@ -706,13 +736,13 @@ class Tp_Sparse_Matrix:
                     self.upc_h[j][k] +=  self.dotdot(inv_mat[i][j][k - 1],
                                                      keldysh_se[i],
                                                     inv_mat[i][j][k].T.conj())
-        return self.recover(ex)            
+        return self.recover(ex)
 
     def test_inv_speed(self):
         full_mat = self.recover()
         timer = Timer()
         timer.start('full_numpy')
-        tmp0 = np.linalg.inv(full_mat)
+        np.linalg.inv(full_mat)
         timer.stop('full_numpy')
         
         timer.start('full_lapack')
@@ -731,14 +761,14 @@ class Tp_Sparse_Matrix:
         methods = ['full_numpy', 'full_lapack', 'sparse_lapack']
         for name in methods:
             time = timer.timers[name,]
-            print name, time
+            print(name, time)
             times.append(time)
         
         mintime = np.min(times)
         self.inv_method = methods[np.argmin(times)]
-        print 'mintime', mintime
+        print('mintime', mintime)
         
-        print  'sparse_lapack_ne', timer.timers['sparse_lapack_ne',]
+        print('sparse_lapack_ne', timer.timers['sparse_lapack_ne',])
 
 class CP_Sparse_HSD:
     def __init__(self, dtype, ns, npk, index=None):
@@ -758,7 +788,7 @@ class CP_Sparse_HSD:
                 self.H[s].append([])
                 self.D[s].append([])
         for k in range(npk):
-            self.S.append([])        
+            self.S.append([])
 
     def reset(self, s, pk, mat, flag='S', init=False):
         assert mat.dtype == self.dtype
@@ -770,7 +800,7 @@ class CP_Sparse_HSD:
             spar = self.D[s]
         if not init:
             spar[pk].reset(mat)
-        elif self.index != None:
+        elif self.index is not None:
             spar[pk] = CP_Sparse_Matrix(self.dtype, mat, self.index)
         else:
             spar[pk] = CP_Sparse_Matrix(self.dtype, mat)
@@ -782,8 +812,8 @@ class CP_Sparse_Matrix:
         self.index = index
         self.dtype = dtype
         self.flag = flag
-        if mat != None:
-            if self.index == None:
+        if mat is not None:
+            if self.index is None:
                 self.initialize(mat)
             else:
                 self.reset(mat)
@@ -826,10 +856,10 @@ class CP_Sparse_Matrix:
         dim = mat.shape[-1]
         if self.index[0] > 0:
             ldab = dim - self.index[0]
-            self.spar = mat[:ldab, self.index[0]:].copy()            
+            self.spar = mat[:ldab, self.index[0]:].copy()
         else:
             ldab = dim + self.index[0]
-            self.spar = mat[-self.index[0]:, :ldab].copy()               
+            self.spar = mat[-self.index[0]:, :ldab].copy()
 
     def recover(self, trans='n'):
         nb = self.index[1]
@@ -855,7 +885,7 @@ class Se_Sparse_Matrix:
         self.tol = tol
         self.nb = mat.shape[-1]
         self.spar = []
-        if nn == None:
+        if nn is None:
             self.initialize(mat)
         else:
             self.reset(mat, nn)
@@ -871,19 +901,19 @@ class Se_Sparse_Matrix:
         else:
             while self.nn < nb and np.sum(abs(mat[nb - self.nn - 1])) > tol:
                 self.nn += 1
-            self.spar = mat[-self.nn:, -self.nn:].copy()                 
+            self.spar = mat[-self.nn:, -self.nn:].copy()
         
         diff = abs(np.sum(abs(mat)) - np.sum(abs(self.spar)))
         if diff > tol * 10:
-            print 'Warning! Sparse Matrix Diff', diff
+            print('Warning! Sparse Matrix Diff', diff)
         
     def reset(self, mat, nn=None):
-        if nn != None:
+        if nn is not None:
             self.nn = nn
         if self.tri_type == 'L':
             self.spar = mat[:self.nn, :self.nn].copy()
         else:
-            self.spar = mat[-self.nn:, -self.nn:].copy()    
+            self.spar = mat[-self.nn:, -self.nn:].copy()
   
     def restore(self):
         mat = np.zeros([self.nb, self.nb], complex)
@@ -891,5 +921,4 @@ class Se_Sparse_Matrix:
             mat[:self.nn, :self.nn] = self.spar
         else:
             mat[-self.nn:, -self.nn:] = self.spar
-        return mat   
-
+        return mat

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 
 # Set-up a simple matrix in parallel, diagonalize using ScaLAPACK
@@ -43,7 +44,7 @@ def main(nbands=1000, mprocs=2, mb=64):
     world.barrier() # wait for everyone to finish
 
     if rank == 0:
-        print 'ScaLAPACK diagonalize_dc', t2-t1
+        print('ScaLAPACK diagonalize_dc', t2-t1)
 
     # Create replicated NumPy array    
     diagonal = np.eye(nbands,dtype=float)
@@ -56,11 +57,11 @@ def main(nbands=1000, mprocs=2, mb=64):
     t2 = time()
 
     if rank == 0:
-        print 'LAPACK diagonalize', t2-t1
+        print('LAPACK diagonalize', t2-t1)
 
     delta = abs(E0-eps_N).max()
     if rank == 0:
-        print delta
+        print(delta)
         assert delta < tol
 
 if __name__ in ['__main__', '__builtin__']:

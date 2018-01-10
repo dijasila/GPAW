@@ -8,9 +8,9 @@ import xml.sax
 import numpy as np
 
 import ase
-from ase.version import version as ase_version
+from ase import __version__ as ase_version
 import gpaw
-from gpaw.version import version_base as gpaw_version
+from gpaw import __version__ as gpaw_version
 
 try:
     #new style cmr io
@@ -30,7 +30,7 @@ try:
     def create_db_filename(param, ext=".db"):
         return cdbfn(param, ext=ext)
     
-except:    
+except:
     #old style cmr io
     import cmr
     from cmr import create_db_filename as cdbfn
@@ -88,7 +88,7 @@ class Writer:
         self.dimensions[name]=value
         self.data[name]=value
         if self.verbose:
-            print "dimension: ", name, value
+            print("dimension: ", name, value)
 
     def __setitem__(self, name, value):
         """ sets the value of a variable in the db-file. Note that only
@@ -97,7 +97,7 @@ class Writer:
         IMPORTANT: CMR does not support None values for numbers, therefore all variables
         with value None are ignored."""
         if self.verbose:
-            print "name value:", name, value
+            print("name value:", name, value)
         if name == "GridSpacing" and value == "None":
             return
         if not value is None:
@@ -113,7 +113,7 @@ class Writer:
             try:
                 measured_dimensions.append(len(array))
                 if self.verbose:
-                    print indent+"Length:", len(array)
+                    print(indent+"Length:", len(array))
                     indent += " "
                 array = array[0]
             except IndexError:
@@ -131,8 +131,8 @@ class Writer:
         
         measured_dimensions = self._get_dimension(self.split_array[2])
         if self.verbose:
-            print "Dimensions:         ", self.split_array[1]
-            print "Mesured Dimensions: ", measured_dimensions
+            print("Dimensions:         ", self.split_array[1])
+            print("Mesured Dimensions: ", measured_dimensions)
             
         #make the array fit (only fixes the 1st dimension)
         res = np.array(self.split_array[2]).reshape(self.split_array[1])
@@ -142,7 +142,7 @@ class Writer:
             parallel=False, write=True):
         self._close_array()
         if self.verbose:
-            print "add:", name, shape, array, dtype, units
+            print("add:", name, shape, array, dtype, units)
         if array is None:
             dimension = []
             for a in shape:
@@ -153,13 +153,13 @@ class Writer:
 
     def fill(self, array, *indices, **kwargs):
         if self.verbose:
-            print "fill (", len(array),"):", array
+            print("fill (", len(array),"):", array)
         self.split_array[2].append(array)
 
     def set_db_copy_settings(self, make_db_copy, private):
         """deprecated: This method is going to be removed"""
-        print "Warning: gpaw.cmr.readwriter.set_db_copy_settings is deprecated."
-        print "Please update gpaw and CMR"
+        print("Warning: gpaw.cmr.readwriter.set_db_copy_settings is deprecated.")
+        print("Please update gpaw and CMR")
         pass
         #if self.verbose:
         #    print "set_db_copy_settings", make_db_copy, private
@@ -168,8 +168,8 @@ class Writer:
         #self.data.set_db_copy_settings(make_db_copy, private)
 
     def write(self, string, db, private, **kwargs):
-        print "Warning: gpaw.cmr.readwriter.write is deprecated."
-        print "Please update gpaw and CMR"
+        print("Warning: gpaw.cmr.readwriter.write is deprecated.")
+        print("Please update gpaw and CMR")
         pass
         #if self.verbose:
         #    print "write():", string
@@ -183,16 +183,16 @@ class Writer:
         
     def close(self):
         if self.verbose:
-            print "close()"
+            print("close()")
         self._close_array()
-        if self.cmr_params.has_key("ase_atoms_var"):
+        if "ase_atoms_var" in self.cmr_params:
             ase_vars = self.cmr_params["ase_atoms_var"]
             for key in ase_vars:
                 self.data.set_user_variable(key, ase_vars[key])
             self.cmr_params.pop("ase_atoms_var")
         if self.filename==".db" or self.filename==".cmr":
-            # Note: 
-            #      .cmr files can currently not be uploaded to the database therefore 
+            # Note:
+            #      .cmr files can currently not be uploaded to the database therefore
             #      it defaults to .db until supported
             self.cmr_params["output"]=create_db_filename(self.data, ext=".db")
         else:
@@ -219,17 +219,17 @@ class Reader:
         return self.reader[name]
     
     def __getitem__(self, name):
-        if name=='version' and not self.reader.has_key('version') \
-            and self.reader.has_key('db_calculator_version'):
+        if name=='version' and 'version' not in self.reader \
+            and 'db_calculator_version' in self.reader:
                 return self.reader['db_calculator_version']
         return self.reader[name]
 
     def has_array(self, name):
-        return self.reader.has_key(name)
+        return name in self.reader
     
     def get(self, name, *indices, **kwargs):
         if self.verbose:
-            print "incides", indices
+            print("incides", indices)
         result = self.reader[name]
         if indices!=():
             for a in indices:
@@ -237,10 +237,10 @@ class Reader:
             return result
         
         #gpaw wants expressions evaluated
-        if type(result)==str or type(result)==unicode:
+        if isinstance(result, str) or isinstance(result, unicode):
             try:
                 if self.verbose:
-                    print "Converting ", result
+                    print("Converting ", result)
                 result = eval(result, {})
             except (SyntaxError, NameError):
                 pass

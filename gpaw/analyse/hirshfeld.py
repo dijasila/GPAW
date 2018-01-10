@@ -4,65 +4,89 @@ from ase import Atoms
 from ase.units import Bohr
 from gpaw.density import RealSpaceDensity
 from gpaw.lfc import BasisFunctions
-from gpaw.mixer import Mixer
 from gpaw.setup import Setups
 from gpaw.xc import XC
 from gpaw.utilities.tools import coordinates
+from gpaw.utilities.partition import AtomPartition
 
-from gpaw.mpi import rank
 
 class HirshfeldDensity(RealSpaceDensity):
     """Density as sum of atomic densities."""
+
     def __init__(self, calculator):
         self.calculator = calculator
         density = calculator.density
         par = self.calculator.input_parameters
-        RealSpaceDensity.__init__(self, density.gd, density.finegd, 1, 0,
-                                  stencil=par.stencils[1])
+        RealSpaceDensity.__init__(self, density.gd, density.finegd,
+                                  density.nspins, 0,
+                                  stencil=par.stencils[1],
+                                  redistributor=density.redistributor)
 
-    def get_density(self, atom_indicees=None):
+    def set_positions(self, spos_ac, atom_partition):
+        """HirshfeldDensity builds a hack density object to calculate
+        all electron density
+        of atoms. This methods overrides the parallel distribution of
+        atomic density matrices
+        in density.py"""
+        self.atom_partition = atom_partition
+        self.atomdist = self.redistributor.get_atom_distributions(spos_ac)
+        self.nct.set_positions(spos_ac)
+        self.ghat.set_positions(spos_ac)
+        self.mixer.reset()
+        # self.nt_sG = None
+        self.nt_sg = None
+        self.nt_g = None
+        self.rhot_g = None
+        self.Q_aL = None
+        self.nct_G = self.gd.zeros()
+        self.nct.add(self.nct_G, 1.0 / self.nspins)
+
+    def get_density(self, atom_indices=None, gridrefinement=2):
         """Get sum of atomic densities from the given atom list.
 
         All atoms are taken if the list is not given."""
- 
+
         all_atoms = self.calculator.get_atoms()
-        if atom_indicees is None:
-            atom_indicees = range(len(all_atoms))
+        if atom_indices is None:
+            atom_indices = range(len(all_atoms))
 
         density = self.calculator.density
-        spos_ac = all_atoms.get_scaled_positions() % 1.0
+        spos_ac = all_atoms.get_scaled_positions()
         rank_a = self.finegd.get_ranks_from_positions(spos_ac)
-        density.set_positions(all_atoms.get_scaled_positions() % 1.0,
-                              rank_a
-                              )
+
+        density.set_positions(all_atoms.get_scaled_positions(),
+                              AtomPartition(self.finegd.comm, rank_a))
 
         # select atoms
         atoms = []
         D_asp = {}
         rank_a = []
         all_D_asp = self.calculator.density.D_asp
-        all_rank_a = self.calculator.density.rank_a
-        for a in atom_indicees:
+        all_rank_a = self.calculator.density.atom_partition.rank_a
+        for a in atom_indices:
             if a in all_D_asp:
                 D_asp[len(atoms)] = all_D_asp.get(a)
             atoms.append(all_atoms[a])
             rank_a.append(all_rank_a[a])
-        atoms = Atoms(atoms, cell=all_atoms.get_cell())
-        spos_ac = atoms.get_scaled_positions() % 1.0
+        atoms = Atoms(atoms,
+                      cell=all_atoms.get_cell(), pbc=all_atoms.get_pbc())
+        spos_ac = atoms.get_scaled_positions()
         Z_a = atoms.get_atomic_numbers()
 
         par = self.calculator.input_parameters
-        setups = Setups(Z_a, par.setups, par.basis, par.lmax, 
-                        XC(par.xc), 
+        setups = Setups(Z_a, par.setups, par.basis, par.lmax,
+                        XC(par.xc),
                         self.calculator.wfs.world)
-        self.D_asp = D_asp
 
-        # initialize 
-        self.initialize(setups, 
+        # initialize
+        self.initialize(setups,
                         self.calculator.timer,
                         np.zeros((len(atoms), 3)), False)
         self.set_mixer(None)
-        self.set_positions(spos_ac, rank_a)
+
+        # FIXME nparray causes partitionong.py test to fail
+        self.set_positions(spos_ac, AtomPartition(self.gd.comm, rank_a))
+        self.D_asp = D_asp
         basis_functions = BasisFunctions(self.gd,
                                          [setup.phit_j
                                           for setup in self.setups],
@@ -70,15 +94,18 @@ class HirshfeldDensity(RealSpaceDensity):
         basis_functions.set_positions(spos_ac)
         self.initialize_from_atomic_densities(basis_functions)
 
-        aed_sg, gd = self.get_all_electron_density(atoms, 
-                                                   gridrefinement=2)
+        aed_sg, gd = self.get_all_electron_density(atoms,
+                                                   gridrefinement)
         return aed_sg[0], gd
 
+
 class HirshfeldPartitioning:
+
     """Partion space according to the Hirshfeld method.
 
     After: F. L. Hirshfeld Theoret. Chim.Acta 44 (1977) 129-138
     """
+
     def __init__(self, calculator, density_cutoff=1.e-12):
         self.calculator = calculator
         self.density_cutoff = density_cutoff
@@ -93,7 +120,7 @@ class HirshfeldPartitioning:
 
     def get_calculator(self):
         return self.calculator
-    
+
     def get_effective_volume_ratio(self, atom_index):
         """Effective volume to free volume ratio.
 
@@ -132,7 +159,7 @@ class HirshfeldPartitioning:
         """
         self.initialize()
         finegd = self.calculator.density.finegd
-        
+
         if den_g is None:
             den_sg, gd = self.calculator.density.get_all_electron_density(
                 self.atoms)
@@ -153,4 +180,3 @@ class HirshfeldPartitioning:
         for a, atom in enumerate(self.atoms):
             ratios.append(self.get_effective_volume_ratio(a))
         return np.array(ratios)
-        

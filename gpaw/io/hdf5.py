@@ -1,7 +1,6 @@
 import os
-import sys
 import time
-from hdf5_highlevel import File, HyperslabSelection
+from gpaw.io.hdf5_highlevel import File, HyperslabSelection
 
 from gpaw.io import FileReference
 
@@ -12,18 +11,19 @@ floatsize = np.array([1], float).itemsize
 complexsize = np.array([1], complex).itemsize
 itemsizes = {'int': intsize, 'float': floatsize, 'complex': complexsize}
 
+
 class Writer:
     def __init__(self, name, comm=None):
-        self.comm = comm # for possible future use
-        self.dims = {}        
+        self.comm = comm  # for possible future use
+        self.dims = {}
         try:
-           if self.comm.rank == 0:
-               if os.path.isfile(name):
-                   os.rename(name, name[:-5] + '.old'+name[-5:])
-           self.comm.barrier()
+            if self.comm.rank == 0:
+                if os.path.isfile(name):
+                    os.rename(name, name[:-5] + '.old' + name[-5:])
+            self.comm.barrier()
         except AttributeError:
-           if os.path.isfile(name):
-               os.rename(name, name[:-5] + '.old'+name[-5:])
+            if os.path.isfile(name):
+                os.rename(name, name[:-5] + '.old' + name[-5:])
 
         if self.comm.size > 1:
             comm = self.comm.get_c_object()
@@ -37,7 +37,7 @@ class Writer:
 
     def dimension(self, name, value):
         if name in self.dims.keys() and self.dims[name] != value:
-            raise Warning('Dimension %s changed from %s to %s' % \
+            raise Warning('Dimension %s changed from %s to %s' %
                           (name, self.dims[name], value))
         self.dims[name] = value
         self.dims_grp.attrs[name] = value
@@ -46,7 +46,7 @@ class Writer:
         # attributes must be written collectively
         self.params_grp.attrs[name] = value
 
-    def add(self, name, shape, array=None, dtype=None, 
+    def add(self, name, shape, array=None, dtype=None,
             parallel=False, write=True):
         if array is not None:
             array = np.asarray(array)
@@ -59,7 +59,7 @@ class Writer:
 
         shape = [self.dims[dim] for dim in shape]
         if not shape:
-            shape = [1,]
+            shape = [1]
         self.dset = self.file.create_dataset(name, shape, self.dtype)
         if array is not None:
             self.fill(array, parallel=parallel, write=write)
@@ -76,11 +76,11 @@ class Writer:
 
         if not write:
             selection = None
-        elif indices: 
+        elif indices:
             selection = HyperslabSelection(indices, self.dset.shape)
         else:
             selection = 'all'
-        self.dset.write(array, selection, collective)            
+        self.dset.write(array, selection, collective)
 
     def get_data_type(self, array=None, dtype=None):
         if dtype is None:
@@ -107,9 +107,10 @@ class Writer:
         self.dset.close()
         self.file.close()
         
+        
 class Reader:
     def __init__(self, name, comm):
-        self.comm = comm # used for broadcasting replicated data 
+        self.comm = comm  # used for broadcasting replicated data
         if self.comm.size > 1:
             comm = self.comm.get_c_object()
         else:
@@ -144,7 +145,7 @@ class Reader:
 
         if parallel:
             collective = True
-        else: 
+        else:
             collective = False
 
         dset = self.file[name]
@@ -162,16 +163,16 @@ class Reader:
         if out is None:
             array = np.ndarray(mshape, dset.dtype, order='C')
         elif out.dtype == complex and dset.dtype == float:
-            # For real to complex reading i.e TDDFT temporary buffer 
+            # For real to complex reading i.e TDDFT temporary buffer
             # is also needed
             array = np.ndarray(mshape, dset.dtype, order='C')
             real2complex = True
         else:
-            assert type(out) is np.ndarray
+            assert isinstance(out, np.ndarray)
             # XXX Check the shapes are compatible
             assert out.shape == mshape
-            assert (out.dtype == dset.dtype or 
-                   (out.dtype == complex and dset.dtype == float))
+            assert (out.dtype == dset.dtype or
+                    (out.dtype == complex and dset.dtype == float))
             array = out
 
         dset.read(array, selection, collective)
@@ -197,6 +198,7 @@ class Reader:
     def close(self):
         self.file.close()
 
+        
 class HDF5FileReference(FileReference):
     def __init__(self, file, name, indices, length):
         self.file = file

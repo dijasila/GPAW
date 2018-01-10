@@ -1,5 +1,6 @@
 class XCFunctional:
     orbital_dependent = False
+
     def __init__(self, name):
         self.name = name
         self.gd = None
@@ -25,7 +26,7 @@ class XCFunctional:
             Array for potential.  The XC potential is added to the values
             already there.
         e_g: rank-3 ndarray
-            Energy density.
+            Energy density.  Values must be written directly, not added.
 
         The total XC energy is returned."""
         
@@ -34,10 +35,15 @@ class XCFunctional:
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
         return setup.xc_correction.calculate(self, D_sp, dEdD_sp)
     
-    def set_positions(self, spos_ac):
+    def set_positions(self, spos_ac, atom_partition=None):
         pass
-    
+
+    def get_description(self):
+        """Get long description of functional as a string, or None."""
+        return None
+
     def summary(self, fd):
+        """Write summary of last calculation to file."""
         pass
 
     def write(self, writer, natoms=None):
@@ -51,14 +57,17 @@ class XCFunctional:
     
     # Orbital dependent stuff:
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_nG,
-                                            Htpsit_nG, dH_asp):
+                                            Htpsit_nG, dH_asp=None):
         pass
     
     def correct_hamiltonian_matrix(self, kpt, H_nn):
+        # In what sense?  Some documentation here maybe?
         pass
 
     def add_correction(self, kpt, psit_xG, R_xG, P_axi, c_axi, n_x=None,
                        calculate_change=False):
+        # Which kind of correction is this?  Maybe some kind of documentation
+        # could be written?  What is required of an implementation?
         pass
     
     def rotate(self, kpt, U_nn):

@@ -5,20 +5,8 @@
 
 import os
 import sys
-try:
-    from distutils.util import get_platform
-except ImportError:
-    modulepath = os.environ.get('GPAW_GET_PLATFORM')
-    if modulepath is None:
-        errmsg = ('Error: Could not get platform from distutils. '
-                  'Set the GPAW_GET_PLATFORM environment variable to '
-                  'the architecture string printed during build.')
-        raise ImportError(errmsg)
+from distutils.util import get_platform
 
-    def get_platform():
-        return modulepath
-
-from glob import glob
 from os.path import join, isfile
 
 import gpaw.cuda
@@ -27,12 +15,15 @@ import numpy as np
 
 assert not np.version.version.startswith('1.6.0')
 
+__version__ = '1.1.0'
+__ase_version_required__ = '3.10.0'
 
 __all__ = ['GPAW', 'Calculator',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
+           'CG', 'Davidson', 'RMM_DIIS', 'DirectLCAO',
            'PoissonSolver',
-           'FermiDirac',
-           'restart']
+           'FermiDirac', 'MethfesselPaxton',
+           'PW', 'LCAO', 'restart']
 
 
 class ConvergenceError(Exception):
@@ -64,10 +55,12 @@ dry_run = 0
 memory_estimate_depth = 2
 parsize_domain = None
 parsize_bands = None
+augment_grids = False
 sl_default = None
 sl_diagonalize = None
 sl_inverse_cholesky = None
 sl_lcao = None
+sl_lrtddft = None
 buffer_size = None
 extra_parameters = {}
 profile = False
@@ -108,6 +101,8 @@ while len(sys.argv) > i:
             assert len(parsize_domain) == 3
     elif arg.startswith('--state-parallelization='):
         parsize_bands = int(arg.split('=')[1])
+    elif arg.startswith('--augment-grids='):
+        augment_grids = bool(int(arg.split('=')[1]))
     elif arg.startswith('--sl_default='):
         # --sl_default=nprow,npcol,mb,cpus_per_node
         # use 'd' for the default of one or more of the parameters
@@ -180,6 +175,24 @@ while len(sys.argv) > i:
                     sl_lcao.append(int(sl_args[sl_args_index]))
                 else:
                     sl_lcao.append(sl_args[sl_args_index])
+    elif arg.startswith('--sl_lrtddft='):
+        # --sl_lcao=nprow,npcol,mb,cpus_per_node
+        # use 'd' for the default of one or more of the parameters
+        # --sl_lcao=default to use all default values
+        sl_args = [n for n in arg.split('=')[1].split(',')]
+        if len(sl_args) == 1:
+            assert sl_args[0] == 'default'
+            sl_lrtddft = ['d'] * 3
+        else:
+            sl_lrtddft = []
+            assert len(sl_args) == 3
+            for sl_args_index in range(len(sl_args)):
+                assert sl_args[sl_args_index] is not None
+                if sl_args[sl_args_index] is not 'd':
+                    assert int(sl_args[sl_args_index]) > 0
+                    sl_lrtddft.append(int(sl_args[sl_args_index]))
+                else:
+                    sl_lrtddft.append(sl_args[sl_args_index])
     elif arg.startswith('--buffer_size='):
         # Buffer size for MatrixOperator in MB
         buffer_size = int(arg.split('=')[1])
@@ -209,7 +222,7 @@ if debug:
         return a
     np.empty = empty
 
-
+    
 build_path = join(__path__[0], '..', 'build')
 arch = '%s-%s' % (get_platform(), sys.version[0:3])
 
@@ -239,8 +252,10 @@ except KeyError:
 
 from gpaw.aseinterface import GPAW
 from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
+from gpaw.eigensolvers import Davidson, RMM_DIIS, CG, DirectLCAO
 from gpaw.poisson import PoissonSolver
 from gpaw.occupations import FermiDirac, MethfesselPaxton
+from gpaw.wavefunctions.lcao import LCAO
 from gpaw.wavefunctions.pw import PW
 
 
@@ -259,9 +274,9 @@ def restart(filename, Class=GPAW, **kwargs):
 if trace:
     indent = '    '
     path = __path__[0]
-    from gpaw.mpi import parallel, rank
-    if parallel:
-        indent = 'CPU%d    ' % rank
+    from gpaw.mpi import world
+    if world.size > 1:
+        indent = 'CPU%d    ' % world.rank
 
     def f(frame, event, arg):
         global indent
@@ -270,8 +285,8 @@ if trace:
             return
 
         if event == 'call':
-            print('%s%s:%d(%s)' % (indent, f[len(path):], frame.f_lineno,
-                                   frame.f_code.co_name))
+            print(('%s%s:%d(%s)' % (indent, f[len(path):], frame.f_lineno,
+                                    frame.f_code.co_name)))
             indent += '| '
         elif event == 'return':
             indent = indent[:-2]
@@ -298,9 +313,24 @@ if profile:
 command = os.environ.get('GPAWSTARTUP')
 if command is not None:
     exec(command)
+
+
+def is_parallel_environment():
+    """Check if we are running in a parallel environment.
+
+    This function can be redefined in ~/.gpaw/rc.py.  Example::
+
+        def is_parallel_environment():
+            import os
+            return 'PBS_NODEFILE' in os.environ
+    """
+    return False
+
+
 home = os.environ.get('HOME')
 if home is not None:
     rc = os.path.join(home, '.gpaw', 'rc.py')
     if os.path.isfile(rc):
         # Read file in ~/.gpaw/rc.py
-        execfile(rc)
+        with open(rc) as fd:
+            exec(fd.read())

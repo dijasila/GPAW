@@ -11,7 +11,6 @@ Ongoing Projects
     rmmdiis
     mixing
     pw
-    stress
     response
     bse
     gw
@@ -24,7 +23,6 @@ Ongoing Projects
     gpu
     noncollinear
     hybrids
-    dvcs
-    pcm
+    csm
     elph
     hubu

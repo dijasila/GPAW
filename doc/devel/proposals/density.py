@@ -33,5 +33,5 @@ class Density:
     def memory_estimate(self):
         ...
 
-    def write(self, ...):
+    def write(self, foo):
         ...

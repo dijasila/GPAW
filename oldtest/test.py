@@ -1,1 +1,0 @@
-print 'Use gpaw-test'

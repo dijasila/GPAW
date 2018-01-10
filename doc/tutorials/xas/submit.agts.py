@@ -9,7 +9,7 @@ def agts(queue):
 
 if __name__ == '__main__':
     from gpaw.test import equal
-    execfile('plot.py')
+    exec(open('plot.py').read())
     e_dks = float(open('dks.py.output').readline().split()[2])
     equal(e_dks, 532.508, 0.001)
-    execfile('h2o_xas_box2.py')
+    exec(open('h2o_xas_box2.py').read())

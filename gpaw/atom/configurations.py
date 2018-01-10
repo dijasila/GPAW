@@ -4,6 +4,9 @@
 # Computer generated code:
 # format:
 #    'element': (atomic number, [(n, l, occ, energy), ...])
+from __future__ import print_function
+
+import copy
 
 configurations = {
  'Ac': (89,
@@ -1010,6 +1013,36 @@ configurations = {
 
 # End of computer generated code:
 
+# add missing elements 93-102, based on U (92)
+configurations.update({'Np': (93, copy.deepcopy(configurations['U'])[1])})
+configurations['Np'][1][15] = (5, 3, 4, -0.36654300000000001)
+configurations.update({'Pu': (94, copy.deepcopy(configurations['U'])[1])})
+configurations['Pu'][1][15] = (5, 3, 6, -0.36654300000000001)
+configurations['Pu'][1][16] = (6, 2, 0, -0.14319000000000001)
+configurations.update({'Am': (95, copy.deepcopy(configurations['U'])[1])})
+configurations['Am'][1][15] = (5, 3, 7, -0.36654300000000001)
+configurations['Am'][1][16] = (6, 2, 0, -0.14319000000000001)
+configurations.update({'Cm': (96, copy.deepcopy(configurations['U'])[1])})
+configurations['Cm'][1][15] = (5, 3, 7, -0.36654300000000001)
+configurations.update({'Bk': (97, copy.deepcopy(configurations['U'])[1])})
+configurations['Bk'][1][15] = (5, 3, 9, -0.36654300000000001)
+configurations['Bk'][1][16] = (6, 2, 0, -0.14319000000000001)
+configurations.update({'Cf': (98, copy.deepcopy(configurations['U'])[1])})
+configurations['Cf'][1][15] = (5, 3, 10, -0.36654300000000001)
+configurations['Cf'][1][16] = (6, 2, 0, -0.14319000000000001)
+configurations.update({'Es': (99, copy.deepcopy(configurations['U'])[1])})
+configurations['Es'][1][15] = (5, 3, 11, -0.36654300000000001)
+configurations['Es'][1][16] = (6, 2, 0, -0.14319000000000001)
+configurations.update({'Fm': (100, copy.deepcopy(configurations['U'])[1])})
+configurations['Fm'][1][15] = (5, 3, 12, -0.36654300000000001)
+configurations['Fm'][1][16] = (6, 2, 0, -0.14319000000000001)
+configurations.update({'Md': (101, copy.deepcopy(configurations['U'])[1])})
+configurations['Md'][1][15] = (5, 3, 13, -0.36654300000000001)
+configurations['Md'][1][16] = (6, 2, 0, -0.14319000000000001)
+configurations.update({'No': (102, copy.deepcopy(configurations['U'])[1])})
+configurations['No'][1][15] = (5, 3, 14, -0.36654300000000001)
+configurations['No'][1][16] = (6, 2, 0, -0.14319000000000001)
+
 
 parameters = {
  'H' : {'rcut': 0.9},
@@ -1222,17 +1255,28 @@ parameters_extra = {
  'In': {'name': 'v08',  'core': '[Kr]', 'rcut': [2.1, 2.5, 2.0]},  # ver. 0.8
  'Sn': {'name': 'v08',  'core': '[Kr]', 'rcut': 2.2},  # ver. 0.8
  'Te': {'name': '16',   'core': '[Kr]', 'rcut': 2.2},  # ver. 0.8
- 'Ta': {'name': '5',    'core': '[Xe]4f', 'rcut': 2.8},  # ver. 0.8
- 'W' : {'name': '6',    'core': '[Xe]4f', 'rcut': 2.8},  # ver. 0.8
- 'Os': {'name': '8',    'core': '[Xe]4f', 'rcut': [2.5, 2.7, 2.5]},  # ver. 0.8
- 'Ir': {'name': '9',    'core': '[Xe]4f', 'rcut': [2.3, 2.6, 2.0],
+ 'Ta': {'name': '5',    'core': '[Kr]4d4f5s5p', 'rcut': 2.8},  # ver. 0.8
+ 'W' : {'name': '6',    'core': '[Kr]4d4f5s5p', 'rcut': 2.8},  # ver. 0.8
+ 'Os': {'name': '8',    'core': '[Kr]4d5s4f5p', 'rcut': [2.5, 2.7, 2.5]},  # ver. 0.8
+ 'Ir': {'name': '9',    'core': '[Kr]4d5s4f5p', 'rcut': [2.3, 2.6, 2.0],
         'vbar': ('poly', 2.1), 'rcutcomp': 2.3},  # ver. 0.8
- 'Pt': {'name': '10',   'core': '[Xe]4f', 'rcut': [2.5, 2.7, 2.3]},  # ver. 0.8
- 'Pt': {'name': 'soft', 'core': '[Xe]4f', 'rcut': [2.5, 2.7, 2.3],
-        'rcutcomp': 2.5},  # ver. 0.8
+ 'Pt': {'name': '10',   'core': '[Kr]4d5s4f5p', 'rcut': [2.5, 2.7, 2.3]},  # ver. 0.8
+# 'Pt': {'name': 'soft', 'core': '[Xe]4f', 'rcut': [2.5, 2.7, 2.3],
+#        'rcutcomp': 2.5},  # ver. 0.8
  'Pb': {'name': 'v08',  'core': '[Xe]4f', 'rcut': [2.4, 2.6, 2.4]},  # ver. 0.8
  'Bi': {'name': 'v08',  'core': '[Xe]4f', 'rcut': [2.2, 2.4, 2.2]},  # ver. 0.8
  }
+
+tf_parameters = {
+    'B': {'rcut': 1.2},
+    'Be': {'rcut': 1.2},
+    'C': {'rcut': 1.2},
+    'F': {'rcut': 1.2},
+    'He': {'rcut': 1.2},
+    'Li': {'rcut': 1.2},
+    'N': {'rcut': 1.2},
+    'Ne': {'rcut': 1.2},
+    'O': {'rcut': 1.2}}
 
 
 class AtomicData:
@@ -1304,8 +1348,8 @@ if __name__ == '__main__':
             eps = epsilons[state]
             nloe.append((n, l, occ, eps))
         dftdata[symbol] = (Z, nloe)
-    print '# Computer generated code:'
-    print
-    print 'configurations = ',
+    print('# Computer generated code:')
+    print()
+    print('configurations = ', end=' ')
     pprint.pprint(dftdata)
-    print
+    print()

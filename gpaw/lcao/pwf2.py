@@ -28,7 +28,7 @@ def get_rot(F_MM, V_oM, L):
     
 
 def get_lcao_xc(calc, P_aqMi, bfs=None, spin=0):
-    nq = len(calc.wfs.ibzk_qc)
+    nq = len(calc.wfs.kd.ibzk_qc)
     nao = calc.wfs.setups.nao
     dtype = calc.wfs.dtype
     if bfs is None:
@@ -40,7 +40,7 @@ def get_lcao_xc(calc, P_aqMi, bfs=None, spin=0):
     vxct_sg = calc.density.finegd.zeros(calc.wfs.nspins)
     calc.hamiltonian.xc.calculate(calc.density.finegd, nt_sg, vxct_sg)
     vxct_G = calc.wfs.gd.zeros()
-    calc.hamiltonian.restrict(vxct_sg[spin], vxct_G)
+    calc.hamiltonian.restrict_and_collect(vxct_sg[spin], vxct_G)
     Vxc_qMM = np.zeros((nq, nao, nao), dtype)
     for q, Vxc_MM in enumerate(Vxc_qMM):
         bfs.calculate_potential_matrix(vxct_G, Vxc_MM, q)
@@ -65,7 +65,7 @@ def get_xc2(calc, w_wG, P_awi, spin=0):
     vxct_g = calc.density.finegd.zeros()
     calc.hamiltonian.xc.get_energy_and_potential(nt_g, vxct_g)
     vxct_G = calc.wfs.gd.empty()
-    calc.hamiltonian.restrict(vxct_g, vxct_G)
+    calc.hamiltonian.restrict_and_collect(vxct_g, vxct_G)
 
     # Integrate pseudo part
     Nw = len(w_wG)
@@ -241,8 +241,8 @@ class PWF2:
                  projection_data=None):
         calc = GPAW(gpwfilename, txt=None, basis=basis)
         assert calc.wfs.gd.comm.size == 1
-        assert calc.wfs.kpt_comm.size == 1
-        assert calc.wfs.band_comm.size == 1
+        assert calc.wfs.kd.comm.size == 1
+        assert calc.wfs.bd.comm.size == 1
         if zero_fermi:
             try:
                 Ef = calc.get_fermi_level()
@@ -256,7 +256,7 @@ class PWF2:
         self.eps_kn = [calc.get_eigenvalues(kpt=q, spin=spin) - Ef
                        for q in range(self.nk)]
         self.M_k = [sum(eps_n <= fixedenergy) for eps_n in self.eps_kn]
-        print 'Fixed states:', self.M_k 
+        print('Fixed states:', self.M_k) 
         self.calc = calc
         self.dtype = self.calc.wfs.dtype
         self.spin = spin
@@ -308,7 +308,7 @@ class PWF2:
                 self.H_qww.append(pwf.rotate_matrix(self.eps_kn[q]))
 
         for S in self.S_qww:
-            print 'Condition number: %0.1e' % condition_number(S)
+            print('Condition number: %0.1e' % condition_number(S))
 
     def get_hamiltonian(self, q=0, indices=None):
         if indices is None:
@@ -378,8 +378,8 @@ class PWF2:
 class LCAOwrap:
     def __init__(self, calc, spin=0):
         assert calc.wfs.gd.comm.size == 1
-        assert calc.wfs.kpt_comm.size == 1
-        assert calc.wfs.band_comm.size == 1
+        assert calc.wfs.kd.comm.size == 1
+        assert calc.wfs.bd.comm.size == 1
         
         from gpaw.lcao.tools import get_lcao_hamiltonian
         H_skMM, S_kMM = get_lcao_hamiltonian(calc)
@@ -393,7 +393,7 @@ class LCAOwrap:
         self.Nw = self.S_qww.shape[-1]
         
         for S in self.S_qww:
-            print 'Condition number: %0.1e' % condition_number(S)
+            print('Condition number: %0.1e' % condition_number(S))
     
     def get_hamiltonian(self, q=0, indices=None):
         if indices is None:

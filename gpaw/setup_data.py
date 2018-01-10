@@ -1,21 +1,23 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
+from __future__ import print_function
+import hashlib
 import os
-import xml.sax
 import re
-from cStringIO import StringIO
-from math import sqrt, pi
+import sys
+import xml.sax
+from glob import glob
+from math import sqrt, pi, factorial as fac
+from distutils.version import LooseVersion
 
 import numpy as np
 from ase.data import atomic_names
 from ase.units import Bohr, Hartree
 
-from gpaw import setup_paths
+from gpaw import setup_paths, extra_parameters
 from gpaw.spline import Spline
-from gpaw.utilities import _fact, divrl
-from gpaw.utilities.tools import md5_new
 from gpaw.xc.pawcorrection import PAWXCCorrection
-from gpaw.mpi import broadcast_string
+from gpaw.mpi import broadcast
 from gpaw.atom.radialgd import AERadialGridDescriptor
 
 try:
@@ -35,14 +37,14 @@ class SetupData:
         self.name = name
         self.zero_reference = zero_reference
 
-        # Default filename if this setup is written 
+        # Default filename if this setup is written
         if name is None or name == 'paw':
             self.stdfilename = '%s.%s' % (symbol, self.setupname)
         else:
             self.stdfilename = '%s.%s.%s' % (symbol, name, self.setupname)
 
-        self.filename = None # full path if this setup was loaded from file
-        self.fingerprint = None # hash value of file data if applicable
+        self.filename = None  # full path if this setup was loaded from file
+        self.fingerprint = None  # hash value of file data if applicable
 
         self.Z = None
         self.Nc = None
@@ -51,16 +53,17 @@ class SetupData:
         # Quantum numbers, energies
         self.n_j = []
         self.l_j = []
+        self.l_orb_j = self.l_j  # pointer to same list!
         self.f_j = []
         self.eps_j = []
-        self.e_kin_jj = None # <phi | T | phi> - <phit | T | phit>
+        self.e_kin_jj = None  # <phi | T | phi> - <phit | T | phit>
         
         self.rgd = None
-        self.rcgauss = None # For compensation charge expansion functions
+        self.rcgauss = None  # For compensation charge expansion functions
         
         # State identifier, like "X-2s" or "X-p1", where X is chemical symbol,
         # for bound and unbound states
-        self.id_j = [] 
+        self.id_j = []
         
         # Partial waves, projectors
         self.phi_jg = []
@@ -99,7 +102,7 @@ class SetupData:
         self.ncorehole = None
         self.core_hole_e = None
         self.core_hole_e_kin = None
-        self.has_corehole = False        
+        self.has_corehole = False
 
         # Parameters for zero-potential:
         self.l0 = None
@@ -107,6 +110,8 @@ class SetupData:
         self.r0 = None
         self.nderiv0 = None
 
+        self.orbital_free = False  # orbital-free DFT
+        
         if readxml:
             self.read_xml(world=world)
 
@@ -142,6 +147,9 @@ class SetupData:
         else:
             text('  core   : %.1f' % self.Nc)
         text('  charge :', self.Z - self.Nv - self.Nc)
+        if setup.HubU is not None:
+            text('  Hubbard U: %f eV (l=%d, scale=%s)' %
+                 (setup.HubU * Hartree, setup.Hubl, bool(setup.Hubs)))
         text('  file   :', self.filename)
         text(('  cutoffs: %4.2f(comp), %4.2f(filt), %4.2f(core),'
               ' lmax=%d' % (sqrt(10) * self.rcgauss * Bohr,
@@ -155,8 +163,8 @@ class SetupData:
         j = 0
         for n, l, f, eps in zip(self.n_j, self.l_j, self.f_j, self.eps_j):
             if n > 0:
-                f = '(%d)' % f
-                text('    %d%s%-4s %7.3f   %5.3f' % (
+                f = '(%.2f)' % f
+                text('    %d%s%-5s %7.3f   %5.3f' % (
                     n, 'spdf'[l], f, eps * Hartree, self.rcut_j[j] * Bohr))
             else:
                 text('    *%s     %7.3f   %5.3f' % (
@@ -194,7 +202,7 @@ class SetupData:
         return K_p
 
     def get_ghat(self, lmax, alpha, r, rcut):
-        d_l = [_fact[l] * 2**(2 * l + 2) / sqrt(pi) / _fact[2 * l + 1]
+        d_l = [fac(l) * 2**(2 * l + 2) / sqrt(pi) / fac(2 * l + 1)
                for l in range(lmax + 1)]
         g = alpha**1.5 * np.exp(-alpha * r**2)
         g[-1] = 0.0
@@ -247,52 +255,55 @@ class SetupData:
         l_j = self.l_j
         xml = open(self.stdfilename, 'w')
 
-        print >> xml, '<?xml version="1.0"?>'
-        print >> xml, '<paw_setup version="0.6">'
+        print('<?xml version="1.0"?>', file=xml)
+        print('<paw_setup version="0.6">', file=xml)
         name = atomic_names[self.Z].title()
         comment1 = name + ' setup for the Projector Augmented Wave method.'
         comment2 = 'Units: Hartree and Bohr radii.'
         comment2 += ' ' * (len(comment1) - len(comment2))
-        print >> xml, '  <!--', comment1, '-->'
-        print >> xml, '  <!--', comment2, '-->'
+        print('  <!--', comment1, '-->', file=xml)
+        print('  <!--', comment2, '-->', file=xml)
 
-        print >> xml, ('  <atom symbol="%s" Z="%d" core="%r" valence="%d"/>'
-                       % (self.symbol, self.Z, self.Nc, self.Nv))
-        if self.setupname == 'LDA':
+        print(('  <atom symbol="%s" Z="%d" core="%r" valence="%d"/>' %
+               (self.symbol, self.Z, self.Nc, self.Nv)), file=xml)
+        if self.orbital_free:
+            type = 'OFDFT'
+            name = self.setupname
+        elif self.setupname == 'LDA':
             type = 'LDA'
             name = 'PW'
         else:
             type = 'GGA'
             name = self.setupname
-        print >> xml, '  <xc_functional type="%s" name="%s"/>' % (type, name)
-        gen_attrs = ' '.join(['%s="%s"' % (key, value) for key, value 
+        print('  <xc_functional type="%s" name="%s"/>' % (type, name),
+              file=xml)
+        gen_attrs = ' '.join(['%s="%s"' % (key, value) for key, value
                               in self.generatorattrs])
-        print >> xml, '  <generator %s>' % gen_attrs
-        print >> xml, '    %s' % self.generatordata
-        print >> xml, '  </generator>'
-        print >> xml, '  <ae_energy kinetic="%r" xc="%r"' % \
-              (self.e_kinetic, self.e_xc)
-        print >> xml, '             electrostatic="%r" total="%r"/>' % \
-              (self.e_electrostatic, self.e_total)
+        print('  <generator %s>' % gen_attrs, file=xml)
+        print('    %s' % self.generatordata, file=xml)
+        print('  </generator>', file=xml)
+        print('  <ae_energy kinetic="%r" xc="%r"' %
+              (self.e_kinetic, self.e_xc), file=xml)
+        print('             electrostatic="%r" total="%r"/>' %
+              (self.e_electrostatic, self.e_total), file=xml)
 
-        print >> xml, '  <core_energy kinetic="%r"/>' % self.e_kinetic_core
-        print >> xml, '  <valence_states>'
-        line1 = '    <state n="%d" l="%d" f=%s rc="%r" e="%r" id="%s"/>'
+        print('  <core_energy kinetic="%r"/>' % self.e_kinetic_core, file=xml)
+        print('  <valence_states>', file=xml)
+        line1 = '    <state n="%d" l="%d" f="%r" rc="%r" e="%r" id="%s"/>'
         line2 = '    <state       l="%d"        rc="%r" e="%r" id="%s"/>'
 
         for id, l, n, f, e, rc in zip(self.id_j, l_j, self.n_j, self.f_j,
                                       self.eps_j, self.rcut_j):
             if n > 0:
-                f = '%-4s' % ('"%d"' % f)
-                print >> xml, line1 % (n, l, f, rc, e, id)
+                print(line1 % (n, l, f, rc, e, id), file=xml)
             else:
-                print >> xml, line2 % (l, rc, e, id)
-        print >> xml, '  </valence_states>'
+                print(line2 % (l, rc, e, id), file=xml)
+        print('  </valence_states>', file=xml)
 
-        print >> xml, self.rgd.xml('g1')
+        print(self.rgd.xml('g1'), file=xml)
 
-        print >> xml, ('  <shape_function type="gauss" rc="%r"/>' %
-                       self.rcgauss)
+        print(('  <shape_function type="gauss" rc="%r"/>' %
+               self.rcgauss), file=xml)
 
         if self.r0 is None:
             # Old setups:
@@ -307,111 +318,115 @@ class SetupData:
                       ('spdfg'[self.l0], self.e0, self.nderiv0, self.r0))
             
         for x in self.vbar_g:
-            print >> xml, '%r' % x,
-        print >> xml, '\n  </zero_potential>'
+            print('%r' % x, end=' ', file=xml)
+        print('\n  </zero_potential>', file=xml)
 
         if self.has_corehole:
-            print >> xml, (('  <core_hole_state state="%d%s" ' +
-                           'removed="%r" eig="%r" ekin="%r">') %
-                           (self.ncorehole, 'spdf'[self.lcorehole],
-                            self.fcorehole,
-                            self.core_hole_e, self.core_hole_e_kin))
+            print((('  <core_hole_state state="%d%s" ' +
+                    'removed="%r" eig="%r" ekin="%r">') %
+                   (self.ncorehole, 'spdf'[self.lcorehole],
+                    self.fcorehole,
+                    self.core_hole_e, self.core_hole_e_kin)), file=xml)
             for x in self.phicorehole_g:
-                print >> xml, '%r' % x,
-            print >> xml, '\n  </core_hole_state>'
+                print('%r' % x, end=' ', file=xml)
+            print('\n  </core_hole_state>', file=xml)
 
         for name, a in [('ae_core_density', self.nc_g),
                         ('pseudo_core_density', self.nct_g),
                         ('ae_core_kinetic_energy_density', self.tauc_g),
                         ('pseudo_core_kinetic_energy_density', self.tauct_g)]:
-            print >> xml, '  <%s grid="g1">\n    ' % name,
+            print('  <%s grid="g1">\n    ' % name, end=' ', file=xml)
             for x in a:
-                print >> xml, '%r' % x,
-            print >> xml, '\n  </%s>' % name
+                print('%r' % x, end=' ', file=xml)
+            print('\n  </%s>' % name, file=xml)
 
         # Print xc-specific data to setup file (used so for KLI and GLLB)
-        for name, a in self.extra_xc_data.iteritems():
-            newname = 'GLLB_'+name
-            print >> xml, '  <%s grid="g1">\n    ' % newname,
+        for name, a in self.extra_xc_data.items():
+            newname = 'GLLB_' + name
+            print('  <%s grid="g1">\n    ' % newname, end=' ', file=xml)
             for x in a:
-                print >> xml, '%r' % x,
-            print >> xml, '\n  </%s>' % newname
+                print('%r' % x, end=' ', file=xml)
+            print('\n  </%s>' % newname, file=xml)
 
         for id, l, u, s, q, in zip(self.id_j, l_j, self.phi_jg, self.phit_jg,
                                    self.pt_jg):
             for name, a in [('ae_partial_wave', u),
                             ('pseudo_partial_wave', s),
                             ('projector_function', q)]:
-                print >> xml, ('  <%s state="%s" grid="g1">\n    ' %
-                               (name, id)),
-                #p = a.copy()
-                #p[1:] /= r[1:]
-                #if l == 0:
-                #    # XXXXX go to higher order!!!!!
-                #    p[0] = (p[2] +
-                #            (p[1] - p[2]) * (r[0] - r[2]) / (r[1] - r[2]))
+                print('  <%s state="%s" grid="g1">\n    ' % (name, id),
+                      end=' ', file=xml)
                 for x in a:
-                    print >> xml, '%r' % x,
-                print >> xml, '\n  </%s>' % name
+                    print('%r' % x, end=' ', file=xml)
+                print('\n  </%s>' % name, file=xml)
 
-        print >> xml, '  <kinetic_energy_differences>',
+        print('  <kinetic_energy_differences>', end=' ', file=xml)
         nj = len(self.e_kin_jj)
         for j1 in range(nj):
-            print >> xml, '\n    ',
+            print('\n    ', end=' ', file=xml)
             for j2 in range(nj):
-                print >> xml, '%r' % self.e_kin_jj[j1, j2],
-        print >> xml, '\n  </kinetic_energy_differences>'
+                print('%r' % self.e_kin_jj[j1, j2], end=' ', file=xml)
+        print('\n  </kinetic_energy_differences>', file=xml)
 
         if self.X_p is not None:
-            print >> xml, '  <exact_exchange_X_matrix>\n    ',
+            print('  <exact_exchange_X_matrix>\n    ', end=' ', file=xml)
             for x in self.X_p:
-                print >> xml, '%r' % x,
-            print >> xml, '\n  </exact_exchange_X_matrix>'
+                print('%r' % x, end=' ', file=xml)
+            print('\n  </exact_exchange_X_matrix>', file=xml)
 
-            print >> xml, '  <exact_exchange core-core="%r"/>' % self.ExxC
+            print('  <exact_exchange core-core="%r"/>' % self.ExxC, file=xml)
 
-        print >> xml, '</paw_setup>'
+        print('</paw_setup>', file=xml)
 
-    def build(self, xcfunc, lmax, basis):
+    def build(self, xcfunc, lmax, basis, filter=None):
         from gpaw.setup import Setup
-        setup = Setup(self, xcfunc, lmax, basis)
+        setup = Setup(self, xcfunc, lmax, basis, filter)
         return setup
 
 
 def search_for_file(name, world=None):
     """Traverse gpaw setup paths to find file.
 
-    Returns the file path and file contents.  If the file is not found,
-    contents will be None."""
+    Returns the file path and file contents.  If the file is not
+    found, raises RuntimeError."""
 
-    if world is not None and world.size > 1:
-        if world.rank == 0:
-            filename, source = search_for_file(name)
-            if source is None:
-                source = ''
-            string = filename + '|' + source
-        else:
-            string = None
-        filename, source = broadcast_string(string, 0, world).split('|', 1)
-        if source == '':
-            source = None
-        return filename, source
-
-    source = None
-    filename = None
-    for path in setup_paths:
-        filename = os.path.join(path, name)
-        if os.path.isfile(filename):
-            source = open(filename).read()
-            break
-        else:
-            filename += '.gz'
-            if os.path.isfile(filename):
-                if has_gzip:
-                    source = gzip.open(filename).read()
+    if world is None or world.rank == 0:
+        source = None
+        filename = None
+        for path in setup_paths:
+            pattern = os.path.join(path, name)
+            filenames = glob(pattern) + glob('%s.gz' % pattern)
+            if filenames:
+                # The globbing is a hack to grab the 'newest' version if
+                # the files are somehow version numbered; then we want the
+                # last/newest of the results (used with SG15).  (User must
+                # instantiate (UPF)SetupData directly to override.)
+                filename = max(filenames)
+                assert has_gzip  # Which systems do not have the gzip module?
+                if filename.endswith('.gz'):
+                    fd = gzip.open(filename)
                 else:
-                    source = os.popen('gunzip -c ' + filename, 'r').read()
+                    fd = open(filename, 'rb')
+                source = fd.read()
                 break
+
+    if world is not None:
+        if world.rank == 0:
+            broadcast((filename, source), 0, world)
+        else:
+            filename, source = broadcast(None, 0, world)
+
+    if source is None:
+        if name.endswith('basis'):
+            _type = 'basis set'
+        else:
+            _type = 'PAW dataset'
+        err = 'Could not find required %s file "%s".' % (_type, name)
+        helpful_message = """
+You need to set the GPAW_SETUP_PATH environment variable to point to
+the directories where setup and basis files are stored.  See
+http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
+        raise RuntimeError('%s\n%s' % (err, helpful_message))
+
     return filename, source
 
 
@@ -425,40 +440,29 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
     def parse(self, source=None, world=None):
         setup = self.setup
         if source is None:
-            (setup.filename, source) = search_for_file(setup.stdfilename,
-                                                       world)
+            setup.filename, source = search_for_file(setup.stdfilename, world)
 
-        if source is None:
-            print """
-You need to set the GPAW_SETUP_PATH environment variable to point to
-the directory where the setup files are stored.  See
-http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
-            raise RuntimeError('Could not find %s-setup for "%s".' %
-                               (setup.name + '.' + setup.setupname, 
-                                setup.symbol))
-        
-        setup.fingerprint = md5_new(source).hexdigest()
-        
+        setup.fingerprint = hashlib.md5(source).hexdigest()
+
         # XXXX There must be a better way!
         # We don't want to look at the dtd now.  Remove it:
-        source = re.compile(r'<!DOCTYPE .*?>', re.DOTALL).sub('', source, 1)
-        xml.sax.parse(StringIO(source), self) # XXX There is a special parse
-                                              # function that takes a string
+        source = re.compile(b'<!DOCTYPE .*?>', re.DOTALL).sub(b'', source, 1)
+        xml.sax.parseString(source, self)
+        
         if setup.zero_reference:
             setup.e_total = 0.0
             setup.e_kinetic = 0.0
             setup.e_electrostatic = 0.0
             setup.e_xc = 0.0
 
-        #if not hasattr(setup, 'tauc_g'):
-        #    setup.tauc_g = setup.tauct_g = None
-
-
     def startElement(self, name, attrs):
+        if sys.version_info[0] < 3:
+            attrs.__contains__ = attrs.has_key
+            
         setup = self.setup
         if name == 'paw_setup':
             setup.version = attrs['version']
-            assert setup.version >= '0.4'
+            assert LooseVersion(setup.version) >= '0.4'
         if name == 'atom':
             setup.Z = int(attrs['Z'])
             setup.Nc = float(attrs['core'])
@@ -467,8 +471,11 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
             if attrs['type'] == 'LDA':
                 setup.xcname = 'LDA'
             else:
-                assert attrs['type'] == 'GGA'
                 setup.xcname = attrs['name']
+                if attrs['type'] == 'OFDFT':
+                    setup.orbital_free = True
+                else:
+                    assert attrs['type'] == 'GGA'
         elif name == 'ae_energy':
             setup.e_total = float(attrs['total'])
             setup.e_kinetic = float(attrs['kinetic'])
@@ -479,12 +486,12 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
         elif name == 'state':
             setup.n_j.append(int(attrs.get('n', -1)))
             setup.l_j.append(int(attrs['l']))
-            setup.f_j.append(int(attrs.get('f', 0)))
+            setup.f_j.append(float(attrs.get('f', 0)))
             setup.eps_j.append(float(attrs['e']))
             setup.rcut_j.append(float(attrs.get('rc', -1)))
             setup.id_j.append(attrs['id'])
             # Compatibility with old setups:
-            if setup.version < '0.6' and setup.f_j[-1] == 0:
+            if LooseVersion(setup.version) < '0.6' and setup.f_j[-1] == 0:
                 setup.n_j[-1] = -1
         elif name == 'radial_grid':
             if attrs['eq'] == 'r=a*i/(n-i)':
@@ -499,7 +506,7 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
             else:
                 raise ValueError('Unknown grid:' + attrs['eq'])
         elif name == 'shape_function':
-            if attrs.has_key('rc'):
+            if 'rc' in attrs:
                 assert attrs['type'] == 'gauss'
                 setup.rcgauss = float(attrs['rc'])
             else:
@@ -529,7 +536,7 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
             setup.core_hole_e_kin = float(attrs['ekin'])
             self.data = []
         elif name == 'zero_potential':
-            if attrs.has_key('type'):
+            if 'type' in attrs:
                 setup.r0 = float(attrs['r0'])
                 setup.nderiv0 = int(attrs['nderiv'])
                 if attrs['type'] == 'polynomial':
@@ -541,8 +548,7 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
             self.data = []
         elif name == 'generator':
             setup.type = attrs['type']
-            setup.gamma = float(attrs.get('gamma', 0.0))
-            setup.h = float(attrs.get('h', 0.0))
+            setup.generator_version = attrs.get('version', 1)
         else:
             self.data = None
 
@@ -566,11 +572,16 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
         elif name == 'pseudo_valence_density':
             setup.nvt_g = x_g
         elif name == 'pseudo_core_kinetic_energy_density':
+            if extra_parameters.get('mggapscore') and (x_g == 0).all():
+                x = setup.rgd.r_g / 0.7
+                x_g = 0.051 * (1 - x**2 * (3 - 2 * x))
+                x_g[x > 1] = 0.0
             setup.tauct_g = x_g
-        elif name in ['localized_potential', 'zero_potential']: # XXX
+        elif name in ['localized_potential', 'zero_potential']:  # XXX
             setup.vbar_g = x_g
         elif name.startswith('GLLB_'):
-            # Add setup tags starting with GLLB_ to extra_xc_data. Remove GLLB_ from front of string.
+            # Add setup tags starting with GLLB_ to extra_xc_data. Remove
+            # GLLB_ from front of string:
             setup.extra_xc_data[name[5:]] = x_g
         elif name == 'ae_partial_wave':
             j = len(setup.phi_jg)

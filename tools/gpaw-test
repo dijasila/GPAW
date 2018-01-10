@@ -38,7 +38,7 @@ def main(outfile, tests=None, testscript='test.py'):
         sys.argv.extend(tests)
     try:
         trace.run('execfile(%r, {})' % (testscript,))
-    except IOError, e:
+    except IOError as e:
         err('Could not run test script %r because: %s' % (testscript, e))
         sys.exit(1)
     except SystemExit:
@@ -58,7 +58,7 @@ def main(outfile, tests=None, testscript='test.py'):
         _value = np.fromstring(version, sep='.', dtype=int)
         _v = lambda v, sep='.': sep.join(map(str,v))
         if os.path.isfile(outfile):
-            print 'Resuming existing coverage file ...'
+            print('Resuming existing coverage file ...')
             counts, calledfuncs, callers = pickle.load(open(outfile, 'rb'))
             assert not calledfuncs and not callers # should both be empty
             try:
@@ -66,14 +66,14 @@ def main(outfile, tests=None, testscript='test.py'):
             except KeyError:
                 err('Coverage file has no version. %s was assumed.' % version)
                 counts[_key] = _value
-            except AssertionError, e:
+            except AssertionError as e:
                 if e[0] > e[1]: # trying to overwrite newer should fail
                     err('Coverage file version %s (> %s). Aborting.' % e[:])
                     sys.exit(1)
                 err('Coverage file version %s (< %s). Data discarded.' % e[:])
                 counts = {_key: _value}
         else:
-            print 'Initiating new coverage file ...'
+            print('Initiating new coverage file ...')
             counts = {_key: _value}
 
     if mpi.world.size == 1:

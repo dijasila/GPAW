@@ -18,7 +18,7 @@ atoms = Atoms('Si2',
    
 calc = GPAW(kpts=(k, k, k),
             setups='ah',
-            usesymm=None,
+            symmetry='off',
             occupations=FermiDirac(kT),
             h=h)
 

@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-
+from __future__ import print_function
 import os, sys, time
 import numpy as np
 
@@ -14,20 +13,19 @@ from ase import Atoms
 from ase.structure import molecule
 from ase.parallel import paropen
 from ase.units import Bohr, Hartree
-from ase.io.trajectory import PickleTrajectory
+from ase.io import Trajectory
 from ase.calculators.singlepoint import SinglePointCalculator
+from ase.utils import devnull
+
 from gpaw import GPAW, debug
 from gpaw.mpi import world
 from gpaw.tddft import TDDFT
 from gpaw.tddft.units import attosec_to_autime
 
-# -------------------------------------------------------------------
-
-from gpaw.test.ut_common import ase_svnversion, shapeopt, TestCase, \
+from gpaw.test.ut_common import shapeopt, TestCase, \
     TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
     initialTestLoader, create_random_atoms, create_parsize_maxbands
 
-# -------------------------------------------------------------------
 
 class UTGroundStateSetup(TestCase):
     """
@@ -125,13 +123,13 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
         niter = int(self.duration / timestep)
         ndiv = 1 #XXX
 
-        traj = PickleTrajectory('%s_%d.traj' % (self.tdname, t),
+        traj = Trajectory('%s_%d.traj' % (self.tdname, t),
                                 'w', self.tdcalc.get_atoms())
 
         t0 = time.time()
         f = paropen('%s_%d.log' % (self.tdname, t), 'w')
-        print >>f, 'propagator: %s, duration: %6.1f as, timestep: %5.2f as, ' \
-            'niter: %d' % (self.propagator, self.duration, timestep, niter)
+        print('propagator: %s, duration: %6.1f as, timestep: %5.2f as, ' \
+            'niter: %d' % (self.propagator, self.duration, timestep, niter), file=f)
 
         for i in range(1, niter+1):
             # XXX bare bones propagation without all the nonsense
@@ -145,14 +143,14 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
                 ekin = self.tdcalc.atoms.get_kinetic_energy()
                 epot = self.tdcalc.get_td_energy() * Hartree
                 F_av = np.zeros((len(self.tdcalc.atoms), 3))
-                print >>f, 'i=%06d, time=%6.1f as, rate=%6.2f min^-1, ' \
+                print('i=%06d, time=%6.1f as, rate=%6.2f min^-1, ' \
                     'ekin=%13.9f eV, epot=%13.9f eV, etot=%13.9f eV' \
-                    % (i, timestep * i, rate, ekin, epot, ekin + epot)
+                    % (i, timestep * i, rate, ekin, epot, ekin + epot), file=f)
                 t0 = time.time()
 
                 # Hack to prevent calls to GPAW::get_potential_energy when saving
                 spa = self.tdcalc.get_atoms()
-                spc = SinglePointCalculator(epot, F_av, None, None, spa)
+                spc = SinglePointCalculator(spa, energy=epot, forces=F_av)
                 spa.set_calculator(spc)
                 traj.write(spa)
         f.close()
@@ -182,8 +180,8 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
 
         f = paropen('%s_ref.log' % self.tdname, 'w')
         niters = np.round(self.duration / self.timesteps).astype(int)
-        print >>f, 'propagator: %s, duration: %6.1f as, niters: %s, ' \
-            % (self.propagator, self.duration, niters.tolist())
+        print('propagator: %s, duration: %6.1f as, niters: %s, ' \
+            % (self.propagator, self.duration, niters.tolist()), file=f)
 
         for t,timestep in enumerate(self.timesteps):
             self.assertTrue(os.path.isfile('%s_%d.gpw' % (self.tdname, t)))
@@ -206,8 +204,8 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
             # Check loaded density and wavefunctions against reference values
             dnt = finegd.comm.max(np.abs(nt_g - nt0_g).max())
             dpsit = gd.comm.max(np.abs(psit_nG - psit0_nG).max())
-            print >>f, 't=%d, timestep: %5.2f as, dnt: %16.13f, ' \
-                'dpsit: %16.13f' % (t, timestep, dnt, dpsit)
+            print('t=%d, timestep: %5.2f as, dnt: %16.13f, ' \
+                'dpsit: %16.13f' % (t, timestep, dnt, dpsit), file=f)
             snt, spsit = {'SITE': (5,4)}.get(self.propagator, (7,5))
             #self.assertAlmostEqual(dnt, 0, snt, 't=%d, timestep: ' \
             #    '%5.2f as, dnt: %g, digits: %d' % (t, timestep, dnt, snt))
@@ -215,9 +213,6 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
             #    '%5.2f as, dpsit=%g, digits: %d' % (t, timestep, dpsit, spsit))
         f.close()
 
-# -------------------------------------------------------------------
-
-import new
 
 def UTStaticPropagatorFactory(timesteps, propagator):
     sep = '_'
@@ -229,7 +224,7 @@ def UTStaticPropagatorFactory(timesteps, propagator):
         propagator = propagator
     for t,timestep in enumerate(timesteps):
         func = lambda _self, _t=t: _self._test_timestepping(_t)
-        method = new.instancemethod(func, None, MetaPrototype)
+        method = func#new.instancemethod(func, None, MetaPrototype)
         method_name = 'test_timestepping_%02.0fas' % timestep
         setattr(MetaPrototype, method_name, method)
     MetaPrototype.__name__ = classname
@@ -242,7 +237,6 @@ if __name__ in ['__main__', '__builtin__']:
     if __name__ == '__builtin__':
         testrunner = CustomTextTestRunner('ut_tddft.log', verbosity=2)
     else:
-        from gpaw.utilities import devnull
         stream = (world.rank == 0) and sys.stdout or devnull
         testrunner = TextTestRunner(stream=stream, verbosity=2)
 
@@ -250,7 +244,7 @@ if __name__ in ['__main__', '__builtin__']:
     for test in [UTGroundStateSetup]:
         info = ['', test.__name__, test.__doc__.strip('\n'), '']
         testsuite = initialTestLoader.loadTestsFromTestCase(test)
-        map(testrunner.stream.writeln, info)
+        list(map(testrunner.stream.writeln, info))
         testresult = testrunner.run(testsuite)
         assert testresult.wasSuccessful(), 'Initial verification failed!'
         parinfo.extend(['    Parallelization options: %s' % tci._parinfo for \
@@ -268,7 +262,7 @@ if __name__ in ['__main__', '__builtin__']:
     for test in testcases:
         info = ['', test.__name__, test.__doc__.strip('\n')] + parinfo + ['']
         testsuite = defaultTestLoader.loadTestsFromTestCase(test)
-        map(testrunner.stream.writeln, info)
+        list(map(testrunner.stream.writeln, info))
         testresult = testrunner.run(testsuite)
         # Provide feedback on failed tests if imported by test.py
         if __name__ == '__builtin__' and not testresult.wasSuccessful():

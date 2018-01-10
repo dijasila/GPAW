@@ -56,11 +56,6 @@ class GPAWFactory(CalculatorFactory):
         else:
             txt = name + '.txt'
 
-        if self.write_gpw_file is not None:
-            from gpaw.hooks import hooks
-            hooks['converged'] = (
-                lambda calc, name=name + '.gpw', mode=self.write_gpw_file:
-                    calc.write(name, mode))
 
         from gpaw import GPAW
         return GPAW(txt=txt, kpts=kpts, **kwargs)

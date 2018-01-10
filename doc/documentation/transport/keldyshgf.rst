@@ -1,14 +1,12 @@
 .. _keldyshgf:
 
-.. default-role:: math
-
 =======================
 Keldysh Green functions
 =======================
 
 The Keldysh Green function (KGF) code allows for calculations
 of non-equilibrium transport calculations where electron
-exchange and correlation effect are threated using many body pertubation
+exchange and correlation effect are threated using many body perturbation
 theory such as Hartree-Fock, second Born and the GW approximation.
 It is recommended that you go through the ASE/GPAW electron transport exercice
 to get familiar with the general transport setup and definitions used 
@@ -18,7 +16,7 @@ in ase and gpaw and the KGF code.
 Download and Installation
 -------------------------
 
-The KGF code is currently beeing merged into the development version of
+The KGF code is currently being merged into the development version of
 GPAW and is expected to be part of the GPAW package in the near future.
 The latest revision can be obtained from svn::
 
@@ -130,5 +128,3 @@ Saving calculated data to a NetCDFFile
 The GF method ``WriteSpectralInfoToNetCDFFile`` is used to save all
 the calculated data such as spectral functions, transmission function etc.
 to a NetCDFFile. 
-
-.. default-role::

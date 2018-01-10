@@ -19,7 +19,7 @@ kpts = [(0,0,0)]
 slab.calc.set(fixdensity=True,
               nbands=5,
               kpts=kpts,
-              usesymm=None,
+              symmetry='off',
               eigensolver='cg')
 slab.get_potential_energy()
 e2 = slab.calc.get_eigenvalues(kpt=0)[0]
@@ -29,11 +29,11 @@ calc = GPAW('Li.gpw',
             fixdensity=True,
             nbands=5,
             kpts=kpts,
-            usesymm=None,
+            symmetry='off',
             eigensolver='cg')
 calc.scf.reset()
 calc.get_potential_energy()
 e3 = calc.get_eigenvalues(kpt=0)[0]
 
-equal(e1, e2, 1e-5)
-equal(e1, e3, 1e-5)
+equal(e1, e2, 3e-5)
+equal(e1, e3, 3e-5)

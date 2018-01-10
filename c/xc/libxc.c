@@ -24,7 +24,7 @@ typedef struct
   int nspin; /* must be common to x and c, so declared redundantly here */
 } lxcXCFunctionalObject;
 
-void XC(lda_fxc_fd)(const XC(func_type) *p, const FLOAT *rho, FLOAT *fxc);
+void XC(lda_fxc_fd)(const XC(func_type) *p, const double *rho, double *fxc);
 
 /* a general call for an LDA functional - finite difference */
 void get_fxc_fd_lda(XC(func_type) *func, double point[7], double der[5][5])
@@ -234,7 +234,7 @@ lxcXCFunctional_CalculateFXC_FD_SpinPaired(lxcXCFunctionalObject *self, PyObject
   assert(nspin == XC_UNPOLARIZED); /* we are spinpaired */
   assert (self->functional[0]->info->family != XC_FAMILY_MGGA);
 
-  int ng = n_array->dimensions[0]; /* number of grid points */
+  int ng = PyArray_DIMS(n_array)[0]; /* number of grid points */
 
   const double* n_g = DOUBLEP(n_array); /* density on the grid */
   double* v2rho2_g = DOUBLEP(v2rho2_array); /* v on the grid */
@@ -580,7 +580,7 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
   xcinfo info;
   info.nspin = self->nspin;
   info.spinpolarized = (info.nspin==2);
-  info.ng = py_e_g->dimensions[0];
+  info.ng = PyArray_DIMS(py_e_g)[0];
 
   xcptrlist inlist,outlist;
   inlist.num=0;
@@ -699,8 +699,9 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
           noutcopy = 3; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
         case XC_FAMILY_MGGA:
-          xc_mgga_exc_vxc(func, blocksize, n_sg, sigma_xg, scratch_lapl, tau_sg,
-                          e_g, dedn_sg, dedsigma_xg, scratch_vlapl, dedtau_sg);
+          xc_mgga_exc_vxc(func, blocksize, n_sg, sigma_xg, scratch_lapl,
+                          tau_sg, e_g, dedn_sg, dedsigma_xg, scratch_vlapl,
+                          dedtau_sg);
           noutcopy = 4; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
         }
@@ -743,7 +744,7 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
   xcinfo info;
   info.nspin = self->nspin;
   info.spinpolarized = (info.nspin==2);
-  info.ng = (info.spinpolarized) ? py_n_sg->dimensions[0]/2 : py_n_sg->dimensions[0];
+  info.ng = (info.spinpolarized) ? PyArray_DIMS(py_n_sg)[0]/2 : PyArray_DIMS(py_n_sg)[0];
 
   xcptrlist inlist,outlist;
   inlist.num=0;
@@ -881,6 +882,33 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+
+static PyObject*
+lxcXCFunctional_tb09(lxcXCFunctionalObject *self, PyObject *args)
+{
+    double c;
+    PyArrayObject* n_g;
+    PyArrayObject* sigma_g;
+    PyArrayObject* lapl_g;
+    PyArrayObject* tau_g;
+    PyArrayObject* v_g;
+    PyArrayObject* vx_g;  // for vsigma, vtau, vlapl
+    if (!PyArg_ParseTuple(args, "dOOOOOO",
+                          &c, &n_g, &sigma_g, &lapl_g, &tau_g, &v_g, &vx_g))
+        return NULL;
+    xc_mgga_x_tb09_set_params(self->functional[0], c);
+    xc_mgga_vxc(self->functional[0], PyArray_DIM(n_g, 0),
+                PyArray_DATA(n_g),
+                PyArray_DATA(sigma_g),
+                PyArray_DATA(lapl_g),
+                PyArray_DATA(tau_g),
+                PyArray_DATA(v_g),
+                PyArray_DATA(vx_g),
+                PyArray_DATA(vx_g),
+                PyArray_DATA(vx_g));
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef lxcXCFunctional_Methods[] = {
   {"is_gga",
    (PyCFunction)lxcXCFunctional_is_gga, METH_VARARGS, 0},
@@ -892,23 +920,23 @@ static PyMethodDef lxcXCFunctional_Methods[] = {
    (PyCFunction)lxcXCFunctional_Calculate, METH_VARARGS, 0},
   {"calculate_fxc_spinpaired",
    (PyCFunction)lxcXCFunctional_CalculateFXC, METH_VARARGS, 0},
+  {"tb09",
+   (PyCFunction)lxcXCFunctional_tb09, METH_VARARGS, 0},
   {NULL, NULL, 0, NULL}
 };
 
-static PyObject* lxcXCFunctional_getattr(PyObject *obj, char *name)
-{
-  return Py_FindMethod(lxcXCFunctional_Methods, obj, name);
-}
 
-static PyTypeObject lxcXCFunctionalType = {
-  PyObject_HEAD_INIT(&PyType_Type)
-  0,
-  "lxcXCFunctional",
-  sizeof(lxcXCFunctionalObject),
-  0,
-  (destructor)lxcXCFunctional_dealloc,
-  0,
-  lxcXCFunctional_getattr
+PyTypeObject lxcXCFunctionalType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "lxcXCFunctional",
+    sizeof(lxcXCFunctionalObject),
+    0,
+    (destructor)lxcXCFunctional_dealloc,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    "LibXCFunctional object",
+    0, 0, 0, 0, 0, 0,
+    lxcXCFunctional_Methods
 };
 
 
@@ -933,7 +961,7 @@ PyObject * NewlxcXCFunctionalObject(PyObject *obj, PyObject *args)
   /* checking if the numbers xc x c are valid is done at python level */
 
   lxcXCFunctionalObject *self = PyObject_NEW(lxcXCFunctionalObject,
-					     &lxcXCFunctionalType);
+                                             &lxcXCFunctionalType);
 
   if (self == NULL){
     return NULL;

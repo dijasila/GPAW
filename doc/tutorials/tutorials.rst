@@ -4,8 +4,8 @@
 Tutorials
 =========
 
-If you are not familiar with :ase:`ASE <>`, consider going through the
-:ase:`ASE Tutorials <tutorials/tutorials.html>` first.
+If you are not familiar with ASE, consider going through the
+:ref:`ASE Tutorials <ase:tutorials>` first.
 
 The GPAW tutorials are meant to guide the user through some scripts.
 The first section of tutorials cover the most common tasks.  The
@@ -22,8 +22,8 @@ Introductory tutorials
 .. toctree::
    :maxdepth: 2
 
-   atomization/atomization
-   optimization/optimization
+   H2/atomization
+   H2/optimization
    plotting/plot_wave_functions
    bandstructures/bandstructures
    lattice_constants/lattice_constants
@@ -36,17 +36,26 @@ Specialized tutorials
    :maxdepth: 2
 
    band_gap/band_gap
+   unfold/unfold
+   spinorbit/spinorbit
    dipole_correction/dipole
+   hubbardu/hubbardu
    jellium/jellium
    hydrogen/h
+   stm/stm
+   bader/bader
    all-electron/all_electron_density
+   ps2ae/ps2ae
    neb/neb
    pbe0/pbe0
    xas/xas
-   negfstm/negfstm
    dielectric_response/dielectric_response
-   rpa/rpa_tut
-   ensembles/ensembles
    gw_tutorial/gw_tutorial
-   atomization_cmr/atomization_cmr
-
+   bse_tutorial/bse_tutorial
+   rpa/rpa_tut
+   fxc_correlation/rapbe_tut
+   rangerpa/rangerpa_tut
+   H2/ensembles
+   continuum_solvent_model/continuum_solvent_model
+   ofdft/ofdft
+   wannier90/wannier90_tutorial

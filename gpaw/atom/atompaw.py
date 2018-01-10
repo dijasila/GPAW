@@ -13,15 +13,18 @@ import gpaw.mpi as mpi
 
 
 class MakeWaveFunctions:
+    name = 'atompaw'
+
     def __init__(self, gd):
         self.gd = gd
 
-    def __call__(self, paw, gd, *args):
-        #paw.gd = self.gd XXX!
-        return AtomWaveFunctions(self.gd, *args)
+    def __call__(self, paw, gd, *args, **kwargs):
+        return AtomWaveFunctions(self.gd, *args, **kwargs)
     
 
 class AtomWaveFunctions(WaveFunctions):
+    mode = 'atompaw'
+
     def initialize(self, density, hamiltonian, spos_ac):
         setup = self.setups[0]
         bf = AtomBasisFunctions(self.gd, setup.phit_j)
@@ -36,7 +39,8 @@ class AtomWaveFunctions(WaveFunctions):
 
 
 class AtomPoissonSolver:
-    description = 'Radial equidistant'
+    def get_description(self):
+        return 'Radial equidistant'
 
     def set_grid_descriptor(self, gd):
         self.gd = gd
@@ -93,7 +97,7 @@ class AtomEigensolver:
             for pt2, l2 in zip(self.pt_j, setup.l_j):
                 if l1 == l2 and l1 <= lmax:
                     self.S_l[l1] += (np.outer(pt1 * r, pt2 * r) *
-                                     h * dS_ii[i1, i2]) 
+                                     h * dS_ii[i1, i2])
                 i2 += 2 * l2 + 1
             i1 += 2 * l1 + 1
 
@@ -128,7 +132,7 @@ class AtomEigensolver:
                     for pt2, l2 in zip(self.pt_j, setup.l_j):
                         if l1 == l2 == l:
                             H += (h * dH_ii[i1, i2] *
-                                  np.outer(pt1 * r,  pt2 * r))
+                                  np.outer(pt1 * r, pt2 * r))
                         i2 += 2 * l2 + 1
                     i1 += 2 * l1 + 1
                 general_diagonalize(H, e_n, self.S_l[l].copy())
@@ -152,7 +156,9 @@ class AtomLocalizedFunctionsCollection:
         self.gd = gd
         spline = spline_aj[0][0]
         self.b_g = np.array([spline(r) for r in gd.r_g]) / sqrt(4 * pi)
-
+        self.nfunctions = sum(2 * spline.get_angular_momentum_number() + 1
+                              for spline in spline_aj[0])
+        
     def set_positions(self, spos_ac):
         pass
     
@@ -169,7 +175,10 @@ class AtomLocalizedFunctionsCollection:
         c_ai[0][0] = self.gd.integrate(a_g, self.b_g)
         c_ai[0][1:] = 0.0
 
-
+    def dict(self):
+        return {0: np.empty(self.nfunctions)}
+        
+        
 class AtomBasisFunctions:
     def __init__(self, gd, phit_j):
         self.gd = gd
@@ -205,25 +214,42 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
         self.h_cv = self.cell_cv / self.N_c
         self.dv = (rcut / 2 / ng)**3
         self.orthogonal = False
+        self.parsize_c = (1, 1, 1)
+        
     def get_ranks_from_positions(self, spos_ac):
         return np.array([0])
+        
     def refine(self):
         return self
+        
     def get_lfc(self, gd, spline_aj):
         return AtomLocalizedFunctionsCollection(gd, spline_aj)
+        
     def integrate(self, a_xg, b_xg=None, global_integral=True):
         """Integrate function(s) in array over domain."""
         if b_xg is None:
             return np.dot(a_xg, self.dv_g)
         else:
             return np.dot(a_xg * b_xg, self.dv_g)
+            
     def calculate_dipole_moment(self, rhot_g):
         return np.zeros(3)
-    def symmetrize(self, a_g, op_scc):
+        
+    def symmetrize(self, a_g, op_scc, ft_sc=None):
         pass
+        
     def get_grid_spacings(self):
         return self.h_cv.diagonal()
-    
+        
+    def get_size_of_global_array(self, pad=None):
+        return np.array(len(self.N_c))
+
+    def new_descriptor(self, *args, **kwargs):
+        return self
+
+    def get_processor_position_from_rank(self, rank):
+        return (0, 0, 0)
+
 
 class AtomOccupations(OccupationNumbers):
     def __init__(self, f_sln):
@@ -261,9 +287,11 @@ class AtomPAW(GPAW):
                       nbands=sum([(2 * l + 1) * len(f_n)
                                   for l, f_n in enumerate(f_sln[0])]),
                       communicator=mpi.serial_comm,
+                      parallel=dict(augment_grids=False),
                       **kwargs)
         self.occupations = AtomOccupations(f_sln)
         self.initialize(Atoms(symbol, calculator=self))
+        self.density.charge_eps = 1e-3
         self.calculate(converge=True)
 
     def dry_run(self):
@@ -294,8 +322,8 @@ class AtomPAW(GPAW):
         basis = Basis(self.symbol, basis_name, readxml=False)
         basis.d = self.wfs.gd.r_g[0]
         basis.ng = self.wfs.gd.N + 1
-        basis.generatorattrs = {} # attrs of the setup maybe
-        basis.generatordata = 'AtomPAW' # version info too?
+        basis.generatorattrs = {}  # attrs of the setup maybe
+        basis.generatordata = 'AtomPAW'  # version info too?
 
         bf_j = basis.bf_j
         for l, n, f, eps, psit_G in self.state_iter():

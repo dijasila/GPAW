@@ -8,10 +8,9 @@ The module defines an overlap operator and implements overlap-related
 functions.
 
 """
-import sys
 import numpy as np
 
-from gpaw.utilities.tools import lowdin, tri2full
+from gpaw.utilities.tools import tri2full
 from gpaw import extra_parameters
 from gpaw.utilities.lapack import diagonalize
 

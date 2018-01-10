@@ -134,6 +134,5 @@ task = Task(
 
 if __name__ == '__main__':
     # run systems from collection for which we have setups
-    keys = list(set(parameters.keys()).intersection(task.collection.names))
-    keys.sort()
+    keys = sorted(set(parameters.keys()).intersection(task.collection.names))
     task.run(keys)

@@ -4,15 +4,16 @@
 import os
 import sys
 import time
+import traceback
 import atexit
 import pickle
+from fractions import gcd
+
 import numpy as np
 
 from gpaw import debug
 from gpaw import dry_run as dry_run_size
 from gpaw.utilities import is_contiguous
-from gpaw.utilities import gcd
-from gpaw.utilities.tools import md5_array
 
 import _gpaw
 
@@ -39,7 +40,7 @@ class _Communicator:
         self.comm = comm
         self.size = comm.size
         self.rank = comm.rank
-        self.parent = parent #XXX check C-object against comm.parent?
+        self.parent = parent  # XXX check C-object against comm.parent?
 
     def new_communicator(self, ranks):
         """Create a new MPI communicator for a subset of ranks in a group.
@@ -224,6 +225,49 @@ class _Communicator:
         assert 0 <= root < self.size
         self.comm.scatter(a, b, root)
 
+    def alltoallv(self, sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls):
+        """All-to-all in a group.
+
+        Parameters:
+
+        sbuffer: ndarray
+            Source of the data to distribute, i.e., send buffers on all ranks
+        scounts: ndarray
+            Integer array equal to the group size specifying the number of
+            elements to send to each processor
+        sdispls: ndarray
+            Integer array (of length group size). Entry j specifies the
+            displacement (relative to sendbuf from which to take the
+            outgoing data destined for process j)
+        rbuffer: ndarray
+            Destination of the distributed data, i.e., local receive buffer.
+        rcounts: ndarray
+            Integer array equal to the group size specifying the maximum
+            number of elements that can be received from each processor.
+        rdispls:
+            Integer array (of length group size). Entry i specifies the
+            displacement (relative to recvbuf at which to place the incoming
+            data from process i
+        """
+        assert sbuffer.flags.contiguous
+        assert scounts.flags.contiguous
+        assert sdispls.flags.contiguous
+        assert rbuffer.flags.contiguous
+        assert rcounts.flags.contiguous
+        assert rdispls.flags.contiguous
+        assert sbuffer.dtype == rbuffer.dtype
+        
+        for arr in [scounts, sdispls, rcounts, rdispls]:
+            assert arr.dtype == np.int, arr.dtype
+            assert len(arr) == self.size
+
+        assert np.all(0 <= sdispls)
+        assert np.all(0 <= rdispls)
+        assert np.all(sdispls + scounts <= sbuffer.size)
+        assert np.all(rdispls + rcounts <= rbuffer.size)
+        self.comm.alltoallv(sbuffer, scounts, sdispls,
+                            rbuffer, rcounts, rdispls)
+
     def all_gather(self, a, b):
         """Gather data from all ranks onto all processes in a group.
 
@@ -260,7 +304,6 @@ class _Communicator:
           comm.broadcast(data, 0)
 
         """
-        tc = a.dtype
         assert a.flags.contiguous
         assert b.flags.contiguous
         assert b.dtype == a.dtype
@@ -377,7 +420,7 @@ class _Communicator:
         assert dest != self.rank
         assert is_contiguous(a)
         if not block:
-            pass #assert sys.getrefcount(a) > 3
+            pass  # assert sys.getrefcount(a) > 3
         return self.comm.send(a, dest, tag, block)
 
     def ssend(self, a, dest, tag=123):
@@ -415,7 +458,7 @@ class _Communicator:
             Request e.g. returned from send/receive when block=False is used.
 
         """
-        return self.comm.testall(requests) # may deallocate requests!
+        return self.comm.testall(requests)  # may deallocate requests!
 
     def wait(self, request):
         """Wait for a non-blocking MPI operation to complete before returning.
@@ -460,6 +503,39 @@ class _Communicator:
         """Block execution until all process have reached this point."""
         self.comm.barrier()
 
+    def compare(self, othercomm):
+        """Compare communicator to other.
+
+        Returns 'ident' if they are identical, 'congruent' if they are
+        copies of each other, 'similar' if they are permutations of
+        each other, and otherwise 'unequal'.
+
+        This method corresponds to MPI_Comm_compare."""
+        if isinstance(self.comm, SerialCommunicator):
+            return self.comm.compare(othercomm.comm) # argh!
+        result = self.comm.compare(othercomm.get_c_object())
+        assert result in ['ident', 'congruent', 'similar', 'unequal']
+        return result
+
+    def translate_ranks(self, other, ranks):
+        """"Translate ranks from communicator to other.
+
+        ranks must be valid on this communicator.  Returns ranks
+        on other communicator corresponding to the same processes.
+        Ranks that are not defined on the other communicator are
+        assigned values of -1.  (In contrast to MPI which would
+        assign MPI_UNDEFINED)."""
+        assert hasattr(other, 'translate_ranks'), \
+            'Excpected communicator, got %s' % other
+        assert all(0 <= rank for rank in ranks)
+        assert all(rank < self.size for rank in ranks)
+        if isinstance(self.comm, SerialCommunicator):
+            return self.comm.translate_ranks(other.comm, ranks) # argh!
+        otherranks = self.comm.translate_ranks(other.get_c_object(), ranks)
+        assert all(-1 <= rank for rank in otherranks)
+        assert ranks.dtype == otherranks.dtype
+        return otherranks
+        
     def get_members(self):
         """Return the subset of processes which are members of this MPI group
         in terms of the ranks they are assigned on the parent communicator.
@@ -492,7 +568,7 @@ class _Communicator:
         comm.get_c_object() and pass the resulting object to the C code.
         """
         c_obj = self.comm.get_c_object()
-        assert type(c_obj) is _gpaw.Communicator
+        assert isinstance(c_obj, _gpaw.Communicator)
         return c_obj
 
 
@@ -532,6 +608,16 @@ class SerialCommunicator:
     def all_gather(self, a, b):
         b[:] = a
 
+    def alltoallv(self, sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls):
+        assert len(scounts) == 1
+        assert len(sdispls) == 1
+        assert len(rcounts) == 1
+        assert len(rdispls) == 1
+        assert len(sbuffer) == len(rbuffer)
+        
+        rbuffer[rdispls[0]:rdispls[0] + rcounts[0]] = \
+            sbuffer[sdispls[0]:sdispls[0] + scounts[0]]
+
     def new_communicator(self, ranks):
         if self.rank not in ranks:
             return None
@@ -555,6 +641,20 @@ class SerialCommunicator:
 
     def get_members(self):
         return np.array([0])
+    
+    def compare(self, other):
+        if self == other:
+            return 'ident'
+        elif isinstance(other, SerialCommunicator):
+            return 'congruent'
+        else:
+            raise NotImplementedError('Compare serial comm to other')
+
+    def translate_ranks(self, other, ranks):
+        if isinstance(other, SerialCommunicator):
+            assert all(rank == 0 for rank in ranks)
+            return np.zeros(len(ranks), dtype=int)
+        raise NotImplementedError('Translate non-trivial ranks with serial comm')
 
     def get_c_object(self):
         raise NotImplementedError('Should not get C-object for serial comm')
@@ -562,11 +662,20 @@ class SerialCommunicator:
 
 serial_comm = SerialCommunicator()
 
-try:
+libmpi = os.environ.get('GPAW_MPI')
+if libmpi:
+    import ctypes
+    ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
     world = _gpaw.Communicator()
-except AttributeError:
-    world = serial_comm
+    if world.size == 1:
+        world = serial_comm
+else:
+    try:
+        world = _gpaw.Communicator()
+    except AttributeError:
+        world = serial_comm
 
+    
 class DryRunCommunicator(SerialCommunicator):
     def __init__(self, size=1, parent=None):
         self.size = size
@@ -576,7 +685,7 @@ class DryRunCommunicator(SerialCommunicator):
         return DryRunCommunicator(len(ranks), parent=self)
 
     def get_c_object(self):
-        return None # won't actually be passed to C
+        return None  # won't actually be passed to C
 
 if dry_run_size > 1:
     world = DryRunCommunicator(dry_run_size)
@@ -590,139 +699,165 @@ if debug:
 size = world.size
 rank = world.rank
 parallel = (size > 1)
+try:
+    world.get_c_object()
+except NotImplementedError:
+    have_mpi = False
+else:
+    have_mpi = True
 
 
+# XXXXXXXXXX for easier transition to Parallelization class
 def distribute_cpus(parsize_domain, parsize_bands,
                     nspins, nibzkpts, comm=world,
                     idiotproof=True, mode='fd'):
-    """Distribute k-points/spins to processors.
-
-    Construct communicators for parallelization over
-    k-points/spins and for parallelization using domain
-    decomposition."""
-
-    size = comm.size
-    rank = comm.rank
-
     nsk = nspins * nibzkpts
-
     if mode in ['fd', 'lcao']:
         if parsize_bands is None:
             parsize_bands = 1
-
-        if parsize_domain is not None:
-            if type(parsize_domain) is int:
-                ndomains = parsize_domain
-            else:
-                ndomains = (parsize_domain[0] *
-                            parsize_domain[1] *
-                            parsize_domain[2])
-            assert (size // parsize_bands) % ndomains == 0
-
-        else:
-            ntot = nsk * parsize_bands
-            ndomains = size // gcd(ntot, size)
     else:
         # Plane wave mode:
-        ndomains = 1
         if parsize_bands is None:
-            parsize_bands = size // gcd(nsk, size)
+            parsize_bands = comm.size // gcd(nsk, comm.size)
 
-    assert size % parsize_bands == 0
-        
-    # How many spin/k-point combinations do we get per node:
-    nu, x = divmod(nsk, size // parsize_bands // ndomains)
-    assert x == 0 or nu >= 2 or not idiotproof, 'load imbalance!'
+    p = Parallelization(comm, nsk)
+    return p.build_communicators(domain=np.prod(parsize_domain),
+                                 band=parsize_bands)
 
-    r0 = (rank // ndomains) * ndomains
-    ranks = np.arange(r0, r0 + ndomains)
-    domain_comm = comm.new_communicator(ranks)
-
-    r0 = rank % (ndomains * parsize_bands)
-    ranks = np.arange(r0, r0 + size, ndomains * parsize_bands)
-    kpt_comm = comm.new_communicator(ranks)
-
-    r0 = rank % ndomains + kpt_comm.rank * (ndomains * parsize_bands)
-    ranks = np.arange(r0, r0 + (ndomains * parsize_bands), ndomains)
-    band_comm = comm.new_communicator(ranks)
-
-    assert size == domain_comm.size * kpt_comm.size * band_comm.size
-
-    return domain_comm, kpt_comm, band_comm
-
-
-def compare_atoms(atoms, comm=world):
-    """Check whether atoms objects are identical on all processors."""
-    # Construct fingerprint:
-    fingerprint = np.array([md5_array(array, numeric=True) for array in
-                             [atoms.positions,
-                              atoms.cell,
-                              atoms.pbc * 1.0,
-                              atoms.get_initial_magnetic_moments()]])
-    # Compare fingerprints:
-    fingerprints = np.empty((comm.size, 4), fingerprint.dtype)
-    comm.all_gather(fingerprint, fingerprints)
-    mismatches = fingerprints.ptp(0)
-
-    if debug:
-        dumpfile = 'compare_atoms'
-        for i in np.argwhere(mismatches).ravel():
-            itemname = ['positions', 'cell', 'pbc', 'magmoms'][i]
-            itemfps = fingerprints[:, i]
-            itemdata = [atoms.positions,
-                        atoms.cell,
-                        atoms.pbc * 1.0,
-                        atoms.get_initial_magnetic_moments()][i]
-            if comm.rank == 0:
-                print 'DEBUG: compare_atoms failed for %s' % itemname
-                itemfps.dump('%s_fps_%s.pickle' % (dumpfile, itemname))
-            itemdata.dump('%s_r%04d_%s.pickle' % (dumpfile, comm.rank, 
-                                                  itemname))
-
-    return not mismatches.any()
 
 def broadcast(obj, root=0, comm=world):
     """Broadcast a Python object across an MPI communicator and return it."""
     if comm.rank == root:
         assert obj is not None
-        string = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
+        b = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
     else:
         assert obj is None
-        string = None
-    string = broadcast_string(string, root, comm)
+        b = None
+    b = broadcast_bytes(b, root, comm)
     if comm.rank == root:
         return obj
     else:
-        return pickle.loads(string)
+        return pickle.loads(b)
 
-def broadcast_string(string=None, root=0, comm=world):
-    """Broadcast a Python string across an MPI communicator and return it.
-    NB: Strings are immutable objects in Python, so the input is unchanged."""
-    if comm.rank == root:
-        assert isinstance(string, str)
-        n = np.array(len(string), int)
+
+def synchronize_atoms(atoms, comm, tolerance=1e-8):
+    """Synchronize atoms between multiple CPUs removing numerical noise.
+    
+    If the atoms differ significantly, raise ValueError on all ranks.
+    The error object contains the ranks where the check failed.
+
+    In debug mode, write atoms to files in case of failure."""
+
+    if len(atoms) == 0:
+        return
+    
+    if comm.rank == 0:
+        src = (atoms.positions, atoms.cell, atoms.numbers, atoms.pbc)
     else:
-        assert string is None
+        src = None
+
+    positions, cell, numbers, pbc = broadcast(src, root=0, comm=comm)
+    ok = (len(positions) == len(atoms.positions) and
+          (abs(positions - atoms.positions).max() <= tolerance) and
+          (numbers == atoms.numbers).all() and
+          (cell == atoms.cell).all() and
+          (pbc == atoms.pbc).all())
+
+    # We need to fail equally on all ranks to avoid trouble.  Thus
+    # we use an array to gather check results from everyone.
+    my_fail = np.array(not ok, dtype=bool)
+    all_fail = np.zeros(comm.size, dtype=bool)
+    comm.all_gather(my_fail, all_fail)
+
+    if all_fail.any():
+        if debug:
+            with open('synchronize_atoms_r%d.pckl' % comm.rank, 'wb') as fd:
+                pickle.dump((atoms.positions, atoms.cell,
+                             atoms.numbers, atoms.pbc,
+                             positions, cell, numbers, pbc), fd)
+        err_ranks = np.arange(comm.size)[all_fail]
+        raise ValueError('Mismatch of Atoms objects.  In debug '
+                         'mode, atoms will be dumped to files.',
+                         err_ranks)
+        
+    atoms.positions = positions
+
+        
+def broadcast_string(string=None, root=0, comm=world):
+    if comm.rank == root:
+        string = string.encode()
+    return broadcast_bytes(string, root, comm).decode()
+    
+    
+def broadcast_bytes(b=None, root=0, comm=world):
+    """Broadcast a bytes across an MPI communicator and return it."""
+    if comm.rank == root:
+        assert isinstance(b, bytes)
+        n = np.array(len(b), int)
+    else:
+        assert b is None
         n = np.zeros(1, int)
     comm.broadcast(n, root)
     if comm.rank == root:
-        string = np.fromstring(string, np.int8)
+        b = np.fromstring(b, np.int8)
     else:
-        string = np.zeros(n, np.int8)
-    comm.broadcast(string, root)
-    return string.tostring()
+        b = np.zeros(n, np.int8)
+    comm.broadcast(b, root)
+    return b.tostring()
 
+    
 def send_string(string, rank, comm=world):
     comm.send(np.array(len(string)), rank)
     comm.send(np.fromstring(string, np.int8), rank)
 
+    
 def receive_string(rank, comm=world):
     n = np.array(0)
     comm.receive(n, rank)
     string = np.empty(n, np.int8)
     comm.receive(string, rank)
-    return string.tostring()
+    return string.tostring().decode()
 
+    
+def alltoallv_string(send_dict, comm=world):
+    scounts = np.zeros(comm.size, dtype=np.int)
+    sdispls = np.zeros(comm.size, dtype=np.int)
+    stotal = 0
+    for proc in range(comm.size):
+        if proc in send_dict:
+            data = np.fromstring(send_dict[proc], np.int8)
+            scounts[proc] = data.size
+            sdispls[proc] = stotal
+            stotal += scounts[proc]
+
+    rcounts = np.zeros(comm.size, dtype=np.int)
+    comm.alltoallv(scounts, np.ones(comm.size, dtype=np.int),
+                   np.arange(comm.size, dtype=np.int),
+                   rcounts, np.ones(comm.size, dtype=np.int),
+                   np.arange(comm.size, dtype=np.int))
+    rdispls = np.zeros(comm.size, dtype=np.int)
+    rtotal = 0
+    for proc in range(comm.size):
+        rdispls[proc] = rtotal
+        rtotal += rcounts[proc]
+        # rtotal += rcounts[proc]  # CHECK: is this correct?
+
+    sbuffer = np.zeros(stotal, dtype=np.int8)
+    for proc in range(comm.size):
+        sbuffer[sdispls[proc]:(sdispls[proc] + scounts[proc])] = (
+            np.fromstring(send_dict[proc], np.int8))
+
+    rbuffer = np.zeros(rtotal, dtype=np.int8)
+    comm.alltoallv(sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls)
+
+    rdict = {}
+    for proc in range(comm.size):
+        i = rdispls[proc]
+        rdict[proc] = rbuffer[i:i + rcounts[proc]].tostring().decode()
+
+    return rdict
+
+    
 def ibarrier(timeout=None, root=0, tag=123, comm=world):
     """Non-blocking barrier returning a list of requests to wait for.
     An optional time-out may be given, turning the call into a blocking
@@ -730,9 +865,12 @@ def ibarrier(timeout=None, root=0, tag=123, comm=world):
     requests = []
     byte = np.ones(1, dtype=np.int8)
     if comm.rank == root:
-        for rank in range(0,root) + range(root+1,comm.size): #everybody else
+        # Everybody else:
+        for rank in range(comm.size):
+            if rank == root:
+                continue
             rbuf, sbuf = np.empty_like(byte), byte.copy()
-            requests.append(comm.send(sbuf, rank, tag=2 * tag + 0, 
+            requests.append(comm.send(sbuf, rank, tag=2 * tag + 0,
                                       block=False))
             requests.append(comm.receive(rbuf, rank, tag=2 * tag + 1,
                                          block=False))
@@ -745,11 +883,12 @@ def ibarrier(timeout=None, root=0, tag=123, comm=world):
         return requests
 
     t0 = time.time()
-    while not comm.testall(requests): # automatic clean-up upon success
+    while not comm.testall(requests):  # automatic clean-up upon success
         if time.time() - t0 > timeout:
             raise RuntimeError('MPI barrier timeout.')
     return []
 
+    
 def run(iterators):
     """Run through list of iterators one step at a time."""
     if not isinstance(iterators, list):
@@ -763,10 +902,11 @@ def run(iterators):
 
     while True:
         try:
-            results = [iter.next() for iter in iterators]
+            results = [next(iter) for iter in iterators]
         except StopIteration:
             return results
 
+            
 class Parallelization:
     def __init__(self, comm, nspinkpts):
         self.comm = comm
@@ -789,11 +929,11 @@ class Parallelization:
             self.band = band
         
         nclaimed = 1
-        for group, name in zip([self.kpt, self.domain, self.band], 
+        for group, name in zip([self.kpt, self.domain, self.band],
                                ['k-point', 'domain', 'band']):
             if group is not None:
                 if self.size % group != 0:
-                    msg = ('Cannot paralllize as the '
+                    msg = ('Cannot parallelize as the '
                            'communicator size %d is not divisible by the '
                            'requested number %d of ranks for %s '
                            'parallelization' % (self.size, group, name))
@@ -805,14 +945,27 @@ class Parallelization:
         assert self.size % navail == 0
 
         self.navail = navail
-        self.nclaimed = nclaimed        
+        self.nclaimed = nclaimed
 
     def get_communicator_sizes(self, kpt=None, domain=None, band=None):
         self.set(kpt=kpt, domain=domain, band=band)
         self.autofinalize()
         return self.kpt, self.domain, self.band
 
-    def build_communicators(self, kpt=None, domain=None, band=None):
+    def build_communicators(self, kpt=None, domain=None, band=None,
+                            order='kbd'):
+        """Construct communicators.
+
+        Returns a communicator for k-points, domains, bands and
+        k-points/bands.  The last one "unites" all ranks that are
+        responsible for the same domain.
+
+        The order must be a permutation of the characters 'kbd', each
+        corresponding to each a parallelization mode.  The last
+        character signifies the communicator that will be assigned
+        contiguous ranks, i.e. order='kbd' will yield contiguous
+        domain ranks, whereas order='kdb' will yield contiguous band
+        ranks."""
         self.set(kpt=kpt, domain=domain, band=band)
         self.autofinalize()
         
@@ -822,11 +975,13 @@ class Parallelization:
         parent_stride = self.size
         offset = 0
 
-        # Build communicators in hierachical manner
+        groups = dict(k=self.kpt, b=self.band, d=self.domain)
+
+        # Build communicators in hierarchical manner
         # The ranks in the first group have largest separation while
         # the ranks in the last group are next to each other
-        for group, name in zip([self.kpt, self.band, self.domain], 
-                               ['k-point', 'band', 'domain']):
+        for name in order:
+            group = groups[name]
             stride = parent_stride // group
             # First rank in this group
             r0 = rank % stride + offset
@@ -838,11 +993,28 @@ class Parallelization:
             # Offset for the next communicator
             offset += communicators[name].rank * stride
 
-        # return domain_comm, kpt_comm, band_comm
-        return (communicators['domain'], communicators['k-point'], 
-                communicators['band'])
-
-        return domain_comm, kpt_comm, band_comm
+        # We want a communicator for kpts/bands, i.e. the complement of the
+        # grid comm: a communicator uniting all cores with the same domain.
+        c1, c2, c3 = [communicators[name] for name in order]
+        allranks = [range(c1.size), range(c2.size), range(c3.size)]
+        
+        def get_communicator_complement(name):
+            relevant_ranks = list(allranks)
+            relevant_ranks[order.find(name)] = [communicators[name].rank]
+            ranks = np.array([r3 + c3.size * (r2 + c2.size * r1)
+                              for r1 in relevant_ranks[0]
+                              for r2 in relevant_ranks[1]
+                              for r3 in relevant_ranks[2]])
+            return comm.new_communicator(ranks)
+        
+        # The communicator of all processes that share a domain, i.e.
+        # the combination of k-point and band dommunicators.
+        communicators['D'] = get_communicator_complement('d')
+        # For each k-point comm rank, a communicator of all
+        # band/domain ranks.  This is typically used with ScaLAPACK
+        # and LCAO orbital stuff.
+        communicators['K'] = get_communicator_complement('k')
+        return communicators
     
     def autofinalize(self):
         if self.kpt is None:
@@ -851,13 +1023,22 @@ class Parallelization:
             self.set(domain=self.navail)
         if self.band is None:
             self.set(band=self.navail)
+
+        if self.navail > 1:
+            assignments = dict(kpt=self.kpt,
+                               domain=self.domain,
+                               band=self.band)
+            raise RuntimeError('All the CPUs must be used.  Have %s but '
+                               '%d times more are available'
+                               % (assignments, self.navail))
     
     def get_optimal_kpt_parallelization(self, kptprioritypower=1.4):
-        if self.domain == 1 and self.band == 1:
-            # Use all the CPUs for k-point parallelization
-            return self.navail
+        if self.domain and self.band:
+            # Try to use all the CPUs for k-point parallelization
+            ncpus = min(self.nspinkpts, self.navail)
+            return ncpus
         ncpuvalues, wastevalues = self.find_kpt_parallelizations()
-        scores = ((self.navail // ncpuvalues) 
+        scores = ((self.navail // ncpuvalues)
                   * ncpuvalues**kptprioritypower)**(1.0 - wastevalues)
         arg = np.argmax(scores)
         ncpus = ncpuvalues[arg]
@@ -871,7 +1052,6 @@ class Parallelization:
         ncpus = nspinkpts
         while ncpus > 0:
             if self.navail % ncpus == 0:
-                nkptsmin = nspinkpts // ncpus
                 nkptsmax = -(-nspinkpts // ncpus)
                 effort = nkptsmax * ncpus
                 efficiency = nspinkpts / float(effort)
@@ -884,23 +1064,49 @@ class Parallelization:
 
 def cleanup():
     error = getattr(sys, 'last_type', None)
-    if error is not None: # else: Python script completed or raise SystemExit
+    if error is not None:  # else: Python script completed or raise SystemExit
         if parallel and not (dry_run_size > 1):
             sys.stdout.flush()
-            sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  ' +
-                          'Calling MPI_Abort!\n') % (world.rank, error))
+            sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  '
+                              'Calling MPI_Abort!\n') % (world.rank, error))
             sys.stderr.flush()
             # Give other nodes a moment to crash by themselves (perhaps
             # producing helpful error messages)
             time.sleep(10)
             world.abort(42)
-        else:
-            sys.stderr.write(('GPAW CLEANUP for serial binary: %s occured. ' +
-                              'Calling sys.exit()\n') % error)
 
+
+def print_mpi_stack_trace(type, value, tb):
+    """Format exceptions nicely when running in parallel.
+
+    Use this function as an except hook.  Adds rank
+    and line number to each line of the exception.  Lines will
+    still be printed from different ranks in random order, but
+    one can grep for a rank or run 'sort' on the output to obtain
+    readable data."""
+    
+    exception_text = traceback.format_exception(type, value, tb)
+    ndigits = len(str(world.size - 1))
+    rankstring = ('%%0%dd' % ndigits) % world.rank
+    
+    lines = []
+    # The exception elements may contain newlines themselves
+    for element in exception_text:
+        lines.extend(element.splitlines())
+
+    line_ndigits = len(str(len(lines) - 1))
+
+    for lineno, line in enumerate(lines):
+        lineno = ('%%0%dd' % line_ndigits) % lineno
+        sys.stderr.write('rank=%s L%s: %s\n' % (rankstring, lineno, line))
+
+if world.size > 1:  # Triggers for dry-run communicators too, but we care not.
+    sys.excepthook = print_mpi_stack_trace
+
+            
 def exit(error='Manual exit'):
     # Note that exit must be called on *all* MPI tasks
-    atexit._exithandlers = [] # not needed because we are intentially exiting
+    atexit._exithandlers = []  # not needed because we are intentially exiting
     if parallel and not (dry_run_size > 1):
         sys.stdout.flush()
         sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  ' +
@@ -908,7 +1114,7 @@ def exit(error='Manual exit'):
         sys.stderr.flush()
     else:
         cleanup(error)
-    world.barrier() # sync up before exiting
-    sys.exit() # quit for serial case, return to _gpaw.c for parallel case
+    world.barrier()  # sync up before exiting
+    sys.exit()  # quit for serial case, return to _gpaw.c for parallel case
 
 atexit.register(cleanup)

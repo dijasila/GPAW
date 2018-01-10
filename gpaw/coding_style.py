@@ -44,7 +44,7 @@ class SimpleExample:
         parameters, there should be a parameter section (see below).
         If there only a few possible arguments, then the parameter
         section can be left out and the arguments can be described in
-        the section folowing the headline and blank line (see the
+        the section following the headline and blank line (see the
         `run` method).  If a method is real simple and
         self-explanatory, the docstring can be the headline only (see
         the `reset` method).
@@ -73,7 +73,7 @@ class SimpleExample:
 
         self.name = name
         if verbose:
-            print name
+            print(name)
         self.a = np.zeros(shape, dtype)
         self.verbose = verbose
 
@@ -84,9 +84,9 @@ class SimpleExample:
 
         Parameters:
 
-        b : ndarray
+        b: ndarray
             Add this array.
-        out : ndarray
+        out: ndarray
             Optional output array.
 
         Returns:
@@ -94,7 +94,7 @@ class SimpleExample:
         The sum of ...
         """
 
-        if out is none:
+        if out is None:
             return self.a + b
         else:
             return np.add(self.a, b, out)
@@ -109,10 +109,10 @@ class SimpleExample:
         for i in range(n):
             self.a += i
             if self.verbose:
-                print self.a
+                print(self.a)
 
         return pi * self.a / n + 1
-    
+
     def reset(self):
         """Simple method - no explanation needed."""
         self.a[:] = 0
@@ -124,5 +124,3 @@ def function(a, b):
     Long story ..."""
 
     return a + b
-
-

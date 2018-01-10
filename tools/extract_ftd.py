@@ -16,13 +16,13 @@ if __name__ == '__main__':
 
     def printOptions():
         scriptname = sys.argv[0].rsplit('/', 1)[-1]
-        print 'Usage:'
-        print '    %s FTDFILE GPWFILE' % scriptname
-        print ''
-        print 'Arguments:'
-        print '        FTDFILE    Fourier transformed density tar-file.'
-        print '        GPWFILE    GPAW calculation tar-file (optional).'
-        print ''
+        print('Usage:')
+        print('    %s FTDFILE GPWFILE' % scriptname)
+        print('')
+        print('Arguments:')
+        print('        FTDFILE    Fourier transformed density tar-file.')
+        print('        GPWFILE    GPAW calculation tar-file (optional).')
+        print('')
 
     try:
         assert len(sys.argv) == 3, 'Incorrect number of arguments.'
@@ -73,23 +73,23 @@ if __name__ == '__main__':
         for w, Fnt_sG in enumerate(Fnt_wsG):
             for s, Fnt_G in enumerate(Fnt_sG):
                 filename = '%s_Fnt_w%d_s%d_mod.cube' % (prefix,w,s)
-                print 'Saving %s (omega=%5.2f eV)...' \
-                    % (filename, omega_w[w]*aufrequency_to_eV)
+                print('Saving %s (omega=%5.2f eV)...' \
+                    % (filename, omega_w[w]*aufrequency_to_eV))
                 write(filename, atoms, data=np.abs(Fnt_G))
 
                 filename = '%s_Fnt_w%d_s%d_arg.cube' % (prefix,w,s)
-                print 'Saving %s (omega=%5.2f eV)...' \
-                    % (filename, omega_w[w]*aufrequency_to_eV)
+                print('Saving %s (omega=%5.2f eV)...' \
+                    % (filename, omega_w[w]*aufrequency_to_eV))
                 write(filename, atoms, data=np.arctan2(Fnt_G.imag, Fnt_G.real))
 
         # Save mean density as .cube file for each spin
         for s, Ant_G in enumerate(Ant_sG):
             filename = '%s_Ant_s%d.cube' % (prefix,s)
-            print 'Saving %s...' % filename
+            print('Saving %s...' % filename)
             write(filename, atoms, data=Ant_G)
 
     except AssertionError, e:
         printOptions()
-        print 'ERROR:', e
+        print('ERROR:', e)
         exit(-1)
 

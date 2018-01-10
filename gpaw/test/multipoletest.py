@@ -1,3 +1,4 @@
+from __future__ import print_function
 from math import sqrt, pi
 import numpy as np
 from gpaw.setup import create_setup
@@ -24,18 +25,18 @@ for soft in [False]:
             a_g = a_Lg[L]
             Q0 = gd.integrate(a_g) / sqrt(4 * pi)
             Q1_m = -gd.calculate_dipole_moment(a_g) / sqrt(4 * pi / 3)
-            print Q0
+            print(Q0)
             if l == 0:
                 Q0 -= 1.0
                 Q1_m[:] = 0.0
             elif l == 1:
                 Q1_m[(m + 1) % 3] -= 1.0
-            print soft, l, m, Q0, Q1_m
+            print(soft, l, m, Q0, Q1_m)
             assert abs(Q0) < 2e-6
             assert np.alltrue(abs(Q1_m) < 3e-5)
     b_Lg = np.reshape(a_Lg, (9, -1))
     S_LL = np.inner(b_Lg, b_Lg)
     gd.comm.sum(S_LL)
     S_LL.ravel()[::10] = 0.0
-    print max(abs(S_LL).ravel())
+    print(max(abs(S_LL).ravel()))
     assert max(abs(S_LL).ravel()) < 3e-4

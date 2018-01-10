@@ -1,8 +1,6 @@
 Atomic PAW setups
 =================
 
-.. default-role:: math
-
 .. _setup_matrix_elements_nabla:
 
 Calculating matrix elements of nabla
@@ -53,8 +51,8 @@ Splitting the integral in radial and angular parts, we get:
   (r^{\ell'}Y_{\ell'm'}),
 
 where `G_{\ell m,\ell'm'}^{\ell''m''}` are Gaunt coefficents and the
-last angular integral has been tabulated as ``Y_LLv`` in the
-:svn:`~gpaw/gaunt.py` module.
+last angular integral has been calculated as ``Y_LLv`` in the
+:git:`~gpaw/gaunt.py` module.
 
 
 More stuff

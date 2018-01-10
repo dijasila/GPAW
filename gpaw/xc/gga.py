@@ -9,6 +9,24 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
 
 
+def calculate_sigma(gd, grad_v, n_sg):
+    """Calculate sigma(r) and grad n(r).
+                  _     __   _  2     __    _
+    Returns sigma(r) = |\/ n(r)|  and \/ n (r).
+
+    With multiple spins it's a bit more complicated."""
+    nspins = len(n_sg)
+    gradn_svg = gd.empty((nspins, 3))
+    sigma_xg = gd.zeros(nspins * 2 - 1)
+    for v in range(3):
+        for s in range(nspins):
+            grad_v[v](n_sg[s], gradn_svg[s, v])
+            axpy(1.0, gradn_svg[s, v]**2, sigma_xg[2 * s])
+        if nspins == 2:
+            axpy(1.0, gradn_svg[0, v] * gradn_svg[1, v], sigma_xg[1])
+    return sigma_xg, gradn_svg
+
+
 class GGA(LDA):
     def set_grid_descriptor(self, gd):
         LDA.set_grid_descriptor(self, gd)
@@ -19,6 +37,20 @@ class GGA(LDA):
         sigma_xg, gradn_svg = self.calculate_sigma(n_sg)
         dedsigma_xg = self.gd.empty(nspins * 2 - 1)
         self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        self.add_gradient_correction(gradn_svg, sigma_xg, dedsigma_xg, v_sg)
+
+    def add_gradient_correction(self, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
+        """Add gradient correction to potential.
+
+        ::
+            
+                          __   /       de(r)    __      \
+            v  (r) += -2  \/ . | ? + ---------  \/ n(r) |
+             xc                \     dsigma(r)          /
+
+        Appears to also add to sigma_xg.
+        """
+        nspins = len(v_sg)
         vv_g = sigma_xg[0]
         for v in range(3):
             for s in range(nspins):
@@ -30,16 +62,7 @@ class GGA(LDA):
                     # TODO: can the number of gradient evaluations be reduced?
 
     def calculate_sigma(self, n_sg):
-        nspins = len(n_sg)
-        gradn_svg = self.gd.empty((nspins, 3))
-        sigma_xg = self.gd.zeros(nspins * 2 - 1)
-        for v in range(3):
-            for s in range(nspins):
-                self.grad_v[v](n_sg[s], gradn_svg[s, v])
-                axpy(1.0, gradn_svg[s, v] ** 2, sigma_xg[2 * s])
-            if nspins == 2:
-                axpy(1.0, gradn_svg[0, v] * gradn_svg[1, v], sigma_xg[1])
-        return sigma_xg, gradn_svg
+        return calculate_sigma(self.gd, self.grad_v, n_sg)
 
     def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
@@ -92,7 +115,7 @@ class GGA(LDA):
             w = weight_n[n]
             rnablaY_Lv = rnablaY_nLv[n, :Lmax]
             e_g, dedn_sg, b_vsg, dedsigma_xg = \
-                 self.calculate_radial(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
+                self.calculate_radial(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
             dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
                                n_qg.T)[:, :, np.newaxis] * (w * Y_L)
             dedsigma_xg *= rgd.dr_g
@@ -201,19 +224,19 @@ class PurePythonGGAKernel:
 
             # exchange
             exa, rsa, dexadrs, dexada2 = gga_x(
-                   self.name, 1, na, 4.0 * sigma_xg[0], self.kappa, self.mu)
+                self.name, 1, na, 4.0 * sigma_xg[0], self.kappa, self.mu)
             exb, rsb, dexbdrs, dexbda2 = gga_x(
-                   self.name, 1, nb, 4.0 * sigma_xg[2], self.kappa, self.mu)
+                self.name, 1, nb, 4.0 * sigma_xg[2], self.kappa, self.mu)
             a2 = sigma_xg[0] + 2.0 * sigma_xg[1] + sigma_xg[2]
             # correlation
             ec, rs, decdrs, decda2, decdzeta = gga_c(
-                   self.name, 1, n, a2, zeta, self.beta)
+                self.name, 1, n, a2, zeta, self.beta)
 
             e_g[:] += 0.5 * (na * exa + nb * exb) + n * ec
             dedn_sg[0][:] += (exa + ec - (rsa * dexadrs + rs * decdrs) / 3.0
-                            - (zeta - 1.0) * decdzeta)
+                              - (zeta - 1.0) * decdzeta)
             dedn_sg[1][:] += (exb + ec - (rsb * dexbdrs + rs * decdrs) / 3.0
-                            - (zeta + 1.0) * decdzeta)
+                              - (zeta + 1.0) * decdzeta)
             dedsigma_xg[0][:] += 2.0 * na * dexada2 + n * decda2
             dedsigma_xg[1][:] += 2.0 * n * decda2
             dedsigma_xg[2][:] += 2.0 * nb * dexbda2 + n * decda2
@@ -240,7 +263,7 @@ def pbe_constants(name):
 
     return name, kappa, mu, beta
 
-
+# a2 = |grad n|^2
 def gga_x(name, spin, n, a2, kappa, mu):
     assert spin in [0, 1]
 
@@ -296,7 +319,7 @@ def gga_c(name, spin, n, a2, zeta, BETA):
         e1, decdrs_1 = G(rs**0.5, 0.015545, 0.20548, 14.1189,
                          6.1977, 3.3662, 0.62517)
         alpha, dalphadrs = G(rs**0.5, 0.016887, 0.11125, 10.357,
-                         3.6231, 0.88026, 0.49671)
+                             3.6231, 0.88026, 0.49671)
         alpha *= -1.
         dalphadrs *= -1.
         zp = 1.0 + zeta
@@ -312,7 +335,7 @@ def gga_c(name, spin, n, a2, zeta, BETA):
                   decdrs_1 * f * zeta4 +
                   dalphadrs * f * x * IF2)
         decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
-                   f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
+                    f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
         ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
 
     # gga part
@@ -363,10 +386,11 @@ def gga_c(name, spin, n, a2, zeta, BETA):
         dphidzeta[ind2] -= 1.0 / (3.0 * xm[ind2])
         dAdzeta = tmp2 * (decdzeta - 3.0 * ec * dphidzeta / phi) / phi3
         decdzeta += ((3.0 * H / phi - dHdt2 * 2.0 * t2 / phi) * dphidzeta
-                      + dHdA * dAdzeta)
+                     + dHdA * dAdzeta)
         decda2 /= phi2
         if name == 'zvPBEsol':
-            u3_ = t2**(3. / 2.) * phi3 * rs**(-3. * zv_x - 1.) / 3.**(-3. * zv_x)
+            u3_ = (t2**(3. / 2.) *
+                   phi3 * rs**(-3. * zv_x - 1.) / 3.**(-3. * zv_x))
             zvarg_ = -zv_a * u3_ * abs(zeta)**zv_o
             dzvfdrs = -3. * zv_x * zvf * zvarg_
             decdrs *= zvf
@@ -374,7 +398,7 @@ def gga_c(name, spin, n, a2, zeta, BETA):
 
             dt2da2 = C3 * rs / n2
             assert np.shape(dt2da2) == np.shape(t2)
-            dzvfda2 =  dt2da2 * zvf * zvarg * 3. / (2. * t2)
+            dzvfda2 = dt2da2 * zvf * zvarg * 3. / (2. * t2)
             decda2 *= zvf
             decda2 += H_ * dzvfda2
 

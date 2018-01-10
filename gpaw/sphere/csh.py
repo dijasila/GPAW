@@ -1,7 +1,6 @@
-
+from math import factorial as fact
 import numpy as np
 
-from gpaw.utilities import fact
 from gpaw.sphere import lmfact
 from gpaw.sphere.legendre import ilegendre, legendre, dlegendre
 

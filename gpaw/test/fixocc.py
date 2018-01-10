@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.structure import molecule
 from ase.parallel import parprint
 from gpaw import GPAW

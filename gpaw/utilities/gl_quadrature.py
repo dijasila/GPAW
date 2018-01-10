@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # A. Pletzer Tue Mar 20 11:42:05 EST 2001
 # G. Genellina 2009-09-10: Minor syntax changes,
 #   compatibility with Python 2.4 and above
@@ -9,7 +8,7 @@
 Gauss-Legendre Integration
 """
 
-from itertools import izip
+
 import numpy as np
 
 _nodes = (
@@ -345,7 +344,7 @@ class GaussLegendre:
             ns = _nodes[ng-1]
             ws = _weights[ng-1]
         except:
-            raise RuntimeError, ('Gauss-Legendre only possible for n=' +
+            raise RuntimeError('Gauss-Legendre only possible for n=' +
                                  str(_NGMIN) + '-' + str(_NGMAX))
         dx = xmax - xmin
         self.x = np.array([(dx * y + xmin + xmax)/2. for y in ns])
@@ -371,7 +370,7 @@ def gauss(xmin, xmax, funct, ng=10):
     ws = _weights[ng-1]
     dx = xmax - xmin
     xs = [(dx*y + xmin + xmax)/2. for y in ns]
-    return 0.5*dx*sum(funct(x)*w for x,w in izip(xs,ws))
+    return 0.5*dx*sum(funct(x)*w for x,w in zip(xs,ws))
 
 def gaussLog(xmin, xmax, funct, ng=10):
     """
@@ -385,7 +384,7 @@ def gaussLog(xmin, xmax, funct, ng=10):
     ws = _weightsLog[ng-1];
     dx = xmax - xmin
     xs = [(dx*y + xmin) for y in ns]
-    return dx*sum(funct(x)*w for x,w in izip(xs,ws))
+    return dx*sum(funct(x)*w for x,w in zip(xs,ws))
 
 ####
 
@@ -405,56 +404,56 @@ if __name__ == '__main__':
     def f5(x):
         return 2.*cos(2.*pi*(x-0.128726465))**2
 
-    print '-'*80
-    print 'Gauss (weight function = 1)'
-    print '-'*80
+    print('-'*80)
+    print('Gauss (weight function = 1)')
+    print('-'*80)
 
     # simple tests
-    print 'gauss(0., 1., f3, 1)=', gauss(0., 1., f3, 1)
-    print 'gauss(0., 1., f3, 2)=', gauss(0., 1., f3, 2)
-    print 'gauss(0., 1., f3, 3)=', gauss(0., 1., f3, 3)
-    print 'gauss(0., 1., f3   )=', gauss(0., 1., f3   )
+    print('gauss(0., 1., f3, 1)=', gauss(0., 1., f3, 1))
+    print('gauss(0., 1., f3, 2)=', gauss(0., 1., f3, 2))
+    print('gauss(0., 1., f3, 3)=', gauss(0., 1., f3, 3))
+    print('gauss(0., 1., f3   )=', gauss(0., 1., f3   ))
 
     # convergence test
     ng = range(_NGMIN, _NGMAX+1)
 
-    print """\n
+    print("""\n
     Integrate[Cos[2.*Pi*(x-0.128726465)], {x, 0, 1}]
-    \n"""
+    \n""")
 
     error = [gauss(0., 10.0, f4, n) for n in ng]
-    print '    n = ', '%8d'*len(ng) % tuple(ng)
-    print 'error = ', '%8.0e'*len(error) % tuple(error)
+    print('    n = ', '%8d'*len(ng) % tuple(ng))
+    print('error = ', '%8.0e'*len(error) % tuple(error))
 
-    print """\n
+    print("""\n
     Integrate[2.*Cos[2.*Pi*(x-0.128726465)]^2, {x, 0, 1}]
-    \n"""
+    \n""")
 
     error = [gauss(0., 1.0, f5, n)-1.0 for n in ng]
-    print '    n = ', '%8d'*len(ng) % tuple(ng)
-    print 'error = ', '%8.0e'*len(error) % tuple(error)
+    print('    n = ', '%8d'*len(ng) % tuple(ng))
+    print('error = ', '%8.0e'*len(error) % tuple(error))
 
 
-    print '-'*80
-    print 'Gauss with Log singularity at left boundary'
-    print '-'*80
+    print('-'*80)
+    print('Gauss with Log singularity at left boundary')
+    print('-'*80)
 
     a, b = 0., 1.
 
-    print """\n
+    print("""\n
     Integrate[Log[x]*x^2, {x, 0, 1}]
-    \n"""
+    \n""")
 
     exact = -1./9.
     error = [gaussLog(a, b, f2, n) - exact for n in ng]
-    print '    n = ', '%8d'*len(ng) % tuple(ng)
-    print 'error = ', '%8.0e'*len(error) % tuple(error)
+    print('    n = ', '%8d'*len(ng) % tuple(ng))
+    print('error = ', '%8.0e'*len(error) % tuple(error))
 
-    print """\n
+    print("""\n
     Integrate[Log[x]*2.*Cos[2.*Pi*(x-0.128726465)]^2, {x, 0, 1}]
-    \n"""
+    \n""")
 
     exact = -1.242002481967963
     error = [gaussLog(a, b, f5, n) - exact for n in ng]
-    print '    n = ', '%8d'*len(ng) % tuple(ng)
-    print 'error = ', '%8.0e'*len(error) % tuple(error)
+    print('    n = ', '%8d'*len(ng) % tuple(ng))
+    print('error = ', '%8.0e'*len(error) % tuple(error))

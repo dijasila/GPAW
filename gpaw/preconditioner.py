@@ -1,13 +1,8 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-from math import pi
-
-import numpy as np
-
 from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace
-from gpaw.fd_operators import FDOperator
 
 from gpaw.utilities.blas import axpy, scal
 from gpaw.utilities.linalg import change_sign

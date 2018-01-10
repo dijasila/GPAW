@@ -21,14 +21,13 @@ If you find GPAW useful in your research please cite the original reference:
 and the major GPAW review:
 
    | J. Enkovaara, C. Rostgaard, J. J. Mortensen et al.
-   | `Electronic structure calculations with GPAW: a real-space implementation of the projector augmented-wave method`__ 
+   | `Electronic structure calculations with GPAW: a real-space implementation of the projector augmented-wave method`__
    | J. Phys.: Condens. Matter **22**, 253202 (2010)
 
    __ http://stacks.iop.org/0953-8984/22/253202
 
 
-together with :ase:`ASE <>` citation
-(see :ase:`Citation: how should I cite ASE?<faq.html>`).
+together with ASE citation (see :ref:`ase:cite`).
 
 If you are using the time-dependent DFT part of the code, please cite also:
 
@@ -54,7 +53,23 @@ If you use the :ref:`df_tutorial`, please cite also:
 
    __ http://link.aps.org/doi/10.1103/PhysRevB.83.245122
 
-BibTex (:svn:`doc/GPAW.bib`):
+If you use the :ref:`gw tutorial`, please cite also:
+
+   | F. Hüser, T. Olsen, and K. S. Thygesen
+   | `Quasiparticle GW calculations for solids, molecules, and two-dimensional materials`__
+   | Physical Review B Vol. **87**, 235132, 2013
+
+   __ http://link.aps.org/doi/10.1103/PhysRevB.87.235132
+
+If you use the :ref:`continuum_solvent_model`, please cite also:
+
+   | A. Held and M. Walter
+   | `Simplified continuum solvent model with a smooth cavity based on volumetric data`__
+   | The Journal of Chemical Physics Vol. **141**, 174108, 2014
+
+   __ http://dx.doi.org/10.1063/1.4900838
+
+BibTex (:git:`doc/GPAW.bib`):
 
 .. literalinclude:: GPAW.bib
 
@@ -70,24 +85,12 @@ In Finnish: supisuomalaisittain "kee-pav".
 
 In Polish: "gyeh" jak `"Gie"rek <http://en.wikipedia.org/wiki/Edward_Gierek>`_, "pav" jak `paw <http://pl.wikipedia.org/wiki/Paw_indyjski>`_: "gyeh-pav".
 
-Download
-========
-
-Trying to checkout the code via SVN resulted::
-
- [~]$ svn checkout "https://svn.fysik.dtu.dk/projects/gpaw/trunk"
- svn: Unrecognized URL scheme 'https://svn.fysik.dtu.dk/projects/gpaw/trunk'
-
-This error is diplayed in case the library 'libsvn_ra_dav' is missing
-on your system. The library is used by SVN, but is not installed by
-default.
-
 
 Compiling the C-code
 ====================
 
 For architecture dependent settings see the
-:ref:`platforms_and_architectures` page.
+:ref:`platforms and architectures` page.
 
 Compilation of the C part failed::
 
@@ -97,13 +100,13 @@ Compilation of the C part failed::
  pgcc-Warning-Unknown switch: -fno-strict-aliasing
  PGC-S-0040-Illegal use of symbol, _Complex (/usr/include/bits/cmathcalls.h: 54)
 
-You are probably using another compiler, than it was used for
+You are probably using another compiler, than was used for
 compiling python. Undefine the environment variables CC, CFLAGS and
 LDFLAGS with::
 
  # sh/bash users:
  unset CC; unset CFLAGS; unset LDFLAGS
- # csh/tcsh users: 
+ # csh/tcsh users:
  unsetenv CC; unsetenv CFLAGS; unsetenv LDFLAGS
 
 and try again.
@@ -111,67 +114,19 @@ and try again.
 Calculation does not converge
 =============================
 
-First, you can try to get more information during the calculation by
-setting the ``verbose`` parameter::
-
-  GPAW(..., verbose=True)
-
-If your (finite) system contains nearly degenerate occupied and
-unoccupied states, there can be convergence problems.  You can try to
-occupy the states with a Fermi-Dirac distribution::
-
-  from gpaw import GPAW, FermiDirac
-  GPAW(..., FermiDirac(width=0.05))
-
-However, note that this might change also the symmetry of your system
-
-Sometimes it is possible to improve the convergence by changing the
-default parameters for :ref:`manual_mixer`, try e.g.::
-
-  mixer=Mixer(0.05, 5, weight=100.0)
-  GPAW(..., mixer=mixer)
-
-In rare occasions the default :ref:`eigensolver <manual_eigensolver>`
-``rmm-diis`` does not converge, and one can try either conjugate
-gradient or Davidson eigensolvers::
-
-  GPAW(..., eigensolver='cg')
-
 Consult the :ref:`convergence` page.
 
 Poisson solver did not converge!
 ================================
 
-If you are doing a spin-polarized calculation for an isolated molecule, 
+If you are doing a spin-polarized calculation for an isolated molecule,
 then you should set the Fermi temperature to a low value.
 
-You can also try to set the number of grid points to be divisible by 8. 
+You can also try to set the number of grid points to be divisible by 8.
 Consult the :ref:`poisson_performance` page.
 
-How to switch between several GPAW versions
-===========================================
-
-For each GPAW installation use a separate, modified submit tool:
-:svn:`~doc/documentation/parallel_runs/gpaw-qsub`.
-
-Assuming that your :ref:`developer_installation` is under
-:file:`~/gpaw.test`, and the :command:`gpaw-python` under
-:file:`~/gpaw.test/build/bin.linux-x86_64-2.3/`, modify the submit
-tool: :svn:`~doc/documentation/parallel_runs/gpaw-qsub`:
-
-* set the :envvar:`PYTHONPATH` and :envvar:`PATH` passed to :command:`mpirun`::
-
-   ...
-   'export PYTHONPATH=${HOME}/gpaw.test:${PYTHONPATH} && ' +
-   'export PATH=${HOME}/gpaw.test/build/bin.linux-x86_64-2.3:${PATH} && ' +
-   'mpirun')
-
-* make sure that the corresponding :command:`gpaw-python` is used::
-
-   os.system('%s gpaw-python JOB' % (mpirun))
 
 Tests fail!
 ===========
 
-Please report the failing test as described on :ref:`running_tests`.
-
+Please report the failing test as described on :ref:`run the tests`.

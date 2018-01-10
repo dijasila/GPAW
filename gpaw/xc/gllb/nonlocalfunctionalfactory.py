@@ -21,7 +21,7 @@ class NonLocalFunctionalFactory:
     """
 
     def get_functional_by_name(self, name):
-        print "Functional name", name
+        print("Functional name", name)
 
         from gpaw.xc.gllb.nonlocalfunctional import NonLocalFunctional
         functional = NonLocalFunctional(name)

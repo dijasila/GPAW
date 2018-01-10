@@ -7,26 +7,26 @@ This file defines a series of finite difference operators used in grid mode.
 """
 
 from __future__ import division
-from math import pi
+from math import pi, factorial as fact
 
 import numpy as np
 from numpy.fft import fftn, ifftn
 
-from gpaw import debug, extra_parameters
-from gpaw.utilities import fact
 import _gpaw
+from gpaw import debug
 
 import gpaw.cuda
 
-# Expansion coefficients for finite difference Laplacian.  The numbers are      
-# from J. R. Chelikowsky et al., Phys. Rev. B 50, 11355 (1994):                 
+# Expansion coefficients for finite difference Laplacian.  The numbers are
+# from J. R. Chelikowsky et al., Phys. Rev. B 50, 11355 (1994):
 laplace = [[0],
            [-2, 1],
-           [-5/2, 4/3, -1/12],
-           [-49/18, 3/2, -3/20, 1/90],
-           [-205/72, 8/5, -1/5, 8/315, -1/560],
-           [-5269/1800, 5/3, -5/21, 5/126, -5/1008, 1/3150],
-           [-5369/1800, 12/7, -15/56, 10/189, -1/112, 2/1925, -1/16632]]
+           [-5 / 2, 4 / 3, -1 / 12],
+           [-49 / 18, 3 / 2, -3 / 20, 1 / 90],
+           [-205 / 72, 8 / 5, -1 / 5, 8 / 315, -1 / 560],
+           [-5269 / 1800, 5 / 3, -5 / 21, 5 / 126, -5 / 1008, 1 / 3150],
+           [-5369 / 1800, 12 / 7, -15 / 56, 10 / 189, -1 / 112, 2 / 1925,
+            -1 / 16632]]
 
 
 class FDOperator:
@@ -46,7 +46,6 @@ class FDOperator:
 
         mp = maxoffset_c[0]
         if maxoffset_c[1] != mp or maxoffset_c[2] != mp:
-##            print 'Warning: this should be optimized XXXX', maxoffsets, mp
             mp = max(maxoffset_c)
         n_c = gd.n_c
         M_c = n_c + 2 * mp
@@ -54,28 +53,32 @@ class FDOperator:
         offset_p = np.dot(offset_pc, stride_c)
         coef_p = np.ascontiguousarray(coef_p, float)
         neighbor_cd = gd.neighbor_cd
-        assert np.rank(coef_p) == 1
+        assert coef_p.ndim == 1
         assert coef_p.shape == offset_p.shape
         assert dtype in [float, complex]
         self.dtype = dtype
         self.shape = tuple(n_c)
-        
+
         if gd.comm.size > 1:
             comm = gd.comm.get_c_object()
         else:
             comm = None
 
         assert neighbor_cd.flags.c_contiguous and offset_p.flags.c_contiguous
-        self.mp = mp # padding
+        self.mp = mp  # padding
         self.gd = gd
         self.npoints = len(coef_p)
+        self.coef_p = coef_p
+        self.offset_p = offset_p
+        self.comm = comm
+        self.cfd = cfd
 
         self.cuda = cuda
 
         self.operator = _gpaw.Operator(coef_p, offset_p, n_c, mp,
                                        neighbor_cd, dtype == float,
                                        comm, cfd, self.cuda)
-        
+
         if description is None:
             description = '%d point finite-difference stencil' % self.npoints
         self.description = description
@@ -126,6 +129,7 @@ class FDOperator:
 
 if debug:
     _FDOperator = FDOperator
+    
     class FDOperator(_FDOperator):
         def apply(self, in_xg, out_xg, phase_cd=None):
             assert in_xg.shape == out_xg.shape
@@ -153,22 +157,22 @@ if debug:
 class Gradient(FDOperator):
     def __init__(self, gd, v, scale=1.0, n=1, dtype=float, cuda=False):
         h = (gd.h_cv**2).sum(1)**0.5
-        d = gd.xxxiucell_cv[:,v]
-        A=np.zeros((2*n+1,2*n+1))
-        for i,io in enumerate(range(-n,n+1)):
-            for j in range(2*n+1):
-                A[i,j]=io**j/float(fact(j))
-        A[n,0]=1.
-        coefs=np.linalg.inv(A)[1]
-        coefs=np.delete(coefs,len(coefs)//2)
-        offs=np.delete(np.arange(-n,n+1),n)
+        d = gd.xxxiucell_cv[:, v]
+        A = np.zeros((2 * n + 1, 2 * n + 1))
+        for i, io in enumerate(range(-n, n + 1)):
+            for j in range(2 * n + 1):
+                A[i, j] = io**j / float(fact(j))
+        A[n, 0] = 1.0
+        coefs = np.linalg.inv(A)[1]
+        coefs = np.delete(coefs, len(coefs) // 2)
+        offs = np.delete(np.arange(-n, n + 1), n)
         coef_p = []
         offset_pc = []
         for i in range(3):
-            if abs(d[i])>1e-11:
+            if abs(d[i]) > 1e-11:
                 coef_p.extend(list(coefs * d[i] / h[i] * scale))
-                offset = np.zeros((2*n, 3), int)
-                offset[:,i]=offs
+                offset = np.zeros((2 * n, 3), int)
+                offset[:, i] = offs
                 offset_pc.extend(offset)
 
         FDOperator.__init__(self, coef_p, offset_pc, gd, dtype,
@@ -179,7 +183,7 @@ def Laplace(gd, scale=1.0, n=1, dtype=float, cuda=False):
         if n == 9:
             return FTLaplace(gd, scale, dtype)
         else:
-            return GUCLaplace(gd, scale, n, dtype, cuda)
+            return GUCLaplace(gd, scale, n, dtype, cuda=cuda)
 
 
 class GUCLaplace(FDOperator):
@@ -210,12 +214,16 @@ class GUCLaplace(FDOperator):
             A_md = (h_dv**m_mv[:, np.newaxis, :]).prod(2)
             a_d, residual, rank, s = np.linalg.lstsq(A_md, [1, 1, 1, 0, 0, 0])
             if residual.sum() < 1e-14:
-                assert rank == D, 'You have a weird unit cell!'
+                if rank != D:
+                    raise ValueError(
+                        'You have a weird unit cell!  '
+                        'Try to use the maximally reduced Niggli cell.  '
+                        'See the ase.utils.geometry.niggli_reduce() function.')
                 # D directions was OK
                 break
 
         a_d *= scale
-        offsets = [(0,0,0)]
+        offsets = [(0, 0, 0)]
         coefs = [laplace[n][0] * a_d.sum()]
         for d in range(D):
             M_c = M_ic[i_d[d]]
@@ -225,7 +233,7 @@ class GUCLaplace(FDOperator):
             coefs.extend(a_d[d] * np.array(laplace[n][1:]))
 
         FDOperator.__init__(self, coefs, offsets, gd, dtype, cuda=cuda)
-        
+
         self.description = (
             '%d*%d+1=%d point O(h^%d) finite-difference Laplacian' %
             ((self.npoints - 1) // n, n, self.npoints, 2 * n))
@@ -234,7 +242,7 @@ class GUCLaplace(FDOperator):
 class LaplaceA(FDOperator):
     def __init__(self, gd, scale, dtype=float, cuda=False):
         assert gd.orthogonal
-        c = np.divide(-1/12, gd.h_cv.diagonal()**2) * scale  # Why divide? XXX
+        c = np.divide(-1 / 12, gd.h_cv.diagonal()**2) * scale  # Why divide?
         c0 = c[1] + c[2]
         c1 = c[0] + c[2]
         c2 = c[1] + c[0]
@@ -247,7 +255,7 @@ class LaplaceA(FDOperator):
                              b[2], b[2],
                              c0, c0, c0, c0,
                              c1, c1, c1, c1,
-                             c2, c2, c2, c2], 
+                             c2, c2, c2, c2],
                             [(0, 0, 0),
                              (-1, 0, 0), (1, 0, 0),
                              (0, -1, 0), (0, 1, 0),
@@ -272,7 +280,7 @@ class LaplaceB(FDOperator):
                              (0, 0, -1), (0, 0, 1)],
                             gd, dtype,
                             'O(h^4) Mehrstellen Laplacian (B)', cuda=cuda)
-                            
+
 
 class FTLaplace:
     def __init__(self, gd, scale, dtype):
@@ -290,7 +298,7 @@ class FTLaplace:
         self.k2_Q *= -scale
         self.d = 6.0 / gd.h_cv[0, 0]**2
         self.npoints = 1000
-        
+
     def apply(self, in_xg, out_xg, phase_cd=None):
         if in_xg.ndim > 3:
             for in_g, out_g in zip(in_xg, out_xg):

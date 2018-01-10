@@ -24,5 +24,5 @@ for symbol in ['He', 'Ne', 'Ar', 'Kr', 'H', 'C', 'N', 'O', 'Cu']:
     else:
         Rref = data_Hanke[symbol]
     error = abs(R - Rref)
-    print "symbol, R, Rref, error:", symbol, R, Rref, error
+    print("symbol, R, Rref, error:", symbol, R, Rref, error)
     assert(error < 0.05)

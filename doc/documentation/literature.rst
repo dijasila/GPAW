@@ -16,7 +16,7 @@ Links to guides and manual pages
 
 * The code :ref:`overview`
 
-* The :ref:`features_and_algorithms` used in the code
+* The :ref:`features and algorithms` in GPAW
 
 
 .. _literature_reports_presentations_and_theses:
@@ -24,36 +24,33 @@ Links to guides and manual pages
 Reports, presentations, and theses using gpaw
 ---------------------------------------------
 
-* A short note on the basics of PAW: `paw note`_
+* Summer-school 2014 talk about PAW, GPAW and ASE: :download:`ss14.pdf`
+
+* A short note on the basics of PAW: :download:`paw_note.pdf`
 
 * A master thesis on the inclusion of non-local exact exchange in the
-  PAW formalism, and the implementation in gpaw: `exact exchange`_
+  PAW formalism, and the implementation in gpaw:
+  :download:`rostgaard_master.pdf`
 
 * A master thesis on the inclusion of a localized basis in the PAW
-  formalism, plus implementation and test results in GPAW: `lcao`_
+  formalism, plus implementation and test results in GPAW:
+  :download:`marco_master.pdf`
 
 * A master thesis on the inclusion of localized basis sets in the PAW
   formalism, focusing on basis set generation and force calculations:
-  `localized basis sets`_
+  :download:`askhl_master.pdf`
 
 * A course report on a project involving the optimization of the
-  setups (equivalent of pseudopotentials) in gpaw: `setup
-  optimization`_
+  setups (equivalent of pseudopotentials) in gpaw:
+  :download:`askhl_10302_report.pdf`
 
-* Slides from a talk about PAW: `introduction to PAW slides`_
+* Slides from a talk about PAW: :download:`mortensen_paw.pdf`
 
-* Slides from a talk about GPAW development: `gpaw for developers`_
+* Slides from a talk about GPAW development:
+  :download:`mortensen_gpaw-dev.pdf`
 
-* Slides from a mini symposium during early development stage: `early gpaw`_
-
-.. _paw note: ../paw_note.pdf
-.. _exact exchange: ../_static/rostgaard_master.pdf
-.. _lcao: ../_static/marco_master.pdf
-.. _localized basis sets: ../_static/askhl_master.pdf
-.. _setup optimization: ../_static/askhl_10302_report.pdf
-.. _introduction to PAW slides: ../_static/mortensen_paw.pdf
-.. _gpaw for developers: ../_static/mortensen_gpaw-dev.pdf
-.. _early gpaw: ../_static/mortensen_mini2003talk.pdf
+* Slides from a mini symposium during early development stage:
+  :download:`mortensen_mini2003talk.pdf`
 
 
 .. _paw_papers:
@@ -68,7 +65,7 @@ The original article introducing the PAW formalism:
 
    __ http://dx.doi.org/10.1103/PhysRevB.50.17953
 
-A different formulation of PAW by Kresse and Joubert designed to make the transistion from USPP to PAW easy.
+A different formulation of PAW by Kresse and Joubert designed to make the transition from USPP to PAW easy.
   | G. Kresse and D. Joubert
   | `From ultrasoft pseudopotentials to the projector augmented-wave method`__
   | Physical Review B, Vol. **59**, 1758, 1999
@@ -93,7 +90,11 @@ Citations of the GPAW method papers
 
 (updated on May 18, 2013)
 
-The five method papers are:
+The total number of citations above is the number of publications
+citing at least one of the other papers, not the sum of all citation
+counts.
+
+The six method papers are:
 
 gpaw1:
     \J. J. Mortensen, L. B. Hansen, and K. W. Jacobsen
@@ -134,10 +135,10 @@ gpaw2:
     V. Petzold, N. A. Romero, J. Stausholm, M. Strange, G. A. Tritsaris,
     M. Vanin, M. Walter, B. Hammer, H. Häkkinen, G. K. H. Madsen,
     R. M. Nieminen, J. K. Nørskov, M. Puska, T. T. Rantala,
-    J. Schiøtz, K. S. Thygesen, and K. W. Jacobsen   
+    J. Schiøtz, K. S. Thygesen, and K. W. Jacobsen
 
     `Electronic structure calculations with GPAW: a real-space
-    implementation of the projector augmented-wave method`__ 
+    implementation of the projector augmented-wave method`__
 
     \J. Phys.: Condens. Matter **22**, 253202 (2010)
 
@@ -152,6 +153,16 @@ response:
     Phys. Rev. B **83**, 245122 (2011)
 
     __ http://prb.aps.org/abstract/PRB/v83/i24/e245122
+
+csm:
+    \A. Held and M. Walter
+           
+    `Simplified continuum solvent model with a smooth cavity based on
+    volumetric data`__
+     
+    \J. Chem. Phys. **141**, 174108 (2014)
+
+    __ http://dx.doi.org/10.1063/1.4900838
 
 
 All citing articles:

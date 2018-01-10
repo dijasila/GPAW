@@ -1,76 +1,62 @@
-==========================================
-Grid-based projector-augmented wave method
-==========================================
+===============================================================
+GPAW: DFT and beyond within the projector-augmented wave method
+===============================================================
 
 GPAW is a density-functional theory (DFT) Python_ code based on the
 projector-augmented wave (:ref:`PAW <literature>`) method and the
-atomic simulation environment (ASE_).  It uses real-space uniform
-grids and multigrid methods or atom-centered basis-functions.  Read
-more about :ref:`its features and the algorithms used
-<features_and_algorithms>`.
+atomic simulation environment (ASE_).  The wave functions can be described
+with:
+
+* Plane-waves (:ref:`pw <manual_mode>`)
+* Real-space uniform grids, multigrid methods and the finite-difference approximation
+  (:ref:`fd <manual_stencils>`)
+* Atom-centered basis-functions (:ref:`lcao <lcao>`)
+
+>>> # H2-molecule example:
+>>> from ase import Atoms
+>>> from gpaw import GPAW, PW
+>>> h2 = Atoms('H2', [(0, 0, 0), (0, 0, 0.74)])
+>>> h2.center(vacuum=2.5)
+>>> h2.cell
+array([[ 5.  ,  0.  ,  0.  ],
+       [ 0.  ,  5.  ,  0.  ],
+       [ 0.  ,  0.  ,  5.74]])
+>>> h2.positions
+array([[ 2.5 ,  2.5 ,  2.5 ],
+       [ 2.5 ,  2.5 ,  3.24]])
+>>> h2.set_calculator(GPAW(xc='PBE', mode=PW(300), txt='h2.txt'))
+>>> h2.get_potential_energy()
+-6.6237575005960494
+>>> h2.get_forces()
+array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
+       [ -9.98454736e-14,   4.37862132e-14,   6.44750360e-01]])
+
 
 .. _Python: http://www.python.org
 .. _ASE: https://wiki.fysik.dtu.dk/ase
-
-.. |i0| image:: _static/logo-anl.png
-        :height: 44 px
-        :target: http://www.anl.gov
-.. |i1| image:: _static/logo-dtu.png
-        :height: 44 px
-        :target: http://www.fysik.dtu.dk/english/Research/CAMD
-.. |i2| image:: _static/logo-csc.png
-        :height: 44 px
-        :target: http://www.csc.fi
-.. |i3| image:: _static/logo-aalto.png
-        :height: 44 px
-        :target: http://physics.aalto.fi
-.. |i4| image:: _static/logo-jyu.png
-        :height: 44 px
-        :target: http://www.phys.jyu.fi
-.. |i5| image:: _static/logo-fmf.png
-        :height: 44 px
-        :target: http://www.fmf.uni-freiburg.de
-.. |i6| image:: _static/logo-tut.png
-        :height: 44 px
-        :target: http://www.tut.fi
-.. |i7| image:: _static/logo-suncat.png
-        :height: 22 px
-        :align: middle
-        :target: http://suncat.stanford.edu
-.. |i8| image:: _static/logo-slac-center.png
-        :height: 38 px
-        :target: http://suncat.stanford.edu
-.. |i9| image:: _static/logo-prace.png
-        :height: 44 px
-        :target: http://http://www.prace-ri.eu/
-
-
-
-|i0| |i1| |i2| |i3| |i4| |i5| |i6| |i8| |i9|
-
- 
-* `Argonne National Laboratory <http://www.anl.gov>`_
-* `CAMd, Technical University of Denmark <http://www.camp.dtu.dk>`_
-* `CSC, the Finnish IT center for science <http://www.csc.fi>`_
-* `Department of Applied Physics, Aalto University School of Science
-  <http://physics.aalto.fi>`_
-* `Department of Physics, University of Jyväskylä <http://www.phys.jyu.fi>`_
-* `Freiburg Materials Research Center <http://www.fmf.uni-freiburg.de>`_
-* `Institute of Physics, Tampere University of Technology <http://www.tut.fi>`_
-* `SUNCAT Center, Stanford University/SLAC <http://suncat.stanford.edu>`_
-* `PRACE, Partnership for Advanced Computing in Europe 
-  <http://www.prace-ri.eu/>`_
-
+    
 
 .. _news:
 
 News
 ====
 
+* :ref:`GPAW version 1.0 <releasenotes>` released (Mar 18 2016)
+
+* Web-page now use the `Read the Docs Sphinx Theme
+  <https://github.com/snide/sphinx_rtd_theme>`_ (Mar 18 2016)
+  
+* :ref:`GPAW version 0.11 <releasenotes>` released (Jul 22 2015)
+
+* :ref:`GPAW version 0.10 <releasenotes>` released (Apr 8 2014)
+
+* GPAW is part of the `PRACE Unified European Application Benchmark Suite`_
+  (October 17 2013)
+
 * May 21-23, 2013: :ref:`GPAW workshop <workshop>` at the Technical
   University of Denmark (Feb 8 2013)
 
-* Prof. Häkkinen has received `18 million CPU hour grant`_ for GPAW based 
+* Prof. Häkkinen has received `18 million CPU hour grant`_ for GPAW based
   research project (Nov 20 2012)
 
 * A new :ref:`setups` bundle released (Oct 26 2012)
@@ -82,7 +68,7 @@ News
  
 * :ref:`GPAW version 0.8 <releasenotes>` released (May 25 2011)
 
-* GPAW is part of benchmark suite for `CSC's supercomputer procurement`_ 
+* GPAW is part of benchmark suite for `CSC's supercomputer procurement`_
   (Apr 19 2011)
 
 * New features: Calculation of the linear :ref:`dielectric response
@@ -97,10 +83,7 @@ News
 
 * :ref:`GPAW version 0.7 <releasenotes>` released (Apr 23 2010)
 
-* GPAW is :math:`\Psi_k` `scientific highlight of the month`_ (Apr 3 2010)
-
-* GPAW now measures :ref:`code coverage <coverage>` of the test suite
-  (Nov 5 2009)
+* GPAW is `\Psi_k` `scientific highlight of the month`_ (Apr 3 2010)
 
 * A third GPAW code sprint was successfully hosted at CAMD (Oct 20 2009)
 
@@ -133,7 +116,7 @@ News
 
 * The `code sprint 2007`_ was successfully finished (Nov 16 2007)
 
-* The source code is now in the hands of :ref:`svn` and Trac_ (Okt 22 2007)
+* The source code is now in the hands of SVN and Trac_ (Okt 22 2007)
 
 * A GPAW Sprint will be held on November 16 in Lyngby (Okt 18 2007)
 
@@ -143,7 +126,7 @@ News
 .. _CSC: http://www.csc.fi
 .. _GPAW course: http://www.csc.fi/english/csc/courses/archive/gpaw-2008-01
 .. _Trac: https://trac.fysik.dtu.dk/projects/gpaw
-.. _Sphinx: http://sphinx.pocoo.org
+.. _Sphinx: http://www.sphinx-doc.org
 .. _CAMd summer school 2008: http://www.camd.dtu.dk/English/Events/CAMD_Summer_School_2008/Programme.aspx
 .. _code sprint 2007: http://www.dtu.dk/Nyheder/Nyt_fra_Institutterne.aspx?guid={38B92D63-FB09-4DFA-A074-504146A2D678}
 .. _Virtual NanoLab: http://www.quantumwise.com/products/12-products/28-atk-se-200906#GPAW
@@ -152,4 +135,21 @@ News
 .. _Python for High Performance Computing: http://pycon.blip.tv/file/4881240/
 .. _CSC's supercomputer procurement: http://www.csc.fi/english/pages/hpc2011
 .. _18 million CPU hour grant: http://www.prace-ri.eu/PRACE-5thRegular-Call
+.. _PRACE Unified European Application Benchmark Suite: http://www.prace-ri.eu/ueabs
 
+
+.. toctree::
+
+   algorithms
+   install
+   documentation/documentation
+   tutorials/tutorials
+   exercises/exercises
+   setups/setups
+   releasenotes
+   contact
+   faq
+   devel/devel
+   summerschools/summerschools
+   workshops/workshops
+   bugs

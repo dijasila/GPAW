@@ -11,23 +11,26 @@ GPAW calculator:
    
    lcao/lcao
    parallel_runs/parallel_runs
-   convergence/convergence
+   convergence
    restart_files
    rmm-diis
    orthogonalization
+   external
    xc/xc
    xc/exx
    xc/rpa
+   poisson
    transport/negftransport
    transport/keldyshgf
    tddft/tddft
+   electrodynamics/electrodynamics
    bse/bse
    gw_theory/gw_theory
    dscf/dscf
    pdos/pdos
    xas/xas
    densitymix/densitymix
-   convergence/scf_conv_eval
+   scf_conv_eval/scf_conv_eval
    cmdline
    ../devel/electrostatic_potential
    ../devel/eigenvalues_of_core_states

@@ -8,13 +8,12 @@ from gpaw.analyse.observers import Observer
 from gpaw.transformers import Transformer
 from gpaw.tddft import attosec_to_autime, eV_to_aufrequency
 
-# -------------------------------------------------------------------
 
 class DensityFourierTransform(Observer):
     def __init__(self, timestep, frequencies, width=None, interval=1):
         """
         Parameters
-        ----------
+
         timestep: float
             Time step in attoseconds (10^-18 s), e.g., 4.0 or 8.0
         frequencies: NumPy array or list of floats
@@ -173,8 +172,8 @@ class DensityFourierTransform(Observer):
         # Test timestep (non-critical)
         timestep = tar['TimeStep']
         if abs(timestep - self.timestep) > 1e-12:
-            print 'Warning: Time-step has been altered. (%lf -> %lf)' \
-                % (self.timestep, timestep)
+            print('Warning: Time-step has been altered. (%lf -> %lf)' \
+                % (self.timestep, timestep))
         self.timestep = timestep
 
         # Test dimensions
@@ -192,8 +191,8 @@ class DensityFourierTransform(Observer):
         if ((sigma is None)!=(self.sigma is None) or # float <-> None
             (sigma is not None and self.sigma is not None and \
              abs(sigma - self.sigma) > 1e-12)): # float -> float
-            print 'Warning: Width has been altered. (%s -> %s)' \
-                % (self.sigma, sigma)
+            print('Warning: Width has been altered. (%s -> %s)' \
+                % (self.sigma, sigma))
         self.sigma = sigma
 
         # Read frequencies
@@ -247,7 +246,7 @@ class DensityFourierTransform(Observer):
 
         # Collect average densities on master and write
         if master:
-            tar.add('Average', ('nspins', 'ngptsx', 'ngptsy', 
+            tar.add('Average', ('nspins', 'ngptsx', 'ngptsy',
                 'ngptsz', ), dtype=float)
         for s in range(self.nspins):
             big_Ant_G = self.gd.collect(self.Ant_sG[s])

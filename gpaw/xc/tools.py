@@ -28,11 +28,10 @@ def vxc(paw, xc=None, coredensity=True):
     # Calculate XC-potential:
     vxct_sg = ham.finegd.zeros(wfs.nspins)
     xc.calculate(dens.finegd, dens.nt_sg, vxct_sg)
-    vxct_sG = ham.gd.empty(wfs.nspins)
-    ham.restrict(vxct_sg, vxct_sG)
+    vxct_sG = ham.restrict_and_collect(vxct_sg)
     if thisisatest:
         vxct_sG[:] = 1
-        
+
     # ... and PAW corrections:
     dvxc_asii = {}
     for a, D_sp in dens.D_asp.items():

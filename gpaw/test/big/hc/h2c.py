@@ -24,7 +24,6 @@ h2.center(axis=1)
 h2.center(axis=2)
 
 h2.calc = GPAW(kpts=(k, 1, 1),
-               usesymm=False,
                occupations=FermiDirac(0.01),
                txt='h2c.txt')
 

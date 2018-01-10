@@ -1,22 +1,20 @@
 # creates: citations.png citations.csv
-
+from __future__ import print_function
 import os
 import datetime
 
-import matplotlib
-matplotlib.use('Agg')
-import pylab as plt
+import matplotlib.pyplot as plt
 
 
-months = [datetime.date(2000, m, 1).strftime('%B')[:3].upper()
-          for m in range(1, 13)]
+months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+          'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
 
 
 def f(filename):
     papers = {}
     lines = open(filename).readlines()
     n = 0
-    dois =  set()
+    dois = set()
     while n < len(lines):
         line = lines[n]
         tag = line[:2]
@@ -40,6 +38,8 @@ def f(filename):
                     else:
                         y = w
                 else:
+                    if '-' in w:
+                        w = w.split('-')[-1]
                     m = months.index(w) + 1
         elif tag == '\n':
             date = datetime.date(y, m, d)
@@ -61,24 +61,22 @@ for bib in ['gpaw1', 'tddft', 'lcao', 'gpaw2', 'response']:
                        title.strip())
     if os.path.isfile(bib + '.bib'):
         papers.update(f(bib + '.bib'))
-    papers = [(papers[doi][0], doi, papers[doi][1]) for doi in papers]
-    papers.sort()
+    papers = sorted((papers[doi][0], doi, papers[doi][1]) for doi in papers)
     plt.plot([paper[0] for paper in papers], range(1, len(papers) + 1),
              '-o', label=bib)
-    #fd = open(bib + '.txt', 'w')
+    fd = open(bib + '.txt', 'w')
     for date, doi, title in papers:
-        #fd.write('%d-%02d-%02d %s %s\n' % (date.year, date.month, date.day,
-        #                               doi, title))
+        fd.write('%d-%02d-%02d %s %s\n' % (date.year, date.month, date.day,
+                                           doi, title))
         total[doi] = (date, title)
-    #fd.close()
+    fd.close()
     x = dict([(p[1], 0) for p in papers])
-    print(bib, len(papers), len(x), len(total))
+    print((bib, len(papers), len(x), len(total)))
 
 
-allpapers = [(paper[0], doi, paper[1]) for doi, paper in total.items()]
-allpapers.sort()
+allpapers = sorted((paper[0], doi, paper[1]) for doi, paper in total.items())
 plt.plot([paper[0] for paper in allpapers], range(1, len(allpapers) + 1),
-             '-o', label='total')
+         '-o', label='total')
 
 fd = open('citations.csv', 'w')
 n = len(allpapers)

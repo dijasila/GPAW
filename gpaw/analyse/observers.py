@@ -1,5 +1,6 @@
 
 class Observer(object):
+
     def __init__(self, interval=1):
         object.__init__(self)
         self.niter = 0
@@ -14,6 +15,7 @@ class Observer(object):
 
 
 class WritableObserver(Observer):
+
     def __init__(self, w, interval=1):
         Observer.__init__(self, interval)
         self.w = w

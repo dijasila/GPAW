@@ -7,7 +7,8 @@ Coding Conventions
 Python Coding Conventions
 =========================
 
-Follow :ase:`ASE's rules <development/python_codingstandard.html>`.
+Follow ASE's :ref:`ase:coding conventions`.
+
 
 C-code
 ======

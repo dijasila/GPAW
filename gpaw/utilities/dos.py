@@ -1,6 +1,7 @@
+from __future__ import print_function
 from math import pi, sqrt
 import numpy as np
-from ase.units import Hartree, Bohr
+from ase.units import Hartree
 from ase.parallel import paropen
 from gpaw.utilities import pack
 from gpaw.analyse.wignerseitz import wignerseitz
@@ -8,16 +9,15 @@ from gpaw.setup_data import SetupData
 from gpaw.gauss import Gauss
 from gpaw.io.fmf import FMF
 from gpaw.utilities.blas import gemmdot
-from itertools import izip
 
-import gpaw.mpi as mpi
+
 
 def print_projectors(setup):
     """Print information on the projectors of input nucleus object.
 
     If nucleus is a string, treat this as an element name.
     """
-    if type(setup) is str:
+    if isinstance(setup, str):
         setup = SetupData(setup, 'LDA', 'paw')
         n_j = setup.n_j
         l_j = setup.l_j
@@ -31,16 +31,38 @@ def print_projectors(setup):
                ['3x^2y-y^3', 'xyz', '5yz^2-yr^2', '5z^3-3zr^2',
                 '5xz^2-xr^2', 'x^2z-y^2z', 'x^3-3xy^2'],
                ]
-    print ' i n l m'
-    print '--------'
+    print(' i n l m')
+    print('--------')
     i = 0
     for n, l in zip(n_j, l_j):
-        for m in range(2*l+1):
+        for m in range(2 * l + 1):
             if n == -1:
                 n = '*'
-            print '%2s %s %s_%s' % (i, n, 'spdf'[l], angular[l][m])
+            print('%2s %s %s_%s' % (i, n, 'spdf'[l], angular[l][m]))
             i += 1
 
+            
+def number_of_projectors(setup):
+    """Returns the number of the bound state projectors.
+
+    If setup is a string, treat this as an element name.
+    """
+    if isinstance(setup, str):
+        setup = SetupData(setup, 'LDA', 'paw')
+        n_j = setup.n_j
+        l_j = setup.l_j
+    else:
+        n_j = setup.n_j
+        l_j = setup.l_j
+    
+    i = 0
+    for n, l in zip(n_j, l_j):
+        for m in range(2 * l + 1):
+            if n != -1:
+                i += 1
+    return i
+
+    
 def get_angular_projectors(setup, angular, type='bound'):
     """Determine the projector indices which have specified angula
     quantum number.
@@ -68,15 +90,17 @@ def get_angular_projectors(setup, angular, type='bound'):
 
     return projectors
 
+    
 def delta(x, x0, width, mode='Gauss'):
     """Return a gaussian of given width centered at x0."""
     if mode == 'Gauss':
         return np.exp(np.clip(-((x - x0) / width)**2,
                               -100.0, 100.0)) / (sqrt(pi) * width)
     if mode == 'Lorentz':
-        return (2 / pi / width) / ((np.clip(((x - x0) / (width/2))**2,
-                                           -100.0, 100.0)) + 1)
+        return (2 / pi / width) / ((np.clip(((x - x0) / (width / 2))**2,
+                                            -100.0, 100.0)) + 1)
 
+        
 def fold(energies, weights, npts, width, mode='Gauss'):
     """Take a list of energies and weights, and sum a delta function
     for each."""
@@ -88,7 +112,8 @@ def fold(energies, weights, npts, width, mode='Gauss'):
         dos_e += w * delta(e, e0, width, mode=mode)
     return e, dos_e
 
-def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
+    
+def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
     """Return a list of eigenvalues, and their weight on the specified atom.
 
     angular can be s, p, d, f, or a list of these.
@@ -96,11 +121,20 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
 
     An integer value for ``angular`` can also be used to specify a specific
     projector function.
+
+    Setting nbands limits the number of bands included. This speeds up the
+    calculation if one has many bands in the calculator but is only interested
+    in the DOS at low energies.
     """
     wfs = paw.wfs
-    w_k = wfs.weight_k
+    w_k = wfs.kd.weight_k
     nk = len(w_k)
-    nb = wfs.bd.nbands
+    if not nbands:
+        nb = wfs.bd.nbands
+    else:
+        nb = nbands
+        assert nb <= wfs.bd.nbands, ("nbands higher than available number" +
+                                     "of bands")
 
     if a < 0:
         # Allow list-style negative indices; we'll need the positive a for the
@@ -112,22 +146,22 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
     weights_xi = np.empty((nb * nk, setup.ni))
     x = 0
     for k, w in enumerate(w_k):
-        eps = wfs.collect_eigenvalues(k=k, s=spin)
-        print wfs.world.rank, type(eps)
+        eps = wfs.collect_eigenvalues(k=k, s=spin)[:nb]
+        #print(wfs.world.rank, type(eps))
         if eps is not None:
             energies[x:x + nb] = eps
         u = spin * nk + k
         P_ani = wfs.kpt_u[u].P_ani
         if a in P_ani:
-            weights_xi[x:x + nb, :] = w * np.absolute(P_ani[a])**2
+            weights_xi[x:x + nb, :] = w * np.absolute(P_ani[a][:nb, :])**2
         x += nb
 
     wfs.world.broadcast(energies, 0)
-    wfs.world.broadcast(weights_xi, wfs.rank_a[a])
+    wfs.world.broadcast(weights_xi, wfs.atom_partition.rank_a[a])
 
     if angular is None:
         return energies, weights_xi
-    elif type(angular) is int:
+    elif isinstance(angular, int):
         return energies, weights_xi[:, angular]
     else:
         projectors = get_angular_projectors(setup, angular, type='bound')
@@ -135,6 +169,7 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
                                  indices=projectors, axis=1), axis=1)
         return energies, weights
 
+        
 def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
     """Returns a list of eigenvalues, and their weights on a given molecule
     
@@ -151,10 +186,9 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
        molecule can be obtained with lc=[[0,0,0,1.0],[0,0,0,-1.0]]. mol
        should be a list of atom numbers contributing to the molecule."""
 
-    w_k = paw.wfs.weight_k
+    w_k = paw.wfs.kd.weight_k
     nk = len(w_k)
     nb = paw.wfs.bd.nbands
-    ns = paw.wfs.nspins
     
     P_kn = np.zeros((nk, nb), np.complex)
     if wf_k is None:
@@ -171,13 +205,10 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
         P_kn /= sqrt(N)
 
     else:
-        wf_k = np.array(wf_k)
         P_aui = [np.array(P_ui).conj() for P_ui in P_aui]
         for k, kpt in enumerate(paw.wfs.kpt_u[spin * nk:(spin + 1) * nk]):
-            w = np.reshape(wf_k.conj()[kpt.k], -1)
             for n in range(nb):
-                psit_nG = np.reshape(kpt.psit_nG[n], -1)
-                P_kn[k][n] = np.dot(w, psit_nG) * paw.wfs.gd.dv * Bohr**1.5
+                P_kn[k][n] = paw.wfs.integrate(wf_k[k], kpt.psit_nG[n])
                 for a, b in zip(mol, range(len(mol))):
                     atom = paw.wfs.setups[a]
                     p_i = kpt.P_ani[a][n]
@@ -185,10 +216,7 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
                         for j in range(len(p_i)):
                             P_kn[k][n] += (P_aui[b][spin*nk + k][i] *
                                            atom.dO_ii[i][j] * p_i[j])
-                #print n, abs(P_un)[u][n]**2
-
-            # XXX ??? why not print to paw.txt
-            print 'Kpoint', k, ' Sum: ',  sum(abs(P_kn[k])**2)
+            print('# k', k, ' Sum_m |<m|n>|^2 =',  sum(abs(P_kn[k])**2))
           
     energies = np.empty(nb * nk)
     weights = np.empty(nb * nk)
@@ -197,19 +225,20 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
         energies[x:x + nb] = paw.wfs.collect_eigenvalues(k=k, s=spin)
         weights[x:x + nb] = w * abs(P_kn[k])**2
         x += nb
-    #print weights
+        
     return energies, weights
 
+    
 def get_all_electron_IPR(paw):
     density = paw.density
     wfs = paw.wfs
     n_G = wfs.gd.empty()
     n_g = density.finegd.empty()
-    print
-    print "inverse participation function"
-    print "-"*35
-    print "%5s %5s %10s %10s" % ("k","band","eps","ipr")
-    print "-"*35
+    print()
+    print("inverse participation function")
+    print("-"*35)
+    print("%5s %5s %10s %10s" % ("k","band","eps","ipr"))
+    print("-"*35)
     for k, kpt in enumerate(paw.wfs.kpt_u):
         for n, (eps, psit_G)  in enumerate(zip(kpt.eps_n, kpt.psit_nG)):
             n_G[:] = 0.0
@@ -234,17 +263,16 @@ def get_all_electron_IPR(paw):
                 nt_iter = xccorr.expand_density(D_sLq, xccorr.nt_qg, None)
 
                 # Take the spherical average of smooth and ae radial xc potentials
-                for n_sg, nt_sg, integrator in izip(n_iter,
+                for n_sg, nt_sg, integrator in zip(n_iter,
                                                     nt_iter,
                                                     xccorr.get_integrator(None)):
                     ipr += integrator.weight * np.sum((n_sg[0]**2-nt_sg[0]**2) * xccorr.rgd.dv_g)
                     norm += integrator.weight * np.sum((n_sg[0]-nt_sg[0]) * xccorr.rgd.dv_g)
 
-            print "%5i %5i %10.5f %10.5f" % (k, n, eps, ipr/norm**2)
-    print "-"*35
+            print("%5i %5i %10.5f %10.5f" % (k, n, eps, ipr/norm**2))
+    print("-"*35)
             
-            
-                    
+                            
 def raw_wignerseitz_LDOS(paw, a, spin):
     """Return a list of eigenvalues, and their weight on the specified atom"""
     wfs = paw.wfs
@@ -252,7 +280,7 @@ def raw_wignerseitz_LDOS(paw, a, spin):
     gd = wfs.gd
     atom_index = wignerseitz(gd, paw.atoms)
 
-    w_k = wfs.weight_k
+    w_k = wfs.kd.weight_k
     nk = len(w_k)
     nb = wfs.bd.nbands
 
@@ -289,11 +317,11 @@ class RawLDOS:
     def get(self, atom):
         """Return the s,p,d weights for each state"""
         wfs = self.paw.wfs
-        nibzkpts = len(wfs.ibzk_kc)
+        nibzkpts = len(wfs.kd.ibzk_kc)
         spd = np.zeros((wfs.nspins, nibzkpts, wfs.bd.nbands, 3))
 
         if hasattr(atom, '__iter__'):
-            # atom is a list of atom indicies 
+            # atom is a list of atom indices 
             for a in atom:
                 spd += self.get(a)
             return spd
@@ -306,7 +334,7 @@ class RawLDOS:
                     spd[kpt.s, kpt.k, :, l_i[i]] += np.abs(P_n)**2
 
         wfs.gd.comm.sum(spd)
-        wfs.kpt_comm.sum(spd)
+        wfs.kd.comm.sum(spd)
         return spd
 
     def by_element(self):
@@ -355,7 +383,7 @@ class RawLDOS:
         if width is None:
             # unfolded ldos
             fmf = FMF(['Raw LDOS obtained from projector weights'])
-            print >> f, fmf.header(),
+            print(fmf.header(), end=' ', file=f)
             data = ['energy: energy [eV]',
                     'occupation number: occ',
                     'spin index: s',
@@ -366,35 +394,35 @@ class RawLDOS:
             string += append_weight_strings(ldbe, data)
             data.append('summed weights: sum')
             string += ' sum'
-            print >> f, fmf.data(data),
-            print >> f, string
-            for k in range(wfs.nibzkpts):
+            print(fmf.data(data), end=' ', file=f)
+            print(string, file=f)
+            for k in range(wfs.kd.nibzkpts):
                 for s in range(wfs.nspins):
                     e_n = self.paw.get_eigenvalues(kpt=k, spin=s)
                     f_n = self.paw.get_occupation_numbers(kpt=k, spin=s)
                     if e_n is None:
                         continue
-                    w = wfs.weight_k[k]
+                    w = wfs.kd.weight_k[k]
                     for n in range(wfs.bd.nbands):
                         sum = 0.0
-                        print >> f, '%10.5f %6.4f %2d %5d' % (e_n[n], f_n[n], 
-                                                              s, k), 
-                        print >> f, '%6d %8.4f' % (n, w),
+                        print('%10.5f %6.4f %2d %5d' % (e_n[n], f_n[n], 
+                                                              s, k), end=' ', file=f) 
+                        print('%6d %8.4f' % (n, w), end=' ', file=f)
                         for key in ldbe:
                             spd = ldbe[key][s, k, n]
                             for l in range(3):
                                 sum += spd[l]
-                                print >> f, '%8.4f' % spd[l],
-                        print >> f, '%8.4f' % sum
+                                print('%8.4f' % spd[l], end=' ', file=f)
+                        print('%8.4f' % sum, file=f)
         else:
             # folded ldos
             fmf = FMF(['Folded raw LDOS obtained from projector weights'])
-            print >> f, fmf.header(),
+            print(fmf.header(), end=' ', file=f)
 
             gauss = Gauss(width)
-            print >> f, fmf.field('folding',
+            print(fmf.field('folding',
                                   ['function: Gauss',
-                                   'width: ' + str(width) + ' [eV]']),
+                                   'width: ' + str(width) + ' [eV]']), end=' ', file=f)
 
             data = ['energy: energy [eV]',
                     'spin index: s',
@@ -405,7 +433,7 @@ class RawLDOS:
             # minimal and maximal energies
             emin = 1.e32
             emax = -1.e32
-            for k in range(wfs.nibzkpts):
+            for k in range(wfs.kd.nibzkpts):
                 for s in range(wfs.nspins):
                     e_n = self.paw.get_eigenvalues(kpt=k, spin=s,
                                                    broadcast=True)
@@ -443,16 +471,16 @@ class RawLDOS:
                     else:
                         eshift = - efermi.max()
 
-                print >> f, fmf.data(data),
+                print(fmf.data(data), end=' ', file=f)
 
-                print >> f, '# Gauss folded, width=%g [eV]' % width
+                print('# Gauss folded, width=%g [eV]' % width, file=f)
                 if shift:
-                    print >> f, '# shifted to Fermi energy = 0'
-                    print >> f, '# Fermi energy was', 
+                    print('# shifted to Fermi energy = 0', file=f)
+                    print('# Fermi energy was', end=' ', file=f) 
                 else:
-                    print >> f, '# Fermi energy',
-                print  >> f, efermi, 'eV'
-                print >> f, string
+                    print('# Fermi energy', end=' ', file=f)
+                print(efermi, 'eV', file=f)
+                print(string, file=f)
 
                 # loop over energies
                 emax=emax+.5*de
@@ -461,7 +489,7 @@ class RawLDOS:
                     val = {}
                     for key in ldbe:
                         val[key] = np.zeros((3))
-                    for k in range(wfs.nibzkpts):
+                    for k in range(wfs.kd.nibzkpts):
                         w = wfs.kpt_u[k].weight
                         e_n = self.paw.get_eigenvalues(kpt=k, spin=s,
                                                        broadcast=True)
@@ -470,12 +498,12 @@ class RawLDOS:
                             for key in ldbe:
                                 val[key] += w_i * ldbe[key][s, k, n]
 
-                    print >> f, '%10.5f %2d' % (e + eshift, s), 
+                    print('%10.5f %2d' % (e + eshift, s), end=' ', file=f) 
                     for key in val:
                         spd = val[key]
                         for l in range(3):
-                            print >> f, '%8.4f' % spd[l],
-                    print >> f
+                            print('%8.4f' % spd[l], end=' ', file=f)
+                    print(file=f)
                     e += de
                             
 
@@ -507,10 +535,21 @@ class LCAODOS:
         return self.get_subspace_pdos([M], ravel=ravel)
     
     def get_atomic_subspace_pdos(self, a, ravel=True):
-        """Get projected subspace DOS from LCAO basis on atom a."""
-        M = self.calc.wfs.basis_functions.M_a[a]
-        Mvalues = range(M, M + self.calc.wfs.setups[a].nao)
+        """Get projected subspace DOS from LCAO basis on atom(s) a.
+
+        a may be an atomic index or a list of indices."""
+        Mvalues = self.get_atom_indices(a)
         return self.get_subspace_pdos(Mvalues, ravel=ravel)
+
+    def get_atom_indices(self, a):
+        """Get list of basis function indices of atom(s) a."""
+        if isinstance(a, int):
+            a = [a]
+        Mvalues = []
+        for a0 in a:
+            M = self.calc.wfs.basis_functions.M_a[a0]
+            Mvalues.extend(range(M, M + self.calc.wfs.setups[a0].nao))
+        return Mvalues
 
     def get_subspace_pdos(self, Mvalues, ravel=True):
         """Get projected subspace DOS from LCAO basis."""
@@ -528,6 +567,8 @@ class LCAODOS:
             C_nM = kpt.C_nM
             from gpaw.kohnsham_layouts import BlacsOrbitalLayouts
             if isinstance(wfs.ksl, BlacsOrbitalLayouts):
+                raise NotImplementedError('Something not quite working.  '
+                                          'FIXME.')
                 S_MM = wfs.ksl.mmdescriptor.collect_on_master(kpt.S_MM)
                 if bd.rank != 0 or gd.rank != 0:
                     S_MM = np.empty((wfs.ksl.nao, wfs.ksl.nao),

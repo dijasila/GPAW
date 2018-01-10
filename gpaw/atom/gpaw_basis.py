@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 from optparse import OptionParser
 
@@ -60,6 +61,8 @@ def build_parser():
                       'Numbering corresponds to generator\'s valence state '
                       'ordering.  '
                       'For example: 0,1,2.')
+    parser.add_option('--save-setup', action='store_true',
+                      help='save setup to file.')
 
     return parser
 
@@ -89,7 +92,8 @@ def main():
     from gpaw import ConvergenceError
     from gpaw.basis_data import parse_basis_name
 
-    zetacount, polcount, basistype = parse_basis_name(opts.type)
+    zetacount, polcount = parse_basis_name(opts.type)
+
     referencefiles = [None] * len(args)
     reference_atom_indices = [None] * len(args)
     if polcount > 0:
@@ -106,24 +110,20 @@ def main():
     else:
         symbols = args
 
-    if opts.name is not None:
-        name = '%s.%s' % (opts.name, basistype)
-    else:
-        name = basistype
-
     for symbol, referencefile, referenceindex in zip(symbols, referencefiles,
                                                      reference_atom_indices):
         try:
-            bm = BasisMaker(symbol, name, gtxt=None,
+            bm = BasisMaker(symbol, name=opts.name, gtxt=None,
                             non_relativistic_guess=opts.non_relativistic_guess,
-                            xc=opts.xcfunctional)
+                            xc=opts.xcfunctional,
+                            save_setup=opts.save_setup)
         except ConvergenceError:
             if opts.non_relativistic_guess:
-                print >> sys.stderr, very_bad_density_warning
+                print(very_bad_density_warning, file=sys.stderr)
                 import traceback
                 traceback.print_exc()
             else:
-                print >> sys.stderr, bad_density_warning
+                print(bad_density_warning, file=sys.stderr)
             continue
 
         tailnorm = [float(norm) for norm in opts.tailnorm.split(',')]

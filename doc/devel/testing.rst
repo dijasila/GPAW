@@ -26,7 +26,7 @@ Use the :program:`gpaw-test` command to run the tests::
       --from=TESTFILE       Run remaining tests, starting from TESTFILE
       --after=TESTFILE      Run remaining tests, starting after TESTFILE
       --range=test_i.py,test_j.py
-	                    Run tests in range test_i.py to test_j.py (inclusive)
+                            Run tests in range test_i.py to test_j.py (inclusive)
       -j JOBS, --jobs=JOBS  Run JOBS threads.
       --reverse             Run tests in reverse order (less overhead with
                             multiple jobs)
@@ -36,9 +36,9 @@ A temporary directory will be made and the tests will run in that
 directory.  If all tests pass, the directory is removed.
 
 The test suite consists of a large number of small and quick tests
-found in the :trac:`gpaw/test` directory.  Here are the results from a
-recent :ref:`test run <testsuite>`.  The tests run nightly in serial
-and in parallel.
+found in the :git:`gpaw/test/` directory.  The tests run nightly in serial
+and in parallel.  Here are the results from `BuildBot
+<https://gpaw-buildbot.fysik.dtu.dk/waterfall>`_.
 
 
 
@@ -57,7 +57,7 @@ A test script should fulfill a number of requirements:
 
 A test can produce standard output and files - it doesn't have to
 clean up.  Remember to add the new test to list of all tests specified
-in the :trac:`gpaw/test/__init__.py` file.
+in the :git:`gpaw/test/__init__.py` file.
 
 Use this function to check results:
 
@@ -65,13 +65,16 @@ Use this function to check results:
 
 
 .. _big-test:
-
+.. _agts:
+    
 Big tests
 =========
 
-The directory in :trac:`gpaw/test/big` contains a set of longer and
-more realistic tests.  These can be submitted to a queueing system of
-a large computer.  Here is an example for Niflheim: :trac:`gpaw/test/big/niflheim.py`.
+The directory in :git:`gpaw/test/big/` contains a set of longer and more
+realistic tests that we run every weekend.  These are submitted to a
+queueing system of a large computer.  Here is an example for Niflheim:
+:git:`gpaw/test/big/niflheim.py`.
+
 
 Adding new tests
 ----------------
@@ -108,4 +111,7 @@ Name           Type      Default value  Description
 ``ncpus``      ``int``   ``1``          Number of cpus
 ``walltime``   ``int``   ``15``         Requested walltime in minutes
 ``deps``       ``list``  ``[]``         List of jobs this job depends on
+``creates``    ``list``  ``[]``         List of files this job creates
+                                        (figures and other stuff for the
+                                        web-page)
 =============  ========  =============  ===================================

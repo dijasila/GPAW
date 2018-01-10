@@ -3,10 +3,8 @@
 
 """Utility functions and classes."""
 
-import os
 import re
 import sys
-from operator import mul
 from math import sqrt, exp
 
 import numpy as np
@@ -14,6 +12,8 @@ from numpy import linalg
 
 import _gpaw
 from gpaw import debug
+
+from ase.utils import devnull
 
 elementwise_multiply_add = _gpaw.elementwise_multiply_add
 utilities_vdot = _gpaw.utilities_vdot
@@ -24,19 +24,14 @@ erf = np.vectorize(_gpaw.erf, (float,), 'Error function')
 # XXX should we unify double and complex erf ???
 cerf = np.vectorize(_gpaw.cerf, (complex,), 'Complex error function')
 
-# Factorials:
-_fact = [1, 1, 2, 6, 24, 120, 720, 5040, 40320,
-         362880, 3628800, 39916800, 479001600]
+# Code will crash for setups without any projectors.  Setups that have
+# no projectors therefore receive a dummy projector as a hacky
+# workaround.  The projector is assigned a certain, small size.  If
+# the grid is so coarse that no point falls within the projector's range,
+# there'll also be an error.  So this limits allowed grid spacings.
+min_locfun_radius = 0.85  # Bohr
+smallest_safe_grid_spacing = 2 * min_locfun_radius / np.sqrt(3)  # ~0.52 Ang
 
-def fact(x):
-    if x in xrange(len(_fact)):
-        return _fact[x]
-    return reduce(mul, xrange(2, x+1), 1)
-
-def ffact(a, b):
-    """b!/a! where 0 <= a <= b"""
-    assert a in xrange(b+1)
-    return reduce(mul, xrange(a+1, b+1), 1)
 
 def h2gpts(h, cell_cv, idiv=4):
     """Convert grid spacing to number of grid points divisible by idiv.
@@ -52,16 +47,7 @@ def h2gpts(h, cell_cv, idiv=4):
     L_c = (np.linalg.inv(cell_cv)**2).sum(0)**-0.5
     return np.maximum(idiv, (L_c / h / idiv + 0.5).astype(int) * idiv)
 
-
-def gcd(a, b):
-    """Return greatest common divisor of a and b, using the
-    euclidian algorithm.
-    """
-    while b != 0:
-        a, b = b, a % b
-    return a
-
-
+    
 def is_contiguous(array, dtype=None):
     """Check for contiguity and type."""
     if dtype is None:
@@ -89,7 +75,7 @@ def is_contiguous(array, dtype=None):
 #   r = max(r, r')
 #    >
 #
-def hartree(l, nrdr, beta, N, vr):
+def hartree(l, nrdr, r, vr):
     """Calculates radial Coulomb integral.
 
     The following integral is calculated::
@@ -104,21 +90,18 @@ def hartree(l, nrdr, beta, N, vr):
     where input and output arrays `nrdr` and `vr`::
 
               dr
-      n (r) r --  and  v (r) r,
+      n (r) r --  and  v (r) r.
        l      dg        l
-
-    are defined on radial grids as::
-
-          beta g
-      r = ------,  g = 0, 1, ..., N - 1.
-          N - g
-
     """
     assert is_contiguous(nrdr, float)
+    assert is_contiguous(r, float)
     assert is_contiguous(vr, float)
     assert nrdr.shape == vr.shape and len(vr.shape) == 1
-    return _gpaw.hartree(l, nrdr, beta, N, vr)
+    assert len(r.shape) == 1
+    assert len(r) >= len(vr)
+    return _gpaw.hartree(l, nrdr, r, vr)
 
+    
 def packed_index(i1, i2, ni):
     """Return a packed index"""
     if i1 > i2:
@@ -156,8 +139,8 @@ def unpack(M):
 def unpack2(M):
     """Unpack 1D array to 2D, assuming a packing as in ``pack``."""
     M2 = unpack(M)
-    M2 *= 0.5 # divide all by 2
-    M2.flat[0::len(M2) + 1] *= 2 # rescale diagonal to original size
+    M2 *= 0.5  # divide all by 2
+    M2.flat[0::len(M2) + 1] *= 2  # rescale diagonal to original size
     return M2
 
     
@@ -166,7 +149,7 @@ def pack(A):
     
     The matrix::
     
-           / a00 a01 a02 \ 
+           / a00 a01 a02 \
        A = | a10 a11 a12 |
            \ a20 a21 a22 /
                 
@@ -189,7 +172,7 @@ def pack2(M2, tolerance=1e-10):
         M[p] = M2[r, r]
         p += 1
         for c in range(r + 1, n):
-            M[p] = (M2[r, c] + np.conjugate(M2[c, r])) / 2. # note / 2.
+            M[p] = (M2[r, c] + np.conjugate(M2[c, r])) / 2.  # note / 2.
             error = abs(M2[r, c] - np.conjugate(M2[c, r]))
             assert error < tolerance, 'Pack not symmetric by %s' % error + ' %'
             p += 1
@@ -203,7 +186,7 @@ for method in (unpack, unpack2, pack, pack2):
 
 def element_from_packed(M, i, j):
     """Return a specific element from a packed array (by ``pack``)."""
-    n = int(sqrt(2 * len(M) + .25)) 
+    n = int(sqrt(2 * len(M) + .25))
     assert i < n and j < n
     p = packed_index(i, j, n)
     if i == j:
@@ -213,21 +196,6 @@ def element_from_packed(M, i, j):
     else:
         return .5 * np.conjugate(M[p])
     
-
-class _DownTheDrain:
-    """Definition of a stream that throws away all output."""
-    
-    def write(self, string):
-        pass
-    
-    def flush(self):
-        pass
-
-    def close(self):
-        pass
-
-devnull = _DownTheDrain()
-
 
 def logfile(name, rank=0):
     """Create file object from name.
@@ -269,6 +237,8 @@ def divrl(a_g, l, r_g):
 def compiled_with_sl():
     return hasattr(_gpaw, 'new_blacs_context')
 
+def compiled_with_libvdwxc():
+    return hasattr(_gpaw, 'libvdwxc_create')
 
 def load_balance(paw, atoms):
     try:
@@ -282,16 +252,16 @@ def load_balance(paw, atoms):
         atoms_r[rnk] += 1
     max_atoms = max(atoms_r)
     min_atoms = min(atoms_r)
-    ave_atoms = atoms_r.sum()/paw.wfs.world.size
-    stddev_atoms = sqrt((atoms_r**2).sum()/paw.wfs.world.size - ave_atoms**2)
-    print "Information about load balancing"
-    print "--------------------------------"
-    print "Number of atoms:", len(spos_ac)
-    print "Number of CPUs:", paw.wfs.world.size
-    print "Max. number of atoms/CPU:   ", max_atoms
-    print "Min. number of atoms/CPU:   ", min_atoms
-    print "Average number of atoms/CPU:", ave_atoms
-    print "    standard deviation:     %5.1f" % stddev_atoms
+    ave_atoms = atoms_r.sum() / paw.wfs.world.size
+    stddev_atoms = sqrt((atoms_r**2).sum() / paw.wfs.world.size - ave_atoms**2)
+    print("Information about load balancing")
+    print("--------------------------------")
+    print("Number of atoms:", len(spos_ac))
+    print("Number of CPUs:", paw.wfs.world.size)
+    print("Max. number of atoms/CPU:   ", max_atoms)
+    print("Min. number of atoms/CPU:   ", min_atoms)
+    print("Average number of atoms/CPU:", ave_atoms)
+    print("    standard deviation:     %5.1f" % stddev_atoms)
 
 if not debug:
     hartree = _gpaw.hartree
@@ -335,9 +305,9 @@ def interpolate_mlsqr(dg_c, vt_g, order):
     if order == 1:
         b = lambda x: np.array([1, x[0], x[1], x[2]])
     elif order == 2:
-        b = lambda x:  np.array([1, x[0], x[1], x[2],
-                                 x[0] * x[1], x[1] * x[2], x[2] * x[0],
-                                 x[0]**2, x[1]**2, x[2]**2])
+        b = lambda x: np.array([1, x[0], x[1], x[2],
+                                x[0] * x[1], x[1] * x[2], x[2] * x[0],
+                                x[0]**2, x[1]**2, x[2]**2])
     else:
         raise NotImplementedError
 
@@ -346,7 +316,7 @@ def interpolate_mlsqr(dg_c, vt_g, order):
         for i, j, k in zip(x.ravel(), y.ravel(), z.ravel()):
             r = b(np.array([i, j, k])) * lsqr_weight(
                 np.sum((dg_c - np.array([i, j, k]))**2))
-            if result == None:
+            if result is None:
                 result = r
             else:
                 result = np.vstack((result, r))

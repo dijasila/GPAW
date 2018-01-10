@@ -8,7 +8,6 @@ atoms, calc = restart('benzene.gpw')
 
 homo = calc.get_pseudo_wave_function(band=14)
 write('homo.cube', atoms, data=homo)
-write('homo.plt', atoms, data=homo)
 
 # Initialize the Wannier class
 w = Wannier(calc)
@@ -22,4 +21,3 @@ sigma = w.get_function(calc, nsigma)
 
 write('benzene.xyz', atoms)
 write('sigma.cube', atoms, data=sigma)
-write('sigma.plt', atoms, data=sigma)

@@ -1,5 +1,5 @@
 def agts(queue):
-    queue.add('testsuite.agts.py', ncpus=8, walltime=40)
+    queue.add('testsuite.agts.py', ncpus=8, walltime=80)
 
 if __name__ == '__main__':
     # Run test suite

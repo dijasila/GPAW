@@ -21,4 +21,4 @@ Presently and in the future we will expand on this work by considering:
 * self-interaction correction methods, e.g., +U, non-Koopman corrections, etc.
 
 Most of the GPAW code related to this project is in
-:svn:`~gpaw/gpaw/xc/bee.py` and :svn:`~gpaw/c/ensemble_gga.c`.
+:git:`~gpaw/xc/bee.py` and :git:`~c/xc/ensemble_gga.c`.

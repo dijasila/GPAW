@@ -1,7 +1,7 @@
 import numpy as np
 
 from ase.io import read
-from ase.dft import monkhorst_pack
+from ase.dft.kpoints import monkhorst_pack
 
 from gpaw import GPAW, ConvergenceError
 from gpaw.wavefunctions.pw import PW

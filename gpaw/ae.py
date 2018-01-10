@@ -13,7 +13,7 @@ class HydrogenAllElectronSetup(BaseSetup):
     def __init__(self, alpha1=10.0, alpha2=300.0):
         self.alpha1 = alpha1
         self.alpha2 = alpha2
-        
+
         self.natoms = 0
         self.E = 0.0
         self.Z = 1
@@ -26,6 +26,7 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.n_j = []
         self.nct = Spline(0, 0.5, [0.0, 0.0, 0.0])
         self.Nct = 0.0
+        self.N0_p = []
         rc = 2.0
         r_g = np.linspace(0, rc, 100)
         r2_g = r_g**2
@@ -48,7 +49,10 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.dO_ii = np.zeros((0, 0))
         self.type = 'all-electron'
         self.fingerprint = None
-        
+
+    def get_default_nbands(self):
+        return 1
+
     def build(self, basis):
         if basis is None:
             basis = Basis('H', 'sz(dzp)')
@@ -58,6 +62,6 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.phit_j = self.basis.tosplines()
         self.f_j = [1.0]
         self.nao = self.basis.nao
-    
+
     def print_info(self, text):
         text('Hydrogen all-electron potential')

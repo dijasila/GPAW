@@ -1,11 +1,9 @@
 # Copyright (C) 2006  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-from math import pi, log, sqrt
+from math import pi, log, sqrt, factorial as fac
 
 import numpy as np
-
-from gpaw.utilities import _fact
 
 """Fourier filtering
 
@@ -172,7 +170,7 @@ class Filter:
         #       -l
         # f(r) r    for r -> 0
         #
-        c = 2.0**l * _fact[l] / _fact[2 * l + 1] * self.c
+        c = 2.0**l * fac(l) / fac(2 * l + 1) * self.c
         a_g[0] = np.dot(fq_i, q_i**(l + 1)) * c
 
         return a_g
@@ -201,9 +199,9 @@ if __name__ == '__main__':
 
     if 0:
         for i in range(200):
-            print 5 * pi / h * i / 200, pf0_g[i], pf1_g[i], pf2_g[i]
+            print(5 * pi / h * i / 200, pf0_g[i], pf1_g[i], pf2_g[i])
     if 1:
         for r, p, pf0, pf1, pf2 in zip(r_g, p_g, pf0_g, pf1_g, pf2_g):
-            print r, p, pf0, pf1, pf2
+            print(r, p, pf0, pf1, pf2)
             if r > rc2:
                 break

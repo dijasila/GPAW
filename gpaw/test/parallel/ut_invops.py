@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 
 import sys
 import numpy as np
@@ -11,6 +10,8 @@ except (ImportError, RuntimeError):
     mpl = None
 
 from ase.units import Bohr
+from ase.utils import devnull
+
 from gpaw.mpi import world, distribute_cpus
 from gpaw.utilities.tools import md5_array
 from gpaw.utilities.gauss import gaussian_wave
@@ -28,7 +29,7 @@ from gpaw.pair_overlap import GridPairOverlap, ProjectorPairOverlap
 
 # -------------------------------------------------------------------
 
-from gpaw.test.ut_common import ase_svnversion, shapeopt, TestCase, \
+from gpaw.test.ut_common import shapeopt, TestCase, \
     TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
     initialTestLoader, create_random_atoms, create_parsize_minbands
 
@@ -62,8 +63,12 @@ class UTDomainParallelSetup(TestCase):
 
         parsize_domain, parsize_bands = create_parsize_minbands(self.nbands, world.size)
         assert self.nbands % np.prod(parsize_bands) == 0
-        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain,
-            parsize_bands, self.nspins, self.nibzkpts)
+        comms = distribute_cpus(parsize_domain,
+                                parsize_bands, self.nspins, self.nibzkpts)
+        domain_comm, kpt_comm, band_comm, block_comm = \
+            [comms[name] for name in 'dkbK']
+
+        self.block_comm = block_comm
 
         # Set up band descriptor:
         self.bd = BandDescriptor(self.nbands, band_comm)
@@ -80,7 +85,7 @@ class UTDomainParallelSetup(TestCase):
         self.kpt_comm = kpt_comm
 
     def tearDown(self):
-        del self.bd, self.gd, self.kpt_comm
+        del self.bd, self.gd, self.kpt_comm, self.block_comm
 
     # =================================
 
@@ -112,7 +117,7 @@ class UTDomainParallelSetup_Mixed(UTDomainParallelSetup):
 
 class FDWFS(FDWaveFunctions):
     
-    def __init__(self, gd, bd, kd, setups, dtype): # override constructor
+    def __init__(self, gd, bd, kd, setups, block_comm, dtype): # override constructor
 
         assert kd.comm.size == 1
 
@@ -120,7 +125,7 @@ class FDWFS(FDWaveFunctions):
                                kd, None)
         self.kin = Laplace(gd, -0.5, dtype=dtype)
         self.diagksl = None
-        self.orthoksl = BandLayouts(gd, bd, dtype)
+        self.orthoksl = BandLayouts(gd, bd, block_comm, dtype)
         self.initksl = None
         self.overlap = None
         self.rank_a = None
@@ -186,12 +191,12 @@ class UTGaussianWavefunctionSetup(UTDomainParallelSetup):
         # K-point descriptor
         bzk_kc = np.array([[0, 0, 0]], dtype=float)
         self.kd = KPointDescriptor(bzk_kc, 1)
-        self.kd.set_symmetry(self.atoms, self.setups, usesymm=True)
+        self.kd.set_symmetry(self.atoms, self.setups)
         self.kd.set_communicator(self.kpt_comm)
         
         # Create gamma-point dummy wavefunctions
         self.wfs = FDWFS(self.gd, self.bd, self.kd, self.setups,
-                         self.dtype)
+                         self.block_comm, self.dtype)
         
         spos_ac = self.atoms.get_scaled_positions() % 1.0
         self.wfs.set_positions(spos_ac)
@@ -468,7 +473,6 @@ if __name__ in ['__main__', '__builtin__']:
     if __name__ == '__builtin__':
         testrunner = CustomTextTestRunner('ut_invops.log', verbosity=2)
     else:
-        from gpaw.utilities import devnull
         stream = (world.rank == 0) and sys.stdout or devnull
         testrunner = TextTestRunner(stream=stream, verbosity=2)
 
@@ -477,7 +481,7 @@ if __name__ in ['__main__', '__builtin__']:
                  UTDomainParallelSetup_Mixed]:
         info = ['', test.__name__, test.__doc__.strip('\n'), '']
         testsuite = initialTestLoader.loadTestsFromTestCase(test)
-        map(testrunner.stream.writeln, info)
+        list(map(testrunner.stream.writeln, info))
         testresult = testrunner.run(testsuite)
         assert testresult.wasSuccessful(), 'Initial verification failed!'
         parinfo.extend(['    Parallelization options: %s' % tci._parinfo for \
@@ -493,7 +497,7 @@ if __name__ in ['__main__', '__builtin__']:
     for test in testcases:
         info = ['', test.__name__, test.__doc__.strip('\n')] + parinfo + ['']
         testsuite = defaultTestLoader.loadTestsFromTestCase(test)
-        map(testrunner.stream.writeln, info)
+        list(map(testrunner.stream.writeln, info))
         testresult = testrunner.run(testsuite)
         # Provide feedback on failed tests if imported by test.py
         if __name__ == '__builtin__' and not testresult.wasSuccessful():

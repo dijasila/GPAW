@@ -1,6 +1,6 @@
 """This script calculates the atomization energy of nitrogen using two
 processes, each process working on a separate system."""
-
+from __future__ import print_function
 from gpaw import GPAW, mpi
 import numpy as np
 from ase import Atoms, Atom
@@ -38,4 +38,4 @@ else:
 
     # Ea = E[molecule] - 2 * E[atom]
     atomization_energy = container[0] - 2 * energy
-    print 'Atomization energy: %.4f eV' % atomization_energy
+    print('Atomization energy: %.4f eV' % atomization_energy)

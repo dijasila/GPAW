@@ -2,10 +2,10 @@
  *  Copyright (C) 2007-2009  CAMd
  *  Please see the accompanying LICENSE file for further information. */
 
-#include <complex.h>
-#include "localized_functions.h"
 #include "extensions.h"
+#include "localized_functions.h"
 #include "bmgs/bmgs.h"
+#include <complex.h>
 
 #ifdef GPAW_NO_UNDERSCORE_BLAS
 #  define dgemv_ dgemv

@@ -1,7 +1,5 @@
 .. _pdos:
 
-.. default-role:: math
-
 =================
 Density Of States
 =================
@@ -41,7 +39,7 @@ distribution gives the electron density
 
 Summing the PDOS over `i` gives the spectral weight of orbital `i`.
 
-A GPAW calculator gives access to three different kinds of projected
+A GPAW calculator gives access to four different kinds of projected
 density of states:
 
 * Total density of states.
@@ -104,7 +102,7 @@ calculated by
 The example below calculates the density of states for CO adsorbed on
 a Pt(111) slab and the density of states projected onto the gas phase
 orbitals of CO. The ``.gpw`` files can be generated with the script
-:svn:`~doc/documentation/pdos/top.py`
+:git:`~doc/documentation/pdos/top.py`
 
 PDOS script::
 
@@ -117,26 +115,24 @@ PDOS script::
     e, dos = calc.get_dos(spin=0, npts=2001, width=0.2)
     e_f = calc.get_fermi_level()
     plot(e-e_f, dos)
-    grid(True)
-    axis([-15, 10, None, None])
+    axis([-15, 10, None, 4])
     ylabel('DOS')
 
-    molecule = range(len(slab))[-2:] 
+    molecule = range(len(slab))[-2:]
 
     subplot(212)
     c_mol = GPAW('CO.gpw')
     for n in range(2,7):
-        print 'Band', n
+        print('Band', n)
         # PDOS on the band n
-        wf_k = [c_mol.get_pseudo_wave_function(band=n, kpt=k, spin=0, pad=False)
+        wf_k = [c_mol.wfs.kpt_u[k].psit_nG[n]
                 for k in range(len(c_mol.wfs.weight_k))]
         P_aui = [[kpt.P_ani[a][n] for kpt in c_mol.wfs.kpt_u]
-                 for a in range(len(molecule))]   # Inner products of pseudo wavefunctions and projectors
+                 for a in range(len(molecule))]
         e, dos = calc.get_all_electron_ldos(mol=molecule, spin=0, npts=2001,
                                             width=0.2, wf_k=wf_k, P_aui=P_aui)
         plot(e-e_f, dos, label='Band: '+str(n))
     legend()
-    grid(True)
     axis([-15, 10, None, None])
     xlabel('Energy [eV]')
     ylabel('All-Electron PDOS')
@@ -171,12 +167,13 @@ Pickle script::
     e_n = []
     P_n = []
     for n in range(c_mol.wfs.nbands):
-        print 'Band: ', n
-        wf_k = [c_mol.get_pseudo_wave_function(band=n, kpt=k, spin=0, pad=False)
+        print('Band: ', n)
+        wf_k = [c_mol.wfs.kpt_u[k].psit_nG[n]
                 for k in range(len(c_mol.wfs.weight_k))]
         P_aui = [[kpt.P_ani[a][n] for kpt in c_mol.wfs.kpt_u]
-                 for a in range(len(molecule))]   # Inner products of pseudo wavefu
-        e, P = calc.get_all_electron_ldos(mol=molecule, wf_k=wf_k, spin=0, P_aui=P_aui, raw=True)
+                 for a in range(len(molecule))]
+        e, P = calc.get_all_electron_ldos(mol=molecule, wf_k=wf_k, spin=0,
+                                          P_aui=P_aui, raw=True)
         e_n.append(e)
         P_n.append(P)
     pickle.dump((e_n, P_n), open('top.pickle', 'w'))
@@ -194,12 +191,11 @@ Plot PDOS::
     e_n, P_n = pickle.load(open('top.pickle'))
     for n in range(2,7):
         e, ldos = fold(e_n[n] * Hartree, P_n[n], npts=2001, width=0.2)
-        plot(e-e_f, ldos, label='Band: '+str(n))
+        plot(e-e_f, ldos, label='Band: ' + str(n))
     legend()
     axis([-15, 10, None, None])
     xlabel('Energy [eV]')
     ylabel('PDOS')
-    grid(True)
 
     show()
 
@@ -220,7 +216,7 @@ the relevant overlaps within the PAW formalism is
   \langle \phi^a_i | \psi_n\rangle = \langle \tilde \phi^a_i
   | \tilde \psi_n \rangle + \sum_{a'} \sum_{i_1i_2} \langle \tilde
   \phi^a_i | \tilde p_{i_1}^{a'} \rangle \Big(\langle \phi_{i_1}^{a'} |
-  \phi_{i_2}^{a'} \rangle - \langle \tilde \phi_{i_1}^{a'} | \tilde 
+  \phi_{i_2}^{a'} \rangle - \langle \tilde \phi_{i_1}^{a'} | \tilde
   \phi_{i_2}^{a'}\rangle \Big)\langle \tilde p^{a'}_{i_2} | \tilde
   \psi_n \rangle
 
@@ -239,7 +235,7 @@ overlaps `\langle \tilde \phi^a_i | \tilde p^{a'}_{i_1} \rangle`,
 
 .. math::
 
-  \langle \phi^a_i | \psi_n \rangle \approx 
+  \langle \phi^a_i | \psi_n \rangle \approx
   \langle \tilde p_i^a | \tilde \psi_n \rangle
 
 We thus define an atomic orbital PDOS by
@@ -247,7 +243,7 @@ We thus define an atomic orbital PDOS by
 .. math::
 
   \rho^a_i(\varepsilon) = \sum_n |\langle\tilde p_i^a | \tilde \psi_n
-  \rangle |^2 \delta(\varepsilon - \varepsilon_n) \approx \sum_n 
+  \rangle |^2 \delta(\varepsilon - \varepsilon_n) \approx \sum_n
   | \langle \phi_i^a | \psi_n \rangle |^2 \delta(\varepsilon - \varepsilon_n)
 
 available from a GPAW calculator from the method ``get_orbital_ldos(a, spin=0,
@@ -314,7 +310,7 @@ For the Wigner-Seitz LDOS, the eigenstates are projected onto the function
 
 This defines an LDOS:
 
-.. math:: 
+.. math::
   
   \rho^a(\varepsilon) = \sum_n |\langle \theta^a| \psi_n \rangle|^2
   \delta(\varepsilon - \varepsilon_n)
@@ -324,7 +320,7 @@ Introducing the PAW formalism shows that the weights can be calculated by
 .. math::
 
    |\langle \theta^a| \psi_n \rangle|^2 = |\langle \theta^a| \tilde
-   \psi_n \rangle|^2 + \sum_{ij} P^{a*}_{ni} \Delta S^a_{ij} P^a_{nj}, 
+   \psi_n \rangle|^2 + \sum_{ij} P^{a*}_{ni} \Delta S^a_{ij} P^a_{nj},
 
 This property can be accessed by ``calc.get_wigner_seitz_ldos(a,
 spin=0, npts=201, width=None)``.  It represents a local probe of the
@@ -335,9 +331,105 @@ electrons contained in the region ascribed to atom `a` (more
 efficiently computed using ``calc.get_wigner_seitz_densities(spin)``.
 Notice that the domain ascribed to each atom is deduced purely on a
 geometrical criterion. A more advanced scheme for assigning the charge
-density to atoms is the Bader_ algorithm (all though the Wigner-Seitz
-approach is faster).
+density to atoms is the :ref:`bader analysis` algorithm (all though the
+Wigner-Seitz approach is faster).
 
-.. _Bader: https://wiki.fysik.dtu.dk/ase/ase/dft/bader.html
 
-.. default-role::
+---------------------
+PDOS on LCAO orbitals
+---------------------
+
+DOS can be also be projected onto the LCAO basis functions.
+A subspace of the atomic orbitals is required as an input
+onto which one wants the projected density of states. For
+example, if the p orbitals of a particular atom in have the
+indices 41, 42 and 43, and the PDOS is required on the subpspace
+of these three orbital then an array ``[41, 42, 43]`` has to be given
+as an input for the PDOS calculation.
+
+An example and with explanation is provided below.
+
+LCAO PDOS::
+
+    from ase import Atoms
+    from ase.io import read
+
+    from gpaw import GPAW
+    from gpaw.utilities.dos import LCAODOS, RestartLCAODOS, fold
+    from ase.units import Hartree
+
+    import numpy as np
+
+    name = 'HfS2'
+    calc = GPAW(name+'.gpw', txt=None)
+    atoms = read(name+'.gpw')
+    ef = calc.get_fermi_level()
+
+    dos = RestartLCAODOS(calc)
+    energies, weights = dos.get_subspace_pdos(range(51))
+    e, w = fold(energies * Hartree, weights, 2000, 0.1)
+
+    e, m_s_pdos = dos.get_subspace_pdos([0,1])
+    e, m_s_pdos = fold(e * Hartree, m_s_pdos, 2000, 0.1)
+    e, m_p_pdos = dos.get_subspace_pdos([2,3,4])
+    e, m_p_pdos = fold(e * Hartree, m_p_pdos, 2000, 0.1)
+    e, m_d_pdos = dos.get_subspace_pdos([5,6,7,8,9])
+    e, m_d_pdos = fold(e * Hartree, m_d_pdos, 2000, 0.1)
+
+    e, x_s_pdos = dos.get_subspace_pdos([25])
+    e, x_s_pdos = fold(e * Hartree, x_s_pdos, 2000, 0.1)
+    e, x_p_pdos = dos.get_subspace_pdos([26,27,28])
+    e, x_p_pdos = fold(e * Hartree, x_p_pdos, 2000, 0.1)
+
+    w_max = []
+    for i in range(len(e)):
+        if (-4.5 <= e[i]-ef <= 4.5):
+            w_max.append(w[i])
+
+    w_max = np.asarray(w_max)
+
+Few comments about the above script.
+There are 51 basis functions in the calculations and the total
+density of state (DOS) is calculated by projecting the DOS on
+all the orbitals.
+
+The projected density of state (PDOS) is calculated for other
+orbitals as well, for example, s, p and d orbitals of the metal
+atom and s and p orbitals for the chalcogen atoms. In the subspace
+of orbitals the basis localized part of the basis functions is not
+taken into account and only the confined orbital part (larger rc)
+is chosen.
+
+There is a smarter way of getting the above orbitals in an automated
+way but it will come later.
+
+LCAO PDOS plotting script::
+
+    from pylab import plotfile, show, gca
+    import matplotlib.pyplot as plt
+    import matplotlib
+
+    matplotlib.rc('font', family='normal', serif='cm10')
+
+    matplotlib.rc('text', usetex=True)
+    matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
+
+    font = {'family' : 'normal',
+        'size'   : 12}
+    matplotlib.rc('font', **font)
+
+    plt.plot(e-ef, w, label=r'\textbf{Total}', c='k', lw=2, alpha=0.7)
+    plt.plot(e-ef, x_s_pdos, label=r'\textbf{X-$s$}', c='g', lw=2, alpha=0.7)
+    plt.plot(e-ef, x_p_pdos, label=r'\textbf{X-$p$}', c='b', lw=2, alpha=0.7)
+    plt.plot(e-ef, m_s_pdos, label=r'\textbf{M-$s$}', c='y', lw=2, alpha=0.7)
+    plt.plot(e-ef, m_p_pdos, label=r'\textbf{M-$p$}', c='c', lw=2, alpha=0.7)
+    plt.plot(e-ef, m_d_pdos, label=r'\textbf{M-$d$}', c='r', lw=2, alpha=0.7)
+
+    plt.axis(ymin=0., ymax=np.max(w_max), xmin=-4.5, xmax=4.5, )
+    plt.xlabel(r'$\epsilon - \epsilon_F \ \rm{(eV)}$')
+    plt.ylabel(r'\textbf{DOS}')
+    plt.legend(loc=1)
+    ax = plt.gca()
+    fig = plt.gcf()
+    fig.set_size_inches(8,8)
+    plt.savefig(name + '.png', dpi=200)

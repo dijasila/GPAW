@@ -25,8 +25,6 @@ Simple tasks
 * The :ref:`pawxml` needs to be extended to include MGGA quantities
   like the core kinetic energy density.
 
-* Evaluate the effect of using default RMMDIIS blocksize=10.
-
 * Write dipole moment to trajectory files.
 
 * "Broken symmetry": We need a better error message.  This happens
@@ -36,7 +34,7 @@ Simple tasks
 
 * Stop using ``wfs.ibzk_qc`` and other things that are in ``wfs.kd``.
 
-* Use :meth:`ase.Atoms.get_charges` instead of the ``charge`` keyword.
+* Use ``ase.Atoms.get_charges`` instead of the ``charge`` keyword.
 
 
 Questions
@@ -66,8 +64,6 @@ Larger projects
 
 * Implement the HSE03 hybrid functional.
 
-* Calculate the stress tensor.
-
 
 Documentation
 =============
@@ -88,7 +84,8 @@ Important setup problems to fix
 
 * Improve Ru setup.  Problem with nitrogen adsorption energy on
   Ru(0001) surface: Improved f-scattering, do we need 4p semi-core
-  states?
+  states? This problem has been fixed in the 0.9 release of the
+  setups and covered by the following test :git:`~gpaw/test/big/Ru001`.
 * Improve Mn setup.  Problem with strange states in the band-gap for
   AFM-II MnO.
 * Fine-tune Fourier filtering of projector functions.  There is still

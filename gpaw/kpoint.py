@@ -5,10 +5,6 @@
 
 import numpy as np
 
-from gpaw.fd_operators import Gradient
-from gpaw.utilities.blas import axpy
-from gpaw import extra_parameters
-
 import gpaw.cuda
 
 class KPoint:
@@ -99,7 +95,6 @@ class KPoint:
 
         self.rho_MM = None
         
-        self.P_aMi = None
         self.S_MM = None
         self.T_MM = None
 
@@ -129,12 +124,12 @@ class GlobalKPoint(KPoint):
         """Distribute requested kpoint data across the kpoint communicator."""
 
         # Locate rank and index of requested k-point
-        nks = len(wfs.ibzk_kc)
+        nks = len(wfs.kd.ibzk_kc)
         mynu = len(wfs.kpt_u)
         kpt_rank, u = divmod(self.k + nks * self.s, mynu)
-        kpt_comm = wfs.kpt_comm
+        kpt_comm = wfs.kd.comm
 
-        my_atom_indices = np.argwhere(wfs.rank_a == wfs.gd.comm.rank).ravel()
+        my_atom_indices = wfs.atom_partition.my_atom_indices
         mynproj = sum([wfs.setups[a].ni for a in my_atom_indices])
         my_P_ni = np.empty((wfs.mynbands, mynproj), wfs.dtype)
 

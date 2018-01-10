@@ -244,7 +244,7 @@ void *apply_worker_cfd(void *threadarg)
     chunksize = args->chunksize;
 
   int chunk = args->chunkinc;
-  if (chunk > chunksize);
+  if (chunk > chunksize)
     chunk = chunksize;
 
   double* sendbuf = GPAW_MALLOC(double, bc->maxsend * args->chunksize
@@ -267,7 +267,7 @@ void *apply_worker_cfd(void *threadarg)
   for (int n = nstart+chunk; n < nend; n += chunk)
     {
       last_chunk += args->chunkinc;
-      if (last_chunk > chunksize);
+      if (last_chunk > chunksize)
         last_chunk = chunksize;
 
       if (n + last_chunk >= nend && last_chunk > 1)
@@ -462,20 +462,17 @@ static PyMethodDef Operator_Methods[] = {
 };
 
 
-static PyObject* Operator_getattr(PyObject *obj, char *name)
-{
-    return Py_FindMethod(Operator_Methods, obj, name);
-}
-
-static PyTypeObject OperatorType = {
-  PyObject_HEAD_INIT(&PyType_Type)
-  0,
-  "Operator",
-  sizeof(OperatorObject),
-  0,
-  (destructor)Operator_dealloc,
-  0,
-  Operator_getattr
+PyTypeObject OperatorType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "Operator",
+    sizeof(OperatorObject),
+    0,
+    (destructor)Operator_dealloc,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    "FD-operator object",
+    0, 0, 0, 0, 0, 0,
+    Operator_Methods
 };
 
 PyObject * NewOperatorObject(PyObject *obj, PyObject *args)

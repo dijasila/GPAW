@@ -1,8 +1,5 @@
 .. _densitymix:
 
-.. default-role:: math
-
-
 ==============
 Density Mixing
 ==============
@@ -130,12 +127,12 @@ which is the recommended value if the default fails to converge.
 The class ``Mixer`` indicates one of the possible mixing schemes.  The
 Pulay mixing can be based on:
 
-1. The spin densities seperately, ``Mixer`` (This will *not* work for
+1. The spin densities separately, ``Mixer`` (This will *not* work for
    a spinpolarized system, unless the magnetic moment is fixed)
 2. The total density, ``MixerSum2``
-3. Spin channels seperately for the density matrices, and the summed
+3. Spin channels separately for the density matrices, and the summed
    channels for the pseudo electron density, ``MixerSum``
-4. The total density and magnetization densities seperately, ``MixerDif``
+4. The total density and magnetization densities separately, ``MixerDif``
 
 Where the magnetization density is the difference between the two spin
 densities.
@@ -153,11 +150,19 @@ weight used by the metric, if any.
 MixerDif seems to be a good choice for spin polarized
 molecules. MixerSum is sometimes better for bulk systems.
 
+The Mixer and MixerSum classes
+------------------------------
+
+.. autoclass:: gpaw.mixer.Mixer
+   :members:
+   :inherited-members:
+
+.. autoclass:: gpaw.mixer.MixerSum
+   :members:
+   :inherited-members:
 
 References
 ----------
 
 .. [#Pulay1980] Pulay, Chem. Phys. Let. **73**, 393 (1980)
 .. [#Kresse1996] Kresse, Phys. Rev. B **54**, 11169 (1996)
-
-.. default-role::

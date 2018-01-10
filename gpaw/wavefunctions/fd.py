@@ -15,14 +15,27 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
 import gpaw.cuda
 
+class FD:
+    name = 'fd'
+
+    def __init__(self):
+        pass  # Could hold parameters like FD stencils
+
+    def __call__(self, *args, **kwargs):
+        return FDWaveFunctions(*args, **kwargs)
+
+
 class FDWaveFunctions(FDPWWaveFunctions):
+    mode = 'fd'
+
     def __init__(self, stencil, diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd,
-                 dtype, world, kd, timer=None, cuda=False):
+                 dtype, world, kd, kptband_comm, timer, cuda=False):
         self.cuda = cuda
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
                                    gd, nvalence, setups, bd,
-                                   dtype, world, kd, timer, cuda)
+                                   dtype, world, kd, kptband_comm, timer,
+                                   cuda=cuda)
 
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype, cuda=self.cuda)
@@ -52,28 +65,24 @@ class FDWaveFunctions(FDPWWaveFunctions):
                       cuda=self.cuda)
         FDPWWaveFunctions.set_setups(self, setups)
 
-    def set_positions(self, spos_ac):
-        FDPWWaveFunctions.set_positions(self, spos_ac)
+    def set_positions(self, spos_ac, atom_partition=None):
+        FDPWWaveFunctions.set_positions(self, spos_ac, atom_partition)
 
     def summary(self, fd):
         fd.write('Wave functions: Uniform real-space grid\n')
         fd.write('Kinetic energy operator: %s\n' % self.kin.description)
         
     def make_preconditioner(self, block=1):
-        return Preconditioner(self.gd, self.kin, self.dtype, block, self.cuda)
+        return Preconditioner(self.gd, self.kin, self.dtype, block,
+                              cuda=self.cuda)
     
-    def apply_pseudo_hamiltonian(self, kpt, hamiltonian, psit_xG, Htpsit_xG):
+    def apply_pseudo_hamiltonian(self, kpt, ham, psit_xG, Htpsit_xG):
         self.timer.start('Apply hamiltonian')
         self.kin.apply(psit_xG, Htpsit_xG, kpt.phase_cd)
-        hamiltonian.apply_local_potential(psit_xG, Htpsit_xG, kpt.s)
+        ham.apply_local_potential(psit_xG, Htpsit_xG, kpt.s)
+        ham.xc.apply_orbital_dependent_hamiltonian(
+            kpt, psit_xG, Htpsit_xG, ham.dH_asp)
         self.timer.stop('Apply hamiltonian')
-        
-    def add_orbital_density(self, nt_G, kpt, n):
-        if self.dtype == float:
-            axpy(1.0, kpt.psit_nG[n]**2, nt_G)
-        else:
-            axpy(1.0, kpt.psit_nG[n].real**2, nt_G)
-            axpy(1.0, kpt.psit_nG[n].imag**2, nt_G)
 
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
         # Used in calculation of response part of GLLB-potential
@@ -108,7 +117,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     if abs(d) > 1.e-12:
                         nt_G += (psi0_G.conj() * d * psi_G).real
 
-        if self.cuda  and (kpt.psit_nG_gpu is not None):
+        if self.cuda and (kpt.psit_nG_gpu is not None):
             self.nt_G_gpu.get(nt_sG[kpt.s])
 
     def calculate_kinetic_energy_density(self):
@@ -116,13 +125,12 @@ class FDWaveFunctions(FDPWWaveFunctions):
             self.taugrad_v = [
                 Gradient(self.gd, v, n=3, dtype=self.dtype).apply
                 for v in range(3)]
-            
+
         assert not hasattr(self.kpt_u[0], 'c_on')
         if self.kpt_u[0].psit_nG is None:
-            raise RuntimeError('No wavefunctions yet')
+            return None
         if isinstance(self.kpt_u[0].psit_nG, FileReference):
-            # XXX initialize
-            raise RuntimeError('Wavefunctions have not been initialized.')
+            return None
 
         taut_sG = self.gd.zeros(self.nspins)
         dpsit_G = self.gd.empty(dtype=self.dtype)
@@ -132,10 +140,9 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     self.taugrad_v[v](psit_G, dpsit_G, kpt.phase_cd)
                     axpy(0.5 * f, abs(dpsit_G)**2, taut_sG[kpt.s])
 
-        self.kpt_comm.sum(taut_sG)
-        self.band_comm.sum(taut_sG)
+        self.kptband_comm.sum(taut_sG)
         return taut_sG
-        
+
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                                  Htpsit_xG, dH_asp,
                                                  dedtaut_G):
@@ -153,7 +160,6 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
         # New k-point descriptor for full BZ:
         kd = KPointDescriptor(self.kd.bzk_kc, nspins=self.nspins)
-        kd.set_symmetry(atoms, self.setups, usesymm=None)
         kd.set_communicator(serial_comm)
 
         self.pt = LFC(self.gd, [setup.pt_j for setup in self.setups],
@@ -200,6 +206,15 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.kd = kd
         self.kpt_u = kpt_u
 
+    def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
+        assert realspace
+        kpt = self.kpt_u[u]
+        psit_G = kpt.psit_nG[n]
+        if periodic and self.dtype == complex:
+            k_c = self.kd.ibzk_kc[kpt.k]
+            return self.gd.plane_wave(-k_c) * psit_G
+        return psit_G
+
     def write(self, writer, write_wave_functions=False):
         writer['Mode'] = 'fd'
 
@@ -220,7 +235,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 writer.fill(kpt.psit_nG, parallel=parallel, *indices)
         else:
             for s in range(self.nspins):
-                for k in range(self.nibzkpts):
+                for k in range(self.kd.nibzkpts):
                     for n in range(self.bd.nbands):
                         psit_G = self.get_wave_function_array(n, k, s)
                         writer.fill(psit_G, s, k, n)

@@ -18,7 +18,7 @@ class CG(Eigensolver):
 
     It is expected that the trial wave functions are orthonormal
     and the integrals of projector functions and wave functions
-    ``nucleus.P_uni`` are already calculated.
+    are already calculated.
 
     Solution steps are:
 
@@ -27,7 +27,7 @@ class CG(Eigensolver):
     * Conjugate gradient steps
     """
 
-    def __init__(self, niter=4, rtol=0.30):
+    def __init__(self, niter=4, rtol=0.30, tw_coeff=False):
         """Construct conjugate gradient eigen solver.
 
         parameters:
@@ -46,6 +46,10 @@ class CG(Eigensolver):
             self.orthonormalization_required = True
         else:
             self.orthonormalization_required = False
+        self.tw_coeff = tw_coeff
+
+    def __repr__(self):
+        return 'CG(niter=%d, rtol=%5.1e)' % (self.niter, self.rtol)
 
     def initialize(self, wfs):
         if wfs.bd.comm.size > 1:
@@ -64,8 +68,22 @@ class CG(Eigensolver):
         phi_old_G = wfs.empty(q=kpt.q)
 
         comm = wfs.gd.comm
+        if self.tw_coeff:
+            # Wait!  What business does the eigensolver have changing
+            # the properties of the Hamiltonian?  We are not updating
+            # the Hamiltonian here.  Moreover, what is supposed to
+            # happen if this function is called multiple times per
+            # iteration?  Then we keep dividing the potential by the
+            # same number.  What on earth is the meaning of this?
+            #
+            # Also the parameter tw_coeff is undocumented.  What is it?
+            hamiltonian.vt_sG /= self.tw_coeff
+            # Assuming the ordering in dH_asp and wfs is the same
+            for a in hamiltonian.dH_asp.keys():
+                hamiltonian.dH_asp[a] /= self.tw_coeff
 
         psit_nG, Htpsit_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
+
         # Note that psit_nG is now in self.operator.work1_nG and
         # Htpsit_nG is in kpt.psit_nG!
 
@@ -212,6 +230,13 @@ class CG(Eigensolver):
             total_error += weight * error
             # if nit == 3:
             #   print >> self.f, "cg:iters", n, nit+1
+        if self.tw_coeff: #undo the scaling for calculating energies
+            for i in range(len(kpt.eps_n)):
+                kpt.eps_n[i] *= self.tw_coeff
+            hamiltonian.vt_sG *= self.tw_coeff
+            # Assuming the ordering in dH_asp and wfs is the same 
+            for a in hamiltonian.dH_asp.keys():
+                hamiltonian.dH_asp[a] *= self.tw_coeff
 
         self.timer.stop('CG')
         return total_error, psit_nG

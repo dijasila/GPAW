@@ -5,7 +5,7 @@ label = 'oscillator'
 from os import environ
 octopus = environ['OCTOPUS_SCRIPT']
 locals = {'label': label}
-execfile(octopus, {}, locals)
+exec(open(octopus).read(), {}, locals)
 exitcode = locals['exitcode']
 if exitcode != 0:
     raise RuntimeError(('Octopus exited with exit code: %d.  ' +

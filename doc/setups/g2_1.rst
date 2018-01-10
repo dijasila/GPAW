@@ -14,7 +14,7 @@ Energies in *eV*, geometries in *Angstrom*.
 GPAW
 ----
 
-Calculated with: :svn:`gpaw/test/big/g2_1/pbe_gpaw_nrel.agts.py`.
+Calculated with: :git:`gpaw/test/big/g2_1/pbe_gpaw_nrel.agts.py`.
 
 Fixed geometries
 ++++++++++++++++
@@ -45,11 +45,11 @@ NWCHEM
 ------
 
 This is the reference data calculated with
-:svn:`gpaw/test/big/g2_1/pbe_nwchem_def2_qzvppd.agts.py`. Gaussian reference
+:git:`gpaw/test/big/g2_1/pbe_nwchem_def2_qzvppd.agts.py`. Gaussian reference
 results from http://jcp.aip.org/resource/1/jcpsa6/v122/i23/p234102_s1
 
-See :svn:`gpaw/test/big/g2_1/pbe_nwchem_def2_qzvppd_analyse.py` and
-:svn:`gpaw/test/big/g2_1/pbe_nwchem_def2_qzvppd_opt_analyse.py` for
+See :git:`gpaw/test/big/g2_1/pbe_nwchem_def2_qzvppd_analyse.py` and
+:git:`gpaw/test/big/g2_1/pbe_nwchem_def2_qzvppd_opt_analyse.py` for
 NWCHEM calculated results.
 
 Relaxed geometries

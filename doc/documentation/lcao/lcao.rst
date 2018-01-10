@@ -1,8 +1,5 @@
 .. _lcao:
 
-.. default-role:: math
-
-
 =========
 LCAO Mode
 =========
@@ -18,6 +15,8 @@ chosen basis.
 
 The sections below explain briefly how LCAO mode works, how to
 generate basis sets and how to use them in calculations.
+LCAO mode is available for TD-DFT via the
+:ref:`LCAOTDDFT <lcaotddft>` module.
 
 Introduction
 ------------
@@ -36,7 +35,7 @@ functions and spherical harmonics
 
 .. math::
 
-  \Phi_{nlm}(\mathbf{r}) 
+  \Phi_{nlm}(\mathbf{r})
   = \Phi_{nlm}(\mathbf r^a + \mathbf R^a)
   = \varphi_{nl}(r^a) Y_{lm}(\hat{\mathbf{r}}^a)
 
@@ -49,12 +48,12 @@ problem then becomes
 
 .. math::
 
- \sum_\nu H_{\mu\nu} c_{\nu n}   = \sum_{\nu} S_{\mu\nu} c_{\nu n} \epsilon_n
+ \sum_\nu H_{\mu\nu} c_{\nu n} = \sum_{\nu} S_{\mu\nu} c_{\nu n} \epsilon_n
 
 which can be solved by directly diagonalizating the Hamiltonian in the
 basis of the atomic orbitals.
 
-Some detailed information can be found in the master theses `1`_ and `2`_.  
+Some detailed information can be found in the master theses `1`_ and `2`_.
 
 .. _1: ../../_static/askhl_master.pdf
 .. _2: ../../_static/marco_master.pdf
@@ -74,11 +73,15 @@ will generate the basis-set files :file:`H.dzp.basis` and
 parameters. Note that :file:`dzp` stands for ``double zeta polarized``
 which is the default basis-set type. The basis-set should be placed in
 the same directory as the GPAW setups
-(see :ref:`installationguide_setup_files` for details).
+(see :ref:`installation of paw datasets` for details).
 For a complete list of the parameters do::
 
   $ gpaw-basis --help
 
+For technical reasons, the basis set generator always generates the
+corresponding PAW, even if the latter exists on the user's system.
+Use the ``--save-setup`` option to save the calculated setup along with the
+basis set.
 
 Running a calculation
 ---------------------
@@ -140,8 +143,7 @@ To plot already generated basis functions, use the
 
   $ analyse-basis -f H.dzp.basis O.dzp.basis
 
-This will plot the basis functions in the specified files.  If the
-:option:`-f` option is not included, the script will look for the
+This will plot the basis functions in the specified files.  If the ``-f`` option is not included, the script will look for the
 first matching file in the GPAW setups paths, rather than the precise
 specified files.  Run ``analyse-basis --help`` for more
 options.
@@ -173,7 +175,7 @@ ordinary atom and the corresponding ghost atom is the setup type.
 Perform a calculation using ghost copper atoms and ordinary oxygen and
 hydrogen atoms::
   
-  >>> GPAW(setups={'Cu' : 'ghost', 'O' : 'paw', 'H' : 'paw'}, 
+  >>> GPAW(setups={'Cu' : 'ghost', 'O' : 'paw', 'H' : 'paw'},
            basis='dzp',
            mode='lcao',
            ...)
@@ -191,6 +193,11 @@ atoms are ghosts::
 
 Notes on performance
 --------------------
+
+For larger LCAO calculations, it is crucial to use ScaLAPACK.
+See the dedicated section on :ref:`manual_ScaLAPACK` for more information.
+Below are some hints on how to obtain good performance for operations not
+related to ScaLAPACK.
 
 The *only* difference between the FD (grid-based finite-difference)
 and LCAO modes is the way in which pseudo wave functions are
@@ -236,6 +243,8 @@ generator to define the basis functions; therefore, any parameters
 that apply to setup generation will equally apply to basis set
 generation.
 
+.. autoclass:: gpaw.atom.basis.BasisMaker
+
 This example shows how to generate an RPBE double-zeta basis set for
 gold, in which the otherwise empty p-state is considered a valence
 state, and using a non-standard size of the augmentation sphere.
@@ -261,5 +270,4 @@ single-zeta polarized basis set for certain elements.
 
 
 .. [Siesta] J.M. Soler et al.,
-   J. Phys. Cond. Matter 14, 2745-2779 (2002) 
-
+   J. Phys. Cond. Matter 14, 2745-2779 (2002)

@@ -1,0 +1,49 @@
+*.pyc
+build/
+/dist
+MANIFEST
+
+# If you build the documentation in the source tree, you will create a
+# lot of files that we don't want to see with "git status":
+*.png
+*.gif
+*.pov
+*.jpg
+*.odg
+*.dat
+*.ini
+*.traj
+*.pdf
+*.csv
+*.txt
+*.log
+*.xyz
+*.db
+*.pckl
+*.gz
+N.LDA
+*.gpw
+*.npy
+theme.css
+bigpicture.svg
+*.json
+doc/setups/[A-Z]*.rst
+
+# If you run the tests, these may write out files
+*.gpw
+
+# Stuff from LaTeX:
+*.aux
+*.bbl
+*.blg
+*.toc
+
+# Editor backup files:
+*~
+\#*
+
+# Vim swap files:
+.*.sw?
+
+# This one is OK:
+!requirements.txt

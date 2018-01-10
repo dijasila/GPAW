@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-
+from __future__ import print_function
 import gc
 import sys
 import time
@@ -13,6 +12,8 @@ except (ImportError, RuntimeError):
     mpl = None
 
 from ase.units import Bohr
+from ase.utils import devnull
+
 from gpaw.mpi import world, distribute_cpus
 from gpaw.utilities.tools import tri2full, md5_array, gram_schmidt
 from gpaw.band_descriptor import BandDescriptor
@@ -24,19 +25,12 @@ from gpaw.xc import XC
 from gpaw.setup import SetupData, Setups
 from gpaw.lfc import LFC
 
-# -------------------------------------------------------------------
+memstats = False
 
-from gpaw.test.ut_common import ase_svnversion, shapeopt, TestCase, \
+from gpaw.test.ut_common import shapeopt, TestCase, \
     TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
     initialTestLoader, create_random_atoms, create_parsize_maxbands
 
-memstats = False
-if memstats:
-    # Developer use of this feature requires ASE 3.1.0 svn.rev. 905 or later.
-    assert ase_svnversion >= 905 # wasn't bug-free untill 973!
-    from ase.utils.memory import MemorySingleton, MemoryStatistics
-
-# -------------------------------------------------------------------
 
 p = InputParameters(spinpol=False)
 xc = XC(p.xc)
@@ -69,8 +63,11 @@ class UTBandParallelSetup(TestCase):
 
         parsize_domain, parsize_bands = create_parsize_maxbands(self.nbands, world.size)
         assert self.nbands % parsize_bands == 0
-        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain,
-            parsize_bands, self.nspins, self.nibzkpts)
+        comms = distribute_cpus(parsize_domain,
+                                parsize_bands, self.nspins, self.nibzkpts)
+        domain_comm, kpt_comm, band_comm, block_comm = \
+            [comms[name] for name in 'dkbK']
+        self.block_comm = block_comm
 
         # Set up band descriptor:
         self.bd = BandDescriptor(self.nbands, band_comm, self.parstride_bands)
@@ -88,10 +85,10 @@ class UTBandParallelSetup(TestCase):
         self.kpt_comm = kpt_comm
 
     def tearDown(self):
-        del self.bd, self.gd, self.ksl, self.kpt_comm
+        del self.bd, self.gd, self.ksl, self.kpt_comm, self.block_comm
 
     def create_kohn_sham_layouts(self):
-        return BandLayouts(self.gd, self.bd, self.dtype)
+        return BandLayouts(self.gd, self.bd, self.block_comm, self.dtype)
 
     # =================================
 
@@ -172,7 +169,7 @@ def create_memory_info(mem1, mem2, vmkey='VmData'):
     dm = np.array([(mem2-mem1)[vmkey]], dtype=float)
     dm_r = np.empty(world.size, dtype=float)
     world.all_gather(dm, dm_r)
-    return dm_r, ','.join(map(lambda v: '%8.4f MB' % v, dm_r/1024**2.))
+    return dm_r, ','.join(['%8.4f MB' % v for v in dm_r/1024**2.])
 
 # -------------------------------------------------------------------
 
@@ -253,15 +250,15 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
 
         dm_r, dminfo = create_memory_info(MemorySingleton(), self.mem_pre)
         if world.rank == 0:
-            print 'overhead: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.)
+            print('overhead: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.))
 
         dm_r, dminfo = create_memory_info(self.mem_pre, self.mem_alloc)
         if world.rank == 0:
-            print 'allocate: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.)
+            print('allocate: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.))
 
         dm_r, dminfo = create_memory_info(self.mem_alloc, self.mem_test)
         if world.rank == 0:
-            print 'test-use: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.)
+            print('test-use: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.))
 
     def allocate(self):
         """
@@ -371,7 +368,7 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
             except np.linalg.LinAlgError:
                 # Eigenvector decomposition dO_ii = V_ii * W_ii * V_ii^dag
                 W_i, V_ii = np.linalg.eigh(self.setups[a].dO_ii)
-                alpha_i /= np.abs(np.vdot(alpha_i, 
+                alpha_i /= np.abs(np.vdot(alpha_i,
                                           np.dot(np.diag(W_i), alpha_i)))**0.5
                 beta_i = np.linalg.solve(V_ii.T.conj(), alpha_i)
 
@@ -416,15 +413,15 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
     def get_optimal_number_of_blocks(self, blocking='fast'):
         """Estimate the optimal number of blocks for band parallelization.
 
-        The number of blocks determines how many parallel send/receive 
-        operations are performed, as well as the added memory footprint 
+        The number of blocks determines how many parallel send/receive
+        operations are performed, as well as the added memory footprint
         of the required send/receive buffers.
 
         ``blocking``  ``nblocks``      Description
         ============  =============    ========================================
         'fast'        ``1``            Heavy on memory, more accurate and fast.
         'light'       ``mynbands``     Light on memory, less accurate and slow.
-        'intdiv'      ``...``          First integer divisible value 
+        'intdiv'      ``...``          First integer divisible value
         'nonintdiv'   ``...``          Some non-integer divisible cases
         """
 
@@ -437,7 +434,7 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
             return self.bd.mynbands
         elif blocking == 'intdiv':
             # Find first value of nblocks that leads to integer
-            # divisible mybands / nblock. This is very like to be 
+            # divisible mybands / nblock. This is very like to be
             # 2 but coded here for the general case
             nblocks = 2
             while self.bd.mynbands % nblocks != 0:
@@ -723,7 +720,7 @@ def UTConstantWavefunctionFactory(dtype, parstride_bands, blocking, async):
     classname = 'UTConstantWavefunctionSetup' \
     + sep + {float:'Float', complex:'Complex'}[dtype] \
     + sep + {False:'Blocked', True:'Strided'}[parstride_bands] \
-    + sep + {'fast':'Fast', 'light':'Light', 
+    + sep + {'fast':'Fast', 'light':'Light',
              'intdiv':'Intdiv', 'nonintdiv1':'Nonintdiv1',
              'nonintdiv2':'Nonintdiv2'}[blocking] \
     + sep + {False:'Synchronous', True:'Asynchronous'}[async]
@@ -743,7 +740,6 @@ if __name__ in ['__main__', '__builtin__']:
     if __name__ == '__builtin__':
         testrunner = CustomTextTestRunner('ut_hsops.log', verbosity=2)
     else:
-        from gpaw.utilities import devnull
         stream = (world.rank == 0) and sys.stdout or devnull
         testrunner = TextTestRunner(stream=stream, verbosity=2)
 
@@ -752,7 +748,7 @@ if __name__ in ['__main__', '__builtin__']:
     for test in [UTBandParallelSetup_Blocked, UTBandParallelSetup_Strided]:
         info = ['', test.__name__, test.__doc__.strip('\n'), '']
         testsuite = initialTestLoader.loadTestsFromTestCase(test)
-        map(testrunner.stream.writeln, info)
+        list(map(testrunner.stream.writeln, info))
         testresult = testrunner.run(testsuite)
         assert testresult.wasSuccessful(), 'Initial verification failed!'
         parinfo.extend(['    Parallelization options: %s' % tci._parinfo for \
@@ -762,8 +758,8 @@ if __name__ in ['__main__', '__builtin__']:
     testcases = []
     for dtype in [float, complex]:
         for parstride_bands in [False, True]:
-            for blocking in ['fast', 'light', 'intdiv',   
-                             'nonintdiv1', 'nonintdiv2']: 
+            for blocking in ['fast', 'light', 'intdiv',
+                             'nonintdiv1', 'nonintdiv2']:
                 for async in [False, True]:
                     testcases.append(UTConstantWavefunctionFactory(dtype, \
                         parstride_bands, blocking, async))
@@ -771,7 +767,7 @@ if __name__ in ['__main__', '__builtin__']:
     for test in testcases:
         info = ['', test.__name__, test.__doc__.strip('\n')] + parinfo + ['']
         testsuite = defaultTestLoader.loadTestsFromTestCase(test)
-        map(testrunner.stream.writeln, info)
+        list(map(testrunner.stream.writeln, info))
         testresult = testrunner.run(testsuite)
         # Provide feedback on failed tests if imported by test.py
         if __name__ == '__builtin__' and not testresult.wasSuccessful():

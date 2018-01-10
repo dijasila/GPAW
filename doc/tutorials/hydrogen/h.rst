@@ -19,7 +19,7 @@ hydrogen nucleus and also because of the cusp in the wave function:
 
 You can look at the energy convergence with this command::
 
-    $ ag H.ae.txt
+    $ ase-gui H.ae.txt
 
 Let's do the same calculation with a PAW setup.  Replace the ``h.calc
 =`` line with this::
