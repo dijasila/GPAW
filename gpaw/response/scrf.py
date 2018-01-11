@@ -112,7 +112,13 @@ class SpinChargeResponseFunction:
         self.w1 = min(self.mynw * world.rank, nw)
         self.w2 = min(self.w1 + self.mynw, nw)
         self.truncation = truncation
-
+    
+    
+    def get_chi_grid_dim(self, q_c):
+        """Pass dimensions involved in chi grid, without running calculation."""
+        return self.chi0.get_chi_grid_dim(q_c)
+    
+    
     def calculate_chi0(self, q_c, spin='all'):
         """Calculates the response function.
 

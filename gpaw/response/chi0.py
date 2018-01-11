@@ -336,6 +336,20 @@ class Chi0:
               file=self.fd)
 
         return self.epsmax - self.epsmin
+        
+        
+    def get_chi_grid_dim(self, q_c):
+        """Get dimensions involved in chi grid, without running calculation."""
+        q_c = np.asarray(q_c, dtype=float)
+        optical_limit = np.allclose(q_c, 0.0)
+        
+        pd = self.get_PWDescriptor(q_c)
+        
+        nG = pd.ngmax + 2 * optical_limit
+        nw = len(self.omega_w)
+        
+        return (nw, nG)
+
 
     def calculate(self, q_c, spin='all', A_x=None):
         """Calculate response function.
@@ -1039,6 +1053,7 @@ class Chi0:
 
         return out_wGG
 
+        
     def print_chi(self, pd):
         calc = self.calc
         gd = calc.wfs.gd
