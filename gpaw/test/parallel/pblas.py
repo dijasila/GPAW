@@ -2,7 +2,7 @@
 
 The test generates random matrices A0, B0, X0, etc. on a
 1-by-1 BLACS grid. They are redistributed to a mprocs-by-nprocs
-BLACS grid, BLAS operations are performed in parallel, and 
+BLACS grid, BLAS operations are performed in parallel, and
 results are compared against BLAS.
 """
 from __future__ import print_function
@@ -26,7 +26,7 @@ tol = 4.0e-13 # may need to be be increased if the mprocs-by-nprocs \
 def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     gen = np.random.RandomState(seed)
     grid = BlacsGrid(world, mprocs, nprocs)
-    
+
     if (dtype==complex):
         epsilon = 1.0j
     else:
@@ -44,19 +44,20 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     globU = grid.new_descriptor(M, M, M, M)
 
     globHEC = grid.new_descriptor(K,K, K, K)
-    
+
     # print globA.asarray()
     # Populate matrices local to master:
     A0 = gen.rand(*globA.shape) + epsilon * gen.rand(*globA.shape)
     B0 = gen.rand(*globB.shape) + epsilon * gen.rand(*globB.shape)
     D0 = gen.rand(*globD.shape) + epsilon * gen.rand(*globD.shape)
     X0 = gen.rand(*globX.shape) + epsilon * gen.rand(*globX.shape)
-    
+
     # HEC = HEA * B
     HEA0 = gen.rand(*globHEC.shape) + epsilon * gen.rand(*globHEC.shape)
     if world.rank == 0:
-        HEA0 = HEA0 + HEA0.T.conjugate() # Make H0 hermitean
-    
+        HEA0 = HEA0 + HEA0.T.conjugate()  # Make H0 hermitean
+        HEA0 = np.ascontiguousarray(HEA0)
+
     # Local result matrices
     Y0 = globY.empty(dtype=dtype)
     C0 = globC.zeros(dtype=dtype)
@@ -125,7 +126,7 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     pblas_simple_gemv(distA, distX, distY, A, X, Y)
     pblas_simple_r2k(distA, distD, distS, A, D, S)
     pblas_simple_rk(distA, distU, A, U)
-    pblas_simple_hemm(distHE, distB, distB, HEA, B, HEC, uplo='L', side='L') 
+    pblas_simple_hemm(distHE, distB, distB, HEA, B, HEC, uplo='L', side='L')
 
     # Collect result back on master
     C1 = globC.empty(dtype=dtype)
