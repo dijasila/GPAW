@@ -180,6 +180,7 @@ def summary(con, name):
             abs(eg), abs(deg), abs(eL), abs(deL),
             eegg)
 
+
 all_names = [
     'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Na.1',
     'Mg', 'Mg.2', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', 'Sc', 'Ti',

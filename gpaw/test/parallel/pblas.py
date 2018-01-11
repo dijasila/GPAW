@@ -6,28 +6,27 @@ BLACS grid, BLAS operations are performed in parallel, and
 results are compared against BLAS.
 """
 from __future__ import print_function
-import sys
 
 import numpy as np
 
 from gpaw.mpi import world, rank
 from gpaw.test import equal
-from gpaw.blacs import BlacsGrid, Redistributor, parallelprint
+from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.utilities import compiled_with_sl
 from gpaw.utilities.blas import gemm, gemv, r2k, rk
 from gpaw.utilities.scalapack import pblas_simple_gemm, pblas_simple_gemv, \
     pblas_simple_r2k, pblas_simple_rk, pblas_simple_hemm
 
-import _gpaw
+# may need to be be increased if the mprocs-by-nprocs
+# BLACS grid becomes larger
+tol = 4.0e-13
 
-tol = 4.0e-13 # may need to be be increased if the mprocs-by-nprocs \
-    # BLACS grid becomes larger
 
 def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     gen = np.random.RandomState(seed)
     grid = BlacsGrid(world, mprocs, nprocs)
 
-    if (dtype==complex):
+    if dtype == complex:
         epsilon = 1.0j
     else:
         epsilon = 0.0
@@ -43,7 +42,7 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     globS = grid.new_descriptor(M, M, M, M)
     globU = grid.new_descriptor(M, M, M, M)
 
-    globHEC = grid.new_descriptor(K,K, K, K)
+    globHEC = grid.new_descriptor(K, K, K, K)
 
     # print globA.asarray()
     # Populate matrices local to master:
@@ -62,15 +61,15 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     Y0 = globY.empty(dtype=dtype)
     C0 = globC.zeros(dtype=dtype)
     Z0 = globZ.zeros(dtype=dtype)
-    S0 = globS.zeros(dtype=dtype) # zeros needed for rank-updates
-    U0 = globU.zeros(dtype=dtype) # zeros needed for rank-updates
+    S0 = globS.zeros(dtype=dtype)  # zeros needed for rank-updates
+    U0 = globU.zeros(dtype=dtype)  # zeros needed for rank-updates
     HEC0 = globB.zeros(dtype=dtype)
 
     # Local reference matrix product:
     if rank == 0:
         # C0[:] = np.dot(A0, B0)
         gemm(1.0, B0, A0, 0.0, C0)
-        #gemm(1.0, A0, A0, 0.0, Z0, transa='t')
+        # gemm(1.0, A0, A0, 0.0, Z0, transa='t')
         print(A0.shape, Z0.shape)
         Z0[:] = np.dot(A0.T, A0)
         # Y0[:] = np.dot(A0, X0)
@@ -82,9 +81,9 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
         sM, sN = HEA0.shape
         # We don't use upper diagonal
         for i in range(sM):
-           for j in range(sN):
-               if i<j:
-                   HEA0[i][j] = 99999.0
+            for j in range(sN):
+                if i < j:
+                    HEA0[i][j] = 99999.0
         if world.rank == 0:
             print(HEA0)
     assert globA.check(A0) and globB.check(B0) and globC.check(C0)
@@ -111,8 +110,8 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     X = distX.empty(dtype=dtype)
     Y = distY.empty(dtype=dtype)
     D = distD.empty(dtype=dtype)
-    S = distS.zeros(dtype=dtype) # zeros needed for rank-updates
-    U = distU.zeros(dtype=dtype) # zeros needed for rank-updates
+    S = distS.zeros(dtype=dtype)  # zeros needed for rank-updates
+    U = distU.zeros(dtype=dtype)  # zeros needed for rank-updates
     HEC = distB.zeros(dtype=dtype)
     HEA = distHE.zeros(dtype=dtype)
     Redistributor(world, globA, distA).redistribute(A0, A)
@@ -131,8 +130,8 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     # Collect result back on master
     C1 = globC.empty(dtype=dtype)
     Y1 = globY.empty(dtype=dtype)
-    S1 = globS.zeros(dtype=dtype) # zeros needed for rank-updates
-    U1 = globU.zeros(dtype=dtype) # zeros needed for rank-updates
+    S1 = globS.zeros(dtype=dtype)  # zeros needed for rank-updates
+    U1 = globU.zeros(dtype=dtype)  # zeros needed for rank-updates
     HEC1 = globB.zeros(dtype=dtype)
     Redistributor(world, distC, globC).redistribute(C, C1)
     Redistributor(world, distY, globY).redistribute(Y, Y1)
@@ -143,32 +142,33 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     if rank == 0:
         gemm_err = abs(C1 - C0).max()
         gemv_err = abs(Y1 - Y0).max()
-        r2k_err  = abs(S1 - S0).max()
-        rk_err   = abs(U1 - U0).max()
+        r2k_err = abs(S1 - S0).max()
+        rk_err = abs(U1 - U0).max()
         hemm_err = abs(HEC1 - HEC0).max()
         print('gemm err', gemm_err)
         print('gemv err', gemv_err)
-        print('r2k err' , r2k_err)
-        print('rk_err'  , rk_err)
+        print('r2k err', r2k_err)
+        print('rk_err', rk_err)
         print('hemm_err', hemm_err)
     else:
         gemm_err = 0.0
         gemv_err = 0.0
-        r2k_err  = 0.0
-        rk_err   = 0.0
+        r2k_err = 0.0
+        rk_err = 0.0
         hemm_err = 0.0
 
-    gemm_err = world.sum(gemm_err) # We don't like exceptions on only one cpu
+    gemm_err = world.sum(gemm_err)  # We don't like exceptions on only one cpu
     gemv_err = world.sum(gemv_err)
-    r2k_err  = world.sum(r2k_err)
-    rk_err   = world.sum(rk_err)
+    r2k_err = world.sum(r2k_err)
+    rk_err = world.sum(rk_err)
     hemm_err = world.sum(hemm_err)
 
     equal(gemm_err, 0, tol)
     equal(gemv_err, 0, tol)
     equal(r2k_err, 0, tol)
-    equal(rk_err,0, tol)
+    equal(rk_err, 0, tol)
     equal(hemm_err, 0, tol)
+
 
 if __name__ in ['__main__', '__builtin__']:
     if not compiled_with_sl():
