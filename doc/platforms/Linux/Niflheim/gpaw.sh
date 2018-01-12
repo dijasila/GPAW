@@ -6,6 +6,7 @@ GPAW=~/gpaw
 ASE=~/ase
 
 module load GPAW
+module unload ASE
 module load matplotlib
 PLATFORM=linux-x86_64-$CPU_ARCH-el7-3.5
 if [ $CPU_ARCH = broadwell ]; then
