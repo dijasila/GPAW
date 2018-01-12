@@ -5,7 +5,6 @@ from time import time, ctime
 from datetime import timedelta
 
 import sys
-import os.path as op
 
 import numpy as np
 from ase.units import Hartree, Bohr
