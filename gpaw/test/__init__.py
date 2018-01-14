@@ -31,6 +31,18 @@ def equal(x, y, tolerance=0, fail=True, msg=''):
             sys.stderr.write('WARNING: %s\n' % msg)
 
 
+def print_reference(data_i, name='ref_i', fmt='%.12le'):
+    if mpi.world.rank == 0:
+        print('%s = [' % name, end='')
+        for i, val in enumerate(data_i):
+            if i > 0:
+                print('', end='\n')
+                print(' ' * (len(name) + 4), end='')
+            print(fmt % val, end='')
+            print(',', end='')
+        print('\b]')
+
+
 def findpeak(x, y):
     dx = x[1] - x[0]
     i = y.argmax()
