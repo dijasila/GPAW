@@ -187,8 +187,6 @@ tests = [
     'parallel/scalapack_diag_simple.py',    # ~2s
     'fixdensity.py',                        # ~2s
     'pseudopotential/ah.py',                # ~2s
-    'lcao/restart.py',                      # ~2s
-    'lcao/tddft.py',                        # ~2s
     'lcao/gllb_si.py',                      # ~2s
     'fileio/wfs_io.py',                     # ~3s
     'lrtddft/2.py',                         # ~3s
@@ -347,6 +345,7 @@ tests = [
     'parallel/lcao_parallel_kpt.py',        # ~29s
     'corehole/h2o_dks.py',                  # ~30s
     'lcaotddft/parallel_options.py',        # ~30s
+    'lcaotddft/lcaotddft_vs_lrtddft2.py',   # ~30s
     'mgga/nsc_MGGA.py',                     # ~32s
     'solvation/spinpol.py',                 # ~32s
     'gllb/diamond.py',                      # ~33s
