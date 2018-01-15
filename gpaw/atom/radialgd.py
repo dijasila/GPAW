@@ -406,6 +406,13 @@ class RadialGridDescriptor:
         b_i = b1_i * x1_i + b2_i * x2_i + b3_i * x3_i
         return Spline(l, rcut, b_i)
 
+    def get_cutoff(self, f_g):
+        g = self.N - 1
+        while f_g[g] == 0.0:
+            g -= 1
+        gcut = g + 1
+        return gcut
+
 
 class EquidistantRadialGridDescriptor(RadialGridDescriptor):
     def __init__(self, h, N=1000, h0=0.0):

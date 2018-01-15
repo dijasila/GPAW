@@ -2,7 +2,7 @@ import numpy as np
 
 import ase.io
 from ase.calculators.vdwcorrection import vdWTkatchenko09prl
-from ase.parallel import barrier
+from ase.parallel import barrier, parprint
 from ase.build import molecule
 
 from gpaw import GPAW
@@ -18,7 +18,7 @@ s.minimal_box(3., h=h)
 
 def print_charge_and_check(hp, q=0, label='unpolarized'):
     q_a = np.array(hp.get_charges())
-    print('Charges ({0})='.format(label), q_a, ', sum=', q_a.sum())
+    parprint('Charges ({0})='.format(label), q_a, ', sum=', q_a.sum())
     equal(q_a.sum(), q, 0.03)
     return q_a
 
@@ -47,16 +47,14 @@ if 1:
     # test I/O, accuracy due to text output
     accuracy = 1.e-5
     for fname in [out_traj, out_txt]:
-        print(fname)
         s_out = ase.io.read(fname)
-        print(s_out.calc)
         equal(s_out.get_potential_energy(), E, accuracy)
         for fi, fo in zip(F_ac, s_out.get_forces()):
             equal(fi, fo, accuracy)
 
 # spin polarized
 
-if 1:
+if 0:
     ccs = GPAW(h=h, xc='PBE', spinpol=True,
                txt=None)
     hps = HirshfeldPartitioning(ccs)
@@ -73,7 +71,7 @@ if 1:
 
 # charged
 
-if 1:
+if 0:
     cc.set(charge=1)
     hpp = HirshfeldPartitioning(cc)
     cp = vdWTkatchenko09prl(hpp,

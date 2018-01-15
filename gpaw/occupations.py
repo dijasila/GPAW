@@ -10,6 +10,7 @@ import numpy as np
 from ase.units import Hartree
 
 from gpaw.utilities import erf
+from gpaw.mpi import serial_comm
 
 
 def create_occupation_number_object(name, **kwargs):
@@ -43,7 +44,6 @@ def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
     """
 
     from gpaw.grid_descriptor import GridDescriptor
-    from gpaw.mpi import serial_comm
 
     occ = create_occupation_number_object(**occ)
 
@@ -62,7 +62,8 @@ def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
                           nspins=nspins,
                           kptband_comm=serial_comm,
                           world=serial_comm,
-                          gd=GridDescriptor([4, 4, 4], [1.0, 1.0, 1.0]),
+                          gd=GridDescriptor([4, 4, 4], [1.0, 1.0, 1.0],
+                                            comm=serial_comm),
                           bd=SimpleNamespace(nbands=nbands,
                                              collect=lambda x: x,
                                              comm=serial_comm),
@@ -251,6 +252,7 @@ class ZeroKelvin(OccupationNumbers):
         """Fill in occupation numbers.
 
         return HOMO and LUMO energies."""
+
         N = len(f_n)
         if ne == N * weight:
             f_n[:] = weight
@@ -356,13 +358,16 @@ class ZeroKelvin(OccupationNumbers):
     def spin_paired(self, wfs):
         homo = -np.inf
         lumo = np.inf
+        if wfs.collinear:
+            ne = 0.5 * self.nvalence
+        else:
+            ne = self.nvalence
         for kpt in wfs.kpt_u:
             eps_n = wfs.bd.collect(kpt.eps_n)
             if wfs.bd.comm.rank == 0:
                 f_n = wfs.bd.empty(global_array=True)
                 hom, lum = self.occupy(f_n, eps_n,
-                                       0.5 * self.nvalence *
-                                       kpt.weight, kpt.weight)
+                                       ne * kpt.weight, kpt.weight)
                 homo = max(homo, hom)
                 lumo = min(lumo, lum)
             else:
@@ -505,7 +510,7 @@ class SmoothDistribution(ZeroKelvin):
         # XXX broadcast would be better!
         return wfs.kptband_comm.sum(fermilevel)
 
-    def find_fermi_level(self, wfs, ne, fermilevel, spins=(0, 1)):
+    def find_fermi_level(self, wfs, ne, fermilevel, spins={0, 1, None}):
         niter = 0
 
         x = self.fermilevel
@@ -556,7 +561,7 @@ class FermiDirac(SmoothDistribution):
         y /= z
         y -= np.log(z)
         e_entropy = kpt.weight * y.sum() * self.width
-        sign = 1 - kpt.s * 2
+        sign = 1 - kpt.s * 2 if kpt.s is not None else 0.0
         return np.array([n, dnde, n * sign, e_entropy])
 
     def extrapolate_energy_to_zero_width(self, E):

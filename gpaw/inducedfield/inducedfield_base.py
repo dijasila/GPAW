@@ -210,7 +210,6 @@ class BaseInducedField(object):
         if poissonsolver is None:
             poissonsolver = PoissonSolver(eps=1e-20)
         poissonsolver.set_grid_descriptor(gd)
-        poissonsolver.initialize()
 
         for w in range(self.nw):
             # TODO: better output of progress

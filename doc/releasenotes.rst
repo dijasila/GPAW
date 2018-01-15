@@ -10,6 +10,32 @@ Git master branch
 
 :git:`master <>`.
 
+* Added QNA XC functional.
+
+* Experimental support for calculations with non-collinear spins
+  (plane-wave mode only).
+  Use ``GPAW(experimental={'magmoms': magmoms})``, where ``magmoms``
+  is an array magnetic moment vectors of shape ``(len(atoms), 3)``.
+
+* Number of bands no longer needs to be divisible by band parallelization
+  group size.  Number of bands will no longer be automatically adjusted
+  to fit parallelization.
+
+* Major code refactoring to facilitate work with parallel arrays.  See new
+  module: :mod:`gpaw.matrix`.
+
+* Better reuse of wavefunctions when atoms are displaced.  This can
+  improve performance of optimizations and dynamics in FD and PW mode.
+  Use ``GPAW(experimental={'reuse_wfs_method': name})`` where name is
+  ``'paw'`` or ``'lcao'``.  This will move the projections of the
+  wavefunctions upon the PAW projectors or LCAO basis set along with
+  the atoms.  The latter is best when used with ``dzp``.
+  This feature has no effect for LCAO mode where the basis functions
+  automatically follow the atoms.
+
+* New ``experimental`` keyword, ``GPAW(experimental={...})`` to enable
+  features that are still being tested.
+
 * Broadcast imports (Python3 only): Master process broadcasts most module
   files at import time to reduce file system overhead in parallel
   calculations.

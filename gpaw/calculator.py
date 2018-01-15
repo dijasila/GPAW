@@ -22,6 +22,7 @@ from gpaw.io import Reader, Writer
 from gpaw.jellium import create_background_charge
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
+from gpaw.matrix import suggest_blocking
 from gpaw.occupations import create_occupation_number_object
 from gpaw.output import (print_cell, print_positions,
                          print_parallelization_details)
@@ -62,7 +63,8 @@ class GPAW(PAW, Calculator):
         'mixer': None,
         'eigensolver': None,
         'background_charge': None,
-        'experimental': {'reuse_wfs_method': None},
+        'experimental': {'reuse_wfs_method': None,
+                         'magmoms': None},
         'external': None,
         'random': False,
         'hund': False,
@@ -106,8 +108,8 @@ class GPAW(PAW, Calculator):
             for key in parallel:
                 if key not in self.default_parallel:
                     allowed = ', '.join(list(self.default_parallel.keys()))
-                    raise TypeError('Unexpected keyword "{0}" in "parallel" '
-                                    'dictionary.  Must be one of: {1}'
+                    raise TypeError('Unexpected keyword "{}" in "parallel" '
+                                    'dictionary.  Must be one of: {}'
                                     .format(key, allowed))
             self.parallel.update(parallel)
 
@@ -121,6 +123,7 @@ class GPAW(PAW, Calculator):
         self.occupations = None
         self.density = None
         self.hamiltonian = None
+        self.spos_ac = None  # XXX store this in some better way.
 
         self.observers = []  # XXX move to self.scf
         self.initialized = False
@@ -151,7 +154,7 @@ class GPAW(PAW, Calculator):
             self.reader.close()
 
     def write(self, filename, mode=''):
-        self.log('Writing to {0} (mode={1!r})\n'.format(filename, mode))
+        self.log('Writing to {} (mode={!r})\n'.format(filename, mode))
         writer = Writer(filename, self.world)
         self._write(writer, mode)
         writer.close()
@@ -174,18 +177,27 @@ class GPAW(PAW, Calculator):
 
         return writer
 
+    def _set_atoms(self, atoms):
+        self.atoms = atoms
+        # GPAW works in terms of the scaled positions.  We want to
+        # extract the scaled positions in only one place, and that is
+        # here.  No other place may recalculate them, or we might end up
+        # with rounding errors and inconsistencies.
+        self.spos_ac = atoms.get_scaled_positions() % 1.0
+
     def read(self, filename):
         from ase.io.trajectory import read_atoms
-        self.log('Reading from {0}'.format(filename))
+        self.log('Reading from {}'.format(filename))
 
         self.reader = reader = Reader(filename)
 
-        self.atoms = read_atoms(reader.atoms)
+        atoms = read_atoms(reader.atoms)
+        self._set_atoms(atoms)
 
         res = reader.results
         self.results = dict((key, res.get(key)) for key in res.keys())
         if self.results:
-            self.log('Read {0}'.format(', '.join(sorted(self.results))))
+            self.log('Read {}'.format(', '.join(sorted(self.results))))
 
         self.log('Reading input parameters:')
         # XXX param
@@ -217,11 +229,10 @@ class GPAW(PAW, Calculator):
         self.wfs.atom_partition = atom_partition
         self.density.atom_partition = atom_partition
         self.hamiltonian.atom_partition = atom_partition
-        spos_ac = self.atoms.get_scaled_positions() % 1.0
-        rank_a = self.density.gd.get_ranks_from_positions(spos_ac)
+        rank_a = self.density.gd.get_ranks_from_positions(self.spos_ac)
         new_atom_partition = AtomPartition(self.density.gd.comm, rank_a)
         for obj in [self.density, self.hamiltonian]:
-            obj.set_positions_without_ruining_everything(spos_ac,
+            obj.set_positions_without_ruining_everything(self.spos_ac,
                                                          new_atom_partition)
 
         self.hamiltonian.xc.read(reader)
@@ -280,7 +291,7 @@ class GPAW(PAW, Calculator):
                              self.density, self.occupations,
                              self.log, self.call_observers)
 
-            self.log('\nConverged after {0} iterations.\n'
+            self.log('\nConverged after {} iterations.\n'
                      .format(self.scf.niter))
 
             e_free = self.hamiltonian.e_total_free
@@ -289,21 +300,22 @@ class GPAW(PAW, Calculator):
             self.results['free_energy'] = e_free * Ha
 
             dipole_v = self.density.calculate_dipole_moment() * Bohr
-            self.log('Dipole moment: ({0:.6f}, {1:.6f}, {2:.6f}) |e|*Ang\n'
+            self.log('Dipole moment: ({:.6f}, {:.6f}, {:.6f}) |e|*Ang\n'
                      .format(*dipole_v))
             self.results['dipole'] = dipole_v
 
-            if self.wfs.nspins == 2:
-                magmom = self.occupations.magmom
-                magmom_a = self.density.estimate_magnetic_moments()
-                self.log('Total magnetic moment: %f' % magmom)
+            if self.wfs.nspins == 2 or not self.density.collinear:
+                totmom_v, magmom_av = self.density.estimate_magnetic_moments()
+                self.log('Total magnetic moment: ({:.6f}, {:.6f}, {:.6f})'
+                         .format(*totmom_v))
                 self.log('Local magnetic moments:')
                 symbols = self.atoms.get_chemical_symbols()
-                for a, mom in enumerate(magmom_a):
-                    self.log('{0:4} {1:2} {2:.6f}'.format(a, symbols[a], mom))
+                for a, mom_v in enumerate(magmom_av):
+                    self.log('{:4} {:2} ({:9.6f}, {:9.6f}, {:9.6f})'
+                             .format(a, symbols[a], *mom_v))
                 self.log()
                 self.results['magmom'] = self.occupations.magmom
-                self.results['magmoms'] = magmom_a
+                self.results['magmoms'] = magmom_av[:, 2].copy()
 
             self.summary()
 
@@ -345,7 +357,7 @@ class GPAW(PAW, Calculator):
         # Verify that keys are consistent with default ones.
         for key in kwargs:
             if key != 'txt' and key not in self.default_parameters:
-                raise TypeError('Unknown GPAW parameter: {0}'.format(key))
+                raise TypeError('Unknown GPAW parameter: {}'.format(key))
 
             if key in ['convergence', 'symmetry'] and isinstance(kwargs[key],
                                                                  dict):
@@ -354,8 +366,8 @@ class GPAW(PAW, Calculator):
                 for subkey in kwargs[key]:
                     if subkey not in default_dict:
                         allowed = ', '.join(list(default_dict.keys()))
-                        raise TypeError('Unknown subkeyword "{0}" of keyword '
-                                        '"{1}".  Must be one of: {2}'
+                        raise TypeError('Unknown subkeyword "{}" of keyword '
+                                        '"{}".  Must be one of: {}'
                                         .format(subkey, key, allowed))
 
         changed_parameters = Calculator.set(self, **kwargs)
@@ -422,27 +434,23 @@ class GPAW(PAW, Calculator):
         if atoms is None:
             atoms = self.atoms
         else:
-            # Save the state of the atoms:
-            self.atoms = atoms.copy()
+            atoms = atoms.copy()
+            self._set_atoms(atoms)
 
         mpi.synchronize_atoms(atoms, self.world)
 
-        spos_ac = atoms.get_scaled_positions() % 1.0
-
-        rank_a = self.wfs.gd.get_ranks_from_positions(spos_ac)
+        rank_a = self.wfs.gd.get_ranks_from_positions(self.spos_ac)
         atom_partition = AtomPartition(self.wfs.gd.comm, rank_a, name='gd')
-        self.wfs.set_positions(spos_ac, atom_partition)
-        self.density.set_positions(spos_ac, atom_partition)
-        self.hamiltonian.set_positions(spos_ac, atom_partition)
-
-        return spos_ac
+        self.wfs.set_positions(self.spos_ac, atom_partition)
+        self.density.set_positions(self.spos_ac, atom_partition)
+        self.hamiltonian.set_positions(self.spos_ac, atom_partition)
 
     def set_positions(self, atoms=None):
         """Update the positions of the atoms and initialize wave functions."""
-        spos_ac = self.initialize_positions(atoms)
+        self.initialize_positions(atoms)
 
         nlcao, nrand = self.wfs.initialize(self.density, self.hamiltonian,
-                                           spos_ac)
+                                           self.spos_ac)
         if nlcao + nrand:
             self.log('Creating initial wave functions:')
             if nlcao:
@@ -453,7 +461,7 @@ class GPAW(PAW, Calculator):
 
         self.wfs.eigensolver.reset()
         self.scf.reset()
-        print_positions(self.atoms, self.log)
+        print_positions(self.atoms, self.log, self.density.magmom_av)
 
     def initialize(self, atoms=None, reading=False):
         """Inexpensive initialization."""
@@ -463,8 +471,8 @@ class GPAW(PAW, Calculator):
         if atoms is None:
             atoms = self.atoms
         else:
-            # Save the state of the atoms:
-            self.atoms = atoms.copy()
+            atoms = atoms.copy()
+            self._set_atoms(atoms)
 
         par = self.parameters
 
@@ -474,12 +482,20 @@ class GPAW(PAW, Calculator):
         number_of_lattice_vectors = cell_cv.any(axis=1).sum()
         if number_of_lattice_vectors < 3:
             raise ValueError(
-                'GPAW requires 3 lattice vectors.  Your system has {0}.'
+                'GPAW requires 3 lattice vectors.  Your system has {}.'
                 .format(number_of_lattice_vectors))
 
         pbc_c = atoms.get_pbc()
         assert len(pbc_c) == 3
         magmom_a = atoms.get_initial_magnetic_moments()
+
+        if par.experimental.get('magmoms') is not None:
+            magmom_av = np.array(par.experimental['magmoms'], float)
+            collinear = False
+        else:
+            magmom_av = np.zeros((natoms, 3))
+            magmom_av[:, 2] = magmom_a
+            collinear = True
 
         mpi.synchronize_atoms(atoms, self.world)
 
@@ -487,7 +503,7 @@ class GPAW(PAW, Calculator):
         # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
             if isinstance(par.xc, (basestring, dict)):
-                xc = XC(par.xc)
+                xc = XC(par.xc, collinear=collinear, atoms=atoms)
             else:
                 xc = par.xc
         else:
@@ -500,7 +516,7 @@ class GPAW(PAW, Calculator):
             mode = create_wave_function_mode(**mode)
 
         if par.dtype == complex:
-            warnings.warn('Use mode={0}(..., force_complex_dtype=True) '
+            warnings.warn('Use mode={}(..., force_complex_dtype=True) '
                           'instead of dtype=complex'.format(mode.name.upper()))
             mode.force_complex_dtype = True
             del par['dtype']
@@ -517,28 +533,33 @@ class GPAW(PAW, Calculator):
 
         self.create_setups(mode, xc)
 
-        magnetic = magmom_a.any()
-
-        spinpol = par.spinpol
         if par.hund:
             if natoms != 1:
                 raise ValueError('hund=True arg only valid for single atoms!')
             spinpol = True
-            magmom_a[0] = self.setups[0].get_hunds_rule_moment(par.charge)
+            magmom_av[0, 2] = self.setups[0].get_hunds_rule_moment(par.charge)
 
-        if spinpol is None:
-            spinpol = magnetic
-        elif magnetic and not spinpol:
-            raise ValueError('Non-zero initial magnetic moment for a ' +
-                             'spin-paired calculation!')
+        if collinear:
+            magnetic = magmom_av.any()
 
-        nspins = 1 + int(spinpol)
+            spinpol = par.spinpol
+            if spinpol is None:
+                spinpol = magnetic
+            elif magnetic and not spinpol:
+                raise ValueError('Non-zero initial magnetic moment for a ' +
+                                 'spin-paired calculation!')
+            nspins = 1 + int(spinpol)
 
-        if spinpol:
-            self.log('Spin-polarized calculation.')
-            self.log('Magnetic moment:  {0:.6f}\n'.format(magmom_a.sum()))
+            if spinpol:
+                self.log('Spin-polarized calculation.')
+                self.log('Magnetic moment: {:.6f}\n'.format(magmom_av.sum()))
+            else:
+                self.log('Spin-paired calculation\n')
         else:
-            self.log('Spin-paired calculation\n')
+            nspins = 1
+            self.log('Non-collinear calculation.')
+            self.log('Magnetic moment: ({:.6f}, {:.6f}, {:.6f})\n'
+                     .format(*magmom_av.sum(0)))
 
         if isinstance(par.background_charge, dict):
             background = create_background_charge(**par.background_charge)
@@ -549,7 +570,8 @@ class GPAW(PAW, Calculator):
         nvalence = self.setups.nvalence - par.charge
         if par.background_charge is not None:
             nvalence += background.charge
-        M = abs(magmom_a.sum())
+
+        M = np.linalg.norm(magmom_av.sum(0))
 
         nbands = par.nbands
 
@@ -596,18 +618,21 @@ class GPAW(PAW, Calculator):
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
 
-        self.create_occupations(magmom_a.sum(), orbital_free)
+        self.create_occupations(magmom_av[:, 2].sum(), orbital_free)
 
         if self.scf is None:
             self.create_scf(nvalence, mode)
 
-        self.create_symmetry(magmom_a, cell_cv)
+        self.create_symmetry(magmom_av, cell_cv)
+
+        if not collinear:
+            nbands *= 2
 
         if not self.wfs:
             self.create_wave_functions(mode, realspace,
-                                       nspins, nbands, nao, nvalence,
-                                       self.setups,
-                                       magmom_a, cell_cv, pbc_c)
+                                       nspins, collinear, nbands, nao,
+                                       nvalence, self.setups,
+                                       cell_cv, pbc_c)
         else:
             self.wfs.set_setups(self.setups)
 
@@ -634,7 +659,8 @@ class GPAW(PAW, Calculator):
         # XXXXXXXXXX if setups change, then setups.core_charge may change.
         # But that parameter was supplied in Density constructor!
         # This surely is a bug!
-        self.density.initialize(self.setups, self.timer, magmom_a, par.hund)
+        self.density.initialize(self.setups, self.timer,
+                                magmom_av, par.hund)
         self.density.set_mixer(par.mixer)
         if self.density.mixer.driver.name == 'dummy' or par.fixdensity:
             self.log('No density mixing\n')
@@ -666,10 +692,6 @@ class GPAW(PAW, Calculator):
 
         self.log('Number of atoms:', natoms)
         self.log('Number of atomic orbitals:', self.wfs.setups.nao)
-        if self.nbands_parallelization_adjustment != 0:
-            self.log(
-                'Adjusting number of bands by %+d to match parallelization' %
-                self.nbands_parallelization_adjustment)
         self.log('Number of bands in calculation:', self.wfs.bd.nbands)
         self.log('Bands to converge: ', end='')
         n = par.convergence.get('bands', 'occupied')
@@ -722,7 +744,8 @@ class GPAW(PAW, Calculator):
 
     def create_grid_descriptor(self, N_c, cell_cv, pbc_c,
                                domain_comm, parsize_domain):
-        return GridDescriptor(N_c, cell_cv, pbc_c, domain_comm, parsize_domain)
+        return GridDescriptor(N_c, cell_cv, pbc_c, domain_comm,
+                              parsize_domain)
 
     def create_occupations(self, magmom, orbital_free):
         occ = self.parameters.occupations
@@ -733,7 +756,7 @@ class GPAW(PAW, Calculator):
             else:
                 width = self.parameters.width
                 if width is not None:
-                    warnings.warn('Please use occupations=FermiDirac({0})'
+                    warnings.warn('Please use occupations=FermiDirac({})'
                                   .format(width))
                 elif self.atoms.pbc.any():
                     width = 0.1  # eV
@@ -777,14 +800,14 @@ class GPAW(PAW, Calculator):
             niter_fixdensity, nv)
         self.log(self.scf)
 
-    def create_symmetry(self, magmom_a, cell_cv):
+    def create_symmetry(self, magmom_av, cell_cv):
         symm = self.parameters.symmetry
         if symm == 'off':
             symm = {'point_group': False, 'time_reversal': False}
-        m_a = magmom_a.round(decimals=3)  # round off
-        id_a = list(zip(self.setups.id_a, m_a))
+        m_av = magmom_av.round(decimals=3)  # round off
+        id_a = [id + tuple(m_v) for id, m_v in zip(self.setups.id_a, m_av)]
         self.symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)
-        self.symmetry.analyze(self.atoms.get_scaled_positions())
+        self.symmetry.analyze(self.spos_ac)
         self.setups.set_symmetry(self.symmetry)
 
     def create_eigensolver(self, xc, nbands, mode):
@@ -806,7 +829,7 @@ class GPAW(PAW, Calculator):
 
         self.wfs.set_eigensolver(eigensolver)
 
-        self.log(self.wfs.eigensolver, '\n')
+        self.log('Eigensolver\n  ', self.wfs.eigensolver, '\n')
 
     def create_density(self, realspace, mode, background):
         gd = self.wfs.gd
@@ -833,6 +856,7 @@ class GPAW(PAW, Calculator):
         kwargs = dict(
             gd=gd, finegd=finegd,
             nspins=self.wfs.nspins,
+            collinear=self.wfs.collinear,
             charge=self.parameters.charge + self.wfs.setups.core_charge,
             redistributor=redistributor,
             background_charge=background)
@@ -850,6 +874,7 @@ class GPAW(PAW, Calculator):
         kwargs = dict(
             gd=dens.gd, finegd=dens.finegd,
             nspins=dens.nspins,
+            collinear=dens.collinear,
             setups=dens.setups,
             timer=self.timer,
             xc=xc,
@@ -866,11 +891,12 @@ class GPAW(PAW, Calculator):
                 pd2=dens.pd2, pd3=dens.pd3, realpbc_c=self.atoms.pbc, **kwargs)
             xc.set_grid_descriptor(dens.xc_redistributor.aux_gd)  # XXX
 
+        self.hamiltonian.soc = self.parameters.experimental.get('soc')
         self.log(self.hamiltonian, '\n')
 
     def create_wave_functions(self, mode, realspace,
-                              nspins, nbands, nao, nvalence, setups,
-                              magmom_a, cell_cv, pbc_c):
+                              nspins, collinear, nbands, nao, nvalence,
+                              setups, cell_cv, pbc_c):
         par = self.parameters
 
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
@@ -926,21 +952,13 @@ class GPAW(PAW, Calculator):
 
         parstride_bands = self.parallel['stridebands']
 
-        # Unfortunately we need to remember that we adjusted the
-        # number of bands so we can print a warning if it differs
-        # from the number specified by the user.  (The number can
-        # be inferred from the input parameters, but it's tricky
-        # because we allow negative numbers)
-        self.nbands_parallelization_adjustment = -nbands % band_comm.size
-        nbands += self.nbands_parallelization_adjustment
-
         bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
         # Construct grid descriptor for coarse grids for wave functions:
         gd = self.create_grid_descriptor(N_c, cell_cv, pbc_c,
                                          domain_comm, parsize_domain)
 
-        if hasattr(self, 'time') or mode.force_complex_dtype:
+        if hasattr(self, 'time') or mode.force_complex_dtype or not collinear:
             dtype = complex
         else:
             if kd.gamma:
@@ -960,26 +978,14 @@ class GPAW(PAW, Calculator):
                     val is not None):
                     raise ValueError("Cannot use 'sl_auto' together "
                                      "with '%s'" % key)
+
             max_scalapack_cpus = bd.comm.size * gd.comm.size
-            nprow = max_scalapack_cpus
-            npcol = 1
-
-            # Get a sort of reasonable number of columns/rows
-            while npcol < nprow and nprow % 2 == 0:
-                npcol *= 2
-                nprow //= 2
-            assert npcol * nprow == max_scalapack_cpus
-
-            # ScaLAPACK creates trouble if there aren't at least a few
-            # whole blocks; choose block size so there will always be
-            # several blocks.  This will crash for small test systems,
-            # but so will ScaLAPACK in any case
-            blocksize = min(-(-nbands // 4), 64)
-            sl_default = (nprow, npcol, blocksize)
+            sl_default = suggest_blocking(nbands, max_scalapack_cpus)
         else:
             sl_default = self.parallel['sl_default']
 
         if mode.name == 'lcao':
+            assert collinear
             # Layouts used for general diagonalizer
             sl_lcao = self.parallel['sl_lcao']
             if sl_lcao is None:
@@ -991,33 +997,8 @@ class GPAW(PAW, Calculator):
             self.wfs = mode(lcaoksl, **wfs_kwargs)
 
         elif mode.name == 'fd' or mode.name == 'pw':
-            # buffer_size keyword only relevant for fdpw
-            buffer_size = self.parallel['buffer_size']
-            # Layouts used for diagonalizer
-            sl_diagonalize = self.parallel['sl_diagonalize']
-            if sl_diagonalize is None:
-                sl_diagonalize = sl_default
-            diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',  # XXX
-                                           # choice of key 'fd' not so nice
-                                           gd, bd, domainband_comm, dtype,
-                                           buffer_size=buffer_size,
-                                           timer=self.timer)
-
-            # Layouts used for orthonormalizer
-            sl_inverse_cholesky = self.parallel['sl_inverse_cholesky']
-            if sl_inverse_cholesky is None:
-                sl_inverse_cholesky = sl_default
-            if sl_inverse_cholesky != sl_diagonalize:
-                message = 'sl_inverse_cholesky != sl_diagonalize ' \
-                    'is not implemented.'
-                raise NotImplementedError(message)
-            orthoksl = get_KohnSham_layouts(sl_inverse_cholesky, 'fd',
-                                            gd, bd, domainband_comm, dtype,
-                                            buffer_size=buffer_size,
-                                            timer=self.timer)
-
             # Use (at most) all available LCAO for initialization
-            lcaonbands = min(nbands, nao // band_comm.size * band_comm.size)
+            lcaonbands = min(nbands, nao)
 
             try:
                 lcaobd = BandDescriptor(lcaonbands, band_comm,
@@ -1035,19 +1016,23 @@ class GPAW(PAW, Calculator):
                                                dtype, nao=nao,
                                                timer=self.timer)
 
-            reuse_wfs_method = par.experimental['reuse_wfs_method']
-            self.wfs = mode(diagksl, orthoksl, initksl,
+            reuse_wfs_method = par.experimental.get('reuse_wfs_method')
+            sl = (domainband_comm,) + (self.parallel['sl_diagonalize'] or
+                                       sl_default or
+                                       (1, 1, None))
+            self.wfs = mode(sl, initksl,
                             reuse_wfs_method=reuse_wfs_method,
+                            collinear=collinear,
                             **wfs_kwargs)
         else:
-            self.wfs = mode(self, **wfs_kwargs)
+            self.wfs = mode(self, collinear=collinear, **wfs_kwargs)
 
         self.log(self.wfs, '\n')
 
     def dry_run(self):
         # Can be overridden like in gpaw.atom.atompaw
         print_cell(self.wfs.gd, self.atoms.pbc, self.log)
-        print_positions(self.atoms, self.log)
+        print_positions(self.atoms, self.log, self.density.magmom_av)
         self.log.fd.flush()
 
         # Write timing info now before the interpreter shuts down:

@@ -554,9 +554,10 @@ class PAW:
     def get_xc_difference(self, xc):
         if isinstance(xc, str):
             xc = XC(xc)
+        xc.set_grid_descriptor(self.density.finegd)
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
-        xc.set_positions(self.atoms.get_scaled_positions() % 1.0)
+        xc.set_positions(self.spos_ac)
         if xc.orbital_dependent:
             self.converge_wave_functions()
         return self.hamiltonian.get_xc_difference(xc, self.density) * Ha
@@ -652,12 +653,11 @@ class PAW:
 
         P_ani = self.wfs.kpt_u[u].P_ani
         P1_ani = self.wfs.kpt_u[u1].P_ani
-        spos_ac = self.atoms.get_scaled_positions()
         for a, P_ni in P_ani.items():
             P_ni = P_ani[a][:nbands]
             P1_ni = P1_ani[a][:nbands]
             dO_ii = self.wfs.setups[a].dO_ii
-            e = np.exp(-2.j * np.pi * np.dot(G_c, spos_ac[a]))
+            e = np.exp(-2.j * np.pi * np.dot(G_c, self.spos_ac[a]))
             Z_nn += e * np.dot(np.dot(P_ni.conj(), dO_ii), P1_ni.T)
 
     def get_projections(self, locfun, spin=0):
@@ -710,12 +710,11 @@ class PAW:
         nbf = np.sum([2 * l + 1 for pos, l, a in locfun])
         f_kni = np.zeros((nkpts, wfs.bd.nbands, nbf), wfs.dtype)
 
-        spos_ac = self.atoms.get_scaled_positions() % 1.0
         spos_xc = []
         splines_x = []
         for spos_c, l, sigma in locfun:
             if isinstance(spos_c, int):
-                spos_c = spos_ac[spos_c]
+                spos_c = self.spos_ac[spos_c]
             spos_xc.append(spos_c)
             alpha = .5 * Bohr**2 / sigma**2
             r = np.linspace(0, 10. * sigma, 500)

@@ -46,6 +46,7 @@ There are several ways to install GPAW:
 .. seealso::
 
     * Using :ref:`homebrew` on MacOSX.
+    * Using :ref:`anaconda`.
     * Tips and tricks for installation on many :ref:`platforms and
       architectures`.
     * :ref:`troubleshooting`.
@@ -56,7 +57,7 @@ There are several ways to install GPAW:
 Requirements
 ============
 
-* Python_ 2.7-3.5
+* Python_ 2.7, 3.4-
 * NumPy_ 1.6.1 or later (base N-dimensional array package)
 * ASE_ 3.15.0 or later (atomic simulation environment)
 * a C-compiler
@@ -325,7 +326,7 @@ Environment variables
 Set these permanently in your :file:`~/.bashrc` file::
 
     $ export PYTHONPATH=~/gpaw:$PYTHONPATH
-    $ export PATH=~gpaw/tools:$PATH
+    $ export PATH=~/gpaw/tools:$PATH
 
 or your :file:`~/.cshrc` file::
 

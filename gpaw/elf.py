@@ -81,8 +81,7 @@ class ELF:
         self.tauct = LFC(self.gd,
                          [[setup.tauct] for setup in self.density.setups],
                          forces=True, cut=True)
-        spos_ac = paw.atoms.get_scaled_positions() % 1.0
-        self.tauct.set_positions(spos_ac)
+        self.tauct.set_positions(paw.spos_ac)
 
         self.taut_sg = None
         self.nt_grad2_sG = self.gd.empty(self.nspins)

@@ -73,7 +73,7 @@ class AtomicMatrixDistributor:
 
         # First receive one-to-one from everywhere.
         # assert dHdist_asp.partition == self.work_partition
-        dHdist_asp = dHdist_asp.deepcopy()
+        dHdist_asp = dHdist_asp.copy()
         dHdist_asp.redistribute(self.grid_unique_partition)
 
         dH_asp = ArrayDict(self.grid_partition, dHdist_asp.shapes_a,
@@ -219,6 +219,18 @@ class AtomPartition:
         self.natoms = len(rank_a)
         self.name = name
 
+    def __eq__(self, other):
+        try:
+            comm = other.comm
+            rank_a = other.rank_a
+        except AttributeError:
+            return False
+        return (self.comm.compare(comm) in ['ident', 'congruent']
+                and np.array_equal(self.rank_a, rank_a))
+
+    def __ne__(self, other):
+        return not self == other
+
     def as_serial(self):
         return AtomPartition(self.comm, np.zeros(self.natoms, int),
                              name='%s-serial' % self.name)
@@ -253,7 +265,7 @@ class AtomPartition:
                         assert a not in d_ax
                         atomdict_ax[u][a] = b_x[u]
                 def get_sendbuffer(self, a):
-                    return np.array([d_ax.pop(a) for d_ax in atomdict_ax])
+                    return np.array([d_ax.data.pop(a) for d_ax in atomdict_ax])
         else:
             class Redist:
                 def get_recvbuffer(self, a):
@@ -262,7 +274,7 @@ class AtomPartition:
                     assert a not in atomdict_ax
                     atomdict_ax[a] = b_x
                 def get_sendbuffer(self, a):
-                    return atomdict_ax.pop(a)
+                    return atomdict_ax.data.pop(a)
 
         try:
             general_redistribute(self.comm, self.rank_a,

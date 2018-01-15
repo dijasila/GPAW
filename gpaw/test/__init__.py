@@ -129,7 +129,7 @@ tests = [
     'radial/lebedev.py',
     'occupations.py',
     'lfc/derivatives.py',
-    'parallel/realspace_blacs.py',
+    #'parallel/realspace_blacs.py',
     'pw/reallfc.py',
     'parallel/pblas.py',
     'fd_ops/non_periodic.py',
@@ -141,7 +141,6 @@ tests = [
     'poisson/poisson.py',
     'poisson/poisson_asym.py',
     'parallel/arraydict_redist.py',
-    'parallel/overlap.py',
     'parallel/scalapack.py',
     'gauss_wave.py',
     'fd_ops/transformations.py',
@@ -155,10 +154,10 @@ tests = [
     'overlap.py',
     'pw/direct.py',
     'vdw/libvdwxc_spin.py',                 # ~1s
+    'symmetry/kpoint_mapping.py',           # ~1s
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
     'lcao/density.py',                      # ~1s
-    'parallel/hamiltonian.py',              # ~1s
     'pw/stresstest.py',                     # ~1s
     'pw/fftmixer.py',                       # ~1s
     'symmetry/usesymm.py',                  # ~1s
@@ -255,6 +254,8 @@ tests = [
     'pw/h.py',                              # ~7s
     'lrtddft/apmb.py',                      # ~7s
     'pseudopotential/hgh_h2o.py',           # ~7s
+    'poisson/poisson_restart.py',           # ~7s
+    'poisson/poisson_extravacuum.py',       # ~7s
     'fdtd/ed_wrapper.py',                   # ~7s
     'fdtd/ed_shapes.py',                    # ~7s
     'fdtd/ed.py',                           # ~12s
@@ -275,6 +276,7 @@ tests = [
     'ext_potential/constant_e_field.py',    # ~9s
     'complex.py',                           # ~9s
     'vdw/quick.py',                         # ~9s
+    'pathological/lcao_spos_derivative.py', # ~9s
     'lrtddft2/H2O-lcao.py',                 # ~10s
     'lrtddft2/Al2.py',                      # ~10s
     'lcaotddft/simple.py',                  # ~10s
@@ -284,7 +286,8 @@ tests = [
     'ralda/ralda_energy_N2.py',             # ~10s
     'parallel/lcao_complicated.py',         # ~10s
     'generic/bulk.py',                      # ~10s
-    'sic/scfsic_h2.py',                     # ~10s
+    'response/chi0_intraband_test.py',      # ~10s
+    #'sic/scfsic_h2.py',                     # ~10s
     'lcao/bulk.py',                         # ~11s
     'reuse_wfs.py',                         # ~11s
     'generic/2Al.py',                       # ~11s
@@ -361,9 +364,13 @@ tests = [
     'vdw/ar2.py',                           # ~53s
     'solvation/forces_symmetry.py',         # ~56s
     'parallel/diamond_gllb.py',             # ~59s
+    'xc/qna_force.py',
+    'xc/qna_stress.py',
+    'xc/qna_band.py',
+    'xc/qna_spinpol.py',
     'beef.py',
     'response/chi0.py',                     # ~71s
-    'sic/scfsic_n2.py',                     # ~73s
+    #'sic/scfsic_n2.py',                     # ~73s
     'lrtddft/3.py',                         # ~75s
     'pathological/nonlocalset.py',          # ~82s
     'response/gw0_hBN.py',                  # ~82s
@@ -427,7 +434,11 @@ if mpi.size > 1:
 
 if mpi.size > 2:
     exclude += ['ase_features/neb.py',
+                'poisson/poisson_restart.py',
                 'response/pair.py']
+
+if mpi.size > 4:
+    exclude += ['poisson/poisson_extravacuum.py']
 
 if mpi.size < 4:
     exclude += ['parallel/fd_parallel.py',
