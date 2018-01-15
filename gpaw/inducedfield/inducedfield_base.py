@@ -2,7 +2,7 @@ import numpy as np
 from ase.units import Bohr, Hartree
 
 import gpaw.mpi as mpi
-from gpaw.tddft import eV_to_aufrequency
+from gpaw.tddft.units import eV_to_aufrequency
 from gpaw.poisson import PoissonSolver
 from gpaw.fd_operators import Gradient
 from gpaw.grid_descriptor import GridDescriptor
