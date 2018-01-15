@@ -30,7 +30,6 @@ td_calc = LCAOTDDFT('%s_gs.gpw' % name,
 DipoleMomentWriter(td_calc, '%s_dm.dat' % name)
 td_calc.absorption_kick(np.ones(3) * 1e-5)
 td_calc.propagate(20, 3)
-td_calc.write('%s_td.gpw' % name, mode='all')
 
 # Test dipole moment
 data_i = np.loadtxt('%s_dm.dat' % name)[:, 2:].ravel()
