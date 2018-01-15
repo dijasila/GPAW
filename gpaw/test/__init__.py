@@ -277,6 +277,8 @@ tests = [
     'vdw/quick.py',                         # ~9s
     'lrtddft2/H2O-lcao.py',                 # ~10s
     'lrtddft2/Al2.py',                      # ~10s
+    'lcaotddft/simple.py',                  # ~10s
+    'lcaotddft/restart.py',                 # ~10s
     'ralda/ralda_energy_N2.py',             # ~10s
     'parallel/lcao_complicated.py',         # ~10s
     'generic/bulk.py',                      # ~10s
@@ -339,6 +341,7 @@ tests = [
     'ofdft/ofdft_scale.py',                 # ~26s
     'parallel/lcao_parallel_kpt.py',        # ~29s
     'corehole/h2o_dks.py',                  # ~30s
+    'lcaotddft/parallel_options.py',        # ~30s
     'mgga/nsc_MGGA.py',                     # ~32s
     'solvation/spinpol.py',                 # ~32s
     'gllb/diamond.py',                      # ~33s
@@ -448,7 +451,8 @@ if mpi.size != 4:
                 'response/bse_silicon.py']
 
 if mpi.size == 1 or not compiled_with_sl():
-    exclude += ['parallel/submatrix_redist.py']
+    exclude += ['parallel/submatrix_redist.py',
+                'lcaotddft/parallel_options.py']
 
 if mpi.size != 1 and not compiled_with_sl():
     exclude += ['ralda/ralda_energy_H2.py',
