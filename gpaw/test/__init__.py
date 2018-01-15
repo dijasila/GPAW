@@ -279,6 +279,7 @@ tests = [
     'lrtddft2/Al2.py',                      # ~10s
     'lcaotddft/simple.py',                  # ~10s
     'lcaotddft/restart.py',                 # ~10s
+    'lcaotddft/fxc_is_xc.py',               # ~10s
     'ralda/ralda_energy_N2.py',             # ~10s
     'parallel/lcao_complicated.py',         # ~10s
     'generic/bulk.py',                      # ~10s
