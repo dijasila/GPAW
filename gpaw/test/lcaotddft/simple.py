@@ -6,6 +6,7 @@ from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.poisson import PoissonSolver
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.tddft.spectrum import photoabsorption_spectrum
+from gpaw.mpi import world
 
 from gpaw.test import equal
 
@@ -32,6 +33,7 @@ DipoleMomentWriter(td_calc, '%s_dm.dat' % name)
 td_calc.absorption_kick(np.ones(3) * 1e-5)
 td_calc.propagate(20, 3)
 photoabsorption_spectrum('%s_dm.dat' % name, '%s_spec.dat' % name, delta_e=5)
+world.barrier()
 
 # Test dipole moment
 data_i = np.loadtxt('%s_dm.dat' % name)[:, 2:].ravel()

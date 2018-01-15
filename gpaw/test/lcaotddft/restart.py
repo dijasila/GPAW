@@ -5,6 +5,7 @@ from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.poisson import PoissonSolver
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
+from gpaw.mpi import world
 
 from gpaw.test import equal
 
@@ -42,6 +43,7 @@ td_calc = LCAOTDDFT('%s_td.gpw' % name,
                     txt='%s_td2.out' % name)
 DipoleMomentWriter(td_calc, '%s_dm.dat' % name)
 td_calc.propagate(20, 3)
+world.barrier()
 
 # Check dipole moment file
 data_tj = np.loadtxt('%s_dm.dat' % name)
