@@ -379,7 +379,7 @@ tests = [
     'exx/AA_enthalpy.py',                   # ~119s
     'response/na_plasmons.py',
     'response/na_plasmons_tetrahedron.py',  # ~120s
-    'lcao/tdgllbsc.py',                     # ~132s
+    'lcaotddft/gllbsc.py',                  # ~132s
     'solvation/forces.py',                  # ~140s
     'response/gw_MoS2_cut.py',
     'response/gwsi.py',                     # ~147s
