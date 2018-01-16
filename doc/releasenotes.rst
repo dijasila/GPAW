@@ -10,6 +10,8 @@ Git master branch
 
 :git:`master <>`.
 
+* Added QNA XC functional.
+
 * Experimental support for calculations with non-collinear spins
   (plane-wave mode only).
   Use ``GPAW(experimental={'magmoms': magmoms})``, where ``magmoms``

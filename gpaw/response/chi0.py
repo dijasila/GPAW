@@ -245,7 +245,7 @@ class Chi0:
         if rate == 'eta':
             self.rate = self.eta
         else:
-            self.rate = rate
+            self.rate = rate / Hartree
         self.domega0 = domega0 / Hartree
         self.omega2 = omega2 / Hartree
         self.omegamax = None if omegamax is None else omegamax / Hartree
@@ -598,8 +598,7 @@ class Chi0:
         # Only compute the intraband response if there are partially
         # unoccupied bands and only if the user has not disabled its
         # calculation using the include_intraband keyword.
-        if optical_limit and (self.nocc1 != self.nocc2 and
-                              self.include_intraband):
+        if optical_limit and self.nocc1 != self.nocc2:
             # The intraband response is essentially just the calculation
             # of the free space Drude plasma frequency. The calculation is
             # similarly to the interband transitions documented above.
@@ -637,7 +636,7 @@ class Chi0:
 
             # Again, not so pretty but that's how it is
             plasmafreq_vv = plasmafreq_wvv[0].copy()
-            if self.blockcomm.rank == 0:
+            if self.blockcomm.rank == 0 and self.include_intraband:
                 if extend_head:
                     A_wxx[:, :3, :3] += (plasmafreq_vv[np.newaxis] /
                                          (self.omega_w[:, np.newaxis,
@@ -649,7 +648,11 @@ class Chi0:
                                         self.rate * 1j)**2)
 
             # Save the plasmafrequency
-            self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv * prefactor
+            try:
+                self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv * prefactor
+            except AttributeError:
+                self.plasmafreq_vv = 4 * np.pi * plasmafreq_vv * prefactor
+
             PWSA.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
             print('Plasma frequency:', file=self.fd)
             print((self.plasmafreq_vv**0.5 * Hartree).round(2),
@@ -884,7 +887,10 @@ class Chi0:
         if self.integrationmode is None:
             f_n = kpt1.f_n
             width = self.calc.occupations.width
-            dfde_n = - 1. / width * (f_n - f_n**2.0)
+            if width > 1e-15:
+                dfde_n = - 1. / width * (f_n - f_n**2.0)
+            else:
+                dfde_n = np.zeros_like(f_n)
             vel_nv *= np.sqrt(-dfde_n[:, np.newaxis])
             weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
                              symmetry.how_many_symmetries())

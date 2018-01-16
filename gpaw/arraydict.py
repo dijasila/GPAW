@@ -190,6 +190,3 @@ class ArrayDict:
 
     def __len__(self):
         return len(self.data)
-
-    def asarraydict(self):
-        return self

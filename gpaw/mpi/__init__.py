@@ -767,10 +767,16 @@ def synchronize_atoms(atoms, comm, tolerance=1e-8):
 
     # XXX replace with ase.cell.same_cell in the future
     # (if that functions gets to exist)
-    def same_cell(cell1, cell2):
-        return ((cell1 is None) == (cell2 is None) and
-                (cell1 is None or (cell1 == cell2).all()))
+    #def same_cell(cell1, cell2):
+    #    return ((cell1 is None) == (cell2 is None) and
+    #            (cell1 is None or (cell1 == cell2).all()))
 
+    # Cell vectors should be compared with a tolerance like positions?
+    def same_cell(cell1, cell2, tolerance=1e-8):
+        return ((cell1 is None) == (cell2 is None) and
+                (cell1 is None or (abs(cell1 - cell2).max() <= tolerance)))
+
+    
     positions, cell, numbers, pbc = broadcast(src, root=0, comm=comm)
     ok = (len(positions) == len(atoms.positions) and
           (abs(positions - atoms.positions).max() <= tolerance) and
@@ -796,7 +802,7 @@ def synchronize_atoms(atoms, comm, tolerance=1e-8):
                          err_ranks)
 
     atoms.positions = positions
-
+    atoms.cell = cell
 
 def broadcast_string(string=None, root=0, comm=world):
     if comm.rank == root:

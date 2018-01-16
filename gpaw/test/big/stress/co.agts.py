@@ -1,7 +1,7 @@
 def agts(queue):
     co = queue.add('co.py', ncpus=4, walltime=5 * 60)
     queue.add('co.agts.py', deps=co)
- 
+
 
 if __name__ == '__main__':
     import numpy as np
@@ -17,7 +17,7 @@ if __name__ == '__main__':
     p1 = p[1:3]
     p2 = np.array([(p[3], p[4]),
                    (p[4], p[5])])
-    a0, c0 = np.linalg.solve(p2.T, -p1)
+    a0, c0 = np.linalg.solve(p2.T, -p1, -1)
     assert abs(a0 - 2.4937) < 0.001
     assert abs(c0 - 4.0424) < 0.001
     assert abs(a[4] - a0) < 0.001
