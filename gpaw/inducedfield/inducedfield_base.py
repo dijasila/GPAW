@@ -363,7 +363,7 @@ class BaseInducedField(object):
                           'before they are calculated')
 
         from gpaw.io import Writer
-        writer = Writer(filename, self.world, 'INDUCEDFIELD')
+        writer = Writer(filename, self.world, tag='INDUCEDFIELD')
         # Actual write
         self._write(writer, writes)
         # Make sure slaves don't return before master is done
