@@ -93,8 +93,8 @@ After the time propagation, the spectrum can be calculated:
    :lines: 37-39
 
 
-Simple example script
-=====================
+Example script
+--------------
 
 Here is the previous example as a complete script.
 
@@ -189,8 +189,11 @@ but in this case only a single core is used for linear alrebra.
     Add ``ParallelTimer`` example
 
 
-Advanced tutorial - Plasmon resonance of silver cluster
-=======================================================
+Advanced tutorials
+==================
+
+Plasmon resonance of silver cluster
+-----------------------------------
 
 One should think about what type of transitions of interest are present,
 and make sure that the basis set can represent such Kohn-Sham electron and
@@ -220,9 +223,33 @@ For more details, see [#Kuisma2015]_.
 
 .. image:: fig1.png
 
+.. TODO
+
+   Large organic molecule
+   ----------------------
+   
+   On large organic molecules, on large conjugated systems, there will `\pi \rightarrow \pi^*`,
+   `\sigma \rightarrow \sigma^*`. These states consist of only
+   the valence orbitals of carbon, and they are likely by quite similar few eV's
+   below and above the fermi lavel. These are thus a reason to believe that these
+   states are well described with hydrogen 1s and carbon 2s and 2p valence orbitals
+   around the fermi level.
+   
+   Here, we will calculate a small and a large organic molecule with lcao-tddft.
+   
+
+Analysis tools and data recorders
+=================================
+
+Kohn--Sham decomposition of the transition density matrix
+---------------------------------------------------------
+
+Soon it will be possible to analyse the origin of the transitions the same way as is commonly done in Casida-based codes.
+The LCAO basis will be transformed to an electron-hole basis of the Kohn-Sham system.
+
 
 Induced density
-===============
+---------------
 
 Plotting the induced density is especially interesting in case of plasmon
 resonances. As an example, we calculate a dummy Na8 wire and write
@@ -252,31 +279,6 @@ in the Na8 wire. In their current form, these cube files contain just
 the pseudo part of density.
 
 .. image:: Na8_imag.png
-
-
-.. TODO
-
-   Advanced tutorial - large organic molecule
-   ==========================================
-   
-   General notes
-   -------------
-   
-   On large organic molecules, on large conjugated systems, there will `\pi \rightarrow \pi^*`,
-   `\sigma \rightarrow \sigma^*`. These states consist of only
-   the valence orbitals of carbon, and they are likely by quite similar few eV's
-   below and above the fermi lavel. These are thus a reason to believe that these
-   states are well described with hydrogen 1s and carbon 2s and 2p valence orbitals
-   around the fermi level.
-   
-   Here, we will calculate a small and a large organic molecule with lcao-tddft.
-   
-
-Kohn-Sham decomposition of the transition density matrix
-========================================================
-
-Soon it will be possible to analyse the origin of the transitions the same way as is commonly done in Casida-based codes.
-The LCAO basis will be transformed to an electron-hole basis of the Kohn-Sham system.
 
 
 References
