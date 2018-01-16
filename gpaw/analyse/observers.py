@@ -12,9 +12,6 @@ class Observer(object):
     def update(self):
         raise RuntimeError('Virtual member function called.')
 
-    def __del__(self):
-        pass
-
 
 class WritableObserver(Observer):
 
