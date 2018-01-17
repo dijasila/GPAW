@@ -1,6 +1,7 @@
 import numpy as np
 from numpy.linalg import inv, solve
 
+from gpaw.tddft.units import au_to_as
 from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
                                       scalapack_inverse, scalapack_solve,
                                       scalapack_zero, pblas_tran,
@@ -25,7 +26,7 @@ def create_propagator(name, **kwargs):
         raise RuntimeError('Unknown propagator: %s' % name)
 
 
-def equal(a, b, eps=1e-16):
+def equal(a, b, eps=1e-8):
     return abs(a - b) < eps
 
 
@@ -42,6 +43,9 @@ class Propagator(object):
         raise NotImplementedError()
 
     def propagate(self, time, time_step):
+        raise NotImplementedError()
+
+    def control_paw(self, paw):
         raise NotImplementedError()
 
     def todict(self):
@@ -90,6 +94,16 @@ class ReplayPropagator(LCAOPropagator):
         if self.read_index == self.read_count:
             raise RuntimeError('Time not found: %f' % time)
 
+    def kick(self, hamiltonian, time):
+        self._align_read_index(time)
+        # Take the step after kick
+        self.read_index += 1
+        r = self.reader[self.read_index].wave_functions
+        self.wfs.read_wave_functions(r)
+        self.wfs.read_occupations(r)
+        self.read_index += 1
+        self.hamiltonian.update(self.update_mode)
+
     def propagate(self, time, time_step):
         next_time = time + time_step
         self._align_read_index(next_time)
@@ -99,6 +113,32 @@ class ReplayPropagator(LCAOPropagator):
         self.read_index += 1
         self.hamiltonian.update(self.update_mode)
         return next_time
+
+    def control_paw(self, paw):
+        time = None
+        index = 1
+        while index < self.read_count:
+            r = self.reader[index]
+            if r.action == 'init':
+                paw.tddft_init()
+                time = r.time
+                index += 1
+            elif r.action == 'kick':
+                paw.absorption_kick(r.kick_strength)
+                time = r.time
+                index += 1
+            elif r.action == 'propagate':
+                time_step = r.time - time
+                iterations = 0
+                while index < self.read_count:
+                    r = self.reader[index]
+                    if (r.action != 'propagate' or
+                        not equal(r.time - time, time_step)):
+                        break
+                    iterations += 1
+                    time = r.time
+                    index += 1
+                paw.propagate(time_step * au_to_as, iterations)
 
     def __del__(self):
         self.reader.close()

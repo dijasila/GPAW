@@ -20,6 +20,8 @@ class WaveFunctionWriter(TDDFTObserver):
 
     def _update(self, paw):
         self.writer.write(time=paw.time, action=paw.action)
+        if paw.action == 'kick':
+            self.writer.write(kick_strength=paw.kick_strength)
         w = self.writer.child('wave_functions')
         paw.wfs.write_wave_functions(w)
         paw.wfs.write_occupations(w)
