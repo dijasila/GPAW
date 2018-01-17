@@ -346,6 +346,7 @@ tests = [
     'corehole/h2o_dks.py',                  # ~30s
     'lcaotddft/parallel_options.py',        # ~30s
     'lcaotddft/lcaotddft_vs_lrtddft2.py',   # ~30s
+    'lcaotddft/lcaotddft_vs_lrtddft2_rpa.py',  # ~30s
     'mgga/nsc_MGGA.py',                     # ~32s
     'solvation/spinpol.py',                 # ~32s
     'gllb/diamond.py',                      # ~33s
