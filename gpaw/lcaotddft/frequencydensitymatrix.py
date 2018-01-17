@@ -3,6 +3,7 @@ import numpy as np
 from gpaw.io import Reader
 from gpaw.io import Writer
 
+from gpaw.tddft.folding import Frequency
 from gpaw.tddft.folding import FoldedFrequencies
 from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.lcaotddft.utilities import read_uMM
@@ -46,6 +47,7 @@ class FrequencyDensityMatrix(TDDFTObserver):
         if isinstance(frequencies, FoldedFrequencies):
             frequencies = [frequencies]
         self.foldedfreqs_f = frequencies
+        self.__generate_freq_w()
         self.Nw = np.sum([len(ff.frequencies) for ff in self.foldedfreqs_f])
 
     def initialize(self):
@@ -69,6 +71,12 @@ class FrequencyDensityMatrix(TDDFTObserver):
                 self.FReDrho_wuMM[-1].append(self.dmat.zeros(complex))
                 self.FImDrho_wuMM[-1].append(self.dmat.zeros(complex))
         self.has_initialized = True
+
+    def __generate_freq_w(self):
+        self.freq_w = []
+        for ff in self.foldedfreqs_f:
+            for f in ff.frequencies:
+                self.freq_w.append(Frequency(f, ff.folding, 'au'))
 
     def _update(self, paw):
         if paw.action == 'init':
@@ -139,6 +147,7 @@ class FrequencyDensityMatrix(TDDFTObserver):
         self.time = reader.time
         self.foldedfreqs_f = [FoldedFrequencies(**ff)
                               for ff in reader.foldedfreqs_f]
+        self.__generate_freq_w()
         self.Nw = np.sum([len(ff.frequencies) for ff in self.foldedfreqs_f])
         wfs = self.wfs
         self.rho0_uMM = read_uMM(wfs, reader, 'rho0_uMM')

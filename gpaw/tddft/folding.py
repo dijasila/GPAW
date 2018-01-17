@@ -46,6 +46,13 @@ class FoldedFrequencies(object):
         return s
 
 
+class Frequency(object):
+    def __init__(self, freq, folding, units='eV'):
+        ff = FoldedFrequencies(freq, folding, units)
+        self.folding = ff.folding
+        self.freq = ff.frequencies[0]
+
+
 class Folding(object):
     def __init__(self, folding, width, units='eV'):
         if width is None:
