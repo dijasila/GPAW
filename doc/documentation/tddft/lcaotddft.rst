@@ -212,7 +212,7 @@ in the default setup are not relevant here.
 
 We calculate the icosahedral Ag55 cluster: :download:`ag55.xyz`
 
-This code uses ScaLAPACK parallelization with 64 cores.
+This code uses ScaLAPACK parallelization with 48 cores.
 
 .. literalinclude:: lcaotddft_ag55.py
 
