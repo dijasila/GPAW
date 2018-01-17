@@ -21,4 +21,3 @@ class WritableObserver(Observer):
 
     def __del__(self):
         self.w.close()
-        Observer.__del__(self)

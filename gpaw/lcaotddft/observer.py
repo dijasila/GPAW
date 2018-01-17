@@ -29,4 +29,4 @@ class TDDFTObserver(Observer):
         return self.__class__.__name__
 
     def __del__(self):
-        Observer.__del__(self)
+        pass
