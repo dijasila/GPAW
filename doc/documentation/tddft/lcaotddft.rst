@@ -186,55 +186,6 @@ but in this case only a single core is used for linear alrebra.
     Add ``ParallelTimer`` example
 
 
-Advanced tutorials
-==================
-
-Plasmon resonance of silver cluster
------------------------------------
-
-One should think about what type of transitions of interest are present,
-and make sure that the basis set can represent such Kohn-Sham electron and
-hole wave functions. The first transitions in silver clusters will be
-`5s \rightarrow 5p` like. We require 5p orbitals in the basis set, and thus,
-we must generate a custom basis set.
-
-Here is how to generate a double-zeta basis set with 5p orbital in valence
-for silver for GLLB-SC potential. Note that the extra 5p valence state
-effectively improves on the ordinary polarization function, so this basis set
-is **better** than the default double-zeta polarized one.
-We will use the 11-electron Ag setup, since the semi-core p states included
-in the default setup are not relevant here.
-
-.. literalinclude:: lcaotddft_basis.py
-
-We calculate the icosahedral Ag55 cluster: :download:`ag55.xyz`
-
-This code uses ScaLAPACK parallelization with 48 cores.
-
-.. literalinclude:: lcaotddft_ag55.py
-
-Code runs for approximately two hours wall-clock time.
-The resulting spectrum shows already emerging plasmonic excitation
-around 4 eV.
-For more details, see [#Kuisma2015]_.
-
-.. image:: fig1.png
-
-.. TODO
-
-   Large organic molecule
-   ----------------------
-   
-   On large organic molecules, on large conjugated systems, there will `\pi \rightarrow \pi^*`,
-   `\sigma \rightarrow \sigma^*`. These states consist of only
-   the valence orbitals of carbon, and they are likely by quite similar few eV's
-   below and above the fermi lavel. These are thus a reason to believe that these
-   states are well described with hydrogen 1s and carbon 2s and 2p valence orbitals
-   around the fermi level.
-   
-   Here, we will calculate a small and a large organic molecule with lcao-tddft.
-   
-
 Advanced analysis tools
 =======================
 
@@ -341,7 +292,6 @@ frequency in question.
    :scale: 70%
 
 
-
 Induced density
 ---------------
 
@@ -360,6 +310,55 @@ the figures:
 .. image:: lcaotddft_Na8/ind_2.48.png
    :scale: 70%
 
+
+Advanced tutorials
+==================
+
+Plasmon resonance of silver cluster
+-----------------------------------
+
+One should think about what type of transitions of interest are present,
+and make sure that the basis set can represent such Kohn-Sham electron and
+hole wave functions. The first transitions in silver clusters will be
+`5s \rightarrow 5p` like. We require 5p orbitals in the basis set, and thus,
+we must generate a custom basis set.
+
+Here is how to generate a double-zeta basis set with 5p orbital in valence
+for silver for GLLB-SC potential. Note that the extra 5p valence state
+effectively improves on the ordinary polarization function, so this basis set
+is **better** than the default double-zeta polarized one.
+We will use the 11-electron Ag setup, since the semi-core p states included
+in the default setup are not relevant here.
+
+.. literalinclude:: lcaotddft_basis.py
+
+We calculate the icosahedral Ag55 cluster: :download:`ag55.xyz`
+
+This code uses ScaLAPACK parallelization with 48 cores.
+
+.. literalinclude:: lcaotddft_ag55.py
+
+Code runs for approximately two hours wall-clock time.
+The resulting spectrum shows already emerging plasmonic excitation
+around 4 eV.
+For more details, see [#Kuisma2015]_.
+
+.. image:: fig1.png
+
+.. TODO
+
+   Large organic molecule
+   ----------------------
+   
+   On large organic molecules, on large conjugated systems, there will `\pi \rightarrow \pi^*`,
+   `\sigma \rightarrow \sigma^*`. These states consist of only
+   the valence orbitals of carbon, and they are likely by quite similar few eV's
+   below and above the fermi lavel. These are thus a reason to believe that these
+   states are well described with hydrogen 1s and carbon 2s and 2p valence orbitals
+   around the fermi level.
+   
+   Here, we will calculate a small and a large organic molecule with lcao-tddft.
+   
 
 References
 ==========
