@@ -14,8 +14,10 @@ def ranks(wfs):
         txt += '%2d/%2d ' % (comm.rank, comm.size)
     return txt
 
+
 def collect_uMM(wfs, a_uMM, s, k):
     return collect_wuMM(wfs, [a_uMM], 0, s, k)
+
 
 def collect_wuMM(wfs, a_wuMM, w, s, k):
     # This function is based on
@@ -59,6 +61,7 @@ def collect_wuMM(wfs, a_wuMM, w, s, k):
         wfs.kd.comm.receive(a_MM, kpt_rank, 2017)
         return a_MM
 
+
 def distribute_MM(wfs, a_MM):
     ksl = wfs.ksl
     if not ksl.using_blacs:
@@ -79,8 +82,10 @@ def distribute_MM(wfs, a_MM):
     MM2mm.redistribute(a_MM, a_mm)
     return a_mm
 
+
 def write_uMM(wfs, writer, name, a_uMM):
     return write_wuMM(wfs, writer, name, [a_uMM], wlist=[0])
+
 
 def write_wuMM(wfs, writer, name, a_wuMM, wlist):
     NM = wfs.ksl.nao
@@ -94,8 +99,10 @@ def write_wuMM(wfs, writer, name, a_wuMM, wlist):
                 a_MM = collect_wuMM(wfs, a_wuMM, w, s, k)
                 writer.fill(a_MM)
 
+
 def read_uMM(wfs, reader, name):
     return read_wuMM(wfs, reader, name, wlist=[0])[0]
+
 
 def read_wuMM(wfs, reader, name, wlist):
     a_wuMM = []

@@ -418,6 +418,7 @@ class KohnShamDecomposition(object):
                 fill_between = ax.fill_betweenx
                 set_energy_lim = ax.set_ylim
                 set_dos_lim = ax.set_xlim
+
                 def plot(x, y, *args, **kwargs):
                     return ax.plot(y, x, *args, **kwargs)
             else:
@@ -425,6 +426,7 @@ class KohnShamDecomposition(object):
                 fill_between = ax.fill_between
                 set_energy_lim = ax.set_xlim
                 set_dos_lim = ax.set_ylim
+
                 def plot(x, y, *args, **kwargs):
                     return ax.plot(x, y, *args, **kwargs)
             fill_between(energy_e, 0, dos_e, color='0.8')

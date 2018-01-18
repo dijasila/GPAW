@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class DensityMatrix(object):
 
     def __init__(self, paw):
