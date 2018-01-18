@@ -59,8 +59,10 @@ from `t` to `t+\mathrm dt` by solving
 This procedure is repeated using 500--2000 time steps of 5--40 as to
 calculate the time evolution of the electrons.
 
-Usage
-=====
+.. _example:
+
+Example usage
+=============
 
 First do a standard ground-state calculation with the ``GPAW`` calculator:
 
@@ -92,13 +94,8 @@ After the time propagation, the spectrum can be calculated:
 .. literalinclude:: lcaotddft.py
    :lines: 37-39
 
-
-Example script
---------------
-
-Here is the previous example as a complete script.
-
-.. literalinclude:: lcaotddft.py
+The previous example as a complete script can be downloaded here:
+:download:`lcaotddft.py`.
 
 
 General notes about basis sets
@@ -238,61 +235,155 @@ For more details, see [#Kuisma2015]_.
    Here, we will calculate a small and a large organic molecule with lcao-tddft.
    
 
-Analysis tools and data recorders
-=================================
+Advanced analysis tools
+=======================
 
-Kohn--Sham decomposition of the transition density matrix
----------------------------------------------------------
+In :ref:`example` it was demonstrated how to calculate photoabsorption
+spectrum from the time-dependent dipole moment data collected with
+``DipoleMomentWriter()`` observer.
+The code is not limited to this analysis but any (also user-written)
+analysis tools can be embedded in the general time-propagation framework.
 
-Soon it will be possible to analyse the origin of the transitions the same way as is commonly done in Casida-based codes.
-The LCAO basis will be transformed to an electron-hole basis of the Kohn-Sham system.
+Here we describe some analysis tools available in GPAW.
+We use a finite sodium atom chain as an example system.
+First, let's do the ground-state calculation:
+
+.. literalinclude:: lcaotddft_Na8/gs.py
+
+Note the recommended use of :ref:`advancedpoisson` and
+:ref:`pvalence basis sets`.
+
+
+Recording the wave functions and replaying the time propagation
+---------------------------------------------------------------
+
+We can record the time-dependent wave functions during the propagation
+with ``WaveFunctionWriter()`` observer:
+
+.. literalinclude:: lcaotddft_Na8/td.py
+
+.. tip::
+
+   The time propagation can be in the same manner from the restart file:
+
+   .. literalinclude:: lcaotddft_Na8/tdc.py
+
+The created ``wfw.ulm`` file contains the time-dependent wave functions
+`C_{\mu n}(t)` that define the state of the system at each time instance.
+We can use that file to replay the time propagation:
+
+.. literalinclude:: lcaotddft_Na8/td_replay.py
+
+The ``update`` keyword in ``propagator`` has following options:
+
+==============  ===============================
+``update``      variables updated during replay
+==============  ===============================
+``'all'``       Hamiltonian and density
+``'density'``   density
+``'none'``      nothing
+==============  ===============================
+
+
+Kohn--Sham decomposition of the density matrix
+----------------------------------------------
+
+Kohn--Sham decomposition is an illustrative way of analyzing electronic
+excitations in Kohn--Sham electron-hole basis.
+For demonstration and description of the implementation,
+see Ref. [#Rossi2017]_.
+
+Here we demonstrate how to construct the photoabsorption decomposition
+at a specific frequency in Kohn--Sham electon-hole basis.
+
+First, let's calculate the spectrum:
+
+.. literalinclude:: lcaotddft_Na8/spectrum.py
+
+We notice the main resonances at TODO
+
+Frequency-space density matrix
+""""""""""""""""""""""""""""""
+
+We generate the density matrix for the frequencies of interest:
+
+.. literalinclude:: lcaotddft_Na8/td_fdm_replay.py
+
+.. tip::
+
+   Instead of using replaying, you can do the same analysis on-the-fly by
+   attaching the analysis tools to the usual time-propagation calculation.
+
+Transform the density matrix to Kohn--Sham electron-hole basis
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+First, we construct the Kohn--Sham electron-hole basis.
+For that we need to calculate unoccupied Kohn--Sham states,
+which is conveniently done by restarting from the earlier
+ground-state file:
+
+.. literalinclude:: lcaotddft_Na8/ksd_init.py
+
+Next, we can use the created objects to transform the LCAO density matrix
+to the Kohn--Sham electron-hole basis and visualize the photoabsorption
+decomposition as a transition contribution map (TCM):
+
+.. literalinclude:: lcaotddft_Na8/tcm_plot.py
+
+Note that the sum over the decomposition (the printed total absorption)
+equals to the value of the photoabsorption spectrum at the particular
+frequency in question.
+
+.. image:: lcaotddft_Na8/tcm_1.12.png
+   :scale: 70%
+
+.. image:: lcaotddft_Na8/tcm_2.48.png
+   :scale: 70%
+
 
 
 Induced density
 ---------------
 
-Plotting the induced density is especially interesting in case of plasmon
-resonances. As an example, we calculate a dummy Na8 wire and write
-the density to a file on every iteration.
-There are certain advantages of writing the density on every iteration
-instead of using the predefined frequencies and
-on-the-fly Fourier transformation: Only one TDDFT run is required as
-any frequency can be analysed as a post processing operation.
-Hard disk requirements are large, but tolerable (1-100GB) in most cases.
+The density matrix gives access to any other quantities.
+For instance, the induced density can be conveniently obtained:
 
-.. literalinclude:: lcaotddft_induced.py
+.. literalinclude:: lcaotddft_Na8/ksd_ind.py
 
-Files with extensions ``.sG`` and ``.asp`` are created, where ``.sG`` files
-contain the density on the coarse grid while ``.asp`` files contain
-the atomic density matrices. With these, it is possible to reconstruct
-the full density.
-This can now be fourier transformed at the desired frequency.
-Here, we look from the produced spectrum file that plasmonic peak,
-and perform Fourier transform at that frequency.
+The resulting cube files can be visualized, for example, with
+:download:`this script <lcaotddft_Na8/ind_plot.py>` producing
+the figures:
 
-.. literalinclude:: lcaotddft_analyse.py
+.. image:: lcaotddft_Na8/ind_1.12.png
+   :scale: 70%
 
-Two cube files are created, one for the sin (imag) and cos (real)
-transform at the frequency.  Usually, one is interested in the absorbing
-part, i.e., the imaginary part. Below the plasmon resonance is visualized
-in the Na8 wire. In their current form, these cube files contain just
-the pseudo part of density.
-
-.. image:: Na8_imag.png
+.. image:: lcaotddft_Na8/ind_2.48.png
+   :scale: 70%
 
 
 References
 ==========
 
 .. [#Kuisma2015]
-   M. Kuisma, A. Sakko, T. P. Rossi, A. H. Larsen, J. Enkovaara, L. Lehtovaara, and T. T. Rantala,
-   Localized surface plasmon resonance in silver nanoparticles: Atomistic first-principles time-dependent
-   density functional theory calculations,
+   M. Kuisma, A. Sakko, T. P. Rossi, A. H. Larsen, J. Enkovaara,
+   L. Lehtovaara, and T. T. Rantala,
+   Localized surface plasmon resonance in silver nanoparticles:
+   Atomistic first-principles time-dependent density functional theory
+   calculations,
    *Phys. Rev. B* **69**, 245419 (2004).
-   `doi:10.1103/PhysRevB.91.115431 <http://dx.doi.org/10.1103/PhysRevB.91.115431>`_
+   `doi:10.1103/PhysRevB.91.115431 <https://doi.org/10.1103/PhysRevB.91.115431>`_
 
 .. [#Rossi2015]
    T. P. Rossi, S. Lehtola, A. Sakko, M. J. Puska, and R. M. Nieminen,
-   Nanoplasmonics simulations at the basis set limit through completeness-optimized, local numerical basis sets,
+   Nanoplasmonics simulations at the basis set limit
+   through completeness-optimized, local numerical basis sets,
    *J. Chem. Phys.* **142**, 094114 (2015).
-   `doi:10.1063/1.4913739 <http://dx.doi.org/10.1063/1.4913739>`_
+   `doi:10.1063/1.4913739 <https://doi.org/10.1063/1.4913739>`_
+
+.. [#Rossi2017]
+   T. P. Rossi, M. Kuisma, M. J. Puska, R. M. Nieminen, and P. Erhart,
+   Kohn--Sham Decomposition in Real-Time Time-Dependent
+   Density-Functional Theory:
+   An Efficient Tool for Analyzing Plasmonic Excitations,
+   *J. Chem. Theory Comput.* **13**, 4779 (2017).
+   `doi:10.1021/acs.jctc.7b00589 <https://doi.org/10.1021/acs.jctc.7b00589>`_
