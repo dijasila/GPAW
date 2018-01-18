@@ -312,9 +312,10 @@ Induced density
 ---------------
 
 The density matrix gives access to any other quantities.
-For instance, the induced density can be conveniently obtained:
+For instance, the induced density can be conveniently obtained
+from the density matrix:
 
-.. literalinclude:: lcaotddft_Na8/ksd_ind.py
+.. literalinclude:: lcaotddft_Na8/fdm_ind.py
 
 The resulting cube files can be visualized, for example, with
 :download:`this script <lcaotddft_Na8/ind_plot.py>` producing

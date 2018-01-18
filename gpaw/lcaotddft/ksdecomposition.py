@@ -9,7 +9,6 @@ from gpaw.external import ConstantElectricField
 from gpaw.lcaotddft.hamiltonian import KickHamiltonian
 from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import write_uMM
-from gpaw.utilities import pack
 from gpaw.utilities.tools import tri2full
 
 
@@ -260,10 +259,11 @@ class KohnShamDecomposition(object):
         return dm_v
 
     def get_density(self, rho_up, density='comp'):
+        from gpaw.lcaotddft.densitymatrix import get_density
+
         density_type = density
         assert len(rho_up) == 1, 'K-points not implemented'
         u = 0
-        kpt = self.wfs.kpt_u[u]
         rho_p = rho_up[u]
         C0_nM = self.C0_unM[u]
 
@@ -275,43 +275,7 @@ class KohnShamDecomposition(object):
         rho_MM = np.dot(C0_iM.T, np.dot(rho_ia, C0_aM.conj()))
         rho_MM = 0.5 * (rho_MM + rho_MM.T)
 
-        rho_G = self.density.gd.zeros()
-        assert kpt.q == 0
-        rho_MM = rho_MM.astype(self.wfs.dtype)
-        self.wfs.basis_functions.construct_density(rho_MM, rho_G, kpt.q)
-
-        # Uncomment this if you want to add the static part
-        # rho_G += self.density.nct_G
-
-        if density_type == 'pseudocoarse':
-            return rho_G
-
-        rho_g = self.density.finegd.zeros()
-        self.density.distribute_and_interpolate(rho_G, rho_g)
-        rho_G = None
-
-        if density_type == 'pseudo':
-            return rho_g
-
-        if density_type == 'comp':
-            D_asp = self.density.atom_partition.arraydict(
-                self.density.D_asp.shapes_a)
-            Q_aL = {}
-            for a, D_sp in D_asp.items():
-                P_Mi = self.wfs.P_aqMi[a][kpt.q]
-                assert np.max(np.absolute(P_Mi.imag)) == 0
-                P_Mi = P_Mi.real
-                assert P_Mi.dtype == float
-                D_ii = np.dot(np.dot(P_Mi.T.conj(), rho_MM), P_Mi)
-                D_sp[:] = pack(D_ii)[np.newaxis, :]
-                Q_aL[a] = np.dot(D_sp.sum(axis=0),
-                                 self.wfs.setups[a].Delta_pL)
-            tmp_g = self.density.finegd.zeros()
-            self.density.ghat.add(tmp_g, Q_aL)
-            rho_g += tmp_g
-            return rho_g
-
-        raise RuntimeError('Unknown density type: %s' % density_type)
+        return get_density(rho_MM, self.wfs, self.density, density_type, u)
 
     def get_contributions_table(self, weight_p, minweight=0.01,
                                 zero_fermilevel=True):
