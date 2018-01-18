@@ -81,7 +81,8 @@ Some important points are:
   but ``1e-20`` does not hurt (note that this is the **quadratic** error).
 * One should use multipole-corrected Poisson solvers or
   other advanced Poisson solvers in any TDDFT run
-  in order to guarantee the convergence of the potential.
+  in order to guarantee the convergence of the potential with respect to
+  the vacuum size.
   See the documentation on :ref:`advancedpoisson`.
 
 Next the calculation proceeds as in the grid mode with ``TDDFT`` object.
@@ -192,7 +193,7 @@ Advanced analysis tools
 
 In :ref:`example` it was demonstrated how to calculate photoabsorption
 spectrum from the time-dependent dipole moment data collected with
-``DipoleMomentWriter()`` observer.
+``DipoleMomentWriter`` observer.
 The code is not limited to this analysis but any (also user-written)
 analysis tools can be embedded in the general time-propagation framework.
 
@@ -222,8 +223,8 @@ with ``WaveFunctionWriter()`` observer:
    .. literalinclude:: lcaotddft_Na8/tdc.py
 
 The created ``wfw.ulm`` file contains the time-dependent wave functions
-`C_{\mu n}(t)` that define the state of the system at each time instance.
-We can use that file to replay the time propagation:
+`C_{\mu n}(t)` that define the state of the system at each time.
+We can use the file to replay the time propagation:
 
 .. literalinclude:: lcaotddft_Na8/td_replay.py
 
@@ -243,8 +244,8 @@ Kohn--Sham decomposition of the density matrix
 
 Kohn--Sham decomposition is an illustrative way of analyzing electronic
 excitations in Kohn--Sham electron-hole basis.
-For demonstration and description of the implementation,
-see Ref. [#Rossi2017]_.
+See Ref. [#Rossi2017]_ for the description of the GPAW implementation
+and demonstration.
 
 Here we demonstrate how to construct the photoabsorption decomposition
 at a specific frequency in Kohn--Sham electon-hole basis.
