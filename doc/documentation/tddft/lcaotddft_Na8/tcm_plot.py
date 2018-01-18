@@ -18,7 +18,8 @@ def do(w):
     # Select the frequency and the density matrix
     rho_uMM = fdm.FReDrho_wuMM[w]
     freq = fdm.freq_w[w]
-    print('Frequency: %.2f eV' % (freq.freq * au_to_eV))
+    frequency = freq.freq * au_to_eV
+    print('Frequency: %.2f eV' % frequency)
     print('Folding: %s' % freq.folding)
 
     # Transform the LCAO density matrix to KS basis
@@ -30,7 +31,13 @@ def do(w):
     print('Total absorption: %.2f eV^-1' % np.sum(weight_p))
 
     # Print contributions as a table
-    print(ksd.get_contributions_table(weight_p, minweight=0.1))
+    table = ksd.get_contributions_table(weight_p, minweight=0.1)
+    print(table)
+    with open('table_%.2f.txt' % frequency, 'w') as f:
+        f.write('Frequency: %.2f eV\n' % frequency)
+        f.write('Folding: %s\n' % freq.folding)
+        f.write('Total absorption: %.2f eV^-1\n' % np.sum(weight_p))
+        f.write(table)
 
     # Plot the decomposition as a TCM
     r = ksd.plot_TCM(weight_p,
@@ -46,7 +53,7 @@ def do(w):
     ax_tcm.plot(x, y, c='k')
 
     # Show the plot
-    plt.savefig('tcm_%.2f.png' % (freq.freq * au_to_eV))
+    plt.savefig('tcm_%.2f.png' % frequency)
 
 do(0)
 do(1)

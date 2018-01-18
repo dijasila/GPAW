@@ -285,8 +285,16 @@ Note that the sum over the decomposition (the printed total absorption)
 equals to the value of the photoabsorption spectrum at the particular
 frequency in question.
 
+We obtain the following transition contributions:
+
+.. literalinclude:: lcaotddft_Na8/table_1.12.txt
+   :language: none
+
 .. image:: lcaotddft_Na8/tcm_1.12.png
    :scale: 70%
+
+.. literalinclude:: lcaotddft_Na8/table_2.48.txt
+   :language: none
 
 .. image:: lcaotddft_Na8/tcm_2.48.png
    :scale: 70%
