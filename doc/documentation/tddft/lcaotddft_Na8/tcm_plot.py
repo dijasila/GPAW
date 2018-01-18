@@ -52,7 +52,9 @@ def do(w):
     y = x + freq.freq * au_to_eV
     ax_tcm.plot(x, y, c='k')
 
-    # Show the plot
+    ax_occ_dos.set_title('Photoabsorption TCM of Na8 at %.2f eV' % frequency)
+
+    # Save the plot
     plt.savefig('tcm_%.2f.png' % frequency)
 
 do(0)

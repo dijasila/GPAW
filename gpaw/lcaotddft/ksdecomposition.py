@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numpy as np
 
 from ase.units import Hartree, Bohr
@@ -130,8 +131,6 @@ class KohnShamDecomposition(object):
                 add_kinetic=False, root=-1)
             tri2full(dm_MM)  # TODO: do not use this
             dm_vMM.append(dm_MM)
-
-        print 'Dipole moment matrix done'
 
         C0_nM = self.C0_unM[u]
         dm_vnn = []
@@ -348,6 +347,7 @@ class KohnShamDecomposition(object):
                  occ_energy_min, occ_energy_max,
                  unocc_energy_min, unocc_energy_max,
                  delta_energy, sigma, zero_fermilevel=True,
+                 spectrum=False,
                  vmax='80%'):
         import matplotlib.pyplot as plt
         from matplotlib.gridspec import GridSpec
@@ -377,7 +377,10 @@ class KohnShamDecomposition(object):
         ax_occ_dos = plt.subplot(gs[0])
         ax_unocc_dos = plt.subplot(gs[3])
         ax_tcm = plt.subplot(gs[2])
-        ax_spec = plt.subplot(get_gs(hspace=0.8, wspace=0.8)[1])
+        if spectrum:
+            ax_spec = plt.subplot(get_gs(hspace=0.8, wspace=0.8)[1])
+        else:
+            ax_spec = None
 
         # Plot TCM
         ax = ax_tcm
@@ -385,7 +388,6 @@ class KohnShamDecomposition(object):
         if isinstance(vmax, str):
             assert vmax[-1] == '%'
             tcmmax = max(np.max(tcm_ou), -np.min(tcm_ou))
-            print tcmmax
             vmax = tcmmax * float(vmax[:-1]) / 100.0
         vmin = -vmax
         cmap = 'seismic'
@@ -416,12 +418,17 @@ class KohnShamDecomposition(object):
                 fill_between = ax.fill_betweenx
                 set_energy_lim = ax.set_ylim
                 set_dos_lim = ax.set_xlim
+                def plot(x, y, *args, **kwargs):
+                    return ax.plot(y, x, *args, **kwargs)
             else:
                 set_label = ax.set_ylabel
                 fill_between = ax.fill_between
                 set_energy_lim = ax.set_xlim
                 set_dos_lim = ax.set_ylim
-            fill_between(energy_e, 0, dos_e, color='b')
+                def plot(x, y, *args, **kwargs):
+                    return ax.plot(x, y, *args, **kwargs)
+            fill_between(energy_e, 0, dos_e, color='0.8')
+            plot(energy_e, dos_e, 'k')
             set_label('DOS', labelpad=0)
             set_energy_lim(energy_min, energy_max)
             set_dos_lim(dos_min, dos_max)
