@@ -247,11 +247,15 @@ see Ref. [#Rossi2017]_.
 Here we demonstrate how to construct the photoabsorption decomposition
 at a specific frequency in Kohn--Sham electon-hole basis.
 
-First, let's calculate the spectrum:
+First, let's calculate and :download:`plot <lcaotddft_Na8/spec_plot.py>`
+the spectrum:
 
 .. literalinclude:: lcaotddft_Na8/spectrum.py
 
-We notice the main resonances at TODO
+.. image:: lcaotddft_Na8/spec.png
+   :scale: 70%
+
+The two main resonances are analyzed in the following.
 
 Frequency-space density matrix
 """"""""""""""""""""""""""""""
@@ -262,8 +266,9 @@ We generate the density matrix for the frequencies of interest:
 
 .. tip::
 
-   Instead of using replaying, you can do the same analysis on-the-fly by
-   attaching the analysis tools to the usual time-propagation calculation.
+   Instead of replaying the propagation, one can do the same analysis
+   on-the-fly by attaching the analysis tools to
+   the usual time-propagation calculation.
 
 Transform the density matrix to Kohn--Sham electron-hole basis
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""

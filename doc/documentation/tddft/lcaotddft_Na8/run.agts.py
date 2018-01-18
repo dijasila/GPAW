@@ -6,8 +6,10 @@ def agts(queue):
     spec = queue.add('spectrum.py', deps=[td], ncpus=1, walltime=2)
     fdm = queue.add('td_fdm_replay.py', deps=[td], ncpus=1, walltime=5)
     ksd = queue.add('ksd_init.py', deps=[gs], ncpus=1, walltime=5)
+    ind = queue.add('ksd_ind.py', deps=[ksd, fdm], ncpus=1, walltime=2)
+    queue.add('spec_plot.py', deps=[spec], ncpus=1, walltime=2,
+              creates=['spec.png'])
     queue.add('tcm_plot.py', deps=[ksd, fdm, spec], ncpus=1, walltime=2,
               creates=['tcm_1.12.png', 'tcm_2.48.png'])
-    ind = queue.add('ksd_ind.py', deps=[ksd, fdm], ncpus=1, walltime=2)
     queue.add('ind_plot.py', deps=[ind], ncpus=1, walltime=2,
               creates=['ind_1.12.png', 'ind_2.48.png'])
