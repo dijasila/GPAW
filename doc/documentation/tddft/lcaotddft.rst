@@ -79,8 +79,9 @@ Some important points are:
   more accurate than in usual ground-state calculations.
 * The convergence tolerance of the Poisson solver should be at least ``1e-16``,
   but ``1e-20`` does not hurt (note that this is the **quadratic** error).
-* One should use multipole-corrected Poisson solvers or other advanced
-  Poisson solvers in any TDDFT run.
+* One should use multipole-corrected Poisson solvers or
+  other advanced Poisson solvers in any TDDFT run
+  in order to guarantee the convergence of the potential.
   See the documentation on :ref:`advancedpoisson`.
 
 Next the calculation proceeds as in the grid mode with ``TDDFT`` object.
@@ -215,7 +216,8 @@ with ``WaveFunctionWriter()`` observer:
 
 .. tip::
 
-   The time propagation can be in the same manner from the restart file:
+   The time propagation can be continued in the same manner
+   from the restart file:
 
    .. literalinclude:: lcaotddft_Na8/tdc.py
 
