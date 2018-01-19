@@ -48,11 +48,9 @@ photoabsorption_spectrum('%s_dm.dat' % name, '%s_spec.dat' % name)
 
 # Replay
 td_calc = LCAOTDDFT('%s_gs.gpw' % name,
-                    propagator=dict(name='%s_wfw.ulm' % name,
-                                    update='density'),
                     txt='%s_rep.out' % name)
 DipoleMomentWriter(td_calc, '%s_dm_rep.dat' % name)
-td_calc.autopropagate()
+td_calc.replay(name='%s_wfw.ulm' % name, update='density')
 photoabsorption_spectrum('%s_dm_rep.dat' % name, '%s_spec_rep.dat' % name)
 
 world.barrier()

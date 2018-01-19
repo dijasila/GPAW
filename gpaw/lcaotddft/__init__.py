@@ -137,6 +137,6 @@ class LCAOTDDFT(GPAW):
             self.niter += 1
         self.timer.stop('Propagate')
 
-    def autopropagate(self):
-        self.tddft_init()
+    def replay(self, **kwargs):
+        self.propagator = create_propagator(**kwargs)
         self.propagator.control_paw(self)
