@@ -13,4 +13,4 @@ WaveFunctionWriter(td_calc, 'wfw.ulm')
 td_calc.propagate(20, 500)
 
 # Save the state for restarting later
-td_calc.write('tdc.gpw', mode='all')
+td_calc.write('td.gpw', mode='all')
