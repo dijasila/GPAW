@@ -234,7 +234,7 @@ There are two ways to perform analysis:
          MyObserver(td_calc, ...)
    
          # Replay propagation from a stored file
-         td_calc.replay(name='wfw.ulm')
+         td_calc.replay(name='wfw.ulm', update='all')
    
       From the perspective of the attached observers the replaying
       is identical to actual propagation.
