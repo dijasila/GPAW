@@ -7,8 +7,7 @@ atoms.center(vacuum=6.0)
 
 # Poisson solver with increased accuracy and multipole corrections up to l=2
 from gpaw import PoissonSolver
-poissonsolver = PoissonSolver(eps=1e-20,
-                              remove_moment=1 + 3 + 5)
+poissonsolver = PoissonSolver(eps=1e-20, remove_moment=1 + 3 + 5)
 
 # Ground-state calculation
 from gpaw import GPAW

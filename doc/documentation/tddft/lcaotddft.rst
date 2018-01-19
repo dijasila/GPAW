@@ -1,8 +1,8 @@
 .. _lcaotddft:
 
-===================================================
-Time-propagation TDDFT with LCAO: Theory and usage
-===================================================
+================================
+Time-propagation TDDFT with LCAO
+================================
 
 This page documents the use of time-propagation TDDFT in :ref:`LCAO
 mode <lcao>`. The implementation is described in Ref. [#Kuisma2015]_.
@@ -59,15 +59,16 @@ from `t` to `t+\mathrm dt` by solving
 This procedure is repeated using 500--2000 time steps of 5--40 as to
 calculate the time evolution of the electrons.
 
+
 .. _example:
 
 Example usage
 =============
 
-First do a standard ground-state calculation with the ``GPAW`` calculator:
+First we do a standard ground-state calculation with the ``GPAW`` calculator:
 
 .. literalinclude:: lcaotddft.py
-   :lines: 3-21
+   :lines: 3-20
 
 Some important points are:
 
@@ -85,19 +86,25 @@ Some important points are:
   the vacuum size.
   See the documentation on :ref:`advancedpoisson`.
 
-Next the calculation proceeds as in the grid mode with ``TDDFT`` object.
-We kick the system in the z direction and propagate 3000 steps of 10 as:
+Next we kick the system in the z direction and propagate 3000 steps of 10 as:
 
 .. literalinclude:: lcaotddft.py
-   :lines: 23-35
+   :lines: 22-34
 
 After the time propagation, the spectrum can be calculated:
 
 .. literalinclude:: lcaotddft.py
-   :lines: 37-39
+   :lines: 36-38
 
-The previous example as a complete script can be downloaded here:
-:download:`lcaotddft.py`.
+This example input script can be downloaded :download:`here <lcaotddft.py>`.
+
+
+Extending the functionality
+---------------------------
+
+The real-time propagation LCAOTDDFT provides very modular framework
+for calculating many properties during the propagation.
+See :ref:`analysis` for tutorial how to extend the analysis capabilities.
 
 
 General notes about basis sets
@@ -110,7 +117,7 @@ is required that the basis set can represent both the occupied
 basis sets for the time propagation should be generated according to
 one's need, and then benchmarked.
 
-**Irrespective of the basis sets you choose, ALWAYS, ALWAYS, benchmark LCAO
+**Irrespective of the basis sets you choose always benchmark LCAO
 results with respect to the FD time-propagation code** on the largest system
 possible. For example, one can create a prototype system which consists of
 similar atomic species with similar roles as in the parent system, but small
@@ -165,6 +172,8 @@ it is again emphasized that when using the basis sets, **it is essential to
 benchmark their suitability for your application**.
 
 
+.. _parallelization:
+
 Parallelization
 ===============
 
@@ -188,16 +197,60 @@ but in this case only a single core is used for linear alrebra.
     Add ``ParallelTimer`` example
 
 
-Advanced analysis tools
-=======================
+.. _analysis:
+
+Modular analysis tools
+======================
 
 In :ref:`example` it was demonstrated how to calculate photoabsorption
 spectrum from the time-dependent dipole moment data collected with
 ``DipoleMomentWriter`` observer.
-The code is not limited to this analysis but any (also user-written)
-analysis tools can be embedded in the general time-propagation framework.
+However, any (also user-written) analysis tools can be embedded
+as a separate observers in the general time-propagation framework.
 
-Here we describe some analysis tools available in GPAW.
+There are two ways to perform analysis:
+   1. Perform analysis on-the-fly during the propagation::
+  
+         # Read starting point 
+         td_calc = LCAOTDDFT('gs.gpw')
+   
+         # Attach analysis tools
+         MyObserver(td_calc, ...)
+   
+         # Kick and propagate
+         td_calc.absorption_kick([1e-5, 0., 0.])
+         td_calc.propagate(10, 3000)
+   
+      For example, the analysis tools can be ``DipoleMomentWriter`` observer
+      for spectrum or Fourier transform of density at specific frequencies etc.
+   
+   2. Record the wave functions during the first propagation and
+      perform the analysis later by replaying the propagation::
+   
+         # Read starting point 
+         td_calc = LCAOTDDFT('gs.gpw')
+   
+         # Attach analysis tools
+         MyObserver(td_calc, ...)
+   
+         # Replay propagation from a stored file
+         td_calc.replay(name='wfw.ulm')
+   
+      From the perspective of the attached observers the replaying
+      is identical to actual propagation.
+
+   The latter method is recommended, because one might not know beforehand
+   what to analyze.
+   For example, the interesting resonance frequencies are often not know before
+   the time-propagation calculation.
+
+In the following we give an example how to utilize the replaying capability
+in practice and describe some analysis tools available in GPAW.
+
+
+Example
+-------
+
 We use a finite sodium atom chain as an example system.
 First, let's do the ground-state calculation:
 
@@ -211,7 +264,7 @@ Recording the wave functions and replaying the time propagation
 ---------------------------------------------------------------
 
 We can record the time-dependent wave functions during the propagation
-with ``WaveFunctionWriter()`` observer:
+with ``WaveFunctionWriter`` observer:
 
 .. literalinclude:: lcaotddft_Na8/td.py
 
@@ -228,7 +281,7 @@ We can use the file to replay the time propagation:
 
 .. literalinclude:: lcaotddft_Na8/td_replay.py
 
-The ``update`` keyword in ``propagator`` has following options:
+The ``update`` keyword in ``replay()`` has following options:
 
 ==============  ===============================
 ``update``      variables updated during replay
