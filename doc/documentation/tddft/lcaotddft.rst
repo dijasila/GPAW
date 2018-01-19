@@ -205,7 +205,7 @@ Modular analysis tools
 In :ref:`example` it was demonstrated how to calculate photoabsorption
 spectrum from the time-dependent dipole moment data collected with
 ``DipoleMomentWriter`` observer.
-However, any (also user-written) analysis tools can be embedded
+However, any (also user-written) analysis tools can be attached
 as a separate observers in the general time-propagation framework.
 
 There are two ways to perform analysis:
@@ -292,8 +292,8 @@ The ``update`` keyword in ``replay()`` has following options:
 ==============  ===============================
 
 
-Kohn--Sham decomposition of the density matrix
-----------------------------------------------
+Kohn--Sham decomposition of density matrix
+------------------------------------------
 
 Kohn--Sham decomposition is an illustrative way of analyzing electronic
 excitations in Kohn--Sham electron-hole basis.
@@ -319,12 +319,6 @@ Frequency-space density matrix
 We generate the density matrix for the frequencies of interest:
 
 .. literalinclude:: lcaotddft_Na8/td_fdm_replay.py
-
-.. tip::
-
-   Instead of replaying the propagation, one can do the same analysis
-   on-the-fly by attaching the analysis tools to
-   the usual time-propagation calculation.
 
 Transform the density matrix to Kohn--Sham electron-hole basis
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
