@@ -1,5 +1,4 @@
 from gpaw.response.g0w0 import G0W0
-import sys
 from ase.build import mx2
 from gpaw import GPAW, PW, FermiDirac
 
@@ -12,7 +11,7 @@ Ecut = 400
 calc = GPAW(mode=PW(Ecut),
             xc='PBE',
             basis='dzp',
-            kpts={'size': (9,9,1), 'gamma': True},
+            kpts={'size': (9, 9, 1), 'gamma': True},
             occupations=FermiDirac(0.01),
             txt='MoS2_out_gs.txt')
 
@@ -30,8 +29,7 @@ for ecut in [80]:
               truncation='2D',
               nblocksmax=True,
               anisotropy_correction=True,
-              filename='MoS2_g0w0_%s' %ecut,
+              filename='MoS2_g0w0_{}'.format(ecut),
               savepckl=True)
 
     gw.calculate()
-

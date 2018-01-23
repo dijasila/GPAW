@@ -12,6 +12,6 @@ def agts(queue):
     queue.add('BN_GW0_plot.py', deps=bn, creates='BN_GW0.png')
 
     mos2 = queue.add('MoS2_gs_GW.py', walltime=70)
-    mos2_gwg = queue.add('MoS2_GWG.py', ncpus=8, walltime=20)
-    queue.add('MoS2_bs_plot.py', deps=[mos2, mos2_gwg], creates='MoS2_bs.png')
-    queue.add('check_gw.py', deps=[mos2, mos2_gwg])
+    mos2_gwg = queue.add('MoS2_GWG.py', deps=mos2, ncpus=8, walltime=20)
+    queue.add('MoS2_bs_plot.py', deps=mos2_gwg, creates='MoS2_bs.png')
+    queue.add('check_gw.py', deps=mos2_gwg)
