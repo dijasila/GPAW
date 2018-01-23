@@ -1,5 +1,5 @@
 def agts(queue):
-    conv = queue.add('C_ecut_k_conv_GW.py', ncpus=8, walltime=10 * 60)
+    conv = queue.add('C_ecut_k_conv_GW.py', ncpus=8, walltime=20 * 60)
     queue.add('C_ecut_k_conv_plot_GW.py', deps=conv, creates='C_GW.png')
     queue.add('C_ecut_extrap.py', deps=conv, creates='C_GW_k8_extrap.png')
 
