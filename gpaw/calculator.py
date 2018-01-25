@@ -238,7 +238,7 @@ class GPAW(PAW, Calculator):
         self.hamiltonian.xc.read(reader)
 
         if self.hamiltonian.xc.name == 'GLLBSC':
-            # XXX GLLB: See lcao/tdgllbsc.py test
+            # XXX GLLB: See test/lcaotddft/gllbsc.py
             self.occupations.calculate(self.wfs)
 
         return reader
