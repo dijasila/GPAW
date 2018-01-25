@@ -2,7 +2,6 @@ import numpy as np
 
 from gpaw.mixer import DummyMixer
 from gpaw.xc import XC
-from gpaw.xc.kernel import XCNull
 
 from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import write_uMM
@@ -28,6 +27,7 @@ class KickHamiltonian(object):
 
 class TimeDependentHamiltonian(object):
     def __init__(self, fxc=None):
+        assert fxc is None or isinstance(fxc, str)
         self.fxc_name = fxc
 
     def write(self, writer):
@@ -54,6 +54,7 @@ class TimeDependentHamiltonian(object):
         self.wfs = paw.wfs
         self.density = paw.density
         self.hamiltonian = paw.hamiltonian
+        self.occupations = paw.occupations
         niter = paw.niter
 
         # Reset the density mixer
@@ -82,12 +83,16 @@ class TimeDependentHamiltonian(object):
 
         # Update hamiltonian.xc
         if self.fxc_name == 'RPA':
-            xc = XCNull()
+            xc_name = 'null'
         else:
-            xc = self.fxc_name
+            xc_name = self.fxc_name
         # XXX: xc is not written to the gpw file
         # XXX: so we need to set it always
-        self.hamiltonian.xc = XC(xc)
+        xc = XC(xc_name)
+        xc.initialize(self.density, self.hamiltonian, self.wfs,
+                      self.occupations)
+        xc.set_positions(self.hamiltonian.spos_ac)
+        self.hamiltonian.xc = xc
         self.update()
 
         # Calculate deltaXC: 2. update with new H_MM
