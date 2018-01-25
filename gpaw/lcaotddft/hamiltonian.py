@@ -72,6 +72,9 @@ class TimeDependentHamiltonian(object):
         if not self.has_fxc:
             return
         self.timer.start('Initialize fxc')
+        # XXX: Similar functionality is available in
+        # paw.py: PAW.linearize_to_xc(self, newxc)
+        # See test/lcaotddft/fxc_vs_linearize.py
 
         get_H_MM = self.get_hamiltonian_matrix
 
