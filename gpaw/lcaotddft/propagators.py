@@ -23,7 +23,7 @@ def create_propagator(name, **kwargs):
     elif name.endswith('.ulm'):
         return ReplayPropagator(name, **kwargs)
     else:
-        raise RuntimeError('Unknown propagator: %s' % name)
+        raise ValueError('Unknown propagator: %s' % name)
 
 
 def equal(a, b, eps=1e-8):
