@@ -19,10 +19,8 @@ from gpaw.test import equal
 def relative_equal(x, y, *args, **kwargs):
     return equal(np.zeros_like(x), (x - y) / x, *args, **kwargs)
 
-name = 'NaCl'
-
 # Atoms
-atoms = molecule(name)
+atoms = molecule('NaCl')
 atoms.center(vacuum=4.0)
 
 # Ground-state calculation
@@ -30,47 +28,44 @@ calc = GPAW(nbands=6, h=0.4, setups=dict(Na='1'),
             basis='dzp', mode='lcao',
             poissonsolver=PoissonSolver(eps=1e-16),
             convergence={'density': 1e-8},
-            txt='%s_gs.out' % name)
+            txt='gs.out')
 atoms.set_calculator(calc)
 energy = atoms.get_potential_energy()
-calc.write('%s_gs.gpw' % name, mode='all')
+calc.write('gs.gpw', mode='all')
 
 # Time-propagation calculation
-td_calc = LCAOTDDFT('%s_gs.gpw' % name,
-                    txt='%s_td.out' % name)
+td_calc = LCAOTDDFT('gs.gpw', txt='td.out')
 dmat = DensityMatrix(td_calc)
 freqs = frequencies(range(0, 31, 5), 'Gauss', 0.1)
 fdm = FrequencyDensityMatrix(td_calc, dmat, frequencies=freqs)
-DipoleMomentWriter(td_calc, '%s_dm.dat' % name)
+DipoleMomentWriter(td_calc, 'dm.dat')
 kick_v = np.ones(3) * 1e-5
 td_calc.absorption_kick(kick_v)
 td_calc.propagate(20, 3)
-fdm.write('%s_fdm.ulm' % name)
+fdm.write('fdm.ulm')
 
 # Calculate reference spectrum
-photoabsorption_spectrum('%s_dm.dat' % name, '%s_spec.dat' % name, delta_e=5,
-                         width=0.1)
+photoabsorption_spectrum('dm.dat', 'spec.dat', delta_e=5, width=0.1)
 world.barrier()
-ref_wv = np.loadtxt('%s_spec.dat' % name)[:, 1:]
+ref_wv = np.loadtxt('spec.dat')[:, 1:]
 
 # Calculate ground state with full unoccupied space
-calc = GPAW('%s_gs.gpw' % name, nbands='nao', fixdensity=True,
-            txt='%s_unocc.out' % name)
+calc = GPAW('gs.gpw', nbands='nao', fixdensity=True, txt='unocc.out')
 atoms = calc.get_atoms()
 energy = atoms.get_potential_energy()
-calc.write('%s_unocc.gpw' % name, mode='all')
+calc.write('unocc.gpw', mode='all')
 
 # Construct KS electron-hole basis
 ksd = KohnShamDecomposition(calc)
 ksd.initialize(calc)
-ksd.write('%s_ksd.ulm' % name)
+ksd.write('ksd.ulm')
 
 # Load the objects
-calc = GPAW('%s_unocc.gpw' % name, txt=None)
+calc = GPAW('unocc.gpw', txt=None)
 calc.initialize_positions()  # Initialize in order to calculate density
-ksd = KohnShamDecomposition(calc, '%s_ksd.ulm' % name)
+ksd = KohnShamDecomposition(calc, 'ksd.ulm')
 dmat = DensityMatrix(calc)
-fdm = FrequencyDensityMatrix(calc, dmat, '%s_fdm.ulm' % name)
+fdm = FrequencyDensityMatrix(calc, dmat, 'fdm.ulm')
 
 for w in range(1, len(fdm.freq_w)):
     rho_uMM = fdm.FReDrho_wuMM[w]

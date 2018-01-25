@@ -9,10 +9,8 @@ from gpaw.mpi import world
 
 from gpaw.test import equal
 
-name = 'Na2'
-
 # Atoms
-atoms = molecule(name)
+atoms = molecule('Na2')
 atoms.center(vacuum=4.0)
 
 # Ground-state calculation
@@ -20,22 +18,20 @@ calc = GPAW(nbands=2, h=0.4, setups=dict(Na='1'),
             basis='dzp', mode='lcao',
             poissonsolver=PoissonSolver(eps=1e-16),
             convergence={'density': 1e-8},
-            txt='%s_gs.out' % name)
+            txt='gs.out')
 atoms.set_calculator(calc)
 energy = atoms.get_potential_energy()
-calc.write('%s_gs.gpw' % name, mode='all')
+calc.write('gs.gpw', mode='all')
 
 # Time-propagation calculation with fxc
-td_calc = LCAOTDDFT('%s_gs.gpw' % name,
-                    fxc='RPA',
-                    txt='%s_td.out' % name)
-DipoleMomentWriter(td_calc, '%s_dm.dat' % name)
+td_calc = LCAOTDDFT('gs.gpw', fxc='RPA', txt='td.out')
+DipoleMomentWriter(td_calc, 'dm.dat')
 td_calc.absorption_kick(np.ones(3) * 1e-5)
 td_calc.propagate(20, 3)
 world.barrier()
 
 # Check dipole moment file
-data = np.loadtxt('%s_dm.dat' % name)[:, 2:].ravel()
+data = np.loadtxt('dm.dat')[:, 2:].ravel()
 if 0:
     from gpaw.test import print_reference
     print_reference(data, 'ref', '%.12le')
