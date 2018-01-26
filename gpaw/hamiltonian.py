@@ -204,7 +204,6 @@ class Hamiltonian:
         self.vt_xG = self.gd.empty(self.ncomponents)
         self.vt_sG = self.vt_xG[:self.nspins]
         self.vt_vG = self.vt_xG[self.nspins:]
-        self.poisson.initialize()
 
     def update(self, density):
         """Calculate effective potential.
@@ -449,7 +448,7 @@ class Hamiltonian:
         atomic_e_xc = 0.0
         for a, D_sp in D_asp.items():
             setup = self.setups[a]
-            atomic_e_xc += xc.calculate_paw_correction(setup, D_sp)
+            atomic_e_xc += xc.calculate_paw_correction(setup, D_sp, a=a)
         e_xc = finegd_e_xc + self.world.sum(atomic_e_xc)
         return e_xc - self.e_xc
 

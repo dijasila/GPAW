@@ -133,7 +133,6 @@ class HybridXC(HybridXCBase):
                         [setup.ghat_l for setup in density.setups],
                         integral=np.sqrt(4 * np.pi), forces=True)
         self.poissonsolver.set_grid_descriptor(self.finegd)
-        self.poissonsolver.initialize()
 
     def set_positions(self, spos_ac):
         self.ghat.set_positions(spos_ac)

@@ -9,9 +9,11 @@ synchronize_atoms(system, world)
 if world.rank == 1:
     system.positions[1, 1] += 1e-8  # fail (above tolerance)
 if world.rank == 2:
-    system.cell[0, 0] += 1e-15  # fail (zero tolerance)
+    system.cell[0, 0] += 1e-7  # fail (above tolerance)
 if world.rank == 3:
     system.positions[1, 1] += 1e-10  # pass (below tolerance)
+if world.rank == 4:
+    system.cell[0, 1] += 1e-10 # pass (below tolerance)
 
 expected_err_ranks = {1: [], 2: [1]}.get(world.size, [1, 2])
 

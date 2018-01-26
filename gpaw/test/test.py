@@ -49,6 +49,8 @@ class CLICommand:
         add('-d', '--directory', help='Run test in this directory')
         add('-s', '--show-output', action='store_true',
             help='Show standard output from tests.')
+        add('--list', action='store_true',
+            help='list the full list of tests, then exit')
 
     @staticmethod
     def run(args):
@@ -60,6 +62,12 @@ def main(args):
         from gpaw.test import tests
     else:
         tests = args.tests
+
+    if args.list:
+        mydir, _ = os.path.split(__file__)
+        for test in tests:
+            print(os.path.join(mydir, test))
+        return
 
     if args.reverse:
         tests.reverse()

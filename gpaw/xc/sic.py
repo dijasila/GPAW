@@ -209,7 +209,6 @@ class SIC(XCFunctional):
 
         poissonsolver = PoissonSolver(eps=1e-14)
         poissonsolver.set_grid_descriptor(self.finegd)
-        poissonsolver.initialize()
 
         self.spin_s = {}
         for kpt in wfs.kpt_u:

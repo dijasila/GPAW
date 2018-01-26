@@ -269,7 +269,12 @@ class DielectricFunction:
                 chi_GG /= vsqr_G * vsqr_G[:, np.newaxis]
             chi_wGG.append(chi_GG)
 
-        return pd, chi0_wGG, np.array(chi_wGG)
+        if len(chi_wGG):
+            chi_wGG = np.array(chi_wGG)
+        else:
+            chi_wGG = np.zeros((0, nG, nG), complex)
+
+        return pd, chi0_wGG, chi_wGG
 
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
@@ -365,11 +370,17 @@ class DielectricFunction:
             chi0_GG[:] = e_GG
 
         # chi0_wGG is now the dielectric matrix
+        if calculate_chi:
+            if len(chi_wGG):
+                chi_wGG = np.array(chi_wGG)
+            else:
+                chi_wGG = np.zeros((0, nG, nG), complex)
+
         if not calculate_chi:
             return chi0_wGG
         else:
             # chi_wGG is the full density response function..
-            return pd, chi0_wGG, np.array(chi_wGG)
+            return pd, chi0_wGG, chi_wGG
 
     def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0], q_v=None,
                                 direction='x', filename='df.csv'):
