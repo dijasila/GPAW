@@ -28,7 +28,7 @@ for ecut in [80]:
               ecut=ecut,
               truncation='2D',
               nblocksmax=True,
-              anisotropy_correction=True,
+              q0_correction=True,
               filename='MoS2_g0w0_{}'.format(ecut),
               savepckl=True)
 
