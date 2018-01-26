@@ -84,7 +84,10 @@ class GPAWLogger(object):
         c = getattr(_gpaw, '__file__', None)
         if not c:
             c = sys.executable
-        self('_gpaw: ', cut(os.path.normpath(c)))
+        line = os.path.normpath(c)
+        if hasattr(_gpaw, 'githash'):
+            line += ' ({:.10})'.format(_gpaw.githash())
+        self('_gpaw: ', cut(line))
 
         # ASE
         line = '%s (version %s' % (os.path.dirname(ase.__file__), ase_version)
@@ -158,7 +161,7 @@ class GPAWLogger(object):
         self('Date: ' + time.asctime())
 
 
-def cut(s, indent='       '):
+def cut(s, indent='        '):
     if len(s) + len(indent) < 80:
         return s
     s1, s2 = s.rsplit('/', 1)
