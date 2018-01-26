@@ -67,6 +67,7 @@ class TimeLimiter(Observer):
         self.do_output = self.output is not None
         if self.comm.rank == 0 and self.do_output:
             self.outf = open(self.output, 'w')
+        self.loop = None
         paw.attach(self, interval, paw)
 
     def reset(self, loop, order=0, min_updates=5):
@@ -94,7 +95,9 @@ class TimeLimiter(Observer):
     def update(self, paw):
         """Update time estimate and break calculation if necessary."""
         # Use paw.niter as iteration index
-        if self.loop == self.scf:
+        if self.loop is None:
+            return
+        elif self.loop == self.scf:
             iteridx = paw.scf.niter
         elif self.loop == self.tddft:
             iteridx = paw.niter
