@@ -2,49 +2,18 @@ from __future__ import print_function, division
 import os
 import sys
 import time
-import string
 
 import numpy as np
 import ase
 from ase import __version__ as ase_version
 from ase.utils import convert_string_to_fd
+from ase.utils import search_current_git_hash
 
 import gpaw
 import _gpaw
 from gpaw.utilities.memory import maxrss
 from gpaw import dry_run, extra_parameters
 from gpaw.mpi import world
-
-
-def search_current_git_commit_hash(module):
-    if world.rank != 0:
-        return None
-    dpath = os.path.dirname(module.__file__)
-    dpath = os.path.abspath(dpath)
-    dpath = os.path.dirname(dpath)  # Go to the parent directory
-    git_dpath = os.path.join(dpath, '.git')
-    if not os.path.isdir(git_dpath):
-        # Replace this 'if' with a loop if you want to check
-        # further parent directories
-        return None
-    HEAD_file = os.path.join(git_dpath, 'HEAD')
-    if not os.path.isfile(HEAD_file):
-        return None
-    with open(HEAD_file, 'r') as f:
-        line = f.readline().strip()
-    if line.startswith('ref: '):
-        ref = line[5:]
-        ref_file = os.path.join(git_dpath, ref)
-    else:
-        # Assuming detached HEAD state
-        ref_file = HEAD_file
-    if not os.path.isfile(ref_file):
-        return None
-    with open(ref_file, 'r') as f:
-        line = f.readline().strip()
-    if all(c in string.hexdigits for c in line):
-        return line
-    return None
 
 
 class GPAWLogger(object):
@@ -104,12 +73,12 @@ class GPAWLogger(object):
         self('Arch:  ', machine)
         self('Pid:   ', os.getpid())
         self('Python: {0}.{1}.{2}'.format(*sys.version_info[:3]))
-        self('gpaw:  ', os.path.dirname(gpaw.__file__))
-
-        # Try to find GPAW git commit
-        commit = search_current_git_commit_hash(gpaw)
-        if commit is not None:
-            self('commit:', commit)
+        # GPAW
+        line = os.path.dirname(gpaw.__file__)
+        githash = search_current_git_hash(gpaw, self.world)
+        if githash is not None:
+            line += ' ({:.10})'.format(githash)
+        self('gpaw:  ', line)
 
         # Find C-code:
         c = getattr(_gpaw, '__file__', None)
@@ -117,13 +86,13 @@ class GPAWLogger(object):
             c = sys.executable
         self('_gpaw: ', cut(os.path.normpath(c)))
 
-        self('ase:    %s (version %s)' %
-             (os.path.dirname(ase.__file__), ase_version))
-
-        # Try to find ASE git commit
-        commit = search_current_git_commit_hash(ase)
-        if commit is not None:
-            self('commit:', commit)
+        # ASE
+        line = '%s (version %s' % (os.path.dirname(ase.__file__), ase_version)
+        githash = search_current_git_hash(ase, self.world)
+        if githash is not None:
+            line += '-{:.10}'.format(githash)
+        line += ')'
+        self('ase:   ', line)
 
         self('numpy:  %s (version %s)' %
              (os.path.dirname(np.__file__), np.version.version))
