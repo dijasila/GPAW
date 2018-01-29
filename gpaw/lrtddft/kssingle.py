@@ -329,7 +329,7 @@ class KSSingles(ExcitationList):
             f.close()
 
     def overlap(self, ov_nn, other):
-        """Matrix element overlap determined from wave function overlaps.
+        """Matrix element overlaps determined from wave function overlaps.
 
         Parameters
         ----------
@@ -341,7 +341,9 @@ class KSSingles(ExcitationList):
         Returns
         -------
         ov_pp: array
-            Overlap corresponding to matrix elements
+            Overlap corresponding to matrix elements.
+            Index 0 corresponds to our own matrix elements conjugated and
+            index 1 to the others' matrix elements
         """
         n0 = len(self)
         n1 = len(other)
