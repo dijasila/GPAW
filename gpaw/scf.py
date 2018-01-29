@@ -181,6 +181,9 @@ class SCFLoop:
 
         if wfs.nspins == 2:
             log('  %+.4f' % occ.magmom, end='')
+        elif not wfs.collinear:
+            totmom_v, magmom_av = dens.estimate_magnetic_moments()
+            log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')
 
         log(flush=True)
 
