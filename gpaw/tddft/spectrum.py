@@ -213,7 +213,7 @@ def polarizability_spectrum(dipole_moment_file, spectrum_file,
         Energy resolution (eV)
     """
     if world.rank == 0:
-        print('Calculating photoabsorption spectrum from file "%s"'
+        print('Calculating polarizability spectrum from file "%s"'
               % dipole_moment_file)
 
         def calculate(*args):
@@ -222,5 +222,5 @@ def polarizability_spectrum(dipole_moment_file, spectrum_file,
                               folding, width, e_min, e_max, delta_e,
                               'Polarizability', 'alpha', calculate)
         print('Sinc contamination %.8f' % sinc)
-        print('Calculated photoabsorption spectrum saved to file "%s"'
+        print('Calculated polarizability spectrum saved to file "%s"'
               % spectrum_file)
