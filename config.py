@@ -107,6 +107,13 @@ def get_system_config(define_macros, undef_macros,
         library_dirs += ['/usr/local/lib']   # libxc installed with Homebrew
         extra_link_args += ['-framework', 'Accelerate']  # BLAS
 
+        # If the user uses python 3 from homebrew, then installation would
+        # fail due to a broken LINKFORSHARED configuration variable
+        cfgDict = get_config_vars()
+        if ('LINKFORSHARED' in cfgDict and
+            'Python.framework/Versions/3.6' in cfgDict['LINKFORSHARED']):
+            cfgDict['LINKFORSHARED'] = '-l python3.6'
+            
         # We should probably add something to allow for user-installed BLAS?
 
     elif machine in ['x86_64', 'ppc64', 'ppc64le', 'aarch64', 's390x']:

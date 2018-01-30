@@ -88,7 +88,8 @@ def run(formula='H2O', vacuum=2.0, cell=None, pbc=0, **morekwargs):
         print(formula, vacuum, cell, pbc, morekwargs, file=stderr)
         print(parallel, file=stderr)
         raise AssertionError(msg)
-        
+
+
 # reference:
 # state-parallelization = 1,
 # domain-decomposition = (1, 2, 2)
@@ -176,7 +177,7 @@ if compiled_with_sl():
     # domain-decomposition = (1, 2, 2)
     parallel['domain'] = (1, 2, 2)
     run(**OH_kwargs)
-    
+
     # do last test with buffer_size keyword
     parallel['buffer_size'] = 50
     run(**OH_kwargs)

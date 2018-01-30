@@ -1,6 +1,7 @@
 import numpy as np
 from ase.units import Hartree
 
+from gpaw.projections import Projections
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.blas import gemm, axpy
 from gpaw.utilities.partition import AtomPartition
@@ -34,10 +35,11 @@ class WaveFunctions:
         MPI-communicator for parallelization over **k**-points.
     """
 
-    def __init__(self, gd, nvalence, setups, bd, dtype,
+    def __init__(self, gd, nvalence, setups, bd, dtype, collinear,
                  world, kd, kptband_comm, timer):
         self.gd = gd
         self.nspins = kd.nspins
+        self.collinear = collinear
         self.nvalence = nvalence
         self.bd = bd
         self.dtype = dtype
@@ -48,7 +50,7 @@ class WaveFunctions:
         self.timer = timer
         self.atom_partition = None
 
-        self.kpt_u = kd.create_k_points(self.gd)
+        self.mykpts = kd.create_k_points(self.gd, collinear)
 
         self.eigensolver = None
         self.positions_set = False
@@ -56,8 +58,10 @@ class WaveFunctions:
 
         self.set_setups(setups)
 
-    def __str__(self):
-        return '  Eigensolver: ' + str(self.eigensolver)
+    @property
+    def kpt_u(self):
+        """Old name."""
+        return self.mykpts
 
     def summary(self, log):
         log(eigenvalue_string(self))
@@ -114,8 +118,17 @@ class WaveFunctions:
             gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
             D_sii[kpt.s] += D_ii.real
         else:
-            P_ni = kpt.P_ani[a]
-            D_sii[kpt.s] += np.dot(P_ni.T.conj() * f_n, P_ni).real
+            if self.collinear:
+                P_ni = kpt.P[a]
+                D_sii[kpt.s] += np.dot(P_ni.T.conj() * f_n, P_ni).real
+            else:
+                P_nsi = kpt.P[a]
+                D_ssii = np.einsum('nsi,n,nzj->szij',
+                                   P_nsi.conj(), f_n, P_nsi)
+                D_sii[0] += (D_ssii[0, 0] + D_ssii[1, 1]).real
+                D_sii[1] += 2 * D_ssii[0, 1].real
+                D_sii[2] += 2 * D_ssii[0, 1].imag
+                D_sii[3] += (D_ssii[0, 0] - D_ssii[1, 1]).real
 
         if hasattr(kpt, 'c_on'):
             for ne, c_n in zip(kpt.ne_o, kpt.c_on):
@@ -150,32 +163,15 @@ class WaveFunctions:
         if len(self.kd.symmetry.op_scc) == 0:
             return
 
-        if hasattr(D_asp, 'redistribute'):
-            a_sa = self.kd.symmetry.a_sa
-            D_asp.redistribute(self.atom_partition.as_serial())
-            for s in range(self.nspins):
-                D_aii = [unpack2(D_asp[a][s])
-                         for a in range(len(D_asp))]
-                for a, D_ii in enumerate(D_aii):
-                    setup = self.setups[a]
-                    D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
-            D_asp.redistribute(self.atom_partition)
-        else:
-            all_D_asp = []
-            for a, setup in enumerate(self.setups):
-                D_sp = D_asp.get(a)
-                if D_sp is None:
-                    ni = setup.ni
-                    D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
-                self.gd.comm.broadcast(D_sp, self.atom_partition.rank_a[a])
-                all_D_asp.append(D_sp)
-
-            for s in range(self.nspins):
-                D_aii = [unpack2(D_sp[s]) for D_sp in all_D_asp]
-                for a, D_sp in D_asp.items():
-                    setup = self.setups[a]
-                    D_sp[s] = pack(setup.symmetrize(a, D_aii,
-                                                    self.kd.symmetry.a_sa))
+        a_sa = self.kd.symmetry.a_sa
+        D_asp.redistribute(self.atom_partition.as_serial())
+        for s in range(self.nspins):
+            D_aii = [unpack2(D_asp[a][s])
+                     for a in range(len(D_asp))]
+            for a, D_ii in enumerate(D_aii):
+                setup = self.setups[a]
+                D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
+        D_asp.redistribute(self.atom_partition)
 
     def set_positions(self, spos_ac, atom_partition=None):
         self.positions_set = False
@@ -190,32 +186,28 @@ class WaveFunctions:
             atom_partition = AtomPartition(self.gd.comm, rank_a)
 
         if self.atom_partition is not None and self.kpt_u[0].P_ani is not None:
-            self.timer.start('Redistribute')
-            mynks = len(self.kpt_u)
-
-            def get_empty(a):
-                ni = self.setups[a].ni
-                return np.empty((mynks, self.bd.mynbands, ni), self.dtype)
-            self.atom_partition.redistribute(atom_partition,
-                                             [kpt.P_ani for kpt in self.kpt_u],
-                                             get_empty)
-            self.timer.stop('Redistribute')
+            with self.timer('Redistribute'):
+                for kpt in self.mykpts:
+                    assert self.atom_partition == kpt.P.atom_partition
+                    kpt.P = kpt.P.redist(atom_partition)
+                    assert atom_partition == kpt.P.atom_partition
 
         self.atom_partition = atom_partition
         self.kd.symmetry.check(spos_ac)
         self.spos_ac = spos_ac
 
-    def allocate_arrays_for_projections(self, my_atom_indices):
-        if not self.positions_set and self.kpt_u[0].P_ani is not None:
+    def allocate_arrays_for_projections(self, my_atom_indices):  # XXX unused
+        if not self.positions_set and self.mykpts[0].P is not None:
             # Projections have been read from file - don't delete them!
             pass
         else:
-            for kpt in self.kpt_u:
-                kpt.P_ani = {}
-            for a in my_atom_indices:
-                ni = self.setups[a].ni
-                for kpt in self.kpt_u:
-                    kpt.P_ani[a] = np.empty((self.bd.mynbands, ni), self.dtype)
+            nproj_a = [setup.ni for setup in self.setups]
+            for kpt in self.mykpts:
+                kpt.P = Projections(
+                    self.bd.nbands, nproj_a,
+                    self.atom_partition,
+                    self.bd.comm,
+                    collinear=self.collinear, spin=kpt.s, dtype=self.dtype)
 
     def collect_eigenvalues(self, k, s):
         return self.collect_array('eps_n', k, s)
@@ -303,7 +295,7 @@ class WaveFunctions:
             self.kd.comm.receive(b_o, kpt_rank, 1302)
             return b_o
 
-    def collect_projections(self, k, s, asdict=False):
+    def collect_projections(self, k, s):
         """Helper method for collecting projector overlaps across domains.
 
         For the parallel case find the rank in kpt_comm that contains
@@ -311,48 +303,18 @@ class WaveFunctions:
 
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
 
-        natoms = self.atom_partition.natoms
-        nproj = sum(setup.ni for setup in self.setups)
-
+        if self.kd.comm.rank == kpt_rank:
+            kpt = self.mykpts[u]
+            P_nI = kpt.P.collect()
+            if self.world.rank == 0:
+                return P_nI
+            if P_nI is not None:
+                self.kd.comm.send(np.ascontiguousarray(P_nI), 0)
         if self.world.rank == 0:
-            if kpt_rank == 0:
-                P_ani = self.kpt_u[u].P_ani
-            all_P_ni = np.empty((self.bd.nbands, nproj), self.dtype)
-            for band_rank in range(self.bd.comm.size):
-                nslice = self.bd.get_slice(band_rank)
-                i = 0
-                for a in range(natoms):
-                    ni = self.setups[a].ni
-                    if kpt_rank == 0 and band_rank == 0 and a in P_ani:
-                        P_ni = P_ani[a]
-                    else:
-                        P_ni = np.empty((self.bd.mynbands, ni), self.dtype)
-                        # XXX will fail with nonstandard communicator nesting
-                        world_rank = (self.atom_partition.rank_a[a] +
-                                      kpt_rank * self.gd.comm.size *
-                                      self.bd.comm.size +
-                                      band_rank * self.gd.comm.size)
-                        self.world.receive(P_ni, world_rank, 1303 + a)
-                    all_P_ni[nslice, i:i + ni] = P_ni
-                    i += ni
-                assert i == nproj
-
-            if asdict:
-                i = 0
-                P_ani = {}
-                for a in range(natoms):
-                    ni = self.setups[a].ni
-                    P_ani[a] = all_P_ni[:, i:i + ni]
-                    i += ni
-                return P_ani
-
-            return all_P_ni
-
-        elif self.kd.comm.rank == kpt_rank:  # plain else works too...
-            P_ani = self.kpt_u[u].P_ani
-            for a in range(natoms):
-                if a in P_ani:
-                    self.world.ssend(P_ani[a], 0, 1303 + a)
+            nproj = sum(setup.ni for setup in self.setups)
+            P_nI = np.empty((self.bd.nbands, nproj), self.dtype)
+            self.kd.comm.receive(P_nI, kpt_rank)
+            return P_nI
 
     def get_wave_function_array(self, n, k, s, realspace=True, periodic=False):
         """Return pseudo-wave-function array on master.
@@ -421,7 +383,7 @@ class WaveFunctions:
         n = self.nvalence // 2
         band_rank, myn = self.bd.who_has(n - 1)
         homo = -np.inf
-        if self.bd.rank == band_rank:
+        if self.bd.comm.rank == band_rank:
             for kpt in self.kpt_u:
                 if kpt.s == spin:
                     homo = max(kpt.eps_n[myn], homo)
@@ -430,7 +392,7 @@ class WaveFunctions:
         lumo = np.inf
         if n < self.bd.nbands:  # there are not enough bands for LUMO
             band_rank, myn = self.bd.who_has(n)
-            if self.bd.rank == band_rank:
+            if self.bd.comm.rank == band_rank:
                 for kpt in self.kpt_u:
                     if kpt.s == spin:
                         lumo = min(kpt.eps_n[myn], lumo)
@@ -468,6 +430,9 @@ class WaveFunctions:
     def read(self, reader):
         nslice = self.bd.get_slice()
         r = reader.wave_functions
+        nproj_a = [setup.ni for setup in self.setups]
+        atom_partition = AtomPartition(self.gd.comm,
+                                       np.zeros(len(nproj_a), int))
         for u, kpt in enumerate(self.kpt_u):
             eps_n = r.proxy('eigenvalues', kpt.s, kpt.k)[nslice]
             f_n = r.proxy('occupations', kpt.s, kpt.k)[nslice]
@@ -481,15 +446,13 @@ class WaveFunctions:
                 eps_n /= reader.ha
             kpt.eps_n = eps_n
             kpt.f_n = f_n
+            kpt.P = Projections(
+                self.bd.nbands, nproj_a,
+                atom_partition, self.bd.comm,
+                collinear=self.collinear, spin=kpt.s, dtype=self.dtype)
             if self.gd.comm.rank == 0:
-                P_nI = r.proxy('projections', kpt.s, kpt.k)[:]
-            I1 = 0
-            kpt.P_ani = {}
-            for a, setup in enumerate(self.setups):
-                I2 = I1 + setup.ni
-                if self.gd.comm.rank == 0:
-                    kpt.P_ani[a] = np.array(P_nI[nslice, I1:I2], self.dtype)
-                I1 = I2
+                P_nI = r.proxy('projections', kpt.s, kpt.k)[nslice]
+                kpt.P.matrix.array[:] = P_nI
 
 
 def eigenvalue_string(wfs, comment=' '):

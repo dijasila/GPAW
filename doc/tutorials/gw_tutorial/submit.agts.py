@@ -1,5 +1,5 @@
 def agts(queue):
-    conv = queue.add('C_ecut_k_conv_GW.py', ncpus=8, walltime=10 * 60)
+    conv = queue.add('C_ecut_k_conv_GW.py', ncpus=8, walltime=20 * 60)
     queue.add('C_ecut_k_conv_plot_GW.py', deps=conv, creates='C_GW.png')
     queue.add('C_ecut_extrap.py', deps=conv, creates='C_GW_k8_extrap.png')
 
@@ -12,4 +12,6 @@ def agts(queue):
     queue.add('BN_GW0_plot.py', deps=bn, creates='BN_GW0.png')
 
     mos2 = queue.add('MoS2_gs_GW.py', walltime=70)
-    queue.add('MoS2_bs_plot.py', deps=mos2, creates='MoS2_bs.png')
+    mos2_gwg = queue.add('MoS2_GWG.py', deps=mos2, ncpus=8, walltime=20)
+    queue.add('MoS2_bs_plot.py', deps=mos2_gwg, creates='MoS2_bs.png')
+    queue.add('check_gw.py', deps=mos2_gwg)

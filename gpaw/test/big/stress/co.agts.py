@@ -1,7 +1,7 @@
 def agts(queue):
     co = queue.add('co.py', ncpus=4, walltime=5 * 60)
     queue.add('co.agts.py', deps=co)
- 
+
 
 if __name__ == '__main__':
     import numpy as np

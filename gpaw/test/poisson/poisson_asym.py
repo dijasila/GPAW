@@ -14,7 +14,6 @@ Nc = (N, N, N)                # Number of grid points along each axis
 gd = GridDescriptor(Nc, (a, a, a), 0)    # Grid-descriptor object
 solver = PoissonSolver(nn=3, use_charge_center=True)
 solver.set_grid_descriptor(gd)
-solver.initialize()
 gauss = Gaussian(gd, a=inv_width, center=center_of_charge)
 test_poisson = Gaussian(gd, a=inv_width, center=center_of_charge)
 

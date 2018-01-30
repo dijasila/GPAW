@@ -116,8 +116,10 @@ class ExtendedPoissonSolver(FDPoissonSolver):
         return '\n'.join(lines)
 
     @timer('Poisson initialize')
-    def initialize(self, load_gauss=False):
-        FDPoissonSolver.initialize(self, load_gauss=load_gauss)
+    def _init(self):
+        if self._initialized:
+            return
+        FDPoissonSolver._init(self)
 
         if self.is_extended:
             if not self.gd.orthogonal or self.gd.pbc_c.all():
@@ -177,6 +179,7 @@ class ExtendedPoissonSolver(FDPoissonSolver):
 
     def solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
               zero_initial_phi=False):
+        self._init()
         if self.is_extended:
             self.rho_g[:] = 0
             if not self.extended['useprev']:
@@ -201,6 +204,7 @@ class ExtendedPoissonSolver(FDPoissonSolver):
     @timer('Solve')
     def _solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
                zero_initial_phi=False):
+        self._init()
         if eps is None:
             eps = self.eps
 

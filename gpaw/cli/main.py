@@ -27,7 +27,7 @@ commands = [
     ('install-data', 'gpaw.cli.install_data')]
 
 
-def hook(parser):
+def hook(parser, args):
     parser.add_argument('-P', '--parallel', type=int, metavar='N', default=1,
                         help="Run on N CPUs.")
     args = parser.parse_args()

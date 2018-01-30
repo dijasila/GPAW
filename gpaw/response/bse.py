@@ -344,7 +344,7 @@ class BSE:
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
         G_Gv = pd.get_reciprocal_vectors()
-        pos_ac = self.calc.atoms.get_scaled_positions()
+        pos_ac = self.calc.spos_ac
         pos_av = np.dot(pos_ac, pd.gd.cell_cv)
         M_vv = np.dot(pd.gd.cell_cv.T, np.dot(U_cc.T,
                                               np.linalg.inv(pd.gd.cell_cv).T))

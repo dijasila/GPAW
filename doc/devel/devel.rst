@@ -82,6 +82,7 @@ the corresponding objects are defined in the code:
    setups
    density_and_hamiltonian
    planewaves
+   matrices
    communicators
    others
 
