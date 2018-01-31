@@ -317,8 +317,6 @@ class Chi0:
     def set_response(self, response):
         """ Set the type of response function """
         self.response = response
-        if self.response == 'spin':
-            self.include_intraband = False # Gamma point not handled properly for spin flips
         self.pair.set_response(response)
     
     def find_maximum_frequency(self):
