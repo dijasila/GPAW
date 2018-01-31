@@ -408,7 +408,6 @@ class SpinChargeResponseFunction:
               
         self.chi0.set_response('spin') 
         assert self.chi0.eta > 0.0
-        assert not self.chi0.include_intraband
         assert not self.chi0.hilbert
         assert not self.chi0.timeordered
         assert self.chi0.disable_point_group
