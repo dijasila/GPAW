@@ -90,20 +90,17 @@ class ImagePoissonSolver(EPS):
 
     # Stolen from dipole_correction.fdsolve
     def solve(self, vHt_g, rhot_g, **kwargs):
+        # Just for testing
+        center_c = [0,0,0]
+        if self.side == 'right':
+            center_c[self.c] = self.gd_original.N_c[self.c]
         drhot_g, dvHt_g, self.correction = dipole_correction(self.direction,
                                                              self.gd_original,
-                                                             rhot_g)
+                                                             rhot_g, center_c)
 
         # shift dipole potential to be zero at "electrode"
-
-        # XXX Use self.correction to shift the potential. The question is
-        # is just, how do you figure out, if it's + or -
         if self.side == 'right':
-            # XXX "right" doesn't work. This ugly fix helps, but it's still wrong.
-            drhot_g *= -1.
-            dvHt_g *= -1.
-            #self.correction *= -1.
-
+            self.correction *= -1.
         dvHt_g -= self.correction
         # XXX hamiltonian.get_electrostatic_potential() uses this one. We don't like that.
         self.correction = 0.0
