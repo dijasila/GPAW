@@ -261,15 +261,18 @@ class PointIntegrator(Integrator):
 
         if self.blockcomm.size > 1:
             for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
-                myn_G = n_G[self.Ga:self.Gb].reshape((-1, 1))
-                gemm(p1, n_G.reshape((-1, 1)), myn_G, 1.0, chi0_wGG[w], 'c')
-                gemm(p2, n_G.reshape((-1, 1)), myn_G, 1.0, chi0_wGG[w + 1],
-                     'c')
+                if w + 1 < wd.wmax:  # The last frequency is not reliable
+                    myn_G = n_G[self.Ga:self.Gb].reshape((-1, 1))
+                    gemm(p1, n_G.reshape((-1, 1)), myn_G,
+                         1.0, chi0_wGG[w], 'c')
+                    gemm(p2, n_G.reshape((-1, 1)), myn_G,
+                         1.0, chi0_wGG[w + 1], 'c')
             return
 
         for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
-            czher(p1, n_G.conj(), chi0_wGG[w])
-            czher(p2, n_G.conj(), chi0_wGG[w + 1])
+            if w + 1 < wd.wmax:  # The last frequency is not reliable
+                czher(p1, n_G.conj(), chi0_wGG[w])
+                czher(p2, n_G.conj(), chi0_wGG[w + 1])
 
     @timer('CHI_0 intraband update')
     def update_intraband(self, vel_mv, chi0_wvv):

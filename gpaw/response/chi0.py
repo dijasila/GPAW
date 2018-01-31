@@ -64,8 +64,8 @@ class FrequencyDescriptor(ArrayDescriptor):
 
     def __init__(self, domega0, omega2, omegamax):
         beta = (2**0.5 - 1) * domega0 / omega2
-        wmax = int(omegamax / (domega0 + beta * omegamax)) + 2
-        w = np.arange(wmax)
+        wmax = int(omegamax / (domega0 + beta * omegamax))
+        w = np.arange(wmax + 2)  # + 2 is for buffer
         omega_w = w * domega0 / (1 - beta * w)
 
         ArrayDescriptor.__init__(self, omega_w)
@@ -78,11 +78,13 @@ class FrequencyDescriptor(ArrayDescriptor):
         self.beta = beta
         self.wmax = wmax
         self.omega_w = omega_w
+        self.wmax = wmax
         self.nw = len(omega_w)
 
     def get_closest_index(self, o_m):
         beta = self.beta
         w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
+        w_m[w_m >= self.wmax] = self.wmax - 1
         return w_m
 
     def get_index_range(self, omega1_m, omega2_m):
