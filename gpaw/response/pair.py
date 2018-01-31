@@ -791,11 +791,10 @@ class PairDensity:
         kd = wfs.kd
 
         # Parse kpoint: is k_c an index or a vector
-
-        try:
+        if not isinstance(k_c, int):
             K = self.find_kpoint(k_c)
             shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
-        except ValueError:
+        else:
             # Fall back to index
             K = k_c
             shift0_c = np.array([0, 0, 0])
