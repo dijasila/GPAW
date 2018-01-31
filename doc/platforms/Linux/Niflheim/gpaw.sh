@@ -21,5 +21,5 @@ fi
 
 export PATH=$GPAW/tools:$GPAW/build/bin.$PLATFORM:$PATH
 export PYTHONPATH=$GPAW:$GPAW/build/lib.$PLATFORM:$PYTHONPATH
-export PATH=$ASE/tools:$PATH
+export PATH=$ASE/bin:$PATH
 export PYTHONPATH=$ASE:$PYTHONPATH
