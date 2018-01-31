@@ -336,7 +336,7 @@ class Chi0:
     def get_chi_grid_dim(self, q_c):
         """Get dimensions involved in chi grid, without running calculation."""
         q_c = np.asarray(q_c, dtype=float)
-        optical_limit = np.allclose(q_c, 0.0)
+        optical_limit = np.allclose(q_c, 0.0) and self.response == 'density' # gamma point needs special care in density response
         
         pd = self.get_PWDescriptor(q_c)
         
@@ -386,7 +386,7 @@ class Chi0:
             spins = [spin]
 
         q_c = np.asarray(q_c, dtype=float)
-        optical_limit = np.allclose(q_c, 0.0)
+        optical_limit = np.allclose(q_c, 0.0) and self.response == 'density' # gamma point needs special care in density response
 
         pd = self.get_PWDescriptor(q_c)
 
@@ -410,7 +410,7 @@ class Chi0:
         else:
             chi0_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
             
-        if np.allclose(q_c, 0.0):
+        if optical_limit:
             chi0_wxvG = np.zeros((len(self.omega_w), 2, 3, nG), complex)
             chi0_wvv = np.zeros((len(self.omega_w), 3, 3), complex)
             self.plasmafreq_vv = np.zeros((3, 3), complex)
@@ -479,7 +479,7 @@ class Chi0:
                 assert spin in range(wfs.nspins)
 
         # Are we calculating the optical limit.
-        optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0)
+        optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0) and self.response == 'density' # gamma point needs special care in density response
 
         # Reset PAW correction in case momentum has change
         self.Q_aGii = self.pair.initialize_paw_corrections(pd)
@@ -881,7 +881,7 @@ class Chi0:
         """
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
         q_c = pd.kd.bzk_kc[0]
-        optical_limit = np.allclose(q_c, 0.0)
+        optical_limit = np.allclose(q_c, 0.0) and self.response == 'density' # gamma point needs special care in density response
         nG = pd.ngmax
         weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
                          symmetry.how_many_symmetries())

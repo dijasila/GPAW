@@ -314,7 +314,7 @@ class PointIntegrator(Integrator):
             deps2_m = deps_m - 1j * eta
                     
         for w, omega in enumerate(omega_w):
-            x_m = (1 / (omega + deps1_m) ) #- 1 / (omega - deps2_m)) ### Hard coded for error finding ###
+            x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 

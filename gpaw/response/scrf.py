@@ -284,19 +284,20 @@ class SpinChargeResponseFunction:
                     K_GG = np.diag(Ktrunc_G / Kbare_G)
             else:
                 K_GG = np.eye(nG, dtype=complex)
-                
-        if pd.kd.gamma:
-            if isinstance(direction, str):
-                d_v = {'x': [1, 0, 0],
-                       'y': [0, 1, 0],
-                       'z': [0, 0, 1]}[direction]
-            else:
-                d_v = direction
-            d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            W = slice(self.w1, self.w2)
-            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
+               
+        if response == 'density': # With spin response, no special care is needed for the gamma point
+          if pd.kd.gamma:
+              if isinstance(direction, str):
+                  d_v = {'x': [1, 0, 0],
+                         'y': [0, 1, 0],
+                         'z': [0, 0, 1]}[direction]
+              else:
+                  d_v = direction
+              d_v = np.asarray(d_v) / np.linalg.norm(d_v)
+              W = slice(self.w1, self.w2)
+              chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
+              chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
+              chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
             
         
         if response == 'density':
