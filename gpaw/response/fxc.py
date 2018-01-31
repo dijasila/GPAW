@@ -135,7 +135,7 @@ def calculate_Kxc(pd, calc, functional='ALDA', density_cut=None):
 
     if density_cut is not None:
         fxc_sg[np.where(nt_sG * len(nt_sG) < density_cut)] = 0.0
-
+    
     # FFT fxc(r)
     nG0 = nG[0] * nG[1] * nG[2]
     tmp_sg = [np.fft.fftn(fxc_sg[s]) * vol / nG0 for s in range(len(nt_sG))]
@@ -255,13 +255,16 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_x', sigma_cut=None, density_cu
             v_sG = np.zeros(np.shape(n_sG))
             xc = XC(functional[1:])
             xc.calculate(gd, n_sG, v_sg = v_sG)
+            from ase.parallel import parprint
+            parprint("v_sG dif", v_sG[0] - v_sG[1])
+            parprint("s_G", s_G)
             return (v_sG[0] - v_sG[1]) / s_G
     
     
     def _calculate_unpol_fxc(gd, n_G):
         """ Calculate unpolarized fxc """
         if functional == 'ALDA_x':
-            return - (3./np.pi)**(1./3.) / 3. * n_G**(-2./3.)
+            return - (3./np.pi)**(1./3.) * 2. / 3. * n_G**(-2./3.)
         else:
             n_sg = np.array([n_G]) # Needs spin channel in array
             fxc_sg = np.zeros(np.shape(n_sg))
@@ -313,7 +316,6 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_x', sigma_cut=None, density_cu
     fxc_G = np.zeros(np.shape(nt_sG[0]))
     add_fxc(gd, nt_sG, fxc_G)
     
-    
     # FFT fxc(r)
     nG0 = nG[0] * nG[1] * nG[2]
     tmp_g = np.fft.fftn(fxc_G) * vol / nG0
@@ -326,7 +328,7 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_x', sigma_cut=None, density_cu
             ijQ_c = (iQ_c - jQ_c)
             if (abs(ijQ_c) < nG // 2).all():
                 Kxc_GG[iG, jG] = tmp_g[tuple(ijQ_c)]
-    
+    print("Kxc_GG", Kxc_GG, Kxc_GG[0,0])  ### error finding ### 
     # The PAW part
     KxcPAW_GG = np.zeros_like(Kxc_GG)
     dG_GGv = np.zeros((npw, npw, 3))

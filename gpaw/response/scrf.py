@@ -86,8 +86,8 @@ class SpinChargeResponseFunction:
             Shift unoccupied bands
         """
 
-        self.chi0 = Chi0(calc, frequencies, domega0=domega0,
-                         omega2=omega2, omegamax=omegamax,
+        self.chi0 = Chi0(calc, frequencies=frequencies,
+                         domega0=domega0, omega2=omega2, omegamax=omegamax,
                          ecut=ecut, hilbert=hilbert, nbands=nbands,
                          eta=eta, ftol=ftol, threshold=threshold,
                          intraband=intraband, world=world, nblocks=nblocks,
@@ -233,7 +233,7 @@ class SpinChargeResponseFunction:
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
                 direction='x', return_VchiV=True, q_v=None,
-                density_cut=None, sigma_cut=None):
+                density_cut=None, sigma_cut=None, re_factor=1.0, localF=True):
         """ Returns v^1/2 chi v^1/2 for the density response and chi for the
         spin response. The truncated Coulomb interaction is included as 
         v^-1/2 v_t v^-1/2. This is in order to conform with
@@ -252,6 +252,13 @@ class SpinChargeResponseFunction:
         
         Note: currently only 'RPA', 'ALDA_x', 'ALDA_X' and 'ALDA' are implemented for spin response.
         """
+        if xc != 'RPA':  ### error finding ###
+          Kxc_GG = get_xc_spin_kernel(self.chi0.get_PWDescriptor(q_c),
+                                      self.chi0,
+                                      functional=xc,
+                                      sigma_cut=sigma_cut,  
+                                      density_cut=density_cut)  ### error finding ###
+          print(Kxc_GG)  ### error finding ###
         
         response = self.chi0.get_response()
         
@@ -330,13 +337,31 @@ class SpinChargeResponseFunction:
             else: # RPA is non-interacting for the spin response
                 return pd, chi0_wGG, chi0_wGG
             
+            print(Kxc_GG)  ### error finding ###
             # Invert Dyson eq.
             chi_wGG = []
+            
+            from ase.parallel import parprint
+            parprint("Renormalization factor:", re_factor)
+            
             for chi0_GG in chi0_wGG:
+                #parprint(chi0_GG)
                 chi_GG = np.dot(np.linalg.inv(np.eye(len(chi0_GG)) -
-                                              np.dot(chi0_GG, Kxc_GG)),
-                                chi0_GG)
+                                              np.dot(chi0_GG, Kxc_GG*re_factor)),
+                                chi0_GG) # renormalization factor should be in kernel
+                
+                #print(np.dot(chi0_GG, Kxc_GG*re_factor))  ### error finding ###
+                if not localF:
+                  chi_GG[0,0] = chi0_GG[0,0] / (1. - Kxc_GG[0,0]*re_factor*chi0_GG[0,0])
+                
                 chi_wGG.append(chi_GG)
+            
+            #parprint("q_c", q_c)
+            #parprint("chi0_30_0G", chi0_wGG[30][0,:])
+            #parprint("chi0_30_G0", chi0_wGG[30][:,0])
+            #parprint("Kxc_GG", Kxc_GG)
+            #parprint("chi_30_0G", chi_wGG[30][0,:])
+            #parprint("chi_30_G0", chi_wGG[30][:,0])
         
         return pd, chi0_wGG, np.array(chi_wGG)
     
@@ -378,20 +403,26 @@ class SpinChargeResponseFunction:
         return drf0_w, drf_xc_w    
 
     def get_spin_response_function(self, xc='ALDA', q_c=[0, 0, 0], q_v=None,
-                                   direction='x', density_cut=None, sigma_cut=None,
-                                   filename='srf.csv', return_VchiV = False):
+                                   direction='x', flip='pm', density_cut=None, sigma_cut=None,
+                                   filename='srf.csv', return_VchiV = False, re_factor=1.0, localF=True):
         """Calculate the spin response function.
         
         Returns macroscopic spin response function:
         srf0_w, srf_xc_w = SpinChargeResponseFunction.get_spin_response_function()
         
         """
+              
+        self.chi0.set_response('spin') 
+        assert self.chi0.eta > 0.0
+        assert not self.chi0.include_intraband
+        assert not self.chi0.hilbert
+        assert not self.chi0.timeordered
+        assert self.chi0.disable_point_group
+        assert self.chi0.disable_time_reversal
         
-        self.chi0.set_response('spin')
-        
-        pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c, spin='pm',
+        pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c, spin=flip,
                                              direction=direction, density_cut=density_cut,
-                                             sigma_cut=sigma_cut, )
+                                             sigma_cut=sigma_cut, re_factor=re_factor, localF=localF)
         
         srf0_w = np.zeros(len(chi_wGG), dtype=complex)
         srf_xc_w = np.zeros(len(chi_wGG), dtype=complex)

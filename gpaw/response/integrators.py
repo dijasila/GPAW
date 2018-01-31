@@ -149,8 +149,12 @@ class PointIntegrator(Integrator):
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
         get_matrix_element, get_eigenvalues = integrand
-
+        
+        #print(nbz)  ### error finding ###
         prefactor = (2 * np.pi)**3 / self.vol / nbz
+        #prefactor = 1.  ### Hard coded for error finding ###
+        #print("Volume", self.vol) ### error finding ###
+        #print("Int pref * vol", prefactor*self.vol)  ## error finding ###
         out_wxx /= prefactor
 
         # The kwargs contain any constant
@@ -200,13 +204,18 @@ class PointIntegrator(Integrator):
             else:
                 for out_xx in out_wxx:
                     out_xx[iu] = out_xx[il].conj()
-
+        
+        #print("\n----------\noriginal chi0 in 1/Htr", "\n----------\n")  ### error finding ###
+        #print(out_wxx[:,0,0])  ### error finding ###
         out_wxx *= prefactor
+        #print("\n----------\nprefactor integrator", prefactor, "added\n----------\n")  ### error finding ###
+        #print(out_wxx[:,0,0])  ### error finding ###
 
     @timer('CHI_0 update')
     def update(self, n_mG, deps_m, wd, chi0_wGG, timeordered=False, eta=None):
         """Update chi."""
-
+        
+        #n_mG = np.ones(n_mG.shape) ### Error finding ###
         omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         if timeordered:
@@ -215,16 +224,25 @@ class PointIntegrator(Integrator):
         else:
             deps1_m = deps_m + 1j * eta
             deps2_m = deps_m - 1j * eta
-
+        
+        #print(n_mG) ### Error finding ###
         for omega, chi0_GG in zip(omega_w, chi0_wGG):
-            x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
+            #x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
+            #x_m = 1. / (omega + deps1_m)  ### Hard coded for error finding ###
+            x_m = - np.sign(deps_m) * 1. / (omega + deps1_m)  ### Hard coded for error finding ###
             if self.blockcomm.size > 1:
                 nx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
             else:
                 nx_mG = n_mG * x_m[:, np.newaxis]
-
+             
             gemm(1.0, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
                  1.0, chi0_GG)
+            
+            #if not np.allclose(n_mG, 0.0):
+            #  from ase.units import Hartree  ### error finding ###
+            #  print("\nw:", omega*Hartree)  ### error finding ###
+            #  print(deps_m*Hartree, self.eshift)
+            #  print("chi0:", chi0_GG[0,0])  ### error finding ###
 
     @timer('CHI_0 hermetian update')
     def update_hermitian(self, n_mG, deps_m, wd, chi0_wGG):
@@ -296,7 +314,7 @@ class PointIntegrator(Integrator):
             deps2_m = deps_m - 1j * eta
                     
         for w, omega in enumerate(omega_w):
-            x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
+            x_m = (1 / (omega + deps1_m) ) #- 1 / (omega - deps2_m)) ### Hard coded for error finding ###
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
