@@ -349,12 +349,12 @@ class SpinChargeResponseFunction:
                 
                 chi_wGG.append(chi_GG)
             
-            #parprint("q_c", q_c)
-            #parprint("chi0_30_0G", chi0_wGG[30][0,:])
-            #parprint("chi0_30_G0", chi0_wGG[30][:,0])
-            #parprint("Kxc_GG", Kxc_GG)
-            #parprint("chi_30_0G", chi_wGG[30][0,:])
-            #parprint("chi_30_G0", chi_wGG[30][:,0])
+            #parprint("q_c", q_c)  ### error finding ###
+            #parprint("chi0_30_0G", chi0_wGG[30][0,:])  ### error finding ###
+            #parprint("chi0_30_G0", chi0_wGG[30][:,0])  ### error finding ###
+            #parprint("Kxc_GG", Kxc_GG)  ### error finding ###
+            #parprint("chi_30_0G", chi_wGG[30][0,:])  ### error finding ###
+            #parprint("chi_30_G0", chi_wGG[30][:,0])  ### error finding ###
         
         return pd, chi0_wGG, np.array(chi_wGG)
     
