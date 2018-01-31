@@ -252,13 +252,6 @@ class SpinChargeResponseFunction:
         
         Note: currently only 'RPA', 'ALDA_x', 'ALDA_X' and 'ALDA' are implemented for spin response.
         """
-        if xc != 'RPA':  ### error finding ###
-          Kxc_GG = get_xc_spin_kernel(self.chi0.get_PWDescriptor(q_c),
-                                      self.chi0,
-                                      functional=xc,
-                                      sigma_cut=sigma_cut,  
-                                      density_cut=density_cut)  ### error finding ###
-          print(Kxc_GG)  ### error finding ###
         
         response = self.chi0.get_response()
         
