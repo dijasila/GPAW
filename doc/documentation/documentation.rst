@@ -30,6 +30,7 @@ Developers should consult the :ref:`devel` pages.
    advanced_topics
    literature
    introduction_to_paw
+   utilities/utilities
 
 If you can not find what you are looking for in any of the above,
 please consult the :ref:`mail list`.

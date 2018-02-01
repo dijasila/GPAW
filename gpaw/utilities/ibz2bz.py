@@ -2,19 +2,26 @@ import numpy as np
 import ase.io.ulm as ulm
 
 from gpaw import GPAW
+from gpaw.mpi import world
 
 
-def ibz2bz(name):
+def ibz2bz(input_gpw, output_gpw=None):
     """Unfold IBZ to full BZ and write new gpw-file.
 
     Example::
 
         ibz2bz('abc.gpw')
 
-    This wil create a 'abc-bz.gpw' file.
+    This will create a 'abc-bz.gpw' file.  Works also from the command line::
+
+        $ python3 -m gpaw.utilities.ibz2bz abc.gpw
+
     """
 
-    calc = GPAW(name, txt=None)
+    if world.rank > 0:
+        return
+
+    calc = GPAW(input_gpw, txt=None)
     spos_ac = calc.atoms.get_scaled_positions()
     kd = calc.wfs.kd
 
@@ -59,20 +66,24 @@ def ibz2bz(name):
     parameters = calc.todict()
     parameters['symmetry'] = 'off'
 
-    bzkpts_Kc = kd.ibzk_kc[kd.bz2ibz_k]
+    if output_gpw is None:
+        assert input_gpw.endswith('.gpw')
+        output_gpw = input_gpw[:-4] + '-bz.gpw'
+    out = ulm.open(output_gpw, 'w')
 
-    out = ulm.open(name[:-4] + '-bz.gpw', 'w')
-    ulm.copy(name, out, exclude={'.wave_functions', '.parameters'})
-    out.write(parameters=parameters)
+    ulm.copy(input_gpw, out, exclude={'.wave_functions', '.parameters'})
+
+    out.child('parameters').write(**parameters)
+
     wfs = out.child('wave_functions')
     wfs.write(eigenvalues=e_sKn,
               occupations=f_sKn,
               projections=P_sKnI)
-    kpts = wfs.child('kpts')
-    kpts.write(bz2ibz=np.arange(nK),
-               bzkpts=bzkpts_Kc,
-               ibzkpts=bzkpts_Kc,
-               weights=np.ones(nK, int))
+
+    wfs.child('kpts').write(bz2ibz=np.arange(nK),
+                            bzkpts=kd.bzk_kc,
+                            ibzkpts=kd.bzk_kc,
+                            weights=np.ones(nK) / nK)
     out.close()
 
 
