@@ -84,7 +84,13 @@ class FrequencyDescriptor(ArrayDescriptor):
     def get_closest_index(self, o_m):
         beta = self.beta
         w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
-        w_m[w_m >= self.wmax] = self.wmax - 1
+        if isinstance(w_m, np.ndarray):
+            w_m[w_m >= self.wmax] = self.wmax - 1
+        elif isinstance(w_m, (int, np.int32, np.int64)):
+            if w_m >= self.wmax:
+                w_m = self.wmax - 1
+        else:
+            raise NotImplementedError
         return w_m
 
     def get_index_range(self, omega1_m, omega2_m):

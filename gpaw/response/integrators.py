@@ -312,7 +312,11 @@ class PointIntegrator(Integrator):
             if w + 2 > len(omega_w):
                 break
             o1, o2 = omega_w[w:w + 2]
-            assert o1 <= o <= o2, (o1, o, o2)
+            print(w)
+            if o > o2:
+                continue
+            else:
+                assert o1 <= o <= o2, (o1, o, o2)
 
             p = 1 / (o2 - o1)**2
             p1 = p * (o2 - o)
