@@ -695,7 +695,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         if self.collinear:
             shape = (self.nspins,
-                     self.kd.nibzkpts, self.bd.nbands, self.pd.ngmax),
+                     self.kd.nibzkpts, self.bd.nbands, self.pd.ngmax)
         else:
             shape = (self.kd.nibzkpts, self.bd.nbands, 2, self.pd.ngmax)
 
