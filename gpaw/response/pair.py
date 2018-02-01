@@ -1,8 +1,8 @@
 from __future__ import print_function, division
 
-import sys
 import functools
-
+import numbers
+import sys
 from math import pi
 
 import numpy as np
@@ -791,7 +791,7 @@ class PairDensity:
         kd = wfs.kd
 
         # Parse kpoint: is k_c an index or a vector
-        if not isinstance(k_c, int):
+        if not isinstance(k_c, numbers.Integral):
             K = self.find_kpoint(k_c)
             shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
         else:
