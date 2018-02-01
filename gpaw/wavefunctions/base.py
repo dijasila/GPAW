@@ -403,13 +403,19 @@ class WaveFunctions:
     def write(self, writer):
         writer.write(kpts=self.kd)
         nproj = sum(setup.ni for setup in self.setups)
-        writer.add_array(
-            'projections',
-            (self.nspins, self.kd.nibzkpts, self.bd.nbands, nproj),
-            self.dtype)
+
+        if self.collinear:
+            shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands, nproj)
+        else:
+            shape = (1, self.kd.nibzkpts, self.bd.nbands, 2, nproj)
+
+        writer.add_array('projections', shape, self.dtype)
+
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 P_nI = self.collect_projections(k, s)
+                if not self.collinear:
+                    P_nI.shape = (self.bd.nbands, 2, nproj)
                 writer.fill(P_nI)
 
         shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
