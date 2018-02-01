@@ -9,3 +9,4 @@ a.calc = GPAW(mode='pw',
               )
 a.get_potential_energy()
 a.calc.write('h.gpw', mode='all')
+calc = GPAW('h.gpw', txt=None)

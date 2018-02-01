@@ -697,7 +697,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             shape = (self.nspins,
                      self.kd.nibzkpts, self.bd.nbands, self.pd.ngmax),
         else:
-            shape = (1, self.kd.nibzkpts, self.bd.nbands, 2, self.pd.ngmax)
+            shape = (self.kd.nibzkpts, self.bd.nbands, 2, self.pd.ngmax)
 
         writer.add_array('coefficients', shape, complex)
 
@@ -753,9 +753,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
         c = reader.bohr**1.5
         if reader.version < 0:
             c = 1  # old gpw file
-        for kpt in self.kpt_u:
+        for kpt in self.mykpts:
             ng = self.ng_k[kpt.k]
-            psit_nG = reader.wave_functions.proxy('coefficients', kpt.s, kpt.k)
+            index = (kpt.s, kpt.k) if self.collinear else (kpt.k,)
+            psit_nG = reader.wave_functions.proxy('coefficients', *index)
             psit_nG.scale = c
             psit_nG.length_of_last_dimension = ng
 
