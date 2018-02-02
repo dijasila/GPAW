@@ -396,13 +396,9 @@ class LrTDDFT(ExcitationList):
 
         Parameters
         ----------
-<<<<<<< HEAD
-        ov_: array
-            Pair density overlap factors from a displaced calculator.
-=======
         ov_nn: array
             Wave function overlap factors from a displaced calculator.
->>>>>>> 4685fc0aaf63e35099ba9fe86752bffff539b120
+
             Index 0 corresponds to our own wavefunctions and
             index 1 to the others wavefunctions
 
@@ -411,10 +407,10 @@ class LrTDDFT(ExcitationList):
         ov_pp: array
             Overlap
         """
-        self.diagonalize()
-        other.diagonalize()
         #ov_pp = self.kss.overlap(ov_nn, other.kss)
         ov_pp = self.Om.kss.overlap(ov_nn, other.Om.kss)
+        self.diagonalize()
+        other.diagonalize()
         # ov[pLm, pLo] = Om[pLm, :pKm]* ov[:pKm, pLo]
         return np.dot(self.Om.eigenvectors.conj(),
                       # ov[pKm, pLo] = ov[pKm, :pKo] Om[pLo, :pKo].T
@@ -561,7 +557,7 @@ class LrTDDFTExcitation(Excitation):
             return x * x
         spin = ['u', 'd']
         min2 = sqr(min)
-        rest = np.sum(self.f ** 2)
+        rest = np.sum(self.f**2)
         for f, k in zip(self.f, self.kss):
             f2 = sqr(f)
             if f2 > min2:
