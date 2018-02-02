@@ -403,16 +403,25 @@ class WaveFunctions:
     def write(self, writer):
         writer.write(kpts=self.kd)
         nproj = sum(setup.ni for setup in self.setups)
-        writer.add_array(
-            'projections',
-            (self.nspins, self.kd.nibzkpts, self.bd.nbands, nproj),
-            self.dtype)
+
+        if self.collinear:
+            shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands, nproj)
+        else:
+            shape = (self.kd.nibzkpts, self.bd.nbands, 2, nproj)
+
+        writer.add_array('projections', shape, self.dtype)
+
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 P_nI = self.collect_projections(k, s)
+                if not self.collinear:
+                    P_nI.shape = (self.bd.nbands, 2, nproj)
                 writer.fill(P_nI)
 
-        shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
+        if self.collinear:
+            shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
+        else:
+            shape = (self.kd.nibzkpts, self.bd.nbands)
 
         writer.add_array('eigenvalues', shape)
         for s in range(self.nspins):
@@ -434,8 +443,12 @@ class WaveFunctions:
         atom_partition = AtomPartition(self.gd.comm,
                                        np.zeros(len(nproj_a), int))
         for u, kpt in enumerate(self.kpt_u):
-            eps_n = r.proxy('eigenvalues', kpt.s, kpt.k)[nslice]
-            f_n = r.proxy('occupations', kpt.s, kpt.k)[nslice]
+            if self.collinear:
+                index = (kpt.s, kpt.k)
+            else:
+                index = (kpt.k,)
+            eps_n = r.proxy('eigenvalues', *index)[nslice]
+            f_n = r.proxy('occupations', *index)[nslice]
             x = self.bd.mynbands - len(f_n)  # missing bands?
             if x > 0:
                 # Working on a real fix to this parallelization problem ...
@@ -451,7 +464,9 @@ class WaveFunctions:
                 atom_partition, self.bd.comm,
                 collinear=self.collinear, spin=kpt.s, dtype=self.dtype)
             if self.gd.comm.rank == 0:
-                P_nI = r.proxy('projections', kpt.s, kpt.k)[nslice]
+                P_nI = r.proxy('projections', *index)[nslice]
+                if not self.collinear:
+                    P_nI.shape = (self.bd.mynbands, -1)
                 kpt.P.matrix.array[:] = P_nI
 
 
