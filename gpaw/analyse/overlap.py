@@ -43,15 +43,13 @@ class Overlap:
         return overlap_nn
 
     def full(self, other):
-        """Overlap with pseudo wave functions only
+        """Overlap of Kohn-Sham states including local terms.
 
         Parameter
         ---------
         other: gpaw
-            gpaw-object containing pseudo wave functions
-        normalize: bool
-            normalize pseudo wave functions in the overlap integral
-
+            gpaw-object containing wave functions
+ 
         Returns
         -------
         out: array
