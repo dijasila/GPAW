@@ -552,7 +552,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         # in the IBZ:
         self.ng_k = np.zeros(self.kd.nibzkpts, dtype=int)
         for kpt in self.kpt_u:
-            self.ng_k[kpt.k] = len(self.pd.Q_qG[kpt.q])
+            if kpt.s != 1:  # avoid double counting (only sum over s=0 or None)
+                self.ng_k[kpt.k] = len(self.pd.Q_qG[kpt.q])
         self.kd.comm.sum(self.ng_k)
 
         self.pt = PWLFC([setup.pt_j for setup in setups], self.pd)
