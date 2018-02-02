@@ -1,5 +1,6 @@
 import numpy as np
 
+from gpaw.utilities import packed_index
 
 class Overlap:
     """Wave funcion overlap of two GPAW objects"""
@@ -57,12 +58,21 @@ class Overlap:
             u_ij =  \int dx mypsi_i^*(x) otherpsi_j(x)
         """
         ov_nn = self.pseudo(other, normalize=False)
+        assert(len(self.calc.wfs.kpt_u) == 1)
         mkpt = self.calc.wfs.kpt_u[0]
+        assert(len(other.wfs.kpt_u) == 1)
         okpt = other.wfs.kpt_u[0]
-        
+
         for a, mP_ni in mkpt.P_ani.items():
             oP_ni = okpt.P_ani[a]
-            Delta_i = self.calc.wfs.setups[a].Delta_pL[:,0]
-            for i, P_i in enumerate(mP_ni):
-                ov_nn[i] += np.dot(oP_ni, P_i)
+            Delta_p = (np.sqrt(4 * np.pi) *
+                       self.calc.wfs.setups[a].Delta_pL[:,0])
+            for n0, mP_i in enumerate(mP_ni):
+                for n1, oP_i in enumerate(oP_ni):
+                    ni = len(mP_i)
+                    assert(len(oP_i) == ni)
+                    for i, mP in enumerate(mP_i):
+                        for j, oP in enumerate(oP_i):
+                            ij = packed_index(i, j, ni)
+                            ov_nn[n0, n1] += Delta_p[ij] * mP.conj() * oP
         return ov_nn
