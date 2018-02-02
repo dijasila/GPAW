@@ -204,7 +204,6 @@ class Hamiltonian:
         self.vt_xG = self.gd.empty(self.ncomponents)
         self.vt_sG = self.vt_xG[:self.nspins]
         self.vt_vG = self.vt_xG[self.nspins:]
-        self.poisson.initialize()
 
     def update(self, density):
         """Calculate effective potential.
@@ -281,6 +280,7 @@ class Hamiltonian:
                 dH_sp = np.zeros_like(D_sp)
 
             if setup.HubU is not None:
+                assert self.collinear
                 eU, dHU_sp = hubbard(setup, D_sp)
                 e_xc += eU
                 dH_sp += dHU_sp
@@ -288,6 +288,7 @@ class Hamiltonian:
             dH_sp[:self.nspins] += dH_p
 
             if self.ref_dH_asp:
+                assert self.collinear
                 dH_sp += self.ref_dH_asp[a]
 
             dH_asp[a] = dH_sp
