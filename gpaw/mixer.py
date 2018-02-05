@@ -471,36 +471,64 @@ class SpinDifferenceMixerDriver:
         self.weight_m = weight_m
 
     def get_basemixers(self, nspins):
-        if nspins != 2:
+        if nspins == 1:
             raise ValueError('Spin difference mixer expects 2 spins, not %d'
                              % nspins)
         basemixer = self.basemixerclass(self.beta, self.nmaxold, self.weight)
-        basemixer_m = self.basemixerclass(self.beta_m, self.nmaxold_m,
-                                          self.weight_m)
-        return basemixer, basemixer_m
+        if nspins == 2:
+            basemixer_m = self.basemixerclass(self.beta_m, self.nmaxold_m,
+                                              self.weight_m)
+            return basemixer, basemixer_m
+        else:
+            basemixer_x = self.basemixerclass(self.beta_m, self.nmaxold_m,
+                                              self.weight_m)
+            basemixer_y = self.basemixerclass(self.beta_m, self.nmaxold_m,
+                                              self.weight_m)
+            basemixer_z = self.basemixerclass(self.beta_m, self.nmaxold_m,
+                                              self.weight_m)
+            return basemixer, basemixer_x, basemixer_y, basemixer_z
 
     def mix(self, basemixers, nt_sG, D_asp):
         D_asp = D_asp.values()
 
-        basemixer, basemixer_m = basemixers
+        if len(nt_sG) == 2:
+            basemixer, basemixer_m = basemixers
+        else:
+            assert len(nt_sG) == 4
+            basemixer, basemixer_x, basemixer_y, basemixer_z = basemixers
 
-        # Mix density
-        nt_G = nt_sG.sum(0)
-        D_ap = [D_sp[0] + D_sp[1] for D_sp in D_asp]
-        dNt = basemixer.mix_single_density(nt_G, D_ap)
+        if len(nt_sG) == 2:
+            # Mix density
+            nt_G = nt_sG.sum(0)
+            D_ap = [D_sp[0] + D_sp[1] for D_sp in D_asp]
+            dNt = basemixer.mix_single_density(nt_G, D_ap)
+            
+            # Mix magnetization
+            dnt_G = nt_sG[0] - nt_sG[1]
+            dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
+            basemixer_m.mix_single_density(dnt_G, dD_ap)
+            # (The latter is not counted in dNt)
 
-        # Mix magnetization
-        dnt_G = nt_sG[0] - nt_sG[1]
-        dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
-        basemixer_m.mix_single_density(dnt_G, dD_ap)
-        # (The latter is not counted in dNt)
+            # Construct new spin up/down densities
+            nt_sG[0] = 0.5 * (nt_G + dnt_G)
+            nt_sG[1] = 0.5 * (nt_G - dnt_G)
+            for D_sp, D_p, dD_p in zip(D_asp, D_ap, dD_ap):
+                D_sp[0] = 0.5 * (D_p + dD_p)
+                D_sp[1] = 0.5 * (D_p - dD_p)
+        else:
+            # Mix density
+            nt_G = nt_sG[0]
+            D_ap = [D_sp[0] for D_sp in D_asp]
+            dNt = basemixer.mix_single_density(nt_G, D_ap)
+            
+            # Mix magnetization
+            Dx_ap = [D_sp[1] for D_sp in D_asp]
+            Dy_ap = [D_sp[2] for D_sp in D_asp]
+            Dz_ap = [D_sp[3] for D_sp in D_asp]
+            basemixer_x.mix_single_density(nt_sG[1], Dx_ap)
+            basemixer_y.mix_single_density(nt_sG[2], Dy_ap)
+            basemixer_z.mix_single_density(nt_sG[3], Dz_ap)
 
-        # Construct new spin up/down densities
-        nt_sG[0] = 0.5 * (nt_G + dnt_G)
-        nt_sG[1] = 0.5 * (nt_G - dnt_G)
-        for D_sp, D_p, dD_p in zip(D_asp, D_ap, dD_ap):
-            D_sp[0] = 0.5 * (D_p + dD_p)
-            D_sp[1] = 0.5 * (D_p - dD_p)
         return dNt
 
 
