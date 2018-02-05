@@ -8,7 +8,7 @@ ASE=~/ase
 module load GPAW
 module unload ASE
 module load matplotlib
-PLATFORM=linux-x86_64-$CPU_ARCH-el7-3.5
+PLATFORM=linux-x86_64-$CPU_ARCH-el7-3.6
 if [ $CPU_ARCH = broadwell ]; then
     export GPAW_MPI_OPTIONS="-mca pml cm -mca mtl psm2"
 elif [ $CPU_ARCH = sandybridge ]; then
@@ -21,5 +21,5 @@ fi
 
 export PATH=$GPAW/tools:$GPAW/build/bin.$PLATFORM:$PATH
 export PYTHONPATH=$GPAW:$GPAW/build/lib.$PLATFORM:$PYTHONPATH
-export PATH=$ASE/tools:$PATH
+export PATH=$ASE/bin:$PATH
 export PYTHONPATH=$ASE:$PYTHONPATH

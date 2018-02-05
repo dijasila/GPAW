@@ -409,24 +409,38 @@ class WaveFunctions:
 
     def write_projections(self, writer):
         nproj = sum(setup.ni for setup in self.setups)
-        writer.add_array(
-            'projections',
-            (self.nspins, self.kd.nibzkpts, self.bd.nbands, nproj),
-            self.dtype)
+
+        if self.collinear:
+            shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands, nproj)
+        else:
+            shape = (self.kd.nibzkpts, self.bd.nbands, 2, nproj)
+
+        writer.add_array('projections', shape, self.dtype)
+
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 P_nI = self.collect_projections(k, s)
+                if not self.collinear:
+                    P_nI.shape = (self.bd.nbands, 2, nproj)
                 writer.fill(P_nI)
 
     def write_eigenvalues(self, writer):
-        shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
+        if self.collinear:
+            shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
+        else:
+            shape = (self.kd.nibzkpts, self.bd.nbands)
+
         writer.add_array('eigenvalues', shape)
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 writer.fill(self.collect_eigenvalues(k, s) * Hartree)
 
     def write_occupations(self, writer):
-        shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
+        if self.collinear:
+            shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
+        else:
+            shape = (self.kd.nibzkpts, self.bd.nbands)
+
         writer.add_array('occupations', shape)
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
@@ -453,18 +467,28 @@ class WaveFunctions:
         atom_partition = AtomPartition(self.gd.comm,
                                        np.zeros(len(nproj_a), int))
         for u, kpt in enumerate(self.kpt_u):
+            if self.collinear:
+                index = (kpt.s, kpt.k)
+            else:
+                index = (kpt.k,)
             kpt.P = Projections(
                 self.bd.nbands, nproj_a,
                 atom_partition, self.bd.comm,
                 collinear=self.collinear, spin=kpt.s, dtype=self.dtype)
             if self.gd.comm.rank == 0:
-                P_nI = reader.proxy('projections', kpt.s, kpt.k)[nslice]
+                P_nI = reader.proxy('projections', *index)[nslice]
+                if not self.collinear:
+                    P_nI.shape = (self.bd.mynbands, -1)
                 kpt.P.matrix.array[:] = P_nI
 
     def read_eigenvalues(self, reader, old=False):
         nslice = self.bd.get_slice()
         for u, kpt in enumerate(self.kpt_u):
-            eps_n = reader.proxy('eigenvalues', kpt.s, kpt.k)[nslice]
+            if self.collinear:
+                index = (kpt.s, kpt.k)
+            else:
+                index = (kpt.k,)
+            eps_n = reader.proxy('eigenvalues', *index)[nslice]
             x = self.bd.mynbands - len(eps_n)  # missing bands?
             if x > 0:
                 # Working on a real fix to this parallelization problem ...
@@ -476,7 +500,11 @@ class WaveFunctions:
     def read_occupations(self, reader, old=False):
         nslice = self.bd.get_slice()
         for u, kpt in enumerate(self.kpt_u):
-            f_n = reader.proxy('occupations', kpt.s, kpt.k)[nslice]
+            if self.collinear:
+                index = (kpt.s, kpt.k)
+            else:
+                index = (kpt.k,)
+            f_n = reader.proxy('occupations', *index)[nslice]
             x = self.bd.mynbands - len(f_n)  # missing bands?
             if x > 0:
                 # Working on a real fix to this parallelization problem ...
