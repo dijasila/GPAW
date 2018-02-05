@@ -886,15 +886,14 @@ class LCAOWaveFunctions(WaveFunctions):
 
     def write(self, writer, write_wave_functions=False):
         WaveFunctions.write(self, writer)
+        if write_wave_functions:
+            self.write_wave_functions(writer)
 
-        if not write_wave_functions:
-            return
-
+    def write_wave_functions(self, writer):
         writer.add_array(
             'coefficients',
             (self.nspins, self.kd.nibzkpts, self.bd.nbands, self.setups.nao),
             dtype=self.dtype)
-
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 C_nM = self.collect_array('C_nM', k, s)
@@ -902,12 +901,13 @@ class LCAOWaveFunctions(WaveFunctions):
 
     def read(self, reader):
         WaveFunctions.read(self, reader)
+        r = reader.wave_functions
+        if 'coefficients' in r:
+            self.read_wave_functions(r)
 
-        if 'coefficients' not in reader.wave_functions:
-            return
-
+    def read_wave_functions(self, reader):
         for kpt in self.kpt_u:
-            C_nM = reader.wave_functions.proxy('coefficients', kpt.s, kpt.k)
+            C_nM = reader.proxy('coefficients', kpt.s, kpt.k)
             kpt.C_nM = self.bd.empty(self.setups.nao, dtype=self.dtype)
             for myn, C_M in enumerate(kpt.C_nM):
                 n = self.bd.global_index(myn)

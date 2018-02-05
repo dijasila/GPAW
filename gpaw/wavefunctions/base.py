@@ -401,7 +401,13 @@ class WaveFunctions:
         return np.array([homo, lumo])
 
     def write(self, writer):
+        writer.write(version=1, ha=Hartree)
         writer.write(kpts=self.kd)
+        self.write_projections(writer)
+        self.write_eigenvalues(writer)
+        self.write_occupations(writer)
+
+    def write_projections(self, writer):
         nproj = sum(setup.ni for setup in self.setups)
 
         if self.collinear:
@@ -418,6 +424,7 @@ class WaveFunctions:
                     P_nI.shape = (self.bd.nbands, 2, nproj)
                 writer.fill(P_nI)
 
+    def write_eigenvalues(self, writer):
         if self.collinear:
             shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
         else:
@@ -428,6 +435,12 @@ class WaveFunctions:
             for k in range(self.kd.nibzkpts):
                 writer.fill(self.collect_eigenvalues(k, s) * Hartree)
 
+    def write_occupations(self, writer):
+        if self.collinear:
+            shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
+        else:
+            shape = (self.kd.nibzkpts, self.bd.nbands)
+
         writer.add_array('occupations', shape)
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
@@ -437,8 +450,19 @@ class WaveFunctions:
                 writer.fill(self.collect_occupations(k, s) / weight)
 
     def read(self, reader):
-        nslice = self.bd.get_slice()
         r = reader.wave_functions
+        # Backward compatibility:
+        # Take parameters from main reader
+        if 'ha' not in r:
+            r.ha = reader.ha
+        if 'version' not in r:
+            r.version = reader.version
+        self.read_projections(r)
+        self.read_eigenvalues(r, r.version == 0)
+        self.read_occupations(r, r.version == 0)
+
+    def read_projections(self, reader):
+        nslice = self.bd.get_slice()
         nproj_a = [setup.ni for setup in self.setups]
         atom_partition = AtomPartition(self.gd.comm,
                                        np.zeros(len(nproj_a), int))
@@ -447,27 +471,47 @@ class WaveFunctions:
                 index = (kpt.s, kpt.k)
             else:
                 index = (kpt.k,)
-            eps_n = r.proxy('eigenvalues', *index)[nslice]
-            f_n = r.proxy('occupations', *index)[nslice]
-            x = self.bd.mynbands - len(f_n)  # missing bands?
-            if x > 0:
-                # Working on a real fix to this parallelization problem ...
-                f_n = np.pad(f_n, (0, x), 'constant')
-                eps_n = np.pad(eps_n, (0, x), 'constant')
-            if reader.version > 0:
-                f_n *= kpt.weight  # skip for old tar-files gpw's
-                eps_n /= reader.ha
-            kpt.eps_n = eps_n
-            kpt.f_n = f_n
             kpt.P = Projections(
                 self.bd.nbands, nproj_a,
                 atom_partition, self.bd.comm,
                 collinear=self.collinear, spin=kpt.s, dtype=self.dtype)
             if self.gd.comm.rank == 0:
-                P_nI = r.proxy('projections', *index)[nslice]
+                P_nI = reader.proxy('projections', *index)[nslice]
                 if not self.collinear:
                     P_nI.shape = (self.bd.mynbands, -1)
                 kpt.P.matrix.array[:] = P_nI
+
+    def read_eigenvalues(self, reader, old=False):
+        nslice = self.bd.get_slice()
+        for u, kpt in enumerate(self.kpt_u):
+            if self.collinear:
+                index = (kpt.s, kpt.k)
+            else:
+                index = (kpt.k,)
+            eps_n = reader.proxy('eigenvalues', *index)[nslice]
+            x = self.bd.mynbands - len(eps_n)  # missing bands?
+            if x > 0:
+                # Working on a real fix to this parallelization problem ...
+                eps_n = np.pad(eps_n, (0, x), 'constant')
+            if not old:  # skip for old tar-files gpw's
+                eps_n /= reader.ha
+            kpt.eps_n = eps_n
+
+    def read_occupations(self, reader, old=False):
+        nslice = self.bd.get_slice()
+        for u, kpt in enumerate(self.kpt_u):
+            if self.collinear:
+                index = (kpt.s, kpt.k)
+            else:
+                index = (kpt.k,)
+            f_n = reader.proxy('occupations', *index)[nslice]
+            x = self.bd.mynbands - len(f_n)  # missing bands?
+            if x > 0:
+                # Working on a real fix to this parallelization problem ...
+                f_n = np.pad(f_n, (0, x), 'constant')
+            if not old:  # skip for old tar-files gpw's
+                f_n *= kpt.weight
+            kpt.f_n = f_n
 
 
 def eigenvalue_string(wfs, comment=' '):
