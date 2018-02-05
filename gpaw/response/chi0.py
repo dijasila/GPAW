@@ -1,5 +1,5 @@
 from __future__ import print_function, division
-
+import numbers
 from time import ctime
 
 import numpy as np
@@ -86,11 +86,11 @@ class FrequencyDescriptor(ArrayDescriptor):
         w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
         if isinstance(w_m, np.ndarray):
             w_m[w_m >= self.wmax] = self.wmax - 1
-        elif isinstance(w_m, (int, np.int32, np.int64)):
+        elif isinstance(w_m, number.Integral):
             if w_m >= self.wmax:
                 w_m = self.wmax - 1
         else:
-            raise NotImplementedError
+            raise TypeError
         return w_m
 
     def get_index_range(self, omega1_m, omega2_m):
