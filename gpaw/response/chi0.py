@@ -358,10 +358,11 @@ class Chi0:
         nG = pd.ngmax + 2 * optical_limit
         nw = len(self.omega_w)
         mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        self.Ga = self.blockcomm.rank * mynG
+        self.Ga = min(self.blockcomm.rank * mynG, nG)
         self.Gb = min(self.Ga + mynG, nG)
-        assert mynG * (self.blockcomm.size - 1) < nG
-        
+        # if self.blockcomm.rank == 0:
+        #     assert self.Gb - self.Ga >= 3
+        # assert mynG * (self.blockcomm.size - 1) < nG
         if A_x is not None:
             nx = nw * (self.Gb - self.Ga) * nG
             chi0_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
@@ -636,13 +637,15 @@ class Chi0:
 
             # Again, not so pretty but that's how it is
             plasmafreq_vv = plasmafreq_wvv[0].copy()
-            if self.blockcomm.rank == 0 and self.include_intraband:
+            if self.include_intraband:
                 if extend_head:
-                    A_wxx[:, :3, :3] += (plasmafreq_vv[np.newaxis] /
-                                         (self.omega_w[:, np.newaxis,
-                                                       np.newaxis] +
-                                          1e-10 + self.rate * 1j)**2)
-                else:
+                    va = min(self.Ga, 3)
+                    vb = min(self.Gb, 3)
+                    A_wxx[:, :vb - va, :3] += (plasmafreq_vv[va:vb] /
+                                               (self.omega_w[:, np.newaxis,
+                                                             np.newaxis] +
+                                                1e-10 + self.rate * 1j)**2)
+                elif self.blockcomm.rank == 0:
                     A_wxx[:, 0, 0] += (plasmafreq_vv[2, 2] /
                                        (self.omega_w + 1e-10 +
                                         self.rate * 1j)**2)
@@ -698,17 +701,21 @@ class Chi0:
             # The wings are extracted
             chi0_wxvG[:, 1, :, self.Ga:self.Gb] = np.transpose(A_wxx[..., 0:3],
                                                                (0, 2, 1))
-            if self.blockcomm.rank == 0:
-                assert self.Gb > 2, print('Too large blockcomm', file=self.fd)
-                chi0_wxvG[:, 0] = A_wxx[:, 0:3, :]
+            va = min(self.Ga, 3)
+            vb = min(self.Gb, 3)
+            # print(self.world.rank, va, vb, chi0_wxvG[:, 0, va:vb].shape,
+            #       A_wxx[:, va:vb].shape, A_wxx.shape)
+            chi0_wxvG[:, 0, va:vb] = A_wxx[:, :vb - va]
+
             # Add contributions on different ranks
             self.blockcomm.sum(chi0_wxvG)
+            chi0_wvv[:] = chi0_wxvG[:, 0, :3, :3]
             chi0_wxvG = chi0_wxvG[..., 2:]  # Jesus, this is complicated
 
             # The head is extracted
-            if self.blockcomm.rank == 0:
-                chi0_wvv[:] = A_wxx[:, :3, :3]
-            self.blockcomm.broadcast(chi0_wvv, 0)
+            # if self.blockcomm.rank == 0:
+            #     chi0_wvv[:] = A_wxx[:, :3, :3]
+            # self.blockcomm.broadcast(chi0_wvv, 0)
 
             # It is easiest to redistribute over freqs to pick body
             tmpA_wxx = self.redistribute(A_wxx)

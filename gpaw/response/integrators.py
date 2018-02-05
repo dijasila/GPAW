@@ -139,10 +139,10 @@ class PointIntegrator(Integrator):
 
         nG = out_wxx.shape[2]
         mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        self.Ga = self.blockcomm.rank * mynG
+        self.Ga = min(self.blockcomm.rank * mynG, nG)
         self.Gb = min(self.Ga + mynG, nG)
-        assert mynG * (self.blockcomm.size - 1) < nG, \
-            print('mynG', mynG, 'nG', nG, 'nblocks', self.blockcomm.size)
+        # assert mynG * (self.blockcomm.size - 1) < nG, \
+        #     print('mynG', mynG, 'nG', nG, 'nblocks', self.blockcomm.size)
 
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
@@ -375,10 +375,10 @@ class TetrahedronIntegrator(Integrator):
 
         nG = out_wxx.shape[2]
         mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        self.Ga = self.blockcomm.rank * mynG
+        self.Ga = min(self.blockcomm.rank * mynG, nG)
         self.Gb = min(self.Ga + mynG, nG)
-        assert mynG * (self.blockcomm.size - 1) < nG, \
-            print('mynG', mynG, 'nG', nG, 'nblocks', self.blockcomm.size)
+        # assert mynG * (self.blockcomm.size - 1) < nG, \
+        #     print('mynG', mynG, 'nG', nG, 'nblocks', self.blockcomm.size)
 
         # Input domain
         td = self.tesselate(domain[0])
