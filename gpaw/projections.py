@@ -18,7 +18,6 @@ class Projections:
         self.map = {}
         I1 = 0
 
-        rank = atom_partition.comm.rank
         for a in self.atom_partition.my_indices:
             ni = nproj_a[a]
             I2 = I1 + ni
