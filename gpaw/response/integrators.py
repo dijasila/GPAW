@@ -452,35 +452,39 @@ class TetrahedronIntegrator(Integrator):
         omega_w = x.get_data()
 
         # Calculate integrations weight
-        pb = ProgressBar(self.fd)
-        for _, arguments in pb.enumerate(myterms_t):
-            K = arguments[-1]
-            if len(shape) == 0:
-                t = 0
-            else:
-                t = np.ravel_multi_index(arguments[:-1], shape)
-            deps_Mk = deps_tMk[t]
-            teteps_Mk = deps_Mk[:, neighbours_k[K]]
-            i0_M, i1_M = x.get_index_range(teteps_Mk.min(1), teteps_Mk.max(1))
+        with self.timer('Sum chi0'):
+            pb = ProgressBar(self.fd)
+            for _, arguments in pb.enumerate(myterms_t):
+                K = arguments[-1]
+                if len(shape) == 0:
+                    t = 0
+                else:
+                    t = np.ravel_multi_index(arguments[:-1], shape)
+                deps_Mk = deps_tMk[t]
+                teteps_Mk = deps_Mk[:, neighbours_k[K]]
+                i0_M, i1_M = x.get_index_range(teteps_Mk.min(1),
+                                               teteps_Mk.max(1))
 
-            n_MG = get_matrix_element(bzk_kc[K],
-                                      *arguments[:-1])
-            for n_G, deps_k, i0, i1 in zip(n_MG, deps_Mk,
-                                           i0_M, i1_M):
-                if i0 == i1:
-                    continue
+                n_MG = get_matrix_element(bzk_kc[K],
+                                          *arguments[:-1])
 
-                W_w = self.get_kpoint_weight(K, deps_k,
-                                             pts_k, omega_w[i0:i1],
-                                             td)
+                with self.timer('Update spectral function'):
+                    for n_G, deps_k, i0, i1 in zip(n_MG, deps_Mk,
+                                                   i0_M, i1_M):
+                        if i0 == i1:
+                            continue
 
-                for iw, weight in enumerate(W_w):
-                    if self.blockcomm.size > 1:
-                        myn_G = n_G[self.Ga:self.Gb].reshape((-1, 1))
-                        gemm(weight, n_G.reshape((-1, 1)), myn_G,
-                             1.0, out_wxx[i0 + iw], 'c')
-                    else:
-                        czher(weight, n_G.conj(), out_wxx[i0 + iw])
+                        W_w = self.get_kpoint_weight(K, deps_k,
+                                                     pts_k, omega_w[i0:i1],
+                                                     td)
+
+                        for iw, weight in enumerate(W_w):
+                            if self.blockcomm.size > 1:
+                                myn_G = n_G[self.Ga:self.Gb].reshape((-1, 1))
+                                gemm(weight, n_G.reshape((-1, 1)), myn_G,
+                                     1.0, out_wxx[i0 + iw], 'c')
+                            else:
+                                czher(weight, n_G.conj(), out_wxx[i0 + iw])
 
         self.kncomm.sum(out_wxx)
 
