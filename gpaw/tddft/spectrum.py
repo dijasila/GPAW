@@ -21,7 +21,7 @@ def read_dipole_moment_file(fname, remove_duplicates=True):
 
     # Search kicks
     kick_i = []
-    with file(fname, 'r') as f:
+    with open(fname, 'r') as f:
         for line in f:
             if line.startswith('# Kick'):
                 kick_v, time = parse_kick_line(line)
