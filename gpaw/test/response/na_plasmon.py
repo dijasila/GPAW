@@ -77,6 +77,7 @@ for kwargs in settings:
 
     df1 = DielectricFunction('gs_Na_small.gpw',
                              domega0=0.03,
+                             omegamax=10,
                              ecut=150,
                              name='chi0',
                              **kwargs)
@@ -92,6 +93,7 @@ for kwargs in settings:
     
     df2 = DielectricFunction('gs_Na_large.gpw',
                              domega0=0.03,
+                             omegamax=10,
                              ecut=150,
                              name='chi1',
                              **kwargs)
