@@ -86,7 +86,7 @@ class FrequencyDescriptor(ArrayDescriptor):
         w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
         if isinstance(w_m, np.ndarray):
             w_m[w_m >= self.wmax] = self.wmax - 1
-        elif isinstance(w_m, number.Integral):
+        elif isinstance(w_m, numbers.Integral):
             if w_m >= self.wmax:
                 w_m = self.wmax - 1
         else:
