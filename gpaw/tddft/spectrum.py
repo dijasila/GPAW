@@ -11,7 +11,7 @@ from gpaw.tddft.folding import Folding
 def read_dipole_moment_file(fname, remove_duplicates=True):
     def parse_kick_line(line):
         kick_str_v = line.split('[', 1)[1].split(']', 1)[0].split(',')
-        kick_v = np.array(map(float, kick_str_v))
+        kick_v = np.array(list(map(float, kick_str_v)))
         data_i = line.split('Time =')
         if len(data_i) == 1:
             time = 0.0
@@ -111,7 +111,7 @@ def write_spectrum(dipole_moment_file, spectrum_file,
     omega_w = ff.frequencies
     spec_wv = calculate((kick_v, time_t, dm_tv), ff)
 
-    # Write spectrum file
+    # Write spectrum file header
     with open(spectrum_file, 'w') as f:
         def w(s):
             f.write('%s\n' % s)
@@ -141,8 +141,12 @@ def write_spectrum(dipole_moment_file, spectrum_file,
                 data_iw.append(spec_wv[:, v])
 
         w('# %10s %s' % ('om (eV)', ' '.join(['%20s' % s for s in col_i])))
+
+    # Write spectrum file data
+    with open(spectrum_file, 'ab') as f:
         np.savetxt(f, np.array(data_iw).T,
                    fmt='%12.6lf' + (' %20.10le' * len(col_i)))
+
     return folding.envelope(time_t[-1])
 
 
