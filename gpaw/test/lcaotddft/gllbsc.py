@@ -5,9 +5,9 @@ from gpaw.mpi import world
 from gpaw.tddft import TDDFT as GRIDTDDFT
 from gpaw.test import equal
 
-ref_values = [[-0.0153712, -0.0153712, -0.0153712],
-              [0.0037263, 0.0037263, 0.0037263],
-              [0.0118144, 0.0118144, 0.0118144],
+ref_values = [[-0.0153803, -0.0153803, -0.0153803],
+              [0.0036901, 0.0036901, 0.0036901],
+              [0.0117725, 0.0117725, 0.0117725],
               [-0.0902301, -0.0902301, -0.0902301],
               [-0.0835503, -0.0835503, -0.08355028]]
 calcs = []
@@ -63,7 +63,7 @@ for (mode, TDDFT) in [('lcao', LCAOTDDFT),
         if fxc != xc:
             calcs[-1].linearize_to_xc(fxc)
 
-        calcs[-1].propagate(10.0, 20, 'dm.%s.dat' % tag)
+        calcs[-1].propagate(10.0, 20)
         dens = calcs[-1].density
         equal(dens.finegd.calculate_dipole_moment(dens.rhot_g), 0.0, 1.0e-6)
         calcs[-1].write('td.gpw', mode='all')
@@ -73,7 +73,7 @@ for (mode, TDDFT) in [('lcao', LCAOTDDFT),
             calcs.append(TDDFT('td.gpw', txt='grr4.txt'))
 
         calcs[-1].absorption_kick([0.01, 0.01, 0.01])
-        calcs[-1].propagate(10.0, 30, 'dm.%s.dat' % tag)
+        calcs[-1].propagate(10.0, 30)
 
         dens = calcs[-1].density
         equal(dens.finegd.calculate_dipole_moment(dens.rhot_g),

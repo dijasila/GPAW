@@ -301,6 +301,13 @@ unoccupied bands will improve convergence.
 
     ``nbands='n%'`` will give ``n/100`` times the number of occupied bands.
 
+.. tip::
+
+    ``nbands='nao'`` will use the the same number of bands as there are
+    atomic orbitals. This corresponds to the maximum ``nbands`` value that
+    can be used in LCAO mode.
+
+
 
 .. _manual_xc:
 

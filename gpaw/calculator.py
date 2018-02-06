@@ -238,7 +238,7 @@ class GPAW(PAW, Calculator):
         self.hamiltonian.xc.read(reader)
 
         if self.hamiltonian.xc.name == 'GLLBSC':
-            # XXX GLLB: See lcao/tdgllbsc.py test
+            # XXX GLLB: See test/lcaotddft/gllbsc.py
             self.occupations.calculate(self.wfs)
 
         return reader
@@ -580,7 +580,9 @@ class GPAW(PAW, Calculator):
             nbands = 1
 
         if isinstance(nbands, basestring):
-            if nbands[-1] == '%':
+            if nbands == 'nao':
+                nbands = nao
+            elif nbands[-1] == '%':
                 basebands = int(nvalence + M + 0.5) // 2
                 nbands = int((float(nbands[:-1]) / 100) * basebands)
             else:
