@@ -11,7 +11,7 @@ from gpaw.tddft.folding import Folding
 def read_dipole_moment_file(fname, remove_duplicates=True):
     def parse_kick_line(line):
         kick_str_v = line.split('[', 1)[1].split(']', 1)[0].split(',')
-        kick_v = np.array(list(map(float, kick_str_v)))
+        kick_v = np.array([float(x) for x in kick_str_v])
         data_i = line.split('Time =')
         if len(data_i) == 1:
             time = 0.0
