@@ -12,6 +12,9 @@ Git master branch
 
 * Added QNA XC functional.
 
+* Major refactoring of the LCAOTDDFT code and added Kohn--Sham decomposition
+  analysis within LCAOTDDFT, see :ref:`the documentation <lcaotddft>`.
+
 * New ``experimental`` keyword, ``GPAW(experimental={...})`` to enable
   features that are still being tested.
 
