@@ -5,6 +5,14 @@ from gpaw.analyse.observers import Observer
 
 
 def time_to_seconds(timestr):
+    """Convert time to seconds
+
+    Parameters:
+
+    timestr: float or string
+        Float in seconds or string in format
+        'DD-HH:MM:SS', 'HH:MM:SS', 'MM:SS', or 'SS'.
+    """
     try:
         return float(timestr)
     except ValueError:
@@ -50,9 +58,7 @@ class TimeLimiter(Observer):
             Format: as given by time.time().
         timelimit: float or string
             The allowed run time counted from `timestart`.
-            Format: float in seconds, or string in format 'DD-HH:MM:SS'.
-        output: str
-            The name of the output file for dumping the time estimates.
+            Format: any supported by function `time_to_seconds()`.
         output: str
             The name of the output file for dumping the time estimates.
         """
@@ -94,7 +100,7 @@ class TimeLimiter(Observer):
 
     def update(self, paw):
         """Update time estimate and break calculation if necessary."""
-        # Use paw.niter as iteration index
+        # Select the iteration index
         if self.loop is None:
             return
         elif self.loop == self.scf:
@@ -157,8 +163,7 @@ class TimeLimiter(Observer):
            the given index `iteridx`."""
         if self.timelimit is None:
             return True
-        # Calculate eta on master and broadcast
-        # the same eta to all ranks
+        # Calculate eta on master and broadcast to all ranks
         data_i = np.empty(1, dtype=int)
         if self.comm.rank == 0:
             if len(self.iteridx_t) < self.min_updates:
