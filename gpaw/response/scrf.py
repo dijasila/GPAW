@@ -343,26 +343,33 @@ class SpinChargeResponseFunction:
             # Find fxc_scaling if automated scaling is specified
             if not fxc_scaling is None:
               if isinstance(fxc_scaling, str) and fxc_scaling == 'Goldstone':
-                fxc_scaling = 1.0
-                
                 parprint("Finding rescaling to fulfill the Goldstone theorem")
-                chi0_0GG = chi0_wGG[0]
-                chi_0GG = np.dot(np.linalg.inv(np.eye(len(chi0_0GG)) -
-                                               np.dot(chi0_0GG, Kxc_GG*fxc_scaling)),
-                                 chi0_0GG)
-                kappa_M_0 = (chi0_0GG[0,0]/chi_0GG[0,0]).real
-                scaling_incr = 0.1*np.sign(kappa_M_0)
-                while abs(kappa_M_0) > 1e-5 and abs(scaling_incr) > 1e-5:
-                  fxc_scaling += scaling_incr
-                  if fxc_scaling <= 0.0 or fxc_scaling >= 10.:
-                    raise ValueError('Found a sxc_scaling of %.4f during scaling' % fxc_scaling)
+                # Only rank 0 has w=0 and finds rescaling
+                world = self.chi0.world
+                fxc_sbuf = np.empty(1, dtype=float)
+                if world.rank == 0:
+                  fxc_scaling = 1.0
+                  chi0_0GG = chi0_wGG[0]
                   chi_0GG = np.dot(np.linalg.inv(np.eye(len(chi0_0GG)) -
                                                  np.dot(chi0_0GG, Kxc_GG*fxc_scaling)),
                                    chi0_0GG)
                   kappa_M_0 = (chi0_0GG[0,0]/chi_0GG[0,0]).real
-                  
-                  if np.sign(kappa_M_0) != np.sign(scaling_incr):
-                    scaling_incr *= -0.2
+                  scaling_incr = 0.1*np.sign(kappa_M_0)
+                  while abs(kappa_M_0) > 1e-5 and abs(scaling_incr) > 1e-5:
+                    fxc_scaling += scaling_incr
+                    if fxc_scaling <= 0.0 or fxc_scaling >= 10.:
+                      raise ValueError('Found a sxc_scaling of %.4f during scaling' % fxc_scaling)
+                    chi_0GG = np.dot(np.linalg.inv(np.eye(len(chi0_0GG)) -
+                                                   np.dot(chi0_0GG, Kxc_GG*fxc_scaling)),
+                                     chi0_0GG)
+                    kappa_M_0 = (chi0_0GG[0,0]/chi_0GG[0,0]).real
+                    
+                    if np.sign(kappa_M_0) != np.sign(scaling_incr):
+                      scaling_incr *= -0.2
+                  fxc_sbuf[:] = fxc_scaling
+                # Broadcast found rescaling  
+                world.broadcast(fxc_sbuf, 0)
+                fxc_scaling = fxc_sbuf[0]
             else:
               fxc_scaling = 1.0
             
