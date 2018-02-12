@@ -129,7 +129,7 @@ class Chi0:
             The groundstate calculation file that the linear response
             calculation is based on.
         response : str
-            Type of response function. Currently collinear scalar options 
+            Type of response function. Currently collinear, scalar options 
             'density' and 'spin' are implemented.
         frequencies : ndarray or None
             Array of frequencies to evaluate the response function at. If None,
@@ -897,10 +897,10 @@ class Chi0:
         n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
                                            Q_aGii=self.Q_aGii, block=block)
         #print(n_nmG) ### error finding ###
-        n_nmG = np.zeros(n_nmG.shape, complex) ### Hard coded for error finding ###
+        #n_nmG = np.zeros(n_nmG.shape, complex) ### Hard coded for error finding ###
         #print(k_c+q_c, self.calc.get_bz_k_points()[kptpair.kpt2.K])  ### error finding ###
-        if np.allclose(k_c + q_c - self.calc.get_bz_k_points()[kptpair.kpt2.K], 0.0):  ### Hard coded for error finding ###
-          n_nmG[0,0,0] = 1. + 0.j ### Hard coded for error finding ### 
+        #if np.allclose(k_c + q_c - self.calc.get_bz_k_points()[kptpair.kpt2.K], 0.0):  ### Hard coded for error finding ###
+        #  n_nmG[0,0,0] = 1. + 0.j ### Hard coded for error finding ### 
         #print(n_nmG) ### error finding ###
         if integrationmode is None:
             n_nmG *= weight

@@ -233,7 +233,7 @@ class SpinChargeResponseFunction:
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
                 direction='x', return_VchiV=True, q_v=None,
-                density_cut=None, sigma_cut=None, re_factor=1.0, localF=True):
+                density_cut=None, sigma_cut=None, re_factor=1.0):
         """ Returns v^1/2 chi v^1/2 for the density response and chi for the
         spin response. The truncated Coulomb interaction is included as 
         v^-1/2 v_t v^-1/2. This is in order to conform with
@@ -331,7 +331,7 @@ class SpinChargeResponseFunction:
             else: # RPA is non-interacting for the spin response
                 return pd, chi0_wGG, chi0_wGG
             
-            print(Kxc_GG)  ### error finding ###
+            #print(Kxc_GG)  ### error finding ###
             # Invert Dyson eq.
             chi_wGG = []
             
@@ -345,8 +345,6 @@ class SpinChargeResponseFunction:
                                 chi0_GG) # renormalization factor should be in kernel
                 
                 #print(np.dot(chi0_GG, Kxc_GG*re_factor))  ### error finding ###
-                if not localF:
-                  chi_GG[0,0] = chi0_GG[0,0] / (1. - Kxc_GG[0,0]*re_factor*chi0_GG[0,0])
                 
                 chi_wGG.append(chi_GG)
             
@@ -398,13 +396,16 @@ class SpinChargeResponseFunction:
 
     def get_spin_response_function(self, xc='ALDA', q_c=[0, 0, 0], q_v=None,
                                    direction='x', flip='pm', density_cut=None, sigma_cut=None,
-                                   filename='srf.csv', return_VchiV = False, re_factor=1.0, localF=True):
+                                   filename='srf.csv', return_VchiV = False, fxc_scaling=1.0, Dt=0.0):
         """Calculate the spin response function.
+        
+        
         
         Returns macroscopic spin response function:
         srf0_w, srf_xc_w = SpinChargeResponseFunction.get_spin_response_function()
         
         """
+        ### Dt and re_factor = True not yet implemented
               
         self.chi0.set_response('spin') 
         assert self.chi0.eta > 0.0
