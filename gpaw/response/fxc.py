@@ -255,9 +255,9 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_x', sigma_cut=None, density_cu
             v_sG = np.zeros(np.shape(n_sG))
             xc = XC(functional[1:])
             xc.calculate(gd, n_sG, v_sg = v_sG)
-            from ase.parallel import parprint
-            parprint("v_sG dif", v_sG[0] - v_sG[1])
-            parprint("s_G", s_G)
+            #from ase.parallel import parprint
+            #parprint("v_sG dif", v_sG[0] - v_sG[1])
+            #parprint("s_G", s_G)
             return (v_sG[0] - v_sG[1]) / s_G
     
     
@@ -328,7 +328,7 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_x', sigma_cut=None, density_cu
             ijQ_c = (iQ_c - jQ_c)
             if (abs(ijQ_c) < nG // 2).all():
                 Kxc_GG[iG, jG] = tmp_g[tuple(ijQ_c)]
-    print("Kxc_GG", Kxc_GG, Kxc_GG[0,0])  ### error finding ### 
+    #print("Kxc_GG", Kxc_GG, Kxc_GG[0,0])  ### error finding ### 
     # The PAW part
     KxcPAW_GG = np.zeros_like(Kxc_GG)
     dG_GGv = np.zeros((npw, npw, 3))

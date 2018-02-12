@@ -7,6 +7,7 @@ from math import pi
 
 import numpy as np
 from ase.units import Hartree, Bohr
+from ase.parallel import parprint
 
 import gpaw.mpi as mpi
 
@@ -233,7 +234,8 @@ class SpinChargeResponseFunction:
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
                 direction='x', return_VchiV=True, q_v=None,
-                density_cut=None, sigma_cut=None, re_factor=1.0):
+                density_cut=None, sigma_cut=None, 
+                fxc_scaling=None, Dt=None):
         """ Returns v^1/2 chi v^1/2 for the density response and chi for the
         spin response. The truncated Coulomb interaction is included as 
         v^-1/2 v_t v^-1/2. This is in order to conform with
@@ -244,11 +246,16 @@ class SpinChargeResponseFunction:
             If 0 or 1, only include this specific spin.
             If 'pm' calculate chi^{+-}_0
             If 'mp' calculate chi^{-+}_0
-        sigma_cut: float
+        sigma_cut : float
             cutoff spin density difference below which f_xc is evaluated in 
             unpolarized limit (to make sure divergent terms cancel out correctly)
-        density_cut: float
+        density_cut : float
             cutoff density below which f_xc is set to zero
+        fxc_scaling : float or str
+            Possible scaling of kernel to hit Goldstone mode.
+            float input gives a flat scaling factor, 'Goldstone' automatically fulfills the theorem.
+        Dt : float
+            Response time [1/eV] used in semi-adiabatic approximation
         
         Note: currently only 'RPA', 'ALDA_x', 'ALDA_X' and 'ALDA' are implemented for spin response.
         """
@@ -331,18 +338,46 @@ class SpinChargeResponseFunction:
             else: # RPA is non-interacting for the spin response
                 return pd, chi0_wGG, chi0_wGG
             
-            #print(Kxc_GG)  ### error finding ###
-            # Invert Dyson eq.
             chi_wGG = []
             
-            from ase.parallel import parprint
-            parprint("Renormalization factor:", re_factor)
+            # Find fxc_scaling if automated scaling is specified
+            if not fxc_scaling is None:
+              if isinstance(fxc_scaling, str) and fxc_scaling == 'Goldstone':
+                fxc_scaling = 1.0
+                
+                parprint("Finding rescaling to fulfill the Goldstone theorem")
+                chi0_0GG = chi0_wGG[0]
+                chi_0GG = np.dot(np.linalg.inv(np.eye(len(chi0_0GG)) -
+                                               np.dot(chi0_0GG, Kxc_GG*fxc_scaling)),
+                                 chi0_0GG)
+                kappa_M_0 = (chi0_0GG[0,0]/chi_0GG[0,0]).real
+                scaling_incr = 0.1*np.sign(kappa_M_0)
+                while abs(kappa_M_0) > 1e-5 and abs(scaling_incr) > 1e-5:
+                  fxc_scaling += scaling_incr
+                  if fxc_scaling <= 0.0 or fxc_scaling >= 10.:
+                    raise ValueError('Found a sxc_scaling of %.4f during scaling' % fxc_scaling)
+                  chi_0GG = np.dot(np.linalg.inv(np.eye(len(chi0_0GG)) -
+                                                 np.dot(chi0_0GG, Kxc_GG*fxc_scaling)),
+                                   chi0_0GG)
+                  kappa_M_0 = (chi0_0GG[0,0]/chi_0GG[0,0]).real
+                  
+                  if np.sign(kappa_M_0) != np.sign(scaling_incr):
+                    scaling_incr *= -0.2
+            else:
+              fxc_scaling = 1.0
             
-            for chi0_GG in chi0_wGG:
-                #parprint(chi0_GG)
+            # Add factor for semi-adiabatic approximation
+            if not Dt is None:
+              Dt *= Hartree
+              fxc_scaling_w = fxc_scaling * np.exp(-Dt*self.omega_w)
+            else:
+              fxc_scaling_w = fxc_scaling * np.ones(len(self.omega_w))
+            
+            # Invert Dyson equation
+            for (chi0_GG, fxcs) in zip(chi0_wGG, fxc_scaling_w):
                 chi_GG = np.dot(np.linalg.inv(np.eye(len(chi0_GG)) -
-                                              np.dot(chi0_GG, Kxc_GG*re_factor)),
-                                chi0_GG) # renormalization factor should be in kernel
+                                              np.dot(chi0_GG, Kxc_GG*fxcs)),
+                                chi0_GG)
                 
                 #print(np.dot(chi0_GG, Kxc_GG*re_factor))  ### error finding ###
                 
@@ -355,6 +390,8 @@ class SpinChargeResponseFunction:
             #parprint("chi_30_0G", chi_wGG[30][0,:])  ### error finding ###
             #parprint("chi_30_G0", chi_wGG[30][:,0])  ### error finding ###
         
+        if not fxc_scaling is None:
+          return pd, chi0_wGG, np.array(chi_wGG), fxc_scaling
         return pd, chi0_wGG, np.array(chi_wGG)
     
     
@@ -396,16 +433,12 @@ class SpinChargeResponseFunction:
 
     def get_spin_response_function(self, xc='ALDA', q_c=[0, 0, 0], q_v=None,
                                    direction='x', flip='pm', density_cut=None, sigma_cut=None,
-                                   filename='srf.csv', return_VchiV = False, fxc_scaling=1.0, Dt=0.0):
+                                   filename='srf.csv', return_VchiV = False, fxc_scaling=None, Dt=None):
         """Calculate the spin response function.
-        
-        
-        
+         
         Returns macroscopic spin response function:
         srf0_w, srf_xc_w = SpinChargeResponseFunction.get_spin_response_function()
-        
         """
-        ### Dt and re_factor = True not yet implemented
               
         self.chi0.set_response('spin') 
         assert self.chi0.eta > 0.0
@@ -414,9 +447,9 @@ class SpinChargeResponseFunction:
         assert self.chi0.disable_point_group
         assert self.chi0.disable_time_reversal
         
-        pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c, spin=flip,
-                                             direction=direction, density_cut=density_cut,
-                                             sigma_cut=sigma_cut, re_factor=re_factor, localF=localF)
+        pd, chi0_wGG, chi_wGG, fxc_scaling = self.get_chi(xc=xc, q_c=q_c, spin=flip,
+                                                          direction=direction, density_cut=density_cut,
+                                                          sigma_cut=sigma_cut, fxc_scaling=fxc_scaling, Dt=Dt)
         
         srf0_w = np.zeros(len(chi_wGG), dtype=complex)
         srf_xc_w = np.zeros(len(chi_wGG), dtype=complex)
@@ -437,7 +470,7 @@ class SpinChargeResponseFunction:
                           (omega, srf0.real, srf0.imag, srf_xc.real, srf_xc.imag),
                           file=fd)
 
-        return srf0_w, srf_xc_w
+        return srf0_w, srf_xc_w, fxc_scaling
     
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
