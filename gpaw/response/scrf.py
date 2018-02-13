@@ -344,16 +344,32 @@ class SpinChargeResponseFunction:
             if not fxc_scaling is None:
               if isinstance(fxc_scaling, str) and fxc_scaling == 'Goldstone':
                 parprint("Finding rescaling to fulfill the Goldstone theorem")
-                # Only rank 0 has w=0 and finds rescaling
+                
+                ## Collect w=0 data XXX not efficient to use redistribute
                 world = self.chi0.world
+                #try:
+                #  print("bf re, chi0_0GG", world.rank, chi0_wGG[0])  ### error finding ###
+                #except:
+                #  print("failed bf re, chi0_0GG", world.rank)  ### error finding ###
+                #tmpchi0_wGG = self.chi0.redistribute(chi0_wGG)
+                #try:
+                #  print("bf re, chi0_0GG", world.rank, tmpchi0_wGG[0])  ### error finding ###
+                #except:
+                #  print("failed bf re, chi0_0GG", world.rank)  ### error finding ###
+                
+                # Only rank 0 has w=0 and finds rescaling
                 fxc_sbuf = np.empty(1, dtype=float)
                 if world.rank == 0:
                   fxc_scaling = 1.0
+                  #chi0_0GG = tmpchi0_wGG[0]  ### error finding ###
                   chi0_0GG = chi0_wGG[0]
                   chi_0GG = np.dot(np.linalg.inv(np.eye(len(chi0_0GG)) -
                                                  np.dot(chi0_0GG, Kxc_GG*fxc_scaling)),
                                    chi0_0GG)
                   kappa_M_0 = (chi0_0GG[0,0]/chi_0GG[0,0]).real
+                  #print("chi0_wGG", chi0_wGG)  ### error finding ###
+                  #print("chi0_0GG", chi0_0GG)  ### error finding ###
+                  #print("kappa_M_0", kappa_M_0)  ### error finding ###
                   scaling_incr = 0.1*np.sign(kappa_M_0)
                   while abs(kappa_M_0) > 1e-5 and abs(scaling_incr) > 1e-5:
                     fxc_scaling += scaling_incr
@@ -366,12 +382,20 @@ class SpinChargeResponseFunction:
                     
                     if np.sign(kappa_M_0) != np.sign(scaling_incr):
                       scaling_incr *= -0.2
+                    #print(fxc_scaling, kappa_M_0)  ### error finding ###
                   fxc_sbuf[:] = fxc_scaling
+                  #print(fxc_sbuf)  ### error finding ###
                 # Broadcast found rescaling  
                 world.broadcast(fxc_sbuf, 0)
+                #print(world.rank, fxc_sbuf)  ### error finding ###
                 fxc_scaling = fxc_sbuf[0]
             else:
               fxc_scaling = 1.0
+            
+            #fxc_scaling = 1.0  ### error finding ###
+            #world = self.chi0.world  ### error finding ###
+            #if world.rank == 0:  ### error finding ###
+            #  print("chi0_0GG", q_c, chi0_wGG[0])  ### error finding ###
             
             # Add factor for semi-adiabatic approximation
             if not Dt is None:
