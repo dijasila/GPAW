@@ -67,7 +67,7 @@ makes ``thing`` available.  Lets try an example:
 * and in file :file:`program.py`, put::
 
     from stuff import constant, function
-    print 'result =', function(constant)
+    print('result =', function(constant))
 
 * Now run the script :file:`program.py` and watch the output.
 
