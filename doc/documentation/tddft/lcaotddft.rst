@@ -193,7 +193,7 @@ but in this case only a single core is used for linear alrebra.
 
     Timing
     ======
-    
+
     Add ``ParallelTimer`` example
 
 
@@ -210,32 +210,32 @@ as a separate observers in the general time-propagation framework.
 
 There are two ways to perform analysis:
    1. Perform analysis on-the-fly during the propagation::
-  
-         # Read starting point 
+
+         # Read starting point
          td_calc = LCAOTDDFT('gs.gpw')
-   
+
          # Attach analysis tools
          MyObserver(td_calc, ...)
-   
+
          # Kick and propagate
          td_calc.absorption_kick([1e-5, 0., 0.])
          td_calc.propagate(10, 3000)
-   
+
       For example, the analysis tools can be ``DipoleMomentWriter`` observer
       for spectrum or Fourier transform of density at specific frequencies etc.
-   
+
    2. Record the wave functions during the first propagation and
       perform the analysis later by replaying the propagation::
-   
-         # Read starting point 
+
+         # Read starting point
          td_calc = LCAOTDDFT('gs.gpw')
-   
+
          # Attach analysis tools
          MyObserver(td_calc, ...)
-   
+
          # Replay propagation from a stored file
-         td_calc.replay(name='wfw.ulm', update='all')
-   
+         td_calc.replay(name='wf.ulm', update='all')
+
       From the perspective of the attached observers the replaying
       is identical to actual propagation.
 
@@ -275,7 +275,7 @@ with ``WaveFunctionWriter`` observer:
 
    .. literalinclude:: lcaotddft_Na8/tdc.py
 
-The created ``wfw.ulm`` file contains the time-dependent wave functions
+The created ``wf.ulm`` file contains the time-dependent wave functions
 `C_{\mu n}(t)` that define the state of the system at each time.
 We can use the file to replay the time propagation:
 
@@ -414,16 +414,16 @@ For more details, see [#Kuisma2015]_.
 
    Large organic molecule
    ----------------------
-   
+
    On large organic molecules, on large conjugated systems, there will `\pi \rightarrow \pi^*`,
    `\sigma \rightarrow \sigma^*`. These states consist of only
    the valence orbitals of carbon, and they are likely by quite similar few eV's
    below and above the fermi lavel. These are thus a reason to believe that these
    states are well described with hydrogen 1s and carbon 2s and 2p valence orbitals
    around the fermi level.
-   
+
    Here, we will calculate a small and a large organic molecule with lcao-tddft.
-   
+
 
 References
 ==========
