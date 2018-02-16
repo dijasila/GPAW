@@ -1,7 +1,65 @@
-from gpaw.io import Reader
+import ase.io.ulm as ulm
+
 from gpaw.io import Writer
 
 from gpaw.lcaotddft.observer import TDDFTObserver
+
+
+class WFWReader(object):
+    def __init__(self, filename, reader=None, wfwreader=None):
+        if reader is None:
+            self.reader = ulm.Reader(filename)
+            tag = self.reader.get_tag()
+            if tag != WaveFunctionWriter.ulmtag:
+                raise RuntimeError('Unknown tag %s' % tag)
+            self.filename = filename
+        else:
+            self.reader = reader
+            self.version = wfwreader.version
+            self.split = wfwreader.split
+            self.filename = wfwreader.filename
+        if self.split:
+            name, ext = tuple(self.filename.rsplit('.', 1))
+            self.split_filename_fmt = name + '-%06d-%s.' + ext
+
+    def __getattr__(self, attr):
+        try:
+            return getattr(self.reader, attr)
+        except KeyError:
+            pass
+
+        # Split reader handling
+        if attr == 'wave_functions' and self.split:
+            if not hasattr(self, 'splitreader'):
+                filename = self.split_filename_fmt % (self.niter, self.action)
+                self.splitreader = ulm.Reader(filename)
+                tag = self.splitreader.get_tag()
+                assert tag == WaveFunctionWriter.ulmtag_split
+            return getattr(self.splitreader, attr)
+
+        # Compatibility for older versions
+        if attr == 'split':
+            return False
+
+        raise AttributeError('Attribute %s not defined in version %s' %
+                             (repr(attr), repr(self.version)))
+
+    def __len__(self):
+        return len(self.reader)
+
+    def __getitem__(self, index):
+        return WFWReader(None, self.reader[index], self)
+
+    def close(self):
+        if hasattr(self, 'splitreader'):
+            self.splitreader.close()
+            del self.splitreader
+        self.reader.close()
+
+    def __del__(self):
+        if hasattr(self, 'splitreader'):
+            self.splitreader.close()
+            del self.splitreader
 
 
 class WaveFunctionWriter(TDDFTObserver):
@@ -20,15 +78,14 @@ class WaveFunctionWriter(TDDFTObserver):
             self.writer.sync()
         else:
             # Check the earlier file
-            reader = Reader(filename)
-            assert reader.get_tag() == self.__class__.ulmtag
-            assert reader.version == self.__class__.version
+            reader = WFWReader(filename)
             self.split = reader.split  # Use the earlier split value
             reader.close()
 
             # Append to earlier file
             self.writer = Writer(filename, paw.world, mode='a',
                                  tag=self.__class__.ulmtag)
+
         if self.split:
             name, ext = tuple(filename.rsplit('.', 1))
             self.split_filename_fmt = name + '-%06d-%s.' + ext

@@ -70,22 +70,12 @@ class LCAOPropagator(Propagator):
 class ReplayPropagator(LCAOPropagator):
 
     def __init__(self, filename, update='all'):
-        from gpaw.io import Reader
         from gpaw.lcaotddft.wfwriter import WaveFunctionWriter
+        from gpaw.lcaotddft.wfwriter import WFWReader
         LCAOPropagator.__init__(self)
         self.filename = filename
         self.update_mode = update
-        self.reader = Reader(self.filename)
-        tag = self.reader.get_tag()
-        if tag != WaveFunctionWriter.ulmtag:
-            raise RuntimeError('Unknown tag %s' % tag)
-        version = self.reader.version
-        if version != WaveFunctionWriter.version:
-            raise RuntimeError('Unknown version %s' % version)
-        self.split = self.reader.split
-        if self.split:
-            name, ext = tuple(filename.rsplit('.', 1))
-            self.split_filename_fmt = name + '-%06d-%s.' + ext
+        self.reader = WFWReader(self.filename)
         self.read_index = 1
         self.read_count = len(self.reader)
 
@@ -100,16 +90,10 @@ class ReplayPropagator(LCAOPropagator):
 
     def _read(self):
         reader = self.reader[self.read_index]
-        if self.split:
-            from gpaw.io import Reader
-            filename = self.split_filename_fmt % (reader.niter, reader.action)
-            reader = Reader(filename)
         r = reader.wave_functions
         self.wfs.read_wave_functions(r)
         self.wfs.read_occupations(r)
         self.read_index += 1
-        if self.split:
-            reader.close()
 
     def kick(self, hamiltonian, time):
         self._align_read_index(time)
