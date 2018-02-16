@@ -70,12 +70,11 @@ class LCAOPropagator(Propagator):
 class ReplayPropagator(LCAOPropagator):
 
     def __init__(self, filename, update='all'):
-        from gpaw.lcaotddft.wfwriter import WaveFunctionWriter
-        from gpaw.lcaotddft.wfwriter import WFWReader
+        from gpaw.lcaotddft.wfwriter import WaveFunctionReader
         LCAOPropagator.__init__(self)
         self.filename = filename
         self.update_mode = update
-        self.reader = WFWReader(self.filename)
+        self.reader = WaveFunctionReader(self.filename)
         self.read_index = 1
         self.read_count = len(self.reader)
 

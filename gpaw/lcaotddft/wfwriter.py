@@ -5,8 +5,8 @@ from gpaw.io import Writer
 from gpaw.lcaotddft.observer import TDDFTObserver
 
 
-class WFWReader(object):
-    def __init__(self, filename, reader=None, wfwreader=None):
+class WaveFunctionReader(object):
+    def __init__(self, filename, reader=None, wfreader=None):
         if reader is None:
             self.reader = ulm.Reader(filename)
             tag = self.reader.get_tag()
@@ -15,9 +15,9 @@ class WFWReader(object):
             self.filename = filename
         else:
             self.reader = reader
-            self.version = wfwreader.version
-            self.split = wfwreader.split
-            self.filename = wfwreader.filename
+            self.version = wfreader.version
+            self.split = wfreader.split
+            self.filename = wfreader.filename
         if self.split:
             name, ext = tuple(self.filename.rsplit('.', 1))
             self.split_filename_fmt = name + '-%06d-%s.' + ext
@@ -48,7 +48,7 @@ class WFWReader(object):
         return len(self.reader)
 
     def __getitem__(self, index):
-        return WFWReader(None, self.reader[index], self)
+        return WaveFunctionReader(None, self.reader[index], self)
 
     def close(self):
         if hasattr(self, 'splitreader'):
@@ -78,7 +78,7 @@ class WaveFunctionWriter(TDDFTObserver):
             self.writer.sync()
         else:
             # Check the earlier file
-            reader = WFWReader(filename)
+            reader = WaveFunctionReader(filename)
             self.split = reader.split  # Use the earlier split value
             reader.close()
 
