@@ -291,6 +291,18 @@ The ``update`` keyword in ``replay()`` has following options:
 ``'none'``      nothing
 ==============  ===============================
 
+.. tip::
+
+   The wave functions can be written in separate files
+   by using ``split=True``::
+
+      WaveFunctionWriter(td_calc, 'wf.ulm', split=True)
+
+   This creates additional ``wf*.ulm`` files containing the wave functions.
+   The replay functionality works as in the above example
+   even with splitted files.
+
+
 
 Kohn--Sham decomposition of density matrix
 ------------------------------------------
