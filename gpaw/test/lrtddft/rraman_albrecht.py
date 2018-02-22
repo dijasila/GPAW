@@ -38,21 +38,35 @@ kss = KSSingles('rraman-d0.010.eq.ex.gz')
 assert(len(kss) == 1)
 
 om = 5
-pz = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
-              approximation='Albrecht A',
-                   verbose=True, overlap=True,)
-ai = pz.absolute_intensity(omega=om)[-1]
-#equal(ai, 299.955946107, 1e-3) # earlier obtained value
-i = pz.intensity(omega=om)[-1]
-#equal(i, 7.82174195159e-05, 1e-11) # earlier obtained value
-pz.summary(omega=5, method='frederiksen')
 
-# parallel ------------------------
+# Does Albrecht A work at all ?
+# -----------------------------
+
+al = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
+              verbose=True, overlap=True)
+ai = al.absolute_intensity(omega=om)[-1]
+i = al.intensity(omega=om)[-1]
+
+# parallel
 
 if world.size > 1 and world.rank == 0:
     # single core
     comm = DummyMPI()
     pzsi = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
-                   comm=comm, verbose=True,)
+                   comm=comm, overlap=True, verbose=True)
     isi = pzsi.intensity(omega=om)[-1]
     equal(isi, i, 1e-11)
+
+# Compare singles and multiples in Albrecht A
+# -------------------------------------------
+
+alas = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
+              approximation='Albrecht A')
+ints = alas.intensity(omega=om)[-1]
+alam = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
+                approximation='Albrecht A',
+                skip=5, combinations=2)
+# single excitation energies should agree
+equal(ints, alam.intensity(omega=om)[0] , 1e-11)
+alam.summary(omega=5, method='frederiksen')
+
