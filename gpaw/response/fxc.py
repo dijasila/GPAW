@@ -27,7 +27,7 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', sigma_cut=None, density_cu
     nspins = len(calc.density.nt_sG)
     assert nspins == 2
     
-    if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
+    if functional in ['ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae']:
         # Adiabatic kernel
         print("Calculating %s spin kernel" % functional, file=fd)
         Kxc_GG = calculate_spin_Kxc(pd, calc, functional=functional, sigma_cut=sigma_cut, density_cut=density_cut)
@@ -228,21 +228,6 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_x', sigma_cut=None, density_cu
     density_cut: float
         cutoff density below which f_xc is set to zero
     """
-        
-    gd = pd.gd
-    npw = pd.ngmax
-    nG = pd.gd.N_c
-    vol = pd.gd.volume
-    G_Gv = pd.get_reciprocal_vectors()
-    nt_sG = calc.density.nt_sG
-    R_av = calc.atoms.positions / Bohr
-    setups = calc.wfs.setups
-    D_asp = calc.density.D_asp
-    
-    nspins = len(nt_sG)
-    assert nspins == 2
-    assert functional in ['ALDA_x', 'ALDA_X', 'ALDA']
-    
     
     def _calculate_pol_fxc(gd, n_sG, s_G):
         """ Calculate polarized fxc """
@@ -310,79 +295,123 @@ def calculate_spin_Kxc(pd, calc, functional='ALDA_x', sigma_cut=None, density_cu
             fxc_G[s_fin_G] += _calculate_pol_fxc(gd, n_sG, s_G = s_G)[s_fin_G]
         
         return
-        
-        
-    # The soft part
-    fxc_G = np.zeros(np.shape(nt_sG[0]))
-    add_fxc(gd, nt_sG, fxc_G)
     
-    # FFT fxc(r)
-    nG0 = nG[0] * nG[1] * nG[2]
-    tmp_g = np.fft.fftn(fxc_G) * vol / nG0
+    
+    gd = pd.gd
+    npw = pd.ngmax
+    nG = pd.gd.N_c
+    vol = pd.gd.volume
+    G_Gv = pd.get_reciprocal_vectors()
+    
+    assert functional in ['ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae'] ### added ae for error finding ###
+    
+    if not functional[-3:] == '_ae': ### added for error finding ###
+        
+        nt_sG = calc.density.nt_sG
+        R_av = calc.atoms.positions / Bohr
+        setups = calc.wfs.setups
+        D_asp = calc.density.D_asp
+        
+        nspins = len(nt_sG)
+        assert nspins == 2
+        
+        # The soft part
+        fxc_G = np.zeros(np.shape(nt_sG[0]))
+        add_fxc(gd, nt_sG, fxc_G)
+        
+        # FFT fxc(r)
+        nG0 = nG[0] * nG[1] * nG[2]
+        tmp_g = np.fft.fftn(fxc_G) * vol / nG0
+        
+        Kxc_GG = np.zeros((npw, npw), dtype=complex)
+        for iG, iQ in enumerate(pd.Q_qG[0]):
+            iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
+            for jG, jQ in enumerate(pd.Q_qG[0]):
+                jQ_c = (np.unravel_index(jQ, nG) + nG // 2) % nG - nG // 2
+                ijQ_c = (iQ_c - jQ_c)
+                if (abs(ijQ_c) < nG // 2).all():
+                    Kxc_GG[iG, jG] = tmp_g[tuple(ijQ_c)]
 
-    Kxc_GG = np.zeros((npw, npw), dtype=complex)
-    for iG, iQ in enumerate(pd.Q_qG[0]):
-        iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
-        for jG, jQ in enumerate(pd.Q_qG[0]):
-            jQ_c = (np.unravel_index(jQ, nG) + nG // 2) % nG - nG // 2
-            ijQ_c = (iQ_c - jQ_c)
-            if (abs(ijQ_c) < nG // 2).all():
-                Kxc_GG[iG, jG] = tmp_g[tuple(ijQ_c)]
-    #print("Kxc_GG", Kxc_GG, Kxc_GG[0,0])  ### error finding ### 
-    # The PAW part
-    KxcPAW_GG = np.zeros_like(Kxc_GG)
-    dG_GGv = np.zeros((npw, npw, 3))
-    for v in range(3):
-        dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
+    
+        # The PAW part
+        KxcPAW_GG = np.zeros_like(Kxc_GG)
+        dG_GGv = np.zeros((npw, npw, 3))
+        for v in range(3):
+            dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
 
-    for a, setup in enumerate(setups):
-        if rank == a % size:
-            rgd = setup.xc_correction.rgd
-            n_qg = setup.xc_correction.n_qg
-            nt_qg = setup.xc_correction.nt_qg
-            nc_g = setup.xc_correction.nc_g
-            nct_g = setup.xc_correction.nct_g
-            Y_nL = setup.xc_correction.Y_nL
-            dv_g = rgd.dv_g
+        for a, setup in enumerate(setups):
+            if rank == a % size:
+                rgd = setup.xc_correction.rgd
+                n_qg = setup.xc_correction.n_qg
+                nt_qg = setup.xc_correction.nt_qg
+                nc_g = setup.xc_correction.nc_g
+                nct_g = setup.xc_correction.nct_g
+                Y_nL = setup.xc_correction.Y_nL
+                dv_g = rgd.dv_g
 
-            D_sp = D_asp[a]
-            B_pqL = setup.xc_correction.B_pqL
-            D_sLq = np.inner(D_sp, B_pqL.T)
-            nspins = len(D_sp)
+                D_sp = D_asp[a]
+                B_pqL = setup.xc_correction.B_pqL
+                D_sLq = np.inner(D_sp, B_pqL.T)
+                nspins = len(D_sp)
 
-            f_sg = rgd.empty(1)
-            ft_sg = rgd.empty(1)
+                f_sg = rgd.empty(1)
+                ft_sg = rgd.empty(1)
 
-            n_sLg = np.dot(D_sLq, n_qg)
-            nt_sLg = np.dot(D_sLq, nt_qg)
+                n_sLg = np.dot(D_sLq, n_qg)
+                nt_sLg = np.dot(D_sLq, nt_qg)
 
-            # Add core density
-            n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
-            nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
+                # Add core density
+                n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
+                nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
 
-            coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
-            for n, Y_L in enumerate(Y_nL):
-                w = weight_n[n]
-                
-                f_sg[:] = 0.0
-                n_sg = np.dot(Y_L, n_sLg)
-                add_fxc(rgd, n_sg, f_sg[0])
-
-                ft_sg[:] = 0.0
-                nt_sg = np.dot(Y_L, nt_sLg)
-                add_fxc(rgd, nt_sg, ft_sg[0])
-                
-                for i in range(len(rgd.r_g)):
-                    coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n])
-                                     * rgd.r_g[i])
+                coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
+                for n, Y_L in enumerate(Y_nL):
+                    w = weight_n[n]
                     
-                    KxcPAW_GG += w * np.dot(coef_GG,
-                                                (f_sg[0, i] -
-                                                 ft_sg[0, i])
-                                                * dv_g[i]) * coefatoms_GG
+                    f_sg[:] = 0.0
+                    n_sg = np.dot(Y_L, n_sLg)
+                    add_fxc(rgd, n_sg, f_sg[0])
 
-    world.sum(KxcPAW_GG)
-    Kxc_GG += KxcPAW_GG
+                    ft_sg[:] = 0.0
+                    nt_sg = np.dot(Y_L, nt_sLg)
+                    add_fxc(rgd, nt_sg, ft_sg[0])
+
+                    for i in range(len(rgd.r_g)):
+                        coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n])
+                                         * rgd.r_g[i])
+
+                        KxcPAW_GG += w * np.dot(coef_GG,
+                                                    (f_sg[0, i] -
+                                                     ft_sg[0, i])
+                                                * dv_g[i]) * coefatoms_GG
+        world.sum(KxcPAW_GG)
+        Kxc_GG += KxcPAW_GG
+    
+    else:
+        ### added for error finding ###
+        functional = functional[:-3]
+        # find all-electron density to calculate kernel directly
+        n_sG, Gd = calc.density.get_all_electron_density(atoms=calc.atoms, gridrefinement=1)
+        
+        nspins = len(n_sG)
+        assert nspins == 2
+        
+        fxc_G = np.zeros(np.shape(n_sG[0]))
+        add_fxc(gd, n_sG, fxc_G)
+        
+        # FFT fxc(r)
+        nG0 = nG[0] * nG[1] * nG[2]
+        tmp_g = np.fft.fftn(fxc_G) * vol / nG0
+        
+        Kxc_GG = np.zeros((npw, npw), dtype=complex)
+        for iG, iQ in enumerate(pd.Q_qG[0]):
+            iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
+            for jG, jQ in enumerate(pd.Q_qG[0]):
+                jQ_c = (np.unravel_index(jQ, nG) + nG // 2) % nG - nG // 2
+                ijQ_c = (iQ_c - jQ_c)
+                if (abs(ijQ_c) < nG // 2).all():
+                    Kxc_GG[iG, jG] = tmp_g[tuple(ijQ_c)]
+    
     
     '''  ### error finding ###
     if pd.kd.gamma:

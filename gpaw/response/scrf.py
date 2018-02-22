@@ -264,7 +264,7 @@ class SpinChargeResponseFunction:
         
         assert response in ['density', 'spin']
         if response == 'spin':
-            assert xc in ['RPA', 'ALDA_x', 'ALDA_X', 'ALDA']
+            assert xc in ['RPA', 'ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae'] ### added for error finding ###
         
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
         
@@ -374,7 +374,7 @@ class SpinChargeResponseFunction:
                   while abs(kappa_M_0) > 1e-5 and abs(scaling_incr) > 1e-5:
                     fxc_scaling += scaling_incr
                     if fxc_scaling <= 0.0 or fxc_scaling >= 10.:
-                      raise ValueError('Found a sxc_scaling of %.4f during scaling' % fxc_scaling)
+                      raise ValueError('Found a fxc_scaling of %.4f during scaling' % fxc_scaling)
                     chi_0GG = np.dot(np.linalg.inv(np.eye(len(chi0_0GG)) -
                                                    np.dot(chi0_0GG, Kxc_GG*fxc_scaling)),
                                      chi0_0GG)
