@@ -88,10 +88,10 @@ def soc(a, xc, D_sp):
         for j2, l2 in enumerate(a.l_j):
             if l1 == l2:
                 f_g = phi_jg[j1][:Ng] * v_g * phi_jg[j2][:Ng]
-                I = a.xc_correction.rgd.integrate(f_g) / (4 * np.pi)
-                dVL_vii[0, N1:N1 + Nm, N2:N2 + Nm] = I * Lx_lmm[l1]
-                dVL_vii[1, N1:N1 + Nm, N2:N2 + Nm] = I * Ly_lmm[l1]
-                dVL_vii[2, N1:N1 + Nm, N2:N2 + Nm] = I * Lz_lmm[l1]
+                c = a.xc_correction.rgd.integrate(f_g) / (4 * np.pi)
+                dVL_vii[0, N1:N1 + Nm, N2:N2 + Nm] = c * Lx_lmm[l1]
+                dVL_vii[1, N1:N1 + Nm, N2:N2 + Nm] = c * Ly_lmm[l1]
+                dVL_vii[2, N1:N1 + Nm, N2:N2 + Nm] = c * Lz_lmm[l1]
             else:
                 pass
             N2 += 2 * l2 + 1
@@ -131,9 +131,8 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
     Nk = len(calc.get_ibz_k_points())
     Ns = calc.wfs.nspins
     Nn = len(bands)
-    nc = False
-    if not calc.density.collinear:
-        nc = True
+    noncollinear = not calc.density.collinear
+    if noncollinear:
         Nn //= 2
 
     if gw_kn is not None:
@@ -188,7 +187,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
     for k in range(Nk):
         # Evaluate H in a basis of S_z eigenstates
         H_mm = np.zeros((2 * Nn, 2 * Nn), complex)
-        if not nc:
+        if not noncollinear:
             i1 = np.arange(0, 2 * Nn, 2)
             i2 = np.arange(1, 2 * Nn, 2)
             H_mm[i1, i1] = e_skn[0, k]
@@ -197,7 +196,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
             i0 = np.arange(0, 2 * Nn)
             H_mm[i0, i0] = e_skn[0, k]
         for ai in range(Na):
-            if not nc:
+            if not noncollinear:
                 Pt_sni = [calc.wfs.kpt_u[k + s * Nk].P_ani[ai][bands]
                           for s in range(Ns)]
             else:
@@ -206,7 +205,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
             P_sni = np.zeros((2, 2 * Nn, Ni), complex)
             dVL_vii = dVL_avii[ai] * scale * Ha
             if Ns == 1:
-                if not nc:
+                if not noncollinear:
                     P_sni[0, ::2] = Pt_sni[0]
                     P_sni[1, 1::2] = Pt_sni[0]
                 else:
@@ -261,19 +260,17 @@ def set_calculator(calc, e_km, v_knm=None, width=None):
     from gpaw.occupations import FermiDirac
     from ase.units import Hartree
 
-    nc = False
-    if not calc.density.collinear:
-        nc = True
+    noncollinear = not calc.density.collinear
 
     if width is None:
         width = calc.occupations.width * Hartree
-    if not nc:
+    if not noncollinear:
         calc.wfs.bd.nbands *= 2
     # calc.wfs.nspins = 1
     for kpt in calc.wfs.kpt_u:
         kpt.eps_n = e_km[kpt.k] / Hartree
         kpt.f_n = np.zeros_like(kpt.eps_n)
-        if not nc:
+        if not noncollinear:
             kpt.weight /= 2
     ef = calc.occupations.fermilevel
     calc.occupations = FermiDirac(width)
@@ -329,10 +326,6 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     from gpaw.wannier90 import get_spinorbit_projections
     from gpaw.utilities import unpack
 
-    nc = False
-    if not calc.density.collinear:
-        nc = True
-
     if nbands is None:
         nbands = calc.get_number_of_bands()
     Nk = len(calc.get_ibz_k_points())
@@ -365,9 +358,8 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
                               np.array([e_mk.T]),
                               weight_k=weight_k,
                               nelectrons=ne)[0][0]
-    
+
     m_v = np.zeros(3, complex)
-    nt_vG = calc.density.gd.zeros(3)
     for ik in range(Nk):
         ut0_nG = np.array([calc.wfs.get_wave_function_array(n, ik, 0)
                            for n in range(nbands)])
@@ -386,7 +378,7 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
             for s1 in range(2):
                 for s2 in range(2):
                     mx_G += ut_sG[s1].conj() * sx_ss[s1, s2] * ut_sG[s2]
-                    my_G += ut_sG[s1].conj() * sy_ss[s1, s2] * ut_sG[s2] 
+                    my_G += ut_sG[s1].conj() * sy_ss[s1, s2] * ut_sG[s2]
                     mz_G += ut_sG[s1].conj() * sz_ss[s1, s2] * ut_sG[s2]
             m_v += calc.wfs.gd.integrate(np.array([mx_G, my_G, mz_G])) * f
 
@@ -409,7 +401,7 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
             P0_mi = P_smi[0]
             P1_mi = P_smi[1]
             f_mm = np.diag(f_km[ik])
-            
+
             Dx_ij += P0_mi.conj().T.dot(f_mm).dot(P1_mi)
             Dx_ij += P1_mi.conj().T.dot(f_mm).dot(P0_mi)
             Dy_ij -= 1.0j * P0_mi.conj().T.dot(f_mm).dot(P1_mi)

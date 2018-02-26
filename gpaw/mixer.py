@@ -410,7 +410,7 @@ class SpinSumMixerDriver:
 
     def get_basemixers(self, nspins):
         if nspins == 1:
-            raise ValueError('Spin sum mixer expects 2 spins, not %d' % nspins)
+            raise ValueError('Spin sum mixer expects 2 or 4 components')
         return [self.basemixerclass(self.beta, self.nmaxold, self.weight)]
 
     def mix(self, basemixers, nt_sG, D_asp):
@@ -472,8 +472,7 @@ class SpinDifferenceMixerDriver:
 
     def get_basemixers(self, nspins):
         if nspins == 1:
-            raise ValueError('Spin difference mixer expects 2 spins, not %d'
-                             % nspins)
+            raise ValueError('Spin difference mixer expects 2 or 4 components')
         basemixer = self.basemixerclass(self.beta, self.nmaxold, self.weight)
         if nspins == 2:
             basemixer_m = self.basemixerclass(self.beta_m, self.nmaxold_m,
@@ -502,7 +501,7 @@ class SpinDifferenceMixerDriver:
             nt_G = nt_sG.sum(0)
             D_ap = [D_sp[0] + D_sp[1] for D_sp in D_asp]
             dNt = basemixer.mix_single_density(nt_G, D_ap)
-            
+
             # Mix magnetization
             dnt_G = nt_sG[0] - nt_sG[1]
             dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
@@ -520,7 +519,7 @@ class SpinDifferenceMixerDriver:
             nt_G = nt_sG[0]
             D_ap = [D_sp[0] for D_sp in D_asp]
             dNt = basemixer.mix_single_density(nt_G, D_ap)
-            
+
             # Mix magnetization
             Dx_ap = [D_sp[1] for D_sp in D_asp]
             Dy_ap = [D_sp[2] for D_sp in D_asp]
