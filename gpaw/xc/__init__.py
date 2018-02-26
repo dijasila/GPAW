@@ -114,6 +114,9 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
         elif name[0].isdigit():
             from gpaw.xc.parametrizedxc import ParametrizedKernel
             kernel = ParametrizedKernel(name)
+        elif name == 'null':
+            from gpaw.xc.kernel import XCNull
+            kernel = XCNull()
         elif name == 'QNA':
             from gpaw.xc.qna import QNA
             return QNA(atoms, kernel['parameters'], kernel['setup_name'], alpha=kernel['alpha'])

@@ -77,6 +77,13 @@ class PAW:
                 # of the method and avoid circular reference:
                 function = function.__func__.__name__
 
+        # Replace self in args with another unique reference
+        # to avoid circular reference
+        if not hasattr(self, 'self_ref'):
+            self.self_ref = object()
+        self_ = self.self_ref
+        args = tuple([self_ if arg is self else arg for arg in args])
+
         self.observers.append((function, n, args, kwargs))
 
     def call_observers(self, iter, final=False):
@@ -97,6 +104,9 @@ class PAW:
             if call:
                 if isinstance(function, str):
                     function = getattr(self, function)
+                # Replace self reference with self
+                self_ = self.self_ref
+                args = tuple([self if arg is self_ else arg for arg in args])
                 function(*args, **kwargs)
 
     def get_reference_energy(self):

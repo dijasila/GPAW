@@ -31,6 +31,18 @@ def equal(x, y, tolerance=0, fail=True, msg=''):
             sys.stderr.write('WARNING: %s\n' % msg)
 
 
+def print_reference(data_i, name='ref_i', fmt='%.12le'):
+    if mpi.world.rank == 0:
+        print('%s = [' % name, end='')
+        for i, val in enumerate(data_i):
+            if i > 0:
+                print('', end='\n')
+                print(' ' * (len(name) + 4), end='')
+            print(fmt % val, end='')
+            print(',', end='')
+        print('\b]')
+
+
 def findpeak(x, y):
     dx = x[1] - x[0]
     i = y.argmax()
@@ -175,8 +187,6 @@ tests = [
     'parallel/scalapack_diag_simple.py',    # ~2s
     'fixdensity.py',                        # ~2s
     'pseudopotential/ah.py',                # ~2s
-    'lcao/restart.py',                      # ~2s
-    'lcao/tddft.py',                        # ~2s
     'lcao/gllb_si.py',                      # ~2s
     'fileio/wfs_io.py',                     # ~3s
     'lrtddft/2.py',                         # ~3s
@@ -267,6 +277,13 @@ tests = [
     'pathological/lcao_spos_derivative.py', # ~9s
     'lrtddft2/H2O-lcao.py',                 # ~10s
     'lrtddft2/Al2.py',                      # ~10s
+    'lcaotddft/simple.py',                  # ~10s
+    'lcaotddft/restart.py',                 # ~10s
+    'lcaotddft/fxc_is_xc.py',               # ~10s
+    'lcaotddft/fxc_rpa.py',                 # ~10s
+    'lcaotddft/fxc_vs_linearize.py',        # ~10s
+    'lcaotddft/replay.py',                  # ~10s
+    'lcaotddft/ksdecomp.py',                # ~10s
     'ralda/ralda_energy_N2.py',             # ~10s
     'parallel/lcao_complicated.py',         # ~10s
     'generic/bulk.py',                      # ~10s
@@ -330,6 +347,9 @@ tests = [
     'ofdft/ofdft_scale.py',                 # ~26s
     'parallel/lcao_parallel_kpt.py',        # ~29s
     'corehole/h2o_dks.py',                  # ~30s
+    'lcaotddft/parallel_options.py',        # ~30s
+    'lcaotddft/lcaotddft_vs_lrtddft2.py',   # ~30s
+    'lcaotddft/lcaotddft_vs_lrtddft2_rpa.py',  # ~30s
     'mgga/nsc_MGGA.py',                     # ~32s
     'solvation/spinpol.py',                 # ~32s
     'gllb/diamond.py',                      # ~33s
@@ -363,7 +383,7 @@ tests = [
     'exx/AA_enthalpy.py',                   # ~119s
     'response/na_plasmons.py',
     'response/na_plasmons_tetrahedron.py',  # ~120s
-    'lcao/tdgllbsc.py',                     # ~132s
+    'lcaotddft/gllbsc.py',                  # ~132s
     'solvation/forces.py',                  # ~140s
     'response/gw_MoS2_cut.py',
     'response/gwsi.py',                     # ~147s
@@ -447,7 +467,8 @@ if mpi.size != 4:
                 'response/bse_silicon.py']
 
 if mpi.size == 1 or not compiled_with_sl():
-    exclude += ['parallel/submatrix_redist.py']
+    exclude += ['parallel/submatrix_redist.py',
+                'lcaotddft/parallel_options.py']
 
 if mpi.size != 1 and not compiled_with_sl():
     exclude += ['ralda/ralda_energy_H2.py',

@@ -2,7 +2,7 @@ import numpy as np
 from ase.units import Bohr, Hartree
 
 import gpaw.mpi as mpi
-from gpaw.tddft import eV_to_aufrequency
+from gpaw.tddft.units import eV_to_aufrequency
 from gpaw.poisson import PoissonSolver
 from gpaw.fd_operators import Gradient
 from gpaw.grid_descriptor import GridDescriptor
@@ -363,7 +363,7 @@ class BaseInducedField(object):
                           'before they are calculated')
 
         from gpaw.io import Writer
-        writer = Writer(filename, self.world, 'INDUCEDFIELD')
+        writer = Writer(filename, self.world, tag='INDUCEDFIELD')
         # Actual write
         self._write(writer, writes)
         # Make sure slaves don't return before master is done

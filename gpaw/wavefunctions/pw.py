@@ -552,7 +552,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         # in the IBZ:
         self.ng_k = np.zeros(self.kd.nibzkpts, dtype=int)
         for kpt in self.kpt_u:
-            if kpt.s == 0:
+            if kpt.s != 1:  # avoid double counting (only sum over s=0 or None)
                 self.ng_k[kpt.k] = len(self.pd.Q_qG[kpt.q])
         self.kd.comm.sum(self.ng_k)
 
@@ -663,9 +663,13 @@ class PWWaveFunctions(FDPWWaveFunctions):
         psit_G = self.kpt_u[u].psit_nG[n]
 
         if not realspace:
-            zeropadded_G = np.zeros(self.pd.ngmax, complex)
-            zeropadded_G[:len(psit_G)] = psit_G
-            return zeropadded_G
+            if self.collinear:
+                zeropadded_G = np.zeros(self.pd.ngmax, complex)
+                zeropadded_G[:len(psit_G)] = psit_G
+                return zeropadded_G
+            zeropadded_sG = np.zeros((2, self.pd.ngmax), complex)
+            zeropadded_sG[:, :len(psit_G[0])] = psit_G
+            return zeropadded_sG
 
         kpt = self.kpt_u[u]
         if self.kd.gamma or periodic:
@@ -690,10 +694,13 @@ class PWWaveFunctions(FDPWWaveFunctions):
         if not write_wave_functions:
             return
 
-        writer.add_array(
-            'coefficients',
-            (self.nspins, self.kd.nibzkpts, self.bd.nbands, self.pd.ngmax),
-            complex)
+        if self.collinear:
+            shape = (self.nspins,
+                     self.kd.nibzkpts, self.bd.nbands, self.pd.ngmax)
+        else:
+            shape = (self.kd.nibzkpts, self.bd.nbands, 2, self.pd.ngmax)
+
+        writer.add_array('coefficients', shape, complex)
 
         c = Bohr**-1.5
         for s in range(self.nspins):
@@ -747,9 +754,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
         c = reader.bohr**1.5
         if reader.version < 0:
             c = 1  # old gpw file
-        for kpt in self.kpt_u:
+        for kpt in self.mykpts:
             ng = self.ng_k[kpt.k]
-            psit_nG = reader.wave_functions.proxy('coefficients', kpt.s, kpt.k)
+            index = (kpt.s, kpt.k) if self.collinear else (kpt.k,)
+            psit_nG = reader.wave_functions.proxy('coefficients', *index)
             psit_nG.scale = c
             psit_nG.length_of_last_dimension = ng
 

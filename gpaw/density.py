@@ -349,10 +349,12 @@ class Density:
         self.calculate_normalized_charges_and_mix()
         self.timer.stop('Density initialized from wave functions')
 
-    def initialize_directly_from_arrays(self, nt_sG, D_asp):
+    def initialize_directly_from_arrays(self, nt_sG, nt_vG, D_asp):
         """Set D_asp and nt_sG directly."""
         self.nt_xG = self.gd.zeros(self.ncomponents)
         self.nt_sG[:] = nt_sG
+        if nt_vG is not None:
+            self.nt_vG[:] = nt_vG
 
         self.update_atomic_density_matrices(D_asp)
         D_asp.check_consistency()
@@ -590,19 +592,20 @@ class Density:
         return gd.integrate(dt_sg)
 
     def write(self, writer):
-        writer.write(density=self.gd.collect(self.nt_sG) / Bohr**3,
+        writer.write(density=self.gd.collect(self.nt_xG) / Bohr**3,
                      atomic_density_matrices=pack_atomic_matrices(self.D_asp))
 
     def read(self, reader):
-        nt_sG = self.gd.empty(self.nspins)
-        self.gd.distribute(reader.density.density, nt_sG)
-        nt_sG *= reader.bohr**3
+        nt_xG = self.gd.empty(self.ncomponents)
+        self.gd.distribute(reader.density.density, nt_xG)
+        nt_xG *= reader.bohr**3
 
         # Read atomic density matrices
         natoms = len(self.setups)
         atom_partition = AtomPartition(self.gd.comm, np.zeros(natoms, int),
                                        'density-gd')
-        D_asp = self.setups.empty_atomic_matrix(self.nspins, atom_partition)
+        D_asp = self.setups.empty_atomic_matrix(self.ncomponents,
+                                                atom_partition)
         self.atom_partition = atom_partition  # XXXXXX
         spos_ac = np.zeros((natoms, 3))  # XXXX
         self.atomdist = self.redistributor.get_atom_distributions(spos_ac)
@@ -612,7 +615,14 @@ class Density:
             D_asp.update(unpack_atomic_matrices(D_sP, self.setups))
             D_asp.check_consistency()
 
-        self.initialize_directly_from_arrays(nt_sG, D_asp)
+        if self.collinear:
+            nt_sG = nt_xG
+            nt_vG = None
+        else:
+            nt_sG = nt_xG[:1]
+            nt_vG = nt_xG[1:]
+
+        self.initialize_directly_from_arrays(nt_sG, nt_vG, D_asp)
 
     def initialize_from_other_density(self, dens, kptband_comm):
         """Redistribute pseudo density and atomic density matrices.
@@ -627,7 +637,7 @@ class Density:
                                          self.setups, self.redistributor,
                                          kptband_comm)
 
-        self.initialize_directly_from_arrays(new_nt_sG, D_asp)
+        self.initialize_directly_from_arrays(new_nt_sG, None, D_asp)
 
 
 class RealSpaceDensity(Density):
