@@ -923,8 +923,8 @@ class GPAW(PAW, Calculator):
         return kd
 
     def create_wave_functions(self, mode, realspace,
-                              nspins, nbands, nao, nvalence, setups,
-                              magmom_a, cell_cv, pbc_c):
+                              nspins, collinear, nbands, nao, nvalence,
+                              setups, cell_cv, pbc_c):
         par = self.parameters
 
         kd = self.create_kpoint_descriptor(nspins)  
