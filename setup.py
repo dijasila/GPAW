@@ -22,7 +22,7 @@ from config import (get_system_config, get_parallel_config,
 assert sys.version_info >= (2, 7)
 
 # Get the current version number:
-with open('gpaw/__init__.py') as fd:
+with open('gpaw/__init__.py', encoding='UTF-8') as fd:
     version = re.search("__version__ = '(.*)'", fd.read()).group(1)
 
 description = 'GPAW: DFT and beyond within the projector-augmented wave method'
