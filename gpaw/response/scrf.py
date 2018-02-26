@@ -234,7 +234,7 @@ class SpinChargeResponseFunction:
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
                 direction='x', return_VchiV=True, q_v=None,
-                density_cut=None, sigma_cut=None, 
+                density_cut=None, xi_cut=None, 
                 fxc_scaling=None, Dt=None):
         """ Returns v^1/2 chi v^1/2 for the density response and chi for the
         spin response. The truncated Coulomb interaction is included as 
@@ -246,8 +246,8 @@ class SpinChargeResponseFunction:
             If 0 or 1, only include this specific spin.
             If 'pm' calculate chi^{+-}_0
             If 'mp' calculate chi^{-+}_0
-        sigma_cut : float
-            cutoff spin density difference below which f_xc is evaluated in 
+        xi_cut : float
+            cutoff spin polarization below which f_xc is evaluated in 
             unpolarized limit (to make sure divergent terms cancel out correctly)
         density_cut : float
             cutoff density below which f_xc is set to zero
@@ -333,7 +333,7 @@ class SpinChargeResponseFunction:
                 Kxc_GG = get_xc_spin_kernel(pd,
                                             self.chi0,
                                             functional=xc,
-                                            sigma_cut=sigma_cut,
+                                            xi_cut=xi_cut,
                                             density_cut=density_cut)
             else: # RPA is non-interacting for the spin response
                 return pd, chi0_wGG, chi0_wGG
