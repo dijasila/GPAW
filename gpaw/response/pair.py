@@ -1,8 +1,8 @@
 from __future__ import print_function, division
 
-import sys
 import functools
-
+import numbers
+import sys
 from math import pi
 
 import numpy as np
@@ -685,7 +685,7 @@ class PairDensity:
         else:
             self.add_gate_voltage(gate_voltage=0)
 
-        self.spos_ac = calc.atoms.get_scaled_positions()
+        self.spos_ac = calc.spos_ac
 
         self.nocc1 = None  # number of completely filled bands
         self.nocc2 = None  # number of non-empty bands
@@ -795,11 +795,10 @@ class PairDensity:
         kd = wfs.kd
 
         # Parse kpoint: is k_c an index or a vector
-
-        try:
+        if not isinstance(k_c, numbers.Integral):
             K = self.find_kpoint(k_c)
             shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
-        except ValueError:
+        else:
             # Fall back to index
             K = k_c
             shift0_c = np.array([0, 0, 0])
@@ -1285,8 +1284,13 @@ class PairDensity:
 
         # Only works with Fermi-Dirac distribution
         assert isinstance(self.calc.occupations, FermiDirac)
-        dfde_n = -1 / width * (f_n - f_n**2.0)  # Analytical derivative
-        partocc_n = np.abs(dfde_n) > 1e-5  # Is part. occupied?
+        if width > 1e-15:
+            dfde_n = -1 / width * (f_n - f_n**2.0)  # Analytical derivative
+            partocc_n = np.abs(dfde_n) > 1e-5  # Is part. occupied?
+        else:
+            # Just include all bands to be sure
+            partocc_n = np.ones(len(f_n), dtype=bool)
+
         if only_partially_occupied and not partocc_n.any():
             return None
 

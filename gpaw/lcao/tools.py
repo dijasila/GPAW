@@ -281,7 +281,7 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
 def get_lcao_hamiltonian(calc):
     """Return H_skMM, S_kMM on master, (None, None) on slaves. H is in eV."""
     if calc.wfs.S_qMM is None:
-        calc.wfs.set_positions(calc.get_atoms().get_scaled_positions() % 1)
+        calc.wfs.set_positions(calc.spos_ac)
     dtype = calc.wfs.dtype
     NM = calc.wfs.eigensolver.nao
     Nk = calc.wfs.kd.nibzkpts
@@ -546,8 +546,7 @@ def makeV(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
 
     # Extract data from files
     calc = GPAW(gpwfile, txt=None, communicator=serial_comm)
-    spos_ac = calc.get_atoms().get_scaled_positions() % 1.0
-    coulomb = Coulomb(calc.wfs.gd, calc.wfs.setups, spos_ac, fft)
+    coulomb = Coulomb(calc.wfs.gd, calc.wfs.setups, calc.spos_ac, fft)
     w_wG, P_awi = pickle.load(open(orbitalfile, 'rb'))
     eps_q, U_pq = pickle.load(open(rotationfile, 'rb'))
     del calc

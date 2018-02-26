@@ -49,6 +49,8 @@ class CLICommand:
         add('-d', '--directory', help='Run test in this directory')
         add('-s', '--show-output', action='store_true',
             help='Show standard output from tests.')
+        add('--list', action='store_true',
+            help='list the full list of tests, then exit')
 
     @staticmethod
     def run(args):
@@ -60,6 +62,12 @@ def main(args):
         from gpaw.test import tests
     else:
         tests = args.tests
+
+    if args.list:
+        mydir, _ = os.path.split(__file__)
+        for test in tests:
+            print(os.path.join(mydir, test))
+        return
 
     if args.reverse:
         tests.reverse()
@@ -127,7 +135,7 @@ def main(args):
     if mpi.rank == 0:
         info()
         print('Running tests in', tmpdir)
-        print('Jobs: {0}, Cores: {1}, debug-mode: {2}'
+        print('Jobs: {}, Cores: {}, debug-mode: {}'
               .format(args.jobs, mpi.size, debug))
     failed = TestRunner(tests, jobs=args.jobs,
                         show_output=args.show_output).run()
@@ -135,7 +143,6 @@ def main(args):
     if mpi.rank == 0:
         if len(failed) > 0:
             open('failed-tests.txt', 'w').write('\n'.join(failed) + '\n')
-        elif not args.keep_tmpdir:
+        if not args.keep_tmpdir:
             os.system('rm -rf ' + tmpdir)
     return failed
-    

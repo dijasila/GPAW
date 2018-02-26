@@ -7,6 +7,7 @@ import numpy as np
 import ase
 from ase import __version__ as ase_version
 from ase.utils import convert_string_to_fd
+from ase.utils import search_current_git_hash
 
 import gpaw
 import _gpaw
@@ -72,16 +73,30 @@ class GPAWLogger(object):
         self('Arch:  ', machine)
         self('Pid:   ', os.getpid())
         self('Python: {0}.{1}.{2}'.format(*sys.version_info[:3]))
-        self('gpaw:  ', os.path.dirname(gpaw.__file__))
+        # GPAW
+        line = os.path.dirname(gpaw.__file__)
+        githash = search_current_git_hash(gpaw, self.world)
+        if githash is not None:
+            line += ' ({:.10})'.format(githash)
+        self('gpaw:  ', line)
 
         # Find C-code:
         c = getattr(_gpaw, '__file__', None)
         if not c:
             c = sys.executable
-        self('_gpaw: ', cut(os.path.normpath(c)))
+        line = os.path.normpath(c)
+        if hasattr(_gpaw, 'githash'):
+            line += ' ({:.10})'.format(_gpaw.githash())
+        self('_gpaw: ', cut(line))
 
-        self('ase:    %s (version %s)' %
-             (os.path.dirname(ase.__file__), ase_version))
+        # ASE
+        line = '%s (version %s' % (os.path.dirname(ase.__file__), ase_version)
+        githash = search_current_git_hash(ase, self.world)
+        if githash is not None:
+            line += '-{:.10}'.format(githash)
+        line += ')'
+        self('ase:   ', line)
+
         self('numpy:  %s (version %s)' %
              (os.path.dirname(np.__file__), np.version.version))
         try:
@@ -146,7 +161,7 @@ class GPAWLogger(object):
         self('Date: ' + time.asctime())
 
 
-def cut(s, indent='       '):
+def cut(s, indent='        '):
     if len(s) + len(indent) < 80:
         return s
     s1, s2 = s.rsplit('/', 1)

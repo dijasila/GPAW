@@ -39,7 +39,7 @@ class DirectLCAO(object):
         # distributed_atomic_correction works with ScaLAPACK/BLACS in general.
         # If SL is not enabled, it will not work with band parallelization.
         # But no one would want that for a practical calculation anyway.
-        #dH_asp = wfs.atomic_correction.redistribute(wfs, hamiltonian.dH_asp)
+        # dH_asp = wfs.atomic_correction.redistribute(wfs, hamiltonian.dH_asp)
         # XXXXX fix atomic corrections
         dH_asp = hamiltonian.dH_asp
 

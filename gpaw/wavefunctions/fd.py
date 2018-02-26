@@ -1,16 +1,17 @@
 import numpy as np
 from ase.units import Bohr
 
-from gpaw.kpoint import KPoint
-from gpaw.mpi import serial_comm
-from gpaw.utilities.blas import axpy
-from gpaw.transformers import Transformer
-from gpaw.hs_operators import MatrixOperator
-from gpaw.preconditioner import Preconditioner
 from gpaw.fd_operators import Laplace, Gradient
+from gpaw.kpoint import KPoint
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.mpi import serial_comm
+from gpaw.preconditioner import Preconditioner
+from gpaw.projections import Projections
+from gpaw.transformers import Transformer
+from gpaw.utilities.blas import axpy
+from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
+from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
 
 
@@ -35,19 +36,19 @@ class FD(Mode):
 class FDWaveFunctions(FDPWWaveFunctions):
     mode = 'fd'
 
-    def __init__(self, stencil, diagksl, orthoksl, initksl,
+    def __init__(self, stencil, parallel, initksl,
                  gd, nvalence, setups, bd,
-                 dtype, world, kd, kptband_comm, timer, reuse_wfs_method=None):
-        FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
+                 dtype, world, kd, kptband_comm, timer, reuse_wfs_method=None,
+                 collinear=True):
+        FDPWWaveFunctions.__init__(self, parallel, initksl,
                                    reuse_wfs_method=reuse_wfs_method,
+                                   collinear=collinear,
                                    gd=gd, nvalence=nvalence, setups=setups,
                                    bd=bd, dtype=dtype, world=world, kd=kd,
                                    kptband_comm=kptband_comm, timer=timer)
 
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype)
-
-        self.matrixoperator = MatrixOperator(self.orthoksl)
 
         self.taugrad_v = None  # initialized by MGGA functional
 
@@ -168,7 +169,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 ik = self.kd.bz2ibz_k[k]
                 r, u = self.kd.get_rank_and_index(s, ik)
                 assert r == 0
-                kpt = self.kpt_u[u]
+                kpt = self.mykpts[u]
 
                 phase_cd = np.exp(2j * np.pi * self.gd.sdisp_cd *
                                   kd.bzk_kc[k, :, np.newaxis])
@@ -184,17 +185,24 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     Psit_nG = Psit_nG.copy()
                     for Psit_G in Psit_nG:
                         Psit_G[:] = self.kd.transform_wave_function(Psit_G, k)
-                kpt2.psit_nG = self.gd.empty(self.bd.nbands, dtype=self.dtype)
+                kpt2.psit = UniformGridWaveFunctions(
+                    self.bd.nbands, self.gd, self.dtype,
+                    kpt=k, dist=(self.bd.comm, self.bd.comm.size),
+                    spin=kpt.s, collinear=True)
                 self.gd.distribute(Psit_nG, kpt2.psit_nG)
-
                 # Calculate PAW projections:
-                kpt2.P_ani = self.pt.dict(len(kpt.psit_nG))
-                self.pt.integrate(kpt2.psit_nG, kpt2.P_ani, k)
+                nproj_a = [setup.ni for setup in self.setups]
+                kpt2.P = Projections(
+                    self.bd.nbands, nproj_a,
+                    kpt.P.atom_partition,
+                    self.bd.comm,
+                    collinear=True, spin=s, dtype=self.dtype)
 
+                kpt2.psit.matrix_elements(self.pt, out=kpt2.P)
                 kpt_u.append(kpt2)
 
         self.kd = kd
-        self.kpt_u = kpt_u
+        self.mykpts = kpt_u
 
     def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
         assert realspace
@@ -232,35 +240,32 @@ class FDWaveFunctions(FDPWWaveFunctions):
         c = reader.bohr**1.5
         if reader.version < 0:
             c = 1  # old gpw file
+
         for kpt in self.kpt_u:
             # We may not be able to keep all the wave
             # functions in memory - so psit_nG will be a special type of
             # array that is really just a reference to a file:
-            kpt.psit_nG = reader.wave_functions.proxy('values', kpt.s, kpt.k)
-            kpt.psit_nG.scale = c
+            psit_nG = reader.wave_functions.proxy('values', kpt.s, kpt.k)
+            psit_nG.scale = c
 
-        if self.world.size == 1:
-            return
+            kpt.psit = UniformGridWaveFunctions(
+                self.bd.nbands, self.gd, self.dtype, psit_nG,
+                kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
+                spin=kpt.s, collinear=True)
 
-        # Read to memory:
-        for kpt in self.kpt_u:
-            psit_nG = kpt.psit_nG
-            kpt.psit_nG = self.empty(self.bd.mynbands)
-            # Read band by band to save memory
-            for myn, psit_G in enumerate(kpt.psit_nG):
-                n = self.bd.global_index(myn)
-                # XXX number of bands could have been rounded up!
-                if n >= len(psit_nG):
-                    break
-                if self.gd.comm.rank == 0:
-                    big_psit_G = np.asarray(psit_nG[n], self.dtype)
-                else:
-                    big_psit_G = None
-                self.gd.distribute(big_psit_G, psit_G)
+        if self.world.size > 1:
+            # Read to memory:
+            for kpt in self.kpt_u:
+                kpt.psit.read_from_file()
 
-    def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
-        for kpt in self.kpt_u:
-            kpt.psit_nG = self.gd.zeros(self.bd.mynbands, self.dtype)
+    def initialize_from_lcao_coefficients(self, basis_functions):
+        for kpt in self.mykpts:
+            kpt.psit = UniformGridWaveFunctions(
+                self.bd.nbands, self.gd, self.dtype, kpt=kpt.q,
+                dist=(self.bd.comm, self.bd.comm.size, 1),
+                spin=kpt.s, collinear=True)
+            kpt.psit_nG[:] = 0.0
+            mynbands = len(kpt.C_nM)
             basis_functions.lcao_to_grid(kpt.C_nM,
                                          kpt.psit_nG[:mynbands], kpt.q)
             kpt.C_nM = None

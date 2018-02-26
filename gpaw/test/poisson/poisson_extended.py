@@ -77,13 +77,11 @@ def compare(phi1_g, phi2_g, val):
 # Get reference from default poissonsolver
 poisson = PoissonSolver(eps=poissoneps)
 poisson.set_grid_descriptor(gd)
-poisson.initialize()
 phiref_g, npoisson = poisson_solve(gd, rho_g, poisson)
 
 # Test agreement with default
 poisson = ExtendedPoissonSolver(eps=poissoneps)
 poisson.set_grid_descriptor(gd)
-poisson.initialize()
 phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
 plot_phi(phi_g)
 compare(phi_g, phiref_g, 0.0)
@@ -91,7 +89,6 @@ compare(phi_g, phiref_g, 0.0)
 # Test moment_corrections=int
 poisson = ExtendedPoissonSolver(eps=poissoneps, moment_corrections=4)
 poisson.set_grid_descriptor(gd)
-poisson.initialize()
 phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
 plot_phi(phi_g)
 compare(phi_g, phiref_g, 4.1182101206e-02)
@@ -101,7 +98,6 @@ poisson = ExtendedPoissonSolver(eps=poissoneps,
     moment_corrections=[{'moms': range(4), 'center': [.5, .5, 1]},
                         {'moms': range(4), 'center': [.5, .5, 2]}])
 poisson.set_grid_descriptor(gd)
-poisson.initialize()
 phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
 plot_phi(phi_g)
 compare(phi_g, phiref_g, 2.7569628594e-02)
@@ -111,7 +107,6 @@ poisson = ExtendedPoissonSolver(eps=poissoneps,
                                 extended={'gpts': (24, 24, 3 * 24),
                                           'useprev': False})
 poisson.set_grid_descriptor(gd)
-poisson.initialize()
 phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
 plot_phi(phi_g)
 compare(phi_g, phiref_g, 2.5351851105e-02)
@@ -123,7 +118,6 @@ poisson = ExtendedPoissonSolver(eps=poissoneps,
     moment_corrections=[{'moms': range(4), 'center': [.5, .5, 1]},
                         {'moms': range(4), 'center': [.5, .5, 2]}])
 poisson.set_grid_descriptor(gd)
-poisson.initialize()
 phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
 plot_phi(phi_g)
 phi2_g, npoisson2 = poisson_solve(gd, rho_g, poisson)
@@ -139,7 +133,6 @@ poisson = ExtendedPoissonSolver(eps=poissoneps,
     moment_corrections=[{'moms': range(4), 'center': [.5, .5, 1]},
                         {'moms': range(4), 'center': [.5, .5, 2]}])
 poisson.set_grid_descriptor(gd)
-poisson.initialize()
 phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
 phi2_g, npoisson2 = poisson_solve(gd, rho_g, poisson)
 # The second run should use the old value -> niter=1

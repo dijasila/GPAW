@@ -4,14 +4,21 @@
 
 """Main gpaw module."""
 
-import os
 import sys
-import warnings
-from distutils.util import get_platform
 
-from os.path import join, isfile
+from gpaw.broadcast_imports import broadcast_imports
 
-import numpy as np
+with broadcast_imports:
+    import os
+    import runpy
+    import warnings
+    from distutils.util import get_platform
+    from os.path import join, isfile
+    from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
+
+    import numpy as np
+    from ase.cli.run import str2dict
+
 
 assert not np.version.version.startswith('1.6.0')
 
@@ -39,7 +46,6 @@ class PoissonConvergenceError(ConvergenceError):
 
 
 def parse_extra_parameters(arg):
-    from ase.cli.run import str2dict
     return {key.replace('-', '_'): value
             for key, value in str2dict(arg).items()}
 
@@ -48,11 +54,12 @@ is_gpaw_python = '_gpaw' in sys.builtin_module_names
 
 
 def parse_arguments(argv):
-    from argparse import ArgumentParser, REMAINDER
-
     p = ArgumentParser(usage='%(prog)s [OPTION ...] [-c | -m] SCRIPT'
                        ' [ARG ...]',
-                       description='Run a parallel GPAW calculation.')
+                       description='Run a parallel GPAW calculation.\n\n'
+                       'Compiled with:\n  Python {}'
+                       .format(sys.version.replace('\n', '')),
+                       formatter_class=RawDescriptionHelpFormatter)
 
     p.add_argument('--command', '-c', action='store_true',
                    help='execute Python string given as SCRIPT')
@@ -79,9 +86,11 @@ def parse_arguments(argv):
                    help='buffer size for MatrixOperator in MiB')
     p.add_argument('--profile', metavar='FILE', dest='profile',
                    help='run profiler and save stats to FILE')
-    p.add_argument('--gpaw', metavar='VAR=VALUE[, ...]', action='append', default=[],
-                   dest='gpaw_extra_kwargs',
+    p.add_argument('--gpaw', metavar='VAR=VALUE[, ...]', action='append',
+                   default=[], dest='gpaw_extra_kwargs',
                    help='extra (hacky) GPAW keyword arguments')
+    p.add_argument('--benchmark-imports', action='store_true',
+                   help='count distributed/non-distributed imports')
     if is_gpaw_python:  # SCRIPT mandatory for gpaw-python
         p.add_argument('script', metavar='SCRIPT',
                        help='calculation script')
@@ -97,7 +106,8 @@ def parse_arguments(argv):
         sys.argv = [args.script] + args.options
 
     for w in args.warnings:
-        # Need to convert between python -W syntax to call warnings.filterwarnings():
+        # Need to convert between python -W syntax to call
+        # warnings.filterwarnings():
         warn_args = w.split(':')
         assert len(warn_args) <= 5
 
@@ -126,7 +136,6 @@ def parse_arguments(argv):
     return extra_parameters, args
 
 
-
 if is_gpaw_python:
     extra_parameters, gpaw_args = parse_arguments(sys.argv)
 else:
@@ -151,6 +160,8 @@ def parse_gpaw_args():
             break
         i += 1
     return extra_parameters
+
+
 extra_parameters.update(parse_gpaw_args())
 
 
@@ -172,7 +183,6 @@ profile = gpaw_args.profile
 
 
 def main():
-    import runpy
     # Stacktraces can be shortened by running script with
     # PyExec_AnyFile and friends.  Might be nicer
     if gpaw_args.command:
@@ -245,15 +255,15 @@ def initialize_data_paths():
 
 initialize_data_paths()
 
-
-from gpaw.calculator import GPAW
-from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
-from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
-from gpaw.poisson import PoissonSolver
-from gpaw.occupations import FermiDirac, MethfesselPaxton
-from gpaw.wavefunctions.lcao import LCAO
-from gpaw.wavefunctions.pw import PW
-from gpaw.wavefunctions.fd import FD
+with broadcast_imports:
+    from gpaw.calculator import GPAW
+    from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
+    from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
+    from gpaw.poisson import PoissonSolver
+    from gpaw.occupations import FermiDirac, MethfesselPaxton
+    from gpaw.wavefunctions.lcao import LCAO
+    from gpaw.wavefunctions.pw import PW
+    from gpaw.wavefunctions.fd import FD
 
 RMM_DIIS = RMMDIIS
 
@@ -271,10 +281,10 @@ if profile:
 
     def f(prof, filename):
         prof.disable()
-        from gpaw.mpi import rank
         if filename == '-':
             prof.print_stats('time')
         else:
+            from gpaw.mpi import rank
             prof.dump_stats(filename + '.%04d' % rank)
     atexit.register(f, prof, profile)
     prof.enable()
@@ -305,5 +315,6 @@ def read_rc_file():
             # Read file in ~/.gpaw/rc.py
             with open(rc) as fd:
                 exec(fd.read())
+
 
 read_rc_file()

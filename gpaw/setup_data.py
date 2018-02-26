@@ -229,14 +229,6 @@ class SetupData:
                 g -= 1
             return rgd.r_g[g]
 
-    def get_max_projector_cutoff(self):
-        g = self.rgd.N - 1
-        pt_g = self.pt_jg[0]
-        while pt_g[g] == 0.0:
-            g -= 1
-        gcutfilter = g + 1
-        return gcutfilter
-
     def get_xc_correction(self, rgd, xc, gcut2, lcut):
         phicorehole_g = self.phicorehole_g
         if phicorehole_g is not None:

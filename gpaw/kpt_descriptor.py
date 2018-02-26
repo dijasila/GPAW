@@ -228,6 +228,8 @@ class KPointDescriptor:
 
         self.symmetry = symmetry
 
+        # XXX we pass the whole atoms object just to complain if its PBCs
+        # are not how we like them
         for c, periodic in enumerate(atoms.pbc):
             if not periodic and not np.allclose(self.bzk_kc[:, c], 0.0):
                 raise ValueError('K-points can only be used with PBCs!')
@@ -283,7 +285,7 @@ class KPointDescriptor:
         kd.set_communicator(comm)
         return kd
 
-    def create_k_points(self, gd):
+    def create_k_points(self, gd, collinear):
         """Return a list of KPoints."""
 
         sdisp_cd = gd.sdisp_cd
@@ -299,6 +301,9 @@ class KPointDescriptor:
             else:
                 phase_cd = np.exp(2j * np.pi *
                                   sdisp_cd * self.ibzk_kc[k, :, np.newaxis])
+            if not collinear:
+                s = None
+                weight *= 0.5
             kpt_u.append(KPoint(weight, s, k, q, phase_cd))
 
         return kpt_u
