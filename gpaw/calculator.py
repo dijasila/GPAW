@@ -54,7 +54,6 @@ class GPAW(PAW, Calculator):
         'h': None,  # Angstrom
         'gpts': None,
         'kpts': [(0.0, 0.0, 0.0)],
-        'kpt_refine': None,
         'nbands': None,
         'charge': 0,
         'setups': {},
@@ -66,7 +65,8 @@ class GPAW(PAW, Calculator):
         'eigensolver': None,
         'background_charge': None,
         'experimental': {'reuse_wfs_method': None,
-                         'magmoms': None},
+                         'magmoms': None,
+                         'kpt_refine': None},
         'external': None,
         'random': False,
         'hund': False,
@@ -900,7 +900,8 @@ class GPAW(PAW, Calculator):
         par = self.parameters
 
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
-        if par.kpt_refine is None:
+        kpt_refine = par.experimental.get('kpt_refine')
+        if kpt_refine is None:
             kd = KPointDescriptor(bzkpts_kc, nspins)
 
             self.timer.start('Set symmetry')
@@ -909,7 +910,7 @@ class GPAW(PAW, Calculator):
 
         else:
             self.timer.start('Set k-point refinement')
-            kd = create_kpoint_descriptor_with_refinement(par.kpt_refine,
+            kd = create_kpoint_descriptor_with_refinement(kpt_refine,
                                            bzkpts_kc, nspins, self.atoms,
                                            self.symmetry, comm=self.world,
                                            timer=self.timer)

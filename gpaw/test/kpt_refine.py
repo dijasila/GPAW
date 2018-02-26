@@ -13,11 +13,14 @@ system = Graphene(symbol='C',
 system.pbc = (1, 1, 0)
 system.center(axis=2, vacuum=4.0)
 
+kpt_refine={"center":[1./3,1./3,0.], "size":[3,3,1], "reduce_symmetry":False}
+# kpt_refine={"center":[[1./3,1./3,0.],[-1./3,-1./3,0.]], "size":[3,3,1],
+#             "reduce_symmetry":False}
+
 calc = GPAW(mode=PW(ecut=400),
             xc='PBE',
             kpts={"size":[9,9,1], "gamma":True},
-            kpt_refine={"center":[1./3,1./3,0.], "size":[3,3,1], "reduce_symmetry":False},
-            # kpt_refine={"center":[[1./3,1./3,0.],[-1./3,-1./3,0.]], "size":[3,3,1], "reduce_symmetry":False},
+            experimental={'kpt_refine': kpt_refine},
             occupations=FermiDirac(0.026),
            )
 
