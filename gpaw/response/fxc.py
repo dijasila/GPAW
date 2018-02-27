@@ -4,10 +4,13 @@
 from __future__ import print_function
 
 import numpy as np
+
 from gpaw.xc import XC
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.mpi import world, rank, size
 from gpaw.io.tar import Reader
+from gpaw.wavefunctions.pw import PWDescriptor
+
 from ase.utils.timing import Timer
 from ase.units import Bohr, Ha
 
@@ -248,6 +251,7 @@ class ALDAKernelCalculator:
     def __call__(self, pd, calc, functional):
         assert functional in ['ALDA_x', 'ALDA_X', 'ALDA']
         self.functional = functional
+        add_fxc = self.add_fxc # class methods are not within the scope of the __call__ method
         
         vol = pd.gd.volume
         npw = pd.ngmax
@@ -366,6 +370,9 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
     
     def add_fxc(self, gd, n_sg, fxc_g):
         """ Calculate fxc, using the cutoffs from input above """
+        _calculate_pol_fxc = self._calculate_pol_fxc # class methods are not within the scope of the __call__ method
+        _calculate_unpol_fxc = self._calculate_unpol_fxc
+        
         xi_cut = self.xi_cut
         density_cut = self.density_cut
         
