@@ -411,19 +411,23 @@ def get_bands(seed):
     return bands
 
     
-def get_spinorbit_projections(calc, ik, v_nm):
+def get_spinorbit_projections(calc, ik, v_nm, nbands=None):
     # For spinors the number of projectors and bands are doubled
     Na = len(calc.atoms)
     Nk = len(calc.get_ibz_k_points())
     Ns = calc.wfs.nspins
 
-    v0_mn = v_nm[::2].T
-    v1_mn = v_nm[1::2].T
+    if nbands is None:
+        nbands = calc.get_number_of_bands()
+
+    v0_mn = v_nm[::2][:nbands].T
+    v1_mn = v_nm[1::2][:nbands].T
         
     P_ani = {}
     for ia in range(Na):
-        P0_ni = calc.wfs.kpt_u[ik].P_ani[ia]
-        P1_ni = calc.wfs.kpt_u[(Ns - 1) * Nk + ik].P_ani[ia]
+        P0_ni = calc.wfs.kpt_u[ik].P_ani[ia][:nbands]
+        P1_ni = calc.wfs.kpt_u[(Ns - 1) * Nk + ik].P_ani[ia][:nbands]
+
         P0_mi = np.dot(v0_mn, P0_ni)
         P1_mi = np.dot(v1_mn, P1_ni)
         P_mi = np.zeros((len(P0_mi), 2 * len(P0_mi[0])), complex)
