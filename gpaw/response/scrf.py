@@ -264,7 +264,7 @@ class SpinChargeResponseFunction:
         
         assert response in ['density', 'spin']
         if response == 'spin':
-            assert xc in ['RPA', 'ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae'] ### added for error finding ###
+            assert xc in ['RPA', 'ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae1', 'ALDA_ae2'] ### added for error finding ###
         
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
         
@@ -463,7 +463,7 @@ class SpinChargeResponseFunction:
         return drf0_w, drf_xc_w    
 
     def get_spin_response_function(self, xc='ALDA', q_c=[0, 0, 0], q_v=None,
-                                   direction='x', flip='pm', density_cut=None, sigma_cut=None,
+                                   direction='x', flip='pm', density_cut=None, xi_cut=None,
                                    filename='srf.csv', return_VchiV = False, fxc_scaling=None, Dt=None):
         """Calculate the spin response function.
          
@@ -480,7 +480,7 @@ class SpinChargeResponseFunction:
         
         pd, chi0_wGG, chi_wGG, fxc_scaling = self.get_chi(xc=xc, q_c=q_c, spin=flip,
                                                           direction=direction, density_cut=density_cut,
-                                                          sigma_cut=sigma_cut, fxc_scaling=fxc_scaling, Dt=Dt)
+                                                          xi_cut=xi_cut, fxc_scaling=fxc_scaling, Dt=Dt)
         
         srf0_w = np.zeros(len(chi_wGG), dtype=complex)
         srf_xc_w = np.zeros(len(chi_wGG), dtype=complex)
