@@ -339,9 +339,9 @@ class Chi0:
         q_c = np.asarray(q_c, dtype=float)
         optical_limit = np.allclose(q_c, 0.0) and self.response == 'density' # gamma point needs special care in density response
         
-        pd = self.get_PWDescriptor(q_c)
+        pd, finepd = self.get_PWDescriptors(q_c)
         
-        nG = pd.ngmax + 2 * optical_limit
+        nG = finepd.ngmax + 2 * optical_limit
         nw = len(self.omega_w)
         
         return (nw, nG)
@@ -389,7 +389,7 @@ class Chi0:
         q_c = np.asarray(q_c, dtype=float)
         optical_limit = np.allclose(q_c, 0.0) and self.response == 'density' # gamma point needs special care in density response
 
-        pd = self.get_PWDescriptor(q_c)
+        pd, finepd = self.get_PWDescriptors(q_c) # XXX new stuff starts here
 
         self.print_chi(pd)
 
@@ -801,19 +801,30 @@ class Chi0:
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
-    def get_PWDescriptor(self, q_c):
+    def get_PWDescriptors(self, q_c):
         """Get the planewave descriptor of q_c."""
         qd = KPointDescriptor([q_c])
-        if self.response == 'density':
-            pd = PWDescriptor(self.ecut, self.calc.wfs.gd,
-                              complex, qd)
-        else:
-            gd = self.calc.density.finegd
-            if self.ecut is None:
-                self.ecut = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
-            pd = PWDescriptor(self.ecut, gd, complex, qd)
         
-        return pd
+        gd = self.calc.wfs.gd
+        finegd = self.calc.density.finegd
+        
+        ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
+        fineecutmax = 0.5 * pi**2 / (self.finegd.h_cv**2).sum(1).max()
+        
+        if not self.ecut is None:
+            if self.ecut < ecutmax:
+                ecut = self.ecut
+            else:
+                ecut = ecutmax
+            fineecut = self.ecut
+        else:
+            ecut = ecutmax
+            fineecut = fineecutmax
+        
+        pd = PWDescriptor(ecut, gd, complex, qd)
+        finepd = PWDescriptor(fineecut, finegd, complex, qd)
+        
+        return pd, finepd
 
     @timer('Get kpoints')
     def get_kpoints(self, pd, integrationmode=None):
