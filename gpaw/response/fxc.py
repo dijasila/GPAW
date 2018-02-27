@@ -268,14 +268,21 @@ class ALDAKernelCalculator:
             
             nspins = len(n_sG)
         else:
-            nt_sG = calc.density.nt_sG
             gd, lpd = pd.gd, pd
             
             print("\tCalculating fxc on real space grid", file=self.fd)
-            fxc_G = np.zeros(np.shape(nt_sG[0]))
-            add_fxc(gd, nt_sG, fxc_G)
+            if self.gridref == 1:
+                nt_sG = calc.density.nt_sG
+                fxc_G = np.zeros(np.shape(nt_sG[0]))
+                add_fxc(gd, nt_sG, fxc_G)
+                nspins = len(nt_sG)
+            else:
+                nt_sg = calc.density.nt_sg
+                fxc_g = np.zeros(np.shape(nt_sg[0]))
+                add_fxc(gd, nt_sg, fxc_g)
+                nspins = len(nt_sg)
         
-            nspins = len(nt_sG)
+        assert lpd.ngmax >= npw
         
         print("\tFourier transforming into reciprocal space", file=self.fd)
         nG = gd.N_c
@@ -319,7 +326,6 @@ class ALDAKernelCalculator:
                     D_sp = D_asp[a]
                     B_pqL = setup.xc_correction.B_pqL
                     D_sLq = np.inner(D_sp, B_pqL.T)
-                    nspins = len(D_sp)
 
                     f_g = rgd.zeros()
                     ft_g = rgd.zeros()
@@ -367,6 +373,9 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
         self.density_cut = density_cut
         
         ALDAKernelCalculator.__init__(self, fd, mode, ecut)
+        
+        if not self.ae:
+            self.gridref = 2
     
     def add_fxc(self, gd, n_sg, fxc_g):
         """ Calculate fxc, using the cutoffs from input above """

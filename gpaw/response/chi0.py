@@ -3,6 +3,7 @@ from __future__ import print_function, division
 from time import ctime
 
 import numpy as np
+from math import pi
 from ase.units import Hartree
 from ase.utils import devnull
 from ase.utils.timing import timer, Timer
@@ -803,8 +804,15 @@ class Chi0:
     def get_PWDescriptor(self, q_c):
         """Get the planewave descriptor of q_c."""
         qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(self.ecut, self.calc.wfs.gd,
-                          complex, qd)
+        if self.response == 'density':
+            pd = PWDescriptor(self.ecut, self.calc.wfs.gd,
+                              complex, qd)
+        else:
+            gd = self.calc.density.finegd
+            if self.ecut is None:
+                self.ecut = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
+            pd = PWDescriptor(self.ecut, gd, complex, qd)
+        
         return pd
 
     @timer('Get kpoints')
