@@ -626,6 +626,9 @@ class Chi0:
                              # Arguments for integrand functions
                              out_wxx=A_wxx,  # Output array
                              **extraargs)
+        self.world.barrier()
+        print("What is going on?")
+        quit()
         # extraargs: Extra arguments to integration method
         if wings:
             mat_kwargs['extend_head'] = True
@@ -916,7 +919,7 @@ class Chi0:
         weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
                          symmetry.how_many_symmetries())
         if self.Q_aGii is None:
-            self.Q_aGii = self.pair.initialize_paw_corrections(pd)
+            self.Q_aGii = self.pair.initialize_paw_corrections(finepd)
 
         kptpair = self.pair.get_kpoint_pair(finepd, s, k_c, n1, n2,
                                             m1, m2, block=block)
@@ -926,6 +929,9 @@ class Chi0:
         
         n_nmG = self.pair.get_pair_density(pd, finepd, kptpair, n_n, m_m,
                                            Q_aGii=self.Q_aGii, block=block)
+        self.world.barrier()
+        print(n_nmG[0,-1,-1])
+        
         #print(n_nmG) ### error finding ###
         #n_nmG = np.zeros(n_nmG.shape, complex) ### Hard coded for error finding ###
         #print(k_c+q_c, self.calc.get_bz_k_points()[kptpair.kpt2.K])  ### error finding ###
