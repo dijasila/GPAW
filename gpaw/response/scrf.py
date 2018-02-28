@@ -146,22 +146,22 @@ class SpinChargeResponseFunction:
             if os.path.isfile(name):
                 return self.read(name)
 
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.chi0.calculate(q_c, spin)
+        pd, finepd, chi0_wGG, chi0_wxvG, chi0_wvv = self.chi0.calculate(q_c, spin)
         chi0_wGG = self.chi0.distribute_frequencies(chi0_wGG)
         self.chi0.timer.write(self.chi0.fd)
         if self.name:
-            self.write(name, pd, chi0_wGG, chi0_wxvG, chi0_wvv)
+            self.write(name, pd, finepd, chi0_wGG, chi0_wxvG, chi0_wvv)
 
-        return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+        return pd, finepd, chi0_wGG, chi0_wxvG, chi0_wvv
 
-    def write(self, name, pd, chi0_wGG, chi0_wxvG, chi0_wvv):
+    def write(self, name, pd, finepd, chi0_wGG, chi0_wxvG, chi0_wvv):
         nw = len(self.omega_w)
-        nG = pd.ngmax
+        nG = finepd.ngmax
         world = self.chi0.world
 
         if world.rank == 0:
             fd = open(name, 'wb')
-            pickle.dump((self.omega_w, pd, None, chi0_wxvG, chi0_wvv),
+            pickle.dump((self.omega_w, pd, finepd, None, chi0_wxvG, chi0_wvv),
                         fd, pickle.HIGHEST_PROTOCOL)
             for chi0_GG in chi0_wGG:
                 pickle.dump(chi0_GG, fd, pickle.HIGHEST_PROTOCOL)
@@ -181,7 +181,7 @@ class SpinChargeResponseFunction:
     def read(self, name):
         print('Reading from', name, file=self.chi0.fd)
         fd = open(name, 'rb')
-        omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(fd)
+        omega_w, pd, finepd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(fd)
         for omega in self.omega_w:
             assert np.any(np.abs(omega - omega_w) < 1e-8)
 
@@ -189,7 +189,7 @@ class SpinChargeResponseFunction:
         world = self.chi0.world
 
         nw = len(omega_w)
-        nG = pd.ngmax
+        nG = finepd.ngmax
 
         if chi0_wGG is not None:
             # Old file format:
@@ -217,7 +217,7 @@ class SpinChargeResponseFunction:
             chi0_wxvG = chi0_wxvG[wmin:wmin + nw]
             chi0_wvv = chi0_wvv[wmin:wmin + nw]
 
-        return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+        return pd, finepd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     def collect(self, a_w):
         world = self.chi0.world
@@ -266,12 +266,12 @@ class SpinChargeResponseFunction:
         if response == 'spin':
             assert xc in ['RPA', 'ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae1', 'ALDA_ae2'] ### added for error finding ###
         
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
+        pd, finepd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
         
         N_c = self.chi0.calc.wfs.kd.N_c
         
         if response == 'density':
-            Kbare_G = get_coulomb_kernel(pd,
+            Kbare_G = get_coulomb_kernel(finepd,
                                          N_c,
                                          truncation=None,
                                          q_v=q_v)
@@ -280,10 +280,10 @@ class SpinChargeResponseFunction:
             
             if self.truncation is not None:
                 if self.truncation == 'wigner-seitz':
-                    self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
+                    self.wstc = WignerSeitzTruncatedCoulomb(finepd.gd.cell_cv, N_c)
                 else:
                     self.wstc = None
-                    Ktrunc_G = get_coulomb_kernel(pd,
+                    Ktrunc_G = get_coulomb_kernel(finepd,
                                                   N_c,
                                                   truncation=self.truncation,
                                                   wstc=self.wstc,
@@ -293,7 +293,7 @@ class SpinChargeResponseFunction:
                 K_GG = np.eye(nG, dtype=complex)
                
         if response == 'density': # With spin response, no special care is needed for the gamma point
-          if pd.kd.gamma:
+          if finepd.kd.gamma:
               if isinstance(direction, str):
                   d_v = {'x': [1, 0, 0],
                          'y': [0, 1, 0],
@@ -309,7 +309,7 @@ class SpinChargeResponseFunction:
         
         if response == 'density':
             if xc != 'RPA':
-                Kxc_sGG = get_xc_kernel(pd,
+                Kxc_sGG = get_xc_kernel(finepd,
                                         self.chi0,
                                         functional=xc,
                                         chi0_wGG=chi0_wGG,
@@ -330,13 +330,13 @@ class SpinChargeResponseFunction:
                 chi_wGG.append(chi_GG)
         else:
             if xc != 'RPA':
-                Kxc_GG = get_xc_spin_kernel(pd,
+                Kxc_GG = get_xc_spin_kernel(finepd,
                                             self.chi0,
                                             functional=xc,
                                             xi_cut=xi_cut,
                                             density_cut=density_cut)
             else: # RPA is non-interacting for the spin response
-                return pd, chi0_wGG, chi0_wGG
+                return pd, finepd, chi0_wGG, chi0_wGG
             
             chi_wGG = []
             
@@ -422,8 +422,8 @@ class SpinChargeResponseFunction:
             #parprint("chi_30_G0", chi_wGG[30][:,0])  ### error finding ###
         
         if not fxc_scaling is None:
-          return pd, chi0_wGG, np.array(chi_wGG), fxc_scaling
-        return pd, chi0_wGG, np.array(chi_wGG)
+          return pd, finepd, chi0_wGG, np.array(chi_wGG), fxc_scaling
+        return pd, finepd, chi0_wGG, np.array(chi_wGG)
     
     
     def get_density_response_function(self, xc='RPA', q_c=[0, 0, 0], q_v=None,
@@ -438,8 +438,8 @@ class SpinChargeResponseFunction:
         
         self.chi0.set_response('density')
         
-        pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c, direction=direction, 
-                                             return_VchiV = False, density_cut=density_cut)
+        pd, finepd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c, direction=direction, 
+                                                     return_VchiV = False, density_cut=density_cut)
         
         drf0_w = np.zeros(len(chi_wGG), dtype=complex)
         drf_xc_w = np.zeros(len(chi_wGG), dtype=complex)
@@ -478,9 +478,9 @@ class SpinChargeResponseFunction:
         assert self.chi0.disable_point_group
         assert self.chi0.disable_time_reversal
         
-        pd, chi0_wGG, chi_wGG, fxc_scaling = self.get_chi(xc=xc, q_c=q_c, spin=flip,
-                                                          direction=direction, density_cut=density_cut,
-                                                          xi_cut=xi_cut, fxc_scaling=fxc_scaling, Dt=Dt)
+        pd, finepd, chi0_wGG, chi_wGG, fxc_scaling = self.get_chi(xc=xc, q_c=q_c, spin=flip,
+                                                                  direction=direction, density_cut=density_cut,
+                                                                  xi_cut=xi_cut, fxc_scaling=fxc_scaling, Dt=Dt)
         
         srf0_w = np.zeros(len(chi_wGG), dtype=complex)
         srf_xc_w = np.zeros(len(chi_wGG), dtype=complex)
@@ -534,21 +534,21 @@ class SpinChargeResponseFunction:
         
         self.chi0.set_response('density')
         
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+        pd, finepd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
 
         N_c = self.chi0.calc.wfs.kd.N_c
         if self.truncation == 'wigner-seitz':
-            self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
+            self.wstc = WignerSeitzTruncatedCoulomb(finepd.gd.cell_cv, N_c)
         else:
             self.wstc = None
-        K_G = get_coulomb_kernel(pd,
+        K_G = get_coulomb_kernel(finepd,
                                  N_c,
                                  truncation=self.truncation,
                                  wstc=self.wstc,
                                  q_v=q_v)**0.5
         nG = len(K_G)
 
-        if pd.kd.gamma:
+        if finepd.kd.gamma:
             if isinstance(direction, str):
                 d_v = {'x': [1, 0, 0],
                        'y': [0, 1, 0],
@@ -569,7 +569,7 @@ class SpinChargeResponseFunction:
                 chi0_wGG[:, 0, 0] *= np.dot(q_v, d_v)**2
 
         if xc != 'RPA':
-            Kxc_sGG = get_xc_kernel(pd,
+            Kxc_sGG = get_xc_kernel(finepd,
                                     self.chi0,
                                     functional=xc,
                                     chi0_wGG=chi0_wGG)
@@ -603,7 +603,7 @@ class SpinChargeResponseFunction:
             return chi0_wGG
         else:
             # chi_wGG is the full density response function..
-            return pd, chi0_wGG, np.array(chi_wGG)
+            return pd, finepd, chi0_wGG, np.array(chi_wGG)
 
     def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0], q_v=None,
                                 direction='x', filename='df.csv'):
@@ -681,8 +681,8 @@ class SpinChargeResponseFunction:
         self.chi0.set_response('density')
         
         # Calculate V^1/2 \chi V^1/2
-        pd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c,
-                                               direction=direction)
+        pd, finepd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c,
+                                                       direction=direction)
         Nw = self.omega_w.shape[0]
 
         # Calculate eels = -Im 4 \pi / q^2  \chi
@@ -756,9 +756,9 @@ class SpinChargeResponseFunction:
             
             print('Using truncated Coulomb interaction', file=self.chi0.fd)
 
-            pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc,
-                                                 q_c=q_c,
-                                                 direction=direction)
+            pd, finepd, chi0_wGG, chi_wGG = self.get_chi(xc=xc,
+                                                         q_c=q_c,
+                                                         direction=direction)
             alpha_w = -V * (chi_wGG[:, 0, 0]) / (4 * pi)
             alpha0_w = -V * (chi0_wGG[:, 0, 0]) / (4 * pi)
 
@@ -821,15 +821,15 @@ class SpinChargeResponseFunction:
         
         assert self.chi0.world.size == 1
 
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+        pd, finepd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c,
                                            direction=direction,
                                            symmetric=False)
 
-        kd = pd.kd
+        kd = finepd.kd
 
         # Get real space grid for plasmon modes:
-        r = pd.gd.get_grid_point_coordinates()
+        r = finepd.gd.get_grid_point_coordinates()
         w_w = self.omega_w * Hartree
         if w_max:
             w_w = w_w[np.where(w_w < w_max)]
@@ -890,7 +890,7 @@ class SpinChargeResponseFunction:
                 eigen0 = np.append(eigen0, eig0)
 
                 # Fourier Transform:
-                qG = pd.get_reciprocal_vectors(add_q=True)
+                qG = finepd.get_reciprocal_vectors(add_q=True)
                 coef_G = np.diagonal(np.inner(qG, qG)) / (4 * pi)
                 qGr_R = np.inner(qG, r.T).T
                 factor = np.exp(1j * qGr_R)
@@ -958,12 +958,12 @@ class SpinChargeResponseFunction:
         
         assert self.chi0.world.size == 1
 
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+        pd, finepd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c,
                                            symmetric=False)
 
         if r is None:
-            r = pd.gd.get_grid_point_coordinates()
+            r = finepd.gd.get_grid_point_coordinates()
             ix = r.shape[1] // 2 * 0
             iy = r.shape[2] // 2 * 0
             iz = r.shape[3] // 2
@@ -978,12 +978,12 @@ class SpinChargeResponseFunction:
                 perpdir = [0, 1]
 
         nG = e_wGG.shape[1]
-        Gvec = pd.G_Qv[pd.Q_qG[0]]
+        Gvec = finepd.G_Qv[finepd.Q_qG[0]]
         Glist = []
 
         # Only use G-vectors that are zero along electron beam
         # due to \delta(w-G\dot v_e )
-        q_v = pd.K_qv[0]
+        q_v = finepd.K_qv[0]
         for iG in range(nG):
             if perpdir is not None:
                 if Gvec[iG, perpdir[0]] == 0 and Gvec[iG, perpdir[1]] == 0:
@@ -991,7 +991,7 @@ class SpinChargeResponseFunction:
             elif not np.abs(np.dot(q_v, Gvec[iG])) < \
                  np.linalg.norm(q_v) * np.linalg.norm(Gvec[iG]):
                 Glist.append(iG)
-        qG = Gvec[Glist] + pd.K_qv
+        qG = Gvec[Glist] + finepd.K_qv
 
         w_w = self.omega_w * Hartree
         if w_max:

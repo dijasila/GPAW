@@ -1031,7 +1031,7 @@ class PairDensity:
         pb.finish()
 
     @timer('Get kpoint pair')
-    def get_kpoint_pair(self, pd, s, Kork_c, n1, n2, m1, m2,
+    def get_kpoint_pair(self, finepd, s, Kork_c, n1, n2, m1, m2,
                         load_wfs=True, block=False):
         # wfs = self.calc.wfs
         # bzk_kc = wfs.kd.bzk_kc
@@ -1043,7 +1043,7 @@ class PairDensity:
         else:
             k_c = Kork_c
 
-        q_c = pd.kd.bzk_kc[0]
+        q_c = finepd.kd.bzk_kc[0]
         with self.timer('get k-points'):
             kpt1 = self.get_k_point(s, k_c, n1, n2, load_wfs=load_wfs)
             # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
@@ -1055,13 +1055,13 @@ class PairDensity:
                                     load_wfs=load_wfs, block=block)
 
         with self.timer('fft indices'):
-            Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
+            Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, finepd,
                                        kpt1.shift_c - kpt2.shift_c)
 
         return KPointPair(kpt1, kpt2, Q_G)
 
     @timer('get_pair_density')
-    def get_pair_density(self, pd, kptpair, n_n, m_m,
+    def get_pair_density(self, pd, finepd, kptpair, n_n, m_m,
                          optical_limit=False, intraband=False,
                          Q_aGii=None, block=False, direction=2,
                          extend_head=True):
@@ -1080,9 +1080,9 @@ class PairDensity:
         nG = len(Q_G)
 
         if extend_head:
-            n_nmG = np.zeros((len(n_n), len(m_m), nG + 2 * ol), pd.dtype)
+            n_nmG = np.zeros((len(n_n), len(m_m), nG + 2 * ol), finepd.dtype)
         else:
-            n_nmG = np.zeros((len(n_n), len(m_m), nG), pd.dtype)
+            n_nmG = np.zeros((len(n_n), len(m_m), nG), finepd.dtype)
 
         for j, n in enumerate(n_n):
             Q_G = kptpair.Q_G
@@ -1091,8 +1091,8 @@ class PairDensity:
             with self.timer('paw'):
                 C1_aGi = [np.dot(Q_Gii, P1_ni[n - kpt1.na].conj())
                           for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
-                n_nmG[j, :, 2 * ol * eh:] = cpd(ut1cc_R, C1_aGi, kpt2, pd, Q_G,
-                                                block=block)
+                n_nmG[j, :, 2 * ol * eh:] = cpd(ut1cc_R, C1_aGi, kpt2, pd, finepd,
+                                                Q_G, block=block)
             if optical_limit:
                 if extend_head:
                     n_nmG[j, :, 0:3] = opd(n, m_m, kpt1, kpt2,
@@ -1178,8 +1178,8 @@ class PairDensity:
         return n_nmvG
 
     @timer('Calculate pair-densities')
-    def calculate_pair_densities(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G,
-                                 block=True):
+    def calculate_pair_densities(self, ut1cc_R, C1_aGi, kpt2, pd, finepd,
+                                 Q_G, block=True):
         """Calculate FFT of pair-densities and add PAW corrections.
 
         ut1cc_R: 3-d complex ndarray
@@ -1190,13 +1190,15 @@ class PairDensity:
         kpt2: KPoint object
             Right hand side k-point object.
         pd: PWDescriptor
-            Plane-wave descriptor for for q=k2-k1.
+            Plane-wave descriptor for q=k2-k1 on wfs grid.
+        finepd : PWDescriptor
+            Plane-wave descriptor for q=k2-k1 on density grid.
         Q_G: 1-d int ndarray
             Mapping from flattened 3-d FFT grid to 0.5(G+q)^2<ecut sphere.
         """
 
         dv = pd.gd.dv
-        n_mG = pd.empty(kpt2.blocksize)
+        n_mG = finepd.empty(kpt2.blocksize)
         myblocksize = kpt2.nb - kpt2.na
 
         for ut_R, n_G in zip(kpt2.ut_nR, n_mG):
@@ -1212,7 +1214,7 @@ class PairDensity:
         if not block or self.blockcomm.size == 1:
             return n_mG
         else:
-            n_MG = pd.empty(kpt2.blocksize * self.blockcomm.size)
+            n_MG = finepd.empty(kpt2.blocksize * self.blockcomm.size)
             self.blockcomm.all_gather(n_mG, n_MG)
             return n_MG[:kpt2.n2 - kpt2.n1]
 

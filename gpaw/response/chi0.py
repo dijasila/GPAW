@@ -364,8 +364,10 @@ class Chi0:
 
         Returns
         -------
-        pd : Planewave descriptor
-            Planewave descriptor for q_c.
+        pd : PlanewaveDescriptor
+            PlanewaveDescriptor for q_c on wfs grid.
+        finepd : Planewave descriptor
+            Planewave descriptor for q_c on density grid.
         chi0_wGG : ndarray
             The response function.
         chi0_wxvG : ndarray or None
@@ -389,9 +391,9 @@ class Chi0:
         q_c = np.asarray(q_c, dtype=float)
         optical_limit = np.allclose(q_c, 0.0) and self.response == 'density' # gamma point needs special care in density response
 
-        pd, finepd = self.get_PWDescriptors(q_c) # XXX new stuff starts here
+        pd, finepd = self.get_PWDescriptors(q_c)
 
-        self.print_chi(pd)
+        self.print_chi(finepd)
 
         if extra_parameters.get('df_dry_run'):
             print('    Dry run exit', file=self.fd)
@@ -425,16 +427,17 @@ class Chi0:
         #m1 = self.nocc1
         m2 = self.nbands
 
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate(pd,
-                                                            chi0_wGG,
-                                                            chi0_wxvG,
-                                                            chi0_wvv,
-                                                            m1, m2, spins)
+        pd, finepd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate(pd,
+                                                                    finepd,
+                                                                    chi0_wGG,
+                                                                    chi0_wxvG,
+                                                                    chi0_wvv,
+                                                                    m1, m2, spins)
 
-        return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+        return pd, finepd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     @timer('Calculate CHI_0')
-    def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins,
+    def _calculate(self, pd, finepd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins,
                    extend_head=True):
         """In-place calculation of the response function.
         
@@ -442,8 +445,10 @@ class Chi0:
         ----------
         q_c : list or ndarray
             Momentum vector..
-        pd : Planewave descriptor
-            Planewave descriptor for q_c.
+        pd : PlanewaveDescriptor
+            Planewave descriptor for q_c on wfs grid.
+        finepd : PlanewaveDescriptor
+            Planewave descriptor for q_c on density grid.
         chi0_wGG : ndarray
             The response function.
         chi0_wxvG : ndarray or None
@@ -483,7 +488,7 @@ class Chi0:
         optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0) and self.response == 'density' # gamma point needs special care in density response
 
         # Reset PAW correction in case momentum has change
-        self.Q_aGii = self.pair.initialize_paw_corrections(pd)
+        self.Q_aGii = self.pair.initialize_paw_corrections(finepd)
         A_wxx = chi0_wGG  # Change notation
 
         # Initialize integrator. The integrator class is a general class
@@ -552,7 +557,8 @@ class Chi0:
         # which the integrator class accepts through the use of the
         # kwargs keyword.
         kd = self.calc.wfs.kd
-        mat_kwargs = {'kd': kd, 'pd': pd, 'n1': 0,
+        mat_kwargs = {'kd': kd, 'pd': pd, 'finepd': finepd,
+                      'n1': 0,
                       #'n2': self.nocc2, 'm1': m1,
                       'n2': m2, 'm1': m1,  ### Hard coded for error finding ###
                       'm2': m2, 'symmetry': PWSA,
@@ -670,7 +676,7 @@ class Chi0:
             mat_kwargs = {'kd': kd, 'symmetry': PWSA,
                           #'n1': self.nocc1, 'n2': self.nocc2, 
                           'n1': m1, 'n2': m2, ### Hard coded for error finding ###
-                          'pd': pd}  # Integrand arguments
+                          'pd': pd, 'finepd': finepd}  # Integrand arguments
             eig_kwargs = {'kd': kd, 
                           #'n1': self.nocc1, 'n2': self.nocc2, 'pd': pd}  # Integrand arguments
                           'n1': m1, 'n2': m2, 'pd': pd}  ### Hard coded for error finding ###
@@ -799,7 +805,7 @@ class Chi0:
         else:
             chi0_wGG = A_wxx
 
-        return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+        return pd, finepd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     def get_PWDescriptors(self, q_c):
         """Get the planewave descriptor of q_c."""
@@ -808,8 +814,8 @@ class Chi0:
         gd = self.calc.wfs.gd
         finegd = self.calc.density.finegd
         
-        ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
-        fineecutmax = 0.5 * pi**2 / (self.finegd.h_cv**2).sum(1).max()
+        ecutmax = 0.5 * pi**2 / (gd.h_cv**2).sum(1).max()
+        fineecutmax = 0.5 * pi**2 / (finegd.h_cv**2).sum(1).max()
         
         if not self.ecut is None:
             if self.ecut < ecutmax:
@@ -820,6 +826,8 @@ class Chi0:
         else:
             ecut = ecutmax
             fineecut = fineecutmax
+        
+        self.ecut = fineecut
         
         pd = PWDescriptor(ecut, gd, complex, qd)
         finepd = PWDescriptor(fineecut, finegd, complex, qd)
@@ -855,7 +863,7 @@ class Chi0:
     @timer('Get matrix element')
     def get_matrix_element(self, k_v, s, n1=None, n2=None,
                            m1=None, m2=None,
-                           pd=None, kd=None,
+                           pd=None, finepd=None, kd=None,
                            symmetry=None, integrationmode=None,
                            extend_head=True, block=True):
         """A function that returns pair-densities.
@@ -883,7 +891,10 @@ class Chi0:
             Lower unoccupied band index.
         m2 : int
             Upper unoccupied band index.
-        pd : PlanewaveDescriptor instance
+        pd : PlanewaveDescriptor
+            PlanewaveDescriptor for q_c on wfs grid.
+        finepd : PlanewaveDescriptor
+            Planewave descriptor for q_c on density grid.
         kd : KpointDescriptor instance
             Calculator kpoint descriptor.
         symmetry: gpaw.response.pair.PWSymmetryAnalyzer instance
@@ -901,19 +912,19 @@ class Chi0:
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
         q_c = pd.kd.bzk_kc[0]
         optical_limit = np.allclose(q_c, 0.0) and self.response == 'density' # gamma point needs special care in density response
-        nG = pd.ngmax
+        nG = finepd.ngmax
         weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
                          symmetry.how_many_symmetries())
         if self.Q_aGii is None:
             self.Q_aGii = self.pair.initialize_paw_corrections(pd)
 
-        kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
+        kptpair = self.pair.get_kpoint_pair(finepd, s, k_c, n1, n2,
                                             m1, m2, block=block)
 
         m_m = np.arange(m1, m2)
         n_n = np.arange(n1, n2)
         
-        n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
+        n_nmG = self.pair.get_pair_density(pd, finepd, kptpair, n_n, m_m,
                                            Q_aGii=self.Q_aGii, block=block)
         #print(n_nmG) ### error finding ###
         #n_nmG = np.zeros(n_nmG.shape, complex) ### Hard coded for error finding ###

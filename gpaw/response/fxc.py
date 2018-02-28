@@ -4,6 +4,7 @@
 from __future__ import print_function
 
 import numpy as np
+from math import pi
 
 from gpaw.xc import XC
 from gpaw.sphere.lebedev import weight_n, R_nv
@@ -260,7 +261,11 @@ class ALDAKernelCalculator:
             print("\tFinding all-electron density", file=self.fd)
             n_sG, gd = calc.density.get_all_electron_density(atoms=calc.atoms, gridrefinement=self.gridref)
             qd = pd.kd
-            lpd = PWDescriptor(self.ecut, gd, complex, qd)
+            if self.ecut is None:
+                ecut = 0.5 * pi**2 / (gd.h_cv**2).sum(1).max()
+            else:
+                ecut = self.ecut
+            lpd = PWDescriptor(ecut, gd, complex, qd)
             
             print("\tCalculating fxc on real space grid", file=self.fd)
             fxc_G = np.zeros(np.shape(n_sG[0]))
