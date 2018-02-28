@@ -180,8 +180,7 @@ class ECNPropagator(LCAOPropagator):
             assert grid.nprow * grid.npcol == self.wfs.ksl.block_comm.size
             # FOR DEBUG
             self.MM_descriptor = grid.new_descriptor(nao, nao, nao, nao)
-            self.mm_block_descriptor = grid.new_descriptor(nao, nao, blocksize,
-                                                           blocksize)
+            self.mm_block_descriptor = ksl.mmdescriptor
             self.Cnm_block_descriptor = grid.new_descriptor(nbands, nao,
                                                             blocksize,
                                                             blocksize)
@@ -189,8 +188,7 @@ class ECNPropagator(LCAOPropagator):
             #     nao, mynbands, nao)
             self.mM_column_descriptor = ksl.single_column_grid.new_descriptor(
                 nao, nao, ksl.naoblocksize, nao)
-            self.CnM_unique_descriptor = ksl.single_column_grid.new_descriptor(
-                nbands, nao, mynbands, nao)
+            self.CnM_unique_descriptor = ksl.nM_unique_descriptor
 
             # Redistributors
             self.mm2MM = Redistributor(ksl.block_comm,
