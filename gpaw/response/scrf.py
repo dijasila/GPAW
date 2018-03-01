@@ -330,6 +330,7 @@ class SpinChargeResponseFunction:
                 chi_wGG.append(chi_GG)
         else:
             if xc != 'RPA':
+                print('Calculating kernel:', file=self.chi0.fd)
                 Kxc_GG = get_xc_spin_kernel(finepd,
                                             self.chi0,
                                             functional=xc,
@@ -343,7 +344,7 @@ class SpinChargeResponseFunction:
             # Find fxc_scaling if automated scaling is specified
             if not fxc_scaling is None:
               if isinstance(fxc_scaling, str) and fxc_scaling == 'Goldstone':
-                parprint("Finding rescaling to fulfill the Goldstone theorem")
+                print('Finding rescaling to fulfill the Goldstone theorem', file=self.chi0.fd)
                 
                 ## Collect w=0 data XXX not efficient to use redistribute
                 world = self.chi0.world
@@ -406,6 +407,7 @@ class SpinChargeResponseFunction:
             
             # Invert Dyson equation
             for (chi0_GG, fxcs) in zip(chi0_wGG, fxc_scaling_w):
+                print('Inverting Dyson equation', file=self.chi0.fd)
                 chi_GG = np.dot(np.linalg.inv(np.eye(len(chi0_GG)) -
                                               np.dot(chi0_GG, Kxc_GG*fxcs)),
                                 chi0_GG)

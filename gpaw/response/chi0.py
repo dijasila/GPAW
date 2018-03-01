@@ -8,6 +8,8 @@ from ase.units import Hartree
 from ase.utils import devnull
 from ase.utils.timing import timer, Timer
 
+from ase.parallel import parprint  ### error finding ###
+
 import gpaw.mpi as mpi
 from gpaw import extra_parameters
 from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor,
@@ -399,7 +401,7 @@ class Chi0:
             print('    Dry run exit', file=self.fd)
             raise SystemExit
 
-        nG = pd.ngmax + 2 * optical_limit
+        nG = finepd.ngmax + 2 * optical_limit
         nw = len(self.omega_w)
         mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
         self.Ga = self.blockcomm.rank * mynG
@@ -527,7 +529,7 @@ class Chi0:
         # The integration domain is determined by the following function
         # that reduces the integration domain to the irreducible zone
         # of the little group of q.
-        bzk_kv, PWSA = self.get_kpoints(pd,
+        bzk_kv, PWSA = self.get_kpoints(finepd,
                                         integrationmode=self.integrationmode)
         domain = (bzk_kv, spins)
 
@@ -626,9 +628,8 @@ class Chi0:
                              # Arguments for integrand functions
                              out_wxx=A_wxx,  # Output array
                              **extraargs)
-        self.world.barrier()
-        print("What is going on?")
-        quit()
+        print('Rank %d finished integration' % self.world.rank)  ### error finding ###
+        print('Finished integration.', file=self.fd)  ### error finding ###
         # extraargs: Extra arguments to integration method
         if wings:
             mat_kwargs['extend_head'] = True
@@ -747,7 +748,7 @@ class Chi0:
         #print("\n----------\nprefactor manual =", ex_pref, "added\n----------\n")  ### error finding ###
         #print(A_wxx[:,0,0])  ### error finding ###
         #A_wxx *= 1./ex_pref  ### error finding ###
-        
+        print('Redistributing/symmetrizing', file=self.fd)  ### error finding ###
         tmpA_wxx = self.redistribute(A_wxx)
         if extend_head:
             PWSA.symmetrize_wxx(tmpA_wxx,
@@ -807,7 +808,8 @@ class Chi0:
                 chi0_wGG[:, 0, 0] = chi0_wvv[:, 2, 2]
         else:
             chi0_wGG = A_wxx
-
+        print('Rank %d finished chi0 calculation' % self.world.rank)  ### error finding ###
+        
         return pd, finepd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     def get_PWDescriptors(self, q_c):
@@ -818,6 +820,8 @@ class Chi0:
         finegd = self.calc.density.finegd
         
         ecutmax = 0.5 * pi**2 / (gd.h_cv**2).sum(1).max()
+        
+        '''
         fineecutmax = 0.5 * pi**2 / (finegd.h_cv**2).sum(1).max()
         
         if not self.ecut is None:
@@ -829,8 +833,12 @@ class Chi0:
         else:
             ecut = ecutmax
             fineecut = fineecutmax
-        
         self.ecut = fineecut
+        '''
+        ecut = self.ecut
+        if not ecut is None and ecut > ecutmax:
+            ecut = None
+        fineecut = self.ecut
         
         pd = PWDescriptor(ecut, gd, complex, qd)
         finepd = PWDescriptor(fineecut, finegd, complex, qd)
@@ -929,8 +937,6 @@ class Chi0:
         
         n_nmG = self.pair.get_pair_density(pd, finepd, kptpair, n_n, m_m,
                                            Q_aGii=self.Q_aGii, block=block)
-        self.world.barrier()
-        print(n_nmG[0,-1,-1])
         
         #print(n_nmG) ### error finding ###
         #n_nmG = np.zeros(n_nmG.shape, complex) ### Hard coded for error finding ###
@@ -1143,7 +1149,7 @@ class Chi0:
 
         q_c = pd.kd.bzk_kc[0]
         nw = len(self.omega_w)
-        ecut = self.ecut * Hartree
+        ecut = pd.ecut * Hartree
         ns = calc.wfs.nspins
         nbands = self.nbands
         nk = calc.wfs.kd.nbzkpts

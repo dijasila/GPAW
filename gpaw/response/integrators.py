@@ -189,10 +189,15 @@ class PointIntegrator(Integrator):
                                           **extraargs)
             else:
                 self.update(n_MG, deps_M, x, out_wxx, **extraargs)
-
+        
         # Sum over
         self.kncomm.sum(out_wxx)
-
+        
+        #print('I, rank (%d/%d,%d/%d,%d/%d), completed summation' % (self.comm.rank, self.comm.size,
+        #                                                            self.blockcomm.rank, self.blockcomm.size,
+        #                                                            self.kncomm.rank, self.kncomm.size))  ### error finding ###
+        self.comm.barrier()
+        
         if (hermitian or hilbert) and self.blockcomm.size == 1 and not wings:
             # Fill in upper/lower triangle also:
             nx = out_wxx.shape[1]
@@ -234,7 +239,7 @@ class PointIntegrator(Integrator):
                 nx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
             else:
                 nx_mG = n_mG * x_m[:, np.newaxis]
-             
+            
             gemm(1.0, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
                  1.0, chi0_GG)
             

@@ -33,7 +33,6 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', xi_cut=None, density_cut=N
     
     if functional in ['ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae1', 'ALDA_ae2']:  ### error finding ###
         # Adiabatic kernel
-        print("Calculating %s spin kernel" % functional, file=fd)
         if functional[-3:] in ['ae1', 'ae2']:
             mode = functional[-3:]
             functional = functional[:-4]
@@ -258,16 +257,18 @@ class ALDAKernelCalculator:
         npw = pd.ngmax
         
         if self.ae:
-            print("\tFinding all-electron density", file=self.fd)
+            print('\tFinding all-electron density', file=self.fd)
             n_sG, gd = calc.density.get_all_electron_density(atoms=calc.atoms, gridrefinement=self.gridref)
             qd = pd.kd
-            if self.ecut is None:
-                ecut = 0.5 * pi**2 / (gd.h_cv**2).sum(1).max()
-            else:
-                ecut = self.ecut
+            
+            ecutmax = 0.5 * pi**2 / (gd.h_cv**2).sum(1).max()
+            ecut = self.ecut
+            if not ecut is None and self.ecut > ecutmax:
+                ecut = None
+            
             lpd = PWDescriptor(ecut, gd, complex, qd)
             
-            print("\tCalculating fxc on real space grid", file=self.fd)
+            print('\tCalculating fxc on the real space grid', file=self.fd)
             fxc_G = np.zeros(np.shape(n_sG[0]))
             add_fxc(gd, n_sG, fxc_G)
             
@@ -275,21 +276,23 @@ class ALDAKernelCalculator:
         else:
             gd, lpd = pd.gd, pd
             
-            print("\tCalculating fxc on real space grid", file=self.fd)
+            print('\tCalculating fxc on the real space grid', file=self.fd)
             if self.gridref == 1:
                 nt_sG = calc.density.nt_sG
                 fxc_G = np.zeros(np.shape(nt_sG[0]))
                 add_fxc(gd, nt_sG, fxc_G)
                 nspins = len(nt_sG)
             else:
+                if calc.density.nt_sg is None:
+                    calc.density.interpolate_pseudo_density()
                 nt_sg = calc.density.nt_sg
-                fxc_g = np.zeros(np.shape(nt_sg[0]))
-                add_fxc(gd, nt_sg, fxc_g)
+                fxc_G = np.zeros(np.shape(nt_sg[0]))
+                add_fxc(gd, nt_sg, fxc_G)
                 nspins = len(nt_sg)
         
         assert lpd.ngmax >= npw
         
-        print("\tFourier transforming into reciprocal space", file=self.fd)
+        print('\tFourier transforming into reciprocal space', file=self.fd)
         nG = gd.N_c
         nG0 = nG[0] * nG[1] * nG[2]
         
@@ -305,7 +308,8 @@ class ALDAKernelCalculator:
                     Kxc_GG[iG, jG] = tmp_g[tuple(ijQ_c)]
         
         if not self.ae:
-            print("\tCalculating PAW corrections to the kernel", file=self.fd)
+            print('Rank %d reached PAW correcting the kernel' % world.rank)  ### error finding ###
+            print('\tCalculating PAW corrections to the kernel', file=self.fd)
             
             G_Gv = pd.get_reciprocal_vectors()
             R_av = calc.atoms.positions / Bohr
@@ -318,32 +322,33 @@ class ALDAKernelCalculator:
                 dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
 
             for a, setup in enumerate(setups):
-                if rank == a % size:
-                    # PAW correction is evaluated on a radial grid
-                    rgd = setup.xc_correction.rgd
-                    n_qg = setup.xc_correction.n_qg
-                    nt_qg = setup.xc_correction.nt_qg
-                    nc_g = setup.xc_correction.nc_g
-                    nct_g = setup.xc_correction.nct_g
-                    Y_nL = setup.xc_correction.Y_nL
-                    dv_g = rgd.dv_g
+                #if rank == a % size: # useless to parallelize over atoms, when only having a few
+                # PAW correction is evaluated on a radial grid
+                rgd = setup.xc_correction.rgd
+                n_qg = setup.xc_correction.n_qg
+                nt_qg = setup.xc_correction.nt_qg
+                nc_g = setup.xc_correction.nc_g
+                nct_g = setup.xc_correction.nct_g
+                Y_nL = setup.xc_correction.Y_nL
+                dv_g = rgd.dv_g
 
-                    D_sp = D_asp[a]
-                    B_pqL = setup.xc_correction.B_pqL
-                    D_sLq = np.inner(D_sp, B_pqL.T)
+                D_sp = D_asp[a]
+                B_pqL = setup.xc_correction.B_pqL
+                D_sLq = np.inner(D_sp, B_pqL.T)
 
-                    f_g = rgd.zeros()
-                    ft_g = rgd.zeros()
+                f_g = rgd.zeros()
+                ft_g = rgd.zeros()
 
-                    n_sLg = np.dot(D_sLq, n_qg)
-                    nt_sLg = np.dot(D_sLq, nt_qg)
+                n_sLg = np.dot(D_sLq, n_qg)
+                nt_sLg = np.dot(D_sLq, nt_qg)
 
-                    # Add core density
-                    n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
-                    nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
+                # Add core density
+                n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
+                nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
 
-                    coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
-                    for n, Y_L in enumerate(Y_nL):
+                coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
+                for n, Y_L in enumerate(Y_nL):
+                    if rank == n % size:
                         w = weight_n[n]
 
                         f_g[:] = 0.
@@ -362,8 +367,11 @@ class ALDAKernelCalculator:
                                                         (f_g[i] -
                                                          ft_g[i])
                                                     * dv_g[i]) * coefatoms_GG
+            
+            print('Rank %d finished kernel calculation' % world.rank)  ### error finding ###
             world.sum(KxcPAW_GG)
             Kxc_GG += KxcPAW_GG
+            print('Rank %d finished kernel summation' % world.rank)  ### error finding ###
         
         return Kxc_GG / vol
     
@@ -379,7 +387,7 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
         
         ALDAKernelCalculator.__init__(self, fd, mode, ecut)
         
-        if not self.ae:
+        if not self.ae: # should be evaluated on the fine grid
             self.gridref = 2
     
     def add_fxc(self, gd, n_sg, fxc_g):
