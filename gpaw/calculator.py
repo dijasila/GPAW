@@ -402,10 +402,22 @@ class GPAW(PAW, Calculator):
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof', 'experimental']:
+                       'eigensolver', 'idiotproof']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
+                continue
+
+            # Check nested arguments
+            if key in ['experimental']:
+                changed_parameters2 = changed_parameters[key]
+                for key2 in changed_parameters2:
+                    if key2 in ['kpt_refine']:
+                        self.wfs = None
+                    elif key2 in ['reuse_wfs_method', 'magmoms']:
+                        continue
+                    else:
+                        raise TypeError('Unknown keyword argument: "%s"' % key2)
                 continue
 
             # More drastic changes:
@@ -419,7 +431,7 @@ class GPAW(PAW, Calculator):
                 self.hamiltonian = None
                 self.density = None
                 self.wfs = None
-            elif key in ['kpts', 'kpt_refine', 'nbands', 'symmetry']:
+            elif key in ['kpts', 'nbands', 'symmetry']:
                 self.wfs = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'dtype', 'mode']:
                 self.density = None
