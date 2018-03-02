@@ -7,6 +7,25 @@ from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import write_uMM
 
 
+class TimeDependentPotential(object):
+    def __init__(self, ext, laser):
+        self.ext = ext
+        self.laser = laser
+        #cef = ConstantElectricField(Hartree / Bohr, direction)
+
+    def initialize(self, paw):
+        get_matrix = paw.wfs.eigensolver.calculate_hamiltonian_matrix
+        hamiltonian = KickHamiltonian(paw, self.ext)
+        self.V_uMM = [None] * len(paw.wfs.kpt_u)
+        for u, kpt in enumerate(paw.wfs.kpt_u):
+            V_MM = get_matrix(hamiltonian, paw.wfs, kpt,
+                              add_kinetic=False, root=-1)
+            self.V_uMM[u] = V_MM
+
+    def get_MM(self, u, time):
+        return self.laser.strength(time) * self.V_uMM[u]
+
+
 class KickHamiltonian(object):
     def __init__(self, paw, ext):
         ham = paw.hamiltonian
@@ -26,9 +45,12 @@ class KickHamiltonian(object):
 
 
 class TimeDependentHamiltonian(object):
-    def __init__(self, fxc=None):
+    def __init__(self, fxc=None, td_potential=None):
         assert fxc is None or isinstance(fxc, str)
         self.fxc_name = fxc
+        if isinstance(td_potential, dict):
+            td_potential = TimeDependentPotential(**td_potential)
+        self.td_potential = td_potential
 
     def write(self, writer):
         if self.has_fxc:
@@ -65,6 +87,11 @@ class TimeDependentHamiltonian(object):
 
         # Initialize fxc
         self.initialize_fxc(niter)
+
+        # Initialize td_potential
+        if self.td_potential is not None:
+            self.td_potential.initialize(paw)
+
         self.timer.stop('Initialize TDDFT Hamiltonian')
 
     def initialize_fxc(self, niter):
@@ -76,13 +103,14 @@ class TimeDependentHamiltonian(object):
         # paw.py: PAW.linearize_to_xc(self, newxc)
         # See test/lcaotddft/fxc_vs_linearize.py
 
-        get_H_MM = self.get_hamiltonian_matrix
-
         # Calculate deltaXC: 1. take current H_MM
         if niter == 0:
+            def get_H_MM(kpt):
+                return self.get_hamiltonian_matrix(kpt, time=0.0,
+                                                   addfxc=False, addpot=False)
             self.deltaXC_H_uMM = [None] * len(self.wfs.kpt_u)
             for u, kpt in enumerate(self.wfs.kpt_u):
-                self.deltaXC_H_uMM[u] = get_H_MM(kpt, addfxc=False)
+                self.deltaXC_H_uMM[u] = get_H_MM(kpt)
 
         # Update hamiltonian.xc
         if self.fxc_name == 'RPA':
@@ -101,7 +129,7 @@ class TimeDependentHamiltonian(object):
         # Calculate deltaXC: 2. update with new H_MM
         if niter == 0:
             for u, kpt in enumerate(self.wfs.kpt_u):
-                self.deltaXC_H_uMM[u] -= get_H_MM(kpt, addfxc=False)
+                self.deltaXC_H_uMM[u] -= get_H_MM(kpt)
         self.timer.stop('Initialize fxc')
 
     def update_projectors(self):
@@ -110,14 +138,17 @@ class TimeDependentHamiltonian(object):
             self.wfs.atomic_correction.calculate_projections(self.wfs, kpt)
         self.timer.stop('Update projectors')
 
-    def get_hamiltonian_matrix(self, kpt, addfxc=True):
+    def get_hamiltonian_matrix(self, kpt, time, addfxc=True, addpot=True):
         self.timer.start('Calculate H_MM')
+        kpt_rank, u = self.wfs.kd.get_rank_and_index(kpt.s, kpt.k)
+        assert kpt_rank == self.wfs.kd.comm.rank
+
         get_matrix = self.wfs.eigensolver.calculate_hamiltonian_matrix
         H_MM = get_matrix(self.hamiltonian, self.wfs, kpt, root=-1)
         if addfxc and self.has_fxc:
-            kpt_rank, u = self.wfs.kd.get_rank_and_index(kpt.s, kpt.k)
-            assert kpt_rank == self.wfs.kd.comm.rank
             H_MM += self.deltaXC_H_uMM[u]
+        if addpot and self.td_potential is not None:
+            H_MM += self.td_potential.get_MM(u, time)
         self.timer.stop('Calculate H_MM')
         return H_MM
 
