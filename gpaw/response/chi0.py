@@ -628,7 +628,7 @@ class Chi0:
                              # Arguments for integrand functions
                              out_wxx=A_wxx,  # Output array
                              **extraargs)
-        print('Rank %d finished integration' % self.world.rank)  ### error finding ###
+        
         print('Finished integration.', file=self.fd)  ### error finding ###
         # extraargs: Extra arguments to integration method
         if wings:
@@ -748,7 +748,7 @@ class Chi0:
         #print("\n----------\nprefactor manual =", ex_pref, "added\n----------\n")  ### error finding ###
         #print(A_wxx[:,0,0])  ### error finding ###
         #A_wxx *= 1./ex_pref  ### error finding ###
-        print('Redistributing/symmetrizing', file=self.fd)  ### error finding ###
+        
         tmpA_wxx = self.redistribute(A_wxx)
         if extend_head:
             PWSA.symmetrize_wxx(tmpA_wxx,
@@ -808,7 +808,7 @@ class Chi0:
                 chi0_wGG[:, 0, 0] = chi0_wvv[:, 2, 2]
         else:
             chi0_wGG = A_wxx
-        print('Rank %d finished chi0 calculation' % self.world.rank)  ### error finding ###
+        #print('Rank %d finished chi0 calculation' % self.world.rank)  ### error finding ###
         
         return pd, finepd, chi0_wGG, chi0_wxvG, chi0_wvv
 

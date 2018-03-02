@@ -11,6 +11,7 @@ from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.mpi import world, rank, size
 from gpaw.io.tar import Reader
 from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.utilities.blas import scal
 
 from ase.utils.timing import Timer
 from ase.units import Bohr, Ha
@@ -320,7 +321,7 @@ class ALDAKernelCalculator:
             dG_GGv = np.zeros((npw, npw, 3))
             for v in range(3):
                 dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
-
+            
             for a, setup in enumerate(setups):
                 #if rank == a % size: # useless to parallelize over atoms, when only having a few
                 # PAW correction is evaluated on a radial grid
@@ -341,11 +342,11 @@ class ALDAKernelCalculator:
 
                 n_sLg = np.dot(D_sLq, n_qg)
                 nt_sLg = np.dot(D_sLq, nt_qg)
-
+                
                 # Add core density
                 n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
                 nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
-
+                
                 coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
                 for n, Y_L in enumerate(Y_nL):
                     if rank == n % size:
@@ -354,19 +355,30 @@ class ALDAKernelCalculator:
                         f_g[:] = 0.
                         n_sg = np.dot(Y_L, n_sLg)
                         add_fxc(rgd, n_sg, f_g)
-
+                        
                         ft_g[:] = 0.
                         nt_sg = np.dot(Y_L, nt_sLg)
                         add_fxc(rgd, nt_sg, ft_g)
-
+                        
+                        dGR_GG = np.inner(dG_GGv, R_nv[n])
+                        '''
                         for i in range(len(rgd.r_g)):
-                            coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n])
-                                             * rgd.r_g[i])
-
-                            KxcPAW_GG += w * np.dot(coef_GG,
-                                                        (f_g[i] -
-                                                         ft_g[i])
-                                                    * dv_g[i]) * coefatoms_GG
+                            #coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n])
+                            #                 * rgd.r_g[i])
+                            coef_GG = np.exp(-1j * dGR_GG * rgd.r_g[i])
+                            
+                            KxcPAW_GG += w * np.dot(coef_GG, (f_g[i]-ft_g[i]) * dv_g[i]) * coefatoms_GG
+                        '''
+                        
+                        r_old = 1.
+                        for i in range(1, len(rgd.r_g)): # dv_g[0] == 0.
+                            scal(rgd.r_g[i]/r_old, dGR_GG)
+                            coef_GG = np.exp(-1j * dGR_GG)
+                            scal(w * (f_g[i]-ft_g[i]) * dv_g[i], coef_GG)
+                            KxcPAW_GG += coef_GG * coefatoms_GG
+                            r_old = rgd.r_g[i]
+                            
+                        print('\tn=%d completed' % n)  ### error finding ###
             
             print('Rank %d finished kernel calculation' % world.rank)  ### error finding ###
             world.sum(KxcPAW_GG)
