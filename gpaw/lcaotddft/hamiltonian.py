@@ -24,6 +24,9 @@ class TimeDependentPotential(object):
     def get_MM(self, u, time):
         return self.laser.strength(time) * self.V_uMM[u]
 
+    def write(self, writer):
+        writer.write(info='this is not implemented')
+
 
 class KickHamiltonian(object):
     def __init__(self, ham, dens, ext):
@@ -52,6 +55,8 @@ class TimeDependentHamiltonian(object):
     def write(self, writer):
         if self.has_fxc:
             self.write_fxc(writer.child('fxc'))
+        if self.td_potential is not None:
+            self.td_potential.write(writer.child('td_potential'))
 
     def write_fxc(self, writer):
         wfs = self.wfs
@@ -61,6 +66,9 @@ class TimeDependentHamiltonian(object):
     def read(self, reader):
         if 'fxc' in reader:
             self.read_fxc(reader.fxc)
+        if 'td_potential' in reader:
+            raise NotImplementedError('Restart with td_potential is not '
+                                      'implemented.')
 
     def read_fxc(self, reader):
         assert self.fxc_name is None or self.fxc_name == reader.name
