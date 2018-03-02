@@ -15,7 +15,7 @@ class TimeDependentPotential(object):
 
     def initialize(self, paw):
         get_matrix = paw.wfs.eigensolver.calculate_hamiltonian_matrix
-        hamiltonian = KickHamiltonian(paw, self.ext)
+        hamiltonian = KickHamiltonian(paw.hamiltonian, paw.density, self.ext)
         self.V_uMM = [None] * len(paw.wfs.kpt_u)
         for u, kpt in enumerate(paw.wfs.kpt_u):
             V_MM = get_matrix(hamiltonian, paw.wfs, kpt,
@@ -27,9 +27,7 @@ class TimeDependentPotential(object):
 
 
 class KickHamiltonian(object):
-    def __init__(self, paw, ext):
-        ham = paw.hamiltonian
-        dens = paw.density
+    def __init__(self, ham, dens, ext):
         vext_g = ext.get_potential(ham.finegd)
         self.vt_sG = [ham.restrict_and_collect(vext_g)]
         self.dH_asp = ham.setups.empty_atomic_matrix(1, ham.atom_partition)

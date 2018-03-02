@@ -4,7 +4,6 @@ from ase.units import Bohr, Hartree
 
 from gpaw import GPAW
 from gpaw.external import ConstantElectricField
-from gpaw.lcaotddft.hamiltonian import KickHamiltonian
 from gpaw.lcaotddft.hamiltonian import TimeDependentHamiltonian
 from gpaw.lcaotddft.logger import TDDFTLogger
 from gpaw.lcaotddft.propagators import create_propagator
@@ -105,10 +104,9 @@ class LCAOTDDFT(GPAW):
 
         # Create hamiltonian object for absorption kick
         cef = ConstantElectricField(magnitude * Hartree / Bohr, direction)
-        kick_hamiltonian = KickHamiltonian(self, cef)
 
         # Propagate kick
-        self.propagator.kick(kick_hamiltonian, self.time)
+        self.propagator.kick(cef, self.time)
 
         # Call observers after kick
         self.action = 'kick'

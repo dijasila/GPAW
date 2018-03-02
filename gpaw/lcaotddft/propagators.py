@@ -1,6 +1,7 @@
 import numpy as np
 from numpy.linalg import inv, solve
 
+from gpaw.lcaotddft.hamiltonian import KickHamiltonian
 from gpaw.tddft.units import au_to_as
 from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
                                       scalapack_inverse, scalapack_solve,
@@ -39,7 +40,7 @@ class Propagator(object):
         self.timer = paw.timer
         self.log = paw.log
 
-    def kick(self, hamiltonian, time):
+    def kick(self, ext, time):
         raise NotImplementedError()
 
     def propagate(self, time, time_step):
@@ -94,7 +95,7 @@ class ReplayPropagator(LCAOPropagator):
         if self.read_index == self.read_count:
             raise RuntimeError('Time not found: %f' % time)
 
-    def kick(self, hamiltonian, time):
+    def kick(self, ext, time):
         self._align_read_index(time)
         # Take the step after kick
         self.read_index += 1
@@ -213,11 +214,13 @@ class ECNPropagator(LCAOPropagator):
                 scalapack_zero(self.mm_block_descriptor, kpt.S_MM, 'U')
                 scalapack_zero(self.mm_block_descriptor, kpt.T_MM, 'U')
 
-    def kick(self, hamiltonian, time):
+    def kick(self, ext, time):
         # Propagate
         get_matrix = self.wfs.eigensolver.calculate_hamiltonian_matrix
+        kick_hamiltonian = KickHamiltonian(self.hamiltonian.hamiltonian,
+                                           self.density, ext)
         for kpt in self.wfs.kpt_u:
-            Vkick_MM = get_matrix(hamiltonian, self.wfs, kpt,
+            Vkick_MM = get_matrix(kick_hamiltonian, self.wfs, kpt,
                                   add_kinetic=False, root=-1)
             for i in range(10):
                 self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 0.1)
