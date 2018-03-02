@@ -11,16 +11,15 @@ class TimeDependentPotential(object):
     def __init__(self, ext, laser):
         self.ext = ext
         self.laser = laser
-        #cef = ConstantElectricField(Hartree / Bohr, direction)
 
     def initialize(self, paw):
         get_matrix = paw.wfs.eigensolver.calculate_hamiltonian_matrix
         hamiltonian = KickHamiltonian(paw.hamiltonian, paw.density, self.ext)
-        self.V_uMM = [None] * len(paw.wfs.kpt_u)
-        for u, kpt in enumerate(paw.wfs.kpt_u):
+        self.V_uMM = []
+        for kpt in paw.wfs.kpt_u:
             V_MM = get_matrix(hamiltonian, paw.wfs, kpt,
                               add_kinetic=False, root=-1)
-            self.V_uMM[u] = V_MM
+            self.V_uMM.append(V_MM)
 
     def get_MM(self, u, time):
         return self.laser.strength(time) * self.V_uMM[u]
@@ -106,9 +105,9 @@ class TimeDependentHamiltonian(object):
             def get_H_MM(kpt):
                 return self.get_hamiltonian_matrix(kpt, time=0.0,
                                                    addfxc=False, addpot=False)
-            self.deltaXC_H_uMM = [None] * len(self.wfs.kpt_u)
-            for u, kpt in enumerate(self.wfs.kpt_u):
-                self.deltaXC_H_uMM[u] = get_H_MM(kpt)
+            self.deltaXC_H_uMM = []
+            for kpt in self.wfs.kpt_u:
+                self.deltaXC_H_uMM.append(get_H_MM(kpt))
 
         # Update hamiltonian.xc
         if self.fxc_name == 'RPA':
