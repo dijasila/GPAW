@@ -171,6 +171,7 @@ tests = [
     'lcao/dos.py',                          # ~1s
     'solvation/nan_radius.py',              # ~1s
     'solvation/pbc_pos_repeat.py',          # ~1s
+    'lcao/generate_ngto.py',                # ~1s
     'linalg/gemv.py',                       # ~2s
     'fileio/idiotproof_setup.py',           # ~2s
     'radial/ylexpand.py',                   # ~2s
