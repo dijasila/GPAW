@@ -12,12 +12,13 @@ from gpaw.mpi import world, rank, size
 from gpaw.io.tar import Reader
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.utilities.blas import scal
+from gpaw.transformers import Transformer
 
 from ase.utils.timing import Timer
 from ase.units import Bohr, Ha
 
 
-def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', xi_cut=None, density_cut=None):
+def get_xc_spin_kernel(finepd, chi0, functional='ALDA_x', xi_cut=None, density_cut=None):
     """ XC kernels for (collinear) spin polarized calculations
     Currently only ALDA kernels are implemented
     
@@ -43,7 +44,7 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', xi_cut=None, density_cut=N
     else:
         raise ValueError("%s spin kernel not implemented" % functional)
     
-    return Kcalc(pd, calc, functional)
+    return Kcalc(finepd, calc, functional)
 
 
 def get_xc_kernel(pd, chi0, functional='ALDA', chi0_wGG=None, density_cut=None):
@@ -234,47 +235,66 @@ class ALDAKernelCalculator:
     """
     
     def __init__(self, fd, mode, ecut=None):
-        """gridref defines the refinement of the real space grid from which the kernel is calculated.
+        """
+          ### Below is not true atm ###
+          gridref defines the refinement of the real space grid from which the kernel is calculated.
           for gridref=1 the coarse grid (n_sG) is used, for gridref=2 the fine grid (n_sg) is used.
         """
         self.fd = fd
         
         if mode == 'PAW':
             self.ae = False
-            self.gridref = 1
+            #self.gridref = 1
         else:
             self.ae = True
-            self.gridref = int(mode[-1])
+            #self.gridref = int(mode[-1])
         
         self.ecut = ecut
         self.functional = None
     
-    def __call__(self, pd, calc, functional):
+    def __call__(self, finepd, calc, functional):
         assert functional in ['ALDA_x', 'ALDA_X', 'ALDA']
         self.functional = functional
         add_fxc = self.add_fxc # class methods are not within the scope of the __call__ method
         
-        vol = pd.gd.volume
-        npw = pd.ngmax
+        N_c = finepd.gd.N_c
+        vol = finepd.gd.volume
+        npw = finepd.ngmax
         
         if self.ae:
             print('\tFinding all-electron density', file=self.fd)
-            n_sG, gd = calc.density.get_all_electron_density(atoms=calc.atoms, gridrefinement=self.gridref)
-            qd = pd.kd
-            
-            ecutmax = 0.5 * pi**2 / (gd.h_cv**2).sum(1).max()
-            ecut = self.ecut
-            if not ecut is None and self.ecut > ecutmax:
-                ecut = None
-            
-            lpd = PWDescriptor(ecut, gd, complex, qd)
-            
-            print('\tCalculating fxc on the real space grid', file=self.fd)
-            fxc_G = np.zeros(np.shape(n_sG[0]))
-            add_fxc(gd, n_sG, fxc_G)
-            
-            nspins = len(n_sG)
+            #n_sG, gd = calc.density.get_all_electron_density(atoms=calc.atoms, gridrefinement=self.gridref)
+            n_sG, gd = calc.density.get_all_electron_density(atoms=calc.atoms, gridrefinement=1)
         else:
+            n_sG, gd = calc.density.nt_sG, calc.density.gd
+            
+        nspins = len(n_sG)
+
+        nfinegd = gd.new_descriptor(N_c=N_c)
+        interpolator = Transformer(gd, nfinegd, 3)
+
+        n_sg = nfinegd.empty(nspins)
+        for s in range(nspins):
+          interpolator.apply(n_sG[s], n_sg[s]) 
+        
+        '''
+        qd = finepd.kd
+
+        ecutmax = 0.5 * pi**2 / (nfinegd.h_cv**2).sum(1).max()
+        ecut = self.ecut
+        if not ecut is None and self.ecut > ecutmax:
+            ecut = None
+
+        lpd = PWDescriptor(ecut, nfinegd, complex, qd)
+        '''
+        
+        print('\tCalculating fxc on the real space grid', file=self.fd)
+        fxc_g = np.zeros(np.shape(n_sg[0]))
+        add_fxc(nfinegd, n_sg, fxc_g)
+            
+        '''
+        else:
+            
             gd, lpd = pd.gd, pd
             
             print('\tCalculating fxc on the real space grid', file=self.fd)
@@ -292,17 +312,18 @@ class ALDAKernelCalculator:
                 nspins = len(nt_sg)
         
         assert lpd.ngmax >= npw
+        '''
         
         print('\tFourier transforming into reciprocal space', file=self.fd)
-        nG = gd.N_c
+        nG = nfinegd.N_c
         nG0 = nG[0] * nG[1] * nG[2]
         
-        tmp_g = np.fft.fftn(fxc_G) * vol / nG0
+        tmp_g = np.fft.fftn(fxc_g) * vol / nG0
         
         Kxc_GG = np.zeros((npw, npw), dtype=complex)
-        for iG, iQ in enumerate(lpd.Q_qG[0]):
+        for iG, iQ in enumerate(finepd.Q_qG[0]):
             iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
-            for jG, jQ in enumerate(lpd.Q_qG[0]):
+            for jG, jQ in enumerate(finepd.Q_qG[0]):
                 jQ_c = (np.unravel_index(jQ, nG) + nG // 2) % nG - nG // 2
                 ijQ_c = (iQ_c - jQ_c)
                 if (abs(ijQ_c) < nG // 2).all():
@@ -312,7 +333,7 @@ class ALDAKernelCalculator:
             print('Rank %d reached PAW correcting the kernel' % world.rank)  ### error finding ###
             print('\tCalculating PAW corrections to the kernel', file=self.fd)
             
-            G_Gv = pd.get_reciprocal_vectors()
+            G_Gv = finepd.get_reciprocal_vectors()
             R_av = calc.atoms.positions / Bohr
             setups = calc.wfs.setups
             D_asp = calc.density.D_asp
@@ -388,7 +409,7 @@ class ALDAKernelCalculator:
         return Kxc_GG / vol
     
     
-    def add_fxc(self, gd, n_sg, fxc_g):
+    def add_fxc(self, nfinegd, n_sg, fxc_g):
         raise NotImplementedError
     
     
@@ -399,10 +420,10 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
         
         ALDAKernelCalculator.__init__(self, fd, mode, ecut)
         
-        if not self.ae: # should be evaluated on the fine grid
-            self.gridref = 2
+        #if not self.ae: # should be evaluated on the fine grid
+        #    self.gridref = 2
     
-    def add_fxc(self, gd, n_sg, fxc_g):
+    def add_fxc(self, nfinegd, n_sg, fxc_g):
         """ Calculate fxc, using the cutoffs from input above """
         _calculate_pol_fxc = self._calculate_pol_fxc # class methods are not within the scope of the __call__ method
         _calculate_unpol_fxc = self._calculate_unpol_fxc
@@ -432,7 +453,7 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
         if xi_small_g.any():
             if not density_cut: # Calculate it, if not done previously
                 n_g = n_sg[0] + n_sg[1]
-            fxc_g[xi_small_g] += _calculate_unpol_fxc(gd, n_g)[xi_small_g]
+            fxc_g[xi_small_g] += _calculate_unpol_fxc(nfinegd, n_g)[xi_small_g]
         
         # Set fxc to zero if n is small
         all_fine_g = np.logical_and(np.invert(xi_small_g), n_pos_g)
@@ -441,12 +462,12 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
         if all_fine_g.any():
             if not xi_cut:
                 m_g = n_sg[0] - n_sg[1] # Calculate it, if not done previously
-            fxc_g[all_fine_g] += _calculate_pol_fxc(gd, n_sg, m_g)[all_fine_g]
+            fxc_g[all_fine_g] += _calculate_pol_fxc(nfinegd, n_sg, m_g)[all_fine_g]
         
         return
     
     
-    def _calculate_pol_fxc(self, gd, n_sg, m_g):
+    def _calculate_pol_fxc(self, nfinegd, n_sg, m_g):
         """ Calculate polarized fxc """
         
         assert np.shape(m_g) == np.shape(n_sg[0])
@@ -456,12 +477,12 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
         else:
             v_sg = np.zeros(np.shape(n_sg))
             xc = XC(self.functional[1:])
-            xc.calculate(gd, n_sg, v_sg=v_sg)
+            xc.calculate(nfinegd, n_sg, v_sg=v_sg)
                 
             return (v_sg[0] - v_sg[1]) / m_g
     
     
-    def _calculate_unpol_fxc(self, gd, n_g):
+    def _calculate_unpol_fxc(self, nfinegd, n_g):
         """ Calculate unpolarized fxc """
         if self.functional == 'ALDA_x':
             return - (3./np.pi)**(1./3.) * 2. / 3. * n_g**(-2./3.)
