@@ -669,8 +669,6 @@ class PairDensity:
                 print('Reading ground state calculation:\n  %s' % calc,
                       file=self.fd)
                 calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
-                #for k in range(calc.wfs.kd.nibzkpts):  ### error finding ###
-                #  print(calc.wfs.kpt_u[k].f_n[0])  ### error finding ###
             else:
                 assert calc.wfs.world.size == 1
 
@@ -678,7 +676,6 @@ class PairDensity:
         self.calc = calc
 
         self.fermi_level = self.calc.occupations.get_fermi_level()
-        #print(self.fermi_level) ### error finding ###
         
         if gate_voltage is not None:
             self.add_gate_voltage(gate_voltage)
@@ -834,9 +831,7 @@ class PairDensity:
         assert n2 <= len(kpt.eps_n), \
             'Increase GS-nbands or decrease chi0-nbands!'
         eps_n = kpt.eps_n[n1:n2]
-        f_n = kpt.f_n[n1:n2] / kpt.weight  
-        #f_n = kpt.f_n[n1:n2]  ### Hard coded for error finding ###
-        #print(kpt.weight, f_n[0])  ### error finding ###
+        f_n = kpt.f_n[n1:n2] / kpt.weight
         
         if not load_wfs:
             return KPoint(s, K, n1, n2, blocksize, na, nb,
