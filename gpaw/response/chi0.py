@@ -419,9 +419,13 @@ class Chi0:
             chi0_wvv = None
             self.plasmafreq_vv = None
 
-        # Do all empty bands:
-        m1 = 0 ### Hard coded for error finding ### 
-        #m1 = self.nocc1
+        if self.response == 'density':
+            # Do all empty bands:
+            m1 = self.nocc1
+        else:
+            # Do all bands
+            m1 = 0
+        
         m2 = self.nbands
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate(pd,
@@ -542,9 +546,6 @@ class Chi0:
         
         if self.integrationmode is None:
             prefactor *= len(bzk_kv) / self.calc.wfs.kd.nbzkpts
-            #print(len(bzk_kv), self.calc.wfs.kd.nbzkpts, [PWSA.get_kpoint_weight(np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)) for k_v in bzk_kv])  ### error finding ###
-        
-        #prefactor *= 1. / Hartree  ### Hard coded for error finding ###
         
         # The functions that are integrated are defined in the bottom
         # of this file and take a number of constant keyword arguments
@@ -552,14 +553,18 @@ class Chi0:
         # kwargs keyword.
         kd = self.calc.wfs.kd
         mat_kwargs = {'kd': kd, 'pd': pd, 'n1': 0,
-                      #'n2': self.nocc2, 'm1': m1,
-                      'n2': m2, 'm1': m1,  ### Hard coded for error finding ###
-                      'm2': m2, 'symmetry': PWSA,
+                      'm1': m1, 'm2': m2, 
+                      'symmetry': PWSA,
                       'integrationmode': self.integrationmode}
-        eig_kwargs = {'kd': kd, 'm1': m1, 'm2': m2, 'n1': 0,
-                      #'n2': self.nocc2, 'pd': pd}
-                      'n2': m2, 'pd': pd}  ### Hard coded for error finding ###
-
+        eig_kwargs = {'kd': kd, 'm1': m1, 'm2': m2, 
+                      'n1': 0, 'pd': pd}
+        if self.response == 'density':
+            mat_kwargs['n2'] = self.nocc2
+            eig_kwargs['n2'] = self.nocc2
+        else:
+            mat_kwargs['n2'] = self.nbands
+            eig_kwargs['n2'] = self.nbands
+        
         if not extend_head:
             mat_kwargs['extend_head'] = False
 
@@ -596,18 +601,6 @@ class Chi0:
             chi0_wxvG /= prefactor
             chi0_wvv /= prefactor
 	
-        #print("A_wxx before calculation", A_wxx[:,0,0])  ### error finding ###
-        #print("kind", kind)  ### error finding ###
-        #print("domain", domain)  ### error finding ###
-        #print("\nReduced symmetry points:")
-        #for k_v in domain[0]:  ### error finding ###
-        #  k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)  ### error finding ###
-        #  sim_points = PWSA.unfold_kpoints(np.array([k_v]))  ### error finding ###
-        #  sim_points = np.dot(sim_points, pd.gd.cell_cv) / (2 * np.pi)  ### error finding
-        #  print(k_c, PWSA.get_kpoint_weight(k_c))  ### error finding ###
-        #  for p in sim_points:  ### error finding ###
-        #    print("\t", p)  ### error finding ###
-        #print("\nintegrationmode", self.integrationmode)  ### error finding ###
         # Integrate response function
         print('Integrating response function.', file=self.fd)
         integrator.integrate(kind=kind,  # Kind of integral
@@ -667,12 +660,11 @@ class Chi0:
             # of the free space Drude plasma frequency. The calculation is
             # similarly to the interband transitions documented above.
             mat_kwargs = {'kd': kd, 'symmetry': PWSA,
-                          #'n1': self.nocc1, 'n2': self.nocc2, 
-                          'n1': m1, 'n2': m2, ### Hard coded for error finding ###
+                          'n1': self.nocc1, 'n2': self.nocc2, 
                           'pd': pd}  # Integrand arguments
             eig_kwargs = {'kd': kd, 
-                          #'n1': self.nocc1, 'n2': self.nocc2, 'pd': pd}  # Integrand arguments
-                          'n1': m1, 'n2': m2, 'pd': pd}  ### Hard coded for error finding ###
+                          'n1': self.nocc1, 'n2': self.nocc2, 
+                          'pd': pd}  # Integrand arguments
             domain = (bzk_kv, spins)  # Integration domain
             fermi_level = self.pair.fermi_level  # Fermi level
 
@@ -729,14 +721,6 @@ class Chi0:
         # calculated above is normalized by the number of symmetries (as seen
         # below) and then symmetrized.
         A_wxx *= prefactor
-        
-        #print("\n----------\nprefactor chi0", prefactor, "added\n----------\n")  ### error finding ###
-        #print(A_wxx[:,0,0])  ### error finding ###
-        #ex_pref = 1./Hartree  ### error finding ###
-        #A_wxx *= ex_pref  ### error finding ###
-        #print("\n----------\nprefactor manual =", ex_pref, "added\n----------\n")  ### error finding ###
-        #print(A_wxx[:,0,0])  ### error finding ###
-        #A_wxx *= 1./ex_pref  ### error finding ###
         
         tmpA_wxx = self.redistribute(A_wxx)
         if extend_head:
@@ -896,32 +880,16 @@ class Chi0:
         
         n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
                                            Q_aGii=self.Q_aGii, block=block)
-        #print(n_nmG) ### error finding ###
-        #n_nmG = np.zeros(n_nmG.shape, complex) ### Hard coded for error finding ###
-        #print(k_c+q_c, self.calc.get_bz_k_points()[kptpair.kpt2.K])  ### error finding ###
-        #if np.allclose(k_c + q_c - self.calc.get_bz_k_points()[kptpair.kpt2.K], 0.0):  ### Hard coded for error finding ###
-        #  n_nmG[0,0,0] = 1. + 0.j ### Hard coded for error finding ### 
-        #print(n_nmG) ### error finding ###
+        
         if integrationmode is None:
             n_nmG *= weight
         
-        #print(weight) ### Hard coded for error finding ###
-         
-        #n_nmG = np.zeros(n_nmG.shape, complex) ### Hard coded for error finding ###
-        #n_nmG[0] = 1. + 0.j ### Hard coded for error finding ###
-        
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
-        #if not np.allclose(df_nm, 0.0):  ### error finding ###
-        #  print("\n", (df_nm*weight)[0,0], "\n")  ### error finding ###
-        #  print(weight)  ### error finding ###
-        #print(df_nm/8.)  ### error finding ###
-        
-        df_nm = np.abs(df_nm)  ### Hard coded for error finding ###
+        if not self.response == 'density':
+            df_nm = np.abs(df_nm)
         df_nm[df_nm <= 1e-20] = 0.0
-        #df_nm[np.abs(df_nm) <= 1e-20] = 0.0  ### Hard coded for error finding ###
-        #n_nmG *= np.array(df_nm[..., np.newaxis], complex)**0.5  ### Hard coded for error finding ### 
         n_nmG *= df_nm[..., np.newaxis]**0.5
-        #print(n_nmG) ### error finding ###
+        
         if not extend_head and optical_limit:
             n_nmG = np.copy(n_nmG[:, :, 2:])
             optical_limit = False
