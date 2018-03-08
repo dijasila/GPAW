@@ -1,6 +1,7 @@
 import numpy as np
 from numpy.linalg import inv, solve
 
+from gpaw import debug
 from gpaw.tddft.units import au_to_as
 from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
                                       scalapack_inverse, scalapack_solve,
@@ -164,50 +165,39 @@ class ECNPropagator(LCAOPropagator):
         if hamiltonian is not None:
             self.hamiltonian = hamiltonian
 
-        self.blacs = self.wfs.ksl.using_blacs
+        ksl = self.wfs.ksl
+        self.blacs = ksl.using_blacs
         if self.blacs:
-            self.ksl = ksl = self.wfs.ksl
-            nao = ksl.nao
-            nbands = ksl.bd.nbands
-            mynbands = ksl.bd.mynbands
-            blocksize = ksl.blocksize
-
             from gpaw.blacs import Redistributor
             self.log('BLACS Parallelization')
 
             # Parallel grid descriptors
             grid = ksl.blockgrid
-            assert grid.nprow * grid.npcol == self.wfs.ksl.block_comm.size
-            # FOR DEBUG
-            self.MM_descriptor = grid.new_descriptor(nao, nao, nao, nao)
-            self.mm_block_descriptor = grid.new_descriptor(nao, nao, blocksize,
-                                                           blocksize)
-            self.Cnm_block_descriptor = grid.new_descriptor(nbands, nao,
-                                                            blocksize,
-                                                            blocksize)
-            # self.CnM_descriptor = ksl.blockgrid.new_descriptor(nbands,
-            #     nao, mynbands, nao)
-            self.mM_column_descriptor = ksl.single_column_grid.new_descriptor(
-                nao, nao, ksl.naoblocksize, nao)
-            self.CnM_unique_descriptor = ksl.single_column_grid.new_descriptor(
-                nbands, nao, mynbands, nao)
+            assert grid.nprow * grid.npcol == ksl.block_comm.size
+            self.mm_block_descriptor = ksl.mmdescriptor
+            self.Cnm_block_descriptor = grid.new_descriptor(ksl.bd.nbands,
+                                                            ksl.nao,
+                                                            ksl.blocksize,
+                                                            ksl.blocksize)
+            self.CnM_unique_descriptor = ksl.nM_unique_descriptor
 
             # Redistributors
-            self.mm2MM = Redistributor(ksl.block_comm,
-                                       self.mm_block_descriptor,
-                                       self.MM_descriptor)  # XXX FOR DEBUG
-            self.MM2mm = Redistributor(ksl.block_comm,
-                                       self.MM_descriptor,
-                                       self.mm_block_descriptor)  # FOR DEBUG
             self.Cnm2nM = Redistributor(ksl.block_comm,
                                         self.Cnm_block_descriptor,
                                         self.CnM_unique_descriptor)
             self.CnM2nm = Redistributor(ksl.block_comm,
                                         self.CnM_unique_descriptor,
                                         self.Cnm_block_descriptor)
-            self.mM2mm = Redistributor(ksl.block_comm,
-                                       self.mM_column_descriptor,
-                                       self.mm_block_descriptor)
+
+            if debug:
+                nao = ksl.nao
+                self.MM_descriptor = grid.new_descriptor(nao, nao, nao, nao)
+                self.mm2MM = Redistributor(ksl.block_comm,
+                                           self.mm_block_descriptor,
+                                           self.MM_descriptor)
+                self.MM2mm = Redistributor(ksl.block_comm,
+                                           self.MM_descriptor,
+                                           self.mm_block_descriptor)
 
             for kpt in self.wfs.kpt_u:
                 scalapack_zero(self.mm_block_descriptor, kpt.S_MM, 'U')
@@ -308,6 +298,8 @@ class ECNPropagator(LCAOPropagator):
         self.timer.stop('Linear solve')
 
     def blacs_mm_to_global(self, H_mm):
+        if not debug:
+            raise RuntimeError('Use debug mode')
         # Someone could verify that this works and remove the error.
         raise NotImplementedError('Method untested and thus unreliable')
         target = self.MM_descriptor.empty(dtype=complex)
