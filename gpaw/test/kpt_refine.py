@@ -1,11 +1,8 @@
-from ase import Atoms
 from gpaw import GPAW
 from gpaw import PW
 from gpaw import FermiDirac
 from ase.lattice.hexagonal import Graphene
 from ase.parallel import parprint
-
-import numpy as np
 
 system = Graphene(symbol='C',
                   latticeconstant={'a': 2.467710,'c': 1.0},
