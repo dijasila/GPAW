@@ -457,7 +457,7 @@ class KohnShamDecomposition(object):
         def is_between(x, xmin, xmax):
             return xmin <= x and x <= xmax
 
-        tcm_ou = np.zeros((len(energy_o), len(energy_u)), dtype=weight_p.dtype)
+        flt_p = []
         p_s = np.argsort(absweight_p)[::-1]
         for s, p in enumerate(p_s):
             i, a = self.ia_p[p]
@@ -468,7 +468,12 @@ class KohnShamDecomposition(object):
             if not is_between(eig_n[a], unocc_energy_min, unocc_energy_max):
                 continue
 
-            weight = weight_p[p]
-            G_ou = np.outer(G_no[i], G_nu[a])
-            tcm_ou += weight * G_ou
+            flt_p.append(p)
+
+        weight_f = weight_p[flt_p]
+        G_fo = G_no[self.ia_p[flt_p, 0]]
+        G_fu = G_nu[self.ia_p[flt_p, 1]]
+        G_of = G_fo.T
+        tcm_ou = np.dot(G_of * weight_f, G_fu)
+
         return energy_o, energy_u, dos_o, dos_u, tcm_ou, fermilevel
