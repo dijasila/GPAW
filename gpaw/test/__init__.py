@@ -285,6 +285,7 @@ tests = [
     'lcaotddft/fxc_vs_linearize.py',        # ~10s
     'lcaotddft/replay.py',                  # ~10s
     'lcaotddft/ksdecomp.py',                # ~10s
+    'timelimit.py',                         # ~10s
     'ralda/ralda_energy_N2.py',             # ~10s
     'parallel/lcao_complicated.py',         # ~10s
     'generic/bulk.py',                      # ~10s
