@@ -38,4 +38,3 @@ class TDDFTLogger(TDDFTObserver):
             paw.log.flush()
             while paw.niter > self.flush_next:
                 self.flush_next += self.flush_interval
-
