@@ -281,7 +281,7 @@ def get_ibz_vertices(cell_cv, U_scc=None, time_reversal=None):
     return ibzk_kc
 
 
-def get_bz(calc, returnlatticeibz=False):
+def get_bz(calc, returnlatticeibz=False, pbc_c=np.ones(3, bool)):
     """Return the BZ and IBZ vertices.
 
     Parameters
@@ -306,7 +306,8 @@ def get_bz(calc, returnlatticeibz=False):
     cU_scc = get_symmetry_operations(symmetry.op_scc,
                                      symmetry.time_reversal)
 
-    return get_reduced_bz(cell_cv, cU_scc, False, returnlatticeibz)
+    return get_reduced_bz(cell_cv, cU_scc, False, returnlatticeibz,
+                          pbc_c=pbc_c)
 
 
 def get_reduced_bz(cell_cv, cU_scc, time_reversal, returnlatticeibz=False,
