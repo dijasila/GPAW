@@ -8,4 +8,4 @@ td_calc = LCAOTDDFT('gs.gpw')
 DipoleMomentWriter(td_calc, 'dm_replayed.dat')
 
 # Replay the propagation
-td_calc.replay(name='wfw.ulm', update='all')
+td_calc.replay(name='wf.ulm', update='all')

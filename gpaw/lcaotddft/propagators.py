@@ -71,18 +71,11 @@ class LCAOPropagator(Propagator):
 class ReplayPropagator(LCAOPropagator):
 
     def __init__(self, filename, update='all'):
-        from gpaw.io import Reader
-        from gpaw.lcaotddft.wfwriter import WaveFunctionWriter
+        from gpaw.lcaotddft.wfwriter import WaveFunctionReader
         LCAOPropagator.__init__(self)
         self.filename = filename
         self.update_mode = update
-        self.reader = Reader(self.filename)
-        tag = self.reader.get_tag()
-        if tag != WaveFunctionWriter.ulmtag:
-            raise RuntimeError('Unknown tag %s' % tag)
-        version = self.reader.version
-        if version != WaveFunctionWriter.version:
-            raise RuntimeError('Unknown version %s' % version)
+        self.reader = WaveFunctionReader(self.filename)
         self.read_index = 1
         self.read_count = len(self.reader)
 
@@ -95,23 +88,24 @@ class ReplayPropagator(LCAOPropagator):
         if self.read_index == self.read_count:
             raise RuntimeError('Time not found: %f' % time)
 
+    def _read(self):
+        reader = self.reader[self.read_index]
+        r = reader.wave_functions
+        self.wfs.read_wave_functions(r)
+        self.wfs.read_occupations(r)
+        self.read_index += 1
+
     def kick(self, hamiltonian, time):
         self._align_read_index(time)
         # Take the step after kick
         self.read_index += 1
-        r = self.reader[self.read_index].wave_functions
-        self.wfs.read_wave_functions(r)
-        self.wfs.read_occupations(r)
-        self.read_index += 1
+        self._read()
         self.hamiltonian.update(self.update_mode)
 
     def propagate(self, time, time_step):
         next_time = time + time_step
         self._align_read_index(next_time)
-        r = self.reader[self.read_index].wave_functions
-        self.wfs.read_wave_functions(r)
-        self.wfs.read_occupations(r)
-        self.read_index += 1
+        self._read()
         self.hamiltonian.update(self.update_mode)
         return next_time
 
