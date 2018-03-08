@@ -48,7 +48,7 @@ Common sources of bugs
           return a
 
       x = np.ones(5)
-      print double(x) # x[:] is now 2.
+      print(double(x))  # x[:] is now 2.
 
   - Forgetting a ``n += 1`` statement in a for loop::
 
