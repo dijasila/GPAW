@@ -419,8 +419,6 @@ class KohnShamDecomposition(object):
         assert weight_p.dtype == float
         u = 0  # TODO
 
-        absweight_p = np.absolute(weight_p)
-
         eig_n = self.eig_un[u].copy()
         if zero_fermilevel:
             eig_n -= self.fermilevel
@@ -458,17 +456,16 @@ class KohnShamDecomposition(object):
             return xmin <= x and x <= xmax
 
         flt_p = []
-        p_s = np.argsort(absweight_p)[::-1]
-        for s, p in enumerate(p_s):
+        buf = 4 * sigma
+        for p, weight in enumerate(weight_p):
             i, a = self.ia_p[p]
-
-            # TODO: add some extra to these limits based on the Gaussian sigma
-            if not is_between(eig_n[i], occ_energy_min, occ_energy_max):
-                continue
-            if not is_between(eig_n[a], unocc_energy_min, unocc_energy_max):
-                continue
-
-            flt_p.append(p)
+            if (is_between(eig_n[i],
+                           occ_energy_min - buf,
+                           occ_energy_max + buf) and
+                is_between(eig_n[a],
+                           unocc_energy_min - buf,
+                           unocc_energy_max + buf)):
+                flt_p.append(p)
 
         weight_f = weight_p[flt_p]
         G_fo = G_no[self.ia_p[flt_p, 0]]
