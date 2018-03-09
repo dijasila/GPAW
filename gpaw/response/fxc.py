@@ -20,7 +20,8 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', xi_cut=None, density_cut=N
     Currently only ALDA kernels are implemented
     
     xi_cut: float
-        cutoff spin polarization below which f_xc is evaluated in unpolarized limit (to make sure divergent terms cancel out correctly)
+        cutoff spin polarization below which f_xc is evaluated in unpolarized limit
+        (mostly a problem, when some volume elements are exactly spin neutral).
     density_cut: float
         cutoff density below which f_xc is set to zero
     """
@@ -30,12 +31,12 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', xi_cut=None, density_cut=N
     nspins = len(calc.density.nt_sG)
     assert nspins == 2
     
-    if functional in ['ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae1', 'ALDA_ae2']:  ### error finding ###
+    if functional in ['ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae']:
         # Adiabatic kernel
         print("Calculating %s spin kernel" % functional, file=fd)
-        if functional[-3:] in ['ae1', 'ae2']:
-            mode = functional[-3:]
-            functional = functional[:-4]
+        if functional[-2:] == 'ae':
+            mode = 'ae'
+            functional = functional[:-3]
         else:
             mode = 'PAW'
         Kcalc = ALDASpinKernelCalculator(fd, mode, ecut=chi0.ecut, xi_cut=xi_cut, density_cut=density_cut)
@@ -226,25 +227,15 @@ def calculate_Kxc(pd, calc, functional='ALDA', density_cut=None):
 
 
 class ALDAKernelCalculator:
-    """ Adiabatic local density approx. kernel
+    """ Adiabatic local density approximation kernel
     
     ALDA_x is an explicit algebraic version
     ALDA_X uses the libxc package
     """
     
     def __init__(self, fd, mode, ecut=None):
-        """gridref defines the refinement of the real space grid from which the kernel is calculated.
-          for gridref=1 the coarse grid (n_sG) is used, for gridref=2 the fine grid (n_sg) is used.
-        """
         self.fd = fd
-        
-        if mode == 'PAW':
-            self.ae = False
-            self.gridref = 1
-        else:
-            self.ae = True
-            self.gridref = int(mode[-1])
-        
+        self.mode = mode
         self.ecut = ecut
         self.functional = None
     
@@ -256,9 +247,9 @@ class ALDAKernelCalculator:
         vol = pd.gd.volume
         npw = pd.ngmax
         
-        if self.ae:
+        if self.mode == 'ae':
             print("\tFinding all-electron density", file=self.fd)
-            n_sG, gd = calc.density.get_all_electron_density(atoms=calc.atoms, gridrefinement=self.gridref)
+            n_sG, gd = calc.density.get_all_electron_density(atoms=calc.atoms, gridrefinement=1)
             qd = pd.kd
             lpd = PWDescriptor(self.ecut, gd, complex, qd)
             
@@ -368,7 +359,7 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
         
         ALDAKernelCalculator.__init__(self, fd, mode, ecut)
     
-    def add_fxc(self, gd, n_sg, fxc_g):
+    def add_fxc(self, gd, n_sG, fxc_G):
         """ Calculate fxc, using the cutoffs from input above """
         _calculate_pol_fxc = self._calculate_pol_fxc # class methods are not within the scope of the __call__ method
         _calculate_unpol_fxc = self._calculate_unpol_fxc
@@ -377,277 +368,79 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
         density_cut = self.density_cut
         
         # Mask small xi
-        n_g, m_g = None, None
+        n_G, m_G = None, None
         if not xi_cut is None:
-            m_g = n_sg[0] - n_sg[1]
-            xi_small_g = np.abs(m_g/n_g) < xi_cut
+            m_G = n_sG[0] - n_sG[1]
+            n_G = n_sG[0] + n_sG[1]
+            xismall_G = np.abs(m_G/n_G) < xi_cut
         else:
-            xi_small_g = np.full(np.shape(n_sg[0]), False, np.array(False).dtype)
+            xismall_G = np.full(np.shape(n_sG[0]), False, np.array(False).dtype)
             
         # Mask small n
         if density_cut:
-            n_g = n_sg[0] + n_sg[1]
-            n_pos_g = n_g > density_cut
+            if n_G is None:
+                n_G = n_sG[0] + n_sG[1]
+            npos_G = n_G > density_cut
         else:
-            n_pos_g = np.full(np.shape(n_sg[0]), True, np.array(True).dtype)
+            npos_G = np.full(np.shape(n_sG[0]), True, np.array(True).dtype)
         
-        # Don't use small sigma limit if n is small
-        xi_small_g = np.logical_and(xi_small_g, n_pos_g)
+        # Don't use small xi limit if n is small
+        xismall_G = np.logical_and(xismall_G, npos_G)
     
-        # In small sigma limit, use unpolarized fxc
-        if xi_small_g.any():
-            if not density_cut: # Calculate it, if not done previously
-                n_g = n_sg[0] + n_sg[1]
-            fxc_g[xi_small_g] += _calculate_unpol_fxc(gd, n_g)[xi_small_g]
+        # In small xi limit, use unpolarized fxc
+        if xismall_G.any():
+            if n_G is None:
+                n_G = n_sG[0] + n_sG[1]
+            fxc_G[xismall_G] += _calculate_unpol_fxc(gd, n_G)[xismall_G]
         
         # Set fxc to zero if n is small
-        all_fine_g = np.logical_and(np.invert(xi_small_g), n_pos_g)
+        allfine_G = np.logical_and(np.invert(xismall_G), npos_G)
         
         # Above both xi_cut and density_cut calculate polarized fxc
-        if all_fine_g.any():
-            if not xi_cut:
-                m_g = n_sg[0] - n_sg[1] # Calculate it, if not done previously
-            fxc_g[all_fine_g] += _calculate_pol_fxc(gd, n_sg, m_g)[all_fine_g]
+        if allfine_G.any():
+            if m_G is None:
+                m_G = n_sG[0] - n_sG[1]
+            fxc_G[allfine_G] += _calculate_pol_fxc(gd, n_sG, m_G)[allfine_G]
         
         return
     
     
-    def _calculate_pol_fxc(self, gd, n_sg, m_g):
+    def _calculate_pol_fxc(self, gd, n_sG, m_G):
         """ Calculate polarized fxc """
         
-        assert np.shape(m_g) == np.shape(n_sg[0])
+        assert np.shape(m_G) == np.shape(n_sG[0])
         
         if self.functional == 'ALDA_x':
-            return - (6./np.pi)**(1./3.) * ( n_sg[0]**(1./3.) - n_sg[1]**(1./3.) ) / m_g
+            return - (6./np.pi)**(1./3.) * ( n_sG[0]**(1./3.) - n_sG[1]**(1./3.) ) / m_G
         else:
-            v_sg = np.zeros(np.shape(n_sg))
+            v_sG = np.zeros(np.shape(n_sG))
             xc = XC(self.functional[1:])
-            xc.calculate(gd, n_sg, v_sg=v_sg)
+            xc.calculate(gd, n_sG, v_sg=v_sG)
                 
-            return (v_sg[0] - v_sg[1]) / m_g
+            return (v_sG[0] - v_sG[1]) / m_G
     
     
-    def _calculate_unpol_fxc(self, gd, n_g):
+    def _calculate_unpol_fxc(self, gd, n_G):
         """ Calculate unpolarized fxc """
-        if self.functional == 'ALDA_x':
-            return - (3./np.pi)**(1./3.) * 2. / 3. * n_g**(-2./3.)
+        fx_G = - (3./np.pi)**(1./3.) * 2. / 3. * n_G**(-2./3.)
+        if self.functional in ('ALDA_x', 'ALDA_X'):
+            return fx_G
         else:
-            raise NotImplementedError
-            #n_sg = np.array([n_g]) # Needs spin channel in array
-            #fxc_sg = np.zeros(np.shape(n_sg))
-            #xc = XC(functional[1:])
-            #xc.calculate_fxc(gd, n_sg, fxc_sg)
-            #return fxc_sg[0]
-
-
-'''        
-        
-def calculate_spin_Kxc(pd, calc, functional='ALDA_x', xi_cut=None, density_cut=None):
-    """ Adiabatic kernel
-    Currently only ALDA is available
-    ALDA_x is an explicit version written in this script
-    ALDA_X uses the libxc package
-    """
-    
-    assert functional in ['ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae1', 'ALDA_ae2'] ### added ae for error finding ###
-    
-    
-    def _calculate_pol_fxc(gd, n_sg, m_g):
-        """ Calculate polarized fxc """
-        
-        assert np.shape(m_g) == np.shape(n_sg[0])
-        
-        if functional == 'ALDA_x':
-            return - (6./np.pi)**(1./3.) * ( n_sg[0]**(1./3.) - n_sg[1]**(1./3.) ) / m_g
-        else:
-            v_sg = np.zeros(np.shape(n_sg))
-            xc = XC(functional[1:])
-            xc.calculate(gd, n_sg, v_sg=v_sg)
-                
-            return (v_sg[0] - v_sg[1]) / m_g
-    
-    
-    def _calculate_unpol_fxc(gd, n_g):
-        """ Calculate unpolarized fxc """
-        if functional == 'ALDA_x':
-            return - (3./np.pi)**(1./3.) * 2. / 3. * n_g**(-2./3.)
-        else:
-            raise NotImplementedError
-            #n_sg = np.array([n_g]) # Needs spin channel in array
-            #fxc_sg = np.zeros(np.shape(n_sg))
-            #xc = XC(functional[1:])
-            #xc.calculate_fxc(gd, n_sg, fxc_sg)
-            #return fxc_sg[0]
-    
-    
-    def add_fxc(gd, n_sg, fxc_g):
-        """ Calculate fxc, using the cutoffs from input above """
-        
-        # Mask small xi
-        n_g, m_g = None, None
-        if not xi_cut is None:
-            m_g = n_sg[0] - n_sg[1]
-            xi_small_g = np.abs(m_g/n_g) < xi_cut
-        else:
-            xi_small_g = np.full(np.shape(n_sg[0]), False, np.array(False).dtype)
+            # From Perdew & Wang 1992
+            A = 0.016887
+            a1 = 0.11125
+            b1 = 10.357
+            b2 = 3.6231
+            b3 = 0.88026
+            b4 = 0.49671
             
-        # Mask small n
-        if density_cut:
-            n_g = n_sg[0] + n_sg[1]
-            n_pos_g = n_g > density_cut
-        else:
-            n_pos_g = np.full(np.shape(n_sg[0]), True, np.array(True).dtype)
-        
-        # Don't use small sigma limit if n is small
-        xi_small_g = np.logical_and(xi_small_g, n_pos_g)
-    
-        # In small sigma limit, use unpolarized fxc
-        if xi_small_g.any():
-            if not density_cut: # Calculate it, if not done previously
-                n_g = n_sg[0] + n_sg[1]
-            fxc_g[xi_small_g] += _calculate_unpol_fxc(gd, n_g)[xi_small_g]
-        
-        # Set fxc to zero if n is small
-        all_fine_g = np.logical_and(np.invert(xi_small_g), n_pos_g)
-        
-        # Above both xi_cut and density_cut calculate polarized fxc
-        if all_fine_g.any():
-            if not xi_cut:
-                m_g = n_sg[0] - n_sg[1] # Calculate it, if not done previously
-            fxc_g[all_fine_g] += _calculate_pol_fxc(gd, n_sg, m_g)[all_fine_g]
-        
-        return
-    
-    
-    if not functional[-4:-1] == '_ae': ### added for error finding ###
-        
-        # gd holds real space grids == calc.wfs.gd
-        gd = pd.gd
-        npw = pd.ngmax
-        nG = pd.gd.N_c # coarse grid points
-        vol = pd.gd.volume
-        # we need reciprocal lattice vector indexed by G
-        G_Gv = pd.get_reciprocal_vectors()
-        
-        # grids from calc.density are real space grids (g/G = fine/coarse)
-        nt_sG = calc.density.nt_sG
-        R_av = calc.atoms.positions / Bohr
-        setups = calc.wfs.setups
-        D_asp = calc.density.D_asp
-        
-        nspins = len(nt_sG)
-        assert nspins == 2
-        
-        # The soft part
-        fxc_G = np.zeros(np.shape(nt_sG[0]))
-        add_fxc(gd, nt_sG, fxc_G)
-        
-        # FFT fxc(r)
-        nG0 = nG[0] * nG[1] * nG[2]
-        tmp_g = np.fft.fftn(fxc_G) * vol / nG0
-        
-        Kxc_GG = np.zeros((npw, npw), dtype=complex)
-        for iG, iQ in enumerate(pd.Q_qG[0]):
-            iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
-            for jG, jQ in enumerate(pd.Q_qG[0]):
-                jQ_c = (np.unravel_index(jQ, nG) + nG // 2) % nG - nG // 2
-                ijQ_c = (iQ_c - jQ_c)
-                if (abs(ijQ_c) < nG // 2).all():
-                    Kxc_GG[iG, jG] = tmp_g[tuple(ijQ_c)]
-
-    
-        # The PAW part
-        KxcPAW_GG = np.zeros_like(Kxc_GG)
-        dG_GGv = np.zeros((npw, npw, 3))
-        for v in range(3):
-            dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
-
-        for a, setup in enumerate(setups):
-            if rank == a % size:
-                # PAW correction is evaluated on a radial grid
-                rgd = setup.xc_correction.rgd
-                n_qg = setup.xc_correction.n_qg
-                nt_qg = setup.xc_correction.nt_qg
-                nc_g = setup.xc_correction.nc_g
-                nct_g = setup.xc_correction.nct_g
-                Y_nL = setup.xc_correction.Y_nL
-                dv_g = rgd.dv_g
-
-                D_sp = D_asp[a]
-                B_pqL = setup.xc_correction.B_pqL
-                D_sLq = np.inner(D_sp, B_pqL.T)
-                nspins = len(D_sp)
-
-                f_g = rgd.zeros()
-                ft_g = rgd.zeros()
-
-                n_sLg = np.dot(D_sLq, n_qg)
-                nt_sLg = np.dot(D_sLq, nt_qg)
-
-                # Add core density
-                n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
-                nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
-
-                coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
-                for n, Y_L in enumerate(Y_nL):
-                    w = weight_n[n]
-                    
-                    f_g[:] = 0.
-                    n_sg = np.dot(Y_L, n_sLg)
-                    add_fxc(rgd, n_sg, f_g)
-                    
-                    ft_g[:] = 0.
-                    nt_sg = np.dot(Y_L, nt_sLg)
-                    add_fxc(rgd, nt_sg, ft_g)
-
-                    for i in range(len(rgd.r_g)):
-                        coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n])
-                                         * rgd.r_g[i])
-
-                        KxcPAW_GG += w * np.dot(coef_GG,
-                                                    (f_g[i] -
-                                                     ft_g[i])
-                                                * dv_g[i]) * coefatoms_GG
-        world.sum(KxcPAW_GG)
-        Kxc_GG += KxcPAW_GG
-    
-    else:
-        ### added for error finding ###
-        gridref = int(functional[-1])
-        functional = functional[:-4]
-        
-        if gridref == 1:
-        # find all-electron density to calculate kernel directly
-        n_sG, Gd = calc.density.get_all_electron_density(atoms=calc.atoms, gridrefinement=1)
-        
-        nspins = len(n_sG)
-        assert nspins == 2
-        
-        fxc_G = np.zeros(np.shape(n_sG[0]))
-        add_fxc(gd, n_sG, fxc_G)
-        
-        # FFT fxc(r)
-        nG0 = nG[0] * nG[1] * nG[2]
-        tmp_g = np.fft.fftn(fxc_G) * vol / nG0
-        
-        Kxc_GG = np.zeros((npw, npw), dtype=complex)
-        for iG, iQ in enumerate(pd.Q_qG[0]):
-            iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
-            for jG, jQ in enumerate(pd.Q_qG[0]):
-                jQ_c = (np.unravel_index(jQ, nG) + nG // 2) % nG - nG // 2
-                ijQ_c = (iQ_c - jQ_c)
-                if (abs(ijQ_c) < nG // 2).all():
-                    Kxc_GG[iG, jG] = tmp_g[tuple(ijQ_c)]
-        
-        
-    """  ### error finding ###
-    if pd.kd.gamma:
-        Kxc_GG[0, :] = 0.0
-        Kxc_GG[:, 0] = 0.0
-    """    
-    
-    return Kxc_GG / vol
-'''
+            rs_G = 3./(4.*np.pi) n_G**(-1./3.)
+            X_G = 2.*A*(b1*rs_G**(1./2.) + b2*rs_G + b3*rs_G**(3./2.) + b4*rs_G**2.)
+            ac_G = 2.*A*(1+a1*rs_G)*np.log(1.+1./X_G)
+            
+            fc_G = 2. * ac_G / n_G
+            
+            return fx_G + fc_G
 
 
 def calculate_lr_kernel(pd, calc, alpha=0.2):
