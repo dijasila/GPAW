@@ -234,8 +234,7 @@ class SpinChargeResponseFunction:
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
                 direction='x', return_VchiV=True, q_v=None,
-                density_cut=None, xi_cut=None, 
-                fxc_scaling=None, Dt=None):
+                xi_cut=None, density_cut=None, fxc_scaling=None):
         """ Returns v^1/2 chi v^1/2 for the density response and chi for the
         spin response. The truncated Coulomb interaction is included as 
         v^-1/2 v_t v^-1/2. This is in order to conform with
@@ -254,23 +253,19 @@ class SpinChargeResponseFunction:
         fxc_scaling : float or str
             Possible scaling of kernel to hit Goldstone mode.
             float input gives a flat scaling factor, 'Goldstone' automatically fulfills the theorem.
-        Dt : float
-            Response time [1/eV] used in semi-adiabatic approximation
-        
-        Note: currently only 'RPA', 'ALDA_x', 'ALDA_X' and 'ALDA' are implemented for spin response.
         """
         
         response = self.chi0.get_response()
-        
-        assert response in ['density', 'spin']
+        assert response in ('density', 'spin')
         if response == 'spin':
-            assert xc in ['RPA', 'ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae1', 'ALDA_ae2'] ### added for error finding ###
+            assert spin in ('pm', 'mp')
+            assert xc in ('ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae')
         
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
         
-        N_c = self.chi0.calc.wfs.kd.N_c
-        
         if response == 'density':
+            N_c = self.chi0.calc.wfs.kd.N_c
+            
             Kbare_G = get_coulomb_kernel(pd,
                                          N_c,
                                          truncation=None,
@@ -292,22 +287,19 @@ class SpinChargeResponseFunction:
             else:
                 K_GG = np.eye(nG, dtype=complex)
                
-        if response == 'density': # With spin response, no special care is needed for the gamma point
-          if pd.kd.gamma:
-              if isinstance(direction, str):
-                  d_v = {'x': [1, 0, 0],
-                         'y': [0, 1, 0],
-                         'z': [0, 0, 1]}[direction]
-              else:
-                  d_v = direction
-              d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-              W = slice(self.w1, self.w2)
-              chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
-              chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
-              chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
+            if pd.kd.gamma:
+                if isinstance(direction, str):
+                    d_v = {'x': [1, 0, 0],
+                           'y': [0, 1, 0],
+                           'z': [0, 0, 1]}[direction]
+                else:
+                    d_v = direction
+                d_v = np.asarray(d_v) / np.linalg.norm(d_v)
+                W = slice(self.w1, self.w2)
+                chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
+                chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
+                chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
             
-        
-        if response == 'density':
             if xc != 'RPA':
                 Kxc_sGG = get_xc_kernel(pd,
                                         self.chi0,
@@ -328,147 +320,112 @@ class SpinChargeResponseFunction:
                     chi0_GG /= vsqr_G * vsqr_G[:, np.newaxis]
                     chi_GG /= vsqr_G * vsqr_G[:, np.newaxis]
                 chi_wGG.append(chi_GG)
+        
+        # Spin response
         else:
-            if xc != 'RPA':
-                Kxc_GG = get_xc_spin_kernel(pd,
-                                            self.chi0,
-                                            functional=xc,
-                                            xi_cut=xi_cut,
-                                            density_cut=density_cut)
-            else: # RPA is non-interacting for the spin response
-                return pd, chi0_wGG, chi0_wGG
-            
-            chi_wGG = []
+            Kxc_GG = get_xc_spin_kernel(pd,
+                                        self.chi0,
+                                        functional=xc,
+                                        xi_cut=xi_cut,
+                                        density_cut=density_cut)
             
             # Find fxc_scaling if automated scaling is specified
             if not fxc_scaling is None:
               if isinstance(fxc_scaling, str) and fxc_scaling == 'Goldstone':
                 parprint("Finding rescaling to fulfill the Goldstone theorem")
                 
-                ## Collect w=0 data XXX not efficient to use redistribute
                 world = self.chi0.world
-                #try:
-                #  print("bf re, chi0_0GG", world.rank, chi0_wGG[0])  ### error finding ###
-                #except:
-                #  print("failed bf re, chi0_0GG", world.rank)  ### error finding ###
-                #tmpchi0_wGG = self.chi0.redistribute(chi0_wGG)
-                #try:
-                #  print("bf re, chi0_0GG", world.rank, tmpchi0_wGG[0])  ### error finding ###
-                #except:
-                #  print("failed bf re, chi0_0GG", world.rank)  ### error finding ###
                 
                 # Only rank 0 has w=0 and finds rescaling
                 fxc_sbuf = np.empty(1, dtype=float)
                 if world.rank == 0:
                   fxc_scaling = 1.0
-                  #chi0_0GG = tmpchi0_wGG[0]  ### error finding ###
-                  chi0_0GG = chi0_wGG[0]
-                  chi_0GG = np.dot(np.linalg.inv(np.eye(len(chi0_0GG)) -
-                                                 np.dot(chi0_0GG, Kxc_GG*fxc_scaling)),
-                                   chi0_0GG)
-                  kappa_M_0 = (chi0_0GG[0,0]/chi_0GG[0,0]).real
-                  #print("chi0_wGG", chi0_wGG)  ### error finding ###
-                  #print("chi0_0GG", chi0_0GG)  ### error finding ###
-                  #print("kappa_M_0", kappa_M_0)  ### error finding ###
-                  scaling_incr = 0.1*np.sign(kappa_M_0)
-                  while abs(kappa_M_0) > 1e-5 and abs(scaling_incr) > 1e-5:
+                  
+                  schi0_GG = chi0_wGG[0]
+                  schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
+                                                 np.dot(schi0_GG, Kxc_GG*fxc_scaling)),
+                                   schi0_GG)
+                  # Scale so that kappaM=0 in the static limit (w=0) 
+                  skappaM = (schi0_GG[0,0]/schi_GG[0,0]).real
+                  # If kappaM > 0, increase scaling (recall: kappaM ~ 1 - Kxc Re{chi_0})
+                  scaling_incr = 0.1*np.sign(skappaM)
+                  while abs(skappaM) > 1e-8 and abs(scaling_incr) > 1e-8:
                     fxc_scaling += scaling_incr
                     if fxc_scaling <= 0.0 or fxc_scaling >= 10.:
                       raise ValueError('Found a fxc_scaling of %.4f during scaling' % fxc_scaling)
-                    chi_0GG = np.dot(np.linalg.inv(np.eye(len(chi0_0GG)) -
-                                                   np.dot(chi0_0GG, Kxc_GG*fxc_scaling)),
-                                     chi0_0GG)
-                    kappa_M_0 = (chi0_0GG[0,0]/chi_0GG[0,0]).real
+                    schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
+                                                   np.dot(schi0_GG, Kxc_GG*fxc_scaling)),
+                                     schi0_GG)
+                    skappaM = (schi0_GG[0,0]/schi_GG[0,0]).real
                     
-                    if np.sign(kappa_M_0) != np.sign(scaling_incr):
+                    # If kappaM changes sign, change sign and refine increment
+                    if np.sign(skappaM) != np.sign(scaling_incr):
                       scaling_incr *= -0.2
-                    #print(fxc_scaling, kappa_M_0)  ### error finding ###
                   fxc_sbuf[:] = fxc_scaling
-                  #print(fxc_sbuf)  ### error finding ###
+                
                 # Broadcast found rescaling  
                 world.broadcast(fxc_sbuf, 0)
-                #print(world.rank, fxc_sbuf)  ### error finding ###
                 fxc_scaling = fxc_sbuf[0]
             else:
               fxc_scaling = 1.0
             
-            #fxc_scaling = 1.0  ### error finding ###
-            #world = self.chi0.world  ### error finding ###
-            #if world.rank == 0:  ### error finding ###
-            #  print("chi0_0GG", q_c, chi0_wGG[0])  ### error finding ###
-            
-            # Add factor for semi-adiabatic approximation
-            if not Dt is None:
-              Dt *= Hartree
-              fxc_scaling_w = fxc_scaling * np.exp(-Dt*self.omega_w)
-            else:
-              fxc_scaling_w = fxc_scaling * np.ones(len(self.omega_w))
-            
+            chi_wGG = []
             # Invert Dyson equation
-            for (chi0_GG, fxcs) in zip(chi0_wGG, fxc_scaling_w):
+            for chi0_GG in chi0_wGG:
                 chi_GG = np.dot(np.linalg.inv(np.eye(len(chi0_GG)) -
-                                              np.dot(chi0_GG, Kxc_GG*fxcs)),
+                                              np.dot(chi0_GG, Kxc_GG*fxc_scaling)),
                                 chi0_GG)
                 
-                #print(np.dot(chi0_GG, Kxc_GG*re_factor))  ### error finding ###
-                
                 chi_wGG.append(chi_GG)
-            
-            #parprint("q_c", q_c)  ### error finding ###
-            #parprint("chi0_30_0G", chi0_wGG[30][0,:])  ### error finding ###
-            #parprint("chi0_30_G0", chi0_wGG[30][:,0])  ### error finding ###
-            #parprint("Kxc_GG", Kxc_GG)  ### error finding ###
-            #parprint("chi_30_0G", chi_wGG[30][0,:])  ### error finding ###
-            #parprint("chi_30_G0", chi_wGG[30][:,0])  ### error finding ###
         
         if not fxc_scaling is None:
           return pd, chi0_wGG, np.array(chi_wGG), fxc_scaling
         return pd, chi0_wGG, np.array(chi_wGG)
     
     
-    def get_density_response_function(self, xc='RPA', q_c=[0, 0, 0], q_v=None,
+    def get_density_response_function(self, fxc='RPA', q_c=[0, 0, 0], q_v=None,
                                       direction='x', density_cut=None,
                                       filename='drf.csv'):
         """Calculate the density response function.
         
         Returns macroscopic density response function:
-        drf0_w, drf_xc_w = SpinChargeResponseFunction.get_density_response_function()
+        drf0_w, drf_w = SpinChargeResponseFunction.get_density_response_function()
         
         """
         
         self.chi0.set_response('density')
         
-        pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c, direction=direction, 
+        pd, chi0_wGG, chi_wGG = self.get_chi(xc=fxc, q_c=q_c, direction=direction, 
                                              return_VchiV = False, density_cut=density_cut)
         
         drf0_w = np.zeros(len(chi_wGG), dtype=complex)
-        drf_xc_w = np.zeros(len(chi_wGG), dtype=complex)
+        drf_w = np.zeros(len(chi_wGG), dtype=complex)
 
         for w, (chi0_GG, chi_GG) in enumerate(zip(chi0_wGG, chi_wGG)):
             drf0_w[w] = chi0_GG[0, 0]
-            drf_xc_w[w] = chi_GG[0, 0]
+            drf_w[w] = chi_GG[0, 0]
 
         drf0_w = self.collect(drf0_w)
-        drf_xc_w = self.collect(drf_xc_w)
+        drf_w = self.collect(drf_w)
 
         if filename is not None and mpi.rank == 0:
             with open(filename, 'w') as fd:
-                for omega, drf0, drf_xc in zip(self.omega_w * Hartree,
+                for omega, drf0, drf in zip(self.omega_w * Hartree,
                                                   drf0_w,
-                                                  drf_xc_w):
+                                                  drf_w):
                     print('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                          (omega, drf0.real, drf0.imag, drf_xc.real, drf_xc.imag),
+                          (omega, drf0.real, drf0.imag, drf.real, drf.imag),
                           file=fd)
 
-        return drf0_w, drf_xc_w    
+        return drf0_w, drf_w    
 
-    def get_spin_response_function(self, xc='ALDA', q_c=[0, 0, 0], q_v=None,
-                                   direction='x', flip='pm', density_cut=None, xi_cut=None,
-                                   filename='srf.csv', return_VchiV = False, fxc_scaling=None, Dt=None):
+    def get_spin_response_function(self, fxc='ALDA', q_c=[0, 0, 0], q_v=None,
+                                   flip='pm', xi_cut=None, density_cut=None,
+                                   fxc_scaling=None, filename='srf.csv'):
         """Calculate the spin response function.
          
         Returns macroscopic spin response function:
-        srf0_w, srf_xc_w = SpinChargeResponseFunction.get_spin_response_function()
+        srf0_w, srf_w = SpinChargeResponseFunction.get_spin_response_function()
         """
               
         self.chi0.set_response('spin') 
@@ -478,30 +435,30 @@ class SpinChargeResponseFunction:
         assert self.chi0.disable_point_group
         assert self.chi0.disable_time_reversal
         
-        pd, chi0_wGG, chi_wGG, fxc_scaling = self.get_chi(xc=xc, q_c=q_c, spin=flip,
-                                                          direction=direction, density_cut=density_cut,
-                                                          xi_cut=xi_cut, fxc_scaling=fxc_scaling, Dt=Dt)
+        pd, chi0_wGG, chi_wGG, fxc_scaling = self.get_chi(xc=fxc, q_c=q_c, spin=flip,
+                                                          xi_cut=xi_cut, density_cut=density_cut,
+                                                          fxc_scaling=fxc_scaling)
         
         srf0_w = np.zeros(len(chi_wGG), dtype=complex)
-        srf_xc_w = np.zeros(len(chi_wGG), dtype=complex)
+        srf_w = np.zeros(len(chi_wGG), dtype=complex)
 
         for w, (chi0_GG, chi_GG) in enumerate(zip(chi0_wGG, chi_wGG)):
             srf0_w[w] = chi0_GG[0, 0]
-            srf_xc_w[w] = chi_GG[0, 0]
+            srf_w[w] = chi_GG[0, 0]
 
         srf0_w = self.collect(srf0_w)
-        srf_xc_w = self.collect(srf_xc_w)
+        srf_w = self.collect(srf_w)
 
         if filename is not None and mpi.rank == 0:
             with open(filename, 'w') as fd:
-                for omega, srf0, srf_xc in zip(self.omega_w * Hartree,
+                for omega, srf0, srf in zip(self.omega_w * Hartree,
                                                   srf0_w,
-                                                  srf_xc_w):
+                                                  srf_w):
                     print('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                          (omega, srf0.real, srf0.imag, srf_xc.real, srf_xc.imag),
+                          (omega, srf0.real, srf0.imag, srf.real, srf.imag),
                           file=fd)
 
-        return srf0_w, srf_xc_w, fxc_scaling
+        return srf0_w, srf_w, fxc_scaling
     
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
