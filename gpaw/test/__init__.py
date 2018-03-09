@@ -320,6 +320,7 @@ tests = [
     'solvation/poisson.py',                 # ~15s
     'solvation/water_water.py',             # ~15s
     'xc/pygga.py',                          # ~15s
+    'pseudopotential/atompaw.py',           # ~15s
     'parallel/lcao_parallel.py',            # ~16s
     'xc/atomize.py',                        # ~16s
     'lrtddft/excited_state.py',             # ~16s
