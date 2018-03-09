@@ -151,10 +151,14 @@ class BSE:
             self.con_sn = np.array([self.con_sn])
 
         self.td = True
-        for n in self.val_sn:
-            if n in self.con_sn:
+        for n in self.val_sn[0]:
+            if n in self.con_sn[0]:
                 self.td = False
-
+        if len(self.val_sn) == 2:
+            for n in self.val_sn[1]:
+                if n in self.con_sn[1]:
+                    self.td = False
+            
         self.nv = len(self.val_sn[0])
         self.nc = len(self.con_sn[0])
         if eshift is not None:
