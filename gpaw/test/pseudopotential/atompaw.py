@@ -1,5 +1,7 @@
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.upf import UPFSetupData
+import gpaw.test.pseudopotential.H_pz_hgh as H_hgh
+import gpaw.test.pseudopotential.O_pz_hgh as O_hgh
 
 def check(title, calc, epsref_n, threshold):
     eps_n = calc.wfs.kpt_u[0].eps_n
@@ -18,7 +20,15 @@ def check(title, calc, epsref_n, threshold):
 
 kwargs = dict(txt=None)
 
-for setup in ['paw', 'hgh', UPFSetupData('H.pz-hgh.UPF')]:
+# Load pseudopotential from Python module as string, then
+# write the string to a file, then load the file.
+def upf(upf_module, fname):
+    with open(fname, 'w') as fd:
+        fd.write(upf_module.ps_txt)
+    return UPFSetupData(fname)
+
+
+for setup in ['paw', 'hgh', upf(H_hgh, 'H.pz-hgh.UPF')]:
     calc = AtomPAW('H', [[[1]]],
                    rcut=12.0, h=0.05,
                    setups={'H': setup}, **kwargs)
@@ -26,7 +36,7 @@ for setup in ['paw', 'hgh', UPFSetupData('H.pz-hgh.UPF')]:
     check('H %s' % setup, calc, [-0.233471], tol)
 
 
-for setup in ['paw', 'hgh', UPFSetupData('O.pz-hgh.UPF')]:
+for setup in ['paw', 'hgh', upf(O_hgh, 'O.pz-hgh.UPF')]:
     calc = AtomPAW('O', [[[2], [4]]],
                    rcut=10.0, h=0.035,
                    setups={'O': setup}, **kwargs)
