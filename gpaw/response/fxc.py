@@ -283,7 +283,7 @@ class ALDAKernelCalculator:
                 if (abs(ijQ_c) < nG // 2).all():
                     Kxc_GG[iG, jG] = tmp_g[tuple(ijQ_c)]
         
-        if not self.ae:
+        if self.mode == 'PAW':
             print("\tCalculating PAW corrections to the kernel", file=self.fd)
             
             G_Gv = pd.get_reciprocal_vectors()
@@ -434,7 +434,7 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
             b3 = 0.88026
             b4 = 0.49671
             
-            rs_G = 3./(4.*np.pi) n_G**(-1./3.)
+            rs_G = 3./(4.*np.pi) * n_G**(-1./3.)
             X_G = 2.*A*(b1*rs_G**(1./2.) + b2*rs_G + b3*rs_G**(3./2.) + b4*rs_G**2.)
             ac_G = 2.*A*(1+a1*rs_G)*np.log(1.+1./X_G)
             
