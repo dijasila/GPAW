@@ -333,17 +333,23 @@ class Chi0:
         return self.epsmax - self.epsmin
         
         
-    def get_chi_grid_dim(self, q_c):
+    def get_chi0_mem_data(self, q_c):
         """Get dimensions involved in chi grid, without running calculation."""
+        # get number of reciprocal lattice vectors
         q_c = np.asarray(q_c, dtype=float)
         optical_limit = np.allclose(q_c, 0.0) and self.response == 'density' # gamma point needs special care in density response
-        
         pd = self.get_PWDescriptor(q_c)
-        
         nG = pd.ngmax + 2 * optical_limit
+        
+        # get number of frequencies
         nw = len(self.omega_w)
         
-        return (nw, nG)
+        # Unfold symmetries, if disabled
+        bzk_kv, PWSA = self.get_kpoints(pd, integrationmode=self.integrationmode)
+        # Get current memory before allocation of chi0_wGG
+        mempc = maxrss() / 1024**2
+        
+        return (nw, nG, mempc)
 
 
     def calculate(self, q_c, spin='all', A_x=None):
