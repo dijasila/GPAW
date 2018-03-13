@@ -12,6 +12,23 @@ from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.utilities.tools import tri2full
 
 
+def arange(x0, x1, dx):
+    """
+    Inclusive arange function
+    """
+    return np.arange(x0, x1 + 0.5 * dx, dx)
+
+
+def is_between(x, xmin, xmax):
+    return xmin <= x and x <= xmax
+
+
+def gauss_ij(energy_i, energy_j, sigma):
+    denergy_ij = energy_i[:, np.newaxis] - energy_j[np.newaxis, :]
+    norm = 1.0 / (sigma * np.sqrt(2 * np.pi))
+    return norm * np.exp(-0.5 * denergy_ij**2 / sigma**2)
+
+
 class KohnShamDecomposition(object):
     version = 1
     ulmtag = 'KSD'
@@ -430,21 +447,11 @@ class KohnShamDecomposition(object):
         eig_n *= Hartree
         fermilevel *= Hartree
 
-        # Inclusive arange function
-        def arange(x0, x1, dx):
-            return np.arange(x0, x1 + 0.5 * dx, dx)
-
         energy_o = arange(occ_energy_min, occ_energy_max, delta_energy)
         energy_u = arange(unocc_energy_min, unocc_energy_max, delta_energy)
 
-        def gauss_ne(energy_e):
-            energy_ne = energy_e[np.newaxis, :]
-            eig_ne = eig_n[:, np.newaxis]
-            norm = 1.0 / (sigma * np.sqrt(2 * np.pi))
-            return norm * np.exp(-0.5 * (energy_ne - eig_ne)**2 / sigma**2)
-
-        G_no = gauss_ne(energy_o)
-        G_nu = gauss_ne(energy_u)
+        G_no = gauss_ij(eig_n, energy_o, sigma)
+        G_nu = gauss_ij(eig_n, energy_u, sigma)
 
         # DOS
         dos_o = 2.0 * np.sum(G_no, axis=0)
@@ -452,9 +459,6 @@ class KohnShamDecomposition(object):
         dosmax = max(np.max(dos_o), np.max(dos_u))
         dos_o /= dosmax
         dos_u /= dosmax
-
-        def is_between(x, xmin, xmax):
-            return xmin <= x and x <= xmax
 
         flt_p = []
         buf = 4 * sigma
@@ -475,3 +479,8 @@ class KohnShamDecomposition(object):
         tcm_ou = np.dot(G_of * weight_f, G_fu)
 
         return energy_o, energy_u, dos_o, dos_u, tcm_ou, fermilevel
+
+    def get_distribution(self, weight_p, energy_e, sigma):
+        G_pe = gauss_ij(self.w_p * Hartree, energy_e, sigma)
+        dist_e = np.dot(G_pe.T, weight_p)
+        return dist_e
