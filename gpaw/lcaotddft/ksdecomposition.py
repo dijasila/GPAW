@@ -325,10 +325,6 @@ class KohnShamDecomposition(object):
         r = self.get_TCM(*args)
         dos_o, dos_u, tcm_ou, fermilevel = r
 
-        # Start plotting
-        plt.figure(figsize=(8, 8))
-        linecolor = 'k'
-
         # Generate axis
         def get_gs(**kwargs):
             width = 0.84
@@ -352,12 +348,33 @@ class KohnShamDecomposition(object):
         plt.sca(ax)
         if isinstance(vmax, str):
             assert vmax[-1] == '%'
-            tcmmax = max(np.max(tcm_ou), -np.min(tcm_ou))
+            tcmmax = np.max(np.absolute(tcm_ou))
             vmax = tcmmax * float(vmax[:-1]) / 100.0
         vmin = -vmax
-        cmap = 'seismic'
-        plt.pcolormesh(energy_o, energy_u, tcm_ou.T,
-                       cmap=cmap, rasterized=True, vmin=vmin, vmax=vmax)
+        if tcm_ou.dtype == complex:
+            linecolor = 'w'
+            from matplotlib.colors import hsv_to_rgb
+
+            def transform_to_hsv(z, rmin, rmax, hue_start=90):
+                amp = np.absolute(z)
+                amp = np.where(amp < rmin, rmin, amp)
+                amp = np.where(amp > rmax, rmax, amp)
+                ph = np.angle(z, deg=1) + hue_start
+                h = (ph % 360) / 360
+                s = 0.85 * np.ones_like(h)
+                v = (amp - rmin) / (rmax - rmin)
+                return hsv_to_rgb(np.dstack((h, s, v)))
+
+            img = transform_to_hsv(tcm_ou.T, 0, vmax)
+            plt.imshow(img, origin='lower',
+                       extent=[occ_energy_min, occ_energy_max,
+                               unocc_energy_min, unocc_energy_max],
+                       )
+        else:
+            linecolor = 'k'
+            cmap = 'seismic'
+            plt.pcolormesh(energy_o, energy_u, tcm_ou.T,
+                           cmap=cmap, rasterized=True, vmin=vmin, vmax=vmax)
         plt.axhline(fermilevel, c=linecolor)
         plt.axvline(fermilevel, c=linecolor)
 
