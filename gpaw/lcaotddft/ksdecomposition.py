@@ -12,13 +12,6 @@ from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.utilities.tools import tri2full
 
 
-def arange(x0, x1, dx):
-    """
-    Inclusive arange function
-    """
-    return np.arange(x0, x1 + 0.5 * dx, dx)
-
-
 def is_between(x, xmin, xmax):
     return xmin <= x and x <= xmax
 
@@ -325,22 +318,16 @@ class KohnShamDecomposition(object):
                 ('total', '', tot_weight))
         return txt
 
-    def plot_TCM(self, weight_p,
-                 occ_energy_min, occ_energy_max,
-                 unocc_energy_min, unocc_energy_max,
-                 delta_energy, sigma, zero_fermilevel=True,
-                 spectrum=False,
+    def plot_TCM(self, weight_p, energy_o, energy_u, sigma,
+                 zero_fermilevel=True, spectrum=False,
                  vmax='80%'):
         import matplotlib.pyplot as plt
         from matplotlib.gridspec import GridSpec
 
         # Calculate TCM
-        args = (weight_p,
-                occ_energy_min, occ_energy_max,
-                unocc_energy_min, unocc_energy_max,
-                delta_energy, sigma, zero_fermilevel)
+        args = (weight_p, energy_o, energy_u, sigma, zero_fermilevel)
         r = self.get_TCM(*args)
-        energy_o, energy_u, dos_o, dos_u, tcm_ou, fermilevel = r
+        dos_o, dos_u, tcm_ou, fermilevel = r
 
         # Start plotting
         plt.figure(figsize=(8, 8))
@@ -381,12 +368,11 @@ class KohnShamDecomposition(object):
         ax.tick_params(axis='both', which='major', pad=2)
         plt.xlabel(r'Occ. energy $\varepsilon_{o}$ (eV)', labelpad=0)
         plt.ylabel(r'Unocc. energy $\varepsilon_{u}$ (eV)', labelpad=0)
-        plt.xlim(occ_energy_min, occ_energy_max)
-        plt.ylim(unocc_energy_min, unocc_energy_max)
+        plt.xlim(np.take(energy_o, (0, -1)))
+        plt.ylim(np.take(energy_u, (0, -1)))
 
         # Plot DOSes
         def plot_DOS(ax, energy_e, dos_e,
-                     energy_min, energy_max,
                      dos_min, dos_max,
                      flip=False):
             ax.xaxis.set_ticklabels([])
@@ -414,26 +400,21 @@ class KohnShamDecomposition(object):
             fill_between(energy_e, 0, dos_e, color='0.8')
             plot(energy_e, dos_e, 'k')
             set_label('DOS', labelpad=0)
-            set_energy_lim(energy_min, energy_max)
+            set_energy_lim(np.take(energy_e, (0, -1)))
             set_dos_lim(dos_min, dos_max)
 
         dos_min = 0.0
         dos_max = max(np.max(dos_o), np.max(dos_u))
         plot_DOS(ax_occ_dos, energy_o, dos_o,
-                 occ_energy_min, occ_energy_max,
                  dos_min, dos_max,
                  flip=False)
         plot_DOS(ax_unocc_dos, energy_u, dos_u,
-                 unocc_energy_min, unocc_energy_max,
                  dos_min, dos_max,
                  flip=True)
 
         return ax_tcm, ax_occ_dos, ax_unocc_dos, ax_spec
 
-    def get_TCM(self, weight_p,
-                occ_energy_min, occ_energy_max,
-                unocc_energy_min, unocc_energy_max,
-                delta_energy, sigma, zero_fermilevel):
+    def get_TCM(self, weight_p, energy_o, energy_u, sigma, zero_fermilevel):
         assert weight_p.dtype == float
         u = 0  # TODO
 
@@ -446,9 +427,6 @@ class KohnShamDecomposition(object):
 
         eig_n *= Hartree
         fermilevel *= Hartree
-
-        energy_o = arange(occ_energy_min, occ_energy_max, delta_energy)
-        energy_u = arange(unocc_energy_min, unocc_energy_max, delta_energy)
 
         G_no = gauss_ij(eig_n, energy_o, sigma)
         G_nu = gauss_ij(eig_n, energy_u, sigma)
@@ -465,11 +443,11 @@ class KohnShamDecomposition(object):
         for p, weight in enumerate(weight_p):
             i, a = self.ia_p[p]
             if (is_between(eig_n[i],
-                           occ_energy_min - buf,
-                           occ_energy_max + buf) and
+                           energy_o[0] - buf,
+                           energy_o[-1] + buf) and
                 is_between(eig_n[a],
-                           unocc_energy_min - buf,
-                           unocc_energy_max + buf)):
+                           energy_u[0] - buf,
+                           energy_u[-1] + buf)):
                 flt_p.append(p)
 
         weight_f = weight_p[flt_p]
@@ -478,7 +456,7 @@ class KohnShamDecomposition(object):
         G_of = G_fo.T
         tcm_ou = np.dot(G_of * weight_f, G_fu)
 
-        return energy_o, energy_u, dos_o, dos_u, tcm_ou, fermilevel
+        return dos_o, dos_u, tcm_ou, fermilevel
 
     def get_distribution(self, weight_p, energy_e, sigma):
         G_pe = gauss_ij(self.w_p * Hartree, energy_e, sigma)

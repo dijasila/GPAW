@@ -41,11 +41,9 @@ def do(w):
         f.write(table)
 
     # Plot the decomposition as a TCM
-    r = ksd.plot_TCM(weight_p,
-                     occ_energy_min=-3, occ_energy_max=0.1,
-                     unocc_energy_min=-0.1, unocc_energy_max=3,
-                     delta_energy=0.01, sigma=0.1
-                     )
+    energy_o = np.arange(-3, 0.1 + 1e-6, 0.01)
+    energy_u = np.arange(-0.1, 3 + 1e-6, 0.01)
+    r = ksd.plot_TCM(weight_p, energy_o, energy_u, sigma=0.1)
     (ax_tcm, ax_occ_dos, ax_unocc_dos, ax_spec) = r
 
     # Plot diagonal line at the analysis frequency
