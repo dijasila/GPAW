@@ -415,9 +415,40 @@ class KohnShamDecomposition(object):
         return ax_tcm, ax_occ_dos, ax_unocc_dos, ax_spec
 
     def get_TCM(self, weight_p, energy_o, energy_u, sigma, zero_fermilevel):
-        assert weight_p.dtype == float
-        u = 0  # TODO
+        eig_n, fermilevel = self.__get_eig_n(zero_fermilevel)
 
+        # DOS
+        G_no = gauss_ij(eig_n, energy_o, sigma)
+        G_nu = gauss_ij(eig_n, energy_u, sigma)
+        dos_o = 2.0 * np.sum(G_no, axis=0)
+        dos_u = 2.0 * np.sum(G_nu, axis=0)
+        dosmax = max(np.max(dos_o), np.max(dos_u))
+        dos_o /= dosmax
+        dos_u /= dosmax
+
+        # TCM
+        r = self.__filter_by_eig_n(weight_p, eig_n, energy_o, energy_u, sigma)
+        weight_f, G_fo, G_fu = r
+        tcm_ou = np.dot(G_fo.T * weight_f, G_fu)
+        return dos_o, dos_u, tcm_ou, fermilevel
+
+    def get_integrated_distributions(self, weight_p, energy_o, energy_u,
+                                     sigma, zero_fermilevel=True):
+        eig_n, fermilevel = self.__get_eig_n(zero_fermilevel)
+        r = self.__filter_by_eig_n(weight_p, eig_n, energy_o, energy_u, sigma)
+        weight_f, G_fo, G_fu = r
+        dist_o = np.dot(G_fo.T, weight_f)
+        dist_u = np.dot(G_fu.T, weight_f)
+        return dist_o, dist_u
+
+    def get_distribution(self, weight_p, energy_e, sigma):
+        weight_f, G_fe = self.__filter_by_w_p(weight_p, self.w_p * Hartree,
+                                              energy_e, sigma)
+        dist_e = np.dot(G_fe.T, weight_f)
+        return dist_e
+
+    def __get_eig_n(self, zero_fermilevel):
+        u = 0  # TODO
         eig_n = self.eig_un[u].copy()
         if zero_fermilevel:
             eig_n -= self.fermilevel
@@ -427,19 +458,19 @@ class KohnShamDecomposition(object):
 
         eig_n *= Hartree
         fermilevel *= Hartree
+        return eig_n, fermilevel
 
-        G_no = gauss_ij(eig_n, energy_o, sigma)
-        G_nu = gauss_ij(eig_n, energy_u, sigma)
-
-        # DOS
-        dos_o = 2.0 * np.sum(G_no, axis=0)
-        dos_u = 2.0 * np.sum(G_nu, axis=0)
-        dosmax = max(np.max(dos_o), np.max(dos_u))
-        dos_o /= dosmax
-        dos_u /= dosmax
-
-        flt_p = []
+    def __filter_by_w_p(self, weight_p, w_p, energy_e, sigma):
         buf = 4 * sigma
+        flt_p = np.logical_and((energy_e[0] - buf) <= w_p,
+                               w_p <= (energy_e[-1] + buf))
+        weight_f = weight_p[flt_p]
+        G_fe = gauss_ij(w_p[flt_p], energy_e, sigma)
+        return weight_f, G_fe
+
+    def __filter_by_eig_n(self, weight_p, eig_n, energy_o, energy_u, sigma):
+        buf = 4 * sigma
+        flt_p = []
         for p, weight in enumerate(weight_p):
             i, a = self.ia_p[p]
             if (is_between(eig_n[i],
@@ -451,14 +482,6 @@ class KohnShamDecomposition(object):
                 flt_p.append(p)
 
         weight_f = weight_p[flt_p]
-        G_fo = G_no[self.ia_p[flt_p, 0]]
-        G_fu = G_nu[self.ia_p[flt_p, 1]]
-        G_of = G_fo.T
-        tcm_ou = np.dot(G_of * weight_f, G_fu)
-
-        return dos_o, dos_u, tcm_ou, fermilevel
-
-    def get_distribution(self, weight_p, energy_e, sigma):
-        G_pe = gauss_ij(self.w_p * Hartree, energy_e, sigma)
-        dist_e = np.dot(G_pe.T, weight_p)
-        return dist_e
+        G_fo = gauss_ij(eig_n[self.ia_p[flt_p, 0]], energy_o, sigma)
+        G_fu = gauss_ij(eig_n[self.ia_p[flt_p, 1]], energy_u, sigma)
+        return weight_f, G_fo, G_fu
