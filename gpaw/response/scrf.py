@@ -333,46 +333,46 @@ class SpinChargeResponseFunction:
                                         density_cut=density_cut)
             
             # Find fxc_scaling if not specified
-            if fxc_scaling is None and np.allclose(self.omega_w[0], 0., rtol=1.e-8):
-                parprint("Finding rescaling to fulfill the Goldstone theorem")
+            if fxc_scaling is None:
+                fxc_scaling = 1.0
+                if np.allclose(self.omega_w[0], 0., rtol=1.e-8):
+                    parprint("Finding rescaling to fulfill the Goldstone theorem")
                 
-                world = self.chi0.world
-                
-                # Only rank 0 has w=0 and finds rescaling
-                fxc_sbuf = np.empty(1, dtype=float)
-                if world.rank == 0:
-                    fxc_scaling = 1.0
-                    
-                    schi0_GG = chi0_wGG[0]
-                    schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
-                                                   np.dot(schi0_GG, Kxc_GG*fxc_scaling)),
-                                     schi0_GG)
-                    # Scale so that kappaM=0 in the static limit (w=0) 
-                    skappaM = (schi0_GG[0,0]/schi_GG[0,0]).real
-                    # If kappaM > 0, increase scaling (recall: kappaM ~ 1 - Kxc Re{chi_0})
-                    scaling_incr = 0.1*np.sign(skappaM)
-                    while abs(skappaM) > 1.e-8 and abs(scaling_incr) > 1.e-8:
-                        fxc_scaling += scaling_incr
-                        if fxc_scaling <= 0.0 or fxc_scaling >= 10.:
-                            parprint('Found an invalid fxc_scaling of %.4f during scaling' % fxc_scaling)
-                            parprint('Not using fxc_scaling for now')
-                            fxc_scaling = 1.0
-                            break;
-                            
+                    world = self.chi0.world
+                    # Only rank 0 has w=0 and finds rescaling
+                    fxc_sbuf = np.empty(1, dtype=float)
+                    if world.rank == 0:
+                        schi0_GG = chi0_wGG[0]
                         schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
                                                        np.dot(schi0_GG, Kxc_GG*fxc_scaling)),
                                          schi0_GG)
+                        # Scale so that kappaM=0 in the static limit (w=0) 
                         skappaM = (schi0_GG[0,0]/schi_GG[0,0]).real
-                        
-                        # If kappaM changes sign, change sign and refine increment
-                        if np.sign(skappaM) != np.sign(scaling_incr):
-                            scaling_incr *= -0.2
-                    fxc_sbuf[:] = fxc_scaling
-                
-                # Broadcast found rescaling  
-                world.broadcast(fxc_sbuf, 0)
-                fxc_scaling = fxc_sbuf[0]
+                        # If kappaM > 0, increase scaling (recall: kappaM ~ 1 - Kxc Re{chi_0})
+                        scaling_incr = 0.1*np.sign(skappaM)
+                        while abs(skappaM) > 1.e-8 and abs(scaling_incr) > 1.e-8:
+                            fxc_scaling += scaling_incr
+                            if fxc_scaling <= 0.0 or fxc_scaling >= 10.:
+                                parprint('Found an invalid fxc_scaling of %.4f during scaling' % fxc_scaling)
+                                parprint('Not using fxc_scaling for now')
+                                fxc_scaling = 1.0
+                                break;
+
+                            schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
+                                                           np.dot(schi0_GG, Kxc_GG*fxc_scaling)),
+                                             schi0_GG)
+                            skappaM = (schi0_GG[0,0]/schi_GG[0,0]).real
+
+                            # If kappaM changes sign, change sign and refine increment
+                            if np.sign(skappaM) != np.sign(scaling_incr):
+                                scaling_incr *= -0.2
+                        fxc_sbuf[:] = fxc_scaling
+
+                    # Broadcast found rescaling  
+                    world.broadcast(fxc_sbuf, 0)
+                    fxc_scaling = fxc_sbuf[0]
             
+            # If user specifies fxc_scaling=1., change it to None
             if np.allclose(fxc_scaling, 1.0, rtol=1.e-8):
                 fxc_scaling = None
             
@@ -391,7 +391,7 @@ class SpinChargeResponseFunction:
                                                    np.dot(chi0_GG, Kxc_GG*fxc_scaling)),
                                      chi0_GG)
                     
-                    chis_wGG.append(chi_GG)
+                    chis_wGG.append(chis_GG)
         
             if fxc_scaling is None:
                 return pd, chi0_wGG, np.array(chi_wGG), None, None
@@ -463,7 +463,7 @@ class SpinChargeResponseFunction:
             for w, (chi0_GG, chi_GG) in enumerate(zip(chi0_wGG, chi_wGG)):
                 srf0_w[w] = chi0_GG[0, 0]
                 srf_w[w] = chi_GG[0, 0]
-                srfs_w[w] = np.nan
+                srfs_w[w] = (1.+1.j)*np.nan
         else:
             for w, (chi0_GG, chi_GG, chis_GG) in enumerate(zip(chi0_wGG, chi_wGG, chis_wGG)):
                 srf0_w[w] = chi0_GG[0, 0]
