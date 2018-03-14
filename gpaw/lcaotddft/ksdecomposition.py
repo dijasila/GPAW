@@ -449,6 +449,21 @@ class KohnShamDecomposition(object):
         dist_e = np.dot(G_fe.T, weight_f)
         return dist_e
 
+    def get_distribution_ia(self, weight_p, energy_o, energy_u, sigma,
+                           zero_fermilevel=True):
+        """
+        Filter both i and a spaces as in TCM.
+
+        """
+        eig_n, fermilevel = self.__get_eig_n(zero_fermilevel)
+        flt_p = self.__filter_by_x_ia(eig_n, energy_o, energy_u, 8 * sigma)
+        weight_f = weight_p[flt_p]
+        G_fo = gauss_ij(eig_n[self.ia_p[flt_p, 0]], energy_o, sigma)
+        dist_o = np.dot(G_fo.T, weight_f)
+        G_fu = gauss_ij(eig_n[self.ia_p[flt_p, 1]], energy_u, sigma)
+        dist_u = np.dot(G_fu.T, weight_f)
+        return dist_o, dist_u
+
     def get_distribution(self, weight_p, energy_e, sigma):
         w_p = self.w_p * Hartree
         flt_p = self.__filter_by_x_p(w_p, energy_e, 8 * sigma)
