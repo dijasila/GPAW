@@ -367,8 +367,8 @@ class KohnShamDecomposition(object):
 
             img = transform_to_hsv(tcm_ou.T, 0, vmax)
             plt.imshow(img, origin='lower',
-                       extent=[occ_energy_min, occ_energy_max,
-                               unocc_energy_min, unocc_energy_max],
+                       extent=[energy_o[0], energy_o[-1],
+                               energy_u[0], energy_u[-1]]
                        )
         else:
             linecolor = 'k'
