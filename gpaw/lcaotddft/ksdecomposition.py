@@ -12,10 +12,6 @@ from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.utilities.tools import tri2full
 
 
-def is_between(x, xmin, xmax):
-    return xmin <= x and x <= xmax
-
-
 def gauss_ij(energy_i, energy_j, sigma):
     denergy_ij = energy_i[:, np.newaxis] - energy_j[np.newaxis, :]
     norm = 1.0 / (sigma * np.sqrt(2 * np.pi))
@@ -414,7 +410,8 @@ class KohnShamDecomposition(object):
 
         return ax_tcm, ax_occ_dos, ax_unocc_dos, ax_spec
 
-    def get_TCM(self, weight_p, energy_o, energy_u, sigma, zero_fermilevel):
+    def get_TCM(self, weight_p, energy_o, energy_u, sigma,
+                zero_fermilevel=True):
         eig_n, fermilevel = self.__get_eig_n(zero_fermilevel)
 
         # DOS
@@ -427,23 +424,36 @@ class KohnShamDecomposition(object):
         dos_u /= dosmax
 
         # TCM
-        r = self.__filter_by_eig_n(weight_p, eig_n, energy_o, energy_u, sigma)
-        weight_f, G_fo, G_fu = r
+        flt_p = self.__filter_by_x_ia(eig_n, energy_o, energy_u, 8 * sigma)
+        weight_f = weight_p[flt_p]
+        G_fo = gauss_ij(eig_n[self.ia_p[flt_p, 0]], energy_o, sigma)
+        G_fu = gauss_ij(eig_n[self.ia_p[flt_p, 1]], energy_u, sigma)
         tcm_ou = np.dot(G_fo.T * weight_f, G_fu)
         return dos_o, dos_u, tcm_ou, fermilevel
 
-    def get_integrated_distributions(self, weight_p, energy_o, energy_u,
-                                     sigma, zero_fermilevel=True):
+    def get_distribution_i(self, weight_p, energy_e, sigma,
+                           zero_fermilevel=True):
         eig_n, fermilevel = self.__get_eig_n(zero_fermilevel)
-        r = self.__filter_by_eig_n(weight_p, eig_n, energy_o, energy_u, sigma)
-        weight_f, G_fo, G_fu = r
-        dist_o = np.dot(G_fo.T, weight_f)
-        dist_u = np.dot(G_fu.T, weight_f)
-        return dist_o, dist_u
+        flt_p = self.__filter_by_x_i(eig_n, energy_e, 8 * sigma)
+        weight_f = weight_p[flt_p]
+        G_fe = gauss_ij(eig_n[self.ia_p[flt_p, 0]], energy_e, sigma)
+        dist_e = np.dot(G_fe.T, weight_f)
+        return dist_e
+
+    def get_distribution_a(self, weight_p, energy_e, sigma,
+                           zero_fermilevel=True):
+        eig_n, fermilevel = self.__get_eig_n(zero_fermilevel)
+        flt_p = self.__filter_by_x_a(eig_n, energy_e, 8 * sigma)
+        weight_f = weight_p[flt_p]
+        G_fe = gauss_ij(eig_n[self.ia_p[flt_p, 1]], energy_e, sigma)
+        dist_e = np.dot(G_fe.T, weight_f)
+        return dist_e
 
     def get_distribution(self, weight_p, energy_e, sigma):
-        weight_f, G_fe = self.__filter_by_w_p(weight_p, self.w_p * Hartree,
-                                              energy_e, sigma)
+        w_p = self.w_p * Hartree
+        flt_p = self.__filter_by_x_p(w_p, energy_e, 8 * sigma)
+        weight_f = weight_p[flt_p]
+        G_fe = gauss_ij(w_p[flt_p], energy_e, sigma)
         dist_e = np.dot(G_fe.T, weight_f)
         return dist_e
 
@@ -455,33 +465,23 @@ class KohnShamDecomposition(object):
             fermilevel = 0.0
         else:
             fermilevel = self.fermilevel
-
         eig_n *= Hartree
         fermilevel *= Hartree
         return eig_n, fermilevel
 
-    def __filter_by_w_p(self, weight_p, w_p, energy_e, sigma):
-        buf = 4 * sigma
-        flt_p = np.logical_and((energy_e[0] - buf) <= w_p,
-                               w_p <= (energy_e[-1] + buf))
-        weight_f = weight_p[flt_p]
-        G_fe = gauss_ij(w_p[flt_p], energy_e, sigma)
-        return weight_f, G_fe
+    def __filter_by_x_p(self, x_p, energy_e, buf):
+        flt_p = np.logical_and((energy_e[0] - buf) <= x_p,
+                               x_p <= (energy_e[-1] + buf))
+        return flt_p
 
-    def __filter_by_eig_n(self, weight_p, eig_n, energy_o, energy_u, sigma):
-        buf = 4 * sigma
-        flt_p = []
-        for p, weight in enumerate(weight_p):
-            i, a = self.ia_p[p]
-            if (is_between(eig_n[i],
-                           energy_o[0] - buf,
-                           energy_o[-1] + buf) and
-                is_between(eig_n[a],
-                           energy_u[0] - buf,
-                           energy_u[-1] + buf)):
-                flt_p.append(p)
+    def __filter_by_x_i(self, x_n, energy_e, buf):
+        return self.__filter_by_x_p(x_n[self.ia_p[:, 0]], energy_e, buf)
 
-        weight_f = weight_p[flt_p]
-        G_fo = gauss_ij(eig_n[self.ia_p[flt_p, 0]], energy_o, sigma)
-        G_fu = gauss_ij(eig_n[self.ia_p[flt_p, 1]], energy_u, sigma)
-        return weight_f, G_fo, G_fu
+    def __filter_by_x_a(self, x_n, energy_e, buf):
+        return self.__filter_by_x_p(x_n[self.ia_p[:, 1]], energy_e, buf)
+
+    def __filter_by_x_ia(self, x_n, energy_o, energy_u, buf):
+        flti_p = self.__filter_by_x_i(x_n, energy_o, buf)
+        flta_p = self.__filter_by_x_a(x_n, energy_u, buf)
+        flt_p = np.logical_and(flti_p, flta_p)
+        return flt_p
