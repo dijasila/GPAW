@@ -41,10 +41,16 @@ def do(w):
         f.write(table)
 
     # Plot the decomposition as a TCM
-    energy_o = np.arange(-3, 0.1 + 1e-6, 0.01)
-    energy_u = np.arange(-0.1, 3 + 1e-6, 0.01)
+    de = 0.01
+    energy_o = np.arange(-3, 0.1 + 1e-6, de)
+    energy_u = np.arange(-0.1, 3 + 1e-6, de)
     r = ksd.plot_TCM(weight_p, energy_o, energy_u, sigma=0.1)
-    (ax_tcm, ax_occ_dos, ax_unocc_dos, ax_spec) = r
+    ax_tcm, ax_occ_dos, ax_unocc_dos, ax_spec = r
+
+    # Check that TCM integrates to correct absorption
+    r = ksd.get_TCM(weight_p, energy_o, energy_u, sigma=0.1)
+    dos_o, dos_u, tcm_ou, fermilevel = r
+    print('TCM absorption: %.2f eV^-1' % (np.sum(tcm_ou) * de**2))
 
     # Plot diagonal line at the analysis frequency
     x = np.array([-4, 1])
