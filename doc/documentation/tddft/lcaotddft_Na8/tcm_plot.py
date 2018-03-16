@@ -14,6 +14,7 @@ ksd = KohnShamDecomposition(calc, 'ksd.ulm')
 dmat = DensityMatrix(calc)
 fdm = FrequencyDensityMatrix(calc, dmat, 'fdm.ulm')
 
+plt.figure(figsize=(8, 8))
 
 def do(w):
     # Select the frequency and the density matrix
@@ -44,6 +45,7 @@ def do(w):
     de = 0.01
     energy_o = np.arange(-3, 0.1 + 1e-6, de)
     energy_u = np.arange(-0.1, 3 + 1e-6, de)
+    plt.clf()
     r = ksd.plot_TCM(weight_p, energy_o, energy_u, sigma=0.1)
     ax_tcm, ax_occ_dos, ax_unocc_dos, ax_spec = r
 
