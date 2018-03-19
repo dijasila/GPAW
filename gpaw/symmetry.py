@@ -137,15 +137,15 @@ class Symmetry:
             if np.abs(metric_cc - opmetric_cc).sum() > self.tol:
                 continue
 
-            # Operation must not swap axes that are not both periodic
-            pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
-            if op_cc[~(pbc_cc | np.identity(3, bool))].any():
-                continue
+            # # Operation must not swap axes that are not both periodic
+            # pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
+            # if op_cc[~(pbc_cc | np.identity(3, bool))].any():
+            #     continue
 
-            # Operation must not invert axes that are not periodic
-            pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
-            if not (op_cc[np.diag(~self.pbc_c)] == 1).all():
-                continue
+            # # Operation must not invert axes that are not periodic
+            # pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
+            # if not (op_cc[np.diag(~self.pbc_c)] == 1).all():
+            #     continue
 
             # operation is a valid symmetry of the unit cell
             self.op_scc.append(op_cc)
