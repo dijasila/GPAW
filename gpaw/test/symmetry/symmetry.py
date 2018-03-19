@@ -58,8 +58,8 @@ bzk_kc = monkhorst_pack((3, 1, 1))
 symm = Symmetry(id_a, cell_cv, pbc_c)
 symm.analyze(spos_ac)
 ibzk_kc, w_k = symm.reduce(bzk_kc)[:2]
-assert len(symm.op_scc) == 2
-assert len(w_k) == 2
+assert len(symm.op_scc) == 16, print(len(symm.op_scc))
+assert len(w_k) == 2, print(len(w_k))
 assert np.all(w_k == [1 / 3., 2 / 3.])
 
 # Rocksalt Ni2O2
