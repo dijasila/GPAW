@@ -320,6 +320,7 @@ tests = [
     'solvation/poisson.py',                 # ~15s
     'solvation/water_water.py',             # ~15s
     'xc/pygga.py',                          # ~15s
+    'pseudopotential/atompaw.py',           # ~15s
     'parallel/lcao_parallel.py',            # ~16s
     'xc/atomize.py',                        # ~16s
     'lrtddft/excited_state.py',             # ~16s
@@ -426,6 +427,7 @@ if mpi.size > 1:
                 'spinorbit_Kr.py',
                 'fd_ops/laplace.py',
                 'potential.py',
+                'lcao/generate_ngto.py',
                 'lcao/pair_and_coulomb.py',
                 'muffintinpot.py',
                 'pw/moleculecg.py',

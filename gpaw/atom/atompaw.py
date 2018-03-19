@@ -112,7 +112,7 @@ class AtomEigensolver:
         for kpt in wfs.kpt_u:
             kpt.eps_n = np.empty(wfs.bd.nbands)
             kpt.psit = AtomWaveFunctionsArray(self.gd.empty(wfs.bd.nbands))
-            kpt.P = {0: np.zeros((len(dS_ii), wfs.bd.nbands))}
+            kpt.P = {0: np.zeros((wfs.bd.nbands, len(dS_ii)))}
 
         self.initialized = True
 
