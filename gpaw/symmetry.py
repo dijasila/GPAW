@@ -39,7 +39,7 @@ class Symmetry:
     """
     def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool), tolerance=1e-7,
                  point_group=True, time_reversal=True, symmorphic=True,
-                 do_not_symmetrize_the_density=False):
+                 do_not_symmetrize_the_density=True):
         """Construct symmetry object.
 
         Parameters:
