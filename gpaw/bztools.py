@@ -14,7 +14,7 @@ from itertools import product
 from gpaw.mpi import world
 
 
-def get_lattice_symmetry(cell_cv):
+def get_lattice_symmetry(cell_cv, tolerance=1e-7):
     """Return symmetry object of lattice group.
 
     Parameters
@@ -27,7 +27,7 @@ def get_lattice_symmetry(cell_cv):
     gpaw.symmetry object
 
     """
-    latsym = Symmetry([0], cell_cv)
+    latsym = Symmetry([0], cell_cv, tolerance=tolerance)
     latsym.find_lattice_symmetry()
     return latsym
 
@@ -311,7 +311,7 @@ def get_bz(calc, returnlatticeibz=False, pbc_c=np.ones(3, bool)):
 
 
 def get_reduced_bz(cell_cv, cU_scc, time_reversal, returnlatticeibz=False,
-                   pbc_c=np.ones(3, bool)):
+                   pbc_c=np.ones(3, bool), tolerance=1e-7):
 
     """Reduce the BZ using the crystal symmetries to obtain the IBZ.
 
@@ -327,8 +327,11 @@ def get_reduced_bz(cell_cv, cU_scc, time_reversal, returnlatticeibz=False,
         Periodic bcs
     """
 
+    if time_reversal:
+        cU_scc = get_symmetry_operations(cU_scc, time_reversal)
+
     # Lattice symmetries
-    latsym = get_lattice_symmetry(cell_cv)
+    latsym = get_lattice_symmetry(cell_cv, tolerance=tolerance)
     lU_scc = get_symmetry_operations(latsym.op_scc,
                                      latsym.time_reversal)
 
