@@ -36,7 +36,7 @@ cmds = """\
 touch ../gpaw-web-page.lock
 cd ../ase; git checkout web-page -q; git pull -q; pip install .
 git clean -fdx
-git checkout web-page -q
+git checkout web-page -q &> /dev/null
 git pull -q &> /dev/null
 python setup.py install
 cd doc; sphinx-build -b html -d build/doctrees . build/html
@@ -45,7 +45,7 @@ cd gpaw-web-page/_sources/setups; cp setups.rst.txt setups.txt
 cd ../ase; git checkout master -q; pip install .
 git clean -fdx doc
 rm -r build
-git checkout master -q
+git checkout master -q &> /dev/null
 git pull -q &> /dev/null
 python setup.py install
 cd doc; sphinx-build -b html -d build/doctrees . build/html
