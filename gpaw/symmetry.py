@@ -39,7 +39,9 @@ class Symmetry:
     """
     def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool), tolerance=1e-7,
                  point_group=True, time_reversal=True, symmorphic=True,
-                 do_not_symmetrize_the_density=False):
+                 do_not_symmetrize_the_density=False,
+                 rotate_aperiodic_directions=False,
+                 translate_aperiodic_directions=False):
         """Construct symmetry object.
 
         Parameters:
@@ -84,9 +86,11 @@ class Symmetry:
         self.point_group = point_group
         self.time_reversal = time_reversal
         self.do_not_symmetrize_the_density = do_not_symmetrize_the_density
+        self.rotate_aperiodic_directions = rotate_aperiodic_directions
+        self.translate_aperiodic_directions = translate_aperiodic_directions
 
         # Disable fractional translations for non-periodic boundary conditions:
-        if not self.pbc_c.all():
+        if not (self.translate_aperiodic_directions or self.pbc_c.all()):
             self.symmorphic = True
 
         self.op_scc = np.identity(3, int).reshape((1, 3, 3))
@@ -137,14 +141,16 @@ class Symmetry:
             if np.abs(metric_cc - opmetric_cc).sum() > self.tol:
                 continue
 
-            # Operation must not swap axes that are not both periodic
             pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
-            if op_cc[~(pbc_cc | np.identity(3, bool))].any():
+            if (not self.rotate_aperiodic_directions and
+                op_cc[~(pbc_cc | np.identity(3, bool))].any()):
+                # Operation must not swap axes that are not both periodic
                 continue
 
-            # Operation must not invert axes that are not periodic
             pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
-            if not (op_cc[np.diag(~self.pbc_c)] == 1).all():
+            if (not self.rotate_aperiodic_directions and
+                not (op_cc[np.diag(~self.pbc_c)] == 1).all()):
+                # Operation must not invert axes that are not periodic
                 continue
 
             # operation is a valid symmetry of the unit cell
