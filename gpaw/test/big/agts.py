@@ -208,10 +208,45 @@ class AGTSQueue:
         self.status()
 
     def add(self, script, dir=None, queueopts=None, ncpus=1, walltime=15,
-            deps=None, creates=None, show=None):
+            deps=[], creates=[], show=None):
         """Add job.
 
         XXX move docs from doc/devel/testing to here and use Sphinx autodoc."""
+
+        assert dir is None
+        assert queueopts is None, self._fname
+        assert show is None, self._fname
+
+        if not isinstance(creates, list):
+            creates = [creates]
+
+        print(self._fname, script, creates)
+        if creates:
+            print(self._dir, script)
+            assert script.endswith('.py'), self._fname
+            with open(os.path.join(self._dir, script), 'r') as f:
+                code = f.read()
+            with open(os.path.join(self._dir, script), 'w') as f:
+                f.write('# Creates: ' + ', '.join(creates) + '\n' + code)
+
+        if walltime < 60:
+            t = str(walltime) + 's'
+        elif walltime < 3600:
+            t = str(walltime // 60) + 'm'
+        else:
+            t = str(walltime // 3600) + 'h'
+
+        if ncpus == 1 and t == '15s':
+            code = "Job('{}'".format(script)
+        else:
+            code = "Job('{}@{}x{}'".format(script, ncpus, t)
+        if deps:
+            if not isinstance(deps, list):
+                deps = [deps]
+            code += ', deps=[' + ', '.join(deps)
+        code += ')'
+        self._x[self._fname].append(code)
+        return script
 
         if dir is None:
             dir = self._dir
@@ -232,15 +267,27 @@ class AGTSQueue:
 
     def collect(self):
         """Find agts.py files and collect jobs."""
+        from collections import defaultdict
+        self._x = defaultdict(list)
         for dir, agtsfile in self.locate_tests():
             _global = {}
             fname = os.path.join(dir, agtsfile)
             exec(compile(open(fname).read(), fname, 'exec'), _global)
             self._dir = dir
+            self._fname = fname
             if 'agts' in _global:
                 _global['agts'](self)
             else:
                 print(fname, 'has no agts() function!')
+        for f, lines in self._x.items():
+            with open(f, 'r') as fd:
+                code = fd.read()
+            with open(f, 'w') as fd:
+                fd.write('from q2.job import Job\n'
+                         + '\n'.join(lines) +
+                         '\n' + code)
+            break
+
         self.normalize()
 
     def normalize(self):
