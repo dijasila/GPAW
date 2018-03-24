@@ -1182,7 +1182,11 @@ class PWLFC(BaseLFC):
                 iblock += 1
                 G1 = G2
         else:
-            assert serial
+            # Wait!  For serial=False, this will give the same block on
+            # many cores.  Is there not a bug hidden here?
+            # Blocksize is automatically unset when there are fewer PWs
+            # than blocksize.  If the code expects parallel execution
+            # surely all other cores must yield an empty interval.
             yield 0, nG
 
     def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None, serial=True):
