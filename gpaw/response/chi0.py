@@ -503,7 +503,7 @@ class Chi0:
                      (wfs.nspins * (2 * np.pi)**3))  # Remember prefactor
 
         if self.integrationmode is None:
-            if hasattr(self.calc.wfs.kd, 'refine_info'):
+            if self.calc.wfs.kd.refine_info is not None:
                 nbzkpts = self.calc.wfs.kd.refine_info.mhnbzkpts
             else:
                 nbzkpts = self.calc.wfs.kd.nbzkpts
@@ -828,7 +828,7 @@ class Chi0:
         """
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
 
-        if hasattr(self.calc.wfs.kd, 'refine_info'):
+        if self.calc.wfs.kd.refine_info is not None:
             K1 = self.pair.find_kpoint(k_c)
             if self.calc.wfs.kd.refine_info.label_k[K1] == 'zero':
                 return None

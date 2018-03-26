@@ -12,7 +12,7 @@ system.center(axis=2, vacuum=4.0)
 
 kpt_refine={"center":[1./3,1./3,0.], "size":[3,3,1], "reduce_symmetry":False}
 # kpt_refine={"center":[[1./3,1./3,0.],[-1./3,-1./3,0.]], "size":[3,3,1],
-#             "reduce_symmetry":False}
+#             "reduce_symmetry":True}
 
 calc = GPAW(mode=PW(ecut=400),
             xc='PBE',

@@ -160,9 +160,9 @@ class KPointDescriptor:
         self.bz2bz_ks = np.arange(self.nbzkpts)[:, np.newaxis]
         self.nibzkpts = self.nbzkpts
         self.nks = self.nibzkpts * self.nspins
+        self.refine_info = None
         if self.N_c is None:
             self.monkhorst = False
-            self.refine_info = None
         else:
             self.monkhorst = True
 

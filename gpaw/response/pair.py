@@ -394,7 +394,7 @@ class PWSymmetryAnalyzer:
 
         for K_k in K_gK:
             if K in K_k:
-                if hasattr(self.kd, 'refine_info'):
+                if self.kd.refine_info is not None:
                     weight = sum(self.kd.refine_info.weight_k[K_k])
                     return weight
                 else:

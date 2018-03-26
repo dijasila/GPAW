@@ -20,6 +20,8 @@ enforced (careful!) or whether a reduced symmetry should be used.
 
 Optionally, the user can ask to add all k+q points, if not already included.
 
+Please cite https://doi.org/10.1016/j.cpc.2018.03.001
+
 Example (Graphene):
 
 calc = GPAW(mode=PW(ecut=450),
