@@ -6,8 +6,11 @@ class Overlap:
     """Wave funcion overlap of two GPAW objects"""
     def __init__(self, calc):
         self.calc = calc
-        self.n = calc.get_number_of_bands() * calc.density.nspins
+        self.n = self.number_of_states(calc)
         self.gd = self.calc.wfs.gd
+
+    def number_of_states(self, calc):
+        return calc.get_number_of_bands() * len(calc.wfs.kd.ibzk_kc)
 
     def pseudo(self, other, normalize=True):
         """Overlap with pseudo wave functions only
@@ -24,7 +27,7 @@ class Overlap:
         out: array
             u_ij =  \int dx mypsitilde_i^*(x) otherpsitilde_j(x)
         """
-        no = other.get_number_of_bands() * other.density.nspins
+        no = self.number_of_states(other)
         assert(len(self.calc.wfs.kpt_u) == 1)
         assert(len(other.wfs.kpt_u) == 1)
 
@@ -61,6 +64,7 @@ class Overlap:
         assert(len(other.wfs.kpt_u) == 1)
         okpt = other.wfs.kpt_u[0]
 
+        aov_nn = np.zeros_like(ov_nn)
         for a, mP_ni in mkpt.P_ani.items():
             oP_ni = okpt.P_ani[a]
             Delta_p = (np.sqrt(4 * np.pi) *
@@ -72,5 +76,6 @@ class Overlap:
                     for i, mP in enumerate(mP_i):
                         for j, oP in enumerate(oP_i):
                             ij = packed_index(i, j, ni)
-                            ov_nn[n0, n1] += Delta_p[ij] * mP.conj() * oP
-        return ov_nn
+                            aov_nn[n0, n1] += Delta_p[ij] * mP.conj() * oP
+        self.calc.wfs.gd.comm.sum(aov_nn)
+        return ov_nn + aov_nn

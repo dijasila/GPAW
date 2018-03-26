@@ -4,6 +4,7 @@ from ase.build import molecule
 from ase.parallel import parprint, world
 
 from gpaw import GPAW
+from gpaw.test import equal
 from gpaw.cluster import Cluster
 from gpaw.analyse.overlap import Overlap
 from gpaw.lrtddft import LrTDDFT
@@ -36,6 +37,8 @@ ov = Overlap(c1).pseudo(c1, False)
 parprint('pseudo(not normalized):\n', ov)
 ov = Overlap(c1).full(c1)
 parprint('full:\n', ov)
+equal(ov, np.eye(ov.shape[0], dtype=ov.dtype), 1e-10)
+
 
 def show(c2):
     c2.calculate(H2)
