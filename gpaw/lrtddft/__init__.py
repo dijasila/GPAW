@@ -270,7 +270,7 @@ class LrTDDFT(ExcitationList):
         else:
             self.Om = ApmB(kss=self.kss, filehandle=f,
                            txt=self.txt)
-        self.Om.Kss(self.kss)
+        self.Om.fullkss = self.kss
         timer.stop('init_obj')
 
         timer.start('read diagonalized')
