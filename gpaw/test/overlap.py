@@ -37,16 +37,16 @@ ov = Overlap(c1).pseudo(c1, False)
 parprint('pseudo(not normalized):\n', ov)
 ov = Overlap(c1).full(c1)
 parprint('full:\n', ov)
-equal(ov, np.eye(ov.shape[0], dtype=ov.dtype), 1e-10)
+equal(ov[0], np.eye(ov[0].shape[0], dtype=ov.dtype), 1e-10)
 
 
 def show(c2):
     c2.calculate(H2)
-    lr2 = LrTDDFT(c2)
     ov = Overlap(c1).pseudo(c2)
     parprint('wave function overlap (pseudo):\n', ov)
     ov = Overlap(c1).full(c2)
     parprint('wave function overlap (full):\n', ov)
+    lr2 = LrTDDFT(c2)
     ovkss = lr1.kss.overlap(ov, lr2.kss)
     parprint('KSSingles overlap:\n', ovkss)
     ovlr = lr1.overlap(ov, lr2)
@@ -66,4 +66,22 @@ try:
     show(c2)
     raise
 except AssertionError:
+    parprint('Not ready')
+    
+parprint('k-points --------')
+H2.set_pbc([1, 1, 1])
+c1 = GPAW(h=h, txt=txt, nbands=nbands,
+          kpts=(1,1,3),
+          #parallel={'domain': world.size},
+          convergence={'eigenstates':nbands})
+c1.calculate(H2)
+c2 = GPAW(h=h, txt=txt, nbands=nbands + 1,
+          kpts=(1,1,3),
+          #parallel={'domain': world.size},
+          convergence={'eigenstates':nbands + 1})
+try:
+    show(c2)
+    raise
+except ValueError:
+#except AssertionError:
     parprint('Not ready')
