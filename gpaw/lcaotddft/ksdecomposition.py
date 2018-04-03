@@ -3,7 +3,7 @@ import numpy as np
 
 from ase.units import Hartree, Bohr
 
-from gpaw.io import Reader
+from ase.io.ulm import Reader
 from gpaw.io import Writer
 from gpaw.external import ConstantElectricField
 from gpaw.lcaotddft.hamiltonian import KickHamiltonian
@@ -177,34 +177,85 @@ class KohnShamDecomposition(object):
         writer.close()
 
     def read(self, filename):
-        reader = Reader(filename)
-        tag = reader.get_tag()
+        self.reader = Reader(filename)
+        tag = self.reader.get_tag()
         if tag != self.__class__.ulmtag:
             raise RuntimeError('Unknown tag %s' % tag)
-        version = reader.version
-        if version != self.__class__.version:
-            raise RuntimeError('Unknown version %s' % version)
+        self.version = self.reader.version
 
-        wfs = self.wfs
-        self.S_uMM = read_uMM(wfs, reader, 'S_uMM')
-        wfs.read_wave_functions(reader)
-        wfs.read_eigenvalues(reader)
-        wfs.read_occupations(reader)
-
-        self.C0_unM = []
-        self.eig_un = []
-        self.occ_un = []
-        for kpt in self.wfs.kpt_u:
-            C_nM = kpt.C_nM
-            self.C0_unM.append(C_nM)
-            self.eig_un.append(kpt.eps_n)
-            self.occ_un.append(kpt.f_n)
-
-        for arg in self.readwrite_attrs:
-            setattr(self, arg, getattr(reader, arg))
-
-        reader.close()
+        # Do lazy reading in __getattr__ only if/when
+        # the variables are required
         self.has_initialized = True
+
+    def __getattr__(self, attr):
+        if attr in ['S_uMM']:
+            val = read_uMM(self.wfs, self.reader, attr)
+            setattr(self, attr, val)
+            return val
+        if attr in ['C0_unM', 'eig_un', 'occ_un']:
+            if attr == 'C0_unM':
+                self.wfs.read_wave_functions(self.reader)
+                kpt_attr = 'C_nM'
+            elif attr == 'eig_un':
+                self.wfs.read_eigenvalues(self.reader)
+                kpt_attr = 'eps_n'
+            elif attr == 'occ_un':
+                self.wfs.read_eigenvalues(self.reader)
+                kpt_attr = 'f_n'
+            setattr(self, attr, [])
+            a_uX = getattr(self, attr)
+            for kpt in self.wfs.kpt_u:
+                a_uX.append(getattr(kpt, kpt_attr))
+            return a_uX
+
+        try:
+            val = getattr(self.reader, attr)
+            setattr(self, attr, val)
+            return val
+        except KeyError:
+            pass
+
+        raise AttributeError('Attribute %s not defined in version %s' %
+                             (repr(attr), repr(self.version)))
+
+    def distribute(self, comm):
+        self.comm = comm
+        N = comm.size
+        self.Np = len(self.P_p)
+        self.Nq = int(np.ceil(self.Np / float(N)))
+        self.NQ = self.Nq * N
+        self.w_q = self.distribute_p(self.w_p)
+        self.f_q = self.distribute_p(self.f_p)
+        self.dm_vq = self.distribute_xp(self.dm_vp)
+
+    def distribute_p(self, a_p, a_q=None, root=0):
+        if a_q is None:
+            a_q = np.zeros(self.Nq, dtype=a_p.dtype)
+        if self.comm.rank == root:
+            a_Q = np.append(a_p, np.zeros(self.NQ - self.Np, dtype=a_p.dtype))
+        else:
+            a_Q = None
+        self.comm.scatter(a_Q, a_q, root)
+        return a_q
+
+    def collect_q(self, a_q, root=0):
+        if self.comm.rank == root:
+            a_Q = np.zeros(self.NQ, dtype=a_q.dtype)
+        else:
+            a_Q = None
+        self.comm.gather(a_q, root, a_Q)
+        if self.comm.rank == root:
+            a_p = a_Q[:self.Np]
+        else:
+            a_p = None
+        return a_p
+
+    def distribute_xp(self, a_xp):
+        Nx = a_xp.shape[0]
+        a_xq = np.zeros((Nx, self.Nq), dtype=a_xp.dtype)
+        for x in range(Nx):
+            self.distribute_p(a_xp[x], a_xq[x])
+        return a_xq
 
     def transform(self, rho_uMM):
         assert len(rho_uMM) == 1, 'K-points not implemented'
