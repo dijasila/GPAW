@@ -596,9 +596,8 @@ class BSE:
 
         return
 
-    def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
-                 direction=0, ac=1.0, readfile=None, optical=True,
-                 write_eig=None):
+    def get_bse_matrix(self, q_c=[0.0, 0.0, 0.0], direction=0, ac=1.0,
+                       readfile=None, optical=True, write_eig=None):
         """Returns v * \chi where v is the bare Coulomb interaction"""
 
         self.q_c = q_c
@@ -616,6 +615,17 @@ class BSE:
             self.par_load('v_TS', 'v_TS')
         else:
             raise ValueError('%s array not recognized' % readfile)
+
+        # TODO: Move write_eig here
+
+        return
+
+    def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
+                 direction=0, ac=1.0, readfile=None, optical=True,
+                 write_eig=None):
+        """Returns v * \chi where v is the bare Coulomb interaction"""
+
+        self.get_bse_matrix(q_c, direction, ac, readfile, optical, write_eig)
 
         w_T = self.w_T
         rhoG0_S = self.rhoG0_S
