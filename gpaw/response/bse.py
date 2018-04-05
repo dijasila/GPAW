@@ -873,7 +873,7 @@ class BSE:
         return w_w, abs_w
 
     def par_save(self, filename, name, A_sS):
-        from gpaw.io import open
+        from gpaw.io.tar import open
 
         nS = self.nS
         if world.rank == 0:
@@ -916,7 +916,7 @@ class BSE:
         world.barrier()
 
     def par_load(self, filename, name):
-        from gpaw.io import open
+        from gpaw.io.tar import open
 
         r = open(filename, 'r')
         nS = r.dimension('nS')
