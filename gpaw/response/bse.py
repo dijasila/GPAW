@@ -159,6 +159,13 @@ class BSE:
         self.eshift = eshift
         self.nS = self.kd.nbzkpts * self.nv * self.nc * self.spins
 
+        # Wigner-Seitz stuff
+        if self.truncation == 'wigner-seitz':
+            self.wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
+                                                    self.kd.N_c, self.fd)
+        else:
+            self.wstc = None
+
         self.print_initialization(self.td, self.eshift, self.gw_skn)
 
     def calculate(self, optical=True, ac=1.0):
@@ -169,13 +176,6 @@ class BSE:
         myKrange = range(world.rank * myKsize,
                          min((world.rank + 1) * myKsize, nK))
         myKsize = len(myKrange)
-
-        # Wigner-Seitz stuff
-        if self.truncation == 'wigner-seitz':
-            self.wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
-                                                    self.kd.N_c, self.fd)
-        else:
-            self.wstc = None
 
         # Calculate exchange interaction
         qd0 = KPointDescriptor([self.q_c])
@@ -190,9 +190,6 @@ class BSE:
                                 txt='pair.txt')
 
         # Calculate direct (screened) interaction and PAW corrections
-        self.Q_qaGii = []
-        self.W_qGG = []
-        self.pd_q = []
         if self.mode == 'RPA':
             Q_aGii = self.pair.initialize_paw_corrections(pd0)
         else:
@@ -407,6 +404,10 @@ class BSE:
 
         self.blockcomm = chi0.blockcomm
         wfs = self.calc.wfs
+
+        self.Q_qaGii = []
+        self.W_qGG = []
+        self.pd_q = []
 
         t0 = time()
         print('Calculating screened potential', file=self.fd)
@@ -625,7 +626,9 @@ class BSE:
                  write_eig=None):
         """Returns v * \chi where v is the bare Coulomb interaction"""
 
-        self.get_bse_matrix(q_c, direction, ac, readfile, optical, write_eig)
+        self.get_bse_matrix(q_c=q_c, direction=direction, ac=ac,
+                            readfile=readfile, optical=optical,
+                            write_eig=write_eig)
 
         w_T = self.w_T
         rhoG0_S = self.rhoG0_S
