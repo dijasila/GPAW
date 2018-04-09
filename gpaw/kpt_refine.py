@@ -41,8 +41,8 @@ def create_kpoint_descriptor_with_refinement(refine, bzkpts_kc, nspins, atoms,
     if 'size' not in refine:
         raise RuntimeError('Grid size for refinement not given!')
 
-    center_ic = np.array(refine['center'], dtype=float, ndmin=2)
-    size = np.array(refine['size'], ndmin=2)
+    center_ic = np.array(refine.get('center'), dtype=float, ndmin=2)
+    size = np.array(refine.get('size'), ndmin=2)
     reduce_symmetry = refine.get('reduce_symmetry', True)
 
     # Check that all sizes are odd. That's not so much an issue really. But even
@@ -339,7 +339,7 @@ def add_plusq_points(kd, q_c, kwargs):
     # Find reduced +q symmetry
     bzk_kc = np.append(_kd.bzk_kc, add_points_kc, axis=0)
     _kd_new = create_kpoint_descriptor(bzk_kc, **kwargs)
-    symm_new = prune_symmetries_kpoints(_kd_new, kwargs['symmetry'])
+    symm_new = prune_symmetries_kpoints(_kd_new, kwargs.get('symmetry'))
     kwargs['symmetry'] = symm_new
     del _kd_new, _kd
 
