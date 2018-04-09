@@ -161,15 +161,15 @@ class KPointDescriptor:
         self.nibzkpts = self.nbzkpts
         self.nks = self.nibzkpts * self.nspins
         self.refine_info = None
-        if self.N_c is None:
-            self.monkhorst = False
-        else:
-            self.monkhorst = True
+        self.monkhorst = (self.N_c is not None)
 
         self.set_communicator(mpi.serial_comm)
 
     def __str__(self):
         s = str(self.symmetry)
+
+        if self.refine_info is not None:
+            s += '\n' + str(self.refine_info)
 
         if -1 in self.bz2bz_ks:
             s += 'Note: your k-points are not as symmetric as your crystal!\n'

@@ -91,7 +91,6 @@ def create_kpoint_descriptor_with_refinement(refine, bzkpts_kc, nspins, atoms,
         bla = N_coarse_c * refine['q']
         if not max(abs(bla - np.rint(bla))) < 1e-8:
             kd.refine_info.almostoptical = True
-            parprint('Using `almost optical` approximation for small q')
         kd = add_plusq_points(kd, refine['q'], kwargs)
         symm = kd.symmetry
         kwargs['symmetry'] = symm
@@ -389,6 +388,13 @@ class KRefinement:
         self.weight_k = None
         self.almostoptical = None
     
+    def __str__(self):
+        s = "Using k-point grid refinement"
+        if self.almostoptical:
+            s += " with almostoptical approximation"
+        s += "\n"
+        return s
+
     def set_unrefined_nbzkpts(self, mhnbzkpts):
         self.mhnbzkpts = mhnbzkpts
     
