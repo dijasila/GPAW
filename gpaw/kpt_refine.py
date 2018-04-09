@@ -50,7 +50,7 @@ def create_kpoint_descriptor_with_refinement(refine, bzkpts_kc, nspins, atoms,
     # more special casing, which I want to avoid.
     if (np.array(size) % 2 == 0).any():
         raise RuntimeError('Grid size for refinement must be odd!  Is: {}'.
-                           format(obj))
+                           format(size))
 
     # Arguments needed for k-point descriptor construction
     kwargs = {'nspins': nspins, 'atoms': atoms, 'symmetry': symmetry,
