@@ -6,7 +6,6 @@ import copy
 import numpy as np
 from ase.dft.kpoints import monkhorst_pack, get_monkhorst_pack_size_and_offset
 from gpaw.kpt_descriptor import KPointDescriptor
-from ase.parallel import parprint
 
 """
 This file provides routines to create non-uniform k-point grids. We use
@@ -76,12 +75,12 @@ def create_kpoint_descriptor_with_refinement(refine, bzkpts_kc, nspins, atoms,
 
     # Create new descriptor with both sets of points
 
-    with timer("Create mixed descriptor"):
+    with timer('Create mixed descriptor'):
         kd = create_mixed_kpoint_descriptor(bzk_coarse_kc, bzk_fine_kc, centers_i,
                                         weight_fine_k, kwargs)
 
     # Add missing k-points to fulfill group properties with zero-weighted points
-    with timer("Add_missing_points"):
+    with timer('Add_missing_points'):
         kd = add_missing_points(kd, kwargs)
 
     # Add additional +q k-points, if necessary
@@ -122,7 +121,7 @@ def create_mixed_kpoint_descriptor(bzk_coarse_kc, bzk_fine_kc, centers_i,
     kd_new = create_kpoint_descriptor(bzk_new_kc, **kwargs)
     refine_info = KRefinement()
     refine_info.set_unrefined_nbzkpts(nbzkpts_coarse)
-    label_k = np.array(nbzkpts_coarse_new*['mh'] + nbzkpts_fine*['refine'])
+    label_k = np.array(nbzkpts_coarse_new * ['mh'] + nbzkpts_fine * ['refine'])
     refine_info.set_label_k(label_k)
     weight_k = np.append(np.ones(nbzkpts_coarse_new), weight_fine_k)
     refine_info.set_weight_k(weight_k)
@@ -151,9 +150,9 @@ def get_fine_bzkpts(center_ic, size, bzk_coarse_kc, kwargs):
     neighbours_kc = construct_neighbours_by_shells(nshells, kd_coarse.N_c)
 
     # loop over all the different shells
-    shell_kc = np.empty((0,3))
+    shell_kc = np.empty((0, 3))
     centers_i = np.empty((0), dtype=int)
-    bzk_fine_kc = np.empty((0,3))
+    bzk_fine_kc = np.empty((0, 3))
     weight_k = np.empty((0))
     for shell in range(nshells):
         # Determine all k-points in shell, which will be refinement centers
@@ -193,7 +192,6 @@ def get_fine_bzkpts(center_ic, size, bzk_coarse_kc, kwargs):
         weight *= np.ones(nkpts)
         weight_k = np.append(weight_k, weight)
 
-    del kd_coarse
     assert np.abs(len(centers_i) - sum(weight_k)) < 1e-6
     assert len(weight_k) == bzk_fine_kc.shape[0]
 
@@ -234,9 +232,9 @@ def construct_neighbours_by_shells(nshells, N_c):
         elements = []
         for i in range(3):
             if N_c[i] == 1:
-                elements.append([0,])
+                elements.append([0, ])
             else:
-                elements.append(range(-shell,shell+1))
+                elements.append(list(range(-shell, shell + 1)))
 
         # Construct the vectors
         # For each valid point, at least one component must have the value 
@@ -279,10 +277,10 @@ def find_missing_points(kd):
         return None
 
     # Find unaccounted points
-    buf = np.empty((0,3))
+    buf = np.empty((0, 3))
     for k in range(kd.bz2bz_ks.shape[0]):
         for s in range(kd.bz2bz_ks.shape[1]):
-            if kd.bz2bz_ks[k,s] == -1:
+            if kd.bz2bz_ks[k, s] == -1:
                 sign = 1.0
                 i = s
                 if kd.symmetry.time_reversal:
@@ -296,7 +294,7 @@ def find_missing_points(kd):
                     min_dist, index = minimal_point_distance(k_c, buf)
                     if min_dist < 1e-6:
                         continue
-                buf = np.concatenate((buf, np.array(k_c, ndmin=2) ))
+                buf = np.concatenate((buf, np.array(k_c, ndmin=2)))
 
     return buf
   
@@ -319,7 +317,7 @@ def add_plusq_points(kd, q_c, kwargs):
     _kd = add_missing_points(kd, kwargs)
     
     # Find missing q
-    add_points_kc = np.empty((0,3))
+    add_points_kc = np.empty((0, 3))
     for k in range(_kd.nbzkpts):
         # if q_c is small, use q_c = 0.0 for mh points, else they don't need
         # extra points anyway
@@ -362,7 +360,7 @@ def create_new_descriptor_with_zero_points(kd, add_points_kc, kwargs):
     label_k = np.append(kd.refine_info.label_k, np.array(nbzkpts_add*['zero']))
     kd_new.refine_info.set_label_k(label_k)
     # Avoid exact zero, as that would screw up the occupations calculation
-    weight_k = np.append(kd.refine_info.weight_k, 1e-10*np.ones(nbzkpts_add))
+    weight_k = np.append(kd.refine_info.weight_k, 1e-10 * np.ones(nbzkpts_add))
     kd_new.refine_info.set_weight_k(weight_k)
 
     # Correct ibz weights
