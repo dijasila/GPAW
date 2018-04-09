@@ -36,26 +36,25 @@ calc = GPAW(mode=PW(ecut=450),
 def create_kpoint_descriptor_with_refinement(refine, bzkpts_kc, nspins, atoms,
                                              symmetry, comm, timer):
     """Main routine to build refined k-point grids."""
-    if not 'center' in refine:
+    if 'center' not in refine:
         raise RuntimeError('Center for refinement not given!')
-    if not 'size' in refine:
+    if 'size' not in refine:
         raise RuntimeError('Grid size for refinement not given!')
 
     center_ic = np.array(refine['center'], dtype=float, ndmin=2)
     size = np.array(refine['size'], ndmin=2)
-    if 'reduce_symmetry' in refine:
-        reduce_symmetry = refine['reduce_symmetry']
-    else:
-        reduce_symmetry = True 
+    reduce_symmetry = refine.get('reduce_symmetry', True)
 
     # Check that all sizes are odd. That's not so much an issue really. But even
     # Monkhorst-Pack grids have points on the boundary, which just would require 
     # more special casing, which I want to avoid.
     if (np.array(size) % 2 == 0).any():
-        raise RuntimeError('Grid size for refinement must be odd!')
+        raise RuntimeError('Grid size for refinement must be odd!  Is: {}'.
+                           format(obj))
 
     # Arguments needed for k-point descriptor construction
-    kwargs = {'nspins':nspins, 'atoms':atoms, 'symmetry':symmetry, 'comm':comm}
+    kwargs = {'nspins': nspins, 'atoms': atoms, 'symmetry': symmetry,
+              'comm': comm}
 
     # Define coarse grid points
     bzk_coarse_kc = bzkpts_kc
@@ -277,7 +276,7 @@ def prune_symmetries_kpoints(kd, symmetry):
 def find_missing_points(kd):
     """Find points in k-point descriptor, which miss in the set to fill the 
     group."""
-    if not -1 in kd.bz2bz_ks:
+    if -1 not in kd.bz2bz_ks:
         return None
 
     # Find unaccounted points
@@ -309,7 +308,7 @@ def add_missing_points(kd, kwargs):
         return kd
     
     kd_new = create_new_descriptor_with_zero_points(kd, add_points_kc, kwargs)
-    assert not -1 in kd_new.bz2bz_ks
+    assert -1 not in kd_new.bz2bz_ks
 
     return kd_new
 
