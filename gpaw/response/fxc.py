@@ -297,14 +297,15 @@ class ALDAKernelCalculator:
                 dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
 
             for a, setup in enumerate(setups):
-                if rank == a % size:
-                    # PAW correction is evaluated on a radial grid
+                #if rank == a % size:
+                # PAW correction is evaluated on a radial grid
+                Y_nL = setup.xc_correction.Y_nL
+                if rank in [(a*len(Y_nL)+n)%size for n in range(len(Y_nL))]:
                     rgd = setup.xc_correction.rgd
                     n_qg = setup.xc_correction.n_qg
                     nt_qg = setup.xc_correction.nt_qg
                     nc_g = setup.xc_correction.nc_g
                     nct_g = setup.xc_correction.nct_g
-                    Y_nL = setup.xc_correction.Y_nL
                     dv_g = rgd.dv_g
 
                     D_sp = D_asp[a]
@@ -324,24 +325,25 @@ class ALDAKernelCalculator:
 
                     coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
                     for n, Y_L in enumerate(Y_nL):
-                        w = weight_n[n]
+                        if rank == (a*len(Y_nL) + n) % size:
+                            w = weight_n[n]
 
-                        f_g[:] = 0.
-                        n_sg = np.dot(Y_L, n_sLg)
-                        add_fxc(rgd, n_sg, f_g)
+                            f_g[:] = 0.
+                            n_sg = np.dot(Y_L, n_sLg)
+                            add_fxc(rgd, n_sg, f_g)
 
-                        ft_g[:] = 0.
-                        nt_sg = np.dot(Y_L, nt_sLg)
-                        add_fxc(rgd, nt_sg, ft_g)
+                            ft_g[:] = 0.
+                            nt_sg = np.dot(Y_L, nt_sLg)
+                            add_fxc(rgd, nt_sg, ft_g)
 
-                        for i in range(len(rgd.r_g)):
-                            coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n])
-                                             * rgd.r_g[i])
+                            for i in range(len(rgd.r_g)):
+                                coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n])
+                                                 * rgd.r_g[i])
 
-                            KxcPAW_GG += w * np.dot(coef_GG,
-                                                        (f_g[i] -
-                                                         ft_g[i])
-                                                    * dv_g[i]) * coefatoms_GG
+                                KxcPAW_GG += w * np.dot(coef_GG,
+                                                            (f_g[i] -
+                                                             ft_g[i])
+                                                        * dv_g[i]) * coefatoms_GG
             world.sum(KxcPAW_GG)
             Kxc_GG += KxcPAW_GG
         
