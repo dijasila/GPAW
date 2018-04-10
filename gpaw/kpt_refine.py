@@ -151,21 +151,23 @@ def get_fine_bzkpts(center_ic, size, bzk_coarse_kc, kwargs):
     neighbours_kc = construct_neighbours_by_shells(nshells, kd_coarse.N_c)
 
     # loop over all the different shells
-    shell_kc = np.empty((0, 3))
     centers_i = np.empty((0), dtype=int)
-    bzk_fine_kc = np.empty((0, 3))
-    weight_k = np.empty((0))
+    bzk_fine_kc = []
+    weight_k = []
     for shell in range(nshells):
         # Determine all k-points in shell, which will be refinement centers
+        shell_kc = []
         for i, center_c in enumerate(center_ic):
             shell_c = neighbours_kc[shell] + center_c
-            shell_kc = np.append(shell_kc, shell_c, axis=0)
+            shell_kc.append(shell_c)
+        shell_kc = np.concatenate(shell_kc)
 
         # Find all equivalent centers using full symmetry
-        center_i = np.empty((0), dtype=int)
+        center_i = []
         for k, shell_c in enumerate(shell_kc):
             equiv_i = find_equivalent_kpoints(shell_c, kd_coarse)
-            center_i = np.append(center_i, equiv_i)
+            center_i.append(equiv_i)
+        center_i = np.concatenate(center_i)
 
         # Remove redundant entries, which come from symmetry
         center_i, index_map = np.unique(center_i, return_index=True)
@@ -185,13 +187,16 @@ def get_fine_bzkpts(center_ic, size, bzk_coarse_kc, kwargs):
         # Gather the refined points of the grid for all centers
         for k, centers_c in enumerate(centers_kc):
             this_kc = mh_kc + centers_c
-            bzk_fine_kc = np.append(bzk_fine_kc, this_kc, axis=0)
+            bzk_fine_kc.append(this_kc)
         
         # Determine weight of refined points
         weight = 1. / np.prod(size[shell])
         nkpts = len(center_i) * np.prod(size[shell])
         weight *= np.ones(nkpts)
-        weight_k = np.append(weight_k, weight)
+        weight_k.append(weight)
+
+    weight_k = np.concatenate(weight_k)
+    bzk_fine_kc = np.concatenate(bzk_fine_kc)
 
     assert np.abs(len(centers_i) - sum(weight_k)) < 1e-6
     assert len(weight_k) == bzk_fine_kc.shape[0]
@@ -318,7 +323,7 @@ def add_plusq_points(kd, q_c, kwargs):
     _kd = add_missing_points(kd, kwargs)
     
     # Find missing q
-    add_points_kc = np.empty((0, 3))
+    add_points_kc = []
     for k in range(_kd.nbzkpts):
         # if q_c is small, use q_c = 0.0 for mh points, else they don't need
         # extra points anyway
@@ -328,8 +333,8 @@ def add_plusq_points(kd, q_c, kwargs):
             i_x = _kd.find_k_plus_q(q_c, [k])
         except KPointError:
             k_c = _kd.bzk_kc[k] + q_c
-            add_points_kc = np.append(add_points_kc, np.array(k_c, ndmin=2),
-                                      axis=0)
+            add_points_kc.append(np.array(k_c, ndmin=2))
+    add_points_kc = np.concatenate(add_points_kc)
 
     if add_points_kc.shape[0] == 0:
         return _kd
