@@ -1182,9 +1182,12 @@ class PWLFC(BaseLFC):
                 iblock += 1
                 G1 = G2
         else:
-            yield 0, nG
+            if serial or self.comm.rank == 0:
+                yield 0, nG
+            else:
+                yield 0, 0
 
-    def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None):
+    def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None, serial=True):
         if isinstance(c_axi, float):
             assert q == -1, a_xG.dims == 1
             a_xG += (c_axi / self.pd.gd.dv) * self.expand(-1).sum(0)
@@ -1197,7 +1200,7 @@ class PWLFC(BaseLFC):
 
         a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
 
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block(q, serial=serial):
             if f0_IG is None:
                 f_IG = self.expand(q, G1, G2)
             else:
@@ -1452,9 +1455,10 @@ class ReciprocalSpaceDensity(Density):
 
     def calculate_pseudo_charge(self):
         self.rhot_q = self.pd3.zeros()
-        self.rhot_q[self.G3_G] = self.nt_Q * 8
         Q_aL = self.Q.calculate(self.D_asp)
-        self.ghat.add(self.rhot_q, Q_aL)
+        self.ghat.add(self.rhot_q, Q_aL, serial=False)
+        self.ghat.comm.sum(self.rhot_q)
+        self.rhot_q[self.G3_G] += self.nt_Q * 8
         self.background_charge.add_fourier_space_charge_to(self.pd3,
                                                            self.rhot_q)
         self.rhot_q[0] = 0.0
