@@ -278,17 +278,17 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
             else:
                 psit2 = psit
 
+        if rrequest:
+            comm.wait(rrequest)
+        if srequest:
+            comm.wait(srequest)
+
         if not (comm.size % 2 == 0 and r == half and comm.rank < half):
             m12 = psit2.matrix_elements(psit, symmetric=(r == 0), cc=True,
                                         serial=True)
             n1 = min(((comm.rank - r) % comm.size) * n, N)
             n2 = min(n1 + n, N)
             out.array[:, n1:n2] = m12.array[:, :n2 - n1]
-
-        if rrequest:
-            comm.wait(rrequest)
-        if srequest:
-            comm.wait(srequest)
 
         psit = buf1
         buf1, buf2 = buf2, buf1
