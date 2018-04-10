@@ -18,7 +18,7 @@ from gpaw.xc import XC
 class PAW:
     """ASE-calculator interface.
 
-        The following parameters can be used: nbands, xc, kpts,
+        The following parameters can be used: nbands, xc, kpts, kpt_refine,
         spinpol, gpts, h, charge, symmetry, width, mixer,
         hund, lmax, fixdensity, convergence, txt, parallel,
         communicator, dtype, softgauss and stencils.

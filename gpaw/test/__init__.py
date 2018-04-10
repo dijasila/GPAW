@@ -289,6 +289,7 @@ tests = [
     'parallel/lcao_complicated.py',         # ~10s
     'generic/bulk.py',                      # ~10s
     #'sic/scfsic_h2.py',                     # ~10s
+    'kpt_refine.py',                        # ~10s
     'lcao/bulk.py',                         # ~11s
     'reuse_wfs.py',                         # ~11s
     'generic/2Al.py',                       # ~11s
