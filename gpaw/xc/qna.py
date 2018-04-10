@@ -24,7 +24,7 @@ class QNAKernel:
         else:
             atoms = self.qna.atoms
 
-        if len(n_sg.shape) > 2: 
+        if len(n_sg.shape) > 2:
             # 3D xc calculation
             mu_g, beta_g = self.qna.calculate_spatial_parameters(atoms)
             dedmu_g = self.qna.dedmu_g
@@ -38,7 +38,7 @@ class QNAKernel:
             beta_g[:] = beta
             dedmu_g = None
             dedbeta_g = None
- 
+
         #Enable to use PBE always
         #mu_g[:] = 0.2195149727645171
         #beta_g[:] = 0.06672455060314922
@@ -162,9 +162,9 @@ class QNA(GGA):
         eye_a = {}
         for atom in atoms:
             mu, beta = self.parameters[atom.symbol]
-            mu_a[atom.index] = [ mu ]
-            beta_a[atom.index] = [ beta ]
-            eye_a[atom.index] = 1.0
+            mu_a[atom.index] = np.array([mu])
+            beta_a[atom.index] = np.array([beta])
+            eye_a[atom.index] = np.array(1.0)
         self.Pa.add(mu_g, mu_a)
         self.Pa.add(beta_g, beta_a)
         self.Pa.add(denominator, eye_a)
@@ -179,7 +179,7 @@ class QNA(GGA):
                                             addcoredensity, a)
     def get_setup_name(self):
         return self.qna_setup_name
-    
+
     def get_description(self):
         return "QNA Parameters: "+str(self.parameters)
 
