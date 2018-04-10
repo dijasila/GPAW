@@ -148,13 +148,11 @@ tests = [
     'pbc.py',
     'atoms_too_close.py',
     'ext_potential/harmonic.py',
-    'generic/proton.py',
     'atoms_mismatch.py',
     'setup_basis_spec.py',
     'overlap.py',
     'pw/direct.py',
     'vdw/libvdwxc_spin.py',                 # ~1s
-    'symmetry/kpoint_mapping.py',           # ~1s
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
     'lcao/density.py',                      # ~1s
@@ -226,6 +224,7 @@ tests = [
     'fermisplit.py',                        # ~4s
     'generic/Cl_minus.py',                  # ~4s
     'lrtddft/pes.py',                       # ~4s
+    'generic/proton.py',                    # ~4s
     'corehole/h2o_recursion.py',            # ~5s
     'xc/nonselfconsistent.py',              # ~5s
     'spin/spinpol.py',                      # ~5s
@@ -289,7 +288,6 @@ tests = [
     'ralda/ralda_energy_N2.py',             # ~10s
     'parallel/lcao_complicated.py',         # ~10s
     'generic/bulk.py',                      # ~10s
-    'response/chi0_intraband_test.py',      # ~10s
     #'sic/scfsic_h2.py',                     # ~10s
     'lcao/bulk.py',                         # ~11s
     'reuse_wfs.py',                         # ~11s
@@ -341,6 +339,7 @@ tests = [
     'response/na_plasmon.py',               # ~22s
     'fermilevel.py',                        # ~23s
     'ralda/ralda_energy_H2.py',             # ~23s
+    'symmetry/kpoint_mapping.py',           # ~23s
     'response/diamond_absorption.py',       # ~24s
     'ralda/ralda_energy_Si.py',             # ~24s
     'jellium.py',                           # ~24s
@@ -378,6 +377,7 @@ tests = [
     'response/chi0.py',                     # ~71s
     #'sic/scfsic_n2.py',                     # ~73s
     'lrtddft/3.py',                         # ~75s
+    'response/chi0_intraband_test.py',      # ~76s
     'pathological/nonlocalset.py',          # ~82s
     'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
