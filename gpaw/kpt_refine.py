@@ -5,6 +5,7 @@ from __future__ import division
 import copy
 import numpy as np
 from ase.dft.kpoints import monkhorst_pack, get_monkhorst_pack_size_and_offset
+from gpaw import KPointError
 from gpaw.kpt_descriptor import KPointDescriptor
 
 """
@@ -325,7 +326,7 @@ def add_plusq_points(kd, q_c, kwargs):
             continue
         try:
             i_x = _kd.find_k_plus_q(q_c, [k])
-        except:
+        except KPointError:
             k_c = _kd.bzk_kc[k] + q_c
             add_points_kc = np.append(add_points_kc, np.array(k_c, ndmin=2),
                                       axis=0)

@@ -15,6 +15,7 @@ import numpy as np
 from ase.dft.kpoints import monkhorst_pack, get_monkhorst_pack_size_and_offset
 from ase.calculators.calculator import kptdensity2monkhorstpack
 
+from gpaw import KPointError
 from gpaw.kpoint import KPoint
 import gpaw.mpi as mpi
 import _gpaw
@@ -432,7 +433,7 @@ class KPointDescriptor:
             d_k = abs(d_kc - d_kc.round()).sum(1)
             i = d_k.argmin()
             if d_k[i] > 1e-8:
-                raise RuntimeError('Could not find k+q!')
+                raise KPointError('Could not find k+q!')
             i_x.append(i)
 
         return i_x
@@ -533,7 +534,7 @@ class KPointDescriptor:
         d_q = abs(d_qc - d_qc.round()).sum(1)
         q = d_q.argmin()
         if d_q[q] > 1e-8:
-            raise RuntimeError('Could not find q!')
+            raise KPointError('Could not find q!')
         return q
 
     def get_count(self, rank=None):
