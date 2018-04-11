@@ -480,7 +480,7 @@ class KohnShamDecomposition(object):
 
     def get_TCM(self, weight_p, energy_o, energy_u, sigma,
                 zero_fermilevel=True):
-        eig_n, fermilevel = self.__get_eig_n(zero_fermilevel)
+        eig_n, fermilevel = self.get_eig_n(zero_fermilevel)
 
         # DOS
         G_no = gauss_ij(eig_n, energy_o, sigma)
@@ -501,7 +501,7 @@ class KohnShamDecomposition(object):
 
     def get_distribution_i(self, weight_p, energy_e, sigma,
                            zero_fermilevel=True):
-        eig_n, fermilevel = self.__get_eig_n(zero_fermilevel)
+        eig_n, fermilevel = self.get_eig_n(zero_fermilevel)
         flt_p = self.__filter_by_x_i(eig_n, energy_e, 8 * sigma)
         weight_f = weight_p[flt_p]
         G_fe = gauss_ij(eig_n[self.ia_p[flt_p, 0]], energy_e, sigma)
@@ -510,7 +510,7 @@ class KohnShamDecomposition(object):
 
     def get_distribution_a(self, weight_p, energy_e, sigma,
                            zero_fermilevel=True):
-        eig_n, fermilevel = self.__get_eig_n(zero_fermilevel)
+        eig_n, fermilevel = self.get_eig_n(zero_fermilevel)
         flt_p = self.__filter_by_x_a(eig_n, energy_e, 8 * sigma)
         weight_f = weight_p[flt_p]
         G_fe = gauss_ij(eig_n[self.ia_p[flt_p, 1]], energy_e, sigma)
@@ -523,7 +523,7 @@ class KohnShamDecomposition(object):
         Filter both i and a spaces as in TCM.
 
         """
-        eig_n, fermilevel = self.__get_eig_n(zero_fermilevel)
+        eig_n, fermilevel = self.get_eig_n(zero_fermilevel)
         flt_p = self.__filter_by_x_ia(eig_n, energy_o, energy_u, 8 * sigma)
         weight_f = weight_p[flt_p]
         G_fo = gauss_ij(eig_n[self.ia_p[flt_p, 0]], energy_o, sigma)
@@ -540,7 +540,7 @@ class KohnShamDecomposition(object):
         dist_e = np.dot(G_fe.T, weight_f)
         return dist_e
 
-    def __get_eig_n(self, zero_fermilevel):
+    def get_eig_n(self, zero_fermilevel):
         u = 0  # TODO
         eig_n = self.eig_un[u].copy()
         if zero_fermilevel:
