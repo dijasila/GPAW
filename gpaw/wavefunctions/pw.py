@@ -921,7 +921,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt.eps_n = eps_n[myslice].copy()
 
             if scalapack:
-                md3 = BlacsDescriptor(bg, npw, npw, bd.mynbands, npw)
+                md3 = BlacsDescriptor(bg, npw, npw, bd.maxmynbands, npw)
                 r = Redistributor(bd.comm, md2, md3)
                 psit_nG = r.redistribute(psit_nG)
 
