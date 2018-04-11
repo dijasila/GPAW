@@ -114,7 +114,6 @@ class BlacsOrbitalLayouts(BlacsLayouts):
                               mcpus, ncpus, blocksize, timer)
         nbands = bd.nbands
         self.blocksize = blocksize
-        self.mynbands = mynbands = bd.mynbands
 
         self.orbital_comm = self.bd.comm
         self.naoblocksize = naoblocksize = -((-nao) // self.orbital_comm.size)
