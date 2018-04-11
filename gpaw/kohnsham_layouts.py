@@ -131,7 +131,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.mMdescriptor = self.columngrid.new_descriptor(nao, nao,
                                                            naoblocksize, nao)
         self.nMdescriptor = self.columngrid.new_descriptor(nbands, nao,
-                                                           mynbands, nao)
+                                                           bd.maxmynbands, nao)
 
         # parallelprint(world, (mynao, self.mMdescriptor.shape))
 
