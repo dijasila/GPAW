@@ -121,17 +121,19 @@ class Projections:
             return P_In.T
 
     def toarraydict(self):
-        M = self.matrix.array.shape[0]
-        shapes = [(M, nproj) for nproj in self.nproj_a]
+        if self.collinear:
+            shapes = [(self.nbands, nproj) for nproj in self.nproj_a]
+        else:
+            shapes = [(self.nbands, 2, nproj) for nproj in self.nproj_a]
         d = self.atom_partition.arraydict(shapes, self.matrix.array.dtype)
         for a, I1, I2 in self.indices:
-            d[a][:] = self.matrix.array[:, I1:I2]  # Blocks will be contiguous
+            d[a][:] = self.array[..., I1:I2]  # Blocks will be contiguous
         return d
 
     def fromarraydict(self, d):
         assert d.partition == self.atom_partition
         for a, I1, I2 in self.indices:
-            self.matrix.array[:, I1:I2] = d[a]
+            self.array[..., I1:I2] = d[a]
 
     def collect_atoms(self, P):
         if self.atom_partition.comm.rank == 0:
