@@ -125,7 +125,7 @@ class DipoleCorrection:
         self.poissonsolver.estimate_memory(mem)
 
 
-def dipole_correction(c, gd, rhot_g, center_c=None):
+def dipole_correction(c, gd, rhot_g, center=False, origin_c=None):
     """Get dipole corrections to charge and potential.
 
     Returns arrays drhot_g and dphit_g such that if rhot_g has the
@@ -137,7 +137,8 @@ def dipole_correction(c, gd, rhot_g, center_c=None):
     """
     # This implementation is not particularly economical memory-wise
 
-    moment = gd.calculate_dipole_moment(rhot_g, center_c)[c]
+    moment = gd.calculate_dipole_moment(rhot_g, center=center,
+                                        origin_c=origin_c)[c]
     if abs(moment) < 1e-12:
         return gd.zeros(), gd.zeros(), 0.0
 
@@ -146,7 +147,8 @@ def dipole_correction(c, gd, rhot_g, center_c=None):
     sr_g = 2.0 / cellsize * r_g - 1.0  # sr ~ 'scaled r'
     alpha = 20.0  # should perhaps be variable
     drho_g = sr_g * np.exp(-alpha * sr_g**2)
-    moment2 = gd.calculate_dipole_moment(drho_g, center_c)[c]
+    moment2 = gd.calculate_dipole_moment(drho_g, center=center,
+                                         origin_c=origin_c)[c]
     factor = -moment / moment2
     drho_g *= factor
     phifactor = factor * (np.pi / alpha)**1.5 * cellsize**2 / 4.0

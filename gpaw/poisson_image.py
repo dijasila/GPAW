@@ -3,10 +3,6 @@ from gpaw.poisson_extended import ExtendedPoissonSolver as EPS
 from gpaw.dipole_correction import dipole_correction
 from gpaw.utilities.timing import nulltimer
 
-# TODO
-# 1. 'right' gives very wrong results, why? implicit zero of omitted first array
-#    element?
-# 2. allow arbitrary directions?
 
 class ImagePoissonSolver(EPS):
     """ Extended Poisson solver with image/mirror charges
@@ -91,12 +87,13 @@ class ImagePoissonSolver(EPS):
     # Stolen from dipole_correction.fdsolve
     def solve(self, vHt_g, rhot_g, **kwargs):
         # Just for testing
-        center_c = [0,0,0]
+        origin_c = [0,0,0]
         if self.side == 'right':
-            center_c[self.c] = self.gd_original.N_c[self.c]
+            origin_c[self.c] = self.gd_original.N_c[self.c]
         drhot_g, dvHt_g, self.correction = dipole_correction(self.direction,
                                                              self.gd_original,
-                                                             rhot_g, center_c)
+                                                             rhot_g,
+                                                             origin_c=origin_c)
 
         # shift dipole potential to be zero at "electrode"
         if self.side == 'right':
