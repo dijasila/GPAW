@@ -1278,7 +1278,7 @@ class PWLFC(BaseLFC):
 
         K_v = self.pd.K_qv[q]
 
-        serial = True
+        serial = False
 
         x = 0.0
         for G1, G2 in self.block(q, serial=serial):
