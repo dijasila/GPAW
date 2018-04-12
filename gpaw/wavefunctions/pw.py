@@ -1159,7 +1159,8 @@ class PWLFC(BaseLFC):
             I1 = I2
         self.nI = I1
 
-    def expand(self, q=-1, G1=0, G2=None):
+    def old_expand(self, q=-1, G1=0, G2=None):
+        # Pure-Python version of expand().  Left here for testing.
         if G2 is None:
             G2 = self.Y_qLG[q].shape[1]
         f_IG = np.empty((self.nI, G2 - G1), complex)
@@ -1172,7 +1173,6 @@ class PWLFC(BaseLFC):
         return f_IG
 
     def expand(self, q=-1, G1=0, G2=None):
-        #self.timer.start('expand')
         if G2 is None:
             G2 = self.Y_qLG[q].shape[1]
         G_Qv = self.pd.G_Qv[self.pd.Q_qG[q][G1:G2]]
@@ -1184,7 +1184,6 @@ class PWLFC(BaseLFC):
         _gpaw.pwlfc_expand(G_Qv, self.pos_av,
                            self.lf_aj, Y_LG, q, G1, G2,
                            f_IG, emiGRbuf_G)
-        #self.timer.stop('expand')
         return f_IG
 
     def block(self, q=-1, serial=True):
