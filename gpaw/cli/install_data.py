@@ -244,12 +244,14 @@ def get_urls(source):
                    r'(sg15_oncv_upf_\d\d\d\d-\d\d-\d\d.tar.gz)'
                    r'\s*</a>')
 
-        files = re.compile(pattern).findall(response.read())
+        txt = response.read().decode('ascii', errors='replace')
+        files = re.compile(pattern).findall(txt)
         files.sort(reverse=True)
         urls = [page + fname for fname in files]
     elif source == 'basis':
         pattern = re.compile('>(gpaw-basis-.+?.tar.gz)</a>')
-        files = sorted(pattern.findall(response.read()), reverse=True)
+        txt = response.read().decode('ascii', errors='replace')
+        files = sorted(pattern.findall(txt), reverse=True)
         urls = [page + fname for fname in files]
     elif source == 'test':
         urls = ['{0}gpaw-dist-test-source.tar.gz'.format(page)]

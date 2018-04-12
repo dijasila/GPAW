@@ -8,14 +8,17 @@ from gpaw.utilities import h2gpts
 from gpaw.test.pseudopotential.H_sg15 import pp_text
 from gpaw import setup_paths
 setup_paths.insert(0, '.')
+from gpaw.mpi import world
 
 # We can't easily load a non-python file from the test suite.
 # Therefore we load the pseudopotential from a Python file.
 # But we want to test the pseudopotential search mechanism, therefore
 # we immediately write it to a file:
-fd = open('H_ONCV_PBE-1.0.upf', 'w')
-fd.write(pp_text)
-fd.close()  # All right...
+if world.rank == 0:
+    fd = open('H_ONCV_PBE-1.0.upf', 'w')
+    fd.write(pp_text)
+    fd.close()  # All right...
+world.barrier()
 
 system = molecule('H2')
 system.center(vacuum=2.5)

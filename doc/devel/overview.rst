@@ -43,18 +43,18 @@ A GPAW instance has the following attributes: ``atoms``,
 ``occupations``, ``initialized``, ``world`` and ``observers``.
 
 The :class:`gpaw.calculator.GPAW` inherits from:
-    
+
 * :class:`ase.calculators.calculator.Calculator`
 
   This implements the ASE :ref:`ase:calculator interface`
-  
+
 * :class:`gpaw.paw.PAW`
 
   Mixin that adds a number of extra methods without bloating the
   :git:`gpaw/calculator.py` file too much.
-  
+
 .. note::
-    
+
     GPAW uses atomic units internally (`\hbar=e=m=1`) and ASE uses
     Angstrom and eV (:mod:`~ase.units`).
 
@@ -68,12 +68,12 @@ When a GPAW instance is created from scratch::
 
 the GPAW object is almost empty.  In order to start a calculation, one
 will have to do something like::
-    
-    
+
+
     atoms = Atoms(...)
     atoms.calc = calc
     atoms.get_potential_energy()
-    
+
 ASE will then arrange to call the :meth:`~gpaw.calculator.GPAW.calculate`
 method with the correct arguments.  This will trigger:
 
@@ -89,7 +89,7 @@ method with the correct arguments.  This will trigger:
 
    a) Pass on the atomic positions to the wave functions, hamiltonian
       and density objects (call their ``set_positions()`` methods).
-   
+
    b) Make sure the wave functions are initialized.
 
    c) Reset the :class:`~gpaw.scf.SCFLoop`.
@@ -171,7 +171,7 @@ Attributes of the wave function object: ``gd``, ``nspins``,
 ``ibzk_kc``, ``weight_k``, ``symmetry``, ``kpt_comm``,
 ``rank_a``, ``nibzkpts``, ``kpt_u``, ``setups``,
 ``ibzk_qc``, ``eigensolver``, and ``timer``.
-        
+
 
 .. _overview_xc:
 
@@ -345,14 +345,14 @@ To investigate the way GPAW distributes calculated quantities across the
 various MPI groups, simulating an MPI run can be done using ``gpaw-mpisim``::
 
   $ gpaw-mpisim -v --dry-run=4 --spins=2 --kpoints=4 --bands=3 --domain-decomposition=2,1,1
-  
+
   Simulating: world.size = 4
       parsize_c = (2, 1, 1)
       parsize_bands = 1
       nspins = 2
       nibzkpts = 4
       nbands = 3
-  
+
   world: rank=0, ranks=None
       kpt_comm    : rank=0, ranks=[0 2], mynks=4, kpt_u=[0^,1^,2^,3^]
       band_comm   : rank=0, ranks=[0], mynbands=3, mybands=[0, 1, 2]
@@ -378,4 +378,5 @@ which in this case is equal to *mpi.world*.
 
 .. [1] J J. Mortensen and L. B. Hansen and K. W. Jacobsen,
        Phys. Rev. B 71 (2005) 035109.
-.. [2] C. Rostgaard, `The Projector Augmented Wave Method <../paw_note.pdf>`_.
+.. [2] C. Rostgaard, :download:`The Projector Augmented Wave Method
+       <../documentation/paw_note.pdf>`.

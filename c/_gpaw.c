@@ -77,6 +77,7 @@ PyObject* lxcXCFuncNum(PyObject *self, PyObject *args);
 PyObject* exterior_electron_density_region(PyObject *self, PyObject *args);
 PyObject* plane_wave_grid(PyObject *self, PyObject *args);
 PyObject* tci_overlap(PyObject *self, PyObject *args);
+PyObject *pwlfc_expand(PyObject *self, PyObject *args);
 PyObject* overlap(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
 PyObject* vdw2(PyObject *self, PyObject *args);
@@ -127,6 +128,19 @@ PyObject* libvdwxc_init_mpi(PyObject* self, PyObject* args);
 PyObject* libvdwxc_init_pfft(PyObject* self, PyObject* args);
 #endif // GPAW_WITH_LIBVDWXC
 
+#ifdef GPAW_GITHASH
+// For converting contents of a macro to a string, see
+// https://en.wikipedia.org/wiki/C_preprocessor#Token_stringification
+#define STR(s) #s
+#define XSTR(s) STR(s)
+PyObject* githash(PyObject* self, PyObject* args)
+{
+    return Py_BuildValue("s", XSTR(GPAW_GITHASH));
+}
+#undef XSTR
+#undef STR
+#endif // GPAW_GITHASH
+
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args);
 
@@ -171,6 +185,7 @@ static PyMethodDef functions[] = {
     {"utilities_vdot_self", utilities_vdot_self, METH_VARARGS, 0},
     {"eed_region", exterior_electron_density_region, METH_VARARGS, 0},
     {"plane_wave_grid", plane_wave_grid, METH_VARARGS, 0},
+    {"pwlfc_expand", pwlfc_expand, METH_VARARGS, 0},
     {"erf", errorfunction, METH_VARARGS, 0},
     {"cerf", cerf, METH_VARARGS, 0},
     {"pack", pack, METH_VARARGS, 0},
@@ -245,6 +260,9 @@ static PyMethodDef functions[] = {
     {"libvdwxc_init_pfft", libvdwxc_init_pfft, METH_VARARGS, 0},
 #endif // GPAW_WITH_LIBVDWXC
     {"mlsqr", mlsqr, METH_VARARGS, 0},
+#ifdef GPAW_GITHASH
+    {"githash", githash, METH_VARARGS, 0},
+#endif // GPAW_GITHASH
     {0, 0, 0, 0}
 };
 

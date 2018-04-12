@@ -175,7 +175,7 @@ Sou can get the source from a tar-file or from Git:
         $ tar -xf gpaw-1.3.0.tar.gz
         $ ln -s gpaw-1.3.0 gpaw
 
-    Here is a `list of tarballs <https://pypi.python.org/simple/gpaw/>`__.
+    Here is a `list of tarballs <https://pypi.org/simple/gpaw/>`__.
 
 :Git clone:
 

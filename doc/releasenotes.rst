@@ -10,7 +10,18 @@ Git master branch
 
 :git:`master <>`.
 
+* Corresponding ASE release: ASE-3.16.0
+
+* Improved parallelization of operations with localized functions in
+  PW mode.  This solves the current size bottleneck in PW mode.
+
 * Added QNA XC functional.
+
+* Major refactoring of the LCAOTDDFT code and added Kohn--Sham decomposition
+  analysis within LCAOTDDFT, see :ref:`the documentation <lcaotddft>`.
+
+* New ``experimental`` keyword, ``GPAW(experimental={...})`` to enable
+  features that are still being tested.
 
 * Experimental support for calculations with non-collinear spins
   (plane-wave mode only).
@@ -32,9 +43,6 @@ Git master branch
   the atoms.  The latter is best when used with ``dzp``.
   This feature has no effect for LCAO mode where the basis functions
   automatically follow the atoms.
-
-* New ``experimental`` keyword, ``GPAW(experimental={...})`` to enable
-  features that are still being tested.
 
 * Broadcast imports (Python3 only): Master process broadcasts most module
   files at import time to reduce file system overhead in parallel
@@ -69,6 +77,8 @@ Git master branch
   via the formula `\sigma_P=(2/3)E_{\text{cut}}dE/dE_{\text{cut}}/V`.  Use
   ``dedecut='estimate'`` to use an estimate from the kinetic energy of an
   isolated atom.
+
+* New utility function: :func:`gpaw.utilities.ibz2bz.ibz2bz`.
 
 
 Version 1.3.0
