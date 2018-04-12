@@ -39,6 +39,20 @@ class GaussianImpulse(Laser):
             s *= np.cos(self.omega0 * (t - self.t0))
         return s
 
+    def derivative(self, t):
+        """
+        t: au
+        """
+        dt = t - self.t0
+        s = self.s0 * np.exp(-0.5 * self.sigma**2 * dt**2)
+        if self.sincos == 'sin':
+            s *= (-self.sigma**2 * dt * np.sin(self.omega0 * dt) +
+                  self.omega0 * np.cos(self.omega0 * dt))
+        else:
+            s *= (-self.sigma**2 * dt * np.cos(self.omega0 * dt) +
+                  -self.omega0 * np.sin(self.omega0 * dt))
+        return s
+
     def fourier(self, omega):
         """
         omega: au
