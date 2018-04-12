@@ -22,6 +22,10 @@ for xc in ['mBEEF', 'BEEF-vdW', 'mBEEF-vdW']:
         print('Skipped', xc)
         continue
 
+    if xc == 'mBEEF-vdW':
+        # Does not work with libxc-4
+        continue
+
     E = []
     V = []
     for a in np.linspace(5.4, 5.5, 5):
@@ -31,7 +35,7 @@ for xc in ['mBEEF', 'BEEF-vdW', 'mBEEF-vdW']:
                        kpts=[2, 2, 2],
                        mode='pw')
         E.append(si.get_potential_energy())
-        ens = BEEFEnsemble(si.calc)
+        ens = BEEFEnsemble(si.calc, verbose=False)
         ens.get_ensemble_energies()
         ens.write('Si-{}-{:.3f}'.format(xc, a))
         V.append(si.get_volume())
@@ -61,6 +65,7 @@ for xc in ['mBEEF', 'BEEF-vdW', 'mBEEF-vdW']:
         A = np.array(A)
         a = A.mean()
         da = A.std()
-        print(len(A), a, da)
+        print('a(ref) = {:.3f} +- {:.3f}'.format(a0, da0))
+        print('a      = {:.3f} +- {:.3f}'.format(a, da))
         assert abs(a - a0) < 0.01
-        assert abs(da - da0) < 0.001
+        assert abs(da - da0) < 0.01
