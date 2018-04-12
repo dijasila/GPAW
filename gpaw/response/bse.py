@@ -76,9 +76,9 @@ class BSE:
             File for saving screened interaction and some other stuff
             needed later
         write_h: bool
-            If True, write the BSE Hamiltonian to H_SS.gpw.
+            If True, write the BSE Hamiltonian to H_SS.ulm.
         write_v: bool
-            If True, write eigenvalues and eigenstates to v_TS.gpw
+            If True, write eigenvalues and eigenstates to v_TS.ulm
         """
 
         # Calculator
@@ -311,9 +311,10 @@ class BSE:
             # add bare transition energies
             H_sS[iS, iS0 + iS] += self.deps_s[iS]
 
-        if self.write_h:
-            self.par_save('H_SS', 'H_SS', H_sS)
         self.H_sS = H_sS
+
+        if self.write_h:
+            self.par_save('H_SS.ulm', 'H_SS', self.H_sS)
 
     def get_density_matrix(self, kpt1, kpt2):
 
@@ -537,21 +538,8 @@ class BSE:
             print('  Using numpy.linalg.eig...', file=self.fd)
             print('  Eliminated %s pair orbitals' % len(self.excludef_S),
                   file=self.fd)
-            nK = self.kd.nbzkpts
-            if world.rank == 0:
-                self.H_SS = np.zeros((self.nS, self.nS), dtype=complex)
-                self.H_SS[:len(self.H_sS)] = self.H_sS
-                Ntot = len(self.H_sS)
-                for rank in range(1, world.size):
-                    Ksize = -(-nK // world.size)
-                    Krange = range(rank * Ksize, min((rank + 1) * Ksize, nK))
-                    ns = len(Krange) * self.nv * self.nc * self.spins
-                    buf = np.empty((ns, self.nS), dtype=complex)
-                    world.receive(buf, rank, tag=123)
-                    self.H_SS[Ntot:Ntot + ns] = buf
-                    Ntot += ns
-            else:
-                world.send(self.H_sS, 0, tag=123)
+
+            self.H_SS = self.collect_A_SS(H_sS)
 
             self.w_T = np.zeros(self.nS - len(self.excludef_S), complex)
             if world.rank == 0:
@@ -593,7 +581,7 @@ class BSE:
 
         if self.write_v and self.td:
             # Cannot use par_save without td
-            self.par_save('v_TS', 'v_TS', self.v_St.T)
+            self.par_save('v_TS.ulm', 'v_TS', self.v_St.T)
 
         return
 
@@ -609,11 +597,11 @@ class BSE:
             self.diagonalize()
         elif readfile == 'H_SS':
             print('Reading Hamiltonian from file', file=self.fd)
-            self.par_load('H_SS', 'H_SS')
+            self.par_load('H_SS.ulm', 'H_SS')
             self.diagonalize()
         elif readfile == 'v_TS':
             print('Reading eigenstates from file', file=self.fd)
-            self.par_load('v_TS', 'v_TS')
+            self.par_load('v_TS.ulm', 'v_TS')
         else:
             raise ValueError('%s array not recognized' % readfile)
 
@@ -876,46 +864,48 @@ class BSE:
         return w_w, abs_w
 
     def par_save(self, filename, name, A_sS):
-        from gpaw.io.tar import open
+        import ase.io.ulm as ulm
 
         nS = self.nS
+
+        if name == 'H_SS':
+            if world.size == 1:
+                A_XS = A_sS
+            else:
+                A_XS = self.collect_A_SS(A_sS)
+
         if world.rank == 0:
-            w = open(filename, 'w', world)
-            w.dimension('nS', nS)
+            w = ulm.open(filename, 'w')
 
             if name == 'v_TS':
-                w.add('w_T', ('nS',), dtype=self.w_T.dtype)
-                w.fill(self.w_T)
-            w.add('rhoG0_S', ('nS',), dtype=complex)
-            w.fill(self.rhoG0_S)
-            w.add('df_S', ('nS',), dtype=complex)
-            w.fill(self.df_S)
-
-            w.add(name, ('nS', 'nS'), dtype=complex)
-
-        if not self.td and name == 'v_TS':
-            if world.rank == 0:
-                w.fill(A_sS)
-        else:
-            # Assumes that A_SS is written in order from rank 0 - rank N
-            nK = self.kd.nbzkpts
-            for irank in range(world.size):
-                if irank == 0:
-                    if world.rank == 0:
-                        w.fill(A_sS)
-                else:
-                    if world.rank == irank:
-                        world.send(A_sS, 0, irank + 100)
-                    if world.rank == 0:
-                        iKsize = -(-nK // world.size)
-                        iKrange = range(irank * iKsize,
-                                        min((irank + 1) * iKsize, nK))
-                        iSsize = len(iKrange) * self.nv * self.nc
-                        tmp = np.empty((iSsize, nS), complex)
-                        world.receive(tmp, irank, irank + 100)
-                        w.fill(tmp)
-        if world.rank == 0:
+                w.write(w_T=self.w_T)
+            w.write(rhoG0_S=self.rhoG0_S)
+            w.write(df_S=self.df_S)
+            w.write(A_XS=A_XS)
             w.close()
+
+        #if not self.td and name == 'v_TS':
+            #if world.rank == 0:
+                #w.fill(A_sS)
+        #else:
+            ## Assumes that A_SS is written in order from rank 0 - rank N
+            #nK = self.kd.nbzkpts
+            #for irank in range(world.size):
+                #if irank == 0:
+                    #if world.rank == 0:
+                        #w.fill(A_sS)
+                #else:
+                    #if world.rank == irank:
+                        #world.send(A_sS, 0, irank + 100)
+                    #if world.rank == 0:
+                        #iKsize = -(-nK // world.size)
+                        #iKrange = range(irank * iKsize,
+                                        #min((irank + 1) * iKsize, nK))
+                        #iSsize = len(iKrange) * self.nv * self.nc
+                        #tmp = np.empty((iSsize, nS), complex)
+                        #world.receive(tmp, irank, irank + 100)
+                        #w.fill(tmp)
+
         world.barrier()
 
     def par_load(self, filename, name):
@@ -950,6 +940,26 @@ class BSE:
         self.df_S = r.get('df_S')
 
         r.close()
+
+    def collect_A_SS(self, A_sS):
+        nK = self.kd.nbzkpts
+        if world.rank == 0:
+            A_SS = np.zeros((self.nS, self.nS), dtype=complex)
+            A_SS[:len(A_sS)] = A_sS
+            Ntot = len(A_sS)
+            for rank in range(1, world.size):
+                Ksize = -(-nK // world.size)
+                Krange = range(rank * Ksize, min((rank + 1) * Ksize, nK))
+                ns = len(Krange) * self.nv * self.nc * self.spins
+                buf = np.empty((ns, self.nS), dtype=complex)
+                world.receive(buf, rank, tag=123)
+                A_SS[Ntot:Ntot + ns] = buf
+                Ntot += ns
+        else:
+            world.send(A_sS, 0, tag=123)
+        world.barrier()
+        if world.rank == 0:
+            return A_SS
 
     def get_bse_wf(self):
         pass
