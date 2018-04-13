@@ -10,7 +10,15 @@ Git master branch
 
 :git:`master <>`.
 
+* Corresponding ASE release: ASE-3.16.0
+
+* Improved parallelization of operations with localized functions in
+  PW mode.  This solves the current size bottleneck in PW mode.
+
 * Added QNA XC functional.
+
+* Major refactoring of the LCAOTDDFT code and added Kohn--Sham decomposition
+  analysis within LCAOTDDFT, see :ref:`the documentation <lcaotddft>`.
 
 * New ``experimental`` keyword, ``GPAW(experimental={...})`` to enable
   features that are still being tested.

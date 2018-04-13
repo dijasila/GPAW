@@ -10,6 +10,7 @@ def agts(queue):
     queue.add('spec_plot.py', deps=[spec], ncpus=1, walltime=2,
               creates=['spec.png'])
     queue.add('tcm_plot.py', deps=[ksd, fdm, spec], ncpus=1, walltime=2,
-              creates=['tcm_1.12.png', 'tcm_2.48.png'])
+              creates=['tcm_1.12.png', 'tcm_2.48.png',
+                       'table_1.12.txt', 'table_2.48.txt'])
     queue.add('ind_plot.py', deps=[ind], ncpus=1, walltime=2,
               creates=['ind_1.12.png', 'ind_2.48.png'])

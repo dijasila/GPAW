@@ -205,12 +205,14 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                 self.matrix.multiply(self.dv, 'N', other.matrix, 'C',
                                      0.0, out, symmetric)
             else:
-                tmp_G = self.matrix.array[:, 0].copy()
-                x = 0.5**0.5 if self is other else 0.5
-                self.matrix.array[:, 0] *= x
                 self.matrix.multiply(2 * self.dv, 'N', other.matrix, 'T',
                                      0.0, out, symmetric)
-                self.matrix.array[:, 0] = tmp_G
+                correction = np.outer(self.matrix.array[:, 0],
+                                      other.matrix.array[:, 0])
+                if symmetric:
+                    out.array -= 0.5 * self.dv * (correction + correction.T)
+                else:
+                    out.array -= self.dv * correction
         else:
             assert not cc
             P_ani = {a: P_ni for a, P_ni in out.items()}

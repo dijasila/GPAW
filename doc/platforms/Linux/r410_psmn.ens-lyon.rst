@@ -24,7 +24,7 @@ Setup the root directory::
   mkdir -p ${HOMESOFTS}
   cd ${HOMESOFTS}
 
-  setenv GPAW_PLATFORM `python -c "from distutils import util, sysconfig; print util.get_platform()+'-'+sysconfig.get_python_version()"`
+  setenv GPAW_PLATFORM `python -c "from distutils import util, sysconfig; print(util.get_platform()+'-'+sysconfig.get_python_version())"`
 
 Set the versions::
 
@@ -39,7 +39,7 @@ Set the versions::
   set ase=3.5.1.2175
   set gpaw=0.8.0.8092
   set setups=0.8.7929
-  
+
 and create startup scripts::
 
   cat <<EOF > ${HOMESOFTS}/acml-${acml}-1.cshrc

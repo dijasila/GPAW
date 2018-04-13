@@ -148,13 +148,11 @@ tests = [
     'pbc.py',
     'atoms_too_close.py',
     'ext_potential/harmonic.py',
-    'generic/proton.py',
     'atoms_mismatch.py',
     'setup_basis_spec.py',
     'overlap.py',
     'pw/direct.py',
     'vdw/libvdwxc_spin.py',                 # ~1s
-    'symmetry/kpoint_mapping.py',           # ~1s
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
     'lcao/density.py',                      # ~1s
@@ -171,6 +169,7 @@ tests = [
     'lcao/dos.py',                          # ~1s
     'solvation/nan_radius.py',              # ~1s
     'solvation/pbc_pos_repeat.py',          # ~1s
+    'lcao/generate_ngto.py',                # ~1s
     'linalg/gemv.py',                       # ~2s
     'fileio/idiotproof_setup.py',           # ~2s
     'radial/ylexpand.py',                   # ~2s
@@ -225,6 +224,7 @@ tests = [
     'fermisplit.py',                        # ~4s
     'generic/Cl_minus.py',                  # ~4s
     'lrtddft/pes.py',                       # ~4s
+    'generic/proton.py',                    # ~4s
     'corehole/h2o_recursion.py',            # ~5s
     'xc/nonselfconsistent.py',              # ~5s
     'spin/spinpol.py',                      # ~5s
@@ -284,11 +284,12 @@ tests = [
     'lcaotddft/fxc_vs_linearize.py',        # ~10s
     'lcaotddft/replay.py',                  # ~10s
     'lcaotddft/ksdecomp.py',                # ~10s
+    'timelimit.py',                         # ~10s
     'ralda/ralda_energy_N2.py',             # ~10s
     'parallel/lcao_complicated.py',         # ~10s
     'generic/bulk.py',                      # ~10s
-    'response/chi0_intraband_test.py',      # ~10s
     #'sic/scfsic_h2.py',                     # ~10s
+    'kpt_refine.py',                        # ~10s
     'lcao/bulk.py',                         # ~11s
     'reuse_wfs.py',                         # ~11s
     'generic/2Al.py',                       # ~11s
@@ -318,6 +319,7 @@ tests = [
     'solvation/poisson.py',                 # ~15s
     'solvation/water_water.py',             # ~15s
     'xc/pygga.py',                          # ~15s
+    'pseudopotential/atompaw.py',           # ~15s
     'parallel/lcao_parallel.py',            # ~16s
     'xc/atomize.py',                        # ~16s
     'lrtddft/excited_state.py',             # ~16s
@@ -338,6 +340,7 @@ tests = [
     'response/na_plasmon.py',               # ~22s
     'fermilevel.py',                        # ~23s
     'ralda/ralda_energy_H2.py',             # ~23s
+    'symmetry/kpoint_mapping.py',           # ~23s
     'response/diamond_absorption.py',       # ~24s
     'ralda/ralda_energy_Si.py',             # ~24s
     'jellium.py',                           # ~24s
@@ -375,6 +378,7 @@ tests = [
     'response/chi0.py',                     # ~71s
     #'sic/scfsic_n2.py',                     # ~73s
     'lrtddft/3.py',                         # ~75s
+    'response/chi0_intraband_test.py',      # ~76s
     'pathological/nonlocalset.py',          # ~82s
     'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
@@ -424,6 +428,7 @@ if mpi.size > 1:
                 'spinorbit_Kr.py',
                 'fd_ops/laplace.py',
                 'potential.py',
+                'lcao/generate_ngto.py',
                 'lcao/pair_and_coulomb.py',
                 'muffintinpot.py',
                 'pw/moleculecg.py',

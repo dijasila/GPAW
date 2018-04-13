@@ -39,7 +39,7 @@ class ConstantPotential(ExternalPotential):
         self.constant = constant / Hartree
 
     def __str__(self):
-        return 'Constant potential: {0:.3f} eV'.format(self.constant * Hartree)
+        return 'Constant potential: {:.3f} V'.format(self.constant * Hartree)
 
     def calculate_potential(self, gd):
         self.vext_g = gd.zeros() + self.constant
@@ -64,7 +64,7 @@ class ConstantElectricField(ExternalPotential):
 
     def __str__(self):
         return ('Constant electric field: '
-                '({0:.3f}, {1:.3f}, {2:.3f}) eV/Ang'
+                '({:.3f}, {:.3f}, {:.3f}) V/Ang'
                 .format(*(self.field_v * Hartree / Bohr)))
 
     def calculate_potential(self, gd):
@@ -72,7 +72,7 @@ class ConstantElectricField(ExternalPotential):
         for axis_v in gd.cell_cv[gd.pbc_c]:
             if abs(np.dot(d_v, axis_v)) > self.tolerance:
                 raise ValueError(
-                    'Field not perpendicular to periodic axis: {0}'
+                    'Field not perpendicular to periodic axis: {}'
                     .format(axis_v))
 
         center_v = 0.5 * gd.cell_cv.sum(0)
@@ -132,7 +132,7 @@ class PointChargePotential(ExternalPotential):
 
     def __str__(self):
         return ('Point-charge potential '
-                '(points: {0}, cutoffs: {1:.3f}, {2:.3f}, {3:.3f} Ang)'
+                '(points: {}, cutoffs: {:.3f}, {:.3f}, {:.3f} Ang)'
                 .format(len(self.q_p),
                         self.rc * Bohr,
                         (self.rc2 - self.width) * Bohr,
