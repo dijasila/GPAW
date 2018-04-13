@@ -1,6 +1,23 @@
 import numpy as np
 from ase import Atoms
-from gpaw import GPAW, PW, MixerDif
+from gpaw import GPAW, PW
+
+
+def agts(queue):
+    queue.add('gs_Cr.py', cores=8)
+
+
+def angle(a, b):
+    x = np.dot(a, b) / (np.dot(a, a) * np.dot(b, b))**0.5
+    return np.arccos(x) * 180 / np.pi
+
+
+def check(m_av):
+    for a in range(3):
+        theta = angle(m_av[a], m_av[a - 1])
+        print(theta)
+        assert abs(theta - 120) < 0.5, theta
+
 
 d = 2.66
 atoms = Atoms('Cr3', positions=[(0, 0, 0), (d, 0, 0), (2 * d, 0, 0)],
@@ -8,28 +25,21 @@ atoms = Atoms('Cr3', positions=[(0, 0, 0), (d, 0, 0), (2 * d, 0, 0)],
                     [d * 3 / 2, d * np.sqrt(3) / 2, 0],
                     [0, 0, 6]],
               pbc=True)
+
 magmoms = [[3, 3, 0], [3, -1, 0], [-4, 0, 1.0]]
 
 calc = GPAW(mode=PW(400),
             symmetry='off',
-            # mixer=MixerDif(),
             experimental={'magmoms': magmoms},
             kpts=(4, 4, 1))
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
-m_v, m_av = calc.density.estimate_magnetic_moments()
-v0 = m_av[0]
-v1 = m_av[1]
-v2 = m_av[2]
-a01 = np.dot(v0, v1) / np.dot(v0, v0)**0.5 / np.dot(v1, v1)**0.5
-a12 = np.dot(v1, v2) / np.dot(v1, v1)**0.5 / np.dot(v2, v2)**0.5
-a20 = np.dot(v2, v0) / np.dot(v2, v2)**0.5 / np.dot(v0, v0)**0.5
-b01 = np.arccos(a01) * 180 / np.pi
-b12 = np.arccos(a12) * 180 / np.pi
-b20 = np.arccos(a20) * 180 / np.pi
-print(b01, b12, b20)
-calc.write('Cr3.gpw')
 
+_, m_av = calc.density.estimate_magnetic_moments()
+check(m_av)
+
+calc.write('Cr3.gpw')
 calc = GPAW('Cr3.gpw', txt=None)
-m_av = calc.density.estimate_magnetic_moments()
-print(m_av)
+
+_, m_av = calc.density.estimate_magnetic_moments()
+check(m_av)
