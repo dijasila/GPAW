@@ -1,12 +1,10 @@
-#!/usr/bin/env python
-
 from ase.visualize import view
 from ase.build import fcc111, add_adsorbate
 from gpaw import GPAW
 from gpaw.mixer import MixerSum
 import gpaw.dscf as dscf
 
-filename='homo'
+filename = 'homo'
 
 #-------------------------------------------
 
@@ -17,7 +15,8 @@ c_mol = GPAW(nbands=9, h=0.2, xc='RPBE', kpts=(8,6,1),
                           'eigenstates': 1.0e-9,
                           'bands': 'occupied'}, txt='CO_homo.txt')
 
-calc = GPAW(nbands=45, h=0.2, xc='RPBE', kpts=(8,6,1),
+calc = GPAW(nbands=80,
+            h=0.2, xc='RPBE', kpts=(8,6,1),
             eigensolver='cg',
             spinpol=True,
             mixer=MixerSum(nmaxold=5, beta=0.1, weight=100),
