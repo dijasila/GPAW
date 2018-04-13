@@ -295,48 +295,89 @@ class ALDAKernelCalculator:
             dG_GGv = np.zeros((npw, npw, 3))
             for v in range(3):
                 dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
-
+            
+            # Make every process work an equal amount
+            # Figure out the total number of grid points
+            tp = 0
             for a, setup in enumerate(setups):
-                #if rank == a % size:
+                Y_nL = setup.xc_correction.Y_nL
+                r_g = setup.xc_correction.rgd.r_g
+                tp += len(Y_nL)*len(r_g)
+            # How many points should each process compute
+            ppr = tp // size
+            p_r = []
+            pdone = 0
+            for rr in range(size):
+                if pdone + ppr*(size-rr) > tp:
+                    ppr -= 1
+                elif pdone + ppr*(size-rr) < tp:
+                    ppr += 1
+                p_r.append(ppr)
+                pdone += ppr
+            
+            r = 0
+            for a, setup in enumerate(setups):
                 # PAW correction is evaluated on a radial grid
                 Y_nL = setup.xc_correction.Y_nL
-                if rank in [(a*len(Y_nL)+n)%size for n in range(len(Y_nL))]:
-                    rgd = setup.xc_correction.rgd
-                    n_qg = setup.xc_correction.n_qg
-                    nt_qg = setup.xc_correction.nt_qg
-                    nc_g = setup.xc_correction.nc_g
-                    nct_g = setup.xc_correction.nct_g
-                    dv_g = rgd.dv_g
+                rgd = setup.xc_correction.rgd
+                
+                n_qg = setup.xc_correction.n_qg
+                nt_qg = setup.xc_correction.nt_qg
+                nc_g = setup.xc_correction.nc_g
+                nct_g = setup.xc_correction.nct_g
+                dv_g = rgd.dv_g
 
-                    D_sp = D_asp[a]
-                    B_pqL = setup.xc_correction.B_pqL
-                    D_sLq = np.inner(D_sp, B_pqL.T)
-                    nspins = len(D_sp)
+                D_sp = D_asp[a]
+                B_pqL = setup.xc_correction.B_pqL
+                D_sLq = np.inner(D_sp, B_pqL.T)
+                nspins = len(D_sp)
 
-                    f_g = rgd.zeros()
-                    ft_g = rgd.zeros()
+                f_g = rgd.zeros()
+                ft_g = rgd.zeros()
 
-                    n_sLg = np.dot(D_sLq, n_qg)
-                    nt_sLg = np.dot(D_sLq, nt_qg)
+                n_sLg = np.dot(D_sLq, n_qg)
+                nt_sLg = np.dot(D_sLq, nt_qg)
 
-                    # Add core density
-                    n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
-                    nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
+                # Add core density
+                n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
+                nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
 
-                    coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
-                    for n, Y_L in enumerate(Y_nL):
-                        if rank == (a*len(Y_nL) + n) % size:
-                            w = weight_n[n]
+                coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
+                
+                for n, Y_L in enumerate(Y_nL):
+                    # Which processes should do calculations?
+                    rn = []
+                    i_r = []
+                    idone = 0
+                    pres = len(rgd.r_g)
+                    while pres > 0:
+                        p = p_r[r]
+                        if p <= pres:
+                            pi = p
+                        else:
+                            pi = pres
+                        i_r.append(range(idone,idone+pi))
+                        rn.append(r)
+                        idone += pi
+                        pres -= pi
 
-                            f_g[:] = 0.
-                            n_sg = np.dot(Y_L, n_sLg)
-                            add_fxc(rgd, n_sg, f_g)
+                        p_r[r] -= pi
+                        if pi == p:
+                            r += 1
+                        
+                    if rank in rn:
+                        w = weight_n[n]
 
-                            ft_g[:] = 0.
-                            nt_sg = np.dot(Y_L, nt_sLg)
-                            add_fxc(rgd, nt_sg, ft_g)
+                        f_g[:] = 0.
+                        n_sg = np.dot(Y_L, n_sLg)
+                        add_fxc(rgd, n_sg, f_g)
 
-                            for i in range(len(rgd.r_g)):
+                        ft_g[:] = 0.
+                        nt_sg = np.dot(Y_L, nt_sLg)
+                        add_fxc(rgd, nt_sg, ft_g)
+
+                        for i in range(len(rgd.r_g)):
+                            if i in i_r[rn.index(rank)]:
                                 coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n])
                                                  * rgd.r_g[i])
 
