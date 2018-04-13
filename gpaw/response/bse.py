@@ -287,7 +287,8 @@ class BSE:
                        timedelta(seconds=round(dt)),
                        timedelta(seconds=round(tleft))), file=self.fd)
 
-        del self.Q_qaGii, self.W_qGG, self.pd_q
+        if self.mode == 'BSE':
+            del self.Q_qaGii, self.W_qGG, self.pd_q
 
         H_ksmnKsmn /= self.vol
         mySsize = myKsize * self.nv * self.nc * self.spins
