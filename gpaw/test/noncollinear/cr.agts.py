@@ -1,10 +1,10 @@
 import numpy as np
 from ase import Atoms
-from gpaw import GPAW, PW
+from gpaw import GPAW, PW, MixerDif
 
 
 def agts(queue):
-    queue.add('gs_Cr.py', cores=8)
+    queue.add('cr.agts.py', ncpus=8)
 
 
 def angle(a, b):
@@ -30,6 +30,7 @@ magmoms = [[3, 3, 0], [3, -1, 0], [-4, 0, 1.0]]
 
 calc = GPAW(mode=PW(400),
             symmetry='off',
+            mixer=MixerDif(),
             experimental={'magmoms': magmoms},
             kpts=(4, 4, 1))
 atoms.calc = calc
