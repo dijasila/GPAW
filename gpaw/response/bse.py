@@ -172,10 +172,7 @@ class BSE:
 
         # Parallelization stuff
         nK = self.kd.nbzkpts
-        myKsize = -(-nK // world.size)
-        myKrange = range(world.rank * myKsize,
-                         min((world.rank + 1) * myKsize, nK))
-        myKsize = len(myKrange)
+        myKrange, myKsize, mySsize = self.parallelisation_sizes()
 
         # Calculate exchange interaction
         qd0 = KPointDescriptor([self.q_c])
@@ -872,6 +869,7 @@ class BSE:
             else:
                 A_XS = self.collect_A_SS(A_sS)
 
+        # temporarily
         if name == 'v_TS':
             if world.size == 1:
                 A_XS = A_sS
@@ -880,7 +878,6 @@ class BSE:
 
         if world.rank == 0:
             w = ulm.open(filename, 'w')
-
             if name == 'v_TS':
                 w.write(w_T=self.w_T)
             w.write(nS=self.nS)
@@ -888,89 +885,39 @@ class BSE:
             w.write(df_S=self.df_S)
             w.write(A_XS=A_XS)
             w.close()
-
-        #if not self.td and name == 'v_TS':
-            #if world.rank == 0:
-                #w.fill(A_sS)
-        #else:
-            ## Assumes that A_SS is written in order from rank 0 - rank N
-            #nK = self.kd.nbzkpts
-            #for irank in range(world.size):
-                #if irank == 0:
-                    #if world.rank == 0:
-                        #w.fill(A_sS)
-                #else:
-                    #if world.rank == irank:
-                        #world.send(A_sS, 0, irank + 100)
-                    #if world.rank == 0:
-                        #iKsize = -(-nK // world.size)
-                        #iKrange = range(irank * iKsize,
-                                        #min((irank + 1) * iKsize, nK))
-                        #iSsize = len(iKrange) * self.nv * self.nc
-                        #tmp = np.empty((iSsize, nS), complex)
-                        #world.receive(tmp, irank, irank + 100)
-                        #w.fill(tmp)
-
         world.barrier()
 
     def par_load(self, filename, name):
         import ase.io.ulm as ulm
 
-        nK = self.kd.nbzkpts
-        myKsize = -(-nK // world.size)
-        myKrange = range(world.rank * myKsize,
-                         min((world.rank + 1) * myKsize, nK))
-        mySsize = len(myKrange) * self.nv * self.nc
-        if len(myKrange) > 0:
-            mySrange = range(myKrange[0] * self.nv * self.nc,
-                             myKrange[0] * self.nv * self.nc + mySsize)
-
         if world.rank == 0:
             r = ulm.open(filename, 'r')
-            # self.nS = r.nS
             self.rhoG0_S = r.rhoG0_S
             self.df_S = r.df_S
             A_XS = r.A_XS
             r.close()
+        else:
+            self.rhoG0_S = np.zeros((self.nS), dtype=complex)
+            self.df_S = np.zeros((self.nS), dtype=float)
+            A_XS = None
 
         world.broadcast(self.rhoG0_S, 0)
         world.broadcast(self.df_S, 0)
 
         if name == 'H_SS':
             self.H_sS = self.distribute_A_SS(A_XS)
-    
 
-            #self.H_sS = np.zeros((mySsize, nS), dtype=complex)
-            #if len(myKrange) > 0:
-                #for si, s in enumerate(mySrange):
-                    #self.H_sS[si] = r.get('H_SS', s)
-
-
-
-        #if name == 'H_SS':
-            #self.H_sS = np.zeros((mySsize, nS), dtype=complex)
-            #if len(myKrange) > 0:
-                #for si, s in enumerate(mySrange):
-                    #self.H_sS[si] = r.get('H_SS', s)
-
-        #if name == 'v_TS':
-            #self.w_T = r.get('w_T')
-            #self.v_St = np.zeros((nS, mySsize), dtype=complex)
-            #if len(myKrange) > 0:
-                #for it, t in enumerate(mySrange):
-                    #self.v_St[:, it] = r.get('v_TS', t)
-
+        # temporarily (also a transpose might be needed
+        if name == 'v_TS':
+            self.v_St = self.distribute_A_SS(A_XS)
 
     def collect_A_SS(self, A_sS):
-        nK = self.kd.nbzkpts
         if world.rank == 0:
             A_SS = np.zeros((self.nS, self.nS), dtype=complex)
             A_SS[:len(A_sS)] = A_sS
             Ntot = len(A_sS)
             for rank in range(1, world.size):
-                Ksize = -(-nK // world.size)
-                Krange = range(rank * Ksize, min((rank + 1) * Ksize, nK))
-                ns = len(Krange) * self.nv * self.nc * self.spins
+                nkr, nk, ns = self.parallelisation_sizes(rank)
                 buf = np.empty((ns, self.nS), dtype=complex)
                 world.receive(buf, rank, tag=123)
                 A_SS[Ntot:Ntot + ns] = buf
@@ -982,22 +929,32 @@ class BSE:
             return A_SS
 
     def distribute_A_SS(self, A_SS):
-        nK = self.kd.nbzkpts
         if world.rank == 0:
             for rank in range(0, world.size):
-                Ksize = -(-nK // world.size)
-                Krange = range(rank * Ksize, min((rank + 1) * Ksize, nK))
-                ns = len(Krange) * self.nv * self.nc * self.spins
+                nkr, nk, ns = self.parallelisation_sizes(rank)
                 if rank == 0:
                     A_sS = A_SS[0:ns]
                     Ntot = ns
                 else:
-                    world.send(A_SS[Ntot:Not+ns], rank, tag=123)
+                    world.send(A_SS[Ntot:Ntot+ns], rank, tag=123)
                     Ntot += ns
         else:
+            nkr, nk, ns = self.parallelisation_sizes()
+            A_sS = np.empty((ns, self.nS), dtype=complex)
             world.receive(A_sS, 0, tag=123)
         world.barrier()
         return A_sS
+
+    def parallelisation_sizes(self, rank=None):
+        if rank is None:
+            rank = world.rank
+        nK = self.kd.nbzkpts
+        myKsize = -(-nK // world.size)
+        myKrange = range(rank * myKsize,
+                         min((rank + 1) * myKsize, nK))
+        myKsize = len(myKrange)
+        mySsize = myKsize * self.nv * self.nc * self.spins
+        return myKrange, myKsize, mySsize
 
     def get_bse_wf(self):
         pass
