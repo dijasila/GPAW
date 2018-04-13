@@ -1,8 +1,11 @@
 # encoding: utf-8
+import numpy as np
 from ase.neighborlist import PrimitiveNeighborList
 
 from gpaw.lcao.overlap import (FourierTransformer, TwoSiteOverlapCalculator,
-                               TwoCenterIntegralCalculator)
+                               TwoCenterIntegralCalculator,
+                               ManySiteOverlapCalculator,
+                               AtomicDisplacement)
 
 def get_cutoffs(f_Ij):
     rcutmax_I = []
@@ -53,36 +56,51 @@ class Overlap:
         self.P_ii = None
 
 class TCI:
-    def __init__(self, pt_Ij, phit_Ij, I_a, cell_cv, spos_ac, pbc_c, ibzk_qc,
-                 gamma):
+    def __init__(self, phit_Ij, pt_Ij, I_a, cell_cv, spos_ac, pbc_c, ibzk_qc,
+                 dtype):
         assert len(pt_Ij) == len(phit_Ij)
+        self.dtype = dtype
 
         # Cutoffs by species:
         pt_rcmax_I = get_cutoffs(pt_Ij)
         phit_rcmax_I = get_cutoffs(phit_Ij)
         rcmax_I = [max(rc1, rc2) for rc1, rc2
                         in zip(pt_rcmax_I, phit_rcmax_I)]
-        transformer = FourierTransformer(rcut=max(0.001, *rcmax_I), ng=2**10)
+        # XXX It is somewhat nasty that rcmax depends on how long our
+        # longest orbital happens to be
+        transformer = FourierTransformer(rcmax=max(0.001, *rcmax_I), ng=2**10)
         tsoc = TwoSiteOverlapCalculator(transformer)
+        msoc = ManySiteOverlapCalculator(tsoc, I_a, I_a)
 
         # Cutoffs by atom:
         cutoff_a = [rcmax_I[I] for I in I_a]
-        pt_rcmax_a = np.array([self.pt_rcmax_I[I] for I in I_a])
-        phit_rcmax_a = np.array([self.phit_rcmax_I[I] for I in I_a])
+        self.pt_rcmax_a = np.array([pt_rcmax_I[I] for I in I_a])
+        self.phit_rcmax_a = np.array([phit_rcmax_I[I] for I in I_a])
 
         self.a1a2 = AtomPairRegistry(cutoff_a, pbc_c, cell_cv, spos_ac)
 
-        self.overlapcalc = TwoCenterIntegralCalculator(wfs.kd.ibzk_qc,
+        self.overlapcalc = TwoCenterIntegralCalculator(ibzk_qc,
                                                        derivative=False)
+        phit_Ijq = msoc.transform(phit_Ij)
+        pt_Ijq = msoc.transform(pt_Ij)
 
         pt_l_Ij = get_lvalues(pt_Ij)
         phit_l_Ij = get_lvalues(phit_Ij)
+
+        # Avoid two-way for O and T?
+        # TODO: lazy msoc
+        self.O_expansions = msoc.calculate_expansions(phit_l_Ij, phit_Ijq,
+                                                      phit_l_Ij, phit_Ijq)
+        self.T_expansions = msoc.calculate_kinetic_expansions(phit_l_Ij,
+                                                              phit_Ijq)
         self.P_expansions = msoc.calculate_expansions(pt_l_Ij, pt_Ijq,
                                                       phit_l_Ij, phit_Ijq)
 
-    def calculate(a1, a2, OT=False, P=False):
+
+    def calculate(self, a1, a2, OT=False, P=False):
         """Calculate overlap of functions between atoms a1 and a2."""
 
+        print('aa', a1, a2)
         o = Overlap()
         R_c_and_offset_a = self.a1a2.get(a1, a2)
 
@@ -91,10 +109,14 @@ class TCI:
 
         dtype = self.dtype
         get_phases = self.overlapcalc.phaseclass
+        ibzk_qc = self.overlapcalc.ibzk_qc
+        nq = len(ibzk_qc)
+        phit_rcmax_a = self.phit_rcmax_a
+        pt_rcmax_a = self.pt_rcmax_a
 
         if P:
             P_expansion = self.P_expansions.get(a1, a2)
-            o.P_qim = P_qim = expansion.zeros((nq,), dtype=dtype)
+            o.P_qim = P_qim = P_expansion.zeros((nq,), dtype=dtype)
 
         if OT:
             O_expansion = self.O_expansions.get(a1, a2)
@@ -103,15 +125,16 @@ class TCI:
             o.T_qmm = T_qmm = T_expansion.zeros((nq,), dtype=dtype)
 
         for R_c, offset in R_c_and_offset_a:
-            norm = np.linalg.norm(R_c, R_c)
-            phases = get_phases(overlapcalc.ibzk_qc, offset)
+            norm = np.linalg.norm(R_c)
+            print(norm)
+            phases = get_phases(ibzk_qc, offset)
             disp = AtomicDisplacement(None, a1, a2, R_c, offset, phases)
 
-            if P and pt_rcmax_a[a1] + phit_rcmax_a[a2] < norm:
+            if P and norm < pt_rcmax_a[a1] + phit_rcmax_a[a2]:
                 disp.evaluate_overlap(P_expansion, P_qim)
 
-            if OT and phit_rcmax_a[a1] + phit_rcmax_a[a2] < norm:
-                disp.evaluate_overlap(O_expansion, O_qim)
-                disp.evaluate_overlap(T_expansion, T_qim)
+            if OT and norm < phit_rcmax_a[a1] + phit_rcmax_a[a2]:
+                disp.evaluate_overlap(O_expansion, O_qmm)
+                disp.evaluate_overlap(T_expansion, T_qmm)
 
         return o
