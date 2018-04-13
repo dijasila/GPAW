@@ -863,24 +863,16 @@ class BSE:
     def par_save(self, filename, name, A_sS):
         import ase.io.ulm as ulm
 
-        if name == 'H_SS':
-            if world.size == 1:
-                A_XS = A_sS
-            else:
-                A_XS = self.collect_A_SS(A_sS)
-
-        # temporarily
-        if name == 'v_TS':
-            if world.size == 1:
-                A_XS = A_sS
-            else:
-                A_XS = self.collect_A_SS(A_sS)
+        if world.size == 1:
+            A_XS = A_sS
+        else:
+            A_XS = self.collect_A_SS(A_sS)
 
         if world.rank == 0:
             w = ulm.open(filename, 'w')
             if name == 'v_TS':
                 w.write(w_T=self.w_T)
-            w.write(nS=self.nS)
+            # w.write(nS=self.nS)
             w.write(rhoG0_S=self.rhoG0_S)
             w.write(df_S=self.df_S)
             w.write(A_XS=A_XS)
@@ -892,11 +884,15 @@ class BSE:
 
         if world.rank == 0:
             r = ulm.open(filename, 'r')
+            if name == 'v_TS':
+                self.w_T = r.w_T
             self.rhoG0_S = r.rhoG0_S
             self.df_S = r.df_S
             A_XS = r.A_XS
             r.close()
         else:
+            if name == 'v_TS':
+                self.w_T = np.zeros((self.nS), dtype=float)
             self.rhoG0_S = np.zeros((self.nS), dtype=complex)
             self.df_S = np.zeros((self.nS), dtype=float)
             A_XS = None
@@ -907,9 +903,9 @@ class BSE:
         if name == 'H_SS':
             self.H_sS = self.distribute_A_SS(A_XS)
 
-        # temporarily (also a transpose might be needed
         if name == 'v_TS':
-            self.v_St = self.distribute_A_SS(A_XS)
+            world.broadcast(self.w_T, 0)
+            self.v_St = self.distribute_A_SS(A_XS, transpose=True)
 
     def collect_A_SS(self, A_sS):
         if world.rank == 0:
@@ -928,7 +924,7 @@ class BSE:
         if world.rank == 0:
             return A_SS
 
-    def distribute_A_SS(self, A_SS):
+    def distribute_A_SS(self, A_SS, transpose=False):
         if world.rank == 0:
             for rank in range(0, world.size):
                 nkr, nk, ns = self.parallelisation_sizes(rank)
@@ -936,13 +932,15 @@ class BSE:
                     A_sS = A_SS[0:ns]
                     Ntot = ns
                 else:
-                    world.send(A_SS[Ntot:Ntot+ns], rank, tag=123)
+                    world.send(A_SS[Ntot:Ntot + ns], rank, tag=123)
                     Ntot += ns
         else:
             nkr, nk, ns = self.parallelisation_sizes()
             A_sS = np.empty((ns, self.nS), dtype=complex)
             world.receive(A_sS, 0, tag=123)
         world.barrier()
+        if transpose:
+            A_sS = A_sS.T
         return A_sS
 
     def parallelisation_sizes(self, rank=None):
