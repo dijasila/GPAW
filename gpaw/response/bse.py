@@ -539,7 +539,7 @@ class BSE:
             print('  Eliminated %s pair orbitals' % len(self.excludef_S),
                   file=self.fd)
 
-            self.H_SS = self.collect_A_SS(H_sS)
+            self.H_SS = self.collect_A_SS(self.H_sS)
 
             self.w_T = np.zeros(self.nS - len(self.excludef_S), complex)
             if world.rank == 0:
@@ -697,8 +697,8 @@ class BSE:
             dielectric function is written
         readfile: str
             If H_SS is given, the method will load the BSE Hamiltonian
-            from H_SS.gpw. If v_TS is given, the method will load the
-            eigenstates from v_TS.gpw
+            from H_SS.ulm. If v_TS is given, the method will load the
+            eigenstates from v_TS.ulm
         write_eig: str
             File on which the BSE eigenvalues are written
         """
@@ -754,8 +754,8 @@ class BSE:
             dielectric function is written
         readfile: str
             If H_SS is given, the method will load the BSE Hamiltonian
-            from H_SS.gpw. If v_TS is given, the method will load the
-            eigenstates from v_TS.gpw
+            from H_SS.ulm. If v_TS is given, the method will load the
+            eigenstates from v_TS.ulm
         write_eig: str
             File on which the BSE eigenvalues are written
         """
@@ -866,9 +866,13 @@ class BSE:
     def par_save(self, filename, name, A_sS):
         import ase.io.ulm as ulm
 
-        nS = self.nS
-
         if name == 'H_SS':
+            if world.size == 1:
+                A_XS = A_sS
+            else:
+                A_XS = self.collect_A_SS(A_sS)
+
+        if name == 'v_TS':
             if world.size == 1:
                 A_XS = A_sS
             else:
@@ -879,6 +883,7 @@ class BSE:
 
             if name == 'v_TS':
                 w.write(w_T=self.w_T)
+            w.write(nS=self.nS)
             w.write(rhoG0_S=self.rhoG0_S)
             w.write(df_S=self.df_S)
             w.write(A_XS=A_XS)
@@ -909,37 +914,52 @@ class BSE:
         world.barrier()
 
     def par_load(self, filename, name):
-        from gpaw.io.tar import open
+        import ase.io.ulm as ulm
 
-        r = open(filename, 'r')
-        nS = r.dimension('nS')
         nK = self.kd.nbzkpts
         myKsize = -(-nK // world.size)
         myKrange = range(world.rank * myKsize,
                          min((world.rank + 1) * myKsize, nK))
         mySsize = len(myKrange) * self.nv * self.nc
-
         if len(myKrange) > 0:
             mySrange = range(myKrange[0] * self.nv * self.nc,
                              myKrange[0] * self.nv * self.nc + mySsize)
 
+        if world.rank == 0:
+            r = ulm.open(filename, 'r')
+            # self.nS = r.nS
+            self.rhoG0_S = r.rhoG0_S
+            self.df_S = r.df_S
+            A_XS = r.A_XS
+            r.close()
+
+        world.broadcast(self.rhoG0_S, 0)
+        world.broadcast(self.df_S, 0)
+
         if name == 'H_SS':
-            self.H_sS = np.zeros((mySsize, nS), dtype=complex)
-            if len(myKrange) > 0:
-                for si, s in enumerate(mySrange):
-                    self.H_sS[si] = r.get('H_SS', s)
+            self.H_sS = self.distribute_A_SS(A_XS)
+    
 
-        if name == 'v_TS':
-            self.w_T = r.get('w_T')
-            self.v_St = np.zeros((nS, mySsize), dtype=complex)
-            if len(myKrange) > 0:
-                for it, t in enumerate(mySrange):
-                    self.v_St[:, it] = r.get('v_TS', t)
+            #self.H_sS = np.zeros((mySsize, nS), dtype=complex)
+            #if len(myKrange) > 0:
+                #for si, s in enumerate(mySrange):
+                    #self.H_sS[si] = r.get('H_SS', s)
 
-        self.rhoG0_S = r.get('rhoG0_S')
-        self.df_S = r.get('df_S')
 
-        r.close()
+
+        #if name == 'H_SS':
+            #self.H_sS = np.zeros((mySsize, nS), dtype=complex)
+            #if len(myKrange) > 0:
+                #for si, s in enumerate(mySrange):
+                    #self.H_sS[si] = r.get('H_SS', s)
+
+        #if name == 'v_TS':
+            #self.w_T = r.get('w_T')
+            #self.v_St = np.zeros((nS, mySsize), dtype=complex)
+            #if len(myKrange) > 0:
+                #for it, t in enumerate(mySrange):
+                    #self.v_St[:, it] = r.get('v_TS', t)
+
 
     def collect_A_SS(self, A_sS):
         nK = self.kd.nbzkpts
@@ -960,6 +980,24 @@ class BSE:
         world.barrier()
         if world.rank == 0:
             return A_SS
+
+    def distribute_A_SS(self, A_SS):
+        nK = self.kd.nbzkpts
+        if world.rank == 0:
+            for rank in range(0, world.size):
+                Ksize = -(-nK // world.size)
+                Krange = range(rank * Ksize, min((rank + 1) * Ksize, nK))
+                ns = len(Krange) * self.nv * self.nc * self.spins
+                if rank == 0:
+                    A_sS = A_SS[0:ns]
+                    Ntot = ns
+                else:
+                    world.send(A_SS[Ntot:Not+ns], rank, tag=123)
+                    Ntot += ns
+        else:
+            world.receive(A_sS, 0, tag=123)
+        world.barrier()
+        return A_sS
 
     def get_bse_wf(self):
         pass
