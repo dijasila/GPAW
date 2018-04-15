@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.sparse as sparse
 from ase.units import Bohr
 
 from gpaw.lfc import BasisFunctions
@@ -164,6 +165,83 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.start('TCI: Calculate S, T, P')
         # Calculate lower triangle of S and T matrices:
         self.tci.calculate(spos_ac, S_qMM, T_qMM, self.P_aqMi)
+
+        from gpaw.lcao.tci import TCI
+        # Establish arbitrary enumeration of setups:
+        I_setup = {}
+        setups_I = list(self.setups.setups.values())
+        for I, setup in enumerate(setups_I):
+            I_setup[setup] = I
+        I_a = [I_setup[setup] for setup in self.setups]
+
+        newtci = TCI([s.phit_j for s in setups_I],
+                     [s.pt_j for s in setups_I],
+                     I_a, self.gd.cell_cv, spos_ac=spos_ac,
+                     pbc_c=self.gd.pbc_c, ibzk_qc=self.kd.ibzk_qc,
+                     dtype=self.dtype)
+
+        newS_qMM = np.empty((nq, nao, nao), self.dtype)
+        newT_qMM = np.empty((nq, nao, nao), self.dtype)
+
+        natoms = len(spos_ac)
+
+        Mindices = self.setups.basis_indices()
+        Pindices = self.setups.projector_indices()
+
+        my_a = set(self.basis_functions.my_atom_indices)
+        newP_qIM = [sparse.lil_matrix((Pindices.max, Mindices.max),
+                                      dtype=self.dtype)
+                 for q in range(nq)]
+        for a1 in range(natoms):
+            M1, M2 = Mindices[a1]
+            I1, I2 = Pindices[a1]
+            for a2 in range(natoms):
+                o = newtci.calculate(a1, a2,
+                                     P=a1 in my_a, OT=True)
+                N1, N2 = Mindices[a2]
+                if o.O_qmm is not None:
+                    newS_qMM[:, M1:M2, N1:N2] = o.O_qmm
+                    newT_qMM[:, M1:M2, N1:N2] = o.T_qmm
+                if o.P_qim is not None:
+                    for q, P_IM in enumerate(newP_qIM):
+                        P_IM[I1:I2, N1:N2] = o.P_qim[q]
+
+        #self.gd.comm.sum(newS_qMM)
+        #self.gd.comm.sum(newT_qMM)
+
+        #for q in range(nq):
+        #    for a in self.P_aqMi:
+        #        P_Mi = self.P_aqMi[a][q]
+        #        I1, I2 = Pindices[a]
+        #        P2_iM = P_qIM[q][:, I1:I2].toarray()
+        #        print(a)
+        #        print(P_Mi)
+        #        print(P2_iM.T.conj())
+
+
+        #np.set_printoptions(precision=4, suppress=1)
+        Serr = np.abs(newS_qMM - S_qMM).max()
+        Terr = np.abs(newT_qMM - T_qMM).max()
+        print('S maxerr', Serr)
+        print('T maxerr', Terr)
+        #print(Tnew_qMM[0])
+        #print(T_qMM[0])
+        #sdfkjsdf
+        #print(Tnew_qMM - T_qMM)
+
+        if 0:
+            if self.ksl.using_blacs:
+                grid = self.ksl.blockgrid
+                blocksize1 = -(-grid.npcol // nao)
+                blocksize2 = -(-grid.nprow // nao)
+                MMdescriptor = grid.new_descriptor(nao, nao,
+                                                   blocksize1, blocksize2)
+                #for a1 in range(natoms):
+                #    for a2 in range(natoms):
+                #Snew_qMM = MMdescriptor.
+
+        print()
+        print(S_qMM[0])
 
         if self.atomic_correction.name != 'dense':
             from gpaw.lcao.newoverlap import newoverlap
