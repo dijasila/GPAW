@@ -32,4 +32,3 @@ if __name__ == '__main__':
     plt.xlabel('number of k-points')
     plt.ylabel('lattice constant [Ang]')
     plt.savefig('Al_conv_k.png')
-    plt.show()
