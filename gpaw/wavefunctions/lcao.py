@@ -180,54 +180,75 @@ class LCAOWaveFunctions(WaveFunctions):
                      pbc_c=self.gd.pbc_c, ibzk_qc=self.kd.ibzk_qc,
                      dtype=self.dtype)
 
-        newS_qMM = np.empty((nq, nao, nao), self.dtype)
-        newT_qMM = np.empty((nq, nao, nao), self.dtype)
-
+        newS_qMM = np.zeros((nq, mynao, nao), self.dtype)
+        newT_qMM = np.zeros((nq, mynao, nao), self.dtype)
+        np.set_printoptions(suppress=1, precision=5)
         natoms = len(spos_ac)
 
         Mindices = self.setups.basis_indices()
         Pindices = self.setups.projector_indices()
 
-        my_a = set(self.basis_functions.my_atom_indices)
         newP_qIM = [sparse.lil_matrix((Pindices.max, Mindices.max),
                                       dtype=self.dtype)
                  for q in range(nq)]
+
+        newP_aqMi = {}
+
+        for a1 in self.basis_functions.my_atom_indices:
+            I1, I2 = Pindices[a1]
+            assert I2 - I1 == self.setups[a1].ni
+            P_qMi = np.empty((nq, nao, I2 - I1), dtype=self.dtype)
+
+            for a2 in range(natoms):
+                N1, N2 = Mindices[a2]
+                print('grrr', a1, a2, N1, N2, I2 - I1)
+                P_qmi = P_qMi[:, N1:N2, :]
+                print(P_qmi.shape)
+                o = newtci.calculate(a1, a2, P=True)
+                if o.P_qim is None:
+                    P_qmi[:] = 0.0
+                else:
+                    P_qmi[:] = o.P_qim.transpose(0, 2, 1)  # conj()?
+            newP_aqMi[a1] = P_qMi
+
         for a1 in range(natoms):
             M1, M2 = Mindices[a1]
-            I1, I2 = Pindices[a1]
-            for a2 in range(natoms):
-                o = newtci.calculate(a1, a2,
-                                     P=a1 in my_a, OT=True)
+            if M2 < Mstart or M1 > Mstop:
+                continue
+
+            M1 = max(M1 - Mstart, 0)
+            M2 = M2 - Mstart
+            nM = M2 - M1
+            if not nM:
+                continue
+
+            for a2 in range(self.gd.comm.rank, natoms, self.gd.comm.size):
+                o = newtci.calculate(a1, a2, OT=True)
                 N1, N2 = Mindices[a2]
                 if o.O_qmm is not None:
                     newS_qMM[:, M1:M2, N1:N2] = o.O_qmm
                     newT_qMM[:, M1:M2, N1:N2] = o.T_qmm
-                if o.P_qim is not None:
-                    for q, P_IM in enumerate(newP_qIM):
-                        P_IM[I1:I2, N1:N2] = o.P_qim[q]
 
-        #self.gd.comm.sum(newS_qMM)
-        #self.gd.comm.sum(newT_qMM)
-
-        #for q in range(nq):
-        #    for a in self.P_aqMi:
-        #        P_Mi = self.P_aqMi[a][q]
-        #        I1, I2 = Pindices[a]
-        #        P2_iM = P_qIM[q][:, I1:I2].toarray()
-        #        print(a)
-        #        print(P_Mi)
-        #        print(P2_iM.T.conj())
-
-
-        #np.set_printoptions(precision=4, suppress=1)
         Serr = np.abs(newS_qMM - S_qMM).max()
         Terr = np.abs(newT_qMM - T_qMM).max()
+
+        #if self.world.rank == 1:
+        #    print(newS_qMM)
+        #    print(S_qMM)
+        #self.world.barrier()
+        
+        #assert Serr < 1e-15, Serr
+        #assert Terr < 1e-15, Terr
         print('S maxerr', Serr)
         print('T maxerr', Terr)
-        #print(Tnew_qMM[0])
-        #print(T_qMM[0])
-        #sdfkjsdf
-        #print(Tnew_qMM - T_qMM)
+        #print(newS_qMM[0])
+        #print(S_qMM[0])
+
+        assert len(self.P_aqMi) == len(newP_aqMi)
+        Perr = 0.0
+        for a in self.P_aqMi:
+            P_err = max(Perr, np.abs(self.P_aqMi[a] - newP_aqMi[a]).max())
+        assert Perr < 1e-15, Perr
 
         if 0:
             if self.ksl.using_blacs:
@@ -240,9 +261,14 @@ class LCAOWaveFunctions(WaveFunctions):
                 #    for a2 in range(natoms):
                 #Snew_qMM = MMdescriptor.
 
-        print()
-        print(S_qMM[0])
+        #print()
+        #print(S_qMM[0])
 
+        #S_qMM = newS_qMM
+        #T_qMM = newT_qMM
+        #self.P_aqMi = newP_aqMi
+
+        
         if self.atomic_correction.name != 'dense':
             from gpaw.lcao.newoverlap import newoverlap
             self.P_neighbors_a, self.P_aaqim = newoverlap(self, spos_ac)
@@ -260,6 +286,8 @@ class LCAOWaveFunctions(WaveFunctions):
         S_MM = None  # allow garbage collection of old S_qMM after redist
         S_qMM = self.ksl.distribute_overlap_matrix(S_qMM, root=-1)
         T_qMM = self.ksl.distribute_overlap_matrix(T_qMM, root=-1)
+        newS_qMM = self.ksl.distribute_overlap_matrix(newS_qMM, root=-1)
+        newT_qMM = self.ksl.distribute_overlap_matrix(newT_qMM, root=-1)
         for kpt in self.kpt_u:
             q = kpt.q
             kpt.S_MM = S_qMM[q]
@@ -278,8 +306,13 @@ class LCAOWaveFunctions(WaveFunctions):
                                        'eigenvalue: %e' % smin)
             self.timer.stop('Check positive definiteness')
         self.positions_set = True
-        self.S_qMM = S_qMM
-        self.T_qMM = T_qMM
+        if 1:
+            self.S_qMM = S_qMM
+            self.T_qMM = T_qMM
+        else:
+            self.S_qMM = newS_qMM
+            self.T_qMM = newT_qMM
+        
 
     def initialize(self, density, hamiltonian, spos_ac):
         # Note: The above line exists also in set_positions.
