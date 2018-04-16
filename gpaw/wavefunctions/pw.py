@@ -76,7 +76,7 @@ class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
 
     def __init__(self, ecut, gd, dtype=None, kd=None,
-                 fftwflags=fftw.ESTIMATE):
+                 fftwflags=fftw.ESTIMATE, addq=True):
 
         assert gd.pbc_c.all()
         assert gd.comm.size == 1
@@ -149,7 +149,10 @@ class PWDescriptor:
         self.ngmin = 100000000
         self.ngmax = 0
         for q, K_v in enumerate(self.K_qv):
-            G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
+            if addq:
+                G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
+            else:
+                G2_Q = (self.G_Qv**2).sum(axis=1)
             mask_Q = (G2_Q <= 2 * ecut)
             if self.dtype == float:
                 mask_Q &= ((i_Qc[:, 2] > 0) |

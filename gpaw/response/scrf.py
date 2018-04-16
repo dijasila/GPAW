@@ -24,7 +24,7 @@ from gpaw.response.fxc import get_xc_kernel, get_xc_spin_kernel
 class SpinChargeResponseFunction:
     """This class provides physical quantities related to the spin-charge response function."""
     def __init__(self, calc, name=None, frequencies=None, domega0=0.1,
-                 omega2=10.0, omegamax=None, ecut=50, hilbert=True,
+                 omega2=10.0, omegamax=None, ecut=50, addq=True, hilbert=True,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  gate_voltage=None, truncation=None, disable_point_group=False,
@@ -55,6 +55,7 @@ class SpinChargeResponseFunction:
             The upper frequency bound for the non-linear frequency grid.
         ecut: float
             Plane-wave cut-off.
+        addq : Add q_c when cutting off plane waves
         hilbert: bool
             Use hilbert transform.
         nbands: int
@@ -89,7 +90,7 @@ class SpinChargeResponseFunction:
 
         self.chi0 = Chi0(calc, frequencies=frequencies,
                          domega0=domega0, omega2=omega2, omegamax=omegamax,
-                         ecut=ecut, hilbert=hilbert, nbands=nbands,
+                         ecut=ecut, addq=addq, hilbert=hilbert, nbands=nbands,
                          eta=eta, ftol=ftol, threshold=threshold,
                          intraband=intraband, world=world, nblocks=nblocks,
                          txt=txt, gate_voltage=gate_voltage,

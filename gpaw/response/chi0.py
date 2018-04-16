@@ -112,7 +112,7 @@ class Chi0:
 
     def __init__(self, calc, response='density',
                  frequencies=None, domega0=0.1, omega2=10.0, omegamax=None,
-                 ecut=50, hilbert=True, nbands=None,
+                 ecut=50, addq=True, hilbert=True, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
                  real_space_derivatives=False, intraband=True,
                  world=mpi.world, txt='-', timer=None,
@@ -139,6 +139,8 @@ class Chi0:
             Input parameters for frequency_grid.
         ecut : float
             Energy cutoff.
+        addq : bool
+            Add q_c when determining energy cutoff
         hilbert : bool
             Switch for hilbert transform. If True, the full density response
             is determined from a hilbert transform of its spectral function.
@@ -250,7 +252,8 @@ class Chi0:
             ecut /= Hartree
 
         self.ecut = ecut
-
+        self.addq = addq
+        
         self.eta = eta / Hartree
         if rate == 'eta':
             self.rate = self.eta
@@ -338,7 +341,7 @@ class Chi0:
         # get number of reciprocal lattice vectors
         q_c = np.asarray(q_c, dtype=float)
         optical_limit = np.allclose(q_c, 0.0) and self.response == 'density' # gamma point needs special care in density response
-        pd = self.get_PWDescriptor(q_c)
+        pd = self.get_PWDescriptor(q_c, self.addq)
         nG = pd.ngmax + 2 * optical_limit
         
         # get number of frequencies
@@ -394,7 +397,7 @@ class Chi0:
         q_c = np.asarray(q_c, dtype=float)
         optical_limit = np.allclose(q_c, 0.0) and self.response == 'density' # gamma point needs special care in density response
 
-        pd = self.get_PWDescriptor(q_c)
+        pd = self.get_PWDescriptor(q_c, self.addq)
 
         self.print_chi(pd)
 
@@ -794,11 +797,11 @@ class Chi0:
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
-    def get_PWDescriptor(self, q_c):
+    def get_PWDescriptor(self, q_c, addq=True):
         """Get the planewave descriptor of q_c."""
         qd = KPointDescriptor([q_c])
         pd = PWDescriptor(self.ecut, self.calc.wfs.gd,
-                          complex, qd)
+                          complex, qd, addq=addq)
         return pd
 
     @timer('Get kpoints')
