@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as np
 from ase.build import bulk
 from gpaw import GPAW, PW
@@ -22,9 +21,7 @@ for xc in ['PBE', 'LDA']:
     s_numerical = si.calc.calculate_numerical_stress(si, 1e-5)
     s_err = s_numerical - s_analytical
 
-    print("Analytical stress:\n", s_analytical)
-    print("Numerical stress:\n", s_numerical)
-    print("Error in stress:\n", s_err)
+    print('Analytical stress:\n', s_analytical)
+    print('Numerical stress:\n', s_numerical)
+    print('Error in stress:\n', s_err)
     assert np.all(abs(s_err) < 1e-4)
- 
-
