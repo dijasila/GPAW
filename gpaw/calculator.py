@@ -66,6 +66,7 @@ class GPAW(PAW, Calculator):
         'background_charge': None,
         'experimental': {'reuse_wfs_method': None,
                          'magmoms': None,
+                         'soc': None,
                          'kpt_refine': None},
         'external': None,
         'random': False,
@@ -412,9 +413,9 @@ class GPAW(PAW, Calculator):
             if key in ['experimental']:
                 changed_parameters2 = changed_parameters[key]
                 for key2 in changed_parameters2:
-                    if key2 in ['kpt_refine']:
+                    if key2 in ['kpt_refine', 'magmoms', 'soc']:
                         self.wfs = None
-                    elif key2 in ['reuse_wfs_method', 'magmoms']:
+                    elif key2 in ['reuse_wfs_method']:
                         continue
                     else:
                         raise TypeError('Unknown keyword argument:', key2)
