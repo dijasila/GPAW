@@ -4,8 +4,7 @@ def agts(queue):
     dks = queue.add('dks.py', ncpus=8, walltime=25, deps=[setups])
     box = queue.add('h2o_xas_box1.py', ncpus=8, walltime=25, deps=[setups])
     queue.add('submit.agts.py', deps=[run, dks, box],
-              creates=['xas_h2o_spectrum.png', 'h2o_xas_box.png'],
-              show=['xas_h2o_spectrum.png', 'h2o_xas_box.png'])
+              creates=['xas_h2o_spectrum.png', 'h2o_xas_box.png'])
 
 
 if __name__ == '__main__':
