@@ -100,7 +100,7 @@ class TCI:
     def calculate(self, a1, a2, OT=False, P=False):
         """Calculate overlap of functions between atoms a1 and a2."""
 
-        print('aa', a1, a2)
+        #print('aa', a1, a2)
         o = Overlap()
         R_c_and_offset_a = self.a1a2.get(a1, a2)
 
@@ -126,7 +126,7 @@ class TCI:
 
         for R_c, offset in R_c_and_offset_a:
             norm = np.linalg.norm(R_c)
-            print(norm)
+            #print(norm)
             phases = get_phases(ibzk_qc, offset)
             disp = AtomicDisplacement(None, a1, a2, R_c, offset, phases)
 
