@@ -417,7 +417,7 @@ class GPAW(PAW, Calculator):
                     elif key2 in ['reuse_wfs_method', 'magmoms']:
                         continue
                     else:
-                        raise TypeError('Unknown keyword argument: "%s"' % key2)
+                        raise TypeError('Unknown keyword argument:', key2)
                 continue
 
             # More drastic changes:
@@ -922,17 +922,19 @@ class GPAW(PAW, Calculator):
 
         else:
             self.timer.start('Set k-point refinement')
-            kd = create_kpoint_descriptor_with_refinement(kpt_refine,
-                                           bzkpts_kc, nspins, self.atoms,
-                                           self.symmetry, comm=self.world,
-                                           timer=self.timer)
+            kd = create_kpoint_descriptor_with_refinement(
+                kpt_refine,
+                bzkpts_kc, nspins, self.atoms,
+                self.symmetry, comm=self.world,
+                timer=self.timer)
             self.timer.stop('Set k-point refinement')
-            # Update quantities which might have changed, if symmetry was changed
+            # Update quantities which might have changed, if symmetry
+            # was changed
             self.symmetry = kd.symmetry
             self.setups.set_symmetry(kd.symmetry)
 
         self.log(kd)
-        
+
         return kd
 
     def create_wave_functions(self, mode, realspace,
@@ -940,7 +942,7 @@ class GPAW(PAW, Calculator):
                               setups, cell_cv, pbc_c):
         par = self.parameters
 
-        kd = self.create_kpoint_descriptor(nspins)  
+        kd = self.create_kpoint_descriptor(nspins)
 
         parallelization = mpi.Parallelization(self.world,
                                               nspins * kd.nibzkpts)
