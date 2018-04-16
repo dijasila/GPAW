@@ -182,7 +182,6 @@ class LCAOWaveFunctions(WaveFunctions):
 
         newS_qMM = np.zeros((nq, mynao, nao), self.dtype)
         newT_qMM = np.zeros((nq, mynao, nao), self.dtype)
-        np.set_printoptions(suppress=1, precision=5)
         natoms = len(spos_ac)
 
         Mindices = self.setups.basis_indices()
@@ -211,30 +210,27 @@ class LCAOWaveFunctions(WaveFunctions):
 
         for a1 in range(natoms):
             M1, M2 = Mindices[a1]
-            if M2 < Mstart or M1 > Mstop:
+            if M2 < Mstart or M1 >= Mstop:  # > or >=?  Test this
                 continue
 
-            M1 = max(M1 - Mstart, 0)
-            M2 = M2 - Mstart
-            nM = M2 - M1
+            M1local = max(M1 - Mstart, 0)
+            M2local = min(M2 - Mstart, mynao)
+            nM = M2local - M1local
+
             if not nM:
                 continue
 
-            for a2 in range(self.gd.comm.rank, natoms, self.gd.comm.size):
+            a2max = a1 + 1 if self.ksl.using_blacs else natoms
+
+            for a2 in range(self.gd.comm.rank, a2max, self.gd.comm.size):
                 o = newtci.calculate(a1, a2, OT=True)
                 N1, N2 = Mindices[a2]
                 if o.O_qmm is not None:
-                    newS_qMM[:, M1:M2, N1:N2] = o.O_qmm
-                    newT_qMM[:, M1:M2, N1:N2] = o.T_qmm
+                    m1 = max(Mstart - M1, 0)
+                    m2 = m1 + nM
+                    newS_qMM[:, M1local:M2local, N1:N2] = o.O_qmm[:, m1:m2]
+                    newT_qMM[:, M1local:M2local, N1:N2] = o.T_qmm[:, m1:m2]
 
-
-        #if self.world.rank == 1:
-        #    print(newS_qMM)
-        #    print(S_qMM)
-        #self.world.barrier()
-        
-        #print(newS_qMM[0])
-        #print(S_qMM[0])
 
         assert len(self.P_aqMi) == len(newP_aqMi)
         Perr = 0.0
@@ -302,21 +298,24 @@ class LCAOWaveFunctions(WaveFunctions):
         self.oldT_qMM = T_qMM
         self.oldP_aqMi = self.P_aqMi
 
-        if 0:
-            self.S_qMM = S_qMM
-            self.T_qMM = T_qMM
-        else:
-            self.S_qMM = newS_qMM
-            self.T_qMM = newT_qMM
+        #if 0:
+        self.S_qMM = self.oldS_qMM
+        #self.T_qMM = T_qMM
+        #self.S_qMM = newS_qMM
+        self.T_qMM = newT_qMM
 
-        self.P_aqMi = newP_aqMi
+        #self.P_aqMi = self.newP_aqMi
+        self.P_aqMi = self.oldP_aqMi
 
         Serr = np.abs(self.newS_qMM - self.oldS_qMM).max()
         Terr = np.abs(self.newT_qMM - self.oldT_qMM).max()
-        assert Serr < 1e-15, Serr
-        assert Terr < 1e-15, Terr
         print('S maxerr', Serr)
         print('T maxerr', Terr)
+        print(self.newT_qMM)
+        print(self.oldT_qMM)
+        print(self.newT_qMM - self.oldT_qMM)
+        assert Serr < 1e-15, Serr
+        assert Terr < 1e-15, Terr
 
         assert len(self.oldP_aqMi) == len(self.newP_aqMi)
         for a in self.oldP_aqMi:
