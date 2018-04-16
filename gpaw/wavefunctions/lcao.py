@@ -68,6 +68,7 @@ class LCAOWaveFunctions(WaveFunctions):
         self.S_qMM = None
         self.T_qMM = None
         self.P_aqMi = None
+        self.debug_tci = False
 
         if atomic_correction is None:
             if ksl.using_blacs:
@@ -132,39 +133,40 @@ class LCAOWaveFunctions(WaveFunctions):
         Mstart = self.ksl.Mstart
         mynao = Mstop - Mstart
 
-        if self.ksl.using_blacs:  # XXX
+        #if self.ksl.using_blacs:  # XXX
             # S and T have been distributed to a layout with blacs, so
             # discard them to force reallocation from scratch.
             #
             # TODO: evaluate S and T when they *are* distributed, thus saving
             # memory and avoiding this problem
-            self.S_qMM = None
-            self.T_qMM = None
+        for kpt in self.kpt_u:
+            kpt.S_MM = None
+            kpt.T_MM = None
 
-        S_qMM = self.S_qMM
-        T_qMM = self.T_qMM
+        self.S_qMM = self.T_qMM = None
+        self.P_aqMi = newP_aqMi = {}
 
-        if S_qMM is None:  # XXX
-            # First time:
-            assert T_qMM is None
-            if self.ksl.using_blacs:  # XXX
-                self.tci.set_matrix_distribution(Mstart, mynao)
-
-            S_qMM = np.empty((nq, mynao, nao), self.dtype)
-            T_qMM = np.empty((nq, mynao, nao), self.dtype)
 
         for kpt in self.kpt_u:
             if kpt.C_nM is None:
                 kpt.C_nM = np.empty((mynbands, nao), self.dtype)
 
-        self.P_aqMi = {}
-        for a in self.basis_functions.my_atom_indices:
-            ni = self.setups[a].ni
-            self.P_aqMi[a] = np.empty((nq, nao, ni), self.dtype)
 
-        self.timer.start('TCI: Calculate S, T, P')
-        # Calculate lower triangle of S and T matrices:
-        self.tci.calculate(spos_ac, S_qMM, T_qMM, self.P_aqMi)
+        if self.debug_tci:
+            if self.ksl.using_blacs:
+                self.tci.set_matrix_distribution(Mstart, mynao)
+            oldS_qMM = np.empty((nq, mynao, nao), self.dtype)
+            oldT_qMM = np.empty((nq, mynao, nao), self.dtype)
+
+
+            oldP_aqMi = {}
+            for a in self.basis_functions.my_atom_indices:
+                ni = self.setups[a].ni
+                oldP_aqMi[a] = np.empty((nq, nao, ni), self.dtype)
+
+                # Calculate lower triangle of S and T matrices:
+                self.tci.calculate(spos_ac, oldS_qMM, oldT_qMM,
+                                   oldP_aqMi)
 
         from gpaw.lcao.tci import TCI
         # Establish arbitrary enumeration of setups:
@@ -186,12 +188,6 @@ class LCAOWaveFunctions(WaveFunctions):
 
         Mindices = self.setups.basis_indices()
         Pindices = self.setups.projector_indices()
-
-        newP_qIM = [sparse.lil_matrix((Pindices.max, Mindices.max),
-                                      dtype=self.dtype)
-                 for q in range(nq)]
-
-        newP_aqMi = {}
 
         for a1 in self.basis_functions.my_atom_indices:
             I1, I2 = Pindices[a1]
@@ -232,26 +228,16 @@ class LCAOWaveFunctions(WaveFunctions):
                     newT_qMM[:, M1local:M2local, N1:N2] = o.T_qmm[:, m1:m2]
 
 
-        assert len(self.P_aqMi) == len(newP_aqMi)
-        Perr = 0.0
-        for a in self.P_aqMi:
-            P_err = max(Perr, np.abs(self.P_aqMi[a] - newP_aqMi[a]).max())
-        assert Perr < 1e-15, Perr
-
-        if 0:
-            if self.ksl.using_blacs:
-                grid = self.ksl.blockgrid
-                blocksize1 = -(-grid.npcol // nao)
-                blocksize2 = -(-grid.nprow // nao)
-                MMdescriptor = grid.new_descriptor(nao, nao,
-                                                   blocksize1, blocksize2)
-                #for a1 in range(natoms):
-                #    for a2 in range(natoms):
-                #Snew_qMM = MMdescriptor.
+        if self.debug_tci:
+            assert len(oldP_aqMi) == len(newP_aqMi)
+            Perr = 0.0
+            for a in oldP_aqMi:
+                P_err = max(Perr, np.abs(oldP_aqMi[a] - newP_aqMi[a]).max())
+            assert Perr < 1e-15, Perr
 
         # TODO
-        #   complex/conj, periodic images
-        #   scalapack
+        #   OK complex/conj, periodic images
+        #   OK scalapack
         #   derivatives/forces
         #   sparse
         #   use symmetry/conj tricks to reduce calculations
@@ -262,9 +248,9 @@ class LCAOWaveFunctions(WaveFunctions):
             self.P_neighbors_a, self.P_aaqim = newoverlap(self, spos_ac)
         self.atomic_correction.gobble_data(self)
 
-        self.atomic_correction.add_overlap_correction(self, S_qMM)
         self.atomic_correction.add_overlap_correction(self, newS_qMM)
-        self.timer.stop('TCI: Calculate S, T, P')
+        if self.debug_tci:
+            self.atomic_correction.add_overlap_correction(self, oldS_qMM)
 
         if self.atomic_correction.implements_distributed_projections():
             my_atom_indices = self.atomic_correction.get_a_values()
@@ -272,60 +258,47 @@ class LCAOWaveFunctions(WaveFunctions):
             my_atom_indices = self.basis_functions.my_atom_indices
         self.allocate_arrays_for_projections(my_atom_indices)
 
-        S_MM = None  # allow garbage collection of old S_qMM after redist
-        S_qMM = self.ksl.distribute_overlap_matrix(S_qMM, root=-1)
-        T_qMM = self.ksl.distribute_overlap_matrix(T_qMM, root=-1)
+        #S_MM = None  # allow garbage collection of old S_qMM after redist
+        if self.debug_tci:
+            oldS_qMM = self.ksl.distribute_overlap_matrix(oldS_qMM, root=-1)
+            oldT_qMM = self.ksl.distribute_overlap_matrix(oldT_qMM, root=-1)
+
         newS_qMM = self.ksl.distribute_overlap_matrix(newS_qMM, root=-1)
         newT_qMM = self.ksl.distribute_overlap_matrix(newT_qMM, root=-1)
 
-        if (debug and self.bd.comm.size == 1 and self.gd.comm.rank == 0 and
-            nao > 0 and not self.ksl.using_blacs):
+        #if (debug and self.bd.comm.size == 1 and self.gd.comm.rank == 0 and
+        #    nao > 0 and not self.ksl.using_blacs):
             # S and T are summed only on comm master, so check only there
-            from numpy.linalg import eigvalsh
-            self.timer.start('Check positive definiteness')
-            for S_MM in S_qMM:
-                tri2full(S_MM, UL='L')
-                smin = eigvalsh(S_MM).real.min()
-                if smin < 0:
-                    raise RuntimeError('Overlap matrix has negative '
-                                       'eigenvalue: %e' % smin)
-            self.timer.stop('Check positive definiteness')
+        #    from numpy.linalg import eigvalsh
+        #    self.timer.start('Check positive definiteness')
+        #    for S_MM in S_qMM:
+        #        tri2full(S_MM, UL='L')
+        #        smin = eigvalsh(S_MM).real.min()
+        #        if smin < 0:
+        #            raise RuntimeError('Overlap matrix has negative '
+        #                               'eigenvalue: %e' % smin)
+        #    self.timer.stop('Check positive definiteness')
         self.positions_set = True
-        self.newS_qMM = newS_qMM
-        self.newT_qMM = newT_qMM
-        self.newP_aqMi = newP_aqMi
-        self.oldS_qMM = S_qMM
-        self.oldT_qMM = T_qMM
-        self.oldP_aqMi = self.P_aqMi
 
-        #if 0:
-        self.S_qMM = self.oldS_qMM
-        #self.T_qMM = T_qMM
-        #self.S_qMM = newS_qMM
-        self.T_qMM = newT_qMM
+        if self.debug_tci:
+            Serr = np.abs(newS_qMM - oldS_qMM).max()
+            Terr = np.abs(newT_qMM - oldT_qMM).max()
+            print('S maxerr', Serr)
+            print('T maxerr', Terr)
+            assert Serr < 1e-15, Serr
+            assert Terr < 1e-15, Terr
 
-        #self.P_aqMi = self.newP_aqMi
-        self.P_aqMi = self.oldP_aqMi
-
-        Serr = np.abs(self.newS_qMM - self.oldS_qMM).max()
-        Terr = np.abs(self.newT_qMM - self.oldT_qMM).max()
-        print('S maxerr', Serr)
-        print('T maxerr', Terr)
-        print(self.newT_qMM)
-        print(self.oldT_qMM)
-        print(self.newT_qMM - self.oldT_qMM)
-        assert Serr < 1e-15, Serr
-        assert Terr < 1e-15, Terr
-
-        assert len(self.oldP_aqMi) == len(self.newP_aqMi)
-        for a in self.oldP_aqMi:
-            Perr = np.abs(self.oldP_aqMi[a] - self.newP_aqMi[a]).max()
-            assert Perr < 1e-15, (a, Perr)
+            assert len(oldP_aqMi) == len(newP_aqMi)
+            for a in oldP_aqMi:
+                Perr = np.abs(oldP_aqMi[a] - newP_aqMi[a]).max()
+                assert Perr < 1e-15, (a, Perr)
 
         for kpt in self.kpt_u:
             q = kpt.q
-            kpt.S_MM = S_qMM[q]
-            kpt.T_MM = T_qMM[q]
+            kpt.S_MM = newS_qMM[q]
+            kpt.T_MM = newT_qMM[q]
+        self.S_qMM = newS_qMM
+        self.T_qMM = newT_qMM
 
     def initialize(self, density, hamiltonian, spos_ac):
         # Note: The above line exists also in set_positions.

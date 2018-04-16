@@ -51,9 +51,9 @@ class AtomPairRegistry:
 
 class Overlap:
     def __init__(self):
-        self.O_ii = None
-        self.T_ii = None
-        self.P_ii = None
+        self.O_qmm = None
+        self.T_qmm = None
+        self.P_qim = None
 
 class TCI:
     def __init__(self, phit_Ij, pt_Ij, I_a, cell_cv, spos_ac, pbc_c, ibzk_qc,
@@ -65,10 +65,10 @@ class TCI:
         pt_rcmax_I = get_cutoffs(pt_Ij)
         phit_rcmax_I = get_cutoffs(phit_Ij)
         rcmax_I = [max(rc1, rc2) for rc1, rc2
-                        in zip(pt_rcmax_I, phit_rcmax_I)]
+                   in zip(pt_rcmax_I, phit_rcmax_I)]
         # XXX It is somewhat nasty that rcmax depends on how long our
         # longest orbital happens to be
-        transformer = FourierTransformer(rcmax=max(0.001, *rcmax_I), ng=2**10)
+        transformer = FourierTransformer(rcmax=max(rcmax_I + [1e-3]), ng=2**10)
         tsoc = TwoSiteOverlapCalculator(transformer)
         msoc = ManySiteOverlapCalculator(tsoc, I_a, I_a)
 
