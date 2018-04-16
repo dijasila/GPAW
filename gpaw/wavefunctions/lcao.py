@@ -201,14 +201,12 @@ class LCAOWaveFunctions(WaveFunctions):
 
             for a2 in range(natoms):
                 N1, N2 = Mindices[a2]
-                print('grrr', a1, a2, N1, N2, I2 - I1)
                 P_qmi = P_qMi[:, N1:N2, :]
-                print(P_qmi.shape)
                 o = newtci.calculate(a1, a2, P=True)
                 if o.P_qim is None:
                     P_qmi[:] = 0.0
                 else:
-                    P_qmi[:] = o.P_qim.transpose(0, 2, 1)  # conj()?
+                    P_qmi[:] = o.P_qim.transpose(0, 2, 1).conj()
             newP_aqMi[a1] = P_qMi
 
         for a1 in range(natoms):
@@ -229,18 +227,12 @@ class LCAOWaveFunctions(WaveFunctions):
                     newS_qMM[:, M1:M2, N1:N2] = o.O_qmm
                     newT_qMM[:, M1:M2, N1:N2] = o.T_qmm
 
-        Serr = np.abs(newS_qMM - S_qMM).max()
-        Terr = np.abs(newT_qMM - T_qMM).max()
 
         #if self.world.rank == 1:
         #    print(newS_qMM)
         #    print(S_qMM)
         #self.world.barrier()
         
-        #assert Serr < 1e-15, Serr
-        #assert Terr < 1e-15, Terr
-        print('S maxerr', Serr)
-        print('T maxerr', Terr)
         #print(newS_qMM[0])
         #print(S_qMM[0])
 
@@ -261,20 +253,21 @@ class LCAOWaveFunctions(WaveFunctions):
                 #    for a2 in range(natoms):
                 #Snew_qMM = MMdescriptor.
 
-        #print()
-        #print(S_qMM[0])
+        # TODO
+        #   complex/conj, periodic images
+        #   scalapack
+        #   derivatives/forces
+        #   sparse
+        #   use symmetry/conj tricks to reduce calculations
+        #   enable caching of spherical harmonics
 
-        #S_qMM = newS_qMM
-        #T_qMM = newT_qMM
-        #self.P_aqMi = newP_aqMi
-
-        
         if self.atomic_correction.name != 'dense':
             from gpaw.lcao.newoverlap import newoverlap
             self.P_neighbors_a, self.P_aaqim = newoverlap(self, spos_ac)
         self.atomic_correction.gobble_data(self)
 
         self.atomic_correction.add_overlap_correction(self, S_qMM)
+        self.atomic_correction.add_overlap_correction(self, newS_qMM)
         self.timer.stop('TCI: Calculate S, T, P')
 
         if self.atomic_correction.implements_distributed_projections():
@@ -288,10 +281,6 @@ class LCAOWaveFunctions(WaveFunctions):
         T_qMM = self.ksl.distribute_overlap_matrix(T_qMM, root=-1)
         newS_qMM = self.ksl.distribute_overlap_matrix(newS_qMM, root=-1)
         newT_qMM = self.ksl.distribute_overlap_matrix(newT_qMM, root=-1)
-        for kpt in self.kpt_u:
-            q = kpt.q
-            kpt.S_MM = S_qMM[q]
-            kpt.T_MM = T_qMM[q]
 
         if (debug and self.bd.comm.size == 1 and self.gd.comm.rank == 0 and
             nao > 0 and not self.ksl.using_blacs):
@@ -306,13 +295,38 @@ class LCAOWaveFunctions(WaveFunctions):
                                        'eigenvalue: %e' % smin)
             self.timer.stop('Check positive definiteness')
         self.positions_set = True
-        if 1:
+        self.newS_qMM = newS_qMM
+        self.newT_qMM = newT_qMM
+        self.newP_aqMi = newP_aqMi
+        self.oldS_qMM = S_qMM
+        self.oldT_qMM = T_qMM
+        self.oldP_aqMi = self.P_aqMi
+
+        if 0:
             self.S_qMM = S_qMM
             self.T_qMM = T_qMM
         else:
             self.S_qMM = newS_qMM
             self.T_qMM = newT_qMM
-        
+
+        self.P_aqMi = newP_aqMi
+
+        Serr = np.abs(self.newS_qMM - self.oldS_qMM).max()
+        Terr = np.abs(self.newT_qMM - self.oldT_qMM).max()
+        assert Serr < 1e-15, Serr
+        assert Terr < 1e-15, Terr
+        print('S maxerr', Serr)
+        print('T maxerr', Terr)
+
+        assert len(self.oldP_aqMi) == len(self.newP_aqMi)
+        for a in self.oldP_aqMi:
+            Perr = np.abs(self.oldP_aqMi[a] - self.newP_aqMi[a]).max()
+            assert Perr < 1e-15, (a, Perr)
+
+        for kpt in self.kpt_u:
+            q = kpt.q
+            kpt.S_MM = S_qMM[q]
+            kpt.T_MM = T_qMM[q]
 
     def initialize(self, density, hamiltonian, spos_ac):
         # Note: The above line exists also in set_positions.
