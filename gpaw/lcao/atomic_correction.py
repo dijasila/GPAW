@@ -85,6 +85,13 @@ class DenseAtomicCorrection(BaseAtomicCorrection):
     def calculate(self, wfs, q, dX_aii, X_MM):
         dtype = X_MM.dtype
         nops = 0
+
+        # P_aqMi is distributed over domains (a) and bands (M).
+        # Hence the correction X_MM = sum(P dX P) includes contributions
+        # only from local atoms; the result must be summed over gd.comm
+        # to get all 'a' contributions, and it will be locally calculated
+        # only on the local slice of bands.
+
         for a, dX_ii in dX_aii.items():
             P_Mi = self.P_aqMi[a][q]
             assert dtype == P_Mi.dtype
