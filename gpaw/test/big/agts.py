@@ -243,7 +243,7 @@ class AGTSQueue:
         if deps:
             if not isinstance(deps, list):
                 deps = [deps]
-            code += ', deps=[' + ', '.join(deps)
+            code += ", deps=['" + "', '".join(deps) + "']"
         code += ')'
         self._x[self._fname].append(code)
         return script
@@ -283,9 +283,16 @@ class AGTSQueue:
             with open(f, 'r') as fd:
                 code = fd.read()
             with open(f, 'w') as fd:
-                fd.write('from q2.job import Job\n'
-                         + '\n'.join(lines) +
-                         '\n' + code)
+                fd.write(
+                    """\
+from q2.job import Job
+
+
+def workflow():
+    return [
+        {}]
+""".format(',\n        '.join(lines)) +
+                   '\n' + code)
             break
 
         self.normalize()
