@@ -106,6 +106,7 @@ class PWDescriptor:
             else:
                 dtype = complex
         self.dtype = dtype
+        self.addq = addq
 
         if dtype == float:
             Nr_c = N_c.copy()

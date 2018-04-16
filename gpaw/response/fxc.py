@@ -251,7 +251,7 @@ class ALDAKernelCalculator:
             print("\tFinding all-electron density", file=self.fd)
             n_sG, gd = calc.density.get_all_electron_density(atoms=calc.atoms, gridrefinement=1)
             qd = pd.kd
-            lpd = PWDescriptor(self.ecut, gd, complex, qd)
+            lpd = PWDescriptor(self.ecut, gd, complex, qd, addq=pd.addq)
             
             print("\tCalculating fxc on real space grid", file=self.fd)
             fxc_G = np.zeros(np.shape(n_sG[0]))
