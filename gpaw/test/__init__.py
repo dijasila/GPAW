@@ -6,9 +6,9 @@ import time
 import signal
 import traceback
 from distutils.version import LooseVersion
+from unittest import SkipTest
 
 import numpy as np
-
 from ase.utils import devnull
 
 from gpaw.atom.generator import Generator
@@ -647,6 +647,8 @@ class TestRunner:
         except KeyboardInterrupt:
             self.write_result(test, 'STOPPED', t0)
             raise
+        except SkipTest:
+            skip = True
         except ImportError as ex:
             if sys.version_info[0] >= 3:
                 module = ex.name
