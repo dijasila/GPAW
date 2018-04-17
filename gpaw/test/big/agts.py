@@ -224,10 +224,7 @@ class AGTSQueue:
         if creates:
             print(self._dir, script)
             assert script.endswith('.py'), self._fname
-            with open(os.path.join(self._dir, script), 'r') as f:
-                code = f.read()
-            with open(os.path.join(self._dir, script), 'w') as f:
-                f.write('# Creates: ' + ', '.join(creates) + '\n' + code)
+            self._xx.append((os.path.join(self._dir, script), creates))
 
         if walltime < 60:
             t = str(walltime) + 's'
@@ -269,6 +266,7 @@ class AGTSQueue:
         """Find agts.py files and collect jobs."""
         from collections import defaultdict
         self._x = defaultdict(list)
+        self._xx = []
         for dir, agtsfile in self.locate_tests():
             _global = {}
             fname = os.path.join(dir, agtsfile)
@@ -293,7 +291,12 @@ def workflow():
         {}]
 """.format(',\n        '.join(lines)) +
                    '\n' + code)
-            break
+
+        for f, creates in self._xx:
+            with open(f, 'r') as fd:
+                code = fd.read()
+            with open(f, 'w') as fd:
+                fd.write('# Creates: ' + ', '.join(creates) + '\n' + code)
 
         self.normalize()
 
