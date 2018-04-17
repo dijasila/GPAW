@@ -1,3 +1,11 @@
+from q2.job import Job
+
+
+def workflow():
+    return [
+        Job('atomize.py@1x30s'),
+        Job('relax.py@1x30s', deps=['atomize.py'])]
+
 def agts(queue):
     a = queue.add('atomize.py', ncpus=1, walltime=30, 
                   creates=['atomization.txt'])

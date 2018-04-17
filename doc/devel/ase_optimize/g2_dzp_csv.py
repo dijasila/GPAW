@@ -1,3 +1,4 @@
+# Creates: g2_dzp.csv
 from __future__ import print_function
 import numpy as np
 import ase.db

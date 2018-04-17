@@ -1,3 +1,11 @@
+from q2.job import Job
+
+
+def workflow():
+    return [
+        Job('co.py@4x5m'),
+        Job('co.agts.py', deps=['co.py'])]
+
 def agts(queue):
     co = queue.add('co.py', ncpus=4, walltime=5 * 60)
     queue.add('co.agts.py', deps=co)

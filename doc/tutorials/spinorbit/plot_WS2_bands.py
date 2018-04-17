@@ -1,3 +1,4 @@
+# Creates: WS2_bands.png
 import numpy as np
 import matplotlib.pyplot as plt
 from gpaw import GPAW

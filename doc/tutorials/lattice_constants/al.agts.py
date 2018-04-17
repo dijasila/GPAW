@@ -1,3 +1,12 @@
+# Creates: Al_conv_ecut.png, Al_conv_k.png
+from q2.job import Job
+
+
+def workflow():
+    return [
+        Job('al.py@8x12m'),
+        Job('al.agts.py', deps=['al.py'])]
+
 def agts(queue):
     al = queue.add('al.py', ncpus=8, walltime=12 * 60)
     queue.add('al.agts.py', deps=[al],

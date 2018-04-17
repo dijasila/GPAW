@@ -1,3 +1,12 @@
+# Creates: h.png
+from q2.job import Job
+
+
+def workflow():
+    return [
+        Job('h.py'),
+        Job('h.agts.py', deps=['h.py'])]
+
 def agts(queue):
     ae = queue.add('h.py')
     queue.add('h.agts.py', deps=ae, creates='h.png')

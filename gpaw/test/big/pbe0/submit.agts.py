@@ -1,3 +1,11 @@
+from q2.job import Job
+
+
+def workflow():
+    return [
+        Job('gaps.py@16x5m'),
+        Job('submit.agts.py', deps=['gaps.py'])]
+
 from __future__ import print_function
 def agts(queue):
     gaps = queue.add('gaps.py', ncpus=16, walltime=5 * 60)

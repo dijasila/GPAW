@@ -1,3 +1,10 @@
+from q2.job import Job
+
+
+def workflow():
+    return [
+        Job('dos.agts.py', deps=['../iron/PBE.py', '../wavefunctions/CO.py', '../wannier/si.py', '../aluminium/Al_fcc.py'])]
+
 def agts(queue):
     queue.add('dos.agts.py', ncpus=1,
               deps=['../iron/PBE.py',
