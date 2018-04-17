@@ -21,6 +21,7 @@ from gpaw.io.logger import GPAWLogger
 from gpaw.io import Reader, Writer
 from gpaw.jellium import create_background_charge
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.kpt_refine import create_kpoint_descriptor_with_refinement
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.matrix import suggest_blocking
 from gpaw.occupations import create_occupation_number_object
@@ -64,7 +65,9 @@ class GPAW(PAW, Calculator):
         'eigensolver': None,
         'background_charge': None,
         'experimental': {'reuse_wfs_method': None,
-                         'magmoms': None},
+                         'magmoms': None,
+                         'soc': None,
+                         'kpt_refine': None},
         'external': None,
         'random': False,
         'hund': False,
@@ -238,7 +241,7 @@ class GPAW(PAW, Calculator):
         self.hamiltonian.xc.read(reader)
 
         if self.hamiltonian.xc.name == 'GLLBSC':
-            # XXX GLLB: See lcao/tdgllbsc.py test
+            # XXX GLLB: See test/lcaotddft/gllbsc.py
             self.occupations.calculate(self.wfs)
 
         return reader
@@ -400,10 +403,22 @@ class GPAW(PAW, Calculator):
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof', 'experimental']:
+                       'eigensolver', 'idiotproof']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
+                continue
+
+            # Check nested arguments
+            if key in ['experimental']:
+                changed_parameters2 = changed_parameters[key]
+                for key2 in changed_parameters2:
+                    if key2 in ['kpt_refine', 'magmoms', 'soc']:
+                        self.wfs = None
+                    elif key2 in ['reuse_wfs_method']:
+                        continue
+                    else:
+                        raise TypeError('Unknown keyword argument:', key2)
                 continue
 
             # More drastic changes:
@@ -580,7 +595,9 @@ class GPAW(PAW, Calculator):
             nbands = 1
 
         if isinstance(nbands, basestring):
-            if nbands[-1] == '%':
+            if nbands == 'nao':
+                nbands = nao
+            elif nbands[-1] == '%':
                 basebands = int(nvalence + M + 0.5) // 2
                 nbands = int((float(nbands[:-1]) / 100) * basebands)
             else:
@@ -892,19 +909,41 @@ class GPAW(PAW, Calculator):
         self.hamiltonian.soc = self.parameters.experimental.get('soc')
         self.log(self.hamiltonian, '\n')
 
+    def create_kpoint_descriptor(self, nspins):
+        par = self.parameters
+
+        bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
+        kpt_refine = par.experimental.get('kpt_refine')
+        if kpt_refine is None:
+            kd = KPointDescriptor(bzkpts_kc, nspins)
+
+            self.timer.start('Set symmetry')
+            kd.set_symmetry(self.atoms, self.symmetry, comm=self.world)
+            self.timer.stop('Set symmetry')
+
+        else:
+            self.timer.start('Set k-point refinement')
+            kd = create_kpoint_descriptor_with_refinement(
+                kpt_refine,
+                bzkpts_kc, nspins, self.atoms,
+                self.symmetry, comm=self.world,
+                timer=self.timer)
+            self.timer.stop('Set k-point refinement')
+            # Update quantities which might have changed, if symmetry
+            # was changed
+            self.symmetry = kd.symmetry
+            self.setups.set_symmetry(kd.symmetry)
+
+        self.log(kd)
+
+        return kd
+
     def create_wave_functions(self, mode, realspace,
                               nspins, collinear, nbands, nao, nvalence,
                               setups, cell_cv, pbc_c):
         par = self.parameters
 
-        bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
-        kd = KPointDescriptor(bzkpts_kc, nspins)
-
-        self.timer.start('Set symmetry')
-        kd.set_symmetry(self.atoms, self.symmetry, comm=self.world)
-        self.timer.stop('Set symmetry')
-
-        self.log(kd)
+        kd = self.create_kpoint_descriptor(nspins)
 
         parallelization = mpi.Parallelization(self.world,
                                               nspins * kd.nibzkpts)

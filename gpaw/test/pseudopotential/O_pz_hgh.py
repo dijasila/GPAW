@@ -1,4 +1,4 @@
-<UPF version="2.0.1">
+ps_txt = """<UPF version="2.0.1">
   <PP_INFO>
     Generated in analytical, separable form
     Author: Goedecker/Hartwigsen/Hutter/Teter
@@ -1993,4 +1993,4 @@ pseudo_energy="-6.760259123583341E-001" cutoff_radius="8.966126290453905E-001" u
  7.388008563763022E-064  1.131147410869923E-064  1.691201040617636E-065  0.000000000000000E+000 
  0.000000000000000E+000  0.000000000000000E+000  0.000000000000000E+000
   </PP_RHOATOM>
-</UPF>
+</UPF>"""

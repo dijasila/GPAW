@@ -312,6 +312,8 @@ class WaveFunctions:
                 self.kd.comm.send(np.ascontiguousarray(P_nI), 0)
         if self.world.rank == 0:
             nproj = sum(setup.ni for setup in self.setups)
+            if not self.collinear:
+                nproj *= 2
             P_nI = np.empty((self.bd.nbands, nproj), self.dtype)
             self.kd.comm.receive(P_nI, kpt_rank)
             return P_nI
@@ -354,7 +356,8 @@ class WaveFunctions:
 
         if rank == 0:
             # allocate full wave function and receive
-            psit_G = self.empty(global_array=True,
+            shape = () if self.collinear else (2,)
+            psit_G = self.empty(shape, global_array=True,
                                 realspace=realspace)
             # XXX this will fail when using non-standard nesting
             # of communicators.
@@ -401,23 +404,46 @@ class WaveFunctions:
         return np.array([homo, lumo])
 
     def write(self, writer):
+        writer.write(version=1, ha=Hartree)
         writer.write(kpts=self.kd)
+        self.write_projections(writer)
+        self.write_eigenvalues(writer)
+        self.write_occupations(writer)
+
+    def write_projections(self, writer):
         nproj = sum(setup.ni for setup in self.setups)
-        writer.add_array(
-            'projections',
-            (self.nspins, self.kd.nibzkpts, self.bd.nbands, nproj),
-            self.dtype)
+
+        if self.collinear:
+            shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands, nproj)
+        else:
+            shape = (self.kd.nibzkpts, self.bd.nbands, 2, nproj)
+
+        writer.add_array('projections', shape, self.dtype)
+
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 P_nI = self.collect_projections(k, s)
+                if not self.collinear and P_nI is not None:
+                    P_nI.shape = (self.bd.nbands, 2, nproj)
                 writer.fill(P_nI)
 
-        shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
+    def write_eigenvalues(self, writer):
+        if self.collinear:
+            shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
+        else:
+            shape = (self.kd.nibzkpts, self.bd.nbands)
 
         writer.add_array('eigenvalues', shape)
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 writer.fill(self.collect_eigenvalues(k, s) * Hartree)
+
+    def write_occupations(self, writer):
+
+        if self.collinear:
+            shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
+        else:
+            shape = (self.kd.nibzkpts, self.bd.nbands)
 
         writer.add_array('occupations', shape)
         for s in range(self.nspins):
@@ -428,31 +454,68 @@ class WaveFunctions:
                 writer.fill(self.collect_occupations(k, s) / weight)
 
     def read(self, reader):
-        nslice = self.bd.get_slice()
         r = reader.wave_functions
+        # Backward compatibility:
+        # Take parameters from main reader
+        if 'ha' not in r:
+            r.ha = reader.ha
+        if 'version' not in r:
+            r.version = reader.version
+        self.read_projections(r)
+        self.read_eigenvalues(r, r.version == 0)
+        self.read_occupations(r, r.version == 0)
+
+    def read_projections(self, reader):
+        nslice = self.bd.get_slice()
         nproj_a = [setup.ni for setup in self.setups]
         atom_partition = AtomPartition(self.gd.comm,
                                        np.zeros(len(nproj_a), int))
         for u, kpt in enumerate(self.kpt_u):
-            eps_n = r.proxy('eigenvalues', kpt.s, kpt.k)[nslice]
-            f_n = r.proxy('occupations', kpt.s, kpt.k)[nslice]
-            x = self.bd.mynbands - len(f_n)  # missing bands?
-            if x > 0:
-                # Working on a real fix to this parallelization problem ...
-                f_n = np.pad(f_n, (0, x), 'constant')
-                eps_n = np.pad(eps_n, (0, x), 'constant')
-            if reader.version > 0:
-                f_n *= kpt.weight  # skip for old tar-files gpw's
-                eps_n /= reader.ha
-            kpt.eps_n = eps_n
-            kpt.f_n = f_n
+            if self.collinear:
+                index = (kpt.s, kpt.k)
+            else:
+                index = (kpt.k,)
             kpt.P = Projections(
                 self.bd.nbands, nproj_a,
                 atom_partition, self.bd.comm,
                 collinear=self.collinear, spin=kpt.s, dtype=self.dtype)
             if self.gd.comm.rank == 0:
-                P_nI = r.proxy('projections', kpt.s, kpt.k)[nslice]
+                P_nI = reader.proxy('projections', *index)[nslice]
+                if not self.collinear:
+                    P_nI.shape = (self.bd.mynbands, -1)
                 kpt.P.matrix.array[:] = P_nI
+
+    def read_eigenvalues(self, reader, old=False):
+        nslice = self.bd.get_slice()
+        for u, kpt in enumerate(self.kpt_u):
+            if self.collinear:
+                index = (kpt.s, kpt.k)
+            else:
+                index = (kpt.k,)
+            eps_n = reader.proxy('eigenvalues', *index)[nslice]
+            x = self.bd.mynbands - len(eps_n)  # missing bands?
+            if x > 0:
+                # Working on a real fix to this parallelization problem ...
+                eps_n = np.pad(eps_n, (0, x), 'constant')
+            if not old:  # skip for old tar-files gpw's
+                eps_n /= reader.ha
+            kpt.eps_n = eps_n
+
+    def read_occupations(self, reader, old=False):
+        nslice = self.bd.get_slice()
+        for u, kpt in enumerate(self.kpt_u):
+            if self.collinear:
+                index = (kpt.s, kpt.k)
+            else:
+                index = (kpt.k,)
+            f_n = reader.proxy('occupations', *index)[nslice]
+            x = self.bd.mynbands - len(f_n)  # missing bands?
+            if x > 0:
+                # Working on a real fix to this parallelization problem ...
+                f_n = np.pad(f_n, (0, x), 'constant')
+            if not old:  # skip for old tar-files gpw's
+                f_n *= kpt.weight
+            kpt.f_n = f_n
 
 
 def eigenvalue_string(wfs, comment=' '):

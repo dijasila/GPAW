@@ -57,7 +57,8 @@ class SCFLoop:
         self.converged = False
 
     def run(self, wfs, ham, dens, occ, log, callback):
-        for self.niter in range(1, self.maxiter + 1):
+        self.niter = 1
+        while self.niter <= self.maxiter:
             wfs.eigensolver.iterate(ham, wfs)
             occ.calculate(wfs)
 
@@ -84,6 +85,7 @@ class SCFLoop:
                 ham.update(dens)
             else:
                 ham.npoisson = 0
+            self.niter += 1
 
         # Don't fix the density in the next step:
         self.niter_fixdensity = 0
@@ -181,6 +183,9 @@ class SCFLoop:
 
         if wfs.nspins == 2:
             log('  %+.4f' % occ.magmom, end='')
+        elif not wfs.collinear:
+            totmom_v, magmom_av = dens.estimate_magnetic_moments()
+            log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')
 
         log(flush=True)
 

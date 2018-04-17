@@ -78,9 +78,9 @@ class BSE:
             File for saving screened interaction and some other stuff
             needed later
         write_h: bool
-            If True, write the BSE Hamiltonian to H_SS.gpw.
+            If True, write the BSE Hamiltonian to H_SS.ulm.
         write_v: bool
-            If True, write eigenvalues and eigenstates to v_TS.gpw
+            If True, write eigenvalues and eigenstates to v_TS.ulm
         """
 
         # Calculator
@@ -129,7 +129,7 @@ class BSE:
             if self.spinors:
                 self.spinors = False
                 print('***WARNING*** Presently the spinor version' +
-                      'do not work for spin-polarized calculations.' + 
+                      'does not work for spin-polarized calculations.' + 
                       'Performing scalar calculation', file=self.fd)
             assert len(valence_bands[0]) == len(valence_bands[1])
             assert len(conduction_bands[0]) == len(conduction_bands[1])
@@ -174,7 +174,14 @@ class BSE:
         # Number of pair orbitals
         self.nS = self.kd.nbzkpts * self.nv * self.nc * self.spins
         self.nS *= (self.spinors + 1)**2
-        
+
+        # Wigner-Seitz stuff
+        if self.truncation == 'wigner-seitz':
+            self.wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
+                                                    self.kd.N_c, self.fd)
+        else:
+            self.wstc = None
+
         self.print_initialization(self.td, self.eshift, self.gw_skn)
 
     def calculate(self, optical=True, ac=1.0):
@@ -202,17 +209,7 @@ class BSE:
 
         # Parallelization stuff
         nK = self.kd.nbzkpts
-        myKsize = -(-nK // world.size)
-        myKrange = range(world.rank * myKsize,
-                         min((world.rank + 1) * myKsize, nK))
-        myKsize = len(myKrange)
-
-        # Wigner-Seitz stuff
-        if self.truncation == 'wigner-seitz':
-            self.wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
-                                                    self.kd.N_c, self.fd)
-        else:
-            self.wstc = None
+        myKrange, myKsize, mySsize = self.parallelisation_sizes()
 
         # Calculate exchange interaction
         qd0 = KPointDescriptor([self.q_c])
@@ -227,9 +224,6 @@ class BSE:
                                 txt='pair.txt')
 
         # Calculate direct (screened) interaction and PAW corrections
-        self.Q_qaGii = []
-        self.W_qGG = []
-        self.pd_q = []
         if self.mode == 'RPA':
             Q_aGii = self.pair.initialize_paw_corrections(pd0)
         else:
@@ -385,7 +379,8 @@ class BSE:
                        timedelta(seconds=round(dt)),
                        timedelta(seconds=round(tleft))), file=self.fd)
 
-        del self.Q_qaGii, self.W_qGG, self.pd_q
+        if self.mode == 'BSE':
+            del self.Q_qaGii, self.W_qGG, self.pd_q
 
         H_ksmnKsmn /= self.vol
 
@@ -407,9 +402,11 @@ class BSE:
             H_sS[iS] *= self.df_S[iS0 + iS] * ac
             # add bare transition energies
             H_sS[iS, iS0 + iS] += self.deps_s[iS]
-        if self.write_h:
-            self.par_save('H_SS', 'H_SS', H_sS)
+
         self.H_sS = H_sS
+
+        if self.write_h:
+            self.par_save('H_SS.ulm', 'H_SS', self.H_sS)
 
     def get_density_matrix(self, kpt1, kpt2):
 
@@ -500,6 +497,10 @@ class BSE:
 
         self.blockcomm = chi0.blockcomm
         wfs = self.calc.wfs
+
+        self.Q_qaGii = []
+        self.W_qGG = []
+        self.pd_q = []
 
         t0 = time()
         print('Calculating screened potential', file=self.fd)
@@ -629,23 +630,8 @@ class BSE:
             print('  Using numpy.linalg.eig...', file=self.fd)
             print('  Eliminated %s pair orbitals' % len(self.excludef_S),
                   file=self.fd)
-            nK = self.kd.nbzkpts
-            if world.rank == 0:
-                self.H_SS = np.zeros((self.nS, self.nS), dtype=complex)
-                self.H_SS[:len(self.H_sS)] = self.H_sS
-                Ntot = len(self.H_sS)
-                for rank in range(1, world.size):
-                    Ksize = -(-nK // world.size)
-                    Krange = range(rank * Ksize, min((rank + 1) * Ksize, nK))
-                    ns = len(Krange) * self.nv * self.nc * self.spins
-                    ns *= (1 + self.spinors)**2
-                    buf = np.empty((ns, self.nS), dtype=complex)
-                    world.receive(buf, rank, tag=123)
-                    self.H_SS[Ntot:Ntot + ns] = buf
-                    Ntot += ns
-            else:
-                world.send(self.H_sS, 0, tag=123)
 
+            self.H_SS = self.collect_A_SS(self.H_sS)
             self.w_T = np.zeros(self.nS - len(self.excludef_S), complex)
             if world.rank == 0:
                 self.H_SS = np.delete(self.H_SS, self.excludef_S, axis=0)
@@ -687,13 +673,12 @@ class BSE:
 
         if self.write_v and self.td:
             # Cannot use par_save without td
-            self.par_save('v_TS', 'v_TS', self.v_St.T)
+            self.par_save('v_TS.ulm', 'v_TS', self.v_St.T)
 
         return
 
-    def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
-                 direction=0, ac=1.0, readfile=None, optical=True,
-                 write_eig=None):
+    def get_bse_matrix(self, q_c=[0.0, 0.0, 0.0], direction=0, ac=1.0,
+                       readfile=None, optical=True, write_eig=None):
         """Returns v * \chi where v is the bare Coulomb interaction"""
 
         self.q_c = q_c
@@ -704,13 +689,26 @@ class BSE:
             self.diagonalize()
         elif readfile == 'H_SS':
             print('Reading Hamiltonian from file', file=self.fd)
-            self.par_load('H_SS', 'H_SS')
+            self.par_load('H_SS.ulm', 'H_SS')
             self.diagonalize()
         elif readfile == 'v_TS':
             print('Reading eigenstates from file', file=self.fd)
-            self.par_load('v_TS', 'v_TS')
+            self.par_load('v_TS.ulm', 'v_TS')
         else:
             raise ValueError('%s array not recognized' % readfile)
+
+        # TODO: Move write_eig here
+
+        return
+
+    def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
+                 direction=0, ac=1.0, readfile=None, optical=True,
+                 write_eig=None):
+        """Returns v * \chi where v is the bare Coulomb interaction"""
+
+        self.get_bse_matrix(q_c=q_c, direction=direction, ac=ac,
+                            readfile=readfile, optical=optical,
+                            write_eig=write_eig)
 
         w_T = self.w_T
         rhoG0_S = self.rhoG0_S
@@ -793,8 +791,8 @@ class BSE:
             dielectric function is written
         readfile: str
             If H_SS is given, the method will load the BSE Hamiltonian
-            from H_SS.gpw. If v_TS is given, the method will load the
-            eigenstates from v_TS.gpw
+            from H_SS.ulm. If v_TS is given, the method will load the
+            eigenstates from v_TS.ulm
         write_eig: str
             File on which the BSE eigenvalues are written
         """
@@ -850,8 +848,8 @@ class BSE:
             dielectric function is written
         readfile: str
             If H_SS is given, the method will load the BSE Hamiltonian
-            from H_SS.gpw. If v_TS is given, the method will load the
-            eigenstates from v_TS.gpw
+            from H_SS.ulm. If v_TS is given, the method will load the
+            eigenstates from v_TS.ulm
         write_eig: str
             File on which the BSE eigenvalues are written
         """
@@ -960,85 +958,99 @@ class BSE:
         return w_w, abs_w
 
     def par_save(self, filename, name, A_sS):
-        from gpaw.io import open
+        import ase.io.ulm as ulm
 
-        nS = self.nS
-        if world.rank == 0:
-            w = open(filename, 'w', world)
-            w.dimension('nS', nS)
-
-            if name == 'v_TS':
-                w.add('w_T', ('nS',), dtype=self.w_T.dtype)
-                w.fill(self.w_T)
-            w.add('rhoG0_S', ('nS',), dtype=complex)
-            w.fill(self.rhoG0_S)
-            w.add('df_S', ('nS',), dtype=complex)
-            w.fill(self.df_S)
-
-            w.add(name, ('nS', 'nS'), dtype=complex)
-
-        if not self.td and name == 'v_TS':
-            if world.rank == 0:
-                w.fill(A_sS)
+        if world.size == 1:
+            A_XS = A_sS
         else:
-            # Assumes that A_SS is written in order from rank 0 - rank N
-            nK = self.kd.nbzkpts
-            for irank in range(world.size):
-                if irank == 0:
-                    if world.rank == 0:
-                        w.fill(A_sS)
-                else:
-                    if world.rank == irank:
-                        world.send(A_sS, 0, irank + 100)
-                    if world.rank == 0:
-                        iKsize = -(-nK // world.size)
-                        iKrange = range(irank * iKsize,
-                                        min((irank + 1) * iKsize, nK))
-                        Nv = self.nv * (self.spinors + 1)
-                        Nc = self.nc * (self.spinors + 1)
-                        Ns = self.spins
-                        iSsize = len(iKrange) * Nv * Nc * Ns
-                        tmp = np.empty((iSsize, nS), complex)
-                        world.receive(tmp, irank, irank + 100)
-                        w.fill(tmp)
+            A_XS = self.collect_A_SS(A_sS)
+
         if world.rank == 0:
+            w = ulm.open(filename, 'w')
+            if name == 'v_TS':
+                w.write(w_T=self.w_T)
+            # w.write(nS=self.nS)
+            w.write(rhoG0_S=self.rhoG0_S)
+            w.write(df_S=self.df_S)
+            w.write(A_XS=A_XS)
             w.close()
         world.barrier()
 
     def par_load(self, filename, name):
-        from gpaw.io import open
+        import ase.io.ulm as ulm
 
-        r = open(filename, 'r')
-        nS = r.dimension('nS')
-        nK = self.kd.nbzkpts
-        myKsize = -(-nK // world.size)
-        myKrange = range(world.rank * myKsize,
-                         min((world.rank + 1) * myKsize, nK))
-        Nv = self.nv * (self.spinors + 1)
-        Nc = self.nc * (self.spinors + 1)
-        Ns = self.spins
-        mySsize = len(myKrange) * Nv * Nc * Ns
-        if len(myKrange) > 0:
-            mySrange = range(myKrange[0] * Nv * Nc * Ns,
-                             myKrange[0] * Nv * Nc * Ns + mySsize)
+        if world.rank == 0:
+            r = ulm.open(filename, 'r')
+            if name == 'v_TS':
+                self.w_T = r.w_T
+            self.rhoG0_S = r.rhoG0_S
+            self.df_S = r.df_S
+            A_XS = r.A_XS
+            r.close()
+        else:
+            if name == 'v_TS':
+                self.w_T = np.zeros((self.nS), dtype=float)
+            self.rhoG0_S = np.zeros((self.nS), dtype=complex)
+            self.df_S = np.zeros((self.nS), dtype=float)
+            A_XS = None
+
+        world.broadcast(self.rhoG0_S, 0)
+        world.broadcast(self.df_S, 0)
 
         if name == 'H_SS':
-            self.H_sS = np.zeros((mySsize, nS), dtype=complex)
-            if len(myKrange) > 0:
-                for si, s in enumerate(mySrange):
-                    self.H_sS[si] = r.get('H_SS', s)
+            self.H_sS = self.distribute_A_SS(A_XS)
 
         if name == 'v_TS':
-            self.w_T = r.get('w_T')
-            self.v_St = np.zeros((nS, mySsize), dtype=complex)
-            if len(myKrange) > 0:
-                for it, t in enumerate(mySrange):
-                    self.v_St[:, it] = r.get('v_TS', t)
+            world.broadcast(self.w_T, 0)
+            self.v_St = self.distribute_A_SS(A_XS, transpose=True)
 
-        self.rhoG0_S = r.get('rhoG0_S')
-        self.df_S = r.get('df_S')
+    def collect_A_SS(self, A_sS):
+        if world.rank == 0:
+            A_SS = np.zeros((self.nS, self.nS), dtype=complex)
+            A_SS[:len(A_sS)] = A_sS
+            Ntot = len(A_sS)
+            for rank in range(1, world.size):
+                nkr, nk, ns = self.parallelisation_sizes(rank)
+                buf = np.empty((ns, self.nS), dtype=complex)
+                world.receive(buf, rank, tag=123)
+                A_SS[Ntot:Ntot + ns] = buf
+                Ntot += ns
+        else:
+            world.send(A_sS, 0, tag=123)
+        world.barrier()
+        if world.rank == 0:
+            return A_SS
 
-        r.close()
+    def distribute_A_SS(self, A_SS, transpose=False):
+        if world.rank == 0:
+            for rank in range(0, world.size):
+                nkr, nk, ns = self.parallelisation_sizes(rank)
+                if rank == 0:
+                    A_sS = A_SS[0:ns]
+                    Ntot = ns
+                else:
+                    world.send(A_SS[Ntot:Ntot + ns], rank, tag=123)
+                    Ntot += ns
+        else:
+            nkr, nk, ns = self.parallelisation_sizes()
+            A_sS = np.empty((ns, self.nS), dtype=complex)
+            world.receive(A_sS, 0, tag=123)
+        world.barrier()
+        if transpose:
+            A_sS = A_sS.T
+        return A_sS
+
+    def parallelisation_sizes(self, rank=None):
+        if rank is None:
+            rank = world.rank
+        nK = self.kd.nbzkpts
+        myKsize = -(-nK // world.size)
+        myKrange = range(rank * myKsize,
+                         min((rank + 1) * myKsize, nK))
+        myKsize = len(myKrange)
+        mySsize = myKsize * self.nv * self.nc * self.spins
+        mySsize *= (1 + self.spinors)**2
+        return myKrange, myKsize, mySsize
 
     def get_bse_wf(self):
         pass
