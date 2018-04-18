@@ -7,10 +7,25 @@ from gpaw.utilities import unpack
 from gpaw.utilities.tools import tri2full
 from gpaw import debug
 from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
+from gpaw.lcao.tci import TCI
 from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.lcao.atomic_correction import get_atomic_correction
 from gpaw.wavefunctions.mode import Mode
+
+
+def get_newtci(setups, gd, spos_ac, ibzk_qc, dtype):
+    I_setup = {}
+    setups_I = list(setups.setups.values())
+    for I, setup in enumerate(setups_I):
+        I_setup[setup] = I
+    I_a = [I_setup[setup] for setup in setups]
+
+    return TCI([s.phit_j for s in setups_I],
+               [s.pt_j for s in setups_I],
+               I_a, gd.cell_cv, spos_ac=spos_ac,
+               pbc_c=gd.pbc_c, ibzk_qc=ibzk_qc,
+               dtype=dtype)
 
 
 class LCAO(Mode):
@@ -72,7 +87,7 @@ class LCAOWaveFunctions(WaveFunctions):
 
         if atomic_correction is None:
             if ksl.using_blacs:
-                atomic_correction = 'distributed'
+                atomic_correction = 'scipy'
             else:
                 atomic_correction = 'dense'
         if isinstance(atomic_correction, str):
@@ -168,19 +183,10 @@ class LCAOWaveFunctions(WaveFunctions):
                 self.tci.calculate(spos_ac, oldS_qMM, oldT_qMM,
                                    oldP_aqMi)
 
-        from gpaw.lcao.tci import TCI
-        # Establish arbitrary enumeration of setups:
-        I_setup = {}
-        setups_I = list(self.setups.setups.values())
-        for I, setup in enumerate(setups_I):
-            I_setup[setup] = I
-        I_a = [I_setup[setup] for setup in self.setups]
 
-        newtci = TCI([s.phit_j for s in setups_I],
-                     [s.pt_j for s in setups_I],
-                     I_a, self.gd.cell_cv, spos_ac=spos_ac,
-                     pbc_c=self.gd.pbc_c, ibzk_qc=self.kd.ibzk_qc,
-                     dtype=self.dtype)
+        newtci = get_newtci(self.setups, self.gd, spos_ac,
+                            self.kd.ibzk_qc, self.dtype)
+        self.newtci = newtci
 
         newS_qMM = np.zeros((nq, mynao, nao), self.dtype)
         newT_qMM = np.zeros((nq, mynao, nao), self.dtype)
@@ -188,6 +194,28 @@ class LCAOWaveFunctions(WaveFunctions):
 
         Mindices = self.setups.basis_indices()
         Pindices = self.setups.projector_indices()
+
+        assert Mindices.max == nao
+        #print('max'Pindices.max, Mindices.max)
+        P_qIM = [sparse.lil_matrix((Pindices.max, Mindices.max))
+                 for _ in range(nq)]
+        print('lil', P_qIM[0].toarray().shape)
+
+        for a1 in self.basis_functions.my_atom_indices:
+            I1, I2 = Pindices[a1]
+            #print('grr', I1, I2)
+
+            # We can stride a2 over e.g. bd.comm and then do bd.comm.sum().
+            # How should we do comm.sum() on a sparse matrix though?
+            for a2 in range(natoms):
+                M1, M2 = Mindices[a2]
+                P_qim = newtci.P(a1, a2)
+                #o = newtci.calculate(a1, a2, P=True)
+                if P_qim is not None:
+                    for q in range(nq):
+                        #print(P_qIM[q][I1:I2, M1:M2].shape, o.P_qim[q].shape)
+                        P_qIM[q][I1:I2, M1:M2] = P_qim[q]
+        P_qIM = [P_IM.tocsr() for P_IM in P_qIM]
 
         for a1 in self.basis_functions.my_atom_indices:
             I1, I2 = Pindices[a1]
@@ -197,11 +225,11 @@ class LCAOWaveFunctions(WaveFunctions):
             for a2 in range(natoms):
                 N1, N2 = Mindices[a2]
                 P_qmi = P_qMi[:, N1:N2, :]
-                o = newtci.calculate(a1, a2, P=True)
-                if o.P_qim is None:
+                P_qim = newtci.P(a1, a2)
+                if P_qim is None:
                     P_qmi[:] = 0.0
                 else:
-                    P_qmi[:] = o.P_qim.transpose(0, 2, 1).conj()
+                    P_qmi[:] = P_qim.transpose(0, 2, 1).conj()
             newP_aqMi[a1] = P_qMi
 
         for a1 in range(natoms):
@@ -219,13 +247,13 @@ class LCAOWaveFunctions(WaveFunctions):
             a2max = a1 + 1 if self.ksl.using_blacs else natoms
 
             for a2 in range(self.gd.comm.rank, a2max, self.gd.comm.size):
-                o = newtci.calculate(a1, a2, OT=True)
+                O_qmm, T_qmm = newtci.O_T(a1, a2)
                 N1, N2 = Mindices[a2]
-                if o.O_qmm is not None:
+                if O_qmm is not None:
                     m1 = max(Mstart - M1, 0)
                     m2 = m1 + nM
-                    newS_qMM[:, M1local:M2local, N1:N2] = o.O_qmm[:, m1:m2]
-                    newT_qMM[:, M1local:M2local, N1:N2] = o.T_qmm[:, m1:m2]
+                    newS_qMM[:, M1local:M2local, N1:N2] = O_qmm[:, m1:m2]
+                    newT_qMM[:, M1local:M2local, N1:N2] = T_qmm[:, m1:m2]
 
 
         if self.debug_tci:
@@ -243,10 +271,17 @@ class LCAOWaveFunctions(WaveFunctions):
         #   use symmetry/conj tricks to reduce calculations
         #   enable caching of spherical harmonics
 
-        if self.atomic_correction.name != 'dense':
-            from gpaw.lcao.newoverlap import newoverlap
-            self.P_neighbors_a, self.P_aaqim = newoverlap(self, spos_ac)
+        #if self.atomic_correction.name != 'dense':
+        from gpaw.lcao.newoverlap import newoverlap
+        self.P_neighbors_a, self.P_aaqim = newoverlap(self, spos_ac)
         self.atomic_correction.gobble_data(self)
+
+        if self.atomic_correction.name == 'scipy':
+            Pold_qIM = self.atomic_correction.Psparse_qIM
+            for q in range(nq):
+                maxerr = abs(Pold_qIM[q] - P_qIM[q]).max()
+                print('sparse maxerr', maxerr)
+                assert maxerr == 0
 
         self.atomic_correction.add_overlap_correction(self, newS_qMM)
         if self.debug_tci:
@@ -285,8 +320,16 @@ class LCAOWaveFunctions(WaveFunctions):
             Terr = np.abs(newT_qMM - oldT_qMM).max()
             print('S maxerr', Serr)
             print('T maxerr', Terr)
+            try:
+                assert Terr < 1e-15, Terr
+            except AssertionError:
+                np.set_printoptions(precision=6)
+                if self.world.rank == 0:
+                    print(newT_qMM)
+                    print(oldT_qMM)
+                    print(newT_qMM - oldT_qMM)
+                raise
             assert Serr < 1e-15, Serr
-            assert Terr < 1e-15, Terr
 
             assert len(oldP_aqMi) == len(newP_aqMi)
             for a in oldP_aqMi:
@@ -596,6 +639,31 @@ class LCAOWaveFunctions(WaveFunctions):
             m2max = M2stop - M2start
 
         if not isblacs:
+
+            Mindices = self.setups.basis_indices()
+            newdTdR_qvMM = np.empty((nq, 3, mynao, nao), dtype)
+
+            natoms = len(self.spos_ac)
+            newtci = self.newtci
+            for a1 in range(0, natoms, self.gd.comm.size):
+                M1, M2 = Mindices[a1]
+                for a2 in range(natoms):
+                    N1, N2 = Mindices[a2]
+                    dOdR_qvmm, dTdR_qvmm = newtci.dOdR_dTdR(a1, a2)
+                    # XXXXXXX also builds theta
+                    if dTdR_qvmm is None:
+                        newdTdR_qvMM[:, :, M1:M2, N1:N2] = 0.0
+                    else:
+                        newdTdR_qvMM[:, :, M1:M2, N1:N2] = dTdR_qvmm
+                    # XXXXXX get slicing right in parallel!
+
+            self.gd.comm.sum(newdTdR_qvMM)
+            dTdRerr = np.abs(newdTdR_qvMM - dTdR_qvMM).max()
+            assert dTdRerr < 1e-11
+            #print('dTdRerr', dTdRerr)
+            #print(newdTdR_qvMM)
+            #print(dTdR_qvMM)
+
             # Kinetic energy contribution
             #
             #           ----- d T
@@ -609,6 +677,7 @@ class LCAOWaveFunctions(WaveFunctions):
             for u, kpt in enumerate(self.kpt_u):
                 dEdTrhoT_vMM = (dTdR_qvMM[kpt.q] *
                                 rhoT_uMM[u][np.newaxis]).real
+                # XXX load distribution!
                 for a, M1, M2 in my_slices():
                     Fkin_av[a, :] += \
                         2.0 * dEdTrhoT_vMM[:, M1:M2].sum(-1).sum(-1)

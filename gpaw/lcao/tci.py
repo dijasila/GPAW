@@ -5,7 +5,8 @@ from ase.neighborlist import PrimitiveNeighborList
 from gpaw.lcao.overlap import (FourierTransformer, TwoSiteOverlapCalculator,
                                TwoCenterIntegralCalculator,
                                ManySiteOverlapCalculator,
-                               AtomicDisplacement)
+                               AtomicDisplacement,
+                               DerivativeAtomicDisplacement)
 
 def get_cutoffs(f_Ij):
     rcutmax_I = []
@@ -49,13 +50,33 @@ class AtomPairRegistry:
         return R_c_and_offset_a
 
 
-class Overlap:
-    def __init__(self):
-        self.O_qmm = None
-        self.T_qmm = None
-        self.P_qim = None
-
 class TCI:
+    """High-level two-center integral calculator.
+
+    This object is not aware of parallelization.  It works with any
+    pair of atoms a1, a2.
+
+    Create the object and calculate any interatomic overlap matrix as below.
+
+      tci = TCI(...)
+
+    Projector/basis overlap <pt_i^a1|phi_mu> between atoms a1, a2:
+
+      P_qim = tci.P(a1, a2)
+
+    Derivatives of the above with respect to movement of a2:
+
+      dPdR_qvim = tci.dPdR(a1, a2)
+
+    Basis/basis overlap and kinetic matrix elements between atoms a1, a2:
+
+      O_qmm, T_qmm = tci.O_T(a1, a2)
+
+    Derivative of the above wrt. position of a2:
+
+      dOdR_qvmm, dTdR_qvmm = tci.dOdR_dTdR(a1, a2)
+
+    """
     def __init__(self, phit_Ij, pt_Ij, I_a, cell_cv, spos_ac, pbc_c, ibzk_qc,
                  dtype):
         assert len(pt_Ij) == len(phit_Ij)
@@ -81,6 +102,8 @@ class TCI:
 
         self.overlapcalc = TwoCenterIntegralCalculator(ibzk_qc,
                                                        derivative=False)
+        self.derivativecalc = TwoCenterIntegralCalculator(ibzk_qc,
+                                                          derivative=True)
         phit_Ijq = msoc.transform(phit_Ij)
         pt_Ijq = msoc.transform(pt_Ij)
 
@@ -96,39 +119,51 @@ class TCI:
         self.P_expansions = msoc.calculate_expansions(pt_l_Ij, pt_Ijq,
                                                       phit_l_Ij, phit_Ijq)
 
+        self.O_T = self._tci_shortcut(True, False, False)
+        self.P = self._tci_shortcut(False, True, False)
+        self.dOdR_dTdR = self._tci_shortcut(True, False, True)
+        self.dPdR = self._tci_shortcut(False, True, True)
 
-    def calculate(self, a1, a2, OT=False, P=False):
+    def _tci_shortcut(self, OT, P, derivative):
+        def get_overlap(a1, a2):
+            return self._calculate(a1, a2, OT, P, derivative)
+        return get_overlap
+
+    def _calculate(self, a1, a2, OT=False, P=False, derivative=False):
         """Calculate overlap of functions between atoms a1 and a2."""
 
-        #print('aa', a1, a2)
-        o = Overlap()
         R_c_and_offset_a = self.a1a2.get(a1, a2)
 
         if R_c_and_offset_a is None:
-            return o
+            return None if P else (None, None)
 
         dtype = self.dtype
         get_phases = self.overlapcalc.phaseclass
+
+        displacement = DerivativeAtomicDisplacement if derivative else AtomicDisplacement
         ibzk_qc = self.overlapcalc.ibzk_qc
         nq = len(ibzk_qc)
         phit_rcmax_a = self.phit_rcmax_a
         pt_rcmax_a = self.pt_rcmax_a
 
+        shape = (nq, 3) if derivative else (nq,)
+
         if P:
             P_expansion = self.P_expansions.get(a1, a2)
-            o.P_qim = P_qim = P_expansion.zeros((nq,), dtype=dtype)
+            obj = P_qim = P_expansion.zeros(shape, dtype=dtype)
 
         if OT:
             O_expansion = self.O_expansions.get(a1, a2)
             T_expansion = self.T_expansions.get(a1, a2)
-            o.O_qmm = O_qmm = O_expansion.zeros((nq,), dtype=dtype)
-            o.T_qmm = T_qmm = T_expansion.zeros((nq,), dtype=dtype)
+            O_qmm = O_expansion.zeros(shape, dtype=dtype)
+            T_qmm = T_expansion.zeros(shape, dtype=dtype)
+            obj = O_qmm, T_qmm
 
         for R_c, offset in R_c_and_offset_a:
             norm = np.linalg.norm(R_c)
-            #print(norm)
             phases = get_phases(ibzk_qc, offset)
-            disp = AtomicDisplacement(None, a1, a2, R_c, offset, phases)
+
+            disp = displacement(None, a1, a2, R_c, offset, phases)
 
             if P and norm < pt_rcmax_a[a1] + phit_rcmax_a[a2]:
                 disp.evaluate_overlap(P_expansion, P_qim)
@@ -137,4 +172,4 @@ class TCI:
                 disp.evaluate_overlap(O_expansion, O_qmm)
                 disp.evaluate_overlap(T_expansion, T_qmm)
 
-        return o
+        return obj
