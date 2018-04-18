@@ -223,7 +223,8 @@ class HighLevelTCI:
     def P_qIM(self, my_atom_indices):
         nq = self.nq
         P = self.tci.P
-        P_qIM = [sparse.lil_matrix((self.Pindices.max, self.Mindices.max))
+        P_qIM = [sparse.lil_matrix((self.Pindices.max, self.Mindices.max),
+                                   dtype=self.dtype)
                  for _ in range(nq)]
 
         for a1 in my_atom_indices:
@@ -256,18 +257,21 @@ class HighLevelTCI:
             M2local = min(M2 - Mstart, mynao)
             nM = M2local - M1local
 
-            if not nM:
-                continue
+            assert nM > 0
+            #if not nM:
+            #    continue
 
             a2max = a1 + 1 if ignore_upper else self.natoms
 
             for a2 in range(gdcomm.rank, a2max, gdcomm.size):
                 O_qmm, T_qmm = O_T(a1, a2)
                 N1, N2 = Mindices[a2]
-                if O_qmm is not None:
-                    m1 = max(Mstart - M1, 0)
-                    m2 = m1 + nM
-                    O_qMM[:, M1local:M2local, N1:N2] = O_qmm[:, m1:m2]
-                    T_qMM[:, M1local:M2local, N1:N2] = T_qmm[:, m1:m2]
+                yes = (O_qmm is not None)
+                m1 = max(Mstart - M1, 0)
+                m2 = m1 + nM  # (Slice may go beyond end of matrix but OK)
+                O_qMM[:, M1local:M2local,
+                      N1:N2] = O_qmm[:, m1:m2] if yes else 0.0
+                T_qMM[:, M1local:M2local,
+                      N1:N2] = T_qmm[:, m1:m2] if yes else 0.0
 
         return O_qMM, T_qMM
