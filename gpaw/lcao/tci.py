@@ -1,5 +1,6 @@
 # encoding: utf-8
 import numpy as np
+import scipy.sparse as sparse
 from ase.neighborlist import PrimitiveNeighborList
 
 from gpaw.lcao.overlap import (FourierTransformer, TwoSiteOverlapCalculator,
@@ -173,3 +174,100 @@ class TCI:
                 disp.evaluate_overlap(T_expansion, T_qmm)
 
         return obj
+
+
+class HighLevelTCI:
+    def __init__(self, setups, gd, spos_ac, ibzk_qc, dtype):
+        I_setup = {}
+        setups_I = list(setups.setups.values())
+        for I, setup in enumerate(setups_I):
+            I_setup[setup] = I
+        I_a = [I_setup[setup] for setup in setups]
+
+        tci = TCI([s.phit_j for s in setups_I], [s.pt_j for s in setups_I],
+                  I_a, gd.cell_cv, spos_ac=spos_ac, pbc_c=gd.pbc_c,
+                  ibzk_qc=ibzk_qc, dtype=dtype)
+        self.tci = tci
+
+        self.setups = setups
+        self.dtype = dtype
+        self.Pindices = setups.projector_indices()
+        self.Mindices = setups.basis_indices()
+        self.natoms = len(setups)
+        self.nq = len(ibzk_qc)
+        self.nao = self.Mindices.max
+
+    def P_aqMi(self, my_atom_indices):
+        P_aqMi = {}
+        P = self.tci.P
+        Mindices = self.Mindices
+        Pindices = self.Pindices
+
+        for a1 in my_atom_indices:
+            I1, I2 = Pindices[a1]
+            assert I2 - I1 == self.setups[a1].ni
+            P_qMi = np.empty((self.nq, self.nao, I2 - I1), dtype=self.dtype)
+
+            for a2 in range(self.natoms):
+                N1, N2 = Mindices[a2]
+                P_qmi = P_qMi[:, N1:N2, :]
+                P_qim = P(a1, a2)
+                if P_qim is None:
+                    P_qmi[:] = 0.0
+                else:
+                    P_qmi[:] = P_qim.transpose(0, 2, 1).conj()
+            P_aqMi[a1] = P_qMi
+
+        return P_aqMi
+
+    def P_qIM(self, my_atom_indices):
+        nq = self.nq
+        P = self.tci.P
+        P_qIM = [sparse.lil_matrix((self.Pindices.max, self.Mindices.max))
+                 for _ in range(nq)]
+
+        for a1 in my_atom_indices:
+            I1, I2 = self.Pindices[a1]
+
+            # We can stride a2 over e.g. bd.comm and then do bd.comm.sum().
+            # How should we do comm.sum() on a sparse matrix though?
+            for a2 in range(self.natoms):
+                M1, M2 = self.Mindices[a2]
+                P_qim = P(a1, a2)
+                if P_qim is not None:
+                    for q in range(nq):
+                        P_qIM[q][I1:I2, M1:M2] = P_qim[q]
+        P_qIM = [P_IM.tocsr() for P_IM in P_qIM]
+        return P_qIM
+
+    def O_qMM_T_qMM(self, gdcomm, Mstart, Mstop, ignore_upper):
+        mynao = Mstop - Mstart
+        O_T = self.tci.O_T
+        Mindices = self.Mindices
+        O_qMM = np.empty((self.nq, mynao, self.nao), self.dtype)
+        T_qMM = np.empty((self.nq, mynao, self.nao), self.dtype)
+
+        for a1 in range(self.natoms):
+            M1, M2 = Mindices[a1]
+            if M2 < Mstart or M1 >= Mstop:  # > or >=?  Test this
+                continue
+
+            M1local = max(M1 - Mstart, 0)
+            M2local = min(M2 - Mstart, mynao)
+            nM = M2local - M1local
+
+            if not nM:
+                continue
+
+            a2max = a1 + 1 if ignore_upper else self.natoms
+
+            for a2 in range(gdcomm.rank, a2max, gdcomm.size):
+                O_qmm, T_qmm = O_T(a1, a2)
+                N1, N2 = Mindices[a2]
+                if O_qmm is not None:
+                    m1 = max(Mstart - M1, 0)
+                    m2 = m1 + nM
+                    O_qMM[:, M1local:M2local, N1:N2] = O_qmm[:, m1:m2]
+                    T_qMM[:, M1local:M2local, N1:N2] = T_qmm[:, m1:m2]
+
+        return O_qMM, T_qMM

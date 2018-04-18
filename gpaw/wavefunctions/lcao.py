@@ -7,7 +7,7 @@ from gpaw.utilities import unpack
 from gpaw.utilities.tools import tri2full
 from gpaw import debug
 from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
-from gpaw.lcao.tci import TCI
+from gpaw.lcao.tci import TCI, HighLevelTCI
 from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.lcao.atomic_correction import get_atomic_correction
@@ -158,9 +158,8 @@ class LCAOWaveFunctions(WaveFunctions):
             kpt.S_MM = None
             kpt.T_MM = None
 
-        self.S_qMM = self.T_qMM = None
-        self.P_aqMi = newP_aqMi = {}
-
+        # Free memory in case of old matrices:
+        self.S_qMM = self.T_qMM = self.P_aqMi = None
 
         for kpt in self.kpt_u:
             if kpt.C_nM is None:
@@ -184,77 +183,16 @@ class LCAOWaveFunctions(WaveFunctions):
                                    oldP_aqMi)
 
 
-        newtci = get_newtci(self.setups, self.gd, spos_ac,
-                            self.kd.ibzk_qc, self.dtype)
-        self.newtci = newtci
+        hltci = HighLevelTCI(self.setups, self.gd, spos_ac,
+                             self.kd.ibzk_qc, self.dtype)
+        self.newtci = hltci.tci
 
-        newS_qMM = np.zeros((nq, mynao, nao), self.dtype)
-        newT_qMM = np.zeros((nq, mynao, nao), self.dtype)
-        natoms = len(spos_ac)
-
-        Mindices = self.setups.basis_indices()
-        Pindices = self.setups.projector_indices()
-
-        assert Mindices.max == nao
-        #print('max'Pindices.max, Mindices.max)
-        P_qIM = [sparse.lil_matrix((Pindices.max, Mindices.max))
-                 for _ in range(nq)]
-        print('lil', P_qIM[0].toarray().shape)
-
-        for a1 in self.basis_functions.my_atom_indices:
-            I1, I2 = Pindices[a1]
-            #print('grr', I1, I2)
-
-            # We can stride a2 over e.g. bd.comm and then do bd.comm.sum().
-            # How should we do comm.sum() on a sparse matrix though?
-            for a2 in range(natoms):
-                M1, M2 = Mindices[a2]
-                P_qim = newtci.P(a1, a2)
-                #o = newtci.calculate(a1, a2, P=True)
-                if P_qim is not None:
-                    for q in range(nq):
-                        #print(P_qIM[q][I1:I2, M1:M2].shape, o.P_qim[q].shape)
-                        P_qIM[q][I1:I2, M1:M2] = P_qim[q]
-        P_qIM = [P_IM.tocsr() for P_IM in P_qIM]
-
-        for a1 in self.basis_functions.my_atom_indices:
-            I1, I2 = Pindices[a1]
-            assert I2 - I1 == self.setups[a1].ni
-            P_qMi = np.empty((nq, nao, I2 - I1), dtype=self.dtype)
-
-            for a2 in range(natoms):
-                N1, N2 = Mindices[a2]
-                P_qmi = P_qMi[:, N1:N2, :]
-                P_qim = newtci.P(a1, a2)
-                if P_qim is None:
-                    P_qmi[:] = 0.0
-                else:
-                    P_qmi[:] = P_qim.transpose(0, 2, 1).conj()
-            newP_aqMi[a1] = P_qMi
-
-        for a1 in range(natoms):
-            M1, M2 = Mindices[a1]
-            if M2 < Mstart or M1 >= Mstop:  # > or >=?  Test this
-                continue
-
-            M1local = max(M1 - Mstart, 0)
-            M2local = min(M2 - Mstart, mynao)
-            nM = M2local - M1local
-
-            if not nM:
-                continue
-
-            a2max = a1 + 1 if self.ksl.using_blacs else natoms
-
-            for a2 in range(self.gd.comm.rank, a2max, self.gd.comm.size):
-                O_qmm, T_qmm = newtci.O_T(a1, a2)
-                N1, N2 = Mindices[a2]
-                if O_qmm is not None:
-                    m1 = max(Mstart - M1, 0)
-                    m2 = m1 + nM
-                    newS_qMM[:, M1local:M2local, N1:N2] = O_qmm[:, m1:m2]
-                    newT_qMM[:, M1local:M2local, N1:N2] = T_qmm[:, m1:m2]
-
+        my_atom_indices = self.basis_functions.my_atom_indices
+        newS_qMM, newT_qMM = hltci.O_qMM_T_qMM(self.gd.comm,
+                                               Mstart, Mstop,
+                                               self.ksl.using_blacs)
+        P_qIM = hltci.P_qIM(my_atom_indices)
+        self.P_aqMi = newP_aqMi = hltci.P_aqMi(my_atom_indices)
 
         if self.debug_tci:
             assert len(oldP_aqMi) == len(newP_aqMi)
