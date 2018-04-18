@@ -20,15 +20,8 @@ system = system.repeat((1, 1, 2))
 # Break symmetries so we don't get funny degeneracy effects.
 system.rattle(stdev=0.05)
 
-corrections = [DenseAtomicCorrection(), DistributedAtomicCorrection()]
+corrections = [DenseAtomicCorrection(), ScipyAtomicCorrection(tolerance=0.0)]
 
-#corrections.pop() # XXXXXXXXXXXXXXXXXXXXXXXXXXXX
-try:
-    import scipy  # noqa
-except ImportError:
-    pass
-else:
-    corrections.append(ScipyAtomicCorrection(tolerance=0.0))
 
 energies = []
 for correction in corrections:
