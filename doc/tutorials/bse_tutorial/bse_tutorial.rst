@@ -20,7 +20,7 @@ Next we calculate the dynamical dielectric function using the Bethe-Salpeter equ
 .. image:: bse_Si.png
     :height: 400 px
 
-The Hamiltonian is stored in ``H_SS.gpw`` by default and its eigenstates and eigenvalues are stored in ``v_TS.gpw``. These are easily read by the get_dielectric_function method, such that if you want to calculate the spectrum at a different energy range or broadening you can simply do::
+The ``write_v`` keyword ensures that the eigenstates and eigenvalues are stored in ``v_TS.gpw``. These are easily read by the get_dielectric_function method, such that if you want to calculate the spectrum at a different energy range or broadening you can simply do::
 
     bse.get_dielectric_function(filename='bse_0.1.csv',
                                 readfile='v_TS.gpw',
@@ -33,20 +33,20 @@ The parameters that needs to be converged in the calculation are the k-points in
 
 For large calculations, it may be useful to write the screened interaction, which is the first quantity that is calculated and may be restarted in a subsequent calculation. This may be done with the keyword ``wfile='W_qGG.pckl'``, where the .pckl file contains the screened interaction matrices at all q-points and a few other variables. It may also be useful to set ``write_h=False`` and ``write_v=False``, since these files may become quite large for big calculations.
 
-Excitons in monolayer MoS2
-=======================================
+Excitons in monolayer MoS2 with Spin-orbit Coupling
+===================================================
 
 Spectrum from the Bethe-Salpeter equation
 -----------------------------------------
 
-The screening plays a fundamental role in the Bethe-Salpeter equation and for 2D systems the screening requires a special treatment. In particular we use a truncated Coulomb interaction inorder to decouple the screening between periodic images. We refer to Ref. [#Huser]_ for details on the truncated Coulomb interaction in GPAW. As before, we calculate the ground state of `MoS_2` with the script :download:`gs_MoS2.py`, which takes on the order of one hour on 4 CPUs. Note the large density of k-points, which are required to converge the BSE spectrum of two-dimensional systems.
+The screening plays a fundamental role in the Bethe-Salpeter equation and for 2D systems the screening requires a special treatment. In particular we use a truncated Coulomb interaction inorder to decouple the screening between periodic images. We refer to Ref. [#Huser]_ for details on the truncated Coulomb interaction in GPAW. As before, we calculate the ground state of `MoS_2` with the script :download:`gs_MoS2.py`, which takes a few minutes. Note the large density of k-points, which are required to converge the BSE spectrum of two-dimensional systems.
 
-The macroscopic dielectric function is calculated as an average of the microscopic screening over the unit cell. Clearly, for a 2D system this will depend on the unit cell size in the direction orthogonal to the slab and in the converged limit the dielectric function becomes unity. Instead we may calculate the longitudinal part of 2D polarizability which is independent of unit cell size. This is done in RPA as well as BSE with the scripts :download:`pol_MoS2.py`, which takes ~10 hours on 16 CPUs. Note that the BSE polarizability is calculated with and without Coulomb truncation for comparison. The results can be plottet with :download:`plot_MoS2.py` and is shown below.
+The macroscopic dielectric function is calculated as an average of the microscopic screening over the unit cell. Clearly, for a 2D system this will depend on the unit cell size in the direction orthogonal to the slab and in the converged limit the dielectric function becomes unity. Instead we may calculate the longitudinal part of 2D polarizability which is independent of unit cell size. This is done in RPA as well as BSE with the scripts :download:`pol_MoS2.py`, which takes ~20 hours on 16 CPUs. Note that the BSE polarizability is calculated with and without Coulomb truncation for comparison. In both case spin-orbit coupling is included through the ``spinors`` keyword. We refer to Ref. [#Olsenspin]_ for details on the spin-orbit implementation. The results can be plottet with :download:`plot_MoS2.py` and is shown below.
 
 .. image:: bse_MoS2.png
     :height: 400 px
 
-The excitonic effects are much stronger than in the case of Si due to the reduced screening in 2D. In particular, we can identify a distinct exciton well below the band edge. Note that without Coulomb truncation, the BSE spectrum is shifted upward in energy due the screening of electron-hole interactions from periodic images.
+The excitonic effects are much stronger than in the case of Si due to the reduced screening in 2D. In particular, we can identify a distinct spin-orbit split exciton well below the band edge. Note that without Coulomb truncation, the BSE spectrum is shifted upward in energy due the screening of electron-hole interactions from periodic images.
 
 2D screening with and without Coulomb truncation
 ------------------------------------------------
@@ -84,5 +84,9 @@ which is in good agreement with the BSE computation above
 .. [#Huser] F. Huser, T. Olsen and K. S. Thygesen
             *Phys. Rev. B* **88**, 245309 (2013)
 
+.. [#Olsenspin] T. Olsen
+            *Phys. Rev. B.* **94**, 235106 (2016)
+
 .. [#Olsen] T. Olsen, S. Latini, F. Rasmussen and K. S. Thygesen
             *Phys. Rev. Lett.* **116**, 056401 (2016)
+

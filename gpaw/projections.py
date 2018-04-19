@@ -121,10 +121,9 @@ class Projections:
             return P_In.T
 
     def toarraydict(self):
-        if self.collinear:
-            shapes = [(self.nbands, nproj) for nproj in self.nproj_a]
-        else:
-            shapes = [(self.nbands, 2, nproj) for nproj in self.nproj_a]
+        shape = self.myshape[:-1]
+        shapes = [shape + (nproj,) for nproj in self.nproj_a]
+
         d = self.atom_partition.arraydict(shapes, self.matrix.array.dtype)
         for a, I1, I2 in self.indices:
             d[a][:] = self.array[..., I1:I2]  # Blocks will be contiguous

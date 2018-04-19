@@ -6,9 +6,9 @@ import time
 import signal
 import traceback
 from distutils.version import LooseVersion
+from unittest import SkipTest
 
 import numpy as np
-
 from ase.utils import devnull
 
 from gpaw.atom.generator import Generator
@@ -275,7 +275,7 @@ tests = [
     'ext_potential/constant_e_field.py',    # ~9s
     'complex.py',                           # ~9s
     'vdw/quick.py',                         # ~9s
-    'pathological/lcao_spos_derivative.py', # ~9s
+    'pathological/lcao_spos_derivative.py',  # ~9s
     'lrtddft2/H2O-lcao.py',                 # ~10s
     'lrtddft2/Al2.py',                      # ~10s
     'lcaotddft/simple.py',                  # ~10s
@@ -647,6 +647,8 @@ class TestRunner:
         except KeyboardInterrupt:
             self.write_result(test, 'STOPPED', t0)
             raise
+        except SkipTest:
+            skip = True
         except ImportError as ex:
             if sys.version_info[0] >= 3:
                 module = ex.name
