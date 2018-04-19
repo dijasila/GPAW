@@ -3,6 +3,7 @@ import numpy as np
 import scipy.sparse as sparse
 from ase.neighborlist import PrimitiveNeighborList
 
+from gpaw import debug
 from gpaw.lcao.overlap import (FourierTransformer, TwoSiteOverlapCalculator,
                                TwoCenterIntegralCalculator,
                                ManySiteOverlapCalculator,
@@ -245,21 +246,20 @@ class HighLevelTCI:
         mynao = Mstop - Mstart
         O_T = self.tci.O_T
         Mindices = self.Mindices
-        O_qMM = np.empty((self.nq, mynao, self.nao), self.dtype)
-        T_qMM = np.empty((self.nq, mynao, self.nao), self.dtype)
+        O_qMM = np.zeros((self.nq, mynao, self.nao), self.dtype)
+        T_qMM = np.zeros((self.nq, mynao, self.nao), self.dtype)
 
+        # XXX the a1/a2 loops are not yet well load balanced.
         for a1 in range(self.natoms):
             M1, M2 = Mindices[a1]
-            if M2 < Mstart or M1 >= Mstop:  # > or >=?  Test this
+            if M2 <= Mstart or M1 >= Mstop:
                 continue
 
-            M1local = max(M1 - Mstart, 0)
-            M2local = min(M2 - Mstart, mynao)
-            nM = M2local - M1local
+            myM1 = max(M1 - Mstart, 0)
+            myM2 = min(M2 - Mstart, mynao)
+            nM = myM2 - myM1
 
-            assert nM > 0
-            #if not nM:
-            #    continue
+            assert nM > 0, nM
 
             a2max = a1 + 1 if ignore_upper else self.natoms
 
@@ -269,9 +269,10 @@ class HighLevelTCI:
                 yes = (O_qmm is not None)
                 m1 = max(Mstart - M1, 0)
                 m2 = m1 + nM  # (Slice may go beyond end of matrix but OK)
-                O_qMM[:, M1local:M2local,
-                      N1:N2] = O_qmm[:, m1:m2] if yes else 0.0
-                T_qMM[:, M1local:M2local,
-                      N1:N2] = T_qmm[:, m1:m2] if yes else 0.0
+                O_qMM[:, myM1:myM2, N1:N2] = O_qmm[:, m1:m2] if yes else 0.0
+                T_qMM[:, myM1:myM2, N1:N2] = T_qmm[:, m1:m2] if yes else 0.0
 
+        if debug:
+            assert not np.isnan(O_qMM).any()
+            assert not np.isnan(T_qMM).any()
         return O_qMM, T_qMM
