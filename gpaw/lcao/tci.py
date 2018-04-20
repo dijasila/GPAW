@@ -177,7 +177,7 @@ class TCI:
         return obj
 
 
-class HighLevelTCI:
+class ManyTCI:
     def __init__(self, setups, gd, spos_ac, ibzk_qc, dtype):
         I_setup = {}
         setups_I = list(setups.setups.values())
@@ -198,28 +198,34 @@ class HighLevelTCI:
         self.nq = len(ibzk_qc)
         self.nao = self.Mindices.max
 
-    def P_aqMi(self, my_atom_indices):
-        P_aqMi = {}
-        P = self.tci.P
+    def P_aqMi(self, my_atom_indices, derivative=False):
+        P_axMi = {}
+        if derivative:
+            P = self.tci.dPdR
+            empty = lambda nI: np.empty((self.nq, 3, self.nao, nI), self.dtype)
+        else:
+            P = self.tci.P
+            empty = lambda nI: np.empty((self.nq, self.nao, nI), self.dtype)
+
         Mindices = self.Mindices
-        Pindices = self.Pindices
 
         for a1 in my_atom_indices:
-            I1, I2 = Pindices[a1]
-            assert I2 - I1 == self.setups[a1].ni
-            P_qMi = np.empty((self.nq, self.nao, I2 - I1), dtype=self.dtype)
+            P_xMi = empty(self.setups[a1].ni)
 
             for a2 in range(self.natoms):
                 N1, N2 = Mindices[a2]
-                P_qmi = P_qMi[:, N1:N2, :]
-                P_qim = P(a1, a2)
-                if P_qim is None:
-                    P_qmi[:] = 0.0
+                P_xmi = P_xMi[..., N1:N2, :]
+                P_xim = P(a1, a2)
+                if P_xim is None:
+                    P_xmi[:] = 0.0
                 else:
-                    P_qmi[:] = P_qim.transpose(0, 2, 1).conj()
-            P_aqMi[a1] = P_qMi
+                    P_xmi[:] = P_xim.swapaxes(-2, -1).conj() #P_xim.transpose(0, 2, 1).conj()
+            P_axMi[a1] = P_xMi
 
-        return P_aqMi
+        if derivative:
+            for a in P_axMi:
+                P_axMi[a] *= -1.0
+        return P_axMi
 
     def P_qIM(self, my_atom_indices):
         nq = self.nq
@@ -242,12 +248,20 @@ class HighLevelTCI:
         P_qIM = [P_IM.tocsr() for P_IM in P_qIM]
         return P_qIM
 
-    def O_qMM_T_qMM(self, gdcomm, Mstart, Mstop, ignore_upper):
+    def O_qMM_T_qMM(self, gdcomm, Mstart, Mstop, ignore_upper,
+                    derivative=False):
         mynao = Mstop - Mstart
-        O_T = self.tci.O_T
         Mindices = self.Mindices
-        O_qMM = np.zeros((self.nq, mynao, self.nao), self.dtype)
-        T_qMM = np.zeros((self.nq, mynao, self.nao), self.dtype)
+
+        if derivative:
+            O_T = self.tci.dOdR_dTdR
+            shape = (self.nq, 3, mynao, self.nao)
+        else:
+            O_T = self.tci.O_T
+            shape = (self.nq, mynao, self.nao)
+
+        O_xMM = np.zeros(shape, self.dtype)
+        T_xMM = np.zeros(shape, self.dtype)
 
         # XXX the a1/a2 loops are not yet well load balanced.
         for a1 in range(self.natoms):
@@ -264,15 +278,41 @@ class HighLevelTCI:
             a2max = a1 + 1 if ignore_upper else self.natoms
 
             for a2 in range(gdcomm.rank, a2max, gdcomm.size):
-                O_qmm, T_qmm = O_T(a1, a2)
+                O_xmm, T_xmm = O_T(a1, a2)
+                if O_xmm is None:
+                    continue
+
                 N1, N2 = Mindices[a2]
-                yes = (O_qmm is not None)
                 m1 = max(Mstart - M1, 0)
                 m2 = m1 + nM  # (Slice may go beyond end of matrix but OK)
-                O_qMM[:, myM1:myM2, N1:N2] = O_qmm[:, m1:m2] if yes else 0.0
-                T_qMM[:, myM1:myM2, N1:N2] = T_qmm[:, m1:m2] if yes else 0.0
+                O_xmm = O_xmm[..., m1:m2, :]
+                T_xmm = T_xmm[..., m1:m2, :]
+                O_xMM[..., myM1:myM2, N1:N2] = O_xmm
+                T_xMM[..., myM1:myM2, N1:N2] = T_xmm
 
         if debug:
             assert not np.isnan(O_qMM).any()
             assert not np.isnan(T_qMM).any()
-        return O_qMM, T_qMM
+        return O_xMM, T_xMM
+
+    #def dPdR_aqvMi(self, gdcomm, my_atom_indices):
+        #dOdR_qvMM = np.empty((self.nq, 3, mynao, self.nao), self.dtype)
+        #dTdR_qvMM = np.empty((self.nq, 3, mynao, self.nao), self.dtype)
+        #dPdR_aqvMi = {}
+        #for a1 in my_atom_indices:
+        #    ni = self.setups[a1].ni
+        #    dPdR_aqvMi[a1] = np.empty((self.nq, 3, self.nao, ni), self.dtype)
+
+        #    for a2 in range(gdcomm.rank, self.natoms, gdcomm.size):
+        #        M1, M2 = self.Mindices[a2]
+        #        P_qvim = self.tci.dPdR(a1, a2)
+        #        P_qvmi = P_qvim.transpose(0, 1, 3, 2).conj()
+        #        dPdR_aqvMi[a1][:, :, M1:M2, :] = P_qvmi
+
+                
+
+        #tci.calculate_derivative(self.spos_ac, dThetadR_qvMM, dTdR_qvMM,
+        #                         dPdR_aqvMi)
+        #gdcomm.sum(dThetadR_qvMM)
+        #gdcomm.sum(dTdR_qvMM)
+    #    return dOdR_qvMM, dTdR_qvMM, dPdR_aqvMi

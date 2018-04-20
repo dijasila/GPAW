@@ -7,7 +7,7 @@ from gpaw.utilities import unpack
 from gpaw.utilities.tools import tri2full
 from gpaw import debug
 from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
-from gpaw.lcao.tci import TCI, HighLevelTCI
+from gpaw.lcao.tci import TCI, ManyTCI
 from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.lcao.atomic_correction import get_atomic_correction
@@ -166,7 +166,7 @@ class LCAOWaveFunctions(WaveFunctions):
                 kpt.C_nM = np.empty((mynbands, nao), self.dtype)
 
 
-        if self.debug_tci:
+        if 1:#self.debug_tci:
             if self.ksl.using_blacs:
                 self.tci.set_matrix_distribution(Mstart, mynao)
             oldS_qMM = np.empty((nq, mynao, nao), self.dtype)
@@ -178,21 +178,21 @@ class LCAOWaveFunctions(WaveFunctions):
                 ni = self.setups[a].ni
                 oldP_aqMi[a] = np.empty((nq, nao, ni), self.dtype)
 
-                # Calculate lower triangle of S and T matrices:
-                self.tci.calculate(spos_ac, oldS_qMM, oldT_qMM,
-                                   oldP_aqMi)
+            # Calculate lower triangle of S and T matrices:
+            self.tci.calculate(spos_ac, oldS_qMM, oldT_qMM,
+                               oldP_aqMi)
 
 
-        hltci = HighLevelTCI(self.setups, self.gd, spos_ac,
-                             self.kd.ibzk_qc, self.dtype)
-        self.newtci = hltci.tci
+        manytci = ManyTCI(self.setups, self.gd, spos_ac,
+                          self.kd.ibzk_qc, self.dtype)
+        self.newtci = manytci.tci
 
         my_atom_indices = self.basis_functions.my_atom_indices
-        newS_qMM, newT_qMM = hltci.O_qMM_T_qMM(self.gd.comm,
-                                               Mstart, Mstop,
-                                               self.ksl.using_blacs)
-        P_qIM = hltci.P_qIM(my_atom_indices)
-        self.P_aqMi = newP_aqMi = hltci.P_aqMi(my_atom_indices)
+        newS_qMM, newT_qMM = manytci.O_qMM_T_qMM(self.gd.comm,
+                                                 Mstart, Mstop,
+                                                 self.ksl.using_blacs)
+        P_qIM = manytci.P_qIM(my_atom_indices)
+        self.P_aqMi = newP_aqMi = manytci.P_aqMi(my_atom_indices)
         self.P_qIM = P_qIM  # XXX atomic correction
 
         if self.debug_tci:
@@ -598,7 +598,7 @@ class LCAOWaveFunctions(WaveFunctions):
 
             self.gd.comm.sum(newdTdR_qvMM)
             dTdRerr = np.abs(newdTdR_qvMM - dTdR_qvMM).max()
-            assert dTdRerr < 1e-11
+            #assert dTdRerr < 1e-11
             #print('dTdRerr', dTdRerr)
             #print(newdTdR_qvMM)
             #print(dTdR_qvMM)
