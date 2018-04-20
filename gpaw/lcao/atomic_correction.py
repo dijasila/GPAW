@@ -270,6 +270,9 @@ class ScipyAtomicCorrection(DistributedAtomicCorrection):
         self.I = I
         self.I_a = I_a
 
+        self.Psparse_qIM = wfs.P_qIM
+        return
+
         M_a = wfs.setups.M_a
         M = M_a[-1] + wfs.setups[-1].nao
         nao_a = [setup.nao for setup in wfs.setups]

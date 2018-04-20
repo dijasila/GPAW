@@ -193,6 +193,7 @@ class LCAOWaveFunctions(WaveFunctions):
                                                self.ksl.using_blacs)
         P_qIM = hltci.P_qIM(my_atom_indices)
         self.P_aqMi = newP_aqMi = hltci.P_aqMi(my_atom_indices)
+        self.P_qIM = P_qIM  # XXX atomic correction
 
         if self.debug_tci:
             assert len(oldP_aqMi) == len(newP_aqMi)
@@ -210,16 +211,16 @@ class LCAOWaveFunctions(WaveFunctions):
         #   enable caching of spherical harmonics
 
         #if self.atomic_correction.name != 'dense':
-        from gpaw.lcao.newoverlap import newoverlap
-        self.P_neighbors_a, self.P_aaqim = newoverlap(self, spos_ac)
+        #from gpaw.lcao.newoverlap import newoverlap
+        #self.P_neighbors_a, self.P_aaqim = newoverlap(self, spos_ac)
         self.atomic_correction.gobble_data(self)
 
-        if self.atomic_correction.name == 'scipy':
-            Pold_qIM = self.atomic_correction.Psparse_qIM
-            for q in range(nq):
-                maxerr = abs(Pold_qIM[q] - P_qIM[q]).max()
-                print('sparse maxerr', maxerr)
-                assert maxerr == 0
+        #if self.atomic_correction.name == 'scipy':
+        #    Pold_qIM = self.atomic_correction.Psparse_qIM
+        #    for q in range(nq):
+        #        maxerr = abs(Pold_qIM[q] - P_qIM[q]).max()
+        #        print('sparse maxerr', maxerr)
+        #        assert maxerr == 0
 
         self.atomic_correction.add_overlap_correction(self, newS_qMM)
         if self.debug_tci:
