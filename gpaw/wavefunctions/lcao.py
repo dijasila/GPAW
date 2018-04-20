@@ -185,6 +185,7 @@ class LCAOWaveFunctions(WaveFunctions):
 
         manytci = ManyTCI(self.setups, self.gd, spos_ac,
                           self.kd.ibzk_qc, self.dtype)
+        self.manytci = manytci
         self.newtci = manytci.tci
 
         my_atom_indices = self.basis_functions.my_atom_indices
@@ -420,6 +421,8 @@ class LCAOWaveFunctions(WaveFunctions):
         nq = len(self.kd.ibzk_qc)
         dtype = self.dtype
         tci = self.tci
+        manytci = self.manytci
+        newtci = self.newtci
         gd = self.gd
         bfs = self.basis_functions
 
@@ -583,7 +586,6 @@ class LCAOWaveFunctions(WaveFunctions):
             newdTdR_qvMM = np.empty((nq, 3, mynao, nao), dtype)
 
             natoms = len(self.spos_ac)
-            newtci = self.newtci
             for a1 in range(0, natoms, self.gd.comm.size):
                 M1, M2 = Mindices[a1]
                 for a2 in range(natoms):
@@ -748,14 +750,16 @@ class LCAOWaveFunctions(WaveFunctions):
                 M1stop = J1start + m1stop - m1start
                 J2stop = J2start + m2stop - m2start
 
-                dTdR_qvmm = T_expansion.zeros((nq, 3), dtype=dtype)
-                dThetadR_qvmm = Theta_expansion.zeros((nq, 3), dtype=dtype)
+                #dTdR_qvmm = T_expansion.zeros((nq, 3), dtype=dtype)
+                #dThetadR_qvmm = Theta_expansion.zeros((nq, 3), dtype=dtype)
 
-                disp_o = get_displacements(a1, a2,
-                                           phicutoff_a[a1] + phicutoff_a[a2])
-                for disp in disp_o:
-                    disp.evaluate_overlap(T_expansion, dTdR_qvmm)
-                    disp.evaluate_overlap(Theta_expansion, dThetadR_qvmm)
+                #disp_o = get_displacements(a1, a2,
+                #                           phicutoff_a[a1] + phicutoff_a[a2])
+                #for disp in disp_o:
+                    #disp.evaluate_overlap(T_expansion, dTdR_qvmm)
+                #    disp.evaluate_overlap(Theta_expansion, dThetadR_qvmm)
+
+                dThetadR_qvmm, dTdR_qvmm = newtci.dOdR_dTdR(a1, a2)
 
                 for u, kpt in enumerate(self.kpt_u):
                     rhoT_mm = rhoT_umm[u][m1start:m1stop, m2start:m2stop]
