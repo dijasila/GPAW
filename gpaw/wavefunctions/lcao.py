@@ -434,14 +434,21 @@ class LCAOWaveFunctions(WaveFunctions):
 
         if not isblacs:
             self.timer.start('TCI derivative')
-            dThetadR_qvMM = np.empty((nq, 3, mynao, nao), dtype)
-            dTdR_qvMM = np.empty((nq, 3, mynao, nao), dtype)
-            dPdR_aqvMi = {}
-            for a in self.basis_functions.my_atom_indices:
-                ni = self.setups[a].ni
-                dPdR_aqvMi[a] = np.empty((nq, 3, nao, ni), dtype)
-            tci.calculate_derivative(self.spos_ac, dThetadR_qvMM, dTdR_qvMM,
-                                     dPdR_aqvMi)
+            #dThetadR_qvMM = np.empty((nq, 3, mynao, nao), dtype)
+            #dTdR_qvMM = np.empty((nq, 3, mynao, nao), dtype)
+            #dPdR_aqvMi = {}
+            #for a in self.basis_functions.my_atom_indices:
+            #    ni = self.setups[a].ni
+            #    dPdR_aqvMi[a] = np.empty((nq, 3, nao, ni), dtype)
+            #tci.calculate_derivative(self.spos_ac, dThetadR_qvMM, dTdR_qvMM,
+            #                         dPdR_aqvMi)
+
+            dThetadR_qvMM, dTdR_qvMM = self.manytci.O_qMM_T_qMM(
+                self.gd.comm, Mstart, Mstop, False, derivative=True)
+
+            dPdR_aqvMi = self.manytci.P_aqMi(
+                self.basis_functions.my_atom_indices, derivative=True)
+
             gd.comm.sum(dThetadR_qvMM)
             gd.comm.sum(dTdR_qvMM)
             self.timer.stop('TCI derivative')
