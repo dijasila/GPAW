@@ -122,26 +122,37 @@ class TCI:
         self.P_expansions = msoc.calculate_expansions(pt_l_Ij, pt_Ijq,
                                                       phit_l_Ij, phit_Ijq)
 
-        self.O_T = self._tci_shortcut(True, False, False)
-        self.P = self._tci_shortcut(False, True, False)
-        self.dOdR_dTdR = self._tci_shortcut(True, False, True)
-        self.dPdR = self._tci_shortcut(False, True, True)
+        self.O_T = self._tci_shortcut(False, False)
+        self.P = self._tci_shortcut(True, False)
+        self.dOdR_dTdR = self._tci_shortcut(False, True)
+        self.dPdR = self._tci_shortcut(True, True)
 
-    def _tci_shortcut(self, OT, P, derivative):
+    def _tci_shortcut(self, P, derivative):
         def calculate(a1, a2):
-            return self._calculate(a1, a2, OT, P, derivative)
+            return self._calculate(a1, a2, P, derivative)
         return calculate
 
-    def _calculate(self, a1, a2, OT=False, P=False, derivative=False):
+    def _calculate(self, a1, a2, P=False, derivative=False):
         """Calculate overlap of functions between atoms a1 and a2."""
 
-        R_c_and_offset_a = self.a1a2.get(a1, a2)
+        # We want to see quickly if there is no overlap because distance
+        # outside bounding spheres.
 
+        R_c_and_offset_a = self.a1a2.get(a1, a2)
         if R_c_and_offset_a is None:
             return None if P else (None, None)
 
+        rcut1 = self.pt_rcmax_a[a1] if P else self.phit_rcmax_a[a1]
+        rcut2 = self.phit_rcmax_a[a2]
+        maxdist = rcut1 + rcut2
+
+        # Filter out displacements larger than maxdist:
+        R_c_and_offset_a = [obj for obj in R_c_and_offset_a
+                            if np.linalg.norm(obj[0]) < maxdist]
+        if not R_c_and_offset_a:  # There was no overlap after all
+            return None if P else (None, None)
+
         dtype = self.dtype
-        #get_phases = self.overlapcalc.phaseclass
         get_phases = self.get_phases
 
         displacement = DerivativeAtomicDisplacement if derivative else AtomicDisplacement
@@ -156,8 +167,7 @@ class TCI:
         if P:
             P_expansion = self.P_expansions.get(a1, a2)
             obj = P_qim = P_expansion.zeros(shape, dtype=dtype)
-
-        if OT:
+        else:
             O_expansion = self.O_expansions.get(a1, a2)
             T_expansion = self.T_expansions.get(a1, a2)
             O_qmm = O_expansion.zeros(shape, dtype=dtype)
@@ -170,10 +180,11 @@ class TCI:
 
             disp = displacement(None, a1, a2, R_c, offset, phases)
 
-            if P and norm < pt_rcmax_a[a1] + phit_rcmax_a[a2]:
+            if P:
+                assert norm < pt_rcmax_a[a1] + phit_rcmax_a[a2]
                 disp.evaluate_overlap(P_expansion, P_qim)
-
-            if OT and norm < phit_rcmax_a[a1] + phit_rcmax_a[a2]:
+            else:
+                assert norm < phit_rcmax_a[a1] + phit_rcmax_a[a2]
                 disp.evaluate_overlap(O_expansion, O_qmm)
                 disp.evaluate_overlap(T_expansion, T_qmm)
 

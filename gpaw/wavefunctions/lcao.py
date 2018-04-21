@@ -588,29 +588,6 @@ class LCAOWaveFunctions(WaveFunctions):
             m2max = M2stop - M2start
 
         if not isblacs:
-
-            Mindices = self.setups.basis_indices()
-            newdTdR_qvMM = np.empty((nq, 3, mynao, nao), dtype)
-
-            natoms = len(self.spos_ac)
-            for a1 in range(0, natoms, self.gd.comm.size):
-                M1, M2 = Mindices[a1]
-                for a2 in range(natoms):
-                    N1, N2 = Mindices[a2]
-                    dOdR_qvmm, dTdR_qvmm = newtci.dOdR_dTdR(a1, a2)
-                    # XXXXXXX also builds theta
-                    if dTdR_qvmm is None:
-                        newdTdR_qvMM[:, :, M1:M2, N1:N2] = 0.0
-                    else:
-                        newdTdR_qvMM[:, :, M1:M2, N1:N2] = dTdR_qvmm
-                    # XXXXXX get slicing right in parallel!
-
-            self.gd.comm.sum(newdTdR_qvMM)
-            #assert dTdRerr < 1e-11
-            #print('dTdRerr', dTdRerr)
-            #print(newdTdR_qvMM)
-            #print(dTdR_qvMM)
-
             # Kinetic energy contribution
             #
             #           ----- d T
@@ -706,22 +683,22 @@ class LCAOWaveFunctions(WaveFunctions):
 
             # Cache of Displacement objects with spherical harmonics with
             # evaluated spherical harmonics.
-            disp_aao = {}
+            #disp_aao = {}
 
-            def get_displacements(a1, a2, maxdistance):
-                # XXX the way maxdistance is handled it can lead to
-                # bad caching when different maxdistances are passed
-                # to subsequent calls with same pair of atoms
-                disp_o = disp_aao.get((a1, a2))
-                if disp_o is None:
-                    disp_o = []
-                    for R_c, offset in r_and_offset_aao[(a1, a2)]:
-                        if np.linalg.norm(R_c) > maxdistance:
-                            continue
-                        disp = Displacement(a1, a2, R_c, offset)
-                        disp_o.append(disp)
-                    disp_aao[(a1, a2)] = disp_o
-                return [disp for disp in disp_o if disp.r < maxdistance]
+            #def get_displacements(a1, a2, maxdistance):
+            #    # XXX the way maxdistance is handled it can lead to
+            #    # bad caching when different maxdistances are passed
+            #    # to subsequent calls with same pair of atoms
+            #    disp_o = disp_aao.get((a1, a2))
+            #    if disp_o is None:
+            #        disp_o = []
+            #        for R_c, offset in r_and_offset_aao[(a1, a2)]:
+            #            if np.linalg.norm(R_c) > maxdistance:
+            #                continue
+            #            disp = Displacement(a1, a2, R_c, offset)
+            #            disp_o.append(disp)
+            #        disp_aao[(a1, a2)] = disp_o
+            #    return [disp for disp in disp_o if disp.r < maxdistance]
 
             self.timer.stop('Prepare TCI loop')
             self.timer.start('Not so complicated loop')
@@ -849,10 +826,12 @@ class LCAOWaveFunctions(WaveFunctions):
                     if m2stop <= 0:
                         continue
 
-                    disp_o = get_displacements(a2, a3,
-                                               phicutoff_a[a2] + pcutoff_a[a3])
-                    if len(disp_o) == 0:
-                        continue
+                    
+                    #disp_o = get_displacements(a2, a3,
+                    #                           phicutoff_a[a2] + pcutoff_a[a3])
+                    #if len(disp_o) == 0:
+                    #    continue
+                    #if not self.newtci.within_range(a2, a3)
 
                     m2start = max(m2start, 0)
                     J2start = max(0, M2start - M_a[a2])
@@ -862,6 +841,8 @@ class LCAOWaveFunctions(WaveFunctions):
                         dHP_uim, dSP_uim = dHP_and_dSP_aauim[(a2, a3)]
                     else:
                         P_qim = newtci.P(a3, a2)
+                        if P_qim is None:
+                            continue
                         P_qmi = P_qim.transpose(0, 2, 1).conj()
                         #P_qmi = P_expansion2.zeros((nq,), dtype=dtype)
                         #for disp in disp_o:
