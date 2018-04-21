@@ -5,9 +5,8 @@ from ase.neighborlist import PrimitiveNeighborList
 
 from gpaw import debug
 from gpaw.lcao.overlap import (FourierTransformer, TwoSiteOverlapCalculator,
-                               TwoCenterIntegralCalculator,
                                ManySiteOverlapCalculator,
-                               AtomicDisplacement,
+                               AtomicDisplacement, NullPhases, BlochPhases,
                                DerivativeAtomicDisplacement)
 
 def get_cutoffs(f_Ij):
@@ -102,10 +101,12 @@ class TCI:
 
         self.a1a2 = AtomPairRegistry(cutoff_a, pbc_c, cell_cv, spos_ac)
 
-        self.overlapcalc = TwoCenterIntegralCalculator(ibzk_qc,
-                                                       derivative=False)
-        self.derivativecalc = TwoCenterIntegralCalculator(ibzk_qc,
-                                                          derivative=True)
+        self.ibzk_qc = ibzk_qc
+        if ibzk_qc.any():
+            self.get_phases = BlochPhases
+        else:
+            self.get_phases = NullPhases
+
         phit_Ijq = msoc.transform(phit_Ij)
         pt_Ijq = msoc.transform(pt_Ij)
 
@@ -140,10 +141,11 @@ class TCI:
             return None if P else (None, None)
 
         dtype = self.dtype
-        get_phases = self.overlapcalc.phaseclass
+        #get_phases = self.overlapcalc.phaseclass
+        get_phases = self.get_phases
 
         displacement = DerivativeAtomicDisplacement if derivative else AtomicDisplacement
-        ibzk_qc = self.overlapcalc.ibzk_qc
+        ibzk_qc = self.ibzk_qc
         nq = len(ibzk_qc)
         phit_rcmax_a = self.phit_rcmax_a
         pt_rcmax_a = self.pt_rcmax_a
