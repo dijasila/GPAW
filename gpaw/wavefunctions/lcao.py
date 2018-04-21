@@ -637,11 +637,13 @@ class LCAOWaveFunctions(WaveFunctions):
                                                       derivative=False)
 
             # XXX this is not parallel *AT ALL*.
-            self.timer.start('Get neighbors')
-            nl = tci.atompairs.pairs.neighbors
-            r_and_offset_aao = get_r_and_offsets(nl, self.spos_ac, gd.cell_cv)
-            atompairs = sorted(r_and_offset_aao.keys())
-            self.timer.stop('Get neighbors')
+            #self.timer.start('Get neighbors')
+            #nl = tci.atompairs.pairs.neighbors
+            #r_and_offset_aao = get_r_and_offsets(nl, self.spos_ac, gd.cell_cv)
+            #atompairs = sorted(r_and_offset_aao.keys())
+            #self.timer.stop('Get neighbors')
+
+            atompairs = self.newtci.a1a2.get_atompairs()
 
             #T_expansions = tci.T_expansions
             #Theta_expansions = tci.Theta_expansions
@@ -672,14 +674,14 @@ class LCAOWaveFunctions(WaveFunctions):
             #
             # To this end we will loop over all pairs of atoms (a1, a3),
             # and then a sub-loop over (a3, a2).
-            from gpaw.lcao.overlap import DerivativeAtomicDisplacement
 
-            class Displacement(DerivativeAtomicDisplacement):
-                def __init__(self, a1, a2, R_c, offset):
-                    phases = overlapcalc.phaseclass(overlapcalc.ibzk_qc,
-                                                    offset)
-                    DerivativeAtomicDisplacement.__init__(self, None, a1, a2,
-                                                          R_c, offset, phases)
+            #from gpaw.lcao.overlap import DerivativeAtomicDisplacement
+            #class Displacement(DerivativeAtomicDisplacement):
+            #    def __init__(self, a1, a2, R_c, offset):
+            #        phases = overlapcalc.phaseclass(overlapcalc.ibzk_qc,
+            #                                        offset)
+            #        DerivativeAtomicDisplacement.__init__(self, None, a1, a2,
+            #                                              R_c, offset, phases)
 
             # Cache of Displacement objects with spherical harmonics with
             # evaluated spherical harmonics.

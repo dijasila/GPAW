@@ -50,6 +50,9 @@ class AtomPairRegistry:
         R_c_and_offset_a = self.r_and_offset_aao.get((a1, a2))
         return R_c_and_offset_a
 
+    def get_atompairs(self):
+        return list(sorted(self.r_and_offset_aao))
+
 
 class TCI:
     """High-level two-center integral calculator.
