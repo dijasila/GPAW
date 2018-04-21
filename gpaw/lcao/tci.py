@@ -128,9 +128,9 @@ class TCI:
         self.dPdR = self._tci_shortcut(False, True, True)
 
     def _tci_shortcut(self, OT, P, derivative):
-        def get_overlap(a1, a2):
+        def calculate(a1, a2):
             return self._calculate(a1, a2, OT, P, derivative)
-        return get_overlap
+        return calculate
 
     def _calculate(self, a1, a2, OT=False, P=False, derivative=False):
         """Calculate overlap of functions between atoms a1 and a2."""
@@ -152,6 +152,7 @@ class TCI:
 
         shape = (nq, 3) if derivative else (nq,)
 
+        # The caller should give either P or OT.
         if P:
             P_expansion = self.P_expansions.get(a1, a2)
             obj = P_qim = P_expansion.zeros(shape, dtype=dtype)
@@ -221,7 +222,7 @@ class ManyTCI:
                 if P_xim is None:
                     P_xmi[:] = 0.0
                 else:
-                    P_xmi[:] = P_xim.swapaxes(-2, -1).conj() #P_xim.transpose(0, 2, 1).conj()
+                    P_xmi[:] = P_xim.swapaxes(-2, -1).conj()
             P_axMi[a1] = P_xMi
 
         if derivative:
@@ -296,25 +297,3 @@ class ManyTCI:
             assert not np.isnan(O_qMM).any()
             assert not np.isnan(T_qMM).any()
         return O_xMM, T_xMM
-
-    #def dPdR_aqvMi(self, gdcomm, my_atom_indices):
-        #dOdR_qvMM = np.empty((self.nq, 3, mynao, self.nao), self.dtype)
-        #dTdR_qvMM = np.empty((self.nq, 3, mynao, self.nao), self.dtype)
-        #dPdR_aqvMi = {}
-        #for a1 in my_atom_indices:
-        #    ni = self.setups[a1].ni
-        #    dPdR_aqvMi[a1] = np.empty((self.nq, 3, self.nao, ni), self.dtype)
-
-        #    for a2 in range(gdcomm.rank, self.natoms, gdcomm.size):
-        #        M1, M2 = self.Mindices[a2]
-        #        P_qvim = self.tci.dPdR(a1, a2)
-        #        P_qvmi = P_qvim.transpose(0, 1, 3, 2).conj()
-        #        dPdR_aqvMi[a1][:, :, M1:M2, :] = P_qvmi
-
-                
-
-        #tci.calculate_derivative(self.spos_ac, dThetadR_qvMM, dTdR_qvMM,
-        #                         dPdR_aqvMi)
-        #gdcomm.sum(dThetadR_qvMM)
-        #gdcomm.sum(dTdR_qvMM)
-    #    return dOdR_qvMM, dTdR_qvMM, dPdR_aqvMi
