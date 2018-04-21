@@ -666,9 +666,9 @@ class LCAOWaveFunctions(WaveFunctions):
             atompairs = sorted(r_and_offset_aao.keys())
             self.timer.stop('Get neighbors')
 
-            T_expansions = tci.T_expansions
-            Theta_expansions = tci.Theta_expansions
-            P_expansions = tci.P_expansions
+            #T_expansions = tci.T_expansions
+            #Theta_expansions = tci.Theta_expansions
+            #P_expansions = tci.P_expansions
             nq = len(self.kd.ibzk_qc)
 
             self.timer.start('broadcast dH')
@@ -739,9 +739,13 @@ class LCAOWaveFunctions(WaveFunctions):
                 if m1start >= blocksize1 or m2start >= blocksize2:
                     continue  # (we have only one block per CPU)
 
-                T_expansion = T_expansions.get(a1, a2)
-                Theta_expansion = Theta_expansions.get(a1, a2)
-                nm1, nm2 = T_expansion.shape
+                #T_expansion = T_expansions.get(a1, a2)
+                #Theta_expansion = Theta_expansions.get(a1, a2)
+                #nm1, nm2 = T_expansion.shape
+                #assert nm1 == self.setups[a1].nao
+                #assert nm2 == self.setups[a2].nao
+                nm1 = self.setups[a1].nao
+                nm2 = self.setups[a2].nao
 
                 m1stop = min(m1start + nm1, m1max)
                 m2stop = min(m2start + nm2, m2max)
@@ -805,8 +809,10 @@ class LCAOWaveFunctions(WaveFunctions):
                 if m1start >= blocksize1:
                     continue
 
-                P_expansion = P_expansions.get(a1, a3)
-                nm1 = P_expansion.shape[0]
+                #P_expansion = P_expansions.get(a1, a3)
+                #nm1 = P_expansion.shape[0]
+                #assert nm1 == self.setups[a1].nao
+                nm1 = self.setups[a1].nao
                 m1stop = min(m1start + nm1, m1max)
                 if m1stop <= 0:
                     continue
@@ -835,8 +841,10 @@ class LCAOWaveFunctions(WaveFunctions):
                     if m2start >= blocksize2:
                         continue
 
-                    P_expansion2 = P_expansions.get(a2, a3)
-                    nm2 = P_expansion2.shape[0]
+                    #P_expansion2 = P_expansions.get(a2, a3)
+                    #nm2 = P_expansion2.shape[0]
+                    #assert nm2 == self.setups[a2].nao
+                    nm2 = self.setups[a2].nao
                     m2stop = min(m2start + nm2, m2max)
                     if m2stop <= 0:
                         continue
