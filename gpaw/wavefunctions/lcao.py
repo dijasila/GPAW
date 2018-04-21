@@ -420,7 +420,7 @@ class LCAOWaveFunctions(WaveFunctions):
         mynao = ksl.mynao
         nq = len(self.kd.ibzk_qc)
         dtype = self.dtype
-        tci = self.tci
+        #tci = self.tci
         manytci = self.manytci
         newtci = self.newtci
         gd = self.gd
@@ -434,17 +434,9 @@ class LCAOWaveFunctions(WaveFunctions):
 
         if not isblacs:
             self.timer.start('TCI derivative')
-            #dThetadR_qvMM = np.empty((nq, 3, mynao, nao), dtype)
-            #dTdR_qvMM = np.empty((nq, 3, mynao, nao), dtype)
-            #dPdR_aqvMi = {}
-            #for a in self.basis_functions.my_atom_indices:
-            #    ni = self.setups[a].ni
-            #    dPdR_aqvMi[a] = np.empty((nq, 3, nao, ni), dtype)
-            #tci.calculate_derivative(self.spos_ac, dThetadR_qvMM, dTdR_qvMM,
-            #                         dPdR_aqvMi)
 
             dThetadR_qvMM, dTdR_qvMM = self.manytci.O_qMM_T_qMM(
-                self.gd.comm, Mstart, Mstop, False, derivative=True)
+                gd.comm, Mstart, Mstop, False, derivative=True)
 
             dPdR_aqvMi = self.manytci.P_aqMi(
                 self.basis_functions.my_atom_indices, derivative=True)
@@ -629,26 +621,9 @@ class LCAOWaveFunctions(WaveFunctions):
             from gpaw.lcao.overlap import TwoCenterIntegralCalculator
             self.timer.start('Prepare TCI loop')
             M_a = bfs.M_a
-
             Fkin2_av = np.zeros_like(F_av)
             Ftheta2_av = np.zeros_like(F_av)
-
-            overlapcalc = TwoCenterIntegralCalculator(self.kd.ibzk_qc,
-                                                      derivative=False)
-
-            # XXX this is not parallel *AT ALL*.
-            #self.timer.start('Get neighbors')
-            #nl = tci.atompairs.pairs.neighbors
-            #r_and_offset_aao = get_r_and_offsets(nl, self.spos_ac, gd.cell_cv)
-            #atompairs = sorted(r_and_offset_aao.keys())
-            #self.timer.stop('Get neighbors')
-
             atompairs = self.newtci.a1a2.get_atompairs()
-
-            #T_expansions = tci.T_expansions
-            #Theta_expansions = tci.Theta_expansions
-            #P_expansions = tci.P_expansions
-            nq = len(self.kd.ibzk_qc)
 
             self.timer.start('broadcast dH')
             alldH_asp = {}
@@ -675,33 +650,6 @@ class LCAOWaveFunctions(WaveFunctions):
             # To this end we will loop over all pairs of atoms (a1, a3),
             # and then a sub-loop over (a3, a2).
 
-            #from gpaw.lcao.overlap import DerivativeAtomicDisplacement
-            #class Displacement(DerivativeAtomicDisplacement):
-            #    def __init__(self, a1, a2, R_c, offset):
-            #        phases = overlapcalc.phaseclass(overlapcalc.ibzk_qc,
-            #                                        offset)
-            #        DerivativeAtomicDisplacement.__init__(self, None, a1, a2,
-            #                                              R_c, offset, phases)
-
-            # Cache of Displacement objects with spherical harmonics with
-            # evaluated spherical harmonics.
-            #disp_aao = {}
-
-            #def get_displacements(a1, a2, maxdistance):
-            #    # XXX the way maxdistance is handled it can lead to
-            #    # bad caching when different maxdistances are passed
-            #    # to subsequent calls with same pair of atoms
-            #    disp_o = disp_aao.get((a1, a2))
-            #    if disp_o is None:
-            #        disp_o = []
-            #        for R_c, offset in r_and_offset_aao[(a1, a2)]:
-            #            if np.linalg.norm(R_c) > maxdistance:
-            #                continue
-            #            disp = Displacement(a1, a2, R_c, offset)
-            #            disp_o.append(disp)
-            #        disp_aao[(a1, a2)] = disp_o
-            #    return [disp for disp in disp_o if disp.r < maxdistance]
-
             self.timer.stop('Prepare TCI loop')
             self.timer.start('Not so complicated loop')
 
@@ -718,11 +666,6 @@ class LCAOWaveFunctions(WaveFunctions):
                 if m1start >= blocksize1 or m2start >= blocksize2:
                     continue  # (we have only one block per CPU)
 
-                #T_expansion = T_expansions.get(a1, a2)
-                #Theta_expansion = Theta_expansions.get(a1, a2)
-                #nm1, nm2 = T_expansion.shape
-                #assert nm1 == self.setups[a1].nao
-                #assert nm2 == self.setups[a2].nao
                 nm1 = self.setups[a1].nao
                 nm2 = self.setups[a2].nao
 
@@ -738,15 +681,6 @@ class LCAOWaveFunctions(WaveFunctions):
                 J2start = max(0, M2start - M_a[a2])
                 M1stop = J1start + m1stop - m1start
                 J2stop = J2start + m2stop - m2start
-
-                #dTdR_qvmm = T_expansion.zeros((nq, 3), dtype=dtype)
-                #dThetadR_qvmm = Theta_expansion.zeros((nq, 3), dtype=dtype)
-
-                #disp_o = get_displacements(a1, a2,
-                #                           phicutoff_a[a1] + phicutoff_a[a2])
-                #for disp in disp_o:
-                    #disp.evaluate_overlap(T_expansion, dTdR_qvmm)
-                #    disp.evaluate_overlap(Theta_expansion, dThetadR_qvmm)
 
                 dThetadR_qvmm, dTdR_qvmm = newtci.dOdR_dTdR(a1, a2)
 
@@ -788,23 +722,11 @@ class LCAOWaveFunctions(WaveFunctions):
                 if m1start >= blocksize1:
                     continue
 
-                #P_expansion = P_expansions.get(a1, a3)
-                #nm1 = P_expansion.shape[0]
-                #assert nm1 == self.setups[a1].nao
                 nm1 = self.setups[a1].nao
                 m1stop = min(m1start + nm1, m1max)
                 if m1stop <= 0:
                     continue
 
-
-                #disp_o = get_displacements(a1, a3,
-                #                           phicutoff_a[a1] + pcutoff_a[a3])
-                #if len(disp_o) == 0:
-                #    continue
-
-                #dPdR_qvmi = P_expansion.zeros((nq, 3), dtype=dtype)
-                #for disp in disp_o:
-                #    disp.evaluate_overlap(P_expansion, dPdR_qvmi)
                 dPdR_qvim = newtci.dPdR(a3, a1)
                 if dPdR_qvim is None:
                     continue
@@ -820,20 +742,10 @@ class LCAOWaveFunctions(WaveFunctions):
                     if m2start >= blocksize2:
                         continue
 
-                    #P_expansion2 = P_expansions.get(a2, a3)
-                    #nm2 = P_expansion2.shape[0]
-                    #assert nm2 == self.setups[a2].nao
                     nm2 = self.setups[a2].nao
                     m2stop = min(m2start + nm2, m2max)
                     if m2stop <= 0:
                         continue
-
-                    
-                    #disp_o = get_displacements(a2, a3,
-                    #                           phicutoff_a[a2] + pcutoff_a[a3])
-                    #if len(disp_o) == 0:
-                    #    continue
-                    #if not self.newtci.within_range(a2, a3)
 
                     m2start = max(m2start, 0)
                     J2start = max(0, M2start - M_a[a2])
@@ -846,9 +758,6 @@ class LCAOWaveFunctions(WaveFunctions):
                         if P_qim is None:
                             continue
                         P_qmi = P_qim.transpose(0, 2, 1).conj()
-                        #P_qmi = P_expansion2.zeros((nq,), dtype=dtype)
-                        #for disp in disp_o:
-                        #    disp.evaluate_direct(P_expansion2, P_qmi)
                         P_qmi = P_qmi[:, J2start:J2stop].copy()
                         dH_sp = alldH_asp[a3]
                         dS_ii = self.setups[a3].dO_ii
@@ -858,7 +767,8 @@ class LCAOWaveFunctions(WaveFunctions):
                         for u, kpt in enumerate(self.kpt_u):
                             dH_ii = unpack(dH_sp[kpt.s])
                             dHP_im = np.dot(P_qmi[kpt.q], dH_ii).T.conj()
-                            # XXX only need nq of these
+                            # XXX only need nq of these,
+                            # but the looping is over all u
                             dSP_im = np.dot(P_qmi[kpt.q], dS_ii).T.conj()
                             dHP_uim.append(dHP_im)
                             dSP_uim.append(dSP_im)
