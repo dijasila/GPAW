@@ -629,7 +629,15 @@ class TestRunner:
             self.register_skipped(test, t0)
             return exitcode_skip
 
+        assert test.endswith('.py')
         dirname = test[:-3]
+        if os.path.isabs(dirname):
+            mydir = os.path.split(__file__)[0]
+            dirname = os.path.relpath(dirname, mydir)
+
+        # We don't want files anywhere outside the tempdir.
+        assert not dirname.startswith('../') # Test file outside sourcedir.
+
         if mpi.rank == 0:
             os.makedirs(dirname)
         mpi.world.barrier()
