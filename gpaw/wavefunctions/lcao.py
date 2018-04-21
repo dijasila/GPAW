@@ -811,19 +811,24 @@ class LCAOWaveFunctions(WaveFunctions):
                 if m1stop <= 0:
                     continue
 
+
+                #disp_o = get_displacements(a1, a3,
+                #                           phicutoff_a[a1] + pcutoff_a[a3])
+                #if len(disp_o) == 0:
+                #    continue
+
+                #dPdR_qvmi = P_expansion.zeros((nq, 3), dtype=dtype)
+                #for disp in disp_o:
+                #    disp.evaluate_overlap(P_expansion, dPdR_qvmi)
+                dPdR_qvim = newtci.dPdR(a3, a1)
+                if dPdR_qvim is None:
+                    continue
+
+                dPdR_qvmi = -dPdR_qvim.transpose(0, 1, 3, 2).conj()
+
                 m1start = max(m1start, 0)
                 J1start = max(0, M1start - M_a[a1])
                 J1stop = J1start + m1stop - m1start
-
-                disp_o = get_displacements(a1, a3,
-                                           phicutoff_a[a1] + pcutoff_a[a3])
-                if len(disp_o) == 0:
-                    continue
-
-                dPdR_qvmi = P_expansion.zeros((nq, 3), dtype=dtype)
-                for disp in disp_o:
-                    disp.evaluate_overlap(P_expansion, dPdR_qvmi)
-
                 dPdR_qvmi = dPdR_qvmi[:, :, J1start:J1stop, :].copy()
                 for a2 in a2values[a3]:
                     m2start = M_a[a2] - M2start
