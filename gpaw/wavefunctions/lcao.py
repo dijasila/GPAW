@@ -853,9 +853,11 @@ class LCAOWaveFunctions(WaveFunctions):
                     if (a2, a3) in dHP_and_dSP_aauim:
                         dHP_uim, dSP_uim = dHP_and_dSP_aauim[(a2, a3)]
                     else:
-                        P_qmi = P_expansion2.zeros((nq,), dtype=dtype)
-                        for disp in disp_o:
-                            disp.evaluate_direct(P_expansion2, P_qmi)
+                        P_qim = newtci.P(a3, a2)
+                        P_qmi = P_qim.transpose(0, 2, 1).conj()
+                        #P_qmi = P_expansion2.zeros((nq,), dtype=dtype)
+                        #for disp in disp_o:
+                        #    disp.evaluate_direct(P_expansion2, P_qmi)
                         P_qmi = P_qmi[:, J2start:J2stop].copy()
                         dH_sp = alldH_asp[a3]
                         dS_ii = self.setups[a3].dO_ii
