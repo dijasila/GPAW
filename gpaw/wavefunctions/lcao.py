@@ -599,7 +599,6 @@ class LCAOWaveFunctions(WaveFunctions):
                     # XXXXXX get slicing right in parallel!
 
             self.gd.comm.sum(newdTdR_qvMM)
-            dTdRerr = np.abs(newdTdR_qvMM - dTdR_qvMM).max()
             #assert dTdRerr < 1e-11
             #print('dTdRerr', dTdRerr)
             #print(newdTdR_qvMM)
