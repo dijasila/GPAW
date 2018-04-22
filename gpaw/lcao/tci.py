@@ -3,6 +3,7 @@ import numpy as np
 import scipy.sparse as sparse
 from ase.neighborlist import PrimitiveNeighborList
 from ase.utils.timing import timer
+from gpaw.utilities.tools import tri2full
 
 from gpaw import debug
 from gpaw.lcao.overlap import (FourierTransformer, TwoSiteOverlapCalculator,
@@ -297,7 +298,7 @@ class ManyTCICalculator:
         return P_qIM
 
     #@timer('tci-bfs')
-    def O_qMM_T_qMM(self, gdcomm, Mstart, Mstop, ignore_upper,
+    def O_qMM_T_qMM(self, gdcomm, Mstart, Mstop, ignore_upper=False,
                     derivative=False):
         mynao = Mstop - Mstart
         Mindices = self.Mindices
@@ -324,7 +325,7 @@ class ManyTCICalculator:
 
             assert nM > 0, nM
 
-            a2max = a1 + 1 if not derivative else self.natoms
+            a2max = a1 + 1 #if not derivative else self.natoms
 
             for a2 in range(gdcomm.rank, a2max, gdcomm.size):
                 O_xmm, T_xmm = O_T(a1, a2)
@@ -342,4 +343,19 @@ class ManyTCICalculator:
         if debug:
             assert not np.isnan(O_qMM).any()
             assert not np.isnan(T_qMM).any()
+
+        if not ignore_upper:
+            assert mynao == self.nao
+            assert O_xMM.shape[-2:] == (self.nao, self.nao)
+            if derivative:
+                def lumap(arr, out):
+                    np.conj(arr, out)
+                    out *= -1.0
+            else:
+                lumap = np.conj
+
+            for arr_xMM in [O_xMM, T_xMM]:
+                for tmp_MM in arr_xMM.reshape(-1, self.nao, self.nao):
+                    tri2full(tmp_MM, UL='L', map=lumap)
+
         return O_xMM, T_xMM
