@@ -344,7 +344,7 @@ class ManyTCICalculator:
             assert not np.isnan(O_qMM).any()
             assert not np.isnan(T_qMM).any()
 
-        if not ignore_upper:
+        if not ignore_upper and O_xMM.size:  # reshape() fails on size-0 arrays
             assert mynao == self.nao
             assert O_xMM.shape[-2:] == (self.nao, self.nao)
             if derivative:
