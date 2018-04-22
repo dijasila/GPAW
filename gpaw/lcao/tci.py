@@ -2,6 +2,7 @@
 import numpy as np
 import scipy.sparse as sparse
 from ase.neighborlist import PrimitiveNeighborList
+from ase.utils.timing import timer
 
 from gpaw import debug
 from gpaw.lcao.overlap import (FourierTransformer, TwoSiteOverlapCalculator,
@@ -54,7 +55,56 @@ class AtomPairRegistry:
         return list(sorted(self.r_and_offset_aao))
 
 
-class TCI:
+class TCIExpansions:
+    def __init__(self, phit_Ij, pt_Ij, I_a):
+        assert len(pt_Ij) == len(phit_Ij)
+
+        # Cutoffs by species:
+        pt_rcmax_I = get_cutoffs(pt_Ij)
+        phit_rcmax_I = get_cutoffs(phit_Ij)
+        rcmax_I = [max(rc1, rc2) for rc1, rc2
+                   in zip(pt_rcmax_I, phit_rcmax_I)]
+
+        transformer = FourierTransformer(rcmax=max(rcmax_I + [1e-3]), ng=2**10)
+        tsoc = TwoSiteOverlapCalculator(transformer)
+        msoc = ManySiteOverlapCalculator(tsoc, I_a, I_a)
+        phit_Ijq = msoc.transform(phit_Ij)
+        pt_Ijq = msoc.transform(pt_Ij)
+        pt_l_Ij = get_lvalues(pt_Ij)
+        phit_l_Ij = get_lvalues(phit_Ij)
+        self.O_expansions = msoc.calculate_expansions(phit_l_Ij, phit_Ijq,
+                                                      phit_l_Ij, phit_Ijq)
+        self.T_expansions = msoc.calculate_kinetic_expansions(phit_l_Ij,
+                                                              phit_Ijq)
+        self.P_expansions = msoc.calculate_expansions(pt_l_Ij, pt_Ijq,
+                                                      phit_l_Ij, phit_Ijq)
+        self.I_a = I_a  # Actually I_a belongs outside, like spos_ac.
+        self.rcmax_I = rcmax_I
+        self.phit_rcmax_I = phit_rcmax_I
+        self.pt_rcmax_I = pt_rcmax_I
+
+    @classmethod
+    def new_from_setups(cls, setups):
+        I_setup = {}
+        setups_I = list(setups.setups.values())
+        for I, setup in enumerate(setups_I):
+            I_setup[setup] = I
+        I_a = [I_setup[setup] for setup in setups]
+
+        return TCIExpansions([s.phit_j for s in setups_I],
+                             [s.pt_j for s in setups_I],
+                             I_a)
+
+    def get_tci_calculator(self, cell_cv, spos_ac, pbc_c, ibzk_qc, dtype):
+        return TCICalculator(self, cell_cv, spos_ac, pbc_c, ibzk_qc, dtype)
+
+    def get_manytci_calculator(self, setups, gd, spos_ac, ibzk_qc, dtype,
+                               timer):
+        return ManyTCICalculator(self, setups, gd, spos_ac, ibzk_qc, dtype,
+                                 timer)
+
+
+class TCICalculator:
     """High-level two-center integral calculator.
 
     This object is not aware of parallelization.  It works with any
@@ -81,26 +131,20 @@ class TCI:
       dOdR_qvmm, dTdR_qvmm = tci.dOdR_dTdR(a1, a2)
 
     """
-    def __init__(self, phit_Ij, pt_Ij, I_a, cell_cv, spos_ac, pbc_c, ibzk_qc,
+    def __init__(self, tciexpansions, cell_cv, spos_ac, pbc_c, ibzk_qc,
                  dtype):
-        assert len(pt_Ij) == len(phit_Ij)
+
+        self.tciexpansions = tciexpansions
         self.dtype = dtype
 
-        # Cutoffs by species:
-        pt_rcmax_I = get_cutoffs(pt_Ij)
-        phit_rcmax_I = get_cutoffs(phit_Ij)
-        rcmax_I = [max(rc1, rc2) for rc1, rc2
-                   in zip(pt_rcmax_I, phit_rcmax_I)]
         # XXX It is somewhat nasty that rcmax depends on how long our
         # longest orbital happens to be
-        transformer = FourierTransformer(rcmax=max(rcmax_I + [1e-3]), ng=2**10)
-        tsoc = TwoSiteOverlapCalculator(transformer)
-        msoc = ManySiteOverlapCalculator(tsoc, I_a, I_a)
-
         # Cutoffs by atom:
-        cutoff_a = [rcmax_I[I] for I in I_a]
-        self.pt_rcmax_a = np.array([pt_rcmax_I[I] for I in I_a])
-        self.phit_rcmax_a = np.array([phit_rcmax_I[I] for I in I_a])
+        I_a = tciexpansions.I_a
+        cutoff_a = [tciexpansions.rcmax_I[I] for I in I_a]
+        self.pt_rcmax_a = np.array([tciexpansions.pt_rcmax_I[I] for I in I_a])
+        self.phit_rcmax_a = np.array([tciexpansions.phit_rcmax_I[I]
+                                      for I in I_a])
 
         self.a1a2 = AtomPairRegistry(cutoff_a, pbc_c, cell_cv, spos_ac)
 
@@ -109,21 +153,6 @@ class TCI:
             self.get_phases = BlochPhases
         else:
             self.get_phases = NullPhases
-
-        phit_Ijq = msoc.transform(phit_Ij)
-        pt_Ijq = msoc.transform(pt_Ij)
-
-        pt_l_Ij = get_lvalues(pt_Ij)
-        phit_l_Ij = get_lvalues(phit_Ij)
-
-        # Avoid two-way for O and T?
-        # TODO: lazy msoc
-        self.O_expansions = msoc.calculate_expansions(phit_l_Ij, phit_Ijq,
-                                                      phit_l_Ij, phit_Ijq)
-        self.T_expansions = msoc.calculate_kinetic_expansions(phit_l_Ij,
-                                                              phit_Ijq)
-        self.P_expansions = msoc.calculate_expansions(pt_l_Ij, pt_Ijq,
-                                                      phit_l_Ij, phit_Ijq)
 
         self.O_T = self._tci_shortcut(False, False)
         self.P = self._tci_shortcut(True, False)
@@ -166,13 +195,12 @@ class TCI:
 
         shape = (nq, 3) if derivative else (nq,)
 
-        # The caller should give either P or OT.
         if P:
-            P_expansion = self.P_expansions.get(a1, a2)
+            P_expansion = self.tciexpansions.P_expansions.get(a1, a2)
             obj = P_qim = P_expansion.zeros(shape, dtype=dtype)
         else:
-            O_expansion = self.O_expansions.get(a1, a2)
-            T_expansion = self.T_expansions.get(a1, a2)
+            O_expansion = self.tciexpansions.O_expansions.get(a1, a2)
+            T_expansion = self.tciexpansions.T_expansions.get(a1, a2)
             O_qmm = O_expansion.zeros(shape, dtype=dtype)
             T_qmm = T_expansion.zeros(shape, dtype=dtype)
             obj = O_qmm, T_qmm
@@ -194,18 +222,18 @@ class TCI:
         return obj
 
 
-class ManyTCI:
-    def __init__(self, setups, gd, spos_ac, ibzk_qc, dtype):
+class ManyTCICalculator:
+    def __init__(self, tciexpansions, setups, gd, spos_ac, ibzk_qc, dtype,
+                 timer):
         I_setup = {}
         setups_I = list(setups.setups.values())
         for I, setup in enumerate(setups_I):
             I_setup[setup] = I
         I_a = [I_setup[setup] for setup in setups]
 
-        tci = TCI([s.phit_j for s in setups_I], [s.pt_j for s in setups_I],
-                  I_a, gd.cell_cv, spos_ac=spos_ac, pbc_c=gd.pbc_c,
-                  ibzk_qc=ibzk_qc, dtype=dtype)
-        self.tci = tci
+        self.tci = tciexpansions.get_tci_calculator(gd.cell_cv, spos_ac,
+                                                    gd.pbc_c,
+                                                    ibzk_qc, dtype)
 
         self.setups = setups
         self.dtype = dtype
@@ -214,7 +242,9 @@ class ManyTCI:
         self.natoms = len(setups)
         self.nq = len(ibzk_qc)
         self.nao = self.Mindices.max
+        self.timer = timer
 
+    #@timer('tci-projectors')
     def P_aqMi(self, my_atom_indices, derivative=False):
         P_axMi = {}
         if derivative:
@@ -244,6 +274,7 @@ class ManyTCI:
                 P_axMi[a] *= -1.0
         return P_axMi
 
+    #@timer('tci-sparseprojectors')
     def P_qIM(self, my_atom_indices):
         nq = self.nq
         P = self.tci.P
@@ -265,6 +296,7 @@ class ManyTCI:
         P_qIM = [P_IM.tocsr() for P_IM in P_qIM]
         return P_qIM
 
+    #@timer('tci-bfs')
     def O_qMM_T_qMM(self, gdcomm, Mstart, Mstop, ignore_upper,
                     derivative=False):
         mynao = Mstop - Mstart
@@ -292,7 +324,7 @@ class ManyTCI:
 
             assert nM > 0, nM
 
-            a2max = a1 + 1 if ignore_upper else self.natoms
+            a2max = a1 + 1 if not derivative else self.natoms
 
             for a2 in range(gdcomm.rank, a2max, gdcomm.size):
                 O_xmm, T_xmm = O_T(a1, a2)

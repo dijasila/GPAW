@@ -7,7 +7,7 @@ from gpaw.utilities import unpack
 from gpaw.utilities.tools import tri2full
 from gpaw import debug
 from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
-from gpaw.lcao.tci import TCI, ManyTCI
+from gpaw.lcao.tci import TCIExpansions
 from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.lcao.atomic_correction import get_atomic_correction
@@ -94,9 +94,9 @@ class LCAOWaveFunctions(WaveFunctions):
             atomic_correction = get_atomic_correction(atomic_correction)
         self.atomic_correction = atomic_correction
 
-        self.timer.start('TCI: Evaluate splines')
-        self.tci = NewTCI(gd.cell_cv, gd.pbc_c, setups, kd.ibzk_qc, kd.gamma)
-        self.timer.stop('TCI: Evaluate splines')
+        #self.tci = NewTCI(gd.cell_cv, gd.pbc_c, setups, kd.ibzk_qc, kd.gamma)
+        with self.timer('TCI: Evaluate splines'):
+            self.tciexpansions = TCIExpansions.new_from_setups(setups)
 
         self.basis_functions = BasisFunctions(gd,
                                               [setup.phit_j
@@ -165,10 +165,9 @@ class LCAOWaveFunctions(WaveFunctions):
             if kpt.C_nM is None:
                 kpt.C_nM = np.empty((mynbands, nao), self.dtype)
 
-
-        if 1:#self.debug_tci:
-            if self.ksl.using_blacs:
-                self.tci.set_matrix_distribution(Mstart, mynao)
+        if 0:#self.debug_tci:
+            #if self.ksl.using_blacs:
+            #    self.tci.set_matrix_distribution(Mstart, mynao)
             oldS_qMM = np.empty((nq, mynao, nao), self.dtype)
             oldT_qMM = np.empty((nq, mynao, nao), self.dtype)
 
@@ -179,20 +178,29 @@ class LCAOWaveFunctions(WaveFunctions):
                 oldP_aqMi[a] = np.empty((nq, nao, ni), self.dtype)
 
             # Calculate lower triangle of S and T matrices:
-            self.tci.calculate(spos_ac, oldS_qMM, oldT_qMM,
-                               oldP_aqMi)
+            self.timer.start('tci calculate')
+            #self.tci.calculate(spos_ac, oldS_qMM, oldT_qMM,
+            #                   oldP_aqMi)
+            self.timer.stop('tci calculate')
 
 
-        manytci = ManyTCI(self.setups, self.gd, spos_ac,
-                          self.kd.ibzk_qc, self.dtype)
+        self.timer.start('mktci')
+        manytci = self.tciexpansions.get_manytci_calculator(
+            self.setups, self.gd, spos_ac, self.kd.ibzk_qc, self.dtype,
+            self.timer)
+        self.timer.stop('mktci')
         self.manytci = manytci
         self.newtci = manytci.tci
 
         my_atom_indices = self.basis_functions.my_atom_indices
+        self.timer.start('ST tci')
         newS_qMM, newT_qMM = manytci.O_qMM_T_qMM(self.gd.comm,
                                                  Mstart, Mstop,
                                                  self.ksl.using_blacs)
+        self.timer.stop('ST tci')
+        self.timer.start('P tci')
         P_qIM = manytci.P_qIM(my_atom_indices)
+        self.timer.stop('P tci')
         self.P_aqMi = newP_aqMi = manytci.P_aqMi(my_atom_indices)
         self.P_qIM = P_qIM  # XXX atomic correction
 
@@ -948,7 +956,7 @@ class LCAOWaveFunctions(WaveFunctions):
         nM1, nM2 = self.ksl.get_overlap_matrix_shape()
         mem.subnode('S, T [2 x qmm]', 2 * nq * nM1 * nM2 * itemsize)
         mem.subnode('P [aqMi]', nq * nao * ni_total // self.gd.comm.size)
-        self.tci.estimate_memory(mem.subnode('TCI'))
+        #self.tci.estimate_memory(mem.subnode('TCI'))
         self.basis_functions.estimate_memory(mem.subnode('BasisFunctions'))
         self.eigensolver.estimate_memory(mem.subnode('Eigensolver'),
                                          self.dtype)
