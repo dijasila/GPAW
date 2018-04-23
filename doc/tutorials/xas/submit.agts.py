@@ -2,7 +2,7 @@
 
 
 def workflow():
-    from q2.job import Job
+    from myqueue.job import Job
     return [
         Job('setups.py'),
         Job('run.py@8x25s', deps=['setups.py']),

@@ -1,5 +1,5 @@
 def workflow():
-    from q2.job import Job
+    from myqueue.job import Job
     return [
         Job('co.py@4x5m'),
         Job('co.agts.py', deps=['co.py'])]

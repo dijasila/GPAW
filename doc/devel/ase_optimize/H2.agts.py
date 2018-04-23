@@ -2,7 +2,7 @@
 
 
 def workflow():
-    from q2.job import Job
+    from myqueue.job import Job
     return [
         Job('H2.agts.py@8x25s')]
 

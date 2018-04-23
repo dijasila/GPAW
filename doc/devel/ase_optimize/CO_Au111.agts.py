@@ -2,7 +2,7 @@
 
 
 def workflow():
-    from q2.job import Job
+    from myqueue.job import Job
     return [
         Job('CO_Au111.agts.py')]
 

@@ -2,7 +2,7 @@
 
 
 def workflow():
-    from q2.job import Job
+    from myqueue.job import Job
     return [
         Job('h.py'),
         Job('h.agts.py', deps=['h.py'])]
