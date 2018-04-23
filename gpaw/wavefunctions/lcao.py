@@ -32,6 +32,19 @@ class LCAO(Mode):
         return dct
 
 
+def update_phases(kpt_u, ibzk_qc, spos_ac, oldspos_ac, setups, Mstart):
+    phase_qa = np.exp(2j * np.pi *
+                      np.dot(ibzk_qc, (spos_ac - oldspos_ac).T))
+    for kpt in kpt_u:
+        if kpt.C_nM is None:
+            continue
+        for a in range(len(spos_ac)):
+            M1 = setups.M_a[a] - Mstart
+            M2 = M1 + setups[a].nao
+            M1 = max(0, M1)
+            kpt.C_nM[:, M1:M2] *= phase_qa[kpt.q, a]  # (may truncate M2)
+
+
 # replace by class to make data structure perhaps a bit less confusing
 def get_r_and_offsets(nl, spos_ac, cell_cv):
     r_and_offset_aao = {}
@@ -114,6 +127,7 @@ class LCAOWaveFunctions(WaveFunctions):
                                    self.ksl)
 
     def set_positions(self, spos_ac, atom_partition=None, move_wfs=False):
+        oldspos_ac = self.spos_ac
         with self.timer('Basic WFS set positions'):
             WaveFunctions.set_positions(self, spos_ac, atom_partition)
 
@@ -151,6 +165,10 @@ class LCAOWaveFunctions(WaveFunctions):
 
             S_qMM = np.empty((nq, mynao, nao), self.dtype)
             T_qMM = np.empty((nq, mynao, nao), self.dtype)
+
+        if self.dtype == complex and oldspos_ac is not None:
+            update_phases(self.kpt_u, self.kd.ibzk_qc, spos_ac, oldspos_ac,
+                          self.setups, Mstart)
 
         for kpt in self.kpt_u:
             if kpt.C_nM is None:
