@@ -1278,8 +1278,10 @@ class PWLFC(BaseLFC):
 
         K_v = self.pd.K_qv[q]
 
+        serial = False
+
         x = 0.0
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block(q, serial=serial):
             f_IG = self.expand(q, G1, G2)
             G_Gv = self.pd.G_Qv[self.pd.Q_qG[q][G1:G2]]
             if self.pd.dtype == float:
@@ -1295,6 +1297,9 @@ class PWLFC(BaseLFC):
                          a_xG[:, G1:G2],
                          x, b_vxI[v], 'c')
             x = 1.0
+
+        if not serial:
+            self.comm.sum(c_vxI)
 
         for v in range(3):
             if self.pd.dtype == float:
@@ -1331,14 +1336,19 @@ class PWLFC(BaseLFC):
 
         G0_Gv = self.pd.get_reciprocal_vectors(q=q)
 
+        serial = False
+
         stress_vv = np.zeros((3, 3))
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block(q, serial=serial):
             G_Gv = G0_Gv[G1:G2]
             aa_xG = a_xG[..., G1:G2]
             for v1 in range(3):
                 for v2 in range(3):
                     stress_vv[v1, v2] += self._stress_tensor_contribution(
                         v1, v2, cache, G1, G2, G_Gv, aa_xG, c_axi, q)
+
+        if not serial:
+            self.comm.sum(stress_vv)
 
         return stress_vv
 
