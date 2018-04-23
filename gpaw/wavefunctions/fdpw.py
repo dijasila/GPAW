@@ -8,7 +8,7 @@ from gpaw.matrix import Matrix, matrix_matrix_multiply as mmm
 from gpaw.utilities import unpack
 from gpaw.utilities.timing import nulltimer
 from gpaw.wavefunctions.base import WaveFunctions
-from gpaw.wavefunctions.lcao import LCAOWaveFunctions
+from gpaw.wavefunctions.lcao import LCAOWaveFunctions, update_phases
 
 
 class NullWfsMover:
@@ -154,6 +154,10 @@ class LCAOWfsMover:
                 bfs.lcao_to_grid(C_xM=-c_nM, psit_xG=kpt.psit_nG, q=kpt.q)
 
             c_unM.append(c_nM)
+
+        if wfs.dtype == complex:
+            update_phases(c_unM, [kpt.q for kpt in wfs.kpt_u], wfs.kd.ibzk_qc,
+                          spos_ac, wfs.spos_ac, wfs.setups, wfs.ksl.Mstart)
 
         del opsit
 
