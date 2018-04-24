@@ -1,6 +1,6 @@
-def agts(queue):
+def workflow():
     # Most of these time out at the moment ...
-    return
+    return []
 
     gs_H_lda = queue.add('H.ralda_01_lda.py', ncpus=2, walltime=5)
     queue.add('H.ralda_02_rpa_at_lda.py', deps=gs_H_lda, ncpus=16, walltime=20)
