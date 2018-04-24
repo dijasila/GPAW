@@ -47,9 +47,11 @@ def show(c2):
     ov = Overlap(c1).full(c2)
     parprint('wave function overlap (full):\n', ov)
     lr2 = LrTDDFT(c2)
-    ovkss = lr1.kss.overlap(ov, lr2.kss)
+    ovkss = lr1.kss.overlap(ov[0], lr2.kss)
     parprint('KSSingles overlap:\n', ovkss)
-    ovlr = lr1.overlap(ov, lr2)
+    print('lr1.kss', id(lr1.kss))
+    print('lr2.kss', id(lr2.kss))
+    ovlr = lr1.overlap(ov[0], lr2)
     parprint('LrTDDFT overlap:\n', ovlr)
 
 
@@ -82,6 +84,5 @@ c2 = GPAW(h=h, txt=txt, nbands=nbands + 1,
 try:
     show(c2)
     raise
-except ValueError:
-#except AssertionError:
+except AssertionError:
     parprint('Not ready')
