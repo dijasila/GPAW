@@ -32,7 +32,7 @@ def workflow():
         Job('si.rpa.py@4x15s', folder='rpa', deps=['si.rpa_init_pbe.py']),
         Job('con_pw.py', folder='stress'),
         Job('stress.py', folder='stress'),
-        Job('/pt_h2_tb_transport.py', folder='transport'),
+        Job('pt_h2_tb_transport.py', folder='transport'),
         Job('pt_h2_lcao_manual.py', folder='transport'),
         Job('pt_h2_lcao_transport.py', folder='transport',
             deps=['pt_h2_lcao_manual.py'])]
