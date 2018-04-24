@@ -503,7 +503,11 @@ class Chi0:
                      (wfs.nspins * (2 * np.pi)**3))  # Remember prefactor
 
         if self.integrationmode is None:
-            prefactor *= len(bzk_kv) / self.calc.wfs.kd.nbzkpts
+            if self.calc.wfs.kd.refine_info is not None:
+                nbzkpts = self.calc.wfs.kd.refine_info.mhnbzkpts
+            else:
+                nbzkpts = self.calc.wfs.kd.nbzkpts
+            prefactor *= len(bzk_kv) / nbzkpts
 
         # The functions that are integrated are defined in the bottom
         # of this file and take a number of constant keyword arguments
@@ -823,6 +827,12 @@ class Chi0:
             Pair densities.
         """
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
+
+        if self.calc.wfs.kd.refine_info is not None:
+            K1 = self.pair.find_kpoint(k_c)
+            if self.calc.wfs.kd.refine_info.label_k[K1] == 'zero':
+                return None
+
         q_c = pd.kd.bzk_kc[0]
         optical_limit = np.allclose(q_c, 0.0)
         nG = pd.ngmax

@@ -20,13 +20,13 @@ df.get_polarizability(filename='pol_rpa_MoS2.csv',
                       pbc=[True, True, False])
 
 bse = BSE('gs_MoS2.gpw',
+          spinors=True,
           ecut=ecut,
           valence_bands=[8],
           conduction_bands=[9],
           nbands=50,
           eshift=eshift,
           mode='BSE',
-          integrate_gamma=1,
           txt='bse_MoS2.txt')
 
 bse.get_polarizability(filename='pol_bse_MoS2.csv',
@@ -36,6 +36,7 @@ bse.get_polarizability(filename='pol_bse_MoS2.csv',
                        w_w=np.linspace(0, 5, 5001))
 
 bse = BSE('gs_MoS2.gpw',
+          spinors=True,
           ecut=ecut,
           valence_bands=[8],
           conduction_bands=[9],
@@ -43,7 +44,6 @@ bse = BSE('gs_MoS2.gpw',
           nbands=50,
           eshift=eshift,
           mode='BSE',
-          integrate_gamma=1,
           txt='bse_MoS2_trun.txt')
 
 bse.get_polarizability(filename='pol_bse_MoS2_trun.csv',

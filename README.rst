@@ -15,6 +15,7 @@ Requirements
 * Python_ 2.7, 3.4-
 * ASE_ (atomic simulation environment)
 * NumPy_ (base N-dimensional array package)
+* SciPy_ (library for scientific computing)
 * LibXC
 * BLAS
 * LAPACK
@@ -23,7 +24,6 @@ Optional:
 
 * MPI
 * ScaLAPACK
-* SciPy_ (library for scientific computing)
 
 
 Installation
