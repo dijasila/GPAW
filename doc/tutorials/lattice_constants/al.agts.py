@@ -4,13 +4,9 @@ from myqueue.job import Job
 
 def workflow():
     return [
-        Job('al.py@8x12m'),
+        Job('al.py@8x12h'),
         Job('al.agts.py', deps=['al.py'])]
 
-def agts(queue):
-    al = queue.add('al.py', ncpus=8, walltime=12 * 60)
-    queue.add('al.agts.py', deps=[al],
-              creates=['Al_conv_ecut.png', 'Al_conv_k.png'])
 
 if __name__ == '__main__':
     import pylab as plt

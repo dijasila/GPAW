@@ -3,5 +3,5 @@ from myqueue.job import Job
 
 def workflow():
     return [
-        Job('atomize.py@1x30s'),
-        Job('relax.py@1x30s', deps=['atomize.py'])]
+        Job('atomize.py@1x30m'),
+        Job('relax.py@1x30m', deps=['atomize.py'])]
