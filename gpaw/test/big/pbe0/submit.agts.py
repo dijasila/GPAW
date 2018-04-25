@@ -1,8 +1,7 @@
 def workflow():
     from myqueue.job import Job
-    return [
-        Job('gaps.py@16x5m'),
-        Job('submit.agts.py', deps=['gaps.py'])]
+    return [Job('gaps.py@16x5h'),
+            Job('submit.agts.py', deps=['gaps.py'])]
 
 
 if __name__ == '__main__':

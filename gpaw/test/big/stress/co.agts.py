@@ -1,8 +1,7 @@
 def workflow():
     from myqueue.job import Job
-    return [
-        Job('co.py@4x5m'),
-        Job('co.agts.py', deps=['co.py'])]
+    return [Job('co.py@4x5h'),
+            Job('co.agts.py', deps=['co.py'])]
 
 
 if __name__ == '__main__':
