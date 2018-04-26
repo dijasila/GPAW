@@ -1,6 +1,7 @@
 import numpy as np
 
 from gpaw.lcaotddft.observer import TDDFTObserver
+from gpaw.utilities.scalapack import scalapack_zero
 
 
 class EnergyWriter(TDDFTObserver):
@@ -46,16 +47,25 @@ class EnergyWriter(TDDFTObserver):
         ksl = paw.wfs.ksl
         for u, kpt in enumerate(paw.wfs.kpt_u):
             rho_MM = rho_uMM[u]
+
             # H_MM = get_H_MM(kpt, paw.time)
             H_MM = get_H_MM(kpt, paw.time, addfxc=False, addpot=False)
-            print('[%02d/%02d] shapes %s %s' % (paw.wfs.world.rank, paw.wfs.world.size, rho_MM.shape, H_MM.shape))
-            e = np.sum(rho_MM * H_MM).real
-            print('[%02d/%02d] energy %.4f %f' % (paw.wfs.world.rank, paw.wfs.world.size, paw.time, e))
-            print('[%02d/%02d] ksl %02d/%02d' % (paw.wfs.world.rank, paw.wfs.world.size, ksl.block_comm.rank, ksl.block_comm.size))
+
             if ksl.using_blacs:
-                raise RuntimeError('Fix me!')
+                # rhoH_MM = (rho_MM * H_MM).real  # General case
+                rhoH_MM = rho_MM.real * H_MM.real  # Hamiltonian is real
+                # Hamiltonian has correct values only in lower half, so
+                # 1. Add lower half and diagonal twice
+                scalapack_zero(ksl.mmdescriptor, rhoH_MM, 'U')
+                e = 2 * np.sum(rhoH_MM)
+                # 2. Reduce the extra diagonal
+                scalapack_zero(ksl.mmdescriptor, rhoH_MM, 'L')
+                e -= np.sum(rhoH_MM)
+                # Sum over all ranks
                 e = ksl.block_comm.sum(e)
-            print('[%02d/%02d] sum %.4f %f' % (paw.wfs.world.rank, paw.wfs.world.size, paw.time, e))
+            else:
+                e = np.sum(rho_MM * H_MM).real
+
             e_band += e
 
         paw.occupations.e_band = e_band
