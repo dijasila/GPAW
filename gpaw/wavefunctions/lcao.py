@@ -1,31 +1,16 @@
 import numpy as np
-import scipy.sparse as sparse
 from ase.units import Bohr
 
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack
 from gpaw.utilities.tools import tri2full
-from gpaw import debug
-from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
+#from gpaw import debug
+#from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
 from gpaw.lcao.tci import TCIExpansions
 from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.lcao.atomic_correction import get_atomic_correction
 from gpaw.wavefunctions.mode import Mode
-
-
-def get_newtci(setups, gd, spos_ac, ibzk_qc, dtype):
-    I_setup = {}
-    setups_I = list(setups.setups.values())
-    for I, setup in enumerate(setups_I):
-        I_setup[setup] = I
-    I_a = [I_setup[setup] for setup in setups]
-
-    return TCI([s.phit_j for s in setups_I],
-               [s.pt_j for s in setups_I],
-               I_a, gd.cell_cv, spos_ac=spos_ac,
-               pbc_c=gd.pbc_c, ibzk_qc=ibzk_qc,
-               dtype=dtype)
 
 
 class LCAO(Mode):
@@ -203,13 +188,6 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.stop('P tci')
         self.P_aqMi = newP_aqMi = manytci.P_aqMi(my_atom_indices)
         self.P_qIM = P_qIM  # XXX atomic correction
-
-        if self.debug_tci:
-            assert len(oldP_aqMi) == len(newP_aqMi)
-            Perr = 0.0
-            for a in oldP_aqMi:
-                P_err = max(Perr, np.abs(oldP_aqMi[a] - newP_aqMi[a]).max())
-            assert Perr < 1e-15, Perr
 
         # TODO
         #   OK complex/conj, periodic images
@@ -426,10 +404,8 @@ class LCAOWaveFunctions(WaveFunctions):
         ksl = self.ksl
         nao = ksl.nao
         mynao = ksl.mynao
-        nq = len(self.kd.ibzk_qc)
         dtype = self.dtype
         #tci = self.tci
-        manytci = self.manytci
         newtci = self.newtci
         gd = self.gd
         bfs = self.basis_functions
@@ -537,10 +513,10 @@ class LCAOWaveFunctions(WaveFunctions):
                 rho_mm = redistributor.redistribute(rho1_mm)
                 return rho_mm
 
-            pcutoff_a = [max([pt.get_cutoff() for pt in setup.pt_j])
-                         for setup in self.setups]
-            phicutoff_a = [max([phit.get_cutoff() for phit in setup.phit_j])
-                           for setup in self.setups]
+            #pcutoff_a = [max([pt.get_cutoff() for pt in setup.pt_j])
+            #             for setup in self.setups]
+            #phicutoff_a = [max([phit.get_cutoff() for phit in setup.phit_j])
+            #               for setup in self.setups]
 
             # XXX should probably use bdsize x gdsize instead
             # That would be consistent with some existing grids
@@ -626,7 +602,7 @@ class LCAOWaveFunctions(WaveFunctions):
             del dThetadRE_vMM
 
         if isblacs:
-            from gpaw.lcao.overlap import TwoCenterIntegralCalculator
+            #from gpaw.lcao.overlap import TwoCenterIntegralCalculator
             self.timer.start('Prepare TCI loop')
             M_a = bfs.M_a
             Fkin2_av = np.zeros_like(F_av)
