@@ -122,7 +122,7 @@ class LCAOWfsMover:
         manytci = tciex.get_manytci_calculator(wfs.setups, wfs.gd,
                                                spos_ac, wfs.kd.ibzk_qc,
                                                wfs.dtype, wfs.timer)
-        P_aqMi = manytci.P_aqMi(self.basis_functions.my_atom_indices)
+        P_aqMi = manytci.P_aqMi(bfs.my_atom_indices)
         # Avoid calculating T
         Mstart, Mstop = wfs.initksl.Mstart, wfs.initksl.Mstop
         S_qMM, T_qMM = manytci.O_qMM_T_qMM(wfs.gd.comm, wfs, Mstart, Mstop)

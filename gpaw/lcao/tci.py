@@ -2,10 +2,10 @@
 import numpy as np
 import scipy.sparse as sparse
 from ase.neighborlist import PrimitiveNeighborList
-from ase.utils.timing import timer
+#from ase.utils.timing import timer
 from gpaw.utilities.tools import tri2full
 
-from gpaw import debug
+#from gpaw import debug
 from gpaw.lcao.overlap import (FourierTransformer, TwoSiteOverlapCalculator,
                                ManySiteOverlapCalculator,
                                AtomicDisplacement, NullPhases, BlochPhases,
@@ -226,12 +226,6 @@ class TCICalculator:
 class ManyTCICalculator:
     def __init__(self, tciexpansions, setups, gd, spos_ac, ibzk_qc, dtype,
                  timer):
-        I_setup = {}
-        setups_I = list(setups.setups.values())
-        for I, setup in enumerate(setups_I):
-            I_setup[setup] = I
-        I_a = [I_setup[setup] for setup in setups]
-
         self.tci = tciexpansions.get_tci_calculator(gd.cell_cv, spos_ac,
                                                     gd.pbc_c,
                                                     ibzk_qc, dtype)
@@ -339,10 +333,6 @@ class ManyTCICalculator:
                 T_xmm = T_xmm[..., m1:m2, :]
                 O_xMM[..., myM1:myM2, N1:N2] = O_xmm
                 T_xMM[..., myM1:myM2, N1:N2] = T_xmm
-
-        if debug:
-            assert not np.isnan(O_qMM).any()
-            assert not np.isnan(T_qMM).any()
 
         if not ignore_upper and O_xMM.size:  # reshape() fails on size-0 arrays
             assert mynao == self.nao
