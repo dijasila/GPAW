@@ -12,7 +12,7 @@ with broadcast_imports:
     import os
     import runpy
     import warnings
-    from distutils.util import get_platform
+    from sysconfig import get_platform
     from os.path import join, isfile
     from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
 
