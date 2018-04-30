@@ -43,6 +43,10 @@ def check_atoms_too_close(atoms):
     if not len(atoms):
         return
 
+    # Skip test for numpy < 1.13.0 due to absence np.divmod:
+    if not hasattr(np, 'divmod'):
+        return
+
     from ase.neighborlist import neighbor_list
     from ase.data import covalent_radii
     radii = covalent_radii[atoms.numbers] * 0.01
