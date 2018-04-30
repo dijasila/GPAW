@@ -194,6 +194,7 @@ tests = [
     'broydenmixer.py',                      # ~3s
     'pw/fulldiagk.py',                      # ~3s
     'ext_potential/external.py',            # ~3s
+    'ext_potential/external_pw.py',         # ~3s
     'lcao/atomic_corrections.py',           # ~3s
     'vdw/libvdwxc_h2.py',                   # ~3s
     'generic/mixer.py',                     # ~3s
