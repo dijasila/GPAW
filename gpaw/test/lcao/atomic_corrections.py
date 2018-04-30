@@ -7,8 +7,8 @@
 
 from ase.build import molecule
 from gpaw import GPAW, LCAO, PoissonSolver
-from gpaw.lcao.atomic_correction import DenseAtomicCorrection, \
-    DistributedAtomicCorrection, ScipyAtomicCorrection
+from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
+                                         ScipyAtomicCorrection)
 from gpaw.mpi import world
 
 # Use a cell large enough that some overlaps are zero.
