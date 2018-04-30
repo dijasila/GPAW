@@ -114,7 +114,6 @@ class BlacsOrbitalLayouts(BlacsLayouts):
                               mcpus, ncpus, blocksize, timer)
         nbands = bd.nbands
         self.blocksize = blocksize
-        self.mynbands = mynbands = bd.mynbands
 
         self.orbital_comm = self.bd.comm
         self.naoblocksize = naoblocksize = -((-nao) // self.orbital_comm.size)
@@ -131,7 +130,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.mMdescriptor = self.columngrid.new_descriptor(nao, nao,
                                                            naoblocksize, nao)
         self.nMdescriptor = self.columngrid.new_descriptor(nbands, nao,
-                                                           mynbands, nao)
+                                                           bd.maxmynbands, nao)
 
         # parallelprint(world, (mynao, self.mMdescriptor.shape))
 

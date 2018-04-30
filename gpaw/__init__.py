@@ -44,6 +44,8 @@ class KohnShamConvergenceError(ConvergenceError):
 class PoissonConvergenceError(ConvergenceError):
     pass
 
+class KPointError(Exception):
+    pass
 
 def parse_extra_parameters(arg):
     return {key.replace('-', '_'): value

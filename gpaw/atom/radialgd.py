@@ -406,6 +406,13 @@ class RadialGridDescriptor:
         b_i = b1_i * x1_i + b2_i * x2_i + b3_i * x3_i
         return Spline(l, rcut, b_i)
 
+    def get_cutoff(self, f_g):
+        g = self.N - 1
+        while f_g[g] == 0.0:
+            g -= 1
+        gcut = g + 1
+        return gcut
+
 
 class EquidistantRadialGridDescriptor(RadialGridDescriptor):
     def __init__(self, h, N=1000, h0=0.0):
@@ -416,7 +423,7 @@ class EquidistantRadialGridDescriptor(RadialGridDescriptor):
         RadialGridDescriptor.__init__(self, h * np.arange(N) + h0, h)
 
     def r2g(self, r):
-        return (r - self.r_g[0]) / (self.r_g[1] - self.r_g[0])
+        return int(np.ceil((r - self.r_g[0]) / (self.r_g[1] - self.r_g[0])))
 
     def xml(self, id='grid1'):
         assert self.r_g[0] == 0.0

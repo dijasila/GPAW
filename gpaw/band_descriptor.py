@@ -295,7 +295,7 @@ class BandDescriptor:
             A_nx = self.nasty_non_strided_collect(a_nx, False)
             if A_nx is None:
                 A_nx = self.empty(xshape, a_nx.dtype, global_array=True)
-            self.comm.broadcast(A_nx)
+            self.comm.broadcast(A_nx, 0)
             return A_nx
 
         S = self.comm.size

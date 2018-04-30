@@ -9,12 +9,13 @@ from numpy.fft import fftn, ifftn, fft2, ifft2
 
 from gpaw import PoissonConvergenceError
 from gpaw.dipole_correction import DipoleCorrection
+from gpaw.domain import decompose_domain
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
+from gpaw.utilities.grid import grid2grid
 from gpaw.utilities.ewald import madelung
-from gpaw.utilities.grid_redistribute import AlignedGridRedistributor
 from gpaw.utilities.tools import construct_reciprocal
 import _gpaw
 
@@ -42,14 +43,23 @@ is divisible by a high power of 2."""
 
 
 def create_poisson_solver(name='fd', **kwargs):
-    if name == 'fft':
+    if isinstance(name, _PoissonSolver):
+        return name
+    elif isinstance(name, dict):
+        kwargs.update(name)
+        return create_poisson_solver(**kwargs)
+    elif name == 'fft':
         return FFTPoissonSolver(**kwargs)
-    if name == 'fdtd':
+    elif name == 'fdtd':
         from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
         return FDTDPoissonSolver(**kwargs)
     elif name == 'fd':
         return PoissonSolver(**kwargs)
-    1 / 0
+    elif name == 'ExtraVacuumPoissonSolver':
+        from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
+        return ExtraVacuumPoissonSolver(**kwargs)
+    else:
+        raise ValueError('Unknown poisson solver: %s' % name)
 
 
 def PoissonSolver(dipolelayer=None, **kwargs):
@@ -58,7 +68,31 @@ def PoissonSolver(dipolelayer=None, **kwargs):
     return FDPoissonSolver(**kwargs)
 
 
-class BasePoissonSolver(object):
+class _PoissonSolver(object):
+    """Abstract PoissonSolver class
+
+       This class defines an interface and a common ancestor
+       for various PoissonSolver implementations (including wrappers)."""
+    def __init__(self):
+        object.__init__(self)
+
+    def set_grid_descriptor(self, gd):
+        raise NotImplementedError()
+
+    def solve(self):
+        raise NotImplementedError()
+
+    def todict(self):
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_description(self):
+        return self.__class__.__name__
+
+    def estimate_memory(self, mem):
+        raise NotImplementedError()
+
+
+class BasePoissonSolver(_PoissonSolver):
     def __init__(self, eps=None, remove_moment=None, use_charge_center=False):
         self.gd = None
         self.remove_moment = remove_moment
@@ -88,9 +122,9 @@ class BasePoissonSolver(object):
                          'majority charge')
         return '\n'.join(lines)
 
-
     def solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
               zero_initial_phi=False):
+        self._init()
         assert np.all(phi.shape == self.gd.n_c)
         assert np.all(rho.shape == self.gd.n_c)
 
@@ -155,15 +189,15 @@ class BasePoissonSolver(object):
                 rho_sign = rho * charge_sign
                 rho_sign[np.where(rho_sign < 0)] = 0
                 absolute_charge = self.gd.integrate(rho_sign)
-                center = - self.gd.calculate_dipole_moment(rho_sign) \
-                        / absolute_charge
+                center = - (self.gd.calculate_dipole_moment(rho_sign) /
+                            absolute_charge)
                 border_offset = np.inner(self.gd.h_cv, np.array((7, 7, 7)))
                 borders = np.inner(self.gd.h_cv, self.gd.N_c)
                 borders -= border_offset
                 if np.any(center > borders) or np.any(center < border_offset):
-                    raise RuntimeError(
-                            'Poisson solver: center of charge outside' + \
-                            ' borders - please increase box')
+                    raise RuntimeError('Poisson solver: '
+                                       'center of charge outside borders '
+                                       '- please increase box')
                     center[np.where(center > borders)] = borders
                 self.load_gauss(center=center)
             else:
@@ -198,9 +232,6 @@ class BasePoissonSolver(object):
             self.rho_gauss = gauss.get_gauss(0)
             self.phi_gauss = gauss.get_gauss_pot(0)
 
-    def initialize(self, load_gauss=False):
-        if load_gauss:
-            self.load_gauss()
 
 class FDPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
@@ -225,6 +256,7 @@ class FDPoissonSolver(BasePoissonSolver):
             raise NotImplementedError('Relaxation method %s' % relax)
 
         self.description = None
+        self._initialized = False
 
     def todict(self):
         d = super(FDPoissonSolver, self).todict()
@@ -301,6 +333,13 @@ class FDPoissonSolver(BasePoissonSolver):
             # Warn from all ranks to avoid deadlocks.
             warnings.warn(warntxt, stacklevel=2)
 
+        self._initialized = False
+        # The Gaussians depend on the grid as well so we have to 'unload' them
+        if hasattr(self, 'rho_gauss'):
+            del self.rho_gauss
+            del self.phi_gauss
+
+
     def get_description(self):
         name = {1: 'Gauss-Seidel', 2: 'Jacobi'}[self.relax_method]
         coarsest_grid = self.operators[-1].gd.N_c
@@ -319,7 +358,9 @@ class FDPoissonSolver(BasePoissonSolver):
         lines.append(super(FDPoissonSolver, self).get_description())
         return '\n'.join(lines)
 
-    def initialize(self, load_gauss=False):
+    def _init(self):
+        if self._initialized:
+            return
         # Should probably be renamed allocate
         gd = self.gd
         self.rhos = [gd.empty()]
@@ -338,10 +379,10 @@ class FDPoissonSolver(BasePoissonSolver):
         self.step = 0.66666666 / self.operators[0].get_diagonal_element()
         self.presmooths[level] = 8
         self.postsmooths[level] = 8
-
-        super(FDPoissonSolver, self).initialize(load_gauss)
+        self._initialized = True
 
     def solve_neutral(self, phi, rho, eps=2e-10):
+        self._init()
         self.phis[0] = phi
 
         if self.B is None:
@@ -368,6 +409,7 @@ class FDPoissonSolver(BasePoissonSolver):
 
     def iterate2(self, step, level=0):
         """Smooths the solution in every multigrid level"""
+        self._init()
 
         residual = self.residuals[level]
 
@@ -421,7 +463,7 @@ class FDPoissonSolver(BasePoissonSolver):
         return representation
 
 
-class NoInteractionPoissonSolver:
+class NoInteractionPoissonSolver(_PoissonSolver):
     relax_method = 0
     nn = 1
 
@@ -437,19 +479,22 @@ class NoInteractionPoissonSolver:
     def set_grid_descriptor(self, gd):
         pass
 
-    def initialize(self):
+    def todict(self):
+        return {'name': 'nointeraction'}
+
+    def estimate_memory(self, mem):
         pass
 
 
 class FFTPoissonSolver(BasePoissonSolver):
     """FFT Poisson solver for general unit cells."""
-    # XXX it is criminally outrageous that this inherits from PoissonSolver!
 
     relax_method = 0
     nn = 999
 
     def __init__(self):
         super(FFTPoissonSolver, self).__init__()
+        self._initialized = False
 
     def get_description(self):
         return 'Parallel FFT'
@@ -461,33 +506,52 @@ class FFTPoissonSolver(BasePoissonSolver):
         # We will probably want to use this on non-periodic grids too...
         assert gd.pbc_c.all()
         self.gd = gd
-        self.transp_x_yz_1 = AlignedGridRedistributor(self.gd, 1, 2)
-        self.transp_1_yz_x = AlignedGridRedistributor(self.transp_x_yz_1.gd2,
-                                                      2, 0)
-        self.transp_yz_1_x = AlignedGridRedistributor(self.transp_1_yz_x.gd2,
-                                                      0, 1)
 
-    def initialize(self, load_gauss=False):
-        gd = self.transp_yz_1_x.gd2
+        self.grids = [gd]
+        for c in range(3):
+            N_c = gd.N_c.copy()
+            N_c[c] = 1  # Will be serial in that direction
+            parsize_c = decompose_domain(N_c, gd.comm.size)
+            self.grids.append(gd.new_descriptor(parsize_c=parsize_c))
+
+    def _init(self):
+        if self._initialized:
+            return
+
+        gd = self.grids[-1]
         k2_Q, N3 = construct_reciprocal(gd, distributed=True)
         self.poisson_factor_Q = 4.0 * np.pi / k2_Q
-        super(FFTPoissonSolver, self).initialize(load_gauss)
+        self._initialized = True
 
     def solve_neutral(self, phi_g, rho_g, eps=None):
+        self._init()
         # Will be a bit more efficient if reduced dimension is always
         # contiguous.  Probably more things can be improved...
-        work = fftn(self.transp_x_yz_1.forth(rho_g), axes=[2])
-        work = fftn(self.transp_1_yz_x.forth(work), axes=[0])
-        work = fftn(self.transp_yz_1_x.forth(work), axes=[1])
-        work *= self.poisson_factor_Q
-        work = self.transp_yz_1_x.back(ifftn(work, axes=[1]))
-        work = self.transp_1_yz_x.back(ifftn(work, axes=[0]))
-        work = self.transp_x_yz_1.back(ifftn(work, axes=[2]).real)
-        phi_g[:] = work
+
+        gd1 = self.gd
+        work1_g = rho_g
+
+        for c in range(3):
+            gd2 = self.grids[c + 1]
+            work2_g = gd2.empty(dtype=work1_g.dtype)
+            grid2grid(gd1.comm, gd1, gd2, work1_g, work2_g)
+            work1_g = fftn(work2_g, axes=[c])
+            gd1 = gd2
+
+        work1_g *= self.poisson_factor_Q
+
+        for c in [2, 1, 0]:
+            gd2 = self.grids[c]
+            work2_g = ifftn(work1_g, axes=[c])
+            work1_g = gd2.empty(dtype=work2_g.dtype)
+            grid2grid(gd1.comm, gd1, gd2, work2_g, work1_g)
+            gd1 = gd2
+
+        phi_g[:] = work1_g.real
         return 1
 
     def estimate_memory(self, mem):
-        mem.subnode('k squared', self.transp_yz_1_x.gd2.bytecount())
+        mem.subnode('k squared', self.grids[-1].bytecount())
 
 
 class FixedBoundaryPoissonSolver(FDPoissonSolver):
@@ -561,8 +625,8 @@ class FixedBoundaryPoissonSolver(FDPoissonSolver):
         self.d1, self.d2, self.d3 = self.gd.N_c
         self.r_distribution = np.array_split(np.arange(self.d3),
                                              self.gd.comm.size)
-        self.comm_reshape = not (self.gd.parsize_c[0] == 1
-                                 and self.gd.parsize_c[1] == 1)
+        self.comm_reshape = not (self.gd.parsize_c[0] == 1 and
+                                 self.gd.parsize_c[1] == 1)
 
     def solve(self, phi_g, rho_g, charge=None):
         if charge is None:

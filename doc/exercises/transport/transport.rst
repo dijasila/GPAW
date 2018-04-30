@@ -4,14 +4,14 @@
 Electron transport
 ==================
 
-This exercise shows how to use the ase transport module for performing 
+This exercise shows how to use the ase transport module for performing
 electron transport calculations in nanoscale contacts.
 
 :class:`~ase.transport.calculators.TransportCalculator` is used to
 calculate transmission functions at two different levels, namely:
 
 * Tight-binding (TB) description: parametrize the system using
-  tight-binding model. 
+  tight-binding model.
 * DFT description: extract realistic description of the system using
   the GPAW DFT-LCAO mode.
 
@@ -70,7 +70,7 @@ neighbor hopping energy of -1, and second nearest neighbor hopping of
                        [-1. ,  0. , -1. ,  0.2],
                        [ 0.2, -1. ,  0. , -1. ],
                        [ 0. ,  0.2, -1. ,  0. ]])
-    
+
 Next, the Hamiltonian for the scattering region should be constructed.
 Assuming the Hydrogen molecule can be described by the Hamiltonian:
 
@@ -86,7 +86,7 @@ hopping energy of 0.2: Write down the explicit scattering Hamiltonian
 (it is a `6 \times 6` matrix).
 
 You are now ready to initialize the ``TransportCalculator``::
-    
+
     from ase.transport.calculators import TransportCalculator
 
     tcalc = TransportCalculator(h=H_scat,  # Scattering Hamiltonian
@@ -108,7 +108,7 @@ can be calculated using::
 
     tcalc.set(pdos=[0, 1])
     pdos_ne = tcalc.get_pdos()
-    
+
 Note that all indices in ``TransportCalculator`` refers to the
 scattering region minus the mandatory principal layer on each side.
 Why do you think the pdos of each the hydrogen TB sites has two peaks?
@@ -125,7 +125,7 @@ again. What happpened?
 
 You can try to remove the coupling to the bonding state and calculate
 the calculate the transmission function::
-    
+
     tcalc.cutcupling_bfs([0])
     T_cut_bonding_e = tcalc.get_transmission()
 
@@ -152,7 +152,7 @@ this :download:`pt_h2_lcao_manual.py`:
 .. literalinclude:: pt_h2_lcao_manual.py
 
 You should now have the files scat_hs.pickle, lead1_hs.pickle and
-lead2_hs.pickle in your directory. 
+lead2_hs.pickle in your directory.
 
 You are now ready to initialize the ``TransportCalculator``:
 The script can be found here:
@@ -161,7 +161,7 @@ Below we will work through the script.
 
 The pickle files can be loaded and used in
 the ``TransportCalculator``::
-    
+
     from ase.transport.calculators import TransportCalculator
     import pickle
 
@@ -177,10 +177,10 @@ the ``TransportCalculator``::
 In SZP there are 4 basis functions per H atom, and 9 per Pt atom. Does
 the size of the different matrices match your expectations?  What is
 the conductance? Does it agree with the experimental value?
-    
+
 We will now try to investigate transport properties in more detail.
 Try to subdiagonalize the molecular subspace::
-   
+
     Pt_N = 5
     Pt_nbf = 9 # number of bf per Pt atom (basis=szp)
     H_nbf = 4  # number of bf per H atom (basis=szp)
@@ -188,10 +188,10 @@ Try to subdiagonalize the molecular subspace::
     bfs = range(bf_H1, bf_H1 + 2 * H_nbf)
     h_rot, s_rot, eps_n, vec_jn = tcalc.subdiagonalize_bfs(bfs)
     for n in range(len(eps_n)):
-        print 'bf %i correpsonds to the eigenvalue %.2f eV' % (bfs[n],eps_n[n])
+        print('bf %i correpsonds to the eigenvalue %.2f eV' % (bfs[n],eps_n[n]))
 
-Argue that ``vec_jn[:,0]`` and ``vec_jn[:,1]`` corresponds to the bonding and 
-anti-bonding molecular hydrogen orbitals, respectively. 
+Argue that ``vec_jn[:,0]`` and ``vec_jn[:,1]`` corresponds to the bonding and
+anti-bonding molecular hydrogen orbitals, respectively.
 
 What is the calculated band-gap of the hydrogen-molecule?
 

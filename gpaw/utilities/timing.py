@@ -31,6 +31,10 @@ class NullTimer:
     def write(self, out=sys.stdout): pass
     def write_now(self, mark=''): pass
     def add(self, timer): pass
+    def __call__(self, name):
+        return self
+    def __enter__(self): pass
+    def __exit__(self, *args): pass
 
 
 nulltimer = NullTimer()

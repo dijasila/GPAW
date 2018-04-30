@@ -11,34 +11,49 @@ small and quick tests and by a weekly set of larger test.
 Quick test suite
 ================
 
-Use the :program:`gpaw-test` command to run the tests::
+Use the :program:`gpaw` command to run the tests::
 
-    $ gpaw-test --help
-    Usage: gpaw-test [options] [tests]
-    
-    Options:
-      --version             show program's version number and exit
+    $ gpaw test --help
+    usage: gpaw test [-h] [-x test1.py,test2.py,...] [-f] [--from TESTFILE]
+                     [--after TESTFILE] [--range test_i.py,test_j.py] [-j JOBS]
+                     [--reverse] [-k] [-d DIRECTORY] [-s] [--list]
+                     [tests [tests ...]]
+
+    Run the GPAW test suite. The test suite can be run in parallel with MPI
+    through gpaw-python. The test suite supports 1, 2, 4 or 8 CPUs although some
+    tests are skipped for some parallelizations. If no TESTs are given, run all
+    tests supporting the parallelization.
+
+    positional arguments:
+      tests
+
+    optional arguments:
       -h, --help            show this help message and exit
-      -x test1.py,test2.py,..., --exclude=test1.py,test2.py,...
+      -x test1.py,test2.py,..., --exclude test1.py,test2.py,...
                             Exclude tests (comma separated list of tests).
       -f, --run-failed-tests-only
                             Run failed tests only.
-      --from=TESTFILE       Run remaining tests, starting from TESTFILE
-      --after=TESTFILE      Run remaining tests, starting after TESTFILE
-      --range=test_i.py,test_j.py
+      --from TESTFILE       Run remaining tests, starting from TESTFILE
+      --after TESTFILE      Run remaining tests, starting after TESTFILE
+      --range test_i.py,test_j.py
                             Run tests in range test_i.py to test_j.py (inclusive)
-      -j JOBS, --jobs=JOBS  Run JOBS threads.
+      -j JOBS, --jobs JOBS  Run JOBS threads. Each test will be executed in serial
+                            by one thread. This option cannot be used for
+                            parallelization together with MPI.
       --reverse             Run tests in reverse order (less overhead with
                             multiple jobs)
       -k, --keep-temp-dir   Do not delete temporary files.
+      -d DIRECTORY, --directory DIRECTORY
+                            Run test in this directory
+      -s, --show-output     Show standard output from tests.
+      --list                list the full list of tests, then exit
 
 A temporary directory will be made and the tests will run in that
 directory.  If all tests pass, the directory is removed.
 
 The test suite consists of a large number of small and quick tests
 found in the :git:`gpaw/test/` directory.  The tests run nightly in serial
-and in parallel.  Here are the results from `BuildBot
-<https://gpaw-buildbot.fysik.dtu.dk/waterfall>`_.
+and in parallel.
 
 
 
@@ -66,7 +81,7 @@ Use this function to check results:
 
 .. _big-test:
 .. _agts:
-    
+
 Big tests
 =========
 

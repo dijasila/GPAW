@@ -9,8 +9,8 @@ at the :ref:`tutorials` and consulting the :ref:`manual` pages.
 
 If you are just looking for an introduction to the theory of PAW, you
 should have a look at the page :ref:`introduction_to_paw`, read this
-`pdf file on PAW theory`_, or maybe read some of the original
-:ref:`PAW_papers`.
+:download:`pdf file on PAW theory <paw_note.pdf>`, or maybe read some
+of the original :ref:`PAW_papers`.
 
 If you want some general information on the numerical techniques
 utilized by the GPAW code, you should read the page
@@ -30,8 +30,7 @@ Developers should consult the :ref:`devel` pages.
    advanced_topics
    literature
    introduction_to_paw
+   utilities/utilities
 
 If you can not find what you are looking for in any of the above,
 please consult the :ref:`mail list`.
-
-.. _pdf file on PAW theory: paw_note.pdf

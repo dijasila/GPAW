@@ -204,7 +204,6 @@ class Hamiltonian:
         self.vt_xG = self.gd.empty(self.ncomponents)
         self.vt_sG = self.vt_xG[:self.nspins]
         self.vt_vG = self.vt_xG[self.nspins:]
-        self.poisson.initialize()
 
     def update(self, density):
         """Calculate effective potential.
@@ -281,6 +280,7 @@ class Hamiltonian:
                 dH_sp = np.zeros_like(D_sp)
 
             if setup.HubU is not None:
+                assert self.collinear
                 eU, dHU_sp = hubbard(setup, D_sp)
                 e_xc += eU
                 dH_sp += dHU_sp
@@ -288,6 +288,7 @@ class Hamiltonian:
             dH_sp[:self.nspins] += dH_p
 
             if self.ref_dH_asp:
+                assert self.collinear
                 dH_sp += self.ref_dH_asp[a]
 
             dH_asp[a] = dH_sp
@@ -449,7 +450,7 @@ class Hamiltonian:
         atomic_e_xc = 0.0
         for a, D_sp in D_asp.items():
             setup = self.setups[a]
-            atomic_e_xc += xc.calculate_paw_correction(setup, D_sp)
+            atomic_e_xc += xc.calculate_paw_correction(setup, D_sp, a=a)
         e_xc = finegd_e_xc + self.world.sum(atomic_e_xc)
         return e_xc - self.e_xc
 
@@ -473,7 +474,7 @@ class Hamiltonian:
             writer.write(name, energy)
 
         writer.write(
-            potential=self.gd.collect(self.vt_sG) * Ha,
+            potential=self.gd.collect(self.vt_xG) * Ha,
             atomic_hamiltonian_matrices=pack_atomic_matrices(self.dH_asp) * Ha)
 
         self.xc.write(writer.child('xc'))
@@ -493,8 +494,8 @@ class Hamiltonian:
 
         # Read pseudo potential on the coarse grid
         # and broadcast on kpt/band comm:
-        self.vt_sG = self.gd.empty(self.nspins)
-        self.gd.distribute(h.potential / reader.ha, self.vt_sG)
+        self.initialize()
+        self.gd.distribute(h.potential / reader.ha, self.vt_xG)
 
         self.atom_partition = AtomPartition(self.gd.comm,
                                             np.zeros(len(self.setups), int),

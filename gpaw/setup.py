@@ -661,7 +661,7 @@ class Setup(BaseSetup):
 
         if data.generator_version < 2:
             # Find Fourier-filter cutoff radius:
-            gcutfilter = data.get_max_projector_cutoff()
+            gcutfilter = rgd.get_cutoff(pt_jg[0])
         elif filter:
             rc = rcutmax
             vbar_g = vbar_g.copy()
@@ -679,7 +679,7 @@ class Setup(BaseSetup):
                 pt_ng = np.dot(B_nn, [pt_jg[j] for j in J])
                 for n, j in enumerate(J):
                     pt_jg[j] = pt_ng[n]
-            gcutfilter = data.get_max_projector_cutoff()
+            gcutfilter = rgd.get_cutoff(pt_jg[0])
         else:
             rcutfilter = max(rcut_j)
             gcutfilter = rgd.ceil(rcutfilter)

@@ -409,8 +409,8 @@ class SpinSumMixerDriver:
         self.weight = weight
 
     def get_basemixers(self, nspins):
-        if nspins != 2:
-            raise ValueError('Spin sum mixer expects 2 spins, not %d' % nspins)
+        if nspins == 1:
+            raise ValueError('Spin sum mixer expects 2 or 4 components')
         return [self.basemixerclass(self.beta, self.nmaxold, self.weight)]
 
     def mix(self, basemixers, nt_sG, D_asp):
@@ -418,25 +418,37 @@ class SpinSumMixerDriver:
         basemixer = basemixers[0]
         D_asp = D_asp.values()
 
+        collinear = len(nt_sG) == 2
+
         # Mix density
-        nt_G = nt_sG.sum(0)
-        if self.mix_atomic_density_matrices:
-            D_ap = [D_p[0] + D_p[1] for D_p in D_asp]
-            dNt = basemixer.mix_single_density(nt_G, D_ap)
-            dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
-            for D_sp, D_p, dD_p in zip(D_asp, D_ap, dD_ap):
-                D_sp[0] = 0.5 * (D_p + dD_p)
-                D_sp[1] = 0.5 * (D_p - dD_p)
+        if collinear:
+            nt_G = nt_sG.sum(0)
         else:
-            dNt = basemixers[0].mix_single_density(nt_G, D_asp)
+            nt_G = nt_sG[0]
 
-        dnt_G = nt_sG[0] - nt_sG[1]
-        # Only new magnetization for spin density
-        # dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
+        if self.mix_atomic_density_matrices:
+            if collinear:
+                D_ap = [D_sp[0] + D_sp[1] for D_sp in D_asp]
+            else:
+                D_ap = [D_sp[0] for D_sp in D_asp]
+            dNt = basemixer.mix_single_density(nt_G, D_ap)
+            if collinear:
+                dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
+                for D_sp, D_p, dD_p in zip(D_asp, D_ap, dD_ap):
+                    D_sp[0] = 0.5 * (D_p + dD_p)
+                    D_sp[1] = 0.5 * (D_p - dD_p)
+        else:
+            dNt = basemixer.mix_single_density(nt_G, D_asp)
 
-        # Construct new spin up/down densities
-        nt_sG[0] = 0.5 * (nt_G + dnt_G)
-        nt_sG[1] = 0.5 * (nt_G - dnt_G)
+        if collinear:
+            dnt_G = nt_sG[0] - nt_sG[1]
+            # Only new magnetization for spin density
+            # dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
+
+            # Construct new spin up/down densities
+            nt_sG[0] = 0.5 * (nt_G + dnt_G)
+            nt_sG[1] = 0.5 * (nt_G - dnt_G)
+
         return dNt
 
 
@@ -459,36 +471,63 @@ class SpinDifferenceMixerDriver:
         self.weight_m = weight_m
 
     def get_basemixers(self, nspins):
-        if nspins != 2:
-            raise ValueError('Spin difference mixer expects 2 spins, not %d'
-                             % nspins)
+        if nspins == 1:
+            raise ValueError('Spin difference mixer expects 2 or 4 components')
         basemixer = self.basemixerclass(self.beta, self.nmaxold, self.weight)
-        basemixer_m = self.basemixerclass(self.beta_m, self.nmaxold_m,
-                                          self.weight_m)
-        return basemixer, basemixer_m
+        if nspins == 2:
+            basemixer_m = self.basemixerclass(self.beta_m, self.nmaxold_m,
+                                              self.weight_m)
+            return basemixer, basemixer_m
+        else:
+            basemixer_x = self.basemixerclass(self.beta_m, self.nmaxold_m,
+                                              self.weight_m)
+            basemixer_y = self.basemixerclass(self.beta_m, self.nmaxold_m,
+                                              self.weight_m)
+            basemixer_z = self.basemixerclass(self.beta_m, self.nmaxold_m,
+                                              self.weight_m)
+            return basemixer, basemixer_x, basemixer_y, basemixer_z
 
     def mix(self, basemixers, nt_sG, D_asp):
         D_asp = D_asp.values()
 
-        basemixer, basemixer_m = basemixers
+        if len(nt_sG) == 2:
+            basemixer, basemixer_m = basemixers
+        else:
+            assert len(nt_sG) == 4
+            basemixer, basemixer_x, basemixer_y, basemixer_z = basemixers
 
-        # Mix density
-        nt_G = nt_sG.sum(0)
-        D_ap = [D_sp[0] + D_sp[1] for D_sp in D_asp]
-        dNt = basemixer.mix_single_density(nt_G, D_ap)
+        if len(nt_sG) == 2:
+            # Mix density
+            nt_G = nt_sG.sum(0)
+            D_ap = [D_sp[0] + D_sp[1] for D_sp in D_asp]
+            dNt = basemixer.mix_single_density(nt_G, D_ap)
 
-        # Mix magnetization
-        dnt_G = nt_sG[0] - nt_sG[1]
-        dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
-        basemixer_m.mix_single_density(dnt_G, dD_ap)
-        # (The latter is not counted in dNt)
+            # Mix magnetization
+            dnt_G = nt_sG[0] - nt_sG[1]
+            dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
+            basemixer_m.mix_single_density(dnt_G, dD_ap)
+            # (The latter is not counted in dNt)
 
-        # Construct new spin up/down densities
-        nt_sG[0] = 0.5 * (nt_G + dnt_G)
-        nt_sG[1] = 0.5 * (nt_G - dnt_G)
-        for D_sp, D_p, dD_p in zip(D_asp, D_ap, dD_ap):
-            D_sp[0] = 0.5 * (D_p + dD_p)
-            D_sp[1] = 0.5 * (D_p - dD_p)
+            # Construct new spin up/down densities
+            nt_sG[0] = 0.5 * (nt_G + dnt_G)
+            nt_sG[1] = 0.5 * (nt_G - dnt_G)
+            for D_sp, D_p, dD_p in zip(D_asp, D_ap, dD_ap):
+                D_sp[0] = 0.5 * (D_p + dD_p)
+                D_sp[1] = 0.5 * (D_p - dD_p)
+        else:
+            # Mix density
+            nt_G = nt_sG[0]
+            D_ap = [D_sp[0] for D_sp in D_asp]
+            dNt = basemixer.mix_single_density(nt_G, D_ap)
+
+            # Mix magnetization
+            Dx_ap = [D_sp[1] for D_sp in D_asp]
+            Dy_ap = [D_sp[2] for D_sp in D_asp]
+            Dz_ap = [D_sp[3] for D_sp in D_asp]
+            basemixer_x.mix_single_density(nt_sG[1], Dx_ap)
+            basemixer_y.mix_single_density(nt_sG[2], Dy_ap)
+            basemixer_z.mix_single_density(nt_sG[3], Dz_ap)
+
         return dNt
 
 
@@ -497,7 +536,7 @@ _backends = {}
 _methods = {}
 for cls in [FFTBaseMixer, BroydenBaseMixer, BaseMixer]:
     _backends[cls.name] = cls
-for cls in [SeparateSpinMixerDriver, SpinSumMixerDriver,
+for cls in [SeparateSpinMixerDriver, SpinSumMixerDriver, SpinSumMixerDriver2,
             SpinDifferenceMixerDriver, DummyMixer]:
     _methods[cls.name] = cls
 
@@ -515,10 +554,10 @@ def get_mixer_from_keywords(pbc, nspins, **mixerkwargs):
     else:
         kwargs.update(beta=0.25, history=3, weight=1.0)
 
-    if nspins == 2:
-        kwargs['method'] = SpinSumMixerDriver
-    else:
+    if nspins == 1:
         kwargs['method'] = SeparateSpinMixerDriver
+    else:
+        kwargs['method'] = SpinSumMixerDriver
 
     # Clean up mixerkwargs (compatibility)
     if 'nmaxold' in mixerkwargs:

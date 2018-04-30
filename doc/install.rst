@@ -46,7 +46,7 @@ There are several ways to install GPAW:
 .. seealso::
 
     * Using :ref:`homebrew` on MacOSX.
-    * Using :ref:`anaconda`.  
+    * Using :ref:`anaconda`.
     * Tips and tricks for installation on many :ref:`platforms and
       architectures`.
     * :ref:`troubleshooting`.
@@ -57,8 +57,9 @@ There are several ways to install GPAW:
 Requirements
 ============
 
-* Python_ 2.7-3.5
+* Python_ 2.7, 3.4-
 * NumPy_ 1.6.1 or later (base N-dimensional array package)
+* SciPy_ 0.7 or later (library for scientific computing)
 * ASE_ 3.15.0 or later (atomic simulation environment)
 * a C-compiler
 * LibXC_ 2.0.1 or later
@@ -66,8 +67,6 @@ Requirements
 
 Optional, but highly recommended:
 
-* SciPy_ 0.7 or later (library for scientific computing, requirered for
-  some features)
 * an MPI_ library (required for parallel calculations)
 * FFTW_ (for increased performance)
 * BLACS_ and ScaLAPACK_
@@ -175,7 +174,7 @@ Sou can get the source from a tar-file or from Git:
         $ tar -xf gpaw-1.3.0.tar.gz
         $ ln -s gpaw-1.3.0 gpaw
 
-    Here is a `list of tarballs <https://pypi.python.org/simple/gpaw/>`__.
+    Here is a `list of tarballs <https://pypi.org/simple/gpaw/>`__.
 
 :Git clone:
 
@@ -326,7 +325,7 @@ Environment variables
 Set these permanently in your :file:`~/.bashrc` file::
 
     $ export PYTHONPATH=~/gpaw:$PYTHONPATH
-    $ export PATH=~gpaw/tools:$PATH
+    $ export PATH=~/gpaw/tools:$PATH
 
 or your :file:`~/.cshrc` file::
 

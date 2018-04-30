@@ -191,7 +191,7 @@ Test python/numpy::
  from numpy.core.multiarray import dot
  b = numpy.ones(13, numpy.complex)
  d = dot(b, b)
- print 'Hello'
+ print('Hello')
  numpy.test()
  EOF
 

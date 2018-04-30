@@ -23,7 +23,7 @@ def xc_string_to_dict(string):
     return d
 
 
-def XC(kernel, parameters=None, collinear=True):
+def XC(kernel, parameters=None, atoms=None, collinear=True):
     """Create XCFunctional object.
 
     kernel: XCKernel object, dict or str
@@ -114,6 +114,12 @@ def XC(kernel, parameters=None, collinear=True):
         elif name[0].isdigit():
             from gpaw.xc.parametrizedxc import ParametrizedKernel
             kernel = ParametrizedKernel(name)
+        elif name == 'null':
+            from gpaw.xc.kernel import XCNull
+            kernel = XCNull()
+        elif name == 'QNA':
+            from gpaw.xc.qna import QNA
+            return QNA(atoms, kernel['parameters'], kernel['setup_name'], alpha=kernel['alpha'])
         else:
             kernel = LibXC(name)
 
