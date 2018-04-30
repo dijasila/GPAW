@@ -125,7 +125,7 @@ class LCAOWfsMover:
         P_aqMi = manytci.P_aqMi(bfs.my_atom_indices)
         # Avoid calculating T
         Mstart, Mstop = wfs.initksl.Mstart, wfs.initksl.Mstop
-        S_qMM, T_qMM = manytci.O_qMM_T_qMM(wfs.gd.comm, wfs, Mstart, Mstop)
+        S_qMM, T_qMM = manytci.O_qMM_T_qMM(wfs.gd.comm, Mstart, Mstop)
         wfs.timer.stop('tci calculate')
         self.atomic_correction.initialize(P_aqMi, Mstart, Mstop)
         # self.atomic_correction.gobble_data(wfs)
