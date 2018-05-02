@@ -1,2 +1,5 @@
-def agts(queue):
-    run = queue.add('na2o4.py', ncpus=4, walltime=2 * 60, deps=[])
+from myqueue.job import Job
+
+
+def workflow():
+    return [Job('na2o4.py@4x2h')]

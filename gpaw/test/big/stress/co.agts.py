@@ -1,6 +1,7 @@
-def agts(queue):
-    co = queue.add('co.py', ncpus=4, walltime=5 * 60)
-    queue.add('co.agts.py', deps=co)
+def workflow():
+    from myqueue.job import Job
+    return [Job('co.py@4x5h'),
+            Job('co.agts.py', deps=['co.py'])]
 
 
 if __name__ == '__main__':

@@ -87,46 +87,24 @@ Big tests
 
 The directory in :git:`gpaw/test/big/` contains a set of longer and more
 realistic tests that we run every weekend.  These are submitted to a
-queueing system of a large computer.  Here is an example for Niflheim:
-:git:`gpaw/test/big/niflheim.py`.
+queueing system of a large computer.
 
 
 Adding new tests
 ----------------
 
 To add a new test, create a script somewhere in the file hierarchy ending with
-.agts.py (e.g. ``submit.agts.py``). ``AGTS`` is short for Advanced GPAW Test
+``agts.py`` (e.g. ``submit.agts.py``). ``AGTS`` is short for Advanced GPAW Test
 System (or Another Great Time Sink). This script defines how a number of
 scripts should be submitted to niflheim and how they depend on each other.
 Consider an example where one script, calculate.py, calculates something and
 saves a .gpw file and another script, analyse.py, analyses this output. Then
 the submit script should look something like::
 
-    def agts(queue):
-        calc = queue.add('calculate.py',
-                         ncpus=8,
-                         walltime=25)
-
-        queue.add('analyse.py'
-                  ncpus=1,
-                  walltime=5,
-                  deps=[calc])
+    def workflow():
+        from myqueue.job import Job
+        return [Job('calculate.py', cores=8, tmax='25m'),
+                Job('analyse.py', cores=1, tmax='5m', deps=['calculate.py'])
 
 As shown, this script has to contain the definition of the function
-``agts()`` which should take exactly one argument, ``queue``. Then
-each script is added to a queue object, along with some data which
-defines how and when to run the job.  Note how ``queue.add()`` returns
-a job object which can be used to specify dependencies.
-
-Possible keys are:
-
-=============  ========  =============  ===================================
-Name           Type      Default value  Description
-=============  ========  =============  ===================================
-``ncpus``      ``int``   ``1``          Number of cpus
-``walltime``   ``int``   ``15``         Requested walltime in minutes
-``deps``       ``list``  ``[]``         List of jobs this job depends on
-``creates``    ``list``  ``[]``         List of files this job creates
-                                        (figures and other stuff for the
-                                        web-page)
-=============  ========  =============  ===================================
+``workflow()``.  See https://gitlab.com/jensj/myqueue for more details.

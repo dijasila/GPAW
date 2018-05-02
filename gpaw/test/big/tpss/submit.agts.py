@@ -1,3 +1,5 @@
-def agts(queue):
-    queue.add('tpss.py', ncpus=8, walltime=60)
+from myqueue.job import Job
 
+
+def workflow():
+    return [Job('tpss.py@8x1h')]

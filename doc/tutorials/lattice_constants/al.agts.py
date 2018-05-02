@@ -1,7 +1,12 @@
-def agts(queue):
-    al = queue.add('al.py', ncpus=8, walltime=12 * 60)
-    queue.add('al.agts.py', deps=[al],
-              creates=['Al_conv_ecut.png', 'Al_conv_k.png'])
+# Creates: Al_conv_ecut.png, Al_conv_k.png
+from myqueue.job import Job
+
+
+def workflow():
+    return [
+        Job('al.py@8x12h'),
+        Job('al.agts.py', deps=['al.py'])]
+
 
 if __name__ == '__main__':
     import pylab as plt
@@ -32,4 +37,3 @@ if __name__ == '__main__':
     plt.xlabel('number of k-points')
     plt.ylabel('lattice constant [Ang]')
     plt.savefig('Al_conv_k.png')
-    plt.show()

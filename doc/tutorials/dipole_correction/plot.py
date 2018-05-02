@@ -1,3 +1,4 @@
+# Creates: zero.png, periodic.png, corrected.png, pwcorrected.png, slab.png
 import numpy as np
 import matplotlib.pyplot as plt
 from ase.io import write

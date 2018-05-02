@@ -1,4 +1,6 @@
-def agts(queue):
-    jobs = [queue.add('g2_dzp.py ' + str(i), ncpus=4, walltime=800)
-            for i in range(10)]
-    queue.add('g2_dzp_csv.py', deps=jobs, creates='g2_dzp.csv')
+from myqueue.job import Job
+
+
+def workflow():
+    jobs = [Job('g2_dzp.py+{}@4x13h'.format(i)) for i in range(10)]
+    return jobs + [Job('g2_dzp_csv.py', deps=jobs)]

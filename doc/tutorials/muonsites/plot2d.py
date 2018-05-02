@@ -1,3 +1,4 @@
+# Creates: pot_contour.png
 from gpaw import restart
 import matplotlib.pyplot as plt
 import numpy as np

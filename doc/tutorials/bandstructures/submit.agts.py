@@ -1,4 +1,6 @@
-def agts(queue):
-    queue.add('bandstructure.py', ncpus=1, walltime=5,
-              creates=['bandstructure.png'])
-    
+from myqueue.job import Job
+
+
+def workflow():
+    return [
+        Job('bandstructure.py@1x5m')]

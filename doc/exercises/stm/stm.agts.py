@@ -1,6 +1,9 @@
-def agts(queue):
-    job = queue.add('HAl100.py')
-    queue.add('stm.agts.py', ncpus=1, deps=[job])
+def workflow():
+    from myqueue.job import Job
+    return [
+        Job('HAl100.py'),
+        Job('stm.agts.py', deps=['HAl100.py'])]
+
 
 if __name__ == '__main__':
     import sys

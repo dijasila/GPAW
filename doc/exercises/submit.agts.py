@@ -1,33 +1,38 @@
-def agts(queue):
-    queue.add('water/h2o.py', ncpus=1)
-    queue.add('wavefunctions/CO.py', ncpus=8)
-    queue.add('aluminium/Al_fcc.py', ncpus=2)
-    queue.add('aluminium/Al_bcc.py', ncpus=2)
-    queue.add('aluminium/Al_fcc_vs_bcc.py', ncpus=2)
-    queue.add('aluminium/Al_fcc_modified.py', ncpus=2)
-    queue.add('diffusion/initial.py', ncpus=2)
-    sol = queue.add('diffusion/solution.py', ncpus=2)
-    queue.add('diffusion/densitydiff.py', deps=[sol])
-    si = queue.add('wannier/si.py', ncpus=8)
-    queue.add('wannier/wannier-si.py', deps=[si])
-    benzene = queue.add('wannier/benzene.py', ncpus=8)
-    queue.add('wannier/wannier-benzene.py', deps=[benzene])
-    band = queue.add('band_structure/ag.py', ncpus=1, creates='Ag.png')
-    h2o = queue.add('vibrations/h2o.py', ncpus=8)
-    h2ovib = queue.add('vibrations/H2O_vib.py', ncpus=8, deps=[h2o])
-    queue.add('vibrations/H2O_vib_2.py', ncpus=4, deps=[h2ovib])
-    ferro = queue.add('iron/ferro.py', ncpus=4)
-    anti = queue.add('iron/anti.py', ncpus=4)
-    non = queue.add('iron/non.py', ncpus=2)
-    queue.add('iron/PBE.py', deps=[ferro, anti, non])
-    queue.add('eels/test.py', deps=band)
-    queue.add('gw/test.py')
-    rpa_si_exxgs = queue.add('rpa/si.pbe.py')
-    queue.add('rpa/si.pbe+exx.py', deps=rpa_si_exxgs, ncpus=4)
-    rpa_si_rpags = queue.add('rpa/si.rpa_init_pbe.py')
-    queue.add('rpa/si.rpa.py', deps=rpa_si_rpags, ncpus=4)
-    queue.add('stress/con_pw.py', ncpus=1)
-    queue.add('stress/stress.py', ncpus=1)
-    queue.add('transport/pt_h2_tb_transport.py')
-    t1 = queue.add('transport/pt_h2_lcao_manual.py')
-    queue.add('transport/pt_h2_lcao_transport.py', deps=t1)
+from myqueue.job import Job
+
+
+def workflow():
+    return [
+        Job('h2o.py', folder='water'),
+        Job('CO.py@8x15m', folder='wavefunctions'),
+        Job('Al_fcc.py@2x15m', folder='aluminium'),
+        Job('Al_bcc.py@2x15m', folder='aluminium'),
+        Job('Al_fcc_vs_bcc.py@2x15s', folder='aluminium'),
+        Job('Al_fcc_modified.py@2x15s', folder='aluminium'),
+        Job('initial.py@2x15m', folder='diffusion'),
+        Job('solution.py@2x15m', folder='diffusion'),
+        Job('densitydiff.py', folder='diffusion', deps=['solution.py']),
+        Job('si.py@8x15m', folder='wannier'),
+        Job('wannier-si.py', folder='wannier', deps=['si.py']),
+        Job('benzene.py@8x15m', folder='wannier'),
+        Job('wannier-benzene.py', folder='wannier', deps=['benzene.py']),
+        Job('ag.py', folder='band_structure'),
+        Job('h2o.py@8x15m', folder='vibrations'),
+        Job('H2O_vib.py@8x15m', folder='vibrations', deps=['h2o.py']),
+        Job('H2O_vib_2.py@4x15m', folder='vibrations', deps=['H2O_vib.py']),
+        Job('ferro.py@4x15m', folder='iron'),
+        Job('anti.py@4x15m', folder='iron'),
+        Job('non.py@2x15m', folder='iron'),
+        Job('PBE.py', folder='iron', deps=['ferro.py', 'anti.py', 'non.py']),
+        Job('test.py', folder='eels', deps=['../band_structure/ag.py']),
+        Job('test.py', folder='gw'),
+        Job('si.pbe.py', folder='rpa'),
+        Job('si_pbe_exx.py@4x15m', folder='rpa', deps=['si.pbe.py']),
+        Job('si.rpa_init_pbe.py', folder='rpa'),
+        Job('si.rpa.py@4x15m', folder='rpa', deps=['si.rpa_init_pbe.py']),
+        Job('con_pw.py', folder='stress'),
+        Job('stress.py', folder='stress'),
+        Job('pt_h2_tb_transport.py', folder='transport'),
+        Job('pt_h2_lcao_manual.py', folder='transport'),
+        Job('pt_h2_lcao_transport.py', folder='transport',
+            deps=['pt_h2_lcao_manual.py'])]

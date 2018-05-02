@@ -19,4 +19,4 @@ y_tot_s = y_s[0] + y_s[1] + y_s[2]
 
 plt.plot(x + shift, y_tot)
 plt.bar(x_s + shift, y_tot_s, width=0.05)
-plt.show()
+plt.savefig('xas_h2o_spectrum.png')

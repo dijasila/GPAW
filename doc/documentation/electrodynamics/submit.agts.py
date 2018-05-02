@@ -1,3 +1,6 @@
-def agts(queue):
-    queue.add('plot_permittivity.py',
-              creates=['Au.yml.png'])
+from myqueue.job import Job
+
+
+def workflow():
+    return [
+        Job('plot_permittivity.py')]

@@ -1,7 +1,7 @@
-def agts(queue):
-    c1 = queue.add('calculate.py',
-                   walltime=60)
+from myqueue.job import Job
 
-    queue.add('plot.py',
-              deps=c1,
-              creates=['qsfdtd_vs_mie.png'])
+
+def workflow():
+    return [
+        Job('calculate.py@1x1h'),
+        Job('plot.py', deps=['calculate.py'])]
