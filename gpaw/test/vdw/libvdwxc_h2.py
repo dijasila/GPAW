@@ -22,20 +22,20 @@ def calculate(**kwargs1):
     system.get_potential_energy()
     return calc
 
-fdbandpar = world.size // 2
+fddomainpar = min(2, world.size)
 
 for mode in ['fd', 'pw', 'lcao']:
     kwargs = {}
     if mode == 'pw':
         kwargs['mode'] = PW(150)
     else:
-        kwargs['parallel'] = {'band': fdbandpar}
+        kwargs['parallel'] = {'domain': fddomainpar}
     calc = calculate(**kwargs)
 
 E1 = calc.get_potential_energy()
 calc.write('dump.libvdwxc.gpw')
 calc2 = GPAW('dump.libvdwxc.gpw', txt='restart.txt',
-             parallel={'band': fdbandpar})
+             parallel={'domain': fddomainpar})
 system2 = calc.get_atoms()
 
 # Verify same energy after restart

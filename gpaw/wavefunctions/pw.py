@@ -1581,6 +1581,14 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             self.epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
 
         self.vt_Q = self.vbar_Q + self.vHt_q[dens.G3_G] / 8
+        self.e_external = 0.0
+
+        if self.vext is not None:
+            gd = self.finegd
+            vext_q = self.vext.get_potentialq(gd, self.pd3)
+            self.vt_Q += vext_q[dens.G3_G] / 8
+            self.e_external = self.pd3.integrate(vext_q, dens.rhot_q)
+
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
@@ -1602,15 +1610,17 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         self.timer.stop('XC 3D grid')
 
-        eext = 0.0
-
-        return np.array([self.epot, self.ebar, eext, self.exc])
+        return np.array([self.epot, self.ebar, self.e_external, self.exc])
 
     def calculate_atomic_hamiltonians(self, density):
         W_aL = {}
         for a in density.D_asp:
             W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
-        density.ghat.integrate(self.vHt_q, W_aL)
+        if self.vext:
+            vext_q = self.vext.get_potentialq(self.finegd, self.pd3)
+            density.ghat.integrate(self.vHt_q+vext_q, W_aL)
+        else:
+            density.ghat.integrate(self.vHt_q, W_aL)
         return W_aL
 
     def calculate_kinetic_energy(self, density):
@@ -1636,7 +1646,11 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     restrict_and_collect = restrict
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
-        dens.ghat.derivative(self.vHt_q, ghat_aLv)
+        if self.vext:
+            vext_q = self.vext.get_potentialq(self.finegd, self.pd3)
+            dens.ghat.derivative(self.vHt_q+vext_q, ghat_aLv)
+        else:
+            dens.ghat.derivative(self.vHt_q, ghat_aLv)
         dens.nct.derivative(self.vt_Q, nct_av)
         self.vbar.derivative(dens.nt_Q, vbar_av)
 
