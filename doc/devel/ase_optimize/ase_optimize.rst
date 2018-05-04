@@ -26,11 +26,11 @@ EMT calculations
 ================
 
 .. csv-table::
-   :file: emt.csv
+   :file: emt-iterations.csv
 
 
 GPAW-LCAO calculations
 ======================
 
 .. csv-table::
-   :file: lcao.csv
+   :file: lcao-time.csv
