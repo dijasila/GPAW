@@ -153,10 +153,13 @@ def setup(app):
     # Get png and csv files and other stuff from the AGTS scripts that run
     # every weekend:
     names = set()
-    for path in Path().glob('**/*agts.py'):
+    for path in Path().glob('**/*.py'):
+        if path.parts[0] == 'build':
+            continue
         line1 = path.read_text().split('\n', 1)[0]
         if not line1.startswith('# Creates:'):
             continue
+        print(path)
         for name in line1.split(':')[1].split(','):
             name = name.strip()
             if name in names:
