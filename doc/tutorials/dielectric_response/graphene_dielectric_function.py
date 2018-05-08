@@ -78,4 +78,3 @@ if world.rank == 0:
     plt.legend()
     plt.tight_layout()
     plt.savefig('graphene_eps.png', dpi=600)
-    plt.show()
