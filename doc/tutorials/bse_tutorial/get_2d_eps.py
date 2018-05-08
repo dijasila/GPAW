@@ -24,7 +24,7 @@ for iq in range(22):
     epsinv_GG = np.linalg.inv(eps_wGG[0])
     z0 = pd.gd.cell_cv[2, 2] / 2  # Center of layer
 
-    eps_t_wGG = df_t.get_dielectric_matrix(q_c=[iq / 30, iq / 30, 0],
+    eps_t_wGG = df_t.get_dielectric_matrix(q_c=[iq / 42, iq / 42, 0],
                                            symmetric=False)
     epsinv_t_GG = np.linalg.inv(eps_t_wGG[0])
 
