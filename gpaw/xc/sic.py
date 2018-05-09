@@ -955,7 +955,7 @@ class SICSpin:
             return
 
         # compensate the transformation amongst the occupied states
-        self.W_mn = np.dot(self.W_mn, U_nn[:self.nocc, :self.nocc].T)
+        self.W_mn = np.dot(self.W_mn, U_nn[:self.nocc, :self.nocc])
 
         # reorthogonalize if unoccupied states may have been mixed in
         if self.nocc != U_nn.shape[0]:
