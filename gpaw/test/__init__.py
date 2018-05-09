@@ -378,7 +378,6 @@ tests = [
     'xc/qna_spinpol.py',
     'beef.py',
     'response/chi0.py',                     # ~71s
-    #'sic/scfsic_n2.py',                     # ~73s
     'lrtddft/3.py',                         # ~75s
     'response/chi0_intraband_test.py',      # ~76s
     'pathological/nonlocalset.py',          # ~82s
