@@ -1,5 +1,5 @@
 def workflow():
-    from myqueue.job import Job
+    from myqueue.task import task
     return [
         task('dos.agts.py',
             deps=['../iron/PBE.py', '../wavefunctions/CO.py',

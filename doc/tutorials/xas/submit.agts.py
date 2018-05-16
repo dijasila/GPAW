@@ -2,7 +2,7 @@
 
 
 def workflow():
-    from myqueue.job import Job
+    from myqueue.task import task
     return [
         task('setups.py'),
         task('run.py@8:25m', deps=['setups.py']),

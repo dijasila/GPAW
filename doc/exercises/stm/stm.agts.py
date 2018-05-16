@@ -1,5 +1,5 @@
 def workflow():
-    from myqueue.job import Job
+    from myqueue.task import task
     return [
         task('HAl100.py'),
         task('stm.agts.py', deps=['HAl100.py'])]

@@ -1,4 +1,4 @@
-from myqueue.job import Job
+from myqueue.task import task
 from gpaw.utilities import compiled_with_libvdwxc
 from gpaw.xc.libvdwxc import libvdwxc_has_pfft
 

@@ -4,7 +4,7 @@ from gpaw import GPAW, PW, MixerDif
 
 
 def workflow():
-    from myqueue.job import Job
+    from myqueue.task import task
     return [task('cr.agts.py', cores=8)]
 
 

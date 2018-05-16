@@ -1,7 +1,7 @@
 """Submit tests from the test suite that were removed because they were
 too long."""
 
-from myqueue.job import Job
+from myqueue.task import task
 
 
 def workflow():

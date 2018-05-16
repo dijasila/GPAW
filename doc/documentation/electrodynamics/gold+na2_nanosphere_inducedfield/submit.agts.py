@@ -1,4 +1,4 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
 def workflow():

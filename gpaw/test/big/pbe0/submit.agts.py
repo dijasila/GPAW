@@ -1,5 +1,5 @@
 def workflow():
-    from myqueue.job import Job
+    from myqueue.task import task
     return [task('gaps.py@16:5h'),
             task('submit.agts.py', deps=['gaps.py'])]
 
