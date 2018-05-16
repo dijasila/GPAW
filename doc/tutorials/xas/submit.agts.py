@@ -5,10 +5,10 @@ def workflow():
     from myqueue.task import task
     return [
         task('setups.py'),
-        task('run.py@8:25m', deps=['setups.py']),
-        task('dks.py@8:25m', deps=['setups.py']),
-        task('h2o_xas_box1.py@8:25m', deps=['setups.py']),
-        task('submit.agts.py', deps=['run.py', 'dks.py', 'h2o_xas_box1.py'])]
+        task('run.py@8:25m', deps='setups.py'),
+        task('dks.py@8:25m', deps='setups.py'),
+        task('h2o_xas_box1.py@8:25m', deps='setups.py'),
+        task('submit.agts.py', deps='run.py', 'dks.py', 'h2o_xas_box1.py')]
 
 
 if __name__ == '__main__':

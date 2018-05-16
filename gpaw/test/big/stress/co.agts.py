@@ -1,7 +1,7 @@
 def workflow():
     from myqueue.task import task
     return [task('co.py@4:5h'),
-            task('co.agts.py', deps=['co.py'])]
+            task('co.agts.py', deps='co.py')]
 
 
 if __name__ == '__main__':
