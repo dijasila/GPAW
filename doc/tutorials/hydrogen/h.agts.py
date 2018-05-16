@@ -4,8 +4,8 @@
 def workflow():
     from myqueue.job import Job
     return [
-        Job('h.py'),
-        Job('h.agts.py', deps=['h.py'])]
+        task('h.py'),
+        task('h.agts.py', deps=['h.py'])]
 
 
 if __name__ == '__main__':

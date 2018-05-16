@@ -5,7 +5,7 @@ from gpaw import GPAW, PW, MixerDif
 
 def workflow():
     from myqueue.job import Job
-    return [Job('cr.agts.py', cores=8)]
+    return [task('cr.agts.py', cores=8)]
 
 
 def angle(a, b):

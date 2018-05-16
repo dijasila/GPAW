@@ -3,5 +3,5 @@ from myqueue.job import Job
 
 def workflow():
     return [
-        Job('al111.py'),
-        Job('stm.py', deps=['al111.py'])]
+        task('al111.py'),
+        task('stm.py', deps=['al111.py'])]

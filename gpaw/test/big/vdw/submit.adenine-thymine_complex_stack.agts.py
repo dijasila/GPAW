@@ -2,4 +2,4 @@ from myqueue.job import Job
 
 
 def workflow():
-    return [Job('adenine-thymine_complex_stack.py@4:2h')]
+    return [task('adenine-thymine_complex_stack.py@4:2h')]

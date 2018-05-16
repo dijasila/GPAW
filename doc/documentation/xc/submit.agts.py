@@ -5,7 +5,7 @@ from gpaw.xc.libvdwxc import libvdwxc_has_pfft
 def workflow():
     jobs = []
     if compiled_with_libvdwxc():
-        jobs.apend(Job('libvdwxc-example.py'))
+        jobs.apend(task('libvdwxc-example.py'))
         if libvdwxc_has_pfft():
-            jobs.append(Job('libvdwxc-pfft-example.py', cores=8))
+            jobs.append(task('libvdwxc-pfft-example.py', cores=8))
     return jobs

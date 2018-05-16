@@ -6,8 +6,8 @@ from myqueue.job import Job
 
 def workflow():
     return [
-        Job('H2Al110.py'),
-        Job('dscf_CO.py'),
-        Job('revtpss_tpss_scf.py'),
-        Job('ltt.py'),
-        Job('pblacs_oblong.py@64:5m')]
+        task('H2Al110.py'),
+        task('dscf_CO.py'),
+        task('revtpss_tpss_scf.py'),
+        task('ltt.py'),
+        task('pblacs_oblong.py@64:5m')]

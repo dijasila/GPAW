@@ -1,7 +1,7 @@
 def workflow():
     from myqueue.job import Job
     return [
-        Job('dos.agts.py',
+        task('dos.agts.py',
             deps=['../iron/PBE.py', '../wavefunctions/CO.py',
                   '../wannier/si.py', '../aluminium/Al_fcc.py'])]
 
