@@ -1,4 +1,4 @@
-def tasks():
+def create_tasks():
     from myqueue.task import task
     return [
         task('h2o.py', folder='water'),
@@ -33,4 +33,4 @@ def tasks():
         task('pt_h2_tb_transport.py', folder='transport'),
         task('pt_h2_lcao_manual.py', folder='transport'),
         task('pt_h2_lcao_transport.py', folder='transport',
-            deps='pt_h2_lcao_manual.py')]
+             deps='pt_h2_lcao_manual.py')]

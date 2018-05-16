@@ -1,7 +1,7 @@
 from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
         task('bulk.py@4:6m'),
         task('surface.py@4:6m'),

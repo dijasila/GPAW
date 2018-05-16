@@ -1,7 +1,7 @@
 from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
         task('lcaotddft_basis.py@1:10m'),
         task('lcaotddft_ag55.py@48:2h', deps='lcaotddft_basis.py'),

@@ -1,4 +1,4 @@
-def workflow():
+def create_tasks():
     from myqueue.task import task
     return [
         task('surface.agts.py'),

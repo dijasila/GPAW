@@ -1,7 +1,7 @@
 from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
         task('C_ecut_k_conv_GW.py@8:20h'),
         task('C_ecut_k_conv_plot_GW.py', deps='C_ecut_k_conv_GW.py'),

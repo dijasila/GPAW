@@ -4,7 +4,7 @@ too long."""
 from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
         task('H2Al110.py'),
         task('dscf_CO.py'),

@@ -1,4 +1,4 @@
-def workflow():
+def create_tasks():
     # Most of these time out at the moment ...
     return []
 

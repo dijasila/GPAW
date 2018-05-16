@@ -1,7 +1,7 @@
 from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
         task('Be_gs_8bands.py@2:20m'),
         task('Be_8bands_lrtddft.py@2:20m', deps='Be_gs_8bands.py'),

@@ -1,7 +1,7 @@
 from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
         task('calculate.py@8:1h'),
         task('plot_geom.py', deps='calculate.py'),

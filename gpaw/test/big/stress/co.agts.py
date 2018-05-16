@@ -1,4 +1,4 @@
-def workflow():
+def create_tasks():
     from myqueue.task import task
     return [task('co.py@4:5h'),
             task('co.agts.py', deps='co.py')]

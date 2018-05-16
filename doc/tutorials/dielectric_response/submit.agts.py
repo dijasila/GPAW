@@ -1,7 +1,7 @@
 from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
         task('plot_freq.py'),
         task('silicon_ABS_simpleversion.py'),
