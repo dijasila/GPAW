@@ -1,6 +1,6 @@
 def workflow():
     from myqueue.job import Job
-    return [Job('gaps.py@16x5h'),
+    return [Job('gaps.py@16:5h'),
             Job('submit.agts.py', deps=['gaps.py'])]
 
 

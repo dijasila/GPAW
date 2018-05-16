@@ -5,9 +5,9 @@ def workflow():
     from myqueue.job import Job
     return [
         Job('setups.py'),
-        Job('run.py@8x25m', deps=['setups.py']),
-        Job('dks.py@8x25m', deps=['setups.py']),
-        Job('h2o_xas_box1.py@8x25m', deps=['setups.py']),
+        Job('run.py@8:25m', deps=['setups.py']),
+        Job('dks.py@8:25m', deps=['setups.py']),
+        Job('h2o_xas_box1.py@8:25m', deps=['setups.py']),
         Job('submit.agts.py', deps=['run.py', 'dks.py', 'h2o_xas_box1.py'])]
 
 

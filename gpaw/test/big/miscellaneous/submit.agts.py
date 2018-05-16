@@ -10,4 +10,4 @@ def workflow():
         Job('dscf_CO.py'),
         Job('revtpss_tpss_scf.py'),
         Job('ltt.py'),
-        Job('pblacs_oblong.py@64x5m')]
+        Job('pblacs_oblong.py@64:5m')]
