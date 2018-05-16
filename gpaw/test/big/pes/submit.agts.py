@@ -6,4 +6,4 @@ def workflow():
             task('PES_H2O.py@8:1h'),
             task('PES_NH3.py@8:55m'),
             task('PES_plot.py@1:5m',
-                deps='PES_CO.py', 'PES_H2O.py', 'PES_NH3.py')]
+                deps='PES_CO.py,PES_H2O.py,PES_NH3.py')]

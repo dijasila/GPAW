@@ -9,7 +9,7 @@ def workflow():
         task('C_frequency_conv.py@1:30m'),
         task('C_frequency_conv_plot.py', deps='C_frequency_conv.py'),
         task('C_equal_test.py',
-            deps='C_ecut_k_conv_GW.py', 'C_frequency_conv.py'),
+            deps='C_ecut_k_conv_GW.py,C_frequency_conv.py'),
         task('BN_GW0.py@1:1h'),
         task('BN_GW0_plot.py', deps='BN_GW0.py'),
         task('MoS2_gs_GW.py@1:2h'),

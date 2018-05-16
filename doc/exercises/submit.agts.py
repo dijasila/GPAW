@@ -21,7 +21,7 @@ def tasks():
         task('ferro.py@4:15m', folder='iron'),
         task('anti.py@4:15m', folder='iron'),
         task('non.py@2:15m', folder='iron'),
-        task('PBE.py', folder='iron', deps='ferro.py', 'anti.py', 'non.py'),
+        task('PBE.py', folder='iron', deps='ferro.py,anti.py,non.py'),
         task('test.py', folder='eels', deps='../band_structure/ag.py'),
         task('test.py', folder='gw'),
         task('si.pbe.py', folder='rpa'),
