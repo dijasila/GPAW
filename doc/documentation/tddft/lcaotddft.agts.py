@@ -1,9 +1,9 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
-        Job('lcaotddft_basis.py@1x10m'),
-        Job('lcaotddft_ag55.py@48x2h', deps=['lcaotddft_basis.py']),
-        Job('lcaotddft_fig1.py', deps=['lcaotddft_ag55.py']),
-        Job('lcaotddft.py@4x40m')]
+        task('lcaotddft_basis.py@1:10m'),
+        task('lcaotddft_ag55.py@48:2h', deps='lcaotddft_basis.py'),
+        task('lcaotddft_fig1.py', deps='lcaotddft_ag55.py'),
+        task('lcaotddft.py@4:40m')]

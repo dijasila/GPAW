@@ -1,5 +1,5 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
-    return [Job('graphene.py@8x15m')]
+def create_tasks():
+    return [task('graphene.py@8:15m')]

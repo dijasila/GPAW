@@ -1,5 +1,5 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
-    return [Job('adenine-thymine_complex_stack.py@4x2h')]
+def create_tasks():
+    return [task('adenine-thymine_complex_stack.py@4:2h')]

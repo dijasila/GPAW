@@ -1,7 +1,7 @@
-def workflow():
-    from myqueue.job import Job
-    return [Job('gaps.py@16x5h'),
-            Job('submit.agts.py', deps=['gaps.py'])]
+def create_tasks():
+    from myqueue.task import task
+    return [task('gaps.py@16:5h'),
+            task('submit.agts.py', deps='gaps.py')]
 
 
 if __name__ == '__main__':

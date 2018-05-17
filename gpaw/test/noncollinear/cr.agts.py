@@ -3,9 +3,9 @@ from ase import Atoms
 from gpaw import GPAW, PW, MixerDif
 
 
-def workflow():
-    from myqueue.job import Job
-    return [Job('cr.agts.py', cores=8)]
+def create_tasks():
+    from myqueue.task import task
+    return [task('cr.agts.py', cores=8)]
 
 
 def angle(a, b):

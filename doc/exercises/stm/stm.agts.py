@@ -1,8 +1,8 @@
-def workflow():
-    from myqueue.job import Job
+def create_tasks():
+    from myqueue.task import task
     return [
-        Job('HAl100.py'),
-        Job('stm.agts.py', deps=['HAl100.py'])]
+        task('HAl100.py'),
+        task('stm.agts.py', deps='HAl100.py')]
 
 
 if __name__ == '__main__':

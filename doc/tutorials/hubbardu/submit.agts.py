@@ -1,8 +1,8 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
-        Job('nio.py'),
-        Job('n.py'),
-        Job('check.py', deps=['n.py'])]
+        task('nio.py'),
+        task('n.py'),
+        task('check.py', deps='n.py')]

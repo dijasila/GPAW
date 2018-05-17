@@ -1,7 +1,7 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
-        Job('calculate.py@1x1h'),
-        Job('plot.py', deps=['calculate.py'])]
+        task('calculate.py@1:1h'),
+        task('plot.py', deps='calculate.py')]

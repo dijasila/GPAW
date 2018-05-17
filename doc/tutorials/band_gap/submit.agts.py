@@ -1,6 +1,6 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
-        Job('gllbsc_band_gap.py@1x30m')]
+        task('gllbsc_band_gap.py@1:30m')]

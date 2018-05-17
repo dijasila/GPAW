@@ -1,6 +1,6 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
-        Job('plot_permittivity.py')]
+        task('plot_permittivity.py')]
