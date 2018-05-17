@@ -1,6 +1,6 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
-        Job('bandstructure.py@1x5m')]
+        task('bandstructure.py@1:5m')]

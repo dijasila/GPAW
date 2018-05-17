@@ -1,9 +1,9 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
-        Job('bulk.py@4x6m'),
-        Job('surface.py@4x6m'),
-        Job('sigma.py', deps=['bulk.py', 'surface.py']),
-        Job('fig2.py', deps=['sigma.py'])]
+        task('bulk.py@4:6m'),
+        task('surface.py@4:6m'),
+        task('sigma.py', deps='bulk.py,surface.py'),
+        task('fig2.py', deps='sigma.py')]

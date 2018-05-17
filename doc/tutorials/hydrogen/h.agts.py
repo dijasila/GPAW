@@ -1,11 +1,11 @@
 # Creates: h.png
 
 
-def workflow():
-    from myqueue.job import Job
+def create_tasks():
+    from myqueue.task import task
     return [
-        Job('h.py'),
-        Job('h.agts.py', deps=['h.py'])]
+        task('h.py'),
+        task('h.agts.py', deps='h.py')]
 
 
 if __name__ == '__main__':

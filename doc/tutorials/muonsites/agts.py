@@ -1,7 +1,7 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
-        Job('mnsi.py'),
-        Job('plot2d.py', deps=['mnsi.py'])]
+        task('mnsi.py'),
+        task('plot2d.py', deps='mnsi.py')]

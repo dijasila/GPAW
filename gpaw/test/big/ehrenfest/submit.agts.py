@@ -1,9 +1,9 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
-        Job('h2_osc.py@8x2h'),
-        Job('n2_osc.py@40x15h'),
-        Job('na2_md.py@8x2h'),
-        Job('na2_osc.py@8x40h')]
+        task('h2_osc.py@8:2h'),
+        task('n2_osc.py@40:15h'),
+        task('na2_md.py@8:2h'),
+        task('na2_osc.py@8:40h')]

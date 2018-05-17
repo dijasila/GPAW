@@ -1,13 +1,13 @@
 """Submit tests from the test suite that were removed because they were
 too long."""
 
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
-        Job('H2Al110.py'),
-        Job('dscf_CO.py'),
-        Job('revtpss_tpss_scf.py'),
-        Job('ltt.py'),
-        Job('pblacs_oblong.py@64x5m')]
+        task('H2Al110.py'),
+        task('dscf_CO.py'),
+        task('revtpss_tpss_scf.py'),
+        task('ltt.py'),
+        task('pblacs_oblong.py@64:5m')]

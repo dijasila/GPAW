@@ -1,6 +1,6 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
-        Job('NaCl.py@1x30m')]
+        task('NaCl.py@1:30m')]

@@ -1,8 +1,8 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
-        Job('basisgeneration.py@1x10m'),
-        Job('lcao_h2o.py@1x10m'),
-        Job('lcao_opt.py@1x10m')]
+        task('basisgeneration.py@1:10m'),
+        task('lcao_h2o.py@1:10m'),
+        task('lcao_opt.py@1:10m')]

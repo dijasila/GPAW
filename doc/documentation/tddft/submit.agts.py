@@ -1,9 +1,9 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
+def create_tasks():
     return [
-        Job('Be_gs_8bands.py@2x20m'),
-        Job('Be_8bands_lrtddft.py@2x20m', deps=['Be_gs_8bands.py']),
-        Job('Be_8bands_lrtddft_dE.py@2x20m', deps=['Be_gs_8bands.py']),
-        Job('Na2_relax_excited.py@4x8h')]
+        task('Be_gs_8bands.py@2:20m'),
+        task('Be_8bands_lrtddft.py@2:20m', deps='Be_gs_8bands.py'),
+        task('Be_8bands_lrtddft_dE.py@2:20m', deps='Be_gs_8bands.py'),
+        task('Na2_relax_excited.py@4:8h')]

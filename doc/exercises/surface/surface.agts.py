@@ -1,8 +1,8 @@
-def workflow():
-    from myqueue.job import Job
+def create_tasks():
+    from myqueue.task import task
     return [
-        Job('surface.agts.py'),
-        Job('work_function.py', deps=['surface.agts.py'])]
+        task('surface.agts.py'),
+        task('work_function.py', deps='surface.agts.py')]
 
 
 if __name__ == '__main__':

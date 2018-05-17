@@ -1,5 +1,5 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
-    return [Job('fc_butadiene.py@1x30m')]
+def create_tasks():
+    return [task('fc_butadiene.py@1:30m')]

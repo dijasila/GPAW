@@ -1,4 +1,4 @@
-def workflow():
+def create_tasks():
     return []
 
     si_gs = queue.add('si.groundstate.py', ncpus=1, walltime=2)

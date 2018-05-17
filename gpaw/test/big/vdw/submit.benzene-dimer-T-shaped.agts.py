@@ -1,5 +1,5 @@
-from myqueue.job import Job
+from myqueue.task import task
 
 
-def workflow():
-    return [Job('benzene-dimer-T-shaped.py@48x20h')]
+def create_tasks():
+    return [task('benzene-dimer-T-shaped.py@48:20h')]
