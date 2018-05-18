@@ -17,6 +17,7 @@ from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.grid import grid2grid
 from gpaw.utilities.ewald import madelung
 from gpaw.utilities.tools import construct_reciprocal
+from gpaw.dipole_correction import dipole_correction
 import _gpaw
 
 
@@ -96,11 +97,13 @@ class _PoissonSolver(object):
 
 
 class BasePoissonSolver(_PoissonSolver):
-    def __init__(self, eps=None, remove_moment=None, use_charge_center=False):
+    def __init__(self, eps=None, remove_moment=None, use_charge_center=False,
+                  metallic_electrodes=False):
         self.gd = None
         self.remove_moment = remove_moment
         self.use_charge_center = use_charge_center
         self.eps = eps
+        self.metallic_electrodes = metallic_electrodes
 
     def todict(self):
         d = {'name': 'basepoisson'}
@@ -224,10 +227,24 @@ class BasePoissonSolver(_PoissonSolver):
 
             return niter
         else:
-            # System is charged with mixed boundaryconditions
-            msg = ('Charged systems with mixed periodic/zero'
-                   ' boundary conditions')
-            raise NotImplementedError(msg)
+            if self.metallic_electrodes:
+                self.c = 2
+                drhot_g, dvHt_g, self.correction = dipole_correction(self.c,
+                                                                     self.gd,
+                                                                     rho,
+                                                                     origin_c=[0,0,0])
+                phi -= dvHt_g
+                iters = self.solve_neutral(phi, rho + drhot_g, eps=eps)
+                phi += dvHt_g
+                phi -= self.correction
+                self.correction = 0.0
+                return iters
+            else:
+                # System is charged with mixed boundaryconditions
+                msg = ('Charged systems with mixed periodic/zero'
+                       ' boundary conditions')
+                raise NotImplementedError(msg)
+
 
     def load_gauss(self, center=None):
         if not hasattr(self, 'rho_gauss') or center is not None:
@@ -238,11 +255,13 @@ class BasePoissonSolver(_PoissonSolver):
 
 class FDPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, use_charge_center=False):
+                 remove_moment=None, use_charge_center=False,
+                 metallic_electrodes=False):
         super(FDPoissonSolver, self).__init__(
             eps=eps,
             remove_moment=remove_moment,
-            use_charge_center=use_charge_center)
+            use_charge_center=use_charge_center,
+            metallic_electrodes=metallic_electrodes)
         self.relax = relax
         self.nn = nn
         self.charged_periodic_correction = None
