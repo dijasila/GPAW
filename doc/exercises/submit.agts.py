@@ -30,7 +30,8 @@ def create_tasks():
         task('si.rpa.py@4:15m', folder='rpa', deps='si.rpa_init_pbe.py'),
         task('con_pw.py', folder='stress'),
         task('stress.py', folder='stress'),
-        task('pt_h2_tb_transport.py', folder='transport'),
-        task('pt_h2_lcao_manual.py', folder='transport'),
-        task('pt_h2_lcao_transport.py', folder='transport',
-             deps='pt_h2_lcao_manual.py')]
+        # task('pt_h2_tb_transport.py', folder='transport'),
+        # task('pt_h2_lcao_manual.py', folder='transport'),
+        # task('pt_h2_lcao_transport.py', folder='transport',
+        #      deps='pt_h2_lcao_manual.py')
+        ]
