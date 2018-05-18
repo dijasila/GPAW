@@ -19,4 +19,4 @@ for L in np.arange(4, 14, 2) * 8 * h:
 plt.legend()
 plt.xlim(-6, 4)
 plt.ylim(-0.002, 0.03)
-plt.show()
+plt.savefig('h2o_xas_box.png')

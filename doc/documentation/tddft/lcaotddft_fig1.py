@@ -1,3 +1,4 @@
+# Creates: fig1.png
 import numpy as np
 import matplotlib.pyplot as plt
 plt.figure(figsize=(6, 6 / 2 ** 0.5))

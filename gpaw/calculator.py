@@ -66,6 +66,7 @@ class GPAW(PAW, Calculator):
         'background_charge': None,
         'experimental': {'reuse_wfs_method': None,
                          'magmoms': None,
+                         'soc': None,
                          'kpt_refine': None},
         'external': None,
         'random': False,
@@ -412,12 +413,12 @@ class GPAW(PAW, Calculator):
             if key in ['experimental']:
                 changed_parameters2 = changed_parameters[key]
                 for key2 in changed_parameters2:
-                    if key2 in ['kpt_refine']:
+                    if key2 in ['kpt_refine', 'magmoms', 'soc']:
                         self.wfs = None
-                    elif key2 in ['reuse_wfs_method', 'magmoms']:
+                    elif key2 in ['reuse_wfs_method']:
                         continue
                     else:
-                        raise TypeError('Unknown keyword argument: "%s"' % key2)
+                        raise TypeError('Unknown keyword argument:', key2)
                 continue
 
             # More drastic changes:
@@ -922,17 +923,19 @@ class GPAW(PAW, Calculator):
 
         else:
             self.timer.start('Set k-point refinement')
-            kd = create_kpoint_descriptor_with_refinement(kpt_refine,
-                                           bzkpts_kc, nspins, self.atoms,
-                                           self.symmetry, comm=self.world,
-                                           timer=self.timer)
+            kd = create_kpoint_descriptor_with_refinement(
+                kpt_refine,
+                bzkpts_kc, nspins, self.atoms,
+                self.symmetry, comm=self.world,
+                timer=self.timer)
             self.timer.stop('Set k-point refinement')
-            # Update quantities which might have changed, if symmetry was changed
+            # Update quantities which might have changed, if symmetry
+            # was changed
             self.symmetry = kd.symmetry
             self.setups.set_symmetry(kd.symmetry)
 
         self.log(kd)
-        
+
         return kd
 
     def create_wave_functions(self, mode, realspace,
@@ -940,7 +943,7 @@ class GPAW(PAW, Calculator):
                               setups, cell_cv, pbc_c):
         par = self.parameters
 
-        kd = self.create_kpoint_descriptor(nspins)  
+        kd = self.create_kpoint_descriptor(nspins)
 
         parallelization = mpi.Parallelization(self.world,
                                               nspins * kd.nibzkpts)

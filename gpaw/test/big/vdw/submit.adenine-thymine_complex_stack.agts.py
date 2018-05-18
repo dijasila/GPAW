@@ -1,2 +1,5 @@
-def agts(queue):
-    queue.add('adenine-thymine_complex_stack.py', ncpus=4, walltime=2 * 60)
+from myqueue.task import task
+
+
+def create_tasks():
+    return [task('adenine-thymine_complex_stack.py@4:2h')]

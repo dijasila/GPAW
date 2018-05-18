@@ -1,3 +1,4 @@
+# Creates: extrapolate.png
 from ase.utils.extrapolate import extrapolate
 import numpy as np
 from pylab import *
