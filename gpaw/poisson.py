@@ -113,6 +113,8 @@ class BasePoissonSolver(_PoissonSolver):
             d['remove_moment'] = self.remove_moment
         if self.use_charge_center:
             d['use_charge_center'] = self.use_charge_center
+        if self.metallic_electrodes:
+            d['metallic_electrodes'] = self.metallic_electrodes
         return d
 
     def get_description(self):
@@ -126,6 +128,8 @@ class BasePoissonSolver(_PoissonSolver):
         if self.use_charge_center:
             lines.append('    Compensate for charged system using center of '
                          'majority charge')
+        if self.metallic_electrodes:
+            lines.append('    Metallic Electrode at z=0 plane')
         return '\n'.join(lines)
 
     def solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
