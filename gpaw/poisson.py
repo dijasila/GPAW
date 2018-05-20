@@ -266,6 +266,8 @@ class FDPoissonSolver(BasePoissonSolver):
             remove_moment=remove_moment,
             use_charge_center=use_charge_center,
             metallic_electrodes=metallic_electrodes)
+        if metallic_electrodes:
+            assert nn == 1
         self.relax = relax
         self.nn = nn
         self.charged_periodic_correction = None
