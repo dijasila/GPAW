@@ -83,24 +83,24 @@ class G0W0(PairDensity):
             Sets whether the Godby-Needs plasmon-pole approximation for the
             dielectric function should be used.
         xc: str
-            Kernel to use when including vertex corrections. 
+            Kernel to use when including vertex corrections.
         fxc_mode: str
-            Where to include the vertex corrections; polarizability and/or 
-            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only, 
+            Where to include the vertex corrections; polarizability and/or
+            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
             'GWG': Both.
         density_cut: float
             Cutoff for density when constructing kernel.
         do_GW_too: bool
-            When carrying out a calculation including vertex corrections, it 
-            is possible to get the standard GW results at the same time 
+            When carrying out a calculation including vertex corrections, it
+            is possible to get the standard GW results at the same time
             (almost for free).
         av_scheme: str
-            'wavevector'. Method to construct kernel. Only 
-            'wavevector' has been tested and works here. The implementation 
-            could be extended to include the 'density' method which has been 
+            'wavevector'. Method to construct kernel. Only
+            'wavevector' has been tested and works here. The implementation
+            could be extended to include the 'density' method which has been
             tested for total energy calculations (rALDA etc.)
         Eg: float
-            Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel. 
+            Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel.
             If None the DFT gap is used.
         truncation: str
             Coulomb truncation scheme. Can be either wigner-seitz,
@@ -124,7 +124,7 @@ class G0W0(PairDensity):
             specified amount.
         q0_correction: bool
             Analytic correction to the q=0 contribution applicable to 2D
-            systems. 
+            systems.
         anisotropy_correction: bool
             Old term for the q0_correction.
         nblocks: int
@@ -233,7 +233,7 @@ class G0W0(PairDensity):
             assert self.xc != 'RPA'
             assert self.fxc_mode != 'GW'
             if not restartfile == None:
-                raise RuntimeError('Restart function does not currently work with do_GW_too=True.') 
+                raise RuntimeError('Restart function does not currently work with do_GW_too=True.')
 
         if Eg is None and self.xc == 'JGMsx':
             from ase.dft.bandgap import get_band_gap
@@ -306,7 +306,7 @@ class G0W0(PairDensity):
         self.nspins = self.calc.wfs.nspins
 
         if self.nspins != 1 and self.fxc_mode != 'GW':
-            raise RuntimeError('Including a xc kernel does currently not work for spinpolarized systems.') 
+            raise RuntimeError('Including a xc kernel does currently not work for spinpolarized systems.')
 
 
         p()
@@ -634,7 +634,7 @@ class G0W0(PairDensity):
                 if jj == 0:
                     self.sigma_eskn[ie, kpt1.s, k, nn] += sigma
                     self.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma
-                else:      
+                else:
                     self.sigma_GW_eskn[ie, kpt1.s, k, nn] += sigma
                     self.dsigma_GW_eskn[ie, kpt1.s, k, nn] += dsigma
 
@@ -1043,7 +1043,7 @@ class G0W0(PairDensity):
                     elif self.fxc_mode == 'GWS':
                         e_GG = np.dot(np.linalg.inv(np.eye(nG) + np.dot(chi0_GG * sqrV_G * sqrV_G[:, np.newaxis], fv) - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]), np.eye(nG) -  chi0_GG * sqrV_G * sqrV_G[:, np.newaxis])
                     else:
-                        e_GG = np.eye(nG) - np.dot(chi0_GG * sqrV_G * 
+                        e_GG = np.eye(nG) - np.dot(chi0_GG * sqrV_G *
                                                    sqrV_G[:, np.newaxis], fv)
 
 
@@ -1053,7 +1053,7 @@ class G0W0(PairDensity):
                         e_GW_GG = np.eye(nG) - chi0_GW_GG * sqrV_G * sqrV_G[:,
                                                                             np.newaxis]
                         einv_GW_GG += np.linalg.inv(e_GW_GG) * weight_q[iqf]
-                    
+
             else:
                 sqrV_G = get_coulomb_kernel(pdi,
                                             self.calc.wfs.kd.N_c,
@@ -1064,7 +1064,7 @@ class G0W0(PairDensity):
                 elif self.fxc_mode == 'GWS':
                     e_GG = np.dot(np.linalg.inv(np.eye(nG) + np.dot(chi0_GG * sqrV_G * sqrV_G[:, np.newaxis], fv) - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]), np.eye(nG) -  chi0_GG * sqrV_G * sqrV_G[:, np.newaxis])
                 else:
-                    e_GG = (delta_GG - 
+                    e_GG = (delta_GG -
                             np.dot(chi0_GG * sqrV_G * sqrV_G[:, np.newaxis], fv))
 
                 einv_GG = np.linalg.inv(e_GG)
@@ -1122,7 +1122,7 @@ class G0W0(PairDensity):
                 W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrV0 * sqrV_G[1:]
 
             self.timer.stop('Dyson eq.')
-            return pdi, [W_GG, omegat_GG]
+            return pdi, [W_GG, omegat_GG], None
 
         if self.do_GW_too:
             A1_GW_x = A1_x.copy()
