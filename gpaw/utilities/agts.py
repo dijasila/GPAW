@@ -62,7 +62,17 @@ def agts(cmd):
 
 
 def send_email(tasks):
-    pass
+    import smtplib
+    from email.message import EmailMessage
+
+    msg = EmailMessage()
+    msg.set_content('asdf\nasdfg\n')
+    msg['Subject'] = 'AGTS'
+    msg['From'] = 'agts@niflheim.fysik.dtu.dk'
+    msg['To'] = 'jjmo@dto.dk'
+    s = smtplib.SMTP('localhost')
+    s.send_message(msg)
+    s.quit()
 
 
 if __name__ == '__main__':
