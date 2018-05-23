@@ -25,7 +25,7 @@ from myqueue.tasks import Tasks, Selection
 from myqueue.task import taskstates
 
 
-os.environ['WEB_PAGE_FOLDER']
+#os.environ['WEB_PAGE_FOLDER']
 
 shell = functools.partial(subprocess.check_call, shell=True)
 
@@ -35,27 +35,29 @@ def agts(cmd):
     with Tasks(verbosity=-1) as t:
         tasks = t.list(allofthem, '')
 
+    print(len(tasks))
+
     if cmd == 'run':
         if tasks:
             raise ValueError('Not ready!')
 
-        # shell('cd ase; git pull')
-        # shell('cd gpaw; git clean -fdx; git pull;'
-        #       '. doc/platforms/Linux/Niflheim/compile.sh')
+        shell('cd ase; git pull')
+        shell('cd gpaw; git clean -fdx; git pull;'
+              '. doc/platforms/Linux/Niflheim/compile.sh')
         # shell('mq workflow -p agts.py gpaw')
         shell('mq workflow -p agts.py gpaw/doc/devel/ase_optimize -T')
 
     elif cmd == 'summary':
         for task in tasks:
             if task.state in {'running', 'queued'}:
-                raise ValueError('Not done!')
+                raise RuntimeError('Not done!')
 
         for task in tasks:
             if task.state in {'FAILED', 'CANCELED', 'TIMEOUT'}:
                 send_email(tasks)
                 return
 
-        print('ok')
+        collect_files_for_web_page()
 
     else:
         1 / 0
@@ -65,18 +67,31 @@ def send_email(tasks):
     import smtplib
     from email.message import EmailMessage
 
+    txt = 'Hi!\n\n'
+    for task in tasks:
+        if task.state in {'FAILED', 'CANCELED', 'TIMEOUT'}:
+            id, dir, name, res, age, status, t, err = task.words()
+            txt += ('test: {}/{}@{}: {}\ntime: {}\nerror: {}\n\n'
+                    .format(dir.split('agts/gpaw')[1],
+                            name,
+                            res[:-1],
+                            status,
+                            t,
+                            err))
+    txt += 'Best regards,\nNiflheim\n'
+
     msg = EmailMessage()
-    msg.set_content('asdf\nasdfg\n')
-    msg['Subject'] = 'AGTS'
-    msg['From'] = 'agts@niflheim.fysik.dtu.dk'
-    msg['To'] = 'jjmo@dto.dk'
-    s = smtplib.SMTP('localhost')
+    msg.set_content(txt)
+    msg['Subject'] = 'Failing Niflheim-tests!'
+    msg['From'] = 'agts@niflheim.dtu.dk'
+    msg['To'] = 'jjmo@dtu.dk'
+    s = smtplib.SMTP('smtp.ait.dtu.dk')
     s.send_message(msg)
     s.quit()
 
 
+def collect_files_for_web_page():
+
 if __name__ == '__main__':
     import sys
-    import os
-    print(sys.path, os.environ['PATH'])
     agts(sys.argv[1])
