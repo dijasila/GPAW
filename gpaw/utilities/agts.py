@@ -2,24 +2,18 @@
 
 Initial setup::
 
-    cd ~
-    python3 -m venv agts
+    mkdir agts
     cd agts
-    . bin/activate
-    pip install matplotlib scipy
     git clone http://gitlab.com/ase/ase.git
     git clone http://gitlab.com/gpaw/gpaw.git
-    cd ase
-    pip install -e .
-    cd ..
-    cd gpaw
-    python setup.py install
 
 Crontab::
 
     WEB_PAGE_FOLDER=...
-    CMD="python -m gpaw.utilities.build_web_page"
-    10 20 * * * cd ~/gpaw-web-page; . bin/activate; cd gpaw; $CMD > ../gpaw.log
+    AGTS=...
+    CMD="python $AGTS/gpaw/utilities/agts.py"
+    10 20 * * 5 cd $AGTS; $CMD run > agts-run.log
+    10 20 * * 1 cd $AGTS; $CMD summary > agts-summary.log
 
 """
 import functools
@@ -50,11 +44,13 @@ def agts(cmd):
 
     elif cmd == 'summary':
         for task in tasks:
+            if task.state in {'running', 'queued'}:
+                raise ValueError('Not done!')
+
+        for task in tasks:
             if task.state in {'FAILED', 'CANCELED', 'TIMEOUT'}:
                 send_email()
                 return
-            if task.state in {'running', 'queued'}:
-                raise ValueError('Not done!')
 
         print('ok')
 
