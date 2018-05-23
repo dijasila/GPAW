@@ -19,8 +19,10 @@ Crontab::
 import functools
 import os
 import subprocess
+from pathlib import Path
 
-from myqueue.tasks import Tasks
+from myqueue.tasks import Tasks, Selection
+from myqueue.task import taskstates
 
 
 os.environ['WEB_PAGE_FOLDER']
@@ -29,18 +31,19 @@ shell = functools.partial(subprocess.check_call, shell=True)
 
 
 def agts(cmd):
+    allofthem = Selection(None, '', taskstates, [Path('.').absolute()], True)
     with Tasks(verbosity=-1) as t:
-        tasks = t.list()
+        tasks = t.list(allofthem, '')
 
     if cmd == 'run':
         if tasks:
             raise ValueError('Not ready!')
 
-        shell('cd ase; git pull')
-        shell('cd gpaw; git clean -fdx; git pull;'
-              '. doc/platforms/Linux/Niflheim/compile.sh')
-        shell('mq workflow -p agts.py doc gpaw')
-        shell('mq workflow -p agts.py doc/devel/ase_optimize')
+        # shell('cd ase; git pull')
+        # shell('cd gpaw; git clean -fdx; git pull;'
+        #       '. doc/platforms/Linux/Niflheim/compile.sh')
+        # shell('mq workflow -p agts.py gpaw')
+        shell('mq workflow -p agts.py gpaw/doc/devel/ase_optimize -T')
 
     elif cmd == 'summary':
         for task in tasks:
@@ -49,7 +52,7 @@ def agts(cmd):
 
         for task in tasks:
             if task.state in {'FAILED', 'CANCELED', 'TIMEOUT'}:
-                send_email()
+                send_email(tasks)
                 return
 
         print('ok')
@@ -58,6 +61,12 @@ def agts(cmd):
         1 / 0
 
 
+def send_email(tasks):
+    pass
+
+
 if __name__ == '__main__':
     import sys
+    import os
+    print(sys.path, os.environ['PATH'])
     agts(sys.argv[1])
