@@ -34,16 +34,34 @@ os.environ['WEB_PAGE_FOLDER']
 shell = functools.partial(subprocess.check_call, shell=True)
 
 
-def agts1():
+def agts(cmd):
     with Tasks(verbosity=-1) as t:
         tasks = t.list()
-    if tasks:
-        raise ValueError('Not done yet')
-    shell('cd ase; git pull')
-    shell('cd gpaw; git clean -fdx; git pull;'
-          '. doc/platforms/Linux/Niflheim/compile.sh')
-    shell('mq workflow -p agts.py doc gpaw')
+
+    if cmd == 'run':
+        if tasks:
+            raise ValueError('Not ready!')
+
+        shell('cd ase; git pull')
+        shell('cd gpaw; git clean -fdx; git pull;'
+              '. doc/platforms/Linux/Niflheim/compile.sh')
+        shell('mq workflow -p agts.py doc gpaw')
+        shell('mq workflow -p agts.py doc/devel/ase_optimize')
+
+    elif cmd == 'summary':
+        for task in tasks:
+            if task.state in {'FAILED', 'CANCELED', 'TIMEOUT'}:
+                send_email()
+                return
+            if task.state in {'running', 'queued'}:
+                raise ValueError('Not done!')
+
+        print('ok')
+
+    else:
+        1 / 0
 
 
 if __name__ == '__main__':
-    agts1()
+    import sys
+    agts(sys.argv[1])
