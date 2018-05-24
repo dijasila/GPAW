@@ -21,14 +21,14 @@ import os
 import subprocess
 from pathlib import Path
 
-from myqueue.task import taskstates
-from myqueue.tasks import Tasks, Selection
-
 
 shell = functools.partial(subprocess.check_call, shell=True)
 
 
 def agts(cmd):
+    from myqueue.task import taskstates
+    from myqueue.tasks import Tasks, Selection
+
     allofthem = Selection(None, '', taskstates, [Path('.').absolute()], True)
     with Tasks(verbosity=-1) as t:
         tasks = t.list(allofthem, '')
