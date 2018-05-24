@@ -26,7 +26,7 @@ Git master branch
 * Experimental support for calculations with non-collinear spins
   (plane-wave mode only).
   Use ``GPAW(experimental={'magmoms': magmoms})``, where ``magmoms``
-  is an array magnetic moment vectors of shape ``(len(atoms), 3)``.
+  is an array of magnetic moment vectors of shape ``(len(atoms), 3)``.
 
 * Number of bands no longer needs to be divisible by band parallelization
   group size.  Number of bands will no longer be automatically adjusted

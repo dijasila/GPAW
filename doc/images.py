@@ -152,25 +152,12 @@ get('static', ['NOMAD_Logo_supported_by.png'])
 def setup(app):
     # Get png and csv files and other stuff from the AGTS scripts that run
     # every weekend:
-    names = set()
-    for path in Path().glob('**/*.py'):
-        if path.parts[0] == 'build':
+    from gpaw.utilities.agts import find_created_files
+
+    for path in find_created_files():
+        # the files are saved by the weekly tests under agtspath/agts-files
+        # now we are copying them back to their original run directories
+        if path.is_file():
             continue
-        line1 = path.read_text().split('\n', 1)[0]
-        if not line1.startswith('# Creates:'):
-            continue
-        print(path)
-        for name in line1.split(':')[1].split(','):
-            name = name.strip()
-            if name in names:
-                raise RuntimeError(
-                    'The name {0!r} is used in more than one place!'
-                    .format(name))
-            names.add(name)
-            # the files are saved by the weekly tests under agtspath/agts-files
-            # now we are copying them back to their original run directories
-            file = path.with_name(name)
-            if file.is_file():
-                continue
-            print(file, 'copied from', agtspath)
-            get('agts-files', [name], str(file.parent), source=agtspath)
+        print(path, 'copied from', agtspath)
+        get('agts-files', [path.name], str(path.parent), source=agtspath)
