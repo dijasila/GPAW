@@ -21,8 +21,8 @@ pygments_style = 'sphinx'
 autoclass_content = 'both'
 modindex_common_prefix = ['gpaw.']
 intersphinx_mapping = {
-    'ase': ('http://wiki.fysik.dtu.dk/ase', None),
-    'numpy': ('http://docs.scipy.org/doc/numpy', None),
+    'ase': ('https://wiki.fysik.dtu.dk/ase', None),
+    'numpy': ('https://docs.scipy.org/doc/numpy', None),
     'mayavi': ('http://docs.enthought.com/mayavi/mayavi', None)}
 
 html_theme = 'sphinx_rtd_theme'
