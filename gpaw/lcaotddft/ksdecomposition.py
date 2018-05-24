@@ -18,11 +18,30 @@ def gauss_ij(energy_i, energy_j, sigma):
     return norm * np.exp(-0.5 * denergy_ij**2 / sigma**2)
 
 
+def get_bfs_maps(calc):
+    # Construct maps
+    # a_M: M -> atom index a
+    # l_M: M -> angular momentum l
+    a_M = []
+    l_M = []
+    M = 0
+    for a, sphere in enumerate(calc.wfs.basis_functions.sphere_a):
+        for j, spline in enumerate(sphere.spline_j):
+            l = spline.get_angular_momentum_number()
+            for _ in range(2 * l + 1):
+                a_M.append(a)
+                l_M.append(l)
+                M += 1
+    a_M = np.array(a_M)
+    l_M = np.array(l_M)
+    return a_M, l_M
+
+
 class KohnShamDecomposition(object):
     version = 1
     ulmtag = 'KSD'
     readwrite_attrs = ['fermilevel', 'only_ia', 'w_p', 'f_p', 'ia_p',
-                       'P_p', 'dm_vp']
+                       'P_p', 'dm_vp', 'a_M', 'l_M']
 
     def __init__(self, paw=None, filename=None):
         self.filename = filename
@@ -72,6 +91,9 @@ class KohnShamDecomposition(object):
 
             self.eig_un.append(kpt.eps_n)
             self.occ_un.append(kpt.f_n)
+
+        self.a_M, self.l_M = get_bfs_maps(paw)
+        self.atoms = paw.atoms
 
         # TODO: do the rest of the function with K-points
 
@@ -156,10 +178,14 @@ class KohnShamDecomposition(object):
         self.has_initialized = True
 
     def write(self, filename):
+        from ase.io.trajectory import write_atoms
+
         self.log('%s: Writing to %s' % (self.__class__.__name__, filename))
         writer = Writer(filename, self.world, mode='w',
                         tag=self.__class__.ulmtag)
         writer.write(version=self.__class__.version)
+
+        write_atoms(writer.child('atoms'), self.atoms)
 
         wfs = self.wfs
         writer.write(ha=Hartree)
@@ -207,6 +233,11 @@ class KohnShamDecomposition(object):
             for kpt in self.wfs.kpt_u:
                 a_uX.append(getattr(kpt, kpt_attr))
             return a_uX
+        if attr in ['weight_Mn']:
+            C2_nM = np.absolute(self.C0_unM[0])**2
+            val = C2_nM.T / np.sum(C2_nM, axis=1)
+            setattr(self, attr, val)
+            return val
 
         try:
             val = getattr(self.reader, attr)
@@ -366,138 +397,41 @@ class KohnShamDecomposition(object):
         return txt
 
     def plot_TCM(self, weight_p, energy_o, energy_u, sigma,
-                 zero_fermilevel=True, spectrum=False,
-                 vmax='80%'):
-        import matplotlib.pyplot as plt
-        from matplotlib.gridspec import GridSpec
+                 zero_fermilevel=True, vmax='80%'):
+        from gpaw.lcaotddft.tcm import TCMPlotter
+        plotter = TCMPlotter(self, energy_o, energy_u, sigma, zero_fermilevel)
+        ax_tcm = plotter.plot_TCM(weight_p, vmax)
+        ax_occ_dos, ax_unocc_dos = plotter.plot_DOS()
+        return ax_tcm, ax_occ_dos, ax_unocc_dos
 
-        # Calculate TCM
-        args = (weight_p, energy_o, energy_u, sigma, zero_fermilevel)
-        r = self.get_TCM(*args)
-        dos_o, dos_u, tcm_ou, fermilevel = r
-
-        # Generate axis
-        def get_gs(**kwargs):
-            width = 0.84
-            bottom = 0.12
-            left = 0.12
-            return GridSpec(2, 2, width_ratios=[3, 1], height_ratios=[1, 3],
-                            bottom=bottom, top=bottom + width,
-                            left=left, right=left + width,
-                            **kwargs)
-        gs = get_gs(hspace=0.05, wspace=0.05)
-        ax_occ_dos = plt.subplot(gs[0])
-        ax_unocc_dos = plt.subplot(gs[3])
-        ax_tcm = plt.subplot(gs[2])
-        if spectrum:
-            ax_spec = plt.subplot(get_gs(hspace=0.8, wspace=0.8)[1])
-        else:
-            ax_spec = None
-
-        # Plot TCM
-        ax = ax_tcm
-        plt.sca(ax)
-        if isinstance(vmax, str):
-            assert vmax[-1] == '%'
-            tcmmax = np.max(np.absolute(tcm_ou))
-            vmax = tcmmax * float(vmax[:-1]) / 100.0
-        vmin = -vmax
-        if tcm_ou.dtype == complex:
-            linecolor = 'w'
-            from matplotlib.colors import hsv_to_rgb
-
-            def transform_to_hsv(z, rmin, rmax, hue_start=90):
-                amp = np.absolute(z)
-                amp = np.where(amp < rmin, rmin, amp)
-                amp = np.where(amp > rmax, rmax, amp)
-                ph = np.angle(z, deg=1) + hue_start
-                h = (ph % 360) / 360
-                s = 0.85 * np.ones_like(h)
-                v = (amp - rmin) / (rmax - rmin)
-                return hsv_to_rgb(np.dstack((h, s, v)))
-
-            img = transform_to_hsv(tcm_ou.T, 0, vmax)
-            plt.imshow(img, origin='lower',
-                       extent=[energy_o[0], energy_o[-1],
-                               energy_u[0], energy_u[-1]]
-                       )
-        else:
-            linecolor = 'k'
-            cmap = 'seismic'
-            plt.pcolormesh(energy_o, energy_u, tcm_ou.T,
-                           cmap=cmap, rasterized=True, vmin=vmin, vmax=vmax)
-        plt.axhline(fermilevel, c=linecolor)
-        plt.axvline(fermilevel, c=linecolor)
-
-        ax.tick_params(axis='both', which='major', pad=2)
-        plt.xlabel(r'Occ. energy $\varepsilon_{o}$ (eV)', labelpad=0)
-        plt.ylabel(r'Unocc. energy $\varepsilon_{u}$ (eV)', labelpad=0)
-        plt.xlim(np.take(energy_o, (0, -1)))
-        plt.ylim(np.take(energy_u, (0, -1)))
-
-        # Plot DOSes
-        def plot_DOS(ax, energy_e, dos_e,
-                     dos_min, dos_max,
-                     flip=False):
-            ax.xaxis.set_ticklabels([])
-            ax.yaxis.set_ticklabels([])
-            ax.spines['right'].set_visible(False)
-            ax.spines['top'].set_visible(False)
-            ax.yaxis.set_ticks_position('left')
-            ax.xaxis.set_ticks_position('bottom')
-            if flip:
-                set_label = ax.set_xlabel
-                fill_between = ax.fill_betweenx
-                set_energy_lim = ax.set_ylim
-                set_dos_lim = ax.set_xlim
-
-                def plot(x, y, *args, **kwargs):
-                    return ax.plot(y, x, *args, **kwargs)
-            else:
-                set_label = ax.set_ylabel
-                fill_between = ax.fill_between
-                set_energy_lim = ax.set_xlim
-                set_dos_lim = ax.set_ylim
-
-                def plot(x, y, *args, **kwargs):
-                    return ax.plot(x, y, *args, **kwargs)
-            fill_between(energy_e, 0, dos_e, color='0.8')
-            plot(energy_e, dos_e, 'k')
-            set_label('DOS', labelpad=0)
-            set_energy_lim(np.take(energy_e, (0, -1)))
-            set_dos_lim(dos_min, dos_max)
-
-        dos_min = 0.0
-        dos_max = max(np.max(dos_o), np.max(dos_u))
-        plot_DOS(ax_occ_dos, energy_o, dos_o,
-                 dos_min, dos_max,
-                 flip=False)
-        plot_DOS(ax_unocc_dos, energy_u, dos_u,
-                 dos_min, dos_max,
-                 flip=True)
-
-        return ax_tcm, ax_occ_dos, ax_unocc_dos, ax_spec
-
-    def get_TCM(self, weight_p, energy_o, energy_u, sigma,
-                zero_fermilevel=True):
-        eig_n, fermilevel = self.get_eig_n(zero_fermilevel)
-
-        # DOS
-        G_no = gauss_ij(eig_n, energy_o, sigma)
-        G_nu = gauss_ij(eig_n, energy_u, sigma)
-        dos_o = 2.0 * np.sum(G_no, axis=0)
-        dos_u = 2.0 * np.sum(G_nu, axis=0)
-        dosmax = max(np.max(dos_o), np.max(dos_u))
-        dos_o /= dosmax
-        dos_u /= dosmax
-
-        # TCM
+    def get_TCM(self, weight_p, eig_n, energy_o, energy_u, sigma):
         flt_p = self.__filter_by_x_ia(eig_n, energy_o, energy_u, 8 * sigma)
         weight_f = weight_p[flt_p]
         G_fo = gauss_ij(eig_n[self.ia_p[flt_p, 0]], energy_o, sigma)
         G_fu = gauss_ij(eig_n[self.ia_p[flt_p, 1]], energy_u, sigma)
         tcm_ou = np.dot(G_fo.T * weight_f, G_fu)
-        return dos_o, dos_u, tcm_ou, fermilevel
+        return tcm_ou
+
+    def get_DOS(self, eig_n, energy_o, energy_u, sigma):
+        return self.get_weighted_DOS(1, eig_n, energy_o, energy_u, sigma)
+
+    def get_weighted_DOS(self, weight_n, eig_n, energy_o, energy_u, sigma):
+        if not isinstance(weight_n, np.ndarray):
+            # Assume float
+            weight_n = weight_n * np.ones_like(eig_n)
+        G_on = gauss_ij(energy_o, eig_n, sigma)
+        G_un = gauss_ij(energy_u, eig_n, sigma)
+        dos_o = np.dot(G_on, weight_n)
+        dos_u = np.dot(G_un, weight_n)
+        return dos_o, dos_u
+
+    def get_weight_n_by_l(self, l):
+        weight_n = np.sum(self.weight_Mn[self.l_M == l], axis=0)
+        return weight_n
+
+    def get_weight_n_by_a(self, a):
+        weight_n = np.sum(self.weight_Mn[self.a_M == a], axis=0)
+        return weight_n
 
     def get_distribution_i(self, weight_p, energy_e, sigma,
                            zero_fermilevel=True):
