@@ -21,11 +21,9 @@ import os
 import subprocess
 from pathlib import Path
 
-from myqueue.tasks import Tasks, Selection
 from myqueue.task import taskstates
+from myqueue.tasks import Tasks, Selection
 
-
-#os.environ['WEB_PAGE_FOLDER']
 
 shell = functools.partial(subprocess.check_call, shell=True)
 
@@ -90,7 +88,34 @@ def send_email(tasks):
     s.quit()
 
 
+def find_created_files():
+    names = set()
+    for path in Path().glob('**/*.py'):
+        if path.parts[0] == 'build':
+            continue
+        line1 = path.read_text().split('\n', 1)[0]
+        if not line1.startswith('# Creates:'):
+            continue
+        for name in line1.split(':')[1].split(','):
+            name = name.strip()
+            if name in names:
+                raise RuntimeError(
+                    'The name {!r} is used in more than one place!'
+                    .format(name))
+            names.add(name)
+            yield path.with_name(name)
+
+
 def collect_files_for_web_page():
+    os.chdir('gpaw/doc')
+    folder = Path('agts-files')
+    if not folder.is_dir():
+        folder.mkdir()
+    for path in find_created_files():
+        print(path)
+        (folder / path.name).write_bytes(path.read_bytes())
+    # os.environ['WEB_PAGE_FOLDER']
+
 
 if __name__ == '__main__':
     import sys
