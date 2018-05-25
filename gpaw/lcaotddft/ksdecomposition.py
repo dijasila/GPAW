@@ -241,6 +241,9 @@ class KohnShamDecomposition(object):
 
         try:
             val = getattr(self.reader, attr)
+            if attr == 'atoms':
+                from ase.io.trajectory import read_atoms
+                val = read_atoms(val)
             setattr(self, attr, val)
             return val
         except KeyError:
