@@ -426,11 +426,19 @@ class KohnShamDecomposition(object):
         return dos_o, dos_u
 
     def get_weight_n_by_l(self, l):
-        weight_n = np.sum(self.weight_Mn[self.l_M == l], axis=0)
+        if isinstance(l, int):
+            weight_n = np.sum(self.weight_Mn[self.l_M == l], axis=0)
+        else:
+            weight_n = np.sum([self.get_weight_n_by_l(l_) for l_ in l],
+                              axis=0)
         return weight_n
 
     def get_weight_n_by_a(self, a):
-        weight_n = np.sum(self.weight_Mn[self.a_M == a], axis=0)
+        if isinstance(a, int):
+            weight_n = np.sum(self.weight_Mn[self.a_M == a], axis=0)
+        else:
+            weight_n = np.sum([self.get_weight_n_by_a(a_) for a_ in a],
+                              axis=0)
         return weight_n
 
     def get_distribution_i(self, weight_p, energy_e, sigma,
