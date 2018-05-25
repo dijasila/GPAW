@@ -474,7 +474,7 @@ class KohnShamDecomposition(object):
         dist_e = np.dot(G_fe.T, weight_f)
         return dist_e
 
-    def get_eig_n(self, zero_fermilevel):
+    def get_eig_n(self, zero_fermilevel=True):
         u = 0  # TODO
         eig_n = self.eig_un[u].copy()
         if zero_fermilevel:
