@@ -59,10 +59,22 @@ class TCMPlotter(object):
         self.base_u = np.zeros_like(energy_u)
         self.sigma = sigma
 
-    def plot_TCM(self, weight_p, vmax='80%'):
-        gs = generate_gridspec(hspace=0.05, wspace=0.05)
-        self.ax_tcm = plt.subplot(gs[2])
+    def __getattr__(self, attr):
+        # Generate axis only when needed
+        if attr in ['ax_occ_dos', 'ax_unocc_dos', 'ax_tcm']:
+            gs = generate_gridspec(hspace=0.05, wspace=0.05)
+            self.ax_occ_dos = plt.subplot(gs[0])
+            self.ax_unocc_dos = plt.subplot(gs[3])
+            self.ax_tcm = plt.subplot(gs[2])
+            return getattr(self, attr)
+        if attr in ['ax_spec']:
+            gs = generate_gridspec(hspace=0.8, wspace=0.8)
+            self.ax_spec = plt.subplot(gs[1])
+            return getattr(self, attr)
+        raise AttributeError('%s object has no attribute %s' %
+                             (repr(self.__class__.__name__), repr(attr)))
 
+    def plot_TCM(self, weight_p, vmax='80%'):
         # Calculate TCM
         eig_n = self.eig_n
         energy_o = self.energy_o
@@ -111,27 +123,13 @@ class TCMPlotter(object):
         plt.ylabel(r'Unocc. energy $\varepsilon_{u}$ (eV)', labelpad=0)
         plt.xlim(np.take(energy_o, (0, -1)))
         plt.ylim(np.take(energy_u, (0, -1)))
-        return ax
-
-    def get_axis(self, name):
-        if name == 'dos':
-            if hasattr(self, 'ax_occ_dos'):
-                return self.ax_occ_dos, self.ax_unocc_dos
-            else:
-                gs = generate_gridspec(hspace=0.05, wspace=0.05)
-                self.ax_occ_dos = plt.subplot(gs[0])
-                self.ax_unocc_dos = plt.subplot(gs[3])
-                return self.ax_occ_dos, self.ax_unocc_dos
 
     def plot_DOS(self, weight_n=1.0, stack=False,
                  fill={'color': '0.8'}, line={'color': 'k'}):
-        ax_occ_dos, ax_unocc_dos = self.get_axis('dos')
-
         # Calculate DOS
         dos_o, dos_u = self.ksd.get_weighted_DOS(weight_n, self.eig_n,
                                                  self.energy_o, self.energy_u,
                                                  self.sigma)
-
         # Plot DOSes
         if stack:
             base_o = self.base_o
@@ -141,15 +139,20 @@ class TCMPlotter(object):
             base_u = np.zeros_like(self.energy_u)
         dos_min = 0.0
         dos_max = 1.01 * max(np.max(dos_o), np.max(dos_u))
-        plot_DOS(ax_occ_dos, self.energy_o, dos_o, base_o, dos_min, dos_max,
-                 flip=False, fill=fill, line=line)
-        plot_DOS(ax_unocc_dos, self.energy_u, dos_u, base_u, dos_min, dos_max,
-                 flip=True, fill=fill, line=line)
+        plot_DOS(self.ax_occ_dos, self.energy_o, dos_o, base_o,
+                 dos_min, dos_max, flip=False, fill=fill, line=line)
+        plot_DOS(self.ax_unocc_dos, self.energy_u, dos_u, base_u,
+                 dos_min, dos_max, flip=True, fill=fill, line=line)
         if stack:
             self.base_o += dos_o
             self.base_u += dos_u
-        return ax_occ_dos, ax_unocc_dos
 
     def plot_spectrum(self):
-        gs = generate_gridspec(hspace=0.8, wspace=0.8)
-        self.ax_spec = plt.subplot(gs[1])
+        raise NotImplementedError()
+
+    def plot_TCM_diagonal(self, energy, **kwargs):
+        x_o = np.take(self.energy_o, (0, -1))
+        self.ax_tcm.plot(x_o, x_o + energy, **kwargs)
+
+    def set_title(self, *args, **kwargs):
+        self.ax_occ_dos.set_title(*args, **kwargs)
