@@ -6,9 +6,9 @@ import time
 import signal
 import traceback
 from distutils.version import LooseVersion
+from unittest import SkipTest
 
 import numpy as np
-
 from ase.utils import devnull
 
 from gpaw.atom.generator import Generator
@@ -148,13 +148,11 @@ tests = [
     'pbc.py',
     'atoms_too_close.py',
     'ext_potential/harmonic.py',
-    'generic/proton.py',
     'atoms_mismatch.py',
     'setup_basis_spec.py',
     'overlap.py',
     'pw/direct.py',
     'vdw/libvdwxc_spin.py',                 # ~1s
-    'symmetry/kpoint_mapping.py',           # ~1s
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
     'lcao/density.py',                      # ~1s
@@ -196,6 +194,7 @@ tests = [
     'broydenmixer.py',                      # ~3s
     'pw/fulldiagk.py',                      # ~3s
     'ext_potential/external.py',            # ~3s
+    'ext_potential/external_pw.py',         # ~3s
     'lcao/atomic_corrections.py',           # ~3s
     'vdw/libvdwxc_h2.py',                   # ~3s
     'generic/mixer.py',                     # ~3s
@@ -226,6 +225,7 @@ tests = [
     'fermisplit.py',                        # ~4s
     'generic/Cl_minus.py',                  # ~4s
     'lrtddft/pes.py',                       # ~4s
+    'generic/proton.py',                    # ~4s
     'corehole/h2o_recursion.py',            # ~5s
     'xc/nonselfconsistent.py',              # ~5s
     'spin/spinpol.py',                      # ~5s
@@ -269,13 +269,14 @@ tests = [
     'rpa/rpa_energy_Ni.py',                 # ~8s
     'tddft/be_nltd_ip.py',                  # ~8s
     'ibzqpt.py',                            # ~8s
+    'noncollinear/o2.py',
     'generic/si_primitive.py',              # ~9s
     'tddft/ehrenfest_nacl.py',              # ~9s
     'lcao/fd2lcao_restart.py',              # ~9s
     'ext_potential/constant_e_field.py',    # ~9s
     'complex.py',                           # ~9s
     'vdw/quick.py',                         # ~9s
-    'pathological/lcao_spos_derivative.py', # ~9s
+    'pathological/lcao_spos_derivative.py',  # ~9s
     'lrtddft2/H2O-lcao.py',                 # ~10s
     'lrtddft2/Al2.py',                      # ~10s
     'lcaotddft/simple.py',                  # ~10s
@@ -289,8 +290,8 @@ tests = [
     'ralda/ralda_energy_N2.py',             # ~10s
     'parallel/lcao_complicated.py',         # ~10s
     'generic/bulk.py',                      # ~10s
-    'response/chi0_intraband_test.py',      # ~10s
-    #'sic/scfsic_h2.py',                     # ~10s
+    'sic/scfsic_h2.py',                     # ~10s
+    'kpt_refine.py',                        # ~10s
     'lcao/bulk.py',                         # ~11s
     'reuse_wfs.py',                         # ~11s
     'generic/2Al.py',                       # ~11s
@@ -341,6 +342,7 @@ tests = [
     'response/na_plasmon.py',               # ~22s
     'fermilevel.py',                        # ~23s
     'ralda/ralda_energy_H2.py',             # ~23s
+    'symmetry/kpoint_mapping.py',           # ~23s
     'response/diamond_absorption.py',       # ~24s
     'ralda/ralda_energy_Si.py',             # ~24s
     'jellium.py',                           # ~24s
@@ -377,8 +379,8 @@ tests = [
     'xc/qna_spinpol.py',
     'beef.py',
     'response/chi0.py',                     # ~71s
-    #'sic/scfsic_n2.py',                     # ~73s
     'lrtddft/3.py',                         # ~75s
+    'response/chi0_intraband_test.py',      # ~76s
     'pathological/nonlocalset.py',          # ~82s
     'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
@@ -646,6 +648,8 @@ class TestRunner:
         except KeyboardInterrupt:
             self.write_result(test, 'STOPPED', t0)
             raise
+        except SkipTest:
+            skip = True
         except ImportError as ex:
             if sys.version_info[0] >= 3:
                 module = ex.name

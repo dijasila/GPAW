@@ -1,40 +1,5 @@
-# the problem described below was fixed in 9758!
-
-# keep_htpsit=False fails since 9473,
-# on some installations (?) with:
-
-# case A (see below in the code):
-# RuntimeError: Could not locate the Fermi level!
-
-# or the energies from the 2nd one behave strange, no convergence:
-# iter:   1  18:21:49  +1.7            -3608.512512  0      19
-# iter:   2  18:22:31  +1.9            -3148.936317  0
-# iter:   3  18:23:13  +2.1            -2375.137532  0
-# iter:   4  18:23:58  +2.4   -0.9     -1040.851545  216    11
-# iter:   5  18:24:43  +2.6   -1.0      822.569589  597    14
-
-# case B (see below in the code):
-# No convergence when starting from a converged (keep_htpsit=True) run!
-# WFS error grows to positive values!
-
-# Is it an extreme case of https://trac.fysik.dtu.dk/projects/gpaw/ticket/51 ?
-
-import sys
-
 from ase import Atoms
-
-from gpaw import GPAW, RMMDIIS, setup_paths
-
-if len(sys.argv) == 1:
-    run = 'A'
-else:
-    run = sys.argv[1]
-
-assert run in ['A', 'B']
-
-# Use setups from the $PWD and $PWD/.. first
-setup_paths.insert(0, '.')
-setup_paths.insert(0, '../')
+from gpaw import GPAW, RMMDIIS
 
 positions = [
     (-0.069, 0.824, -1.295), (0.786, 0.943, -0.752), (-0.414, -0.001, -0.865),
@@ -71,7 +36,6 @@ positions = [
     (5.281, 6.089, 6.035), (5.131, 7.033, 6.378), (4.428, 5.704, 5.720),
     (5.067, 7.323, 0.662), (5.785, 6.667, 0.703), (4.718, 7.252, 1.585)]
 
-prefix = 'b256H2O'
 L = 9.8553729
 atoms = Atoms('32(OH2)',
               positions=positions)
@@ -94,19 +58,6 @@ calc = GPAW(nbands=nbands,
             # maxiter=5,
             width=0.01,
             eigensolver=es,
-            txt=prefix + '.txt')
-if run == 'A':
-    atoms.set_calculator(calc)
-    pot = atoms.get_potential_energy()
-elif run == 'B':
-    # converge first with keep_htpsit=True
-    calc.set(eigensolver='rmm-diis')
-    calc.set(txt=prefix + '_True.txt')
-    atoms.set_calculator(calc)
-    pot = atoms.get_potential_energy()
-    # fails to converge with keep_htpsit=False
-    calc.set(eigensolver=es)
-    calc.set(maxiter=200)
-    calc.set(txt=prefix + '_False.txt')
-    atoms.set_calculator(calc)
-    pot = atoms.get_potential_energy()
+            txt='water.txt')
+atoms.set_calculator(calc)
+pot = atoms.get_potential_energy()

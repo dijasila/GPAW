@@ -4,16 +4,16 @@
 RPA calculation of the cohesive energy of Si
 ============================================
 
-In this exercise we will use GPAW to calculate the cohesive energy of 
-silicon.  When calculating total energies, we shall split the 
-exchange-correlation energy into an "exact" exchange contribution and 
-calculate the remaining correlation energy in the random-phase 
-approximation (RPA).  A comprehesive introduction to the RPA can be 
+In this exercise we will use GPAW to calculate the cohesive energy of
+silicon.  When calculating total energies, we shall split the
+exchange-correlation energy into an "exact" exchange contribution and
+calculate the remaining correlation energy in the random-phase
+approximation (RPA).  A comprehesive introduction to the RPA can be
 found in [Ren]_, and you are also advised to look at :ref:`this page <rpa>`.
 
 .. note::
-    
-    RPA calculations are typically rather time-consuming, so in 
+
+    RPA calculations are typically rather time-consuming, so in
     this exercise we shall cut a few corners!
 
 We obtain the cohesive energy `E_\text{coh}` of silicon as
@@ -22,7 +22,7 @@ We obtain the cohesive energy `E_\text{coh}` of silicon as
 
    E_\text{coh} = E_\text{at} - 0.5 E_\text{bulk}
 
-where `E_\text{at}` is the total energy of an isolated silicon atom, and 
+where `E_\text{at}` is the total energy of an isolated silicon atom, and
 `E_\text{bulk}` is the total energy per primitive unit cell of bulk silicon.
 Do you know where the factor of 0.5 comes from?
 
@@ -32,27 +32,27 @@ In DFT, we partition the total energy as
 
    E_\text{DFT} = E_\text{Kin} + E_\text{ie} + E_\text{ii} + E_\text{Hartree} + E_\text{XC}
 
-The purpose of this exercise is to explore different approximations for 
+The purpose of this exercise is to explore different approximations for
 the exchange-correlation energy, `E_\text{XC}`.
 
 
 PBE cohesive energy - bulk
 ==========================
 
-We start with a generalized-gradient approximation to `E_\text{XC}` using the 
+We start with a generalized-gradient approximation to `E_\text{XC}` using the
 PBE functional:
 
 .. math::
 
    E_\text{XC} = E_\text{PBE}
 
-The script :download:`si.pbe.py` calculates the total 
-energy of bulk silicon. The only parameters we need to choose are the 
-plane-wave cutoff (i.e. number of plane waves in our basis set to describe 
-the electron wavefunctions), the k-point sampling of the Brillouin zone, 
-and the lattice parameter of Si.  We could calculate the 
-lattice parameter ourselves from first principles, but in order to compare 
-to previous calculations, we instead choose the experimental value of 
+The script :download:`si.pbe.py` calculates the total
+energy of bulk silicon. The only parameters we need to choose are the
+plane-wave cutoff (i.e. number of plane waves in our basis set to describe
+the electron wavefunctions), the k-point sampling of the Brillouin zone,
+and the lattice parameter of Si.  We could calculate the
+lattice parameter ourselves from first principles, but in order to compare
+to previous calculations, we instead choose the experimental value of
 5.421 Ang [Harl]_.
 
 Make sure you understand what the script is doing, and then try running
@@ -76,8 +76,8 @@ side length `L`, and increase `L` until the replicas no longer see each other.
 Unfortunately, the larger the value of `L`, the more plane waves we have,
 which slows down the calculation considerably.
 
-Therefore, for the purpose of this exercise, we shall not actually perform the 
-calculations on the isolated Si atom - instead just provide the numbers as 
+Therefore, for the purpose of this exercise, we shall not actually perform the
+calculations on the isolated Si atom - instead just provide the numbers as
 reference data.  In the next section a sample script will be given to show how to
 generate the following numbers:
 
@@ -93,17 +93,17 @@ generate the following numbers:
 12.0      -0.85109735188
 ========  ===================
 
-The first column gives the side length (in Angstroms) of the simulation cell 
+The first column gives the side length (in Angstroms) of the simulation cell
 containing the isolated atom, and the second gives the total
 energy in eV.
 
-From the above data and your own calculations, calculate the cohesive energy 
-of silicon using the PBE functional to describe exchange-correlation.  
-Compare your result to the value of 4.55 eV reported in 
+From the above data and your own calculations, calculate the cohesive energy
+of silicon using the PBE functional to describe exchange-correlation.
+Compare your result to the value of 4.55 eV reported in
 [Olsen]_.
 
 .. note::
-    
+
     The total energy delivered by GPAW is not an absolute value, but rather
     given with respect to a
     reference energy. It turns out that in this case, the reference
@@ -121,18 +121,18 @@ which is
 .. math::
   E_\text{XC} = E_\text{EXX}
 
-An expression for the exact exchange energy `E_\text{EXX}` can be found e.g. in 
+An expression for the exact exchange energy `E_\text{EXX}` can be found e.g. in
 equation (9) of [Olsen]_.  The main points to note are that:
 
 * it is fully nonlocal - to get the energy we must integrate over `\mathbf{r}`
-  and `\mathbf{r}'`, which is expensive.  
+  and `\mathbf{r}'`, which is expensive.
 
 * it requires knowledge of the wavefunctions, not just
-  the density, which again makes it more expensive to compute.  
+  the density, which again makes it more expensive to compute.
 
-* in the formalism used here we calculate `E_\text{EXX}` non-self-consistently; 
-  that is, we use one approximation for the exchange-correlation energy 
-  (PBE) to obtain the wavefunctions, then use these wavefunctions to 
+* in the formalism used here we calculate `E_\text{EXX}` non-self-consistently;
+  that is, we use one approximation for the exchange-correlation energy
+  (PBE) to obtain the wavefunctions, then use these wavefunctions to
   construct the exchange energy under a different
   approximation.  As a result, this method is described as EXX\@PBE; had we
   used LDA to obtain the wavefunctions, we would have EXX\@LDA etc.
@@ -145,9 +145,9 @@ from ``exx.py`` in our script.  The ``calculate`` method performs the
 calculation of the exchange energy, while the ``get_total_energy`` method
 returns the total energy of our system with `E_\text{XC}=E_\text{EXX}`.
 
-The script :download:`si.pbe+exx.py` calculates the total 
-energy of bulk Si in the EXX\@PBE approximation.  The calculation 
-proceeds in two parts - first, a PBE calculation which is identical 
+The script :download:`si_pbe_exx.py` calculates the total
+energy of bulk Si in the EXX\@PBE approximation.  The calculation
+proceeds in two parts - first, a PBE calculation which is identical
 to that of the previous section.  Second, the exchange
 part.  This part is much slower, and it is a good idea to run on a few
 processors - it takes about 5 minutes on 4 CPUs.
@@ -176,16 +176,16 @@ following output in ``pbe_and_exx_energies.txt``::
   12.0 -0.852243293624 9.75141580104
   13.0 -0.852570610869 9.75125973558
 
-Note that :download:`atom/si.atom.pbe+exx.py` also contains 
-some additional tweaking not required for the bulk calculation, 
+Note that :download:`atom/si.atom.pbe+exx.py` also contains
+some additional tweaking not required for the bulk calculation,
 most importantly spin-polarization; by Hund's
 rules, we expect a spin-polarized atom to be more stable than the
 non-spin-polarized case.
 
 You now have enough information to calculate the cohesive energy in
 the EXX\@PBE approximation.  Compare your value to that of 2.82 eV given in
-[Olsen]_.  This number is dramatically different to 
-the experimental value of 4.68 eV, and highlights the danger of 
+[Olsen]_.  This number is dramatically different to
+the experimental value of 4.68 eV, and highlights the danger of
 neglecting correlation in solids!
 
 
@@ -216,21 +216,21 @@ states which turns out to work rather well (more details below).
 Like for exact exchange, the first part of our RPA calculation is performed
 at the PBE level to obtain the ground state density.  We then use this density
 to obtain the wavefunctions both of the occupied and some of the unoccupied
-states.  The script :download:`si.rpa_init_pbe.py` performs 
-this step; note it is essentially identical to 
+states.  The script :download:`si.rpa_init_pbe.py` performs
+this step; note it is essentially identical to
 :download:`si.pbe.py` apart from the all-important
 ``diagonalize_full_hamiltonian`` line.  However note that we have reduced
 the k-point grid to a 4x4x4 sampling.
 
 Having performed this step (which should take ~1 minute on 4 CPUs) we now
-calculate the correlation energy using :download:`si.rpa.py`, 
-which imports the ``RPACorrelation`` class from ``rpa.py``.  All the 
-computational details are read from the ``bulk.gpw`` file; the only input 
-we need specify is the number of plane waves used to describe `\chi_0`.  
-Here we give a list of values, which means that the correlation energy 
-will be calculated for each plane-wave cutoff (in eV).  The reason for 
-this procedure is described below.  Note that in principle we also need 
-to specify the number of unoccupied bands used in the construction of 
+calculate the correlation energy using :download:`si.rpa.py`,
+which imports the ``RPACorrelation`` class from ``rpa.py``.  All the
+computational details are read from the ``bulk.gpw`` file; the only input
+we need specify is the number of plane waves used to describe `\chi_0`.
+Here we give a list of values, which means that the correlation energy
+will be calculated for each plane-wave cutoff (in eV).  The reason for
+this procedure is described below.  Note that in principle we also need
+to specify the number of unoccupied bands used in the construction of
 `\chi_0` - however here this choice is made by the code,
 and sets the number of bands to equal the number of plane waves describing `\chi_0`.
 Now, run :download:`si.rpa.py` (4 minutes, 4 CPUs).
@@ -252,14 +252,14 @@ the correlation energy by over 1 eV.
 
 In order to converge the correlation energy, we should increase the plane-wave
 cutoff describing `\chi_0` (and implicitly, the number of empty states).
-However it is noted in [Harl]_ that for the electron 
+However it is noted in [Harl]_ that for the electron
 gas, one expects the correlation energy to scale as
 
 .. math::
   E_\text{RPA}(E_{cut}) = E_\text{RPA}(\infty) + A E_{cut}^{-1.5}
 
 where `E_{cut}` is the plane-wave cutoff describing `\chi_0`.  Empirically, this
-expression seems to work beyond the electron gas. 
+expression seems to work beyond the electron gas.
 
 Test this expression for silicon by plotting the correlation energy against
 `E_{cut}^{-1.5}`; the intercept of the straight line should give
@@ -281,12 +281,12 @@ to obtain the extrapolated correlation energy  for the single atom.
 
 Combining the correlation energies with the EXX\@PBE calculations of the
 previous section, you should now be able to calculate the cohesive energy
-of silicon using exact exchange and the RPA correlation energy.  
+of silicon using exact exchange and the RPA correlation energy.
 
 * Compare the result of using the extrapolated correlation energies with that
   at a fixed cutoff of 164 eV.
 
-* Compare your value to that of 4.32 eV given in [Olsen]_ 
+* Compare your value to that of 4.32 eV given in [Olsen]_
   and the experimental value, 4.68 eV.
 
 
@@ -300,12 +300,12 @@ generalized-gradient PBE functional.  Indeed, according to table VII of
 range of materials.  The strength of the RPA lies in its ability to  describe
 long-range correlation effects, e.g. in systems exhibiting van der Waals bonds.
 Unfortunately, the complexity of these systems does not allow us to study them
-in a quick exercise like this one.  Nonetheless the procedure of calculating the 
-total energy employed above is exactly the same when applied to more complicated 
+in a quick exercise like this one.  Nonetheless the procedure of calculating the
+total energy employed above is exactly the same when applied to more complicated
 systems.
 
-In order to get a consistent, high-quality description of both long-range 
-and short-range correlation it is desirable to move beyond the RPA - 
+In order to get a consistent, high-quality description of both long-range
+and short-range correlation it is desirable to move beyond the RPA -
 but that's another story...
 
 

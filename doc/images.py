@@ -17,6 +17,8 @@ except ImportError:
     from urllib.request import urlopen
     from urllib.error import HTTPError
 import os
+from pathlib import Path
+
 
 srcpath = 'http://wiki.fysik.dtu.dk/gpaw-files'
 agtspath = 'http://wiki.fysik.dtu.dk'
@@ -148,25 +150,14 @@ get('static', ['NOMAD_Logo_supported_by.png'])
 
 
 def setup(app):
-    # Get png files and other stuff from the AGTS scripts that run
+    # Get png and csv files and other stuff from the AGTS scripts that run
     # every weekend:
-    from gpaw.test.big.agts import AGTSQueue
-    queue = AGTSQueue()
-    queue.collect()
-    names = set()
-    for job in queue.jobs:
-        if not job.creates:
+    from gpaw.utilities.agts import find_created_files
+
+    for path in find_created_files():
+        # the files are saved by the weekly tests under agtspath/agts-files
+        # now we are copying them back to their original run directories
+        if path.is_file():
             continue
-        for name in job.creates:
-            if name in names:
-                raise RuntimeError(
-                    'The name {0!r} is used in more than one place!'
-                    .format(name))
-            names.add(name)
-            # the files are saved by the weekly tests under agtspath/agts-files
-            # now we are copying them back to their original run directories
-            path = os.path.join(job.dir, name)
-            if os.path.isfile(path):
-                continue
-            print(path, 'copied from', agtspath)
-            get('agts-files', [name], job.dir, source=agtspath)
+        print(path, 'copied from', agtspath)
+        get('agts-files', [path.name], str(path.parent), source=agtspath)
