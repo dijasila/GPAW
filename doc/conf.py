@@ -2,6 +2,8 @@ import sys
 import sphinx_rtd_theme
 from gpaw import __version__
 
+assert sys.version_info >= (3, 4)
+
 sys.path.append('.')
 
 extensions = ['images',
