@@ -9,9 +9,11 @@ class Voigt:
     def __init__(self, width=0.08):
         self.dtype = float
         self.set_width(width)
-        
+
     def get(self, x, x0=0):
-        from scipy.special import erfc
+        from scipy.special import erfc as scerfc
+        def erfc(x):
+            return np.nan_to_num(scerfc(x))
         argm = (-1j * (x - x0) + self.delta) * self.argpre
         argp = (1j * (x - x0) + self.delta) * self.argpre
         res = np.exp(argm**2) * erfc(argm)
