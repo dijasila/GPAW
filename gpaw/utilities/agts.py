@@ -42,8 +42,7 @@ def agts(cmd):
         shell('cd ase; git pull')
         shell('cd gpaw; git clean -fdx; git pull;'
               '. doc/platforms/Linux/Niflheim/compile.sh')
-        # shell('mq workflow -p agts.py gpaw')
-        shell('mq workflow -p agts.py gpaw/doc/devel/ase_optimize -T')
+        shell('mq workflow -p agts.py gpaw -T')
 
     elif cmd == 'summary':
         for task in tasks:
