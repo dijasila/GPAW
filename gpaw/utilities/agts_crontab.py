@@ -64,8 +64,9 @@ def agts(cmd):
                 send_email(tasks)
                 return
 
-        collect_files_for_web_page()
+        shell('mq delete --state d --recursive .')
 
+        collect_files_for_web_page()
     else:
         1 / 0
 
