@@ -1,10 +1,12 @@
-def agts(queue):
-    gs_N2 = queue.add('gs_N2.py', ncpus=8, walltime=30)
-    w = queue.add('frequency.py', deps=gs_N2, walltime=200)
-    f = queue.add('con_freq.py', ncpus=2, deps=gs_N2, walltime=1000)
-    rpa_N2 = queue.add('rpa_N2.py', deps=gs_N2,
-                       #queueopts='-l mem=127GB',  # needed on 16 cpus
-                       ncpus=32, walltime=1200)
-    queue.add('plot_w.py', deps=[w, f], creates='E_w.png')
-    queue.add('plot_con_freq.py', deps=f, creates='con_freq.png')
-    queue.add('extrapolate.py', deps=rpa_N2, creates='extrapolate.png')
+from myqueue.task import task
+
+
+def create_tasks():
+    return [
+        task('gs_N2.py@8:30m'),
+        task('frequency.py@1:3h', deps='gs_N2.py'),
+        task('con_freq.py@2:16h', deps='gs_N2.py'),
+        task('rpa_N2.py@32:20h', deps='gs_N2.py'),
+        task('plot_w.py', deps='frequency.py,con_freq.py'),
+        task('plot_con_freq.py', deps='con_freq.py'),
+        task('extrapolate.py', deps='rpa_N2.py')]

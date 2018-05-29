@@ -25,6 +25,7 @@ bse = BSE('gs_Si.gpw',
           nbands=50,
           eshift=eshift,
           mode='BSE',
+          write_v=True,
           integrate_gamma=0,
           txt='bse_Si.txt')
 

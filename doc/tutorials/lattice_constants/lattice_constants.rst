@@ -34,4 +34,4 @@ with respect to number of **k**-points:
 
 .. image:: Al_conv_k.png
 
-(see also :download:`analysis script <al.agts.py>`).
+(see also :download:`analysis script <al_analysis.py>`).

@@ -7,7 +7,7 @@ Debugging
 Python debugging
 ================
 
-Even though some debugging can done just with print statements, a real
+Even though some debugging can done just with the print function, a real
 debugger offers several advantages. It is possible, for example, to set
 breakpoints in certain files or functions, execute the code step by step,
 examine and change values of variables. Python contains a standard debugger

@@ -1,4 +1,6 @@
-def agts(queue):
-    queue.add('bandstructure.py', ncpus=1, walltime=5,
-              creates=['bandstructure.png'])
-    
+from myqueue.task import task
+
+
+def create_tasks():
+    return [
+        task('bandstructure.py@1:5m')]

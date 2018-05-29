@@ -8,7 +8,7 @@ from gpaw.response.bse import BSE
 
 if 1:
     calc = GPAW(mode='pw',
-                xc='GLLBSC',
+                xc='PBE',
                 nbands=20,
                 setups={'Mo': '6'},
                 parallel={'band': 1, 'domain': 1},
@@ -31,18 +31,14 @@ if 1:
     layer.set_positions(pos)
     layer.set_calculator(calc)
     layer.get_potential_energy()
-    response = calc.hamiltonian.xc.xcs['RESPONSE']
-    response.calculate_delta_xc()
-    E_ks, dis = response.calculate_delta_xc_perturbation()
     calc.write('MoS2.gpw', mode='all')
-else:
-    dis = 0.5345
 
 bse = BSE('MoS2.gpw',
+          spinors=True,
           ecut=10,
           valence_bands=[8],
           conduction_bands=[9],
-          eshift=dis,
+          eshift=0.8,
           nbands=15,
           write_h=False,
           write_v=False,
@@ -50,12 +46,20 @@ bse = BSE('MoS2.gpw',
           mode='BSE',
           truncation='2D')
 
-w_w, alpha_w = bse.get_polarizability(filename='bse.csv',
+w_w, alpha_w = bse.get_polarizability(filename=None,
                                       pbc=[True, True, False],
+                                      write_eig=None,
                                       eta=0.02,
                                       w_w=np.linspace(0., 5., 5001))
-w_ = 0.833
-I_ = 26.51
-w, I = findpeak(w_w[:1000], alpha_w.imag[:1000])
-equal(w, w_, 0.01)
-equal(I, I_, 0.1)
+
+w0_ = 1.01
+I0_ = 12.56
+w1_ = 1.17
+I1_ = 13.29
+w0, I0 = findpeak(w_w[:1100], alpha_w.imag[:1100])
+w1, I1 = findpeak(w_w[1100:1300], alpha_w.imag[1100:1300])
+w1 += 1.1
+equal(w0, w0_, 0.01)
+equal(I0, I0_, 0.1)
+equal(w1, w1_, 0.01)
+equal(I1, I1_, 0.1)

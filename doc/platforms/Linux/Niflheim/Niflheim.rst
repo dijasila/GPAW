@@ -17,6 +17,10 @@ Here, we install the development versions of ASE and GPAW in ``~/ase`` and
 
 .. literalinclude:: gpaw.sh
 
+or, just add this line::
+
+    . ~/gpaw/doc/platforms/Linux/Niflheim/gpaw.sh
+
 Now, get the source code for ASE and GPAW::
 
     $ cd
@@ -39,16 +43,19 @@ Type ``gpaw sbatch -h`` for help.
 Using more than one version of GPAW
 ===================================
 
-Here we install an additional version of GPAW for, say, production runs::
+Here, we install an additional version of GPAW for, say, test runs::
 
-    $ cd
-    $ mkdir production
-    $ cd production
-    $ git clone https://gitlab.com/gpaw/gpaw.git
-    $ cd gpaw
-    $ git checkout 1.0.1
-    $ sh doc/platforms/Linux/Niflheim/compile.sh
+    $ cd ~
+    $ mkdir testing
+    $ cd testing
+    $ ... clone gpaw and compile ...
 
-Now you can submit jobs that use this production version with::
+Add this to your ``~/.bashrc``::
 
-    ???
+    if [[ $SLURM_SUBMIT_DIR/ = $HOME/test-runs* ]]; then
+        GPAW=~/testing
+    fi
+
+right before sourcing the ``gpaw.sh`` script mentioned above.
+Now, SLURM-jobs submitted inside your ``~/test-runs/`` folder will use the
+version of GPAW from the ``~/testing/`` folder.

@@ -26,14 +26,15 @@ def print_cell(gd, pbc_c, log):
     log()
 
 
-def print_positions(atoms, log):
+def print_positions(atoms, log, magmom_av):
     log(plot(atoms))
     log('\nPositions:')
     symbols = atoms.get_chemical_symbols()
     for a, pos_v in enumerate(atoms.get_positions()):
         symbol = symbols[a]
-        log('{0:>4} {1:3} {2:11.6f} {3:11.6f} {4:11.6f}'
-            .format(a, symbol, *pos_v))
+        log('{0:>4} {1:3} {2[0]:11.6f} {2[1]:11.6f} {2[2]:11.6f}'
+            '    ({3[0]:7.4f}, {3[1]:7.4f}, {3[2]:7.4f})'
+            .format(a, symbol, pos_v, magmom_av[a]))
     log()
 
 

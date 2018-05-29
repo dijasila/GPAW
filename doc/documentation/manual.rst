@@ -301,6 +301,13 @@ unoccupied bands will improve convergence.
 
     ``nbands='n%'`` will give ``n/100`` times the number of occupied bands.
 
+.. tip::
+
+    ``nbands='nao'`` will use the the same number of bands as there are
+    atomic orbitals. This corresponds to the maximum ``nbands`` value that
+    can be used in LCAO mode.
+
+
 
 .. _manual_xc:
 
@@ -1022,7 +1029,7 @@ at a later time, this can be done as follows:
 
 >>> from gpaw import *
 >>> atoms, calc = restart('H2.gpw')
->>> print atoms.get_potential_energy()
+>>> print(atoms.get_potential_energy())
 
 Everything will be just as before we wrote the :file:`H2.gpw` file.
 Often, one wants to restart the calculation with one or two parameters
@@ -1030,14 +1037,14 @@ changed slightly.  This is very simple to do.  Suppose you want to
 change the number of grid points:
 
 >>> atoms, calc = restart('H2.gpw', gpts=(20, 20, 20))
->>> print atoms.get_potential_energy()
+>>> print(atoms.get_potential_energy())
 
 .. tip::
    There is an alternative way to do this, that can be handy sometimes:
 
    >>> atoms, calc = restart('H2.gpw')
    >>> calc.set(gpts=(20, 20, 20))
-   >>> print atoms.get_potential_energy()
+   >>> print(atoms.get_potential_energy())
 
 
 More details can be found on the :ref:`restart_files` page.
@@ -1088,7 +1095,6 @@ The possible keys are:
   Print also which parallelization settings would be employed when run on
   ``nprocs`` processors.
 
-
 .. tip::
 
     Extra key-value pairs will be available for development work::
@@ -1099,7 +1105,7 @@ The possible keys are:
         {'a': 1, 'b': 2.3}
 
 
-Other command-line arguments:
+Other command-line arguments are accepted directly by ``gpaw-python``:
 
 ===============================  =============================================
 argument                         description
@@ -1127,20 +1133,9 @@ argument                         description
                                  the ``band`` argument in the
                                  :ref:`parallel <manual_parallel>` keyword.
                                  See :ref:`manual_parsize_bands` for details.
-``--sl_...=m,n,mb``
-                                 Specify ScaLAPACK / BLACS parameters for
-                                 diagonalization (``--sl_default``),
-                                 inverse Cholesky factorization
-                                 (``--sl_inverse_cholesky``) and LCAO general
-                                 diagonalization (``--sl_lcao``) respectively.
-                                 Use ``--sl_default`` to specify all three
-                                 of the above at once or just the default
-                                 value for those not explicitly given.
-                                 Allowed values are equivalent to those of
-                                 the four ``sl_...`` arguments in the
-                                 :ref:`parallel <manual_parallel>` keyword.
-                                 Requires GPAW to be built with ScaLAPACK.
 ===============================  =============================================
+
+Please see ``gpaw-python --help`` for details.
 
 
 .. [#LDA]    J. P. Perdew and Y. Wang,

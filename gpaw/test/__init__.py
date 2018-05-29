@@ -6,9 +6,9 @@ import time
 import signal
 import traceback
 from distutils.version import LooseVersion
+from unittest import SkipTest
 
 import numpy as np
-
 from ase.utils import devnull
 
 from gpaw.atom.generator import Generator
@@ -29,6 +29,18 @@ def equal(x, y, tolerance=0, fail=True, msg=''):
             raise AssertionError(msg)
         else:
             sys.stderr.write('WARNING: %s\n' % msg)
+
+
+def print_reference(data_i, name='ref_i', fmt='%.12le'):
+    if mpi.world.rank == 0:
+        print('%s = [' % name, end='')
+        for i, val in enumerate(data_i):
+            if i > 0:
+                print('', end='\n')
+                print(' ' * (len(name) + 4), end='')
+            print(fmt % val, end='')
+            print(',', end='')
+        print('\b]')
 
 
 def findpeak(x, y):
@@ -117,7 +129,7 @@ tests = [
     'radial/lebedev.py',
     'occupations.py',
     'lfc/derivatives.py',
-    'parallel/realspace_blacs.py',
+    #'parallel/realspace_blacs.py',
     'pw/reallfc.py',
     'parallel/pblas.py',
     'fd_ops/non_periodic.py',
@@ -129,7 +141,6 @@ tests = [
     'poisson/poisson.py',
     'poisson/poisson_asym.py',
     'parallel/arraydict_redist.py',
-    'parallel/overlap.py',
     'parallel/scalapack.py',
     'gauss_wave.py',
     'fd_ops/transformations.py',
@@ -137,7 +148,6 @@ tests = [
     'pbc.py',
     'atoms_too_close.py',
     'ext_potential/harmonic.py',
-    'generic/proton.py',
     'atoms_mismatch.py',
     'setup_basis_spec.py',
     'overlap.py',
@@ -146,7 +156,6 @@ tests = [
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
     'lcao/density.py',                      # ~1s
-    'parallel/hamiltonian.py',              # ~1s
     'pw/stresstest.py',                     # ~1s
     'pw/fftmixer.py',                       # ~1s
     'symmetry/usesymm.py',                  # ~1s
@@ -160,6 +169,7 @@ tests = [
     'lcao/dos.py',                          # ~1s
     'solvation/nan_radius.py',              # ~1s
     'solvation/pbc_pos_repeat.py',          # ~1s
+    'lcao/generate_ngto.py',                # ~1s
     'linalg/gemv.py',                       # ~2s
     'fileio/idiotproof_setup.py',           # ~2s
     'radial/ylexpand.py',                   # ~2s
@@ -176,8 +186,6 @@ tests = [
     'parallel/scalapack_diag_simple.py',    # ~2s
     'fixdensity.py',                        # ~2s
     'pseudopotential/ah.py',                # ~2s
-    'lcao/restart.py',                      # ~2s
-    'lcao/tddft.py',                        # ~2s
     'lcao/gllb_si.py',                      # ~2s
     'fileio/wfs_io.py',                     # ~3s
     'lrtddft/2.py',                         # ~3s
@@ -186,6 +194,7 @@ tests = [
     'broydenmixer.py',                      # ~3s
     'pw/fulldiagk.py',                      # ~3s
     'ext_potential/external.py',            # ~3s
+    'ext_potential/external_pw.py',         # ~3s
     'lcao/atomic_corrections.py',           # ~3s
     'vdw/libvdwxc_h2.py',                   # ~3s
     'generic/mixer.py',                     # ~3s
@@ -216,6 +225,7 @@ tests = [
     'fermisplit.py',                        # ~4s
     'generic/Cl_minus.py',                  # ~4s
     'lrtddft/pes.py',                       # ~4s
+    'generic/proton.py',                    # ~4s
     'corehole/h2o_recursion.py',            # ~5s
     'xc/nonselfconsistent.py',              # ~5s
     'spin/spinpol.py',                      # ~5s
@@ -243,6 +253,8 @@ tests = [
     'pw/h.py',                              # ~7s
     'lrtddft/apmb.py',                      # ~7s
     'pseudopotential/hgh_h2o.py',           # ~7s
+    'poisson/poisson_restart.py',           # ~7s
+    'poisson/poisson_extravacuum.py',       # ~7s
     'fdtd/ed_wrapper.py',                   # ~7s
     'fdtd/ed_shapes.py',                    # ~7s
     'fdtd/ed.py',                           # ~12s
@@ -257,19 +269,31 @@ tests = [
     'rpa/rpa_energy_Ni.py',                 # ~8s
     'tddft/be_nltd_ip.py',                  # ~8s
     'ibzqpt.py',                            # ~8s
+    'noncollinear/o2.py',
     'generic/si_primitive.py',              # ~9s
     'tddft/ehrenfest_nacl.py',              # ~9s
     'lcao/fd2lcao_restart.py',              # ~9s
     'ext_potential/constant_e_field.py',    # ~9s
     'complex.py',                           # ~9s
     'vdw/quick.py',                         # ~9s
+    'pathological/lcao_spos_derivative.py',  # ~9s
     'lrtddft2/H2O-lcao.py',                 # ~10s
     'lrtddft2/Al2.py',                      # ~10s
+    'lcaotddft/simple.py',                  # ~10s
+    'lcaotddft/restart.py',                 # ~10s
+    'lcaotddft/fxc_is_xc.py',               # ~10s
+    'lcaotddft/fxc_rpa.py',                 # ~10s
+    'lcaotddft/fxc_vs_linearize.py',        # ~10s
+    'lcaotddft/replay.py',                  # ~10s
+    'lcaotddft/ksdecomp.py',                # ~10s
+    'timelimit.py',                         # ~10s
     'ralda/ralda_energy_N2.py',             # ~10s
     'parallel/lcao_complicated.py',         # ~10s
     'generic/bulk.py',                      # ~10s
     'sic/scfsic_h2.py',                     # ~10s
+    'kpt_refine.py',                        # ~10s
     'lcao/bulk.py',                         # ~11s
+    'reuse_wfs.py',                         # ~11s
     'generic/2Al.py',                       # ~11s
     'lrtddft/kssingles_Be.py',              # ~11s
     'generic/relax.py',                     # ~11s
@@ -297,6 +321,7 @@ tests = [
     'solvation/poisson.py',                 # ~15s
     'solvation/water_water.py',             # ~15s
     'xc/pygga.py',                          # ~15s
+    'pseudopotential/atompaw.py',           # ~15s
     'parallel/lcao_parallel.py',            # ~16s
     'xc/atomize.py',                        # ~16s
     'lrtddft/excited_state.py',             # ~16s
@@ -317,6 +342,7 @@ tests = [
     'response/na_plasmon.py',               # ~22s
     'fermilevel.py',                        # ~23s
     'ralda/ralda_energy_H2.py',             # ~23s
+    'symmetry/kpoint_mapping.py',           # ~23s
     'response/diamond_absorption.py',       # ~24s
     'ralda/ralda_energy_Si.py',             # ~24s
     'jellium.py',                           # ~24s
@@ -326,6 +352,9 @@ tests = [
     'ofdft/ofdft_scale.py',                 # ~26s
     'parallel/lcao_parallel_kpt.py',        # ~29s
     'corehole/h2o_dks.py',                  # ~30s
+    'lcaotddft/parallel_options.py',        # ~30s
+    'lcaotddft/lcaotddft_vs_lrtddft2.py',   # ~30s
+    'lcaotddft/lcaotddft_vs_lrtddft2_rpa.py',  # ~30s
     'mgga/nsc_MGGA.py',                     # ~32s
     'solvation/spinpol.py',                 # ~32s
     'gllb/diamond.py',                      # ~33s
@@ -343,10 +372,14 @@ tests = [
     'vdw/ar2.py',                           # ~53s
     'solvation/forces_symmetry.py',         # ~56s
     'parallel/diamond_gllb.py',             # ~59s
+    'xc/qna_force.py',
+    'xc/qna_stress.py',
+    'xc/qna_band.py',
+    'xc/qna_spinpol.py',
     'beef.py',
     'response/chi0.py',                     # ~71s
-    'sic/scfsic_n2.py',                     # ~73s
     'lrtddft/3.py',                         # ~75s
+    'response/chi0_intraband_test.py',      # ~76s
     'pathological/nonlocalset.py',          # ~82s
     'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
@@ -355,7 +388,7 @@ tests = [
     'exx/AA_enthalpy.py',                   # ~119s
     'response/na_plasmons.py',
     'response/na_plasmons_tetrahedron.py',  # ~120s
-    'lcao/tdgllbsc.py',                     # ~132s
+    'lcaotddft/gllbsc.py',                  # ~132s
     'solvation/forces.py',                  # ~140s
     'response/gw_MoS2_cut.py',
     'response/gwsi.py',                     # ~147s
@@ -396,6 +429,7 @@ if mpi.size > 1:
                 'spinorbit_Kr.py',
                 'fd_ops/laplace.py',
                 'potential.py',
+                'lcao/generate_ngto.py',
                 'lcao/pair_and_coulomb.py',
                 'muffintinpot.py',
                 'pw/moleculecg.py',
@@ -409,7 +443,11 @@ if mpi.size > 1:
 
 if mpi.size > 2:
     exclude += ['ase_features/neb.py',
+                'poisson/poisson_restart.py',
                 'response/pair.py']
+
+if mpi.size > 4:
+    exclude += ['poisson/poisson_extravacuum.py']
 
 if mpi.size < 4:
     exclude += ['parallel/fd_parallel.py',
@@ -435,7 +473,8 @@ if mpi.size != 4:
                 'response/bse_silicon.py']
 
 if mpi.size == 1 or not compiled_with_sl():
-    exclude += ['parallel/submatrix_redist.py']
+    exclude += ['parallel/submatrix_redist.py',
+                'lcaotddft/parallel_options.py']
 
 if mpi.size != 1 and not compiled_with_sl():
     exclude += ['ralda/ralda_energy_H2.py',
@@ -608,6 +647,8 @@ class TestRunner:
         except KeyboardInterrupt:
             self.write_result(test, 'STOPPED', t0)
             raise
+        except SkipTest:
+            skip = True
         except ImportError as ex:
             if sys.version_info[0] >= 3:
                 module = ex.name

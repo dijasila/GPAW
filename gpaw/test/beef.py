@@ -1,61 +1,71 @@
-from ase import Atoms
+from __future__ import division
+import numpy as np
+from ase.build import bulk
 from ase.dft.bee import BEEFEnsemble, readbee
-from gpaw import GPAW, Mixer
-from gpaw.test import equal, gen
+from ase.eos import EquationOfState as EOS
+from gpaw import GPAW
+from gpaw.test import gen
 from gpaw.mpi import world
 import _gpaw
 
 newlibxc = _gpaw.lxcXCFuncNum('MGGA_X_MBEEF') is not None
 
-c = {'energy': 0.001, 'eigenstates': 1, 'density': 1}
-d = 0.75
+gen('Si', xcname='PBEsol')
 
-gen('H', xcname='PBEsol')
+results = {'mBEEF': (5.444, 0.052),
+           'BEEF-vdW': (5.482, 0.072),
+           'mBEEF-vdW': (5.426, 0.025)}
 
-for xc, E0, dE0 in [('mBEEF', 4.90, 0.17),
-                    ('BEEF-vdW', 5.17, 0.19),
-                    ('mBEEF-vdW', 4.79, 0.36)]:
+for xc in ['mBEEF', 'BEEF-vdW', 'mBEEF-vdW']:
     print(xc)
     if not newlibxc and xc[0] == 'm':
-        print('Skipped')
+        print('Skipped', xc)
         continue
 
-    # H2 molecule:
-    h2 = Atoms('H2', [[0, 0, 0], [0, 0, d]])
-    h2.center(vacuum=2)
-    h2.calc = GPAW(txt='H2-' + xc + '.txt',
-                   convergence=c,
-                   eigensolver={'name': 'dav', 'niter': 3},
-                   mixer=Mixer(0.02, 3))
-    h2.get_potential_energy()
-    h2.calc.set(xc=xc)
-    h2.get_potential_energy()
-    h2.get_forces()
-    ens = BEEFEnsemble(h2.calc)
-    e_h2 = ens.get_ensemble_energies()
+    if xc == 'mBEEF-vdW':
+        # Does not work with libxc-4
+        continue
 
-    # H atom:
-    h = Atoms('H', cell=h2.cell, magmoms=[1])
-    h.center()
-    h.positions += 0.12345
-    h.calc = GPAW(txt='H-' + xc + '.txt',
-                  convergence=c,
-                  eigensolver={'name': 'dav', 'niter': 3},
-                  mixer=Mixer(0.02, 3))
-    h.get_potential_energy()
-    h.calc.set(xc=xc)
-    h.get_potential_energy()
-    ens = BEEFEnsemble(h.calc)
-    e_h = ens.get_ensemble_energies()
+    E = []
+    V = []
+    for a in np.linspace(5.4, 5.5, 5):
+        si = bulk('Si', a=a)
+        si.calc = GPAW(txt='Si-' + xc + '.txt',
+                       xc=xc,
+                       kpts=[2, 2, 2],
+                       mode='pw')
+        E.append(si.get_potential_energy())
+        ens = BEEFEnsemble(si.calc, verbose=False)
+        ens.get_ensemble_energies()
+        ens.write('Si-{}-{:.3f}'.format(xc, a))
+        V.append(si.get_volume())
 
-    # binding energy
-    ae = 2 * e_h - e_h2
-    print(ae.mean(), ae.std())
-    print(E0, dE0)
-    equal(ae.mean(), E0, 0.02)
-    equal(ae.std(), dE0, 0.02)
+    eos = EOS(V, E)
+    v0, e0, B = eos.fit()
+    a = (v0 * 4)**(1 / 3)
 
-ens.write('H')
-world.barrier()
-energies = readbee('H')
-equal(abs(energies - e_h).max(), 0, 1e-12)
+    a0, da0 = results[xc]
+
+    assert abs(a - a0) < 0.001, (xc, a, a0)
+
+    if world.rank == 0:
+        E = []
+        for a in np.linspace(5.4, 5.5, 5):
+            e = readbee('Si-{}-{:.3f}'.format(xc, a))
+            E.append(e)
+
+        A = []
+        for energies in np.array(E).T:
+            eos = EOS(V, energies, 'sj')
+            try:
+                v0, e0, B = eos.fit()
+                A.append((v0 * 4)**(1 / 3))
+            except ValueError:
+                pass
+        A = np.array(A)
+        a = A.mean()
+        da = A.std()
+        print('a(ref) = {:.3f} +- {:.3f}'.format(a0, da0))
+        print('a      = {:.3f} +- {:.3f}'.format(a, da))
+        assert abs(a - a0) < 0.01
+        assert abs(da - da0) < 0.01

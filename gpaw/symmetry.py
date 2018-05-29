@@ -39,7 +39,9 @@ class Symmetry:
     """
     def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool), tolerance=1e-7,
                  point_group=True, time_reversal=True, symmorphic=True,
-                 do_not_symmetrize_the_density=False):
+                 do_not_symmetrize_the_density=False,
+                 rotate_aperiodic_directions=False,
+                 translate_aperiodic_directions=False):
         """Construct symmetry object.
 
         Parameters:
@@ -84,9 +86,11 @@ class Symmetry:
         self.point_group = point_group
         self.time_reversal = time_reversal
         self.do_not_symmetrize_the_density = do_not_symmetrize_the_density
+        self.rotate_aperiodic_directions = rotate_aperiodic_directions
+        self.translate_aperiodic_directions = translate_aperiodic_directions
 
         # Disable fractional translations for non-periodic boundary conditions:
-        if not self.pbc_c.all():
+        if not (self.translate_aperiodic_directions or self.pbc_c.all()):
             self.symmorphic = True
 
         self.op_scc = np.identity(3, int).reshape((1, 3, 3))
@@ -137,14 +141,16 @@ class Symmetry:
             if np.abs(metric_cc - opmetric_cc).sum() > self.tol:
                 continue
 
-            # Operation must not swap axes that are not both periodic
             pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
-            if op_cc[~(pbc_cc | np.identity(3, bool))].any():
+            if (not self.rotate_aperiodic_directions and
+                op_cc[~(pbc_cc | np.identity(3, bool))].any()):
+                # Operation must not swap axes that are not both periodic
                 continue
 
-            # Operation must not invert axes that are not periodic
             pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
-            if not (op_cc[np.diag(~self.pbc_c)] == 1).all():
+            if (not self.rotate_aperiodic_directions and
+                not (op_cc[np.diag(~self.pbc_c)] == 1).all()):
+                # Operation must not invert axes that are not periodic
                 continue
 
             # operation is a valid symmetry of the unit cell
@@ -256,8 +262,8 @@ class Symmetry:
         nsym = len(U_scc)
 
         time_reversal = self.time_reversal and not self.has_inversion
-        bz2bz_ks = map_k_points(bzk_kc, U_scc, time_reversal,
-                                comm, self.tol)
+        bz2bz_ks = map_k_points_fast(bzk_kc, U_scc, time_reversal,
+                                     comm, self.tol)
 
         bz2bz_k = -np.ones(nbzkpts + 1, int)
         ibz2bz_k = []
@@ -471,24 +477,21 @@ def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
 def map_k_points_fast(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-7):
     """Find symmetry relations between k-points.
 
-    This is a Python-wrapper for a C-function that does the hard work
-    which is distributed over comm.
+    Performs the same task as map_k_points(), but much faster.
+    This is achieved by finding the symmetry related kpoints using
+    lexical sorting instead of brute force searching.
 
-    The map bz2bz_ks is returned.  If there is a k2 for which::
-
-      = _    _    _
-      U q  = q  + N,
-       s k1   k2
-
-    where N is a vector of integers, then bz2bz_ks[k1, s] = k2, otherwise
-    if there is a k2 for which::
-
-      = _     _    _
-      U q  = -q  + N,
-       s k1    k2
-
-    then bz2bz_ks[k1, s + nsym] = k2, where nsym = len(U_scc).  Otherwise
-    bz2bz_ks[k1, s] = -1.
+    bzk_kc: ndarray
+        kpoint coordinates.
+    U_scc: ndarray
+        Symmetry operations
+    time_reversal: Bool
+        Use time reversal symmetry in mapping.
+    comm:
+        Communicator
+    tol: float
+        When kpoint are closer than tol, they are
+        considered to be identical.
     """
 
     nbzkpts = len(bzk_kc)

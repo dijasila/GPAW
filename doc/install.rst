@@ -46,6 +46,7 @@ There are several ways to install GPAW:
 .. seealso::
 
     * Using :ref:`homebrew` on MacOSX.
+    * Using :ref:`anaconda`.
     * Tips and tricks for installation on many :ref:`platforms and
       architectures`.
     * :ref:`troubleshooting`.
@@ -56,17 +57,16 @@ There are several ways to install GPAW:
 Requirements
 ============
 
-* Python_ 2.7-3.5
+* Python_ 2.7, 3.4-
 * NumPy_ 1.6.1 or later (base N-dimensional array package)
-* ASE_ 3.15.0 or later (atomic simulation environment)
+* SciPy_ 0.7 or later (library for scientific computing)
+* ASE_ 3.16.0 or later (atomic simulation environment)
 * a C-compiler
 * LibXC_ 2.0.1 or later
 * BLAS_ and LAPACK_ libraries
 
 Optional, but highly recommended:
 
-* SciPy_ 0.7 or later (library for scientific computing, requirered for
-  some features)
 * an MPI_ library (required for parallel calculations)
 * FFTW_ (for increased performance)
 * BLACS_ and ScaLAPACK_
@@ -144,7 +144,7 @@ one core::
 
     $ gpaw test -j 4
 
-Please report errors to the ``gpaw-developers`` mailing list so that we
+Please report errors to the ``gpaw-users`` mailing list so that we
 can fix them (see :ref:`mail list`).
 
 If tests pass, and the parallel version is built, test the parallel code::
@@ -166,22 +166,22 @@ Sou can get the source from a tar-file or from Git:
 :Tar-file:
 
     You can get the source as a tar-file for the
-    latest stable release (gpaw-1.3.0.tar.gz_) or the latest
+    latest stable release (gpaw-1.4.0.tar.gz_) or the latest
     development snapshot (`<snapshot.tar.gz>`_).
 
     Unpack and make a soft link::
 
-        $ tar -xf gpaw-1.3.0.tar.gz
-        $ ln -s gpaw-1.3.0 gpaw
+        $ tar -xf gpaw-1.4.0.tar.gz
+        $ ln -s gpaw-1.4.0 gpaw
 
-    Here is a `list of tarballs <https://pypi.python.org/simple/gpaw/>`__.
+    Here is a `list of tarballs <https://pypi.org/simple/gpaw/>`__.
 
 :Git clone:
 
     Alternatively, you can get the source for the latest stable release from
     https://gitlab.com/gpaw/gpaw like this::
 
-        $ git clone -b 1.3.0 https://gitlab.com/gpaw/gpaw.git
+        $ git clone -b 1.4.0 https://gitlab.com/gpaw/gpaw.git
 
     or if you want the development version::
 
@@ -197,8 +197,8 @@ folder is).
     See the :ref:`releasenotes` for which tags are available.  Also the
     dates of older releases can be found there.
 
-.. _gpaw-1.3.0.tar.gz:
-    https://pypi.org/packages/source/g/gpaw/gpaw-1.3.0.tar.gz
+.. _gpaw-1.4.0.tar.gz:
+    https://pypi.org/packages/source/g/gpaw/gpaw-1.4.0.tar.gz
 
 
 .. _customizing installation:
@@ -276,29 +276,29 @@ few extra tips:
 * Typically when building GPAW one has to modify customize.py in a manner
   similar to the following::
 
-    library_dirs += ['/my/path/to/libxc/2.0.2/install/lib']
-    include_dirs += ['/my/path/to/libxc/2.0.2/install/include']
+    library_dirs += ['/my/path/to/libxc/4.0.1/install/lib']
+    include_dirs += ['/my/path/to/libxc/4.0.1/install/include']
 
   or if you don't want to modify your customize.py, you can add these lines to
   your .bashrc::
 
-    export C_INCLUDE_PATH=/my/path/to/libxc/2.0.2/install/include
-    export LIBRARY_PATH=/my/path/to/libxc/2.0.2/install/lib
-    export LD_LIBRARY_PATH=/my/path/to/libxc/2.0.2/install/lib
+    export C_INCLUDE_PATH=/my/path/to/libxc/4.0.1/install/include
+    export LIBRARY_PATH=/my/path/to/libxc/4.0.1/install/lib
+    export LD_LIBRARY_PATH=/my/path/to/libxc/4.0.1/install/lib
 
 Example::
 
-    wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-2.0.2.tar.gz -O libxc-2.0.2.tar.gz
-    tar -xf libxc-2.0.2.tar.gz
-    cd libxc-2.0.2
-    ./configure --enable-shared --prefix=$HOME/xc
+    wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-4.0.1.tar.gz -O libxc-4.0.1.tar.gz
+    tar -xf libxc-4.0.1.tar.gz
+    cd libxc-4.0.1
+    ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc-4.0.1
     make
     make install
 
     # add these to your .bashrc:
-    export C_INCLUDE_PATH=~/xc/include
-    export LIBRARY_PATH=~/xc/lib
-    export LD_LIBRARY_PATH=~/xc/lib
+    export C_INCLUDE_PATH=~/libxc-4.0.1/include
+    export LIBRARY_PATH=~/libxc-4.0.1/lib
+    export LD_LIBRARY_PATH=~/libxc-4.0.1/lib
 
 
 .. _envvars:
@@ -325,7 +325,7 @@ Environment variables
 Set these permanently in your :file:`~/.bashrc` file::
 
     $ export PYTHONPATH=~/gpaw:$PYTHONPATH
-    $ export PATH=~gpaw/tools:$PATH
+    $ export PATH=~/gpaw/tools:$PATH
 
 or your :file:`~/.cshrc` file::
 

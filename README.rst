@@ -12,9 +12,10 @@ Webpage: http://wiki.fysik.dtu.dk/gpaw
 Requirements
 ------------
 
-* Python_ 2.6-3.5
+* Python_ 2.7, 3.4-
 * ASE_ (atomic simulation environment)
 * NumPy_ (base N-dimensional array package)
+* SciPy_ (library for scientific computing)
 * LibXC
 * BLAS
 * LAPACK
@@ -23,28 +24,27 @@ Optional:
 
 * MPI
 * ScaLAPACK
-* SciPy_ (library for scientific computing)
 
 
 Installation
 ------------
 
 Do this::
-    
+
     $ python setup.py install --user
-    
+
 and make sure you have ``~/.local/bin`` in your $PATH.
 
 For more details, please see:
 
     https://wiki.fysik.dtu.dk/gpaw/install.html
-    
-    
+
+
 Testing
 -------
 
 Please run the tests::
-    
+
     $ gpaw test -j 4  # takes 1 hour!
 
 and send us the output if there are failing tests.
@@ -53,8 +53,10 @@ and send us the output if there are failing tests.
 Contact
 -------
 
-* Mailing lists: gpaw-users_ and gpaw-developers_
+* Mailing list: gpaw-users_
 * IRC_: #gpaw on freenode.net
+* Bug reports and development: gitlab-issues_
+* Old development mailing list (archive): gpaw-developers_
 
 Please send us bug-reports, patches, code, ideas and questions.
 
@@ -63,7 +65,7 @@ Example
 -------
 
 Geometry optimization of hydrogen molecule:
-    
+
 >>> from ase import Atoms
 >>> from ase.optimize import BFGS
 >>> from ase.io import write
@@ -92,7 +94,7 @@ Getting started
 Once you have familiarized yourself with ASE_ and NumPy_, you should take a
 look at the GPAW exercises_ and tutorials_.
 
-    
+
 .. _Python: http://www.python.org/
 .. _ASE: http://wiki.fysik.dtu.dk/ase
 .. _NumPy: http://docs.scipy.org/doc/numpy/reference/
@@ -102,5 +104,6 @@ look at the GPAW exercises_ and tutorials_.
 .. _gpaw-users: https://listserv.fysik.dtu.dk/mailman/listinfo/gpaw-users
 .. _gpaw-developers: https://listserv.fysik.dtu.dk/mailman/listinfo/gpaw-developers
 .. _IRC: http://webchat.freenode.net/?randomnick=0&channels=gpaw
+.. _gitlab-issues: https://gitlab.com/gpaw/gpaw/issues
 .. _exercises: https://wiki.fysik.dtu.dk/gpaw/exercises/exercises.html
 .. _tutorials: https://wiki.fysik.dtu.dk/gpaw/tutorials/tutorials.html

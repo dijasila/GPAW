@@ -1,5 +1,8 @@
-def agts(queue):
-    d = queue.add('diffusion1.py', ncpus=4, walltime=10)
-    n = queue.add('neb.py', deps=d, ncpus=12, walltime=60)
-    queue.add('check.py', deps=n)
+from myqueue.task import task
 
+
+def create_tasks():
+    return [
+        task('diffusion1.py@4:10m'),
+        task('neb.py@6:1h', deps='diffusion1.py'),
+        task('check.py', deps='neb.py')]
