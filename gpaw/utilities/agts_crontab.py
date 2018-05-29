@@ -49,7 +49,7 @@ def agts(cmd):
         path = '/home/niflheim2/jensj/agts'
         pp = ('{path}/ase:{path}/gpaw:{path}/gpaw/build/lib.{arch}'
               .format(path=path, arch=arch))
-        shell('PYTHONPATH={pp}:$PYTHONPATH mq workflow -p agts.py gpaw -zT'
+        shell('PYTHONPATH={pp}:$PYTHONPATH mq workflow -p agts.py gpaw -T'
               .format(pp=pp))
 
     elif cmd == 'summary':
