@@ -16,7 +16,10 @@ Crontab::
     10 20 * * 1 cd $AGTS; $CMD summary > agts-summary.log
 
 """
+
+import datetime
 import functools
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -50,6 +53,8 @@ def agts(cmd):
               .format(pp=pp))
 
     elif cmd == 'summary':
+        write_results(tasks)
+
         for task in tasks:
             if task.state in {'running', 'queued'}:
                 raise RuntimeError('Not done!')
@@ -119,6 +124,14 @@ def collect_files_for_web_page():
         print(path)
         (folder / path.name).write_bytes(path.read_bytes())
     # os.environ['WEB_PAGE_FOLDER']
+
+
+def write_results(tasks):
+    now = datetime.datetime.now()
+    name = Path('{}-{:02}-{:02}.json'.format(now.year, now.month, now.day))
+    text = json.dumps({'tasks': [task.todict() for task in tasks]},
+                      indent=2)
+    name.write_text(text)
 
 
 if __name__ == '__main__':
