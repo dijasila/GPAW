@@ -22,8 +22,8 @@ with broadcast_imports:
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '1.3.1b1'
-__ase_version_required__ = '3.15.0'
+__version__ = '1.4.0'
+__ase_version_required__ = '3.16.0'
 
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
@@ -44,8 +44,10 @@ class KohnShamConvergenceError(ConvergenceError):
 class PoissonConvergenceError(ConvergenceError):
     pass
 
+
 class KPointError(Exception):
     pass
+
 
 def parse_extra_parameters(arg):
     return {key.replace('-', '_'): value
