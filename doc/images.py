@@ -152,7 +152,7 @@ get('static', ['NOMAD_Logo_supported_by.png'])
 def setup(app):
     # Get png and csv files and other stuff from the AGTS scripts that run
     # every weekend:
-    from gpaw.utilities.agts import find_created_files
+    from gpaw.utilities.agts_crontab import find_created_files
 
     for path in find_created_files():
         # the files are saved by the weekly tests under agtspath/agts-files
