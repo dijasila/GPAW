@@ -33,5 +33,6 @@ plt.plot([0.0, x[-1]], 2 * [0.0], c='0.5')
 
 plt.ylabel(r'$\varepsilon_n(k)$ [eV]', size=24)
 plt.axis([0, x[-1], -11, 13])
+plt.tight_layout()
 # plt.show()
 plt.savefig('Pt_bands.png')
