@@ -177,22 +177,13 @@ write_configuration(define_macros, include_dirs, libraries, library_dirs,
 
 
 class build_ext(_build_ext):
-    def finalize_options(self):
-        _build_ext.finalize_options(self)
-        # Prevent numpy from thinking it is still in its setup process:
-        # __builtins__.__NUMPY_SETUP__ = False
-        import numpy as np
-        self.include_dirs.append(np.get_include())
-
     def run(self):
         _build_ext.run(self)
         if mpicompiler:
             import numpy as np
             # Also build gpaw-python:
             error = build_interpreter(
-                define_macros,
-                include_dirs + [np.get_include()],
-                libraries,
+                define_macros, include_dirs, libraries,
                 library_dirs, extra_link_args, extra_compile_args,
                 runtime_library_dirs, extra_objects,
                 mpicompiler, mpilinker, mpi_libraries,
@@ -232,7 +223,6 @@ setup(name='gpaw',
       platforms=['unix'],
       packages=find_packages(),
       entry_points={'console_scripts': ['gpaw=gpaw.cli.main:main']},
-      setup_requires=['numpy>=1.8.0'],
       install_requires=['ase>=3.16.0'],
       ext_modules=extensions,
       scripts=scripts,

@@ -26,10 +26,13 @@ def get_system_config(define_macros, undef_macros,
                       import_numpy):
 
     undef_macros += ['NDEBUG']
-    if 0:  # import_numpy:
-        import numpy
+    if import_numpy:
+        try:
+            import numpy
+        except ImportError:
+            print('Error: Please "pip install numpy" first.', file=sys.stderr)
+            exit(1)
         include_dirs += [numpy.get_include()]
-        # See https://stackoverflow.com/questions/19919905/how-to-bootstrap-numpy-installation-in-setup-py
 
     # libxc
     libraries += ['xc']
