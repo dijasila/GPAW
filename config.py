@@ -26,7 +26,7 @@ def get_system_config(define_macros, undef_macros,
                       import_numpy):
 
     undef_macros += ['NDEBUG']
-    if import_numpy:
+    if 0:  # import_numpy:
         import numpy
         include_dirs += [numpy.get_include()]
         # See https://stackoverflow.com/questions/19919905/how-to-bootstrap-numpy-installation-in-setup-py
@@ -114,7 +114,7 @@ def get_system_config(define_macros, undef_macros,
         if ('LINKFORSHARED' in cfgDict and
             'Python.framework/Versions/3.6' in cfgDict['LINKFORSHARED']):
             cfgDict['LINKFORSHARED'] = '-l python3.6'
-            
+
         # We should probably add something to allow for user-installed BLAS?
 
     elif machine in ['x86_64', 'ppc64', 'ppc64le', 'aarch64', 's390x']:
