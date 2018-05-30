@@ -74,7 +74,7 @@ class TCMPlotter(object):
         raise AttributeError('%s object has no attribute %s' %
                              (repr(self.__class__.__name__), repr(attr)))
 
-    def plot_TCM(self, weight_p, vmax='80%'):
+    def plot_TCM(self, weight_p, vmax='80%', cmap='seismic', positive=False):
         # Calculate TCM
         eig_n = self.eig_n
         energy_o = self.energy_o
@@ -83,6 +83,9 @@ class TCMPlotter(object):
         fermilevel = self.fermilevel
         tcm_ou = self.ksd.get_TCM(weight_p, eig_n, energy_o, energy_u, sigma)
 
+        tcmmax = np.max(np.absolute(tcm_ou))
+        print('tcmmax', tcmmax)
+
         # Plot TCM
         ax = self.ax_tcm
         plt.sca(ax)
@@ -90,13 +93,16 @@ class TCMPlotter(object):
             assert vmax[-1] == '%'
             tcmmax = np.max(np.absolute(tcm_ou))
             vmax = tcmmax * float(vmax[:-1]) / 100.0
-        vmin = -vmax
+        if positive:
+            vmin = 0
+        else:
+            vmin = -vmax
         if tcm_ou.dtype == complex:
             linecolor = 'w'
             from matplotlib.colors import hsv_to_rgb
 
             def transform_to_hsv(z, rmin, rmax, hue_start=90):
-                amp = np.absolute(z)
+                amp = np.absolute(z) #**2
                 amp = np.where(amp < rmin, rmin, amp)
                 amp = np.where(amp > rmax, rmax, amp)
                 ph = np.angle(z, deg=1) + hue_start
@@ -108,13 +114,16 @@ class TCMPlotter(object):
             img = transform_to_hsv(tcm_ou.T, 0, vmax)
             plt.imshow(img, origin='lower',
                        extent=[energy_o[0], energy_o[-1],
-                               energy_u[0], energy_u[-1]]
+                               energy_u[0], energy_u[-1]],
+                       interpolation='bilinear',
                        )
         else:
             linecolor = 'k'
-            cmap = 'seismic'
+            if cmap == 'magma':
+                linecolor = 'w'
             plt.pcolormesh(energy_o, energy_u, tcm_ou.T,
-                           cmap=cmap, rasterized=True, vmin=vmin, vmax=vmax)
+                           cmap=cmap, rasterized=True, vmin=vmin, vmax=vmax,
+                           )
         plt.axhline(fermilevel, c=linecolor)
         plt.axvline(fermilevel, c=linecolor)
 
