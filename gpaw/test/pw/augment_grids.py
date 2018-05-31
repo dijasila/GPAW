@@ -1,6 +1,6 @@
 import numpy as np
 from ase import Atoms
-from gpaw import GPAW, PW, FermiDirac, Mixer
+from gpaw import GPAW, PW, FermiDirac
 
 ecut = 200
 kpoints = [1, 1, 4]
