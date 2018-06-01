@@ -8,21 +8,31 @@ from gpaw.lcaotddft.utilities import write_uMM
 
 
 class TimeDependentPotential(object):
-    def __init__(self, ext, laser):
-        self.ext = ext
-        self.laser = laser
+    def __init__(self):
+        self.ext_i = []
+        self.laser_i = []
+
+    def add(self, ext, laser):
+        self.ext_i.append(ext)
+        self.laser_i.append(laser)
 
     def initialize(self, paw):
         get_matrix = paw.wfs.eigensolver.calculate_hamiltonian_matrix
-        hamiltonian = KickHamiltonian(paw.hamiltonian, paw.density, self.ext)
-        self.V_uMM = []
-        for kpt in paw.wfs.kpt_u:
-            V_MM = get_matrix(hamiltonian, paw.wfs, kpt,
-                              add_kinetic=False, root=-1)
-            self.V_uMM.append(V_MM)
+        self.V_iuMM = []
+        for ext in self.ext_i:
+            V_uMM = []
+            hamiltonian = KickHamiltonian(paw.hamiltonian, paw.density, ext)
+            for kpt in paw.wfs.kpt_u:
+                V_MM = get_matrix(hamiltonian, paw.wfs, kpt,
+                                  add_kinetic=False, root=-1)
+                V_uMM.append(V_MM)
+            self.V_iuMM.append(V_uMM)
 
     def get_MM(self, u, time):
-        return self.laser.strength(time) * self.V_uMM[u]
+        V_MM = self.laser_i[0].strength(time) * self.V_iuMM[0][u]
+        for i in range(1, len(self.ext_i)):
+            V_MM += self.laser_i[i].strength(time) * self.V_iuMM[i][u]
+        return V_MM
 
     def write(self, writer):
         writer.write(info='this is not implemented')
@@ -49,7 +59,12 @@ class TimeDependentHamiltonian(object):
         assert fxc is None or isinstance(fxc, str)
         self.fxc_name = fxc
         if isinstance(td_potential, dict):
-            td_potential = TimeDependentPotential(**td_potential)
+            td_potential = [td_potential]
+        if isinstance(td_potential, list):
+            pot_i = td_potential
+            td_potential = TimeDependentPotential()
+            for pot in pot_i:
+                td_potential.add(**pot)
         self.td_potential = td_potential
 
     def write(self, writer):
