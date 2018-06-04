@@ -15,7 +15,7 @@ Mac users: Install XQuartz
 Linux users should skip this step as an X11 server is part of all
 nornal Linux distributions.
 
-As a Mac user, you can to install an X11 server, it is needed to
+As a Mac user, you should install an X11 server, it is needed to
 display the ASE Graphical User Interface on your laptop.  If you do
 not install it, you can still run Jupyter Notebooks, but the command
 to view structures with the GUI will not work.
@@ -37,12 +37,12 @@ Open two Terminal windows
 You will need two open terminal windows, where you can write Unix
 commands directly to the operating system.
 
-:macOS:
+macOS
    The program is called ``Terminal`` and is in the folder ``Other``
    in Launchpad.  You can also find it in Spotlight by searching for
    Terminal.
 
-:Linux:
+Linux
    The name and placement of the program depends on the distribution.
    It is typically called ``Terminal``,  ``LXterminal``, ``xterm`` or
    something similar.  Search for Terminal in spotlight, or look in
@@ -62,7 +62,7 @@ write::
   ssh -X USERNAME@login.gbar.dtu.dk
 
 where ``USERNAME`` is your DTU user name (external participants got it
-in their registration material).  Note the ``-X`` option, it is a dash
+in their registration material).  Note the ``-X`` option, it is a minus
 followed by a capital X.
 
 Note that when you write your DTU password, you cannot see what you
@@ -106,12 +106,12 @@ The script give you access to ASE, GPAW and related software.  It will
 install Jupyter Notebook in your own account (necessary as the
 visualization will otherwise not work).
 
-The script will ask you to **set a Jupyter Notebook password.**  This
+The script will ask you to **set a Jupyter Notebook password.** This
 will be used to access the notebooks from the browser on your laptop.
 It is a bad idea to type your DTU password into untrusted programs, so
 you should probably choose a different password - *this is
-particularly important if you are a DTU student/employee, security of your DTU
-password is critical!*
+particularly important if you are a DTU student/employee, the security
+of your DTU password is critical!*
 
 The script will also copy a selection of draft notebooks to a folder
 called CAMD2018 in your DTU databar account.

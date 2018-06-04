@@ -21,7 +21,7 @@ MobaXterm.  There should be a session available from the welcome
 screen of MobaXterm named ``login.gbar.dtu.dk`` or similar, created
 when you logged in the first time.  Click on it to log in again.  Note
 that when you are asked for a password, you should use your *DTU
-password*, **not** the *Jupyter password* you just created!
+password*, **not** the Jupyter password you just created!
 
 Once you are logged in on the front-end, get a session on an interactive compute node by typing the command::
 
@@ -36,7 +36,11 @@ Change to the folder where you keep your notebooks (most likely ``CAMD2018``) an
   cd CAMD2018
   camdnotebook
 
-The command ``camdnotebook`` is a local script.  It checks that you are on a compute server (and not on the front-end), that X11 forwarding is enabled, and then it starts a jupyter notebook by running the command ``jupyter notebook --no-browser --port=40000 --ip=$HOSTNAME``  (you can also use this command yourself if you prefer).
+The command ``camdnotebook`` is a local script.  It checks that you
+are on a compute server (and not on the front-end) and that X11
+forwarding is enabled.  Then it starts a jupyter notebook by running
+the command ``jupyter notebook --no-browser --port=40000 --ip=$HOSTNAME``
+(you can also use this command yourself if you prefer).
 
 The Notebook server replies by printing a few status lines, as seen here
 
@@ -64,8 +68,9 @@ window opens, as shown here:
 .. image:: CreateTunnelWin.png
    :width: 66%
 
-I the field marked with a red A on the figure you should write the
+In the field marked with a red A on the figure you should write the
 port number 8080 (that will be the local port number on your laptop).
+
 In the field marked B you should write the name of the
 "stepping-stone" computer, in this case use ``login.gbar.dtu.dk`` (the
 figure show ``l1.hpc.dtu.dk``, that also works).

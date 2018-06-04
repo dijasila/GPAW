@@ -87,12 +87,12 @@ The script give you access to ASE, GPAW and related software.  It will
 install Jupyter Notebook in your own account (necessary as the
 visualization will otherwise not work).
 
-The script will ask you to **set a Jupyter Notebook password.**  This
+The script will ask you to **set a Jupyter Notebook password.** This
 will be used to access the notebooks from the browser on your laptop.
 It is a bad idea to type your DTU password into untrusted programs, so
 you should probably choose a different password - *this is
-particularly important if you are a DTU student/employee, security of your DTU
-password is critical!*
+particularly important if you are a DTU student/employee, the security
+of your DTU password is critical!*
 
 The script will also copy a selection of draft notebooks to a folder
 called CAMD2018 in your DTU databar account.

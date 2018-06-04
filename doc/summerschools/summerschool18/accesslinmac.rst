@@ -22,7 +22,9 @@ a Terminal window.  Log in to the databar front-end with the command::
 
   ssh -X USERNAME@login.gbar.dtu.dk
 
-Replace ``USERNAME`` with your DTU username, and note that when you are asked for a password, you should use your *DTU password*, **not** the *Jupyter password* you just created!
+Replace ``USERNAME`` with your DTU username, and note that when you
+are asked for a password, you should use your *DTU password*, **not**
+the Jupyter password you just created!
 
 Once you are logged in on the front-end, get a session on an interactive compute node by typing the command::
 
@@ -37,7 +39,11 @@ Change to the folder where you keep your notebooks (most likely ``CAMD2018``) an
   cd CAMD2018
   camdnotebook
 
-The command ``camdnotebook`` is a local script.  It checks that you are on a compute server (and not on the front-end), that X11 forwarding is enabled, and then it starts a jupyter notebook by running the command ``jupyter notebook --no-browser --port=40000 --ip=$HOSTNAME``  (you can also use this command yourself if you prefer).
+The command ``camdnotebook`` is a local script.  It checks that you
+are on a compute server (and not on the front-end) and that X11
+forwarding is enabled.  Then it starts a jupyter notebook by running
+the command ``jupyter notebook --no-browser --port=40000 --ip=$HOSTNAME``
+(you can also use this command yourself if you prefer).
 
 The Notebook server replies by printing a few status lines, as seen here
 
