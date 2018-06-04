@@ -31,16 +31,21 @@ The instructions depend on whether your laptop runs Windows, MacOS or Linux - th
 Windows users
 -------------
 
-* :ref:`Setting up the first time <setupwin>`
+.. toctree::
+   :maxdepth: 1
+	   
+   setupwin
+   accesswin
 
-* :ref:`Starting and accessing a Jupyter Notebook <accesswin>`
 
 Mac and Linux users
 -------------------
 
-* :ref:`Setting up the first time <setuplinmac>`
-
-* :ref:`Starting and accessing a Jupyter Notebook <accesslinmac>`
-
+.. toctree::
+   :maxdepth: 1
+	   
+   setuplinmac
+   accesslinmac
+   
 
 
