@@ -3,20 +3,28 @@ import numpy as np
 from gpaw.mixer import DummyMixer
 from gpaw.xc import XC
 
+from gpaw.lcaotddft.laser import create_laser
 from gpaw.lcaotddft.utilities import read_uMM
+from gpaw.lcaotddft.utilities import read_wuMM
 from gpaw.lcaotddft.utilities import write_uMM
+from gpaw.lcaotddft.utilities import write_wuMM
 
 
 class TimeDependentPotential(object):
     def __init__(self):
         self.ext_i = []
         self.laser_i = []
+        self.initialized = False
 
     def add(self, ext, laser):
         self.ext_i.append(ext)
         self.laser_i.append(laser)
 
     def initialize(self, paw):
+        if self.initialized:
+            return
+
+        self.wfs = paw.wfs
         get_matrix = paw.wfs.eigensolver.calculate_hamiltonian_matrix
         self.V_iuMM = []
         for ext in self.ext_i:
@@ -27,15 +35,25 @@ class TimeDependentPotential(object):
                                   add_kinetic=False, root=-1)
                 V_uMM.append(V_MM)
             self.V_iuMM.append(V_uMM)
+        self.Ni = len(self.ext_i)
+        self.initialized = True
 
     def get_MM(self, u, time):
         V_MM = self.laser_i[0].strength(time) * self.V_iuMM[0][u]
-        for i in range(1, len(self.ext_i)):
+        for i in range(1, self.Ni):
             V_MM += self.laser_i[i].strength(time) * self.V_iuMM[i][u]
         return V_MM
 
     def write(self, writer):
-        writer.write(info='this is not implemented')
+        writer.write(Ni=self.Ni)
+        writer.write(laser_i=[laser.todict() for laser in self.laser_i])
+        write_wuMM(self.wfs, writer, 'V_iuMM', self.V_iuMM, range(self.Ni))
+
+    def read(self, reader):
+        self.Ni = reader.Ni
+        self.laser_i = [create_laser(**laser) for laser in reader.laser_i]
+        self.V_iuMM = read_wuMM(self.wfs, reader, 'V_iuMM', range(self.Ni))
+        self.initialized = True
 
 
 class KickHamiltonian(object):
@@ -82,8 +100,10 @@ class TimeDependentHamiltonian(object):
         if 'fxc' in reader:
             self.read_fxc(reader.fxc)
         if 'td_potential' in reader:
-            raise NotImplementedError('Restart with td_potential is not '
-                                      'implemented.')
+            assert self.td_potential is None
+            self.td_potential = TimeDependentPotential()
+            self.td_potential.wfs = self.wfs
+            self.td_potential.read(reader.td_potential)
 
     def read_fxc(self, reader):
         assert self.fxc_name is None or self.fxc_name == reader.name

@@ -2,6 +2,18 @@ import numpy as np
 from gpaw.tddft.units import as_to_au, eV_to_au
 
 
+def create_laser(name, **kwargs):
+    if isinstance(name, Laser):
+        return name
+    elif isinstance(name, dict):
+        kwargs.update(name)
+        return create_laser(**kwargs)
+    elif name == 'GaussianImpulse':
+        return GaussianImpulse(**kwargs)
+    else:
+        raise ValueError('Unknown laser: %s' % name)
+
+
 class Laser(object):
     def __init__(self):
         pass
@@ -21,6 +33,12 @@ class GaussianImpulse(Laser):
     """
 
     def __init__(self, strength, time0, frequency, sigma, sincos='sin'):
+        self.dict = dict(name='GaussianImpulse',
+                         strength=strength,
+                         time0=time0,
+                         frequency=frequency,
+                         sigma=sigma,
+                         sincos=sincos)
         self.s0 = strength
         self.t0 = time0 * as_to_au
         self.omega0 = frequency * eV_to_au
@@ -63,3 +81,6 @@ class GaussianImpulse(Laser):
         if self.sincos == 'sin':
             s *= 1.0j
         return s
+
+    def todict(self):
+        return self.dict
