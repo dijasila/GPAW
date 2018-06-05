@@ -10,6 +10,8 @@ def create_laser(name, **kwargs):
         return create_laser(**kwargs)
     elif name == 'GaussianImpulse':
         return GaussianImpulse(**kwargs)
+    elif name == 'SumLaser':
+        return SumLaser(**kwargs)
     else:
         raise ValueError('Unknown laser: %s' % name)
 
@@ -23,6 +25,33 @@ class Laser(object):
 
     def fourier(self, omega):
         return 0.0
+
+
+class SumLaser(Laser):
+    def __init__(self, *lasers):
+        self.laser_i = []
+        dict_i = []
+        for laser in lasers:
+            laser = create_laser(laser)
+            self.laser_i.append(laser)
+            dict_i.append(laser.todict())
+        self.dict = dict(name='SumLaser',
+                         lasers=dict_i)
+
+    def strength(self, time):
+        s = 0.0
+        for laser in self.laser_i:
+            s += laser.strength(time)
+        return s
+
+    def fourier(self, omega):
+        s = 0.0
+        for laser in self.laser_i:
+            s += laser.fourier(omega)
+        return s
+
+    def todict(self):
+        return self.dict
 
 
 class GaussianImpulse(Laser):
