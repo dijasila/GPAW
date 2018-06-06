@@ -31,7 +31,7 @@ atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
 nimg = 4         # Number of neb images
 potential = 4.4  # Desired potential
 
-interpolate = True
+interpolate = True # True if it is a fresh start with interpolating IS and FS
 relax_end_states = True
 climb = False
 
@@ -56,7 +56,7 @@ def calculator():
                potential=potential,
                occupations=FermiDirac(0.1),
                maxiter=400,
-               cavity=SJM_EffectivePotentialCavity(
+               cavity=EffectivePotentialCavity(
                    effective_potential=SJM_Power12Potential(
                        atomic_radii, u0, H2O_layer=True),
                    temperature=T,
@@ -74,7 +74,7 @@ if restart_file:
         ne_img = [float(image.calc.results['ne']) for image in images]
     except (AttributeError, KeyError):
         # Very bad initial guesses! Should be exchanged by actual values
-        ne_img = [i/10. for i in list(range(nimg))]
+        ne_img = [i/10. for i in list(range(nimg + 2))]
 
 else:
     initial = read(initial_file)
