@@ -21,7 +21,7 @@ def collect_uX(kd, comm, a_uX, s, k):
     elif comm.rank == 0 and kpt_rank != 0:
         # assert world.rank == 0
         a_X = np.empty(Xshape, dtype=dtype)
-        kd.comm.receive(a_n, kpt_rank, 2018)
+        kd.comm.receive(a_X, kpt_rank, 2018)
         return a_X
 
 
@@ -56,7 +56,7 @@ def distribute_nM(ksl, a_nM):
         a_nM = ksl.nM_unique_descriptor.zeros(dtype=dtype)
 
     nM2mm = Redistributor(ksl.block_comm, ksl.nM_unique_descriptor,
-                      ksl.mmdescriptor)
+                          ksl.mmdescriptor)
 
     a_mm = ksl.mmdescriptor.empty(dtype=dtype)
     nM2mm.redistribute(a_nM, a_mm, ksl.bd.nbands, ksl.nao)
