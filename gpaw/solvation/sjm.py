@@ -31,7 +31,7 @@ class SJM(SolvationGPAW):
        periodic slab systems. Cell neutrality is achieved by adding a
        background charge in the solvent region above the slab
 
-       Further detail are given in ADD PAER REFERENCE
+       Further detail are given in http://dx.doi.org/10.1021/acs.jpcc.8b02465
 
        Parameters
        ----------
@@ -52,6 +52,7 @@ class SJM(SolvationGPAW):
         doublelayer: dict
             Parameters regarding the shape of the counter charge region
             Implemented keys:
+
             'start': float or 'cavity_like'
                 If a float is given it corresponds to the lower
                 boundary coordinate (default: z), where the counter charge
@@ -712,6 +713,7 @@ class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
    counter charge
 """
 
+
 def create_background_charge(**kwargs):
     if 'z1' in kwargs:
         return JelliumSlab(**kwargs)
@@ -828,7 +830,7 @@ class SJM_DipoleCorrection(DipoleCorrection):
 
             VHt_g = gd.collect(vHt_g2, broadcast=True)
             VHt_z = VHt_g.mean(0).mean(0)
-            slope = VHt_z[1] - VHt_z[5]
+            slope = VHt_z[2] - VHt_z[10]
 
             if abs(slope) > slope_lim:
                 if 'last_corrterm' in self.__dict__.keys():
@@ -865,7 +867,8 @@ class SJM_DipoleCorrection(DipoleCorrection):
         saw -= (saw[0] + saw[-1] + step / eps_z[-1])/2.
         return saw
 
-"""Various tools for doing jellium calculations."""
+"""Various tools for writing global functions"""
+
 
 def write_parallel_func_in_z(gd, g, name='g_z.out'):
         from gpaw.mpi import world
