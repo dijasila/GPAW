@@ -147,6 +147,12 @@ get('.', ['carlsberg.png'])
 
 get('static', ['NOMAD_Logo_supported_by.png'])
 
+# Summer school 2018
+get('summerschool2018',
+    ['CreateTunnelWin.png', 'JupyterRunningMac.png', 'JupyterRunningWin.png',
+     'Logged_in_Mac.png', 'Logged_in_Win.png', 'Moba_ssh.png',
+     'UseTunnelWin.png'],
+    target='summerschools/summerschool18')
 
 def setup(app):
     # Get png and csv files and other stuff from the AGTS scripts that run
