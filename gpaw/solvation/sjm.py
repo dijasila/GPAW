@@ -33,9 +33,7 @@ class SJM(SolvationGPAW):
 
        Further detail are given in http://dx.doi.org/10.1021/acs.jpcc.8b02465
 
-       Parameters
-       ----------
-
+       Parameters:
         ne: float
             Number of electrons added in the atomic system and (with opposite
             sign) in the background charge region. At the start it can be an

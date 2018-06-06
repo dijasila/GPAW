@@ -51,6 +51,32 @@ be expected.
 
 .. literalinclude:: Au111.py
 
+The output in 'Au_pot_3.4.txt' is extended by the grand canonical energy
+and contains the new part::
+
+ ----------------------------------------------------------
+ Grand Potential Energy (Composed of E_tot + E_solv - mu*ne):
+ Extrpol:    -8.9735918012
+ Free:    -8.99437808372
+ -----------------------------------------------------------
+
+These energies are written e.g. into trajectory files.
+
+
+Since we set the 'verbose' keyword to True, the code produced three
+files:
+
+elstat_potential.out:
+ Electrostatic potential averaged over xy and referenced to the systems
+ Fermi Level. The outer parts should correspond to the respective work
+ functions.
+
+cavity.out: 
+ The shape of the implicit solvent cavity averaged over xy.
+
+background_charge.out: 
+ The shape of the jellium background charge averaged over x and y. 
+
 Usage Example: Running a constant potential NEB calculation
 ===========================================================
 
