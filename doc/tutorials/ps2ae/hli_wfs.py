@@ -1,4 +1,3 @@
-# creates: hli.png
 import matplotlib.pyplot as plt
 from ase import Atoms
 from ase.units import Bohr
@@ -39,5 +38,5 @@ plt.plot(x, 0 * x, 'k')
 plt.xlabel('z [Ang]')
 plt.ylabel('wave functions [Ang$^{-3/2}$]')
 plt.legend()
-plt.savefig('hli.png')
+plt.savefig('hli-wfs.png')
 hli.calc.write('hli.gpw')

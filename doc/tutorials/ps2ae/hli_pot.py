@@ -1,4 +1,3 @@
-# creates: hli-pot.png
 import matplotlib.pyplot as plt
 from ase.units import Bohr
 from gpaw.utilities.ps2ae import PS2AE
