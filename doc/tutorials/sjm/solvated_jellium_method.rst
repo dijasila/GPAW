@@ -45,9 +45,7 @@ Usage Example: A simple Au(111) slab
 As a usage example, given here is the calculation of a simple Au slab
 at a potential of -1 V versus SHE. Keep in mind that the absolute 
 potential has to be provided, where the value of the SHE potential on 
-an absolute scale is approx. 4.4V. Additionally, the parameters used in 
-the example are very bad, so no physically reasonable results should
-be expected.
+an absolute scale is approx. 4.4V.
 
 .. literalinclude:: Au111.py
 
@@ -86,7 +84,7 @@ A complete script for performing an NEB calculation can be downloaded here:
 
 
 .. Note:: In this example the keyword 'H2O_layer = True' in the 'SJM_Power12Potential'  
-    class has been used. This keyword frees the interfacebetween the electrode 
+    class has been used. This keyword frees the interface between the electrode 
     and a water layer from the implicit solvent. It is needed since the rather 
     high distance between the two subsystems would lead to partial solvation 
     of the interface region, therefore screening the electric field in the 
