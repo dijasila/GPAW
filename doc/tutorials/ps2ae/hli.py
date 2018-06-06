@@ -31,9 +31,9 @@ for n, color in enumerate(['green', 'red']):
     # Raw PS wfs:
     ps0 = hli.calc.get_pseudo_wave_function(n, pad=True)
     gd = hli.calc.wfs.gd
-    I = ps0.shape[0] // 2
+    i = ps0.shape[0] // 2
     X = gd.coords(2) * Bohr
-    plt.plot(X, ps0[I, I], 'o', color=color)
+    plt.plot(X, ps0[i, i], 'o', color=color)
 
 plt.plot(x, 0 * x, 'k')
 plt.xlabel('z [Ang]')
