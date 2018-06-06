@@ -208,6 +208,7 @@ tests = [
     'poisson/poisson_extended.py',          # ~3s
     'solvation/vacuum.py',                  # ~3s
     'vdw/libvdwxc_mbeef.py',                # ~3s
+    'pw/augment_grids.py',                  # ~4s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
     'parallel/augment_grid.py',             # ~4s
     'utilities/ewald.py',                   # ~4s

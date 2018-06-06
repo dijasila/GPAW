@@ -17,7 +17,6 @@ except ImportError:
     from urllib.request import urlopen
     from urllib.error import HTTPError
 import os
-from pathlib import Path
 
 
 srcpath = 'http://wiki.fysik.dtu.dk/gpaw-files'
@@ -83,7 +82,8 @@ get('bgp', ['bgp_mapping_intranode.png',
 get('workshop13', ['workshop13_01_33-1.jpg'], 'static')
 get('workshop16', ['gpaw2016-photo.jpg'], 'static')
 
-# files from agtspath
+
+# files from http://wiki.fysik.dtu.dk/gpaw-files/things/
 
 scf_conv_eval_stuff = """
 scf_g2_1_pbe0_fd_calculator_steps.png
@@ -92,8 +92,7 @@ scf_dcdft_pbe_pw_calculator_steps.png
 scf_dcdft_pbe_pw_energy.csv
 """.split()
 
-get('agts-files', scf_conv_eval_stuff, target='documentation/scf_conv_eval',
-    source=agtspath)
+get('things', scf_conv_eval_stuff, target='documentation/scf_conv_eval')
 
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_aims_stuff = """
@@ -102,7 +101,7 @@ dcdft_aims.tight.01.16.db_raw.csv
 dcdft_aims.tight.01.16.db_Delta.txt
 """.split()
 
-get('agts-files', dcdft_pbe_aims_stuff, target='setups', source=agtspath)
+get('things', dcdft_pbe_aims_stuff, target='setups')
 
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_gpaw_pw_stuff = """
@@ -111,7 +110,7 @@ dcdft_pbe_gpaw_pw_raw.csv
 dcdft_pbe_gpaw_pw_Delta.txt
 """.split()
 
-get('agts-files', dcdft_pbe_gpaw_pw_stuff, target='setups', source=agtspath)
+get('things', dcdft_pbe_gpaw_pw_stuff, target='setups')
 
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_jacapo_stuff = """
@@ -120,7 +119,7 @@ dcdft_pbe_jacapo_raw.csv
 dcdft_pbe_jacapo_Delta.txt
 """.split()
 
-get('agts-files', dcdft_pbe_jacapo_stuff, target='setups', source=agtspath)
+get('things', dcdft_pbe_jacapo_stuff, target='setups')
 
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_abinit_fhi_stuff = """
@@ -129,7 +128,7 @@ dcdft_pbe_abinit_fhi_raw.csv
 dcdft_pbe_abinit_fhi_Delta.txt
 """.split()
 
-get('agts-files', dcdft_pbe_abinit_fhi_stuff, target='setups', source=agtspath)
+get('things', dcdft_pbe_abinit_fhi_stuff, target='setups')
 
 g2_1_stuff = """
 pbe_gpaw_nrel_ea_vs.csv pbe_gpaw_nrel_ea_vs.png
@@ -137,11 +136,11 @@ pbe_gpaw_nrel_opt_ea_vs.csv pbe_gpaw_nrel_opt_distance_vs.csv
 pbe_nwchem_def2_qzvppd_opt_ea_vs.csv pbe_nwchem_def2_qzvppd_opt_distance_vs.csv
 """.split()
 
-get('agts-files', g2_1_stuff, target='setups', source=agtspath)
+get('things', g2_1_stuff, target='setups')
 
 get('tutorials/wannier90', ['GaAs.png', 'Cu.png', 'Fe.png'])
 
-get('agts-files', ['datasets.json'], 'setups', source=agtspath)
+get('things', ['datasets.json'], 'setups')
 
 # Carlsberg foundation figure:
 get('.', ['carlsberg.png'])
@@ -162,7 +161,7 @@ get(
 def setup(app):
     # Get png and csv files and other stuff from the AGTS scripts that run
     # every weekend:
-    from gpaw.utilities.agts import find_created_files
+    from gpaw.utilities.agts_crontab import find_created_files
 
     for path in find_created_files():
         # the files are saved by the weekly tests under agtspath/agts-files

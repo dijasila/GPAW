@@ -10,7 +10,15 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.16.0
+* Corresponding ASE release: ASE-3.16.1b1
+
+
+Version 1.4.0
+=============
+
+29 May 2018: :git:`1.4.0 <../1.4.0>`
+
+* Corresponding ASE release: ASE-3.16.0.
 
 * Improved parallelization of operations with localized functions in
   PW mode.  This solves the current size bottleneck in PW mode.

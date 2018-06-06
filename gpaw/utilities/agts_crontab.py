@@ -16,7 +16,10 @@ Crontab::
     10 20 * * 1 cd $AGTS; $CMD summary > agts-summary.log
 
 """
+
+import datetime
 import functools
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -42,10 +45,16 @@ def agts(cmd):
         shell('cd ase; git pull')
         shell('cd gpaw; git clean -fdx; git pull;'
               '. doc/platforms/Linux/Niflheim/compile.sh')
-        # shell('mq workflow -p agts.py gpaw')
-        shell('mq workflow -p agts.py gpaw/doc/devel/ase_optimize -T')
+        arch = 'linux-x86_64-broadwell-el7-3.6'
+        path = '/home/niflheim2/jensj/agts'
+        pp = ('{path}/ase:{path}/gpaw:{path}/gpaw/build/lib.{arch}'
+              .format(path=path, arch=arch))
+        shell('PYTHONPATH={pp}:$PYTHONPATH mq workflow -p agts.py gpaw -T'
+              .format(pp=pp))
 
     elif cmd == 'summary':
+        write_results(tasks)
+
         for task in tasks:
             if task.state in {'running', 'queued'}:
                 raise RuntimeError('Not done!')
@@ -55,8 +64,9 @@ def agts(cmd):
                 send_email(tasks)
                 return
 
-        collect_files_for_web_page()
+        shell('mq delete --state d --recursive .')
 
+        collect_files_for_web_page()
     else:
         1 / 0
 
@@ -115,6 +125,14 @@ def collect_files_for_web_page():
         print(path)
         (folder / path.name).write_bytes(path.read_bytes())
     # os.environ['WEB_PAGE_FOLDER']
+
+
+def write_results(tasks):
+    now = datetime.datetime.now()
+    name = Path('{}-{:02}-{:02}.json'.format(now.year, now.month, now.day))
+    text = json.dumps({'tasks': [task.todict() for task in tasks]},
+                      indent=2)
+    name.write_text(text)
 
 
 if __name__ == '__main__':
