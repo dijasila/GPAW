@@ -63,7 +63,10 @@ class SJM(SolvationGPAW):
             'upper_limit': float
                 Upper boundary of the counter charge region in terms of
                 coordinate in Anfstrom (default: z). The default is
-                atoms.cell[2][2] - 5
+                atoms.cell[2][2] - 5.
+        verbose: bool
+            Write final electrostatic potential, background charge and
+            and cavity into ASCII file.
 
 
     """
@@ -191,7 +194,6 @@ class SJM(SolvationGPAW):
                 if self.wfs is not None:
                     if major_changes:
                         self.density = None
-
                     else:
                         self.density.reset()
 
@@ -380,7 +382,7 @@ class SJM(SolvationGPAW):
         self.hamiltonian.summary(self.occupations.fermilevel, self.log)
 
         self.log('----------------------------------------------------------')
-        self.log('Grand Potential Energy (Composed of E_tot +E_solv - mu*ne):')
+        self.log('Grand Potential Energy (Composed of E_tot + E_solv - mu*ne):')
         self.log('Extrpol:    %s' % (Hartree *
                                      self.hamiltonian.e_el_extrapolated +
                                      self.get_electrode_potential() * self.ne))
@@ -395,7 +397,8 @@ class SJM(SolvationGPAW):
         self.log.fd.flush()
         if self.verbose:
             write_parallel_func_in_z(self.density.finegd,
-                                     self.hamiltonian.vHt_g,
+                                     self.hamiltonian.vHt_g * Hartree -
+                                     self.get_fermi_level(),
                                      'elstat_potential.out')
 
     def define_jellium(self, atoms):
