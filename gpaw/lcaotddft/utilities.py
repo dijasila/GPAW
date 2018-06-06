@@ -4,6 +4,65 @@ from gpaw.blacs import BlacsGrid
 from gpaw.blacs import Redistributor
 
 
+def collect_uX(kd, comm, a_uX, s, k):
+    # Comm is a communicator orthogonal to kd.comm (ie, domainband_comm)
+    Xshape = a_uX[0].shape
+    dtype = a_uX[0].dtype
+    kpt_rank, u = kd.get_rank_and_index(s, k)
+    if kd.comm.rank == kpt_rank:
+        a_X = a_uX[u]
+        # Comm master send to the global master
+        if comm.rank == 0:
+            if kpt_rank == 0:
+                # assert world.rank == 0
+                return a_X
+            else:
+                kd.comm.ssend(a_X, 0, 2018)
+    elif comm.rank == 0 and kpt_rank != 0:
+        # assert world.rank == 0
+        a_X = np.empty(Xshape, dtype=dtype)
+        kd.comm.receive(a_n, kpt_rank, 2018)
+        return a_X
+
+
+def write_uX(kd, comm, writer, name, a_uX):
+    ushape = (kd.nspins, kd.nibzkpts)
+    Xshape = a_uX[0].shape
+    dtype = a_uX[0].dtype
+    writer.add_array(name, ushape + Xshape, dtype=dtype)
+    for s in range(kd.nspins):
+        for k in range(kd.nibzkpts):
+            a_X = collect_uX(kd, comm, a_uX, s, k)
+            writer.fill(a_X)
+
+
+def read_uX(kpt_u, reader, name):
+    a_uX = []
+    for kpt in kpt_u:
+        indices = (kpt.s, kpt.k)
+        # TODO: does this read on all the comm ranks in vain?
+        a_X = reader.proxy(name, *indices)[:]
+        a_uX.append(a_X)
+    return a_uX
+
+
+def distribute_nM(ksl, a_nM):
+    if not ksl.using_blacs:
+        return a_nM
+
+    dtype = a_nM.dtype
+    ksl.nMdescriptor.checkassert(a_nM)
+    if ksl.gd.rank != 0:
+        a_nM = ksl.nM_unique_descriptor.zeros(dtype=dtype)
+
+    nM2mm = Redistributor(ksl.block_comm, ksl.nM_unique_descriptor,
+                      ksl.mmdescriptor)
+
+    a_mm = ksl.mmdescriptor.empty(dtype=dtype)
+    nM2mm.redistribute(a_nM, a_mm, ksl.bd.nbands, ksl.nao)
+    return a_mm
+
+
 def collect_MM(ksl, a_mm):
     if not ksl.using_blacs:
         return a_mm

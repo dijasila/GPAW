@@ -7,8 +7,13 @@ from ase.io.ulm import Reader
 from gpaw.io import Writer
 from gpaw.external import ConstantElectricField
 from gpaw.lcaotddft.hamiltonian import KickHamiltonian
+from gpaw.lcaotddft.utilities import collect_MM
+from gpaw.lcaotddft.utilities import distribute_nM
 from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import write_uMM
+from gpaw.lcaotddft.utilities import read_uX, write_uX
+from gpaw.utilities.scalapack import pblas_simple_gemm
+from gpaw.utilities.scalapack import pblas_simple_hemm
 from gpaw.utilities.tools import tri2full
 
 
@@ -48,13 +53,16 @@ class KohnShamDecomposition(object):
         self.has_initialized = False
         self.world = paw.world
         self.log = paw.log
-        self.wfs = paw.wfs
+        self.ksl = paw.wfs.ksl
+        self.kd = paw.wfs.kd
+        self.bd = paw.wfs.bd
+        self.kpt_u = paw.wfs.kpt_u
         self.density = paw.density
+        self.comm = paw.comms['K']
+        self.reader = None
 
-        if self.wfs.bd.comm.size > 1:
-            raise RuntimeError('Band parallelization is not supported')
-        if len(self.wfs.kpt_u) > 1:
-            raise RuntimeError('K-points are not supported')
+        if len(paw.wfs.kpt_u) > 1:
+            raise RuntimeError('K-points are not fully supported')
 
         if filename is not None:
             self.read(filename)
@@ -66,10 +74,17 @@ class KohnShamDecomposition(object):
         paw.initialize_positions()
         # paw.set_positions()
 
-        if self.wfs.gd.pbc_c.any():
-            self.C0_dtype = complex
-        else:
+        assert self.bd.nbands == self.ksl.nao
+        self.only_ia = only_ia
+
+        if not self.ksl.using_blacs and self.bd.comm.size > 1:
+            raise RuntimeError('Band parallelization without scalapack '
+                               'is not supported')
+
+        if self.kd.gamma:
             self.C0_dtype = float
+        else:
+            self.C0_dtype = complex
 
         # Take quantities
         self.fermilevel = paw.occupations.get_fermi_level()
@@ -77,7 +92,7 @@ class KohnShamDecomposition(object):
         self.C0_unM = []
         self.eig_un = []
         self.occ_un = []
-        for kpt in self.wfs.kpt_u:
+        for kpt in paw.wfs.kpt_u:
             S_MM = kpt.S_MM
             assert np.max(np.absolute(S_MM.imag)) == 0.0
             S_MM = S_MM.real
@@ -87,10 +102,13 @@ class KohnShamDecomposition(object):
             if self.C0_dtype == float:
                 assert np.max(np.absolute(C_nM.imag)) == 0.0
                 C_nM = C_nM.real
+            C_nM = distribute_nM(self.ksl, C_nM)
             self.C0_unM.append(C_nM)
 
-            self.eig_un.append(kpt.eps_n)
-            self.occ_un.append(kpt.f_n)
+            eig_n = paw.wfs.collect_eigenvalues(kpt.k, kpt.s)
+            occ_n = paw.wfs.collect_occupations(kpt.k, kpt.s)
+            self.eig_un.append(eig_n)
+            self.occ_un.append(occ_n)
 
         self.a_M, self.l_M = get_bfs_maps(paw)
         self.atoms = paw.atoms
@@ -99,81 +117,95 @@ class KohnShamDecomposition(object):
 
         # Construct p = (i, a) pairs
         u = 0
-        Nn = self.wfs.bd.nbands
         eig_n = self.eig_un[u]
         occ_n = self.occ_un[u]
+        C0_nM = self.C0_unM[u]
 
-        self.only_ia = only_ia
-        f_p = []
-        w_p = []
-        i_p = []
-        a_p = []
-        ia_p = []
-        i0 = 0
-        for i in range(i0, Nn):
-            if only_ia:
-                a0 = i + 1
-            else:
-                a0 = 0
-            for a in range(a0, Nn):
-                f = occ_n[i] - occ_n[a]
-                if only_ia and f < min_occdiff:
-                    continue
-                w = eig_n[a] - eig_n[i]
-                f_p.append(f)
-                w_p.append(w)
-                i_p.append(i)
-                a_p.append(a)
-                ia_p.append((i, a))
-        f_p = np.array(f_p)
-        w_p = np.array(w_p)
-        i_p = np.array(i_p, dtype=int)
-        a_p = np.array(a_p, dtype=int)
-        ia_p = np.array(ia_p, dtype=int)
+        if self.comm.rank == 0:
+            Nn = self.bd.nbands
 
-        # Sort according to energy difference
-        p_s = np.argsort(w_p)
-        f_p = f_p[p_s]
-        w_p = w_p[p_s]
-        i_p = i_p[p_s]
-        a_p = a_p[p_s]
-        ia_p = ia_p[p_s]
+            f_p = []
+            w_p = []
+            i_p = []
+            a_p = []
+            ia_p = []
+            i0 = 0
+            for i in range(i0, Nn):
+                if only_ia:
+                    a0 = i + 1
+                else:
+                    a0 = 0
+                for a in range(a0, Nn):
+                    f = occ_n[i] - occ_n[a]
+                    if only_ia and f < min_occdiff:
+                        continue
+                    w = eig_n[a] - eig_n[i]
+                    f_p.append(f)
+                    w_p.append(w)
+                    i_p.append(i)
+                    a_p.append(a)
+                    ia_p.append((i, a))
+            f_p = np.array(f_p)
+            w_p = np.array(w_p)
+            i_p = np.array(i_p, dtype=int)
+            a_p = np.array(a_p, dtype=int)
+            ia_p = np.array(ia_p, dtype=int)
 
-        Np = len(f_p)
-        P_p = []
-        for p in range(Np):
-            P = np.ravel_multi_index(ia_p[p], (Nn, Nn))
-            P_p.append(P)
-        P_p = np.array(P_p)
+            # Sort according to energy difference
+            p_s = np.argsort(w_p)
+            f_p = f_p[p_s]
+            w_p = w_p[p_s]
+            i_p = i_p[p_s]
+            a_p = a_p[p_s]
+            ia_p = ia_p[p_s]
 
-        dm_vMM = []
+            Np = len(f_p)
+            P_p = []
+            for p in range(Np):
+                P = np.ravel_multi_index(ia_p[p], (Nn, Nn))
+                P_p.append(P)
+            P_p = np.array(P_p)
+
+            dm_vp = np.empty((3, Np), dtype=float)
+
         for v in range(3):
             direction = np.zeros(3, dtype=float)
             direction[v] = 1.0
-            magnitude = 1.0
-            cef = ConstantElectricField(magnitude * Hartree / Bohr, direction)
+            cef = ConstantElectricField(Hartree / Bohr, direction)
             kick_hamiltonian = KickHamiltonian(paw.hamiltonian, paw.density,
                                                cef)
-            dm_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
-                kick_hamiltonian, paw.wfs, self.wfs.kpt_u[u],
+            dm_MM = paw.wfs.eigensolver.calculate_hamiltonian_matrix(
+                kick_hamiltonian, paw.wfs, paw.wfs.kpt_u[u],
                 add_kinetic=False, root=-1)
-            tri2full(dm_MM)  # TODO: do not use this
-            dm_vMM.append(dm_MM)
 
-        C0_nM = self.C0_unM[u]
-        dm_vnn = []
-        for v in range(3):
-            dm_vnn.append(np.dot(C0_nM.conj(), np.dot(dm_vMM[v], C0_nM.T)))
-        dm_vnn = np.array(dm_vnn)
-        dm_vP = dm_vnn.reshape(3, -1)
+            if self.ksl.using_blacs:
+                tmp_nM = self.ksl.mmdescriptor.zeros(dtype=C0_nM.dtype)
+                pblas_simple_hemm(self.ksl.mmdescriptor,
+                                  self.ksl.mmdescriptor,
+                                  self.ksl.mmdescriptor,
+                                  dm_MM, C0_nM.conj(), tmp_nM,
+                                  side='R', uplo='L')
+                dm_nn = self.ksl.mmdescriptor.zeros(dtype=C0_nM.dtype)
+                pblas_simple_gemm(self.ksl.mmdescriptor,
+                                  self.ksl.mmdescriptor,
+                                  self.ksl.mmdescriptor,
+                                  tmp_nM, C0_nM, dm_nn, transb='T')
+            else:
+                tri2full(dm_MM)
+                dm_nn = np.dot(C0_nM.conj(), np.dot(dm_MM, C0_nM.T))
 
-        dm_vp = dm_vP[:, P_p]
+            dm_nn = collect_MM(self.ksl, dm_nn)
+            if self.comm.rank == 0:
+                dm_P = dm_nn.ravel()
+                dm_p = dm_P[P_p]
+                dm_vp[v] = dm_p
 
-        self.w_p = w_p
-        self.f_p = f_p
-        self.ia_p = ia_p
-        self.P_p = P_p
-        self.dm_vp = dm_vp
+        if self.comm.rank == 0:
+            self.w_p = w_p
+            self.f_p = f_p
+            self.ia_p = ia_p
+            self.P_p = P_p
+            self.dm_vp = dm_vp
 
         self.has_initialized = True
 
@@ -187,18 +219,15 @@ class KohnShamDecomposition(object):
 
         write_atoms(writer.child('atoms'), self.atoms)
 
-        wfs = self.wfs
         writer.write(ha=Hartree)
-        write_uMM(wfs, writer, 'S_uMM', self.S_uMM)
-        wfs.write_wave_functions(writer)
-        wfs.write_eigenvalues(writer)
-        wfs.write_occupations(writer)
-        # write_unM(wfs, writer, 'C0_unM', self.C0_unM)
-        # write_un(wfs, writer, 'eig_un', self.eig_un)
-        # write_un(wfs, writer, 'occ_un', self.occ_un)
+        write_uMM(self.kd, self.ksl, writer, 'S_uMM', self.S_uMM)
+        write_uMM(self.kd, self.ksl, writer, 'C0_unM', self.C0_unM)
+        write_uX(self.kd, self.ksl.block_comm, writer, 'eig_un', self.eig_un)
+        write_uX(self.kd, self.ksl.block_comm, writer, 'occ_un', self.occ_un)
 
-        for arg in self.readwrite_attrs:
-            writer.write(arg, getattr(self, arg))
+        if self.comm.rank == 0:
+            for arg in self.readwrite_attrs:
+                writer.write(arg, getattr(self, arg))
 
         writer.close()
 
@@ -214,26 +243,33 @@ class KohnShamDecomposition(object):
         self.has_initialized = True
 
     def __getattr__(self, attr):
-        if attr in ['S_uMM']:
-            val = read_uMM(self.wfs, self.reader, attr)
+        if attr in ['S_uMM', 'C0_unM']:
+            val = read_uMM(self.kpt_u, self.ksl, self.reader, attr)
             setattr(self, attr, val)
             return val
-        if attr in ['C0_unM', 'eig_un', 'occ_un']:
-            if attr == 'C0_unM':
-                self.wfs.read_wave_functions(self.reader)
-                kpt_attr = 'C_nM'
-            elif attr == 'eig_un':
-                self.wfs.read_eigenvalues(self.reader)
-                kpt_attr = 'eps_n'
-            elif attr == 'occ_un':
-                self.wfs.read_eigenvalues(self.reader)
-                kpt_attr = 'f_n'
-            setattr(self, attr, [])
-            a_uX = getattr(self, attr)
-            for kpt in self.wfs.kpt_u:
-                a_uX.append(getattr(kpt, kpt_attr))
-            return a_uX
+        if attr in ['eig_un', 'occ_un']:
+            val = read_uX(self.kpt_u, self.ksl, self.reader, attr)
+            setattr(self, attr, val)
+            return val
+        if attr in ['C0S_unM']:
+            C0S_unM = []
+            for u, kpt in enumerate(self.kpt_u):
+                C0_nM = self.C0_unM[u]
+                S_MM = self.S_uMM[u]
+                if self.ksl.using_blacs:
+                    C0S_nM = self.ksl.mmdescriptor.zeros(dtype=C0_nM.dtype)
+                    pblas_simple_hemm(self.ksl.mmdescriptor,
+                                      self.ksl.mmdescriptor,
+                                      self.ksl.mmdescriptor,
+                                      S_MM, C0_nM, C0S_nM,
+                                      side='R', uplo='L')
+                else:
+                    C0S_nM = np.dot(C0_nM, S_MM)
+                C0S_unM.append(C0S_nM)
+            setattr(self, attr, C0S_unM)
+            return C0S_unM
         if attr in ['weight_Mn']:
+            assert self.world.size == 1
             C2_nM = np.absolute(self.C0_unM[0])**2
             val = C2_nM.T / np.sum(C2_nM, axis=1)
             setattr(self, attr, val)
@@ -246,7 +282,7 @@ class KohnShamDecomposition(object):
                 val = read_atoms(val)
             setattr(self, attr, val)
             return val
-        except KeyError:
+        except (KeyError, AttributeError):
             pass
 
         raise AttributeError('Attribute %s not defined in version %s' %
@@ -291,22 +327,41 @@ class KohnShamDecomposition(object):
             self.distribute_p(a_xp[x], a_xq[x])
         return a_xq
 
-    def transform(self, rho_uMM):
+    def transform(self, rho_uMM, broadcast=False):
         assert len(rho_uMM) == 1, 'K-points not implemented'
         u = 0
-        C0_nM = self.C0_unM[u]
-        S_MM = self.S_uMM[u]
         rho_MM = rho_uMM[u]
+        C0S_nM = self.C0S_unM[u].astype(rho_MM.dtype, copy=True)
         # KS decomposition
-        C0S_nM = np.dot(C0_nM, S_MM)
-        rho_nn = np.dot(np.dot(C0S_nM, rho_MM), C0S_nM.T.conjugate())
-        rho_P = rho_nn.reshape(-1)
+        if self.ksl.using_blacs:
+            tmp_nM = self.ksl.mmdescriptor.zeros(dtype=rho_MM.dtype)
+            pblas_simple_hemm(self.ksl.mmdescriptor,
+                              self.ksl.mmdescriptor,
+                              self.ksl.mmdescriptor,
+                              rho_MM, C0S_nM, tmp_nM,
+                              side='R', uplo='L')
+            rho_nn = self.ksl.mmdescriptor.zeros(dtype=rho_MM.dtype)
+            pblas_simple_gemm(self.ksl.mmdescriptor,
+                              self.ksl.mmdescriptor,
+                              self.ksl.mmdescriptor,
+                              tmp_nM, C0S_nM.conj(), rho_nn, transb='T')
+        else:
+            rho_nn = np.dot(np.dot(C0S_nM, rho_MM), C0S_nM.T.conj())
 
-        # Remove de-excitation terms
-        rho_p = rho_P[self.P_p]
-        if self.only_ia:
-            rho_p *= 2
+        rho_nn = collect_MM(self.ksl, rho_nn)
+        if self.comm.rank == 0:
+            rho_P = rho_nn.ravel()
+            # Remove de-excitation terms
+            rho_p = rho_P[self.P_p]
+            if self.only_ia:
+                rho_p *= 2
+        else:
+            rho_p = None
 
+        if broadcast:
+            if self.comm.rank != 0:
+                rho_p = np.zeros_like(self.P_p, dtype=rho_MM.dtype)
+            self.comm.broadcast(rho_p, 0)
         rho_up = [rho_p]
         return rho_up
 
@@ -350,7 +405,7 @@ class KohnShamDecomposition(object):
         dm_v = - np.dot(self.dm_vp, rho_p)
         return dm_v
 
-    def get_density(self, rho_up, density='comp'):
+    def get_density(self, wfs, rho_up, density='comp'):
         from gpaw.lcaotddft.densitymatrix import get_density
 
         density_type = density
@@ -367,7 +422,7 @@ class KohnShamDecomposition(object):
         rho_MM = np.dot(C0_iM.T, np.dot(rho_ia, C0_aM.conj()))
         rho_MM = 0.5 * (rho_MM + rho_MM.T)
 
-        return get_density(rho_MM, self.wfs, self.density, density_type, u)
+        return get_density(rho_MM, wfs, self.density, density_type, u)
 
     def get_contributions_table(self, weight_p, minweight=0.01,
                                 zero_fermilevel=True):
@@ -463,7 +518,7 @@ class KohnShamDecomposition(object):
         return dist_e
 
     def get_distribution_ia(self, weight_p, energy_o, energy_u, sigma,
-                           zero_fermilevel=True):
+                            zero_fermilevel=True):
         """
         Filter both i and a spaces as in TCM.
 
