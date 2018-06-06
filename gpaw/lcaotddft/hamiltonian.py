@@ -24,7 +24,9 @@ class TimeDependentPotential(object):
         if self.initialized:
             return
 
-        self.wfs = paw.wfs
+        self.ksl = paw.wfs.ksl
+        self.kd = paw.wfs.kd
+        self.kpt_u = paw.wfs.kpt_u
         get_matrix = paw.wfs.eigensolver.calculate_hamiltonian_matrix
         self.V_iuMM = []
         for ext in self.ext_i:
@@ -47,12 +49,14 @@ class TimeDependentPotential(object):
     def write(self, writer):
         writer.write(Ni=self.Ni)
         writer.write(laser_i=[laser.todict() for laser in self.laser_i])
-        write_wuMM(self.wfs, writer, 'V_iuMM', self.V_iuMM, range(self.Ni))
+        write_wuMM(self.kd, self.ksl, writer, 'V_iuMM',
+                   self.V_iuMM, range(self.Ni))
 
     def read(self, reader):
         self.Ni = reader.Ni
         self.laser_i = [create_laser(**laser) for laser in reader.laser_i]
-        self.V_iuMM = read_wuMM(self.wfs, reader, 'V_iuMM', range(self.Ni))
+        self.V_iuMM = read_wuMM(self.kpt_u, self.ksl, reader, 'V_iuMM',
+                                range(self.Ni))
         self.initialized = True
 
 
@@ -92,9 +96,9 @@ class TimeDependentHamiltonian(object):
             self.td_potential.write(writer.child('td_potential'))
 
     def write_fxc(self, writer):
-        wfs = self.wfs
         writer.write(name=self.fxc_name)
-        write_uMM(wfs, writer, 'deltaXC_H_uMM', self.deltaXC_H_uMM)
+        write_uMM(self.wfs.kd, self.wfs.ksl, writer, 'deltaXC_H_uMM',
+                  self.deltaXC_H_uMM)
 
     def read(self, reader):
         if 'fxc' in reader:
@@ -102,13 +106,16 @@ class TimeDependentHamiltonian(object):
         if 'td_potential' in reader:
             assert self.td_potential is None
             self.td_potential = TimeDependentPotential()
-            self.td_potential.wfs = self.wfs
+            self.td_potential.ksl = self.wfs.ksl
+            self.td_potential.kd = self.wfs.kd
+            self.td_potential.kpt_u = self.wfs.kpt_u
             self.td_potential.read(reader.td_potential)
 
     def read_fxc(self, reader):
         assert self.fxc_name is None or self.fxc_name == reader.name
         self.fxc_name = reader.name
-        self.deltaXC_H_uMM = read_uMM(self.wfs, reader, 'deltaXC_H_uMM')
+        self.deltaXC_H_uMM = read_uMM(self.wfs.kpt_u, self.wfs.ksl, reader,
+                                      'deltaXC_H_uMM')
 
     def initialize(self, paw):
         self.timer = paw.timer
