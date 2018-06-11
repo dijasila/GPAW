@@ -113,7 +113,7 @@ Check that you have installed everything in the correct places::
 
 To check the compiled parallel features (like ScaLAPACK), you need to run::
 
-    $ gpaw-python $(which gpaw) info
+    $ gpaw-python -m gpaw info
 
 
 Install PAW datasets
@@ -153,7 +153,7 @@ If tests pass, and the parallel version is built, test the parallel code::
 
 or equivalently::
 
-    $ mpiexec -np 4 gpaw-python `which gpaw` test
+    $ mpiexec -np 4 gpaw-python -m gpaw test
 
 
 .. _download:
