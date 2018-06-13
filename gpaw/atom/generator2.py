@@ -1339,9 +1339,8 @@ def main(args):
             raise DatasetGenerationError
 
     if args.create_basis_set or args.write:
-        basis = gen.create_basis_set()
-
         if args.create_basis_set:
+            basis = gen.create_basis_set()
             basis.write_xml()
 
         if args.write:
