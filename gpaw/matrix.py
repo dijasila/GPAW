@@ -44,18 +44,26 @@ def suggest_blocking(N, ncpus):
     nprow = ncpus
     npcol = 1
 
-    # Get a sort of reasonable number of columns/rows
-    while npcol < nprow and nprow % 2 == 0:
-        npcol *= 2
-        nprow //= 2
+    # Make npcol and nprow as close to each other as possible
+    npcol_try = npcol
+    while npcol_try < nprow:
+        if ncpus % npcol_try == 0:
+            npcol = npcol_try
+            nprow = ncpus // npcol
+        npcol_try += 1
 
     assert npcol * nprow == ncpus
 
-    # ScaLAPACK creates trouble if there aren't at least a few
-    # whole blocks; choose block size so there will always be
-    # several blocks.  This will crash for small test systems,
-    # but so will ScaLAPACK in any case
-    blocksize = min(-(-N // 4), 64)
+    # ScaLAPACK creates trouble if there aren't at least a few whole blocks.
+    # Choose block size so that there will always be at least one whole block
+    # and at least two blocks in total.
+    blocksize = max((N - 2) // max(nprow, npcol), 1)
+    # The next commented line would give more whole blocks.
+    # blocksize = max(N // max(nprow, npcol) - 2, 1)
+
+    # Use block size that is a power of 2 and at most 64
+    blocksize = 2**int(np.log2(blocksize))
+    blocksize = max(min(blocksize, 64), 1)
 
     return nprow, npcol, blocksize
 

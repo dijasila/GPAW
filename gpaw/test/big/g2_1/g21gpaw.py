@@ -23,9 +23,8 @@ for name in molecule_names + atom_names:
         atoms.calc.set(eigensolver='dav',
                        mixer=Mixer(0.05, 2))
     atoms.get_forces()
-    c.write(atoms, name=name, relaxed=False)
+    c.write(atoms, id=id, name=name, relaxed=False)
     if len(atoms) > 1:
         opt = BFGS(atoms, logfile=name + '.gpaw.log')
         opt.run(0.01)
         c.write(atoms, name=name, relaxed=True)
-    del c[id]

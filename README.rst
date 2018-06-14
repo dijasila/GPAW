@@ -15,6 +15,7 @@ Requirements
 * Python_ 2.7, 3.4-
 * ASE_ (atomic simulation environment)
 * NumPy_ (base N-dimensional array package)
+* SciPy_ (library for scientific computing)
 * LibXC
 * BLAS
 * LAPACK
@@ -23,7 +24,6 @@ Optional:
 
 * MPI
 * ScaLAPACK
-* SciPy_ (library for scientific computing)
 
 
 Installation
@@ -53,8 +53,10 @@ and send us the output if there are failing tests.
 Contact
 -------
 
-* Mailing lists: gpaw-users_ and gpaw-developers_
+* Mailing list: gpaw-users_
 * IRC_: #gpaw on freenode.net
+* Bug reports and development: gitlab-issues_
+* Old development mailing list (archive): gpaw-developers_
 
 Please send us bug-reports, patches, code, ideas and questions.
 
@@ -102,5 +104,6 @@ look at the GPAW exercises_ and tutorials_.
 .. _gpaw-users: https://listserv.fysik.dtu.dk/mailman/listinfo/gpaw-users
 .. _gpaw-developers: https://listserv.fysik.dtu.dk/mailman/listinfo/gpaw-developers
 .. _IRC: http://webchat.freenode.net/?randomnick=0&channels=gpaw
+.. _gitlab-issues: https://gitlab.com/gpaw/gpaw/issues
 .. _exercises: https://wiki.fysik.dtu.dk/gpaw/exercises/exercises.html
 .. _tutorials: https://wiki.fysik.dtu.dk/gpaw/tutorials/tutorials.html

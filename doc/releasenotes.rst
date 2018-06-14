@@ -10,6 +10,19 @@ Git master branch
 
 :git:`master <>`.
 
+* Corresponding ASE release: ASE-3.16.1b1
+
+
+Version 1.4.0
+=============
+
+29 May 2018: :git:`1.4.0 <../1.4.0>`
+
+* Corresponding ASE release: ASE-3.16.0.
+
+* Improved parallelization of operations with localized functions in
+  PW mode.  This solves the current size bottleneck in PW mode.
+
 * Added QNA XC functional.
 
 * Major refactoring of the LCAOTDDFT code and added Kohn--Sham decomposition
@@ -21,7 +34,7 @@ Git master branch
 * Experimental support for calculations with non-collinear spins
   (plane-wave mode only).
   Use ``GPAW(experimental={'magmoms': magmoms})``, where ``magmoms``
-  is an array magnetic moment vectors of shape ``(len(atoms), 3)``.
+  is an array of magnetic moment vectors of shape ``(len(atoms), 3)``.
 
 * Number of bands no longer needs to be divisible by band parallelization
   group size.  Number of bands will no longer be automatically adjusted

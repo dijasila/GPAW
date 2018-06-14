@@ -1,6 +1,7 @@
-def agts(queue):
-    co = queue.add('co.py', ncpus=4, walltime=5 * 60)
-    queue.add('co.agts.py', deps=co)
+def create_tasks():
+    from myqueue.task import task
+    return [task('co.py@4:5h'),
+            task('co.agts.py', deps='co.py')]
 
 
 if __name__ == '__main__':

@@ -1,6 +1,9 @@
-def agts(queue):
-    top = queue.add('top.py', ncpus=8)
-    queue.add('pdos.py', deps=top, creates='pdos.png')
+from myqueue.task import task
 
-    calc = queue.add('lcaodos_gs.py', ncpus=8)
-    queue.add('lcaodos_plt.py', deps=calc, creates='lcaodos.png')
+
+def create_tasks():
+    return [
+        task('top.py@8:15m'),
+        task('pdos.py', deps='top.py'),
+        task('lcaodos_gs.py@8:15m'),
+        task('lcaodos_plt.py', deps='lcaodos_gs.py')]

@@ -427,6 +427,14 @@ class FDPWWaveFunctions(WaveFunctions):
             # less than the desired number of bands, then extra random
             # wave functions are added.
             self.random_wave_functions(lcaobd.mynbands)
+            # IMPORTANT: This intersperses random wavefunctions
+            # with those from LCAO depending on band parallelization.
+            # This is presumably okay as long as the FD/PW eigensolver
+            # is called again before using the wavefunctions/occupations.
+            #
+            # Indeed as of writing this, the initialization appears to
+            # call these things in the correct order, but there is no
+            # telling when this will break due to some unrelated change.
         self.timer.stop('LCAO initialization')
 
         return lcaobd.nbands

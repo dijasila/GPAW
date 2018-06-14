@@ -25,6 +25,7 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
 from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
+import _gpaw
 
 
 class PW(Mode):
@@ -921,7 +922,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt.eps_n = eps_n[myslice].copy()
 
             if scalapack:
-                md3 = BlacsDescriptor(bg, npw, npw, bd.mynbands, npw)
+                md3 = BlacsDescriptor(bg, npw, npw, bd.maxmynbands, npw)
                 r = Redistributor(bd.comm, md2, md3)
                 psit_nG = r.redistribute(psit_nG)
 
@@ -1158,7 +1159,8 @@ class PWLFC(BaseLFC):
             I1 = I2
         self.nI = I1
 
-    def expand(self, q=-1, G1=0, G2=None):
+    def old_expand(self, q=-1, G1=0, G2=None):
+        # Pure-Python version of expand().  Left here for testing.
         if G2 is None:
             G2 = self.Y_qLG[q].shape[1]
         f_IG = np.empty((self.nI, G2 - G1), complex)
@@ -1168,6 +1170,20 @@ class PWLFC(BaseLFC):
             l, f_qG = self.lf_aj[a][j]
             f_IG[I1:I2] = (emiGR_Ga[:, a] * f_qG[q][G1:G2] * (-1.0j)**l *
                            self.Y_qLG[q][l**2:(l + 1)**2, G1:G2])
+        return f_IG
+
+    def expand(self, q=-1, G1=0, G2=None):
+        if G2 is None:
+            G2 = self.Y_qLG[q].shape[1]
+        G_Qv = self.pd.G_Qv[self.pd.Q_qG[q][G1:G2]]
+        f_IG = np.empty((self.nI, G2 - G1), complex)
+        emiGRbuf_G = np.empty(len(G_Qv), complex)
+
+        Y_LG = self.Y_qLG[q]
+
+        _gpaw.pwlfc_expand(G_Qv, self.pos_av,
+                           self.lf_aj, Y_LG, q, G1, G2,
+                           f_IG, emiGRbuf_G)
         return f_IG
 
     def block(self, q=-1, serial=True):
@@ -1182,9 +1198,12 @@ class PWLFC(BaseLFC):
                 iblock += 1
                 G1 = G2
         else:
-            yield 0, nG
+            if serial or self.comm.rank == 0:
+                yield 0, nG
+            else:
+                yield 0, 0
 
-    def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None):
+    def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None, serial=True):
         if isinstance(c_axi, float):
             assert q == -1, a_xG.dims == 1
             a_xG += (c_axi / self.pd.gd.dv) * self.expand(-1).sum(0)
@@ -1197,7 +1216,7 @@ class PWLFC(BaseLFC):
 
         a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
 
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block(q, serial=serial):
             if f0_IG is None:
                 f_IG = self.expand(q, G1, G2)
             else:
@@ -1259,8 +1278,10 @@ class PWLFC(BaseLFC):
 
         K_v = self.pd.K_qv[q]
 
+        serial = False
+
         x = 0.0
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block(q, serial=serial):
             f_IG = self.expand(q, G1, G2)
             G_Gv = self.pd.G_Qv[self.pd.Q_qG[q][G1:G2]]
             if self.pd.dtype == float:
@@ -1276,6 +1297,9 @@ class PWLFC(BaseLFC):
                          a_xG[:, G1:G2],
                          x, b_vxI[v], 'c')
             x = 1.0
+
+        if not serial:
+            self.comm.sum(c_vxI)
 
         for v in range(3):
             if self.pd.dtype == float:
@@ -1312,14 +1336,19 @@ class PWLFC(BaseLFC):
 
         G0_Gv = self.pd.get_reciprocal_vectors(q=q)
 
+        serial = False
+
         stress_vv = np.zeros((3, 3))
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block(q, serial=serial):
             G_Gv = G0_Gv[G1:G2]
             aa_xG = a_xG[..., G1:G2]
             for v1 in range(3):
                 for v2 in range(3):
                     stress_vv[v1, v2] += self._stress_tensor_contribution(
                         v1, v2, cache, G1, G2, G_Gv, aa_xG, c_axi, q)
+
+        if not serial:
+            self.comm.sum(stress_vv)
 
         return stress_vv
 
@@ -1452,9 +1481,10 @@ class ReciprocalSpaceDensity(Density):
 
     def calculate_pseudo_charge(self):
         self.rhot_q = self.pd3.zeros()
-        self.rhot_q[self.G3_G] = self.nt_Q * 8
         Q_aL = self.Q.calculate(self.D_asp)
-        self.ghat.add(self.rhot_q, Q_aL)
+        self.ghat.add(self.rhot_q, Q_aL, serial=False)
+        self.ghat.comm.sum(self.rhot_q)
+        self.rhot_q[self.G3_G] += self.nt_Q * 8
         self.background_charge.add_fourier_space_charge_to(self.pd3,
                                                            self.rhot_q)
         self.rhot_q[0] = 0.0
@@ -1551,6 +1581,14 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             self.epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
 
         self.vt_Q = self.vbar_Q + self.vHt_q[dens.G3_G] / 8
+        self.e_external = 0.0
+
+        if self.vext is not None:
+            gd = self.finegd
+            vext_q = self.vext.get_potentialq(gd, self.pd3)
+            self.vt_Q += vext_q[dens.G3_G] / 8
+            self.e_external = self.pd3.integrate(vext_q, dens.rhot_q)
+
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
@@ -1572,15 +1610,17 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         self.timer.stop('XC 3D grid')
 
-        eext = 0.0
-
-        return np.array([self.epot, self.ebar, eext, self.exc])
+        return np.array([self.epot, self.ebar, self.e_external, self.exc])
 
     def calculate_atomic_hamiltonians(self, density):
         W_aL = {}
         for a in density.D_asp:
             W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
-        density.ghat.integrate(self.vHt_q, W_aL)
+        if self.vext:
+            vext_q = self.vext.get_potentialq(self.finegd, self.pd3)
+            density.ghat.integrate(self.vHt_q+vext_q, W_aL)
+        else:
+            density.ghat.integrate(self.vHt_q, W_aL)
         return W_aL
 
     def calculate_kinetic_energy(self, density):
@@ -1606,7 +1646,11 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     restrict_and_collect = restrict
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
-        dens.ghat.derivative(self.vHt_q, ghat_aLv)
+        if self.vext:
+            vext_q = self.vext.get_potentialq(self.finegd, self.pd3)
+            dens.ghat.derivative(self.vHt_q+vext_q, ghat_aLv)
+        else:
+            dens.ghat.derivative(self.vHt_q, ghat_aLv)
         dens.nct.derivative(self.vt_Q, nct_av)
         self.vbar.derivative(dens.nt_Q, vbar_av)
 

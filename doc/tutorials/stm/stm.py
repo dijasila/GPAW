@@ -1,3 +1,4 @@
+# Creates: 2d.png, 2d_I.png, line.png, dIdV.png
 from ase.dft.stm import STM
 from gpaw import GPAW
 calc = GPAW('al111.gpw')
