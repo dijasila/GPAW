@@ -1,6 +1,5 @@
 import numpy as np
 
-from gpaw.mpi import rank
 from gpaw.utilities import packed_index
 
 class Overlap:
