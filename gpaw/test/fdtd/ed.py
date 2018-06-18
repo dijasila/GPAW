@@ -51,6 +51,7 @@ atoms, qm_spacing, gpts = poissonsolver.cut_cell(atoms,
 # Initialize GPAW
 gs_calc = GPAW(gpts          = gpts,
                eigensolver   = 'cg',
+               niter_fixdensity=2,
                nbands        = -1,
                poissonsolver = poissonsolver,
                convergence   = {'energy': energy_eps})

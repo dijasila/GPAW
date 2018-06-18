@@ -3,7 +3,7 @@ import numpy as np
 from math import pi, cos, sin
 from ase import Atom, Atoms
 # from ase.parallel import rank, barrier
-from gpaw import GPAW, PoissonSolver
+from gpaw import GPAW, PoissonSolver, Davidson
 from gpaw.xas import XAS
 from gpaw.test import equal, gen
 
@@ -19,6 +19,7 @@ H2O = Atoms([Atom('O', (0, 0, 0)),
             cell=(a, a, a), pbc=False)
 H2O.center()
 calc = GPAW(nbands=10, h=0.2, setups={'O': 'hch1s'},
+            niter_fixdensity=2, eigensolver=Davidson(1),
             poissonsolver=PoissonSolver(use_charge_center=True))
 H2O.set_calculator(calc)
 e = H2O.get_potential_energy()

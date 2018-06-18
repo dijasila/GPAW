@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 from ase import Atoms
-from gpaw import GPAW
+from gpaw import GPAW, Davidson
 from gpaw.test import equal
 
 from gpaw.external import ConstantPotential
@@ -29,7 +29,8 @@ convergence = {'eigenstates': 1.e-4 * 40 * 1.5**3,
 if True:
     if txt:
         print('\n################## no potential')
-    c00 = GPAW(h=0.3, nbands=-1,
+    c00 = GPAW(eigensolver=Davidson(1),
+               h=0.3, nbands=-1,
                convergence=convergence,
                txt=txt)
     c00.calculate(H2)
@@ -40,7 +41,8 @@ if True:
     if txt:
         print('\n################## 0 potential')
     cp0 = ConstantPotential(0.0)
-    c01 = GPAW(h=0.3, nbands=-2, external=cp0,
+    c01 = GPAW(eigensolver=Davidson(1),
+               h=0.3, nbands=-2, external=cp0,
                convergence=convergence,
                txt=txt)
     c01.calculate(H2)
@@ -50,7 +52,8 @@ if True:
     if txt:
         print('################## 1 potential')
     cp1 = ConstantPotential(-1.0)
-    c1 = GPAW(h=0.3, nbands=-2, external=cp1,
+    c1 = GPAW(eigensolver=Davidson(1),
+              h=0.3, nbands=-2, external=cp1,
               convergence=convergence,
               txt=txt)
     c1.calculate(H2)

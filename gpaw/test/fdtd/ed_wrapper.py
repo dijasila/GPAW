@@ -35,7 +35,7 @@ qsfdtd = QSFDTD(classical_material = classical_material,
                 communicator       = world)
 
 # Run
-qsfdtd.ground_state('gs.gpw', eigensolver='cg', nbands=-1, convergence={'energy': energy_eps})
+qsfdtd.ground_state('gs.gpw', eigensolver='cg', nbands=-1, convergence={'energy': energy_eps}, niter_fixdensity=2)
 equal(qsfdtd.energy, -0.631881, energy_eps * qsfdtd.gs_calc.get_number_of_electrons())
 qsfdtd.time_propagation('gs.gpw', kick_strength=[0.000, 0.000, 0.001], time_step=10, iterations=5, dipole_moment_file='dm.dat', restart_file='td.gpw')
 qsfdtd.time_propagation('td.gpw', kick_strength=None, time_step=10, iterations=5, dipole_moment_file='dm.dat')

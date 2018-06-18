@@ -1,7 +1,7 @@
 from __future__ import print_function
 from math import pi, cos, sin
 from ase import Atom, Atoms
-from gpaw import GPAW, PoissonSolver
+from gpaw import GPAW, PoissonSolver, Davidson
 from gpaw.test import equal, gen
 
 # Generate setup for oxygen with half a core-hole:
@@ -17,6 +17,7 @@ if 1:
                 cell=(a, a, a), pbc=False)
     H2O.center()
     calc = GPAW(nbands=10, h=0.2, setups={'O': 'hch1s'},
+                niter_fixdensity=2, eigensolver=Davidson(1),
                 poissonsolver=PoissonSolver(use_charge_center=True))
     H2O.set_calculator(calc)
     e = H2O.get_potential_energy()

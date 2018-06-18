@@ -1,6 +1,6 @@
 import numpy as np
 from ase import Atoms
-from gpaw import GPAW
+from gpaw import GPAW, Davidson
 from gpaw.lrtddft import LrTDDFT
 from gpaw.inducedfield.inducedfield_lrtddft import LrTDDFTInducedField
 from gpaw.poisson import PoissonSolver
@@ -20,6 +20,7 @@ atoms = Atoms(symbols='Na2',
 atoms.center(vacuum=3.0)
 
 calc = GPAW(nbands=20, h=0.6, setups={'Na': '1'}, poissonsolver=poissonsolver,
+            niter_fixdensity=2, eigensolver=Davidson(1),
             convergence={'density': density_eps})
 atoms.set_calculator(calc)
 energy = atoms.get_potential_energy()
