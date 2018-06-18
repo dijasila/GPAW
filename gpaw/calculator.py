@@ -60,6 +60,7 @@ class GPAW(PAW, Calculator):
         'basis': {},
         'spinpol': None,
         'fixdensity': False,
+        'niter_fixdensity': 0,
         'filter': None,
         'mixer': None,
         'eigensolver': None,
@@ -406,7 +407,8 @@ class GPAW(PAW, Calculator):
                        'eigensolver', 'idiotproof']:
                 continue
 
-            if key in ['convergence', 'fixdensity', 'maxiter']:
+            if key in ['convergence', 'fixdensity', 'maxiter',
+                       'niter_fixdensity']:
                 continue
 
             # Check nested arguments
@@ -799,11 +801,6 @@ class GPAW(PAW, Calculator):
         self.log(self.occupations)
 
     def create_scf(self, nvalence, mode):
-        if mode.name == 'lcao':
-            niter_fixdensity = 0
-        else:
-            niter_fixdensity = 2
-
         nv = max(nvalence, 1)
         cc = self.parameters.convergence
         self.scf = SCFLoop(
@@ -812,7 +809,7 @@ class GPAW(PAW, Calculator):
             cc.get('density', 1.0e-4) * nv,
             cc.get('forces', np.inf) / (Ha / Bohr),
             self.parameters.maxiter,
-            niter_fixdensity, nv)
+            self.parameters.niter_fixdensity, nv)
         self.log(self.scf)
 
     def create_symmetry(self, magmom_av, cell_cv):
