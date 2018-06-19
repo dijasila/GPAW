@@ -947,9 +947,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def initialize_from_lcao_coefficients(self, basis_functions):
         N_c = self.gd.N_c
 
-        # N = len(self.mykpts[0].C_nM)
-        N = 1
-        psit_nR = self.gd.empty(N, self.dtype)
+        psit_nR = self.gd.empty(1, self.dtype)
 
         for kpt in self.mykpts:
             if self.kd.gamma:
@@ -1617,7 +1615,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
         if self.vext:
             vext_q = self.vext.get_potentialq(self.finegd, self.pd3)
-            density.ghat.integrate(self.vHt_q+vext_q, W_aL)
+            density.ghat.integrate(self.vHt_q + vext_q, W_aL)
         else:
             density.ghat.integrate(self.vHt_q, W_aL)
         return W_aL
@@ -1647,7 +1645,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
         if self.vext:
             vext_q = self.vext.get_potentialq(self.finegd, self.pd3)
-            dens.ghat.derivative(self.vHt_q+vext_q, ghat_aLv)
+            dens.ghat.derivative(self.vHt_q + vext_q, ghat_aLv)
         else:
             dens.ghat.derivative(self.vHt_q, ghat_aLv)
         dens.nct.derivative(self.vt_Q, nct_av)
