@@ -947,7 +947,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def initialize_from_lcao_coefficients(self, basis_functions):
         N_c = self.gd.N_c
 
-        N = len(self.mykpts[0].C_nM)
+        # N = len(self.mykpts[0].C_nM)
+        N = 1
         psit_nR = self.gd.empty(N, self.dtype)
 
         for kpt in self.mykpts:
@@ -957,20 +958,18 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 k_c = self.kd.ibzk_kc[kpt.k]
                 emikr_R = np.exp(-2j * pi *
                                  np.dot(np.indices(N_c).T, k_c / N_c).T)
-
-            psit_nR[:] = 0.0
-            basis_functions.lcao_to_grid(kpt.C_nM, psit_nR, kpt.q)
-            kpt.C_nM = None
-
             kpt.psit = PlaneWaveExpansionWaveFunctions(
                 self.bd.nbands, self.pd, self.dtype, kpt=kpt.q,
                 dist=(self.bd.comm, -1, 1),
                 spin=kpt.s, collinear=self.collinear)
-
             psit_nG = kpt.psit.array
-            for psit_G, psit_R in zip(psit_nG.reshape((-1, psit_nG.shape[-1])),
-                                      psit_nR):
-                psit_G[:] = self.pd.fft(psit_R * emikr_R, kpt.q)
+            for n, psit_G in enumerate(psit_nG.reshape((-1,
+                                                        psit_nG.shape[-1]))):
+                psit_nR[:] = 0.0
+                basis_functions.lcao_to_grid(kpt.C_nM[n:n + 1], psit_nR, kpt.q)
+                psit_G[:] = self.pd.fft(psit_nR[0] * emikr_R, kpt.q)
+
+            kpt.C_nM = None
 
     def random_wave_functions(self, mynao):
         rs = np.random.RandomState(self.world.rank)
