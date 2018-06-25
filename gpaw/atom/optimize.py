@@ -320,9 +320,6 @@ if __name__ == '__main__':
     opts, args = parser.parse_args()
     if opts.run or opts.minimize:
         symbol = args[0]
-        if not os.path.isdir(symbol):
-            os.mkdir(symbol)
-        os.chdir(symbol)
         do = DatasetOptimizer(symbol, opts.norm_conserving, opts.processes)
         if opts.run:
             if opts.initial_only:
