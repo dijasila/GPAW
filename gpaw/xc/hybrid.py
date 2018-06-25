@@ -12,6 +12,7 @@ from gpaw.atom.configurations import core_states
 from gpaw.gaunt import gaunt
 from gpaw.lfc import LFC
 from gpaw.poisson import PoissonSolver
+from gpaw.helmholtz import HelmholtzSolver
 from gpaw.transformers import Transformer
 from gpaw.utilities import hartree, pack, pack2, unpack, unpack2, packed_index
 from gpaw.utilities.blas import gemm
@@ -36,6 +37,45 @@ class HybridXCBase(XCFunctional):
             Standard DFT functional with scaled down exchange.
         """
 
+        rsf_functionals = {    # Parameters can also be taken from libxc
+            'CAMY_BLYP': {  # Akinaga, Ten-no CPL 462 (2008) 348-351
+                'alpha': 0.2,
+                'beta': 0.8,
+                'omega': 0.44,
+                'cam': True,
+                'rsf': 'Yukawa',
+                'xc': 'HYB_GGA_XC_CAMY_BLYP'
+            },
+            'CAMY_B3LYP': {  # Seth, Ziegler JCTC 8 (2012) 901-907
+                'alpha': 0.19,
+                'beta': 0.46,
+                'omega': 0.34,
+                'cam': True,
+                'rsf': 'Yukawa',
+                'xc': 'HYB_GGA_XC_CAMY_B3LYP'
+            },
+            'LCY_BLYP': {  # Seth, Ziegler JCTC 8 (2012) 901-907
+                'alpha': 0.0,
+                'beta': 1.0,
+                'omega': 0.75,
+                'cam': False,
+                'rsf': 'Yukawa',
+                'xc': 'HYB_GGA_XC_LCY_BLYP'
+            },
+            'LCY_PBE': {  # Seth, Ziegler JCTC 8 (2012) 901-907
+                'alpha': 0.0,
+                'beta': 1.0,
+                'omega': 0.75,
+                'cam': False,
+                'rsf': 'Yukawa',
+                'xc': 'HYB_GGA_XC_LCY_PBE'
+            }
+        }
+        self.omega = None
+        self.cam_alpha = None
+        self.cam_beta = None
+        self.is_cam = False
+        self.rsf = None
         if name == 'EXX':
             assert hybrid is None and xc is None
             hybrid = 1.0
@@ -58,14 +98,26 @@ class HybridXCBase(XCFunctional):
             hybrid = 0.25
             omega = 0.11
             xc = XC('HYB_GGA_XC_HSE06')
+        elif name in rsf_functionals:
+            rsf_functional = rsf_functionals[name]
+            self.cam_alpha = rsf_functional['alpha']
+            self.cam_beta = rsf_functional['beta']
+            self.omega = rsf_functional['omega']
+            self.is_cam = rsf_functional['cam']
+            self.rsf = rsf_functional['rsf']
+            xc = XC(rsf_functional['xc'])
+            hybrid = self.cam_alpha + self.cam_beta
 
         if isinstance(xc, (basestring, dict)):
             xc = XC(xc)
 
         self.hybrid = float(hybrid)
         self.xc = xc
-        self.omega = omega
-
+        if omega is not None:
+            if self.omega is not None and self.omega != omega:
+                self.xc.kernel.set_omega(omega)
+                # Needed to tune omega for RSF
+            self.omega = omega
         XCFunctional.__init__(self, name, xc.type)
 
     def todict(self):
@@ -81,17 +133,19 @@ class HybridXCBase(XCFunctional):
 
 class HybridXC(HybridXCBase):
     def __init__(self, name, hybrid=None, xc=None,
-                 finegrid=False, unocc=False):
+                 finegrid=False, unocc=False, omega=None):
         """Mix standard functionals with exact exchange.
 
         finegrid: boolean
             Use fine grid for energy functional evaluations ?
         unocc: boolean
             Apply vxx also to unoccupied states ?
+        omega: float
+            RSF mixing parameter ?
         """
         self.finegrid = finegrid
         self.unocc = unocc
-        HybridXCBase.__init__(self, name, hybrid, xc)
+        HybridXCBase.__init__(self, name, hybrid, xc, omega=omega)
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
