@@ -372,7 +372,7 @@ class PAWSetupGenerator:
         self.alpha = alpha
 
         if self.alpha is None:
-            if isinstance(rc, list):
+            if not isinstance(rc, (float, int)):
                 rc = min(rc)
             rc = 1.5 * rc
 
@@ -479,7 +479,7 @@ class PAWSetupGenerator:
         if isinstance(rc, float):
             radii = [rc]
         else:
-            radii = rc
+            radii = list(rc)
 
         if self.lmax >= 0:
             radii += [radii[-1]] * (self.lmax + 1 - len(radii))
@@ -760,7 +760,8 @@ class PAWSetupGenerator:
         plt.plot(r_g[1:], self.vHtr_g[1:] / r_g[1:], label='H')
         plt.plot(r_g[1:], self.vtr_g[1:] / r_g[1:], label='ps')
         plt.plot(r_g[1:], self.aea.vr_sg[0, 1:] / r_g[1:], label='ae')
-        plt.axis(xmax=2 * self.rcmax,
+        plt.axis(xmin=0,
+                 xmax=2 * self.rcmax,
                  ymin=self.vtr_g[1] / r_g[1],
                  ymax=max(0, (self.v0r_g[1:] / r_g[1:]).max()))
         plt.xlabel('radius [Bohr]')
@@ -782,7 +783,7 @@ class PAWSetupGenerator:
                          label=name)
                 plt.plot(r_g[:gc], (phit_g * r_g)[:gc], '--', color=colors[i])
                 i += 1
-        plt.axis(xmax=3 * self.rcmax)
+        plt.axis(xmin=0, xmax=3 * self.rcmax)
         plt.xlabel('radius [Bohr]')
         plt.ylabel(r'$r\phi_{n\ell}(r)$')
         plt.legend()
@@ -797,7 +798,7 @@ class PAWSetupGenerator:
                     name = '%d%s (%.2f Ha)' % (n, 'spdf'[l], e)
                 plt.plot(r_g, pt_g * r_g, color=colors[i], label=name)
                 i += 1
-        plt.axis(xmax=self.rcmax)
+        plt.axis(xmin=0, xmax=self.rcmax)
         plt.legend()
 
     def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16):
