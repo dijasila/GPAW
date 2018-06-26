@@ -1,6 +1,8 @@
 from __future__ import print_function, division
 import os
 import re
+import sys
+import time
 
 import numpy as np
 from scipy.optimize import differential_evolution as DE
@@ -68,10 +70,14 @@ class DatasetOptimizer:
 
         setup_paths[:0] = ['.']
 
+        self.logfile = None
+        self.tflush = time.time() + 60
+
     def run(self):
         print(self.symbol, self.rc / Bohr, self.projectors)
         print(self.x)
         print(self.bounds)
+        self.logfile = open('data.csv', 'a')
         DE(self, self.bounds)
 
     def generate(self, fd, projectors, radii, r0, xc,
@@ -140,17 +146,32 @@ class DatasetOptimizer:
               end='')
 
         fd = open('out.txt', 'w')
-        errors, msg = self.test(fd, projectors, radii, r0)
+        errors, msg, convenergies, eggenergies = self.test(fd, projectors,
+                                                           radii, r0)
         error = ((errors / self.tolerances)**2).sum()
 
         print('{:9.1f} ({:.2f}, {:.3f}, {:.1f}, {}, {:.5f}) {}'
-              .format(error, *errors, msg),
-              flush=True)
+              .format(error, *errors, msg))
+
+        convenergies += [0] * (7 - len(convenergies))
+
+        print(', '.join(repr(number) for number in
+                        list(x) + [error] + errors +
+                        convenergies + eggenergies),
+              file=self.logfile)
+
+        if time.time() > self.tflush:
+            sys.stdout.flush()
+            self.logfile.flush()
+            self.tflush = time.time() + 60
 
         return error
 
     def test(self, fd, projectors, radii, r0):
         errors = [np.inf] * 5
+        energies = []
+        eggenergies = [0, 0, 0]
+        msg = ''
 
         try:
             if any(r < r0 for r in radii):
@@ -169,17 +190,18 @@ class DatasetOptimizer:
                 error += self.generate(fd, projectors, radii, r0, **kwargs)
             errors[1] = error
 
-            errors[2:4] = self.convergence(fd)
+            area, niter, energies = self.convergence(fd)
+            errors[2] = area
+            errors[3] = niter
 
-            errors[4] = self.eggbox(fd)
+            eggenergies = self.eggbox(fd)
+            errors[4] = max(eggenergies)
 
         except (ConvergenceError, PAWDataError, RuntimeError,
                 np.linalg.LinAlgError) as e:
             msg = str(e)
-        else:
-            msg = ''
 
-        return errors, msg
+        return errors, msg, energies, eggenergies
 
     def eggbox(self, fd):
         energies = []
@@ -210,7 +232,7 @@ class DatasetOptimizer:
             e3 = atoms.get_potential_energy()
             energies.append(np.ptp([e0, e1, e2, e3]))
         # print(energies)
-        return max(energies)
+        return energies
 
     def convergence(self, fd):
         a = 3.0
@@ -229,6 +251,7 @@ class DatasetOptimizer:
                           txt=fd,
                           **mixer)
         e0 = atoms.get_potential_energy()
+        energies = [e0]
         iters = atoms.calc.get_number_of_iterations()
         oldfde = None
         area = 0.0
@@ -240,6 +263,7 @@ class DatasetOptimizer:
             atoms.calc.set(mode=PW(ec))
             atoms.calc.set(eigensolver='rmm-diis')
             de = atoms.get_potential_energy() - e0
+            energies.append(de)
             # print(ec, de)
             fde = f(abs(de))
             if fde > f(0.1):
@@ -253,7 +277,7 @@ class DatasetOptimizer:
                 area += 100 * (fde + oldfde) / 2
             oldfde = fde
 
-        return area, iters
+        return area, iters, energies
 
     def summary(self, N=10):
         # print('dFffRrrICEer:')
