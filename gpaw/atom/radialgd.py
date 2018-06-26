@@ -87,24 +87,63 @@ class RadialGridDescriptor:
         return np.dot(a_xg[..., 1:],
                       (self.r_g**(2 + n) * self.dr_g)[1:]) * (4 * pi)
 
-    def integrate_yukawa(self, n1, n2, l, gamma):
-        """Integrate two densities n1 and n2 with yukawa interaction."""
+    def yukawa(self, n_g, l=0, gamma=1e-6):
+        """Calculates the radial grid yukawa integral.
+
+        The the integral kernel for the Yukawa interaction:
+
+                    \    _   _
+              exp(- /\ | r - r' |)
+              ----------------------
+                      _   _
+                    | r - r' |
+
+           is defined as
+
+            __    __            \  r              \  r    * ^     ^
+          \     4 ||  I_(l+0.5)(/\  <) K_(l+0.5) (/\  >) Y (r)  Y(r')
+           )          --------------------------          lm     lm
+          / __            (rr')^0.5
+            lm
+
+         where I and K are the modified Bessel functions of the first
+         and second kind (K is also known as Macdonald function).
+         r = min (r, r')     r = max(r, r')
+          <                   >
+         We now calculate the integral:
+
+
+                  ^    / _           ^
+         v (r) Y (r) = |dr' n(r') Y (r')
+          l     lm     /     l     lm
+
+        with the Yukawa kernel mentioned above.
+
+        And the output array is 'vr' as it is
+        within the Hartree / radial Poisson solver.
+        """
+
         from scipy.special import iv, kv
-        r = self.r_g
-        dr = self.dr_g
-        k_rgamma = kv(l + 0.5, r * gamma)      # K(>)
-        i_rgamma = iv(l + 0.5, r * gamma)      # I(<)
-        k_rgamma[0] = kv(l + 0.5, r[1] * gamma * 1e-5)
-        matrix_ik = np.outer(n1 * dr, n2 * dr)
-        len_vec = len(k_rgamma)
-        for i in range(len_vec):
-            k_rgi = k_rgamma[i]
-            for k in range(i):
-                modified_bessels = i_rgamma[k] * k_rgi
-                matrix_ik[i, k] *= modified_bessels
-                matrix_ik[k, i] *= modified_bessels
-            matrix_ik[i, i] *= i_rgamma[i] * k_rgi
-        return matrix_ik.sum()
+        vr_g = self.zeros()
+        nrdr_g = n_g * self.r_g**1.5 * self.dr_g
+        p = 0
+        q = 0
+        k_rgamma = kv(l + 0.5, self.r_g * gamma)      # K(>)
+        i_rgamma = iv(l + 0.5, self.r_g * gamma)      # I(<)
+        k_rgamma[0] = kv(l + 0.5, self.r_g[1] * gamma * 1e-5)
+        # We have two integrals: one for r< and one for r>
+        # This loop-technique helps calculate them in once
+        for g_ind in xrange(len(nrdr_g) - 1, -1, -1):
+            dp = k_rgamma[g_ind] * nrdr_g[g_ind]  # r' is r>
+            dq = i_rgamma[g_ind] * nrdr_g[g_ind]  # r' is r<
+            vr_g[g_ind] = (p + 0.5 * dp) * i_rgamma[g_ind] - \
+                          (q + 0.5 * dq) * k_rgamma[g_ind]
+            p += dp
+            q += dq
+        vr_g[:] += q * k_rgamma[:]
+        vr_g *= 4 * pi
+        vr_g[:] *= self.r_g[:]**0.5
+        return vr_g
 
     def derivative(self, n_g, dndr_g=None):
         """Finite-difference derivative of radial function."""
