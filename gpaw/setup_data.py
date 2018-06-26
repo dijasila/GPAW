@@ -374,6 +374,12 @@ class SetupData:
 
             print('  <exact_exchange core-core="%r"/>' % self.ExxC, file=xml)
 
+        if self.X_pg is not None:
+            print('  <yukawa_exchange_X_matrix>\n    ', end=' ', file=xml)
+            for x in self.X_pg:
+                print('%r' % x, end=' ', file=xml)
+            print('\n  </yukawa_exchange_X_matrix>', file=xml)
+            print('  <yukawa_exchange gamma="%r"/>' % self.X_gamma, file=xml)
         print('</paw_setup>', file=xml)
 
     def build(self, xcfunc, lmax, basis, filter=None):
