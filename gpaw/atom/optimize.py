@@ -18,7 +18,7 @@ for e in ['Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr']:  # missing radii
 
 
 class PAWDataError(Exception):
-    """Error in PAW data generation."""
+    """Error in PAW-data generation."""
 
 
 class DatasetOptimizer:
@@ -69,7 +69,7 @@ class DatasetOptimizer:
         setup_paths[:0] = ['.']
 
     def run(self):
-        print(self.symbol, self.rc / Bohr)
+        print(self.symbol, self.rc / Bohr, self.projectors)
         print(self.x)
         print(self.bounds)
         DE(self, self.bounds)
@@ -90,7 +90,7 @@ class DatasetOptimizer:
             gen = _generate(self.symbol, xc, None, projectors, radii,
                             scalar_relativistic, None, r0, nderiv0,
                             (type, 4), None, None, fd)
-        except np.linalg.linalg.LinAlgError:
+        except np.linalg.LinAlgError:
             raise PAWDataError('LinAlgError')
 
         if not scalar_relativistic:
@@ -173,7 +173,8 @@ class DatasetOptimizer:
 
             errors[4] = self.eggbox(fd)
 
-        except (ConvergenceError, PAWDataError) as e:
+        except (ConvergenceError, PAWDataError, RuntimeError,
+                np.linalg.LinAlgError) as e:
             msg = str(e)
         else:
             msg = ''
@@ -185,11 +186,11 @@ class DatasetOptimizer:
         for h in [0.16, 0.18, 0.2]:
             a0 = 16 * h
             atoms = Atoms(self.symbol, cell=(a0, a0, 2 * a0), pbc=True)
-            M = 333
             if 58 <= self.Z <= 70 or 90 <= self.Z <= 102:
                 M = 999
                 mixer = {'mixer': Mixer(0.01, 5)}
             else:
+                M = 333
                 mixer = {}
             atoms.calc = GPAW(h=h,
                               eigensolver=Davidson(niter=2),
@@ -198,7 +199,7 @@ class DatasetOptimizer:
                               setups='de',
                               maxiter=M,
                               txt=fd,
-                              *mixer)
+                              **mixer)
             atoms.positions += h / 2  # start with broken symmetry
             e0 = atoms.get_potential_energy()
             atoms.positions -= h / 6
@@ -214,11 +215,11 @@ class DatasetOptimizer:
     def convergence(self, fd):
         a = 3.0
         atoms = Atoms(self.symbol, cell=(a, a, a), pbc=True)
-        M = 333
         if 58 <= self.Z <= 70 or 90 <= self.Z <= 102:
             M = 999
             mixer = {'mixer': Mixer(0.01, 5)}
         else:
+            M = 333
             mixer = {}
         atoms.calc = GPAW(mode=PW(1500),
                           xc='PBE',
