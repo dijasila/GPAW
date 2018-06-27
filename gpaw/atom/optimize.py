@@ -167,6 +167,16 @@ class DatasetOptimizer:
 
         return error
 
+    def test_old_paw_data(self):
+        fd = open('old.txt', 'w')
+        area, niter, convenergies = self.convergence(fd, 'paw')
+        eggenergies = self.eggbox(fd, 'paw')
+        print('RESULTS:',
+              ', '.join(repr(number) for number in
+                        [area, niter, max(eggenergies)] +
+                        convenergies + eggenergies),
+              file=fd)
+
     def test(self, fd, projectors, radii, r0):
         errors = [np.inf] * 5
         energies = []
@@ -203,7 +213,7 @@ class DatasetOptimizer:
 
         return errors, msg, energies, eggenergies
 
-    def eggbox(self, fd):
+    def eggbox(self, fd, setup='de'):
         energies = []
         for h in [0.16, 0.18, 0.2]:
             a0 = 16 * h
@@ -218,7 +228,7 @@ class DatasetOptimizer:
                               eigensolver=Davidson(niter=2),
                               xc='PBE',
                               symmetry='off',
-                              setups='de',
+                              setups=setup,
                               maxiter=M,
                               txt=fd,
                               **mixer)
@@ -234,7 +244,7 @@ class DatasetOptimizer:
         # print(energies)
         return energies
 
-    def convergence(self, fd):
+    def convergence(self, fd, setup='de'):
         a = 3.0
         atoms = Atoms(self.symbol, cell=(a, a, a), pbc=True)
         if 58 <= self.Z <= 70 or 90 <= self.Z <= 102:
@@ -245,7 +255,7 @@ class DatasetOptimizer:
             mixer = {}
         atoms.calc = GPAW(mode=PW(1500),
                           xc='PBE',
-                          setups='de',
+                          setups=setup,
                           symmetry='off',
                           maxiter=M,
                           txt=fd,
