@@ -8,10 +8,12 @@ import os
 import os.path as op
 import re
 import sys
-from distutils.command.build_ext import build_ext as _build_ext
+from glob import glob
+
 from distutils.command.build_scripts import build_scripts as _build_scripts
 from setuptools import setup, find_packages, Extension
-from glob import glob
+from setuptools.command.build_ext import build_ext as _build_ext
+from setuptools.command.develop import develop as _develop
 
 from config import (get_system_config, get_parallel_config,
                     check_dependencies,
@@ -180,7 +182,6 @@ class build_ext(_build_ext):
     def run(self):
         _build_ext.run(self)
         if mpicompiler:
-            import numpy as np
             # Also build gpaw-python:
             error = build_interpreter(
                 define_macros, include_dirs, libraries,
@@ -191,6 +192,18 @@ class build_ext(_build_ext):
                 mpi_include_dirs,
                 mpi_runtime_library_dirs, mpi_define_macros)
             assert error == 0
+
+
+class develop(_develop):
+    def install_egg_scripts(self, dist):
+        _develop.install_egg_scripts(self, dist)
+        print(self.distribution.scripts)
+        if mpicompiler:
+            script = 'build/bin.' + plat + '/gpaw-python'
+            distutils.log.info('Installing gpaw-python to %s', self.script_dir)
+            with open(op.join(self.script_dir, 'gpaw-python'), 'wb') as fdout:
+                with open(script, 'rb') as fdin:
+                    fdout.write(fdin.read())
 
 
 class build_scripts(_build_scripts):
@@ -209,9 +222,6 @@ class build_scripts(_build_scripts):
         return outfiles, updated_files
 
 
-if mpicompiler:
-    scripts.append('build/bin.%s/' % plat + 'gpaw-python')
-
 setup(name='gpaw',
       version=version,
       description=description,
@@ -227,7 +237,8 @@ setup(name='gpaw',
       ext_modules=extensions,
       scripts=scripts,
       cmdclass={'build_ext': build_ext,
-                'build_scripts': build_scripts},
+                  # 'build_scripts': build_scripts,
+                'develop': develop},
       classifiers=[
           'Development Status :: 6 - Mature',
           'License :: OSI Approved :: '
