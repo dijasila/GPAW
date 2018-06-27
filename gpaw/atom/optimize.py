@@ -343,29 +343,21 @@ if __name__ == '__main__':
     import optparse
     parser = optparse.OptionParser(usage='python -m gpaw.atom.optimize '
                                    '[options] element',
-                                   description='Optimize dataset')
+                                   description='Optimize PAW data')
     parser.add_option('-s', '--summary', action='store_true')
     parser.add_option('-b', '--best', action='store_true')
-    parser.add_option('-r', '--run', action='store_true')
-    parser.add_option('-m', '--minimize', action='store_true')
     parser.add_option('-n', '--norm-conserving', action='store_true')
-    parser.add_option('-i', '--initial-only', action='store_true')
     parser.add_option('-o', '--old-setups', action='store_true')
-    parser.add_option('-N', '--processes', type=int)
     opts, args = parser.parse_args()
-    opts.run = True
-    if opts.run or opts.minimize:
+    if opts.old_setups:
         symbol = args[0]
-        do = DatasetOptimizer(symbol, opts.norm_conserving, opts.processes)
-        if opts.run:
-            if opts.initial_only:
-                do.old = opts.old_setups
-                do.run_initial()
-            else:
-                do.run()
-        else:
-            do.minimize()
+        do = DatasetOptimizer(symbol)
+        do.test_old_paw_data()
     else:
+        symbol = args[0]
+        do = DatasetOptimizer(symbol)
+        do.run()
+    if 0:
         if args == ['.']:
             symbol = os.getcwd().rsplit('/', 1)[1]
             args = [symbol]
