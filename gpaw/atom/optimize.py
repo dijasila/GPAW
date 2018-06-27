@@ -289,22 +289,22 @@ class DatasetOptimizer:
 
         return area, iters, energies
 
+    def read(self):
+        data = np.loadtxt('data.csv', delimiter=',')
+        return data[data[:, len(self.x)].argsort()]
+
     def summary(self, N=10):
-        # print('dFffRrrICEer:')
-        for error, id, x, errors in self.best(N):
-            params = [0.1 * p for p in x[:self.nenergies]]
-            params += [0.05 * p for p in x[self.nenergies:]]
-            print('{0:2} {1:2}{2:4}{3:6.1f}|{4}|'
-                  '{5:4.1f}|'
-                  # '{6:6.2f} {7:6.2f} {8:6.2f}|'
-                  # '{9:6.2f} {10:6.2f} {11:6.2f}|'
-                  # '{12:3.0f} {13:4.0f} {14:7.4f} {15:4.1f}'
-                  '{6:3.0f} {7:4.0f} {8:7.4f} {9:4.1f}'
+        n = len(self.x)
+        for x in self.read()[:N]:
+            print('{:2} {:2} ({}, {}) {:6.1f} ({})'
                   .format(self.Z,
                           self.symbol,
-                          id, error,
-                          ' '.join('{0:5.2f}'.format(p) for p in params),
-                          *errors))
+                          ', '.join('{:+.2f}'.format(e)
+                                    for e in x[:self.nenergies]),
+                          ', '.join('{:.2f}'.format(r)
+                                    for r in x[self.nenergies:n]),
+                          ', '.join('{:.1f}'.format(e)
+                                    for e in x[n + 1:n + 6])))
 
     def best1(self):
         try:
@@ -344,12 +344,16 @@ if __name__ == '__main__':
     parser = optparse.OptionParser(usage='python -m gpaw.atom.optimize '
                                    '[options] element',
                                    description='Optimize PAW data')
-    parser.add_option('-s', '--summary', action='store_true')
+    parser.add_option('-s', '--summary', type=int)
     parser.add_option('-b', '--best', action='store_true')
     parser.add_option('-n', '--norm-conserving', action='store_true')
     parser.add_option('-o', '--old-setups', action='store_true')
     opts, args = parser.parse_args()
-    if opts.old_setups:
+    if opts.summary:
+        symbol = args[0]
+        do = DatasetOptimizer(symbol)
+        do.summary(opts.summary)
+    elif opts.old_setups:
         symbol = args[0]
         do = DatasetOptimizer(symbol)
         do.test_old_paw_data()
