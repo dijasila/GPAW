@@ -15,7 +15,7 @@ def lcao(txt):
                 txt=txt)
 
 
-systems = [row.toatoms() for row in db1.select()]
+systems = [(row.name, row.toatoms()) for row in db1.select()]
 
 for opt in all_optimizers:
     optimizer = get_optimizer(opt)
