@@ -7,6 +7,7 @@ import distutils.util
 import os
 import os.path as op
 import re
+import shutil
 import sys
 from glob import glob
 
@@ -14,6 +15,7 @@ from distutils.command.build_scripts import build_scripts as _build_scripts
 from setuptools import setup, find_packages, Extension
 from setuptools.command.build_ext import build_ext as _build_ext
 from setuptools.command.develop import develop as _develop
+from setuptools.command.easy_install import easy_install as _easy_install
 
 from config import (get_system_config, get_parallel_config,
                     check_dependencies,
@@ -168,8 +170,10 @@ extensions = [Extension('_gpaw',
 
 files = ['gpaw-analyse-basis', 'gpaw-basis',
          'gpaw-mpisim', 'gpaw-plot-parallel-timings', 'gpaw-runscript',
-         'gpaw-setup', 'gpaw-upfplot', 'gpaw']
+         'gpaw-setup', 'gpaw-upfplot']
 scripts = [op.join('tools', script) for script in files]
+if mpicompiler:
+    scripts.append('build/bin.' + plat + '/gpaw-python')
 
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     extra_link_args, extra_compile_args,
@@ -196,29 +200,62 @@ class build_ext(_build_ext):
 
 class develop(_develop):
     def install_egg_scripts(self, dist):
+        if (self.distribution.scripts[-1].endswith('gpaw-python') and
+            str(dist).startswith('gpaw')):
+            script = self.distribution.scripts.pop()
+        else:
+            script = None
         _develop.install_egg_scripts(self, dist)
-        print(self.distribution.scripts)
-        if mpicompiler:
-            script = 'build/bin.' + plat + '/gpaw-python'
+        if script:
             distutils.log.info('Installing gpaw-python to %s', self.script_dir)
-            with open(op.join(self.script_dir, 'gpaw-python'), 'wb') as fdout:
-                with open(script, 'rb') as fdin:
-                    fdout.write(fdin.read())
+            dst = op.join(self.script_dir, 'gpaw-python')
+            if op.isfile(dst):
+                os.remove(dst)
+            shutil.copy(script, dst)
+            self.distribution.scripts.append(script)
+
+
+_install_egg_scripts = _easy_install.install_egg_scripts
+
+
+def install_egg_scripts(self, dist):
+    if not self.exclude_scripts and dist.metadata_isdir('scripts'):
+        for script_name in dist.metadata_listdir('scripts'):
+            if script_name == 'gpaw-python':
+                distutils.log.info('Installing gpaw-python to %s',
+                                   self.script_dir)
+                src = 'build/bin.' + plat + '/gpaw-python'
+                dst = op.join(self.script_dir, 'gpaw-python')
+                if op.isfile(dst):
+                    os.remove(dst)
+                shutil.copy(src, dst)
+                continue
+            if dist.metadata_isdir('scripts/' + script_name):
+                # The "script" is a directory, likely a Python 3
+                # __pycache__ directory, so skip it.
+                continue
+            self.install_script(
+                dist, script_name,
+                dist.get_metadata('scripts/' + script_name))
+    self.install_wrapper_scripts(dist)
+
+
+_easy_install.install_egg_scripts = install_egg_scripts
 
 
 class build_scripts(_build_scripts):
-    # Python 3's version will try to read the first line of gpaw-python
-    # because it thinks it is a Python script that need an adjustment of
-    # the Python version.  We skip this in our version.
     def copy_scripts(self):
-        self.mkpath(self.build_dir)
-        outfiles = []
-        updated_files = []
-        for script in self.scripts:
+        if self.scripts[-1].endswith('gpaw-python'):
+            script = self.scripts.pop()
+        else:
+            script = None
+        outfiles, updated_files = _build_scripts.copy_scripts(self)
+        if script:
             outfile = op.join(self.build_dir, op.basename(script))
             outfiles.append(outfile)
             updated_files.append(outfile)
             self.copy_file(script, outfile)
+            self.scripts.append(script)
         return outfiles, updated_files
 
 
@@ -237,7 +274,7 @@ setup(name='gpaw',
       ext_modules=extensions,
       scripts=scripts,
       cmdclass={'build_ext': build_ext,
-                  # 'build_scripts': build_scripts,
+                'build_scripts': build_scripts,
                 'develop': develop},
       classifiers=[
           'Development Status :: 6 - Mature',
