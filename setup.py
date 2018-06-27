@@ -249,7 +249,12 @@ class build_scripts(_build_scripts):
             script = self.scripts.pop()
         else:
             script = None
-        outfiles, updated_files = _build_scripts.copy_scripts(self)
+        x = _build_scripts.copy_scripts(self)
+        if x:
+            outfiles, updated_files = x
+        else:  # Python 2.7
+            outfiles = []
+            updated_files = []
         if script:
             outfile = op.join(self.build_dir, op.basename(script))
             outfiles.append(outfile)
