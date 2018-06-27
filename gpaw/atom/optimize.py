@@ -268,7 +268,7 @@ class DatasetOptimizer:
             fde = f(abs(de))
             if fde > f(0.1):
                 if oldfde is None:
-                    return np.inf, iters
+                    return np.inf, iters, energies
                 ec0 = ec + (fde - f(0.1)) / (fde - oldfde) * 100
                 area += ((ec + 100) - ec0) * (f(0.1) + oldfde) / 2
                 break
@@ -343,6 +343,7 @@ if __name__ == '__main__':
     parser.add_option('-o', '--old-setups', action='store_true')
     parser.add_option('-N', '--processes', type=int)
     opts, args = parser.parse_args()
+    opts.run = True
     if opts.run or opts.minimize:
         symbol = args[0]
         do = DatasetOptimizer(symbol, opts.norm_conserving, opts.processes)
