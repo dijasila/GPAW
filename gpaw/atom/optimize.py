@@ -7,7 +7,7 @@ import time
 import numpy as np
 from scipy.optimize import differential_evolution as DE
 from ase import Atoms
-from ase.data import covalent_radii, atomic_numbers, chemical_symbols
+from ase.data import covalent_radii, atomic_numbers
 from ase.units import Bohr
 
 from gpaw import GPAW, PW, setup_paths, Mixer, ConvergenceError, Davidson
@@ -296,26 +296,25 @@ class DatasetOptimizer:
     def summary(self, N=10):
         n = len(self.x)
         for x in self.read()[:N]:
-            print('{:2} {:2} ({}, {}) {:6.1f} ({})'
+            print('{:3} {:2} {:6.1f} ({}) ({}, {})'
                   .format(self.Z,
                           self.symbol,
+                          x[n],
+                          ', '.join('{:4.1f}'.format(e) + s
+                                    for e, s
+                                    in zip(x[n + 1:n + 6] / self.tolerances,
+                                           'rlcie')),
                           ', '.join('{:+.2f}'.format(e)
                                     for e in x[:self.nenergies]),
                           ', '.join('{:.2f}'.format(r)
-                                    for r in x[self.nenergies:n]),
-                          ', '.join('{:.1f}'.format(e)
-                                    for e in x[n + 1:n + 6])))
+                                    for r in x[self.nenergies:n])))
 
-    def best1(self):
-        try:
-            n, (error, id, x, errors) = self.best()
-        except IndexError:
-            return  # self.Z, (np.nan, np.nan, np.nan, np.nan, np.nan)
-        # return self.Z, errors / self.tolerances
-
+    def best(self):
+        n = len(self.x)
+        a = self.read()[0]
+        x = a[:n]
+        error = a[n]
         energies, radii, r0, projectors = self.parameters(x)
-        if 0:
-            print(error, self.symbol, n)
         if 1:
             if projectors[-1].isupper():
                 nderiv0 = 5
@@ -329,67 +328,38 @@ class DatasetOptimizer:
                              nderiv0,
                              r0,
                              error))
-        if 0:
-            with open('parameters.txt', 'w') as fd:
-                print(projectors, ' '.join('{0:.2f}'.format(r)
-                                           for r in radii + [r0]),
-                      file=fd)
-        if 0 and error != np.inf and error != np.nan:
-            self.generate(None, 'PBE', projectors, radii, r0, True, 'v2e',
+        if 1 and error != np.inf and error != np.nan:
+            self.generate(None, projectors, radii, r0, 'PBE', True, 'a1',
                           logderivs=False)
 
 
 if __name__ == '__main__':
-    import optparse
-    parser = optparse.OptionParser(usage='python -m gpaw.atom.optimize '
-                                   '[options] element',
-                                   description='Optimize PAW data')
-    parser.add_option('-s', '--summary', type=int)
-    parser.add_option('-b', '--best', action='store_true')
-    parser.add_option('-n', '--norm-conserving', action='store_true')
-    parser.add_option('-o', '--old-setups', action='store_true')
-    opts, args = parser.parse_args()
-    if opts.summary:
-        symbol = args[0]
-        do = DatasetOptimizer(symbol)
-        do.summary(opts.summary)
-    elif opts.old_setups:
-        symbol = args[0]
-        do = DatasetOptimizer(symbol)
-        do.test_old_paw_data()
-    else:
-        symbol = args[0]
-        do = DatasetOptimizer(symbol)
-        do.run()
-    if 0:
-        if args == ['.']:
-            symbol = os.getcwd().rsplit('/', 1)[1]
-            args = [symbol]
-            os.chdir('..')
-        elif len(args) == 0:
-            args = [symbol for symbol in chemical_symbols
-                    if os.path.isdir(symbol)]
-        x = []
-        y = []
-        for symbol in args:
-            os.chdir(symbol)
-            try:
-                do = DatasetOptimizer(symbol, opts.norm_conserving,
-                                      opts.processes)
-            except ValueError:
-                pass
+    import argparse
+    from pathlib import Path
+    parser = argparse.ArgumentParser(usage='python -m gpaw.atom.optimize '
+                                     '[options] [folder folder ...]',
+                                     description='Optimize PAW data')
+    parser.add_argument('-s', '--summary', type=int)
+    parser.add_argument('-b', '--best', action='store_true')
+    parser.add_argument('-n', '--norm-conserving', action='store_true')
+    parser.add_argument('-o', '--old-setups', action='store_true')
+    parser.add_argument('folder', nargs='*')
+    args = parser.parse_args()
+    folders = [Path(folder) for folder in args.folder or ['.']]
+    home = Path.cwd()
+    for folder in folders:
+        try:
+            os.chdir(folder)
+            symbol = Path.cwd().name
+            do = DatasetOptimizer(symbol)
+            if args.summary:
+                do.summary(args.summary)
+            elif args.old_setups:
+                do.test_old_paw_data()
+            elif args.best:
+                do.best()
             else:
-                if opts.summary:
-                    do.summary(15)
-                elif opts.best:
-                    # a,b=
-                    do.best1()
-                    # x.append(a)
-                    # y.append(b)
-            os.chdir('..')
-        if 0:
-            import matplotlib.pyplot as plt
-            for z, t in zip(np.array(y).T, 'LIPER'):
-                plt.plot(x, z, label=t)
-            plt.legend()
-            plt.show()
+                do.run()
+        finally:
+            os.chdir(home)
+            
