@@ -386,7 +386,8 @@ class SJM(SolvationGPAW):
         self.hamiltonian.summary(self.occupations.fermilevel, self.log)
 
         self.log('----------------------------------------------------------')
-        self.log('Grand Potential Energy (Composed of E_tot + E_solv - mu*ne):')
+        self.log("Grand Potential Energy (Composed of E_tot + E_solv - \
+                 mu*ne): ")
         self.log('Extrpol:    %s' % (Hartree *
                                      self.hamiltonian.e_el_extrapolated +
                                      self.get_electrode_potential() * self.ne))
@@ -676,7 +677,7 @@ class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
             self.dipcorr = False
         elif isinstance(psolver, dict):
             psolver = SJMDipoleCorrection(WeightedFDPoissonSolver(),
-                                           psolver['dipolelayer'])
+                                          psolver['dipolelayer'])
             self.dipcorr = True
 
         if self.dipcorr:
