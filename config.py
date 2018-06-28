@@ -261,7 +261,9 @@ def get_system_config(define_macros, undef_macros,
                     openblas = True
                     libdir = dir
                     break
-            if openblas:  # prefer openblas
+            if 'MKLROOT' in os.environ:
+                libraries += ['mkl_intel_lp64', 'mkl_sequential', 'mkl_core', 'irc']
+            elif openblas:  # prefer openblas
                 libraries += ['openblas']
                 library_dirs += [libdir]
             else:
