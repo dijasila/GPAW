@@ -24,7 +24,6 @@ u0 = 0.180  # eV
 epsinf = 78.36  # dielectric constant of water at 298 K
 gamma = 18.4*1e-3 * Pascal * m  # Surface tension
 T = 298.15  # Temperature
-vdw_radii = vdw_radii.copy()
 atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
 
 # NEB parameters
@@ -107,7 +106,6 @@ if relax_end_states:
     for i in endstates:
         images[i].set_calculator(calculator())
         images[i].calc.set(txt=system[i]+'.txt')
-        images[i].calc.atoms = images[i]
         images[i].calc.ne = ne_img[i]
 
         qn = BFGS(images[i], logfile=system[i]+'.log',
@@ -118,16 +116,14 @@ if relax_end_states:
               % (potential, images[i].calc.ne), images[i])
 else:
     for i in [0, -1]:
-        images[i].calc.atoms = images[i]
         images[i].calc.ne = ne_img[i]
 
 
 # Combine NEB images with their respective calculators
 for i in range(1, nimg+1):
-        images[i].set_calculator(calculator())
-        images[i].calc.atoms = images[i]
-        images[i].calc.set(txt='image_%i.txt' % (i))
-        images[i].calc.ne = ne_img[i]
+    images[i].set_calculator(calculator())
+    images[i].calc.set(txt='image_%i.txt' % (i))
+    images[i].calc.ne = ne_img[i]
 
 # Run the NEB
 neb = NEB(images, climb=climb)
