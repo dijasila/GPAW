@@ -33,8 +33,7 @@ calculator = GPAW(convergence=c, eigensolver=RMMDIIS(),
                   poissonsolver=PoissonSolver(use_charge_center=True), h=h)
 for xc, dE, ediff in [('LCY_BLYP', 143.3, 0.25),
                       ('LCY_PBE', 149.2, 0.3),
-                      ('CAMY_B3LYP', 147.1, 0.25)
-                     ]:
+                      ('CAMY_B3LYP', 147.1, 0.25)]:
     energies = {}
     calculator.set(xc=HybridXC(xc))
     for work_atom in work_atoms:

@@ -33,8 +33,7 @@ calculator = GPAW(convergence=c, eigensolver=RMMDIIS(),
                   occupations=FermiDirac(width=0.0, fixmagmom=True), h=h)
 for xc, dE, ediff, yuk_gamma in [('LCY_BLYP', 143.3, 0.4, 0.75),
                                  ('LCY_PBE', 149.2, 0.4, 0.75),
-                                 ('CAMY_B3LYP', 147.1, 0.35, 0.34)
-                                ]:
+                                 ('CAMY_B3LYP', 147.1, 0.35, 0.34)]:
     for atom in ['Ti', 'O']:
         gen(atom, xcname='PBE', scalarrel=False, exx=True,
             yukawa_gamma=yuk_gamma, gpernode=149)  # magic ...
@@ -44,7 +43,7 @@ for xc, dE, ediff, yuk_gamma in [('LCY_BLYP', 143.3, 0.4, 0.75),
         name = work_atom.get_chemical_formula()
         calculator.set(txt=name + '-' + xc + '.txt')
         work_atom.calc = calculator
-        if name == 'O2Ti':  #  Speed up a little
+        if name == 'O2Ti':  # Speed up a little
             work_atom.set_initial_magnetic_moments([2.0, -1.0, -1.0])
             calculator.set(xc=XC('PBE'))
             work_atom.get_potential_energy()
