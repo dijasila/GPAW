@@ -522,26 +522,24 @@ class SJM_Power12Potential(Power12Potential):
         if self.H2O_layer:
             # Add ghost coordinates and indices to pos_aav dictionary if
             # a water layer is present
-            oxygen = atoms.copy()
-            oxygen_ind = [atom.index for atom in oxygen if atom.symbol == 'O']
-            oxygen_del = [atom.index for atom in oxygen if atom.symbol != 'O']
+
+            all_oxygen_ind = [atom.index for atom in atoms
+                              if atom.symbol == 'O']
 
             # Disregard oxygens that don't belong to the water layer
-            for i, ox in enumerate(oxygen_ind):
+            water_oxygen_ind = []
+            for ox in all_oxygen_ind:
                 nH = 0
 
                 for atm in atoms:
-                    dist = atm.position - oxygen[ox].position
+                    dist = atm.position - atoms[ox].position
                     if np.linalg.norm(dist) < 1.1 and atm.symbol == 'H':
                         nH += 1
 
-                if nH < 2:
-                    oxygen_del.append(ox)
+                if nH >= 2:
+                    water_oxygen_ind.append(ox)
 
-            oxygen_del.sort()
-            oxygen_del.reverse()
-            for index in oxygen_del:
-                del oxygen[index]
+            oxygen = atoms[water_oxygen_ind]
 
             # Add the virtual plane
 
@@ -556,7 +554,7 @@ class SJM_Power12Potential(Power12Potential):
                 r_diff_zg = self.r_vg[2, :, :, :] - plane_z / Bohr
                 r_diff_zg[r_diff_zg < self.tiny] = self.tiny
                 r_diff_zg = r_diff_zg ** 2
-                u_g = self.r12_a[oxygen_ind[0]] / r_diff_zg ** 6
+                u_g = self.r12_a[water_oxygen_ind[0]] / r_diff_zg ** 6
                 self.u_g += u_g
                 u_g /= r_diff_zg
                 r_diff_zg *= u_g
@@ -575,12 +573,12 @@ class SJM_Power12Potential(Power12Potential):
 
                 for ox in oxygen.positions:
                     O_layer.append((ox[0], ox[1], ox[2] - 2. *
-                                    self.r12_a[oxygen_ind[0]]))
+                                    self.r12_a[water_oxygen_ind[0]]))
 
                 r12_add = []
                 for i in range(len(O_layer)):
                     self.pos_aav[len(atoms) + i] = [O_layer[i]]
-                    r12_add.append(self.r12_a[oxygen_ind[0]])
+                    r12_add.append(self.r12_a[water_oxygen_ind[0]])
                 r12_add = np.array(r12_add)
                 # r12_a must have same dimensions as pos_aav items
                 self.r12_a = np.concatenate((self.r12_a, r12_add))
