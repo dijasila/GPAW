@@ -577,10 +577,13 @@ class SJM_Power12Potential(Power12Potential):
 
             # Add the virtual plane
 
-            # The value 2.25 is an empirical one and maybe should be
-            # interchangable
             if self.H2O_layer == 'plane':
-                plane_z = oxygen.positions[:, 2].min() - 2.25
+                # The value -2.25, being the position of the plane relative to
+                # the oxygens in the water layer, is an empirical one and maybe
+                # should be interchangable
+
+                plane_rel_oxygen = -2.25
+                plane_z = oxygen.positions[:, 2].min() + plane_rel_oxygen
 
                 r_diff_zg = self.r_vg[2, :, :, :] - plane_z / Bohr
                 r_diff_zg[r_diff_zg < self.tiny] = self.tiny
