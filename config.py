@@ -113,7 +113,7 @@ def get_system_config(define_macros, undef_macros,
         if ('LINKFORSHARED' in cfgDict and
             'Python.framework/Versions/3.6' in cfgDict['LINKFORSHARED']):
             cfgDict['LINKFORSHARED'] = '-l python3.6'
-            
+
         # We should probably add something to allow for user-installed BLAS?
 
     elif machine in ['x86_64', 'ppc64', 'ppc64le', 'aarch64', 's390x']:
@@ -154,7 +154,9 @@ def get_system_config(define_macros, undef_macros,
                     openblas = True
                     libdir = dir
                     break
-            if openblas:  # prefer openblas
+            if 'MKLROOT' in os.environ:
+                libraries += ['mkl_intel_lp64', 'mkl_sequential', 'mkl_core', 'irc']
+            elif openblas:  # prefer openblas
                 libraries += ['openblas', 'lapack']
                 library_dirs += [libdir]
             else:
@@ -261,9 +263,7 @@ def get_system_config(define_macros, undef_macros,
                     openblas = True
                     libdir = dir
                     break
-            if 'MKLROOT' in os.environ:
-                libraries += ['mkl_intel_lp64', 'mkl_sequential', 'mkl_core', 'irc']
-            elif openblas:  # prefer openblas
+            if openblas:  # prefer openblas
                 libraries += ['openblas']
                 library_dirs += [libdir]
             else:
