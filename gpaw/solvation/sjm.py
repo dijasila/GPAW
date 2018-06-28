@@ -117,6 +117,10 @@ class SJM(SolvationGPAW):
 
         self.log(self.hamiltonian)
 
+    def set_atoms(self, atoms):
+        self.atoms = atoms
+        self.spos_ac = atoms.get_scaled_positions() % 1.0
+
     def set(self, **kwargs):
         """Change parameters for calculator.
 
