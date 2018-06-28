@@ -675,7 +675,7 @@ class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
             psolver = WeightedFDPoissonSolver()
             self.dipcorr = False
         elif isinstance(psolver, dict):
-            psolver = SJM_DipoleCorrection(WeightedFDPoissonSolver(),
+            psolver = SJMDipoleCorrection(WeightedFDPoissonSolver(),
                                            psolver['dipolelayer'])
             self.dipcorr = True
 
@@ -763,7 +763,7 @@ class CavityShapedJellium(Jellium):
         return mask
 
 
-class SJM_DipoleCorrection(DipoleCorrection):
+class SJMDipoleCorrection(DipoleCorrection):
     """Dipole-correcting wrapper around another PoissonSolver specific for SJM.
 
     Iterative dipole correction class as applied in SJM.
