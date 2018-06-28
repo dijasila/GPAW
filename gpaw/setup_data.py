@@ -96,7 +96,9 @@ class SetupData:
 
         # Optional quantities, normally not used
         self.X_p = None
+        self.X_pg = None
         self.ExxC = None
+        self.X_gamma = None
         self.extra_xc_data = {}
         self.phicorehole_g = None
         self.fcorehole = 0.0
@@ -519,7 +521,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
                 # Old style: XXX
                 setup.rcgauss = max(setup.rcut_j) / sqrt(float(attrs['alpha']))
         elif name in ['ae_core_density', 'pseudo_core_density',
-                      'localized_potential',
+                      'localized_potential', 'yukawa_exchange_X_matrix',
                       'kinetic_energy_differences', 'exact_exchange_X_matrix',
                       'ae_core_kinetic_energy_density',
                       'pseudo_core_kinetic_energy_density']:
@@ -534,6 +536,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             self.data = []
         elif name == 'exact_exchange':
             setup.ExxC = float(attrs['core-core'])
+        elif name == 'yukawa_exchange':
+            setup.X_gamma = float(attrs['gamma'])
         elif name == 'core_hole_state':
             setup.has_corehole = True
             setup.fcorehole = float(attrs['removed'])
@@ -603,5 +607,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.pt_jg.append(x_g)
         elif name == 'exact_exchange_X_matrix':
             setup.X_p = x_g
+        elif name == 'yukawa_exchange_X_matrix':
+            setup.X_pg = x_g
         elif name == 'core_hole_state':
             setup.phicorehole_g = x_g
