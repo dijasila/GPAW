@@ -76,6 +76,8 @@ class SJM(SolvationGPAW):
     def __init__(self, ne=0, doublelayer={}, potential=None,
                  dpot=0.01, tiny=1e-8, verbose=False, **gpaw_kwargs):
 
+        SolvationGPAW.__init__(self, **gpaw_kwargs)
+
         self.tiny = tiny
         if abs(ne) < self.tiny:
             self.ne = self.tiny
@@ -87,8 +89,6 @@ class SJM(SolvationGPAW):
         self.dl = doublelayer
         self.verbose = verbose
         self.previous_ne = 0
-
-        SolvationGPAW.__init__(self, **gpaw_kwargs)
 
         self.log('-----------\nGPAW SJM module in %s\n----------\n'
                  % (os.path.abspath(__file__)))
@@ -124,76 +124,47 @@ class SJM(SolvationGPAW):
     def set(self, **kwargs):
         """Change parameters for calculator.
 
-        It differs from the standard `set` function in the sense, that it
-        does not completely reinitialize and delete `self.wfs` if the
-        background charge is changed
+        It differs from the standard `set` function in two ways:
+        - SJM specific keywords can be set
+        - It does not reinitialize and delete `self.wfs` if the
+          background charge is changed.
 
-        Examples::
-
-            calc.set(xc='PBE')
-            calc.set(nbands=20, kpts=(4, 1, 1))
         """
 
-        changed_parameters = Calculator.set(self, **kwargs)
+        SJM_changes = {}
+        for key in kwargs:
+            if key in ['background_charge', 'ne', 'potential', 'dpot',
+                       'doublelayer']:
+                SJM_changes[key] = None
 
-        # We need to handle txt early in order to get logging up and running:
-        if 'txt' in changed_parameters:
-            self.log.fd = changed_parameters.pop('txt')
-
-        if not changed_parameters:
-            return {}
+        for key in SJM_changes:
+            SJM_changes[key] = kwargs.pop(key)
 
         major_changes = False
-        for key in changed_parameters:
-            if key not in ['background_charge', 'ne']:
-                self.initialized = False
-                self.scf = None
-                self.log('Input parameters:')
-                self.log.print_dict(changed_parameters)
-                self.log()
+        if kwargs:
+                SolvationGPAW.set(self, **kwargs)
                 major_changes = True
-                break
 
-        self.results = {}
+        # SJM custom `set` for the new keywords
+        for key in SJM_changes:
 
-        for key in changed_parameters:
-            if key in ['eigensolver', 'convergence'] and self.wfs:
-                self.wfs.set_eigensolver(None)
+            if key in ['potential', 'dpot', 'doublelayer']:
+                self.results = {}
+                if key == 'potential':
+                    self.potential = SJM_changes[key]
+                    if self.wfs is None:
+                        self.log('Target electrode potential: %1.4f V'
+                                 % self.potential)
+                    else:
+                        self.log('New Target electrode potential: %1.4f V'
+                                 % self.potential)
+                if key == 'dpot':
+                    self.dpot = SJM_changes[key]
+                if key == 'doublelayer':
+                    self.doublelayer = SJM_changes[key]
 
-            if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof']:
-                continue
-
-            if key in ['convergence', 'fixdensity', 'maxiter']:
-                continue
-            if key in ['potential']:
-                continue
-
-            if key in ['dpot']:
-                self.density = None
-            # More drastic changes:
-            if self.wfs:
-                self.wfs.set_orthonormalized(False)
-            if key in ['external', 'xc', 'poissonsolver', 'doublelayer']:
-                self.hamiltonian = None
-            elif key in ['occupations', 'width']:
-                pass
-            elif key in ['charge']:
-                self.hamiltonian = None
-                self.density = None
-                self.wfs = None
-
-            elif key in ['kpts', 'nbands', 'symmetry']:
-                self.wfs = None
-            elif key in ['h', 'gpts', 'setups', 'spinpol', 'dtype', 'mode']:
-                self.density = None
-                self.hamiltonian = None
-                self.wfs = None
-            elif key in ['basis']:
-                self.wfs = None
-
-            # SJM custom `set` for background charge and ne
-            elif key in ['background_charge']:
+            if key in ['background_charge']:
+                self.parameters[key] = SJM_changes[key]
                 self.log('------------')
                 if self.wfs is not None:
                     if major_changes:
@@ -202,7 +173,7 @@ class SJM(SolvationGPAW):
                         self.density.reset()
 
                         self.density.background_charge = \
-                            changed_parameters['background_charge']
+                            SJM_changes['background_charge']
                         self.density.background_charge.set_grid_descriptor(
                             self.density.finegd)
 
@@ -222,16 +193,13 @@ class SJM(SolvationGPAW):
                 self.log('Current number of Excess Electrons: %1.4f' % self.ne)
                 self.log('------------\n')
 
-            elif key in ['ne']:
+            if key in ['ne']:
                 self.previous_ne = self.ne
 
-                if abs(changed_parameters['ne']) < self.tiny:
+                if abs(SJM_changes['ne']) < self.tiny:
                     self.ne = self.tiny
                 else:
-                    self.ne = changed_parameters['ne']
-
-            else:
-                raise TypeError('Unknown keyword argument: "%s"' % key)
+                    self.ne = SJM_changes['ne']
 
     def calculate(self, atoms=None, properties=['energy'],
                   system_changes=['cell'], ):
@@ -386,8 +354,7 @@ class SJM(SolvationGPAW):
         self.hamiltonian.summary(self.occupations.fermilevel, self.log)
 
         self.log('----------------------------------------------------------')
-        self.log("Grand Potential Energy (Composed of E_tot + E_solv - \
-                 mu*ne): ")
+        self.log("Grand Potential Energy (E_tot + E_solv - mu*ne):")
         self.log('Extrpol:    %s' % (Hartree *
                                      self.hamiltonian.e_el_extrapolated +
                                      self.get_electrode_potential() * self.ne))
