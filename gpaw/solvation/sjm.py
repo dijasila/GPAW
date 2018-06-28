@@ -797,6 +797,9 @@ class SJMDipoleCorrection(DipoleCorrection):
         """Construct dipole correction object."""
 
         DipoleCorrection.__init__(self, poissonsolver, direction, width=1.0)
+        self.corrterm = 1
+        self.elcorr = None
+        self.last_corrterm = None
 
     def solve(self, pot, dens, **kwargs):
         if isinstance(dens, np.ndarray):
@@ -809,8 +812,6 @@ class SJMDipoleCorrection(DipoleCorrection):
         self.pwsolve(pot, dens)
 
     def fd_solv_solve(self, vHt_g, rhot_g, **kwargs):
-        if 'corrterm' not in self.__dict__.keys():
-            self.corrterm = 1
 
         gd = self.poissonsolver.gd
         slope_lim = 1e-8
@@ -818,8 +819,8 @@ class SJMDipoleCorrection(DipoleCorrection):
 
         dipmom = gd.calculate_dipole_moment(rhot_g)[2]
 
-        if 'elcorr' in self.__dict__.keys():
-                    vHt_g[:, :] -= self.elcorr
+        if self.elcorr is not None:
+            vHt_g[:, :] -= self.elcorr
 
         iters2 = self.poissonsolver.solve(vHt_g, rhot_g, **kwargs)
 
@@ -841,7 +842,7 @@ class SJMDipoleCorrection(DipoleCorrection):
             slope = VHt_z[2] - VHt_z[10]
 
             if abs(slope) > slope_lim:
-                if 'last_corrterm' in self.__dict__.keys():
+                if self.last_corrterm is not None:
                     ds = (slope - self.last_slope) / \
                         (self.corrterm - self.last_corrterm)
                     con = slope - (ds * self.corrterm)
