@@ -69,7 +69,7 @@ class SJM(SolvationGPAW):
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms', 'ne', 'electrode_potential']
 
-    def __init__(self, ne=0, doublelayer={}, potential=None,
+    def __init__(self, ne=0, doublelayer=None, potential=None,
                  dpot=0.01, tiny=1e-8, verbose=False, **gpaw_kwargs):
 
         SolvationGPAW.__init__(self, **gpaw_kwargs)
@@ -300,6 +300,8 @@ class SJM(SolvationGPAW):
         """Module for the definition of the explicit and counter charge
 
         """
+        if self.dl is None:
+            self.dl = {}
 
         if 'start' in self.dl:
             if self.dl['start'] == 'cavity_like':
