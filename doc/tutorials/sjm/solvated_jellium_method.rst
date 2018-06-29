@@ -96,7 +96,8 @@ References
 ==========
 
 .. [#SJM18] G. Kastlunger, P. Lindgren, A. A. Peterson, 
-            coming soon, http://dx.doi.org/10.1021/acs.jpcc.8b02465.
+            `Controlled-Potential Simulation of Elementary Electrochemical Reactions: Proton Discharge on Metal Surfaces <http://dx.doi.org/10.1021/acs.jpcc.8b02465>`_,
+            *J. Phys. Chem. C* **122** (24), 12771 (2018)
 .. [#NEB00] G. Henkelman and H. Jonsson,
             `Improved Tangent Estimate in the NEB method for Finding Minimum Energy Paths and Saddle Points <http://dx.doi.org/10.1063/1.1323224>`_,
             *J. Chem. Phys.* **113**, 9978 (2000)
