@@ -85,6 +85,8 @@ class SJM(SolvationGPAW):
         self.dl = doublelayer
         self.verbose = verbose
         self.previous_ne = 0
+        self.previous_pot = None
+        self.slope = None
 
         self.log('-----------\nGPAW SJM module in %s\n----------\n'
                  % (os.path.abspath(__file__)))
@@ -227,24 +229,26 @@ class SJM(SolvationGPAW):
                 pot_int = self.get_electrode_potential()
 
                 if abs(pot_int - self.potential) < self.dpot:
-                    self.last_pot = pot_int
+                    self.previous_pot = pot_int
                     self.previous_ne = self.ne
                     break
 
-                try:
+                if self.previous_pot is not None:
                     if abs(self.previous_ne - self.ne) > 2*self.tiny:
-                        self.slope = (pot_int-self.last_pot) / \
+                        self.slope = (pot_int-self.previous_pot) / \
                             (self.ne-self.previous_ne)
 
+                if self.slope is not None:
                     d = (pot_int-self.potential) - (self.slope*self.ne)
                     self.previous_ne = self.ne
                     self.ne = - d / self.slope
-                except AttributeError:
+                else:
                     self.previous_ne = self.ne
                     self.ne += (
                         pot_int - self.potential) / \
                         abs(pot_int - self.potential) * self.dpot
-                self.last_pot = pot_int
+
+                self.previous_pot = pot_int
             else:
                 raise Exception(
                     'Potential could not be reached after ten iterations.\
