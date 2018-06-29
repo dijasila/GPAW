@@ -51,4 +51,4 @@ atoms.set_calculator(calc)
 atoms.get_potential_energy()
 assert abs(calc.get_electrode_potential() - potential) < dpot
 elpot = calc.get_electrostatic_potential().mean(0).mean(0)
-assert abs(elpot[0] - elpot[5]) < 1e-6
+assert abs(elpot[2] - elpot[10]) < 1e-3
