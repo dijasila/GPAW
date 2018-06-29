@@ -1,6 +1,9 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
+# FIXME: This code used to be used in dfpt/phononcalculator.py in replacement
+#        for the original FFTPoissonSolver. This code should be dead.
+
 from math import pi
 
 import numpy as np
@@ -41,6 +44,7 @@ class FFTPoissonSolver(poisson.FFTPoissonSolver):
         """
 
         if self.gd.comm.rank == 0:
+            if self.gd.comm.size > 1:
             self.k2_Q, self.N3 = construct_reciprocal(self.gd, q_c=q_c)
 
     def solve_neutral(self, phi_g, rho_g, eps=None):
