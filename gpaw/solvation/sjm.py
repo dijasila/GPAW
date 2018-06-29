@@ -3,11 +3,11 @@ import os
 import numbers
 import numpy as np
 # ASE and GPAW imports
-from ase.calculators.calculator import Calculator
+#from ase.calculators.calculator import Calculator
 from ase.units import Bohr, Hartree
-from gpaw.output import print_cell
-from gpaw.forces import calculate_forces
-from gpaw.stress import calculate_stress
+#from gpaw.output import print_cell
+#from gpaw.forces import calculate_forces
+#from gpaw.stress import calculate_stress
 from gpaw.jellium import Jellium, JelliumSlab
 from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.fd_operators import Gradient
@@ -207,31 +207,19 @@ class SJM(SolvationGPAW):
         Perform a calculation with SJM
 
         This module includes the potential equilibration loop characteristic
-        for SJM.
+        for SJM. It is essentially a wrapper around GPAW.calculate()
 
         """
-        Calculator.calculate(self, atoms)
-        atoms = self.atoms
-        if system_changes:
-            self.log('System changes:', ', '.join(system_changes), '\n')
-            if system_changes == ['positions']:
-                # Only positions have changed:
-                self.density.reset()
-            else:
-                # Drastic changes:
-                self.wfs = None
-                self.occupations = None
-                self.density = None
-                self.hamiltonian = None
-                self.scf = None
-                self.initialize(atoms)
-
-            self.set_positions(atoms)
 
         if self.potential:
             for dummy in range(10):
                 self.set_jellium(atoms)
-                self.calculate2(atoms)
+                SolvationGPAW.calculate(self, atoms, ['energy'],
+                                        system_changes)
+
+                if self.verbose:
+                    self.write_cavity_and_bckcharge()
+
                 pot_int = self.get_electrode_potential()
 
                 if abs(pot_int - self.potential) < self.dpot:
@@ -260,107 +248,38 @@ class SJM(SolvationGPAW):
 
         else:
             self.set_jellium(atoms)
-            self.calculate2(atoms)
+            SolvationGPAW.calculate(self, atoms, ['energy'],
+                                    system_changes)
             self.previous_ne = self.ne
 
-        if 'forces' in properties:
-            with self.timer('Forces'):
-                F_av = calculate_forces(self.wfs, self.density,
-                                        self.hamiltonian, self.log)
-                self.results['forces'] = F_av * (Hartree / Bohr)
+        if properties != ['energy']:
+            SolvationGPAW.calculate(self, atoms, properties, [])
 
-        if 'stress' in properties:
-            with self.timer('Stress'):
-                try:
-                    stress = calculate_stress(self).flat[[0, 4, 8, 5, 2, 1]]
-                except NotImplementedError:
-                    # Our ASE Calculator base class will raise
-                    # PropertyNotImplementedError for us.
-                    pass
-                else:
-                    self.results['stress'] = stress * (Hartree / Bohr**3)
+    def write_cavity_and_bckcharge(self):
+        write_parallel_func_in_z(self.density.finegd,
+                                 self.hamiltonian.cavity.g_g,
+                                 name='cavity.out')
 
-        if 'electronegativity' in properties or \
-           'electrode_potential' in properties:
-            electronegativity = self.get_electrode_potential()
-            self.results['electronegativity'] = electronegativity
-
-    def calculate2(self, atoms=None):
-        """Calculate things."""
-        if not self.initialized:
-            self.initialize(atoms)
-            self.set_positions(atoms)
-
-        if not (self.wfs.positions_set and self.hamiltonian.positions_set):
-            self.set_positions(atoms)
-
-        if self.verbose:
-            write_parallel_func_in_z(self.density.finegd,
-                                     self.hamiltonian.cavity.g_g,
-                                     name='cavity.out')
-
-            try:
-                write_parallel_func_in_z(self.density.finegd,
-                                         self.density.background_charge.mask_g,
-                                         name='background_charge.out')
-            except AttributeError:
-                pass
-
-        if not self.scf.converged:
-            print_cell(self.wfs.gd, self.atoms.pbc, self.log)
-
-            with self.timer('SCF-cycle'):
-                self.scf.run(self.wfs, self.hamiltonian,
-                             self.density, self.occupations,
-                             self.log, self.call_observers)
-
-            self.log('\nConverged after {0} iterations.\n'
-                     .format(self.scf.niter))
-
-            omega_extra = Hartree * self.hamiltonian.e_el_extrapolated + \
-                self.get_electrode_potential() * self.ne
-            omega_free = Hartree * self.hamiltonian.e_el_free + \
-                self.get_electrode_potential()*self.ne
-
-            self.results['energy'] = omega_extra
-            self.results['free_energy'] = omega_free
-
-            if not self.atoms.pbc.all():
-                dipole_v = self.density.calculate_dipole_moment() * Bohr
-                self.log('Dipole moment: ({0:.6f}, {1:.6f}, {2:.6f}) |e|*Ang\n'
-                         .format(*dipole_v))
-                self.results['dipole'] = dipole_v
-
-            if self.wfs.nspins == 2:
-                magmom = self.occupations.magmom
-                magmom_a = self.density.estimate_magnetic_moments(
-                    total=magmom)
-                self.log('Total magnetic moment: %f' % magmom)
-                self.log('Local magnetic moments:')
-                symbols = self.atoms.get_chemical_symbols()
-                for a, mom in enumerate(magmom_a):
-                    self.log('{0:4} {1:2} {2:.6f}'.format(a, symbols[a], mom))
-                self.log()
-                self.results['magmom'] = self.occupations.magmom
-                self.results['magmoms'] = magmom_a
-
-            self.summary()
-
-            self.call_observers(self.scf.niter, final=True)
+        write_parallel_func_in_z(self.density.finegd,
+                                 self.density.background_charge.mask_g,
+                                 name='background_charge.out')
 
     def summary(self):
+        omega_extra = Hartree * self.hamiltonian.e_el_extrapolated + \
+            self.get_electrode_potential() * self.ne
+        omega_free = Hartree * self.hamiltonian.e_el_free + \
+            self.get_electrode_potential()*self.ne
+
+        self.results['energy'] = omega_extra
+        self.results['free_energy'] = omega_free
         self.results['ne'] = self.ne
         self.results['electrode_potential'] = self.get_electrode_potential()
         self.hamiltonian.summary(self.occupations.fermilevel, self.log)
 
         self.log('----------------------------------------------------------')
         self.log("Grand Potential Energy (E_tot + E_solv - mu*ne):")
-        self.log('Extrpol:    %s' % (Hartree *
-                                     self.hamiltonian.e_el_extrapolated +
-                                     self.get_electrode_potential() * self.ne))
-        self.log('Free:    %s' % (Hartree *
-                                  self.hamiltonian.e_el_free +
-                                  self.get_electrode_potential() * self.ne))
+        self.log('Extrpol:    %s' % omega_extra)
+        self.log('Free:    %s' % omega_free)
         self.log('-----------------------------------------------------------')
 
         self.density.summary(self.atoms, self.occupations.magmom, self.log)
