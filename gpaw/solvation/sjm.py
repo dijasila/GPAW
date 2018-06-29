@@ -3,11 +3,7 @@ import os
 import numbers
 import numpy as np
 # ASE and GPAW imports
-#from ase.calculators.calculator import Calculator
 from ase.units import Bohr, Hartree
-#from gpaw.output import print_cell
-#from gpaw.forces import calculate_forces
-#from gpaw.stress import calculate_stress
 from gpaw.jellium import Jellium, JelliumSlab
 from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.fd_operators import Gradient
@@ -148,7 +144,7 @@ class SJM(SolvationGPAW):
         # SJM custom `set` for the new keywords
         for key in SJM_changes:
 
-            if key in ['potential', 'dpot', 'doublelayer']:
+            if key in ['potential', 'doublelayer']:
                 self.results = {}
                 if key == 'potential':
                     self.potential = SJM_changes[key]
@@ -158,10 +154,19 @@ class SJM(SolvationGPAW):
                     else:
                         self.log('New Target electrode potential: %1.4f V'
                                  % self.potential)
-                if key == 'dpot':
-                    self.dpot = SJM_changes[key]
                 if key == 'doublelayer':
                     self.doublelayer = SJM_changes[key]
+
+            if key in ['dpot']:
+                self.log('Potential tolerance has been changed to %1.4f V'
+                         % SJM_changes[key])
+                potint = self.get_electrode_potential()
+                if abs(potint - self.potential) > SJM_changes[key]:
+                        self.results = {}
+                        self.log('Recalculating...\n')
+                else:
+                    self.log('Potential already reached the criterion.\n')
+                self.dpot = SJM_changes[key]
 
             if key in ['background_charge']:
                 self.parameters[key] = SJM_changes[key]
@@ -194,8 +199,7 @@ class SJM(SolvationGPAW):
                 self.log('------------\n')
 
             if key in ['ne']:
-                self.previous_ne = self.ne
-
+                self.results = {}
                 if abs(SJM_changes['ne']) < self.tiny:
                     self.ne = self.tiny
                 else:
