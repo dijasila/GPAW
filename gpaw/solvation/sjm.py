@@ -309,9 +309,10 @@ class SJM(SolvationGPAW):
             elif isinstance(self.dl['start'], numbers.Real):
                 pass
             else:
-                raise("The starting z value of the counter charge has to be \
-                      either a number (coordinate), 'cavity_like'\
-                      or not given (default: max(position)+3)")
+                raise RuntimeError("The starting z value of the counter charge \
+                                    has to be either a number (coordinate), \
+                                    'cavity_like' or not given (default: \
+                                    max(position)+3)")
         else:
             self.dl['start'] = max(atoms.positions[:, 2]) + 3.
 
@@ -319,8 +320,9 @@ class SJM(SolvationGPAW):
             pass
         elif 'thickness' in self.dl:
             if self.dl['start'] == 'cavity_like':
-                raise('With a cavity-like counter charge only the keyword \
-                      upper_limit(not thickness) can be used.')
+                raise RuntimeError('With a cavity-like counter charge only \
+                                   the keyword upper_limit(not thickness) \
+                                   can be used.')
             else:
                 self.dl['upper_limit'] = self.dl['start'] + \
                     self.dl['thickness']
