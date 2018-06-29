@@ -17,7 +17,7 @@ from gpaw.solvation import (
     SurfaceInteraction)
 
 # SJM import
-from gpaw.solvation.sjm import SJM, SJM_Power12Potential
+from gpaw.solvation.sjm import SJM, SJMPower12Potential
 
 # Solvent parameters from JCP 141, 174108 (2014):
 u0 = 0.180  # eV
@@ -56,7 +56,7 @@ def calculator():
                occupations=FermiDirac(0.1),
                maxiter=400,
                cavity=EffectivePotentialCavity(
-                   effective_potential=SJM_Power12Potential(
+                   effective_potential=SJMPower12Potential(
                        atomic_radii, u0, H2O_layer=True),
                    temperature=T,
                    surface_calculator=GradientSurface()),

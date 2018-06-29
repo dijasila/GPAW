@@ -451,7 +451,7 @@ class SJM(SolvationGPAW):
             self.set(background_charge=self.define_jellium(atoms))
 
 
-class SJM_Power12Potential(Power12Potential):
+class SJMPower12Potential(Power12Potential):
     """Inverse power law potential.
 
     An 1 / r ** 12 repulsive potential
@@ -465,7 +465,7 @@ class SJM_Power12Potential(Power12Potential):
 
     def __init__(self, atomic_radii, u0, pbc_cutoff=1e-6, tiny=1e-10,
                  H2O_layer=False, unsolv_backside=True):
-        """Constructor for the SJM_Power12Potential class.
+        """Constructor for the SJMPower12Potential class.
         In SJM one also has the option of removing the solvent from the
         electrode backside and adding ghost atoms to remove the solvent
         from the electrode-water interface.

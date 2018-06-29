@@ -1,4 +1,4 @@
-from gpaw.solvation.sjm import SJM, SJM_Power12Potential
+from gpaw.solvation.sjm import SJM, SJMPower12Potential
 
 from ase.build import fcc111
 from gpaw import FermiDirac
@@ -40,7 +40,7 @@ calc = SJM(doublelayer={'upper_limit': 19.5},
            xc='PBE',
            occupations=FermiDirac(0.1),
            cavity=EffectivePotentialCavity(
-               effective_potential=SJM_Power12Potential(atomic_radii, u0),
+               effective_potential=SJMPower12Potential(atomic_radii, u0),
                temperature=T,
                surface_calculator=GradientSurface()),
            dielectric=LinearDielectric(epsinf=epsinf),
