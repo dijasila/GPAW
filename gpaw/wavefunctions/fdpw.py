@@ -52,11 +52,18 @@ class PseudoPartialWaveWfsMover:
         phit = wfs.get_pseudo_partial_waves()
         phit.set_positions(wfs.spos_ac)
 
+        # XXX See also wavefunctions.lcao.update_phases
+        phase_qa = np.exp(2j * np.pi *
+                          np.dot(wfs.kd.ibzk_qc,
+                                 (spos_ac - wfs.spos_ac).T.round()))
+
         def add_phit_to_wfs(multiplier):
             for kpt in wfs.kpt_u:
                 P_ani = {}
                 for a in kpt.P_ani:
                     P_ani[a] = multiplier * kpt.P_ani[a][:, :ni_a[a]]
+                    if multiplier > 0:
+                        P_ani[a] *= phase_qa[kpt.q, a]
                 phit.add(kpt.psit_nG, c_axi=P_ani, q=kpt.q)
 
         add_phit_to_wfs(-1.0)

@@ -33,8 +33,16 @@ class LCAO(Mode):
 
 
 def update_phases(C_unM, q_u, ibzk_qc, spos_ac, oldspos_ac, setups, Mstart):
+    """Complex-rotate coefficients compensating discontinuous phase shift.
+
+    This changes the coefficients to counteract the phase discontinuity
+    of overlaps when atoms move across a cell boundary."""
+
+    # We don't want to apply any phase shift unless we crossed a cell
+    # boundary.  So we round the shift to either 0 or 1.
     phase_qa = np.exp(2j * np.pi *
-                      np.dot(ibzk_qc, (spos_ac - oldspos_ac).T))
+                      np.dot(ibzk_qc, (spos_ac - oldspos_ac).T.round()))
+
     for q, C_nM in zip(q_u, C_unM):
         if C_nM is None:
             continue
