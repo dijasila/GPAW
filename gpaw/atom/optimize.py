@@ -30,23 +30,18 @@ class DatasetOptimizer:
                            2 / 3 * 300 * 0.1**0.25,  # convergence
                            0.0005])  # eggbox error
 
-    def __init__(self, symbol='H', nc=False, processes=None):
+    def __init__(self, symbol='H', nc=False):
         self.old = False
 
         self.symbol = symbol
         self.nc = nc
-        self.processes = processes
 
-        with open('../start.txt') as fd:
-            for line in fd:
-                words = line.split()
-                if words[1] == symbol:
-                    projectors = words[3]
-                    radii = [float(f) for f in words[5].split(',')]
-                    r0 = float(words[7].split(',')[1])
-                    break
-            else:
-                raise ValueError
+        line = Path('start.txt').read_text()
+        words = line.split()
+        assert words[1] == symbol
+        projectors = words[3]
+        radii = [float(f) for f in words[5].split(',')]
+        r0 = float(words[7].split(',')[1])
 
         self.Z = atomic_numbers[symbol]
         self.rc = my_covalent_radii[self.Z]
@@ -77,8 +72,16 @@ class DatasetOptimizer:
         print(self.symbol, self.rc / Bohr, self.projectors)
         print(self.x)
         print(self.bounds)
+        if os.path.isfile('data.csv'):
+            n = len(self.x)
+            data = self.read()[:15 * n]
+            if np.isfinite(data[:, n]):
+                init = data[:, :n]
+            else:
+                init = 'latinhypercube'
+
         self.logfile = open('data.csv', 'a')
-        DE(self, self.bounds)
+        DE(self, self.bounds, init=init)
 
     def generate(self, fd, projectors, radii, r0, xc,
                  scalar_relativistic=True, tag=None, logderivs=True):
@@ -139,19 +142,14 @@ class DatasetOptimizer:
     def __call__(self, x):
         energies, radii, r0, projectors = self.parameters(x)
 
-        print('({}, {}, {:.2f}):'
-              .format(', '.join('{:+.2f}'.format(e) for e in energies),
-                      ', '.join('{:.2f}'.format(r) for r in radii),
-                      r0),
-              end='')
-
         fd = open('out.txt', 'w')
         errors, msg, convenergies, eggenergies = self.test(fd, projectors,
                                                            radii, r0)
         error = ((errors / self.tolerances)**2).sum()
 
-        print('{:9.1f} ({:.2f}, {:.3f}, {:.1f}, {}, {:.5f}) {}'
-              .format(error, *errors, msg))
+        if msg:
+            print(msg, x, error, errors, convenergies, eggenergies,
+                  file=sys.stderr)
 
         convenergies += [0] * (7 - len(convenergies))
 
@@ -161,7 +159,6 @@ class DatasetOptimizer:
               file=self.logfile)
 
         if time.time() > self.tflush:
-            sys.stdout.flush()
             self.logfile.flush()
             self.tflush = time.time() + 60
 
