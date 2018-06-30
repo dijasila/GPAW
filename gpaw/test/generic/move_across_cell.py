@@ -36,4 +36,7 @@ kwargs = lambda: dict(xc='oldLDA', mixer=Mixer(0.7), kpts=[1, 1, 2])
 test(GPAW(mode='lcao', basis='sz(dzp)', h=0.3))
 test(GPAW(mode='pw', eigensolver=Davidson(3),
           experimental={'reuse_wfs_method': 'paw'}, **kwargs()))
+test(GPAW(mode='fd', experimental={'reuse_wfs_method': 'lcao'}, **kwargs()))
+
+# pw + lcao extrapolation is currently broken (PWLFC lacks integrate2):
 #test(GPAW(mode='pw', experimental={'reuse_wfs_method': 'lcao'}, **kwargs()))

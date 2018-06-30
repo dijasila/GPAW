@@ -164,7 +164,7 @@ class LCAOWfsMover:
 
         if wfs.dtype == complex:
             update_phases(c_unM, [kpt.q for kpt in wfs.kpt_u], wfs.kd.ibzk_qc,
-                          spos_ac, wfs.spos_ac, wfs.setups, wfs.ksl.Mstart)
+                          spos_ac, wfs.spos_ac, wfs.setups, wfs.initksl.Mstart)
 
         del opsit
 
@@ -178,7 +178,6 @@ class LCAOWfsMover:
             bfs.lcao_to_grid(C_xM=c_unM[u], psit_xG=kpt.psit_nG, q=kpt.q)
         wfs.timer.stop('re-add wfs')
         wfs.timer.stop('reuse wfs')
-
 
 class FDPWWaveFunctions(WaveFunctions):
     """Base class for finite-difference and planewave classes."""
