@@ -1,3 +1,4 @@
+# Creates: tcm_1.12.png, tcm_2.48.png, table_1.12.txt, table_2.48.txt
 import numpy as np
 from matplotlib import pyplot as plt
 

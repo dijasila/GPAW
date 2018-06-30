@@ -1,3 +1,5 @@
-def agts(queue):
-    queue.add('tpss.py', ncpus=8, walltime=60)
+from myqueue.task import task
 
+
+def create_tasks():
+    return [task('tpss.py@8:1h')]

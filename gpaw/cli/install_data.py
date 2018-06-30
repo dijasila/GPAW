@@ -37,7 +37,8 @@ available at the expected URL:
 
 Or maybe there it is just a temporary problem or timeout.  Please try
 again, or rummage around the GPAW web page until a solution is found.
-Writing e-mails to gpaw-developers@lists@listserv.fysik.dtu.dk is also
+Writing e-mails to gpaw-users@listserv.fysik.dtu.dk or reporting
+an issue on https://gitlab.com/gpaw/gpaw/issues is also
 likely to help."""
 
 

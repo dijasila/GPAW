@@ -19,9 +19,9 @@ Here is the code for plotting some AE wave functions for a HLi dimer using a
 PAW dataset for Li with a frozen 1s orbital
 (:meth:`~gpaw.utilities.ps2ae.PS2AE.get_wave_function`):
 
-.. literalinclude:: hli.py
+.. literalinclude:: hli_wfs.py
 
-.. figure:: hli.png
+.. figure:: hli-wfs.png
 
 .. automethod:: gpaw.utilities.ps2ae.PS2AE.get_wave_function
 

@@ -1,3 +1,4 @@
+# Creates: C_GW.png
 import pickle
 import numpy as np
 from ase.parallel import paropen

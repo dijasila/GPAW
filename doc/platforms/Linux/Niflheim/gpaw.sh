@@ -2,8 +2,12 @@ if [ -f /etc/bashrc ]; then
     . /etc/bashrc
 fi
 
-GPAW=~/gpaw
-ASE=~/ase
+if [ -z $GPAW ]; then
+    GPAW=~/gpaw
+fi
+if [ -z $ASE ]; then
+    ASE=~/ase
+fi
 
 module load GPAW
 module unload ASE

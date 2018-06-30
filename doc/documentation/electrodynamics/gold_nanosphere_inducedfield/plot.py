@@ -1,3 +1,4 @@
+# Creates: field.ind_Ffe.png
 # -*- coding: utf-8 -*-
 from gpaw.mpi import world
 assert world.size == 1, 'This script should be run in serial mode (with one process).'

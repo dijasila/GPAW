@@ -363,7 +363,7 @@ class RadialGridDescriptor:
             r_g = r_g[1:]
             a_g = a_g[1:]
         plt.plot(r_g, a_g * r_g**n)
-        plt.axis(xmax=rc)
+        plt.axis(xmin=0, xmax=rc)
         if show:
             plt.show()
 

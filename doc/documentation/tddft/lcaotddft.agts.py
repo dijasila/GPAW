@@ -1,5 +1,9 @@
-def agts(queue):
-    basis = queue.add('lcaotddft_basis.py', ncpus=1, walltime=10)
-    ag55 = queue.add('lcaotddft_ag55.py', deps=[basis], ncpus=48, walltime=100)
-    queue.add('lcaotddft_fig1.py', deps=[ag55], creates='fig1.png')
-    queue.add('lcaotddft.py', ncpus=4, walltime=40)
+from myqueue.task import task
+
+
+def create_tasks():
+    return [
+        task('lcaotddft_basis.py@1:10m'),
+        task('lcaotddft_ag55.py@48:2h', deps='lcaotddft_basis.py'),
+        task('lcaotddft_fig1.py', deps='lcaotddft_ag55.py'),
+        task('lcaotddft.py@4:40m')]

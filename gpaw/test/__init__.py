@@ -194,6 +194,7 @@ tests = [
     'broydenmixer.py',                      # ~3s
     'pw/fulldiagk.py',                      # ~3s
     'ext_potential/external.py',            # ~3s
+    'ext_potential/external_pw.py',         # ~3s
     'lcao/atomic_corrections.py',           # ~3s
     'vdw/libvdwxc_h2.py',                   # ~3s
     'generic/mixer.py',                     # ~3s
@@ -207,6 +208,7 @@ tests = [
     'poisson/poisson_extended.py',          # ~3s
     'solvation/vacuum.py',                  # ~3s
     'vdw/libvdwxc_mbeef.py',                # ~3s
+    'pw/augment_grids.py',                  # ~4s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
     'generic/move_across_cell.py',          # ~4s
     'parallel/augment_grid.py',             # ~4s
@@ -290,7 +292,7 @@ tests = [
     'ralda/ralda_energy_N2.py',             # ~10s
     'parallel/lcao_complicated.py',         # ~10s
     'generic/bulk.py',                      # ~10s
-    #'sic/scfsic_h2.py',                     # ~10s
+    'sic/scfsic_h2.py',                     # ~10s
     'kpt_refine.py',                        # ~10s
     'lcao/bulk.py',                         # ~11s
     'reuse_wfs.py',                         # ~11s
@@ -378,7 +380,6 @@ tests = [
     'xc/qna_spinpol.py',
     'beef.py',
     'response/chi0.py',                     # ~71s
-    #'sic/scfsic_n2.py',                     # ~73s
     'lrtddft/3.py',                         # ~75s
     'response/chi0_intraband_test.py',      # ~76s
     'pathological/nonlocalset.py',          # ~82s

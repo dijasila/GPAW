@@ -947,8 +947,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def initialize_from_lcao_coefficients(self, basis_functions):
         N_c = self.gd.N_c
 
-        N = len(self.mykpts[0].C_nM)
-        psit_nR = self.gd.empty(N, self.dtype)
+        psit_nR = self.gd.empty(1, self.dtype)
 
         for kpt in self.mykpts:
             if self.kd.gamma:
@@ -957,20 +956,18 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 k_c = self.kd.ibzk_kc[kpt.k]
                 emikr_R = np.exp(-2j * pi *
                                  np.dot(np.indices(N_c).T, k_c / N_c).T)
-
-            psit_nR[:] = 0.0
-            basis_functions.lcao_to_grid(kpt.C_nM, psit_nR, kpt.q)
-            kpt.C_nM = None
-
             kpt.psit = PlaneWaveExpansionWaveFunctions(
                 self.bd.nbands, self.pd, self.dtype, kpt=kpt.q,
                 dist=(self.bd.comm, -1, 1),
                 spin=kpt.s, collinear=self.collinear)
-
             psit_nG = kpt.psit.array
-            for psit_G, psit_R in zip(psit_nG.reshape((-1, psit_nG.shape[-1])),
-                                      psit_nR):
-                psit_G[:] = self.pd.fft(psit_R * emikr_R, kpt.q)
+            for n, psit_G in enumerate(psit_nG.reshape((-1,
+                                                        psit_nG.shape[-1]))):
+                psit_nR[:] = 0.0
+                basis_functions.lcao_to_grid(kpt.C_nM[n:n + 1], psit_nR, kpt.q)
+                psit_G[:] = self.pd.fft(psit_nR[0] * emikr_R, kpt.q)
+
+            kpt.C_nM = None
 
     def random_wave_functions(self, mynao):
         rs = np.random.RandomState(self.world.rank)
@@ -1278,8 +1275,10 @@ class PWLFC(BaseLFC):
 
         K_v = self.pd.K_qv[q]
 
+        serial = False
+
         x = 0.0
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block(q, serial=serial):
             f_IG = self.expand(q, G1, G2)
             G_Gv = self.pd.G_Qv[self.pd.Q_qG[q][G1:G2]]
             if self.pd.dtype == float:
@@ -1295,6 +1294,9 @@ class PWLFC(BaseLFC):
                          a_xG[:, G1:G2],
                          x, b_vxI[v], 'c')
             x = 1.0
+
+        if not serial:
+            self.comm.sum(c_vxI)
 
         for v in range(3):
             if self.pd.dtype == float:
@@ -1331,14 +1333,19 @@ class PWLFC(BaseLFC):
 
         G0_Gv = self.pd.get_reciprocal_vectors(q=q)
 
+        serial = False
+
         stress_vv = np.zeros((3, 3))
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block(q, serial=serial):
             G_Gv = G0_Gv[G1:G2]
             aa_xG = a_xG[..., G1:G2]
             for v1 in range(3):
                 for v2 in range(3):
                     stress_vv[v1, v2] += self._stress_tensor_contribution(
                         v1, v2, cache, G1, G2, G_Gv, aa_xG, c_axi, q)
+
+        if not serial:
+            self.comm.sum(stress_vv)
 
         return stress_vv
 
@@ -1571,6 +1578,14 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             self.epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
 
         self.vt_Q = self.vbar_Q + self.vHt_q[dens.G3_G] / 8
+        self.e_external = 0.0
+
+        if self.vext is not None:
+            gd = self.finegd
+            vext_q = self.vext.get_potentialq(gd, self.pd3)
+            self.vt_Q += vext_q[dens.G3_G] / 8
+            self.e_external = self.pd3.integrate(vext_q, dens.rhot_q)
+
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
@@ -1592,15 +1607,17 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         self.timer.stop('XC 3D grid')
 
-        eext = 0.0
-
-        return np.array([self.epot, self.ebar, eext, self.exc])
+        return np.array([self.epot, self.ebar, self.e_external, self.exc])
 
     def calculate_atomic_hamiltonians(self, density):
         W_aL = {}
         for a in density.D_asp:
             W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
-        density.ghat.integrate(self.vHt_q, W_aL)
+        if self.vext:
+            vext_q = self.vext.get_potentialq(self.finegd, self.pd3)
+            density.ghat.integrate(self.vHt_q + vext_q, W_aL)
+        else:
+            density.ghat.integrate(self.vHt_q, W_aL)
         return W_aL
 
     def calculate_kinetic_energy(self, density):
@@ -1626,7 +1643,11 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     restrict_and_collect = restrict
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
-        dens.ghat.derivative(self.vHt_q, ghat_aLv)
+        if self.vext:
+            vext_q = self.vext.get_potentialq(self.finegd, self.pd3)
+            dens.ghat.derivative(self.vHt_q + vext_q, ghat_aLv)
+        else:
+            dens.ghat.derivative(self.vHt_q, ghat_aLv)
         dens.nct.derivative(self.vt_Q, nct_av)
         self.vbar.derivative(dens.nt_Q, vbar_av)
 
