@@ -58,15 +58,10 @@ def construct_reciprocal(gd, q_c=None):
 
     assert gd.pbc_c.all(), 'Works only with periodic boundary conditions!'
 
-    # Check q_c
-    if q_c is not None:
-        assert q_c.shape in [(3,), (3, 1)]
-        q_c = q_c.reshape((3, 1))
-    else:
-        q_c = np.zeros((3, 1), dtype=float)
+    q_c = np.zeros((3, 1), dtype=float) if q_c is None else q_c.reshape((3, 1))
 
     # Calculate reciprocal lattice vectors
-    N_c1 = gd.N_c[:, np.newaxis]
+    N_c1 = gd.N_c[:, None]
     i_cq = np.indices(gd.n_c).reshape((3, -1), dtype=float) # offsets....
     i_cq += gd.beg_c[:, None]
     i_cq += N_c1 // 2
@@ -82,8 +77,10 @@ def construct_reciprocal(gd, q_c=None):
     k_vq *= k_vq
     k2_Q = k_vq.sum(axis=0).reshape(gd.n_c)
 
-    if (gd.comm.rank == 0) and (abs(q_c).sum() < 1e-8):
+    if k2_Q[0, 0, 0] < 1e-10:
         k2_Q[0, 0, 0] = 1.0
+        assert gd.comm.rank == 0
+        assert abs(q_c).sum() < 1e-8
         assert k2_Q.min() > 0.0
 
     # Determine N^3
