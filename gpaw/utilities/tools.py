@@ -33,10 +33,10 @@ def split_formula(formula):
     return res
 
 
-def construct_reciprocal(gd, q_c=None, distributed=False):
+def construct_reciprocal(gd, q_c=None):
     """Construct the reciprocal lattice from ``GridDescriptor`` instance.
 
-    The generated reciprocal lattice has lattice vectors correspoding to the
+    The generated reciprocal lattice has lattice vectors corresponding to the
     real-space lattice defined in the input grid. Note that it is the squared
     length of the reciprocal lattice vectors that are returned.
 
@@ -45,7 +45,7 @@ def construct_reciprocal(gd, q_c=None, distributed=False):
 
     Note that the G=(0,0,0) entry is set to one instead of zero. This
     bit should probably be moved somewhere else ...
-    
+
     Parameters
     ----------
     q_c: ndarray
@@ -53,47 +53,37 @@ def construct_reciprocal(gd, q_c=None, distributed=False):
         reciprocal lattice vectors, i.e. array with index ``c``). When
         specified, the returned array contains the values of (q+G)^2 where G
         denotes the reciprocal lattice vectors.
-    
+
     """
-    # TODO: always use distributed.  If someone wants to do this in serial,
-    # they can easily create their own serial grid descriptor.
-    
+
     assert gd.pbc_c.all(), 'Works only with periodic boundary conditions!'
 
-    # Check q_c
-    if q_c is not None:
-        assert q_c.shape in [(3,), (3, 1)]
-        q_c = q_c.reshape((3, 1))
-        
+    q_c = np.zeros((3, 1), dtype=float) if q_c is None else q_c.reshape((3, 1))
+
     # Calculate reciprocal lattice vectors
-    N_c1 = gd.N_c[:, np.newaxis]
-    if distributed:
-        shape = gd.n_c
-        i_cq = np.indices(gd.n_c).reshape((3, -1)) # offsets....
-        i_cq += gd.beg_c[:, None]
-    else:
-        shape = gd.N_c
-        i_cq = np.indices(gd.N_c).reshape((3, -1))
+    N_c1 = gd.N_c[:, None]
+    i_cq = np.indices(gd.n_c).reshape((3, -1), dtype=float) # offsets....
+    i_cq += gd.beg_c[:, None]
     i_cq += N_c1 // 2
     i_cq %= N_c1
     i_cq -= N_c1 // 2
 
-    if q_c is not None:
-        i_cq = np.array(i_cq, dtype=float)
-        i_cq += q_c
+    i_cq += q_c
 
     # Convert from scaled to absolute coordinates
     B_vc = 2.0 * np.pi * gd.icell_cv.T
     k_vq = np.dot(B_vc, i_cq)
 
     k_vq *= k_vq
-    k2_Q = k_vq.sum(axis=0).reshape(shape)
+    k2_Q = k_vq.sum(axis=0).reshape(gd.n_c)
 
-    if gd.comm.rank == 0 or not distributed:
-        if q_c is None:
-            k2_Q[0, 0, 0] = 1.0
-        elif abs(q_c).sum() < 1e-8:
-            k2_Q[0, 0, 0] = 1.0
+    # Avoid future divide-by-zero by setting k2_Q[G=(0,0,0)] = 1.0 if needed
+    if k2_Q[0, 0, 0] < 1e-10:
+        k2_Q[0, 0, 0] = 1.0           # Only make sense iff
+        assert gd.comm.rank == 0      #  * on rank 0 (G=(0,0,0) is only there)
+        assert abs(q_c).sum() < 1e-8  #  * q_c is (almost) zero
+
+    assert k2_Q.min() > 0.0       # Now there should be no zero left
 
     # Determine N^3
     #
@@ -102,7 +92,7 @@ def construct_reciprocal(gd, q_c=None, distributed=False):
     N3 = gd.n_c[0] * gd.n_c[1] * gd.n_c[2]
     return k2_Q, N3
 
-    
+
 def coordinates(gd, origin=None, tiny=1e-12):
     """Constructs and returns matrices containing cartesian coordinates,
        and the square of the distance from the origin.
@@ -111,7 +101,7 @@ def coordinates(gd, origin=None, tiny=1e-12):
        Otherwise the origin is placed in the center of the box described
        by the given grid-descriptor 'gd'.
     """
-    
+
     if origin is None:
         origin = 0.5 * gd.cell_cv.sum(0)
     r0_v = np.array(origin)
@@ -124,7 +114,7 @@ def coordinates(gd, origin=None, tiny=1e-12):
     # Return r^2 matrix
     return r_vG, r2_G
 
-    
+
 def pick(a_ix, i):
     """Take integer index of a, or a linear combination of the elements of a"""
     if isinstance(i, int):
