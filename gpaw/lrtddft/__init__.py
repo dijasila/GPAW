@@ -100,6 +100,8 @@ class LrTDDFT(ExcitationList):
                 np.asarray(self.eh_comm))
 
         if calculator is not None and calculator.initialized:
+            # XXXX not ready for k-points
+            assert(len(calculator.wfs.kd.ibzk_kc) == 1)
             if not isinstance(calculator.wfs, FDWaveFunctions):
                 raise RuntimeError(
                     'Linear response TDDFT supported only in real space mode')

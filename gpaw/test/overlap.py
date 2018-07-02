@@ -66,11 +66,11 @@ c2 = GPAW(h=h, txt=txt, spinpol=True, nbands=nbands + 1,
           convergence={'eigenstates':nbands + 1})
 try:
     show(c2)
-    raise
 except AssertionError:
     parprint('Not ready')
     
 parprint('k-points --------')
+
 H2.set_pbc([1, 1, 1])
 c1 = GPAW(h=h, txt=txt, nbands=nbands,
           kpts=(1,1,3),
@@ -83,6 +83,5 @@ c2 = GPAW(h=h, txt=txt, nbands=nbands + 1,
           convergence={'eigenstates':nbands + 1})
 try:
     show(c2)
-    raise
 except AssertionError:
     parprint('Not ready')
