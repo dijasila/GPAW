@@ -61,3 +61,4 @@ Specialized tutorials
    continuum_solvent_model/continuum_solvent_model
    ofdft/ofdft
    wannier90/wannier90_tutorial
+   sjm/solvated_jellium_method.rst
