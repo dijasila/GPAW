@@ -36,5 +36,6 @@ def do(w):
     absorption = 2 * freq.freq / np.pi * dm_v[0] / au_to_eV * 1e5
     print('Total absorption: %.2f eV^-1' % absorption)
 
+
 do(0)
 do(1)
