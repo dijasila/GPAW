@@ -830,7 +830,7 @@ class Setup(BaseSetup):
         tauct_g = data.tauct_g
         self.tauct = rgd.spline(tauct_g, self.rcore)
 
-        self.pt_j = self.create_projectors(rcutfilter)
+        self.pt_j = self.create_projectors(pt_jg, rcutfilter)
 
         if basis is None:
             basis = self.create_basis_functions(phit_jg, rcut2, gcut2)
@@ -949,9 +949,9 @@ class Setup(BaseSetup):
         except NotImplementedError:
             self.rxnabla_iiv = None
 
-    def create_projectors(self, rcut):
+    def create_projectors(self, pt_jg, rcut):
         pt_j = []
-        for j, pt_g in enumerate(self.data.pt_jg):
+        for j, pt_g in enumerate(pt_jg):
             l = self.l_j[j]
             pt_j.append(self.rgd.spline(pt_g, rcut, l))
         return pt_j
@@ -1055,8 +1055,8 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
-        G_LLL = gaunt(max(self.l_j))
-        Y_LLv = nabla(max(self.l_j))
+        G_LLL = gaunt(max(1, max(self.l_j)))
+        Y_LLv = nabla(max(1, max(self.l_j)))
 
         r_g = rgd.r_g
         dr_g = rgd.dr_g

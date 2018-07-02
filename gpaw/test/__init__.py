@@ -166,6 +166,7 @@ tests = [
     'lcao/density.py',                      # ~1s
     'pw/stresstest.py',                     # ~1s
     'pw/fftmixer.py',                       # ~1s
+    'lcao/fftmixer.py',                     # ~1s
     'symmetry/usesymm.py',                  # ~1s
     'coulomb.py',                           # ~1s
     'xc/xcatom.py',                         # ~1s

@@ -11,6 +11,7 @@ Git master branch
 :git:`master <>`.
 
 * Corresponding ASE release: ASE-3.16.1b1
+* Solvated jellium method has been implemented, see :ref:`the documentation <solvated_jellium_method>`
 
 
 Version 1.4.0

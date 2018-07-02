@@ -25,10 +25,10 @@ class MatrixOperator:
     """
 
     nblocks = 1
-    async = True
+    asynchronous = True
     hermitian = True
 
-    def __init__(self, ksl, nblocks=None, async=None, hermitian=None):
+    def __init__(self, ksl, nblocks=None, asynchronous=None, hermitian=None):
         """The constructor now calculates the work array sizes, but does not
         allocate them. Here is a summary of the relevant variables and the
         cases handled.
@@ -79,8 +79,8 @@ class MatrixOperator:
         self.buffer_size = ksl.buffer_size
         if nblocks is not None:
             self.nblocks = nblocks
-        if async is not None:
-            self.async = async
+        if asynchronous is not None:
+            self.asynchronous = asynchronous
         if hermitian is not None:
             self.hermitian = hermitian
 
@@ -186,12 +186,12 @@ class MatrixOperator:
         rankp = (band_comm.rank + 1) % band_comm.size
         self.req, self.req2 = [], []
 
-        # If asyncronous, non-blocking send/receives of psit_nG's start here.
-        if self.async:
+        # If asynchronous, non-blocking send/receives of psit_nG's start here.
+        if self.asynchronous:
             self.req.append(band_comm.send(sbuf_mG, rankm, 11, False))
             self.req.append(band_comm.receive(rbuf_mG, rankp, 11, False))
 
-        # Auxiliary asyncronous cycle, also send/receive of P_ani's.
+        # Auxiliary asynchronous cycle, also send/receive of P_ani's.
         if auxiliary:
             self.req2.append(band_comm.send(sbuf_nI, rankm, 31, False))
             self.req2.append(band_comm.receive(rbuf_nI, rankp, 31, False))
@@ -232,7 +232,7 @@ class MatrixOperator:
         rankp = (band_comm.rank + 1) % band_comm.size
 
         # If syncronous, blocking send/receives of psit_nG's carried out here.
-        if self.async:
+        if self.asynchronous:
             assert len(self.req) == 2, 'Expected asynchronous request pairs.'
             band_comm.waitall(self.req)
         else:
@@ -240,7 +240,7 @@ class MatrixOperator:
             band_comm.sendreceive(sbuf_mG, rankm, rbuf_mG, rankp, 11, 11)
         sbuf_mG, rbuf_mG = rbuf_mG, sbuf_mG
 
-        # Auxiliary asyncronous cycle, also wait for P_ani's.
+        # Auxiliary asynchronous cycle, also wait for P_ani's.
         if auxiliary:
             assert len(self.req2) == 2, 'Expected asynchronous request pairs.'
             band_comm.waitall(self.req2)

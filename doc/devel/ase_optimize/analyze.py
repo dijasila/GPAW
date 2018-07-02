@@ -10,4 +10,4 @@ db1 = ase.db.connect('systems.db')
 with open('systems.csv', 'w') as f:
     print('test-name,description', file=f)
     for row in db1.select():
-        print('{},{}'.format(row.formula, row.description), file=f)
+        print('{},{}'.format(row.name, row.description), file=f)
