@@ -3,15 +3,19 @@ import os
 import re
 import sys
 import time
+from collections import defaultdict
 
 import numpy as np
 from scipy.optimize import differential_evolution as DE
 from ase import Atoms
 from ase.data import covalent_radii, atomic_numbers
-from ase.units import Bohr
+from ase.units import Bohr, Ha
 
 from gpaw import GPAW, PW, setup_paths, Mixer, ConvergenceError, Davidson
 from gpaw.atom.generator2 import _generate  # , DatasetGenerationError
+from gpaw.atom.aeatom import AllElectronAtom
+from gpaw.atom.atompaw import AtomPAW
+from gpaw.setup import create_setup
 
 
 my_covalent_radii = covalent_radii.copy()
@@ -286,6 +290,9 @@ class DatasetOptimizer:
 
         return area, iters, energies
 
+    def ip(self):
+        ...
+
     def read(self):
         data = np.loadtxt('data.csv', delimiter=',')
         return data[data[:, len(self.x)].argsort()]
@@ -328,6 +335,54 @@ class DatasetOptimizer:
         if 1 and error != np.inf and error != np.nan:
             self.generate(None, projectors, radii, r0, 'PBE', True, 'a1',
                           logderivs=False)
+
+
+def ip(symbol):
+    xc = 'LDA'
+    aea = AllElectronAtom(symbol)
+    aea.initialize()
+    aea.run()
+    aea.refine()
+    # aea.scalar_relativistic = True
+    # aea.refine()
+    energy = aea.ekin + aea.eH + aea.eZ + aea.exc
+    eigs = []
+    for l, channel in enumerate(aea.channels):
+        n = l + 1
+        for e, f in zip(channel.e_n, channel.f_n):
+            if f == 0:
+                break
+            eigs.append((e, n, l))
+            n += 1
+    e0, n0, l0 = max(eigs)
+    print(e0, n0, l0)
+    aea = AllElectronAtom(symbol)
+    aea.add(n0, l0, -1)
+    aea.initialize()
+    aea.run()
+    aea.refine()
+    IP = aea.ekin + aea.eH + aea.eZ + aea.exc - energy
+    IP *= Ha
+
+    s = create_setup(symbol, type='paw', xc=xc)
+    f_ln = defaultdict(list)
+    for l, f in zip(s.l_j, s. f_j):
+        if f:
+            f_ln[l].append(f)
+
+    f_sln = [[f_ln[l] for l in range(1 + max(f_ln))]]
+    print(f_sln)
+    calc = AtomPAW(symbol, f_sln, xc=xc, txt=None)
+    energy = calc.results['energy']
+    eps_n = calc.wfs.kpt_u[0].eps_n
+
+    f_sln[0][l0][-1] -= 1
+    calc = AtomPAW(symbol, f_sln, xc=xc, charge=1, txt=None)
+    IP2 = calc.results['energy'] - energy
+    print(IP, IP2, calc.wfs.kpt_u[0].eps_n, eps_n)
+
+
+ip('Li')
 
 
 if __name__ == '__main__':
