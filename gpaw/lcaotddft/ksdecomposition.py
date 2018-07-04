@@ -248,7 +248,7 @@ class KohnShamDecomposition(object):
             setattr(self, attr, val)
             return val
         if attr in ['eig_un', 'occ_un']:
-            val = read_uX(self.kpt_u, self.ksl, self.reader, attr)
+            val = read_uX(self.kpt_u, self.reader, attr)
             setattr(self, attr, val)
             return val
         if attr in ['C0S_unM']:
