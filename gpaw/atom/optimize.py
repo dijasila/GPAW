@@ -28,11 +28,12 @@ class PAWDataError(Exception):
 
 
 class DatasetOptimizer:
-    tolerances = np.array([0.2,
-                           0.3,
-                           40,
-                           2 / 3 * 300 * 0.1**0.25,  # convergence
-                           0.0005])  # eggbox error
+    tolerances = np.array([0.2,  # radii
+                           0.3,  # log. derivs.
+                           40,  # iterations
+                           1.2 * 2 / 3 * 300 * 0.1**0.25,  # convergence
+                           0.0005,  # eggbox error
+                           0.05])  # IP
 
     def __init__(self, symbol='H', nc=False):
         self.old = False
@@ -76,13 +77,12 @@ class DatasetOptimizer:
         print(self.symbol, self.rc / Bohr, self.projectors)
         print(self.x)
         print(self.bounds)
+        init = 'latinhypercube'
         if os.path.isfile('data.csv'):
             n = len(self.x)
             data = self.read()[:15 * n]
-            if np.isfinite(data[:, n]):
+            if np.isfinite(data[:, n]).all() and len(data) == 15 * n:
                 init = data[:, :n]
-            else:
-                init = 'latinhypercube'
 
         self.logfile = open('data.csv', 'a')
         DE(self, self.bounds, init=init)
@@ -147,19 +147,19 @@ class DatasetOptimizer:
         energies, radii, r0, projectors = self.parameters(x)
 
         fd = open('out.txt', 'w')
-        errors, msg, convenergies, eggenergies = self.test(fd, projectors,
-                                                           radii, r0)
+        errors, msg, convenergies, eggenergies, ips = \
+            self.test(fd, projectors, radii, r0)
         error = ((errors / self.tolerances)**2).sum()
 
         if msg:
-            print(msg, x, error, errors, convenergies, eggenergies,
+            print(msg, x, error, errors, convenergies, eggenergies, ips,
                   file=sys.stderr)
 
         convenergies += [0] * (7 - len(convenergies))
 
         print(', '.join(repr(number) for number in
                         list(x) + [error] + errors +
-                        convenergies + eggenergies),
+                        convenergies + eggenergies + ips),
               file=self.logfile)
 
         if time.time() > self.tflush:
@@ -179,9 +179,11 @@ class DatasetOptimizer:
               file=fd)
 
     def test(self, fd, projectors, radii, r0):
-        errors = [np.inf] * 5
+        errors = [np.inf] * 6
         energies = []
         eggenergies = [0, 0, 0]
+        ip = 0.0
+        ip0 = 0.0
         msg = ''
 
         try:
@@ -194,7 +196,7 @@ class DatasetOptimizer:
             error = 0.0
             for kwargs in [dict(xc='PBE', tag='de'),
                            dict(xc='PBE', scalar_relativistic=False),
-                           dict(xc='LDA'),
+                           dict(xc='LDA', tag='de'),
                            dict(xc='PBEsol'),
                            dict(xc='RPBE'),
                            dict(xc='PW91')]:
@@ -208,11 +210,14 @@ class DatasetOptimizer:
             eggenergies = self.eggbox(fd)
             errors[4] = max(eggenergies)
 
+            ip, ip0 = self.ip(fd)
+            errors[5] = ip - ip0
+
         except (ConvergenceError, PAWDataError, RuntimeError,
                 np.linalg.LinAlgError) as e:
             msg = str(e)
 
-        return errors, msg, energies, eggenergies
+        return errors, msg, energies, eggenergies, [ip, ip0]
 
     def eggbox(self, fd, setup='de'):
         energies = []
@@ -290,8 +295,9 @@ class DatasetOptimizer:
 
         return area, iters, energies
 
-    def ip(self):
-        ...
+    def ip(self, fd):
+        IP, IP0 = ip(self.symbol, fd)
+        return IP, IP0
 
     def read(self):
         data = np.loadtxt('data.csv', delimiter=',')
@@ -306,8 +312,8 @@ class DatasetOptimizer:
                           x[n],
                           ', '.join('{:4.1f}'.format(e) + s
                                     for e, s
-                                    in zip(x[n + 1:n + 6] / self.tolerances,
-                                           'rlcie')),
+                                    in zip(x[n + 1:n + 7] / self.tolerances,
+                                           'rlciex')),
                           ', '.join('{:+.2f}'.format(e)
                                     for e in x[:self.nenergies]),
                           ', '.join('{:.2f}'.format(r)
@@ -337,9 +343,9 @@ class DatasetOptimizer:
                           logderivs=False)
 
 
-def ip(symbol):
+def ip(symbol, fd):
     xc = 'LDA'
-    aea = AllElectronAtom(symbol)
+    aea = AllElectronAtom(symbol, log=fd)
     aea.initialize()
     aea.run()
     aea.refine()
@@ -355,8 +361,7 @@ def ip(symbol):
             eigs.append((e, n, l))
             n += 1
     e0, n0, l0 = max(eigs)
-    print(e0, n0, l0)
-    aea = AllElectronAtom(symbol)
+    aea = AllElectronAtom(symbol, log=fd)
     aea.add(n0, l0, -1)
     aea.initialize()
     aea.run()
@@ -364,25 +369,21 @@ def ip(symbol):
     IP = aea.ekin + aea.eH + aea.eZ + aea.exc - energy
     IP *= Ha
 
-    s = create_setup(symbol, type='paw', xc=xc)
+    s = create_setup(symbol, type='de', xc=xc)
     f_ln = defaultdict(list)
     for l, f in zip(s.l_j, s. f_j):
         if f:
             f_ln[l].append(f)
 
     f_sln = [[f_ln[l] for l in range(1 + max(f_ln))]]
-    print(f_sln)
-    calc = AtomPAW(symbol, f_sln, xc=xc, txt=None)
+    calc = AtomPAW(symbol, f_sln, xc=xc, txt=fd, setup='de')
     energy = calc.results['energy']
-    eps_n = calc.wfs.kpt_u[0].eps_n
+    # eps_n = calc.wfs.kpt_u[0].eps_n
 
     f_sln[0][l0][-1] -= 1
-    calc = AtomPAW(symbol, f_sln, xc=xc, charge=1, txt=None)
+    calc = AtomPAW(symbol, f_sln, xc=xc, charge=1, txt=fd, setup='de')
     IP2 = calc.results['energy'] - energy
-    print(IP, IP2, calc.wfs.kpt_u[0].eps_n, eps_n)
-
-
-ip('Li')
+    return IP, IP2
 
 
 if __name__ == '__main__':
