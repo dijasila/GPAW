@@ -62,7 +62,7 @@ def construct_reciprocal(gd, q_c=None):
 
     # Calculate reciprocal lattice vectors
     N_c1 = gd.N_c[:, None]
-    i_cq = np.indices(gd.n_c).reshape((3, -1), dtype=float) # offsets....
+    i_cq = np.indices(gd.n_c, dtype=float).reshape((3, -1))  # offsets....
     i_cq += gd.beg_c[:, None]
     i_cq += N_c1 // 2
     i_cq %= N_c1
