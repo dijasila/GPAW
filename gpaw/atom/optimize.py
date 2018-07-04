@@ -376,12 +376,12 @@ def ip(symbol, fd):
             f_ln[l].append(f)
 
     f_sln = [[f_ln[l] for l in range(1 + max(f_ln))]]
-    calc = AtomPAW(symbol, f_sln, xc=xc, txt=fd, setup='de')
+    calc = AtomPAW(symbol, f_sln, xc=xc, txt=fd, setups='de')
     energy = calc.results['energy']
     # eps_n = calc.wfs.kpt_u[0].eps_n
 
     f_sln[0][l0][-1] -= 1
-    calc = AtomPAW(symbol, f_sln, xc=xc, charge=1, txt=fd, setup='de')
+    calc = AtomPAW(symbol, f_sln, xc=xc, charge=1, txt=fd, setups='de')
     IP2 = calc.results['energy'] - energy
     return IP, IP2
 
