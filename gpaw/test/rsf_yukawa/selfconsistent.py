@@ -31,9 +31,9 @@ c = {'energy': 0.001, 'eigenstates': 3, 'density': 3}
 calculator = GPAW(convergence=c, eigensolver=RMMDIIS(),
                   occupations=FermiDirac(width=0.0, fixmagmom=True),
                   poissonsolver=PoissonSolver(use_charge_center=True), h=h)
-for xc, dE, ediff in [('LCY_BLYP', 143.3, 0.25),
-                      ('LCY_PBE', 149.2, 0.3),
-                      ('CAMY_B3LYP', 147.1, 0.25)]:
+for xc, dE, ediff in [# ('LCY_BLYP', 143.3, 0.3),
+                      # ('CAMY_B3LYP', 147.1, 0.25),
+                      ('LCY_PBE', 149.2, 0.35)]:
     energies = {}
     calculator.set(xc=HybridXC(xc))
     for work_atom in work_atoms:
