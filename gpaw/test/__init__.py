@@ -142,9 +142,7 @@ tests = [
     'cluster.py',
     'poisson/poisson.py',
     'poisson/poisson_asym.py',
-    'rsf_yukawa/camy_broken_symmetry.py',
-    'rsf_yukawa/change_gamma.py',
-    'rsf_yukawa/lrtddft.py',
+    # 'rsf_yukawa/lrtddft.py',
     'rsf_yukawa/nonselfconsistent.py',
     'rsf_yukawa/selfconsistent.py',
     'rsf_yukawa/selfconsistent_yuk.py',
@@ -374,6 +372,7 @@ tests = [
     'response/bse_aluminum.py',             # ~42s
     'exx/check_load.py',                    # ~43s
     'response/au02_absorption.py',          # ~44s
+    'rsf_yukawa/change_gamma.py',
     'xc/tb09.py',
     'ext_potential/point_charge.py',
     'ase_features/wannierk.py',             # ~45s
@@ -395,6 +394,7 @@ tests = [
     'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
     'exx/exx_scf.py',                       # ~91s
+    'rsf_yukawa/check_load.py',             # ~100s
     'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
     'exx/AA_enthalpy.py',                   # ~119s
