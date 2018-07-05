@@ -9,11 +9,19 @@ http://www.fysik.dtu.dk/english/Research/CAMD/Events/Summer-school-2018
 
 .. highlight:: bash
 
+.. toctree::
+   :maxdepth: 1
+
+   projects
+
+
 Summer school exercises in Jupyter notebooks
 ============================================
 
-
-The Summer School includes a number of exercises, which are partly formulated as Jupyter Notebooks.  In a Jupyter Notebook you are running the calculations on the DTU central computing facilities, but the output is displayed in your local browser.
+The Summer School includes a number of :ref:`projects`, which are partly
+formulated as Jupyter Notebooks.  In a Jupyter Notebook you are running the
+calculations on the DTU central computing facilities, but the output is
+displayed in your local browser.
 
 Unfortunately, this requires some setup, which is described below.
 
@@ -33,7 +41,7 @@ Windows users
 
 .. toctree::
    :maxdepth: 1
-	   
+
    setupwin
    accesswin
 
@@ -43,9 +51,9 @@ Mac and Linux users
 
 .. toctree::
    :maxdepth: 1
-	   
+
    setuplinmac
    accesslinmac
-   
+
 
 

@@ -1,4 +1,4 @@
-.. _projects:
+.. _dev projects:
 
 ================
 Ongoing Projects
