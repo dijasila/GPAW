@@ -21,7 +21,7 @@ for work_atom in [
     work_atom.minimal_box(4, h=h)
     work_atom.translate([0.01, 0.02, 0.03])
     work_atoms.append(work_atom)
-c = {'energy': 0.001, 'eigenstates': 3, 'density': 3}
+c = {'energy': 0.01, 'eigenstates': 3, 'density': 3}
 
 # Atomization energies are from M. Seth, T. Ziegler, JCTC 8, 901-907
 # dx.doi.org/10.1021/ct300006h
@@ -33,7 +33,7 @@ calculator = GPAW(convergence=c, eigensolver=RMMDIIS(),
                   poissonsolver=PoissonSolver(use_charge_center=True), h=h)
 for xc, dE, ediff in [# ('LCY_BLYP', 143.3, 0.3),
                       # ('CAMY_B3LYP', 147.1, 0.25),
-                      ('LCY_PBE', 149.2, 0.35)]:
+                      ('LCY_PBE', 149.2, 0.7)]:
     energies = {}
     calculator.set(xc=HybridXC(xc))
     for work_atom in work_atoms:
