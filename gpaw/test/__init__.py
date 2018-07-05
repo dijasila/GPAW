@@ -143,9 +143,6 @@ tests = [
     'poisson/poisson.py',
     'poisson/poisson_asym.py',
     # 'rsf_yukawa/lrtddft.py',
-    'rsf_yukawa/nonselfconsistent.py',
-    'rsf_yukawa/selfconsistent.py',
-    'rsf_yukawa/selfconsistent_yuk.py',
     'parallel/arraydict_redist.py',
     'parallel/scalapack.py',
     'gauss_wave.py',
@@ -394,6 +391,7 @@ tests = [
     'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
     'exx/exx_scf.py',                       # ~91s
+    'rsf_yukawa/nonselfconsistent.py',      # ~98s
     'rsf_yukawa/check_load.py',             # ~100s
     'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
@@ -406,6 +404,8 @@ tests = [
     'response/gwsi.py',                     # ~147s
     'response/graphene.py',                 # ~160s
     'response/symmetry.py',                 # ~300s
+    'rsf_yukawa/selfconsistent.py',
+    'rsf_yukawa/selfconsistent_yuk.py',
     'pw/moleculecg.py',                     # duration unknown
     'potential.py',                         # duration unknown
     'lcao/pair_and_coulomb.py',             # duration unknown
@@ -470,6 +470,8 @@ if mpi.size < 4:
                 'parallel/realspace_blacs.py',
                 'exx/AA_enthalpy.py',
                 'exx/exx_scf.py',
+                'rsf_yukawa/selfconsistent.py',
+                'rsf_yukawa/selfconsistent_yuk.py',
                 'response/bse_aluminum.py',
                 'response/bse_MoS2_cut.py',
                 'fileio/parallel.py',
