@@ -385,6 +385,7 @@ tests = [
     'pathological/nonlocalset.py',          # ~82s
     'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
+    'exx/exx_scf.py',                       # ~91s
     'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
     'exx/AA_enthalpy.py',                   # ~119s
@@ -459,6 +460,7 @@ if mpi.size < 4:
                 'parallel/scalapack_diag_simple.py',
                 'parallel/realspace_blacs.py',
                 'exx/AA_enthalpy.py',
+                'exx/exx_scf.py',
                 'response/bse_aluminum.py',
                 'response/bse_MoS2_cut.py',
                 'fileio/parallel.py',
