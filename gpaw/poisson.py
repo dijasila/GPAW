@@ -10,7 +10,7 @@ from numpy.fft import fftn, ifftn, fft2, ifft2
 from gpaw import PoissonConvergenceError
 from gpaw.dipole_correction import DipoleCorrection
 from gpaw.domain import decompose_domain
-from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
+from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB, laplace
 from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
@@ -755,3 +755,50 @@ class FixedBoundaryPoissonSolver(FDPoissonSolver):
             self.gd.distribute(global_phi_g, phi_g)
         else:
             phi_g[:] = phi_g3
+
+class GeneralizedLauePoissonSolver(BasePoissonSolver):
+    def __init__(self, nn=3):
+        BasePoissonSolver.__init__(self)
+        self.nn = nn
+
+    def set_grid_descriptor(self, gd):
+        assert np.all(gd.pbc_c == [True, True, False])
+        assert gd.orthogonal
+        self.gd = gd
+
+        # Calculate the eigenvalues of the circulant matrix based on the fd stencil
+        self.stencil_i = laplace[self.nn]
+        self.eigs_c = []
+        for c in range(2):
+            eigs = np.zeros((gd.N_c[c],))
+            r_x = np.indices([gd.N_c[c]])[0]
+            for i, s in enumerate(self.stencil_i):
+                factor = 2 if i>0 else 1
+                eigs -= factor*np.cos(2*np.pi*r_x*i*1.0 / gd.N_c[c])*s / gd.h_cv[c][c]**2
+                # Only orthogonal cells for now
+            self.eigs_c.append(eigs)
+
+    def solve(self, phi_g, rho_g, charge=None):
+
+        # Bootstrap single core version of the algorithm, to be optimized with banded solver and parallelization etc. etc.
+        # Real version could compute banded LU decomposition with DGBTRF in advance and only call DGBTRS when solving
+        gd = self.gd
+        rho_Gz = fft2(rho_g, axes=[0,1]) # TODO: Utilize real only symmetry
+
+        # Full matrix solution for demonstrative purposes
+        T = np.zeros((gd.N_c[2]-1, gd.N_c[2]-1), dtype=complex)
+        for i, s in enumerate(self.stencil_i):
+            T += np.diag(-np.ones((gd.N_c[2]-i-1,))*s, k=i)
+            if i >0:
+                T += np.diag(-np.ones((gd.N_c[2]-i-1,))*s, k=-i)
+        T /= gd.h_cv[2][2]**2
+        for x, lx in enumerate(self.eigs_c[0]):
+            for y, ly in enumerate(self.eigs_c[1]):
+                TT = T + np.eye(gd.N_c[2]-1) * (lx+ly)
+                rho_Gz[x,y] = np.linalg.solve(TT, rho_Gz[x,y])
+
+        phi_g[:] = 4.0 * np.pi * ifft2(rho_Gz, axes=[0,1]) 
+
+    def estimate_memory(self, mem):
+        pass
+
