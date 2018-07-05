@@ -25,7 +25,7 @@ def convert(path):
 
 
 def run(name):
-    code = convert(Path(name + '.master.ipynb'))
+    code = convert(Path(name))
     exec(code)
 
 
