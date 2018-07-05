@@ -20,7 +20,7 @@ o = Cluster(Atoms('O', [(0, 0, 0)]))
 o.minimal_box(4, h=h)
 o.translate([0.01, 0.02, 0.03])
 
-c = {'energy': 0.001, 'eigenstates': 4, 'density': 3}
+c = {'energy': 0.01, 'eigenstates': 3, 'density': 3}
 
 # Dissoziation energies from M. Seth, T. Ziegler, JCTC 8, 901-907
 # dx.doi.org/10.1021/ct300006h
@@ -43,9 +43,9 @@ tio2.calc = GPAW(txt='TiO2-' + xc + '.txt', xc=xc, convergence=c,
 tio2.set_initial_magnetic_moments([1.0, -0.5, -0.5])
 e_tio2 = tio2.get_potential_energy()
 
-for xc, dE, ediff in [('CAMY_B3LYP', 147.1, 0.15),
-                      ('LCY_BLYP', 143.3, 0.25),
-                      ('LCY_PBE', 149.2, 0.35)]:
+for xc, dE, ediff in [('CAMY_B3LYP', 147.1, 0.5),
+                      # ('LCY_BLYP', 143.3, 0.25),
+                      ('LCY_PBE', 149.2, 0.8)]:
     de_ti = e_ti + ti.calc.get_xc_difference(HybridXC(xc))
     de_o = e_o + o.calc.get_xc_difference(HybridXC(xc))
     de_tio2 = e_tio2 + tio2.calc.get_xc_difference(HybridXC(xc))
