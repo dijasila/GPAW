@@ -372,6 +372,7 @@ tests = [
     'pw/expert_diag.py',                    # ~37s
     'pathological/LDA_unstable.py',         # ~42s
     'response/bse_aluminum.py',             # ~42s
+    'exx/check_load.py',                    # ~43s
     'response/au02_absorption.py',          # ~44s
     'xc/tb09.py',
     'ext_potential/point_charge.py',
