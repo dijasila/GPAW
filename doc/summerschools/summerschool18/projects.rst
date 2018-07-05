@@ -6,4 +6,6 @@ Projects
 
 .. toctree::
 
+    intro/intro
     catalysis/catalysis
+    magnetism/magnetism
