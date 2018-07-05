@@ -88,7 +88,7 @@ def adsorb(db, height=1.2, nlayers=3, nkpts=7, ecut=400):
     return height
 
 
-if __name__ == '__main__':
+def run():
     h = 1.2
     from ase.db import connect
     db = connect('convergence.db')
@@ -98,3 +98,7 @@ if __name__ == '__main__':
         h = adsorb(db, h, 2, k, 400)
     for ecut in range(350, 801, 50):
         h = adsorb(db, h, 2, 7, ecut)
+
+
+if __name__ == '__main__':
+    run()

@@ -1,2 +1,3 @@
 # Creates: convergence.db
-import check_convergence
+from .check_convergence import run
+run()

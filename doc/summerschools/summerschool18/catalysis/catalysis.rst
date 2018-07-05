@@ -2,18 +2,6 @@
 Catalysis
 =========
 
-Downloads:
-
-    :download:`n2_on_metal.ipynb`
-
-    :download:`neb.ipynb`, :download:`neb.py`
-
-    :download:`vibrations.ipynb`, :download:`TS.xyz`
-
-    :download:`convergence.ipynb`, :download:`convergence.json`,
-    :download:`check_convergence.py`
-
-
 This exercise studies the splitting of the |N2| molecule on a Ruthenium
 surface.   |N2| splitting is the critical step in ammonia synthesis, which is
 the main source of biologically accessible nitrogen for fertilizers.
@@ -34,7 +22,9 @@ Tools used in this exercise:
 Part 1: |N2| adsorption on a flat Ru surface
 ============================================
 
-The notebook N2_on_metal.ipynb shows how to set up a molecule on a flat metal surface.
+:download:`n2_on_metal.ipynb`
+
+The notebook n2_on_metal.ipynb shows how to set up a molecule on a flat metal surface.
 
 * Set up a clean metal surface.
 
@@ -64,7 +54,11 @@ XXXX Write something about dry-run and job submission here.
 Part 3: Learning about Nudged Elastic Band
 ==========================================
 
-While the calculations from the previous step runs, you can learn about the Nudged Elastic Band method for finding transition states and barriers from the notebook NEB.ipynb
+:download:`neb.ipynb`, :download:`neb.py`
+
+While the calculations from the previous step runs, you can learn about the
+Nudged Elastic Band method for finding transition states and barriers from the
+notebook neb.ipynb
 
 
 Part 4: Run a parallel NEB calculation
@@ -73,16 +67,26 @@ Part 4: Run a parallel NEB calculation
 Prepare a script running NEB using the GPAW calculator and the initial and final states from part 2 to find the barrier for |N2| dissociation.
 
 When doing this you should parallelize over the images in the NEB calculation. A more detailed description of how to do this can be found in the
-*Exercise* part of the NEB.ipynb along with some suitable input parameters for the NEB.
+*Exercise* part of the neb.ipynb along with some suitable input parameters for the NEB.
+
 
 Extra exercise: Vibrational energy
 ======================================
 
-The notebook Vibrations.ipynb will guide you through how to calculate the vibrations of the adsorbate in the inital and final state and use the Thermochamistry module to calculate the reaction free energy.
-The final part of the exercise shows what happens when you calculate the vibrations of a well-converged NEB transition state.
+:download:`vibrations.ipynb`, :download:`TS.xyz`
+
+The notebook vibrations.ipynb will guide you through how to calculate the
+vibrations of the adsorbate in the inital and final state and use the
+Thermochamistry module to calculate the reaction free energy. The final part
+of the exercise shows what happens when you calculate the vibrations of a
+well-converged NEB transition state.
+
 
 Extra material: Convergence test
 ================================
+
+:download:`convergence.ipynb`, :download:`convergence.json`,
+:download:`check_convergence.py`
 
 We look at the adsorption energy and height of a nitrogen atom on a Ru(0001)
 surface in the hcp site.  We check for convergence with respect to:

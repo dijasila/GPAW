@@ -1,4 +1,4 @@
-# creates: catalysis/n2-on-metal.ipynb
+# creates: catalysis/n2_on_metal.ipynb
 # ... and other .ipynb files
 
 import json
@@ -39,7 +39,6 @@ def convert(path):
     new.write_text(json.dumps(data, indent=1))
 
 
-if __name__ == '__main__':
-    for path in Path().glob('*/*.master.ipynb'):
-        print(path)
-        convert(path)
+for path in Path().glob('*/*.master.ipynb'):
+    print(path)
+    convert(path)

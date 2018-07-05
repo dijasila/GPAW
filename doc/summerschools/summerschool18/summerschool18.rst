@@ -10,7 +10,7 @@ http://www.fysik.dtu.dk/english/Research/CAMD/Events/Summer-school-2018
 .. highlight:: bash
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
    projects
 
