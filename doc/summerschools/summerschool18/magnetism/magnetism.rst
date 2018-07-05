@@ -42,7 +42,7 @@ If the magnetic atoms form a hexagonal lattice and the exchange coupling is anti
 Part 3: Find a new 2D material with large critical temperature
 ==============================================================
 
-:download:`magnetism2.ipynb`
+:download:`magnetism3.ipynb`
 
 In this last part you will search the database and pick one material you expect to have a large critical temperature. The total energy mapping analysis is carried out to obtain exchange coupling parameters and a first principles estimate of the critical temperature. The guidelines for the analysis is found in the notebook magnetism3.ipynb
 
