@@ -1,51 +1,41 @@
 """Check for tunability of gamma for yukawa potential."""
 from ase import Atoms
 from ase.units import kcal, mol
-from gpaw import GPAW
+from gpaw import GPAW, setup_paths
+from gpaw.mixer import Mixer
 from gpaw.cluster import Cluster
 from gpaw.poisson import PoissonSolver
-# from gpaw.xc.hybrid import HybridXC
+from gpaw.eigensolvers import RMMDIIS
+from gpaw.xc.hybrid import HybridXC
 from gpaw.occupations import FermiDirac
-from gpaw.test import equal
+from gpaw.test import equal, gen
 
-h = 0.25
-tio2 = Cluster(Atoms('TiO2', positions=[(0, 0, 0), (0.66, 0.66, 1.34),
-                                        (0.66, 0.66, -1.34)]))
-tio2.minimal_box(4, h=h)
-tio2.translate([0.01, 0.02, 0.03])
-ti = Cluster(Atoms('Ti', [(0, 0, 0)]))
-ti.minimal_box(4, h=h)
-ti.translate([0.01, 0.02, 0.03])
-o = Cluster(Atoms('O', [(0, 0, 0)]))
-o.minimal_box(4, h=h)
-o.translate([0.01, 0.02, 0.03])
+if setup_paths[0] != '.':
+    setup_paths.insert(0, '.')
 
-c = {'energy': 0.001, 'eigenstates': 4, 'density': 3}
+for atom in ['C', 'O']:
+    gen(atom, xcname='PBE', scalarrel=True, exx=True,
+        yukawa_gamma=0.81, gpernode=149)
 
-# Dissoziation energies from M. Seth, T. Ziegler, JCTC 8, 901-907
-# dx.doi.org/10.1021/ct300006h
-xc = 'PBE'
-ti.calc = GPAW(txt='Ti-' + xc + '.txt', xc=xc, convergence=c, h=h,
-               poissonsolver=PoissonSolver(use_charge_center=True),
-               occupations=FermiDirac(width=0.0, fixmagmom=True))
-ti.set_initial_magnetic_moments([2.0])
-e_ti = ti.get_potential_energy()
-o.calc = GPAW(txt='O-' + xc + '.txt', xc=xc, convergence=c, h=h,
-              poissonsolver=PoissonSolver(use_charge_center=True),
-              occupations=FermiDirac(width=0.0, fixmagmom=True))
-o.set_initial_magnetic_moments([2.0])
-e_o = o.get_potential_energy()
-tio2.calc = GPAW(txt='TiO2-' + xc + '.txt', xc=xc, convergence=c, h=h,
-                 poissonsolver=PoissonSolver(use_charge_center=True),
-                 occupations=FermiDirac(width=0.0, fixmagmom=True))
-tio2.set_initial_magnetic_moments([1.0, -0.5, -0.5])
-e_tio2 = tio2.get_potential_energy()
+h = 0.30
+co = Cluster(Atoms('CO', positions=[(0, 0, 0), (0, 0, 1.15)]))
+co.minimal_box(4, h=h)
 
-for xc, dE, ediff in [('LCY_PBE(0.9)', 141.6, 0.35)]:
-    de_ti = e_ti + ti.calc.get_xc_difference(xc)
-    de_o = e_o + o.calc.get_xc_difference(xc)
-    de_tio2 = e_tio2 + tio2.calc.get_xc_difference(xc)
-    # dissoziation energy
-    e_diss = (de_ti + 2 * de_o - de_tio2) / 2.0
-    print(xc, e_diss, dE * kcal / mol)
-    equal(e_diss, dE * kcal / mol, ediff)
+c = {'energy': 0.1, 'eigenstates': 3, 'density': 3}
+
+# IP for CO using LCY-PBE with gamma=0.81 after
+# R. Wuerdemann, M. Walter
+# dx.doi.org/10.1021/acs.jctc.8b00238
+IP = 14.31
+
+xc = HybridXC('LCY_PBE', omega=0.81)
+
+calc = GPAW(txt='CO.txt', xc=xc, convergence=c,
+            eigensolver=RMMDIIS(), h=h,
+            occupations=FermiDirac(width=0.0), spinpol=False)
+co.set_calculator(calc)
+co.get_potential_energy()
+(eps_homo, eps_lumo) = calc.get_homo_lumo()
+equal(eps_homo, -IP, 0.15)
+
+
