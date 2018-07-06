@@ -85,7 +85,7 @@ well-converged NEB transition state.
 Extra material: Convergence test
 ================================
 
-:download:`convergence.ipynb`, :download:`convergence.json`,
+:download:`convergence.ipynb`, :download:`convergence.db`,
 :download:`check_convergence.py`
 
 We look at the adsorption energy and height of a nitrogen atom on a Ru(0001)
