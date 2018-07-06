@@ -1,10 +1,7 @@
 """Check for tunability of gamma for yukawa potential."""
 from ase import Atoms
-from ase.units import kcal, mol
 from gpaw import GPAW, setup_paths
-from gpaw.mixer import Mixer
 from gpaw.cluster import Cluster
-from gpaw.poisson import PoissonSolver
 from gpaw.eigensolvers import RMMDIIS
 from gpaw.xc.hybrid import HybridXC
 from gpaw.occupations import FermiDirac
@@ -37,5 +34,3 @@ co.set_calculator(calc)
 co.get_potential_energy()
 (eps_homo, eps_lumo) = calc.get_homo_lumo()
 equal(eps_homo, -IP, 0.15)
-
-

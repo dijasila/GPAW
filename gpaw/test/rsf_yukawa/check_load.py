@@ -1,6 +1,5 @@
 """test correct loading of RSF calculations."""
 from ase import Atoms
-from ase.units import kcal, mol
 from gpaw import GPAW
 from gpaw.xc.hybrid import HybridXC
 from gpaw.occupations import FermiDirac
