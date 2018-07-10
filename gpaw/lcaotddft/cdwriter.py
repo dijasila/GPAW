@@ -22,8 +22,6 @@ def convert_repr(r):
         return s
     raise RuntimeError('Unknown value: %s' % r)
 
-    print(1)
-
 class CDWriter(TDDFTObserver):
     version=1
 
@@ -41,6 +39,14 @@ class CDWriter(TDDFTObserver):
             self.read_header(filename)
             if self.master:
                 self.fd = open(filename, 'a')
+
+        # Create Gradient operator
+        gd = paw.wfs.gd
+        grad = []
+        for c in range(3):
+            grad.append(Gradient(gd, c, dtype=complex, n=2))
+        self.grad = grad
+
 
     def _write(self, line):
         if self.master:
@@ -74,8 +80,6 @@ class CDWriter(TDDFTObserver):
             k = {'center': 'do_center'}[k]
             setattr(self, k, v)
    
-            print (2) 
-
     def _write_kick(self, paw):
         time = paw.time
         kick = paw.kick_strength
@@ -84,55 +88,32 @@ class CDWriter(TDDFTObserver):
         self._write(line)
 
     def calculate_cd_moment(self, paw, center=True):
-        gd=paw.wfs.gd
-        grad = []
-        dtype = np.float
-        for c in range(3):
-            grad.append(Gradient(gd, c, dtype=dtype, n=2))
+        grad = self.grad
+        gd = paw.wfs.gd
 
-        grad_psit_G = [gd.empty(), gd.empty(),
-                      gd.empty()]
+        grad_psit_G = gd.empty(3, dtype=complex)
+        psit_G=gd.empty(dtype=complex)
 
-
-        rxnabla_g = np.zeros(3)
-        
+        rxnabla_g = np.zeros(3, dtype=complex)
         R0 = 0.5 * np.diag(paw.wfs.gd.cell_cv)
-
         r_cG, r2_G = coordinates(paw.wfs.gd, origin=R0)
-
-        
-        print (3) 
 
         for kpt in paw.wfs.kpt_u:
             for f, C_M in zip(kpt.f_n, kpt.C_nM):
-                psit_G=gd.empty()
+                psit_G[:] = 0.0
                 paw.wfs.basis_functions.lcao_to_grid(C_M, psit_G, kpt.q)
-                
- 
-                # Gradients
-                for c in range(3):
+                for c in range(3): 
                      grad[c].apply(psit_G, grad_psit_G[c],kpt.phase_cd)
-
-                # <psi1|r x grad|psi2>
-                #    i  j  k
-                #    x  y  z   = (y pz - z py)i + (z px - x pz)j + (x py - y px)
-                #    px py pz
-
-                rxnabla_g[0] += paw.wfs.gd.integrate(psit_G *
-                                                      (r_cG[1] * grad_psit_G[2] -
-                                                       r_cG[2] * grad_psit_G[1]))
-                rxnabla_g[1] += paw.wfs.gd.integrate(psit_G *
-                                                      (r_cG[2] * grad_psit_G[0] -
-                                                       r_cG[0] * grad_psit_G[2]))
-                rxnabla_g[2] += paw.wfs.gd.integrate(psit_G *
-                                                      (r_cG[0] * grad_psit_G[1] -
-                                                       r_cG[1] * grad_psit_G[0]))
-
-        print(4)    
-        return rxnabla_g
-
-
-       
+                rxnabla_g[0] += -1j*f*paw.wfs.gd.integrate(psit_G.conjugate() *
+                                                        (r_cG[1] * grad_psit_G[2] -
+                                                         r_cG[2] * grad_psit_G[1]))
+                rxnabla_g[1] += -1j*f*paw.wfs.gd.integrate(psit_G.conjugate() *
+                                                        (r_cG[2] * grad_psit_G[0] -
+                                                         r_cG[0] * grad_psit_G[2]))
+                rxnabla_g[2] += -1j*f*paw.wfs.gd.integrate(psit_G.conjugate() *
+                                                        (r_cG[0] * grad_psit_G[1] -
+                                                         r_cG[1] * grad_psit_G[0]))
+        return rxnabla_g.real.copy()
 
     def _write_cd(self, paw):
         time = paw.time
