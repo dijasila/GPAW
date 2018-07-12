@@ -22,7 +22,7 @@ Tools used in this exercise:
 Part 1: |N2| adsorption on a flat Ru surface
 ============================================
 
-:download:`n2_on_metal.ipynb`
+:download:`n2_on_metal.ipynb`, :download:`N2Ru_hollow.png`, :download:`2NadsRu.png`
 
 The notebook n2_on_metal.ipynb shows how to set up a molecule on a flat metal surface.
 

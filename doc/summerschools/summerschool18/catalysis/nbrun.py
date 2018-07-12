@@ -1,3 +1,4 @@
+# Creates: N2Ru_hollow.png, 2NadsRu.png
 import json
 from pathlib import Path
 

@@ -57,7 +57,8 @@ def adsorb(db, height=1.2, nlayers=3, nkpts=7, ecut=400):
         optimizer = BFGSLineSearch(slab, logfile='N' + name + '.opt')
         optimizer.run(fmax=0.01)
         height = slab.positions[-1, 2] - slab.positions[:-1, 2].max()
-        db.write(slab, id=id,
+        del db[id]
+        db.write(slab,
                  name=f'N/{nlayers}Ru(0001)', nkpts=nkpts, ecut=ecut,
                  height=height)
 
@@ -68,7 +69,8 @@ def adsorb(db, height=1.2, nlayers=3, nkpts=7, ecut=400):
         slab.calc = GPAW(txt=name + '.txt',
                          **parameters)
         slab.get_forces()
-        db.write(slab, id=id,
+        del db[id]
+        db.write(slab,
                  name=f'{nlayers}Ru(0001)', nkpts=nkpts, ecut=ecut)
 
     # Nitrogen atom:
@@ -83,7 +85,8 @@ def adsorb(db, height=1.2, nlayers=3, nkpts=7, ecut=400):
         # Calculate energy:
         molecule.calc = GPAW(txt=name + '.txt', **parameters)
         molecule.get_potential_energy()
-        db.write(molecule, id=id, name='N-atom', ecut=ecut)
+        del db[id]
+        db.write(molecule, name='N-atom', ecut=ecut)
 
     return height
 

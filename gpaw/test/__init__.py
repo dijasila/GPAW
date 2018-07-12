@@ -214,6 +214,7 @@ tests = [
     'vdw/libvdwxc_mbeef.py',                # ~3s
     'pw/augment_grids.py',                  # ~4s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
+    'generic/move_across_cell.py',          # ~4s
     'parallel/augment_grid.py',             # ~4s
     'utilities/ewald.py',                   # ~4s
     'symmetry/symmetry.py',                 # ~4s
