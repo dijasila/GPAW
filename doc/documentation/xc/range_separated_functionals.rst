@@ -15,7 +15,7 @@ RSFs mix the two contributions by the spatial distance between two points, `r_{1
 using a soft function `\omega_\mathrm{RSF}(\gamma, r_{12})`.
 
 To achieve this, the coulomb interaction kernel,
-`\frac{1}{r_{12}} = \frac{1}{|r_1 - r_2|}`
+`\frac{1}{r_{12}} = \frac{1}{|r_1 - r_2|}`,
 which appears in the exchange integral from HFT is split into two parts:
 
 `\frac{1}{r_{12}} = \underbrace{\frac{1 - [\alpha + \beta ( 1 - \omega_\mathrm{RSF} (\gamma, r_{12}))]}{r_{12}}}_{\text{SR, DFT}} + \underbrace{\frac{\alpha + \beta ( 1 - \omega_\mathrm{RSF} (\gamma, r_{12}))}{r_{12}}}_{\text{LR, HFT}}`,
@@ -23,12 +23,11 @@ which appears in the exchange integral from HFT is split into two parts:
 the short-range (SR) part is handled by the exchange from a (semi-)local LDA 
 or GGA functional such as PBE, while the long-range part (LR) is handled by 
 the exchange from HFT. `\alpha` and `\beta` are functional dependent mixing
-parameters. `\alpha \ne 0` and `\beta = 0` resembles conventional global
-hybrids. RSFs with `\alpha = 0` and `\beta \ne 0` are called long-range
-corrected and were usually denoted by ``LC`` and
-the name of the semi-local functional, f.e. LC-PBE. `\alpha \ne 0` and
-`\beta \ne 0` defines RSFs which were handled by the coulomb attenuation
-method (CAM) scheme, and are prefixed by ``CAM``, f.e. CAM-B3LYP.
+parameters.  `\alpha \ne 0` and `\beta = 0` resembles conventional global
+hybrids. RSFs with `\alpha = 0` and `\beta \ne 0` are usually denoted by
+``LC`` and the name of the semi-local functional, f.e. LC-PBE.
+RSFs with `\alpha \ne 0` and `\beta \ne 0` are usually denoted by 
+``CAM`` and the name of the semi-local functional, f.e. CAM-BLYP.
 
 For the separating function `\omega_\mathrm{RSF}`, two functions are in common
 use: either the complementary error function, 
@@ -41,7 +40,7 @@ between these both functions, functionals using the Slater-function append the l
 using the complementary error function keep the marker as it is, f.e.
 LC-PBE or CAM-B3LYP.
 
-Besides `r_{12}` both separation functions use a second parameter, the
+Besides `r_{12}`, the separation functions use a second parameter, the
 screening factor `\gamma`. The optional value for `\gamma` is under
 discussion. A density dependence is stated. For most RSF standard values
 for `\gamma` are defined, although it is possible to tune `\gamma` to optimal
@@ -57,8 +56,9 @@ The implementation of RSFs in gpaw consists of two parts:
  * once the implementation of the Hartree-Fock exchange. This is done
    in ``hybrid.py``.
 
-As range separating function the Slater-function, `\omega_\mathrm{RSF} = e^{(-\gamma r_{12})}`,
-is used. Beside the possibility to set the screening parameter to an arbitrary
+As range separating function the Slater-function,
+`\omega_\mathrm{RSF} = e^{(-\gamma r_{12})}`,
+is used. Beside the possibility to set `\gamma` to an arbitrary
 value, the following functionals were implemented:
 
 ========== ======== ======= ===================== =========
@@ -71,9 +71,9 @@ LCY-PBE    0.0      1.0     0.75                  [SZ12]_
 ========== ======== ======= ===================== =========
 
 
-The implementation of RSFs in gpaw is based on the finite difference exact 
-exchange code (hybrid.py) and therefore inherits its positive and negative
-properties, in summary:
+As the implementation of RSFs in gpaw is based on the finite difference
+exact exchange code (hybrid.py), the implementation inherits its positive
+and negative properties, in summary:
 
 * self-consistent calculations using RSFs
 * calculations can only be done for the `\Gamma` point
@@ -81,12 +81,13 @@ properties, in summary:
 * only RMMDIIS can be used as eigensolver
 
 Important: As one of the major benefits of the RSF is to retain the
-`\frac{1}{r}` asymptote of the exchange potential, one has to use large boxes if
-neutral or anionic systems were considered. Large boxes start at 6Å vacuum
-around each atom. For anionic systems "large" should be extended.
+`\frac{1}{r}` asymptote of the exchange potential, one has to use
+large boxes if neutral or anionic systems are considered. Large boxes
+start at 6Å vacuum around each atom. For anionic systems "large" should
+be extended.
 
-Further information about the implementation can be found in [WW18]_ and in
-detail in [Wu16]_.
+Further information about the implementation and RSFs can be found in
+[WW18]_ and in detail in [Wu16]_.
 
 Simple usage
 ============
@@ -96,22 +97,46 @@ functional as in the following snippet:
 
 .. literalinclude:: rsf_simple.py
 
-Three main points can be seen already in this small snippet. Even if choosing the RSF is quite simple by choosing ``xc=LCY_PBE``, one has to choose RMMDIIS as eigensolver, ``eigensolver=RMMDIIS()`` and has to decrease the convergence criteria a little.
+Three main points can be seen already in this small snippet. Even if choosing
+the RSF is quite simple by choosing ``xc=LCY_PBE``, one has to choose RMMDIIS
+as eigensolver, ``eigensolver=RMMDIIS()``, and has to decrease the
+convergence criteria a little.
 
 Improving results
 =================
 
-However, there are a few drawbacks, at first in an SCF calculation the contributions from the core electrons are also needed, which have to be calculated during the generation of the PAW datasets. Second: for the calculation of the exchange on the Cartesian grid, the (screened) Poisson equation is solved numerically. For a charged system, as f.e. the exchange of a state with itself, on has to neutralize the charge by subtracting a Gaussian representing the "over-charge", solve the Poisson-Equation for the neutral system and add the solution for the Gaussian to the solution for the neutral system. However, if the charge to remove is "off-center", the center of the neutralizing charge should match the center of the "over-charge" preventing an artificial dipole. The next listing shows these two steps:
+However, there are a few drawbacks, at first in an SCF calculation the
+contributions from the core electrons are also needed, which have to be
+calculated during the generation of the PAW datasets. Second: for the
+calculation of the exchange on the Cartesian grid, the (screened) Poisson
+equation has to be solved numerically. For a charged system, as f.e. the
+exchange of a state with itself, one has to neutralize the charge by
+subtracting a Gaussian representing the "over-charge", solve the 
+(screened) Poisson-equation for the neutral system and add the solution
+for the Gaussian to the solution for the neutral system. However, if the
+charge to remove is "off-center", the center of the neutralizing charge
+should match the center of the "over-charge"
+preventing an artificial dipole. The latter is done by using a Poisson solver
+which uses the charge center for removal:
+``poissonsolver=PoissonSolver(use_charge_center=True)``.
+The next listing shows these two steps:
 
 
 .. literalinclude:: rsf_setup_poisson.py
 
-The generation of setups can also be done by ``gpaw-setup -f PBE -x --gamma=0.75 C O``
+The generation of PAW-datasets can also be done by
+``gpaw-setup -f PBE -x --gamma=0.75 C O``
 
 Tuning `\gamma`
 ===============
 
-As stated in the introduction, the optimal value for `\gamma` is under discussion. One way to find the optimal value for `\gamma` for ionization potentials is to tune `\gamma` in a way, that the negative eigenvalue of the HOMO matches the calculated IP. To use different values of `\gamma`, one has to instantiate the RSF directly by ``HybridXC`` and give the value of `\gamma` to the variable ``omega`` (the latter was chosen to prevent polluting the code with variables (value for `\gamma` was chosen from paper):
+As stated in the introduction, the optimal value for `\gamma` is under
+discussion. One way to find the optimal value for `\gamma` for ionization
+potentials is to tune `\gamma` in a way, that the negative eigenvalue of the
+HOMO matches the calculated IP. To use different values of `\gamma`, one has
+to instantiate the RSF directly by ``HybridXC`` and give the value of `\gamma`
+to the variable ``omega`` (the latter was chosen to prevent polluting the
+code with variables):
 
 .. literalinclude:: rsf_gamma.py
 
