@@ -8,7 +8,6 @@ from gpaw.occupations import FermiDirac
 from gpaw.test import equal, gen
 
 # IP for CO using LCY-PBE with gamma=0.81 after
-# R. Wuerdemann, M. Walter
 # dx.doi.org/10.1021/acs.jctc.8b00238
 IP = 14.31
 
@@ -23,7 +22,8 @@ h = 0.30
 co = Atoms('CO', positions=[(0, 0, 0), (0, 0, 1.15)])
 co.minimal_box(5)
 
-c = {'energy': 0.1, 'eigenstates': 3, 'density': 3}
+# c = {'energy': 0.005, 'eigenstates': 1e-4}  # Usable values
+c = {'energy': 0.1, 'eigenstates': 3, 'density': 3}  # Values for test
 xc = HybridXC('LCY_PBE', omega=0.81)
 
 calc = GPAW(txt='CO.txt', xc=xc, convergence=c,
