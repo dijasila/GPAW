@@ -41,6 +41,7 @@ Build and install GPAW::
 
 To setup the environment::
 
+  module swap ${PE_ENV,,} PrgEnv-gnu
   module load python
   source activate gpaw
   export OMP_NUM_THREADS=1
