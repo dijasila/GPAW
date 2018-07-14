@@ -19,7 +19,6 @@ from gpaw.utilities.ewald import madelung
 from gpaw.utilities.tools import construct_reciprocal
 import _gpaw
 
-
 POISSON_GRID_WARNING = """Grid unsuitable for Poisson solver!
 
 The Poisson solver does not have sufficient multigrid levels for good
@@ -778,6 +777,17 @@ class GeneralizedLauePoissonSolver(BasePoissonSolver):
                 # Only orthogonal cells for now
             self.eigs_c.append(eigs)
 
+        self.choleskys = []
+        for x, lx in enumerate(self.eigs_c[0]):
+            for y, ly in enumerate(self.eigs_c[1]):
+                A = np.empty( (gd.N_c[2]-1, len(self.stencil_i)) )
+                for i, s in enumerate(self.stencil_i):
+                    A[:,i] = s
+                A /= -gd.h_cv[2][2]**2
+                A[:, 0] += lx+ly
+                _gpaw.banded_cholesky(A)
+                self.choleskys.append((x,y,A))
+
     def solve(self, phi_g, rho_g, charge=None):
 
         # Bootstrap single core version of the algorithm, to be optimized with banded solver and parallelization etc. etc.
@@ -785,19 +795,12 @@ class GeneralizedLauePoissonSolver(BasePoissonSolver):
         gd = self.gd
         rho_Gz = fft2(rho_g, axes=[0,1]) # TODO: Utilize real only symmetry
 
-        # Full matrix solution for demonstrative purposes
-        T = np.zeros((gd.N_c[2]-1, gd.N_c[2]-1), dtype=complex)
-        for i, s in enumerate(self.stencil_i):
-            T += np.diag(-np.ones((gd.N_c[2]-i-1,))*s, k=i)
-            if i >0:
-                T += np.diag(-np.ones((gd.N_c[2]-i-1,))*s, k=-i)
-        T /= gd.h_cv[2][2]**2
-        for x, lx in enumerate(self.eigs_c[0]):
-            for y, ly in enumerate(self.eigs_c[1]):
-                TT = T + np.eye(gd.N_c[2]-1) * (lx+ly)
-                rho_Gz[x,y] = np.linalg.solve(TT, rho_Gz[x,y])
-
-        phi_g[:] = 4.0 * np.pi * ifft2(rho_Gz, axes=[0,1]) 
+        for x, y, A in self.choleskys:
+            b = np.array([ rho_Gz[x,y].real, rho_Gz[x,y].imag ]).copy()
+            _gpaw.solve_banded_cholesky(A, b)
+            rho_Gz[x,y,:].real = b[0,:] 
+            rho_Gz[x,y,:].imag = b[1,:]
+        phi_g[:] = 4.0 * np.pi * ifft2(rho_Gz, axes=[0,1]).real 
 
     def estimate_memory(self, mem):
         pass
