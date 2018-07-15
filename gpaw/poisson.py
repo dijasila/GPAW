@@ -54,6 +54,8 @@ def create_poisson_solver(name='fd', **kwargs):
         return FDTDPoissonSolver(**kwargs)
     elif name == 'fd':
         return PoissonSolver(**kwargs)
+    elif name == 'generalizedlaue':
+        return GeneralizedLauePoissonSolver(**kwargs)
     elif name == 'ExtraVacuumPoissonSolver':
         from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
         return ExtraVacuumPoissonSolver(**kwargs)
@@ -760,6 +762,11 @@ class GeneralizedLauePoissonSolver(BasePoissonSolver):
         BasePoissonSolver.__init__(self)
         self.nn = nn
 
+    def todict(self):
+        d = super(GeneralizedLauePoissonSolver, self).todict()
+        d.update({'name': 'generalizedlaue'})
+        return d
+
     def set_grid_descriptor(self, gd):
         assert np.all(gd.pbc_c == [True, True, False])
         assert gd.orthogonal
@@ -804,4 +811,7 @@ class GeneralizedLauePoissonSolver(BasePoissonSolver):
 
     def estimate_memory(self, mem):
         pass
+
+    def get_description(self):
+        return "GeneralizedLauePoissonSolver"
 
