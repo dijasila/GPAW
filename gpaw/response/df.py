@@ -622,8 +622,6 @@ class DielectricFunction:
         for i in np.array(range(1, Nw)):
             e_GG = e_wGG[i]  # epsilon_GG'(omega + d-omega)
             eig_all[i], vec_p = np.linalg.eig(e_GG)
-            if eigenvalue_only:
-                continue
             vec_dual_p = np.linalg.inv(vec_p)
             overlap = np.abs(np.dot(vec_dual, vec_p))
             index = list(np.argsort(overlap)[:, -1])
