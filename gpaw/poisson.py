@@ -5,7 +5,7 @@ import warnings
 from math import pi
 
 import numpy as np
-from numpy.fft import fftn, ifftn, fft2, ifft2
+from numpy.fft import fftn, ifftn, fft2, ifft2, rfft2, irfft2
 
 from gpaw import PoissonConvergenceError
 from gpaw.dipole_correction import DipoleCorrection
@@ -776,8 +776,11 @@ class GeneralizedLauePoissonSolver(BasePoissonSolver):
         self.stencil_i = laplace[self.nn]
         self.eigs_c = []
         for c in range(2):
-            eigs = np.zeros((gd.N_c[c],))
-            r_x = np.indices([gd.N_c[c]])[0]
+            N = gd.N_c[c]
+            if c == 1: # Optimization for real fft
+                N = N // 2 + 1
+            eigs = np.zeros((N,))
+            r_x = np.indices([N])[0]
             for i, s in enumerate(self.stencil_i):
                 factor = 2 if i>0 else 1
                 eigs -= factor*np.cos(2*np.pi*r_x*i*1.0 / gd.N_c[c])*s / gd.h_cv[c][c]**2
@@ -797,17 +800,16 @@ class GeneralizedLauePoissonSolver(BasePoissonSolver):
 
     def solve(self, phi_g, rho_g, charge=None):
 
-        # Bootstrap single core version of the algorithm, to be optimized with banded solver and parallelization etc. etc.
-        # Real version could compute banded LU decomposition with DGBTRF in advance and only call DGBTRS when solving
+        # Single core version of the algorithm
         gd = self.gd
-        rho_Gz = fft2(rho_g, axes=[0,1]) # TODO: Utilize real only symmetry
-
+        rho_Gz = rfft2(rho_g, axes=[0,1])
+        print(rho_Gz.shape)
         for x, y, A in self.choleskys:
             b = np.array([ rho_Gz[x,y].real, rho_Gz[x,y].imag ]).copy()
             _gpaw.solve_banded_cholesky(A, b)
             rho_Gz[x,y,:].real = b[0,:] 
             rho_Gz[x,y,:].imag = b[1,:]
-        phi_g[:] = 4.0 * np.pi * ifft2(rho_Gz, axes=[0,1]).real 
+        phi_g[:] = 4.0 * np.pi * irfft2(rho_Gz, axes=[0,1]).real 
 
     def estimate_memory(self, mem):
         pass
