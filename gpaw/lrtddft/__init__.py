@@ -367,9 +367,9 @@ class LrTDDFT(ExcitationList):
             else:
                 xc = self.xc.name
                 xc_dict = self.xc.todict()
-                del xc_dict['name']
-                if 'xc' in xc_dict:
-                    del xc_dict['xc']
+                for test_key in ['name', 'xc', 'kernel', 'type']:
+                    if test_key in xc_dict:
+                        del xc_dict[test_key]
                 if xc_dict:
                     xc += ':' + ':'.join([(k + '=' + repr(v))
                                           for k, v in xc_dict.items()])
