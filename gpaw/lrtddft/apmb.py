@@ -34,9 +34,8 @@ class ApmB(OmegaMatrix):
 
         if hasattr(self.xc, 'rsf') and (self.xc.rsf == 'Yukawa'):
             self.screened_poissonsolver = HelmholtzSolver(
-                    k2=-self.xc.omega**2, eps=1e-11, nn=3)
+                k2=-self.xc.omega**2, eps=1e-11, nn=3)
             self.screened_poissonsolver.set_grid_descriptor(self.gd)
-            self.screened_poissonsolver.initialize()
         self.paw.timer.start('ApmB RPA')
         self.ApB = self.Om
         self.AmB = self.get_rpa()
@@ -151,10 +150,10 @@ class ApmB(OmegaMatrix):
                     ikjq = self.Coulomb_integral_ijkq(i, k, j, q, s, integrals)
                     iqkj = self.Coulomb_integral_ijkq(i, q, k, j, s, integrals)
                     if yukawa:  # Yukawa integrals might be caches
-                        ikjq -= self.Coulomb_integral_ijkq(i, k, j, q, s,
-                                    rsf_integrals, yukawa)
-                        iqkj -= self.Coulomb_integral_ijkq(i, q, k, j, s,
-                                    rsf_integrals, yukawa)
+                        ikjq -= self.Coulomb_integral_ijkq(
+                            i, k, j, q, s, rsf_integrals, yukawa)
+                        iqkj -= self.Coulomb_integral_ijkq(
+                            i, q, k, j, s, rsf_integrals, yukawa)
                     ApB[ij, kq] -= weight * (ikjq + iqkj)
                     AmB[ij, kq] -= weight * (ikjq - iqkj)
 
