@@ -142,7 +142,6 @@ tests = [
     'cluster.py',
     'poisson/poisson.py',
     'poisson/poisson_asym.py',
-    # 'rsf_yukawa/lrtddft.py',
     'parallel/arraydict_redist.py',
     'parallel/scalapack.py',
     'gauss_wave.py',
@@ -404,6 +403,7 @@ tests = [
     'response/gw_MoS2_cut.py',
     'response/gwsi.py',                     # ~147s
     'response/graphene.py',                 # ~160s
+    'rsf_yukawa/lrtddft.py',                # ~240s
     'response/symmetry.py',                 # ~300s
     'rsf_yukawa/selfconsistent.py',
     'rsf_yukawa/selfconsistent_yuk.py',
