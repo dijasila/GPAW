@@ -3,7 +3,6 @@ from ase import Atoms
 from gpaw import GPAW, setup_paths
 from gpaw.poisson import PoissonSolver
 from gpaw.eigensolvers import RMMDIIS
-from gpaw.xc.hybrid import HybridXC
 from gpaw.occupations import FermiDirac
 from gpaw.test import equal, gen
 
@@ -24,9 +23,8 @@ co.minimal_box(5)
 
 # c = {'energy': 0.005, 'eigenstates': 1e-4}  # Usable values
 c = {'energy': 0.1, 'eigenstates': 3, 'density': 3}  # Values for test
-xc = HybridXC('LCY_PBE', omega=0.81)
 
-calc = GPAW(txt='CO.txt', xc=xc, convergence=c,
+calc = GPAW(txt='CO.txt', xc='LCY_PBE:omega=0.81', convergence=c,
             eigensolver=RMMDIIS(), h=h,
             poissonsolver=PoissonSolver(use_charge_center=True),
             occupations=FermiDirac(width=0.0), spinpol=False)

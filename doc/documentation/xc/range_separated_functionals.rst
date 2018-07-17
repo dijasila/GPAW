@@ -70,6 +70,9 @@ LCY-BLYP   0.0      1.0     0.75                  [SZ12]_
 LCY-PBE    0.0      1.0     0.75                  [SZ12]_
 ========== ======== ======= ===================== =========
 
+Please note, that the functionals are called using an unterscore (``_``)
+instead of an hypen (``-``).
+
 
 As the implementation of RSFs in gpaw is based on the finite difference
 exact exchange code (hybrid.py), the implementation inherits its positive
@@ -134,11 +137,22 @@ As stated in the introduction, the optimal value for `\gamma` is under
 discussion. One way to find the optimal value for `\gamma` for ionization
 potentials is to tune `\gamma` in a way, that the negative eigenvalue of the
 HOMO matches the calculated IP. To use different values of `\gamma`, one has
-to instantiate the RSF directly by ``HybridXC`` and give the value of `\gamma`
-to the variable ``omega`` (the latter was chosen to prevent polluting the
-code with variables):
+to pass the desired value of `\gamma` ti the variable ``omega``.
 
 .. literalinclude:: rsf_gamma.py
+
+linear response TDDFT
+=====================
+
+One of the major benefits of RSF is their ability to describe long-range charge transfer by
+linear response time-dependent DFT (lrTDDFT). If one uses RSF with lrTDDFT one as at least
+to activate the use of the Fock operator (FO) on the unoccupied states. Also the charge
+centered compensation of the over charge should be activated, see [Wu16]_ for details.
+The use of the FO on the unoccupied states is activated by the keyword ``unocc=True`` as in 
+the following code:
+
+.. literalinclude:: rsf_lrtddft.py
+
 
 .. [AT08] Y. Akinaga and S. Ten-no. *Range-separation by the Yukawa potential in long-range corrected density functional theory with Gaussian-type basis functions*. Chemical Physics Letters 462.4 (10. Sep. 2008), S. 348–351.
 
