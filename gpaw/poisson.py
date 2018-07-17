@@ -787,9 +787,19 @@ class GeneralizedLauePoissonSolver(BasePoissonSolver):
                 # Only orthogonal cells for now
             self.eigs_c.append(eigs)
 
+        domainz = (1,1,gd.N_c[2])
+        self.gdz = gd.new_descriptor(parsize_c=decompose_domain((1,1,gd.N_c[2]), gd.comm.size))
+        #self.gdxy = gd.new_descriptor(parsize_c=decompose_domain((gd.N_c[0],gd.N_c[1],1), gd.comm.size))
+        Nr_c = (gd.N_c[0], gd.N_c[1] // 2 +1, gd.N_c[2])
+        Nrxy_c = (gd.N_c[0], gd.N_c[1] // 2 +1, 1)
+        Nrz_c = (1,1, gd.N_c[2])
+        # Set also cell_cv in order to avoid non-isotropic grids
+        self.gdrxy = gd.new_descriptor(Nr_c, cell_cv=Nr_c, pbc_c=gd.pbc_c, parsize_c=decompose_domain(Nrxy_c, gd.comm.size))
+        self.gdrz = gd.new_descriptor(Nr_c, cell_cv=Nr_c, parsize_c=decompose_domain(Nrz_c, gd.comm.size))
+
         self.choleskys = []
-        for x, lx in enumerate(self.eigs_c[0]):
-            for y, ly in enumerate(self.eigs_c[1]):
+        for x, lx in enumerate(self.eigs_c[0][self.gdrxy.beg_c[0]:self.gdrxy.end_c[0]]):
+            for y, ly in enumerate(self.eigs_c[1][self.gdrxy.beg_c[1]:self.gdrxy.end_c[1]]):
                 A = np.empty( (gd.N_c[2]-1, len(self.stencil_i)) )
                 for i, s in enumerate(self.stencil_i):
                     A[:,i] = s
@@ -802,14 +812,26 @@ class GeneralizedLauePoissonSolver(BasePoissonSolver):
 
         # Single core version of the algorithm
         gd = self.gd
-        rho_Gz = rfft2(rho_g, axes=[0,1])
-        print(rho_Gz.shape)
+        # Go from gd to gdz (serial over x and y)
+        # The axes after work determine which axes are parallelized. The not mentioned axes will be serial
+        workrxy_g = self.gdrxy.empty(dtype=complex)
+        workz_g = self.gdz.empty(dtype=float)
+
+        grid2grid(gd.comm, gd, self.gdz, rho_g, workz_g)
+        workrz_g = rfft2(workz_g, axes=[0,1])
+        grid2grid(self.gdrz.comm, self.gdrz, self.gdrxy, workrz_g, workrxy_g)
+                
         for x, y, A in self.choleskys:
-            b = np.array([ rho_Gz[x,y].real, rho_Gz[x,y].imag ]).copy()
+            b = np.array([ workrxy_g[x,y].real, workrxy_g[x,y].imag ]).copy()
             _gpaw.solve_banded_cholesky(A, b)
-            rho_Gz[x,y,:].real = b[0,:] 
-            rho_Gz[x,y,:].imag = b[1,:]
-        phi_g[:] = 4.0 * np.pi * irfft2(rho_Gz, axes=[0,1]).real 
+            workrxy_g[x,y,:].real = b[0,:]
+            workrxy_g[x,y,:].imag = b[1,:]
+
+        grid2grid(self.gdrxy.comm, self.gdrxy, self.gdrz, workrxy_g, workrz_g)
+        workz_g = irfft2(workrz_g, axes=[0,1])
+        grid2grid(self.gdz.comm, self.gdz, self.gd, workz_g, phi_g)
+
+        phi_g[:] *= 4.0 * np.pi
 
     def estimate_memory(self, mem):
         pass
