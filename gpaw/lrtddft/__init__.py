@@ -109,7 +109,7 @@ class LrTDDFT(ExcitationList):
                 err_txt += 'calculator parameter.'
                 raise NotImplementedError(err_txt)
             if self.xc == 'GS':
-                self.xc = calculator.hamiltonian.xc.name
+                self.xc = calculator.hamiltonian.xc
             if calculator.parameters.mode != 'lcao':
                 calculator.converge_wave_functions()
             if calculator.density.nct_G is None:
@@ -176,7 +176,10 @@ class LrTDDFT(ExcitationList):
             Om = OmegaMatrix
             name = 'LrTDDFT'
             if self.xc:
-                xc = XC(self.xc)
+                if isinstance(self.xc, basestring):
+                    xc = XC(self.xc)
+                else:
+                    xc = self.xc
                 if hasattr(xc, 'hybrid') and xc.hybrid > 0.0:
                     Om = ApmB
                     name = 'LrTDDFThyb'
@@ -248,7 +251,7 @@ class LrTDDFT(ExcitationList):
         s = f.readline().replace('\n', '')
         self.name = s.split()[1]
 
-        self.xc = f.readline().replace('\n', '').split()[0]
+        self.xc = XC(f.readline().replace('\n', '').split()[0])
         values = f.readline().split()
         self.eps = float(values[0])
         if len(values) > 1:
@@ -359,7 +362,17 @@ class LrTDDFT(ExcitationList):
                 f = fh
 
             f.write('# ' + self.name + '\n')
-            xc = self.xc
+            if isinstance(self.xc, basestring):
+                xc = self.xc
+            else:
+                xc = self.xc.name
+                xc_dict = self.xc.todict()
+                del xc_dict['name']
+                if 'xc' in xc_dict:
+                    del xc_dict['xc']
+                if xc_dict:
+                    xc += ':' + ':'.join([(k + '=' + repr(v))
+                                          for k, v in xc_dict.items()])
             if xc is None:
                 xc = 'RPA'
             if self.calculator is not None:
