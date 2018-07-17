@@ -110,6 +110,7 @@ class HybridXCBase(XCFunctional):
         self.hybrid = float(hybrid)
         self.xc = xc
         if omega is not None:
+            omega = float(omega)
             if self.omega is not None and self.omega != omega:
                 self.xc.kernel.set_omega(omega)
                 # Needed to tune omega for RSF
