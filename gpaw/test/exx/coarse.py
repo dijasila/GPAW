@@ -17,10 +17,10 @@ loa = Atoms('Be2',
 loa.center()
 
 fgl = [False, True]
-#fgl = [True, False]
+# fgl = [True, False]
 
-txt='-'
-txt='/dev/null'
+txt = '-'
+txt = '/dev/null'
 
 E = {}
 niter = {}
