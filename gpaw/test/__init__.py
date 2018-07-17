@@ -206,6 +206,7 @@ tests = [
     'symmetry/symmetry_ft.py',              # ~3s
     'response/aluminum_EELS_RPA.py',        # ~3s
     'poisson/poisson_extended.py',          # ~3s
+    'poisson/generaliedlaue.py',            # ~3s
     'solvation/vacuum.py',                  # ~3s
     'vdw/libvdwxc_mbeef.py',                # ~3s
     'pw/augment_grids.py',                  # ~4s
