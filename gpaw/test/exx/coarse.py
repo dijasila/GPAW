@@ -42,6 +42,13 @@ for fg in fgl:
     E[fg] = loa.get_potential_energy()
     niter[fg] = calc.get_number_of_iterations()
     timer.stop(tstr)
+    if not fg:
+        fname = 'exx_load.gpw'
+        calc.write(fname)
+        calcl = GPAW(fname)
+        func = calcl.get_xc_functional()
+        assert func['name'] == 'PBE0', 'wrong name for functional'
+        assert func['hybrid'] == 0.25, 'wrong factor for functional'
 
 timer.write(sys.stdout)
 
