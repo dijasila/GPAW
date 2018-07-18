@@ -633,8 +633,8 @@ class DielectricFunction:
                         addlist.append(j)
                     if index.count(j) > 1:
                         for l in range(1, index.count(j)):
-                            removelist.append(
-                                np.argwhere(np.array(index) == j)[l])
+                            removelist += \
+                                list(np.argwhere(np.array(index) == j)[l])
                 for j in range(len(addlist)):
                     index[removelist[j]] = addlist[j]
 
