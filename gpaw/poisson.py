@@ -847,17 +847,15 @@ def dst2(A_g):
     temp_g[x+2:, 1:y+1,:] = -A_g[::-1, :, :]
     temp_g[1:x+1, y+2:,:] = -A_g[:, ::-1, :]
     temp_g[x+2:, y+2:,:] = A_g[::-1, ::-1, :]
-    X = -4*fft2(temp_g, axes=[0,1])
+    X = -4*rfft2(temp_g, axes=[0,1])
     return X[1:x+1, 1:y+1, :].real
 
 def idst2(A_g):
     x,y,z = A_g.shape
-    temp_g = np.zeros((x*2+2, y*2+2, z))
+    temp_g = np.zeros((x*2+2, (y*2+2)//2+1, z))
     temp_g[1:x+1, 1:y+1,:] = A_g
     temp_g[x+2:, 1:y+1,:] = -A_g[::-1, :, :]
-    temp_g[1:x+1, y+2:,:] = -A_g[:, ::-1, :]
-    temp_g[x+2:, y+2:,:] = A_g[::-1, ::-1, :]
-    return -0.25*ifft2(temp_g, axes=[0,1])[1:x+1, 1:y+1, :].real 
+    return -0.25*irfft2(temp_g, axes=[0,1])[1:x+1, 1:y+1, :].real 
 
 class NonPeriodicLauePoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3):
