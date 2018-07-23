@@ -25,9 +25,15 @@ def convert(path):
     return code
 
 
+def view(atoms, repeat=None):
+    pass
+
+
 def run(name):
+    import ase.visualize as visualize
+    visualize.view = view
     code = convert(Path(name))
-    exec(code)
+    exec(code, {})
 
 
 if __name__ == '__main__':
