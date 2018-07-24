@@ -1,4 +1,7 @@
-# Creates: N2Ru_hollow.png, 2NadsRu.png
+"""Extract code from ipynb file.
+
+Used for testing summerschool notebooks.
+"""
 import json
 from pathlib import Path
 
@@ -30,6 +33,10 @@ def view(atoms, repeat=None):
 
 
 def run(name):
+    """Execute ipynb file.
+
+    Run code with ase.visualize.view() disabled.
+    """
     import ase.visualize as visualize
     visualize.view = view
     code = convert(Path(name))
