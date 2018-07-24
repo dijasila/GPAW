@@ -1,7 +1,9 @@
 # creates: catalysis/n2_on_metal.ipynb, catalysis/neb.ipynb
 # creates: catalysis/vibrations.ipynb
 # creates: magnetism/magnetism1.ipynb, magnetism/magnetism2.ipynb
-
+# creates: machinelearning/machinelearning.ipynb
+# creates: photovoltaics/pv1.ipynb, photovoltaics/pv1.ipynb
+# creates: photovoltaics/pv1.ipynb
 import json
 from pathlib import Path
 

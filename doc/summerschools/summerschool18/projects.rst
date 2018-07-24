@@ -10,3 +10,4 @@ Projects
     catalysis/catalysis
     magnetism/magnetism
     machinelearning/machinelearning
+    photovoltaics/photovoltaics
