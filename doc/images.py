@@ -153,6 +153,9 @@ get('summerschool2018',
      'Logged_in_Mac.png', 'Logged_in_Win.png', 'Moba_ssh.png',
      'UseTunnelWin.png'],
     target='summerschools/summerschool18')
+get('summerschool2018',
+    ['organometal.master.db'],
+    target='summerschools/summerschool18/machinelearning')
 
 
 def setup(app):
