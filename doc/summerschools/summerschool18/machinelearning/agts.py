@@ -4,4 +4,4 @@ from myqueue.task import task
 def create_tasks():
     nbrun = 'gpaw.utilities.nbrun'
     return [
-        task(nbrun, args=['machinelearning.master.ipynb'], tmax='3h')]
+        task(nbrun, args=['machinelearning.master.ipynb'], tmax='4h')]
