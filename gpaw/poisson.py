@@ -1,4 +1,4 @@
-# Copyright (C) 2003  CAMP
+#Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
 import warnings
@@ -757,6 +757,94 @@ class FixedBoundaryPoissonSolver(FDPoissonSolver):
         else:
             phi_g[:] = phi_g3
 
+class GeneralizedPoissonSolver(BasePoissonSolver):
+    def __init__(self, nn=3):
+        BasePoissonSolver.__init__(self)
+        self.nn = nn
+
+    def set_grid_descriptor(self, gd):
+        axes = np.array([ 0, 1, 2], dtype=int)
+        pbc_c = np.array(gd.pbc_c, dtype=bool)
+        print repr(axes), repr(pbc_c)
+        periodic_axes = axes[pbc_c]
+        non_periodic_axes = axes[np.logical_not(pbc_c)]
+ 
+        # Find out which axes are orthogonal (0, 2 or 3)
+        # Note, that one expects that the axes are always rotated in conventional form, thus for all axes to be
+        # classified as orthogonal, the cell_cv needs to be diagonal. This may always be achieved by rotating 
+        # the unit-cell along with the atoms. The classification is inherited from grid_descriptor.orthogonal.
+        orthogonal_c = np.array([ True, True, True ], dtype=bool)
+        for c in range(3):
+            for v in range(3):
+                if c != v:
+                    if np.abs(gd.cell_cv[c][v])>1e-10:
+                        orthogonal_c[c] = False
+                        orthogonal_c[v] = False
+
+        orthogonal_axes = axes[orthogonal_c]
+        non_orthogonal_axes = axes[np.logical_not(orthogonal_c)]
+        print "Periodic axes", periodic_axes
+        print "Nonperiodic axes", non_periodic_axes
+        print "Orthogonal axes", orthogonal_axes
+        print "Non-orthogonal axes", non_orthogonal_axes
+        if not set(non_orthogonal_axes).issubset(periodic_axes):
+            raise NotImplemenotedError("In GeneralizedLauePoissonSolver all non-ortogonal axes must be periodic. No non-orthogonal non-periodic axes allowed.")
+
+        # The axes are now divided into three groups
+        # cholesky_axes (list of length 0 or 1): a non-periodic orthogonal direction to use the banded cholesky solver.
+        # fst_axes (list of length 0, 1 or 2): a non-periodic orthogonal directions to use fast sin transform solver.
+        # fft_axes (list of length 0, 1, 2 or 3) a periodic possibly non-orthogonal direction to use fast fft transform solver.
+
+        # We have now isolated the non-periodic_axes and made sure they are orthogonal. 
+        # We sort them, and pick the longest non-periodic axes as the cholesky axis.
+        sorted_non_periodic_axes = sorted(non_periodic_axes, key=lambda c: gd.N_c[c])
+        if len(sorted_non_periodic_axes) > 0:
+            cholesky_axes = [ sorted_non_periodic_axes[-1] ]
+            fst_axes = sorted_non_periodic_axes[0:-1]
+        else:
+            cholesky_axes = []
+            fst_axes = []
+        fft_axes = list(periodic_axes)
+
+        self.cholesky_axes, self.fst_axes, self.fft_axes = cholesky_axes, fst_axes, fft_axes
+
+        print("Cholesky axes", self.cholesky_axes)
+        print("FST axes", self.fst_axes)
+        print("FFT axes", self.fft_axes)
+        
+        # Fourier coefficients
+        r_cx = np.array(np.indices( gd.N_c[fft_axes] ), dtype=complex)
+        for c, axis in enumerate(fft_axes):
+            r_cx[c] *= 2j*np.pi / gd.N_c[axis]
+        r_cx[:] = np.exp(r_cx)
+        fft_lambdas = np.zeros_like(r_cx[0], dtype=complex)
+        laplace = Laplace(gd, -0.25 / pi, self.nn)
+        for coeff, offset_c in zip(laplace.coef_p, laplace.offset_pc):
+            offset_c = np.array(offset_c)
+            print coeff, offset_c
+            if np.all(offset_c == [0,0,0]):
+                continue
+            non_zero_axes, = np.where(offset_c)
+            if set(non_zero_axes).issubset(fft_axes):
+                temp = np.ones(fft_lambdas.shape, dtype=complex)
+                for c, axis in enumerate(fft_axes):
+                    temp *= r_cx[c] ** offset_c[axis]
+                fft_lambdas += coeff * (temp-1.0)
+            else:
+                print("Skipping", offset_c)
+
+        self.fft_lambdas = np.array(fft_lambdas.real, dtype=float)
+        self.gd = gd
+
+    def solve(self, phi_g, rho_g, charge=None):
+        # Single core version of the algorithm
+        gd = self.gd
+        work_g = fftn(rho_g, axes=self.fft_axes)
+        self.fft_lambdas = 1.0 / self.fft_lambdas
+        self.fft_lambdas[0,0,0] = 0.0
+        work_g *= self.fft_lambdas
+        phi_g[:] = ifftn(work_g, axes=self.fft_axes)    
+
 class GeneralizedLauePoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3):
         BasePoissonSolver.__init__(self)
@@ -769,6 +857,7 @@ class GeneralizedLauePoissonSolver(BasePoissonSolver):
 
     def set_grid_descriptor(self, gd):
         assert np.all(gd.pbc_c == [True, True, False])
+
         assert gd.orthogonal
         self.gd = gd
 

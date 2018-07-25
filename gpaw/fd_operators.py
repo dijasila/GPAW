@@ -69,6 +69,7 @@ class FDOperator:
         self.npoints = len(coef_p)
         self.coef_p = coef_p
         self.offset_p = offset_p
+        self.offset_pc = offset_pc 
         self.comm = comm
         self.cfd = cfd
 
