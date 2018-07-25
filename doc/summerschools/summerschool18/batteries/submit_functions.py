@@ -1,4 +1,4 @@
-"""Submit a cell for calculation in the gbar. 
+"""Submit a cell for calculation in the gbar.
 
 Example:
 
@@ -17,13 +17,10 @@ submit_string = """#/bin/bash
 #PBS -N {name}
 #PBS -l walltime={hours}:00:00
 
-module load mpi/intel
+source ~jjmo/summer.sh
 
 cd {jobdir}
 # Set a PYTHONPATH for the required packages if not already taken care of
-export PYTHONPATH=/zhome/43/5/58576/gpaw-1.4.0-venv/lib/python3.6/site-packages:$PYTHONPATH
-export PATH=/zhome/43/5/58576/gpaw-1.4.0-venv/bin:$PATH
-export GPAW_SETUP_PATH=/zhome/43/5/58576/gpaw-1.4.0-venv/gpaw-setups-0.9.20000
 
 mpirun gpaw-python calc.py
 """
