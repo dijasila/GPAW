@@ -28,7 +28,7 @@ Tools used:
 Part 1: Li intercalation energy in graphite
 ===========================================
 
-:download:`batteries1.ipynb`, :download:`C64.png`, :download:`grap_fit.png`,
+:download:`batteries1.ipynb`, :download:`C64.png`, :download:`gra_fit.png`,
 :download:`Li2.png`, :download:`C144Li18.png`
 
 The notebook batteries1.ipynb will guide you through the first day of the
@@ -59,7 +59,7 @@ Part 2: Equilibrium potential of a |LiFePO4|/C battery
 
 You will calculate the equilibrium potential and use Bayesian error estimation
 to quantify how sensitive the calculated equilibrium potential is towards
-choice of functional. The notebook is Battery_Day3.ipynb.
+choice of functional. The notebook is batteries2.ipynb.
 
 * Setup and calculate |FePO4| and |LiFePO4| structures
 
@@ -67,13 +67,13 @@ choice of functional. The notebook is Battery_Day3.ipynb.
     equilibrium potential of a |FePO4|/Li battery
 
 * Get an uncertainty estimation on the potential by using an ensemble of
-  functionals called a `BEEFEnsemble`
+  functionals called a ``BEEFEnsemble``
 
 * Using values from the previous day calculate the equilibrium potential of
   the full Li |FePO4|/C battery
 
 
-Part 3: Transport barriers and Voltage profile
+Part 3: Transport barriers and voltage profile
 ==============================================
 
 :download:`batteries1.ipynb`, :download:`NEB_init.traj`,
@@ -84,7 +84,7 @@ graphite anode. You will examine how sensitive this barrier is to the
 interlayer distance in graphite. You will also examine the energy of
 intermediate states during the charge/discharge process. This will allow some
 basic discussion of the voltage profile of the battery. The notebook is
-Battery_Day4.ipynb.
+batteries3.ipynb.
 
 * Create intial and final structures for a NEB calculation, that will
   determine the transition state
