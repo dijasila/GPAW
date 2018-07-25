@@ -44,5 +44,6 @@ def do(freq):
     plt.tight_layout()
     plt.savefig('ind_%.2f.png' % freq)
 
+
 do(1.12)
 do(2.48)

@@ -32,6 +32,27 @@ class LCAO(Mode):
         return dct
 
 
+def update_phases(C_unM, q_u, ibzk_qc, spos_ac, oldspos_ac, setups, Mstart):
+    """Complex-rotate coefficients compensating discontinuous phase shift.
+
+    This changes the coefficients to counteract the phase discontinuity
+    of overlaps when atoms move across a cell boundary."""
+
+    # We don't want to apply any phase shift unless we crossed a cell
+    # boundary.  So we round the shift to either 0 or 1.
+    phase_qa = np.exp(2j * np.pi *
+                      np.dot(ibzk_qc, (spos_ac - oldspos_ac).T.round()))
+
+    for q, C_nM in zip(q_u, C_unM):
+        if C_nM is None:
+            continue
+        for a in range(len(spos_ac)):
+            M1 = setups.M_a[a] - Mstart
+            M2 = M1 + setups[a].nao
+            M1 = max(0, M1)
+            C_nM[:, M1:M2] *= phase_qa[q, a]  # (may truncate M2)
+
+
 # replace by class to make data structure perhaps a bit less confusing
 def get_r_and_offsets(nl, spos_ac, cell_cv):
     r_and_offset_aao = {}
@@ -114,6 +135,7 @@ class LCAOWaveFunctions(WaveFunctions):
                                    self.ksl)
 
     def set_positions(self, spos_ac, atom_partition=None, move_wfs=False):
+        oldspos_ac = self.spos_ac
         with self.timer('Basic WFS set positions'):
             WaveFunctions.set_positions(self, spos_ac, atom_partition)
 
@@ -151,6 +173,12 @@ class LCAOWaveFunctions(WaveFunctions):
 
             S_qMM = np.empty((nq, mynao, nao), self.dtype)
             T_qMM = np.empty((nq, mynao, nao), self.dtype)
+
+        if self.dtype == complex and oldspos_ac is not None:
+            update_phases([kpt.C_nM for kpt in self.kpt_u],
+                          [kpt.q for kpt in self.kpt_u],
+                          self.kd.ibzk_qc, spos_ac, oldspos_ac,
+                          self.setups, Mstart)
 
         for kpt in self.kpt_u:
             if kpt.C_nM is None:

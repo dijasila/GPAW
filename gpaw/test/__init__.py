@@ -158,6 +158,7 @@ tests = [
     'lcao/density.py',                      # ~1s
     'pw/stresstest.py',                     # ~1s
     'pw/fftmixer.py',                       # ~1s
+    'lcao/fftmixer.py',                     # ~1s
     'symmetry/usesymm.py',                  # ~1s
     'coulomb.py',                           # ~1s
     'xc/xcatom.py',                         # ~1s
@@ -210,6 +211,7 @@ tests = [
     'vdw/libvdwxc_mbeef.py',                # ~3s
     'pw/augment_grids.py',                  # ~4s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
+    'generic/move_across_cell.py',          # ~4s
     'parallel/augment_grid.py',             # ~4s
     'utilities/ewald.py',                   # ~4s
     'symmetry/symmetry.py',                 # ~4s
@@ -384,6 +386,7 @@ tests = [
     'pathological/nonlocalset.py',          # ~82s
     'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
+    'exx/exx_scf.py',                       # ~91s
     'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
     'exx/AA_enthalpy.py',                   # ~119s
@@ -458,6 +461,7 @@ if mpi.size < 4:
                 'parallel/scalapack_diag_simple.py',
                 'parallel/realspace_blacs.py',
                 'exx/AA_enthalpy.py',
+                'exx/exx_scf.py',
                 'response/bse_aluminum.py',
                 'response/bse_MoS2_cut.py',
                 'fileio/parallel.py',
