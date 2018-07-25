@@ -156,6 +156,10 @@ get('summerschool2018',
 get('summerschool2018',
     ['organometal.master.db'],
     target='summerschools/summerschool18/machinelearning')
+get('summerschool2018',
+    ['C144Li18.png', 'C64.png', 'final.png', 'gra_fit.png', 'initial.png',
+     'Li2.png', 'lifepo4_wo_li.traj', 'NEB_init.traj'],
+    target='summerschools/summerschool18/batteries')
 
 
 def setup(app):

@@ -11,3 +11,4 @@ Projects
     magnetism/magnetism
     machinelearning/machinelearning
     photovoltaics/photovoltaics
+    batteries/batteries
