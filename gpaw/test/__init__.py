@@ -407,6 +407,7 @@ tests = [
     'response/symmetry.py',                 # ~300s
     'rsf_yukawa/selfconsistent.py',
     'rsf_yukawa/selfconsistent_yuk.py',
+    'rsf_yukawa/rsf_ivo_sing_na2.py',
     'pw/moleculecg.py',                     # duration unknown
     'potential.py',                         # duration unknown
     'lcao/pair_and_coulomb.py',             # duration unknown
