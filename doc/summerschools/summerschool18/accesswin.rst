@@ -73,7 +73,8 @@ port number 8080 (that will be the local port number on your laptop).
 
 In the field marked B you should write the name of the
 "stepping-stone" computer, in this case use ``login.gbar.dtu.dk`` (the
-figure show ``l1.hpc.dtu.dk``, that also works).
+figure show ``l1.hpc.dtu.dk``, that also works).  You also need to
+enter your user name (``s123456`` in the figure).
 
 In the field marked C you write the name of the compute node, and the
 port number of the Notebook server.  The machine name will have the
