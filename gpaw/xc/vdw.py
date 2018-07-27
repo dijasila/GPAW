@@ -831,7 +831,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
         world.sum(v0_g)
         world.sum(deda20_g)
         self.timer.stop('sum')
-        slice = self.gd.get_slice()
+        slice = tuple(self.gd.get_slice())
         v_g += v0_g[slice]
         deda2_g += deda20_g[slice]
 
