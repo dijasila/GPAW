@@ -1,7 +1,9 @@
 # creates: catalysis/n2_on_metal.ipynb, catalysis/neb.ipynb
 # creates: catalysis/vibrations.ipynb
 # creates: magnetism/magnetism1.ipynb, magnetism/magnetism2.ipynb
-
+# creates: machinelearning/machinelearning.ipynb
+# creates: photovoltaics/pv1.ipynb, photovoltaics/pv1.ipynb
+# creates: photovoltaics/pv1.ipynb
 import json
 from pathlib import Path
 
@@ -9,7 +11,6 @@ from pathlib import Path
 def convert(path):
     assert path.name.endswith('.master.ipynb')
     data = json.loads(path.read_text())
-    cells = []
     for cell in data['cells']:
         if cell['cell_type'] == 'code':
             lines = cell['source']
@@ -18,13 +19,8 @@ def convert(path):
                     a, b = (x.strip() for x in line.split('# student:'))
                     lines[i] = line.split(a)[0] + b + '\n'
                 elif line.startswith('# teacher'):
-                    if i == 0:
-                        cell = None
-                        break
                     del lines[i:]
-        if cell:
-            cells.append(cell)
-    data['cells'] = cells
+                    break
     new = path.with_name(path.name.rsplit('.', 2)[0] + '.ipynb')
     new.write_text(json.dumps(data, indent=1))
 

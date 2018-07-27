@@ -9,11 +9,6 @@ http://www.fysik.dtu.dk/english/Research/CAMD/Events/Summer-school-2018
 
 .. highlight:: bash
 
-.. toctree::
-   :maxdepth: 2
-
-   projects
-
 
 Summer school exercises in Jupyter notebooks
 ============================================
@@ -44,6 +39,7 @@ Windows users
 
    setupwin
    accesswin
+   submitting
 
 
 Mac and Linux users
@@ -54,6 +50,18 @@ Mac and Linux users
 
    setuplinmac
    accesslinmac
+   submitting
+   
+
+Projects
+========
+
+Choose a project according to your interests.  The projects contain
+brief descriptions of what aspects of GPAW you learn from them.
 
 
+.. toctree::
+   :maxdepth: 3
 
+   projects
+   
