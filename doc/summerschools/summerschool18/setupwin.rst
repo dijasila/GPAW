@@ -79,8 +79,6 @@ the command::
 
   source ~jasc/setup2018
 
-  XXXX Change this to mikstr when ready!
-
 Note the tilde in the beginning of the second word.
 
 The script give you access to ASE, GPAW and related software.  It will
