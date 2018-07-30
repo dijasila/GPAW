@@ -55,7 +55,7 @@ battery exercise.
 Part 2: Equilibrium potential of a |LiFePO4|/C battery
 ======================================================
 
-:download:`batteries1.ipynb`, :download:`lifepo4_wo_li.traj`
+:download:`batteries2.ipynb`, :download:`lifepo4_wo_li.traj`
 
 You will calculate the equilibrium potential and use Bayesian error estimation
 to quantify how sensitive the calculated equilibrium potential is towards
@@ -76,7 +76,7 @@ choice of functional. The notebook is batteries2.ipynb.
 Part 3: Transport barriers and voltage profile
 ==============================================
 
-:download:`batteries1.ipynb`, :download:`NEB_init.traj`,
+:download:`batteries3.ipynb`, :download:`NEB_init.traj`,
 :download:`initial.png`, :download:`final.png`
 
 You will calculate the energy barriers for transport of Li intercalated in the
