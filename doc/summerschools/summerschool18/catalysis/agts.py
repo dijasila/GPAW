@@ -8,7 +8,8 @@ def create_tasks():
         task('run.py', tmax='10h'),
         task(nbrun, args=['convergence.ipynb'], deps='run.py'),
         task(nbrun, args=['n2_on_metal.master.ipynb'], tmax='3h'),
-        # task(nbrun, args=['neb.master.ipynb'], tmax='3h'),
+        task(nbrun, args=['neb.master.ipynb'], tmax='3h', cores=8,
+             deps=nbrun + '+n2_on_metal.master.ipynb'),
         task('ts.py'),
         # task(nbrun, args=['vibrations.master.ipynb'], tmax='3h',
         #      deps='ts.py')
