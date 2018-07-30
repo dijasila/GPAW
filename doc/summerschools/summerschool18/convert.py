@@ -18,7 +18,7 @@ def convert(path):
                 if ' # student: ' in line:
                     a, b = (x.strip() for x in line.split('# student:'))
                     lines[i] = line.split(a)[0] + b + '\n'
-                elif line.startswith('# teacher'):
+                elif line.lower().startswith('# teacher'):
                     del lines[i:]
                     break
     new = path.with_name(path.name.rsplit('.', 2)[0] + '.ipynb')
