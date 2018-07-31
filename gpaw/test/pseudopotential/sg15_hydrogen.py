@@ -3,7 +3,7 @@
 
 from __future__ import print_function
 from ase.build import molecule
-from gpaw import GPAW, FDPoissonSolver as PoissonSoler, Davidson, Mixer
+from gpaw import GPAW, FDPoissonSolver as PoissonSolver, Davidson, Mixer
 from gpaw.utilities import h2gpts
 from gpaw.test.pseudopotential.H_sg15 import pp_text
 from gpaw import setup_paths
