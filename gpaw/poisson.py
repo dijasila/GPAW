@@ -5,12 +5,12 @@ import warnings
 from math import pi
 
 import numpy as np
-from numpy.fft import fftn, ifftn, fft2, ifft2, rfft2, irfft2, rfft, irfft, fft, ifft
+from numpy.fft import fftn, ifftn, fft2, ifft2, rfft2, irfft2, fft, ifft
 
 from gpaw import PoissonConvergenceError
 from gpaw.dipole_correction import DipoleCorrection
 from gpaw.domain import decompose_domain
-from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB, laplace
+from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
