@@ -593,8 +593,9 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
+        print(self.poisson)
         self.npoisson = self.poisson.solve(self.vHt_g, dens.rhot_g,
-                                           charge=-dens.charge)
+                                           charge=-dens.charge, timer=self.timer)
         self.timer.stop('Poisson')
 
         self.timer.start('Hartree integrate/restrict')
