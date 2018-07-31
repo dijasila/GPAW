@@ -944,7 +944,9 @@ class FastPoissonSolver(BasePoissonSolver):
         self.cholesky_axes, self.fst_axes, self.fft_axes = cholesky_axes, fst_axes, fft_axes
 
         fftfst_axes = self.fft_axes + self.fst_axes
-        self.axes = self.fft_axes + self.fst_axes + self.cholesky_axes
+        axes = self.fft_axes + self.fst_axes + self.cholesky_axes
+        self.axes = axes
+
         gd_x = [ self.gd ]
 
         # Create xy flat decomposition (where x=axes[0] and y=axes[1])
@@ -959,8 +961,12 @@ class FastPoissonSolver(BasePoissonSolver):
         gd_x.append(gd.new_descriptor(parsize_c=decompose_domain(domain, gd.comm.size)))
         self.gd_x = gd_x
 
+        print gd_x[-1]
+        print "axes",axes, "domain", domain
+        print decompose_domain(domain, gd.comm.size)
         # Calculate eigenvalues in fst/fft decomposition for non-cholesky axes in parallel
         r_cx = np.indices(gd_x[-1].n_c)
+        print("shape", r_cx.shape)
         r_cx += gd_x[-1].beg_c[:,np.newaxis, np.newaxis, np.newaxis]
         r_cx = np.array(r_cx, dtype=complex)
         for c, axis in enumerate(fftfst_axes):
@@ -1021,6 +1027,12 @@ class FastPoissonSolver(BasePoissonSolver):
 
         if len(self.cholesky_axes) == 0: # The remaining problem is 0D dimensional, i.e the problem has been fully diagonalized
             work1_g *= self.inv_fft_lambdas
+            from gpaw.mpi import world
+            f = open("poisson%d.txt" % world.rank,'w')
+            print >>f, world.rank, self.inv_fft_lambdas[:,0,0],"x"
+            print >>f, world.rank, self.inv_fft_lambdas[0,:,0],"y"
+            print >>f, world.rank, self.inv_fft_lambdas[0,0,:],"z"
+            f.close()
         else:
             assert len(self.cholesky_axes) == 1
             axis = self.cholesky_axes[0]
