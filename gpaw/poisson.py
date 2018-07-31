@@ -907,7 +907,6 @@ class FastPoissonSolver(BasePoissonSolver):
         self.gd = gd
         axes = np.array([ 0, 1, 2], dtype=int)
         pbc_c = np.array(gd.pbc_c, dtype=bool)
-        print repr(axes), repr(pbc_c)
         periodic_axes = axes[pbc_c]
         non_periodic_axes = axes[np.logical_not(pbc_c)]
  
