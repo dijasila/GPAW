@@ -44,7 +44,7 @@ number of multigrid levels even if the total number of grid points
 is divisible by a high power of 2."""
 
 
-def create_poisson_solver(name='fd', **kwargs):
+def create_poisson_solver(name='fast', **kwargs):
     if isinstance(name, _PoissonSolver):
         return name
     elif isinstance(name, dict):
@@ -764,8 +764,7 @@ class FixedBoundaryPoissonSolver(FDPoissonSolver):
         else:
             phi_g[:] = phi_g3
 
-# This method needs to be taken from fftw / scipy to gain speedup of ~4x
-def rfst2(A_g, axes=[0,1]):
+"""def rfst2(A_g, axes=[0,1]):
     assert axes[0] == 0
     assert axes[1] == 1
     x,y,z = A_g.shape
@@ -785,6 +784,36 @@ def irfst2(A_g, axes=[0,1]):
     temp_g[1:x+1, 1:y+1,:] = A_g
     temp_g[x+2:, 1:y+1,:] = -A_g[::-1, :, :]
     return -0.25*irfft2(temp_g, axes=axes)[1:x+1, 1:y+1, :].real 
+"""
+
+
+# This method needs to be taken from fftw / scipy to gain speedup of ~4x
+def rfst2(A_g, axes=[0,1]):
+    all = set([0,1,2])
+    third = [ all.difference(set(axes)).pop() ]
+    A_g = np.transpose(A_g, axes + third)
+
+    x,y,z = A_g.shape
+    temp_g = np.zeros((x*2+2, y*2+2, z))
+    size_c = A_g.shape
+    temp_g[1:x+1, 1:y+1,:] = A_g
+    temp_g[x+2:, 1:y+1,:] = -A_g[::-1, :, :]
+    temp_g[1:x+1, y+2:,:] = -A_g[:, ::-1, :]
+    temp_g[x+2:, y+2:,:] = A_g[::-1, ::-1, :]
+    X = -4*rfft2(temp_g, axes=[0,1])[1:x+1, 1:y+1, :].real
+    return np.transpose(X, np.argsort(axes + third))
+
+def irfst2(A_g, axes=[0,1]):
+    all = set([0,1,2])
+    third = [ all.difference(set(axes)).pop() ]
+    A_g = np.transpose(A_g, axes + third)
+    x,y,z = A_g.shape
+    temp_g = np.zeros((x*2+2, (y*2+2)//2+1, z))
+    temp_g[1:x+1, 1:y+1,:] = A_g
+    temp_g[x+2:, 1:y+1,:] = -A_g[::-1, :, :]
+    X = -0.25*irfft2(temp_g, axes=[0,1])[1:x+1, 1:y+1, :]
+    return np.transpose(X, np.argsort(axes + third))
+
 
 # This method needs to be taken from fftw / scipy to gain speedup of ~4x
 def fst(A_g, axis):
@@ -915,10 +944,6 @@ class FastPoissonSolver(BasePoissonSolver):
 
         self.cholesky_axes, self.fst_axes, self.fft_axes = cholesky_axes, fst_axes, fft_axes
 
-        #print("Cholesky axes", self.cholesky_axes)
-        #print("FST axes", self.fst_axes)
-        #print("FFT axes", self.fft_axes)
-
         fftfst_axes = self.fft_axes + self.fst_axes
         self.axes = self.fft_axes + self.fst_axes + self.cholesky_axes
         gd_x = [ self.gd ]
@@ -940,9 +965,11 @@ class FastPoissonSolver(BasePoissonSolver):
         r_cx += gd_x[-1].beg_c[:,np.newaxis, np.newaxis, np.newaxis]
         r_cx = np.array(r_cx, dtype=complex)
         for c, axis in enumerate(fftfst_axes):
-            r_cx[c] *= 2j*np.pi/gd_x[-1].N_c[axis]
+            r_cx[axis] *= 2j*np.pi/gd_x[-1].N_c[axis]
             if axis in fst_axes:
-                r_cx[c] /= 2
+                r_cx[axis] /= 2
+        for c, axis in enumerate(cholesky_axes):
+            r_cx[axis] = 0.0
         r_cx[:] = np.exp(r_cx)
         fft_lambdas = np.zeros_like(r_cx[0], dtype=complex)
         laplace = Laplace(gd_x[-1], -0.25 / pi, self.nn)
@@ -954,7 +981,7 @@ class FastPoissonSolver(BasePoissonSolver):
             if set(non_zero_axes).issubset(fftfst_axes):
                 temp = np.ones(fft_lambdas.shape, dtype=complex)
                 for c, axis in enumerate(fftfst_axes):
-                    temp *= r_cx[c] ** offset_c[axis]
+                    temp *= r_cx[axis] ** offset_c[axis]
                 fft_lambdas += coeff * (temp-1.0)
 
         assert np.linalg.norm(fft_lambdas.imag) < 1e-10
@@ -1027,11 +1054,17 @@ class FastPoissonSolver(BasePoissonSolver):
         return 1 # Non-iterative method, return 1 iteration
 
     def todict(self):
-        d = super(FDPoissonSolver, self).todict()
+        d = super(FastPoissonSolver, self).todict()
         d.update({'name': 'fast', 'nn': self.nn, 'use_cholesky': self.use_cholesky})
         return d
 
     def estimate_memory(self, mem):
         pass
+
+    def get_description(self):
+        return """FastPoissonSolver:
+  FFT axes %s
+  FST axes %s
+  Cholesky axes %s""" % (self.fft_axes, self.fst_axes, self.cholesky_axes)
 
 
