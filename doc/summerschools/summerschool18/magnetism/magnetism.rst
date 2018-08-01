@@ -21,7 +21,7 @@ Part 1: Critical temperaure of |CrI3|
 
 :download:`magnetism1.ipynb`, :download:`CrI3.xyz`
 
-The notebook magnetism1.ipynb shows how to set up a monolayer of |CrI3| and
+The notebook ``magnetism1.ipynb`` shows how to set up a monolayer of |CrI3| and
 calculate the critical temperature
 
 * Set up a the structure and optimize the geometry of |CrI3|
@@ -41,7 +41,7 @@ Part 2: Non-collinear magnetism - |VI2|
 
 If the magnetic atoms form a hexagonal lattice and the exchange coupling is
 anti-ferromagnetic, the ground state will have a non-collinear structure. In
-the notebook magnetism2.ipynb you will
+the notebook ``magnetism2.ipynb`` you will
 
 * Relax the atomic postions of the material
 
@@ -62,7 +62,7 @@ In this last part you will search the database and pick one material you
 expect to have a large critical temperature. The total energy mapping analysis
 is carried out to obtain exchange coupling parameters and a first principles
 estimate of the critical temperature. The guidelines for the analysis is found
-in the notebook magnetism3.ipynb.
+in the notebook ``magnetism3.ipynb``.
 
 .. |CrI3| replace:: CrI\ :sub:`3`
 
