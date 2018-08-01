@@ -1,4 +1,4 @@
-# Creates: N2Ru_hollow.png, 2NadsRu.png, ts.traj
+# Creates: N2Ru_hollow.png, 2NadsRu.png, TS.xyz
 from myqueue.task import task
 
 
