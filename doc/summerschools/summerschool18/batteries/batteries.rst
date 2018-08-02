@@ -76,8 +76,7 @@ choice of functional. The notebook is ``batteries2.ipynb``.
 Part 3: Transport barriers and voltage profile
 ==============================================
 
-:download:`batteries3.ipynb`, :download:`NEB_init.traj`,
-:download:`initial.png`, :download:`final.png`
+:download:`batteries3.ipynb`, :download:`NEB_init.traj`
 
 You will calculate the energy barriers for transport of Li intercalated in the
 graphite anode. You will examine how sensitive this barrier is to the
