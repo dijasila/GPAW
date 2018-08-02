@@ -1,6 +1,6 @@
-===============
- Photovoltaics
-===============
+=============
+Photovoltaics
+=============
 
 
 This exercise investigates the properties and usability of
@@ -9,7 +9,7 @@ several materials in terms of applications in photovoltaic.
 The exercise will teach you how to set up your material
 and investigate the most important parameters
 like the band gap and the absorption spectrum from
-first principles calculations. 
+first principles calculations.
 The first part shows how to calculate a converged band structure.
 In the second part you will learn how to calculate
 an absorption spectrum within the random phase approximation.
@@ -51,4 +51,3 @@ Part 3: Discussion
 In the last notebook :download:`pv3.ipynb` the results for different
 materials are plotted and discussed.
 Special care is taken of the convergence.
-
