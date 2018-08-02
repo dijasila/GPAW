@@ -105,7 +105,10 @@ class GPAW(PAW, Calculator):
 
     def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
                  atoms=None, timer=None,
-                 communicator=None, txt='-', parallel=None, **kwargs):
+                 communicator=None, txt='-', parallel=None,
+                 names_of_files=('energy.npy', 'forces.npy'),
+                 **kwargs,
+                 ):
 
         self.parallel = dict(self.default_parallel)
         if parallel:
@@ -128,7 +131,12 @@ class GPAW(PAW, Calculator):
         self.density = None
         self.hamiltonian = None
         self.spos_ac = None  # XXX store this in some better way.
-
+        # FIXME: delete these later:
+        # =========================
+        self.check_forces = False
+        self.one_step_only = False
+        self.names_of_files = names_of_files
+        # =========================
         self.observers = []  # XXX move to self.scf
         self.initialized = False
 
@@ -292,9 +300,16 @@ class GPAW(PAW, Calculator):
             print_cell(self.wfs.gd, self.atoms.pbc, self.log)
 
             with self.timer('SCF-cycle'):
+                # FIXME: delete it later
+                # =======================
+                self.scf.check_forces = self.check_forces
+                self.scf.one_step_only = self.one_step_only
+                # =======================
+
                 self.scf.run(self.wfs, self.hamiltonian,
                              self.density, self.occupations,
-                             self.log, self.call_observers)
+                             self.log, self.call_observers,
+                             self.names_of_files)
 
             self.log('\nConverged after {} iterations.\n'
                      .format(self.scf.niter))
