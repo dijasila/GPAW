@@ -15,7 +15,7 @@ def convert(path):
         if cell['cell_type'] == 'code':
             lines = cell['source']
             for i, line in enumerate(lines):
-                if ' # student: ' in line:
+                if ' # student:' in line:
                     a, b = (x.strip() for x in line.split('# student:'))
                     lines[i] = line.split(a)[0] + b + '\n'
                 elif line.lower().startswith('# teacher'):
