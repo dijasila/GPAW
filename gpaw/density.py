@@ -133,6 +133,8 @@ class Density:
         self.ghat = None
         self.log = None
 
+        self.direct_min = False  # direct minimisation
+
     @property
     def nt_sG(self):
         return None if self.nt_xG is None else self.nt_xG[:self.nspins]
@@ -265,9 +267,10 @@ class Density:
                 self.nt_sG[:] = -total_charge / volume
 
     def mix(self, comp_charge):
-        assert isinstance(self.mixer, MixerWrapper), self.mixer
-        self.error = self.mixer.mix(self.nt_xG, self.D_asp)
-        assert self.error is not None, self.mixer
+        if self.direct_min is False:
+            assert isinstance(self.mixer, MixerWrapper), self.mixer
+            self.error = self.mixer.mix(self.nt_xG, self.D_asp)
+            assert self.error is not None, self.mixer
 
         comp_charge = None
         self.interpolate_pseudo_density(comp_charge)
