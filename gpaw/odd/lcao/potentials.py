@@ -25,13 +25,10 @@ class PZpotentialLcao:
     def __init__(self, gd, xc, poisson,
                  ghat_fg, restrictor,
                  interpolator,
-                 setups, nspins, beta, dtype, timer, bfs,
-                 spos_ac=None, ghat_cg=None, pt=None,
+                 setups, beta, dtype, timer, bfs,
+                 spos_ac=None,
                  sic_coarse_grid=False):
 
-        self.ghat = ghat_fg  # we usually solve poiss. on finegd
-        self.ghat_cg = ghat_cg
-        self.pt = pt
         self.cgd = gd
         self.finegd = ghat_fg.gd
         self.xc = xc
@@ -39,10 +36,9 @@ class PZpotentialLcao:
         self.restrictor = restrictor
         self.interpolator = interpolator
         self.setups = setups
-        self.nspins = nspins
         self.bfs = bfs
-
         self.sic_coarse_grid = sic_coarse_grid
+
         if self.sic_coarse_grid:
             self.ghat_cg = LFC(self.cgd,
                                [setup.ghat_l for setup
@@ -50,24 +46,23 @@ class PZpotentialLcao:
                                integral=np.sqrt(4 * np.pi),
                                forces=True)
             self.ghat_cg.set_positions(spos_ac)
+            self.ghat = None
+        else:
+            self.ghat = ghat_fg  # we usually solve poiss. on finegd
+            self.ghat_cg = None
 
         self.timer = timer
         self.esic = 0.0
         self.dtype = dtype
-        self.M_s = {}
         self.eigv_s = {}
         self.lagr_diag_s = {}
-        self.lagrange_m_occ_s = {}
-        self.lagrange_m_unocc_s = {}
         self.counter = 0  # number of calls of this class
-        self.old_pot = {}
         # Scaling factor: len 1 or 2 array
         if len(beta) > 1:
             self.beta_x = beta[0]
             self.beta_c = beta[1]
         else:
             self.beta_x = self.beta_c = beta[0]
-
 
     def get_gradients(self, f_n, C_nM, kd, kpt,
                       wfs, setup,
@@ -245,7 +240,6 @@ class PZpotentialLcao:
             # let's return G = (dE/dx + idE/dy)
 
             return 2.0*G.conj(), e_total_sic  # sic_energy_n
-
 
     def get_gradients_new_2(self, f_n, C_nM, kd, kpt,
                       wfs, setup, evec, eval,
@@ -432,7 +426,6 @@ class PZpotentialLcao:
                 G[i][i] *= 0.5
 
             return 2.0*G, e_total_sic  # sic_energy_n
-
 
     def get_gradients_new(self, f_n, C_nM, kd, kpt,
                       wfs, setup, evec, eval,
@@ -845,19 +838,8 @@ class PZpotentialLcao:
         self.timer.start('ODD Poisson')
 
         zero_initial_phi = True
-        # try:
-        #     vHt_g = self.old_pot[m].copy()
-        #     zero_initial_phi = False
-        # except KeyError:
-        #     zero_initial_phi = True
-
-            # print("WAS here", flush=True)
         self.poiss.solve(vHt_g, nt_sg[0],
                          zero_initial_phi=zero_initial_phi)
-
-        # print(npoiss, flush=True)
-
-        # self.old_pot[m] = vHt_g.copy()
 
         self.timer.stop('ODD Poisson')
 
