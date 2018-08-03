@@ -8,7 +8,7 @@ from gpaw.odd.lcao.search_directions import *
 from gpaw.odd.lcao.line_search import *
 from gpaw.odd.lcao.wave_function_guess import get_initial_guess, loewdin
 
-from scipy.linalg import expm, eigh
+from scipy.linalg import expm
 import numpy as np
 import copy
 import time
@@ -117,13 +117,15 @@ class ODDvarLcao(Calculator):
         self.evecs = {}
         self.evals = {}
 
-        self.log("Poisson for orbitals: eps = ", self.poiss_eps)
-        self.log("Self-interaction corrections: ", self.odd)
         self.log("Minimisation algrorithm: ", self.method)
-        self.log("Occupied states only: ", self.occupied_only)
-        self.log("Scale of corrections: ", self.beta)
         self.log("gradient tolerance for termination: ",
                  self.g_tol * Hartree)
+
+        if self.odd != 'Zero':
+            self.log("Poisson for orbitals: eps = ", self.poiss_eps)
+            self.log("Self-interaction corrections: ", self.odd)
+            self.log("Occupied states only: ", self.occupied_only)
+            self.log("Scale of corrections: ", self.beta)
 
         if self.odd is 'PZ_SIC':
             self.pot = PZpotentialLcao(self.gd, self.xc,
@@ -174,16 +176,13 @@ class ODDvarLcao(Calculator):
         self.log("Initial guess for orbitals:", self.initial_orbitals)
         self.log("Initial guess for skew-herm. matrix:",
                  self.initial_rotation)
-
         self.initial_guess(self.n_dim)
-
         self.log("Initial guess is done")
         self.log(flush=True)
 
         n_d = 0
         for kpt in self.wfs.kpt_u:
             u = kpt.s * self.n_kps + kpt.q
-
             if self.dtype == complex:
                 n_d += self.n_dim[u] ** 2
             else:
@@ -207,31 +206,21 @@ class ODDvarLcao(Calculator):
             raise NotImplementedError
 
         if self.line_search_method is 'SWC':
-
             self.line_search = \
                 StrongWolfeConditions(self.evaluate_phi_and_der_phi,
                                       self.log, method=self.method,
                                       awc=self.awc,
                                       max_iter=self.max_iter_line_search
                                       )
-
         elif self.line_search_method is 'NoLineSearch':
-
             self.line_search = \
                 UnitStepLength(self.evaluate_phi_and_der_phi,
-                               self.log)
-
-        elif self.line_search_method is 'Parabola':
-            self.line_search = \
-                Parabola(self.evaluate_phi_and_der_phi,
                                self.log)
         else:
             raise NotImplementedError
 
         self.log("Dimension of space: %6d " % n_d)
-
         self.log(flush=True)
-
         self.need_initialization = False
 
     def initial_arrays(self):
@@ -462,10 +451,6 @@ class ODDvarLcao(Calculator):
         elif self.line_search_method is 'NoLineSearch':
             self.line_search = \
                 UnitStepLength(self.evaluate_phi_and_der_phi,
-                               self.log)
-        elif self.line_search_method is 'Parabola':
-            self.line_search = \
-                Parabola(self.evaluate_phi_and_der_phi,
                                self.log)
         else:
             raise NotImplementedError
@@ -894,7 +879,8 @@ class ODDvarLcao(Calculator):
             k = self.n_kps * kpt.s + kpt.q
             np.save('C_nM_' + str(k), kpt.C_nM)
 
-    def write_final_output(self, log, e_ks, e_sic, sic_n, eval=None, f_sn=None):
+    def write_final_output(self, log, e_ks, e_sic, sic_n,
+                           eval=None, f_sn=None):
 
         log('Energy contributions relative to reference atoms:',
             '(reference = {0:.6f})\n'.format(self.setups.Eref *
@@ -1036,7 +1022,6 @@ class ODDvarLcao(Calculator):
                 kpt.rho_MM = \
                     self.wfs.calculate_density_matrix(kpt.f_n,
                                                       kpt.C_nM)
-
             F_av = calculate_forces(self.wfs, self.den,
                                     self.ham, self.log)
             for kpt in self.wfs.kpt_u:
@@ -1125,9 +1110,8 @@ class ODDvarLcao(Calculator):
         self.E_ks = []
         self.E_sic = []
         self.G_m = []
-
         log_f(self.log, counter, g_max, self.e_ks, self.total_sic)
-        ev = 2.0
+
         alpha = 1.0
         change_to_swc = False
         while g_max > self.g_tol and counter < self.n_counter:
@@ -1173,23 +1157,7 @@ class ODDvarLcao(Calculator):
             if counter > 0:
                 phi_old = phi_0
                 der_phi_old = der_phi_0
-            if counter == 0 or ev < 0.1:
-                if self.line_search_method is 'Parabola':
-                    ev = eigh(g_0[0]*1.0j)[0]
-                    ev = np.max(np.absolute(ev))
-                    try:
-                        ev1 = eigh(g_0[1]*1.0j)[0]
-                        ev1 = np.max(np.absolute(ev1))
-                    except:
-                        ev1 = ev
-                    ev = 0.1 * np.pi / max(ev, ev1)
-                else:
-                    ev = 3.0
-            else:
-                if self.line_search_method is 'Parabola':
-                    ev = 100.0 * alpha
-                else:
-                    ev = 3.0
+
             alpha, phi_0, der_phi_0, g_0 = \
                 self.line_search.step_length_update(self.A_s, P_s,
                                                     n_dim,
@@ -1199,7 +1167,7 @@ class ODDvarLcao(Calculator):
                                                     phi_old=phi_old_2,
                                                     der_phi_old=
                                                     der_phi_old_2,
-                                                    alpha_max=ev,
+                                                    alpha_max=3.0,
                                                     alpha_old=alpha)
             if self.line_search_method is 'SWC':
                 if self.wfs.gd.comm.size > 1:
@@ -1217,11 +1185,6 @@ class ODDvarLcao(Calculator):
                         g_0[k] = g.copy()
                     self.timer.stop('ODD broadcast gradients')
 
-            if self.line_search_method is 'Parabola':
-                if alpha > ev or alpha < 0.0:
-                    alpha = ev
-                else:
-                    ev = 1.1 * alpha
             phi_old_2 = phi_old
             der_phi_old_2 = der_phi_old
 
