@@ -1,17 +1,14 @@
 from ase.units import Hartree, Bohr
 from gpaw.xc import XC
-from gpaw.poisson import PoissonSolver, FFTPoissonSolver
+from gpaw.poisson import PoissonSolver
 from gpaw.transformers import Transformer
 from gpaw.odd.lcao.potentials import *
 from gpaw.odd.lcao.tools import *
-from gpaw.odd.lcao.search_directions import LBFGSdirection as LBFGS_new
-from gpaw.odd.lcao.search_directions import QuickMin, HZcg, \
-    FRcg, LBFGSdirection_prec
+from gpaw.odd.lcao.search_directions import *
 from gpaw.odd.lcao.line_search import *
 from gpaw.odd.lcao.wave_function_guess import get_initial_guess, loewdin
 
 from scipy.linalg import expm, eigh
-
 import numpy as np
 import copy
 import time
@@ -193,7 +190,7 @@ class ODDvarLcao(Calculator):
                 n_d += self.n_dim[u] * (self.n_dim[u] - 1) // 2
 
         if self.method is 'LBFGS':
-            self.search_direction = LBFGS_new(self.wfs,
+            self.search_direction = LBFGSdirection(self.wfs,
                                               m=self.memory_lbfgs)
         elif self.method is 'LBFGS_prec':
             self.search_direction = \
@@ -441,7 +438,7 @@ class ODDvarLcao(Calculator):
         self.get_en_and_grad_iters = 0
 
         if self.method is 'LBFGS':
-            self.search_direction = LBFGS_new(self.wfs,
+            self.search_direction = LBFGSdirection(self.wfs,
                                               m=self.memory_lbfgs)
         elif self.method is 'LBFGS_prec':
             self.search_direction = \
@@ -1082,7 +1079,7 @@ class ODDvarLcao(Calculator):
         self.log(flush=True)
         if self.method == 'LBFGS':
             self.search_direction = \
-                LBFGS_new(self.wfs, m=self.memory_lbfgs)
+                LBFGSdirection(self.wfs, m=self.memory_lbfgs)
         elif self.method == 'LBFGS_prec':
             self.search_direction = \
                 LBFGSdirection_prec(self.wfs,
@@ -1296,8 +1293,9 @@ class ODDvarLcao(Calculator):
                                                     m=self.memory_lbfgs,
                                                     diag=True)
                         if str(self.search_direction) == 'LBFGS':
-                            self.search_direction = LBFGS_new(self.wfs,
-                                                              m=self.memory_lbfgs)
+                            self.search_direction = \
+                                LBFGSdirection(self.wfs,
+                                               m=self.memory_lbfgs)
                 g_max = np.array([])
                 for kpt in self.wfs.kpt_u:
                     k = self.n_kps * kpt.s + kpt.q
