@@ -624,7 +624,6 @@ class ODDvarLcao(Calculator):
 
             f_n = kpt.f_n
             C_nM = kpt.C_nM
-            kd = self.wfs.kd
             wfs = self.wfs
             setup = self.setups
 
@@ -637,7 +636,7 @@ class ODDvarLcao(Calculator):
 
             if self.reset_orbitals is False:
                 self.G_s[k], self.sic_n[k] = \
-                    self.pot.get_gradients(f_n, C_nM, kd,
+                    self.pot.get_gradients(f_n, C_nM,
                                            kpt,
                                            wfs,
                                            setup,
@@ -650,7 +649,7 @@ class ODDvarLcao(Calculator):
 
             else:
                 self.G_s[k], self.sic_n[k] = \
-                    self.pot.get_gradients(f_n, C_nM, kd,
+                    self.pot.get_gradients(f_n, C_nM,
                                            kpt,
                                            wfs,
                                            setup,
@@ -660,9 +659,6 @@ class ODDvarLcao(Calculator):
                                            A=None,
                                            occupied_only=
                                            occupied_only)
-
-            # if self.nspins == 1 and self.odd == 'PZ_SIC':
-            #     self.G_s[k] *= 2.0
 
             self.sic_s[k] = self.sic_n[k].sum()
 
@@ -808,7 +804,7 @@ class ODDvarLcao(Calculator):
                                                              self.H_MM)
                     elif self.odd == 'PZ_SIC':
                         self.heiss[k] = self.pot.get_hessian(kpt, self.H_MM,
-                                                     self.n_dim, self.wfs.kd,
+                                                     self.n_dim,
                                                      self.wfs, self.setups,
                                                      diag_heiss=self.diag_prec,
                                                      occupied_only=False,
@@ -1708,7 +1704,7 @@ class ODDvarLcao(Calculator):
         self.get_energy_and_gradients(self.A_s, n_dim)
 
         for kpt in self.wfs.kpt_u:
-            self.pot.update_eigenval(kpt.f_n, kpt.C_nM, self.wfs.kd,
+            self.pot.update_eigenval(kpt.f_n, kpt.C_nM,
                                      kpt, self.wfs, self.setups,
                                      self.H_MM[kpt.s],
                                      occupied_only=self.occupied_only)
@@ -2094,7 +2090,7 @@ class ODDvarLcao(Calculator):
             self.H_MM[(ind_l[1], ind_l[0])] = \
                 self.H_MM[ind_l].conj()
 
-            self.pot.update_eigenval(kpt.f_n, kpt.C_nM, self.wfs.kd,
+            self.pot.update_eigenval(kpt.f_n, kpt.C_nM,
                                      kpt, self.wfs, self.setups,
                                      self.H_MM,
                                      occupied_only=self.occupied_only)
@@ -2348,7 +2344,7 @@ class ODDvarLcao(Calculator):
         self.get_energy_and_gradients(self.A_s, n_dim)
 
         for kpt in self.wfs.kpt_u:
-            self.pot.update_eigenval(kpt.f_n, kpt.C_nM, self.wfs.kd,
+            self.pot.update_eigenval(kpt.f_n, kpt.C_nM,
                                      kpt, self.wfs, self.setups,
                                      self.H_MM[kpt.s],
                                      occupied_only=self.occupied_only)

@@ -64,7 +64,7 @@ class PZpotentialLcao:
         else:
             self.beta_x = self.beta_c = beta[0]
 
-    def get_gradients_old(self, f_n, C_nM, kd, kpt,
+    def get_gradients_old(self, f_n, C_nM, kpt,
                       wfs, setup,
                       H_MM=None,
                       A=None, occupied_only=False):
@@ -145,7 +145,7 @@ class PZpotentialLcao:
                 # b_nM[n] = -np.dot(H_MM, C_nM[n])
             else:
                 F_MM, sic_energy_n = \
-                     self.get_orbital_potential_matrix(f_n, C_nM, kd,
+                     self.get_orbital_potential_matrix(f_n, C_nM,
                                                        kpt, wfs,
                                                        setup, n,
                                                occupied_only=occupied_only)
@@ -204,7 +204,7 @@ class PZpotentialLcao:
 
             return 2.0*G.conj(), e_total_sic  # sic_energy_n
 
-    def get_gradients(self, f_n, C_nM, kd, kpt,
+    def get_gradients(self, f_n, C_nM, kpt,
                       wfs, setup, evec, eval,
                       H_MM=None,
                       A=None, occupied_only=False):
@@ -250,7 +250,7 @@ class PZpotentialLcao:
         e_total_sic = np.array([])
         for n in range(n_occ):
             F_MM, sic_energy_n =\
-                self.get_orbital_potential_matrix(f_n, C_nM, kd, kpt,
+                self.get_orbital_potential_matrix(f_n, C_nM, kpt,
                                                   wfs, setup, n,
                                                   occupied_only=
                                                   occupied_only)
@@ -288,12 +288,11 @@ class PZpotentialLcao:
             else:
                 return 2.0 * G, e_total_sic
 
-    def get_orbital_potential_matrix(self, f_n, C_nM, kd, kpt,
+    def get_orbital_potential_matrix(self, f_n, C_nM, kpt,
                              wfs, setup, m, occupied_only=False):
         """
         :param f_n:
         :param C_nM:
-        :param kd:
         :param kpt:
         :param wfs:
         :param setup:
@@ -313,7 +312,7 @@ class PZpotentialLcao:
         # get orbital-density
         nt_G, Q_aL, D_ap = \
             self.get_density(f_n,
-                             C_nM, kd, kpt,
+                             C_nM, kpt,
                              wfs, setup, m)
         # calculate sic energy,
         # sic pseudo-potential and Hartree
@@ -408,7 +407,7 @@ class PZpotentialLcao:
 
         return F_MM, e_sic_m
 
-    def get_density(self, f_n, C_nM, kd, kpt,
+    def get_density(self, f_n, C_nM, kpt,
                     wfs, setup, m):
 
         # construct orbital density matrix
@@ -547,7 +546,7 @@ class PZpotentialLcao:
 
         return np.array([-ec*self.beta_c, -exc * self.beta_x]), dH_ap
 
-    def update_eigenval(self, f_n, C_nM, kd, kpt,
+    def update_eigenval(self, f_n, C_nM, kpt,
                       wfs, setup,
                       H_MM, occupied_only=False):
         n_kps = wfs.kd.nks // wfs.kd.nspins
@@ -560,7 +559,7 @@ class PZpotentialLcao:
         b_nM = np.zeros(shape=(n_occ, C_nM.shape[1]), dtype=self.dtype)
 
         for n in range(n_occ):
-            F_MM = self.get_orbital_potential_matrix(f_n, C_nM, kd, kpt,
+            F_MM = self.get_orbital_potential_matrix(f_n, C_nM, kpt,
                                                      wfs, setup, n,
                                                      occupied_only=
                                                      occupied_only)[0]
@@ -693,7 +692,7 @@ class PZpotentialLcao:
 
                 F_MM = \
                     self.get_orbital_potential_matrix(f_n, kpt.C_nM,
-                                                      wfs.kd, kpt,
+                                                      kpt,
                                                       wfs,
                                                       self.setups, m
                                                       )[0]
@@ -769,7 +768,7 @@ class PZpotentialLcao:
 
                 nt_G, Q_aL, D_ap = \
                     self.get_density(f_n,
-                                     kpt.C_nM, wfs.kd, kpt,
+                                     kpt.C_nM, kpt,
                                      wfs, self.setups, m)
 
                 e_sic_m, vt_mG, vHt_g = \
@@ -850,7 +849,7 @@ class PZpotentialLcao:
 
         return F_av
 
-    def get_hessian(self, kpt, H_MM, n_dim, kd, wfs, setup, C_nM=None,
+    def get_hessian(self, kpt, H_MM, n_dim, wfs, setup, C_nM=None,
                     diag_heiss=False, occupied_only=False, h_type='ks'):
 
         if C_nM is None:
@@ -866,7 +865,7 @@ class PZpotentialLcao:
             b_nM = np.zeros(shape=(n_occ, C_nM.shape[1]), dtype=self.dtype)
 
             for n in range(n_occ):
-                F_MM = self.get_orbital_potential_matrix(f_n, C_nM, kd, kpt,
+                F_MM = self.get_orbital_potential_matrix(f_n, C_nM, kpt,
                                                          wfs, setup, n,
                                                          occupied_only=
                                                          occupied_only)[0]
@@ -985,7 +984,7 @@ class PZpotentialLcao:
         b_nM = np.zeros(shape=(n_occ, C_nM.shape[1]), dtype=self.dtype)
 
         for n in range(n_occ):
-            F_MM = self.get_orbital_potential_matrix(f_n, C_nM, wfs.kd, kpt,
+            F_MM = self.get_orbital_potential_matrix(f_n, C_nM, kpt,
                                                      wfs, wfs.setups, n,
                                                      occupied_only=
                                                      occupied_only)[0]
@@ -1030,7 +1029,7 @@ class ZeroOddLcao:
 
         self.counter = 0  # number of calls of this class
 
-    def get_gradients_old(self, f_n, C_nM, kd, kpt,
+    def get_gradients_old(self, f_n, C_nM, kpt,
                       wfs, setup,
                       H_MM=None,
                       A=None, occupied_only=False):
@@ -1222,7 +1221,7 @@ class ZeroOddLcao:
 
             return 2.0 * G, sic_energy_n
 
-    def get_gradients(self, f_n, C_nM, kd, kpt,
+    def get_gradients(self, f_n, C_nM, kpt,
                       wfs, setup, evec, eval,
                       H_MM=None,
                       A=None, occupied_only=False):
@@ -1269,8 +1268,7 @@ class ZeroOddLcao:
             else:
                 return 2.0 * G, sic_energy_n
 
-
-    def update_eigenval(self, f_n, C_nM, kd, kpt,
+    def update_eigenval(self, f_n, C_nM, kpt,
                         wfs, setup,
                         H_MM, occupied_only=False):
 
@@ -1300,7 +1298,6 @@ class ZeroOddLcao:
 
         self.eigv_s[u] = np.copy(kpt.eps_n)
 
-
     def update_eigenval_2(self, C_nM, kpt, H_MM):
 
         HC_Mn = np.zeros_like(H_MM)
@@ -1322,7 +1319,7 @@ class ZeroOddLcao:
 
         return C_nM
 
-    def get_gradients_wrt_coeff(self, f_n, C_nM, kd, kpt,
+    def get_gradients_wrt_coeff(self, f_n, C_nM, kpt,
                                 wfs, setup, H_MM,
                                 S_inv_MM=None, orthonorm_grad=False):
 
