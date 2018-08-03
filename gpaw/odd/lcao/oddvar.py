@@ -174,14 +174,7 @@ class ODDvarLcao(Calculator):
                 raise Exception('Cannot run zero-potential'
                                 ' with occupied states only')
 
-            self.pot = ZeroOddLcao(self.gd, self.xc,
-                                   self.poiss, self.ghat,
-                                   self.restrictor,
-                                   self.interpolator,
-                                   self.setups,
-                                   self.nspins, self.beta,
-                                   self.dtype, self.timer,
-                                   self.spos_ac)
+            self.pot = ZeroOddLcao(self.dtype, self.timer)
         else:
             raise Exception('I do not know this odd potential.')
 

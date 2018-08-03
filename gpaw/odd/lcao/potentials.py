@@ -1022,42 +1022,15 @@ class ZeroOddLcao:
     Zero self-interaction corrections
     """
 
-    def __init__(self, gd, xc, poisson,
-                 ghat_fg, restrictor,
-                 interpolator,
-                 setups, nspins, beta,
-                 dtype, timer,
-                 spos_ac=None, ghat_cg=None, pt=None):
-
-        self.ghat = ghat_fg  # we usually solve poiss. on finegd
-        self.ghat_cg = ghat_cg
-        self.pt = pt
-        self.cgd = gd
-        self.finegd = ghat_fg.gd
-        self.xc = xc
-        self.poiss = poisson
-        self.restrictor = restrictor
-        self.interpolator = interpolator
-        self.setups = setups
-        self.nspins = nspins
+    def __init__(self, dtype, timer):
 
         self.timer = timer
-
-        # Scaling factor: len 1 or 2 array
-        if len(beta) > 1:
-            #
-            self.beta_x = beta[0]
-            self.beta_c = beta[1]
-        else:
-            self.beta_x = self.beta_c = beta[0]
-
-        self.esic = 0.0
         self.dtype = dtype
         self.eigv_s = {}
 
         self.counter = 0  # number of calls of this class
 
-    def get_gradients(self, f_n, C_nM, kd, kpt,
+    def get_gradients_old(self, f_n, C_nM, kd, kpt,
                       wfs, setup,
                       H_MM=None,
                       A=None, occupied_only=False):
@@ -1249,7 +1222,7 @@ class ZeroOddLcao:
 
             return 2.0 * G, sic_energy_n
 
-    def get_gradients_new(self, f_n, C_nM, kd, kpt,
+    def get_gradients(self, f_n, C_nM, kd, kpt,
                       wfs, setup, evec, eval,
                       H_MM=None,
                       A=None, occupied_only=False):
@@ -1301,28 +1274,6 @@ class ZeroOddLcao:
                         wfs, setup,
                         H_MM, occupied_only=False):
 
-        # if occupied_only:
-        #     n_occ = 0
-        #     for f in f_n:
-        #         if f > 1.0e-3:
-        #             n_occ += 1
-        #
-        # else:
-        #     n_occ = C_nM.shape[0]
-
-        # L = np.dot(C_nM[:n_occ].conj(),
-        #            np.dot(H_MM, C_nM[:n_occ].T))
-        #
-        # self.eigv_s[kpt.s], V = eigh(L)
-        # kpt.C_nM[:n_occ] = \
-        #     np.dot(V.T.conj(), kpt.C_nM[:n_occ])
-        #
-        # kpt.eps_n[:n_occ] = np.copy(self.eigv_s[kpt.s])
-        #
-        # if C_nM.shape[0] - n_occ != 0:
-        #     self.eigv_s[kpt.s] = \
-        #         np.append(self.eigv_s[kpt.s],
-        #                   np.zeros(C_nM.shape[0] - n_occ))
         n_kps = wfs.kd.nks // wfs.kd.nspins
         u = kpt.s * n_kps + kpt.q
 
