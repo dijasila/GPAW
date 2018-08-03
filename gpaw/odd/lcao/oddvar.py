@@ -65,7 +65,7 @@ class ODDvarLcao(Calculator):
                  g_tol=1.0e-4,
                  n_counter=1000, poiss_eps=1e-16, reset_orbitals=False,
                  line_search_method='SWC', awc=True,
-                 check_forces=False, psolver='gauss',
+                 check_forces=False,
                  memory_lbfgs=10, sic_coarse_grid=True,
                  max_iter_line_search=10, turn_off_swc=False,
                  names_of_files=('energy.npy', 'forces.npy'),
@@ -87,7 +87,6 @@ class ODDvarLcao(Calculator):
         Calculator.__init__(self)
 
         self.poiss_eps = poiss_eps
-        self.psolver = psolver
         self.calc = calc
         self.odd = odd
         self.beta = beta
@@ -299,21 +298,14 @@ class ODDvarLcao(Calculator):
         self.restrictor = Transformer(self.finegd, self.gd, 3)
 
         if self.odd is not 'Zero':
-            if self.psolver == 'gauss' or self.psolver == 'uniform':
-                self.poiss = PoissonSolver(relax='GS',
-                                           eps=self.poiss_eps,
-                                           sic_gg=True)
-            elif self.psolver == 'fft':
-                self.poiss = FFTPoissonSolver()
-            else:
-                raise NotImplementedError
+            self.poiss = PoissonSolver(relax='GS',
+                                       eps=self.poiss_eps,
+                                       sic_gg=True)
 
             if self.sic_coarse_grid is True:
                 self.poiss.set_grid_descriptor(self.gd)
             else:
                 self.poiss.set_grid_descriptor(self.finegd)
-            # self.poiss.initialize()
-
         else:
             self.poiss = None
 
@@ -438,28 +430,14 @@ class ODDvarLcao(Calculator):
             self.restrictor = Transformer(self.finegd, self.gd, 3)
 
             self.spos_ac = spos_ac
-
-            if self.psolver == 'gauss':
-                self.poiss = PoissonSolver(relax='GS',
-                                           eps=self.poiss_eps,
-                                           sic_gg=True)
-            elif self.psolver == 'uniform':
-                self.poiss = PoissonSolver(relax='GS',
-                                           eps=self.poiss_eps,
-                                           sic_gg=False)
-
-            elif self.psolver == 'fft':
-                self.poiss = FFTPoissonSolver()
-
-            else:
-                raise NotImplementedError
+            self.poiss = PoissonSolver(relax='GS',
+                                       eps=self.poiss_eps,
+                                       sic_gg=True)
 
             if self.sic_coarse_grid is True:
                 self.poiss.set_grid_descriptor(self.gd)
             else:
                 self.poiss.set_grid_descriptor(self.finegd)
-
-            self.poiss.initialize()
 
             self.pot = PZpotentialLcao(self.gd, self.xc,
                                        self.poiss, self.ghat,
