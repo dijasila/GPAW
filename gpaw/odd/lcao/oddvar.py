@@ -129,7 +129,6 @@ class ODDvarLcao(Calculator):
                  self.g_tol * Hartree)
 
         if self.odd is 'PZ_SIC':
-
             self.pot = PZpotentialLcao(self.gd, self.xc,
                                        self.poiss, self.ghat,
                                        self.restrictor,
@@ -142,16 +141,12 @@ class ODDvarLcao(Calculator):
                                        self.spos_ac,
                                        sic_coarse_grid=self.sic_coarse_grid,
                                        )
-
         elif self.odd is 'Zero':
-
             if self.occupied_only is True:
                 self.log('Need to include unoccupied states')
                 self.log('for zero-odd-potential')
-
                 raise Exception('Cannot run zero-potential'
                                 ' with occupied states only')
-
             self.pot = ZeroOddLcao(self.dtype, self.timer)
         else:
             raise Exception('I do not know this odd potential.')
@@ -409,7 +404,6 @@ class ODDvarLcao(Calculator):
             self.poiss = PoissonSolver(relax='GS',
                                        eps=self.poiss_eps,
                                        sic_gg=True)
-
             if self.sic_coarse_grid is True:
                 self.poiss.set_grid_descriptor(self.gd)
             else:
@@ -898,14 +892,6 @@ class ODDvarLcao(Calculator):
             Gr_n = {k: (Gr_n_x[k]) for k in Gr_n_x.keys()}
         return G, Gr_n
 
-    def save_data(self):
-        # TODO: modify this for parallel version
-        name = ''  # self.calc.atoms.get_chemical_formula()
-        np.save(name + 'E_ks', self.E_ks)
-        np.save(name + 'E_sic', self.E_sic)
-        np.save(name + 'sic_n', self.sic_n)
-        np.save(name + 'pot_counter', self.potential_counter)
-
     def save_coefficients(self):
         for kpt in self.wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
@@ -1164,8 +1150,6 @@ class ODDvarLcao(Calculator):
         self.E_ks = []
         self.E_sic = []
         self.G_m = []
-        self.alpha_stars = []
-        self.potential_counter = []
 
         self.log_f(self.log, counter, g_max,
                    self.e_ks, self.total_sic)
@@ -1348,9 +1332,6 @@ class ODDvarLcao(Calculator):
                 self.E_ks.append(self.e_ks)
                 self.E_sic.append(self.total_sic)
                 self.G_m.append(g_max)
-                self.alpha_stars.append(alpha)
-                self.potential_counter.append(self.get_en_and_grad_iters)
-
                 self.log_f(self.log, counter, g_max,
                            self.e_ks, self.total_sic)
                 if self.save_orbitals and (counter % 10 == 0):
@@ -1361,8 +1342,6 @@ class ODDvarLcao(Calculator):
         self.E_ks.append(self.e_ks)
         self.E_sic.append(self.total_sic)
         self.G_m.append(g_max)
-        self.alpha_stars.append(alpha)
-        self.potential_counter.append(self.get_en_and_grad_iters)
         self.log("\n")
         self.log("Minimisiation is done!")
         self.log("Number of calls energy"
