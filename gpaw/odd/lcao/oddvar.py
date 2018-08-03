@@ -10,9 +10,7 @@ from gpaw.odd.lcao.search_directions import QuickMin, HZcg, \
 from gpaw.odd.lcao.line_search import *
 from gpaw.odd.lcao.wave_function_guess import get_initial_guess, loewdin
 
-import scipy
 from scipy.linalg import expm, eigh
-from scipy.sparse import csc_matrix
 
 import numpy as np
 import copy
@@ -69,7 +67,7 @@ class ODDvarLcao(Calculator):
                  memory_lbfgs=10, sic_coarse_grid=True,
                  max_iter_line_search=10, turn_off_swc=False,
                  names_of_files=('energy.npy', 'forces.npy'),
-                 sparse=False, diag_prec=True,
+                 diag_prec=True,
                  prec='prec_3', save_orbitals=False):
         """
         :param calc: GPAW obj.
@@ -118,7 +116,6 @@ class ODDvarLcao(Calculator):
 
         self.names_of_files = names_of_files
 
-        self.sparse = sparse
         self.diag_prec = diag_prec
 
         self.prec = prec
@@ -751,11 +748,6 @@ class ODDvarLcao(Calculator):
                                             0.25 * self.search_direction.beta_0 ** (-1))
                         else:
                             raise NotImplementedError
-
-                    elif self.sparse:
-                        self.heiss[k] = \
-                            scipy.sparse.linalg.inv(self.heiss[k] +
-                                                    scipy.sparse.eye(self.heiss[k].shape[0]))
                     else:
                         self.heiss[k] = np.linalg.inv(self.heiss[k] +
                                                       (1.0) *\
