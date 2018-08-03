@@ -643,54 +643,30 @@ class ODDvarLcao(Calculator):
                 continue
 
             if self.reset_orbitals is False:
-                if 1:
-                    self.G_s[k], self.sic_n[k] = \
-                        self.pot.get_gradients_new(f_n, C_nM, kd,
-                                               kpt,
-                                               wfs,
-                                               setup,
-                                               self.evecs[k],
-                                               self.evals[k],
-                                               self.H_MM,
-                                               A_s[k],
-                                               occupied_only=
-                                               occupied_only)
-
-                else:
-                    self.G_s[k], self.sic_n[k] = \
-                        self.pot.get_gradients(f_n, C_nM, kd,
-                                               kpt,
-                                               wfs,
-                                               setup,
-                                               self.H_MM,
-                                               A_s[k],
-                                               occupied_only=
-                                               occupied_only)
+                self.G_s[k], self.sic_n[k] = \
+                    self.pot.get_gradients(f_n, C_nM, kd,
+                                           kpt,
+                                           wfs,
+                                           setup,
+                                           self.evecs[k],
+                                           self.evals[k],
+                                           self.H_MM,
+                                           A_s[k],
+                                           occupied_only=
+                                           occupied_only)
 
             else:
-                if 1:
-                    self.G_s[k], self.sic_n[k] = \
-                        self.pot.get_gradients_new(f_n, C_nM, kd,
-                                               kpt,
-                                               wfs,
-                                               setup,
-                                               self.evecs[k],
-                                               self.evals[k],
-                                               self.H_MM,
-                                               A=None,
-                                               occupied_only=
-                                               occupied_only)
-
-                else:
-                    self.G_s[k], self.sic_n[k] = \
-                        self.pot.get_gradients(f_n, C_nM, kd,
-                                               kpt,
-                                               wfs,
-                                               setup,
-                                               self.H_MM,
-                                               A=None,
-                                               occupied_only=
-                                               occupied_only)
+                self.G_s[k], self.sic_n[k] = \
+                    self.pot.get_gradients(f_n, C_nM, kd,
+                                           kpt,
+                                           wfs,
+                                           setup,
+                                           self.evecs[k],
+                                           self.evals[k],
+                                           self.H_MM,
+                                           A=None,
+                                           occupied_only=
+                                           occupied_only)
 
             # if self.nspins == 1 and self.odd == 'PZ_SIC':
             #     self.G_s[k] *= 2.0
