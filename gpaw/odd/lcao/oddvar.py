@@ -70,8 +70,7 @@ class ODDvarLcao(Calculator):
                  max_iter_line_search=10, turn_off_swc=False,
                  names_of_files=('energy.npy', 'forces.npy'),
                  sparse=False, diag_prec=True,
-                 prec='prec_3', save_orbitals=False,
-                 experimental={'occ': '1'}):
+                 prec='prec_3', save_orbitals=False):
         """
 
         :param calc: GPAW obj.
@@ -127,8 +126,6 @@ class ODDvarLcao(Calculator):
         self.prec = prec
         self.save_orbitals = save_orbitals
 
-        self.experimental = experimental
-
     def initialize(self):
 
         if self.calc_required:
@@ -164,7 +161,6 @@ class ODDvarLcao(Calculator):
                                        self.dtype,
                                        self.timer,
                                        self.wfs.basis_functions,
-                                       self.experimental,
                                        self.spos_ac,
                                        sic_coarse_grid=self.sic_coarse_grid,
                                        )
@@ -481,7 +477,6 @@ class ODDvarLcao(Calculator):
                                        self.dtype,
                                        self.timer,
                                        self.wfs.basis_functions,
-                                       self.experimental,
                                        self.spos_ac,
                                        sic_coarse_grid=self.sic_coarse_grid)
 
@@ -708,10 +703,7 @@ class ODDvarLcao(Calculator):
         self.total_sic = sum(self.sic_s.values())
         self.total_sic = self.wfs.kd.comm.sum(self.total_sic)
 
-        if self.experimental['occ'] == '1':
-            self.total_sic *= float(3 - self.nspins)
-        else:
-            pass
+        self.total_sic *= float(3 - self.nspins)
 
         return (self.e_ks + self.total_sic), \
                 copy.deepcopy(self.G_s)

@@ -25,7 +25,7 @@ class PZpotentialLcao:
     def __init__(self, gd, xc, poisson,
                  ghat_fg, restrictor,
                  interpolator,
-                 setups, nspins, beta, dtype, timer, bfs, experimental,
+                 setups, nspins, beta, dtype, timer, bfs,
                  spos_ac=None, ghat_cg=None, pt=None,
                  sic_coarse_grid=False):
 
@@ -61,7 +61,6 @@ class PZpotentialLcao:
         self.lagrange_m_unocc_s = {}
         self.counter = 0  # number of calls of this class
         self.old_pot = {}
-        self.experimental = experimental
         # Scaling factor: len 1 or 2 array
         if len(beta) > 1:
             self.beta_x = beta[0]
@@ -492,25 +491,9 @@ class PZpotentialLcao:
                                     axis=0)
         L_odd = C_nM[:nbs].conj() @ b_nM.T
 
-        if self.experimental['occ'] == '1' or self.experimental['occ'] == '4':
-            f = f_n[:nbs]
-            L = f[:, np.newaxis] * (L[:nbs, :nbs] + L_odd.T.conj()) - \
-                f * (L[:nbs, :nbs] + L_odd)
-        elif self.experimental['occ'] == '2' or \
-                self.experimental['occ'] == '3':
-            if nbs == n_occ:
-                f_sic = np.ones_like(f_n[:nbs])
-                f_ks = f_n[:nbs]
-            else:
-                f_sic = np.append(np.ones_like(f_n[:n_occ]), np.zeros_like(f_n[n_occ:]))
-                f_ks = f_n[:nbs]
-
-            L = f_ks[:, np.newaxis] * L[:nbs, :nbs] - \
-                f_ks * L[:nbs, :nbs] + \
-                f_sic[:, np.newaxis] * L_odd.T.conj() - \
-                f_sic * L_odd
-
-        # L =  L_odd.T.conj() - L_odd
+        f = f_n[:nbs]
+        L = f[:, np.newaxis] * (L[:nbs, :nbs] + L_odd.T.conj()) - \
+            f * (L[:nbs, :nbs] + L_odd)
 
         e_total_sic = e_total_sic.reshape(e_total_sic.shape[0] //
                                           2, 2)
@@ -778,74 +761,18 @@ class PZpotentialLcao:
         else:
             self.finegd.comm.sum(F_MM)
 
-        if self.experimental['occ'] == '1':
-            return F_MM, e_sic_m  # e_total_sic
-        elif self.experimental['occ'] == '2':
-            return F_MM * f_n[m], e_sic_m * f_n[m]  # e_total_sic
-        elif self.experimental['occ'] == '3':
-            return F_MM * (f_n[m]**2), (e_sic_m * f_n[m]**2)  # e_total_sic
-        elif self.experimental['occ'] == '4':
-            if kpt.s == 0:
-                return F_MM, e_sic_m
-            else:
-                if m == 0:
-                    return F_MM, e_sic_m
-                elif m == 1:
-                    return F_MM, e_sic_m
-                else:
-                    return F_MM, np.zeros_like(e_sic_m)
+        return F_MM, e_sic_m
 
     def get_density(self, f_n, C_nM, kd, kpt,
                     wfs, setup, m):
 
         # construct orbital density matrix
-        if self.experimental['occ'] == '1':
-            if self.dtype is complex:
-                rho_MM = f_n[m] * np.outer(C_nM[m].conj(), C_nM[m]) / \
-                        (3 - wfs.nspins)
-            else:
-                rho_MM = f_n[m] * np.outer(C_nM[m], C_nM[m]) / \
-                        (3 - wfs.nspins)
-
-        elif self.experimental['occ'] == '2' or \
-                self.experimental['occ'] == '3':
-            if self.dtype is complex:
-                # czher(f_n[m], C_nM[m].conj(), rho_MM) # ?
-                rho_MM = np.outer(C_nM[m].conj(), C_nM[m])
-            else:
-                rho_MM = np.outer(C_nM[m], C_nM[m])
-
-        elif self.experimental['occ'] == '4':
-
-            if kpt.s == 0:
-                if self.dtype is complex:
-                    rho_MM = f_n[m] * np.outer(C_nM[m].conj(), C_nM[m]) / \
-                            (3 - wfs.nspins)
-                else:
-                    rho_MM = f_n[m] * np.outer(C_nM[m], C_nM[m]) / \
-                            (3 - wfs.nspins)
-            else:
-                if m == 0:
-                    if self.dtype is complex:
-                        rho_MM = f_n[m] * np.outer(C_nM[m].conj(),
-                                                   C_nM[m]) / \
-                                 (3 - wfs.nspins)
-                    else:
-                        rho_MM = f_n[m] * np.outer(C_nM[m], C_nM[m]) / \
-                                 (3 - wfs.nspins)
-                else:
-                    rho_MM = np.zeros(
-                        shape=(C_nM.shape[1], C_nM.shape[1]),
-                        dtype=self.dtype)
-                    for n in [1, 2, 3]:
-                        if self.dtype is complex:
-                            rho_MM += f_n[n] * np.outer(C_nM[n].conj(),
-                                                       C_nM[n]) / \
-                                     (3 - wfs.nspins)
-                        else:
-                            rho_MM += f_n[n] * np.outer(C_nM[n],
-                                                       C_nM[n]) / \
-                                     (3 - wfs.nspins)
+        if self.dtype is complex:
+            rho_MM = f_n[m] * np.outer(C_nM[m].conj(), C_nM[m]) / \
+                    (3 - wfs.nspins)
+        else:
+            rho_MM = f_n[m] * np.outer(C_nM[m], C_nM[m]) / \
+                    (3 - wfs.nspins)
 
         nt_G = self.cgd.zeros()
         self.bfs.construct_density(rho_MM, nt_G, kpt.q)
