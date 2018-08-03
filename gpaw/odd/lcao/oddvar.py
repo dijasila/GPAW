@@ -1436,43 +1436,6 @@ class ODDvarLcao(Calculator):
 
         return (self.e_ks + self.total_sic) * Hartree
 
-    def get_energy_and_gradients_outer(self):
-
-        self.update_ks_energy_and_hamiltonian()
-
-        g_s = {}
-
-        for kpt in self.wfs.kpt_u:
-            # break
-            f_n = kpt.f_n
-            if sum(f_n) < 1.0e-10:
-                continue
-
-            # coefficients of canonical orbitals
-            C_nM = kpt.C_nM
-
-            kd = self.wfs.kd
-            wfs = self.wfs
-            setup = self.setups
-
-            g_s[kpt.s], self.sic_n[kpt.s] = \
-                self.pot.get_gradients_wrt_coeff(f_n, C_nM,
-                                                 kd, kpt, wfs,
-                                                 setup,
-                                                 self.H_MM[kpt.s],
-                                                 self.S_inv_MM)
-
-            if self.nspins == 1:
-                g_s[kpt.s] *= 2.0
-
-            self.sic_s[kpt.s] = float(3 - self.nspins) * \
-                                self.sic_n[kpt.s].sum()
-
-        self.get_en_and_grad_iters += 1
-
-        return (self.e_ks + sum(self.sic_s.values())), \
-               copy.deepcopy(g_s)
-
     def get_numerical_gr(self, eps=1.0e-4):
 
         h = [eps, -eps]

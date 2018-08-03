@@ -776,40 +776,6 @@ class PZpotentialLcao:
 
         self.eigv_s[u] = np.copy(kpt.eps_n)
 
-    def get_gradients_wrt_coeff(self, f_n, C_nM, kd, kpt,
-                                wfs, setup, H_MM, S_inv_MM=None,
-                                orthonorm_grad=False):
-
-        """
-
-        :return:
-        matrix
-        g_ni = \sum_{l} C_il ( H_nl + V^i_nl)
-        """
-        nbs = 0
-        for f in f_n:
-            if f > 1.0e-10:
-                nbs += 1
-        n_set = C_nM.shape[1]
-
-        self.counter += 1
-
-        g_nM = np.zeros(shape=(nbs, n_set), dtype=self.dtype)
-
-        F_nMM, sic_energy_n = \
-             self.get_potential_matrix(f_n, C_nM, kd, kpt,
-                                       wfs, setup,
-                                       occupied_only=True)
-        if S_inv_MM is None:
-            for i in range(nbs):
-                g_nM[i] = np.dot(H_MM + F_nMM[i], C_nM[i])
-        else:
-            for i in range(nbs):
-                g_nM[i] = np.dot(S_inv_MM,
-                                 np.dot(H_MM + F_nMM[i], C_nM[i]))
-
-        return g_nM, sic_energy_n
-
     def get_odd_corrections_to_forces(self, wfs, dens):
 
         self.timer.start('LCAO forces')
