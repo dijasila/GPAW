@@ -6,7 +6,8 @@ from gpaw.odd.lcao.potentials import *
 from gpaw.odd.lcao.tools import *
 from gpaw.odd.lcao.search_directions import *
 from gpaw.odd.lcao.line_search import *
-from gpaw.odd.lcao.wave_function_guess import get_initial_guess, loewdin
+from gpaw.odd.lcao.wave_function_guess import get_initial_guess,\
+    loewdin
 
 from scipy.linalg import expm
 import numpy as np
@@ -190,7 +191,7 @@ class ODDvarLcao(Calculator):
 
         if self.method is 'LBFGS':
             self.search_direction = LBFGSdirection(self.wfs,
-                                              m=self.memory_lbfgs)
+                                                   m=self.memory_lbfgs)
         elif self.method is 'LBFGS_prec':
             self.search_direction = \
                 LBFGSdirection_prec(self.wfs,
@@ -233,39 +234,35 @@ class ODDvarLcao(Calculator):
         self.timer = self.calc.timer
         self.log = self.calc.log
         self.log("Type of orbitals: ", self.dtype)
-        self.check_assertions()
-        self.xc = XC(self.calc.parameters.xc)
         self.ham = self.calc.hamiltonian
         self.ham.poisson.direct_min_zero_init_phi = False
         self.den = self.calc.density
         self.den.direct_min = True
         self.occ = self.calc.occupations
         self.nspins = self.wfs.nspins
-        self.xc.initialize(self.ham, self.den,
-                           self.wfs, self.occ)
-        # Force int. occ
-        if self.odd == 'PZ_SIC':
-            self.occ.magmom = int(round(self.occ.magmom))
-
-        # Grid-descriptor
-        self.finegd = self.den.finegd
-        self.gd = self.den.gd  # this is coarse grid
-        self.ghat = self.den.ghat  # they are on fine grid
         self.spos_ac = self.calc.atoms.get_scaled_positions()
-        self.interpolator = Transformer(self.gd, self.finegd, 3)
-        self.restrictor = Transformer(self.finegd, self.gd, 3)
 
-        if self.odd is not 'Zero':
+        if self.odd != 'Zero':
+            self.check_assertions()
+            # Force int. occ
+            self.occ.magmom = int(round(self.occ.magmom))
+            # Grid-descriptor
+            self.finegd = self.den.finegd
+            self.gd = self.den.gd  # this is coarse grid
+            self.ghat = self.den.ghat  # they are on fine grid
+            self.interpolator = Transformer(self.gd, self.finegd, 3)
+            self.restrictor = Transformer(self.finegd, self.gd, 3)
             self.poiss = PoissonSolver(relax='GS',
                                        eps=self.poiss_eps,
                                        sic_gg=True)
-
             if self.sic_coarse_grid is True:
                 self.poiss.set_grid_descriptor(self.gd)
             else:
                 self.poiss.set_grid_descriptor(self.finegd)
-        else:
-            self.poiss = None
+
+            self.xc = XC(self.calc.parameters.xc)
+            self.xc.initialize(self.ham, self.den,
+                               self.wfs, self.occ)
 
     def initial_guess(self, n_dim):
 
@@ -428,7 +425,7 @@ class ODDvarLcao(Calculator):
 
         if self.method is 'LBFGS':
             self.search_direction = LBFGSdirection(self.wfs,
-                                              m=self.memory_lbfgs)
+                                                   m=self.memory_lbfgs)
         elif self.method is 'LBFGS_prec':
             self.search_direction = \
                 LBFGSdirection_prec(self.wfs,
@@ -649,9 +646,9 @@ class ODDvarLcao(Calculator):
                                 if abs(self.heiss[k][i]) < 1.0e-3:
                                     self.heiss_inv[k][i] = 1.0 + 1.0j
                                 else:
-                                    self.heiss_inv[k][i] = 1.0 / (
-                                        self.heiss[k][i].real) + \
-                                        1.0j / (self.heiss[k][i].imag)
+                                    self.heiss_inv[k][i] = 1.0 /\
+                                        self.heiss[k][i].real + \
+                                        1.0j / self.heiss[k][i].imag
                     elif self.prec == 'prec_2':
                         if self.dtype is float:
                             self.heiss_inv[k] = np.zeros_like(
