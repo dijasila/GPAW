@@ -63,10 +63,8 @@ class ODDvarLcao(Calculator):
                  g_tol=1.0e-4,
                  n_counter=1000, poiss_eps=1e-16,
                  line_search_method='SWC', awc=True,
-                 check_forces=False,
                  memory_lbfgs=10, sic_coarse_grid=True,
                  max_iter_line_search=10, turn_off_swc=False,
-                 names_of_files=('energy.npy', 'forces.npy'),
                  prec='prec_3', save_orbitals=False):
         """
         :param calc: GPAW obj.
@@ -81,7 +79,6 @@ class ODDvarLcao(Calculator):
         """
 
         Calculator.__init__(self)
-
         self.poiss_eps = poiss_eps
         self.calc = calc
         self.odd = odd
@@ -89,30 +86,21 @@ class ODDvarLcao(Calculator):
         self.method = method
         self.line_search_method = line_search_method
         self.calc_required = True
-        self.check_forces = check_forces
-
         self.initial_rotation = initial_rotation
         self.initial_orbitals = initial_orbitals
         self.occupied_only = occupied_only
         self.g_tol = g_tol / Hartree
         self.n_counter = n_counter
-
         self.sic_s = {}  # Self-interaction correction per spin
         self.sic_n = {}  # Self-interaction correction per orbital
         self.e_ks = 0.0  # Kohn-Sham energy
-
         self.get_en_and_grad_iters = 0
         self.awc = awc
-
         self.memory_lbfgs = memory_lbfgs
         self.need_initialization = True
-
         self.sic_coarse_grid = sic_coarse_grid
-
         self.max_iter_line_search = max_iter_line_search
         self.turn_off_swc = turn_off_swc
-
-        self.names_of_files = names_of_files
         self.prec = prec
         self.save_orbitals = save_orbitals
 
@@ -1088,12 +1076,8 @@ class ODDvarLcao(Calculator):
                     self.wfs.calculate_density_matrix(kpt.f_n,
                                                       kpt.C_nM)
 
-            if self.check_forces is True:
-                F_av = calculate_forces(self.wfs, self.den,
-                                        self.ham)
-            else:
-                F_av = calculate_forces(self.wfs, self.den,
-                                        self.ham, self.log)
+            F_av = calculate_forces(self.wfs, self.den,
+                                    self.ham, self.log)
             for kpt in self.wfs.kpt_u:
                 kpt.rho_MM = None
             return F_av * (Hartree / Bohr)
@@ -1185,9 +1169,6 @@ class ODDvarLcao(Calculator):
 
         self.log_f(self.log, counter, g_max,
                    self.e_ks, self.total_sic)
-        if self.check_forces is True:
-            energy = np.load(self.names_of_files[0])
-            forces = np.load(self.names_of_files[1])
         ev = 2.0
         alpha = 1.0
         change_to_swc = False
@@ -1374,19 +1355,6 @@ class ODDvarLcao(Calculator):
                            self.e_ks, self.total_sic)
                 if self.save_orbitals and (counter % 10 == 0):
                      self.save_coefficients()
-                if self.check_forces is True:
-                    e_current = self.e_ks + sum(self.sic_s.values())
-                    e_current *= Hartree
-                    f_current = self.calculate_forces_2()
-                    de = np.abs(e_current - energy) / \
-                         self.calc.get_number_of_electrons()
-                    df = np.max(np.absolute(f_current - forces))
-                    self.log('dE, dF = {:11.2e} {:11.2e}'.format(de,
-                                                                 df))
-                    self.log(flush=True)
-                    if de < 1.0e-7 and \
-                            df < 1.0e-4:
-                        break
             else:
                 break
 

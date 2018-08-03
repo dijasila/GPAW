@@ -7,10 +7,6 @@ from ase.units import Hartree, Bohr
 from gpaw import KohnShamConvergenceError
 from gpaw.forces import calculate_forces
 
-# FIXME: delete this later
-# ========================
-import os as os_1
-# ========================
 
 class SCFLoop:
     """Self-consistent field loop."""
@@ -29,14 +25,6 @@ class SCFLoop:
         self.converged = False
 
         self.niter = None
-
-        # FIXME: delete this later
-        # =================================
-        self.check_forces = False
-        self.eps_f = 1.0e-4
-        self.eps_e = 1.0e-7
-        # =================================
-
         self.reset()
 
     def __str__(self):
@@ -67,22 +55,7 @@ class SCFLoop:
         self.old_F_av = None
         self.converged = False
 
-    def run(self, wfs, ham, dens, occ, log, callback,
-            names_of_files):
-
-        # FIXME: delete this later
-        # =================================
-        if self.check_forces is True:
-
-            # print('=========================================')
-            # print(os_1.getcwd())
-            # print(os_1.path.dirname(sys_1.argv[0]))
-            # print('=========================================')
-
-            e_t = np.load(os_1.getcwd() + '/' + names_of_files[0])
-            f_t = np.load(os_1.getcwd() + '/' + names_of_files[1])
-        # =================================
-
+    def run(self, wfs, ham, dens, occ, log, callback):
 
         self.niter = 1
         while self.niter <= self.maxiter:
@@ -94,25 +67,6 @@ class SCFLoop:
             errors = self.collect_errors(dens, ham, wfs)
 
             # Converged?
-
-            # FIXME: delete this later
-            # ========================================
-            if self.check_forces is True:
-                if self.niter > self.niter_fixdensity and not \
-                        dens.fixed:
-
-                    f_c = calculate_forces(wfs, dens, ham)
-                    df = np.max(np.abs(f_c*Hartree / Bohr - f_t))
-                    de = np.abs(energy*Hartree - e_t) / self.nvalence
-
-                    log('dE, dF = %11.2e %11.2e' % (de, df))
-                    log()
-
-                    if df < self.eps_f and de < self.eps_e:
-                        self.converged = True
-                        break
-            # ========================================
-
             for kind, error in errors.items():
                 if error > self.max_errors[kind]:
                     self.converged = False
