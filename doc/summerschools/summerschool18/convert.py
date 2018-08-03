@@ -2,8 +2,8 @@
 # creates: catalysis/vibrations.ipynb
 # creates: magnetism/magnetism1.ipynb, magnetism/magnetism2.ipynb
 # creates: machinelearning/machinelearning.ipynb
-# creates: photovoltaics/pv1.ipynb, photovoltaics/pv1.ipynb
-# creates: photovoltaics/pv1.ipynb
+# creates: photovoltaics/pv1.ipynb, photovoltaics/pv2.ipynb
+# creates: photovoltaics/pv3.ipynb
 import json
 from pathlib import Path
 
@@ -15,7 +15,7 @@ def convert(path):
         if cell['cell_type'] == 'code':
             lines = cell['source']
             for i, line in enumerate(lines):
-                if ' # student: ' in line:
+                if ' # student:' in line:
                     a, b = (x.strip() for x in line.split('# student:'))
                     lines[i] = line.split(a)[0] + b + '\n'
                 elif line.lower().startswith('# teacher'):

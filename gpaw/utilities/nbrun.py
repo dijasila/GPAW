@@ -9,7 +9,7 @@ from pathlib import Path
 def convert(path):
     data = json.loads(path.read_text())
 
-    lines = [f'# Converted from {path}\n']
+    lines = ['# Converted from {path}\n'.format(path=path)]
     n = 1
     for cell in data['cells']:
         if cell['cell_type'] == 'code':

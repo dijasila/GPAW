@@ -150,7 +150,7 @@ tests = [
     'ext_potential/harmonic.py',
     'atoms_mismatch.py',
     'setup_basis_spec.py',
-    'overlap.py',
+    # 'overlap.py',  see #153
     'pw/direct.py',
     'vdw/libvdwxc_spin.py',                 # ~1s
     'timing.py',                            # ~1s
@@ -354,6 +354,7 @@ tests = [
     'xc/revPBE_Li.py',                      # ~26s
     'ofdft/ofdft_scale.py',                 # ~26s
     'parallel/lcao_parallel_kpt.py',        # ~29s
+    # 'lrtddft/placzek_profeta_albrecht.py',  # ~29s  see #153
     'corehole/h2o_dks.py',                  # ~30s
     'lcaotddft/parallel_options.py',        # ~30s
     'lcaotddft/lcaotddft_vs_lrtddft2.py',   # ~30s
@@ -634,7 +635,15 @@ class TestRunner:
             self.register_skipped(test, t0)
             return exitcode_skip
 
+        assert test.endswith('.py')
         dirname = test[:-3]
+        if os.path.isabs(dirname):
+            mydir = os.path.split(__file__)[0]
+            dirname = os.path.relpath(dirname, mydir)
+
+        # We don't want files anywhere outside the tempdir.
+        assert not dirname.startswith('../') # Test file outside sourcedir.
+
         if mpi.rank == 0:
             os.makedirs(dirname)
         mpi.world.barrier()
