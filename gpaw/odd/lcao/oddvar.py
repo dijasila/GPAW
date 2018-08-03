@@ -67,7 +67,6 @@ class ODDvarLcao(Calculator):
                  memory_lbfgs=10, sic_coarse_grid=True,
                  max_iter_line_search=10, turn_off_swc=False,
                  names_of_files=('energy.npy', 'forces.npy'),
-                 diag_prec=True,
                  prec='prec_3', save_orbitals=False):
         """
         :param calc: GPAW obj.
@@ -115,9 +114,6 @@ class ODDvarLcao(Calculator):
         self.turn_off_swc = turn_off_swc
 
         self.names_of_files = names_of_files
-
-        self.diag_prec = diag_prec
-
         self.prec = prec
         self.save_orbitals = save_orbitals
 
@@ -221,7 +217,7 @@ class ODDvarLcao(Calculator):
             self.search_direction = \
                 LBFGSdirection_prec(self.wfs,
                                     m=self.memory_lbfgs,
-                                    diag=self.diag_prec)
+                                    diag=True)
         elif self.method is 'QuickMin':
             self.search_direction = QuickMin(self.wfs)
         elif self.method == 'HZcg':
@@ -470,7 +466,7 @@ class ODDvarLcao(Calculator):
             self.search_direction = \
                 LBFGSdirection_prec(self.wfs,
                                     m=self.memory_lbfgs,
-                                    diag=self.diag_prec)
+                                    diag=True)
         elif self.method is 'QuickMin':
             self.search_direction = QuickMin(self.wfs)
         elif self.method == 'HZcg':
@@ -676,7 +672,7 @@ class ODDvarLcao(Calculator):
                         self.heiss[k] = self.pot.get_hessian(kpt, self.H_MM,
                                                      self.n_dim,
                                                      self.wfs, self.setups,
-                                                     diag_heiss=self.diag_prec,
+                                                     diag_heiss=True,
                                                      occupied_only=False,
                                                      h_type='ks'
                                                      )
@@ -686,72 +682,57 @@ class ODDvarLcao(Calculator):
             if self.search_direction.k >= 0:
                 for kpt in self.wfs.kpt_u:
                     k = self.n_kps * kpt.s + kpt.q
-
-                    if self.diag_prec:
-                        if self.prec == 'prec_1':
-                            if self.dtype is float:
-                                self.heiss_inv[k] = np.zeros_like(
-                                    self.heiss[k])
-
-                                for i in range(self.heiss[k].shape[0]):
-
-                                    if abs(self.heiss[k][i]) < 1.0e-3:
-                                        self.heiss_inv[k][i] = 1.0
-                                    else:
-                                        self.heiss_inv[k][i] = 1.0 / (
-                                                self.heiss[k][i].real)
-
-                            else:
-                                self.heiss_inv[k] = np.zeros_like(
-                                    self.heiss[k])
-
-                                for i in range(self.heiss[k].shape[0]):
-
-                                    if abs(self.heiss[k][i]) < 1.0e-3:
-                                        self.heiss_inv[k][i] = 1.0 + 1.0j
-                                    else:
-                                        self.heiss_inv[k][i] = 1.0 / (
-                                            self.heiss[k][i].real) + \
-                                            1.0j / (self.heiss[k][i].imag)
-                        elif self.prec == 'prec_2':
-                            if self.dtype is float:
-                                self.heiss_inv[k] = np.zeros_like(
-                                    self.heiss[k])
-
-                                self.heiss_inv[k] = 1.0 / (
-                                        self.heiss[k].real +
-                                        self.search_direction.beta_0 ** (-1))
-                            else:
-                                self.heiss_inv[k] = np.zeros_like(self.heiss[k])
-
-                                self.heiss_inv[k] = \
-                                    1.0 / (self.heiss[k].real +
-                                           self.search_direction.beta_0 ** (-1)) + \
-                                    1.0j / (self.heiss[k].imag +
-                                            self.search_direction.beta_0 ** (-1))
-                        elif self.prec == 'prec_3':
-                            if self.dtype is float:
-                                self.heiss_inv[k] = np.zeros_like(
-                                    self.heiss[k])
-
-                                self.heiss_inv[k] = 1.0 / (
-                                        0.75 * self.heiss[k] +
-                                        0.25 * self.search_direction.beta_0 ** (
-                                            -1))
-                            else:
-                                self.heiss_inv[k] = np.zeros_like(self.heiss[k])
-
-                                self.heiss_inv[k] = \
-                                    1.0 / (0.75 * self.heiss[k].real +
-                                           0.25 * self.search_direction.beta_0 ** (-1)) + \
-                                    1.0j / (0.75 * self.heiss[k].imag +
-                                            0.25 * self.search_direction.beta_0 ** (-1))
+                    if self.prec == 'prec_1':
+                        if self.dtype is float:
+                            self.heiss_inv[k] = np.zeros_like(
+                                self.heiss[k])
+                            for i in range(self.heiss[k].shape[0]):
+                                if abs(self.heiss[k][i]) < 1.0e-3:
+                                    self.heiss_inv[k][i] = 1.0
+                                else:
+                                    self.heiss_inv[k][i] = 1.0 / (
+                                            self.heiss[k][i].real)
                         else:
-                            raise NotImplementedError
+                            self.heiss_inv[k] = np.zeros_like(
+                                self.heiss[k])
+                            for i in range(self.heiss[k].shape[0]):
+                                if abs(self.heiss[k][i]) < 1.0e-3:
+                                    self.heiss_inv[k][i] = 1.0 + 1.0j
+                                else:
+                                    self.heiss_inv[k][i] = 1.0 / (
+                                        self.heiss[k][i].real) + \
+                                        1.0j / (self.heiss[k][i].imag)
+                    elif self.prec == 'prec_2':
+                        if self.dtype is float:
+                            self.heiss_inv[k] = np.zeros_like(
+                                self.heiss[k])
+                            self.heiss_inv[k] = 1.0 / (
+                                    self.heiss[k].real +
+                                    self.search_direction.beta_0 ** (-1))
+                        else:
+                            self.heiss_inv[k] = np.zeros_like(self.heiss[k])
+                            self.heiss_inv[k] = \
+                                1.0 / (self.heiss[k].real +
+                                       self.search_direction.beta_0 ** (-1)) + \
+                                1.0j / (self.heiss[k].imag +
+                                        self.search_direction.beta_0 ** (-1))
+                    elif self.prec == 'prec_3':
+                        if self.dtype is float:
+                            self.heiss_inv[k] = np.zeros_like(
+                                self.heiss[k])
+                            self.heiss_inv[k] = 1.0 / (
+                                    0.75 * self.heiss[k] +
+                                    0.25 * self.search_direction.beta_0 ** (
+                                        -1))
+                        else:
+                            self.heiss_inv[k] = np.zeros_like(self.heiss[k])
+                            self.heiss_inv[k] = \
+                                1.0 / (0.75 * self.heiss[k].real +
+                                       0.25 * self.search_direction.beta_0 ** (-1)) + \
+                                1.0j / (0.75 * self.heiss[k].imag +
+                                        0.25 * self.search_direction.beta_0 ** (-1))
                     else:
-                        self.heiss[k] = np.linalg.inv(self.heiss[k] +
-                                                      (1.0) *\
-                                                      np.eye(self.heiss[k].shape[0]))
+                        raise NotImplementedError
 
             p_k = self.search_direction.update_data(self.wfs, a_k,
                                                     g_k,
@@ -1172,7 +1153,7 @@ class ODDvarLcao(Calculator):
             self.search_direction = \
                 LBFGSdirection_prec(self.wfs,
                                     m=self.memory_lbfgs,
-                                    diag=self.diag_prec)
+                                    diag=True)
         sd = self.search_direction
         sd.kp[sd.k] = sd.p
         sd.x_k = sd.get_x(a_k)
@@ -1389,7 +1370,7 @@ class ODDvarLcao(Calculator):
                             self.search_direction = \
                                 LBFGSdirection_prec(self.wfs,
                                                     m=self.memory_lbfgs,
-                                                    diag=self.diag_prec)
+                                                    diag=True)
                         if str(self.search_direction) == 'LBFGS':
                             self.search_direction = LBFGS_new(self.wfs,
                                                               m=self.memory_lbfgs)
