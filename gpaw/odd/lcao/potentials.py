@@ -129,35 +129,13 @@ class PZpotentialLcao:
             nbs = C_nM.shape[0]
             n_set = C_nM.shape[1]
 
-        # grad_E = np.zeros(shape=(nbs * (nbs - 1) / 2,),
-        #                   dtype=complex)
-
         L = np.zeros(shape=(nbs, nbs), dtype=self.dtype)
 
         b_nM = np.zeros(shape=(nbs, n_set), dtype=self.dtype)
 
         M_ij = np.zeros(shape=(nbs, nbs), dtype=self.dtype)
 
-        # call potential from potentials.py
-
-        # print 'Call get potential'
-        # if 0:
-        # self.timer.start('ODD get potential matrices')
-
-        # F_nMM, sic_energy_n = \
-        #      self.get_potential_matrix(f_n, C_nM, kd, kpt,
-        #                                wfs, setup,
-        #                                occupied_only=occupied_only)
-
-        # self.timer.stop('ODD get potential matrices')
-
-        # else:
-        #     F_nMM = np.zeros(shape=(nbs, n_set, n_set),
-        #                      dtype=self.dtype)
-        #     sic_energy_n = np.zeros(shape=(1, 1),
-        #                      dtype=float)
         # 1.
-        # print 'Step 1'
         e_total_sic = np.array([])
         self.timer.start('ODD Construction of gradients')
         for n in range(nbs):
@@ -182,13 +160,7 @@ class PZpotentialLcao:
 
         e_total_sic = e_total_sic.reshape(e_total_sic.shape[0] //
                                           2, 2)
-
-        # np.save('F_nMM.npy', F_nMM)
-        # np.save('C_nM.npy', C_nM)
-        # np.save('b_nM.npy', b_nM)
-        #
         # 2.
-        # print 'Step 2'
         for i in range(nbs):
             for j in range(nbs):
                 # unoccupied-unoccupied block is zero
@@ -201,7 +173,6 @@ class PZpotentialLcao:
                         # M_ij[i][j] = np.dot(C_nM[j], b_nM[i])
 
         # 3.
-        # print 'Step 3'
         for i in range(nbs):
             for j in range(i+1, nbs):
                 # unoccupied-unoccupied block is zero
@@ -213,14 +184,6 @@ class PZpotentialLcao:
                     else:
                         L[i][j] = M_ij[i][j] - M_ij[j][i]
                         L[j][i] = - L[i][j]
-
-        # for i in range(nbs):
-        #     for j in range(nbs):
-        #         # unoccupied-unoccupied block is zero
-        #         # if f_n[i] > 1.0e-3 or f_n[j] > 1.0e-3:
-        #         L[i][j] = \
-        #                 np.conjugate(M_ij[i][j]) - M_ij[j][i]
-        #
 
         self.timer.stop('ODD Construction of gradients')
 
@@ -324,131 +287,6 @@ class PZpotentialLcao:
                 return 2.0 * G.real, e_total_sic
             else:
                 return 2.0 * G, e_total_sic
-
-    def get_potential_matrix(self, f_n, C_nM, kd, kpt,
-                                   wfs, setup, occupied_only = False):
-        """
-        :param f_n:
-        :param C_nM:
-        :param kd:
-        :param kpt:
-        :param wfs:
-        :param setup:
-        :return: F_i = <m|v_i + PAW_i|n > for occupied
-                 F_i = 0 for unoccupied,
-                 SI energies
-
-        To calculate this, we need to calculate
-        orbital-depended potential and PAW corrections to it.
-
-        Fot this, we need firstly to get orbitals densities.
-
-        """
-        if occupied_only is True:
-            nbs = 0
-            for f in f_n:
-                if f > 1.0e-10:
-                    nbs += 1
-            n_set = C_nM.shape[1]
-        else:
-            nbs = C_nM.shape[0]
-            n_set = C_nM.shape[1]
-
-        # nbs = C_nM.shape[0]
-        # n_set = C_nM.shape[1]
-
-        # use only occupied states here
-        n_occ = 0
-        for f in f_n:
-            if f > 1.0e-10:
-                n_occ += 1
-
-        F_nMM = np.zeros(shape=(n_occ, n_set, n_set),
-                         dtype=self.dtype)
-
-        e_total_sic = np.array([])
-
-        for m in range(n_occ):
-            # if f_n[m] < 1.0e-10:
-                # for unoccupied states F = -H
-                # and this is set later
-                # continue
-
-            nt_G, Q_aL, D_ap = \
-                self.get_density(f_n,
-                                 C_nM, kd, kpt,
-                                 wfs, setup, m)
-            # calculate sic energy,
-            # sic pseudo-potential and Hartree
-
-            e_sic_m, vt_mG, vHt_g = \
-                self.get_pseudo_pot(nt_G, Q_aL, m)
-
-            # calculate PAW corrections
-            e_sic_paw_m, dH_ap = \
-                self.get_paw_corrections(D_ap, vHt_g, m)
-
-            # total sic:
-            e_sic_m += e_sic_paw_m
-            # TODO: check this:
-            # self.cgd.comm.sum(e_sic_m[0])
-            # self.cgd.comm.sum(e_sic_m[1])
-
-            e_total_sic = np.append(e_total_sic, e_sic_m, axis=0)
-
-            # now calculate potential matrix F_i
-            # calculate pseudo-part
-            Vt_MM =\
-                self.bfs.calculate_potential_matrices(vt_mG)[0]
-
-            #make matrix hermitian
-            ind_l = np.tril_indices(Vt_MM.shape[0], -1)
-            Vt_MM[(ind_l[1], ind_l[0])] = Vt_MM[ind_l].conj()
-
-            # PAW:
-            F_MM = np.zeros((n_set, n_set),
-                            dtype=self.dtype)
-
-            for a, dH_p in dH_ap.items():
-                P_Mj = wfs.P_aqMi[a][kpt.q]
-                dH_ij = unpack(dH_p)
-
-                K_iM = np.zeros((dH_ij.shape[0], n_set),
-                                 dtype=self.dtype)
-
-                if self.dtype is complex:
-                    gemm(1.0, P_Mj,
-                         dH_ij.astype(complex),
-                         0.0, K_iM, 'c')
-                    gemm(1.0, K_iM,
-                         P_Mj,
-                         1.0, F_MM)
-
-                    # K_iM = np.dot(dH_ij, P_Mj.T.conj())
-                    # F_MM += np.dot(P_Mj, K_iM)
-
-                else:
-                    gemm(1.0, P_Mj, dH_ij, 0.0, K_iM, 't')
-                    gemm(1.0, K_iM, P_Mj, 1.0, F_MM)
-
-                    # K_iM = np.dot(dH_ij, P_Mj.T)
-                    # F_MM += np.dot(P_Mj, K_iM)
-
-            if self.dtype is complex:
-                F_nMM[m] = F_MM + Vt_MM.astype(complex)
-            else:
-                # for i in range(Vt_MM.shape[0]):
-                #     for j in range(i + 1, Vt_MM.shape[1]):
-                #         Vt_MM[i][j] = Vt_MM[j][i]
-
-                # ind_u = np.triu_indices(Vt_MM.shape[0], 1)
-
-                F_nMM[m] = F_MM + Vt_MM
-
-        self.finegd.comm.sum(F_nMM)
-
-        return F_nMM, e_total_sic.reshape(e_total_sic.shape[0] // 2,
-                                          2)
 
     def get_orbital_potential_matrix(self, f_n, C_nM, kd, kpt,
                              wfs, setup, m, occupied_only=False):
@@ -637,10 +475,7 @@ class PZpotentialLcao:
             e_xc = self.xc.calculate(self.finegd, nt_sg, vt_sg)
         else:
             e_xc = self.xc.calculate(self.cgd, nt_sg, vt_sg)
-
-        # e_xc /= self.finegd.comm.size
         self.timer.stop('ODD XC 3D grid')
-
         vt_sg[0] *= -self.beta_x
 
         # Hartree
@@ -650,11 +485,9 @@ class PZpotentialLcao:
             self.ghat_cg.add(nt_sg[0], Q_aL)
 
         self.timer.start('ODD Poisson')
-
         zero_initial_phi = True
         self.poiss.solve(vHt_g, nt_sg[0],
                          zero_initial_phi=zero_initial_phi)
-
         self.timer.stop('ODD Poisson')
 
         self.timer.start('ODD Hartree integrate ODD')
@@ -662,11 +495,9 @@ class PZpotentialLcao:
             ec = 0.5 * self.finegd.integrate(nt_sg[0] * vHt_g)
         else:
             ec = 0.5 * self.cgd.integrate(nt_sg[0] * vHt_g)
-        # ec /= self.finegd.comm.size
+
         self.timer.stop('ODD Hartree integrate ODD')
-
         vt_sg[0] -= vHt_g * self.beta_c
-
         if self.sic_coarse_grid is False:
             vt_G = self.cgd.zeros()
             self.restrictor.apply(vt_sg[0], vt_G)
@@ -681,18 +512,14 @@ class PZpotentialLcao:
 
         # XC-PAW
         dH_ap = {}
-
         exc = 0.0
         for a, D_p in D_ap.items():
             setup = self.setups[a]
-
             dH_sp = np.zeros((2, len(D_p)))
             D_sp = np.array([D_p, np.zeros_like(D_p)])
-
             exc += self.xc.calculate_paw_correction(setup, D_sp,
                                                     dH_sp,
                                                     addcoredensity=False)
-
             dH_ap[a] = -dH_sp[0] * self.beta_x
 
         # Hartree-PAW
@@ -708,7 +535,6 @@ class PZpotentialLcao:
             setup = self.setups[a]
             M_p = np.dot(setup.M_pp, D_p)
             ec += np.dot(D_p, M_p)
-
             dH_ap[a] += -(2.0 * M_p + np.dot(setup.Delta_pL,
                                              W_aL[a])) * self.beta_c
 
@@ -726,7 +552,6 @@ class PZpotentialLcao:
                       H_MM, occupied_only=False):
         n_kps = wfs.kd.nks // wfs.kd.nspins
         u = kpt.s * n_kps + kpt.q
-
         n_occ = 0
         for f in f_n:
             if f > 1.0e-10:
@@ -855,11 +680,6 @@ class PZpotentialLcao:
             for f in f_n:
                 if f > 1.0e-10:
                     n_occ += 1
-
-            # F_unMM[u] = \
-            #      self.get_potential_matrix(f_n, kpt.C_nM, wfs.kd, kpt,
-            #                                wfs, self.setups)[0]
-            # rho_unMM[u] = np.zeros_like(F_unMM[u])
 
             for m in range(n_occ):
 
@@ -1157,9 +977,6 @@ class PZpotentialLcao:
 
         C_nM = kpt.C_nM
         f_n = kpt.f_n
-        n_kps = wfs.kd.nks // wfs.kd.nspins
-        u = kpt.s * n_kps + kpt.q
-
         n_occ = 0
         for f in f_n:
             if f > 1.0e-10:
@@ -1187,7 +1004,6 @@ class PZpotentialLcao:
 
         a = L_occ.shape[0]
         b = L_unocc.shape[0]
-
         L_tot = np.vstack([np.hstack([L_occ,
                                       np.zeros(shape=(a, b),
                                                dtype=self.dtype)]),
