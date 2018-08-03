@@ -897,28 +897,6 @@ class ODDvarLcao(Calculator):
             k = self.n_kps * kpt.s + kpt.q
             np.save('C_nM_' + str(k), kpt.C_nM)
 
-    def log_f(self, log, niter, g_max, e_ks, e_sic):
-
-        T = time.localtime()
-        if niter == 0:
-
-            header = '                      Kohn-Sham          SIC' \
-                     '        Total    ||g||_inf\n' \
-                     '           time         energy:      energy:' \
-                     '      energy:    gradients:'
-
-            log(header)
-        log('iter: %3d  %02d:%02d:%02d ' %
-            (niter,
-             T[3], T[4], T[5]
-             ), end='')
-        log('%11.6f  %11.6f  %11.6f  %11.1e' %
-            (Hartree * e_ks,
-             Hartree * e_sic,
-             Hartree * (e_ks + e_sic),
-             Hartree * g_max), end='')
-        log(flush=True)
-
     def write_final_output(self, log, e_ks, e_sic, sic_n, eval=None, f_sn=None):
 
         log('Energy contributions relative to reference atoms:',
@@ -1151,8 +1129,7 @@ class ODDvarLcao(Calculator):
         self.E_sic = []
         self.G_m = []
 
-        self.log_f(self.log, counter, g_max,
-                   self.e_ks, self.total_sic)
+        log_f(self.log, counter, g_max, self.e_ks, self.total_sic)
         ev = 2.0
         alpha = 1.0
         change_to_swc = False
@@ -1332,8 +1309,8 @@ class ODDvarLcao(Calculator):
                 self.E_ks.append(self.e_ks)
                 self.E_sic.append(self.total_sic)
                 self.G_m.append(g_max)
-                self.log_f(self.log, counter, g_max,
-                           self.e_ks, self.total_sic)
+                log_f(self.log, counter, g_max,
+                      self.e_ks, self.total_sic)
                 if self.save_orbitals and (counter % 10 == 0):
                      self.save_coefficients()
             else:
@@ -1405,3 +1382,26 @@ class ODDvarLcao(Calculator):
         return self.get_en_and_grad_iters, counter + 1.0,\
                g_max * Hartree, \
                (self.e_ks + sum(self.sic_s.values())) * Hartree
+
+
+def log_f(log, niter, g_max, e_ks, e_sic):
+
+    T = time.localtime()
+    if niter == 0:
+
+        header = '                      Kohn-Sham          SIC' \
+                 '        Total    ||g||_inf\n' \
+                 '           time         energy:      energy:' \
+                 '      energy:    gradients:'
+
+        log(header)
+    log('iter: %3d  %02d:%02d:%02d ' %
+        (niter,
+         T[3], T[4], T[5]
+         ), end='')
+    log('%11.6f  %11.6f  %11.6f  %11.1e' %
+        (Hartree * e_ks,
+         Hartree * e_sic,
+         Hartree * (e_ks + e_sic),
+         Hartree * g_max), end='')
+    log(flush=True)
