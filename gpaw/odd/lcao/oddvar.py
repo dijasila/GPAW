@@ -61,7 +61,7 @@ class ODDvarLcao(Calculator):
                  initial_rotation='zero',
                  occupied_only=False,
                  g_tol=1.0e-4,
-                 n_counter=1000, poiss_eps=1e-16, reset_orbitals=False,
+                 n_counter=1000, poiss_eps=1e-16,
                  line_search_method='SWC', awc=True,
                  check_forces=False,
                  memory_lbfgs=10, sic_coarse_grid=True,
@@ -94,7 +94,6 @@ class ODDvarLcao(Calculator):
         self.initial_rotation = initial_rotation
         self.initial_orbitals = initial_orbitals
         self.occupied_only = occupied_only
-        self.reset_orbitals = reset_orbitals
         self.g_tol = g_tol / Hartree
         self.n_counter = n_counter
 
@@ -570,30 +569,17 @@ class ODDvarLcao(Calculator):
                 self.sic_n[k] = np.zeros(shape=(1, 2), dtype=float)
                 self.sic_s[k] = self.sic_n[k].sum()
                 continue
-            if self.reset_orbitals is False:
-                self.G_s[k], self.sic_n[k] = \
-                    self.pot.get_gradients(f_n, C_nM,
-                                           kpt,
-                                           wfs,
-                                           setup,
-                                           self.evecs[k],
-                                           self.evals[k],
-                                           self.H_MM,
-                                           A_s[k],
-                                           occupied_only=
-                                           occupied_only)
-            else:
-                self.G_s[k], self.sic_n[k] = \
-                    self.pot.get_gradients(f_n, C_nM,
-                                           kpt,
-                                           wfs,
-                                           setup,
-                                           self.evecs[k],
-                                           self.evals[k],
-                                           self.H_MM,
-                                           A=None,
-                                           occupied_only=
-                                           occupied_only)
+            self.G_s[k], self.sic_n[k] = \
+                self.pot.get_gradients(f_n, C_nM,
+                                       kpt,
+                                       wfs,
+                                       setup,
+                                       self.evecs[k],
+                                       self.evals[k],
+                                       self.H_MM,
+                                       A_s[k],
+                                       occupied_only=
+                                       occupied_only)
             self.sic_s[k] = self.sic_n[k].sum()
 
         self.timer.stop('ODD get gradients')
@@ -1241,9 +1227,6 @@ class ODDvarLcao(Calculator):
                         change_to_swc = False
                     self.change_to_lbfgs(self.A_s, g_0)
 
-            if self.reset_orbitals is True:
-                for s in range(self.nspins):
-                    self.A_s[s] = np.zeros_like(self.A_s[s])
             phi_0, der_phi_0, g_0 = \
                 self.evaluate_phi_and_der_phi(self.A_s, P_s, n_dim,
                                               alpha=0.0,
@@ -1315,8 +1298,7 @@ class ODDvarLcao(Calculator):
                     change_to_swc = False
                 self.A_s = {s: self.A_s[s] + alpha * P_s[s]
                             for s in self.A_s.keys()}
-                if self.reset_orbitals is True:
-                    pass
+
                 if (str(self.search_direction) == 'LBFGS_prec' or
                     str(self.search_direction) == 'LBFGS'):
                     if self.odd == 'PZ_SIC':
