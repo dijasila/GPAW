@@ -224,6 +224,8 @@ lxcXCFunctional_set_omega(lxcXCFunctionalObject *self, PyObject *args)
   XC(func_type) *test_functional;
 
   if (!PyArg_ParseTuple(args, "f", &omega)) {
+    PyErr_SetString(PyExc_TypeError,
+                    "Gamma has to be float");
     return NULL;
   }
 
@@ -235,6 +237,11 @@ lxcXCFunctional_set_omega(lxcXCFunctionalObject *self, PyObject *args)
         success = 1;
       }
     }
+  }
+  if (!(success)) {
+    PyErr_SetString(PyExc_TypeError,
+                    "Gamma can only set for range separated functionals");
+    return NULL;
   }
   return Py_BuildValue("i", success);
 }
