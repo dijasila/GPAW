@@ -1369,6 +1369,26 @@ class Setups(list):
             dedecut += e[id]
         return dedecut
 
+    def basis_indices(self):
+        return FunctionIndices([setup.phit_j for setup in self])
+
+    def projector_indices(self):
+        return FunctionIndices([setup.pt_j for setup in self])
+
+
+class FunctionIndices:
+    def __init__(self, f_aj):
+        nm_a = [0]
+        for f_j in f_aj:
+            nm = sum([2 * f.get_angular_momentum_number() + 1 for f in f_j])
+            nm_a.append(nm)
+        self.M_a = np.cumsum(nm_a)
+        self.nm_a = np.array(nm_a[1:])
+        self.max = self.M_a[-1]
+
+    def __getitem__(self, a):
+        return self.M_a[a], self.M_a[a + 1]
+
 
 def types2atomtypes(symbols, types, default):
     """Map a types identifier to a list with a type id for each atom.

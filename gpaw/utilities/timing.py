@@ -73,11 +73,11 @@ class ParallelTimer(DebugTimer):
     determine bottlenecks in the parallelization.
 
     See the tool gpaw-plot-parallel-timings."""
-    def __init__(self, prefix='timings'):
+    def __init__(self, prefix='timings', flush=False):
         ndigits = len(str(mpi.world.size - 1))
         ranktxt = '%0*d' % (ndigits, mpi.world.rank)
         fname = '%s.%s.txt' % (prefix, ranktxt)
-        txt = open(fname, 'w')
+        txt = open(fname, 'w', buffering=1 if flush else -1)
         DebugTimer.__init__(self, comm=mpi.world, txt=txt)
         self.prefix = prefix
 
