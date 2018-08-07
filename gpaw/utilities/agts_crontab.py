@@ -64,7 +64,7 @@ def agts(cmd):
                 send_email(tasks)
                 return
 
-        shell('mq delete --state d --recursive .')
+        shell('mq remove --state d --recursive .')
 
         collect_files_for_web_page()
     else:
@@ -77,7 +77,7 @@ def send_email(tasks):
 
     txt = 'Hi!\n\n'
     for task in tasks:
-        if task.state in {'FAILED', 'CANCELED', 'TIMEOUT'}:
+        if task.state in {'FAILED', 'CANCELED', 'TIMEOUT', 'MEMORY'}:
             id, dir, name, res, age, status, t, err = task.words()
             txt += ('test: {}/{}@{}: {}\ntime: {}\nerror: {}\n\n'
                     .format(dir.split('agts/gpaw')[1],
