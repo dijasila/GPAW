@@ -28,7 +28,7 @@ Tools used:
 Part 1: Li intercalation energy in graphite
 ===========================================
 
-:download:`batteries1.ipynb`, :download:`C64.png`, :download:`gra_fit.png`,
+:download:`batteries1.ipynb`, :download:`C64.png`,
 :download:`Li2.png`, :download:`C144Li18.png`
 
 The notebook ``batteries1.ipynb`` will guide you through the first day of the
