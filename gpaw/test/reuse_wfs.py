@@ -15,8 +15,6 @@ for mode in ['fd', 'pw']:
             if method == 'lcao':
                 continue  # Not implemented yet
             kwargs.update(mode=PW(400.0))
-        else:
-            kwargs.update(poissonsolver=PoissonSolver(relax='GS'))
 
         calc = GPAW(mixer=Mixer(0.4, 5, 20.0),
                     basis='dzp' if method == 'lcao' else {},

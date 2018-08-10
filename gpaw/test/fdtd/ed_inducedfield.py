@@ -44,7 +44,7 @@ classical_material.add_component(
                       radius=5.0))
 
 # Combined Poisson solver
-poissonsolver = FDTDPoissonSolver(name='fd', classical_material=classical_material,
+poissonsolver = FDTDPoissonSolver(classical_material=classical_material,
                                   eps=poisson_eps,
                                   qm_spacing=0.40,
                                   cl_spacing=0.40 * 4,
