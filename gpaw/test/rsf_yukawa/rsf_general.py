@@ -43,4 +43,3 @@ calc2 = GPAW(fname)
 func = calc2.get_xc_functional()
 assert func['name'] == 'LCY_PBE', 'wrong name for functional'
 assert func['omega'] == 0.81, 'wrong value for RSF omega'
-
