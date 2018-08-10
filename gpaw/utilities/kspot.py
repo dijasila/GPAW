@@ -18,9 +18,9 @@ def get_scaled_positions(atoms, positions):
     those directions with periodic boundary conditions so that the
     scaled coordinates are between zero and one."""
    
-    scaled = np.linalg.solve(atoms._cell.T, positions.T).T
+    scaled = np.linalg.solve(atoms.cell.T, positions.T).T
     for i in range(3):
-        if atoms._pbc[i]:
+        if atoms.pbc[i]:
             scaled[i] %= 1.0
     return scaled
 

@@ -116,7 +116,7 @@ class HybridXC(HybridXCBase):
         # XXX How do we construct a copy of the Poisson solver of the
         # Hamiltonian?  We don't know what class it is, etc., but gd
         # may differ.
-        self.poissonsolver = PoissonSolver(eps=1e-11)
+        self.poissonsolver = PoissonSolver('fd', eps=1e-11)
         #self.poissonsolver = hamiltonian.poisson
 
         if self.finegrid:
