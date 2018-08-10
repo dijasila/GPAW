@@ -6,4 +6,5 @@ def create_tasks():
     return [
         task(nbrun, args=['batteries1.master.ipynb'], tmax='13h'),
         task(nbrun, args=['batteries2.master.ipynb'], tmax='13h'),
-        task(nbrun, args=['batteries3.master.ipynb'], tmax='13h')]
+        task(nbrun, args=['batteries3.master.ipynb'], tmax='13h',
+             deps=nbrun + '+batteries1.master.ipynb')]
