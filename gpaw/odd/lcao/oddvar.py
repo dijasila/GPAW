@@ -1087,8 +1087,7 @@ class ODDvarLcao(Calculator):
         n_dim = self.n_dim
         counter = 0
         # get initial energy and gradients
-        e_total, g_0 = \
-            self.get_energy_and_gradients(self.A_s, n_dim)
+        e_total, g_0 = self.get_energy_and_gradients(self.A_s, n_dim)
         # get maximum of gradients
         g_max = np.array([])
         for kpt in self.wfs.kpt_u:
@@ -1118,11 +1117,7 @@ class ODDvarLcao(Calculator):
                     self.line_search = \
                         UnitStepLength(self.evaluate_phi_and_der_phi,
                                        self.log)
-            if counter == 1:
-                if self.line_search_method is 'NoLineSearch':
-                    self.line_search = \
-                    UnitStepLength(self.evaluate_phi_and_der_phi,
-                                   self.log)
+
             self.timer.start('ODD get search direction')
             P_s = self.get_search_direction(self.A_s, g_0)
             self.timer.stop('ODD get search direction')
