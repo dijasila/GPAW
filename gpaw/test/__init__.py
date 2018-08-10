@@ -109,7 +109,6 @@ tests = [
     'fd_ops/nabla.py',
     'linalg/dot.py',
     'linalg/mmm.py',
-    'xc/lxc_fxc.py',
     'xc/pbe_pw91.py',
     'fd_ops/gradient.py',
     'maths/erf.py',
