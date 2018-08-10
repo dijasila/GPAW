@@ -65,10 +65,11 @@ def create_poisson_solver(name='fast', **kwargs):
     else:
         raise ValueError('Unknown poisson solver: %s' % name)
 
-def PoissonSolver(dipolelayer=None, **kwargs):
+def PoissonSolver(name='fast', dipolelayer=None, **kwargs):
+    p = create_poisson_solver(name=name, **kwargs)
     if dipolelayer is not None:
-        return DipoleCorrection(PoissonSolver(**kwargs), dipolelayer)
-    return FastPoissonSolver(**kwargs)
+        p = DipoleCorrection(p, dipolelayer)
+    return p
 
 def FDPoissonSolverWrapper(dipolelayer=None, **kwargs):
     if dipolelayer is not None:
