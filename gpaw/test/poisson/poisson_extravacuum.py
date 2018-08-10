@@ -97,7 +97,7 @@ def compare(phi1_g, phi2_g, val, eps=np.sqrt(poissoneps)):
 
 
 # Get reference from default poissonsolver
-poisson = PoissonSolver(eps=poissoneps)
+poisson = PoissonSolver('fd', eps=poissoneps)
 phiref_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
 
 # Test agreement with default

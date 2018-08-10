@@ -3,7 +3,7 @@ from __future__ import print_function
 from ase import Atom, Atoms
 import numpy as np
 
-from gpaw import GPAW, FermiDirac
+from gpaw import GPAW, FermiDirac, PoissonSolver
 from gpaw.utilities.dos import raw_orbital_LDOS, raw_wignerseitz_LDOS, RawLDOS
 from gpaw.test import equal
 import gpaw.mpi as mpi
@@ -31,6 +31,7 @@ energies, sweight = raw_orbital_LDOS(calc, a=0, spin=0, angular='s')
 energies, pdfweight = raw_orbital_LDOS(calc, a=0, spin=0, angular='pdf')
 
 calc = GPAW(gpts=(24, 24, 24), occupations=FermiDirac(width=0, fixmagmom=True),
+            poissonsolver=PoissonSolver('fd'),
             hund=True, communicator=comm)
 Hspin.set_calculator(calc)
 e_Hspin = Hspin.get_potential_energy()
