@@ -960,7 +960,7 @@ class LBFGSdirection_prec:
                     y[k] = const * (L[k].real * x[k].real +
                                     1.0j*L[k].imag * x[k].imag)
                 else:
-                     y[k] = const * L[k] * x[k]
+                    y[k] = const * L[k] * x[k]
             else:
                 y[k] = const * L[k].dot(x[k])
 
