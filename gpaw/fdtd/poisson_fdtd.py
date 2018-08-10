@@ -12,7 +12,7 @@ from gpaw.fdtd.potential_couplers import (RefinerPotentialCoupler,
                                           MultipolesPotentialCoupler)
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import world, serial_comm
-from gpaw.poisson import PoissonSolver
+from gpaw.poisson import PoissonSolver, FDPoissonSolver
 from gpaw.tddft import TDDFT
 from gpaw.transformers import Transformer
 from gpaw.utilities.gpts import get_number_of_grid_points
@@ -204,7 +204,7 @@ class FDTDPoissonSolver:
         self.cl.extrapolated_qm_phi = None
         self.cl.dcomm = communicator
         self.cl.dparsize = None
-        self.qm = PoissonOrganizer(PoissonSolver)  # Default solver
+        self.qm = PoissonOrganizer(FDPoissonSolver)  # Default solver
         self.qm.spacing_def = qm_spacing * np.ones(3) / Bohr
         self.qm.cell = np.array(cell) / Bohr
 
@@ -271,6 +271,7 @@ class FDTDPoissonSolver:
 
         # Create quantum Poisson solver
         self.qm.poisson_solver = PoissonSolver(
+            name='fd',
             nn=self.nn,
             eps=self.eps,
             relax=self.relax,
@@ -285,6 +286,7 @@ class FDTDPoissonSolver:
 
         # Create classical PoissonSolver
         self.cl.poisson_solver = PoissonSolver(
+            name='fd',
             nn=self.nn,
             eps=self.eps,
             relax=self.relax,

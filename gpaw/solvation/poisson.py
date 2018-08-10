@@ -85,7 +85,7 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
                     'charged periodic systems are not implemented')
         self.restrict_op_weights()
         ret = FDPoissonSolver.solve(self, phi, rho, charge, eps, maxcharge,
-                                    zero_initial_phi, timer=timer)
+                                    zero_initial_phi)
         return ret
 
     def restrict_op_weights(self):
