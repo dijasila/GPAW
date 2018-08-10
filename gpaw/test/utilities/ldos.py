@@ -39,6 +39,7 @@ niter_Hspin = calc.get_number_of_iterations()
 energies,sweight_spin = raw_orbital_LDOS(calc, a=0, spin=0, angular='s')
 
 calc = GPAW(gpts=(32, 32, 40), nbands=2, #eigensolver='dav',
+            poissonsolver=PoissonSolver('fd'),
             communicator=comm)
 LiH.set_calculator(calc)
 e_LiH = LiH.get_potential_energy()

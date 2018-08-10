@@ -60,7 +60,7 @@ convergence = dict(density=1e-5)
 calc1 = GPAW(mode='lcao',
              convergence=convergence,
              gpts=h2gpts(0.25, system1.cell, idiv=8),
-             poissonsolver={'dipolelayer': 'xy', 'relax': 'GS', 'eps': 1e-11})
+             poissonsolver={'dipolelayer': 'xy', 'eps': 1e-13})
 
 system1.set_calculator(calc1)
 system1.get_potential_energy()
@@ -69,7 +69,7 @@ v1 = calc1.get_effective_potential(pad=False)
 calc2 = GPAW(mode='lcao',
              convergence=convergence,
              gpts=h2gpts(0.25, system2.cell, idiv=8),
-             poissonsolver={'relax': 'GS', 'eps': 1e-11})
+             poissonsolver={'eps': 1e-13})
 
 system2.set_calculator(calc2)
 system2.get_potential_energy()
@@ -99,7 +99,7 @@ if rank == 0:
     correction_err = abs(2.0 * correction * Hartree + dvz1)
     print('correction error %s' % correction_err)
     assert correction_err < 3e-5
-    
+
     # Comparison to what the values were when this test was last modified:
     ref_value = 2.07342988218
     err2 = abs(dvz1 - ref_value)

@@ -248,7 +248,7 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
         return FDPoissonSolver.solve(
             self, phi, rho, charge, eps, maxcharge, zero_initial_phi, timer=timer)
 
-    def solve_neutral(self, phi, rho, eps=2e-10):
+    def solve_neutral(self, phi, rho, eps=2e-10, timer=None):
         self._init()
         self.rho = rho
         return SolvationPoissonSolver.solve_neutral(self, phi, rho, eps)

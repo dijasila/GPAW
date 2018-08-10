@@ -13,7 +13,7 @@ from gpaw.arraydict import ArrayDict
 from gpaw.external import create_external_potential
 from gpaw.hubbard import hubbard
 from gpaw.lfc import LFC
-from gpaw.poisson import create_poisson_solver
+from gpaw.poisson import create_poisson_solver, PoissonSolver
 from gpaw.spinorbit import soc
 from gpaw.transformers import Transformer
 from gpaw.utilities import (unpack, pack2, unpack_atomic_matrices,
@@ -527,7 +527,8 @@ class RealSpaceHamiltonian(Hamiltonian):
         if psolver is None:
             psolver = {}
         if isinstance(psolver, dict):
-            psolver = create_poisson_solver(**psolver)
+            #psolver = create_poisson_solver(**psolver)
+            psolver = PoissonSolver(**psolver)
         self.poisson = psolver
         self.poisson.set_grid_descriptor(self.finegd)
 

@@ -10,7 +10,7 @@ calc = GPAW(h=0.21,
             eigensolver='rmm-diis',
             nbands=3,
             convergence={'eigenstates': 1e-6},
-            poissonsolver=PoissonSolver(nn='M', relax='J'),
+            poissonsolver=PoissonSolver('fd', nn='M', relax='J'),
             txt='exx.txt')
 
 be2.set_calculator(calc)

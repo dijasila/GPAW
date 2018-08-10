@@ -9,7 +9,7 @@ n = 24
 li = Atoms('Li', magmoms=[1.0], cell=(a, a, a), pbc=True)
 
 calc = GPAW(gpts=(n, n, n), nbands=1, xc='PBE',
-            poissonsolver=PoissonSolver(nn='M', relax='GS'),
+            poissonsolver=PoissonSolver(name='fd', nn='M', relax='GS'),
             mixer=MixerSum(0.3, 5, 10.0),
             eigensolver=Davidson(12),
             convergence=dict(eigenstates=4.5e-8),

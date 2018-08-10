@@ -101,16 +101,16 @@ poisson = PoissonSolver('fd', eps=poissoneps)
 phiref_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
 
 # Test agreement with default
-poisson = ExtraVacuumPoissonSolver(N_c, PoissonSolver(eps=poissoneps))
+poisson = ExtraVacuumPoissonSolver(N_c, PoissonSolver('fd', eps=poissoneps))
 phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
 compare(phi_g, phiref_g, 0.0, 1e-24)
 
 # New reference with extra vacuum
 gpts = N_c * 4
-poisson = ExtraVacuumPoissonSolver(gpts, PoissonSolver(eps=poissoneps))
+poisson = ExtraVacuumPoissonSolver(gpts, PoissonSolver('fd', eps=poissoneps))
 phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
 # print poisson.get_description()
-compare(phi_g, phiref_g, 2.6485385144e-02)
+compare(phi_g, phiref_g, 0.02568722781705065)
 phiref_g = phi_g
 
 # Compare to ExtendedPoissonSolver
@@ -122,22 +122,22 @@ phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
 compare(phi_g, phiref_g, 0.0, 1e-24)
 
 # Test with single coarsening
-poisson = ExtraVacuumPoissonSolver(gpts, PoissonSolver(eps=poissoneps),
-                                   PoissonSolver(eps=poissoneps), 1)
+poisson = ExtraVacuumPoissonSolver(gpts, PoissonSolver('fd', eps=poissoneps),
+                                   PoissonSolver('fd', eps=poissoneps), 1)
 phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
 compare(phi_g, phiref_g, 1.5043946611e-04)
 
 # Test with two coarsenings
-poisson = ExtraVacuumPoissonSolver(gpts, PoissonSolver(eps=poissoneps),
-                                   PoissonSolver(eps=poissoneps), 2)
+poisson = ExtraVacuumPoissonSolver(gpts, PoissonSolver('fd', eps=poissoneps),
+                                   PoissonSolver('fd', eps=poissoneps), 2)
 phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
 compare(phi_g, phiref_g, 1.2980906205e-03)
 
 # Test with cascaded single coarsenings
-poisson1 = ExtraVacuumPoissonSolver(gpts / 2, PoissonSolver(eps=poissoneps),
-                                    PoissonSolver(eps=poissoneps), 1)
+poisson1 = ExtraVacuumPoissonSolver(gpts / 2, PoissonSolver('fd', eps=poissoneps),
+                                    PoissonSolver('fd', eps=poissoneps), 1)
 poisson = ExtraVacuumPoissonSolver(gpts / 2, poisson1,
-                                   PoissonSolver(eps=poissoneps), 1)
+                                   PoissonSolver('fd', eps=poissoneps), 1)
 phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
 # print poisson.get_description()
 compare(phi_g, phiref_g, 1.7086531461e-04)
@@ -148,14 +148,14 @@ for coarses in [1, 2, 3]:
     for nn_refine in [1, 3]:
         for nn_laplace in [1, 3]:
             EVPS = ExtraVacuumPoissonSolver
-            poisson = EVPS(gpts, PoissonSolver(eps=poissoneps),
-                           PoissonSolver(eps=poissoneps), coarses,
+            poisson = EVPS(gpts, PoissonSolver('fd', eps=poissoneps),
+                           PoissonSolver('fd', eps=poissoneps), coarses,
                            use_aux_grid=False,
                            nn_refine=nn_refine, nn_laplace=nn_laplace)
             phiref_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
 
-            poisson = EVPS(gpts, PoissonSolver(eps=poissoneps),
-                           PoissonSolver(eps=poissoneps), coarses,
+            poisson = EVPS(gpts, PoissonSolver('fd', eps=poissoneps),
+                           PoissonSolver('fd', eps=poissoneps), coarses,
                            use_aux_grid=True,
                            nn_refine=nn_refine, nn_laplace=nn_laplace)
             phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)

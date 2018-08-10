@@ -33,6 +33,7 @@ for fg in fgl:
     calc = GPAW(h=0.3,
                 eigensolver='rmm-diis',
                 xc='PBE',
+                poissonsolver={'name': 'fd'},
                 nbands=4,
                 convergence={'eigenstates': 1e-4},
                 charge=-1)

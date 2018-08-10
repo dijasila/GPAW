@@ -249,7 +249,11 @@ class FDTDPoissonSolver:
 
     def estimate_memory(self, mem):
         # self.cl.poisson_solver.estimate_memory(mem)
-        self.qm.poisson_solver.estimate_memory(mem)
+        #print(self.qm.poisson_solver.estimate_memory.__code__.co_varnames)
+        # WTF?  How can this shabby method suddenly be unbound?  It needs both self and mem.
+        # Ferchrissakes!
+        #self.qm.poisson_solver.estimate_memory(mem=mem)
+        pass
 
     # Return the TDDFT stencil by default
     def get_stencil(self, mode='qm'):
@@ -871,7 +875,8 @@ class FDTDPoissonSolver:
               eps=None,
               maxcharge=1e-6,
               zero_initial_phi=False,
-              calculation_mode=None):
+              calculation_mode=None,
+              timer=None):
 
         if self.density is None:
             raise RuntimeError('FDTDPoissonSolver requires a density object.'
