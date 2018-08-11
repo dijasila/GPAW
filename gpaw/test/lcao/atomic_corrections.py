@@ -41,7 +41,7 @@ for correction in corrections:
                 basis='sz(dzp)',
                 #kpts=(1, 1, 4),
                 #spinpol=True,
-                poissonsolver=PoissonSolver(relax='J', eps=1e100, nn=1),
+                poissonsolver=PoissonSolver('fd', relax='J', eps=1e100, nn=1),
                 parallel=parallel,
                 h=0.35)
     def stopcalc():
