@@ -51,7 +51,13 @@ Mac and Linux users
    setuplinmac
    accesslinmac
    submitting
-   
+
+
+Slides
+======
+
+The slides from the introduction to ASE, GPAW and the computer
+exercises are `available here <http://dcwww.fysik.dtu.dk/~schiotz/intro.pdf>`_
 
 Projects
 ========
