@@ -2,11 +2,11 @@
 Machine Learning
 ================
 
-In this exercise, you will experience few machine learning methods for design of
+In this exercise, you will experience a few machine learning methods for design of
 new materials starting from an existing database. In particular, you will design
 a model to identify good candidate materials for light harvesting, based on a
 small database of organic/inorganic perovskites. Afterwards, you will validate
-the model by running DFT calculations on selected systems.
+the model predictions by running DFT calculations on selected systems.
 
 Part 1: Inspection of database
 ==============================
