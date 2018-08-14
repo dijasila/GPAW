@@ -6,7 +6,7 @@ except for an atomic basis set."""
 import numpy as np
 from ase.data import atomic_numbers
 
-from gpaw.setup import BaseSetup
+from gpaw.setup import BaseSetup, LocalCorrectionVar
 from gpaw.spline import Spline
 from gpaw.utilities import min_locfun_radius
 
@@ -91,15 +91,7 @@ class GhostSetup(BaseSetup):
         self.dEH0 = 0.0
         self.dEH_p = np.zeros(1)
         self.extra_xc_data = {}
-        self.nq = None
-        self.lcut = None
-        self.n_qg = None
-        self.Delta_lq = None
-        self.nt_qg = None
-        self.T_Lqp = None
-        self.nc_g = None
-        self.rgd2 = None
-        self.nct_g = None
+        self.local_corr = LocalCorrectionVar(None)
         self._Mg_pp = None
         self._gamma = None
 

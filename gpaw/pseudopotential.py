@@ -3,7 +3,7 @@ import numpy as np
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.basis_data import Basis, BasisFunction
-from gpaw.setup import BaseSetup
+from gpaw.setup import BaseSetup, LocalCorrectionVar
 from gpaw.spline import Spline
 from gpaw.utilities import erf, divrl, hartree as hartree_solve
 
@@ -313,14 +313,6 @@ class PseudoPotential(BaseSetup):
 
         self.wg_lg = None
         self.g_lg = None
-        self.nq = None
-        self.lcut = None
-        self.n_qg = None
-        self.Delta_lq = None
-        self.nt_qg = None
-        self.T_Lqp = None
-        self.nc_g = None
-        self.rgd2 = None
-        self.nct_g = None
+        self.local_corr = LocalCorrectionVar(None)
         self._Mg_pp = None
         self._gamma = None
