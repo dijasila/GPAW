@@ -20,7 +20,7 @@ Logging into the databar
 If you are not already logged into the databar, do so by starting
 a Terminal window.  Log in to the databar front-end with the command::
 
-  ssh -X USERNAME@login.gbar.dtu.dk
+  ssh -XY USERNAME@login.gbar.dtu.dk
 
 Replace ``USERNAME`` with your DTU username, and note that when you
 are asked for a password, you should use your *DTU password*, **not**

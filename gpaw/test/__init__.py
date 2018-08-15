@@ -111,7 +111,6 @@ tests = [
     'fd_ops/nabla.py',
     'linalg/dot.py',
     'linalg/mmm.py',
-    'xc/lxc_fxc.py',
     'xc/pbe_pw91.py',
     'fd_ops/gradient.py',
     'maths/erf.py',
@@ -152,7 +151,7 @@ tests = [
     'ext_potential/harmonic.py',
     'atoms_mismatch.py',
     'setup_basis_spec.py',
-    'overlap.py',
+    # 'overlap.py',  see #153
     'pw/direct.py',
     'vdw/libvdwxc_spin.py',                 # ~1s
     'timing.py',                            # ~1s
@@ -356,6 +355,7 @@ tests = [
     'xc/revPBE_Li.py',                      # ~26s
     'ofdft/ofdft_scale.py',                 # ~26s
     'parallel/lcao_parallel_kpt.py',        # ~29s
+    # 'lrtddft/placzek_profeta_albrecht.py',  # ~29s  see #153
     'corehole/h2o_dks.py',                  # ~30s
     'lcaotddft/parallel_options.py',        # ~30s
     'lcaotddft/lcaotddft_vs_lrtddft2.py',   # ~30s
@@ -367,9 +367,7 @@ tests = [
     'pw/expert_diag.py',                    # ~37s
     'pathological/LDA_unstable.py',         # ~42s
     'response/bse_aluminum.py',             # ~42s
-    'exx/check_load.py',                    # ~43s
     'response/au02_absorption.py',          # ~44s
-    'rsf_yukawa/change_gamma.py',
     'xc/tb09.py',
     'ext_potential/point_charge.py',
     'ase_features/wannierk.py',             # ~45s
@@ -377,6 +375,7 @@ tests = [
     'response/pair.py',                     # ~50s
     'rpa/rpa_energy_N2.py',                 # ~52s
     'vdw/ar2.py',                           # ~53s
+    'rsf_yukawa/rsf_general.py',            # ~54s
     'solvation/forces_symmetry.py',         # ~56s
     'parallel/diamond_gllb.py',             # ~59s
     'xc/qna_force.py',
@@ -391,8 +390,6 @@ tests = [
     'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
     'exx/exx_scf.py',                       # ~91s
-    'rsf_yukawa/nonselfconsistent.py',      # ~98s
-    'rsf_yukawa/check_load.py',             # ~100s
     'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
     'exx/AA_enthalpy.py',                   # ~119s
@@ -405,8 +402,6 @@ tests = [
     'response/graphene.py',                 # ~160s
     'rsf_yukawa/lrtddft.py',                # ~240s
     'response/symmetry.py',                 # ~300s
-    'rsf_yukawa/selfconsistent.py',
-    'rsf_yukawa/selfconsistent_yuk.py',
     'pw/moleculecg.py',                     # duration unknown
     'potential.py',                         # duration unknown
     'lcao/pair_and_coulomb.py',             # duration unknown
@@ -471,8 +466,6 @@ if mpi.size < 4:
                 'parallel/realspace_blacs.py',
                 'exx/AA_enthalpy.py',
                 'exx/exx_scf.py',
-                'rsf_yukawa/selfconsistent.py',
-                'rsf_yukawa/selfconsistent_yuk.py',
                 'response/bse_aluminum.py',
                 'response/bse_MoS2_cut.py',
                 'fileio/parallel.py',
@@ -645,7 +638,15 @@ class TestRunner:
             self.register_skipped(test, t0)
             return exitcode_skip
 
+        assert test.endswith('.py')
         dirname = test[:-3]
+        if os.path.isabs(dirname):
+            mydir = os.path.split(__file__)[0]
+            dirname = os.path.relpath(dirname, mydir)
+
+        # We don't want files anywhere outside the tempdir.
+        assert not dirname.startswith('../') # Test file outside sourcedir.
+
         if mpi.rank == 0:
             os.makedirs(dirname)
         mpi.world.barrier()

@@ -4,9 +4,10 @@ import sys
 from ase.build import molecule
 from ase.utils import devnull
 
-from gpaw import GPAW, FermiDirac, KohnShamConvergenceError
+from gpaw import GPAW, LCAO, FermiDirac, KohnShamConvergenceError
 from gpaw.utilities import compiled_with_sl
 from gpaw.forces import calculate_forces
+from gpaw.mpi import world
 
 # Calculates energy and forces for various parallelizations
 
@@ -14,7 +15,7 @@ tolerance = 4e-5
 
 parallel = dict()
 
-basekwargs = dict(mode='lcao',
+basekwargs = dict(mode=LCAO(atomic_correction='dense'),
                   maxiter=3,
                   nbands=6,
                   kpts=(4, 4, 4),  # 8 kpts in the IBZ
@@ -97,8 +98,8 @@ run()
 # kpt-parallelization = 2,
 # state-parallelization = 2,
 # domain-decomposition = (1,2,1)
-parallel['band'] = 2
-parallel['domain'] = (1, 2, 1)
+parallel['band'] = 2 if world.size >= 2 else 1
+parallel['domain'] = (1, 2 if world.size >= 4 else 1, 1)
 run()
 
 if compiled_with_sl():
@@ -106,13 +107,14 @@ if compiled_with_sl():
     # state-parallelization = 2,
     # domain-decomposition = (1,2,1)
     # with blacs
-    parallel['sl_default'] = (2, 2, 2)
+    parallel['sl_default'] = (2 if world.size >= 2 else 1,
+                              2 if world.size >= 4 else 1, 2)
     run()
 
 # perform spin polarization test
 parallel = dict()
 
-basekwargs = dict(mode='lcao',
+basekwargs = dict(mode=LCAO(atomic_correction='dense'),#mode='lcao',
                   maxiter=3,
                   nbands=6,
                   kpts=(4, 4, 4),  # 8 kpts in the IBZ

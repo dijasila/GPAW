@@ -104,11 +104,12 @@ class LCAOWfsMover:
 
     def initialize(self, lcaowfs):
         self.bfs = lcaowfs.basis_functions
-        self.tci = lcaowfs.tci
+        #self.tci = lcaowfs.tci
+        self.tciexpansions = lcaowfs.tciexpansions
         self.atomic_correction = lcaowfs.atomic_correction
-        self.S_qMM = lcaowfs.S_qMM
-        self.T_qMM = lcaowfs.T_qMM  # Get rid of this
-        self.P_aqMi = lcaowfs.P_aqMi
+        #self.S_qMM = lcaowfs.S_qMM
+        #self.T_qMM = lcaowfs.T_qMM  # Get rid of this
+        #self.P_aqMi = lcaowfs.P_aqMi
 
     def cut_wfs(self, wfs, spos_ac):
         # XXX Must forward vars from LCAO initialization object
@@ -117,18 +118,23 @@ class LCAOWfsMover:
         # we can rely on those parallelization settings without danger.
         bfs = self.bfs
 
-        P_aqMi = self.P_aqMi
-        S_qMM = self.S_qMM
+        #P_aqMi = self.P_aqMi
+        #S_qMM = self.S_qMM
 
         # We can inherit S_qMM and P_aqMi from the initialization in the
         # first step, then recalculate them for subsequent steps.
         wfs.timer.start('reuse wfs')
         wfs.timer.start('tci calculate')
-        self.tci.calculate(wfs.spos_ac, S_qMM, self.T_qMM, P_aqMi)  # kill T
+        tciex = self.tciexpansions
+        manytci = tciex.get_manytci_calculator(wfs.setups, wfs.gd,
+                                               spos_ac, wfs.kd.ibzk_qc,
+                                               wfs.dtype, wfs.timer)
+        P_aqMi = manytci.P_aqMi(bfs.my_atom_indices)
+        # Avoid calculating T
+        Mstart, Mstop = wfs.initksl.Mstart, wfs.initksl.Mstop
+        S_qMM, T_qMM = manytci.O_qMM_T_qMM(wfs.gd.comm, Mstart, Mstop)
         wfs.timer.stop('tci calculate')
-        self.atomic_correction.initialize(P_aqMi,
-                                          wfs.initksl.Mstart,
-                                          wfs.initksl.Mstop)
+        self.atomic_correction.initialize(P_aqMi, Mstart, Mstop)
         # self.atomic_correction.gobble_data(wfs)
         wfs.timer.start('lcao overlap correction')
         self.atomic_correction.add_overlap_correction(wfs, S_qMM)

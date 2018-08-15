@@ -7,9 +7,9 @@ atoms = Atoms('H2', [(0.0, 0.0, 0.0),
 
 calc = GPAW(txt=None)
 atoms.set_calculator(calc)
-calc.initialize(atoms)
 
 try:
+    calc.initialize(atoms)
     calc.set_positions(atoms)
 except RuntimeError:
     pass
