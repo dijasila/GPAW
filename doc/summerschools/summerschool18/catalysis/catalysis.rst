@@ -22,15 +22,18 @@ Tools used in this exercise:
 Part 1: |N2| adsorption on a flat Ru surface
 ============================================
 
-:download:`n2_on_metal.ipynb`, :download:`N2Ru_hollow.png`, :download:`2NadsRu.png`
+:download:`n2_on_metal.ipynb`, :download:`N2Ru_hollow.png`,
+:download:`2NadsRu.png`
 
-The notebook n2_on_metal.ipynb shows how to set up a molecule on a flat metal surface.
+The notebook ``n2_on_metal.ipynb`` shows how to set up a molecule on a flat
+metal surface.
 
 * Set up a clean metal surface.
 
 * Relax the topmost layer (ca. 10 min running time).
 
-  - While running: study the gpaw text output, to learn about e.g. number of irreducible k-points (important for parallel simulations).
+  - While running: study the gpaw text output, to learn about e.g. number of
+    irreducible k-points (important for parallel simulations).
 
 * Set up and relax a single |N2| molecule (ca. 1 min running time).
 
@@ -44,30 +47,41 @@ Part 2: Splitting |N2|: initial and final geometry
 
 (Begin this while the last step above runs)
 
-The |N2| molecule will not split while standing up on an on-top site.  The molecule can also bind to the surface in a flat geometry - we here ignore the barrier between the two states and just use the lying-down molecule as the initial configuration.
+The |N2| molecule will not split while standing up on an on-top site.  The
+molecule can also bind to the surface in a flat geometry - we here ignore the
+barrier between the two states and just use the lying-down molecule as the
+initial configuration.
 
-Create scripts setting up and energy-minimizing the initial and final structures, as described in the final part of the notebook from Part 1.  Submit these scripts as parallel batch jobs.  When submitting make sure that the number of CPU cores matches the number of irreducible k-point in the calculation, as k-point parallelization is much more efficient than other forms of parallelization.
+Create scripts setting up and energy-minimizing the initial and final
+structures, as described in the final part of the notebook from Part 1.
+Submit these scripts as parallel batch jobs.  When submitting make sure that
+the number of CPU cores matches the number of irreducible k-point in the
+calculation, as k-point parallelization is much more efficient than other
+forms of parallelization.
 
-XXXX Write something about dry-run and job submission here.
+See :ref:`submitting`.
 
 
 Part 3: Learning about Nudged Elastic Band
 ==========================================
 
-:download:`neb.ipynb`, :download:`neb.py`
+:download:`neb.ipynb`
 
 While the calculations from the previous step runs, you can learn about the
 Nudged Elastic Band method for finding transition states and barriers from the
-notebook neb.ipynb
+notebook ``neb.ipynb``.
 
 
 Part 4: Run a parallel NEB calculation
 ======================================
 
-Prepare a script running NEB using the GPAW calculator and the initial and final states from part 2 to find the barrier for |N2| dissociation.
+Prepare a script running NEB using the GPAW calculator and the initial and
+final states from part 2 to find the barrier for |N2| dissociation.
 
-When doing this you should parallelize over the images in the NEB calculation. A more detailed description of how to do this can be found in the
-*Exercise* part of the neb.ipynb along with some suitable input parameters for the NEB.
+When doing this you should parallelize over the images in the NEB
+calculation. A more detailed description of how to do this can be found in
+the *Exercise* part of the ``neb.ipynb`` along with some suitable input
+parameters for the NEB.
 
 
 Extra exercise: Vibrational energy
@@ -75,7 +89,7 @@ Extra exercise: Vibrational energy
 
 :download:`vibrations.ipynb`, :download:`TS.xyz`
 
-The notebook vibrations.ipynb will guide you through how to calculate the
+The notebook ``vibrations.ipynb`` will guide you through how to calculate the
 vibrations of the adsorbate in the inital and final state and use the
 Thermochamistry module to calculate the reaction free energy. The final part
 of the exercise shows what happens when you calculate the vibrations of a

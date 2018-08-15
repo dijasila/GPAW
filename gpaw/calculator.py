@@ -32,6 +32,7 @@ from gpaw.scf import SCFLoop
 from gpaw.setup import Setups
 from gpaw.symmetry import Symmetry
 from gpaw.stress import calculate_stress
+from gpaw.utilities import check_atoms_too_close
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
 from gpaw.utilities.partition import AtomPartition
@@ -181,6 +182,7 @@ class GPAW(PAW, Calculator):
         return writer
 
     def _set_atoms(self, atoms):
+        check_atoms_too_close(atoms)
         self.atoms = atoms
         # GPAW works in terms of the scaled positions.  We want to
         # extract the scaled positions in only one place, and that is

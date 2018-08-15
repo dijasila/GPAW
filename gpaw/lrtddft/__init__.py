@@ -100,6 +100,8 @@ class LrTDDFT(ExcitationList):
                 np.asarray(self.eh_comm))
 
         if calculator is not None and calculator.initialized:
+            # XXXX not ready for k-points
+            assert(len(calculator.wfs.kd.ibzk_kc) == 1)
             if not isinstance(calculator.wfs, FDWaveFunctions):
                 raise RuntimeError(
                     'Linear response TDDFT supported only in real space mode')
@@ -273,7 +275,7 @@ class LrTDDFT(ExcitationList):
         else:
             self.Om = ApmB(kss=self.kss, filehandle=f,
                            txt=self.txt)
-        self.Om.Kss(self.kss)
+        self.Om.fullkss = self.kss
         timer.stop('init_obj')
 
         timer.start('read diagonalized')
@@ -405,23 +407,25 @@ class LrTDDFT(ExcitationList):
         mpi.world.barrier()
 
     def overlap(self, ov_nn, other):
-        """Matrix element overlap determined from Kohn-Sham overlaps.
+        """Matrix element overlap determined from pair density overlaps.
 
         Parameters
         ----------
-        ov_pp: array
-            Kon-Sham overlap factors from mine and other KSSingles object.
-            Index 0 corresponds to our own KSSingles and
-            index 1 to the other's
+        ov_nn: array
+            Wave function overlap factors from a displaced calculator.
+
+            Index 0 corresponds to our own wavefunctions and
+            index 1 to the others wavefunctions
 
         Returns
         -------
         ov_pp: array
             Overlap
         """
+        #ov_pp = self.kss.overlap(ov_nn, other.kss)
+        ov_pp = self.Om.kss.overlap(ov_nn, other.Om.kss)
         self.diagonalize()
         other.diagonalize()
-        ov_pp = self.Om.kss.overlap(ov_nn, other.Om.kss)
         # ov[pLm, pLo] = Om[pLm, :pKm]* ov[:pKm, pLo]
         return np.dot(self.Om.eigenvectors.conj(),
                       # ov[pKm, pLo] = ov[pKm, :pKo] Om[pLo, :pKo].T
@@ -568,7 +572,7 @@ class LrTDDFTExcitation(Excitation):
             return x * x
         spin = ['u', 'd']
         min2 = sqr(min)
-        rest = np.sum(self.f ** 2)
+        rest = np.sum(self.f**2)
         for f, k in zip(self.f, self.kss):
             f2 = sqr(f)
             if f2 > min2:

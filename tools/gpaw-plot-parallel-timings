@@ -150,7 +150,7 @@ for name in sorted(functions):
         plotcalls.append(call)
 
     # Shift: maxlevel, rank
-    bar = ax.bar(left=[call.t1 for call in plotcalls],
+    bar = ax.bar([call.t1 for call in plotcalls],
                  height=[1.0] * len(plotcalls),
                  width=[call.T2 - call.T1 for call in plotcalls],
                  bottom=[call.level + call.rankno * (maxlevel + 1)
