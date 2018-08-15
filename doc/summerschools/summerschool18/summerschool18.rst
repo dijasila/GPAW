@@ -7,9 +7,6 @@ CAMd Summer School 2018
 Announcement:
 http://www.fysik.dtu.dk/english/Research/CAMD/Events/Summer-school-2018
 
-Slides:
-http://www.fysik.dtu.dk/english/Research/CAMD/Events/Presentations_2018
-
 .. highlight:: bash
 
 
