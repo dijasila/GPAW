@@ -51,18 +51,19 @@ class KohnShamDecomposition(object):
     def __init__(self, paw=None, filename=None):
         self.filename = filename
         self.has_initialized = False
-        self.world = paw.world
-        self.log = paw.log
-        self.ksl = paw.wfs.ksl
-        self.kd = paw.wfs.kd
-        self.bd = paw.wfs.bd
-        self.kpt_u = paw.wfs.kpt_u
-        self.density = paw.density
-        self.comm = paw.comms['K']
         self.reader = None
+        if paw is not None:
+            self.world = paw.world
+            self.log = paw.log
+            self.ksl = paw.wfs.ksl
+            self.kd = paw.wfs.kd
+            self.bd = paw.wfs.bd
+            self.kpt_u = paw.wfs.kpt_u
+            self.density = paw.density
+            self.comm = paw.comms['K']
 
-        if len(paw.wfs.kpt_u) > 1:
-            raise RuntimeError('K-points are not fully supported')
+            if len(paw.wfs.kpt_u) > 1:
+                raise RuntimeError('K-points are not fully supported')
 
         if filename is not None:
             self.read(filename)
