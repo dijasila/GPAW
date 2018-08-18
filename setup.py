@@ -100,6 +100,7 @@ compiler = None
 
 scalapack = False
 libvdwxc = False
+elpa = False
 
 # User provided customizations:
 exec(open(customize).read())
@@ -136,6 +137,9 @@ if scalapack:
 
 if libvdwxc:
     define_macros.append(('GPAW_WITH_LIBVDWXC', '1'))
+
+if elpa:
+    define_macros.append(('GPAW_WITH_ELPA', '1'))
 
 # distutils clean does not remove the _gpaw.so library and gpaw-python
 # binary so do it here:
