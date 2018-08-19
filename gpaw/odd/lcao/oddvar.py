@@ -1214,6 +1214,8 @@ class ODDvarLcao(Calculator):
                                      occupied_only=self.occupied_only)
         if self.odd == 'Zero':
             self.occ.calculate(self.wfs)
+            self.e_ks = self.ham.get_energy(self.occ)
+
         self.log("... done!\n")
         f_sn = {}
         for kpt in self.wfs.kpt_u:
