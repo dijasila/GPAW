@@ -570,7 +570,8 @@ class ODDvarLcao(Calculator):
         self.e_ks = self.e_ks - self.ham.e_kinetic + e_kin
         self.ham.e_kinetic = e_kin
         self.ham.e_total_free = self.e_ks
-        self.ham.e_total_extrapolated = self.e_ks
+        # FIXME: new extrapolation of energy?
+        # self.ham.e_total_extrapolated = self.e_ks
 
     def get_search_direction(self, A_s, G_s):
 
