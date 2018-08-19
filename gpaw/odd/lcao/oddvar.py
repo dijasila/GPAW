@@ -2,6 +2,7 @@ from ase.units import Hartree, Bohr
 from gpaw.xc import XC
 from gpaw.poisson import PoissonSolver
 from gpaw.transformers import Transformer
+
 from gpaw.odd.lcao.potentials import *
 from gpaw.odd.lcao.tools import *
 from gpaw.odd.lcao.search_directions import *
@@ -459,7 +460,7 @@ class ODDvarLcao(Calculator):
         If C_nM0 = None, then function returns energy and gradients
         ,E[C, A] and G[C, A], at C = C_init, A = A_s.
         Otherwise, function returns E[C, A] and G[C, A] at
-        C = C_nM0 exp(A_s), A = 0
+        C = C_nM0 exp(A), A = 0
 
         :param A_s:
         :param n_dim:
@@ -496,9 +497,9 @@ class ODDvarLcao(Calculator):
 
         self.timer.start('ODD update_ks_energy_and_hamiltonian')
         # FIXME: if you run PZ-SIC for occupeied states only
-        # and if KS functional is not unitary invariant on occupied states
-        # then you need to update update_ks_energy_and_hamiltonian
-        # every iteration.
+        # and if KS functional is not unitary invariant
+        # on occupied states then you need to update
+        # update_ks_energy_and_hamiltonian every iteration.
         if occupied_only is not True or \
                 self.get_en_and_grad_iters == 0:
             self.update_ks_energy_and_hamiltonian()
@@ -576,7 +577,8 @@ class ODDvarLcao(Calculator):
     def get_search_direction(self, A_s, G_s):
 
         # structure of vector is
-        # (x_1+,x_2+,..,y_1+, y_2+,..,x_1-,x_2-,..,y_1-, y_2-,.. )
+        # (x_1_up, x_2_up,..,y_1_up, y_2_up,..,
+        #  x_1_down, x_2_down,..,y_1_down, y_2_down,.. )
 
         g_k = {}
         a_k = {}
@@ -890,14 +892,15 @@ class ODDvarLcao(Calculator):
         self.log(flush=True)
 
     def check_assertions(self):
-        """
-        hopefully we won't need this method in future
-        """
+
         assert self.wfs.bd.comm.size == 1  # band. paral not supported
 
         nsp = self.calc.get_number_of_spins()
 
         if self.odd == 'PZ_SIC':
+            # if spin paired calculations and
+            # odd number of electrons then run spin polarised
+            # calculations
             if nsp == 1:
                 for f in self.calc.wfs.kpt_u[0].f_n:
                     if f < 1.0e-1:
@@ -906,7 +909,8 @@ class ODDvarLcao(Calculator):
                         if abs(f - 2.0) > 1.0e-1:
                             raise Exception('Use both spin channels for '
                                             'spin-polarized systems')
-        if self.odd == 'PZ_SIC':
+
+            # fractional occupations are not well defined for PZ-SIC
             for kpt in self.wfs.kpt_u:
                 for f in kpt.f_n:
                     if f < 1.0e-6:
@@ -1364,6 +1368,7 @@ class ODDvarLcao(Calculator):
                                         -1))
                 else:
                     raise NotImplementedError
+
 
 def log_f(log, niter, g_max, e_ks, e_sic):
 
