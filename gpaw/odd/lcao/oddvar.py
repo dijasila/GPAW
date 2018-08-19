@@ -616,7 +616,7 @@ class ODDvarLcao(Calculator):
         return P_s
 
     def evaluate_phi_and_der_phi(self, A_s, P_s, n_dim, alpha=0.0,
-                                 phi=None, G_s=None, C_nM0=None):
+                                 phi=None, G_s=None):
         """
         phi = f(x_k + alpha_k*p_k)
         der_phi = \grad f(x_k + alpha_k*p_k) \cdot p_k
@@ -624,14 +624,12 @@ class ODDvarLcao(Calculator):
         """
         if phi is None or G_s is None:
             X_s = {k: A_s[k] + alpha * P_s[k] for k in A_s.keys()}
-            phi_1, G_s_0 = \
+            phi, G_s = \
                 self.get_energy_and_gradients(X_s, n_dim)
             del X_s
         else:
-            phi_1 = phi
-            G_s_0 = G_s
+            pass
 
-        der_phi_v = {}
         der_phi = 0.0
         for k in P_s.keys():
             if self.dtype is complex:
@@ -639,13 +637,11 @@ class ODDvarLcao(Calculator):
             else:
                 il1 = np.tril_indices(P_s[k].shape[0], -1)
             p_k = P_s[k][il1]
-            der_phi_v[k] = G_s_0[k][il1]
-            der_phi += np.dot(der_phi_v[k].conj(), p_k).real
+            der_phi_v = G_s[k][il1]
+            der_phi += np.dot(der_phi_v.conj(), p_k).real
         der_phi = self.wfs.kd.comm.sum(der_phi)
-        # FIXME: ?
-        del P_s
 
-        return phi_1, der_phi, G_s_0
+        return phi, der_phi, G_s
 
     def estimate_gradients(self, delta=1.0e-6):
 
