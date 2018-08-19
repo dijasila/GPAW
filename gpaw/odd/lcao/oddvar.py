@@ -590,97 +590,7 @@ class ODDvarLcao(Calculator):
             a_k[k] = A_s[k][il1]
 
         if str(self.search_direction) == 'LBFGS_prec':
-
-            if self.odd == 'Zero':
-                update_counter = 20
-            else:
-                update_counter = 10
-
-            if self.search_direction.k % update_counter == 0:
-                self.heiss = {}
-                self.heiss_inv = {}
-                for kpt in self.wfs.kpt_u:
-                    k = self.n_kps * kpt.s + kpt.q
-                    self.H_MM = \
-                        self.wfs.eigensolver.calculate_hamiltonian_matrix(
-                            self.ham,
-                            self.wfs,
-                            kpt)
-
-                    # make matrix hermitian
-                    ind_l = np.tril_indices(self.H_MM.shape[0], -1)
-                    self.H_MM[(ind_l[1], ind_l[0])] = \
-                        self.H_MM[ind_l].conj()
-
-                    if self.odd == 'Zero':
-                        self.heiss[k] = self.pot.get_hessian(kpt,
-                                                             self.H_MM)
-                    elif self.odd == 'PZ_SIC':
-                        self.heiss[k] = self.pot.get_hessian(kpt, self.H_MM,
-                                                     self.n_dim,
-                                                     self.wfs, self.setups,
-                                                     diag_heiss=True,
-                                                     occupied_only=False,
-                                                     h_type='ks'
-                                                     )
-                    else:
-                        raise NotImplementedError
-
-            if self.search_direction.k >= 0:
-                for kpt in self.wfs.kpt_u:
-                    k = self.n_kps * kpt.s + kpt.q
-                    if self.prec == 'prec_1':
-                        if self.dtype is float:
-                            self.heiss_inv[k] = np.zeros_like(
-                                self.heiss[k])
-                            for i in range(self.heiss[k].shape[0]):
-                                if abs(self.heiss[k][i]) < 1.0e-3:
-                                    self.heiss_inv[k][i] = 1.0
-                                else:
-                                    self.heiss_inv[k][i] = 1.0 / (
-                                            self.heiss[k][i].real)
-                        else:
-                            self.heiss_inv[k] = np.zeros_like(
-                                self.heiss[k])
-                            for i in range(self.heiss[k].shape[0]):
-                                if abs(self.heiss[k][i]) < 1.0e-3:
-                                    self.heiss_inv[k][i] = 1.0 + 1.0j
-                                else:
-                                    self.heiss_inv[k][i] = 1.0 /\
-                                        self.heiss[k][i].real + \
-                                        1.0j / self.heiss[k][i].imag
-                    elif self.prec == 'prec_2':
-                        if self.dtype is float:
-                            self.heiss_inv[k] = np.zeros_like(
-                                self.heiss[k])
-                            self.heiss_inv[k] = 1.0 / (
-                                    self.heiss[k].real +
-                                    self.search_direction.beta_0 ** (-1))
-                        else:
-                            self.heiss_inv[k] = np.zeros_like(self.heiss[k])
-                            self.heiss_inv[k] = \
-                                1.0 / (self.heiss[k].real +
-                                       self.search_direction.beta_0 ** (-1)) + \
-                                1.0j / (self.heiss[k].imag +
-                                        self.search_direction.beta_0 ** (-1))
-                    elif self.prec == 'prec_3':
-                        if self.dtype is float:
-                            self.heiss_inv[k] = np.zeros_like(
-                                self.heiss[k])
-                            self.heiss_inv[k] = 1.0 / (
-                                    0.75 * self.heiss[k] +
-                                    0.25 * self.search_direction.beta_0 ** (
-                                        -1))
-                        else:
-                            self.heiss_inv[k] = np.zeros_like(self.heiss[k])
-                            self.heiss_inv[k] = \
-                                1.0 / (0.75 * self.heiss[k].real +
-                                       0.25 * self.search_direction.beta_0 ** (-1)) + \
-                                1.0j / (0.75 * self.heiss[k].imag +
-                                        0.25 * self.search_direction.beta_0 ** (-1))
-                    else:
-                        raise NotImplementedError
-
+            self.update_preconditioning()
             p_k = self.search_direction.update_data(self.wfs, a_k,
                                                     g_k,
                                                     self.heiss_inv)
@@ -1336,6 +1246,127 @@ class ODDvarLcao(Calculator):
                g_max * Hartree, \
                (self.e_ks + sum(self.sic_s.values())) * Hartree
 
+    def update_preconditioning(self):
+
+        if self.odd == 'Zero':
+            update_counter = 20
+        else:
+            update_counter = 10
+
+        # update heiss every 'update_counter'th iteration
+        # but invers heiss every iteration if it's prec_2 or prec_3
+
+        if self.search_direction.k % update_counter == 0:
+            # calculate approximate heiss
+            self.heiss = {}
+            self.heiss_inv = {}
+            for kpt in self.wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                self.H_MM = \
+                    self.wfs.eigensolver.calculate_hamiltonian_matrix(
+                        self.ham,
+                        self.wfs,
+                        kpt)
+
+                # make matrix hermitian
+                ind_l = np.tril_indices(self.H_MM.shape[0], -1)
+                self.H_MM[(ind_l[1], ind_l[0])] = \
+                    self.H_MM[ind_l].conj()
+
+                if self.odd == 'Zero':
+                    self.heiss[k] = self.pot.get_hessian(kpt,
+                                                         self.H_MM)
+                elif self.odd == 'PZ_SIC':
+                    self.heiss[k] = self.pot.get_hessian(kpt,
+                                                         self.H_MM,
+                                                         self.n_dim,
+                                                         self.wfs,
+                                                         self.setups,
+                                                         diag_heiss=True,
+                                                         occupied_only=False,
+                                                         h_type='ks'
+                                                         )
+                else:
+                    raise NotImplementedError
+
+                # calculate preconditioning (inv of heiss)
+                if self.prec == 'prec_1':
+                    if self.dtype is float:
+
+                        self.heiss_inv[k] = np.zeros_like(
+                            self.heiss[k])
+                        for i in range(self.heiss[k].shape[0]):
+                            if abs(self.heiss[k][i]) < 1.0e-3:
+                                self.heiss_inv[k][i] = 1.0
+                            else:
+                                self.heiss_inv[k][i] = 1.0 / (
+                                    self.heiss[k][i].real)
+                    else:
+
+                        self.heiss_inv[k] = np.zeros_like(
+                            self.heiss[k])
+                        for i in range(self.heiss[k].shape[0]):
+                            if abs(self.heiss[k][i]) < 1.0e-3:
+                                self.heiss_inv[k][i] = 1.0 + 1.0j
+                            else:
+                                self.heiss_inv[k][i] = 1.0 / \
+                                                       self.heiss[k][
+                                                           i].real + \
+                                                       1.0j / \
+                                                       self.heiss[k][
+                                                           i].imag
+                else:
+                    pass
+
+        if self.search_direction.k >= 0:
+            # calculate preconditioning (inv of heiss)
+            if self.prec == 'prec_1':
+                return 0
+            for kpt in self.wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+
+                if self.prec == 'prec_2' and \
+                        str(self.search_direction) == 'LBFGS_prec':
+
+                    if self.dtype is float:
+                        self.heiss_inv[k] = np.zeros_like(
+                            self.heiss[k])
+                        self.heiss_inv[k] = 1.0 / (
+                                self.heiss[k].real +
+                                self.search_direction.beta_0 ** (-1))
+                    else:
+                        self.heiss_inv[k] = np.zeros_like(
+                            self.heiss[k])
+                        self.heiss_inv[k] = \
+                            1.0 / (self.heiss[k].real +
+                                   self.search_direction.beta_0 ** (
+                                       -1)) + \
+                            1.0j / (self.heiss[k].imag +
+                                    self.search_direction.beta_0 ** (
+                                        -1))
+
+                elif self.prec == 'prec_3' and \
+                        str(self.search_direction) == 'LBFGS_prec':
+
+                    if self.dtype is float:
+                        self.heiss_inv[k] = np.zeros_like(
+                            self.heiss[k])
+                        self.heiss_inv[k] = 1.0 / (
+                                0.75 * self.heiss[k] +
+                                0.25 * self.search_direction.beta_0 ** (
+                                    -1))
+                    else:
+                        self.heiss_inv[k] = np.zeros_like(
+                            self.heiss[k])
+                        self.heiss_inv[k] = \
+                            1.0 / (0.75 * self.heiss[k].real +
+                                   0.25 * self.search_direction.beta_0 ** (
+                                       -1)) + \
+                            1.0j / (0.75 * self.heiss[k].imag +
+                                    0.25 * self.search_direction.beta_0 ** (
+                                        -1))
+                else:
+                    raise NotImplementedError
 
 def log_f(log, niter, g_max, e_ks, e_sic):
 
