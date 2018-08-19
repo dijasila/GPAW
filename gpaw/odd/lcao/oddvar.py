@@ -64,7 +64,8 @@ class ODDvarLcao(Calculator):
                  line_search_method='SWC', awc=True,
                  memory_lbfgs=10, sic_coarse_grid=True,
                  max_iter_line_search=10, turn_off_swc=False,
-                 prec='prec_3', save_orbitals=False):
+                 prec='prec_3', save_orbitals=False,
+                 one_scf_step_only=True):
         """
         :param calc: GPAW obj.
         :param odd: ODD potential
@@ -78,6 +79,7 @@ class ODDvarLcao(Calculator):
         """
 
         Calculator.__init__(self)
+        calc.one_step_only = one_scf_step_only
         self.poiss_eps = poiss_eps
         self.calc = calc
         self.odd = odd
