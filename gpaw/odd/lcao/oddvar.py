@@ -62,8 +62,8 @@ class ODDvarLcao(Calculator):
                  g_tol=1.0e-4,
                  n_counter=1000, poiss_eps=1e-16,
                  line_search_method='SWC', awc=True,
-                 memory_lbfgs=10, sic_coarse_grid=True,
-                 max_iter_line_search=10, turn_off_swc=False,
+                 memory_lbfgs=5, sic_coarse_grid=True,
+                 max_iter_line_search=5, turn_off_swc=False,
                  prec='prec_3', save_orbitals=False,
                  one_scf_step_only=True):
         """
@@ -76,6 +76,17 @@ class ODDvarLcao(Calculator):
         :param occupied_only: unitary optimisation of occup. states
         :param g_tol: ||*||_{inf} gradient tolerance for termination
         :param n_counter: maximum number of iterations
+        :param poiss_eps: accuaracy of poiss solver for SIC
+        :param line_search_method: algorithm for optimal step search
+        :param awc: approximate Wolfe condtitions.
+        :param memory_lbfgs: memory LBFGS
+        :param sic_coarse_grid: grid for ODD potential
+        :param max_iter_line_search: n.of iters in inexact line search
+        :param turn_off_swc: turn off Strong Wolfe conditions
+         when close to the minimum
+        :param prec: preconditioning
+        :param save_orbitals: will save orbitals every 10th iter
+        :param one_scf_step_only: make one scf step using calculator
         """
 
         Calculator.__init__(self)
@@ -1029,7 +1040,8 @@ class ODDvarLcao(Calculator):
         else:
             update_counter = 10
 
-        log_f(self.log, counter, g_max, self.e_ks, self.total_sic)
+        log_f(self.log, counter, g_max, self.e_ks, self.total_sic,
+              self.odd)
 
         alpha = 1.0
         change_to_swc = False
@@ -1146,7 +1158,7 @@ class ODDvarLcao(Calculator):
                 self.E_sic.append(self.total_sic)
                 self.G_m.append(g_max)
                 log_f(self.log, counter, g_max,
-                      self.e_ks, self.total_sic)
+                      self.e_ks, self.total_sic, self.odd)
                 if self.save_orbitals and (counter % 10 == 0):
                      self.save_coefficients()
             else:
@@ -1189,11 +1201,12 @@ class ODDvarLcao(Calculator):
             self.e_ks = self.ham.get_energy(self.occ)
 
         self.log("... done!\n")
-        f_sn = {}
-        for kpt in self.wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
-            f_sn[k] = np.copy(kpt.f_n)
         if self.wfs.kd.comm.size == 1 and self.odd != 'Zero':
+            f_sn = {}
+            for kpt in self.wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                f_sn[k] = np.copy(kpt.f_n)
+
             self.write_final_output(self.log, self.e_ks,
                        self.total_sic, self.sic_n,
                        self.pot.eigv_s, f_sn)
@@ -1419,24 +1432,42 @@ class ODDvarLcao(Calculator):
         return phi_0, g_0
 
 
-def log_f(log, niter, g_max, e_ks, e_sic):
+def log_f(log, niter, g_max, e_ks, e_sic, odd='Zero'):
 
     T = time.localtime()
-    if niter == 0:
+    if odd == 'Zero':
+        if niter == 0:
+            header = '                       Kohn-Sham     ' \
+                     '||g||_inf\n' \
+                     '           time        energy:      ' \
+                     ' gradients:'
 
-        header = '                      Kohn-Sham          SIC' \
-                 '        Total    ||g||_inf\n' \
-                 '           time         energy:      energy:' \
-                 '      energy:    gradients:'
+            log(header)
+        log('iter: %3d  %02d:%02d:%02d ' %
+            (niter,
+             T[3], T[4], T[5]
+             ), end='')
+        log('%11.6f  %11.1e' %
+            (Hartree * e_ks,
+             Hartree * g_max), end='')
+        log(flush=True)
 
-        log(header)
-    log('iter: %3d  %02d:%02d:%02d ' %
-        (niter,
-         T[3], T[4], T[5]
-         ), end='')
-    log('%11.6f  %11.6f  %11.6f  %11.1e' %
-        (Hartree * e_ks,
-         Hartree * e_sic,
-         Hartree * (e_ks + e_sic),
-         Hartree * g_max), end='')
-    log(flush=True)
+    else:
+        if niter == 0:
+
+            header = '                      Kohn-Sham          SIC' \
+                     '        Total    ||g||_inf\n' \
+                     '           time         energy:      energy:' \
+                     '      energy:    gradients:'
+
+            log(header)
+        log('iter: %3d  %02d:%02d:%02d ' %
+            (niter,
+             T[3], T[4], T[5]
+             ), end='')
+        log('%11.6f  %11.6f  %11.6f  %11.1e' %
+            (Hartree * e_ks,
+             Hartree * e_sic,
+             Hartree * (e_ks + e_sic),
+             Hartree * g_max), end='')
+        log(flush=True)
