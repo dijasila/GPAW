@@ -65,7 +65,7 @@ class ODDvarLcao(Calculator):
                  memory_lbfgs=5, sic_coarse_grid=True,
                  max_iter_line_search=5, turn_off_swc=False,
                  prec='prec_3', save_orbitals=False,
-                 one_scf_step_only=True):
+                 one_scf_step_only=True, update_refs=10):
         """
         :param calc: GPAW obj.
         :param odd: ODD potential
@@ -83,10 +83,12 @@ class ODDvarLcao(Calculator):
         :param sic_coarse_grid: grid for ODD potential
         :param max_iter_line_search: n.of iters in inexact line search
         :param turn_off_swc: turn off Strong Wolfe conditions
-         when close to the minimum
+        when close to the minimum
         :param prec: preconditioning
         :param save_orbitals: will save orbitals every 10th iter
         :param one_scf_step_only: make one scf step using calculator
+        :param update_refs:  update counter of occupation numbers,
+        reference orbitals and evals
         """
 
         Calculator.__init__(self)
@@ -115,6 +117,7 @@ class ODDvarLcao(Calculator):
         self.turn_off_swc = turn_off_swc
         self.prec = prec
         self.save_orbitals = save_orbitals
+        self.update_refs = update_refs
 
     def initialize(self):
 
@@ -1035,10 +1038,7 @@ class ODDvarLcao(Calculator):
 
         # update counter of occupation numbers,
         # reference orbitals and evals
-        if self.odd == 'PZ_SIC':
-            update_counter = 20
-        else:
-            update_counter = 10
+        update_counter = self.update_refs
 
         log_f(self.log, counter, g_max, self.e_ks, self.total_sic,
               self.odd)
@@ -1236,10 +1236,7 @@ class ODDvarLcao(Calculator):
 
     def update_preconditioning(self):
 
-        if self.odd == 'Zero':
-            update_counter = 10
-        else:
-            update_counter = 10
+        update_counter = self.update_refs
 
         # update heiss every 'update_counter'th iteration
         # but invers heiss every iteration if it's prec_2 or prec_3
