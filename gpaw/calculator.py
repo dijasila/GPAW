@@ -957,11 +957,6 @@ class GPAW(PAW, Calculator):
         ndomains = None
         if parsize_domain is not None:
             ndomains = np.prod(parsize_domain)
-        if mode.name == 'pw':
-            if ndomains is not None and ndomains > 1:
-                raise ValueError('Planewave mode does not support '
-                                 'domain decomposition.')
-            ndomains = 1
         parallelization.set(kpt=parsize_kpt,
                             domain=ndomains,
                             band=parsize_bands)
