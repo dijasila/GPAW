@@ -65,7 +65,8 @@ class ODDvarLcao(Calculator):
                  memory_lbfgs=5, sic_coarse_grid=True,
                  max_iter_line_search=5, turn_off_swc=False,
                  prec='prec_3', save_orbitals=False,
-                 one_scf_step_only=True, update_refs=10):
+                 one_scf_step_only=True, update_refs=10,
+                 residual=None):
         """
         :param calc: GPAW obj.
         :param odd: ODD potential
@@ -118,6 +119,7 @@ class ODDvarLcao(Calculator):
         self.prec = prec
         self.save_orbitals = save_orbitals
         self.update_refs = update_refs
+        self.residual = residual
 
     def initialize(self):
 
@@ -1040,13 +1042,26 @@ class ODDvarLcao(Calculator):
         # reference orbitals and evals
         update_counter = self.update_refs
 
+        if self.residual is not None:
+            error = self.calculate_residual()
+        else:
+            error = None
+
         log_f(self.log, counter, g_max, self.e_ks, self.total_sic,
-              self.odd)
+              self.odd, error)
 
         alpha = 1.0
         change_to_swc = False
 
-        while g_max > self.g_tol and counter < self.n_counter:
+        if self.residual is not None:
+            not_converged = (g_max > self.g_tol or
+                             error > self.residual) and \
+                            counter < self.n_counter
+        else:
+            not_converged = g_max > self.g_tol and \
+                            counter < self.n_counter
+
+        while not_converged:
 
             if self.turn_off_swc:
                 if g_max * Hartree < 1.0e-3:
@@ -1152,15 +1167,28 @@ class ODDvarLcao(Calculator):
                 g_max = np.max(np.absolute(g_max))
                 g_max = self.wfs.world.max(g_max)
 
+                if self.residual is not None:
+                    error = self.calculate_residual()
+                else:
+                    error = None
+
                 # output
                 counter += 1
                 self.E_ks.append(self.e_ks)
                 self.E_sic.append(self.total_sic)
                 self.G_m.append(g_max)
                 log_f(self.log, counter, g_max,
-                      self.e_ks, self.total_sic, self.odd)
+                      self.e_ks, self.total_sic, self.odd, error)
                 if self.save_orbitals and (counter % 10 == 0):
                      self.save_coefficients()
+
+                if self.residual:
+                    not_converged = (g_max > self.g_tol or
+                                     error > self.residual) and \
+                                    counter < self.n_counter
+                else:
+                    not_converged = g_max > self.g_tol and \
+                                    counter < self.n_counter
             else:
                 break
 
@@ -1428,27 +1456,86 @@ class ODDvarLcao(Calculator):
 
         return phi_0, g_0
 
+    def calculate_residual(self):
 
-def log_f(log, niter, g_max, e_ks, e_sic, odd='Zero'):
+        norm = []
+        for kpt in self.wfs.kpt_u:
+            nbs = 0
+            for f in kpt.f_n:
+                if f > 1.0e-10:
+                    nbs += 1
+
+            C_nM = kpt.C_nM[:nbs]
+            # calculate and make it matrix hermitian
+            H_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
+                self.ham, self.wfs, kpt)
+            ind_l = np.tril_indices(H_MM.shape[0], -1)
+            H_MM[(ind_l[1], ind_l[0])] = H_MM[ind_l].conj()
+
+            HC_Mn = np.zeros_like(H_MM)
+            mmm(1.0, H_MM.conj(), 'n', C_nM, 't', 0.0, HC_Mn)
+
+            L = np.zeros(shape=(nbs, nbs),
+                         dtype=H_MM.dtype)
+
+            if self.dtype is complex:
+                mmm(1.0, C_nM.conj(), 'n', HC_Mn, 'n', 0.0, L)
+            else:
+                mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, L)
+            del HC_Mn
+
+            # gradients:
+            S = self.wfs.S_qMM[kpt.q]
+            g = C_nM @ H_MM - \
+                 0.5 * (L + L.conj()) @ (C_nM @ S)
+
+            for i in range(nbs):
+                norm.append(np.dot(g[i].conj(), g[i]).real * kpt.f_n[i])
+
+        error = sum(norm) * Hartree**2 / self.wfs.nvalence
+        error = self.wfs.kd.comm.sum(error)
+
+        return error
+
+
+def log_f(log, niter, g_max, e_ks, e_sic, odd='Zero', res=None):
 
     T = time.localtime()
+
     if odd == 'Zero':
-        if niter == 0:
-            header = '                       Kohn-Sham     ' \
-                     '||g||_inf\n' \
-                     '           time        energy:      ' \
-                     ' gradients:'
+        if res is None:
+            if niter == 0:
+                header = '                       Kohn-Sham     ' \
+                         '||g||_inf\n' \
+                         '           time        energy:      ' \
+                         ' gradients:'
 
-            log(header)
-        log('iter: %3d  %02d:%02d:%02d ' %
-            (niter,
-             T[3], T[4], T[5]
-             ), end='')
-        log('%11.6f  %11.1e' %
-            (Hartree * e_ks,
-             Hartree * g_max), end='')
-        log(flush=True)
+                log(header)
+            log('iter: %3d  %02d:%02d:%02d ' %
+                (niter,
+                 T[3], T[4], T[5]
+                 ), end='')
+            log('%11.6f  %11.1e' %
+                (Hartree * e_ks,
+                 Hartree * g_max), end='')
+            log(flush=True)
+        else:
+            if niter == 0:
+                header = '                       Kohn-Sham     ' \
+                         '||g||_inf\n' \
+                         '           time        energy:      ' \
+                         ' gradients:    residual:'
 
+                log(header)
+            log('iter: %3d  %02d:%02d:%02d ' %
+                (niter,
+                 T[3], T[4], T[5]
+                 ), end='')
+            log('%11.6f  %11.1e %11.1e'%
+                (Hartree * e_ks,
+                 Hartree * g_max,
+                 res), end='')
+            log(flush=True)
     else:
         if niter == 0:
 
