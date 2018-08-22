@@ -110,7 +110,6 @@ class PWDescriptor:
                  fftwflags=fftw.ESTIMATE):
 
         assert gd.pbc_c.all()
-        assert gd.comm.size == 1
 
         self.gd = gd
         self.fftwflags = fftwflags
@@ -155,8 +154,6 @@ class PWDescriptor:
             self.tmp_Q = fftw.empty(N_c, complex)
             self.tmp_R = self.tmp_Q
 
-        self.nbytes = self.tmp_R.nbytes
-
         self.fftplan = fftw.FFTPlan(self.tmp_R, self.tmp_Q, -1, fftwflags)
         self.ifftplan = fftw.FFTPlan(self.tmp_Q, self.tmp_R, 1, fftwflags)
 
@@ -164,7 +161,6 @@ class PWDescriptor:
         B_cv = 2.0 * pi * gd.icell_cv
         i_Qc.shape = (-1, 3)
         self.G_Qv = np.dot(i_Qc, B_cv)
-        self.nbytes += self.G_Qv.nbytes
 
         self.kd = kd
         if kd is None:
@@ -174,7 +170,7 @@ class PWDescriptor:
 
         # Map from vectors inside sphere to fft grid:
         self.Q_qG = []
-        self.G2_qG = []
+        G2_qG = []
         Q_Q = np.arange(len(i_Qc), dtype=np.int32)
 
         self.ngmin = 100000000
@@ -188,33 +184,34 @@ class PWDescriptor:
                            ((i_Qc[:, 0] >= 0) & (i_Qc[:, 1] == 0)))
             Q_G = Q_Q[mask_Q]
             self.Q_qG.append(Q_G)
-            self.G2_qG.append(G2_Q[Q_G])
+            G2_qG.append(G2_Q[Q_G])
             ng = len(Q_G)
             self.ngmin = min(ng, self.ngmin)
             self.ngmax = max(ng, self.ngmax)
-            self.nbytes += Q_G.nbytes + self.G2_qG[q].nbytes
 
         if kd is not None:
             self.ngmin = kd.comm.min(self.ngmin)
             self.ngmax = kd.comm.max(self.ngmax)
 
-        self.n_c = np.array([self.ngmax])  # used by hs_operators.py XXX
+        # Distribute things:
+        S = gd.comm.size
+        self.maxmyng = (self.ngmax + S - 1) // S
+        self.G2_qG = []
+        self.myQ_qG = []
+        for q, G2_G in enumerate(G2_qG):
+            ng1 = q * self.myng
+            ng2 = ng1 + self.myng
+            self.G2_qG.append(G2_G[ng1:ng2].copy())
+            self.myQ_qG.append(self.Q_qG[q][ng1:ng2])
 
     def get_reciprocal_vectors(self, q=0, add_q=True):
-        """ Returns reciprocal lattice vectors plus q, G + q,
-        in xyz coordinates.
-        """
-
-        assert q < len(self.K_qv), ('Choose a q-index belonging to ' +
-                                    'the irreducible Brillouin zone.')
-        q_v = self.K_qv[q]
+        """Returns reciprocal lattice vectors plus q, G + q,
+        in xyz coordinates."""
 
         if add_q:
-            G_Gv = self.G_Qv[self.Q_qG[q]] + q_v
-        else:
-            G_Gv = self.G_Qv[self.Q_qG[q]]
-
-        return G_Gv
+            q_v = self.K_qv[q]
+            return self.G_Qv[self.myQ_qG[q]] + q_v
+        return self.G_Qv[self.myQ_qG[q]]
 
     def __getstate__(self):
         return (self.ecut, self.gd, self.dtype, self.kd, self.fftwflags)
@@ -223,7 +220,11 @@ class PWDescriptor:
         self.__init__(*state)
 
     def estimate_memory(self, mem):
-        mem.subnode('Arrays', self.nbytes)
+        nbytes = (self.tmp_R.nbytes +
+                  self.G_Qv.nbytes +
+                  len(self.K_qv) * (self.ngmax * 4 +
+                                    self.myng * (8 + 4)))
+        mem.subnode('Arrays', nbytes)
 
     def bytecount(self, dtype=float):
         return self.ngmax * 16
@@ -239,9 +240,8 @@ class PWDescriptor:
         if isinstance(x, numbers.Integral):
             x = (x,)
         if q == -1:
-            shape = x + (self.ngmax,)
-        else:
-            shape = x + self.Q_qG[q].shape
+            assert len(self.Q_qG) == 1
+        shape = x + self.myQ_qG[q].shape
         return np.empty(shape, complex)
 
     def fft(self, f_R, q=-1, Q_G=None):
@@ -824,11 +824,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                      expert=False):
 
         if self.dtype != complex:
-            raise ValueError('Your wavefunctions are not complex as '
-                             'required by the PW diagonalization routine.\n'
-                             'Please supply GPAW(..., dtype=complex, ...) '
-                             'as an argument to the calculator to enforce '
-                             'complex wavefunctions.')
+            raise ValueError(
+                'Please use mode=PW(..., force_complex_dtype=True)')
 
         S = self.bd.comm.size
 
@@ -851,11 +848,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
 
-        log('Diagonalizing full Hamiltonian ({0} lowest bands)'.format(nbands))
-        log('Matrix size (min, max): {0}, {1}'.format(self.pd.ngmin,
-                                                      self.pd.ngmax))
+        log('Diagonalizing full Hamiltonian ({} lowest bands)'.format(nbands))
+        log('Matrix size (min, max): {}, {}'.format(self.pd.ngmin,
+                                                    self.pd.ngmax))
         mem = 3 * self.pd.ngmax**2 * 16 / S / 1024**2
-        log('Approximate memory used per core to store H_GG, S_GG: {0:.3f} MB'
+        log('Approximate memory used per core to store H_GG, S_GG: {:.3f} MB'
             .format(mem))
         log('Notice: Up to twice the amount of memory might be allocated\n'
             'during diagonalization algorithm.')
@@ -872,7 +869,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     nprow -= 1
                 npcol = S // nprow
                 b = 64
-            log('ScaLapack grid: {0}x{1},'.format(nprow, npcol),
+            log('ScaLapack grid: {}x{},'.format(nprow, npcol),
                 'block-size:', b)
             bg = BlacsGrid(bd.comm, S, 1)
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
