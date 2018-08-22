@@ -86,6 +86,12 @@ class SCFLoop:
             if self.niter > self.niter_fixdensity and not dens.fixed:
                 dens.update(wfs)
                 ham.update(dens)
+                if hasattr(wfs.eigensolver, 'calculate_residual') and \
+                        wfs.mode == 'lcao':
+                    wfs.timer.start('Calculate residual')
+                    wfs.eigensolver.calculate_residual(ham, wfs)
+                    wfs.timer.stop('Calculate residual')
+
             else:
                 ham.npoisson = 0
             self.niter += 1
