@@ -195,12 +195,12 @@ class PWDescriptor:
 
         # Distribute things:
         S = gd.comm.size
-        self.maxmyng = (self.ngmax + S - 1) // S
+        self.myng = (self.ngmax + S - 1) // S
+        ng1 = gd.comm.rank * self.myng
+        ng2 = ng1 + self.myng
         self.G2_qG = []
         self.myQ_qG = []
         for q, G2_G in enumerate(G2_qG):
-            ng1 = q * self.myng
-            ng2 = ng1 + self.myng
             self.G2_qG.append(G2_G[ng1:ng2].copy())
             self.myQ_qG.append(self.Q_qG[q][ng1:ng2])
 
@@ -229,19 +229,21 @@ class PWDescriptor:
     def bytecount(self, dtype=float):
         return self.ngmax * 16
 
-    def zeros(self, x=(), dtype=None, q=-1):
+    def zeros(self, x=(), dtype=None, q=None):
         a_xG = self.empty(x, dtype, q)
         a_xG.fill(0.0)
         return a_xG
 
-    def empty(self, x=(), dtype=None, q=-1):
+    def empty(self, x=(), dtype=None, q=None):
         if dtype is not None:
             assert dtype == self.dtype
         if isinstance(x, numbers.Integral):
             x = (x,)
-        if q == -1:
-            assert len(self.Q_qG) == 1
-        shape = x + self.myQ_qG[q].shape
+        if q is None:
+            shape = x + (self.myng,)
+        else:
+            assert q >= 0
+            shape = x + self.myQ_qG[q].shape
         return np.empty(shape, complex)
 
     def fft(self, f_R, q=-1, Q_G=None):
@@ -308,7 +310,7 @@ class PWDescriptor:
 
         if b_yg is None:
             # Only one array:
-            assert self.dtype == float
+            assert self.dtype == float and self.gd.comm.size == 1
             return a_xg[..., 0].real * self.gd.dv
 
         A_xg = a_xg.reshape((-1, a_xg.shape[-1]))
@@ -345,8 +347,10 @@ class PWDescriptor:
         result = result_yx.T.reshape(xshape + yshape)
 
         if result.ndim == 0:
+            assert self.gd.comm.size == 1
             return result.item()
         else:
+            self.gd.comm.sum(result)
             return result
 
     def interpolate(self, a_R, pd, q=-1):
@@ -530,8 +534,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                    bd=bd, dtype=dtype, world=world, kd=kd,
                                    kptband_comm=kptband_comm, timer=timer)
 
-    def empty(self, n=(), global_array=False, realspace=False,
-              q=-1):
+    def empty(self, n=(), global_array=False, realspace=False, q=None):
         if realspace:
             return self.gd.empty(n, self.dtype, global_array)
         else:
