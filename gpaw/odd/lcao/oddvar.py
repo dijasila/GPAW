@@ -110,6 +110,7 @@ class ODDvarLcao(Calculator):
         self.sic_n = {}  # Self-interaction correction per orbital
         self.e_ks = 0.0  # Kohn-Sham energy
         self.get_en_and_grad_iters = 0
+        self.update_refs_counter = 0
         self.awc = awc
         self.memory_lbfgs = memory_lbfgs
         self.need_initialization = True
@@ -441,6 +442,7 @@ class ODDvarLcao(Calculator):
             kpt.rho_MM = None
 
         self.get_en_and_grad_iters = 0
+        self.update_refs_counter = 0
 
         if self.method is 'LBFGS':
             self.search_direction = LBFGSdirection(self.wfs,
@@ -1156,6 +1158,7 @@ class ODDvarLcao(Calculator):
                 # and reference orbitals
                 if self.search_direction.k % update_counter == 0 \
                         and counter > 0:
+                    print('Here', flush=True)
                     phi_0, g_0 = self.update_reference_orbitals()
 
                 # max of gradients
@@ -1226,7 +1229,8 @@ class ODDvarLcao(Calculator):
                                      occupied_only=self.occupied_only)
         if self.odd == 'Zero':
             self.occ.calculate(self.wfs)
-            self.e_ks = self.ham.get_energy(self.occ)
+            self.ham.get_energy(self.occ)
+            self.e_ks = self.ham.e_total_extrapolated
 
         self.log("... done!\n")
         if self.wfs.kd.comm.size == 1 and self.odd != 'Zero':
@@ -1258,7 +1262,8 @@ class ODDvarLcao(Calculator):
             self.calc.summary()
         self.log(flush=True)
 
-        return self.get_en_and_grad_iters, counter + 1.0,\
+        return self.get_en_and_grad_iters + self.update_refs_counter,\
+               counter + 1.0,\
                g_max * Hartree, \
                (self.e_ks + sum(self.sic_s.values())) * Hartree
 
@@ -1378,6 +1383,28 @@ class ODDvarLcao(Calculator):
                             1.0j / (0.75 * self.heiss[k].imag +
                                     0.25 * self.search_direction.beta_0 ** (
                                         -1))
+
+                elif self.prec == 'prec_4' and \
+                        str(self.search_direction) == 'LBFGS_prec':
+
+                    if self.dtype is float:
+                        self.heiss_inv[k] = np.zeros_like(
+                            self.heiss[k])
+                        self.heiss_inv[k] = 1.0 / (
+                                0.99 * self.heiss[k] +
+                                0.01 * self.search_direction.beta_0 ** (
+                                    -1))
+                    else:
+                        self.heiss_inv[k] = np.zeros_like(
+                            self.heiss[k])
+                        self.heiss_inv[k] = \
+                            1.0 / (0.99 * self.heiss[k].real +
+                                   0.01 * self.search_direction.beta_0 ** (
+                                       -1)) + \
+                            1.0j / (0.99 * self.heiss[k].imag +
+                                    0.01 * self.search_direction.beta_0 ** (
+                                        -1))
+
                 else:
                     raise NotImplementedError
 
@@ -1453,6 +1480,8 @@ class ODDvarLcao(Calculator):
             self.search_direction = \
                 LBFGSdirection(self.wfs,
                                m=self.memory_lbfgs)
+
+        self.update_refs_counter += 1
 
         return phi_0, g_0
 
