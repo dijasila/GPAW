@@ -1121,12 +1121,10 @@ class ZeroOddLcao:
         nrm_n = np.empty(L.shape[0])
         diagonalize(L, nrm_n)
 
-        kpt.eps_n = nrm_n
+        kpt.eps_n[:] = nrm_n
 
-        C_nM = \
-            np.dot(L.conj(), C_nM)
+        return np.dot(L.conj(), C_nM)
 
-        return C_nM
 
     def get_gradients_wrt_coeff(self, f_n, C_nM, kpt,
                                 wfs, setup, H_MM,
