@@ -1158,6 +1158,7 @@ class ODDvarLcao(Calculator):
                 # and reference orbitals
                 if self.search_direction.k % update_counter == 0 \
                         and counter > 0:
+                    print('Here', flush=True)
                     phi_0, g_0 = self.update_reference_orbitals()
 
                 # max of gradients
