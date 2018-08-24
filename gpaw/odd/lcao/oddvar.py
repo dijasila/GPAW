@@ -526,8 +526,8 @@ class ODDvarLcao(Calculator):
         self.timer.stop('ODD update_ks_energy_and_hamiltonian')
 
         self.timer.start('ODD get gradients')
+        G_s = {}
         for kpt in self.wfs.kpt_u:
-
             H_MM = \
                 self.wfs.eigensolver.calculate_hamiltonian_matrix(
                             self.ham,
@@ -546,7 +546,6 @@ class ODDvarLcao(Calculator):
             wfs = self.wfs
             setup = self.setups
 
-            G_s = {}
             if max(f_n) < 1.0e-10:
                 G_s[k] = np.zeros_like(self.A_s[k])
                 self.sic_n[k] = np.zeros(shape=(1, 2), dtype=float)
