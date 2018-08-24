@@ -1211,3 +1211,29 @@ class ZeroOddLcao:
             x += 1
 
         return heiss
+
+    def get_hessian_new(self, kpt):
+
+        f_n = kpt.f_n
+        eps_n = kpt.eps_n
+
+        if self.dtype is complex:
+            il1 = np.tril_indices(eps_n.shape[0])
+        else:
+            il1 = np.tril_indices(eps_n.shape[0], -1)
+        il1 = list(il1)
+        heiss = np.zeros(len(il1[0]), dtype=self.dtype)
+        x = 0
+        for l, m in zip(*il1):
+            df = f_n[l] - f_n[m]
+            heiss[x] = -2.0 * (eps_n[l] - eps_n[m]) * df
+            if self.dtype is complex:
+                heiss[x] += 1.0j * heiss[x]
+                if abs(heiss[x]) < 1.0e-10:
+                    heiss[x] = 0.0 + 0.0j
+            else:
+                if abs(heiss[x]) < 1.0e-10:
+                    heiss[x] = 0.0
+            x += 1
+
+        return heiss

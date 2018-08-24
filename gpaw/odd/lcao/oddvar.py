@@ -1297,8 +1297,9 @@ class ODDvarLcao(Calculator):
                     H_MM[ind_l].conj()
 
                 if self.odd == 'Zero':
-                    self.heiss[k] = self.pot.get_hessian(kpt,
-                                                         H_MM)
+                    # self.heiss[k] = self.pot.get_hessian(kpt,
+                    #                                      H_MM)
+                    self.heiss[k] = self.pot.get_hessian_new(kpt)
                 elif self.odd == 'PZ_SIC':
                     self.heiss[k] = self.pot.get_hessian(kpt,
                                                          H_MM,
