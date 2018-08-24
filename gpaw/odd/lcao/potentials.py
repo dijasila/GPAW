@@ -1026,8 +1026,6 @@ class ZeroOddLcao:
 
         self.timer = timer
         self.dtype = dtype
-        self.eigv_s = {}
-
         self.counter = 0  # number of calls of this class
 
     def get_gradients(self, f_n, C_nM, kpt,
@@ -1045,14 +1043,15 @@ class ZeroOddLcao:
                          dtype=float)
         HC_Mn = np.zeros_like(H_MM)
         mmm(1.0, H_MM.conj(), 'n', C_nM, 't', 0.0, HC_Mn)
-        L = np.zeros_like(H_MM)
+
+        # L = np.zeros_like(H_MM)
 
         if self.dtype is complex:
-            mmm(1.0, C_nM.conj(), 'n', HC_Mn, 'n', 0.0, L)
+            mmm(1.0, C_nM.conj(), 'n', HC_Mn, 'n', 0.0, H_MM)
         else:
-            mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, L)
+            mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, H_MM)
 
-        L = f_n[:, np.newaxis] * L - f_n * L
+        H_MM = f_n[:, np.newaxis] * H_MM - f_n * H_MM
 
         self.counter += 1
 
@@ -1060,11 +1059,11 @@ class ZeroOddLcao:
 
         if A is None:
 
-            return L.T, sic_energy_n
+            return H_MM.T, sic_energy_n
         else:
 
             self.timer.start('ODD matrix integrals')
-            G = evec.T.conj() @ L.T.conj() @ evec
+            G = evec.T.conj() @ H_MM.T.conj() @ evec
             G = G * D_matrix(eval)
             G = evec @ G @ evec.T.conj()
             self.timer.stop('ODD matrix integrals')
@@ -1081,49 +1080,40 @@ class ZeroOddLcao:
                         wfs, setup,
                         H_MM, occupied_only=False):
 
-        n_kps = wfs.kd.nks // wfs.kd.nspins
-        u = kpt.s * n_kps + kpt.q
-
         HC_Mn = np.zeros_like(H_MM)
         mmm(1.0, H_MM.conj(), 'n', C_nM, 't', 0.0, HC_Mn)
-        L = np.zeros_like(H_MM)
+
+        # L = np.zeros_like(H_MM)
 
         if self.dtype is complex:
-            mmm(1.0, C_nM.conj(), 'n', HC_Mn, 'n', 0.0, L)
+            mmm(1.0, C_nM.conj(), 'n', HC_Mn, 'n', 0.0, H_MM)
         else:
-            mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, L)
+            mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, H_MM)
 
-        nrm_n = np.empty(L.shape[0])
-        diagonalize(L, nrm_n)
+        nrm_n = np.empty(H_MM.shape[0])
+        diagonalize(H_MM, nrm_n)
 
-        kpt.C_nM = \
-            np.dot(L.conj(), kpt.C_nM)
-
-        kpt.eps_n = nrm_n
-
-        # FIXME:
-        # wfs.gd.comm.broadcast(kpt.C_nM, 0)
-        # wfs.gd.comm.broadcast(kpt.eps_n, 0)
-
-        self.eigv_s[u] = np.copy(kpt.eps_n)
+        kpt.C_nM[:] = np.dot(H_MM.conj(), kpt.C_nM)
+        kpt.eps_n[:] = nrm_n
 
     def update_eigenval_2(self, C_nM, kpt, H_MM):
 
         HC_Mn = np.zeros_like(H_MM)
         mmm(1.0, H_MM.conj(), 'n', C_nM, 't', 0.0, HC_Mn)
-        L = np.zeros_like(H_MM)
+
+        # L = np.zeros_like(H_MM)
 
         if self.dtype is complex:
-            mmm(1.0, C_nM.conj(), 'n', HC_Mn, 'n', 0.0, L)
+            mmm(1.0, C_nM.conj(), 'n', HC_Mn, 'n', 0.0, H_MM)
         else:
-            mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, L)
+            mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, H_MM)
 
-        nrm_n = np.empty(L.shape[0])
-        diagonalize(L, nrm_n)
+        nrm_n = np.empty(H_MM.shape[0])
+        diagonalize(H_MM, nrm_n)
 
         kpt.eps_n[:] = nrm_n
 
-        return np.dot(L.conj(), C_nM)
+        return np.dot(H_MM.conj(), C_nM)
 
 
     def get_gradients_wrt_coeff(self, f_n, C_nM, kpt,
@@ -1162,7 +1152,6 @@ class ZeroOddLcao:
                                     np.dot(np.dot(H_MM, C_nM[i]),
                                            C_nM[j])
                                     )
-
 
         return g_nM, np.array([0.0])
 

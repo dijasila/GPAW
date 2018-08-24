@@ -187,12 +187,12 @@ class ODDvarLcao(Calculator):
                 u = kpt.s * self.n_kps + kpt.q
                 self.n_dim[u] = n_b
 
-        self.G_s = {}
-        for kpt in self.wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
-            self.G_s[k] = np.zeros(shape=(self.n_dim[k],
-                                          self.n_dim[k]),
-                                   dtype=self.dtype)
+        # self.G_s = {}
+        # for kpt in self.wfs.kpt_u:
+        #     k = self.n_kps * kpt.s + kpt.q
+        #     self.G_s[k] = np.zeros(shape=(self.n_dim[k],
+        #                                   self.n_dim[k]),
+        #                            dtype=self.dtype)
 
         self.log("Initial guess for orbitals:", self.initial_orbitals)
         self.log("Initial guess for skew-herm. matrix:",
@@ -528,15 +528,15 @@ class ODDvarLcao(Calculator):
         self.timer.start('ODD get gradients')
         for kpt in self.wfs.kpt_u:
 
-            self.H_MM = \
+            H_MM = \
                 self.wfs.eigensolver.calculate_hamiltonian_matrix(
                             self.ham,
                             self.wfs,
                             kpt)
             # make matrix hermitian
-            ind_l = np.tril_indices(self.H_MM.shape[0], -1)
-            self.H_MM[(ind_l[1], ind_l[0])] = \
-                self.H_MM[ind_l].conj()
+            ind_l = np.tril_indices(H_MM.shape[0], -1)
+            H_MM[(ind_l[1], ind_l[0])] = \
+                H_MM[ind_l].conj()
 
             k = self.n_kps * kpt.s + kpt.q
             if n_dim[k] == 0:
@@ -546,22 +546,23 @@ class ODDvarLcao(Calculator):
             wfs = self.wfs
             setup = self.setups
 
+            G_s = {}
             if max(f_n) < 1.0e-10:
-                self.G_s[k] = np.zeros_like(self.A_s[k])
+                G_s[k] = np.zeros_like(self.A_s[k])
                 self.sic_n[k] = np.zeros(shape=(1, 2), dtype=float)
                 self.sic_s[k] = self.sic_n[k].sum()
                 continue
-            self.G_s[k], self.sic_n[k] = \
-                self.pot.get_gradients(f_n, C_nM,
-                                       kpt,
-                                       wfs,
-                                       setup,
-                                       self.evecs[k],
-                                       self.evals[k],
-                                       self.H_MM,
-                                       A_s[k],
-                                       occupied_only=
-                                       occupied_only)
+            G_s[k], self.sic_n[k] = \
+                                self.pot.get_gradients(f_n, C_nM,
+                                                       kpt,
+                                                       wfs,
+                                                       setup,
+                                                       self.evecs[k],
+                                                       self.evals[k],
+                                                       H_MM,
+                                                       A_s[k],
+                                                       occupied_only=
+                                                       occupied_only)
             self.sic_s[k] = self.sic_n[k].sum()
 
         self.timer.stop('ODD get gradients')
@@ -570,8 +571,8 @@ class ODDvarLcao(Calculator):
         self.total_sic = self.wfs.kd.comm.sum(self.total_sic)
         self.total_sic *= float(3 - self.nspins)
 
-        return (self.e_ks + self.total_sic), \
-                copy.deepcopy(self.G_s)
+        return (self.e_ks + self.total_sic), G_s# \
+                # copy.deepcopy(self.G_s)
 
     def update_ks_energy_and_hamiltonian(self):
 
@@ -1131,9 +1132,10 @@ class ODDvarLcao(Calculator):
                     self.timer.start('ODD broadcast gradients')
                     for kpt in self.wfs.kpt_u:
                         k = self.n_kps * kpt.s + kpt.q
-                        g = g_0[k].copy()
-                        self.wfs.gd.comm.broadcast(g, 0)
-                        g_0[k] = g.copy()
+                        self.wfs.gd.comm.broadcast(g_0[k], 0)
+                        # g = g_0[k].copy()
+                        # self.wfs.gd.comm.broadcast(g, 0)
+                        # g_0[k] = g.copy()
                     self.timer.stop('ODD broadcast gradients')
 
             phi_old_2 = phi_old
@@ -1204,34 +1206,36 @@ class ODDvarLcao(Calculator):
 
         totmom_v, magmom_av = self.den.estimate_magnetic_moments()
         print_positions(self.atoms, self.log, magmom_av)
-        self.log("Calculating eigenvalues ...")
-        self.get_energy_and_gradients(self.A_s, n_dim)
+        # self.get_energy_and_gradients(self.A_s, n_dim)
 
         if self.save_orbitals:
             self.save_coefficients()
-
+        self.log("Calculating eigenvalues ...")
+        self.timer.start('ODD update eigenvalues')
         for kpt in self.wfs.kpt_u:
-            self.H_MM = \
+            H_MM = \
                 self.wfs.eigensolver.calculate_hamiltonian_matrix(
                     self.ham,
                     self.wfs,
                     kpt)
 
             # make matrix hermitian
-            ind_l = np.tril_indices(self.H_MM.shape[0], -1)
-            self.H_MM[(ind_l[1], ind_l[0])] = \
-                self.H_MM[ind_l].conj()
+            ind_l = np.tril_indices(H_MM.shape[0], -1)
+            H_MM[(ind_l[1], ind_l[0])] = \
+                H_MM[ind_l].conj()
 
             self.pot.update_eigenval(kpt.f_n, kpt.C_nM,
                                      kpt, self.wfs, self.setups,
-                                     self.H_MM,
+                                     H_MM,
                                      occupied_only=self.occupied_only)
         if self.odd == 'Zero':
             self.occ.calculate(self.wfs)
             self.ham.get_energy(self.occ)
             self.e_ks = self.ham.e_total_extrapolated
-
+        self.timer.stop('ODD update eigenvalues')
         self.log("... done!\n")
+
+        self.timer.start('ODD output and summary')
         if self.wfs.kd.comm.size == 1 and self.odd != 'Zero':
             f_sn = {}
             for kpt in self.wfs.kpt_u:
@@ -1255,11 +1259,13 @@ class ODDvarLcao(Calculator):
                 for a, mom_v in enumerate(magmom_av):
                     self.log('{:4} {:2} ({:9.6f}, {:9.6f}, {:9.6f})'
                              .format(a, symbols[a], *mom_v))
-            self.log(
-                'SIC energy: %11.6f' % (self.total_sic * Hartree))
+            if self.odd != 'Zero':
+                self.log(
+                    'SIC energy: %11.6f' % (self.total_sic * Hartree))
             self.log(flush=True)
             self.calc.summary()
         self.log(flush=True)
+        self.timer.stop('ODD output and summary')
 
         return self.get_en_and_grad_iters + self.update_refs_counter,\
                counter + 1.0,\
@@ -1279,23 +1285,23 @@ class ODDvarLcao(Calculator):
             self.heiss_inv = {}
             for kpt in self.wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
-                self.H_MM = \
+                H_MM = \
                     self.wfs.eigensolver.calculate_hamiltonian_matrix(
                         self.ham,
                         self.wfs,
                         kpt)
 
                 # make matrix hermitian
-                ind_l = np.tril_indices(self.H_MM.shape[0], -1)
-                self.H_MM[(ind_l[1], ind_l[0])] = \
-                    self.H_MM[ind_l].conj()
+                ind_l = np.tril_indices(H_MM.shape[0], -1)
+                H_MM[(ind_l[1], ind_l[0])] = \
+                    H_MM[ind_l].conj()
 
                 if self.odd == 'Zero':
                     self.heiss[k] = self.pot.get_hessian(kpt,
-                                                         self.H_MM)
+                                                         H_MM)
                 elif self.odd == 'PZ_SIC':
                     self.heiss[k] = self.pot.get_hessian(kpt,
-                                                         self.H_MM,
+                                                         H_MM,
                                                          self.n_dim,
                                                          self.wfs,
                                                          self.setups,
@@ -1432,24 +1438,28 @@ class ODDvarLcao(Calculator):
             # using C_nM_init, C_nM_init <- eigenvectors
             # only for KS calculations so far
             if self.odd == 'Zero':
-                self.H_MM = \
+                H_MM = \
                     self.wfs.eigensolver.calculate_hamiltonian_matrix(
                         self.ham,
                         self.wfs,
                         kpt)
                 # make matrix hermitian
-                ind_l = np.tril_indices(
-                    self.H_MM.shape[0], -1)
-                self.H_MM[(ind_l[1], ind_l[0])] = \
-                    self.H_MM[ind_l].conj()
-                C_nM_k = \
-                    self.pot.update_eigenval_2(
-                        self.C_nM_init[k],
-                        kpt,
-                        self.H_MM)
-                self.wfs.gd.comm.broadcast(C_nM_k, 0)
-                self.C_nM_init[k] = C_nM_k.copy()
-                kpt.C_nM = C_nM_k.copy()
+                ind_l = np.tril_indices(H_MM.shape[0], -1)
+                H_MM[(ind_l[1], ind_l[0])] = H_MM[ind_l].conj()
+
+                # C_nM_k = self.pot.update_eigenval_2(self.C_nM_init[k],
+                #                                     kpt,
+                #                                     H_MM)
+                # self.C_nM_init[k] = C_nM_k
+                # kpt.C_nM[:] = C_nM_k
+
+                self.C_nM_init[k][:] = \
+                    self.pot.update_eigenval_2(self.C_nM_init[k],
+                                               kpt,
+                                               H_MM)
+
+                self.wfs.gd.comm.broadcast(self.C_nM_init[k], 0)
+                kpt.C_nM[:] = self.C_nM_init[k]
 
         # new occupation numbers for KS only so far
         if self.odd == 'Zero':
@@ -1464,9 +1474,10 @@ class ODDvarLcao(Calculator):
         if self.wfs.gd.comm.size > 1:
             for kpt in self.wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
-                g = g_0[k].copy()
-                self.wfs.gd.comm.broadcast(g, 0)
-                g_0[k] = g.copy()
+                self.wfs.gd.comm.broadcast(g_0[k], 0)
+                # g = g_0[k].copy()
+                # self.wfs.gd.comm.broadcast(g, 0)
+                # g_0[k] = g.copy()
 
         # erase memory
         if str(self.search_direction) == 'LBFGS_prec':
