@@ -1409,6 +1409,47 @@ class ODDvarLcao(Calculator):
                                     0.01 * self.search_direction.beta_0 ** (
                                         -1))
 
+                elif self.prec == 'prec_2_old' and \
+                        str(self.search_direction) == 'LBFGS_prec':
+
+                    if self.dtype is float:
+                        self.heiss_inv[k] = np.zeros_like(
+                            self.heiss[k])
+                        self.heiss_inv[k] = 1.0 / (
+                                self.heiss[k].real +
+                                self.search_direction.beta_0 ** (-1))
+                    else:
+                        self.heiss_inv[k] = np.zeros_like(
+                            self.heiss[k])
+                        self.heiss_inv[k] = \
+                            1.0 / (self.heiss[k].real +
+                                   self.search_direction.beta_0 ** (
+                                       -1)) + \
+                            1.0j / (self.heiss[k].imag +
+                                    self.search_direction.beta_0 ** (
+                                       -1))
+
+                elif self.prec == 'prec_3_old' and \
+                        str(self.search_direction) == 'LBFGS_prec':
+
+                    if self.dtype is float:
+                        self.heiss_inv[k] = np.zeros_like(
+                            self.heiss[k])
+                        self.heiss_inv[k] = 1.0 / (
+                                0.75 * self.heiss[k] +
+                                0.25 * self.search_direction.beta_0 ** (
+                                    -1))
+                    else:
+                        self.heiss_inv[k] = np.zeros_like(
+                            self.heiss[k])
+                        self.heiss_inv[k] = \
+                            1.0 / (0.75 * self.heiss[k].real +
+                                   0.25 * self.search_direction.beta_0 ** (
+                                       -1)) + \
+                            1.0j / (0.75 * self.heiss[k].imag +
+                                    0.25 * self.search_direction.beta_0 ** (
+                                        -1))
+
                 else:
                     raise NotImplementedError
 
