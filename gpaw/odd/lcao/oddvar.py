@@ -1347,7 +1347,7 @@ class ODDvarLcao(Calculator):
                 return 0
             for kpt in self.wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
-                if self.prec == 'prec_2' and \
+                if self.prec == 'prec_2_n' and \
                         str(self.search_direction) == 'LBFGS_prec':
 
                     if self.dtype is float:
@@ -1367,7 +1367,7 @@ class ODDvarLcao(Calculator):
                                     self.search_direction.beta_0 ** (
                                        -1))
 
-                elif self.prec == 'prec_3' and \
+                elif self.prec == 'prec_3_n' and \
                         str(self.search_direction) == 'LBFGS_prec':
 
                     if self.dtype is float:
@@ -1409,7 +1409,7 @@ class ODDvarLcao(Calculator):
                                     0.01 * self.search_direction.beta_0 ** (
                                         -1))
 
-                elif self.prec == 'prec_2_old' and \
+                elif self.prec == 'prec_2' and \
                         str(self.search_direction) == 'LBFGS_prec':
 
                     if self.dtype is float:
@@ -1429,7 +1429,7 @@ class ODDvarLcao(Calculator):
                                     self.search_direction.beta_0 ** (
                                        -1))
 
-                elif self.prec == 'prec_3_old' and \
+                elif self.prec == 'prec_3' and \
                         str(self.search_direction) == 'LBFGS_prec':
 
                     if self.dtype is float:
@@ -1447,6 +1447,51 @@ class ODDvarLcao(Calculator):
                                    0.25 * self.search_direction.beta_0 ** (
                                        -1)) + \
                             1.0j / (0.75 * self.heiss[k].imag +
+                                    0.25 * self.search_direction.beta_0 ** (
+                                        -1))
+
+                elif self.prec == 'prec_2_f' and \
+                        str(self.search_direction) == 'LBFGS_prec':
+
+                    scale = max(kpt.f_n) / (3.0 - self.nspins)
+
+                    if self.dtype is float:
+                        self.heiss_inv[k] = np.zeros_like(
+                            self.heiss[k])
+                        self.heiss_inv[k] = 1.0 / (
+                                self.heiss[k].real + scale *
+                                self.search_direction.beta_0 ** (-1))
+                    else:
+                        self.heiss_inv[k] = np.zeros_like(
+                            self.heiss[k])
+                        self.heiss_inv[k] = \
+                            1.0 / (self.heiss[k].real + scale *
+                                   self.search_direction.beta_0 ** (
+                                       -1)) + \
+                            1.0j / (self.heiss[k].imag + scale *
+                                    self.search_direction.beta_0 ** (
+                                       -1))
+
+                elif self.prec == 'prec_3_f' and \
+                        str(self.search_direction) == 'LBFGS_prec':
+
+                    scale = max(kpt.f_n) / (3.0 - self.nspins)
+
+                    if self.dtype is float:
+                        self.heiss_inv[k] = np.zeros_like(
+                            self.heiss[k])
+                        self.heiss_inv[k] = 1.0 / (
+                                0.75 * self.heiss[k] + scale *
+                                0.25 * self.search_direction.beta_0 ** (
+                                    -1))
+                    else:
+                        self.heiss_inv[k] = np.zeros_like(
+                            self.heiss[k])
+                        self.heiss_inv[k] = \
+                            1.0 / (0.75 * self.heiss[k].real + scale *
+                                   0.25 * self.search_direction.beta_0 ** (
+                                       -1)) + \
+                            1.0j / (0.75 * self.heiss[k].imag + scale *
                                     0.25 * self.search_direction.beta_0 ** (
                                         -1))
 
