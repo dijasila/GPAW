@@ -1347,7 +1347,6 @@ class ODDvarLcao(Calculator):
                 return 0
             for kpt in self.wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
-
                 if self.prec == 'prec_2' and \
                         str(self.search_direction) == 'LBFGS_prec':
 
@@ -1355,18 +1354,18 @@ class ODDvarLcao(Calculator):
                         self.heiss_inv[k] = np.zeros_like(
                             self.heiss[k])
                         self.heiss_inv[k] = 1.0 / (
-                                self.heiss[k].real +
+                                self.heiss[k].real + self.wfs.kd.weight_k[kpt.q] *
                                 self.search_direction.beta_0 ** (-1))
                     else:
                         self.heiss_inv[k] = np.zeros_like(
                             self.heiss[k])
                         self.heiss_inv[k] = \
-                            1.0 / (self.heiss[k].real +
+                            1.0 / (self.heiss[k].real + self.wfs.kd.weight_k[kpt.q] *
                                    self.search_direction.beta_0 ** (
                                        -1)) + \
-                            1.0j / (self.heiss[k].imag +
+                            1.0j / (self.heiss[k].imag + self.wfs.kd.weight_k[kpt.q] *
                                     self.search_direction.beta_0 ** (
-                                        -1))
+                                       -1))
 
                 elif self.prec == 'prec_3' and \
                         str(self.search_direction) == 'LBFGS_prec':
@@ -1375,17 +1374,17 @@ class ODDvarLcao(Calculator):
                         self.heiss_inv[k] = np.zeros_like(
                             self.heiss[k])
                         self.heiss_inv[k] = 1.0 / (
-                                0.75 * self.heiss[k] +
+                                0.75 * self.heiss[k] + self.wfs.kd.weight_k[kpt.q] *
                                 0.25 * self.search_direction.beta_0 ** (
                                     -1))
                     else:
                         self.heiss_inv[k] = np.zeros_like(
                             self.heiss[k])
                         self.heiss_inv[k] = \
-                            1.0 / (0.75 * self.heiss[k].real +
+                            1.0 / (0.75 * self.heiss[k].real + self.wfs.kd.weight_k[kpt.q] *
                                    0.25 * self.search_direction.beta_0 ** (
                                        -1)) + \
-                            1.0j / (0.75 * self.heiss[k].imag +
+                            1.0j / (0.75 * self.heiss[k].imag + self.wfs.kd.weight_k[kpt.q] *
                                     0.25 * self.search_direction.beta_0 ** (
                                         -1))
 
