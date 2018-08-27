@@ -9,6 +9,7 @@ Linux:
 .. toctree::
    :maxdepth: 1
 
+   gbar/gbar
    Linux/CentOS
    Linux/Fedora
    Linux/openSUSE
@@ -117,4 +118,3 @@ Solaris:
    :maxdepth: 1
 
    Solaris/corona
-   Solaris/bohr
