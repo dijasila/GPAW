@@ -802,7 +802,7 @@ class ODDvarLcao(Calculator):
             np.save('C_nM_' + str(k), kpt.C_nM)
 
     def write_final_output(self, log, e_ks, e_sic, sic_n,
-                           eval=None, f_sn=None):
+                           evals=None, f_sn=None):
 
         log('Energy contributions relative to reference atoms:',
             '(reference = {0:.6f})\n'.format(self.setups.Eref *
@@ -826,52 +826,69 @@ class ODDvarLcao(Calculator):
             return 0
         if self.odd == 'PZ_SIC':
             log('Orbital corrections from PZ_SIC:')
-            for s in range(self.nspins):
-                log('Spin: %3d ' % (s))
-                header = """\
-            Hartree    XC        Hartree + XC
-            energy:    energy:   energy:    """
-                log(header)
-                i = 0
-                u_s = 0.0
-                xc_s = 0.0
-                for u, xc in sic_n[s]:
-                    log('band: %3d ' %
-                        (i), end='')
-                    i += 1
+
+            if self.nspins == 2 and self.wfs.kd.comm.size > 1:
+                if self.wfs.kd.comm.rank == 0:
+                    size = np.array([0])
+                    self.wfs.kd.comm.receive(size, 1)
+                    sic_n2 = np.zeros(shape=(int(size[0]), 2),
+                                      dtype=float)
+                    self.wfs.kd.comm.receive(sic_n2, 1)
+                    sic_n[1] = sic_n2
+                else:
+                    size = np.array([sic_n[1].shape[0]])
+                    self.wfs.kd.comm.send(size, 0)
+                    self.wfs.kd.comm.send(sic_n[1], 0)
+
+            if self.wfs.kd.comm.rank == 0:
+                for s in range(self.nspins):
+                    log('Spin: %3d ' % (s))
+                    header = """\
+                Hartree    XC        Hartree + XC
+                energy:    energy:   energy:    """
+                    log(header)
+                    i = 0
+                    u_s = 0.0
+                    xc_s = 0.0
+                    for u, xc in sic_n[s]:
+                        log('band: %3d ' %
+                            (i), end='')
+                        i += 1
+                        log('%11.6f%11.6f%11.6f' %
+                            (-Hartree * u,
+                             -Hartree * xc,
+                             -Hartree * (u + xc)
+                             ), end='')
+                        log(flush=True)
+                        u_s += u
+                        xc_s += xc
+                    log('---------------------------------------------')
+                    log('Total     ', end='')
                     log('%11.6f%11.6f%11.6f' %
-                        (-Hartree * u,
-                         -Hartree * xc,
-                         -Hartree * (u + xc)
+                        (-Hartree * u_s,
+                         -Hartree * xc_s,
+                         -Hartree * (u_s + xc_s)
                          ), end='')
+                    log("\n")
                     log(flush=True)
-                    u_s += u
-                    xc_s += xc
-                log('---------------------------------------------')
-                log('Total     ', end='')
-                log('%11.6f%11.6f%11.6f' %
-                    (-Hartree * u_s,
-                     -Hartree * xc_s,
-                     -Hartree * (u_s + xc_s)
-                     ), end='')
-                log("\n")
-        if eval is not None and f_sn is not None:
+
+        if evals is not None and f_sn is not None:
             if self.odd == 'Zero':
                 if self.nspins == 1:
                     header = " Band  Eigenvalues  Occupancy"
                     log(header)
-                    for i in range(len(eval[0])):
+                    for i in range(len(evals[0])):
                         log('%5d  %11.5f  %9.5f' % (
-                            i, Hartree * eval[0][i], f_sn[0][i]))
+                            i, Hartree * evals[0][i], f_sn[0][i]))
                 if self.nspins == 2:
                     log('                  Up'
                         '                     Down')
                     log('Band  Eigenvalues  Occupancy  Eigenvalues  '
                         'Occupancy')
-                    for n in range(len(eval[0])):
+                    for n in range(len(evals[0])):
                         log('%5d  %11.5f  %9.5f  %11.5f  %9.5f' %
-                            (n, Hartree * eval[0][n], f_sn[0][n],
-                             Hartree * eval[1][n], f_sn[1][n]))
+                            (n, Hartree * evals[0][n], f_sn[0][n],
+                             Hartree * evals[1][n], f_sn[1][n]))
                 log("\n")
             elif self.odd == 'PZ_SIC':
                 log("For SIC calculations there are\n"
@@ -882,28 +899,72 @@ class ODDvarLcao(Calculator):
                              "Occupancy"
                     log(header)
                     lagr = sorted(self.pot.lagr_diag_s[0])
-                    for i in range(len(eval[0])):
+                    for i in range(len(evals[0])):
                         log('%5d  %11.5f  %11.5f  %9.5f' % (
                             i, Hartree * lagr[i],
-                            Hartree * eval[0][i], f_sn[0][i]))
+                            Hartree * evals[0][i], f_sn[0][i]))
                 if self.nspins == 2:
-                    log('                        Up                 '
-                        '                 Down')
-                    log(' Band         L_ii  Eigenvalues  '
-                        'Occupancy  '
-                        '       L_ii  Eigenvalues  Occupancy')
-                    lagr_0 = np.sort(self.pot.lagr_diag_s[0])
-                    lagr_1 = np.sort(self.pot.lagr_diag_s[1])
-                    for n in range(len(eval[0])):
-                        log('%5d  %11.5f  %11.5f  '
-                            '%9.5f  %11.5f  %11.5f  '
-                            '%9.5f' %
-                            (n, Hartree * lagr_0[n],
-                             Hartree * eval[0][n],
-                             f_sn[0][n],
-                             Hartree * lagr_1[n],
-                             Hartree * eval[1][n],
-                             f_sn[1][n]))
+                    if self.wfs.kd.comm.size > 1:
+                        if self.wfs.kd.comm.rank == 0:
+                            # occupation numbers
+                            size = np.array([0])
+                            self.wfs.kd.comm.receive(size, 1)
+                            f_2n = np.zeros(shape=(int(size[0])))
+                            self.wfs.kd.comm.receive(f_2n, 1)
+                            f_sn[1] = f_2n
+
+                            # eigenvalues
+                            size = np.array([0])
+                            self.wfs.kd.comm.receive(size, 1)
+                            eval_2n = np.zeros(shape=(int(size[0])))
+                            self.wfs.kd.comm.receive(eval_2n, 1)
+                            evals[1] = eval_2n
+
+                            # orbital energies
+                            size = np.array([0])
+                            self.wfs.kd.comm.receive(size, 1)
+                            lagr_1 = np.zeros(shape=(int(size[0])))
+                            self.wfs.kd.comm.receive(lagr_1, 1)
+
+                        else:
+                            # occupations
+                            size = np.array([f_sn[1].shape[0]])
+                            self.wfs.kd.comm.send(size, 0)
+                            self.wfs.kd.comm.send(f_sn[1], 0)
+
+                            # eigenvalues
+                            size = np.array([evals[1].shape[0]])
+                            self.wfs.kd.comm.send(size, 0)
+                            self.wfs.kd.comm.send(evals[1], 0)
+
+                            # orbital energies
+                            a = self.pot.lagr_diag_s[1].copy()
+                            size = np.array([a.shape[0]])
+                            self.wfs.kd.comm.send(size, 0)
+                            self.wfs.kd.comm.send(a, 0)
+
+                            del a
+
+                    if self.wfs.kd.comm.rank == 0:
+                        log('                        Up                 '
+                            '                 Down')
+                        log(' Band         L_ii  Eigenvalues  '
+                            'Occupancy  '
+                            '       L_ii  Eigenvalues  Occupancy')
+                        lagr_0 = np.sort(self.pot.lagr_diag_s[0])
+                        if self.wfs.kd.comm.size == 1:
+                            lagr_1 = np.sort(self.pot.lagr_diag_s[1])
+
+                        for n in range(len(evals[0])):
+                            log('%5d  %11.5f  %11.5f  '
+                                '%9.5f  %11.5f  %11.5f  '
+                                '%9.5f' %
+                                (n, Hartree * lagr_0[n],
+                                 Hartree * evals[0][n],
+                                 f_sn[0][n],
+                                 Hartree * lagr_1[n],
+                                 Hartree * evals[1][n],
+                                 f_sn[1][n]))
                 log("\n")
         self.log(flush=True)
 
@@ -1201,7 +1262,7 @@ class ODDvarLcao(Calculator):
             self.e_ks = self.ham.get_energy(self.occ)
 
         self.log("... done!\n")
-        if self.wfs.kd.comm.size == 1 and self.odd != 'Zero':
+        if self.odd == 'PZ_SIC':
             f_sn = {}
             for kpt in self.wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
