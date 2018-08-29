@@ -7,9 +7,6 @@ import numpy as np
 from gpaw.utilities import pack, unpack
 from gpaw.utilities.blas import gemm, gemv, dotc, dotu, \
     gemmdot, mmm
-# this is for lcao mode
-from scipy.linalg import expm_frechet
-from scipy.sparse import csc_matrix
 from gpaw.odd.lcao.tools import get_grad_from_matrix_exponential, \
     D_matrix
 from gpaw.utilities.lapack import diagonalize
@@ -1026,7 +1023,6 @@ class ZeroOddLcao:
 
         self.timer = timer
         self.dtype = dtype
-        self.eigv_s = {}
 
         self.counter = 0  # number of calls of this class
 
@@ -1104,8 +1100,6 @@ class ZeroOddLcao:
         # FIXME:
         # wfs.gd.comm.broadcast(kpt.C_nM, 0)
         # wfs.gd.comm.broadcast(kpt.eps_n, 0)
-
-        self.eigv_s[u] = np.copy(kpt.eps_n)
 
     def update_eigenval_2(self, C_nM, kpt, H_MM):
 
