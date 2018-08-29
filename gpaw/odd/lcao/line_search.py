@@ -162,9 +162,9 @@ class StrongWolfeConditions:
 
             i += 1
             if abs(alpha[-1] - alpha[-2]) < 1.0e-5 or i == max_iter:
-                self.log('Cannot satisfy strong Wolfe condition')
-                if i == max_iter:
-                    self.log('Too many iterations')
+                # self.log('Cannot satisfy strong Wolfe condition')
+                # if i == max_iter:
+                #     self.log('Too many iterations')
 
                 a_star = alpha[i]
                 phi_star = phi_i
@@ -242,10 +242,10 @@ class StrongWolfeConditions:
                 break
 
             elif np.fabs(a_lo - a_hi) < self.eps_dx:
-                self.log('Cannot satisfy strong Wolfe condition,')
-                self.log('Only sufficient descent')
-                self.log('Search interval is less than'
-                         '%.2e' % self.eps_dx)
+                # self.log('Cannot satisfy strong Wolfe condition,')
+                # self.log('Only sufficient descent')
+                # self.log('Search interval is less than'
+                #          '%.2e' % self.eps_dx)
 
                 a_star = a_lo
 
@@ -255,8 +255,8 @@ class StrongWolfeConditions:
                 break
 
             if i == max_iter:
-                self.log('Cannot satisfy strong Wolfe condition,')
-                self.log('Made too many iterations')
+                # self.log('Cannot satisfy strong Wolfe condition,')
+                # self.log('Made too many iterations')
                 if a_lo > self.eps_dx:
                     a_star = a_lo
 

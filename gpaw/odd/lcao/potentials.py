@@ -59,8 +59,8 @@ class PZpotentialLcao:
         self.counter = 0  # number of calls of this class
         # Scaling factor: len 1 or 2 array
         if len(beta) > 1:
-            self.beta_x = beta[0]
-            self.beta_c = beta[1]
+            self.beta_c = beta[0]
+            self.beta_x = beta[1]
         else:
             self.beta_x = self.beta_c = beta[0]
 

@@ -1,8 +1,9 @@
 import numpy as np
-from ase.parallel import parprint
 import copy
+# from ase.parallel import parprint
 
 from gpaw.utilities.blas import dotc
+
 
 class LBFGSdirection:
 
@@ -88,7 +89,7 @@ class LBFGSdirection:
 
             if rho_k[kp[k]] < 0.0:
                 # raise Exception('y_k^Ts_k is not positive!')
-                parprint("y_k^Ts_k is not positive!")
+                # parprint("y_k^Ts_k is not positive!")
                 self.stable = False
 
             # q = np.copy(g_k1)
@@ -622,7 +623,7 @@ class LBFGSdirection_prec:
 
             if rho_k[kp[k]] < 0.0:
                 # raise Exception('y_k^Ts_k is not positive!')
-                parprint("y_k^Ts_k is not positive!")
+                # parprint("y_k^Ts_k is not positive!")
                 self.stable = False
 
             # q = np.copy(g_k1)
