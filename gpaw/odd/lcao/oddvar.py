@@ -66,7 +66,7 @@ class ODDvarLcao(Calculator):
                  max_iter_line_search=5, turn_off_swc=False,
                  prec='prec_3', save_orbitals=False,
                  one_scf_step_only=True, update_refs=10,
-                 residual=None):
+                 residual=None, update_orb_t='t1'):
         """
         :param calc: GPAW obj.
         :param odd: ODD potential
@@ -121,6 +121,7 @@ class ODDvarLcao(Calculator):
         self.save_orbitals = save_orbitals
         self.update_refs = update_refs
         self.residual = residual
+        self.update_orb_t = update_orb_t
 
     def initialize(self):
 
@@ -1157,9 +1158,21 @@ class ODDvarLcao(Calculator):
 
                 # update eigenvalues, occupation numbers
                 # and reference orbitals
+                # self.check_gradients_occ_numbers()
+
                 if self.search_direction.k % update_counter == 0 \
                         and counter > 0:
-                    phi_0, g_0 = self.update_reference_orbitals()
+
+                    if self.update_orb_t == 't1':
+                        phi_0, g_0 = self.update_reference_orbitals()
+                    elif self.update_orb_t == 't2':
+                        phi_0, g_0 = self.update_reference_orbitals_2()
+                    elif self.update_orb_t == 't3':
+                        phi_0, g_0 = self.update_reference_orbitals_3()
+                    elif self.update_orb_t == 't4':
+                        phi_0, g_0 = self.update_reference_orbitals_4()
+                    else:
+                        raise NotImplementedError
 
                 # max of gradients
                 g_max = np.array([])
@@ -1620,6 +1633,275 @@ class ODDvarLcao(Calculator):
         error = self.wfs.kd.comm.sum(error)
 
         return error
+
+    def update_reference_orbitals_2(self):
+        """
+        Update reference orbitals and occupation numbers, that is
+
+        C_init <- C exp(A), A <- 0,
+        f_n <- occupy using eivals of H with C_inits
+
+        :return: energy and gradients
+        """
+
+        for kpt in self.wfs.kpt_u:
+            k = self.n_kps * kpt.s + kpt.q
+
+            # calculate unitary matrix
+            U = expm(self.A_s[k])
+            # rotate and update
+            self.C_nM_init[k][:self.n_dim[k]] = \
+                np.dot(U.T, self.C_nM_init[k][
+                            :self.n_dim[k]])
+            self.A_s[k] = np.zeros_like(self.A_s[k])
+            self.wfs.gd.comm.broadcast(self.C_nM_init[k], 0)
+
+            # update eigenvalues
+            if self.odd == 'Zero':
+                H_MM = \
+                    self.wfs.eigensolver.calculate_hamiltonian_matrix(
+                        self.ham,
+                        self.wfs,
+                        kpt)
+
+                # make matrix hermitian
+                ind_l = np.tril_indices(H_MM.shape[0], -1)
+                H_MM[(ind_l[1], ind_l[0])] = H_MM[ind_l].conj()
+
+                self.pot.update_eigenval_2(self.C_nM_init[k],
+                                           kpt,
+                                           H_MM)
+
+        # new occupation numbers for KS only so far
+        if self.odd == 'Zero':
+            self.occ.calculate(self.wfs)
+
+        # update energy and gradients
+        phi_0, g_0 = \
+                self.get_energy_and_gradients(self.A_s,
+                                              self.n_dim)
+
+        # broadcast data if gd.comm > 1
+        if self.wfs.gd.comm.size > 1:
+            for kpt in self.wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                self.wfs.gd.comm.broadcast(g_0[k], 0)
+                # g = g_0[k].copy()
+                # self.wfs.gd.comm.broadcast(g, 0)
+                # g_0[k] = g.copy()
+
+        # erase memory
+        if str(self.search_direction) == 'LBFGS_prec':
+            self.search_direction = \
+                LBFGSdirection_prec(self.wfs,
+                                    m=self.memory_lbfgs,
+                                    diag=True)
+
+        elif str(self.search_direction) == 'LBFGS':
+            self.search_direction = \
+                LBFGSdirection(self.wfs,
+                               m=self.memory_lbfgs)
+
+        self.update_refs_counter += 1
+
+        return phi_0, g_0
+
+    def update_reference_orbitals_3(self):
+        """
+        Update reference orbitals and occupation numbers, that is
+
+        C_init <- C exp(A), A <- 0,
+        f_n <- occupy using eivals of H with C_inits
+
+        :return: energy and gradients
+        """
+
+        for kpt in self.wfs.kpt_u:
+            k = self.n_kps * kpt.s + kpt.q
+
+            # calculate unitary matrix
+            U = expm(self.A_s[k])
+            # rotate and update
+            self.C_nM_init[k][:self.n_dim[k]] = \
+                np.dot(U.T, self.C_nM_init[k][
+                            :self.n_dim[k]])
+            self.A_s[k] = np.zeros_like(self.A_s[k])
+            self.wfs.gd.comm.broadcast(self.C_nM_init[k], 0)
+
+            # update eigenvalues
+            if self.odd == 'Zero':
+                H_MM = \
+                    self.wfs.eigensolver.calculate_hamiltonian_matrix(
+                        self.ham,
+                        self.wfs,
+                        kpt)
+
+                # make matrix hermitian
+                ind_l = np.tril_indices(H_MM.shape[0], -1)
+                H_MM[(ind_l[1], ind_l[0])] = H_MM[ind_l].conj()
+
+                self.pot.update_orbital_energies(self.C_nM_init[k],
+                                                 kpt,
+                                                 H_MM)
+
+        # new occupation numbers for KS only so far
+        if self.odd == 'Zero':
+            self.occ.calculate(self.wfs)
+
+        # update energy and gradients
+        phi_0, g_0 = \
+            self.get_energy_and_gradients(self.A_s,
+                                          self.n_dim)
+
+        # broadcast data if gd.comm > 1
+        if self.wfs.gd.comm.size > 1:
+            for kpt in self.wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                self.wfs.gd.comm.broadcast(g_0[k], 0)
+                # g = g_0[k].copy()
+                # self.wfs.gd.comm.broadcast(g, 0)
+                # g_0[k] = g.copy()
+
+        # erase memory
+        if str(self.search_direction) == 'LBFGS_prec':
+            self.search_direction = \
+                LBFGSdirection_prec(self.wfs,
+                                    m=self.memory_lbfgs,
+                                    diag=True)
+
+        elif str(self.search_direction) == 'LBFGS':
+            self.search_direction = \
+                LBFGSdirection(self.wfs,
+                               m=self.memory_lbfgs)
+
+        self.update_refs_counter += 1
+
+        return phi_0, g_0
+
+    def update_reference_orbitals_4(self):
+        """
+        Update reference orbitals and occupation numbers, that is
+
+        C_init <- C exp(A), A <- 0,
+        f_n <- occupy using eivals of H with C_inits
+
+        :return: energy and gradients
+        """
+        eps = {}
+        for kpt in self.wfs.kpt_u:
+            k = self.n_kps * kpt.s + kpt.q
+
+            # calculate unitary matrix
+            U = expm(self.A_s[k])
+            # rotate and update
+            self.C_nM_init[k][:self.n_dim[k]] = \
+                np.dot(U.T, self.C_nM_init[k][
+                            :self.n_dim[k]])
+            self.A_s[k] = np.zeros_like(self.A_s[k])
+            self.wfs.gd.comm.broadcast(self.C_nM_init[k], 0)
+
+            kpt.C_nM[:] = self.C_nM_init[k]
+
+        T1 = calculate_kinetic_energy(self.den, self.wfs, self.setups)
+        for kpt in self.wfs.kpt_u:
+            k = self.n_kps * kpt.s + kpt.q
+            # update eigenvalues
+            if self.odd == 'Zero':
+                H_MM = \
+                    self.wfs.eigensolver.calculate_hamiltonian_matrix(
+                        self.ham,
+                        self.wfs,
+                        kpt)
+
+                # make matrix hermitian
+                ind_l = np.tril_indices(H_MM.shape[0], -1)
+                H_MM[(ind_l[1], ind_l[0])] = H_MM[ind_l].conj()
+
+                eps[k] = kpt.eps_n.copy()
+
+                kpt.C_nM[:] = \
+                    self.pot.update_eigenval_2(self.C_nM_init[k],
+                                               kpt,
+                                               H_MM)
+
+                self.wfs.gd.comm.broadcast(kpt.C_nM, 0)
+
+        # new occupation numbers for KS only so far
+        if self.odd == 'Zero':
+            f = {}
+            for kpt in self.wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                f[k] = kpt.f_n.copy()
+
+            self.occ.calculate(self.wfs)
+
+            T2 = calculate_kinetic_energy(self.den, self.wfs,
+                                          self.setups)
+            if T2 - T1 > 0.0:
+                for kpt in self.wfs.kpt_u:
+                    k = self.n_kps * kpt.s + kpt.q
+                    kpt.f_n[:] = f[k]
+                    kpt.eps_n[:] = eps[k]
+
+        # update energy and gradients
+        phi_0, g_0 = \
+            self.get_energy_and_gradients(self.A_s,
+                                          self.n_dim)
+
+        # broadcast data if gd.comm > 1
+        if self.wfs.gd.comm.size > 1:
+            for kpt in self.wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                self.wfs.gd.comm.broadcast(g_0[k], 0)
+                # g = g_0[k].copy()
+                # self.wfs.gd.comm.broadcast(g, 0)
+                # g_0[k] = g.copy()
+
+        # erase memory
+        if str(self.search_direction) == 'LBFGS_prec':
+            self.search_direction = \
+                LBFGSdirection_prec(self.wfs,
+                                    m=self.memory_lbfgs,
+                                    diag=True)
+
+        elif str(self.search_direction) == 'LBFGS':
+            self.search_direction = \
+                LBFGSdirection(self.wfs,
+                               m=self.memory_lbfgs)
+
+        self.update_refs_counter += 1
+
+        return phi_0, g_0
+
+    def check_gradients_occ_numbers(self):
+
+        for kpt in self.wfs.kpt_u:
+            eps = kpt.eps_n
+
+            H_MM = \
+                self.wfs.eigensolver.calculate_hamiltonian_matrix(
+                    self.ham,
+                    self.wfs,
+                    kpt)
+
+            # make matrix hermitian
+            ind_l = np.tril_indices(H_MM.shape[0], -1)
+            H_MM[(ind_l[1], ind_l[0])] = H_MM[ind_l].conj()
+
+            HC_Mn = np.zeros_like(H_MM)
+            mmm(1.0, H_MM.conj(), 'n', kpt.C_nM, 't', 0.0, HC_Mn)
+            L = np.zeros_like(H_MM)
+
+            if self.dtype is complex:
+                mmm(1.0, kpt.C_nM.conj(), 'n', HC_Mn, 'n', 0.0, L)
+            else:
+                mmm(1.0, kpt.C_nM, 'n', HC_Mn, 'n', 0.0, L)
+
+            lambda_l = np.diagonal(L.real).copy()
+
+            lambda_l -= eps
+
+            print(np.sum(np.absolute(lambda_l)) / len(lambda_l))
 
 
 def log_f(log, niter, g_max, e_ks, e_sic, odd='Zero', res=None):

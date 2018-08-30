@@ -1083,8 +1083,6 @@ class ZeroOddLcao:
         HC_Mn = np.zeros_like(H_MM)
         mmm(1.0, H_MM.conj(), 'n', C_nM, 't', 0.0, HC_Mn)
 
-        # L = np.zeros_like(H_MM)
-
         if self.dtype is complex:
             mmm(1.0, C_nM.conj(), 'n', HC_Mn, 'n', 0.0, H_MM)
         else:
@@ -1100,8 +1098,6 @@ class ZeroOddLcao:
 
         HC_Mn = np.zeros_like(H_MM)
         mmm(1.0, H_MM.conj(), 'n', C_nM, 't', 0.0, HC_Mn)
-
-        # L = np.zeros_like(H_MM)
 
         if self.dtype is complex:
             mmm(1.0, C_nM.conj(), 'n', HC_Mn, 'n', 0.0, H_MM)
@@ -1166,10 +1162,7 @@ class ZeroOddLcao:
         else:
             mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, L)
 
-        kpt.eps_n = np.diagonal(L.real).copy()
-        # nrm_n = np.empty(L.shape[0])
-        # diagonalize(L, nrm_n)
-        # kpt.eps_n = nrm_n
+        kpt.eps_n[:] = np.diagonal(L.real)
 
     def get_hessian(self, kpt, H_MM, C_nM=None):
 
