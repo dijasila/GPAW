@@ -144,8 +144,7 @@ class PZpotentialLcao:
                 F_MM, sic_energy_n = \
                      self.get_orbital_potential_matrix(f_n, C_nM,
                                                        kpt, wfs,
-                                                       setup, n,
-                                               occupied_only=occupied_only)
+                                                       setup, n)
 
                 gemv(1.0, F_MM, C_nM[n], 0.0, b_nM[n])
                 # b_nM[n] = np.dot(F_nMM[n], C_nM[n])
@@ -248,9 +247,7 @@ class PZpotentialLcao:
         for n in range(n_occ):
             F_MM, sic_energy_n =\
                 self.get_orbital_potential_matrix(f_n, C_nM, kpt,
-                                                  wfs, setup, n,
-                                                  occupied_only=
-                                                  occupied_only)
+                                                  wfs, setup, n)
 
             gemv(1.0, F_MM.conj(), C_nM[n], 0.0, b_nM[n])
 
@@ -286,7 +283,7 @@ class PZpotentialLcao:
                 return 2.0 * G, e_total_sic
 
     def get_orbital_potential_matrix(self, f_n, C_nM, kpt,
-                             wfs, setup, m, occupied_only=False):
+                             wfs, setup, m):
         """
         :param f_n:
         :param C_nM:
@@ -314,11 +311,11 @@ class PZpotentialLcao:
         # calculate sic energy,
         # sic pseudo-potential and Hartree
         e_sic_m, vt_mG, vHt_g = \
-            self.get_pseudo_pot(nt_G, Q_aL, m)
+            self.get_pseudo_pot(nt_G, Q_aL)
 
         # calculate PAW corrections
         e_sic_paw_m, dH_ap = \
-            self.get_paw_corrections(D_ap, vHt_g, m)
+            self.get_paw_corrections(D_ap, vHt_g)
 
         # total sic:
         e_sic_m += e_sic_paw_m
@@ -447,7 +444,7 @@ class PZpotentialLcao:
 
         return nt_G, Q_aL, D_ap
 
-    def get_pseudo_pot(self, nt, Q_aL, m):
+    def get_pseudo_pot(self, nt, Q_aL):
 
         if self.sic_coarse_grid is False:
             # change to fine grid
@@ -504,7 +501,7 @@ class PZpotentialLcao:
                          -e_xc*self.beta_x]),\
                vt_G, vHt_g
 
-    def get_paw_corrections(self, D_ap, vHt_g, m):
+    def get_paw_corrections(self, D_ap, vHt_g):
 
         # XC-PAW
         dH_ap = {}
@@ -543,9 +540,7 @@ class PZpotentialLcao:
 
         return np.array([-ec*self.beta_c, -exc * self.beta_x]), dH_ap
 
-    def update_eigenval(self, f_n, C_nM, kpt,
-                      wfs, setup,
-                      H_MM, occupied_only=False):
+    def update_eigenval(self, f_n, C_nM, kpt, wfs, setup, H_MM):
         n_kps = wfs.kd.nks // wfs.kd.nspins
         u = kpt.s * n_kps + kpt.q
         n_occ = 0
@@ -558,8 +553,7 @@ class PZpotentialLcao:
         for n in range(n_occ):
             F_MM = self.get_orbital_potential_matrix(f_n, C_nM, kpt,
                                                      wfs, setup, n,
-                                                     occupied_only=
-                                                     occupied_only)[0]
+                                                     )[0]
             F_MM += H_MM
             gemv(1.0, F_MM, C_nM[n], 0.0, b_nM[n])
 
@@ -769,9 +763,9 @@ class PZpotentialLcao:
                                      wfs, self.setups, m)
 
                 e_sic_m, vt_mG, vHt_g = \
-                    self.get_pseudo_pot(nt_G, Q_aL, m)
+                    self.get_pseudo_pot(nt_G, Q_aL)
                 e_sic_paw_m, dH_ap = \
-                    self.get_paw_corrections(D_ap, vHt_g, m)
+                    self.get_paw_corrections(D_ap, vHt_g)
 
                 Fpot_av += \
                     self.bfs.calculate_force_contribution(vt_mG,
@@ -847,7 +841,7 @@ class PZpotentialLcao:
         return F_av
 
     def get_hessian(self, kpt, H_MM, n_dim, wfs, setup, C_nM=None,
-                    diag_heiss=False, occupied_only=False, h_type='ks'):
+                    diag_heiss=False, h_type='ks'):
 
         if C_nM is None:
             C_nM = kpt.C_nM
@@ -864,8 +858,7 @@ class PZpotentialLcao:
             for n in range(n_occ):
                 F_MM = self.get_orbital_potential_matrix(f_n, C_nM, kpt,
                                                          wfs, setup, n,
-                                                         occupied_only=
-                                                         occupied_only)[0]
+                                                         )[0]
                 F_MM += H_MM
                 gemv(1.0, F_MM.conj(), C_nM[n], 0.0, b_nM[n])
 
@@ -969,7 +962,7 @@ class PZpotentialLcao:
             raise NotImplementedError
 
     def get_canonical_orbitals_and_evals(self, wfs, kpt,
-                                         H_MM, occupied_only=False):
+                                         H_MM):
 
         C_nM = kpt.C_nM
         f_n = kpt.f_n
@@ -983,8 +976,7 @@ class PZpotentialLcao:
         for n in range(n_occ):
             F_MM = self.get_orbital_potential_matrix(f_n, C_nM, kpt,
                                                      wfs, wfs.setups, n,
-                                                     occupied_only=
-                                                     occupied_only)[0]
+                                                     )[0]
             F_MM += H_MM
             gemv(1.0, F_MM, C_nM[n], 0.0, b_nM[n])
 
@@ -1078,7 +1070,7 @@ class ZeroOddLcao:
                         H_MM, occupied_only=False):
 
         n_kps = wfs.kd.nks // wfs.kd.nspins
-        u = kpt.s * n_kps + kpt.q
+        # u = kpt.s * n_kps + kpt.q
 
         HC_Mn = np.zeros_like(H_MM)
         mmm(1.0, H_MM.conj(), 'n', C_nM, 't', 0.0, HC_Mn)

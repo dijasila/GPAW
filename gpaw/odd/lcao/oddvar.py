@@ -1235,8 +1235,7 @@ class ODDvarLcao(Calculator):
 
             self.pot.update_eigenval(kpt.f_n, kpt.C_nM,
                                      kpt, self.wfs, self.setups,
-                                     self.H_MM,
-                                     occupied_only=self.occupied_only)
+                                     self.H_MM)
         if self.odd == 'Zero':
             self.occ.calculate(self.wfs)
             self.e_ks = self.ham.get_energy(self.occ)
@@ -1307,7 +1306,6 @@ class ODDvarLcao(Calculator):
                                                          self.wfs,
                                                          self.setups,
                                                          diag_heiss=True,
-                                                         occupied_only=False,
                                                          h_type='ks'
                                                          )
                 else:
