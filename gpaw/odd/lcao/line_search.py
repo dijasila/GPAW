@@ -141,6 +141,14 @@ class StrongWolfeConditions:
                     self.evaluate_phi_and_der_phi(A_s, P_s, n_dim,
                                                   alpha_max)
 
+                if self.awc is True:
+                    if appr_wc(der_phi_0, phi_0, der_phi_max, phi_max):
+                        a_star = alpha_max
+                        phi_star = phi_max
+                        der_phi_star = der_phi_max
+                        g_star = g_max
+                        break
+
             a_new = cubic_interpolation(alpha[i], alpha_max,
                                         phi_i, phi_max,
                                         der_phi_i, der_phi_max)
