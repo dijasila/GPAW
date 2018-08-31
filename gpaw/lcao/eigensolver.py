@@ -169,7 +169,7 @@ class DirectLCAO(object):
 
             # gradients:
             S = wfs.S_qMM[kpt.q]
-            g = C_nM @ H_MM - 0.5 * (L + L.conj()) @ (C_nM @ S)
+            g = C_nM @ H_MM - L.conj() @ (C_nM @ S)
 
             for i in range(nbs):
                 norm.append(np.dot(g[i].conj(), g[i]).real * kpt.f_n[i])
