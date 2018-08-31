@@ -120,7 +120,10 @@ class ODDvarLcao(Calculator):
         self.prec = prec
         self.save_orbitals = save_orbitals
         self.update_refs = update_refs
-        self.residual = residual
+        if self.odd == 'Zero':
+            self.residual = residual
+        else:
+            self.residual = None
 
     def initialize(self):
 
