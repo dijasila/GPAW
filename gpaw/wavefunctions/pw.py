@@ -1399,24 +1399,18 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 class ReciprocalSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
                  background_charge=None):
-        assert gd.comm.size == 1
-        serial_finegd = finegd.new_descriptor(comm=gd.comm)
-
-        from gpaw.utilities.grid import GridRedistributor
-        noredist = GridRedistributor(redistributor.comm,
-                                     redistributor.broadcast_comm, gd, gd)
-        Density.__init__(self, gd, serial_finegd, nspins, collinear, charge,
-                         redistributor=noredist,
+        Density.__init__(self, gd, finegd, nspins, collinear, charge,
+                         redistributor=redistributor,
                          background_charge=background_charge)
 
         self.pd2 = PWDescriptor(None, gd)
-        self.pd3 = PWDescriptor(None, serial_finegd)
+        self.pd3 = PWDescriptor(None, finegd)
 
         self.G3_G = self.pd2.map(self.pd3)
 
-        self.xc_redistributor = GridRedistributor(redistributor.comm,
-                                                  redistributor.comm,
-                                                  serial_finegd, finegd)
+        # self.xc_redistributor = GridRedistributor(redistributor.comm,
+        #                                           redistributor.comm,
+        #                                           serial_finegd, finegd)
         self.nct_q = None
         self.nt_Q = None
         self.rhot_q = None
@@ -1433,7 +1427,7 @@ class ReciprocalSpaceDensity(Density):
         self.nct = PWLFC(spline_aj, self.pd2)
 
         self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3,
-                          blocksize=256, comm=self.xc_redistributor.comm)
+                          )  # blocksize=256, comm=self.xc_redistributor.comm)
 
     def set_positions(self, spos_ac, atom_partition):
         Density.set_positions(self, spos_ac, atom_partition)
@@ -1535,8 +1529,8 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
                  setups, timer, xc, world, vext=None,
                  psolver=None, redistributor=None, realpbc_c=None):
 
-        assert gd.comm.size == 1
-        assert finegd.comm.size == 1
+        # assert gd.comm.size == 1
+        # assert finegd.comm.size == 1
         assert redistributor is not None  # XXX should not be like this
         Hamiltonian.__init__(self, gd, finegd, nspins, collinear, setups,
                              timer, xc, world, vext=vext,
