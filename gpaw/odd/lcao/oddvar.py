@@ -10,9 +10,7 @@ from gpaw.odd.lcao.line_search import *
 from gpaw.odd.lcao.wave_function_guess import get_initial_guess,\
     loewdin
 
-from scipy.linalg import expm
 import numpy as np
-import copy
 import time
 
 from gpaw.forces import calculate_forces
@@ -320,7 +318,7 @@ class ODDvarLcao(Calculator):
         for kpt in self.wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             if self.n_dim[k] > 0:
-                U = expm(self.A_s[k])
+                U = expm_ed(self.A_s[k])
                 self.C_nM_init[k][:n_dim[k]] = \
                     np.dot(U.T, self.C_nM_init[k][:n_dim[k]])
 
@@ -426,7 +424,7 @@ class ODDvarLcao(Calculator):
             if sum(kpt.f_n) < 1.0e-10:
                 continue
 
-            U = expm(self.A_s[k])
+            U = expm_ed(self.A_s[k])
             self.C_nM_init[k][:self.n_dim[k]] = \
                 np.dot(U.T, self.C_nM_init[k][:self.n_dim[k]])
             self.C_nM_init[k] = \
@@ -1238,7 +1236,6 @@ class ODDvarLcao(Calculator):
 
         totmom_v, magmom_av = self.den.estimate_magnetic_moments()
         print_positions(self.atoms, self.log, magmom_av)
-        # self.get_energy_and_gradients(self.A_s, n_dim)
 
         if self.save_orbitals:
             self.save_coefficients()
@@ -1433,7 +1430,7 @@ class ODDvarLcao(Calculator):
             k = self.n_kps * kpt.s + kpt.q
 
             # calculate unitary matrix
-            U = expm(self.A_s[k])
+            U = expm_ed(self.A_s[k])
             # rotate and update
             self.C_nM_init[k][:self.n_dim[k]] = \
                 np.dot(U.T, self.C_nM_init[k][
@@ -1534,6 +1531,7 @@ class ODDvarLcao(Calculator):
         error = self.wfs.kd.comm.sum(error)
 
         return error
+
 
 def log_f(log, niter, g_max, e_ks, e_sic, odd='Zero', res=None):
 
