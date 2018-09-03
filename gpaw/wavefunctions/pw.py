@@ -204,6 +204,11 @@ class PWDescriptor:
             self.G2_qG.append(G2_G[ng1:ng2].copy())
             self.myQ_qG.append(self.Q_qG[q][ng1:ng2])
 
+        if S > 1 and gd.comm.rank == 0:
+            self.tmp_G = np.empty(self.myng * S, complex)
+        else:
+            self.tmp_G = None
+
     def get_reciprocal_vectors(self, q=0, add_q=True):
         """Returns reciprocal lattice vectors plus q, G + q,
         in xyz coordinates."""
@@ -276,18 +281,24 @@ class PWDescriptor:
                    N /__
                       G
         """
-
-        self.tmp_Q[:] = 0.0
-        self.tmp_Q.ravel()[self.Q_qG[q]] = c_G
-        if self.dtype == float:
-            t = self.tmp_Q[:, :, 0]
-            n, m = self.gd.N_c[:2] // 2 - 1
-            t[0, -m:] = t[0, m:0:-1].conj()
-            t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
-            t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
-            t[-n:, 0] = t[n:0:-1, 0].conj()
-        self.ifftplan.execute()
-        return self.tmp_R * (1.0 / self.tmp_R.size)
+        c_G = c_G * (1.0 / self.tmp_R.size)
+        if self.gd.comm.size > 1:
+            self.gd.comm.gather(c_G, 0, self.tmp_G)
+            c_G = self.tmp_G
+        if self.gd.comm.rank == 0:
+            self.tmp_Q[:] = 0.0
+            self.tmp_Q.ravel()[self.Q_qG[q]] = c_G
+            if self.dtype == float:
+                t = self.tmp_Q[:, :, 0]
+                n, m = self.gd.N_c[:2] // 2 - 1
+                t[0, -m:] = t[0, m:0:-1].conj()
+                t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
+                t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
+                t[-n:, 0] = t[n:0:-1, 0].conj()
+            self.ifftplan.execute()
+        if self.gd.comm.size == 1:
+            return self.tmp_R
+        return self.gd.distribute(self.tmp_R)
 
     def integrate(self, a_xg, b_yg=None,
                   global_integral=True, hermitian=False,
@@ -353,45 +364,60 @@ class PWDescriptor:
             self.gd.comm.sum(result)
             return result
 
-    def interpolate(self, a_R, pd, q=-1):
-        a_Q = self.tmp_Q
-        b_Q = pd.tmp_Q
+    def interpolate(self, a_R, pd, q=None):
+        assert q != -1
+        self.gd.collect(a_R, self.tmp_R[:])
 
-        e0, e1, e2 = 1 - self.gd.N_c % 2  # even or odd size
-        a0, a1, a2 = pd.gd.N_c // 2 - self.gd.N_c // 2
-        b0, b1, b2 = self.gd.N_c + (a0, a1, a2)
+        if self.gd.comm.rank == 0:
+            self.fftplan.execute()
 
-        if self.dtype == float:
-            b2 = (b2 - a2) // 2 + 1
-            a2 = 0
-            axes = (0, 1)
+            a_Q = self.tmp_Q
+            b_Q = pd.tmp_Q
+
+            e0, e1, e2 = 1 - self.gd.N_c % 2  # even or odd size
+            a0, a1, a2 = pd.gd.N_c // 2 - self.gd.N_c // 2
+            b0, b1, b2 = self.gd.N_c + (a0, a1, a2)
+
+            if self.dtype == float:
+                b2 = (b2 - a2) // 2 + 1
+                a2 = 0
+                axes = (0, 1)
+            else:
+                axes = (0, 1, 2)
+
+            b_Q[:] = 0.0
+            b_Q[a0:b0, a1:b1, a2:b2] = np.fft.fftshift(a_Q, axes=axes)
+
+            if e0:
+                b_Q[a0, a1:b1, a2:b2] *= 0.5
+                b_Q[b0, a1:b1, a2:b2] = b_Q[a0, a1:b1, a2:b2]
+                b0 += 1
+            if e1:
+                b_Q[a0:b0, a1, a2:b2] *= 0.5
+                b_Q[a0:b0, b1, a2:b2] = b_Q[a0:b0, a1, a2:b2]
+                b1 += 1
+            if self.dtype == complex:
+                if e2:
+                    b_Q[a0:b0, a1:b1, a2] *= 0.5
+                    b_Q[a0:b0, a1:b1, b2] = b_Q[a0:b0, a1:b1, a2]
+            else:
+                if e2:
+                    b_Q[a0:b0, a1:b1, b2 - 1] *= 0.5
+
+            b_Q[:] = np.fft.ifftshift(b_Q, axes=axes)
+            pd.ifftplan.execute()
+
+            a_G = a_Q.ravel()[self.Q_qG[0]]
         else:
-            axes = (0, 1, 2)
+            a_G = None
 
-        self.tmp_R[:] = a_R
-        self.fftplan.execute()
-        b_Q[:] = 0.0
-        b_Q[a0:b0, a1:b1, a2:b2] = np.fft.fftshift(a_Q, axes=axes)
+        if self.gd.comm.size > 1:
+            assert q is None
+            mya_G = self.empty()
+            self.gd.comm.scatter(a_G, mya_G, 0)
+            a_G = mya_G
 
-        if e0:
-            b_Q[a0, a1:b1, a2:b2] *= 0.5
-            b_Q[b0, a1:b1, a2:b2] = b_Q[a0, a1:b1, a2:b2]
-            b0 += 1
-        if e1:
-            b_Q[a0:b0, a1, a2:b2] *= 0.5
-            b_Q[a0:b0, b1, a2:b2] = b_Q[a0:b0, a1, a2:b2]
-            b1 += 1
-        if self.dtype == complex:
-            if e2:
-                b_Q[a0:b0, a1:b1, a2] *= 0.5
-                b_Q[a0:b0, a1:b1, b2] = b_Q[a0:b0, a1:b1, a2]
-        else:
-            if e2:
-                b_Q[a0:b0, a1:b1, b2 - 1] *= 0.5
-
-        b_Q[:] = np.fft.ifftshift(b_Q, axes=axes)
-        pd.ifftplan.execute()
-        return pd.tmp_R * (1.0 / self.tmp_R.size), a_Q.ravel()[self.Q_qG[q]]
+        return pd.gd.distribute(pd.tmp_R) * (1.0 / self.tmp_R.size), a_G
 
     def restrict(self, a_R, pd, q=-1):
         a_Q = pd.tmp_Q
@@ -1067,12 +1093,14 @@ class PWLFC(BaseLFC):
         # These are set later in set_potitions():
         self.eikR_qa = None
         self.my_atom_indices = None
-        self.indices = None
+        self.my_indices = None
         self.pos_av = None
         self.nI = None
 
         if comm is None:
             comm = pd.gd.comm
+        else:
+            assert False
         self.comm = comm
 
     def initialize(self):
@@ -1126,6 +1154,7 @@ class PWLFC(BaseLFC):
 
     def __iter__(self):
         I1 = 0
+        assert False
         for a in self.my_atom_indices:
             j = 0
             i1 = 0
@@ -1137,7 +1166,7 @@ class PWLFC(BaseLFC):
                 I1 = I2
                 j += 1
 
-    def set_positions(self, spos_ac):
+    def set_positions(self, spos_ac, atom_partition):
         self.initialize()
         kd = self.pd.kd
         if kd is None or kd.gamma:
@@ -1147,12 +1176,12 @@ class PWLFC(BaseLFC):
 
         self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
 
-        self.my_atom_indices = np.arange(len(spos_ac))
-        self.indices = []
+        self.my_indices = []
         I1 = 0
-        for a in self.my_atom_indices:
+        for a, rank in enumerate(atom_partition.rank_a):
             I2 = I1 + self.get_function_count(a)
-            self.indices.append((a, I1, I2))
+            if rank == self.comm.rank:
+                self.indices.append((a, I1, I2))
             I1 = I2
         self.nI = I1
 
@@ -1183,8 +1212,9 @@ class PWLFC(BaseLFC):
                            f_IG, emiGRbuf_G)
         return f_IG
 
-    def block(self, q=-1, serial=True):
-        nG = self.Y_qLG[q].shape[1]
+    def block(self, q=None, serial=True):
+        assert q != -1
+        nG = self.Y_qLG[q or 0].shape[1]
         iblock = 0
         if self.blocksize:
             G1 = 0
@@ -1200,15 +1230,19 @@ class PWLFC(BaseLFC):
             else:
                 yield 0, 0
 
-    def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None, serial=True):
+    def add(self, a_xG, c_axi=1.0, q=None, f0_IG=None, serial=True):
         if isinstance(c_axi, float):
-            assert q == -1, a_xG.dims == 1
-            a_xG += (c_axi / self.pd.gd.dv) * self.expand(-1).sum(0)
+            assert q is None, a_xG.dims == 1
+            a_xG += (c_axi / self.pd.gd.dv) * self.expand().sum(0)
             return
 
         c_xI = np.empty(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
-        for a, I1, I2 in self.indices:
+        if self.comm.size != 1:
+            c_xI[:] = 0.0
+        for a, I1, I2 in self.my_indices:
             c_xI[..., I1:I2] = c_axi[a] * self.eikR_qa[q][a].conj()
+        if self.comm.size != 1:
+            self.comm.sum(c_xI)
         c_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
 
         a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
@@ -1226,7 +1260,7 @@ class PWLFC(BaseLFC):
 
             gemm(1.0 / self.pd.gd.dv, f_IG, c_xI, 1.0, a_xG[:, G1:G2])
 
-    def integrate(self, a_xG, c_axi=None, q=-1):
+    def integrate(self, a_xG, c_axi=None, q=None):
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
         b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
@@ -1256,7 +1290,7 @@ class PWLFC(BaseLFC):
             gemm(alpha, f_IG, a_xG[:, G1:G2], x, b_xI, 'c')
         self.comm.sum(b_xI)
 
-        for a, I1, I2 in self.indices:
+        for a, I1, I2 in self.my_indices:
             c_axi[a][:] = self.eikR_qa[q][a] * c_xI[..., I1:I2]
 
         return c_axi
@@ -1300,10 +1334,10 @@ class PWLFC(BaseLFC):
 
         for v in range(3):
             if self.pd.dtype == float:
-                for a, I1, I2 in self.indices:
+                for a, I1, I2 in self.my_indices:
                     c_axiv[a][..., v] = c_vxI[v, ..., I1:I2]
             else:
-                for a, I1, I2 in self.indices:
+                for a, I1, I2 in self.my_indices:
                     c_axiv[a][..., v] = (1.0j * self.eikR_qa[q][a] *
                                          c_vxI[v, ..., I1:I2])
 

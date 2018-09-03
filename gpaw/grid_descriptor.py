@@ -459,10 +459,13 @@ class GridDescriptor(Domain):
         self.distribute(B_g, a_g)
         a_g /= len(op_scc)
 
-    def collect(self, a_xg, broadcast=False):
+    def collect(self, a_xg, out=None, broadcast=False):
         """Collect distributed array to master-CPU or all CPU's."""
         if self.comm.size == 1:
-            return a_xg
+            if out is None:
+                return a_xg
+            out[:] = a_xg
+            return out
 
         xshape = a_xg.shape[:-3]
 
@@ -480,7 +483,10 @@ class GridDescriptor(Domain):
 
         # Put the subdomains from the slaves into the big array
         # for the whole domain:
-        A_xg = self.empty(xshape, a_xg.dtype, global_array=True)
+        if out is None:
+            A_xg = self.empty(xshape, a_xg.dtype, global_array=True)
+        else:
+            A_xg = out
         parsize_c = self.parsize_c
         r = 0
         for n0 in range(parsize_c[0]):
@@ -500,7 +506,7 @@ class GridDescriptor(Domain):
             self.comm.broadcast(A_xg, 0)
         return A_xg
 
-    def distribute(self, B_xg, b_xg):
+    def distribute(self, B_xg, out=None):
         """Distribute full array B_xg to subdomains, result in b_xg.
 
         B_xg is not used by the slaves (i.e. it should be None on all slaves)
@@ -508,12 +514,16 @@ class GridDescriptor(Domain):
         """
 
         if self.comm.size == 1:
-            b_xg[:] = B_xg
-            return
+            if out is None:
+                return B_xg
+            out[:] = B_xg
+            return out
+
+        if out is None:
+            out = self.empty(B_xg.shape[:-3])
 
         if self.rank != 0:
-            self.comm.receive(b_xg, 0, 42)
-            return
+            self.comm.receive(out, 0, 42)
         else:
             parsize_c = self.parsize_c
             requests = []
@@ -532,11 +542,13 @@ class GridDescriptor(Domain):
                             # deallocated:
                             requests.append((request, a_xg))
                         else:
-                            b_xg[:] = B_xg[..., b0:e0, b1:e1, b2:e2]
+                            out[:] = B_xg[..., b0:e0, b1:e1, b2:e2]
                         r += 1
 
             for request, a_xg in requests:
                 self.comm.wait(request)
+
+        return out
 
     def zero_pad(self, a_xg, global_array=True):
         """Pad array with zeros as first element along non-periodic directions.
