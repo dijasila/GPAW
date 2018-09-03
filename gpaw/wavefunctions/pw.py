@@ -204,7 +204,7 @@ class PWDescriptor:
             self.G2_qG.append(G2_G[ng1:ng2].copy())
             self.myQ_qG.append(self.Q_qG[q][ng1:ng2])
 
-        if S > 1 and gd.comm.rank == 0:
+        if S > 1:
             self.tmp_G = np.empty(self.myng * S, complex)
         else:
             self.tmp_G = None
@@ -357,9 +357,9 @@ class PWDescriptor:
         yshape = b_yg.shape[:-1]
         result = result_yx.T.reshape(xshape + yshape)
 
+        assert global_integral or self.gd.comm.size == 1
         if result.ndim == 0:
-            assert self.gd.comm.size == 1
-            return result.item()
+            return self.gd.comm.sum(result.item())
         else:
             self.gd.comm.sum(result)
             return result
@@ -514,9 +514,8 @@ class PWMapping:
             return
 
         b_G1 = self.pd1.tmp_G
-        self.pd1.gd.comm.gather(myb_G1, 0, b_G1)
-        print(a_G2.shape, self.G2_G1, myb_G1.shape, self.G1)
-        a_G2[self.G2_G1] += myb_G1[self.G1]
+        self.pd1.gd.comm.all_gather(myb_G1, b_G1)
+        a_G2[self.G2_G1] += b_G1[self.G1]
 
 
 def count_reciprocal_vectors(ecut, gd, q_c):
@@ -1553,7 +1552,6 @@ class ReciprocalSpaceDensity(Density):
         self.background_charge.add_fourier_space_charge_to(self.pd3,
                                                            self.rhot_q)
         if self.gd.comm.rank == 0:
-            assert abs(self.rhot_q[0]) < 1e-14
             self.rhot_q[0] = 0.0
 
     def get_pseudo_core_kinetic_energy_density_lfc(self):
@@ -1642,7 +1640,6 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
     def update_pseudo_potential(self, dens):
         self.ebar = self.pd2.integrate(self.vbar_Q, dens.nt_Q)
-
         with self.timer('Poisson'):
             self.poisson.solve(self.vHt_q, dens)
             self.epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
@@ -1656,16 +1653,16 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             v_q += self.vHt_q
 
         self.vt_Q = self.vbar_Q.copy()
-        self.map12.add_to1(self.vt_Q, v_q)
+        dens.map23.add_to1(self.vt_Q, v_q)
 
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
-        nt_dist_xg = dens.xc_redistributor.distribute(dens.nt_xg)
+        nt_dist_xg = dens.nt_xg
         vxct_dist_xg = np.zeros_like(nt_dist_xg)
-        self.exc = self.xc.calculate(dens.xc_redistributor.aux_gd,
+        self.exc = self.xc.calculate(dens.finegd,
                                      nt_dist_xg, vxct_dist_xg)
-        vxct_xg = dens.xc_redistributor.collect(vxct_dist_xg)
+        vxct_xg = vxct_dist_xg
 
         x = 0
         for vt_G, vxct_g in zip(self.vt_xG, vxct_xg):

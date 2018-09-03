@@ -213,7 +213,6 @@ class Hamiltonian:
         grid."""
 
         self.timer.start('Hamiltonian')
-
         if self.vt_sg is None:
             with self.timer('Initialize Hamiltonian'):
                 self.initialize()
