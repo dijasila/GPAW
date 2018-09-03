@@ -1,5 +1,5 @@
 import numpy as np
-from gpaw.odd.lcao.tools import cubic_interpolation, parabola_interpolation
+from gpaw.odd.lcao.tools import cubic_interpolation
 
 
 def appr_wc(der_phi_0, phi_0, der_phi_j, phi_j):

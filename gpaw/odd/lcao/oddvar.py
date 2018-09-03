@@ -3,10 +3,12 @@ from gpaw.xc import XC
 from gpaw.poisson import PoissonSolver
 from gpaw.transformers import Transformer
 
-from gpaw.odd.lcao.potentials import *
-from gpaw.odd.lcao.tools import *
-from gpaw.odd.lcao.search_directions import *
-from gpaw.odd.lcao.line_search import *
+from gpaw.odd.lcao.potentials import ZeroOddLcao, PZpotentialLcao
+from gpaw.odd.lcao.tools import expm_ed, random_skew_herm_matrix
+from gpaw.odd.lcao.search_directions import LBFGSdirection_prec, \
+    LBFGSdirection, QuickMin, HZcg, FRcg
+from gpaw.odd.lcao.line_search import StrongWolfeConditions, \
+    UnitStepLength
 from gpaw.odd.lcao.wave_function_guess import get_initial_guess,\
     loewdin
 
@@ -18,6 +20,7 @@ from ase.calculators.calculator import Calculator
 from gpaw.utilities.partition import AtomPartition
 from gpaw.output import print_positions
 import gpaw.mpi as mpi
+from gpaw.utilities.blas import mmm
 
 all_changes = ['positions', 'numbers', 'cell', 'pbc',
                'initial_charges', 'initial_magmoms']
