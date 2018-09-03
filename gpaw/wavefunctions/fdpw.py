@@ -256,7 +256,7 @@ class FDPWWaveFunctions(WaveFunctions):
             paste_wfs()
 
         self.set_orthonormalized(False)
-        self.pt.set_positions(spos_ac)
+        self.pt.set_positions(spos_ac, atom_partition)
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
         self.positions_set = True
 

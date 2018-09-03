@@ -457,25 +457,66 @@ class PWDescriptor:
         pd.ifftplan.execute()
         return pd.tmp_R * (1.0 / self.tmp_R.size), a_G
 
-    def map(self, pd, q=-1):
-        N_c = np.array(self.tmp_Q.shape)
-        N3_c = pd.tmp_Q.shape
-        Q2_G = self.Q_qG[q]
-        Q2_Gc = np.empty((len(Q2_G), 3), int)
-        Q2_Gc[:, 0], r_G = divmod(Q2_G, N_c[1] * N_c[2])
-        Q2_Gc.T[1:] = divmod(r_G, N_c[2])
-        if self.dtype == float:
+
+class PWMapping:
+    def __init__(self, pd1, pd2):
+        assert pd1.tmp_R.size < pd2.tmp_R.size
+        N_c = np.array(pd1.tmp_Q.shape)
+        N2_c = pd2.tmp_Q.shape
+        Q1_G = pd1.Q_qG[0]
+        Q1_Gc = np.empty((len(Q1_G), 3), int)
+        Q1_Gc[:, 0], r_G = divmod(Q1_G, N_c[1] * N_c[2])
+        Q1_Gc.T[1:] = divmod(r_G, N_c[2])
+        if pd1.dtype == float:
             C = 2
         else:
             C = 3
-        Q2_Gc[:, :C] += N_c[:C] // 2
-        Q2_Gc[:, :C] %= N_c[:C]
-        Q2_Gc[:, :C] -= N_c[:C] // 2
-        Q2_Gc[:, :C] %= N3_c[:C]
-        Q3_G = Q2_Gc[:, 2] + N3_c[2] * (Q2_Gc[:, 1] + N3_c[1] * Q2_Gc[:, 0])
-        G3_Q = np.empty(N3_c, int).ravel()
-        G3_Q[pd.Q_qG[q]] = np.arange(len(pd.Q_qG[q]))
-        return G3_Q[Q3_G]
+        Q1_Gc[:, :C] += N_c[:C] // 2
+        Q1_Gc[:, :C] %= N_c[:C]
+        Q1_Gc[:, :C] -= N_c[:C] // 2
+        Q1_Gc[:, :C] %= N2_c[:C]
+        Q2_G = Q1_Gc[:, 2] + N2_c[2] * (Q1_Gc[:, 1] + N2_c[1] * Q1_Gc[:, 0])
+        G2_Q = np.empty(N2_c, int).ravel()
+        G2_Q[:] = -1
+        G2_Q[pd2.myQ_qG[0]] = np.arange(pd2.myng)
+        G2_G1 = G2_Q[Q2_G]
+
+        if pd1.gd.comm.size == 1:
+            self.G2_G1 = G2_G1
+            self.G1 = None
+        else:
+            mask_G1 = (G2_G1 != -1)
+            self.G2_G1 = G2_G1[mask_G1]
+            self.G1 = np.arange(pd1.ngmax)[mask_G1]
+
+        self.pd1 = pd1
+        self.pd2 = pd2
+
+    def add_to1(self, a_G1, b_G2):
+        scale = self.pd1.tmp_R.size / self.pd2.tmp_R.size
+
+        if self.pd1.gd.comm.size == 1:
+            a_G1 += b_G2[self.G2_G1] * scale
+            return
+
+        b_G1 = self.pd1.tmp_G
+        b_G1[:] = 0.0
+        b_G1[self.G1] = b_G2[self.G2_G1]
+        self.pd1.gd.comm.sum(b_G1)
+        ng1 = self.pd1.gd.comm.rank * self.pd1.myng
+        ng2 = ng1 + self.pd1.myng
+        a_G1 += b_G1[ng1:ng2] * scale
+
+    def add_to2(self, a_G2, b_G1):
+        myb_G1 = b_G1 * (self.pd2.tmp_R.size / self.pd1.tmp_R.size)
+        if self.pd1.gd.comm.size == 1:
+            a_G2[self.G2_G1] += myb_G1
+            return
+
+        b_G1 = self.pd1.tmp_G
+        self.pd1.gd.comm.gather(myb_G1, 0, b_G1)
+        print(a_G2.shape, self.G2_G1, myb_G1.shape, self.G1)
+        a_G2[self.G2_G1] += myb_G1[self.G1]
 
 
 def count_reciprocal_vectors(ecut, gd, q_c):
@@ -1181,7 +1222,7 @@ class PWLFC(BaseLFC):
         for a, rank in enumerate(atom_partition.rank_a):
             I2 = I1 + self.get_function_count(a)
             if rank == self.comm.rank:
-                self.indices.append((a, I1, I2))
+                self.my_indices.append((a, I1, I2))
             I1 = I2
         self.nI = I1
 
@@ -1212,8 +1253,7 @@ class PWLFC(BaseLFC):
                            f_IG, emiGRbuf_G)
         return f_IG
 
-    def block(self, q=None, serial=True):
-        assert q != -1
+    def block(self, q=-1, serial=True):
         nG = self.Y_qLG[q or 0].shape[1]
         iblock = 0
         if self.blocksize:
@@ -1230,9 +1270,9 @@ class PWLFC(BaseLFC):
             else:
                 yield 0, 0
 
-    def add(self, a_xG, c_axi=1.0, q=None, f0_IG=None, serial=True):
+    def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None, serial=True):
         if isinstance(c_axi, float):
-            assert q is None, a_xG.dims == 1
+            assert q == -1, a_xG.dims == 1
             a_xG += (c_axi / self.pd.gd.dv) * self.expand().sum(0)
             return
 
@@ -1260,7 +1300,7 @@ class PWLFC(BaseLFC):
 
             gemm(1.0 / self.pd.gd.dv, f_IG, c_xI, 1.0, a_xG[:, G1:G2])
 
-    def integrate(self, a_xG, c_axi=None, q=None):
+    def integrate(self, a_xG, c_axi=None, q=-1):
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
         b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
@@ -1440,7 +1480,7 @@ class ReciprocalSpaceDensity(Density):
         self.pd2 = PWDescriptor(None, gd)
         self.pd3 = PWDescriptor(None, finegd)
 
-        self.G3_G = self.pd2.map(self.pd3)
+        self.map23 = PWMapping(self.pd2, self.pd3)
 
         # self.xc_redistributor = GridRedistributor(redistributor.comm,
         #                                           redistributor.comm,
@@ -1508,11 +1548,13 @@ class ReciprocalSpaceDensity(Density):
         self.rhot_q = self.pd3.zeros()
         Q_aL = self.Q.calculate(self.D_asp)
         self.ghat.add(self.rhot_q, Q_aL, serial=False)
-        self.ghat.comm.sum(self.rhot_q)
-        self.rhot_q[self.G3_G] += self.nt_Q * 8
+        #self.ghat.comm.sum(self.rhot_q)
+        self.map23.add_to2(self.rhot_q, self.nt_Q)
         self.background_charge.add_fourier_space_charge_to(self.pd3,
                                                            self.rhot_q)
-        self.rhot_q[0] = 0.0
+        if self.gd.comm.rank == 0:
+            assert abs(self.rhot_q[0]) < 1e-14
+            self.rhot_q[0] = 0.0
 
     def get_pseudo_core_kinetic_energy_density_lfc(self):
         return PseudoCoreKineticEnergyDensityLFC(
@@ -1605,14 +1647,16 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             self.poisson.solve(self.vHt_q, dens)
             self.epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
 
-        self.vt_Q = self.vbar_Q + self.vHt_q[dens.G3_G] / 8
-        self.e_external = 0.0
+        if self.vext is None:
+            v_q = self.vHt_q
+            self.e_external = 0.0
+        else:
+            v_q = self.vext.get_potentialq(self.finegd, self.pd3)
+            self.e_external = self.pd3.integrate(v_q, dens.rhot_q)
+            v_q += self.vHt_q
 
-        if self.vext is not None:
-            gd = self.finegd
-            vext_q = self.vext.get_potentialq(gd, self.pd3)
-            self.vt_Q += vext_q[dens.G3_G] / 8
-            self.e_external = self.pd3.integrate(vext_q, dens.rhot_q)
+        self.vt_Q = self.vbar_Q.copy()
+        self.map12.add_to1(self.vt_Q, v_q)
 
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
