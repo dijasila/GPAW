@@ -13,8 +13,7 @@ setup = globals()['calc']
 c = ase.db.connect('results.db')
 
 names = [name for name in glob('*.py') if name not in
-         ['run.py', 'params.py',
-          'submit.agts.py', 'run.py.py', 'analyse.py']]
+         ['run.py', 'params.py', 'submit.agts.py', 'analyse.py']]
 
 for name in names:
     namespace = {}
