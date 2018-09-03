@@ -423,7 +423,7 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
         if density_cut:
             if n_G is None:
                 n_G = n_sG[0] + n_sG[1]
-            npos_G = n_G > density_cut
+            npos_G = np.abs(n_G) > density_cut
         else:
             npos_G = np.full(np.shape(n_sG[0]), True, np.array(True).dtype)
         
