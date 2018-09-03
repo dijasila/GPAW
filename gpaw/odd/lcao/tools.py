@@ -18,15 +18,6 @@ def get_grad_from_matrix_exponential(A, L):
     return np.dot(D, U).T
 
 
-def steepest_descent(A, G, alpha = 1.0):
-
-    for i in range(A.shape[0]):
-        for j in range(i, A.shape[1]):
-            A[i][j] += -alpha*G[i][j]
-            if j != i:
-                A[j][i] = -np.conjugate(A[i][j])
-
-
 def cubic_interpolation(x_0, x_1, f_0, f_1, df_0, df_1):
         """
         f(x) = a x^3 + b x^2 + c x + d
