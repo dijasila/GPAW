@@ -44,13 +44,15 @@ def agts(cmd):
 
         shell('cd ase; git pull')
         shell('cd gpaw; git clean -fdx; git pull;'
-              '. doc/platforms/Linux/Niflheim/compile.sh;'
-              'cd doc; make')
+              '. doc/platforms/Linux/Niflheim/compile.sh')
         arch = 'linux-x86_64-broadwell-el7-3.6'
         path = '/home/niflheim2/jensj/agts'
         pp = ('{path}/ase:{path}/gpaw:{path}/gpaw/build/lib.{arch}'
               .format(path=path, arch=arch))
-        shell('PYTHONPATH={pp}:$PYTHONPATH mq workflow -p agts.py gpaw -T'
+        shell('cd gpaw/doc; '
+              'PYTHONPATH={pp}:$PYTHONPATH make; '
+              'cd ..; '
+              'PYTHONPATH={pp}:$PYTHONPATH mq workflow -p agts.py -T'
               .format(pp=pp))
 
     elif cmd == 'summary':

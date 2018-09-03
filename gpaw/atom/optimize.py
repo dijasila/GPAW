@@ -59,7 +59,6 @@ class DatasetOptimizer:
         self.projectors = re.sub(pattern, '{:.1f}', projectors)
         self.nenergies = len(energies)
 
-        # Round to integers:
         self.x = energies + radii + [r0]
         self.bounds = ([(-1.0, 4.0)] * self.nenergies +
                        [(r * 0.6, r * 1.5) for r in radii] +
@@ -204,8 +203,8 @@ class DatasetOptimizer:
             errors[1] = error
 
             area, niter, energies = self.convergence(fd)
-            errors[2] = area
-            errors[3] = niter
+            errors[2] = niter
+            errors[3] = area
 
             eggenergies = self.eggbox(fd)
             errors[4] = max(eggenergies)
