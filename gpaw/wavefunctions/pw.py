@@ -297,12 +297,11 @@ class PWDescriptor:
                 t[-n:, 0] = t[n:0:-1, 0].conj()
             self.ifftplan.execute()
         if self.gd.comm.size == 1:
-            return self.tmp_R
+            return self.tmp_R.copy()
         return self.gd.distribute(self.tmp_R)
 
     def integrate(self, a_xg, b_yg=None,
-                  global_integral=True, hermitian=False,
-                  _transposed_result=None):
+                  global_integral=True, hermitian=False):
         """Integrate function(s) over domain.
 
         a_xg: ndarray
@@ -315,9 +314,7 @@ class PWDescriptor:
             only, use global_integral=False.
         hermitian: bool
             Result is hermitian.
-        _transposed_result: ndarray
-            Long story.  Don't use this unless you are a method of the
-            MatrixOperator class ..."""
+        """
 
         if b_yg is None:
             # Only one array:
@@ -334,10 +331,7 @@ class PWDescriptor:
             A_xg = A_xg.view(float)
             B_yg = B_yg.view(float)
 
-        if _transposed_result is None:
-            result_yx = np.zeros((len(B_yg), len(A_xg)), self.dtype)
-        else:
-            result_yx = _transposed_result
+        result_yx = np.zeros((len(B_yg), len(A_xg)), self.dtype)
 
         if a_xg is b_yg:
             rk(alpha, A_xg, 0.0, result_yx)
@@ -361,7 +355,7 @@ class PWDescriptor:
         if result.ndim == 0:
             return self.gd.comm.sum(result.item())
         else:
-            self.gd.comm.sum(result)
+            self.gd.comm.sum(result.T)
             return result
 
     def interpolate(self, a_R, pd, q=None):
