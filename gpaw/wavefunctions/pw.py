@@ -1216,11 +1216,13 @@ class PWLFC(BaseLFC):
 
         self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
 
+        self.my_atom_indices = []
         self.my_indices = []
         I1 = 0
         for a, rank in enumerate(atom_partition.rank_a):
             I2 = I1 + self.get_function_count(a)
             if rank == self.comm.rank:
+                self.my_atom_indices.append(a)
                 self.my_indices.append((a, I1, I2))
             I1 = I2
         self.nI = I1
