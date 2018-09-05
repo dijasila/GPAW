@@ -282,7 +282,8 @@ class PWDescriptor:
         """
         c_G = c_G * (1.0 / self.tmp_R.size)
         if self.gd.comm.size > 1:
-            self.gd.comm.gather(c_G, 0, self.tmp_G)
+            self.gd.comm.gather(c_G, 0,
+                                self.tmp_G if self.gd.comm.rank == 0 else None)
             c_G = self.tmp_G
         if self.gd.comm.rank == 0:
             self.tmp_Q[:] = 0.0
@@ -852,7 +853,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         H_GG.ravel()[G1::npw + 1] = (0.5 * self.pd.gd.dv / N *
                                      self.pd.G2_qG[q][G1:G2])
-
         for G in range(G1, G2):
             x_G = self.pd.zeros(q=q)
             x_G[G] = 1.0
@@ -1206,7 +1206,8 @@ class PWLFC(BaseLFC):
         self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
 
         if atom_partition is None:
-            rank_a = np.arange(len(spos_ac))
+            assert self.comm.size == 1
+            rank_a = np.zeros(len(spos_ac), int)
         else:
             rank_a = atom_partition.rank_a
 
