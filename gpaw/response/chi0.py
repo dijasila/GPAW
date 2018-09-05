@@ -828,13 +828,22 @@ class Chi0:
         """
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
 
-        if self.calc.wfs.kd.refine_info is not None:
-            K1 = self.pair.find_kpoint(k_c)
-            if self.calc.wfs.kd.refine_info.label_k[K1] == 'zero':
-                return None
-
         q_c = pd.kd.bzk_kc[0]
         optical_limit = np.allclose(q_c, 0.0)
+
+        if self.calc.wfs.kd.refine_info is not None:
+            K1 = self.pair.find_kpoint(k_c)
+            label = kd.refine_info.label_k[K1]
+            if label == 'zero':
+                return None
+            elif (kd.refine_info.almostoptical and label == 'mh'):
+                if not hasattr(self, 'pd0'):
+                    self.pd0 = self.get_PWDescriptor([0, ] * 3)
+                pd = self.pd0
+                extrapolate_q = True
+        else:
+            extrapolate_q = False
+
         nG = pd.ngmax
         weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
                          symmetry.how_many_symmetries())
@@ -856,6 +865,12 @@ class Chi0:
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
         df_nm[df_nm <= 1e-20] = 0.0
         n_nmG *= df_nm[..., np.newaxis]**0.5
+
+        if extrapolate_q:
+            q_v = np.dot(q_c, pd.gd.icell_cv) * (2 * np.pi)
+            nq_nm = np.dot(n_nmG[:, :, :3], q_v)
+            n_nmG = n_nmG[:, :, 2:]
+            n_nmG[:, :, 0] = nq_nm
 
         if not extend_head and optical_limit:
             n_nmG = np.copy(n_nmG[:, :, 2:])
