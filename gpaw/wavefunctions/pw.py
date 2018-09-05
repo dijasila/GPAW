@@ -234,20 +234,19 @@ class PWDescriptor:
     def bytecount(self, dtype=float):
         return self.ngmax * 16
 
-    def zeros(self, x=(), dtype=None, q=None):
+    def zeros(self, x=(), dtype=None, q=-1):
         a_xG = self.empty(x, dtype, q)
         a_xG.fill(0.0)
         return a_xG
 
-    def empty(self, x=(), dtype=None, q=None):
+    def empty(self, x=(), dtype=None, q=-1):
         if dtype is not None:
             assert dtype == self.dtype
         if isinstance(x, numbers.Integral):
             x = (x,)
-        if q is None:
+        if q == -1:
             shape = x + (self.myng,)
         else:
-            assert q >= 0
             shape = x + self.myQ_qG[q].shape
         return np.empty(shape, complex)
 
@@ -359,7 +358,7 @@ class PWDescriptor:
             return result
 
     def interpolate(self, a_R, pd, q=None):
-        assert q != -1
+        assert q is None
         self.gd.collect(a_R, self.tmp_R[:])
 
         if self.gd.comm.rank == 0:
@@ -594,7 +593,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                    bd=bd, dtype=dtype, world=world, kd=kd,
                                    kptband_comm=kptband_comm, timer=timer)
 
-    def empty(self, n=(), global_array=False, realspace=False, q=None):
+    def empty(self, n=(), global_array=False, realspace=False, q=-1):
         if realspace:
             return self.gd.empty(n, self.dtype, global_array)
         else:
@@ -1187,20 +1186,16 @@ class PWLFC(BaseLFC):
         return sum(2 * l + 1 for l, f_qG in self.lf_aj[a])
 
     def __iter__(self):
-        I1 = 0
-        assert False
-        for a in self.my_atom_indices:
+        for a, I1, I2 in self.my_indices:
             j = 0
             i1 = 0
             for l, f_qG in self.lf_aj[a]:
                 i2 = i1 + 2 * l + 1
-                I2 = I1 + 2 * l + 1
-                yield a, j, i1, i2, I1, I2
+                yield a, j, i1, i2, I1 + i1, I1 + i2
                 i1 = i2
-                I1 = I2
                 j += 1
 
-    def set_positions(self, spos_ac, atom_partition):
+    def set_positions(self, spos_ac, atom_partition=None):
         self.initialize()
         kd = self.pd.kd
         if kd is None or kd.gamma:
@@ -1210,10 +1205,15 @@ class PWLFC(BaseLFC):
 
         self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
 
+        if atom_partition is None:
+            rank_a = np.arange(len(spos_ac))
+        else:
+            rank_a = atom_partition.rank_a
+
         self.my_atom_indices = []
         self.my_indices = []
         I1 = 0
-        for a, rank in enumerate(atom_partition.rank_a):
+        for a, rank in enumerate(rank_a):
             I2 = I1 + self.get_function_count(a)
             if rank == self.comm.rank:
                 self.my_atom_indices.append(a)
@@ -1249,7 +1249,7 @@ class PWLFC(BaseLFC):
         return f_IG
 
     def block(self, q=-1, serial=True):
-        nG = self.Y_qLG[q or 0].shape[1]
+        nG = self.Y_qLG[q].shape[1]
         iblock = 0
         if self.blocksize:
             G1 = 0
@@ -1401,7 +1401,6 @@ class PWLFC(BaseLFC):
             c_axi = dict((a, c_axi) for a in range(len(self.pos_av)))
 
         G0_Gv = self.pd.get_reciprocal_vectors(q=q)
-
         serial = False
 
         stress_vv = np.zeros((3, 3))
@@ -1452,7 +1451,7 @@ class PWLFC(BaseLFC):
         gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
 
         stress = 0.0
-        for a, I1, I2 in self.indices:
+        for a, I1, I2 in self.my_indices:
             stress -= self.eikR_qa[q][a] * (c_axi[a] * c_xI[..., I1:I2]).sum()
         return stress.real
 
