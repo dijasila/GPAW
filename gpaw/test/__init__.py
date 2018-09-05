@@ -149,7 +149,6 @@ tests = [
     'ext_potential/harmonic.py',
     'atoms_mismatch.py',
     'setup_basis_spec.py',
-    # 'overlap.py',  see #153
     'pw/direct.py',
     'vdw/libvdwxc_spin.py',                 # ~1s
     'timing.py',                            # ~1s
@@ -243,6 +242,7 @@ tests = [
     'fileio/refine.py',                     # ~5s
     'solvation/pbc.py',                     # ~5s
     'generic/asym_box.py',                  # ~5s
+    'overlap.py',                           # ~5s
     'linalg/gemm.py',                       # ~6s
     'generic/al_chain.py',                  # ~6s
     'fileio/parallel.py',                   # ~6s

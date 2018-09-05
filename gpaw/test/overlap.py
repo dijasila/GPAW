@@ -83,5 +83,5 @@ c2 = GPAW(h=h, txt=txt, nbands=nbands + 1,
           convergence={'eigenstates':nbands + 1})
 try:
     show(c2)
-except AssertionError:
-    parprint('Not ready')
+except (AssertionError, IndexError) as e:
+    parprint('Not ready:', e)
