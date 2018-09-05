@@ -28,6 +28,7 @@ class ExternalPotential:
 
         if self.vext_g is None:
             self.calculate_potential(gd)
+            self.vext_g.flags.writeable = False
         return self.vext_g
 
     def get_potentialq(self, gd, pd3):
@@ -38,6 +39,7 @@ class ExternalPotential:
         if self.vext_q is None:
             vext_g = self.get_potential(gd)
             self.vext_q = pd3.fft(vext_g)
+            self.vext_q.flags.writeable = False
 
         return self.vext_q
 

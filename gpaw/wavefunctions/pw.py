@@ -1643,7 +1643,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             v_q = self.vHt_q
             self.e_external = 0.0
         else:
-            v_q = self.vext.get_potentialq(self.finegd, self.pd3)
+            v_q = self.vext.get_potentialq(self.finegd, self.pd3).copy()
             self.e_external = self.pd3.integrate(v_q, dens.rhot_q)
             v_q += self.vHt_q
 
