@@ -262,12 +262,22 @@ class PWDescriptor:
                    R
         """
 
-        self.tmp_R[:] = f_R
+        self.gd.collect(f_R, self.tmp_R)
 
-        self.fftplan.execute()
-        if Q_G is None:
-            Q_G = self.Q_qG[q]
-        return self.tmp_Q.ravel()[Q_G]
+        if self.gd.comm.rank == 0:
+            self.fftplan.execute()
+            if Q_G is None:
+                Q_G = self.Q_qG[q]
+                f_G = self.tmp_Q.ravel()[Q_G]
+        else:
+            f_G = None
+
+        if self.gd.comm.size > 1:
+            myf_G = self.empty()
+            self.gd.comm.scatter(f_G, myf_G, 0)
+            f_G = myf_G
+
+        return f_G
 
     def ifft(self, c_G, q=-1):
         """Inverse fast Fourier transform.
@@ -406,50 +416,60 @@ class PWDescriptor:
             a_G = None
 
         if self.gd.comm.size > 1:
-            assert q is None
             mya_G = self.empty()
             self.gd.comm.scatter(a_G, mya_G, 0)
             a_G = mya_G
 
         return pd.gd.distribute(pd.tmp_R) * (1.0 / self.tmp_R.size), a_G
 
-    def restrict(self, a_R, pd, q=-1):
-        a_Q = pd.tmp_Q
-        b_Q = self.tmp_Q
+    def restrict(self, a_R, pd, q=None):
+        assert q is None
+        self.gd.collect(a_R, self.tmp_R[:])
 
-        e0, e1, e2 = 1 - pd.gd.N_c % 2  # even or odd size
-        a0, a1, a2 = self.gd.N_c // 2 - pd.gd.N_c // 2
-        b0, b1, b2 = pd.gd.N_c // 2 + self.gd.N_c // 2 + 1
+        if self.gd.comm.rank == 0:
+            a_Q = pd.tmp_Q
+            b_Q = self.tmp_Q
 
-        if self.dtype == float:
-            b2 = pd.gd.N_c[2] // 2 + 1
-            a2 = 0
-            axes = (0, 1)
+            e0, e1, e2 = 1 - pd.gd.N_c % 2  # even or odd size
+            a0, a1, a2 = self.gd.N_c // 2 - pd.gd.N_c // 2
+            b0, b1, b2 = pd.gd.N_c // 2 + self.gd.N_c // 2 + 1
+
+            if self.dtype == float:
+                b2 = pd.gd.N_c[2] // 2 + 1
+                a2 = 0
+                axes = (0, 1)
+            else:
+                axes = (0, 1, 2)
+
+            self.fftplan.execute()
+            b_Q[:] = np.fft.fftshift(b_Q, axes=axes)
+
+            if e0:
+                b_Q[a0, a1:b1, a2:b2] += b_Q[b0 - 1, a1:b1, a2:b2]
+                b_Q[a0, a1:b1, a2:b2] *= 0.5
+                b0 -= 1
+            if e1:
+                b_Q[a0:b0, a1, a2:b2] += b_Q[a0:b0, b1 - 1, a2:b2]
+                b_Q[a0:b0, a1, a2:b2] *= 0.5
+                b1 -= 1
+            if self.dtype == complex and e2:
+                b_Q[a0:b0, a1:b1, a2] += b_Q[a0:b0, a1:b1, b2 - 1]
+                b_Q[a0:b0, a1:b1, a2] *= 0.5
+                b2 -= 1
+
+            a_Q[:] = b_Q[a0:b0, a1:b1, a2:b2]
+            a_Q[:] = np.fft.ifftshift(a_Q, axes=axes)
+            a_G = a_Q.ravel()[pd.Q_qG[0]] / 8
+            pd.ifftplan.execute()
         else:
-            axes = (0, 1, 2)
+            a_G = None
 
-        self.tmp_R[:] = a_R
-        self.fftplan.execute()
-        b_Q[:] = np.fft.fftshift(b_Q, axes=axes)
+        if self.gd.comm.size > 1:
+            mya_G = pd.empty()
+            self.gd.comm.scatter(a_G, mya_G, 0)
+            a_G = mya_G
 
-        if e0:
-            b_Q[a0, a1:b1, a2:b2] += b_Q[b0 - 1, a1:b1, a2:b2]
-            b_Q[a0, a1:b1, a2:b2] *= 0.5
-            b0 -= 1
-        if e1:
-            b_Q[a0:b0, a1, a2:b2] += b_Q[a0:b0, b1 - 1, a2:b2]
-            b_Q[a0:b0, a1, a2:b2] *= 0.5
-            b1 -= 1
-        if self.dtype == complex and e2:
-            b_Q[a0:b0, a1:b1, a2] += b_Q[a0:b0, a1:b1, b2 - 1]
-            b_Q[a0:b0, a1:b1, a2] *= 0.5
-            b2 -= 1
-
-        a_Q[:] = b_Q[a0:b0, a1:b1, a2:b2]
-        a_Q[:] = np.fft.ifftshift(a_Q, axes=axes)
-        a_G = a_Q.ravel()[pd.Q_qG[q]] / 8
-        pd.ifftplan.execute()
-        return pd.tmp_R * (1.0 / self.tmp_R.size), a_G
+        return pd.gd.distribute(pd.tmp_R) * (1.0 / self.tmp_R.size), a_G
 
 
 class PWMapping:

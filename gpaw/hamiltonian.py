@@ -250,7 +250,8 @@ class Hamiltonian:
         e_external = 0.0
         e_xc = 0.0
 
-        D_asp = self.atomdist.to_work(dens.D_asp)
+        #D_asp = self.atomdist.to_work(dens.D_asp)
+        D_asp = dens.D_asp
         dtype = complex if self.soc else float
         dH_asp = self.setups.empty_atomic_matrix(self.ncomponents,
                                                  D_asp.partition, dtype)
