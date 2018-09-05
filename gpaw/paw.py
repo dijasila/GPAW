@@ -323,7 +323,7 @@ class PAW:
                 n_G = n_sG[spin]
 
         if collect:
-            n_G = gd.collect(n_G, broadcast)
+            n_G = gd.collect(n_G, broadcast=broadcast)
 
         if n_G is None:
             return None

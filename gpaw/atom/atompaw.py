@@ -167,7 +167,7 @@ class AtomLocalizedFunctionsCollection:
         self.nfunctions = sum(2 * spline.get_angular_momentum_number() + 1
                               for spline in spline_aj[0])
 
-    def set_positions(self, spos_ac):
+    def set_positions(self, spos_ac, atom_partition=None):
         pass
 
     def add(self, a_xG, c_axi=1.0, q=-1):

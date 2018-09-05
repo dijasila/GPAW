@@ -192,7 +192,7 @@ class Hamiltonian:
 
     def set_positions(self, spos_ac, atom_partition):
         self.vbar.set_positions(spos_ac, atom_partition)
-        self.xc.set_positions(spos_ac, atom_partition)
+        self.xc.set_positions(spos_ac)
         self.set_positions_without_ruining_everything(spos_ac, atom_partition)
         self.positions_set = True
 
