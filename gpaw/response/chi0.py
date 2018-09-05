@@ -831,6 +831,7 @@ class Chi0:
         q_c = pd.kd.bzk_kc[0]
         optical_limit = np.allclose(q_c, 0.0)
 
+        extrapolate_q = False
         if self.calc.wfs.kd.refine_info is not None:
             K1 = self.pair.find_kpoint(k_c)
             label = kd.refine_info.label_k[K1]
@@ -841,8 +842,6 @@ class Chi0:
                     self.pd0 = self.get_PWDescriptor([0, ] * 3)
                 pd = self.pd0
                 extrapolate_q = True
-        else:
-            extrapolate_q = False
 
         nG = pd.ngmax
         weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
@@ -855,7 +854,7 @@ class Chi0:
 
         m_m = np.arange(m1, m2)
         n_n = np.arange(n1, n2)
-        
+
         n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
                                            Q_aGii=self.Q_aGii, block=block)
 

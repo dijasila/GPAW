@@ -19,7 +19,7 @@ kpt_refine = {"center": [1. / 3, 1. / 3, 0.],
                        [5, 5, 1],
                        [5, 5, 1]],
               "reduce_symmetry": False,
-              'q': [1. / (15 * 50), 0, 0]}
+              'q': [1. / (15 * 5), 0, 0]}
 
 if not os.path.exists('graphene.gpw'):
     calc = GPAW(mode=PW(ecut=400),
