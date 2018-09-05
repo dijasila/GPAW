@@ -353,7 +353,7 @@ tests = [
     'xc/revPBE_Li.py',                      # ~26s
     'ofdft/ofdft_scale.py',                 # ~26s
     'parallel/lcao_parallel_kpt.py',        # ~29s
-    # 'lrtddft/placzek_profeta_albrecht.py',  # ~29s  see #153
+    'lrtddft/placzek_profeta_albrecht.py',  # ~29s
     'corehole/h2o_dks.py',                  # ~30s
     'lcaotddft/parallel_options.py',        # ~30s
     'lcaotddft/lcaotddft_vs_lrtddft2.py',   # ~30s
