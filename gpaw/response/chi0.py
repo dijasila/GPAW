@@ -852,20 +852,10 @@ class Chi0:
                     Q_G = pd.Q_qG[0]
                     # Map finite q G-vectors to q=0 G-vectors
                     Gmap_G = [np.argmax(Q == Q0_G) for Q in Q_G]
-                    # args = ([0] + list(np.nonzero(np.diff(Gmap_G) > 1)[0] + 1) +
-                    #         [len(Q0_G) - 1])
-                    # Gslices = [slice(args[i], args[i + 1]) for i in range(len(args) - 1)]
-                    # print(args)
-                    # print(Gslices)
-                    # Gslices_G = slice(i, j)
                     self.Gmap_G = Gmap_G
-                    # print(Gmap_G)
-                # assert pd.ngmax == self.pd0.ngmax, (pd.ngmax, self.pd0.ngmax,
-                #                                     pd.Q_qG[0], self.pd0.Q_qG[0])
                 pd = self.pd0
                 extrapolate_q = True
 
-        # nG = pd.ngmax
         weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
                          symmetry.how_many_symmetries())
         if self.Q_aGii is None:
@@ -892,7 +882,6 @@ class Chi0:
             nq_nm = np.dot(n_nmG[:, :, :3], q_v)
             n_nmG = n_nmG[:, :, 2:]
             n_nmG = n_nmG[:, :, self.Gmap_G]
-            print(n_nmG.shape)
             n_nmG[:, :, 0] = nq_nm
 
         if not extend_head and optical_limit:
