@@ -6,12 +6,14 @@ class Overlap:
     """Wave funcion overlap of two GPAW objects"""
     def __init__(self, calc):
         self.calc = calc
-        self.nb, self.nk = self.number_of_states(calc)
+        self.nb, self.nk, self.ns = self.number_of_states(calc)
+        assert ns == 1  # XXX consider spin polarization
         ##print(rank, 'nb, nk', self.nb, self.nk)
         self.gd = self.calc.wfs.gd
 
     def number_of_states(self, calc):
-        return calc.get_number_of_bands(), len(calc.wfs.kd.ibzk_kc)
+        return (calc.get_number_of_bands(), len(calc.get_ibz_k_points()),
+                calc.get_number_of_spins())
 
     def pseudo(self, other, normalize=True):
         """Overlap with pseudo wave functions only
@@ -28,8 +30,9 @@ class Overlap:
         out: array
             u_ij =  \int dx mypsitilde_i^*(x) otherpsitilde_j(x)
         """
-        nbo, nko = self.number_of_states(other)
+        nbo, nko, nso = self.number_of_states(other)
         assert(self.nk == nko)
+        assert(self.ns == nso)
 
         overlap_knn = []
         for k in range(self.nk):
