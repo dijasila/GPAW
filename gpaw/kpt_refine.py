@@ -85,18 +85,22 @@ def create_kpoint_descriptor_with_refinement(refine, bzkpts_kc, nspins, atoms,
         kd = add_missing_points(kd, kwargs)
 
     # Add additional +q k-points, if necessary
+    N_coarse_c = get_monkhorst_pack_size_and_offset(bzk_coarse_kc)[0]
     if 'q' in refine:
         timer.start("+q")
-        N_coarse_c = get_monkhorst_pack_size_and_offset(bzk_coarse_kc)[0]
-        bla = N_coarse_c * refine['q']
-        if not max(abs(bla - np.rint(bla))) < 1e-8:
+        q_qc = np.array(refine['q'], ndmin=2)
+        bla = q_qc * N_coarse_c
+        if not np.max(abs(bla - np.rint(bla))) < 1e-8:
             kd.refine_info.almostoptical = True
-        kd = add_plusq_points(kd, refine['q'], kwargs)
+        for q_c in q_qc:
+            kd = add_plusq_points(kd, q_c, kwargs)
         symm = kd.symmetry
         kwargs['symmetry'] = symm
         kd = add_missing_points(kd, kwargs)
         timer.stop("+q")
 
+    # Add combined N_c value
+    kd.refine_info.N_c = N_coarse_c * np.prod(size, axis=0)
     return kd
 
 def create_kpoint_descriptor(bzkpts_kc, nspins, atoms, symmetry, comm):
@@ -316,17 +320,17 @@ def add_missing_points(kd, kwargs):
     return kd_new
 
 def add_plusq_points(kd, q_c, kwargs):
-    """Add +q points to k-point descriptor, if missing. Also, reduce the 
+    """Add +q points to k-point descriptor, if missing. Also, reduce the
     symmetry of the system as necessary."""
 
     # Add missing points to retrieve full symmetry. Might be redundant.
     _kd = add_missing_points(kd, kwargs)
-    
+
     # Find missing q
     add_points_kc = []
     for k in range(_kd.nbzkpts):
-        # if q_c is small, use q_c = 0.0 for mh points, else they don't need
-        # extra points anyway
+        # if q_c is small, use q_c = 0.0 for mh points,
+        # else they don't need extra points anyway
         if _kd.refine_info.label_k[k] == 'mh':
             continue
         try:
@@ -334,6 +338,10 @@ def add_plusq_points(kd, q_c, kwargs):
         except KPointError:
             k_c = _kd.bzk_kc[k] + q_c
             add_points_kc.append(np.array(k_c, ndmin=2))
+
+    if not len(add_points_kc):
+        return _kd
+
     add_points_kc = np.concatenate(add_points_kc)
 
     if add_points_kc.shape[0] == 0:

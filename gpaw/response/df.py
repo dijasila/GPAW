@@ -117,8 +117,11 @@ class DielectricFunction:
             The momentum wavevector.
         """
         if self.name:
-            kd = self.chi0.calc.wfs.kd
-            name = self.name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
+            if self.chi0.calc.wfs.kd.refine_info is not None:
+                N_c = self.chi0.calc.wfs.kd.refine_info.N_c
+            else:
+                N_c = self.chi0.calc.wfs.kd.N_c
+            name = self.name + '%+d%+d%+d.pckl' % tuple((q_c * N_c).round())
             if os.path.isfile(name):
                 return self.read(name)
 

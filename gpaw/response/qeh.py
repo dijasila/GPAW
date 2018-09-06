@@ -954,7 +954,7 @@ class BuildingBlock():
     building block of 2D material with GPAW"""
 
     def __init__(self, filename, df, isotropic_q=True, nq_inf=10,
-                 direction='x', qmax=None, txt=sys.stdout):
+                 direction='x', qmax=None, txt=sys.stdout, q_qc=None):
         """Creates a BuildingBlock object.
 
         filename: str
@@ -978,6 +978,11 @@ class BuildingBlock():
         """
         if qmax is not None:
             assert isotropic_q
+
+        if q_qc is not None:
+            assert not isotropic_q
+            assert qmax is None
+
         self.filename = filename
         self.isotropic_q = isotropic_q
         self.nq_inf = nq_inf
@@ -1017,9 +1022,12 @@ class BuildingBlock():
         # First: choose all ibzq in 2D BZ
         from ase.dft.kpoints import monkhorst_pack
         from gpaw.kpt_descriptor import KPointDescriptor
-        offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
-        bzq_qc = monkhorst_pack(kd.N_c) + offset_c
-        qd = KPointDescriptor(bzq_qc)
+        if q_qc is None:
+            offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
+            bzq_qc = monkhorst_pack(kd.N_c) + offset_c
+            qd = KPointDescriptor(bzq_qc)
+        else:
+            qd = KPointDescriptor(q_qc)
         qd.set_symmetry(calc.atoms, kd.symmetry)
         q_cs = qd.ibzk_kc
         rcell_cv = 2 * pi * np.linalg.inv(calc.wfs.gd.cell_cv).T
@@ -1058,11 +1066,12 @@ class BuildingBlock():
 
         q_infs = np.zeros([q_cs.shape[0] + self.nq_inftot, 3])
         # x-direction:
-        q_infs[: self.nq_inftot, qdir] = \
-            np.linspace(1e-05, q_cut, self.nq_inftot)[:]
-        if not isotropic_q:  # y-direction
-            q_infs[self.nq_inf : self.nq_inftot + 1, 1] = \
-                np.linspace(0, q_cut, self.nq_inf + 1)[1:]
+        if self.nq_inftot > 0:
+            q_infs[: self.nq_inftot, qdir] = \
+                np.linspace(1e-05, q_cut, self.nq_inftot)[:]
+            if not isotropic_q:  # y-direction
+                q_infs[self.nq_inf:self.nq_inftot + 1, 1] = \
+                    np.linspace(0, q_cut, self.nq_inf + 1)[1:]
 
         # add q_inf to list
         self.q_cs = np.insert(q_cs, 0, np.zeros([self.nq_inftot, 3]), axis=0)

@@ -356,6 +356,8 @@ class Chi0:
         optical_limit = np.allclose(q_c, 0.0)
 
         pd = self.get_PWDescriptor(q_c)
+        if hasattr(self, 'pd0'):
+            del self.pd0
 
         self.print_chi(pd)
 
@@ -749,10 +751,12 @@ class Chi0:
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
-    def get_PWDescriptor(self, q_c):
+    def get_PWDescriptor(self, q_c, ecut=None):
         """Get the planewave descriptor of q_c."""
         qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(self.ecut, self.calc.wfs.gd,
+        if ecut is None:
+            ecut = self.ecut
+        pd = PWDescriptor(ecut, self.calc.wfs.gd,
                           complex, qd)
         return pd
 
@@ -830,6 +834,7 @@ class Chi0:
 
         q_c = pd.kd.bzk_kc[0]
         optical_limit = np.allclose(q_c, 0.0)
+        nG = pd.ngmax
 
         extrapolate_q = False
         if self.calc.wfs.kd.refine_info is not None:
@@ -839,11 +844,28 @@ class Chi0:
                 return None
             elif (kd.refine_info.almostoptical and label == 'mh'):
                 if not hasattr(self, 'pd0'):
-                    self.pd0 = self.get_PWDescriptor([0, ] * 3)
+                    absG2 = np.sum((2 * np.pi * pd.gd.icell_cv)**2,
+                                   axis=1).max()
+                    ecut = self.ecut + absG2 / 2
+                    self.pd0 = self.get_PWDescriptor([0, ] * 3, ecut=ecut)
+                    Q0_G = self.pd0.Q_qG[0]
+                    Q_G = pd.Q_qG[0]
+                    # Map finite q G-vectors to q=0 G-vectors
+                    Gmap_G = [np.argmax(Q == Q0_G) for Q in Q_G]
+                    # args = ([0] + list(np.nonzero(np.diff(Gmap_G) > 1)[0] + 1) +
+                    #         [len(Q0_G) - 1])
+                    # Gslices = [slice(args[i], args[i + 1]) for i in range(len(args) - 1)]
+                    # print(args)
+                    # print(Gslices)
+                    # Gslices_G = slice(i, j)
+                    self.Gmap_G = Gmap_G
+                    # print(Gmap_G)
+                # assert pd.ngmax == self.pd0.ngmax, (pd.ngmax, self.pd0.ngmax,
+                #                                     pd.Q_qG[0], self.pd0.Q_qG[0])
                 pd = self.pd0
                 extrapolate_q = True
 
-        nG = pd.ngmax
+        # nG = pd.ngmax
         weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
                          symmetry.how_many_symmetries())
         if self.Q_aGii is None:
@@ -869,6 +891,8 @@ class Chi0:
             q_v = np.dot(q_c, pd.gd.icell_cv) * (2 * np.pi)
             nq_nm = np.dot(n_nmG[:, :, :3], q_v)
             n_nmG = n_nmG[:, :, 2:]
+            n_nmG = n_nmG[:, :, self.Gmap_G]
+            print(n_nmG.shape)
             n_nmG[:, :, 0] = nq_nm
 
         if not extend_head and optical_limit:
