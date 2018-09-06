@@ -28,6 +28,19 @@ from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
 import _gpaw
 
 
+def pad(array, N):
+    """Pad 1-d ndarray with zeros up to length N."""
+    if array is None:
+        return None
+    n = len(array)
+    if n < N:
+        return array
+    b = np.empty_like(array)
+    b[:n] = array
+    b[n:] = 0
+    return b
+
+
 class PW(Mode):
     name = 'pw'
 
@@ -173,8 +186,7 @@ class PWDescriptor:
         G2_qG = []
         Q_Q = np.arange(len(i_Qc), dtype=np.int32)
 
-        self.ngmin = 100000000
-        self.ngmax = 0
+        self.ng_q = []
         for q, K_v in enumerate(self.K_qv):
             G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
             mask_Q = (G2_Q <= 2 * ecut)
@@ -186,8 +198,10 @@ class PWDescriptor:
             self.Q_qG.append(Q_G)
             G2_qG.append(G2_Q[Q_G])
             ng = len(Q_G)
-            self.ngmin = min(ng, self.ngmin)
-            self.ngmax = max(ng, self.ngmax)
+            self.ng_q.append(ng)
+
+        self.ngmin = min(self.ng_q)
+        self.ngmax = max(self.ng_q)
 
         if kd is not None:
             self.ngmin = kd.comm.min(self.ngmin)
@@ -195,17 +209,22 @@ class PWDescriptor:
 
         # Distribute things:
         S = gd.comm.size
-        self.myng = (self.ngmax + S - 1) // S
-        ng1 = gd.comm.rank * self.myng
-        ng2 = ng1 + self.myng
+        self.maxmyng = (self.ngmax + S - 1) // S
+        ng1 = gd.comm.rank * self.maxmyng
+        ng2 = ng1 + self.maxmyng
+        assert ng1 <= self.ngmin
+
         self.G2_qG = []
         self.myQ_qG = []
+        self.myng_q = []
         for q, G2_G in enumerate(G2_qG):
             self.G2_qG.append(G2_G[ng1:ng2].copy())
-            self.myQ_qG.append(self.Q_qG[q][ng1:ng2])
+            myQ_G = self.Q_qG[q][ng1:ng2]
+            self.myQ_qG.append(myQ_G)
+            self.myng_q.append(len(myQ_G))
 
         if S > 1:
-            self.tmp_G = np.empty(self.myng * S, complex)
+            self.tmp_G = np.empty(self.maxmyng * S, complex)
         else:
             self.tmp_G = None
 
@@ -234,20 +253,21 @@ class PWDescriptor:
     def bytecount(self, dtype=float):
         return self.ngmax * 16
 
-    def zeros(self, x=(), dtype=None, q=-1):
+    def zeros(self, x=(), dtype=None, q=0):
+        """"""
         a_xG = self.empty(x, dtype, q)
         a_xG.fill(0.0)
         return a_xG
 
-    def empty(self, x=(), dtype=None, q=-1):
+    def empty(self, x=(), dtype=None, q=0):
         if dtype is not None:
             assert dtype == self.dtype
         if isinstance(x, numbers.Integral):
             x = (x,)
-        if q == -1:
-            shape = x + (self.myng,)
+        if q is None:
+            shape = x + (self.maxmyng,)
         else:
-            shape = x + self.myQ_qG[q].shape
+            shape = x + (self.myng_q[q],)
         return np.empty(shape, complex)
 
     def fft(self, f_R, q=-1, Q_G=None):
@@ -268,16 +288,20 @@ class PWDescriptor:
             self.fftplan.execute()
             if Q_G is None:
                 Q_G = self.Q_qG[q]
-                f_G = self.tmp_Q.ravel()[Q_G]
+            f_G = self.tmp_Q.ravel()[Q_G]
         else:
             f_G = None
 
-        if self.gd.comm.size > 1:
-            myf_G = self.empty()
-            self.gd.comm.scatter(f_G, myf_G, 0)
-            f_G = myf_G
+        return self.scatter(f_G, q)
 
-        return f_G
+    def scatter(self, a_G, q=-1):
+        comm = self.gd.comm
+        if comm.size == 1:
+            return a_G
+
+        mya_G = np.empty(self.maxmyng, complex)
+        comm.scatter(pad(a_G, self.maxmyng * comm.size), mya_G, 0)
+        return mya_G[:self.myng_q[q]]
 
     def ifft(self, c_G, q=-1):
         """Inverse fast Fourier transform.
@@ -291,11 +315,17 @@ class PWDescriptor:
                       G
         """
         c_G = c_G * (1.0 / self.tmp_R.size)
-        if self.gd.comm.size > 1:
-            self.gd.comm.gather(c_G, 0,
-                                self.tmp_G if self.gd.comm.rank == 0 else None)
-            c_G = self.tmp_G
-        if self.gd.comm.rank == 0:
+        comm = self.gd.comm
+        if comm.size > 1:
+            myc_G = pad(c_G, self.maxmyng)
+            if comm.rank == 0:
+                c_G = self.tmp_G
+            else:
+                c_G = None
+            comm.gather(myc_G, 0, c_G)
+            if comm.rank == 0:
+                c_G = c_G[:self.ng_q[q]]
+        if comm.rank == 0:
             self.tmp_Q[:] = 0.0
             self.tmp_Q.ravel()[self.Q_qG[q]] = c_G
             if self.dtype == float:
@@ -306,7 +336,7 @@ class PWDescriptor:
                 t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
                 t[-n:, 0] = t[n:0:-1, 0].conj()
             self.ifftplan.execute()
-        if self.gd.comm.size == 1:
+        if comm.size == 1:
             return self.tmp_R.copy()
         return self.gd.distribute(self.tmp_R)
 
@@ -361,10 +391,12 @@ class PWDescriptor:
         yshape = b_yg.shape[:-1]
         result = result_yx.T.reshape(xshape + yshape)
 
-        assert global_integral or self.gd.comm.size == 1
         if result.ndim == 0:
-            return self.gd.comm.sum(result.item())
+            if global_integral:
+                return self.gd.comm.sum(result.item())
+            return result.item()
         else:
+            assert global_integral or self.gd.comm.size == 1
             self.gd.comm.sum(result.T)
             return result
 
@@ -415,12 +447,8 @@ class PWDescriptor:
         else:
             a_G = None
 
-        if self.gd.comm.size > 1:
-            mya_G = self.empty()
-            self.gd.comm.scatter(a_G, mya_G, 0)
-            a_G = mya_G
-
-        return pd.gd.distribute(pd.tmp_R) * (1.0 / self.tmp_R.size), a_G
+        return (pd.gd.distribute(pd.tmp_R) * (1.0 / self.tmp_R.size),
+                self.scatter(a_G))
 
     def restrict(self, a_R, pd, q=None):
         assert q is None
@@ -464,12 +492,8 @@ class PWDescriptor:
         else:
             a_G = None
 
-        if self.gd.comm.size > 1:
-            mya_G = pd.empty()
-            self.gd.comm.scatter(a_G, mya_G, 0)
-            a_G = mya_G
-
-        return pd.gd.distribute(pd.tmp_R) * (1.0 / self.tmp_R.size), a_G
+        return (pd.gd.distribute(pd.tmp_R) * (1.0 / self.tmp_R.size),
+                pd.scatter(a_G))
 
 
 class PWMapping:
@@ -492,7 +516,7 @@ class PWMapping:
         Q2_G = Q1_Gc[:, 2] + N2_c[2] * (Q1_Gc[:, 1] + N2_c[1] * Q1_Gc[:, 0])
         G2_Q = np.empty(N2_c, int).ravel()
         G2_Q[:] = -1
-        G2_Q[pd2.myQ_qG[0]] = np.arange(pd2.myng)
+        G2_Q[pd2.myQ_qG[0]] = np.arange(pd2.myng_q[0])
         G2_G1 = G2_Q[Q2_G]
 
         if pd1.gd.comm.size == 1:
@@ -517,8 +541,8 @@ class PWMapping:
         b_G1[:] = 0.0
         b_G1[self.G1] = b_G2[self.G2_G1]
         self.pd1.gd.comm.sum(b_G1)
-        ng1 = self.pd1.gd.comm.rank * self.pd1.myng
-        ng2 = ng1 + self.pd1.myng
+        ng1 = self.pd1.gd.comm.rank * self.pd1.maxmyng
+        ng2 = ng1 + self.pd1.maxmyng
         a_G1 += b_G1[ng1:ng2] * scale
 
     def add_to2(self, a_G2, b_G1):
@@ -528,7 +552,7 @@ class PWMapping:
             return
 
         b_G1 = self.pd1.tmp_G
-        self.pd1.gd.comm.all_gather(myb_G1, b_G1)
+        self.pd1.gd.comm.all_gather(pad(myb_G1, self.pd1.maxmyng), b_G1)
         a_G2[self.G2_G1] += b_G1[self.G1]
 
 
@@ -614,7 +638,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                    bd=bd, dtype=dtype, world=world, kd=kd,
                                    kptband_comm=kptband_comm, timer=timer)
 
-    def empty(self, n=(), global_array=False, realspace=False, q=-1):
+    def empty(self, n=(), global_array=False, realspace=False, q=None):
         if realspace:
             return self.gd.empty(n, self.dtype, global_array)
         else:
@@ -1269,24 +1293,18 @@ class PWLFC(BaseLFC):
                            f_IG, emiGRbuf_G)
         return f_IG
 
-    def block(self, q=-1, serial=True):
+    def block(self, q=-1):
         nG = self.Y_qLG[q].shape[1]
-        iblock = 0
         if self.blocksize:
             G1 = 0
             while G1 < nG:
                 G2 = min(G1 + self.blocksize, nG)
-                if serial or iblock % self.comm.size == self.comm.rank:
-                    yield G1, G2
-                iblock += 1
+                yield G1, G2
                 G1 = G2
         else:
-            if serial or self.comm.rank == 0:
-                yield 0, nG
-            else:
-                yield 0, 0
+            yield 0, nG
 
-    def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None, serial=True):
+    def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None):
         if isinstance(c_axi, float):
             assert q == -1, a_xG.dims == 1
             a_xG += (c_axi / self.pd.gd.dv) * self.expand().sum(0)
@@ -1303,7 +1321,7 @@ class PWLFC(BaseLFC):
 
         a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
 
-        for G1, G2 in self.block(q, serial=serial):
+        for G1, G2 in self.block(q):
             if f0_IG is None:
                 f_IG = self.expand(q, G1, G2)
             else:
@@ -1330,7 +1348,7 @@ class PWLFC(BaseLFC):
         if c_axi is None:
             c_axi = self.dict(a_xG.shape[:-1])
 
-        for G1, G2 in self.block(q, serial=False):
+        for G1, G2 in self.block(q):
             if G1 > 0:
                 x = 1.0
             else:
@@ -1344,6 +1362,7 @@ class PWLFC(BaseLFC):
                 G2 *= 2
 
             gemm(alpha, f_IG, a_xG[:, G1:G2], x, b_xI, 'c')
+
         self.comm.sum(b_xI)
 
         for a, I1, I2 in self.my_indices:
@@ -1365,10 +1384,8 @@ class PWLFC(BaseLFC):
 
         K_v = self.pd.K_qv[q]
 
-        serial = False
-
         x = 0.0
-        for G1, G2 in self.block(q, serial=serial):
+        for G1, G2 in self.block(q):
             f_IG = self.expand(q, G1, G2)
             G_Gv = self.pd.G_Qv[self.pd.Q_qG[q][G1:G2]]
             if self.pd.dtype == float:
@@ -1385,8 +1402,7 @@ class PWLFC(BaseLFC):
                          x, b_vxI[v], 'c')
             x = 1.0
 
-        if not serial:
-            self.comm.sum(c_vxI)
+        self.comm.sum(c_vxI)
 
         for v in range(3):
             if self.pd.dtype == float:
@@ -1422,10 +1438,9 @@ class PWLFC(BaseLFC):
             c_axi = dict((a, c_axi) for a in range(len(self.pos_av)))
 
         G0_Gv = self.pd.get_reciprocal_vectors(q=q)
-        serial = False
 
         stress_vv = np.zeros((3, 3))
-        for G1, G2 in self.block(q, serial=serial):
+        for G1, G2 in self.block(q):
             G_Gv = G0_Gv[G1:G2]
             aa_xG = a_xG[..., G1:G2]
             for v1 in range(3):
@@ -1433,8 +1448,7 @@ class PWLFC(BaseLFC):
                     stress_vv[v1, v2] += self._stress_tensor_contribution(
                         v1, v2, cache, G1, G2, G_Gv, aa_xG, c_axi, q)
 
-        if not serial:
-            self.comm.sum(stress_vv)
+        self.comm.sum(stress_vv)
 
         return stress_vv
 
@@ -1562,8 +1576,7 @@ class ReciprocalSpaceDensity(Density):
     def calculate_pseudo_charge(self):
         self.rhot_q = self.pd3.zeros()
         Q_aL = self.Q.calculate(self.D_asp)
-        self.ghat.add(self.rhot_q, Q_aL, serial=False)
-        #self.ghat.comm.sum(self.rhot_q)
+        self.ghat.add(self.rhot_q, Q_aL)
         self.map23.add_to2(self.rhot_q, self.nt_Q)
         self.background_charge.add_fourier_space_charge_to(self.pd3,
                                                            self.rhot_q)
@@ -1595,7 +1608,10 @@ class ReciprocalSpacePoissonSolver:
     def __init__(self, pd, realpbc_c):
         self.pd = pd
         self.realpbc_c = realpbc_c
-        self.G2_q = pd.G2_qG[0][1:]
+        self.G2_q = pd.G2_qG[0]
+        if pd.gd.comm.rank == 0:
+            # Avoid division by zero:
+            self.G2_q[0] = 1.0
 
     def initialize(self):
         pass
@@ -1611,7 +1627,7 @@ class ReciprocalSpacePoissonSolver:
 
     def solve(self, vHt_q, dens):
         vHt_q[:] = 4 * pi * dens.rhot_q
-        vHt_q[1:] /= self.G2_q
+        vHt_q /= self.G2_q
 
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
