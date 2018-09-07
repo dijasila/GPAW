@@ -1,7 +1,6 @@
 import numpy as np
 
 from gpaw.utilities import packed_index
-from gpaw.mpi import world
 
 class Overlap:
     """Wave funcion overlap of two GPAW objects"""
