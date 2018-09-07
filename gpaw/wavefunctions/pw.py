@@ -307,6 +307,21 @@ class PWDescriptor:
         comm.scatter(pad(a_G, self.maxmyng * comm.size), mya_G, 0)
         return mya_G[:self.myng_q[q]]
 
+    def gather(self, a_G, q=0):
+        comm = self.gd.comm
+
+        if comm.size == 1:
+            return a_G
+
+        mya_G = pad(a_G, self.maxmyng)
+        if comm.rank == 0:
+            a_G = self.tmp_G
+        else:
+            a_G = None
+        comm.gather(mya_G, 0, a_G)
+        if comm.rank == 0:
+            return a_G[:self.ng_q[q]]
+
     def ifft(self, c_G, q=-1):
         """Inverse fast Fourier transform.
 
@@ -318,17 +333,8 @@ class PWDescriptor:
                    N /__
                       G
         """
-        c_G = c_G * (1.0 / self.tmp_R.size)
+        c_G = self.gather(c_G * (1.0 / self.tmp_R.size), q)
         comm = self.gd.comm
-        if comm.size > 1:
-            myc_G = pad(c_G, self.maxmyng)
-            if comm.rank == 0:
-                c_G = self.tmp_G
-            else:
-                c_G = None
-            comm.gather(myc_G, 0, c_G)
-            if comm.rank == 0:
-                c_G = c_G[:self.ng_q[q]]
         if comm.rank == 0:
             self.tmp_Q[:] = 0.0
             self.tmp_Q.ravel()[self.Q_qG[q]] = c_G
@@ -1353,11 +1359,8 @@ class PWLFC(BaseLFC):
         if c_axi is None:
             c_axi = self.dict(a_xG.shape[:-1])
 
+        x = 0.0
         for G1, G2 in self.block(q):
-            if G1 > 0:
-                x = 1.0
-            else:
-                x = 0.0
             f_IG = self.expand(q, G1, G2)
             if self.pd.dtype == float:
                 if G1 == 0 and self.comm.rank == 0:
@@ -1365,8 +1368,8 @@ class PWLFC(BaseLFC):
                 f_IG = f_IG.view(float)
                 G1 *= 2
                 G2 *= 2
-
             gemm(alpha, f_IG, a_xG[:, G1:G2], x, b_xI, 'c')
+            x = 1.0
 
         self.comm.sum(b_xI)
         for a, I1, I2 in self.my_indices:
@@ -1391,7 +1394,7 @@ class PWLFC(BaseLFC):
         x = 0.0
         for G1, G2 in self.block(q):
             f_IG = self.expand(q, G1, G2)
-            G_Gv = self.pd.G_Qv[self.pd.Q_qG[q][G1:G2]]
+            G_Gv = self.pd.G_Qv[self.pd.myQ_qG[q][G1:G2]]
             if self.pd.dtype == float:
                 for v in range(3):
                     gemm(2 * alpha,
@@ -1599,13 +1602,19 @@ class ReciprocalSpaceDensity(Density):
 
         m0_q, m1_q, m2_q = [i_G == 0
                             for i_G in np.unravel_index(pd.Q_qG[0], N_c)]
-        rhot_q = self.rhot_q.imag
-        rhot_cs = [rhot_q[m1_q & m2_q],
-                   rhot_q[m0_q & m2_q],
-                   rhot_q[m0_q & m1_q]]
-        d_c = [np.dot(rhot_s[1:], 1.0 / np.arange(1, len(rhot_s)))
-               for rhot_s in rhot_cs]
-        return -np.dot(d_c, pd.gd.cell_cv) / pi * pd.gd.dv
+        rhot_q = self.pd3.gather(self.rhot_q)
+        if pd.comm.rank == 0:
+            irhot_q = rhot_q.imag
+            rhot_cs = [irhot_q[m1_q & m2_q],
+                       irhot_q[m0_q & m2_q],
+                       irhot_q[m0_q & m1_q]]
+            d_c = [np.dot(rhot_s[1:], 1.0 / np.arange(1, len(rhot_s)))
+                   for rhot_s in rhot_cs]
+            d_v = -np.dot(d_c, pd.gd.cell_cv) / pi * pd.gd.dv
+        else:
+            d_v = np.empty(3)
+        pd.comm.broadcast(d_v, 0)
+        return d_v
 
 
 class ReciprocalSpacePoissonSolver:
