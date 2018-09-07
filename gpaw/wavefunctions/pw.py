@@ -33,9 +33,9 @@ def pad(array, N):
     if array is None:
         return None
     n = len(array)
-    if n < N:
+    if n == N:
         return array
-    b = np.empty_like(array)
+    b = np.empty(N, complex)
     b[:n] = array
     b[n:] = 0
     return b
@@ -552,7 +552,7 @@ class PWMapping:
         b_G1[self.G1] = b_G2[self.G2_G1]
         self.pd1.gd.comm.sum(b_G1)
         ng1 = self.pd1.gd.comm.rank * self.pd1.maxmyng
-        ng2 = ng1 + self.pd1.maxmyng
+        ng2 = ng1 + self.pd1.myng_q[0]
         a_G1 += b_G1[ng1:ng2] * scale
 
     def add_to2(self, a_G2, b_G1):
