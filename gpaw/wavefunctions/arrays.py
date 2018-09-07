@@ -168,6 +168,7 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                                     collinear)
         self.pd = pd
         self.gd = pd.gd
+        self.comm = pd.gd.comm
         self.dv = pd.gd.dv / pd.gd.N_c.prod()
         self.kpt = kpt
         self.spin = spin
@@ -207,12 +208,14 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
             else:
                 self.matrix.multiply(2 * self.dv, 'N', other.matrix, 'T',
                                      0.0, out, symmetric)
-                correction = np.outer(self.matrix.array[:, 0],
-                                      other.matrix.array[:, 0])
-                if symmetric:
-                    out.array -= 0.5 * self.dv * (correction + correction.T)
-                else:
-                    out.array -= self.dv * correction
+                if self.gd.comm.rank == 0:
+                    correction = np.outer(self.matrix.array[:, 0],
+                                          other.matrix.array[:, 0])
+                    if symmetric:
+                        out.array -= 0.5 * self.dv * (correction +
+                                                      correction.T)
+                    else:
+                        out.array -= self.dv * correction
         else:
             assert not cc
             P_ani = {a: P_ni for a, P_ni in out.items()}

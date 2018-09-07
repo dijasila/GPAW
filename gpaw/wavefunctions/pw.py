@@ -557,6 +557,7 @@ class PWMapping:
 
 
 def count_reciprocal_vectors(ecut, gd, q_c):
+    assert gd.comm.size == 1
     N_c = gd.N_c
     i_Qc = np.indices(N_c).transpose((1, 2, 3, 0))
     i_Qc += N_c // 2
@@ -1282,7 +1283,7 @@ class PWLFC(BaseLFC):
     def expand(self, q=-1, G1=0, G2=None):
         if G2 is None:
             G2 = self.Y_qLG[q].shape[1]
-        G_Qv = self.pd.G_Qv[self.pd.Q_qG[q][G1:G2]]
+        G_Qv = self.pd.G_Qv[self.pd.myQ_qG[q][G1:G2]]
         f_IG = np.empty((self.nI, G2 - G1), complex)
         emiGRbuf_G = np.empty(len(G_Qv), complex)
 
@@ -1355,7 +1356,7 @@ class PWLFC(BaseLFC):
                 x = 0.0
             f_IG = self.expand(q, G1, G2)
             if self.pd.dtype == float:
-                if G1 == 0:
+                if G1 == 0 and self.comm.rank == 0:
                     f_IG[:, 0] *= 0.5
                 f_IG = f_IG.view(float)
                 G1 *= 2
@@ -1364,7 +1365,6 @@ class PWLFC(BaseLFC):
             gemm(alpha, f_IG, a_xG[:, G1:G2], x, b_xI, 'c')
 
         self.comm.sum(b_xI)
-
         for a, I1, I2 in self.my_indices:
             c_axi[a][:] = self.eikR_qa[q][a] * c_xI[..., I1:I2]
 
