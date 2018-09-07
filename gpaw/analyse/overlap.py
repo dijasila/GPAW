@@ -7,7 +7,7 @@ class Overlap:
     def __init__(self, calc):
         self.calc = calc
         self.nb, self.nk, self.ns = self.number_of_states(calc)
-        assert ns == 1  # XXX consider spin polarization
+        assert self.ns == 1  # XXX consider spin polarization
         ##print(rank, 'nb, nk', self.nb, self.nk)
         self.gd = self.calc.wfs.gd
 
