@@ -40,7 +40,7 @@ if 1:
 
     pz = Placzek(H2, KSSingles, gsname=gsname, exname=exname,
                  exkwargs=exkwargs,
-                 overlap=lambda x, y: Overlap(x).pseudo(y),
+                 overlap=lambda x, y: Overlap(x).full(y)[0],
                  txt=txt)
     pz.run()
 
