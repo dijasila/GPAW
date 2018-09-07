@@ -41,6 +41,10 @@ def pad(array, N):
     return b
 
 
+def integrate(pd, a, b):
+    return pd.integrate(a, b, global_integral=False)
+
+
 class PW(Mode):
     name = 'pw'
 
@@ -380,7 +384,7 @@ class PWDescriptor:
         else:
             gemm(alpha, A_xg, B_yg, 0.0, result_yx, 'c')
 
-        if self.dtype == float:
+        if self.dtype == float and self.gd.comm.rank == 0:
             correction_yx = np.outer(B_yg[:, 0], A_xg[:, 0])
             if hermitian:
                 result_yx -= 0.25 * alpha * (correction_yx + correction_yx.T)
@@ -1671,17 +1675,17 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vbar.add(self.vbar_Q)
 
     def update_pseudo_potential(self, dens):
-        self.ebar = self.pd2.integrate(self.vbar_Q, dens.nt_Q)
+        self.ebar = integrate(self.pd2, self.vbar_Q, dens.nt_Q)
         with self.timer('Poisson'):
             self.poisson.solve(self.vHt_q, dens)
-            self.epot = 0.5 * self.pd3.integrate(self.vHt_q, dens.rhot_q)
+            self.epot = 0.5 * integrate(self.pd3, self.vHt_q, dens.rhot_q)
 
         if self.vext is None:
             v_q = self.vHt_q
             self.e_external = 0.0
         else:
             v_q = self.vext.get_potentialq(self.finegd, self.pd3).copy()
-            self.e_external = self.pd3.integrate(v_q, dens.rhot_q)
+            self.e_external = integrate(self.pd3, v_q, dens.rhot_q)
             v_q += self.vHt_q
 
         self.vt_Q = self.vbar_Q.copy()
@@ -1694,6 +1698,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         vxct_dist_xg = np.zeros_like(nt_dist_xg)
         self.exc = self.xc.calculate(dens.finegd,
                                      nt_dist_xg, vxct_dist_xg)
+        self.exc /= self.gd.comm.size
         vxct_xg = vxct_dist_xg
 
         x = 0
@@ -1724,8 +1729,8 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     def calculate_kinetic_energy(self, density):
         ekin = 0.0
         for vt_G, nt_G in zip(self.vt_xG, density.nt_xG):
-            ekin -= self.gd.integrate(vt_G, nt_G)
-        ekin += self.gd.integrate(self.vt_sG, density.nct_G).sum()
+            ekin -= integrate(self.gd, vt_G, nt_G)
+        ekin += integrate(self.gd, self.vt_sG, density.nct_G).sum()
         return ekin
 
     def restrict(self, in_xR, out_xR=None):
