@@ -987,7 +987,7 @@ class BuildingBlock():
         self.isotropic_q = isotropic_q
         self.nq_inf = nq_inf
         self.nq_inftot = nq_inf
-        if not isotropic_q:
+        if not isotropic_q and q_qc is None:
             self.nq_inftot *= 2
 
         if direction == 'x':
@@ -1031,7 +1031,7 @@ class BuildingBlock():
         qd.set_symmetry(calc.atoms, kd.symmetry)
         q_cs = qd.ibzk_kc
         rcell_cv = 2 * pi * np.linalg.inv(calc.wfs.gd.cell_cv).T
-        if isotropic_q:  # only use q along [1 0 0] or [0 1 0] direction.
+        if isotropic_q and q_qc is None:  # only use q along [1 0 0] or [0 1 0] direction.
             Nk = kd.N_c[qdir]
             qx = np.array(range(1, Nk // 2)) / float(Nk)
             q_cs = np.zeros([Nk // 2 - 1, 3])
@@ -1069,7 +1069,7 @@ class BuildingBlock():
         if self.nq_inftot > 0:
             q_infs[: self.nq_inftot, qdir] = \
                 np.linspace(1e-05, q_cut, self.nq_inftot)[:]
-            if not isotropic_q:  # y-direction
+            if not isotropic_q and q_qc is None:  # y-direction
                 q_infs[self.nq_inf:self.nq_inftot + 1, 1] = \
                     np.linspace(0, q_cut, self.nq_inf + 1)[1:]
 

@@ -851,7 +851,7 @@ class Chi0:
                     Q0_G = self.pd0.Q_qG[0]
                     Q_G = pd.Q_qG[0]
                     # Map finite q G-vectors to q=0 G-vectors
-                    Gmap_G = [np.argmax(Q == Q0_G) for Q in Q_G]
+                    Gmap_G = np.array([np.argmax(Q == Q0_G) for Q in Q_G])
                     self.Gmap_G = Gmap_G
                 pd = self.pd0
                 extrapolate_q = True
@@ -878,11 +878,15 @@ class Chi0:
         n_nmG *= df_nm[..., np.newaxis]**0.5
 
         if extrapolate_q:
-            q_v = np.dot(q_c, pd.gd.icell_cv) * (2 * np.pi)
-            nq_nm = np.dot(n_nmG[:, :, :3], q_v)
-            n_nmG = n_nmG[:, :, 2:]
-            n_nmG = n_nmG[:, :, self.Gmap_G]
-            n_nmG[:, :, 0] = nq_nm
+            if optical_limit:
+                Gmap_G = np.append([0, 1], self.Gmap_G + 2)
+                n_nmG = n_nmG[:, :, Gmap_G]
+            else:
+                q_v = np.dot(q_c, pd.gd.icell_cv) * (2 * np.pi)
+                nq_nm = np.dot(n_nmG[:, :, :3], q_v)
+                n_nmG = n_nmG[:, :, 2:]
+                n_nmG = n_nmG[:, :, self.Gmap_G]
+                n_nmG[:, :, 0] = nq_nm
 
         if not extend_head and optical_limit:
             n_nmG = np.copy(n_nmG[:, :, 2:])
