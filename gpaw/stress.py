@@ -25,7 +25,8 @@ def calculate_stress(calc):
 
     pd = dens.pd3
     p_G = 4 * np.pi * dens.rhot_q
-    p_G[1:] /= pd.G2_qG[0][1:]**2
+    G0 = 0 if pd.gd.comm.rank > 0 else 1
+    p_G[G0:] /= pd.G2_qG[0][G0:]**2
     G_Gv = pd.get_reciprocal_vectors()
     for v1 in range(3):
         s_vv[v1, v1] -= ham.epot
@@ -52,9 +53,9 @@ def calculate_stress(calc):
             a_ani[a] = 2 * a_ni.conj()
         s0_vv += wfs.pt.stress_tensor_contribution(kpt.psit_nG, a_ani,
                                                    q=kpt.q)
-    s0_vv -= s0.real * np.eye(3)
-    wfs.bd.comm.sum(s0_vv)
-    wfs.kd.comm.sum(s0_vv)
+    s0_vv -= dens.gd.comm.sum(s0.real) * np.eye(3)
+    s0_vv /= dens.gd.comm.size
+    wfs.world.sum(s0_vv)
     s_vv += s0_vv
 
     s_vv += wfs.dedepsilon * np.eye(3)

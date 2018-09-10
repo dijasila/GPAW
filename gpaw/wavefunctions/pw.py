@@ -1238,16 +1238,6 @@ class PWLFC(BaseLFC):
     def get_function_count(self, a):
         return sum(2 * l + 1 for l, f_qG in self.lf_aj[a])
 
-    def __iter__(self):
-        for a, I1, I2 in self.my_indices:
-            j = 0
-            i1 = 0
-            for l, f_qG in self.lf_aj[a]:
-                i2 = i1 + 2 * l + 1
-                yield a, j, i1, i2, I1 + i1, I1 + i2
-                i1 = i2
-                j += 1
-
     def set_positions(self, spos_ac, atom_partition=None):
         self.initialize()
         kd = self.pd.kd
@@ -1420,24 +1410,31 @@ class PWLFC(BaseLFC):
 
     def stress_tensor_contribution(self, a_xG, c_axi=1.0, q=-1):
         cache = {}
-        for a, j, i1, i2, I1, I2 in self:
-            spline = self.spline_aj[a][j]
-            if spline not in cache:
-                s = ft(spline)
-                G_G = self.pd.G2_qG[q]**0.5
-                f_G = []
-                dfdGoG_G = []
-                for G in G_G:
-                    f, dfdG = s.get_value_and_derivative(G)
-                    if G < 1e-10:
-                        G = 1.0
-                    f_G.append(f)
-                    dfdGoG_G.append(dfdG / G)
-                f_G = np.array(f_G)
-                dfdGoG_G = np.array(dfdGoG_G)
-                cache[spline] = (f_G, dfdGoG_G)
-            else:
-                f_G, dfdGoG_G = cache[spline]
+        things = []
+        I1 = 0
+        for a, spline_j in enumerate(self.spline_aj):
+            for spline in spline_j:
+                if spline not in cache:
+                    s = ft(spline)
+                    G_G = self.pd.G2_qG[q]**0.5
+                    f_G = []
+                    dfdGoG_G = []
+                    for G in G_G:
+                        f, dfdG = s.get_value_and_derivative(G)
+                        if G < 1e-10:
+                            G = 1.0
+                        f_G.append(f)
+                        dfdGoG_G.append(dfdG / G)
+                    f_G = np.array(f_G)
+                    dfdGoG_G = np.array(dfdGoG_G)
+                    cache[spline] = (f_G, dfdGoG_G)
+                else:
+                    f_G, dfdGoG_G = cache[spline]
+                l = spline.l
+                I2 = I1 + 2 * l + 1
+                things.append((self.pos_av[a], l, I1, I2,
+                               f_G, dfdGoG_G))
+                I1 = I2
 
         if isinstance(c_axi, float):
             c_axi = dict((a, c_axi) for a in range(len(self.pos_av)))
@@ -1451,24 +1448,20 @@ class PWLFC(BaseLFC):
             for v1 in range(3):
                 for v2 in range(3):
                     stress_vv[v1, v2] += self._stress_tensor_contribution(
-                        v1, v2, cache, G1, G2, G_Gv, aa_xG, c_axi, q)
+                        v1, v2, things, G1, G2, G_Gv, aa_xG, c_axi, q)
 
         self.comm.sum(stress_vv)
 
         return stress_vv
 
-    def _stress_tensor_contribution(self, v1, v2, cache, G1, G2,
+    def _stress_tensor_contribution(self, v1, v2, things, G1, G2,
                                     G_Gv, a_xG, c_axi, q):
         f_IG = np.empty((self.nI, G2 - G1), complex)
         K_v = self.pd.K_qv[q]
-        for a, j, i1, i2, I1, I2 in self:
-            l = self.lf_aj[a][j][0]
-            spline = self.spline_aj[a][j]
-            f_G, dfdGoG_G = cache[spline]
-
-            emiGR_G = np.exp(-1j * np.dot(G_Gv, self.pos_av[a]))
+        for pos_v, l, I1, I2, f_G, dfdGoG_G in things:
+            emiGR_G = np.exp(-1j * np.dot(G_Gv, pos_v))
             f_IG[I1:I2] = (emiGR_G * (-1.0j)**l *
-                           np.exp(1j * np.dot(K_v, self.pos_av[a])) * (
+                           np.exp(1j * np.dot(K_v, pos_v)) * (
                                dfdGoG_G[G1:G2] * G_Gv[:, v1] * G_Gv[:, v2] *
                                self.Y_qLG[q][l**2:(l + 1)**2, G1:G2] +
                                f_G[G1:G2] * G_Gv[:, v1] *
@@ -1489,6 +1482,7 @@ class PWLFC(BaseLFC):
             a_xG = a_xG.copy().view(float)
 
         gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
+        self.comm.sum(b_xI)
 
         stress = 0.0
         for a, I1, I2 in self.my_indices:
@@ -1682,17 +1676,17 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vbar.add(self.vbar_Q)
 
     def update_pseudo_potential(self, dens):
-        self.ebar = integrate(self.pd2, self.vbar_Q, dens.nt_Q)
+        ebar = integrate(self.pd2, self.vbar_Q, dens.nt_Q)
         with self.timer('Poisson'):
             self.poisson.solve(self.vHt_q, dens)
-            self.epot = 0.5 * integrate(self.pd3, self.vHt_q, dens.rhot_q)
+            epot = 0.5 * integrate(self.pd3, self.vHt_q, dens.rhot_q)
 
         if self.vext is None:
             v_q = self.vHt_q
-            self.e_external = 0.0
+            eext = 0.0
         else:
             v_q = self.vext.get_potentialq(self.finegd, self.pd3).copy()
-            self.e_external = integrate(self.pd3, v_q, dens.rhot_q)
+            eext = integrate(self.pd3, v_q, dens.rhot_q)
             v_q += self.vHt_q
 
         self.vt_Q = self.vbar_Q.copy()
@@ -1703,9 +1697,8 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.timer.start('XC 3D grid')
         nt_dist_xg = dens.nt_xg
         vxct_dist_xg = np.zeros_like(nt_dist_xg)
-        self.exc = self.xc.calculate(dens.finegd,
-                                     nt_dist_xg, vxct_dist_xg)
-        self.exc /= self.gd.comm.size
+        exc = self.xc.calculate(dens.finegd, nt_dist_xg, vxct_dist_xg)
+        exc /= self.gd.comm.size
         vxct_xg = vxct_dist_xg
 
         x = 0
@@ -1720,7 +1713,10 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         self.timer.stop('XC 3D grid')
 
-        return np.array([self.epot, self.ebar, self.e_external, self.exc])
+        energies = np.array([epot, ebar, eext, exc])
+        self.gd.comm.sum(energies)
+        self.epot, self.ebar, self.e_external, self.exc = energies
+        return energies
 
     def calculate_atomic_hamiltonians(self, density):
         W_aL = {}
