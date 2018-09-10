@@ -25,7 +25,8 @@ from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.kernels import get_integrated_kernel
 from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.xc.fxc import set_flags
-from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
+from gpaw.wavefunctions.pw import (PWDescriptor, count_reciprocal_vectors,
+                                   PWMapping)
 from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.tools import vxc
 from gpaw.utilities.progressbar import ProgressBar
@@ -949,7 +950,7 @@ class G0W0(PairDensity):
             nw = len(self.omega_w)
             mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
 
-            G2G = pdi.map(pd, q=0)
+            G2G = PWMapping(pdi, pd, q=0).G2_G1
             chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
 
             if chi0_wxvG is not None:
