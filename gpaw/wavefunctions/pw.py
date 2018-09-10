@@ -1120,9 +1120,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     sigma_vv[alpha, beta] += (psit2_G * Ga_G * Gb_G).sum()
 
         sigma_vv *= -dOmega
-
-        self.bd.comm.sum(sigma_vv)
-        self.kd.comm.sum(sigma_vv)
+        self.world.sum(sigma_vv)
         return sigma_vv
 
 
@@ -1485,7 +1483,7 @@ class PWLFC(BaseLFC):
         alpha = 1.0 / self.pd.gd.N_c.prod()
         if self.pd.dtype == float:
             alpha *= 2
-            if G1 == 0:
+            if G1 == 0 and self.pd.gd.comm.rank == 0:
                 f_IG[:, 0] *= 0.5
             f_IG = f_IG.view(float)
             a_xG = a_xG.copy().view(float)
