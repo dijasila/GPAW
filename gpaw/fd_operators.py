@@ -89,8 +89,8 @@ class FDOperator:
     def apply(self, in_xg, out_xg, phase_cd=None):
         assert (type(in_xg) == type(out_xg))
 
-        if isinstance(in_xg, gpaw.cuda.gpuarray.GPUArray)
-                and isinstance(out_xg, gpaw.cuda.gpuarray.GPUArray):
+        if (isinstance(in_xg, gpaw.cuda.gpuarray.GPUArray)
+                and isinstance(out_xg, gpaw.cuda.gpuarray.GPUArray)):
             assert self.cuda
             if gpaw.cuda.debug:
                 in_xg_cpu = in_xg.get()
@@ -106,8 +106,8 @@ class FDOperator:
     def relax(self, relax_method, f_g, s_g, n, w=None):
         assert (type(f_g) == type(s_g))
 
-        if isinstance(f_g, gpaw.cuda.gpuarray.GPUArray)
-                and isinstance(s_g,gpaw.cuda.gpuarray.GPUArray):
+        if (isinstance(f_g, gpaw.cuda.gpuarray.GPUArray)
+                and isinstance(s_g,gpaw.cuda.gpuarray.GPUArray)):
             assert self.cuda
             if gpaw.cuda.debug:
                 f_g_cpu = f_g.get()

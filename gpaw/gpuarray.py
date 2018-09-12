@@ -105,7 +105,7 @@ else:
         elif n < (max_blocks * max_threads):
             block_count = max_blocks
             grp = (n + min_threads - 1) // min_threads
-            threads_per_block = ((grp + max_blocks -1) // max_blocks)
+            threads_per_block = ((grp + max_blocks -1) // max_blocks) \
                               * min_threads
         else:
             block_count = max_blocks
@@ -648,7 +648,7 @@ else:
             if self.shape[-1] * old_itemsize % itemsize != 0:
                 raise ValueError("new type not compatible with array")
 
-            shape = self.shape[:-1]
+            shape = self.shape[:-1] \
                   + (self.shape[-1] * old_itemsize // itemsize,)
 
             return GPUArray(
