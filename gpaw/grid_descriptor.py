@@ -520,7 +520,7 @@ class GridDescriptor(Domain):
             return out
 
         if out is None:
-            out = self.empty(B_xg.shape[:-3])
+            out = self.empty(B_xg.shape[:-3], dtype=B_xg.dtype)
 
         if self.rank != 0:
             self.comm.receive(out, 0, 42)

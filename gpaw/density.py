@@ -274,7 +274,7 @@ class Density:
         self.calculate_pseudo_charge()
 
     def calculate_multipole_moments(self):
-        D_asp = self.atomdist.to_aux(self.D_asp)
+        D_asp = self.D_asp#atomdist.to_aux(self.D_asp)
         Q_aL = self.Q.calculate(D_asp)
         self.Q_aL = Q_aL
         return self.Q.get_charge(Q_aL), Q_aL

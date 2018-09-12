@@ -508,7 +508,6 @@ class PWDescriptor:
 
 class PWMapping:
     def __init__(self, pd1, pd2):
-        assert pd1.tmp_R.size < pd2.tmp_R.size
         N_c = np.array(pd1.tmp_Q.shape)
         N2_c = pd2.tmp_Q.shape
         Q1_G = pd1.Q_qG[0]
@@ -1059,8 +1058,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return nbands
 
     def initialize_from_lcao_coefficients(self, basis_functions):
-        N_c = self.gd.N_c
-
         psit_nR = self.gd.empty(1, self.dtype)
 
         for kpt in self.mykpts:
@@ -1068,8 +1065,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 emikr_R = 1.0
             else:
                 k_c = self.kd.ibzk_kc[kpt.k]
-                emikr_R = np.exp(-2j * pi *
-                                 np.dot(np.indices(N_c).T, k_c / N_c).T)
+                emikr_R = self.gd.plane_wave(-k_c)
             kpt.psit = PlaneWaveExpansionWaveFunctions(
                 self.bd.nbands, self.pd, self.dtype, kpt=kpt.q,
                 dist=(self.bd.comm, -1, 1),
