@@ -126,7 +126,7 @@ __global__ void Zcuda(bmgs_paste_zero_cuda_kernel)(
     int xend = MIN(xstart + xlen, c_sizea.x);
 
     b += c_sizeb.x * c_sizeb.y * c_sizeb.z * blocksi;
-    a += c_sizea.x *c _sizea.y * c_sizea.z * blocksi;
+    a += c_sizea.x * c_sizea.y * c_sizea.z * blocksi;
 
     if (xind==0) {
         Tcuda *bb = b + i2 + i1 * c_sizeb.z;

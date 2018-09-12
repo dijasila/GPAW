@@ -146,7 +146,7 @@ __global__ void FD_kernel(
         for (int c=MYJ; c > 0; c--) {
             acache0t[c] = acache0t[c-1];
         }
-        a + =a_size.y;
+        a += a_size.y;
         __syncthreads();
     }
 
