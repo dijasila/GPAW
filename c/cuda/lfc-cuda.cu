@@ -6,16 +6,16 @@
 #include <sys/types.h>
 #include <sys/time.h>
 
-extern "C" {
 #include </usr/include/complex.h>
 #include <Python.h>
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #define NO_IMPORT_ARRAY
 #include <numpy/arrayobject.h>
 
+extern "C" {
 #include "../lfc.h"
-#include "gpaw-cuda-int.h"
 }
+#include "gpaw-cuda-int.h"
 
 #ifndef CUGPAWCOMPLEX
 
