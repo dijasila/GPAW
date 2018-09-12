@@ -798,8 +798,8 @@ class PAW(PAWTextOutput):
                         cuda=self.cuda)
                 elif mode.name == 'fd':
                     self.wfs = mode(par.stencils[0], diagksl,
-                                    orthoksl, initksl, **wfs_kwargs,
-                                    cuda=self.cuda)
+                                    orthoksl, initksl, cuda=self.cuda,
+                                    **wfs_kwargs)
                 else:
                     assert mode.name == 'pw'
                     self.wfs = mode(diagksl, orthoksl, initksl,
