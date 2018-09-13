@@ -378,6 +378,8 @@ class PAW(PAWTextOutput):
             gpaw.cuda.init(mpi.rank)
             self.timer.stop('Cuda')
 
+        self.wfs.world = world
+
         if 'txt' in self._changed_keywords:
             self.set_txt(par.txt)
         self.verbose = par.verbose
