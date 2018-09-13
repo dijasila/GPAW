@@ -688,7 +688,7 @@ class PZpotentialLcao:
                 # calculate orbital-density matrix
                 rho_xMM = \
                     kpt.f_n[m] * np.outer(kpt.C_nM[m].conj(),
-                                          kpt.C_nM[m])
+                                          kpt.C_nM[m]) / (3.0 - wfs.nspins)
                 # rho_unMM[u][m] = rho_xMM
 
                 # calc S^{-1} F rho
@@ -847,10 +847,9 @@ class PZpotentialLcao:
         wfs.world.broadcast(F_av, 0)
         self.timer.stop('Wait for sum')
 
-
         self.timer.stop('LCAO forces')
 
-        return F_av
+        return F_av * (3.0 - wfs.nspins)
 
     def get_hessian(self, kpt, H_MM, n_dim, wfs, setup, C_nM=None,
                     diag_heiss=False, h_type='ks'):
@@ -1112,7 +1111,6 @@ class ZeroOddLcao:
         kpt.eps_n[:] = nrm_n
 
         return np.dot(H_MM.conj(), C_nM)
-
 
     def get_gradients_wrt_coeff(self, f_n, C_nM, kpt,
                                 wfs, setup, H_MM,
