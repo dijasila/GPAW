@@ -309,9 +309,8 @@ class Hamiltonian:
 
         # Make corrections due to non-local xc:
         # self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
-        e_kinetic_xc = self.xc.get_kinetic_energy_correction() / self.world.size
-        assert e_kinetic_xc == 0
-        #e_kinetic += self.xc.get_kinetic_energy_correction() / self.world.size
+        e_kinetic += self.xc.get_kinetic_energy_correction()
+
         energies = np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
         self.gd.comm.sum(energies)
         return energies
