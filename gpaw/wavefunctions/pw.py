@@ -1730,7 +1730,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         for vt_G, nt_G in zip(self.vt_xG, density.nt_xG):
             ekin -= integrate(self.gd, vt_G, nt_G)
         ekin += integrate(self.gd, self.vt_sG, density.nct_G).sum()
-        return ekin
+        return self.gd.comm.sum(ekin)
 
     def restrict(self, in_xR, out_xR=None):
         """Restrict array."""

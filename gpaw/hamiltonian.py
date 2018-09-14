@@ -225,15 +225,16 @@ class Hamiltonian:
 
         atomic_energies = self.update_corrections(density, W_aL)
 
+        #print(atomic_energies, finegrid_energies, coarsegrid_e_kinetic);asdf
         # Make energy contributions summable over world:
-        finegrid_energies /= self.world.size
-        coarsegrid_e_kinetic *= self.gd.comm.size / float(self.world.size)
+        #finegrid_energies /= self.world.size
+        #coarsegrid_e_kinetic *= self.gd.comm.size / float(self.world.size)
         # (careful with array orderings/contents)
         energies = atomic_energies  # kinetic, coulomb, zero, external, xc
         energies[1:] += finegrid_energies  # coulomb, zero, external, xc
         energies[0] += coarsegrid_e_kinetic  # kinetic
-        with self.timer('Communicate'):
-            self.world.sum(energies)
+        #with self.timer('Communicate'):
+        #    self.world.sum(energies)
 
         (self.e_kinetic0, self.e_coulomb, self.e_zero,
          self.e_external, self.e_xc) = energies
@@ -308,8 +309,12 @@ class Hamiltonian:
 
         # Make corrections due to non-local xc:
         # self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
-        e_kinetic += self.xc.get_kinetic_energy_correction() / self.world.size
-        return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
+        e_kinetic_xc = self.xc.get_kinetic_energy_correction() / self.world.size
+        assert e_kinetic_xc == 0
+        #e_kinetic += self.xc.get_kinetic_energy_correction() / self.world.size
+        energies = np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
+        self.gd.comm.sum(energies)
+        return energies
 
     def get_energy(self, occ):
         self.e_kinetic = self.e_kinetic0 + occ.e_band
@@ -629,7 +634,7 @@ class RealSpaceHamiltonian(Hamiltonian):
                                                global_integral=False)
             s += 1
         self.timer.stop('Hartree integrate/restrict')
-        return e_kinetic
+        return self.gd.comm.sum(e_kinetic)
 
     def calculate_atomic_hamiltonians(self, dens):
         #def getshape(a):
