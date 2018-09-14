@@ -82,13 +82,13 @@ class ConstantElectricField(ExternalPotential):
                 .format(*(self.field_v * Hartree / Bohr)))
 
     def calculate_potential(self, gd):
-        d_v = self.field_v / (self.field_v**2).sum()**0.5
         # Currently skipped, PW mode is periodic in all directions
-        #for axis_v in gd.cell_cv[gd.pbc_c]:
-        #    if abs(np.dot(d_v, axis_v)) > self.tolerance:
-        #        raise ValueError(
-        #            'Field not perpendicular to periodic axis: {}'
-        #            .format(axis_v))
+        # d_v = self.field_v / (self.field_v**2).sum()**0.5
+        # for axis_v in gd.cell_cv[gd.pbc_c]:
+        #     if abs(np.dot(d_v, axis_v)) > self.tolerance:
+        #         raise ValueError(
+        #             'Field not perpendicular to periodic axis: {}'
+        #             .format(axis_v))
 
         center_v = 0.5 * gd.cell_cv.sum(0)
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
