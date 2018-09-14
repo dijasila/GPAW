@@ -48,7 +48,8 @@ class TB09Kernel:
                     # We don't have the integral yet - just use 1.0:
                     self.c = 1.0
                 else:
-                    self.I = self.world.sum(self.I)
+                    #self.I = self.world.sum(self.I)
+                    self.I = self.gd.comm.sum(self.I)
                     self.c = (self.alpha + self.beta *
                               (self.I / self.gd.volume)**0.5)
 
@@ -61,7 +62,8 @@ class TB09Kernel:
                                sigma_xg[2])**0.5
                 self.I = self.gd.integrate(gradn_g / n_sg.sum(0))
                 # The domain is not distributed like the PAW corrections:
-                self.I /= self.world.size
+                #self.I /= self.world.size
+                self.I /= self.gd.comm.size
 
             lapl_sg = self.gd.empty(ns)
             for n_g, lapl_g in zip(n_sg, lapl_sg):
