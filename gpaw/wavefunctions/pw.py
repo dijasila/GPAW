@@ -10,6 +10,7 @@ from ase.units import Ha, Bohr
 from ase.utils.timing import timer
 
 import gpaw.fftw as fftw
+from gpaw import dry_run
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.density import Density
@@ -69,7 +70,8 @@ class PW(Mode):
         """
 
         self.ecut = ecut / Ha
-        self.fftwflags = fftwflags
+        # Don't do expensive planning in dry-run mode:
+        self.fftwflags = fftwflags if not dry_run else fftw.ESTIMATE
         self.dedecut = dedecut
         self.pulay_stress = (None
                              if pulay_stress is None

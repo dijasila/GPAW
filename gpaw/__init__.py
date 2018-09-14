@@ -203,7 +203,7 @@ def main():
 
 
 dry_run = extra_parameters.pop('dry_run', 0)
-debug = extra_parameters.pop('debug', not False)
+debug = extra_parameters.pop('debug', False)
 
 # Check for typos:
 for p in extra_parameters:
