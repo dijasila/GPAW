@@ -606,7 +606,9 @@ class RealSpaceHamiltonian(Hamiltonian):
             vt_g += self.vHt_g
 
         self.timer.stop('Hartree integrate/restrict')
-        return np.array([e_coulomb, e_zero, e_external, e_xc])
+        energies = np.array([e_coulomb, e_zero, e_external, e_xc])
+        self.gd.comm.sum(energies)
+        return energies
 
     def calculate_kinetic_energy(self, density):
         # XXX new timer item for kinetic energy?
