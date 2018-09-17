@@ -61,7 +61,8 @@ class GaussianImpulse(Laser):
     Parameters:
     """
 
-    def __init__(self, strength, time0, frequency, sigma, sincos='sin'):
+    def __init__(self, strength, time0, frequency, sigma, sincos='sin',
+                 stoptime=np.inf):
         self.dict = dict(name='GaussianImpulse',
                          strength=strength,
                          time0=time0,
@@ -72,6 +73,7 @@ class GaussianImpulse(Laser):
         self.t0 = time0 * as_to_au
         self.omega0 = frequency * eV_to_au
         self.sigma = sigma * eV_to_au
+        self.stoptime = stoptime * as_to_au
         assert sincos in ['sin', 'cos']
         self.sincos = sincos
 
@@ -84,7 +86,9 @@ class GaussianImpulse(Laser):
             s *= np.sin(self.omega0 * (t - self.t0))
         else:
             s *= np.cos(self.omega0 * (t - self.t0))
-        return s
+        flt = t < self.stoptime
+
+        return s * flt
 
     def derivative(self, t):
         """
