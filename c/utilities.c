@@ -15,10 +15,6 @@
 /* Allows for special MaxOS magic */
 #include <malloc/malloc.h>
 #endif
-#ifdef __linux__
-/* stdlib.h does not define mallinfo (it should!) */
-#include <malloc.h>
-#endif
 
 #ifdef GPAW_HPM
 void HPM_Start(char *);
@@ -182,14 +178,14 @@ void gpaw_perf_finalize()
   int rank, numranks;
 
   MPI_Comm Comm = MPI_COMM_WORLD;
-  
+
   //get papi info, first time it intializes PAPI counters
   papi_end_usec_r = PAPI_get_real_usec();
   papi_end_usec_p = PAPI_get_virt_usec();
 
   MPI_Comm_size(Comm, &numranks);
   MPI_Comm_rank(Comm, &rank);
-  
+
   FILE *fp;
   if (rank == 0)
     fp = fopen("gpaw_perf.log", "w");
@@ -201,13 +197,13 @@ void gpaw_perf_finalize()
 
   if(PAPI_get_dmem_info(&dmem) != PAPI_OK)
     error++;
- 
+
   rtime=(double)(papi_end_usec_r - papi_start_usec_r)/1e6;
   ptime=(double)(papi_end_usec_p - papi_start_usec_p)/1e6;
   avegflops=(double)papi_values[0]/rtime/1e9;
   gflop_opers = (double)papi_values[0]/1e9;
   // l1hitratio=100.0*(double)papi_values[1]/(papi_values[0] + papi_values[1]);
-  
+
   if (rank==0 ) {
     fprintf(fp,"########  GPAW PERFORMANCE REPORT (PAPI)  ########\n");
     fprintf(fp,"# MPI tasks   %d\n", numranks);
@@ -253,19 +249,19 @@ void gpaw_perf_finalize(void)
   int rank, numranks;
 
   MPI_Comm Comm = MPI_COMM_WORLD;
-  
+
   MPI_Comm_size(Comm, &numranks);
   MPI_Comm_rank(Comm, &rank);
 
   double t1 = MPI_Wtime();
   rtime = t1 - t0;
-  
+
   FILE *fp;
   if (rank == 0)
     fp = fopen("gpaw_perf.log", "w");
   else
     fp = NULL;
-  
+
   if (rank==0 ) {
     fprintf(fp,"########  GPAW PERFORMANCE REPORT (MPI_Wtime)  ########\n");
     fprintf(fp,"# MPI tasks   %d\n", numranks);
@@ -292,32 +288,6 @@ double distance(double *a, double *b)
   return sqrt(sum);
 }
 
-/* get heap memory using mallinfo.
-   There is a UNIX version and a Mac OS X version is not well tested
-   but seems to give credible values in simple tests.*/
-PyObject* heap_mallinfo(PyObject *self)
-{
-  double heap;
-#ifdef __linux__
-  unsigned int mmap, arena, small;
-  struct mallinfo mi; /* structure in bytes */
-
-  mi = mallinfo();
-  mmap = mi.hblkhd;
-  arena = mi.uordblks;
-  small = mi.usmblks;
-  heap = ((double)(mmap + arena + small))/1024.0; /* convert to KB */
-#elif defined(__DARWIN_UNIX03)
-  /* Mac OS X specific hack */
-  struct malloc_statistics_t mi; /* structure in bytes */
-
-  malloc_zone_statistics(NULL, &mi);
-  heap = ((double)(mi.size_in_use))/1024.0; /* convert to KB */
-#else
-  heap = -1;
-#endif
-  return Py_BuildValue("d",heap);
-}
 
 /* elementwise multiply and add result to another vector
  *
@@ -578,12 +548,12 @@ PyObject* hartree(PyObject *self, PyObject *args)
     PyArrayObject* vr_obj;
     if (!PyArg_ParseTuple(args, "iOOO", &l, &nrdr_obj, &r_obj, &vr_obj))
         return NULL;
-        
+
     const int M = PyArray_DIM(nrdr_obj, 0);
     const double* nrdr = DOUBLEP(nrdr_obj);
     const double* r = DOUBLEP(r_obj);
     double* vr = DOUBLEP(vr_obj);
-    
+
     double p = 0.0;
     double q = 0.0;
     for (int g = M - 1; g > 0; g--)
