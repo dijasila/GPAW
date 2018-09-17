@@ -324,6 +324,14 @@ class PWDescriptor:
         if comm.rank == 0:
             return a_G[:self.ng_q[q]]
 
+    def distribute(self, a_rG, q=0):
+        comm = self.gd.comm
+        myng_r = np.empty(comm.size, int)
+        myng_r[:-1] = self.maxmyng
+        myng_r[-1] = self.ng_q[q] - (comm.size - 1) * self.maxmyng
+        comm.alltoallv(a_rG, myng_r, np.add.accumulate(nyng_r) - myng_r[0],
+                       )
+
     def ifft(self, c_G, q=-1):
         """Inverse fast Fourier transform.
 
