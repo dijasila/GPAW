@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize, LogNorm
 
 
 def generate_gridspec(**kwargs):
@@ -47,17 +49,15 @@ def plot_DOS(ax, energy_e, dos_e, base_e, dos_min, dos_max,
     set_dos_lim(dos_min, dos_max)
 
 
-class TCMPlotter(object):
+class TCM(object):
 
-    def __init__(self, ksd, energy_o, energy_u, sigma,
-                 zero_fermilevel=True):
-        self.ksd = ksd
-        self.eig_n, self.fermilevel = ksd.get_eig_n(zero_fermilevel)
+    def __init__(self, energy_o, energy_u, fermilevel):
         self.energy_o = energy_o
         self.energy_u = energy_u
+        self.fermilevel = fermilevel
+
         self.base_o = np.zeros_like(energy_o)
         self.base_u = np.zeros_like(energy_u)
-        self.sigma = sigma
 
     def __getattr__(self, attr):
         # Generate axis only when needed
@@ -71,17 +71,19 @@ class TCMPlotter(object):
             gs = generate_gridspec(hspace=0.8, wspace=0.8)
             self.ax_spec = plt.subplot(gs[1])
             return getattr(self, attr)
+        if attr in ['ax_cbar']:
+            self.ax_cbar = plt.axes((0.15, 0.6, 0.02, 0.1))
+            return getattr(self, attr)
         raise AttributeError('%s object has no attribute %s' %
                              (repr(self.__class__.__name__), repr(attr)))
 
-    def plot_TCM(self, weight_p, vmax='80%', cmap='seismic', positive=False):
-        # Calculate TCM
-        eig_n = self.eig_n
+    def plot_TCM(self, tcm_ou, vmax='80%', vmin='symmetrize', cmap='seismic',
+                 log=False, colorbar=True, lw=None):
+        if lw is None:
+            lw = mpl.rcParams['lines.linewidth']
         energy_o = self.energy_o
         energy_u = self.energy_u
-        sigma = self.sigma
         fermilevel = self.fermilevel
-        tcm_ou = self.ksd.get_TCM(weight_p, eig_n, energy_o, energy_u, sigma)
 
         tcmmax = np.max(np.absolute(tcm_ou))
         print('tcmmax', tcmmax)
@@ -89,13 +91,12 @@ class TCMPlotter(object):
         # Plot TCM
         ax = self.ax_tcm
         plt.sca(ax)
+        plt.cla()
         if isinstance(vmax, str):
             assert vmax[-1] == '%'
             tcmmax = np.max(np.absolute(tcm_ou))
             vmax = tcmmax * float(vmax[:-1]) / 100.0
-        if positive:
-            vmin = 0
-        else:
+        if vmin == 'symmetrize':
             vmin = -vmax
         if tcm_ou.dtype == complex:
             linecolor = 'w'
@@ -107,7 +108,7 @@ class TCMPlotter(object):
                 amp = np.where(amp > rmax, rmax, amp)
                 ph = np.angle(z, deg=1) + hue_start
                 h = (ph % 360) / 360
-                s = 0.85 * np.ones_like(h)
+                s = 1.85 * np.ones_like(h)
                 v = (amp - rmin) / (rmax - rmin)
                 return hsv_to_rgb(np.dstack((h, s, v)))
 
@@ -121,11 +122,25 @@ class TCMPlotter(object):
             linecolor = 'k'
             if cmap == 'magma':
                 linecolor = 'w'
+            if log:
+                norm = LogNorm(vmin=vmin, vmax=vmax)
+            else:
+                norm = Normalize(vmin=vmin, vmax=vmax)
             plt.pcolormesh(energy_o, energy_u, tcm_ou.T,
-                           cmap=cmap, rasterized=True, vmin=vmin, vmax=vmax,
+                           cmap=cmap, rasterized=True, norm=norm,
                            )
-        plt.axhline(fermilevel, c=linecolor)
-        plt.axvline(fermilevel, c=linecolor)
+        if colorbar:
+            ax = self.ax_cbar
+            ax.clear()
+            cb = plt.colorbar(cax=ax)
+            cb.outline.set_edgecolor(linecolor)
+            ax.tick_params(axis='both', colors=linecolor)
+            # ax.yaxis.label.set_color(linecolor)
+            # ax.xaxis.label.set_color(linecolor)
+        ax = self.ax_tcm
+        plt.sca(ax)
+        plt.axhline(fermilevel, c=linecolor, lw=lw)
+        plt.axvline(fermilevel, c=linecolor, lw=lw)
 
         ax.tick_params(axis='both', which='major', pad=2)
         plt.xlabel(r'Occ. energy $\varepsilon_{o}$ (eV)', labelpad=0)
@@ -133,12 +148,8 @@ class TCMPlotter(object):
         plt.xlim(np.take(energy_o, (0, -1)))
         plt.ylim(np.take(energy_u, (0, -1)))
 
-    def plot_DOS(self, weight_n=1.0, stack=False,
+    def plot_DOS(self, dos_o, dos_u, stack=False,
                  fill={'color': '0.8'}, line={'color': 'k'}):
-        # Calculate DOS
-        dos_o, dos_u = self.ksd.get_weighted_DOS(weight_n, self.eig_n,
-                                                 self.energy_o, self.energy_u,
-                                                 self.sigma)
         # Plot DOSes
         if stack:
             base_o = self.base_o
@@ -165,3 +176,28 @@ class TCMPlotter(object):
 
     def set_title(self, *args, **kwargs):
         self.ax_occ_dos.set_title(*args, **kwargs)
+
+
+class TCMPlotter(TCM):
+
+    def __init__(self, ksd, energy_o, energy_u, sigma,
+                 zero_fermilevel=True):
+        eig_n, fermilevel = ksd.get_eig_n(zero_fermilevel)
+        TCM.__init__(self, energy_o, energy_u, fermilevel)
+        self.ksd = ksd
+        self.sigma = sigma
+        self.eig_n = eig_n
+
+    def plot_TCM(self, weight_p, **kwargs):
+        # Calculate TCM
+        tcm_ou = self.ksd.get_TCM(weight_p, self.eig_n, self.energy_o,
+                                  self.energy_u, self.sigma)
+        TCM.plot_TCM(self, tcm_ou, **kwargs)
+
+    def plot_DOS(self, weight_n=1.0, **kwargs):
+        # Calculate DOS
+        dos_o, dos_u = self.ksd.get_weighted_DOS(weight_n, self.eig_n,
+                                                 self.energy_o,
+                                                 self.energy_u,
+                                                 self.sigma)
+        TCM.plot_DOS(self, dos_o, dos_u, **kwargs)
