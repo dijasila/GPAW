@@ -717,21 +717,37 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     def apply_pseudo_hamiltonian(self, kpt, ham, psit_xG, Htpsit_xG):
         """Apply the pseudo Hamiltonian i.e. without PAW corrections."""
-        Htpsit_xG[:] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG
-        if self.collinear:
-            for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
-                psit_R = self.pd.ifft(psit_G, kpt.q)
-                Htpsit_G += self.pd.fft(psit_R * ham.vt_sG[kpt.s], kpt.q)
-        else:
-            v, x, y, z = ham.vt_xG
-            iy = y * 1j
-            for psit_sG, Htpsit_sG in zip(psit_xG, Htpsit_xG):
-                a = self.pd.ifft(psit_sG[0], kpt.q)
-                b = self.pd.ifft(psit_sG[1], kpt.q)
-                Htpsit_sG[0] += self.pd.fft(a * (v + z) + b * (x - iy), kpt.q)
-                Htpsit_sG[1] += self.pd.fft(a * (x + iy) + b * (v - z), kpt.q)
+        if not self.collinear:
+            self.apply_pseudo_hamiltonian_nc(kpt, ham, psit_xG, Htpsit_xG)
+            return
+
+        N = len(psit_xG)
+        S = self.gd.comm.size
+
+        vt_R = self.gd.distribute(ham.vt_sG[kpt.s], broadcast=True)
+
+        for n1 in range(0, N, S):
+            n2 = min(n1 + S, N)
+            psit_G, handle = self.pd.distribute(psit_xG[n1:n2])
+            Htpsit_xG[n1:n2] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG[n1:n2]
+            handle.wait()
+            if psit_G is not None:
+                vtpsit_R = self.pd.ifft(psit_G, kpt.q, serial=True) * vt_R
+                self.pd.fft(vtpsit_R, kpt.q, serial=True, out=psit_G)
+            Htpsit_xG[n1:n2] += self.pd.collect(psit_G)
+
         ham.xc.apply_orbital_dependent_hamiltonian(
             kpt, psit_xG, Htpsit_xG, ham.dH_asp)
+
+    def apply_pseudo_hamiltonian_nc(self, kpt, ham, psit_xG, Htpsit_xG):
+        Htpsit_xG[:] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG
+        v, x, y, z = ham.vt_xG
+        iy = y * 1j
+        for psit_sG, Htpsit_sG in zip(psit_xG, Htpsit_xG):
+            a = self.pd.ifft(psit_sG[0], kpt.q)
+            b = self.pd.ifft(psit_sG[1], kpt.q)
+            Htpsit_sG[0] += self.pd.fft(a * (v + z) + b * (x - iy), kpt.q)
+            Htpsit_sG[1] += self.pd.fft(a * (x + iy) + b * (v - z), kpt.q)
 
     def add_orbital_density(self, nt_G, kpt, n):
         axpy(1.0, abs(self.pd.ifft(kpt.psit_nG[n], kpt.q))**2, nt_G)
