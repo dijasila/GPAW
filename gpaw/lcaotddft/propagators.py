@@ -1,6 +1,7 @@
 import numpy as np
 from numpy.linalg import inv, solve
 
+from gpaw import debug
 from gpaw.tddft.units import au_to_as
 from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
                                       scalapack_inverse, scalapack_solve,
@@ -70,18 +71,11 @@ class LCAOPropagator(Propagator):
 class ReplayPropagator(LCAOPropagator):
 
     def __init__(self, filename, update='all'):
-        from gpaw.io import Reader
-        from gpaw.lcaotddft.wfwriter import WaveFunctionWriter
+        from gpaw.lcaotddft.wfwriter import WaveFunctionReader
         LCAOPropagator.__init__(self)
         self.filename = filename
         self.update_mode = update
-        self.reader = Reader(self.filename)
-        tag = self.reader.get_tag()
-        if tag != WaveFunctionWriter.ulmtag:
-            raise RuntimeError('Unknown tag %s' % tag)
-        version = self.reader.version
-        if version != WaveFunctionWriter.version:
-            raise RuntimeError('Unknown version %s' % version)
+        self.reader = WaveFunctionReader(self.filename)
         self.read_index = 1
         self.read_count = len(self.reader)
 
@@ -94,40 +88,54 @@ class ReplayPropagator(LCAOPropagator):
         if self.read_index == self.read_count:
             raise RuntimeError('Time not found: %f' % time)
 
-    def kick(self, hamiltonian, time):
-        self._align_read_index(time)
-        # Take the step after kick
-        self.read_index += 1
-        r = self.reader[self.read_index].wave_functions
+    def _read(self):
+        reader = self.reader[self.read_index]
+        r = reader.wave_functions
         self.wfs.read_wave_functions(r)
         self.wfs.read_occupations(r)
         self.read_index += 1
+
+    def kick(self, hamiltonian, time):
+        self._align_read_index(time)
+        # Check that this is the step after kick
+        assert not equal(self.reader[self.read_index].time,
+                         self.reader[self.read_index + 1].time)
+        self._read()
         self.hamiltonian.update(self.update_mode)
 
     def propagate(self, time, time_step):
         next_time = time + time_step
         self._align_read_index(next_time)
-        r = self.reader[self.read_index].wave_functions
-        self.wfs.read_wave_functions(r)
-        self.wfs.read_occupations(r)
-        self.read_index += 1
+        self._read()
         self.hamiltonian.update(self.update_mode)
         return next_time
 
     def control_paw(self, paw):
-        time = None
+        # Read the initial state
         index = 1
+        r = self.reader[index]
+        assert r.action == 'init'
+        assert equal(r.time, paw.time)
+        self.read_index = index
+        self._read()
+        index += 1
+        # Read the rest
         while index < self.read_count:
             r = self.reader[index]
             if r.action == 'init':
-                paw.tddft_init()
-                time = r.time
                 index += 1
             elif r.action == 'kick':
+                assert equal(r.time, paw.time)
                 paw.absorption_kick(r.kick_strength)
-                time = r.time
+                assert equal(r.time, paw.time)
                 index += 1
             elif r.action == 'propagate':
+                # Skip earlier times
+                if r.time < paw.time or equal(r.time, paw.time):
+                    index += 1
+                    continue
+                # Count the number of steps with the same time step
+                time = paw.time
                 time_step = r.time - time
                 iterations = 0
                 while index < self.read_count:
@@ -138,7 +146,11 @@ class ReplayPropagator(LCAOPropagator):
                     iterations += 1
                     time = r.time
                     index += 1
+                # Propagate
                 paw.propagate(time_step * au_to_as, iterations)
+                assert equal(time, paw.time)
+            else:
+                raise RuntimeError('Unknown action: %s' % r.action)
 
     def __del__(self):
         self.reader.close()
@@ -164,50 +176,39 @@ class ECNPropagator(LCAOPropagator):
         if hamiltonian is not None:
             self.hamiltonian = hamiltonian
 
-        self.blacs = self.wfs.ksl.using_blacs
+        ksl = self.wfs.ksl
+        self.blacs = ksl.using_blacs
         if self.blacs:
-            self.ksl = ksl = self.wfs.ksl
-            nao = ksl.nao
-            nbands = ksl.bd.nbands
-            mynbands = ksl.bd.mynbands
-            blocksize = ksl.blocksize
-
             from gpaw.blacs import Redistributor
             self.log('BLACS Parallelization')
 
             # Parallel grid descriptors
             grid = ksl.blockgrid
-            assert grid.nprow * grid.npcol == self.wfs.ksl.block_comm.size
-            # FOR DEBUG
-            self.MM_descriptor = grid.new_descriptor(nao, nao, nao, nao)
-            self.mm_block_descriptor = grid.new_descriptor(nao, nao, blocksize,
-                                                           blocksize)
-            self.Cnm_block_descriptor = grid.new_descriptor(nbands, nao,
-                                                            blocksize,
-                                                            blocksize)
-            # self.CnM_descriptor = ksl.blockgrid.new_descriptor(nbands,
-            #     nao, mynbands, nao)
-            self.mM_column_descriptor = ksl.single_column_grid.new_descriptor(
-                nao, nao, ksl.naoblocksize, nao)
-            self.CnM_unique_descriptor = ksl.single_column_grid.new_descriptor(
-                nbands, nao, mynbands, nao)
+            assert grid.nprow * grid.npcol == ksl.block_comm.size
+            self.mm_block_descriptor = ksl.mmdescriptor
+            self.Cnm_block_descriptor = grid.new_descriptor(ksl.bd.nbands,
+                                                            ksl.nao,
+                                                            ksl.blocksize,
+                                                            ksl.blocksize)
+            self.CnM_unique_descriptor = ksl.nM_unique_descriptor
 
             # Redistributors
-            self.mm2MM = Redistributor(ksl.block_comm,
-                                       self.mm_block_descriptor,
-                                       self.MM_descriptor)  # XXX FOR DEBUG
-            self.MM2mm = Redistributor(ksl.block_comm,
-                                       self.MM_descriptor,
-                                       self.mm_block_descriptor)  # FOR DEBUG
             self.Cnm2nM = Redistributor(ksl.block_comm,
                                         self.Cnm_block_descriptor,
                                         self.CnM_unique_descriptor)
             self.CnM2nm = Redistributor(ksl.block_comm,
                                         self.CnM_unique_descriptor,
                                         self.Cnm_block_descriptor)
-            self.mM2mm = Redistributor(ksl.block_comm,
-                                       self.mM_column_descriptor,
-                                       self.mm_block_descriptor)
+
+            if debug:
+                nao = ksl.nao
+                self.MM_descriptor = grid.new_descriptor(nao, nao, nao, nao)
+                self.mm2MM = Redistributor(ksl.block_comm,
+                                           self.mm_block_descriptor,
+                                           self.MM_descriptor)
+                self.MM2mm = Redistributor(ksl.block_comm,
+                                           self.MM_descriptor,
+                                           self.mm_block_descriptor)
 
             for kpt in self.wfs.kpt_u:
                 scalapack_zero(self.mm_block_descriptor, kpt.S_MM, 'U')
@@ -308,6 +309,8 @@ class ECNPropagator(LCAOPropagator):
         self.timer.stop('Linear solve')
 
     def blacs_mm_to_global(self, H_mm):
+        if not debug:
+            raise RuntimeError('Use debug mode')
         # Someone could verify that this works and remove the error.
         raise NotImplementedError('Method untested and thus unreliable')
         target = self.MM_descriptor.empty(dtype=complex)

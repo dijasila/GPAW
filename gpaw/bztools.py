@@ -3,6 +3,7 @@ from __future__ import division, print_function
 import numpy as np
 
 from scipy.spatial import Delaunay, Voronoi, ConvexHull
+from scipy.spatial.qhull import QhullError
 
 from ase.dft.kpoints import monkhorst_pack
 
@@ -14,7 +15,7 @@ from itertools import product
 from gpaw.mpi import world
 
 
-def get_lattice_symmetry(cell_cv):
+def get_lattice_symmetry(cell_cv, tolerance=1e-7):
     """Return symmetry object of lattice group.
 
     Parameters
@@ -27,7 +28,7 @@ def get_lattice_symmetry(cell_cv):
     gpaw.symmetry object
 
     """
-    latsym = Symmetry([0], cell_cv)
+    latsym = Symmetry([0], cell_cv, tolerance=tolerance)
     latsym.find_lattice_symmetry()
     return latsym
 
@@ -221,7 +222,8 @@ def get_symmetry_operations(U_scc, time_reversal):
     return Utmp_scc
 
 
-def get_ibz_vertices(cell_cv, U_scc=None, time_reversal=None):
+def get_ibz_vertices(cell_cv, U_scc=None, time_reversal=None,
+                     origin_c=None):
     """Determine irreducible BZ.
 
     Parameters
@@ -239,7 +241,10 @@ def get_ibz_vertices(cell_cv, U_scc=None, time_reversal=None):
         Vertices of the irreducible BZ.
     """
     # Choose an origin
-    origin_c = np.array([0.12, 0.22, 0.21], float)
+    if origin_c is None:
+        origin_c = np.array([0.12, 0.22, 0.21], float)
+    else:
+        assert (np.abs(origin_c) < 0.5).all()
 
     if U_scc is None:
         U_scc = np.array([np.eye(3)])
@@ -271,7 +276,13 @@ def get_ibz_vertices(cell_cv, U_scc=None, time_reversal=None):
                  N_xv[np.newaxis])
     points_xv = (point_sv[:, np.newaxis] - 2 * delta_sxv).reshape((-1, 3))
     points_xv = np.concatenate([point_sv, points_xv])
-    voronoi = Voronoi(points_xv)
+    try:
+        voronoi = Voronoi(points_xv)
+    except QhullError:
+        return get_ibz_vertices(cell_cv, U_scc=U_scc,
+                                time_reversal=time_reversal,
+                                origin_c=origin_c + [0.01, -0.02, -0.01])
+
     ibzregions = voronoi.point_region[0:len(point_sv)]
 
     ibzregion = ibzregions[0]
@@ -281,7 +292,7 @@ def get_ibz_vertices(cell_cv, U_scc=None, time_reversal=None):
     return ibzk_kc
 
 
-def get_bz(calc, returnlatticeibz=False):
+def get_bz(calc, returnlatticeibz=False, pbc_c=np.ones(3, bool)):
     """Return the BZ and IBZ vertices.
 
     Parameters
@@ -306,11 +317,12 @@ def get_bz(calc, returnlatticeibz=False):
     cU_scc = get_symmetry_operations(symmetry.op_scc,
                                      symmetry.time_reversal)
 
-    return get_reduced_bz(cell_cv, cU_scc, False, returnlatticeibz)
+    return get_reduced_bz(cell_cv, cU_scc, False, returnlatticeibz,
+                          pbc_c=pbc_c)
 
 
 def get_reduced_bz(cell_cv, cU_scc, time_reversal, returnlatticeibz=False,
-                   pbc_c=np.ones(3, bool)):
+                   pbc_c=np.ones(3, bool), tolerance=1e-7):
 
     """Reduce the BZ using the crystal symmetries to obtain the IBZ.
 
@@ -326,8 +338,11 @@ def get_reduced_bz(cell_cv, cU_scc, time_reversal, returnlatticeibz=False,
         Periodic bcs
     """
 
+    if time_reversal:
+        cU_scc = get_symmetry_operations(cU_scc, time_reversal)
+
     # Lattice symmetries
-    latsym = get_lattice_symmetry(cell_cv)
+    latsym = get_lattice_symmetry(cell_cv, tolerance=tolerance)
     lU_scc = get_symmetry_operations(latsym.op_scc,
                                      latsym.time_reversal)
 

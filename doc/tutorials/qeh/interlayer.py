@@ -1,3 +1,4 @@
+# Creates: W_r.svg
 import numpy as np
 import matplotlib.pyplot as plt
 from gpaw.response.qeh import Heterostructure

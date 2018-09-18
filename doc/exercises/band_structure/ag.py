@@ -1,4 +1,4 @@
-import numpy as np
+# Creates: Ag.png
 from ase.build import bulk
 from gpaw import GPAW
 
@@ -25,6 +25,5 @@ calc.set(kpts={'path': 'WLGXWK', 'npoints': 100})
 calc.get_potential_energy()
 
 # Plot the band structure
-
 band_structure = calc.band_structure()
 band_structure.plot(filename='Ag.png', emax=20.0, show=True)

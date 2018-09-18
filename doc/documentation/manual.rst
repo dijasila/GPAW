@@ -336,7 +336,9 @@ For the list of all functionals available in GPAW see :ref:`overview_xc`.
 
 GPAW uses the functionals from libxc_ by default.
 Keywords are based on the names in the libxc :file:`'xc_funcs.h'` header
-file (the leading ``'XC_'`` should be removed from those names). Valid
+file (the leading ``'XC_'`` should be removed from those names).
+You should be able to find the file installed alongside LibXC.
+Valid
 keywords are strings or combinations of exchange and correlation string
 joined by **+** (plus). For example, "the" (most common) LDA approximation
 in chemistry corresponds to ``'LDA_X+LDA_C_VWN'``.
@@ -1029,7 +1031,7 @@ at a later time, this can be done as follows:
 
 >>> from gpaw import *
 >>> atoms, calc = restart('H2.gpw')
->>> print atoms.get_potential_energy()
+>>> print(atoms.get_potential_energy())
 
 Everything will be just as before we wrote the :file:`H2.gpw` file.
 Often, one wants to restart the calculation with one or two parameters
@@ -1037,14 +1039,14 @@ changed slightly.  This is very simple to do.  Suppose you want to
 change the number of grid points:
 
 >>> atoms, calc = restart('H2.gpw', gpts=(20, 20, 20))
->>> print atoms.get_potential_energy()
+>>> print(atoms.get_potential_energy())
 
 .. tip::
    There is an alternative way to do this, that can be handy sometimes:
 
    >>> atoms, calc = restart('H2.gpw')
    >>> calc.set(gpts=(20, 20, 20))
-   >>> print atoms.get_potential_energy()
+   >>> print(atoms.get_potential_energy())
 
 
 More details can be found on the :ref:`restart_files` page.

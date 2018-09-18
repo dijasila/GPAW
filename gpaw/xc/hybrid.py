@@ -37,24 +37,19 @@ class HybridXCBase(XCFunctional):
         """
 
         if name == 'EXX':
-            assert hybrid is None and xc is None
             hybrid = 1.0
             xc = XC(XCNull())
         elif name == 'PBE0':
-            assert hybrid is None and xc is None
             hybrid = 0.25
             xc = XC('HYB_GGA_XC_PBEH')
         elif name == 'B3LYP':
-            assert hybrid is None and xc is None
             hybrid = 0.2
             xc = XC('HYB_GGA_XC_B3LYP')
         elif name == 'HSE03':
-            assert hybrid is None and xc is None and omega is None
             hybrid = 0.25
             omega = 0.106
             xc = XC('HYB_GGA_XC_HSE03')
         elif name == 'HSE06':
-            assert hybrid is None and xc is None and omega is None
             hybrid = 0.25
             omega = 0.11
             xc = XC('HYB_GGA_XC_HSE06')
@@ -69,8 +64,7 @@ class HybridXCBase(XCFunctional):
         XCFunctional.__init__(self, name, xc.type)
 
     def todict(self):
-        return {'type': 'hybrid',
-                'name': self.name,
+        return {'name': self.name,
                 'hybrid': self.hybrid,
                 'xc': self.xc.todict(),
                 'omega': self.omega}
@@ -81,7 +75,7 @@ class HybridXCBase(XCFunctional):
 
 class HybridXC(HybridXCBase):
     def __init__(self, name, hybrid=None, xc=None,
-                 finegrid=False, unocc=False):
+                 finegrid=False, unocc=False, omega=None):
         """Mix standard functionals with exact exchange.
 
         finegrid: boolean
@@ -91,7 +85,7 @@ class HybridXC(HybridXCBase):
         """
         self.finegrid = finegrid
         self.unocc = unocc
-        HybridXCBase.__init__(self, name, hybrid, xc)
+        HybridXCBase.__init__(self, name, hybrid=hybrid, xc=xc, omega=omega)
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
@@ -356,7 +350,7 @@ class HybridXC(HybridXCBase):
         if kpt.f_n is None:
             return
 
-        U_nn = U_nn.copy()
+        U_nn = U_nn.T.copy()
         nocc = self.nocc_s[kpt.s]
         if len(kpt.vt_nG) == nocc:
             U_nn = U_nn[:nocc, :nocc]

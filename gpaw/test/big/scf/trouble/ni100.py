@@ -8,4 +8,3 @@ gpts = h2gpts(0.18, atoms.cell, idiv=8)
 atoms.calc = GPAW(gpts=gpts,
                   kpts=(8, 8, 1),
                   xc='PBE')
-atoms.get_potential_energy()

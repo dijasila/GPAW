@@ -121,12 +121,12 @@ class LCAOTDDFT(GPAW):
         self.tddft_init()
 
         time_step *= attosec_to_autime
-        maxiter = self.niter + iterations
+        self.maxiter = self.niter + iterations
 
         self.log('----  About to do %d propagation steps' % iterations)
 
         self.timer.start('Propagate')
-        while self.niter < maxiter:
+        while self.niter < self.maxiter:
             # Propagate one step
             self.time = self.propagator.propagate(self.time, time_step)
 
@@ -139,4 +139,5 @@ class LCAOTDDFT(GPAW):
 
     def replay(self, **kwargs):
         self.propagator = create_propagator(**kwargs)
+        self.tddft_init()
         self.propagator.control_paw(self)

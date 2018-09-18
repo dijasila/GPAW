@@ -363,7 +363,7 @@ class RadialGridDescriptor:
             r_g = r_g[1:]
             a_g = a_g[1:]
         plt.plot(r_g, a_g * r_g**n)
-        plt.axis(xmax=rc)
+        plt.axis(xmin=0, xmax=rc)
         if show:
             plt.show()
 
@@ -423,7 +423,7 @@ class EquidistantRadialGridDescriptor(RadialGridDescriptor):
         RadialGridDescriptor.__init__(self, h * np.arange(N) + h0, h)
 
     def r2g(self, r):
-        return (r - self.r_g[0]) / (self.r_g[1] - self.r_g[0])
+        return int(np.ceil((r - self.r_g[0]) / (self.r_g[1] - self.r_g[0])))
 
     def xml(self, id='grid1'):
         assert self.r_g[0] == 0.0

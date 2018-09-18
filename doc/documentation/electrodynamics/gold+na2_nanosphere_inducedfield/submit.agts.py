@@ -1,14 +1,8 @@
-def agts(queue):
-    c1 = queue.add('calculate.py',
-                   ncpus=8,
-                   walltime=60)
+from myqueue.task import task
 
-    c2 = queue.add('postprocess.py',
-                   ncpus=8,
-                   walltime=10,
-                   deps=c1)
 
-    queue.add('plot.py',
-              deps=c2,
-              creates=['cl_field.ind_Ffe.png', 'qm_field.ind_Ffe.png',
-                       'tot_field.ind_Ffe.png'])
+def create_tasks():
+    return [
+        task('calculate.py@8:1h'),
+        task('postprocess.py@8:10s', deps='calculate.py'),
+        task('plot.py', deps='postprocess.py')]

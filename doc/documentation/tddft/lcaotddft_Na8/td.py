@@ -7,7 +7,7 @@ td_calc = LCAOTDDFT('gs.gpw', txt='td.out')
 
 # Attach any data recording or analysis tools
 DipoleMomentWriter(td_calc, 'dm.dat')
-WaveFunctionWriter(td_calc, 'wfw.ulm')
+WaveFunctionWriter(td_calc, 'wf.ulm')
 
 # Kick and propagate
 td_calc.absorption_kick([1e-5, 0., 0.])

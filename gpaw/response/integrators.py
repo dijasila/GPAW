@@ -164,6 +164,8 @@ class PointIntegrator(Integrator):
         pb = ProgressBar(self.fd)
         for _, arguments in pb.enumerate(mydomain_t):
             n_MG = get_matrix_element(*arguments)
+            if n_MG is None:
+                continue
             deps_M = get_eigenvalues(*arguments)
 
             if intraband:

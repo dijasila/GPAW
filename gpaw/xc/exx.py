@@ -251,10 +251,13 @@ class EXX(PairDensity):
                 D_ii = unpack2(D_p)
                 V_ii = pawexxvv(atomdata, D_ii)
                 V_sii.append(V_ii)
-            C_ii = unpack(atomdata.X_p)
+            if atomdata.X_p is None:
+                C_ii = D_ii * 0.0
+            else:
+                C_ii = unpack(atomdata.X_p)
             self.V_asii.append(V_sii)
             self.C_aii.append(C_ii)
-            self.exxcc += atomdata.ExxC
+            self.exxcc += atomdata.ExxC or 0.0
 
     def calculate_paw_exx_corrections(self, i, kpt):
         x = self.calc.wfs.nspins / self.world.size

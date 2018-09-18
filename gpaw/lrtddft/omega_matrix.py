@@ -53,13 +53,12 @@ class OmegaMatrix:
             eh_comm = mpi.serial_comm
 
         self.eh_comm = eh_comm
+        self.fullkss = kss
 
         if filehandle is not None:
-            self.kss = kss
             self.read(fh=filehandle)
             return None
 
-        self.fullkss = kss
         self.finegrid = finegrid
 
         if calculator is None:
@@ -531,7 +530,13 @@ class OmegaMatrix:
         return self.timestring(t0 * (nij - ij - 1) + t)
 
     def get_map(self, istart=None, jend=None, energy_range=None):
-        """Return the reduction map for the given requirements"""
+        """Return the reduction map for the given requirements
+
+        Returns
+        -------
+        map - list of original indices
+        kss - reduced KSSingles object
+        """
 
         self.istart = istart
         self.jend = jend
@@ -598,14 +603,16 @@ class OmegaMatrix:
         self.kss = kss
         diagonalize(self.eigenvectors, self.eigenvalues)
 
-    def Kss(self, kss=None):
-        """Set and get own Kohn-Sham singles"""
-        if kss is not None:
-            self.fullkss = kss
-        if(hasattr(self, 'fullkss')):
-            return self.fullkss
-        else:
-            return None
+    @property
+    def kss(self):
+        if hasattr(self, '_kss'):
+            return self._kss
+        return self.fullkss
+
+    @kss.setter
+    def kss(self, kss):
+        """Set current (restricted) KSSingles object"""
+        self._kss = kss
 
     def read(self, filename=None, fh=None):
         """Read myself from a file"""

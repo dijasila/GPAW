@@ -30,8 +30,9 @@ import sys
 
 cmds = """\
 touch gpaw-tests.lock
-cd ase; git pull; pip install -U .
-cd gpaw; git clean -fdx; git pull; python setup.py install {} 2> ../test.err
+cd ase; git pull -q; pip install -U .
+cd gpaw; git clean -fdx; git pull -q
+cd gpaw; python setup.py install {} 2> ../test.err
 gpaw test > test-1.out
 gpaw -P 2 test > test-2.out
 gpaw -P 4 test > test-4.out
