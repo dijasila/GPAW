@@ -298,11 +298,10 @@ class PWDescriptor:
             if Q_G is None:
                 Q_G = self.Q_qG[q]
             f_G = self.tmp_Q.ravel()[Q_G]
+            if serial:
+                return f_G
         else:
             f_G = None
-
-        if serial:
-            return f_G
 
         return self.scatter(f_G, q)
 
@@ -338,16 +337,16 @@ class PWDescriptor:
         ng = self.ng_q[q]
         ssize_r = np.zeros(comm.size, int)
         ssize_r[:N] = self.myng_q[q]
-        soffset_r = np.arange(0, ng, self.myng_q[q])
+        soffset_r = np.arange(comm.size) * self.myng_q[q]
         rsize_r = np.zeros(comm.size, int)
         if comm.rank < N:
             rsize_r[:-1] = self.maxmyng
             rsize_r[-1] = ng - self.maxmyng * (comm.size - 1)
         roffset_r = np.arange(0, ng, self.maxmyng)
-        comm.alltoallv(a_rG, ssize_r, soffset_r,
-                       self.tmp_G, rsize_r, roffset_r)
+        b_G = self.tmp_G[:ng]
+        comm.alltoallv(a_rG, ssize_r, soffset_r, b_G, rsize_r, roffset_r)
         if comm.rank < N:
-            return self.tmp_G
+            return b_G
 
     def alltoall2(self, a_G, q, b_rG):
         comm = self.gd.comm
@@ -358,15 +357,15 @@ class PWDescriptor:
         ng = self.ng_q[q]
         rsize_r = np.zeros(comm.size, int)
         rsize_r[:N] = self.myng_q[q]
-        roffset_r = np.arange(0, ng, self.myng_q[q])
+        roffset_r = np.arange(comm.size) * self.myng_q[q]
         ssize_r = np.zeros(comm.size, int)
         if comm.rank < N:
             ssize_r[:-1] = self.maxmyng
             ssize_r[-1] = ng - self.maxmyng * (comm.size - 1)
         soffset_r = np.arange(0, ng, self.maxmyng)
-        comm.alltoallv(a_G, ssize_r, soffset_r,
-                       self.tmp_G, rsize_r, roffset_r)
-        b_rG += self.tmp_G.reshape((N, -1))
+        tmp_rG = self.tmp_G[:b_rG.size].reshape(b_rG.shape)
+        comm.alltoallv(a_G, ssize_r, soffset_r, tmp_rG, rsize_r, roffset_r)
+        b_rG += tmp_rG
 
     def ifft(self, c_G, q=-1, serial=False):
         """Inverse fast Fourier transform.
@@ -386,6 +385,7 @@ class PWDescriptor:
         comm = self.gd.comm
         if comm.rank == 0 or serial:
             self.tmp_Q[:] = 0.0
+            print(c_G.shape, self.Q_qG[q].shape, q)
             self.tmp_Q.ravel()[self.Q_qG[q]] = c_G
             if self.dtype == float:
                 t = self.tmp_Q[:, :, 0]
@@ -762,6 +762,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             return Preconditioner(self.pd.G2_qG, self.pd)
         return NonCollinearPreconditioner(self.pd.G2_qG, self.pd)
 
+    @timer('Apply H')
     def apply_pseudo_hamiltonian(self, kpt, ham, psit_xG, Htpsit_xG):
         """Apply the pseudo Hamiltonian i.e. without PAW corrections."""
         if not self.collinear:
