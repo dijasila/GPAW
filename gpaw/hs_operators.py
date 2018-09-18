@@ -320,7 +320,7 @@ class MatrixOperator:
         if B == 1 and J == 1:
             # Simple case:
             Apsit_nG = A(psit2_nG)
-            if self.cuda and isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
+            if self.cuda and isinstance(psit1_nG, gpaw.cuda.gpuarray.GPUArray):
                 self.gd.integrate(psit1_nG, Apsit_nG, hermitian=hermitian,
                                   _transposed_result=A_NN)
             else:
