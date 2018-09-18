@@ -276,7 +276,7 @@ class PWDescriptor:
             shape = x + (self.myng_q[q],)
         return np.empty(shape, complex)
 
-    def fft(self, f_R, q=-1, Q_G=None):
+    def fft(self, f_R, q=-1, Q_G=None, serial=False):
         """Fast Fourier transform.
 
         Returns c(G) for G<Gc::
@@ -288,15 +288,21 @@ class PWDescriptor:
                    R
         """
 
-        self.gd.collect(f_R, self.tmp_R)
+        if serial:
+            self.tmp_R[:] = f_R
+        else:
+            self.gd.collect(f_R, self.tmp_R)
 
-        if self.gd.comm.rank == 0:
+        if self.gd.comm.rank == 0 or serial:
             self.fftplan.execute()
             if Q_G is None:
                 Q_G = self.Q_qG[q]
             f_G = self.tmp_Q.ravel()[Q_G]
         else:
             f_G = None
+
+        if serial:
+            return f_G
 
         return self.scatter(f_G, q)
 
@@ -324,15 +330,45 @@ class PWDescriptor:
         if comm.rank == 0:
             return a_G[:self.ng_q[q]]
 
-    def distribute(self, a_rG, q=0):
+    def alltoall1(self, a_rG, q):
         comm = self.gd.comm
-        myng_r = np.empty(comm.size, int)
-        myng_r[:-1] = self.maxmyng
-        myng_r[-1] = self.ng_q[q] - (comm.size - 1) * self.maxmyng
-        comm.alltoallv(a_rG, myng_r, np.add.accumulate(nyng_r) - myng_r[0],
-                       )
+        if comm.size == 1:
+            return a_rG[0]
+        N = len(a_rG)
+        ng = self.ng_q[q]
+        ssize_r = np.zeros(comm.size, int)
+        ssize_r[:N] = self.myng_q[q]
+        soffset_r = np.arange(0, ng, self.myng_q[q])
+        rsize_r = np.zeros(comm.size, int)
+        if comm.rank < N:
+            rsize_r[:-1] = self.maxmyng
+            rsize_r[-1] = ng - self.maxmyng * (comm.size - 1)
+        roffset_r = np.arange(0, ng, self.maxmyng)
+        comm.alltoallv(a_rG, ssize_r, soffset_r,
+                       self.tmp_G, rsize_r, roffset_r)
+        if comm.rank < N:
+            return self.tmp_G
 
-    def ifft(self, c_G, q=-1):
+    def alltoall2(self, a_G, q, b_rG):
+        comm = self.gd.comm
+        if comm.size == 1:
+            b_rG[0] += a_G
+            return
+        N = len(b_rG)
+        ng = self.ng_q[q]
+        rsize_r = np.zeros(comm.size, int)
+        rsize_r[:N] = self.myng_q[q]
+        roffset_r = np.arange(0, ng, self.myng_q[q])
+        ssize_r = np.zeros(comm.size, int)
+        if comm.rank < N:
+            ssize_r[:-1] = self.maxmyng
+            ssize_r[-1] = ng - self.maxmyng * (comm.size - 1)
+        soffset_r = np.arange(0, ng, self.maxmyng)
+        comm.alltoallv(a_G, ssize_r, soffset_r,
+                       self.tmp_G, rsize_r, roffset_r)
+        b_rG += self.tmp_G.reshape((N, -1))
+
+    def ifft(self, c_G, q=-1, serial=False):
         """Inverse fast Fourier transform.
 
         Returns::
@@ -343,9 +379,12 @@ class PWDescriptor:
                    N /__
                       G
         """
-        c_G = self.gather(c_G * (1.0 / self.tmp_R.size), q)
+        if serial:
+            c_G = c_G * (1.0 / self.tmp_R.size)
+        else:
+            c_G = self.gather(c_G * (1.0 / self.tmp_R.size), q)
         comm = self.gd.comm
-        if comm.rank == 0:
+        if comm.rank == 0 or serial:
             self.tmp_Q[:] = 0.0
             self.tmp_Q.ravel()[self.Q_qG[q]] = c_G
             if self.dtype == float:
@@ -356,7 +395,7 @@ class PWDescriptor:
                 t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
                 t[-n:, 0] = t[n:0:-1, 0].conj()
             self.ifftplan.execute()
-        if comm.size == 1:
+        if comm.size == 1 or serial:
             return self.tmp_R.copy()
         return self.gd.distribute(self.tmp_R)
 
@@ -732,17 +771,18 @@ class PWWaveFunctions(FDPWWaveFunctions):
         N = len(psit_xG)
         S = self.gd.comm.size
 
-        vt_R = self.gd.distribute(ham.vt_sG[kpt.s], broadcast=True)
+        vt_R = self.gd.collect(ham.vt_sG[kpt.s], broadcast=True)
 
         for n1 in range(0, N, S):
             n2 = min(n1 + S, N)
-            psit_G, handle = self.pd.distribute(psit_xG[n1:n2])
+            psit_G = self.pd.alltoall1(psit_xG[n1:n2], kpt.q)
             Htpsit_xG[n1:n2] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG[n1:n2]
-            handle.wait()
             if psit_G is not None:
                 vtpsit_R = self.pd.ifft(psit_G, kpt.q, serial=True) * vt_R
-                self.pd.fft(vtpsit_R, kpt.q, serial=True, out=psit_G)
-            Htpsit_xG[n1:n2] += self.pd.collect(psit_G)
+                vtpsit_G = self.pd.fft(vtpsit_R, kpt.q, serial=True)
+            else:
+                vtpsit_G = None
+            self.pd.alltoall2(vtpsit_G, kpt.q, Htpsit_xG[n1:n2])
 
         ham.xc.apply_orbital_dependent_hamiltonian(
             kpt, psit_xG, Htpsit_xG, ham.dH_asp)
