@@ -554,40 +554,35 @@ class PZpotentialLcao:
             F_MM = self.get_orbital_potential_matrix(f_n, C_nM, kpt,
                                                      wfs, setup, n,
                                                      )[0]
-            F_MM += H_MM
             gemv(1.0, F_MM, C_nM[n], 0.0, b_nM[n])
 
         L_occ = np.zeros((n_occ, n_occ), dtype=self.dtype)
         C_conj_nM = np.copy(C_nM.conj()[:n_occ])
         mmm(1.0, C_conj_nM, 'n', b_nM, 't', 0.0, L_occ)
+
+        L_occ += C_conj_nM @ H_MM @ C_nM[:n_occ].T
         L_occ = 0.5 * (L_occ + L_occ.T.conj())
         del C_conj_nM
 
-        L_unocc = np.einsum('jk,kl,il->ji',
-                            C_nM.conj()[n_occ:], H_MM, C_nM[n_occ:])
+        L_unocc = C_nM.conj()[n_occ:] @ H_MM @ C_nM[n_occ:].T
         L_unocc = 0.5 * (L_unocc + L_unocc.T.conj())
 
         self.lagr_diag_s[u] = \
-            np.append(np.einsum('ii->i', L_occ),
-                      np.einsum('ii->i', L_unocc)).real
+            np.append(np.diagonal(L_occ),
+                      np.diagonal(L_unocc)).real
 
         # occupied eigenvalues
         # TODO: fix it, when there is no occ numbers
-        # Can_nM = np.zeros_like(C_nM)
         if n_occ > 0:
             eig_occ = np.empty(L_occ.shape[0])
             diagonalize(L_occ, eig_occ)
             kpt.eps_n[:n_occ] = eig_occ
-
-            # Can_nM[:n_occ] = np.dot(L_occ.conj(), C_nM[:n_occ])
 
         # unoccupied eigenvalues
         if L_unocc.shape[0] > 0:
             eig_unocc = np.empty(L_unocc.shape[0])
             diagonalize(L_unocc, eig_unocc)
             kpt.eps_n[n_occ:] = eig_unocc
-
-            # Can_nM[n_occ:] = np.dot(L_occ.conj(), C_nM[n_occ:])
 
         self.eigv_s[u] = np.copy(kpt.eps_n)
 
