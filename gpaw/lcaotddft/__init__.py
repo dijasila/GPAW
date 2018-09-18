@@ -139,4 +139,5 @@ class LCAOTDDFT(GPAW):
 
     def replay(self, **kwargs):
         self.propagator = create_propagator(**kwargs)
+        self.tddft_init()
         self.propagator.control_paw(self)
