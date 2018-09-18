@@ -76,7 +76,7 @@ class WaveFunctions(EmptyWaveFunctions):
         self.cuda = cuda
         self.atom_partition = None
 
-        self.kpt_u = kd.create_k_points(self.gd)
+        self.kpt_u = kd.create_k_points(self.gd, self.cuda)
 
         self.eigensolver = None
         self.positions_set = False
