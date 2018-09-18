@@ -62,18 +62,19 @@ for cellno, cell_cv in enumerate(icells()):
 
         laplace = Laplace(gd, scale=-1.0 / (4.0 * np.pi), n=nn)
 
-        rhotest_g = gd.zeros()
-        laplace.apply(phi_g, rhotest_g)
-        maxerr = np.abs(rhotest_g - rho_g).max()
+        def get_residual_err(phi_g):
+            rhotest_g = gd.zeros()
+            laplace.apply(phi_g, rhotest_g)
+            return np.abs(rhotest_g - rho_g).max()
+
+        maxerr = get_residual_err(phi_g)
         ps2 = FDPoissonSolver(relax='J', nn=nn, eps=1e-18)
         ps2.set_grid_descriptor(gd)
         phi2_g = gd.zeros()
         ps2.solve(phi2_g, rho_g)
 
         phimaxerr = np.abs(phi2_g - phi_g).max()
-        rhotest2_g = gd.zeros()
-        laplace.apply(phi2_g, rhotest2_g)
-        maxerr2 = np.abs(rho_g - rhotest2_g).max()
+        maxerr2 = get_residual_err(phi2_g)
 
         pbcstring = '{}{}{}'.format(*pbc)
         print('{:2d} pbc={} err[fast]={:8.5e} err[J]={:8.5e} err[phi]={:8.5e}'
