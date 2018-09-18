@@ -784,7 +784,7 @@ def irfst2(A_g, axes=[0,1]):
     temp_g = np.zeros((x*2+2, (y*2+2)//2+1, z))
     temp_g[1:x+1, 1:y+1,:] = A_g
     temp_g[x+2:, 1:y+1,:] = -A_g[::-1, :, :]
-    return -0.25*irfft2(temp_g, axes=axes)[1:x+1, 1:y+1, :].real 
+    return -0.25*irfft2(temp_g, axes=axes)[1:x+1, 1:y+1, :].real
 """
 
 
@@ -879,7 +879,8 @@ def transform2(A_g, axes=None, pbc=[True, True]):
     elif not any(pbc):
         return rfst2(A_g, axes=axes)
     else:
-        return transform(transform(A_g, axis=axes[0], pbc=pbc[0]), axis=axes[1], pbc=pbc[1])
+        return transform(transform(A_g, axis=axes[0], pbc=pbc[0]),
+                         axis=axes[1], pbc=pbc[1])
 
 def itransform(A_g, axis=None, pbc=True):
     if pbc:
@@ -893,7 +894,8 @@ def itransform2(A_g, axes=None, pbc=[True, True]):
     elif not any(pbc):
         return irfst2(A_g, axes=axes)
     else:
-        return itransform(itransform(A_g, axis=axes[0], pbc=pbc[0]), axis=axes[1], pbc=pbc[1])
+        return itransform(itransform(A_g, axis=axes[0], pbc=pbc[0]),
+                          axis=axes[1], pbc=pbc[1])
 
 class FastPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3,  use_cholesky=False, **kwargs):
@@ -910,11 +912,14 @@ class FastPoissonSolver(BasePoissonSolver):
         pbc_c = np.array(gd.pbc_c, dtype=bool)
         periodic_axes = axes[pbc_c]
         non_periodic_axes = axes[np.logical_not(pbc_c)]
- 
+
         # Find out which axes are orthogonal (0, 2 or 3)
-        # Note, that one expects that the axes are always rotated in conventional form, thus for all axes to be
-        # classified as orthogonal, the cell_cv needs to be diagonal. This may always be achieved by rotating 
-        # the unit-cell along with the atoms. The classification is inherited from grid_descriptor.orthogonal.
+        # Note, that one expects that the axes are always rotated in
+        # conventional form, thus for all axes to be
+        # classified as orthogonal, the cell_cv needs to be diagonal.
+        # This may always be achieved by rotating
+        # the unit-cell along with the atoms. The classification is
+        # inherited from grid_descriptor.orthogonal.
         orthogonal_c = np.array([ True, True, True ], dtype=bool)
         for c in range(3):
             for v in range(3):
@@ -926,13 +931,18 @@ class FastPoissonSolver(BasePoissonSolver):
         orthogonal_axes = axes[orthogonal_c]
         non_orthogonal_axes = axes[np.logical_not(orthogonal_c)]
 
-        # We sort them, and pick the longest non-periodic axes as the cholesky axis.
-        sorted_non_periodic_axes = sorted(non_periodic_axes, key=lambda c: gd.N_c[c])
+        # We sort them, and pick the longest non-periodic axes as the
+        # cholesky axis.
+        sorted_non_periodic_axes = sorted(non_periodic_axes,
+                                          key=lambda c: gd.N_c[c])
         if self.use_cholesky:
             if len(sorted_non_periodic_axes) > 0:
                 cholesky_axes = [ sorted_non_periodic_axes[-1] ]
                 if cholesky_axes[0] in non_orthogonal_axes:
-                    raise NotImplementedError("Cholesky axis cannot be non-orthogonal. Do you really want a non-orthogonal non-periodic axis? If so, run with use_cholesky=False.")
+                    msg = ('Cholesky axis cannot be non-orthogonal. '
+                           'Do you really want a non-orthogonal non-periodic '
+                           'axis? If so, run with use_cholesky=False.')
+                    raise NotImplementedError(msg)
                 fst_axes = sorted_non_periodic_axes[0:-1]
             else:
                 cholesky_axes = []
@@ -942,7 +952,8 @@ class FastPoissonSolver(BasePoissonSolver):
             fst_axes = sorted_non_periodic_axes
         fft_axes = list(periodic_axes)
 
-        self.cholesky_axes, self.fst_axes, self.fft_axes = cholesky_axes, fst_axes, fft_axes
+        (self.cholesky_axes, self.fst_axes,
+         self.fft_axes) = cholesky_axes, fst_axes, fft_axes
 
         fftfst_axes = self.fft_axes + self.fst_axes
         axes = self.fft_axes + self.fst_axes + self.cholesky_axes
@@ -954,15 +965,18 @@ class FastPoissonSolver(BasePoissonSolver):
         domain = gd.N_c.copy()
         domain[axes[0]] = 1
         domain[axes[1]] = 1
-        gd_x.append(gd.new_descriptor(parsize_c=decompose_domain(domain, gd.comm.size)))
- 
+        parsize_c = decompose_domain(domain, gd.comm.size)
+        gd_x.append(gd.new_descriptor(parsize_c=parsize_c))
+
         # Create z flat decomposition
         domain = gd.N_c.copy()
         domain[axes[2]] = 1
-        gd_x.append(gd.new_descriptor(parsize_c=decompose_domain(domain, gd.comm.size)))
+        parsize_c = decompose_domain(domain, gd.comm.size)
+        gd_x.append(gd.new_descriptor(parsize_c=parsize_c))
         self.gd_x = gd_x
 
-        # Calculate eigenvalues in fst/fft decomposition for non-cholesky axes in parallel
+        # Calculate eigenvalues in fst/fft decomposition for
+        # non-cholesky axes in parallel
         r_cx = np.indices(gd_x[-1].n_c)
         r_cx += gd_x[-1].beg_c[:,np.newaxis, np.newaxis, np.newaxis]
         r_cx = np.array(r_cx, dtype=complex)
@@ -977,7 +991,8 @@ class FastPoissonSolver(BasePoissonSolver):
         laplace = Laplace(gd_x[-1], -0.25 / pi, self.nn)
         for coeff, offset_c in zip(laplace.coef_p, laplace.offset_pc):
             offset_c = np.array(offset_c)
-            if np.all(offset_c == [0,0,0]): # The centerpoint is handled with (temp-1.0)
+            if not any(offset_c):
+                # The centerpoint is handled with (temp-1.0)
                 continue
             non_zero_axes, = np.where(offset_c)
             if set(non_zero_axes).issubset(fftfst_axes):
@@ -989,10 +1004,13 @@ class FastPoissonSolver(BasePoissonSolver):
         assert np.linalg.norm(fft_lambdas.imag) < 1e-10
         self.fft_lambdas = fft_lambdas.real
 
-        # If there is no Cholesky decomposition, the system is already fully diagonal
-        # and we can directly invert the linear problem by dividing with the eigenvalues.
+        # If there is no Cholesky decomposition, the system is already
+        # fully diagonal and we can directly invert the linear problem
+        # by dividing with the eigenvalues.
         if len(cholesky_axes) == 0:
-            with np.errstate(divide='ignore'): # Why this doesn't suppress the error?
+            with np.errstate(divide='ignore'):
+                # Why this doesn't suppress the error?
+                # Maybe error happens outside numpy.  --askhl
                 self.inv_fft_lambdas = np.where(np.abs(self.fft_lambdas)>1e-10, 1.0 / self.fft_lambdas, 0)
                 self.fft_lambdas = None
 
@@ -1009,12 +1027,16 @@ class FastPoissonSolver(BasePoissonSolver):
             timer.stop('Communicate fwd %d' % c)
             if c == 0:
                timer.start('fft2')
-               work1_g = transform2(work2_g, axes=self.axes[:2], pbc=gd1.pbc_c[self.axes[:2]])
+               work1_g = transform2(work2_g, axes=self.axes[:2],
+                                    pbc=gd1.pbc_c[self.axes[:2]])
                timer.stop('fft2')
             elif c == 1:
-                if len(self.cholesky_axes) == 0: # The remaining problem is 0D dimensional, i.e the problem has been fully diagonalized
+                if len(self.cholesky_axes) == 0:
+                    # The remaining problem is 0D dimensional, i.e the
+                    # problem has been fully diagonalized
                     timer.start('fft')
-                    work1_g = transform(work2_g, axis=self.axes[2], pbc=gd1.pbc_c[self.axes[2]])
+                    work1_g = transform(work2_g, axis=self.axes[2],
+                                        pbc=gd1.pbc_c[self.axes[2]])
                     timer.stop('fft')
                 else:
                     raise NotImplementedError
@@ -1022,7 +1044,9 @@ class FastPoissonSolver(BasePoissonSolver):
                 raise NotImplementedError
             gd1 = gd2
 
-        if len(self.cholesky_axes) == 0: # The remaining problem is 0D dimensional, i.e the problem has been fully diagonalized
+        if len(self.cholesky_axes) == 0:
+            # The remaining problem is 0D dimensional, i.e the problem
+            # has been fully diagonalized
             work1_g *= self.inv_fft_lambdas
         else:
             assert len(self.cholesky_axes) == 1
@@ -1034,12 +1058,16 @@ class FastPoissonSolver(BasePoissonSolver):
 
             if c == 0:
                timer.start('fft2')
-               work2_g = itransform2(work1_g, axes=self.axes[:2], pbc=gd1.pbc_c[self.axes[:2]])
+               work2_g = itransform2(work1_g, axes=self.axes[:2],
+                                     pbc=gd1.pbc_c[self.axes[:2]])
                timer.stop('fft2')
             elif c == 1:
-                if len(self.cholesky_axes) == 0: # The remaining problem is 0D dimensional, i.e the problem has been fully diagonalized
+                if len(self.cholesky_axes) == 0:
+                    # The remaining problem is 0D dimensional, i.e the
+                    # problem has been fully diagonalized
                     timer.start('fft')
-                    work2_g = itransform(work1_g, axis=self.axes[2], pbc=gd1.pbc_c[self.axes[2]])
+                    work2_g = itransform(work1_g, axis=self.axes[2],
+                                         pbc=gd1.pbc_c[self.axes[2]])
                     timer.stop('fft')
                 else:
                     raise NotImplementedError
@@ -1057,7 +1085,8 @@ class FastPoissonSolver(BasePoissonSolver):
 
     def todict(self):
         d = super(FastPoissonSolver, self).todict()
-        d.update({'name': 'fast', 'nn': self.nn, 'use_cholesky': self.use_cholesky})
+        d.update({'name': 'fast', 'nn': self.nn,
+                  'use_cholesky': self.use_cholesky})
         return d
 
     def estimate_memory(self, mem):
@@ -1068,5 +1097,3 @@ class FastPoissonSolver(BasePoissonSolver):
   FFT axes %s
   FST axes %s
   Cholesky axes %s""" % (self.fft_axes, self.fst_axes, self.cholesky_axes)
-
-
