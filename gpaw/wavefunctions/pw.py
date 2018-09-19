@@ -11,6 +11,7 @@ from ase.utils.timing import timer
 
 import gpaw.fftw as fftw
 from gpaw import dry_run
+from gpaw.arraydict import ArrayDict
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.density import Density
@@ -1778,15 +1779,18 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         return energies
 
     def calculate_atomic_hamiltonians(self, density):
-        W_aL = {}
-        for a in density.D_asp:
-            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
+        def getshape(a):
+            return sum(2 * l + 1
+                       for l, _ in enumerate(self.setups[a].ghat_l)),
+        W_aL = ArrayDict(self.atomdist.aux_partition, getshape, float)
+
         if self.vext:
             vext_q = self.vext.get_potentialq(self.finegd, self.pd3)
             density.ghat.integrate(self.vHt_q + vext_q, W_aL)
         else:
             density.ghat.integrate(self.vHt_q, W_aL)
-        return W_aL
+
+        return self.atomdist.to_work(self.atomdist.from_aux(W_aL))
 
     def calculate_kinetic_energy(self, density):
         ekin = 0.0
