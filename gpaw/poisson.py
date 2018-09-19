@@ -810,8 +810,8 @@ def irfst2(A_g, axes=[0,1]):
     A_g = np.transpose(A_g, axes + third)
     x,y,z = A_g.shape
     temp_g = np.zeros((x*2+2, (y*2+2)//2+1, z))
-    temp_g[1:x+1, 1:y+1,:] = A_g
-    temp_g[x+2:, 1:y+1,:] = -A_g[::-1, :, :]
+    temp_g[1:x+1, 1:y+1,:] = A_g.real
+    temp_g[x+2:, 1:y+1,:] = -A_g[::-1, :, :].real
     X = -0.25*irfft2(temp_g, axes=[0,1])[1:x+1, 1:y+1, :]
     return np.transpose(X, np.argsort(axes + third))
 
@@ -833,13 +833,13 @@ def fst(A_g, axis):
         temp_g[:, :, z+2:] = -A_g[:, ::, ::-1]
     else:
         raise NotImplementedError()
-    X = -fft(temp_g, axis=axis)
+    X = 0.5j*fft(temp_g, axis=axis)
     if axis == 0:
-        return X[1:x+1, :, :].imag
+        return X[1:x+1, :, :]
     elif axis == 1:
-        return X[:, 1:y+1, :].imag
+        return X[:, 1:y+1, :]
     elif axis == 2:
-        return X[:, :, 1:z+1].imag
+        return X[:, :, 1:z+1]
 
 def ifst(A_g, axis):
     x, y, z = A_g.shape
@@ -861,11 +861,11 @@ def ifst(A_g, axis):
 
     X_g = ifft(temp_g, axis=axis)
     if axis == 0:
-        return X_g[1:x+1, :, :].imag
+        return -2j*X_g[1:x+1, :, :]
     elif axis == 1:
-        return X_g[:, 1:y+1, :].imag
+        return -2j*X_g[:, 1:y+1, :]
     elif axis == 2:
-        return X_g[:, :, 1:z+1].imag
+        return -2j*X_g[:, :, 1:z+1]
 
 def transform(A_g, axis=None, pbc=True):
     if pbc:
@@ -958,7 +958,6 @@ class FastPoissonSolver(BasePoissonSolver):
         fftfst_axes = self.fft_axes + self.fst_axes
         axes = self.fft_axes + self.fst_axes + self.cholesky_axes
         self.axes = axes
-
         gd_x = [ self.gd ]
 
         # Create xy flat decomposition (where x=axes[0] and y=axes[1])
@@ -1058,8 +1057,8 @@ class FastPoissonSolver(BasePoissonSolver):
 
             if c == 0:
                timer.start('fft2')
-               work2_g = itransform2(work1_g, axes=self.axes[:2],
-                                     pbc=gd1.pbc_c[self.axes[:2]])
+               work2_g = itransform2(work1_g, axes=self.axes[1::-1],
+                                     pbc=gd1.pbc_c[self.axes[1::-1]])
                timer.stop('fft2')
             elif c == 1:
                 if len(self.cholesky_axes) == 0:
