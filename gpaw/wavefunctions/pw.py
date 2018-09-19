@@ -1728,9 +1728,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         self.vbar_Q = None
         self.vt_Q = None
-        self.ebar = None
-        self.epot = None
-        self.exc = None
+        self.estress = None
 
     def set_positions(self, spos_ac, atom_partition):
         Hamiltonian.set_positions(self, spos_ac, atom_partition)
