@@ -782,7 +782,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 vtpsit_R = self.pd.ifft(psit_G, kpt.q, serial=True) * vt_R
                 vtpsit_G = self.pd.fft(vtpsit_R, kpt.q, serial=True)
             else:
-                vtpsit_G = None
+                vtpsit_G = self.pd.tmp_G
             self.pd.alltoall2(vtpsit_G, kpt.q, Htpsit_xG[n1:n2])
 
         ham.xc.apply_orbital_dependent_hamiltonian(
