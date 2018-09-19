@@ -23,12 +23,11 @@ def icells():
     # cells: orthorhombic fcc bcc hcp
     yield np.diag([3., 4., 5.])
 
-
-    return  # XXXXXXX test the other cells, too
-
     for sym in ['Au', 'Fe', 'Sc']:
         cell = bulk(sym).cell.round(1)  # Round for nice printing
         yield cell.copy()
+
+        return  # XXXX must enable more cells
         cell += 2.0 * rng.rand(3, 3)
         cell = cell.round(1)
         yield cell
@@ -79,3 +78,6 @@ for cellno, cell_cv in enumerate(icells()):
         pbcstring = '{}{}{}'.format(*pbc)
         print('{:2d} pbc={} err[fast]={:8.5e} err[J]={:8.5e} err[phi]={:8.5e}'
               .format(cellno, pbcstring, maxerr, maxerr2, phimaxerr))
+        #assert maxerr < 1e-13
+        #assert maxerr2 < 1e-8
+        #assert phimaxerr < 1e-8
