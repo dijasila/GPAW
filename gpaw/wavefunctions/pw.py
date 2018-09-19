@@ -385,7 +385,6 @@ class PWDescriptor:
         comm = self.gd.comm
         if comm.rank == 0 or serial:
             self.tmp_Q[:] = 0.0
-            print(c_G.shape, self.Q_qG[q].shape, q)
             self.tmp_Q.ravel()[self.Q_qG[q]] = c_G
             if self.dtype == float:
                 t = self.tmp_Q[:, :, 0]
@@ -1761,7 +1760,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         nt_dist_xg = dens.nt_xg
         vxct_dist_xg = np.zeros_like(nt_dist_xg)
         exc = self.xc.calculate(dens.finegd, nt_dist_xg, vxct_dist_xg)
-        exc /= self.gd.comm.size
+        exc /= self.finegd.comm.size
         vxct_xg = vxct_dist_xg
 
         x = 0
@@ -1777,8 +1776,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.timer.stop('XC 3D grid')
 
         energies = np.array([epot, ebar, eext, exc])
-        self.gd.comm.sum(energies)
-        self.epot, self.ebar, self.e_external, self.exc = energies
+        self.estress = self.gd.comm.sum(epot + ebar)
         return energies
 
     def calculate_atomic_hamiltonians(self, density):
@@ -1797,7 +1795,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         for vt_G, nt_G in zip(self.vt_xG, density.nt_xG):
             ekin -= integrate(self.gd, vt_G, nt_G)
         ekin += integrate(self.gd, self.vt_sG, density.nct_G).sum()
-        return self.gd.comm.sum(ekin)
+        return ekin
 
     def restrict(self, in_xR, out_xR=None):
         """Restrict array."""

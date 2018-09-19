@@ -29,13 +29,12 @@ def calculate_stress(calc):
     p_G[G0:] /= pd.G2_qG[0][G0:]**2
     G_Gv = pd.get_reciprocal_vectors()
     for v1 in range(3):
-        s_vv[v1, v1] -= ham.epot
         for v2 in range(3):
             s_vv[v1, v2] += pd.integrate(p_G, dens.rhot_q *
                                          G_Gv[:, v1] * G_Gv[:, v2])
     s_vv += dens.ghat.stress_tensor_contribution(ham.vHt_q, dens.Q_aL)
 
-    s_vv -= np.eye(3) * ham.ebar
+    s_vv -= np.eye(3) * ham.estress
     s_vv += ham.vbar.stress_tensor_contribution(dens.nt_Q)
     s_vv += dens.nct.stress_tensor_contribution(ham.vt_Q)
 
