@@ -333,7 +333,7 @@ class Hamiltonian:
                   self.e_zero,
                   self.e_xc,
                   self.e_entropy)
-            stop
+            1 / 0
 
         return self.e_total_free
 
@@ -610,7 +610,6 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         self.timer.stop('Hartree integrate/restrict')
         energies = np.array([e_coulomb, e_zero, e_external, e_xc])
-        self.gd.comm.sum(energies)
         return energies
 
     def calculate_kinetic_energy(self, density):
