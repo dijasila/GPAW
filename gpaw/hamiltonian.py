@@ -303,8 +303,8 @@ class Hamiltonian:
         for a, D_sp in D_asp.items():
             e_kinetic -= (D_sp * dH_asp[a]).sum().real
 
-        self.update_atomic_hamiltonians(dH_asp)
-        #self.update_atomic_hamiltonians(self.atomdist.from_work(dH_asp))
+        #self.update_atomic_hamiltonians(dH_asp)
+        self.update_atomic_hamiltonians(self.atomdist.from_work(dH_asp))
         self.timer.stop('Atomic')
 
         # Make corrections due to non-local xc:
@@ -636,9 +636,9 @@ class RealSpaceHamiltonian(Hamiltonian):
         return self.gd.comm.sum(e_kinetic)
 
     def calculate_atomic_hamiltonians(self, dens):
-        #def getshape(a):
-        #    return sum(2 * l + 1 for l, _ in enumerate(self.setups[a].ghat_l)),
-        W_aL = {}#ArrayDict(self.atomdist.aux_partition, getshape, float)
+        def getshape(a):
+            return sum(2 * l + 1 for l, _ in enumerate(self.setups[a].ghat_l)),
+        W_aL = ArrayDict(self.atomdist.aux_partition, getshape, float)
         for a in dens.D_asp:
             W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
         if self.vext:
@@ -647,7 +647,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         else:
             dens.ghat.integrate(self.vHt_g, W_aL)
 
-        return W_aL#self.atomdist.to_work(self.atomdist.from_aux(W_aL))
+        return self.atomdist.to_work(self.atomdist.from_aux(W_aL))
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
         if self.nspins == 2:
