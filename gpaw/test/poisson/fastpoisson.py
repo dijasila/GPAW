@@ -21,7 +21,7 @@ comm = world
 
 def icells():
     # cells: orthorhombic fcc bcc hcp
-    yield 'orthorhombic', np.diag([3., 4., 5.])
+    yield 'diag', np.diag([3., 4., 5.])
 
     from ase.build import fcc111
     atoms = fcc111('Au', size=(1,1,1))
