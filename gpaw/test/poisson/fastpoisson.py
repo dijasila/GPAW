@@ -21,16 +21,23 @@ comm = world
 
 def icells():
     # cells: orthorhombic fcc bcc hcp
-    yield np.diag([3., 4., 5.])
+    yield 'orthorhombic', np.diag([3., 4., 5.])
+
+    from ase.build import fcc111
+    atoms = fcc111('Au', size=(1,1,1))
+    atoms.center(vacuum=1, axis=2)
+    cell = atoms.cell[[2,0,1]].copy()
+    yield 'fcc111', cell
 
     for sym in ['Au', 'Fe', 'Sc']:
         cell = bulk(sym).cell.round(1)  # Round for nice printing
-        yield cell.copy()
+        yield sym, cell.copy()
+
 
         return  # XXXX must enable more cells
         cell += 2.0 * rng.rand(3, 3)
         cell = cell.round(1)
-        yield cell
+        yield sym + 'disp', cell
 
 
 #import matplotlib.pyplot as plt
@@ -38,7 +45,7 @@ def icells():
 
 nn = 1
 
-for cellno, cell_cv in enumerate(icells()):
+for cellno, (cellname, cell_cv) in enumerate(icells()):
     N_c = get_number_of_grid_points(cell_cv, 0.12, 'fd', True, None)
     for pbc in itertools.product(tf, tf, tf):
         gd = GridDescriptor(N_c, cell_cv, pbc_c=pbc)
@@ -76,8 +83,9 @@ for cellno, cell_cv in enumerate(icells()):
         maxerr2 = get_residual_err(phi2_g)
 
         pbcstring = '{}{}{}'.format(*pbc)
-        print('{:2d} pbc={} err[fast]={:8.5e} err[J]={:8.5e} err[phi]={:8.5e}'
-              .format(cellno, pbcstring, maxerr, maxerr2, phimaxerr))
+        print('{:2d} {:8s} pbc={} err[fast]={:8.5e} err[J]={:8.5e} '
+              'err[phi]={:8.5e}'
+              .format(cellno, cellname, pbcstring, maxerr, maxerr2, phimaxerr))
         #assert maxerr < 1e-13
         #assert maxerr2 < 1e-8
         #assert phimaxerr < 1e-8
