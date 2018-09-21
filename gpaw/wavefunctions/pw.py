@@ -700,6 +700,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def empty(self, n=(), global_array=False, realspace=False, q=None):
         if realspace:
             return self.gd.empty(n, self.dtype, global_array)
+        elif global_array:
+            return np.zeros(n + (self.pd.ngmax,), complex)
         else:
             return self.pd.empty(n, self.dtype, q)
 
@@ -845,33 +847,71 @@ class PWWaveFunctions(FDPWWaveFunctions):
                      Htpsit_G)
 
     def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
-        psit_G = self.kpt_u[u].psit_nG[n]
-
-        if not realspace:
-            if self.collinear:
-                zeropadded_G = np.zeros(self.pd.ngmax, complex)
-                zeropadded_G[:len(psit_G)] = psit_G
-                return zeropadded_G
-            zeropadded_sG = np.zeros((2, self.pd.ngmax), complex)
-            zeropadded_sG[:, :len(psit_G[0])] = psit_G
-            return zeropadded_sG
-
         kpt = self.kpt_u[u]
-        if self.kd.gamma or periodic:
-            return self.pd.ifft(psit_G, kpt.q)
+        psit_G = kpt.psit_nG[n]
 
-        k_c = self.kd.ibzk_kc[kpt.k]
-        eikr_R = self.gd.plane_wave(k_c)
-        return self.pd.ifft(psit_G, kpt.q) * eikr_R
+        if realspace:
+            psit_R = self.pd.ifft(psit_G, kpt.q)
+            if self.kd.gamma or periodic:
+                return psit_R
+
+            k_c = self.kd.ibzk_kc[kpt.k]
+            eikr_R = self.gd.plane_wave(k_c)
+            return psit_R * eikr_R
+
+        return psit_G
 
     def get_wave_function_array(self, n, k, s, realspace=True,
                                 cut=True, periodic=False):
-        psit_G = FDPWWaveFunctions.get_wave_function_array(self, n, k, s,
-                                                           realspace, periodic)
-        if cut and psit_G is not None and not realspace:
-            psit_G = psit_G[:self.ng_k[k]].copy()
+        kpt_rank, u = self.kd.get_rank_and_index(s, k)
+        band_rank, myn = self.bd.who_has(n)
 
-        return psit_G
+        rank = self.world.rank
+        if (self.kd.comm.rank == kpt_rank and
+            self.bd.comm.rank == band_rank):
+            psit_G = self._get_wave_function_array(u, myn, realspace, periodic)
+
+            if realspace:
+                psit_G = self.gd.collect(psit_G)
+            else:
+                assert not cut
+                tmp_G = self.pd.gather(psit_G, self.mykpts[u].q)
+                if tmp_G is not None:
+                    ng = self.pd.ngmax
+                    if self.collinear:
+                        psit_G = np.zeros(ng, complex)
+                    else:
+                        psit_G = np.zeros((2, ng), complex)
+                    psit_G[..., :tmp_G.shape[-1]] = tmp_G
+
+            if rank == 0:
+                return psit_G
+
+            # Domain master send this to the global master
+            if self.gd.comm.rank == 0:
+                print(rank, 'S', psit_G.shape)
+                self.world.ssend(psit_G, 0, 1398)
+
+        if rank == 0:
+            # allocate full wave function and receive
+            shape = () if self.collinear else (2,)
+            psit_G = self.empty(shape, global_array=True,
+                                realspace=realspace)
+            # XXX this will fail when using non-standard nesting
+            # of communicators.
+            world_rank = (kpt_rank * self.gd.comm.size *
+                          self.bd.comm.size +
+                          band_rank * self.gd.comm.size)
+            print(world_rank, 'R', psit_G.shape)
+            self.world.receive(psit_G, world_rank, 1398)
+            return psit_G
+
+        # We return a number instead of None on all the slaves.  Most of
+        # the time the return value will be ignored on the slaves, but
+        # in some cases it will be multiplied by some other number and
+        # then ignored.  Allowing for this will simplify some code here
+        # and there.
+        return np.nan
 
     def write(self, writer, write_wave_functions=False):
         FDPWWaveFunctions.write(self, writer)
@@ -891,10 +931,13 @@ class PWWaveFunctions(FDPWWaveFunctions):
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 for n in range(self.bd.nbands):
+                    print(self.world.rank,s,k,n)
                     psit_G = self.get_wave_function_array(n, k, s,
                                                           realspace=False,
                                                           cut=False)
                     writer.fill(psit_G * c)
+
+        print(self.world.rank, 'ggggggggg')
 
         writer.add_array('indices', (self.kd.nibzkpts, self.pd.ngmax),
                          np.int32)
