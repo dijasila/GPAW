@@ -804,21 +804,37 @@ class PWWaveFunctions(FDPWWaveFunctions):
         axpy(1.0, abs(self.pd.ifft(kpt.psit_nG[n], kpt.q))**2, nt_G)
 
     def add_to_density_from_k_point_with_occupation(self, nt_xR, kpt, f_n):
-        if self.collinear:
-            nt_R = nt_xR[kpt.s]
-            for f, psit_G in zip(f_n, kpt.psit_nG):
-                nt_R += f * abs(self.pd.ifft(psit_G, kpt.q))**2
-        else:
-            for f, psit_sG in zip(f_n, kpt.psit.array):
-                p1 = self.pd.ifft(psit_sG[0], kpt.q)
-                p2 = self.pd.ifft(psit_sG[1], kpt.q)
-                p11 = p1.real**2 + p1.imag**2
-                p22 = p2.real**2 + p2.imag**2
-                p12 = p1.conj() * p2
-                nt_xR[0] += f * (p11 + p22)
-                nt_xR[1] += 2 * f * p12.real
-                nt_xR[2] += 2 * f * p12.imag
-                nt_xR[3] += f * (p11 - p22)
+        if not self.collinear:
+            self.add_to_density_from_k_point_with_occupation_nc(
+                nt_xR, kpt, f_n)
+            return
+
+        comm = self.gd.comm
+
+        nt_R = self.gd.zeros(global_array=True)
+
+        for n1 in range(0, self.bd.mynbands, comm.size):
+            n2 = min(n1 + comm.size, self.bd.mynbands)
+            psit_G = self.pd.alltoall1(kpt.psit.array[n1:n2], kpt.q)
+            if psit_G is not None:
+                f = f_n[n1 + comm.rank]
+                nt_R += f * abs(self.pd.ifft(psit_G, kpt.q, serial=True))**2
+
+        comm.sum(nt_R)
+        nt_R = self.gd.distribute(nt_R)
+        nt_xR[kpt.s] += nt_R
+
+    def add_to_density_from_k_point_with_occupation_nc(self, nt_xR, kpt, f_n):
+        for f, psit_sG in zip(f_n, kpt.psit.array):
+            p1 = self.pd.ifft(psit_sG[0], kpt.q)
+            p2 = self.pd.ifft(psit_sG[1], kpt.q)
+            p11 = p1.real**2 + p1.imag**2
+            p22 = p2.real**2 + p2.imag**2
+            p12 = p1.conj() * p2
+            nt_xR[0] += f * (p11 + p22)
+            nt_xR[1] += 2 * f * p12.real
+            nt_xR[2] += 2 * f * p12.imag
+            nt_xR[3] += f * (p11 - p22)
 
     def calculate_kinetic_energy_density(self):
         if self.kpt_u[0].f_n is None:
