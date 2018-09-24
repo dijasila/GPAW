@@ -919,13 +919,6 @@ class FastPoissonSolver(BasePoissonSolver):
         non_periodic_axes = axes[np.logical_not(pbc_c)]
 
 
-        dotprods = np.dot(gd.cell_cv, gd.cell_cv.T)
-        # For each direction, check whether there is only one nonzero
-        # element in that row (necessarily being the diagonal element).
-        # Using low tolerance because numbers are effectively squared:
-        orthogonal_c = (dotprods > 1e-14).sum(axis=0) == 1
-        assert sum(orthogonal_c) in [0, 1, 3]
-
         # Find out which axes are orthogonal (0, 1 or 3)
         # Note that one expects that the axes are always rotated in
         # conventional form, thus for all axes to be
@@ -933,13 +926,22 @@ class FastPoissonSolver(BasePoissonSolver):
         # This may always be achieved by rotating
         # the unit-cell along with the atoms. The classification is
         # inherited from grid_descriptor.orthogonal.
-        orthogonal_axes = axes[orthogonal_c]
-        if not set(periodic_axes).issubset(set(orthogonal_axes)):
-            raise BadAxesError('Periodic axes ({}) are not a subset of '
-                               'orthogonal axes ({})'
-                               .format(periodic_axes, orthogonal_axes))
+        dotprods = np.dot(gd.cell_cv, gd.cell_cv.T)
+        # For each direction, check whether there is only one nonzero
+        # element in that row (necessarily being the diagonal element,
+        # since this is a cell vector length and must be > 0).
+        orthogonal_c = (np.abs(dotprods) > 1e-10).sum(axis=0) == 1
+        assert sum(orthogonal_c) in [0, 1, 3]
 
+        orthogonal_axes = axes[orthogonal_c]
         non_orthogonal_axes = axes[np.logical_not(orthogonal_c)]
+
+        if not all(pbc_c | orthogonal_c):
+            raise BadAxesError('Each axis must be periodic or orthogonal '
+                               'to other axes.  But we have pbc={} '
+                               'and orthogonal={}'
+                               .format(pbc_c.astype(int),
+                                       orthogonal_c.astype(int)))
 
         # We sort them, and pick the longest non-periodic axes as the
         # cholesky axis.

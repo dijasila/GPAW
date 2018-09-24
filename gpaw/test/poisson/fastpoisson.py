@@ -19,26 +19,21 @@ rng = np.random.RandomState(42)
 tf = range(2)
 comm = world
 
+
 def icells():
     # cells: orthorhombic fcc bcc hcp
     yield 'diag', np.diag([3., 4., 5.])
 
     from ase.build import fcc111
-    atoms = fcc111('Au', size=(1,1,1))
+    atoms = fcc111('Au', size=(1, 1, 1))
     atoms.center(vacuum=1, axis=2)
-    yield 'fcc111', atoms.cell.copy()
-    cell = atoms.cell[[2,0,1]]
-    yield 'fcc111-x', cell
+    yield 'fcc111@z', atoms.cell.copy()
+    yield 'fcc111@x', atoms.cell[[2, 0, 1]]
+    yield 'fcc111@y', atoms.cell[[1, 2, 0]]
 
     for sym in ['Au', 'Fe', 'Sc']:
-        cell = bulk(sym).cell.round(1)  # Round for nice printing
+        cell = bulk(sym).cell
         yield sym, cell.copy()
-
-
-        return  # XXXX must enable more cells
-        cell += 2.0 * rng.rand(3, 3)
-        cell = cell.round(1)
-        yield sym + 'disp', cell
 
 
 #import matplotlib.pyplot as plt
