@@ -254,7 +254,7 @@ class PWDescriptor:
         nbytes = (self.tmp_R.nbytes +
                   self.G_Qv.nbytes +
                   len(self.K_qv) * (self.ngmax * 4 +
-                                    self.myng * (8 + 4)))
+                                    self.maxmyng * (8 + 4)))
         mem.subnode('Arrays', nbytes)
 
     def bytecount(self, dtype=float):
@@ -905,7 +905,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
             # Domain master send this to the global master
             if self.gd.comm.rank == 0:
-                print(rank, 'S', psit_G.shape)
                 self.world.ssend(psit_G, 0, 1398)
 
         if rank == 0:
@@ -918,7 +917,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
             world_rank = (kpt_rank * self.gd.comm.size *
                           self.bd.comm.size +
                           band_rank * self.gd.comm.size)
-            print(world_rank, 'R', psit_G.shape)
             self.world.receive(psit_G, world_rank, 1398)
             return psit_G
 
@@ -951,8 +949,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                                           realspace=False,
                                                           cut=False)
                     writer.fill(psit_G * c)
-
-        print(self.world.rank, 'ggggggggg')
 
         writer.add_array('indices', (self.kd.nibzkpts, self.pd.ngmax),
                          np.int32)
@@ -1067,6 +1063,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
         if self.dtype != complex:
             raise ValueError(
                 'Please use mode=PW(..., force_complex_dtype=True)')
+
+        if self.gd.comm.size > 1:
+            raise ValueError(
+                'Please use mode=PW(..., parallel={'domain': 1})')
 
         S = self.bd.comm.size
 
