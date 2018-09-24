@@ -4,7 +4,7 @@
 Direct minimization methods
 ================================
 
-Alternative to self-consistent field method is direct minimisation methods.
+Alternative to self-consistent field algorithmes are direct minimisation methods.
 
 LCAO mode.
 ----------
@@ -49,10 +49,10 @@ and fast convergence of the LBFGS algorithm.
 Example.
 ~~~~~~~~
 First of all, it's very important to include all bands in calculations
-that is total number of bands equals number of atomic orbitals
+that is total number of bands equals number of atomic orbitals.
 Secondly, as the inexact line search method is used in order to find optimal step length during the minimisation,
 it is important to get rid off noise in energy due to inaccuracy in Poisson solver.
 
 Here is example:
 
-.. literalinclude:: directmin_h2o.py
+.. literalinclude:: directmin_ch4.py
