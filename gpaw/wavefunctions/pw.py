@@ -1344,7 +1344,7 @@ class PWLFC(BaseLFC):
     def get_function_count(self, a):
         return sum(2 * l + 1 for l, f_qG in self.lf_aj[a])
 
-    def set_positions(self, spos_ac, atom_partition=None):
+    def set_positions(self, spos_ac, atom_partition):
         self.initialize()
         kd = self.pd.kd
         if kd is None or kd.gamma:
@@ -1354,16 +1354,16 @@ class PWLFC(BaseLFC):
 
         self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
 
-        if atom_partition is None:
-            assert self.comm.size == 1
-            rank_a = np.zeros(len(spos_ac), int)
-        else:
-            rank_a = atom_partition.rank_a
+        #if atom_partition is None:
+        #    assert self.comm.size == 1
+        #    rank_a = np.zeros(len(spos_ac), int)
+        #else:
+        #    rank_a = atom_partition.rank_a
 
         self.my_atom_indices = []
         self.my_indices = []
         I1 = 0
-        for a, rank in enumerate(rank_a):
+        for a, rank in enumerate(atom_partition.rank_a):
             I2 = I1 + self.get_function_count(a)
             if rank == self.comm.rank:
                 self.my_atom_indices.append(a)
