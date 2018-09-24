@@ -29,7 +29,7 @@ atoms.set_calculator(calc)
 atoms.get_potential_energy()
 calc.write('Al', 'all')
 t2 = time.time()
-"""
+
 # Excited state calculation
 q = np.array([1 / 4, 0.0, 0.0])
 w = np.linspace(0, 24, 241)
@@ -63,4 +63,3 @@ if abs(test_wpeak1 - wpeak1) > 0.02 or abs(test_wpeak2 - wpeak2) > 0.02:
 if abs(test_Ipeak1 - Ipeak1) > 1 or abs(test_Ipeak2 - Ipeak2) > 1:
     print((Ipeak1 - test_Ipeak1, Ipeak2 - test_Ipeak2))
     raise ValueError('Please check spectrum strength ! ')
-"""
