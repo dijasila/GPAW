@@ -104,12 +104,12 @@ class LCAOWfsMover:
 
     def initialize(self, lcaowfs):
         self.bfs = lcaowfs.basis_functions
-        #self.tci = lcaowfs.tci
+        # self.tci = lcaowfs.tci
         self.tciexpansions = lcaowfs.tciexpansions
         self.atomic_correction = lcaowfs.atomic_correction
-        #self.S_qMM = lcaowfs.S_qMM
-        #self.T_qMM = lcaowfs.T_qMM  # Get rid of this
-        #self.P_aqMi = lcaowfs.P_aqMi
+        # self.S_qMM = lcaowfs.S_qMM
+        # self.T_qMM = lcaowfs.T_qMM  # Get rid of this
+        # self.P_aqMi = lcaowfs.P_aqMi
 
     def cut_wfs(self, wfs, spos_ac):
         # XXX Must forward vars from LCAO initialization object
@@ -118,8 +118,8 @@ class LCAOWfsMover:
         # we can rely on those parallelization settings without danger.
         bfs = self.bfs
 
-        #P_aqMi = self.P_aqMi
-        #S_qMM = self.S_qMM
+        # P_aqMi = self.P_aqMi
+        # S_qMM = self.S_qMM
 
         # We can inherit S_qMM and P_aqMi from the initialization in the
         # first step, then recalculate them for subsequent steps.
@@ -292,7 +292,7 @@ class FDPWWaveFunctions(WaveFunctions):
         hamiltonian.update(density)
 
         if self.mykpts[0].psit is None:
-            if 1:#self.collinear:
+            if 1:  # self.collinear:
                 nlcao = self.initialize_wave_functions_from_basis_functions(
                     basis_functions, density, hamiltonian, spos_ac)
             else:
