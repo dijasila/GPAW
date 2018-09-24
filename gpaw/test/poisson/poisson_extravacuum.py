@@ -114,7 +114,7 @@ gpts = N_c * 4
 poisson = ExtraVacuumPoissonSolver(gpts, PoissonSolver('fd', eps=poissoneps))
 phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
 # print poisson.get_description()
-compare(phi_g, phiref_g, 0.02568722781705065)
+compare(phi_g, phiref_g, 2.6485385144e-02)
 phiref_g = phi_g
 
 # Compare to ExtendedPoissonSolver
