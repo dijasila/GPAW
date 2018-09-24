@@ -93,7 +93,11 @@ def compare(phi1_g, phi2_g, val, eps=np.sqrt(poissoneps)):
     big_phi2_g = gd.collect(phi2_g)
     if gd.comm.rank == 0:
         diff = np.max(np.absolute(big_phi1_g - big_phi2_g))
-        equal(diff, val, eps)
+    else:
+        diff = 0.0
+    diff = np.array([diff])
+    gd.comm.broadcast(diff, 0)
+    equal(diff[0], val, eps)
 
 
 # Get reference from default poissonsolver

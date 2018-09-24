@@ -82,11 +82,12 @@ for cellno, (cellname, cell_cv) in enumerate(icells()):
 
         phimaxerr = np.abs(phi2_g - phi_g).max()
         maxerr2 = get_residual_err(phi2_g)
-
         pbcstring = '{}{}{}'.format(*pbc)
-        print('{:2d} {:8s} pbc={} err[fast]={:8.5e} err[J]={:8.5e} '
+        msg = '{:2d} {:8s} pbc={} err[fast]={:8.5e} err[J]={:8.5e} '
               'err[phi]={:8.5e}'
-              .format(cellno, cellname, pbcstring, maxerr, maxerr2, phimaxerr))
+              .format(cellno, cellname, pbcstring, maxerr, maxerr2, phimaxerr)
+        if world.rank == 0:
+            print(msg)
         #assert maxerr < 1e-13
         #assert maxerr2 < 1e-8
         #assert phimaxerr < 1e-8
