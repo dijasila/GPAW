@@ -31,7 +31,7 @@ class PW(Mode):
     name = 'pw'
 
     def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None,
-                 force_complex_dtype=False):
+                 force_complex_dtype=False, addq=True):
         """Plane-wave basis mode.
 
         ecut: float
@@ -39,10 +39,13 @@ class PW(Mode):
         fftwflags: int
             Flags for making FFTW plan (default is ESTIMATE).
         cell: 3x3 ndarray
-            Use this unit cell to chose the planewaves."""
+            Use this unit cell to chose the planewaves.
+        addq: bool
+            Include q/k-vector, when deciding on number of plane waves"""
 
         self.ecut = ecut / units.Hartree
         self.fftwflags = fftwflags
+        self.addq = addq
 
         if cell is None:
             self.cell_cv = None
@@ -59,7 +62,7 @@ class PW(Mode):
             volume0 = abs(np.linalg.det(self.cell_cv))
             ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
 
-        wfs = PWWaveFunctions(ecut, self.fftwflags,
+        wfs = PWWaveFunctions(ecut, self.addq, self.fftwflags,
                               diagksl, orthoksl, initksl, gd, *args,
                               **kwargs)
         return wfs
@@ -484,11 +487,12 @@ class Preconditioner:
 class PWWaveFunctions(FDPWWaveFunctions):
     mode = 'pw'
 
-    def __init__(self, ecut, fftwflags,
+    def __init__(self, ecut, addq, fftwflags,
                  diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
+        self.addq = addq
         self.fftwflags = fftwflags
 
         self.ng_k = None  # number of G-vectors for all IBZ k-points
@@ -496,7 +500,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
                                    gd, nvalence, setups, bd, dtype,
                                    world, kd, kptband_comm, timer)
-
+        
         self.orthoksl.gd = self.pd
         self.matrixoperator = MatrixOperator(self.orthoksl)
 
@@ -516,7 +520,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
         self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.kd,
-                               self.fftwflags)
+                               self.fftwflags, self.addq)
         self.timer.stop('PWDescriptor')
 
         # Build array of number of plane wave coefficiants for all k-points
