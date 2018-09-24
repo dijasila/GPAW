@@ -2,7 +2,7 @@ from __future__ import print_function
 import numpy as np
 from ase.build import molecule
 from ase.units import Hartree
-from gpaw import GPAW
+from gpaw import GPAW, Mixer
 from gpaw.mpi import rank
 from gpaw.utilities import h2gpts
 
@@ -55,25 +55,22 @@ system2.positions *= [1.0, 1.0, -1.0]
 system2 += system1
 system2.center(vacuum=6.0, axis=2)
 
-convergence = dict(density=1e-5)
+convergence = dict(density=1e-6)
 
-calc1 = GPAW(mode='lcao',
-             convergence=convergence,
-             gpts=h2gpts(0.25, system1.cell, idiv=8),
-             poissonsolver={'name': 'fd',
-                            'relax': 'GS',
-                            'dipolelayer': 'xy', 'eps': 1e-11})
+def kw():
+    return dict(mode='lcao',
+                convergence=convergence,
+                mixer=Mixer(0.5, 7, 50.0),
+                h=0.25,
+                xc='oldLDA')
+
+calc1 = GPAW(poissonsolver={'dipolelayer': 'xy'}, **kw())
 
 system1.set_calculator(calc1)
 system1.get_potential_energy()
 v1 = calc1.get_effective_potential(pad=False)
 
-calc2 = GPAW(mode='lcao',
-             convergence=convergence,
-             gpts=h2gpts(0.25, system2.cell, idiv=8),
-             poissonsolver={'name': 'fd',
-                            'relax': 'GS',
-                            'eps': 1e-11})
+calc2 = GPAW(**kw())
 
 system2.set_calculator(calc2)
 system2.get_potential_energy()
@@ -92,8 +89,8 @@ if rank == 0:
 
     # Compare values that are not quite at the end of the array
     # (at the end of the array things can "oscillate" a bit)
-    dvz1 = vz1[-5] - vz1[4]
-    dvz2 = vz2[4] - vz2[len(vz2) // 2]
+    dvz1 = vz1[-3] - vz1[2]
+    dvz2 = vz2[2] - vz2[len(vz2) // 2]
     print(dvz1, dvz2)
 
     err1 = abs(dvz1 - dvz2)
@@ -123,5 +120,5 @@ if rank == 0:
 
     # fine grid needed to achieve convergence!
     print('Error', err1, err2)
-    assert err1 < 5e-3, err1
+    assert err1 < 4e-3, err1
     assert err2 < 2e-4, err2
