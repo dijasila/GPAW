@@ -897,6 +897,11 @@ def itransform2(A_g, axes=None, pbc=[True, True]):
         return itransform(itransform(A_g, axis=axes[0], pbc=pbc[0]),
                           axis=axes[1], pbc=pbc[1])
 
+
+class BadAxesError(ValueError):
+    pass
+
+
 class FastPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3,  use_cholesky=False, **kwargs):
         BasePoissonSolver.__init__(self, **kwargs)
@@ -908,27 +913,32 @@ class FastPoissonSolver(BasePoissonSolver):
 
     def set_grid_descriptor(self, gd):
         self.gd = gd
-        axes = np.array([ 0, 1, 2], dtype=int)
+        axes = np.arange(3)
         pbc_c = np.array(gd.pbc_c, dtype=bool)
         periodic_axes = axes[pbc_c]
         non_periodic_axes = axes[np.logical_not(pbc_c)]
 
-        # Find out which axes are orthogonal (0, 2 or 3)
-        # Note, that one expects that the axes are always rotated in
+
+        dotprods = np.dot(gd.cell_cv, gd.cell_cv.T)
+        # For each direction, check whether there is only one nonzero
+        # element in that row (necessarily being the diagonal element).
+        # Using low tolerance because numbers are effectively squared:
+        orthogonal_c = (dotprods > 1e-14).sum(axis=0) == 1
+        assert sum(orthogonal_c) in [0, 1, 3]
+
+        # Find out which axes are orthogonal (0, 1 or 3)
+        # Note that one expects that the axes are always rotated in
         # conventional form, thus for all axes to be
         # classified as orthogonal, the cell_cv needs to be diagonal.
         # This may always be achieved by rotating
         # the unit-cell along with the atoms. The classification is
         # inherited from grid_descriptor.orthogonal.
-        orthogonal_c = np.array([ True, True, True ], dtype=bool)
-        for c in range(3):
-            for v in range(3):
-                if c != v:
-                    if np.abs(gd.cell_cv[c][v])>1e-10:
-                        orthogonal_c[c] = False
-                        orthogonal_c[v] = False
-
         orthogonal_axes = axes[orthogonal_c]
+        if not set(periodic_axes).issubset(set(orthogonal_axes)):
+            raise BadAxesError('Periodic axes ({}) are not a subset of '
+                               'orthogonal axes ({})'
+                               .format(periodic_axes, orthogonal_axes))
+
         non_orthogonal_axes = axes[np.logical_not(orthogonal_c)]
 
         # We sort them, and pick the longest non-periodic axes as the

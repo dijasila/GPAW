@@ -1,7 +1,7 @@
 import itertools
 import numpy as np
 from ase.build import bulk
-from gpaw.poisson import FastPoissonSolver
+from gpaw.poisson import FastPoissonSolver, BadAxesError
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.fd_operators import Laplace
 from gpaw.mpi import world
@@ -26,8 +26,9 @@ def icells():
     from ase.build import fcc111
     atoms = fcc111('Au', size=(1,1,1))
     atoms.center(vacuum=1, axis=2)
-    cell = atoms.cell[[2,0,1]].copy()
-    yield 'fcc111', cell
+    yield 'fcc111', atoms.cell.copy()
+    cell = atoms.cell[[2,0,1]]
+    yield 'fcc111-x', cell
 
     for sym in ['Au', 'Fe', 'Sc']:
         cell = bulk(sym).cell.round(1)  # Round for nice printing
@@ -63,7 +64,12 @@ for cellno, (cellname, cell_cv) in enumerate(icells()):
         # Check use_cholesky=True/False ?
         from gpaw.poisson import FDPoissonSolver
         ps = FastPoissonSolver(nn=nn)
-        ps.set_grid_descriptor(gd)
+        #print('setgrid')
+        try:
+            ps.set_grid_descriptor(gd)
+        except BadAxesError:
+            continue
+
         ps.solve(phi_g, rho_g)
 
         laplace = Laplace(gd, scale=-1.0 / (4.0 * np.pi), n=nn)
