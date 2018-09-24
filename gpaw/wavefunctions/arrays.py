@@ -1,6 +1,7 @@
 import numpy as np
 
 from gpaw.matrix import Matrix, create_distribution
+from gpaw.grid_descriptor import GridDescriptor
 
 
 class MatrixInFile:
@@ -10,19 +11,22 @@ class MatrixInFile:
         self.array = data
         self.dist = create_distribution(M, N, *dist)
 
-    def read(self, gd, shape):
+    def read(self, descriptor, shape):
+        """Create real matrix with everything in memory."""
         matrix = Matrix(*self.shape, dtype=self.dtype, dist=self.dist)
         # Read band by band to save memory
         rows = self.dist.rows
         blocksize = (self.shape[0] + rows - 1) // rows
         for myn, psit_G in enumerate(matrix.array):
             n = self.dist.comm.rank * blocksize + myn
-            if gd.comm.rank == 0:
+            if descriptor.comm.rank == 0:
                 big_psit_G = np.asarray(self.array[n], self.dtype)
             else:
                 big_psit_G = None
-            gd.distribute(big_psit_G, psit_G.reshape(shape))
-
+            if isinstance(descriptor, GridDescriptor):
+                descriptor.distribute(big_psit_G, psit_G.reshape(shape))
+            else:
+                descriptor.scatter(big_psit_G, psit_G)
         return matrix
 
 
@@ -42,10 +46,6 @@ class ArrayWaveFunctions:
 
     def __len__(self):
         return len(self.matrix)
-
-    def read_from_file(self):
-        self.matrix = self.matrix.read(self.gd, self.myshape[1:])
-        self.in_memory = True
 
     def multiply(self, alpha, opa, b, opb, beta, c, symmetric):
         self.matrix.multiply(alpha, opa, b.matrix, opb, beta, c, symmetric)
@@ -130,6 +130,10 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
         s = 'UniformGridWaveFunctions({}, gpts={}x{}x{})'.format(s, *shape)
         return s
 
+    def read_from_file(self):
+        self.matrix = self.matrix.read(self.gd, self.myshape[1:])
+        self.in_memory = True
+
     def new(self, buf=None, dist='inherit', nbands=None):
         if dist == 'inherit':
             dist = self.matrix.dist
@@ -158,7 +162,6 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                  spin=0, collinear=True):
         ng = ng0 = pd.myng_q[kpt]
         if data is not None:
-            assert ng == data.shape[-1] or ng == data.length_of_last_dimension
             assert data.dtype == complex
         if dtype == float:
             ng *= 2
@@ -185,6 +188,10 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
             return self.matrix.array.view(complex)
         else:
             return self.matrix.array.reshape(self.myshape)
+
+    def read_from_file(self):
+        self.matrix = self.matrix.read(self.pd, self.myshape[1:])
+        self.in_memory = True
 
     def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
                         operator=None, result=None, serial=False):
