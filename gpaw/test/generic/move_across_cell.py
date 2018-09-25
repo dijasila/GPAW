@@ -1,5 +1,5 @@
 from ase.build import molecule
-from gpaw import GPAW, PoissonSolver, Mixer, Davidson
+from gpaw import GPAW, Mixer, Davidson
 
 # Move atom infinitesimally across cell border and test that SCF loop is still
 # well converged afterwards.  If it is /not/ well converged, then the code
