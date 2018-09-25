@@ -1,5 +1,5 @@
 from ase.build import bulk
-from gpaw import GPAW, Mixer, PW, Davidson, PoissonSolver
+from gpaw import GPAW, Mixer, PW, Davidson
 
 atoms0 = bulk('Si')
 atoms0.rattle(stdev=0.01, seed=17)  # Break symmetry

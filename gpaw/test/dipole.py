@@ -4,7 +4,6 @@ from ase.build import molecule
 from ase.units import Hartree
 from gpaw import GPAW, Mixer
 from gpaw.mpi import rank
-from gpaw.utilities import h2gpts
 
 
 """

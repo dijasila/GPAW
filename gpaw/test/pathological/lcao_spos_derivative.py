@@ -1,6 +1,6 @@
 import numpy as np
 from ase.build import bulk
-from gpaw import GPAW, FermiDirac, PoissonSolver, Mixer
+from gpaw import GPAW, FermiDirac, Mixer
 
 atoms = bulk('Si', 'diamond', a=5.4834322363595565)
 atoms *= (3, 3, 3)
