@@ -728,7 +728,7 @@ class Setup(BaseSetup):
         tauct_g = data.tauct_g
         self.tauct = rgd.spline(tauct_g, self.rcore)
 
-        self.pt_j = self.create_projectors(rcutfilter)
+        self.pt_j = self.create_projectors(pt_jg, rcutfilter)
 
         if basis is None:
             basis = self.create_basis_functions(phit_jg, rcut2, gcut2)
@@ -893,9 +893,9 @@ class Setup(BaseSetup):
 
         return M_p, M_pp
 
-    def create_projectors(self, rcut):
+    def create_projectors(self, pt_jg, rcut):
         pt_j = []
-        for j, pt_g in enumerate(self.data.pt_jg):
+        for j, pt_g in enumerate(pt_jg):
             l = self.l_j[j]
             pt_j.append(self.rgd.spline(pt_g, rcut, l))
         return pt_j
@@ -999,8 +999,8 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
-        G_LLL = gaunt(max(self.l_j))
-        Y_LLv = nabla(max(self.l_j))
+        G_LLL = gaunt(max(1, max(self.l_j)))
+        Y_LLv = nabla(max(1, max(self.l_j)))
 
         r_g = rgd.r_g
         dr_g = rgd.dr_g
@@ -1310,6 +1310,26 @@ class Setups(list):
                 e[id] = -dekindecut(G, de, ecut)
             dedecut += e[id]
         return dedecut
+
+    def basis_indices(self):
+        return FunctionIndices([setup.phit_j for setup in self])
+
+    def projector_indices(self):
+        return FunctionIndices([setup.pt_j for setup in self])
+
+
+class FunctionIndices:
+    def __init__(self, f_aj):
+        nm_a = [0]
+        for f_j in f_aj:
+            nm = sum([2 * f.get_angular_momentum_number() + 1 for f in f_j])
+            nm_a.append(nm)
+        self.M_a = np.cumsum(nm_a)
+        self.nm_a = np.array(nm_a[1:])
+        self.max = self.M_a[-1]
+
+    def __getitem__(self, a):
+        return self.M_a[a], self.M_a[a + 1]
 
 
 def types2atomtypes(symbols, types, default):

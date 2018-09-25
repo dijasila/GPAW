@@ -153,6 +153,14 @@ get('summerschool2018',
      'Logged_in_Mac.png', 'Logged_in_Win.png', 'Moba_ssh.png',
      'UseTunnelWin.png'],
     target='summerschools/summerschool18')
+get('summerschool2018',
+    ['organometal.master.db'],
+    target='summerschools/summerschool18/machinelearning')
+get('summerschool2018',
+    ['C144Li18.png', 'C64.png', 'final.png', 'initial.png',
+     'Li2.png', 'lifepo4_wo_li.traj', 'NEB_init.traj'],
+    target='summerschools/summerschool18/batteries')
+
 
 def setup(app):
     # Get png and csv files and other stuff from the AGTS scripts that run

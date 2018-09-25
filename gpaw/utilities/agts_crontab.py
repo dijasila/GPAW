@@ -49,7 +49,10 @@ def agts(cmd):
         path = '/home/niflheim2/jensj/agts'
         pp = ('{path}/ase:{path}/gpaw:{path}/gpaw/build/lib.{arch}'
               .format(path=path, arch=arch))
-        shell('PYTHONPATH={pp}:$PYTHONPATH mq workflow -p agts.py gpaw -T'
+        shell('cd gpaw/doc; '
+              'PYTHONPATH={pp}:$PYTHONPATH make; '
+              'cd ..; '
+              'PYTHONPATH={pp}:$PYTHONPATH mq workflow -p agts.py -T'
               .format(pp=pp))
 
     elif cmd == 'summary':
@@ -64,7 +67,7 @@ def agts(cmd):
                 send_email(tasks)
                 return
 
-        shell('mq delete --state d --recursive .')
+        shell('mq remove --state d --recursive .')
 
         collect_files_for_web_page()
     else:
@@ -77,7 +80,7 @@ def send_email(tasks):
 
     txt = 'Hi!\n\n'
     for task in tasks:
-        if task.state in {'FAILED', 'CANCELED', 'TIMEOUT'}:
+        if task.state in {'FAILED', 'CANCELED', 'TIMEOUT', 'MEMORY'}:
             id, dir, name, res, age, status, t, err = task.words()
             txt += ('test: {}/{}@{}: {}\ntime: {}\nerror: {}\n\n'
                     .format(dir.split('agts/gpaw')[1],

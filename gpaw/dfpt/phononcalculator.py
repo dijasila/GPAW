@@ -15,7 +15,8 @@ from ase.io import Trajectory
 from gpaw import GPAW
 from gpaw.mpi import serial_comm, rank
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.dfpt.poisson import PoissonSolver, FFTPoissonSolver
+#from gpaw.dfpt.poisson import PoissonSolver, FFTPoissonSolver
+from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.dfpt.responsecalculator import ResponseCalculator
 from gpaw.dfpt.phononperturbation import PhononPerturbation
 from gpaw.dfpt.wavefunctions import WaveFunctions

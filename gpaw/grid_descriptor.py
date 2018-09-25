@@ -641,7 +641,7 @@ class GridDescriptor(Domain):
         """
         s_Gc = (np.indices(self.n_c, dtype).T + self.beg_c) / self.N_c
         cell_cv = self.N_c * self.h_cv
-        r_c =  np.linalg.solve(cell_cv.T, r_v)
+        r_c = np.linalg.solve(cell_cv.T, r_v)
         # do the correction twice works better because of rounding errors
         # e.g.: -1.56250000e-25 % 1.0 = 1.0,
         #      but (-1.56250000e-25 % 1.0) % 1.0 = 0.0

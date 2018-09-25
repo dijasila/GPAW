@@ -528,7 +528,7 @@ class FFTPoissonSolver(BasePoissonSolver):
             return
 
         gd = self.grids[-1]
-        k2_Q, N3 = construct_reciprocal(gd, distributed=True)
+        k2_Q, N3 = construct_reciprocal(gd)
         self.poisson_factor_Q = 4.0 * np.pi / k2_Q
         self._initialized = True
 

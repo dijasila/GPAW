@@ -289,7 +289,8 @@ class KPointDescriptor:
     def create_k_points(self, gd, collinear):
         """Return a list of KPoints."""
 
-        sdisp_cd = gd.sdisp_cd
+        sdisp_cd = gd.sdisp_cd  # Maybe pass gd.sdisp_cd instead of gd??
+        # We do not in fact use any other property of gd.
 
         kpt_u = []
 

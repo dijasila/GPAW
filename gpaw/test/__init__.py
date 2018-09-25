@@ -109,7 +109,6 @@ tests = [
     'fd_ops/nabla.py',
     'linalg/dot.py',
     'linalg/mmm.py',
-    'xc/lxc_fxc.py',
     'xc/pbe_pw91.py',
     'fd_ops/gradient.py',
     'maths/erf.py',
@@ -150,7 +149,6 @@ tests = [
     'ext_potential/harmonic.py',
     'atoms_mismatch.py',
     'setup_basis_spec.py',
-    'overlap.py',
     'pw/direct.py',
     'vdw/libvdwxc_spin.py',                 # ~1s
     'timing.py',                            # ~1s
@@ -158,6 +156,7 @@ tests = [
     'lcao/density.py',                      # ~1s
     'pw/stresstest.py',                     # ~1s
     'pw/fftmixer.py',                       # ~1s
+    'lcao/fftmixer.py',                     # ~1s
     'symmetry/usesymm.py',                  # ~1s
     'coulomb.py',                           # ~1s
     'xc/xcatom.py',                         # ~1s
@@ -208,8 +207,10 @@ tests = [
     'poisson/poisson_extended.py',          # ~3s
     'solvation/vacuum.py',                  # ~3s
     'vdw/libvdwxc_mbeef.py',                # ~3s
+    'response/graphene_refined_response.py',  # ~3s
     'pw/augment_grids.py',                  # ~4s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
+    'generic/move_across_cell.py',          # ~4s
     'parallel/augment_grid.py',             # ~4s
     'utilities/ewald.py',                   # ~4s
     'symmetry/symmetry.py',                 # ~4s
@@ -242,6 +243,7 @@ tests = [
     'fileio/refine.py',                     # ~5s
     'solvation/pbc.py',                     # ~5s
     'generic/asym_box.py',                  # ~5s
+    'overlap.py',                           # ~5s
     'linalg/gemm.py',                       # ~6s
     'generic/al_chain.py',                  # ~6s
     'fileio/parallel.py',                   # ~6s
@@ -352,6 +354,7 @@ tests = [
     'xc/revPBE_Li.py',                      # ~26s
     'ofdft/ofdft_scale.py',                 # ~26s
     'parallel/lcao_parallel_kpt.py',        # ~29s
+    'lrtddft/placzek_profeta_albrecht.py',  # ~29s
     'corehole/h2o_dks.py',                  # ~30s
     'lcaotddft/parallel_options.py',        # ~30s
     'lcaotddft/lcaotddft_vs_lrtddft2.py',   # ~30s
@@ -384,6 +387,7 @@ tests = [
     'pathological/nonlocalset.py',          # ~82s
     'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
+    'exx/exx_scf.py',                       # ~91s
     'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
     'exx/AA_enthalpy.py',                   # ~119s
@@ -458,6 +462,7 @@ if mpi.size < 4:
                 'parallel/scalapack_diag_simple.py',
                 'parallel/realspace_blacs.py',
                 'exx/AA_enthalpy.py',
+                'exx/exx_scf.py',
                 'response/bse_aluminum.py',
                 'response/bse_MoS2_cut.py',
                 'fileio/parallel.py',
@@ -630,7 +635,15 @@ class TestRunner:
             self.register_skipped(test, t0)
             return exitcode_skip
 
+        assert test.endswith('.py')
         dirname = test[:-3]
+        if os.path.isabs(dirname):
+            mydir = os.path.split(__file__)[0]
+            dirname = os.path.relpath(dirname, mydir)
+
+        # We don't want files anywhere outside the tempdir.
+        assert not dirname.startswith('../') # Test file outside sourcedir.
+
         if mpi.rank == 0:
             os.makedirs(dirname)
         mpi.world.barrier()
