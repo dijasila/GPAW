@@ -38,7 +38,7 @@ Iteratives are:
 .. math:: A^{(k+1)} = A^{(k)} + \gamma^{(k)} Q^{(k)}
 
 Here `Q` is the search direction, `\gamma` is step length.
-The search direction is calculated according L-BFGS algorithm, 
+The search direction is calculated according L-BFGS algorithm with preconditioning, 
 and step length satisfies the Strong Wolfe Conditions
 and/or approximate Wolfe Conditions.
 The last two conditions are important as they guarantee stability
@@ -56,3 +56,19 @@ it is important to get rid off noise in energy due to inaccuracy in Poisson solv
 Here is example:
 
 .. literalinclude:: directmin_ch4.py
+
+Direct minimisation can be applied not only to Kohn-Sham functionals but also to :ref:`self-interaction corrected functionals <sic>`.
+
+Performance. G2 molecular set.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Number of evaluations of energy and gradients in direct minimisation
+and number of iterations in scf algorithm employing
+the defualt density mixing are shown below. 
+Figure (a) shows several examples of molecules. 
+Figure (b) shows results of the direct minimisation for molecules for which scf 
+with defualt density mixing fails to convegre.  
+
+|scf_vs_dm|
+
+.. |scf_vs_dm| image:: scf_vs_dm.png
