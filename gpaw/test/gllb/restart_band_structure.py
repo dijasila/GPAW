@@ -1,5 +1,5 @@
 from __future__ import print_function
-from gpaw import GPAW, restart, FermiDirac, Davidson
+from gpaw import GPAW, restart, FermiDirac
 from ase import Atoms
 from gpaw.test import equal, gen
 import os

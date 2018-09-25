@@ -796,7 +796,6 @@ def rfst2(A_g, axes=[0,1]):
 
     x,y,z = A_g.shape
     temp_g = np.zeros((x*2+2, y*2+2, z))
-    size_c = A_g.shape
     temp_g[1:x+1, 1:y+1,:] = A_g
     temp_g[x+2:, 1:y+1,:] = -A_g[::-1, :, :]
     temp_g[1:x+1, y+2:,:] = -A_g[:, ::-1, :]
@@ -933,7 +932,6 @@ class FastPoissonSolver(BasePoissonSolver):
         orthogonal_c = (np.abs(dotprods) > 1e-10).sum(axis=0) == 1
         assert sum(orthogonal_c) in [0, 1, 3]
 
-        orthogonal_axes = axes[orthogonal_c]
         non_orthogonal_axes = axes[np.logical_not(orthogonal_c)]
 
         if not all(pbc_c | orthogonal_c):
@@ -1061,7 +1059,7 @@ class FastPoissonSolver(BasePoissonSolver):
             work1_g *= self.inv_fft_lambdas
         else:
             assert len(self.cholesky_axes) == 1
-            axis = self.cholesky_axes[0]
+            #axis = self.cholesky_axes[0]
             raise NotImplementedError
 
         for c in [1, 0]:
