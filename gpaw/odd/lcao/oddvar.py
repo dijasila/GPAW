@@ -1347,7 +1347,7 @@ class ODDvarLcao(Calculator):
                         self.heiss_inv[k] = np.zeros_like(
                             self.heiss[k])
                         for i in range(self.heiss[k].shape[0]):
-                            if abs(self.heiss[k][i]) < 1.0e-3:
+                            if abs(self.heiss[k][i]) < 1.0e-5:
                                 self.heiss_inv[k][i] = 1.0
                             else:
                                 self.heiss_inv[k][i] = 1.0 / (
@@ -1357,7 +1357,7 @@ class ODDvarLcao(Calculator):
                         self.heiss_inv[k] = np.zeros_like(
                             self.heiss[k])
                         for i in range(self.heiss[k].shape[0]):
-                            if abs(self.heiss[k][i]) < 1.0e-3:
+                            if abs(self.heiss[k][i]) < 1.0e-5:
                                 self.heiss_inv[k][i] = 1.0 + 1.0j
                             else:
                                 self.heiss_inv[k][i] = 1.0 / \
