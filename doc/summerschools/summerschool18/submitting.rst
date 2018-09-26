@@ -1,4 +1,4 @@
-.. _submitting:
+.. _gbar submitting:
 
 ====================================
 Submitting jobs on the DTU computers

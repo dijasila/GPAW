@@ -3,6 +3,7 @@ from __future__ import division, print_function
 import numpy as np
 
 from scipy.spatial import Delaunay, Voronoi, ConvexHull
+from scipy.spatial.qhull import QhullError
 
 from ase.dft.kpoints import monkhorst_pack
 
@@ -221,7 +222,8 @@ def get_symmetry_operations(U_scc, time_reversal):
     return Utmp_scc
 
 
-def get_ibz_vertices(cell_cv, U_scc=None, time_reversal=None):
+def get_ibz_vertices(cell_cv, U_scc=None, time_reversal=None,
+                     origin_c=None):
     """Determine irreducible BZ.
 
     Parameters
@@ -239,7 +241,10 @@ def get_ibz_vertices(cell_cv, U_scc=None, time_reversal=None):
         Vertices of the irreducible BZ.
     """
     # Choose an origin
-    origin_c = np.array([0.12, 0.22, 0.21], float)
+    if origin_c is None:
+        origin_c = np.array([0.12, 0.22, 0.21], float)
+    else:
+        assert (np.abs(origin_c) < 0.5).all()
 
     if U_scc is None:
         U_scc = np.array([np.eye(3)])
@@ -271,7 +276,13 @@ def get_ibz_vertices(cell_cv, U_scc=None, time_reversal=None):
                  N_xv[np.newaxis])
     points_xv = (point_sv[:, np.newaxis] - 2 * delta_sxv).reshape((-1, 3))
     points_xv = np.concatenate([point_sv, points_xv])
-    voronoi = Voronoi(points_xv)
+    try:
+        voronoi = Voronoi(points_xv)
+    except QhullError:
+        return get_ibz_vertices(cell_cv, U_scc=U_scc,
+                                time_reversal=time_reversal,
+                                origin_c=origin_c + [0.01, -0.02, -0.01])
+
     ibzregions = voronoi.point_region[0:len(point_sv)]
 
     ibzregion = ibzregions[0]

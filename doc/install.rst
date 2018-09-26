@@ -256,6 +256,8 @@ Instructions for running parallel calculations can be found in the
 :ref:`user manual <manual_parallel_calculations>`.
 
 
+.. _libxc installation:
+
 Libxc Installation
 ------------------
 

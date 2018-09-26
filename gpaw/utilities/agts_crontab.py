@@ -47,7 +47,8 @@ def agts(cmd):
         pp = ('{path}/ase:{path}/gpaw:{path}/gpaw/build/lib.{arch}:$PYTHONPATH'
               .format(path=path, arch=arch))
 
-        shell('cd ase; git pull')
+        shell('cd ase;'
+              'git pull')
         shell('cd gpaw;'
               'git clean -fdx;'
               'git pull;'

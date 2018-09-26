@@ -33,6 +33,7 @@ WaveFunctionWriter(td_calc, 'wf_split.ulm', split=True)
 td_calc.absorption_kick(np.ones(3) * 1e-5)
 td_calc.propagate(20, 3)
 td_calc.write('td.gpw', mode='all')
+td_calc.propagate(7, 3)
 
 # Restart from the restart point
 td_calc = LCAOTDDFT('td.gpw', txt='td2.out')
