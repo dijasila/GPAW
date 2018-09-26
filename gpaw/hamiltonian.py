@@ -226,7 +226,6 @@ class Hamiltonian:
 
         atomic_energies = self.update_corrections(density, W_aL)
 
-        #print(atomic_energies, finegrid_energies, coarsegrid_e_kinetic);asdf
         # Make energy contributions summable over world:
         finegrid_energies *= self.finegd.comm.size / self.world.size
         coarsegrid_e_kinetic *= self.gd.comm.size / self.world.size
@@ -234,7 +233,9 @@ class Hamiltonian:
         energies = atomic_energies  # kinetic, coulomb, zero, external, xc
         energies[1:] += finegrid_energies  # coulomb, zero, external, xc
         energies[0] += coarsegrid_e_kinetic  # kinetic
-        self.world.sum(energies)
+
+        with self.timer('Communicate'):  # time possible load imbalance
+            self.world.sum(energies)
 
         (self.e_kinetic0, self.e_coulomb, self.e_zero,
          self.e_external, self.e_xc) = energies
@@ -252,7 +253,6 @@ class Hamiltonian:
         e_xc = 0.0
 
         D_asp = self.atomdist.to_work(dens.D_asp)
-        #D_asp = dens.D_asp
         dtype = complex if self.soc else float
         dH_asp = self.setups.empty_atomic_matrix(self.ncomponents,
                                                  D_asp.partition, dtype)
@@ -303,7 +303,6 @@ class Hamiltonian:
         for a, D_sp in D_asp.items():
             e_kinetic -= (D_sp * dH_asp[a]).sum().real
 
-        #self.update_atomic_hamiltonians(dH_asp)
         self.update_atomic_hamiltonians(self.atomdist.from_work(dH_asp))
         self.timer.stop('Atomic')
 
