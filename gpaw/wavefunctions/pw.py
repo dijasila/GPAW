@@ -372,7 +372,7 @@ class PWDescriptor:
             a_G = None
         comm.gather(mya_G, 0, a_G)
         if comm.rank == 0:
-            return a_G[:self.ng_q[q]]
+            return a_G[:self.ng_q[q or 0]]
 
     def alltoall1(self, a_rG, q):
         """Gather coefficients from a_rG[r] on rank r.
