@@ -181,8 +181,10 @@ class PWDescriptor:
         self.kd = kd
         if kd is None:
             self.K_qv = np.zeros((1, 3))
+            self.only_one_k_point = True
         else:
             self.K_qv = np.dot(kd.ibzk_qc, B_cv)
+            self.only_one_k_point = (kd.nbzkpts == 1)
 
         # Map from vectors inside sphere to fft grid:
         self.Q_qG = []
@@ -275,7 +277,7 @@ class PWDescriptor:
         if isinstance(x, numbers.Integral):
             x = (x,)
         if q is None:
-            assert self.dtype == float
+            assert self.only_one_k_point
             q = 0
         shape = x + (self.myng_q[q],)
         return np.empty(shape, complex)
@@ -716,10 +718,14 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                    kptband_comm=kptband_comm, timer=timer)
 
     def empty(self, n=(), global_array=False, realspace=False, q=None):
+        if isinstance(n, numbers.Integral):
+            n = (n,)
         if realspace:
             return self.gd.empty(n, self.dtype, global_array)
         elif global_array:
             return np.zeros(n + (self.pd.ngmax,), complex)
+        elif q is None:
+            return np.zeros(n + (self.pd.maxmyng,), complex)
         else:
             return self.pd.empty(n, self.dtype, q)
 
