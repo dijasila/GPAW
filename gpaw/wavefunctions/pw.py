@@ -43,10 +43,6 @@ def pad(array, N):
     return b
 
 
-def integrate(pd, a, b):
-    return pd.integrate(a, b, global_integral=False)
-
-
 class PW(Mode):
     name = 'pw'
 
@@ -260,62 +256,108 @@ class PWDescriptor:
     def bytecount(self, dtype=float):
         return self.ngmax * 16
 
-    def zeros(self, x=(), dtype=None, q=0):
-        """"""
+    def zeros(self, x=(), dtype=None, q=None):
+        """Return zeroed array.
+
+        The shape of the array will be x + (ng,) where ng is the number
+        of G-vectors for on this core.  Different k-points will have
+        different values for ng.  Therefore, the q index must be given,
+        unless we are describibg a real-valued function."""
+
         a_xG = self.empty(x, dtype, q)
         a_xG.fill(0.0)
         return a_xG
 
-    def empty(self, x=(), dtype=None, q=0):
+    def empty(self, x=(), dtype=None, q=None):
+        """Return empty array."""
         if dtype is not None:
             assert dtype == self.dtype
         if isinstance(x, numbers.Integral):
             x = (x,)
         if q is None:
-            shape = x + (self.maxmyng,)
-        else:
-            shape = x + (self.myng_q[q],)
+            assert self.dtype == float
+            q = 0
+        shape = x + (self.myng_q[q],)
         return np.empty(shape, complex)
 
-    def fft(self, f_R, q=-1, Q_G=None, serial=False):
+    def fft(self, f_R, q=None, Q_G=None, local=False):
         """Fast Fourier transform.
 
         Returns c(G) for G<Gc::
 
-                   __
-                  \        -iG.R
-            c(G) = ) f(R) e
-                  /__
+                   --      -iG.R
+            c(G) = > f(R) e
+                   --
                    R
+
+        If local=True, all cores will do an FFT without any
+        collect/scatter.
         """
 
-        if serial:
+        if local:
             self.tmp_R[:] = f_R
         else:
             self.gd.collect(f_R, self.tmp_R)
 
-        if self.gd.comm.rank == 0 or serial:
+        if self.gd.comm.rank == 0 or local:
             self.fftplan.execute()
             if Q_G is None:
+                q = q or 0
                 Q_G = self.Q_qG[q]
             f_G = self.tmp_Q.ravel()[Q_G]
-            if serial:
+            if local:
                 return f_G
         else:
             f_G = None
 
         return self.scatter(f_G, q)
 
-    def scatter(self, a_G, q=-1):
+    def ifft(self, c_G, q=None, local=False):
+        """Inverse fast Fourier transform.
+
+        Returns::
+
+                   1 --        iG.R
+            f(R) = - > c(G) e
+                   N --
+                     G
+
+        If local=True, all cores will do an iFFT without any
+        gather/distribute.
+        """
+        q = q or 0
+        if local:
+            c_G = c_G * (1.0 / self.tmp_R.size)
+        else:
+            c_G = self.gather(c_G * (1.0 / self.tmp_R.size), q)
+        comm = self.gd.comm
+        if comm.rank == 0 or local:
+            self.tmp_Q[:] = 0.0
+            self.tmp_Q.ravel()[self.Q_qG[q]] = c_G
+            if self.dtype == float:
+                t = self.tmp_Q[:, :, 0]
+                n, m = self.gd.N_c[:2] // 2 - 1
+                t[0, -m:] = t[0, m:0:-1].conj()
+                t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
+                t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
+                t[-n:, 0] = t[n:0:-1, 0].conj()
+            self.ifftplan.execute()
+        if comm.size == 1 or local:
+            return self.tmp_R.copy()
+        return self.gd.distribute(self.tmp_R)
+
+    def scatter(self, a_G, q=None):
+        """Scatter coefficients from master to all cores."""
         comm = self.gd.comm
         if comm.size == 1:
             return a_G
 
         mya_G = np.empty(self.maxmyng, complex)
         comm.scatter(pad(a_G, self.maxmyng * comm.size), mya_G, 0)
-        return mya_G[:self.myng_q[q]]
+        return mya_G[:self.myng_q[q or 0]]
 
-    def gather(self, a_G, q=0):
+    def gather(self, a_G, q=None):
+        """Gather coefficients on master."""
         comm = self.gd.comm
 
         if comm.size == 1:
@@ -331,6 +373,11 @@ class PWDescriptor:
             return a_G[:self.ng_q[q]]
 
     def alltoall1(self, a_rG, q):
+        """Gather coefficients from a_rG[r] on rank r.
+
+        On rank r, an array of all G-vector coefficients will be returned.
+        These will be gathers from a_rG[r] on all the cores.
+        """
         comm = self.gd.comm
         if comm.size == 1:
             return a_rG[0]
@@ -350,6 +397,7 @@ class PWDescriptor:
             return b_G
 
     def alltoall2(self, a_G, q, b_rG):
+        """Scatter all coefs. from rank r to B_rG[r] on other cores."""
         comm = self.gd.comm
         if comm.size == 1:
             b_rG[0] += a_G
@@ -367,37 +415,6 @@ class PWDescriptor:
         tmp_rG = self.tmp_G[:b_rG.size].reshape(b_rG.shape)
         comm.alltoallv(a_G, ssize_r, soffset_r, tmp_rG, rsize_r, roffset_r)
         b_rG += tmp_rG
-
-    def ifft(self, c_G, q=-1, serial=False):
-        """Inverse fast Fourier transform.
-
-        Returns::
-
-                      __
-                   1 \        iG.R
-            f(R) = -  ) c(G) e
-                   N /__
-                      G
-        """
-        if serial:
-            c_G = c_G * (1.0 / self.tmp_R.size)
-        else:
-            c_G = self.gather(c_G * (1.0 / self.tmp_R.size), q)
-        comm = self.gd.comm
-        if comm.rank == 0 or serial:
-            self.tmp_Q[:] = 0.0
-            self.tmp_Q.ravel()[self.Q_qG[q]] = c_G
-            if self.dtype == float:
-                t = self.tmp_Q[:, :, 0]
-                n, m = self.gd.N_c[:2] // 2 - 1
-                t[0, -m:] = t[0, m:0:-1].conj()
-                t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
-                t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
-                t[-n:, 0] = t[n:0:-1, 0].conj()
-            self.ifftplan.execute()
-        if comm.size == 1 or serial:
-            return self.tmp_R.copy()
-        return self.gd.distribute(self.tmp_R)
 
     def integrate(self, a_xg, b_yg=None,
                   global_integral=True, hermitian=False):
@@ -459,8 +476,7 @@ class PWDescriptor:
             self.gd.comm.sum(result.T)
             return result
 
-    def interpolate(self, a_R, pd, q=None):
-        assert q is None
+    def interpolate(self, a_R, pd):
         self.gd.collect(a_R, self.tmp_R[:])
 
         if self.gd.comm.rank == 0:
@@ -509,8 +525,7 @@ class PWDescriptor:
         return (pd.gd.distribute(pd.tmp_R) * (1.0 / self.tmp_R.size),
                 self.scatter(a_G))
 
-    def restrict(self, a_R, pd, q=None):
-        assert q is None
+    def restrict(self, a_R, pd):
         self.gd.collect(a_R, self.tmp_R[:])
 
         if self.gd.comm.rank == 0:
@@ -557,6 +572,7 @@ class PWDescriptor:
 
 class PWMapping:
     def __init__(self, pd1, pd2):
+        """Mapping from pd1 to pd2."""
         N_c = np.array(pd1.tmp_Q.shape)
         N2_c = pd2.tmp_Q.shape
         Q1_G = pd1.Q_qG[0]
@@ -589,6 +605,7 @@ class PWMapping:
         self.pd2 = pd2
 
     def add_to1(self, a_G1, b_G2):
+        """Do a += b * scale, where a is on pd1 and b on pd2."""
         scale = self.pd1.tmp_R.size / self.pd2.tmp_R.size
 
         if self.pd1.gd.comm.size == 1:
@@ -604,6 +621,7 @@ class PWMapping:
         a_G1 += b_G1[ng1:ng2] * scale
 
     def add_to2(self, a_G2, b_G1):
+        """Do a += b * scale, where a is on pd2 and b on pd1."""
         myb_G1 = b_G1 * (self.pd2.tmp_R.size / self.pd1.tmp_R.size)
         if self.pd1.gd.comm.size == 1:
             a_G2[self.G2_G1] += myb_G1
@@ -781,8 +799,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             psit_G = self.pd.alltoall1(psit_xG[n1:n2], kpt.q)
             Htpsit_xG[n1:n2] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG[n1:n2]
             if psit_G is not None:
-                vtpsit_R = self.pd.ifft(psit_G, kpt.q, serial=True) * vt_R
-                vtpsit_G = self.pd.fft(vtpsit_R, kpt.q, serial=True)
+                vtpsit_R = self.pd.ifft(psit_G, kpt.q, local=True) * vt_R
+                vtpsit_G = self.pd.fft(vtpsit_R, kpt.q, local=True)
             else:
                 vtpsit_G = self.pd.tmp_G
             self.pd.alltoall2(vtpsit_G, kpt.q, Htpsit_xG[n1:n2])
@@ -818,7 +836,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             psit_G = self.pd.alltoall1(kpt.psit.array[n1:n2], kpt.q)
             if psit_G is not None:
                 f = f_n[n1 + comm.rank]
-                nt_R += f * abs(self.pd.ifft(psit_G, kpt.q, serial=True))**2
+                nt_R += f * abs(self.pd.ifft(psit_G, kpt.q, local=True))**2
 
         comm.sum(nt_R)
         nt_R = self.gd.distribute(nt_R)
@@ -1754,6 +1772,11 @@ class ReciprocalSpacePoissonSolver:
     def solve(self, vHt_q, dens):
         vHt_q[:] = 4 * pi * dens.rhot_q
         vHt_q /= self.G2_q
+
+
+def integrate(pd, a, b):
+    """Shortcut for integrals without calling pd.gd.comm.sum()."""
+    return pd.integrate(a, b, global_integral=False)
 
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
