@@ -13,12 +13,22 @@ here `E^{DFA}` - density functional approximation,
 `n` is the total density and `n_i = |\psi_i (\mathbf{r})|^{2}` - orbital density. 
 `\beta` is screening factor. 
 
-The SIC functional is not unitary invariant and dependends on orbital densities. Therefore, :ref:`fully variational approach <directmin>` is used to find optimal orbitals which provides the ground state energy.
+The SIC functional is not unitary invariant and dependends on orbital densities. 
+Therefore, :ref:`fully variational approach <directmin>` is used to find optimal 
+orbitals which provides the ground state energy.
 
 Example.
 --------
-Current implementation uses :ref:`LCAO aprroximation <lcao>` and algrotihm described :ref:`here <directmin>` . 
-Since functional is not unitary invariant it's nessaccary to use complex orbitals to find the lowest energy state.
+Current implementation uses :ref:`LCAO aprroximation <lcao>` 
+and algrotihm described :ref:`here <directmin>` . 
+Since functional is not unitary invariant 
+it's nessaccary to use complex orbitals to find the lowest energy state.
 Here is example:
 
 .. literalinclude:: sic_example.py
+
+The orbital-density depended potentials are evaluated on coarse grid 
+to speed up the calculations. To evaluate them on a fine grid use::
+
+  >>> opt = ODD(..., sic_coarse_grid=False)
+
