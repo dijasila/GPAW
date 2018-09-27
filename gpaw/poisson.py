@@ -788,11 +788,22 @@ def irfst2(A_g, axes=[0,1]):
 """
 
 
-# This method needs to be taken from fftw / scipy to gain speedup of ~4x
+from scipy.fftpack import dst as scipydst
+
+use_scipy_transforms = True
+
+
 def rfst2(A_g, axes=[0,1]):
     all = set([0,1,2])
     third = [ all.difference(set(axes)).pop() ]
     A_g = np.transpose(A_g, axes + third)
+
+    if use_scipy_transforms:
+        Y = A_g
+        for axis in axes:
+            Y = scipydst(Y, axis=axis, type=1)
+        Y *= 2**len(axes)
+        return Y
 
     x,y,z = A_g.shape
     temp_g = np.zeros((x*2+2, y*2+2, z))
@@ -804,6 +815,15 @@ def rfst2(A_g, axes=[0,1]):
     return np.transpose(X, np.argsort(axes + third))
 
 def irfst2(A_g, axes=[0,1]):
+    if use_scipy_transforms:
+        Y = A_g
+        for axis in axes:
+            Y = scipydst(Y, axis=axis, type=1)
+        magic = 1.0 / (16 * np.prod([A_g.shape[axis] + 1 for axis in axes]))
+        Y *= magic
+        #Y /= 211200
+        return Y
+
     all = set([0,1,2])
     third = [ all.difference(set(axes)).pop() ]
     A_g = np.transpose(A_g, axes + third)
@@ -812,7 +832,9 @@ def irfst2(A_g, axes=[0,1]):
     temp_g[1:x+1, 1:y+1,:] = A_g.real
     temp_g[x+2:, 1:y+1,:] = -A_g[::-1, :, :].real
     X = -0.25*irfft2(temp_g, axes=[0,1])[1:x+1, 1:y+1, :]
-    return np.transpose(X, np.argsort(axes + third))
+
+    T = np.transpose(X, np.argsort(axes + third))
+    return T
 
 
 # This method needs to be taken from fftw / scipy to gain speedup of ~4x
@@ -866,11 +888,17 @@ def ifst(A_g, axis):
     elif axis == 2:
         return -2j*X_g[:, :, 1:z+1]
 
+
 def transform(A_g, axis=None, pbc=True):
     if pbc:
         return fft(A_g, axis=axis)
     else:
-        return fst(A_g, axis)
+        if not use_scipy_transforms:
+            x = fst(A_g, axis)
+            return x
+        y = scipydst(A_g, axis=axis, type=1)
+        y *= .5
+        return y
 
 def transform2(A_g, axes=None, pbc=[True, True]):
     if all(pbc):
@@ -885,7 +913,13 @@ def itransform(A_g, axis=None, pbc=True):
     if pbc:
         return ifft(A_g, axis=axis)
     else:
-        return ifst(A_g, axis)
+        if not use_scipy_transforms:
+            x = ifst(A_g, axis)
+            return x
+        y = scipydst(A_g, axis=axis, type=1)
+        magic = 1.0 / (A_g.shape[axis] + 1)
+        y *= magic
+        return y
 
 def itransform2(A_g, axes=None, pbc=[True, True]):
     if all(pbc):
