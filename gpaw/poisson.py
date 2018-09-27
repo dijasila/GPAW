@@ -796,7 +796,6 @@ use_scipy_transforms = True
 def rfst2(A_g, axes=[0,1]):
     all = set([0,1,2])
     third = [ all.difference(set(axes)).pop() ]
-    A_g = np.transpose(A_g, axes + third)
 
     if use_scipy_transforms:
         Y = A_g
@@ -805,6 +804,7 @@ def rfst2(A_g, axes=[0,1]):
         Y *= 2**len(axes)
         return Y
 
+    A_g = np.transpose(A_g, axes + third)
     x,y,z = A_g.shape
     temp_g = np.zeros((x*2+2, y*2+2, z))
     temp_g[1:x+1, 1:y+1,:] = A_g
