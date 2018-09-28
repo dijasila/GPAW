@@ -1009,6 +1009,8 @@ class ODDvarLcao(Calculator):
                 self.log('%3d %-2s %10.5f %10.5f %10.5f' %
                      ((a, setup.symbol) + tuple(F_av[a] * c)))
             self.log()
+            self.log(flush=True)
+
             return F_av * c
 
     def get_potential_energy_2(self):

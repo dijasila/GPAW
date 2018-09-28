@@ -776,7 +776,7 @@ class PZpotentialLcao:
 
                 Fpot_av += \
                     self.bfs.calculate_force_contribution(vt_mG,
-                                                     rho_xMM,
+                                                     rho_xMM.T,
                                                      kpt.q)
 
                 # Atomic density contribution
@@ -806,7 +806,7 @@ class PZpotentialLcao:
                         dPdR_Mi = dPdR_aqvMi[b][kpt.q][v][
                                   Mstart:Mstop]
                         ArhoT_MM = (gemmdot(dPdR_Mi, HP_iM) *
-                                    rho_xMM).real
+                                    rho_xMM.T).real
                         for a, M1, M2 in slices():
                             dE = 2 * ArhoT_MM[M1:M2].sum()
                             Fatom_av[a, v] += dE  # the "b; mu in a; nu" term
@@ -818,14 +818,15 @@ class PZpotentialLcao:
 
                     dens.ghat.derivative(vHt_g, ghat_aLv)
                     for a, dF_Lv in ghat_aLv.items():
-                        Fhart_av[a] += -1.0 * np.dot(Q_aL[a], dF_Lv)
+                        Fhart_av[a] -= self.beta_c * np.dot(Q_aL[a],
+                                                            dF_Lv)
                 else:
                     ghat_aLv = self.ghat_cg.dict(derivative=True)
 
                     self.ghat_cg.derivative(vHt_g, ghat_aLv)
                     for a, dF_Lv in ghat_aLv.items():
-                        Fhart_av[a] += -1.0 * np.dot(Q_aL[a],
-                                                     dF_Lv)
+                        Fhart_av[a] -= self.beta_c * np.dot(Q_aL[a],
+                                                            dF_Lv)
 
         # dens.finegd.comm.sum(Fhart_av, 0)
 
