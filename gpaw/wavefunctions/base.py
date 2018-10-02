@@ -312,6 +312,8 @@ class WaveFunctions:
                 self.kd.comm.send(np.ascontiguousarray(P_nI), 0)
         if self.world.rank == 0:
             nproj = sum(setup.ni for setup in self.setups)
+            if not self.collinear:
+                nproj *= 2
             P_nI = np.empty((self.bd.nbands, nproj), self.dtype)
             self.kd.comm.receive(P_nI, kpt_rank)
             return P_nI
@@ -354,7 +356,8 @@ class WaveFunctions:
 
         if rank == 0:
             # allocate full wave function and receive
-            psit_G = self.empty(global_array=True,
+            shape = () if self.collinear else (2,)
+            psit_G = self.empty(shape, global_array=True,
                                 realspace=realspace)
             # XXX this will fail when using non-standard nesting
             # of communicators.
@@ -420,7 +423,7 @@ class WaveFunctions:
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 P_nI = self.collect_projections(k, s)
-                if not self.collinear:
+                if not self.collinear and P_nI is not None:
                     P_nI.shape = (self.bd.nbands, 2, nproj)
                 writer.fill(P_nI)
 
@@ -436,6 +439,7 @@ class WaveFunctions:
                 writer.fill(self.collect_eigenvalues(k, s) * Hartree)
 
     def write_occupations(self, writer):
+
         if self.collinear:
             shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
         else:
@@ -557,7 +561,7 @@ def eigenvalue_string(wfs, comment=' '):
         return ''.join(tokens)
 
     if len(wfs.kd.ibzk_kc) > 2:
-        add('Warning: Showing only first 2 kpts')
+        add('Showing only first 2 kpts')
         print_range = 2
     else:
         add('Showing all kpts')

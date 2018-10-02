@@ -197,7 +197,9 @@ class Density:
         self.ghat.set_positions(spos_ac)
         self.mixer.reset()
 
+        self.nt_xg = None
         self.nt_sg = None
+        self.nt_vg = None
         self.nt_g = None
         self.rhot_g = None
 

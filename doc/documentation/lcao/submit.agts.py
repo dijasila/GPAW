@@ -1,5 +1,8 @@
-def agts(queue):
-    queue.add('basisgeneration.py', ncpus=1, walltime=10)
-    queue.add('lcao_h2o.py', ncpus=1, walltime=10)
-    queue.add('lcao_opt.py', ncpus=1, walltime=10)
+from myqueue.task import task
 
+
+def create_tasks():
+    return [
+        task('basisgeneration.py@1:10m'),
+        task('lcao_h2o.py@1:10m'),
+        task('lcao_opt.py@1:10m')]

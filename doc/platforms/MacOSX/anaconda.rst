@@ -4,7 +4,7 @@
 Anaconda on MacOS
 =================
 
-We recommend using Python from :ref:`homebrew` on macOS, but if you need to use the Anaconda python that is also possible.  Both ASE and GPAW work with Anaconda python (but ASAP_ does not).
+We recommend using Python from :ref:`homebrew` on macOS, but if you need to use the Anaconda python that is also possible.  Both ASE and GPAW work with Anaconda python.
 
 Install Anaconda
 ================
@@ -64,5 +64,4 @@ Install GPAW setups::
 
     $ gpaw --verbose install-data
 
-
-.. _ASAP: https://wiki.fysik.dtu.dk/asap
+    

@@ -1,3 +1,4 @@
+# Creates: fig2.png
 import numpy as np
 # mathtext fails to create title with matplotlib 0.99 on el6
 #import matplotlib

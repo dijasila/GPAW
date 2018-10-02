@@ -114,7 +114,6 @@ class BlacsOrbitalLayouts(BlacsLayouts):
                               mcpus, ncpus, blocksize, timer)
         nbands = bd.nbands
         self.blocksize = blocksize
-        self.mynbands = mynbands = bd.mynbands
 
         self.orbital_comm = self.bd.comm
         self.naoblocksize = naoblocksize = -((-nao) // self.orbital_comm.size)
@@ -122,7 +121,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
         # Range of basis functions for BLACS distribution of matrices:
         self.Mmax = nao
-        self.Mstart = bd.comm.rank * naoblocksize
+        self.Mstart = min(bd.comm.rank * naoblocksize, self.Mmax)
         self.Mstop = min(self.Mstart + naoblocksize, self.Mmax)
         self.mynao = self.Mstop - self.Mstart
 
@@ -131,7 +130,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.mMdescriptor = self.columngrid.new_descriptor(nao, nao,
                                                            naoblocksize, nao)
         self.nMdescriptor = self.columngrid.new_descriptor(nbands, nao,
-                                                           mynbands, nao)
+                                                           bd.maxmynbands, nao)
 
         # parallelprint(world, (mynao, self.mMdescriptor.shape))
 
@@ -218,8 +217,9 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.timer.stop('blocked summation')
 
         xshape = S_qmM.shape[:-2]
-        nm, nM = S_qmM.shape[-2:]
-        S_qmM = S_qmM.reshape(-1, nm, nM)
+        if len(xshape) == 0:
+            S_qmM = S_qmM[np.newaxis]
+        assert S_qmM.ndim == 3
 
         blockdesc = self.mmdescriptor
         coldesc = self.mM_unique_descriptor

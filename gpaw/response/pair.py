@@ -394,7 +394,11 @@ class PWSymmetryAnalyzer:
 
         for K_k in K_gK:
             if K in K_k:
-                return len(K_k)
+                if self.kd.refine_info is not None:
+                    weight = sum(self.kd.refine_info.weight_k[K_k])
+                    return weight
+                else:
+                    return len(K_k)
 
     def get_kpoint_mapping(self, K1, K2):
         """Get index of symmetry for mapping between K1 and K2"""
@@ -1449,7 +1453,11 @@ class PairDensity:
                 ghat = PWLFC([atomdata.ghat_l], pd)
                 ghat.set_positions(np.zeros((1, 3)))
                 Q_LG = ghat.expand()
-                Q_Gii = np.dot(atomdata.Delta_iiL, Q_LG).T
+                if atomdata.Delta_iiL is None:
+                    ni = atomdata.ni
+                    Q_Gii = np.zeros((Q_LG.shape[1], ni, ni))
+                else:
+                    Q_Gii = np.dot(atomdata.Delta_iiL, Q_LG).T
             else:
                 Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
                 ni = atomdata.ni

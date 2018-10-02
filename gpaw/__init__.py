@@ -12,7 +12,7 @@ with broadcast_imports:
     import os
     import runpy
     import warnings
-    from distutils.util import get_platform
+    from sysconfig import get_platform
     from os.path import join, isfile
     from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
 
@@ -22,8 +22,8 @@ with broadcast_imports:
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '1.3.1b1'
-__ase_version_required__ = '3.15.0'
+__version__ = '1.4.1b1'
+__ase_version_required__ = '3.16.1b1'
 
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
@@ -42,6 +42,10 @@ class KohnShamConvergenceError(ConvergenceError):
 
 
 class PoissonConvergenceError(ConvergenceError):
+    pass
+
+
+class KPointError(Exception):
     pass
 
 

@@ -1,4 +1,8 @@
-def agts(queue):
-    queue.add('gaps.py', creates='si-gaps.csv')
-    eos = queue.add('eos.py', ncpus=4, walltime=600)
-    queue.add('plot_a.py', deps=eos, creates='si-a.png')
+from myqueue.task import task
+
+
+def create_tasks():
+    return [
+        task('gaps.py'),
+        task('eos.py@4:10h'),
+        task('plot_a.py', deps='eos.py')]
