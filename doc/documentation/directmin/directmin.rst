@@ -1,16 +1,16 @@
 .. _directmin:
 
 ================================
-Direct minimization methods
+Direct Minimization Methods
 ================================
 
-Alternative to self-consistent field algorithms are direct minimisation methods 
-which avoids using density mixing and diagonalisation of KS hamiltonian. 
+An alternative to self-consistent field algorithms is employing direct minimisation methods 
+which avoid using density mixing and diagonalisation of the Kohn-Sham hamiltonian. 
 
 LCAO mode.
 ----------
 
-Exponential transformation.
+Exponential Transformation.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In the localized basis set approach, the orbitals are expanded in a finite basis set: 
@@ -22,62 +22,59 @@ to the expansion coefficients subject to orthonormality constraints,
 
 .. math:: E_0 = \min_{O^{\dagger}SO = I} E\left(O\right)
 
-Say that we have some orthonormal  reference orbitals with coefficient matrix `C`, 
-then one set of coefficients can be transformed into another 
+For example, if we have some orthonormal reference orbitals with coefficient matrix `C`, 
+then one set of the coefficients can be transformed into another 
 set by using unitary transformation:
 
 .. math:: O = C \exp(A)
 
 where `A` is a skew-hermitian matrix. If the reference orbitals are fixed, 
-then the energy is a function of the skew-hermitian matrix and 
-constraint conditions are automatically satisfied:
+then the energy is a function of the skew-hermitian matrix and the constraint conditions are automatically satisfied:
 							
 .. math:: E\left(O\right) = E\left(C e^A \right) = E\left(A\right) 
 
-Furthermore, the skew-hermitian matrices form a linear space and 
-therefore, conventional unconstraint minimisation algorithms 
+Furthermore, the skew-hermitian matrices form a linear space and, 
+therefore, conventional unconstrained minimisation algorithms 
 can be applied to minimise energy with respect to skew-hermitian matrices.
 
-Implementation.
+Implementation
 ~~~~~~~~~~~~~~~
 
-Iteratives are:
+The iteratives are:
 
 .. math:: A^{(k+1)} = A^{(k)} + \gamma^{(k)} Q^{(k)}
 
-Here `Q` is the search direction, `\gamma` is step length.
+Here `Q` is the search direction and `\gamma` is step length.
 The search direction is calculated according L-BFGS algorithm with preconditioning, 
-and step length satisfies the Strong Wolfe Conditions
+and the step length satisfies the Strong Wolfe Conditions
 and/or approximate Wolfe Conditions.
 The last two conditions are important as they guarantee stability
 and fast convergence of the LBFGS algorithm.
 
 .. The preconditioning can be calculated for this problem as:
 
-Example.
+Example
 ~~~~~~~~
-First of all, it's very important to include all bands in calculations
-that is total number of bands equals number of atomic orbitals.
+First of all, it is necessary to ensure that the number of bands used in calculations is equal to the number of atomic orbitals.
 Secondly, as the inexact line search method is used 
-in order to find optimal step length during the minimisation,
-it is important to get rid off noise in energy due to inaccuracy in Poisson solver.
+in order to find an optimal step length during the minimisation,
+it is important to reduce error in the energy due to inaccuracies in the Poisson solver.
 
 Here is example:
 
 .. literalinclude:: directmin_ch4.py
 
-Direct minimisation can be applied not only to Kohn-Sham functionals
+Not only can direct minimisation be applied to Kohn-Sham functionals
 but also to :ref:`self-interaction corrected functionals <sic>`.
 
-Performance. G2 molecular set.
+Performance. G2 molecular set
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Number of evaluations of energy and gradients in direct minimisation
-and number of iterations in scf algorithm employing
-the defualt density mixing are shown below. 
+The number of energy and gradient evaluations in direct minimisation
+and the number of iterations in the scf algorithm employing default density-mixing are shown below. 
 Figure (a) shows several examples of molecules. 
-Figure (b) shows results of the direct minimisation for molecules for which scf 
-with defualt density mixing fails to convegre.  
+Figure (b) shows the results of the direct minimisation for molecules for which scf 
+with default density-mixing fails to converge.  
 
 |scf_vs_dm|
 
