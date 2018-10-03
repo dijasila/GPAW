@@ -11,7 +11,7 @@ class MatrixInFile:
         self.array = data
         self.dist = create_distribution(M, N, *dist)
 
-    def read(self, descriptor, shape):
+    def read(self, descriptor, shape, q):
         """Create real matrix with everything in memory."""
         matrix = Matrix(*self.shape, dtype=self.dtype, dist=self.dist)
         # Read band by band to save memory
@@ -26,7 +26,7 @@ class MatrixInFile:
             if isinstance(descriptor, GridDescriptor):
                 descriptor.distribute(big_psit_G, psit_G.reshape(shape))
             else:
-                descriptor.scatter(big_psit_G, psit_G)
+                psit_G[:] = descriptor.scatter(big_psit_G, q)
         return matrix
 
 
@@ -131,7 +131,7 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
         return s
 
     def read_from_file(self):
-        self.matrix = self.matrix.read(self.gd, self.myshape[1:])
+        self.matrix = self.matrix.read(self.gd, self.myshape[1:], self.kpt)
         self.in_memory = True
 
     def new(self, buf=None, dist='inherit', nbands=None):
@@ -190,7 +190,7 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
             return self.matrix.array.reshape(self.myshape)
 
     def read_from_file(self):
-        self.matrix = self.matrix.read(self.pd, self.myshape[1:])
+        self.matrix = self.matrix.read(self.pd, self.myshape[1:], self.kpt)
         self.in_memory = True
 
     def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
