@@ -12,6 +12,7 @@ a.calc = GPAW(mode='pw',
               basis='dzp',
               nbands=4,
               eigensolver='rmm-diis',
+              parallel={'domain': 1},
               txt=None)
 
 a.get_potential_energy()

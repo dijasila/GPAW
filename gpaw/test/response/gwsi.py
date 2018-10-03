@@ -14,6 +14,7 @@ def run(atoms, symm, name):
                       occupations=FermiDirac(0.01),
                       symmetry=symm,
                       kpts={'size': (2, 2, 2), 'gamma': True},
+                      parallel={'domain': 1},
                       txt=name + '.txt')
     e = atoms.get_potential_energy()
     scalapack = atoms.calc.wfs.bd.comm.size
@@ -32,7 +33,7 @@ def run(atoms, symm, name):
     results = gw.calculate()
     return e, results
 
-    
+
 a = 5.43
 si1 = bulk('Si', 'diamond', a=a)
 si2 = si1.copy()
