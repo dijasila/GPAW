@@ -1,33 +1,14 @@
 import numpy as np
 
 from gpaw.matrix import Matrix, create_distribution
-from gpaw.grid_descriptor import GridDescriptor
 
 
 class MatrixInFile:
     def __init__(self, M, N, dtype, data, dist):
         self.shape = (M, N)
         self.dtype = dtype
-        self.array = data
+        self.array = data  # pointer to data in a file
         self.dist = create_distribution(M, N, *dist)
-
-    def read(self, descriptor, shape, q):
-        """Create real matrix with everything in memory."""
-        matrix = Matrix(*self.shape, dtype=self.dtype, dist=self.dist)
-        # Read band by band to save memory
-        rows = self.dist.rows
-        blocksize = (self.shape[0] + rows - 1) // rows
-        for myn, psit_G in enumerate(matrix.array):
-            n = self.dist.comm.rank * blocksize + myn
-            if descriptor.comm.rank == 0:
-                big_psit_G = np.asarray(self.array[n], self.dtype)
-            else:
-                big_psit_G = None
-            if isinstance(descriptor, GridDescriptor):
-                descriptor.distribute(big_psit_G, psit_G.reshape(shape))
-            else:
-                psit_G[:] = descriptor.scatter(big_psit_G, q)
-        return matrix
 
 
 class ArrayWaveFunctions:
@@ -97,6 +78,23 @@ class ArrayWaveFunctions:
     def eval(self, matrix):
         matrix.array[:] = self.matrix.array
 
+    def read_from_file(self):
+        """Read wave functions from file into memory."""
+        matrix = Matrix(*self.matrix.shape,
+                        dtype=self.dtype, dist=self.matrix.dist)
+        # Read band by band to save memory
+        rows = matrix.dist.rows
+        blocksize = (matrix.shape[0] + rows - 1) // rows
+        for myn, psit_G in enumerate(matrix.array):
+            n = matrix.dist.comm.rank * blocksize + myn
+            if self.comm.rank == 0:
+                big_psit_G = np.asarray(self.array[n], self.dtype)
+            else:
+                big_psit_G = None
+            self._distribute(big_psit_G, psit_G)
+        self.matrix = matrix
+        self.in_memory = True
+
 
 class UniformGridWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, gd, dtype=None, data=None, kpt=None, dist=None,
@@ -124,15 +122,14 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
         else:
             return self.matrix.array
 
+    def _distribute(self, big_psit_R, psit_R):
+        self.gd.distribute(big_psit_R, psit_R.reshape(self.gd.n_c))
+
     def __repr__(self):
         s = ArrayWaveFunctions.__repr__(self).split('(')[1][:-1]
         shape = self.gd.get_size_of_global_array()
         s = 'UniformGridWaveFunctions({}, gpts={}x{}x{})'.format(s, *shape)
         return s
-
-    def read_from_file(self):
-        self.matrix = self.matrix.read(self.gd, self.myshape[1:], self.kpt)
-        self.in_memory = True
 
     def new(self, buf=None, dist='inherit', nbands=None):
         if dist == 'inherit':
@@ -189,9 +186,13 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
         else:
             return self.matrix.array.reshape(self.myshape)
 
-    def read_from_file(self):
-        self.matrix = self.matrix.read(self.pd, self.myshape[1:], self.kpt)
-        self.in_memory = True
+    def _distribute(self, big_psit_G, psit_G):
+        if self.collinear:
+            psit_G[:] = self.pd.scatter(big_psit_G, self.kpt)
+        else:
+            psit_sG = psit_G.reshape((2, -1))
+            psit_sG[0] = self.pd.scatter(big_psit_G[0], self.kpt)
+            psit_sG[1] = self.pd.scatter(big_psit_G[1], self.kpt)
 
     def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
                         operator=None, result=None, serial=False):
