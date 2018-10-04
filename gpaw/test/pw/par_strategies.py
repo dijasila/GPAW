@@ -10,12 +10,10 @@ atoms = Atoms('HLi', cell=[6, 6, 3.4], pbc=True,
 
 for xc in ['LDA', 'PBE']:
     def calculate(d, k):
+        label = 'gpaw.{xc}.domain{d}.kpt{k}'.format(xc=xc, d=d, k=k)
         atoms.calc = GPAW(mode=PW(ecut),
                           xc=xc,
-                          # txt='gpaw.{}.aug{}.txt'.format(xc, aug),
-                          txt='gpaw.{xc}.domain{d}.kpt{k}txt'
-                          .format(xc=xc, d=d, k=k),
-                          # parallel={'augment_grids': aug},
+                          txt=label + '.txt',
                           parallel={'domain': d, 'kpt': k},
                           kpts={'size': kpoints},
                           occupations=FermiDirac(width=0.1))
@@ -27,6 +25,8 @@ for xc in ['LDA', 'PBE']:
         e = atoms.get_potential_energy()
         f = atoms.get_forces()
         s = atoms.get_stress()
+        atoms.calc.write(label + '.gpw', mode='all')
+        GPAW(label + '.gpw', txt=None)
         return e, f, s
 
     for d in [1, 2, 4, 8]:
