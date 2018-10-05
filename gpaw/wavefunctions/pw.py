@@ -153,11 +153,12 @@ class PWDescriptor:
         self.ngmin = 100000000
         self.ngmax = 0
         for q, K_v in enumerate(self.K_qv):
+            G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
             if addq:
-                G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
+                mask_Q = (G2_Q <= 2 * ecut)
             else:
-                G2_Q = (self.G_Qv**2).sum(axis=1)
-            mask_Q = (G2_Q <= 2 * ecut)
+                mask_Q = ((self.G_Qv**2).sum(axis=1) <= 2 * ecut)
+            
             if self.dtype == float:
                 mask_Q &= ((i_Qc[:, 2] > 0) |
                            (i_Qc[:, 1] > 0) |
