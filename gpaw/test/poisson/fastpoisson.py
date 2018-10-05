@@ -1,3 +1,7 @@
+# This test verifies that the FastPoissonSolver produces solutions to
+# the Poisson equation with very small residuals for different cells,
+# pbcs, and grids.
+
 import itertools
 import numpy as np
 from ase.build import bulk
