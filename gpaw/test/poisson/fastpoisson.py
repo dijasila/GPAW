@@ -5,7 +5,7 @@ from gpaw.poisson import FastPoissonSolver, BadAxesError
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.fd_operators import Laplace
 from gpaw.mpi import world
-from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.utilities import h2gpts
 
 # Test: different pbcs
 # For pbc=000, test charged system
@@ -36,45 +36,50 @@ def icells():
         yield sym, cell.copy()
 
 
+
 #import matplotlib.pyplot as plt
 
+tolerance = 1e-12
 
 nn = 1
 
-for cellno, (cellname, cell_cv) in enumerate(icells()):
-    N_c = get_number_of_grid_points(cell_cv, 0.12, 'fd', True, None)
-    for pbc in itertools.product(tf, tf, tf):
-        gd = GridDescriptor(N_c, cell_cv, pbc_c=pbc)
-        rho_g = gd.zeros()
-        phi_g = gd.zeros()
-        rho_g[:] = -0.3 + rng.rand(*rho_g.shape)
+def test(cellno, cellname, cell_cv, idiv, pbc):
+    N_c = h2gpts(0.12, cell_cv, idiv=idiv)
+    if idiv == 1:
+        N_c += 1 - N_c % 2  # We want especially to test uneven grids
+    gd = GridDescriptor(N_c, cell_cv, pbc_c=pbc)
+    rho_g = gd.zeros()
+    phi_g = gd.zeros()
+    rho_g[:] = -0.3 + rng.rand(*rho_g.shape)
 
-        # Neutralize charge:
-        charge = gd.integrate(rho_g)
-        magic = gd.get_size_of_global_array().prod()
-        rho_g -= charge / gd.dv / magic
-        charge = gd.integrate(rho_g)
-        assert abs(charge) < 1e-12
+    # Neutralize charge:
+    charge = gd.integrate(rho_g)
+    magic = gd.get_size_of_global_array().prod()
+    rho_g -= charge / gd.dv / magic
+    charge = gd.integrate(rho_g)
+    assert abs(charge) < 1e-12
 
-        # Check use_cholesky=True/False ?
-        from gpaw.poisson import FDPoissonSolver
-        ps = FastPoissonSolver(nn=nn)
-        #print('setgrid')
-        try:
-            ps.set_grid_descriptor(gd)
-        except BadAxesError:
-            continue
+    # Check use_cholesky=True/False ?
+    from gpaw.poisson import FDPoissonSolver
+    ps = FastPoissonSolver(nn=nn)
+    #print('setgrid')
 
-        ps.solve(phi_g, rho_g)
+    # Will raise BadAxesError for some pbc/cell combinations
+    ps.set_grid_descriptor(gd)
 
-        laplace = Laplace(gd, scale=-1.0 / (4.0 * np.pi), n=nn)
+    ps.solve(phi_g, rho_g)
 
-        def get_residual_err(phi_g):
-            rhotest_g = gd.zeros()
-            laplace.apply(phi_g, rhotest_g)
-            return np.abs(rhotest_g - rho_g).max()
+    laplace = Laplace(gd, scale=-1.0 / (4.0 * np.pi), n=nn)
 
-        maxerr = get_residual_err(phi_g)
+    def get_residual_err(phi_g):
+        rhotest_g = gd.zeros()
+        laplace.apply(phi_g, rhotest_g)
+        return np.abs(rhotest_g - rho_g).max()
+
+    maxerr = get_residual_err(phi_g)
+    pbcstring = '{}{}{}'.format(*pbc)
+
+    if 0:
         ps2 = FDPoissonSolver(relax='J', nn=nn, eps=1e-18)
         ps2.set_grid_descriptor(gd)
         phi2_g = gd.zeros()
@@ -82,12 +87,33 @@ for cellno, (cellname, cell_cv) in enumerate(icells()):
 
         phimaxerr = np.abs(phi2_g - phi_g).max()
         maxerr2 = get_residual_err(phi2_g)
-        pbcstring = '{}{}{}'.format(*pbc)
-        msg = ('{:2d} {:8s} pbc={} err[fast]={:8.5e} err[J]={:8.5e} '
+        msg = ('{:2d} {:8s} pbc={} err={:8.5e} err[J]={:8.5e} '
                'err[phi]={:8.5e}'.format(cellno, cellname, pbcstring,
                                          maxerr, maxerr2, phimaxerr))
-        if world.rank == 0:
-            print(msg)
-        #assert maxerr < 1e-13
-        #assert maxerr2 < 1e-8
-        #assert phimaxerr < 1e-8
+
+    state = 'ok' if maxerr < tolerance else 'FAIL'
+
+    msg = ('{:2d} {:8s} grid={} pbc={} err[fast]={:8.5e} {}'
+           .format(cellno, cellname, N_c, pbcstring, maxerr, state))
+    if world.rank == 0:
+        print(msg)
+
+    return maxerr
+
+
+errs = []
+for idiv in [4, 1]:
+    for cellno, (cellname, cell_cv) in enumerate(icells()):
+        for pbc in itertools.product(tf, tf, tf):
+            args = (cellno, cellname, cell_cv, idiv, pbc)
+
+            try:
+                err = test(*args)
+            except BadAxesError:  # Ignore incompatible pbc/cell combinations
+                continue
+
+            errs.append(err)
+
+
+for i, err in enumerate(errs):
+    assert err < tolerance, err
