@@ -61,13 +61,14 @@ DFT Hamiltonian.
 
 import pickle
 from math import pi
+import sys
 
 import numpy as np
 import numpy.fft as fft
 import numpy.linalg as la
 
 import ase.units as units
-from ase.phonons import Displacement
+from ase.phonons import Displacement, Phonons
 
 from gpaw.utilities import unpack2
 from gpaw.utilities.tools import tri2full
@@ -76,6 +77,8 @@ from gpaw.lcao.overlap import ManySiteDictionaryWrapper, \
                               TwoCenterIntegralCalculator
 from gpaw.lcao.tightbinding import TightBinding
 from gpaw.kpt_descriptor import KPointDescriptor
+from ase.parallel import rank
+from ase.utils import opencew
 
 
 class ElectronPhononCoupling(Displacement):
@@ -94,7 +97,7 @@ class ElectronPhononCoupling(Displacement):
     """
 
     def __init__(self, atoms, calc=None, supercell=(1, 1, 1), name='elph',
-                 delta=0.01, phonons=None):
+                 delta=0.01, calculate_forces=False):
         """Initialize with base class args and kwargs.
 
         Parameters
@@ -110,11 +113,8 @@ class ElectronPhononCoupling(Displacement):
             Name to use for files (default: 'elph').
         delta: float
             Magnitude of displacements.
-        phonons: Phonons object
-            If provided, the ``__call__`` member function of the ``Phonons``
-            class in ASE will be called in the ``__call__`` member function of
-            this class.
-            
+        calculate_forces: bool
+            If true, also calculate and store the dynamical matrix.
         """
 
         # Init base class and make the center cell in the supercell the
@@ -122,8 +122,7 @@ class ElectronPhononCoupling(Displacement):
         Displacement.__init__(self, atoms, calc=calc, supercell=supercell,
                               name=name, delta=delta, refcell='center')
 
-        # Store ``Phonons`` object in attribute
-        self.phonons = phonons
+        self.calculate_forces = calculate_forces
         # Log
         self.set_log()
         # LCAO calculator
@@ -137,10 +136,18 @@ class ElectronPhononCoupling(Displacement):
         # Do calculation
         atoms_N.get_potential_energy()
 
-        # Call phonons class if provided
-        if self.phonons is not None:
-            forces = self.phonons.__call__(atoms_N)
-            
+        # Calculate forces if desired
+        if self.calculate_forces:
+            force_filename = 'phonons.' + self.state
+            fd = opencew(force_filename)
+            if fd is not None:
+                forces = atoms_N.get_forces()
+                if rank == 0:
+                    pickle.dump(forces, fd, protocol=2)
+                    sys.stdout.write('Writing %s\n' % force_filename)
+                    fd.close()
+                sys.stdout.flush()
+
         # Get calculator
         calc = atoms_N.get_calculator()
 
