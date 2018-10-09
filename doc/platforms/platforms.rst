@@ -12,7 +12,7 @@ Linux:
    Linux/CentOS
    Linux/Fedora
    Linux/openSUSE
-   Linux/Ubuntu
+   Linux/ubuntu
    Linux/Niflheim/Niflheim
    Linux/SUNCAT/SUNCAT
    Linux/akka
