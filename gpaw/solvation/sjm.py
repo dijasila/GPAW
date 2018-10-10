@@ -458,9 +458,14 @@ class SJMPower12Potential(Power12Potential):
         pbc_cutoff : float
             Cutoff in eV for including neighbor cells in a calculation with
             periodic boundary conditions.
-        H2O_layer: bool,int or 'plane'
-            Exclude the implicit solvent from the interface region between
-            electrode and water.
+        H2O_layer: bool,int or 'plane' (default: False)
+            True: Exclude the implicit solvent from the interface region between
+                electrode and water. Ghost atoms will be added below the water
+                layer.
+            int: Explicitly account for the given number of water molecules above
+                electrode. This is handy if H2O is directly adsorbed and a water
+                layer is present in the unit cell at the same time.
+            'plane': Use a plane instead of ghost atoms for freeing the surface.
         unsolv_backside: bool
             Exclude implicit solvent from the region behind the electrode
 
@@ -572,7 +577,7 @@ class SJMPower12Potential(Power12Potential):
                 self.grad_u_vg[2, :, :, :] += r_diff_zg
 
             else:
-                # Ghost atoms instead of a plane
+                # Ghost atoms are added below the explicit water layer
                 cell = atoms.cell.copy() / Bohr
                 cell[2][2] = 1.
                 natoms_in_plane = [round(np.linalg.norm(cell[0]) * 1.5),
