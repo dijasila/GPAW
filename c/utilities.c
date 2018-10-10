@@ -289,28 +289,28 @@ double distance(double *a, double *b)
 }
 
 
-/* elementwise multiply and add result to another vector
- *
- * c[i] += a[i] * b[i] ,  for i = every element in the vectors
- */
-PyObject* elementwise_multiply_add(PyObject *self, PyObject *args)
+// Equivalent to:
+//
+//     nt_R += f * abs(psit_R)**2
+//
+PyObject* add_to_density(PyObject *self, PyObject *args)
 {
-  PyArrayObject* aa;
-  PyArrayObject* bb;
-  PyArrayObject* cc;
-  if (!PyArg_ParseTuple(args, "OOO", &aa, &bb, &cc))
-    return NULL;
-  const double* const a = DOUBLEP(aa);
-  const double* const b = DOUBLEP(bb);
-  double* const c = DOUBLEP(cc);
-  int n = 1;
-  for (int d = 0; d < PyArray_NDIM(aa); d++)
-    n *= PyArray_DIMS(aa)[d];
-  for (int i = 0; i < n; i++)
-    {
-      c[i] += a[i] * b[i];
-    }
-  Py_RETURN_NONE;
+    double f;
+    PyArrayObject* psit_R_obj;
+    PyArrayObject* nt_R_obj;
+    if (!PyArg_ParseTuple(args, "dOO", &f, &psit_R_obj, &nt_R_obj))
+        return NULL;
+    const double* psit_R = PyArray_DATA(psit_R_obj);
+    double* nt_R = PyArray_DATA(nt_R_obj);
+    int n = PyArray_SIZE(nt_R_obj);
+    if (PyArray_ITEMSIZE(psit_R_obj) == 8)
+        for (int i = 0; i < n; i++)
+            nt_R[i] + = f * (psit_R[i] * psit_R[i]);
+    else
+        for (int i = 0; i < n; i++)
+            nt_R[i] + = f * (psit_R[2 * i] * psit_R[2 * i] +
+                             psit_R[2 * i + 1] * psit_R[2 * i + 1] +);
+    Py_RETURN_NONE;
 }
 
 

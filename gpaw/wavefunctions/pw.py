@@ -314,7 +314,7 @@ class PWDescriptor:
 
         return self.scatter(f_G, q)
 
-    def ifft(self, c_G, q=None, local=False):
+    def ifft(self, c_G, q=None, local=False, safe=True):
         """Inverse fast Fourier transform.
 
         Returns::
@@ -345,7 +345,9 @@ class PWDescriptor:
                 t[-n:, 0] = t[n:0:-1, 0].conj()
             self.ifftplan.execute()
         if comm.size == 1 or local:
-            return self.tmp_R.copy()
+            if safe:
+                return self.tmp_R.copy()
+            return self.tmp_R
         return self.gd.distribute(self.tmp_R)
 
     def scatter(self, a_G, q=None):
@@ -805,8 +807,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             psit_G = self.pd.alltoall1(psit_xG[n1:n2], kpt.q)
             Htpsit_xG[n1:n2] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG[n1:n2]
             if psit_G is not None:
-                vtpsit_R = self.pd.ifft(psit_G, kpt.q, local=True) * vt_R
-                vtpsit_G = self.pd.fft(vtpsit_R, kpt.q, local=True)
+                psit_R = self.pd.ifft(psit_G, kpt.q, local=True, safe=False)
+                vtpsit_G = self.pd.fft(vt_R * psit_R, kpt.q, local=True)
             else:
                 vtpsit_G = self.pd.tmp_G
             self.pd.alltoall2(vtpsit_G, kpt.q, Htpsit_xG[n1:n2])
@@ -842,7 +844,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
             psit_G = self.pd.alltoall1(kpt.psit.array[n1:n2], kpt.q)
             if psit_G is not None:
                 f = f_n[n1 + comm.rank]
-                nt_R += f * abs(self.pd.ifft(psit_G, kpt.q, local=True))**2
+                psit_R = self.pd.ifft(psit_G, kpt.q, local=True, safe=False)
+
+                # Same as nt_R += f * abs(psit_R)**2, but faster:
+                _gpaw.add_to_density(f, psit_R, nt_R)
 
         comm.sum(nt_R)
         nt_R = self.gd.distribute(nt_R)
