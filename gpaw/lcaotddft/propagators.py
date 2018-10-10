@@ -97,8 +97,9 @@ class ReplayPropagator(LCAOPropagator):
 
     def kick(self, hamiltonian, time):
         self._align_read_index(time)
-        # Take the step after kick
-        self.read_index += 1
+        # Check that this is the step after kick
+        assert not equal(self.reader[self.read_index].time,
+                         self.reader[self.read_index + 1].time)
         self._read()
         self.hamiltonian.update(self.update_mode)
 
@@ -110,19 +111,31 @@ class ReplayPropagator(LCAOPropagator):
         return next_time
 
     def control_paw(self, paw):
-        time = None
+        # Read the initial state
         index = 1
+        r = self.reader[index]
+        assert r.action == 'init'
+        assert equal(r.time, paw.time)
+        self.read_index = index
+        self._read()
+        index += 1
+        # Read the rest
         while index < self.read_count:
             r = self.reader[index]
             if r.action == 'init':
-                paw.tddft_init()
-                time = r.time
                 index += 1
             elif r.action == 'kick':
+                assert equal(r.time, paw.time)
                 paw.absorption_kick(r.kick_strength)
-                time = r.time
+                assert equal(r.time, paw.time)
                 index += 1
             elif r.action == 'propagate':
+                # Skip earlier times
+                if r.time < paw.time or equal(r.time, paw.time):
+                    index += 1
+                    continue
+                # Count the number of steps with the same time step
+                time = paw.time
                 time_step = r.time - time
                 iterations = 0
                 while index < self.read_count:
@@ -133,7 +146,11 @@ class ReplayPropagator(LCAOPropagator):
                     iterations += 1
                     time = r.time
                     index += 1
+                # Propagate
                 paw.propagate(time_step * au_to_as, iterations)
+                assert equal(time, paw.time)
+            else:
+                raise RuntimeError('Unknown action: %s' % r.action)
 
     def __del__(self):
         self.reader.close()

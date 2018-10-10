@@ -138,6 +138,31 @@ def write_results(tasks):
     name.write_text(text)
 
 
+def compare(f1, f2):
+    dicts = []
+    for f in [f1, f2]:
+        d = json.loads(Path(f).read_text())
+        dct = {}
+        for task in d['tasks']:
+            name = task['folder'] + '/' + task['cmd']['cmd']
+            if task['cmd']['args']:
+                name += '_' + '+'.join(task['cmd']['args'])
+            dct[name] = task['tstop'] - task['trunning']
+        dicts.append(dct)
+    d1, d2 = dicts
+    data = []
+    for name1, t1 in d1.items():
+        if name1 in d2:
+            data.append((d2[name1] - t1, t1, name1))
+    for dt, t, name in sorted(data):
+        name = name.split('agts/gpaw/')[1]
+        print(f'{dt:+10.1f} {dt / t * 100:+6.1f} {t:10.1f} {name}')
+
+
 if __name__ == '__main__':
     import sys
-    agts(sys.argv[1])
+    cmd = sys.argv[1]
+    if cmd == 'compare':
+        compare(*sys.argv[2:])
+    else:
+        agts(cmd)

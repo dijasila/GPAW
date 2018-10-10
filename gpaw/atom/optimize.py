@@ -348,8 +348,8 @@ def ip(symbol, fd):
     aea.initialize()
     aea.run()
     aea.refine()
-    # aea.scalar_relativistic = True
-    # aea.refine()
+    aea.scalar_relativistic = True
+    aea.refine()
     energy = aea.ekin + aea.eH + aea.eZ + aea.exc
     eigs = []
     for l, channel in enumerate(aea.channels):
@@ -364,6 +364,8 @@ def ip(symbol, fd):
     aea.add(n0, l0, -1)
     aea.initialize()
     aea.run()
+    aea.refine()
+    aea.scalar_relativistic = True
     aea.refine()
     IP = aea.ekin + aea.eH + aea.eZ + aea.exc - energy
     IP *= Ha
