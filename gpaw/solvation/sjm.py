@@ -402,7 +402,6 @@ class SJM(SolvationGPAW):
         gd = self.density.finegd
         from gpaw.mpi import world
         G = gd.collect(g, broadcast=False)
-        # G = gd.zero_pad(G,global_array=False)
         if world.rank == 0:
             G_z = G.mean(0).mean(0)
             out = open(name + self.log.fd.name.split('.')[0] + '.out', 'w')
@@ -416,9 +415,7 @@ class SJM(SolvationGPAW):
         from ase.io import write
         gd = self.density.finegd
         G = gd.collect(g, broadcast=False)
-        # G = gd.zero_pad(G)
         if outstyle == 'cube':
-            #write(name, atoms, data=G)
             write(name + '.cube', atoms, data=G)
         elif outstyle == 'pckl':
             import pickle
@@ -457,13 +454,14 @@ class SJMPower12Potential(Power12Potential):
             Cutoff in eV for including neighbor cells in a calculation with
             periodic boundary conditions.
         H2O_layer: bool,int or 'plane' (default: False)
-            True: Exclude the implicit solvent from the interface region between
-                electrode and water. Ghost atoms will be added below the water
-                layer.
-            int: Explicitly account for the given number of water molecules above
-                electrode. This is handy if H2O is directly adsorbed and a water
-                layer is present in the unit cell at the same time.
-            'plane': Use a plane instead of ghost atoms for freeing the surface.
+            True: Exclude the implicit solvent from the interface region
+                between electrode and water. Ghost atoms will be added below
+                the water layer.
+            int: Explicitly account for the given number of water molecules
+                above electrode. This is handy if H2O is directly adsorbed
+                and a water layer is present in the unit cell at the same time.
+            'plane': Use a plane instead of ghost atoms for freeing the
+                surface.
         unsolv_backside: bool
             Exclude implicit solvent from the region behind the electrode
 
