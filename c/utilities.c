@@ -305,11 +305,11 @@ PyObject* add_to_density(PyObject *self, PyObject *args)
     int n = PyArray_SIZE(nt_R_obj);
     if (PyArray_ITEMSIZE(psit_R_obj) == 8)
         for (int i = 0; i < n; i++)
-            nt_R[i] + = f * (psit_R[i] * psit_R[i]);
+            nt_R[i] += f * (psit_R[i] * psit_R[i]);
     else
         for (int i = 0; i < n; i++)
-            nt_R[i] + = f * (psit_R[2 * i] * psit_R[2 * i] +
-                             psit_R[2 * i + 1] * psit_R[2 * i + 1] +);
+            nt_R[i] += f * (psit_R[2 * i] * psit_R[2 * i] +
+                            psit_R[2 * i + 1] * psit_R[2 * i + 1] +);
     Py_RETURN_NONE;
 }
 
