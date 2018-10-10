@@ -8,7 +8,7 @@ Solvated Jellium Method (SJM)
 Theoretical Background
 ======================
 
-The Solvated Jellium method (SJM) is simple method for the simulation
+The Solvated Jellium method (SJM) is a simple method for the simulation
 of electrochemical interfaces in DFT. A full description of the model
 can be found in [#SJM18]_. It can be used like the standard GPAW calculator,
 meaning stable intermediates and reaction barriers can be calculated at
@@ -20,7 +20,7 @@ by charging the electrodes interface, while keeping the periodic
 unit cell charge neutral. This is done by adding a JelliumSlab in
 the region above the electrode surface. Doing so both electrons/holes
 in the SCF cycle and spatially constant counter charge are introduced,
-therefore keeping the net charge at 0.
+therefore keeping the unit cell charge neutral.
 
 Additionally, an implicit solvent [#HW14]_ is introduced above the slab,
 which screens the electric field created by dipole consisting of electrode
@@ -28,7 +28,7 @@ and counter charge.
 
 The electrode potential is then defined as the Fermi Level (`\mu`) referenced
 to the electrostatic potential deep in the solvent, where the whole
-charge on the electrode has been screened.
+charge on the electrode has been screened and no electric field is present.
 
 .. math:: \Phi_e = \Phi_w - \mu.
 
