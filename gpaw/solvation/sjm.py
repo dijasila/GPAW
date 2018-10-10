@@ -55,15 +55,17 @@ class SJM(SolvationGPAW):
             'thickness': float
                 Thickness of the counter charge region in Angstrom.
                 Can only be used if start is not 'cavity_like' and will
-                be overwritten by 'upper_limit'
+                be overwritten by 'upper_limit'.
             'upper_limit': float
                 Upper boundary of the counter charge region in terms of
                 coordinate in Anfstrom (default: z). The default is
                 atoms.cell[2][2] - 5.
-        verbose: bool, 'cube'
-            True: Write final electrostatic potential, background charge and
-                and cavity into ASCII file (default: False)
-            'cube': In addition to 'True', also write the cavity on the
+        verbose: bool or 'cube' 
+            True: 
+                Write final electrostatic potential, background charge and
+                and cavity into ASCII files.
+            'cube': 
+                In addition to 'True', also write the cavity on the
                 3D-grid into a cube file.
 
 
