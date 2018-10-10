@@ -278,17 +278,14 @@ class SJM(SolvationGPAW):
             SolvationGPAW.calculate(self, atoms, properties, [])
 
     def write_cavity_and_bckcharge(self):
-        self.write_parallel_func_in_z(self.density.finegd,
-                                      self.hamiltonian.cavity.g_g,
+        self.write_parallel_func_in_z(self.hamiltonian.cavity.g_g,
                                       name='cavity_')
         if self.verbose == 'cube':
-            self.write_parallel_func_on_grid(self.density.finegd,
-                                             self.hamiltonian.cavity.g_g,
+            self.write_parallel_func_on_grid(self.hamiltonian.cavity.g_g,
                                              atoms=self.atoms,
                                              name='cavity')
 
-        self.write_parallel_func_in_z(self.density.finegd,
-                                      self.density.background_charge.mask_g,
+        self.write_parallel_func_in_z(self.density.background_charge.mask_g,
                                       name='background_charge_')
 
     def summary(self):
@@ -314,8 +311,7 @@ class SJM(SolvationGPAW):
         self.wfs.summary(self.log)
         self.log.fd.flush()
         if self.verbose:
-            self.write_parallel_func_in_z(self.density.finegd,
-                                          self.hamiltonian.vHt_g * Hartree -
+            self.write_parallel_func_in_z(self.hamiltonian.vHt_g * Hartree -
                                           self.get_fermi_level(),
                                           'elstat_potential_')
 
@@ -402,7 +398,8 @@ class SJM(SolvationGPAW):
 
     """Various tools for writing global functions"""
 
-    def write_parallel_func_in_z(self, gd, g, name='g_z.out'):
+    def write_parallel_func_in_z(self, g, name='g_z.out'):
+        gd = self.density.finegd
         from gpaw.mpi import world
         G = gd.collect(g, broadcast=False)
         # G = gd.zero_pad(G,global_array=False)
@@ -414,9 +411,10 @@ class SJM(SolvationGPAW):
                                val))
             out.close()
 
-    def write_parallel_func_on_grid(self, gd, g, atoms=None, name='func.cube',
+    def write_parallel_func_on_grid(self, g, atoms=None, name='func.cube',
                                     outstyle='cube'):
         from ase.io import write
+        gd = self.density.finegd
         G = gd.collect(g, broadcast=False)
         # G = gd.zero_pad(G)
         if outstyle == 'cube':
