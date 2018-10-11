@@ -22,6 +22,7 @@ Prior to symmetry analysis, you should have the restart file that
 includes the wave functions, and knowledge of
 
 * The point group to consider
+* The bands you want to analyze
 * The main axis and the secondary axis of the molecule, corresponding
   to the point group
 * The atom indices whose center-of-mass is shifted to the center of the unit
@@ -35,11 +36,11 @@ Example: The water molecule
 To resolve the symmetry representations of occupied states of the water 
 molecule in C2v point group, the following script can be used:
 
-.. literalinclude:: water-C2v.py
+.. literalinclude:: h2o-C2v.py
 
 The output of the representations looks like this:
 
-.. literalinclude:: symmetries_water.txt
+.. literalinclude:: symmetries-h2o.txt
 
 The bands have very distinct representations as expected.
 
