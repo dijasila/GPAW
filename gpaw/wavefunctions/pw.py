@@ -306,7 +306,8 @@ class PWDescriptor:
             if Q_G is None:
                 q = q or 0
                 Q_G = self.Q_qG[q]
-            f_G = self.tmp_Q.ravel()[Q_G]
+            with self.timer('HMM rav'):
+                f_G = self.tmp_Q.ravel()[Q_G]
             if local:
                 return f_G
         else:
@@ -329,13 +330,16 @@ class PWDescriptor:
         """
         q = q or 0
         if local:
-            c_G = c_G * (1.0 / self.tmp_R.size)
+            with self.timer('HMM ma'):
+                c_G = c_G * (1.0 / self.tmp_R.size)
         else:
             c_G = self.gather(c_G * (1.0 / self.tmp_R.size), q)
         comm = self.gd.comm
         if comm.rank == 0 or local:
-            self.tmp_Q[:] = 0.0
-            self.tmp_Q.ravel()[self.Q_qG[q]] = c_G
+            with self.timer('HMM 0'):
+                self.tmp_Q[:] = 0.0
+            with self.timer('HMM :'):
+                self.tmp_Q.ravel()[self.Q_qG[q]] = c_G
             if self.dtype == float:
                 t = self.tmp_Q[:, :, 0]
                 n, m = self.gd.N_c[:2] // 2 - 1
@@ -741,6 +745,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.timer.start('PWDescriptor')
         self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.kd,
                                self.fftwflags)
+        self.pd.timer=self.timer
         self.timer.stop('PWDescriptor')
 
         # Build array of number of plane wave coefficiants for all k-points
@@ -805,7 +810,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         for n1 in range(0, N, S):
             n2 = min(n1 + S, N)
             psit_G = self.pd.alltoall1(psit_xG[n1:n2], kpt.q)
-            Htpsit_xG[n1:n2] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG[n1:n2]
+            with self.timer('HMM T'):
+                Htpsit_xG[n1:n2] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG[n1:n2]
             if psit_G is not None:
                 psit_R = self.pd.ifft(psit_G, kpt.q, local=True, safe=False)
                 vtpsit_G = self.pd.fft(vt_R * psit_R, kpt.q, local=True)
