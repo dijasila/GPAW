@@ -31,12 +31,15 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', xi_cut=None, density_cut=N
     nspins = len(calc.density.nt_sG)
     assert nspins == 2
     
-    if functional in ['ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae']:
+    if functional in ['ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae','ALDA_t']:
         # Adiabatic kernel
         print("Calculating %s spin kernel" % functional, file=fd)
         if functional[-2:] == 'ae':
             mode = 'ae'
             functional = functional[:-3]
+        elif functional[-1] == 't':
+            mode = 'smooth'
+            functional = functional[:-2]
         else:
             mode = 'PAW'
         Kcalc = ALDASpinKernelCalculator(fd, mode, ecut=chi0.ecut, xi_cut=xi_cut, density_cut=density_cut)
