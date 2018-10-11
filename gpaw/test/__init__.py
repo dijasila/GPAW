@@ -315,6 +315,7 @@ tests = [
     'ofdft/ofdft_pbc.py',                   # ~13s
     'gllb/restart_band_structure.py',       # ~14s
     'exx/exx.py',                           # ~14s
+    'pgs/h2o-C2v.py',                       # ~14s
     'Hubbard_U.py',                         # ~15s
     'rpa/rpa_energy_Si.py',                 # ~15s
     'dipole.py',                            # ~15s
