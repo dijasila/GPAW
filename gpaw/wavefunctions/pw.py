@@ -70,6 +70,7 @@ class PW(Mode):
     def todict(self):
         dct = Mode.todict(self)
         dct['ecut'] = self.ecut * units.Hartree
+        dct['addq'] = self.addq
         if self.cell_cv is not None:
             dct['cell'] = self.cell_cv * units.Bohr
         return dct
