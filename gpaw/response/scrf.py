@@ -235,7 +235,7 @@ class SpinChargeResponseFunction:
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
                 direction='x', return_VchiV=True, q_v=None,
-                xi_cut=None, density_cut=None, fxc_scaling=None):
+                xi_cut=None, density_cut=None, fxc_scaling=1.):
         """ Returns v^1/2 chi v^1/2 for the density response and chi for the
         spin response. The truncated Coulomb interaction is included as 
         v^-1/2 v_t v^-1/2. This is in order to conform with
@@ -438,7 +438,7 @@ class SpinChargeResponseFunction:
 
     def get_spin_response_function(self, fxc='ALDA', q_c=[0, 0, 0], q_v=None,
                                    flip='pm', xi_cut=None, density_cut=None,
-                                   fxc_scaling=None, filename='srf.csv'):
+                                   fxc_scaling=1., filename='srf.csv'):
         """Calculate the spin response function.
          
         Returns macroscopic spin response function:
