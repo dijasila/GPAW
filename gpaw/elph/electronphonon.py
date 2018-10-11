@@ -179,9 +179,9 @@ class ElectronPhononCoupling(Displacement):
         # - check that gamma
         # - check that no symmetries are used
         # - ...
-        assert calc.input_parameters['mode'] == 'lcao', 'LCAO mode required.'
-        symmetry = calc.input_parameters['symmetry']
-        assert not symmetry['point_group'], 'Symmetries not supported.'
+        assert calc.parameters['mode'] == 'lcao', 'LCAO mode required.'
+        symmetry = calc.parameters['symmetry']
+        assert symmetry == 'off', 'Symmetries not supported.'
         
         self.calc_lcao = calc
 
@@ -274,7 +274,7 @@ class ElectronPhononCoupling(Displacement):
             calc.initialize(atoms_N)
             calc.initialize_positions(atoms_N)
         self.set_basis_info()
-        basis = calc.input_parameters['basis']
+        basis = calc.parameters['basis']
             
         # Extract useful objects from the calculator
         wfs = calc.wfs
@@ -309,7 +309,7 @@ class ElectronPhononCoupling(Displacement):
             self.timer.write_now("Finished Fourier filtering")
 
         # For the contribution from the derivative of the projectors
-        dP_aqvMi = self.calculate_dP_aqvMi(wfs)
+        dP_aqvMi = wfs.manytci.P_aqMi(self.indices, derivative=True)
         # Equilibrium atomic Hamiltonian matrix (projector coefficients)
         dH_asp = pickle.load(open(self.name + '.eq.pckl', 'rb'))[1]
         
@@ -392,7 +392,7 @@ class ElectronPhononCoupling(Displacement):
                 N = np.prod(self.N_c)
                 # Number of basis function in the primitive cell
                 assert (nao % N) == 0, "Alarm ...!"
-                nao_cell = nao / N
+                nao_cell = nao // N
                 g_NMNM = g_MM.reshape((N, nao_cell, N, nao_cell))
                 g_NNMM = g_NMNM.swapaxes(1, 2).copy()
                 self.timer.write_now("Finished supercell matrix")
@@ -875,35 +875,3 @@ class ElectronPhononCoupling(Displacement):
                 x += 1
         
         return np.array(V1t_xG), dH1_xasp
-        
-    def calculate_dP_aqvMi(self, wfs):
-        """Overlap between LCAO basis functions and gradient of projectors.
-
-        Only the gradient wrt the atomic positions in the reference cell is
-        computed.
-
-        """
-        
-        nao = wfs.setups.nao
-        nq = len(wfs.ibzk_qc)
-        atoms = [self.atoms[i] for i in self.indices]
-        
-        # Derivatives in reference cell
-        dP_aqvMi = {}
-        for atom, setup in zip(atoms, wfs.setups):
-            a = atom.index
-            dP_aqvMi[a] = np.zeros((nq, 3, nao, setup.ni), wfs.dtype)
-
-        # Calculate overlap between basis function and gradient of projectors
-        # NOTE: the derivative is calculated wrt the atomic position and not
-        # the real-space coordinate
-        calc = TwoCenterIntegralCalculator(wfs.ibzk_qc, derivative=True)
-        expansions = ManySiteDictionaryWrapper(wfs.tci.P_expansions, dP_aqvMi)
-        calc.calculate(wfs.tci.atompairs, [expansions], [dP_aqvMi])
-
-        # Extract derivatives in the reference unit cell
-        # dP_aqvMi = {}
-        # for atom in self.atoms:
-        #     dP_aqvMi[atom.index] = dPall_aqvMi[atom.index]
-            
-        return dP_aqvMi
