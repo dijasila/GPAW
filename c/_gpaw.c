@@ -77,6 +77,7 @@ PyObject* exterior_electron_density_region(PyObject *self, PyObject *args);
 PyObject* plane_wave_grid(PyObject *self, PyObject *args);
 PyObject* tci_overlap(PyObject *self, PyObject *args);
 PyObject *pwlfc_expand(PyObject *self, PyObject *args);
+PyObject *pw_insert(PyObject *self, PyObject *args);
 PyObject* overlap(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
 PyObject* vdw2(PyObject *self, PyObject *args);
@@ -184,6 +185,7 @@ static PyMethodDef functions[] = {
     {"eed_region", exterior_electron_density_region, METH_VARARGS, 0},
     {"plane_wave_grid", plane_wave_grid, METH_VARARGS, 0},
     {"pwlfc_expand", pwlfc_expand, METH_VARARGS, 0},
+    {"pw_insert", pw_insert, METH_VARARGS, 0},
     {"erf", errorfunction, METH_VARARGS, 0},
     {"cerf", cerf, METH_VARARGS, 0},
     {"pack", pack, METH_VARARGS, 0},
