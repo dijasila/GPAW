@@ -336,11 +336,10 @@ class PWDescriptor:
         comm = self.gd.comm
         scale = 1.0 / self.tmp_R.size
         if comm.rank == 0 or local:
-            with self.timer('HMM 0'):
-                self.tmp_Q[:] = 0.0
             with self.timer('HMM :'):
                 # Same as:
                 #
+                #    self.tmp_Q[:] = 0.0
                 #    self.tmp_Q.ravel()[self.Q_qG[q]] = scale * c_G
                 #
                 # but much faster:
@@ -811,15 +810,19 @@ class PWWaveFunctions(FDPWWaveFunctions):
         S = self.gd.comm.size
 
         vt_R = self.gd.collect(ham.vt_sG[kpt.s], broadcast=True)
+        Q_G = self.pd.Q_qG[kpt.q]
+        T_G = 0.5 * self.pd.G2_qG[kpt.q]
 
         for n1 in range(0, N, S):
             n2 = min(n1 + S, N)
             psit_G = self.pd.alltoall1(psit_xG[n1:n2], kpt.q)
             with self.timer('HMM T'):
-                Htpsit_xG[n1:n2] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG[n1:n2]
+                np.multiply(T_G, psit_xG[n1:n2], Htpsit_xG[n1:n2])
             if psit_G is not None:
                 psit_R = self.pd.ifft(psit_G, kpt.q, local=True, safe=False)
-                vtpsit_G = self.pd.fft(vt_R * psit_R, kpt.q, local=True)
+                psit_R *= vt_R
+                self.pd.fftplan.execute()
+                vtpsit_G = self.pd.tmp_Q.ravel()[Q_G]
             else:
                 vtpsit_G = self.pd.tmp_G
             self.pd.alltoall2(vtpsit_G, kpt.q, Htpsit_xG[n1:n2])
@@ -1572,6 +1575,7 @@ class PWLFC(BaseLFC):
         cache = {}
         things = []
         I1 = 0
+        lmax = 0
         for a, spline_j in enumerate(self.spline_aj):
             for spline in spline_j:
                 if spline not in cache:
@@ -1591,6 +1595,7 @@ class PWLFC(BaseLFC):
                 else:
                     f_G, dfdGoG_G = cache[spline]
                 l = spline.l
+                lmax = max(l, lmax)
                 I2 = I1 + 2 * l + 1
                 things.append((self.pos_av[a], l, I1, I2,
                                f_G, dfdGoG_G))
@@ -1604,29 +1609,31 @@ class PWLFC(BaseLFC):
         stress_vv = np.zeros((3, 3))
         for G1, G2 in self.block(q):
             G_Gv = G0_Gv[G1:G2]
+            Z_LvG = np.array([nablarlYL(L, G_Gv.T)
+                              for L in range((lmax + 1)**2)])
             aa_xG = a_xG[..., G1:G2]
             for v1 in range(3):
                 for v2 in range(3):
                     stress_vv[v1, v2] += self._stress_tensor_contribution(
-                        v1, v2, things, G1, G2, G_Gv, aa_xG, c_axi, q)
+                        v1, v2, things, G1, G2, G_Gv, aa_xG, c_axi, q, Z_LvG)
 
         self.comm.sum(stress_vv)
 
         return stress_vv
 
     def _stress_tensor_contribution(self, v1, v2, things, G1, G2,
-                                    G_Gv, a_xG, c_axi, q):
+                                    G_Gv, a_xG, c_axi, q, Z_LvG):
         f_IG = np.empty((self.nI, G2 - G1), complex)
         K_v = self.pd.K_qv[q]
         for pos_v, l, I1, I2, f_G, dfdGoG_G in things:
+            L1 = l**2
+            L2 = (l + 1)**2
             emiGR_G = np.exp(-1j * np.dot(G_Gv, pos_v))
             f_IG[I1:I2] = (emiGR_G * (-1.0j)**l *
                            np.exp(1j * np.dot(K_v, pos_v)) * (
                                dfdGoG_G[G1:G2] * G_Gv[:, v1] * G_Gv[:, v2] *
-                               self.Y_qLG[q][l**2:(l + 1)**2, G1:G2] +
-                               f_G[G1:G2] * G_Gv[:, v1] *
-                               [nablarlYL(L, G_Gv.T)[v2]
-                                for L in range(l**2, (l + 1)**2)]))
+                               self.Y_qLG[q][L1:L2, G1:G2] +
+                               f_G[G1:G2] * G_Gv[:, v1] * Z_LvG[L1:L2, v2]))
 
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
