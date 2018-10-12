@@ -331,17 +331,20 @@ class PWDescriptor:
         gather/distribute.
         """
         q = q or 0
-        if local:
-            with self.timer('HMM ma'):
-                c_G = c_G * (1.0 / self.tmp_R.size)
-        else:
-            c_G = self.gather(c_G * (1.0 / self.tmp_R.size), q)
+        if not local:
+            c_G = self.gather(c_G, q)
         comm = self.gd.comm
+        scale = 1.0 / self.tmp_R.size
         if comm.rank == 0 or local:
             with self.timer('HMM 0'):
                 self.tmp_Q[:] = 0.0
             with self.timer('HMM :'):
-                self.tmp_Q.ravel()[self.Q_qG[q]] = c_G
+                # Same as:
+                #
+                #    self.tmp_Q.ravel()[self.Q_qG[q]] = scale * c_G
+                #
+                # but much faster:
+                _gpaw.pw_insret(c_G, self.Q_qG[q], scale, self.tmp_Q)
             if self.dtype == float:
                 t = self.tmp_Q[:, :, 0]
                 n, m = self.gd.N_c[:2] // 2 - 1
@@ -854,7 +857,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 f = f_n[n1 + comm.rank]
                 psit_R = self.pd.ifft(psit_G, kpt.q, local=True, safe=False)
 
-                # Same as nt_R += f * abs(psit_R)**2, but faster:
+                # Same as nt_R += f * abs(psit_R)**2, but much faster:
                 _gpaw.add_to_density(f, psit_R, nt_R)
 
         comm.sum(nt_R)
