@@ -125,6 +125,8 @@ class PWDescriptor:
     def __init__(self, ecut, gd, dtype=None, kd=None,
                  fftwflags=fftw.ESTIMATE):
 
+        from ase.utils.timing import Timer
+        self.timer = Timer()
         assert gd.pbc_c.all()
 
         self.gd = gd
