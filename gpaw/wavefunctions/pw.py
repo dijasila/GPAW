@@ -344,7 +344,7 @@ class PWDescriptor:
                 #    self.tmp_Q.ravel()[self.Q_qG[q]] = scale * c_G
                 #
                 # but much faster:
-                _gpaw.pw_insret(c_G, self.Q_qG[q], scale, self.tmp_Q)
+                _gpaw.pw_insert(c_G, self.Q_qG[q], scale, self.tmp_Q)
             if self.dtype == float:
                 t = self.tmp_Q[:, :, 0]
                 n, m = self.gd.N_c[:2] // 2 - 1
