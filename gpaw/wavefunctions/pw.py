@@ -856,7 +856,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
             if psit_G is not None:
                 f = f_n[n1 + comm.rank]
                 psit_R = self.pd.ifft(psit_G, kpt.q, local=True, safe=False)
-
                 # Same as nt_R += f * abs(psit_R)**2, but much faster:
                 _gpaw.add_to_density(f, psit_R, nt_R)
 
