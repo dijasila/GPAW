@@ -1677,6 +1677,8 @@ class ReciprocalSpaceDensity(Density):
 
     def initialize(self, setups, timer, magmom_av, hund):
         Density.initialize(self, setups, timer, magmom_av, hund)
+        self.pd2.timer=self.timer
+        self.pd3.timer=self.timer
 
         spline_aj = []
         for setup in setups:
