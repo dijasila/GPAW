@@ -113,8 +113,8 @@ PyObject *pwlfc_expand(PyObject *self, PyObject *args)
                 double complex emiGR_f = emiGR_G[G] * f_G[G1 + G] * ilpow;
                 for(L=0; L < nL; L++) {
                     // Terrible memory locality!
-                    f_IG[(I1 + L) * nG + G] = (emiGR_f *
-                                               Y_LG[(L2 + L) * nGtotal + G1 + G];
+                    f_IG[(I1 + L) * nG + G] = (
+                        emiGR_f * Y_LG[(L2 + L) * nGtotal + G1 + G]);
                 }
             }
             I1 += nL;
