@@ -1,5 +1,13 @@
 import numpy as np
-from gpaw.odd.lcao.tools import cubic_interpolation
+from gpaw.odd.lcao.tools import cubic_interpolation, \
+    parabola_interpolation
+
+
+def descent(phi_0, phi_j, eps=1.0e-2):
+    if phi_j <= phi_0 + eps * abs(phi_0):
+        return True
+    else:
+        return False
 
 
 def appr_wc(der_phi_0, phi_0, der_phi_j, phi_j):
@@ -169,7 +177,7 @@ class StrongWolfeConditions:
             der_phi_i_1 = der_phi_i
 
             i += 1
-            if abs(alpha[-1] - alpha[-2]) < 1.0e-5 or i == max_iter:
+            if abs(alpha[-1] - alpha[-2]) < 1.0e-5 or i == max_iter + 1:
                 # self.log('Cannot satisfy strong Wolfe condition')
                 # if i == max_iter:
                 #     self.log('Too many iterations')
@@ -325,9 +333,7 @@ class UnitStepLength:
         self.log = log
 
     def step_length_update(self, A_s, P_s, n_dim,
-                           phi_0=None, der_phi_0=None,
-                           phi_old=None, der_phi_old=None,
-                           alpha_max=None, alpha_old=None):
+                           *args, **kwargs):
 
         a_star = 1.0
         phi_star, der_phi_star, g_star = \
@@ -335,3 +341,46 @@ class UnitStepLength:
                                               a_star)
 
         return a_star, phi_star, der_phi_star, g_star
+
+
+class Parabola:
+
+    """
+    phi = f (x_k + a_k*p_k)
+    der_phi = \grad f(x_k + a_k p_k) \cdot p_k
+    g = \grad f(x_k + a_k p_k)
+    """
+
+    def __init__(self, evaluate_phi_and_der_phi, log):
+        """
+        :param evaluate_phi_and_der_phi: function which calculate
+        phi, der_phi and g for given A_s, P_s, n_dim and alpha
+        A_s[s] is skew-hermitian matrix, P_s[s] is matrix direction
+        :param log: for output messages
+        """
+        self.evaluate_phi_and_der_phi = evaluate_phi_and_der_phi
+        self.log = log
+
+    def step_length_update(self, A_s, P_s, n_dim,
+                           phi_0, der_phi_0,
+                           *args, **kwargs):
+
+        phi_i, der_phi_i, g_i = \
+            self.evaluate_phi_and_der_phi(A_s, P_s, n_dim,
+                                          alpha=1.0)
+
+        # if appr_wc(der_phi_0, phi_0, der_phi_i, phi_i):
+        if descent(phi_0, phi_i, eps=1.0e-2):
+            return 1.0, phi_i, der_phi_i, g_i
+        else:
+            a_star = parabola_interpolation(0.0, 1.0,
+                                            phi_0, phi_i,
+                                            der_phi_0)
+            if a_star < 0.8e-1:
+                a_star = 0.5
+        phi_star, der_phi_star, g_star = \
+            self.evaluate_phi_and_der_phi(A_s, P_s, n_dim,
+                                          a_star)
+
+        return a_star, phi_star, der_phi_star, g_star
+

@@ -8,7 +8,7 @@ from gpaw.odd.lcao.tools import expm_ed, random_skew_herm_matrix
 from gpaw.odd.lcao.search_directions import LBFGSdirection_prec, \
     LBFGSdirection, QuickMin, HZcg, FRcg
 from gpaw.odd.lcao.line_search import StrongWolfeConditions, \
-    UnitStepLength
+    UnitStepLength, Parabola
 from gpaw.odd.lcao.wave_function_guess import get_initial_guess,\
     loewdin
 
@@ -234,6 +234,9 @@ class ODDvarLcao(Calculator):
             self.line_search = \
                 UnitStepLength(self.evaluate_phi_and_der_phi,
                                self.log)
+        elif self.line_search_method is 'Parabola':
+            self.line_search = \
+                Parabola(self.evaluate_phi_and_der_phi, self.log)
         else:
             raise NotImplementedError
 
@@ -467,6 +470,9 @@ class ODDvarLcao(Calculator):
             self.line_search = \
                 UnitStepLength(self.evaluate_phi_and_der_phi,
                                self.log)
+        elif self.line_search_method is 'Parabola':
+            self.line_search = \
+                Parabola(self.evaluate_phi_and_der_phi, self.log)
         else:
             raise NotImplementedError
 
@@ -1159,7 +1165,7 @@ class ODDvarLcao(Calculator):
                                                     alpha_max=3.0,
                                                     alpha_old=alpha)
             # broadcast data is gd.comm > 1
-            if self.line_search_method is 'SWC':
+            if self.line_search_method != 'NoLineSearch':
                 if self.wfs.gd.comm.size > 1:
                     alpha_phi_der_phi = np.array([alpha, phi_0,
                                                   der_phi_0])
