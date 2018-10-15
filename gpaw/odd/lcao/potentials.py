@@ -11,6 +11,7 @@ from gpaw.odd.lcao.tools import get_grad_from_matrix_exponential, \
     D_matrix
 from gpaw.utilities.lapack import diagonalize
 from gpaw.lfc import LFC
+from gpaw.transformers import Transformer
 
 
 class PZpotentialLcao:
@@ -20,8 +21,7 @@ class PZpotentialLcao:
     """
 
     def __init__(self, gd, xc, poisson,
-                 ghat_fg, restrictor,
-                 interpolator,
+                 ghat_fg,
                  setups, beta, dtype, timer, bfs,
                  spos_ac=None,
                  sic_coarse_grid=False):
@@ -30,8 +30,8 @@ class PZpotentialLcao:
         self.finegd = ghat_fg.gd
         self.xc = xc
         self.poiss = poisson
-        self.restrictor = restrictor
-        self.interpolator = interpolator
+        self.interpolator = Transformer(self.cgd, self.finegd, 3)
+        self.restrictor = Transformer(self.finegd, self.cgd, 3)
         self.setups = setups
         self.bfs = bfs
         self.sic_coarse_grid = sic_coarse_grid

@@ -1,7 +1,6 @@
 from ase.units import Hartree, Bohr
 from gpaw.xc import XC
 from gpaw.poisson import PoissonSolver
-from gpaw.transformers import Transformer
 
 from gpaw.odd.lcao.potentials import ZeroOddLcao, PZpotentialLcao
 from gpaw.odd.lcao.tools import expm_ed, random_skew_herm_matrix
@@ -153,10 +152,26 @@ class ODDvarLcao(Calculator):
             self.log("Scale of corrections: ", self.beta)
 
         if self.odd is 'PZ_SIC':
-            self.pot = PZpotentialLcao(self.gd, self.xc,
-                                       self.poiss, self.ghat,
-                                       self.restrictor,
-                                       self.interpolator,
+            self.check_assertions()
+            # Force int. occ ???
+            self.occ.magmom = int(round(self.occ.magmom))
+            # Grid-descriptor
+            self.finegd = self.den.finegd
+            self.gd = self.den.gd  # this is coarse grid
+            self.ghat = self.den.ghat  # on fine grid
+            poiss = PoissonSolver(relax='GS',
+                                       eps=self.poiss_eps,
+                                       sic_gg=True)
+            if self.sic_coarse_grid is True:
+                poiss.set_grid_descriptor(self.gd)
+            else:
+                poiss.set_grid_descriptor(self.finegd)
+
+            xc = XC(self.calc.parameters.xc)
+            xc.initialize(self.ham, self.den,
+                               self.wfs, self.occ)
+            self.pot = PZpotentialLcao(self.gd, xc,
+                                       poiss, self.ghat,
                                        self.setups,
                                        self.beta,
                                        self.dtype,
@@ -261,28 +276,6 @@ class ODDvarLcao(Calculator):
         self.occ = self.calc.occupations
         self.nspins = self.wfs.nspins
         self.spos_ac = self.calc.atoms.get_scaled_positions()
-
-        if self.odd != 'Zero':
-            self.check_assertions()
-            # Force int. occ
-            self.occ.magmom = int(round(self.occ.magmom))
-            # Grid-descriptor
-            self.finegd = self.den.finegd
-            self.gd = self.den.gd  # this is coarse grid
-            self.ghat = self.den.ghat  # they are on fine grid
-            self.interpolator = Transformer(self.gd, self.finegd, 3)
-            self.restrictor = Transformer(self.finegd, self.gd, 3)
-            self.poiss = PoissonSolver(relax='GS',
-                                       eps=self.poiss_eps,
-                                       sic_gg=True)
-            if self.sic_coarse_grid is True:
-                self.poiss.set_grid_descriptor(self.gd)
-            else:
-                self.poiss.set_grid_descriptor(self.finegd)
-
-            self.xc = XC(self.calc.parameters.xc)
-            self.xc.initialize(self.ham, self.den,
-                               self.wfs, self.occ)
 
     def initial_guess(self, n_dim):
 
@@ -393,29 +386,26 @@ class ODDvarLcao(Calculator):
             self.log('Reinitialize ODD potential..')
             self.log(flush=True)
 
-            self.xc.initialize(self.ham, self.den,
+            xc = XC(self.calc.parameters.xc)
+            xc.initialize(self.ham, self.den,
                                self.wfs, self.occ)
 
             # Grid-descriptor
             self.finegd = self.den.finegd
             self.gd = self.den.gd  # this is coarse grid
             self.ghat = self.den.ghat  # they are on fine grid
-            self.interpolator = Transformer(self.gd, self.finegd, 3)
-            self.restrictor = Transformer(self.finegd, self.gd, 3)
 
             self.spos_ac = spos_ac
-            self.poiss = PoissonSolver(relax='GS',
-                                       eps=self.poiss_eps,
-                                       sic_gg=True)
+            poiss = PoissonSolver(relax='GS',
+                                  eps=self.poiss_eps,
+                                  sic_gg=True)
             if self.sic_coarse_grid is True:
-                self.poiss.set_grid_descriptor(self.gd)
+                poiss.set_grid_descriptor(self.gd)
             else:
-                self.poiss.set_grid_descriptor(self.finegd)
+                poiss.set_grid_descriptor(self.finegd)
 
-            self.pot = PZpotentialLcao(self.gd, self.xc,
-                                       self.poiss, self.ghat,
-                                       self.restrictor,
-                                       self.interpolator,
+            self.pot = PZpotentialLcao(self.gd, xc,
+                                       poiss, self.ghat,
                                        self.setups,
                                        self.beta,
                                        self.dtype,
