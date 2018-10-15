@@ -73,8 +73,6 @@ from ase.phonons import Displacement
 from gpaw.utilities import unpack2
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities.timing import StepTimer, nulltimer
-from gpaw.lcao.overlap import (ManySiteDictionaryWrapper,
-                               TwoCenterIntegralCalculator)
 from gpaw.lcao.tightbinding import TightBinding
 from gpaw.kpt_descriptor import KPointDescriptor
 from ase.parallel import rank
