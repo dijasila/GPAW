@@ -179,7 +179,8 @@ class ElectronPhononCoupling(Displacement):
         # - ...
         assert calc.parameters['mode'] == 'lcao', 'LCAO mode required.'
         symmetry = calc.parameters['symmetry']
-        assert symmetry == 'off', 'Symmetries not supported.'
+        assert (symmetry == dict(point_group=False, time_reversal=False) or
+                symmetry == 'off'), 'Symmetries not supported.'
         
         self.calc_lcao = calc
 
