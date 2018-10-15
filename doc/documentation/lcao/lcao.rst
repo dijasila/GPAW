@@ -229,7 +229,8 @@ not divisible by 8.
 By default, the FD Poisson solver uses the *Jacobi method*.  To increase
 performance further use the *Gauss-Seidel* method instead, which
 usually reduces the Poisson iteration count by around 40% (ideally
-50%).
+50%).  Again, please note that none of the above applies to the
+``FastPoissonSolver`` which is now default.
 
 Advanced basis generation
 -------------------------
