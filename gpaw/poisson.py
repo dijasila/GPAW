@@ -936,10 +936,11 @@ class BadAxesError(ValueError):
 
 
 class FastPoissonSolver(BasePoissonSolver):
-    def __init__(self, nn=3,  use_cholesky=False, **kwargs):
+    def __init__(self, nn=3,  **kwargs):
         BasePoissonSolver.__init__(self, **kwargs)
         self.nn = nn
-        self.use_cholesky = use_cholesky
+        # We may later enable this to work with Cholesky, but not now:
+        self.use_cholesky = False
 
     def _init(self):
         pass
@@ -1032,6 +1033,8 @@ class FastPoissonSolver(BasePoissonSolver):
         np.exp(r_cx, out=r_cx)
         fft_lambdas = np.zeros_like(r_cx[0], dtype=complex)
         laplace = Laplace(gd_x[-1], -0.25 / pi, self.nn)
+        self.stencil_description = laplace.description
+
         for coeff, offset_c in zip(laplace.coef_p, laplace.offset_pc):
             offset_c = np.array(offset_c)
             if not any(offset_c):
@@ -1135,9 +1138,10 @@ class FastPoissonSolver(BasePoissonSolver):
         pass
 
     def get_description(self):
-        return """FastPoissonSolver:
-  nn %d
-  FFT axes %s
-  FST axes %s
-  Cholesky axes %s
-""" % (self.nn, self.fft_axes, self.fst_axes, self.cholesky_axes)
+        return """\
+FastPoissonSolver using
+    %s stencil;
+    FFT axes: %s;
+    FST axes: %s.
+""" % (self.stencil_description,
+       self.fft_axes, self.fst_axes)
