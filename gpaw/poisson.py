@@ -1130,8 +1130,7 @@ class FastPoissonSolver(BasePoissonSolver):
 
     def todict(self):
         d = super(FastPoissonSolver, self).todict()
-        d.update({'name': 'fast', 'nn': self.nn,
-                  'use_cholesky': self.use_cholesky})
+        d.update({'name': 'fast', 'nn': self.nn})
         return d
 
     def estimate_memory(self, mem):
