@@ -1022,14 +1022,14 @@ class FastPoissonSolver(BasePoissonSolver):
         # non-cholesky axes in parallel
         r_cx = np.indices(gd_x[-1].n_c)
         r_cx += gd_x[-1].beg_c[:,np.newaxis, np.newaxis, np.newaxis]
-        r_cx = np.array(r_cx, dtype=complex)
+        r_cx = r_cx.astype(complex)
         for c, axis in enumerate(fftfst_axes):
-            r_cx[axis] *= 2j*np.pi/gd_x[-1].N_c[axis]
+            r_cx[axis] *= 2j * np.pi / gd_x[-1].N_c[axis]
             if axis in fst_axes:
                 r_cx[axis] /= 2
         for c, axis in enumerate(cholesky_axes):
             r_cx[axis] = 0.0
-        r_cx[:] = np.exp(r_cx)
+        np.exp(r_cx, out=r_cx)
         fft_lambdas = np.zeros_like(r_cx[0], dtype=complex)
         laplace = Laplace(gd_x[-1], -0.25 / pi, self.nn)
         for coeff, offset_c in zip(laplace.coef_p, laplace.offset_pc):
@@ -1039,23 +1039,22 @@ class FastPoissonSolver(BasePoissonSolver):
                 continue
             non_zero_axes, = np.where(offset_c)
             if set(non_zero_axes).issubset(fftfst_axes):
-                temp = np.ones(fft_lambdas.shape, dtype=complex)
+                temp = np.ones_like(fft_lambdas)
                 for c, axis in enumerate(fftfst_axes):
                     temp *= r_cx[axis] ** offset_c[axis]
-                fft_lambdas += coeff * (temp-1.0)
+                fft_lambdas += coeff * (temp - 1.0)
 
         assert np.linalg.norm(fft_lambdas.imag) < 1e-10
-        self.fft_lambdas = fft_lambdas.real
+        fft_lambdas = fft_lambdas.real.copy()  # arr.real is not contiguous
 
         # If there is no Cholesky decomposition, the system is already
         # fully diagonal and we can directly invert the linear problem
         # by dividing with the eigenvalues.
-        if len(cholesky_axes) == 0:
-            with np.errstate(divide='ignore'):
-                # Why this doesn't suppress the error?
-                # Maybe error happens outside numpy.  --askhl
-                self.inv_fft_lambdas = np.where(np.abs(self.fft_lambdas)>1e-10, 1.0 / self.fft_lambdas, 0)
-                self.fft_lambdas = None
+        assert len(cholesky_axes) == 0
+        # if len(cholesky_axes) == 0:
+        with np.errstate(divide='ignore'):
+            self.inv_fft_lambdas = np.where(
+                np.abs(fft_lambdas) > 1e-10, 1.0 / fft_lambdas, 0)
 
     def solve_neutral(self, phi_g, rho_g, eps=None, timer=None):
         gd1 = self.gd
@@ -1137,6 +1136,8 @@ class FastPoissonSolver(BasePoissonSolver):
 
     def get_description(self):
         return """FastPoissonSolver:
+  nn %d
   FFT axes %s
   FST axes %s
-  Cholesky axes %s""" % (self.fft_axes, self.fst_axes, self.cholesky_axes)
+  Cholesky axes %s
+""" % (self.nn, self.fft_axes, self.fst_axes, self.cholesky_axes)
