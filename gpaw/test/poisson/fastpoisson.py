@@ -84,14 +84,17 @@ def test(cellno, cellname, cell_cv, idiv, pbc, nn):
         # To do this check correctly, the Laplacian should have lower
         # nn at the boundaries.  Therefore we do not test the residual
         # at these ends, only in between, by zeroing the bad ones:
-
         if nn > 1:
             exclude_points = nn - 1
             for c in range(3):
                 if nn > 1 and not pbc[c]:
+                    # get view ehere axis c refers becomes zeroth dimension:
                     X = residual.transpose(c, (c + 1) % 3, (c + 2) % 3)
-                    X[:exclude_points] = 0.0
-                    X[-exclude_points:] = 0.0
+
+                    if gd.beg_c[c] == 1:
+                        X[:exclude_points] = 0.0
+                    if gd.end_c[c] == gd.N_c[c]:
+                        X[-exclude_points:] = 0.0
         return residual.max()
 
     maxerr = get_residual_err(phi_g)
@@ -124,7 +127,7 @@ errs = []
 for idiv in [4, 1]:
     for cellno, (cellname, cell_cv) in enumerate(icells()):
         for pbc in itertools.product(tf, tf, tf):
-            for nn in [1, 2]:
+            for nn in [1, 3]:
                 try:
                     err = test(cellno, cellname, cell_cv, idiv, pbc, nn)
                 except BadAxesError:
