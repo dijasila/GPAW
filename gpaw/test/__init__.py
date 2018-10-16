@@ -138,6 +138,7 @@ tests = [
     'multipoletest.py',
     'cluster.py',
     'poisson/poisson.py',
+    'poisson/fastpoisson.py',
     'poisson/poisson_asym.py',
     'parallel/arraydict_redist.py',
     'parallel/scalapack.py',

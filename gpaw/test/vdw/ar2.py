@@ -2,7 +2,7 @@ from math import sqrt
 
 from ase import Atoms
 
-from gpaw import GPAW
+from gpaw import GPAW, Mixer, Davidson
 from gpaw.test import equal
 from gpaw.xc.vdw import VDWFunctional
 
@@ -16,7 +16,9 @@ def test():
     L = 3.0 + 2 * 4.0
     dimer = Atoms('Ar2', [(0, 0, 0), (x, x, x)], cell=(L, L, L))
     dimer.center()
-    calc = GPAW(h=0.2, xc='revPBE')
+    calc = GPAW(h=0.2, xc='revPBE',
+                mixer=Mixer(0.8, 7, 50.0),
+                eigensolver=Davidson(5))
     dimer.set_calculator(calc)
     e2 = dimer.get_potential_energy()
     calc.write('Ar2.gpw')

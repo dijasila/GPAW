@@ -80,7 +80,7 @@ class ZerothOrder1(State):
 
     def solve(self):
         hamiltonian = self.calculator.hamiltonian
-        self.poisson = PoissonSolver(nn=hamiltonian.poisson.nn)
+        self.poisson = PoissonSolver('fd', nn=hamiltonian.poisson.nn)
         self.poisson.set_grid_descriptor(self.gd)
         self.poisson.initialize()
 
