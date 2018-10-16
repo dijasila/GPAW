@@ -45,9 +45,7 @@ def icells():
 
 tolerance = 1e-12
 
-nn = 1
-
-def test(cellno, cellname, cell_cv, idiv, pbc):
+def test(cellno, cellname, cell_cv, idiv, pbc, nn):
     N_c = h2gpts(0.12, cell_cv, idiv=idiv)
     if idiv == 1:
         N_c += 1 - N_c % 2  # We want especially to test uneven grids
@@ -78,7 +76,23 @@ def test(cellno, cellname, cell_cv, idiv, pbc):
     def get_residual_err(phi_g):
         rhotest_g = gd.zeros()
         laplace.apply(phi_g, rhotest_g)
-        return np.abs(rhotest_g - rho_g).max()
+        residual = np.abs(rhotest_g - rho_g)
+        # Residual is not accurate at end of non-periodic directions
+        # except for nn=1 (since effectively we use the right stencil
+        # only for nn=1 at the boundary).
+        #
+        # To do this check correctly, the Laplacian should have lower
+        # nn at the boundaries.  Therefore we do not test the residual
+        # at these ends, only in between, by zeroing the bad ones:
+
+        if nn > 1:
+            exclude_points = nn - 1
+            for c in range(3):
+                if nn > 1 and not pbc[c]:
+                    X = residual.transpose(c, (c + 1) % 3, (c + 2) % 3)
+                    X[:exclude_points] = 0.0
+                    X[-exclude_points:] = 0.0
+        return residual.max()
 
     maxerr = get_residual_err(phi_g)
     pbcstring = '{}{}{}'.format(*pbc)
@@ -92,13 +106,14 @@ def test(cellno, cellname, cell_cv, idiv, pbc):
         phimaxerr = np.abs(phi2_g - phi_g).max()
         maxerr2 = get_residual_err(phi2_g)
         msg = ('{:2d} {:8s} pbc={} err={:8.5e} err[J]={:8.5e} '
-               'err[phi]={:8.5e}'.format(cellno, cellname, pbcstring,
-                                         maxerr, maxerr2, phimaxerr))
+               'err[phi]={:8.5e} nn={:1d}'
+               .format(cellno, cellname, pbcstring, maxerr, maxerr2,
+                       phimaxerr, nn))
 
     state = 'ok' if maxerr < tolerance else 'FAIL'
 
-    msg = ('{:2d} {:8s} grid={} pbc={} err[fast]={:8.5e} {}'
-           .format(cellno, cellname, N_c, pbcstring, maxerr, state))
+    msg = ('{:2d} {:8s} grid={} pbc={} err[fast]={:8.5e} nn={:1d} {}'
+           .format(cellno, cellname, N_c, pbcstring, maxerr, nn, state))
     if world.rank == 0:
         print(msg)
 
@@ -109,14 +124,14 @@ errs = []
 for idiv in [4, 1]:
     for cellno, (cellname, cell_cv) in enumerate(icells()):
         for pbc in itertools.product(tf, tf, tf):
-            args = (cellno, cellname, cell_cv, idiv, pbc)
+            for nn in [1, 2]:
+                try:
+                    err = test(cellno, cellname, cell_cv, idiv, pbc, nn)
+                except BadAxesError:
+                    # Ignore incompatible pbc/cell combinations
+                    continue
 
-            try:
-                err = test(*args)
-            except BadAxesError:  # Ignore incompatible pbc/cell combinations
-                continue
-
-            errs.append(err)
+                errs.append(err)
 
 
 for i, err in enumerate(errs):
