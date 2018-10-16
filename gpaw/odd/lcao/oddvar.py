@@ -160,8 +160,8 @@ class ODDvarLcao(Calculator):
             self.gd = self.den.gd  # this is coarse grid
             self.ghat = self.den.ghat  # on fine grid
             poiss = PoissonSolver(relax='GS',
-                                       eps=self.poiss_eps,
-                                       sic_gg=True)
+                                  eps=self.poiss_eps,
+                                  sic_gg=True)
             if self.sic_coarse_grid is True:
                 poiss.set_grid_descriptor(self.gd)
             else:
@@ -169,14 +169,14 @@ class ODDvarLcao(Calculator):
 
             xc = XC(self.calc.parameters.xc)
             xc.initialize(self.ham, self.den,
-                               self.wfs, self.occ)
+                          self.wfs, self.occ)
             self.pot = PZpotentialLcao(self.gd, xc,
                                        poiss, self.ghat,
                                        self.setups,
                                        self.beta,
                                        self.dtype,
                                        self.timer,
-                                       self.wfs.basis_functions,
+                                       self.wfs,
                                        self.spos_ac,
                                        sic_coarse_grid=self.sic_coarse_grid,
                                        )
@@ -410,7 +410,7 @@ class ODDvarLcao(Calculator):
                                        self.beta,
                                        self.dtype,
                                        self.timer,
-                                       self.wfs.basis_functions,
+                                       self.wfs,
                                        self.spos_ac,
                                        sic_coarse_grid=self.sic_coarse_grid)
 

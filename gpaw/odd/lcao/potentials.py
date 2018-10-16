@@ -22,9 +22,9 @@ class PZpotentialLcao:
 
     def __init__(self, gd, xc, poisson,
                  ghat_fg,
-                 setups, beta, dtype, timer, bfs,
+                 setups, beta, dtype, timer, wfs,
                  spos_ac=None,
-                 sic_coarse_grid=False):
+                 sic_coarse_grid=False, store_potentials=True):
 
         self.cgd = gd
         self.finegd = ghat_fg.gd
@@ -33,7 +33,7 @@ class PZpotentialLcao:
         self.interpolator = Transformer(self.cgd, self.finegd, 3)
         self.restrictor = Transformer(self.finegd, self.cgd, 3)
         self.setups = setups
-        self.bfs = bfs
+        self.bfs = wfs.basis_functions
         self.sic_coarse_grid = sic_coarse_grid
 
         if self.sic_coarse_grid:
@@ -60,6 +60,18 @@ class PZpotentialLcao:
             self.beta_x = beta[1]
         else:
             self.beta_x = self.beta_c = beta[0]
+
+        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.store_potentials=store_potentials
+        if store_potentials:
+            self.old_pot = {}
+            for kpt in wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                n_occ = 0
+                for f in kpt.f_n:
+                    if f > 1.0e-10:
+                        n_occ += 1
+                self.old_pot[k] = self.cgd.zeros(n_occ, dtype=float)
 
     def get_gradients_old(self, f_n, C_nM, kpt,
                       wfs, setup,
@@ -300,6 +312,7 @@ class PZpotentialLcao:
         Fot this, we need firstly to get orbitals densities.
 
         """
+        kpoint = self.n_kps * kpt.s + kpt.q
         n_set = C_nM.shape[1]
         F_MM = np.zeros(shape=(n_set, n_set),
                         dtype=self.dtype)
@@ -311,7 +324,7 @@ class PZpotentialLcao:
         # calculate sic energy,
         # sic pseudo-potential and Hartree
         e_sic_m, vt_mG, vHt_g = \
-            self.get_pseudo_pot(nt_G, Q_aL)
+            self.get_pseudo_pot(nt_G, Q_aL, m, kpoint)
 
         # calculate PAW corrections
         e_sic_paw_m, dH_ap = \
@@ -444,7 +457,7 @@ class PZpotentialLcao:
 
         return nt_G, Q_aL, D_ap
 
-    def get_pseudo_pot(self, nt, Q_aL):
+    def get_pseudo_pot(self, nt, Q_aL, i, kpoint):
 
         if self.sic_coarse_grid is False:
             # change to fine grid
@@ -478,9 +491,20 @@ class PZpotentialLcao:
             self.ghat_cg.add(nt_sg[0], Q_aL)
 
         self.timer.start('ODD Poisson')
-        zero_initial_phi = True
+        if self.store_potentials:
+            if self.sic_coarse_grid:
+                vHt_g = self.old_pot[kpoint][i]
+            else:
+                self.interpolator.apply(self.old_pot[kpoint][i],
+                                        vHt_g)
         self.poiss.solve(vHt_g, nt_sg[0],
-                         zero_initial_phi=zero_initial_phi)
+                         zero_initial_phi=False)
+        if self.store_potentials:
+            if self.sic_coarse_grid:
+                self.old_pot[kpoint][i] = vHt_g.copy()
+            else:
+                self.restrictor.apply(vHt_g, self.old_pot[kpoint][i])
+
         self.timer.stop('ODD Poisson')
 
         self.timer.start('ODD Hartree integrate ODD')
@@ -770,7 +794,7 @@ class PZpotentialLcao:
                                      wfs, self.setups, m)
 
                 e_sic_m, vt_mG, vHt_g = \
-                    self.get_pseudo_pot(nt_G, Q_aL)
+                    self.get_pseudo_pot(nt_G, Q_aL, m, u)
                 e_sic_paw_m, dH_ap = \
                     self.get_paw_corrections(D_ap, vHt_g)
 
