@@ -133,7 +133,7 @@ class RadialGridDescriptor:
         k_rgamma[0] = kv(l + 0.5, self.r_g[1] * gamma * 1e-5)
         # We have two integrals: one for r< and one for r>
         # This loop-technique helps calculate them in once
-        for g_ind in xrange(len(nrdr_g) - 1, -1, -1):
+        for g_ind in range(len(nrdr_g) - 1, -1, -1):
             dp = k_rgamma[g_ind] * nrdr_g[g_ind]  # r' is r>
             dq = i_rgamma[g_ind] * nrdr_g[g_ind]  # r' is r<
             vr_g[g_ind] = (p + 0.5 * dp) * i_rgamma[g_ind] - \
