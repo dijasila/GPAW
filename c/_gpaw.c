@@ -48,6 +48,8 @@ PyObject* diagonalize(PyObject *self, PyObject *args);
 PyObject* diagonalize_mr3(PyObject *self, PyObject *args);
 PyObject* general_diagonalize(PyObject *self, PyObject *args);
 PyObject* inverse_cholesky(PyObject *self, PyObject *args);
+PyObject* banded_cholesky(PyObject* self, PyObject* args);
+PyObject* solve_banded_cholesky(PyObject* self, PyObject* args);
 PyObject* inverse_symmetric(PyObject *self, PyObject *args);
 PyObject* inverse_general(PyObject *self, PyObject *args);
 PyObject* linear_solve_band(PyObject *self, PyObject *args);
@@ -167,6 +169,8 @@ static PyMethodDef functions[] = {
     {"diagonalize_mr3", diagonalize_mr3, METH_VARARGS, 0},
     {"general_diagonalize", general_diagonalize, METH_VARARGS, 0},
     {"inverse_cholesky", inverse_cholesky, METH_VARARGS, 0},
+    {"banded_cholesky", banded_cholesky, METH_VARARGS, 0},
+    {"solve_banded_cholesky", solve_banded_cholesky, METH_VARARGS, 0},
     {"inverse_symmetric", inverse_symmetric, METH_VARARGS, 0},
     {"inverse_general", inverse_general, METH_VARARGS, 0},
     {"linear_solve_band", linear_solve_band, METH_VARARGS, 0},

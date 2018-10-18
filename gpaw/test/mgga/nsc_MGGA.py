@@ -1,13 +1,19 @@
 from __future__ import print_function
 from ase import Atoms
-from gpaw import GPAW
+from gpaw import GPAW, Mixer, Davidson
 from gpaw.test import equal
 
 # ??? g = Generator('H', 'TPSS', scalarrel=True, nofiles=True)
 
 atoms = Atoms('H', magmoms=[1], pbc=True)
 atoms.center(vacuum=3)
-calc = GPAW(gpts=(32, 32, 32), nbands=1, xc='PBE', txt='Hnsc.txt')
+def getkwargs():
+    return dict(eigensolver=Davidson(3),
+                mixer=Mixer(0.7, 5, 50.0),
+                parallel=dict(augment_grids=True),
+                gpts=(32, 32, 32), nbands=1, xc='oldPBE')
+
+calc = GPAW(txt='Hnsc.txt', **getkwargs())
 atoms.set_calculator(calc)
 e1 = atoms.get_potential_energy()
 niter1 = calc.get_number_of_iterations()
@@ -35,7 +41,7 @@ equal(e1 + de12r, -1.10093196353, 0.005)
 
 atomsHe = Atoms('He', pbc=True)
 atomsHe.center(vacuum=3)
-calc = GPAW(gpts=(32, 32, 32), nbands=1, xc='PBE', txt='Hensc.txt')
+calc = GPAW(txt='Hensc.txt', **getkwargs())
 atomsHe.set_calculator(calc)
 e1He = atomsHe.get_potential_energy()
 niter_1He = calc.get_number_of_iterations()

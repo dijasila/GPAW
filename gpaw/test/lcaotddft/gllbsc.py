@@ -38,6 +38,7 @@ for (mode, TDDFT) in [('lcao', LCAOTDDFT),
 
         # 1) ground state
         calcs.append(GPAW(nbands=7,
+                          poissonsolver={'name': 'fd'},
                           mixer=Mixer(0.20, 5, weight=50.0),
                           convergence={'eigenstates': 1e-6,
                                        'density': 1e-6,

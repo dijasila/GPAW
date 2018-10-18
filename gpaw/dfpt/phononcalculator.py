@@ -99,7 +99,7 @@ class PhononCalculator:
             self.dtype = float
             kpts = None
             # Multigrid Poisson solver
-            poisson_solver = PoissonSolver()
+            poisson_solver = PoissonSolver('fd')
         else:
             if gamma:
                 self.gamma = True
