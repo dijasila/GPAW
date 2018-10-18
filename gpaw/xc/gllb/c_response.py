@@ -263,9 +263,14 @@ class C_Response(Contribution):
     def calculate_delta_xc(self, homolumo=None):
         if homolumo is None:
             # Calculate band gap
-            import warnings
-            warnings.warn('Calculating KS-gap directly from the k-points, '
-                          'can be inaccurate.')
+            pass
+
+            # This always happens, so we don't warn.
+            # We should perhaps print it as an ordinary message,
+            # but we do not have a file here to which to print.
+            #import warnings
+            #warnings.warn('Calculating KS-gap directly from the k-points, '
+            #              'can be inaccurate.')
             # homolumo = self.occupations.get_homo_lumo(self.wfs)
 
         self.Dxc_Dresp_asp = self.empty_atomic_matrix()
