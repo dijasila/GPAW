@@ -7,28 +7,88 @@ Niflheim
 Information about the Niflheim cluster can be found at
 `<https://wiki.fysik.dtu.dk/niflheim>`_.
 
+This document explains how to compile a developer version of GPAW on
+Niflheim.  If you just want to run the pre-installed version, please
+just load it with ``module load GPAW``.
+
+  
 .. highlight:: bash
 
-Installing GPAW on all three architectures
-==========================================
+Choose the right compiler suite
+===============================
+
+GPAW has traditionally been compiled with the standard GNU compilers,
+but compiling with the Intel compiler suite and the Intel Math Kernel
+Library (MKL) gives approximately 30% better performance.
+
+**We strongly recommend using the Intel compiler!**  To do so, put
+this in your .bashrc::
+
+  ASE=~/ase
+  GPAW=~/gpaw
+  source $GPAW/doc/platforms/Linux/Niflheim/gpaw-intel.sh
+
+The first two lines specify where you keep your developer checkouts of
+ASE and GPAW.
+
+If you insist on using the GNU compilers (at a **performance
+penalty**) do this instead::
+
+  ASE=~/ase
+  GPAW=~/gpaw
+  source $GPAW/doc/platforms/Linux/Niflheim/gpaw-foss.sh
+
+Note that these files import Python and matplotlib compiled with the
+same compilers as you will use for GPAW.  This means that any other
+module you import should be with the same compiler (intel or foss).
+For example if you need scikit-learn, it should be imported as
+``scikit-learn/0.20.0-intel-2018b-Python-3.6.6`` to get the intel
+version.  The files above set a variable to make this easier, and you
+can import scikit-learn with::
+
+  module load scikit-learn/0.20.0-$MYPYTHON   # Just an example
+
+
+Optional: Select libxc and perhaps libvdwxc
+===========================================
+
+Per default, GPAW is compiled with libxv version 3.0.1 since there
+appear to be rare circumstances where newer libxc versions give wrong
+results (probably only related to users generating their own PAW
+setups).
+
+If you want a newer version you should load it explicitly *before*
+sourcing the ``gpaw-intel.sh`` or ``gpaw-foss.sh`` file::
+
+  ASE=~/ase
+  GPAW=~/gpaw
+  module load libxc/4.2.3-intel-2018b
+  source $GPAW/doc/platforms/Linux/Niflheim/gpaw-intel.sh
+
+Similarly, if you need XC potentials from ``libvdwxc`` you should manually load
+this module as well.  It is currently only available with the foss
+compiler suite due to an incompatibility between the FFTW and MKL
+libraries.  **IMPORTANT:** GPAW support van der Waals correlation
+even without ``libvdwxc`` loaded!
+
+
+Get the ASE and GPAW source code
+================================
 
 Here, we install the development versions of ASE and GPAW in ``~/ase`` and
-``~/gpaw``.  First, make sure you have this in your ``~/.bashrc``:
-
-.. literalinclude:: gpaw.sh
-
-or, just add this line::
-
-    . ~/gpaw/doc/platforms/Linux/Niflheim/gpaw.sh
-
-Now, get the source code for ASE and GPAW::
+``~/gpaw``.  Make sure the folders do not exist, remove them if they
+do (or update with ``git pull`` if you have done this step previously):
 
     $ cd
-    $ rm -rf gpaw ase
+    $ source .bashrc
     $ git clone https://gitlab.com/ase/ase.git
     $ git clone https://gitlab.com/gpaw/gpaw.git
+    
 
-and compile GPAW's C-extension using the :download:`compile.sh` script::
+Installing GPAW on all Niflheim architectures
+=============================================
+
+Compile GPAW's C-extension using the :download:`compile.sh` script::
 
     $ cd gpaw
     $ sh doc/platforms/Linux/Niflheim/compile.sh
