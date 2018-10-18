@@ -1,5 +1,5 @@
 from __future__ import print_function
-from gpaw import GPAW, restart, FermiDirac, PoissonSolver
+from gpaw import GPAW, restart, FermiDirac
 from ase import Atoms
 from gpaw.test import equal, gen
 import os
@@ -11,8 +11,8 @@ e = {}
 
 energy_tolerance = 0.0002
 
-e_ref = {'LDA': {'restart': -5.5728768784094758},
-         'GLLBSC': {'restart': -5.4458036264351}}  # svnversion 5252
+e_ref = {'LDA': {'restart': -5.583306128278814},
+         'GLLBSC': {'restart': -5.4562040213072610}}
 
 for xc in ['LDA', 'GLLBSC']:
     a = 4.23
@@ -22,7 +22,6 @@ for xc in ['LDA', 'GLLBSC']:
                  scaled_positions=[[0, 0, 0], [0.5, 0.5, 0.5]])
     calc = GPAW(h=0.25,
                 nbands=8,
-                poissonsolver=PoissonSolver(nn='M'),
                 occupations=FermiDirac(width=0.01),
                 kpts=(3, 3, 3),
                 convergence={'eigenstates': 9.2e-11,

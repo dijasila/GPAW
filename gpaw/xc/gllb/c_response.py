@@ -84,15 +84,16 @@ class C_Response(Contribution):
         self.band_comm = self.wfs.bd.comm
         self.grid_comm = self.gd.comm
         if self.Dresp_asp is None:
-            if self.density.D_asp is not None:
-                self.Dresp_asp = self.empty_atomic_matric()
-                self.D_asp = self.empty_atomic_matric()
-                for a in self.density.D_asp:
-                    self.Dresp_asp[a][:] = 0.0
-                    self.D_asp[a][:] = 0.0
+            assert self.density.D_asp is None
+            #if self.density.D_asp is not None:
+            #    self.Dresp_asp = self.empty_atomic_matrix()
+            #    self.D_asp = self.empty_atomic_matrix()
+            #    for a in self.density.D_asp:
+            #        self.Dresp_asp[a][:] = 0.0
+            #        self.D_asp[a][:] = 0.0
                 # XXX Might as well not initialize, as it seems.
-                self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
-                self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
+            #    self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
+            #    self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
 
             # The response discontinuity is stored here
             self.Dxc_vt_sG = None
@@ -262,8 +263,14 @@ class C_Response(Contribution):
     def calculate_delta_xc(self, homolumo=None):
         if homolumo is None:
             # Calculate band gap
-            print('Warning: Calculating KS-gap directly from the k-points, '
-                  'can be inaccurate.')
+            pass
+
+            # This always happens, so we don't warn.
+            # We should perhaps print it as an ordinary message,
+            # but we do not have a file here to which to print.
+            #import warnings
+            #warnings.warn('Calculating KS-gap directly from the k-points, '
+            #              'can be inaccurate.')
             # homolumo = self.occupations.get_homo_lumo(self.wfs)
 
         self.Dxc_Dresp_asp = self.empty_atomic_matrix()

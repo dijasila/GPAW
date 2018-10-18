@@ -1,14 +1,17 @@
 """Test Tran Blaha potential."""
 from ase.dft.bandgap import bandgap
 from ase.build import bulk
-from gpaw import GPAW, PW
+from gpaw import GPAW, PW, Davidson, Mixer
 
 k = 8
 atoms = bulk('Si')
 atoms.calc = GPAW(mode=PW(300),
+                  eigensolver=Davidson(2),
+                  mixer=Mixer(0.8, 10, 50.0),
                   kpts={'size': (k, k, k), 'gamma': True},
                   xc='TB09',
-                  convergence={'bands': -1},
+                  parallel=dict(augment_grids=True),
+                  convergence={'bands': -3},
                   txt='si.txt')
 e = atoms.get_potential_energy()
 gap, (sv, kv, nv), (sc, kc, nc) = bandgap(atoms.calc)
