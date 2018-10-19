@@ -1,5 +1,4 @@
 from ase import Atom
-
 from gpaw import GPAW, MixerDif
 from gpaw.cluster import Cluster
 from gpaw.test import equal
@@ -15,12 +14,17 @@ s.minimal_box(box, h=h)
 s.set_initial_magnetic_moments([-1])
 
 c = GPAW(xc='LDA', nbands=-3,
+         hund=True,
          charge=q, spinpol=spin, h=h,
          mixer=MixerDif(beta=0.05, nmaxold=5, weight=50.0),
          convergence={'eigenstates': 0.078, 'density': 5e-3, 'energy': 0.1},
          )
 c.calculate(s)
-equal(c.density.get_spin_contamination(s, 1), 0., 0.01)
+
+contamination = min(c.density.get_spin_contamination(s, 0),
+                    c.density.get_spin_contamination(s, 1))
+
+equal(contamination, 0., 0.01)
 
 # setup H2 at large distance with different spins for the atoms
 s = Cluster([Atom('H'), Atom('H',[0,0,3.0])])
