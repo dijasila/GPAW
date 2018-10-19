@@ -2,7 +2,7 @@
 from __future__ import print_function
 from ase.build import bulk
 from ase.units import Ha
-from gpaw import GPAW, restart
+from gpaw import GPAW, restart, Mixer
 from gpaw.test import gen
 from gpaw import setup_paths
 
@@ -23,6 +23,7 @@ for band in [1, 2, 4]:
                 kpts=(4, 4, 4),
                 xc=xc,
                 nbands=8,
+                mixer=Mixer(0.5, 5, 50.0),
                 eigensolver=eigensolver,
                 parallel={'band': band})
     atoms.set_calculator(calc)
@@ -49,6 +50,7 @@ for band in [1, 2, 4]:
                 kpts=(4, 4, 4),
                 xc=xc,
                 nbands=8,
+                mixer=Mixer(0.5, 5, 50.0),
                 eigensolver=eigensolver,
                 parallel={'band': band})
     atoms.set_calculator(calc)

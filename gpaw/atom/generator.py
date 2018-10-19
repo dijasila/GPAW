@@ -699,7 +699,7 @@ class Generator(AllElectron):
         X_gamma = yukawa_gamma
         if exx:
             X_p = constructX(self)
-            if yukawa_gamma > 0:
+            if yukawa_gamma is not None and yukawa_gamma > 0:
                 X_pg = constructX(self, yukawa_gamma)
             else:
                 X_pg = None

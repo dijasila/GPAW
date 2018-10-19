@@ -183,7 +183,7 @@ class HybridXC(HybridXCBase):
         # XXX One might consider using a charged centered compensation
         # charge for the PoissonSolver in the case of EXX as standard
         self.poissonsolver = PoissonSolver(
-            eps=1e-11, use_charge_center=use_charge_center)
+            'fd', eps=1e-11, use_charge_center=use_charge_center)
         # self.poissonsolver = hamiltonian.poisson
 
         if self.finegrid:

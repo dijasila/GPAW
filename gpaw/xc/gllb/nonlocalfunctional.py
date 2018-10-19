@@ -14,11 +14,9 @@ class NonLocalFunctional(XCFunctional):
         self.old_H_asp = {}
 
     def set_mix(self, mix):
-        print("mixing with", mix)
         self.mix = mix
 
     def initialize(self, density, hamiltonian, wfs, occupations):
-        print("Initializing", density, hamiltonian, wfs, occupations)
         self.gd = density.gd  # smooth grid describtor
         self.finegd = density.finegd  # fine grid describtor
         self.nt_sg = density.nt_sg  # smooth density

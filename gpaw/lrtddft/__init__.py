@@ -178,7 +178,7 @@ class LrTDDFT(ExcitationList):
             Om = OmegaMatrix
             name = 'LrTDDFT'
             if self.xc:
-                if isinstance(self.xc, basestring):
+                if isinstance(self.xc, str):
                     xc = XC(self.xc)
                 else:
                     xc = self.xc
@@ -364,7 +364,7 @@ class LrTDDFT(ExcitationList):
                 f = fh
 
             f.write('# ' + self.name + '\n')
-            if isinstance(self.xc, basestring):
+            if isinstance(self.xc, str):
                 xc = self.xc
             else:
                 xc = self.xc.name

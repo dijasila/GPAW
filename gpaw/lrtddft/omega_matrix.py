@@ -89,7 +89,7 @@ class OmegaMatrix:
         if xc == 'RPA':
             xc = None  # enable RPA as keyword
         if xc is not None:
-            if isinstance(xc, basestring):
+            if isinstance(xc, str):
                 self.xc = XC(xc)
             else:
                 self.xc = xc

@@ -2,7 +2,7 @@ from __future__ import print_function
 
 from ase import Atoms
 from ase.parallel import rank, barrier
-from gpaw import GPAW, FermiDirac, setup_paths
+from gpaw import GPAW, FermiDirac, setup_paths, Mixer, MixerSum, Davidson
 from gpaw.atom.all_electron import AllElectron
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
@@ -45,10 +45,12 @@ for atom in sorted(e_HOMO_cs):
         g.run(**parameters[atom])
         setups[atom] = 1
     barrier()
-    
+
     SS = Atoms(atom, cell=(7, 7, 7), pbc=False)
     SS.center()
-    c = GPAW(h=.3, xc='LB94', nbands=-2, txt=txt)
+    c = GPAW(h=.3, xc='LB94',
+             eigensolver=Davidson(3),
+             mixer=Mixer(0.5, 7, 50.0), nbands=-2, txt=txt)
     if atom in ['Mg']:
         c.set(eigensolver='cg')
     c.calculate(SS)
@@ -90,6 +92,8 @@ for atom in sorted(e_HOMO_os):
              nbands=-2,
              spinpol=True,
              hund=True,
+             eigensolver=Davidson(3),
+             mixer=MixerSum(0.5, 7, 50.0),
              occupations=FermiDirac(0.0, fixmagmom=True),
              txt=txt)
     c.calculate(SS)

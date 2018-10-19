@@ -16,7 +16,7 @@ atoms.center(vacuum=4.0)
 # Ground-state calculation
 calc = GPAW(nbands=2, h=0.4, setups=dict(Na='1'),
             basis='dzp', mode='lcao',
-            poissonsolver=PoissonSolver(eps=1e-16),
+            poissonsolver=PoissonSolver('fd', eps=1e-16),
             convergence={'density': 1e-8},
             txt='gs.out')
 atoms.set_calculator(calc)

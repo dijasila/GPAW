@@ -59,7 +59,6 @@ class DatasetOptimizer:
         self.projectors = re.sub(pattern, '{:.1f}', projectors)
         self.nenergies = len(energies)
 
-        # Round to integers:
         self.x = energies + radii + [r0]
         self.bounds = ([(-1.0, 4.0)] * self.nenergies +
                        [(r * 0.6, r * 1.5) for r in radii] +
@@ -204,8 +203,8 @@ class DatasetOptimizer:
             errors[1] = error
 
             area, niter, energies = self.convergence(fd)
-            errors[2] = area
-            errors[3] = niter
+            errors[2] = niter
+            errors[3] = area
 
             eggenergies = self.eggbox(fd)
             errors[4] = max(eggenergies)
@@ -306,7 +305,7 @@ class DatasetOptimizer:
     def summary(self, N=10):
         n = len(self.x)
         for x in self.read()[:N]:
-            print('{:3} {:2} {:6.1f} ({}) ({}, {})'
+            print('{:3} {:2} {:9.1f} ({}) ({}, {})'
                   .format(self.Z,
                           self.symbol,
                           x[n],
@@ -330,7 +329,7 @@ class DatasetOptimizer:
                 nderiv0 = 5
             else:
                 nderiv0 = 2
-            fmt = '{0:2} {1:2} -P {2:31} -r {3:20} -0 {4},{5:.2f} # {6:10.3f}'
+            fmt = '{:3} {:2} -P {:31} -r {:20} -0 {},{:.2f} # {:10.3f}'
             print(fmt.format(self.Z,
                              self.symbol,
                              projectors,
@@ -338,7 +337,7 @@ class DatasetOptimizer:
                              nderiv0,
                              r0,
                              error))
-        if 1 and error != np.inf and error != np.nan:
+        if 0 and error != np.inf and error != np.nan:
             self.generate(None, projectors, radii, r0, 'PBE', True, 'a1',
                           logderivs=False)
 
@@ -349,8 +348,8 @@ def ip(symbol, fd):
     aea.initialize()
     aea.run()
     aea.refine()
-    # aea.scalar_relativistic = True
-    # aea.refine()
+    aea.scalar_relativistic = True
+    aea.refine()
     energy = aea.ekin + aea.eH + aea.eZ + aea.exc
     eigs = []
     for l, channel in enumerate(aea.channels):
@@ -365,6 +364,8 @@ def ip(symbol, fd):
     aea.add(n0, l0, -1)
     aea.initialize()
     aea.run()
+    aea.refine()
+    aea.scalar_relativistic = True
     aea.refine()
     IP = aea.ekin + aea.eH + aea.eZ + aea.exc - energy
     IP *= Ha

@@ -40,7 +40,10 @@ if 1:
 
     pz = Placzek(H2, KSSingles, gsname=gsname, exname=exname,
                  exkwargs=exkwargs,
-                 overlap=lambda x, y: Overlap(x).pseudo(y),
+                 # XXX full does not work in parallel due to boxes
+                 # on different nodes
+                 #overlap=lambda x, y: Overlap(x).full(y)[0],
+                 overlap=lambda x, y: Overlap(x).pseudo(y)[0],
                  txt=txt)
     pz.run()
 

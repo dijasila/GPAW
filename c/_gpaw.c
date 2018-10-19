@@ -48,6 +48,8 @@ PyObject* diagonalize(PyObject *self, PyObject *args);
 PyObject* diagonalize_mr3(PyObject *self, PyObject *args);
 PyObject* general_diagonalize(PyObject *self, PyObject *args);
 PyObject* inverse_cholesky(PyObject *self, PyObject *args);
+PyObject* banded_cholesky(PyObject* self, PyObject* args);
+PyObject* solve_banded_cholesky(PyObject* self, PyObject* args);
 PyObject* inverse_symmetric(PyObject *self, PyObject *args);
 PyObject* inverse_general(PyObject *self, PyObject *args);
 PyObject* linear_solve_band(PyObject *self, PyObject *args);
@@ -59,7 +61,6 @@ PyObject* NewWOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewSplineObject(PyObject *self, PyObject *args);
 PyObject* NewTransformerObject(PyObject *self, PyObject *args);
 PyObject* pc_potential(PyObject *self, PyObject *args);
-PyObject* heap_mallinfo(PyObject *self);
 PyObject* elementwise_multiply_add(PyObject *self, PyObject *args);
 PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args);
 PyObject* utilities_vdot(PyObject *self, PyObject *args);
@@ -168,6 +169,8 @@ static PyMethodDef functions[] = {
     {"diagonalize_mr3", diagonalize_mr3, METH_VARARGS, 0},
     {"general_diagonalize", general_diagonalize, METH_VARARGS, 0},
     {"inverse_cholesky", inverse_cholesky, METH_VARARGS, 0},
+    {"banded_cholesky", banded_cholesky, METH_VARARGS, 0},
+    {"solve_banded_cholesky", solve_banded_cholesky, METH_VARARGS, 0},
     {"inverse_symmetric", inverse_symmetric, METH_VARARGS, 0},
     {"inverse_general", inverse_general, METH_VARARGS, 0},
     {"linear_solve_band", linear_solve_band, METH_VARARGS, 0},
@@ -178,7 +181,6 @@ static PyMethodDef functions[] = {
     {"WOperator", NewWOperatorObject, METH_VARARGS, 0},
     {"Spline", NewSplineObject, METH_VARARGS, 0},
     {"Transformer", NewTransformerObject, METH_VARARGS, 0},
-    {"heap_mallinfo", (PyCFunction) heap_mallinfo, METH_NOARGS, 0},
     {"elementwise_multiply_add", elementwise_multiply_add, METH_VARARGS, 0},
     {"utilities_gaussian_wave", utilities_gaussian_wave, METH_VARARGS, 0},
     {"utilities_vdot", utilities_vdot, METH_VARARGS, 0},

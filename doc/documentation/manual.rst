@@ -838,7 +838,14 @@ Poisson solver
 The *poissonsolver* keyword is used to specify a Poisson solver class
 or enable dipole correction.
 
-The default Poisson solver uses a multigrid Jacobian method.  Use this
+The default Poisson solver in FD and LCAO mode
+is called FastPoissonSolver and uses
+a combination of Fourier and Fourier-sine transforms
+in combination with parallel array transposes.  Meanwhile in PW mode,
+the Poisson equation is solved by dividing each planewave coefficient
+by the squared length of its corresponding wavevector.
+
+The old default Poisson solver uses a multigrid Jacobian method.  Use this
 keyword to specify a different method.  This example corresponds to
 the default Poisson solver::
 

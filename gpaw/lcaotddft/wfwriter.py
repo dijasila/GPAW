@@ -6,21 +6,19 @@ from gpaw.lcaotddft.observer import TDDFTObserver
 
 
 class WaveFunctionReader(object):
-    def __init__(self, filename, reader=None, wfreader=None):
-        if reader is None:
+    def __init__(self, filename, index=None, wfreader=None):
+        if index is None:
             self.reader = ulm.Reader(filename)
             tag = self.reader.get_tag()
             if tag != WaveFunctionWriter.ulmtag:
                 raise RuntimeError('Unknown tag %s' % tag)
             self.filename = filename
         else:
-            self.reader = reader
+            self.index = index
+            self.reader = wfreader.reader[index]
             self.version = wfreader.version
             self.split = wfreader.split
             self.filename = wfreader.filename
-        if self.split:
-            name, ext = tuple(self.filename.rsplit('.', 1))
-            self.split_filename_fmt = name + '-%06d-%s.' + ext
 
     def __getattr__(self, attr):
         try:
@@ -31,8 +29,7 @@ class WaveFunctionReader(object):
         # Split reader handling
         if attr == 'wave_functions' and self.split:
             if not hasattr(self, 'splitreader'):
-                filename = self.split_filename_fmt % (self.niter, self.action)
-                self.splitreader = ulm.Reader(filename)
+                self.splitreader = ulm.Reader(self.split_filename)
                 tag = self.splitreader.get_tag()
                 assert tag == WaveFunctionWriter.ulmtag_split
             return getattr(self.splitreader, attr)
@@ -41,6 +38,14 @@ class WaveFunctionReader(object):
         if attr == 'split':
             return False
 
+        if attr == 'split_filename':
+            name, ext = tuple(self.filename.rsplit('.', 1))
+            if self.version < 3:
+                fname = '%s-%06d-%s.%s' % (name, self.niter, self.action, ext)
+            else:
+                fname = '%s-%06d.%s' % (name, self.index, ext)
+            return fname
+
         raise AttributeError('Attribute %s not defined in version %s' %
                              (repr(attr), repr(self.version)))
 
@@ -48,7 +53,7 @@ class WaveFunctionReader(object):
         return len(self.reader)
 
     def __getitem__(self, index):
-        return WaveFunctionReader(None, self.reader[index], self)
+        return WaveFunctionReader(None, index, self)
 
     def close(self):
         if hasattr(self, 'splitreader'):
@@ -63,7 +68,7 @@ class WaveFunctionReader(object):
 
 
 class WaveFunctionWriter(TDDFTObserver):
-    version = 2
+    version = 3
     ulmtag = 'WFW'
     ulmtag_split = ulmtag + 'split'
 
@@ -76,10 +81,13 @@ class WaveFunctionWriter(TDDFTObserver):
             self.writer.write(version=self.__class__.version)
             self.writer.write(split=self.split)
             self.writer.sync()
+            self.index = 1
         else:
             # Check the earlier file
             reader = WaveFunctionReader(filename)
+            assert reader.version == self.__class__.version
             self.split = reader.split  # Use the earlier split value
+            self.index = len(reader)
             reader.close()
 
             # Append to earlier file
@@ -88,7 +96,7 @@ class WaveFunctionWriter(TDDFTObserver):
 
         if self.split:
             name, ext = tuple(filename.rsplit('.', 1))
-            self.split_filename_fmt = name + '-%06d-%s.' + ext
+            self.split_filename_fmt = name + '-%06d.' + ext
 
     def _update(self, paw):
         # Write metadata to main writer
@@ -98,7 +106,7 @@ class WaveFunctionWriter(TDDFTObserver):
 
         if self.split:
             # Use separate writer for actual data
-            filename = self.split_filename_fmt % (paw.niter, paw.action)
+            filename = self.split_filename_fmt % self.index
             writer = Writer(filename, paw.world, mode='w',
                             tag=self.__class__.ulmtag_split)
         else:
@@ -111,6 +119,7 @@ class WaveFunctionWriter(TDDFTObserver):
             writer.close()
         # Sync the main writer
         self.writer.sync()
+        self.index += 1
 
     def __del__(self):
         self.writer.close()
