@@ -833,9 +833,17 @@ class PairDensity:
 
         with self.timer('load wfs'):
             psit_nG = kpt.psit_nG
-            ut_nR = wfs.gd.empty(nb - na, wfs.dtype)
+            if wfs.collinear:
+                ut_nR = wfs.gd.empty(nb - na, wfs.dtype)
+            else:
+                ut_nR = wfs.gd.empty((nb - na, 2), wfs.dtype)
             for n in range(na, nb):
-                ut_nR[n - na] = T(wfs.pd.ifft(psit_nG[n], ik))
+                if wfs.collinear:
+                    ut_nR[n - na] = T(wfs.pd.ifft(psit_nG[n], ik))
+                else:
+                    psit_sG = psit_nG[n]
+                    ut_nR[n - na, 0] = T(wfs.pd.ifft(psit_sG[0], ik))
+                    ut_nR[n - na, 1] = T(wfs.pd.ifft(psit_sG[1], ik))
 
         with self.timer('Load projections'):
             P_ani = []
@@ -843,8 +851,12 @@ class PairDensity:
                 P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
                 if time_reversal:
                     P_ni = P_ni.conj()
-                P_ani.append(P_ni)
-
+                if wfs.collinear:
+                    P_ani.append(P_ni)
+                else:
+                    # Move spin to last dim
+                    P_ani.append(P_ni.transpose(0, 2, 1))
+                
         return KPoint(s, K, n1, n2, blocksize, na, nb,
                       ut_nR, eps_n, f_n, P_ani, shift_c)
 
@@ -1074,8 +1086,14 @@ class PairDensity:
             with self.timer('conj'):
                 ut1cc_R = kpt1.ut_nR[n - kpt1.na].conj()
             with self.timer('paw'):
-                C1_aGi = [np.dot(Q_Gii, P1_ni[n - kpt1.na].conj())
-                          for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+                if self.calc.wfs.collinear:
+                    C1_aGi = [np.dot(Q_Gii, P1_ni[n - kpt1.na].conj())
+                              for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+                else:
+                    C1_aGi = [np.reshape(np.dot(Q_Gii,
+                                                P1_ni[n - kpt1.na].conj()),
+                                         (len(Q_G), -1))
+                              for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
                 n_nmG[j, :, 2 * ol * eh:] = cpd(ut1cc_R, C1_aGi, kpt2, pd, Q_G,
                                                 block=block)
             if optical_limit:
@@ -1183,16 +1201,31 @@ class PairDensity:
         dv = pd.gd.dv
         n_mG = pd.empty(kpt2.blocksize)
         myblocksize = kpt2.nb - kpt2.na
+        collinear = self.calc.wfs.collinear
 
         for ut_R, n_G in zip(kpt2.ut_nR, n_mG):
-            n_R = ut1cc_R * ut_R
-            with self.timer('fft'):
-                n_G[:] = pd.fft(n_R, 0, Q_G) * dv
+            if collinear:
+                n_R = ut1cc_R * ut_R
+                with self.timer('fft'):
+                    n_G[:] = pd.fft(n_R, 0, Q_G) * dv
+            else:
+                n_R = ut1cc_R[0] * ut_R[0]
+                with self.timer('fft'):
+                    n_G[:] = pd.fft(n_R, 0, Q_G) * dv
+                n_R = ut1cc_R[1] * ut_R[1]
+                with self.timer('fft'):
+                    n_G += pd.fft(n_R, 0, Q_G) * dv
 
         # PAW corrections:
         with self.timer('gemm'):
-            for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
-                gemm(1.0, C1_Gi, P2_mi, 1.0, n_mG[:myblocksize], 't')
+            if collinear:
+                for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
+                    gemm(1.0, C1_Gi, P2_mi, 1.0, n_mG[:myblocksize], 't')
+            else:
+                for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
+                    gemm(1.0, C1_Gi,
+                         P2_mi.reshape(myblocksize, -1),
+                         1.0, n_mG[:myblocksize], 't')
 
         if not block or self.blockcomm.size == 1:
             return n_mG
@@ -1208,27 +1241,47 @@ class PairDensity:
 
         kd = self.calc.wfs.kd
         gd = self.calc.wfs.gd
+        collinear = self.calc.wfs.collinear
         k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
         atomdata_a = self.calc.wfs.setups
-        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
-                 for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
+        if collinear:
+            C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
+                     for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
+        else:
+            C_avi = [np.dot(atomdata.nabla_iiv.T,
+                            P_ni[n - kpt1.na]).reshape(3, -1)
+                     for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
 
         blockbands = kpt2.nb - kpt2.na
         n0_mv = np.empty((kpt2.blocksize, 3), dtype=complex)
         nt_m = np.empty(kpt2.blocksize, dtype=complex)
-        n0_mv[:blockbands] = -self.calc.wfs.gd.integrate(ut_vR,
-                                                         kpt2.ut_nR).T
-        nt_m[:blockbands] = self.calc.wfs.gd.integrate(kpt1.ut_nR[n - kpt1.na],
-                                                       kpt2.ut_nR)
+        if collinear:
+            n0_mv[:blockbands] = -gd.integrate(ut_vR,
+                                               kpt2.ut_nR).T
+            nt_m[:blockbands] = gd.integrate(kpt1.ut_nR[n - kpt1.na],
+                                             kpt2.ut_nR)
+            n0_mv[:blockbands] += (1j * nt_m[:blockbands, np.newaxis] *
+                                   k_v[np.newaxis, :])
+            for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
+                gemm(1.0, C_vi, P_mi, 1.0, n0_mv[:blockbands], 'c')
+        else:
+            n0_mv[:blockbands] = -(gd.integrate(ut_vR[:, 0],
+                                                kpt2.ut_nR[:, 0])
+                                   + gd.integrate(ut_vR[:, 1],
+                                                  kpt2.ut_nR[:, 1])).T
 
-        n0_mv[:blockbands] += (1j * nt_m[:blockbands, np.newaxis] *
-                               k_v[np.newaxis, :])
-
-        for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
-            gemm(1.0, C_vi, P_mi, 1.0, n0_mv[:blockbands], 'c')
+            nt_m[:blockbands] = (gd.integrate(kpt1.ut_nR[n - kpt1.na, 0],
+                                              kpt2.ut_nR[:, 0]) +
+                                 gd.integrate(kpt1.ut_nR[n - kpt1.na, 1],
+                                              kpt2.ut_nR[:, 1]))
+            n0_mv[:blockbands] += (1j * nt_m[:blockbands, np.newaxis] *
+                                   k_v[np.newaxis, :])
+            for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
+                gemm(1.0, C_vi, P_mi.reshape(blockbands, -1),
+                     1.0, n0_mv[:blockbands], 'c')
 
         if block and self.blockcomm.size > 1:
             n0_Mv = np.empty((kpt2.blocksize * self.blockcomm.size, 3),
@@ -1274,6 +1327,7 @@ class PairDensity:
         # Load kpoints
         kd = self.calc.wfs.kd
         gd = self.calc.wfs.gd
+        collinear = self.calc.wfs.collinear
         k_c = kd.bzk_kc[kpt.K] + kpt.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
         atomdata_a = self.calc.wfs.setups
@@ -1319,7 +1373,11 @@ class PairDensity:
         # Calculate matrix elements by diagonalizing each block
         for ind_n in degchunks_cn:
             deg = len(ind_n)
-            ut_nvR = self.calc.wfs.gd.zeros((deg, 3), complex)
+            if collinear:
+                ut_nvR = self.calc.wfs.gd.zeros((deg, 3), complex)
+            else:
+                ut_nvR = self.calc.wfs.gd.zeros((deg, 3, 2), complex)
+
             vel_nnv = np.zeros((deg, deg, 3), dtype=complex)
             # States are included starting from kpt.na
             ut_nR = kpt.ut_nR[ind_n - na]
@@ -1332,15 +1390,29 @@ class PairDensity:
             # Treat the whole degenerate chunk
             for n in range(deg):
                 ut_vR = ut_nvR[n]
-                C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[ind_n[n] - na])
-                         for atomdata, P_ni in zip(atomdata_a, kpt.P_ani)]
+                if collinear:
+                    C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[ind_n[n] - na])
+                             for atomdata, P_ni in zip(atomdata_a, kpt.P_ani)]
+                    nabla0_nv = -self.calc.wfs.gd.integrate(ut_vR, ut_nR).T
+                    nt_n = self.calc.wfs.gd.integrate(ut_nR[n], ut_nR)
+                    nabla0_nv += 1j * nt_n[:, np.newaxis] * k_v[np.newaxis, :]
 
-                nabla0_nv = -self.calc.wfs.gd.integrate(ut_vR, ut_nR).T
-                nt_n = self.calc.wfs.gd.integrate(ut_nR[n], ut_nR)
-                nabla0_nv += 1j * nt_n[:, np.newaxis] * k_v[np.newaxis, :]
+                    for C_vi, P_ni in zip(C_avi, kpt.P_ani):
+                        gemm(1.0, C_vi, P_ni[ind_n - na], 1.0, nabla0_nv, 'c')
+                else:
+                    C_avi = [np.dot(atomdata.nabla_iiv.T,
+                                    P_ni[ind_n[n] - na]).reshape(3, -1)
+                             for atomdata, P_ni in zip(atomdata_a, kpt.P_ani)]
+                    nabla0_nv = -(gd.integrate(ut_vR[:, 0], ut_nR[:, 0]) +
+                                  gd.integrate(ut_vR[:, 1], ut_nR[:, 1])).T
+                    nt_n = (gd.integrate(ut_nR[n, 0], ut_nR[:, 0]) +
+                            gd.integrate(ut_nR[n, 1], ut_nR[:, 1]))
+                    nabla0_nv += 1j * nt_n[:, np.newaxis] * k_v[np.newaxis, :]
 
-                for C_vi, P_ni in zip(C_avi, kpt.P_ani):
-                    gemm(1.0, C_vi, P_ni[ind_n - na], 1.0, nabla0_nv, 'c')
+                    for C_vi, P_ni in zip(C_avi, kpt.P_ani):
+                        gemm(1.0, C_vi,
+                             P_ni[ind_n - na].reshape(deg, -1),
+                             1.0, nabla0_nv, 'c')
 
                 vel_nnv[n] = -1j * nabla0_nv
 
@@ -1526,7 +1598,10 @@ class PairDensity:
         kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
         psit_nG = kpt.psit_nG
         iG_Gv = 1j * wfs.pd.get_reciprocal_vectors(q=ik, add_q=False)
-        ut_nvR = wfs.gd.zeros((n2 - n1, 3), complex)
+        if wfs.collinear:
+            ut_nvR = wfs.gd.zeros((n2 - n1, 3), complex)
+        else:
+            ut_nvR = wfs.gd.zeros((n2 - n1, 3, 2), complex)
         for n in range(n1, n2):
             for v in range(3):
                 if self.real_space_derivatives:
@@ -1534,8 +1609,15 @@ class PairDensity:
                     grad_v[v](ut_R, ut_nvR[n - n1, v],
                               np.ones((3, 2), complex))
                 else:
-                    ut_R = T(wfs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
-                    for v2 in range(3):
-                        ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
-
+                    if wfs.collinear:
+                        ut_R = T(wfs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
+                        for v2 in range(3):
+                            ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
+                    else:
+                        psit_sG = psit_nG[n]
+                        ut_R = [T(wfs.pd.ifft(iG_Gv[:, v] * psit_sG[0], ik)),
+                                T(wfs.pd.ifft(iG_Gv[:, v] * psit_sG[1], ik))]
+                        for v2 in range(3):
+                            ut_nvR[n - n1, v2, 0] += ut_R[0] * M_vv[v, v2]
+                            ut_nvR[n - n1, v2, 1] += ut_R[1] * M_vv[v, v2]
         return ut_nvR
