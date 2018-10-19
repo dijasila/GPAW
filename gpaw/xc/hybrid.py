@@ -353,7 +353,7 @@ class HybridXC(HybridXCBase):
                             # XXX Check this:
                             v_nii[n1] = f1 * v_ii
                             if self.excitation is not None and n1 == ex_band:
-                                for nuoc in xrange(nocc, nbands):
+                                for nuoc in range(nocc, nbands):
                                     v_ni[nuoc] += f1 * \
                                         np.dot(v_ii, P_ni[nuoc])
 
