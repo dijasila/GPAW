@@ -1330,8 +1330,9 @@ class PWLFC(BaseLFC):
         self.initialized = False
 
         # These will be filled in later:
-        self.lf_aj = []
+        self.lf_aj = []  # type: List[Tuple(int, float)]
         self.Y_qLG = []
+        self.emiGR_qGa = []
 
         if blocksize is not None:
             if pd.ngmax <= blocksize:
@@ -1353,6 +1354,7 @@ class PWLFC(BaseLFC):
         self.comm = comm
 
     def initialize(self):
+        """Initialize position-independent stuff."""
         if self.initialized:
             return
 
@@ -1411,6 +1413,12 @@ class PWLFC(BaseLFC):
 
         self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
 
+        del self.emiGR_qGa[:]
+        G_Qv = self.pd.G_Qv
+        for Q_G in self.pd.Q_qG:
+            GR_Ga = np.dot(G_Qv[Q_G], self.pos_av.T)
+            self.emiGR_qGa.append(np.exp(-1j * GR_Ga))
+
         if atom_partition is None:
             assert self.comm.size == 1
             rank_a = np.zeros(len(spos_ac), int)
@@ -1428,20 +1436,19 @@ class PWLFC(BaseLFC):
             I1 = I2
         self.nI = I1
 
-    def old_expand(self, q=-1, G1=0, G2=None):
+    def expand(self, q=-1, G1=0, G2=None):
         # Pure-Python version of expand().  Left here for testing.
         if G2 is None:
             G2 = self.Y_qLG[q].shape[1]
-        f_IG = np.empty((self.nI, G2 - G1), complex)
-        emiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Qv[self.pd.Q_qG[q][G1:G2]],
-                                       self.pos_av.T))
+        f_GI = np.empty((G2 - G1, self.nI), complex)
+        emiGR_Ga = self.emiGR_qGa[q]
         for a, j, i1, i2, I1, I2 in self:
             l, f_qG = self.lf_aj[a][j]
-            f_IG[I1:I2] = (emiGR_Ga[:, a] * f_qG[q][G1:G2] * (-1.0j)**l *
-                           self.Y_qLG[q][l**2:(l + 1)**2, G1:G2])
-        return f_IG
+            f_GI[:, I1:I2] = (emiGR_Ga[:, a] * f_qG[q][G1:G2] * (-1.0j)**l *
+                              self.Y_qLG[q][l**2:(l + 1)**2, G1:G2]).T
+        return f_GI
 
-    def expand(self, q=-1, G1=0, G2=None):
+    def expand0(self, q=-1, G1=0, G2=None):
         if G2 is None:
             G2 = self.Y_qLG[q].shape[1]
         G_Qv = self.pd.G_Qv[self.pd.myQ_qG[q][G1:G2]]
