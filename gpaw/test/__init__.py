@@ -72,25 +72,6 @@ def gen(symbol, exx=False, name=None, yukawa_gamma=None, **kwargs):
     return setup
 
 
-def wrap_pylab(names=[]):
-    """Use Agg backend and prevent windows from popping up."""
-    import matplotlib
-    matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
-    import ase.visualize
-
-    def show(names=names):
-        if names:
-            name = names.pop(0)
-        else:
-            name = 'fig.png'
-        plt.savefig(name)
-
-    plt.show = show
-
-    ase.visualize.view = lambda *args, **kwargs: None
-
-
 tests = [
     'linalg/gemm_complex.py',
     'ase_features/ase3k_version.py',
