@@ -9,7 +9,7 @@ system.pbc = 1
 
 
 for mode in ['fd',
-             'pw',
+             # 'pw',
              'lcao'
              ]:
     energy = []
@@ -30,6 +30,7 @@ for mode in ['fd',
                     basis='szp(dzp)',
                     kpts=[1, 1, 4],
                     nbands=8)
+
         def stopcalc():
             calc.scf.converged = True
         # Iterate enough for density to update so it depends on potential
