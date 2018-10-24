@@ -1,7 +1,7 @@
 from __future__ import print_function
 from ase.build import molecule
 from gpaw import GPAW
-from gpaw.poisson import PoissonSolver
+from gpaw.poisson import FDPoissonSolver as PoissonSolver
 from gpaw.atom.basis import BasisMaker
 from gpaw.test import equal
 

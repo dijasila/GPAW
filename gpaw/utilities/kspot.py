@@ -20,7 +20,7 @@ def get_scaled_positions(atoms, positions):
 
     scaled = np.linalg.solve(atoms.cell.T, positions.T).T
     for i in range(3):
-        if atoms._pbc[i]:
+        if atoms.pbc[i]:
             scaled[i] %= 1.0
     return scaled
 
