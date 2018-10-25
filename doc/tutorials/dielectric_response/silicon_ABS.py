@@ -15,19 +15,19 @@ atoms = bulk('Si', 'diamond', a=a)
 
 calc = GPAW(mode='pw',
             kpts={'density': 5.0, 'gamma': True},
-            parallel={'band': 1},
+            parallel={'band': 1, 'domain': 1},
             xc='LDA',
-            occupations=FermiDirac(0.001))  # Use small FD smearing
+            occupations=FermiDirac(0.001))  # use small FD smearing
 
 atoms.set_calculator(calc)
-atoms.get_potential_energy()  # Get ground state density
+atoms.get_potential_energy()  # get ground state density
 
 # Restart Calculation with fixed density and dense kpoint sampling
-calc.set(kpts={'density': 15.0, 'gamma': False},  # Dense kpoint sampling
+calc.set(kpts={'density': 15.0, 'gamma': False},  # dense kpoint sampling
          fixdensity=True)
 atoms.get_potential_energy()
-calc.diagonalize_full_hamiltonian(nbands=70)  # Diagonalize Hamiltonian
-calc.write('si_large.gpw', 'all')  # Write wavefunctions
+calc.diagonalize_full_hamiltonian(nbands=70)  # diagonalize Hamiltonian
+calc.write('si_large.gpw', 'all')  # write wavefunctions
 
 # Getting absorption spectrum
 df = DielectricFunction(calc='si_large.gpw',
@@ -47,8 +47,8 @@ df = DielectricFunction(calc='si_large.gpw',
 epsNLF, epsLF = df.get_macroscopic_dielectric_constant()
 
 # Make table
-epsrefNLF = 14.08  # From [1] in top
-epsrefLF = 12.66  # From [1] in top
+epsrefNLF = 14.08  # from [1] in top
+epsrefLF = 12.66  # from [1] in top
 
 with paropen('mac_eps.csv', 'w') as f:
     print(' , Without LFE, With LFE', file=f)
