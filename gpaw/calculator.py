@@ -857,7 +857,8 @@ class GPAW(PAW, Calculator):
         # (Actually it depends on stencils!  But let the user deal with it)
         N_c = big_gd.get_size_of_global_array(pad=True)
         too_small = np.any(N_c / big_gd.parsize_c < 8)
-        if self.parallel['augment_grids'] and not too_small:
+        if (self.parallel['augment_grids'] and not too_small and
+            mode.name != 'pw'):
             aux_gd = big_gd
         else:
             aux_gd = gd
