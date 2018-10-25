@@ -125,8 +125,6 @@ class PWDescriptor:
     def __init__(self, ecut, gd, dtype=None, kd=None,
                  fftwflags=fftw.ESTIMATE):
 
-        from ase.utils.timing import Timer
-        self.timer = Timer()
         assert gd.pbc_c.all()
 
         self.gd = gd
@@ -308,8 +306,7 @@ class PWDescriptor:
             if Q_G is None:
                 q = q or 0
                 Q_G = self.Q_qG[q]
-            with self.timer('HMM rav'):
-                f_G = self.tmp_Q.ravel()[Q_G]
+            f_G = self.tmp_Q.ravel()[Q_G]
             if local:
                 return f_G
         else:
@@ -336,14 +333,13 @@ class PWDescriptor:
         comm = self.gd.comm
         scale = 1.0 / self.tmp_R.size
         if comm.rank == 0 or local:
-            with self.timer('HMM :'):
-                # Same as:
-                #
-                #    self.tmp_Q[:] = 0.0
-                #    self.tmp_Q.ravel()[self.Q_qG[q]] = scale * c_G
-                #
-                # but much faster:
-                _gpaw.pw_insert(c_G, self.Q_qG[q], scale, self.tmp_Q)
+            # Same as:
+            #
+            #    self.tmp_Q[:] = 0.0
+            #    self.tmp_Q.ravel()[self.Q_qG[q]] = scale * c_G
+            #
+            # but much faster:
+            _gpaw.pw_insert(c_G, self.Q_qG[q], scale, self.tmp_Q)
             if self.dtype == float:
                 t = self.tmp_Q[:, :, 0]
                 n, m = self.gd.N_c[:2] // 2 - 1
@@ -749,7 +745,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.timer.start('PWDescriptor')
         self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.kd,
                                self.fftwflags)
-        self.pd.timer=self.timer
         self.timer.stop('PWDescriptor')
 
         # Build array of number of plane wave coefficiants for all k-points
@@ -1686,8 +1681,6 @@ class ReciprocalSpaceDensity(Density):
 
     def initialize(self, setups, timer, magmom_av, hund):
         Density.initialize(self, setups, timer, magmom_av, hund)
-        self.pd2.timer=self.timer
-        self.pd3.timer=self.timer
 
         spline_aj = []
         for setup in setups:
