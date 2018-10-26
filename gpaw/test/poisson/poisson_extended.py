@@ -1,6 +1,6 @@
 import numpy as np
 
-from gpaw.poisson import PoissonSolver
+from gpaw.poisson import FDPoissonSolver as PoissonSolver
 from gpaw.poisson_extended import ExtendedPoissonSolver
 from gpaw.grid_descriptor import GridDescriptor
 

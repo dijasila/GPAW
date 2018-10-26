@@ -305,13 +305,16 @@ class PAWSetupGenerator:
     def __init__(self, aea, projectors,
                  scalar_relativistic=False,
                  core_hole=None,
-                 fd=None):
+                 fd=None, yukawa_gamma=0.0):
         """fd: stream
-            Text output."""
+            Text output.
+            
+           yukawa_gamma: separation parameter for RSF"""
 
         self.aea = aea
 
         self.fd = fd or sys.stdout
+        self.yukawa_gamma = yukawa_gamma
 
         if core_hole:
             state, occ = core_hole.split(',')
@@ -1074,6 +1077,9 @@ class PAWSetupGenerator:
         self.calculate_exx_integrals()
         setup.ExxC = self.exxcc
         setup.X_p = pack2(self.exxcv_ii[I][:, I])
+        if self.yukawa_gamma > 0.0:
+            self.calculate_yukawa_integrals()
+            setup.X_pg = pack2(self.exxgcv_ii[I][:, I])
 
         setup.tauc_g = self.tauc_g * (4 * pi)**0.5
         setup.tauct_g = self.tauct_g * (4 * pi)**0.5
@@ -1105,7 +1111,7 @@ class PAWSetupGenerator:
 
         return setup
 
-    def calculate_exx_integrals(self):
+    def find_core_states(self):
         # Find core states:
         core = []
         lmax = 0
@@ -1120,6 +1126,11 @@ class PAWSetupGenerator:
 
         lmax = max(lmax, len(self.waves_l) - 1)
         G_LLL = gaunt(lmax)
+
+        return lmax, core, G_LLL
+
+    def calculate_exx_integrals(self):
+        (lmax, core, G_LLL) = self.find_core_states()
 
         # Calculate core contribution to EXX energy:
         self.exxcc = 0.0
@@ -1144,7 +1155,20 @@ class PAWSetupGenerator:
         ni = sum(len(waves) * (2 * l + 1)
                  for l, waves in enumerate(self.waves_l))
 
-        self.exxcv_ii = np.zeros((ni, ni))
+        self.exxcv_ii = self.calculate_exx_cv_integrals(ni)
+
+    def calculate_yukawa_integrals(self):
+        """Wrapper to calculate the rsf core-valence contribution."""
+        ni = sum(len(waves) * (2 * l + 1)
+                 for l, waves in enumerate(self.waves_l))
+
+        self.exxgcv_ii = self.calculate_exx_cv_integrals(ni,
+                                                         self.yukawa_gamma)
+
+    def calculate_exx_cv_integrals(self, ni, yukawa_gamma=0.0):
+        """Calculate exx (and rsf) core-valences."""
+        (lmax, core, G_LLL) = self.find_core_states()
+        cv_ii = np.zeros((ni, ni))
 
         i1 = 0
         for l1, waves1 in enumerate(self.waves_l):
@@ -1159,7 +1183,14 @@ class PAWSetupGenerator:
                                 n_g = phi1_g * phi_g
                                 for l in range((l1 + lc) % 2,
                                                max(l1, l2) + lc + 1, 2):
-                                    vr_g = self.rgd.poisson(phi2_g * phi_g, l)
+                                    n2c = phi2_g * phi_g
+                                    if yukawa_gamma > 0.0:
+                                        vr_g = \
+                                            self.rgd.yukawa(n2c, l,
+                                                            yukawa_gamma)
+                                    else:
+                                        vr_g = \
+                                            self.rgd.poisson(n2c, l)
                                     e = (self.rgd.integrate(vr_g * n_g, -1) /
                                          (4 * pi))
                                     for mc in range(2 * lc + 1):
@@ -1172,6 +1203,7 @@ class PAWSetupGenerator:
                                                 G_L[l2**2:(l2 + 1)**2]) * e
                         i2 += 2 * l2 + 1
                 i1 += 2 * l1 + 1
+        return cv_ii
 
 
 def get_parameters(symbol, args):
@@ -1236,18 +1268,19 @@ def get_parameters(symbol, args):
                 r0=r0, nderiv0=nderiv0,
                 pseudize=pseudize, rcore=rcore,
                 core_hole=args.core_hole,
-                output=args.output)
+                output=args.output,
+                yukawa_gamma=args.gamma)
 
 
 def _generate(symbol, xc, configuration, projectors, radii,
               scalar_relativistic, alpha,
               r0, nderiv0,
-              pseudize, rcore, core_hole, output):
+              pseudize, rcore, core_hole, output, yukawa_gamma=0.0):
     if isinstance(output, str):
         output = open(output, 'w')
     aea = AllElectronAtom(symbol, xc, configuration=configuration, log=output)
     gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole,
-                            fd=output)
+                            fd=output, yukawa_gamma=yukawa_gamma)
 
     gen.construct_shape_function(alpha, radii, eps=1e-10)
     gen.calculate_core_density()
@@ -1318,6 +1351,7 @@ class CLICommand:
         add('-n', '--no-check', action='store_true')
         add('-t', '--tag', type=str)
         add('-a', '--alpha', type=float)
+        add('-g', '--gamma', type=float, default=0.0)
         add('-b', '--create-basis-set', action='store_true')
         add('--nlcc', action='store_true',
             help='Use NLCC-style pseudo core density '

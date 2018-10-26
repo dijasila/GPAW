@@ -36,4 +36,4 @@ for i in range(1):
 print(e, niter)
 energy_tolerance = 0.00015
 niter_tolerance = 0
-equal(e, -44.69217, energy_tolerance)
+equal(e, -44.69201012775006, energy_tolerance)

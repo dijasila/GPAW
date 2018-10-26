@@ -77,7 +77,7 @@ lih.calc = GPAW(external=pc,
                 eigensolver=Davidson(2),
                 mixer=Mixer(0.8, 5, 20.0),
                 xc='oldLDA',
-                poissonsolver=PoissonSolver(relax='GS'),
+                poissonsolver=PoissonSolver(),
                 convergence=dict(density=3e-6),
                 txt='lih-pc.txt')
 f1 = lih.get_forces()

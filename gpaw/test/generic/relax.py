@@ -14,7 +14,8 @@ molecule = Atoms('H2',
                   (c + d / 2, c, c)],
                  cell=(a, a, a),
                  pbc=False)
-calc = GPAW(h=0.2, nbands=1, xc='PBE', txt=None)
+calc = GPAW(h=0.2, nbands=1, xc='PBE', txt=None,
+            poissonsolver={'name': 'fd'})
 molecule.set_calculator(calc)
 e1 = molecule.get_potential_energy()
 niter1 = calc.get_number_of_iterations()

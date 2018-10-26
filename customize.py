@@ -32,7 +32,7 @@ To append use the form
 # mpicompiler = 'mpicc'  # use None if you don't want to build a gpaw-python
 # mpilinker = 'mpicc'
 # platform_id = ''
-scalapack = not False
+scalapack = False
 
 # Use ScaLAPACK:
 # Warning! At least scalapack 2.0.1 is required!

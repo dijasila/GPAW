@@ -160,7 +160,8 @@ def compare(f1, f2):
             data.append((d2[name1] - t1, t1, name1))
     for dt, t, name in sorted(data):
         name = name.split('agts/gpaw/')[1]
-        print(f'{dt:+10.1f} {dt / t * 100:+6.1f} {t:10.1f} {name}')
+        print('{dt:+10.1f} {dt / t * 100:+6.1f} {t:10.1f} {name}'
+              .format(**locals()))
 
 
 if __name__ == '__main__':

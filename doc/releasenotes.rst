@@ -11,7 +11,14 @@ Git master branch
 :git:`master <>`.
 
 * Corresponding ASE release: ASE-3.16.1b1
-* Solvated jellium method has been implemented, see :ref:`the documentation <solvated_jellium_method>`
+
+* PW-mode calculations can now be parallelizer over plane-wave coefficients.
+
+* Solvated jellium method has been implemented, see
+  :ref:`the documentation <solvated_jellium_method>`
+
+* Added FastPoissonSolver which is faster and works well for any cell.
+  This replaces the old Poisson solver as default Poisson solver.
 
 
 Version 1.4.0

@@ -1,3 +1,5 @@
+import sys
+
 import ase.db
 from ase.optimize.test.test import (test_optimizer, all_optimizers,
                                     get_optimizer)
@@ -16,6 +18,11 @@ def lcao(txt):
 
 
 systems = [(row.name, row.toatoms()) for row in db1.select()]
+
+if len(sys.argv) > 1:
+    optimizers = sys.argv[1:]
+else:
+    optimizers = all_optimizers
 
 for opt in all_optimizers:
     optimizer = get_optimizer(opt)

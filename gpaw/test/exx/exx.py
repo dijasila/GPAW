@@ -1,7 +1,7 @@
 """Test EXX/HFT implementation."""
 from __future__ import print_function
 from ase import Atoms
-from gpaw import GPAW, PoissonSolver
+from gpaw import GPAW
 from gpaw.test import equal
 
 be2 = Atoms('Be2', [(0, 0, 0), (2.45, 0, 0)])
@@ -10,16 +10,15 @@ calc = GPAW(h=0.21,
             eigensolver='rmm-diis',
             nbands=3,
             convergence={'eigenstates': 1e-6},
-            poissonsolver=PoissonSolver(nn='M', relax='J'),
             txt='exx.txt')
 
 be2.set_calculator(calc)
 
 ref_1871 = {  # Values from revision 1871. Not true reference values
     # xc         Energy          eigenvalue 0    eigenvalue 1
-    'PBE': (5.427450, -3.84092, -0.96192),
+    'PBE': (5.424066548470926, -3.84092, -0.96192),
     'PBE0': (-790.919942, -4.92321, -1.62948),
-    'EXX': (-785.580737092, -7.16802337336, -2.72602997017)
+    'EXX': (-785.5837828306236, -7.16802337336, -2.72602997017)
     }
 
 from gpaw.xc import XC
