@@ -7,7 +7,6 @@ df = DielectricFunction(calc='WSe2_gs_fulldiag.gpw',
                         omega2=10.0,
                         nblocks=8,
                         ecut=150,
-                        name='WSe2_response_',
                         truncation='2D')
 
 buildingblock = BuildingBlock('WSe2', df, qmax=3.)
