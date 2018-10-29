@@ -1672,9 +1672,6 @@ class ReciprocalSpaceDensity(Density):
 
         self.map23 = PWMapping(self.pd2, self.pd3)
 
-        # self.xc_redistributor = GridRedistributor(redistributor.comm,
-        #                                           redistributor.comm,
-        #                                           serial_finegd, finegd)
         self.nct_q = None
         self.nt_Q = None
         self.rhot_q = None
@@ -1835,6 +1832,12 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vt_Q = None
         self.estress = None
 
+    @property
+    def xc_gd(self):
+        if self.xc_redistributor is None:
+            return self.finegd
+        return self.xc_redistributor.aux_gd
+
     def set_positions(self, spos_ac, atom_partition):
         Hamiltonian.set_positions(self, spos_ac, atom_partition)
         self.vbar_Q = self.pd2.zeros()
@@ -1861,12 +1864,21 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         self.timer.start('XC 3D grid')
 
+
+        nt_xg = dens.nt_xg
+
+        # If we have a redistributor, we want to do the
+        # good old distribute-calculate-collect:
         redist = self.xc_redistributor
-        nt_dist_xg = redist.distribute(dens.nt_xg)
-        vxct_dist_xg = np.zeros_like(nt_dist_xg)
-        exc = self.xc.calculate(redist.aux_gd, nt_dist_xg, vxct_dist_xg)
+        if redist is not None:
+            nt_xg = redist.distribute(nt_xg)
+
+        vxct_xg = np.zeros_like(nt_xg)
+        exc = self.xc.calculate(self.xc_gd, nt_xg, vxct_xg)
         exc /= self.finegd.comm.size
-        vxct_xg = redist.collect(vxct_dist_xg)
+
+        if redist is not None:
+            vxct_xg = redist.collect(vxct_xg)
 
         x = 0
         for vt_G, vxct_g in zip(self.vt_xG, vxct_xg):
