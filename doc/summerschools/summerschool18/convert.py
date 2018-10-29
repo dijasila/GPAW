@@ -1,3 +1,6 @@
+# creates: batteries/batteries1.ipynb
+# creates: batteries/batteries2.ipynb
+# creates: batteries/batteries3.ipynb
 # creates: catalysis/n2_on_metal.ipynb, catalysis/neb.ipynb
 # creates: catalysis/vibrations.ipynb
 # creates: magnetism/magnetism1.ipynb, magnetism/magnetism2.ipynb
