@@ -1,15 +1,18 @@
 # Creates: systems.db
+from ase.optimize.test.test import all_optimizers
 
 
 def create_tasks():
     from myqueue.task import task
-    return [task('agts.py'),
-            task('run_tests_emt.py', deps='agts.py'),
-            task('run_tests.py+1@8:1d', deps='agts.py'),
-            task('run_tests.py+2@8:1d', deps='agts.py'),
-            task('analyze.py',
-                 deps=['run_tests_emt.py',
-                       'run_tests.py+1', 'run_tests.py+2'])]
+    tasks = [task('agts.py'),
+             task('run_tests_emt.py', deps='agts.py')]
+    deps = ['run_tests_emt.py']
+    for name in all_optimizers:
+        tasks.append(task('run_tests.py+{}@8:1d'.format(name),
+                          deps='agts.py'))
+        deps.append('run_tests.py+{}'.format(name))
+    tasks.append(task('analyze.py', deps=deps))
+    return tasks
 
 
 if __name__ == '__main__':
