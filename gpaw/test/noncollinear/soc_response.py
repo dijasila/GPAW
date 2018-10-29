@@ -30,31 +30,9 @@ def getspinorbitcalc(calc, soc=True):
     socalc = GPAW(**params)
     socalc.initialize(atoms=atoms, reading=True)
     socalc.set_positions()
-    # socalc.wfs.eigensolver.initialize(socalc.wfs)
-
-    # socalc.initialize_positions(atoms)
-    # socalc.hamiltonian.initialize()
-    # wfs = socalc.wfs
-
-    # basis_functions = BasisFunctions(wfs.gd,
-    #                                  [setup.phit_j
-    #                                   for setup in wfs.setups],
-    #                                  wfs.kd, dtype=wfs.dtype,
-    #                                  cut=True)
-    # basis_functions.set_positions(socalc.spos_ac)
-    # socalc.density.initialize_from_atomic_densities(basis_functions)
-    # wfs.initialize_wave_functions_from_basis_functions(
-    #     basis_functions, socalc.density, socalc.hamiltonian, socalc.spos_ac)
-    # hamiltonian.update(density)
-
-    # wfs.eigensolver.reset()
-    # socalc.scf.reset()
-
     # Now set the wavefunctions
     for kpt, sokpt in zip(calc.wfs.kpt_u, socalc.wfs.kpt_u):
-
         sokpt.psit_nG[:] = 0
-        print(sokpt.psit_nG.shape)
         for s in [0, 1]:
             sokpt.psit_nG[s::2, s, :] = kpt.psit_nG[:]
         sokpt.eps_n = np.repeat(kpt.eps_n, 2)
@@ -62,13 +40,19 @@ def getspinorbitcalc(calc, soc=True):
         P = sokpt.P
         sokpt.psit.matrix_elements(socalc.wfs.pt, out=P)
 
+    # Calculate occupations
     socalc.occupations.fermilevel = calc.occupations.fermilevel
     socalc.occupations.calculate(socalc.wfs)
 
+    # Calculate density
     socalc.density.initialize_from_wavefunctions(socalc.wfs)
+    # For some reason we also need update the density...
     socalc.density.update(socalc.wfs)
     socalc.hamiltonian.update(socalc.density)
+    # We need to initialize the eigensolver
     socalc.wfs.eigensolver.initialize(socalc.wfs)
+
+    # Diagonalize the hamiltonian
     for sokpt in socalc.wfs.kpt_u:
         socalc.wfs.eigensolver.subspace_diagonalize(
             socalc.hamiltonian, socalc.wfs, sokpt)
@@ -102,7 +86,7 @@ def readcalc(calc):
 # calc.write('mos2_soc_wfs.gpw', mode='all')
 
 socalc = getspinorbitcalc('mos2_nosoc_wfs.gpw', soc=False)
-socalc.write('mos2_soc_wfs.gpw')
+socalc.write('mos2_soc_wfs.gpw', mode='all')
 socalc2 = readcalc('mos2_soc_wfs.gpw')
 calc = readcalc('mos2_nosoc_wfs.gpw')
 
@@ -128,5 +112,5 @@ for kpt, sokpt, sokpt1 in zip(calc.wfs.kpt_u,
     # print('max(eps_n - eps1_n)', np.abs(eps_n - eps1_n).max())
     print('max(eps_n - eps0_n)', np.abs(eps_n[0::2] - eps0_n).max())
 
-# df = DielectricFunction('mos2_soc_wfs.gpw')
-# df.get_dielectric_function()
+df = DielectricFunction('mos2_soc_wfs.gpw')
+df.get_dielectric_function()
