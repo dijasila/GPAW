@@ -1804,11 +1804,10 @@ def integrate(pd, a, b):
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, collinear,
-                 setups, timer, xc, world, vext=None,
+                 setups, timer, xc, world, xc_redistributor,
+                 vext=None,
                  psolver=None, redistributor=None, realpbc_c=None):
 
-        # assert gd.comm.size == 1
-        # assert finegd.comm.size == 1
         assert redistributor is not None  # XXX should not be like this
         Hamiltonian.__init__(self, gd, finegd, nspins, collinear, setups,
                              timer, xc, world, vext=vext,
@@ -1817,6 +1816,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)
         self.pd2 = pd2
         self.pd3 = pd3
+        self.xc_redistributor = xc_redistributor
 
         self.vHt_q = pd3.empty()
 
@@ -1860,11 +1860,13 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
-        nt_dist_xg = dens.nt_xg
+
+        redist = self.xc_redistributor
+        nt_dist_xg = redist.distribute(dens.nt_xg)
         vxct_dist_xg = np.zeros_like(nt_dist_xg)
-        exc = self.xc.calculate(dens.finegd, nt_dist_xg, vxct_dist_xg)
+        exc = self.xc.calculate(redist.aux_gd, nt_dist_xg, vxct_dist_xg)
         exc /= self.finegd.comm.size
-        vxct_xg = vxct_dist_xg
+        vxct_xg = redist.collect(vxct_dist_xg)
 
         x = 0
         for vt_G, vxct_g in zip(self.vt_xG, vxct_xg):
