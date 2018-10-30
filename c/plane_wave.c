@@ -46,78 +46,48 @@ PyObject *pw_insert(PyObject *self, PyObject *args)
 
 PyObject *pwlfc_expand(PyObject *self, PyObject *args)
 {
-    PyArrayObject *G_Qv_obj, *pos_av_obj; //*aji1i2I1I2_obj;
-    PyObject *lf_aj_obj;
-    PyArrayObject *Y_LG_obj;
-    int q, G1, G2;
+    PyArrayObject *f_Gs_obj;
+    PyArrayObject *emiGR_Ga_obj;
+    PyArrayObject *Y_GL_obj;
+    PyArrayObject *l_s_obj;
+    PyArrayObject *a_J_obj;
+    PyArrayObject *s_J_obj;
+    PyArrayObject *f_GI_obj;
 
-    PyArrayObject *emiGR_G_obj, *f_IG_obj;
-
-    if (!PyArg_ParseTuple(args, "OOOOiiiOO", &G_Qv_obj, &pos_av_obj,
-                          &lf_aj_obj, &Y_LG_obj,
-                          &q, &G1, &G2, &f_IG_obj, &emiGR_G_obj))
+    if (!PyArg_ParseTuple(args, "OOOOOOO",
+                          &f_Gs_obj, &emiGR_Ga_obj, &Y_GL_obj,
+                          &l_s_obj, &a_J_obj, &s_J_obj,
+                          &f_GI_obj))
         return NULL;
 
-    if(q == -1) {
-        q = 0;
-    }
+    double complex *f_Gs_ = PyArray_DATA(f_Gs_obj);
+    double complex *emiGR_Ga = PyArray_DATA(emiGR_Ga_obj);
+    double *Y_GL = PyArray_DATA(Y_GL_obj);
+    npy_int32 *l_s = PyArray_DATA(l_s_obj);
+    npy_int32 *a_J = PyArray_DATA(s_J_obj);
+    npt_int32 *s_J_ = PyArray_DATA(s_J_obj);
+    double complex *f_GI = PyArray_DATA(f_GI_obj);
 
-    double *G_Qv = PyArray_DATA(G_Qv_obj);
-    double *pos_av = PyArray_DATA(pos_av_obj);
-    double complex *emiGR_G = PyArray_DATA(emiGR_G_obj);
-    double complex *f_IG = PyArray_DATA(f_IG_obj);
-    double *Y_LG = PyArray_DATA(Y_LG_obj);
+    int nG = PyArray_DIM(emiGR_Ga_obj, 0);
+    int nJ = PyArray_DIM(a_J_obj, 0);
+    int nL = PyArray_DIM(Y_GL_obj, 1);
+    int natoms = PyArray_DIM(emiGR_Ga_obj, 1);
+    int nsplines = PyArray_DIM(f_Gs_obj, 1);
 
-    int natoms = PyArray_SIZE(pos_av_obj) / 3;
-    int nG = PyArray_SIZE(G_Qv_obj) / 3;
-    if(nG != G2 - G1) {
-        return NULL;
-    }
-    int G;
-
-    int v;
-    int L;
-    //double complex minus_i = 1.0;//-1.0 * I;
     double complex imag_powers[4] = {1.0, -I, -1.0, I};
 
-    int I1 = 0;
-    int a;
-
-    npy_intp* Ystrides = PyArray_STRIDES(Y_LG_obj);
-    int nGtotal = Ystrides[0] / sizeof(double);
-
-    for(a=0; a < natoms; a++) {
-        for(G=0; G < nG; G++) {
-            double GR = 0;
-            for(v=0; v < 3; v++) {
-                GR += G_Qv[3 * G + v] * pos_av[3 * a + v];
-            }
-            emiGR_G[G] = cexp(-I * GR);
-        }
-
-        PyObject *lf_j_obj = PyList_GET_ITEM(lf_aj_obj, a);
-        int nj = PyList_GET_SIZE(lf_j_obj);
-        int j;
-        for(j=0; j < nj; j++) {
-            PyObject *l_and_f_qG = PyList_GET_ITEM(lf_j_obj, j);
-            PyObject *l_obj = PyTuple_GET_ITEM(l_and_f_qG, 0);
-            PyObject *f_qG_obj = PyTuple_GET_ITEM(l_and_f_qG, 1);
-            int l = PyLong_AsLong(l_obj);
-            int nL = 2 * l + 1;
-            int L2 = l * l;
-
-            double complex ilpow = imag_powers[l % 4];
-            PyObject *f_G_obj = PyList_GET_ITEM(f_qG_obj, q);
-            double *f_G = PyArray_DATA((PyArrayObject *)f_G_obj);
-            for(G=0; G < nG; G++) {
-                double complex emiGR_f = emiGR_G[G] * f_G[G1 + G] * ilpow;
-                for(L=0; L < nL; L++) {
-                    // Terrible memory locality!
-                    f_IG[(I1 + L) * nG + G] = (
-                        emiGR_f * Y_LG[(L2 + L) * nGtotal + G1 + G]);
-                }
-            }
-            I1 += nL;
+    for(int G = 0; G < nG; G++) {
+        int I = 0;
+        for (int J = 0; j < nJ; J++) {
+            int a = a_J[J];
+            int s = s_J[J];
+            int l = l_s[s];
+            double complex il = imag_powers[l % 4];
+            for (int m = 0; m < 2 * l + 1; m++)
+                *f_GI++ = emiGR_Ga[a] * f_Gs[s] * Y_L[l * l + m] * il;
+        f_Gs += nsplines;
+        emiGR_Ga += natoms;
+        Y_GL += nL;
         }
     }
     Py_RETURN_NONE;

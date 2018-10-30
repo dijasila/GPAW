@@ -1353,33 +1353,43 @@ class PWLFC(BaseLFC):
         if self.initialized:
             return
 
-        cache = {}
-        lmax = -1
+        nsplines = len(set(spline
+                           for spline in spline_j
+                           for spline_j in self.spline_aj))
+        nJ = sum(len(spline_j) for spline_j in self.spline_aj)
+
+        self.f_qGs = [np.empty(nsplines, mynG) for mynG in self.pd.myng_q]
+        self.l_s = np.empty(nsplines, np.int32)
+        self.a_J = np.empty(nJ, np.int32)
+        self.s_J = np.empty(nJ, np.int32)
+
+        s = 0
+        done = set()
 
         # Fourier transform radial functions:
         for a, spline_j in enumerate(self.spline_aj):
             self.lf_aj.append([])
             for spline in spline_j:
-                l = spline.get_angular_momentum_number()
-                if spline not in cache:
+                if spline not in done:
                     f = ft(spline)
-                    f_qG = []
-                    for G2_G in self.pd.G2_qG:
+                    for f_Gs, G2_G in zip(self.f_qGs, self.pd.G2_qG):
                         G_G = G2_G**0.5
-                        f_qG.append(f.map(G_G))
-                    cache[spline] = f_qG
-                else:
-                    f_qG = cache[spline]
-                self.lf_aj[a].append((l, f_qG))
-                lmax = max(lmax, l)
+                        f_Gs[:, s] = f.map(G_G)
+                    self.l_s[s] = spline.get_angular_momentum_number()
+                    done.add(spline)
+                    s += 1
+
+        assert s == nsplines
+
+        self.lmax = max(self.l_s)
 
         # Spherical harmonics:
         for q, K_v in enumerate(self.pd.K_qv):
             G_Gv = self.pd.get_reciprocal_vectors(q=q)
-            Y_LG = np.empty(((lmax + 1)**2, len(G_Gv)))
-            for L in range((lmax + 1)**2):
-                Y_LG[L] = Y(L, *G_Gv.T)
-            self.Y_qLG.append(Y_LG)
+            Y_GL = np.empty((len(G_Gv), (self.lmax + 1)**2))
+            for L in range((self.lmax + 1)**2):
+                Y_GL[:, L] = Y(L, *G_Gv.T)
+            self.Y_qGL.append(Y_GL)
 
         self.initialized = True
 
@@ -1434,13 +1444,29 @@ class PWLFC(BaseLFC):
     def expand(self, q=-1, G1=0, G2=None):
         # Pure-Python version of expand().  Left here for testing.
         if G2 is None:
-            G2 = self.Y_qLG[q].shape[1]
+            G2 = self.Y_qGL[q].shape[0]
+
         f_GI = np.empty((G2 - G1, self.nI), complex)
-        emiGR_Ga = self.emiGR_qGa[q]
-        for a, j, i1, i2, I1, I2 in self:
-            l, f_qG = self.lf_aj[a][j]
-            f_GI[:, I1:I2] = (emiGR_Ga[:, a] * f_qG[q][G1:G2] * (-1.0j)**l *
-                              self.Y_qLG[q][l**2:(l + 1)**2, G1:G2]).T
+
+        emiGR_Ga = self.emiGR_qGa[q][G1:G2]
+        f_Gs = self.f_qGs[q][G1:G2]
+        Y_GL = self.Y_qGL[q][G1:G2]
+
+        if 'fast C-code':
+            _gpaw.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
+                               self.l_s, self.a_J, self.s_J,
+                               f_GI)
+        else:
+            I1 = 0
+            for J, (a, s) in enumerate(zip(self.a_J, self.s_J)):
+                l = self.l_s[s]
+                I2 = I1 + 2 * l + 1
+                f_GI[:, I1:I2] = (f_Gs[:, s] *
+                                  emiGR_Ga[:, a] *
+                                  Y_GL[:, l**2:(l + 1)**2].T *
+                                  (-1.0j)**l).T
+                I1 = I2
+
         return f_GI
 
     def expand0(self, q=-1, G1=0, G2=None):
@@ -1487,16 +1513,18 @@ class PWLFC(BaseLFC):
 
         for G1, G2 in self.block(q):
             if f0_IG is None:
-                f_IG = self.expand(q, G1, G2)
+                f_GI = self.expand(q, G1, G2)
             else:
+                sdgghkjhg
                 f_IG = f0_IG
 
-            if self.pd.dtype == float:
-                f_IG = f_IG.view(float)
-                G1 *= 2
-                G2 *= 2
+            #if self.pd.dtype == float:
+            #    f_IG = f_IG.view(float)
+            #    G1 *= 2
+            #    G2 *= 2
 
-            gemm(1.0 / self.pd.gd.dv, f_IG, c_xI, 1.0, a_xG[:, G1:G2])
+            mmm(1.0 / self.pd.gd.dv, c_xI, 'n', f_IG, 't',
+                1.0, a_xG[:, G1:G2])
 
     def integrate(self, a_xG, c_axi=None, q=-1):
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
