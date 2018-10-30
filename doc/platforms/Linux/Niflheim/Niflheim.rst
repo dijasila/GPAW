@@ -77,7 +77,7 @@ Get the ASE and GPAW source code
 
 Here, we install the development versions of ASE and GPAW in ``~/ase`` and
 ``~/gpaw``.  Make sure the folders do not exist, remove them if they
-do (or update with ``git pull`` if you have done this step previously):
+do (or update with ``git pull`` if you have done this step previously)::
 
     $ cd
     $ source .bashrc
