@@ -1325,9 +1325,8 @@ class PWLFC(BaseLFC):
         self.initialized = False
 
         # These will be filled in later:
-        self.lf_aj = []  # type: List[Tuple(int, float)]
-        self.Y_qLG = []
-        self.emiGR_qGa = []
+        self.Y_qGL = []
+        self.eiGR_qGa = []
 
         if blocksize is not None:
             if pd.ngmax <= blocksize:
@@ -1353,23 +1352,26 @@ class PWLFC(BaseLFC):
         if self.initialized:
             return
 
-        nsplines = len(set(spline
-                           for spline in spline_j
-                           for spline_j in self.spline_aj))
+        splines = {}  # type: Dict[Spline, int]
+        for spline_j in self.spline_aj:
+            for spline in spline_j:
+                if spline not in splines:
+                    splines[spline] = len(splines)
+        nsplines = len(splines)
+
         nJ = sum(len(spline_j) for spline_j in self.spline_aj)
 
-        self.f_qGs = [np.empty(nsplines, mynG) for mynG in self.pd.myng_q]
+        self.f_qGs = [np.empty((mynG, nsplines)) for mynG in self.pd.myng_q]
         self.l_s = np.empty(nsplines, np.int32)
         self.a_J = np.empty(nJ, np.int32)
         self.s_J = np.empty(nJ, np.int32)
 
-        s = 0
-        done = set()
-
         # Fourier transform radial functions:
+        J = 0
+        done = set()  # type: Set[Spline]
         for a, spline_j in enumerate(self.spline_aj):
-            self.lf_aj.append([])
             for spline in spline_j:
+                s = splines[spline]  # get spline index
                 if spline not in done:
                     f = ft(spline)
                     for f_Gs, G2_G in zip(self.f_qGs, self.pd.G2_qG):
@@ -1377,9 +1379,9 @@ class PWLFC(BaseLFC):
                         f_Gs[:, s] = f.map(G_G)
                     self.l_s[s] = spline.get_angular_momentum_number()
                     done.add(spline)
-                    s += 1
-
-        assert s == nsplines
+                self.a_J[J] = a
+                self.s_J[J] = s
+                J += 1
 
         self.lmax = max(self.l_s)
 
@@ -1406,7 +1408,7 @@ class PWLFC(BaseLFC):
         mem.subnode('Arrays', nbytes)
 
     def get_function_count(self, a):
-        return sum(2 * l + 1 for l, f_qG in self.lf_aj[a])
+        return (2 * self.l_s[self.s_J] + 1).sum()
 
     def set_positions(self, spos_ac, atom_partition=None):
         self.initialize()
@@ -1418,11 +1420,11 @@ class PWLFC(BaseLFC):
 
         self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
 
-        del self.emiGR_qGa[:]
+        del self.eiGR_qGa[:]
         G_Qv = self.pd.G_Qv
         for Q_G in self.pd.Q_qG:
             GR_Ga = np.dot(G_Qv[Q_G], self.pos_av.T)
-            self.emiGR_qGa.append(np.exp(-1j * GR_Ga))
+            self.eiGR_qGa.append(np.exp(1j * GR_Ga))
 
         if atom_partition is None:
             assert self.comm.size == 1
@@ -1446,14 +1448,17 @@ class PWLFC(BaseLFC):
         if G2 is None:
             G2 = self.Y_qGL[q].shape[0]
 
-        f_GI = np.empty((G2 - G1, self.nI), complex)
+        if self.pd.dtype == complex:
+            f_GI = np.empty((G2 - G1, self.nI), complex)
+        else:
+            f_GI = np.empty((2 * (G2 - G1), self.nI))
 
-        emiGR_Ga = self.emiGR_qGa[q][G1:G2]
+        eiGR_Ga = self.eiGR_qGa[q][G1:G2]
         f_Gs = self.f_qGs[q][G1:G2]
         Y_GL = self.Y_qGL[q][G1:G2]
 
         if 'fast C-code':
-            _gpaw.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
+            _gpaw.pwlfc_expand(f_Gs, eiGR_Ga, Y_GL,
                                self.l_s, self.a_J, self.s_J,
                                f_GI)
         else:
@@ -1462,9 +1467,9 @@ class PWLFC(BaseLFC):
                 l = self.l_s[s]
                 I2 = I1 + 2 * l + 1
                 f_GI[:, I1:I2] = (f_Gs[:, s] *
-                                  emiGR_Ga[:, a] *
+                                  eiGR_Ga[:, a] *
                                   Y_GL[:, l**2:(l + 1)**2].T *
-                                  (-1.0j)**l).T
+                                  (1.0j)**l).T
                 I1 = I2
 
         return f_GI
@@ -1484,7 +1489,7 @@ class PWLFC(BaseLFC):
         return f_IG
 
     def block(self, q=-1):
-        nG = self.Y_qLG[q].shape[1]
+        nG = self.Y_qGL[q].shape[0]
         if self.blocksize:
             G1 = 0
             while G1 < nG:
@@ -1523,7 +1528,7 @@ class PWLFC(BaseLFC):
                 G1 *= 2
                 G2 *= 2
 
-            mmm(1.0 / self.pd.gd.dv, c_xI, 'n', f_GI, 't',
+            mmm(1.0 / self.pd.gd.dv, c_xI, 'N', f_GI, 'C',
                 1.0, a_xG[:, G1:G2])
 
     def integrate(self, a_xG, c_axi=None, q=-1):
@@ -1549,7 +1554,7 @@ class PWLFC(BaseLFC):
                 # f_IG = f_IG.view(float)
                 G1 *= 2
                 G2 *= 2
-            mmm(alpha, a_xG[:, G1:G2], 'n', f_GI, 'c', x, b_xI)
+            mmm(alpha, a_xG[:, G1:G2], 'N', f_GI, 'N', x, b_xI)
             # gemm(alpha, f_IG, a_xG[:, G1:G2], x, b_xI, 'c')
             x = 1.0
 
