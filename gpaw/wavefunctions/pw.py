@@ -22,7 +22,7 @@ from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
 from gpaw.utilities import unpack
-from gpaw.utilities.blas import rk, r2k, gemm, axpy
+from gpaw.utilities.blas import rk, r2k, gemm, axpy, mmm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
@@ -1515,15 +1515,15 @@ class PWLFC(BaseLFC):
             if f0_IG is None:
                 f_GI = self.expand(q, G1, G2)
             else:
-                sdgghkjhg
-                f_IG = f0_IG
+                1 / 0
+                # f_IG = f0_IG
 
-            #if self.pd.dtype == float:
-            #    f_IG = f_IG.view(float)
-            #    G1 *= 2
-            #    G2 *= 2
+            if self.pd.dtype == float:
+                # f_IG = f_IG.view(float)
+                G1 *= 2
+                G2 *= 2
 
-            mmm(1.0 / self.pd.gd.dv, c_xI, 'n', f_IG, 't',
+            mmm(1.0 / self.pd.gd.dv, c_xI, 'n', f_GI, 't',
                 1.0, a_xG[:, G1:G2])
 
     def integrate(self, a_xG, c_axi=None, q=-1):
@@ -1542,14 +1542,15 @@ class PWLFC(BaseLFC):
 
         x = 0.0
         for G1, G2 in self.block(q):
-            f_IG = self.expand(q, G1, G2)
+            f_GI = self.expand(q, G1, G2)
             if self.pd.dtype == float:
                 if G1 == 0 and self.comm.rank == 0:
-                    f_IG[:, 0] *= 0.5
-                f_IG = f_IG.view(float)
+                    f_GI[0] *= 0.5
+                # f_IG = f_IG.view(float)
                 G1 *= 2
                 G2 *= 2
-            gemm(alpha, f_IG, a_xG[:, G1:G2], x, b_xI, 'c')
+            mmm(alpha, a_xG[:, G1:G2], 'n', f_GI, 'c', x, b_xI)
+            # gemm(alpha, f_IG, a_xG[:, G1:G2], x, b_xI, 'c')
             x = 1.0
 
         self.comm.sum(b_xI)
