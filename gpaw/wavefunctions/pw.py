@@ -1580,7 +1580,7 @@ class PWLFC(BaseLFC):
 
         x = 0.0
         for G1, G2 in self.block(q):
-            f_IG = self.expand(q, G1, G2)
+            f_GI = self.expand(q, G1, G2)
             G_Gv = self.pd.G_Qv[self.pd.myQ_qG[q][G1:G2]]
             if self.pd.dtype == float:
                 for v in range(3):
@@ -1590,10 +1590,10 @@ class PWLFC(BaseLFC):
                          x, b_vxI[v], 'c')
             else:
                 for v in range(3):
-                    gemm(-alpha,
-                         f_IG * (G_Gv[:, v] + K_v[v]),
-                         a_xG[:, G1:G2],
-                         x, b_vxI[v], 'c')
+                    mmm(-alpha,
+                        a_xG[:, G1:G2], 'N',
+                        f_GI * (G_Gv[:, v] + K_v[v])[:, np.newaxis], 'N',
+                        x, b_vxI[v])
             x = 1.0
 
         self.comm.sum(c_vxI)
