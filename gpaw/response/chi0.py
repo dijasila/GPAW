@@ -434,6 +434,7 @@ class Chi0:
 
         # Parse spins
         wfs = self.calc.wfs
+
         if spins == 'all':
             spins = range(wfs.nspins)
         else:
@@ -499,8 +500,9 @@ class Chi0:
         else:
             factor = 1
 
+        ns = wfs.nspins + (not wfs.collinear)
         prefactor = (2 * factor * PWSA.how_many_symmetries() /
-                     (wfs.nspins * (2 * np.pi)**3))  # Remember prefactor
+                     (ns * (2 * np.pi)**3))  # Remember prefactor
 
         if self.integrationmode is None:
             if self.calc.wfs.kd.refine_info is not None:
