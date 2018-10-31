@@ -522,6 +522,8 @@ def get_nonsc_spinorbit_calc(calc, soc=True):
         calc = GPAW(calc, txt=None,
                     parallel={'band': 1, 'kpt': size})
 
+    spinpolarized = calc.wfs.nspins > 1
+        
     atoms = calc.atoms
     params = calc.parameters
     params.update(experimental={'soc': soc,
@@ -533,11 +535,18 @@ def get_nonsc_spinorbit_calc(calc, soc=True):
     socalc.initialize(atoms=atoms, reading=True)
     socalc.set_positions()
     # Now set the wavefunctions
-    for kpt, sokpt in zip(calc.wfs.kpt_u, socalc.wfs.kpt_u):
+    for ik, kpt, sokpt in enumerate(zip(calc.wfs.kpt_u, socalc.wfs.kpt_u)):
         sokpt.psit_nG[:] = 0
-        for s in [0, 1]:
-            sokpt.psit_nG[s::2, s, :] = kpt.psit_nG[:]
-        sokpt.eps_n = np.repeat(kpt.eps_n, 2)
+        if not spinpolarized:
+            for s in [0, 1]:
+                sokpt.psit_nG[s::2, s, :] = kpt.psit_nG[:]
+            sokpt.eps_n = np.repeat(kpt.eps_n, 2)
+        else:
+            sokpt.psit_nG[0::2, 0, :] = kpt.psit_nG[:]
+            kpt2 = calc.wfs.kpt_u[calc.wfs.kd.nibzkpts + ik]
+            sokpt.psit_nG[1::2, 1, :] = kpt2.psit_nG[:]
+            sokpt.eps_n = np.flatten(np.transpose([kpt.eps_n,
+                                                   kpt2.eps_n]))
         sokpt.f_n = np.zeros_like(sokpt.eps_n)
         P = sokpt.P
         sokpt.psit.matrix_elements(socalc.wfs.pt, out=P)
@@ -548,7 +557,8 @@ def get_nonsc_spinorbit_calc(calc, soc=True):
 
     # Calculate density
     socalc.density.initialize_from_wavefunctions(socalc.wfs)
-    # For some reason we also need update the density...
+    # For some reason we also need update the density
+    # even though we just initialized it...
     socalc.density.update(socalc.wfs)
     socalc.hamiltonian.update(socalc.density)
     # We need to initialize the eigensolver
