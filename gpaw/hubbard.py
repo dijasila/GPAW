@@ -14,13 +14,30 @@ def hubbard(setup, D_sp):
 
     e_xc = 0.0
     dH_sp = []
+
+    s = 0
     for D_p in D_sp:
         N_mm, V = aoom(setup, unpack2(D_p), l, scale)
         N_mm = N_mm / 2 * nspins
 
-        Eorb = setup.HubU / 2. * (N_mm -
-                                  np.dot(N_mm, N_mm)).trace()
-        Vorb = setup.HubU * (0.5 * np.eye(2 * l + 1) - N_mm)
+        if nspins == 4:
+            N_mm = N_mm / 2.0
+            if s == 0:
+                Eorb = setup.HubU / 2. * (N_mm - 
+                                    0.5 * np.dot(N_mm, N_mm)).trace()
+
+                Vorb = setup.HubU / 2. * (np.eye(2 * l +1) -N_mm)
+
+            else:
+                Eorb = setup.HubU / 2. * (-0.5*np.dot(N_mm , N_mm)).trace()
+
+                Vorb = -setup.HubU / 2. * N_mm
+        else:        
+            Eorb = setup.HubU / 2. * (N_mm -
+                                np.dot(N_mm, N_mm)).trace()
+
+            Vorb = setup.HubU * (0.5 * np.eye(2 * l + 1) - N_mm)
+
         e_xc += Eorb
         if nspins == 1:
             # add contribution of other spin manyfold
@@ -37,7 +54,8 @@ def hubbard(setup, D_sp):
             V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] *= Vorb
 
         dH_sp.append(pack2(V))
-
+        s += 1
+        
     return e_xc, dH_sp
 
 
