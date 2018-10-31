@@ -511,3 +511,54 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
             p_n += [0 for n in n_n]
 
     return np.ravel(p_n)
+
+
+def get_nonsc_spinorbit_calc(calc, soc=True):
+    from gpaw import GPAW
+    from gpaw.mpi import size
+    # Takes a collinear calculator with wfs
+    # and returns a non-collinear calculator
+    if isinstance(calc, str):
+        calc = GPAW(calc, txt=None,
+                    parallel={'band': 1, 'kpt': size})
+
+    atoms = calc.atoms
+    params = calc.parameters
+    params.update(experimental={'soc': soc,
+                                'magmoms': [[0, 0, 0]] * len(atoms)},
+                  fixdensity=True,
+                  txt=None,
+                  parallel={'band': 1, 'kpt': size})
+    socalc = GPAW(**params)
+    socalc.initialize(atoms=atoms, reading=True)
+    socalc.set_positions()
+    # Now set the wavefunctions
+    for kpt, sokpt in zip(calc.wfs.kpt_u, socalc.wfs.kpt_u):
+        sokpt.psit_nG[:] = 0
+        for s in [0, 1]:
+            sokpt.psit_nG[s::2, s, :] = kpt.psit_nG[:]
+        sokpt.eps_n = np.repeat(kpt.eps_n, 2)
+        sokpt.f_n = np.zeros_like(sokpt.eps_n)
+        P = sokpt.P
+        sokpt.psit.matrix_elements(socalc.wfs.pt, out=P)
+
+    # Calculate occupations
+    socalc.occupations.fermilevel = calc.occupations.fermilevel
+    socalc.occupations.calculate(socalc.wfs)
+
+    # Calculate density
+    socalc.density.initialize_from_wavefunctions(socalc.wfs)
+    # For some reason we also need update the density...
+    socalc.density.update(socalc.wfs)
+    socalc.hamiltonian.update(socalc.density)
+    # We need to initialize the eigensolver
+    socalc.wfs.eigensolver.initialize(socalc.wfs)
+
+    # Diagonalize the hamiltonian
+    for sokpt in socalc.wfs.kpt_u:
+        socalc.wfs.eigensolver.subspace_diagonalize(
+            socalc.hamiltonian, socalc.wfs, sokpt)
+    socalc.occupations.fixed_fermilevel = False
+    socalc.occupations.calculate(socalc.wfs)
+    socalc.occupations.fixed_fermilevel = True
+    return socalc
