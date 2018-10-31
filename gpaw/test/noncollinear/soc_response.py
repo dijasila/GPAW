@@ -1,116 +1,93 @@
-from gpaw.response.df import DielectricFunction
-"""Self-consistent SOC with response."""
+"""non-selfconsistent SOC with response."""
+
 from unittest import SkipTest
 
 import numpy as np
 from ase.build import mx2
 
 from gpaw import GPAW
-from gpaw.spinorbit import get_spinorbit_eigenvalues
+from gpaw.spinorbit import get_nonsc_spinorbit_calc
 from gpaw.mpi import size
-from gpaw.lfc import BasisFunctions
+from gpaw.test import equal
+from gpaw.response.df import DielectricFunction
 
-
-if size > 1:
+if size > 2:
     raise SkipTest()
 
 
-def getspinorbitcalc(calc, soc=True):
-    # Takes a collinear calculator with wfs
-    # and returns a non-collinear calculator
-    if isinstance(calc, str):
-        calc = GPAW(calc, txt=None)
-
-    atoms = calc.atoms
-    params = calc.parameters
-    params.update(experimental={'soc': soc,
-                                'magmoms': [[0, 0, 0]] * len(atoms)},
-                  fixdensity=True,
-                  txt=None)
-    socalc = GPAW(**params)
-    socalc.initialize(atoms=atoms, reading=True)
-    socalc.set_positions()
-    # Now set the wavefunctions
-    for kpt, sokpt in zip(calc.wfs.kpt_u, socalc.wfs.kpt_u):
-        sokpt.psit_nG[:] = 0
-        for s in [0, 1]:
-            sokpt.psit_nG[s::2, s, :] = kpt.psit_nG[:]
-        sokpt.eps_n = np.repeat(kpt.eps_n, 2)
-        sokpt.f_n = np.zeros_like(sokpt.eps_n)
-        P = sokpt.P
-        sokpt.psit.matrix_elements(socalc.wfs.pt, out=P)
-
-    # Calculate occupations
-    socalc.occupations.fermilevel = calc.occupations.fermilevel
-    socalc.occupations.calculate(socalc.wfs)
-
-    # Calculate density
-    socalc.density.initialize_from_wavefunctions(socalc.wfs)
-    # For some reason we also need update the density...
-    socalc.density.update(socalc.wfs)
-    socalc.hamiltonian.update(socalc.density)
-    # We need to initialize the eigensolver
-    socalc.wfs.eigensolver.initialize(socalc.wfs)
-
-    # Diagonalize the hamiltonian
-    for sokpt in socalc.wfs.kpt_u:
-        socalc.wfs.eigensolver.subspace_diagonalize(
-            socalc.hamiltonian, socalc.wfs, sokpt)
-    socalc.occupations.fixed_fermilevel = False
-    socalc.occupations.calculate(socalc.wfs)
-    socalc.occupations.fixed_fermilevel = True
-    return socalc
-
-
 def readcalc(calc):
-    # Takes a collinear calculator with wfs
-    # and returns a non-collinear calculator
     assert isinstance(calc, str)
     calc = GPAW(calc, txt=None)
 
     return calc
 
 
-# a = mx2('MoS2')
-# a.center(vacuum=3, axis=2)
+a = mx2('MoS2')
+a.center(vacuum=3, axis=2)
 
-# params = dict(mode='pw',
-#               kpts={'size': (3, 3, 1),
-#                     'gamma': True})
+params = dict(mode='pw',
+              kpts={'size': (3, 3, 1),
+                    'gamma': True},
+              txt=None)
 
-# # Selfconsistent:
-# calc = GPAW(convergence={'bands': 28},
-#             **params)
-# a.calc = calc
-# a.get_potential_energy()
-# calc.write('mos2_soc_wfs.gpw', mode='all')
+# Selfconsistent:
+calc = GPAW(convergence={'bands': 28},
+            xc='LDA',
+            **params)
+a.calc = calc
+a.get_potential_energy()
+calc.write('mos2_coll_wfs.gpw', mode='all')
 
-socalc = getspinorbitcalc('mos2_nosoc_wfs.gpw', soc=False)
-socalc.write('mos2_soc_wfs.gpw', mode='all')
-socalc2 = readcalc('mos2_soc_wfs.gpw')
-calc = readcalc('mos2_nosoc_wfs.gpw')
-
+socalc = get_nonsc_spinorbit_calc('mos2_coll_wfs.gpw', soc=False)
+socalc.write('mos2_ncoll_wfs.gpw', mode='all')
+socalc2 = readcalc('mos2_ncoll_wfs.gpw')
+calc = readcalc('mos2_coll_wfs.gpw')
 
 # Check that these values are the same
 for kpt, sokpt, sokpt1 in zip(calc.wfs.kpt_u,
                               socalc.wfs.kpt_u,
                               socalc2.wfs.kpt_u):
 
-    # print(dir(sokpt))
-    # print(sokpt.k, sokpt.weight)
     f0_n = kpt.f_n
     f_n = sokpt.f_n
     f1_n = sokpt1.f_n
     eps0_n = kpt.eps_n
     eps_n = sokpt.eps_n
     eps1_n = sokpt1.eps_n
-    print(eps0_n[0:5])
-    print(eps_n[0:10:2])
 
-    print(np.sum(f0_n / kpt.weight), np.sum(f_n / sokpt.weight))
-    # print('max(f_n - f1_n)', np.abs(f_n - f1_n).max())
-    # print('max(eps_n - eps1_n)', np.abs(eps_n - eps1_n).max())
-    print('max(eps_n - eps0_n)', np.abs(eps_n[0::2] - eps0_n).max())
+    equal(np.sum(f0_n / kpt.weight), np.sum(f_n / sokpt.weight),
+          tolerance=1e-4, msg='Occupations wrong in non-collinear calc.')
+    equal(eps0_n, eps_n[::2], tolerance=1e-4, msg='Difference in eigenvalues')
 
-df = DielectricFunction('mos2_soc_wfs.gpw')
-df.get_dielectric_function()
+df = DielectricFunction('mos2_soc_wfs.gpw', intraband=False,
+                        txt='mos2_ncoll_response.txt')
+socdf1, socdf2 = df.get_dielectric_function()
+socomega_w = df.get_frequencies()
+
+df = DielectricFunction('mos2_nosoc_wfs.gpw', intraband=False,
+                        txt='mos2_coll_response.txt')
+df1, df2 = df.get_dielectric_function()
+omega_w = df.get_frequencies()
+
+err1 = np.max(np.abs(df1 - socdf1))
+err2 = np.max(np.abs(df2 - socdf2))
+
+msg = ('Too large difference between non-collinear '
+       'response and spinpaired response of MoS2. Since '
+       'soc=False in this test the calculated dielectric function '
+       'should be identical')
+equal(err1, 0, tolerance=1e-3, msg=msg)
+equal(err2, 0, tolerance=1e-3, msg=msg)
+
+if 0:
+    # If you want to see the calculated dielectric functions
+    from matplotlib import pyplot as plt
+    plt.figure()
+    plt.plot(socomega_w, socdf2.real, label='real')
+    plt.plot(socomega_w, socdf2.imag, label='imag')
+    plt.plot(omega_w, df2.real, '--', label='real')
+    plt.plot(omega_w, df2.imag, '--', label='imag')
+    plt.legend()
+    plt.xlim(0, 10)
+    plt.ylim(-5, 10)
+    plt.show()
