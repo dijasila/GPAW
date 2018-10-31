@@ -545,7 +545,7 @@ def get_nonsc_spinorbit_calc(calc, soc=True):
             sokpt.psit_nG[0::2, 0, :] = kpt.psit_nG[:]
             kpt2 = calc.wfs.kpt_u[calc.wfs.kd.nibzkpts + ik]
             sokpt.psit_nG[1::2, 1, :] = kpt2.psit_nG[:]
-            sokpt.eps_n = np.flatten(np.transpose([kpt.eps_n,
+            sokpt.eps_n = np.ravel(np.transpose([kpt.eps_n,
                                                    kpt2.eps_n]))
         sokpt.f_n = np.zeros_like(sokpt.eps_n)
         P = sokpt.P
