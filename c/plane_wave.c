@@ -47,71 +47,75 @@ PyObject *pw_insert(PyObject *self, PyObject *args)
 PyObject *pwlfc_expand(PyObject *self, PyObject *args)
 {
     PyArrayObject *f_Gs_obj;
-    PyArrayObject *eiGR_Ga_obj;
+    PyArrayObject *emiGR_Ga_obj;
     PyArrayObject *Y_GL_obj;
     PyArrayObject *l_s_obj;
     PyArrayObject *a_J_obj;
     PyArrayObject *s_J_obj;
+    int cc;
     PyArrayObject *f_GI_obj;
 
-    if (!PyArg_ParseTuple(args, "OOOOOOO",
-                          &f_Gs_obj, &eiGR_Ga_obj, &Y_GL_obj,
+    if (!PyArg_ParseTuple(args, "OOOOOOiO",
+                          &f_Gs_obj, &emiGR_Ga_obj, &Y_GL_obj,
                           &l_s_obj, &a_J_obj, &s_J_obj,
-                          &f_GI_obj))
+                          &cc, &f_GI_obj))
         return NULL;
 
     double *f_Gs = PyArray_DATA(f_Gs_obj);
-    double complex *eiGR_Ga = PyArray_DATA(eiGR_Ga_obj);
+    double complex *emiGR_Ga = PyArray_DATA(emiGR_Ga_obj);
     double *Y_GL = PyArray_DATA(Y_GL_obj);
     npy_int32 *l_s = PyArray_DATA(l_s_obj);
     npy_int32 *a_J = PyArray_DATA(s_J_obj);
     npy_int32 *s_J = PyArray_DATA(s_J_obj);
+    double *f_GI = PyArray_DATA(f_GI_obj);
 
-    int nG = PyArray_DIM(eiGR_Ga_obj, 0);
+    int nG = PyArray_DIM(emiGR_Ga_obj, 0);
     int nJ = PyArray_DIM(a_J_obj, 0);
     int nL = PyArray_DIM(Y_GL_obj, 1);
-    int natoms = PyArray_DIM(eiGR_Ga_obj, 1);
+    int natoms = PyArray_DIM(emiGR_Ga_obj, 1);
     int nsplines = PyArray_DIM(f_Gs_obj, 1);
 
-    double complex imag_powers[4] = {1.0, I, -1.0, -I};
+    double complex imag_powers[4] = {1.0, -I, -1.0, I};
 
-    if (PyArray_ITEMSIZE(f_GI_obj) == 16) {
-        double complex *f_GI = PyArray_DATA(f_GI_obj);
+    if (PyArray_ITEMSIZE(f_GI_obj) == 16)
         for(int G = 0; G < nG; G++) {
             for (int J = 0; J < nJ; J++) {
                 int a = a_J[J];
                 int s = s_J[J];
                 int l = l_s[s];
-                double complex iml = imag_powers[l % 4];
-                for (int m = 0; m < 2 * l + 1; m++)
-                    *f_GI++ = eiGR_Ga[a] * f_Gs[s] * Y_GL[l * l + m] * iml;
-            f_Gs += nsplines;
-            eiGR_Ga += natoms;
-            Y_GL += nL;
+                double complex il = imag_powers[l % 4];
+                for (int m = 0; m < 2 * l + 1; m++) {
+                    double complex f = (emiGR_Ga[a] *
+                                        f_Gs[s] *
+                                        Y_GL[l * l + m] * il);
+                    *f_GI++ = creal(f);
+                    *f_GI++ = cc ? -cimag(f) : cimag(f);
+                }
             }
+            f_Gs += nsplines;
+            emiGR_Ga += natoms;
+            Y_GL += nL;
         }
-    }
     else {
-        double *f_GI = PyArray_DATA(f_GI_obj);
         int nI = PyArray_DIM(f_GI_obj, 1);
         for(int G = 0; G < nG; G++) {
             for (int J = 0; J < nJ; J++) {
                 int a = a_J[J];
                 int s = s_J[J];
                 int l = l_s[s];
-                double complex iml = imag_powers[l % 4];
+                double complex il = imag_powers[l % 4];
                 for (int m = 0; m < 2 * l + 1; m++) {
-                    double complex f = (eiGR_Ga[a] * f_Gs[s] *
-                                        Y_GL[l * l + m] * iml);
+                    double complex f = (emiGR_Ga[a] * f_Gs[s] *
+                                        Y_GL[l * l + m] * il);
                     f_GI[0] = creal(f);
-                    f_GI[nI] = cimag(f);
+                    f_GI[nI] = cc ? -cimag(f) : cimag(f);
                     f_GI++;
                 }
+            }
             f_Gs += nsplines;
-            eiGR_Ga += natoms;
+            emiGR_Ga += natoms;
             Y_GL += nL;
             f_GI += nI;
-            }
         }
     }
 

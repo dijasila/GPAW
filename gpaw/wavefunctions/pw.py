@@ -1326,7 +1326,7 @@ class PWLFC(BaseLFC):
 
         # These will be filled in later:
         self.Y_qGL = []
-        self.eiGR_qGa = []
+        self.emiGR_qGa = []
 
         if blocksize is not None:
             if pd.ngmax <= blocksize:
@@ -1420,11 +1420,11 @@ class PWLFC(BaseLFC):
 
         self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
 
-        del self.eiGR_qGa[:]
+        del self.emiGR_qGa[:]
         G_Qv = self.pd.G_Qv
         for Q_G in self.pd.Q_qG:
             GR_Ga = np.dot(G_Qv[Q_G], self.pos_av.T)
-            self.eiGR_qGa.append(np.exp(1j * GR_Ga))
+            self.emiGR_qGa.append(np.exp(-1j * GR_Ga))
 
         if atom_partition is None:
             assert self.comm.size == 1
@@ -1443,7 +1443,7 @@ class PWLFC(BaseLFC):
             I1 = I2
         self.nI = I1
 
-    def expand(self, q=-1, G1=0, G2=None):
+    def expand(self, q=-1, G1=0, G2=None, cc=False):
         # Pure-Python version of expand().  Left here for testing.
         if G2 is None:
             G2 = self.Y_qGL[q].shape[0]
@@ -1453,23 +1453,23 @@ class PWLFC(BaseLFC):
         else:
             f_GI = np.empty((2 * (G2 - G1), self.nI))
 
-        eiGR_Ga = self.eiGR_qGa[q][G1:G2]
+        emiGR_Ga = self.emiGR_qGa[q][G1:G2]
         f_Gs = self.f_qGs[q][G1:G2]
         Y_GL = self.Y_qGL[q][G1:G2]
 
-        if 'fast C-code':
-            _gpaw.pwlfc_expand(f_Gs, eiGR_Ga, Y_GL,
+        if 1:#'fast C-code':
+            _gpaw.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
                                self.l_s, self.a_J, self.s_J,
-                               f_GI)
+                               cc, f_GI)
         else:
             I1 = 0
             for J, (a, s) in enumerate(zip(self.a_J, self.s_J)):
                 l = self.l_s[s]
                 I2 = I1 + 2 * l + 1
                 f_GI[:, I1:I2] = (f_Gs[:, s] *
-                                  eiGR_Ga[:, a] *
+                                  emiGR_Ga[:, a] *
                                   Y_GL[:, l**2:(l + 1)**2].T *
-                                  (1.0j)**l).T
+                                  (-1.0j)**l).T
                 I1 = I2
 
         return f_GI
@@ -1518,7 +1518,7 @@ class PWLFC(BaseLFC):
 
         for G1, G2 in self.block(q):
             if f0_IG is None:
-                f_GI = self.expand(q, G1, G2)
+                f_GI = self.expand(q, G1, G2, cc=False)
             else:
                 1 / 0
                 # f_IG = f0_IG
@@ -1528,7 +1528,7 @@ class PWLFC(BaseLFC):
                 G1 *= 2
                 G2 *= 2
 
-            mmm(1.0 / self.pd.gd.dv, c_xI, 'N', f_GI, 'C',
+            mmm(1.0 / self.pd.gd.dv, c_xI, 'N', f_GI, 'T',
                 1.0, a_xG[:, G1:G2])
 
     def integrate(self, a_xG, c_axi=None, q=-1):
@@ -1547,7 +1547,7 @@ class PWLFC(BaseLFC):
 
         x = 0.0
         for G1, G2 in self.block(q):
-            f_GI = self.expand(q, G1, G2)
+            f_GI = self.expand(q, G1, G2, cc=self.pd.dtype == complex)
             if self.pd.dtype == float:
                 if G1 == 0 and self.comm.rank == 0:
                     f_GI[0] *= 0.5
@@ -1580,14 +1580,17 @@ class PWLFC(BaseLFC):
 
         x = 0.0
         for G1, G2 in self.block(q):
-            f_GI = self.expand(q, G1, G2)
+            f_GI = self.expand(q, G1, G2, cc=True)
             G_Gv = self.pd.G_Qv[self.pd.myQ_qG[q][G1:G2]]
             if self.pd.dtype == float:
+                d_GI = np.empty_like(f_GI)
                 for v in range(3):
-                    gemm(2 * alpha,
-                         (f_IG * 1.0j * G_Gv[:, v]).view(float),
-                         a_xG[:, 2 * G1:2 * G2],
-                         x, b_vxI[v], 'c')
+                    d_GI[::2] = f_GI[1::2] * G_Gv[:, v, np.newaxis]
+                    d_GI[1::2] = f_GI[::2] * G_Gv[:, v, np.newaxis]
+                    mmm(2 * alpha,
+                        a_xG[:, 2 * G1:2 * G2], 'N',
+                        d_GI, 'N',
+                        x, b_vxI[v])
             else:
                 for v in range(3):
                     mmm(-alpha,
@@ -1633,8 +1636,7 @@ class PWLFC(BaseLFC):
                 l = spline.l
                 lmax = max(l, lmax)
                 I2 = I1 + 2 * l + 1
-                things.append((self.pos_av[a], l, I1, I2,
-                               f_G, dfdGoG_G))
+                things.append((a, l, I1, I2, f_G, dfdGoG_G))
                 I1 = I2
 
         if isinstance(c_axi, float):
@@ -1660,16 +1662,15 @@ class PWLFC(BaseLFC):
     def _stress_tensor_contribution(self, v1, v2, things, G1, G2,
                                     G_Gv, a_xG, c_axi, q, Z_LvG):
         f_IG = np.empty((self.nI, G2 - G1), complex)
-        K_v = self.pd.K_qv[q]
-        for pos_v, l, I1, I2, f_G, dfdGoG_G in things:
+        emiGR_Ga = self.emiGR_qGa[q][G1:G2]
+        Y_LG = self.Y_qGL[q].T
+        for a, l, I1, I2, f_G, dfdGoG_G in things:
             L1 = l**2
             L2 = (l + 1)**2
-            emiGR_G = np.exp(-1j * np.dot(G_Gv, pos_v))
-            f_IG[I1:I2] = (emiGR_G * (-1.0j)**l *
-                           np.exp(1j * np.dot(K_v, pos_v)) * (
-                               dfdGoG_G[G1:G2] * G_Gv[:, v1] * G_Gv[:, v2] *
-                               self.Y_qLG[q][L1:L2, G1:G2] +
-                               f_G[G1:G2] * G_Gv[:, v1] * Z_LvG[L1:L2, v2]))
+            f_IG[I1:I2] = (emiGR_Ga[:, a] * (-1.0j)**l *
+                           (dfdGoG_G[G1:G2] * G_Gv[:, v1] * G_Gv[:, v2] *
+                            Y_LG[L1:L2, G1:G2] +
+                            f_G[G1:G2] * G_Gv[:, v1] * Z_LvG[L1:L2, v2]))
 
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 

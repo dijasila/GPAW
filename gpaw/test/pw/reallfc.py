@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import numpy as np
 
 from gpaw.test import equal
@@ -56,6 +54,7 @@ for l in range(4):
 
     lfc.integrate(b0, c_axi)
     lfcr.integrate(br0, cr_axi)
+
     assert abs(c_axi[0][0] - cr_axi[0][0]).max() < 1e-14
 
     c_axiv = {0: np.zeros((1, 2 * l + 1, 3), complex)}
