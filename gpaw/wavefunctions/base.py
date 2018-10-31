@@ -341,7 +341,7 @@ class WaveFunctions:
         rank = self.world.rank
 
         if (self.kd.comm.rank == kpt_rank and
-            self.bd.comm.rank == band_rank):
+                self.bd.comm.rank == band_rank):
             psit_G = self._get_wave_function_array(u, myn, realspace, periodic)
 
             if realspace:
@@ -514,7 +514,7 @@ class WaveFunctions:
                 # Working on a real fix to this parallelization problem ...
                 f_n = np.pad(f_n, (0, x), 'constant')
             if not old:  # skip for old tar-files gpw's
-                f_n *= kpt.weight
+                f_n *= kpt.weight * 2 / self.nspins
             kpt.f_n = f_n
 
 
