@@ -22,10 +22,8 @@ for mode in ['fd',
     else:
         eigensolver = None
 
-    if world.size >= 2:
-        domain = 2
-    if world.size >= 4:
-        band = 2
+    domain = 1 + (world.size >= 2)
+    band = 1 + (world.size >= 4)
 
     for augment_grids in 0, 1:
         if world.rank == 0:
