@@ -1450,34 +1450,38 @@ class PWLFC(BaseLFC):
         self.nI = I1
 
     def expand(self, q=-1, G1=0, G2=None, cc=False):
-        # Pure-Python version of expand().  Left here for testing.
         if G2 is None:
             G2 = self.Y_qGL[q].shape[0]
-
-        if self.pd.dtype == complex:
-            f_GI = np.empty((G2 - G1, self.nI), complex)
-        else:
-            f_GI = np.empty((2 * (G2 - G1), self.nI))
 
         emiGR_Ga = self.emiGR_qGa[q][G1:G2]
         f_Gs = self.f_qGs[q][G1:G2]
         Y_GL = self.Y_qGL[q][G1:G2]
 
-        if 1:  # fast C-code
+        if True:  # fast C-code
+            if self.pd.dtype == complex:
+                f_GI = np.empty((G2 - G1, self.nI), complex)
+            else:
+                f_GI = np.empty((2 * (G2 - G1), self.nI))
             _gpaw.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
                                self.l_s, self.a_J, self.s_J,
                                cc, f_GI)
-        else:
-            I1 = 0
-            for J, (a, s) in enumerate(zip(self.a_J, self.s_J)):
-                l = self.l_s[s]
-                I2 = I1 + 2 * l + 1
-                f_GI[:, I1:I2] = (f_Gs[:, s] *
-                                  emiGR_Ga[:, a] *
-                                  Y_GL[:, l**2:(l + 1)**2].T *
-                                  (-1.0j)**l).T
-                I1 = I2
+            return f_GI
 
+        # Equivalent slow Python code:
+        f_GI = np.empty((G2 - G1, self.nI), complex)
+        I1 = 0
+        for J, (a, s) in enumerate(zip(self.a_J, self.s_J)):
+            l = self.l_s[s]
+            I2 = I1 + 2 * l + 1
+            f_GI[:, I1:I2] = (f_Gs[:, s] *
+                              emiGR_Ga[:, a] *
+                              Y_GL[:, l**2:(l + 1)**2].T *
+                              (-1.0j)**l).T
+            I1 = I2
+        if cc:
+            f_GI = f_GI.conj()
+        if self.pd.dtype == float:
+            f_GI = f_GI.T.copy().view(float).T.copy()
         return f_GI
 
     def block(self, q=-1):

@@ -65,7 +65,7 @@ PyObject *pwlfc_expand(PyObject *self, PyObject *args)
     double complex *emiGR_Ga = PyArray_DATA(emiGR_Ga_obj);
     double *Y_GL = PyArray_DATA(Y_GL_obj);
     npy_int32 *l_s = PyArray_DATA(l_s_obj);
-    npy_int32 *a_J = PyArray_DATA(s_J_obj);
+    npy_int32 *a_J = PyArray_DATA(a_J_obj);
     npy_int32 *s_J = PyArray_DATA(s_J_obj);
     double *f_GI = PyArray_DATA(f_GI_obj);
 
