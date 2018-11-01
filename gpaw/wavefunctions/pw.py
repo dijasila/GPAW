@@ -1074,8 +1074,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         S_GG.ravel()[G1::npw + 1] = self.pd.gd.dv / N
 
-        f_IG = self.pt.expand(q)
-        nI = len(f_IG)
+        f_GI = self.pt.expand(q)
+        nI = f_GI.shape[1]
         dH_II = np.zeros((nI, nI))
         dS_II = np.zeros((nI, nI))
         I1 = 0
@@ -1087,8 +1087,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             dS_II[I1:I2, I1:I2] = dS_ii / N**2
             I1 = I2
 
-        H_GG += np.dot(f_IG.T[G1:G2].conj(), np.dot(dH_II, f_IG))
-        S_GG += np.dot(f_IG.T[G1:G2].conj(), np.dot(dS_II, f_IG))
+        H_GG += np.dot(f_GI[G1:G2].conj(), np.dot(dH_II, f_GI.T))
+        S_GG += np.dot(f_GI[G1:G2].conj(), np.dot(dS_II, f_GI.T))
 
         return H_GG, S_GG
 
@@ -1327,6 +1327,11 @@ class PWLFC(BaseLFC):
         # These will be filled in later:
         self.Y_qGL = []
         self.emiGR_qGa = []
+        self.f_qGs = []
+        self.l_s = None
+        self.a_J = None
+        self.s_J = None
+        self.lmax = None
 
         if blocksize is not None:
             if pd.ngmax <= blocksize:
@@ -1408,7 +1413,8 @@ class PWLFC(BaseLFC):
         mem.subnode('Arrays', nbytes)
 
     def get_function_count(self, a):
-        return (2 * self.l_s[self.s_J] + 1).sum()
+        return sum(2 * spline.get_angular_momentum_number() + 1
+                   for spline in self.spline_aj[a])
 
     def set_positions(self, spos_ac, atom_partition=None):
         self.initialize()
@@ -1457,7 +1463,7 @@ class PWLFC(BaseLFC):
         f_Gs = self.f_qGs[q][G1:G2]
         Y_GL = self.Y_qGL[q][G1:G2]
 
-        if 1:#'fast C-code':
+        if 1:  # fast C-code
             _gpaw.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
                                self.l_s, self.a_J, self.s_J,
                                cc, f_GI)
@@ -1474,20 +1480,6 @@ class PWLFC(BaseLFC):
 
         return f_GI
 
-    def expand0(self, q=-1, G1=0, G2=None):
-        if G2 is None:
-            G2 = self.Y_qLG[q].shape[1]
-        G_Qv = self.pd.G_Qv[self.pd.myQ_qG[q][G1:G2]]
-        f_IG = np.empty((self.nI, G2 - G1), complex)
-        emiGRbuf_G = np.empty(len(G_Qv), complex)
-
-        Y_LG = self.Y_qLG[q]
-
-        _gpaw.pwlfc_expand(G_Qv, self.pos_av,
-                           self.lf_aj, Y_LG, q, G1, G2,
-                           f_IG, emiGRbuf_G)
-        return f_IG
-
     def block(self, q=-1):
         nG = self.Y_qGL[q].shape[0]
         if self.blocksize:
@@ -1502,7 +1494,8 @@ class PWLFC(BaseLFC):
     def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None):
         if isinstance(c_axi, float):
             assert q == -1, a_xG.dims == 1
-            a_xG += (c_axi / self.pd.gd.dv) * self.expand().view(complex).sum(1)
+            f_G = self.expand().sum(1).view(complex)
+            a_xG += (c_axi / self.pd.gd.dv) * f_G
             return
 
         c_xI = np.empty(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
