@@ -3,7 +3,6 @@ from __future__ import division
 import numbers
 from math import pi
 from math import factorial as fac
-from distutils.version import LooseVersion
 
 import numpy as np
 from ase.units import Ha, Bohr
@@ -22,7 +21,7 @@ from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
 from gpaw.utilities import unpack
-from gpaw.utilities.blas import rk, r2k, gemm, axpy, mmm
+from gpaw.utilities.blas import rk, r2k, axpy, mmm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
@@ -464,7 +463,7 @@ class PWDescriptor:
         elif hermitian:
             r2k(0.5 * alpha, A_xg, B_yg, 0.0, result_yx)
         else:
-            gemm(alpha, A_xg, B_yg, 0.0, result_yx, 'c')
+            mmm(alpha, B_yg, 'N', A_xg, 'C', 0.0, result_yx)
 
         if self.dtype == float and self.gd.comm.rank == 0:
             correction_yx = np.outer(B_yg[:, 0], A_xg[:, 0])
@@ -1552,11 +1551,9 @@ class PWLFC(BaseLFC):
             if self.pd.dtype == float:
                 if G1 == 0 and self.comm.rank == 0:
                     f_GI[0] *= 0.5
-                # f_IG = f_IG.view(float)
                 G1 *= 2
                 G2 *= 2
             mmm(alpha, a_xG[:, G1:G2], 'N', f_GI, 'N', x, b_xI)
-            # gemm(alpha, f_IG, a_xG[:, G1:G2], x, b_xI, 'c')
             x = 1.0
 
         self.comm.sum(b_xI)
@@ -1686,7 +1683,7 @@ class PWLFC(BaseLFC):
             f_IG = f_IG.view(float)
             a_xG = a_xG.copy().view(float)
 
-        gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
+        mmm(alpha, a_xG, 'N', f_IG, 'C', 0.0, b_xI)
         self.comm.sum(b_xI)
 
         stress = 0.0
