@@ -394,6 +394,7 @@ class PWDescriptor:
         ssize_r = np.zeros(comm.size, int)
         ssize_r[:N] = self.myng_q[q]
         soffset_r = np.arange(comm.size) * self.myng_q[q]
+        soffset_r[N:] = 0
         rsize_r = np.zeros(comm.size, int)
         if comm.rank < N:
             rsize_r[:-1] = self.maxmyng
@@ -415,6 +416,7 @@ class PWDescriptor:
         rsize_r = np.zeros(comm.size, int)
         rsize_r[:N] = self.myng_q[q]
         roffset_r = np.arange(comm.size) * self.myng_q[q]
+        roffset_r[N:] = 0
         ssize_r = np.zeros(comm.size, int)
         if comm.rank < N:
             ssize_r[:-1] = self.maxmyng
@@ -1428,7 +1430,7 @@ class PWLFC(BaseLFC):
 
         del self.emiGR_qGa[:]
         G_Qv = self.pd.G_Qv
-        for Q_G in self.pd.Q_qG:
+        for Q_G in self.pd.myQ_qG:
             GR_Ga = np.dot(G_Qv[Q_G], self.pos_av.T)
             self.emiGR_qGa.append(np.exp(-1j * GR_Ga))
 
@@ -1457,11 +1459,13 @@ class PWLFC(BaseLFC):
         f_Gs = self.f_qGs[q][G1:G2]
         Y_GL = self.Y_qGL[q][G1:G2]
 
-        if True:  # fast C-code
-            if self.pd.dtype == complex:
-                f_GI = np.empty((G2 - G1, self.nI), complex)
-            else:
-                f_GI = np.empty((2 * (G2 - G1), self.nI))
+        if self.pd.dtype == complex:
+            f_GI = np.empty((G2 - G1, self.nI), complex)
+        else:
+            f_GI = np.empty((2 * (G2 - G1), self.nI))
+
+        if True:
+            # Fast C-code:
             _gpaw.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
                                self.l_s, self.a_J, self.s_J,
                                cc, f_GI)
@@ -1482,6 +1486,7 @@ class PWLFC(BaseLFC):
             f_GI = f_GI.conj()
         if self.pd.dtype == float:
             f_GI = f_GI.T.copy().view(float).T.copy()
+
         return f_GI
 
     def block(self, q=-1):
@@ -1496,21 +1501,20 @@ class PWLFC(BaseLFC):
             yield 0, nG
 
     def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None):
-        if isinstance(c_axi, float):
-            assert q == -1, a_xG.dims == 1
-            f_G = self.expand().sum(1).view(complex)
-            a_xG += (c_axi / self.pd.gd.dv) * f_G
-            return
-
         c_xI = np.empty(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
-        if self.comm.size != 1:
-            c_xI[:] = 0.0
-        for a, I1, I2 in self.my_indices:
-            c_xI[..., I1:I2] = c_axi[a] * self.eikR_qa[q][a].conj()
-        if self.comm.size != 1:
-            self.comm.sum(c_xI)
-        c_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
 
+        if isinstance(c_axi, float):
+            assert q == -1 and a_xG.ndim == 1
+            c_xI[:] = c_axi
+        else:
+            if self.comm.size != 1:
+                c_xI[:] = 0.0
+            for a, I1, I2 in self.my_indices:
+                c_xI[..., I1:I2] = c_axi[a] * self.eikR_qa[q][a].conj()
+            if self.comm.size != 1:
+                self.comm.sum(c_xI)
+
+        c_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
         a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
 
         for G1, G2 in self.block(q):
@@ -1789,8 +1793,6 @@ class ReciprocalSpaceDensity(Density):
             [[setup.tauct] for setup in self.setups], self.pd2)
 
     def calculate_dipole_moment(self):
-        if LooseVersion(np.__version__) < '1.6.0':
-            raise NotImplementedError
         pd = self.pd3
         N_c = pd.tmp_Q.shape
 
@@ -1905,7 +1907,6 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         exc = self.xc.calculate(dens.finegd, nt_dist_xg, vxct_dist_xg)
         exc /= self.finegd.comm.size
         vxct_xg = vxct_dist_xg
-
         x = 0
         for vt_G, vxct_g in zip(self.vt_xG, vxct_xg):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
