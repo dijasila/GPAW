@@ -197,7 +197,7 @@ tests = [
     'pseudopotential/sg15_hydrogen.py',     # ~4s
     'generic/move_across_cell.py',          # ~4s
     'parallel/augment_grid.py',             # ~4s
-    'pw/augment_grid.py',
+    'pw/augment_grids.py',
     'utilities/ewald.py',                   # ~4s
     'symmetry/symmetry.py',                 # ~4s
     'xc/revPBE.py',                         # ~4s
