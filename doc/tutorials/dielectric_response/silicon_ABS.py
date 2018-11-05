@@ -3,9 +3,11 @@
 # for comparison of macroscopic and microscopic dielectric constant
 # and absorption peaks.
 from __future__ import print_function
+from pathlib import Path
 
 from ase.build import bulk
-from ase.parallel import paropen
+from ase.parallel import paropen, world
+
 from gpaw import GPAW, FermiDirac
 from gpaw.response.df import DielectricFunction
 
@@ -47,11 +49,14 @@ df = DielectricFunction(calc='si_large.gpw',
 epsNLF, epsLF = df.get_macroscopic_dielectric_constant()
 
 # Make table
-epsrefNLF = 14.08  # From [1] in top
-epsrefLF = 12.66  # From [1] in top
+epsrefNLF = 14.08  # from [1] in top
+epsrefLF = 12.66  # from [1] in top
 
 with paropen('mac_eps.csv', 'w') as f:
     print(' , Without LFE, With LFE', file=f)
     print('%s, %.6f, %.6f' % ('GPAW-linear response', epsNLF, epsLF), file=f)
     print('%s, %.6f, %.6f' % ('[1]', epsrefNLF, epsrefLF), file=f)
     print('%s, %.6f, %.6f' % ('Exp.', 11.90, 11.90), file=f)
+
+if world.rank == 0:
+    Path('si_large.gpw').unlink()

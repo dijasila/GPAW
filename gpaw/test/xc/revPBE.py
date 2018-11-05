@@ -1,12 +1,13 @@
 from ase import Atoms
-from gpaw import GPAW
+from gpaw import GPAW, PoissonSolver
 from gpaw.test import equal
 from ase.units import Bohr, Hartree
 
 a = 7.5 * Bohr
 n = 16
 atoms = Atoms('He', [(0.0, 0.0, 0.0)], cell=(a, a, a), pbc=True)
-calc = GPAW(gpts=(n, n, n), nbands=1, xc={'name': 'PBE', 'stencil': 1})
+calc = GPAW(gpts=(n, n, n), nbands=1, xc={'name': 'PBE', 'stencil': 1},
+            poissonsolver=PoissonSolver('fd'))
 atoms.set_calculator(calc)
 e1 = atoms.get_potential_energy()
 niter1 = calc.get_number_of_iterations()

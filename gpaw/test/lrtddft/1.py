@@ -4,7 +4,7 @@ from ase.parallel import parprint
 from gpaw import GPAW
 from gpaw.test import equal
 from gpaw.lrtddft import LrTDDFT
-from gpaw.mpi import world 
+from gpaw.mpi import world
 from gpaw.lrtddft.excited_state import ExcitedState
 
 txt='-'
@@ -20,7 +20,9 @@ if not io_only:
     H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
                 Atom('H', (a / 2, a / 2, (c + R) / 2))],
                cell=(a, a, c))
-    calc = GPAW(xc='PBE', nbands=3, spinpol=False, txt=txt)
+    calc = GPAW(xc='PBE',
+                poissonsolver={'name': 'fd'},
+                nbands=3, spinpol=False, txt=txt)
     H2.set_calculator(calc)
     H2.get_potential_energy()
 
@@ -58,7 +60,7 @@ if not io_only:
     ex_vspin = ExcitedState(lr_vspin, 1)
     den_vspin = ex_vspin.get_pseudo_density() * Bohr**3
 
-    parprint('with virtual/wo spin t2, t1=', 
+    parprint('with virtual/wo spin t2, t1=',
              t2.get_energy(), t1 .get_energy())
     equal(t1.get_energy(), t2.get_energy(), 5.e-7)
     gd = lr.calculator.density.gd
@@ -72,7 +74,8 @@ if not io_only:
     assert(ddiff < 1.e-4)
 
     if not load:
-        c_spin = GPAW(xc='PBE', nbands=2, 
+        c_spin = GPAW(xc='PBE', nbands=2,
+                      poissonsolver={'name': 'fd'},
                       spinpol=True, parallel={'domain': world.size},
                       txt=txt)
         H2.set_calculator(c_spin)
