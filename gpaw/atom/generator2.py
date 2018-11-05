@@ -308,7 +308,7 @@ class PAWSetupGenerator:
                  fd=None, yukawa_gamma=0.0):
         """fd: stream
             Text output.
-            
+
            yukawa_gamma: separation parameter for RSF"""
 
         self.aea = aea
@@ -1176,8 +1176,8 @@ class PAWSetupGenerator:
                 i2 = 0
                 for l2, waves2 in enumerate(self.waves_l):
                     for phi2_g in waves2.phi_ng:
-                        X_mm = self.exxcv_ii[i1:i1 + 2 * l1 + 1,
-                                             i2:i2 + 2 * l2 + 1]
+                        X_mm = cv_ii[i1:i1 + 2 * l1 + 1,
+                                     i2:i2 + 2 * l2 + 1]
                         if (l1 + l2) % 2 == 0:
                             for lc, phi_g in core:
                                 n_g = phi1_g * phi_g
