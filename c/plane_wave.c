@@ -80,14 +80,13 @@ PyObject *pwlfc_expand(PyObject *self, PyObject *args)
     if (PyArray_ITEMSIZE(f_GI_obj) == 16)
         for(int G = 0; G < nG; G++) {
             for (int J = 0; J < nJ; J++) {
-                int a = a_J[J];
                 int s = s_J[J];
                 int l = l_s[s];
-                double complex il = imag_powers[l % 4];
+                double complex f1 = (emiGR_Ga[a_J[J]] *
+                                     f_Gs[s] *
+                                     imag_powers[l % 4]);
                 for (int m = 0; m < 2 * l + 1; m++) {
-                    double complex f = (emiGR_Ga[a] *
-                                        f_Gs[s] *
-                                        Y_GL[l * l + m] * il);
+                    double complex f = f1 * Y_GL[l * l + m];
                     *f_GI++ = creal(f);
                     *f_GI++ = cc ? -cimag(f) : cimag(f);
                 }
@@ -100,13 +99,13 @@ PyObject *pwlfc_expand(PyObject *self, PyObject *args)
         int nI = PyArray_DIM(f_GI_obj, 1);
         for(int G = 0; G < nG; G++) {
             for (int J = 0; J < nJ; J++) {
-                int a = a_J[J];
                 int s = s_J[J];
                 int l = l_s[s];
-                double complex il = imag_powers[l % 4];
+                double complex f1 = (emiGR_Ga[a_J[J]] *
+                                     f_Gs[s] *
+                                     imag_powers[l % 4]);
                 for (int m = 0; m < 2 * l + 1; m++) {
-                    double complex f = (emiGR_Ga[a] * f_Gs[s] *
-                                        Y_GL[l * l + m] * il);
+                    double complex f = f1 * Y_GL[l * l + m];
                     f_GI[0] = creal(f);
                     f_GI[nI] = cc ? -cimag(f) : cimag(f);
                     f_GI++;
