@@ -1272,10 +1272,20 @@ def get_parameters(symbol, args):
                 yukawa_gamma=args.gamma)
 
 
-def _generate(symbol, xc, configuration, projectors, radii,
-              scalar_relativistic, alpha,
-              r0, nderiv0,
-              pseudize, rcore, core_hole, output, yukawa_gamma=0.0):
+def generate(symbol,
+             projectors,
+             radii,
+             r0,
+             nderiv0,
+             xc='LDA',
+             scalar_relativistic=False,
+             pseudize=('poly', 4),
+             configuration=None,
+             alpha=None,
+             rcore=None,
+             core_hole=None,
+             output=None,
+             yukawa_gamma=0.0):
     if isinstance(output, str):
         output = open(output, 'w')
     aea = AllElectronAtom(symbol, xc, configuration=configuration, log=output)
@@ -1367,7 +1377,7 @@ class CLICommand:
 
 def main(args):
     kwargs = get_parameters(args.symbol, args)
-    gen = _generate(**kwargs)
+    gen = generate(**kwargs)
 
     if not args.no_check:
         if not gen.check_all():
