@@ -3,7 +3,6 @@ from __future__ import division
 import numbers
 from math import pi
 from math import factorial as fac
-from distutils.version import LooseVersion
 
 import numpy as np
 from ase.units import Ha, Bohr
@@ -22,7 +21,7 @@ from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
 from gpaw.utilities import unpack
-from gpaw.utilities.blas import rk, r2k, gemm, axpy
+from gpaw.utilities.blas import rk, r2k, axpy, mmm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
@@ -394,6 +393,7 @@ class PWDescriptor:
         ssize_r = np.zeros(comm.size, int)
         ssize_r[:N] = self.myng_q[q]
         soffset_r = np.arange(comm.size) * self.myng_q[q]
+        soffset_r[N:] = 0
         rsize_r = np.zeros(comm.size, int)
         if comm.rank < N:
             rsize_r[:-1] = self.maxmyng
@@ -415,6 +415,7 @@ class PWDescriptor:
         rsize_r = np.zeros(comm.size, int)
         rsize_r[:N] = self.myng_q[q]
         roffset_r = np.arange(comm.size) * self.myng_q[q]
+        roffset_r[N:] = 0
         ssize_r = np.zeros(comm.size, int)
         if comm.rank < N:
             ssize_r[:-1] = self.maxmyng
@@ -462,7 +463,7 @@ class PWDescriptor:
         elif hermitian:
             r2k(0.5 * alpha, A_xg, B_yg, 0.0, result_yx)
         else:
-            gemm(alpha, A_xg, B_yg, 0.0, result_yx, 'c')
+            mmm(alpha, B_yg, 'N', A_xg, 'C', 0.0, result_yx)
 
         if self.dtype == float and self.gd.comm.rank == 0:
             correction_yx = np.outer(B_yg[:, 0], A_xg[:, 0])
@@ -1074,8 +1075,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         S_GG.ravel()[G1::npw + 1] = self.pd.gd.dv / N
 
-        f_IG = self.pt.expand(q)
-        nI = len(f_IG)
+        f_GI = self.pt.expand(q)
+        nI = f_GI.shape[1]
         dH_II = np.zeros((nI, nI))
         dS_II = np.zeros((nI, nI))
         I1 = 0
@@ -1087,8 +1088,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             dS_II[I1:I2, I1:I2] = dS_ii / N**2
             I1 = I2
 
-        H_GG += np.dot(f_IG.T[G1:G2].conj(), np.dot(dH_II, f_IG))
-        S_GG += np.dot(f_IG.T[G1:G2].conj(), np.dot(dS_II, f_IG))
+        H_GG += np.dot(f_GI[G1:G2].conj(), np.dot(dH_II, f_GI.T))
+        S_GG += np.dot(f_GI[G1:G2].conj(), np.dot(dS_II, f_GI.T))
 
         return H_GG, S_GG
 
@@ -1325,8 +1326,13 @@ class PWLFC(BaseLFC):
         self.initialized = False
 
         # These will be filled in later:
-        self.lf_aj = []
-        self.Y_qLG = []
+        self.Y_qGL = []
+        self.emiGR_qGa = []
+        self.f_qGs = []
+        self.l_s = None
+        self.a_J = None
+        self.s_J = None
+        self.lmax = None
 
         if blocksize is not None:
             if pd.ngmax <= blocksize:
@@ -1348,36 +1354,50 @@ class PWLFC(BaseLFC):
         self.comm = comm
 
     def initialize(self):
+        """Initialize position-independent stuff."""
         if self.initialized:
             return
 
-        cache = {}
-        lmax = -1
+        splines = {}  # type: Dict[Spline, int]
+        for spline_j in self.spline_aj:
+            for spline in spline_j:
+                if spline not in splines:
+                    splines[spline] = len(splines)
+        nsplines = len(splines)
+
+        nJ = sum(len(spline_j) for spline_j in self.spline_aj)
+
+        self.f_qGs = [np.empty((mynG, nsplines)) for mynG in self.pd.myng_q]
+        self.l_s = np.empty(nsplines, np.int32)
+        self.a_J = np.empty(nJ, np.int32)
+        self.s_J = np.empty(nJ, np.int32)
 
         # Fourier transform radial functions:
+        J = 0
+        done = set()  # type: Set[Spline]
         for a, spline_j in enumerate(self.spline_aj):
-            self.lf_aj.append([])
             for spline in spline_j:
-                l = spline.get_angular_momentum_number()
-                if spline not in cache:
+                s = splines[spline]  # get spline index
+                if spline not in done:
                     f = ft(spline)
-                    f_qG = []
-                    for G2_G in self.pd.G2_qG:
+                    for f_Gs, G2_G in zip(self.f_qGs, self.pd.G2_qG):
                         G_G = G2_G**0.5
-                        f_qG.append(f.map(G_G))
-                    cache[spline] = f_qG
-                else:
-                    f_qG = cache[spline]
-                self.lf_aj[a].append((l, f_qG))
-                lmax = max(lmax, l)
+                        f_Gs[:, s] = f.map(G_G)
+                    self.l_s[s] = spline.get_angular_momentum_number()
+                    done.add(spline)
+                self.a_J[J] = a
+                self.s_J[J] = s
+                J += 1
+
+        self.lmax = max(self.l_s)
 
         # Spherical harmonics:
         for q, K_v in enumerate(self.pd.K_qv):
             G_Gv = self.pd.get_reciprocal_vectors(q=q)
-            Y_LG = np.empty(((lmax + 1)**2, len(G_Gv)))
-            for L in range((lmax + 1)**2):
-                Y_LG[L] = Y(L, *G_Gv.T)
-            self.Y_qLG.append(Y_LG)
+            Y_GL = np.empty((len(G_Gv), (self.lmax + 1)**2))
+            for L in range((self.lmax + 1)**2):
+                Y_GL[:, L] = Y(L, *G_Gv.T)
+            self.Y_qGL.append(Y_GL)
 
         self.initialized = True
 
@@ -1394,7 +1414,8 @@ class PWLFC(BaseLFC):
         mem.subnode('Arrays', nbytes)
 
     def get_function_count(self, a):
-        return sum(2 * l + 1 for l, f_qG in self.lf_aj[a])
+        return sum(2 * spline.get_angular_momentum_number() + 1
+                   for spline in self.spline_aj[a])
 
     def set_positions(self, spos_ac, atom_partition=None):
         self.initialize()
@@ -1405,6 +1426,12 @@ class PWLFC(BaseLFC):
             self.eikR_qa = np.exp(2j * pi * np.dot(kd.ibzk_qc, spos_ac.T))
 
         self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
+
+        del self.emiGR_qGa[:]
+        G_Qv = self.pd.G_Qv
+        for Q_G in self.pd.myQ_qG:
+            GR_Ga = np.dot(G_Qv[Q_G], self.pos_av.T)
+            self.emiGR_qGa.append(np.exp(-1j * GR_Ga))
 
         if atom_partition is None:
             assert self.comm.size == 1
@@ -1423,35 +1450,66 @@ class PWLFC(BaseLFC):
             I1 = I2
         self.nI = I1
 
-    def old_expand(self, q=-1, G1=0, G2=None):
-        # Pure-Python version of expand().  Left here for testing.
+    def expand(self, q=-1, G1=0, G2=None, cc=False):
+        """Expand functions in plane-waves.
+
+        q: int
+            k-point index.
+        G1: int
+            Start G-vector index.
+        G2: int
+            End G-vector index.
+        cc: bool
+            Complex conjugate.
+        """
         if G2 is None:
-            G2 = self.Y_qLG[q].shape[1]
-        f_IG = np.empty((self.nI, G2 - G1), complex)
-        emiGR_Ga = np.exp(-1j * np.dot(self.pd.G_Qv[self.pd.Q_qG[q][G1:G2]],
-                                       self.pos_av.T))
-        for a, j, i1, i2, I1, I2 in self:
-            l, f_qG = self.lf_aj[a][j]
-            f_IG[I1:I2] = (emiGR_Ga[:, a] * f_qG[q][G1:G2] * (-1.0j)**l *
-                           self.Y_qLG[q][l**2:(l + 1)**2, G1:G2])
-        return f_IG
+            G2 = self.Y_qGL[q].shape[0]
 
-    def expand(self, q=-1, G1=0, G2=None):
-        if G2 is None:
-            G2 = self.Y_qLG[q].shape[1]
-        G_Qv = self.pd.G_Qv[self.pd.myQ_qG[q][G1:G2]]
-        f_IG = np.empty((self.nI, G2 - G1), complex)
-        emiGRbuf_G = np.empty(len(G_Qv), complex)
+        emiGR_Ga = self.emiGR_qGa[q][G1:G2]
+        f_Gs = self.f_qGs[q][G1:G2]
+        Y_GL = self.Y_qGL[q][G1:G2]
 
-        Y_LG = self.Y_qLG[q]
+        if self.pd.dtype == complex:
+            f_GI = np.empty((G2 - G1, self.nI), complex)
+        else:
+            # Special layout because BLAS does not have real-complex
+            # multiplications.  f_GI(G,I) layout:
+            #
+            #    real(G1, 0),   real(G1, 1),   ...
+            #    imag(G1, 0),   imag(G1, 1),   ...
+            #    real(G1+1, 0), real(G1+1, 1), ...
+            #    imag(G1+1, 0), imag(G1+1, 1), ...
+            #    ...
 
-        _gpaw.pwlfc_expand(G_Qv, self.pos_av,
-                           self.lf_aj, Y_LG, q, G1, G2,
-                           f_IG, emiGRbuf_G)
-        return f_IG
+            f_GI = np.empty((2 * (G2 - G1), self.nI))
+
+        if True:
+            # Fast C-code:
+            _gpaw.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
+                               self.l_s, self.a_J, self.s_J,
+                               cc, f_GI)
+            return f_GI
+
+        # Equivalent slow Python code:
+        f_GI = np.empty((G2 - G1, self.nI), complex)
+        I1 = 0
+        for J, (a, s) in enumerate(zip(self.a_J, self.s_J)):
+            l = self.l_s[s]
+            I2 = I1 + 2 * l + 1
+            f_GI[:, I1:I2] = (f_Gs[:, s] *
+                              emiGR_Ga[:, a] *
+                              Y_GL[:, l**2:(l + 1)**2].T *
+                              (-1.0j)**l).T
+            I1 = I2
+        if cc:
+            f_GI = f_GI.conj()
+        if self.pd.dtype == float:
+            f_GI = f_GI.T.copy().view(float).T.copy()
+
+        return f_GI
 
     def block(self, q=-1):
-        nG = self.Y_qLG[q].shape[1]
+        nG = self.Y_qGL[q].shape[0]
         if self.blocksize:
             G1 = 0
             while G1 < nG:
@@ -1462,34 +1520,36 @@ class PWLFC(BaseLFC):
             yield 0, nG
 
     def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None):
-        if isinstance(c_axi, float):
-            assert q == -1, a_xG.dims == 1
-            a_xG += (c_axi / self.pd.gd.dv) * self.expand().sum(0)
-            return
-
         c_xI = np.empty(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
-        if self.comm.size != 1:
-            c_xI[:] = 0.0
-        for a, I1, I2 in self.my_indices:
-            c_xI[..., I1:I2] = c_axi[a] * self.eikR_qa[q][a].conj()
-        if self.comm.size != 1:
-            self.comm.sum(c_xI)
-        c_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
 
+        if isinstance(c_axi, float):
+            assert q == -1 and a_xG.ndim == 1
+            c_xI[:] = c_axi
+        else:
+            if self.comm.size != 1:
+                c_xI[:] = 0.0
+            for a, I1, I2 in self.my_indices:
+                c_xI[..., I1:I2] = c_axi[a] * self.eikR_qa[q][a].conj()
+            if self.comm.size != 1:
+                self.comm.sum(c_xI)
+
+        c_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
         a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
 
         for G1, G2 in self.block(q):
             if f0_IG is None:
-                f_IG = self.expand(q, G1, G2)
+                f_GI = self.expand(q, G1, G2, cc=False)
             else:
-                f_IG = f0_IG
+                1 / 0
+                # f_IG = f0_IG
 
             if self.pd.dtype == float:
-                f_IG = f_IG.view(float)
+                # f_IG = f_IG.view(float)
                 G1 *= 2
                 G2 *= 2
 
-            gemm(1.0 / self.pd.gd.dv, f_IG, c_xI, 1.0, a_xG[:, G1:G2])
+            mmm(1.0 / self.pd.gd.dv, c_xI, 'N', f_GI, 'T',
+                1.0, a_xG[:, G1:G2])
 
     def integrate(self, a_xG, c_axi=None, q=-1):
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
@@ -1507,14 +1567,13 @@ class PWLFC(BaseLFC):
 
         x = 0.0
         for G1, G2 in self.block(q):
-            f_IG = self.expand(q, G1, G2)
+            f_GI = self.expand(q, G1, G2, cc=self.pd.dtype == complex)
             if self.pd.dtype == float:
                 if G1 == 0 and self.comm.rank == 0:
-                    f_IG[:, 0] *= 0.5
-                f_IG = f_IG.view(float)
+                    f_GI[0] *= 0.5
                 G1 *= 2
                 G2 *= 2
-            gemm(alpha, f_IG, a_xG[:, G1:G2], x, b_xI, 'c')
+            mmm(alpha, a_xG[:, G1:G2], 'N', f_GI, 'N', x, b_xI)
             x = 1.0
 
         self.comm.sum(b_xI)
@@ -1539,20 +1598,23 @@ class PWLFC(BaseLFC):
 
         x = 0.0
         for G1, G2 in self.block(q):
-            f_IG = self.expand(q, G1, G2)
+            f_GI = self.expand(q, G1, G2, cc=True)
             G_Gv = self.pd.G_Qv[self.pd.myQ_qG[q][G1:G2]]
             if self.pd.dtype == float:
+                d_GI = np.empty_like(f_GI)
                 for v in range(3):
-                    gemm(2 * alpha,
-                         (f_IG * 1.0j * G_Gv[:, v]).view(float),
-                         a_xG[:, 2 * G1:2 * G2],
-                         x, b_vxI[v], 'c')
+                    d_GI[::2] = f_GI[1::2] * G_Gv[:, v, np.newaxis]
+                    d_GI[1::2] = f_GI[::2] * G_Gv[:, v, np.newaxis]
+                    mmm(2 * alpha,
+                        a_xG[:, 2 * G1:2 * G2], 'N',
+                        d_GI, 'N',
+                        x, b_vxI[v])
             else:
                 for v in range(3):
-                    gemm(-alpha,
-                         f_IG * (G_Gv[:, v] + K_v[v]),
-                         a_xG[:, G1:G2],
-                         x, b_vxI[v], 'c')
+                    mmm(-alpha,
+                        a_xG[:, G1:G2], 'N',
+                        f_GI * (G_Gv[:, v] + K_v[v])[:, np.newaxis], 'N',
+                        x, b_vxI[v])
             x = 1.0
 
         self.comm.sum(c_vxI)
@@ -1592,8 +1654,7 @@ class PWLFC(BaseLFC):
                 l = spline.l
                 lmax = max(l, lmax)
                 I2 = I1 + 2 * l + 1
-                things.append((self.pos_av[a], l, I1, I2,
-                               f_G, dfdGoG_G))
+                things.append((a, l, I1, I2, f_G, dfdGoG_G))
                 I1 = I2
 
         if isinstance(c_axi, float):
@@ -1619,16 +1680,15 @@ class PWLFC(BaseLFC):
     def _stress_tensor_contribution(self, v1, v2, things, G1, G2,
                                     G_Gv, a_xG, c_axi, q, Z_LvG):
         f_IG = np.empty((self.nI, G2 - G1), complex)
-        K_v = self.pd.K_qv[q]
-        for pos_v, l, I1, I2, f_G, dfdGoG_G in things:
+        emiGR_Ga = self.emiGR_qGa[q][G1:G2]
+        Y_LG = self.Y_qGL[q].T
+        for a, l, I1, I2, f_G, dfdGoG_G in things:
             L1 = l**2
             L2 = (l + 1)**2
-            emiGR_G = np.exp(-1j * np.dot(G_Gv, pos_v))
-            f_IG[I1:I2] = (emiGR_G * (-1.0j)**l *
-                           np.exp(1j * np.dot(K_v, pos_v)) * (
-                               dfdGoG_G[G1:G2] * G_Gv[:, v1] * G_Gv[:, v2] *
-                               self.Y_qLG[q][L1:L2, G1:G2] +
-                               f_G[G1:G2] * G_Gv[:, v1] * Z_LvG[L1:L2, v2]))
+            f_IG[I1:I2] = (emiGR_Ga[:, a] * (-1.0j)**l *
+                           (dfdGoG_G[G1:G2] * G_Gv[:, v1] * G_Gv[:, v2] *
+                            Y_LG[L1:L2, G1:G2] +
+                            f_G[G1:G2] * G_Gv[:, v1] * Z_LvG[L1:L2, v2]))
 
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
@@ -1643,7 +1703,7 @@ class PWLFC(BaseLFC):
             f_IG = f_IG.view(float)
             a_xG = a_xG.copy().view(float)
 
-        gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
+        mmm(alpha, a_xG, 'N', f_IG, 'C', 0.0, b_xI)
         self.comm.sum(b_xI)
 
         stress = 0.0
@@ -1654,7 +1714,8 @@ class PWLFC(BaseLFC):
 
 class PseudoCoreKineticEnergyDensityLFC(PWLFC):
     def add(self, tauct_R):
-        tauct_R += self.pd.ifft(1.0 / self.pd.gd.dv * self.expand(-1).sum(0))
+        tauct_R += self.pd.ifft(1.0 / self.pd.gd.dv *
+                                self.expand().sum(1).view(complex))
 
     def derivative(self, dedtaut_R, dF_aiv):
         PWLFC.derivative(self, self.pd.fft(dedtaut_R), dF_aiv)
@@ -1749,8 +1810,6 @@ class ReciprocalSpaceDensity(Density):
             [[setup.tauct] for setup in self.setups], self.pd2)
 
     def calculate_dipole_moment(self):
-        if LooseVersion(np.__version__) < '1.6.0':
-            raise NotImplementedError
         pd = self.pd3
         N_c = pd.tmp_Q.shape
 
@@ -1865,7 +1924,6 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         exc = self.xc.calculate(dens.finegd, nt_dist_xg, vxct_dist_xg)
         exc /= self.finegd.comm.size
         vxct_xg = vxct_dist_xg
-
         x = 0
         for vt_G, vxct_g in zip(self.vt_xG, vxct_xg):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
