@@ -77,8 +77,8 @@ class RMM_DIIS(Eigensolver):
         errors_n = np.zeros(wfs.bd.mynbands)
         # Arrays needed for DIIS step
         if self.niter > 1:
-            psit_diis_nxG = wfs.empty(B * self.niter, q=kpt.q)
-            R_diis_nxG = wfs.empty(B * self.niter, q=kpt.q)
+            psit_diis_nxG = wfs.empty(B * self.niter, q=kpt.q, cuda=False)
+            R_diis_nxG = wfs.empty(B * self.niter, q=kpt.q, cuda=False)
             # P_diis_anxi = wfs.pt.dict(B * self.niter)
             eig_n = np.zeros(self.niter)  # eigenvalues for diagonalization
                                           # not needed in any step
@@ -133,8 +133,12 @@ class RMM_DIIS(Eigensolver):
             if self.niter > 1:
                 # Save the previous vectors contiguously for each band
                 # in the block
-                psit_diis_nxG[:B * self.niter:self.niter] = psit_xG
-                R_diis_nxG[:B * self.niter:self.niter] = R_xG
+                if self.cuda:
+                    psit_diis_nxG[:B * self.niter:self.niter] = psit_xG.get()
+                    R_diis_nxG[:B * self.niter:self.niter] = R_xG.get()
+                else:
+                    psit_diis_nxG[:B * self.niter:self.niter] = psit_xG
+                    R_diis_nxG[:B * self.niter:self.niter] = R_xG
 
             # Precondition the residual:
             self.timer.start('precondition')
@@ -241,7 +245,17 @@ class RMM_DIIS(Eigensolver):
                 # Do not perform DIIS if error is small
                 # if abs(error_block / B) < self.rtol:
                 #     break
-                
+
+                # copy arrays to CPU and swap references to enable
+                #   element-wise assignments
+                if self.cuda:
+                    psit_xG_cpu = psit_xG.get()
+                    psit_xG_gpu = psit_xG
+                    psit_xG = psit_xG_cpu
+                    R_xG_cpu = R_xG.get()
+                    R_xG_gpu = R_xG
+                    R_xG = R_xG_cpu
+
                 # Update the subspace
                 psit_diis_nxG[nit:B * self.niter:self.niter] = psit_xG
                 R_diis_nxG[nit:B * self.niter:self.niter] = R_xG
@@ -286,6 +300,13 @@ class RMM_DIIS(Eigensolver):
                             axpy(alpha_i[i], R_diis_nxG[istart + i],
                                  R_xG[ib])
                         self.timer.stop('Update trial vectors')
+
+                # copy arrays back to GPU and swap references back
+                if self.cuda:
+                    psit_xG_gpu.set(psit_xG)
+                    psit_xG = psit_xG_gpu
+                    R_xG_gpu.set(R_xG)
+                    R_xG = R_xG_gpu
 
                 if nit < self.niter - 1:
                     self.timer.start('precondition')
