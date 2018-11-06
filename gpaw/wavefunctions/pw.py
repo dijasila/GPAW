@@ -1451,6 +1451,17 @@ class PWLFC(BaseLFC):
         self.nI = I1
 
     def expand(self, q=-1, G1=0, G2=None, cc=False):
+        """Expand functions in plane-waves.
+
+        q: int
+            k-point index.
+        G1: int
+            Start G-vector index.
+        G2: int
+            End G-vector index.
+        cc: bool
+            Complex conjugate.
+        """
         if G2 is None:
             G2 = self.Y_qGL[q].shape[0]
 
@@ -1461,6 +1472,15 @@ class PWLFC(BaseLFC):
         if self.pd.dtype == complex:
             f_GI = np.empty((G2 - G1, self.nI), complex)
         else:
+            # Special layout because BLAS does not have real-complex
+            # multiplications.  f_GI(G,I) layout:
+            #
+            #    real(G1, 0),   real(G1, 1),   ...
+            #    imag(G1, 0),   imag(G1, 1),   ...
+            #    real(G1+1, 0), real(G1+1, 1), ...
+            #    imag(G1+1, 0), imag(G1+1, 1), ...
+            #    ...
+
             f_GI = np.empty((2 * (G2 - G1), self.nI))
 
         if True:
