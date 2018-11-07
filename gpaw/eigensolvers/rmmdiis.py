@@ -58,7 +58,7 @@ class RMMDIIS(Eigensolver):
                 self.blocksize = int(np.ceil(10 / S)) * S
             else:
                 self.blocksize = 10
-        Eigensolver.initialize(wfs)
+        Eigensolver.initialize(self, wfs)
 
     def iterate_one_k_point(self, ham, wfs, kpt):
         """Do a single RMM-DIIS iteration for the kpoint"""
@@ -276,7 +276,6 @@ class RMMDIIS(Eigensolver):
     def __repr__(self):
         repr_string = 'RMM-DIIS eigensolver\n'
         repr_string += '       keep_htpsit: %s\n' % self.keep_htpsit
-        repr_string += '       Block size: %d\n' % self.blocksize
         repr_string += '       DIIS iterations: %d\n' % self.niter
         repr_string += '       Threshold for DIIS: %5.1e\n' % self.rtol
         repr_string += '       Limit lambda: %s\n' % self.limit_lambda
