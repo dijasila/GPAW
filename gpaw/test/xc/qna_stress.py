@@ -21,7 +21,7 @@ calc = GPAW(mode=PW(ecut),
             eigensolver=Davidson(2),
             nbands='120%',
             mixer=Mixer(0.4, 7, 50.0),
-            parallel=dict(domain=1, augment_grids=True),
+            parallel=dict(domain=1),
             xc=QNA,
             kpts=kpts,
             txt=name + '.txt')

@@ -31,6 +31,10 @@ class GridBoundsError(ValueError):
     pass
 
 
+class BadGridError(ValueError):
+    pass
+
+
 class GridDescriptor(Domain):
     """Descriptor-class for uniform 3D grid
 
@@ -128,10 +132,10 @@ class GridDescriptor(Domain):
                 n_p[0] = 1
 
             if not np.all(n_p[1:] - n_p[:-1] > 0):
-                raise ValueError('Grid {0} too small for {1} cores!'
-                                 .format('x'.join(str(n) for n in self.N_c),
-                                         'x'.join(str(n) for n
-                                                  in self.parsize_c)))
+                raise BadGridError('Grid {0} too small for {1} cores!'
+                                   .format('x'.join(str(n) for n in self.N_c),
+                                           'x'.join(str(n) for n
+                                                    in self.parsize_c)))
 
             self.beg_c[c] = n_p[self.parpos_c[c]]
             self.end_c[c] = n_p[self.parpos_c[c] + 1]
@@ -149,7 +153,7 @@ class GridDescriptor(Domain):
         # Sanity check for grid spacings:
         h_c = self.get_grid_spacings()
         if max(h_c) / min(h_c) > 1.3:
-            raise ValueError('Very anisotropic grid spacings: %s' % h_c)
+            raise BadGridError('Very anisotropic grid spacings: %s' % h_c)
 
     def __repr__(self):
         if self.orthogonal:

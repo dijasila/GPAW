@@ -33,7 +33,6 @@ for xc in ['mBEEF', 'BEEF-vdW', 'mBEEF-vdW']:
         si.calc = GPAW(txt='Si-' + xc + '.txt',
                        mixer=Mixer(0.8, 7, 50.0),
                        eigensolver=Davidson(2),
-                       parallel=dict(augment_grids=True),
                        xc=xc,
                        kpts=[2, 2, 2],
                        mode='pw')

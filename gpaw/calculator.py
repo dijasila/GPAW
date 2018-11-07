@@ -705,7 +705,7 @@ class GPAW(PAW, Calculator):
 
         self.print_memory_estimate(maxdepth=memory_estimate_depth + 1)
 
-        print_parallelization_details(self.wfs, self.density, self.log)
+        print_parallelization_details(self.wfs, self.hamiltonian, self.log)
 
         self.log('Number of atoms:', natoms)
         self.log('Number of atomic orbitals:', self.wfs.setups.nao)
@@ -905,10 +905,30 @@ class GPAW(PAW, Calculator):
                                                     **kwargs)
             xc.set_grid_descriptor(self.hamiltonian.finegd)
         else:
+            # This code will work if dens.redistributor uses
+            # ordinary density.gd as aux_gd
+            gd = dens.finegd
+
+            xc_redist = None
+            if self.parallel['augment_grids']:
+                from gpaw.grid_descriptor import BadGridError
+                try:
+                    aux_gd = gd.new_descriptor(comm=self.world)
+                except BadGridError as err:
+                    import warnings
+                    warnings.warn('Ignoring augment_grids: {}'
+                                  .format(err))
+                else:
+                    bcast_comm = dens.redistributor.broadcast_comm
+                    xc_redist = GridRedistributor(self.world, bcast_comm,
+                                                  gd, aux_gd)
+
             self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
-                pd2=dens.pd2, pd3=dens.pd3, realpbc_c=self.atoms.pbc, **kwargs)
-            xc.set_grid_descriptor(self.hamiltonian.finegd)
-            # xc.set_grid_descriptor(dens.xc_redistributer.aux_gd)
+                pd2=dens.pd2, pd3=dens.pd3, realpbc_c=self.atoms.pbc,
+                xc_redistributor=xc_redist,
+                **kwargs)
+            #xc.set_grid_descriptor(self.hamiltonian.xc_gd)
+            xc.set_grid_descriptor(self.hamiltonian.xc_gd)
 
         self.hamiltonian.soc = self.parameters.experimental.get('soc')
         self.log(self.hamiltonian, '\n')
