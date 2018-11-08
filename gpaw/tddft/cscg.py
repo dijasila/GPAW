@@ -81,7 +81,7 @@ class CSCG:
                                  wfs.gd.comm.size * cuda_blocks_min,
                                  max(1, (224 * 224 * 224) * wfs.gd.comm.size
                                      / (wfs.gd.N_c[0] * wfs.gd.N_c[1]
-                                        * wfs.gd.N_c[2]))
+                                        * wfs.gd.N_c[2])))
         
 
     def solve(self, A, x, b):
