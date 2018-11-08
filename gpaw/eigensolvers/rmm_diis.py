@@ -241,6 +241,9 @@ class RMM_DIIS(Eigensolver):
 
             self.timer.start('DIIS step')
             # DIIS step
+            if self.cuda:
+                psit_xG_cpu = np.empty(psit_xG.shape, dtype=psit_xG.dtype)
+                R_xG_cpu = np.empty(R_xG.shape, dtype=R_xG.dtype)
             for nit in range(1, self.niter):
                 # Do not perform DIIS if error is small
                 # if abs(error_block / B) < self.rtol:
@@ -249,10 +252,10 @@ class RMM_DIIS(Eigensolver):
                 # copy arrays to CPU and swap references to enable
                 #   element-wise assignments
                 if self.cuda:
-                    psit_xG_cpu = psit_xG.get()
+                    psit_xG.get(psit_xG_cpu)
                     psit_xG_gpu = psit_xG
                     psit_xG = psit_xG_cpu
-                    R_xG_cpu = R_xG.get()
+                    R_xG.get(R_xG_cpu)
                     R_xG_gpu = R_xG
                     R_xG = R_xG_cpu
 
