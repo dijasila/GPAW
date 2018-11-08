@@ -169,7 +169,7 @@ class CSCG:
                 if ( (i > 0) and
                      ((self.mblas.multi_zdotc(beta, beta).real / scale[n1:n2])
                       < self.eps).any() ):
-                    raise RuntimeError("Conjugate gradient method failed (abs(beta)=%le < eps = %le)." % (np.min(self.mblas.multi_zdotc(beta, beta).real)), self.eps))
+                    raise RuntimeError("Conjugate gradient method failed (abs(beta)=%le < eps = %le)." % (np.min(self.mblas.multi_zdotc(beta, beta).real), self.eps))
 
                 # p = z + beta p
                 self.mblas.multi_scale(beta, p)
