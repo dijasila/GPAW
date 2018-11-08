@@ -1300,30 +1300,29 @@ class ODDvarLcao(Calculator):
         self.log("... done!\n")
 
         self.timer.start('ODD output and summary')
+        dipole_v = self.den.calculate_dipole_moment() * Bohr
+        self.log(
+            'Dipole moment: ({0:.6f}, {1:.6f}, {2:.6f}) |e|*Ang\n'
+                .format(*dipole_v))
+        if self.wfs.nspins == 2 or not self.den.collinear:
+            totmom_v, magmom_av = self.den.estimate_magnetic_moments()
+            self.log('Total magnetic moment: ({:.6f}, {:.6f}, {:.6f})'
+                     .format(*totmom_v))
+            self.log('Local magnetic moments:')
+            symbols = self.atoms.get_chemical_symbols()
+            for a, mom_v in enumerate(magmom_av):
+                self.log('{:4} {:2} ({:9.6f}, {:9.6f}, {:9.6f})'
+                         .format(a, symbols[a], *mom_v))
         if self.odd == 'PZ_SIC':
             f_sn = {}
             for kpt in self.wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
                 f_sn[k] = np.copy(kpt.f_n)
-
+            self.den.summary(self.atoms, self.occ.magmom, self.log)
             self.write_final_output(self.log, self.e_ks,
                        self.total_sic, self.sic_n,
                        self.pot.eigv_s, f_sn)
         else:
-            dipole_v = self.den.calculate_dipole_moment() * Bohr
-            self.log(
-                'Dipole moment: ({0:.6f}, {1:.6f}, {2:.6f}) |e|*Ang\n'
-                    .format(*dipole_v))
-            if self.wfs.nspins == 2 or not self.den.collinear:
-                totmom_v, magmom_av = self.den.estimate_magnetic_moments()
-                self.log('Total magnetic moment: ({:.6f}, {:.6f}, {:.6f})'
-                         .format(*totmom_v))
-                self.log('Local magnetic moments:')
-                symbols = self.atoms.get_chemical_symbols()
-                for a, mom_v in enumerate(magmom_av):
-                    self.log('{:4} {:2} ({:9.6f}, {:9.6f}, {:9.6f})'
-                             .format(a, symbols[a], *mom_v))
-            self.log(flush=True)
             self.calc.summary()
         self.log(flush=True)
         self.timer.stop('ODD output and summary')
