@@ -49,7 +49,7 @@ CCNOOPT      = $(CUGPAW_DEFS)
 CCFLAGS      = $(CUGPAW_DEFS) -g -fPIC -std=c99 -m64 -O3
 
 NVCC           = nvcc
-NVCCFLAGS      = $(CUGPAW_DEFS) -O3 -g -arch=sm_20 -m64 --compiler-options '-O3 -g -std=c99 -fPIC'
+NVCCFLAGS      = $(CUGPAW_DEFS) -O3 -g -gencode arch=compute_37,code=sm_37 -gencode arch=compute_60,code=sm_60 -m64 --compiler-options '-O3 -g -std=c99 -fPIC'
 
 ARCH     = ar
 ARCHFLAGS= cr
