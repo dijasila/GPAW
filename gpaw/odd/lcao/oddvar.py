@@ -871,14 +871,26 @@ class ODDvarLcao(Calculator):
                 "diagonal elements of Lagrange matrix and "
                 "its eigenvalues:\n")
             if self.nspins == 1:
-                header = " Band         L_ii  Eigenvalues  " \
+                header = " Band         L_ii  " \
                          "Occupancy"
                 log(header)
+
+                lagr_labeled = {}
+                for c, x in enumerate(self.pot.lagr_diag_s[0]):
+                    lagr_labeled[str(round(x, 12))] = c
                 lagr = sorted(self.pot.lagr_diag_s[0])
+                for x in lagr:
+                    i = lagr_labeled[str(round(x, 12))]
+                    log('%5d  %11.5f  %9.5f' % (
+                        i, Hartree * x, f_sn[0][i]))
+
+                log("\nCanonical\n"
+                    "band:  Eigenvalues:")
+
                 for i in range(len(evals[0])):
-                    log('%5d  %11.5f  %11.5f  %9.5f' % (
-                        i, Hartree * lagr[i],
-                        Hartree * evals[0][i], f_sn[0][i]))
+                    log('%5d  %11.5f' % (
+                        i, Hartree * evals[0][i]))
+
             if self.nspins == 2:
                 if self.wfs.kd.comm.size > 1:
                     if self.wfs.kd.comm.rank == 0:
@@ -922,25 +934,48 @@ class ODDvarLcao(Calculator):
                         del a
 
                 if self.wfs.kd.comm.rank == 0:
-                    log('                        Up                 '
-                        '                 Down')
-                    log(' Band         L_ii  Eigenvalues  '
-                        'Occupancy  '
-                        '       L_ii  Eigenvalues  Occupancy')
+                    log('                  Up                 '
+                        '  Down')
+                    log(' Band         L_ii   Occupancy  '
+                        ' Band      L_ii   Occupancy')
+
                     lagr_0 = np.sort(self.pot.lagr_diag_s[0])
+                    lagr_labeled_0 = {}
+                    for c, x in enumerate(self.pot.lagr_diag_s[0]):
+                        lagr_labeled_0[str(round(x, 12))] = c
+
                     if self.wfs.kd.comm.size == 1:
                         lagr_1 = np.sort(self.pot.lagr_diag_s[1])
+                        lagr_labeled_1 = {}
+                        for c, x in enumerate(
+                                self.pot.lagr_diag_s[1]):
+                            lagr_labeled_1[str(round(x, 12))] = c
+                    else:
+                        lagr_labeled_1 = {}
+                        for c, x in enumerate(lagr_1):
+                            lagr_labeled_1[str(round(x, 12))] = c
+                        lagr_1 = np.sort(lagr_1)
+
+                    for x, y in zip(lagr_0, lagr_1):
+                        i0 = lagr_labeled_0[str(round(x, 12))]
+                        i1 = lagr_labeled_1[str(round(y, 12))]
+
+                        log('%5d  %11.5f  %9.5f'
+                            '%5d  %11.5f  %9.5f' %
+                            (i0, Hartree * x,
+                             f_sn[0][i0],
+                             i1,
+                             Hartree * y,
+                             f_sn[1][i1]))
+
+                    log('\nCanonical    Up          Down')
+                    log(' band  eigenvalues   eigenvalues')
 
                     for n in range(len(evals[0])):
-                        log('%5d  %11.5f  %11.5f  '
-                            '%9.5f  %11.5f  %11.5f  '
-                            '%9.5f' %
-                            (n, Hartree * lagr_0[n],
+                        log('%5d  %11.5f %11.5f' %
+                            (n,
                              Hartree * evals[0][n],
-                             f_sn[0][n],
-                             Hartree * lagr_1[n],
-                             Hartree * evals[1][n],
-                             f_sn[1][n]))
+                             Hartree * evals[1][n]))
             log("\n")
         self.log(flush=True)
 
