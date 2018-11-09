@@ -324,6 +324,16 @@ class PWSymmetryAnalyzer:
         K_gs = sbz2sbz_ks[k2g_g]
         K_gk = [np.unique(K_s[K_s != nk]) for K_s in K_gs]
 
+        # Rearrange kpoints such that the ibz points are first
+        ibzpoints_k = self.kd.ibz2bz_k
+        for g, K_k in enumerate(K_gk):
+            for ibzpoint in ibzpoints_k:
+                mask_k = (K_k == ibzpoint)
+                if np.any(mask_k):
+                    tmp_k = np.array(K_k)
+                    K_gk[g] = (list(tmp_k[mask_k]) +
+                               list(tmp_k[~mask_k]))
+
         return K_gk
 
     def get_BZ(self):
@@ -841,6 +851,8 @@ class PairDensity:
                 if wfs.collinear:
                     ut_nR[n - na] = T(wfs.pd.ifft(psit_nG[n], ik))
                 else:
+                    assert np.allclose(U_cc, np.eye(3)), print(U_cc, k_c)
+                    
                     psit_sG = psit_nG[n]
                     ut_nR[n - na, 0] = T(wfs.pd.ifft(psit_sG[0], ik))
                     ut_nR[n - na, 1] = T(wfs.pd.ifft(psit_sG[1], ik))
@@ -1464,7 +1476,7 @@ class PairDensity:
         if k_c is None:
             k_c = kd.bzk_kc[K]
         ik_c = kd.ibzk_kc[ik]
-
+        
         sign = 1 - 2 * time_reversal
         shift_c = np.dot(U_cc, ik_c) - k_c * sign
 
