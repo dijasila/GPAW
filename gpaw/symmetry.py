@@ -265,16 +265,30 @@ class Symmetry:
         bz2bz_ks = map_k_points_fast(bzk_kc, U_scc, time_reversal,
                                      comm, self.tol)
 
+        # Get irreducible bz
+        from gpaw.bztools import get_reduced_bz
+        from scipy.spatial import Delaunay
+        _, ibzk_kc = get_reduced_bz(self.cell_cv, U_scc,
+                                    time_reversal,
+                                    pbc_c=self.pbc_c)
+
+        tess = Delaunay(ibzk_kc)
+        n = 3
+        N_kc = np.indices((n, n, n)).reshape((3, n**3)).T - n // 2
+
         bz2bz_k = -np.ones(nbzkpts + 1, int)
         ibz2bz_k = []
         for k in range(nbzkpts - 1, -1, -1):
             # Reverse order looks more natural
-            if bz2bz_k[k] == -1:
+            k_kc = bzk_kc[k][None] + N_kc
+            if bz2bz_k[k] == -1 and \
+               np.any(tess.find_simplex(k_kc) >= 0):
                 bz2bz_k[bz2bz_ks[k]] = k
                 ibz2bz_k.append(k)
         ibz2bz_k = np.array(ibz2bz_k[::-1])
         bz2bz_k = bz2bz_k[:-1].copy()
-
+        assert np.all(bz2bz_k != -1)
+        
         bz2ibz_k = np.empty(nbzkpts, int)
         bz2ibz_k[ibz2bz_k] = np.arange(len(ibz2bz_k))
         bz2ibz_k = bz2ibz_k[bz2bz_k]
@@ -297,6 +311,10 @@ class Symmetry:
                 print(bz2bz_ks[bz2bz_k[k]] == k)
                 raise
 
+        # For the ibzkpoints just use the unit operator
+        unitsym = np.argwhere((U_scc == np.eye(3, dtype=int)[np.newaxis]).all(2).all(1))
+        sym_k[ibz2bz_k] = unitsym
+        
         # Time-reversal symmetry used on top of the point group operation:
         if time_reversal:
             time_reversal_k = sym_k >= nsym
