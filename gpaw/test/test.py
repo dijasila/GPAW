@@ -41,8 +41,8 @@ class CLICommand:
             'in serial by one thread.  This option cannot be used '
             'for parallelization together with MPI.')
         add('--reverse', action='store_true',
-            help=('Run tests in reverse order (less overhead with '
-                                               'multiple jobs)'))
+            help='Run tests in reverse order (less overhead with '
+            'multiple jobs)')
         add('-k', '--keep-temp-dir', action='store_true',
             dest='keep_tmpdir',
             help='Do not delete temporary files.')
