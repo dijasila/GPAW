@@ -39,6 +39,7 @@ bulk_crystal = Atoms(symbols=['Ti', 'Ti', 'O', 'O', 'O', 'O'],
 data_s = []
 for symmetry in ['off', {}]:
     bulk_calc = GPAW(mode=PW(pwcutoff, force_complex_dtype=True),
+                     nbands=42,
                      kpts={'size': (k, k, k), 'gamma': True},
                      xc='PBE',
                      occupations=FermiDirac(0.00001),

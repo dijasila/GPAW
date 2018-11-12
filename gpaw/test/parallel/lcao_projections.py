@@ -8,7 +8,9 @@ from gpaw.lcao.projected_wannier import get_lcao_projections_HSP
 
 atoms = molecule('C2H2')
 atoms.center(vacuum=3.0)
-calc = GPAW(gpts=(32, 32, 48), poissonsolver=FDPoissonSolver(), eigensolver='rmm-diis')
+calc = GPAW(gpts=(32, 32, 48),
+            poissonsolver=FDPoissonSolver(),
+            eigensolver='rmm-diis')
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 
@@ -18,11 +20,11 @@ V_qnM, H_qMM, S_qMM, P_aqMi = get_lcao_projections_HSP(
 
 # Test H and S
 eig = sorted(np.linalg.eigvals(np.linalg.solve(S_qMM[0], H_qMM[0])).real)
-eig_ref = np.array([-17.879390089021335, -13.248786165187905,
-                    -11.431259875271476, -7.1257830468316641,
-                    -7.1257830468315975, 0.59271937101892258,
-                    0.59271937101908223, 3.9251078324542488,
-                    7.4509959636627663, 26.734277387028961])
+eig_ref = np.array([-17.879648811694125, -13.24891973363751,
+                    -11.4314360120222, -7.125976316170467,
+                    -7.125976316170398, 0.592504109955116,
+                    0.5925041099553283, 3.9249641246318916,
+                    7.45083846577567, 26.733946898317882])
 print(eig)
 assert np.allclose(eig, eig_ref)
 
@@ -52,4 +54,4 @@ Vref_nM = np.array(
 ## from gpaw.mpi import rank
 ## if rank == 0:
 ##     print V_qnM[0]
-print(abs(V_qnM[0]) - abs(Vref_nM)) # assert <--- this to zero
+print(abs(V_qnM[0]) - abs(Vref_nM[:6])) # assert <--- this to zero
