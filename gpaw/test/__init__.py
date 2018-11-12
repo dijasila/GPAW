@@ -23,8 +23,8 @@ def equal(x, y, tolerance=0, fail=True, msg=''):
     """Compare x and y."""
 
     if not np.isfinite(x - y).any() or (np.abs(x - y) > tolerance).any():
-        msg = (msg + '%s != %s (error: |%s| > %.9g)' %
-               (x, y, x - y, tolerance))
+        msg = '{} {} != {} (error: |{}| > {:.9g})'.format(msg, x, y, x - y,
+                                                          tolerance)
         if fail:
             raise AssertionError(msg)
         else:
@@ -111,7 +111,7 @@ tests = [
     'radial/lebedev.py',
     'occupations.py',
     'lfc/derivatives.py',
-    #'parallel/realspace_blacs.py',
+    # 'parallel/realspace_blacs.py',
     'pw/reallfc.py',
     'parallel/pblas.py',
     'fd_ops/non_periodic.py',
@@ -628,7 +628,7 @@ class TestRunner:
             dirname = os.path.relpath(dirname, mydir)
 
         # We don't want files anywhere outside the tempdir.
-        assert not dirname.startswith('../') # Test file outside sourcedir.
+        assert not dirname.startswith('../')  # test file outside sourcedir
 
         if mpi.rank == 0:
             os.makedirs(dirname)
