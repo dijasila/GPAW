@@ -25,6 +25,7 @@ for i, dx in enumerate(dx_array):
     calc = GPAW(mode=PW(ecut),
                 xc=QNA,
                 kpts=kpts,
+                parallel={'domain': 1},
                 txt=name + '%.0f.txt' % ecut)
 
     atoms[0].position[0] += dx

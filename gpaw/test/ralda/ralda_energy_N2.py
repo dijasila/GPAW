@@ -24,6 +24,7 @@ calc = GPAW(mode=PW(force_complex_dtype=True),
             xc='LDA',
             nbands=16,
             basis='dzp',
+            parallel={'domain': 1},
             convergence={'density': 1.e-6})
 N2.set_calculator(calc)
 N2.get_potential_energy()
@@ -34,7 +35,7 @@ ralda = FXCCorrelation('N2.gpw', xc='rALDA')
 Ec_N2 = ralda.calculate(ecut=[50])
 
 # N
-N = Atoms('N', [(0,0,0)])
+N = Atoms('N', [(0, 0, 0)])
 N.set_cell((2.5, 2.5, 3.5))
 N.center()
 calc = GPAW(mode=PW(force_complex_dtype=True),
@@ -43,6 +44,7 @@ calc = GPAW(mode=PW(force_complex_dtype=True),
             basis='dzp',
             nbands=8,
             hund=True,
+            parallel={'domain': 1},
             convergence={'density': 1.e-6})
 N.set_calculator(calc)
 N.get_potential_energy()

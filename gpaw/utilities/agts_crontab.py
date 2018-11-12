@@ -42,17 +42,21 @@ def agts(cmd):
         if tasks:
             raise ValueError('Not ready!')
 
-        shell('cd ase; git pull')
-        shell('cd gpaw; git clean -fdx; git pull;'
-              '. doc/platforms/Linux/Niflheim/compile.sh')
         arch = 'linux-x86_64-broadwell-el7-3.6'
         path = '/home/niflheim2/jensj/agts'
-        pp = ('{path}/ase:{path}/gpaw:{path}/gpaw/build/lib.{arch}'
+        pp = ('{path}/ase:{path}/gpaw:{path}/gpaw/build/lib.{arch}:$PYTHONPATH'
               .format(path=path, arch=arch))
-        shell('cd gpaw/doc; '
-              'PYTHONPATH={pp}:$PYTHONPATH make; '
-              'cd ..; '
-              'PYTHONPATH={pp}:$PYTHONPATH mq workflow -p agts.py -T'
+
+        shell('cd ase;'
+              'git pull')
+        shell('cd gpaw;'
+              'git clean -fdx;'
+              'git pull;'
+              '. doc/platforms/Linux/Niflheim/compile.sh;'
+              'cd doc;'
+              'PYTHONPATH={pp} make'
+              .format(pp=pp))
+        shell('PYTHONPATH={pp} mq workflow -p agts.py gpaw -T'
               .format(pp=pp))
 
     elif cmd == 'summary':
@@ -156,7 +160,8 @@ def compare(f1, f2):
             data.append((d2[name1] - t1, t1, name1))
     for dt, t, name in sorted(data):
         name = name.split('agts/gpaw/')[1]
-        print(f'{dt:+10.1f} {dt / t * 100:+6.1f} {t:10.1f} {name}')
+        print('{dt:+10.1f} {dt / t * 100:+6.1f} {t:10.1f} {name}'
+              .format(**locals()))
 
 
 if __name__ == '__main__':

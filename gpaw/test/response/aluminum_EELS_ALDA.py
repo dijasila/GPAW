@@ -37,7 +37,7 @@ w = np.linspace(0, 24, 241)
 
 df = DielectricFunction(calc='Al', frequencies=w, eta=0.2, ecut=50,
                         hilbert=False)
-df.get_eels_spectrum(xc='ALDA', filename='EELS_Al_ALDA', q_c=q)
+df.get_eels_spectrum(xc='ALDA', filename='EELS_Al_ALDA.csv', q_c=q)
 # df.check_sum_rule()
 # df.write('Al.pckl')
 
@@ -47,7 +47,7 @@ parprint('For ground  state calc, it took', (t2 - t1) / 60, 'minutes')
 parprint('For excited state calc, it took', (t3 - t2) / 60, 'minutes')
 
 world.barrier()
-d = np.loadtxt('EELS_Al_ALDA', delimiter=',')
+d = np.loadtxt('EELS_Al_ALDA.csv', delimiter=',')
 # New results are compared with test values
 wpeak1, Ipeak1 = findpeak(d[:, 0], d[:, 1])
 wpeak2, Ipeak2 = findpeak(d[:, 0], d[:, 2])

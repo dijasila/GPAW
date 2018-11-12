@@ -15,6 +15,7 @@ calc = GPAW(mode=PW(600, force_complex_dtype=True),
             xc='PBE',
             hund=True,
             txt='N_pbe.txt',
+            parallel={'domain': 1},
             convergence={'density': 1.e-6})
 
 N.calc = calc
@@ -37,6 +38,7 @@ calc = GPAW(mode=PW(600, force_complex_dtype=True),
             maxiter=300,
             xc='PBE',
             txt='N2_pbe.txt',
+            parallel={'domain': 1},
             convergence={'density': 1.e-6})
 
 N2.calc = calc
