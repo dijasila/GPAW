@@ -150,6 +150,38 @@ void bc_dealloc_cuda(int force)
         bc_init_count--;
 }
 
+void bc_cuda_check_msg_size(boundary_conditions* bc, int nin)
+{
+    int maxrecv, maxsend;
+
+    for (int i=0; i<3; i++) {
+        maxrecv = MAX(bc->nrecv[i][0], bc->nrecv[i][1]) * nin * sizeof(double);
+        maxsend = MAX(bc->nsend[i][0], bc->nsend[i][1]) * nin * sizeof(double);
+
+        bc->cuda_rjoin[i] = 0;
+        if (bc->recvproc[i][0] >= 0 && bc->recvproc[i][1] >= 0) {
+            if (maxrecv < GPAW_CUDA_RJOIN_SIZE)
+                bc->cuda_rjoin[i] = 1;
+            else if ((maxrecv < GPAW_CUDA_RJOIN_SAME_SIZE) &&
+                    (bc->recvproc[i][0] == bc->recvproc[i][1]))
+                bc->cuda_rjoin[i] = 1;
+        }
+        bc->cuda_sjoin[i] = 0;
+        if (bc->sendproc[i][0] >= 0 && bc->sendproc[i][1] >= 0) {
+            if (maxsend < GPAW_CUDA_SJOIN_SIZE)
+                bc->cuda_sjoin[i] = 1;
+            else if ((maxsend < GPAW_CUDA_SJOIN_SAME_SIZE) &&
+                    (bc->sendproc[i][0] == bc->sendproc[i][1]))
+                bc->cuda_sjoin[i] = 1;
+        }
+
+        if (MAX(maxsend, maxrecv) < GPAW_CUDA_ASYNC_SIZE)
+            bc->cuda_async[i] = 0;
+        else
+            bc->cuda_async[i] = 1;
+    }
+}
+
 void bc_cuda_prepare_buffers(boundary_conditions* bc, int nin)
 {
     int recvp=0;
@@ -218,33 +250,7 @@ void bc_unpack_paste_cuda_gpu(boundary_conditions* bc,
                 kernel_stream);
 
 #ifndef CUDA_MPI
-    for (int i=0; i<3; i++) {
-        int maxrecv, maxsend;
-        maxrecv = MAX(bc->nrecv[i][0], bc->nrecv[i][1]) * nin * sizeof(double);
-        maxsend = MAX(bc->nsend[i][0], bc->nsend[i][1]) * nin * sizeof(double);
-
-        bc->cuda_rjoin[i] = 0;
-        if (bc->recvproc[i][0] >= 0 && bc->recvproc[i][1] >= 0) {
-            if (maxrecv < GPAW_CUDA_RJOIN_SIZE)
-                bc->cuda_rjoin[i] = 1;
-            else if ((maxrecv < GPAW_CUDA_RJOIN_SAME_SIZE) &&
-                    (bc->recvproc[i][0] == bc->recvproc[i][1]))
-                bc->cuda_rjoin[i] = 1;
-        }
-        bc->cuda_sjoin[i] = 0;
-        if (bc->sendproc[i][0] >= 0 && bc->sendproc[i][1] >= 0) {
-            if (maxsend < GPAW_CUDA_SJOIN_SIZE)
-                bc->cuda_sjoin[i] = 1;
-            else if ((maxsend < GPAW_CUDA_SJOIN_SAME_SIZE) &&
-                    (bc->sendproc[i][0] == bc->sendproc[i][1]))
-                bc->cuda_sjoin[i] = 1;
-        }
-
-        if (MAX(maxsend, maxrecv) < GPAW_CUDA_ASYNC_SIZE)
-            bc->cuda_async[i] = 0;
-        else
-            bc->cuda_async[i] = 1;
-    }
+    bc_cuda_check_msg_size(bc, nin);
 #endif // !CUDA_MPI
     bc_cuda_prepare_buffers(bc, nin);
 
