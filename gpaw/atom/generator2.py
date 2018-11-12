@@ -1322,7 +1322,7 @@ def generate_all():
 
 
 class CLICommand:
-    short_description = 'Create PAW dataset'
+    """Create PAW dataset."""
 
     @staticmethod
     def add_arguments(parser):
