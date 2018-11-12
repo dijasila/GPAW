@@ -157,3 +157,24 @@ class PS2AE:
         dv = LFC(self.gd, dv_a1)
         dv.set_positions(self.calc.spos_ac)
         dv.add(v_R)
+
+def interpolate_weight(calc, weight, h=0.05, n=2):
+    '''interpolates cdft weight function,
+    gd is the fine grid '''
+    gd = calc.density.finegd
+
+    weight = gd.collect(weight,broadcast=True)
+    weight = gd.zero_pad(weight)
+
+    w = np.zeros_like(weight)
+    gd1 = GridDescriptor(gd.N_c, gd.cell_cv, comm=serial_comm)
+    gd1.distribute(weight,w)
+
+    N_c = h2gpts(h / Bohr, gd.cell_cv)
+    N_c = np.array([get_efficient_fft_size(N, n) for N in N_c])
+    gd2 = GridDescriptor(N_c, gd.cell_cv, comm=serial_comm)
+
+    interpolator = Interpolator(gd1, gd2)
+    W = interpolator.interpolate(w)
+
+    return W
