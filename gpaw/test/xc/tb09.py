@@ -10,7 +10,6 @@ atoms.calc = GPAW(mode=PW(300),
                   mixer=Mixer(0.8, 10, 50.0),
                   kpts={'size': (k, k, k), 'gamma': True},
                   xc='TB09',
-                  parallel=dict(augment_grids=True),
                   convergence={'bands': -3},
                   txt='si.txt')
 e = atoms.get_potential_energy()
