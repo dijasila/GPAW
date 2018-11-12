@@ -288,6 +288,30 @@ class Hamiltonian:
 
             dH_sp[:self.nspins] += dH_p
 
+            if self.vext and self.vext.get_name() == 'CDFT':
+                # cDFT atomic hamiltonian, eq. 25
+                # energy correction added in cDFT main
+
+                h_cdft_a = np.zeros(setup.Delta_pL[:,0].shape)
+                h_cdft_b = np.zeros(setup.Delta_pL[:,0].shape)
+                cdft = self.vext
+                regions = cdft.indices_i
+                c_regions = cdft.n_charge_regions
+
+                v_i = cdft.v_i
+                if cdft.difference:
+                    v_i = [v_i,-v_i]
+
+                for i in range(len(regions)):
+                    if a in regions[i]:
+                        h_cdft_a += v_i[i] * 2. * np.sqrt(np.pi)*setup.Delta_pL[:,0]
+                        h_cdft_b += v_i[i] * 2. * np.sqrt(np.pi)*setup.Delta_pL[:,0]
+                        if i >= c_regions and cdft.difference is False:
+                            h_cdft_b *= -1.
+
+                dH_sp[0] += h_cdft_a
+                dH_sp[1] += h_cdft_b
+
             if self.ref_dH_asp:
                 assert self.collinear
                 dH_sp += self.ref_dH_asp[a]
@@ -374,6 +398,9 @@ class Hamiltonian:
         self.xc.add_forces(F_av)
         self.gd.comm.sum(F_coarsegrid_av, 0)
         self.finegd.comm.sum(F_av, 0)
+        if self.vext:
+            if self.vext.get_name()=='CDFT':
+                F_av += self.vext.get_cdft_forces()
         F_av += F_coarsegrid_av
 
     def apply_local_potential(self, psit_nG, Htpsit_nG, s):
@@ -581,9 +608,54 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         e_external = 0.0
         if self.vext is not None:
-            vext_g = self.vext.get_potential(self.finegd)
-            vt_g += vext_g
-            e_external = self.finegd.integrate(vext_g, dens.rhot_g,
+            if self.vext.get_name == 'CDFT':
+                # cDFT works with all-electron (spin)density
+                atoms = self.vext.get_atoms()
+                n_charge_regions = self.vext.n_charge_regions
+
+                # First the potential
+                # spin dependent external potential, array of Vi*wi
+                self.vext_sg = self.vext.get_potential(self.finegd)
+                vt_g += self.vext_sg[0]
+                self.vt_sg[1:self.nspins] = self.vext_sg[1] + self.vbar_g.copy()
+                self.vt_sg[self.nspins:] = 0.0
+
+                # then energy
+                w = self.vext.get_w() #weight functions
+                Vi = self.vext.get_vi()
+                constraints = self.vext.get_constraints()
+
+                # pseudo electron density on fine grid
+                if dens.nt_sg is None:
+                    dens.interpolate_pseudo_density()
+                nt_sg = dens.nt_sg
+
+                diff = np.empty(shape=(0,0))
+
+                if n_charge_regions != 0:
+                    # pseudo density
+                    nt_g = nt_sg[0] + nt_sg[1]
+                    charge_diff = self.finegd.integrate(w[0:n_charge_regions],
+                                   nt_g, global_integral=True) \
+                                 - constraints[0:n_charge_regions]
+                    diff = np.append(diff, charge_diff)
+
+                #constrained spins
+                if len(constraints) - n_charge_regions != 0:
+                    Delta_nt_g =  nt_sg[0] - nt_sg[1] # pseudo spin difference density
+                    spin_diff = self.finegd.integrate(w[n_charge_regions:],
+                        Delta_nt_g, global_integral=True) - constraints[n_charge_regions:]
+
+                    diff = np.append(diff,spin_diff)
+
+                # number of domains
+                size = self.finegd.comm.size
+                e_external += np.dot(Vi,diff/size)
+
+            else:
+                vext_g = self.vext.get_potential(self.finegd)
+                vt_g += vext_g
+                e_external = self.finegd.integrate(vext_g, dens.rhot_g,
                                                global_integral=False)
 
         if self.nspins == 2:
@@ -638,8 +710,11 @@ class RealSpaceHamiltonian(Hamiltonian):
             return sum(2 * l + 1 for l, _ in enumerate(self.setups[a].ghat_l)),
         W_aL = ArrayDict(self.atomdist.aux_partition, getshape, float)
         if self.vext:
-            vext_g = self.vext.get_potential(self.finegd)
-            dens.ghat.integrate(self.vHt_g + vext_g, W_aL)
+            if self.vext.get_name() != 'CDFT':
+                vext_g = self.vext.get_potential(self.finegd)
+                dens.ghat.integrate(self.vHt_g + vext_g, W_aL)
+            else:
+                dens.ghat.integrate(self.vHt_g, W_aL)
         else:
             dens.ghat.integrate(self.vHt_g, W_aL)
 
@@ -653,8 +728,12 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         self.vbar.derivative(dens.nt_g, vbar_av)
         if self.vext:
-            vext_g = self.vext.get_potential(self.finegd)
-            dens.ghat.derivative(self.vHt_g + vext_g, ghat_aLv)
+            if self.vext.get_name() == 'CDFT':
+                # CDFT force added in calculate_forces
+                dens.ghat.derivative(self.vHt_g, ghat_aLv)
+            else:
+                vext_g = self.vext.get_potential(self.finegd)
+                dens.ghat.derivative(self.vHt_g + vext_g, ghat_aLv)
         else:
             dens.ghat.derivative(self.vHt_g, ghat_aLv)
         dens.nct.derivative(vt_G, nct_av)
