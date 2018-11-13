@@ -600,14 +600,19 @@ class GPAW(PAW, Calculator):
             if nbands == 'nao':
                 nbands = nao
             elif nbands[-1] == '%':
-                basebands = int(nvalence + M + 0.5) // 2
-                nbands = int((float(nbands[:-1]) / 100) * basebands)
+                basebands = (nvalence + M) / 2
+                nbands = int(np.ceil(float(nbands[:-1]) / 100 * basebands))
             else:
                 raise ValueError('Integer expected: Only use a string '
                                  'if giving a percentage of occupied bands')
 
         if nbands is None:
-            nbands = int(np.ceil((1.2 * (nvalence + M) / 2)))
+            # Number of bound partial waves:
+            nbandsmax = sum(setup.get_default_nbands()
+                            for setup in self.setups)
+            nbands = int(np.ceil((1.2 * (nvalence + M) / 2))) + 4
+            if nbands > nbandsmax:
+                nbands = nbandsmax
             if mode.name == 'lcao' and nbands > nao:
                 nbands = nao
 
