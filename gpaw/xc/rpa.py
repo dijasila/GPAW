@@ -488,7 +488,7 @@ def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
 
 
 class CLICommand:
-    short_description = 'Run RPA-correlation calculation'
+    """Run RPA-correlation calculation."""
 
     @staticmethod
     def add_arguments(parser):

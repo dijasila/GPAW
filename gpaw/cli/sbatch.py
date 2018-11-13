@@ -8,7 +8,7 @@ usage = """gpaw sbatch [-0] -- [sbatch options] script.py [script options]
 
 
 class CLICommand:
-    short_description = 'Submit a GPAW Python script via sbatch.'
+    """Submit a GPAW Python script via sbatch."""
 
     @staticmethod
     def add_arguments(parser):

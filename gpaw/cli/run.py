@@ -39,7 +39,22 @@ class GPAWRunner(Runner):
 
 
 class CLICommand:
-    short_description = 'Run calculation with GPAW'
+    """Run calculation with GPAW.
+
+    Four types of calculations can be done:
+
+    * single point
+    * atomic relaxations
+    * unit cell + atomic relaxations
+    * equation-of-state
+
+    Examples of the four types of calculations:
+
+        gpaw run -p xc=PBE h2o.xyz
+        gpaw run -p xc=PBE h2o.xyz -f 0.01
+        gpaw run -p "xc=PBE,kpts={denisty:4}" cu.traj -s 0.01
+        gpaw run -p "xc=PBE,kpts={denisty:4}" cu.traj -E 5,2.0
+    """
 
     @staticmethod
     def add_arguments(parser):
