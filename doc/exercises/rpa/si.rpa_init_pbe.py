@@ -15,6 +15,7 @@ alat = 5.421
 # bulk calculation
 bulk_crystal = bulk('Si', 'diamond', a=alat)
 bulk_calc = GPAW(mode=PW(pwcutoff),
+                 parallel={'domain': 1},
                  kpts={'size': (k, k, k), 'gamma': True},  # gamma-centred grid
                  xc='PBE',
                  occupations=FermiDirac(0.01),

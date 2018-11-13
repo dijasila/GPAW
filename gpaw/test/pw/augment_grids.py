@@ -30,7 +30,7 @@ for xc in ['LDA', 'PBE']:
 
     eerr = abs(e2 - e1)
     ferr = np.abs(f2 - f1).max()
-    serr = np.abs(s2 -s1).max()
+    serr = np.abs(s2 - s1).max()
     if atoms.calc.wfs.world.rank == 0:
         print('errs', eerr, ferr, serr)
     assert eerr < 1e-12, 'bad {} energy: err={}'.format(xc, eerr)

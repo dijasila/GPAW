@@ -1,3 +1,5 @@
+.. _rsf:
+
 =================================
 Range separated functionals (RSF)
 =================================
@@ -5,7 +7,7 @@ Range separated functionals (RSF)
 Introduction
 ============
 
-Range separated functionals (RSF) are a subgroup of hybrid 
+Range separated functionals (RSF) are a subgroup of hybrid
 functionals. While conventional (global) hybrid functionals like PBE0
 or B3LYP use fixed fractions of Hartree-Fock (HFT, E\ :sub:`XX`\ )
 and DFT (E\ :sub:`X`\ )
@@ -20,17 +22,17 @@ which appears in the exchange integral from HFT is split into two parts:
 
 `\frac{1}{r_{12}} = \underbrace{\frac{1 - [\alpha + \beta ( 1 - \omega_\mathrm{RSF} (\gamma, r_{12}))]}{r_{12}}}_{\text{SR, DFT}} + \underbrace{\frac{\alpha + \beta ( 1 - \omega_\mathrm{RSF} (\gamma, r_{12}))}{r_{12}}}_{\text{LR, HFT}}`,
 
-the short-range (SR) part is handled by the exchange from a (semi-)local LDA 
-or GGA functional such as PBE, while the long-range part (LR) is handled by 
+the short-range (SR) part is handled by the exchange from a (semi-)local LDA
+or GGA functional such as PBE, while the long-range part (LR) is handled by
 the exchange from HFT. `\alpha` and `\beta` are functional dependent mixing
 parameters.  `\alpha \ne 0` and `\beta = 0` resembles conventional global
 hybrids. RSFs with `\alpha = 0` and `\beta \ne 0` are usually denoted by
 ``LC`` and the name of the semi-local functional, f.e. LC-PBE.
-RSFs with `\alpha \ne 0` and `\beta \ne 0` are usually denoted by 
+RSFs with `\alpha \ne 0` and `\beta \ne 0` are usually denoted by
 ``CAM`` and the name of the semi-local functional, f.e. CAM-BLYP.
 
 For the separating function `\omega_\mathrm{RSF}`, two functions are in common
-use: either the complementary error function, 
+use: either the complementary error function,
 `\omega_\mathrm{RSF} = \mathrm{erfc}(\gamma r_{12})`, or the Slater-function,
 `\omega_\mathrm{RSF} = e^{(-\gamma r_{12})}`. While the use of the
 complementary error function is computationally fortunate for codes utilizing
@@ -114,7 +116,7 @@ calculated during the generation of the PAW datasets. Second: for the
 calculation of the exchange on the Cartesian grid, the (screened) Poisson
 equation has to be solved numerically. For a charged system, as f.e. the
 exchange of a state with itself, one has to neutralize the charge by
-subtracting a Gaussian representing the "over-charge", solve the 
+subtracting a Gaussian representing the "over-charge", solve the
 (screened) Poisson-equation for the neutral system and add the solution
 for the Gaussian to the solution for the neutral system. However, if the
 charge to remove is "off-center", the center of the neutralizing charge

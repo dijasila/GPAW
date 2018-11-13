@@ -21,7 +21,7 @@ class RMMDIIS(Eigensolver):
     * Improvement of wave functions:  psi' = psi + lambda PR + lambda PR'
     * Orthonormalization"""
 
-    def __init__(self, keep_htpsit=True, blocksize=10, niter=3, rtol=1e-16,
+    def __init__(self, keep_htpsit=True, blocksize=None, niter=3, rtol=1e-16,
                  limit_lambda=False, use_rayleigh=False, trial_step=0.1):
         """Initialize RMM-DIIS eigensolver.
 
@@ -49,6 +49,16 @@ class RMMDIIS(Eigensolver):
 
     def todict(self):
         return {'name': 'rmm-diis', 'niter': self.niter}
+
+    def initialize(self, wfs):
+        if self.blocksize is None:
+            if wfs.mode == 'pw':
+                S = wfs.pd.comm.size
+                # Use a multiple of S for maximum efficiency
+                self.blocksize = int(np.ceil(10 / S)) * S
+            else:
+                self.blocksize = 10
+        Eigensolver.initialize(self, wfs)
 
     def iterate_one_k_point(self, ham, wfs, kpt):
         """Do a single RMM-DIIS iteration for the kpoint"""
@@ -266,7 +276,6 @@ class RMMDIIS(Eigensolver):
     def __repr__(self):
         repr_string = 'RMM-DIIS eigensolver\n'
         repr_string += '       keep_htpsit: %s\n' % self.keep_htpsit
-        repr_string += '       Block size: %d\n' % self.blocksize
         repr_string += '       DIIS iterations: %d\n' % self.niter
         repr_string += '       Threshold for DIIS: %5.1e\n' % self.rtol
         repr_string += '       Limit lambda: %s\n' % self.limit_lambda

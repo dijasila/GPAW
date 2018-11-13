@@ -27,7 +27,7 @@ fddomainpar = min(2, world.size)
 for mode in ['fd', 'pw', 'lcao']:
     kwargs = {}
     if mode == 'pw':
-        kwargs['mode'] = PW(150)
+        kwargs['mode'] = PW(250)
     else:
         kwargs['parallel'] = {'domain': fddomainpar}
     calc = calculate(**kwargs)
