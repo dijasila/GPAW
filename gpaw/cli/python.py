@@ -1,5 +1,5 @@
 class CLICommand:
-    short_description = "Run GPAW's Python interpreter"
+    """Run GPAW's Python interpreter."""
 
     @staticmethod
     def add_arguments(parser):

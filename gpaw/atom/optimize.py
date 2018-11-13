@@ -12,7 +12,7 @@ from ase.data import covalent_radii, atomic_numbers
 from ase.units import Bohr, Ha
 
 from gpaw import GPAW, PW, setup_paths, Mixer, ConvergenceError, Davidson
-from gpaw.atom.generator2 import _generate  # , DatasetGenerationError
+from gpaw.atom.generator2 import generate  # , DatasetGenerationError
 from gpaw.atom.aeatom import AllElectronAtom
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.setup import create_setup
@@ -99,9 +99,8 @@ class DatasetOptimizer:
             type = 'nc'
 
         try:
-            gen = _generate(self.symbol, xc, None, projectors, radii,
-                            scalar_relativistic, None, r0, nderiv0,
-                            (type, 4), None, None, fd)
+            gen = generate(self.symbol, projectors, radii, r0, nderiv0,
+                           xc, scalar_relativistic, (type, 4), output=fd)
         except np.linalg.LinAlgError:
             raise PAWDataError('LinAlgError')
 

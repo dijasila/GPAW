@@ -10,6 +10,7 @@ calc = GPAW(mode=PW(400),
             kpts={'size': (2, 2, 2), 'gamma': True},
             xc='LDA',
             eigensolver='rmm-diis',
+            parallel={'domain': 1},
             occupations=FermiDirac(0.001))
 
 atoms.set_calculator(calc)
@@ -28,7 +29,7 @@ gw = G0W0('BN_bulk_k2_ecut400_allbands.gpw',
 
 result = gw.calculate()
 
-gaps = [3.256, 4.746, 4.937, 4.952, 4.948, 4.946] 
+gaps = [3.256, 4.746, 4.937, 4.952, 4.948, 4.946]
 
 for i in range(result['iqp'].shape[0]):
     equal(np.min(result['iqp'][i, 0, :, 1]) -

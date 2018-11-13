@@ -14,32 +14,32 @@ QNA = {'alpha': 2.0,
        'setup_name': 'PBE',
        'type': 'qna-gga'}
 
-atoms = L1_2(['Au','Cu'],latticeconstant=3.74)
+atoms = L1_2(['Au', 'Cu'], latticeconstant=3.74)
 # Displace atoms to have non-zero forces in the first place
-atoms[0].position[0] += 0.1 
+atoms[0].position[0] += 0.1
 
 dx_array = [-0.005, 0.000, 0.005]
 E = []
 
-for i,dx in enumerate(dx_array):
+for i, dx in enumerate(dx_array):
     calc = GPAW(mode=PW(ecut),
-                xc = QNA,
+                xc=QNA,
                 kpts=kpts,
-                txt=name + '%.0f.txt' % ecut 
-                )
+                parallel={'domain': 1},
+                txt=name + '%.0f.txt' % ecut)
 
     atoms[0].position[0] += dx
     atoms.set_calculator(calc)
     E.append(atoms.get_potential_energy(force_consistent=True))
     if i == 1:
-        F = atoms.get_forces()[0,0]
+        F = atoms.get_forces()[0, 0]
     atoms[0].position[0] -= dx
 
-F_num = -(E[-1]-E[0])/(dx_array[-1]-dx_array[0])
+F_num = -(E[-1] - E[0]) / (dx_array[-1] - dx_array[0])
 F_err = F_num - F
 
-parprint('Analytical force = ',F)
-parprint('Numerical  force = ',F_num)
-parprint('Difference       = ',F_err)
+parprint('Analytical force = ', F)
+parprint('Numerical  force = ', F_num)
+parprint('Difference       = ', F_err)
 assert abs(F_err) < 1.5e-3
-assert abs(E[-1]-270.17901094) < 4e-6
+assert abs(E[-1] - 270.17901094) < 4e-6

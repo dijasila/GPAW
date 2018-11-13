@@ -43,11 +43,14 @@ likely to help."""
 
 
 class CLICommand:
-    short_description = 'Install PAW datasets, pseudopotential or basis sets'
-    description = ('Without a directory, show available setups and GPAW '
-                   'setup paths. '
-                   'With a directory, download and install gpaw-setups into '
-                   'INSTALLDIR/[setups-package-name-and-version].')
+    """Install PAW datasets, pseudopotential or basis sets.
+
+    Without a directory, show available setups and GPAW
+    setup paths.
+
+    With a directory, download and install gpaw-setups into
+    INSTALLDIR/[setups-package-name-and-version].
+    """
 
     @staticmethod
     def add_arguments(parser):

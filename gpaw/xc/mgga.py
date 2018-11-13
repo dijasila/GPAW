@@ -35,7 +35,7 @@ class MGGA(XCFunctional):
         self.distribute_and_interpolate = density.distribute_and_interpolate
 
     def set_positions(self, spos_ac):
-        self.tauct.set_positions(spos_ac)
+        self.tauct.set_positions(spos_ac, self.wfs.atom_partition)
         if self.tauct_G is None:
             self.tauct_G = self.wfs.gd.empty()
         self.tauct_G[:] = 0.0
