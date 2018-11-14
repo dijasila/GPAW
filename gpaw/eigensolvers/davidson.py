@@ -115,22 +115,15 @@ class Davidson(Eigensolver):
         self.calculate_residuals(kpt, wfs, ham, psit, P, kpt.eps_n, R, P2)
 
         weights = self.weights(kpt)
+        pre = self.preconditioner
 
         for nit in range(self.niter):
             if nit == self.niter - 1:
                 error = np.dot(weights, [integrate(R_G) for R_G in R.array])
 
             for psit_G, R_G, psit2_G in zip(psit.array, R.array, psit2.array):
-                pre = self.preconditioner
                 ekin = pre.calculate_kinetic_energy(psit_G, kpt)
-                psit2_G[:] = pre(R_G, kpt, ekin)
-
-            if 0:#self.normalize:
-                norms = np.array([integrate(psit2_G)
-                                  for psit2_G in psit2.array])
-                comm.sum(norms)
-                for norm, psit2_G in zip(norms, psit2.array):
-                    psit2_G *= norm**-0.5
+                pre(R_G, kpt, ekin, out=psit2_G)
 
             # Calculate projections
             psit2.matrix_elements(wfs.pt, out=P2)
@@ -150,7 +143,7 @@ class Davidson(Eigensolver):
                 psit2.matrix_elements(operator=Ht, result=R, out=M,
                                       symmetric=True, cc=True)
                 ham.dH(P2, out=P3)
-                mmm(1.0, P2, 'N', P3, 'C', 1.0, M)#, symmetric=True)
+                mmm(1.0, P2, 'N', P3, 'C', 1.0, M)  # , symmetric=True)
                 copy(M, H_NN[B:, B:])
 
                 # <psi2 | H | psi>
@@ -177,8 +170,6 @@ class Davidson(Eigensolver):
                         H_NN[np.triu_indices(2 * B, 1)] = 42.0
                         S_NN[np.triu_indices(2 * B, 1)] = 42.0
                     from scipy.linalg import eigh
-                    #print(S_NN)
-                    #print(H_NN)
                     eps_N, H_NN[:] = eigh(H_NN, S_NN,
                                           lower=True,
                                           check_finite=debug)
