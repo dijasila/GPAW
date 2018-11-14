@@ -41,5 +41,5 @@ F_err = F_num - F
 parprint('Analytical force = ', F)
 parprint('Numerical  force = ', F_num)
 parprint('Difference       = ', F_err)
-assert abs(F_err) < 0.005
+assert abs(F_err) < 0.01
 assert abs(E[-1] - 270.17901094) < 4e-6
