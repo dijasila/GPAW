@@ -387,9 +387,9 @@ class CDFT(Calculator):
             w_g = c.initialize_partitioning(self.gd, construct=True, pad=True,
                                             global_array=True)
         if save:
-            w_s = gd.collect(w_g, broadcast=True)
+            w_s = self.gd.collect(w_g, broadcast=True)
 
-            if gd.comm.rank == 0:
+            if self.gd.comm.rank == 0:
                 np.save('coarse_weight', w_s)
         return w_g
 
@@ -749,6 +749,47 @@ class CDFTPotential(ExternalPotential):
 
         return h_cdft_a, h_cdft_b
 
+    def get_cdft_external_energy(self, dens, nspins, vext_g,
+                                vt_g, vbar_g, vt_sg):
+        # cDFT works with all-electron (spin)density
+
+        # First the potential
+        # spin dependent external potential, array of Vi*wi
+        #vext_g = self.calculate_potential(self.gd).copy()
+        vt_g += vext_g[0]
+        vext_g[1:nspins] = vext_g[1] + vbar_g
+        vt_sg[nspins:] = 0.0
+
+        # then energy
+        w = self.get_w() #weight functions
+        Vi = self.get_vi()
+        constraints = self.get_constraints()
+
+        # pseudo electron density on fine grid
+        if dens.nt_sg is None:
+            dens.interpolate_pseudo_density()
+
+        diff = np.empty(shape=(0,0))
+
+        if self.n_charge_regions != 0:
+            # pseudo density
+            nt_g = dens.nt_sg[0] + dens.nt_sg[1]
+            charge_diff = self.gd.integrate(w[0:self.n_charge_regions],
+                           nt_g, global_integral=True) \
+                         - constraints[0:self.n_charge_regions]
+            diff = np.append(diff, charge_diff)
+
+        #constrained spins
+        if len(constraints) - self.n_charge_regions != 0:
+            Delta_nt_g =  dens.nt_sg[0] - dens.nt_sg[1] # pseudo spin difference density
+            spin_diff = self.gd.integrate(w[self.n_charge_regions:],
+                    Delta_nt_g, global_integral=True) - constraints[self.n_charge_regions:]
+
+            diff = np.append(diff,spin_diff)
+
+        # number of domains
+        size = self.gd.comm.size
+        return np.dot(Vi, diff/size)
 
 class WeightFunc:
     """ Class which builds a weight function around atoms or molecules
@@ -1091,6 +1132,7 @@ class WeightFunc:
 
 def get_promolecular_constraints(calc,atoms, charge_regions,
     spin_regions, charges, spins):
+    from gpaw import FermiDirac
 
     constraints = []
     gd = calc.density.finegd

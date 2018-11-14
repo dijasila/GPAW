@@ -31,10 +31,10 @@ from gpaw.utilities import pack, unpack2
 from gpaw.utilities.tools import pick
 from gpaw.lfc import LocalizedFunctionsCollection as LFC, BasisFunctions
 
-spin_state_error = 'The cDFT wave functions have\n'
-                     'different spin states! Similar\n'
-                     'spin states are required for coupling constant\n'
-                     'calculation!'
+spin_state_error = ('The cDFT wave functions have\n'+
+                    'different spin states! Similar\n'+
+                    'spin states are required for coupling constant\n'+
+                    'calculation!')
 
 class CouplingParameters:
 

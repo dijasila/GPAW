@@ -294,23 +294,6 @@ class Hamiltonian:
                 h_cdft_a, h_cdft_b = self.vext.get_atomic_hamiltonians(
                                         setups=setup.Delta_pL[:,0], atom = a)
 
-                #h_cdft_a = np.zeros(setup.Delta_pL[:,0].shape)
-                #h_cdft_b = np.zeros(setup.Delta_pL[:,0].shape)
-                #cdft = self.vext
-                #regions = cdft.indices_i
-                #c_regions = cdft.n_charge_regions
-
-                #v_i = cdft.v_i
-                #if cdft.difference:
-                #    v_i = [v_i,-v_i]
-
-                #for i in range(len(regions)):
-                #    if a in regions[i]:
-                #        h_cdft_a += v_i[i] * 2. * np.sqrt(np.pi)*setup.Delta_pL[:,0]
-                #        h_cdft_b += v_i[i] * 2. * np.sqrt(np.pi)*setup.Delta_pL[:,0]
-                #        if i >= c_regions and cdft.difference is False:
-                #            h_cdft_b *= -1.
-
                 dH_sp[0] += h_cdft_a
                 dH_sp[1] += h_cdft_b
 
@@ -612,50 +595,10 @@ class RealSpaceHamiltonian(Hamiltonian):
         if self.vext is not None:
             print(self.vext.get_name())
             if self.vext.get_name() == 'CDFTPotential':
-                print('RIGHT HAMILTONIAN')
-                # cDFT works with all-electron (spin)density
-
-                atoms = self.vext.get_atoms()
-                n_charge_regions = self.vext.n_charge_regions
-
-                # First the potential
-                # spin dependent external potential, array of Vi*wi
                 vext_g = self.vext.get_potential(self.finegd).copy()
-                vt_g += vext_g[0]
-                vext_g[1:self.nspins] = vext_g[1] + self.vbar_g
-                self.vt_sg[self.nspins:] = 0.0
+                e_external += self.vext.get_cdft_external_energy(dens,
+                        self.nspins, vext_g, vt_g, self.vbar_g, self.vt_sg)
 
-                # then energy
-                w = self.vext.get_w() #weight functions
-                Vi = self.vext.get_vi()
-                constraints = self.vext.get_constraints()
-
-                # pseudo electron density on fine grid
-                if dens.nt_sg is None:
-                    dens.interpolate_pseudo_density()
-                nt_sg = dens.nt_sg
-
-                diff = np.empty(shape=(0,0))
-
-                if n_charge_regions != 0:
-                    # pseudo density
-                    nt_g = nt_sg[0] + nt_sg[1]
-                    charge_diff = self.finegd.integrate(w[0:n_charge_regions],
-                                   nt_g, global_integral=True) \
-                                 - constraints[0:n_charge_regions]
-                    diff = np.append(diff, charge_diff)
-
-                #constrained spins
-                if len(constraints) - n_charge_regions != 0:
-                    Delta_nt_g =  nt_sg[0] - nt_sg[1] # pseudo spin difference density
-                    spin_diff = self.finegd.integrate(w[n_charge_regions:],
-                        Delta_nt_g, global_integral=True) - constraints[n_charge_regions:]
-
-                    diff = np.append(diff,spin_diff)
-
-                # number of domains
-                size = self.finegd.comm.size
-                e_external += np.dot(Vi,diff/size)
             else:
                 vext_g = self.vext.get_potential(self.finegd)
                 vt_g += vext_g
