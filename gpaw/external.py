@@ -198,3 +198,8 @@ class PointChargePotential(ExternalPotential):
                            self.vext_g, dcom_pv, dens.rhot_g, F_pv)
         gd.comm.sum(F_pv)
         return F_pv * Hartree / Bohr
+
+class CDFTPotential(ExternalPotential):
+    # Dummy class to make cDFT compatible with new external potential class ClassName(object):
+    def __init__(self):
+        self.name = 'CDFTPotential'
