@@ -11,14 +11,10 @@ lambda = E_a(Rb)-E_a(Ra)
 '''
 
 import numpy as np
-from gpaw.cdft.cdft import CDFT, CDFTPotential, WeightFunc
+from gpaw.cdft.cdft import WeightFunc
 from ase.units import kB as kb
-from gpaw import GPAW
 from gpaw.utilities.ps2ae import PS2AE, interpolate_weight
-from ase.data import atomic_numbers
 from ase.units import Hartree
-import os
-import pickle
 from ase.parallel import rank
 import warnings
 #from gpaw.utilities.blas import gemm

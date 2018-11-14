@@ -7,9 +7,6 @@ from ase.units import Bohr, Hartree
 
 import _gpaw
 
-__all__ = ['ConstantPotential', 'ConstantElectricField']
-
-
 __all__ = ['ConstantPotential', 'ConstantElectricField', 'CDFTPotential']
 
 
