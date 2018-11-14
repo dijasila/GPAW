@@ -13,20 +13,17 @@ lambda = E_a(Rb)-E_a(Ra)
 import numpy as np
 from gpaw.cdft.cdft import CDFT, CDFTPotential, WeightFunc
 from ase.units import kB as kb
-from gpaw.utilities import pack
 from gpaw import GPAW
 from gpaw.utilities.ps2ae import PS2AE, interpolate_weight
 from ase.data import atomic_numbers
 from ase.units import Hartree
 import os
 import pickle
-from ase.parallel import world, paropen,rank
-import os.path
+from ase.parallel import rank
 import warnings
-from gpaw.hs_operators import MatrixOperator
-from gpaw.utilities.blas import gemm
-from gpaw.utilities.tools import tri2full
-from gpaw.utilities import pack, unpack2
+#from gpaw.utilities.blas import gemm
+#from gpaw.utilities.tools import tri2full
+#from gpaw.utilities import pack, unpack2
 
 spin_state_error = ('The cDFT wave functions have\n'+
                     'different spin states! Similar\n'+
