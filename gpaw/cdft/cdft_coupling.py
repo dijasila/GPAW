@@ -11,7 +11,7 @@ lambda = E_a(Rb)-E_a(Ra)
 '''
 
 import numpy as np
-from gpaw.cdft.cdft import *
+from gpaw.cdft.cdft import CDFT, CDFTPotential, WeightFunc
 from ase.units import kB as kb
 from gpaw.utilities import pack
 from gpaw import GPAW
@@ -26,10 +26,7 @@ import warnings
 from gpaw.hs_operators import MatrixOperator
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.tools import tri2full
-
 from gpaw.utilities import pack, unpack2
-from gpaw.utilities.tools import pick
-from gpaw.lfc import LocalizedFunctionsCollection as LFC, BasisFunctions
 
 spin_state_error = ('The cDFT wave functions have\n'+
                     'different spin states! Similar\n'+
@@ -468,7 +465,7 @@ class CouplingParameters:
             pass
         else:
            message = 'The pair density matrix n_ab must\n'
-           meassage += 'be provided for weight matrix calculation'
+           message += 'be provided for weight matrix calculation'
            raise ValueError(message)
 
         # pseudo wfs to all-electron wfs

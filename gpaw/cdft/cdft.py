@@ -6,11 +6,9 @@ from ase.data import covalent_radii, atomic_numbers
 from ase.units import Bohr, Hartree
 from ase.utils import convert_string_to_fd
 import numpy as np
-from math import pi, sqrt
+from math import pi
 from scipy.optimize import minimize
 from gpaw.external import ExternalPotential
-import gpaw.mpi as mpi
-from ase.parallel import paropen
 
 # Cut-off dict:
 Rc = {}
