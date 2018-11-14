@@ -170,8 +170,10 @@ class CouplingParameters:
                 self.fineweightA = self.cdft_A.get_weight(save=False, pad=True)
                 self.fineweightB = self.cdft_B.get_weight(save=False, pad=True)
             else:
-                self.coarseweightA = self.get_weight_function(self.calc_A, self.regionsA)
-                self.coarseweightB = self.get_weight_function(self.calc_B, self.regionsB)
+                self.coarseweightA = self.get_weight_function(self.calc_A,
+                                        self.regionsA)
+                self.coarseweightB = self.get_weight_function(self.calc_B,
+                                        self.regionsB)
 
         else:
             self.calc_A = calc_a
@@ -210,12 +212,16 @@ class CouplingParameters:
 
             try:
                 if self.AE:
-                    self.fineweightA = self.get_weight_function(self.calc_A, self.regionsA)
-                    self.fineweightB = self.get_weight_function(self.calc_B, self.regionsB)
+                    self.fineweightA = self.get_weight_function(self.calc_A,
+                                        self.regionsA)
+                    self.fineweightB = self.get_weight_function(self.calc_B,
+                                        self.regionsB)
 
                 else:
-                    self.coarseweightA = self.get_weight_function(self.calc_A, self.regionsA)
-                    self.coarseweightB = self.get_weight_function(self.calc_B, self.regionsB)
+                    self.coarseweightA = self.get_weight_function(self.calc_A,
+                                        self.regionsA)
+                    self.coarseweightB = self.get_weight_function(self.calc_B,
+                                        self.regionsB)
             except:
                 pass
 
@@ -379,7 +385,7 @@ class CouplingParameters:
         # from dx.doi.org/10.1021/ct200192d,
         # requires also ground state adiabatic wf
         if not hasattr(self,'S') or not hasattr(self,'A') or not hasattr(self, 'B'):
-            self.S, self.A, self.B, self.w_AB, self.w_AC,self.w_BC = self.get_migliore_wf_overlaps(self.calc_A,
+            self.S, self.A, self.B, self.w_AB, self.w_AC, self.w_BC = self.get_migliore_wf_overlaps(self.calc_A,
                 self.calc_B, self.calc_gs)
         if rank == 0:
             SIF = 0.
