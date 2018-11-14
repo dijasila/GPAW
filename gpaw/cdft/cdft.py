@@ -307,7 +307,8 @@ class CDFT(Calculator):
             self.Edft = E_KS
             # pseudo free energy, neglecting core electrons as done for coupling constant calculation
             if not self.difference:
-                self.Ecdft = E_KS + np.dot(self.v_i*Hartree, (np.array(total_electrons)-self.n_core_electrons))
+                self.Ecdft = E_KS + np.dot(self.v_i*Hartree,
+                        (np.array(total_electrons)-self.n_core_electrons))
 
 
             if self.iteration == 0:
@@ -380,10 +381,11 @@ class CDFT(Calculator):
         else:
             c = CDFTPotential(regions=self.regions, gd=self.gd,
                 atoms=self.atoms, constraints=self.constraints,
-                n_charge_regions=self.n_charge_regions, difference=self.difference,
-                vi=self.v_i)
+                n_charge_regions=self.n_charge_regions,
+                difference=self.difference, vi=self.v_i)
 
-            w_g = c.initialize_partitioning(self.gd, construct=True, pad=True, global_array=True)
+            w_g = c.initialize_partitioning(self.gd, construct=True, pad=True,
+                                            global_array=True)
         if save:
             w_s = gd.collect(w_g, broadcast=True)
 
@@ -613,10 +615,10 @@ class CDFTPotential(ExternalPotential):
         self.constraints = constraints
         self.difference = difference
         self.v_i = vi
-        self.name = 'CDFT'
+        self.name = 'CDFTPotential'
 
     def __str__(self):
-        self.name = 'CDFT'
+        self.name = 'CDFTPotential'
         return 'CDFTPotential'
 
     def get_name(self):
@@ -731,6 +733,21 @@ class CDFTPotential(ExternalPotential):
                 'n_charge_regions': self.n_charge_regions,
                 'difference': self.difference}
 
+    def get_atomic_hamiltonians(self, setups, atom):
+        h_cdft_a = np.zeros(setups.shape)
+        h_cdft_b = np.zeros(setups.shape)
+        v_i = self.v_i
+        if self.difference:
+            v_i = [v_i, -v_i]
+
+        for i in range(len(self.indices_i)):
+            if atom in self.indices_i[i]:
+                h_cdft_a += v_i[i] * 2. * np.sqrt(np.pi)*setups
+                h_cdft_b += v_i[i] * 2. * np.sqrt(np.pi)*setups
+                if i >= self.n_charge_regions and self.difference is False:
+                    h_cdft_b *= -1.
+
+        return h_cdft_a, h_cdft_b
 
 
 class WeightFunc:

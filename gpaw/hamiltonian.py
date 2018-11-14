@@ -288,26 +288,28 @@ class Hamiltonian:
 
             dH_sp[:self.nspins] += dH_p
 
-            if self.vext and self.vext.get_name() == 'CDFT':
+            if self.vext and self.vext.get_name() == 'CDFTPotential':
                 # cDFT atomic hamiltonian, eq. 25
                 # energy correction added in cDFT main
+                h_cdft_a, h_cdft_b = self.vext.get_atomic_hamiltonians(
+                                        setups=setup.Delta_pL[:,0], atom = a)
 
-                h_cdft_a = np.zeros(setup.Delta_pL[:,0].shape)
-                h_cdft_b = np.zeros(setup.Delta_pL[:,0].shape)
-                cdft = self.vext
-                regions = cdft.indices_i
-                c_regions = cdft.n_charge_regions
+                #h_cdft_a = np.zeros(setup.Delta_pL[:,0].shape)
+                #h_cdft_b = np.zeros(setup.Delta_pL[:,0].shape)
+                #cdft = self.vext
+                #regions = cdft.indices_i
+                #c_regions = cdft.n_charge_regions
 
-                v_i = cdft.v_i
-                if cdft.difference:
-                    v_i = [v_i,-v_i]
+                #v_i = cdft.v_i
+                #if cdft.difference:
+                #    v_i = [v_i,-v_i]
 
-                for i in range(len(regions)):
-                    if a in regions[i]:
-                        h_cdft_a += v_i[i] * 2. * np.sqrt(np.pi)*setup.Delta_pL[:,0]
-                        h_cdft_b += v_i[i] * 2. * np.sqrt(np.pi)*setup.Delta_pL[:,0]
-                        if i >= c_regions and cdft.difference is False:
-                            h_cdft_b *= -1.
+                #for i in range(len(regions)):
+                #    if a in regions[i]:
+                #        h_cdft_a += v_i[i] * 2. * np.sqrt(np.pi)*setup.Delta_pL[:,0]
+                #        h_cdft_b += v_i[i] * 2. * np.sqrt(np.pi)*setup.Delta_pL[:,0]
+                #        if i >= c_regions and cdft.difference is False:
+                #            h_cdft_b *= -1.
 
                 dH_sp[0] += h_cdft_a
                 dH_sp[1] += h_cdft_b
@@ -399,7 +401,7 @@ class Hamiltonian:
         self.gd.comm.sum(F_coarsegrid_av, 0)
         self.finegd.comm.sum(F_av, 0)
         if self.vext:
-            if self.vext.get_name()=='CDFT':
+            if self.vext.get_name()=='CDFTPotential':
                 F_av += self.vext.get_cdft_forces()
         F_av += F_coarsegrid_av
 
@@ -608,16 +610,19 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         e_external = 0.0
         if self.vext is not None:
-            if self.vext.get_name == 'CDFT':
+            print(self.vext.get_name())
+            if self.vext.get_name() == 'CDFTPotential':
+                print('RIGHT HAMILTONIAN')
                 # cDFT works with all-electron (spin)density
+
                 atoms = self.vext.get_atoms()
                 n_charge_regions = self.vext.n_charge_regions
 
                 # First the potential
                 # spin dependent external potential, array of Vi*wi
-                self.vext_sg = self.vext.get_potential(self.finegd)
-                vt_g += self.vext_sg[0]
-                self.vt_sg[1:self.nspins] = self.vext_sg[1] + self.vbar_g.copy()
+                vext_g = self.vext.get_potential(self.finegd).copy()
+                vt_g += vext_g[0]
+                vext_g[1:self.nspins] = vext_g[1] + self.vbar_g
                 self.vt_sg[self.nspins:] = 0.0
 
                 # then energy
@@ -651,7 +656,6 @@ class RealSpaceHamiltonian(Hamiltonian):
                 # number of domains
                 size = self.finegd.comm.size
                 e_external += np.dot(Vi,diff/size)
-
             else:
                 vext_g = self.vext.get_potential(self.finegd)
                 vt_g += vext_g
@@ -710,7 +714,7 @@ class RealSpaceHamiltonian(Hamiltonian):
             return sum(2 * l + 1 for l, _ in enumerate(self.setups[a].ghat_l)),
         W_aL = ArrayDict(self.atomdist.aux_partition, getshape, float)
         if self.vext:
-            if self.vext.get_name() != 'CDFT':
+            if self.vext.get_name() != 'CDFTPotential':
                 vext_g = self.vext.get_potential(self.finegd)
                 dens.ghat.integrate(self.vHt_g + vext_g, W_aL)
             else:
@@ -728,7 +732,7 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         self.vbar.derivative(dens.nt_g, vbar_av)
         if self.vext:
-            if self.vext.get_name() == 'CDFT':
+            if self.vext.get_name() == 'CDFTPotential':
                 # CDFT force added in calculate_forces
                 dens.ghat.derivative(self.vHt_g, ghat_aLv)
             else:
