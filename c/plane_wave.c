@@ -63,7 +63,8 @@ PyObject *pw_precond(PyObject *self, PyObject *args)
     for (int G = 0; G < nG; G++) {
         double x = 1 / ekin / 3 * G2_G[G];
         double a = 27.0 + x * (18.0 + x * (12.0 + x * 8.0));
-        out_G[G] = -4.0 / 3 / ekin * a / (a + 16.0 * x**4) * R_G[G];
+        double xx = x * x;
+        out_G[G] = -4.0 / 3 / ekin * a / (a + 16.0 * xx * xx) * R_G[G];
     }
     Py_RETURN_NONE;
 }
