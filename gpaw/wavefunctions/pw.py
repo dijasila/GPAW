@@ -1389,7 +1389,7 @@ class PWLFC(BaseLFC):
                 self.s_J[J] = s
                 J += 1
 
-        self.lmax = max(self.l_s)
+        self.lmax = max(self.l_s, default=-1)
 
         # Spherical harmonics:
         for q, K_v in enumerate(self.pd.K_qv):
