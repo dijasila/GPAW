@@ -15,6 +15,7 @@ from math import pi
 
 import numpy as np
 from ase.units import Bohr
+from ase.utils import seterr
 
 import gpaw.mpi as mpi
 from gpaw.utilities import erf
@@ -37,26 +38,26 @@ class WignerSeitzTruncatedCoulomb:
         print('Range-separation parameter: %.3f Ang^-1' % (self.a / Bohr),
               file=txt)
 
-#        nr_c = [get_efficient_fft_size(2 * int(L * self.a * 1.5))
         nr_c = [get_efficient_fft_size(2 * int(L * self.a * 3.0))
                 for L in L_c]
         print('FFT size for calculating truncated Coulomb: %dx%dx%d' %
               tuple(nr_c), file=txt)
 
         self.gd = GridDescriptor(nr_c, bigcell_cv, comm=mpi.serial_comm)
-        v_R = self.gd.empty()
-        v_i = v_R.ravel()
+        v_ijk = self.gd.empty()
 
-        pos_iv = self.gd.get_grid_point_coordinates().reshape((3, -1)).T
-        corner_jv = np.dot(np.indices((2, 2, 2)).reshape((3, 8)).T, bigcell_cv)
-        for i, pos_v in enumerate(pos_iv):
-            r = ((pos_v - corner_jv)**2).sum(axis=1).min()**0.5
-            if r == 0:
-                v_i[i] = 2 * self.a / pi**0.5
-            else:
-                v_i[i] = erf(self.a * r) / r
+        pos_ijkv = self.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
+        corner_xv = np.dot(np.indices((2, 2, 2)).reshape((3, 8)).T, bigcell_cv)
+        with seterr(invalid='ignore'):
+            # Loop over first dimension to avoid too large ndarrays.
+            for pos_jkv, v_jk in zip(pos_ijkv, v_ijk):
+                # Distances to the 8 corners:
+                d_jkxv = pos_jkv[:, :, np.newaxis] - corner_xv
+                r_jk = (d_jkxv**2).sum(axis=3).min(2)**0.5
+                v_jk[:] = erf(self.a * r_jk) / r_jk
+        v_ijk[0, 0, 0] = 2 * self.a / pi**0.5
 
-        self.K_Q = np.fft.fftn(v_R) * self.gd.dv
+        self.K_Q = np.fft.fftn(v_ijk) * self.gd.dv
 
     def get_potential(self, pd, q_v=None):
         q_c = pd.kd.bzk_kc[0]
