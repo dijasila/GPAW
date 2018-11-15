@@ -9,7 +9,7 @@ from gpaw.response.g0w0 import G0W0
 
 
 def run(atoms, symm, name):
-    atoms.calc = GPAW(mode=PW(250),
+    atoms.calc = GPAW(mode=PW(100),
                       eigensolver='rmm-diis',
                       occupations=FermiDirac(0.01),
                       symmetry=symm,
@@ -24,8 +24,8 @@ def run(atoms, symm, name):
               nbands=8,
               integrate_gamma=0,
               kpts=[(0, 0, 0), (0.5, 0.5, 0)],  # Gamma, X
-              ecut=40,
-              domega0=0.1,
+              ecut=20,
+              domega0=0.2,
               eta=0.2,
               relbands=(-1, 3),  # homo, lumo, lumo+1, lumo+2
                                  # same as bands=(3,7)
@@ -50,8 +50,9 @@ for si in [si1, si2]:
         results[-1].extend([G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]])
         i += 1
 
+print(results[0])
 equal(abs(np.array(results[0]) -
-          [-9.25,
-           5.44, 2.39, 0.40, 0,
-           6.26, 3.57, 1.32, 0]).max(), 0, 0.01)
-equal(np.ptp(results, 0).max(), 0, 0.005)
+          [-9.02,
+           5.53, 2.36, 0.38, 0,
+           6.48, 3.30, 1.01, 0]).max(), 0, 0.025)
+equal(np.ptp(results, 0).max(), 0, 0.02)
