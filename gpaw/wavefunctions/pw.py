@@ -677,7 +677,7 @@ class Preconditioner:
         if psit_xG.ndim == 1:
             return self.calculate_kinetic_energy(psit_xG[np.newaxis], kpt)[0]
         G2_G = self.G2_qG[kpt.q]
-        return np.array([self.pd.integrate(0.5 * G2_G * psit_G, psit_G)
+        return np.array([self.pd.integrate(0.5 * G2_G * psit_G, psit_G).real
                          for psit_G in psit_xG])
 
     def __call__(self, R_xG, kpt, ekin_x, out=None):
