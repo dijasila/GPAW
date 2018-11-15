@@ -27,7 +27,7 @@ class Davidson(Eigensolver):
     * Add preconditioned residuals to the subspace and diagonalize
     """
 
-    def __init__(self, niter=1, smin=None, normalize=True):
+    def __init__(self, niter=2, smin=None, normalize=True):
         Eigensolver.__init__(self)
         self.niter = niter
         self.smin = smin

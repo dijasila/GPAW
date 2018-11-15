@@ -11,7 +11,7 @@ from ase import Atoms
 from ase.data import covalent_radii, atomic_numbers
 from ase.units import Bohr, Ha
 
-from gpaw import GPAW, PW, setup_paths, Mixer, ConvergenceError, Davidson
+from gpaw import GPAW, PW, setup_paths, Mixer, ConvergenceError
 from gpaw.atom.generator2 import generate  # , DatasetGenerationError
 from gpaw.atom.aeatom import AllElectronAtom
 from gpaw.atom.atompaw import AtomPAW
@@ -243,7 +243,6 @@ class DatasetOptimizer:
                 M = 333
                 mixer = {}
             atoms.calc = GPAW(h=h,
-                              eigensolver=Davidson(niter=2),
                               xc='PBE',
                               symmetry='off',
                               setups=setup,

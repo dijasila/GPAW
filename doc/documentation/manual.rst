@@ -285,8 +285,8 @@ spin-polarized system with magnetic moment of 2 a minimum of ``nbands=6`` is
 needed (6 occupied bands for spin-up, 4 occupied bands and 2 empty bands for
 spin down).
 
-The default number of electronic bands (``nbands``) is equal to the
-number of atomic orbitals present in the atomic setups.  For systems
+The default number of electronic bands (``nbands``) is equal to 4 plus
+1.2 times the number of occupied bands.  For systems
 with the occupied states well separated from the unoccupied states,
 one could use just the number of bands needed to hold the occupied
 states.  For metals, more bands are needed.  Sometimes, adding more
@@ -306,7 +306,6 @@ unoccupied bands will improve convergence.
     ``nbands='nao'`` will use the the same number of bands as there are
     atomic orbitals. This corresponds to the maximum ``nbands`` value that
     can be used in LCAO mode.
-
 
 
 .. _manual_xc:

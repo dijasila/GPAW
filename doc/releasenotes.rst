@@ -12,6 +12,11 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.16.1b1
 
+* Default eigensolver is now ``Davidson(niter=2)``.
+
+* Default number of bands is now `1.2 N_{\text{occ}} + 4`, where
+  `N_{\text{occ}}` is the number of occupied bands.
+
 * PW-mode calculations can now be parallelizer over plane-wave coefficients.
 
 * Solvated jellium method has been implemented, see

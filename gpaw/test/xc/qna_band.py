@@ -23,7 +23,7 @@ calc = GPAW(mode=PW(ecut),
 
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
-eigs = calc.wfs.kpt_u[0].eps_n[:24]
+eigs = calc.get_eigenvalues(kpt=0)[:24]
 calc.write('gs.gpw')
 
 atoms, calc = restart('gs.gpw',
@@ -31,7 +31,7 @@ atoms, calc = restart('gs.gpw',
                       fixdensity=True,
                       kpts=[[-0.25, 0.25, -0.25]])
 atoms.get_potential_energy()
-eigs_new = calc.wfs.kpt_u[0].eps_n[:24]
+eigs_new = calc.get_eigenvalues(kpt=0)[:24]
 for eold, enew in zip(eigs, eigs_new):
     print(eold, enew, eold - enew)
-    assert abs(eold - enew) < 1e-6
+    assert abs(eold - enew) < 27e-6
