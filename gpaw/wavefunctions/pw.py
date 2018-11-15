@@ -699,8 +699,8 @@ class NonCollinearPreconditioner(Preconditioner):
             self, psit_xsG.reshape((-1, shape[-1])), kpt)
         return ekin_xs.reshape(shape[:-1]).sum(-1)
 
-    def __call__(self, R_sG, kpt, ekin):
-        return Preconditioner.__call__(self, R_sG, kpt, [ekin, ekin])
+    def __call__(self, R_sG, kpt, ekin, out=None):
+        return Preconditioner.__call__(self, R_sG, kpt, [ekin, ekin], out)
 
 
 class PWWaveFunctions(FDPWWaveFunctions):
