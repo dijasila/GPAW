@@ -32,7 +32,10 @@ class Preconditioner:
 
     def __call__(self, residuals, kpt, ekin=None, out=None):
         if residuals.ndim == 3:
-            return self.__call__(residuals[np.newaxis], kpt)[0]
+            if out is None:
+                return self.__call__(residuals[np.newaxis], kpt)[0]
+            return self.__call__(residuals[np.newaxis], kpt,
+                                 out=out[np.newaxis])[0]
         nb = len(residuals)  # number of bands
         phases = kpt.phase_cd
         step = self.step
