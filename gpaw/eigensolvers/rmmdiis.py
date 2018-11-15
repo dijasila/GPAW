@@ -142,7 +142,7 @@ class RMMDIIS(Eigensolver):
             with self.timer('precondition'):
                 ekin_x = self.preconditioner.calculate_kinetic_energy(
                     psitb.array, kpt)
-                dpsit.array[:] = self.preconditioner(Rb.array, kpt, ekin_x)
+                self.preconditioner(Rb.array, kpt, ekin_x, out=dpsit.array)
 
             # Calculate the residual of dpsit_G, dR_G = (H - e S) dpsit_G:
             # self.timer.start('Apply Hamiltonian')
@@ -242,8 +242,8 @@ class RMMDIIS(Eigensolver):
 
                 if nit < self.niter - 1:
                     with self.timer('precondition'):
-                        dpsit.array[:] = self.preconditioner(Rb.array, kpt,
-                                                             ekin_x)
+                        self.preconditioner(Rb.array, kpt,
+                                            ekin_x, out=dpsit.array)
 
                     for psit_G, lam, dpsit_G in zip(psitb.array, lam_x,
                                                     dpsit.array):
@@ -261,7 +261,7 @@ class RMMDIIS(Eigensolver):
             self.timer.stop('DIIS step')
             # Final trial step
             with self.timer('precondition'):
-                dpsit.array[:] = self.preconditioner(Rb.array, kpt, ekin_x)
+                self.preconditioner(Rb.array, kpt, ekin_x, out=dpsit.array)
 
             self.timer.start('Update psi')
             if self.trial_step is not None:
