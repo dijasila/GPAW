@@ -521,7 +521,6 @@ def get_nonsc_spinorbit_calc(calc, withsoc=True):
     if isinstance(calc, str):
         calc = GPAW(calc, txt=None,
                     parallel={'band': 1, 'kpt': size})
-
     spinpolarized = calc.wfs.nspins > 1
 
     atoms = calc.atoms
@@ -530,7 +529,7 @@ def get_nonsc_spinorbit_calc(calc, withsoc=True):
                                 'magmoms': [[0, 0, 0]] * len(atoms)},
                   fixdensity=True,
                   txt=None,
-                  parallel={'band': 1, 'kpt': size})
+                  parallel=dict(calc.parallel))
 
     socalc = GPAW(**params)
     socalc.initialize(atoms=atoms, reading=True)
@@ -569,22 +568,24 @@ def get_nonsc_spinorbit_calc(calc, withsoc=True):
 
     vtcoll_xG = calc.hamiltonian.vt_xG
     socalc.hamiltonian.vt_xG[:] = 0.0
-    if len(vtcoll_xG) == 1:
+    if not spinpolarized:
         socalc.hamiltonian.vt_xG[0] = vtcoll_xG[0]
     else:
         socalc.hamiltonian.vt_xG[0] = (vtcoll_xG[0] + vtcoll_xG[1])
         socalc.hamiltonian.vt_xG[3] = (vtcoll_xG[0] - vtcoll_xG[1])
 
     # Setup atomic hamiltonians
-    ham = socalc.hamiltonian
     dH0_asp = calc.hamiltonian.dH_asp
+    D0_asp = socalc.density.D_asp
+
+    ham = socalc.hamiltonian
     D_asp = ham.atomdist.to_work(socalc.density.D_asp)
     dtype = complex if ham.soc else float
     dH_asp = ham.setups.empty_atomic_matrix(ham.ncomponents,
                                             D_asp.partition, dtype)
 
     from gpaw.utilities import pack2
-    for ai in range(len(dH0_asp)):
+    for ai, dH_sp in dH_asp.items():
         D_sp = D_asp[ai]
         dH0_sp = dH0_asp[ai]
         dH_sp = dH_asp[ai]
@@ -592,7 +593,7 @@ def get_nonsc_spinorbit_calc(calc, withsoc=True):
         if withsoc:
             setup = ham.setups[ai]
             a = calc.wfs.setups[ai]
-            dH_vii = soc(a, calc.hamiltonian.xc, calc.density.D_asp[ai])
+            dH_vii = soc(a, calc.hamiltonian.xc, D0_asp[ai])
             dH_sp[1:] = pack2(dH_vii)
         if len(dH0_sp) == 1:
             dH_sp[0] += dH0_sp[0]

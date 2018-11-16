@@ -11,8 +11,8 @@ from gpaw.mpi import size
 from gpaw.test import equal
 from gpaw.response.df import DielectricFunction
 
-if size > 2:
-    raise SkipTest()
+# if size > 2:
+#     raise SkipTest()
 
 
 def readcalc(calc):
@@ -36,9 +36,8 @@ calc = GPAW(convergence={'bands': 28},
             **params)
 a.calc = calc
 a.get_potential_energy()
-calc.write('mos2_coll_wfs.gpw', mode='all')
 
-socalc = get_nonsc_spinorbit_calc('mos2_coll_wfs.gpw', withsoc=False)
+socalc = get_nonsc_spinorbit_calc(calc, withsoc=False)
 socalc.write('mos2_ncoll_wfs.gpw', mode='all')
 socalc2 = readcalc('mos2_ncoll_wfs.gpw')
 calc = readcalc('mos2_coll_wfs.gpw')
