@@ -513,7 +513,7 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
     return np.ravel(p_n)
 
 
-def get_nonsc_spinorbit_calc(calc, soc=True):
+def get_nonsc_spinorbit_calc(calc, withsoc=True):
     from gpaw import GPAW
     from gpaw.mpi import size
     # Takes a collinear calculator with wfs
@@ -523,44 +523,85 @@ def get_nonsc_spinorbit_calc(calc, soc=True):
                     parallel={'band': 1, 'kpt': size})
 
     spinpolarized = calc.wfs.nspins > 1
-        
+
     atoms = calc.atoms
     params = calc.parameters
-    params.update(experimental={'soc': soc,
+    params.update(experimental={'soc': withsoc,
                                 'magmoms': [[0, 0, 0]] * len(atoms)},
                   fixdensity=True,
                   txt=None,
                   parallel={'band': 1, 'kpt': size})
+
     socalc = GPAW(**params)
     socalc.initialize(atoms=atoms, reading=True)
-    socalc.set_positions()
+    socalc.initialize_positions(atoms)
+    socalc.hamiltonian.initialize()
+    socalc.wfs.random_wave_functions(0)
+
     # Now set the wavefunctions
-    for ik, kpt, sokpt in enumerate(zip(calc.wfs.kpt_u, socalc.wfs.kpt_u)):
+    for ik, (kpt, sokpt) in enumerate(zip(calc.wfs.kpt_u, socalc.wfs.kpt_u)):
+        nbands, nG = np.shape(kpt.psit_nG[:])
         sokpt.psit_nG[:] = 0
         if not spinpolarized:
             for s in [0, 1]:
                 sokpt.psit_nG[s::2, s, :] = kpt.psit_nG[:]
             sokpt.eps_n = np.repeat(kpt.eps_n, 2)
+            sokpt.f_n = np.repeat(kpt.f_n, 2)
         else:
             sokpt.psit_nG[0::2, 0, :] = kpt.psit_nG[:]
             kpt2 = calc.wfs.kpt_u[calc.wfs.kd.nibzkpts + ik]
             sokpt.psit_nG[1::2, 1, :] = kpt2.psit_nG[:]
             sokpt.eps_n = np.ravel(np.transpose([kpt.eps_n,
-                                                   kpt2.eps_n]))
-        sokpt.f_n = np.zeros_like(sokpt.eps_n)
+                                                 kpt2.eps_n]))
+            sokpt.f_n = np.ravel(np.transpose([kpt.f_n,
+                                               kpt2.f_n]))
         P = sokpt.P
         sokpt.psit.matrix_elements(socalc.wfs.pt, out=P)
 
     # Calculate occupations
     socalc.occupations.fermilevel = calc.occupations.fermilevel
     socalc.occupations.calculate(socalc.wfs)
-
     # Calculate density
     socalc.density.initialize_from_wavefunctions(socalc.wfs)
     # For some reason we also need update the density
     # even though we just initialized it...
     socalc.density.update(socalc.wfs)
-    socalc.hamiltonian.update(socalc.density)
+
+    vtcoll_xG = calc.hamiltonian.vt_xG
+    socalc.hamiltonian.vt_xG[:] = 0.0
+    if len(vtcoll_xG) == 1:
+        socalc.hamiltonian.vt_xG[0] = vtcoll_xG[0]
+    else:
+        socalc.hamiltonian.vt_xG[0] = (vtcoll_xG[0] + vtcoll_xG[1])
+        socalc.hamiltonian.vt_xG[3] = (vtcoll_xG[0] - vtcoll_xG[1])
+
+    # Setup atomic hamiltonians
+    ham = socalc.hamiltonian
+    dH0_asp = calc.hamiltonian.dH_asp
+    D_asp = ham.atomdist.to_work(socalc.density.D_asp)
+    dtype = complex if ham.soc else float
+    dH_asp = ham.setups.empty_atomic_matrix(ham.ncomponents,
+                                            D_asp.partition, dtype)
+
+    from gpaw.utilities import pack2
+    for ai in range(len(dH0_asp)):
+        D_sp = D_asp[ai]
+        dH0_sp = dH0_asp[ai]
+        dH_sp = dH_asp[ai]
+        dH_sp[:] = 0
+        if withsoc:
+            setup = ham.setups[ai]
+            a = calc.wfs.setups[ai]
+            dH_vii = soc(a, calc.hamiltonian.xc, calc.density.D_asp[ai])
+            dH_sp[1:] = pack2(dH_vii)
+        if len(dH0_sp) == 1:
+            dH_sp[0] += dH0_sp[0]
+        else:
+            dH_sp[0] += dH0_sp[0] + dH0_sp[1]
+            dH_sp[3] += dH0_sp[0] - dH0_sp[1]
+
+    ham.update_atomic_hamiltonians(None)
+    ham.update_atomic_hamiltonians(ham.atomdist.from_work(dH_asp))
     # We need to initialize the eigensolver
     socalc.wfs.eigensolver.initialize(socalc.wfs)
 
