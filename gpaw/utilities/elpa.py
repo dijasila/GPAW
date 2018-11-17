@@ -14,33 +14,49 @@ class Elpa:
             _gpaw.elpa_free(self._handle)
 
 
+def elpa_diagonalize(desc, A, C, eps):
+    bg = desc.blacsgrid
+    na = desc.gshape[0]
+    nev = len(eps)
+    code = _gpaw.elpa_general_diagonalize(
+        bg.comm.get_c_object(),
+        bg.context,
+        A, A.copy(), C, eps,
+        desc.gshape[0], nev,
+        (bg.npcol, bg.nprow, bg.mycol, bg.myrow),
+        desc.shape, desc.mb)
+    return code
+
 def elpa_general_diagonalize(desc, A, S, C, eps):
     bg = desc.blacsgrid
     comm = bg.comm
-    for arr in [A, C, S, eps]:
-        assert A.dtype == float
-        assert A.flags.contiguous
 
-    na = len(A)
-    assert A.shape == (na, na)
-    assert A.shape == S.shape
+    for arr in [A, C, S, eps]:
+        assert arr.dtype == float
+        assert arr.flags.contiguous
+
+    #for arr in [A, C, S]:
+    #    desc.checkassert(arr)
+
+    na = desc.gshape[0]
     nev = len(eps)
     assert nev <= na
     assert eps.shape == (nev,)
-    assert C.shape == (na, nev)  # or transpose?
-    print('eps0', eps)
-    print('na nev', na, nev)
-    print('C')
-    print(C)
-    print('ARRGH A')
-    print(A)
     assert desc.mb == desc.nb
-    print(desc)
-    _gpaw.elpa_general_diagonalize(
+    for arr in [A, S, C]:
+        assert arr.shape == desc.shape
+
+    code = _gpaw.elpa_general_diagonalize(
         comm.get_c_object(),
         bg.context,
         A, S, C, eps,
         na, nev,
+        # Tricky/important: row and col definition apparently swapped
+        # between GPAW and ScaLAPACK/Elpa
+        #(bg.nprow, bg.npcol, bg.myrow, bg.mycol),
         (bg.npcol, bg.nprow, bg.mycol, bg.myrow),
         desc.shape, desc.mb)
-    print('eps1', eps)
+    if code != 0:
+        raise RuntimeError('Elpa general diagonalization failed with code '
+                           '{}'.format(code))
+    #print('epsout', eps)

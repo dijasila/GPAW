@@ -48,7 +48,7 @@ PyObject* elpa_general_diagonalize(PyObject *self, PyObject *args)
     MPI_Comm comm = gpaw_comm->comm;
 
     double *grumble = PyArray_DATA(A);
-    printf("%f\n", grumble[0]);
+    //printf("%f\n", grumble[0]);
 
 
     //int mpi_fcomm = MPI_Comm_c2f(MPI_COMM_WORLD);
@@ -83,8 +83,9 @@ PyObject* elpa_general_diagonalize(PyObject *self, PyObject *args)
     elpa_set(handle, "na", na, &error); // size of the na x na matrix
     elpa_set(handle, "nev", nev, &error); // number of eigenvectors that should be computed ( 1<= nev <= na)
     //elpa_set(handle, "local_nrows", nprow, &error);
-    elpa_set(handle, "local_nrows", locM, &error);
-    elpa_set(handle, "local_ncols", locN, &error); // number of local columns of the distributed matrix on this MPI task
+    printf("loc1 %d loc2 %d :: myrow %d mycol %d :: blk %d\n", locM, locN, myrow, mycol, blocksize);
+    elpa_set(handle, "local_ncols", locM, &error);
+    elpa_set(handle, "local_nrows", locN, &error); // number of local columns of the distributed matrix on this MPI task
     elpa_set(handle, "nblk", blocksize, &error);
     elpa_set(handle, "mpi_comm_parent", MPI_Comm_c2f(comm), &error); // the global MPI communicator
     elpa_set(handle, "process_row", myrow, &error); // row coordinate of MPI process
@@ -107,24 +108,24 @@ PyObject* elpa_general_diagonalize(PyObject *self, PyObject *args)
     double *b = (double*)PyArray_DATA(S);
     double *ev = (double*)PyArray_DATA(eps);
     double *q = (double*)PyArray_DATA(C);
-    printf("grrr %f %f %f %f\n",
-           a[0], a[1], a[2], a[3]);
+    //printf("grrr %f %f %f %f\n",
+    //       a[0], a[1], a[2], a[3]);
     int already_decomposed = 0;
-    elpa_generalized_eigenvectors(handle, a, b, ev, q,
-                                  already_decomposed, &error);
-    //elpa_eigenvectors(handle, a, ev, q, &error);
-    printf("Err %d\n", error);
-    if (error) {
-        PyErr_SetString(PyExc_RuntimeError,
-                        "Error getting eigenvectors");
-        return NULL;
-    }
+    //elpa_generalized_eigenvectors(handle, a, b, ev, q,
+    //                              already_decomposed, &error);
+    elpa_eigenvectors(handle, a, ev, q, &error);
+    //printf("Err %d\n", error);
+    //if (error) {
+    //    PyErr_SetString(PyExc_RuntimeError,
+    //                    "Error getting eigenvectors");
+    //    return NULL;
+    //}
 
     /* cleanup */
     elpa_deallocate(handle);
     //elpa_uninit();
-
-    Py_RETURN_NONE;
+    return Py_BuildValue("i", error);
+    //Py_RETURN_NONE;
 }
 
 #endif
