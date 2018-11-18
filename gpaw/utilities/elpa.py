@@ -1,31 +1,42 @@
+import numpy as np
 import _gpaw
 
-class Elpa:
-    def __init__(self):
-        handle = np.empty(1, np.intp)
-        _gpaw.elpa_init(handle)
-        self._handle = handle
 
-    def solve(self):
-        pass
+class LibElpa:
+    def __init__(self, **kwargs):
+        ptr = np.empty(1, np.intp)
+        _gpaw.pyelpa_init(ptr)
+        self._ptr = _ptr
+        self._parameters = {}
+        self.elpa_set(**kwargs)
 
-    def __del__(self):
-        if hasattr(self, '_handle'):
-            _gpaw.elpa_free(self._handle)
+    def elpa_set(self, **kwargs):
+        for key, value in kwargs.items():
+            _gpaw.pyelpa_set(self._handle, key, value)
+            self._parameters[key] = value
 
+    def __repr__(self):
+        return 'LibElpa({})'.format(self._parameters)
+
+    #def __del__(self):
+    #    if hasattr(self._ptr):
+    #        _gpaw.pyelpa_uninit(self._ptr)
 
 def elpa_diagonalize(desc, A, C, eps):
     bg = desc.blacsgrid
     na = desc.gshape[0]
     nev = len(eps)
-    code = _gpaw.elpa_general_diagonalize(
+    #print('THE FSCKING MATRIX')
+    #print(A)
+    code = _gpaw.elpa_diagonalize(
         bg.comm.get_c_object(),
         bg.context,
-        A, A.copy(), C, eps,
+        A, C, eps,
         desc.gshape[0], nev,
-        (bg.npcol, bg.nprow, bg.mycol, bg.myrow),
+        (bg.npcol, bg.nprow, bg.myrow, bg.mycol),
         desc.shape, desc.mb)
     return code
+
 
 def elpa_general_diagonalize(desc, A, S, C, eps):
     bg = desc.blacsgrid

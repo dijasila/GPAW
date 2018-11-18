@@ -36,7 +36,9 @@ PyObject* elpa_general_diagonalize(PyObject *self, PyObject *args)
     PyObject *gpaw_comm_obj;
     PyArrayObject *A, *S, *C, *eps;
     int na, context, nev, blocksize, npcol, nprow, mycol, myrow, locM, locN;
-    if (!PyArg_ParseTuple(args, "OiOOOOii(iiii)(ii)i", &gpaw_comm_obj,
+    if (!PyArg_ParseTuple(args,
+                          "OiOOOOii(iiii)(ii)i",
+                          &gpaw_comm_obj,
                           &context,
                           &A, &S, &C, &eps,
                           &na, &nev,
