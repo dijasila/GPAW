@@ -68,6 +68,7 @@ class ElectrostaticCorrections:
         E_0 = self.pristine.get_potential_energy()
         E_X = self.defect.get_potential_energy()
         El = self.calculate_lattice_electrostatics(epsilon)
+        self.El = El
         data = self.calculate_potentials(epsilon)
         Delta_V = self.average(data['D_V'], data['z'])
         return (E_X - E_0, E_X - E_0 - El + Delta_V * self.q)
@@ -117,8 +118,6 @@ class ElectrostaticCorrections:
             V = (np.sum(phase_G * self.rho_G[selectedG]
                         / (self.G2_G[selectedG]))
                  * Ha * 4.0 * np.pi / (epsilon * self.Omega))
-            # s = (str(z_g[idx]) + ' '
-            #      + str(np.real(V)) + ' ' + str(np.imag(V)) + '\n')
             zs.append(z_g[idx])
             Vs.append(V)
 

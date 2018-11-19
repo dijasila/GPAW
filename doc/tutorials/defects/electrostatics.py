@@ -9,12 +9,13 @@ repeats = [1, 2, 3, 4]
 for repeat in repeats:
     pristine = 'GaAs{0}{0}{0}.pristine.gpw'.format(repeat)
     defect = 'GaAs{0}{0}{0}.Ga_vac.gpw'.format(repeat)
-    fnv = ElectrostaticCorrections(pristine=pristine,
+    elc = ElectrostaticCorrections(pristine=pristine,
                                    defect=defect,
                                    q=q,
                                    FWHM=FWHM)
-    electrostatic_data = fnv.calculate_potentials(epsilon)
-    formation_energies.append(fnv.calculate_formation_energies(epsilon))
+    electrostatic_data = elc.calculate_potentials(epsilon)
+    formation_energies.append(elc.calculate_formation_energies(epsilon))
+    electrostatic_data['El'] = elc.El
     np.savez('electrostatic_data_{0}{0}{0}.npz'.format(repeat),
              **electrostatic_data)
 

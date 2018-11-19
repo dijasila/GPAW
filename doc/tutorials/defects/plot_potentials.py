@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-data = np.load('electrostatic_data_444.npz')
+data = np.load('electrostatic_data_222.npz')
 
 z = data['z']
 dV = data['D_V']
@@ -16,6 +16,7 @@ plt.plot(z, V_diff.real, '-',
 middle = len(dV) // 2
 restricted = dV[middle - len(dV) // 8: middle + len(dV) // 8]
 constant = restricted.mean().real
+print(constant)
 plt.axhline(constant, ls='dashed')
 plt.axhline(0.0, ls='-', color='grey')
 plt.xlabel(r'$z\enspace (\mathrm{\AA})$', fontsize=18)

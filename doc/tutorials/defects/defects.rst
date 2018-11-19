@@ -189,15 +189,15 @@ The Ga vacancy in GaAs
 ======================
 
 We now apply the FNV scheme to the triple-negatively charged (`q = -3`) Ga
-vacancy in GaAs, which a system also considered in Ref. [#FNV]_. Due to the
-high charge state of the defect, electrostatic effects are particularly
-important here. We here consider a 2x2x2 supercell of GaAs, which contains 64
-atoms.  The script below calculates the total energies of the supercell with
-and without the defect, where we created the vacancy by removing the Ga atom
-at (0,0,0).  Note how we set the charge in the defect calculation, and that
-we save the gpw files for further processing.  Also, note that we do not
-perform a relaxation for the system with the defect.  Altogether this script
-takes around 20 minutes to complete using 8 processors.
+vacancy in GaAs, which a system also considered in Ref. [#FNV]_. Due to the high
+charge state of the defect, electrostatic effects are particularly important
+here. We here consider an NxNxN supercell of GaAs, which contains 8*N**3 atoms.
+The script below calculates the total energies of the supercell with and without
+the defect, where we created the vacancy by removing the Ga atom at (0,0,0).
+Note how we set the charge in the defect calculation, and that we save the gpw
+files for further processing. Also, note that we do not perform a relaxation for
+the system with the defect. For N=2 this script takes around 30 minutes to
+complete using 8 processors.
 
 .. literalinclude:: gaas.py
 
@@ -205,35 +205,38 @@ By subtracting the energy of the pristine system from the energy of the
 defective system, we obtain an uncorrected total energy difference `(E[X^q] -
 E_0)_\mathrm{uncorrected}` of 21.78 eV.
 
-We now calculate the FNV corrections.  Here we take a dielectric constant of
-12.7 which is the clamped-ion static limit (i.e. the low frequency dielectric
-constant excluding the effects of ionic relaxation).  We use a Gaussian model
+We now calculate the FNV corrections. Here we take a dielectric constant of 12.7
+which is the clamped-ion static limit (i.e. the low frequency dielectric
+constant excluding the effects of ionic relaxation). We use a Gaussian model
 charge centred at (0, 0, 0) with a FWHM of 2 Bohr.
 
-The script fnv.py takes the gpw files of the defective and pristine calculation
-as input, as well as the gaussian parameters and dielectric constant, and
-calculates the different terms in the correction scheme. For this case, the
-calculated value of `E_l` is -1.28 eV.
+The script `electrostatics.py` takes the gpw files of the defective and pristine
+calculation as input, as well as the gaussian parameters and dielectric
+constant, and calculates the different terms in the correction scheme. For this
+case, the calculated value of `E_l` is -1.28 eV.
 
 .. literalinclude:: electrostatics.py
 
 
-The script also produces an output file ``electrostatic_data.npz``
-which gives the function `\Delta V(z)` introduced above, and also the planar
-averages of the model potential and the difference between the planar
-averages of the defective and pristine electrostatic potentials.  The data
-are plotted below.
+The script also produces an output file ``electrostatic_data.npz`` which gives
+the function `\Delta V(z)` introduced above, and also the planar averages of the
+model potential and the difference between the planar averages of the defective
+and pristine electrostatic potentials. We can plot the data using the following
+script
+
+.. literalinclude:: plot_potentials.py
+
+This gives the following plot:
 
 .. image:: planaraverages.png
-           :height: 500 px
+           :scale: 50 %
 
 According to the recipe introduced above, we extract the constant `\Delta V`
-from `\Delta V(z)` furthest from the defect, corresponding to the middle of
-the unit cell.  The extracted value of `\Delta V = -0.14` eV is shown as the
-dashed line.  Note that such a plot provides a consistency check of the FNV
-scheme; if `\Delta V(z)` does not display flat behaviour away from the
-defect, it is a sign that the model is not describing the true electrostatics
-sufficiently well.
+from `\Delta V(z)` furthest from the defect, corresponding to the middle of the
+unit cell. The extracted value of `\Delta V = -0.14` eV is shown as the dashed
+line. Note that such a plot provides a consistency check of the FNV scheme; if
+`\Delta V(z)` does not display flat behaviour away from the defect, it is a sign
+that the model is not describing the true electrostatics sufficiently well.
 
 Taken together, the corrected energy difference is
 
@@ -241,58 +244,59 @@ Taken together, the corrected energy difference is
 
   E[V_\mathrm{Ga}^{-3}] - E_0  = [21.78  - (-1.28 ) + (-3)\times(-0.14)] \mathrm{eV}
                                = [21.78 + 1.70] \mathrm{eV}
+                               = [23.5] \mathrm{eV}
 
-This case is a rather extreme example, since the supercell is rather small
-and the charge state is large.  Nonetheless, the large correction
-demonstrates the importance of electrostatics.
+This case is a rather extreme example, since the supercell is rather small and
+the charge state is large. Nonetheless, the large correction demonstrates the
+importance of electrostatics.
 
-The above calculation can be repeated for different sizes of supercells.  The
-plot below shows the energy differences before and after the FNV corrections
-are applied, as a function of the number of atoms in the supercell (c.f. Fig.
-5 of [#FNV]_).  The corrections nicely remove the slow convergence due to the
-electrostatics.  Note also that even for the largest supercell (4x4x4, 512
+The above calculation can be repeated for different sizes of supercells. The
+plot below shows the energy differences before and after the FNV corrections are
+applied, as a function of the number of atoms in the supercell (c.f. Fig. 5 of
+[#FNV]_). The corrections nicely remove the slow convergence due to the
+electrostatics. Note also that even for the largest supercell (4x4x4, 512
 atoms), the electrostatic correction is still large, 0.7 eV.
 
 .. image:: energies.png
-           :height: 500 px
+           :scale: 50 %
 
            
 Additional remarks on calculating formation energies
 ====================================================
 
 Here we briefly discuss the other ingredients needed to calculate defect
-formation energies using the Zhang-Northrup formula.  First, the valence band
-position `\epsilon_v` must be obtained from a calculation on the pristine
-unit cell, with a dense enough `k`-point sampling so that the band edge is
-included (for GaAs this just means that the `\Gamma` point is included).
-Because GPAW always sets the average electrostatic potential to zero, this
-value is already aligned to the supercell calculation of the pristine sample
-so needs no further adjustment.
+formation energies using the Zhang-Northrup formula. First, the valence band
+position `\epsilon_v` must be obtained from a calculation on the pristine unit
+cell, with a dense enough `k`-point sampling so that the band edge is included
+(for GaAs this just means that the `\Gamma` point is included). Because GPAW
+always sets the average electrostatic potential to zero, this value is already
+aligned to the supercell calculation of the pristine sample so needs no further
+adjustment.
 
-The chemical potentials `\mu_i` can be varied, but only within certain
-limits.  For the gallium vacancy we require a value of
-`\mu_\mathrm{Ga} \equiv \mu_\mathrm{Ga}[\mathrm{GaAs}]` ,
-which lies within the range [#RMP]_:
+The chemical potentials `\mu_i` can be varied, but only within certain limits.
+For the gallium vacancy we require a value of `\mu_\mathrm{Ga} \equiv
+\mu_\mathrm{Ga}[\mathrm{GaAs}]` , which lies within the range [#RMP]_:
 
 .. math::
 
- \mu_\mathrm{Ga}[\mathrm{bulk \ Ga}]  > \mu_\mathrm{Ga}[\mathrm{GaAs}]> \mu_\mathrm{Ga}[\mathrm{bulk \ Ga}] + \Delta H_f[\mathrm{GaAs}]
+ \mu_\mathrm{Ga}[\mathrm{bulk \ Ga}] > \mu_\mathrm{Ga}[\mathrm{GaAs}]>
+ \mu_\mathrm{Ga}[\mathrm{bulk \ Ga}] + \Delta H_\mathrm{f}[\mathrm{GaAs}]
 
-Here, `\Delta H_f`  is the enthalpy of formation, and
+Here, `\Delta H_\mathrm{f}` is the enthalpy of formation, and
 `\mu_\mathrm{Ga}[\mathrm{bulk \ Ga}]` the chemical potential corresponding to
 equilibrium with bulk gallium. Normally one would consider the two limits
 `\mu_\mathrm{Ga}[\mathrm{GaAs}] = \mu_\mathrm{Ga}[\mathrm{bulk \ Ga}]` ("Ga
 rich") and `\mu_\mathrm{Ga}[\mathrm{GaAs}] = \mu_\mathrm{Ga}[\mathrm{bulk \
-Ga}] + \Delta H_f[\mathrm{GaAs}]` ("As rich", or "Ga poor").
-`\mu_\mathrm{Ga}[\mathrm{bulk \ Ga}]` and `\Delta H_f[\mathrm{GaAs}]` can be
+Ga}] + \Delta H_\mathrm{f}[\mathrm{GaAs}]` ("As rich", or "Ga poor").
+`\mu_\mathrm{Ga}[\mathrm{bulk \ Ga}]` and `\Delta H_\mathrm{f}[\mathrm{GaAs}]` can be
 obtained from total energy calculations on bulk Ga, As, and GaAs.
 
 Carrying out the necessary calculations yields values of 4.75 eV for
-`\epsilon_v` and -3.59 eV for `\mu_\mathrm{Ga}[\mathrm{bulk \ Ga}]`. Hence
-the defect formation energy calculated for the 222 cell with and without the
-FNV corrections, assuming Ga rich conditions, is 5.6 and 3.9 eV respectively
-(here we also set the position of the electron chemical potential to the top
-of the valence band, i.e. `\epsilon_F` = 0.
+`\epsilon_v` and -3.59 eV for `\mu_\mathrm{Ga}[\mathrm{bulk \ Ga}]`. Hence the
+defect formation energy calculated for the 222 cell with and without the FNV
+corrections, assuming Ga rich conditions, is 5.6 and 3.9 eV respectively (here
+we also set the position of the electron chemical potential to the top of the
+valence band, i.e. `\epsilon_F` = 0.
 
 
 References
