@@ -48,6 +48,8 @@ class WignerSeitzTruncatedCoulomb:
 
         pos_ijkv = self.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
         corner_xv = np.dot(np.indices((2, 2, 2)).reshape((3, 8)).T, bigcell_cv)
+
+        # Ignore division by zero (in 0,0,0 corner):
         with seterr(invalid='ignore'):
             # Loop over first dimension to avoid too large ndarrays.
             for pos_jkv, v_jk in zip(pos_ijkv, v_ijk):
@@ -55,6 +57,8 @@ class WignerSeitzTruncatedCoulomb:
                 d_jkxv = pos_jkv[:, :, np.newaxis] - corner_xv
                 r_jk = (d_jkxv**2).sum(axis=3).min(2)**0.5
                 v_jk[:] = erf(self.a * r_jk) / r_jk
+
+        # Fix 0/0 corner value:
         v_ijk[0, 0, 0] = 2 * self.a / pi**0.5
 
         self.K_Q = np.fft.fftn(v_ijk) * self.gd.dv
