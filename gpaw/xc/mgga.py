@@ -1,6 +1,7 @@
 from math import sqrt, pi
 
 import numpy as np
+from scipy.special import eval_legendre
 
 from gpaw.xc.gga import (add_gradient_correction, gga_vars,
                          GGARadialExpansion, GGARadialCalculator,
@@ -333,6 +334,7 @@ def LegendreFx2(n, rs, sigma, tau,
 
     # product exchange enhancement factor
     Fx_i = legendre_polynomial(x_i, orders_i, coefs_i)
+    #print(Fx_i);asdf
     Fx_j = legendre_polynomial(x_j, orders_j, coefs_j)
     Fx = Fx_i * Fx_j
     return Fx
@@ -377,51 +379,6 @@ def ueg_x(n):
     return ex, rs
 
 
-def legendre_polynomial(x, orders, coefs, P=None):
-    assert len(orders) == len(coefs)
-    max_order = int(orders[-1])
-
-    if P is None:
-        P = np.zeros_like(x)
-    else:
-        assert np.shape(P) == np.shape(x)
-    sh = np.shape(x)
-    sh_ = np.append(sh, max_order + 2)
-    L = np.empty(sh_)
-
-    # initializing
-    if len(sh) == 1:
-        L[:, 0] = 1.0
-        L[:, 1] = x
-    else:
-        L[:, :, :, 0] = 1.0
-        L[:, :, :, 1] = x
-
-    # recursively building polynomium terms
-    if len(sh) == 1:
-        for i in range(max_order):
-            i += 2
-            L[:, i] = (2.0 * x[:] * L[:, i - 1] - L[:, i - 2] -
-                       (x[:] * L[:, i - 1] - L[:, i - 2]) / i)
-    else:
-        for i in range(max_order):
-            i += 2
-            L[:, :, :, i] = (
-                2.0 * x[:] * L[:, :, :, i - 1] -
-                L[:, :, :, i - 2] -
-                (x[:] * L[:, :, :, i - 1] - L[:, :, :, i - 2]) / i)
-
-    # building polynomium P
-    coefs_ = np.empty(max_order + 1)
-    k = 0
-    for i in range(len(coefs_)):
-        if orders[k] == i:
-            coefs_[i] = coefs[k]
-            k += 1
-        else:
-            coefs_[i] = 0.0
-    if len(sh) == 1:
-        P += np.dot(L[:, :-1], coefs_)
-    else:
-        P += np.dot(L[:, :, :, :-1], coefs_)
-    return P
+def legendre_polynomial(x, orders, coefs):
+    assert len(orders) == len(coefs) == 1
+    return eval_legendre(orders[0], x) * coefs[0]
