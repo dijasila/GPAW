@@ -1,6 +1,7 @@
 from math import sqrt, pi
 
 import numpy as np
+from scipy.special import eval_legendre
 
 from gpaw.xc.gga import (add_gradient_correction, gga_vars,
                          GGARadialExpansion, GGARadialCalculator,
@@ -378,8 +379,9 @@ def ueg_x(n):
     return ex, rs
 
 
-def legendre_polynomial(x, orders, coefs, P=None):
-    assert len(orders) == len(coefs)
+def legendre_polynomial(x, orders, coefs):
+    assert len(orders) == len(coefs) == 1
+    return eval_legendre(orders[0], x) * coefs[0]
     max_order = int(orders[-1])
 
     if P is None:
