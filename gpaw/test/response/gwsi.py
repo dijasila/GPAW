@@ -1,4 +1,4 @@
-"""Test band-gaps for Si."""
+"""Test GW band-gaps for Si."""
 
 from ase.build import bulk
 import numpy as np
@@ -27,9 +27,7 @@ def run(atoms, symm, name):
               ecut=40,
               domega0=0.1,
               eta=0.2,
-              relbands=(-1, 3),  # homo, lumo, lumo+1, lumo+2
-                                 # same as bands=(3,7)
-              )
+              relbands=(-1, 2))  # homo, lumo, lumo+1, same as bands=(3, 6)
     results = gw.calculate()
     return e, results
 
@@ -53,5 +51,5 @@ for si in [si1, si2]:
 equal(abs(np.array(results[0]) -
           [-9.25,
            5.44, 2.39, 0.40, 0,
-           6.26, 3.57, 1.32, 0]).max(), 0, 0.01)
-equal(np.ptp(results, 0).max(), 0, 0.005)
+           6.26, 3.57, 1.32, 0]).max(), 0, 0.025)
+equal(np.ptp(results, 0).max(), 0, 0.002)
