@@ -215,6 +215,9 @@ as input, as well as the gaussian parameters and dielectric constant, and
 calculates the different terms in the correction scheme. For this case, the
 calculated value of `E_l` is -1.28 eV.
 
+.. literalinclude:: electrostatics.py
+
+
 The script also produces an output file ``electrostatic_data.npz``
 which gives the function `\Delta V(z)` introduced above, and also the planar
 averages of the model potential and the difference between the planar
@@ -264,8 +267,7 @@ unit cell, with a dense enough `k`-point sampling so that the band edge is
 included (for GaAs this just means that the `\Gamma` point is included).
 Because GPAW always sets the average electrostatic potential to zero, this
 value is already aligned to the supercell calculation of the pristine sample
-so needs no further adjustment (unless one wishes to correct for the infamous
-band gap problem, but that is another story [#Lany]_).
+so needs no further adjustment.
 
 The chemical potentials `\mu_i` can be varied, but only within certain
 limits.  For the gallium vacancy we require a value of
