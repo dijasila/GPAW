@@ -1,12 +1,11 @@
 from ase import Atoms
-from ase.parallel import paropen
 from gpaw import GPAW, FermiDirac
-
+import sys
 # Script to get the total energies of a supercell
 # of GaAs with and without a Ga vacancy
 
 a = 5.628  # Lattice parameter
-N = 4  # NxNxN supercell
+N = int(sys.argv[1])  # NxNxN supercell
 q = -3  # Defect charge
 
 formula = 'Ga4As4'
