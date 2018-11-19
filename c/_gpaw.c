@@ -112,6 +112,8 @@ PyObject* pblas_gemv(PyObject *self, PyObject *args);
 PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
 #if defined(GPAW_WITH_ELPA)
+#include <elpa/elpa.h>
+PyObject* pyelpa_init(PyObject *self, PyObject *args);
 PyObject* pyelpa_set(PyObject *self, PyObject *args);
 PyObject* pyelpa_diagonalize(PyObject *self, PyObject *args);
 PyObject* pyelpa_general_diagonalize(PyObject *self, PyObject *args);
@@ -242,7 +244,8 @@ static PyMethodDef functions[] = {
     {"pblas_r2k", pblas_r2k, METH_VARARGS, 0},
     {"pblas_rk", pblas_rk, METH_VARARGS, 0},
 #if defined(GPAW_WITH_ELPA)
-    {"pyelpa_set", pyelpa_diagonalize, METH_VARARGS, 0},
+    {"pyelpa_init", pyelpa_init, METH_VARARGS, 0},
+    {"pyelpa_set", pyelpa_set, METH_VARARGS, 0},
     {"pyelpa_diagonalize", pyelpa_diagonalize, METH_VARARGS, 0},
     {"pyelpa_general_diagonalize", pyelpa_general_diagonalize, METH_VARARGS, 0},
     {"pyelpa_deallocate", pyelpa_deallocate, METH_VARARGS, 0},
@@ -487,13 +490,27 @@ main(int argc, char **argv)
     Py_SetProgramName(wargv[0]);
     PyImport_AppendInittab("_gpaw", &moduleinit0);
     Py_Initialize();
-
     PySys_SetArgvEx(argc, wargv, 0);
+
+#ifdef GPAW_WITH_ELPA
+    // Globally initialize Elpa library if present:
+    if (elpa_init(20171201) != ELPA_OK) {
+        // What API versions do we support?
+        PyErr_SetString(PyExc_RuntimeError, "Elpa >= 20171201 required");
+        PyErr_Print();
+        return 1;
+    }
+#endif
+
     int status = gpaw_main();
 
     if(status != 0) {
         PyErr_Print();
     }
+
+#ifdef GPAW_WITH_ELPA
+    elpa_uninit();
+#endif
 
     Py_Finalize();
     MPI_Finalize();
