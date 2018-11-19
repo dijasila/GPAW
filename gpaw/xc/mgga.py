@@ -332,7 +332,6 @@ def LegendreFx2(n, rs, sigma, tau,
     assert(x_j.all() >= -1.0 and x_j.all() <= 1.0)
 
     # product exchange enhancement factor
-    print(orders_i, coefs_i, x_i.shape)
     Fx_i = legendre_polynomial(x_i, orders_i, coefs_i)
     #print(Fx_i);asdf
     Fx_j = legendre_polynomial(x_j, orders_j, coefs_j)

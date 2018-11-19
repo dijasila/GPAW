@@ -2,7 +2,6 @@ from __future__ import division
 import numpy as np
 from ase.build import bulk
 from ase.dft.bee import BEEFEnsemble, readbee
-from ase.eos import EquationOfState as EOS
 from gpaw import GPAW, Mixer, PW
 from gpaw.test import gen
 from gpaw.mpi import world
@@ -12,8 +11,8 @@ newlibxc = _gpaw.lxcXCFuncNum('MGGA_X_MBEEF') is not None
 
 gen('Si', xcname='PBEsol')
 
-results = {'mBEEF': (5.444, 0.052),
-           'BEEF-vdW': (5.482, 0.072),
+results = {'mBEEF': (5.449, 0.056),
+           'BEEF-vdW': (5.483, 0.071),
            'mBEEF-vdW': (5.426, 0.025)}
 
 for xc in ['mBEEF', 'BEEF-vdW', 'mBEEF-vdW']:
@@ -41,14 +40,13 @@ for xc in ['mBEEF', 'BEEF-vdW', 'mBEEF-vdW']:
         ens.write('Si-{}-{:.3f}'.format(xc, a))
         V.append(si.get_volume())
 
-    eos = EOS(V, E, 'parabola')
-    v0, e0, B = eos.fit()
+    p = np.polyfit(V, E, 2)
+    v0 = np.roots(np.polyder(p))[0]
     a = (v0 * 4)**(1 / 3)
 
     a0, da0 = results[xc]
 
-    print(a,a0)
-    #assert abs(a - a0) < 0.001, (xc, a, a0)
+    assert abs(a - a0) < 0.001, (xc, a, a0)
 
     if world.rank == 0:
         E = []
@@ -58,16 +56,16 @@ for xc in ['mBEEF', 'BEEF-vdW', 'mBEEF-vdW']:
 
         A = []
         for energies in np.array(E).T:
-            eos = EOS(V, energies, 'parabola')
-            try:
-                v0, e0, B = eos.fit()
-                A.append((v0 * 4)**(1 / 3))
-            except ValueError:
-                pass
+            p = np.polyfit(V, energies, 2)
+            assert p[0] > 0, (V, E, p)
+            v0 = np.roots(np.polyder(p))[0]
+            A.append((v0 * 4)**(1 / 3))
+
         A = np.array(A)
         a = A.mean()
         da = A.std()
+
         print('a(ref) = {:.3f} +- {:.3f}'.format(a0, da0))
         print('a      = {:.3f} +- {:.3f}'.format(a, da))
-        #assert abs(a - a0) < 0.01
-        #assert abs(da - da0) < 0.01
+        assert abs(a - a0) < 0.01
+        assert abs(da - da0) < 0.01
