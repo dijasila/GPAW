@@ -112,7 +112,10 @@ PyObject* pblas_gemv(PyObject *self, PyObject *args);
 PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
 #if defined(GPAW_WITH_ELPA)
-PyObject* elpa_general_diagonalize(PyObject *self, PyObject *args);
+PyObject* pyelpa_set(PyObject *self, PyObject *args);
+PyObject* pyelpa_diagonalize(PyObject *self, PyObject *args);
+PyObject* pyelpa_general_diagonalize(PyObject *self, PyObject *args);
+PyObject* pyelpa_deallocate(PyObject *self, PyObject *args);
 #endif // GPAW_WITH_ELPA
 #endif // GPAW_WITH_SL and PARALLEL
 
@@ -239,7 +242,10 @@ static PyMethodDef functions[] = {
     {"pblas_r2k", pblas_r2k, METH_VARARGS, 0},
     {"pblas_rk", pblas_rk, METH_VARARGS, 0},
 #if defined(GPAW_WITH_ELPA)
-    {"elpa_general_diagonalize", elpa_general_diagonalize, METH_VARARGS, 0},
+    {"pyelpa_set", pyelpa_diagonalize, METH_VARARGS, 0},
+    {"pyelpa_diagonalize", pyelpa_diagonalize, METH_VARARGS, 0},
+    {"pyelpa_general_diagonalize", pyelpa_general_diagonalize, METH_VARARGS, 0},
+    {"pyelpa_deallocate", pyelpa_deallocate, METH_VARARGS, 0},
 #endif // GPAW_WITH_ELPA
 #endif // GPAW_WITH_SL && PARALLEL
 #ifdef GPAW_HPM
