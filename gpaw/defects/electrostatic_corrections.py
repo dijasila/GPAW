@@ -1,21 +1,20 @@
 import numpy as np
 from scipy.interpolate import interp1d
-# from ase.lattice import bulk
 from ase.units import Bohr, Hartree as Ha
 from gpaw import GPAW, PW
-# from gpaw.wavefunctions.pw import PW
+from ase.parallel import parprint
 
 
-class FNV:
+class ElectrostaticCorrections:
     def __init__(self, pristine, defect, q, FWHM, model='gaussian'):
         if isinstance(pristine, str):
-            pristine = GPAW(pristine, txt=None)
+            pristine = GPAW(pristine, txt=None, parallel={'domain': 1})
         if isinstance(defect, str):
             defect = GPAW(defect, txt=None)
-        calc = GPAW(mode=PW(500),
+        calc = GPAW(mode=PW(500, force_complex_dtype=True),
                     kpts={'size': (1, 1, 1),
                           'gamma': True},
-                    dtype=complex,
+                    parallel={'domain': 1},
                     symmetry='off')
         atoms = pristine.atoms.copy()
         calc.initialize(atoms)
@@ -46,22 +45,23 @@ class FNV:
         V_X = - self.defect.get_electrostatic_potential().mean(0).mean(0)
         z_model, V_model = self.calculate_z_avg_model_potential(epsilon)
         V_model = interp1d(z_model[:-1], V_model[:-1], kind='cubic')(z)
+        D_V_mean = self.average(V_model - V_X + V_0, z_model)
         data = {'epsilon': epsilon,
                 'z': z,
                 'V_0': V_0,
                 'V_X': V_X,
                 'V_model': V_model,
-                'D_V': V_model - V_X + V_0}
+                'D_V': V_model - V_X + V_0,
+                'D_V_mean': D_V_mean}
         self.data = data
         return data
 
-    def average(self, z, V):
+    def average(self, V, z):
         N = len(V)
         middle = N // 2
         points = range(middle - N // 8, middle + N // 8 + 1)
         restricted = V[points]
         V_mean = np.mean(restricted)
-        print(V_mean)
         return V_mean
     
     def calculate_formation_energies(self, epsilon):
@@ -69,12 +69,12 @@ class FNV:
         E_X = self.defect.get_potential_energy()
         El = self.calculate_lattice_electrostatics(epsilon)
         data = self.calculate_potentials(epsilon)
-        Delta_V = self.average(data['z'], data['D_V'])
+        Delta_V = self.average(data['D_V'], data['z'])
         return (E_X - E_0, E_X - E_0 - El + Delta_V * self.q)
     
     def calculate_gaussian_density(self):
         # Fourier transformed gaussian:
-        rho_G = q * np.exp(-0.5 * self.G2_G * self.sigma * self.sigma)
+        rho_G = self.q * np.exp(-0.5 * self.G2_G * self.sigma * self.sigma)
         return rho_G
 
     def calculate_lattice_electrostatics(self, epsilon):
@@ -83,10 +83,11 @@ class FNV:
         Elp = 0.0
         for rho, G2 in zip(self.rho_G, self.G2_G):
             if np.isclose(G2, 0.0):
-                print('Skipping G^2=0 contribution to Elp')
+                parprint('Skipping G^2=0 contribution to Elp')
                 continue
             Elp += 2.0 * np.pi / (epsilon * self.Omega) * rho * rho / G2
-        El = (Elp - q * q / (2 * epsilon * self.sigma * np.sqrt(np.pi))) * Ha
+        El = (Elp - self.q * self.q
+              / (2 * epsilon * self.sigma * np.sqrt(np.pi))) * Ha
         self.El = {'El': El, 'epsilon': epsilon}
         return El
 
@@ -126,30 +127,3 @@ class FNV:
         zs.append(vox3[2])
         Vs.append(V)
         return np.array(zs), np.array(Vs)
-
-
-if __name__ == '__main__':
-    FWHM = 2.0
-    q = -3
-    epsilon = 12.7
-    formation_energies = []
-    repeats = [1, 2, 3, 4]
-    for repeat in repeats:
-        pristine = 'GaAs{0}{0}{0}.pristine.gpw'.format(repeat)
-        defect = 'GaAs{0}{0}{0}.Ga_vac.gpw'.format(repeat)
-        fnv = FNV(pristine=pristine,
-                  defect=defect,
-                  q=q,
-                  FWHM=FWHM)
-        electrostatic_data = fnv.calculate_potentials(epsilon)
-        formation_energies.append(fnv.calculate_formation_energies(epsilon))
-        np.savez('electrostatic_data_{0}{0}{0}.npz'.format(repeat),
-                 **electrostatic_data)
-
-    formation_energies = np.array(formation_energies)
-    uncorrected = formation_energies[:, 0]
-    corrected = formation_energies[:, 1]
-    np.savez('formation_energies.npz',
-             repeats=np.array(repeats),
-             corrected=corrected,
-             uncorrected=uncorrected)
