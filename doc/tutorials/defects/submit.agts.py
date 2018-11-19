@@ -1,9 +1,9 @@
-# Creates: planaraverages.png,energies.png
+# Creates: planaraverages.png, energies.png
 from myqueue.task import task
 
 
 def create_tasks():
-    queue = [task('gaas.py+1@8:1h'),
+    tasks = [task('gaas.py+1@8:1h'),
              task('gaas.py+2@8:1h'),
              task('gaas.py+31@24:2h'),
              task('gaas.py+4@24:4h'),
@@ -13,4 +13,4 @@ def create_tasks():
                                                    'gaas.py+4']),
              task('plot_potentials.py', deps='electrostatics'),
              task('plot_energies.py', deps='electrostatics')]
-    return queue
+    return tasks
