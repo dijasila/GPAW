@@ -28,6 +28,7 @@ td_calc = TDDFT('gs.gpw', txt='td.out')
 td_calc.linearize_to_xc(fxc)
 td_calc.absorption_kick(np.ones(3) * 1e-5)
 td_calc.propagate(20, 4, 'dm.dat')
+world.barrier()
 
 # Test the absolute values
 data = np.loadtxt('dm.dat').ravel()
