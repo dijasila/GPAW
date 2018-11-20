@@ -39,7 +39,7 @@ class HybridXCBase(XCFunctional):
         """
 
         rsf_functionals = {    # Parameters can also be taken from libxc
-            'CAMY_BLYP': {  # Akinaga, Ten-no CPL 462 (2008) 348-351
+            'CAMY-BLYP': {  # Akinaga, Ten-no CPL 462 (2008) 348-351
                 'alpha': 0.2,
                 'beta': 0.8,
                 'omega': 0.44,
@@ -47,7 +47,7 @@ class HybridXCBase(XCFunctional):
                 'rsf': 'Yukawa',
                 'xc': 'HYB_GGA_XC_CAMY_BLYP'
             },
-            'CAMY_B3LYP': {  # Seth, Ziegler JCTC 8 (2012) 901-907
+            'CAMY-B3LYP': {  # Seth, Ziegler JCTC 8 (2012) 901-907
                 'alpha': 0.19,
                 'beta': 0.46,
                 'omega': 0.34,
@@ -55,7 +55,7 @@ class HybridXCBase(XCFunctional):
                 'rsf': 'Yukawa',
                 'xc': 'HYB_GGA_XC_CAMY_B3LYP'
             },
-            'LCY_BLYP': {  # Seth, Ziegler JCTC 8 (2012) 901-907
+            'LCY-BLYP': {  # Seth, Ziegler JCTC 8 (2012) 901-907
                 'alpha': 0.0,
                 'beta': 1.0,
                 'omega': 0.75,
@@ -63,7 +63,7 @@ class HybridXCBase(XCFunctional):
                 'rsf': 'Yukawa',
                 'xc': 'HYB_GGA_XC_LCY_BLYP'
             },
-            'LCY_PBE': {  # Seth, Ziegler JCTC 8 (2012) 901-907
+            'LCY-PBE': {  # Seth, Ziegler JCTC 8 (2012) 901-907
                 'alpha': 0.0,
                 'beta': 1.0,
                 'omega': 0.75,

@@ -24,7 +24,7 @@ co.minimal_box(5)
 # c = {'energy': 0.005, 'eigenstates': 1e-4}  # Usable values
 c = {'energy': 0.1, 'eigenstates': 3, 'density': 3}  # Values for test
 
-calc = GPAW(txt='CO.txt', xc='LCY_PBE:omega=0.81', convergence=c,
+calc = GPAW(txt='CO.txt', xc='LCY-PBE:omega=0.81', convergence=c,
             eigensolver=RMMDIIS(), h=h,
             poissonsolver=PoissonSolver(use_charge_center=True),
             occupations=FermiDirac(width=0.0), spinpol=False)

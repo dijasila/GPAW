@@ -31,9 +31,9 @@ c = {'energy': 0.001, 'eigenstates': 3, 'density': 3}
 calculator = GPAW(convergence=c, eigensolver=RMMDIIS(),
                   poissonsolver=PoissonSolver(use_charge_center=True),
                   occupations=FermiDirac(width=0.0, fixmagmom=True), h=h)
-for xc, dE, ediff, yuk_gamma in [  # ('LCY_BLYP', 143.3, 0.4, 0.75),
-                                   # ('CAMY_B3LYP', 147.1, 0.35, 0.34),
-                                   ('LCY_PBE', 149.2, 0.45, 0.75)]:
+for xc, dE, ediff, yuk_gamma in [  # ('LCY-BLYP', 143.3, 0.4, 0.75),
+                                   # ('CAMY-B3LYP', 147.1, 0.35, 0.34),
+                                   ('LCY-PBE', 149.2, 0.45, 0.75)]:
     for atom in ['Ti', 'O']:
         gen(atom, xcname='PBE', scalarrel=False, exx=True,
             yukawa_gamma=yuk_gamma, gpernode=149)  # magic ...

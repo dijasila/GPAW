@@ -16,7 +16,7 @@ c = {'energy': 0.001, 'eigenstates': 3, 'density': 3}
 # Mixer sometimes fail (went to wrong direction)
 # MixerDifs work (in this case)
 
-tio2.calc = GPAW(txt='TiO2-CAMY-B3LYP-BS.txt', xc=HybridXC('CAMY_B3LYP'),
+tio2.calc = GPAW(txt='TiO2-CAMY-B3LYP-BS.txt', xc=HybridXC('CAMY-B3LYP'),
                  eigensolver=RMMDIIS(), maxiter=42, mixer=MixerDif(),
                  convergence=c,
                  occupations=FermiDirac(width=0.0, fixmagmom=True))
