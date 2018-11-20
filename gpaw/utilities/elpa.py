@@ -33,6 +33,7 @@ class LibElpa:
 
 
     def diagonalize(self, A, C, eps):
+        assert self._parameters.get('nev') == len(eps), 'bad "nev"'
         self._desc.checkassert(A)
         _gpaw.pyelpa_diagonalize(self._ptr, A, C, eps)
 
