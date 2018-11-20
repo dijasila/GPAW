@@ -36,7 +36,7 @@ PyObject* pyelpa_set(PyObject *self, PyObject *args)
     //Py_RETURN
 }
 
-PyObject* pyelpa_init(PyObject *self, PyObject *args)
+PyObject* pyelpa_allocate(PyObject *self, PyObject *args)
 {
     printf("pyelpa_init\n");
     PyObject *handle_obj;
@@ -46,6 +46,7 @@ PyObject* pyelpa_init(PyObject *self, PyObject *args)
     elpa_t *handle = unpack_handle(handle_obj);
     int err = 0;
     handle[0] = elpa_allocate(&err);
+    printf("%d %d\n", err, ELPA_OK);
     if (err != ELPA_OK) {
         PyErr_SetString(PyExc_RuntimeError,
                         "Error in elpa allocate");
@@ -55,7 +56,73 @@ PyObject* pyelpa_init(PyObject *self, PyObject *args)
 }
 
 
+PyObject* pyelpa_setup(PyObject *self, PyObject *args)
+{
+    printf("pyelpa_setup\n");
+    PyObject *handle_obj;
+    if (!PyArg_ParseTuple(args, "O", &handle_obj))
+        return NULL;
+
+    elpa_t *handle = unpack_handle(handle_obj);
+    int err = elpa_setup(*handle);
+    if (err != ELPA_OK) {
+        PyErr_SetString(PyExc_RuntimeError,
+                        "Error in elpa allocate");
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+
+
+PyObject* pyelpa_set_comm(PyObject *self, PyObject *args)
+{
+    PyObject *handle_obj;
+    PyObject *gpaw_comm_obj;
+
+    if(!PyArg_ParseTuple(args, "OO", &handle_obj,
+                         &gpaw_comm_obj))
+        return NULL;
+    elpa_t *handle = unpack_handle(handle_obj);
+    MPIObject *gpaw_comm = (MPIObject *)gpaw_comm_obj;
+    MPI_Comm comm = gpaw_comm->comm;
+    int fcomm = MPI_Comm_c2f(comm);
+    int err;
+    elpa_set(*handle, "mpi_comm_parent", fcomm, &err);
+    return Py_BuildValue("i", err);
+}
+
+
+
+
 PyObject* pyelpa_diagonalize(PyObject *self, PyObject *args)
+{
+    printf("pyelpa_diagonalize\n");
+    PyObject *handle_obj;
+    PyArrayObject *A_obj, *C_obj, *eps_obj;
+
+    if (!PyArg_ParseTuple(args,
+                          "OOOO",
+                          &handle_obj,
+                          &A_obj,
+                          &C_obj,
+                          &eps_obj))
+        return NULL;
+
+    elpa_t *handle = unpack_handle(handle_obj);
+    int error;
+    elpa_set(*handle, "solver", ELPA_SOLVER_1STAGE, &error);
+    assert(error == ELPA_OK);
+
+    double *a = (double*)PyArray_DATA(A_obj);
+    double *ev = (double*)PyArray_DATA(eps_obj);
+    double *q = (double*)PyArray_DATA(C_obj);
+
+    elpa_eigenvectors(*handle, a, ev, q, &error);
+    return Py_BuildValue("i", error);
+}
+    
+
+PyObject* pyelpa_diagonalize1(PyObject *self, PyObject *args)
 {
     printf("pyelpa_diagonalize\n");
     PyObject *gpaw_comm_obj;

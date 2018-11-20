@@ -3,20 +3,43 @@ import _gpaw
 
 
 class LibElpa:
-    def __init__(self, **kwargs):
-        ptr = np.empty(1, np.intp)
+    def __init__(self, desc, **kwargs):
+        ptr = np.zeros(1, np.intp)
 
-        if not hasattr(_gpaw, 'pyelpa_init'):
+        if desc.nb != desc.mb:
+            raise ValueError('Row and column block size must be '
+                             'identical to support Elpa')
+
+        if not hasattr(_gpaw, 'pyelpa_allocate'):
             raise ImportError('GPAW is not running in parallel or otherwise '
                               'not compiled with Elpa support')
-        _gpaw.pyelpa_init(ptr)
+        _gpaw.pyelpa_allocate(ptr)
         self._ptr = ptr
+        _gpaw.pyelpa_set_comm(ptr, desc.blacsgrid.comm)
         self._parameters = {}
+
+        bg = desc.blacsgrid
+        self.elpa_set(na=desc.gshape[0],
+                      local_ncols=desc.shape[0],
+                      local_nrows=desc.shape[1],
+                      nblk=desc.mb,
+                      process_col=bg.myrow,  # XXX interchanged
+                      process_row=bg.mycol,
+                      blacs_context=bg.context)
+        # remember: nev
         self.elpa_set(**kwargs)
+        self._desc = desc
+        _gpaw.pyelpa_setup(self._ptr)
+
+
+    def diagonalize(self, A, C, eps):
+        self._desc.checkassert(A)
+        _gpaw.pyelpa_diagonalize(self._ptr, A, C, eps)
 
     def elpa_set(self, **kwargs):
         for key, value in kwargs.items():
-            _gpaw.pyelpa_set(self._handle, key, value)
+            print('pyelpa_set {}={}'.format(key, value))
+            _gpaw.pyelpa_set(self._ptr, key, value)
             self._parameters[key] = value
 
     def __repr__(self):
