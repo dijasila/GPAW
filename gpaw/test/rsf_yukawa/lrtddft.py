@@ -41,7 +41,7 @@ e_ion = 12.5354477071  # from prior calculation
 
 # print(e_ion, 12.62)
 # equal(e_ion, 12.62, 0.1)
-lr = LrTDDFT(calc_plus, txt='LCY_TDDFT_H2O.log', jend=4)
+lr = LrTDDFT(calc_plus, txt='LCY_TDDFT_H2O.log', istart=3, jend=4)
 equal(lr.xc.omega, 0.83)
 lr.write('LCY_TDDFT_H2O.ex.gz')
 # reading is problematic with EXX on more than one core
@@ -50,8 +50,8 @@ if mpi.rank == 0:
     lr2.diagonalize()
     equal(lr2.xc.omega, 0.83)
 
-    # for i, ip_i in enumerate([14.74, 18.51]):  # 0.3 grid
-    for i, ip_i in enumerate([19.63, 21.58]):
+    # for i, ip_i in enumerate([14.74, 18.51]):  # 0.3 grid and all states
+    for i, ip_i in enumerate([24.08]):
         ion_i = lr2[i].get_energy() * Hartree + e_ion
         print(ion_i, ip_i)
         equal(ion_i, ip_i, 0.6)
