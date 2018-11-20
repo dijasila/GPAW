@@ -23,6 +23,7 @@ isolated_silicon = Atoms(
 
 isolated_calc = GPAW(
     mode=PW(pwcutoff, force_complex_dtype=True),
+    parallel={'domain': 1},
     xc='PBE',
     txt='si_isolated_rpa.init_pbe.txt',
     occupations=FermiDirac(0.01, fixmagmom=True),

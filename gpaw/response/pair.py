@@ -1536,7 +1536,7 @@ class PairDensity:
             if soft:
                 ghat = PWLFC([atomdata.ghat_l], pd)
                 ghat.set_positions(np.zeros((1, 3)))
-                Q_LG = ghat.expand()
+                Q_LG = ghat.expand().T
                 if atomdata.Delta_iiL is None:
                     ni = atomdata.ni
                     Q_Gii = np.zeros((Q_LG.shape[1], ni, ni))

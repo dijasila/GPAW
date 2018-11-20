@@ -23,8 +23,8 @@ def equal(x, y, tolerance=0, fail=True, msg=''):
     """Compare x and y."""
 
     if not np.isfinite(x - y).any() or (np.abs(x - y) > tolerance).any():
-        msg = (msg + '%s != %s (error: |%s| > %.9g)' %
-               (x, y, x - y, tolerance))
+        msg = '{} {} != {} (error: |{}| > {:.9g})'.format(msg, x, y, x - y,
+                                                          tolerance)
         if fail:
             raise AssertionError(msg)
         else:
@@ -72,25 +72,6 @@ def gen(symbol, exx=False, name=None, yukawa_gamma=None, **kwargs):
     return setup
 
 
-def wrap_pylab(names=[]):
-    """Use Agg backend and prevent windows from popping up."""
-    import matplotlib
-    matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
-    import ase.visualize
-
-    def show(names=names):
-        if names:
-            name = names.pop(0)
-        else:
-            name = 'fig.png'
-        plt.savefig(name)
-
-    plt.show = show
-
-    ase.visualize.view = lambda *args, **kwargs: None
-
-
 tests = [
     'linalg/gemm_complex.py',
     'ase_features/ase3k_version.py',
@@ -130,7 +111,7 @@ tests = [
     'radial/lebedev.py',
     'occupations.py',
     'lfc/derivatives.py',
-    #'parallel/realspace_blacs.py',
+    # 'parallel/realspace_blacs.py',
     'pw/reallfc.py',
     'parallel/pblas.py',
     'fd_ops/non_periodic.py',
@@ -212,10 +193,11 @@ tests = [
     'solvation/vacuum.py',                  # ~3s
     'vdw/libvdwxc_mbeef.py',                # ~3s
     'response/graphene_refined_response.py',  # ~3s
-    'pw/augment_grids.py',                  # ~4s
+    'pw/par_strategies.py',                  # ~4s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
     'generic/move_across_cell.py',          # ~4s
     'parallel/augment_grid.py',             # ~4s
+    'pw/augment_grids.py',
     'utilities/ewald.py',                   # ~4s
     'symmetry/symmetry.py',                 # ~4s
     'xc/revPBE.py',                         # ~4s
@@ -647,7 +629,7 @@ class TestRunner:
             dirname = os.path.relpath(dirname, mydir)
 
         # We don't want files anywhere outside the tempdir.
-        assert not dirname.startswith('../') # Test file outside sourcedir.
+        assert not dirname.startswith('../')  # test file outside sourcedir
 
         if mpi.rank == 0:
             os.makedirs(dirname)

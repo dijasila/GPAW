@@ -21,7 +21,7 @@ class RMMDIIS(Eigensolver):
     * Improvement of wave functions:  psi' = psi + lambda PR + lambda PR'
     * Orthonormalization"""
 
-    def __init__(self, keep_htpsit=True, blocksize=10, niter=3, rtol=1e-16,
+    def __init__(self, keep_htpsit=True, blocksize=None, niter=3, rtol=1e-16,
                  limit_lambda=False, use_rayleigh=False, trial_step=0.1):
         """Initialize RMM-DIIS eigensolver.
 
@@ -49,6 +49,16 @@ class RMMDIIS(Eigensolver):
 
     def todict(self):
         return {'name': 'rmm-diis', 'niter': self.niter}
+
+    def initialize(self, wfs):
+        if self.blocksize is None:
+            if wfs.mode == 'pw':
+                S = wfs.pd.comm.size
+                # Use a multiple of S for maximum efficiency
+                self.blocksize = int(np.ceil(10 / S)) * S
+            else:
+                self.blocksize = 10
+        Eigensolver.initialize(self, wfs)
 
     def iterate_one_k_point(self, ham, wfs, kpt):
         """Do a single RMM-DIIS iteration for the kpoint"""
@@ -132,7 +142,7 @@ class RMMDIIS(Eigensolver):
             with self.timer('precondition'):
                 ekin_x = self.preconditioner.calculate_kinetic_energy(
                     psitb.array, kpt)
-                dpsit.array[:] = self.preconditioner(Rb.array, kpt, ekin_x)
+                self.preconditioner(Rb.array, kpt, ekin_x, out=dpsit.array)
 
             # Calculate the residual of dpsit_G, dR_G = (H - e S) dpsit_G:
             # self.timer.start('Apply Hamiltonian')
@@ -232,8 +242,8 @@ class RMMDIIS(Eigensolver):
 
                 if nit < self.niter - 1:
                     with self.timer('precondition'):
-                        dpsit.array[:] = self.preconditioner(Rb.array, kpt,
-                                                             ekin_x)
+                        self.preconditioner(Rb.array, kpt,
+                                            ekin_x, out=dpsit.array)
 
                     for psit_G, lam, dpsit_G in zip(psitb.array, lam_x,
                                                     dpsit.array):
@@ -251,7 +261,7 @@ class RMMDIIS(Eigensolver):
             self.timer.stop('DIIS step')
             # Final trial step
             with self.timer('precondition'):
-                dpsit.array[:] = self.preconditioner(Rb.array, kpt, ekin_x)
+                self.preconditioner(Rb.array, kpt, ekin_x, out=dpsit.array)
 
             self.timer.start('Update psi')
             if self.trial_step is not None:
@@ -266,7 +276,6 @@ class RMMDIIS(Eigensolver):
     def __repr__(self):
         repr_string = 'RMM-DIIS eigensolver\n'
         repr_string += '       keep_htpsit: %s\n' % self.keep_htpsit
-        repr_string += '       Block size: %d\n' % self.blocksize
         repr_string += '       DIIS iterations: %d\n' % self.niter
         repr_string += '       Threshold for DIIS: %5.1e\n' % self.rtol
         repr_string += '       Limit lambda: %s\n' % self.limit_lambda

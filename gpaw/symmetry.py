@@ -578,7 +578,7 @@ def atoms2symmetry(atoms, id_a=None):
 
 
 class CLICommand:
-    short_description = 'Analyse symmetry'
+    """Analyse symmetry."""
 
     @staticmethod
     def add_arguments(parser):

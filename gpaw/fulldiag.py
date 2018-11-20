@@ -31,7 +31,7 @@ def fulldiag(filename, bands=None, scalapack=1, dry_run=False):
 
 
 class CLICommand:
-    short_description = 'Calculate all or some eigenvectors/values for fixed H'
+    """Calculate all or some eigenvectors/values for fixed H."""
 
     @staticmethod
     def add_arguments(parser):
