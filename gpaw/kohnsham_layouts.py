@@ -13,7 +13,8 @@ from gpaw.utilities.tools import tri2full
 from gpaw.utilities.timing import nulltimer
 
 
-def get_KohnSham_layouts(sl, mode, gd, bd, block_comm, dtype, **kwargs):
+def get_KohnSham_layouts(sl, mode, gd, bd, block_comm, dtype,
+                         elpakwargs=None, **kwargs):
     """Create Kohn-Sham layouts object."""
     # Not needed for AtomPAW special mode, as usual we just provide whatever
     # happens to make the code not crash
@@ -25,8 +26,11 @@ def get_KohnSham_layouts(sl, mode, gd, bd, block_comm, dtype, **kwargs):
         name = 'Blacs' + name
         assert len(sl) == 3
         args += tuple(sl)
+        if elpakwargs is not None:
+            kwargs['elpakwargs'] = elpakwargs
     ksl = {'BlacsOrbitalLayouts': BlacsOrbitalLayouts,
-           'OrbitalLayouts': OrbitalLayouts}[name](*args, **kwargs)
+           'OrbitalLayouts': OrbitalLayouts}[name](*args,
+                                                   **kwargs)
     return ksl
 
 
@@ -109,7 +113,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
     # This class 'describes' all the LCAO Blacs-related layouts
     def __init__(self, gd, bd, block_comm, dtype, mcpus, ncpus,
-                 blocksize, nao, timer=nulltimer):
+                 blocksize, nao, elpakwargs=None, timer=nulltimer):
         BlacsLayouts.__init__(self, gd, bd, block_comm, dtype,
                               mcpus, ncpus, blocksize, timer)
         nbands = bd.nbands
@@ -158,6 +162,13 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.mm2nM = Redistributor(self.block_comm, self.mmdescriptor,
                                    self.nM_unique_descriptor)
 
+        self.libelpa = None
+        self.elpakwargs = elpakwargs
+        if elpakwargs is not None:
+            # XXX forward solver to libelpa
+            from gpaw.utilities.elpa import LibElpa
+            self.libelpa = LibElpa(self.mmdescriptor)
+
     def diagonalize(self, H_mm, C_nM, eps_n, S_mm):
         # C_nM needs to be simultaneously compatible with:
         # 1. outdescriptor
@@ -177,8 +188,22 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         # blockdescriptor.general_diagonalize_ex(H_mm, S_mm.copy(), C_mm,
         #                                        eps_M,
         #                                        UL='L', iu=self.bd.nbands)
-        blockdescriptor.general_diagonalize_dc(H_mm, S_mm.copy(), C_mm, eps_M,
-                                               UL='L')
+        print('H')
+        print(H_mm)
+        print('S')
+        print(S_mm)
+        if self.libelpa is not None:
+            assert blockdescriptor is self.libelpa.desc
+            print('elpa general diag')
+            self.libelpa.general_diagonalize(H_mm, S_mm.copy(), C_mm,
+                                             eps_M)
+        else:
+            blockdescriptor.general_diagonalize_dc(H_mm, S_mm.copy(),
+                                                   C_mm, eps_M,
+                                                   UL='L')
+        print('eps')
+        print(eps_M)
+        sdfkj
         self.timer.stop('General diagonalize')
 
         # Make C_nM compatible with the redistributor
@@ -343,7 +368,9 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         bg = self.blockgrid
         desc = self.mmdescriptor
         s = template % (bg.nprow, bg.npcol, desc.mb, desc.nb)
-        return ' '.join([title, s])
+        things = [title]
+        solver = 'Elpa' if self.libelpa is not None else 'ScaLAPACK'
+        return ''.join([title, ' / ', solver, ', ', s])
 
 
 class OrbitalLayouts(KohnShamLayouts):

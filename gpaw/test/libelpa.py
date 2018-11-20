@@ -3,6 +3,8 @@ from gpaw.utilities.elpa import LibElpa
 from gpaw.blacs import BlacsGrid
 from gpaw.mpi import world
 
+rng = np.random.RandomState(87878787)
+
 if world.size == 1:
     shape = 1, 1
 else:
@@ -14,14 +16,14 @@ blocksize = 2
 
 desc = bg.new_descriptor(M, M, blocksize, blocksize)
 A = desc.zeros()
-A[:] = np.random.rand(*A.shape)
+A[:] = rng.rand(*A.shape)
 A += A.T.copy()
 C1 = desc.zeros()
 C2 = desc.zeros()
 eps1 = np.zeros(M)
 eps2 = np.zeros(M)
 
-elpa = LibElpa(desc, nev=4)
+elpa = LibElpa(desc)
 print(elpa)
 
 desc.diagonalize_dc(A.copy(), C1, eps1),

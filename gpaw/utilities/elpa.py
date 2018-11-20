@@ -3,7 +3,11 @@ import _gpaw
 
 
 class LibElpa:
-    def __init__(self, desc, **kwargs):
+    solvers = {'1stage', '2stage'}
+    def __init__(self, desc, nev=None, solver='1stage'):
+        if nev is None:
+            nev = desc.gshape[0]
+
         ptr = np.zeros(1, np.intp)
 
         if desc.nb != desc.mb:
@@ -18,6 +22,14 @@ class LibElpa:
         _gpaw.pyelpa_set_comm(ptr, desc.blacsgrid.comm)
         self._parameters = {}
 
+        elpa_ok, solver_1stage, solver_2stage = _gpaw.pyelpa_constants()
+        if solver == '1stage':
+            elpa_solver = solver_1stage
+        elif solver == '2stage':
+            elpa_solver = solver_2stage
+        else:
+            raise KeyError('No such solver: {}'.format(solver))
+
         bg = desc.blacsgrid
         self.elpa_set(na=desc.gshape[0],
                       local_ncols=desc.shape[0],
@@ -27,15 +39,21 @@ class LibElpa:
                       process_row=bg.mycol,
                       blacs_context=bg.context)
         # remember: nev
-        self.elpa_set(**kwargs)
-        self._desc = desc
-        _gpaw.pyelpa_setup(self._ptr)
+        self.elpa_set(nev=nev, solver=elpa_solver)
+        self.desc = desc
 
+        _gpaw.pyelpa_setup(self._ptr)
 
     def diagonalize(self, A, C, eps):
         assert self._parameters.get('nev') == len(eps), 'bad "nev"'
-        self._desc.checkassert(A)
+        self.desc.checkassert(A)
         _gpaw.pyelpa_diagonalize(self._ptr, A, C, eps)
+
+    def general_diagonalize(self, A, S, C, eps):
+        print('A')
+        print(A)
+        err = _gpaw.pyelpa_general_diagonalize(self._ptr, A, S, C, eps)
+        print('err', err)
 
     def elpa_set(self, **kwargs):
         for key, value in kwargs.items():
