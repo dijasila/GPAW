@@ -5,7 +5,7 @@ from myqueue.task import task
 def create_tasks():
     tasks = [task('gaas.py+1@8:1h'),
              task('gaas.py+2@8:1h'),
-             task('gaas.py+31@24:2h'),
+             task('gaas.py+3@24:2h'),
              task('gaas.py+4@24:4h'),
              task('electrostatics.py@1:15m', deps=['gaas.py+1',
                                                    'gaas.py+2',
