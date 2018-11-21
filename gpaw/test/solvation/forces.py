@@ -3,7 +3,7 @@ from ase import Atoms
 from ase.units import Pascal, m
 from ase.data.vdw import vdw_radii
 from ase.parallel import rank
-from gpaw import Mixer, Davidson
+from gpaw import Mixer
 from gpaw.solvation import (
     SolvationGPAW,
     EffectivePotentialCavity,
@@ -31,7 +31,6 @@ atoms.set_cell((11.2, 11.2, 14.4))
 
 
 atoms.calc = SolvationGPAW(
-    eigensolver=Davidson(2),
     mixer=Mixer(0.5, 7, 50.0),
     xc='oldPBE', h=h, setups={'Na': '1'},
     cavity=EffectivePotentialCavity(

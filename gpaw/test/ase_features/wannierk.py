@@ -3,7 +3,7 @@ from __future__ import print_function
 from ase.build import bulk
 from ase.dft.wannier import Wannier
 
-from gpaw import GPAW, Davidson, Mixer
+from gpaw import GPAW, Mixer
 from gpaw.mpi import world, serial_comm
 
 si = bulk('Si', 'diamond', a=5.43)
@@ -11,7 +11,6 @@ si = bulk('Si', 'diamond', a=5.43)
 k = 4
 if 1:
     si.calc = GPAW(kpts=(k, k, k),
-                   eigensolver=Davidson(2),
                    parallel=dict(augment_grids=True),
                    mixer=Mixer(0.8, 7, 50.0),
                    txt='Si-ibz.txt')

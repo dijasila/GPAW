@@ -20,6 +20,7 @@ a = 4.043
 atoms = bulk('Al', 'fcc', a=a)
 atoms.center()
 calc = GPAW(mode=PW(200),
+            nbands=4,
             kpts=(4, 4, 4),
             parallel={'band': 1},
             idiotproof=False,  # allow uneven distribution of k-points
@@ -31,7 +32,7 @@ calc.write('Al', 'all')
 t2 = time.time()
 
 # Excited state calculation
-q = np.array([1 / 4, 0.0, 0.0])
+q = np.array([1 / 4, 0, 0])
 w = np.linspace(0, 24, 241)
 
 df = DielectricFunction(calc='Al', frequencies=w, eta=0.2, ecut=50,
@@ -53,13 +54,13 @@ wpeak2, Ipeak2 = findpeak(d[:, 0], d[:, 2])
 
 test_wpeak1 = 15.7002862696  # eV
 test_Ipeak1 = 28.5590363176
-test_wpeak2 = 15.5196459206  # eV
+test_wpeak2 = 15.5196459206
 test_Ipeak2 = 26.5680624522
 
 if abs(test_wpeak1 - wpeak1) > 0.02 or abs(test_wpeak2 - wpeak2) > 0.02:
-    print((test_wpeak1 - wpeak1, test_wpeak2 - wpeak2))
+    print(test_wpeak1 - wpeak1, test_wpeak2 - wpeak2)
     raise ValueError('Plasmon peak not correct ! ')
 
 if abs(test_Ipeak1 - Ipeak1) > 1 or abs(test_Ipeak2 - Ipeak2) > 1:
-    print((Ipeak1 - test_Ipeak1, Ipeak2 - test_Ipeak2))
+    print(Ipeak1 - test_Ipeak1, Ipeak2 - test_Ipeak2)
     raise ValueError('Please check spectrum strength ! ')

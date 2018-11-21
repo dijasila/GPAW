@@ -44,6 +44,32 @@ PyObject *pw_insert(PyObject *self, PyObject *args)
 }
 
 
+PyObject *pw_precond(PyObject *self, PyObject *args)
+{
+    PyArrayObject *G2_G_obj;
+    PyArrayObject *R_G_obj;
+    double ekin;
+    PyArrayObject *out_G_obj;
+
+    if (!PyArg_ParseTuple(args, "OOdO",
+                          &G2_G_obj, &R_G_obj, &ekin, &out_G_obj))
+        return NULL;
+
+    double *G2_G = PyArray_DATA(G2_G_obj);
+    double complex *R_G = PyArray_DATA(R_G_obj);
+    double complex *out_G = PyArray_DATA(out_G_obj);
+    int nG = PyArray_SIZE(G2_G_obj);
+
+    for (int G = 0; G < nG; G++) {
+        double x = 1 / ekin / 3 * G2_G[G];
+        double a = 27.0 + x * (18.0 + x * (12.0 + x * 8.0));
+        double xx = x * x;
+        out_G[G] = -4.0 / 3 / ekin * a / (a + 16.0 * xx * xx) * R_G[G];
+    }
+    Py_RETURN_NONE;
+}
+
+
 PyObject *pwlfc_expand(PyObject *self, PyObject *args)
 {
     PyArrayObject *f_Gs_obj;

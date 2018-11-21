@@ -5,7 +5,7 @@ from ase.lattice.compounds import L1_2
 
 name = 'Cu3Au'
 ecut = 300
-kpts = (2,2,2)
+kpts = (2, 2, 2)
 
 QNA = {'alpha': 2.0,
        'name': 'QNA',
@@ -41,5 +41,5 @@ F_err = F_num - F
 parprint('Analytical force = ', F)
 parprint('Numerical  force = ', F_num)
 parprint('Difference       = ', F_err)
-assert abs(F_err) < 1.5e-3
+assert abs(F_err) < 0.01
 assert abs(E[-1] - 270.17901094) < 4e-6
