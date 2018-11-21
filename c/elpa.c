@@ -124,14 +124,12 @@ PyObject* pyelpa_diagonalize(PyObject *self, PyObject *args)
         return NULL;
 
     elpa_t handle = unpack_handle(handle_obj);
-    int error;
-    //elpa_set(handle, "solver", ELPA_SOLVER_1STAGE, &error);
-    assert(error == ELPA_OK);
 
     double *a = (double*)PyArray_DATA(A_obj);
     double *ev = (double*)PyArray_DATA(eps_obj);
     double *q = (double*)PyArray_DATA(C_obj);
 
+    int error;
     elpa_eigenvectors(handle, a, ev, q, &error);
     return Py_BuildValue("i", error);
 }
