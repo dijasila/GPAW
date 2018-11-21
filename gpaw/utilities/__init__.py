@@ -1,3 +1,4 @@
+# encoding: utf-8
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
@@ -15,7 +16,6 @@ from gpaw import debug
 
 from ase.utils import devnull
 
-elementwise_multiply_add = _gpaw.elementwise_multiply_add
 utilities_vdot = _gpaw.utilities_vdot
 utilities_vdot_self = _gpaw.utilities_vdot_self
 
@@ -31,6 +31,27 @@ cerf = np.vectorize(_gpaw.cerf, (complex,), 'Complex error function')
 # there'll also be an error.  So this limits allowed grid spacings.
 min_locfun_radius = 0.85  # Bohr
 smallest_safe_grid_spacing = 2 * min_locfun_radius / np.sqrt(3)  # ~0.52 Ang
+
+
+class AtomsTooClose(RuntimeError):
+    pass
+
+
+def check_atoms_too_close(atoms):
+    # (Empty atoms with neighbor_list is buggy in ASE-3.16.0)
+    if not len(atoms):
+        return
+
+    # Skip test for numpy < 1.13.0 due to absence np.divmod:
+    if not hasattr(np, 'divmod'):
+        return
+
+    from ase.neighborlist import neighbor_list
+    from ase.data import covalent_radii
+    radii = covalent_radii[atoms.numbers] * 0.01
+    dists = neighbor_list('d', atoms, radii)
+    if len(dists):
+        raise AtomsTooClose('Atoms are too close, e.g. {} Å'.format(dists[0]))
 
 
 def unpack_atomic_matrices(M_sP, setups):

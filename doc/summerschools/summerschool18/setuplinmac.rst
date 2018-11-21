@@ -59,11 +59,12 @@ You use the ``ssh`` (Secure SHell) command to create a secure
 (encrypted) connection to the databar computers.  In the terminal,
 write::
 
-  ssh -X USERNAME@login.gbar.dtu.dk
+  ssh -XY USERNAME@login.gbar.dtu.dk
 
 where ``USERNAME`` is your DTU user name (external participants got it
-in their registration material).  Note the ``-X`` option, it is a minus
-followed by a capital X.
+in their registration material).  Note the ``-XY`` option, it is a minus
+followed by a capital X and a capital Y, it tells ssh to let the
+remote computer open windows on your screen.
 
 Note that when you write your DTU password, you cannot see what you
 type (not even stars or similar!).
@@ -97,8 +98,6 @@ To give access to the software you need for this course, please run
 the command::
 
   source ~jasc/setup2018
-
-  XXXX Change this to mikstr when ready!
 
 Note the tilde in the beginning of the second word.
 

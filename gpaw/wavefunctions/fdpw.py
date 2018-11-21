@@ -50,7 +50,7 @@ class PseudoPartialWaveWfsMover:
             ni_a[a] = sum(2 * l + 1 for l in l_j)
 
         phit = wfs.get_pseudo_partial_waves()
-        phit.set_positions(wfs.spos_ac)
+        phit.set_positions(wfs.spos_ac, wfs.atom_partition)
 
         # XXX See also wavefunctions.lcao.update_phases
         phase_qa = np.exp(2j * np.pi *
@@ -69,7 +69,7 @@ class PseudoPartialWaveWfsMover:
         add_phit_to_wfs(-1.0)
 
         def paste():
-            phit.set_positions(spos_ac)
+            phit.set_positions(spos_ac, wfs.atom_partition)
             add_phit_to_wfs(1.0)
 
         return paste
@@ -104,11 +104,12 @@ class LCAOWfsMover:
 
     def initialize(self, lcaowfs):
         self.bfs = lcaowfs.basis_functions
-        self.tci = lcaowfs.tci
+        # self.tci = lcaowfs.tci
+        self.tciexpansions = lcaowfs.tciexpansions
         self.atomic_correction = lcaowfs.atomic_correction
-        self.S_qMM = lcaowfs.S_qMM
-        self.T_qMM = lcaowfs.T_qMM  # Get rid of this
-        self.P_aqMi = lcaowfs.P_aqMi
+        # self.S_qMM = lcaowfs.S_qMM
+        # self.T_qMM = lcaowfs.T_qMM  # Get rid of this
+        # self.P_aqMi = lcaowfs.P_aqMi
 
     def cut_wfs(self, wfs, spos_ac):
         # XXX Must forward vars from LCAO initialization object
@@ -117,18 +118,23 @@ class LCAOWfsMover:
         # we can rely on those parallelization settings without danger.
         bfs = self.bfs
 
-        P_aqMi = self.P_aqMi
-        S_qMM = self.S_qMM
+        # P_aqMi = self.P_aqMi
+        # S_qMM = self.S_qMM
 
         # We can inherit S_qMM and P_aqMi from the initialization in the
         # first step, then recalculate them for subsequent steps.
         wfs.timer.start('reuse wfs')
         wfs.timer.start('tci calculate')
-        self.tci.calculate(wfs.spos_ac, S_qMM, self.T_qMM, P_aqMi)  # kill T
+        tciex = self.tciexpansions
+        manytci = tciex.get_manytci_calculator(wfs.setups, wfs.gd,
+                                               spos_ac, wfs.kd.ibzk_qc,
+                                               wfs.dtype, wfs.timer)
+        P_aqMi = manytci.P_aqMi(bfs.my_atom_indices)
+        # Avoid calculating T
+        Mstart, Mstop = wfs.initksl.Mstart, wfs.initksl.Mstop
+        S_qMM, T_qMM = manytci.O_qMM_T_qMM(wfs.gd.comm, Mstart, Mstop)
         wfs.timer.stop('tci calculate')
-        self.atomic_correction.initialize(P_aqMi,
-                                          wfs.initksl.Mstart,
-                                          wfs.initksl.Mstop)
+        self.atomic_correction.initialize(P_aqMi, Mstart, Mstop)
         # self.atomic_correction.gobble_data(wfs)
         wfs.timer.start('lcao overlap correction')
         self.atomic_correction.add_overlap_correction(wfs, S_qMM)
@@ -178,6 +184,7 @@ class LCAOWfsMover:
             bfs.lcao_to_grid(C_xM=c_unM[u], psit_xG=kpt.psit_nG, q=kpt.q)
         wfs.timer.stop('re-add wfs')
         wfs.timer.stop('reuse wfs')
+
 
 class FDPWWaveFunctions(WaveFunctions):
     """Base class for finite-difference and planewave classes."""
@@ -250,7 +257,7 @@ class FDPWWaveFunctions(WaveFunctions):
             paste_wfs()
 
         self.set_orthonormalized(False)
-        self.pt.set_positions(spos_ac)
+        self.pt.set_positions(spos_ac, atom_partition)
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
         self.positions_set = True
 
@@ -285,7 +292,7 @@ class FDPWWaveFunctions(WaveFunctions):
         hamiltonian.update(density)
 
         if self.mykpts[0].psit is None:
-            if 1:#self.collinear:
+            if 1:  # self.collinear:
                 nlcao = self.initialize_wave_functions_from_basis_functions(
                     basis_functions, density, hamiltonian, spos_ac)
             else:

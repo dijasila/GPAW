@@ -10,7 +10,8 @@ gen('O', name='fch1s', xcname='PBE', corehole=(1, 0, 1.0))
 atoms = molecule('H2O')
 atoms.center(vacuum=2.5)
 
-calc = GPAW(xc='PBE', poissonsolver=PoissonSolver(use_charge_center=True))
+calc = GPAW(xc='PBE', poissonsolver=PoissonSolver('fd',
+                                                  use_charge_center=True))
 atoms.set_calculator(calc)
 e1 = atoms.get_potential_energy() + calc.get_reference_energy()
 niter1 = calc.get_number_of_iterations()

@@ -13,14 +13,14 @@ from gpaw.sphere.lebedev import weight_n, R_nv
 # XXX why on earth is this necessary?
 def get_scaled_positions(atoms, positions):
     """COPY PASTE FROM ASE! Get positions relative to unit cell.
-   
+
     Atoms outside the unit cell will be wrapped into the cell in
     those directions with periodic boundary conditions so that the
     scaled coordinates are between zero and one."""
-   
-    scaled = np.linalg.solve(atoms._cell.T, positions.T).T
+
+    scaled = np.linalg.solve(atoms.cell.T, positions.T).T
     for i in range(3):
-        if atoms._pbc[i]:
+        if atoms.pbc[i]:
             scaled[i] %= 1.0
     return scaled
 
@@ -28,7 +28,7 @@ def get_scaled_positions(atoms, positions):
 class AllElectronPotential:
     def __init__(self, paw):
         self.paw = paw
-      
+
     def write_spherical_ks_potentials(self, txt):
         f = open(txt,'w')
         for a in self.paw.density.D_asp:
@@ -49,21 +49,21 @@ class AllElectronPotential:
       # Coordinates of an atom
       atom_c = self.paw.atoms.get_positions()[a]
 
-      
+
       # Get xccorr for atom a
       setup = self.paw.density.setups[a]
       xccorr = setup.xc_correction
-      
+
       radf_g = np.zeros(xccorr.ng)
       target_g = np.zeros(xccorr.ng)
-      
+
       for w, p in zip(weight_n, R_nv):
          scaled_nc = []
          # Very inefficient loop
          for i, r in enumerate(xccorr.rgd.r_g):
             # Obtain the position of this integration quadrature point in specified grid
             pos_c = atom_c + (r * Bohr) * p
-            # And in scaled coordinates 
+            # And in scaled coordinates
             scaled_c = get_scaled_positions(self.paw.atoms, pos_c)
             scaled_nc.append(scaled_c)
 
@@ -73,7 +73,7 @@ class AllElectronPotential:
          radf_g += w * target_g
 
       return radf_g
-      
+
     def get_spherical_ks_potential(self,a):
       #self.paw.restore_state()
 
@@ -84,11 +84,11 @@ class AllElectronPotential:
       if self.paw.density.nt_sg is None:
          print("Interpolating density")
          self.paw.density.interpolate_pseudo_density()
-         
+
       # Get xccorr for atom a
       setup = self.paw.density.setups[a]
       xccorr = setup.xc_correction
-      
+
       # Get D_sp for atom a
       D_sp = self.paw.density.D_asp[a]
 
@@ -106,11 +106,11 @@ class AllElectronPotential:
       xc.calculate(gd, self.paw.density.nt_sg, vxct_sg)
 
       # ---------------------------------------------
-      # The Electrostatic potential                  
+      # The Electrostatic potential
       # ---------------------------------------------
       # V_ES(r) = Vt_ES(r) - Vt^a(r) + V^a(r), where
-      # Vt^a = P[ nt^a(r) + \sum Q_L g_L(r) ]       
-      # V^a = P[ -Z\delta(r) + n^a(r) ]             
+      # Vt^a = P[ nt^a(r) + \sum Q_L g_L(r) ]
+      # V^a = P[ -Z\delta(r) + n^a(r) ]
       # P = Poisson solution
       # ---------------------------------------------
 
@@ -119,20 +119,20 @@ class AllElectronPotential:
       # TODO
       if self.paw.hamiltonian.vHt_g is None:
          raise "Converge tha Hartree potential first."
-      
+
       # Interpolate the smooth electrostatic potential from fine grid to radial grid
       radHt_g = self.grid_to_radial(a, gd, self.paw.hamiltonian.vHt_g)
       radHt_g *= xccorr.rgd.r_g
-      
+
       print("D_sp", D_sp)
 
       # Calculate the difference in density and pseudo density
       dn_g = (Y0 * np.dot(D_sLq[0, 0], (xccorr.n_qg - xccorr.nt_qg)) +
               xccorr.nc_g - xccorr.nct_g)
-      
+
       # Add the compensation charge contribution
       dn_g -= Y0 * self.paw.density.Q_aL[a][0] * setup.g_lg[0]
-      
+
       # Calculate the Hartree potential for this
       vHr = xccorr.rgd.poisson(dn_g)
 
@@ -140,11 +140,11 @@ class AllElectronPotential:
       vHr -= setup.Z
 
       radHt_g += vHr
-      
+
       # --------------------------------------------
-      # The XC potential                           
+      # The XC potential
       # --------------------------------------------
-      # V_xc = Vt_xc(r) - Vt_xc^a(r) + V_xc^a(r)   
+      # V_xc = Vt_xc(r) - Vt_xc^a(r) + V_xc^a(r)
       # --------------------------------------------
 
       print("Evaluating xc potential")
@@ -169,16 +169,16 @@ class AllElectronPotential:
       return (xccorr.rgd.r_g, radvks_g)
 
 class CoreEigenvalues(AllElectronPotential):
-   
+
    def get_core_eigenvalues(self, a, scalarrel=True):
       """Return the core eigenvalues by solving the radial schrodinger equation.
 
       Using AllElectron potential class, the spherically averaged Kohn--Sham potential
       is obtained around the spesified atom. The eigenstates for this potential are solved,
       the the resulting core states returned. Still experimental.
-      
+
       """
-      
+
       r, v_g = self.get_spherical_ks_potential(a)
 
       # Get xccorr for atom a

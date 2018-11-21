@@ -9,12 +9,14 @@ from gpaw import debug
 
 
 class CLICommand:
-    short_description = 'Run the GPAW test suite'
-    description = ('Run the GPAW test suite.  The test suite can be run in '
-                   'parallel with MPI through gpaw-python.  The test suite '
-                   'supports 1, 2, 4 or 8 CPUs although some tests are '
-                   'skipped for some parallelizations.  If no TESTs are '
-                   'given, run all tests supporting the parallelization.')
+    """Run the GPAW test suite.
+
+    The test suite can be run in
+    parallel with MPI through gpaw-python.  The test suite
+    supports 1, 2, 4 or 8 CPUs although some tests are
+    skipped for some parallelizations.  If no TESTs are
+    given, run all tests supporting the parallelization.
+    """
 
     @staticmethod
     def add_arguments(parser):
@@ -41,8 +43,8 @@ class CLICommand:
             'in serial by one thread.  This option cannot be used '
             'for parallelization together with MPI.')
         add('--reverse', action='store_true',
-            help=('Run tests in reverse order (less overhead with '
-                                               'multiple jobs)'))
+            help='Run tests in reverse order (less overhead with '
+            'multiple jobs)')
         add('-k', '--keep-temp-dir', action='store_true',
             dest='keep_tmpdir',
             help='Do not delete temporary files.')

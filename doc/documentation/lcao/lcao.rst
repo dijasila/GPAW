@@ -207,7 +207,18 @@ take a larger percentage of the CPU time compared to FD mode, where
 operations on the wave functions usually dominate.  Thus it makes
 sense to pay some attention to the performance of these operations.
 
-The multigrid method used in the Poisson solver relies on alternating
+Example:
+
+.. literalinclude:: lcao_opt.py
+
+
+.. note::
+
+   The following paragraph refers to the old ``FDPoissonSolver``.  This
+   has since been replaced by ``FastPoissonSolver`` which always performs
+   well, and for which the paragraph does not apply.
+
+The multigrid method used in the FD Poisson solver relies on alternating
 interpolations and restrictions of the density on grids of different
 sizes.  Make sure that the grid point count along each axis is
 divisible by 8, by specifying e.g. ``gpts=(96, 96, 96)`` when creating
@@ -215,22 +226,11 @@ the calculator -- this will *dramatically* reduce the number of
 required Poisson iterations in large or very oblong systems in those
 cases where the code would otherwise have chosen a grid point count
 not divisible by 8.
-
-By default, the Poisson solver uses the *Jacobi method*.  To increase
+By default, the FD Poisson solver uses the *Jacobi method*.  To increase
 performance further use the *Gauss-Seidel* method instead, which
 usually reduces the Poisson iteration count by around 40% (ideally
-50%).
-
-The convergence criterion of the Poisson solver in FD mode,
-``eps=2e-10``, is very strict.  A value of around ``eps=1e-7`` can
-reduce the required Poisson iteration count considerably without
-increasing the required number of SCF steps.  Larger values like
-``eps=1e-5`` tend to increase the number of SCF steps, possibly making
-the calculation take longer.
-
-Example:
-
-.. literalinclude:: lcao_opt.py
+50%).  Again, please note that none of the above applies to the
+``FastPoissonSolver`` which is now default.
 
 Advanced basis generation
 -------------------------

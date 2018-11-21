@@ -17,10 +17,10 @@ loa = Atoms('Be2',
 loa.center()
 
 fgl = [False, True]
-#fgl = [True, False]
+# fgl = [True, False]
 
-txt='-'
-txt='/dev/null'
+txt = '-'
+txt = '/dev/null'
 
 E = {}
 niter = {}
@@ -33,6 +33,7 @@ for fg in fgl:
     calc = GPAW(h=0.3,
                 eigensolver='rmm-diis',
                 xc='PBE',
+                poissonsolver={'name': 'fd'},
                 nbands=4,
                 convergence={'eigenstates': 1e-4},
                 charge=-1)
@@ -42,6 +43,13 @@ for fg in fgl:
     E[fg] = loa.get_potential_energy()
     niter[fg] = calc.get_number_of_iterations()
     timer.stop(tstr)
+    if not fg:
+        fname = 'exx_load.gpw'
+        calc.write(fname)
+        calcl = GPAW(fname)
+        func = calcl.get_xc_functional()
+        assert func['name'] == 'PBE0', 'wrong name for functional'
+        assert func['hybrid'] == 0.25, 'wrong factor for functional'
 
 timer.write(sys.stdout)
 

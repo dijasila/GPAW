@@ -59,7 +59,7 @@ Requirements
 
 * Python_ 2.7, 3.4-
 * NumPy_ 1.6.1 or later (base N-dimensional array package)
-* SciPy_ 0.7 or later (library for scientific computing)
+* SciPy_ 0.11 or later (library for scientific computing)
 * ASE_ 3.16.0 or later (atomic simulation environment)
 * a C-compiler
 * LibXC_ 2.0.1 or later
@@ -255,6 +255,8 @@ as described in :ref:`customizing installation`.
 Instructions for running parallel calculations can be found in the
 :ref:`user manual <manual_parallel_calculations>`.
 
+
+.. _libxc installation:
 
 Libxc Installation
 ------------------

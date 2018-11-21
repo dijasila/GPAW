@@ -285,8 +285,8 @@ spin-polarized system with magnetic moment of 2 a minimum of ``nbands=6`` is
 needed (6 occupied bands for spin-up, 4 occupied bands and 2 empty bands for
 spin down).
 
-The default number of electronic bands (``nbands``) is equal to the
-number of atomic orbitals present in the atomic setups.  For systems
+The default number of electronic bands (``nbands``) is equal to 4 plus
+1.2 times the number of occupied bands.  For systems
 with the occupied states well separated from the unoccupied states,
 one could use just the number of bands needed to hold the occupied
 states.  For metals, more bands are needed.  Sometimes, adding more
@@ -306,7 +306,6 @@ unoccupied bands will improve convergence.
     ``nbands='nao'`` will use the the same number of bands as there are
     atomic orbitals. This corresponds to the maximum ``nbands`` value that
     can be used in LCAO mode.
-
 
 
 .. _manual_xc:
@@ -336,7 +335,9 @@ For the list of all functionals available in GPAW see :ref:`overview_xc`.
 
 GPAW uses the functionals from libxc_ by default.
 Keywords are based on the names in the libxc :file:`'xc_funcs.h'` header
-file (the leading ``'XC_'`` should be removed from those names). Valid
+file (the leading ``'XC_'`` should be removed from those names).
+You should be able to find the file installed alongside LibXC.
+Valid
 keywords are strings or combinations of exchange and correlation string
 joined by **+** (plus). For example, "the" (most common) LDA approximation
 in chemistry corresponds to ``'LDA_X+LDA_C_VWN'``.
@@ -836,7 +837,14 @@ Poisson solver
 The *poissonsolver* keyword is used to specify a Poisson solver class
 or enable dipole correction.
 
-The default Poisson solver uses a multigrid Jacobian method.  Use this
+The default Poisson solver in FD and LCAO mode
+is called FastPoissonSolver and uses
+a combination of Fourier and Fourier-sine transforms
+in combination with parallel array transposes.  Meanwhile in PW mode,
+the Poisson equation is solved by dividing each planewave coefficient
+by the squared length of its corresponding wavevector.
+
+The old default Poisson solver uses a multigrid Jacobian method.  Use this
 keyword to specify a different method.  This example corresponds to
 the default Poisson solver::
 
