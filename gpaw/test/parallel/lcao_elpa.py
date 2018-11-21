@@ -1,7 +1,7 @@
 from ase.build import molecule
 from gpaw import GPAW, Mixer
 
-elpa = 0
+elpa = 1
 experimental = {}
 if elpa:
     experimental['elpa'] = {}

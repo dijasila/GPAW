@@ -195,9 +195,12 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         if self.libelpa is not None:
             assert blockdescriptor is self.libelpa.desc
             from gpaw.utilities.tools import tri2full
-            from gpaw.utilities.scalapack import (scalapack_zero, pblas_tran,
-                                                  scalapack_set)
+            from gpaw.utilities.scalapack import scalapack_tri2full
             for a_mm in [H_mm, S_mm]:
+                scalapack_tri2full(blockdescriptor, a_mm)
+            #from gpaw.utilities.scalapack import (scalapack_zero, pblas_tran,
+            #                                      scalapack_set)
+            if 0:#for a_mm in [H_mm, S_mm]:
                 scalapack_zero(blockdescriptor, a_mm, 'U')
                 tmp_mm = a_mm.copy()
                 scalapack_set(blockdescriptor, tmp_mm, alpha=0.0, beta=0.0,

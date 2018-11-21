@@ -19,6 +19,22 @@ import _gpaw
 
 switch_lu = {'U': 'L', 'L': 'U'}
 
+def scalapack_tri2full(desc, array):
+    """Write lower triangular part into upper triangular part of matrix.
+
+    This function is a frightful hack, but we can improve the
+    implementation later."""
+
+    # Zero upper triangle:
+    scalapack_zero(desc, array, 'U')
+    buf = array.copy()
+    # Set diagonal to zero in the copy:
+    scalapack_set(desc, buf, alpha=0.0, beta=0.0, uplo='U')
+    # Now transpose tmp_mm adding the result to the original matrix:
+    pblas_tran(alpha=1.0, a_MN=buf,
+               beta=1.0, c_NM=array,
+               desca=desc, descc=desc)
+
 
 def scalapack_zero(desca, a, uplo, ia=1, ja=1):
     """Zero the upper or lower half of a square matrix."""
