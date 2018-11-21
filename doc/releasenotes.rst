@@ -36,7 +36,7 @@ Git master branch
 
 * A module and tutorial have been added for calculating electrostatic
   corrections to DFT total energies for charged systems involving localised
-  :ref: `defects`.
+  :ref:`defects`.
 
 
 Version 1.4.0
