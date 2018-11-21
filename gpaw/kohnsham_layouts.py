@@ -166,7 +166,8 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         if elpasolver is not None:
             # XXX forward solver to libelpa
             from gpaw.utilities.elpa import LibElpa
-            self.libelpa = LibElpa(self.mmdescriptor, solver=elpasolver)
+            self.libelpa = LibElpa(self.mmdescriptor, solver=elpasolver,
+                                   nev=nbands)
 
     def diagonalize(self, H_mm, C_nM, eps_n, S_mm):
         # C_nM needs to be simultaneously compatible with:
@@ -194,7 +195,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
             for a_mm in [H_mm, S_mm]:
                 scalapack_tri2full(blockdescriptor, a_mm)
             self.libelpa.general_diagonalize(H_mm, S_mm.copy(), C_mm,
-                                             eps_M)
+                                             eps_M[:self.bd.nbands])
         else:
             blockdescriptor.general_diagonalize_dc(H_mm, S_mm.copy(),
                                                    C_mm, eps_M,

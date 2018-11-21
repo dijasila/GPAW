@@ -32,7 +32,6 @@ class LibElpa:
         _gpaw.pyelpa_set_comm(ptr, desc.blacsgrid.comm)
         self._parameters = {}
 
-        elpaconsts = {}
         self._consts = _elpaconstants()
         elpasolver = self._consts[solver]
 
@@ -60,12 +59,22 @@ class LibElpa:
             pretty = 'Elpa two-stage solver'
         return pretty
 
+    @property
+    def nev(self):
+        return self._parameters['nev']
+
     def diagonalize(self, A, C, eps):
-        assert self._parameters.get('nev') == len(eps), 'bad "nev"'
+        assert self.nev == len(eps)
         self.desc.checkassert(A)
-        _gpaw.pyelpa_diagonalize(self._ptr, A, C, eps)
+        self.desc.checkassert(C)
+        err = _gpaw.pyelpa_diagonalize(self._ptr, A, C, eps)
+        assert err == 0
 
     def general_diagonalize(self, A, S, C, eps):
+        assert self.nev == len(eps)
+        self.desc.checkassert(A)
+        self.desc.checkassert(S)
+        self.desc.checkassert(C)
         err = _gpaw.pyelpa_general_diagonalize(self._ptr, A, S, C, eps)
         assert err == 0
 
@@ -82,53 +91,3 @@ class LibElpa:
         if hasattr(self, '_ptr'):
             _gpaw.pyelpa_deallocate(self._ptr)
             self._ptr[0] = 0
-
-def elpa_diagonalize(desc, A, C, eps):
-    bg = desc.blacsgrid
-    na = desc.gshape[0]
-    nev = len(eps)
-    #print('THE FSCKING MATRIX')
-    #print(A)
-    code = _gpaw.pyelpa_diagonalize(
-        bg.comm.get_c_object(),
-        bg.context,
-        A, C, eps,
-        desc.gshape[0], nev,
-        (bg.npcol, bg.nprow, bg.myrow, bg.mycol),
-        desc.shape, desc.mb)
-    return code
-
-
-def elpa_general_diagonalize(desc, A, S, C, eps):
-    bg = desc.blacsgrid
-    comm = bg.comm
-
-    for arr in [A, C, S, eps]:
-        assert arr.dtype == float
-        assert arr.flags.contiguous
-
-    #for arr in [A, C, S]:
-    #    desc.checkassert(arr)
-
-    na = desc.gshape[0]
-    nev = len(eps)
-    assert nev <= na
-    assert eps.shape == (nev,)
-    assert desc.mb == desc.nb
-    for arr in [A, S, C]:
-        assert arr.shape == desc.shape
-
-    code = _gpaw.elpa_general_diagonalize(
-        comm.get_c_object(),
-        bg.context,
-        A, S, C, eps,
-        na, nev,
-        # Tricky/important: row and col definition apparently swapped
-        # between GPAW and ScaLAPACK/Elpa
-        #(bg.nprow, bg.npcol, bg.myrow, bg.mycol),
-        (bg.npcol, bg.nprow, bg.mycol, bg.myrow),
-        desc.shape, desc.mb)
-    if code != 0:
-        raise RuntimeError('Elpa general diagonalization failed with code '
-                           '{}'.format(code))
-    #print('epsout', eps)
