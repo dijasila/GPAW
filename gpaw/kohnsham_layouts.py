@@ -14,7 +14,7 @@ from gpaw.utilities.timing import nulltimer
 
 
 def get_KohnSham_layouts(sl, mode, gd, bd, block_comm, dtype,
-                         elpakwargs=None, **kwargs):
+                         elpasolver=None, **kwargs):
     """Create Kohn-Sham layouts object."""
     # Not needed for AtomPAW special mode, as usual we just provide whatever
     # happens to make the code not crash
@@ -26,8 +26,8 @@ def get_KohnSham_layouts(sl, mode, gd, bd, block_comm, dtype,
         name = 'Blacs' + name
         assert len(sl) == 3
         args += tuple(sl)
-        if elpakwargs is not None:
-            kwargs['elpakwargs'] = elpakwargs
+        if elpasolver is not None:
+            kwargs['elpasolver'] = elpasolver
     ksl = {'BlacsOrbitalLayouts': BlacsOrbitalLayouts,
            'OrbitalLayouts': OrbitalLayouts}[name](*args,
                                                    **kwargs)
@@ -113,7 +113,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
     # This class 'describes' all the LCAO Blacs-related layouts
     def __init__(self, gd, bd, block_comm, dtype, mcpus, ncpus,
-                 blocksize, nao, elpakwargs=None, timer=nulltimer):
+                 blocksize, nao, elpasolver=None, timer=nulltimer):
         BlacsLayouts.__init__(self, gd, bd, block_comm, dtype,
                               mcpus, ncpus, blocksize, timer)
         nbands = bd.nbands
@@ -163,11 +163,10 @@ class BlacsOrbitalLayouts(BlacsLayouts):
                                    self.nM_unique_descriptor)
 
         self.libelpa = None
-        self.elpakwargs = elpakwargs
-        if elpakwargs is not None:
+        if elpasolver is not None:
             # XXX forward solver to libelpa
             from gpaw.utilities.elpa import LibElpa
-            self.libelpa = LibElpa(self.mmdescriptor)
+            self.libelpa = LibElpa(self.mmdescriptor, solver=elpasolver)
 
     def diagonalize(self, H_mm, C_nM, eps_n, S_mm):
         # C_nM needs to be simultaneously compatible with:
@@ -366,7 +365,10 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         desc = self.mmdescriptor
         s = template % (bg.nprow, bg.npcol, desc.mb, desc.nb)
         things = [title]
-        solver = 'Elpa' if self.libelpa is not None else 'ScaLAPACK'
+        if self.libelpa is not None:
+            solver = self.libelpa.description
+        else:
+            solver = 'ScaLAPACK'
         return ''.join([title, ' / ', solver, ', ', s])
 
 

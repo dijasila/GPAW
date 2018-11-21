@@ -1,9 +1,14 @@
 import numpy as np
 import _gpaw
 
+def _elpaconstants():
+    consts = _gpaw.pyelpa_constants()
+    return {'elpa_ok': consts[0],
+            '1stage': consts[1],
+            '2stage': consts[2]}
+
 
 class LibElpa:
-    solvers = {'1stage', '2stage'}
     def __init__(self, desc, nev=None, solver='1stage'):
         if nev is None:
             nev = desc.gshape[0]
@@ -22,13 +27,9 @@ class LibElpa:
         _gpaw.pyelpa_set_comm(ptr, desc.blacsgrid.comm)
         self._parameters = {}
 
-        elpa_ok, solver_1stage, solver_2stage = _gpaw.pyelpa_constants()
-        if solver == '1stage':
-            elpa_solver = solver_1stage
-        elif solver == '2stage':
-            elpa_solver = solver_2stage
-        else:
-            raise KeyError('No such solver: {}'.format(solver))
+        elpaconsts = {}
+        self._consts = _elpaconstants()
+        elpasolver = self._consts[solver]
 
         bg = desc.blacsgrid
         self.elpa_set(na=desc.gshape[0],
@@ -39,10 +40,20 @@ class LibElpa:
                       process_row=bg.mycol,
                       blacs_context=bg.context)
         # remember: nev
-        self.elpa_set(nev=nev, solver=elpa_solver)
+        self.elpa_set(nev=nev, solver=elpasolver)
         self.desc = desc
 
         _gpaw.pyelpa_setup(self._ptr)
+
+    @property
+    def description(self):
+        solver = self._parameters['solver']
+        if solver == self._consts['1stage']:
+            pretty = 'Elpa one-stage solver'
+        else:
+            assert solver == self._consts['2stage']
+            pretty = 'Elpa two-stage solver'
+        return pretty
 
     def diagonalize(self, A, C, eps):
         assert self._parameters.get('nev') == len(eps), 'bad "nev"'
@@ -55,7 +66,7 @@ class LibElpa:
 
     def elpa_set(self, **kwargs):
         for key, value in kwargs.items():
-            print('pyelpa_set {}={}'.format(key, value))
+            # print('pyelpa_set {}={}'.format(key, value))
             _gpaw.pyelpa_set(self._ptr, key, value)
             self._parameters[key] = value
 

@@ -66,7 +66,6 @@ class GPAW(PAW, Calculator):
         'eigensolver': None,
         'background_charge': None,
         'experimental': {'reuse_wfs_method': None,
-                         'elpa': None,
                          'magmoms': None,
                          'soc': None,
                          'kpt_refine': None},
@@ -102,6 +101,8 @@ class GPAW(PAW, Calculator):
         'sl_inverse_cholesky': gpaw.sl_inverse_cholesky,
         'sl_lcao': gpaw.sl_lcao,
         'sl_lrtddft': gpaw.sl_lrtddft,
+        'use_elpa': False,
+        'elpasolver': '2stage',
         'buffer_size': gpaw.buffer_size}
 
     def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
@@ -416,8 +417,7 @@ class GPAW(PAW, Calculator):
             if key in ['experimental']:
                 changed_parameters2 = changed_parameters[key]
                 for key2 in changed_parameters2:
-                    if key2 in ['kpt_refine', 'magmoms', 'soc',
-                                'elpa']:
+                    if key2 in ['kpt_refine', 'magmoms', 'soc']:
                         self.wfs = None
                     elif key2 in ['reuse_wfs_method']:
                         continue
@@ -1031,12 +1031,14 @@ class GPAW(PAW, Calculator):
             sl_lcao = self.parallel['sl_lcao']
             if sl_lcao is None:
                 sl_lcao = sl_default
-            # XXX why do we net .get() here?
-            elpakwargs = par['experimental'].get('elpa')
+
+            elpasolver = None
+            if self.parallel['use_elpa']:
+                elpasolver = self.parallel['elpasolver']
             lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
                                            gd, bd, domainband_comm, dtype,
                                            nao=nao, timer=self.timer,
-                                           elpakwargs=elpakwargs)
+                                           elpasolver=elpasolver)
 
             self.wfs = mode(lcaoksl, **wfs_kwargs)
 

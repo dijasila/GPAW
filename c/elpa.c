@@ -21,7 +21,7 @@ elpa_t unpack_handle(PyObject* handle_obj)
 
 PyObject* pyelpa_set(PyObject *self, PyObject *args)
 {
-    printf("pyelpa_set\n");
+    //printf("pyelpa_set\n");
     PyObject *handle_obj;
     char* varname;
     int value;
@@ -46,7 +46,7 @@ PyObject* pyelpa_set(PyObject *self, PyObject *args)
 
 PyObject* pyelpa_allocate(PyObject *self, PyObject *args)
 {
-    printf("pyelpa_init\n");
+    //printf("pyelpa_init\n");
     PyObject *handle_obj;
     if (!PyArg_ParseTuple(args, "O", &handle_obj))
         return NULL;
@@ -54,7 +54,6 @@ PyObject* pyelpa_allocate(PyObject *self, PyObject *args)
     elpa_t *handle = unpack_handleptr(handle_obj);
     int err = 0;
     handle[0] = elpa_allocate(&err);
-    printf("%d %d\n", err, ELPA_OK);
     if (err != ELPA_OK) {
         PyErr_SetString(PyExc_RuntimeError,
                         "Error in elpa allocate");
@@ -66,7 +65,7 @@ PyObject* pyelpa_allocate(PyObject *self, PyObject *args)
 
 PyObject* pyelpa_setup(PyObject *self, PyObject *args)
 {
-    printf("pyelpa_setup\n");
+    //printf("pyelpa_setup\n");
     PyObject *handle_obj;
     if (!PyArg_ParseTuple(args, "O", &handle_obj))
         return NULL;
@@ -112,7 +111,7 @@ PyObject* pyelpa_constants(PyObject *self, PyObject *args)
 
 PyObject* pyelpa_diagonalize(PyObject *self, PyObject *args)
 {
-    printf("pyelpa_diagonalize\n");
+    //printf("pyelpa_diagonalize\n");
     PyObject *handle_obj;
     PyArrayObject *A_obj, *C_obj, *eps_obj;
 
@@ -139,7 +138,7 @@ PyObject* pyelpa_diagonalize(PyObject *self, PyObject *args)
 
 PyObject* pyelpa_general_diagonalize(PyObject *self, PyObject *args)
 {
-    printf("pyelpa_general_diagonalize\n");
+    //printf("pyelpa_general_diagonalize\n");
     PyObject *handle_obj;
     PyArrayObject *A_obj, *S_obj, *C_obj, *eps_obj;
 
@@ -184,7 +183,7 @@ PyObject* pyelpa_general_diagonalize(PyObject *self, PyObject *args)
 
 PyObject* pyelpa_diagonalize1(PyObject *self, PyObject *args)
 {
-    printf("pyelpa_diagonalize\n");
+    // printf("pyelpa_diagonalize\n");
     PyObject *gpaw_comm_obj;
     PyArrayObject *A, *C, *eps;
     int na, context, nev, blocksize, npcol, nprow, mycol, myrow, locM, locN;
@@ -245,7 +244,7 @@ PyObject *pyelpa_deallocate(PyObject *self, PyObject *args)
     if(!PyArg_ParseTuple(args, "O", &handle_obj)) {
         return NULL;
     }
-    printf("pyelpa_deallocate\n");
+    //printf("pyelpa_deallocate\n");
     elpa_t handle = unpack_handle(handle_obj);
     elpa_deallocate(handle);
     Py_RETURN_NONE;
