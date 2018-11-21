@@ -110,6 +110,10 @@ class DirectLCAO(object):
 
         diagonalization_string = repr(self.diagonalizer)
         wfs.timer.start(diagonalization_string)
+        print('H_MM')
+        print(H_MM)
+        print('S_MM')
+        print(S_MM)
         self.diagonalizer.diagonalize(H_MM, kpt.C_nM, kpt.eps_n, S_MM)
         wfs.timer.stop(diagonalization_string)
 
