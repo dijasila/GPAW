@@ -8,7 +8,8 @@ from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.utilities import uncamelcase
 from gpaw.utilities.blas import gemm, r2k
 from gpaw.utilities.lapack import general_diagonalize
-from gpaw.utilities.scalapack import pblas_simple_gemm, pblas_tran
+from gpaw.utilities.scalapack import (pblas_simple_gemm, pblas_tran,
+                                      scalapack_tri2full)
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities.timing import nulltimer
 
@@ -37,6 +38,7 @@ def get_KohnSham_layouts(sl, mode, gd, bd, block_comm, dtype,
 class KohnShamLayouts:
     using_blacs = False  # This is only used by a regression test
     matrix_descriptor_class = None
+    accepts_decomposed_overlap_matrix = False
 
     def __init__(self, gd, bd, block_comm, dtype, timer=nulltimer):
         assert gd.comm.parent is bd.comm.parent  # must have same parent comm
@@ -169,7 +171,12 @@ class BlacsOrbitalLayouts(BlacsLayouts):
             self.libelpa = LibElpa(self.mmdescriptor, solver=elpasolver,
                                    nev=nbands)
 
-    def diagonalize(self, H_mm, C_nM, eps_n, S_mm):
+    @property
+    def accepts_decomposed_overlap_matrix(self):
+        return self.libelpa is not None
+
+    def diagonalize(self, H_mm, C_nM, eps_n, S_mm,
+                    is_already_decomposed=False):
         # C_nM needs to be simultaneously compatible with:
         # 1. outdescriptor
         # 2. broadcast with gd.comm
@@ -190,16 +197,15 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         #                                        UL='L', iu=self.bd.nbands)
         if self.libelpa is not None:
             assert blockdescriptor is self.libelpa.desc
-            from gpaw.utilities.tools import tri2full
-            from gpaw.utilities.scalapack import scalapack_tri2full
-            for a_mm in [H_mm, S_mm]:
-                scalapack_tri2full(blockdescriptor, a_mm)
-            self.libelpa.general_diagonalize(H_mm, S_mm.copy(), C_mm,
-                                             eps_M[:self.bd.nbands])
+            scalapack_tri2full(blockdescriptor, H_mm)
+
+            # elpa will overwrite S_mm as decomposed
+            self.libelpa.general_diagonalize(
+                H_mm, S_mm, C_mm, eps_M[:self.bd.nbands],
+                is_already_decomposed=is_already_decomposed)
         else:
-            blockdescriptor.general_diagonalize_dc(H_mm, S_mm.copy(),
-                                                   C_mm, eps_M,
-                                                   UL='L')
+            blockdescriptor.general_diagonalize_dc(H_mm, S_mm.copy(), C_mm,
+                                                   eps_M, UL='L')
         #print(eps_M)
         self.timer.stop('General diagonalize')
 
@@ -257,6 +263,13 @@ class BlacsOrbitalLayouts(BlacsLayouts):
                 if blockdesc.active:
                     pblas_tran(1.0, S_mm.copy(), 1.0, S_mm,
                                blockdesc, blockdesc)
+
+            if self.libelpa is not None:
+                # Elpa needs the full H_mm, but apparently does not
+                # need the full S_mm.  However that fact is not documented,
+                # and hence we stay on the safe side, tri2full-ing the
+                # matrix.
+                scalapack_tri2full(blockdesc, S_mm)
 
         self.timer.stop('Scalapack redistribute')
         return S_qmm.reshape(xshape + blockdesc.shape)
@@ -388,7 +401,9 @@ class OrbitalLayouts(KohnShamLayouts):
         self.nao = nao
         self.orbital_comm = bd.comm
 
-    def diagonalize(self, H_MM, C_nM, eps_n, S_MM):
+    def diagonalize(self, H_MM, C_nM, eps_n, S_MM,
+                    overwrite_S=False):
+        assert not overwrite_S
         eps_M = np.empty(C_nM.shape[-1])
         self.block_comm.broadcast(H_MM, 0)
         self.block_comm.broadcast(S_MM, 0)

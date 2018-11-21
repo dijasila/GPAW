@@ -10,7 +10,8 @@ for use_elpa in [0, 1]:
     #atoms = molecule('H2', vacuum=3.0)
     calc = GPAW(mode='lcao', basis='dzp',
                 h=0.25,
-                parallel=dict(sl_default=(size[0], size[1], 3), use_elpa=True),
+                parallel=dict(sl_default=(size[0], size[1], 3),
+                              use_elpa=use_elpa),
                 mixer=Mixer(0.5, 5, 50.0))
     atoms.calc = calc
     E = atoms.get_potential_energy()

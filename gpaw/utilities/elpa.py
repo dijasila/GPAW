@@ -54,7 +54,6 @@ class LibElpa:
                       process_col=bg.myrow,  # XXX interchanged
                       process_row=bg.mycol,
                       blacs_context=bg.context)
-        # remember: nev
         self.elpa_set(nev=nev, solver=elpasolver)
         self.desc = desc
 
