@@ -379,7 +379,6 @@ tests = [
     'exx/exx_scf.py',                       # ~91s
     'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
-    'rsf_yukawa/lrtddft.py',                # ~114s
     'exx/AA_enthalpy.py',                   # ~119s
     'response/na_plasmons.py',
     'response/na_plasmons_tetrahedron.py',  # ~120s
