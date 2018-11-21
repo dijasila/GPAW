@@ -367,14 +367,7 @@ class LrTDDFT(ExcitationList):
             if isinstance(self.xc, str):
                 xc = self.xc
             else:
-                xc = self.xc.name
-                xc_dict = self.xc.todict()
-                for test_key in ['name', 'xc', 'kernel', 'type']:
-                    if test_key in xc_dict:
-                        del xc_dict[test_key]
-                if xc_dict:
-                    xc += ':' + ':'.join([(k + '=' + repr(v))
-                                          for k, v in xc_dict.items()])
+                xc = self.xc.tostring()
             if xc is None:
                 xc = 'RPA'
             if self.calculator is not None:

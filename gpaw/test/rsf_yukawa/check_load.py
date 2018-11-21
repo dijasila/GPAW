@@ -14,12 +14,12 @@ c = {'energy': 0.01, 'eigenstates': 3, 'density': 3}
 calculator = GPAW(convergence=c, eigensolver=RMMDIIS(),
                   occupations=FermiDirac(width=0.0, fixmagmom=True),
                   txt='O.LCY_PBE.txt', h=h)
-calculator.set(xc=HybridXC('LCY_PBE', omega=0.65))
+calculator.set(xc=HybridXC('LCY-PBE', omega=0.65))
 work_atom.set_initial_magnetic_moments([2.0])
 work_atom.set_calculator(calculator)
 work_atom.get_potential_energy()
 calculator.write(fname)
 calc = GPAW(fname)
 func = calc.get_xc_functional()
-assert func['name'] == 'LCY_PBE', 'wrong name for functional'
+assert func['name'] == 'LCY-PBE', 'wrong name for functional'
 assert func['omega'] == 0.65, 'wrong value for RSF omega'

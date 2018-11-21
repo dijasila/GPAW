@@ -318,6 +318,7 @@ tests = [
     'lrtddft/excited_state.py',             # ~16s
     'gllb/ne_disc.py',                      # ~16s
     'ofdft/ofdft.py',                       # ~17s
+    'rsf_yukawa/lrtddft_short.py',          # ~18s
     'response/bse_silicon.py',              # ~18s
     'tpss.py',                              # ~18s
     'tddft/td_na2.py',                      # ~18s
@@ -386,7 +387,6 @@ tests = [
     'response/gw_MoS2_cut.py',
     'response/gwsi.py',                     # ~147s
     'response/graphene.py',                 # ~160s
-    'rsf_yukawa/lrtddft.py',                # ~240s
     'response/symmetry.py',                 # ~300s
     'rsf_yukawa/rsf_ivo_sing_na2.py',
     'pw/moleculecg.py',                     # duration unknown

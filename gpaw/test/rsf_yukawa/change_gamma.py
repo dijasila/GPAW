@@ -24,7 +24,7 @@ c = {'energy': 0.1, 'eigenstates': 3, 'density': 3}
 # dx.doi.org/10.1021/acs.jctc.8b00238
 IP = 14.31
 
-calc = GPAW(txt='CO.txt', xc='LCY_PBE:omega=0.81', convergence=c,
+calc = GPAW(txt='CO.txt', xc='LCY-PBE:omega=0.81', convergence=c,
             eigensolver=RMMDIIS(), h=h,
             occupations=FermiDirac(width=0.0), spinpol=False)
 co.set_calculator(calc)

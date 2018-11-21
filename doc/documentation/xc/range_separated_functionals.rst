@@ -60,7 +60,7 @@ The implementation of RSFs in gpaw consists of two parts:
 
 As range separating function the Slater-function,
 `\omega_\mathrm{RSF} = e^{(-\gamma r_{12})}`,
-is used. Beside the possibility to set `\gamma` to an arbitrary
+is used. Besides the possibility to set `\gamma` to an arbitrary
 value, the following functionals were implemented:
 
 ========== ======== ======= ===================== =========
@@ -71,10 +71,6 @@ CAMY-B3LYP 0.19     0.46    0.34                  [SZ12]_
 LCY-BLYP   0.0      1.0     0.75                  [SZ12]_
 LCY-PBE    0.0      1.0     0.75                  [SZ12]_
 ========== ======== ======= ===================== =========
-
-Please note, that the functionals are called using an unterscore (``_``)
-instead of an hypen (``-``).
-
 
 As the implementation of RSFs in gpaw is based on the finite difference
 exact exchange code (hybrid.py), the implementation inherits its positive
@@ -103,7 +99,7 @@ functional as in the following snippet:
 .. literalinclude:: rsf_simple.py
 
 Three main points can be seen already in this small snippet. Even if choosing
-the RSF is quite simple by choosing ``xc=LCY_PBE``, one has to choose RMMDIIS
+the RSF is quite simple by choosing ``xc=LCY-PBE``, one has to choose RMMDIIS
 as eigensolver, ``eigensolver=RMMDIIS()``, and has to decrease the
 convergence criteria a little.
 
@@ -139,7 +135,7 @@ As stated in the introduction, the optimal value for `\gamma` is under
 discussion. One way to find the optimal value for `\gamma` for ionization
 potentials is to tune `\gamma` in a way, that the negative eigenvalue of the
 HOMO matches the calculated IP. To use different values of `\gamma`, one has
-to pass the desired value of `\gamma` ti the variable ``omega``.
+to pass the desired value of `\gamma` to the variable ``omega``.
 
 .. literalinclude:: rsf_gamma.py
 
