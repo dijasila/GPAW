@@ -5,6 +5,7 @@ import numpy as np
 from ase.build import mx2
 
 from gpaw import GPAW
+from gpaw.test import equal
 from gpaw.spinorbit import get_spinorbit_eigenvalues
 from gpaw.mpi import size
 
@@ -43,5 +44,6 @@ def test(E, hsplit, lsplit):
     assert abs(l2 - l1 - lsplit) < 0.002
 
 
+equal(E1[:28], E2, tolerance=1e-1)
 test(E1, 0.15, 0.002)
 test(E2, 0.15, 0.007)
