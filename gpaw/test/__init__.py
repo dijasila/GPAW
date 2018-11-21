@@ -173,6 +173,7 @@ tests = [
     'lcao/gllb_si.py',                      # ~2s
     'fileio/wfs_io.py',                     # ~3s
     'lrtddft/2.py',                         # ~3s
+    'gllbghost.py',                         # ~3s
     'fileio/file_reference.py',             # ~3s
     'fileio/restart.py',                    # ~3s
     'broydenmixer.py',                      # ~3s
@@ -275,6 +276,7 @@ tests = [
     'lcaotddft/fxc_vs_linearize.py',        # ~10s
     'lcaotddft/replay.py',                  # ~10s
     'lcaotddft/ksdecomp.py',                # ~10s
+    'tddft/fxc_linearize.py',               # ~10s
     'timelimit.py',                         # ~10s
     'ralda/ralda_energy_N2.py',             # ~10s
     'parallel/lcao_complicated.py',         # ~10s
@@ -294,6 +296,7 @@ tests = [
     'xc/lxc_xcatom.py',                     # ~12s
     'solvation/sfgcm06.py',                 # ~12s
     'solvation/sss09.py',                   # ~12s
+    'tddft/restart.py',                     # ~13s
     'gllb/atomic.py',                       # ~13s
     'generic/guc_force.py',                 # ~13s
     'ralda/ralda_energy_Ni.py',             # ~13s
@@ -380,7 +383,6 @@ tests = [
     'exx/AA_enthalpy.py',                   # ~119s
     'response/na_plasmons.py',
     'response/na_plasmons_tetrahedron.py',  # ~120s
-    'lcaotddft/gllbsc.py',                  # ~132s
     'solvation/forces.py',                  # ~140s
     'response/gw_MoS2_cut.py',
     'response/gwsi.py',                     # ~147s

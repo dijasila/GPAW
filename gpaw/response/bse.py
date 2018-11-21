@@ -5,6 +5,7 @@ from time import time, ctime
 from datetime import timedelta
 
 import sys
+from os import path as op
 
 import numpy as np
 from ase.units import Hartree, Bohr
@@ -30,6 +31,7 @@ class BSE:
                  calc=None,
                  spinors=False,
                  ecut=10.,
+                 scale=1.0,
                  nbands=None,
                  valence_bands=None,
                  conduction_bands=None,
@@ -88,6 +90,7 @@ class BSE:
             calc = GPAW(calc, txt=None, communicator=serial_comm)
         self.calc = calc
         self.spinors = spinors
+        self.scale = scale
 
         assert mode in ['RPA', 'TDHF', 'BSE']
         # assert calc.wfs.kd.nbzkpts % world.size == 0
@@ -171,6 +174,7 @@ class BSE:
             gw_skn /= Hartree
         self.gw_skn = gw_skn
         self.eshift = eshift
+
         # Number of pair orbitals
         self.nS = self.kd.nbzkpts * self.nv * self.nc * self.spins
         self.nS *= (self.spinors + 1)**2
@@ -192,20 +196,30 @@ class BSE:
             for unoccupied states and n is used for occupied states so be 
             careful!"""
         
-            param = self.calc.parameters
-            print('Calculating KS wavefunctions without symmetry ' +
-                  'for spin-orbit', file=self.fd)
-            calc_so = GPAW(**param)
-            calc_so.set(symmetry='off', fixdensity=True, txt='gs_nosym.txt')
-            calc_so.atoms = self.calc.atoms
-            calc_so.density = self.calc.density
-            calc_so.get_potential_energy()
-            calc_so.write('gs_nosym.gpw')
-            calc_so = GPAW('gs_nosym.gpw', txt=None, communicator=serial_comm)
             print('Diagonalizing spin-orbit Hamiltonian', file=self.fd)
-            e_mk, v_knm = get_spinorbit_eigenvalues(calc_so, return_wfs=True)
+            param = self.calc.parameters
+            if not param['symmetry'] == 'off':
+                print('Calculating KS wavefunctions without symmetry ' +
+                      'for spin-orbit', file=self.fd)
+                if not op.isfile('gs_nosym.gpw'):
+                    calc_so = GPAW(**param)
+                    calc_so.set(symmetry='off',
+                                fixdensity=True,
+                                txt='gs_nosym.txt')
+                    calc_so.atoms = self.calc.atoms
+                    calc_so.density = self.calc.density
+                    calc_so.get_potential_energy()
+                    calc_so.write('gs_nosym.gpw')
+                calc_so = GPAW('gs_nosym.gpw', txt=None, communicator=serial_comm)
+                e_mk, v_knm = get_spinorbit_eigenvalues(calc_so, 
+                                                        return_wfs=True,
+                                                        scale=self.scale)
+                del calc_so
+            else:
+                e_mk, v_knm = get_spinorbit_eigenvalues(self.calc,
+                                                        return_wfs=True,
+                                                        scale=self.scale)
             e_mk /= Hartree
-            del calc_so
 
         # Parallelization stuff
         nK = self.kd.nbzkpts
@@ -251,8 +265,12 @@ class BSE:
         get_rho = self.pair.get_pair_density
         if self.spinors:
             # Get all pair densities to allow for SOC mixing
-            vi_s, vf_s = self.val_sn[:, 0], self.con_sn[:, -1] + 1
-            ci_s, cf_s = self.val_sn[:, 0], self.con_sn[:, -1] + 1
+            # Use twice as many no-SOC states as BSE bands to allow mixing
+            vi_s = [2 * self.val_sn[0, 0] - self.val_sn[0, -1] - 1]
+            vf_s = [2 * self.con_sn[0, -1] - self.con_sn[0, 0] + 2]
+            if vi_s[0] < 0:
+                vi_s[0] = 0
+            ci_s, cf_s = vi_s, vf_s
             ni, nf = vi_s[0], vf_s[0]
             mvi = 2 * self.val_sn[0, 0]
             mvf = 2 * (self.val_sn[0, -1] + 1)
@@ -289,6 +307,9 @@ class BSE:
                                   Q_aGii=Q_aGii,
                                   extend_head=False)
                 if self.spinors:
+                    if optical_limit:
+                        deps0_mn = -pair.get_transition_energies(m_m, n_n)
+                        rho_mnG[:, :, 0] *= deps0_mn 
                     df_Ksmn[iK, s, ::2, ::2] = df_mn
                     df_Ksmn[iK, s, ::2, 1::2] = df_mn
                     df_Ksmn[iK, s, 1::2, ::2] = df_mn
@@ -302,6 +323,8 @@ class BSE:
                     rho_1mnG = np.dot(vecv1_nm.T.conj(),
                                       np.dot(vecc1_nm.T, rho_mnG))
                     rhoex_KsmnG[iK, s] = rho_0mnG + rho_1mnG
+                    if optical_limit:
+                        rhoex_KsmnG[iK, s, :, :, 0] /= deps_ksmn[ik, s]
                 else:
                     df_Ksmn[iK, s] = pair.get_occupation_differences(m_m, n_n)
                     rhoex_KsmnG[iK, s] = rho_mnG
@@ -312,7 +335,12 @@ class BSE:
 
         world.sum(df_Ksmn)
         world.sum(rhoex_KsmnG)
-        #print(deps_ksmn[0])
+
+        self.rhoG0_S = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
+
+        if hasattr(self, 'H_sS'):
+            return
+
         # Calculate Hamiltonian
         t0 = time()
         print('Calculating %s matrix elements at q_c = %s'
@@ -325,7 +353,7 @@ class BSE:
                                               cf_s[s1])
                 rho1_mnG = rhoex_KsmnG[iK1, s1]
 
-                rhoG0_Ksmn[iK1, s1] = rho1_mnG[:, :, 0]
+                #rhoG0_Ksmn[iK1, s1] = rho1_mnG[:, :, 0]
                 rho1ccV_mnG = rho1_mnG.conj()[:, :] * v_G
                 for s2 in range(Ns):
                     for Q_c in self.qd.bzk_kc:
@@ -370,7 +398,6 @@ class BSE:
                                             np.swapaxes(rho4_nnG, 1, 2))
                             W_mnmn = np.swapaxes(W_mmnn, 1, 2) * Ns * so
                             H_ksmnKsmn[ik1, s1, :, :, iK2, s1] -= 0.5 * W_mnmn
-
             if iK1 % (myKsize // 5 + 1) == 0:
                 dt = time() - t0
                 tleft = dt * myKsize / (iK1 + 1) - dt
@@ -379,8 +406,8 @@ class BSE:
                        timedelta(seconds=round(dt)),
                        timedelta(seconds=round(tleft))), file=self.fd)
 
-        if self.mode == 'BSE':
-            del self.Q_qaGii, self.W_qGG, self.pd_q
+        #if self.mode == 'BSE':
+        #    del self.Q_qaGii, self.W_qGG, self.pd_q
 
         H_ksmnKsmn /= self.vol
 
@@ -388,8 +415,8 @@ class BSE:
         if myKsize > 0:
             iS0 = myKrange[0] *  Nv * Nc * Ns
 
-        world.sum(rhoG0_Ksmn)
-        self.rhoG0_S = np.reshape(rhoG0_Ksmn, -1)
+        #world.sum(rhoG0_Ksmn)
+        #self.rhoG0_S = np.reshape(rhoG0_Ksmn, -1)
         self.df_S = np.reshape(df_Ksmn, -1)
         if not self.td:
             self.excludef_S = np.where(np.abs(self.df_S) < 0.001)[0]
@@ -461,6 +488,9 @@ class BSE:
         return rho_mnG, iq
 
     def get_screened_potential(self, ac=1.0):
+
+        if hasattr(self, 'W_qGG'):
+            return
 
         if self.wfile is not None:
             # Read screened potential from file
@@ -679,13 +709,15 @@ class BSE:
 
     def get_bse_matrix(self, q_c=[0.0, 0.0, 0.0], direction=0, ac=1.0,
                        readfile=None, optical=True, write_eig=None):
-        """Returns v * \chi where v is the bare Coulomb interaction"""
+        """Calculate and diagonalize BSE matrix"""
 
         self.q_c = q_c
         self.direction = direction
 
         if readfile is None:
             self.calculate(optical=optical, ac=ac)
+            if hasattr(self, 'w_T'):
+                return
             self.diagonalize()
         elif readfile == 'H_SS':
             print('Reading Hamiltonian from file', file=self.fd)
@@ -759,6 +791,16 @@ class BSE:
             q_v = np.dot(q_c, B_cv)
             vchi_w /= np.dot(q_v, q_v)
 
+        """Check f-sum rule."""
+        nv = self.calc.wfs.setups.nvalence
+        dw_w = (w_w[1:] - w_w[:-1]) / Hartree
+        wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
+        N = -np.dot(dw_w, wchi_w.imag) * self.vol / (2 * np.pi**2)
+        print(file=self.fd)
+        print('Checking f-sum rule:', file=self.fd)
+        print('  Valence = %s, N = %f' % (nv, N), file=self.fd)
+        print(file=self.fd)
+
         if write_eig is not None:
             if world.rank == 0:
                 f = open(write_eig, 'w')
@@ -803,18 +845,6 @@ class BSE:
                                    write_eig=write_eig)
         epsilon_w += 1.0
 
-        """Check f-sum rule."""
-        nv = self.calc.wfs.setups.nvalence
-        dw_w = (w_w[1:] - w_w[:-1]) / Hartree
-        weps_w = ((w_w[1:] + w_w[:-1]) / Hartree *
-                  (epsilon_w[1:] + epsilon_w[:-1]) / 4)
-        N = np.dot(dw_w, weps_w.imag) * self.vol / (2 * np.pi**2)
-        print(file=self.fd)
-        print('Checking f-sum rule:', file=self.fd)
-        print('  N = %f, %f  %% error' % (N, (N - nv) / nv * 100),
-              file=self.fd)
-        print(file=self.fd)
-
         if world.rank == 0 and filename is not None:
             f = open(filename, 'w')
             for iw, w in enumerate(w_w):
@@ -824,6 +854,7 @@ class BSE:
         world.barrier()
 
         print('Calculation completed at:', ctime(), file=self.fd)
+        print(file=self.fd)
 
         return w_w, epsilon_w
 
@@ -866,6 +897,7 @@ class BSE:
         world.barrier()
 
         print('Calculation completed at:', ctime(), file=self.fd)
+        print(file=self.fd)
 
         return w_w, eels_w
 
@@ -916,6 +948,7 @@ class BSE:
             fd.close()
 
         print('Calculation completed at:', ctime(), file=self.fd)
+        print(file=self.fd)
 
         return w_w, alpha_w
 
@@ -954,6 +987,7 @@ class BSE:
             fd.close()
 
         print('Calculation completed at:', ctime(), file=self.fd)
+        print(file=self.fd)
 
         return w_w, abs_w
 
@@ -1080,6 +1114,7 @@ class BSE:
         p()
         if gw_skn is not None:
             p('User specified BSE bands')
+        p('Response PW cutoff             :', self.ecut * Hartree, 'eV')
         p('Screening bands included       :', self.nbands)
         if len(self.val_sn) == 1:
             p('Valence bands                  :', self.val_sn[0])
