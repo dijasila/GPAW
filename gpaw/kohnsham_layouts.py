@@ -188,42 +188,18 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         # blockdescriptor.general_diagonalize_ex(H_mm, S_mm.copy(), C_mm,
         #                                        eps_M,
         #                                        UL='L', iu=self.bd.nbands)
-        print('H')
-        print(H_mm)
-        print('S')
-        print(S_mm)
         if self.libelpa is not None:
             assert blockdescriptor is self.libelpa.desc
             from gpaw.utilities.tools import tri2full
             from gpaw.utilities.scalapack import scalapack_tri2full
             for a_mm in [H_mm, S_mm]:
                 scalapack_tri2full(blockdescriptor, a_mm)
-            #from gpaw.utilities.scalapack import (scalapack_zero, pblas_tran,
-            #                                      scalapack_set)
-            if 0:#for a_mm in [H_mm, S_mm]:
-                scalapack_zero(blockdescriptor, a_mm, 'U')
-                tmp_mm = a_mm.copy()
-                scalapack_set(blockdescriptor, tmp_mm, alpha=0.0, beta=0.0,
-                              uplo='U')
-                pblas_tran(alpha=1.0, a_MN=tmp_mm,
-                           beta=1.0, c_NM=a_mm,
-                           desca=blockdescriptor, descc=blockdescriptor)
-            #H_mm = H_mm.T.copy()
-            #S_mm = S_mm.T.copy()
-            #print('symmetrized')
-            #print(H_mm)
-            #print(S_mm)
-            #tri2full(H_mm, UL='L')
-            #tri2full(S_mm, UL='L')
-            #sdfksdjf
-            #print('elpa general diag')
             self.libelpa.general_diagonalize(H_mm, S_mm.copy(), C_mm,
                                              eps_M)
         else:
             blockdescriptor.general_diagonalize_dc(H_mm, S_mm.copy(),
                                                    C_mm, eps_M,
                                                    UL='L')
-        #print('eps')
         #print(eps_M)
         self.timer.stop('General diagonalize')
 

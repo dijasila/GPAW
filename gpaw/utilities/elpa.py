@@ -50,10 +50,8 @@ class LibElpa:
         _gpaw.pyelpa_diagonalize(self._ptr, A, C, eps)
 
     def general_diagonalize(self, A, S, C, eps):
-        print('A')
-        print(A)
         err = _gpaw.pyelpa_general_diagonalize(self._ptr, A, S, C, eps)
-        print('err', err)
+        assert err == 0
 
     def elpa_set(self, **kwargs):
         for key, value in kwargs.items():

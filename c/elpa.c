@@ -157,15 +157,27 @@ PyObject* pyelpa_general_diagonalize(PyObject *self, PyObject *args)
     //elpa_set(handle, "solver", ELPA_SOLVER_1STAGE, &error);
     //assert(error == ELPA_OK);
 
-    double *a = (double*)PyArray_DATA(A_obj);
-    double *b = (double*)PyArray_DATA(S_obj);
-    double *ev = (double*)PyArray_DATA(eps_obj);
-    double *q = (double*)PyArray_DATA(C_obj);
 
     int is_already_decomposed = 0;
     int error;
-    elpa_generalized_eigenvectors(handle, a, b, ev, q,
-                                  is_already_decomposed, &error);
+
+    double *ev = (double*)PyArray_DATA(eps_obj);
+
+    if(PyArray_DESCR(A_obj)->type_num == NPY_DOUBLE) {
+        double *a = (double*)PyArray_DATA(A_obj);
+        double *b = (double*)PyArray_DATA(S_obj);
+        double *q = (double*)PyArray_DATA(C_obj);
+        elpa_generalized_eigenvectors(handle, a, b, ev, q,
+                                      is_already_decomposed, &error);
+
+    } else {
+        double complex *a = (double complex *)PyArray_DATA(A_obj);
+        double complex *b = (double complex *)PyArray_DATA(S_obj);
+        double complex *q = (double complex *)PyArray_DATA(C_obj);
+        elpa_generalized_eigenvectors(handle, a, b, ev, q,
+                                      is_already_decomposed, &error);
+    }
+
     return Py_BuildValue("i", error);
 }
 
