@@ -524,13 +524,12 @@ def get_nonsc_spinorbit_calc(calc, withsoc=True):
     spinpolarized = calc.wfs.nspins > 1
 
     atoms = calc.atoms
-    params = calc.parameters
+    params = calc.parameters.copy()
     params.update(experimental={'soc': withsoc,
                                 'magmoms': [[0, 0, 0]] * len(atoms)},
                   fixdensity=True,
                   txt=None,
                   parallel=dict(calc.parallel))
-
     socalc = GPAW(**params)
     socalc.initialize(atoms=atoms, reading=True)
     socalc.initialize_positions(atoms)
@@ -539,7 +538,10 @@ def get_nonsc_spinorbit_calc(calc, withsoc=True):
 
     # Now set the wavefunctions
     for ik, (kpt, sokpt) in enumerate(zip(calc.wfs.kpt_u, socalc.wfs.kpt_u)):
-        nbands, nG = np.shape(kpt.psit_nG[:])
+        k1_c = calc.wfs.kd.ibzk_kc[kpt.k]
+        k2_c = socalc.wfs.kd.ibzk_kc[sokpt.k]
+        assert np.allclose(k1_c, k2_c)
+
         sokpt.psit_nG[:] = 0
         if not spinpolarized:
             for s in [0, 1]:
@@ -562,9 +564,6 @@ def get_nonsc_spinorbit_calc(calc, withsoc=True):
     socalc.occupations.calculate(socalc.wfs)
     # Calculate density
     socalc.density.initialize_from_wavefunctions(socalc.wfs)
-    # For some reason we also need update the density
-    # even though we just initialized it...
-    socalc.density.update(socalc.wfs)
 
     vtcoll_xG = calc.hamiltonian.vt_xG
     socalc.hamiltonian.vt_xG[:] = 0.0
@@ -576,7 +575,7 @@ def get_nonsc_spinorbit_calc(calc, withsoc=True):
 
     # Setup atomic hamiltonians
     dH0_asp = calc.hamiltonian.dH_asp
-    D0_asp = socalc.density.D_asp
+    D0_asp = calc.density.D_asp
 
     ham = socalc.hamiltonian
     D_asp = ham.atomdist.to_work(socalc.density.D_asp)
@@ -587,21 +586,20 @@ def get_nonsc_spinorbit_calc(calc, withsoc=True):
     from gpaw.utilities import pack2
     for ai, dH_sp in dH_asp.items():
         D_sp = D_asp[ai]
+        D_sp[:] = 0
         dH0_sp = dH0_asp[ai]
-        dH_sp = dH_asp[ai]
         dH_sp[:] = 0
         if withsoc:
-            setup = ham.setups[ai]
             a = calc.wfs.setups[ai]
             dH_vii = soc(a, calc.hamiltonian.xc, D0_asp[ai])
             dH_sp[1:] = pack2(dH_vii)
-        if len(dH0_sp) == 1:
+        if not spinpolarized:
             dH_sp[0] += dH0_sp[0]
+            D_sp[0] = D0_asp[ai]
         else:
-            dH_sp[0] += dH0_sp[0] + dH0_sp[1]
-            dH_sp[3] += dH0_sp[0] - dH0_sp[1]
+            dH_sp[0] += (dH0_sp[0] + dH0_sp[1]) / 2
+            dH_sp[3] += (dH0_sp[0] - dH0_sp[1]) / 2
 
-    ham.update_atomic_hamiltonians(None)
     ham.update_atomic_hamiltonians(ham.atomdist.from_work(dH_asp))
     # We need to initialize the eigensolver
     socalc.wfs.eigensolver.initialize(socalc.wfs)
