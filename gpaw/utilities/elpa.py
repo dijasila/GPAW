@@ -9,19 +9,24 @@ def _elpaconstants():
 
 
 class LibElpa:
+    @staticmethod
+    def have_elpa():
+        return hasattr(_gpaw, 'pyelpa_allocate')
+
     def __init__(self, desc, nev=None, solver='1stage'):
         if nev is None:
             nev = desc.gshape[0]
 
         ptr = np.zeros(1, np.intp)
 
+        if not self.have_elpa():
+            raise ImportError('GPAW is not running in parallel or otherwise '
+                              'not compiled with Elpa support')
+
         if desc.nb != desc.mb:
             raise ValueError('Row and column block size must be '
                              'identical to support Elpa')
 
-        if not hasattr(_gpaw, 'pyelpa_allocate'):
-            raise ImportError('GPAW is not running in parallel or otherwise '
-                              'not compiled with Elpa support')
         _gpaw.pyelpa_allocate(ptr)
         self._ptr = ptr
         _gpaw.pyelpa_set_comm(ptr, desc.blacsgrid.comm)
