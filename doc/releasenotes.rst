@@ -34,6 +34,10 @@ Git master branch
 * New experimental local **k**-point refinement feature:
   :git:`gpaw/test/kpt_refine.py`.
 
+* A module and tutorial have been added for calculating electrostatic
+  corrections to DFT total energies for charged systems involving localised
+  :ref: `defects`.
+
 
 Version 1.4.0
 =============
