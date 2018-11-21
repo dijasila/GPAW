@@ -92,6 +92,8 @@ def aoom(setup, DM, l, scale=1):
 
         return A + B + C + D, V
     else:
+        assert len(nl) == 1
+        assert l_j[-1] == l
         nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
         A = DM[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] * lq[-1]
         V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] = lq[-1]

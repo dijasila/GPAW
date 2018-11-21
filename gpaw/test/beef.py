@@ -3,7 +3,7 @@ import numpy as np
 from ase.build import bulk
 from ase.dft.bee import BEEFEnsemble, readbee
 from ase.eos import EquationOfState as EOS
-from gpaw import GPAW
+from gpaw import GPAW, Mixer
 from gpaw.test import gen
 from gpaw.mpi import world
 import _gpaw
@@ -31,6 +31,7 @@ for xc in ['mBEEF', 'BEEF-vdW', 'mBEEF-vdW']:
     for a in np.linspace(5.4, 5.5, 5):
         si = bulk('Si', a=a)
         si.calc = GPAW(txt='Si-' + xc + '.txt',
+                       mixer=Mixer(0.8, 7, 50.0),
                        xc=xc,
                        kpts=[2, 2, 2],
                        mode='pw')

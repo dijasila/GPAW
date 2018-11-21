@@ -12,7 +12,7 @@ poisson_eps = 1e-12
 density_eps = 1e-6
 
 # PoissonSolver
-poissonsolver = PoissonSolver(eps=poisson_eps)
+poissonsolver = PoissonSolver('fd', eps=poisson_eps)
 
 # Na2 cluster
 atoms = Atoms(symbols='Na2',

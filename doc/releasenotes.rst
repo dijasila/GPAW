@@ -11,7 +11,28 @@ Git master branch
 :git:`master <>`.
 
 * Corresponding ASE release: ASE-3.16.1b1
-* Solvated jellium method has been implemented, see :ref:`the documentation <solvated_jellium_method>`
+
+* Default eigensolver is now ``Davidson(niter=2)``.
+
+* Default number of bands is now `1.2 N_{\text{occ}} + 4`, where
+  `N_{\text{occ}}` is the number of occupied bands.
+
+* PW-mode calculations can now be parallelizer over plane-wave coefficients.
+
+* Solvated jellium method has been implemented, see
+  :ref:`the documentation <solvated_jellium_method>`.
+
+* Added FastPoissonSolver which is faster and works well for any cell.
+  This replaces the old Poisson solver as default Poisson solver.
+
+* :ref:`rsf`.
+
+* New Jupyter notebooks added for teaching DFT and many-body methods.  Topics
+  cover: :ref:`catalysis`, :ref:`magnetism`, :ref:`machinelearning`,
+  :ref:`photovoltaics` :ref:`batteries` and :ref:`intro`.
+
+* New experimental local **k**-point refinement feature:
+  :git:`gpaw/test/kpt_refine.py`.
 
 
 Version 1.4.0

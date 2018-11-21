@@ -33,18 +33,20 @@ for mode in modes:
         Be.set_pbc(pbc)
         if pbc:
             name = 'periodic'
-            calc = GPAW(h=0.25, nbands=4, kpts=(1,2,2), mode=mode, 
+            calc = GPAW(h=0.25, nbands=4, kpts=(1,2,2), mode=mode,
+                        poissonsolver={'name': 'fd'},
                         symmetry='off',
                         eigensolver=eigensolver, txt=txt)
         else:
             name = 'zero_bc'
-            calc = GPAW(h=0.25, nbands=4, mode=mode, 
+            calc = GPAW(h=0.25, nbands=4, mode=mode,
+                        poissonsolver={'name': 'fd'},
                         eigensolver=eigensolver, txt=txt)
         Be.set_calculator(calc)
         Be.get_potential_energy()
-        
+
         kss = KSSingles(calc, eps=0.9)
-        # all s->p transitions at the same energy [Ha] and 
+        # all s->p transitions at the same energy [Ha] and
         # oscillator_strength
         for ks in kss:
             equal(ks.get_energy(), kss[0].get_energy(), 5.e-3)

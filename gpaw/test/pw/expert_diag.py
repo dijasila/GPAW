@@ -18,6 +18,7 @@ for i, expert in enumerate([True, False]):
     si.center()
     calc = GPAW(mode=PW(120), kpts=(1, 1, 2),
                 eigensolver='rmm-diis',
+                parallel={'domain': 1},
                 symmetry='off', txt=name + '.txt')
     si.set_calculator(calc)
     si.get_potential_energy()
@@ -28,12 +29,12 @@ for i, expert in enumerate([True, False]):
 
 ref_revision = 133324
 # Test against values from reference revision
-epsn_n = np.array([-0.2108572 , 0.05657162, 0.17660414, 0.1766701, 0.2644755])
-wfsold_G = np.array([3.85175220 +6.63095137e-14j,
-                     27.98536984 -4.29697033e-14j,
-                     -1.95105925 +1.38780689e-14j,
-                     -0.07363307 -2.90717943e-16j,
-                     -0.32384296 +3.57917155e-15j])
+epsn_n = np.array([-0.2108572, 0.05657162, 0.17660414, 0.1766701, 0.2644755])
+wfsold_G = np.array([3.85175220 + 6.63095137e-14j,
+                     27.98536984 - 4.29697033e-14j,
+                     -1.95105925 + 1.38780689e-14j,
+                     -0.07363307 - 2.90717943e-16j,
+                     -0.32384296 + 3.57917155e-15j])
 
 
 kpt_u = wfs_e[0].kpt_u
