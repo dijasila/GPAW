@@ -43,5 +43,5 @@ def test(E, hsplit, lsplit):
     assert abs(l2 - l1 - lsplit) < 0.002
 
 
-test(E1, 0.15, 0.014)
+test(E1, 0.15, 0.002)
 test(E2, 0.15, 0.007)
