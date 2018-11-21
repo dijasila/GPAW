@@ -39,7 +39,8 @@ class LibElpa:
 
         checkerr(_gpaw.pyelpa_allocate(ptr))
         self._ptr = ptr
-        checkerr(_gpaw.pyelpa_set_comm(ptr, desc.blacsgrid.comm))
+        checkerr(_gpaw.pyelpa_set_comm(ptr,
+                                       desc.blacsgrid.comm.get_c_object()))
         self._parameters = {}
 
         self._consts = _elpaconstants()
