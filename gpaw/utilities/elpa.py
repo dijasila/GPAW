@@ -3,9 +3,19 @@ import _gpaw
 
 def _elpaconstants():
     consts = _gpaw.pyelpa_constants()
+    assert consts[0] == 0, 'ELPA_OK is {}, expected 0'.format(consts[0])
     return {'elpa_ok': consts[0],
             '1stage': consts[1],
             '2stage': consts[2]}
+
+
+class ElpaError(RuntimeError):
+    pass
+
+
+def checkerr(err):
+    if err != 0:
+        raise ElpaError('Elpa returned error code {}'.format(err))
 
 
 class LibElpa:
@@ -27,9 +37,9 @@ class LibElpa:
             raise ValueError('Row and column block size must be '
                              'identical to support Elpa')
 
-        _gpaw.pyelpa_allocate(ptr)
+        checkerr(_gpaw.pyelpa_allocate(ptr))
         self._ptr = ptr
-        _gpaw.pyelpa_set_comm(ptr, desc.blacsgrid.comm)
+        checkerr(_gpaw.pyelpa_set_comm(ptr, desc.blacsgrid.comm))
         self._parameters = {}
 
         self._consts = _elpaconstants()
@@ -47,7 +57,7 @@ class LibElpa:
         self.elpa_set(nev=nev, solver=elpasolver)
         self.desc = desc
 
-        _gpaw.pyelpa_setup(self._ptr)
+        checkerr(_gpaw.pyelpa_setup(self._ptr))
 
     @property
     def description(self):
@@ -67,21 +77,20 @@ class LibElpa:
         assert self.nev == len(eps)
         self.desc.checkassert(A)
         self.desc.checkassert(C)
-        err = _gpaw.pyelpa_diagonalize(self._ptr, A, C, eps)
-        assert err == 0
+        checkerr(_gpaw.pyelpa_diagonalize(self._ptr, A, C, eps))
 
-    def general_diagonalize(self, A, S, C, eps):
+    def general_diagonalize(self, A, S, C, eps, is_already_decomposed=0):
         assert self.nev == len(eps)
         self.desc.checkassert(A)
         self.desc.checkassert(S)
         self.desc.checkassert(C)
-        err = _gpaw.pyelpa_general_diagonalize(self._ptr, A, S, C, eps)
-        assert err == 0
+        checkerr(_gpaw.pyelpa_general_diagonalize(self._ptr, A, S, C, eps,
+                                                  is_already_decomposed))
 
     def elpa_set(self, **kwargs):
         for key, value in kwargs.items():
             # print('pyelpa_set {}={}'.format(key, value))
-            _gpaw.pyelpa_set(self._ptr, key, value)
+            checkerr(_gpaw.pyelpa_set(self._ptr, key, value))
             self._parameters[key] = value
 
     def __repr__(self):
@@ -89,5 +98,6 @@ class LibElpa:
 
     def __del__(self):
         if hasattr(self, '_ptr'):
+            # elpa_deallocate has no error flag so we don't check it
             _gpaw.pyelpa_deallocate(self._ptr)
             self._ptr[0] = 0
