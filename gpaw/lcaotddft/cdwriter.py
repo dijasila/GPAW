@@ -48,6 +48,9 @@ class CDWriter(TDDFTObserver):
         for c in range(3):
             grad.append(Gradient(gd, c, dtype=complex, n=2))
         self.grad = grad
+        self.timer=paw.timer
+        
+        self.calculate_matrix(paw)
 
 
     def _write(self, line):
@@ -89,11 +92,113 @@ class CDWriter(TDDFTObserver):
         line += 'Time = %.8lf\n' % time
         self._write(line)
 
-    def calculate_cd_moment(self, paw, center=True):
+
+    def calculate_matrix(self,paw, center=True):
+
         grad = self.grad
         gd = paw.wfs.gd
+               
+        self.timer.start('CD')
 
-        grad_psit_G = gd.empty(3, dtype=complex)
+        grad_psit_G = gd.empty(3, dtype=complex)    
+        psit1_G=gd.empty(dtype=complex)
+        psit2_G=gd.empty(dtype=complex)
+        rxnabla_a = np.zeros(3,dtype=complex)
+        # Ra x <psi1| nabla |psi2>
+        Rxnabla_a = np.zeros(3, dtype=complex)
+        Rxnabla_a2 = np.zeros(3, dtype=complex)
+
+        rxnabla_g = np.zeros(3, dtype=complex)
+        R0 = 0.5 * np.diag(paw.wfs.gd.cell_cv)
+        r_cG, r2_G = coordinates(paw.wfs.gd, origin=R0)
+ 
+        # added possibly missing loop over kpt
+
+        for kpt in paw.wfs.kpt_u:
+            # paw.wfs.atomic_correction.calculate_projections(paw.wfs, kpt)
+
+            Mstart = paw.wfs.ksl.Mstart
+            Mstop = paw.wfs.ksl.Mstop
+            self.E_cMM=np.zeros((3,Mstop,Mstop),dtype=complex)
+            C_M=np.zeros(Mstop,dtype=complex)    
+  
+            for M1 in range(Mstart, Mstop):
+            
+                C_M[:]=0
+                C_M[M1]=1
+                psit2_G[:] = 0.0
+                paw.wfs.basis_functions.lcao_to_grid(C_M, psit1_G, kpt.q)
+
+                for M2 in range(Mstart, Mstop): #XXX Doesn't work with band par
+        
+                    C_M[:]=0
+                    C_M[M2]=1
+
+                    # psit_G[:] = 0.0
+                    paw.wfs.basis_functions.lcao_to_grid(C_M, psit2_G, kpt.q)
+                    for c in range(3): 
+                         grad[c].apply(psit2_G, grad_psit_G[c],kpt.phase_cd)
+                    rxnabla_g[0] = -1j*paw.wfs.gd.integrate(psit1_G.conjugate() *
+                                                             (r_cG[1] * grad_psit_G[2] -
+                                                             r_cG[2] * grad_psit_G[1]))
+                    rxnabla_g[1] = -1j*paw.wfs.gd.integrate(psit1_G.conjugate() *
+                                                            (r_cG[2] * grad_psit_G[0] -
+                                                             r_cG[0] * grad_psit_G[2]))
+                    rxnabla_g[2] = -1j*paw.wfs.gd.integrate(psit1_G.conjugate() *
+                                                            (r_cG[0] * grad_psit_G[1] -
+                                                             r_cG[1] * grad_psit_G[0]))
+
+
+                    self.E_cMM[:,M1,M2]=rxnabla_g 
+     
+        for c in range(3):
+            self.E_cMM[c] = (self.E_cMM[c] + self.E_cMM[c].T.conjugate())/2
+
+        A=self.E_cMM[0]
+        B=self.E_cMM[1]
+        C=self.E_cMM[2]
+        #print(np.linalg.norm(A+A.T.conjugate()))
+        #print(np.linalg.norm(A-A.T.conjugate()))
+         
+        #print(np.linalg.norm(A )) 
+        #print(A)
+        #print(B)
+        #print(C)
+
+        self.timer.stop('CD')
+
+    def calculate_cd_moment(self, paw, center=True):
+
+        #print('Hello')
+        kpt = paw.wfs.kpt_u[0]
+        f_n = kpt.f_n
+        C_nM = kpt.C_nM
+        rho_MM = np.dot( C_nM.T.conjugate(), np.dot( np.diag(f_n), C_nM))
+        #print(rho_MM)
+
+        dm = []
+
+        for c in range(3):
+            dm.append( np.sum(rho_MM.ravel() * self.E_cMM[c].ravel() )) 
+        #for c in range(3):
+        #    print(np.sum( rho_MM.ravel() * self.E_cMM[c].ravel() ))
+
+        dm2=self.calculate_cd_moment2(paw)
+
+        print("New %20.15g %20.15g %20.15g" % (dm[0].real,dm[1].real,dm[2].real))
+        print("Old %20.15g %20.15g %20.15g" % (dm2[0].real,dm2[1].real,dm2[2].real))
+        
+        return dm
+
+
+    def calculate_cd_moment2(self,paw, center=True):
+        grad= self.grad
+        gd=paw.wfs.gd
+  
+        self.timer.start('CD2')
+        
+
+        grad_psit_G = gd.empty(3, dtype=complex)    
         psit_G=gd.empty(dtype=complex)
         rxnabla_a = np.zeros(3,dtype=complex)
         # Ra x <psi1| nabla |psi2>
@@ -124,7 +229,9 @@ class CDWriter(TDDFTObserver):
                 # augmentation contributions to magnetic moment
                 # <psi1| r x nabla |psi2> = <psi1| (r-Ra+Ra) x nabla |psi2>
                 #                         = <psi1| (r-Ra) x nabla |psi2> + Ra x <psi1| nabla |psi2>
-
+                
+                #print('not doing PAW')
+                #continue
 
                 # <psi1| (r-Ra) x nabla |psi2>
                 for a, P_ni in kpt.P_ani.items():
@@ -158,8 +265,10 @@ class CDWriter(TDDFTObserver):
 
         paw.wfs.gd.comm.sum(Rxnabla_a) # sum up from different procs
 
-        return rxnabla_g+ Rxnabla_a+ rxnabla_a
+        self.timer.stop('CD2')
 
+        return rxnabla_g+ Rxnabla_a+ rxnabla_a
+        
     def _write_cd(self, paw):
         time = paw.time
 
