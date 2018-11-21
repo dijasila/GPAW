@@ -123,6 +123,15 @@ class HybridXCBase(XCFunctional):
                 'xc': self.xc.todict(),
                 'omega': self.omega}
 
+    def tostring(self):
+        """Return string suitable to generate xc from string."""
+        xc_dict = self.todict()
+        for test_key in ['name', 'xc', 'kernel', 'type']:
+            if test_key in xc_dict:
+                del xc_dict[test_key]
+        return self.name + ':' + ':'.join([(k + '=' + repr(v))
+                                           for k, v in xc_dict.items()])
+
     def get_setup_name(self):
         return 'PBE'
 
