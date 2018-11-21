@@ -12,6 +12,11 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.16.1b1
 
+* Add interface to Elpa eigensolver for LCAO mode.
+  Use ``GPAW(mode='lcao', basis='dzp', parallel={'sl_auto': True, 'use_elpa': True})``
+  or see further
+  documentation on the :ref:`parallel keyword <manual_parallel>`.
+
 * Default eigensolver is now ``Davidson(niter=2)``.
 
 * Default number of bands is now `1.2 N_{\text{occ}} + 4`, where
