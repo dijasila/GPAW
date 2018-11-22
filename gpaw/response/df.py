@@ -280,7 +280,7 @@ class DielectricFunction:
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
                               calculate_chi=False, q_v=None,
-                              add_intraband=True):
+                              add_intraband=False):
         """Returns the symmetrized dielectric matrix.
 
         ::
