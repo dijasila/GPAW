@@ -1,21 +1,13 @@
 import numpy as np
 import _gpaw
 
+
 def _elpaconstants():
     consts = _gpaw.pyelpa_constants()
     assert consts[0] == 0, 'ELPA_OK is {}, expected 0'.format(consts[0])
     return {'elpa_ok': consts[0],
             '1stage': consts[1],
             '2stage': consts[2]}
-
-
-class ElpaError(RuntimeError):
-    pass
-
-
-def checkerr(err):
-    if err != 0:
-        raise ElpaError('Elpa returned error code {}'.format(err))
 
 
 class LibElpa:
@@ -37,10 +29,10 @@ class LibElpa:
             raise ValueError('Row and column block size must be '
                              'identical to support Elpa')
 
-        checkerr(_gpaw.pyelpa_allocate(ptr))
+        _gpaw.pyelpa_allocate(ptr)
         self._ptr = ptr
-        checkerr(_gpaw.pyelpa_set_comm(ptr,
-                                       desc.blacsgrid.comm.get_c_object()))
+        _gpaw.pyelpa_set_comm(ptr,
+                              desc.blacsgrid.comm.get_c_object())
         self._parameters = {}
 
         self._consts = _elpaconstants()
@@ -57,7 +49,7 @@ class LibElpa:
         self.elpa_set(nev=nev, solver=elpasolver)
         self.desc = desc
 
-        checkerr(_gpaw.pyelpa_setup(self._ptr))
+        _gpaw.pyelpa_setup(self._ptr)
 
     @property
     def description(self):
@@ -77,20 +69,26 @@ class LibElpa:
         assert self.nev == len(eps)
         self.desc.checkassert(A)
         self.desc.checkassert(C)
-        checkerr(_gpaw.pyelpa_diagonalize(self._ptr, A, C, eps))
+        _gpaw.pyelpa_diagonalize(self._ptr, A, C, eps)
 
     def general_diagonalize(self, A, S, C, eps, is_already_decomposed=0):
         assert self.nev == len(eps)
         self.desc.checkassert(A)
         self.desc.checkassert(S)
         self.desc.checkassert(C)
-        checkerr(_gpaw.pyelpa_general_diagonalize(self._ptr, A, S, C, eps,
-                                                  is_already_decomposed))
+        _gpaw.pyelpa_general_diagonalize(self._ptr, A, S, C, eps,
+                                         is_already_decomposed)
+
+    def hermitian_multiply(self, A, B, C, desca, descb, descc,
+                           uplo_a='X', uplo_c='X'):
+        
+        _gpaw.pyelpa_hermitian_multiply(self._ptr, uplo_a, uplo_c,
+                                        ncb)
 
     def elpa_set(self, **kwargs):
         for key, value in kwargs.items():
             # print('pyelpa_set {}={}'.format(key, value))
-            checkerr(_gpaw.pyelpa_set(self._ptr, key, value))
+            _gpaw.pyelpa_set(self._ptr, key, value)
             self._parameters[key] = value
 
     def __repr__(self):
