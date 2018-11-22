@@ -21,7 +21,7 @@ from gpaw.response.fxc import get_xc_kernel, get_xc_spin_kernel
 
 
 
-class SpinChargeResponseFunction:
+class DielectricFunction:
     """This class provides physical quantities related to the spin-charge response function."""
     def __init__(self, calc, name=None, frequencies=None, domega0=0.1,
                  omega2=10.0, omegamax=None, ecut=50, gammacentered=False, hilbert=True,
