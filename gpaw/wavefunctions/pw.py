@@ -31,7 +31,7 @@ class PW(Mode):
     name = 'pw'
 
     def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None,
-                 force_complex_dtype=False, addq=True):
+                 force_complex_dtype=False, gammacentered=False):
         """Plane-wave basis mode.
 
         ecut: float
@@ -40,12 +40,12 @@ class PW(Mode):
             Flags for making FFTW plan (default is ESTIMATE).
         cell: 3x3 ndarray
             Use this unit cell to chose the planewaves.
-        addq: bool
-            Include q/k-vector, when deciding on number of plane waves"""
+        gammacentered: bool
+            Center the grid of chosen plane waves around the gamma point of q/k-vector"""
 
         self.ecut = ecut / units.Hartree
         self.fftwflags = fftwflags
-        self.addq = addq
+        self.gammacentered = gammacentered
 
         if cell is None:
             self.cell_cv = None
@@ -62,7 +62,7 @@ class PW(Mode):
             volume0 = abs(np.linalg.det(self.cell_cv))
             ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
 
-        wfs = PWWaveFunctions(ecut, self.addq, self.fftwflags,
+        wfs = PWWaveFunctions(ecut, self.gammacentered, self.fftwflags,
                               diagksl, orthoksl, initksl, gd, *args,
                               **kwargs)
         return wfs
@@ -70,7 +70,7 @@ class PW(Mode):
     def todict(self):
         dct = Mode.todict(self)
         dct['ecut'] = self.ecut * units.Hartree
-        dct['addq'] = self.addq
+        dct['gammacentered'] = self.gammacentered
         if self.cell_cv is not None:
             dct['cell'] = self.cell_cv * units.Bohr
         return dct
@@ -80,7 +80,7 @@ class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
 
     def __init__(self, ecut, gd, dtype=None, kd=None,
-                 fftwflags=fftw.ESTIMATE, addq=True):
+                 fftwflags=fftw.ESTIMATE, gammacentered=False):
 
         assert gd.pbc_c.all()
         assert gd.comm.size == 1
@@ -110,7 +110,7 @@ class PWDescriptor:
             else:
                 dtype = complex
         self.dtype = dtype
-        self.addq = addq
+        self.gammacentered = gammacentered
 
         if dtype == float:
             Nr_c = N_c.copy()
@@ -155,10 +155,10 @@ class PWDescriptor:
         self.ngmax = 0
         for q, K_v in enumerate(self.K_qv):
             G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
-            if addq:
-                mask_Q = (G2_Q <= 2 * ecut)
-            else:
+            if gammacentered:
                 mask_Q = ((self.G_Qv**2).sum(axis=1) <= 2 * ecut)
+            else:
+                mask_Q = (G2_Q <= 2 * ecut)
             
             if self.dtype == float:
                 mask_Q &= ((i_Qc[:, 2] > 0) |
@@ -489,12 +489,12 @@ class Preconditioner:
 class PWWaveFunctions(FDPWWaveFunctions):
     mode = 'pw'
 
-    def __init__(self, ecut, addq, fftwflags,
+    def __init__(self, ecut, gammacentered, fftwflags,
                  diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
-        self.addq = addq
+        self.gammacentered = gammacentered
         self.fftwflags = fftwflags
 
         self.ng_k = None  # number of G-vectors for all IBZ k-points
@@ -522,7 +522,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
         self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.kd,
-                               self.fftwflags, self.addq)
+                               self.fftwflags, self.gammacentered)
         self.timer.stop('PWDescriptor')
 
         # Build array of number of plane wave coefficiants for all k-points
