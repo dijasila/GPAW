@@ -120,6 +120,8 @@ class HybridXCBase(XCFunctional):
     def todict(self):
         return {'name': self.name,
                 'hybrid': self.hybrid,
+                'excitation': self.excitation,
+                'excited': self.excited,
                 'xc': self.xc.todict(),
                 'omega': self.omega}
 
