@@ -15,7 +15,8 @@ from ase.utils.timing import Timer
 from ase.units import Bohr, Ha
 
 
-def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', xi_cut=None, density_cut=None):
+def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', chi0_wGG=None, 
+                       fxc_scaling=None, xi_cut=None, density_cut=None):
     """ XC kernels for (collinear) spin polarized calculations
     Currently only ALDA kernels are implemented
     
@@ -34,19 +35,85 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', xi_cut=None, density_cut=N
     if functional in ['ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae','ALDA_t']:
         # Adiabatic kernel
         print("Calculating %s spin kernel" % functional, file=fd)
-        if functional[-2:] == 'ae':
-            mode = 'ae'
-            functional = functional[:-3]
-        elif functional[-1] == 't':
-            mode = 'smooth'
-            functional = functional[:-2]
+        scaling = None
+        if '_' in functional:
+            f_i = functional.split('_')
+        
+            if f_i[1][:2] == 'ae':
+                mode = 'ae'
+                functional = f_i[0]
+            elif f_i[1] == 't':
+                mode = 'smooth'
+                functional = f_i[0]
+            elif f_i[1] in ['x','X']:
+                mode = 'PAW'
+                functional = '_'.join(f_i)
+            else:
+                mode = 'PAW'
+                functional = f_i[0]
         else:
             mode = 'PAW'
-        Kcalc = ALDASpinKernelCalculator(fd, mode, ecut=chi0.ecut, xi_cut=xi_cut, density_cut=density_cut)
+        
+        Kcalc = ALDASpinKernelCalculator(fd, mode, ecut=chi0.ecut, 
+                                         xi_cut=xi_cut, density_cut=density_cut)
     else:
         raise ValueError("%s spin kernel not implemented" % functional)
     
-    return Kcalc(pd, calc, functional)
+    Kxc_GG = Kcalc(pd, calc, functional)
+    
+    if fxc_scaling is not None:
+        assert isinstance(fxc_scaling[0], bool)
+        if fxc_scaling[0] and fxc_scaling[1] is None:
+            # If True q should be gamma - scale to hit Goldstone
+            assert pd.kd.gamma
+
+            omega_w = chi0.omega_w
+            wgs = np.abs(omega_w).argmin()
+
+            if not np.allclose(omega_w[wgs], 0., rtol=1.e-8):
+                raise ValueError("Frequency grid needs to include omega=0. to allow Goldstone scaling")
+
+            fxcs = 1.    
+            print("Finding rescaling of kernel to fulfill the Goldstone theorem", file=fd)
+
+            world = chi0.world
+            # Only one rank, rgs, has omega=0 and finds rescaling
+            nw = len(omega_w)
+            mynw = (nw + world.size - 1) // world.size
+            rgs, mywgs = wgs // mynw, wgs % mynw
+            fxcsbuf = np.empty(1, dtype=float)
+            if world.rank == rgs:
+                schi0_GG = chi0_wGG[mywgs]
+                schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
+                                               np.dot(schi0_GG, Kxc_GG*fxcs)),
+                                 schi0_GG)
+                # Scale so that kappaM=0 in the static limit (omega=0) 
+                skappaM = (schi0_GG[0,0]/schi_GG[0,0]).real
+                # If kappaM > 0, increase scaling (recall: kappaM ~ 1 - Kxc Re{chi_0})
+                scaling_incr = 0.1*np.sign(skappaM)
+                while abs(skappaM) > 1.e-7 and abs(scaling_incr) > 1.e-7:
+                    fxcs += scaling_incr
+                    if fxcs <= 0.0 or fxcs >= 10.:
+                        raise Exception('Found an invalid fxc_scaling of %.4f' % fxcs)
+
+                    schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
+                                                   np.dot(schi0_GG, Kxc_GG*fxcs)),
+                                     schi0_GG)
+                    skappaM = (schi0_GG[0,0]/schi_GG[0,0]).real
+
+                    # If kappaM changes sign, change sign and refine increment
+                    if np.sign(skappaM) != np.sign(scaling_incr):
+                        scaling_incr *= -0.2
+                fxcsbuf[:] = fxcs
+
+            # Broadcast found rescaling  
+            world.broadcast(fxcsbuf, rgs)
+            fxc_scaling[1] = fxcsbuf[0]
+        
+        assert isinstance(fxc_scaling[1], float)
+        Kxc_GG *= fxc_scaling[1]
+    
+    return Kxc_GG
 
 
 def get_xc_kernel(pd, chi0, functional='ALDA', chi0_wGG=None, density_cut=None):

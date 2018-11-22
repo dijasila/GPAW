@@ -442,7 +442,7 @@ class Chi0:
                                                             chi0_wxvG,
                                                             chi0_wvv,
                                                             m1, m2, spins)
-
+        
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     @timer('Calculate CHI_0')
