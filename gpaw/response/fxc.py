@@ -47,55 +47,12 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', RSrep='gpaw',
     
     if fxc_scaling is not None:
         assert isinstance(fxc_scaling[0], bool)
-        if fxc_scaling[0] and fxc_scaling[1] is None:
-            # If True q should be gamma - scale to hit Goldstone
-            assert pd.kd.gamma
-
-            omega_w = chi0.omega_w
-            wgs = np.abs(omega_w).argmin()
-
-            if not np.allclose(omega_w[wgs], 0., rtol=1.e-8):
-                raise ValueError("Frequency grid needs to include omega=0. to allow Goldstone scaling")
-
-            fxcs = 1.    
-            print("Finding rescaling of kernel to fulfill the Goldstone theorem", file=fd)
-
-            world = chi0.world
-            # Only one rank, rgs, has omega=0 and finds rescaling
-            nw = len(omega_w)
-            mynw = (nw + world.size - 1) // world.size
-            rgs, mywgs = wgs // mynw, wgs % mynw
-            fxcsbuf = np.empty(1, dtype=float)
-            if world.rank == rgs:
-                schi0_GG = chi0_wGG[mywgs]
-                schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
-                                               np.dot(schi0_GG, Kxc_GG*fxcs)),
-                                 schi0_GG)
-                # Scale so that kappaM=0 in the static limit (omega=0) 
-                skappaM = (schi0_GG[0,0]/schi_GG[0,0]).real
-                # If kappaM > 0, increase scaling (recall: kappaM ~ 1 - Kxc Re{chi_0})
-                scaling_incr = 0.1*np.sign(skappaM)
-                while abs(skappaM) > 1.e-7 and abs(scaling_incr) > 1.e-7:
-                    fxcs += scaling_incr
-                    if fxcs <= 0.0 or fxcs >= 10.:
-                        raise Exception('Found an invalid fxc_scaling of %.4f' % fxcs)
-
-                    schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
-                                                   np.dot(schi0_GG, Kxc_GG*fxcs)),
-                                     schi0_GG)
-                    skappaM = (schi0_GG[0,0]/schi_GG[0,0]).real
-
-                    # If kappaM changes sign, change sign and refine increment
-                    if np.sign(skappaM) != np.sign(scaling_incr):
-                        scaling_incr *= -0.2
-                fxcsbuf[:] = fxcs
-
-            # Broadcast found rescaling  
-            world.broadcast(fxcsbuf, rgs)
-            fxc_scaling[1] = fxcsbuf[0]
+        if fxc_scaling[0]:
+            if fxc_scaling[1] is None:
+                fxc_scaling[1] = find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG)
         
-        assert isinstance(fxc_scaling[1], float)
-        Kxc_GG *= fxc_scaling[1]
+            assert isinstance(fxc_scaling[1], float)
+            Kxc_GG *= fxc_scaling[1]
     
     return Kxc_GG
 
@@ -538,6 +495,58 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
             fc_G = 2. * ac_G / n_G
             
             return fx_G + fc_G
+
+
+def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
+    """ Find a scaling of the kernel to move the magnon peak to omeaga=0. """
+    # If True q should be gamma - scale to hit Goldstone
+    assert pd.kd.gamma
+    
+    fd = chi0.fd
+    omega_w = chi0.omega_w
+    wgs = np.abs(omega_w).argmin()
+
+    if not np.allclose(omega_w[wgs], 0., rtol=1.e-8):
+        raise ValueError("Frequency grid needs to include omega=0. to allow Goldstone scaling")
+
+    fxcs = 1.    
+    print("Finding rescaling of kernel to fulfill the Goldstone theorem", file=fd)
+
+    world = chi0.world
+    # Only one rank, rgs, has omega=0 and finds rescaling
+    nw = len(omega_w)
+    mynw = (nw + world.size - 1) // world.size
+    rgs, mywgs = wgs // mynw, wgs % mynw
+    fxcsbuf = np.empty(1, dtype=float)
+    if world.rank == rgs:
+        schi0_GG = chi0_wGG[mywgs]
+        schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
+                                       np.dot(schi0_GG, Kxc_GG*fxcs)),
+                         schi0_GG)
+        # Scale so that kappaM=0 in the static limit (omega=0) 
+        skappaM = (schi0_GG[0,0]/schi_GG[0,0]).real
+        # If kappaM > 0, increase scaling (recall: kappaM ~ 1 - Kxc Re{chi_0})
+        scaling_incr = 0.1*np.sign(skappaM)
+        while abs(skappaM) > 1.e-7 and abs(scaling_incr) > 1.e-7:
+            fxcs += scaling_incr
+            if fxcs <= 0.0 or fxcs >= 10.:
+                raise Exception('Found an invalid fxc_scaling of %.4f' % fxcs)
+
+            schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
+                                           np.dot(schi0_GG, Kxc_GG*fxcs)),
+                             schi0_GG)
+            skappaM = (schi0_GG[0,0]/schi_GG[0,0]).real
+
+            # If kappaM changes sign, change sign and refine increment
+            if np.sign(skappaM) != np.sign(scaling_incr):
+                scaling_incr *= -0.2
+        fxcsbuf[:] = fxcs
+
+    # Broadcast found rescaling  
+    world.broadcast(fxcsbuf, rgs)
+    fxcs = fxcsbuf[0]
+    
+    return fxcs
 
 
 def calculate_lr_kernel(pd, calc, alpha=0.2):
