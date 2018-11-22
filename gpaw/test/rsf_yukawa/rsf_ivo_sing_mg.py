@@ -10,6 +10,7 @@ from gpaw.lrtddft import LrTDDFT
 
 h = 0.35  # Grispacing
 e_singlet = 4.61
+e_singlet_lr = 3.26
 
 if setup_paths[0] != '.':
     setup_paths.insert(0, '.')
@@ -36,6 +37,6 @@ if mpi.rank == 0:
     lr2 = LrTDDFT('LCY_TDDFT_Mg.ex.gz')
     lr2.diagonalize()
     ex_lr = lr2[0].get_energy() * Hartree
-    equal(ex_lr, e_ex, 0.3)
+    equal(e_singlet_lr, ex_lr, 0.15)
 
 
