@@ -36,14 +36,11 @@ lr = LrTDDFT(calc_plus, txt='LCY_TDDFT_O.log', istart=3, jend=4)
 equal(lr.xc.omega, 0.83)
 lr.write('LCY_TDDFT_O.ex.gz')
 e_ion = 13.62
+ip_i = 37.43
 # reading is problematic with EXX on more than one core
 if mpi.rank == 0:
     lr2 = LrTDDFT('LCY_TDDFT_O.ex.gz')
     lr2.diagonalize()
     equal(lr2.xc.omega, 0.83)
-
-    # for i, ip_i in enumerate([14.74, 18.51]):  # 0.3 grid and all states
-    for i, ip_i in enumerate([35.55]):
-        ion_i = lr2[i].get_energy() * Hartree + e_ion
-        print(ion_i, ip_i)
-        equal(ion_i, ip_i, 6.0)
+    ion_i = lr2[0].get_energy() * Hartree + e_ion
+    equal(ion_i, ip_i, 0.3)
