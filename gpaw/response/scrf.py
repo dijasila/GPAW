@@ -327,8 +327,6 @@ class SpinChargeResponseFunction:
                     chi_GG /= vsqr_G * vsqr_G[:, np.newaxis]
                 chi_wGG.append(chi_GG)
             
-            return pd, chi0_wGG, np.array(chi_wGG)
-            
         # Spin response
         else:
             Kxc_GG = get_xc_spin_kernel(pd,
@@ -339,167 +337,62 @@ class SpinChargeResponseFunction:
                                         xi_cut=xi_cut,
                                         density_cut=density_cut)
             
-            '''
-            # Find fxc_scaling if not specified
-            if fxc_scaling is None:
-                fxc_scaling = 1.0
-                if np.allclose(self.omega_w[0], 0., rtol=1.e-8):
-                    parprint("Finding rescaling to fulfill the Goldstone theorem")
-                
-                    world = self.chi0.world
-                    # Only rank 0 has w=0 and finds rescaling
-                    fxc_sbuf = np.empty(1, dtype=float)
-                    if world.rank == 0:
-                        schi0_GG = chi0_wGG[0]
-                        schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
-                                                       np.dot(schi0_GG, Kxc_GG*fxc_scaling)),
-                                         schi0_GG)
-                        # Scale so that kappaM=0 in the static limit (w=0) 
-                        skappaM = (schi0_GG[0,0]/schi_GG[0,0]).real
-                        # If kappaM > 0, increase scaling (recall: kappaM ~ 1 - Kxc Re{chi_0})
-                        scaling_incr = 0.1*np.sign(skappaM)
-                        while abs(skappaM) > 1.e-8 and abs(scaling_incr) > 1.e-8:
-                            fxc_scaling += scaling_incr
-                            if fxc_scaling <= 0.0 or fxc_scaling >= 10.:
-                                parprint('Found an invalid fxc_scaling of %.4f during scaling' % fxc_scaling)
-                                parprint('Not using fxc_scaling for now')
-                                fxc_scaling = 1.0
-                                break;
-
-                            schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
-                                                           np.dot(schi0_GG, Kxc_GG*fxc_scaling)),
-                                             schi0_GG)
-                            skappaM = (schi0_GG[0,0]/schi_GG[0,0]).real
-
-                            # If kappaM changes sign, change sign and refine increment
-                            if np.sign(skappaM) != np.sign(scaling_incr):
-                                scaling_incr *= -0.2
-                        fxc_sbuf[:] = fxc_scaling
-
-                    # Broadcast found rescaling  
-                    world.broadcast(fxc_sbuf, 0)
-                    fxc_scaling = fxc_sbuf[0]
-            
-            # If user specifies fxc_scaling=1., change it to None
-            if np.allclose(fxc_scaling, 1.0, rtol=1.e-8):
-                fxc_scaling = None
-            '''
-            
-            chi_wGG = []
-            chis_wGG = []
             # Invert Dyson equation
+            chi_wGG = []
             for chi0_GG in chi0_wGG:
                 chi_GG = np.dot(np.linalg.inv(np.eye(len(chi0_GG)) -
                                               np.dot(chi0_GG, Kxc_GG)),
                                 chi0_GG)
                 
                 chi_wGG.append(chi_GG)
-                
-                if fxc_scaling is not None:
-                    chis_GG = np.dot(np.linalg.inv(np.eye(len(chi0_GG)) -
-                                                   np.dot(chi0_GG, Kxc_GG*fxc_scaling[1])),
-                                     chi0_GG)
-                    
-                    chis_wGG.append(chis_GG)
-                
-            #return pd, chi0_wGG, np.array(chi_wGG), None, fxc_scaling
-            
-            if fxc_scaling is None:
-                return pd, chi0_wGG, np.array(chi_wGG), None, None
-            else:
-                return pd, chi0_wGG, np.array(chi_wGG), np.array(chis_wGG), fxc_scaling
-            
+
+        return pd, chi0_wGG, np.array(chi_wGG)            
     
     
-    def get_density_response_function(self, Kxc='RPA', q_c=[0, 0, 0], q_v=None,
-                                      direction='x', density_cut=None,
-                                      filename='drf.csv'):
-        """Calculate the density response function.
-        
-        Returns macroscopic density response function:
-        drf0_w, drf_w = SpinChargeResponseFunction.get_density_response_function()
-        
-        """
-        
-        self.chi0.set_response('density')
-        
-        pd, chi0_wGG, chi_wGG = self.get_chi(Kxc=Kxc, q_c=q_c, direction=direction, 
-                                             return_VchiV = False, density_cut=density_cut)
-        
-        drf0_w = np.zeros(len(chi_wGG), dtype=complex)
-        drf_w = np.zeros(len(chi_wGG), dtype=complex)
-
-        for w, (chi0_GG, chi_GG) in enumerate(zip(chi0_wGG, chi_wGG)):
-            drf0_w[w] = chi0_GG[0, 0]
-            drf_w[w] = chi_GG[0, 0]
-
-        drf0_w = self.collect(drf0_w)
-        drf_w = self.collect(drf_w)
-
-        if filename is not None and mpi.rank == 0:
-            with open(filename, 'w') as fd:
-                for omega, drf0, drf in zip(self.omega_w * Hartree,
-                                                  drf0_w,
-                                                  drf_w):
-                    print('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                          (omega, drf0.real, drf0.imag, drf.real, drf.imag),
-                          file=fd)
-
-        return drf0_w, drf_w    
-
-    def get_spin_response_function(self, Kxc='ALDA', q_c=[0, 0, 0], q_v=None,
-                                   flip='pm', xi_cut=None, density_cut=None,
-                                   fxc_scaling=None, filename='srf.csv'):
-        """Calculate the spin response function.
+    def get_scattering_function(self, Kxc='ALDA', q_c=[0, 0, 0], 
+                                q_v=None,
+                                xi_cut=None, density_cut=None,
+                                fxc_scaling=None, 
+                                filename='sf.csv'):
+        """Calculate the scattering function.
          
-        Returns macroscopic spin response function:
-        srf0_w, srf_w = SpinChargeResponseFunction.get_spin_response_function()
+        Returns macroscopic(could be generalized?) scattering function:
+        sf0_w, sf_w = SpinChargeResponseFunction.get_scattering_function()
         """
-              
-        self.chi0.set_response('spin') 
+        
+        ### For transverse majority-monirity scattering function -> generalize! ###
+        self.chi0.set_response('spin')
+        flip = 'pm'
         assert self.chi0.eta > 0.0
         assert not self.chi0.hilbert
         assert not self.chi0.timeordered
         assert self.chi0.disable_point_group
         assert self.chi0.disable_time_reversal
+        ###########################################################################
         
-        pd, chi0_wGG, chi_wGG, chis_wGG, fxc_scaling = self.get_chi(Kxc=Kxc, q_c=q_c, spin=flip,
-                                                                    xi_cut=xi_cut, 
-                                                                    density_cut=density_cut,
-                                                                    fxc_scaling=fxc_scaling)
+        pd, chi0_wGG, chi_wGG = self.get_chi(Kxc=Kxc, q_c=q_c, 
+                                             spin=flip,
+                                             xi_cut=xi_cut, density_cut=density_cut,
+                                             fxc_scaling=fxc_scaling)
         
-        srf0_w = np.zeros(len(chi_wGG), dtype=complex)
-        srf_w = np.zeros(len(chi_wGG), dtype=complex)
-        srfs_w = np.zeros(len(chi_wGG), dtype=complex)
+        rf0_w = np.zeros(len(chi_wGG), dtype=complex)
+        rf_w = np.zeros(len(chi_wGG), dtype=complex)
         
-        if fxc_scaling is None:
-            for w, (chi0_GG, chi_GG) in enumerate(zip(chi0_wGG, chi_wGG)):
-                srf0_w[w] = chi0_GG[0, 0]
-                srf_w[w] = chi_GG[0, 0]
-                srfs_w[w] = (1.+1.j)*np.nan
-        else:
-            for w, (chi0_GG, chi_GG, chis_GG) in enumerate(zip(chi0_wGG, chi_wGG, chis_wGG)):
-                srf0_w[w] = chi0_GG[0, 0]
-                srf_w[w] = chi_GG[0, 0]
-                srfs_w[w] = chis_GG[0, 0]
+        for w, (chi0_GG, chi_GG) in enumerate(zip(chi0_wGG, chi_wGG)):
+            rf0_w[w] = chi0_GG[0, 0]
+            rf_w[w] = chi_GG[0, 0]
 
-        srf0_w = self.collect(srf0_w)
-        srf_w = self.collect(srf_w)
-        srfs_w = self.collect(srfs_w)
+        rf0_w = self.collect(rf0_w)
+        rf_w = self.collect(rf_w)
 
         if filename is not None and mpi.rank == 0:
             with open(filename, 'w') as fd:
-                for omega, srf0, srf, srfs in zip(self.omega_w * Hartree,
-                                                  srf0_w, srf_w, srfs_w):
-                    print('%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f' %
-                          (omega, srf0.real, srf0.imag, 
-                           srf.real, srf.imag, srfs.real, srfs.imag),
+                for omega, rf0, rf in zip(self.omega_w * Hartree, rf0_w, rf_w):
+                    print('%.6f, %.6f, %.6f, %.6f, %.6f' %
+                          (omega, rf0.real, rf0.imag, rf.real, rf.imag),
                           file=fd)
-        
-        if fxc_scaling is None:
-            return srf0_w, srf_w, None, None
-        else:
-            return srf0_w, srf_w, srfs_w, fxc_scaling
+
+        return rf0_w, rf_w
     
     def get_dielectric_matrix(self, Kxc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
