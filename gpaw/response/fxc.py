@@ -15,15 +15,18 @@ from ase.utils.timing import Timer
 from ase.units import Bohr, Ha
 
 
-def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', chi0_wGG=None, 
-                       fxc_scaling=None, xi_cut=None, density_cut=None):
+def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', RSrep='gpaw',
+                       chi0_wGG=None, fxc_scaling=None, 
+                       xi_cut=None, density_cut=None):
     """ XC kernels for (collinear) spin polarized calculations
     Currently only ALDA kernels are implemented
     
-    xi_cut: float
+    RSrep : str
+        real space representation of kernel ('gpaw' or 'grid')
+    xi_cut : float
         cutoff spin polarization below which f_xc is evaluated in unpolarized limit
         (mostly a problem, when some volume elements are exactly spin neutral).
-    density_cut: float
+    density_cut : float
         cutoff density below which f_xc is set to zero
     """
     
@@ -32,26 +35,10 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', chi0_wGG=None,
     nspins = len(calc.density.nt_sG)
     assert nspins == 2
     
-    if functional in ['ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae']:
+    if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
         # Adiabatic kernel
         print("Calculating %s spin kernel" % functional, file=fd)
-        scaling = None
-        if '_' in functional:
-            f_i = functional.split('_')
-        
-            if f_i[1][:2] == 'ae':
-                mode = 'ae'
-                functional = f_i[0]
-            elif f_i[1] in ['x','X']:
-                mode = 'PAW'
-                functional = '_'.join(f_i)
-            else:
-                mode = 'PAW'
-                functional = f_i[0]
-        else:
-            mode = 'PAW'
-        
-        Kcalc = ALDASpinKernelCalculator(fd, mode, ecut=chi0.ecut, 
+        Kcalc = ALDASpinKernelCalculator(fd, RSrep, ecut=chi0.ecut, 
                                          xi_cut=xi_cut, density_cut=density_cut)
     else:
         raise ValueError("%s spin kernel not implemented" % functional)
@@ -300,9 +287,9 @@ class ALDAKernelCalculator:
     ALDA_X uses the libxc package
     """
     
-    def __init__(self, fd, mode, ecut=None):
+    def __init__(self, fd, RSrep, ecut=None):
         self.fd = fd
-        self.mode = mode
+        self.RSrep = RSrep
         self.ecut = ecut
         self.functional = None
     
@@ -314,7 +301,7 @@ class ALDAKernelCalculator:
         vol = pd.gd.volume
         npw = pd.ngmax
         
-        if self.mode == 'ae':
+        if self.RSrep == 'grid':
             print("\tFinding all-electron density", file=self.fd)
             n_sG, gd = calc.density.get_all_electron_density(atoms=calc.atoms, gridrefinement=1)
             qd = pd.kd
@@ -350,7 +337,7 @@ class ALDAKernelCalculator:
                 if (abs(ijQ_c) < nG // 2).all():
                     Kxc_GG[iG, jG] = tmp_g[tuple(ijQ_c)]
         
-        if self.mode == 'PAW':
+        if self.RSrep == 'gpaw':
             print("\tCalculating PAW corrections to the kernel", file=self.fd)
             
             G_Gv = pd.get_reciprocal_vectors()
@@ -463,11 +450,11 @@ class ALDAKernelCalculator:
     
     
 class ALDASpinKernelCalculator(ALDAKernelCalculator):
-    def __init__(self, fd, mode, ecut=None, xi_cut=None, density_cut=None):
+    def __init__(self, fd, RSrep, ecut=None, xi_cut=None, density_cut=None):
         self.xi_cut = xi_cut
         self.density_cut = density_cut
         
-        ALDAKernelCalculator.__init__(self, fd, mode, ecut)
+        ALDAKernelCalculator.__init__(self, fd, RSrep, ecut)
     
     def add_fxc(self, gd, n_sG, fxc_G):
         """ Calculate fxc, using the cutoffs from input above """

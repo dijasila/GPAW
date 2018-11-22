@@ -239,6 +239,7 @@ class SpinChargeResponseFunction:
 
     def get_chi(self, Kxc='RPA', q_c=[0, 0, 0], spin='all',
                 direction='x', return_VchiV=True, q_v=None,
+                RSrep='gpaw',
                 xi_cut=None, density_cut=None, fxc_scaling=None):
         """ Returns v^1/2 chi v^1/2 for the density response and chi for the
         spin response. The truncated Coulomb interaction is included as 
@@ -250,6 +251,8 @@ class SpinChargeResponseFunction:
             If 0 or 1, only include this specific spin.
             If 'pm' calculate chi^{+-}_0
             If 'mp' calculate chi^{-+}_0
+        RSrep : str
+            real space representation of kernel ('gpaw' or 'grid')
         xi_cut : float
             cutoff spin polarization below which f_xc is evaluated in 
             unpolarized limit (to make sure divergent terms cancel out correctly)
@@ -267,7 +270,7 @@ class SpinChargeResponseFunction:
         assert response in ('density', 'spin')
         if response == 'spin':
             assert spin in ('pm', 'mp')
-            assert Kxc in ('ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae', 'ALDA_gs', 'ALDA_aegs')
+            assert Kxc in ('ALDA_x', 'ALDA_X', 'ALDA')
         
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
         
@@ -334,6 +337,7 @@ class SpinChargeResponseFunction:
             Kxc_GG = get_xc_spin_kernel(pd,
                                         self.chi0,
                                         functional=Kxc,
+                                        RSrep=RSrep,
                                         chi0_wGG=chi0_wGG,
                                         fxc_scaling=fxc_scaling,
                                         xi_cut=xi_cut,
@@ -353,6 +357,7 @@ class SpinChargeResponseFunction:
     
     def get_scattering_function(self, Kxc='ALDA', q_c=[0, 0, 0], 
                                 q_v=None,
+                                RSrep='gpaw',
                                 xi_cut=None, density_cut=None,
                                 fxc_scaling=None, 
                                 filename='sf.csv'):
@@ -374,6 +379,7 @@ class SpinChargeResponseFunction:
         
         pd, chi0_wGG, chi_wGG = self.get_chi(Kxc=Kxc, q_c=q_c, 
                                              spin=flip,
+                                             RSrep=RSrep,
                                              xi_cut=xi_cut, density_cut=density_cut,
                                              fxc_scaling=fxc_scaling)
         
