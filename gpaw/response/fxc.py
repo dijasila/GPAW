@@ -32,7 +32,7 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', chi0_wGG=None,
     nspins = len(calc.density.nt_sG)
     assert nspins == 2
     
-    if functional in ['ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae','ALDA_t']:
+    if functional in ['ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae']:
         # Adiabatic kernel
         print("Calculating %s spin kernel" % functional, file=fd)
         scaling = None
@@ -41,9 +41,6 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', chi0_wGG=None,
         
             if f_i[1][:2] == 'ae':
                 mode = 'ae'
-                functional = f_i[0]
-            elif f_i[1] == 't':
-                mode = 'smooth'
                 functional = f_i[0]
             elif f_i[1] in ['x','X']:
                 mode = 'PAW'
@@ -323,7 +320,7 @@ class ALDAKernelCalculator:
             qd = pd.kd
             lpd = PWDescriptor(self.ecut, gd, complex, qd, addq=pd.addq)
             
-            print("\tCalculating fxc on real space grid", file=self.fd)
+            print("\tCalculating fxc on real space grid using all-electron density", file=self.fd)
             fxc_G = np.zeros(np.shape(n_sG[0]))
             add_fxc(gd, n_sG, fxc_G)
             
@@ -332,7 +329,7 @@ class ALDAKernelCalculator:
             nt_sG = calc.density.nt_sG
             gd, lpd = pd.gd, pd
             
-            print("\tCalculating fxc on real space grid", file=self.fd)
+            print("\tCalculating fxc on real space grid using smooth density", file=self.fd)
             fxc_G = np.zeros(np.shape(nt_sG[0]))
             add_fxc(gd, nt_sG, fxc_G)
         

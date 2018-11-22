@@ -265,7 +265,7 @@ class SpinChargeResponseFunction:
         assert response in ('density', 'spin')
         if response == 'spin':
             assert spin in ('pm', 'mp')
-            assert Kxc in ('ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae', 'ALDA_t', 'ALDA_gs', 'ALDA_aegs')
+            assert Kxc in ('ALDA_x', 'ALDA_X', 'ALDA', 'ALDA_ae', 'ALDA_gs', 'ALDA_aegs')
         
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
         
