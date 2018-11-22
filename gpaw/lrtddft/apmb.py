@@ -65,6 +65,20 @@ class ApmB(OmegaMatrix):
         integrals = {}
         if yukawa:
             rsf_integrals = {}
+        # setup things for IVOs
+        if self.xc.excitation is not None or self.xc.excited != 0:
+            sin_tri_weight = 1
+            if self.xc.excitation is not None:
+                ex_type = self.xc.excitation.lower()
+                if ex_type == 'singlet':
+                    sin_tri_weight = 2
+                elif ex_type == 'triplet':
+                    sin_tri_weight = 0
+            homo = int(self.paw.get_number_of_electrons() // 2)
+            ivo_l = homo - self.xc.excited - 1
+        else:
+            ivo_l = None
+        
 
         for ij in range(nij):
             print('RPAhyb kss[' + '%d' % ij + ']=', kss[ij], file=self.txt)
@@ -165,6 +179,34 @@ class ApmB(OmegaMatrix):
                 print('HF estimated time left',
                       self.time_left(timer, t0, ij, nij), file=self.txt)
 
+        if ivo_l is not None:
+            # IVO RPA after Berman, Kaldor, Chem. Phys. 43 (3) 1979
+            # doi: 10.1016/0301-0104(79)85205-2
+            l = ivo_l
+            for ij in range(nij):
+                i = kss[ij].i
+                j = kss[ij].j
+                s = kss[ij].spin
+                for kq in range(ij, nij):
+                    if kss[kq].i == i and kss[ij].pspin == kss[kq].pspin:
+                        k = kss[kq].i
+                        q = kss[kq].j
+                        jqll = self.Coulomb_integral_ijkq(j, q, l, l, s,
+                                                          integrals)
+                        jllq = self.Coulomb_integral_ijkq(j, l, l, q, s,
+                                                          integrals)
+                        if yukawa:
+                            jqll -= self.Coulomb_integral_ijkq(j, q, l, l, s,
+                                                               rsf_integrals,
+                                                               yukawa)
+                            jllq -= self.Coulomb_integral_ijkq(j, l, l, q, s,
+                                                               rsf_integrals,
+                                                               yukawa)
+                        jllq *= sin_tri_weight
+                        ApB[ij, kq] += weight * (jqll - jllq)
+                        AmB[ij, kq] += weight * (jqll - jllq)
+                        ApB[kq, ij] = ApB[ij, kq]
+                        AmB[kq, ij] = AmB[ij, kq]
         return AmB
 
     def Coulomb_integral_name(self, i, j, k, l, spin):
