@@ -73,6 +73,7 @@ def gen(symbol, exx=False, name=None, yukawa_gamma=None, **kwargs):
 
 
 tests = [
+    'electronphonon.py',
     'linalg/gemm_complex.py',
     'ase_features/ase3k_version.py',
     'kpt.py',
