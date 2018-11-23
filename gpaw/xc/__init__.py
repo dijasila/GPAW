@@ -15,7 +15,7 @@ class XCThread(Thread):
         self.xc = xc
 
     def run(self):
-        self.Exc = self.xc.calculate(*self._Thread__args)
+        self.Exc = self.xc.calculate(*self._Thread__args, only_local=True)
 
     def join(self):
         Thread.join(self)

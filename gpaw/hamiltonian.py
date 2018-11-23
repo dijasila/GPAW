@@ -627,7 +627,8 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
                                            charge=-density.charge)
         if self.use_xc_thread:
-            Exc = xc_thread.join()
+            e_g = xc_thread.join()
+            Exc = self.finegd.integrate(e_g)
             Exc /= self.finegd.comm.size
             self.timer.stop('XC 3D grid + Poisson')
         else:
