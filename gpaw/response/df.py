@@ -285,12 +285,12 @@ class DielectricFunction:
                     self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
                 else:
                     self.wstc = None
-                    Ktrunc_G = get_coulomb_kernel(pd,
-                                                  N_c,
-                                                  truncation=self.truncation,
-                                                  wstc=self.wstc,
-                                                  q_v=q_v)
-                    K_GG = np.diag(Ktrunc_G / Kbare_G)
+                Ktrunc_G = get_coulomb_kernel(pd,
+                                              N_c,
+                                              truncation=self.truncation,
+                                              wstc=self.wstc,
+                                              q_v=q_v)
+                K_GG = np.diag(Ktrunc_G / Kbare_G)
             else:
                 K_GG = np.eye(nG, dtype=complex)
                
