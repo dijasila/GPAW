@@ -474,8 +474,8 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
         assert np.shape(m_G) == np.shape(n_sG[0])
         
         if self.functional == 'ALDA_x':
-            fx_G = - (6. / np.pi)**(1. / 3.)
-            * (n_sG[0]**(1. / 3.) - n_sG[1]**(1. / 3.)) / m_G
+            fx_G = - (6. / np.pi)**(1. / 3.) \
+                * (n_sG[0]**(1. / 3.) - n_sG[1]**(1. / 3.)) / m_G
             return fx_G
         else:
             v_sG = np.zeros(np.shape(n_sG))
