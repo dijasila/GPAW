@@ -495,9 +495,15 @@ class GPAW(PAW, Calculator):
 
         natoms = len(atoms)
 
+        mode = par.mode
+        if isinstance(mode, basestring):
+            mode = {'name': mode}
+        if isinstance(mode, dict):
+            mode = create_wave_function_mode(**mode)
+
         cell_cv = atoms.get_cell() / Bohr
         number_of_lattice_vectors = cell_cv.any(axis=1).sum()
-        if number_of_lattice_vectors < 3:
+        if number_of_lattice_vectors < 3 and mode.name != 'tb':
             raise ValueError(
                 'GPAW requires 3 lattice vectors.  Your system has {}.'
                 .format(number_of_lattice_vectors))
@@ -525,12 +531,6 @@ class GPAW(PAW, Calculator):
                 xc = par.xc
         else:
             xc = self.hamiltonian.xc
-
-        mode = par.mode
-        if isinstance(mode, basestring):
-            mode = {'name': mode}
-        if isinstance(mode, dict):
-            mode = create_wave_function_mode(**mode)
 
         if par.dtype == complex:
             warnings.warn('Use mode={}(..., force_complex_dtype=True) '
