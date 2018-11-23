@@ -56,6 +56,6 @@ w0, I0 = findpeak(w_w[:1100], alpha_w.imag[:1100])
 w1, I1 = findpeak(w_w[1100:1300], alpha_w.imag[1100:1300])
 w1 += 1.1
 equal(w0, 1.01, 0.01)
-equal(I0, 13.50, 0.1)
+equal(I0, 13.66, 0.2)
 equal(w1, 1.17, 0.01)
-equal(I1, 12.76, 0.1)
+equal(I1, 12.76, 0.2)
