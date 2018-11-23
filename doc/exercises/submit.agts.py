@@ -1,33 +1,37 @@
-def agts(queue):
-    queue.add('water/h2o.py', ncpus=1)
-    queue.add('wavefunctions/CO.py', ncpus=8)
-    queue.add('aluminium/Al_fcc.py', ncpus=2)
-    queue.add('aluminium/Al_bcc.py', ncpus=2)
-    queue.add('aluminium/Al_fcc_vs_bcc.py', ncpus=2)
-    queue.add('aluminium/Al_fcc_modified.py', ncpus=2)
-    queue.add('diffusion/initial.py', ncpus=2)
-    sol = queue.add('diffusion/solution.py', ncpus=2)
-    queue.add('diffusion/densitydiff.py', deps=[sol])
-    si = queue.add('wannier/si.py', ncpus=8)
-    queue.add('wannier/wannier-si.py', deps=[si])
-    benzene = queue.add('wannier/benzene.py', ncpus=8)
-    queue.add('wannier/wannier-benzene.py', deps=[benzene])
-    band = queue.add('band_structure/ag.py', ncpus=1, creates='Ag.png')
-    h2o = queue.add('vibrations/h2o.py', ncpus=8)
-    h2ovib = queue.add('vibrations/H2O_vib.py', ncpus=8, deps=[h2o])
-    queue.add('vibrations/H2O_vib_2.py', ncpus=4, deps=[h2ovib])
-    ferro = queue.add('iron/ferro.py', ncpus=4)
-    anti = queue.add('iron/anti.py', ncpus=4)
-    non = queue.add('iron/non.py', ncpus=2)
-    queue.add('iron/PBE.py', deps=[ferro, anti, non])
-    queue.add('eels/test.py', deps=band)
-    queue.add('gw/test.py')
-    rpa_si_exxgs = queue.add('rpa/si.pbe.py')
-    queue.add('rpa/si.pbe+exx.py', deps=rpa_si_exxgs, ncpus=4)
-    rpa_si_rpags = queue.add('rpa/si.rpa_init_pbe.py')
-    queue.add('rpa/si.rpa.py', deps=rpa_si_rpags, ncpus=4)
-    queue.add('stress/con_pw.py', ncpus=1)
-    queue.add('stress/stress.py', ncpus=1)
-    queue.add('transport/pt_h2_tb_transport.py')
-    t1 = queue.add('transport/pt_h2_lcao_manual.py')
-    queue.add('transport/pt_h2_lcao_transport.py', deps=t1)
+def create_tasks():
+    from myqueue.task import task
+    return [
+        task('h2o.py', folder='water'),
+        task('CO.py@8:15m', folder='wavefunctions'),
+        task('Al_fcc.py@2:15m', folder='aluminium'),
+        task('Al_bcc.py@2:15m', folder='aluminium'),
+        task('Al_fcc_vs_bcc.py@2:15s', folder='aluminium'),
+        task('Al_fcc_modified.py@2:15s', folder='aluminium'),
+        task('initial.py@2:15m', folder='diffusion'),
+        task('solution.py@2:15m', folder='diffusion'),
+        task('densitydiff.py', folder='diffusion', deps='solution.py'),
+        task('si.py@8:15m', folder='wannier'),
+        task('wannier-si.py', folder='wannier', deps='si.py'),
+        task('benzene.py@8:15m', folder='wannier'),
+        task('wannier-benzene.py', folder='wannier', deps='benzene.py'),
+        task('ag.py', folder='band_structure'),
+        task('h2o.py@8:15m', folder='vibrations'),
+        task('H2O_vib.py@8:15m', folder='vibrations', deps='h2o.py'),
+        task('H2O_vib_2.py@4:15m', folder='vibrations', deps='H2O_vib.py'),
+        task('ferro.py@4:15m', folder='iron'),
+        task('anti.py@4:15m', folder='iron'),
+        task('non.py@2:15m', folder='iron'),
+        task('PBE.py', folder='iron', deps='ferro.py,anti.py,non.py'),
+        task('test.py', folder='eels', deps='../band_structure/ag.py'),
+        task('test.py', folder='gw'),
+        task('si.pbe.py', folder='rpa'),
+        task('si_pbe_exx.py@4:15m', folder='rpa', deps='si.pbe.py'),
+        task('si.rpa_init_pbe.py', folder='rpa'),
+        task('si.rpa.py@4:15m', folder='rpa', deps='si.rpa_init_pbe.py'),
+        task('con_pw.py', folder='stress'),
+        task('stress.py', folder='stress'),
+        # task('pt_h2_tb_transport.py', folder='transport'),
+        # task('pt_h2_lcao_manual.py', folder='transport'),
+        # task('pt_h2_lcao_transport.py', folder='transport',
+        #      deps='pt_h2_lcao_manual.py')
+        ]

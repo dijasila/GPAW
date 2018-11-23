@@ -1,8 +1,8 @@
 from __future__ import print_function, division
 
-import sys
 import functools
-
+import numbers
+import sys
 from math import pi
 
 import numpy as np
@@ -394,7 +394,11 @@ class PWSymmetryAnalyzer:
 
         for K_k in K_gK:
             if K in K_k:
-                return len(K_k)
+                if self.kd.refine_info is not None:
+                    weight = sum(self.kd.refine_info.weight_k[K_k])
+                    return weight
+                else:
+                    return len(K_k)
 
     def get_kpoint_mapping(self, K1, K2):
         """Get index of symmetry for mapping between K1 and K2"""
@@ -682,7 +686,7 @@ class PairDensity:
         else:
             self.add_gate_voltage(gate_voltage=0)
 
-        self.spos_ac = calc.atoms.get_scaled_positions()
+        self.spos_ac = calc.spos_ac
 
         self.nocc1 = None  # number of completely filled bands
         self.nocc2 = None  # number of non-empty bands
@@ -800,11 +804,10 @@ class PairDensity:
         kd = wfs.kd
 
         # Parse kpoint: is k_c an index or a vector
-
-        try:
+        if not isinstance(k_c, numbers.Integral):
             K = self.find_kpoint(k_c)
             shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
-        except ValueError:
+        else:
             # Fall back to index
             K = k_c
             shift0_c = np.array([0, 0, 0])
@@ -1294,8 +1297,13 @@ class PairDensity:
 
         # Only works with Fermi-Dirac distribution
         assert isinstance(self.calc.occupations, FermiDirac)
-        dfde_n = -1 / width * (f_n - f_n**2.0)  # Analytical derivative
-        partocc_n = np.abs(dfde_n) > 1e-5  # Is part. occupied?
+        if width > 1e-15:
+            dfde_n = -1 / width * (f_n - f_n**2.0)  # Analytical derivative
+            partocc_n = np.abs(dfde_n) > 1e-5  # Is part. occupied?
+        else:
+            # Just include all bands to be sure
+            partocc_n = np.ones(len(f_n), dtype=bool)
+
         if only_partially_occupied and not partocc_n.any():
             return None
 
@@ -1457,8 +1465,12 @@ class PairDensity:
             if soft:
                 ghat = PWLFC([atomdata.ghat_l], pd)
                 ghat.set_positions(np.zeros((1, 3)))
-                Q_LG = ghat.expand()
-                Q_Gii = np.dot(atomdata.Delta_iiL, Q_LG).T
+                Q_LG = ghat.expand().T
+                if atomdata.Delta_iiL is None:
+                    ni = atomdata.ni
+                    Q_Gii = np.zeros((Q_LG.shape[1], ni, ni))
+                else:
+                    Q_Gii = np.dot(atomdata.Delta_iiL, Q_LG).T
             else:
                 Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
                 ni = atomdata.ni

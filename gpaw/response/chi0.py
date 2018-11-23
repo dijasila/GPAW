@@ -1,5 +1,5 @@
 from __future__ import print_function, division
-
+import numbers
 from time import ctime
 
 import numpy as np
@@ -64,8 +64,8 @@ class FrequencyDescriptor(ArrayDescriptor):
 
     def __init__(self, domega0, omega2, omegamax):
         beta = (2**0.5 - 1) * domega0 / omega2
-        wmax = int(omegamax / (domega0 + beta * omegamax)) + 2
-        w = np.arange(wmax)
+        wmax = int(omegamax / (domega0 + beta * omegamax))
+        w = np.arange(wmax + 2)  # + 2 is for buffer
         omega_w = w * domega0 / (1 - beta * w)
 
         ArrayDescriptor.__init__(self, omega_w)
@@ -78,11 +78,19 @@ class FrequencyDescriptor(ArrayDescriptor):
         self.beta = beta
         self.wmax = wmax
         self.omega_w = omega_w
+        self.wmax = wmax
         self.nw = len(omega_w)
 
     def get_closest_index(self, o_m):
         beta = self.beta
         w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
+        if isinstance(w_m, np.ndarray):
+            w_m[w_m >= self.wmax] = self.wmax - 1
+        elif isinstance(w_m, numbers.Integral):
+            if w_m >= self.wmax:
+                w_m = self.wmax - 1
+        else:
+            raise TypeError
         return w_m
 
     def get_index_range(self, omega1_m, omega2_m):
@@ -258,7 +266,7 @@ class Chi0:
         if rate == 'eta':
             self.rate = self.eta
         else:
-            self.rate = rate
+            self.rate = rate / Hartree
         self.domega0 = domega0 / Hartree
         self.omega2 = omega2 / Hartree
         self.omegamax = None if omegamax is None else omegamax / Hartree
@@ -408,10 +416,11 @@ class Chi0:
         nG = pd.ngmax + 2 * optical_limit
         nw = len(self.omega_w)
         mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        self.Ga = self.blockcomm.rank * mynG
+        self.Ga = min(self.blockcomm.rank * mynG, nG)
         self.Gb = min(self.Ga + mynG, nG)
-        assert mynG * (self.blockcomm.size - 1) < nG
-        
+        # if self.blockcomm.rank == 0:
+        #     assert self.Gb - self.Ga >= 3
+        # assert mynG * (self.blockcomm.size - 1) < nG
         if A_x is not None:
             nx = nw * (self.Gb - self.Ga) * nG
             chi0_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
@@ -558,8 +567,12 @@ class Chi0:
                      (wfs.nspins * (2 * np.pi)**3))  # Remember prefactor
         
         if self.integrationmode is None:
-            prefactor *= len(bzk_kv) / self.calc.wfs.kd.nbzkpts
-        
+            if self.calc.wfs.kd.refine_info is not None:
+                nbzkpts = self.calc.wfs.kd.refine_info.mhnbzkpts
+            else:
+                nbzkpts = self.calc.wfs.kd.nbzkpts
+            prefactor *= len(bzk_kv) / nbzkpts
+
         # The functions that are integrated are defined in the bottom
         # of this file and take a number of constant keyword arguments
         # which the integrator class accepts through the use of the
@@ -667,8 +680,7 @@ class Chi0:
         # Only compute the intraband response if there are partially
         # unoccupied bands and only if the user has not disabled its
         # calculation using the include_intraband keyword.
-        if optical_limit and (self.nocc1 != self.nocc2 and
-                              self.include_intraband):
+        if optical_limit and self.nocc1 != self.nocc2:
             # The intraband response is essentially just the calculation
             # of the free space Drude plasma frequency. The calculation is
             # similarly to the interband transitions documented above.
@@ -706,20 +718,26 @@ class Chi0:
                                  **extraargs)  # Extra args for int. method
 
             # Again, not so pretty but that's how it is
-            self.plasmafreq_vv = plasmafreq_wvv[0].copy()
-            if self.blockcomm.rank == 0:
+            plasmafreq_vv = plasmafreq_wvv[0].copy()
+            if self.include_intraband:
                 if extend_head:
-                    A_wxx[:, :3, :3] += (self.plasmafreq_vv[np.newaxis] /
-                                         (self.omega_w[:, np.newaxis,
-                                                       np.newaxis] +
-                                          1e-10 + self.rate * 1j)**2)
-                else:
-                    A_wxx[:, 0, 0] += (self.plasmafreq_vv[2, 2] /
+                    va = min(self.Ga, 3)
+                    vb = min(self.Gb, 3)
+                    A_wxx[:, :vb - va, :3] += (plasmafreq_vv[va:vb] /
+                                               (self.omega_w[:, np.newaxis,
+                                                             np.newaxis] +
+                                                1e-10 + self.rate * 1j)**2)
+                elif self.blockcomm.rank == 0:
+                    A_wxx[:, 0, 0] += (plasmafreq_vv[2, 2] /
                                        (self.omega_w + 1e-10 +
                                         self.rate * 1j)**2)
 
             # Save the plasmafrequency
-            self.plasmafreq_vv = 4 * np.pi * self.plasmafreq_vv * prefactor
+            try:
+                self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv * prefactor
+            except AttributeError:
+                self.plasmafreq_vv = 4 * np.pi * plasmafreq_vv * prefactor
+
             PWSA.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
             print('Plasma frequency:', file=self.fd)
             print((self.plasmafreq_vv**0.5 * Hartree).round(2),
@@ -765,17 +783,21 @@ class Chi0:
             # The wings are extracted
             chi0_wxvG[:, 1, :, self.Ga:self.Gb] = np.transpose(A_wxx[..., 0:3],
                                                                (0, 2, 1))
-            if self.blockcomm.rank == 0:
-                assert self.Gb > 2, print('Too large blockcomm', file=self.fd)
-                chi0_wxvG[:, 0] = A_wxx[:, 0:3, :]
+            va = min(self.Ga, 3)
+            vb = min(self.Gb, 3)
+            # print(self.world.rank, va, vb, chi0_wxvG[:, 0, va:vb].shape,
+            #       A_wxx[:, va:vb].shape, A_wxx.shape)
+            chi0_wxvG[:, 0, va:vb] = A_wxx[:, :vb - va]
+
             # Add contributions on different ranks
             self.blockcomm.sum(chi0_wxvG)
+            chi0_wvv[:] = chi0_wxvG[:, 0, :3, :3]
             chi0_wxvG = chi0_wxvG[..., 2:]  # Jesus, this is complicated
 
             # The head is extracted
-            if self.blockcomm.rank == 0:
-                chi0_wvv[:] = A_wxx[:, :3, :3]
-            self.blockcomm.broadcast(chi0_wvv, 0)
+            # if self.blockcomm.rank == 0:
+            #     chi0_wvv[:] = A_wxx[:, :3, :3]
+            # self.blockcomm.broadcast(chi0_wvv, 0)
 
             # It is easiest to redistribute over freqs to pick body
             tmpA_wxx = self.redistribute(A_wxx)
@@ -877,8 +899,23 @@ class Chi0:
             Pair densities.
         """
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
+
         q_c = pd.kd.bzk_kc[0]
+
         optical_limit = np.allclose(q_c, 0.0) and self.response == 'density' # gamma point needs special care in density response
+
+        extrapolate_q = False
+        if self.calc.wfs.kd.refine_info is not None:
+            K1 = self.pair.find_kpoint(k_c)
+            label = kd.refine_info.label_k[K1]
+            if label == 'zero':
+                return None
+            elif (kd.refine_info.almostoptical and label == 'mh'):
+                if not hasattr(self, 'pd0'):
+                    self.pd0 = self.get_PWDescriptor([0, ] * 3)
+                pd = self.pd0
+                extrapolate_q = True
+
         nG = pd.ngmax
         weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
                          symmetry.how_many_symmetries())
@@ -890,7 +927,7 @@ class Chi0:
 
         m_m = np.arange(m1, m2)
         n_n = np.arange(n1, n2)
-        
+
         n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
                                            Q_aGii=self.Q_aGii, block=block)
         
@@ -902,6 +939,12 @@ class Chi0:
             df_nm = np.abs(df_nm)
         df_nm[df_nm <= 1e-20] = 0.0
         n_nmG *= df_nm[..., np.newaxis]**0.5
+
+        if extrapolate_q:
+            q_v = np.dot(q_c, pd.gd.icell_cv) * (2 * np.pi)
+            nq_nm = np.dot(n_nmG[:, :, :3], q_v)
+            n_nmG = n_nmG[:, :, 2:]
+            n_nmG[:, :, 0] = nq_nm
         
         if not extend_head and optical_limit:
             n_nmG = np.copy(n_nmG[:, :, 2:])
@@ -962,7 +1005,10 @@ class Chi0:
         if self.integrationmode is None:
             f_n = kpt1.f_n
             width = self.calc.occupations.width
-            dfde_n = - 1. / width * (f_n - f_n**2.0)
+            if width > 1e-15:
+                dfde_n = - 1. / width * (f_n - f_n**2.0)
+            else:
+                dfde_n = np.zeros_like(f_n)
             vel_nv *= np.sqrt(-dfde_n[:, np.newaxis])
             weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
                              symmetry.how_many_symmetries())

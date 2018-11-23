@@ -285,8 +285,8 @@ spin-polarized system with magnetic moment of 2 a minimum of ``nbands=6`` is
 needed (6 occupied bands for spin-up, 4 occupied bands and 2 empty bands for
 spin down).
 
-The default number of electronic bands (``nbands``) is equal to the
-number of atomic orbitals present in the atomic setups.  For systems
+The default number of electronic bands (``nbands``) is equal to 4 plus
+1.2 times the number of occupied bands.  For systems
 with the occupied states well separated from the unoccupied states,
 one could use just the number of bands needed to hold the occupied
 states.  For metals, more bands are needed.  Sometimes, adding more
@@ -300,6 +300,12 @@ unoccupied bands will improve convergence.
 .. tip::
 
     ``nbands='n%'`` will give ``n/100`` times the number of occupied bands.
+
+.. tip::
+
+    ``nbands='nao'`` will use the the same number of bands as there are
+    atomic orbitals. This corresponds to the maximum ``nbands`` value that
+    can be used in LCAO mode.
 
 
 .. _manual_xc:
@@ -329,7 +335,9 @@ For the list of all functionals available in GPAW see :ref:`overview_xc`.
 
 GPAW uses the functionals from libxc_ by default.
 Keywords are based on the names in the libxc :file:`'xc_funcs.h'` header
-file (the leading ``'XC_'`` should be removed from those names). Valid
+file (the leading ``'XC_'`` should be removed from those names).
+You should be able to find the file installed alongside LibXC.
+Valid
 keywords are strings or combinations of exchange and correlation string
 joined by **+** (plus). For example, "the" (most common) LDA approximation
 in chemistry corresponds to ``'LDA_X+LDA_C_VWN'``.
@@ -829,7 +837,14 @@ Poisson solver
 The *poissonsolver* keyword is used to specify a Poisson solver class
 or enable dipole correction.
 
-The default Poisson solver uses a multigrid Jacobian method.  Use this
+The default Poisson solver in FD and LCAO mode
+is called FastPoissonSolver and uses
+a combination of Fourier and Fourier-sine transforms
+in combination with parallel array transposes.  Meanwhile in PW mode,
+the Poisson equation is solved by dividing each planewave coefficient
+by the squared length of its corresponding wavevector.
+
+The old default Poisson solver uses a multigrid Jacobian method.  Use this
 keyword to specify a different method.  This example corresponds to
 the default Poisson solver::
 
@@ -1022,7 +1037,7 @@ at a later time, this can be done as follows:
 
 >>> from gpaw import *
 >>> atoms, calc = restart('H2.gpw')
->>> print atoms.get_potential_energy()
+>>> print(atoms.get_potential_energy())
 
 Everything will be just as before we wrote the :file:`H2.gpw` file.
 Often, one wants to restart the calculation with one or two parameters
@@ -1030,14 +1045,14 @@ changed slightly.  This is very simple to do.  Suppose you want to
 change the number of grid points:
 
 >>> atoms, calc = restart('H2.gpw', gpts=(20, 20, 20))
->>> print atoms.get_potential_energy()
+>>> print(atoms.get_potential_energy())
 
 .. tip::
    There is an alternative way to do this, that can be handy sometimes:
 
    >>> atoms, calc = restart('H2.gpw')
    >>> calc.set(gpts=(20, 20, 20))
-   >>> print atoms.get_potential_energy()
+   >>> print(atoms.get_potential_energy())
 
 
 More details can be found on the :ref:`restart_files` page.
@@ -1088,7 +1103,6 @@ The possible keys are:
   Print also which parallelization settings would be employed when run on
   ``nprocs`` processors.
 
-
 .. tip::
 
     Extra key-value pairs will be available for development work::
@@ -1099,7 +1113,7 @@ The possible keys are:
         {'a': 1, 'b': 2.3}
 
 
-Other command-line arguments:
+Other command-line arguments are accepted directly by ``gpaw-python``:
 
 ===============================  =============================================
 argument                         description
@@ -1127,20 +1141,9 @@ argument                         description
                                  the ``band`` argument in the
                                  :ref:`parallel <manual_parallel>` keyword.
                                  See :ref:`manual_parsize_bands` for details.
-``--sl_...=m,n,mb``
-                                 Specify ScaLAPACK / BLACS parameters for
-                                 diagonalization (``--sl_default``),
-                                 inverse Cholesky factorization
-                                 (``--sl_inverse_cholesky``) and LCAO general
-                                 diagonalization (``--sl_lcao``) respectively.
-                                 Use ``--sl_default`` to specify all three
-                                 of the above at once or just the default
-                                 value for those not explicitly given.
-                                 Allowed values are equivalent to those of
-                                 the four ``sl_...`` arguments in the
-                                 :ref:`parallel <manual_parallel>` keyword.
-                                 Requires GPAW to be built with ScaLAPACK.
 ===============================  =============================================
+
+Please see ``gpaw-python --help`` for details.
 
 
 .. [#LDA]    J. P. Perdew and Y. Wang,

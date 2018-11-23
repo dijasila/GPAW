@@ -15,11 +15,11 @@ alat = 5.421
 # bulk calculation
 bulk_crystal = bulk('Si', 'diamond', a=alat)
 bulk_calc = GPAW(mode=PW(pwcutoff),
+                 parallel={'domain': 1, 'band': 1},
                  kpts={'size': (k, k, k), 'gamma': True},  # gamma-centred grid
                  xc='PBE',
                  occupations=FermiDirac(0.01),
-                 txt='si.rpa.pbe_output.txt',
-                 parallel={'band': 1})
+                 txt='si.rpa.pbe_output.txt')
 
 bulk_crystal.set_calculator(bulk_calc)
 e0_bulk_pbe = bulk_crystal.get_potential_energy()

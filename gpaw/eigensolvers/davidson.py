@@ -1,9 +1,16 @@
+from functools import partial
+
+from ase.utils.timing import timer
 import numpy as np
 
-from gpaw.utilities.lapack import general_diagonalize
-from gpaw.utilities import unpack
-from gpaw.hs_operators import reshape
+from gpaw import debug
 from gpaw.eigensolvers.eigensolver import Eigensolver
+from gpaw.matrix import matrix_matrix_multiply as mmm
+
+
+class DummyArray:
+    def __getitem__(self, x):
+        return np.empty((0, 0))
 
 
 class Davidson(Eigensolver):
@@ -20,7 +27,7 @@ class Davidson(Eigensolver):
     * Add preconditioned residuals to the subspace and diagonalize
     """
 
-    def __init__(self, niter=1, smin=None, normalize=True):
+    def __init__(self, niter=2, smin=None, normalize=True):
         Eigensolver.__init__(self)
         self.niter = niter
         self.smin = smin
@@ -31,6 +38,9 @@ class Davidson(Eigensolver):
                 'See https://trac.fysik.dtu.dk/projects/gpaw/ticket/248')
 
         self.orthonormalization_required = False
+        self.H_NN = DummyArray()
+        self.S_NN = DummyArray()
+        self.eps_N = DummyArray()
 
     def __repr__(self):
         return 'Davidson(niter=%d, smin=%r, normalize=%r)' % (
@@ -40,19 +50,14 @@ class Davidson(Eigensolver):
         return {'name': 'dav', 'niter': self.niter}
 
     def initialize(self, wfs):
-        for ksl in [wfs.diagksl, wfs.orthoksl]:
-            if ksl.using_blacs:
-                msg = ('Davidson eigensolver does not work in conjunction '
-                       'with BLACS/ScaLAPACK.  This combination should be '
-                       'unnecessary unless there are thousands of bands.')
-                raise ValueError(msg)
         Eigensolver.initialize(self, wfs)
-        self.overlap = wfs.overlap
 
-        # Allocate arrays
-        self.H_2n2n = np.empty((2 * self.nbands, 2 * self.nbands), self.dtype)
-        self.S_2n2n = np.empty((2 * self.nbands, 2 * self.nbands), self.dtype)
-        self.eps_2n = np.empty(2 * self.nbands)
+        if wfs.gd.comm.rank == 0 and wfs.bd.comm.rank == 0:
+            # Allocate arrays
+            B = self.nbands
+            self.H_NN = np.empty((2 * B, 2 * B), self.dtype)
+            self.S_NN = np.empty((2 * B, 2 * B), self.dtype)
+            self.eps_N = np.empty(2 * B)
 
     def estimate_memory(self, mem, wfs):
         Eigensolver.estimate_memory(self, mem, wfs)
@@ -63,209 +68,139 @@ class Davidson(Eigensolver):
         mem.subnode('S_2n2n', 4 * nbands * nbands * mem.itemsize[wfs.dtype])
         mem.subnode('eps_2n', 2 * nbands * mem.floatsize)
 
-    def iterate_one_k_point(self, hamiltonian, wfs, kpt):
+    @timer('Davidson')
+    def iterate_one_k_point(self, ham, wfs, kpt):
         """Do Davidson iterations for the kpoint"""
-        niter = self.niter
-        nbands = self.nbands
-        mynbands = self.mynbands
+        bd = wfs.bd
+        B = bd.nbands
 
-        gd = wfs.matrixoperator.gd
-        bd = self.operator.bd
+        H_NN = self.H_NN
+        S_NN = self.S_NN
+        eps_N = self.eps_N
 
-        psit_nG, Htpsit_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
-        # Note that psit_nG is now in self.operator.work1_nG and
-        # Htpsit_nG is in kpt.psit_nG!
+        def integrate(a_G):
+            if wfs.collinear:
+                return np.real(wfs.integrate(a_G, a_G, global_integral=False))
+            return sum(np.real(wfs.integrate(b_G, b_G, global_integral=False))
+                       for b_G in a_G)
 
-        H_2n2n = self.H_2n2n
-        S_2n2n = self.S_2n2n
-        eps_2n = self.eps_2n
+        self.subspace_diagonalize(ham, wfs, kpt)
 
-        self.timer.start('Davidson')
+        psit = kpt.psit
+        psit2 = psit.new(buf=wfs.work_array)
+        P = kpt.P
+        P2 = P.new()
+        P3 = P.new()
+        M = wfs.work_matrix_nn
+        dS = wfs.setups.dS
+        comm = wfs.gd.comm
+
+        if bd.comm.size > 1:
+            M0 = M.new(dist=(bd.comm, 1, 1))
+        else:
+            M0 = M
+
+        if comm.rank == 0:
+            e_N = bd.collect(kpt.eps_n)
+            if e_N is not None:
+                eps_N[:B] = e_N
+
+        Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
         if self.keep_htpsit:
-            R_nG = Htpsit_nG
-            psit2_nG = reshape(self.Htpsit_nG, psit_nG.shape)
+            R = psit.new(buf=self.Htpsit_nG)
         else:
-            R_nG = wfs.empty(mynbands, q=kpt.q)
-            psit2_nG = wfs.empty(mynbands, q=kpt.q)
-            wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_nG, R_nG)
-            wfs.pt.integrate(psit_nG, kpt.P_ani, kpt.q)
+            R = psit.apply(Ht)
 
-        self.calculate_residuals(kpt, wfs, hamiltonian, psit_nG,
-                                 kpt.P_ani, kpt.eps_n, R_nG)
+        self.calculate_residuals(kpt, wfs, ham, psit, P, kpt.eps_n, R, P2)
 
-        def integrate(a_G, b_G):
-            return np.real(wfs.integrate(a_G, b_G, global_integral=False))
+        weights = self.weights(kpt)
+        pre = self.preconditioner
 
-        # Note on band parallelization
-        # The "large" H_2n2n and S_2n2n matrices are at the moment
-        # global and replicated over band communicator, and the
-        # general diagonalization is performed in serial i.e. without
-        # scalapack
+        for nit in range(self.niter):
+            if nit == self.niter - 1:
+                error = np.dot(weights, [integrate(R_G) for R_G in R.array])
 
-        for nit in range(niter):
-            H_2n2n[:] = 0.0
-            S_2n2n[:] = 0.0
-
-            norm_n = np.zeros(mynbands)
-            error = 0.0
-            for n in range(mynbands):
-                if kpt.f_n is None:
-                    weight = kpt.weight
-                else:
-                    weight = kpt.f_n[n]
-                if self.nbands_converge != 'occupied':
-                    if wfs.bd.global_index(n) < self.nbands_converge:
-                        weight = kpt.weight
-                    else:
-                        weight = 0.0
-                error += weight * integrate(R_nG[n], R_nG[n])
-
-                ekin = self.preconditioner.calculate_kinetic_energy(
-                    psit_nG[n:n + 1], kpt)
-                psit2_nG[n] = self.preconditioner(R_nG[n:n + 1], kpt, ekin)
-
-                if self.normalize:
-                    norm_n[n] = integrate(psit2_nG[n], psit2_nG[n])
-
-                N = bd.global_index(n)
-                H_2n2n[N, N] = kpt.eps_n[n]
-                S_2n2n[N, N] = 1.0
-
-            bd.comm.sum(H_2n2n)
-            bd.comm.sum(S_2n2n)
-
-            if self.normalize:
-                gd.comm.sum(norm_n)
-                for norm, psit2_G in zip(norm_n, psit2_nG):
-                    psit2_G *= norm**-0.5
+            for psit_G, R_G, psit2_G in zip(psit.array, R.array, psit2.array):
+                ekin = pre.calculate_kinetic_energy(psit_G, kpt)
+                pre(R_G, kpt, ekin, out=psit2_G)
 
             # Calculate projections
-            P2_ani = wfs.pt.dict(mynbands)
-            wfs.pt.integrate(psit2_nG, P2_ani, kpt.q)
+            psit2.matrix_elements(wfs.pt, out=P2)
 
-            self.timer.start('calc. matrices')
+            psit2.apply(Ht, out=R)
 
-            # Hamiltonian matrix
-            # <psi2 | H | psi>
+            def copy(M, C_nn):
+                comm.sum(M.array, 0)
+                if comm.rank == 0:
+                    M.complex_conjugate()
+                    M.redist(M0)
+                    if bd.comm.rank == 0:
+                        C_nn[:] = M0.array
 
-            def H(psit_xG):
-                result_xG = R_nG
-                wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
-                                             result_xG)
-                return result_xG
+            with self.timer('calc. matrices'):
+                # <psi2 | H | psi2>
+                psit2.matrix_elements(operator=Ht, result=R, out=M,
+                                      symmetric=True, cc=True)
+                ham.dH(P2, out=P3)
+                mmm(1.0, P2, 'N', P3, 'C', 1.0, M)  # , symmetric=True)
+                copy(M, H_NN[B:, B:])
 
-            def dH(a, P_ni):
-                return np.dot(P_ni, unpack(hamiltonian.dH_asp[a][kpt.s]))
+                # <psi2 | H | psi>
+                R.matrix_elements(psit, out=M, cc=True)
+                mmm(1.0, P3, 'N', P, 'C', 1.0, M)
+                copy(M, H_NN[B:, :B])
 
-            H_nn = self.operator.calculate_matrix_elements(psit_nG, kpt.P_ani,
-                                                           H, dH, psit2_nG,
-                                                           P2_ani)
+                # <psi2 | S | psi2>
+                psit2.matrix_elements(out=M, symmetric=True, cc=True)
+                dS.apply(P2, out=P3)
+                mmm(1.0, P2, 'N', P3, 'C', 1.0, M)
+                copy(M, S_NN[B:, B:])
 
-            H_2n2n[nbands:, :nbands] = H_nn
+                # <psi2 | S | psi>
+                psit2.matrix_elements(psit, out=M, cc=True)
+                mmm(1.0, P3, 'N', P, 'C', 1.0, M)
+                copy(M, S_NN[B:, :B])
 
-            # <psi2 | H | psi2>
+            with self.timer('diagonalize'):
+                if comm.rank == 0 and bd.comm.rank == 0:
+                    H_NN[:B, :B] = np.diag(eps_N[:B])
+                    S_NN[:B, :B] = np.eye(B)
+                    if debug:
+                        H_NN[np.triu_indices(2 * B, 1)] = 42.0
+                        S_NN[np.triu_indices(2 * B, 1)] = 42.0
+                    from scipy.linalg import eigh
+                    eps_N, H_NN[:] = eigh(H_NN, S_NN,
+                                          lower=True,
+                                          check_finite=debug)
 
-            def H(psit_xG):
-                # H | psi2 > already calculated in previous step
-                result_xG = R_nG
-                return result_xG
+            if comm.rank == 0:
+                bd.distribute(eps_N[:B], kpt.eps_n)
+            comm.broadcast(kpt.eps_n, 0)
 
-            def dH(a, P_ni):
-                return np.dot(P_ni, unpack(hamiltonian.dH_asp[a][kpt.s]))
+            with self.timer('rotate_psi'):
+                if comm.rank == 0:
+                    if bd.comm.rank == 0:
+                        M0.array[:] = H_NN[:B, :B].T
+                    M0.redist(M)
+                comm.broadcast(M.array, 0)
+                mmm(1.0, M, 'N', psit, 'N', 0.0, R)
+                mmm(1.0, M, 'N', P, 'N', 0.0, P3)
+                if comm.rank == 0:
+                    if bd.comm.rank == 0:
+                        M0.array[:] = H_NN[B:, :B].T
+                    M0.redist(M)
+                comm.broadcast(M.array, 0)
+                mmm(1.0, M, 'N', psit2, 'N', 1.0, R)
+                mmm(1.0, M, 'N', P2, 'N', 1.0, P3)
+                psit[:] = R
+                P, P3 = P3, P
+                kpt.P = P
 
-            H_nn = self.operator.calculate_matrix_elements(psit2_nG, P2_ani,
-                                                           H, dH)
+            if nit < self.niter - 1:
+                psit.apply(Ht, out=R)
+                self.calculate_residuals(kpt, wfs, ham, psit,
+                                         P, kpt.eps_n, R, P2)
 
-            H_2n2n[nbands:, nbands:] = H_nn
-
-            # Overlap matrix
-            # <psi2 | S | psi>
-
-            def S(psit_G):
-                return psit_G
-
-            def dS(a, P_ni):
-                return np.dot(P_ni, wfs.setups[a].dO_ii)
-
-            S_nn = self.operator.calculate_matrix_elements(psit_nG, kpt.P_ani,
-                                                           S, dS, psit2_nG,
-                                                           P2_ani)
-
-            S_2n2n[nbands:, :nbands] = S_nn
-
-            # <psi2 | S | psi2>
-            S_nn = self.operator.calculate_matrix_elements(psit2_nG, P2_ani,
-                                                           S, dS)
-            S_2n2n[nbands:, nbands:] = S_nn
-
-            self.timer.stop('calc. matrices')
-
-            self.timer.start('diagonalize')
-            if gd.comm.rank == 0 and bd.comm.rank == 0:
-                m = 0
-                if self.smin:
-                    s_N, U_NN = np.linalg.eigh(S_2n2n)
-                    m = int((s_N < self.smin).sum())
-
-                if m == 0:
-                    general_diagonalize(H_2n2n, eps_2n, S_2n2n)
-                else:
-                    T_Nn = np.dot(U_NN[:, m:], np.diag(s_N[m:]**-0.5))
-                    H_2n2n[:nbands, nbands:] = \
-                        H_2n2n[nbands:, :nbands].conj().T
-                    eps_2n[:-m], P_nn = np.linalg.eigh(
-                        np.dot(np.dot(T_Nn.T.conj(), H_2n2n), T_Nn))
-                    H_2n2n[:-m] = np.dot(T_Nn, P_nn).T
-
-            gd.comm.broadcast(H_2n2n, 0)
-            gd.comm.broadcast(eps_2n, 0)
-            bd.comm.broadcast(H_2n2n, 0)
-            bd.comm.broadcast(eps_2n, 0)
-
-            self.operator.bd.distribute(eps_2n[:nbands], kpt.eps_n[:])
-
-            self.timer.stop('diagonalize')
-
-            self.timer.start('rotate_psi')
-            # Rotate psit_nG
-
-            # Memory references during rotate:
-            # Case 1, no band parallelization:
-            #   Before 1. matrix multiply: psit_nG -> operator.work1_xG
-            #   After  1. matrix multiply: psit_nG -> R_nG
-            #   After  2. matrix multiply: tmp_nG -> work1_xG
-            #
-            # Case 2, band parallelization
-            # Work arrays used only in send/recv buffers,
-            # psit_nG -> psit_nG
-            # tmp_nG -> psit2_nG
-
-            psit_nG = self.operator.matrix_multiply(H_2n2n[:nbands, :nbands],
-                                                    psit_nG, kpt.P_ani,
-                                                    out_nG=R_nG)
-
-            tmp_nG = self.operator.matrix_multiply(H_2n2n[:nbands, nbands:],
-                                                   psit2_nG, P2_ani)
-
-            if bd.comm.size > 1:
-                psit_nG += tmp_nG
-            else:
-                tmp_nG += psit_nG
-                psit_nG, R_nG = tmp_nG, psit_nG
-
-            for a, P_ni in kpt.P_ani.items():
-                P2_ni = P2_ani[a]
-                P_ni += P2_ni
-
-            self.timer.stop('rotate_psi')
-
-            if nit < niter - 1:
-                wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_nG,
-                                             R_nG)
-                self.calculate_residuals(kpt, wfs, hamiltonian, psit_nG,
-                                         kpt.P_ani, kpt.eps_n, R_nG)
-
-        self.timer.stop('Davidson')
-        error = gd.comm.sum(error)
-        return error, psit_nG
+        error = wfs.gd.comm.sum(error)
+        return error

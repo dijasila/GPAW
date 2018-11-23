@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as np
 from ase import Atoms
 from ase.calculators.test import numeric_force
-from gpaw import GPAW
+from gpaw import GPAW, PoissonSolver, Mixer
 from gpaw.external import PointChargePotential
 from gpaw.test import equal
 import _gpaw
@@ -74,6 +74,10 @@ pos = lih.cell.sum(axis=0)
 print(pos)
 pc = PointChargePotential([-1.0], [pos])
 lih.calc = GPAW(external=pc,
+                mixer=Mixer(0.8, 5, 20.0),
+                xc='oldLDA',
+                poissonsolver=PoissonSolver(),
+                convergence=dict(density=3e-6),
                 txt='lih-pc.txt')
 f1 = lih.get_forces()
 fpc1 = pc.get_forces(lih.calc)
@@ -83,7 +87,9 @@ print(fpc1 + f1.sum(0))
 f2 = [[numeric_force(lih, a, v) for v in range(3)] for a in range(2)]
 print(f1)
 print(f1 - f2)
-assert abs(f1 - f2).max() < 2e-3
+err = abs(f1 - f2).max()
+print('err', err)
+assert err < 2e-3, err
 
 x = 0.0001
 for v in range(3):

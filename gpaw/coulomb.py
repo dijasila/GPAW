@@ -88,9 +88,9 @@ class Coulomb:
                 if self.poisson is not None:
                     self.solve = self.poisson.solve
                 else:
-                    solver = PoissonSolver(nn=2)
+                    solver = PoissonSolver('fd', nn=2)
                     solver.set_grid_descriptor(self.gd)
-                    solver.initialize(load_gauss=True)
+                    #solver.initialize()
                     self.solve = solver.solve
 
     def coulomb(self, n1, n2=None, Z1=None, Z2=None, method='recip_gauss'):
@@ -183,9 +183,8 @@ class CoulombNEW:
         if fft:
             self.poisson = FFTPoissonSolver()
         else:
-            self.poisson = PoissonSolver(nn=3)
+            self.poisson = PoissonSolver(name='fd', nn=3)
         self.poisson.set_grid_descriptor(gd)
-        self.poisson.initialize()
         self.setups = setups
 
         # Set coarse ghat
@@ -227,7 +226,8 @@ class HF:
         self.nspins = paw.wfs.nspins
         self.nbands = paw.wfs.bd.nbands
         self.restrict = paw.hamiltonian.restrict
-        self.pair_density = PairDensity(paw.density, paw.atoms, finegrid=True)
+        self.pair_density = PairDensity(paw.density, paw.spos_ac,
+                                        finegrid=True)
         self.dv = paw.wfs.gd.dv
         self.dtype = paw.wfs.dtype
         self.setups = paw.wfs.setups

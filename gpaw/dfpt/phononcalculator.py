@@ -15,7 +15,8 @@ from ase.io import Trajectory
 from gpaw import GPAW
 from gpaw.mpi import serial_comm, rank
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.dfpt.poisson import PoissonSolver, FFTPoissonSolver
+#from gpaw.dfpt.poisson import PoissonSolver, FFTPoissonSolver
+from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.dfpt.responsecalculator import ResponseCalculator
 from gpaw.dfpt.phononperturbation import PhononPerturbation
 from gpaw.dfpt.wavefunctions import WaveFunctions
@@ -98,7 +99,7 @@ class PhononCalculator:
             self.dtype = float
             kpts = None
             # Multigrid Poisson solver
-            poisson_solver = PoissonSolver()
+            poisson_solver = PoissonSolver('fd')
         else:
             if gamma:
                 self.gamma = True
@@ -164,13 +165,8 @@ class PhononCalculator:
 
     def initialize(self):
         """Initialize response calculator and perturbation."""
-
-        # Get scaled atomic positions
-        spos_ac = self.atoms.get_scaled_positions()
-
-        self.perturbation.initialize(spos_ac)
-        self.response_calc.initialize(spos_ac)
-
+        self.perturbation.initialize(self.calc.spos_ac)
+        self.response_calc.initialize(self.calc.spos_ac)
         self.initialized = True
 
     def __getstate__(self):

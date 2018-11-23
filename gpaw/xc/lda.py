@@ -7,12 +7,16 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 
 
 class LDARadialExpansion:
-    def __init__(self, rcalc):
+    def __init__(self, rcalc, collinear=True):
         self.rcalc = rcalc
+        self.collinear = collinear
 
     def __call__(self, rgd, D_sLq, n_qg, nc0_sg):
         n_sLg = np.dot(D_sLq, n_qg)
-        n_sLg[:, 0] += nc0_sg
+        if self.collinear:
+            n_sLg[:, 0] += nc0_sg
+        else:
+            n_sLg[0, 0] += 4 * nc0_sg[0]
 
         dEdD_sqL = np.zeros_like(np.transpose(D_sLq, (0, 2, 1)))
 
@@ -26,7 +30,6 @@ class LDARadialExpansion:
                                n_qg.T)[:, :, np.newaxis] * (w * Y_L)
             E += w * rgd.integrate(e_g)
         return E, dEdD_sqL
-
 
 
 def calculate_paw_correction(expansion,
@@ -79,7 +82,6 @@ class LDARadialCalculator:
         return e_g, dedn_sg
 
 
-
 class LDA(XCFunctional):
     def __init__(self, kernel):
         self.kernel = kernel
@@ -90,8 +92,10 @@ class LDA(XCFunctional):
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
+        from gpaw.xc.noncollinear import NonCollinearLDAKernel
+        collinear = not isinstance(self.kernel, NonCollinearLDAKernel)
         rcalc = LDARadialCalculator(self.kernel)
-        expansion = LDARadialExpansion(rcalc)
+        expansion = LDARadialExpansion(rcalc, collinear)
         return calculate_paw_correction(expansion,
                                         setup, D_sp, dEdD_sp,
                                         addcoredensity, a)
@@ -123,9 +127,10 @@ class LDA(XCFunctional):
         v_sg = self.gd.zeros(nspins)
         e_g = self.gd.empty()
         self.calculate_impl(self.gd, n_sg, v_sg, e_g)
-        stress = self.gd.integrate(e_g)
+        stress = self.gd.integrate(e_g, global_integral=False)
         for v_g, n_g in zip(v_sg, n_sg):
-            stress -= self.gd.integrate(v_g, n_g)
+            stress -= self.gd.integrate(v_g, n_g, global_integral=False)
+        stress = self.gd.comm.sum(stress)
         return np.eye(3) * stress
 
 
@@ -192,7 +197,8 @@ def lda_c(spin, e, n, v, zeta):
         e1, decdrs_1 = G(rs ** 0.5,
                          0.015545, 0.20548, 14.1189, 6.1977, 3.3662, 0.62517)
         alpha, dalphadrs = G(rs ** 0.5,
-                         0.016887, 0.11125, 10.357, 3.6231, 0.88026, 0.49671)
+                             0.016887, 0.11125, 10.357, 3.6231, 0.88026,
+                             0.49671)
         alpha *= -1.
         dalphadrs *= -1.
         zp = 1.0 + zeta
@@ -208,7 +214,7 @@ def lda_c(spin, e, n, v, zeta):
                   decdrs_1 * f * zeta4 +
                   dalphadrs * f * x * IF2)
         decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
-                   f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
+                    f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
         ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
         e[:] += n * ec
         v[0] += ec - rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta
@@ -218,12 +224,12 @@ def lda_c(spin, e, n, v, zeta):
 def G(rtrs, gamma, alpha1, beta1, beta2, beta3, beta4):
     Q0 = -2.0 * gamma * (1.0 + alpha1 * rtrs * rtrs)
     Q1 = 2.0 * gamma * rtrs * (beta1 +
-                           rtrs * (beta2 +
-                                   rtrs * (beta3 +
-                                           rtrs * beta4)))
+                               rtrs * (beta2 +
+                                       rtrs * (beta3 +
+                                               rtrs * beta4)))
     G1 = Q0 * np.log(1.0 + 1.0 / Q1)
     dQ1drs = gamma * (beta1 / rtrs + 2.0 * beta2 +
-                  rtrs * (3.0 * beta3 + 4.0 * beta4 * rtrs))
+                      rtrs * (3.0 * beta3 + 4.0 * beta4 * rtrs))
     dGdrs = -2.0 * gamma * alpha1 * G1 / Q0 - Q0 * dQ1drs / (Q1 * (Q1 + 1.0))
     return G1, dGdrs
 

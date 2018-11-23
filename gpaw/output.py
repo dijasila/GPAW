@@ -26,18 +26,19 @@ def print_cell(gd, pbc_c, log):
     log()
 
 
-def print_positions(atoms, log):
+def print_positions(atoms, log, magmom_av):
     log(plot(atoms))
     log('\nPositions:')
     symbols = atoms.get_chemical_symbols()
     for a, pos_v in enumerate(atoms.get_positions()):
         symbol = symbols[a]
-        log('{0:>4} {1:3} {2:11.6f} {3:11.6f} {4:11.6f}'
-            .format(a, symbol, *pos_v))
+        log('{0:>4} {1:3} {2[0]:11.6f} {2[1]:11.6f} {2[2]:11.6f}'
+            '    ({3[0]:7.4f}, {3[1]:7.4f}, {3[2]:7.4f})'
+            .format(a, symbol, pos_v, magmom_av[a]))
     log()
 
 
-def print_parallelization_details(wfs, dens, log):
+def print_parallelization_details(wfs, ham, log):
     nibzkpts = wfs.kd.nibzkpts
 
     # Print parallelization details
@@ -54,13 +55,14 @@ def print_parallelization_details(wfs, dens, log):
 
     # Domain decomposition settings:
     coarsesize = tuple(wfs.gd.parsize_c)
-    finesize = tuple(dens.finegd.parsize_c)
+    finesize = tuple(ham.finegd.parsize_c)
+
     try:  # Only planewave density
-        xc_redist = dens.xc_redistributor
+        xc_gd = ham.xc_gd
     except AttributeError:
-        xcsize = finesize
-    else:
-        xcsize = tuple(xc_redist.aux_gd.parsize_c)
+        xc_gd = ham.finegd
+    xcsize = tuple(xc_gd.parsize_c)
+
 
     if any(np.prod(size) != 1 for size in [coarsesize, finesize, xcsize]):
         title = 'Domain decomposition:'

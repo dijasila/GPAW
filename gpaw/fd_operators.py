@@ -69,6 +69,7 @@ class FDOperator:
         self.npoints = len(coef_p)
         self.coef_p = coef_p
         self.offset_p = offset_p
+        self.offset_pc = offset_pc 
         self.comm = comm
         self.cfd = cfd
 
@@ -98,7 +99,7 @@ class FDOperator:
 
 if debug:
     _FDOperator = FDOperator
-    
+
     class FDOperator(_FDOperator):
         def apply(self, in_xg, out_xg, phase_cd=None):
             assert in_xg.shape == out_xg.shape
@@ -181,7 +182,8 @@ class GUCLaplace(FDOperator):
         for D in range(3, 7):
             h_dv = np.dot(M_ic[i_d[:D]], gd.h_cv)
             A_md = (h_dv**m_mv[:, np.newaxis, :]).prod(2)
-            a_d, residual, rank, s = np.linalg.lstsq(A_md, [1, 1, 1, 0, 0, 0])
+            a_d, residual, rank, s = np.linalg.lstsq(A_md, [1, 1, 1, 0, 0, 0],
+                                                     rcond=-1)
             if residual.sum() < 1e-14:
                 if rank != D:
                     raise ValueError(

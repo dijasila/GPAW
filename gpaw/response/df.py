@@ -22,7 +22,8 @@ from gpaw.response.fxc import get_xc_kernel, get_xc_spin_kernel
 
 
 class DielectricFunction:
-    """This class provides physical quantities related to the spin-charge response function."""
+    """This class defines dielectric function related physical quantities."""
+    
     def __init__(self, calc, name=None, frequencies=None, domega0=0.1,
                  omega2=10.0, omegamax=None, ecut=50, gammacentered=False, hilbert=True,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
@@ -332,6 +333,11 @@ class DielectricFunction:
                     chi_GG /= vsqr_G * vsqr_G[:, np.newaxis]
                 chi_wGG.append(chi_GG)
             
+            if len(chi_wGG):
+                chi_wGG = np.array(chi_wGG)
+            else:
+                chi_wGG = np.zeros((0, nG, nG), complex)
+            
         # Spin response
         else:
             Kxc_GG = get_xc_spin_kernel(pd,
@@ -405,7 +411,7 @@ class DielectricFunction:
     def get_dielectric_matrix(self, Kxc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
                               calculate_chi=False, q_v=None,
-                              add_intraband=True):
+                              add_intraband=False):
         """Returns the symmetrized dielectric matrix.
 
         ::
@@ -435,6 +441,10 @@ class DielectricFunction:
         
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
 
+        if add_intraband:
+            print('add_intraband=True is not supported at this time')
+            raise NotImplementedError
+
         N_c = self.chi0.calc.wfs.kd.N_c
         if self.truncation == 'wigner-seitz':
             self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
@@ -457,10 +467,9 @@ class DielectricFunction:
 
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
             W = slice(self.w1, self.w2)
-            if add_intraband:
-                chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
-                chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
-                chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
+            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
             if q_v is not None:
                 print('Restoring q dependence of head and wings of chi0')
                 chi0_wGG[:, 1:, 0] *= np.dot(q_v, d_v)
@@ -498,11 +507,17 @@ class DielectricFunction:
             chi0_GG[:] = e_GG
 
         # chi0_wGG is now the dielectric matrix
+        if calculate_chi:
+            if len(chi_wGG):
+                chi_wGG = np.array(chi_wGG)
+            else:
+                chi_wGG = np.zeros((0, nG, nG), complex)
+
         if not calculate_chi:
             return chi0_wGG
         else:
             # chi_wGG is the full density response function..
-            return pd, chi0_wGG, np.array(chi_wGG)
+            return pd, chi0_wGG, chi_wGG
 
     def get_dielectric_function(self, Kxc='RPA', q_c=[0, 0, 0], q_v=None,
                                 direction='x', filename='df.csv'):
@@ -710,7 +725,6 @@ class DielectricFunction:
     def get_eigenmodes(self, q_c=[0, 0, 0], w_max=None, name=None,
                        eigenvalue_only=False, direction='x',
                        checkphase=True):
-
         """Plasmon eigenmodes as eigenvectors of the dielectric matrix.
 
         Note: not implemented for spin response
@@ -755,8 +769,6 @@ class DielectricFunction:
         for i in np.array(range(1, Nw)):
             e_GG = e_wGG[i]  # epsilon_GG'(omega + d-omega)
             eig_all[i], vec_p = np.linalg.eig(e_GG)
-            if eigenvalue_only:
-                continue
             vec_dual_p = np.linalg.inv(vec_p)
             overlap = np.abs(np.dot(vec_dual, vec_p))
             index = list(np.argsort(overlap)[:, -1])
@@ -768,8 +780,8 @@ class DielectricFunction:
                         addlist.append(j)
                     if index.count(j) > 1:
                         for l in range(1, index.count(j)):
-                            removelist.append(
-                                np.argwhere(np.array(index) == j)[l])
+                            removelist += \
+                                list(np.argwhere(np.array(index) == j)[l])
                 for j in range(len(addlist)):
                     index[removelist[j]] = addlist[j]
 
@@ -888,7 +900,7 @@ class DielectricFunction:
                 if Gvec[iG, perpdir[0]] == 0 and Gvec[iG, perpdir[1]] == 0:
                     Glist.append(iG)
             elif not np.abs(np.dot(q_v, Gvec[iG])) < \
-                 np.linalg.norm(q_v) * np.linalg.norm(Gvec[iG]):
+                    np.linalg.norm(q_v) * np.linalg.norm(Gvec[iG]):
                 Glist.append(iG)
         qG = Gvec[Glist] + pd.K_qv
 

@@ -2,13 +2,13 @@ compiler = 'cc'
 mpicompiler = 'cc'
 mpilinker = 'cc'
 scalapack=True
-hdf5=True
-libxc='/usr/common/software/libxc/2.1.3'
+libxc='/usr/common/software/libxc/4.2.3/gnu/haswell'
 include_dirs += [libxc+'/include']
-extra_link_args += [libxc+'/lib/libxc.a']
+library_dirs += [xc + '/lib']
+extra_link_args += ['-Wl,-rpath={xc}/lib'.format(xc=libxc)]
 extra_compile_args += ['-O2']
-if 'xc' in libraries:
-    libraries.remove('xc')
+if 'xc' not in libraries:
+    libraries.append('xc')
 # these are in the cray wrapper
 if 'blas' in libraries:
     libraries.remove('blas')

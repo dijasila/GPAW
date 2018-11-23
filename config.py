@@ -6,7 +6,7 @@ import platform
 import sys
 import re
 import distutils.util
-from distutils.sysconfig import get_config_var, get_config_vars
+from distutils.sysconfig import get_config_vars
 from distutils.version import LooseVersion
 from glob import glob
 from os.path import join
@@ -79,7 +79,6 @@ def get_system_config(define_macros, undef_macros,
             # OpenBLAS (includes Lapack)
             if os.path.exists(join(ld, 'libopenblas.a')):
                 lib = 'openblas'
-                directory = ld
                 break
         if lib == 'openblas':
             libraries += [lib, 'gfortran']
@@ -106,6 +105,13 @@ def get_system_config(define_macros, undef_macros,
         include_dirs += ['/usr/include/malloc']
         library_dirs += ['/usr/local/lib']   # libxc installed with Homebrew
         extra_link_args += ['-framework', 'Accelerate']  # BLAS
+
+        # If the user uses python 3 from homebrew, then installation would
+        # fail due to a broken LINKFORSHARED configuration variable
+        cfgDict = get_config_vars()
+        if ('LINKFORSHARED' in cfgDict and
+            'Python.framework/Versions/3.6' in cfgDict['LINKFORSHARED']):
+            cfgDict['LINKFORSHARED'] = '-l python3.6'
 
         # We should probably add something to allow for user-installed BLAS?
 
@@ -147,8 +153,11 @@ def get_system_config(define_macros, undef_macros,
                     openblas = True
                     libdir = dir
                     break
-            if openblas:  # prefer openblas
-                libraries += ['openblas']
+            if 'MKLROOT' in os.environ:
+                libraries += ['mkl_intel_lp64', 'mkl_sequential', 'mkl_core',
+                              'irc']
+            elif openblas:  # prefer openblas
+                libraries += ['openblas', 'lapack']
                 library_dirs += [libdir]
             else:
                 if atlas:  # then atlas
@@ -326,33 +335,6 @@ def get_system_config(define_macros, undef_macros,
         define_macros.append(('_GNU_SOURCE', '1'))
 
 
-def get_parallel_config(mpi_libraries, mpi_library_dirs, mpi_include_dirs,
-                        mpi_runtime_library_dirs, mpi_define_macros):
-
-    globals = {}
-    exec(open('gpaw/mpi/config.py').read(), globals)
-    mpi = globals['get_mpi_implementation']()
-
-    if mpi == '':
-        mpicompiler = None
-
-    elif mpi == 'sun':
-        mpi_include_dirs += ['/opt/SUNWhpc/include']
-        mpi_libraries += ['mpi']
-        mpi_library_dirs += ['/opt/SUNWhpc/lib']
-        mpi_runtime_library_dirs += ['/opt/SUNWhpc/lib']
-        mpicompiler = get_config_var('CC')
-
-    elif mpi == 'poe':
-        mpicompiler = 'mpcc_r'
-
-    else:
-        # Try to use mpicc
-        mpicompiler = 'mpicc'
-
-    return mpicompiler
-
-
 def mtime(path, name, mtimes):
     """Return modification time.
 
@@ -487,7 +469,8 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     if glob(libpl + '/libpython*mpi*'):
         libs += ' -lpython%s_mpi' % cfgDict['VERSION']
     else:
-        libs += ' ' + cfgDict.get('BLDLIBRARY', '-lpython%s' % cfgDict['VERSION'])
+        libs += ' ' + cfgDict.get('BLDLIBRARY',
+                                  '-lpython%s' % cfgDict['VERSION'])
     libs = ' '.join([libs, cfgDict['LIBS'], cfgDict['LIBM']])
 
     # Hack taken from distutils to determine option for runtime_libary_dirs

@@ -360,7 +360,7 @@ class PWF2:
 
     def get_xc(self, q=0, indices=None):
         # self.calc.density.ghat.set_positions(
-        #     self.calc.atoms.get_scaled_positions() % 1.)
+        #     self.calc.spos_ac)
         # self.calc.hamiltonian.poisson.initialize()
         if self.ibl:
             return get_xc2(self.calc, self.get_orbitals(q, indices),

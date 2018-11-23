@@ -15,6 +15,7 @@ import numpy as np
 from ase.dft.kpoints import monkhorst_pack, get_monkhorst_pack_size_and_offset
 from ase.calculators.calculator import kptdensity2monkhorstpack
 
+from gpaw import KPointError
 from gpaw.kpoint import KPoint
 import gpaw.mpi as mpi
 import _gpaw
@@ -160,11 +161,16 @@ class KPointDescriptor:
         self.bz2bz_ks = np.arange(self.nbzkpts)[:, np.newaxis]
         self.nibzkpts = self.nbzkpts
         self.nks = self.nibzkpts * self.nspins
+        self.refine_info = None
+        self.monkhorst = (self.N_c is not None)
 
         self.set_communicator(mpi.serial_comm)
 
     def __str__(self):
         s = str(self.symmetry)
+
+        if self.refine_info is not None:
+            s += '\n' + str(self.refine_info)
 
         if -1 in self.bz2bz_ks:
             s += 'Note: your k-points are not as symmetric as your crystal!\n'
@@ -173,7 +179,7 @@ class KPointDescriptor:
             s += '\n1 k-point (Gamma)'
         else:
             s += '\n%d k-points' % self.nbzkpts
-            if self.N_c is not None:
+            if self.monkhorst:
                 s += ': %d x %d x %d Monkhorst-Pack grid' % tuple(self.N_c)
                 if self.offset_c.any():
                     s += ' + ['
@@ -187,16 +193,21 @@ class KPointDescriptor:
         s += ('\n%d k-point%s in the irreducible part of the Brillouin zone\n'
               % (self.nibzkpts, ' s'[1:self.nibzkpts]))
 
-        w_k = self.weight_k * self.nbzkpts
-        assert np.allclose(w_k, w_k.round())
-        w_k = w_k.round()
+        if self.monkhorst:
+            w_k = self.weight_k * self.nbzkpts
+            assert np.allclose(w_k, w_k.round())
+            w_k = w_k.round()
 
         s += '       k-points in crystal coordinates                weights\n'
         for k in range(self.nibzkpts):
             if k < 10 or k == self.nibzkpts - 1:
-                s += ('%4d:   %12.8f  %12.8f  %12.8f     %6d/%d\n' %
-                      ((k,) + tuple(self.ibzk_kc[k]) +
-                       (w_k[k], self.nbzkpts)))
+                if self.monkhorst:
+                    s += ('%4d:   %12.8f  %12.8f  %12.8f     %6d/%d\n' %
+                          ((k,) + tuple(self.ibzk_kc[k]) +
+                           (w_k[k], self.nbzkpts)))
+                else:
+                    s += ('%4d:   %12.8f  %12.8f  %12.8f     %12.8f\n' %
+                          ((k,) + tuple(self.ibzk_kc[k]) + (self.weight_k[k],)))
             elif k == 10:
                 s += '          ...\n'
         return s
@@ -218,6 +229,8 @@ class KPointDescriptor:
 
         self.symmetry = symmetry
 
+        # XXX we pass the whole atoms object just to complain if its PBCs
+        # are not how we like them
         for c, periodic in enumerate(atoms.pbc):
             if not periodic and not np.allclose(self.bzk_kc[:, c], 0.0):
                 raise ValueError('K-points can only be used with PBCs!')
@@ -273,10 +286,11 @@ class KPointDescriptor:
         kd.set_communicator(comm)
         return kd
 
-    def create_k_points(self, gd):
+    def create_k_points(self, gd, collinear):
         """Return a list of KPoints."""
 
-        sdisp_cd = gd.sdisp_cd
+        sdisp_cd = gd.sdisp_cd  # Maybe pass gd.sdisp_cd instead of gd??
+        # We do not in fact use any other property of gd.
 
         kpt_u = []
 
@@ -289,6 +303,9 @@ class KPointDescriptor:
             else:
                 phase_cd = np.exp(2j * np.pi *
                                   sdisp_cd * self.ibzk_kc[k, :, np.newaxis])
+            if not collinear:
+                s = None
+                weight *= 0.5
             kpt_u.append(KPoint(weight, s, k, q, phase_cd))
 
         return kpt_u
@@ -417,7 +434,7 @@ class KPointDescriptor:
             d_k = abs(d_kc - d_kc.round()).sum(1)
             i = d_k.argmin()
             if d_k[i] > 1e-8:
-                raise RuntimeError('Could not find k+q!')
+                raise KPointError('Could not find k+q!')
             i_x.append(i)
 
         return i_x
@@ -518,7 +535,7 @@ class KPointDescriptor:
         d_q = abs(d_qc - d_qc.round()).sum(1)
         q = d_q.argmin()
         if d_q[q] > 1e-8:
-            raise RuntimeError('Could not find q!')
+            raise KPointError('Could not find q!')
         return q
 
     def get_count(self, rank=None):

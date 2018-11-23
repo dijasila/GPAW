@@ -554,8 +554,10 @@ class FFTVDWFunctional(VDWFunctionalBase):
 
     def initialize_more_things(self):
         if self.alphas:
+            from gpaw.mpi import SerialCommunicator
             scale_c1 = (self.shape / (1.0 * self.gd.N_c))[:, np.newaxis]
-            gdfft = GridDescriptor(self.shape, self.gd.cell_cv * scale_c1, True)
+            gdfft = GridDescriptor(self.shape, self.gd.cell_cv * scale_c1,
+                                   True, comm=SerialCommunicator())
             k_k = construct_reciprocal(gdfft)[0][:,
                                                  :,
                                                  :self.shape[2] // 2 + 1]**0.5
@@ -829,7 +831,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
         world.sum(v0_g)
         world.sum(deda20_g)
         self.timer.stop('sum')
-        slice = self.gd.get_slice()
+        slice = tuple(self.gd.get_slice())
         v_g += v0_g[slice]
         deda2_g += deda20_g[slice]
 

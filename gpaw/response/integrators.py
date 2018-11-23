@@ -14,7 +14,7 @@ from gpaw.utilities.blas import gemm, rk, czher, mmm
 from gpaw.utilities.progressbar import ProgressBar
 from functools import partial
 
- 
+
 class Integrator():
 
     def __init__(self, response, cell_cv, comm=mpi.world,
@@ -46,8 +46,6 @@ class Integrator():
 
         if comm.rank != 0:
             txt = devnull
-        elif isinstance(txt, str):
-            txt = open(txt, 'w')
         self.fd = convert_string_to_fd(txt, comm)
 
         self.timer = timer or Timer()
@@ -142,10 +140,10 @@ class PointIntegrator(Integrator):
 
         nG = out_wxx.shape[2]
         mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        self.Ga = self.blockcomm.rank * mynG
+        self.Ga = min(self.blockcomm.rank * mynG, nG)
         self.Gb = min(self.Ga + mynG, nG)
-        assert mynG * (self.blockcomm.size - 1) < nG, \
-            print('mynG', mynG, 'nG', nG, 'nblocks', self.blockcomm.size)
+        # assert mynG * (self.blockcomm.size - 1) < nG, \
+        #     print('mynG', mynG, 'nG', nG, 'nblocks', self.blockcomm.size)
 
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
@@ -167,6 +165,8 @@ class PointIntegrator(Integrator):
         pb = ProgressBar(self.fd)
         for _, arguments in pb.enumerate(mydomain_t):
             n_MG = get_matrix_element(*arguments)
+            if n_MG is None:
+                continue
             deps_M = get_eigenvalues(*arguments)
 
             if intraband:
@@ -244,7 +244,7 @@ class PointIntegrator(Integrator):
             else:
                 x_m = 2 * deps_m / (omega.imag**2 + deps_m**2)
                 mynx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
-                mmm(1.0, mynx_mG, 'c', n_mG, 'n', 1.0, chi0_wGG[w])
+                mmm(1.0, mynx_mG, 'C', n_mG, 'N', 1.0, chi0_wGG[w])
 
     @timer('CHI_0 spectral function update')
     def update_hilbert(self, n_mG, deps_m, wd, chi0_wGG):
@@ -267,15 +267,18 @@ class PointIntegrator(Integrator):
 
         if self.blockcomm.size > 1:
             for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
-                myn_G = n_G[self.Ga:self.Gb].reshape((-1, 1))
-                gemm(p1, n_G.reshape((-1, 1)), myn_G, 1.0, chi0_wGG[w], 'c')
-                gemm(p2, n_G.reshape((-1, 1)), myn_G, 1.0, chi0_wGG[w + 1],
-                     'c')
+                if w + 1 < wd.wmax:  # The last frequency is not reliable
+                    myn_G = n_G[self.Ga:self.Gb].reshape((-1, 1))
+                    gemm(p1, n_G.reshape((-1, 1)), myn_G,
+                         1.0, chi0_wGG[w], 'c')
+                    gemm(p2, n_G.reshape((-1, 1)), myn_G,
+                         1.0, chi0_wGG[w + 1], 'c')
             return
 
         for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
-            czher(p1, n_G.conj(), chi0_wGG[w])
-            czher(p2, n_G.conj(), chi0_wGG[w + 1])
+            if w + 1 < wd.wmax:  # The last frequency is not reliable
+                czher(p1, n_G.conj(), chi0_wGG[w])
+                czher(p2, n_G.conj(), chi0_wGG[w + 1])
 
     @timer('CHI_0 intraband update')
     def update_intraband(self, vel_mv, chi0_wvv):
@@ -298,7 +301,7 @@ class PointIntegrator(Integrator):
         else:
             deps1_m = deps_m + 1j * eta
             deps2_m = deps_m - 1j * eta
-                    
+
         for w, omega in enumerate(omega_w):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
@@ -315,8 +318,11 @@ class PointIntegrator(Integrator):
             if w + 2 > len(omega_w):
                 break
             o1, o2 = omega_w[w:w + 2]
-            assert o1 <= o <= o2, (o1, o, o2)
-            
+            if o > o2:
+                continue
+            else:
+                assert o1 <= o <= o2, (o1, o, o2)
+
             p = 1 / (o2 - o1)**2
             p1 = p * (o2 - o)
             p2 = p * (o - o1)
@@ -381,10 +387,10 @@ class TetrahedronIntegrator(Integrator):
 
         nG = out_wxx.shape[2]
         mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        self.Ga = self.blockcomm.rank * mynG
+        self.Ga = min(self.blockcomm.rank * mynG, nG)
         self.Gb = min(self.Ga + mynG, nG)
-        assert mynG * (self.blockcomm.size - 1) < nG, \
-            print('mynG', mynG, 'nG', nG, 'nblocks', self.blockcomm.size)
+        # assert mynG * (self.blockcomm.size - 1) < nG, \
+        #     print('mynG', mynG, 'nG', nG, 'nblocks', self.blockcomm.size)
 
         # Input domain
         td = self.tesselate(domain[0])

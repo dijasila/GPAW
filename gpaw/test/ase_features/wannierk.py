@@ -3,14 +3,17 @@ from __future__ import print_function
 from ase.build import bulk
 from ase.dft.wannier import Wannier
 
-from gpaw import GPAW
+from gpaw import GPAW, Mixer
 from gpaw.mpi import world, serial_comm
 
 si = bulk('Si', 'diamond', a=5.43)
 
 k = 4
 if 1:
-    si.calc = GPAW(kpts=(k, k, k), txt='Si-ibz.txt')
+    si.calc = GPAW(kpts=(k, k, k),
+                   parallel=dict(augment_grids=True),
+                   mixer=Mixer(0.8, 7, 50.0),
+                   txt='Si-ibz.txt')
     e1 = si.get_potential_energy()
     si.calc.write('Si-ibz.gpw', mode='all')
     si.calc.set(symmetry={'point_group': False, 'time_reversal': False},
@@ -19,7 +22,7 @@ if 1:
     si.calc.write('Si-bz.gpw', mode='all')
     print((e1, e2))
 
-    
+
 def wan(calc):
     centers = [([0.125, 0.125, 0.125], 0, 1.5),
                ([0.125, 0.625, 0.125], 0, 1.5),
@@ -45,6 +48,7 @@ def wan(calc):
                                     cell=calc.atoms.cell)
         view(watoms)
     return x
+
 
 calc1 = GPAW('Si-bz.gpw', txt=None, communicator=serial_comm)
 x1 = wan(calc1)

@@ -10,6 +10,7 @@ a = Atoms('H2',
 a.calc = GPAW(mode=PW(force_complex_dtype=True),
               eigensolver='rmm-diis',
               nbands=8,
+              parallel={'domain': 1},
               basis='dzp', txt=None)
 
 a.get_potential_energy()
@@ -27,7 +28,7 @@ a.calc.diagonalize_full_hamiltonian(nbands=120, scalapack=scalapack)
 w2 = a.calc.get_pseudo_wave_function(0)
 e2 = a.calc.get_eigenvalues()
 
-calc = GPAW('H2', txt=None)
+calc = GPAW('H2', txt=None, parallel={'domain': 1})
 calc.diagonalize_full_hamiltonian(nbands=120, scalapack=scalapack)
 w3 = calc.get_pseudo_wave_function(0)
 e3 = calc.get_eigenvalues()

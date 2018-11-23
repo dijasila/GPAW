@@ -7,6 +7,7 @@ import distutils.util
 import os
 import os.path as op
 import re
+import subprocess
 import sys
 from distutils.command.build_ext import build_ext as _build_ext
 from distutils.command.build_scripts import build_scripts as _build_scripts
@@ -14,16 +15,16 @@ from distutils.command.sdist import sdist as _sdist
 from distutils.core import setup, Extension
 from glob import glob
 
-from config import (get_system_config, get_parallel_config,
-                    check_dependencies,
+from config import (get_system_config, check_dependencies,
                     write_configuration, build_interpreter, get_config_vars)
 
 
 assert sys.version_info >= (2, 7)
 
 # Get the current version number:
-with open('gpaw/__init__.py') as fd:
-    version = re.search("__version__ = '(.*)'", fd.read()).group(1)
+with open('gpaw/__init__.py', 'rb') as fd:
+    txt = fd.read().decode('UTF-8')
+version = re.search("__version__ = '(.*)'", txt).group(1)
 
 description = 'GPAW: DFT and beyond within the projector-augmented wave method'
 long_description = """\
@@ -47,6 +48,17 @@ mpi_library_dirs = []
 mpi_include_dirs = []
 mpi_runtime_library_dirs = []
 mpi_define_macros = []
+
+# Search and store current git hash if possible
+try:
+    from ase.utils import search_current_git_hash
+    githash = search_current_git_hash('gpaw')
+    if githash is not None:
+        define_macros += [('GPAW_GITHASH', githash)]
+    else:
+        print('.git directory not found. GPAW git hash not written.')
+except ImportError:
+    print('ASE not found. GPAW git hash not written.')
 
 platform_id = ''
 
@@ -77,15 +89,14 @@ get_system_config(define_macros, undef_macros,
                   runtime_library_dirs, extra_objects,
                   import_numpy)
 
-mpicompiler = get_parallel_config(mpi_libraries,
-                                  mpi_library_dirs,
-                                  mpi_include_dirs,
-                                  mpi_runtime_library_dirs,
-                                  mpi_define_macros)
-
+error = subprocess.call(['which', 'mpicc'], stdout=subprocess.PIPE)
+if error:
+    mpicompiler = None
+else:
+    mpicompiler = 'mpicc'
 mpilinker = mpicompiler
-compiler = None
 
+compiler = None
 scalapack = False
 libvdwxc = False
 

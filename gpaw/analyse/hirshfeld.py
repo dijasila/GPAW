@@ -1,6 +1,5 @@
 import numpy as np
 
-from ase import Atoms
 from ase.units import Bohr
 from gpaw.density import RealSpaceDensity
 from gpaw.lfc import BasisFunctions
@@ -8,20 +7,26 @@ from gpaw.setup import Setups
 from gpaw.xc import XC
 from gpaw.utilities.tools import coordinates
 from gpaw.utilities.partition import AtomPartition
+from gpaw.mpi import world
+from gpaw.io.logger import GPAWLogger
 
 
 class HirshfeldDensity(RealSpaceDensity):
     """Density as sum of atomic densities."""
 
-    def __init__(self, calculator):
+    def __init__(self, calculator, log=None):
         self.calculator = calculator
         dens = calculator.density
         RealSpaceDensity.__init__(self, dens.gd, dens.finegd,
-                                  dens.nspins, 0,
+                                  dens.nspins, collinear=True, charge=0.0,
                                   stencil=dens.stencil,
                                   redistributor=dens.redistributor)
-        self.log = calculator.log
-        
+        self.log = GPAWLogger(world=world)
+        if log is None:
+            self.log.fd = None
+        else:
+            self.log.fd = log
+
     def set_positions(self, spos_ac, atom_partition):
         """HirshfeldDensity builds a hack density object to calculate
         all electron density
@@ -44,32 +49,25 @@ class HirshfeldDensity(RealSpaceDensity):
     def get_density(self, atom_indices=None, gridrefinement=2):
         """Get sum of atomic densities from the given atom list.
 
-        All atoms are taken if the list is not given."""
+        Parameters
+        ----------
+        atom_indices : list_like
+            All atoms are taken if the list is not given.
+        gridrefinement : 1, 2, 4
+            Gridrefinement given to get_all_electron_density
+
+        Returns
+        -------
+        type
+             spin summed density, grid_descriptor
+        """
 
         all_atoms = self.calculator.get_atoms()
         if atom_indices is None:
             atom_indices = range(len(all_atoms))
 
-        density = self.calculator.density
-        spos_ac = all_atoms.get_scaled_positions()
-        rank_a = self.finegd.get_ranks_from_positions(spos_ac)
-
-        density.set_positions(all_atoms.get_scaled_positions(),
-                              AtomPartition(self.finegd.comm, rank_a))
-
         # select atoms
-        atoms = []
-        D_asp = {}
-        rank_a = []
-        all_D_asp = self.calculator.density.D_asp
-        all_rank_a = self.calculator.density.atom_partition.rank_a
-        for a in atom_indices:
-            if a in all_D_asp:
-                D_asp[len(atoms)] = all_D_asp.get(a)
-            atoms.append(all_atoms[a])
-            rank_a.append(all_rank_a[a])
-        atoms = Atoms(atoms,
-                      cell=all_atoms.get_cell(), pbc=all_atoms.get_pbc())
+        atoms = self.calculator.get_atoms()[atom_indices]
         spos_ac = atoms.get_scaled_positions()
         Z_a = atoms.get_atomic_numbers()
 
@@ -81,12 +79,10 @@ class HirshfeldDensity(RealSpaceDensity):
         # initialize
         self.initialize(setups,
                         self.calculator.timer,
-                        np.zeros(len(atoms)), False)
+                        np.zeros((len(atoms), 3)), False)
         self.set_mixer(None)
-
-        # FIXME nparray causes partitionong.py test to fail
+        rank_a = self.gd.get_ranks_from_positions(spos_ac)
         self.set_positions(spos_ac, AtomPartition(self.gd.comm, rank_a))
-        self.D_asp = D_asp
         basis_functions = BasisFunctions(self.gd,
                                          [setup.phit_j
                                           for setup in self.setups],
@@ -100,7 +96,6 @@ class HirshfeldDensity(RealSpaceDensity):
 
 
 class HirshfeldPartitioning:
-
     """Partion space according to the Hirshfeld method.
 
     After: F. L. Hirshfeld Theoret. Chim.Acta 44 (1977) 129-138
@@ -118,20 +113,28 @@ class HirshfeldPartitioning:
         density_ok = np.where(density_g > self.density_cutoff)
         self.invweight_g[density_ok] = 1.0 / density_g[density_ok]
 
+        den_sg, gd = self.calculator.density.get_all_electron_density(
+            self.atoms)
+        assert(gd == self.calculator.density.finegd)
+        self.den_g = den_sg.sum(axis=0)
+
     def get_calculator(self):
         return self.calculator
+
+    def get_effective_volume_ratios(self):
+        """Return the list of effective volume to free volume ratios."""
+        self.initialize()
+        ratios = []
+        for a, atom in enumerate(self.atoms):
+            ratios.append(self.get_effective_volume_ratio(a))
+        return np.array(ratios)
 
     def get_effective_volume_ratio(self, atom_index):
         """Effective volume to free volume ratio.
 
         After: Tkatchenko and Scheffler PRL 102 (2009) 073005, eq. (7)
         """
-        atoms = self.atoms
         finegd = self.calculator.density.finegd
-
-        den_sg, gd = self.calculator.density.get_all_electron_density(atoms)
-        den_g = den_sg.sum(axis=0)
-        assert(gd == finegd)
         denfree_g, gd = self.hdensity.get_density([atom_index])
         assert(gd == finegd)
 
@@ -142,7 +145,7 @@ class HirshfeldPartitioning:
 
         weight_g = denfree_g * self.invweight_g
 
-        nom = finegd.integrate(r3_g * den_g * weight_g)
+        nom = finegd.integrate(r3_g * self.den_g * weight_g)
         denom = finegd.integrate(r3_g * denfree_g)
 
         return nom / denom
@@ -172,11 +175,3 @@ class HirshfeldPartitioning:
 #            charge = atom.number - finegd.integrate(weight_g * den_g)
             charges.append(atom.number - finegd.integrate(weight_g * den_g))
         return charges
-
-    def get_effective_volume_ratios(self):
-        """Return the list of effective volume to free volume ratios."""
-        self.initialize()
-        ratios = []
-        for a, atom in enumerate(self.atoms):
-            ratios.append(self.get_effective_volume_ratio(a))
-        return np.array(ratios)

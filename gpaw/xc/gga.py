@@ -11,8 +11,9 @@ from gpaw.xc.functional import XCFunctional
 
 
 class GGARadialExpansion:
-    def __init__(self, rcalc):
+    def __init__(self, rcalc, *args):
         self.rcalc = rcalc
+        self.args = args
 
     def __call__(self, rgd, D_sLq, n_qg, nc0_sg):
         n_sLg = np.dot(D_sLq, n_qg)
@@ -31,7 +32,7 @@ class GGARadialExpansion:
             w = weight_n[n]
             rnablaY_Lv = rnablaY_nLv[n, :Lmax]
             e_g, dedn_sg, b_vsg, dedsigma_xg = \
-                self.rcalc(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n)
+                self.rcalc(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n, *self.args)
             dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
                                n_qg.T)[:, :, np.newaxis] * (w * Y_L)
             dedsigma_xg *= rgd.dr_g
@@ -213,6 +214,7 @@ class GGA(XCFunctional):
             P -= integrate(v_g, n_g)
         for sigma_g, dedsigma_g in zip(sigma_xg, dedsigma_xg):
             P -= 2 * integrate(sigma_g, dedsigma_g)
+
         stress_vv = P * np.eye(3)
         for v1 in range(3):
             for v2 in range(3):
@@ -226,6 +228,7 @@ class GGA(XCFunctional):
                     stress_vv[v1, v2] -= integrate(gradn_svg[1, v1] *
                                                    gradn_svg[1, v2],
                                                    dedsigma_xg[2]) * 2
+        self.gd.comm.sum(stress_vv)
         return stress_vv
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
@@ -302,7 +305,6 @@ class PurePythonGGAKernel:
             dedsigma_xg[1][:] += 2.0 * n * decda2
             dedsigma_xg[2][:] += 2.0 * nb * dexbda2 + n * decda2
 
-
 def pbe_constants(name):
     if name == 'pyPBE':
         name = 'PBE'
@@ -325,7 +327,8 @@ def pbe_constants(name):
     return name, kappa, mu, beta
 
 # a2 = |grad n|^2
-def gga_x(name, spin, n, a2, kappa, mu):
+def gga_x(name, spin, n, a2, kappa, mu, dedmu_g=None):
+    # if dedmu is given, calculate also d(e_x)/d(mu)
     assert spin in [0, 1]
 
     C0I, C1, C2, C3, CC1, CC2, IF2, GAMMA = gga_constants()
@@ -339,7 +342,7 @@ def gga_x(name, spin, n, a2, kappa, mu):
     c = (C2 * rs / n)**2.
     s2 = a2 * c
 
-    if name in ['PBE', 'PBEsol', 'zvPBEsol']:
+    if name in ['PBE', 'PBEsol', 'zvPBEsol', 'QNA']:
         x = 1.0 + mu * s2 / kappa
         Fx = 1.0 + kappa - kappa / x
         dFxds2 = mu / (x**2.)
@@ -348,16 +351,21 @@ def gga_x(name, spin, n, a2, kappa, mu):
         x = np.exp(arg)
         Fx = 1.0 + kappa * (1.0 - x)
         dFxds2 = mu * x
+    else:
+        raise NotImplementedError
 
     ds2drs = 8.0 * c * a2 / rs
     dexdrs = dexdrs * Fx + ex * dFxds2 * ds2drs
     dexda2 = ex * dFxds2 * c
+    if dedmu_g is not None:
+        dedmu_g[:] = ex * s2 / (1 + mu*s2 / kappa) **2
     ex *= Fx
 
     return ex, rs, dexdrs, dexda2
 
 
-def gga_c(name, spin, n, a2, zeta, BETA):
+def gga_c(name, spin, n, a2, zeta, BETA, decdbeta_g=None):
+    # If decdbeta is specified, calculate also d(e_c)/d(beta)
     assert spin in [0, 1]
     from gpaw.xc.lda import G
 
@@ -419,12 +427,16 @@ def gga_c(name, spin, n, a2, zeta, BETA):
 
     A = np.zeros_like(x)
     indices = np.nonzero(y)
-    A[indices] = (BETA / (GAMMA * (x[indices] - 1.0)))
+    if isinstance(BETA, np.ndarray):
+        A[indices] = (BETA[indices] / (GAMMA * (x[indices] - 1.0)))
+    else:
+        A[indices] = (BETA / (GAMMA * (x[indices] - 1.0)))
 
     At2 = A * t2
     nom = 1.0 + At2
     denom = nom + At2 * At2
-    H = GAMMA * np.log(1.0 + BETA * t2 * nom / (denom * GAMMA))
+    X = 1.0 + BETA * t2 * nom / (denom * GAMMA)
+    H = GAMMA * np.log(X)
     tmp = (GAMMA * BETA / (denom * (BETA * t2 * nom + GAMMA * denom)))
     tmp2 = A * A * x / BETA
     dAdrs = tmp2 * decdrs
@@ -470,6 +482,13 @@ def gga_c(name, spin, n, a2, zeta, BETA):
             decdzeta *= zvf
             decdzeta += H_ * dzvfdzeta
     ec += H
+
+    if decdbeta_g is not None:
+        if spin == 0:
+            phi3 = 1.0
+        Y = GAMMA * phi3
+        decdbeta_g[:] = Y / X * t2 / GAMMA
+        decdbeta_g *= (1 + 2*At2) / (1+At2+At2**2) - (1+At2)*(At2+2*At2**2) / (1+At2+At2**2)**2
 
     return ec, rs, decdrs, decda2, decdzeta
 

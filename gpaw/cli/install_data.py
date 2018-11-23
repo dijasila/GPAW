@@ -37,16 +37,20 @@ available at the expected URL:
 
 Or maybe there it is just a temporary problem or timeout.  Please try
 again, or rummage around the GPAW web page until a solution is found.
-Writing e-mails to gpaw-developers@lists@listserv.fysik.dtu.dk is also
+Writing e-mails to gpaw-users@listserv.fysik.dtu.dk or reporting
+an issue on https://gitlab.com/gpaw/gpaw/issues is also
 likely to help."""
 
 
 class CLICommand:
-    short_description = 'Install PAW datasets, pseudopotential or basis sets'
-    description = ('Without a directory, show available setups and GPAW '
-                   'setup paths. '
-                   'With a directory, download and install gpaw-setups into '
-                   'INSTALLDIR/[setups-package-name-and-version].')
+    """Install PAW datasets, pseudopotential or basis sets.
+
+    Without a directory, show available setups and GPAW
+    setup paths.
+
+    With a directory, download and install gpaw-setups into
+    INSTALLDIR/[setups-package-name-and-version].
+    """
 
     @staticmethod
     def add_arguments(parser):
@@ -135,10 +139,10 @@ def main(args, parser):
     if not args.directory:
         print_setups_info(parser)
         print()
-        print('Run ase install-data DIR to install newest setups into DIR.')
-        print('Run ase install-data DIR --version=VERSION to install VERSION '
+        print('Run gpaw install-data DIR to install newest setups into DIR.')
+        print('Run gpaw install-data DIR --version=VERSION to install VERSION '
               '(from above).')
-        print('See ase install-data --help for more info.')
+        print('See gpaw install-data --help for more info.')
         raise SystemExit
 
     targetpath = args.directory
@@ -244,12 +248,14 @@ def get_urls(source):
                    r'(sg15_oncv_upf_\d\d\d\d-\d\d-\d\d.tar.gz)'
                    r'\s*</a>')
 
-        files = re.compile(pattern).findall(response.read())
+        txt = response.read().decode('ascii', errors='replace')
+        files = re.compile(pattern).findall(txt)
         files.sort(reverse=True)
         urls = [page + fname for fname in files]
     elif source == 'basis':
         pattern = re.compile('>(gpaw-basis-.+?.tar.gz)</a>')
-        files = sorted(pattern.findall(response.read()), reverse=True)
+        txt = response.read().decode('ascii', errors='replace')
+        files = sorted(pattern.findall(txt), reverse=True)
         urls = [page + fname for fname in files]
     elif source == 'test':
         urls = ['{0}gpaw-dist-test-source.tar.gz'.format(page)]

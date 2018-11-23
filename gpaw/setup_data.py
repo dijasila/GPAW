@@ -96,7 +96,9 @@ class SetupData:
 
         # Optional quantities, normally not used
         self.X_p = None
+        self.X_pg = None
         self.ExxC = None
+        self.X_gamma = None
         self.extra_xc_data = {}
         self.phicorehole_g = None
         self.fcorehole = 0.0
@@ -228,14 +230,6 @@ class SetupData:
                 N += sqrt(4 * pi) * nc_g[g] * rgd.r_g[g]**2 * rgd.dr_g[g]
                 g -= 1
             return rgd.r_g[g]
-
-    def get_max_projector_cutoff(self):
-        g = self.rgd.N - 1
-        pt_g = self.pt_jg[0]
-        while pt_g[g] == 0.0:
-            g -= 1
-        gcutfilter = g + 1
-        return gcutfilter
 
     def get_xc_correction(self, rgd, xc, gcut2, lcut):
         phicorehole_g = self.phicorehole_g
@@ -382,6 +376,12 @@ class SetupData:
 
             print('  <exact_exchange core-core="%r"/>' % self.ExxC, file=xml)
 
+        if self.X_pg is not None:
+            print('  <yukawa_exchange_X_matrix>\n    ', end=' ', file=xml)
+            for x in self.X_pg:
+                print('%r' % x, end=' ', file=xml)
+            print('\n  </yukawa_exchange_X_matrix>', file=xml)
+            print('  <yukawa_exchange gamma="%r"/>' % self.X_gamma, file=xml)
         print('</paw_setup>', file=xml)
 
     def build(self, xcfunc, lmax, basis, filter=None):
@@ -521,7 +521,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
                 # Old style: XXX
                 setup.rcgauss = max(setup.rcut_j) / sqrt(float(attrs['alpha']))
         elif name in ['ae_core_density', 'pseudo_core_density',
-                      'localized_potential',
+                      'localized_potential', 'yukawa_exchange_X_matrix',
                       'kinetic_energy_differences', 'exact_exchange_X_matrix',
                       'ae_core_kinetic_energy_density',
                       'pseudo_core_kinetic_energy_density']:
@@ -536,6 +536,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             self.data = []
         elif name == 'exact_exchange':
             setup.ExxC = float(attrs['core-core'])
+        elif name == 'yukawa_exchange':
+            setup.X_gamma = float(attrs['gamma'])
         elif name == 'core_hole_state':
             setup.has_corehole = True
             setup.fcorehole = float(attrs['removed'])
@@ -605,5 +607,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.pt_jg.append(x_g)
         elif name == 'exact_exchange_X_matrix':
             setup.X_p = x_g
+        elif name == 'yukawa_exchange_X_matrix':
+            setup.X_pg = x_g
         elif name == 'core_hole_state':
             setup.phicorehole_g = x_g

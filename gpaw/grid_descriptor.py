@@ -17,7 +17,7 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
 from gpaw.utilities import mlsqr
-from gpaw.utilities.blas import rk, r2k, gemv, gemm
+from gpaw.utilities.blas import rk, r2k, gemm
 
 
 # Remove this:  XXX
@@ -28,6 +28,10 @@ NONBLOCKING = False
 
 
 class GridBoundsError(ValueError):
+    pass
+
+
+class BadGridError(ValueError):
     pass
 
 
@@ -68,7 +72,7 @@ class GridDescriptor(Domain):
 
     ndim = 3  # dimension of ndarrays
 
-    def __init__(self, N_c, cell_cv=(1, 1, 1), pbc_c=True,
+    def __init__(self, N_c, cell_cv=[1, 1, 1], pbc_c=True,
                  comm=None, parsize_c=None):
         """Construct grid-descriptor object.
 
@@ -128,10 +132,10 @@ class GridDescriptor(Domain):
                 n_p[0] = 1
 
             if not np.all(n_p[1:] - n_p[:-1] > 0):
-                raise ValueError('Grid {0} too small for {1} cores!'
-                                 .format('x'.join(str(n) for n in self.N_c),
-                                         'x'.join(str(n) for n
-                                                  in self.parsize_c)))
+                raise BadGridError('Grid {0} too small for {1} cores!'
+                                   .format('x'.join(str(n) for n in self.N_c),
+                                           'x'.join(str(n) for n
+                                                    in self.parsize_c)))
 
             self.beg_c[c] = n_p[self.parpos_c[c]]
             self.end_c[c] = n_p[self.parpos_c[c] + 1]
@@ -149,7 +153,7 @@ class GridDescriptor(Domain):
         # Sanity check for grid spacings:
         h_c = self.get_grid_spacings()
         if max(h_c) / min(h_c) > 1.3:
-            raise ValueError('Very anisotropic grid spacings: %s' % h_c)
+            raise BadGridError('Very anisotropic grid spacings: %s' % h_c)
 
     def __repr__(self):
         if self.orthogonal:
@@ -321,14 +325,6 @@ class GridDescriptor(Domain):
         else:
             return result
 
-    def gemm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
-        """Helper function for MatrixOperator class."""
-        gemm(alpha, psit_nG, C_mn, beta, newpsit_mG)
-
-    def gemv(self, alpha, psit_nG, C_n, beta, newpsit_G, trans='t'):
-        """Helper function for CG eigensolver."""
-        gemv(alpha, psit_nG, C_n, beta, newpsit_G, trans)
-
     def coarsen(self):
         """Return coarsened `GridDescriptor` object.
 
@@ -467,10 +463,13 @@ class GridDescriptor(Domain):
         self.distribute(B_g, a_g)
         a_g /= len(op_scc)
 
-    def collect(self, a_xg, broadcast=False):
+    def collect(self, a_xg, out=None, broadcast=False):
         """Collect distributed array to master-CPU or all CPU's."""
         if self.comm.size == 1:
-            return a_xg
+            if out is None:
+                return a_xg
+            out[:] = a_xg
+            return out
 
         xshape = a_xg.shape[:-3]
 
@@ -488,7 +487,10 @@ class GridDescriptor(Domain):
 
         # Put the subdomains from the slaves into the big array
         # for the whole domain:
-        A_xg = self.empty(xshape, a_xg.dtype, global_array=True)
+        if out is None:
+            A_xg = self.empty(xshape, a_xg.dtype, global_array=True)
+        else:
+            A_xg = out
         parsize_c = self.parsize_c
         r = 0
         for n0 in range(parsize_c[0]):
@@ -508,7 +510,7 @@ class GridDescriptor(Domain):
             self.comm.broadcast(A_xg, 0)
         return A_xg
 
-    def distribute(self, B_xg, b_xg):
+    def distribute(self, B_xg, out=None):
         """Distribute full array B_xg to subdomains, result in b_xg.
 
         B_xg is not used by the slaves (i.e. it should be None on all slaves)
@@ -516,12 +518,16 @@ class GridDescriptor(Domain):
         """
 
         if self.comm.size == 1:
-            b_xg[:] = B_xg
-            return
+            if out is None:
+                return B_xg
+            out[:] = B_xg
+            return out
+
+        if out is None:
+            out = self.empty(B_xg.shape[:-3], dtype=B_xg.dtype)
 
         if self.rank != 0:
-            self.comm.receive(b_xg, 0, 42)
-            return
+            self.comm.receive(out, 0, 42)
         else:
             parsize_c = self.parsize_c
             requests = []
@@ -540,11 +546,13 @@ class GridDescriptor(Domain):
                             # deallocated:
                             requests.append((request, a_xg))
                         else:
-                            b_xg[:] = B_xg[..., b0:e0, b1:e1, b2:e2]
+                            out[:] = B_xg[..., b0:e0, b1:e1, b2:e2]
                         r += 1
 
             for request, a_xg in requests:
                 self.comm.wait(request)
+
+        return out
 
     def zero_pad(self, a_xg, global_array=True):
         """Pad array with zeros as first element along non-periodic directions.
@@ -576,13 +584,15 @@ class GridDescriptor(Domain):
         b_xg[..., npbx:, npby:, npbz:] = a_xg
         return b_xg
 
-    def calculate_dipole_moment(self, rho_g):
+    def calculate_dipole_moment(self, rho_g, center=False):
         """Calculate dipole moment of density."""
+        r_cz = [np.arange(self.beg_c[c], self.end_c[c]) for c in range(3)]
+        if center:
+            r_cz = [r_cz[c] - 0.5 * self.N_c[c] for c in range(3)]
         rho_01 = rho_g.sum(axis=2)
         rho_02 = rho_g.sum(axis=1)
-        rho_cg = [rho_01.sum(axis=1), rho_01.sum(axis=0), rho_02.sum(axis=0)]
-        rhog_c = [np.dot(np.arange(self.beg_c[c], self.end_c[c]), rho_cg[c])
-                  for c in range(3)]
+        rho_cz = [rho_01.sum(axis=1), rho_01.sum(axis=0), rho_02.sum(axis=0)]
+        rhog_c = [np.dot(r_cz[c], rho_cz[c]) for c in range(3)]
         d_c = -np.dot(rhog_c, self.h_cv) * self.dv
         self.comm.sum(d_c)
         return d_c
@@ -647,11 +657,14 @@ class GridDescriptor(Domain):
         """
         s_Gc = (np.indices(self.n_c, dtype).T + self.beg_c) / self.N_c
         cell_cv = self.N_c * self.h_cv
-        s_Gc -= np.linalg.solve(cell_cv.T, r_v)
+        r_c = np.linalg.solve(cell_cv.T, r_v)
+        # do the correction twice works better because of rounding errors
+        # e.g.: -1.56250000e-25 % 1.0 = 1.0,
+        #      but (-1.56250000e-25 % 1.0) % 1.0 = 0.0
+        r_c = np.where(self.pbc_c, r_c % 1.0, r_c)
+        s_Gc -= np.where(self.pbc_c, r_c % 1.0, r_c)
 
         if mic:
-            # XXX do the correction twice works better
-            s_Gc -= self.pbc_c * (2 * s_Gc).astype(int)
             s_Gc -= self.pbc_c * (2 * s_Gc).astype(int)
             # sanity check
             assert((s_Gc * self.pbc_c >= -0.5).all())

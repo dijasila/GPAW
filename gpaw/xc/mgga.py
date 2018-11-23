@@ -1,6 +1,7 @@
 from math import sqrt, pi
 
 import numpy as np
+from scipy.special import eval_legendre
 
 from gpaw.xc.gga import (add_gradient_correction, gga_vars,
                          GGARadialExpansion, GGARadialCalculator,
@@ -35,7 +36,7 @@ class MGGA(XCFunctional):
         self.distribute_and_interpolate = density.distribute_and_interpolate
 
     def set_positions(self, spos_ac):
-        self.tauct.set_positions(spos_ac)
+        self.tauct.set_positions(spos_ac, self.wfs.atom_partition)
         if self.tauct_G is None:
             self.tauct_G = self.wfs.gd.empty()
         self.tauct_G[:] = 0.0
@@ -50,6 +51,14 @@ class MGGA(XCFunctional):
     def process_mgga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
         taut_sG = self.wfs.calculate_kinetic_energy_density()
         if taut_sG is None:
+            taut_sG = self.wfs.gd.zeros(len(nt_sg))
+
+        if 0: #taut_sG is None:
+            # Below code disabled because it produces garbage in at least
+            # some cases.
+            #
+            # See https://gitlab.com/gpaw/gpaw/issues/124
+            #
             # Initialize with von Weizsaecker kinetic energy density:
             nt0_sg = nt_sg.copy()
             nt0_sg[nt0_sg < 1e-10] = np.inf
@@ -325,6 +334,7 @@ def LegendreFx2(n, rs, sigma, tau,
 
     # product exchange enhancement factor
     Fx_i = legendre_polynomial(x_i, orders_i, coefs_i)
+    #print(Fx_i);asdf
     Fx_j = legendre_polynomial(x_j, orders_j, coefs_j)
     Fx = Fx_i * Fx_j
     return Fx
@@ -369,51 +379,6 @@ def ueg_x(n):
     return ex, rs
 
 
-def legendre_polynomial(x, orders, coefs, P=None):
-    assert len(orders) == len(coefs)
-    max_order = int(orders[-1])
-
-    if P is None:
-        P = np.zeros_like(x)
-    else:
-        assert np.shape(P) == np.shape(x)
-    sh = np.shape(x)
-    sh_ = np.append(sh, max_order + 2)
-    L = np.empty(sh_)
-
-    # initializing
-    if len(sh) == 1:
-        L[:, 0] = 1.0
-        L[:, 1] = x
-    else:
-        L[:, :, :, 0] = 1.0
-        L[:, :, :, 1] = x
-
-    # recursively building polynomium terms
-    if len(sh) == 1:
-        for i in range(max_order):
-            i += 2
-            L[:, i] = (2.0 * x[:] * L[:, i - 1] - L[:, i - 2] -
-                       (x[:] * L[:, i - 1] - L[:, i - 2]) / i)
-    else:
-        for i in range(max_order):
-            i += 2
-            L[:, :, :, i] = (
-                2.0 * x[:] * L[:, :, :, i - 1] -
-                L[:, :, :, i - 2] -
-                (x[:] * L[:, :, :, i - 1] - L[:, :, :, i - 2]) / i)
-
-    # building polynomium P
-    coefs_ = np.empty(max_order + 1)
-    k = 0
-    for i in range(len(coefs_)):
-        if orders[k] == i:
-            coefs_[i] = coefs[k]
-            k += 1
-        else:
-            coefs_[i] = 0.0
-    if len(sh) == 1:
-        P += np.dot(L[:, :-1], coefs_)
-    else:
-        P += np.dot(L[:, :, :, :-1], coefs_)
-    return P
+def legendre_polynomial(x, orders, coefs):
+    assert len(orders) == len(coefs) == 1
+    return eval_legendre(orders[0], x) * coefs[0]

@@ -1,4 +1,3 @@
-# creates: hli-pot.png
 import matplotlib.pyplot as plt
 from ase.units import Bohr
 from gpaw.utilities.ps2ae import PS2AE
@@ -21,9 +20,9 @@ plt.plot(x, ae[i, i], '-', label=r'$v$')
 # Raw PS wfs:
 ps0 = calc.get_electrostatic_potential()
 gd = calc.hamiltonian.finegd
-I = ps0.shape[0] // 2
+i = ps0.shape[0] // 2
 X = gd.coords(2) * Bohr
-plt.plot(X, ps0[I, I], 'o')
+plt.plot(X, ps0[i, i], 'o')
 
 plt.plot(x, 0 * x, 'k')
 plt.xlabel('z [Ang]')

@@ -1,12 +1,13 @@
 master:
   script:
     - apt-get update -qy
-    - apt-get install -qy python-dev python-numpy python-scipy libopenblas-dev liblapack-dev libxc-dev python-pip > apt-get.output
+    - apt-get install -qy python-dev python-numpy python-scipy libopenblas-dev liblapack-dev libscalapack-mpi-dev libxc-dev python-pip > apt-get.output
     - pip install flake8
     - pip install git+https://gitlab.com/ase/ase.git@master > ase-install.output
-    - python setup.py install --user > gpaw-install.output
-    - export PATH=~/.local/bin:$PATH
-    - gpaw install-data --register gpaw-datasets
-    - gpaw info
-    - ase build H2 -V1 | gpaw run -p mode=pw
+    - sed -i "s/scalapack = False/scalapack = True/" customize.py
+    - python setup.py install > gpaw-install.output
+    - useradd -m user
+    - su user -c 'gpaw install-data --register gpaw-datasets'
+    - su user -c 'gpaw info'
+    - su user -c 'ase build H2 -V1 | gpaw -P 2 run -p mode=pw'
     - python -m gpaw.test.pyflakes_check

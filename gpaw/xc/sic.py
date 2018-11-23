@@ -209,7 +209,6 @@ class SIC(XCFunctional):
 
         poissonsolver = PoissonSolver(eps=1e-14)
         poissonsolver.set_grid_descriptor(self.finegd)
-        poissonsolver.initialize()
 
         self.spin_s = {}
         for kpt in wfs.kpt_u:
@@ -807,14 +806,18 @@ class SICSpin:
                 V_u = ...
 
         """
+
         nocc = self.nocc
         nvirt = H_nn.shape[0] - nocc
 
         W_mn = self.W_mn
         # R_mk = self.R_mk
-        V_mm = 0.5 * (self.V_mm + self.V_mm.T)
 
-        H_nn[:nocc, :nocc] += np.dot(W_mn.T, np.dot(V_mm, W_mn))
+        if self.gd.comm.rank == 0:
+            V_mm = 0.5 * (self.V_mm + self.V_mm.T)
+            H_nn[:nocc, :nocc] += np.dot(W_mn.T, np.dot(V_mm, W_mn))
+            if self.stabpot != 0.0:
+                H_nn[nocc:, nocc:] += np.eye(nvirt) * self.stabpot
 
         if nvirt != 0:
             H_nn[:nocc, nocc:] = 0.0  # R_nk
@@ -822,9 +825,6 @@ class SICSpin:
             # R_nk = np.dot(W_mn.T, R_mk) # CHECK THIS
             # H_nn[:nocc, nocc:] += R_nk
             # H_nn[nocc:, :nocc] += R_nk.T
-
-        if self.stabpot != 0.0:
-            H_nn[self.nocc:, self.nocc:] += np.eye(nvirt) * self.stabpot
 
     def calculate_residual(self, psit_nG, Htpsit_nG, P_ani, c_ani):
         """ Calculate the action of the unified Hamiltonian on an
@@ -955,7 +955,7 @@ class SICSpin:
             return
 
         # compensate the transformation amongst the occupied states
-        self.W_mn = np.dot(self.W_mn, U_nn[:self.nocc, :self.nocc].T)
+        self.W_mn = np.dot(self.W_mn, U_nn[:self.nocc, :self.nocc])
 
         # reorthogonalize if unoccupied states may have been mixed in
         if self.nocc != U_nn.shape[0]:
