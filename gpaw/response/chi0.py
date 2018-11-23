@@ -212,7 +212,7 @@ class Chi0:
         
         self.timer = timer or Timer()
 
-        self.pair = PairDensity(calc, self.response, ecut,
+        self.pair = PairDensity(calc, ecut, self.response,
                                 ftol, threshold,
                                 real_space_derivatives, world, txt,
                                 self.timer,

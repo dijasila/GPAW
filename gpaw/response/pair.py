@@ -632,7 +632,7 @@ class PWSymmetryAnalyzer:
 
 
 class PairDensity:
-    def __init__(self, calc, response='density', ecut=50,
+    def __init__(self, calc, ecut=50, response='density',
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
@@ -644,7 +644,7 @@ class PairDensity:
         if gate_voltage is not None:
             gate_voltage = gate_voltage / Hartree
         
-        self.reponse = response
+        self.response = response
         self.ecut = ecut
         self.ftol = ftol
         self.threshold = threshold
@@ -1047,7 +1047,7 @@ class PairDensity:
             kpt1 = self.get_k_point(s, k_c, n1, n2, load_wfs=load_wfs)
             # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
             if self.response == 'spin':
-                s2 = 1-s
+                s2 = 1 - s
             else:
                 s2 = s
             kpt2 = self.get_k_point(s2, k_c + q_c, m1, m2,
