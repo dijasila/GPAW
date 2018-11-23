@@ -891,7 +891,8 @@ class PairDensity:
         assert 0 <= use_more_memory <= 1
 
         q_c = pd.kd.bzk_kc[0]
-        optical_limit = not disable_optical_limit and (np.allclose(q_c, 0.0) and self.response == 'density') # gamma point needs special care in density response
+        optical_limit = np.allclose(q_c, 0.0) and self.response == 'density'
+        optical_limit = not disable_optical_limit and optical_limit
 
         Q_aGii = self.initialize_paw_corrections(pd)
         self.Q_aGii = Q_aGii  # This is used in g0w0
@@ -1064,7 +1065,8 @@ class PairDensity:
                          Q_aGii=None, block=False, direction=2,
                          extend_head=True):
         """Get pair density for a kpoint pair."""
-        ol = optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0) and self.response == 'density' # gamma point needs special care in density response
+        ol = optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0) and \
+            self.response == 'density'
         eh = extend_head
         cpd = self.calculate_pair_densities  # General pair densities
         opd = self.optical_pair_density  # Interband pair densities / q
@@ -1451,7 +1453,7 @@ class PairDensity:
     def initialize_paw_corrections(self, pd, soft=False):
         wfs = self.calc.wfs
         q_v = pd.K_qv[0]
-        optical_limit = np.allclose(q_v, 0) and self.response == 'density' # gamma point needs special care in density response
+        optical_limit = np.allclose(q_v, 0) and self.response == 'density'
 
         G_Gv = pd.get_reciprocal_vectors()
         if optical_limit:

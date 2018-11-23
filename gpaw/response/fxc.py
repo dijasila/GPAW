@@ -16,7 +16,7 @@ from ase.units import Bohr, Ha
 
 
 def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', RSrep='gpaw',
-                       chi0_wGG=None, fxc_scaling=None, 
+                       chi0_wGG=None, fxc_scaling=None,
                        xi_cut=None, density_cut=None):
     """ XC kernels for (collinear) spin polarized calculations
     Currently only ALDA kernels are implemented
@@ -24,7 +24,7 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', RSrep='gpaw',
     RSrep : str
         real space representation of kernel ('gpaw' or 'grid')
     xi_cut : float
-        cutoff spin polarization below which f_xc is evaluated in unpolarized limit
+        cutoff spin polarization. Below, f_xc is evaluated in unpolarized limit
         (mostly a problem, when some volume elements are exactly spin neutral).
     density_cut : float
         cutoff density below which f_xc is set to zero
@@ -38,8 +38,9 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', RSrep='gpaw',
     if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
         # Adiabatic kernel
         print("Calculating %s spin kernel" % functional, file=fd)
-        Kcalc = ALDASpinKernelCalculator(fd, RSrep, ecut=chi0.ecut, 
-                                         xi_cut=xi_cut, density_cut=density_cut)
+        Kcalc = ALDASpinKernelCalculator(fd, RSrep, ecut=chi0.ecut,
+                                         xi_cut=xi_cut,
+                                         density_cut=density_cut)
     else:
         raise ValueError("%s spin kernel not implemented" % functional)
     
@@ -49,7 +50,8 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', RSrep='gpaw',
         assert isinstance(fxc_scaling[0], bool)
         if fxc_scaling[0]:
             if fxc_scaling[1] is None:
-                fxc_scaling[1] = find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG)
+                fxc_scaling[1] = find_Goldstone_scaling(pd, chi0,
+                                                        chi0_wGG, Kxc_GG)
         
             assert isinstance(fxc_scaling[1], float)
             Kxc_GG *= fxc_scaling[1]
@@ -57,7 +59,8 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', RSrep='gpaw',
     return Kxc_GG
 
 
-def get_xc_kernel(pd, chi0, functional='ALDA', chi0_wGG=None, density_cut=None):
+def get_xc_kernel(pd, chi0, functional='ALDA', chi0_wGG=None,
+                  density_cut=None):
     """ XC kernels for spin neutral calculations
     Only density response kernels are implemented
     Factory function that calls the relevant functions below
@@ -71,7 +74,8 @@ def get_xc_kernel(pd, chi0, functional='ALDA', chi0_wGG=None, density_cut=None):
     if functional[0] == 'A':
         # Standard adiabatic kernel
         print('Calculating %s kernel' % functional, file=fd)
-        Kxc_sGG = calculate_Kxc(pd, calc, functional=functional, density_cut=density_cut)
+        Kxc_sGG = calculate_Kxc(pd, calc, functional=functional,
+                                density_cut=density_cut)
     elif functional[0] == 'r':
         # Renormalized kernel
         print('Calculating %s kernel' % functional, file=fd)
@@ -253,18 +257,21 @@ class ALDAKernelCalculator:
     def __call__(self, pd, calc, functional):
         assert functional in ['ALDA_x', 'ALDA_X', 'ALDA']
         self.functional = functional
-        add_fxc = self.add_fxc # class methods are not within the scope of the __call__ method
+        add_fxc = self.add_fxc  # class methods not within the scope of call
         
         vol = pd.gd.volume
         npw = pd.ngmax
         
         if self.RSrep == 'grid':
             print("\tFinding all-electron density", file=self.fd)
-            n_sG, gd = calc.density.get_all_electron_density(atoms=calc.atoms, gridrefinement=1)
+            n_sG, gd = calc.density.get_all_electron_density(atoms=calc.atoms,
+                                                             gridrefinement=1)
             qd = pd.kd
-            lpd = PWDescriptor(self.ecut, gd, complex, qd, gammacentered=pd.gammacentered)
+            lpd = PWDescriptor(self.ecut, gd, complex, qd,
+                               gammacentered=pd.gammacentered)
             
-            print("\tCalculating fxc on real space grid using all-electron density", file=self.fd)
+            print("\tCalculating fxc on real space grid using"
+                  + " all-electron density", file=self.fd)
             fxc_G = np.zeros(np.shape(n_sG[0]))
             add_fxc(gd, n_sG, fxc_G)
             
@@ -273,7 +280,8 @@ class ALDAKernelCalculator:
             nt_sG = calc.density.nt_sG
             gd, lpd = pd.gd, pd
             
-            print("\tCalculating fxc on real space grid using smooth density", file=self.fd)
+            print("\tCalculating fxc on real space grid using smooth density",
+                  file=self.fd)
             fxc_G = np.zeros(np.shape(nt_sG[0]))
             add_fxc(gd, nt_sG, fxc_G)
         
@@ -313,15 +321,15 @@ class ALDAKernelCalculator:
             for a, setup in enumerate(setups):
                 Y_nL = setup.xc_correction.Y_nL
                 r_g = setup.xc_correction.rgd.r_g
-                tp += len(Y_nL)*len(r_g)
+                tp += len(Y_nL) * len(r_g)
             # How many points should each process compute
             ppr = tp // size
             p_r = []
             pdone = 0
             for rr in range(size):
-                if pdone + ppr*(size-rr) > tp:
+                if pdone + ppr * (size - rr) > tp:
                     ppr -= 1
-                elif pdone + ppr*(size-rr) < tp:
+                elif pdone + ppr * (size - rr) < tp:
                     ppr += 1
                 p_r.append(ppr)
                 pdone += ppr
@@ -367,7 +375,7 @@ class ALDAKernelCalculator:
                             pi = p
                         else:
                             pi = pres
-                        i_r.append(range(idone,idone+pi))
+                        i_r.append(range(idone, idone + pi))
                         rn.append(r)
                         idone += pi
                         pres -= pi
@@ -389,18 +397,19 @@ class ALDAKernelCalculator:
 
                         for i in range(len(rgd.r_g)):
                             if i in i_r[rn.index(rank)]:
-                                coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n])
+                                coef_GG = np.exp(-1j
+                                                 * np.inner(dG_GGv, R_nv[n])
                                                  * rgd.r_g[i])
 
                                 KxcPAW_GG += w * np.dot(coef_GG,
-                                                            (f_g[i] -
-                                                             ft_g[i])
-                                                        * dv_g[i]) * coefatoms_GG
+                                                        (f_g[i]
+                                                         - ft_g[i])
+                                                        * dv_g[i])\
+                                    * coefatoms_GG
             world.sum(KxcPAW_GG)
             Kxc_GG += KxcPAW_GG
         
         return Kxc_GG / vol
-    
     
     def add_fxc(self, gd, n_sg, fxc_g):
         raise NotImplementedError
@@ -415,7 +424,7 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
     
     def add_fxc(self, gd, n_sG, fxc_G):
         """ Calculate fxc, using the cutoffs from input above """
-        _calculate_pol_fxc = self._calculate_pol_fxc # class methods are not within the scope of the __call__ method
+        _calculate_pol_fxc = self._calculate_pol_fxc
         _calculate_unpol_fxc = self._calculate_unpol_fxc
         
         xi_cut = self.xi_cut
@@ -423,12 +432,13 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
         
         # Mask small xi
         n_G, m_G = None, None
-        if not xi_cut is None:
+        if xi_cut is not None:
             m_G = n_sG[0] - n_sG[1]
             n_G = n_sG[0] + n_sG[1]
-            xismall_G = np.abs(m_G/n_G) < xi_cut
+            xismall_G = np.abs(m_G / n_G) < xi_cut
         else:
-            xismall_G = np.full(np.shape(n_sG[0]), False, np.array(False).dtype)
+            xismall_G = np.full(np.shape(n_sG[0]), False,
+                                np.array(False).dtype)
             
         # Mask small n
         if density_cut:
@@ -457,15 +467,16 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
             fxc_G[allfine_G] += _calculate_pol_fxc(gd, n_sG, m_G)[allfine_G]
         
         return
-    
-    
+        
     def _calculate_pol_fxc(self, gd, n_sG, m_G):
         """ Calculate polarized fxc """
         
         assert np.shape(m_G) == np.shape(n_sG[0])
         
         if self.functional == 'ALDA_x':
-            return - (6./np.pi)**(1./3.) * ( n_sG[0]**(1./3.) - n_sG[1]**(1./3.) ) / m_G
+            fx_G = - (6. / np.pi)**(1. / 3.)
+            * (n_sG[0]**(1. / 3.) - n_sG[1]**(1. / 3.)) / m_G
+            return fx_G
         else:
             v_sG = np.zeros(np.shape(n_sG))
             xc = XC(self.functional[1:])
@@ -473,10 +484,9 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
                 
             return (v_sG[0] - v_sG[1]) / m_G
     
-    
     def _calculate_unpol_fxc(self, gd, n_G):
         """ Calculate unpolarized fxc """
-        fx_G = - (3./np.pi)**(1./3.) * 2. / 3. * n_G**(-2./3.)
+        fx_G = - (3. / np.pi)**(1. / 3.) * 2. / 3. * n_G**(-2. / 3.)
         if self.functional in ('ALDA_x', 'ALDA_X'):
             return fx_G
         else:
@@ -488,9 +498,10 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
             b3 = 0.88026
             b4 = 0.49671
             
-            rs_G = 3./(4.*np.pi) * n_G**(-1./3.)
-            X_G = 2.*A*(b1*rs_G**(1./2.) + b2*rs_G + b3*rs_G**(3./2.) + b4*rs_G**2.)
-            ac_G = 2.*A*(1+a1*rs_G)*np.log(1.+1./X_G)
+            rs_G = 3. / (4. * np.pi) * n_G**(-1. / 3.)
+            X_G = 2. * A * (b1 * rs_G**(1. / 2.)
+                            + b2 * rs_G + b3 * rs_G**(3. / 2.) + b4 * rs_G**2.)
+            ac_G = 2. * A * (1 + a1 * rs_G) * np.log(1. + 1. / X_G)
             
             fc_G = 2. * ac_G / n_G
             
@@ -507,10 +518,12 @@ def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
     wgs = np.abs(omega_w).argmin()
 
     if not np.allclose(omega_w[wgs], 0., rtol=1.e-8):
-        raise ValueError("Frequency grid needs to include omega=0. to allow Goldstone scaling")
+        raise ValueError("Frequency grid needs to include"
+                         + " omega=0. to allow Goldstone scaling")
 
-    fxcs = 1.    
-    print("Finding rescaling of kernel to fulfill the Goldstone theorem", file=fd)
+    fxcs = 1.
+    print("Finding rescaling of kernel to fulfill the Goldstone theorem",
+          file=fd)
 
     world = chi0.world
     # Only one rank, rgs, has omega=0 and finds rescaling
@@ -521,28 +534,28 @@ def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
     if world.rank == rgs:
         schi0_GG = chi0_wGG[mywgs]
         schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
-                                       np.dot(schi0_GG, Kxc_GG*fxcs)),
+                                       np.dot(schi0_GG, Kxc_GG * fxcs)),
                          schi0_GG)
-        # Scale so that kappaM=0 in the static limit (omega=0) 
-        skappaM = (schi0_GG[0,0]/schi_GG[0,0]).real
+        # Scale so that kappaM=0 in the static limit (omega=0)
+        skappaM = (schi0_GG[0, 0] / schi_GG[0, 0]).real
         # If kappaM > 0, increase scaling (recall: kappaM ~ 1 - Kxc Re{chi_0})
-        scaling_incr = 0.1*np.sign(skappaM)
+        scaling_incr = 0.1 * np.sign(skappaM)
         while abs(skappaM) > 1.e-7 and abs(scaling_incr) > 1.e-7:
             fxcs += scaling_incr
             if fxcs <= 0.0 or fxcs >= 10.:
                 raise Exception('Found an invalid fxc_scaling of %.4f' % fxcs)
 
             schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
-                                           np.dot(schi0_GG, Kxc_GG*fxcs)),
+                                           np.dot(schi0_GG, Kxc_GG * fxcs)),
                              schi0_GG)
-            skappaM = (schi0_GG[0,0]/schi_GG[0,0]).real
+            skappaM = (schi0_GG[0, 0] / schi_GG[0, 0]).real
 
             # If kappaM changes sign, change sign and refine increment
             if np.sign(skappaM) != np.sign(scaling_incr):
                 scaling_incr *= -0.2
         fxcsbuf[:] = fxcs
 
-    # Broadcast found rescaling  
+    # Broadcast found rescaling
     world.broadcast(fxcsbuf, rgs)
     fxcs = fxcsbuf[0]
     

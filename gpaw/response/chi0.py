@@ -137,7 +137,7 @@ class Chi0:
             The groundstate calculation file that the linear response
             calculation is based on.
         response : str
-            Type of response function. Currently collinear, scalar options 
+            Type of response function. Currently collinear, scalar options
             'density' and 'spin' are implemented.
         frequencies : ndarray or None
             Array of frequencies to evaluate the response function at. If None,
@@ -148,7 +148,7 @@ class Chi0:
         ecut : float
             Energy cutoff.
         gammacentered : bool
-            Center the grid of chosen plane waves around the gamma point of q-vector
+            Center the grid of plane waves around the gamma point or q-vector
         hilbert : bool
             Switch for hilbert transform. If True, the full density response
             is determined from a hilbert transform of its spectral function.
@@ -208,11 +208,11 @@ class Chi0:
 
         """
         
-        self.response = response 
+        self.response = response
         
         self.timer = timer or Timer()
 
-        self.pair = PairDensity(calc, self.response, ecut, 
+        self.pair = PairDensity(calc, self.response, ecut,
                                 ftol, threshold,
                                 real_space_derivatives, world, txt,
                                 self.timer,
@@ -343,12 +343,11 @@ class Chi0:
 
         return self.epsmax - self.epsmin
         
-        
     def get_chi0_mem_data(self, q_c):
         """Get dimensions involved in chi grid, without running calculation."""
         # get number of reciprocal lattice vectors
         q_c = np.asarray(q_c, dtype=float)
-        optical_limit = np.allclose(q_c, 0.0) and self.response == 'density' # gamma point needs special care in density response
+        optical_limit = np.allclose(q_c, 0.0) and self.response == 'density'
         pd = self.get_PWDescriptor(q_c, self.gammacentered)
         nG = pd.ngmax + 2 * optical_limit
         
@@ -356,12 +355,12 @@ class Chi0:
         nw = len(self.omega_w)
         
         # Unfold symmetries, if disabled
-        bzk_kv, PWSA = self.get_kpoints(pd, integrationmode=self.integrationmode)
+        bzk_kv, PWSA = self.get_kpoints(pd,
+                                        integrationmode=self.integrationmode)
         # Get current memory before allocation of chi0_wGG
         mempc = maxrss() / 1024**2
         
         return (nw, nG, mempc)
-
 
     def calculate(self, q_c, spin='all', A_x=None):
         """Calculate response function.
@@ -371,7 +370,7 @@ class Chi0:
         q_c : list or ndarray
             Momentum vector.
         spin : str or int
-            If 'all' then include all spins. 
+            If 'all' then include all spins.
             If 0 or 1, only include this specific spin.
             If 'pm' calculate chi^{+-}_0
             If 'mp' calculate chi^{-+}_0
@@ -403,7 +402,7 @@ class Chi0:
             spins = [spin]
 
         q_c = np.asarray(q_c, dtype=float)
-        optical_limit = np.allclose(q_c, 0.0) and self.response == 'density' # gamma point needs special care in density response
+        optical_limit = np.allclose(q_c, 0.0) and self.response == 'density'
 
         pd = self.get_PWDescriptor(q_c, self.gammacentered)
 
@@ -476,7 +475,7 @@ class Chi0:
         m2 : int
             Upper band cutoff for band summation
         spins : str or list(ints)
-            If 'all' then include all spins. 
+            If 'all' then include all spins.
             If [0] or [1], only include this specific spin (and flip it,
             if calculating spin response).
         extend_head : bool
@@ -501,7 +500,8 @@ class Chi0:
                 assert spin in range(wfs.nspins)
 
         # Are we calculating the optical limit.
-        optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0) and self.response == 'density' # gamma point needs special care in density response
+        optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0) and \
+            self.response == 'density'
 
         # Reset PAW correction in case momentum has change
         self.Q_aGii = self.pair.initialize_paw_corrections(pd)
@@ -579,10 +579,10 @@ class Chi0:
         # kwargs keyword.
         kd = self.calc.wfs.kd
         mat_kwargs = {'kd': kd, 'pd': pd, 'n1': 0,
-                      'm1': m1, 'm2': m2, 
+                      'm1': m1, 'm2': m2,
                       'symmetry': PWSA,
                       'integrationmode': self.integrationmode}
-        eig_kwargs = {'kd': kd, 'm1': m1, 'm2': m2, 
+        eig_kwargs = {'kd': kd, 'm1': m1, 'm2': m2,
                       'n1': 0, 'pd': pd}
         if self.response == 'density':
             mat_kwargs['n2'] = self.nocc2
@@ -626,7 +626,7 @@ class Chi0:
         if wings:
             chi0_wxvG /= prefactor
             chi0_wvv /= prefactor
-	
+        
         # Integrate response function
         print('Integrating response function.', file=self.fd)
         integrator.integrate(kind=kind,  # Kind of integral
@@ -685,10 +685,10 @@ class Chi0:
             # of the free space Drude plasma frequency. The calculation is
             # similarly to the interband transitions documented above.
             mat_kwargs = {'kd': kd, 'symmetry': PWSA,
-                          'n1': self.nocc1, 'n2': self.nocc2, 
+                          'n1': self.nocc1, 'n2': self.nocc2,
                           'pd': pd}  # Integrand arguments
-            eig_kwargs = {'kd': kd, 
-                          'n1': self.nocc1, 'n2': self.nocc2, 
+            eig_kwargs = {'kd': kd,
+                          'n1': self.nocc1, 'n2': self.nocc2,
                           'pd': pd}  # Integrand arguments
             domain = (bzk_kv, spins)  # Integration domain
             fermi_level = self.pair.fermi_level  # Fermi level
@@ -902,7 +902,7 @@ class Chi0:
 
         q_c = pd.kd.bzk_kc[0]
 
-        optical_limit = np.allclose(q_c, 0.0) and self.response == 'density' # gamma point needs special care in density response
+        optical_limit = np.allclose(q_c, 0.0) and self.response == 'density'
 
         extrapolate_q = False
         if self.calc.wfs.kd.refine_info is not None:
@@ -979,7 +979,7 @@ class Chi0:
         ik2 = kd.bz2ibz_k[K2]
         kpt1 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik1]
         if self.response == 'spin':
-            s2 = 1-s
+            s2 = 1 - s
         else:
             s2 = s
         kpt2 = wfs.kpt_u[s2 * wfs.kd.nibzkpts + ik2]
@@ -1119,8 +1119,7 @@ class Chi0:
         r.redistribute(in_wGG, out_wGG.reshape((wb - wa, nG**2)))
 
         return out_wGG
-
-        
+    
     def print_chi(self, pd):
         calc = self.calc
         gd = calc.wfs.gd

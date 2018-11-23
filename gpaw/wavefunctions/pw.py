@@ -54,7 +54,8 @@ class PW(Mode):
         ecut: float
             Plane-wave cutoff in eV.
         gammacentered: bool
-            Center the grid of chosen plane waves around the gamma point of q/k-vector
+            Center the grid of chosen plane waves around the
+            gamma point or q/k-vector
         dedecut: float or None or 'estimate'
             Estimate of derivative of total energy with respect to
             plane-wave cutoff.  Used to calculate pulay_stress.
@@ -104,7 +105,7 @@ class PW(Mode):
             else:
                 dedepsilon = self.dedecut * 2 / 3 * ecut
 
-        wfs = PWWaveFunctions(ecut, self.gammacentered, 
+        wfs = PWWaveFunctions(ecut, self.gammacentered,
                               self.fftwflags, dedepsilon,
                               parallel, initksl, gd=gd,
                               **kwargs)

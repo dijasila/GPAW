@@ -7,7 +7,6 @@ from math import pi
 
 import numpy as np
 from ase.units import Hartree, Bohr
-from ase.parallel import parprint
 
 import gpaw.mpi as mpi
 
@@ -18,21 +17,19 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.fxc import get_xc_kernel, get_xc_spin_kernel
 
 
-
-
-
 class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
     
     def __init__(self, calc, name=None, frequencies=None, domega0=0.1,
-                 omega2=10.0, omegamax=None, ecut=50, gammacentered=False, hilbert=True,
+                 omega2=10.0, omegamax=None, ecut=50,
+                 gammacentered=False, hilbert=True,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  gate_voltage=None, truncation=None, disable_point_group=False,
                  disable_time_reversal=False,
                  integrationmode=None, pbc=None, rate=0.0,
                  omegacutlower=None, omegacutupper=None, eshift=0.0):
-        """Creates a SpinChargeResponseFunction object.
+        """Creates a DielectricFunction object.
 
         calc: str
             The groundstate calculation file that the linear response
@@ -57,7 +54,7 @@ class DielectricFunction:
         ecut: float
             Plane-wave cut-off.
         gammacentered: bool
-            Center the grid of chosen plane waves around the gamma point of q-vector
+            Center the grid of plane waves around the gamma point or q-vector
         hilbert: bool
             Use hilbert transform.
         nbands: int
@@ -92,7 +89,7 @@ class DielectricFunction:
 
         self.chi0 = Chi0(calc, frequencies=frequencies,
                          domega0=domega0, omega2=omega2, omegamax=omegamax,
-                         ecut=ecut, nbands=nbands, eta=eta, 
+                         ecut=ecut, nbands=nbands, eta=eta,
                          gammacentered=gammacentered, hilbert=hilbert,
                          ftol=ftol, threshold=threshold,
                          intraband=intraband, world=world, nblocks=nblocks,
@@ -122,9 +119,9 @@ class DielectricFunction:
         self.Kxc_qwGG = None
     
     def get_chi_grid_dim(self, q_c):
-        """Pass dimensions involved in chi grid, without running calculation."""
+        """ Pass dimensions involved in chi grid,
+        without running calculation. """
         return self.chi0.get_chi_grid_dim(q_c)
-    
     
     def calculate_chi0(self, q_c, spin='all'):
         """Calculates the response function.
@@ -134,7 +131,7 @@ class DielectricFunction:
         q_c: [float, float, float]
             The momentum wavevector.
         spin : str or int
-            If 'all' then include all spins. 
+            If 'all' then include all spins.
             If 0 or 1, only include this specific spin.
             If 'pm' calculate chi^{+-}_0
             If 'mp' calculate chi^{-+}_0
@@ -142,8 +139,8 @@ class DielectricFunction:
     
         response = self.chi0.get_response()
         
-        if not response in ['density', 'spin']:
-            raise Exception(""" Currently only scalar response functions of type 'density' and 
+        if response not in ['density', 'spin']:
+            raise Exception(""" Currently only scalar response functions of type 'density' and
                                 'spin' are implemented.""")
         
         if self.name:
@@ -243,27 +240,28 @@ class DielectricFunction:
                 RSrep='gpaw',
                 xi_cut=None, density_cut=None, fxc_scaling=None):
         """ Returns v^1/2 chi v^1/2 for the density response and chi for the
-        spin response. The truncated Coulomb interaction is included as 
+        spin response. The truncated Coulomb interaction is included as
         v^-1/2 v_t v^-1/2. This is in order to conform with
         the head and wings of chi0, which is treated specially for q=0.
         
         spin : str or int
-            If 'all' then include all spins. 
+            If 'all' then include all spins.
             If 0 or 1, only include this specific spin.
             If 'pm' calculate chi^{+-}_0
             If 'mp' calculate chi^{-+}_0
         RSrep : str
             real space representation of kernel ('gpaw' or 'grid')
         xi_cut : float
-            cutoff spin polarization below which f_xc is evaluated in 
-            unpolarized limit (to make sure divergent terms cancel out correctly)
+            cutoff spin polarization below which f_xc is evaluated in
+            unpolarized limit (make sure divergent terms cancel out correctly)
         density_cut : float
             cutoff density below which f_xc is set to zero
         fxc_scaling : list
             Possible scaling of kernel to hit Goldstone mode.
-            If w=0 is included in the present calculation and fxc_scaling=[True,None],
-            the fxc_scaling to match kappaM_w[0] = 0. will be calculated.
-            If fxc_scaling = [True, float], Kxc will be scaled by float.
+            If w=0 is included in the present calculation and
+            fxc_scaling=[True, None], the fxc_scaling to match
+            kappaM_w[0] = 0. will be calculated. If
+            fxc_scaling = [True, float], Kxc will be scaled by float.
             Default is None, i.e. no scaling
         """
         
@@ -358,22 +356,21 @@ class DielectricFunction:
                 
                 chi_wGG.append(chi_GG)
 
-        return pd, chi0_wGG, np.array(chi_wGG)            
+        return pd, chi0_wGG, np.array(chi_wGG)
     
-    
-    def get_scattering_function(self, Kxc='ALDA', q_c=[0, 0, 0], 
+    def get_scattering_function(self, Kxc='ALDA', q_c=[0, 0, 0],
                                 q_v=None,
                                 RSrep='gpaw',
                                 xi_cut=None, density_cut=None,
-                                fxc_scaling=None, 
+                                fxc_scaling=None,
                                 filename='sf.csv'):
         """Calculate the scattering function.
          
         Returns macroscopic(could be generalized?) scattering function:
-        sf0_w, sf_w = SpinChargeResponseFunction.get_scattering_function()
+        sf0_w, sf_w = DielectricFunction.get_scattering_function()
         """
         
-        ### For transverse majority-monirity scattering function -> generalize! ###
+        # For transverse majority-monirity scattering function -> generalize! #
         self.chi0.set_response('spin')
         flip = 'pm'
         assert self.chi0.eta > 0.0
@@ -381,12 +378,13 @@ class DielectricFunction:
         assert not self.chi0.timeordered
         assert self.chi0.disable_point_group
         assert self.chi0.disable_time_reversal
-        ###########################################################################
+        #######################################################################
         
-        pd, chi0_wGG, chi_wGG = self.get_chi(Kxc=Kxc, q_c=q_c, 
+        pd, chi0_wGG, chi_wGG = self.get_chi(Kxc=Kxc, q_c=q_c,
                                              spin=flip,
                                              RSrep=RSrep,
-                                             xi_cut=xi_cut, density_cut=density_cut,
+                                             xi_cut=xi_cut,
+                                             density_cut=density_cut,
                                              fxc_scaling=fxc_scaling)
         
         rf0_w = np.zeros(len(chi_wGG), dtype=complex)
@@ -524,7 +522,7 @@ class DielectricFunction:
         """Calculate the dielectric function.
 
         Returns dielectric function without and with local field correction:
-        df_NLFC_w, df_LFC_w = SpinChargeResponseFunction.get_dielectric_function()
+        df_NLFC_w, df_LFC_w = DielectricFunction.get_dielectric_function()
         """
         e_wGG = self.get_dielectric_matrix(Kxc, q_c, direction, q_v=q_v)
         df_NLFC_w = np.zeros(len(e_wGG), dtype=complex)
@@ -548,7 +546,8 @@ class DielectricFunction:
 
         return df_NLFC_w, df_LFC_w
 
-    def get_macroscopic_dielectric_constant(self, Kxc='RPA', direction='x', q_v=None):
+    def get_macroscopic_dielectric_constant(self, Kxc='RPA',
+                                            direction='x', q_v=None):
         """Calculate macroscopic dielectric constant.
 
         Returns eM_NLFC and eM_LFC.
@@ -589,7 +588,7 @@ class DielectricFunction:
         density response function as, EELS(\omega) = - 4 * \pi / q^2 Im \chi.
         Returns EELS spectrum without and with local field corrections:
 
-        df_NLFC_w, df_LFC_w = SpinChargeResponseFunction.get_eels_spectrum()
+        df_NLFC_w, df_LFC_w = DielectricFunction.get_eels_spectrum()
         """
         
         self.chi0.set_response('density')
