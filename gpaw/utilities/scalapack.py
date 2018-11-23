@@ -311,6 +311,7 @@ def scalapack_inverse_cholesky(desca, a, uplo):
     if info != 0:
         raise RuntimeError('scalapack_inverse_cholesky error: %d' % info)
 
+
 def scalapack_inverse(desca, a, uplo):
     """Perform a hermitian matrix inversion.
 
@@ -343,7 +344,11 @@ def scalapack_solve(desca, descb, a, b):
     if info != 0:
         raise RuntimeError('scalapack_solve error: %d' % info)
 
+
 def pblas_tran(alpha, a_MN, beta, c_NM, desca, descc):
+    """C <- beta C + alpha A.T.
+
+    See also pdtran from PBLAS."""
     desca.checkassert(a_MN)
     descc.checkassert(c_NM)
     M, N = desca.gshape

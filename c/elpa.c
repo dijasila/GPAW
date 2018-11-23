@@ -139,20 +139,21 @@ PyObject* pyelpa_general_diagonalize(PyObject *self, PyObject *args)
     elpa_t handle = unpack_handle(handle_obj);
 
     int err;
-    double *ev = (double*)PyArray_DATA(eps_obj);
+    double *ev = (double *)PyArray_DATA(eps_obj);
+    double *a = (double *)PyArray_DATA(A_obj);
+    double *b = (double *)PyArray_DATA(S_obj);
+    double *q = (double *)PyArray_DATA(C_obj);
 
     if(PyArray_DESCR(A_obj)->type_num == NPY_DOUBLE) {
-        double *a = (double*)PyArray_DATA(A_obj);
-        double *b = (double*)PyArray_DATA(S_obj);
-        double *q = (double*)PyArray_DATA(C_obj);
         elpa_generalized_eigenvectors(handle, a, b, ev, q,
                                       is_already_decomposed, &err);
 
     } else {
-        double complex *a = (double complex *)PyArray_DATA(A_obj);
-        double complex *b = (double complex *)PyArray_DATA(S_obj);
-        double complex *q = (double complex *)PyArray_DATA(C_obj);
-        elpa_generalized_eigenvectors(handle, a, b, ev, q,
+        elpa_generalized_eigenvectors(handle,
+                                      (double complex *)a,
+                                      (double complex *)b,
+                                      ev,
+                                      (double complex *)q,
                                       is_already_decomposed, &err);
     }
     return checkerr(err);
@@ -163,22 +164,42 @@ PyObject *pyelpa_hermitian_multiply(PyObject *self, PyObject *args)
     PyObject *handle_obj;
     int ncb;
 
-    char uplo_a = 'X';  // use full matrix; can be U or L
-    char uplo_c = 'X';
+    char *uplo_a, *uplo_c;
     int nrows_b, ncols_b, nrows_c, ncols_c;
 
     PyArrayObject *A_obj, *B_obj, *C_obj;
 
-    if(!PyArg_ParseTuple(args, "Oi",
-                         &handle_obj, &ncb, &A_obj, &B_obj,
-                         //&
-                         &C_obj)) {
+    if(!PyArg_ParseTuple(args, "OssiOOiiOii",
+                         &handle_obj, &uplo_a, &uplo_c,
+                         &ncb, &A_obj, &B_obj, &nrows_b, &ncols_b,
+                         &C_obj, &nrows_c, &ncols_c)) {
         return NULL;
     }
+
     elpa_t handle = unpack_handle(handle_obj);
     int err;
-    err = 1;
-    //elpa_hermitian_multiply(handle, uplo_a, uplo_c, ncb, &error);
+
+    double *A = (double *)PyArray_DATA(A_obj);
+    double *B = (double *)PyArray_DATA(B_obj);
+    double *C = (double *)PyArray_DATA(C_obj);
+
+    // The elpa_hermitian_multiply() has a typo, which means it will
+    // resolve as a compilation error in the precompiler.
+    // We shall have to call the _d function explicitly then.
+    if(PyArray_DESCR(A_obj)->type_num == NPY_DOUBLE) {
+        elpa_hermitian_multiply_d(handle, uplo_a[0], uplo_c[0], ncb,
+                                  A, B, nrows_b, ncols_b,
+                                  C, nrows_c, ncols_c,
+                                  &err);
+    } else {
+        elpa_hermitian_multiply_dc(handle, uplo_a[0], uplo_c[0], ncb,
+                                   (double complex *)A,
+                                   (double complex *)B,
+                                   nrows_b, ncols_b,
+                                   (double complex *)C,
+                                   nrows_c, ncols_c,
+                                   &err);
+    }
     return checkerr(err);
 }
 

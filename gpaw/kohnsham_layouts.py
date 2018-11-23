@@ -284,7 +284,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
         self.nMdescriptor.checkassert(C_nM)
         if self.gd.rank == 0:
-            Cf_nM = (C_nM * f_n[:, None]).conj()
+            Cf_nM = (C_nM * f_n[:, None])
         else:
             C_nM = self.nM_unique_descriptor.zeros(dtype=dtype)
             Cf_nM = self.nM_unique_descriptor.zeros(dtype=dtype)
@@ -302,10 +302,27 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
         rho_mm = self.mmdescriptor.zeros(dtype=dtype)
 
-        pblas_simple_gemm(self.mmdescriptor,
-                          self.mmdescriptor,
-                          self.mmdescriptor,
-                          Cf_mm, C_mm, rho_mm, transa='T')
+        if self.libelpa is None:
+            pblas_simple_gemm(self.mmdescriptor,
+                              self.mmdescriptor,
+                              self.mmdescriptor,
+                              Cf_mm, C_mm, rho_mm, transa='C')
+        else:
+            mul = self.libelpa.hermitian_multiply
+            desc = self.mmdescriptor
+            from gpaw.utilities.scalapack import pblas_tran
+
+            def T(array):
+                tmp = array.copy()
+                pblas_tran(alpha=1.0, a_MN=tmp,
+                           beta=0.0, c_NM=array,
+                           desca=desc, descc=desc)
+            T(C_mm)
+            T(Cf_mm)
+            mul(C_mm, Cf_mm, rho_mm,
+                desc, desc, desc,
+                uplo_a='X', uplo_c='X')
+
         return rho_mm
 
     def calculate_density_matrix(self, f_n, C_nM, rho_mM=None):

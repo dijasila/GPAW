@@ -24,4 +24,4 @@ for elpasolver in [None, '1stage', '2stage']:
     energies.append(E)
 
     err = abs(E - energies[0])
-    assert err < 1e-10, ' '.join('err', str(err), 'energies:', str(energies))
+    assert err < 1e-10, ' '.join(['err', str(err), 'energies:', str(energies)])
