@@ -114,9 +114,6 @@ class DielectricFunction:
         self.w1 = min(self.mynw * world.rank, nw)
         self.w2 = min(self.w1 + self.mynw, nw)
         self.truncation = truncation
-        
-        self.Kxc = None
-        self.Kxc_qwGG = None
     
     def get_chi_grid_dim(self, q_c):
         """ Pass dimensions involved in chi grid,
@@ -235,7 +232,7 @@ class DielectricFunction:
         """ Return frequencies that Chi is evaluated on"""
         return self.omega_w * Hartree
 
-    def get_chi(self, Kxc='RPA', q_c=[0, 0, 0], spin='all',
+    def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
                 direction='x', return_VchiV=True, q_v=None,
                 RSrep='gpaw',
                 xi_cut=None, density_cut=None, fxc_scaling=None):
@@ -269,7 +266,7 @@ class DielectricFunction:
         assert response in ('density', 'spin')
         if response == 'spin':
             assert spin in ('pm', 'mp')
-            assert Kxc in ('ALDA_x', 'ALDA_X', 'ALDA')
+            assert xc in ('ALDA_x', 'ALDA_X', 'ALDA')
         
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
         
@@ -310,10 +307,10 @@ class DielectricFunction:
                 chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
                 chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
             
-            if Kxc != 'RPA':
+            if xc != 'RPA':
                 Kxc_sGG = get_xc_kernel(pd,
                                         self.chi0,
-                                        functional=Kxc,
+                                        functional=xc,
                                         chi0_wGG=chi0_wGG,
                                         density_cut=density_cut)
                 K_GG += Kxc_sGG[0] / vsqr_G / vsqr_G[:, np.newaxis]
@@ -340,7 +337,7 @@ class DielectricFunction:
         else:
             Kxc_GG = get_xc_spin_kernel(pd,
                                         self.chi0,
-                                        functional=Kxc,
+                                        functional=xc,
                                         RSrep=RSrep,
                                         chi0_wGG=chi0_wGG,
                                         fxc_scaling=fxc_scaling,
@@ -358,7 +355,7 @@ class DielectricFunction:
 
         return pd, chi0_wGG, np.array(chi_wGG)
     
-    def get_scattering_function(self, Kxc='ALDA', q_c=[0, 0, 0],
+    def get_scattering_function(self, xc='ALDA', q_c=[0, 0, 0],
                                 q_v=None,
                                 RSrep='gpaw',
                                 xi_cut=None, density_cut=None,
@@ -380,7 +377,7 @@ class DielectricFunction:
         assert self.chi0.disable_time_reversal
         #######################################################################
         
-        pd, chi0_wGG, chi_wGG = self.get_chi(Kxc=Kxc, q_c=q_c,
+        pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c,
                                              spin=flip,
                                              RSrep=RSrep,
                                              xi_cut=xi_cut,
@@ -406,7 +403,7 @@ class DielectricFunction:
 
         return rf0_w, rf_w
     
-    def get_dielectric_matrix(self, Kxc='RPA', q_c=[0, 0, 0],
+    def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
                               calculate_chi=False, q_v=None,
                               add_intraband=False):
@@ -429,7 +426,7 @@ class DielectricFunction:
 
         in addition to RPA one can use the kernels, ALDA, rALDA, rAPBE,
         Bootstrap and LRalpha (long-range kerne), where alpha is a user
-        specified parameter (for example Kxc='LR0.25')
+        specified parameter (for example xc='LR0.25')
 
         The head of the inverse symmetrized dielectric matrix is equal
         to the head of the inverse dielectric matrix (inverse dielectric
@@ -474,17 +471,17 @@ class DielectricFunction:
                 chi0_wGG[:, 0, 1:] *= np.dot(q_v, d_v)
                 chi0_wGG[:, 0, 0] *= np.dot(q_v, d_v)**2
 
-        if Kxc != 'RPA':
+        if xc != 'RPA':
             Kxc_sGG = get_xc_kernel(pd,
                                     self.chi0,
-                                    functional=Kxc,
+                                    functional=xc,
                                     chi0_wGG=chi0_wGG)
 
         if calculate_chi:
             chi_wGG = []
 
         for chi0_GG in chi0_wGG:
-            if Kxc == 'RPA':
+            if xc == 'RPA':
                 P_GG = chi0_GG
             else:
                 P_GG = np.dot(np.linalg.inv(np.eye(nG) -
@@ -497,7 +494,7 @@ class DielectricFunction:
                 e_GG = np.eye(nG) - P_GG * K_GG
             if calculate_chi:
                 K_GG = np.diag(K_G**2)
-                if Kxc != 'RPA':
+                if xc != 'RPA':
                     K_GG += Kxc_sGG[0]
                 chi_wGG.append(np.dot(np.linalg.inv(np.eye(nG) -
                                                     np.dot(chi0_GG, K_GG)),
@@ -517,14 +514,14 @@ class DielectricFunction:
             # chi_wGG is the full density response function..
             return pd, chi0_wGG, chi_wGG
 
-    def get_dielectric_function(self, Kxc='RPA', q_c=[0, 0, 0], q_v=None,
+    def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0], q_v=None,
                                 direction='x', filename='df.csv'):
         """Calculate the dielectric function.
 
         Returns dielectric function without and with local field correction:
         df_NLFC_w, df_LFC_w = DielectricFunction.get_dielectric_function()
         """
-        e_wGG = self.get_dielectric_matrix(Kxc, q_c, direction, q_v=q_v)
+        e_wGG = self.get_dielectric_matrix(xc, q_c, direction, q_v=q_v)
         df_NLFC_w = np.zeros(len(e_wGG), dtype=complex)
         df_LFC_w = np.zeros(len(e_wGG), dtype=complex)
 
@@ -546,7 +543,7 @@ class DielectricFunction:
 
         return df_NLFC_w, df_LFC_w
 
-    def get_macroscopic_dielectric_constant(self, Kxc='RPA',
+    def get_macroscopic_dielectric_constant(self, xc='RPA',
                                             direction='x', q_v=None):
         """Calculate macroscopic dielectric constant.
 
@@ -565,10 +562,10 @@ class DielectricFunction:
 
         fd = self.chi0.fd
         print('', file=fd)
-        print('%s Macroscopic Dielectric Constant:' % Kxc, file=fd)
+        print('%s Macroscopic Dielectric Constant:' % xc, file=fd)
 
         df_NLFC_w, df_LFC_w = self.get_dielectric_function(
-            Kxc=Kxc,
+            xc=xc,
             filename=None,
             direction=direction,
             q_v=q_v)
@@ -580,7 +577,7 @@ class DielectricFunction:
 
         return eps0, eps
 
-    def get_eels_spectrum(self, Kxc='RPA', q_c=[0, 0, 0],
+    def get_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0],
                           direction='x', filename='eels.csv'):
         """Calculate EELS spectrum. By default, generate a file 'eels.csv'.
 
@@ -594,7 +591,7 @@ class DielectricFunction:
         self.chi0.set_response('density')
         
         # Calculate V^1/2 \chi V^1/2
-        pd, Vchi0_wGG, Vchi_wGG = self.get_chi(Kxc=Kxc, q_c=q_c,
+        pd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c,
                                                direction=direction)
         Nw = self.omega_w.shape[0]
 
@@ -618,7 +615,7 @@ class DielectricFunction:
 
         return eels_NLFC_w, eels_LFC_w
 
-    def get_polarizability(self, Kxc='RPA', direction='x', q_c=[0, 0, 0],
+    def get_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
                            filename='polarizability.csv', pbc=None):
         """Calculate the polarizability alpha.
         In 3D the imaginary part of the polarizability is related to the
@@ -646,7 +643,7 @@ class DielectricFunction:
 
         if not self.truncation:
             """Standard expression for the polarizability"""
-            df0_w, df_w = self.get_dielectric_function(Kxc=Kxc,
+            df0_w, df_w = self.get_dielectric_function(xc=xc,
                                                        q_c=q_c,
                                                        filename=None,
                                                        direction=direction)
@@ -669,7 +666,7 @@ class DielectricFunction:
             
             print('Using truncated Coulomb interaction', file=self.chi0.fd)
 
-            pd, chi0_wGG, chi_wGG = self.get_chi(Kxc=Kxc,
+            pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc,
                                                  q_c=q_c,
                                                  direction=direction)
             alpha_w = -V * (chi_wGG[:, 0, 0]) / (4 * pi)
@@ -734,7 +731,7 @@ class DielectricFunction:
         assert self.chi0.world.size == 1
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
-        e_wGG = self.get_dielectric_matrix(Kxc='RPA', q_c=q_c,
+        e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c,
                                            direction=direction,
                                            symmetric=False)
 
@@ -869,7 +866,7 @@ class DielectricFunction:
         assert self.chi0.world.size == 1
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
-        e_wGG = self.get_dielectric_matrix(Kxc='RPA', q_c=q_c,
+        e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c,
                                            symmetric=False)
 
         if r is None:

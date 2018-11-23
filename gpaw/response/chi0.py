@@ -271,7 +271,6 @@ class Chi0:
         self.omega2 = omega2 / Hartree
         self.omegamax = None if omegamax is None else omegamax / Hartree
         self.nbands = nbands or self.calc.wfs.bd.nbands
-        
         self.include_intraband = intraband
 
         omax = self.find_maximum_frequency()
