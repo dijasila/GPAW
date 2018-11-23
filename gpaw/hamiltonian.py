@@ -36,8 +36,10 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
             out.array[:, I1:I2] = np.dot(P.array[:, I1:I2], dH_ii)
         else:
             dH_xp = dH_asp[a]
-            dH_ii = unpack(dH_xp[0])
-            dH_vii = [unpack(dH_p) for dH_p in dH_xp[1:]]
+            # We need the transpose because
+            # we are dotting from the left
+            dH_ii = unpack(dH_xp[0]).T
+            dH_vii = [unpack(dH_p).T for dH_p in dH_xp[1:]]
             out.array[:, 0, I1:I2] = (np.dot(P.array[:, 0, I1:I2],
                                              dH_ii + dH_vii[2]) +
                                       np.dot(P.array[:, 1, I1:I2],

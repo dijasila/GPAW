@@ -3,7 +3,7 @@ master:
     - apt-get update -qy
     - apt-get install -qy python-dev python-numpy python-scipy libopenblas-dev liblapack-dev libscalapack-mpi-dev libxc-dev python-pip > apt-get.output
     - pip install flake8
-    - pip install git+https://gitlab.com/ase/ase.git@master > ase-install.output
+    - pip install git+https://gitlab.com/ase/ase.git@3.17.0 > ase-install.output
     - sed -i "s/scalapack = False/scalapack = True/" customize.py
     - python setup.py install > gpaw-install.output
     - useradd -m user
