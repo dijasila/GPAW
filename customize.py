@@ -34,15 +34,22 @@ To append use the form
 # platform_id = ''
 scalapack = False
 
-# Use ScaLAPACK:
-# Warning! At least scalapack 2.0.1 is required!
-# See https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
+# Use ScaLAPACK (version 2.0.1+ required):
 if scalapack:
     libraries += ['scalapack-openmpi',
                   'blacsCinit-openmpi',
                   'blacs-openmpi']
     define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
     define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
+
+# Use Elpa (requires ScaLAPACK and Elpa API 20171201):
+if 0:
+    elpa = True
+    elpadir = '/home/user/elpa'
+    libraries += ['elpa']
+    library_dirs += ['{}/lib'.format(elpadir)]
+    extra_link_args += ['-Wl,-rpath={}/lib'.format(elpadir)]
+    include_dirs += ['{}/include/elpa-xxxx.xx.xxx'.format(elpadir)]
 
 # LibXC:
 # In order to link libxc installed in a non-standard location

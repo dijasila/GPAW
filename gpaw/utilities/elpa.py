@@ -90,16 +90,10 @@ class LibElpa:
         ncols_b = descb.shape[COL]
         nrows_c = descc.shape[ROW]
         ncols_c = descc.shape[COL]
-        print('mul A')
-        print(A)
-        print('mul B')
-        print(B)
         _gpaw.pyelpa_hermitian_multiply(self._ptr, uplo_a, uplo_c,
                                         # XXXXXXXXXXX .T.copy()
                                         ncb, A, B, nrows_b, ncols_b,
                                         C, nrows_c, ncols_c)
-        print('out')
-        print(C)
 
     def elpa_set(self, **kwargs):
         for key, value in kwargs.items():
