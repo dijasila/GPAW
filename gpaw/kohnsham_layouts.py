@@ -302,12 +302,21 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
         rho_mm = self.mmdescriptor.zeros(dtype=dtype)
 
-        if self.libelpa is None:
+        if 1:  # if self.libelpa is None:
             pblas_simple_gemm(self.mmdescriptor,
                               self.mmdescriptor,
                               self.mmdescriptor,
                               Cf_mm, C_mm, rho_mm, transa='C')
         else:
+            # elpa_hermitian_multiply was not faster than the ordinary
+            # multiplication in the test.  The way we have things distributed,
+            # we need to transpose things at the moment.
+            #
+            # Rather than enabling this, we should store the coefficients
+            # in an appropriate 2D block cyclic format (c_nm) and not the
+            # current C_nM format.  This makes it possible to avoid
+            # redistributing the coefficients at all.  But we don't have time
+            # to implement this at the moment.
             mul = self.libelpa.hermitian_multiply
             desc = self.mmdescriptor
             from gpaw.utilities.scalapack import pblas_tran
