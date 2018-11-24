@@ -389,7 +389,11 @@ class C_Response(Contribution):
         w_asi = {}
 
         for a in basis_functions.atom_indices:
-            w_j = self.setups[a].extra_xc_data['w_j']
+            if self.setups[a].type == 'ghost':
+                w_j = [ 0.0 ]
+            else:
+                w_j = self.setups[a].extra_xc_data['w_j']
+
             # Basis function coefficients based of response weights
             w_si = self.setups[a].calculate_initial_occupation_numbers(
                 0, False,

@@ -8,7 +8,7 @@ Solvated Jellium Method (SJM)
 Theoretical Background
 ======================
 
-The Solvated Jellium method (SJM) is simple method for the simulation 
+The Solvated Jellium method (SJM) is a simple method for the simulation
 of electrochemical interfaces in DFT. A full description of the model
 can be found in [#SJM18]_. It can be used like the standard GPAW calculator,
 meaning stable intermediates and reaction barriers can be calculated at
@@ -16,24 +16,24 @@ defined electrode potential via e.g. the Nudged Elastic Band method (NEB)
 [#NEB00]_.
 
 The basis of the model is keeping control of the electrode potential
-by charging the electrodes interface, while keeping the periodic 
+by charging the electrodes interface, while keeping the periodic
 unit cell charge neutral. This is done by adding a JelliumSlab in
 the region above the electrode surface. Doing so both electrons/holes
 in the SCF cycle and spatially constant counter charge are introduced,
-therefore keeping the net charge at 0.
+therefore keeping the unit cell charge neutral.
 
 Additionally, an implicit solvent [#HW14]_ is introduced above the slab,
 which screens the electric field created by dipole consisting of electrode
-and counter charge. 
+and counter charge.
 
 The electrode potential is then defined as the Fermi Level (`\mu`) referenced
-to the electrostatic potential deep in the solvent, where the whole 
-charge on the electrode has been screened.
+to the electrostatic potential deep in the solvent, where the whole
+charge on the electrode has been screened and no electric field is present.
 
 .. math:: \Phi_e = \Phi_w - \mu.
 
 The energy used in the analysis of electrode reactions is the Grand Potential
-Energy 
+Energy
 
 .. math:: \Omega = E_{tot} + \Phi_e N_e
 
@@ -43,8 +43,8 @@ Usage Example: A simple Au(111) slab
 ====================================
 
 As a usage example, given here is the calculation of a simple Au slab
-at a potential of -1 V versus SHE. Keep in mind that the absolute 
-potential has to be provided, where the value of the SHE potential on 
+at a potential of -1 V versus SHE. Keep in mind that the absolute
+potential has to be provided, where the value of the SHE potential on
 an absolute scale is approx. 4.4V.
 
 .. literalinclude:: Au111.py
@@ -69,11 +69,16 @@ elstat_potential.out:
  Fermi Level. The outer parts should correspond to the respective work
  functions.
 
-cavity.out: 
+cavity.out:
  The shape of the implicit solvent cavity averaged over xy.
 
-background_charge.out: 
- The shape of the jellium background charge averaged over x and y. 
+background_charge.out:
+ The shape of the jellium background charge averaged over x and y.
+
+.. Note:: Alternatively, 'verbose' can also be set to 'cube', which
+          corresponds to the keyword being 'True' and additional
+          creation of a cube file including the dielectric function
+          (cavity) on the 3-D grid.
 
 Usage Example: Running a constant potential NEB calculation
 ===========================================================
@@ -83,11 +88,11 @@ A complete script for performing an NEB calculation can be downloaded here:
 .. literalinclude:: run_SJM_NEB.py
 
 
-.. Note:: In this example the keyword 'H2O_layer = True' in the 'SJM_Power12Potential'  
-    class has been used. This keyword frees the interface between the electrode 
-    and a water layer from the implicit solvent. It is needed since the rather 
-    high distance between the two subsystems would lead to partial solvation 
-    of the interface region, therefore screening the electric field in the 
+.. Note:: In this example the keyword 'H2O_layer = True' in the 'SJM_Power12Potential'
+    class has been used. This keyword frees the interface between the electrode
+    and a water layer from the implicit solvent. It is needed since the rather
+    high distance between the two subsystems would lead to partial solvation
+    of the interface region, therefore screening the electric field in the
     most interesting area.
 
 
@@ -95,7 +100,7 @@ A complete script for performing an NEB calculation can be downloaded here:
 References
 ==========
 
-.. [#SJM18] G. Kastlunger, P. Lindgren, A. A. Peterson, 
+.. [#SJM18] G. Kastlunger, P. Lindgren, A. A. Peterson,
             `Controlled-Potential Simulation of Elementary Electrochemical Reactions: Proton Discharge on Metal Surfaces <http://dx.doi.org/10.1021/acs.jpcc.8b02465>`_,
             *J. Phys. Chem. C* **122** (24), 12771 (2018)
 .. [#NEB00] G. Henkelman and H. Jonsson,
