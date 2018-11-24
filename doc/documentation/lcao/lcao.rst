@@ -6,7 +6,8 @@ LCAO Mode
 
 .. highlight:: bash
 
-GPAW supports an alternative mode of calculation, :dfn:`LCAO mode` [LCAO]_,
+GPAW supports an alternative mode of calculation,
+:dfn:`LCAO mode` [LCAO_article]_,
 which will use a basis set of atomic orbital-like functions rather
 than grid-based wave functions.  This makes calculations considerably
 cheaper, although the accuracy will be limited by the quality of the
@@ -99,7 +100,7 @@ such as ``basis={'H' : 'dzp', 'O' : 'mine', 'C' : 'szp'}``.
 For larger systems, to get good performance, be sure to enable ScaLAPACK
 to parallelize the cubic-scaling diagonalization step and distribute
 many matrices.  If possible, install and enable Elpa [Elpa]_ to further save
-time.  See the :ref:`parallel_keyword`.
+time.  See the :ref:` parallel keyword <manual_parallel>`.
 
 
 Example
@@ -212,10 +213,13 @@ take a larger percentage of the CPU time compared to FD mode, where
 operations on the wave functions usually dominate.  Thus it makes
 sense to pay some attention to the performance of these operations.
 
-Example:
+This example shows the
+:ref:`most important parameters <manual_parallel>` to achieve
+good performance with LCAO.  The example is actually much too small
+to make much use of parallelism, but these parameters will provide good
+performance for large-scale systems.
 
 .. literalinclude:: lcao_opt.py
-
 
 .. note::
 
@@ -273,7 +277,7 @@ roughly to a single-zeta basis in most cases.  Depending on the unoccupied
 states defined on the PAW setups, it may be roughly equivalent to a
 single-zeta polarized basis set for certain elements.
 
-.. [LCAO] A. H. Larsen, M. Vanin, J. J. Mortensen, K. S. Thygesen,
+.. [LCAO_article] A. H. Larsen, M. Vanin, J. J. Mortensen, K. S. Thygesen,
   and K. W. Jacobsen, Phys. Rev. B 80, 195112 (2009)
 
 .. [Siesta] J.M. Soler et al.,
