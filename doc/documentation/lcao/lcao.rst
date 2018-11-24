@@ -6,8 +6,7 @@ LCAO Mode
 
 .. highlight:: bash
 
-
-GPAW supports an alternative mode of calculation, :dfn:`LCAO mode`,
+GPAW supports an alternative mode of calculation, :dfn:`LCAO mode` [LCAO]_,
 which will use a basis set of atomic orbital-like functions rather
 than grid-based wave functions.  This makes calculations considerably
 cheaper, although the accuracy will be limited by the quality of the
@@ -96,6 +95,11 @@ should be set in the calculator::
 The calculator can then be used in the usual way.  The ``basis``
 keyword accepts the same types of values as the ``setups`` keyword,
 such as ``basis={'H' : 'dzp', 'O' : 'mine', 'C' : 'szp'}``.
+
+For larger systems, to get good performance, be sure to enable ScaLAPACK
+to parallelize the cubic-scaling diagonalization step and distribute
+many matrices.  If possible, install and enable Elpa [Elpa]_ to further save
+time.  See the :ref:`parallel_keyword`.
 
 
 Example
@@ -194,7 +198,8 @@ atoms are ghosts::
 Notes on performance
 --------------------
 
-For larger LCAO calculations, it is crucial to use ScaLAPACK.
+For larger LCAO calculations, it is crucial to use ScaLAPACK
+and recommended to also use Elpa.
 See the dedicated section on :ref:`manual_ScaLAPACK` for more information.
 Below are some hints on how to obtain good performance for operations not
 related to ScaLAPACK.
@@ -264,10 +269,14 @@ does not in any other way affect the subsequent iterations::
 In either mode, if a basis is not specified to the calculator, the
 calculator will use the pseudo partial waves `\tilde \phi_i^a(\mathbf
 r)`, smoothly truncated to 8 Bohr radii, as a basis.  This corresponds
-to a single-zeta basis in most cases.  Depending on the unoccupied
+roughly to a single-zeta basis in most cases.  Depending on the unoccupied
 states defined on the PAW setups, it may be roughly equivalent to a
 single-zeta polarized basis set for certain elements.
 
+.. [LCAO] A. H. Larsen, M. Vanin, J. J. Mortensen, K. S. Thygesen,
+  and K. W. Jacobsen, Phys. Rev. B 80, 195112 (2009)
 
 .. [Siesta] J.M. Soler et al.,
    J. Phys. Cond. Matter 14, 2745-2779 (2002)
+
+.. [Elpa]  A Marek et al., J. Phys.: Condens. Matter 26 213201 (2014)

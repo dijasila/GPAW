@@ -247,6 +247,8 @@ In words:
   to ``True``.  Elpa will be used to diagonalize the Hamiltonian.  The
   Elpa distribution relies on BLACS and ScaLAPACK, and hence can only
   be used alongside ``sl_auto``, ``sl_default``, or a similar keyword.
+  Enabling Elpa is highly recommended as it significantly
+  speeds up the diagonalization step.  See also :ref:`lcao`.
 
 * ``elpasolver`` indicates which solver to use with Elpa.  By default
   it uses the two-stage solver, ``'2stage'``.  The other allowed value
