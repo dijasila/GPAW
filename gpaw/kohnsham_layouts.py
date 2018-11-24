@@ -199,14 +199,14 @@ class BlacsOrbitalLayouts(BlacsLayouts):
             assert blockdescriptor is self.libelpa.desc
             scalapack_tri2full(blockdescriptor, H_mm)
 
-            # elpa will overwrite S_mm as decomposed
+            # elpa will write decomposed form of S_mm into S_mm.
+            # Other KSL diagonalization functions do *not* overwrite S_mm.
             self.libelpa.general_diagonalize(
                 H_mm, S_mm, C_mm, eps_M[:self.bd.nbands],
                 is_already_decomposed=is_already_decomposed)
         else:
             blockdescriptor.general_diagonalize_dc(H_mm, S_mm.copy(), C_mm,
                                                    eps_M, UL='L')
-        #print(eps_M)
         self.timer.stop('General diagonalize')
 
         # Make C_nM compatible with the redistributor
@@ -404,7 +404,6 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         bg = self.blockgrid
         desc = self.mmdescriptor
         s = template % (bg.nprow, bg.npcol, desc.mb, desc.nb)
-        things = [title]
         if self.libelpa is not None:
             solver = self.libelpa.description
         else:
