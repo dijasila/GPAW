@@ -32,6 +32,7 @@ from gpaw.scf import SCFLoop
 from gpaw.setup import Setups
 from gpaw.symmetry import Symmetry
 from gpaw.stress import calculate_stress
+from gpaw.tb import TBDensity, TBHamiltonian
 from gpaw.utilities import check_atoms_too_close
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
@@ -503,10 +504,14 @@ class GPAW(PAW, Calculator):
 
         cell_cv = atoms.get_cell() / Bohr
         number_of_lattice_vectors = cell_cv.any(axis=1).sum()
-        if number_of_lattice_vectors < 3 and mode.name != 'tb':
-            raise ValueError(
-                'GPAW requires 3 lattice vectors.  Your system has {}.'
-                .format(number_of_lattice_vectors))
+        if number_of_lattice_vectors < 3:
+            if mode.name == 'tb':
+                from ase.geometry.cell import complete_cell
+                cell_cv = complete_cell(cell_cv)
+            else:
+                raise ValueError(
+                    'GPAW requires 3 lattice vectors.  Your system has {}.'
+                    .format(number_of_lattice_vectors))
 
         pbc_c = atoms.get_pbc()
         assert len(pbc_c) == 3
@@ -869,15 +874,21 @@ class GPAW(PAW, Calculator):
         # and potentials:
         finegd = aux_gd.refine()
 
+        charge = self.parameters.charge + self.wfs.setups.core_charge
+
         kwargs = dict(
             gd=gd, finegd=finegd,
             nspins=self.wfs.nspins,
             collinear=self.wfs.collinear,
-            charge=self.parameters.charge + self.wfs.setups.core_charge,
+            charge=charge,
             redistributor=redistributor,
             background_charge=background)
 
-        if realspace:
+        if mode.name == 'tb':
+            self.density = TBDensity(self.wfs.nspins,
+                                     self.wfs.collinear,
+                                     charge)
+        elif realspace:
             self.density = RealSpaceDensity(stencil=mode.interpolation,
                                             **kwargs)
         else:
@@ -898,7 +909,14 @@ class GPAW(PAW, Calculator):
             redistributor=dens.redistributor,
             vext=self.parameters.external,
             psolver=self.parameters.poissonsolver)
-        if realspace:
+        if mode.name == 'tb':
+            self.hamiltonian = TBHamiltonian(dens.nspins,
+                                             dens.collinear,
+                                             dens.setups,
+                                             self.timer,
+                                             xc,
+                                             self.world)
+        elif realspace:
             self.hamiltonian = RealSpaceHamiltonian(stencil=mode.interpolation,
                                                     **kwargs)
             xc.set_grid_descriptor(self.hamiltonian.finegd)
@@ -1038,7 +1056,7 @@ class GPAW(PAW, Calculator):
         else:
             sl_default = self.parallel['sl_default']
 
-        if mode.name == 'lcao':
+        if mode.name in {'lcao', 'tb'}:
             assert collinear
             # Layouts used for general diagonalizer
             sl_lcao = self.parallel['sl_lcao']

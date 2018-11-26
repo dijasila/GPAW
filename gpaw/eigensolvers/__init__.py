@@ -7,6 +7,7 @@ from gpaw.eigensolvers.cg import CG
 from gpaw.eigensolvers.davidson import Davidson
 from gpaw.eigensolvers.direct import DirectPW
 from gpaw.lcao.eigensolver import DirectLCAO
+from gpaw.tb import TBEigenSolver
 
 
 def get_eigensolver(eigensolver, mode, convergence=None):
@@ -14,6 +15,8 @@ def get_eigensolver(eigensolver, mode, convergence=None):
     if eigensolver is None:
         if mode.name == 'lcao':
             eigensolver = 'lcao'
+        elif mode.name == 'tb':
+            eigensolver = 'tb'
         else:
             eigensolver = 'dav'
 
@@ -27,12 +30,13 @@ def get_eigensolver(eigensolver, mode, convergence=None):
                        'cg': CG,
                        'dav': Davidson,
                        'lcao': DirectLCAO,
-                       'direct': DirectPW
+                       'direct': DirectPW,
+                       'tb': TBEigenSolver
                        }[name](**eigensolver)
 
     if isinstance(eigensolver, CG):
         eigensolver.tolerance = convergence.get('eigenstates', 4.0e-8)
 
-    assert isinstance(eigensolver, DirectLCAO) == (mode.name == 'lcao')
+    assert isinstance(eigensolver, DirectLCAO) == (mode.name in {'lcao', 'tb'})
 
     return eigensolver

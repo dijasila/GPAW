@@ -1,12 +1,13 @@
 def create_wave_function_mode(name, **kwargs):
-    if name not in ['fd', 'pw', 'lcao']:
+    if name not in ['fd', 'pw', 'lcao', 'tb']:
         raise ValueError('Unknown wave function mode: ' + name)
-        
+
     from gpaw.wavefunctions.fd import FD
     from gpaw.wavefunctions.pw import PW
     from gpaw.wavefunctions.lcao import LCAO
+    from gpaw.tb import TB
     return locals()[name.upper()](**kwargs)
-        
+
 
 class Mode:
     def __init__(self, force_complex_dtype=False):
