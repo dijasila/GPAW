@@ -69,7 +69,7 @@ class FDOperator:
         self.npoints = len(coef_p)
         self.coef_p = coef_p
         self.offset_p = offset_p
-        self.offset_pc = offset_pc 
+        self.offset_pc = offset_pc
         self.comm = comm
         self.cfd = cfd
 
@@ -145,6 +145,7 @@ class Gradient(FDOperator):
                 offset[:, i] = offs
                 offset_pc.extend(offset)
 
+        print(v, coef_p, offset_pc)
         FDOperator.__init__(self, coef_p, offset_pc, gd, dtype,
                             'O(h^%d) %s-gradient stencil' % (2 * n, 'xyz'[v]))
 
@@ -202,6 +203,62 @@ class GUCLaplace(FDOperator):
             coefs.extend(a_d[d] * np.array(laplace[n][1:]))
             offsets.extend(np.arange(-1, -n - 1, -1)[:, np.newaxis] * M_c)
             coefs.extend(a_d[d] * np.array(laplace[n][1:]))
+
+        FDOperator.__init__(self, coefs, offsets, gd, dtype)
+
+        self.description = (
+            '%d*%d+1=%d point O(h^%d) finite-difference Laplacian' %
+            ((self.npoints - 1) // n, n, self.npoints, 2 * n))
+
+
+class Gradient2(FDOperator):
+    def __init__(self, gd, v, scale=1.0, n=1, dtype=float):
+        """Laplacian for general non orthorhombic grid.
+
+        gd: GridDescriptor
+            Descriptor for grid.
+        scale: float
+            Scaling factor.  Use scale=-0.5 for a kinetic energy operator.
+        n: int
+            Range of stencil.  Stencil has O(h^(2n)) error.
+        dtype: float or complex
+            Datatype to work on.
+        """
+
+        # Order the 13 neighbor grid points:
+        M_ic = np.indices((3, 3, 3)).reshape((3, -3)).T[-13:] - 1
+        u_cv = gd.h_cv / (gd.h_cv**2).sum(1)[:, np.newaxis]**0.5
+        u2_i = (np.dot(M_ic, u_cv)**2).sum(1)
+        i_d = u2_i.argsort()
+
+        m_mv = np.array([(1, 0, 0), (0, 1, 0), (0, 0, 1), (0, 0, 0)])
+        # Try 3, 4, 5 and 6 directions:
+        for D in range(3, 7):
+            h_dv = np.dot(M_ic[i_d[:D]], gd.h_cv)
+            A_md = (h_dv**m_mv[:, np.newaxis, :]).prod(2)
+            grad = [0, 0, 0, 0]
+            grad[v] = 1
+            a_d, residual, rank, s = np.linalg.lstsq(A_md, grad,
+                                                     rcond=-1)
+            print(D, a_d, h_dv)
+            if residual.sum() < 1e-14:
+                if rank != D:
+                    raise ValueError(
+                        'You have a weird unit cell!  '
+                        'Try to use the maximally reduced Niggli cell.  '
+                        'See the ase.build.niggli_reduce() function.')
+                # D directions was OK
+                break
+
+        a_d *= scale
+        offsets = []
+        coefs = []
+        for d in range(D):
+            M_c = M_ic[i_d[d]]
+            offsets.extend(np.arange(1, n + 1)[:, np.newaxis] * M_c)
+            coefs.extend(a_d[d] * np.array([1.0]))
+            offsets.extend(np.arange(-1, -n - 1, -1)[:, np.newaxis] * M_c)
+            coefs.extend(a_d[d] * np.array([-1.0]))
 
         FDOperator.__init__(self, coefs, offsets, gd, dtype)
 

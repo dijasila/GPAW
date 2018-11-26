@@ -1,5 +1,5 @@
 from __future__ import print_function
-from gpaw.fd_operators import Gradient
+from gpaw.fd_operators import Gradient, Gradient2
 import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import world
@@ -63,3 +63,20 @@ grady.apply(a, dady)
 dady = gd.collect(dady, broadcast=True)
 assert dady[0, 0, 0] == -3.5 and abs(np.sum(dady[0, :, 0])) < 1E-12
 
+
+gd = GridDescriptor((3, 3, 1),
+                    ((3.0, 0.0, 0.0),
+                     (-1.5, 1.5 * 3**0.5, 0.0),
+                     (0.0, 0.0, 1)), comm=domain_comm)
+R = gd.get_grid_point_coordinates()
+print(R[0,:,:,0])
+dady = gd.zeros()
+grady = Gradient2(gd, v=1)
+a = gd.zeros()
+for x in np.arange(12) * np.pi / 6:
+    n = np.array([np.cos(x), np.sin(x), 0])
+    a[:] = np.dot(R.T, n).T
+    grady.apply(a, dady)
+    print(dady[1, 1, 0] - n[0])
+print(a[:,:,0])
+print(dady[:,:,0])
