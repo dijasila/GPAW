@@ -297,6 +297,12 @@ class LCAOWaveFunctions(WaveFunctions):
         self.S_qMM = newS_qMM
         self.T_qMM = newT_qMM
 
+        # Elpa wants to reuse the decomposed form of S_qMM.
+        # We need to keep track of the existence of that object here,
+        # since this is where we change S_qMM.  Hence, expect this to
+        # become arrays after the first diagonalization:
+        self.decomposed_S_qMM = [None] * len(self.S_qMM)
+
     def initialize(self, density, hamiltonian, spos_ac):
         # Note: The above line exists also in set_positions.
         # This is guaranteed to be correct, but we can probably remove one.

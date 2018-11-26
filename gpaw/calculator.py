@@ -101,6 +101,8 @@ class GPAW(PAW, Calculator):
         'sl_inverse_cholesky': gpaw.sl_inverse_cholesky,
         'sl_lcao': gpaw.sl_lcao,
         'sl_lrtddft': gpaw.sl_lrtddft,
+        'use_elpa': False,
+        'elpasolver': '2stage',
         'buffer_size': gpaw.buffer_size}
 
     def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
@@ -1044,9 +1046,14 @@ class GPAW(PAW, Calculator):
             sl_lcao = self.parallel['sl_lcao']
             if sl_lcao is None:
                 sl_lcao = sl_default
+
+            elpasolver = None
+            if self.parallel['use_elpa']:
+                elpasolver = self.parallel['elpasolver']
             lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
                                            gd, bd, domainband_comm, dtype,
-                                           nao=nao, timer=self.timer)
+                                           nao=nao, timer=self.timer,
+                                           elpasolver=elpasolver)
 
             self.wfs = mode(lcaoksl, **wfs_kwargs)
 
