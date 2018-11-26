@@ -115,11 +115,6 @@ class DielectricFunction:
         self.w2 = min(self.w1 + self.mynw, nw)
         self.truncation = truncation
     
-    def get_chi_grid_dim(self, q_c):
-        """ Pass dimensions involved in chi grid,
-        without running calculation. """
-        return self.chi0.get_chi_grid_dim(q_c)
-    
     def calculate_chi0(self, q_c, spin='all'):
         """Calculates the response function.
 
@@ -130,15 +125,8 @@ class DielectricFunction:
         spin : str or int
             If 'all' then include all spins.
             If 0 or 1, only include this specific spin.
-            If 'pm' calculate chi^{+-}_0
-            If 'mp' calculate chi^{-+}_0
+            (not used in transverse reponse functions)
         """
-    
-        response = self.chi0.get_response()
-        
-        if response not in ['density', 'spin']:
-            raise Exception(""" Currently only scalar response functions of type 'density' and
-                                'spin' are implemented.""")
         
         if self.name:
             kd = self.chi0.calc.wfs.kd
@@ -244,8 +232,7 @@ class DielectricFunction:
         spin : str or int
             If 'all' then include all spins.
             If 0 or 1, only include this specific spin.
-            If 'pm' calculate chi^{+-}_0
-            If 'mp' calculate chi^{-+}_0
+            (not used in transverse reponse functions)
         RSrep : str
             real space representation of kernel ('gpaw' or 'grid')
         xi_cut : float
@@ -262,10 +249,9 @@ class DielectricFunction:
             Default is None, i.e. no scaling
         """
         
-        response = self.chi0.get_response()
-        assert response in ('density', 'spin')
-        if response == 'spin':
-            assert spin in ('pm', 'mp')
+        response = self.chi0.response
+        assert response in ('density', '+-', '-+')
+        if response in ['+-', '-+']:
             assert xc in ('ALDA_x', 'ALDA_X', 'ALDA')
         
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
@@ -368,8 +354,6 @@ class DielectricFunction:
         """
         
         # For transverse majority-monirity scattering function -> generalize! #
-        self.chi0.set_response('spin')
-        flip = 'pm'
         assert self.chi0.eta > 0.0
         assert not self.chi0.hilbert
         assert not self.chi0.timeordered
@@ -378,7 +362,6 @@ class DielectricFunction:
         #######################################################################
         
         pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c,
-                                             spin=flip,
                                              RSrep=RSrep,
                                              xi_cut=xi_cut,
                                              density_cut=density_cut,
@@ -431,8 +414,6 @@ class DielectricFunction:
         The head of the inverse symmetrized dielectric matrix is equal
         to the head of the inverse dielectric matrix (inverse dielectric
         function)"""
-        
-        self.chi0.set_response('density')
         
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
 
@@ -588,8 +569,6 @@ class DielectricFunction:
         df_NLFC_w, df_LFC_w = DielectricFunction.get_eels_spectrum()
         """
         
-        self.chi0.set_response('density')
-        
         # Calculate V^1/2 \chi V^1/2
         pd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c,
                                                direction=direction)
@@ -721,12 +700,7 @@ class DielectricFunction:
     def get_eigenmodes(self, q_c=[0, 0, 0], w_max=None, name=None,
                        eigenvalue_only=False, direction='x',
                        checkphase=True):
-        """Plasmon eigenmodes as eigenvectors of the dielectric matrix.
-
-        Note: not implemented for spin response
-        """
-        
-        self.chi0.set_response('density')
+        """Plasmon eigenmodes as eigenvectors of the dielectric matrix."""
         
         assert self.chi0.world.size == 1
 
@@ -860,8 +834,6 @@ class DielectricFunction:
 
         Returns: real space grid, frequency points, EELS(w,r)
         """
-        
-        self.chi0.set_response('density')
         
         assert self.chi0.world.size == 1
 

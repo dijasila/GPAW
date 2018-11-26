@@ -699,15 +699,7 @@ class PairDensity:
         kd = self.calc.wfs.kd
         self.KDTree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
         print('Number of blocks:', nblocks, file=self.fd)
-    
-    def get_response(self):
-        """ Return the type of response function """
-        return self.response
-    
-    def set_response(self, response):
-        """ Set the type of response function """
-        self.response = response
-    
+
     def find_kpoint(self, k_c):
         return self.KDTree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
 
@@ -1046,7 +1038,7 @@ class PairDensity:
         with self.timer('get k-points'):
             kpt1 = self.get_k_point(s, k_c, n1, n2, load_wfs=load_wfs)
             # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            if self.response == 'spin':
+            if self.response in ['+-', '-+']:
                 s2 = 1 - s
             else:
                 s2 = s

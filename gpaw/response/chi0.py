@@ -116,7 +116,7 @@ def frequency_grid(domega0, omega2, omegamax):
 
 
 class Chi0:
-    """Class for calculating response functions."""
+    """Class for calculating non-interacting response functions."""
 
     def __init__(self, calc, response='density',
                  frequencies=None, domega0=0.1, omega2=10.0, omegamax=None,
@@ -138,7 +138,7 @@ class Chi0:
             calculation is based on.
         response : str
             Type of response function. Currently collinear, scalar options
-            'density' and 'spin' are implemented.
+            'density', '+-' and '-+'are implemented.
         frequencies : ndarray or None
             Array of frequencies to evaluate the response function at. If None,
             frequencies are determined using the frequency_grid function in
@@ -194,8 +194,7 @@ class Chi0:
         integrationmode : str
             Integrator for the kpoint integration.
             If == 'tetrahedron integration' then the kpoint integral is
-            performed using the linear tetrahedron method. Note: there might be
-            problems using tetrahedron integration to calculate spin response.
+            performed using the linear tetrahedron method.
         pbc : list
             Periodic directions of the system. Defaults to [True, True, True].
         eshift : float
@@ -317,16 +316,6 @@ class Chi0:
         else:
             print('Using integration method: PointIntegrator', file=self.fd)
     
-    def get_response(self):
-        """ Return the type of response function """
-        assert self.response == self.pair.get_response()
-        return self.response
-    
-    def set_response(self, response):
-        """ Set the type of response function """
-        self.response = response
-        self.pair.set_response(response)
-    
     def find_maximum_frequency(self):
         """Determine the maximum electron-hole pair transition energy."""
         self.epsmin = 10000.0
@@ -352,8 +341,7 @@ class Chi0:
         spin : str or int
             If 'all' then include all spins.
             If 0 or 1, only include this specific spin.
-            If 'pm' calculate chi^{+-}_0
-            If 'mp' calculate chi^{-+}_0
+            (not used in transverse reponse functions)
         A_x : ndarray
             Output array. If None, the output array is created.
 
@@ -364,22 +352,26 @@ class Chi0:
         chi0_wGG : ndarray
             The response function.
         chi0_wxvG : ndarray or None
-            (Only in optical limit) Wings of the response function.
+            (Only in optical limit) Wings of the density response function.
         chi0_wvv : ndarray or None
-            (Only in optical limit) Head of response function.
+            (Only in optical limit) Head of the density response function.
 
         """
         wfs = self.calc.wfs
 
-        if spin == 'all':
-            spins = range(wfs.nspins)
-        elif spin == 'pm':
-            spins = [0]
-        elif spin == 'mp':
-            spins = [1]
+        if self.response == 'density':
+            if spin == 'all':
+                spins = range(wfs.nspins)
+            else:
+                assert spin in range(wfs.nspins)
+                spins = [spin]
         else:
-            assert spin in range(wfs.nspins)
-            spins = [spin]
+            if self.response == '+-':
+                spins = [0]
+            elif self.response == '-+':
+                spins = [1]
+            else:
+                raise ValueError('Invalid response %s' % self.response)
 
         q_c = np.asarray(q_c, dtype=float)
         optical_limit = np.allclose(q_c, 0.0) and self.response == 'density'
@@ -447,9 +439,9 @@ class Chi0:
         chi0_wGG : ndarray
             The response function.
         chi0_wxvG : ndarray or None
-            Wings of the response function.
+            Wings of the density response function.
         chi0_wvv : ndarray or None
-            Head of response function.
+            Head of the density response function.
         m1 : int
             Lower band cutoff for band summation
         m2 : int
@@ -457,7 +449,7 @@ class Chi0:
         spins : str or list(ints)
             If 'all' then include all spins.
             If [0] or [1], only include this specific spin (and flip it,
-            if calculating spin response).
+            if calculating the transverse magnetic response).
         extend_head : bool
             If True: Extend the wings and head of chi in the optical limit to
             take into account the non-analytic nature of chi. Effectively
@@ -846,8 +838,8 @@ class Chi0:
 
         where s and s' are spins, n and m are band indices, k is
         the kpoint and q is the momentum transfer. For dielectric
-        reponse s'=s, for spin reponse s' is flipped with respect
-        to s.
+        reponse s'=s, for the transverse magnetic reponse
+        s' is flipped with respect to s.
         
         Parameters
         ----------
@@ -958,7 +950,7 @@ class Chi0:
         ik1 = kd.bz2ibz_k[K1]
         ik2 = kd.bz2ibz_k[K2]
         kpt1 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik1]
-        if self.response == 'spin':
+        if self.response in ['+-', '-+']:
             s2 = 1 - s
         else:
             s2 = s
