@@ -20,7 +20,8 @@ from gpaw.response.fxc import get_xc_kernel, get_xc_spin_kernel
 class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
     
-    def __init__(self, calc, name=None, frequencies=None, domega0=0.1,
+    def __init__(self, calc, response='density',
+                 name=None, frequencies=None, domega0=0.1,
                  omega2=10.0, omegamax=None, ecut=50,
                  gammacentered=False, hilbert=True,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
@@ -34,6 +35,9 @@ class DielectricFunction:
         calc: str
             The groundstate calculation file that the linear response
             calculation is based on.
+        response : str
+            Type of response function. Currently collinear, scalar options
+            'density', '+-' and '-+' are implemented. (move to general rf.py)
         name: str
             If defined, save the response function to::
 
@@ -87,7 +91,7 @@ class DielectricFunction:
             Shift unoccupied bands
         """
 
-        self.chi0 = Chi0(calc, frequencies=frequencies,
+        self.chi0 = Chi0(calc, response=response, frequencies=frequencies,
                          domega0=domega0, omega2=omega2, omegamax=omegamax,
                          ecut=ecut, nbands=nbands, eta=eta,
                          gammacentered=gammacentered, hilbert=hilbert,
@@ -248,9 +252,9 @@ class DielectricFunction:
             fxc_scaling = [True, float], Kxc will be scaled by float.
             Default is None, i.e. no scaling
         """
-        
+
+        # XXX generalize to kernel check
         response = self.chi0.response
-        assert response in ('density', '+-', '-+')
         if response in ['+-', '-+']:
             assert xc in ('ALDA_x', 'ALDA_X', 'ALDA')
         
@@ -640,9 +644,7 @@ class DielectricFunction:
             With the bare Coulomb potential, this expression is equivalent to
             the standard one. In a 2D system \chi should be calculated with a
             truncated Coulomb potential and eps_M = 1.0"""
-            
-            self.chi0.set_response('density')
-            
+
             print('Using truncated Coulomb interaction', file=self.chi0.fd)
 
             pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc,

@@ -138,7 +138,7 @@ class Chi0:
             calculation is based on.
         response : str
             Type of response function. Currently collinear, scalar options
-            'density', '+-' and '-+'are implemented.
+            'density', '+-' and '-+' are implemented.
         frequencies : ndarray or None
             Array of frequencies to evaluate the response function at. If None,
             frequencies are determined using the frequency_grid function in
