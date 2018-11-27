@@ -794,6 +794,7 @@ class CLICommand:
             'Energy range and/or radius can be left out.')
         add('-r', '--refine', action='store_true')
         add('-s', '--scalar-relativistic', action='store_true')
+        add('-S', '--sternheimer', action = 'store_true')
 
     @staticmethod
     def run(args):
@@ -872,3 +873,8 @@ def main(args):
 
     if args.plot:
         aea.plot_wave_functions()
+
+    if args.sternheimer:
+        print("testing atom sternheimer cli")
+        from sternheimer import AllElectronResponse
+        aee = AllElectronResponse(aea)
