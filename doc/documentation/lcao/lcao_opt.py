@@ -1,20 +1,18 @@
-from ase import Atoms
+from ase.build import molecule
 from ase.optimize import QuasiNewton
 from gpaw import GPAW
 
-a = 6
-b = a / 2
+atoms = molecule('CH3CH2OH', vacuum=4.0)
+atoms.rattle(stdev=0.1)  # displace positions randomly a bit
 
-mol = Atoms('H2O',
-             positions=[(b, 0.7633 + b, -0.4876 + b),
-                        (b, -0.7633 + b, -0.4876 + b),
-                        (b, b, 0.1219 + b)],
-            cell=[a, a, a])
+calc = GPAW(mode='lcao',
+            basis='dzp',
+            nbands='110%',
+            parallel=dict(band=2,  # band parallelization
+                          augment_grids=True,  # use all cores for XC/Poisson
+                          sl_auto=True,  # enable ScaLAPACK parallelization
+                          use_elpa=True))  # enable Elpa eigensolver
+atoms.calc = calc
 
-calc = GPAW(nbands=4,
-            mode='lcao',
-            basis='dzp')
-
-mol.set_calculator(calc)
-dyn = QuasiNewton(mol, trajectory='lcao2_h2o.traj')
-dyn.run(fmax=0.05)
+opt = QuasiNewton(atoms, trajectory='opt.traj')
+opt.run(fmax=0.05)

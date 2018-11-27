@@ -69,7 +69,7 @@ class FDOperator:
         self.npoints = len(coef_p)
         self.coef_p = coef_p
         self.offset_p = offset_p
-        self.offset_pc = offset_pc 
+        self.offset_pc = offset_pc
         self.comm = comm
         self.cfd = cfd
 
@@ -170,18 +170,21 @@ class GUCLaplace(FDOperator):
             Datatype to work on.
         """
 
-        # Order the 13 neighbor grid points:
+        # Order the 26 neighbor grid points after length
+        # (reduced to 13 inequivalent):
         M_ic = np.indices((3, 3, 3)).reshape((3, -3)).T[-13:] - 1
         u_cv = gd.h_cv / (gd.h_cv**2).sum(1)[:, np.newaxis]**0.5
         u2_i = (np.dot(M_ic, u_cv)**2).sum(1)
         i_d = u2_i.argsort()
 
+        # x^2, y^2, z^2, yz, xz, xy:
         m_mv = np.array([(2, 0, 0), (0, 2, 0), (0, 0, 2),
                          (0, 1, 1), (1, 0, 1), (1, 1, 0)])
-        # Try 3, 4, 5 and 6 directions:
+        # Try 3, 4, 5 and 6 of the shortest directions:
         for D in range(3, 7):
             h_dv = np.dot(M_ic[i_d[:D]], gd.h_cv)
             A_md = (h_dv**m_mv[:, np.newaxis, :]).prod(2)
+            # Find best stencil coefficients:
             a_d, residual, rank, s = np.linalg.lstsq(A_md, [1, 1, 1, 0, 0, 0],
                                                      rcond=-1)
             if residual.sum() < 1e-14:

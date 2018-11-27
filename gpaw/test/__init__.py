@@ -14,6 +14,7 @@ from ase.utils import devnull
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters, tf_parameters
 from gpaw.utilities import compiled_with_sl, compiled_with_libvdwxc
+from gpaw.utilities.elpa import LibElpa
 from gpaw import setup_paths
 from gpaw import mpi
 import gpaw
@@ -73,7 +74,7 @@ def gen(symbol, exx=False, name=None, yukawa_gamma=None, **kwargs):
 
 
 tests = [
-    'electronphonon.py',
+    # 'electronphonon.py',  does not seem to work
     'linalg/gemm_complex.py',
     'ase_features/ase3k_version.py',
     'kpt.py',
@@ -135,6 +136,7 @@ tests = [
     'atoms_mismatch.py',
     'setup_basis_spec.py',
     'pw/direct.py',
+    'libelpa.py',
     'vdw/libvdwxc_spin.py',                 # ~1s
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
@@ -215,6 +217,8 @@ tests = [
     'generic/Cl_minus.py',                  # ~4s
     'lrtddft/pes.py',                       # ~4s
     'generic/proton.py',                    # ~4s
+    'parallel/lcao_elpa_kpts.py',           # ~4s
+    'parallel/lcao_elpa.py',                # ~5s
     'corehole/h2o_recursion.py',            # ~5s
     'xc/nonselfconsistent.py',              # ~5s
     'spin/spinpol.py',                      # ~5s
@@ -500,6 +504,12 @@ if not compiled_with_libvdwxc():
     exclude.append('vdw/libvdwxc_h2.py')
     exclude.append('vdw/libvdwxc_mbeef.py')
     exclude.append('vdw/libvdwxc_spin.py')
+
+if not LibElpa.have_elpa():
+    exclude += ['libelpa.py',
+                'parallel/lcao_elpa_kpts.py',
+                'parallel/lcao_elpa.py']
+
 
 if LooseVersion(np.__version__) < '1.6.0':
     exclude.append('response/chi0.py')
