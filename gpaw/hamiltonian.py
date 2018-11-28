@@ -205,7 +205,7 @@ class Hamiltonian:
         self.vt_sG = self.vt_xG[:self.nspins]
         self.vt_vG = self.vt_xG[self.nspins:]
 
-    def update(self, density):
+    def update(self, density, wfs=None, kin_en_using_band=True):
         """Calculate effective potential.
 
         The XC-potential and the Hartree potential are evaluated on
@@ -219,7 +219,8 @@ class Hamiltonian:
                 self.initialize()
 
         finegrid_energies = self.update_pseudo_potential(density)
-        coarsegrid_e_kinetic = self.calculate_kinetic_energy(density)
+        coarsegrid_e_kinetic = \
+            self.calculate_kinetic_energy(density)
 
         with self.timer('Calculate atomic Hamiltonians'):
             W_aL = self.calculate_atomic_hamiltonians(density)
@@ -233,6 +234,10 @@ class Hamiltonian:
         energies = atomic_energies  # kinetic, coulomb, zero, external, xc
         energies[1:] += finegrid_energies  # coulomb, zero, external, xc
         energies[0] += coarsegrid_e_kinetic  # kinetic
+        if not kin_en_using_band:
+            assert wfs is not None
+            energies[0] = self.calculate_kinetic_energy_2(density, wfs)
+            energies[0] *= self.gd.comm.size / float(self.world.size)
         with self.timer('Communicate'):
             self.world.sum(energies)
 
@@ -310,8 +315,12 @@ class Hamiltonian:
         e_kinetic += self.xc.get_kinetic_energy_correction() / self.world.size
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
-    def get_energy(self, occ):
-        self.e_kinetic = self.e_kinetic0 + occ.e_band
+    def get_energy(self, occ, kin_en_using_band=True):
+        if kin_en_using_band:
+            self.e_kinetic = self.e_kinetic0 + occ.e_band
+        else:
+            self.e_kinetic = self.e_kinetic0
+
         self.e_entropy = occ.e_entropy
 
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
@@ -512,6 +521,27 @@ class Hamiltonian:
         if hasattr(self.poisson, 'read'):
             self.poisson.read(reader)
             self.poisson.set_grid_descriptor(self.finegd)
+
+    def calculate_kinetic_energy_2(self, density, wfs):
+        # pseudo-part
+        e_kinetic = 0.0
+        e_kin_paw = 0.0
+
+        for kpt in wfs.kpt_u:
+            rho_MM = \
+                wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM)
+            e_kinetic += np.einsum('ij,ji->', kpt.T_MM, rho_MM)
+
+        e_kinetic = wfs.kd.comm.sum(e_kinetic)
+        # paw corrections
+        for a, D_sp in density.D_asp.items():
+            setup = wfs.setups[a]
+            D_p = D_sp.sum(0)
+            e_kin_paw += np.dot(setup.K_p, D_p) + setup.Kc
+
+        e_kin_paw = self.gd.comm.sum(e_kin_paw)
+
+        return e_kinetic.real + e_kin_paw
 
 
 class RealSpaceHamiltonian(Hamiltonian):

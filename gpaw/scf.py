@@ -65,7 +65,7 @@ class SCFLoop:
                 wfs.eigensolver.iterate(ham, wfs)
             occ.calculate(wfs)
 
-            energy = ham.get_energy(occ)
+            energy = ham.get_energy(occ, kin_en_using_band=False)
             self.old_energies.append(energy)
             errors = self.collect_errors(dens, ham, wfs)
 
@@ -81,7 +81,7 @@ class SCFLoop:
                 self.converged = True
 
             callback(self.niter)
-            # self.log(log, self.niter, wfs, ham, dens, occ, errors)
+            self.log(log, self.niter, wfs, ham, dens, occ, errors)
 
             if self.converged and self.niter >= self.niter_fixdensity:
                 break

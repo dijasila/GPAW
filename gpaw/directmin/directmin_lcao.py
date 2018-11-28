@@ -177,7 +177,7 @@ class DirectMinLCAO(DirectLCAO):
         for k in a.keys():
             a[k] += alpha * p[k]
         self.g_mat_u = g
-        print(self.iters, phi[0]*Hartree, der_phi[0])
+        # print(self.iters, phi[0]*Hartree, der_phi[0])
         self.iters += 1
 
     def get_energy_and_gradients(self, a_mat_u, n_dim, ham, wfs, dens,
@@ -232,17 +232,10 @@ class DirectMinLCAO(DirectLCAO):
     def update_ks_energy(self, ham, wfs, dens, occ):
 
         # using new states update KS
+        # print('Call energy')
         dens.update(wfs)
-        ham.update(dens)
-        # occ.calculate(self.wfs)
-        e_ks = ham.get_energy(occ)
-        e_kin = calculate_kinetic_energy(dens, wfs, wfs.setups)
-        e_ks = e_ks - ham.e_kinetic + e_kin
-        ham.e_kinetic = e_kin
-        ham.e_total_free = e_ks
-
-        # FIXME: new extrapolation of energy?
-        # self.ham.e_total_extrapolated = self.e_ks
+        ham.update(dens, wfs, False)
+        e_ks = ham.get_energy(occ, False)
         return e_ks
 
     def get_gradients(self, h_mm, c_nm, f_n, a_mat, evec, evals):
