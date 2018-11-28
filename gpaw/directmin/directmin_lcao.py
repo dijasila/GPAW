@@ -54,7 +54,6 @@ class DirectMinLCAO(DirectLCAO):
 
     def initialize_2(self, wfs, dens):
         dens.direct_min = True  # turn off the mixer
-
         self.dtype = wfs.dtype
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
 
@@ -88,6 +87,7 @@ class DirectMinLCAO(DirectLCAO):
 
         self.evecs = {}
         self.evals = {}
+        self.iters = 1
 
         self.initialized = True
 
@@ -130,9 +130,11 @@ class DirectMinLCAO(DirectLCAO):
             # first iteration is diagonilisation using super class
             super().iterate(ham, wfs)
             self.initialize_2(wfs, dens)
-            self.iters += 1
             return
 
+        self.precond = self.update_preconditioning(ham, wfs,
+                                                   dens, occ,
+                                                   self.use_prec)
         a = self.a_mat_u
         n_dim = self.n_dim
         alpha = self.alpha
@@ -147,8 +149,7 @@ class DirectMinLCAO(DirectLCAO):
         else:
             g = self.g_mat_u
 
-        precond = self.update_preconditioning(wfs, self.use_prec)
-        p = self.get_search_direction(a, g, precond, wfs)
+        p = self.get_search_direction(a, g, self.precond, wfs)
         der_phi_c = 0.0
         for k in g.keys():
             if self.dtype is complex:
@@ -332,13 +333,23 @@ class DirectMinLCAO(DirectLCAO):
 
         return phi, der_phi, g_mat_u
 
-    def update_preconditioning(self, wfs, use_prec):
+    def update_preconditioning(self, ham, wfs, dens, occ, use_prec):
         if use_prec:
-            if self.iters % 15 == 0 or self.iters == 1:
+            counter = 15
+            if self.iters % counter == 0 or self.iters == 1:
+                if self.iters > 1:
+                    print('update')
+                    # we need to update eps_n, f_n
+                    super().iterate(ham, wfs)
+                    occ.calculate(wfs)
+                    # probably choose new reference orbitals?
+                    self.initialize_2(wfs, dens)
+
                 self.precond = {}
                 for kpt in wfs.kpt_u:
                     k = self.n_kps * kpt.s + kpt.q
-                    heiss = self.get_hessian_new(kpt)
+
+                    heiss = self.get_hessian(kpt)
                     if self.dtype is float:
                         self.precond[k] = np.zeros_like(heiss)
                         for i in range(heiss.shape[0]):
@@ -363,7 +374,7 @@ class DirectMinLCAO(DirectLCAO):
         else:
             return
 
-    def get_hessian_new(self, kpt):
+    def get_hessian(self, kpt):
         f_n = kpt.f_n
         eps_n = kpt.eps_n
         if self.dtype is complex:
