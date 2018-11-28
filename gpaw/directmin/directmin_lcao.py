@@ -23,7 +23,7 @@ class DirectMinLCAO(DirectLCAO):
                  max_iter_line_search=5,
                  turn_off_swc=False,
                  prec='prec_3', save_orbitals=False,
-                 update_refs=10,
+                 update_refs=10, use_prec=True,
                  residual=None):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
@@ -45,6 +45,7 @@ class DirectMinLCAO(DirectLCAO):
         self.residual = residual
         self.initialized = False
         self.save_orbitals = save_orbitals
+        self.use_prec = use_prec
         self.iters = 0
 
     def __str__(self):
@@ -138,7 +139,6 @@ class DirectMinLCAO(DirectLCAO):
         phi = self.phi
         c_ref = self.c_nm_ref
         der_phi = self.der_phi
-        precond = self.precond
 
         if self.iters == 1:
             phi[0], g = self.get_energy_and_gradients(a, n_dim, ham,
@@ -147,6 +147,7 @@ class DirectMinLCAO(DirectLCAO):
         else:
             g = self.g_mat_u
 
+        precond = self.update_preconditioning(wfs, self.use_prec)
         p = self.get_search_direction(a, g, precond, wfs)
         der_phi_c = 0.0
         for k in g.keys():
@@ -279,7 +280,6 @@ class DirectMinLCAO(DirectLCAO):
             a_vec[k] = a_mat_u[k][il1]
             g_vec[k] = g_mat_u[k][il1]
 
-        # self.update_preconditioning()
         p_vec = self.search_direction.update_data(wfs, a_vec, g_vec,
                                                   precond)
         del a_vec, g_vec
@@ -331,6 +331,61 @@ class DirectMinLCAO(DirectLCAO):
         der_phi = wfs.kd.comm.sum(der_phi)
 
         return phi, der_phi, g_mat_u
+
+    def update_preconditioning(self, wfs, use_prec):
+        if use_prec:
+            if self.iters % 15 == 0 or self.iters == 1:
+                self.precond = {}
+                for kpt in wfs.kpt_u:
+                    k = self.n_kps * kpt.s + kpt.q
+                    heiss = self.get_hessian_new(kpt)
+                    if self.dtype is float:
+                        self.precond[k] = np.zeros_like(heiss)
+                        for i in range(heiss.shape[0]):
+                            if abs(heiss[i]) < 1.0e-5:
+                                self.precond[k][i] = 1.0
+                            else:
+                                self.precond[k][i] = \
+                                    1.0 / (heiss[i].real)
+                    else:
+                        self.precond[k] = np.zeros_like(heiss)
+                        for i in range(heiss.shape[0]):
+                            if abs(heiss[i]) < 1.0e-5:
+                                self.precond[k][i] = 1.0 + 1.0j
+                            else:
+                                self.precond[k][i] = 1.0 / \
+                                                     heiss[i].real + \
+                                                     1.0j / \
+                                                     heiss[i].imag
+                return self.precond
+            else:
+                return self.precond
+        else:
+            return
+
+    def get_hessian_new(self, kpt):
+        f_n = kpt.f_n
+        eps_n = kpt.eps_n
+        if self.dtype is complex:
+            il1 = np.tril_indices(eps_n.shape[0])
+        else:
+            il1 = np.tril_indices(eps_n.shape[0], -1)
+        il1 = list(il1)
+        heiss = np.zeros(len(il1[0]), dtype=self.dtype)
+        x = 0
+        for l, m in zip(*il1):
+            df = f_n[l] - f_n[m]
+            heiss[x] = -2.0 * (eps_n[l] - eps_n[m]) * df
+            if self.dtype is complex:
+                heiss[x] += 1.0j * heiss[x]
+                if abs(heiss[x]) < 1.0e-10:
+                    heiss[x] = 0.0 + 0.0j
+            else:
+                if abs(heiss[x]) < 1.0e-10:
+                    heiss[x] = 0.0
+            x += 1
+
+        return heiss
 
 
 def calculate_kinetic_energy(density, wfs, setups):
