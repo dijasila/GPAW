@@ -22,6 +22,7 @@ class DirectLCAO(object):
         self.has_initialized = True  # XXX
 
     def reset(self):
+        self._error = np.inf
         pass
 
     @property

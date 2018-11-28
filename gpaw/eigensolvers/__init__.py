@@ -27,14 +27,13 @@ def get_eigensolver(eigensolver, mode, convergence=None):
                        'cg': CG,
                        'dav': Davidson,
                        'lcao': DirectLCAO,
-                       'direct': DirectPW, 'direct_min': DirectMinLCAO,
+                       'direct': DirectPW,
+                       'direct_min_lcao': DirectMinLCAO,
                        }[name](**eigensolver)
 
     if isinstance(eigensolver, CG):
         eigensolver.tolerance = convergence.get('eigenstates', 4.0e-8)
 
-    assert (isinstance(eigensolver, DirectLCAO) or
-            isinstance(eigensolver, DirectMinLCAO)) == \
-           (mode.name == 'lcao')
+    assert isinstance(eigensolver, DirectLCAO) == (mode.name == 'lcao')
 
     return eigensolver

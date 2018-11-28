@@ -13,7 +13,7 @@ class DirectMinLCAO(DirectLCAO):
 
     def __init__(self, diagonalizer=None, error=np.inf,
                  search_direction_algorithm='LBFGS',
-                 line_search_algorithm='swc_awc',
+                 line_search_algorithm='SwcAwc',
                  initial_orbitals='KS',
                  initial_rotation='zero',
                  occupied_only=False,
@@ -92,8 +92,6 @@ class DirectMinLCAO(DirectLCAO):
         self.nvalence = wfs.nvalence
         self.kd_comm = wfs.kd.comm
 
-        self.initialized = True
-
     def initialize_sd_and_ls(self, wfs, method, ls_method):
 
         if method == 'SD':
@@ -115,7 +113,7 @@ class DirectMinLCAO(DirectLCAO):
                 UnitStepLength(self.evaluate_phi_and_der_phi)
         elif ls_method == 'Parabola':
             self.line_search = Parabola(self.evaluate_phi_and_der_phi)
-        elif ls_method == 'swc_awc':
+        elif ls_method == 'SwcAwc':
             self.line_search = \
                 StrongWolfeConditions(self.evaluate_phi_and_der_phi,
                                       method=method,
@@ -128,12 +126,16 @@ class DirectMinLCAO(DirectLCAO):
 
     def iterate(self, ham, wfs, dens, occ):
 
+        wfs.timer.start('Direct Minimisation step')
+
         if self.iters == 0:
             # need to initialize c_nm, eps, f_n and so on.
             # first iteration is diagonilisation using super class
             super().iterate(ham, wfs)
+            occ.calculate(wfs)
             self.initialize_2(wfs, dens)
-            return
+            # wfs.timer.stop('Direct Minimisation step')
+            # return
 
         self.precond = self.update_preconditioning(ham, wfs,
                                                    dens, occ,
@@ -185,6 +187,9 @@ class DirectMinLCAO(DirectLCAO):
         self.g_mat_u = g
         # print(self.iters, phi[0]*Hartree, der_phi[0])
         self.iters += 1
+
+        wfs.timer.stop('Direct Minimisation step')
+
 
     def get_energy_and_gradients(self, a_mat_u, n_dim, ham, wfs, dens,
                                  occ, c_nm_ref):
@@ -256,13 +261,12 @@ class DirectMinLCAO(DirectLCAO):
 
     def get_gradients(self, h_mm, c_nm, f_n, a_mat, evec, evals, kpt):
 
-        hc_mn = np.zeros_like(h_mm)
+        hc_mn = np.zeros(shape=(c_nm.shape[1], c_nm.shape[0]))
         mmm(1.0, h_mm.conj(), 'n', c_nm, 't', 0.0, hc_mn)
-
-        if self.dtype is complex:
-            mmm(1.0, c_nm.conj(), 'n', hc_mn, 'n', 0.0, h_mm)
-        else:
-            mmm(1.0, c_nm, 'n', hc_mn, 'n', 0.0, h_mm)
+        k = self.n_kps * kpt.s + kpt.q
+        if self.n_dim[k] != c_nm.shape[1]:
+            h_mm = np.zeros(shape=(self.n_dim[k], self.n_dim[k]))
+        mmm(1.0, c_nm.conj(), 'n', hc_mn, 'n', 0.0, h_mm)
 
         # let's also calculate residual here.
         # it's extra calculation though, maybe it's better to use
@@ -272,16 +276,14 @@ class DirectMinLCAO(DirectLCAO):
             if f > 0.0:
                 n_occ += 1
         # what if there are empty states between occupied?
-        rhs = np.zeros(shape=(n_occ, n_occ))
-        rhs2 = np.zeros_like(rhs)
+        rhs = np.zeros_like(hc_mn)
+        rhs2 = np.zeros_like(hc_mn)
         mmm(1.0, kpt.S_MM, 'n', c_nm[:n_occ], 't', 0.0, rhs)
         mmm(1.0, rhs, 'n', h_mm[:n_occ, :n_occ].conj(), 't', 0.0, rhs2)
-        hc_mn = hc_mn[:n_occ, :n_occ] - rhs2
+        hc_mn = hc_mn[:, :n_occ] - rhs2[:, :n_occ]
         norm = []
         for i in range(n_occ):
-            # norm.append(np.dot(hc_mn[i].conj(),
-            #                    hc_mn[i]).real * kpt.f_n[i])
-            norm.append(dotc(hc_mn[i], hc_mn[i]).real * kpt.f_n[i])
+            norm.append(dotc(hc_mn[:,i], hc_mn[:,i]).real * kpt.f_n[i])
 
         error = sum(norm) * Hartree ** 2 / self.nvalence
         del rhs, rhs2, hc_mn, norm
@@ -440,7 +442,18 @@ class DirectMinLCAO(DirectLCAO):
 
     def calculate_residual(self, ham, wfs):
         pass
-#
+
+    def get_canonical_representation(self, ham, wfs, dens):
+        # choose canonical orbitals which diagonolize
+        # largange matrix. need to do subspace rotation but
+        # this also must work
+        super().iterate(ham, wfs)
+        self.initialize_2(wfs, dens)
+
+    def reset(self):
+        self._error = np.inf
+        self.iters = 0
+
 # def calculate_kinetic_energy(density, wfs, setups):
 #     # pseudo-part
 #     e_kinetic = 0.0
