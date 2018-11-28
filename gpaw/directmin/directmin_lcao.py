@@ -198,11 +198,11 @@ class DirectMinLCAO(DirectLCAO):
         :return:
         """
 
+        wfs.timer.start('Unitary rotation')
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             if n_dim[k] == 0:
                 continue
-            wfs.timer.start('Unitary rotation')
             u_nn, self.evecs[k], self.evals[k] =\
                 expm_ed(a_mat_u[k], evalevec=True)
             kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
@@ -212,28 +212,34 @@ class DirectMinLCAO(DirectLCAO):
             # mmm(1.0, u_nn, 't', c_nm_ref[k][:n_dim[k]], 'n',
             #     0.0, kpt.C_nM[:n_dim[k]])
             del u_nn
-            wfs.timer.stop('Unitary rotation')
             wfs.atomic_correction.calculate_projections(wfs, kpt)
+        wfs.timer.stop('Unitary rotation')
 
         wfs.timer.start('Update Kohn-Sham energy')
         e_total = self.update_ks_energy(ham, wfs, dens, occ)
         wfs.timer.stop('Update Kohn-Sham energy')
 
+        wfs.timer.start('Calculate gradients')
         g_mat_u = {}
+        self._error = 0.0
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             if n_dim[k] == 0:
                 g_mat_u[k] = np.zeros_like(a_mat_u[k])
                 continue
-            wfs.timer.start('Calculate gradients')
             h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
             # make matrix hermitian
             ind_l = np.tril_indices(h_mm.shape[0], -1)
             h_mm[(ind_l[1], ind_l[0])] = h_mm[ind_l].conj()
-            g_mat_u[k] = self.get_gradients(h_mm, kpt.C_nM, kpt.f_n,
-                                            a_mat_u[k], self.evecs[k],
-                                            self.evals[k], kpt)
-            wfs.timer.stop('Calculate gradients')
+            g_mat_u[k], error = self.get_gradients(h_mm, kpt.C_nM,
+                                                   kpt.f_n,
+                                                   a_mat_u[k],
+                                                   self.evecs[k],
+                                                   self.evals[k],
+                                                   kpt)
+            self._error += error
+        self._error = self.kd_comm.sum(self._error)
+        wfs.timer.stop('Calculate gradients')
 
         self.get_en_and_grad_iters += 1
 
@@ -258,13 +264,14 @@ class DirectMinLCAO(DirectLCAO):
         else:
             mmm(1.0, c_nm, 'n', hc_mn, 'n', 0.0, h_mm)
 
-        # let's also calculate residual here residual.
+        # let's also calculate residual here.
         # it's extra calculation though, maybe it's better to use
         # norm of grad
         n_occ = 0
         for f in kpt.f_n:
             if f > 0.0:
                 n_occ += 1
+        # what if there are empty states between occupied?
         rhs = np.zeros(shape=(n_occ, n_occ))
         rhs2 = np.zeros_like(rhs)
         mmm(1.0, kpt.S_MM, 'n', c_nm[:n_occ], 't', 0.0, rhs)
@@ -275,8 +282,8 @@ class DirectMinLCAO(DirectLCAO):
             # norm.append(np.dot(hc_mn[i].conj(),
             #                    hc_mn[i]).real * kpt.f_n[i])
             norm.append(dotc(hc_mn[i], hc_mn[i]).real * kpt.f_n[i])
+
         error = sum(norm) * Hartree ** 2 / self.nvalence
-        self._error = self.kd_comm.sum(error)
         del rhs, rhs2, hc_mn, norm
 
         # continue with gradients
@@ -289,9 +296,9 @@ class DirectMinLCAO(DirectLCAO):
             grad[i][i] *= 0.5
 
         if a_mat.dtype == float:
-            return 2.0 * grad.real
+            return 2.0 * grad.real, error
         else:
-            return 2.0 * grad
+            return 2.0 * grad, error
 
     def get_search_direction(self, a_mat_u, g_mat_u, precond, wfs):
 
