@@ -1,6 +1,6 @@
 from ase.units import Hartree
 import numpy as np
-from gpaw.utilities.blas import mmm
+from gpaw.utilities.blas import mmm, dotc
 from gpaw.directmin.tools import expm_ed, D_matrix
 from gpaw.directmin.sd_lcao import SteepestDescent, FRcg, HZcg, \
     QuickMin, LBFGS
@@ -89,6 +89,9 @@ class DirectMinLCAO(DirectLCAO):
         self.evals = {}
         self.iters = 1
 
+        self.nvalence = wfs.nvalence
+        self.kd_comm = wfs.kd.comm
+
         self.initialized = True
 
     def initialize_sd_and_ls(self, wfs, method, ls_method):
@@ -156,8 +159,9 @@ class DirectMinLCAO(DirectLCAO):
                 il1 = np.tril_indices(g[k].shape[0])
             else:
                 il1 = np.tril_indices(g[k].shape[0], -1)
-            der_phi_c += np.dot(g[k][il1].conj(),
-                                p[k][il1]).real
+            # der_phi_c += np.dot(g[k][il1].conj(),
+            #                     p[k][il1]).real
+            der_phi_c += dotc(g[k][il1], p[k][il1])
         der_phi_c = wfs.kd.comm.sum(der_phi_c)
         der_phi[0] = der_phi_c
 
@@ -203,6 +207,10 @@ class DirectMinLCAO(DirectLCAO):
                 expm_ed(a_mat_u[k], evalevec=True)
             kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
                                          c_nm_ref[k][:n_dim[k]])
+
+            # FIXME: this doesn't work correctly
+            # mmm(1.0, u_nn, 't', c_nm_ref[k][:n_dim[k]], 'n',
+            #     0.0, kpt.C_nM[:n_dim[k]])
             del u_nn
             wfs.timer.stop('Unitary rotation')
             wfs.atomic_correction.calculate_projections(wfs, kpt)
@@ -224,7 +232,7 @@ class DirectMinLCAO(DirectLCAO):
             h_mm[(ind_l[1], ind_l[0])] = h_mm[ind_l].conj()
             g_mat_u[k] = self.get_gradients(h_mm, kpt.C_nM, kpt.f_n,
                                             a_mat_u[k], self.evecs[k],
-                                            self.evals[k])
+                                            self.evals[k], kpt)
             wfs.timer.stop('Calculate gradients')
 
         self.get_en_and_grad_iters += 1
@@ -240,7 +248,7 @@ class DirectMinLCAO(DirectLCAO):
         e_ks = ham.get_energy(occ, False)
         return e_ks
 
-    def get_gradients(self, h_mm, c_nm, f_n, a_mat, evec, evals):
+    def get_gradients(self, h_mm, c_nm, f_n, a_mat, evec, evals, kpt):
 
         hc_mn = np.zeros_like(h_mm)
         mmm(1.0, h_mm.conj(), 'n', c_nm, 't', 0.0, hc_mn)
@@ -250,6 +258,28 @@ class DirectMinLCAO(DirectLCAO):
         else:
             mmm(1.0, c_nm, 'n', hc_mn, 'n', 0.0, h_mm)
 
+        # let's also calculate residual here residual.
+        # it's extra calculation though, maybe it's better to use
+        # norm of grad
+        n_occ = 0
+        for f in kpt.f_n:
+            if f > 0.0:
+                n_occ += 1
+        rhs = np.zeros(shape=(n_occ, n_occ))
+        rhs2 = np.zeros_like(rhs)
+        mmm(1.0, kpt.S_MM, 'n', c_nm[:n_occ], 't', 0.0, rhs)
+        mmm(1.0, rhs, 'n', h_mm[:n_occ, :n_occ].conj(), 't', 0.0, rhs2)
+        hc_mn = hc_mn[:n_occ, :n_occ] - rhs2
+        norm = []
+        for i in range(n_occ):
+            # norm.append(np.dot(hc_mn[i].conj(),
+            #                    hc_mn[i]).real * kpt.f_n[i])
+            norm.append(dotc(hc_mn[i], hc_mn[i]).real * kpt.f_n[i])
+        error = sum(norm) * Hartree ** 2 / self.nvalence
+        self._error = self.kd_comm.sum(error)
+        del rhs, rhs2, hc_mn, norm
+
+        # continue with gradients
         h_mm = f_n[:, np.newaxis] * h_mm - f_n * h_mm
 
         grad = evec.T.conj() @ h_mm.T.conj() @ evec
@@ -327,8 +357,11 @@ class DirectMinLCAO(DirectLCAO):
             else:
                 il1 = np.tril_indices(p_mat_u[k].shape[0], -1)
 
-            der_phi += np.dot(g_mat_u[k][il1].conj(),
-                              p_mat_u[k][il1]).real
+            # der_phi += np.dot(g_mat_u[k][il1].conj(),
+            #                   p_mat_u[k][il1]).real
+            der_phi += dotc(g_mat_u[k][il1],
+                            p_mat_u[k][il1]).real
+
         der_phi = wfs.kd.comm.sum(der_phi)
 
         return phi, der_phi, g_mat_u
@@ -398,28 +431,30 @@ class DirectMinLCAO(DirectLCAO):
 
         return heiss
 
-
-def calculate_kinetic_energy(density, wfs, setups):
-    # pseudo-part
-    e_kinetic = 0.0
-    e_kin_paw = 0.0
-
-    for kpt in wfs.kpt_u:
-        rho_MM = \
-            wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM)
-        e_kinetic += np.einsum('ij,ji->', kpt.T_MM, rho_MM)
-
-    e_kinetic = wfs.kd.comm.sum(e_kinetic)
-    # paw corrections
-    for a, D_sp in density.D_asp.items():
-        setup = setups[a]
-        D_p = D_sp.sum(0)
-        e_kin_paw += np.dot(setup.K_p, D_p) + setup.Kc
-
-    e_kin_paw = density.gd.comm.sum(e_kin_paw)
-
-    return e_kinetic.real + e_kin_paw
-
+    def calculate_residual(self, ham, wfs):
+        pass
+#
+# def calculate_kinetic_energy(density, wfs, setups):
+#     # pseudo-part
+#     e_kinetic = 0.0
+#     e_kin_paw = 0.0
+#
+#     for kpt in wfs.kpt_u:
+#         rho_MM = \
+#             wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM)
+#         e_kinetic += np.einsum('ij,ji->', kpt.T_MM, rho_MM)
+#
+#     e_kinetic = wfs.kd.comm.sum(e_kinetic)
+#     # paw corrections
+#     for a, D_sp in density.D_asp.items():
+#         setup = setups[a]
+#         D_p = D_sp.sum(0)
+#         e_kin_paw += np.dot(setup.K_p, D_p) + setup.Kc
+#
+#     e_kin_paw = density.gd.comm.sum(e_kin_paw)
+#
+#     return e_kinetic.real + e_kin_paw
+#
 
 #
 # class DirectMinLCAO2(object):
