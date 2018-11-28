@@ -11,6 +11,7 @@ from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.lcao.atomic_correction import get_atomic_correction
 from gpaw.wavefunctions.mode import Mode
+from gpaw.directmin.directmin_lcao import DirectMinLCAO
 
 
 class LCAO(Mode):
@@ -132,7 +133,10 @@ class LCAOWaveFunctions(WaveFunctions):
 
     def set_eigensolver(self, eigensolver):
         WaveFunctions.set_eigensolver(self, eigensolver)
-        if eigensolver:
+        if isinstance(eigensolver, DirectMinLCAO):
+            eigensolver.initialize(self, self.gd, self.dtype,
+                                   self.setups.nao, self.ksl)
+        elif eigensolver:
             eigensolver.initialize(self.gd, self.dtype, self.setups.nao,
                                    self.ksl)
 

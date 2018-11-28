@@ -59,7 +59,10 @@ class SCFLoop:
 
         self.niter = 1
         while self.niter <= self.maxiter:
-            wfs.eigensolver.iterate(ham, wfs)
+            if str(wfs.eigensolver) == 'direct_minimisation':
+                wfs.eigensolver.iterate(ham, wfs, dens, occ)
+            else:
+                wfs.eigensolver.iterate(ham, wfs)
             occ.calculate(wfs)
 
             energy = ham.get_energy(occ)
@@ -78,14 +81,14 @@ class SCFLoop:
                 self.converged = True
 
             callback(self.niter)
-            self.log(log, self.niter, wfs, ham, dens, occ, errors)
+            # self.log(log, self.niter, wfs, ham, dens, occ, errors)
 
             if self.converged and self.niter >= self.niter_fixdensity:
                 break
 
             if self.niter > self.niter_fixdensity and not dens.fixed:
-                dens.update(wfs)
-                ham.update(dens)
+                # dens.update(wfs)
+                # ham.update(dens)
                 if hasattr(wfs.eigensolver, 'calculate_residual') and \
                         wfs.mode == 'lcao':
                     wfs.timer.start('Calculate residual')
