@@ -59,7 +59,7 @@ class SCFLoop:
 
         self.niter = 1
         while self.niter <= self.maxiter:
-            if str(wfs.eigensolver) == 'direct_minimisation':
+            if str(wfs.eigensolver) == 'Direct Minimisation':
                 wfs.eigensolver.iterate(ham, wfs, dens, occ)
             else:
                 wfs.eigensolver.iterate(ham, wfs)
