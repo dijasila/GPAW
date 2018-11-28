@@ -361,13 +361,14 @@ class Parabola:
         """
         self.evaluate_phi_and_der_phi = evaluate_phi_and_der_phi
 
-    def step_length_update(self, A_s, P_s, n_dim,
-                           phi_0, der_phi_0,
+    def step_length_update(self, x, p, n_dim,
                            *args, **kwargs):
 
+        phi_0 = kwargs['phi_0']
+        der_phi_0 = kwargs['der_phi_0']
+
         phi_i, der_phi_i, g_i = \
-            self.evaluate_phi_and_der_phi(A_s, P_s, n_dim,
-                                          alpha=1.0)
+            self.evaluate_phi_and_der_phi(x, p, n_dim, 1.0, *args)
 
         # if appr_wc(der_phi_0, phi_0, der_phi_i, phi_i):
         if descent(phi_0, phi_i, eps=1.0e-2):
@@ -376,11 +377,11 @@ class Parabola:
             a_star = parabola_interpolation(0.0, 1.0,
                                             phi_0, phi_i,
                                             der_phi_0)
-            if a_star < 0.8e-1:
-                a_star = 0.5
+            if a_star < 0.01:
+                a_star = 0.01
         phi_star, der_phi_star, g_star = \
-            self.evaluate_phi_and_der_phi(A_s, P_s, n_dim,
-                                          a_star)
+            self.evaluate_phi_and_der_phi(x, p, n_dim,
+                                          a_star, *args)
 
         return a_star, phi_star, der_phi_star, g_star
 
