@@ -113,6 +113,11 @@ class DirectMinLCAO(DirectLCAO):
 
     def iterate(self, ham, wfs, dens, occ):
 
+        assert dens.mixer.driver.name == 'dummy', \
+            'please, use: mixer=DummyMixer()'
+        assert wfs.bd.nbands == wfs.basis_functions.Mmax, \
+            'please, use: nbands=\'nao\''
+
         wfs.timer.start('Direct Minimisation step')
 
         if self.iters == 0:
@@ -124,10 +129,13 @@ class DirectMinLCAO(DirectLCAO):
             # wfs.timer.stop('Direct Minimisation step')
             # return
 
+        wfs.timer.start('Preconditioning:')
         self.precond = \
             self.update_preconditioning_and_ref_orbitals(ham, wfs,
                                                          dens, occ,
                                                          self.use_prec)
+        wfs.timer.stop('Preconditioning:')
+
         a = self.a_mat_u
         n_dim = self.n_dim
         alpha = self.alpha
@@ -142,7 +150,9 @@ class DirectMinLCAO(DirectLCAO):
         else:
             g = self.g_mat_u
 
+        wfs.timer.start('Get Search Direction:')
         p = self.get_search_direction(a, g, self.precond, wfs)
+        wfs.timer.stop('Get Search Direction:')
         der_phi_c = 0.0
         for k in g.keys():
             if self.dtype is complex:
@@ -409,6 +419,7 @@ class DirectMinLCAO(DirectLCAO):
                                                          heiss[i].real + \
                                                          1.0j / \
                                                          heiss[i].imag
+                    return self.precond
                 else:
                     return self.precond
             else:
