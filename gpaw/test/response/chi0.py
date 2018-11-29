@@ -38,7 +38,7 @@ for k in [2, 3]:
                     
                 calc = GPAW(name, txt=None, communicator=serial_comm)
 
-                chi = Chi0(calc, omega, hilbert=False,
+                chi = Chi0(calc, frequencies=omega, hilbert=False,
                            ecut=100, txt=name + '.log')
                 pd, chi0_wGG, _, _ = chi.calculate(q_c)
                 
