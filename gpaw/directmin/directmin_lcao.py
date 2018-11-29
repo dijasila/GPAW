@@ -1,6 +1,6 @@
 from ase.units import Hartree
 import numpy as np
-from gpaw.utilities.blas import mmm, dotc
+from gpaw.utilities.blas import mmm  # , dotc, dotu
 from gpaw.directmin.tools import expm_ed, D_matrix
 from gpaw.directmin.sd_lcao import SteepestDescent, FRcg, HZcg, \
     QuickMin, LBFGS
@@ -137,9 +137,10 @@ class DirectMinLCAO(DirectLCAO):
             # wfs.timer.stop('Direct Minimisation step')
             # return
 
-        self.precond = self.update_preconditioning(ham, wfs,
-                                                   dens, occ,
-                                                   self.use_prec)
+        self.precond = \
+            self.update_preconditioning_and_ref_orbitals(ham, wfs,
+                                                         dens, occ,
+                                                         self.use_prec)
         a = self.a_mat_u
         n_dim = self.n_dim
         alpha = self.alpha
@@ -161,9 +162,9 @@ class DirectMinLCAO(DirectLCAO):
                 il1 = np.tril_indices(g[k].shape[0])
             else:
                 il1 = np.tril_indices(g[k].shape[0], -1)
-            # der_phi_c += np.dot(g[k][il1].conj(),
-            #                     p[k][il1]).real
-            der_phi_c += dotc(g[k][il1], p[k][il1])
+            der_phi_c += np.dot(g[k][il1].conj(),
+                                p[k][il1]).real
+            # der_phi_c += dotc(g[k][il1], p[k][il1]).real
         der_phi_c = wfs.kd.comm.sum(der_phi_c)
         der_phi[0] = der_phi_c
 
@@ -212,10 +213,11 @@ class DirectMinLCAO(DirectLCAO):
                 expm_ed(a_mat_u[k], evalevec=True)
             kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
                                          c_nm_ref[k][:n_dim[k]])
-
-            # FIXME: this doesn't work correctly
-            # mmm(1.0, u_nn, 't', c_nm_ref[k][:n_dim[k]], 'n',
-            #     0.0, kpt.C_nM[:n_dim[k]])
+            #
+            # mmm(1.0, np.ascontiguousarray(u_nn), 'T',
+            #     np.ascontiguousarray(c_nm_ref[k][:n_dim[k]]), 'N',
+            #     0.0,
+            #     kpt.C_nM[:n_dim[k]])
             del u_nn
             wfs.atomic_correction.calculate_projections(wfs, kpt)
         wfs.timer.stop('Unitary rotation')
@@ -261,29 +263,35 @@ class DirectMinLCAO(DirectLCAO):
 
     def get_gradients(self, h_mm, c_nm, f_n, a_mat, evec, evals, kpt):
 
-        hc_mn = np.zeros(shape=(c_nm.shape[1], c_nm.shape[0]))
-        mmm(1.0, h_mm.conj(), 'n', c_nm, 't', 0.0, hc_mn)
+        hc_mn = np.zeros(shape=(c_nm.shape[1], c_nm.shape[0]),
+                         dtype=self.dtype)
+        mmm(1.0, h_mm.conj(), 'N', c_nm, 'T', 0.0, hc_mn)
         k = self.n_kps * kpt.s + kpt.q
         if self.n_dim[k] != c_nm.shape[1]:
-            h_mm = np.zeros(shape=(self.n_dim[k], self.n_dim[k]))
-        mmm(1.0, c_nm.conj(), 'n', hc_mn, 'n', 0.0, h_mm)
+            h_mm = np.zeros(shape=(self.n_dim[k], self.n_dim[k]),
+                            dtype=self.dtype)
+        mmm(1.0, c_nm.conj(), 'N', hc_mn, 'N', 0.0, h_mm)
 
         # let's also calculate residual here.
         # it's extra calculation though, maybe it's better to use
         # norm of grad
         n_occ = 0
         for f in kpt.f_n:
-            if f > 0.0:
+            if f > 1.0e-10:
                 n_occ += 1
         # what if there are empty states between occupied?
-        rhs = np.zeros_like(hc_mn)
-        rhs2 = np.zeros_like(hc_mn)
-        mmm(1.0, kpt.S_MM, 'n', c_nm[:n_occ], 't', 0.0, rhs)
-        mmm(1.0, rhs, 'n', h_mm[:n_occ, :n_occ].conj(), 't', 0.0, rhs2)
+        rhs = np.zeros(shape=(c_nm.shape[1], n_occ))
+        rhs2 = np.zeros(shape=(c_nm.shape[1], n_occ))
+        mmm(1.0, kpt.S_MM.conj(), 'N', c_nm[:n_occ], 'T', 0.0, rhs)
+        mmm(1.0, rhs, 'N', h_mm[:n_occ, :n_occ].conj(), 'T', 0.0, rhs2)
         hc_mn = hc_mn[:, :n_occ] - rhs2[:, :n_occ]
         norm = []
         for i in range(n_occ):
-            norm.append(dotc(hc_mn[:,i], hc_mn[:,i]).real * kpt.f_n[i])
+            norm.append(np.dot(hc_mn[:,i].conj(),
+                               hc_mn[:,i]).real * kpt.f_n[i])
+            # needs to be cont. to use this
+            # x = np.ascontiguousarray(hc_mn[:,i])
+            # norm.append(dotc(x, x).real * kpt.f_n[i])
 
         error = sum(norm) * Hartree ** 2 / self.nvalence
         del rhs, rhs2, hc_mn, norm
@@ -366,27 +374,29 @@ class DirectMinLCAO(DirectLCAO):
             else:
                 il1 = np.tril_indices(p_mat_u[k].shape[0], -1)
 
-            # der_phi += np.dot(g_mat_u[k][il1].conj(),
-            #                   p_mat_u[k][il1]).real
-            der_phi += dotc(g_mat_u[k][il1],
-                            p_mat_u[k][il1]).real
+            der_phi += np.dot(g_mat_u[k][il1].conj(),
+                              p_mat_u[k][il1]).real
+            # der_phi += dotc(g_mat_u[k][il1],
+            #                 p_mat_u[k][il1]).real
 
         der_phi = wfs.kd.comm.sum(der_phi)
 
         return phi, der_phi, g_mat_u
 
-    def update_preconditioning(self, ham, wfs, dens, occ, use_prec):
-        if use_prec:
-            counter = 15
-            if self.iters % counter == 0 or self.iters == 1:
-                if self.iters > 1:
-                    print('update')
-                    # we need to update eps_n, f_n
-                    super().iterate(ham, wfs)
-                    occ.calculate(wfs)
-                    # probably choose new reference orbitals?
-                    self.initialize_2(wfs, dens)
+    def update_preconditioning_and_ref_orbitals(self, ham, wfs, dens,
+                                                occ, use_prec):
+        counter = 15
+        if self.iters % counter == 0 or self.iters == 1:
+            if self.iters > 1:
+                print('update')
+                # we need to update eps_n, f_n
+                super().iterate(ham, wfs)
+                occ.calculate(wfs)
+                # probably choose new reference orbitals?
+                self.initialize_2(wfs, dens)
 
+        if use_prec:
+            if self.iters % counter == 0 or self.iters == 1:
                 self.precond = {}
                 for kpt in wfs.kpt_u:
                     k = self.n_kps * kpt.s + kpt.q
@@ -395,7 +405,7 @@ class DirectMinLCAO(DirectLCAO):
                     if self.dtype is float:
                         self.precond[k] = np.zeros_like(heiss)
                         for i in range(heiss.shape[0]):
-                            if abs(heiss[i]) < 1.0e-5:
+                            if abs(heiss[i]) < 1.0e-4:
                                 self.precond[k][i] = 1.0
                             else:
                                 self.precond[k][i] = \
@@ -403,7 +413,7 @@ class DirectMinLCAO(DirectLCAO):
                     else:
                         self.precond[k] = np.zeros_like(heiss)
                         for i in range(heiss.shape[0]):
-                            if abs(heiss[i]) < 1.0e-5:
+                            if abs(heiss[i]) < 1.0e-4:
                                 self.precond[k][i] = 1.0 + 1.0j
                             else:
                                 self.precond[k][i] = 1.0 / \

@@ -1,7 +1,6 @@
 import numpy as np
 import copy
 # from ase.parallel import parprint
-
 from gpaw.utilities.blas import dotc
 
 
@@ -27,14 +26,6 @@ class SteepestDescent:
             p_k = self.apply_prec(precond, g_k1, -1.0)
         self.iters += 1
         return p_k
-
-    def get_x(self, a_k):
-
-        x = {}
-        for k in a_k.keys():
-            x[k] = a_k[k].copy()
-
-        return x
 
     def zeros(self, x):
 
@@ -68,7 +59,8 @@ class SteepestDescent:
 
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            dot_pr_x1x2 += 2.0 * dotc(x1[k], x2[k]).real
+            # dot_pr_x1x2 += 2.0 * dotc(x1[k], x2[k]).real
+            dot_pr_x1x2 += np.dot(x1[k].conj(), x2[k]).real
 
         dot_pr_x1x2 = wfs.kd.comm.sum(dot_pr_x1x2)
 
@@ -116,7 +108,7 @@ class FRcg(SteepestDescent):
         if self.iters == 0:
             self.p_k = self.minus(g_k1)
             #save the step
-            self.g_k = self.get_x(g_k1)
+            self.g_k = copy.deepcopy(g_k1)
             self.iters += 1
 
             return self.p_k
@@ -129,7 +121,7 @@ class FRcg(SteepestDescent):
             self.p_k = self.calc_diff(self.p_k, g_k1, wfs,
                                       const_0=beta_k)
             # save this step
-            self.g_k = self.get_x(g_k1)
+            self.g_k = copy.deepcopy(g_k1)
             self.iters += 1
 
             return self.p_k
@@ -218,7 +210,7 @@ class QuickMin(SteepestDescent):
             dt = self.dt
             m = self.m
 
-            x = self.get_x(x_k1)
+            x = copy.deepcopy(x_k1)
             self.v = self.zeros(x)
 
             dot_gv = self.dot_all_k_and_b(g_k1, self.v, wfs)
@@ -285,7 +277,7 @@ class LBFGS(SteepestDescent):
         if self.k == 0:
 
             self.kp[self.k] = self.p
-            self.x_k = self.get_x(x_k1)
+            self.x_k = copy.deepcopy(x_k1)
             self.g_k = g_k1
 
             self.s_k[self.kp[self.k]] = self.zeros(g_k1)
@@ -312,7 +304,7 @@ class LBFGS(SteepestDescent):
             y_k = self.y_k
             g_k = self.g_k
 
-            x_k1 = self.get_x(x_k1)
+            x_k1 = self.copy.deepcopy(x_k1)
 
             rho_k = self.rho_k
 
@@ -323,17 +315,25 @@ class LBFGS(SteepestDescent):
             s_k[kp[k]] = self.calc_diff(x_k1, x_k, wfs)
             y_k[kp[k]] = self.calc_diff(g_k1, g_k, wfs)
 
-            try:
-                dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
-                                              s_k[kp[k]],
-                                              wfs)
+            dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
+                                          s_k[kp[k]],
+                                          wfs)
+            if abs(dot_ys) > 1.0e-10:
                 rho_k[kp[k]] = 1.0 / dot_ys
-            except ZeroDivisionError:
-                rho_k[kp[k]] = 1.0e12
+            else:
+                rho_k[kp[k]] = 1.0
+
+            # try:
+            #     dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
+            #                                   s_k[kp[k]],
+            #                                   wfs)
+            #     rho_k[kp[k]] = 1.0 / dot_ys
+            # except ZeroDivisionError:
+            #     rho_k[kp[k]] = 1.0e12
 
             if rho_k[kp[k]] < 0.0:
                 # raise Exception('y_k^Ts_k is not positive!')
-                # parprint("y_k^Ts_k is not positive!")
+                # print("y_k^Ts_k is not positive!")
                 self.stable = False
 
             # q = np.copy(g_k1)
@@ -353,19 +353,26 @@ class LBFGS(SteepestDescent):
 
                 # q -= alpha[kp[i]] * y_k[kp[i]]
 
-            try:
-                # t = np.maximum(1, k - m + 1)
-
-                t = k
-
-                dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
-                                              y_k[kp[t]], wfs)
-
+            t = k
+            dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
+                                          y_k[kp[t]], wfs)
+            if abs(dot_yy) < 1.0e-10:
                 r = self.multiply(q, 1.0 / (rho_k[kp[t]] * dot_yy))
-
-            except ZeroDivisionError:
-                # r = 1.0e12 * q
-                r = self.multiply(q, 1.0e12)
+            else:
+                r = self.multiply(q, 1.0)
+            # try:
+            #     # t = np.maximum(1, k - m + 1)
+            #
+            #     t = k
+            #
+            #     dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
+            #                                   y_k[kp[t]], wfs)
+            #
+            #     r = self.multiply(q, 1.0 / (rho_k[kp[t]] * dot_yy))
+            #
+            # except ZeroDivisionError:
+            #     # r = 1.0e12 * q
+            #     r = self.multiply(q, 1.0e12)
 
             for i in range(np.maximum(0, k - m + 1), k + 1):
                 dot_yr = self.dot_all_k_and_b(y_k[kp[i]], r, wfs)
