@@ -266,10 +266,12 @@ class DirectMinLCAO(DirectLCAO):
             if f > 1.0e-10:
                 n_occ += 1
         # what if there are empty states between occupied?
-        rhs = np.zeros(shape=(c_nm.shape[1], n_occ))
-        rhs2 = np.zeros(shape=(c_nm.shape[1], n_occ))
+        rhs = np.zeros(shape=(c_nm.shape[1], n_occ),
+                       dtype=self.dtype)
+        rhs2 = np.zeros(shape=(c_nm.shape[1], n_occ),
+                        dtype=self.dtype)
         mmm(1.0, kpt.S_MM.conj(), 'N', c_nm[:n_occ], 'T', 0.0, rhs)
-        mmm(1.0, rhs, 'N', h_mm[:n_occ, :n_occ].conj(), 'T', 0.0, rhs2)
+        mmm(1.0, rhs, 'N', h_mm[:n_occ, :n_occ], 'N', 0.0, rhs2)
         hc_mn = hc_mn[:, :n_occ] - rhs2[:, :n_occ]
         norm = []
         for i in range(n_occ):
