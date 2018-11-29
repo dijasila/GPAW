@@ -16,7 +16,6 @@ class DirectMinLCAO(DirectLCAO):
                  line_search_algorithm='SwcAwc',
                  initial_orbitals='KS',
                  initial_rotation='zero',
-                 occupied_only=False,
                  memory_lbfgs=3,
                  use_prec=True):
 
@@ -26,7 +25,6 @@ class DirectMinLCAO(DirectLCAO):
         self.lsa = line_search_algorithm
         self.initial_rotation = initial_rotation
         self.initial_orbitals = initial_orbitals
-        self.occupied_only = occupied_only
         self.get_en_and_grad_iters = 0
         self.update_refs_counter = 0
         self.memory_lbfgs = memory_lbfgs
