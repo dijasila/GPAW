@@ -229,7 +229,7 @@ class DirectMinLCAO(DirectLCAO):
                                                    a_mat_u[k],
                                                    self.evecs[k],
                                                    self.evals[k],
-                                                   kpt)
+                                                   kpt, wfs.timer)
             self._error += error
         self._error = self.kd_comm.sum(self._error)
         wfs.timer.stop('Calculate gradients')
@@ -247,7 +247,8 @@ class DirectMinLCAO(DirectLCAO):
         e_ks = ham.get_energy(occ, False)
         return e_ks
 
-    def get_gradients(self, h_mm, c_nm, f_n, a_mat, evec, evals, kpt):
+    def get_gradients(self, h_mm, c_nm, f_n, a_mat, evec, evals,
+                      kpt, timer):
 
         hc_mn = np.zeros(shape=(c_nm.shape[1], c_nm.shape[0]),
                          dtype=self.dtype)
@@ -261,6 +262,7 @@ class DirectMinLCAO(DirectLCAO):
         # let's also calculate residual here.
         # it's extra calculation though, maybe it's better to use
         # norm of grad
+        timer.start('Residual')
         n_occ = 0
         for f in kpt.f_n:
             if f > 1.0e-10:
@@ -283,7 +285,7 @@ class DirectMinLCAO(DirectLCAO):
 
         error = sum(norm) * Hartree ** 2 / self.nvalence
         del rhs, rhs2, hc_mn, norm
-
+        timer.stop('Residual')
         # continue with gradients
         h_mm = f_n[:, np.newaxis] * h_mm - f_n * h_mm
 
