@@ -89,7 +89,7 @@ class DirectLCAO(object):
     def iterate(self, hamiltonian, wfs):
         wfs.timer.start('LCAO eigensolver')
 
-        self._error = 0.0
+        error_2 = np.array([0.0])
         s = -1
         for kpt in wfs.kpt_u:
             if kpt.s != s:
@@ -98,10 +98,11 @@ class DirectLCAO(object):
                 Vt_xMM = wfs.basis_functions.calculate_potential_matrices(
                     hamiltonian.vt_sG[s])
                 wfs.timer.stop('Potential matrix')
-            error = self.iterate_one_k_point(hamiltonian, wfs, kpt, Vt_xMM)
-            self._error += error
-
-        self._error = wfs.kd.comm.sum(self._error)
+                error = self.iterate_one_k_point(hamiltonian, wfs, kpt, Vt_xMM)
+                error_2[0] += error
+        wfs.kd.comm.sum(error_2)
+        wfs.world.broadcast(error_2, 0)
+        self._error = error_2[0]
 
         wfs.timer.stop('LCAO eigensolver')
 

@@ -400,10 +400,10 @@ class DirectMinLCAO(DirectLCAO):
 
     def update_preconditioning_and_ref_orbitals(self, ham, wfs, dens,
                                                 occ, use_prec):
-        counter = 15
+        counter = 25
         if self.iters % counter == 0 or self.iters == 1:
             if self.iters > 1:
-                print('update')
+                # print('update')
                 # we need to update eps_n, f_n
                 super().iterate(ham, wfs)
                 occ.calculate(wfs)

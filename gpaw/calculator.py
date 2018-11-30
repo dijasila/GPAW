@@ -105,9 +105,7 @@ class GPAW(PAW, Calculator):
 
     def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
                  atoms=None, timer=None,
-                 communicator=None, txt='-', parallel=None,
-                 **kwargs,
-                 ):
+                 communicator=None, txt='-', parallel=None, **kwargs):
 
         self.parallel = dict(self.default_parallel)
         if parallel:
@@ -130,6 +128,7 @@ class GPAW(PAW, Calculator):
         self.density = None
         self.hamiltonian = None
         self.spos_ac = None  # XXX store this in some better way.
+
         self.observers = []  # XXX move to self.scf
         self.initialized = False
 
