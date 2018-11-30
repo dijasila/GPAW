@@ -238,7 +238,9 @@ class Hamiltonian:
             self.world.sum(energies)
         if not kin_en_using_band:
             assert wfs is not None
-            energies[0] = self.calculate_kinetic_energy_2(density, wfs)
+            with self.timer('New Kinetic Energy'):
+                energies[0] = self.calculate_kinetic_energy_2(density,
+                                                              wfs)
 
         (self.e_kinetic0, self.e_coulomb, self.e_zero,
          self.e_external, self.e_xc) = energies
