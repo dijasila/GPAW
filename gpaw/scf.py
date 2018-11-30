@@ -98,9 +98,9 @@ class SCFLoop:
                 else:
                     dens.update(wfs)
                     ham.update(dens)
-                if hasattr(wfs.eigensolver, 'calculate_residual') and \
-                        wfs.mode == 'lcao':
-                    wfs.eigensolver.calculate_residual(ham, wfs)
+                # if hasattr(wfs.eigensolver, 'calculate_residual') and \
+                #         wfs.mode == 'lcao':
+                #     wfs.eigensolver.calculate_residual(ham, wfs)
 
             else:
                 ham.npoisson = 0

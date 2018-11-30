@@ -89,6 +89,7 @@ class DirectLCAO(object):
     def iterate(self, hamiltonian, wfs):
         wfs.timer.start('LCAO eigensolver')
 
+        self._error = 0.0
         s = -1
         for kpt in wfs.kpt_u:
             if kpt.s != s:
@@ -97,7 +98,10 @@ class DirectLCAO(object):
                 Vt_xMM = wfs.basis_functions.calculate_potential_matrices(
                     hamiltonian.vt_sG[s])
                 wfs.timer.stop('Potential matrix')
-            self.iterate_one_k_point(hamiltonian, wfs, kpt, Vt_xMM)
+            error = self.iterate_one_k_point(hamiltonian, wfs, kpt, Vt_xMM)
+            self._error += error
+
+        self._error = wfs.kd.comm.sum(self._error)
 
         wfs.timer.stop('LCAO eigensolver')
 
@@ -112,6 +116,8 @@ class DirectLCAO(object):
         if kpt.eps_n is None:
             kpt.eps_n = np.empty(wfs.bd.mynbands)
 
+        error = self.calculate_residual(kpt, H_MM, S_MM, wfs)
+
         diagonalization_string = repr(self.diagonalizer)
         wfs.timer.start(diagonalization_string)
         self.diagonalizer.diagonalize(H_MM, kpt.C_nM, kpt.eps_n, S_MM)
@@ -123,6 +129,8 @@ class DirectLCAO(object):
         # of the places in the LCAO code using P_ani directly
         wfs.atomic_correction.calculate_projections(wfs, kpt)
         wfs.timer.stop('Calculate projections')
+
+        return error
 
     def __repr__(self):
         # The "diagonalizer" must be equal to the Kohn-Sham layout
@@ -136,7 +144,7 @@ class DirectLCAO(object):
         pass
         # self.diagonalizer.estimate_memory(mem, dtype) #XXX enable this
 
-    def calculate_residual(self, ham, wfs):
+    def calculate_residual_2(self, ham, wfs):
 
         wfs.timer.start('Residual')
         norm = []
@@ -179,3 +187,42 @@ class DirectLCAO(object):
         error = sum(norm) * Hartree**2 / wfs.nvalence
         self._error = wfs.kd.comm.sum(error)
         wfs.timer.stop('Residual')
+
+    def calculate_residual(self, kpt, H_MM, S_MM, wfs):
+
+
+        if kpt.C_nM is None or kpt.f_n is None:
+            return np.inf
+        wfs.timer.start('Residual')
+        nbs = 0
+        for f in kpt.f_n:
+            if f > 1.0e-10:
+                nbs += 1
+
+        C_nM = kpt.C_nM[:nbs]
+
+        ind_l = np.tril_indices(H_MM.shape[0], -1)
+        H_MM[(ind_l[1], ind_l[0])] = H_MM[ind_l].conj()
+
+        HC_Mn = np.zeros(shape=(C_nM.shape[1], C_nM.shape[0]),
+                         dtype=C_nM.dtype)
+
+        mmm(1.0, H_MM.conj(), 'N', C_nM, 'T', 0.0, HC_Mn)
+        L = np.zeros(shape=(nbs, nbs), dtype=H_MM.dtype)
+        mmm(1.0, C_nM.conj(), 'N', HC_Mn, 'N', 0.0, L)
+
+        rhs = np.zeros(shape=(C_nM.shape[1], nbs),
+                       dtype=C_nM.dtype)
+        rhs2 = np.zeros(shape=(C_nM.shape[1], nbs),
+                        dtype=C_nM.dtype)
+        mmm(1.0, S_MM.conj(), 'N', C_nM[:nbs], 'T', 0.0, rhs)
+        mmm(1.0, rhs, 'N', L, 'N', 0.0, rhs2)
+        HC_Mn = HC_Mn[:, :nbs] - rhs2[:, :nbs]
+        norm = []
+        for i in range(nbs):
+            norm.append(np.dot(HC_Mn[:,i].conj(),
+                               HC_Mn[:,i]).real * kpt.f_n[i])
+
+        wfs.timer.stop('Residual')
+
+        return sum(norm) * Hartree ** 2 / wfs.nvalence

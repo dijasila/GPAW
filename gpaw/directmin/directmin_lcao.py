@@ -175,6 +175,19 @@ class DirectMinLCAO(DirectLCAO):
                                                 der_phi_old=der_phi[1],
                                                 alpha_max=3.0,
                                                 alpha_old=alpha)
+
+        if wfs.gd.comm.size > 1:
+            wfs.timer.start('Broadcast gradients')
+            alpha_phi_der_phi = np.array([alpha, phi[0], der_phi[0]])
+            wfs.gd.comm.broadcast(alpha_phi_der_phi, 0)
+            alpha = alpha_phi_der_phi[0]
+            phi[0] = alpha_phi_der_phi[1]
+            der_phi[0] = alpha_phi_der_phi[2]
+            for kpt in wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                wfs.gd.comm.broadcast(g[k], 0)
+            wfs.timer.stop('Broadcast gradients')
+
         phi[1], der_phi[1] = phi_c, der_phi_c
 
         # calculate new matrices for optimal step length
@@ -469,8 +482,8 @@ class DirectMinLCAO(DirectLCAO):
 
         return heiss
 
-    def calculate_residual(self, ham, wfs):
-        pass
+    def calculate_residual(self, kpt, H_MM, S_MM, wfs):
+        return np.inf
 
     def get_canonical_representation(self, ham, wfs, dens):
         # choose canonical orbitals which diagonolize
