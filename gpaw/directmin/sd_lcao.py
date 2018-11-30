@@ -1,6 +1,6 @@
 import numpy as np
 import copy
-# from ase.parallel import parprint
+from ase.parallel import parprint
 # from gpaw.utilities.blas import dotc
 
 
@@ -465,8 +465,10 @@ class LBFGS_P(SteepestDescent):
 
             if rho_k[kp[k]] < 0.0:
                 # raise Exception('y_k^Ts_k is not positive!')
-                # parprint("y_k^Ts_k is not positive!")
+                parprint("y_k^Ts_k is not positive!")
                 self.stable = False
+                self.__init__(wfs, memory=self.m)
+                return self.update_data(wfs, x_k1, g_k1, heiss_1)
 
             # q = np.copy(g_k1)
             q = copy.deepcopy(g_k1)
