@@ -148,9 +148,9 @@ class DirectMinLCAO(DirectLCAO):
         else:
             g = self.g_mat_u
 
-        wfs.timer.start('Get Search Direction:')
+        wfs.timer.start('Get Search Direction')
         p = self.get_search_direction(a, g, self.precond, wfs)
-        wfs.timer.stop('Get Search Direction:')
+        wfs.timer.stop('Get Search Direction')
         der_phi_c = 0.0
         for k in g.keys():
             if self.dtype is complex:
@@ -258,6 +258,7 @@ class DirectMinLCAO(DirectLCAO):
     def get_gradients(self, h_mm, c_nm, f_n, a_mat, evec, evals,
                       kpt, timer):
 
+        timer.start('Construct Gradient Matrix')
         hc_mn = np.zeros(shape=(c_nm.shape[1], c_nm.shape[0]),
                          dtype=self.dtype)
         mmm(1.0, h_mm.conj(), 'N', c_nm, 'T', 0.0, hc_mn)
@@ -266,6 +267,7 @@ class DirectMinLCAO(DirectLCAO):
             h_mm = np.zeros(shape=(self.n_dim[k], self.n_dim[k]),
                             dtype=self.dtype)
         mmm(1.0, c_nm.conj(), 'N', hc_mn, 'N', 0.0, h_mm)
+        timer.stop('Construct Gradient Matrix')
 
         # let's also calculate residual here.
         # it's extra calculation though, maybe it's better to use
@@ -295,6 +297,7 @@ class DirectMinLCAO(DirectLCAO):
         del rhs, rhs2, hc_mn, norm
         timer.stop('Residual')
         # continue with gradients
+        timer.start('Construct Gradient Matrix')
         h_mm = f_n[:, np.newaxis] * h_mm - f_n * h_mm
 
         grad = evec.T.conj() @ h_mm.T.conj() @ evec
@@ -302,6 +305,7 @@ class DirectMinLCAO(DirectLCAO):
         grad = evec @ grad @ evec.T.conj()
         for i in range(grad.shape[0]):
             grad[i][i] *= 0.5
+        timer.stop('Construct Gradient Matrix')
 
         if a_mat.dtype == float:
             return 2.0 * grad.real, error

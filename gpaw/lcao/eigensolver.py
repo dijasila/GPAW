@@ -138,6 +138,7 @@ class DirectLCAO(object):
 
     def calculate_residual(self, ham, wfs):
 
+        wfs.timer.start('Residual')
         norm = []
         for kpt in wfs.kpt_u:
             nbs = 0
@@ -177,3 +178,4 @@ class DirectLCAO(object):
 
         error = sum(norm) * Hartree**2 / wfs.nvalence
         self._error = wfs.kd.comm.sum(error)
+        wfs.timer.stop('Residual')

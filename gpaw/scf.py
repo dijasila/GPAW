@@ -100,9 +100,7 @@ class SCFLoop:
                     ham.update(dens)
                 if hasattr(wfs.eigensolver, 'calculate_residual') and \
                         wfs.mode == 'lcao':
-                    wfs.timer.start('Calculate residual')
                     wfs.eigensolver.calculate_residual(ham, wfs)
-                    wfs.timer.stop('Calculate residual')
 
             else:
                 ham.npoisson = 0
