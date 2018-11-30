@@ -1,3 +1,4 @@
+import platform
 import numpy as np
 import warnings
 import atexit
@@ -24,6 +25,7 @@ def init(rank=0):
     """
     """
     global cuda_ctx
+    global debug
 
     atexit.register(delete)
 
@@ -45,6 +47,9 @@ def init(rank=0):
 
     cuda_ctx.set_cache_config(drv.func_cache.PREFER_L1)
     _gpaw.gpaw_cuda_init()
+    if debug:
+        print('[{0}] GPU device {1} initialised (on host {2}).'.format(
+            rank, devno, platform.node()))
     return True
 
 def delete():
