@@ -190,7 +190,6 @@ class DirectLCAO(object):
 
     def calculate_residual(self, kpt, H_MM, S_MM, wfs):
 
-
         if kpt.C_nM is None or kpt.f_n is None:
             return np.inf
         wfs.timer.start('Residual')
