@@ -1,7 +1,7 @@
 from ase.units import Hartree
 import numpy as np
 from gpaw.utilities.blas import mmm  # , dotc, dotu
-from gpaw.directmin.tools import expm_ed, D_matrix
+from gpaw.directmin.tools import expm_ed2, D_matrix
 from gpaw.directmin.sd_lcao import SteepestDescent, FRcg, HZcg, \
     QuickMin, LBFGS, LBFGS_P
 from gpaw.directmin.ls_lcao import UnitStepLength, \
@@ -217,14 +217,14 @@ class DirectMinLCAO(DirectLCAO):
             if n_dim[k] == 0:
                 continue
             u_nn, self.evecs[k], self.evals[k] =\
-                expm_ed(a_mat_u[k], evalevec=True)
-            kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
-                                         c_nm_ref[k][:n_dim[k]])
+                expm_ed2(a_mat_u[k], evalevec=True)
+            # kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
+            #                              c_nm_ref[k][:n_dim[k]])
             #
-            # mmm(1.0, np.ascontiguousarray(u_nn), 'T',
-            #     np.ascontiguousarray(c_nm_ref[k][:n_dim[k]]), 'N',
-            #     0.0,
-            #     kpt.C_nM[:n_dim[k]])
+            mmm(1.0, np.ascontiguousarray(u_nn), 'T',
+                np.ascontiguousarray(c_nm_ref[k][:n_dim[k]]), 'N',
+                0.0,
+                kpt.C_nM[:n_dim[k]])
             del u_nn
             wfs.atomic_correction.calculate_projections(wfs, kpt)
         wfs.timer.stop('Unitary rotation')
@@ -313,11 +313,22 @@ class DirectMinLCAO(DirectLCAO):
         timer.start('Construct Gradient Matrix')
         h_mm = f_n[:, np.newaxis] * h_mm - f_n * h_mm
 
-        grad = evec @ h_mm.T.conj() @ evec.T.conj()
-        grad = grad * D_matrix(evals)
-        grad = evec.T.conj() @ grad @ evec
-        for i in range(grad.shape[0]):
-            grad[i][i] *= 0.5
+        # grad = evec @ h_mm.T.conj() @ evec.T.conj()
+        # grad = grad * D_matrix(evals)
+        # grad = evec.T.conj() @ grad @ evec
+        # for i in range(grad.shape[0]):
+        #     grad[i][i] *= 0.5
+
+        grad = np.empty_like(evec)
+        h_mm = h_mm.astype(complex)
+        mmm(1.0, h_mm, 'N', evec, 'N', 0.0, grad)
+        mmm(1.0, grad, 'C', evec, 'N', 0.0, h_mm)
+        # do we have this operation in blas?
+        grad = h_mm * D_matrix(evals)
+        mmm(1.0, evec, 'N', grad, 'N', 0.0, h_mm)
+        mmm(1.0, h_mm, 'N', evec, 'C', 0.0, grad)
+        grad.ravel()[::grad.shape[1] + 1] *= 0.5
+
         timer.stop('Construct Gradient Matrix')
 
         if a_mat.dtype == float:
