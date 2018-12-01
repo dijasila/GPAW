@@ -313,9 +313,9 @@ class DirectMinLCAO(DirectLCAO):
         timer.start('Construct Gradient Matrix')
         h_mm = f_n[:, np.newaxis] * h_mm - f_n * h_mm
 
-        grad = evec.T.conj() @ h_mm.T.conj() @ evec
+        grad = evec @ h_mm.T.conj() @ evec.T.conj()
         grad = grad * D_matrix(evals)
-        grad = evec @ grad @ evec.T.conj()
+        grad = evec.T.conj() @ grad @ evec
         for i in range(grad.shape[0]):
             grad[i][i] *= 0.5
         timer.stop('Construct Gradient Matrix')

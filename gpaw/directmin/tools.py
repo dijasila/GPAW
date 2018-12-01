@@ -21,10 +21,10 @@ def expm_ed(A, evalevec=False):
     if evalevec:
         if A.dtype == float:
             return np.dot(evec.T.conj() * np.exp(-1.0j*eval),
-                          evec).real, evec.T.conj(), eval
+                          evec).real, evec, eval
         else:
             return np.dot(evec.T.conj() * np.exp(-1.0j * eval),
-                          evec), evec.T.conj(), eval
+                          evec), evec, eval
 
     else:
         if A.dtype == float:
