@@ -7,6 +7,7 @@ from gpaw.directmin.sd_lcao import SteepestDescent, FRcg, HZcg, \
 from gpaw.directmin.ls_lcao import UnitStepLength, \
     StrongWolfeConditions, Parabola
 from gpaw.lcao.eigensolver import DirectLCAO
+from scipy.linalg import expm, expm_frechet
 
 
 class DirectMinLCAO(DirectLCAO):
@@ -52,6 +53,10 @@ class DirectMinLCAO(DirectLCAO):
         self.a_mat_u = {}  # skew-hermitian matrix to be exponented
         self.g_mat_u = {}  # gradient matrix
         self.c_nm_ref = {}  # reference orbitals to be rotated
+
+        self.evecs = {}   # eigendecomposition fo a
+        self.evals = {}
+
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             self.a_mat_u[k] = np.zeros(shape=(self.n_dim[k],
@@ -62,14 +67,14 @@ class DirectMinLCAO(DirectLCAO):
                                        dtype=self.dtype)
             # use initial KS orbitals, but can be others
             self.c_nm_ref[k] = np.copy(kpt.C_nM[:self.n_dim[k]])
+            self.evecs[k] = None
+            self.evals[k] = None
 
         self.alpha = 1.0  # step length
         self.phi = [None, None]  # energy at alpha and alpha old
         self.der_phi = [None, None] # gradients at alpha and alpha old
         self.precond = None
 
-        self.evecs = {}
-        self.evals = {}
         self.iters = 1
 
         self.nvalence = wfs.nvalence
@@ -216,8 +221,18 @@ class DirectMinLCAO(DirectLCAO):
             k = self.n_kps * kpt.s + kpt.q
             if n_dim[k] == 0:
                 continue
-            u_nn, self.evecs[k], self.evals[k] =\
-                expm_ed(a_mat_u[k], evalevec=True)
+            # this method is based on diagonalisation
+            # u_nn, self.evecs[k], self.evals[k] =\
+            #     expm_ed(a_mat_u[k], evalevec=True)
+
+            # Pade
+            u_nn = expm(a_mat_u[k])
+
+            # u_nn = expm_frechet(a_mat_u[k],
+            #                     np.zeros_like(a_mat_u[k]),
+            #                     compute_expm=True,
+            #                     check_finite=False)[0]
+
             kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
                                          c_nm_ref[k][:n_dim[k]])
             #
@@ -313,12 +328,14 @@ class DirectMinLCAO(DirectLCAO):
         timer.start('Construct Gradient Matrix')
         h_mm = f_n[:, np.newaxis] * h_mm - f_n * h_mm
 
-        grad = evec @ h_mm.T.conj() @ evec.T.conj()
-        grad = grad * D_matrix(evals)
-        grad = evec.T.conj() @ grad @ evec
-        for i in range(grad.shape[0]):
-            grad[i][i] *= 0.5
+        # this one uses eigendecomposition of a_mat
+        # grad = evec @ h_mm.T.conj() @ evec.T.conj()
+        # grad = grad * D_matrix(evals)
+        # grad = evec.T.conj() @ grad @ evec
+        # for i in range(grad.shape[0]):
+        #     grad[i][i] *= 0.5
 
+        # the same using mmm, doesn't seens to be faster though
         # grad = np.empty_like(evec)
         # h_mm = h_mm.astype(complex)
         # mmm(1.0, h_mm, 'N', evec, 'N', 0.0, grad)
@@ -328,6 +345,16 @@ class DirectMinLCAO(DirectLCAO):
         # mmm(1.0, evec, 'N', grad, 'N', 0.0, h_mm)
         # mmm(1.0, h_mm, 'N', evec, 'C', 0.0, grad)
         # grad.ravel()[::grad.shape[1] + 1] *= 0.5
+
+        # frechet derivative, unfortunately it calculates unitary
+        # matrix which we already calculated before. Could it be used?
+
+        u, grad = expm_frechet(a_mat, h_mm.T.conj(),
+                               compute_expm=True,
+                               check_finite=False)
+
+        grad = grad @ u.T.conj()
+        grad.ravel()[::grad.shape[1] + 1] *= 0.5
 
         timer.stop('Construct Gradient Matrix')
 
