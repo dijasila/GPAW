@@ -17,7 +17,7 @@ class DirectMinLCAO(DirectLCAO):
                  line_search_algorithm='SwcAwc',
                  initial_orbitals='KS',
                  initial_rotation='zero',
-                 memory_lbfgs=3,
+                 memory_lbfgs=3, update_ref_orbs_counter=1000,
                  use_prec=True, use_scipy=False):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
@@ -27,7 +27,7 @@ class DirectMinLCAO(DirectLCAO):
         self.initial_rotation = initial_rotation
         self.initial_orbitals = initial_orbitals
         self.get_en_and_grad_iters = 0
-        self.update_refs_counter = 0
+        self.update_ref_orbs_counter = update_ref_orbs_counter
         self.memory_lbfgs = memory_lbfgs
         self.use_prec = use_prec
         self.use_scipy = use_scipy
@@ -446,7 +446,7 @@ class DirectMinLCAO(DirectLCAO):
 
     def update_preconditioning_and_ref_orbitals(self, ham, wfs, dens,
                                                 occ, use_prec):
-        counter = 25
+        counter = self.update_ref_orbs_counter
         if self.iters % counter == 0 or self.iters == 1:
             if self.iters > 1:
                 # print('update')
@@ -532,10 +532,15 @@ class DirectMinLCAO(DirectLCAO):
         return np.inf
 
     def get_canonical_representation(self, ham, wfs, dens):
+        return
+
         # choose canonical orbitals which diagonolize
-        # largange matrix. need to do subspace rotation but
-        # this also must work
+        # largange matrix. need to do subspace rotation?
+        # I tried to call function below, but due to instability
+        # of eigensolvers
+        # for some systems, it can 'mess' the solution.
         super().iterate(ham, wfs)
+        occ.calculate(wfs)
         self.initialize_2(wfs, dens)
 
     def reset(self):
