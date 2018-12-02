@@ -18,7 +18,7 @@ class DirectMinLCAO(DirectLCAO):
                  initial_orbitals='KS',
                  initial_rotation='zero',
                  memory_lbfgs=3,
-                 use_prec=True):
+                 use_prec=True, use_scipy=False):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
 
@@ -30,6 +30,7 @@ class DirectMinLCAO(DirectLCAO):
         self.update_refs_counter = 0
         self.memory_lbfgs = memory_lbfgs
         self.use_prec = use_prec
+        self.use_scipy = use_scipy
         self.iters = 0
 
     def __str__(self):
@@ -221,17 +222,22 @@ class DirectMinLCAO(DirectLCAO):
             k = self.n_kps * kpt.s + kpt.q
             if n_dim[k] == 0:
                 continue
-            # this method is based on diagonalisation
-            # u_nn, self.evecs[k], self.evals[k] =\
-            #     expm_ed(a_mat_u[k], evalevec=True)
 
-            # Pade
-            u_nn = expm(a_mat_u[k])
-
-            # u_nn = expm_frechet(a_mat_u[k],
-            #                     np.zeros_like(a_mat_u[k]),
-            #                     compute_expm=True,
-            #                     check_finite=False)[0]
+            if self.use_scipy:
+                # Pade
+                wfs.timer.start('Pade Approximants')
+                u_nn = expm(a_mat_u[k])
+                wfs.timer.stop('Pade Approximants')
+                # u_nn = expm_frechet(a_mat_u[k],
+                #                     np.zeros_like(a_mat_u[k]),
+                #                     compute_expm=True,
+                #                     check_finite=False)[0]
+            else:
+                # this method is based on diagonalisation
+                wfs.timer.start('Eigendecomposition')
+                u_nn, self.evecs[k], self.evals[k] =\
+                    expm_ed(a_mat_u[k], evalevec=True)
+                wfs.timer.stop('Eigendecomposition')
 
             kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
                                          c_nm_ref[k][:n_dim[k]])
@@ -328,33 +334,35 @@ class DirectMinLCAO(DirectLCAO):
         timer.start('Construct Gradient Matrix')
         h_mm = f_n[:, np.newaxis] * h_mm - f_n * h_mm
 
-        # this one uses eigendecomposition of a_mat
-        # grad = evec @ h_mm.T.conj() @ evec.T.conj()
-        # grad = grad * D_matrix(evals)
-        # grad = evec.T.conj() @ grad @ evec
-        # for i in range(grad.shape[0]):
-        #     grad[i][i] *= 0.5
+        if self.use_scipy:
+            # frechet derivative, unfortunately it calculates unitary
+            # matrix which we already calculated before. Could it be used?
+            timer.start('Frechet Derivative')
+            u, grad = expm_frechet(a_mat, h_mm.T.conj(),
+                                   compute_expm=True,
+                                   check_finite=False)
+            grad = grad @ u.T.conj()
+            timer.stop('Frechet Derivative')
+        else:
+            # this one uses eigendecomposition of a_mat
+            timer.start('Use Eigendecomposition')
+            grad = evec @ h_mm.T.conj() @ evec.T.conj()
+            grad = grad * D_matrix(evals)
+            grad = evec.T.conj() @ grad @ evec
+            timer.stop('Use Eigendecomposition')
 
-        # the same using mmm, doesn't seens to be faster though
-        # grad = np.empty_like(evec)
-        # h_mm = h_mm.astype(complex)
-        # mmm(1.0, h_mm, 'N', evec, 'N', 0.0, grad)
-        # mmm(1.0, grad, 'C', evec, 'N', 0.0, h_mm)
-        # # do we have this operation in blas?
-        # grad = h_mm * D_matrix(evals)
-        # mmm(1.0, evec, 'N', grad, 'N', 0.0, h_mm)
-        # mmm(1.0, h_mm, 'N', evec, 'C', 0.0, grad)
-        # grad.ravel()[::grad.shape[1] + 1] *= 0.5
+            # the same using mmm, doesn't seem to be faster though
+            # grad = np.empty_like(evec)
+            # h_mm = h_mm.astype(complex)
+            # mmm(1.0, h_mm, 'N', evec, 'N', 0.0, grad)
+            # mmm(1.0, grad, 'C', evec, 'N', 0.0, h_mm)
+            # # do we have this operation in blas?
+            # grad = h_mm * D_matrix(evals)
+            # mmm(1.0, evec, 'N', grad, 'N', 0.0, h_mm)
+            # mmm(1.0, h_mm, 'N', evec, 'C', 0.0, grad)
 
-        # frechet derivative, unfortunately it calculates unitary
-        # matrix which we already calculated before. Could it be used?
-
-        u, grad = expm_frechet(a_mat, h_mm.T.conj(),
-                               compute_expm=True,
-                               check_finite=False)
-
-        grad = grad @ u.T.conj()
-        grad.ravel()[::grad.shape[1] + 1] *= 0.5
+        for i in range(grad.shape[0]):
+            grad[i][i] *= 0.5
 
         timer.stop('Construct Gradient Matrix')
 
