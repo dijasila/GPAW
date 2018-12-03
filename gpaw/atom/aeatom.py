@@ -876,5 +876,9 @@ def main(args):
 
     if args.sternheimer:
         print("testing atom sternheimer cli")
-        from sternheimer import AllElectronResponse
-        aee = AllElectronResponse(aea)
+        import time
+        from .sternheimer import AllElectronResponse
+        t1 = time.time()
+        aee = AllElectronResponse(aea, 1)
+        t2 = time.time()
+        print("Calculating exact chi took {} seconds".format(t2-t1))
