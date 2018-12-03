@@ -95,7 +95,7 @@ class AllElectronResponse:
         combos = itertools.product(wf_en_tups, wf_en_tups)
         print("number of wavefunctions: {}".format(len(radial_wfs)))
         def delta(pair):
-            wf_en1, wf_en2 = tup
+            wf_en1, wf_en2 = pair
             wf1, en1 = wf_en1
             wf2, en2 = wf_en2
 
