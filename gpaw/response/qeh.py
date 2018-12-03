@@ -900,7 +900,7 @@ class Heterostructure:
                                 removelist.append(
                                     np.argwhere(np.array(index) == j)[l])
                     for j in range(len(addlist)):
-                        index[removelist[j]] = addlist[j]
+                        index[removelist[j][0]] = addlist[j]
                 vec[iq, iw] = vec_p[:, index]
                 vec_dual = vec_dual_p[index, :]
                 eig[iq, iw, :] = eig[iq, iw, index]
