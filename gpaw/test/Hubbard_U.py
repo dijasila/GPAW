@@ -2,7 +2,7 @@
 import numpy as np
 from math import sqrt
 from ase import Atoms
-from gpaw import GPAW, FermiDirac, PoissonSolver
+from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 
 ##############################################################################
@@ -51,14 +51,13 @@ atoms = Atoms(symbols='Ni2O2',
 ##############################################################################
 ## Setup the calculator
 calc = GPAW(
-    h=0.25,
+    mode='pw',
     occupations=FermiDirac(width=0.05),
-    poissonsolver=PoissonSolver(nn='M', relax='J'),
     setups={'Ni': '10'},
     convergence={'eigenstates':8e-4,'density': 1.0e-2,'energy': 0.1},
     #txt=name+'.txt',
     kpts=(k, k, k),
-    xc='PBE')
+    xc='oldPBE')
 
 atoms.set_pbc(1)
 atoms.set_calculator(calc)

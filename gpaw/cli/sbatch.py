@@ -8,7 +8,7 @@ usage = """gpaw sbatch [-0] -- [sbatch options] script.py [script options]
 
 
 class CLICommand:
-    short_description = 'Submit a GPAW Python script via sbatch.'
+    """Submit a GPAW Python script via sbatch."""
 
     @staticmethod
     def add_arguments(parser):
@@ -41,7 +41,7 @@ class CLICommand:
         script += ('OMP_NUM_THREADS=1 '
                    'mpiexec `echo $GPAW_MPI_OPTIONS` gpaw-python {}\n'
                    .format(' '.join(args.arguments[i:])))
-        cmd = ['sbatch'] + args.arguments[:i]
+        cmd = ['sbatch', '--export=NONE'] + args.arguments[:i]
         if args.dry_run:
             print('sbatch command:')
             print(' '.join(cmd))

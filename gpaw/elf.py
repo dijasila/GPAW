@@ -138,7 +138,7 @@ class ELF:
         if gridrefinement == 1:
             elf_G = _elf(self.density.nt_sG, self.nt_grad2_sG,
                          self.taut_sG, self.ncut, self.spinpol)
-            elf_G = self.gd.collect(elf_G, broadcast)
+            elf_G = self.gd.collect(elf_G, broadcast=broadcast)
             if pad:
                 elf_G = self.gd.zero_pad(elf_G)
             return elf_G
@@ -148,7 +148,7 @@ class ELF:
 
             elf_g = _elf(self.density.nt_sg, self.nt_grad2_sg,
                          self.taut_sg, self.ncut, self.spinpol)
-            elf_g = self.finegd.collect(elf_g, broadcast)
+            elf_g = self.finegd.collect(elf_g, broadcast=broadcast)
             if pad:
                 elf_g = self.finegd.zero_pad(elf_g)
             return elf_g

@@ -1,12 +1,11 @@
 import numpy as np
 from ase.build import bulk
-from gpaw import GPAW, FermiDirac, PoissonSolver, Mixer
+from gpaw import GPAW, FermiDirac, Mixer
 
 atoms = bulk('Si', 'diamond', a=5.4834322363595565)
 atoms *= (3, 3, 3)
 atoms.calc = GPAW(
     gpts=(32, 32, 32),
-    poissonsolver=PoissonSolver(relax='GS'),
     mixer=Mixer(0.5, 5, 50.0),
     txt='grumble.txt',
     kpts=(2, 1, 1),

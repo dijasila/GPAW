@@ -9,6 +9,7 @@ import gpaw
 import gpaw.fftw as fftw
 from gpaw.mpi import rank
 from gpaw.utilities import compiled_with_sl, compiled_with_libvdwxc
+from gpaw.utilities.elpa import LibElpa
 
 
 def info():
@@ -38,6 +39,7 @@ def info():
     results.append(('FFTW', fftw.FFTPlan is fftw.FFTWPlan))
     results.append(('scalapack', compiled_with_sl()))
     results.append(('libvdwxc', compiled_with_libvdwxc()))
+    results.append(('Elpa', LibElpa.have_elpa()))
     paths = ['{0}: {1}'.format(i + 1, path)
              for i, path in enumerate(gpaw.setup_paths)]
     results.append(('PAW-datasets', '\n{:25}'.format('').join(paths)))
@@ -50,7 +52,7 @@ def info():
 
 
 class CLICommand:
-    short_description = info.__doc__.rstrip('.')
+    __doc__ = info.__doc__.rstrip('.')
 
     @staticmethod
     def add_arguments(parser):

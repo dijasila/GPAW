@@ -13,8 +13,7 @@ Linux:
    Linux/CentOS
    Linux/Fedora
    Linux/openSUSE
-   Linux/Ubuntu_ppa
-   Linux/Ubuntu
+   Linux/ubuntu
    Linux/Niflheim/Niflheim
    Linux/SUNCAT/SUNCAT
    Linux/akka

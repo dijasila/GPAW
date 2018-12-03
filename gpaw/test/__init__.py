@@ -14,6 +14,7 @@ from ase.utils import devnull
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters, tf_parameters
 from gpaw.utilities import compiled_with_sl, compiled_with_libvdwxc
+from gpaw.utilities.elpa import LibElpa
 from gpaw import setup_paths
 from gpaw import mpi
 import gpaw
@@ -23,8 +24,8 @@ def equal(x, y, tolerance=0, fail=True, msg=''):
     """Compare x and y."""
 
     if not np.isfinite(x - y).any() or (np.abs(x - y) > tolerance).any():
-        msg = (msg + '%s != %s (error: |%s| > %.9g)' %
-               (x, y, x - y, tolerance))
+        msg = '{} {} != {} (error: |{}| > {:.9g})'.format(msg, x, y, x - y,
+                                                          tolerance)
         if fail:
             raise AssertionError(msg)
         else:
@@ -52,17 +53,19 @@ def findpeak(x, y):
     return dx * (i + x), a * x**2 + b * x + c
 
 
-def gen(symbol, exx=False, name=None, **kwargs):
+def gen(symbol, exx=False, name=None, yukawa_gamma=None, **kwargs):
     setup = None
     if mpi.rank == 0:
         if 'scalarrel' not in kwargs:
             kwargs['scalarrel'] = True
         g = Generator(symbol, **kwargs)
         if 'orbital_free' in kwargs:
-            setup = g.run(exx=exx, name=name, use_restart_file=False,
+            setup = g.run(exx=exx, name=name, yukawa_gamma=yukawa_gamma,
+                          use_restart_file=False,
                           **tf_parameters.get(symbol, {'rcut': 0.9}))
         else:
-            setup = g.run(exx=exx, name=name, use_restart_file=False,
+            setup = g.run(exx=exx, name=name, yukawa_gamma=yukawa_gamma,
+                          use_restart_file=False,
                           **parameters[symbol])
     setup = mpi.broadcast(setup, 0)
     if setup_paths[0] != '.':
@@ -70,26 +73,8 @@ def gen(symbol, exx=False, name=None, **kwargs):
     return setup
 
 
-def wrap_pylab(names=[]):
-    """Use Agg backend and prevent windows from popping up."""
-    import matplotlib
-    matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
-    import ase.visualize
-
-    def show(names=names):
-        if names:
-            name = names.pop(0)
-        else:
-            name = 'fig.png'
-        plt.savefig(name)
-
-    plt.show = show
-
-    ase.visualize.view = lambda *args, **kwargs: None
-
-
 tests = [
+    # 'electronphonon.py',  does not seem to work
     'linalg/gemm_complex.py',
     'ase_features/ase3k_version.py',
     'kpt.py',
@@ -128,7 +113,7 @@ tests = [
     'radial/lebedev.py',
     'occupations.py',
     'lfc/derivatives.py',
-    #'parallel/realspace_blacs.py',
+    # 'parallel/realspace_blacs.py',
     'pw/reallfc.py',
     'parallel/pblas.py',
     'fd_ops/non_periodic.py',
@@ -138,7 +123,9 @@ tests = [
     'multipoletest.py',
     'cluster.py',
     'poisson/poisson.py',
+    'poisson/fastpoisson.py',
     'poisson/poisson_asym.py',
+    # 'rsf_yukawa/lrtddft.py',
     'parallel/arraydict_redist.py',
     'parallel/scalapack.py',
     'gauss_wave.py',
@@ -150,6 +137,7 @@ tests = [
     'atoms_mismatch.py',
     'setup_basis_spec.py',
     'pw/direct.py',
+    'libelpa.py',
     'vdw/libvdwxc_spin.py',                 # ~1s
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
@@ -188,6 +176,7 @@ tests = [
     'lcao/gllb_si.py',                      # ~2s
     'fileio/wfs_io.py',                     # ~3s
     'lrtddft/2.py',                         # ~3s
+    'gllbghost.py',                         # ~3s
     'fileio/file_reference.py',             # ~3s
     'fileio/restart.py',                    # ~3s
     'broydenmixer.py',                      # ~3s
@@ -208,10 +197,11 @@ tests = [
     'solvation/vacuum.py',                  # ~3s
     'vdw/libvdwxc_mbeef.py',                # ~3s
     'response/graphene_refined_response.py',  # ~3s
-    'pw/augment_grids.py',                  # ~4s
+    'pw/par_strategies.py',                  # ~4s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
     'generic/move_across_cell.py',          # ~4s
     'parallel/augment_grid.py',             # ~4s
+    'pw/augment_grids.py',
     'utilities/ewald.py',                   # ~4s
     'symmetry/symmetry.py',                 # ~4s
     'xc/revPBE.py',                         # ~4s
@@ -228,6 +218,8 @@ tests = [
     'generic/Cl_minus.py',                  # ~4s
     'lrtddft/pes.py',                       # ~4s
     'generic/proton.py',                    # ~4s
+    'parallel/lcao_elpa_kpts.py',           # ~4s
+    'parallel/lcao_elpa.py',                # ~5s
     'corehole/h2o_recursion.py',            # ~5s
     'xc/nonselfconsistent.py',              # ~5s
     'spin/spinpol.py',                      # ~5s
@@ -289,6 +281,7 @@ tests = [
     'lcaotddft/fxc_vs_linearize.py',        # ~10s
     'lcaotddft/replay.py',                  # ~10s
     'lcaotddft/ksdecomp.py',                # ~10s
+    'tddft/fxc_linearize.py',               # ~10s
     'timelimit.py',                         # ~10s
     'ralda/ralda_energy_N2.py',             # ~10s
     'parallel/lcao_complicated.py',         # ~10s
@@ -308,6 +301,7 @@ tests = [
     'xc/lxc_xcatom.py',                     # ~12s
     'solvation/sfgcm06.py',                 # ~12s
     'solvation/sss09.py',                   # ~12s
+    'tddft/restart.py',                     # ~13s
     'gllb/atomic.py',                       # ~13s
     'generic/guc_force.py',                 # ~13s
     'ralda/ralda_energy_Ni.py',             # ~13s
@@ -374,6 +368,7 @@ tests = [
     'response/pair.py',                     # ~50s
     'rpa/rpa_energy_N2.py',                 # ~52s
     'vdw/ar2.py',                           # ~53s
+    'rsf_yukawa/rsf_general.py',            # ~54s
     'solvation/forces_symmetry.py',         # ~56s
     'parallel/diamond_gllb.py',             # ~59s
     'xc/qna_force.py',
@@ -393,7 +388,6 @@ tests = [
     'exx/AA_enthalpy.py',                   # ~119s
     'response/na_plasmons.py',
     'response/na_plasmons_tetrahedron.py',  # ~120s
-    'lcaotddft/gllbsc.py',                  # ~132s
     'solvation/forces.py',                  # ~140s
     'response/gw_MoS2_cut.py',
     'response/gwsi.py',                     # ~147s
@@ -509,6 +503,12 @@ if not compiled_with_libvdwxc():
     exclude.append('vdw/libvdwxc_h2.py')
     exclude.append('vdw/libvdwxc_mbeef.py')
     exclude.append('vdw/libvdwxc_spin.py')
+
+if not LibElpa.have_elpa():
+    exclude += ['libelpa.py',
+                'parallel/lcao_elpa_kpts.py',
+                'parallel/lcao_elpa.py']
+
 
 if LooseVersion(np.__version__) < '1.6.0':
     exclude.append('response/chi0.py')
@@ -642,7 +642,7 @@ class TestRunner:
             dirname = os.path.relpath(dirname, mydir)
 
         # We don't want files anywhere outside the tempdir.
-        assert not dirname.startswith('../') # Test file outside sourcedir.
+        assert not dirname.startswith('../')  # test file outside sourcedir
 
         if mpi.rank == 0:
             os.makedirs(dirname)
