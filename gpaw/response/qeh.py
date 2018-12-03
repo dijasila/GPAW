@@ -1054,7 +1054,7 @@ class BuildingBlock():
         q_abs = q_abs[sort]
         q_cs = q_cs[sort]
         if isotropic_q:
-            q_cut = q_abs[0]  # smallest finite q
+            q_cut = q_abs[0]/2  # smallest finite q
         else:
             q_cut = q_abs[1]  # smallest finite q
         self.nq_cut = self.nq_inftot + 1
@@ -1062,7 +1062,7 @@ class BuildingBlock():
         q_infs = np.zeros([q_cs.shape[0] + self.nq_inftot, 3])
         # x-direction:
         q_infs[: self.nq_inftot, qdir] = \
-            np.linspace(1e-05, q_cut, self.nq_inftot)[:]
+            np.linspace(1e-05, q_cut, self.nq_inftot + 1)[:-1]
         if not isotropic_q:  # y-direction
             q_infs[self.nq_inf : self.nq_inftot + 1, 1] = \
                 np.linspace(0, q_cut, self.nq_inf + 1)[1:]
