@@ -444,7 +444,7 @@ class LBFGS_P(SteepestDescent):
             y_k = self.y_k
             g_k = self.g_k
 
-            x_k1 = copy.deepcopy(x_k1)
+            # x_k1 = copy.deepcopy(x_k1)
 
             rho_k = self.rho_k
 

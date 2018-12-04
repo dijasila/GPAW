@@ -533,6 +533,7 @@ class Hamiltonian:
                 wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM)
             e_kinetic += np.einsum('ij,ji->', kpt.T_MM, rho_MM)
 
+        del rho_MM
         e_kinetic = wfs.kd.comm.sum(e_kinetic)
         # paw corrections
         for a, D_sp in density.D_asp.items():

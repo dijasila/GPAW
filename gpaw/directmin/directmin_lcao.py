@@ -7,7 +7,7 @@ from gpaw.directmin.sd_lcao import SteepestDescent, FRcg, HZcg, \
 from gpaw.directmin.ls_lcao import UnitStepLength, \
     StrongWolfeConditions, Parabola
 from gpaw.lcao.eigensolver import DirectLCAO
-from scipy.linalg import expm, expm_frechet
+from scipy.linalg import expm # , expm_frechet
 
 
 class DirectMinLCAO(DirectLCAO):
@@ -231,7 +231,6 @@ class DirectMinLCAO(DirectLCAO):
         for k in a.keys():
             a[k] += alpha * p[k]
         self.g_mat_u = g
-        # print(self.iters, phi[0]*Hartree, der_phi[0])
         self.iters += 1
 
         wfs.timer.stop('Direct Minimisation step')
@@ -254,38 +253,43 @@ class DirectMinLCAO(DirectLCAO):
             if n_dim[k] == 0:
                 continue
 
-            if self.use_scipy:
-                if self.sparse:
-                    # make skew-hermitian matrix
-                    a = np.zeros(shape=(n_dim[k], n_dim[k]),
-                                 dtype=self.dtype)
-                    a[self.ind_up[k]] = a_mat_u[k]
-                    il1 = np.tril_indices(n_dim[k], -1)
-                    a[il1] = -a[(il1[1],il1[0])].conj()
-                    wfs.timer.start('Pade Approximants')
-                    u_nn = expm(a)
-                    wfs.timer.stop('Pade Approximants')
-
+            if self.gd.comm.rank == 0:
+                if self.use_scipy:
+                    if self.sparse:
+                        # make skew-hermitian matrix
+                        a = np.zeros(shape=(n_dim[k], n_dim[k]),
+                                     dtype=self.dtype)
+                        a[self.ind_up[k]] = a_mat_u[k]
+                        il1 = np.tril_indices(n_dim[k], -1)
+                        a[il1] = -a[(il1[1],il1[0])].conj()
+                        wfs.timer.start('Pade Approximants')
+                        # this function takes a lot of memory...
+                        u_nn = expm(a)
+                        del a
+                        wfs.timer.stop('Pade Approximants')
+                    else:
+                        # Pade
+                        wfs.timer.start('Pade Approximants')
+                        u_nn = expm(a_mat_u[k])
+                        wfs.timer.stop('Pade Approximants')
                 else:
-                    # Pade
-                    wfs.timer.start('Pade Approximants')
-                    u_nn = expm(a_mat_u[k])
-                    wfs.timer.stop('Pade Approximants')
-            else:
-                # this method is based on diagonalisation
-                wfs.timer.start('Eigendecomposition')
-                u_nn, self.evecs[k], self.evals[k] =\
-                    expm_ed_numpy(a_mat_u[k], evalevec=True)
-                wfs.timer.stop('Eigendecomposition')
+                    # this method is based on diagonalisation
+                    wfs.timer.start('Eigendecomposition')
+                    u_nn, self.evecs[k], self.evals[k] =\
+                        expm_ed_numpy(a_mat_u[k], evalevec=True)
+                    wfs.timer.stop('Eigendecomposition')
 
-            kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
-                                         c_nm_ref[k][:n_dim[k]])
-            #
-            # mmm(1.0, np.ascontiguousarray(u_nn), 'T',
-            #     np.ascontiguousarray(c_nm_ref[k][:n_dim[k]]), 'N',
-            #     0.0,
-            #     kpt.C_nM[:n_dim[k]])
-            del u_nn
+                kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
+                                             c_nm_ref[k][:n_dim[k]])
+
+                # mmm(1.0, np.ascontiguousarray(u_nn), 'T',
+                #     np.ascontiguousarray(c_nm_ref[k][:n_dim[k]]), 'N',
+                #     0.0,
+                #     kpt.C_nM[:n_dim[k]])
+
+                del u_nn
+
+            self.gd.comm.broadcast(kpt.C_nM, 0)
             wfs.atomic_correction.calculate_projections(wfs, kpt)
         wfs.timer.stop('Unitary rotation')
 
@@ -376,7 +380,7 @@ class DirectMinLCAO(DirectLCAO):
         if self.use_scipy:
             # frechet derivative, unfortunately it calculates unitary
             # matrix which we already calculated before. Could it be used?
-            timer.start('Frechet Derivative')
+            timer.start('Derivative')
             # u, grad = expm_frechet(a_mat, h_mm.T.conj(),
             #                        compute_expm=True,
             #                        check_finite=False)
@@ -385,7 +389,7 @@ class DirectMinLCAO(DirectLCAO):
                 grad = np.ascontiguousarray(h_mm.T.conj()[self.ind_up[k]])
             else:
                 grad = np.ascontiguousarray(h_mm.T.conj())
-            timer.stop('Frechet Derivative')
+            timer.stop('Derivative')
         else:
             # this one uses eigendecomposition of a_mat
             # expm_ed
@@ -415,7 +419,6 @@ class DirectMinLCAO(DirectLCAO):
             # grad = h_mm * D_matrix(evals)
             # mmm(1.0, evec, 'N', grad, 'N', 0.0, h_mm)
             # mmm(1.0, h_mm, 'N', evec, 'C', 0.0, grad)
-
 
         timer.stop('Construct Gradient Matrix')
 
@@ -571,6 +574,7 @@ class DirectMinLCAO(DirectLCAO):
             return None
 
     def get_hessian(self, kpt):
+
         f_n = kpt.f_n
         eps_n = kpt.eps_n
         if self.sparse:
@@ -585,6 +589,7 @@ class DirectMinLCAO(DirectLCAO):
 
         heiss = np.zeros(len(il1[0]), dtype=self.dtype)
         x = 0
+        # it's basically two for loops. rewrite it in pythonic way.
         for l, m in zip(*il1):
             df = f_n[l] - f_n[m]
             heiss[x] = -2.0 * (eps_n[l] - eps_n[m]) * df
