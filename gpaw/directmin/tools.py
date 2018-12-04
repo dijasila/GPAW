@@ -35,6 +35,25 @@ def expm_ed(A, evalevec=False):
                           evec)
 
 
+def expm_ed_numpy(A, evalevec=False):
+    eval, evec = np.linalg.eigh(1.0j * A)
+    if evalevec:
+        if A.dtype == float:
+            return np.dot(evec * np.exp(-1.0j*eval),
+                          evec.T.conj()).real, evec.T.conj(), eval
+        else:
+            return np.dot(evec * np.exp(-1.0j * eval),
+                          evec.T.conj()), evec.T.conj(), eval
+
+    else:
+        if A.dtype == float:
+            return np.dot(evec * np.exp(-1.0j * eval),
+                          evec.T.conj()).real
+        else:
+            return np.dot(evec * np.exp(-1.0j * eval),
+                          evec.T.conj())
+
+
 def expm_ed2(A, evalevec=False):
 
     """

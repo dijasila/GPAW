@@ -1,7 +1,7 @@
 from ase.units import Hartree
 import numpy as np
 from gpaw.utilities.blas import mmm  # , dotc, dotu
-from gpaw.directmin.tools import expm_ed, D_matrix
+from gpaw.directmin.tools import D_matrix, expm_ed_numpy # , expm_ed
 from gpaw.directmin.sd_lcao import SteepestDescent, FRcg, HZcg, \
     QuickMin, LBFGS, LBFGS_P
 from gpaw.directmin.ls_lcao import UnitStepLength, \
@@ -18,7 +18,7 @@ class DirectMinLCAO(DirectLCAO):
                  initial_orbitals='KS',
                  initial_rotation='zero',
                  memory_lbfgs=3, update_ref_orbs_counter=1000,
-                 use_prec=True, use_scipy=False):
+                 use_prec=True, use_scipy=True):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
 
@@ -236,7 +236,7 @@ class DirectMinLCAO(DirectLCAO):
                 # this method is based on diagonalisation
                 wfs.timer.start('Eigendecomposition')
                 u_nn, self.evecs[k], self.evals[k] =\
-                    expm_ed(a_mat_u[k], evalevec=True)
+                    expm_ed_numpy(a_mat_u[k], evalevec=True)
                 wfs.timer.stop('Eigendecomposition')
 
             kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
@@ -338,18 +338,31 @@ class DirectMinLCAO(DirectLCAO):
             # frechet derivative, unfortunately it calculates unitary
             # matrix which we already calculated before. Could it be used?
             timer.start('Frechet Derivative')
-            u, grad = expm_frechet(a_mat, h_mm.T.conj(),
-                                   compute_expm=True,
-                                   check_finite=False)
-            grad = grad @ u.T.conj()
+            # u, grad = expm_frechet(a_mat, h_mm.T.conj(),
+            #                        compute_expm=True,
+            #                        check_finite=False)
+            # grad = grad @ u.T.conj()
+            grad = np.ascontiguousarray(h_mm.T.conj())
             timer.stop('Frechet Derivative')
         else:
             # this one uses eigendecomposition of a_mat
+            # expm_ed
+            # timer.start('Use Eigendecomposition')
+            # grad = evec @ h_mm.T.conj() @ evec.T.conj()
+            # grad = grad * D_matrix(evals)
+            # grad = evec.T.conj() @ grad @ evec
+            # timer.stop('Use Eigendecomposition')
+            # for i in range(grad.shape[0]):
+            #     grad[i][i] *= 0.5
+
+            # expm_ed_numpy
             timer.start('Use Eigendecomposition')
-            grad = evec @ h_mm.T.conj() @ evec.T.conj()
+            grad = evec.T.conj() @ h_mm.T.conj() @ evec
             grad = grad * D_matrix(evals)
-            grad = evec.T.conj() @ grad @ evec
+            grad = evec @ grad @ evec.T.conj()
             timer.stop('Use Eigendecomposition')
+            for i in range(grad.shape[0]):
+                grad[i][i] *= 0.5
 
             # the same using mmm, doesn't seem to be faster though
             # grad = np.empty_like(evec)
@@ -361,8 +374,6 @@ class DirectMinLCAO(DirectLCAO):
             # mmm(1.0, evec, 'N', grad, 'N', 0.0, h_mm)
             # mmm(1.0, h_mm, 'N', evec, 'C', 0.0, grad)
 
-        for i in range(grad.shape[0]):
-            grad[i][i] *= 0.5
 
         timer.stop('Construct Gradient Matrix')
 
@@ -531,17 +542,21 @@ class DirectMinLCAO(DirectLCAO):
     def calculate_residual(self, kpt, H_MM, S_MM, wfs):
         return np.inf
 
-    def get_canonical_representation(self, ham, wfs, dens):
+    def get_canonical_representation(self, ham, wfs, dens, occ):
         return
 
-        # choose canonical orbitals which diagonolize
-        # largange matrix. need to do subspace rotation?
+        # choose canonical orbitals which diagonalise
+        # lagrange matrix. need to do subspace rotation with equally
+        # occupied states?
         # I tried to call function below, but due to instability
         # of eigensolvers
         # for some systems, it can 'mess' the solution.
+        # this usually happens in metals,
+        # the so-called charge-sloshing problem..s
         super().iterate(ham, wfs)
         occ.calculate(wfs)
         self.initialize_2(wfs, dens)
+        self.update_ks_energy(ham, wfs, dens, occ)
 
     def reset(self):
         self._error = np.inf

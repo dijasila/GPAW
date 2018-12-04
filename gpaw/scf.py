@@ -81,8 +81,8 @@ class SCFLoop:
                 if str(wfs.eigensolver) == 'Direct Minimisation':
                     wfs.eigensolver.get_canonical_representation(ham,
                                                                  wfs,
-                                                                 dens)
-
+                                                                 dens,
+                                                                 occ)
             if self.one_step_only:
                 self.converged = True
 
