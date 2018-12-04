@@ -33,7 +33,7 @@ class DirectMinLCAO(DirectLCAO):
         self.use_scipy = use_scipy
         self.sparse = sparse
 
-        if self.sparse == True:
+        if self.sparse:
             if self.sparse != self.use_scipy:
                 raise NotImplementedError('Use scipy with sparse=True')
         self.iters = 0
@@ -43,7 +43,7 @@ class DirectMinLCAO(DirectLCAO):
         return 'Direct Minimisation'
 
     def initialize_2(self, wfs, dens):
-        dens.direct_min = True  # turn off the mixer
+
         self.dtype = wfs.dtype
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
 
@@ -60,9 +60,8 @@ class DirectMinLCAO(DirectLCAO):
         self.g_mat_u = {}  # gradient matrix
         self.c_nm_ref = {}  # reference orbitals to be rotated
 
-        self.evecs = {}   # eigendecomposition fo a
+        self.evecs = {}   # eigendecomposition for a
         self.evals = {}
-
 
         if self.sparse:
             max = wfs.basis_functions.Mmax
@@ -123,7 +122,7 @@ class DirectMinLCAO(DirectLCAO):
         elif method == 'LBFGS_P':
             self.search_direction = LBFGS_P(wfs, self.memory_lbfgs)
         else:
-            raise NotImplementedError('Check keyword for '
+            raise NotImplementedError('Check keyword for'
                                       'search direction!')
 
         if ls_method == 'UnitStep':
@@ -145,9 +144,11 @@ class DirectMinLCAO(DirectLCAO):
     def iterate(self, ham, wfs, dens, occ):
 
         assert dens.mixer.driver.name == 'dummy', \
-            'please, use: mixer=DummyMixer()'
+            'Please, use: mixer=DummyMixer()'
         assert wfs.bd.nbands == wfs.basis_functions.Mmax, \
-            'please, use: nbands=\'nao\''
+            'Please, use: nbands=\'nao\''
+        assert wfs.bd.comm.size == 1, \
+            'Band parallelization is not supported'
 
         wfs.timer.start('Direct Minimisation step')
 
@@ -325,12 +326,9 @@ class DirectMinLCAO(DirectLCAO):
 
     def update_ks_energy(self, ham, wfs, dens, occ):
 
-        # using new states update KS
-        # print('Call energy')
         dens.update(wfs)
         ham.update(dens, wfs, False)
-        e_ks = ham.get_energy(occ, False)
-        return e_ks
+        return ham.get_energy(occ, False)
 
     def get_gradients(self, h_mm, c_nm, f_n, a_mat, evec, evals,
                       kpt, timer):
@@ -366,21 +364,22 @@ class DirectMinLCAO(DirectLCAO):
         for i in range(n_occ):
             norm.append(np.dot(hc_mn[:,i].conj(),
                                hc_mn[:,i]).real * kpt.f_n[i])
-            # needs to be cont. to use this
+            # needs to be contig. to use this:
             # x = np.ascontiguousarray(hc_mn[:,i])
             # norm.append(dotc(x, x).real * kpt.f_n[i])
 
         error = sum(norm) * Hartree ** 2 / self.nvalence
         del rhs, rhs2, hc_mn, norm
         timer.stop('Residual')
+
         # continue with gradients
         timer.start('Construct Gradient Matrix')
         h_mm = f_n[:, np.newaxis] * h_mm - f_n * h_mm
-
         if self.use_scipy:
+            timer.start('Derivative')
             # frechet derivative, unfortunately it calculates unitary
             # matrix which we already calculated before. Could it be used?
-            timer.start('Derivative')
+            # it also requires a lot of memory so don't use it now
             # u, grad = expm_frechet(a_mat, h_mm.T.conj(),
             #                        compute_expm=True,
             #                        check_finite=False)
@@ -438,8 +437,6 @@ class DirectMinLCAO(DirectLCAO):
                                                       a_mat_u,
                                                       g_mat_u,
                                                       precond)
-
-
         else:
             g_vec = {}
             a_vec = {}
