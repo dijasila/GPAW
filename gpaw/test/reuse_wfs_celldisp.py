@@ -1,6 +1,5 @@
 import numpy as np
 from gpaw import GPAW, Mixer
-from ase import Atoms
 from gpaw.mpi import world
 from ase.build import molecule
 
@@ -32,7 +31,6 @@ def check(reuse):
     def monitor():
         logerr = np.log10(calc.wfs.eigensolver.error)
         n = calc.scf.niter
-        conv = calc.scf.converged
         if n == 1:
             first_iter_err.append(logerr)
 
