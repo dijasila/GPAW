@@ -15,17 +15,86 @@ from ase.utils.timing import Timer
 from ase.units import Bohr, Ha
 
 
-def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', RSrep='gpaw',
-                       chi0_wGG=None, fxc_scaling=None,
-                       xi_cut=None, density_cut=None):
+def get_xc_kernel(pd, chi0, functional='ALDA', kernel='density',
+                  RSrep='gpaw',
+                  chi0_wGG=None,
+                  fxc_scaling=None,
+                  density_cut=None,
+                  spinpol_cut=None):
+    """
+    Factory function that calls the relevant functions below
+    """
+
+    if kernel == 'density':
+        return get_density_xc_kernel(pd, chi0, functional=functional,
+                                     RSrep=RSrep,
+                                     chi0_wGG=chi0_wGG,
+                                     density_cut=density_cut)
+    elif kernel in ['+-', '-+']:
+        return get_transverse_xc_kernel(pd, chi0, functional=functional,
+                                        RSrep=RSrep,
+                                        chi0_wGG=chi0_wGG,
+                                        fxc_scaling=fxc_scaling,
+                                        density_cut=density_cut,
+                                        spinpol_cut=spinpol_cut)
+    else:
+        raise ValueError('%s kernels not implemented' % kernel)
+
+
+def get_density_xc_kernel(pd, chi0, functional='ALDA',
+                          RSrep='gpaw',
+                          chi0_wGG=None,
+                          density_cut=None):
+    """
+    Density-density xc kernels
+    Factory function that calls the relevant functions below
+    """
+
+    calc = chi0.calc
+    fd = chi0.fd
+    nspins = len(calc.density.nt_sG)
+    assert nspins == 1
+
+    if functional[0] == 'A':
+        # Standard adiabatic kernel
+        print('Calculating %s kernel' % functional, file=fd)
+        Kcalc = AdiabaticDensityKernelCalculator(fd, RSrep, ecut=chi0.ecut,
+                                                 density_cut=density_cut)
+        Kxc_sGG = np.array([Kcalc(pd, calc, functional)])
+    elif functional[0] == 'r':
+        # Renormalized kernel
+        print('Calculating %s kernel' % functional, file=fd)
+        Kxc_sGG = calculate_renormalized_kernel(pd, calc, functional, fd)
+    elif functional[:2] == 'LR':
+        print('Calculating LR kernel with alpha = %s' % functional[2:],
+              file=fd)
+        Kxc_sGG = calculate_lr_kernel(pd, calc, alpha=float(functional[2:]))
+    elif functional == 'DM':
+        print('Calculating DM kernel', file=fd)
+        Kxc_sGG = calculate_dm_kernel(pd, calc)
+    elif functional == 'Bootstrap':
+        print('Calculating Bootstrap kernel', file=fd)
+        Kxc_sGG = get_bootstrap_kernel(pd, chi0, chi0_wGG, fd)
+    else:
+        raise ValueError('density-density %s kernel not'
+                         + ' implemented' % functional)
+
+    return Kxc_sGG
+
+
+def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
+                             RSrep='gpaw',
+                             chi0_wGG=None,
+                             fxc_scaling=None,
+                             density_cut=None,
+                             spinpol_cut=None):
     """ XC kernels for (collinear) spin polarized calculations
     Currently only ALDA kernels are implemented
     
     RSrep : str
         real space representation of kernel ('gpaw' or 'grid')
-    xi_cut : float
+    spinpol_cut : float
         cutoff spin polarization. Below, f_xc is evaluated in unpolarized limit
-        (mostly a problem, when some volume elements are exactly spin neutral).
     density_cut : float
         cutoff density below which f_xc is set to zero
     """
@@ -39,7 +108,7 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', RSrep='gpaw',
         # Adiabatic kernel
         print("Calculating %s spin kernel" % functional, file=fd)
         Kcalc = ALDASpinKernelCalculator(fd, RSrep, ecut=chi0.ecut,
-                                         xi_cut=xi_cut,
+                                         spinpol_cut=spinpol_cut,
                                          density_cut=density_cut)
     else:
         raise ValueError("%s spin kernel not implemented" % functional)
@@ -59,76 +128,7 @@ def get_xc_spin_kernel(pd, chi0, functional='ALDA_x', RSrep='gpaw',
     return Kxc_GG
 
 
-def get_xc_kernel(pd, chi0, functional='ALDA', chi0_wGG=None,
-                  density_cut=None):
-    """ XC kernels for spin neutral calculations
-    Only density response kernels are implemented
-    Factory function that calls the relevant functions below
-    """
-
-    calc = chi0.calc
-    fd = chi0.fd
-    nspins = len(calc.density.nt_sG)
-    assert nspins == 1
-
-    if functional[0] == 'A':
-        # Standard adiabatic kernel
-        print('Calculating %s kernel' % functional, file=fd)
-        Kxc_sGG = calculate_Kxc(pd, calc, functional=functional,
-                                density_cut=density_cut)
-    elif functional[0] == 'r':
-        # Renormalized kernel
-        print('Calculating %s kernel' % functional, file=fd)
-        from gpaw.xc.fxc import KernelDens
-        kernel = KernelDens(calc,
-                            functional,
-                            [pd.kd.bzk_kc[0]],
-                            fd,
-                            calc.wfs.kd.N_c,
-                            None,
-                            ecut=pd.ecut * Ha,
-                            tag='',
-                            timer=Timer(),
-                            )
-        kernel.calculate_fhxc()
-        r = Reader('fhxc_%s_%s_%s_%s.gpw' %
-                   ('', functional, pd.ecut * Ha, 0))
-        Kxc_sGG = np.array([r.get('fhxc_sGsG')])
-
-        v_G = 4 * np.pi / pd.G2_qG[0]
-        Kxc_sGG[0] -= np.diagflat(v_G)
-
-        if pd.kd.gamma:
-            Kxc_sGG[:, 0, :] = 0.0
-            Kxc_sGG[:, :, 0] = 0.0
-    elif functional[:2] == 'LR':
-        print('Calculating LR kernel with alpha = %s' % functional[2:],
-              file=fd)
-        Kxc_sGG = calculate_lr_kernel(pd, calc,
-                                      alpha=float(functional[2:]))
-    elif functional == 'DM':
-        print('Calculating DM kernel', file=fd)
-        Kxc_sGG = calculate_dm_kernel(pd, calc)
-    elif functional == 'Bootstrap':
-        print('Calculating Bootstrap kernel', file=fd)
-        if chi0.world.rank == 0:
-            chi0_GG = chi0_wGG[0]
-            if chi0.world.size > 1:
-                # If size == 1, chi0_GG is not contiguous, and broadcast()
-                # will fail in debug mode.  So we skip it until someone
-                # takes a closer look.
-                chi0.world.broadcast(chi0_GG, 0)
-        else:
-            nG = pd.ngmax
-            chi0_GG = np.zeros((nG, nG), complex)
-            chi0.world.broadcast(chi0_GG, 0)
-        Kxc_sGG = calculate_bootstrap_kernel(pd, chi0_GG, fd)
-    else:
-        raise ValueError('%s kernel not implemented' % functional)
-
-    return Kxc_sGG
-
-
+'''
 def calculate_Kxc(pd, calc, functional='ALDA', density_cut=None):
     """ALDA kernel"""
 
@@ -239,6 +239,7 @@ def calculate_Kxc(pd, calc, functional='ALDA', density_cut=None):
         Kxc_sGG[:, :, 0] = 0.0
 
     return Kxc_sGG / vol
+'''
 
 
 class ALDAKernelCalculator:
@@ -416,8 +417,8 @@ class ALDAKernelCalculator:
     
     
 class ALDASpinKernelCalculator(ALDAKernelCalculator):
-    def __init__(self, fd, RSrep, ecut=None, xi_cut=None, density_cut=None):
-        self.xi_cut = xi_cut
+    def __init__(self, fd, RSrep, ecut=None, spinpol_cut=None, density_cut=None):
+        self.spinpol_cut = spinpol_cut
         self.density_cut = density_cut
         
         ALDAKernelCalculator.__init__(self, fd, RSrep, ecut)
@@ -427,17 +428,17 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
         _calculate_pol_fxc = self._calculate_pol_fxc
         _calculate_unpol_fxc = self._calculate_unpol_fxc
         
-        xi_cut = self.xi_cut
+        spinpol_cut = self.spinpol_cut
         density_cut = self.density_cut
         
-        # Mask small xi
+        # Mask small zeta
         n_G, m_G = None, None
-        if xi_cut is not None:
+        if spinpol_cut is not None:
             m_G = n_sG[0] - n_sG[1]
             n_G = n_sG[0] + n_sG[1]
-            xismall_G = np.abs(m_G / n_G) < xi_cut
+            zetasmall_G = np.abs(m_G / n_G) < spinpol_cut
         else:
-            xismall_G = np.full(np.shape(n_sG[0]), False,
+            zetasmall_G = np.full(np.shape(n_sG[0]), False,
                                 np.array(False).dtype)
             
         # Mask small n
@@ -448,19 +449,19 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
         else:
             npos_G = np.full(np.shape(n_sG[0]), True, np.array(True).dtype)
         
-        # Don't use small xi limit if n is small
-        xismall_G = np.logical_and(xismall_G, npos_G)
+        # Don't use small zeta limit if n is small
+        zetasmall_G = np.logical_and(zetasmall_G, npos_G)
     
-        # In small xi limit, use unpolarized fxc
-        if xismall_G.any():
+        # In small zeta limit, use unpolarized fxc
+        if zetasmall_G.any():
             if n_G is None:
                 n_G = n_sG[0] + n_sG[1]
-            fxc_G[xismall_G] += _calculate_unpol_fxc(gd, n_G)[xismall_G]
+            fxc_G[zetasmall_G] += _calculate_unpol_fxc(gd, n_G)[zetasmall_G]
         
         # Set fxc to zero if n is small
-        allfine_G = np.logical_and(np.invert(xismall_G), npos_G)
+        allfine_G = np.logical_and(np.invert(zetasmall_G), npos_G)
         
-        # Above both xi_cut and density_cut calculate polarized fxc
+        # Above both spinpol_cut and density_cut calculate polarized fxc
         if allfine_G.any():
             if m_G is None:
                 m_G = n_sG[0] - n_sG[1]
@@ -562,6 +563,35 @@ def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
     return fxcs
 
 
+def calculate_renormalized_kernel(pd, calc, functional, fd):
+    """Renormalized kernel"""
+    
+    from gpaw.xc.fxc import KernelDens
+    kernel = KernelDens(calc,
+                        functional,
+                        [pd.kd.bzk_kc[0]],
+                        fd,
+                        calc.wfs.kd.N_c,
+                        None,
+                        ecut=pd.ecut * Ha,
+                        tag='',
+                        timer=Timer())
+    
+    kernel.calculate_fhxc()
+    r = Reader('fhxc_%s_%s_%s_%s.gpw' %
+               ('', functional, pd.ecut * Ha, 0))
+    Kxc_sGG = np.array([r.get('fhxc_sGsG')])
+    
+    v_G = 4 * np.pi / pd.G2_qG[0]
+    Kxc_sGG[0] -= np.diagflat(v_G)
+    
+    if pd.kd.gamma:
+        Kxc_sGG[:, 0, :] = 0.0
+        Kxc_sGG[:, :, 0] = 0.0
+
+    return Kxc_sGG
+
+
 def calculate_lr_kernel(pd, calc, alpha=0.2):
     """Long range kernel: fxc = \alpha / |q+G|^2"""
 
@@ -597,6 +627,24 @@ def calculate_dm_kernel(pd, calc):
     Kxc_GG -= 4 * np.pi * np.diagflat(1.0 / G_G**2)
 
     return np.array([Kxc_GG])
+
+
+def get_bootstrap_kernel(pd, chi0, chi0_wGG, fd):
+    """ Bootstrap kernel (see below) """
+    
+    if chi0.world.rank == 0:
+        chi0_GG = chi0_wGG[0]
+        if chi0.world.size > 1:
+            # If size == 1, chi0_GG is not contiguous, and broadcast()
+            # will fail in debug mode.  So we skip it until someone
+            # takes a closer look.
+            chi0.world.broadcast(chi0_GG, 0)
+    else:
+        nG = pd.ngmax
+        chi0_GG = np.zeros((nG, nG), complex)
+        chi0.world.broadcast(chi0_GG, 0)
+
+    return calculate_bootstrap_kernel(pd, chi0_GG, fd)
 
 
 def calculate_bootstrap_kernel(pd, chi0_GG, fd):
