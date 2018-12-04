@@ -1,4 +1,4 @@
-"""Test the calclation of the excitation energy of Na2 by RSF and IVOs."""
+"""Test the calculation of the excitation energy of Na2 by RSF and IVOs."""
 from ase import Atoms
 from ase.units import Hartree
 from gpaw import GPAW, setup_paths
