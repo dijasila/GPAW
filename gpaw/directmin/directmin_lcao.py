@@ -18,7 +18,7 @@ class DirectMinLCAO(DirectLCAO):
                  initial_orbitals='KS',
                  initial_rotation='zero',
                  memory_lbfgs=3, update_ref_orbs_counter=1000,
-                 use_prec=True, use_scipy=True):
+                 use_prec=True, use_scipy=True, sparse=True):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
 
@@ -31,6 +31,11 @@ class DirectMinLCAO(DirectLCAO):
         self.memory_lbfgs = memory_lbfgs
         self.use_prec = use_prec
         self.use_scipy = use_scipy
+        self.sparse = sparse
+
+        if self.sparse == True:
+            if self.sparse != self.use_scipy:
+                raise NotImplementedError('Use scipy with sparse=True')
         self.iters = 0
 
     def __str__(self):
@@ -58,18 +63,40 @@ class DirectMinLCAO(DirectLCAO):
         self.evecs = {}   # eigendecomposition fo a
         self.evals = {}
 
-        for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
-            self.a_mat_u[k] = np.zeros(shape=(self.n_dim[k],
-                                              self.n_dim[k]),
-                                       dtype=self.dtype)
-            self.g_mat_u[k] = np.zeros(shape=(self.n_dim[k],
-                                              self.n_dim[k]),
-                                       dtype=self.dtype)
-            # use initial KS orbitals, but can be others
-            self.c_nm_ref[k] = np.copy(kpt.C_nM[:self.n_dim[k]])
-            self.evecs[k] = None
-            self.evals[k] = None
+
+        if self.sparse:
+            max = wfs.basis_functions.Mmax
+            nax = self.nvalence = wfs.nvalence
+            ind_up = np.triu_indices(max, 1)
+            self.ind_up = {}
+            for kpt in wfs.kpt_u:
+                u = kpt.s * self.n_kps + kpt.q
+                x = (max - nax)*(max - nax-1)//2
+                self.ind_up[u] = (ind_up[0][:-x],
+                                  ind_up[1][:-x])
+                length = len(self.ind_up[u][0])
+                self.a_mat_u[u] = np.zeros(shape=length,
+                                           dtype=self.dtype)
+                self.g_mat_u[u] = np.zeros(shape=length,
+                                           dtype=self.dtype)
+                # use initial KS orbitals, but can be others
+                self.c_nm_ref[u] = np.copy(kpt.C_nM[:self.n_dim[u]])
+                self.evecs[u] = None
+                self.evals[u] = None
+            del ind_up
+        else:
+            for kpt in wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                self.a_mat_u[k] = np.zeros(shape=(self.n_dim[k],
+                                                  self.n_dim[k]),
+                                           dtype=self.dtype)
+                self.g_mat_u[k] = np.zeros(shape=(self.n_dim[k],
+                                                  self.n_dim[k]),
+                                           dtype=self.dtype)
+                # use initial KS orbitals, but can be others
+                self.c_nm_ref[k] = np.copy(kpt.C_nM[:self.n_dim[k]])
+                self.evecs[k] = None
+                self.evals[k] = None
 
         self.alpha = 1.0  # step length
         self.phi = [None, None]  # energy at alpha and alpha old
@@ -159,13 +186,17 @@ class DirectMinLCAO(DirectLCAO):
         wfs.timer.stop('Get Search Direction')
         der_phi_c = 0.0
         for k in g.keys():
-            if self.dtype is complex:
-                il1 = np.tril_indices(g[k].shape[0])
+            if self.sparse:
+                der_phi_c += np.dot(g[k].conj(),
+                                    p[k]).real
             else:
-                il1 = np.tril_indices(g[k].shape[0], -1)
-            der_phi_c += np.dot(g[k][il1].conj(),
-                                p[k][il1]).real
-            # der_phi_c += dotc(g[k][il1], p[k][il1]).real
+                if self.dtype is complex:
+                    il1 = np.tril_indices(g[k].shape[0])
+                else:
+                    il1 = np.tril_indices(g[k].shape[0], -1)
+                der_phi_c += np.dot(g[k][il1].conj(),
+                                    p[k][il1]).real
+                # der_phi_c += dotc(g[k][il1], p[k][il1]).real
         der_phi_c = wfs.kd.comm.sum(der_phi_c)
         der_phi[0] = der_phi_c
 
@@ -224,14 +255,22 @@ class DirectMinLCAO(DirectLCAO):
                 continue
 
             if self.use_scipy:
-                # Pade
-                wfs.timer.start('Pade Approximants')
-                u_nn = expm(a_mat_u[k])
-                wfs.timer.stop('Pade Approximants')
-                # u_nn = expm_frechet(a_mat_u[k],
-                #                     np.zeros_like(a_mat_u[k]),
-                #                     compute_expm=True,
-                #                     check_finite=False)[0]
+                if self.sparse:
+                    # make skew-hermitian matrix
+                    a = np.zeros(shape=(n_dim[k], n_dim[k]),
+                                 dtype=self.dtype)
+                    a[self.ind_up[k]] = a_mat_u[k]
+                    il1 = np.tril_indices(n_dim[k], -1)
+                    a[il1] = -a[(il1[1],il1[0])].conj()
+                    wfs.timer.start('Pade Approximants')
+                    u_nn = expm(a)
+                    wfs.timer.stop('Pade Approximants')
+
+                else:
+                    # Pade
+                    wfs.timer.start('Pade Approximants')
+                    u_nn = expm(a_mat_u[k])
+                    wfs.timer.stop('Pade Approximants')
             else:
                 # this method is based on diagonalisation
                 wfs.timer.start('Eigendecomposition')
@@ -342,7 +381,10 @@ class DirectMinLCAO(DirectLCAO):
             #                        compute_expm=True,
             #                        check_finite=False)
             # grad = grad @ u.T.conj()
-            grad = np.ascontiguousarray(h_mm.T.conj())
+            if self.sparse:
+                grad = np.ascontiguousarray(h_mm.T.conj()[self.ind_up[k]])
+            else:
+                grad = np.ascontiguousarray(h_mm.T.conj())
             timer.stop('Frechet Derivative')
         else:
             # this one uses eigendecomposition of a_mat
@@ -388,34 +430,42 @@ class DirectMinLCAO(DirectLCAO):
         # (x_1_up, x_2_up,..,y_1_up, y_2_up,..,
         #  x_1_down, x_2_down,..,y_1_down, y_2_down,.. )
 
-        g_vec = {}
-        a_vec = {}
+        if self.sparse:
+            p_mat_u = self.search_direction.update_data(wfs,
+                                                      a_mat_u,
+                                                      g_mat_u,
+                                                      precond)
 
-        for k in a_mat_u.keys():
-            if self.dtype is complex:
-                il1 = np.tril_indices(a_mat_u[k].shape[0])
-            else:
-                il1 = np.tril_indices(a_mat_u[k].shape[0], -1)
 
-            a_vec[k] = a_mat_u[k][il1]
-            g_vec[k] = g_mat_u[k][il1]
+        else:
+            g_vec = {}
+            a_vec = {}
 
-        p_vec = self.search_direction.update_data(wfs, a_vec, g_vec,
-                                                  precond)
-        del a_vec, g_vec
+            for k in a_mat_u.keys():
+                if self.dtype is complex:
+                    il1 = np.tril_indices(a_mat_u[k].shape[0])
+                else:
+                    il1 = np.tril_indices(a_mat_u[k].shape[0], -1)
 
-        p_mat_u = {}
-        for k in p_vec.keys():
-            p_mat_u[k] = np.zeros_like(a_mat_u[k])
-            if self.dtype is complex:
-                il1 = np.tril_indices(a_mat_u[k].shape[0])
-            else:
-                il1 = np.tril_indices(a_mat_u[k].shape[0], -1)
-            p_mat_u[k][il1] = p_vec[k]
-            # make it skew-hermitian
-            ind_l = np.tril_indices(p_mat_u[k].shape[0], -1)
-            p_mat_u[k][(ind_l[1], ind_l[0])] = -p_mat_u[k][ind_l].conj()
-        del p_vec
+                a_vec[k] = a_mat_u[k][il1]
+                g_vec[k] = g_mat_u[k][il1]
+
+            p_vec = self.search_direction.update_data(wfs, a_vec, g_vec,
+                                                      precond)
+            del a_vec, g_vec
+
+            p_mat_u = {}
+            for k in p_vec.keys():
+                p_mat_u[k] = np.zeros_like(a_mat_u[k])
+                if self.dtype is complex:
+                    il1 = np.tril_indices(a_mat_u[k].shape[0])
+                else:
+                    il1 = np.tril_indices(a_mat_u[k].shape[0], -1)
+                p_mat_u[k][il1] = p_vec[k]
+                # make it skew-hermitian
+                ind_l = np.tril_indices(p_mat_u[k].shape[0], -1)
+                p_mat_u[k][(ind_l[1], ind_l[0])] = -p_mat_u[k][ind_l].conj()
+            del p_vec
 
         return p_mat_u
 
@@ -440,16 +490,21 @@ class DirectMinLCAO(DirectLCAO):
             pass
 
         der_phi = 0.0
-        for k in p_mat_u.keys():
-            if self.dtype is complex:
-                il1 = np.tril_indices(p_mat_u[k].shape[0])
-            else:
-                il1 = np.tril_indices(p_mat_u[k].shape[0], -1)
+        if self.sparse:
+            for k in p_mat_u.keys():
+                der_phi += np.dot(g_mat_u[k].conj(),
+                                  p_mat_u[k]).real
+        else:
+            for k in p_mat_u.keys():
+                if self.dtype is complex:
+                    il1 = np.tril_indices(p_mat_u[k].shape[0])
+                else:
+                    il1 = np.tril_indices(p_mat_u[k].shape[0], -1)
 
-            der_phi += np.dot(g_mat_u[k][il1].conj(),
-                              p_mat_u[k][il1]).real
-            # der_phi += dotc(g_mat_u[k][il1],
-            #                 p_mat_u[k][il1]).real
+                der_phi += np.dot(g_mat_u[k][il1].conj(),
+                                  p_mat_u[k][il1]).real
+                # der_phi += dotc(g_mat_u[k][il1],
+                #                 p_mat_u[k][il1]).real
 
         der_phi = wfs.kd.comm.sum(der_phi)
 
@@ -518,11 +573,16 @@ class DirectMinLCAO(DirectLCAO):
     def get_hessian(self, kpt):
         f_n = kpt.f_n
         eps_n = kpt.eps_n
-        if self.dtype is complex:
-            il1 = np.tril_indices(eps_n.shape[0])
+        if self.sparse:
+            k = self.n_kps * kpt.s + kpt.q
+            il1 = list(self.ind_up[k])
         else:
-            il1 = np.tril_indices(eps_n.shape[0], -1)
-        il1 = list(il1)
+            if self.dtype is complex:
+                il1 = np.tril_indices(eps_n.shape[0])
+            else:
+                il1 = np.tril_indices(eps_n.shape[0], -1)
+            il1 = list(il1)
+
         heiss = np.zeros(len(il1[0]), dtype=self.dtype)
         x = 0
         for l, m in zip(*il1):
