@@ -5,7 +5,6 @@ from functools import reduce
 from scipy.stats import ortho_group 
 from gpaw.utilities.clebschgordan import ClebschGordanCalculator
 from scipy.sparse.linalg import bicgstab
-from .aeatom import GaussianBasis
 
 def fermi_function(energy, temperature, chemical_potential):
     if temperature != 0:
