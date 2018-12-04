@@ -20,7 +20,7 @@ def get_paw():
     return GPAW(convergence=c, eigensolver=RMMDIIS(),
                 nbands=5,
                 xc='LCY-PBE:omega=0.83:unocc=True',
-                parallel={'domain': mpi.world.size}, h=0.35,
+                parallel={'domain': world.size}, h=0.35,
                 occupations=FermiDirac(width=0.0, fixmagmom=True))
 
 
