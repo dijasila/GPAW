@@ -1,5 +1,4 @@
 """Calculate the excitation energy of NaCl by an RSF using IVOs."""
-from ase import Atoms
 from ase.build import molecule
 from ase.units import Hartree
 from gpaw import GPAW, setup_paths, mpi
@@ -20,7 +19,7 @@ gen('Na', xcname='PBE', scalarrel=True, exx=True, yukawa_gamma=0.40)
 gen('Cl', xcname='PBE', scalarrel=True, exx=True, yukawa_gamma=0.40)
 
 c = {'energy': 0.005, 'eigenstates': 1e-2, 'density': 1e-2}
-mol = Cluster(Atoms(molecule('NaCl')))
+mol = Cluster(molecule('NaCl'))
 mol.minimal_box(5.0, h=h)
 calc = GPAW(txt='NaCl.txt', xc='LCY-PBE:omega=0.40:excitation=singlet',
             eigensolver=RMMDIIS(), h=h, occupations=FermiDirac(width=0.0),
