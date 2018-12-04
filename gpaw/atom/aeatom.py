@@ -882,3 +882,4 @@ def main(args):
         aee = AllElectronResponse(aea, 1)
         t2 = time.time()
         print("Calculating exact chi took {} seconds".format(t2-t1))
+        vals = aee.sternheimer_calculation()
