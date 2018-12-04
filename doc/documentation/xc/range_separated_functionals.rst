@@ -143,7 +143,7 @@ linear response TDDFT
 =====================
 
 One of the major benefits of RSF is their ability to describe long-range charge transfer by
-linear response time-dependent DFT (lrTDDFT). If one uses RSF with lrTDDFT one as at least
+linear response time-dependent DFT (lrTDDFT). If one uses RSF with lrTDDFT one has at least
 to activate the use of the Fock operator (FO) on the unoccupied states. Also the charge
 centered compensation of the over charge should be activated, see [Wu16]_ for details.
 The use of the FO on the unoccupied states is activated by the keyword ``unocc=True`` as in 
