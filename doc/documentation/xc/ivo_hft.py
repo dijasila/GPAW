@@ -1,14 +1,15 @@
 """Calculate the excitation energy of NaCl by an RSF using IVOs."""
 from ase.build import molecule
 from ase.units import Hartree
-from gpaw import GPAW, setup_paths, mpi
+from gpaw import GPAW, setup_paths
+from gpaw.mpi import world
 from gpaw.occupations import FermiDirac
 from gpaw.test import equal, gen
 from gpaw.eigensolvers import RMMDIIS
 from gpaw.cluster import Cluster
 from gpaw.lrtddft import LrTDDFT
 
-h = 0.2  # Gridspacing
+h = 0.3  # Gridspacing
 e_singlet = 4.3
 e_singlet_lr = 4.3
 
@@ -33,7 +34,7 @@ calc.write('NaCl.gpw')
 
 lr = LrTDDFT(calc, txt='LCY_TDDFT_NaCl.log', istart=6, jend=7, nspins=2)
 lr.write('LCY_TDDFT_NaCl.ex.gz')
-if mpi.rank == 0:
+if world.rank == 0:
     lr2 = LrTDDFT('LCY_TDDFT_NaCl.ex.gz')
     lr2.diagonalize()
     ex_lr = lr2[1].get_energy() * Hartree
