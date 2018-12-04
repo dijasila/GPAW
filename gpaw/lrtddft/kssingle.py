@@ -8,6 +8,7 @@ from math import pi, sqrt
 import numpy as np
 from ase.units import Bohr, Hartree, alpha
 from ase.parallel import paropen
+from ase.utils import basestring
 
 import gpaw.mpi as mpi
 from gpaw.utilities import packed_index
@@ -55,7 +56,7 @@ class KSSingles(ExcitationList):
         self.world = mpi.world
 
         self.calculator = None
-        if isinstance(calculator, str):
+        if isinstance(calculator, basestring):
             self.read(calculator)
             return self.select(eps=eps, istart=istart, jend=jend,
                                energy_range=energy_range)

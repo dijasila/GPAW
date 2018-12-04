@@ -7,6 +7,7 @@ from math import sqrt
 import numpy as np
 from ase.units import Hartree
 from ase.utils.timing import Timer
+from ase.utils import basestring
 
 import _gpaw
 import gpaw.mpi as mpi
@@ -75,7 +76,7 @@ class LrTDDFT(ExcitationList):
 
         changed = self.set(**kwargs)
 
-        if isinstance(calculator, str):
+        if isinstance(calculator, basestring):
             ExcitationList.__init__(self, None, self.txt)
             self.filename = calculator
         else:
@@ -178,7 +179,7 @@ class LrTDDFT(ExcitationList):
             Om = OmegaMatrix
             name = 'LrTDDFT'
             if self.xc:
-                if isinstance(self.xc, str):
+                if isinstance(self.xc, basestring):
                     xc = XC(self.xc)
                 else:
                     xc = self.xc
@@ -364,7 +365,7 @@ class LrTDDFT(ExcitationList):
                 f = fh
 
             f.write('# ' + self.name + '\n')
-            if isinstance(self.xc, str):
+            if isinstance(self.xc, basestring):
                 xc = self.xc
             else:
                 xc = self.xc.tostring()
