@@ -67,7 +67,7 @@ the PBE0 functional respectively.
 
 In the last figure, the curve marked ``GPAW (nonself.)`` is a non-selfconsistent PBE0 calculation using self-consistent PBE orbitals.
 
-It should be noted, that the implementation lacks an optimized effective potential. Therefore the unoccupied states utilizing EXX as inplemented in GPAW usually approximate (excited) electron affinities. Therefore calculations utilizing Hartree-Fock exchange are usually a bad basis for the calculation of optical excitations by lrTDDFT. As a remedy, the improved virtual orbitals (IVOs, [HA71]_) were implemented. There requested excitation basis can be choosen by the keyword ``excitation`` and the state by ``excited`` where the state is counted from the HOMO downwards:
+It should be noted, that the implementation lacks an optimized effective potential. Therefore the unoccupied states utilizing EXX as implemented in GPAW usually approximate (excited) electron affinities. Therefore calculations utilizing Hartree-Fock exchange are usually a bad basis for the calculation of optical excitations by lrTDDFT. As a remedy, the improved virtual orbitals (IVOs, [HA71]_) were implemented. The requested excitation basis can be chosen by the keyword ``excitation`` and the state by ``excited`` where the state is counted from the HOMO downwards:
 
 .. literalinclude:: ivo_hft.py
 
