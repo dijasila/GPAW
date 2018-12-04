@@ -1,7 +1,8 @@
 """Check TDDFT ionizations with Yukawa potential."""
 from ase import Atoms
 from ase.units import Hartree
-from gpaw import GPAW, mpi
+from gpaw import GPAW
+from gpaw.mpi import world
 from gpaw.cluster import Cluster
 from gpaw.occupations import FermiDirac
 from gpaw.test import equal
@@ -38,7 +39,7 @@ lr.write('LCY_TDDFT_O.ex.gz')
 e_ion = 13.62
 ip_i = 37.43
 # reading is problematic with EXX on more than one core
-if mpi.rank == 0:
+if world.rank == 0:
     lr2 = LrTDDFT('LCY_TDDFT_O.ex.gz')
     lr2.diagonalize()
     equal(lr2.xc.omega, 0.83)

@@ -1,14 +1,15 @@
 """Test the calclation of the excitation energy of Na2 by RSF and IVOs."""
 from ase import Atoms
 from ase.units import Hartree
-from gpaw import GPAW, setup_paths, mpi
+from gpaw import GPAW, setup_paths
+from gpaw.mpi import world
 from gpaw.occupations import FermiDirac
 from gpaw.test import equal, gen
 from gpaw.eigensolvers import RMMDIIS
 from gpaw.cluster import Cluster
 from gpaw.lrtddft import LrTDDFT
 
-h = 0.35  # Grispacing
+h = 0.35  # Gridspacing
 e_singlet = 4.61
 e_singlet_lr = 5.54
 
@@ -33,7 +34,7 @@ c2 = GPAW('mg.gpw')
 assert c2.hamiltonian.xc.excitation == 'singlet'
 lr = LrTDDFT(calc, txt='LCY_TDDFT_Mg.log', istart=4, jend=5, nspins=2)
 lr.write('LCY_TDDFT_Mg.ex.gz')
-if mpi.rank == 0:
+if world.rank == 0:
     lr2 = LrTDDFT('LCY_TDDFT_Mg.ex.gz')
     lr2.diagonalize()
     ex_lr = lr2[1].get_energy() * Hartree

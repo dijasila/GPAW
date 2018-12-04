@@ -1,18 +1,18 @@
 """Check TDDFT ionizations with Yukawa potential."""
-from ase import Atoms
 from ase.build import molecule
 from ase.units import Hartree
-from gpaw import GPAW, mpi
+from gpaw import GPAW
+from gpaw.mpi import world
 from gpaw.cluster import Cluster
 from gpaw.occupations import FermiDirac
 from gpaw.test import equal
 from gpaw.eigensolvers import RMMDIIS
 from gpaw.lrtddft import LrTDDFT
 
-# h2o = Cluster(Atoms(molecule('H2O')))
+# h2o = Cluster(molecule('H2O'))
 # h2o.set_initial_magnetic_moments([2, -1, -1])
 # h2o.minimal_box(3.0, h=0.3)
-h2o_plus = Cluster(Atoms(molecule('H2O')))
+h2o_plus = Cluster(molecule('H2O'))
 h2o_plus.set_initial_magnetic_moments([2, -0.5, -0.5])
 h2o_plus.minimal_box(3.0, h=0.35)
 
@@ -45,7 +45,7 @@ lr = LrTDDFT(calc_plus, txt='LCY_TDDFT_H2O.log', istart=3, jend=4)
 equal(lr.xc.omega, 0.83)
 lr.write('LCY_TDDFT_H2O.ex.gz')
 # reading is problematic with EXX on more than one core
-if mpi.rank == 0:
+if world.rank == 0:
     lr2 = LrTDDFT('LCY_TDDFT_H2O.ex.gz')
     lr2.diagonalize()
     equal(lr2.xc.omega, 0.83)
