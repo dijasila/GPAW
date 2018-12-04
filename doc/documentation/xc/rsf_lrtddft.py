@@ -1,7 +1,8 @@
 """Check TDDFT ionizations with Yukawa potential."""
 from ase.structure import molecule
 from ase.units import Hartree
-from gpaw import GPAW, mpi
+from gpaw import GPAW
+from gpaw.mpi import world
 from gpaw.cluster import Cluster
 from gpaw.occupations import FermiDirac
 from gpaw.test import equal
@@ -21,7 +22,7 @@ def get_paw():
     c = {'energy': 0.001, 'eigenstates': 0.001, 'density': 0.001}
     return GPAW(convergence=c, eigensolver=RMMDIIS(),
                 xc='LCY-PBE:omega=0.83:unocc=True',
-                parallel={'domain': mpi.world.size}, h=0.3,
+                parallel={'domain': world.size}, h=0.3,
                 occupations=FermiDirac(width=0.0, fixmagmom=True))
 
 
@@ -42,7 +43,7 @@ lr = LrTDDFT(calc_plus, txt='LCY_TDDFT_H2O.log', jend=4)
 equal(lr.xc.omega, 0.83)
 lr.write('LCY_TDDFT_H2O.ex.gz')
 # reading is problematic with EXX on more than one core
-if mpi.rank == 0:
+if world.rank == 0:
     lr2 = LrTDDFT('LCY_TDDFT_H2O.ex.gz')
     lr2.diagonalize()
     equal(lr2.xc.omega, 0.83)
