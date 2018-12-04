@@ -31,6 +31,8 @@ def get_xc_kernel(pd, chi0, functional='ALDA', kernel='density',
                                      chi0_wGG=chi0_wGG,
                                      density_cut=density_cut)
     elif kernel in ['+-', '-+']:
+        # Currently only collinear adiabatic xc kernels are implemented
+        # for which the +- and -+ kernels are the same
         return get_transverse_xc_kernel(pd, chi0, functional=functional,
                                         RSrep=RSrep,
                                         chi0_wGG=chi0_wGG,
@@ -79,7 +81,7 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
         raise ValueError('density-density %s kernel not'
                          + ' implemented' % functional)
 
-    return Kxc_sGG
+    return Kxc_sGG[0]
 
 
 def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
@@ -88,15 +90,9 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
                              fxc_scaling=None,
                              density_cut=None,
                              spinpol_cut=None):
-    """ XC kernels for (collinear) spin polarized calculations
-    Currently only ALDA kernels are implemented
-    
-    RSrep : str
-        real space representation of kernel ('gpaw' or 'grid')
-    spinpol_cut : float
-        cutoff spin polarization. Below, f_xc is evaluated in unpolarized limit
-    density_cut : float
-        cutoff density below which f_xc is set to zero
+    """ +-/-+ xc kernels
+    Currently only collinear ALDA kernels are implemented
+    Factory function that calls the relevant functions below
     """
     
     calc = chi0.calc
@@ -107,9 +103,9 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
     if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
         # Adiabatic kernel
         print("Calculating %s spin kernel" % functional, file=fd)
-        Kcalc = ALDASpinKernelCalculator(fd, RSrep, ecut=chi0.ecut,
-                                         spinpol_cut=spinpol_cut,
-                                         density_cut=density_cut)
+        Kcalc = AdiabaticTransverseKernelCalculator(fd, RSrep, ecut=chi0.ecut,
+                                                    density_cut=density_cut,
+                                                    spinpol_cut=spinpol_cut)
     else:
         raise ValueError("%s spin kernel not implemented" % functional)
     
@@ -126,6 +122,60 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
             Kxc_GG *= fxc_scaling[1]
     
     return Kxc_GG
+
+
+def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
+    """ Find a scaling of the kernel to move the magnon peak to omeaga=0. """
+    # If True q should be gamma - scale to hit Goldstone
+    assert pd.kd.gamma
+    
+    fd = chi0.fd
+    omega_w = chi0.omega_w
+    wgs = np.abs(omega_w).argmin()
+
+    if not np.allclose(omega_w[wgs], 0., rtol=1.e-8):
+        raise ValueError("Frequency grid needs to include"
+                         + " omega=0. to allow Goldstone scaling")
+
+    fxcs = 1.
+    print("Finding rescaling of kernel to fulfill the Goldstone theorem",
+          file=fd)
+
+    world = chi0.world
+    # Only one rank, rgs, has omega=0 and finds rescaling
+    nw = len(omega_w)
+    mynw = (nw + world.size - 1) // world.size
+    rgs, mywgs = wgs // mynw, wgs % mynw
+    fxcsbuf = np.empty(1, dtype=float)
+    if world.rank == rgs:
+        schi0_GG = chi0_wGG[mywgs]
+        schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
+                                       np.dot(schi0_GG, Kxc_GG * fxcs)),
+                         schi0_GG)
+        # Scale so that kappaM=0 in the static limit (omega=0)
+        skappaM = (schi0_GG[0, 0] / schi_GG[0, 0]).real
+        # If kappaM > 0, increase scaling (recall: kappaM ~ 1 - Kxc Re{chi_0})
+        scaling_incr = 0.1 * np.sign(skappaM)
+        while abs(skappaM) > 1.e-7 and abs(scaling_incr) > 1.e-7:
+            fxcs += scaling_incr
+            if fxcs <= 0.0 or fxcs >= 10.:
+                raise Exception('Found an invalid fxc_scaling of %.4f' % fxcs)
+
+            schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
+                                           np.dot(schi0_GG, Kxc_GG * fxcs)),
+                             schi0_GG)
+            skappaM = (schi0_GG[0, 0] / schi_GG[0, 0]).real
+
+            # If kappaM changes sign, change sign and refine increment
+            if np.sign(skappaM) != np.sign(scaling_incr):
+                scaling_incr *= -0.2
+        fxcsbuf[:] = fxcs
+
+    # Broadcast found rescaling
+    world.broadcast(fxcsbuf, rgs)
+    fxcs = fxcsbuf[0]
+    
+    return fxcs
 
 
 '''
@@ -242,21 +292,24 @@ def calculate_Kxc(pd, calc, functional='ALDA', density_cut=None):
 '''
 
 
-class ALDAKernelCalculator:
-    """ Adiabatic local density approximation kernel
-    
-    ALDA_x is an explicit algebraic version
-    ALDA_X uses the libxc package
-    """
+class AdiabaticKernelCalculator:
+    """ Adiabatic kernels with PAW """
     
     def __init__(self, fd, RSrep, ecut=None):
+
+        """
+        RSrep : str
+            real space representation of kernel ('gpaw' or 'grid')
+        """
+        
         self.fd = fd
         self.RSrep = RSrep
         self.ecut = ecut
         self.functional = None
+        self.permitted_functionals = []
     
     def __call__(self, pd, calc, functional):
-        assert functional in ['ALDA_x', 'ALDA_X', 'ALDA']
+        assert functional in self.permitted_functionals
         self.functional = functional
         add_fxc = self.add_fxc  # class methods not within the scope of call
         
@@ -416,15 +469,33 @@ class ALDAKernelCalculator:
         raise NotImplementedError
     
     
-class ALDASpinKernelCalculator(ALDAKernelCalculator):
-    def __init__(self, fd, RSrep, ecut=None, spinpol_cut=None, density_cut=None):
-        self.spinpol_cut = spinpol_cut
-        self.density_cut = density_cut
+class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
+    
+    def __init__(self, fd, RSrep, ecut=None,
+                 density_cut=None,
+                 spinpol_cut=None):
+        """
+        density_cut : float
+            cutoff density below which f_xc is set to zero
+        spinpol_cut : float
+            cutoff spin polarization. Below, f_xc is evaluated in zeta=0 limit
+        """
         
-        ALDAKernelCalculator.__init__(self, fd, RSrep, ecut)
+        self.density_cut = density_cut
+        self.spinpol_cut = spinpol_cut
+        
+        AdiabaticKernelCalculator.__init__(self, fd, RSrep, ecut)
+
+        self.permitted_functionals += ['ALDA_x', 'ALDA_X', 'ALDA']
     
     def add_fxc(self, gd, n_sG, fxc_G):
-        """ Calculate fxc, using the cutoffs from input above """
+        """
+        Calculate fxc, using the cutoffs from input above
+        
+        ALDA_x is an explicit algebraic version
+        ALDA_X uses the libxc package
+        """
+        
         _calculate_pol_fxc = self._calculate_pol_fxc
         _calculate_unpol_fxc = self._calculate_unpol_fxc
         
@@ -507,60 +578,6 @@ class ALDASpinKernelCalculator(ALDAKernelCalculator):
             fc_G = 2. * ac_G / n_G
             
             return fx_G + fc_G
-
-
-def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
-    """ Find a scaling of the kernel to move the magnon peak to omeaga=0. """
-    # If True q should be gamma - scale to hit Goldstone
-    assert pd.kd.gamma
-    
-    fd = chi0.fd
-    omega_w = chi0.omega_w
-    wgs = np.abs(omega_w).argmin()
-
-    if not np.allclose(omega_w[wgs], 0., rtol=1.e-8):
-        raise ValueError("Frequency grid needs to include"
-                         + " omega=0. to allow Goldstone scaling")
-
-    fxcs = 1.
-    print("Finding rescaling of kernel to fulfill the Goldstone theorem",
-          file=fd)
-
-    world = chi0.world
-    # Only one rank, rgs, has omega=0 and finds rescaling
-    nw = len(omega_w)
-    mynw = (nw + world.size - 1) // world.size
-    rgs, mywgs = wgs // mynw, wgs % mynw
-    fxcsbuf = np.empty(1, dtype=float)
-    if world.rank == rgs:
-        schi0_GG = chi0_wGG[mywgs]
-        schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
-                                       np.dot(schi0_GG, Kxc_GG * fxcs)),
-                         schi0_GG)
-        # Scale so that kappaM=0 in the static limit (omega=0)
-        skappaM = (schi0_GG[0, 0] / schi_GG[0, 0]).real
-        # If kappaM > 0, increase scaling (recall: kappaM ~ 1 - Kxc Re{chi_0})
-        scaling_incr = 0.1 * np.sign(skappaM)
-        while abs(skappaM) > 1.e-7 and abs(scaling_incr) > 1.e-7:
-            fxcs += scaling_incr
-            if fxcs <= 0.0 or fxcs >= 10.:
-                raise Exception('Found an invalid fxc_scaling of %.4f' % fxcs)
-
-            schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
-                                           np.dot(schi0_GG, Kxc_GG * fxcs)),
-                             schi0_GG)
-            skappaM = (schi0_GG[0, 0] / schi_GG[0, 0]).real
-
-            # If kappaM changes sign, change sign and refine increment
-            if np.sign(skappaM) != np.sign(scaling_incr):
-                scaling_incr *= -0.2
-        fxcsbuf[:] = fxcs
-
-    # Broadcast found rescaling
-    world.broadcast(fxcsbuf, rgs)
-    fxcs = fxcsbuf[0]
-    
-    return fxcs
 
 
 def calculate_renormalized_kernel(pd, calc, functional, fd):

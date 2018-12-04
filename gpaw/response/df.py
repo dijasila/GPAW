@@ -14,7 +14,7 @@ from gpaw.response.chi0 import Chi0
 
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.fxc import get_xc_kernel, get_xc_spin_kernel
+from gpaw.response.fxc import get_xc_kernel
 
 
 class DielectricFunction:
@@ -227,7 +227,7 @@ class DielectricFunction:
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
                 direction='x', return_VchiV=True, q_v=None,
                 RSrep='gpaw',
-                xi_cut=None, density_cut=None, fxc_scaling=None):
+                spinpol_cut=None, density_cut=None, fxc_scaling=None):
         """ Returns v^1/2 chi v^1/2 for the density response and chi for the
         spin response. The truncated Coulomb interaction is included as
         v^-1/2 v_t v^-1/2. This is in order to conform with
@@ -239,7 +239,7 @@ class DielectricFunction:
             (not used in transverse reponse functions)
         RSrep : str
             real space representation of kernel ('gpaw' or 'grid')
-        xi_cut : float
+        spinpol_cut : float
             cutoff spin polarization below which f_xc is evaluated in
             unpolarized limit (make sure divergent terms cancel out correctly)
         density_cut : float
@@ -298,12 +298,12 @@ class DielectricFunction:
                 chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
             
             if xc != 'RPA':
-                Kxc_sGG = get_xc_kernel(pd,
-                                        self.chi0,
-                                        functional=xc,
-                                        chi0_wGG=chi0_wGG,
-                                        density_cut=density_cut)
-                K_GG += Kxc_sGG[0] / vsqr_G / vsqr_G[:, np.newaxis]
+                Kxc_GG = get_xc_kernel(pd,
+                                       self.chi0,
+                                       functional=xc,
+                                       chi0_wGG=chi0_wGG,
+                                       density_cut=density_cut)
+                K_GG += Kxc_GG / vsqr_G / vsqr_G[:, np.newaxis]
                
             # Invert Dyson eq.
             chi_wGG = []
@@ -325,14 +325,15 @@ class DielectricFunction:
             
         # Spin response
         else:
-            Kxc_GG = get_xc_spin_kernel(pd,
-                                        self.chi0,
-                                        functional=xc,
-                                        RSrep=RSrep,
-                                        chi0_wGG=chi0_wGG,
-                                        fxc_scaling=fxc_scaling,
-                                        xi_cut=xi_cut,
-                                        density_cut=density_cut)
+            Kxc_GG = get_xc_kernel(pd,
+                                   self.chi0,
+                                   functional=xc,
+                                   kernel=response[::-1],
+                                   RSrep=RSrep,
+                                   chi0_wGG=chi0_wGG,
+                                   fxc_scaling=fxc_scaling,
+                                   density_cut=density_cut,
+                                   spinpol_cut=spinpol_cut)
             
             # Invert Dyson equation
             chi_wGG = []
@@ -348,7 +349,7 @@ class DielectricFunction:
     def get_scattering_function(self, xc='ALDA', q_c=[0, 0, 0],
                                 q_v=None,
                                 RSrep='gpaw',
-                                xi_cut=None, density_cut=None,
+                                spinpol_cut=None, density_cut=None,
                                 fxc_scaling=None,
                                 filename='sf.csv'):
         """Calculate the scattering function.
@@ -367,7 +368,7 @@ class DielectricFunction:
         
         pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c,
                                              RSrep=RSrep,
-                                             xi_cut=xi_cut,
+                                             spinpol_cut=spinpol_cut,
                                              density_cut=density_cut,
                                              fxc_scaling=fxc_scaling)
         
@@ -457,10 +458,10 @@ class DielectricFunction:
                 chi0_wGG[:, 0, 0] *= np.dot(q_v, d_v)**2
 
         if xc != 'RPA':
-            Kxc_sGG = get_xc_kernel(pd,
-                                    self.chi0,
-                                    functional=xc,
-                                    chi0_wGG=chi0_wGG)
+            Kxc_GG = get_xc_kernel(pd,
+                                   self.chi0,
+                                   functional=xc,
+                                   chi0_wGG=chi0_wGG)
 
         if calculate_chi:
             chi_wGG = []
@@ -470,7 +471,7 @@ class DielectricFunction:
                 P_GG = chi0_GG
             else:
                 P_GG = np.dot(np.linalg.inv(np.eye(nG) -
-                                            np.dot(chi0_GG, Kxc_sGG[0])),
+                                            np.dot(chi0_GG, Kxc_GG)),
                               chi0_GG)
             if symmetric:
                 e_GG = np.eye(nG) - P_GG * K_G * K_G[:, np.newaxis]
@@ -480,7 +481,7 @@ class DielectricFunction:
             if calculate_chi:
                 K_GG = np.diag(K_G**2)
                 if xc != 'RPA':
-                    K_GG += Kxc_sGG[0]
+                    K_GG += Kxc_GG
                 chi_wGG.append(np.dot(np.linalg.inv(np.eye(nG) -
                                                     np.dot(chi0_GG, K_GG)),
                                       chi0_GG))
