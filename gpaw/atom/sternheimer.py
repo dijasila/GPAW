@@ -2,6 +2,7 @@ import numpy as np
 from scipy.special import sph_harm
 import itertools
 from functools import reduce
+from scipy.stats import ortho_group
 
 def fermi_function(energy, temperature, chemical_potential):
     if temperature != 0:
@@ -25,6 +26,8 @@ class AllElectronResponse:
         chempot = (all_electron_atom.channels[ang_num].e_n[1] + all_electron_atom.channels[ang_num].e_n[0])/2
 
         self.calculate_exact_chi_channel(ang_num, 0, chempot)
+
+        self.get_valence_projector_r(all_electron_atom.channels[ang_num])
 
 
     ###TODO###
@@ -123,85 +126,188 @@ class AllElectronResponse:
         
 
 
+    def sternheimer_calculation(self, omega = 0, num_eig_vecs = 1, return_only_eigenvalues = True):
+        trial_potentials = self._get_random_trial_potentials(num_eig_vecs, len(self.radial_grid))
+
+
+
+        #channel_number = min(3, len(all_electron_atom.channels)-1)
+        angular_momentum_number_of_response = 1
+        vals, vecs = self._iterative_solve(omega, num_eig_vecs, trial_potentials, angular_momentum_number_of_response)
+
+        #From output of iterative solver reconstruct epsilon/chi or just return eigvals
+        if return_only_eigenvalues:
+            return np.sort(np.real(vals))
+
+        else:
+            response = self._construct_response(vals, vecs)
+            return response
+        
+        
+    def _get_random_trial_potentials(self, num_eig_vecs, size_of_response_matrix):
+        vecs = ortho_group.rvs(size_of_response_matrix)[:num_eig_vecs]
+
+        vecs = [vec/np.sqrt(self.dot(vec.conj(), vec)) for vec in vecs]
+        return vecs
+
+
+
+    def _iterative_solve(self, omega, num_eig_vecs, trial_potentials, response_angular_momentum):
+        '''
+        Uses the power method (see wikipedia) plus the sternheimer equation to calculate num_eig_vecs of the eigenvector-eigenvalue pairs of the response matrix
+        '''
+        error_threshold = 1e-8
+        ok_error_threshold = 1e-5
+        max_iter = 100
+
+
+        found_vals_vecs = []
+        for trial in trial_potentials:
+            current_trial = trial
+            current_eigval = 1
+            num_iter = 0
+
+
+            while True:
+                ##Main calculation
+                num_iter += 1
+
+                trial = self._orthonormalize(trial, list(map(lambda a : a[1], found_vals_vecs)))
+
+                #Not necessary, use aeatom module methods
+                #gaussian_trial = self._get_gaussian_potential(trial, channel_number)
+                
+                delta_wfs_wfs = self._solve_sternheimer(omega, trial, response_angular_momentum)
+
+                new_trial = 2*np.real(np.sum([t[0].conj()*t[1] for t in delta_wfs_wfs]))
+
+                #Minus because eigvals of chi are negative
+                current_eigval = -np.sqrt(self.dot(new_trial, new_trial)/self.dot(current_trial, current_trial))
+                
+                new_trial = -new_trial/np.sqrt(self.dot(new_trial, new_trial))
+
+
+                current_trial = new_trial
+
+
+
+                ##Check for convergence
+                error = np.abs(1 - self.dot(new_trial, current_trial))
+
+                if error < error_threshold:
+                    found_vals_vecs.append((current_eigval, new_trial))
+                    break
+                elif num_iter >= max_iter:
+                    if error < ok_error_threshold:
+                        found_vals_vecs.append((current_eigval, new_trial))
+                        print("Warning: error in Sternheimer iterations was {} for eigenvalue {}".format(error, current_eigval))
+                        break
+                    else:
+                        raise ValueError("Sternheimer iteration did not converge")
+
+        if len(found_vals_vecs) == num_eig_vecs:
+            raise ValueError("Not enough eigenpairs was found")
+
+        return zip(*found_vals_vecs)
+
+
+    def _construct_response(self, vals, vecs):
+        response = 0
+        for val, vec in zip(vals,vecs):
+            response += val*np.outer(vec, vec.conj())
+
+        return response
+
+
+    def _orthonormalize(self, vector, ortho_space):
+        for other_vec in ortho_space:
+            vector = vector - self.dot(other_vec.conj(), vector)*other_vec
+
+        return vector
+
+
+    def _get_gaussian_potential(self, trial, channel_number):
+        gaussian_basis = self.all_electron_atom.channels[channel_number].basis.basis_bg
+
+        size = len(gaussian_basis)
+        gaussian_pot = np.zeros((size, size))
+
+        for i in range(size):
+            for j in range(size):
+                gaussian_pot[i,j] = self.integrate(gaussian_basis[i].conj()*trial*gaussian_basis[j])
+
+        return gaussian_pot
              
-    
-    #Calculate exact dielectric matrix via AE wfs
-    def old_calculate_exact_dielectric_matrix(self, omega = 0, temp=0, chemical_potential = 0, eta = 0.0001):
-        raise NotImplementedError
-        wfs = self._get_wfs_for_exact() #Something
-        def calc_chi_delta(tup):
-            wf_tuple1, wf_tuple2 = tup
-            state1, energy1 = wf_tuple1
-            state2, energy2 = wf_tuple2
-            if energy1 == energy2:
-                return 0
-            delta = np.outer(state1.conj(), state1) #psi_n(x)psi_n(x')
-            delta *= np.outer(state2.conj(), state2) #psi_m(x)psi_m(x')
-            delta *= 1/(energy1 - energy2 + omega + 1j*eta)
-            delta *= fermi_function(energy1, temp, chemical_potential) - fermi_function(energy2, temp, chemical_potential)
-            return delta
-        
-        all_wf_combs = itertools.product(wfs, wfs)
-        
-        chi = reduce(lambda a,b : a + calc_chi_delta(b), all_wf_combs, 0)
 
-        coulomb_matrix = self._get_coulomb_matrix()
-        
-        return np.eye(chi.shape[0]) - self.dot(coulomb_matrix, chi)
-            
-
-
-    def solve_sternheimer(self, potential, omega = 0):
+    def _solve_sternheimer(self, omega, trial, response_angular_momentum):
+        '''
+        Returns delta wfs and wfs in position basis
+        '''
         assert np.real(omega) == 0
 
-        alpha = 1
+        for channel in self.all_electron_atom.channels:
 
-        valence_projector = self.get_valence_projector()
-        conduction_projector = np.eye(valence_projector.shape[0])*self.delta_function_norm() - valence_projector
+            #Need to solve for u in psi = ru. AeAtom module is set up this way.
+            #Do it same way to reuse as much as possible from AeAtom
+            trial_r = trial*self.all_electron_atom.rgd.r_g
+            hamiltonian = channel.basis.calculate_potential_matrix(trial_r)
+            atom_vr = self.all_electron_atom.vr_sg[channel.s]
+            hamiltonian += channel.basis.calculate_potential_matrix(atom_vr)
+            hamiltonian += channel.basis.T_bb
 
-        assert np.allclose(self.dot(valence_projector, conduction_projector), np.zeros_like(valence_projector))
+            valence_projector_r = self.get_valence_projector_r(channel)
 
-        ham = self.get_hamiltonian()
+            conduction_projector_r = np.eye(valence_projector_r.shape[0]) - valence_projector_r
+            assert np.allclose(np.dot(conduction_projector_r, valence_projector_r), np.zeros_like(valence_projector_r))
+
+            alpha = 1
+
+
+            wfs = channel.C_nb
+            ens = channel.e_n
+
+            for wf, en in zip(wfs, ens):
+                ##For every total momentum LM that can be reached when combining channel ang mom and resp ang mom:
+                ##Solve sternheimer eq
+                ##See notes 4.3.18
+                continue
+            
+
         
+
         raise NotImplementedError
 
 
-    def _get_wfs_for_exact(self):
-        raise NotImplementedError
+
+    def get_valence_projector_r(self, channel):
+        '''
+        Returns the operator P_v \times r
+        '''
+
+        Pv = 0
+
+        for vec in channel.C_nb:
+            Pv += np.outer(vec, vec.conj())
+
+        assert np.allclose(np.dot(Pv, Pv), Pv)
+
+        return Pv
 
 
     def get_valence_projector(self):
         raise NotImplementedError
 
-    def get_hamiltonian(self):
-        #Get Hamiltonian - in position basis? in gaussian basis?
-        raise NotImplementedError
-    
-    def _get_coulomb_matrix(self):
-        r_theta_phi_combos = itertools.product(self.radial_grid, self.theta_grid, self.phi_grid)
-        def x_y_z(combo):
-            r, theta, phi = combo
-            return r*np.sin(theta)*np.cos(phi), r*np.sin(theta)*np.sin(phi), r*np.cos(theta)
-        
-        num_grid_points = len(self.radial_grid)*len(self.theta_grid)*len(self.phi_grid)
-      
-        coulomb_matrix = np.zeros((num_grid_points, num_grid_points))
-
-
-        cutoff = 0.1
-        for k1, combo1 in enumerate(r_theta_phi_combos):
-            for k2, combo2 in enumerate(r_theta_phi_combos):
-                x1,y1,z1 = x_y_z(combo1)
-                x2,y2,z2 = x_y_z(combo2)               
-                distance = np.sqrt((x1-x2)**2 + (y1-y2)**2 + (z1-z2)**2)
-                coulomb_matrix[k1,k2] = 1/(distance + cutoff)
-
-        return coulomb_matrix
 
     def dot(self, x1, x2):
         #Implements dot product with proper volume measure
-        raise NotImplementedError
+        gd = self.all_electron_atom.rgd
 
+        return gd.integrate(x1.conj()*x2, n = 0)
+        
+    def integrate(self, function):
+        gd = self.all_electron_atom.rgd
+
+        return gd.integrate(function, n = 0)
 
     def delta_function_norm(self):
         raise NotImplementedError
