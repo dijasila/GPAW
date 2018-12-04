@@ -9,7 +9,7 @@ from gpaw.eigensolvers import RMMDIIS
 from gpaw.cluster import Cluster
 from gpaw.lrtddft import LrTDDFT
 
-h = 0.2  # Grispacing
+h = 0.2  # Gridspacing
 e_singlet = 4.3
 e_singlet_lr = 4.3
 
