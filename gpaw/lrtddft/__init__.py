@@ -250,10 +250,10 @@ class LrTDDFT(ExcitationList):
 
         timer.start('header')
         # get my name
-        s = f.readline().replace('\n', '')
+        s = f.readline().strip()
         self.name = s.split()[1]
 
-        self.xc = XC(f.readline().replace('\n', '').split()[0])
+        self.xc = XC(f.readline().strip().split()[0])
         values = f.readline().split()
         self.eps = float(values[0])
         if len(values) > 1:
