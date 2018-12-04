@@ -145,7 +145,6 @@ class Gradient(FDOperator):
                 offset[:, i] = offs
                 offset_pc.extend(offset)
 
-        print(v, coef_p, offset_pc)
         FDOperator.__init__(self, coef_p, offset_pc, gd, dtype,
                             'O(h^%d) %s-gradient stencil' % (2 * n, 'xyz'[v]))
 
@@ -231,13 +230,27 @@ class Gradient2(FDOperator):
         u2_i = (np.dot(M_ic, u_cv)**2).sum(1)
         i_d = u2_i.argsort()
 
-        m_mv = np.array([(1, 0, 0), (0, 1, 0), (0, 0, 1), (0, 0, 0)])
+        m_mv = np.array([(1, 0, 0), (0, 1, 0), (0, 0, 1)])
         # Try 3, 4, 5 and 6 directions:
-        for D in range(3, 7):
+        for D in range(4,5):
             h_dv = np.dot(M_ic[i_d[:D]], gd.h_cv)
-            A_md = (h_dv**m_mv[:, np.newaxis, :]).prod(2)
-            grad = [0, 0, 0, 0]
+            grad = [0, 0, 0]
             grad[v] = 1
+            print(v, h_dv)
+            U, S, V = np.linalg.svd(h_dv)
+            print(U)
+            print(S)
+            print(V)
+            a0 = U[:, :3].dot(np.diag(S**-1)).dot(V).dot(grad)
+            u0 = U[:, 3]
+            print(a0,u0)
+            M = np.diag(h_dv.dot(grad)**2)
+            x = u0.T.dot(M).dot(a0) / u0.dot(M).dot(u0)
+            print(a0+x*u0)
+            afkljh
+            r = np.linalg.solve(h_dv.dot(h_dv.T) - np.diag(h_dv.dot(grad)**2),
+                                -h_dv.dot(grad))
+            print(r);asdf
             a_d, residual, rank, s = np.linalg.lstsq(A_md, grad,
                                                      rcond=-1)
             print(D, a_d, h_dv)
