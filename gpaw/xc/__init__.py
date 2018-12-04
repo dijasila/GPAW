@@ -59,10 +59,10 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             from gpaw.xc.vdw import VDWFunctional
             return VDWFunctional(name, **kwargs)
         elif name in ['EXX', 'PBE0', 'B3LYP',
-                      'CAMY_BLYP', 'CAMY_B3LYP', 'LCY_BLYP', 'LCY_PBE']:
+                      'CAMY-BLYP', 'CAMY-B3LYP', 'LCY-BLYP', 'LCY-PBE']:
             from gpaw.xc.hybrid import HybridXC
             return HybridXC(name, **kwargs)
-        elif name.startswith('LCY_') or name.startswith('CAMY_'):
+        elif name.startswith('LCY-') or name.startswith('CAMY-'):
             parts = name.split('(')
             from gpaw.xc.hybrid import HybridXC
             return HybridXC(parts[0], omega=float(parts[1][:-1]))
