@@ -571,4 +571,3 @@
 2017-09-01 10.1088/1361-651X/aa7320 libvdwxc: a library for exchange-correlation functionals in the vdW-DF family
 2017-09-15 10.1002/sia.6238 Unsaturated surface in CO saturation
 2017-10-15 10.1016/j.jcis.2017.06.017 Investigation of anti-solvent induced optical properties change of cesium lead bromide iodide mixed perovskite (CsPbBr3-xIx) quantum dots
-2018-03-04 10.1021/acs.jctc.8b00238 Charge Transfer Excitations with Range Separated Functionals Using Improved Virtual Orbitals
