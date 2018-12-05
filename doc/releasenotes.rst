@@ -22,7 +22,7 @@ Git master branch
 * Default number of bands is now `1.2 N_{\text{occ}} + 4`, where
   `N_{\text{occ}}` is the number of occupied bands.
 
-* PW-mode calculations can now be parallelizer over plane-wave coefficients.
+* PW-mode calculations can now be parallelized over plane-wave coefficients.
 
 * Solvated jellium method has been implemented, see
   :ref:`the documentation <solvated_jellium_method>`.
