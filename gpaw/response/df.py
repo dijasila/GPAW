@@ -358,14 +358,6 @@ class DielectricFunction:
         chiM0_w, chiM_w = DielectricFunction.get_dynamic_susceptibility()
         """
         
-        # For transverse majority-monirity scattering function -> generalize! #
-        assert self.chi0.eta > 0.0
-        assert not self.chi0.hilbert
-        assert not self.chi0.timeordered
-        assert self.chi0.disable_point_group
-        assert self.chi0.disable_time_reversal
-        #######################################################################
-        
         pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c,
                                              RSrep=RSrep,
                                              spinpol_cut=spinpol_cut,
