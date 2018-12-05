@@ -7,7 +7,7 @@ from gpaw.directmin.sd_lcao import SteepestDescent, FRcg, HZcg, \
 from gpaw.directmin.ls_lcao import UnitStepLength, \
     StrongWolfeConditions, Parabola
 from gpaw.lcao.eigensolver import DirectLCAO
-from scipy.linalg import expm # , expm_frechet
+from scipy.linalg import expm  # , expm_frechet
 
 
 class DirectMinLCAO(DirectLCAO):
@@ -107,6 +107,11 @@ class DirectMinLCAO(DirectLCAO):
         self.nvalence = wfs.nvalence
         self.kd_comm = wfs.kd.comm
 
+        # heissian for LBFGS-P
+        self.heiss = {}
+        # precondiner for other methods
+        self.precond = {}
+
     def initialize_sd_and_ls(self, wfs, method, ls_method):
 
         if method == 'SD':
@@ -162,7 +167,7 @@ class DirectMinLCAO(DirectLCAO):
             # return
 
         wfs.timer.start('Preconditioning:')
-        self.precond = \
+        precond = \
             self.update_preconditioning_and_ref_orbitals(ham, wfs,
                                                          dens, occ,
                                                          self.use_prec)
@@ -183,7 +188,7 @@ class DirectMinLCAO(DirectLCAO):
             g = self.g_mat_u
 
         wfs.timer.start('Get Search Direction')
-        p = self.get_search_direction(a, g, self.precond, wfs)
+        p = self.get_search_direction(a, g, precond, wfs)
         wfs.timer.stop('Get Search Direction')
         der_phi_c = 0.0
         for k in g.keys():
@@ -524,7 +529,6 @@ class DirectMinLCAO(DirectLCAO):
         if use_prec:
             if self.sda != 'LBFGS_P':
                 if self.iters % counter == 0 or self.iters == 1:
-                    self.precond = {}
                     for kpt in wfs.kpt_u:
                         k = self.n_kps * kpt.s + kpt.q
                         heiss = self.get_hessian(kpt)
@@ -550,23 +554,25 @@ class DirectMinLCAO(DirectLCAO):
                 else:
                     return self.precond
             else:
-                self.precond = {}
+                # it's a bit messy, here you store self.heis,
+                # but in if above self.precond
+                precond = {}
                 for kpt in wfs.kpt_u:
                     k = self.n_kps * kpt.s + kpt.q
-                    heiss = self.get_hessian(kpt)
+                    if self.iters % counter == 0 or self.iters == 1:
+                        self.heiss[k] = self.get_hessian(kpt)
+                    heiss = self.heiss[k]
                     if self.dtype is float:
-                        self.precond[k] = np.zeros_like(heiss)
-                        self.precond[k] = 1.0 / (
+                        precond[k] = 1.0 / (
                                 0.75 * heiss +
                                 0.25 * self.search_direction.beta_0 ** (-1))
                     else:
-                        self.precond[k] = np.zeros_like(heiss)
-                        self.precond[k] = \
+                        precond[k] = \
                             1.0 / (0.75 * heiss.real +
                                    0.25 * self.search_direction.beta_0 ** (-1)) + \
                             1.0j / (0.75 * heiss.imag +
                                     0.25 * self.search_direction.beta_0 ** (-1))
-                return self.precond
+                return precond
         else:
             return None
 
