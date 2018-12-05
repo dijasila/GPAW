@@ -7,7 +7,6 @@ import numpy as np
 
 from gpaw.xc import XC
 from gpaw.sphere.lebedev import weight_n, R_nv
-from gpaw.mpi import world, rank, size
 from gpaw.io.tar import Reader
 from gpaw.wavefunctions.pw import PWDescriptor
 
@@ -60,7 +59,8 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
     if functional[0] == 'A':
         # Standard adiabatic kernel
         print('Calculating %s kernel' % functional, file=fd)
-        Kcalc = AdiabaticDensityKernelCalculator(fd, RSrep, ecut=chi0.ecut,
+        Kcalc = AdiabaticDensityKernelCalculator(fd, chi0.world, RSrep,
+                                                 ecut=chi0.ecut,
                                                  density_cut=density_cut)
         Kxc_sGG = np.array([Kcalc(pd, calc, functional)])
     elif functional[0] == 'r':
@@ -103,7 +103,8 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
     if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
         # Adiabatic kernel
         print("Calculating transverse %s kernel" % functional, file=fd)
-        Kcalc = AdiabaticTransverseKernelCalculator(fd, RSrep, ecut=chi0.ecut,
+        Kcalc = AdiabaticTransverseKernelCalculator(fd, chi0.world, RSrep,
+                                                    ecut=chi0.ecut,
                                                     density_cut=density_cut,
                                                     spinpol_cut=spinpol_cut)
     else:
@@ -181,7 +182,7 @@ def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
 class AdiabaticKernelCalculator:
     """ Adiabatic kernels with PAW """
     
-    def __init__(self, fd, RSrep, ecut=None):
+    def __init__(self, fd, world, RSrep, ecut=None):
 
         """
         RSrep : str
@@ -189,6 +190,7 @@ class AdiabaticKernelCalculator:
         """
         
         self.fd = fd
+        self.world = world
         self.RSrep = RSrep
         self.ecut = ecut
         
@@ -251,31 +253,28 @@ class AdiabaticKernelCalculator:
             dG_GGv = np.zeros((npw, npw, 3))
             for v in range(3):
                 dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
-            
-            # Make every process work an equal amount
-            # Figure out the total number of grid points
-            tp = 0
-            for a, setup in enumerate(setups):
-                Y_nL = setup.xc_correction.Y_nL
-                r_g = setup.xc_correction.rgd.r_g
-                tp += len(Y_nL) * len(r_g)
-            # How many points should each process compute
-            ppr = tp // size
-            p_r = []
+
+            # Distribute computation of PAW correction equally among processes
+            p_r = self.distribute_correction(setups, self.world.size)
+            apdone = 0
+            npdone = 0
             pdone = 0
-            for rr in range(size):
-                if pdone + ppr * (size - rr) > tp:
-                    ppr -= 1
-                elif pdone + ppr * (size - rr) < tp:
-                    ppr += 1
-                p_r.append(ppr)
-                pdone += ppr
+            pdonebefore = np.sum(p_r[:self.world.rank])
+            pdonenow = pdonebefore + p_r[self.world.rank]
             
-            r = 0
             for a, setup in enumerate(setups):
                 # PAW correction is evaluated on a radial grid
                 Y_nL = setup.xc_correction.Y_nL
                 rgd = setup.xc_correction.rgd
+
+                # Continue if computation has been done already
+                nn = len(Y_nL)
+                ng = len(rgd.r_g)
+                apdone += nn * ng
+                if pdonebefore >= apdone or pdone >= pdonenow:
+                    npdone += nn * ng
+                    pdone += nn * ng
+                    continue
                 
                 n_qg = setup.xc_correction.n_qg
                 nt_qg = setup.xc_correction.nt_qg
@@ -301,49 +300,62 @@ class AdiabaticKernelCalculator:
                 coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
                 
                 for n, Y_L in enumerate(Y_nL):
-                    # Which processes should do calculations?
-                    rn = []
-                    i_r = []
-                    idone = 0
-                    pres = len(rgd.r_g)
-                    while pres > 0:
-                        p = p_r[r]
-                        if p <= pres:
-                            pi = p
-                        else:
-                            pi = pres
-                        i_r.append(range(idone, idone + pi))
-                        rn.append(r)
-                        idone += pi
-                        pres -= pi
+                    # Continue if computation has been done already
+                    npdone += ng
+                    if pdonebefore >= npdone or pdone >= pdonenow:
+                        pdone += ng
+                        continue
+                    
+                    w = weight_n[n]
 
-                        p_r[r] -= pi
-                        if pi == p:
-                            r += 1
-                        
-                    if rank in rn:
-                        w = weight_n[n]
+                    f_g[:] = 0.
+                    n_sg = np.dot(Y_L, n_sLg)
+                    add_fxc(rgd, n_sg, f_g)
 
-                        f_g[:] = 0.
-                        n_sg = np.dot(Y_L, n_sLg)
-                        add_fxc(rgd, n_sg, f_g)
+                    ft_g[:] = 0.
+                    nt_sg = np.dot(Y_L, nt_sLg)
+                    add_fxc(rgd, nt_sg, ft_g)
 
-                        ft_g[:] = 0.
-                        nt_sg = np.dot(Y_L, nt_sLg)
-                        add_fxc(rgd, nt_sg, ft_g)
-
-                        dG_GG = np.inner(dG_GGv, R_nv[n])
-                        for i in range(len(rgd.r_g)):
-                            if i in i_r[rn.index(rank)]:
-                                coef_GG = np.exp(-1j * dG_GG * rgd.r_g[i])
-                                KxcPAW_GG += w * coefatoms_GG\
-                                    * np.dot(coef_GG, (f_g[i] - ft_g[i])
-                                             * dv_g[i])
+                    dG_GG = np.inner(dG_GGv, R_nv[n])
+                    for i in range(len(rgd.r_g)):
+                        # Continue if previous ranks already did computation
+                        pdone += 1
+                        if pdonebefore >= pdone:
+                            continue
+                        # Do computation if needed
+                        if pdone <= pdonenow:
+                            coef_GG = np.exp(-1j * dG_GG * rgd.r_g[i])
+                            KxcPAW_GG += w * coefatoms_GG\
+                                * np.dot(coef_GG, (f_g[i] - ft_g[i])
+                                         * dv_g[i])
             
-            world.sum(KxcPAW_GG)
+            self.world.sum(KxcPAW_GG)
             Kxc_GG += KxcPAW_GG
         
         return Kxc_GG / vol
+
+    def distribute_correction(self, setups, size):
+        """ Make every process work an equal amount """
+        # Figure out the total number of grid points
+        tp = 0
+        for a, setup in enumerate(setups):
+            Y_nL = setup.xc_correction.Y_nL
+            r_g = setup.xc_correction.rgd.r_g
+            tp += len(Y_nL) * len(r_g)
+        
+        # How many points should each process compute
+        ppr = tp // size
+        p_r = []
+        pdone = 0
+        for rr in range(size):
+            if pdone + ppr * (size - rr) > tp:
+                ppr -= 1
+            elif pdone + ppr * (size - rr) < tp:
+                ppr += 1
+            p_r.append(ppr)
+            pdone += ppr
+
+        return p_r
     
     def add_fxc(self, gd, n_sg, fxc_g):
         raise NotImplementedError
@@ -351,7 +363,8 @@ class AdiabaticKernelCalculator:
 
 class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
 
-    def __init__(self, fd, RSrep, ecut=None,
+    def __init__(self, fd, world, RSrep,
+                 ecut=None,
                  density_cut=None):
         """
         density_cut : float
@@ -360,7 +373,7 @@ class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
 
         self.density_cut = density_cut
         
-        AdiabaticKernelCalculator.__init__(self, fd, RSrep, ecut)
+        AdiabaticKernelCalculator.__init__(self, fd, world, RSrep, ecut)
 
         self.permitted_functionals += ['ALDA_x', 'ALDA_X', 'ALDA']
 
@@ -411,7 +424,8 @@ class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
         
 class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
     
-    def __init__(self, fd, RSrep, ecut=None,
+    def __init__(self, fd, world, RSrep,
+                 ecut=None,
                  density_cut=None,
                  spinpol_cut=None):
         """
@@ -424,7 +438,7 @@ class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
         self.density_cut = density_cut
         self.spinpol_cut = spinpol_cut
         
-        AdiabaticKernelCalculator.__init__(self, fd, RSrep, ecut)
+        AdiabaticKernelCalculator.__init__(self, fd, world, RSrep, ecut)
 
         self.permitted_functionals += ['ALDA_x', 'ALDA_X', 'ALDA']
     
