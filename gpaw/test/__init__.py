@@ -74,7 +74,6 @@ def gen(symbol, exx=False, name=None, yukawa_gamma=None, **kwargs):
 
 
 tests = [
-    # 'electronphonon.py',  does not seem to work
     'linalg/gemm_complex.py',
     'ase_features/ase3k_version.py',
     'kpt.py',
@@ -106,6 +105,7 @@ tests = [
     'fd_ops/gd.py',
     'pw/interpol.py',
     'poisson/screened_poisson.py',
+    'electronphonon.py',
     'xc/xc.py',
     'xc/XC2.py',
     'radial/yukawa_radial.py',
@@ -445,7 +445,8 @@ if mpi.size > 1:
 if mpi.size > 2:
     exclude += ['ase_features/neb.py',
                 'poisson/poisson_restart.py',
-                'response/pair.py']
+                'response/pair.py',
+                'electronphonon.py']
 
 if mpi.size > 4:
     exclude += ['poisson/poisson_extravacuum.py']
