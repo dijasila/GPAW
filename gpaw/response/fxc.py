@@ -1,5 +1,5 @@
 # -*- coding: utf-8
-"""This module calculates XC kernels for the response model.
+"""This module calculates XC kernels for response function calculations.
 """
 from __future__ import print_function
 
@@ -102,7 +102,7 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
     
     if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
         # Adiabatic kernel
-        print("Calculating %s spin kernel" % functional, file=fd)
+        print("Calculating transverse %s kernel" % functional, file=fd)
         Kcalc = AdiabaticTransverseKernelCalculator(fd, RSrep, ecut=chi0.ecut,
                                                     density_cut=density_cut,
                                                     spinpol_cut=spinpol_cut)
@@ -117,7 +117,7 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
             if fxc_scaling[1] is None:
                 fxc_scaling[1] = find_Goldstone_scaling(pd, chi0,
                                                         chi0_wGG, Kxc_GG)
-        
+            
             assert isinstance(fxc_scaling[1], float)
             Kxc_GG *= fxc_scaling[1]
     
@@ -126,7 +126,7 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
 
 def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
     """ Find a scaling of the kernel to move the magnon peak to omeaga=0. """
-    # If True q should be gamma - scale to hit Goldstone
+    # q should be gamma - scale to hit Goldstone
     assert pd.kd.gamma
     
     fd = chi0.fd
@@ -148,26 +148,26 @@ def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
     rgs, mywgs = wgs // mynw, wgs % mynw
     fxcsbuf = np.empty(1, dtype=float)
     if world.rank == rgs:
-        schi0_GG = chi0_wGG[mywgs]
-        schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
-                                       np.dot(schi0_GG, Kxc_GG * fxcs)),
-                         schi0_GG)
+        chi0_GG = chi0_wGG[mywgs]
+        chi_GG = np.dot(np.linalg.inv(np.eye(len(chi0_GG)) -
+                                      np.dot(chi0_GG, Kxc_GG * fxcs)),
+                        chi0_GG)
         # Scale so that kappaM=0 in the static limit (omega=0)
-        skappaM = (schi0_GG[0, 0] / schi_GG[0, 0]).real
+        kappaM = (chi0_GG[0, 0] / chi_GG[0, 0]).real
         # If kappaM > 0, increase scaling (recall: kappaM ~ 1 - Kxc Re{chi_0})
-        scaling_incr = 0.1 * np.sign(skappaM)
-        while abs(skappaM) > 1.e-7 and abs(scaling_incr) > 1.e-7:
+        scaling_incr = 0.1 * np.sign(kappaM)
+        while abs(kappaM) > 1.e-7 and abs(scaling_incr) > 1.e-7:
             fxcs += scaling_incr
             if fxcs <= 0.0 or fxcs >= 10.:
                 raise Exception('Found an invalid fxc_scaling of %.4f' % fxcs)
 
-            schi_GG = np.dot(np.linalg.inv(np.eye(len(schi0_GG)) -
-                                           np.dot(schi0_GG, Kxc_GG * fxcs)),
-                             schi0_GG)
-            skappaM = (schi0_GG[0, 0] / schi_GG[0, 0]).real
+            chi_GG = np.dot(np.linalg.inv(np.eye(len(chi0_GG)) -
+                                          np.dot(chi0_GG, Kxc_GG * fxcs)),
+                            chi0_GG)
+            kappaM = (chi0_GG[0, 0] / chi_GG[0, 0]).real
 
             # If kappaM changes sign, change sign and refine increment
-            if np.sign(skappaM) != np.sign(scaling_incr):
+            if np.sign(kappaM) != np.sign(scaling_incr):
                 scaling_incr *= -0.2
         fxcsbuf[:] = fxcs
 
@@ -176,120 +176,6 @@ def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
     fxcs = fxcsbuf[0]
     
     return fxcs
-
-
-'''
-def calculate_Kxc(pd, calc, functional='ALDA', density_cut=None):
-    """ALDA kernel"""
-
-    gd = pd.gd
-    npw = pd.ngmax
-    nG = pd.gd.N_c
-    vol = pd.gd.volume
-    G_Gv = pd.get_reciprocal_vectors()
-    nt_sG = calc.density.nt_sG
-    R_av = calc.atoms.positions / Bohr
-    setups = calc.wfs.setups
-    D_asp = calc.density.D_asp
-
-    # The soft part
-    # assert np.abs(nt_sG[0].shape - nG).sum() == 0
-    if functional == 'ALDA_X':
-        x_only = True
-        A_x = -3. / 4. * (3. / np.pi)**(1. / 3.)
-        nspins = len(nt_sG)
-        assert nspins == 1
-        fxc_sg = nspins**(1. / 3.) * 4. / 9. * A_x * nt_sG**(-2. / 3.)
-    else:
-        assert len(nt_sG) == 1
-        x_only = False
-        fxc_sg = np.zeros_like(nt_sG)
-        xc = XC(functional[1:])
-        xc.calculate_fxc(gd, nt_sG, fxc_sg)
-
-    if density_cut is not None:
-        fxc_sg[np.where(nt_sG * len(nt_sG) < density_cut)] = 0.0
-    
-    # FFT fxc(r)
-    nG0 = nG[0] * nG[1] * nG[2]
-    tmp_sg = [np.fft.fftn(fxc_sg[s]) * vol / nG0 for s in range(len(nt_sG))]
-
-    Kxc_sGG = np.zeros((len(fxc_sg), npw, npw), dtype=complex)
-    for s in range(len(fxc_sg)):
-        for iG, iQ in enumerate(pd.Q_qG[0]):
-            iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
-            for jG, jQ in enumerate(pd.Q_qG[0]):
-                jQ_c = (np.unravel_index(jQ, nG) + nG // 2) % nG - nG // 2
-                ijQ_c = (iQ_c - jQ_c)
-                if (abs(ijQ_c) < nG // 2).all():
-                    Kxc_sGG[s, iG, jG] = tmp_sg[s][tuple(ijQ_c)]
-
-    # The PAW part
-    KxcPAW_sGG = np.zeros_like(Kxc_sGG)
-    dG_GGv = np.zeros((npw, npw, 3))
-    for v in range(3):
-        dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
-
-    for a, setup in enumerate(setups):
-        if rank == a % size:
-            rgd = setup.xc_correction.rgd
-            n_qg = setup.xc_correction.n_qg
-            nt_qg = setup.xc_correction.nt_qg
-            nc_g = setup.xc_correction.nc_g
-            nct_g = setup.xc_correction.nct_g
-            Y_nL = setup.xc_correction.Y_nL
-            dv_g = rgd.dv_g
-
-            D_sp = D_asp[a]
-            B_pqL = setup.xc_correction.B_pqL
-            D_sLq = np.inner(D_sp, B_pqL.T)
-            nspins = len(D_sp)
-
-            f_sg = rgd.empty(nspins)
-            ft_sg = rgd.empty(nspins)
-
-            n_sLg = np.dot(D_sLq, n_qg)
-            nt_sLg = np.dot(D_sLq, nt_qg)
-
-            # Add core density
-            n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
-            nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
-
-            coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
-            for n, Y_L in enumerate(Y_nL):
-                w = weight_n[n]
-                f_sg[:] = 0.0
-                n_sg = np.dot(Y_L, n_sLg)
-                if x_only:
-                    f_sg = nspins * (4 / 9.) * A_x * (nspins * n_sg)**(-2 / 3.)
-                else:
-                    xc.calculate_fxc(rgd, n_sg, f_sg)
-
-                ft_sg[:] = 0.0
-                nt_sg = np.dot(Y_L, nt_sLg)
-                if x_only:
-                    ft_sg = nspins * (4 / 9.) * (A_x
-                                                 * (nspins * nt_sg)**(-2 / 3.))
-                else:
-                    xc.calculate_fxc(rgd, nt_sg, ft_sg)
-                for i in range(len(rgd.r_g)):
-                    coef_GG = np.exp(-1j * np.inner(dG_GGv, R_nv[n])
-                                     * rgd.r_g[i])
-                    for s in range(len(f_sg)):
-                        KxcPAW_sGG[s] += w * np.dot(coef_GG,
-                                                    (f_sg[s, i] -
-                                                     ft_sg[s, i])
-                                                    * dv_g[i]) * coefatoms_GG
-
-    world.sum(KxcPAW_sGG)
-    Kxc_sGG += KxcPAW_sGG
-
-    if pd.kd.gamma:
-        Kxc_sGG[:, 0, :] = 0.0
-        Kxc_sGG[:, :, 0] = 0.0
-
-    return Kxc_sGG / vol
-'''
 
 
 class AdiabaticKernelCalculator:
@@ -305,8 +191,9 @@ class AdiabaticKernelCalculator:
         self.fd = fd
         self.RSrep = RSrep
         self.ecut = ecut
-        self.functional = None
+        
         self.permitted_functionals = []
+        self.functional = None
     
     def __call__(self, pd, calc, functional):
         assert functional in self.permitted_functionals
@@ -328,8 +215,6 @@ class AdiabaticKernelCalculator:
                   + " all-electron density", file=self.fd)
             fxc_G = np.zeros(np.shape(n_sG[0]))
             add_fxc(gd, n_sG, fxc_G)
-            
-            nspins = len(n_sG)
         else:
             nt_sG = calc.density.nt_sG
             gd, lpd = pd.gd, pd
@@ -338,8 +223,6 @@ class AdiabaticKernelCalculator:
                   file=self.fd)
             fxc_G = np.zeros(np.shape(nt_sG[0]))
             add_fxc(gd, nt_sG, fxc_G)
-        
-            nspins = len(nt_sG)
         
         print("\tFourier transforming into reciprocal space", file=self.fd)
         nG = gd.N_c
@@ -449,17 +332,14 @@ class AdiabaticKernelCalculator:
                         nt_sg = np.dot(Y_L, nt_sLg)
                         add_fxc(rgd, nt_sg, ft_g)
 
+                        dG_GG = np.inner(dG_GGv, R_nv[n])
                         for i in range(len(rgd.r_g)):
                             if i in i_r[rn.index(rank)]:
-                                coef_GG = np.exp(-1j
-                                                 * np.inner(dG_GGv, R_nv[n])
-                                                 * rgd.r_g[i])
-
-                                KxcPAW_GG += w * np.dot(coef_GG,
-                                                        (f_g[i]
-                                                         - ft_g[i])
-                                                        * dv_g[i])\
-                                    * coefatoms_GG
+                                coef_GG = np.exp(-1j * dG_GG * rgd.r_g[i])
+                                KxcPAW_GG += w * coefatoms_GG\
+                                    * np.dot(coef_GG, (f_g[i] - ft_g[i])
+                                             * dv_g[i])
+            
             world.sum(KxcPAW_GG)
             Kxc_GG += KxcPAW_GG
         
@@ -467,8 +347,68 @@ class AdiabaticKernelCalculator:
     
     def add_fxc(self, gd, n_sg, fxc_g):
         raise NotImplementedError
-    
-    
+
+
+class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
+
+    def __init__(self, fd, RSrep, ecut=None,
+                 density_cut=None):
+        """
+        density_cut : float
+            cutoff density below which f_xc is set to zero
+        """
+
+        self.density_cut = density_cut
+        
+        AdiabaticKernelCalculator.__init__(self, fd, RSrep, ecut)
+
+        self.permitted_functionals += ['ALDA_x', 'ALDA_X', 'ALDA']
+
+    def __call__(self, pd, calc, functional):
+
+        Kxc_GG = AdiabaticKernelCalculator.__call__(self, pd, calc,
+                                                    functional)
+
+        if pd.kd.gamma:
+            Kxc_GG[0, :] = 0.0
+            Kxc_GG[:, 0] = 0.0
+
+        return Kxc_GG
+        
+    def add_fxc(self, gd, n_sG, fxc_G):
+        """
+        Calculate fxc, using the cutoffs from input above
+        
+        ALDA_x is an explicit algebraic version
+        ALDA_X uses the libxc package
+        """
+        
+        _calculate_fxc = self._calculate_fxc
+        density_cut = self.density_cut
+        
+        # Mask small n
+        n_G = np.sum(n_sG, axis=0)
+        if density_cut:
+            npos_G = np.abs(n_G) > density_cut
+        else:
+            npos_G = np.full(np.shape(n_G), True, np.array(True).dtype)
+
+        # Calculate fxc
+        fxc_G[npos_G] += _calculate_fxc(gd, n_sG)[npos_G]
+
+    def _calculate_fxc(self, gd, n_sG):
+        if self.functional == 'ALDA_x':
+            n_G = np.sum(n_sG, axis=0)
+            fx_G = -1. / 3. * (3. / np.pi)**(1. / 3.) * n_G**(-2. / 3.)
+            return fx_G
+        else:
+            fxc_sG = np.zeros_like(n_sG)
+            xc = XC(self.functional[1:])
+            xc.calculate_fxc(gd, n_sG, fxc_sG)
+                
+            return fxc_sG[0]
+
+        
 class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
     
     def __init__(self, fd, RSrep, ecut=None,
@@ -498,7 +438,6 @@ class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
         
         _calculate_pol_fxc = self._calculate_pol_fxc
         _calculate_unpol_fxc = self._calculate_unpol_fxc
-        
         spinpol_cut = self.spinpol_cut
         density_cut = self.density_cut
         
@@ -510,7 +449,7 @@ class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
             zetasmall_G = np.abs(m_G / n_G) < spinpol_cut
         else:
             zetasmall_G = np.full(np.shape(n_sG[0]), False,
-                                np.array(False).dtype)
+                                  np.array(False).dtype)
             
         # Mask small n
         if density_cut:
@@ -533,12 +472,9 @@ class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
         allfine_G = np.logical_and(np.invert(zetasmall_G), npos_G)
         
         # Above both spinpol_cut and density_cut calculate polarized fxc
-        if allfine_G.any():
-            if m_G is None:
-                m_G = n_sG[0] - n_sG[1]
-            fxc_G[allfine_G] += _calculate_pol_fxc(gd, n_sG, m_G)[allfine_G]
-        
-        return
+        if m_G is None:
+            m_G = n_sG[0] - n_sG[1]
+        fxc_G[allfine_G] += _calculate_pol_fxc(gd, n_sG, m_G)[allfine_G]
         
     def _calculate_pol_fxc(self, gd, n_sG, m_G):
         """ Calculate polarized fxc """

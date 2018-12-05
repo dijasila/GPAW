@@ -346,16 +346,16 @@ class DielectricFunction:
 
         return pd, chi0_wGG, np.array(chi_wGG)
     
-    def get_scattering_function(self, xc='ALDA', q_c=[0, 0, 0],
-                                q_v=None,
-                                RSrep='gpaw',
-                                spinpol_cut=None, density_cut=None,
-                                fxc_scaling=None,
-                                filename='sf.csv'):
-        """Calculate the scattering function.
+    def get_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0],
+                                   q_v=None,
+                                   RSrep='gpaw',
+                                   spinpol_cut=None, density_cut=None,
+                                   fxc_scaling=None,
+                                   filename='chiM_w.csv'):
+        """Calculate the dynamic susceptibility.
          
-        Returns macroscopic(could be generalized?) scattering function:
-        sf0_w, sf_w = DielectricFunction.get_scattering_function()
+        Returns macroscopic(could be generalized?) dynamic susceptibility:
+        chiM0_w, chiM_w = DielectricFunction.get_dynamic_susceptibility()
         """
         
         # For transverse majority-monirity scattering function -> generalize! #
