@@ -9,8 +9,8 @@ from gpaw.test import equal
 from gpaw.eigensolvers import RMMDIIS
 from gpaw.lrtddft import LrTDDFT
 
-o_plus = Cluster(Atoms('O', positions=[[0, 0, 0]]))
-o_plus.set_initial_magnetic_moments([3.0])
+o_plus = Cluster(Atoms('Be', positions=[[0, 0, 0]]))
+o_plus.set_initial_magnetic_moments([1.0])
 o_plus.minimal_box(2.5, h=0.35)
 
 
@@ -18,29 +18,26 @@ def get_paw():
     """Return calculator object."""
     c = {'energy': 0.05, 'eigenstates': 0.05, 'density': 0.05}
     return GPAW(convergence=c, eigensolver=RMMDIIS(),
-                nbands=5,
-                xc='LCY-PBE:omega=0.83:unocc=True',
+                nbands=3,
+                xc='PBE',
                 parallel={'domain': world.size}, h=0.35,
                 occupations=FermiDirac(width=0.0, fixmagmom=True))
 
 
-# calc = get_paw()
-# calc.set(txt='H2O_LCY_PBE_083.log')
 calc_plus = get_paw()
-calc_plus.set(txt='O_plus_LCY_PBE_083.log', charge=1)
-
+calc_plus.set(txt='Be_plus_LCY_PBE_083.log', charge=1)
 o_plus.set_calculator(calc_plus)
 e_o_plus = o_plus.get_potential_energy()
-# print(e_ion, 12.62)
-# equal(e_ion, 12.62, 0.1)
-lr = LrTDDFT(calc_plus, txt='LCY_TDDFT_O.log', istart=3, jend=4)
+calc_plus.set(xc='LCY-PBE:omega=0.83:unocc=True')
+e_o_plus = o_plus.get_potential_energy()
+lr = LrTDDFT(calc_plus, txt='LCY_TDDFT_Be.log', istart=0, jend=1)
 equal(lr.xc.omega, 0.83)
-lr.write('LCY_TDDFT_O.ex.gz')
-e_ion = 13.62
-ip_i = 37.43
+lr.write('LCY_TDDFT_Be.ex.gz')
+e_ion = 9.3
+ip_i = 13.36
 # reading is problematic with EXX on more than one core
 if world.rank == 0:
-    lr2 = LrTDDFT('LCY_TDDFT_O.ex.gz')
+    lr2 = LrTDDFT('LCY_TDDFT_Be.ex.gz')
     lr2.diagonalize()
     equal(lr2.xc.omega, 0.83)
     ion_i = lr2[0].get_energy() * Hartree + e_ion
