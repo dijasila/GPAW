@@ -14,6 +14,7 @@ from ase.utils import devnull
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters, tf_parameters
 from gpaw.utilities import compiled_with_sl, compiled_with_libvdwxc
+from gpaw.utilities.elpa import LibElpa
 from gpaw import setup_paths
 from gpaw import mpi
 import gpaw
@@ -104,6 +105,7 @@ tests = [
     'fd_ops/gd.py',
     'pw/interpol.py',
     'poisson/screened_poisson.py',
+    'electronphonon.py',
     'xc/xc.py',
     'xc/XC2.py',
     'radial/yukawa_radial.py',
@@ -123,7 +125,6 @@ tests = [
     'poisson/poisson.py',
     'poisson/fastpoisson.py',
     'poisson/poisson_asym.py',
-    # 'rsf_yukawa/lrtddft.py',
     'parallel/arraydict_redist.py',
     'parallel/scalapack.py',
     'gauss_wave.py',
@@ -135,6 +136,7 @@ tests = [
     'atoms_mismatch.py',
     'setup_basis_spec.py',
     'pw/direct.py',
+    'libelpa.py',
     'vdw/libvdwxc_spin.py',                 # ~1s
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
@@ -154,6 +156,7 @@ tests = [
     'solvation/nan_radius.py',              # ~1s
     'solvation/pbc_pos_repeat.py',          # ~1s
     'lcao/generate_ngto.py',                # ~1s
+    'reuse_wfs_celldisp.py',                # ~1s
     'linalg/gemv.py',                       # ~2s
     'fileio/idiotproof_setup.py',           # ~2s
     'radial/ylexpand.py',                   # ~2s
@@ -215,6 +218,8 @@ tests = [
     'generic/Cl_minus.py',                  # ~4s
     'lrtddft/pes.py',                       # ~4s
     'generic/proton.py',                    # ~4s
+    'parallel/lcao_elpa_kpts.py',           # ~4s
+    'parallel/lcao_elpa.py',                # ~5s
     'corehole/h2o_recursion.py',            # ~5s
     'xc/nonselfconsistent.py',              # ~5s
     'spin/spinpol.py',                      # ~5s
@@ -289,6 +294,7 @@ tests = [
     'lrtddft/kssingles_Be.py',              # ~11s
     'generic/relax.py',                     # ~11s
     'solvation/adm12.py',                   # ~11s
+    'rsf_yukawa/rsf_ivo_sing_mg.py',        # ~11s
     'solvation/lrtddft.py',                 # ~12s
     'dscf/dscf_lcao.py',                    # ~12s
     'generic/8Si.py',                       # ~12s
@@ -321,6 +327,7 @@ tests = [
     'lrtddft/excited_state.py',             # ~16s
     'gllb/ne_disc.py',                      # ~16s
     'ofdft/ofdft.py',                       # ~17s
+    'rsf_yukawa/lrtddft_short.py',          # ~18s
     'response/bse_silicon.py',              # ~18s
     'tpss.py',                              # ~18s
     'tddft/td_na2.py',                      # ~18s
@@ -441,7 +448,8 @@ if mpi.size > 1:
 if mpi.size > 2:
     exclude += ['ase_features/neb.py',
                 'poisson/poisson_restart.py',
-                'response/pair.py']
+                'response/pair.py',
+                'electronphonon.py']
 
 if mpi.size > 4:
     exclude += ['poisson/poisson_extravacuum.py']
@@ -502,6 +510,12 @@ if not compiled_with_libvdwxc():
     exclude.append('vdw/libvdwxc_h2.py')
     exclude.append('vdw/libvdwxc_mbeef.py')
     exclude.append('vdw/libvdwxc_spin.py')
+
+if not LibElpa.have_elpa():
+    exclude += ['libelpa.py',
+                'parallel/lcao_elpa_kpts.py',
+                'parallel/lcao_elpa.py']
+
 
 if LooseVersion(np.__version__) < '1.6.0':
     exclude.append('response/chi0.py')
