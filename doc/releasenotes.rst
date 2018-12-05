@@ -30,7 +30,8 @@ Git master branch
 * Added FastPoissonSolver which is faster and works well for any cell.
   This replaces the old Poisson solver as default Poisson solver.
 
-* :ref:`rsf`.
+* :ref:`rsf` and improved virtual orbitals, the latter from Hartree-Fock
+  theory.
 
 * New Jupyter notebooks added for teaching DFT and many-body methods.  Topics
   cover: :ref:`catalysis`, :ref:`magnetism`, :ref:`machinelearning`,
