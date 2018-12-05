@@ -125,7 +125,6 @@ tests = [
     'poisson/poisson.py',
     'poisson/fastpoisson.py',
     'poisson/poisson_asym.py',
-    # 'rsf_yukawa/lrtddft.py',
     'parallel/arraydict_redist.py',
     'parallel/scalapack.py',
     'gauss_wave.py',
@@ -157,6 +156,7 @@ tests = [
     'solvation/nan_radius.py',              # ~1s
     'solvation/pbc_pos_repeat.py',          # ~1s
     'lcao/generate_ngto.py',                # ~1s
+    'reuse_wfs_celldisp.py',                # ~1s
     'linalg/gemv.py',                       # ~2s
     'fileio/idiotproof_setup.py',           # ~2s
     'radial/ylexpand.py',                   # ~2s
@@ -294,6 +294,7 @@ tests = [
     'lrtddft/kssingles_Be.py',              # ~11s
     'generic/relax.py',                     # ~11s
     'solvation/adm12.py',                   # ~11s
+    'rsf_yukawa/rsf_ivo_sing_mg.py',        # ~11s
     'solvation/lrtddft.py',                 # ~12s
     'dscf/dscf_lcao.py',                    # ~12s
     'generic/8Si.py',                       # ~12s
@@ -324,6 +325,7 @@ tests = [
     'lrtddft/excited_state.py',             # ~16s
     'gllb/ne_disc.py',                      # ~16s
     'ofdft/ofdft.py',                       # ~17s
+    'rsf_yukawa/lrtddft_short.py',          # ~18s
     'response/bse_silicon.py',              # ~18s
     'tpss.py',                              # ~18s
     'tddft/td_na2.py',                      # ~18s
