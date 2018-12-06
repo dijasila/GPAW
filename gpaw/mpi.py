@@ -40,8 +40,9 @@ def broadcast_exception(comm):
         yield
     except Exception as ex:
         rank = comm.max(comm.rank)
-        broadcast(ex, rank, comm)
-        raise
+        if rank == comm.rank:
+            broadcast(ex, rank, comm)
+            raise
     else:
         rank = comm.max(-1)
     if rank >= 0:
