@@ -7,6 +7,7 @@ import time
 import traceback
 import atexit
 import pickle
+from contextlib import contextmanager
 
 import numpy as np
 
@@ -21,6 +22,30 @@ MASTER = 0
 def is_contiguous(*args, **kwargs):
     from gpaw.utilities import is_contiguous
     return is_contiguous(*args, **kwargs)
+
+
+@contextmanager
+def broadcast_exception(comm):
+    """Make sure all ranks get a possible exception raised.
+
+    This example::
+
+        with broadcast_exception(world):
+            if world.rank == 0:
+                x = 1 / 0
+
+    will raise ZeroDivisionError in the whole world.
+    """
+    try:
+        yield
+    except Exception as ex:
+        rank = comm.max(comm.rank)
+        broadcast(ex, rank, comm)
+        raise
+    else:
+        rank = comm.max(-1)
+    if rank >= 0:
+        raise broadcast(None, rank, comm)
 
 
 class _Communicator:
@@ -767,16 +792,15 @@ def synchronize_atoms(atoms, comm, tolerance=1e-8):
 
     # XXX replace with ase.cell.same_cell in the future
     # (if that functions gets to exist)
-    #def same_cell(cell1, cell2):
-    #    return ((cell1 is None) == (cell2 is None) and
-    #            (cell1 is None or (cell1 == cell2).all()))
+    # def same_cell(cell1, cell2):
+    #     return ((cell1 is None) == (cell2 is None) and
+    #             (cell1 is None or (cell1 == cell2).all()))
 
     # Cell vectors should be compared with a tolerance like positions?
     def same_cell(cell1, cell2, tolerance=1e-8):
         return ((cell1 is None) == (cell2 is None) and
                 (cell1 is None or (abs(cell1 - cell2).max() <= tolerance)))
 
-    
     positions, cell, numbers, pbc = broadcast(src, root=0, comm=comm)
     ok = (len(positions) == len(atoms.positions) and
           (abs(positions - atoms.positions).max() <= tolerance) and
@@ -803,6 +827,7 @@ def synchronize_atoms(atoms, comm, tolerance=1e-8):
 
     atoms.positions = positions
     atoms.cell = cell
+
 
 def broadcast_string(string=None, root=0, comm=world):
     if comm.rank == root:
