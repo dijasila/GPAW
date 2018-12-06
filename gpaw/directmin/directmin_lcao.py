@@ -8,6 +8,8 @@ from gpaw.directmin.ls_lcao import UnitStepLength, \
     StrongWolfeConditions, Parabola
 from gpaw.lcao.eigensolver import DirectLCAO
 from scipy.linalg import expm  # , expm_frechet
+# from gpaw.utilities.memory import maxrss
+from gpaw.utilities.tools import tri2full
 
 
 class DirectMinLCAO(DirectLCAO):
@@ -266,10 +268,14 @@ class DirectMinLCAO(DirectLCAO):
                         a = np.zeros(shape=(n_dim[k], n_dim[k]),
                                      dtype=self.dtype)
                         a[self.ind_up[k]] = a_mat_u[k]
-                        il1 = np.tril_indices(n_dim[k], -1)
-                        a[il1] = -a[(il1[1],il1[0])].conj()
+
+                        def antihermitian(src, dst):
+                            np.conj(-src, dst)
+                        tri2full(a, UL='U', map=antihermitian)
+
                         wfs.timer.start('Pade Approximants')
-                        # this function takes a lot of memory...
+                        # this function takes a lot of memory
+                        # for large matrices...
                         u_nn = expm(a)
                         del a
                         wfs.timer.stop('Pade Approximants')
@@ -313,8 +319,9 @@ class DirectMinLCAO(DirectLCAO):
                 continue
             h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
             # make matrix hermitian
-            ind_l = np.tril_indices(h_mm.shape[0], -1)
-            h_mm[(ind_l[1], ind_l[0])] = h_mm[ind_l].conj()
+            tri2full(h_mm)
+            # ind_l = np.tril_indices(h_mm.shape[0], -1)
+            # h_mm[(ind_l[1], ind_l[0])] = h_mm[ind_l].conj()
             g_mat_u[k], error = self.get_gradients(h_mm, kpt.C_nM,
                                                    kpt.f_n,
                                                    a_mat_u[k],
@@ -326,6 +333,8 @@ class DirectMinLCAO(DirectLCAO):
         wfs.timer.stop('Calculate gradients')
 
         self.get_en_and_grad_iters += 1
+
+        # raise SystemExit(0)
 
         return e_total, g_mat_u
 
