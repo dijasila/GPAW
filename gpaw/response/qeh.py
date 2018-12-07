@@ -276,9 +276,10 @@ class Heterostructure:
         drho: induced potential basis function
         q: momentum transfer.
         """
-        z -= np.mean(z)  # center arround 0
-        z_grid = self.get_z_grid(z, z_lim=self.poisson_lim)
         dz = z[1] - z[0]
+        z = z - np.mean(z) - dz / 2  # center arround 0
+        z_grid = self.get_z_grid(z, z_lim=self.poisson_lim)
+
         Nz_loc = (len(z_grid) - len(z)) // 2
 
         drho = np.append(np.insert(drho, 0, np.zeros([Nz_loc])),
@@ -911,8 +912,8 @@ class Heterostructure:
                                 (w_w[iw] - w_w[iw - 1]))
                     # linear interp for crossing point
                     w0 = np.real(-eig[iq, iw - 1, k]) / a + w_w[iw - 1]
-                    rho = np.dot(self.drho_array[:, iq, :].T, vec_dual_p[k, :])
-                    phi = np.dot(self.dphi_array[:, iq, :].T, vec_dual_p[k, :])
+                    rho = np.dot(self.drho_array[:, iq, :].T, vec_dual[k, :])
+                    phi = np.dot(self.dphi_array[:, iq, :].T, vec[iq, iw, :, k])
                     rho_z[iq] = np.append(rho_z[iq], rho[np.newaxis, :],
                                           axis=0)
                     phi_z[iq] = np.append(phi_z[iq], phi[np.newaxis, :],
