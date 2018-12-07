@@ -56,7 +56,7 @@ class AllElectronResponse:
         self.phi_grid = np.linspace(0, 2*np.pi, 400)
         self.radial_grid = self.all_electron_atom.rgd.r_g
         self.cg_calculator = ClebschGordanCalculator()
-        self.bicgstab_tol = 1e-8
+        self.bicgstab_tol = 1e-5
         #self._set_up_spherical_harmonics()
         #self._calc_valence_wavefunctions()
 
@@ -119,7 +119,7 @@ class AllElectronResponse:
 
             return d
             
-
+        ##TODO Need Clebsch Gordan factors, see eq. 5.1.2 in notes
         chi_channel = reduce(lambda a, b : a + delta(b), combos, 0)
         return chi_channel
 
@@ -162,10 +162,10 @@ class AllElectronResponse:
         '''
         Uses the power method (see wikipedia) plus the sternheimer equation to calculate num_eig_vecs of the eigenvector-eigenvalue pairs of the response matrix
         '''
-        error_threshold = 1e-8
+        error_threshold = 1e-12
         ok_error_threshold = 1e-5
         max_iter = 100
-
+        mixing = 0.5
         errors = []
         found_vals_vecs = []
         for l2, trial in angular_momenta_trials:
@@ -201,8 +201,9 @@ class AllElectronResponse:
                     ##Check for convergence
                     error = np.abs(1 - self.dot(new_trial, current_trial))
                     errors.append(error)
-                    current_trial = new_trial
-
+                    current_trial = (1-mixing)*current_trial + mixing*new_trial
+                    current_trial = current_trial/np.sqrt(self.dot(current_trial, current_trial))
+                    assert np.allclose(self.dot(current_trial, current_trial), 1)
 
 
 
@@ -210,6 +211,7 @@ class AllElectronResponse:
                     if error < error_threshold:
                         print("")
                         found_vals_vecs.append((current_eigval, new_trial))
+                        np.savetxt("errors.txt", errors)
                         break
                     elif num_iter >= max_iter:
                         if error < ok_error_threshold:
@@ -265,19 +267,13 @@ class AllElectronResponse:
 
         for l, channel in enumerate(self.all_electron_atom.channels):
 
-            #Need to solve for u in psi = ru. AeAtom module is set up this way.
-            #Do it same way to reuse as much as possible from AeAtom
-
-#            gaussian_trial_r = np.array([[self.integrate(trial_r*g1)*g2 for g2 in channel.basis.basis_bg] for g1 in channel.basis.basis_bg])
-
             gaussian_trial = self.get_trial_matrix(channel, trial)
                     
-
-
             hamiltonian = self.get_hamiltonian(channel)
-
             valence_projector = self.get_valence_projector(channel)
+
             gs_norms = np.diag([self.integrate(g*g) for g in channel.basis.basis_bg])
+
             valence_normed = np.dot(valence_projector, gs_norms)
             ham_normed = np.dot(hamiltonian, gs_norms)
 
@@ -285,34 +281,43 @@ class AllElectronResponse:
 
             conduction_projector = np.eye(valence_projector.shape[0]) - valence_projector
             assert conduction_projector.ndim == 2
-            assert np.allclose(np.dot(conduction_projector, valence_projector), np.zeros_like(valence_projector_r))
+            assert np.allclose(np.dot(conduction_projector, valence_projector), np.zeros_like(valence_projector))
             assert not np.allclose(conduction_projector, np.zeros_like(conduction_projector))
-            alpha = 1
+            alpha = 0
 
 
             wfs = channel.C_nb
             ens = channel.e_n
-
-
+            
             sol_dict = {}
             for k, wf_en in enumerate(zip(wfs, ens)):
                 wf, en = wf_en
                 for combined_ang_momentum in range(np.abs(response_l2 - l), response_l2 + l+1):
                     for M in range(-combined_ang_momentum, combined_ang_momentum + 1):
                         for m in range(-l, l+1):
-                            LHS = (alpha*valence_normed + ham_normed - en*np.eye(ham_normed.shape))
+                            LHS = (alpha*valence_projector + hamiltonian - en*np.eye(ham_normed.shape[0]))
+
 
                             cg_coeff = self.cg_calculator.calculate(response_l2, 0, l, m, combined_ang_momentum, 0)
                             cg_coeff *= self.cg_calculator.calculate(response_l2, response_m, l, m, combined_ang_momentum, M)
                             cg_coeff *= np.sqrt((2*l+1)*(2*response_l2+1)/(4*np.pi*(2*combined_ang_momentum + 1)))
+
+
                             RHS = -np.dot(conduction_projector, np.dot(gaussian_trial, wf))*cg_coeff
-                            assert not np.allclose(gaussian_trial_r, np.zeros_like(gaussian_trial))
+                            assert not np.allclose(gaussian_trial, np.zeros_like(gaussian_trial))
                             #assert not np.allclose(RHS, np.zeros_like(RHS))
-                            delta_wf, info = bicgstab(LHS, RHS, atol = self.bicgstab_tol, tol = self.bicgstab_tol)
+                            #delta_wf, info = bicgstab(LHS, RHS, atol = self.bicgstab_tol, tol = self.bicgstab_tol, maxiter = 10000)
+                            delta_wf = np.dot(np.linalg.inv(LHS), RHS)
+                            info = 0
                             
                             if info != 0:
+                                print("Solution should be: {}".format(np.dot(np.linalg.inv(LHS), RHS)))
                                 raise ValueError("Bicgstab did not converge. Info: {}".format(info))
-                            assert np.allclose(np.dot(LHS, delta_wf), RHS, atol = self.bicgstab_tol)
+
+                            b = np.allclose(np.dot(LHS, delta_wf), RHS, atol = 1e-2)
+                            if not b:
+                                print("Error: {}".format(np.max(np.abs(np.dot(LHS, delta_wf) - RHS))))
+                            assert b
                             
                             sol_dict[(k, l, m, combined_ang_momentum, M)] = (delta_wf, wf)
                             
@@ -323,7 +328,7 @@ class AllElectronResponse:
 
         delta_n = 0
         assert len(sol_dict.keys()) != 0
-        all_zero = True
+
         for k_l_m_L_M in sol_dict:
             k, l, m, L, M = k_l_m_L_M
             delta_wf, wf = sol_dict[k_l_m_L_M]
@@ -331,12 +336,10 @@ class AllElectronResponse:
             delta_wf = channel.basis.expand(delta_wf)
             
             cg_coeff = self.cg_calculator.calculate(l, -m, L, M, response_l2, response_m)
-            if not np.allclose(cg_coeff, 0):
-                all_zero = False
+
 
                 
             delta_n += wf.conj()*delta_wf*cg_coeff
-        assert not all_zero
         assert not np.allclose(self.dot(delta_n, delta_n), 0)
         return delta_n
 
@@ -345,10 +348,13 @@ class AllElectronResponse:
     def get_trial_matrix(self, channel, trial):
         size = len(channel.basis)
         trial_matrix = np.zeros((size, size))
-        
+
         for k1, g1 in enumerate(channel.basis.basis_bg):
             for k2, g2 in enumerate(channel.basis.basis_bg):
-                trial_matrix[k1,k2] = self.integrate(g1*g2*trial)
+                n1 = np.sqrt(self.integrate(g1*g1))
+                n2 = np.sqrt(self.integrate(g2*g2))
+                trial_matrix[k1,k2] = self.integrate(g1*g2*trial)/(n1*n2)
+        assert not np.allclose(trial_matrix, np.zeros_like(trial_matrix))
         return trial_matrix
 
     def get_hamiltonian(self, channel):
@@ -365,7 +371,7 @@ class AllElectronResponse:
         '''
         Pv = 0
 
-        wfs = channel.C_n
+        wfs = channel.C_nb
         ens = channel.e_n
 
         for wf, en in zip(wfs, ens):
