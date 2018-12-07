@@ -27,6 +27,12 @@ class MGGA(XCFunctional):
     def get_setup_name(self):
         return 'PBE'
 
+    # This method exists on GGA class as well.  Try to solve this
+    # kind of problem when refactoring MGGAs one day.
+    def get_description(self):
+        return ('{} with {} nearest neighbor stencil'
+                .format(self.name, self.stencil))
+
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.wfs = wfs
         self.tauct = density.get_pseudo_core_kinetic_energy_density_lfc()
