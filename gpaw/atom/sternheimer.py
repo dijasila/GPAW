@@ -270,16 +270,17 @@ class AllElectronResponse:
 
 #            gaussian_trial_r = np.array([[self.integrate(trial_r*g1)*g2 for g2 in channel.basis.basis_bg] for g1 in channel.basis.basis_bg])
 
-            gaussian_trial = np.zeros((len(channel.basis), len(channel.basis)))
-            for k1, g1 in enumerate(channel.basis.basis_bg):
-                for k2, g2 in enumerate(channel.basis.basis_bg):
-                    gaussian_trial[k1,k2] = self.integrate(trial*g1*g2, n = -1)
+            gaussian_trial = self.get_trial_matrix(channel, trial)
                     
 
 
-            hamiltonian = self._get_hamiltonian(channel)
+            hamiltonian = self.get_hamiltonian(channel)
 
             valence_projector = self.get_valence_projector(channel)
+            gs_norms = np.diag([self.integrate(g*g) for g in channel.basis.basis_bg])
+            valence_normed = np.dot(valence_projector, gs_norms)
+            ham_normed = np.dot(hamiltonian, gs_norms)
+
             assert valence_projector.ndim == 2
 
             conduction_projector = np.eye(valence_projector.shape[0]) - valence_projector
@@ -299,7 +300,7 @@ class AllElectronResponse:
                 for combined_ang_momentum in range(np.abs(response_l2 - l), response_l2 + l+1):
                     for M in range(-combined_ang_momentum, combined_ang_momentum + 1):
                         for m in range(-l, l+1):
-                            LHS = (alpha*valence_projector + hamiltonian - en*np.eye(hamiltonian.shape))#*self.all_electron_atom.rgd.r_g**2
+                            LHS = (alpha*valence_normed + ham_normed - en*np.eye(ham_normed.shape))
 
                             cg_coeff = self.cg_calculator.calculate(response_l2, 0, l, m, combined_ang_momentum, 0)
                             cg_coeff *= self.cg_calculator.calculate(response_l2, response_m, l, m, combined_ang_momentum, M)
@@ -340,49 +341,38 @@ class AllElectronResponse:
         return delta_n
 
 
-    def _get_hamiltonian(self, channel):
-        channel_momentum = channel.l
 
+    def get_trial_matrix(self, channel, trial):
+        size = len(channel.basis)
+        trial_matrix = np.zeros((size, size))
+        
+        for k1, g1 in enumerate(channel.basis.basis_bg):
+            for k2, g2 in enumerate(channel.basis.basis_bg):
+                trial_matrix[k1,k2] = self.integrate(g1*g2*trial)
+        return trial_matrix
+
+    def get_hamiltonian(self, channel):
         atom_vr = self.all_electron_atom.vr_sg[channel.s]
         hamiltonian = channel.basis.calculate_potential_matrix(atom_vr)
         hamiltonian += channel.basis.T_bb
 
-        space_size = len(self.all_electron_atom.rgd.r_g)
-        space_hamiltonian = np.zeros((space_size, space_size))
-        for k1, g1 in enumerate(channel.basis.basis_bg):
-            for k2, g2 in enumerate(channel.basis.basis_bg):
-                space_hamiltonian += hamiltonian[k1,k2]*np.outer(g1, g2)
-
-        gaussian_hamiltonian = np.zeros_like(hamiltonian)
-
-        for k1, g1 in enumerate(channel.basis.basis_bg):
-            for k2, g2 in enumerate(channel.basis.basis_bg):
-                gaussian_hamiltonian[k1,k2] = self.dot(g1, self.dot(space_hamiltonian, g2, n = 1), n = -1)
-        return gaussian_hamiltonian
+        return hamiltonian
                 
 
     def get_valence_projector(self, channel):
         '''
         Returns the operator P_v
         '''
-        channel_momentum = channel.l
-        size_of_basis = len(channel.basis)
+        Pv = 0
 
-        Pv = np.zeros((size_of_basis, size_of_basis))
+        wfs = channel.C_n
+        ens = channel.e_n
 
-        for k1, g1 in enumerate(channel.basis.basis_bg):
-            for k2, g2 in enumerate(channel.basis.basis_bg):
-                for vec, en in zip(channel.C_nb, channel.e_n): 
-                    if en > self.chemical_potential:
-                        break
+        for wf, en in zip(wfs, ens):
+            if en > self.chemical_potential:
+                break
+            Pv += np.outer(wf, wf.conj())
 
-                    u_n = channel.basis.expand(vec)
-                    element = self.integrate(u_n*g2, n = channel_momentum)
-                    element *= self.integrate(u_n*g1, n = channel_momentum)
-                    Pv[k1, k2] = element
-            
-
-        assert np.allclose(np.dot(Pv, Pv), Pv)
 
         return Pv
 
