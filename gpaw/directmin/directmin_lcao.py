@@ -8,7 +8,6 @@ from gpaw.directmin.ls_lcao import UnitStepLength, \
     StrongWolfeConditions, Parabola
 from gpaw.lcao.eigensolver import DirectLCAO
 from scipy.linalg import expm  # , expm_frechet
-# from gpaw.utilities.memory import maxrss
 from gpaw.utilities.tools import tri2full
 
 
@@ -275,7 +274,7 @@ class DirectMinLCAO(DirectLCAO):
 
                         wfs.timer.start('Pade Approximants')
                         # this function takes a lot of memory
-                        # for large matrices...
+                        # for large matrices... what can we do?
                         u_nn = expm(a)
                         del a
                         wfs.timer.stop('Pade Approximants')
@@ -320,8 +319,6 @@ class DirectMinLCAO(DirectLCAO):
             h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
             # make matrix hermitian
             tri2full(h_mm)
-            # ind_l = np.tril_indices(h_mm.shape[0], -1)
-            # h_mm[(ind_l[1], ind_l[0])] = h_mm[ind_l].conj()
             g_mat_u[k], error = self.get_gradients(h_mm, kpt.C_nM,
                                                    kpt.f_n,
                                                    a_mat_u[k],
@@ -333,8 +330,6 @@ class DirectMinLCAO(DirectLCAO):
         wfs.timer.stop('Calculate gradients')
 
         self.get_en_and_grad_iters += 1
-
-        # raise SystemExit(0)
 
         return e_total, g_mat_u
 
@@ -564,7 +559,7 @@ class DirectMinLCAO(DirectLCAO):
                     return self.precond
             else:
                 # it's a bit messy, here you store self.heis,
-                # but in if above self.precond
+                # but in 'if' above self.precond
                 precond = {}
                 for kpt in wfs.kpt_u:
                     k = self.n_kps * kpt.s + kpt.q
