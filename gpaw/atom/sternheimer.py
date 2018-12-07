@@ -24,12 +24,12 @@ class AllElectronResponse:
         self.initialize()
 
         ang_num = min(3, len(all_electron_atom.channels)-1)
-        print("Testing for angular number: {}".format(ang_num))
+ #       print("Testing for angular number: {}".format(ang_num))
         chempot = (all_electron_atom.channels[ang_num].e_n[1] + all_electron_atom.channels[ang_num].e_n[0])/2
         self.chemical_potential = chempot
-        self.calculate_exact_chi_channel(ang_num, 0, chempot)
+#        self.calculate_exact_chi_channel(ang_num, 0, chempot)
 
-        self.get_valence_projector_r(all_electron_atom.channels[ang_num])
+  #      self.get_valence_projector_r(all_electron_atom.channels[ang_num])
 
         #import matplotlib.pyplot as plt
         #plt.plot(all_electron_atom.channels[ang_num].basis.basis_bg[0])
@@ -89,7 +89,7 @@ class AllElectronResponse:
 
 
 
-    def calculate_exact_chi_channel(self, angular_number, omega = 0, temp = 0, chemical_potential = 0, eta = 0.001):
+    def calculate_exact_chi_channel(self, angular_number, omega = 0, temp = 0, chemical_potential = None, eta = 0.001):
         '''
         This function returns chi (the response function) projected to the angular number (total angular momentum number) specified, i.e. returns chi(r,r')_l where
 
@@ -98,48 +98,48 @@ class AllElectronResponse:
         (independent of m due to spherical symmetry)
 
         '''
+        if chemical_potential is None:
+            chemical_potential = self.chemical_potential
         #TODO can be made more efficient by only summing over pairs where n_1 < n_2 and then using symmetries of chi to get the rest.
         radial_wfs, energies = self._get_radial_modes(angular_number)
+        wf_en_tups = list(zip(radial_wfs, energies))
 
-        wf_en_tups = zip(radial_wfs, energies)
-        
-        combos = itertools.product(wf_en_tups, wf_en_tups)
-        print("number of wavefunctions: {}".format(len(radial_wfs)))
+        combos = list(itertools.product(wf_en_tups, wf_en_tups))
         def delta(pair):
             wf_en1, wf_en2 = pair
             wf1, en1 = wf_en1
             wf2, en2 = wf_en2
 
-            delta = np.outer(wf1.conj(), wf1)
-            delta += np.outer(wf2.conj(), wf2)
+            d = np.outer(wf1.conj(), wf1).astype(np.complex128)
+            d *= np.outer(wf2, wf2.conj())
+            assert not np.allclose(d, np.zeros_like(d))
 
-            delta *= fermi_function(en1, temp, chemical_potential) - fermi_function(en2, temp, chemical_potential)
-            delta *= 1/(en1 - en2 + omega + 1j*eta)
+            d *= fermi_function(en1, temp, chemical_potential) - fermi_function(en2, temp, chemical_potential)
+            d *= 1/(en1 - en2 + omega + 1j*eta)
 
-            return delta
+            return d
             
 
         chi_channel = reduce(lambda a, b : a + delta(b), combos, 0)
-
         return chi_channel
 
 
     def _get_radial_modes(self, angular_number):
         channel = self.all_electron_atom.channels[angular_number]
 
-        states = channel.phi_ng
+        states = [channel.basis.expand(C) for C in channel.C_nb]
         energies = channel.e_n
 
         return states, energies
         
 
 
-    def sternheimer_calculation(self, omega = 0, num_eig_vecs = 1, return_only_eigenvalues = True):
+    def sternheimer_calculation(self, omega = 0, angular_momenta = [0], return_only_eigenvalues = True):
         #trial_potentials = self._get_random_trial_potentials(num_eig_vecs, len(self.radial_grid))
         
 
         #channel_number = min(3, len(all_electron_atom.channels)-1)
-        total_angular_momenta= [(0, np.ones(self.radial_grid.shape))]
+        total_angular_momenta = [(l, np.ones(self.radial_grid.shape)) for l in angular_momenta]
         vals, vecs = self._iterative_solve(omega, total_angular_momenta)
         print("Done")
         #From output of iterative solver reconstruct epsilon/chi or just return eigvals
@@ -166,7 +166,7 @@ class AllElectronResponse:
         ok_error_threshold = 1e-5
         max_iter = 100
 
-        
+        errors = []
         found_vals_vecs = []
         for l2, trial in angular_momenta_trials:
    #     for l2 in total_angular_momenta:
@@ -180,7 +180,7 @@ class AllElectronResponse:
                 while True:
                 ##Main calculation
                     if (num_iter % 10) == 0 or True:
-                        print("Iteration number:       {}".format(num_iter))
+                        print("Iteration number:       {}".format(num_iter), end = "\r")
                     num_iter += 1
                     
                     #trial = self._orthonormalize(trial, list(map(lambda a : a[1], found_vals_vecs)))
@@ -200,7 +200,7 @@ class AllElectronResponse:
 
                     ##Check for convergence
                     error = np.abs(1 - self.dot(new_trial, current_trial))
-
+                    errors.append(error)
                     current_trial = new_trial
 
 
@@ -208,14 +208,18 @@ class AllElectronResponse:
 
 
                     if error < error_threshold:
+                        print("")
                         found_vals_vecs.append((current_eigval, new_trial))
                         break
                     elif num_iter >= max_iter:
                         if error < ok_error_threshold:
                             found_vals_vecs.append((current_eigval, new_trial))
+                            print("")
                             print("Warning: error in Sternheimer iterations was {} for eigenvalue {}".format(error, current_eigval))
                             break
                         else:
+                            print("")
+                            np.savetxt("errors.txt", errors)
                             raise ValueError("Sternheimer iteration did not converge")
                             
         if len(found_vals_vecs) != len(angular_momenta_trials):
@@ -263,32 +267,25 @@ class AllElectronResponse:
 
             #Need to solve for u in psi = ru. AeAtom module is set up this way.
             #Do it same way to reuse as much as possible from AeAtom
-            trial_r = trial*self.all_electron_atom.rgd.r_g
 
 #            gaussian_trial_r = np.array([[self.integrate(trial_r*g1)*g2 for g2 in channel.basis.basis_bg] for g1 in channel.basis.basis_bg])
 
-            gaussian_trial_r = np.zeros((len(channel.basis), len(channel.basis)))
+            gaussian_trial = np.zeros((len(channel.basis), len(channel.basis)))
             for k1, g1 in enumerate(channel.basis.basis_bg):
                 for k2, g2 in enumerate(channel.basis.basis_bg):
-                    k1k2_val = 0
-                    for g3 in channel.basis.basis_bg:
-                        k1k2_val += self.integrate(trial_r*g3*g2*g1)
-                    assert not np.allclose(k1k2_val, 0)
-                    gaussian_trial_r[k1,k2] = k1k2_val
+                    gaussian_trial[k1,k2] = self.integrate(trial*g1*g2, n = -1)
                     
 
-            hamiltonian = channel.basis.calculate_potential_matrix(trial_r)
-            atom_vr = self.all_electron_atom.vr_sg[channel.s]
-            hamiltonian += channel.basis.calculate_potential_matrix(atom_vr)
-            hamiltonian += channel.basis.T_bb
 
-            valence_projector_r = self.get_valence_projector_r(channel)
-            assert valence_projector_r.ndim == 2
+            hamiltonian = self._get_hamiltonian(channel)
 
-            conduction_projector_r = np.eye(valence_projector_r.shape[0]) - valence_projector_r
-            assert conduction_projector_r.ndim == 2
-            assert np.allclose(np.dot(conduction_projector_r, valence_projector_r), np.zeros_like(valence_projector_r))
+            valence_projector = self.get_valence_projector(channel)
+            assert valence_projector.ndim == 2
 
+            conduction_projector = np.eye(valence_projector.shape[0]) - valence_projector
+            assert conduction_projector.ndim == 2
+            assert np.allclose(np.dot(conduction_projector, valence_projector), np.zeros_like(valence_projector_r))
+            assert not np.allclose(conduction_projector, np.zeros_like(conduction_projector))
             alpha = 1
 
 
@@ -302,14 +299,14 @@ class AllElectronResponse:
                 for combined_ang_momentum in range(np.abs(response_l2 - l), response_l2 + l+1):
                     for M in range(-combined_ang_momentum, combined_ang_momentum + 1):
                         for m in range(-l, l+1):
-                            LHS = (alpha*valence_projector_r + hamiltonian - en)#*self.all_electron_atom.rgd.r_g**2
+                            LHS = (alpha*valence_projector + hamiltonian - en*np.eye(hamiltonian.shape))#*self.all_electron_atom.rgd.r_g**2
 
                             cg_coeff = self.cg_calculator.calculate(response_l2, 0, l, m, combined_ang_momentum, 0)
                             cg_coeff *= self.cg_calculator.calculate(response_l2, response_m, l, m, combined_ang_momentum, M)
-                            assert not np.allclose(cg_coeff, 0)
-                            RHS = -np.dot(conduction_projector_r, np.dot(gaussian_trial_r, wf))*cg_coeff
-                            assert not np.allclose(gaussian_trial_r, np.zeros_like(gaussian_trial_r))
-                            assert not np.allclose(RHS, np.zeros_like(RHS))
+                            cg_coeff *= np.sqrt((2*l+1)*(2*response_l2+1)/(4*np.pi*(2*combined_ang_momentum + 1)))
+                            RHS = -np.dot(conduction_projector, np.dot(gaussian_trial, wf))*cg_coeff
+                            assert not np.allclose(gaussian_trial_r, np.zeros_like(gaussian_trial))
+                            #assert not np.allclose(RHS, np.zeros_like(RHS))
                             delta_wf, info = bicgstab(LHS, RHS, atol = self.bicgstab_tol, tol = self.bicgstab_tol)
                             
                             if info != 0:
@@ -343,38 +340,66 @@ class AllElectronResponse:
         return delta_n
 
 
+    def _get_hamiltonian(self, channel):
+        channel_momentum = channel.l
 
-    def get_valence_projector_r(self, channel):
+        atom_vr = self.all_electron_atom.vr_sg[channel.s]
+        hamiltonian = channel.basis.calculate_potential_matrix(atom_vr)
+        hamiltonian += channel.basis.T_bb
+
+        space_size = len(self.all_electron_atom.rgd.r_g)
+        space_hamiltonian = np.zeros((space_size, space_size))
+        for k1, g1 in enumerate(channel.basis.basis_bg):
+            for k2, g2 in enumerate(channel.basis.basis_bg):
+                space_hamiltonian += hamiltonian[k1,k2]*np.outer(g1, g2)
+
+        gaussian_hamiltonian = np.zeros_like(hamiltonian)
+
+        for k1, g1 in enumerate(channel.basis.basis_bg):
+            for k2, g2 in enumerate(channel.basis.basis_bg):
+                gaussian_hamiltonian[k1,k2] = self.dot(g1, self.dot(space_hamiltonian, g2, n = 1), n = -1)
+        return gaussian_hamiltonian
+                
+
+    def get_valence_projector(self, channel):
         '''
-        Returns the operator P_v \times r
+        Returns the operator P_v
         '''
+        channel_momentum = channel.l
+        size_of_basis = len(channel.basis)
 
-        Pv = 0
+        Pv = np.zeros((size_of_basis, size_of_basis))
 
-        for vec, en in zip(channel.C_nb, channel.e_n):
-            if en > self.chemical_potential:
-                break
-            Pv += np.outer(vec, vec.conj())
+        for k1, g1 in enumerate(channel.basis.basis_bg):
+            for k2, g2 in enumerate(channel.basis.basis_bg):
+                for vec, en in zip(channel.C_nb, channel.e_n): 
+                    if en > self.chemical_potential:
+                        break
+
+                    u_n = channel.basis.expand(vec)
+                    element = self.integrate(u_n*g2, n = channel_momentum)
+                    element *= self.integrate(u_n*g1, n = channel_momentum)
+                    Pv[k1, k2] = element
+            
 
         assert np.allclose(np.dot(Pv, Pv), Pv)
 
         return Pv
 
 
-    def get_valence_projector(self):
-        raise NotImplementedError
-
-
-    def dot(self, x1, x2):
+    def dot(self, x1, x2, n = 0):
         #Implements dot product with proper volume measure
         gd = self.all_electron_atom.rgd
-
-        return gd.integrate(x1.conj()*x2, n = 0)
-        
-    def integrate(self, function):
+        if x1.ndim == 1 and x2.ndim == 1:
+            return gd.integrate(x1.conj()*x2, n = n)/(4*np.pi)
+        elif x1.ndim == 2 and x2.ndim == 1:
+            return gd.integrate(x1*x2, n = n)/(4*np.pi)
+        else:
+            raise NotImplementedError
+    def integrate(self, function, n = 0):
         gd = self.all_electron_atom.rgd
 
-        return gd.integrate(function, n = 0)
+        return gd.integrate(function, n = n)/(4*np.pi)
 
     def delta_function_norm(self):
         raise NotImplementedError
