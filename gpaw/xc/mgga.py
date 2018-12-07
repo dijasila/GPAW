@@ -14,7 +14,7 @@ from gpaw.sphere.lebedev import weight_n
 class MGGA(XCFunctional):
     orbital_dependent = True
 
-    def __init__(self, kernel, stencil=1):
+    def __init__(self, kernel, stencil=2):
         """Meta GGA functional."""
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel

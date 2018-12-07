@@ -170,7 +170,7 @@ def get_gradient_ops(gd, nn):
 
 
 class GGA(XCFunctional):
-    def __init__(self, kernel, stencil=1):
+    def __init__(self, kernel, stencil=2):
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
         self.stencil_range = stencil
