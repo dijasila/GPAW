@@ -1,7 +1,7 @@
 from ase.units import Hartree
 import numpy as np
 from gpaw.utilities.blas import mmm  # , dotc, dotu
-from gpaw.directmin.tools import D_matrix, expm_ed_numpy # , expm_ed
+from gpaw.directmin.tools import D_matrix, expm_ed_numpy  # , expm_ed
 from gpaw.directmin.sd_lcao import SteepestDescent, FRcg, HZcg, \
     QuickMin, LBFGS, LBFGS_P
 from gpaw.directmin.ls_lcao import UnitStepLength, \
@@ -32,18 +32,44 @@ class DirectMinLCAO(DirectLCAO):
         self.memory_lbfgs = memory_lbfgs
         self.use_prec = use_prec
         self.use_scipy = use_scipy
-        self.sparse = sparse
-
-        if self.sparse:
-            if self.sparse != self.use_scipy:
-                raise NotImplementedError('Use scipy with sparse=True')
+        if use_scipy:
+            self.sparse = sparse  # sparse is only with scipy yet
+        else:
+            self.sparse = False
         self.iters = 0
+        self.name = 'direct_min'
 
-    def __str__(self):
+        if self.sda == 'LBFGS_P' and not self.use_prec:
+            raise Exception('Use LBFGS_P with use_prec=True')
 
-        return 'Direct Minimisation'
+    def __repr__(self):
 
-    def initialize_2(self, wfs, dens):
+        sds = {'SD': 'Steepest Descent',
+               'FRcg': 'Fletcher-Reeves conj. grad. method',
+               'HZcg': 'Hager-Zhang conj. grad. method',
+               'QuickMin': 'Molecular-dynamics based algorithm',
+               'LBFGS': 'LBFGS algorithm',
+               'LBFGS_P': 'LBFGS algorithm with preconditioning'}
+
+        lss = {'UnitStep': 'step size equals one',
+               'Parabola': 'Parabolic line search',
+               'SwcAwc': 'Inexact line search based '
+                         'on cubic interpolation,\n'
+                         '                    strong'
+                         ' and approximate Wolfe conditions'}
+
+        repr_string = 'Direct minimisation using exponential ' \
+                      'transformation.\n'
+        repr_string += '       ' \
+                       'Search direction: {}\n'.format(sds[self.sda])
+        repr_string += '       ' \
+                       'Line search: {}\n'.format(lss[self.lsa])
+        repr_string += '       ' \
+                       'Preconditioning: {}\n'.format(self.use_prec)
+
+        return repr_string
+
+    def initialize_2(self, wfs):
 
         self.dtype = wfs.dtype
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
@@ -65,53 +91,41 @@ class DirectMinLCAO(DirectLCAO):
         self.evals = {}
 
         if self.sparse:
+            # we may want to use different shapes for different
+            # kpts, for example metals or sic, but later..
             max = wfs.basis_functions.Mmax
             nax = self.nvalence = wfs.nvalence
             ind_up = np.triu_indices(max, 1)
-            self.ind_up = {}
-            for kpt in wfs.kpt_u:
-                u = kpt.s * self.n_kps + kpt.q
-                x = (max - nax)*(max - nax-1)//2
-                self.ind_up[u] = (ind_up[0][:-x],
-                                  ind_up[1][:-x])
-                length = len(self.ind_up[u][0])
-                self.a_mat_u[u] = np.zeros(shape=length,
-                                           dtype=self.dtype)
-                self.g_mat_u[u] = np.zeros(shape=length,
-                                           dtype=self.dtype)
-                # use initial KS orbitals, but can be others
-                self.c_nm_ref[u] = np.copy(kpt.C_nM[:self.n_dim[u]])
-                self.evecs[u] = None
-                self.evals[u] = None
+            x = (max - nax) * (max - nax - 1) // 2
+            self.ind_up = (ind_up[0][:-x], ind_up[1][:-x])
             del ind_up
-        else:
-            for kpt in wfs.kpt_u:
-                k = self.n_kps * kpt.s + kpt.q
-                self.a_mat_u[k] = np.zeros(shape=(self.n_dim[k],
-                                                  self.n_dim[k]),
-                                           dtype=self.dtype)
-                self.g_mat_u[k] = np.zeros(shape=(self.n_dim[k],
-                                                  self.n_dim[k]),
-                                           dtype=self.dtype)
-                # use initial KS orbitals, but can be others
-                self.c_nm_ref[k] = np.copy(kpt.C_nM[:self.n_dim[k]])
-                self.evecs[k] = None
-                self.evals[k] = None
+
+        for kpt in wfs.kpt_u:
+            u = self.n_kps * kpt.s + kpt.q
+            if self.sparse:
+                shape_of_arr = len(self.ind_up[0])
+            else:
+                shape_of_arr = (self.n_dim[u], self.n_dim[u])
+
+            self.a_mat_u[u] = np.zeros(shape=shape_of_arr,
+                                       dtype=self.dtype)
+            self.g_mat_u[u] = np.zeros(shape=shape_of_arr,
+                                       dtype=self.dtype)
+            # use initial KS orbitals, but can be others
+            self.c_nm_ref[u] = np.copy(kpt.C_nM[:self.n_dim[u]])
+            self.evecs[u] = None
+            self.evals[u] = None
 
         self.alpha = 1.0  # step length
         self.phi = [None, None]  # energy at alpha and alpha old
-        self.der_phi = [None, None] # gradients at alpha and alpha old
+        self.der_phi = [None, None]  # gradients at alpha and al. old
         self.precond = None
 
         self.iters = 1
-
         self.nvalence = wfs.nvalence
         self.kd_comm = wfs.kd.comm
-
-        # heissian for LBFGS-P
-        self.heiss = {}
-        # precondiner for other methods
-        self.precond = {}
+        self.heiss = {}  # heissian for LBFGS-P
+        self.precond = {}  # precondiner for other methods
 
     def initialize_sd_and_ls(self, wfs, method, ls_method):
 
@@ -155,6 +169,8 @@ class DirectMinLCAO(DirectLCAO):
             'Please, use: nbands=\'nao\''
         assert wfs.bd.comm.size == 1, \
             'Band parallelization is not supported'
+        assert occ.width < 1.0e-5, \
+            'Zero Kelvin only.'
 
         wfs.timer.start('Direct Minimisation step')
 
@@ -163,15 +179,14 @@ class DirectMinLCAO(DirectLCAO):
             # first iteration is diagonilisation using super class
             super().iterate(ham, wfs)
             occ.calculate(wfs)
-            self.initialize_2(wfs, dens)
-            # wfs.timer.stop('Direct Minimisation step')
-            # return
+            self.initialize_2(wfs)
 
         wfs.timer.start('Preconditioning:')
         precond = \
             self.update_preconditioning_and_ref_orbitals(ham, wfs,
-                                                         dens, occ,
-                                                         self.use_prec)
+                                                         occ,
+                                                         self.use_prec
+                                                         )
         wfs.timer.stop('Preconditioning:')
 
         a = self.a_mat_u
@@ -201,8 +216,7 @@ class DirectMinLCAO(DirectLCAO):
                     il1 = np.tril_indices(g[k].shape[0])
                 else:
                     il1 = np.tril_indices(g[k].shape[0], -1)
-                der_phi_c += np.dot(g[k][il1].conj(),
-                                    p[k][il1]).real
+                der_phi_c += np.dot(g[k][il1].conj(), p[k][il1]).real
                 # der_phi_c += dotc(g[k][il1], p[k][il1]).real
         der_phi_c = wfs.kd.comm.sum(der_phi_c)
         der_phi[0] = der_phi_c
@@ -266,7 +280,7 @@ class DirectMinLCAO(DirectLCAO):
                         # make skew-hermitian matrix
                         a = np.zeros(shape=(n_dim[k], n_dim[k]),
                                      dtype=self.dtype)
-                        a[self.ind_up[k]] = a_mat_u[k]
+                        a[self.ind_up] = a_mat_u[k]
 
                         def antihermitian(src, dst):
                             np.conj(-src, dst)
@@ -321,7 +335,6 @@ class DirectMinLCAO(DirectLCAO):
             tri2full(h_mm)
             g_mat_u[k], error = self.get_gradients(h_mm, kpt.C_nM,
                                                    kpt.f_n,
-                                                   a_mat_u[k],
                                                    self.evecs[k],
                                                    self.evals[k],
                                                    kpt, wfs.timer)
@@ -339,8 +352,7 @@ class DirectMinLCAO(DirectLCAO):
         ham.update(dens, wfs, False)
         return ham.get_energy(occ, False)
 
-    def get_gradients(self, h_mm, c_nm, f_n, a_mat, evec, evals,
-                      kpt, timer):
+    def get_gradients(self, h_mm, c_nm, f_n, evec, evals, kpt, timer):
 
         timer.start('Construct Gradient Matrix')
         hc_mn = np.zeros(shape=(c_nm.shape[1], c_nm.shape[0]),
@@ -355,12 +367,12 @@ class DirectMinLCAO(DirectLCAO):
 
         # let's also calculate residual here.
         # it's extra calculation though, maybe it's better to use
-        # norm of grad
+        # norm of grad as convergence criteria..
         timer.start('Residual')
         n_occ = 0
-        for f in kpt.f_n:
-            if f > 1.0e-10:
-                n_occ += 1
+        nbands = len(f_n)
+        while n_occ < nbands and f_n[n_occ] > 1e-10:
+            n_occ += 1
         # what if there are empty states between occupied?
         rhs = np.zeros(shape=(c_nm.shape[1], n_occ),
                        dtype=self.dtype)
@@ -383,20 +395,20 @@ class DirectMinLCAO(DirectLCAO):
 
         # continue with gradients
         timer.start('Construct Gradient Matrix')
-        h_mm = f_n[:, np.newaxis] * h_mm - f_n * h_mm
+        h_mm = f_n * h_mm - f_n[:, np.newaxis] * h_mm
         if self.use_scipy:
             timer.start('Derivative')
             # frechet derivative, unfortunately it calculates unitary
             # matrix which we already calculated before. Could it be used?
             # it also requires a lot of memory so don't use it now
-            # u, grad = expm_frechet(a_mat, h_mm.T.conj(),
+            # u, grad = expm_frechet(a_mat, h_mm,
             #                        compute_expm=True,
             #                        check_finite=False)
             # grad = grad @ u.T.conj()
             if self.sparse:
-                grad = np.ascontiguousarray(h_mm.T.conj()[self.ind_up[k]])
+                grad = np.ascontiguousarray(h_mm[self.ind_up])
             else:
-                grad = np.ascontiguousarray(h_mm.T.conj())
+                grad = np.ascontiguousarray(h_mm)
             timer.stop('Derivative')
         else:
             # this one uses eigendecomposition of a_mat
@@ -409,15 +421,6 @@ class DirectMinLCAO(DirectLCAO):
             # for i in range(grad.shape[0]):
             #     grad[i][i] *= 0.5
 
-            # expm_ed_numpy
-            timer.start('Use Eigendecomposition')
-            grad = evec.T.conj() @ h_mm.T.conj() @ evec
-            grad = grad * D_matrix(evals)
-            grad = evec @ grad @ evec.T.conj()
-            timer.stop('Use Eigendecomposition')
-            for i in range(grad.shape[0]):
-                grad[i][i] *= 0.5
-
             # the same using mmm, doesn't seem to be faster though
             # grad = np.empty_like(evec)
             # h_mm = h_mm.astype(complex)
@@ -428,24 +431,28 @@ class DirectMinLCAO(DirectLCAO):
             # mmm(1.0, evec, 'N', grad, 'N', 0.0, h_mm)
             # mmm(1.0, h_mm, 'N', evec, 'C', 0.0, grad)
 
+            # expm_ed_numpy
+            timer.start('Use Eigendecomposition')
+            grad = evec.T.conj() @ h_mm @ evec
+            grad = grad * D_matrix(evals)
+            grad = evec @ grad @ evec.T.conj()
+            timer.stop('Use Eigendecomposition')
+            for i in range(grad.shape[0]):
+                grad[i][i] *= 0.5
+
         timer.stop('Construct Gradient Matrix')
 
-        if a_mat.dtype == float:
+        if self.dtype == float:
             return 2.0 * grad.real, error
         else:
             return 2.0 * grad, error
 
     def get_search_direction(self, a_mat_u, g_mat_u, precond, wfs):
 
-        # structure of vector is
-        # (x_1_up, x_2_up,..,y_1_up, y_2_up,..,
-        #  x_1_down, x_2_down,..,y_1_down, y_2_down,.. )
-
         if self.sparse:
-            p_mat_u = self.search_direction.update_data(wfs,
-                                                      a_mat_u,
-                                                      g_mat_u,
-                                                      precond)
+            p_mat_u = self.search_direction.update_data(wfs, a_mat_u,
+                                                        g_mat_u,
+                                                        precond)
         else:
             g_vec = {}
             a_vec = {}
@@ -459,8 +466,8 @@ class DirectMinLCAO(DirectLCAO):
                 a_vec[k] = a_mat_u[k][il1]
                 g_vec[k] = g_mat_u[k][il1]
 
-            p_vec = self.search_direction.update_data(wfs, a_vec, g_vec,
-                                                      precond)
+            p_vec = self.search_direction.update_data(wfs, a_vec,
+                                                      g_vec, precond)
             del a_vec, g_vec
 
             p_mat_u = {}
@@ -519,8 +526,8 @@ class DirectMinLCAO(DirectLCAO):
 
         return phi, der_phi, g_mat_u
 
-    def update_preconditioning_and_ref_orbitals(self, ham, wfs, dens,
-                                                occ, use_prec):
+    def update_preconditioning_and_ref_orbitals(self, ham, wfs, occ,
+                                                use_prec):
         counter = self.update_ref_orbs_counter
         if self.iters % counter == 0 or self.iters == 1:
             if self.iters > 1:
@@ -529,7 +536,7 @@ class DirectMinLCAO(DirectLCAO):
                 super().iterate(ham, wfs)
                 occ.calculate(wfs)
                 # probably choose new reference orbitals?
-                self.initialize_2(wfs, dens)
+                self.initialize_2(wfs)
         if use_prec:
             if self.sda != 'LBFGS_P':
                 if self.iters % counter == 0 or self.iters == 1:
@@ -585,8 +592,7 @@ class DirectMinLCAO(DirectLCAO):
         f_n = kpt.f_n
         eps_n = kpt.eps_n
         if self.sparse:
-            k = self.n_kps * kpt.s + kpt.q
-            il1 = list(self.ind_up[k])
+            il1 = list(self.ind_up)
         else:
             if self.dtype is complex:
                 il1 = np.tril_indices(eps_n.shape[0])
@@ -596,7 +602,6 @@ class DirectMinLCAO(DirectLCAO):
 
         heiss = np.zeros(len(il1[0]), dtype=self.dtype)
         x = 0
-        # it's basically two for loops. rewrite it in pythonic way.
         for l, m in zip(*il1):
             df = f_n[l] - f_n[m]
             heiss[x] = -2.0 * (eps_n[l] - eps_n[m]) * df
@@ -624,10 +629,10 @@ class DirectMinLCAO(DirectLCAO):
         # of eigensolvers
         # for some systems, it can 'mess' the solution.
         # this usually happens in metals,
-        # the so-called charge-sloshing problem..s
+        # the so-called charge-sloshing problem..
         super().iterate(ham, wfs)
         occ.calculate(wfs)
-        self.initialize_2(wfs, dens)
+        self.initialize_2(wfs)
         self.update_ks_energy(ham, wfs, dens, occ)
 
     def reset(self):
