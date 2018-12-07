@@ -7,7 +7,7 @@ from ase.utils import search_current_git_hash
 
 import gpaw
 import gpaw.fftw as fftw
-from gpaw.mpi import rank
+from gpaw.mpi import rank, have_mpi
 from gpaw.utilities import compiled_with_sl, compiled_with_libvdwxc
 from gpaw.utilities.elpa import LibElpa
 
@@ -36,10 +36,16 @@ def info():
                     op.normpath(getattr(module, '__file__', 'built-in'))))
     p = subprocess.Popen(['which', 'gpaw-python'], stdout=subprocess.PIPE)
     results.append(('parallel', p.communicate()[0].strip().decode() or False))
+    results.append(('MPI enabled', have_mpi))
+    if have_mpi:
+        have_sl = compiled_with_sl()
+        have_elpa = LibElpa.have_elpa()
+    else:
+        have_sl = have_elpa = 'no (MPI unavailable)'
+    results.append(('scalapack', have_sl))
+    results.append(('Elpa', have_elpa))
     results.append(('FFTW', fftw.FFTPlan is fftw.FFTWPlan))
-    results.append(('scalapack', compiled_with_sl()))
     results.append(('libvdwxc', compiled_with_libvdwxc()))
-    results.append(('Elpa', LibElpa.have_elpa()))
     paths = ['{0}: {1}'.format(i + 1, path)
              for i, path in enumerate(gpaw.setup_paths)]
     results.append(('PAW-datasets', '\n{:25}'.format('').join(paths)))
@@ -61,3 +67,7 @@ class CLICommand:
     @staticmethod
     def run(args):
         info()
+        if not have_mpi:
+            print()
+            print('MPI not enabled.  Check parallel configuration with: '
+                  'gpaw -P1 info')
