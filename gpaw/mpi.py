@@ -36,6 +36,7 @@ def broadcast_exception(comm):
 
     will raise ZeroDivisionError in the whole world.
     """
+    # Each core will send -1 on success or its rank on failure.
     try:
         yield
     except Exception as ex:
@@ -45,6 +46,7 @@ def broadcast_exception(comm):
             raise
     else:
         rank = comm.max(-1)
+    # rank will now be the highest failing rank or -1
     if rank >= 0:
         raise broadcast(None, rank, comm)
 
