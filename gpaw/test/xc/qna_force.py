@@ -9,6 +9,7 @@ kpts = (2, 2, 2)
 
 QNA = {'alpha': 2.0,
        'name': 'QNA',
+       'stencil': 1,
        'orbital_dependent': False,
        'parameters': {'Au': (0.125, 0.1), 'Cu': (0.0795, 0.005)},
        'setup_name': 'PBE',
@@ -41,5 +42,6 @@ F_err = F_num - F
 parprint('Analytical force = ', F)
 parprint('Numerical  force = ', F_num)
 parprint('Difference       = ', F_err)
-assert abs(F_err) < 0.01
-assert abs(E[-1] - 270.17901094) < 4e-6
+assert abs(F_err) < 0.01, F_err
+eerr = abs(E[-1] - 270.17901094)
+assert eerr < 4e-6, eerr
