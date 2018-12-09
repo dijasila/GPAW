@@ -95,6 +95,7 @@ class DirectMinLCAO(DirectLCAO):
             # kpts, for example metals or sic, but later..
             max = wfs.basis_functions.Mmax
             nax = self.nvalence = wfs.nvalence
+            nax = nax // (3 - wfs.nspins) + nax % (3 - wfs.nspins)
             ind_up = np.triu_indices(max, 1)
             x = (max - nax) * (max - nax - 1) // 2
             self.ind_up = (ind_up[0][:-x], ind_up[1][:-x])
