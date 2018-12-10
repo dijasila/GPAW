@@ -16,6 +16,13 @@ Rc = {}
 # mu dict
 mu = {'Li': 0.5,'F': 0.7, 'O': 0.7,'V': 0.5}
 
+'''
+Module for constrained DFT
+for review see Chem. Rev., 2012, 112 (1), pp 321-370
+article on GPAW implementation:
+J. Chem. Theory Comput., 2016, 12 (11), pp 5367–5378
+'''
+
 class CDFT(Calculator):
     implemented_properties = ['energy', 'forces']
 
@@ -85,8 +92,10 @@ class CDFT(Calculator):
         self.difference = use_charge_difference
         self.compute_forces = compute_forces
         # set charge constraints and lagrangians
+
         self.v_i = np.empty(shape=(0,0))
         self.constraints = np.empty(shape=(0,0))
+
         self.max_step = maxstep
         self.tol = tol
         self.gtol = minimizer_options['gtol']
@@ -251,7 +260,7 @@ class CDFT(Calculator):
             self.Ecdft += self.get_energy_correction() * Hartree
 
             # get the cDFT gradient
-            dn_i = np.empty( shape=(0, 0) )
+            dn_i = []
             Delta_n = self.get_energy_correction(return_density=True)
 
             if self.calc.density.nt_sg is None:
@@ -273,7 +282,7 @@ class CDFT(Calculator):
                 # constraint
                 diff = n_electrons - self.constraints[0:self.n_charge_regions]
                 total_electrons = np.append(total_electrons,n_electrons)
-                dn_i = np.append(dn_i,diff)
+                dn_i.append(diff)
 
             if self.n_spin_regions != 0:
                 # difference of pseudo spin densities
@@ -285,17 +294,13 @@ class CDFT(Calculator):
                 # constraint
                 diff = n_electrons - self.constraints[self.n_charge_regions:]
                 total_electrons = np.append(total_electrons,n_electrons)
-                dn_i = np.append(dn_i,diff)
+                dn_i.append(diff)
 
-            self.dn_i = dn_i
+            self.dn_i = np.asarry(dn_i)
             self.w = self.ext.w_ig
-            # Do not include external potential
-            E_KS = (self.calc.hamiltonian.e_kinetic +
-                self.calc.hamiltonian.e_coulomb +
-                self.calc.hamiltonian.e_zero +
-                self.calc.hamiltonian.e_xc -
-                self.calc.hamiltonian.e_entropy)*Hartree
 
+            # Do not include external potential
+            E_KS = get_ks_energy_wo_external(self.calc)
 
             self.Edft = E_KS
             # pseudo free energy, neglecting core electrons as done for coupling constant calculation
@@ -565,14 +570,13 @@ class CDFT(Calculator):
         return w_G
 
     def get_coarse_grid(self, save=True):
-        gd = self.calc.density.gd
 
         if save:
-            w_s = gd.collect(gd, broadcast=True)
-            if gd.comm.rank == 0:
+            w_s = self.calc.density.gd.collect(gd, broadcast=True)
+            if self.calc.density.gd.comm.rank == 0:
                 np.save('coarse_grid', w_s)
 
-        return gd
+        return self.calc.density.gd
 
 def gaussians(gd, positions, numbers):
     r_Rv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
@@ -759,7 +763,7 @@ class CDFTPotential(ExternalPotential):
         if dens.nt_sg is None:
             dens.interpolate_pseudo_density()
 
-        diff = np.empty(shape=(0,0))
+        diff = []
 
         if self.n_charge_regions != 0:
             # pseudo density
@@ -767,16 +771,16 @@ class CDFTPotential(ExternalPotential):
             charge_diff = self.gd.integrate(w[0:self.n_charge_regions],
                            nt_g, global_integral=True) \
                          - constraints[0:self.n_charge_regions]
-            diff = np.append(diff, charge_diff)
+            diff.append(charge_diff)
 
         #constrained spins
         if len(constraints) - self.n_charge_regions != 0:
             Delta_nt_g =  dens.nt_sg[0] - dens.nt_sg[1] # pseudo spin difference density
             spin_diff = self.gd.integrate(w[self.n_charge_regions:],
                     Delta_nt_g, global_integral=True) - constraints[self.n_charge_regions:]
+            diff.append(spin_diff)
 
-            diff = np.append(diff,spin_diff)
-
+        diff = np.asarray(diff)
         # number of domains
         size = self.gd.comm.size
         return np.dot(Vi, diff/size)
@@ -814,8 +818,8 @@ class WeightFunc:
             if a.symbol in Rc:
                 new[a.symbol] = Rc[a.symbol] / Bohr
             else:
-                elemement_number = atomic_numbers[a.symbol]
-                cr = covalent_radii[elemement_number]
+                element_number = atomic_numbers[a.symbol]
+                cr = covalent_radii[element_number]
                 #Rc to roughly between 3. and 5.
                 new[a.symbol] = (cr + 2.5) / Bohr
 
@@ -828,8 +832,8 @@ class WeightFunc:
             if a.symbol in mu:
                 new_mu[a.symbol] = mu[a.symbol] / Bohr
             else:
-                elemement_number = atomic_numbers[a.symbol]
-                cr = covalent_radii[elemement_number]
+                element_number = atomic_numbers[a.symbol]
+                cr = covalent_radii[element_number]
                 # mu to be roughly between 0.5 and 1.0 AA
                 cr = (cr * min(covalent_radii) + 0.5)
                 new_mu[a.symbol] = cr / Bohr
@@ -964,14 +968,10 @@ class WeightFunc:
                 raise NotImplementedError
 
             else:
-                cdft_forces[a][0] += -self.gd.integrate(
-                        wn_sg * dG_dRav[a][0], global_integral=True)
-
-                cdft_forces[a][1] += -self.gd.integrate(
-                        wn_sg * dG_dRav[a][1], global_integral=True)
-
-                cdft_forces[a][2] += -self.gd.integrate(
-                        wn_sg * dG_dRav[a][2], global_integral=True)
+                for i in [0,1,2]:
+                    cdft_forces[a][i] += -self.gd.integrate(
+                        wn_sg * dG_dRav[a][i], global_integral=True)
+                        
         return cdft_forces
 
     def get_fd_gaussian_derivatives(self, dx=1.e-4):
@@ -996,7 +996,7 @@ class WeightFunc:
                 # dG/dx
                 dGax = (Ga_posx-Ga_negx)/(2*dx)
                 dGav.append(dGax)
-                
+
             dG_dRav[atom.index] = dGav
 
         return dG_dRav
@@ -1101,6 +1101,13 @@ class WeightFunc:
             dG_dRav[atom.index] = dGa_dRav
 
         return dG_dRav
+
+def get_ks_energy_wo_external(calc):
+    return (calc.hamiltonian.e_kinetic +
+        calc.hamiltonian.e_coulomb +
+        calc.hamiltonian.e_zero +
+        calc.hamiltonian.e_xc -
+        calc.hamiltonian.e_entropy)*Hartree
 
 def get_promolecular_constraints(calc_a, calc_b, atoms, charge_regions=None,
     spin_regions=None, charges=None, spins=None):

@@ -11,7 +11,7 @@ lambda = E_a(Rb)-E_a(Ra)
 '''
 
 import numpy as np
-from gpaw.cdft.cdft import WeightFunc
+from gpaw.cdft.cdft import WeightFunc, get_ks_energy_wo_external
 from ase.units import kB as kb
 from gpaw.utilities.ps2ae import PS2AE, interpolate_weight
 from ase.units import Hartree
@@ -220,17 +220,8 @@ class CouplingParameters:
             self.n_charge_regionsB = len(charge_regions_B)
 
             # Do not include external potential
-            self.EA = (self.calc_A.hamiltonian.e_kinetic +
-                self.calc_A.hamiltonian.e_coulomb +
-                self.calc_A.hamiltonian.e_zero +
-                self.calc_A.hamiltonian.e_xc -
-                self.calc_A.hamiltonian.e_entropy)*Hartree
-
-            self.EB = (self.calc_B.hamiltonian.e_kinetic +
-                self.calc_B.hamiltonian.e_coulomb +
-                self.calc_B.hamiltonian.e_zero +
-                self.calc_B.hamiltonian.e_xc -
-                self.calc_B.hamiltonian.e_entropy)*Hartree
+            self.EA = get_ks_energy_wo_external(self.calc_A)
+            self.EB = get_ks_energy_wo_external(self.calc_B)
 
         self.finegd = self.calc_A.density.finegd
         self.energy_gap = energy_gap
@@ -535,8 +526,8 @@ class CouplingParameters:
                 # form overlap matrices of correct size for each kpt
 
                 if spin == 0:
-                    w_kij_AB.append(np.zeros((n_occup,n_occup),dtype = np.complex_))
-                    w_kij_BA.append(np.zeros((n_occup,n_occup), dtype = np.complex_))
+                    w_kij_AB.append(np.zeros((n_occup,n_occup),dtype = np.complex))
+                    w_kij_BA.append(np.zeros((n_occup,n_occup), dtype = np.complex))
 
                 # store k-point weights
                 kd = self.calc_A.wfs.kd
@@ -723,8 +714,8 @@ class CouplingParameters:
                 # form overlap matrices of correct size for each kpt
 
                 if spin == 0:
-                    w_kij_AB.append(np.zeros((n_occup,n_occup),dtype = np.complex_))
-                    w_kij_BA.append(np.zeros((n_occup,n_occup), dtype = np.complex_))
+                    w_kij_AB.append(np.zeros((n_occup,n_occup),dtype = np.complex))
+                    w_kij_BA.append(np.zeros((n_occup,n_occup), dtype = np.complex))
 
                 # store k-point weights
                 kd = self.calc_A.wfs.kd
@@ -887,7 +878,7 @@ class CouplingParameters:
                      warnings.warn(warning)
                 # form overlap matrices of correct size for each kpt
                 if spin == 0:
-                    n_AB.append(np.zeros((n_occup,n_occup),dtype = np.complex_))
+                    n_AB.append(np.zeros((n_occup,n_occup),dtype = np.complex))
 
                 for i in range(n_occup_s[spin]):
                     for j in range(n_occup_s[spin]):
@@ -971,7 +962,7 @@ class CouplingParameters:
                      warnings.warn(warning)
             # form overlap matrices of correct size for each kpt
             if spin == 0:
-                n_AB.append(np.zeros((n_occup,n_occup), dtype=np.complex_))
+                n_AB.append(np.zeros((n_occup,n_occup), dtype=np.complex))
 
             kd = calc_A.wfs.kd
             w_kA = kd.weight_k[k]
@@ -983,7 +974,7 @@ class CouplingParameters:
             psitb_nG = kpt_b.psit_nG
             Pb_ani = kpt_b.P_ani
 
-            S_NN = np.zeros((len(psita_nG), len(psitb_nG)), dtype=np.complex_)
+            S_NN = np.zeros((len(psita_nG), len(psitb_nG)), dtype=np.complex)
             interpolator = calc_A.density.interpolator
             for n1 in range(len(psita_nG)):
                 for n2 in range(len(psitb_nG)):
@@ -992,7 +983,7 @@ class CouplingParameters:
                     #interpolator.apply(nijt_G, nijt_g)
                     S_NN[n1][n2] = self.gd.integrate(nijt_G, global_integral=True)
 
-            S_NN_temp = np.zeros((len(psita_nG), len(psitb_nG)), dtype=np.complex_)
+            S_NN_temp = np.zeros((len(psita_nG), len(psitb_nG)), dtype=np.complex)
             for a, P1_ni in Pa_ani.items():
                 P2_ni = Pb_ani[a]
                 # XXX for some reason parallellization doesn't work
