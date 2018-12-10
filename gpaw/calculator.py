@@ -143,8 +143,6 @@ class GPAW(PAW, Calculator):
 
         self.reader = None
 
-        self.one_step_only = False
-
         Calculator.__init__(self, restart, ignore_bad_restart_file, label,
                             atoms, **kwargs)
 
@@ -294,8 +292,6 @@ class GPAW(PAW, Calculator):
             print_cell(self.wfs.gd, self.atoms.pbc, self.log)
 
             with self.timer('SCF-cycle'):
-                self.scf.one_step_only = self.one_step_only
-
                 self.scf.run(self.wfs, self.hamiltonian,
                              self.density, self.occupations,
                              self.log, self.call_observers)

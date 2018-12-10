@@ -25,6 +25,7 @@ class SCFLoop:
         self.converged = False
 
         self.niter = None
+
         self.reset()
 
     def __str__(self):
@@ -56,7 +57,6 @@ class SCFLoop:
         self.converged = False
 
     def run(self, wfs, ham, dens, occ, log, callback):
-
         self.niter = 1
         egs_name = getattr(wfs.eigensolver, "name", None)
 
@@ -85,8 +85,6 @@ class SCFLoop:
                                                                  wfs,
                                                                  dens,
                                                                  occ)
-            if self.one_step_only:
-                self.converged = True
 
             callback(self.niter)
             self.log(log, self.niter, wfs, ham, dens, occ, errors)

@@ -219,8 +219,7 @@ class Hamiltonian:
                 self.initialize()
 
         finegrid_energies = self.update_pseudo_potential(density)
-        coarsegrid_e_kinetic = \
-            self.calculate_kinetic_energy(density)
+        coarsegrid_e_kinetic = self.calculate_kinetic_energy(density)
 
         with self.timer('Calculate atomic Hamiltonians'):
             W_aL = self.calculate_atomic_hamiltonians(density)
