@@ -1,6 +1,7 @@
 import numpy as np
 from ase.units import Hartree
 from gpaw.utilities.blas import mmm
+from gpaw.utilities.tools import tri2full
 
 
 class DirectLCAO(object):
@@ -117,7 +118,10 @@ class DirectLCAO(object):
         if kpt.eps_n is None:
             kpt.eps_n = np.empty(wfs.bd.mynbands)
 
-        error = self.calculate_residual(kpt, H_MM, S_MM, wfs)
+        if wfs.bd.comm.size == 1:
+            error = self.calculate_residual(kpt, H_MM, S_MM, wfs)
+        else:
+            error = 0.0
 
         diagonalization_string = repr(self.diagonalizer)
         wfs.timer.start(diagonalization_string)
@@ -145,65 +149,18 @@ class DirectLCAO(object):
         pass
         # self.diagonalizer.estimate_memory(mem, dtype) #XXX enable this
 
-    def calculate_residual_2(self, ham, wfs):
-
-        wfs.timer.start('Residual')
-        norm = []
-        for kpt in wfs.kpt_u:
-            nbs = 0
-            if kpt.f_n is None:
-                norm.append(np.inf)
-                continue
-            for f in kpt.f_n:
-                if f > 1.0e-10:
-                    nbs += 1
-
-            C_nM = kpt.C_nM[:nbs]
-            # calculate and make it matrix hermitian
-
-            H_MM = self.calculate_hamiltonian_matrix(ham, wfs,
-                                                     kpt)
-            ind_l = np.tril_indices(H_MM.shape[0], -1)
-            H_MM[(ind_l[1], ind_l[0])] = H_MM[ind_l].conj()
-
-            HC_Mn = np.zeros_like(H_MM)
-            mmm(1.0, H_MM.conj(), 'n', C_nM, 't', 0.0, HC_Mn)
-
-            L = np.zeros(shape=(nbs, nbs),
-                         dtype=H_MM.dtype)
-
-            if H_MM.dtype == complex:
-                mmm(1.0, C_nM.conj(), 'n', HC_Mn, 'n', 0.0, L)
-            else:
-                mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, L)
-            del HC_Mn
-
-            # gradients:
-            S = wfs.S_qMM[kpt.q]
-            g = C_nM @ H_MM - L.conj() @ (C_nM @ S)
-
-            for i in range(nbs):
-                norm.append(np.dot(g[i].conj(), g[i]).real * kpt.f_n[i])
-
-        error = sum(norm) * Hartree**2 / wfs.nvalence
-        self._error = wfs.kd.comm.sum(error)
-        wfs.timer.stop('Residual')
-
     def calculate_residual(self, kpt, H_MM, S_MM, wfs):
 
         if kpt.C_nM is None or kpt.f_n is None:
             return np.inf
         wfs.timer.start('Residual')
         nbs = 0
-        for f in kpt.f_n:
-            if f > 1.0e-10:
-                nbs += 1
+        nbands = len(kpt.f_n)
+        while nbs < nbands and kpt.f_n[nbs] > 1e-10:
+            nbs += 1
 
         C_nM = kpt.C_nM[:nbs]
-
-        ind_l = np.tril_indices(H_MM.shape[0], -1)
-        H_MM[(ind_l[1], ind_l[0])] = H_MM[ind_l].conj()
-
+        tri2full(H_MM)
         HC_Mn = np.zeros(shape=(C_nM.shape[1], C_nM.shape[0]),
                          dtype=C_nM.dtype)
 
