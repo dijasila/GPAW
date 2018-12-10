@@ -1,5 +1,5 @@
 import numpy as np
-from gpaw.odd.lcao.tools import cubic_interpolation, \
+from gpaw.directmin.tools import cubic_interpolation, \
     parabola_interpolation
 
 
