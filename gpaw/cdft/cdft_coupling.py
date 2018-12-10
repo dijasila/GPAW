@@ -203,44 +203,34 @@ class CouplingParameters:
             self.NA = NA
             self.NB = NB
 
-            try:
-                if self.AE:
-                    self.fineweightA = self.get_weight_function(self.calc_A,
-                                        self.regionsA)
-                    self.fineweightB = self.get_weight_function(self.calc_B,
-                                        self.regionsB)
+            if self.AE:
+                self.fineweightA = self.get_weight_function(self.calc_A,
+                                    self.regionsA)
+                self.fineweightB = self.get_weight_function(self.calc_B,
+                                    self.regionsB)
 
-                else:
-                    self.coarseweightA = self.get_weight_function(self.calc_A,
-                                        self.regionsA)
-                    self.coarseweightB = self.get_weight_function(self.calc_B,
-                                        self.regionsB)
-            except:
-                pass
+            else:
+                self.coarseweightA = self.get_weight_function(self.calc_A,
+                                    self.regionsA)
+                self.coarseweightB = self.get_weight_function(self.calc_B,
+                                    self.regionsB)
 
 
-            try:
-                self.n_charge_regionsA = len(charge_regions_A)
-                self.n_charge_regionsB = len(charge_regions_B)
-            except:
-            	  pass
-            try:
-                self.EA = (self.calc_A.hamiltonian.e_kinetic +
-                    self.calc_A.hamiltonian.e_coulomb +
-                    self.calc_A.hamiltonian.e_zero +
-                    self.calc_A.hamiltonian.e_xc -
-                    self.calc_A.hamiltonian.e_entropy)*Hartree
+            self.n_charge_regionsA = len(charge_regions_A)
+            self.n_charge_regionsB = len(charge_regions_B)
 
-                self.EB = (self.calc_B.hamiltonian.e_kinetic +
-                    self.calc_B.hamiltonian.e_coulomb +
-                    self.calc_B.hamiltonian.e_zero +
-                    self.calc_B.hamiltonian.e_xc -
-                    self.calc_B.hamiltonian.e_entropy)*Hartree
+            # Do not include external potential
+            self.EA = (self.calc_A.hamiltonian.e_kinetic +
+                self.calc_A.hamiltonian.e_coulomb +
+                self.calc_A.hamiltonian.e_zero +
+                self.calc_A.hamiltonian.e_xc -
+                self.calc_A.hamiltonian.e_entropy)*Hartree
 
-            except:
-                self.EA = self.calc_A.get_potential_energy()
-                self.EB = self.calc_B.get_potential_energy()
-
+            self.EB = (self.calc_B.hamiltonian.e_kinetic +
+                self.calc_B.hamiltonian.e_coulomb +
+                self.calc_B.hamiltonian.e_zero +
+                self.calc_B.hamiltonian.e_xc -
+                self.calc_B.hamiltonian.e_entropy)*Hartree
 
         self.finegd = self.calc_A.density.finegd
         self.energy_gap = energy_gap
@@ -292,9 +282,7 @@ class CouplingParameters:
         self.S_matrix = S_matrix
         self.VW_matrix = VW_matrix
 
-       # should the matrices be saved?
-        if save_matrix:
-            self.save_matrix = save_matrix
+        self.save_matrix = save_matrix
         # Only part of bands treated --> matrices saved
         if self.specific_bands_A or self.specific_bands_B or self.spin:
             self.save_matrix = True
@@ -324,9 +312,7 @@ class CouplingParameters:
             self.temp = temp
         else:
             self.temp = 298
-
-        if reorg is not None:
-            self.reorg = reorg
+        self.reorg = reorg
 
         self.reaction_energy = reaction_energy
         self.use_adiabatic_correction = use_adiabatic_correction
@@ -394,7 +380,7 @@ class CouplingParameters:
             for k in range(len(self.w_BC)):
                 B += self.w_BC[k] * np.linalg.det(self.B[k])
 
-            if not hasattr(self,'energy_gap'):
+            if self.energy_gap is None:
                 self.get_energy_gap()
             dE_if = self.energy_gap
             if np.abs(dE_if) < 0.001 and np.abs(A**2-B**2) < 0.001:
@@ -614,7 +600,7 @@ class CouplingParameters:
         self.VW_AB = w_kij_AB
         self.VW_BA = w_kij_BA
 
-        if (hasattr(self,'save_matrix')):
+        if self.save_matrix:
             np.save(self.VW_matrix + 'final_AB',self.VW_AB)
             np.save(self.VW_matrix + 'final_BA',self.VW_BA)
         return self.VW_AB, self.VW_BA, self.w_k
@@ -918,7 +904,7 @@ class CouplingParameters:
         self.w_k = w_k
         self.n_ab = n_AB
 
-        if (hasattr(self,'save_matrix')):
+        if self.save_matrix:
             if matrix_name is None:
                 np.save(self.S_matrix+'final', self.n_ab)
             else:
@@ -1031,7 +1017,7 @@ class CouplingParameters:
         self.w_k = w_k
         self.n_ab = n_AB
 
-        if (hasattr(self,'save_matrix')):
+        if self.save_matrix:
 
             if matrix_name is None:
                 np.save(self.S_matrix+'final', self.n_ab)
@@ -1117,7 +1103,7 @@ class CouplingParameters:
 
         planck = 4.135667e-15 #eV s
 
-        if hasattr(self, 'reorg'):
+        if self.reorg is not None:
             Lambda = self.reorg
         else:
             Lambda = self.get_reorganization_energy()

@@ -593,7 +593,6 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         e_external = 0.0
         if self.vext is not None:
-            print(self.vext.get_name())
             if self.vext.get_name() == 'CDFTPotential':
                 vext_g = self.vext.get_potential(self.finegd).copy()
                 e_external += self.vext.get_cdft_external_energy(dens,
