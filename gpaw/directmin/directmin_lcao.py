@@ -81,7 +81,8 @@ class DirectMinLCAO(DirectLCAO):
             self.n_dim[u] = wfs.bd.nbands
 
         # choose search direction and line search algorithm
-        self.initialize_sd_and_ls(wfs, self.sda, self.lsa)
+        self.initialize_sd_and_ls(wfs, self.sda, self.lsa,
+                                  self.evaluate_phi_and_der_phi)
 
         self.a_mat_u = {}  # skew-hermitian matrix to be exponented
         self.g_mat_u = {}  # gradient matrix
@@ -128,7 +129,8 @@ class DirectMinLCAO(DirectLCAO):
         self.heiss = {}  # heissian for LBFGS-P
         self.precond = {}  # precondiner for other methods
 
-    def initialize_sd_and_ls(self, wfs, method, ls_method):
+    def initialize_sd_and_ls(self, wfs, method, ls_method,
+                             obj_function):
 
         if method == 'SD':
             self.search_direction = SteepestDescent(wfs)
@@ -148,12 +150,12 @@ class DirectMinLCAO(DirectLCAO):
 
         if ls_method == 'UnitStep':
             self.line_search = \
-                UnitStepLength(self.evaluate_phi_and_der_phi)
+                UnitStepLength(obj_function)
         elif ls_method == 'Parabola':
-            self.line_search = Parabola(self.evaluate_phi_and_der_phi)
+            self.line_search = Parabola(obj_function)
         elif ls_method == 'SwcAwc':
             self.line_search = \
-                StrongWolfeConditions(self.evaluate_phi_and_der_phi,
+                StrongWolfeConditions(obj_function,
                                       method=method,
                                       awc=True,
                                       max_iter=5
@@ -282,10 +284,10 @@ class DirectMinLCAO(DirectLCAO):
                         a = np.zeros(shape=(n_dim[k], n_dim[k]),
                                      dtype=self.dtype)
                         a[self.ind_up] = a_mat_u[k]
-
-                        def antihermitian(src, dst):
-                            np.conj(-src, dst)
-                        tri2full(a, UL='U', map=antihermitian)
+                        a += -a.T.conj()
+                        # def antihermitian(src, dst):
+                        #     np.conj(-src, dst)
+                        # tri2full(a, UL='U', map=antihermitian)
 
                         wfs.timer.start('Pade Approximants')
                         # this function takes a lot of memory
