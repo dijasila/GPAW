@@ -29,7 +29,7 @@ class Generator(AllElectron):
             logderiv=False, vbar=None, exx=False, name=None,
             normconserving='', filter=(0.4, 1.75), rcutcomp=None,
             write_xml=True, use_restart_file=True,
-            empty_states=''):
+            empty_states='', yukawa_gamma=0.0):
 
         self.name = name
 
@@ -115,7 +115,7 @@ class Generator(AllElectron):
         lmaxocc = max(l_j[njcore:])
         lmax = max(l_j[njcore:])
 
-        #Parameters for orbital_free
+        #  Parameters for orbital_free
         if self.orbital_free:
             self.n_j = [1]
             self.l_j = [0]
@@ -317,14 +317,15 @@ class Generator(AllElectron):
                     A[4, 4] = 1.0
                     a = u[gc - 2:gc + 3] / r[gc - 2:gc + 3]**(l + 1)
                     a = np.log(a)
+
                     def f(x):
                         a[4] = x
                         b = solve(A, a)
                         r1 = r[:gc]
                         r2 = r1**2
                         rl1 = r1**(l + 1)
-                        y = b[0] + r2 * (b[1] + r2 * (b[2] + r2 * (b[3] + r2
-                                                                   * b[4])))
+                        y = b[0] + r2 * (b[1] + r2 * (b[2] + r2 *
+                                                      (b[3] + r2 * b[4])))
                         y = np.exp(y)
                         s[:gc] = rl1 * y
                         return np.dot(s**2, dr) - 1
@@ -346,14 +347,14 @@ class Generator(AllElectron):
                     A[:, 2] = A[:, 1]**2
                     A[:, 3] = A[:, 1] * A[:, 2]
                     a = u[gc - 2:gc + 2] / r[gc - 2:gc + 2]**(l + 1)
-                    if 0:#l < 2 and nodeless:
+                    if 0:  # l < 2 and nodeless:
                         a = np.log(a)
                     a = solve(A, a)
                     r1 = r[:gc]
                     r2 = r1**2
                     rl1 = r1**(l + 1)
                     y = a[0] + r2 * (a[1] + r2 * (a[2] + r2 * (a[3])))
-                    if 0:#l < 2 and nodeless:
+                    if 0:  # l < 2 and nodeless:
                         y = np.exp(y)
                     s[:gc] = rl1 * y
 
@@ -403,7 +404,7 @@ class Generator(AllElectron):
         gt = 4 * (gamma / rcutcomp**2)**1.5 / sqrt(pi) * gaussian
         t('Shape function alpha=%.3f' % (gamma / rcutcomp**2))
         norm = np.dot(gt, dv)
-        #print norm, norm-1
+        #  print norm, norm-1
         assert abs(norm - 1) < 1e-2
         gt /= norm
 
@@ -477,7 +478,7 @@ class Generator(AllElectron):
 
             vbar = eps - vt
             vbar[:gc] -= ekin_over_phit
-            vbar[0] = vbar[1] # Actually we can collect the terms into
+            vbar[0] = vbar[1]  # Actually we can collect the terms into
             # a single fraction without poles, so as to avoid doing this,
             # but this is good enough
 
@@ -632,7 +633,7 @@ class Generator(AllElectron):
             except KeyboardInterrupt:
                 pass
 
-        self.write(nc,'nc')
+        self.write(nc, 'nc')
         self.write(nt, 'nt')
         self.write(nct, 'nct')
         self.write(vbar, 'vbar')
@@ -693,13 +694,19 @@ class Generator(AllElectron):
                 for n2, j2 in enumerate(j_n):
                     self.dK_jj[j1, j2] = self.dK_lnn[l][n1, n2]
                     if self.orbital_free:
-                        self.dK_jj[j1,j2] *= self.tw_coeff
+                        self.dK_jj[j1, j2] *= self.tw_coeff
 
+        X_gamma = yukawa_gamma
         if exx:
             X_p = constructX(self)
+            if yukawa_gamma is not None and yukawa_gamma > 0:
+                X_pg = constructX(self, yukawa_gamma)
+            else:
+                X_pg = None
             ExxC = atomic_exact_exchange(self, 'core-core')
         else:
             X_p = None
+            X_pg = None
             ExxC = None
 
         sqrt4pi = sqrt(4 * pi)
@@ -709,11 +716,11 @@ class Generator(AllElectron):
 
         def divide_by_r(x_g, l):
             r = self.r
-            #for x_g, l in zip(x_jg, l_j):
+            # for x_g, l in zip(x_jg, l_j):
             p = x_g.copy()
             p[1:] /= self.r[1:]
             # XXXXX go to higher order!!!!!
-            if l == 0:#l_j[self.jcorehole] == 0:
+            if l == 0:  # l_j[self.jcorehole] == 0:
                 p[0] = (p[2] +
                         (p[1] - p[2]) * (r[0] - r[2]) / (r[1] - r[2]))
             return p
@@ -753,18 +760,21 @@ class Generator(AllElectron):
         setup.phit_jg = divide_all_by_r(vs_j)
         setup.pt_jg = divide_all_by_r(vq_j)
         setup.X_p = X_p
+        setup.X_pg = X_pg
+        setup.X_gamma = X_gamma
 
         if self.jcorehole is not None:
             setup.has_corehole = True
-            setup.lcorehole = l_j[self.jcorehole] # l_j or vl_j ????? XXX
+            setup.lcorehole = l_j[self.jcorehole]  # l_j or vl_j ????? XXX
             setup.ncorehole = n_j[self.jcorehole]
             setup.phicorehole_g = divide_by_r(self.u_j[self.jcorehole],
-                                                  setup.lcorehole)
+                                              setup.lcorehole)
             setup.core_hole_e = self.e_j[self.jcorehole]
             setup.core_hole_e_kin = self.Ekincorehole
             setup.fcorehole = self.fcorehole
 
-        if self.ghost and not self.orbital_free: #In orbital_free we are not interested in ghosts
+        if self.ghost and not self.orbital_free:
+            # In orbital_free we are not interested in ghosts
             raise RuntimeError('Ghost!')
 
         if self.scalarrel:
@@ -773,10 +783,10 @@ class Generator(AllElectron):
             reltype = 'non-relativistic'
 
         attrs = [('type', reltype), ('name', 'gpaw-%s' % version)]
-        data = 'Frozen core: '+ (self.core or 'none')
+        data = 'Frozen core: ' + (self.core or 'none')
 
         setup.generatorattrs = attrs
-        setup.generatordata  = data
+        setup.generatordata = data
         setup.orbital_free = self.orbital_free
 
         self.id_j = []
@@ -806,6 +816,7 @@ class Generator(AllElectron):
         x1 = (R - R2) * (R - R3) / (R1 - R2) / (R1 - R3)
         x2 = (R - R1) * (R - R3) / (R2 - R1) / (R2 - R3)
         x3 = (R - R1) * (R - R2) / (R3 - R1) / (R3 - R2)
+
         def interpolate(f):
             f1 = np.take(f, G - 1)
             f2 = np.take(f, G)
@@ -911,4 +922,3 @@ if __name__ == '__main__':
                 bm = BasisMaker(g, name='dzp', run=False)
                 basis = bm.generate()
                 basis.write_xml()
-

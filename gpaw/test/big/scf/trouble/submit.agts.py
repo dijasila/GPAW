@@ -3,11 +3,8 @@ from myqueue.task import task
 
 def create_tasks():
     return [task('run.py+16@16:10h'),
-            task('run.py+8a@8:40h'),
-            task('run.py+8b@8:40h'),
-            task('run.py+4a@4:20h'),
-            task('run.py+4b@4:20h'),
-            task('run.py+1@1:5h'),
+            task('run.py+8@8:12h'),
+            task('run.py+4@4:3h'),
+            task('run.py+1@1:1h'),
             task('analyse.py@1:10m',
-                 deps=['run.py+16', 'run.py+8a', 'run.py+8b',
-                       'run.py+4a', 'run.py+4b', 'run.py+1'])]
+                 deps=['run.py+16', 'run.py+8', 'run.py+4', 'run.py+1'])]

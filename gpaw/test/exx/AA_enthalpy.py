@@ -96,29 +96,31 @@ def calculate(element, h, vacuum, xc, magmom):
 
     atom.center(vacuum=vacuum)
 
-    mixer = MixerSum(beta=0.2)
+    mixer = MixerSum(beta=0.4)
     if element == 'O':
-        mixer = MixerSum(nmaxold=1, weight=100)
+        mixer = MixerSum(0.4, nmaxold=1, weight=100)
         atom.set_positions(atom.get_positions()+[0.0, 0.0, 0.0001])
 
     calc_atom = GPAW(h=h, xc=data[element][xc][2],
                      eigensolver='rmm-diis',
                      occupations=FermiDirac(0.0, fixmagmom=True),
                      mixer=mixer,
+                     parallel=dict(augment_grids=True),
                      nbands=-2,
                      txt='%s.%s.txt' % (element, xc))
     atom.set_calculator(calc_atom)
 
-    mixer = Mixer(beta=0.2, weight=100)
+    mixer = Mixer(beta=0.4, weight=100)
     compound = molecule(element+'2')
     if compound == 'O2':
-        mixer = MixerSum(beta=0.2)
+        mixer = MixerSum(beta=0.4)
         mms = [1.0 for i in range(len(compound))]
         compound.set_initial_magnetic_moments(mms)
 
     calc = GPAW(h=h, xc=data[element][xc][2],
                 eigensolver='rmm-diis',
                 mixer=mixer,
+                parallel=dict(augment_grids=True),
                 txt='%s2.%s.txt' % (element, xc))
     compound.set_distance(0,1, data[element]['R_AA_B3LYP'])
     compound.center(vacuum=vacuum)

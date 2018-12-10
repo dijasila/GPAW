@@ -561,7 +561,7 @@ def eigenvalue_string(wfs, comment=' '):
         return ''.join(tokens)
 
     if len(wfs.kd.ibzk_kc) > 2:
-        add('Warning: Showing only first 2 kpts')
+        add('Showing only first 2 kpts')
         print_range = 2
     else:
         add('Showing all kpts')

@@ -142,6 +142,8 @@ def parse_arguments(argv):
 
 if is_gpaw_python:
     extra_parameters, gpaw_args = parse_arguments(sys.argv)
+    # The normal Python interpreter puts . in sys.path, so we also do that:
+    sys.path.insert(0, '.')
 else:
     # Ignore the arguments; rely on --gpaw only as below.
     extra_parameters, gpaw_args = parse_arguments([sys.argv[0]])

@@ -13,6 +13,7 @@ atoms.center(vacuum=4)
 
 # Ground state
 calc = GPAW(h=0.4, mode='lcao', basis='dzp', txt='%s-gs.out' % name,
+            poissonsolver={'name': 'fd'},
             nbands=8, xc='LDA')
 atoms.set_calculator(calc)
 atoms.get_potential_energy()

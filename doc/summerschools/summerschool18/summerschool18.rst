@@ -66,4 +66,3 @@ brief descriptions of what aspects of GPAW you learn from them.
    :maxdepth: 3
 
    projects
-

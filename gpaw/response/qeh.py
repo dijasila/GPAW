@@ -1053,7 +1053,10 @@ class BuildingBlock():
         sort = np.argsort(q_abs)
         q_abs = q_abs[sort]
         q_cs = q_cs[sort]
-        q_cut = q_abs[0] / 2.  # smallest finite q
+        if isotropic_q:
+            q_cut = q_abs[0]  # smallest finite q
+        else:
+            q_cut = q_abs[1]  # smallest finite q
         self.nq_cut = self.nq_inftot + 1
 
         q_infs = np.zeros([q_cs.shape[0] + self.nq_inftot, 3])
