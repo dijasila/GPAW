@@ -1,4 +1,4 @@
-﻿from gpaw.elph.electronphonon import ElectronPhononCoupling
+from gpaw.elph.electronphonon import ElectronPhononCoupling
 from ase.phonons import Phonons
 from ase import Atoms
 from gpaw import GPAW

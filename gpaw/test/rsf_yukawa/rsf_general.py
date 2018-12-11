@@ -25,7 +25,7 @@ c = {'energy': 0.1, 'eigenstates': 3, 'density': 3}
 # dx.doi.org/10.1021/acs.jctc.8b00238
 IP = 14.31
 
-xc = HybridXC('LCY_PBE', omega=0.81)
+xc = HybridXC('LCY-PBE', omega=0.81)
 fname = 'CO_rsf.gpw'
 
 calc = GPAW(txt='CO.txt', xc=xc, convergence=c,
@@ -35,11 +35,11 @@ co.set_calculator(calc)
 energy_081 = co.get_potential_energy()
 (eps_homo, eps_lumo) = calc.get_homo_lumo()
 equal(eps_homo, -IP, 0.15)
-xc2 = 'LCY_PBE'
+xc2 = 'LCY-PBE'
 energy_075 = calc.get_xc_difference(HybridXC(xc2))
 equal(energy_081 - energy_075, 33.12, 0.2, 'wrong energy difference')
 calc.write(fname)
 calc2 = GPAW(fname)
 func = calc2.get_xc_functional()
-assert func['name'] == 'LCY_PBE', 'wrong name for functional'
+assert func['name'] == 'LCY-PBE', 'wrong name for functional'
 assert func['omega'] == 0.81, 'wrong value for RSF omega'
