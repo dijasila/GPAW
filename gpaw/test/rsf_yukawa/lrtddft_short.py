@@ -9,6 +9,11 @@ from gpaw.test import equal
 from gpaw.eigensolvers import RMMDIIS
 from gpaw.lrtddft import LrTDDFT
 
+if world.size in {2, 8}:
+    # See #183
+    from unittest import SkipTest
+    raise SkipTest
+
 o_plus = Cluster(Atoms('O', positions=[[0, 0, 0]]))
 o_plus.set_initial_magnetic_moments([3.0])
 o_plus.minimal_box(2.5, h=0.35)
