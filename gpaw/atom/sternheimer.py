@@ -8,6 +8,7 @@ from scipy.sparse.linalg import bicgstab
 
 def fermi_function(energy, temperature, chemical_potential):
     if temperature != 0:
+        raise NotImplementedError
         return 1/(np.exp((energy-chemical_potential)/temperature) + 1)
     else:
         return float(int(energy < chemical_potential))
@@ -86,7 +87,8 @@ class AllElectronResponse:
         }   
 
 
-
+    def calculate_analytic_chi_channel(self, angular_number, omega = 0, temp = 0, chemical_potential = None):
+        raise NotImplementedError
 
 
     def calculate_exact_chi_channel(self, angular_number, omega = 0, temp = 0, chemical_potential = None, eta = 0.001):
@@ -106,9 +108,9 @@ class AllElectronResponse:
 
         combos = list(itertools.product(wf_en_tups, wf_en_tups))
         def delta(pair):
-            wf_en1, wf_en2 = pair
-            wf1, en1 = wf_en1
-            wf2, en2 = wf_en2
+            (wf1, en1), (wf2, en2) = pair
+            if np.allclose(en1, en2):
+                return 0
 
             d = np.outer(wf1.conj(), wf1).astype(np.complex128)
             d *= np.outer(wf2, wf2.conj())
@@ -120,6 +122,9 @@ class AllElectronResponse:
             return d
             
         ##TODO Need Clebsch Gordan factors, see eq. 5.1.2 in notes
+        ##Problem with this because we do not sum over all excited states.
+        ##These are not found in the aeaatom code: we need for all nl pairs and aeaatom only finds for occupied ones -- For any external perturbation with angular momentum LM there will be infinitely many terms in the sum over nlm that contribute. No, no quite, because one term has to be occupied and the other has to be unoccupied. 
+        ##Is there another way to test the Sternheimer result?
         chi_channel = reduce(lambda a, b : a + delta(b), combos, 0)
         return chi_channel
 
@@ -139,7 +144,8 @@ class AllElectronResponse:
         
 
         #channel_number = min(3, len(all_electron_atom.channels)-1)
-        total_angular_momenta = [(l, np.ones(self.radial_grid.shape)) for l in angular_momenta]
+        start_vec = self.all_electron_atom.channels[0].phi_ng[0]
+        total_angular_momenta = [(l, start_vec) for l in angular_momenta]
         vals, vecs = self._iterative_solve(omega, total_angular_momenta)
         print("Done")
         #From output of iterative solver reconstruct epsilon/chi or just return eigvals
@@ -152,7 +158,7 @@ class AllElectronResponse:
         
         
     def _get_random_trial_potentials(self, num_eig_vecs, size_of_response_matrix):
-        vecs = ortho_group.rvs(size_of_response_matrix)[:num_eig_vecs]
+        vecs = ortho_group.rvs(size_of_response_matrix).T[:num_eig_vecs]
 
         vecs = [vec/np.sqrt(self.dot(vec.conj(), vec)) for vec in vecs]
         return vecs
@@ -181,6 +187,7 @@ class AllElectronResponse:
                 ##Main calculation
                     if (num_iter % 10) == 0 or True:
                         print("Iteration number:       {}".format(num_iter), end = "\r")
+
                     num_iter += 1
                     
                     #trial = self._orthonormalize(trial, list(map(lambda a : a[1], found_vals_vecs)))
@@ -194,7 +201,6 @@ class AllElectronResponse:
                     
                     #Minus because eigvals of chi are negative
                     current_eigval = -np.sqrt(self.dot(new_trial, new_trial)/self.dot(current_trial, current_trial))
-                
                     new_trial = -new_trial/np.sqrt(self.dot(new_trial, new_trial))
 
 
@@ -264,7 +270,7 @@ class AllElectronResponse:
         '''
         assert np.real(omega) == 0
         response_l2, response_m = response_angular_momentum
-
+        delta_n = 0
         for l, channel in enumerate(self.all_electron_atom.channels):
 
             gaussian_trial = self.get_trial_matrix(channel, trial)
@@ -272,43 +278,46 @@ class AllElectronResponse:
             hamiltonian = self.get_hamiltonian(channel)
             valence_projector = self.get_valence_projector(channel)
 
-            gs_norms = np.diag([self.integrate(g*g) for g in channel.basis.basis_bg])
-
-            valence_normed = np.dot(valence_projector, gs_norms)
-            ham_normed = np.dot(hamiltonian, gs_norms)
-
             assert valence_projector.ndim == 2
 
             conduction_projector = np.eye(valence_projector.shape[0]) - valence_projector
             assert conduction_projector.ndim == 2
             assert np.allclose(np.dot(conduction_projector, valence_projector), np.zeros_like(valence_projector))
             assert not np.allclose(conduction_projector, np.zeros_like(conduction_projector))
-            alpha = 0
 
 
-            wfs = channel.C_nb
-            ens = channel.e_n
+
+
+            alpha = 1
+
+            all_wfs = channel.C_nb ##TODO only include valence here
+            all_ens = channel.e_n ##TODO only include valence here
+            wfs, ens = zip(*[(wf, en) for wf, en in zip(all_wfs, all_ens) if en < self.chemical_potential])
             
+            ##TODO Should Combined ang momentum be in steps of 2
             sol_dict = {}
-            for k, wf_en in enumerate(zip(wfs, ens)):
-                wf, en = wf_en
+            for k, (wf, en) in enumerate(zip(wfs, ens)):
                 for combined_ang_momentum in range(np.abs(response_l2 - l), response_l2 + l+1):
                     for M in range(-combined_ang_momentum, combined_ang_momentum + 1):
                         for m in range(-l, l+1):
-                            LHS = (alpha*valence_projector + hamiltonian - en*np.eye(ham_normed.shape[0]))
-
+                            LHS = (alpha*valence_projector + hamiltonian - en*np.eye(hamiltonian.shape[0]))
 
                             cg_coeff = self.cg_calculator.calculate(response_l2, 0, l, m, combined_ang_momentum, 0)
                             cg_coeff *= self.cg_calculator.calculate(response_l2, response_m, l, m, combined_ang_momentum, M)
                             cg_coeff *= np.sqrt((2*l+1)*(2*response_l2+1)/(4*np.pi*(2*combined_ang_momentum + 1)))
 
-
+                            
                             RHS = -np.dot(conduction_projector, np.dot(gaussian_trial, wf))*cg_coeff
                             assert not np.allclose(gaussian_trial, np.zeros_like(gaussian_trial))
+                            #print("RHS mean abs / LHS mean abs size: {}".format(np.mean(np.abs(RHS))/np.mean(np.abs(LHS))))
                             #assert not np.allclose(RHS, np.zeros_like(RHS))
-                            #delta_wf, info = bicgstab(LHS, RHS, atol = self.bicgstab_tol, tol = self.bicgstab_tol, maxiter = 10000)
-                            delta_wf = np.dot(np.linalg.inv(LHS), RHS)
-                            info = 0
+                            delta_wf, info = bicgstab(LHS, RHS, atol = self.bicgstab_tol, tol = self.bicgstab_tol, maxiter = 10000)
+
+
+                            
+                            #delta_wf = np.dot(np.linalg.inv(LHS), RHS)
+                            ##Problem seems to be here. LHS^-1 it just way too big
+                            #info = 0
                             
                             if info != 0:
                                 print("Solution should be: {}".format(np.dot(np.linalg.inv(LHS), RHS)))
@@ -320,26 +329,24 @@ class AllElectronResponse:
                             assert b
                             
                             sol_dict[(k, l, m, combined_ang_momentum, M)] = (delta_wf, wf)
-                            
+
                 ##For every total momentum LM that can be reached when combining channel ang mom and resp ang mom:
                 ##Solve sternheimer eq
                 ##See notes 4.3.18
             
 
-        delta_n = 0
-        assert len(sol_dict.keys()) != 0
+            assert len(sol_dict.keys()) != 0
 
-        for k_l_m_L_M in sol_dict:
-            k, l, m, L, M = k_l_m_L_M
-            delta_wf, wf = sol_dict[k_l_m_L_M]
-            wf = channel.basis.expand(wf)
-            delta_wf = channel.basis.expand(delta_wf)
+            for k_l_m_L_M in sol_dict:
+                k, l, m, L, M = k_l_m_L_M
+                delta_wf, wf = sol_dict[k_l_m_L_M]
+                wf = channel.basis.expand(wf)
+                delta_wf = channel.basis.expand(delta_wf)
             
-            cg_coeff = self.cg_calculator.calculate(l, -m, L, M, response_l2, response_m)
+                #cg_coeff = self.cg_calculator.calculate(l, -m, L, M, response_l2, response_m)
+                delta_n += 2*np.real(wf.conj()*delta_wf*cg_coeff)
+            
 
-
-                
-            delta_n += wf.conj()*delta_wf*cg_coeff
         assert not np.allclose(self.dot(delta_n, delta_n), 0)
         return delta_n
 
@@ -351,9 +358,8 @@ class AllElectronResponse:
 
         for k1, g1 in enumerate(channel.basis.basis_bg):
             for k2, g2 in enumerate(channel.basis.basis_bg):
-                n1 = np.sqrt(self.integrate(g1*g1))
-                n2 = np.sqrt(self.integrate(g2*g2))
-                trial_matrix[k1,k2] = self.integrate(g1*g2*trial)/(n1*n2)
+                trial_matrix[k1,k2] = self.integrate(g1*g2*trial)
+
         assert not np.allclose(trial_matrix, np.zeros_like(trial_matrix))
         return trial_matrix
 
@@ -361,7 +367,7 @@ class AllElectronResponse:
         atom_vr = self.all_electron_atom.vr_sg[channel.s]
         hamiltonian = channel.basis.calculate_potential_matrix(atom_vr)
         hamiltonian += channel.basis.T_bb
-
+        assert np.allclose(hamiltonian.conj().T, hamiltonian)
         return hamiltonian
                 
 
@@ -380,6 +386,8 @@ class AllElectronResponse:
             Pv += np.outer(wf, wf.conj())
 
 
+        assert Pv.shape == (22,22)
+        assert np.allclose(np.dot(Pv, Pv), Pv)
         return Pv
 
 

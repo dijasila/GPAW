@@ -883,7 +883,7 @@ def main(args):
         exact_chi = aee.calculate_exact_chi_channel(0,0)
         t2 = time.time()
         print("Calculating exact chi took {} seconds".format(t2-t1))
-        vals = aee.sternheimer_calculation()
         eigs, vecs = np.linalg.eigh(exact_chi)
         print("Max abs exact: ", np.max(np.abs(eigs)))
+        vals = aee.sternheimer_calculation()
         print("Sternheimer: ", vals)
