@@ -17,6 +17,7 @@ for i, expert in enumerate([True, False]):
     name = 'si_{0:d}'.format(i)
     si.center()
     calc = GPAW(mode=PW(120), kpts=(1, 1, 2),
+                experimental={'niter_fixdensity': 2},
                 eigensolver='rmm-diis',
                 parallel={'domain': 1},
                 symmetry='off', txt=name + '.txt')

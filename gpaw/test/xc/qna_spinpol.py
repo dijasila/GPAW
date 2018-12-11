@@ -17,6 +17,7 @@ atoms.set_initial_magnetic_moments([2, 2])
 
 calc = GPAW(mode=PW(400),
             kpts=(3, 3, 3),
+            experimental={'niter_fixdensity': 2},
             xc=QNA,
             parallel={'domain': 1},
             txt='qna_spinpol.txt')

@@ -24,6 +24,7 @@ E = []
 
 for i, dx in enumerate(dx_array):
     calc = GPAW(mode=PW(ecut),
+                experimental={'niter_fixdensity': 2},
                 xc=QNA,
                 kpts=kpts,
                 parallel={'domain': 1},
