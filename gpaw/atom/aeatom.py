@@ -852,7 +852,7 @@ def main(args):
     for n, l, f, s in nlfs:
         aea.add(n, l, f, s)
 
-    aea.initialize(**kwargs, rcut = 500)
+    aea.initialize(**kwargs)
     aea.run()
 
     if args.refine:
