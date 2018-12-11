@@ -852,7 +852,7 @@ def main(args):
     for n, l, f, s in nlfs:
         aea.add(n, l, f, s)
 
-    aea.initialize(**kwargs)
+    aea.initialize(**kwargs, rcut = 500)
     aea.run()
 
     if args.refine:
@@ -880,9 +880,9 @@ def main(args):
         from .sternheimer import AllElectronResponse       
         aee = AllElectronResponse(aea, 1)
         t1 = time.time()
-        exact_chi = aee.calculate_exact_chi_channel(0,0)
+        exact_chi = aee.calculate_analytical_chi_channel(0,50)
         t2 = time.time()
-        print("Calculating exact chi took {} seconds".format(t2-t1))
+        print("Calculating analytical chi took {} seconds".format(t2-t1))
         eigs, vecs = np.linalg.eigh(exact_chi)
         print("Max abs exact: ", np.max(np.abs(eigs)))
         vals = aee.sternheimer_calculation()

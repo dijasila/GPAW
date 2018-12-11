@@ -1,11 +1,12 @@
 import numpy as np
-from scipy.special import sph_harm
+from scipy.special import sph_harm, genlaguerre
 import itertools
 from functools import reduce
 from scipy.stats import ortho_group 
 from gpaw.utilities.clebschgordan import ClebschGordanCalculator
 from scipy.sparse.linalg import bicgstab
-
+import math
+import scipy
 def fermi_function(energy, temperature, chemical_potential):
     if temperature != 0:
         raise NotImplementedError
@@ -87,9 +88,87 @@ class AllElectronResponse:
         }   
 
 
-    def calculate_analytic_chi_channel(self, angular_number, omega = 0, temp = 0, chemical_potential = None):
-        raise NotImplementedError
+    def calculate_analytical_chi_channel(self, angular_number, num_levels, omega = 0, temp = 0, chemical_potential = None, eta = 0.0001):
 
+        if chemical_potential is None:
+            chemical_potential = self.chemical_potential
+
+
+        wfs_ens  = self._get_analytical_levels(num_levels, angular_number)
+        
+        combos = list(itertools.product(wfs_ens, wfs_ens))
+        
+        def delta(pair):
+            (wf1, en1), (wf2, en2) = pair
+            if np.allclose(en1, en2):
+                return 0
+
+            d = np.outer(wf1.conj(), wf1).astype(np.complex128)
+            d *= np.outer(wf2, wf2.conj())
+            #assert not np.allclose(d, np.zeros_like(d))
+
+            d *= fermi_function(en1, temp, chemical_potential) - fermi_function(en2, temp, chemical_potential)
+            d *= 1/(en1 - en2 + omega + 1j*eta)
+
+            return d
+        chi_channel = reduce(lambda a, b : a + delta(b), combos, 0)
+
+        angular_factor = self._get_chi_angular_factor(angular_number)
+        chi_channel *= angular_factor
+        return chi_channel
+
+
+    def _get_analytical_levels(self, num_levels, angular_number):
+        wfs_ens = []
+        lags = []
+        rgd = self.all_electron_atom.rgd
+        assert angular_number == 0
+        for n in range(1, num_levels+1):
+            bohr_radius = 1
+            reduced_radius = rgd.r_g*2/(bohr_radius*n)
+            t = (2/(n*bohr_radius))**3
+            prefactor = np.sqrt(t*math.factorial(n-angular_number-1)/(2*n*math.factorial(n+angular_number)))
+            exp = np.exp(-reduced_radius/2)
+            rl = reduced_radius**angular_number
+            lag = genlaguerre(n-angular_number-1, 2*angular_number + 1, monic=False)(reduced_radius)
+
+
+            radial_wf = prefactor*exp*rl*lag
+            import matplotlib.pyplot as plt
+            plt.plot(rgd.r_g, radial_wf, label = str(n))
+            
+            norm = np.sqrt(self.integrate(radial_wf**2))
+            assert norm.ndim == 0
+            #radial_wf = radial_wf/norm
+            b = np.allclose(self.integrate(radial_wf**2), 1, atol =1e-3)
+            if not b or True:
+                #print("Norm of radial: ", self.integrate(radial_wf**2))
+                print("Norm: ", scipy.integrate.cumtrapz(radial_wf**2*rgd.r_g**2, rgd.r_g)[-1])
+            #assert b
+
+            energy = -1/2*1/n**2
+
+            wfs_ens.append((radial_wf, energy))
+
+        plt.legend()
+        plt.savefig("radii.png")
+        for k1, (wf1, en1) in enumerate(wfs_ens):
+            for k2, (wf2, en2) in enumerate(wfs_ens):
+                if k1 != k2:
+                    b = np.allclose(self.integrate(wf1*wf2), 0, atol = 1e-2)
+                    #if not b:# or not b2:
+                    #    print(self.integrate(wf1*wf2))
+
+                    #assert b
+
+
+        return wfs_ens
+
+
+    def _get_chi_angular_factor(self, angular_number):
+        if angular_number != 0:
+            raise NotImplementedError
+        return 1/(4*np.pi)
 
     def calculate_exact_chi_channel(self, angular_number, omega = 0, temp = 0, chemical_potential = None, eta = 0.001):
         '''
