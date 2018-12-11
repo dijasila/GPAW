@@ -420,7 +420,7 @@ class GPAW(PAW, Calculator):
                 for key2 in changed_parameters2:
                     if key2 in ['kpt_refine', 'magmoms', 'soc']:
                         self.wfs = None
-                    elif key2 in ['reuse_wfs_method']:
+                    elif key2 in ['reuse_wfs_method', 'niter_fixdensity']:
                         continue
                     else:
                         raise TypeError('Unknown keyword argument:', key2)
