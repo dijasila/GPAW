@@ -296,9 +296,10 @@ class CDFT(Calculator):
                 total_electrons = np.append(total_electrons,n_electrons)
                 dn_i.append(diff)
 
-            self.dn_i = np.asarry(dn_i)
+            self.dn_i = np.asarray(dn_i)
+            self.dn_i = self.dn_i.flatten()
             self.w = self.ext.w_ig
-
+            print(self.dn_i)
             # Do not include external potential
             E_KS = get_ks_energy_wo_external(self.calc)
 
@@ -308,7 +309,6 @@ class CDFT(Calculator):
                 self.Ecdft = E_KS + np.dot(self.v_i*Hartree,
                         (np.array(total_electrons)-self.n_core_electrons))
 
-
             if self.iteration == 0:
                 n = 7 * len(self.v_i)
                 p('Optimizer: {n}'.format(n=self.method))
@@ -316,11 +316,13 @@ class CDFT(Calculator):
                 p('iter {0:{1}} energy     errors'.format('coefs', n))
                 p('     {0:{1}} [eV]       [e]'.format('[eV]', n))
 
+
+            dn_intermediate = self.dn_i.tolist()
             p('{0:4}     {1}      {2:10.8f}      {3}     '
               .format(self.iteration,
                       ''.join('{0:4.3f}'.format(v) for v in self.v_i * Hartree),
                       self.Edft,
-                      ''.join('{0:6.4f}'.format(dn) for dn in self.dn_i)))
+                      ''.join('{0:6.4f}'.format(dn) for dn in dn_intermediate)))
 
             self.log.flush()
             self.iteration += 1
@@ -656,30 +658,13 @@ class CDFTPotential(ExternalPotential):
         self.vext_g = None
 
     def initialize_partitioning(self, gd, construct=False, pad=False, global_array=False):
-        self.w_ig = gd.empty(len(self.indices_i),pad=pad, global_array=global_array)
 
-        w = []
-        # make weight functions
-        for i in range(len(self.indices_i)):
-            wf = WeightFunc(gd,
-                        self.atoms,
-                        self.indices_i[i])
-            weig = wf.construct_weight_function()
-            self.mu = wf.mu
-            self.Rc = wf.Rc
-
-            if not self.difference:
-                w.append(weig)
-
-            else: # for charge difference constraint
-                if i==0:
-                    w.append(weig)
-                else:
-                    w[0] -= weig # negative for acceptor
-
+        w, self.mu, self.Rc = get_all_weight_functions(self.atoms,
+                                gd, self.indices_i, self.difference)
 
         if construct:
             return np.array(w)
+
         self.w_ig = np.array(w)
         p = functools.partial(print, file=self.log)
         p('Number of charge constrained regions: {n}'.format(n=self.n_charge_regions))
@@ -971,12 +956,12 @@ class WeightFunc:
                 for i in [0,1,2]:
                     cdft_forces[a][i] += -self.gd.integrate(
                         wn_sg * dG_dRav[a][i], global_integral=True)
-                        
+
         return cdft_forces
 
     def get_fd_gaussian_derivatives(self, dx=1.e-4):
         dG_dRav = {}
-        dirs =[[dx,0.,0.],[0.,dy,0.],[0.,0.,dz]]
+        dirs =[[dx,0.,0.],[0.,dx,0.],[0.,0.,dx]]
         for atom in self.atoms:
             dGav = []
             charge = atom.number
@@ -984,7 +969,7 @@ class WeightFunc:
             mu = self.mu[symbol]
             Rc = self.Rc[symbol]
 
-            for d in [0,1,2]
+            for i in [0,1,2]:
                 # move to +dx
                 a_posx = atom.position / Bohr + dirs[i]
                 a_dis = self.get_distance_vectors(a_posx)
@@ -1001,12 +986,14 @@ class WeightFunc:
 
         return dG_dRav
 
-    def get_derivative_prefactor(self,n_charge_regions, n_spin_regions,
-                                 w_ig, v_i,difference):
+    def get_derivative_prefactor(self, n_charge_regions, n_spin_regions,
+                                w_ig, v_i, difference):
+
         '''Computes the dw/dRa array needed for derivatives/forces
         eq 31
         needed for lfc-derivative/integrals
         '''
+
         prefactor = {} # place to store the extended array
         rho_k = self.construct_total_density(self.atoms) # sum_k n_k
         # Check zero elements
@@ -1045,7 +1032,6 @@ class WeightFunc:
                 ws += wi / rho_kd
 
             prefactor[atom.index] = [wc, ws]
-
         return prefactor
 
     def get_analytical_gaussian_derivates(self):
@@ -1109,145 +1095,79 @@ def get_ks_energy_wo_external(calc):
         calc.hamiltonian.e_xc -
         calc.hamiltonian.e_entropy)*Hartree
 
-def get_promolecular_constraints(calc_a, calc_b, atoms, charge_regions=None,
-    spin_regions=None, charges=None, spins=None):
-    from gpaw import FermiDirac
+def get_all_weight_functions(atoms, gd, indices_i, difference, w=[]):
+
+    for i in range(len(indices_i)):
+        wf = WeightFunc(gd,
+                    atoms,
+                    indices_i[i])
+        weig = wf.construct_weight_function()
+
+        if not difference:
+            w.append(weig)
+
+        else: # for charge difference constraint
+            if i==0:
+                w.append(weig)
+            else:
+                w[0] -= weig # negative for acceptor
+    return w, wf.mu, wf.Rc
+
+def get_promolecular_constraints(calc_a, atoms_a, calc_b, atoms_b,
+        charge_constraint=True, spin_constraint=False, restart=False):
+
+    '''
+    - calc_a is for the region you're interested in. Its charge
+        should correspond to the "free charge" of the promolecule
+    - atoms_a: atoms object for the region of interest
+    - calc_b is for the other region
+    - atoms_b: atoms object for the other region
+    - restart: bool. If true, atoms_a have used calc_a and atoms_b calc_b
+    '''
 
     constraints = []
+    atoms = atoms_a + atoms_b
+
+    if not restart:
+        atoms_a.set_calculator(calc_a)
+        atoms_b.set_calculator(calc_b)
+    atoms_a.get_potential_energy()
+    atoms_b.get_potential_energy()
+
     gd = calc_a.density.finegd
-    total_charge = np.sum(atoms.get_initial_charges())
-    total_magmom = np.sum(atoms.get_initial_magnetic_moments())
-    natoms = len(atoms)
 
-    if len(charge_regions)==0:
-        pass
-
-    elif len(charge_regions)==1:
-        # use n_constrained + n_surroundings as n_promolecule
-        # n_constrained
-
-        atoms_cons = atoms.copy()
-        for a in atoms:
-            if a.index not in charge_regions[0]:
-                a.tag=1
-            else:
-                a.tag=2
-        tags = atoms_cons.get_tags()
-
-        del atoms_cons[[atom.index for atom in atoms if atom.tag==2]]
-
-        cons_charge = atoms_cons.get_initial_charges()
-        cons_magmom = atoms_cons.get_initial_magnetic_moments()
-
-        calc_a.set(txt='promolecule_charge1.txt',charge=cons_charge,
-        	    occupations=FermiDirac(0.05,fixmagmom=True))
-        atoms_cons.set_calculator(calc_a)
-        atoms_cons.get_potential_energy()
-
+    if charge_constraint:
         # can charge and spin constraints be treated at the same time?
-        if sorted(charge_regions[0]) == sorted(spin_regions[0]):
-            dens_cons_a = calc_a.get_all_electron_density(gridrefinement=2,spin=0)
-            dens_cons_b = calc_a.get_all_electron_density(gridrefinement=2,spin=1)
-        else:
-            dens_cons = calc_a.get_all_electron_density(gridrefinement=2)
+        d_a = calc_a.get_all_electron_density(gridrefinement=2, pad=False)
+        d_b = calc_b.get_all_electron_density(gridrefinement=2, pad = False)
 
-        #####
-        #n_surroundings i.e. everything but the constrained region
-        ####
-        atoms_sur = atoms.copy()
-
-        del atoms_sur[[atom.index for atom in atoms if atom.tag==1]]
-        calc_b.set(txt='promolecule_charge2.txt',charge=(total_charge-cons_charge),
-        	    occupations=FermiDirac(0.05,fixmagmom=True))
-        atoms_sur.set_calculator(calc_b)
-        calc_b.set(txt='promolecule_charge2.txt')
-        atoms_sur.get_potential_energy()
-
-        # can charge and spin constraints be treated at the same time?
-        if sorted(charge_regions[0]) == sorted(spin_regions[0]):
-            dens_sur_a = calc_b.get_all_electron_density(gridrefinement=2,spin=0)
-            dens_sur_b = calc_b.get_all_electron_density(gridrefinement=2,spin=1)
-        else:
-            dens_sur = calc_b.get_all_electron_density(gridrefinement=2)
-
-        weight = WeightFunc(gd=gd, atoms=atoms, indices=charge_regions[0])
+        charge_region = [atom.index for atom in atoms_a]
+        weight = WeightFunc(gd=gd, atoms=atoms, indices=charge_region)
         w = weight.construct_weight_function()
 
-        if sorted(charge_regions[0]) == sorted(spin_regions[0]):
-            n_alpha = dens_sur_a + dens_cons_a
-            n_beta = dens_sur_b + dens_cons_b
+        dv = atoms.get_volume() / calc_a.get_number_of_grid_points().prod()
+        gridrefinement = 2.
+        Nel = (w*(d_a+d_b)).sum() * dv / gridrefinement**3
 
-            Nel = gd.integrate(w*(n_alpha + n_beta),
-                   global_integral=True)
-            Nspin = gd.integrate(w*(n_alpha - n_beta),
-                   global_integral=True)
+        Zn = 0
+        for atom in atoms_a:
+            Zn += atom.number
 
-            constraints.append(Nel,Nspin)
-            return constraints
-        else:
-        	Nel = gd.integrate(w*(dens_sur + dens_cons),
-                global_integral=True)
-        	constraints.append(Nel)
-    else:
-    	raise NotImplementedError
-
-    #################
-    # spins
-    #################
-    if len(spin_regions)==0:
-        pass
-
-    elif len(spin_regions)==1:
-        # use n_constrained + n_surroundings as n_promolecule
-        #n_constrained
-
-        atoms_cons = atoms.copy()
-        for a in atoms:
-            if a.index not in spin_regions[0]:
-                a.tag=1
-            else:
-                a.tag=2
-        tags = atoms_cons.get_tags()
-
-        del atoms_cons[[atom.index for atom in atoms if atom.tag==2]]
-
-        cons_charge = atoms_cons.get_initial_charges()
-        cons_magmom = atoms_cons.get_initial_magnetic_moments()
-        calc.set(txt='promolecule_charge1.txt',charge=cons_charge,
-        	    occupations=FermiDirac(0.05,fixmagmom=True))
-        atoms_cons.set_calculator(calc)
-        atoms_cons.get_potential_energy()
-
-        dens_cons_a = calc.get_all_electron_density(gridrefinement=2,spin=0)
-        dens_cons_b = calc.get_all_electron_density(gridrefinement=2,spin=1)
-
-        #####
-        #n_surroundings i.e. everything but the constrained region
-        ####
-        atoms_sur = atoms.copy()
-
-        del atoms_sur[[atom.index for atom in atoms if atom.tag==1]]
-
-        calc.set(txt='promolecule_charge2.txt',charge=(total_charge-cons_charge),
-        	    occupations=FermiDirac(0.05,fixmagmom=True))
-        atoms_sur.set_calculator(calc)
-        calc.set(txt='promolecule_charge2.txt')
-        atoms_sur.get_potential_energy()
-
+        constraints.append(Zn - Nel)
+        
+    if spin_constraint:
         # can charge and spin constraints be treated at the same time?
-        dens_sur_a = calc.get_all_electron_density(gridrefinement=2,spin=0)
-        dens_sur_b = calc.get_all_electron_density(gridrefinement=2,spin=1)
+        d_a = calc_a.get_all_electron_density(gridrefinement=2, pad=False, spin=0)
+        d_b = calc_b.get_all_electron_density(gridrefinement=2, pad = False, spin=1)
 
-        weight = WeightFunc(gd=gd, atoms=atoms, indices=spin_regions[0])
+        charge_region = [atom.index for atom in atoms_a]
+        weight = WeightFunc(gd=gd, atoms=atoms, indices=charge_region)
         w = weight.construct_weight_function()
 
-        n_alpha = dens_sur_a + dens_cons_a
-        n_beta = dens_sur_b + dens_cons_b
+        dv = atoms.get_volume() / calc_a.get_number_of_grid_points().prod()
+        gridrefinement = 2.
+        Ns = (w*(d_a-d_b)).sum() * dv / gridrefinement**3
 
-        Nspin = gd.integrate(w*(n_alpha - n_beta),
-                   global_integral=True)
+        constraints.append(Ns)
 
-        constraints.append(Nspin)
-        return constraints
-    else:
-    	raise NotImplementedError
+    return constraints
