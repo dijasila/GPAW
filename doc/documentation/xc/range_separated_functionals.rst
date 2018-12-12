@@ -60,7 +60,7 @@ The implementation of RSFs in gpaw consists of two parts:
 
 As range separating function the Slater-function,
 `\omega_\mathrm{RSF} = e^{(-\gamma r_{12})}`,
-is used. Beside the possibility to set `\gamma` to an arbitrary
+is used. Besides the possibility to set `\gamma` to an arbitrary
 value, the following functionals were implemented:
 
 ========== ======== ======= ===================== =========
@@ -71,7 +71,6 @@ CAMY-B3LYP 0.19     0.46    0.34                  [SZ12]_
 LCY-BLYP   0.0      1.0     0.75                  [SZ12]_
 LCY-PBE    0.0      1.0     0.75                  [SZ12]_
 ========== ======== ======= ===================== =========
-
 
 As the implementation of RSFs in gpaw is based on the finite difference
 exact exchange code (hybrid.py), the implementation inherits its positive
@@ -100,7 +99,7 @@ functional as in the following snippet:
 .. literalinclude:: rsf_simple.py
 
 Three main points can be seen already in this small snippet. Even if choosing
-the RSF is quite simple by choosing ``xc=LCY_PBE``, one has to choose RMMDIIS
+the RSF is quite simple by choosing ``xc=LCY-PBE``, one has to choose RMMDIIS
 as eigensolver, ``eigensolver=RMMDIIS()``, and has to decrease the
 convergence criteria a little.
 
@@ -136,11 +135,22 @@ As stated in the introduction, the optimal value for `\gamma` is under
 discussion. One way to find the optimal value for `\gamma` for ionization
 potentials is to tune `\gamma` in a way, that the negative eigenvalue of the
 HOMO matches the calculated IP. To use different values of `\gamma`, one has
-to instantiate the RSF directly by ``HybridXC`` and give the value of `\gamma`
-to the variable ``omega`` (the latter was chosen to prevent polluting the
-code with variables):
+to pass the desired value of `\gamma` to the variable ``omega``.
 
 .. literalinclude:: rsf_gamma.py
+
+linear response TDDFT
+=====================
+
+One of the major benefits of RSF is their ability to describe long-range charge transfer by
+linear response time-dependent DFT (lrTDDFT). If one uses RSF with lrTDDFT one has at least
+to activate the use of the Fock operator (FO) on the unoccupied states. Also the charge
+centered compensation of the over charge should be activated, see [Wu16]_ for details.
+The use of the FO on the unoccupied states is activated by the keyword ``unocc=True`` as in 
+the following code:
+
+.. literalinclude:: rsf_lrtddft.py
+
 
 .. [AT08] Y. Akinaga and S. Ten-no. *Range-separation by the Yukawa potential in long-range corrected density functional theory with Gaussian-type basis functions*. Chemical Physics Letters 462.4 (10. Sep. 2008), S. 348–351.
 
