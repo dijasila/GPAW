@@ -804,7 +804,7 @@ class GPAW(PAW, Calculator):
         self.log(self.occupations)
 
     def create_scf(self, nvalence, mode):
-        if mode.name == 'lcao':
+        if mode.name in {'lcao', 'tb'}:
             niter_fixdensity = 0
         else:
             niter_fixdensity = 2
@@ -818,6 +818,8 @@ class GPAW(PAW, Calculator):
             cc.get('forces', np.inf) / (Ha / Bohr),
             self.parameters.maxiter,
             niter_fixdensity, nv)
+        if mode.name == 'tb':
+            self.scf.max_errors['energy'] = np.inf
         self.log(self.scf)
 
     def create_symmetry(self, magmom_av, cell_cv):
@@ -885,9 +887,8 @@ class GPAW(PAW, Calculator):
             background_charge=background)
 
         if mode.name == 'tb':
-            self.density = TBDensity(self.wfs.nspins,
-                                     self.wfs.collinear,
-                                     charge)
+            self.density = TBDensity(**kwargs)
+
         elif realspace:
             self.density = RealSpaceDensity(stencil=mode.interpolation,
                                             **kwargs)
@@ -910,12 +911,8 @@ class GPAW(PAW, Calculator):
             vext=self.parameters.external,
             psolver=self.parameters.poissonsolver)
         if mode.name == 'tb':
-            self.hamiltonian = TBHamiltonian(dens.nspins,
-                                             dens.collinear,
-                                             dens.setups,
-                                             self.timer,
-                                             xc,
-                                             self.world)
+            del kwargs['psolver']
+            self.hamiltonian = TBHamiltonian(**kwargs)
         elif realspace:
             self.hamiltonian = RealSpaceHamiltonian(stencil=mode.interpolation,
                                                     **kwargs)
