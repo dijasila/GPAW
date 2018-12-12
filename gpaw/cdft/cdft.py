@@ -230,15 +230,13 @@ class CDFT(Calculator):
         self.atoms.calc = self.calc
 
         p = functools.partial(print, file=self.log)
-
         self.iteration = 0
         self.old_v_i = self.v_i.copy()
 
         def f(v_i):
             #nonlocal iteration
-
             # very simple step size control
-            diff = np.asarray(v_i - self.old_v_i)
+            diff = v_i - self.old_v_i
 
             if np.any ( np.abs(diff) >= self.max_step/Hartree):
                 v_i = self.old_v_i + np.sign(v_i - self.old_v_i)*self.max_step/Hartree
@@ -293,7 +291,6 @@ class CDFT(Calculator):
             self.dn_i = np.asarray(dn_i)
             self.dn_i = self.dn_i.flatten()
             self.w = self.ext.w_ig
-            print(self.dn_i)
             # Do not include external potential
             E_KS = get_ks_energy_wo_external(self.calc)
 
@@ -656,11 +653,9 @@ class CDFTPotential(ExternalPotential):
         self.vext_g = None
 
     def initialize_partitioning(self, gd, construct=False, pad=False, global_array=False):
-        print('self.Rc, mu', self.Rc, self.mu)
         w = get_all_weight_functions(self.atoms,
                                 gd, self.indices_i, self.difference,
                                 self.Rc, self.mu)
-        print('self.Rc, mu', self.Rc, self.mu)
         if construct:
             return np.array(w)
 
@@ -830,7 +825,6 @@ class WeightFunc:
             self.mu = new_mu
         else:
             self.mu = mu
-        print('From WF', self.Rc, self.mu)
 
     def get_Rc_and_mu(self):
         return self.Rc, self.mu
