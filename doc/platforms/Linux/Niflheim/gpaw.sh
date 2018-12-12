@@ -9,7 +9,7 @@ if [ -z $ASE ]; then
     ASE=~/ase
 fi
 
-module load GPAW
+module load GPAW/1.4.0-foss-2018b-Python-3.6.6
 module unload ASE
 
 PLATFORM=linux-x86_64-$CPU_ARCH-el7-3.6
