@@ -261,7 +261,6 @@ class CDFT(Calculator):
             self.nt_ag = self.calc.density.nt_sg[0]
             self.nt_bg = self.calc.density.nt_sg[1]
             total_electrons = []
-            total_electrons = np.asarray(total_electrons)
 
             if self.n_charge_regions != 0:
                 # total pseudo electron density
@@ -273,7 +272,7 @@ class CDFT(Calculator):
                 n_electrons += Delta_n[0:self.n_charge_regions]
                 # constraint
                 diff = n_electrons - self.constraints[0:self.n_charge_regions]
-                total_electrons = np.append(total_electrons,n_electrons)
+                total_electrons.append(n_electrons)
                 dn_i.append(diff)
 
             if self.n_spin_regions != 0:
@@ -285,11 +284,12 @@ class CDFT(Calculator):
                 n_electrons += Delta_n[self.n_charge_regions:]
                 # constraint
                 diff = n_electrons - self.constraints[self.n_charge_regions:]
-                total_electrons = np.append(total_electrons,n_electrons)
+                total_electrons.append(n_electrons)
                 dn_i.append(diff)
 
             self.dn_i = np.asarray(dn_i)
             self.dn_i = self.dn_i.flatten()
+            total_electrons = np.asarray(total_electrons)
             self.w = self.ext.w_ig
             # Do not include external potential
             E_KS = get_ks_energy_wo_external(self.calc)
