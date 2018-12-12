@@ -856,20 +856,7 @@ class WeightFunc:
         return np.array(gauss * check)
 
     def get_distance_vectors(self, pos, distance = True):
-        # Given atom position [Bohr], grab distances to all
-        # grid points - employ MIC when appropriate.
-
-        # Scaled position of gpts on some cpu, relative to all gpts
-        s_G = (np.indices(self.gd.n_c, float).T +\
-               self.gd.beg_c) / self.gd.N_c
-        # Subtract scaled distance from atom to box boundaries
-        s_G -= np.linalg.solve(self.gd.cell_cv.T, pos)
-        ## MIC
-        s_G -= self.gd.pbc_c * (2 * s_G).astype(int)
-        # Apparently doing this check twice works better ...
-        s_G -= self.gd.pbc_c * (2 * s_G).astype(int)
-        # x,y,z distances
-        xyz = np.dot(s_G, self.gd.cell_cv).T.copy()
+        xyz = self.gd.get_grid_point_distance_vectors(pos)
         if distance:
             # returns vector norm
             return np.sqrt((xyz**2).sum(axis=0))
