@@ -10,12 +10,6 @@ from math import pi
 from scipy.optimize import minimize
 from gpaw.external import ExternalPotential
 
-# Cut-off dict:
-Rc = {}
-
-# mu dict
-mu = {'Li': 0.5,'F': 0.7, 'O': 0.7,'V': 0.5}
-
 '''
 Module for constrained DFT
 for review see Chem. Rev., 2012, 112 (1), pp 321-370
@@ -27,10 +21,11 @@ class CDFT(Calculator):
     implemented_properties = ['energy', 'forces']
 
     def __init__(self, calc, atoms, charge_regions=None, charges=None,
-                 spin_regions=None, spins=None, gaussian_widths=None,
+                 spin_regions=None, spins=None,
                  charge_coefs=None, spin_coefs=None,
                  promolecular_constraint=False, txt='-',
                  minimizer_options={'gtol': 0.01},
+                 Rc={}, mu = {'Li': 0.5,'F': 0.7, 'O': 0.7,'V': 0.5},
                  method='BFGS', forces='analytical',
                  use_charge_difference=False,compute_forces=True,
                  maxstep=100, tol=1e-3, bounds=None):
@@ -91,6 +86,8 @@ class CDFT(Calculator):
         self.options = minimizer_options
         self.difference = use_charge_difference
         self.compute_forces = compute_forces
+        self.Rc = Rc
+        self.mu = mu
         # set charge constraints and lagrangians
 
         self.v_i = np.empty(shape=(0,0))
@@ -100,7 +97,6 @@ class CDFT(Calculator):
         self.tol = tol
         self.gtol = minimizer_options['gtol']
         self.bounds = bounds
-
 
         if self.bounds is not None:
             self.bounds = np.asarray(self.bounds)/Hartree
@@ -174,8 +170,6 @@ class CDFT(Calculator):
         atoms.set_calculator(self.calc)
         atoms.get_potential_energy()
         self.cdft_initialised = False
-        if gaussian_widths is not None:
-        	self.update_mu(gaussian_widths)
 
         self.atoms = atoms
         self.gd = self.calc.density.finegd
@@ -202,6 +196,9 @@ class CDFT(Calculator):
                       n_core = a.number - self.calc.wfs.setups[a.index].Nv
                       self.n_core_electrons[r] -= n_core
 
+
+        w = WeightFunc(self.gd, self.atoms, None, self.Rc, self.mu)
+        self.Rc, self.mu = w.get_Rc_and_mu()
         # construct cdft potential
         self.ext = CDFTPotential(regions=self.regions,
                     gd=self.gd,
@@ -210,15 +207,12 @@ class CDFT(Calculator):
                     n_charge_regions=self.n_charge_regions,
                     difference=self.difference,
                     txt=self.log,
-                    vi = self.v_i)
+                    vi = self.v_i,
+                    Rc=self.Rc, mu=self.mu)
 
         self.calc.set(external=self.ext)
 
         self.w = self.ext.w_ig
-
-    def update_mu(self,gaussian_widths):
-    	global mu
-    	mu.update(gaussian_widths)
 
     def calculate(self, atoms, properties, system_changes):
         # check we're dealing with same atoms
@@ -360,7 +354,7 @@ class CDFT(Calculator):
         if self.compute_forces:
             f = WeightFunc(self.gd,
                     self.atoms,
-                    self.regions)
+                    self.regions, self.Rc, self.mu, new=False)
 
             f_cdft = f.get_cdft_forces2(dens=self.calc.density,
                 v_i=self.v_i,
@@ -382,7 +376,8 @@ class CDFT(Calculator):
             c = CDFTPotential(regions=self.regions, gd=self.gd,
                 atoms=self.atoms, constraints=self.constraints,
                 n_charge_regions=self.n_charge_regions,
-                difference=self.difference, vi=self.v_i)
+                difference=self.difference, vi=self.v_i,
+                Rc=self.Rc, mu=self.mu)
 
             w_g = c.initialize_partitioning(self.gd, construct=True, pad=True,
                                             global_array=True)
@@ -529,7 +524,7 @@ class CDFT(Calculator):
         for atom in self.atoms:
             # weight function with one atom
             f = WeightFunc(self.gd,
-                    self.atoms, [atom.index])
+                    self.atoms, [atom.index], self.Rc, self.mu)
 
             w = f.construct_weight_function()
             n_el = (self.gd.integrate(w*dens,
@@ -596,7 +591,8 @@ def gaussians(gd, positions, numbers):
 
 class CDFTPotential(ExternalPotential):
     def __init__(self, regions, gd,
-            atoms, constraints, n_charge_regions, difference, vi, txt='-'):
+            atoms, constraints, n_charge_regions, difference, vi, txt='-',
+            Rc={}, mu={}):
 
         self.indices_i = regions
         self.gd = gd
@@ -610,6 +606,8 @@ class CDFTPotential(ExternalPotential):
         self.constraints = constraints
         self.difference = difference
         self.v_i = vi
+        self.Rc = Rc
+        self.mu = mu
         self.name = 'CDFTPotential'
 
     def __str__(self):
@@ -658,10 +656,11 @@ class CDFTPotential(ExternalPotential):
         self.vext_g = None
 
     def initialize_partitioning(self, gd, construct=False, pad=False, global_array=False):
-
-        w, self.mu, self.Rc = get_all_weight_functions(self.atoms,
-                                gd, self.indices_i, self.difference)
-
+        print('self.Rc, mu', self.Rc, self.mu)
+        w = get_all_weight_functions(self.atoms,
+                                gd, self.indices_i, self.difference,
+                                self.Rc, self.mu)
+        print('self.Rc, mu', self.Rc, self.mu)
         if construct:
             return np.array(w)
 
@@ -778,7 +777,7 @@ class WeightFunc:
     can be used to do charge constraint DFT.
 
     """
-    def __init__(self, gd, atoms, indices, Rc=Rc, mu=mu):
+    def __init__(self, gd, atoms, indices, Rc={}, mu={}, new=True):
         """ Given a grid-descriptor, atoms object and an index list
             construct a weight function defined by:
                      n_i(r-R_i)
@@ -798,33 +797,43 @@ class WeightFunc:
 
         # Weight function parameters in Bohr
         # Cutoffs
-        new = {}
-        for a in self.atoms:
-            if a.symbol in Rc:
-                new[a.symbol] = Rc[a.symbol] / Bohr
-            else:
-                element_number = atomic_numbers[a.symbol]
-                cr = covalent_radii[element_number]
-                #Rc to roughly between 3. and 5.
-                new[a.symbol] = (cr + 2.5) / Bohr
+        if new:
+            new_Rc = {}
+            for a in self.atoms:
+                if a.symbol in Rc:
+                    new_Rc[a.symbol] = Rc[a.symbol] / Bohr
+                else:
+                    element_number = atomic_numbers[a.symbol]
+                    cr = covalent_radii[element_number]
+                    #Rc to roughly between 3. and 5.
+                    new_Rc[a.symbol] = (cr + 2.5) / Bohr
 
-        self.Rc = new
+            self.Rc = new_Rc
+        else:
+            self.Rc = Rc
 
         # Construct mu (width) dict
         # mu only sets the width and height so it's in angstrom
-        new_mu = {}
-        for a in self.atoms:
-            if a.symbol in mu:
-                new_mu[a.symbol] = mu[a.symbol] / Bohr
-            else:
-                element_number = atomic_numbers[a.symbol]
-                cr = covalent_radii[element_number]
-                # mu to be roughly between 0.5 and 1.0 AA
-                cr = (cr * min(covalent_radii) + 0.5)
-                new_mu[a.symbol] = cr / Bohr
+        if new:
+            new_mu = {}
+            for a in self.atoms:
+                if a.symbol in mu:
+                    new_mu[a.symbol] = mu[a.symbol] / Bohr
+                else:
+                    element_number = atomic_numbers[a.symbol]
+                    cr = covalent_radii[element_number]
+                    # mu to be roughly between 0.5 and 1.0 AA
+                    cr = (cr * min(covalent_radii) + 0.5)
+                    new_mu[a.symbol] = cr / Bohr
 
-        # "Larger" atoms may need a bit more width
-        self.mu = new_mu
+            # "Larger" atoms may need a bit more width
+            self.mu = new_mu
+        else:
+            self.mu = mu
+        print('From WF', self.Rc, self.mu)
+
+    def get_Rc_and_mu(self):
+        return self.Rc, self.mu
 
     def normalized_gaussian(self, dis, mu, Rc):
         # Given mu - width, and Rc
@@ -1095,12 +1104,10 @@ def get_ks_energy_wo_external(calc):
         calc.hamiltonian.e_xc -
         calc.hamiltonian.e_entropy)*Hartree
 
-def get_all_weight_functions(atoms, gd, indices_i, difference, w=[]):
+def get_all_weight_functions(atoms, gd, indices_i, difference, Rc, mu, w=[], new=False):
 
     for i in range(len(indices_i)):
-        wf = WeightFunc(gd,
-                    atoms,
-                    indices_i[i])
+        wf = WeightFunc(gd, atoms, indices_i[i], Rc, mu, new)
         weig = wf.construct_weight_function()
 
         if not difference:
@@ -1111,10 +1118,11 @@ def get_all_weight_functions(atoms, gd, indices_i, difference, w=[]):
                 w.append(weig)
             else:
                 w[0] -= weig # negative for acceptor
-    return w, wf.mu, wf.Rc
+    return w
 
 def get_promolecular_constraints(calc_a, atoms_a, calc_b, atoms_b,
-        charge_constraint=True, spin_constraint=False, restart=False):
+        charge_constraint=True, spin_constraint=False, restart=False,
+        Rc={}, mu={}):
 
     '''
     - calc_a is for the region you're interested in. Its charge
@@ -1142,7 +1150,7 @@ def get_promolecular_constraints(calc_a, atoms_a, calc_b, atoms_b,
         d_b = calc_b.get_all_electron_density(gridrefinement=2, pad = False)
 
         charge_region = [atom.index for atom in atoms_a]
-        weight = WeightFunc(gd=gd, atoms=atoms, indices=charge_region)
+        weight = WeightFunc(gd=gd, atoms=atoms, indices=charge_region, Rc=Rc, mu=mu)
         w = weight.construct_weight_function()
 
         dv = atoms.get_volume() / calc_a.get_number_of_grid_points().prod()
@@ -1154,14 +1162,14 @@ def get_promolecular_constraints(calc_a, atoms_a, calc_b, atoms_b,
             Zn += atom.number
 
         constraints.append(Zn - Nel)
-        
+
     if spin_constraint:
         # can charge and spin constraints be treated at the same time?
         d_a = calc_a.get_all_electron_density(gridrefinement=2, pad=False, spin=0)
         d_b = calc_b.get_all_electron_density(gridrefinement=2, pad = False, spin=1)
 
         charge_region = [atom.index for atom in atoms_a]
-        weight = WeightFunc(gd=gd, atoms=atoms, indices=charge_region)
+        weight = WeightFunc(gd=gd, atoms=atoms, indices=charge_region, Rc=Rc, mu=mu)
         w = weight.construct_weight_function()
 
         dv = atoms.get_volume() / calc_a.get_number_of_grid_points().prod()
