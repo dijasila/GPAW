@@ -9,7 +9,7 @@ if [ -z $ASE ]; then
     ASE=~/ase
 fi
 
-module load GPAW/1.4.0-foss-2018b-Python-3.6.6
+module load GPAW/1.4.0-foss-2018a-Python-3.6.4
 module unload ASE
 
 export GPAW_MPI_OPTIONS=""
