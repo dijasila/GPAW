@@ -1083,7 +1083,7 @@ class GPAW(PAW, Calculator):
                                                dtype, nao=nao,
                                                timer=self.timer)
 
-            reuse_wfs_method = par.experimental.get('reuse_wfs_method')
+            reuse_wfs_method = par.experimental.get('reuse_wfs_method', 'paw')
             sl = (domainband_comm,) + (self.parallel['sl_diagonalize'] or
                                        sl_default or
                                        (1, 1, None))
