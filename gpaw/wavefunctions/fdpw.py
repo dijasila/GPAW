@@ -12,7 +12,7 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions, update_phases
 
 
 class NullWfsMover:
-    description = 'Wavefunctions reused if atoms move'
+    description = 'Wavefunctions kept unchanged if atoms move'
 
     def initialize(self, lcaowfs):
         pass
@@ -233,8 +233,11 @@ class FDPWWaveFunctions(WaveFunctions):
 
     def __str__(self):
         comm, r, c, b = self.scalapack_parameters
-        return ('  ScaLapack parameters: grid={}x{}, blocksize={}'
-                .format(r, c, b))
+        L1 = ('  ScaLapack parameters: grid={}x{}, blocksize={}'
+              .format(r, c, b))
+        L2 = ('  Wavefunction extrapolation:\n    {}'
+              .format(self.wfs_mover.description))
+        return '\n'.join([L1, L2])
 
     def set_setups(self, setups):
         WaveFunctions.set_setups(self, setups)
