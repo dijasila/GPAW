@@ -23,6 +23,7 @@ def get_paw():
     """Return calculator object."""
     c = {'energy': 0.05, 'eigenstates': 0.05, 'density': 0.05}
     return GPAW(convergence=c, eigensolver=RMMDIIS(),
+                experimental={'niter_fixdensity': 2},
                 nbands=5,
                 xc='LCY-PBE:omega=0.83:unocc=True',
                 parallel={'domain': world.size}, h=0.35,

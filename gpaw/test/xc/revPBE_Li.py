@@ -8,7 +8,7 @@ a = 5.0
 n = 24
 li = Atoms('Li', magmoms=[1.0], cell=(a, a, a), pbc=True)
 
-calc = GPAW(gpts=(n, n, n), nbands=1, xc='oldPBE',
+calc = GPAW(gpts=(n, n, n), nbands=1, xc=dict(name='oldPBE', stencil=1),
             poissonsolver=PoissonSolver(),
             mixer=MixerSum(0.6, 5, 10.0),
             eigensolver=Davidson(4),
@@ -19,7 +19,7 @@ e = li.get_potential_energy() + calc.get_reference_energy()
 niter_PBE = calc.get_number_of_iterations()
 equal(e, -7.462 * Hartree, 1.4)
 
-calc.set(xc='revPBE')
+calc.set(xc=dict(name='revPBE', stencil=1))
 erev = li.get_potential_energy() + calc.get_reference_energy()
 niter_revPBE = calc.get_number_of_iterations()
 

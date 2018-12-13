@@ -19,7 +19,7 @@ kpt_refine = {
 #             "reduce_symmetry":True}
 
 calc = GPAW(mode=PW(ecut=400),
-            xc='PBE',
+            xc=dict(name='PBE', stencil=1),
             kpts={'size': [9, 9, 1], 'gamma': True},
             experimental={'kpt_refine': kpt_refine},
             occupations=FermiDirac(0.026))
