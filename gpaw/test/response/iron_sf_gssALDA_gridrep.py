@@ -96,7 +96,7 @@ test_Ipeak2 = 43.1361567126  # a.u.
 
 # print(fxc_scaling[1], mw1, mw2, Ipeak1, Ipeak2)
 
-if abs(test_fxcs - fxc_scaling[1]) > 1.e-5:
+if abs(test_fxcs - fxc_scaling[1]) > 5.e-5:
     print((test_fxcs - fxc_scaling[1]))
     raise ValueError('fxc_scaling not correct ! ')
 
