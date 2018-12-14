@@ -30,7 +30,7 @@ a = 2.867
 mm = 2.21
 
 # Part 2: magnetic response calculation
-q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.5/2.]]  # Two q-points along G-N path
+q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.5 / 2.]]  # Two q-points along G-N path
 frq_qw = [np.linspace(-0.080, 0.120, 26), np.linspace(0.100, 0.300, 26)]
 Kxc = 'ALDA'
 fxc_scaling = [True, None]
