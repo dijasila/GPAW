@@ -1,15 +1,15 @@
-.. _Niflheim:
+.. _BuildOnNiflheim:
 
-========
-Niflheim
-========
+=========================
+Building GPAW on Niflheim
+=========================
 
 Information about the Niflheim cluster can be found at
 `<https://wiki.fysik.dtu.dk/niflheim>`_.
 
 This document explains how to compile a developer version of GPAW on
 Niflheim.  If you just want to run the pre-installed version, please
-just load it with ``module load GPAW``.
+read the guide :ref:`Using a pre-installed GPAW on Niflheim <LoadOnNiflheim>`.
 
   
 .. highlight:: bash
