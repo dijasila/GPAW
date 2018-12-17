@@ -9,6 +9,11 @@ from gpaw.test import equal
 from gpaw.eigensolvers import RMMDIIS
 from gpaw.lrtddft import LrTDDFT
 
+if world.size in {2, 8}:
+    # See #183
+    from unittest import SkipTest
+    raise SkipTest
+
 o_plus = Cluster(Atoms('O', positions=[[0, 0, 0]]))
 o_plus.set_initial_magnetic_moments([3.0])
 o_plus.minimal_box(2.5, h=0.35)
@@ -18,6 +23,7 @@ def get_paw():
     """Return calculator object."""
     c = {'energy': 0.05, 'eigenstates': 0.05, 'density': 0.05}
     return GPAW(convergence=c, eigensolver=RMMDIIS(),
+                experimental={'niter_fixdensity': 2},
                 nbands=5,
                 xc='LCY-PBE:omega=0.83:unocc=True',
                 parallel={'domain': world.size}, h=0.35,

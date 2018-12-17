@@ -32,14 +32,14 @@ for fg in fgl:
     timer.start(tstr)
     calc = GPAW(h=0.3,
                 eigensolver='rmm-diis',
-                xc='PBE',
+                xc=dict(name='PBE', stencil=1),
                 poissonsolver={'name': 'fd'},
                 nbands=4,
                 convergence={'eigenstates': 1e-4},
                 charge=-1)
     loa.set_calculator(calc)
     E[fg] = loa.get_potential_energy()
-    calc.set(xc=HybridXC('PBE0', finegrid=fg))
+    calc.set(xc=HybridXC('PBE0', stencil=1, finegrid=fg))
     E[fg] = loa.get_potential_energy()
     niter[fg] = calc.get_number_of_iterations()
     timer.stop(tstr)

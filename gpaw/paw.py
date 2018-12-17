@@ -552,7 +552,7 @@ class PAW:
         return f_n
 
     def get_xc_difference(self, xc):
-        if isinstance(xc, str):
+        if isinstance(xc, (str, dict)):
             xc = XC(xc)
         xc.set_grid_descriptor(self.density.finegd)
         xc.initialize(self.density, self.hamiltonian, self.wfs,

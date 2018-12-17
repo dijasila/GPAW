@@ -1,4 +1,5 @@
 from __future__ import print_function, division
+import multiprocessing as mp
 import os
 import re
 import sys
@@ -75,7 +76,7 @@ class DatasetOptimizer:
 
         self.x = energies + radii + [r0]
         self.bounds = ([(-1.0, 4.0)] * self.nenergies +
-                       [(rc * 0.7, rc * 1.1) for r in radii] +
+                       [(rc * 0.7, rc * 1.0) for r in radii] +
                        [(0.3, rc)])
 
         self.ecut1 = 450.0
@@ -91,14 +92,13 @@ class DatasetOptimizer:
         print(self.x)
         print(self.bounds)
         init = 'latinhypercube'
-        if os.path.isfile('data.csv'):
+        if 0:  # os.path.isfile('data.csv'):
             n = len(self.x)
             data = self.read()[:15 * n]
             if np.isfinite(data[:, n]).all() and len(data) == 15 * n:
                 init = data[:, :n]
 
-        self.logfile = open('data.csv', 'a')
-        DE(self, self.bounds, init=init)
+        DE(self, self.bounds, init=init, workers=8, updating='deferred')
 
     def generate(self, fd, projectors, radii, r0, xc,
                  scalar_relativistic=True, tag=None, logderivs=True):
@@ -156,9 +156,13 @@ class DatasetOptimizer:
         return energies, radii, r0, projectors
 
     def __call__(self, x):
+        id = mp.current_process().name[-1]
+        self.setup = 'de' + id
         energies, radii, r0, projectors = self.parameters(x)
 
-        fd = open('out.txt', 'w')
+        self.logfile = open(f'data-{id}.csv', 'a')
+
+        fd = open(f'out-{id}.txt', 'w')
         errors, msg, convenergies, eggenergies, ips = \
             self.test(fd, projectors, radii, r0)
         error = ((errors / self.tolerances)**2).sum()
@@ -206,9 +210,9 @@ class DatasetOptimizer:
             errors[0] = sum(r - rc for r in radii if r > rc)
 
             error = 0.0
-            for kwargs in [dict(xc='PBE', tag='de'),
+            for kwargs in [dict(xc='PBE', tag=self.setup),
                            dict(xc='PBE', scalar_relativistic=False),
-                           dict(xc='LDA', tag='de'),
+                           dict(xc='LDA', tag=self.setup),
                            dict(xc='PBEsol'),
                            dict(xc='RPBE'),
                            dict(xc='PW91')]:
@@ -245,7 +249,7 @@ class DatasetOptimizer:
             atoms.calc = GPAW(h=h,
                               xc='PBE',
                               symmetry='off',
-                              setups=setup,
+                              setups=self.setup,
                               maxiter=M,
                               txt=fd,
                               **mixer)
@@ -272,7 +276,7 @@ class DatasetOptimizer:
             mixer = {}
         atoms.calc = GPAW(mode=PW(1500),
                           xc='PBE',
-                          setups=setup,
+                          setups=self.setup,
                           symmetry='off',
                           maxiter=M,
                           txt=fd,
@@ -307,11 +311,22 @@ class DatasetOptimizer:
         return area, iters, energies
 
     def ip(self, fd):
-        IP, IP0 = ip(self.symbol, fd)
+        IP, IP0 = ip(self.symbol, fd, self.setup)
         return IP, IP0
 
     def read(self):
-        data = np.loadtxt('data.csv', delimiter=',')
+        data = []
+        for i in '12345678s':
+            try:
+                d = np.loadtxt(f'data-{i}.csv', delimiter=',')
+            except OSError:
+                if i == 's':
+                    pass
+                if i == '1':
+                    data = np.loadtxt(f'data.csv', delimiter=',')
+                    break
+            data += d.tolist()
+        data = np.array(data)
         return data[data[:, len(self.x)].argsort()]
 
     def summary(self, N=10):
@@ -350,11 +365,11 @@ class DatasetOptimizer:
                              r0,
                              error))
         if 1 and error != np.inf and error != np.nan:
-            self.generate(None, projectors, radii, r0, 'PBE', True, 'a4',
+            self.generate(None, projectors, radii, r0, 'PBE', True, 'a7o',
                           logderivs=False)
 
 
-def ip(symbol, fd):
+def ip(symbol, fd, setup):
     xc = 'LDA'
     aea = AllElectronAtom(symbol, log=fd)
     aea.initialize()
@@ -382,19 +397,19 @@ def ip(symbol, fd):
     IP = aea.ekin + aea.eH + aea.eZ + aea.exc - energy
     IP *= Ha
 
-    s = create_setup(symbol, type='de', xc=xc)
+    s = create_setup(symbol, type=setup, xc=xc)
     f_ln = defaultdict(list)
     for l, f in zip(s.l_j, s. f_j):
         if f:
             f_ln[l].append(f)
 
     f_sln = [[f_ln[l] for l in range(1 + max(f_ln))]]
-    calc = AtomPAW(symbol, f_sln, xc=xc, txt=fd, setups='de')
+    calc = AtomPAW(symbol, f_sln, xc=xc, txt=fd, setups=setup)
     energy = calc.results['energy']
     # eps_n = calc.wfs.kpt_u[0].eps_n
 
     f_sln[0][l0][-1] -= 1
-    calc = AtomPAW(symbol, f_sln, xc=xc, charge=1, txt=fd, setups='de')
+    calc = AtomPAW(symbol, f_sln, xc=xc, charge=1, txt=fd, setups=setup)
     IP2 = calc.results['energy'] - energy
     return IP, IP2
 

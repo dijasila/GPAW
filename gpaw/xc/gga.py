@@ -170,7 +170,7 @@ def get_gradient_ops(gd, nn):
 
 
 class GGA(XCFunctional):
-    def __init__(self, kernel, stencil=1):
+    def __init__(self, kernel, stencil=2):
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
         self.stencil_range = stencil
@@ -183,6 +183,10 @@ class GGA(XCFunctional):
         d = super(GGA, self).todict()
         d['stencil'] = self.stencil_range
         return d
+
+    def get_description(self):
+        return ('{} with {} nearest neighbor stencil'
+                .format(self.name, self.stencil_range))
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)
