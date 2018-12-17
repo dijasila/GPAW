@@ -41,6 +41,11 @@ def update_phases(C_unM, q_u, ibzk_qc, spos_ac, oldspos_ac, setups, Mstart):
 
     # We don't want to apply any phase shift unless we crossed a cell
     # boundary.  So we round the shift to either 0 or 1.
+    #
+    # Example: spos_ac goes from 0.01 to 0.99 -- this rounds to 1 and
+    # we apply the phase.  If someone moves an atom by half a cell
+    # without crossing a boundary, then we are out of luck.  But they
+    # should have reinitialized from LCAO anyway.
     phase_qa = np.exp(2j * np.pi *
                       np.dot(ibzk_qc, (spos_ac - oldspos_ac).T.round()))
 
