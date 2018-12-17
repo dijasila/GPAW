@@ -45,7 +45,7 @@ def pad(array, N):
 class PW(Mode):
     name = 'pw'
 
-    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None,
+    def __init__(self, ecut=340, fftwflags=fftw.MEASURE, cell=None,
                  gammacentered=False,
                  pulay_stress=None, dedecut=None,
                  force_complex_dtype=False):
@@ -62,17 +62,21 @@ class PW(Mode):
         pulay_stress: float or None
             Pulay-stress correction.
         fftwflags: int
-            Flags for making FFTW plan (default is ESTIMATE).
+            Flags for making an FFTW plan.  There are 4 possibilities
+            (default is MEASURE)::
+
+                from gpaw.fftw import ESTIMATE, MEASURE, PATIENT, EXHAUSTIVE
+
         cell: 3x3 ndarray
             Use this unit cell to chose the planewaves.
-        
+
         Only one of dedecut and pulay_stress can be used.
         """
 
         self.gammacentered = gammacentered
         self.ecut = ecut / Ha
         # Don't do expensive planning in dry-run mode:
-        self.fftwflags = fftwflags if not dry_run else fftw.ESTIMATE
+        self.fftwflags = fftwflags if not dry_run else fftw.MEASURE
         self.dedecut = dedecut
         self.pulay_stress = (None
                              if pulay_stress is None
@@ -130,7 +134,7 @@ class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
 
     def __init__(self, ecut, gd, dtype=None, kd=None,
-                 fftwflags=fftw.ESTIMATE, gammacentered=False):
+                 fftwflags=fftw.MEASURE, gammacentered=False):
 
         assert gd.pbc_c.all()
 
@@ -206,7 +210,7 @@ class PWDescriptor:
                 mask_Q = ((self.G_Qv**2).sum(axis=1) <= 2 * ecut)
             else:
                 mask_Q = (G2_Q <= 2 * ecut)
-            
+
             if self.dtype == float:
                 mask_Q &= ((i_Qc[:, 2] > 0) |
                            (i_Qc[:, 1] > 0) |
