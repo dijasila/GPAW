@@ -73,6 +73,7 @@ class Heterostructure:
                 q = data['q_abs']
                 w = data['omega_w']
                 zi = data['z']
+                zi -= np.mean(zi)
                 chim = data['chiM_qw']
                 chid = data['chiD_qw']
                 drhom = data['drhoM_qz']
@@ -166,8 +167,6 @@ class Heterostructure:
 
         for i in range(self.n_types):
             z = self.z[i]
-            midz = np.mean(z)
-            z = z - midz
             drhom_i = drhom[i]
             fm = interp1d(z, np.real(drhom_i))
             fm2 = interp1d(z, np.imag(drhom_i))
@@ -181,19 +180,23 @@ class Heterostructure:
                 i_1s = np.argmin(np.abs(-self.s[k] / 2. - z_big))
                 i_2s = np.argmin(np.abs(self.s[k] / 2. - z_big))
 
-                i_1 = np.argmin(np.abs(z[0] - z_big)) + 1
-                i_2 = np.argmin(np.abs(z[-1] - z_big)) - 1
+                i_1 = np.argmin(np.abs(z[0] - z_big))
+                if z_big[i_1] < z[0]:
+                    i_1 += 1
+                i_2 = np.argmin(np.abs(z[-1] - z_big))
+                if z_big[i_2] > z[-1]:
+                    i_2 -= 1
                 if drhod is not None:
-                    drho_array[2 * k, :, i_1: i_2] = \
-                        fm(z_big[i_1: i_2]) + 1j * fm2(z_big[i_1: i_2])
+                    drho_array[2 * k, :, i_1: i_2 + 1] = \
+                        fm(z_big[i_1: i_2 + 1]) + 1j * fm2(z_big[i_1: i_2 + 1])
                     basis_array[2 * k, :, i_1s: i_2s] = 1. / self.s[k]
-                    drho_array[2 * k + 1, :, i_1: i_2] = \
-                        fd(z_big[i_1: i_2]) + 1j * fd2(z_big[i_1: i_2])
+                    drho_array[2 * k + 1, :, i_1: i_2 + 1] = \
+                        fd(z_big[i_1: i_2 + 1]) + 1j * fd2(z_big[i_1: i_2 + 1])
                     basis_array[2 * k + 1, :, i_1: i_2] = \
                         fd(z_big[i_1: i_2]) + 1j * fd2(z_big[i_1: i_2])
                 else:
-                    drho_array[k, :, i_1: i_2] = \
-                        fm(z_big[i_1: i_2]) + 1j * fm2(z_big[i_1: i_2])
+                    drho_array[k, :, i_1: i_2 + 1] = \
+                        fm(z_big[i_1: i_2 + 1]) + 1j * fm2(z_big[i_1: i_2 + 1])
                     basis_array[k, :, i_1s:i_2s] = 1. / self.s[k]
 
         return drhom, drhod, basis_array, drho_array
@@ -224,26 +227,31 @@ class Heterostructure:
                                                       dipole=True,
                                                       delta=delta)
                     fd = interp1d(z_poisson, np.real(poisson_d))
+                    fd2 = interp1d(z_poisson, np.imag(poisson_d))
 
                 for k in [k for k in range(self.n_layers)
                           if self.layer_indices[k] == i]:
                     z_big = self.z_big - self.z0[k]
-                    i_1 = np.argmin(np.abs(z_poisson[0] - z_big)) + 1
-                    i_2 = np.argmin(np.abs(z_poisson[-1] - z_big)) - 1
+                    i_1 = np.argmin(np.abs(z_poisson[0] - z_big))
+                    if z_big[i_1] < z_poisson[0]:
+                        i_1 += 1
+                    i_2 = np.argmin(np.abs(z_poisson[-1] - z_big))
+                    if z_big[i_2] > z_poisson[-1]:
+                        i_2 -= 1
 
                     dphi_array[self.dim // self.n_layers * k, iq] = (
                         self.potential_model(self.myq_abs[iq], self.z_big,
                                              self.z0[k]))
                     dphi_array[self.dim // self.n_layers * k,
-                               iq, i_1: i_2] = (fm(z_big[i_1: i_2]) +
-                                                1j * fm2(z_big[i_1: i_2]))
+                               iq, i_1: i_2 + 1] = (fm(z_big[i_1: i_2 + 1]) +
+                                                1j * fm2(z_big[i_1: i_2 + 1]))
                     if self.chi_dipole is not None:
                         dphi_array[2 * k + 1, iq] = \
                             self.potential_model(self.myq_abs[iq], self.z_big,
                                                  self.z0[k], dipole=True,
                                                  delta=delta)
-                        dphi_array[2 * k + 1, iq, i_1: i_2] = \
-                            fd(z_big[i_1: i_2])
+                        dphi_array[2 * k + 1, iq, i_1: i_2 + 1] = \
+                            fd(z_big[i_1: i_2 + 1]) + 1j * fd2(z_big[i_1: i_2 + 1])
 
         return dphi_array
 
@@ -253,7 +261,7 @@ class Heterostructure:
             z_lim = self.z_lim
 
         z_lim = int(z_lim / dz) * dz
-        z_grid = np.insert(z, 0, np.arange(-z_lim, z[0], dz))
+        z_grid = np.insert(z, 0, np.flip(np.arange(z[0] - dz, -z_lim - dz, -dz)))
         z_grid = np.append(z_grid, np.arange(z[-1] + dz, z_lim + dz, dz))
         return z_grid
 
@@ -279,10 +287,9 @@ class Heterostructure:
         q: momentum transfer.
         """
         dz = z[1] - z[0]
-        midz = np.mean(z)
-        z = z - midz  # center arround 0
         z_grid = self.get_z_grid(z, z_lim=self.poisson_lim)
 
+        assert np.allclose(np.diff(z_grid), dz)
         Nz_loc = (len(z_grid) - len(z)) // 2
 
         drho = np.append(np.insert(drho, 0, np.zeros([Nz_loc])),
