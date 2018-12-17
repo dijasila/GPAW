@@ -489,9 +489,12 @@ def parse_hgh_setup(lines):
     symbol, Z, Nv, rloc, c_n = parse_local_part(next(lines))
 
     def pair_up_nonlocal_lines(lines):
-        yield next(lines), ''
-        while True:
-            yield next(lines), next(lines)
+        try:
+            yield (next(lines), '')
+            while True:
+                yield (next(lines), next(lines))
+        except StopIteration:
+            return
 
     v_l = []
     for l, (non_local, spinorbit) in enumerate(pair_up_nonlocal_lines(lines)):
