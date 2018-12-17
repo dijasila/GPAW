@@ -916,7 +916,8 @@ class Heterostructure:
                     # linear interp for crossing point
                     w0 = np.real(-eig[iq, iw - 1, k]) / a + w_w[iw - 1]
                     rho = np.dot(self.drho_array[:, iq, :].T, vec_dual[k, :])
-                    phi = np.dot(self.dphi_array[:, iq, :].T, vec[iq, iw, :, k])
+                    phi = np.dot(self.dphi_array[:, iq, :].T,
+                                 vec[iq, iw, :, k])
                     rho_z[iq] = np.append(rho_z[iq], rho[np.newaxis, :],
                                           axis=0)
                     phi_z[iq] = np.append(phi_z[iq], phi[np.newaxis, :],
@@ -1058,7 +1059,7 @@ class BuildingBlock():
         q_abs = q_abs[sort]
         q_cs = q_cs[sort]
         if isotropic_q:
-            q_cut = q_abs[0]/2  # smallest finite q
+            q_cut = q_abs[0] / 2  # extrapolate to half of smallest finite q
         else:
             q_cut = q_abs[1]  # smallest finite q
         self.nq_cut = self.nq_inftot + 1
@@ -1068,7 +1069,7 @@ class BuildingBlock():
         q_infs[: self.nq_inftot, qdir] = \
             np.linspace(1e-05, q_cut, self.nq_inftot + 1)[:-1]
         if not isotropic_q:  # y-direction
-            q_infs[self.nq_inf : self.nq_inftot + 1, 1] = \
+            q_infs[self.nq_inf:self.nq_inftot + 1, 1] = \
                 np.linspace(0, q_cut, self.nq_inf + 1)[1:]
 
         # add q_inf to list
