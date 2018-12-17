@@ -132,7 +132,7 @@ class Heterostructure:
         else:  # Monolayer calculation
             self.s = [d0 / Bohr]  # Width of single layer
 
-        self.dim = self.n_layers
+        self.dim = np.copy(self.n_layers)
         if include_dipole:
             self.dim *= 2
 
@@ -1349,8 +1349,8 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
         q_grid = data['q_abs']
         w_grid = data['omega_w']
     else:
-        q_grid *= Bohr
-        w_grid *= Hartree
+        q_grid = q_grid * Bohr
+        w_grid = w_grid / Hartree
 
     q_grid = [q for q in q_grid if q < q_max]
     q_grid.append(q_max)
