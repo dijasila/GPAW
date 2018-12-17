@@ -165,7 +165,9 @@ class Heterostructure:
                                 Nz], dtype=complex)
 
         for i in range(self.n_types):
-            z = self.z[i] - self.z[i][len(self.z[i]) // 2]
+            z = self.z[i]
+            midz = np.mean(z)
+            z = z - midz
             drhom_i = drhom[i]
             fm = interp1d(z, np.real(drhom_i))
             fm2 = interp1d(z, np.imag(drhom_i))
@@ -277,7 +279,8 @@ class Heterostructure:
         q: momentum transfer.
         """
         dz = z[1] - z[0]
-        z = z - np.mean(z) - dz / 2  # center arround 0
+        midz = np.mean(z)
+        z = z - midz  # center arround 0
         z_grid = self.get_z_grid(z, z_lim=self.poisson_lim)
 
         Nz_loc = (len(z_grid) - len(z)) // 2
