@@ -92,7 +92,7 @@ class HGHSetupData:
         N = 450
         rgd = AERadialGridDescriptor(beta / N, 1.0 / N, N,
                                      default_spline_points=100)
-        #rgd = EquidistantRadialGridDescriptor(0.001, 10000)
+        # rgd = EquidistantRadialGridDescriptor(0.001, 10000)
         self.rgd = rgd
 
         self.Z = hghdata.Z
@@ -171,7 +171,6 @@ class HGHSetupData:
         assert lcomp == [0] and len(ghat) == 1
         renormalized_ghat = self.Nv / (4.0 * np.pi) * ghat[0]
         self.Eh_compcharge = get_radial_hartree_energy(r_g, renormalized_ghat)
-
 
     def find_cutoff(self, r_g, dr_g, f_g, sqrtailnorm=1e-5):
         g = len(r_g)
@@ -279,6 +278,7 @@ class HGHSetupData:
         setup.fingerprint = hashlib.md5(str(self.hghdata).encode()).hexdigest()
         return setup
 
+
 def create_local_shortrange_potential(r_g, rloc, c_n):
     rr_g = r_g / rloc  # "Relative r"
     rr2_g = rr_g**2
@@ -309,8 +309,7 @@ def create_hgh_projector(r_g, l, n, r0):
 hcoefs_l = [
     [-.5 * (3. / 5.)**.5, .5 * (5. / 21.)**.5, -.5 * (100. / 63.)**.5],
     [-.5 * (5. / 7.)**.5, 1. / 6. * (35. / 11.)**.5, -1. / 6. * 14. / 11.**.5],
-    [-.5 * (7. / 9.)**.5, .5 * (63. / 143)**.5, -.5 * 18. / 143.**.5]
-    ]
+    [-.5 * (7. / 9.)**.5, .5 * (63. / 143)**.5, -.5 * 18. / 143.**.5]]
 
 
 class VNonLocal:
@@ -331,7 +330,7 @@ class VNonLocal:
         for n, h in enumerate(h_n):
             h_nn[n, n] = h
         if self.l > 2:
-            #print 'Warning: no diagonal elements for l=%d' % l
+            # print 'Warning: no diagonal elements for l=%d' % l
             # Some elements have projectors corresponding to l=3, but
             # the HGH article only specifies how to calculate the
             # diagonal elements of the atomic hamiltonian for l = 0, 1, 2 !
@@ -503,8 +502,8 @@ def parse_hgh_setup(lines):
         r0 = float(nltokens[0])
         h_n = [float(token) for token in nltokens[1:]]
 
-        #if h_n[-1] == 0.0: # Only spin-orbit contributes.  Discard.
-        #    h_n.pop()
+        # if h_n[-1] == 0.0: # Only spin-orbit contributes.  Discard.
+        #     h_n.pop()
         # Actually the above causes trouble.  Probably it messes up state
         # ordering or something else that shouldn't have any effect.
 
@@ -576,5 +575,6 @@ def parse_default_setups():
             sc_setups[sym] = value
         else:
             setups[key] = value
+
 
 parse_default_setups()
