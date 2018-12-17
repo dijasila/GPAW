@@ -44,6 +44,7 @@ Git master branch
   :ref:`defects`.
 
 * Default for FFTW planning has been changed from ``ESTIMATE`` to ``MEASURE``.
+  See :class:`gpaw.wavefunctions.pw.PW`.
 
 
 Version 1.4.0
