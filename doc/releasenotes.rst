@@ -43,6 +43,8 @@ Git master branch
   corrections to DFT total energies for charged systems involving localised
   :ref:`defects`.
 
+* Default for FFTW planning has been changed from ``ESTIMATE`` to ``MEASURE``.
+
 
 Version 1.4.0
 =============

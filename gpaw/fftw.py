@@ -41,7 +41,7 @@ def check_fft_size(n):
 
 def get_efficient_fft_size(N, n=1):
     """Return smallest efficient fft size.
-    
+
     Must be greater than or equal to N and divisible by n.
     """
     N = -(-N // n) * n
@@ -122,21 +122,21 @@ else:
         np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
         ctypes.c_int, ctypes.c_uint]
     lib.fftw_plan_dft_3d.restype = ctypes.c_void_p
-    
+
     lib.fftw_plan_dft_r2c_3d.argtypes = [
         ctypes.c_int, ctypes.c_int, ctypes.c_int,
         np.ctypeslib.ndpointer(dtype=float, ndim=3),
         np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
         ctypes.c_uint]
     lib.fftw_plan_dft_r2c_3d.restype = ctypes.c_void_p
-    
+
     lib.fftw_plan_dft_c2r_3d.argtypes = [
         ctypes.c_int, ctypes.c_int, ctypes.c_int,
         np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
         np.ctypeslib.ndpointer(dtype=float, ndim=3),
         ctypes.c_uint]
     lib.fftw_plan_dft_c2r_3d.restype = ctypes.c_void_p
-    
+
     try:
         lib.fftw_plan_with_nthreads.argtypes = [ctypes.c_int]
     except AttributeError:
