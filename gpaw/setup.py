@@ -839,7 +839,7 @@ class Setup(BaseSetup):
 
         # Construct splines:
         self.vbar = rgd.spline(vbar_g, rcutfilter)
-        self.vt = rgd.spline(data.vt_g, 4.0)
+        self.vt = rgd.spline(data.vt_g, 8.0)
 
         rcore, nc_g, nct_g, nct = self.construct_core_densities(data)
         self.rcore = rcore

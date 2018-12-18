@@ -41,14 +41,14 @@ def calculate_forces(wfs, dens, ham, log=None):
         pass#F_ham_av[a] -= dF_v[0]
 
     F_av = F_ham_av + F_wfs_av
-    print(vt_av[0][0, 2], F_av[0, 2] - -0.12088694004903458,
+    print(vt_av[0][0, 2], F_av[0, 2],# - -0.12088694004903458,
           F_av[0, 2] - -0.12088694004903458 - vt_av[0][0, 2])
     X[0].append(vt_av[0][0, 2])
-    X[1].append(F_av[0, 2] - -0.12088694004903458)
-    X[2].append(F_av[0, 2] - -0.12088694004903458 - vt_av[0][0, 2])
+    X[1].append(F_av[0, 2])
+    X[2].append(F_av[0, 2] - vt_av[0][0, 2])
     wfs.world.broadcast(F_av, 0)
 
-    F_av = wfs.kd.symmetry.symmetrize_forces(F_av)
+    #F_av = wfs.kd.symmetry.symmetrize_forces(F_av)
 
     if log:
         log('\nForces in eV/Ang:')
@@ -58,8 +58,12 @@ def calculate_forces(wfs, dens, ham, log=None):
                 ((a, setup.symbol) + tuple(F_av[a] * c)))
         log()
         import matplotlib.pyplot as plt
-        plt.plot(X[0])
-        plt.plot(X[1])
-        plt.plot(X[2])
+        Y = np.array(X)
+        Y[1:] -= Y[1,-1]
+        Y = np.log10(abs(Y) * 27 / 0.529)
+        plt.plot(Y[0])
+        plt.plot(Y[1])
+        plt.plot(Y[2], label='corrected')
+        plt.legend()
         plt.show()
     return F_av
