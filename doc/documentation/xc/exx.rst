@@ -96,7 +96,7 @@ Support for IVOs in lrTDDFT is done along the work of Berman and Kaldor
 
 If the number of bands in the calculation exceeds the number of bands delivered
 by the datasets, GPAW initializes the missing bands randomly. Calculations utilizing
-Hartree-Fock exchange can only use the rmmdiis eigensolver. Therefore the states
+Hartree-Fock exchange can only use the RMM-DIIS eigensolver. Therefore the states
 might not converge to the energetically lowest states. To circumvent this problem
 on can made a calculation using a semi-local functional like PBE and uses this
 wave-functions as a basis for the following calculation utilizing Hartree-Fock exchange
