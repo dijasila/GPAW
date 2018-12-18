@@ -12,6 +12,8 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.16.1b1
 
+* Last release to support Python 2.7.
+
 * Add interface to Elpa eigensolver for LCAO mode.
   Use ``GPAW(mode='lcao', basis='dzp', parallel={'sl_auto': True, 'use_elpa': True})``
   or see further
