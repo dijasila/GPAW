@@ -30,7 +30,7 @@ a = 2.867
 mm = 2.21
 
 # Part 2: magnetic response calculation
-q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.5/2.]]  # Two q-points along G-N path
+q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.5 / 2.]]  # Two q-points along G-N path
 frq_qw = [np.linspace(-0.080, 0.120, 26), np.linspace(0.100, 0.300, 26)]
 Kxc = 'ALDA'
 fxc_scaling = [True, None]
@@ -96,7 +96,7 @@ test_Ipeak2 = 43.1361567126  # a.u.
 
 # print(fxc_scaling[1], mw1, mw2, Ipeak1, Ipeak2)
 
-if abs(test_fxcs - fxc_scaling[1]) > 1.e-5:
+if abs(test_fxcs - fxc_scaling[1]) > 5.e-5:
     print((test_fxcs - fxc_scaling[1]))
     raise ValueError('fxc_scaling not correct ! ')
 

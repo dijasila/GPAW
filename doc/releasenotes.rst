@@ -12,6 +12,8 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.16.1b1
 
+* Last release to support Python 2.7.
+
 * Add interface to Elpa eigensolver for LCAO mode.
   Use ``GPAW(mode='lcao', basis='dzp', parallel={'sl_auto': True, 'use_elpa': True})``
   or see further
@@ -42,6 +44,9 @@ Git master branch
 * A module and tutorial have been added for calculating electrostatic
   corrections to DFT total energies for charged systems involving localised
   :ref:`defects`.
+
+* Default for FFTW planning has been changed from ``ESTIMATE`` to ``MEASURE``.
+  See :class:`gpaw.wavefunctions.pw.PW`.
 
 
 Version 1.4.0
