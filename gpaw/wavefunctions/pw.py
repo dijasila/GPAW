@@ -1921,6 +1921,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         Hamiltonian.set_positions(self, spos_ac, atom_partition)
         self.vbar_Q = self.pd2.zeros()
         self.vbar.add(self.vbar_Q)
+        self.vt.set_positions(spos_ac, atom_partition)
 
     def update_pseudo_potential(self, dens):
         ebar = integrate(self.pd2, self.vbar_Q, dens.nt_Q)
