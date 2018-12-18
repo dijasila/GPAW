@@ -1,4 +1,4 @@
-.. _LoadOnNiflheim:
+.. _load on niflheim:
 
 
 ======================================
@@ -66,7 +66,7 @@ I want the fastest version
 Loading GPAW pulls all that stuff in, in versions consistent with the
 chosen GPAW version.
 
-  
+
 Module consistency is important: check it.
 ==========================================
 
@@ -92,7 +92,7 @@ Use ``module list`` to list your modules. Check for consistency:
 If your ``module load XXX`` commands give warnings about reloaded
 modules, you are almost certainly mixing incompatible toolchains.
 
-  
+
 Using different versions for different projects.
 ================================================
 
@@ -115,4 +115,3 @@ The ``module purge`` command in the special branch is because SLURM
 will remember which modules you have loaded when you submit the job,
 and that will typically be the default version, which must then be
 unloaded.
-

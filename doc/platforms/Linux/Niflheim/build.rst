@@ -1,4 +1,4 @@
-.. _BuildOnNiflheim:
+.. _build on niflheim:
 
 =========================
 Building GPAW on Niflheim
@@ -11,7 +11,7 @@ This document explains how to compile a developer version of GPAW on
 Niflheim.  If you just want to run the pre-installed version, please
 read the guide :ref:`Using a pre-installed GPAW on Niflheim <LoadOnNiflheim>`.
 
-  
+
 .. highlight:: bash
 
 Choose the right compiler suite
@@ -83,7 +83,7 @@ do (or update with ``git pull`` if you have done this step previously)::
     $ source .bashrc
     $ git clone https://gitlab.com/ase/ase.git
     $ git clone https://gitlab.com/gpaw/gpaw.git
-    
+
 
 Installing GPAW on all Niflheim architectures
 =============================================
