@@ -116,6 +116,6 @@ Add this to your ``~/.bashrc``::
         GPAW=~/testing
     fi
 
-right before sourcing the ``gpaw.sh`` script mentioned above.
-Now, SLURM-jobs submitted inside your ``~/test-runs/`` folder will use the
-version of GPAW from the ``~/testing/`` folder.
+right before sourcing the ``gpaw-foss.sh`` or ``gpaw-intel.sh`` script
+mentioned above. Now, SLURM-jobs submitted inside your ``~/test-runs/``
+folder will use the version of GPAW from the ``~/testing/`` folder.
