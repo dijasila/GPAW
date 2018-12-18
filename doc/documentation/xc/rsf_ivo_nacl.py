@@ -8,14 +8,14 @@ from gpaw.eigensolvers import CG, RMMDIIS
 from gpaw.mixer import MixerDif
 
 calc_parms = [
-    {'xc': 'LCY-PBE:omega=0.42:unocc=True',
+    {'xc': 'PBE0:unocc=True',
      'eigensolver': RMMDIIS(niter=5),
      'convergence': {
          'energy': 0.005,
          'bands': -2,
          'eigenstates': 1e-4,
          'density': 1e-3}},
-    {'xc': 'LCY-PBE:omega=0.42:excitation=singlet',
+    {'xc': 'PBE0:excitation=singlet',
      'convergence': {
          'energy': 0.005,
          'bands': 'occupied',
@@ -28,7 +28,7 @@ def calc_me(atoms, nbands):
     """Do the calculation."""
     molecule_name = atoms.get_chemical_formula()
     atoms.set_initial_magnetic_moments([-1.0, 1.0])
-    fname = '.'.join([molecule_name, '_LCY_SIN'])
+    fname = '.'.join([molecule_name, 'PBE0', 'singlet'])
     calc = GPAW(h=0.25,
                 xc='PBE',
                 eigensolver=CG(niter=5),
@@ -55,7 +55,7 @@ def calc_me(atoms, nbands):
             except KohnShamConvergenceError:
                 break
         if calc.scf.converged:
-            calc.write(fname + '.gpw', mode='all')
+            calc.write(fname + '.gpw')
 
 
 loa = Cluster(molecule('NaCl'))

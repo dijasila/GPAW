@@ -99,8 +99,8 @@ by the datasets, GPAW initializes the missing bands randomly. Calculations utili
 Hartree-Fock exchange can only use the rmmdiis eigensolver. Therefore the states
 might not converge to the energetically lowest states. To circumvent this problem
 on can made a calculation using a semi-local functional like PBE and uses this
-wavefunctions as a basis for the following calculation utilizing Hartree-Fock exchange
-as shown in the following code snippet which uses the RSF LCY-PBE in conjuncture with
+wave-functions as a basis for the following calculation utilizing Hartree-Fock exchange
+as shown in the following code snippet which uses PBE0 in conjuncture with
 the IVOs:
 
 .. literalinclude:: rsf_ivo_nacl.py
