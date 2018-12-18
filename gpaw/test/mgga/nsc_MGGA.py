@@ -5,22 +5,25 @@ from gpaw.test import equal
 
 # ??? g = Generator('H', 'TPSS', scalarrel=True, nofiles=True)
 
+def xc(name):
+    return dict(name=name, stencil=1)
+
 atoms = Atoms('H', magmoms=[1], pbc=True)
 atoms.center(vacuum=3)
 def getkwargs():
     return dict(eigensolver=Davidson(3),
                 mixer=Mixer(0.7, 5, 50.0),
                 parallel=dict(augment_grids=True),
-                gpts=(32, 32, 32), nbands=1, xc='oldPBE')
+                gpts=(32, 32, 32), nbands=1, xc=xc('oldPBE'))
 
 calc = GPAW(txt='Hnsc.txt', **getkwargs())
 atoms.set_calculator(calc)
 e1 = atoms.get_potential_energy()
 niter1 = calc.get_number_of_iterations()
 e1ref = calc.get_reference_energy()
-de12t = calc.get_xc_difference('TPSS')
-de12m = calc.get_xc_difference('M06-L')
-de12r = calc.get_xc_difference('revTPSS')
+de12t = calc.get_xc_difference(xc('TPSS'))
+de12m = calc.get_xc_difference(xc('M06-L'))
+de12r = calc.get_xc_difference(xc('revTPSS'))
 
 
 print('================')
@@ -46,9 +49,9 @@ atomsHe.set_calculator(calc)
 e1He = atomsHe.get_potential_energy()
 niter_1He = calc.get_number_of_iterations()
 e1refHe = calc.get_reference_energy()
-de12tHe = calc.get_xc_difference('TPSS')
-de12mHe = calc.get_xc_difference('M06-L')
-de12rHe = calc.get_xc_difference('revTPSS')
+de12tHe = calc.get_xc_difference(xc('TPSS'))
+de12mHe = calc.get_xc_difference(xc('M06-L'))
+de12rHe = calc.get_xc_difference(xc('revTPSS'))
 
 print('================')
 print('e1He = ', e1He)

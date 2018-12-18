@@ -4,6 +4,7 @@
 import numpy as np
 
 from gpaw.matrix_descriptor import MatrixDescriptor
+from gpaw.mpi import broadcast_exception
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.utilities import uncamelcase
 from gpaw.utilities.blas import gemm, r2k
@@ -434,8 +435,9 @@ class OrbitalLayouts(KohnShamLayouts):
         self.block_comm.broadcast(S_MM, 0)
         # The result on different processor is not necessarily bit-wise
         # identical, so only domain master performs computation
-        if self.gd.comm.rank == 0:
-            self._diagonalize(H_MM, S_MM.copy(), eps_M)
+        with broadcast_exception(self.gd.comm):
+            if self.gd.comm.rank == 0:
+                self._diagonalize(H_MM, S_MM.copy(), eps_M)
         self.gd.comm.broadcast(H_MM, 0)
         self.gd.comm.broadcast(eps_M, 0)
         eps_n[:] = eps_M[self.bd.get_slice()]

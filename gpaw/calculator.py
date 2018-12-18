@@ -65,7 +65,8 @@ class GPAW(PAW, Calculator):
         'mixer': None,
         'eigensolver': None,
         'background_charge': None,
-        'experimental': {'reuse_wfs_method': None,
+        'experimental': {'reuse_wfs_method': 'paw',
+                         'niter_fixdensity': 0,
                          'magmoms': None,
                          'soc': None,
                          'kpt_refine': None},
@@ -366,8 +367,8 @@ class GPAW(PAW, Calculator):
             if key != 'txt' and key not in self.default_parameters:
                 raise TypeError('Unknown GPAW parameter: {}'.format(key))
 
-            if key in ['convergence', 'symmetry'] and isinstance(kwargs[key],
-                                                                 dict):
+            if key in ['convergence', 'symmetry',
+                       'experimental'] and isinstance(kwargs[key], dict):
                 # For values that are dictionaries, verify subkeys, too.
                 default_dict = self.default_parameters[key]
                 for subkey in kwargs[key]:
@@ -419,7 +420,7 @@ class GPAW(PAW, Calculator):
                 for key2 in changed_parameters2:
                     if key2 in ['kpt_refine', 'magmoms', 'soc']:
                         self.wfs = None
-                    elif key2 in ['reuse_wfs_method']:
+                    elif key2 in ['reuse_wfs_method', 'niter_fixdensity']:
                         continue
                     else:
                         raise TypeError('Unknown keyword argument:', key2)
@@ -801,10 +802,10 @@ class GPAW(PAW, Calculator):
         self.log(self.occupations)
 
     def create_scf(self, nvalence, mode):
-        if mode.name == 'lcao':
-            niter_fixdensity = 0
-        else:
-            niter_fixdensity = 2
+        #if mode.name == 'lcao':
+        #    niter_fixdensity = 0
+        #else:
+        #    niter_fixdensity = 2
 
         nv = max(nvalence, 1)
         cc = self.parameters.convergence
@@ -814,7 +815,12 @@ class GPAW(PAW, Calculator):
             cc.get('density', 1.0e-4) * nv,
             cc.get('forces', np.inf) / (Ha / Bohr),
             self.parameters.maxiter,
-            niter_fixdensity, nv)
+            # XXX make sure niter_fixdensity value is *always* set from default
+            # Subdictionary defaults seem to not be set when user provides
+            # e.g. {}.  We should change that so it works like the ordinary
+            # parameters.
+            self.parameters.experimental.get('niter_fixdensity', 0),
+            nv)
         self.log(self.scf)
 
     def create_symmetry(self, magmom_av, cell_cv):
@@ -1077,7 +1083,7 @@ class GPAW(PAW, Calculator):
                                                dtype, nao=nao,
                                                timer=self.timer)
 
-            reuse_wfs_method = par.experimental.get('reuse_wfs_method')
+            reuse_wfs_method = par.experimental.get('reuse_wfs_method', 'paw')
             sl = (domainband_comm,) + (self.parallel['sl_diagonalize'] or
                                        sl_default or
                                        (1, 1, None))

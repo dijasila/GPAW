@@ -30,6 +30,6 @@ equal(e0, e1, 5.0e-6)
 energy_tolerance = 0.00004
 niter_tolerance = 0
 equal(e0, -6.97798, energy_tolerance)
-assert 10 <= niter0 <= 14, niter0
+assert 8 <= niter0 <= 12, niter0
 equal(e1, -6.97798, energy_tolerance)
-assert 10 <= niter1 <= 24, niter1
+assert 8 <= niter1 <= 22, niter1

@@ -27,7 +27,7 @@ class HybridXCBase(XCFunctional):
     orbital_dependent = True
     omega = None
 
-    def __init__(self, name, hybrid=None, xc=None, omega=None):
+    def __init__(self, name, stencil=2, hybrid=None, xc=None, omega=None):
         """Mix standard functionals with exact exchange.
 
         name: str
@@ -77,23 +77,27 @@ class HybridXCBase(XCFunctional):
         self.cam_beta = None
         self.is_cam = False
         self.rsf = None
+
+        def _xc(name):
+            return {'name': name, 'stencil': stencil}
+
         if name == 'EXX':
             hybrid = 1.0
             xc = XC(XCNull())
         elif name == 'PBE0':
             hybrid = 0.25
-            xc = XC('HYB_GGA_XC_PBEH')
+            xc = XC(_xc('HYB_GGA_XC_PBEH'))
         elif name == 'B3LYP':
             hybrid = 0.2
-            xc = XC('HYB_GGA_XC_B3LYP')
+            xc = XC(_xc('HYB_GGA_XC_B3LYP'))
         elif name == 'HSE03':
             hybrid = 0.25
             omega = 0.106
-            xc = XC('HYB_GGA_XC_HSE03')
+            xc = XC(_xc('HYB_GGA_XC_HSE03'))
         elif name == 'HSE06':
             hybrid = 0.25
             omega = 0.11
-            xc = XC('HYB_GGA_XC_HSE06')
+            xc = XC(_xc('HYB_GGA_XC_HSE06'))
         elif name in rsf_functionals:
             rsf_functional = rsf_functionals[name]
             self.cam_alpha = rsf_functional['alpha']
@@ -141,7 +145,7 @@ class HybridXCBase(XCFunctional):
 class HybridXC(HybridXCBase):
     def __init__(self, name, hybrid=None, xc=None,
                  finegrid=False, unocc=False, omega=None,
-                 excitation=None, excited=0):
+                 excitation=None, excited=0, stencil=2):
         """Mix standard functionals with exact exchange.
 
         finegrid: boolean
@@ -165,7 +169,8 @@ class HybridXC(HybridXCBase):
         self.unocc = unocc
         self.excitation = excitation
         self.excited = excited
-        HybridXCBase.__init__(self, name, hybrid=hybrid, xc=xc, omega=omega)
+        HybridXCBase.__init__(self, name, hybrid=hybrid, xc=xc, omega=omega,
+                              stencil=stencil)
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):

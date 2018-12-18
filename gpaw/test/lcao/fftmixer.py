@@ -11,4 +11,4 @@ bulk.calc = GPAW(mode=LCAO(),
                  kpts=(k, k, k),
                  mixer=FFTMixer())
 e = bulk.get_potential_energy()
-equal(e, -1.7103633745906508, 1.0e-6)
+equal(e, -1.710365540, 1.2e-6)

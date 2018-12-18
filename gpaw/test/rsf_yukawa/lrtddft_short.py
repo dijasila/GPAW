@@ -20,6 +20,7 @@ def get_paw():
     return GPAW(convergence=c, eigensolver=RMMDIIS(),
                 nbands=3,
                 xc='PBE',
+#                experimental={'niter_fixdensity': 2},
                 parallel={'domain': world.size}, h=0.35,
                 occupations=FermiDirac(width=0.0, fixmagmom=True))
 
@@ -28,7 +29,7 @@ calc_plus = get_paw()
 calc_plus.set(txt='Be_plus_LCY_PBE_083.log', charge=1)
 o_plus.set_calculator(calc_plus)
 e_o_plus = o_plus.get_potential_energy()
-calc_plus.set(xc='LCY-PBE:omega=0.83:unocc=True')
+calc_plus.set(xc='LCY-PBE:omega=0.83:unocc=True', experimental={'niter_fixdensity': 2})
 e_o_plus = o_plus.get_potential_energy()
 lr = LrTDDFT(calc_plus, txt='LCY_TDDFT_Be.log', istart=0, jend=1)
 equal(lr.xc.omega, 0.83)

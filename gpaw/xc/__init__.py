@@ -125,7 +125,7 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
         elif name == 'QNA':
             from gpaw.xc.qna import QNA
             return QNA(atoms, kernel['parameters'], kernel['setup_name'],
-                       alpha=kernel['alpha'])
+                       alpha=kernel['alpha'], stencil=kwargs.get('stencil', 2))
         else:
             kernel = LibXC(name)
 

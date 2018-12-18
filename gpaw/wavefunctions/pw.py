@@ -45,29 +45,38 @@ def pad(array, N):
 class PW(Mode):
     name = 'pw'
 
-    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None,
+    def __init__(self, ecut=340, fftwflags=fftw.MEASURE, cell=None,
+                 gammacentered=False,
                  pulay_stress=None, dedecut=None,
                  force_complex_dtype=False):
         """Plane-wave basis mode.
 
         ecut: float
             Plane-wave cutoff in eV.
+        gammacentered: bool
+            Center the grid of chosen plane waves around the
+            gamma point or q/k-vector
         dedecut: float or None or 'estimate'
             Estimate of derivative of total energy with respect to
             plane-wave cutoff.  Used to calculate pulay_stress.
         pulay_stress: float or None
             Pulay-stress correction.
         fftwflags: int
-            Flags for making FFTW plan (default is ESTIMATE).
+            Flags for making an FFTW plan.  There are 4 possibilities
+            (default is MEASURE)::
+
+                from gpaw.fftw import ESTIMATE, MEASURE, PATIENT, EXHAUSTIVE
+
         cell: 3x3 ndarray
             Use this unit cell to chose the planewaves.
 
         Only one of dedecut and pulay_stress can be used.
         """
 
+        self.gammacentered = gammacentered
         self.ecut = ecut / Ha
         # Don't do expensive planning in dry-run mode:
-        self.fftwflags = fftwflags if not dry_run else fftw.ESTIMATE
+        self.fftwflags = fftwflags if not dry_run else fftw.MEASURE
         self.dedecut = dedecut
         self.pulay_stress = (None
                              if pulay_stress is None
@@ -100,7 +109,8 @@ class PW(Mode):
             else:
                 dedepsilon = self.dedecut * 2 / 3 * ecut
 
-        wfs = PWWaveFunctions(ecut, self.fftwflags, dedepsilon,
+        wfs = PWWaveFunctions(ecut, self.gammacentered,
+                              self.fftwflags, dedepsilon,
                               parallel, initksl, gd=gd,
                               **kwargs)
 
@@ -109,6 +119,8 @@ class PW(Mode):
     def todict(self):
         dct = Mode.todict(self)
         dct['ecut'] = self.ecut * Ha
+        dct['gammacentered'] = self.gammacentered
+
         if self.cell_cv is not None:
             dct['cell'] = self.cell_cv * Bohr
         if self.pulay_stress is not None:
@@ -122,7 +134,7 @@ class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
 
     def __init__(self, ecut, gd, dtype=None, kd=None,
-                 fftwflags=fftw.ESTIMATE):
+                 fftwflags=fftw.MEASURE, gammacentered=False):
 
         assert gd.pbc_c.all()
 
@@ -151,6 +163,7 @@ class PWDescriptor:
             else:
                 dtype = complex
         self.dtype = dtype
+        self.gammacentered = gammacentered
 
         if dtype == float:
             Nr_c = N_c.copy()
@@ -193,7 +206,11 @@ class PWDescriptor:
         self.ng_q = []
         for q, K_v in enumerate(self.K_qv):
             G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
-            mask_Q = (G2_Q <= 2 * ecut)
+            if gammacentered:
+                mask_Q = ((self.G_Qv**2).sum(axis=1) <= 2 * ecut)
+            else:
+                mask_Q = (G2_Q <= 2 * ecut)
+
             if self.dtype == float:
                 mask_Q &= ((i_Qc[:, 2] > 0) |
                            (i_Qc[:, 1] > 0) |
@@ -706,12 +723,13 @@ class NonCollinearPreconditioner(Preconditioner):
 class PWWaveFunctions(FDPWWaveFunctions):
     mode = 'pw'
 
-    def __init__(self, ecut, fftwflags, dedepsilon,
+    def __init__(self, ecut, gammacentered, fftwflags, dedepsilon,
                  parallel, initksl,
                  reuse_wfs_method, collinear,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
+        self.gammacentered = gammacentered
         self.fftwflags = fftwflags
         self.dedepsilon = dedepsilon  # Pulay correction for stress tensor
 
@@ -745,7 +763,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
         self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.kd,
-                               self.fftwflags)
+                               self.fftwflags, self.gammacentered)
         self.timer.stop('PWDescriptor')
 
         # Build array of number of plane wave coefficiants for all k-points
