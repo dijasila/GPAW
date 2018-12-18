@@ -99,7 +99,7 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
     for iG in range(Gstart, Gend):
         kk = k_Gv[iG]
         k = np.sqrt(np.dot(kk, kk))  # calculate length of q+G
-
+        
         # Calculating spherical bessel function
         for g, r in enumerate(r_g):
             j_lg[:, g] = sphj(lmax, k * r)
@@ -120,7 +120,9 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
                         L2 = L_i[i2]
                         j2 = j_i[i2]
                         R_ii[i1, i2] = G_LLL[L1, L2, li**2 + mi] * R_jj[j1, j2]
-
+                
+                if np.allclose(k, 0.):  # Avoid division by zero
+                    k = 1.
                 phi_Gii[iG] += R_ii * Y(li**2 + mi,
                                         kk[0] / k,
                                         kk[1] / k,

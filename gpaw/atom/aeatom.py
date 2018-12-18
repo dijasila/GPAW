@@ -761,7 +761,12 @@ class AllElectronAtom:
 
 
 class CLICommand:
-    short_description = 'Solve radial equation for an atom'
+    """Solve radial equation for an atom.
+
+    Example:
+
+        gpaw Li -f PBE -p  # plot wave functions for a lithium atom
+    """
 
     @staticmethod
     def add_arguments(parser):

@@ -28,13 +28,13 @@ commands = [
 
 
 def hook(parser, args):
-    parser.add_argument('-P', '--parallel', type=int, metavar='N', default=1,
+    parser.add_argument('-P', '--parallel', type=int, metavar='N',
                         help="Run on N CPUs.")
     args = parser.parse_args()
 
-    if args.parallel > 1:
-        from gpaw.mpi import size
-        if size == 1:
+    if args.parallel:
+        from gpaw.mpi import have_mpi
+        if not have_mpi:
             # Start again using gpaw-python in parallel:
             arguments = ['mpiexec', '-np', str(args.parallel),
                          'gpaw-python']

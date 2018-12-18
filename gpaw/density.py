@@ -193,8 +193,8 @@ class Density:
 
     def set_positions(self, spos_ac, atom_partition):
         self.set_positions_without_ruining_everything(spos_ac, atom_partition)
-        self.nct.set_positions(spos_ac)
-        self.ghat.set_positions(spos_ac)
+        self.nct.set_positions(spos_ac, atom_partition)
+        self.ghat.set_positions(spos_ac, atom_partition)
         self.mixer.reset()
 
         self.nt_xg = None
@@ -672,8 +672,8 @@ class RealSpaceDensity(Density):
         self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
                         integral=sqrt(4 * pi), forces=True)
 
-    def set_positions(self, spos_ac, rank_a=None):
-        Density.set_positions(self, spos_ac, rank_a)
+    def set_positions(self, spos_ac, atom_partition):
+        Density.set_positions(self, spos_ac, atom_partition)
         self.nct_G = self.gd.zeros()
         self.nct.add(self.nct_G, 1.0 / self.nspins)
 

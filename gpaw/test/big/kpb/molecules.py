@@ -14,7 +14,7 @@ from ase import Atoms
 from ase.build import molecule
 from ase.data.g2_1_ref import diatomic, ex_atomization
 
-from gpaw import GPAW, PW, Davidson
+from gpaw import GPAW, PW
 from gpaw.xc.exx import EXX
 
 
@@ -62,7 +62,7 @@ for name in list(ex_atomization.keys()) + 'H Li Be B C N O F Cl P'.split():
     id = c.reserve(name=name)
     if id is None:
         continue
-        
+
     if name in extra:
         a = Atoms(*extra[name])
     else:
@@ -71,13 +71,12 @@ for name in list(ex_atomization.keys()) + 'H Li Be B C N O F Cl P'.split():
             a.set_distance(0, 1, bondlengths[name])
     a.cell = [11, 12, 13]
     a.center()
-   
+
     a.calc = GPAW(xc='PBE',
-                  eigensolver=Davidson(2),
                   mode=PW(500, force_complex_dtype=True),
                   txt=name + '.txt')
     a.get_potential_energy()
-    
+
     exx = EXX(a.calc)
     exx.calculate()
     eexx = exx.get_total_energy()

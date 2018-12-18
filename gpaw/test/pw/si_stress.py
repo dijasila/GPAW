@@ -1,12 +1,11 @@
 import numpy as np
 from ase.build import bulk
-from gpaw import GPAW, PW, Mixer, Davidson
+from gpaw import GPAW, PW, Mixer
 
 for xc in ['PBE', 'LDA']:
     si = bulk('Si')
     k = 3
     si.calc = GPAW(mode=PW(250),
-                   eigensolver=Davidson(2),
                    mixer=Mixer(0.7, 5, 50.0),
                    xc=xc,
                    kpts=(k, k, k),

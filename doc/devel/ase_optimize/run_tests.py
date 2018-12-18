@@ -24,6 +24,6 @@ if len(sys.argv) > 1:
 else:
     optimizers = all_optimizers
 
-for opt in all_optimizers:
+for opt in optimizers:
     optimizer = get_optimizer(opt)
     test_optimizer(systems, optimizer, lcao, 'lcao-', db)

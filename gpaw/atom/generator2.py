@@ -308,7 +308,7 @@ class PAWSetupGenerator:
                  fd=None, yukawa_gamma=0.0):
         """fd: stream
             Text output.
-            
+
            yukawa_gamma: separation parameter for RSF"""
 
         self.aea = aea
@@ -1176,8 +1176,8 @@ class PAWSetupGenerator:
                 i2 = 0
                 for l2, waves2 in enumerate(self.waves_l):
                     for phi2_g in waves2.phi_ng:
-                        X_mm = self.exxcv_ii[i1:i1 + 2 * l1 + 1,
-                                             i2:i2 + 2 * l2 + 1]
+                        X_mm = cv_ii[i1:i1 + 2 * l1 + 1,
+                                     i2:i2 + 2 * l2 + 1]
                         if (l1 + l2) % 2 == 0:
                             for lc, phi_g in core:
                                 n_g = phi1_g * phi_g
@@ -1272,10 +1272,20 @@ def get_parameters(symbol, args):
                 yukawa_gamma=args.gamma)
 
 
-def _generate(symbol, xc, configuration, projectors, radii,
-              scalar_relativistic, alpha,
-              r0, nderiv0,
-              pseudize, rcore, core_hole, output, yukawa_gamma=0.0):
+def generate(symbol,
+             projectors,
+             radii,
+             r0,
+             nderiv0,
+             xc='LDA',
+             scalar_relativistic=False,
+             pseudize=('poly', 4),
+             configuration=None,
+             alpha=None,
+             rcore=None,
+             core_hole=None,
+             output=None,
+             yukawa_gamma=0.0):
     if isinstance(output, str):
         output = open(output, 'w')
     aea = AllElectronAtom(symbol, xc, configuration=configuration, log=output)
@@ -1312,7 +1322,7 @@ def generate_all():
 
 
 class CLICommand:
-    short_description = 'Create PAW dataset'
+    """Create PAW dataset."""
 
     @staticmethod
     def add_arguments(parser):
@@ -1367,7 +1377,7 @@ class CLICommand:
 
 def main(args):
     kwargs = get_parameters(args.symbol, args)
-    gen = _generate(**kwargs)
+    gen = generate(**kwargs)
 
     if not args.no_check:
         if not gen.check_all():

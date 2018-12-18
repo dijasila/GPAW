@@ -12,7 +12,7 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions, update_phases
 
 
 class NullWfsMover:
-    description = 'Wavefunctions reused if atoms move'
+    description = 'Wavefunctions kept unchanged if atoms move'
 
     def initialize(self, lcaowfs):
         pass
@@ -50,26 +50,27 @@ class PseudoPartialWaveWfsMover:
             ni_a[a] = sum(2 * l + 1 for l in l_j)
 
         phit = wfs.get_pseudo_partial_waves()
-        phit.set_positions(wfs.spos_ac)
+        phit.set_positions(wfs.spos_ac, wfs.atom_partition)
 
         # XXX See also wavefunctions.lcao.update_phases
-        phase_qa = np.exp(2j * np.pi *
-                          np.dot(wfs.kd.ibzk_qc,
-                                 (spos_ac - wfs.spos_ac).T.round()))
+        if wfs.dtype == complex:
+            phase_qa = np.exp(2j * np.pi *
+                              np.dot(wfs.kd.ibzk_qc,
+                                     (spos_ac - wfs.spos_ac).T.round()))
 
         def add_phit_to_wfs(multiplier):
             for kpt in wfs.kpt_u:
                 P_ani = {}
                 for a in kpt.P_ani:
                     P_ani[a] = multiplier * kpt.P_ani[a][:, :ni_a[a]]
-                    if multiplier > 0:
+                    if multiplier > 0 and wfs.dtype == complex:
                         P_ani[a] *= phase_qa[kpt.q, a]
                 phit.add(kpt.psit_nG, c_axi=P_ani, q=kpt.q)
 
         add_phit_to_wfs(-1.0)
 
         def paste():
-            phit.set_positions(spos_ac)
+            phit.set_positions(spos_ac, wfs.atom_partition)
             add_phit_to_wfs(1.0)
 
         return paste
@@ -104,12 +105,12 @@ class LCAOWfsMover:
 
     def initialize(self, lcaowfs):
         self.bfs = lcaowfs.basis_functions
-        #self.tci = lcaowfs.tci
+        # self.tci = lcaowfs.tci
         self.tciexpansions = lcaowfs.tciexpansions
         self.atomic_correction = lcaowfs.atomic_correction
-        #self.S_qMM = lcaowfs.S_qMM
-        #self.T_qMM = lcaowfs.T_qMM  # Get rid of this
-        #self.P_aqMi = lcaowfs.P_aqMi
+        # self.S_qMM = lcaowfs.S_qMM
+        # self.T_qMM = lcaowfs.T_qMM  # Get rid of this
+        # self.P_aqMi = lcaowfs.P_aqMi
 
     def cut_wfs(self, wfs, spos_ac):
         # XXX Must forward vars from LCAO initialization object
@@ -118,8 +119,8 @@ class LCAOWfsMover:
         # we can rely on those parallelization settings without danger.
         bfs = self.bfs
 
-        #P_aqMi = self.P_aqMi
-        #S_qMM = self.S_qMM
+        # P_aqMi = self.P_aqMi
+        # S_qMM = self.S_qMM
 
         # We can inherit S_qMM and P_aqMi from the initialization in the
         # first step, then recalculate them for subsequent steps.
@@ -185,6 +186,7 @@ class LCAOWfsMover:
         wfs.timer.stop('re-add wfs')
         wfs.timer.stop('reuse wfs')
 
+
 class FDPWWaveFunctions(WaveFunctions):
     """Base class for finite-difference and planewave classes."""
     def __init__(self, parallel, initksl, reuse_wfs_method=None, **kwargs):
@@ -231,8 +233,11 @@ class FDPWWaveFunctions(WaveFunctions):
 
     def __str__(self):
         comm, r, c, b = self.scalapack_parameters
-        return ('  ScaLapack parameters: grid={}x{}, blocksize={}'
-                .format(r, c, b))
+        L1 = ('  ScaLapack parameters: grid={}x{}, blocksize={}'
+              .format(r, c, b))
+        L2 = ('  Wavefunction extrapolation:\n    {}'
+              .format(self.wfs_mover.description))
+        return '\n'.join([L1, L2])
 
     def set_setups(self, setups):
         WaveFunctions.set_setups(self, setups)
@@ -256,7 +261,7 @@ class FDPWWaveFunctions(WaveFunctions):
             paste_wfs()
 
         self.set_orthonormalized(False)
-        self.pt.set_positions(spos_ac)
+        self.pt.set_positions(spos_ac, atom_partition)
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
         self.positions_set = True
 
@@ -291,7 +296,7 @@ class FDPWWaveFunctions(WaveFunctions):
         hamiltonian.update(density)
 
         if self.mykpts[0].psit is None:
-            if 1:#self.collinear:
+            if 1:  # self.collinear:
                 nlcao = self.initialize_wave_functions_from_basis_functions(
                     basis_functions, density, hamiltonian, spos_ac)
             else:

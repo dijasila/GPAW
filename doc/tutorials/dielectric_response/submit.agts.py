@@ -6,7 +6,7 @@ def create_tasks():
         task('plot_freq.py'),
         task('silicon_ABS_simpleversion.py'),
         task('plot_silicon_ABS_simple.py',
-            deps='silicon_ABS_simpleversion.py'),
+             deps='silicon_ABS_simpleversion.py'),
         task('silicon_ABS.py@16:1h'),
         task('plot_ABS.py', deps='silicon_ABS.py'),
         task('aluminum_EELS.py@8:1h'),

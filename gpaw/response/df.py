@@ -9,7 +9,9 @@ import numpy as np
 from ase.units import Hartree, Bohr
 
 import gpaw.mpi as mpi
+
 from gpaw.response.chi0 import Chi0
+
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.fxc import get_xc_kernel
@@ -17,8 +19,11 @@ from gpaw.response.fxc import get_xc_kernel
 
 class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
-    def __init__(self, calc, name=None, frequencies=None, domega0=0.1,
-                 omega2=10.0, omegamax=None, ecut=50, hilbert=True,
+    
+    def __init__(self, calc, response='density',
+                 name=None, frequencies=None, domega0=0.1,
+                 omega2=10.0, omegamax=None, ecut=50,
+                 gammacentered=False, hilbert=True,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  gate_voltage=None, truncation=None, disable_point_group=False,
@@ -30,8 +35,11 @@ class DielectricFunction:
         calc: str
             The groundstate calculation file that the linear response
             calculation is based on.
+        response : str
+            Type of response function. Currently collinear, scalar options
+            'density', '+-' and '-+' are implemented. (move to general rf.py)
         name: str
-            If defined, save the density-density response function to::
+            If defined, save the response function to::
 
                 name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
 
@@ -49,6 +57,8 @@ class DielectricFunction:
             The upper frequency bound for the non-linear frequency grid.
         ecut: float
             Plane-wave cut-off.
+        gammacentered: bool
+            Center the grid of plane waves around the gamma point or q-vector
         hilbert: bool
             Use hilbert transform.
         nbands: int
@@ -81,10 +91,11 @@ class DielectricFunction:
             Shift unoccupied bands
         """
 
-        self.chi0 = Chi0(calc, frequencies, domega0=domega0,
-                         omega2=omega2, omegamax=omegamax,
-                         ecut=ecut, hilbert=hilbert, nbands=nbands,
-                         eta=eta, ftol=ftol, threshold=threshold,
+        self.chi0 = Chi0(calc, response=response, frequencies=frequencies,
+                         domega0=domega0, omega2=omega2, omegamax=omegamax,
+                         ecut=ecut, nbands=nbands, eta=eta,
+                         gammacentered=gammacentered, hilbert=hilbert,
+                         ftol=ftol, threshold=threshold,
                          intraband=intraband, world=world, nblocks=nblocks,
                          txt=txt, gate_voltage=gate_voltage,
                          disable_point_group=disable_point_group,
@@ -107,22 +118,27 @@ class DielectricFunction:
         self.w1 = min(self.mynw * world.rank, nw)
         self.w2 = min(self.w1 + self.mynw, nw)
         self.truncation = truncation
+    
+    def calculate_chi0(self, q_c, spin='all'):
+        """Calculates the response function.
 
-    def calculate_chi0(self, q_c):
-        """Calculates the density response function.
-
-        Calculate the density response function for a specific momentum.
+        Calculate the response function for a specific momentum.
 
         q_c: [float, float, float]
             The momentum wavevector.
+        spin : str or int
+            If 'all' then include all spins.
+            If 0 or 1, only include this specific spin.
+            (not used in transverse reponse functions)
         """
+        
         if self.name:
             kd = self.chi0.calc.wfs.kd
             name = self.name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
             if os.path.isfile(name):
                 return self.read(name)
 
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.chi0.calculate(q_c)
+        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.chi0.calculate(q_c, spin)
         chi0_wGG = self.chi0.distribute_frequencies(chi0_wGG)
         self.chi0.timer.write(self.chi0.fd)
         if self.name:
@@ -205,81 +221,172 @@ class DielectricFunction:
         return A_w[:nw]
 
     def get_frequencies(self):
-        """Return frequencies that Chi is evaluated on"""
+        """ Return frequencies that Chi is evaluated on"""
         return self.omega_w * Hartree
 
-    def get_chi(self, xc='RPA', q_c=[0, 0, 0], direction='x',
-                return_VchiV=True, q_v=None):
-        """ Returns v^1/2 chi v^1/2. The truncated Coulomb interaction is
-        then included as v^-1/2 v_t v^-1/2. This is in order to conform with
-        the head and wings of chi0, which is treated specially for q=0."""
+    def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
+                direction='x', return_VchiV=True, q_v=None,
+                RSrep='gpaw',
+                spinpol_cut=None, density_cut=None, fxc_scaling=None):
+        """ Returns v^1/2 chi v^1/2 for the density response and chi for the
+        spin response. The truncated Coulomb interaction is included as
+        v^-1/2 v_t v^-1/2. This is in order to conform with
+        the head and wings of chi0, which is treated specially for q=0.
+        
+        spin : str or int
+            If 'all' then include all spins.
+            If 0 or 1, only include this specific spin.
+            (not used in transverse reponse functions)
+        RSrep : str
+            real space representation of kernel ('gpaw' or 'grid')
+        spinpol_cut : float
+            cutoff spin polarization below which f_xc is evaluated in
+            unpolarized limit (make sure divergent terms cancel out correctly)
+        density_cut : float
+            cutoff density below which f_xc is set to zero
+        fxc_scaling : list
+            Possible scaling of kernel to hit Goldstone mode.
+            If w=0 is included in the present calculation and
+            fxc_scaling=[True, None], the fxc_scaling to match
+            kappaM_w[0] = 0. will be calculated. If
+            fxc_scaling = [True, float], Kxc will be scaled by float.
+            Default is None, i.e. no scaling
+        """
 
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
-        N_c = self.chi0.calc.wfs.kd.N_c
-        Kbare_G = get_coulomb_kernel(pd,
-                                     N_c,
-                                     truncation=None,
-                                     q_v=q_v)
-        vsqr_G = Kbare_G**0.5
-        nG = len(vsqr_G)
-
-        if self.truncation is not None:
-            if self.truncation == 'wigner-seitz':
-                self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
+        # XXX generalize to kernel check
+        response = self.chi0.response
+        if response in ['+-', '-+']:
+            assert xc in ('ALDA_x', 'ALDA_X', 'ALDA')
+        
+        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
+        
+        if response == 'density':
+            N_c = self.chi0.calc.wfs.kd.N_c
+            
+            Kbare_G = get_coulomb_kernel(pd,
+                                         N_c,
+                                         truncation=None,
+                                         q_v=q_v)
+            vsqr_G = Kbare_G**0.5
+            nG = len(vsqr_G)
+            
+            if self.truncation is not None:
+                if self.truncation == 'wigner-seitz':
+                    self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
+                else:
+                    self.wstc = None
+                Ktrunc_G = get_coulomb_kernel(pd,
+                                              N_c,
+                                              truncation=self.truncation,
+                                              wstc=self.wstc,
+                                              q_v=q_v)
+                K_GG = np.diag(Ktrunc_G / Kbare_G)
             else:
-                self.wstc = None
-            Ktrunc_G = get_coulomb_kernel(pd,
-                                          N_c,
-                                          truncation=self.truncation,
-                                          wstc=self.wstc,
-                                          q_v=q_v)
-            K_GG = np.diag(Ktrunc_G / Kbare_G)
-        else:
-            K_GG = np.eye(nG, dtype=complex)
-
-        if pd.kd.gamma:
-            if isinstance(direction, str):
-                d_v = {'x': [1, 0, 0],
-                       'y': [0, 1, 0],
-                       'z': [0, 0, 1]}[direction]
+                K_GG = np.eye(nG, dtype=complex)
+               
+            if pd.kd.gamma:
+                if isinstance(direction, str):
+                    d_v = {'x': [1, 0, 0],
+                           'y': [0, 1, 0],
+                           'z': [0, 0, 1]}[direction]
+                else:
+                    d_v = direction
+                d_v = np.asarray(d_v) / np.linalg.norm(d_v)
+                W = slice(self.w1, self.w2)
+                chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
+                chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
+                chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
+            
+            if xc != 'RPA':
+                Kxc_GG = get_xc_kernel(pd,
+                                       self.chi0,
+                                       functional=xc,
+                                       chi0_wGG=chi0_wGG,
+                                       density_cut=density_cut)
+                K_GG += Kxc_GG / vsqr_G / vsqr_G[:, np.newaxis]
+               
+            # Invert Dyson eq.
+            chi_wGG = []
+            for chi0_GG in chi0_wGG:
+                """v^1/2 chi0 V^1/2"""
+                chi0_GG[:] = chi0_GG * vsqr_G * vsqr_G[:, np.newaxis]
+                chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
+                                              np.dot(chi0_GG, K_GG)),
+                                chi0_GG)
+                if not return_VchiV:
+                    chi0_GG /= vsqr_G * vsqr_G[:, np.newaxis]
+                    chi_GG /= vsqr_G * vsqr_G[:, np.newaxis]
+                chi_wGG.append(chi_GG)
+            
+            if len(chi_wGG):
+                chi_wGG = np.array(chi_wGG)
             else:
-                d_v = direction
-            d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            W = slice(self.w1, self.w2)
-            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
-
-        if xc != 'RPA':
-            Kxc_sGG = get_xc_kernel(pd,
-                                    self.chi0,
-                                    functional=xc,
-                                    chi0_wGG=chi0_wGG)
-            K_GG += Kxc_sGG[0] / vsqr_G / vsqr_G[:, np.newaxis]
-
-        chi_wGG = []
-        for chi0_GG in chi0_wGG:
-            """v^1/2 chi0 V^1/2"""
-            chi0_GG[:] = chi0_GG * vsqr_G * vsqr_G[:, np.newaxis]
-            chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
-                                          np.dot(chi0_GG, K_GG)),
-                            chi0_GG)
-            if not return_VchiV:
-                chi0_GG /= vsqr_G * vsqr_G[:, np.newaxis]
-                chi_GG /= vsqr_G * vsqr_G[:, np.newaxis]
-            chi_wGG.append(chi_GG)
-
-        if len(chi_wGG):
-            chi_wGG = np.array(chi_wGG)
+                chi_wGG = np.zeros((0, nG, nG), complex)
+            
+        # Spin response
         else:
-            chi_wGG = np.zeros((0, nG, nG), complex)
+            Kxc_GG = get_xc_kernel(pd,
+                                   self.chi0,
+                                   functional=xc,
+                                   kernel=response[::-1],
+                                   RSrep=RSrep,
+                                   chi0_wGG=chi0_wGG,
+                                   fxc_scaling=fxc_scaling,
+                                   density_cut=density_cut,
+                                   spinpol_cut=spinpol_cut)
+            
+            # Invert Dyson equation
+            chi_wGG = []
+            for chi0_GG in chi0_wGG:
+                chi_GG = np.dot(np.linalg.inv(np.eye(len(chi0_GG)) -
+                                              np.dot(chi0_GG, Kxc_GG)),
+                                chi0_GG)
+                
+                chi_wGG.append(chi_GG)
 
-        return pd, chi0_wGG, chi_wGG
+        return pd, chi0_wGG, np.array(chi_wGG)
+    
+    def get_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0],
+                                   q_v=None,
+                                   RSrep='gpaw',
+                                   spinpol_cut=None, density_cut=None,
+                                   fxc_scaling=None,
+                                   filename='chiM_w.csv'):
+        """Calculate the dynamic susceptibility.
+         
+        Returns macroscopic(could be generalized?) dynamic susceptibility:
+        chiM0_w, chiM_w = DielectricFunction.get_dynamic_susceptibility()
+        """
+        
+        pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c,
+                                             RSrep=RSrep,
+                                             spinpol_cut=spinpol_cut,
+                                             density_cut=density_cut,
+                                             fxc_scaling=fxc_scaling)
+        
+        rf0_w = np.zeros(len(chi_wGG), dtype=complex)
+        rf_w = np.zeros(len(chi_wGG), dtype=complex)
+        
+        for w, (chi0_GG, chi_GG) in enumerate(zip(chi0_wGG, chi_wGG)):
+            rf0_w[w] = chi0_GG[0, 0]
+            rf_w[w] = chi_GG[0, 0]
 
+        rf0_w = self.collect(rf0_w)
+        rf_w = self.collect(rf_w)
+
+        if filename is not None and mpi.rank == 0:
+            with open(filename, 'w') as fd:
+                for omega, rf0, rf in zip(self.omega_w * Hartree, rf0_w, rf_w):
+                    print('%.6f, %.6f, %.6f, %.6f, %.6f' %
+                          (omega, rf0.real, rf0.imag, rf.real, rf.imag),
+                          file=fd)
+
+        return rf0_w, rf_w
+    
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
                               calculate_chi=False, q_v=None,
-                              add_intraband=True):
+                              add_intraband=False):
         """Returns the symmetrized dielectric matrix.
 
         ::
@@ -304,8 +411,12 @@ class DielectricFunction:
         The head of the inverse symmetrized dielectric matrix is equal
         to the head of the inverse dielectric matrix (inverse dielectric
         function)"""
-
+        
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+
+        if add_intraband:
+            print('add_intraband=True is not supported at this time')
+            raise NotImplementedError
 
         N_c = self.chi0.calc.wfs.kd.N_c
         if self.truncation == 'wigner-seitz':
@@ -329,10 +440,9 @@ class DielectricFunction:
 
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
             W = slice(self.w1, self.w2)
-            if add_intraband:
-                chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
-                chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
-                chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
+            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
             if q_v is not None:
                 print('Restoring q dependence of head and wings of chi0')
                 chi0_wGG[:, 1:, 0] *= np.dot(q_v, d_v)
@@ -340,10 +450,10 @@ class DielectricFunction:
                 chi0_wGG[:, 0, 0] *= np.dot(q_v, d_v)**2
 
         if xc != 'RPA':
-            Kxc_sGG = get_xc_kernel(pd,
-                                    self.chi0,
-                                    functional=xc,
-                                    chi0_wGG=chi0_wGG)
+            Kxc_GG = get_xc_kernel(pd,
+                                   self.chi0,
+                                   functional=xc,
+                                   chi0_wGG=chi0_wGG)
 
         if calculate_chi:
             chi_wGG = []
@@ -353,7 +463,7 @@ class DielectricFunction:
                 P_GG = chi0_GG
             else:
                 P_GG = np.dot(np.linalg.inv(np.eye(nG) -
-                                            np.dot(chi0_GG, Kxc_sGG[0])),
+                                            np.dot(chi0_GG, Kxc_GG)),
                               chi0_GG)
             if symmetric:
                 e_GG = np.eye(nG) - P_GG * K_G * K_G[:, np.newaxis]
@@ -363,7 +473,7 @@ class DielectricFunction:
             if calculate_chi:
                 K_GG = np.diag(K_G**2)
                 if xc != 'RPA':
-                    K_GG += Kxc_sGG[0]
+                    K_GG += Kxc_GG
                 chi_wGG.append(np.dot(np.linalg.inv(np.eye(nG) -
                                                     np.dot(chi0_GG, K_GG)),
                                       chi0_GG))
@@ -411,7 +521,8 @@ class DielectricFunction:
 
         return df_NLFC_w, df_LFC_w
 
-    def get_macroscopic_dielectric_constant(self, xc='RPA', direction='x', q_v=None):
+    def get_macroscopic_dielectric_constant(self, xc='RPA',
+                                            direction='x', q_v=None):
         """Calculate macroscopic dielectric constant.
 
         Returns eM_NLFC and eM_LFC.
@@ -454,7 +565,7 @@ class DielectricFunction:
 
         df_NLFC_w, df_LFC_w = DielectricFunction.get_eels_spectrum()
         """
-
+        
         # Calculate V^1/2 \chi V^1/2
         pd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c,
                                                direction=direction)
@@ -559,6 +670,8 @@ class DielectricFunction:
 
         spectrum: np.ndarray
             Input spectrum
+
+        Note: not tested for spin response
         """
 
         assert (self.omega_w[1:] - self.omega_w[:-1]).ptp() < 1e-10
@@ -582,9 +695,8 @@ class DielectricFunction:
     def get_eigenmodes(self, q_c=[0, 0, 0], w_max=None, name=None,
                        eigenvalue_only=False, direction='x',
                        checkphase=True):
-
         """Plasmon eigenmodes as eigenvectors of the dielectric matrix."""
-
+        
         assert self.chi0.world.size == 1
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
@@ -717,7 +829,7 @@ class DielectricFunction:
 
         Returns: real space grid, frequency points, EELS(w,r)
         """
-
+        
         assert self.chi0.world.size == 1
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
@@ -751,7 +863,7 @@ class DielectricFunction:
                 if Gvec[iG, perpdir[0]] == 0 and Gvec[iG, perpdir[1]] == 0:
                     Glist.append(iG)
             elif not np.abs(np.dot(q_v, Gvec[iG])) < \
-                 np.linalg.norm(q_v) * np.linalg.norm(Gvec[iG]):
+                    np.linalg.norm(q_v) * np.linalg.norm(Gvec[iG]):
                 Glist.append(iG)
         qG = Gvec[Glist] + pd.K_qv
 

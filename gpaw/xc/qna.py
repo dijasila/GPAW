@@ -120,11 +120,11 @@ class QNAKernel:
 
 class QNA(GGA):
     def __init__(self, atoms, parameters, qna_setup_name='PBE', alpha=2.0,
-                 override_atoms=None):
+                 override_atoms=None, stencil=2):
         # override_atoms is only used to test the partial derivatives
         # of xc-functional
         kernel = QNAKernel(self)
-        GGA.__init__(self, kernel)
+        GGA.__init__(self, kernel, stencil=stencil)
         self.atoms = atoms
         self.parameters = parameters
         self.qna_setup_name = qna_setup_name

@@ -50,6 +50,7 @@ atoms, qm_spacing, gpts = poissonsolver.cut_cell(atoms,
 
 # Initialize GPAW
 gs_calc = GPAW(gpts          = gpts,
+               experimental={'niter_fixdensity': 2},
                eigensolver   = 'cg',
                nbands        = -1,
                poissonsolver = poissonsolver,
