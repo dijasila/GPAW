@@ -14,9 +14,9 @@ Linux:
    Linux/Fedora
    Linux/openSUSE
    Linux/ubuntu
-   Linux/Niflheim/Niflheim 
-   Linux/Niflheim/LoadOnNiflheim 
-   Linux/Niflheim/BuildOnNiflheim 
+   Linux/Niflheim/Niflheim
+   Linux/Niflheim/load
+   Linux/Niflheim/build
    Linux/SUNCAT/SUNCAT
    Linux/akka
    Linux/armageddon
