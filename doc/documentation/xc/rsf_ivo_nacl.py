@@ -20,15 +20,14 @@ calc_parms = [
          'energy': 0.005,
          'bands': 'occupied',
          'eigenstates': 1e-4,
-         'density': 1e-3},
-     'mixer': MixerDif(0.1, 3, 100)}]
+         'density': 1e-3}}]
 
 
 def calc_me(atoms, nbands):
     """Do the calculation."""
     molecule_name = atoms.get_chemical_formula()
     atoms.set_initial_magnetic_moments([-1.0, 1.0])
-    fname = '.'.join([molecule_name, 'PBE0', 'singlet'])
+    fname = '.'.join([molecule_name, 'PBE-SIN'])
     calc = GPAW(h=0.25,
                 xc='PBE',
                 eigensolver=CG(niter=5),
@@ -55,7 +54,7 @@ def calc_me(atoms, nbands):
             except KohnShamConvergenceError:
                 break
         if calc.scf.converged:
-            calc.write(fname + '.gpw')
+            calc.write(fname + '.gpw', mode='all')
 
 
 loa = Cluster(molecule('NaCl'))
