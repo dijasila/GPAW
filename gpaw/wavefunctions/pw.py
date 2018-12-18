@@ -1889,6 +1889,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
                              redistributor=redistributor)
 
         self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)
+        self.vt = PWLFC([[setup.vt] for setup in setups], pd2)
         self.pd2 = pd2
         self.pd3 = pd3
         self.xc_redistributor = xc_redistributor

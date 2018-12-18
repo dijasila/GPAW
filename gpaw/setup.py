@@ -570,6 +570,7 @@ class LeanSetup(BaseSetup):
         self.ghat_l = s.ghat_l
         self.rcgauss = s.rcgauss
         self.vbar = s.vbar
+        self.vt = s.vt
 
         self.Delta_pL = s.Delta_pL
         self.Delta0 = s.Delta0
@@ -838,6 +839,7 @@ class Setup(BaseSetup):
 
         # Construct splines:
         self.vbar = rgd.spline(vbar_g, rcutfilter)
+        self.vt = rgd.spline(data.vt_g, 4.0)
 
         rcore, nc_g, nct_g, nct = self.construct_core_densities(data)
         self.rcore = rcore

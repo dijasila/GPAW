@@ -29,6 +29,10 @@ def calculate_forces(wfs, dens, ham, log=None):
 
     ham.calculate_forces(dens, F_ham_av)
 
+    nt_sG = dens.gd.zeros(1)
+    wfs.calculate_density_contribution(nt_sG)
+    nt_sG += dens.nct_G
+
     F_av = F_ham_av + F_wfs_av
     wfs.world.broadcast(F_av, 0)
 

@@ -335,7 +335,8 @@ class SetupData:
         for name, a in [('ae_core_density', self.nc_g),
                         ('pseudo_core_density', self.nct_g),
                         ('ae_core_kinetic_energy_density', self.tauc_g),
-                        ('pseudo_core_kinetic_energy_density', self.tauct_g)]:
+                        ('pseudo_core_kinetic_energy_density', self.tauct_g),
+                        ('pseudo_potential', self.vt_g)]:
             print('  <%s grid="g1">\n    ' % name, end=' ', file=xml)
             for x in a:
                 print('%r' % x, end=' ', file=xml)
@@ -524,7 +525,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
                       'localized_potential', 'yukawa_exchange_X_matrix',
                       'kinetic_energy_differences', 'exact_exchange_X_matrix',
                       'ae_core_kinetic_energy_density',
-                      'pseudo_core_kinetic_energy_density']:
+                      'pseudo_core_kinetic_energy_density',
+                      'pseudo_potential']:
             self.data = []
         elif name.startswith('GLLB_'):
             self.data = []
@@ -567,6 +569,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             self.data.append(data)
 
     def endElement(self, name):
+        print(name)
         setup = self.setup
         if self.data is None:
             return
@@ -589,6 +592,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.tauct_g = x_g
         elif name in ['localized_potential', 'zero_potential']:  # XXX
             setup.vbar_g = x_g
+        elif name == 'pseudo_potential':
+            setup.vt_g = x_g
         elif name.startswith('GLLB_'):
             # Add setup tags starting with GLLB_ to extra_xc_data. Remove
             # GLLB_ from front of string:
