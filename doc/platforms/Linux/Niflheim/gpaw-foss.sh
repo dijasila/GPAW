@@ -1,10 +1,3 @@
-
-
-#if [ -f /etc/bashrc ]; then
-#    . /etc/bashrc
-#fi
-
-# Inform the compile script of which toolchain to use.
 export GPAW_TOOLCHAIN=foss
 
 if [ -z $GPAW ]; then
@@ -31,18 +24,8 @@ if [[ -z $GPAW_SETUP_PATH ]]; then
     module load GPAW-setups
 fi
 
-
+export GPAW_MPI_OPTIONS=""
 PLATFORM=linux-x86_64-$CPU_ARCH-el7-3.6
-if [ $CPU_ARCH = broadwell ]; then
-    export GPAW_MPI_OPTIONS="-mca pml cm -mca mtl psm2"
-elif [ $CPU_ARCH = sandybridge ]; then
-    export GPAW_MPI_OPTIONS=""
-elif [ $CPU_ARCH = ivybridge ]; then
-    export GPAW_MPI_OPTIONS=""
-elif [ $CPU_ARCH = nehalem ]; then
-    export GPAW_MPI_OPTIONS=""
-fi
-
 export PATH=$GPAW/tools:$GPAW/build/bin.$PLATFORM:$PATH
 export PYTHONPATH=$GPAW:$GPAW/build/lib.$PLATFORM:$PYTHONPATH
 export PATH=$ASE/bin:$PATH
