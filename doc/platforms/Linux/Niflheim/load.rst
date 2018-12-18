@@ -1,6 +1,5 @@
 .. _load on niflheim:
 
-
 ======================================
 Using a pre-installed GPAW at Niflheim
 ======================================

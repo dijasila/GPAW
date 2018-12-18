@@ -9,7 +9,8 @@ Information about the Niflheim cluster can be found at
 
 This document explains how to compile a developer version of GPAW on
 Niflheim.  If you just want to run the pre-installed version, please
-read the guide :ref:`Using a pre-installed GPAW on Niflheim <LoadOnNiflheim>`.
+read the guide :ref:`Using a pre-installed GPAW on Niflheim
+<load on niflheim>`.
 
 
 .. highlight:: bash
