@@ -3,7 +3,7 @@
 if [[ -z $GPAW_TOOLCHAIN ]]; then
     echo "You should source gpaw's gpaw-intel.sh or gpaw-foss.sh script to select a proper toolchain."
     echo "   Continuing with the foss toolchain for compatibility.  THIS GIVES INFERIOR PERFORMANCE!"
-    echo "   See https://wiki.fysik.dtu.dk/gpaw/platforms/Linux/Niflheim/load.html
+    echo "   See https://wiki.fysik.dtu.dk/gpaw/platforms/Linux/Niflheim/load.html"
     GPAW_TOOLCHAIN=foss
 fi
 
