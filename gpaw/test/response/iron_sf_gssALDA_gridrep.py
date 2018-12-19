@@ -16,7 +16,7 @@ from ase.parallel import parprint
 
 from gpaw import GPAW, PW
 from gpaw.response.tms import TransverseMagneticSusceptibility
-from gpaw.test import findpeak
+from gpaw.test import findpeak, equal
 from gpaw.mpi import world
 
 # ------------------- Inputs ------------------- #
@@ -64,7 +64,7 @@ for q in range(2):
                                            eta=eta,
                                            ecut=ecut,
                                            txt='iron_dsus_%d.out' % (q + 1))
-    
+
     chiM0_w, chiM_w = tms.get_dynamic_susceptibility(q_c=q_qc[q], xc=Kxc,
                                                      RSrep='grid',
                                                      fxc_scaling=fxc_scaling,
@@ -90,20 +90,19 @@ mw2 = (wpeak2 + d2[0, 0]) * 1000
 
 test_fxcs = 1.038135552
 test_mw1 = -0.0289017263039  # meV
-test_mw2 = 176.621205095  # meV
+test_mw2 = 175.3  # meV
 test_Ipeak1 = 71.2146329824  # a.u.
 test_Ipeak2 = 43.1361567126  # a.u.
 
 # print(fxc_scaling[1], mw1, mw2, Ipeak1, Ipeak2)
 
-if abs(test_fxcs - fxc_scaling[1]) > 5.e-5:
-    print((test_fxcs - fxc_scaling[1]))
-    raise ValueError('fxc_scaling not correct ! ')
+# fxc_scaling:
+equal(test_fxcs, fxc_scaling[1], 2e-4)
 
-if abs(test_mw1 - mw1) > 0.01 or abs(test_mw2 - mw2) > eta * 100:
-    print((test_mw1 - mw1, test_mw2 - mw2))
-    raise ValueError('Magnon peak not correct ! ')
+# Magnon peak:
+equal(test_mw1, mw1, 0.01)
+equal(test_mw2, mw2, eta * 100)
 
-if abs(test_Ipeak1 - Ipeak1) > 5 or abs(test_Ipeak2 - Ipeak2) > 5:
-    print((Ipeak1 - test_Ipeak1, Ipeak2 - test_Ipeak2))
-    raise ValueError('Please check scattering function intensity ! ')
+# Scattering function intensity:
+equal(test_Ipeak1, Ipeak1, 5)
+equal(test_Ipeak2, Ipeak2, 5)
