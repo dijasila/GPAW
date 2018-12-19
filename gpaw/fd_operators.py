@@ -27,6 +27,10 @@ laplace = [[0],
            [-5369 / 1800, 12 / 7, -15 / 56, 10 / 189, -1 / 112, 2 / 1925,
             -1 / 16632]]
 
+derivatives = [[1 / 2],
+               [2 / 3, -1 / 12],
+               [3 / 4, -3 / 20 , 1 / 60]]
+
 
 class FDOperator:
     def __init__(self, coef_p, offset_pc, gd, dtype=float,
@@ -124,7 +128,7 @@ if debug:
             _FDOperator.relax(self, relax_method, f_g, s_g, n, w)
 
 
-class Gradient(FDOperator):
+class Gradient0(FDOperator):
     def __init__(self, gd, v, scale=1.0, n=1, dtype=float):
         h = (gd.h_cv**2).sum(1)**0.5
         d = gd.xxxiucell_cv[:, v]
@@ -210,7 +214,7 @@ class GUCLaplace(FDOperator):
             ((self.npoints - 1) // n, n, self.npoints, 2 * n))
 
 
-class Gradient2(FDOperator):
+class Gradient(FDOperator):
     def __init__(self, gd, v, scale=1.0, n=1, dtype=float):
         """Laplacian for general non orthorhombic grid.
 
@@ -224,7 +228,6 @@ class Gradient2(FDOperator):
             Datatype to work on.
         """
 
-        # Order the 13 neighbor grid points:
         M_ic = np.indices((3, 3, 3)).reshape((3, -3)).T - 1
         h_iv = M_ic.dot(gd.h_cv)
         from scipy.spatial import Voronoi
@@ -242,33 +245,33 @@ class Gradient2(FDOperator):
         coef_cd = np.zeros((3, D))
         for c, n_v in enumerate(n_cv):
             ok_d = abs(h_dv.dot(n_v)) > 1e-10
-            M = ok_d.sum()
             h_mv = h_dv[ok_d]
             A_jm = np.array([h_mv.dot(n_v),
                              h_mv.dot(gd.h_cv[c - 1]),
                              h_mv.dot(gd.h_cv[c - 2])])
             U, S, V = np.linalg.svd(A_jm, full_matrices=False)
-            coef_k = V.T.dot(np.diag(S**-1).dot(U.T.dot([0.5, 0, 0])))
+            coef_k = V.T.dot(np.diag(S**-1).dot(U.T.dot([1, 0, 0])))
             coef_cd[c, ok_d] = coef_k
         coef_d = np.linalg.inv(n_cv)[v].dot(coef_cd) * scale
 
         offsets = []
         coefs = []
+        stencil = np.array(derivatives[n - 1])
         for d, c in enumerate(coef_d):
             if abs(c) < 1e-10:
                 continue
             M_c = M_ic[i_d[d]]
             offsets.extend(np.arange(1, n + 1)[:, np.newaxis] * M_c)
-            coefs.extend(np.array([c]))
+            coefs.extend(c * stencil)
             offsets.extend(np.arange(-1, -n - 1, -1)[:, np.newaxis] * M_c)
-            coefs.extend(np.array([-c]))
+            coefs.extend(-c * stencil)
 
-        print(coefs, offsets)
+        # print(coefs, offsets)
         FDOperator.__init__(self, coefs, offsets, gd, dtype)
 
         self.description = (
-            '%d*%d+1=%d point O(h^%d) finite-difference Laplacian' %
-            ((self.npoints - 1) // n, n, self.npoints, 2 * n))
+            'Finite-difference {}-derivative with O(h^{}) error ({} points)'
+            .format('xyz'[v], 2 * n, self.npoints))
 
 
 class LaplaceA(FDOperator):
