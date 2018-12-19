@@ -225,77 +225,45 @@ class Gradient2(FDOperator):
         """
 
         # Order the 13 neighbor grid points:
-        M_ic = np.indices((3, 3, 3)).reshape((3, -3)).T[-13:] - 1
-        u_cv = gd.h_cv / (gd.h_cv**2).sum(1)[:, np.newaxis]**0.5
-        u2_i = (np.dot(M_ic, u_cv)**2).sum(1)
-        i_d = u2_i.argsort()
+        M_ic = np.indices((3, 3, 3)).reshape((3, -3)).T - 1
+        h_iv = M_ic.dot(gd.h_cv)
+        from scipy.spatial import Voronoi
+        voro = Voronoi(h_iv)
+        i_d = []  # type: List[int]
+        for i1, i2 in voro.ridge_points:
+            if i1 == 13 and i2 > 13:
+                i_d.append(i2)
+            elif i2 == 13 and i1 > 13:
+                i_d.append(i1)
+        D = len(i_d)
+        h_dv = h_iv[i_d]
+        invh_vc = np.linalg.inv(gd.h_cv)
+        n_cv = (invh_vc / (invh_vc**2).sum(axis=0)**0.5).T
+        coef_cd = np.zeros((3, D))
+        for c, n_v in enumerate(n_cv):
+            ok_d = abs(h_dv.dot(n_v)) > 1e-10
+            M = ok_d.sum()
+            h_mv = h_dv[ok_d]
+            A_jm = np.array([h_mv.dot(n_v),
+                             h_mv.dot(gd.h_cv[c - 1]),
+                             h_mv.dot(gd.h_cv[c - 2])])
+            U, S, V = np.linalg.svd(A_jm, full_matrices=False)
+            coef_k = V.T.dot(np.diag(S**-1).dot(U.T.dot([0.5, 0, 0])))
+            coef_cd[c, ok_d] = coef_k
+        coef_d = np.linalg.inv(n_cv)[v].dot(coef_cd) * scale
 
-        m_mv = np.array([(1, 0, 0), (0, 1, 0), (0, 0, 1)])
-        # Try 3, 4, 5 and 6 directions:
-        for D in range(4,5):
-            h_dv = np.dot(M_ic[i_d[:D]], gd.h_cv)
-            print(h_dv)
-            for c in range(3):
-                n_v = np.linalg.inv(gd.h_cv)[:, c]
-                A_ii = []
-                b_i = []
-                I = []
-                for i, h_v in enumerate(h_dv):
-                    if abs(h_v.dot(n_v)) < 1e-10:
-                        A_ii.append(np.zeros(D))
-                        A_ii[-1][i] = 1.0
-                        b_i.append(0)
-                    else:
-                        I.append(i)
-                A_ii.append(np.zeros(D))
-                for i in I:
-                    A_ii[-1][i] = n_v.dot(h_dv[i])
-                b_i.append(np.linalg.norm(n_v) / 2)
-                for k in [1, 2]:
-                    n_v = gd.h_cv[(c + k) % 3]
-                    A_ii.append(np.zeros(D))
-                    b_i.append(0)
-                    for i in I:
-                        A_ii[-1][i] = n_v.dot(h_dv[i])
-                print(A_ii, b_i)
-                U, S, V = np.linalg.svd(A_ii, full_matrices=False)
-                print(U)
-                print(S)
-                print(V)
-                print(V.T.dot(np.diag(S**-1).dot(U.T.dot(b_i))))
-            asdkljh
-            a0 = U[:, :3].dot(np.diag(S**-1)).dot(V).dot(grad)
-            u0 = U[:, 3]
-            print(a0,u0)
-            M = np.diag(h_dv.dot(grad)**2)
-            x = u0.T.dot(M).dot(a0) / u0.dot(M).dot(u0)
-            print(a0+x*u0)
-            afkljh
-            r = np.linalg.solve(h_dv.dot(h_dv.T) - np.diag(h_dv.dot(grad)**2),
-                                -h_dv.dot(grad))
-            print(r);asdf
-            a_d, residual, rank, s = np.linalg.lstsq(A_md, grad,
-                                                     rcond=-1)
-            print(D, a_d, h_dv)
-            if residual.sum() < 1e-14:
-                if rank != D:
-                    raise ValueError(
-                        'You have a weird unit cell!  '
-                        'Try to use the maximally reduced Niggli cell.  '
-                        'See the ase.build.niggli_reduce() function.')
-                # D directions was OK
-                break
-
-        a_d *= scale
         offsets = []
         coefs = []
-        for d in range(D):
+        for d, c in enumerate(coef_d):
+            if abs(c) < 1e-10:
+                continue
             M_c = M_ic[i_d[d]]
             offsets.extend(np.arange(1, n + 1)[:, np.newaxis] * M_c)
-            coefs.extend(a_d[d] * np.array([1.0]))
+            coefs.extend(np.array([c]))
             offsets.extend(np.arange(-1, -n - 1, -1)[:, np.newaxis] * M_c)
-            coefs.extend(a_d[d] * np.array([-1.0]))
+            coefs.extend(np.array([-c]))
 
+        print(coefs, offsets)
         FDOperator.__init__(self, coefs, offsets, gd, dtype)
 
         self.description = (

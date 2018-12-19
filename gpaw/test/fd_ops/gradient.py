@@ -71,12 +71,12 @@ gd = GridDescriptor((3, 3, 1),
 R = gd.get_grid_point_coordinates()
 print(R[0,:,:,0])
 dady = gd.zeros()
-grady = Gradient2(gd, v=2)
+grady = Gradient2(gd, v=1)
 a = gd.zeros()
 for x in np.arange(12) * np.pi / 6:
     n = np.array([np.cos(x), np.sin(x), 0])
     a[:] = np.dot(R.T, n).T
     grady.apply(a, dady)
-    print(dady[1, 1, 0] - n[0])
+    print(dady[1, 1, 0] - n[1])
 print(a[:,:,0])
 print(dady[:,:,0])
