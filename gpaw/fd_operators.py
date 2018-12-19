@@ -29,7 +29,8 @@ laplace = [[0],
 
 derivatives = [[1 / 2],
                [2 / 3, -1 / 12],
-               [3 / 4, -3 / 20 , 1 / 60]]
+               [3 / 4, -3 / 20, 1 / 60],
+               [4 / 5, -1 / 5, 4 / 105, -1 / 280]]
 
 
 class FDOperator:
@@ -266,7 +267,6 @@ class Gradient(FDOperator):
             offsets.extend(np.arange(-1, -n - 1, -1)[:, np.newaxis] * M_c)
             coefs.extend(-c * stencil)
 
-        # print(coefs, offsets)
         FDOperator.__init__(self, coefs, offsets, gd, dtype)
 
         self.description = (
