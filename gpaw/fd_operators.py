@@ -234,13 +234,36 @@ class Gradient2(FDOperator):
         # Try 3, 4, 5 and 6 directions:
         for D in range(4,5):
             h_dv = np.dot(M_ic[i_d[:D]], gd.h_cv)
-            grad = [0, 0, 0]
-            grad[v] = 1
-            print(v, h_dv)
-            U, S, V = np.linalg.svd(h_dv)
-            print(U)
-            print(S)
-            print(V)
+            print(h_dv)
+            for c in range(3):
+                n_v = np.linalg.inv(gd.h_cv)[:, c]
+                A_ii = []
+                b_i = []
+                I = []
+                for i, h_v in enumerate(h_dv):
+                    if abs(h_v.dot(n_v)) < 1e-10:
+                        A_ii.append(np.zeros(D))
+                        A_ii[-1][i] = 1.0
+                        b_i.append(0)
+                    else:
+                        I.append(i)
+                A_ii.append(np.zeros(D))
+                for i in I:
+                    A_ii[-1][i] = n_v.dot(h_dv[i])
+                b_i.append(np.linalg.norm(n_v) / 2)
+                for k in [1, 2]:
+                    n_v = gd.h_cv[(c + k) % 3]
+                    A_ii.append(np.zeros(D))
+                    b_i.append(0)
+                    for i in I:
+                        A_ii[-1][i] = n_v.dot(h_dv[i])
+                print(A_ii, b_i)
+                U, S, V = np.linalg.svd(A_ii, full_matrices=False)
+                print(U)
+                print(S)
+                print(V)
+                print(V.T.dot(np.diag(S**-1).dot(U.T.dot(b_i))))
+            asdkljh
             a0 = U[:, :3].dot(np.diag(S**-1)).dot(V).dot(grad)
             u0 = U[:, 3]
             print(a0,u0)
