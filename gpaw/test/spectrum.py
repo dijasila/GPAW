@@ -21,8 +21,8 @@ equal(Lorentz(width).fwhm, width * 2, 1.e-15)
 
 # folder function
 
-for name in ['Gauss', 'Lorentz', 'Voigt']:
-    folder = Folder(width, name)
+for func in [Gauss, Lorentz, Voigt]:
+    folder = Folder(width, func(width).__class__.__name__)
 
     x = [0, 2]
     y = [[2, 0, 1], [1, 1, 1]]
@@ -30,6 +30,5 @@ for name in ['Gauss', 'Lorentz', 'Voigt']:
     xl, yl = folder.fold(x, y, dx=.7)
 
     # check first value
-    exec('func = {0}(width)'.format(name))
-    yy = np.dot(np.array(y)[:, 0], func.get(xl[0] - np.array(x)))  # noqa
+    yy = np.dot(np.array(y)[:, 0], func(width).get(xl[0] - np.array(x)))
     equal(yl[0, 0], yy, 1.e-15)
