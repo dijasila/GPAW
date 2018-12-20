@@ -9,12 +9,23 @@ Information about the Niflheim cluster can be found at
 
 This document explains how to compile a developer version of GPAW on
 Niflheim.  If you just want to run the pre-installed version, please
-read the guide :ref:`Using a pre-installed GPAW on Niflheim
-<load on niflheim>`.
+read the guide :ref:`Using a pre-installed GPAW on Niflheim <load on niflheim>`.
 
 
 .. highlight:: bash
 
+Get the ASE and GPAW source code
+================================
+
+Here, we install the development versions of ASE and GPAW in ``~/ase`` and
+``~/gpaw``.  Make sure the folders do not exist, remove them if they
+do (or update with ``git pull`` if you have done this step previously)::
+
+    $ cd
+    $ git clone https://gitlab.com/ase/ase.git
+    $ git clone https://gitlab.com/gpaw/gpaw.git
+
+	       
 Choose the right compiler suite
 ===============================
 
@@ -44,8 +55,8 @@ same compilers as you will use for GPAW.  This means that any other
 module you import should be with the same compiler (intel or foss).
 For example if you need scikit-learn, it should be imported as
 ``scikit-learn/0.20.0-intel-2018b-Python-3.6.6`` to get the intel
-version.  The files above set a variable to make this easier, and you
-can import scikit-learn with::
+version.  The files above sets a variable ``$MYPYTHON`` to make this
+easier, and you can import e.g. scikit-learn with::
 
   module load scikit-learn/0.20.0-$MYPYTHON   # Just an example
 
@@ -73,17 +84,6 @@ libraries.  **IMPORTANT:** GPAW support van der Waals correlation
 even without ``libvdwxc`` loaded!
 
 
-Get the ASE and GPAW source code
-================================
-
-Here, we install the development versions of ASE and GPAW in ``~/ase`` and
-``~/gpaw``.  Make sure the folders do not exist, remove them if they
-do (or update with ``git pull`` if you have done this step previously)::
-
-    $ cd
-    $ source .bashrc
-    $ git clone https://gitlab.com/ase/ase.git
-    $ git clone https://gitlab.com/gpaw/gpaw.git
 
 
 Installing GPAW on all Niflheim architectures
@@ -91,6 +91,7 @@ Installing GPAW on all Niflheim architectures
 
 Compile GPAW's C-extension using the :download:`compile.sh` script::
 
+    $ source ~/.bashrc    # Only needed if you changed your .bashrc file.
     $ cd gpaw
     $ sh doc/platforms/Linux/Niflheim/compile.sh
 
