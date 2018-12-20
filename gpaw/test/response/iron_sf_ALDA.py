@@ -90,8 +90,8 @@ test_Ipeak2 = 54.9375540086  # a.u.
 
 # Magnon peak:
 equal(test_mw1, mw1, eta * 100)
-equal(test_mw2, mw2, eta * 100)
+equal(test_mw2, mw2, eta * 150)
 
 # Scattering function intensity:
-equal(test_Ipeak1, Ipeak1, 1)
-equal(test_Ipeak2, Ipeak2, 1)
+equal(test_Ipeak1, Ipeak1, 1.5)
+equal(test_Ipeak2, Ipeak2, 1.5)
