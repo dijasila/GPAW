@@ -146,7 +146,7 @@ class Lorentz:
     def set_width(self, width=0.08):
         self.norm = width / np.pi
         self.width2 = width**2
-        self.fwhm = 2. * width
+        self._fwhm = 2. * width
 
     @property
     def fwhm(self):
