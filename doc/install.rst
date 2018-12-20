@@ -59,7 +59,7 @@ Requirements
 
 * Python_ 2.7, 3.4-
 * NumPy_ 1.6.1 or later (base N-dimensional array package)
-* SciPy_ 0.7 or later (library for scientific computing)
+* SciPy_ 0.11 or later (library for scientific computing)
 * ASE_ 3.16.0 or later (atomic simulation environment)
 * a C-compiler
 * LibXC_ 2.0.1 or later
@@ -256,10 +256,21 @@ Instructions for running parallel calculations can be found in the
 :ref:`user manual <manual_parallel_calculations>`.
 
 
+FFTW
+====
+
+The FFTW library is linked at runtime using :mod:`ctypes`.  By default, the
+following shared library names are searched for: ``libmkl_rt.so``,
+``libmkl_intel_lp64.so`` and ``libfftw3.so``.  First one found will be
+loaded.  If no library is found, the :mod:`numpy.fft` library will be used
+instead.  The name of the FFTW shared library can also be set via the
+``$GPAW_FFTWSO`` environment variable.
+
+
 .. _libxc installation:
 
 Libxc Installation
-------------------
+==================
 
 If you OS does not have a LibXC_ package you can use then you can download
 and install LibXC_ as described `here

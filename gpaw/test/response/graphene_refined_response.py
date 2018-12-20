@@ -16,15 +16,16 @@ system.center(axis=2, vacuum=4.0)
 nk = 6
 nkrefine = 5
 
-kpt_refine = {"center": [1. / 3, 1. / 3, 0.],
-              "size": [nkrefine, nkrefine, 1],
-              "reduce_symmetry": False,
+kpt_refine = {'center': [1. / 3, 1. / 3, 0.],
+              'size': [nkrefine, nkrefine, 1],
+              'reduce_symmetry': False,
               'q': [1. / (nk * nkrefine), 0, 0]}
 
 if not os.path.exists('graphene.gpw'):
     calc = GPAW(mode=PW(ecut=400),
+                nbands=8,
                 xc='PBE',
-                kpts={"size": [nk, nk, 1], "gamma": True},
+                kpts={'size': [nk, nk, 1], 'gamma': True},
                 experimental={'kpt_refine': kpt_refine},
                 occupations=FermiDirac(0.026))
     system.set_calculator(calc)
@@ -39,7 +40,7 @@ omega_w = df.get_frequencies()
 analyticalalpha_w = 1j / (8 * omega_w[1:] / Hartree)
 
 # Just some hardcoded test for alpha at omega=0
-equal(alphax_w[0].real, 6.7314, tolerance=1e-2,
+equal(alphax_w[0].real, 6.705, tolerance=0.02,
       msg='Polarizability at omega=0 is wrong')
 
 if 0:
@@ -54,4 +55,3 @@ if 0:
     plt.xlim(0, 1)
     plt.ylim(0, 100)
     plt.show()
-

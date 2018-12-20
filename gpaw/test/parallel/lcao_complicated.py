@@ -44,7 +44,7 @@ def calculate(parallel, comm=world, Eref=None, Fref=None):
                 kpts=(4, 1, 1),
                 #txt=None,
                 communicator=comm,
-                poissonsolver=PoissonSolver(relax='J', eps=1e-8),
+                poissonsolver=PoissonSolver(eps=1e-8),
                 nbands=16,
                 parallel=parallel,
                 h=0.35)

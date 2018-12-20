@@ -42,17 +42,21 @@ def agts(cmd):
         if tasks:
             raise ValueError('Not ready!')
 
-        shell('cd ase; git pull')
-        shell('cd gpaw; git clean -fdx; git pull;'
-              '. doc/platforms/Linux/Niflheim/compile.sh')
         arch = 'linux-x86_64-broadwell-el7-3.6'
         path = '/home/niflheim2/jensj/agts'
-        pp = ('{path}/ase:{path}/gpaw:{path}/gpaw/build/lib.{arch}'
+        pp = ('{path}/ase:{path}/gpaw:{path}/gpaw/build/lib.{arch}:$PYTHONPATH'
               .format(path=path, arch=arch))
-        shell('cd gpaw/doc; '
-              'PYTHONPATH={pp}:$PYTHONPATH make; '
-              'cd ..; '
-              'PYTHONPATH={pp}:$PYTHONPATH mq workflow -p agts.py -T'
+
+        shell('cd ase;'
+              'git pull')
+        shell('cd gpaw;'
+              'git clean -fdx;'
+              'git pull;'
+              '. doc/platforms/Linux/Niflheim/compile.sh;'
+              'cd doc;'
+              'PYTHONPATH={pp} make'
+              .format(pp=pp))
+        shell('PYTHONPATH={pp} mq workflow -p agts.py gpaw -T'
               .format(pp=pp))
 
     elif cmd == 'summary':
@@ -138,6 +142,32 @@ def write_results(tasks):
     name.write_text(text)
 
 
+def compare(f1, f2):
+    dicts = []
+    for f in [f1, f2]:
+        d = json.loads(Path(f).read_text())
+        dct = {}
+        for task in d['tasks']:
+            name = task['folder'] + '/' + task['cmd']['cmd']
+            if task['cmd']['args']:
+                name += '_' + '+'.join(task['cmd']['args'])
+            dct[name] = task['tstop'] - task['trunning']
+        dicts.append(dct)
+    d1, d2 = dicts
+    data = []
+    for name1, t1 in d1.items():
+        if name1 in d2:
+            data.append((d2[name1] - t1, t1, name1))
+    for dt, t, name in sorted(data):
+        name = name.split('agts/gpaw/')[1]
+        print('{dt:+10.1f} {dt / t * 100:+6.1f} {t:10.1f} {name}'
+              .format(**locals()))
+
+
 if __name__ == '__main__':
     import sys
-    agts(sys.argv[1])
+    cmd = sys.argv[1]
+    if cmd == 'compare':
+        compare(*sys.argv[2:])
+    else:
+        agts(cmd)

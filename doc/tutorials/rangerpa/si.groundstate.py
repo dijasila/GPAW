@@ -7,8 +7,8 @@ calc = GPAW(mode=PW(400.0),
             xc='LDA',
             occupations=FermiDirac(width=0.01),
             kpts={'size': (4, 4, 4), 'gamma': True},
-            txt='si.gs.txt',
-            )
+            parallel={'domain': 1},
+            txt='si.gs.txt')
 
 bulk_si.set_calculator(calc)
 E_lda = bulk_si.get_potential_energy()

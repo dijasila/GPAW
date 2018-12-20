@@ -11,11 +11,12 @@ if GS:
     cluster.set_cell((6, 6, 6), scale_atoms=False)
     cluster.center()
     calc = GPAW(mode=PW(force_complex_dtype=True),
-                xc='RPBE',
+                xc={'name': 'RPBE', 'stencil': 1},
                 nbands=16,
                 eigensolver='rmm-diis',
+                parallel={'domain': 1},
                 occupations=FermiDirac(0.01))
-    
+
     cluster.set_calculator(calc)
     cluster.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=24, scalapack=True)
@@ -38,7 +39,7 @@ if ABS:
                                eta=0.1,
                                ecut=10,
                                truncation='wigner-seitz')
-    
+
     a0_ws, a_ws = df_ws.get_polarizability(filename=None,
                                            direction='z')
 
@@ -46,7 +47,7 @@ if ABS:
     I0_ = 244.693028
     w_ = 5.696528390
     I_ = 207.8
-    
+
     w, I = findpeak(np.linspace(0, 14., 141), b0.imag)
     equal(w, w0_, 0.05)
     equal(6**3 * I / (4 * np.pi), I0_, 0.5)

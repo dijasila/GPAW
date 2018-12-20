@@ -16,6 +16,7 @@ if 1:
                 setups={'Mo': '6'},
                 eigensolver='rmm-diis',
                 occupations=FermiDirac(0.001),
+                parallel={'domain': 1},
                 kpts={'size': (6, 6, 1), 'gamma': True})
 
     layer = Graphene(symbol='B',

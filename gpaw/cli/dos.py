@@ -10,7 +10,7 @@ from gpaw.utilities.dos import raw_orbital_LDOS, delta
 
 
 class CLICommand:
-    short_description = 'Calculate (projected) density of states from gpw-file'
+    """Calculate (projected) density of states from gpw-file."""
 
     @staticmethod
     def add_arguments(parser):

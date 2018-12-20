@@ -259,7 +259,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         self.my_atom_indices = None
 
-    def set_positions(self, spos_ac):
+    def set_positions(self, spos_ac, atom_partition=None):
         assert len(spos_ac) == len(self.sphere_a)
         spos_ac = np.asarray(spos_ac)
         movement = False

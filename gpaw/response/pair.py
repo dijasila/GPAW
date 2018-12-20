@@ -632,7 +632,7 @@ class PWSymmetryAnalyzer:
 
 
 class PairDensity:
-    def __init__(self, calc, ecut=50,
+    def __init__(self, calc, ecut=50, response='density',
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
@@ -643,7 +643,8 @@ class PairDensity:
 
         if gate_voltage is not None:
             gate_voltage = gate_voltage / Hartree
-
+        
+        self.response = response
         self.ecut = ecut
         self.ftol = ftol
         self.threshold = threshold
@@ -679,7 +680,7 @@ class PairDensity:
         self.calc = calc
 
         self.fermi_level = self.calc.occupations.get_fermi_level()
-
+        
         if gate_voltage is not None:
             self.add_gate_voltage(gate_voltage)
         else:
@@ -826,7 +827,7 @@ class PairDensity:
             'Increase GS-nbands or decrease chi0-nbands!'
         eps_n = kpt.eps_n[n1:n2]
         f_n = kpt.f_n[n1:n2] / kpt.weight
-
+        
         if not load_wfs:
             return KPoint(s, K, n1, n2, blocksize, na, nb,
                           None, eps_n, f_n, None, shift_c)
@@ -882,7 +883,8 @@ class PairDensity:
         assert 0 <= use_more_memory <= 1
 
         q_c = pd.kd.bzk_kc[0]
-        optical_limit = not disable_optical_limit and np.allclose(q_c, 0.0)
+        optical_limit = np.allclose(q_c, 0.0) and self.response == 'density'
+        optical_limit = not disable_optical_limit and optical_limit
 
         Q_aGii = self.initialize_paw_corrections(pd)
         self.Q_aGii = Q_aGii  # This is used in g0w0
@@ -1036,7 +1038,11 @@ class PairDensity:
         with self.timer('get k-points'):
             kpt1 = self.get_k_point(s, k_c, n1, n2, load_wfs=load_wfs)
             # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            kpt2 = self.get_k_point(s, k_c + q_c, m1, m2,
+            if self.response in ['+-', '-+']:
+                s2 = 1 - s
+            else:
+                s2 = s
+            kpt2 = self.get_k_point(s2, k_c + q_c, m1, m2,
                                     load_wfs=load_wfs, block=block)
 
         with self.timer('fft indices'):
@@ -1051,7 +1057,8 @@ class PairDensity:
                          Q_aGii=None, block=False, direction=2,
                          extend_head=True):
         """Get pair density for a kpoint pair."""
-        ol = optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0)
+        ol = optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0) and \
+            self.response == 'density'
         eh = extend_head
         cpd = self.calculate_pair_densities  # General pair densities
         opd = self.optical_pair_density  # Interband pair densities / q
@@ -1438,7 +1445,7 @@ class PairDensity:
     def initialize_paw_corrections(self, pd, soft=False):
         wfs = self.calc.wfs
         q_v = pd.K_qv[0]
-        optical_limit = np.allclose(q_v, 0)
+        optical_limit = np.allclose(q_v, 0) and self.response == 'density'
 
         G_Gv = pd.get_reciprocal_vectors()
         if optical_limit:
@@ -1452,7 +1459,7 @@ class PairDensity:
             if soft:
                 ghat = PWLFC([atomdata.ghat_l], pd)
                 ghat.set_positions(np.zeros((1, 3)))
-                Q_LG = ghat.expand()
+                Q_LG = ghat.expand().T
                 if atomdata.Delta_iiL is None:
                     ni = atomdata.ni
                     Q_Gii = np.zeros((Q_LG.shape[1], ni, ni))
