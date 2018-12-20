@@ -34,6 +34,7 @@ def calculate_forces(wfs, dens, ham, log=None):
     nt_sG = dens.gd.zeros(1)
     wfs.calculate_density_contribution(nt_sG)
     nt_sG += dens.nct_G
+    print(nt_sG[0, 1, 2, 3], dens.nt_sG[0, 1, 2, 3])
     _, nt_Q = dens.pd2.interpolate(nt_sG[0], dens.pd3)
     vt_av = ham.vt.dict(derivative=True)
     ham.vt.derivative(dens.nt_Q - nt_Q, vt_av)
@@ -41,14 +42,14 @@ def calculate_forces(wfs, dens, ham, log=None):
         pass#F_ham_av[a] -= dF_v[0]
 
     F_av = F_ham_av + F_wfs_av
-    print(vt_av[0][0, 2], F_av[0, 2],# - -0.12088694004903458,
-          F_av[0, 2] - -0.12088694004903458 - vt_av[0][0, 2])
-    X[0].append(vt_av[0][0, 2])
-    X[1].append(F_av[0, 2])
-    X[2].append(F_av[0, 2] - vt_av[0][0, 2])
+    #print(vt_av[0][0, 0], F_av[0, 0],# - -0.12088694004903458,
+    #      F_av[0, 0] - -0.12088694004903458 - vt_av[0][0, 0])
+    X[0].append(vt_av[0][0, 0])
+    X[1].append(F_av[0, 0])
+    X[2].append(F_av[0, 0] - vt_av[0][0, 0])
     wfs.world.broadcast(F_av, 0)
 
-    #F_av = wfs.kd.symmetry.symmetrize_forces(F_av)
+    F_av = wfs.kd.symmetry.symmetrize_forces(F_av)
 
     if log:
         log('\nForces in eV/Ang:')

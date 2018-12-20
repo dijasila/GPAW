@@ -569,7 +569,6 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             self.data.append(data)
 
     def endElement(self, name):
-        print(name)
         setup = self.setup
         if self.data is None:
             return
