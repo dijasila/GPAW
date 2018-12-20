@@ -162,7 +162,7 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
             assert data.dtype == complex
         if dtype == float:
             ng *= 2
-            if data is not None:
+            if data is not None and isinstance(data, np.ndarray):
                 data = data.view(float)
         ArrayWaveFunctions.__init__(self, nbands, ng, dtype, data, dist,
                                     collinear)
