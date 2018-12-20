@@ -260,6 +260,7 @@ tests = [
     'lcao/force.py',                        # ~7s
     'xc/pplda.py',                          # ~7s
     'response/test_unit_sphere_area.py',    # ~7s
+    'rsf_yukawa/lrtddft_short.py',          # ~7s
     'fileio/restart_density.py',            # ~8s
     'rpa/rpa_energy_Ni.py',                 # ~8s
     'tddft/be_nltd_ip.py',                  # ~8s
@@ -327,7 +328,6 @@ tests = [
     'lrtddft/excited_state.py',             # ~16s
     'gllb/ne_disc.py',                      # ~16s
     'ofdft/ofdft.py',                       # ~17s
-    'rsf_yukawa/lrtddft_short.py',          # ~18s
     'response/bse_silicon.py',              # ~18s
     'tpss.py',                              # ~18s
     'tddft/td_na2.py',                      # ~18s

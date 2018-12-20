@@ -24,7 +24,7 @@ Git master branch
 * Default number of bands is now `1.2 N_{\text{occ}} + 4`, where
   `N_{\text{occ}}` is the number of occupied bands.
 
-* PW-mode calculations can now be parallelizer over plane-wave coefficients.
+* PW-mode calculations can now be parallelized over plane-wave coefficients.
 
 * Solvated jellium method has been implemented, see
   :ref:`the documentation <solvated_jellium_method>`.
@@ -32,7 +32,8 @@ Git master branch
 * Added FastPoissonSolver which is faster and works well for any cell.
   This replaces the old Poisson solver as default Poisson solver.
 
-* :ref:`rsf`.
+* :ref:`rsf` and improved virtual orbitals, the latter from Hartree-Fock
+  theory.
 
 * New Jupyter notebooks added for teaching DFT and many-body methods.  Topics
   cover: :ref:`catalysis`, :ref:`magnetism`, :ref:`machinelearning`,
