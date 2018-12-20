@@ -27,6 +27,24 @@ class Voigt:
         self.prefactor = 1. / 2 / np.sqrt(2 * np.pi) / self.sigma
         self.argpre = 1. / np.sqrt(2) / self.sigma
 
+        """Full width at half maximum approximation after
+        Olivero, J. J.; R. L. Longbothum
+        "Empirical fits to the Voigt line width: A brief review"
+        J. Quantitative Spectroscopy and Radiative Transfer. 17 (1977) 233–236
+        """
+        fl = 2 * self.delta
+        fg = np.sqrt(8 * np.log(2)) * self.sigma
+        self._fwhm = 0.5346 * fl + np.sqrt(0.2166 * fl**2 + fg**2)
+
+    @property
+    def fwhm(self):
+        return self._fwhm
+
+    @fwhm.setter
+    def fwhm(self, value):
+        "setting fwhm is not uniquely defined"
+        raise NotImplementedError
+
 class ComplexLorentz:
     def __init__(self, width=0.08):
         self.dtype = complex

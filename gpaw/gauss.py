@@ -124,10 +124,18 @@ class Gauss:
     def set_width(self, width=0.08):
         self.norm = 1. / width / np.sqrt(2 * np.pi)
         self.wm1 = np.sqrt(.5) / width
+        self._fwhm = np.sqrt(8 * np.log(2)) * width
 
-        
+    @property
+    def fwhm(self):
+        return self._fwhm
+
+    @fwhm.setter
+    def fwhm(self, value):
+        self.set_width(value / np.sqrt(8 * np.log(2)))
+
 class Lorentz:
-    """Normalised Lorentz distribution"""
+    """Normalized Lorentzian distribution"""
     def __init__(self, width=0.08):
         self.dtype = float
         self.set_width(width)
@@ -138,4 +146,12 @@ class Lorentz:
     def set_width(self, width=0.08):
         self.norm = width / np.pi
         self.width2 = width**2
+        self.fwhm = 2. * width
 
+    @property
+    def fwhm(self):
+        return self._fwhm
+
+    @fwhm.setter
+    def fwhm(self, value):
+        self.set_width(value / 2.)
