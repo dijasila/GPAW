@@ -195,7 +195,7 @@ class GUCLaplace(FDOperator):
 
 class Gradient(FDOperator):
     def __init__(self, gd, v, scale=1.0, n=1, dtype=float):
-        """Gradient for general non orthorhombic grid.
+        """Symmetric gradient for general non orthorhombic grid.
 
         gd: GridDescriptor
             Descriptor for grid.
@@ -212,7 +212,7 @@ class Gradient(FDOperator):
         from scipy.spatial import Voronoi
 
         # Find nearest neighbors.  If h is a vector pointing at a
-        # neighbor grid-points then we don not also include -h in the list:
+        # neighbor grid-points then we don't also include -h in the list:
         M_ic = np.indices((3, 3, 3)).reshape((3, -3)).T - 1
         h_iv = M_ic.dot(gd.h_cv)
         voro = Voronoi(h_iv)
@@ -227,7 +227,7 @@ class Gradient(FDOperator):
 
         h_dv = h_iv[i_d]  # vectors pointing at neighbor grid-points
 
-        # Find gradient along 3 direction (n_cv):
+        # Find gradient along 3 directions (n_cv):
         invh_vc = np.linalg.inv(gd.h_cv)
         n_cv = (invh_vc / (invh_vc**2).sum(axis=0)**0.5).T
 
@@ -238,14 +238,14 @@ class Gradient(FDOperator):
             ok_d = abs(h_dv.dot(n_v)) > 1e-10
             h_mv = h_dv[ok_d]
 
-            # The theee equations:
+            # The theee equations: A_jm.dot(coef_m) = [1, 0, 0]
             A_jm = np.array([h_mv.dot(n_v),
                              h_mv.dot(gd.h_cv[c - 1]),
                              h_mv.dot(gd.h_cv[c - 2])])
 
-            U, S, V = np.linalg.svd(A_jm, full_matrices=False)
-            coef_k = V.T.dot(np.diag(S**-1).dot(U.T.dot([1, 0, 0])))
-            coef_cd[c, ok_d] = coef_k
+            U_jm, S_m, V_mm = np.linalg.svd(A_jm, full_matrices=False)
+            coef_m = V_mm.T.dot(np.diag(S_m**-1).dot(U_jm.T.dot([1, 0, 0])))
+            coef_cd[c, ok_d] = coef_m
 
         # Now get the v-gradient:
         coef_d = np.linalg.inv(n_cv)[v].dot(coef_cd) * scale
