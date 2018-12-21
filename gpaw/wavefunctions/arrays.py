@@ -88,7 +88,11 @@ class ArrayWaveFunctions:
         for myn, psit_G in enumerate(matrix.array):
             n = matrix.dist.comm.rank * blocksize + myn
             if self.comm.rank == 0:
-                big_psit_G = np.asarray(self.array[n], self.dtype)
+                big_psit_G = self.array[n]
+                if big_psit_G.dtype == complex and self.dtype == float:
+                    big_psit_G = big_psit_G.view(float)
+                elif big_psit_G.dtype == float and self.dtype == complex:
+                    big_psit_G = np.asarray(big_psit_G, complex)
             else:
                 big_psit_G = None
             self._distribute(big_psit_G, psit_G)
@@ -162,8 +166,9 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
             assert data.dtype == complex
         if dtype == float:
             ng *= 2
-            if data is not None and isinstance(data, np.ndarray):
+            if isinstance(data, np.ndarray):
                 data = data.view(float)
+
         ArrayWaveFunctions.__init__(self, nbands, ng, dtype, data, dist,
                                     collinear)
         self.pd = pd
@@ -188,6 +193,10 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
 
     def _distribute(self, big_psit_G, psit_G):
         if self.collinear:
+            if self.dtype == float:
+                if big_psit_G is not None:
+                    big_psit_G = big_psit_G.view(complex)
+                psit_G = psit_G.view(complex)
             psit_G[:] = self.pd.scatter(big_psit_G, self.kpt)
         else:
             psit_sG = psit_G.reshape((2, -1))
