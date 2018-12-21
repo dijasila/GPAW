@@ -14,14 +14,33 @@ Git master branch
 
 * Last release to support Python 2.7.
 
+* The default finite-difference stencils used for gradients in GGA and MGGA
+  calculations have been changed.
+
+  * The range of the stencil has been increased
+    from 1 to 2 thereby decreasing the error from `O(h^2)` to `O(h^4)`
+    (where `h` is the grid spacing).  Use ``xc={'name': 'PBE', 'stencil': 1}``
+    to get the old, less accurate, stencil.
+
+  * The stencils are now symmetric also for non-orthorhombic
+    unit cells.  Before, the stencils would only have weight on the
+    nighboring grid-points in the 6 directions along the lattice vectors.
+    Now, grid-points along all nearest neighbor directions can have a weight
+    in the  stencils.  This allows for creating stencils that have all the
+    crystal symmetries.
+
 * Add interface to Elpa eigensolver for LCAO mode.
-  Use ``GPAW(mode='lcao', basis='dzp', parallel={'sl_auto': True, 'use_elpa': True})``
-  or see further
-  documentation on the :ref:`parallel keyword <manual_parallel>`.
+  Use::
+
+      GPAW(mode='lcao',
+           basis='dzp',
+           parallel={'sl_auto': True, 'use_elpa': True})
+
+  See also documentation on the :ref:`parallel keyword <manual_parallel>`.
 
 * Default eigensolver is now ``Davidson(niter=2)``.
 
-* Default number of bands is now `1.2 N_{\text{occ}} + 4`, where
+* Default number of bands is now `1.2 \times N_{\text{occ}} + 4`, where
   `N_{\text{occ}}` is the number of occupied bands.
 
 * PW-mode calculations can now be parallelized over plane-wave coefficients.
