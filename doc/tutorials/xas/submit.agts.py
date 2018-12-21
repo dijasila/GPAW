@@ -15,5 +15,5 @@ if __name__ == '__main__':
     from gpaw.test import equal
     exec(open('plot.py').read())
     e_dks = float(open('dks.result').readline().split()[2])
-    equal(e_dks, 532.508, 0.001)
+    equal(e_dks, 532.502, 0.001)
     exec(open('h2o_xas_box2.py').read())

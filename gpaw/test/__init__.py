@@ -74,7 +74,6 @@ def gen(symbol, exx=False, name=None, yukawa_gamma=None, **kwargs):
 
 
 tests = [
-    # 'electronphonon.py',  does not seem to work
     'linalg/gemm_complex.py',
     'ase_features/ase3k_version.py',
     'kpt.py',
@@ -106,6 +105,7 @@ tests = [
     'fd_ops/gd.py',
     'pw/interpol.py',
     'poisson/screened_poisson.py',
+    'electronphonon.py',
     'xc/xc.py',
     'xc/XC2.py',
     'radial/yukawa_radial.py',
@@ -125,7 +125,6 @@ tests = [
     'poisson/poisson.py',
     'poisson/fastpoisson.py',
     'poisson/poisson_asym.py',
-    # 'rsf_yukawa/lrtddft.py',
     'parallel/arraydict_redist.py',
     'parallel/scalapack.py',
     'gauss_wave.py',
@@ -157,6 +156,7 @@ tests = [
     'solvation/nan_radius.py',              # ~1s
     'solvation/pbc_pos_repeat.py',          # ~1s
     'lcao/generate_ngto.py',                # ~1s
+    'reuse_wfs_celldisp.py',                # ~1s
     'linalg/gemv.py',                       # ~2s
     'fileio/idiotproof_setup.py',           # ~2s
     'radial/ylexpand.py',                   # ~2s
@@ -260,6 +260,7 @@ tests = [
     'lcao/force.py',                        # ~7s
     'xc/pplda.py',                          # ~7s
     'response/test_unit_sphere_area.py',    # ~7s
+    'rsf_yukawa/lrtddft_short.py',          # ~7s
     'fileio/restart_density.py',            # ~8s
     'rpa/rpa_energy_Ni.py',                 # ~8s
     'tddft/be_nltd_ip.py',                  # ~8s
@@ -294,6 +295,7 @@ tests = [
     'lrtddft/kssingles_Be.py',              # ~11s
     'generic/relax.py',                     # ~11s
     'solvation/adm12.py',                   # ~11s
+    'rsf_yukawa/rsf_ivo_sing_mg.py',        # ~11s
     'solvation/lrtddft.py',                 # ~12s
     'dscf/dscf_lcao.py',                    # ~12s
     'generic/8Si.py',                       # ~12s
@@ -309,6 +311,8 @@ tests = [
     'ofdft/ofdft_pbc.py',                   # ~13s
     'gllb/restart_band_structure.py',       # ~14s
     'exx/exx.py',                           # ~14s
+    'response/iron_sf_ALDA_gridrep.py',     # ~15s
+    'response/iron_sf_gssALDA_gridrep.py',  # ~15s
     'Hubbard_U.py',                         # ~15s
     'rpa/rpa_energy_Si.py',                 # ~15s
     'dipole.py',                            # ~15s
@@ -382,6 +386,7 @@ tests = [
     'pathological/nonlocalset.py',          # ~82s
     'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
+    'response/iron_sf_ALDA.py',             # ~86s
     'exx/exx_scf.py',                       # ~91s
     'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
@@ -443,7 +448,8 @@ if mpi.size > 1:
 if mpi.size > 2:
     exclude += ['ase_features/neb.py',
                 'poisson/poisson_restart.py',
-                'response/pair.py']
+                'response/pair.py',
+                'electronphonon.py']
 
 if mpi.size > 4:
     exclude += ['poisson/poisson_extravacuum.py']
@@ -458,6 +464,7 @@ if mpi.size < 4:
                 'exx/AA_enthalpy.py',
                 'exx/exx_scf.py',
                 'response/bse_aluminum.py',
+                'response/iron_sf_ALDA.py',
                 'response/bse_MoS2_cut.py',
                 'fileio/parallel.py',
                 'parallel/diamond_gllb.py',

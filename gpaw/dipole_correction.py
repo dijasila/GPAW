@@ -103,23 +103,26 @@ class DipoleCorrection:
     def initialize_sawtooth(self):
         gd = self.poissonsolver.pd.gd
         self.check_direction(gd, self.poissonsolver.realpbc_c)
-        c = self.c
-        sawtooth_g = gd.empty()
-        L = gd.cell_cv[c, c]
-        w = self.width / 2
-        assert w < L / 2
-        gc = int(w / gd.h_cv[c, c])
-        x = gd.coords(c)
-        sawtooth = x / L - 0.5
-        a = 1 / L - 0.75 / w
-        b = 0.25 / w**3
-        sawtooth[:gc] = x[:gc] * (a + b * x[:gc]**2)
-        sawtooth[-gc:] = -sawtooth[gc:0:-1]
-        sawtooth_g = gd.empty()
-        shape = [1, 1, 1]
-        shape[c] = -1
-        sawtooth_g[:] = sawtooth.reshape(shape)
-        self.sawtooth_q = self.poissonsolver.pd.fft(sawtooth_g)
+        if gd.comm.rank == 0:
+            c = self.c
+            L = gd.cell_cv[c, c]
+            w = self.width / 2
+            assert w < L / 2
+            gc = int(w / gd.h_cv[c, c])
+            x = gd.coords(c)
+            sawtooth = x / L - 0.5
+            a = 1 / L - 0.75 / w
+            b = 0.25 / w**3
+            sawtooth[:gc] = x[:gc] * (a + b * x[:gc]**2)
+            sawtooth[-gc:] = -sawtooth[gc:0:-1]
+            sawtooth_g = gd.empty(global_array=True)
+            shape = [1, 1, 1]
+            shape[c] = -1
+            sawtooth_g[:] = sawtooth.reshape(shape)
+            sawtooth_q = self.poissonsolver.pd.fft(sawtooth_g, local=True)
+        else:
+            sawtooth_q = None
+        self.sawtooth_q = self.poissonsolver.pd.scatter(sawtooth_q)
 
     def estimate_memory(self, mem):
         self.poissonsolver.estimate_memory(mem)

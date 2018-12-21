@@ -26,6 +26,7 @@ a2 = Atoms('Na2',
            pbc=True)
 
 a1.calc = GPAW(gpts=(10, 10, 10),
+               experimental={'niter_fixdensity': 2},
                mode=PW(300),
                kpts={'size': (8, 8, 8), 'gamma': True},
                parallel={'band': 1},
@@ -34,6 +35,7 @@ a1.calc = GPAW(gpts=(10, 10, 10),
 
 # Kpoint sampling should be halved in the expanded direction.
 a2.calc = GPAW(gpts=(20, 10, 10),
+               experimental={'niter_fixdensity': 2},
                mode=PW(300),
                kpts={'size': (4, 8, 8), 'gamma': True},
                parallel={'band': 1},

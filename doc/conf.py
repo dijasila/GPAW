@@ -23,6 +23,7 @@ pygments_style = 'sphinx'
 autoclass_content = 'both'
 modindex_common_prefix = ['gpaw.']
 intersphinx_mapping = {
+    'python': ('https://docs.python.org/3.7', None),
     'ase': ('https://wiki.fysik.dtu.dk/ase', None),
     'numpy': ('https://docs.scipy.org/doc/numpy', None),
     'mayavi': ('http://docs.enthought.com/mayavi/mayavi', None)}

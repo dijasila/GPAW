@@ -20,6 +20,7 @@ H2O = Atoms([Atom('O', (0, 0, 0)),
             cell=(a, a, a), pbc=False)
 H2O.center()
 calc = GPAW(nbands=10, h=0.2, setups={'O': 'hch1s'},
+            experimental={'niter_fixdensity': 2},
             poissonsolver=FDPoissonSolver(use_charge_center=True))
 H2O.set_calculator(calc)
 e = H2O.get_potential_energy()

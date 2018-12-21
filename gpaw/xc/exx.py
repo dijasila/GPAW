@@ -60,28 +60,32 @@ def select_kpts(kpts, calc):
 
 class EXX(PairDensity):
     def __init__(self, calc, xc=None, kpts=None, bands=None, ecut=None,
+                 stencil=2,
                  omega=None, world=mpi.world, txt=sys.stdout, timer=None):
 
         PairDensity.__init__(self, calc, ecut, world=world, txt=txt,
                              timer=timer)
+
+        def _xc(name):
+            return {'name': name, 'stencil': stencil}
 
         if xc is None or xc == 'EXX':
             self.exx_fraction = 1.0
             xc = XC(XCNull())
         elif xc == 'PBE0':
             self.exx_fraction = 0.25
-            xc = XC('HYB_GGA_XC_PBEH')
+            xc = XC(_xc('HYB_GGA_XC_PBEH'))
         elif xc == 'HSE03':
             omega = 0.106
             self.exx_fraction = 0.25
-            xc = XC('HYB_GGA_XC_HSE03')
+            xc = XC(_xc('HYB_GGA_XC_HSE03'))
         elif xc == 'HSE06':
             omega = 0.11
             self.exx_fraction = 0.25
-            xc = XC('HYB_GGA_XC_HSE06')
+            xc = XC(_xc('HYB_GGA_XC_HSE06'))
         elif xc == 'B3LYP':
             self.exx_fraction = 0.2
-            xc = XC('HYB_GGA_XC_B3LYP')
+            xc = XC(_xc('HYB_GGA_XC_B3LYP'))
 
         self.xc = xc
         self.omega = omega

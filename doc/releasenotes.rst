@@ -12,6 +12,8 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.16.1b1
 
+* Last release to support Python 2.7.
+
 * Add interface to Elpa eigensolver for LCAO mode.
   Use ``GPAW(mode='lcao', basis='dzp', parallel={'sl_auto': True, 'use_elpa': True})``
   or see further
@@ -22,7 +24,7 @@ Git master branch
 * Default number of bands is now `1.2 N_{\text{occ}} + 4`, where
   `N_{\text{occ}}` is the number of occupied bands.
 
-* PW-mode calculations can now be parallelizer over plane-wave coefficients.
+* PW-mode calculations can now be parallelized over plane-wave coefficients.
 
 * Solvated jellium method has been implemented, see
   :ref:`the documentation <solvated_jellium_method>`.
@@ -30,7 +32,8 @@ Git master branch
 * Added FastPoissonSolver which is faster and works well for any cell.
   This replaces the old Poisson solver as default Poisson solver.
 
-* :ref:`rsf`.
+* :ref:`rsf` and improved virtual orbitals, the latter from Hartree-Fock
+  theory.
 
 * New Jupyter notebooks added for teaching DFT and many-body methods.  Topics
   cover: :ref:`catalysis`, :ref:`magnetism`, :ref:`machinelearning`,
@@ -42,6 +45,9 @@ Git master branch
 * A module and tutorial have been added for calculating electrostatic
   corrections to DFT total energies for charged systems involving localised
   :ref:`defects`.
+
+* Default for FFTW planning has been changed from ``ESTIMATE`` to ``MEASURE``.
+  See :class:`gpaw.wavefunctions.pw.PW`.
 
 
 Version 1.4.0
