@@ -129,31 +129,6 @@ if debug:
             _FDOperator.relax(self, relax_method, f_g, s_g, n, w)
 
 
-class Gradient0(FDOperator):
-    def __init__(self, gd, v, scale=1.0, n=1, dtype=float):
-        h = (gd.h_cv**2).sum(1)**0.5
-        d = gd.xxxiucell_cv[:, v]
-        A = np.zeros((2 * n + 1, 2 * n + 1))
-        for i, io in enumerate(range(-n, n + 1)):
-            for j in range(2 * n + 1):
-                A[i, j] = io**j / float(fact(j))
-        A[n, 0] = 1.0
-        coefs = np.linalg.inv(A)[1]
-        coefs = np.delete(coefs, len(coefs) // 2)
-        offs = np.delete(np.arange(-n, n + 1), n)
-        coef_p = []
-        offset_pc = []
-        for i in range(3):
-            if abs(d[i]) > 1e-11:
-                coef_p.extend(list(coefs * d[i] / h[i] * scale))
-                offset = np.zeros((2 * n, 3), int)
-                offset[:, i] = offs
-                offset_pc.extend(offset)
-
-        FDOperator.__init__(self, coef_p, offset_pc, gd, dtype,
-                            'O(h^%d) %s-gradient stencil' % (2 * n, 'xyz'[v]))
-
-
 def Laplace(gd, scale=1.0, n=1, dtype=float):
         if n == 9:
             return FTLaplace(gd, scale, dtype)
@@ -220,21 +195,26 @@ class GUCLaplace(FDOperator):
 
 class Gradient(FDOperator):
     def __init__(self, gd, v, scale=1.0, n=1, dtype=float):
-        """Laplacian for general non orthorhombic grid.
+        """Gradient for general non orthorhombic grid.
 
         gd: GridDescriptor
             Descriptor for grid.
+        v: int
+            Direction of gradient: 0, 1, or 2 for x, y and z.
         scale: float
-            Scaling factor.  Use scale=-0.5 for a kinetic energy operator.
+            Scaling factor.
         n: int
             Range of stencil.  Stencil has O(h^(2n)) error.
         dtype: float or complex
             Datatype to work on.
         """
 
+        from scipy.spatial import Voronoi
+
+        # Find nearest neighbors.  If h is a vector pointing at a
+        # neighbor grid-points then we don not also include -h in the list:
         M_ic = np.indices((3, 3, 3)).reshape((3, -3)).T - 1
         h_iv = M_ic.dot(gd.h_cv)
-        from scipy.spatial import Voronoi
         voro = Voronoi(h_iv)
         i_d = []  # type: List[int]
         for i1, i2 in voro.ridge_points:
@@ -242,22 +222,35 @@ class Gradient(FDOperator):
                 i_d.append(i2)
             elif i2 == 13 and i1 > 13:
                 i_d.append(i1)
-        D = len(i_d)
-        h_dv = h_iv[i_d]
+
+        D = len(i_d)  # number of neighbors (3, 4, 5, 6 or 7)
+
+        h_dv = h_iv[i_d]  # vectors pointing at neighbor grid-points
+
+        # Find gradient along 3 direction (n_cv):
         invh_vc = np.linalg.inv(gd.h_cv)
         n_cv = (invh_vc / (invh_vc**2).sum(axis=0)**0.5).T
-        coef_cd = np.zeros((3, D))
+
+        coef_cd = np.zeros((3, D))  # unknown weights
         for c, n_v in enumerate(n_cv):
+            # Point on the plane perpendicular to the directions get a
+            # weight of zero
             ok_d = abs(h_dv.dot(n_v)) > 1e-10
             h_mv = h_dv[ok_d]
+
+            # The theee equations:
             A_jm = np.array([h_mv.dot(n_v),
                              h_mv.dot(gd.h_cv[c - 1]),
                              h_mv.dot(gd.h_cv[c - 2])])
+
             U, S, V = np.linalg.svd(A_jm, full_matrices=False)
             coef_k = V.T.dot(np.diag(S**-1).dot(U.T.dot([1, 0, 0])))
             coef_cd[c, ok_d] = coef_k
+
+        # Now get the v-gradient:
         coef_d = np.linalg.inv(n_cv)[v].dot(coef_cd) * scale
 
+        # Create stencil:
         offsets = []
         coefs = []
         stencil = np.array(derivatives[n - 1])
@@ -346,3 +339,28 @@ class FTLaplace:
 
     def get_diagonal_element(self):
         return self.d
+
+
+class OldGradient(FDOperator):
+    def __init__(self, gd, v, scale=1.0, n=1, dtype=float):
+        h = (gd.h_cv**2).sum(1)**0.5
+        d = gd.xxxiucell_cv[:, v]
+        A = np.zeros((2 * n + 1, 2 * n + 1))
+        for i, io in enumerate(range(-n, n + 1)):
+            for j in range(2 * n + 1):
+                A[i, j] = io**j / float(fact(j))
+        A[n, 0] = 1.0
+        coefs = np.linalg.inv(A)[1]
+        coefs = np.delete(coefs, len(coefs) // 2)
+        offs = np.delete(np.arange(-n, n + 1), n)
+        coef_p = []
+        offset_pc = []
+        for i in range(3):
+            if abs(d[i]) > 1e-11:
+                coef_p.extend(list(coefs * d[i] / h[i] * scale))
+                offset = np.zeros((2 * n, 3), int)
+                offset[:, i] = offs
+                offset_pc.extend(offset)
+
+        FDOperator.__init__(self, coef_p, offset_pc, gd, dtype,
+                            'O(h^%d) %s-gradient stencil' % (2 * n, 'xyz'[v]))
