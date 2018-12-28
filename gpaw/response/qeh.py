@@ -61,6 +61,12 @@ class Heterostructure:
         self.n_layers = 0
         namelist = []
         n_rep = 0
+
+        for il, layer in enumerate(structure):
+            append = '-chi.npz'
+            if append not in layer:
+                structure[il] = layer + append
+
         structure = expand_layers(structure)
 
         if not check_building_blocks(list(set(structure))):
@@ -69,7 +75,7 @@ class Heterostructure:
         for n, name in enumerate(structure):
             if name not in namelist:
                 namelist.append(name)
-                data = np.load(name + '-chi.npz')
+                data = np.load(name)
                 q = data['q_abs']
                 w = data['omega_w']
                 zi = data['z']
@@ -1309,7 +1315,7 @@ def check_building_blocks(BBfiles=None):
     BBfiles: list of str
         list of names of BB files
     """
-    name = BBfiles[0] + '-chi.npz'
+    name = BBfiles[0]
     data = np.load(name)
     try:
         q = data['q_abs'].copy()
@@ -1318,7 +1324,7 @@ def check_building_blocks(BBfiles=None):
         # Skip test for old format:
         return True
     for name in BBfiles[1:]:
-        data = np.load(name + '-chi.npz')
+        data = np.load(name)
         if not ((data['q_abs'] == q).all and
                 (data['omega_w'] == w).all):
             return False
@@ -1586,3 +1592,172 @@ def read_chi_wGG(name):
     for chi_GG in chi_wGG:
         chi_GG[:] = load(fd)
     return omega_w, pd, chi_wGG, q0
+
+
+def make_heterostructure(layers, d, d0):
+    """Make a heterostructure baesd on some layers"""
+
+    het = Heterostructure(structure=layers, d=d, d0=d0)
+    return het
+    
+
+def main(args=None):
+    import argparse
+    from pathlib import Path
+    from os.path import expanduser
+    description = 'QEH Model command line interface'
+    parser = argparse.ArgumentParser(description=description)
+
+    help = ("For example: '3H-MoS2 graphene 10H-WS2' gives 3 layers of "
+            "H-MoS2, 1 layer of graphene and 10 layers of H-WS2.")
+    parser.add_argument('layers', nargs='+', help=help, type=str)
+    help = ("For above example: '6.2, 3.2, 6.2' gives thicknesses of "
+            "6.2, 3.2, and 6.2 AA to MoS2, graphene and WS2 "
+            "respectively. If not set, the QEH module will use a "
+            "default set of thicknesses")
+    parser.add_argument('--thicknesses', nargs='*', help=help,
+                        default=None, type=float)
+
+    help = ("Path to folder containing dielectric building blocks. "
+            "Defaults to current folder, ./chi-data and ~/.chi-data "
+            "in that order")
+    parser.add_argument('--buildingblockpath', nargs='*', help=help,
+                        default=['.', './chi-data', '~/chi-data'], type=str)
+
+    help = ("Calculate plasmon spectrum")
+    parser.add_argument('--plasmons', action='store_true', help=help)
+
+    help = ("Calculate electron energy loss spectrum")
+    parser.add_argument('--eels', action='store_true', help=help)
+
+    help = ("Plot calculated quantities")
+    parser.add_argument('--plot', action='store_true', help=help)
+
+    help = ("Custom frequencies to respresent quantities on (in eV). "
+            "The format is: min. frequency, max. frequency, "
+            "number of frequencies. E. g.: 0.1 1.0 100")
+    parser.add_argument('--omega', default=None, nargs=3,
+                        help=help, type=float)
+
+    help = ("Custom momentas to respresent quantities on (in AA^-1). "
+            "The format is: min. q, max. q, number of q's. "
+            "E. g.: 0.001 0.1 100")
+    parser.add_argument('--q', default=None, nargs=3,
+                        help=help, type=float)
+
+    args = parser.parse_args(args)
+    layers = args.layers
+    thicknesses = args.thicknesses
+    paths = args.buildingblockpath
+    print(args)
+    
+    layers = expand_layers(layers)
+    
+    default_thicknesses = {'graphene': 3.22, 'BN': 3.22}
+    if thicknesses is None:
+        thicknesses = []
+        for layer in layers:
+            thicknesses.append(default_thicknesses[layer])
+
+    thicknesses = np.array(thicknesses)
+    # Calculate distance between layers
+    d = (thicknesses[1:] + thicknesses[:-1]) / 2
+    d0 = thicknesses[0]
+
+    # Make sure that the building block files can be found
+    link = "https://cmr.fysik.dtu.dk/_downloads/chi-data.tar.gz"
+    msg = """
+    
+    Building block file cannot be found!
+    Please download and unpack the dielectric building blocks.
+    This can be done with:
+    wget {link}
+    tar -zxf chi-data.tar.gz
+    mv chi-data ~
+    which will put all building blocks in a folder in
+    your home directory
+    """
+
+    # Locate files for layers
+    layer_paths = []
+    for il, layer in enumerate(layers):
+        if '+phonons' in layer:
+            layer = layer.replace('+phonons', '')
+        p = Path('{}-chi.npz'.format(layer))
+        for path in paths:
+            bb = Path(expanduser(path)) / p
+            if bb.is_file():
+                break
+        else:
+            raise FileNotFoundError(msg.format(link=link))
+
+        layer_paths.append(str(bb))
+
+    if args.q is None:
+        data = np.load(layer_paths[0])
+        q_q = data['q_abs'] / Bohr
+    else:
+        q_q = np.linspace(args.q[0], args.q[1], args.q[2])
+
+    if args.omega is None:
+        data = np.load(layer_paths[0])
+        omega_w = data['omega_w'] * Hartree
+    else:
+        omega_w = np.linspace(args.omega[0], args.omega[1], args.omega[2])
+
+    # Interpolate the building blocks such that they are
+    # represented on the same q and omega grid
+    layer_paths = interpolate_building_blocks(BBfiles=layer_paths,
+                                              q_grid=q_q, w_grid=omega_w,
+                                              path='.')
+
+    # Treat graphene specially, since in this case we are using
+    # an analytical approximation of the building block
+    from gpaw.response.analyticalbb import GrapheneBB
+    for il, layer in enumerate(layer_paths):
+        if 'graphene' not in layer:
+            continue
+        if 'doped' not in layer:
+            doping = 0
+        else:
+            doping = layer.split('doped')
+
+        newlayer = layer.replace('.npz', '') + '_analytical-chi.npz'
+        bb = GrapheneBB(layer, doping=doping)
+        np.savez_compressed(newlayer, **bb)
+        layer_paths[il] = newlayer
+
+    # If +phonons then add phonons
+    from gpaw.response.analyticalbb import phonon_polarizability
+    for layer, layerpath in zip(layers, layer_paths):
+        if '+phonons' not in layer:
+            continue
+        tmp = layerpath.split('-chi')
+        newlayerpath = '{}_int+phonons-chi.npz'.format(tmp[0])
+        bb = phonon_polarizability(layerpath)
+        np.savez_compressed(newlayerpath, **bb)
+
+    # Make QEH calculation
+    hs = make_heterostructure(layers, d, d0)
+
+    if args.plot:
+        import matplotlib.pyplot as plt
+    
+    if args.plasmons:
+        eig, z, rho_z, phi_z, omega0 = hs.get_plasmon_eigenmodes()
+        if args.plot:
+            q_q = hs.q_abs / Bohr
+            plt.figure()
+            for iq in range(len(q_q)):
+                freqs = np.array(omega0[iq]) * Hartree
+                plt.plot([q_q[iq], ] * len(freqs), freqs, 'k.')
+        
+    if args.eels:
+        q_abs, frequencies, eels_qw = hs.get_eels(dipole_contribution=True)
+
+    if args.plot:
+        plt.show()
+
+
+if __name__ == '__main__':
+    main()
