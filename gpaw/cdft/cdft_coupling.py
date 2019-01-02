@@ -11,10 +11,11 @@ lambda = E_a(Rb)-E_a(Ra)
 '''
 
 import numpy as np
-from gpaw.cdft.cdft import WeightFunc, get_ks_energy_wo_external
+from gpaw.cdft.cdft import (WeightFunc, get_ks_energy_wo_external,
+                    get_all_weight_functions)
 from ase.units import kB as kb
 from gpaw.utilities.ps2ae import PS2AE, interpolate_weight
-from ase.units import Hartree
+from ase.units import Hartree, Bohr
 from ase.parallel import rank
 import warnings
 #from gpaw.utilities.blas import gemm
@@ -25,6 +26,14 @@ spin_state_error = ('The cDFT wave functions have\n'+
                     'different spin states! Similar\n'+
                     'spin states are required for coupling constant\n'+
                     'calculation!')
+
+ae_ibz_error = ('The all electron calculation is unreliable with kpts\n'+
+               'Please set AE to false')
+
+nab_missing_error = ('The pair density matrix n_ab must\n'+
+              'be provided for weight matrix calculation')
+migliore_warning = ('WARNING! Migliore coupling might be unreliable!:\n'+
+              '<F|GS> =<I|GS> and dE_if=0')
 
 class CouplingParameters:
 
@@ -38,7 +47,7 @@ class CouplingParameters:
                Va=None, Vb=None,
                NA=None, NB=None,
                n_ab=None, VW_ab=None, VW_ba=None,
-               w_k=None,
+               w_k=None, Rc={}, mu={},
                specific_bands_A=None, specific_bands_B=None,
                kpoint=None, spin=None,
                S_matrix = 'S_matrix', VW_matrix='VW_matrix',
@@ -120,13 +129,18 @@ class CouplingParameters:
         reaction_energy: E_B(RB)-E_A(RA)
         band_occupation_cutoff = minimum filling of band
             to be included in the wfs
+        Rc, mu: Gaussian parameters. If not provided either standard or
+            the ones from a cdft will be used
         '''
 
         self.charge_difference = charge_difference
         self.AE = AE
+
         if cdft_a is not None and cdft_b is not None:
             self.cdft_A = cdft_a
             self.cdft_B = cdft_b
+            self.Rc = self.cdft_A.Rc
+            self.mu = self.cdft_A.mu
 
             self.calc_A = self.cdft_A.calc
             self.calc_B = self.cdft_B.calc
@@ -163,10 +177,12 @@ class CouplingParameters:
                 self.fineweightA = self.cdft_A.get_weight(save=False, pad=True)
                 self.fineweightB = self.cdft_B.get_weight(save=False, pad=True)
             else:
-                self.coarseweightA = self.get_weight_function(self.calc_A,
-                                        self.regionsA)
-                self.coarseweightB = self.get_weight_function(self.calc_B,
-                                        self.regionsB)
+                self.coarseweightA = get_all_weight_functions(self.calc_A.atoms,
+                            self.gd, self.regionsA, self.charge_difference,
+                            self.Rc, self.mu)
+                self.coarseweightB = get_all_weight_functions(self.calc_B.atoms,
+                            self.gd, self.regionsB, self.charge_difference,
+                            self.Rc, self.mu)
 
         else:
             self.calc_A = calc_a
@@ -191,7 +207,6 @@ class CouplingParameters:
             if spin_regions_A is not None:
                 regionsA.append(spin_regions_A)
 
-
             regionsB = []
             if charge_regions_B is not None:
                 regionsB.append(charge_regions_B)
@@ -203,17 +218,34 @@ class CouplingParameters:
             self.NA = NA
             self.NB = NB
 
+            # see if a correct set of Rc and mu are provided
+            if (set(Rc) == set(self.calc_A.atoms.get_chemical_symbols()) and
+                set(mu) == set(self.calc_A.atoms.get_chemical_symbols())):
+                self.Rc = Rc
+                self.mu = mu
+            else:
+                # get mu and Rc the long way
+                w_temp = WeightFunc(gd=self.gd, atoms=self.calc_a.atoms,
+                    indices=self.regionsA, Rc=Rc, mu=mu)
+                self.Rc, self.mu = w_temp.get_Rc_and_mu()
+                del w_temp
+
             if self.AE:
-                self.fineweightA = self.get_weight_function(self.calc_A,
-                                    self.regionsA)
-                self.fineweightB = self.get_weight_function(self.calc_B,
-                                    self.regionsB)
+                self.fineweightA = get_all_weight_functions(self.calc_a.atoms,
+                            self.gd, self.regionsA, self.charge_difference,
+                            self.Rc, self.mu)
+
+                self.fineweightB = get_all_weight_functions(self.calc_b.atoms,
+                            self.gd, self.regionsB, self.charge_difference,
+                            self.Rc, self.mu)
 
             else:
-                self.coarseweightA = self.get_weight_function(self.calc_A,
-                                    self.regionsA)
-                self.coarseweightB = self.get_weight_function(self.calc_B,
-                                    self.regionsB)
+                self.coarseweightA = get_all_weight_functions(self.calc_a.atoms,
+                            self.gd, self.regionsA, self.charge_difference,
+                            self.Rc, self.mu)
+                self.coarseweightB = get_all_weight_functions(self.calc_b.atoms,
+                            self.gd, self.regionsB, self.charge_difference,
+                            self.Rc, self.mu)
 
 
             self.n_charge_regionsA = len(charge_regions_A)
@@ -375,7 +407,7 @@ class CouplingParameters:
                 self.get_energy_gap()
             dE_if = self.energy_gap
             if np.abs(dE_if) < 0.001 and np.abs(A**2-B**2) < 0.001:
-                warnings.warn('WARNING! Migliore coupling might be unreliable!: <F|GS> =<I|GS> and dE_if=0')
+                warnings.warn(migliore_warning)
             self.ct = np.abs( (A*B/(A**2-B**2)) * dE_if * \
                       (1.-SIF*(A**2+B**2)/(2*A*B)) * 1./(1-SIF**2) )
             return self.ct
@@ -412,37 +444,13 @@ class CouplingParameters:
             self.H = np.array([[H_AA, H_BA],[H_AB,H_BB]])
             return self.H
 
-    # Weight functions
-    def get_weight_function(self, calc, regions):
-        w = []
-        # make weight functions
-        for i in range(len(regions)):
-            wf = WeightFunc(self.gd, calc.atoms, regions[i])
-            weig = wf.construct_weight_function()
-            self.mu = wf.mu
-            self.Rc = wf.Rc
-
-            if not self.charge_difference:
-                 w.append(weig)
-
-            else: # for charge difference constraint
-                if i==0:
-                    w.append(weig)
-                else:
-                    w[0] -= weig # negative for acceptor
-        return np.array(w)
-
     def get_ae_pair_weight_matrix(self):
         if self.calc_A.wfs.kd.nibzkpts != 1:
-            message = 'The all electron calculation is unreliable with kpts\n'
-            message += 'Please set AE to false'
-            raise ValueError(message)
+            raise ValueError(ae_ibz_error)
         if hasattr(self, 'n_ab'):
             pass
         else:
-           message = 'The pair density matrix n_ab must\n'
-           message += 'be provided for weight matrix calculation'
-           raise ValueError(message)
+           raise ValueError(nab_missing_error)
 
         # pseudo wfs to all-electron wfs
 
@@ -503,21 +511,8 @@ class CouplingParameters:
                 I = np.identity(inv_S.shape[0])
                 C_ba = np.transpose(np.dot(inv_S, (det_S*I)))
 
-                if not self.specific_bands_A and not self.specific_bands_B:
-                    nAa, nAb = n_occup_A[k][0], n_occup_A[k][1]
-                    nBa, nBb = n_occup_B[k][0], n_occup_B[k][1]
-                else:# choose subset of orbitals for coupling
-                    if self.specific_bands_A:
-                        nAa, nAb = self.specific_bands_A[0], self.specific_bands_A[1]
-                    if self.specific_bands_B:
-                        nBa, nBb= self.specific_bands_B[0], self.specific_bands_B[1]
-
-                # size of spin blocks
-                # ideally A and B contain equivalent amount of alphas...
-                nas = np.max((nAa,nBa))
-                nbs = np.max((nAb,nBb))
-                n_occup_s = [nas,nbs]
-                n_occup = np.sum(n_occup_s)
+                nAa, nAb, nBa, nBb = self.check_bands(n_occup_A, n_occup_B, k)
+                nas, n_occup, n_occup_s = self.check_spin_and_occupations(nAa, nAb, nBa, nBb)
 
                 # check that a and b cDFT states have similar spin state
                 if np.sign(nAa-nAb) != np.sign(nBa-nBb):
@@ -535,7 +530,6 @@ class CouplingParameters:
                 kd = self.calc_B.wfs.kd
                 w_kB = kd.weight_k[k]
                 # weights for bands
-
                 f_A = self.calc_A.get_occupation_numbers(kpt=k, spin=spin)/w_kA
                 f_B = self.calc_B.get_occupation_numbers(kpt=k, spin=spin)/w_kB
 
@@ -577,8 +571,8 @@ class CouplingParameters:
                                     w_ji_BA.append(psi_A.gd.integrate( psi_kB.conj() * (-1.* wa[a]) * psi_kA,
                                        global_integral=True) * C_ab[spin*nas + j][spin*nas + i])
 
-                        w_ij_AB = np.asarray(w_ij_AB)
-                        w_ji_BA = np.asarray(w_ji_BA)
+                        w_ij_AB = np.asarray(w_ij_AB)*Bohr**3
+                        w_ji_BA = np.asarray(w_ji_BA)*Bohr**3
 
                         # collect kpt weight, only once per kpt
                         if spin == 0 and i == 0 and j == 0:
@@ -599,10 +593,8 @@ class CouplingParameters:
     def get_pair_weight_matrix(self):
         # <Psi_A|Psi_B> using pseudo wave functions and atomic corrections
 
-        if hasattr(self, 'n_ab'):
-            pass
-        else:
-           raise ValueError('The pair density matrix n_ab must be provided for weight matrix calculation')
+        if not hasattr(self, 'n_ab'):
+            raise ValueError(nab_missing_error)
 
         n_spin_regionsA = len(self.Va) - self.n_charge_regionsA
         n_spin_regionsB = len(self.Vb) - self.n_charge_regionsB
@@ -675,7 +667,6 @@ class CouplingParameters:
                 for x,y in enumerate(range(n_occup_2[spin])):
                     vw[k][spin*nas+i][spin*nas+x] += VW_ij[j][y]*C12[spin*nas+i][spin*nas+x]
 
-
         for kpt_a, kpt_b in zip(self.calc_A.wfs.kpt_u, self.calc_B.wfs.kpt_u):
                 k = kpt_a.k
                 spin = kpt_a.s
@@ -691,21 +682,8 @@ class CouplingParameters:
                 I = np.identity(inv_S.shape[0])
                 C_ba = np.transpose(np.dot(inv_S, (det_S*I)))
 
-                if not self.specific_bands_A and not self.specific_bands_B:
-                    nAa, nAb = n_occup_A[k][0], n_occup_A[k][1]
-                    nBa, nBb = n_occup_B[k][0], n_occup_B[k][1]
-                else:# choose subset of orbitals for coupling
-                    if self.specific_bands_A:
-                        nAa, nAb = self.specific_bands_A[0], self.specific_bands_A[1]
-                    if self.specific_bands_B:
-                        nBa, nBb= self.specific_bands_B[0], self.specific_bands_B[1]
-
-                # size of spin blocks
-                # ideally A and B contain equivalent amount of alphas...
-                nas = np.max((nAa,nBa))
-                nbs = np.max((nAb,nBb))
-                n_occup_s = [nas,nbs]
-                n_occup = sum(n_occup_s)
+                nAa, nAb, nBa, nBb = self.check_bands(n_occup_A, n_occup_B, k)
+                nas, n_occup, n_occup_s = self.check_spin_and_occupations(nAa, nAb, nBa, nBb)
 
                 # check that a and b cDFT states have similar spin state
                 if np.sign(nAa-nAb) != np.sign(nBa-nBb):
@@ -723,50 +701,66 @@ class CouplingParameters:
                 kd = self.calc_B.wfs.kd
                 w_kB = kd.weight_k[k]
                 # weights for bands
-
                 f_A = self.calc_A.get_occupation_numbers(kpt=k, spin=spin)/w_kA
                 f_B = self.calc_B.get_occupation_numbers(kpt=k, spin=spin)/w_kB
 
                 for b in range(len(self.Vb)):
                     if b < self.n_charge_regionsB:
-                        weight_matrix_elements(kpt_a.psit_nG, kpt_a.P_ani,
-                            self.Vb[b], self.coarseweightB[b],
-                            kpt_b.psit_nG, kpt_b.P_ani, n_occup_s, n_occup_s,
-                            w_kij_AB, C_ab, self.regionsB[b], k, spin)
+                        self.get_matrix_element(kpt_a.psit_nG, kpt_a.P_ani,
+                                           kpt_b.psit_nG, kpt_b.P_ani,
+                                           n_occup_s ,n_occup_s,
+                                           w_kij_AB, self.regionsB[b],
+                                           k, spin, nas, V=self.Vb[b],
+                                           W=self.coarseweightB[b], C12=C_ab)
+
 
                     else:
                         if spin == 0:
                             # for charge constraint w > 0
-                            weight_matrix_elements(kpt_a.psit_nG, kpt_a.P_ani,
-                                self.Vb[b], self.coarseweightB[b],
-                                kpt_b.psit_nG, kpt_b.P_ani,  n_occup_s, n_occup_s,
-                                w_kij_AB, C_ab,self.regionsB[b], k, spin)
+                            self.get_matrix_element(kpt_a.psit_nG, kpt_a.P_ani,
+                                               kpt_b.psit_nG, kpt_b.P_ani,
+                                               n_occup_s ,n_occup_s,
+                                               w_kij_AB, self.regionsB[b],
+                                               k, spin, nas, V=self.Vb[b],
+                                               W=self.coarseweightB[b], C12=C_ab)
+
 
                         else:
-                            weight_matrix_elements(kpt_a.psit_nG, kpt_a.P_ani,
-                                -self.V[b], self.coarseweightB[b],
-                                kpt_b.psit_nG, kpt_b.P_ani, n_occup_s, n_occup_s,
-                                w_kij_AB, C_ab, self.regionsB[b],k,spin)
+                            self.get_matrix_element(kpt_a.psit_nG, kpt_a.P_ani,
+                                               kpt_b.psit_nG, kpt_b.P_ani,
+                                               n_occup_s ,n_occup_s,
+                                               w_kij_AB, self.regionsB[b],
+                                               k, spin, nas, V=-self.Vb[b],
+                                               W=self.coarseweightB[b], C12=C_ab)
+
 
                 for a in range(len(self.Va)):
                     if a < self.n_charge_regionsA:
-                        weight_matrix_elements(kpt_b.psit_nG, kpt_b.P_ani,
-                            self.Va[a], self.coarseweightA[a],
-                            kpt_a.psit_nG, kpt_a.P_ani,  n_occup_s, n_occup_s,
-                            w_kij_BA, C_ba ,self.regionsA[a], k ,spin)
+                        self.get_matrix_element(kpt_b.psit_nG, kpt_b.P_ani,
+                                           kpt_a.psit_nG, kpt_a.P_ani,
+                                           n_occup_s ,n_occup_s,
+                                           w_kij_BA, self.regionsA[a],
+                                           k, spin, nas, V=self.Va[a],
+                                           W=self.coarseweightA[a], C12=C_ba)
+
                     else:
                         if spin == 0:
                             # for charge constraint w > 0
-                            weight_matrix_elements(kpt_b.psit_nG, kpt_b.P_ani,
-                                self.Va[a], self.coarseweightA[a],
-                                kpt_a.psit_nG, kpt_a.P_ani,  n_occup_s, n_occup_s,
-                                w_kij_BA, C_ba, self.regionsA[a] ,k ,spin)
+                            self.get_matrix_element(kpt_b.psit_nG, kpt_b.P_ani,
+                                               kpt_a.psit_nG, kpt_a.P_ani,
+                                               n_occup_s ,n_occup_s,
+                                               w_kij_BA, self.regionsA[a],
+                                               k, spin, nas, V=self.Va[a],
+                                               W=self.coarseweightA[a], C12=C_ba)
+
 
                         else:
-                            weight_matrix_elements(kpt_b.psit_nG, kpt_b.P_ani,
-                                -self.Va[a], self.coarseweightA[a],
-                                kpt_a.psit_nG, kpt_a.P_ani,  n_occup_s, n_occup_s,
-                                w_kij_BA, C_ba, self.regionsA[a] ,k ,spin)
+                            self.get_matrix_element(kpt_b.psit_nG, kpt_b.P_ani,
+                                               kpt_a.psit_nG, kpt_a.P_ani,
+                                               n_occup_s ,n_occup_s,
+                                               w_kij_BA, self.regionsA[a],
+                                               k, spin, nas, V=-self.Va[a],
+                                               W=self.coarseweightA[a], C12=C_ba)
 
                 if spin == 0:
                     w_k[k] = (w_kA + w_kB)/2.
@@ -811,10 +805,8 @@ class CouplingParameters:
             return self.VW
 
     def get_ae_pair_density_matrix(self,calc_A, calc_B, matrix_name=None):
-        #if calc_A.wfs.kd.nibzkpts != 1:
-        ##    message = 'The all electron calculation is unreliable with kpts\n'
-        #    message += 'Please set AE to false'
-        #    raise ValueError(message)
+        if calc_A.wfs.kd.nibzkpts != 1:
+           raise ValueError(ae_ibz_error)
         # <Psi_A|Psi_B> using the all-electron pair density
         psi_A = PS2AE(calc_A, h=self.h)
         psi_B = PS2AE(calc_B, h=self.h)
@@ -848,22 +840,8 @@ class CouplingParameters:
         for spin in range(ns):
             for k in range(calc_A.wfs.kd.nibzkpts):
 
-                if not self.specific_bands_A and not self.specific_bands_B:
-                    nAa, nAb = n_occup_A[k][0], n_occup_A[k][1]
-                    nBa, nBb = n_occup_B[k][0], n_occup_B[k][1]
-                else:# choose subset of orbitals for coupling
-                    if self.specific_bands_A:
-                        nAa, nAb = self.specific_bands_A[0], self.specific_bands_A[1]
-                    if self.specific_bands_B:
-                        nBa, nBb= self.specific_bands_B[0], self.specific_bands_B[1]
-
-                # size of spin blocks
-                # ideally A and B contain equivalent amount of alphas...
-                nas = np.max((nAa,nBa))
-                nbs = np.max((nAb,nBb))
-                n_occup_s = [nas,nbs]
-                n_occup = sum(n_occup_s)
-
+                nAa, nAb, nBa, nBb = self.check_bands(n_occup_A, n_occup_B, k)
+                nas, n_occup, n_occup_s = self.check_spin_and_occupations(nAa, nAb, nBa, nBb)
                 kd = calc_A.wfs.kd
                 w_kA = kd.weight_k[k]
                 kd = calc_B.wfs.kd
@@ -889,7 +867,7 @@ class CouplingParameters:
 
                         if spin == 0 and i == 0 and j == 0:
                             w_k[k] = (w_kA + w_kB)/2.
-                        n_AB[k][spin*nas+i][spin*nas+j] = n_ij
+                        n_AB[k][spin*nas+i][spin*nas+j] = n_ij * Bohr**3
 
         n_AB = np.asarray(n_AB)
         self.w_k = w_k
@@ -902,8 +880,7 @@ class CouplingParameters:
                 np.save('%s_final'%matrix_name, self.n_ab)
         return self.n_ab, self.w_k
 
-
-    def get_pair_density_matrix(self,calc_A, calc_B, matrix_name=None):
+    def get_pair_density_matrix(self, calc_A, calc_B, matrix_name=None):
         # <Psi_A|Psi_B> using pseudo wave functions and atomic corrections
 
         ns = calc_A.wfs.nspins
@@ -936,22 +913,8 @@ class CouplingParameters:
 
             k = kpt_a.k
             spin = kpt_a.s
-
-            if not self.specific_bands_A and not self.specific_bands_B:
-                nAa, nAb = n_occup_A[k][0], n_occup_A[k][1]
-                nBa, nBb = n_occup_B[k][0], n_occup_B[k][1]
-            else:# choose subset of orbitals for coupling
-                if self.specific_bands_A:
-                    nAa, nAb = self.specific_bands_A[0], self.specific_bands_A[1]
-                if self.specific_bands_B:
-                    nBa, nBb= self.specific_bands_B[0], self.specific_bands_B[1]
-
-            # size of alpha block
-            # ideally A and B contain equivalent amount of alphas...
-            nas = np.max((nAa,nBa))
-            nbs = np.max((nAb,nBb))
-            n_occup_s = [nas,nbs]
-            n_occup = sum(n_occup_s)
+            nAa, nAb, nBa, nBb = self.check_bands(n_occup_A, n_occup_B, k)
+            nas, n_occup, n_occup_s = self.check_spin_and_occupations(nAa, nAb, nBa, nBb)
 
             # check that a and b cDFT states have similar spin state
             if np.sign(nAa-nAb) != np.sign(nBa-nBb):
@@ -974,33 +937,11 @@ class CouplingParameters:
             psitb_nG = kpt_b.psit_nG
             Pb_ani = kpt_b.P_ani
 
-            S_NN = np.zeros((len(psita_nG), len(psitb_nG)), dtype=np.complex)
-            interpolator = calc_A.density.interpolator
-            for n1 in range(len(psita_nG)):
-                for n2 in range(len(psitb_nG)):
-                    nijt_G = np.multiply(psita_nG[n1].conj(), psitb_nG[n2])
-                    #nijt_g = self.finegd.zeros(dtype=nijt_G.dtype)
-                    #interpolator.apply(nijt_G, nijt_g)
-                    S_NN[n1][n2] = self.gd.integrate(nijt_G, global_integral=True)
-
-            S_NN_temp = np.zeros((len(psita_nG), len(psitb_nG)), dtype=np.complex)
-            for a, P1_ni in Pa_ani.items():
-                P2_ni = Pb_ani[a]
-                # XXX for some reason parallellization doesn't work
-                # with gemm if more than 1 kpts are present....
-                # gemm(1.0, P2_ni, np.dot(P1_ni, calc_A.wfs.setups[a].dO_ii), 1.0, S_NN_temp, 'c')
-                # --> replace gemm with equivalent dot products
-                inner = np.dot(P1_ni, calc_A.wfs.setups[a].dO_ii)
-                outer = (np.dot(P2_ni,np.conjugate(inner.T))).T
-                S_NN_temp += outer
-
-            self.gd.comm.sum(S_NN_temp)
-
-            S_NN += S_NN_temp
-
-            for i,j in enumerate(range(n_occup_s[spin])):
-                for x,y in enumerate(range(n_occup_s[spin])):
-                    n_AB[k][spin*nas+i][spin*nas+x] = S_NN[j][y]
+            self.get_matrix_element(kpt_b.psit_nG, kpt_b.P_ani,
+                               kpt_a.psit_nG, kpt_a.P_ani,
+                               n_occup_s, n_occup_s,
+                               n_AB, None,
+                               k, spin, nas)
 
             if spin == 0:
                 w_k[k] = (w_kA + w_kB)/2.
@@ -1009,7 +950,6 @@ class CouplingParameters:
         self.n_ab = n_AB
 
         if self.save_matrix:
-
             if matrix_name is None:
                 np.save(self.S_matrix+'final', self.n_ab)
             else:
@@ -1062,6 +1002,46 @@ class CouplingParameters:
             B, w_BC = self.get_pair_density_matrix(calc_B, calc_gs, matrix_name='B')
 
         return S, A, B, w_AB, w_AC, w_BC
+
+    def get_matrix_element(self, psit1_nG, P1_ani, psit2_nG, P2_ani,
+        n_occup_1 ,n_occup_2, vw, region, k, s, nas, V=1., W=1., C12=None):
+        # weight: V*W acting on psitb_nG: VW_ij = <psita_nG_i|VW|psitb_nG_j> or
+        # overlap <psita_nG_i|psitb_nG_j>
+        # includes occupation dependency and only states with filled
+        # orbitals are considered
+        # Cab = cofactor matrix
+        # k and s --> kpt and spin
+
+        VW_ij = np.zeros((len(psit1_nG), len(psit2_nG)))
+        VW = V*W
+
+        for n1 in range(len(psit1_nG)):
+            for n2 in range(len(psit2_nG)):
+                nijt_G = np.multiply(psit1_nG[n1].conj(), psit2_nG[n2])
+                VW_ij[n1][n2] = self.gd.integrate(VW * nijt_G,
+                                global_integral=True)
+
+        P_array = np.zeros(VW_ij.shape)
+        for a, P1_ni in P1_ani.items():
+            P2_ni = P2_ani[a]
+            if region is None or a in region:
+                # the atomic correction is zero outside
+                # the augmentation regions --> w=0 if
+                # a is not in the w.
+                # region = None --> overlap and all terms are used
+                inner = np.dot(P1_ni, self.calc_A.wfs.setups[a].dO_ii)
+                outer = (np.dot(P2_ni,V * np.conjugate(inner.T))).T
+                P_array += outer
+
+        self.calc_A.density.gd.comm.sum(P_array)
+        VW_ij += P_array
+
+        for i,j in enumerate(range(n_occup_1[s])):
+            for x,y in enumerate(range(n_occup_2[s])):
+                if C12 is None:
+                    vw[k][s*nas+i][s*nas+x] += VW_ij[j][y]
+                else:
+                    vw[k][s*nas+i][s*nas+x] += VW_ij[j][y]*C12[s*nas+i][s*nas+x]
 
     def get_reorganization_energy(self):
         # get Ea (Rb) - Ea(Ra) -->
@@ -1167,3 +1147,23 @@ class CouplingParameters:
                 f_N = f_n > self.band_occupation_cutoff
                 occup_ks[k][s] += f_N.sum()
         return occup_ks
+
+    def check_bands(self, n_occup_A, n_occup_B, k):
+        if not self.specific_bands_A and not self.specific_bands_B:
+            nAa, nAb = n_occup_A[k][0], n_occup_A[k][1]
+            nBa, nBb = n_occup_B[k][0], n_occup_B[k][1]
+        else:# choose subset of orbitals for coupling
+            if self.specific_bands_A:
+                nAa, nAb = self.specific_bands_A[0], self.specific_bands_A[1]
+            if self.specific_bands_B:
+                nBa, nBb= self.specific_bands_B[0], self.specific_bands_B[1]
+
+        return nAa, nAb, nBa, nBb
+
+    def check_spin_and_occupations(self, nAa, nAb, nBa, nBb):
+        nas = np.max((nAa,nBa))
+        nbs = np.max((nAb,nBb))
+        n_occup_s = [nas,nbs]
+        n_occup = sum(n_occup_s)
+
+        return nas, n_occup, n_occup_s

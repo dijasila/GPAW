@@ -677,9 +677,7 @@ class CDFTPotential(ExternalPotential):
         if self.w_ig is None:
             self.initialize_partitioning(self.gd)
 
-        pot = []
-        for i in range(len(self.constraints)):
-            pot.append(self.v_i[i] * self.w_ig[i])
+        pot = self.v_i[:, None] * self.w_ig
 
         #first alpha spin
         vext_sga = np.sum(np.asarray(pot), axis=0)
@@ -1085,7 +1083,8 @@ def get_ks_energy_wo_external(calc):
         calc.hamiltonian.e_xc -
         calc.hamiltonian.e_entropy)*Hartree
 
-def get_all_weight_functions(atoms, gd, indices_i, difference, Rc, mu, w=[], new=False):
+def get_all_weight_functions(atoms, gd, indices_i, difference, Rc, mu, w=[],
+                new=False, return_Rc_mu = False):
 
     for i in range(len(indices_i)):
         wf = WeightFunc(gd, atoms, indices_i[i], Rc, mu, new)
@@ -1099,7 +1098,11 @@ def get_all_weight_functions(atoms, gd, indices_i, difference, Rc, mu, w=[], new
                 w.append(weig)
             else:
                 w[0] -= weig # negative for acceptor
-    return w
+    if return_Rc_mu:
+        Rc, mu = wf.get_Rc_and_mu()
+        return w, Rc, mu
+    else:
+        return w
 
 def get_promolecular_constraints(calc_a, atoms_a, calc_b, atoms_b,
         charge_constraint=True, spin_constraint=False, restart=False,
