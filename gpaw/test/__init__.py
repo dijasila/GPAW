@@ -398,7 +398,7 @@ tests = [
     'coreeig.py',                           # duration unknown
     'response/bse_MoS2_cut.py',             # duration unknown
     'parallel/scalapack_mpirecv_crash.py',  # duration unknown
-    'cdft.py']                              # duration unknown
+    'cdft.py']                              # 40s
 
 # 'symmetry/fractional_translations.py',
 # 'response/graphene_EELS.py', disabled while work is in progress
@@ -432,8 +432,7 @@ if mpi.size > 1:
                 # ~/.python*_compiled
                 # https://github.com/scipy/scipy/issues/1895
                 'scipy_test.py',
-                'utilities/wannier_ethylene.py',
-                'cdft.py']
+                'utilities/wannier_ethylene.py']
 
 if mpi.size > 2:
     exclude += ['ase_features/neb.py',
