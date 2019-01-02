@@ -542,34 +542,33 @@ class CouplingParameters:
                         w_ji_BA = []
 
                         for b in range(len(self.Vb)):
+                            integral = psi_B.gd.integrate(psi_kA.conj() * wb[b] * psi_kB,
+                                global_integral=True) * C_ab[spin *nas + i][spin*nas + j]
+
                             if b < self.n_charge_regionsB:
                                 # for charge constraint w > 0
-                                w_ij_AB.append(psi_B.gd.integrate(psi_kA.conj() * wb[b] * psi_kB,
-                                    global_integral=True) * C_ab[spin *nas + i][spin*nas + j])
+                                w_ij_AB.append(integral)
 
                             else:
                                 if spin == 0:
                                     # alpha spin constraint, w > 0
-                                    w_ij_AB.append(psi_B.gd.integrate( psi_kA.conj() * wb[b] * psi_kB,
-                                            global_integral=True) * C_ab[spin *nas + i][spin *nas + j])
+                                    w_ij_AB.append(integral)
 
                                 else:
                                     # beta spin constraint, w < 0
-                                    w_ij_AB.append(psi_B.gd.integrate( psi_kA.conj() * (-1.* wb[b]) * psi_kB,
-                                        global_integral=True) * C_ab[spin*nas + i][spin*nas + j])
+                                    w_ij_AB.append(-integral)
 
                         for a in range(len(self.Va)):
+                            integral = psi_A.gd.integrate( psi_kB.conj() * wa[a] * psi_kA,
+                                        global_integral=True) * C_ab[spin *nas + j][spin *nas + i]
                             if a < self.n_charge_regionsA:
-                                w_ji_BA.append(psi_A.gd.integrate( psi_kB.conj() * wa[a] * psi_kA,
-                                            global_integral=True) * C_ab[spin *nas + j][spin *nas + i])
+                                w_ji_BA.append(integral)
 
                             else:
                                 if spin == 0:
-                                    w_ji_BA.append(psi_A.gd.integrate( psi_kB.conj() * wa[a] * psi_kA,
-                                        global_integral=True) * C_ab[spin *nas + j][spin *nas + i])
+                                    w_ji_BA.append(integral)
                                 else:
-                                    w_ji_BA.append(psi_A.gd.integrate( psi_kB.conj() * (-1.* wa[a]) * psi_kA,
-                                       global_integral=True) * C_ab[spin*nas + j][spin*nas + i])
+                                    w_ji_BA.append(-integral)
 
                         w_ij_AB = np.asarray(w_ij_AB)*Bohr**3
                         w_ji_BA = np.asarray(w_ji_BA)*Bohr**3
@@ -623,147 +622,65 @@ class CouplingParameters:
         #
         # a = nAa x nAa, b = nAb x nAb
 
-        def weight_matrix_elements(psit1_nG, P1_ani, V, W, psit2_nG, P2_ani,
-            n_occup_1 ,n_occup_2, vw, C12, region, k, s):
-            # V*W acting on psitb_nG: VW_ij = <psita_nG_i|VW|psitb_nG_j>
-            # includes occupation dependency and only states with filled
-            # orbitals are considered
-            # Cab = cofactor matrix
-            # k and s --> kpt and spin
-
-            VW_ij = np.zeros((len(psit1_nG), len(psit2_nG)))
-            VW = V*W
-            #interpolator = self.calc_A.density.interpolator
-
-            for n1 in range(len(psit1_nG)):
-                for n2 in range(len(psit2_nG)):
-                    nijt_G = np.multiply(psit1_nG[n1].conj(), psit2_nG[n2])
-                    #nijt_g = self.finegd.zeros(dtype=nijt_G.dtype)
-                    #interpolator.apply(nijt_G, nijt_g)
-                    VW_ij[n1][n2] = self.gd.integrate(VW * nijt_G,
-                                    global_integral=True)
-
-            P_array = np.zeros(VW_ij.shape)
-            for a, P1_ni in P1_ani.items():
-                # the atomic correction is zero outside
-                # the augmentation regions --> w=0 if
-                # a is not in the w.
-
-                # XXX for some reason parallellization doesn't work
-                # with gemm if more than 1 kpts are present....
-                # gemm(1., P2_ni, V*np.dot(P1_ni, self.calc_A.wfs.setups[a].dO_ii),
-                #    1.0, P_array, 'c')
-                # --> replace gemm with equivalent dot products
-                P2_ni = P2_ani[a]
-                if a in region:
-                    inner = np.dot(P1_ni, self.calc_A.wfs.setups[a].dO_ii)
-                    outer = (np.dot(P2_ni,V * np.conjugate(inner.T))).T
-                    P_array += outer
-
-            self.calc_A.density.gd.comm.sum(P_array)
-            VW_ij += P_array
-
-            for i,j in enumerate(range(n_occup_1[spin])):
-                for x,y in enumerate(range(n_occup_2[spin])):
-                    vw[k][spin*nas+i][spin*nas+x] += VW_ij[j][y]*C12[spin*nas+i][spin*nas+x]
-
         for kpt_a, kpt_b in zip(self.calc_A.wfs.kpt_u, self.calc_B.wfs.kpt_u):
-                k = kpt_a.k
-                spin = kpt_a.s
+            k = kpt_a.k
+            spin = kpt_a.s
 
-                # k-dependent overlap/pair density matrices
-                inv_S = np.linalg.inv(self.n_ab[k])
-                det_S = np.linalg.det(self.n_ab[k])
-                I = np.identity(inv_S.shape[0])
-                C_ab = np.transpose(np.dot(inv_S, (det_S*I)))
+            # k-dependent overlap/pair density matrices
+            inv_S = np.linalg.inv(self.n_ab[k])
+            det_S = np.linalg.det(self.n_ab[k])
+            I = np.identity(inv_S.shape[0])
+            C_ab = np.transpose(np.dot(inv_S, (det_S*I)))
 
-                inv_S = np.linalg.inv(np.transpose(self.n_ab[k]).conj())
-                det_S = np.linalg.det(np.transpose(self.n_ab[k]))
-                I = np.identity(inv_S.shape[0])
-                C_ba = np.transpose(np.dot(inv_S, (det_S*I)))
+            inv_S = np.linalg.inv(np.transpose(self.n_ab[k]).conj())
+            det_S = np.linalg.det(np.transpose(self.n_ab[k]))
+            I = np.identity(inv_S.shape[0])
+            C_ba = np.transpose(np.dot(inv_S, (det_S*I)))
 
-                nAa, nAb, nBa, nBb = self.check_bands(n_occup_A, n_occup_B, k)
-                nas, n_occup, n_occup_s = self.check_spin_and_occupations(nAa, nAb, nBa, nBb)
+            nAa, nAb, nBa, nBb = self.check_bands(n_occup_A, n_occup_B, k)
+            nas, n_occup, n_occup_s = self.check_spin_and_occupations(nAa, nAb, nBa, nBb)
 
-                # check that a and b cDFT states have similar spin state
-                if np.sign(nAa-nAb) != np.sign(nBa-nBb):
-                     warning= UserWarning(spin_state_error)
-                     warnings.warn(warning)
-                # form overlap matrices of correct size for each kpt
+            # check that a and b cDFT states have similar spin state
+            if np.sign(nAa-nAb) != np.sign(nBa-nBb):
+                 warning= UserWarning(spin_state_error)
+                 warnings.warn(warning)
+            # form overlap matrices of correct size for each kpt
 
-                if spin == 0:
-                    w_kij_AB.append(np.zeros((n_occup,n_occup),dtype = np.complex))
-                    w_kij_BA.append(np.zeros((n_occup,n_occup), dtype = np.complex))
+            if spin == 0:
+                w_kij_AB.append(np.zeros((n_occup,n_occup),dtype = np.complex))
+                w_kij_BA.append(np.zeros((n_occup,n_occup), dtype = np.complex))
 
-                # store k-point weights
-                kd = self.calc_A.wfs.kd
-                w_kA = kd.weight_k[k]
-                kd = self.calc_B.wfs.kd
-                w_kB = kd.weight_k[k]
-                # weights for bands
-                f_A = self.calc_A.get_occupation_numbers(kpt=k, spin=spin)/w_kA
-                f_B = self.calc_B.get_occupation_numbers(kpt=k, spin=spin)/w_kB
+            # store k-point weights
+            kd = self.calc_A.wfs.kd
+            w_kA = kd.weight_k[k]
+            kd = self.calc_B.wfs.kd
+            w_kB = kd.weight_k[k]
 
-                for b in range(len(self.Vb)):
-                    if b < self.n_charge_regionsB:
-                        self.get_matrix_element(kpt_a.psit_nG, kpt_a.P_ani,
-                                           kpt_b.psit_nG, kpt_b.P_ani,
-                                           n_occup_s ,n_occup_s,
-                                           w_kij_AB, self.regionsB[b],
-                                           k, spin, nas, V=self.Vb[b],
-                                           W=self.coarseweightB[b], C12=C_ab)
+            for b in range(len(self.Vb)):
+                self.get_matrix_element(kpt_a.psit_nG, kpt_a.P_ani,
+                                   kpt_b.psit_nG, kpt_b.P_ani,
+                                   n_occup_s ,n_occup_s,
+                                   w_kij_AB, self.regionsB[b],
+                                   k, spin, nas, V=self.Vb[b],
+                                   W=self.coarseweightB[b], C12=C_ab)
 
+                if b >= self.n_charge_regionsB and spin == 1:
+                    # change sign of b spin constraint
+                    w_kij_AB[k][nas:,nas:] *= -1.
 
-                    else:
-                        if spin == 0:
-                            # for charge constraint w > 0
-                            self.get_matrix_element(kpt_a.psit_nG, kpt_a.P_ani,
-                                               kpt_b.psit_nG, kpt_b.P_ani,
-                                               n_occup_s ,n_occup_s,
-                                               w_kij_AB, self.regionsB[b],
-                                               k, spin, nas, V=self.Vb[b],
-                                               W=self.coarseweightB[b], C12=C_ab)
-
-
-                        else:
-                            self.get_matrix_element(kpt_a.psit_nG, kpt_a.P_ani,
-                                               kpt_b.psit_nG, kpt_b.P_ani,
-                                               n_occup_s ,n_occup_s,
-                                               w_kij_AB, self.regionsB[b],
-                                               k, spin, nas, V=-self.Vb[b],
-                                               W=self.coarseweightB[b], C12=C_ab)
+            for a in range(len(self.Va)):
+                self.get_matrix_element(kpt_b.psit_nG, kpt_b.P_ani,
+                                   kpt_a.psit_nG, kpt_a.P_ani,
+                                   n_occup_s ,n_occup_s,
+                                   w_kij_BA, self.regionsA[a],
+                                   k, spin, nas, V=self.Va[a],
+                                   W=self.coarseweightA[a], C12=C_ba)
+                if a >= self.n_charge_regionsA and spin == 1:
+                    w_kij_BA[k][nas:,nas:] *= -1.
 
 
-                for a in range(len(self.Va)):
-                    if a < self.n_charge_regionsA:
-                        self.get_matrix_element(kpt_b.psit_nG, kpt_b.P_ani,
-                                           kpt_a.psit_nG, kpt_a.P_ani,
-                                           n_occup_s ,n_occup_s,
-                                           w_kij_BA, self.regionsA[a],
-                                           k, spin, nas, V=self.Va[a],
-                                           W=self.coarseweightA[a], C12=C_ba)
-
-                    else:
-                        if spin == 0:
-                            # for charge constraint w > 0
-                            self.get_matrix_element(kpt_b.psit_nG, kpt_b.P_ani,
-                                               kpt_a.psit_nG, kpt_a.P_ani,
-                                               n_occup_s ,n_occup_s,
-                                               w_kij_BA, self.regionsA[a],
-                                               k, spin, nas, V=self.Va[a],
-                                               W=self.coarseweightA[a], C12=C_ba)
-
-
-                        else:
-                            self.get_matrix_element(kpt_b.psit_nG, kpt_b.P_ani,
-                                               kpt_a.psit_nG, kpt_a.P_ani,
-                                               n_occup_s ,n_occup_s,
-                                               w_kij_BA, self.regionsA[a],
-                                               k, spin, nas, V=-self.Va[a],
-                                               W=self.coarseweightA[a], C12=C_ba)
-
-                if spin == 0:
-                    w_k[k] = (w_kA + w_kB)/2.
+            if spin == 0:
+                w_k[k] = (w_kA + w_kB)/2.
 
         self.VW_BA = np.asarray(w_kij_BA)
         self.VW_AB = np.asarray(w_kij_AB)
@@ -936,6 +853,7 @@ class CouplingParameters:
             Pa_ani = kpt_a.P_ani
             psitb_nG = kpt_b.psit_nG
             Pb_ani = kpt_b.P_ani
+            print('nas', nas)
 
             self.get_matrix_element(kpt_b.psit_nG, kpt_b.P_ani,
                                kpt_a.psit_nG, kpt_a.P_ani,
