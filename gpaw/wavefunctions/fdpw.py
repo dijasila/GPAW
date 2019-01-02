@@ -45,8 +45,8 @@ class PseudoPartialWaveWfsMover:
         for a in range(len(wfs.setups)):
             setup = wfs.setups[a]
             l_j = [phit.get_angular_momentum_number()
-                   for phit in setup.get_actual_atomic_orbitals()]
-            assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
+                   for phit in setup.get_partial_waves_for_atomic_orbitals()]
+            #assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
             ni_a[a] = sum(2 * l + 1 for l in l_j)
 
         phit = wfs.get_pseudo_partial_waves()
