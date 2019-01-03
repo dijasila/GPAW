@@ -568,7 +568,7 @@ class CouplingParameters:
                             w_k[k] = (w_kA + w_kB)/2.
 
                         w_kij_AB[k][I][J] += np.dot(self.Vb, w_ij_AB).sum()
-                        w_kij_BA[k][J][I += np.dot(self.Va, w_ji_BA).sum()
+                        w_kij_BA[k][J][I] += np.dot(self.Va, w_ji_BA).sum()
 
         self.w_k = w_k
         self.VW_AB = w_kij_AB
