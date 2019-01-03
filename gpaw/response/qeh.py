@@ -1782,7 +1782,7 @@ def main(args=None):
     
     # Treat graphene specially, since in this case we are using
     # an analytical approximation of the building block
-    from gpaw.response.analyticalbb import GrapheneBB
+    from gpaw.response.buildingblocks import GrapheneBB
     for layer in set(layers):
         if 'graphene' not in layer:
             continue
@@ -1804,7 +1804,7 @@ def main(args=None):
         # If phonon files can be found in the same
         # directory as the building block files
         # then add phonon contribution
-        from gpaw.response.analyticalbb import phonon_polarizability
+        from gpaw.response.buildingblocks import phonon_polarizability
         for layer in set(layers):
             p = Path(layer)
             phonons = Path(layer.split('_int')[0] + '-phonons.npz')
