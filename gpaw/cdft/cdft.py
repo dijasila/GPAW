@@ -9,7 +9,7 @@ import numpy as np
 from math import pi
 from scipy.optimize import minimize
 from gpaw.external import ExternalPotential
-
+import copy
 '''
 Module for constrained DFT
 for review see Chem. Rev., 2012, 112 (1), pp 321-370
@@ -20,8 +20,8 @@ J. Chem. Theory Comput., 2016, 12 (11), pp 5367–5378
 class CDFT(Calculator):
     implemented_properties = ['energy', 'forces']
 
-    def __init__(self, calc, atoms, charge_regions=None, charges=None,
-                 spin_regions=None, spins=None,
+    def __init__(self, calc, atoms, charge_regions=[], charges=None,
+                 spin_regions=[], spins=None,
                  charge_coefs=None, spin_coefs=None,
                  promolecular_constraint=False, txt='-',
                  minimizer_options={'gtol': 0.01},
@@ -79,6 +79,7 @@ class CDFT(Calculator):
 
         Calculator.__init__(self)
 
+
         self.calc = calc
         self.log = convert_string_to_fd(txt)
         self.method = method
@@ -89,9 +90,14 @@ class CDFT(Calculator):
         self.Rc = Rc
         self.mu = mu
         # set charge constraints and lagrangians
-
         self.v_i = np.empty(shape=(0,0))
         self.constraints = np.empty(shape=(0,0))
+
+        self.charge_regions = charge_regions
+        self.spin_regions = spin_regions
+        self._n_charge_regions = len(self.charge_regions)
+        self._n_spin_regions = len(self.spin_regions)
+        self._n_regions = self._n_charge_regions + self._n_spin_regions
 
         self.max_step = maxstep
         self.tol = tol
@@ -103,13 +109,13 @@ class CDFT(Calculator):
 
         if self.difference:
             # difference calculation only for 2 charge regions
-            if spin_regions is not None or len(charge_regions) != 2:
+            if self.n_spin_regions != 0 or self._n_charge_regions != 2:
                 raise ValueError('No spin constraints '
                     'for charge difference calculations and'
                     ' only two regions allowed')
+            assert(self.n_charge_regions == 1)
 
-        if charge_regions is None:
-            self.n_charge_regions = 0
+        if self.n_charge_regions == 0:
             self.regions = []
 
         else:
@@ -121,14 +127,13 @@ class CDFT(Calculator):
                 self.v_i = np.array(charge_coefs) / Hartree
 
             if not self.difference:
-                self.n_charge_regions = len(charge_regions)
-                self.regions = charge_regions
+                self.regions = copy.copy(self.charge_regions)
 
                 # The objective is to constrain the number of electrons (nel)
                 # in a certain region --> convert charge to nel
-                Zn = np.zeros(len(self.charge_i))
+                Zn = np.zeros(self.n_charge_regions)
                 for j in range(len(Zn)):
-                    for atom in atoms[charge_regions[j]]:
+                    for atom in atoms[self.charge_regions[j]]:
                             Zn[j] += atom.number
 
                 # combined spin and charge constraints
@@ -144,14 +149,11 @@ class CDFT(Calculator):
                     nA += atom.number
 
                 self.dn_core = nD - nA # difference of core
-
                 self.constraints = [self.dn_core - charges[0]]
-                self.n_charge_regions = 1
                 self.regions = charge_regions
 
         # set spin constraints
-        self.n_spin_regions = 0
-        if spin_regions is not None and not self.difference:
+        if self.n_spin_regions != 0 and not self.difference:
             spin_i = np.array(spins, dtype=float)
             self.constraints = np.append(self.constraints, spin_i)
 
@@ -161,10 +163,8 @@ class CDFT(Calculator):
                 v_is = np.array(spin_coefs) / Hartree
 
             self.v_i = np.append(self.v_i, v_is)
-            self.n_spin_regions = len(spin_regions)
             #self.regions.append(spin_regions)
-            [self.regions.append(spin_regions[i]) for i in range(len(spin_regions))]
-            assert (len(self.regions)==self.n_spin_regions+self.n_charge_regions)
+            [self.regions.append(self.spin_regions[i]) for i in range(self.n_spin_regions)]
 
         # initialise without v_ext
         atoms.set_calculator(self.calc)
@@ -176,8 +176,9 @@ class CDFT(Calculator):
 
         if promolecular_constraint:
             self.constraints = get_promolecular_constraints(calc = self.calc,
-                atoms=self.atoms, charge_regions=charge_regions,spin_regions=spin_regions,
-                    charges=charges,spins=spins)
+                atoms=self.atoms, charge_regions=self.charge_regions,
+                spin_regions=self.spin_regions,
+                charges=charges, spins=spins)
 
         # get number of core electrons at each constrained region
         # used for pseudo free energy to neglect core contributions
@@ -195,7 +196,6 @@ class CDFT(Calculator):
                    else:
                       n_core = a.number - self.calc.wfs.setups[a.index].Nv
                       self.n_core_electrons[r] -= n_core
-
 
         w = WeightFunc(self.gd, self.atoms, None, self.Rc, self.mu)
         self.Rc, self.mu = w.get_Rc_and_mu()
@@ -243,7 +243,6 @@ class CDFT(Calculator):
 
             self.ext.set_levels(v_i)
             self.v_i = v_i
-
             # cDFT free energy <A|H^KS + V_a w_a|A> = Edft + <A|Vw|A>
             self.Ecdft = self.atoms.get_potential_energy() # in eV
 
@@ -304,16 +303,19 @@ class CDFT(Calculator):
                 n = 7 * len(self.v_i)
                 p('Optimizer: {n}'.format(n=self.method))
                 p('Optimizer setups:{n}'.format(n=self.options))
-                p('iter {0:{1}} energy     errors'.format('coefs', n))
-                p('     {0:{1}} [eV]       [e]'.format('[eV]', n))
 
+            header = '----------------------------------------\n'
+            header += 'Iteration: {0}\n'
+            header += 'Energy: {1:10.8f} eV\n'
+            header += 'Coefficients [eV]: {2} \n'
+            header += 'Errors [e]: {3} \n'
 
             dn_intermediate = self.dn_i.tolist()
-            p('{0:4}     {1}      {2:10.8f}      {3}     '
-              .format(self.iteration,
-                      ''.join('{0:4.3f}'.format(v) for v in self.v_i * Hartree),
-                      self.Edft,
-                      ''.join('{0:6.4f}'.format(dn) for dn in dn_intermediate)))
+            p(header.format(self.iteration,
+                    self.Edft,
+                    ''.join('{0:4.3f}  '.format(v) for v in self.v_i * Hartree),
+                    ''.join('{0:6.4f}  '.format(dn) for dn in dn_intermediate),
+                    fill='left', align='left'))
 
             self.log.flush()
             self.iteration += 1
@@ -488,8 +490,8 @@ class CDFT(Calculator):
             n_a[c] = n_sa + n_sb
 
         for s in range(self.n_spin_regions):
-            n_sa = self.dn_s[0,self.regions[self.n_charge_regions+s]].sum()
-            n_sb = self.dn_s[1,self.regions[self.n_charge_regions+s]].sum()
+            n_sa = self.dn_s[0, self.regions[self.n_charge_regions+s]].sum()
+            n_sb = self.dn_s[1, self.regions[self.n_charge_regions+s]].sum()
             n_a[self.n_charge_regions+s] = n_sa - n_sb
 
         if return_density:
@@ -507,6 +509,7 @@ class CDFT(Calculator):
                 # negative for difference acceptor
                 vi_temp = np.array([self.v_i[0],-self.v_i[0]])
                 return (np.dot(vi_temp,n_a))
+
 
     def get_number_of_electrons_on_atoms(self):
         # return the number of electrons with each gaussian
@@ -558,7 +561,6 @@ class CDFT(Calculator):
 
         if save:
             w_s = gd.collect(w_G, broadcast=True)
-
             if gd.comm.rank == 0:
                 np.save('coarse_weight', w_s)
         return w_G
@@ -571,6 +573,27 @@ class CDFT(Calculator):
                 np.save('coarse_grid', w_s)
 
         return self.calc.density.gd
+
+    @property
+    def n_spin_regions(self):
+        self._n_spin_regions = len(self.spin_regions)
+        return self._n_spin_regions
+
+    @property
+    def n_charge_regions(self):
+        if not self.difference:
+            self._n_charge_regions = len(self.charge_regions)
+        else:
+            self._n_charge_regions =  1
+        return self._n_charge_regions
+
+    @property
+    def n_regions(self):
+        if not self.difference:
+            self._n_regions = self._n_charge_regions + self._n_spin_regions
+        else:
+            self._n_regions = 2
+        return self._n_regions
 
 def gaussians(gd, positions, numbers):
     r_Rv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
@@ -662,7 +685,12 @@ class CDFTPotential(ExternalPotential):
         self.w_ig = np.array(w)
         p = functools.partial(print, file=self.log)
         p('Number of charge constrained regions: {n}'.format(n=self.n_charge_regions))
-        p('Number of spin constrained regions: {n}'.format(n=len(self.indices_i)-self.n_charge_regions))
+        if not self.difference:
+           p('Number of spin constrained regions: {n}'.format(n=len(self.indices_i)
+            -self.n_charge_regions))
+        else:
+            p('Number of spin constrained regions: 0')
+        p('Charge difference: {n}'.format(n=self.difference))
         p('Parameters')
         p('Atom      Width[A]      Rc[A]')
         for a in self.mu:
@@ -681,7 +709,6 @@ class CDFTPotential(ExternalPotential):
 
         #first alpha spin
         vext_sga = np.sum(np.asarray(pot), axis=0)
-
         # then beta
         vext_sgb = np.asarray(pot)
         # spin constraints with beta spins
