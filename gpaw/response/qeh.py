@@ -348,6 +348,7 @@ class Heterostructure:
         """
         Dyson equation: chi_full = chi_intra + chi_intra V_inter chi_full
         """
+        print('Calculating full chi')
         Nls = self.n_layers
         q_abs = self.myq_abs
         chi_m_iqw = self.chi_monopole
@@ -358,38 +359,63 @@ class Heterostructure:
         chi_qwij = np.zeros((self.mynq, len(self.frequencies),
                              self.dim, self.dim), dtype=complex)
 
-        for iq in range(len(q_abs)):
+        dot = np.dot
+        inv = np.linalg.inv
+        eye = np.eye(self.dim)
+        nq = len(q_abs)
+        for iq in range(nq):
+            if (1 + iq) % (nq // 10) == 0:
+                print('{}%'.format(np.round((1 + iq) / nq, 1) * 100))
+                
             kernel_ij = self.kernel_qij[iq].copy()
             np.fill_diagonal(kernel_ij, 0)  # Diagonal is set to zero
+            chi_intra_wij = np.zeros((len(self.frequencies), self.dim,
+                                      self.dim),
+                                     dtype=complex)
             for iw in range(0, len(self.frequencies)):
                 chi_intra_i = chi_m_iqw[self.layer_indices, iq, iw]
                 if self.chi_dipole is not None:
                     chi_intra_i = np.insert(chi_intra_i, np.arange(Nls) + 1,
                                             chi_d_iqw[self.layer_indices,
                                                       iq, iw])
-                chi_intra_ij = np.diag(chi_intra_i)
-                chi_qwij[iq, iw, :, :] = np.dot(
-                    np.linalg.inv(np.eye(self.dim) -
-                                  np.dot(chi_intra_ij, kernel_ij)),
-                    chi_intra_ij)
+                chi_intra_wij[iw] = np.diag(chi_intra_i)
+
+            chi_qwij[iq] = inv(eye - dot(chi_intra_wij, kernel_ij))
+
+            for chi_ij, chi_intra_ij in zip(chi_qwij[iq], chi_intra_wij):
+                chi_ij[:, :] = dot(chi_ij, chi_intra_ij)
 
         return chi_qwij
 
-    def get_eps_matrix(self, step_potential=False):
+    def get_eps_matrix(self, step_potential=False, iq_q=None, iw_w=None):
         """
         Get dielectric matrix as: eps^{-1} = 1 + V chi_full
         """
-        self.kernel_qij =\
-            self.get_Coulomb_Kernel(step_potential=step_potential)
 
-        chi_qwij = self.get_chi_matrix()
-        eps_qwij = np.zeros((self.mynq, len(self.frequencies),
+        if iq_q is None:
+            iq_q = np.arange(self.mynq)
+
+        if iw_w is None:
+            iw_w = np.arange(len(self.frequencies))
+
+        nq = len(iq_q)
+        nw = len(iw_w)
+        if self.kernel_qij is None:
+            sp = step_potential
+            self.kernel_qij = self.get_Coulomb_Kernel(step_potential=sp)
+
+            chi_qwij = self.get_chi_matrix()
+            self.chi_qwij = chi_qwij
+        else:
+            chi_qwij = self.chi_qwij
+
+        eps_qwij = np.zeros((nq, nw,
                              self.dim, self.dim), dtype=complex)
 
-        for iq in range(self.mynq):
+        for i, iq in enumerate(iq_q):
             kernel_ij = self.kernel_qij[iq]
-            for iw in range(0, len(self.frequencies)):
-                eps_qwij[iq, iw, :, :] = np.linalg.inv(
+            for j, iw in enumerate(iw_w):
+                eps_qwij[i, j, :, :] = np.linalg.inv(
                     np.eye(kernel_ij.shape[0]) + np.dot(kernel_ij,
                                                         chi_qwij[iq, iw,
                                                                  :, :]))
@@ -886,25 +912,30 @@ class Heterostructure:
         """
 
         assert self.world.size == 1
-        eps_qwij = self.get_eps_matrix()
+        # eps_qwij = self.get_eps_matrix()
+        print('Get eps_matrix')
         Nw = len(self.frequencies)
         Nq = self.mynq
         w_w = self.frequencies
         eig = np.zeros([Nq, Nw, self.dim], dtype=complex)
-        vec = np.zeros([Nq, Nw, self.dim, self.dim],
-                       dtype=complex)
+        # vec = np.zeros([Nq, Nw, self.dim, self.dim],
+        #                dtype=complex)
 
         omega0 = [[] for i in range(Nq)]
         rho_z = [np.zeros([0, len(self.z_big)]) for i in range(Nq)]
         phi_z = [np.zeros([0, len(self.z_big)]) for i in range(Nq)]
         for iq in range(Nq):
             m = 0
-            eig[iq, 0], vec[iq, 0] = np.linalg.eig(eps_qwij[iq, 0])
-            vec_dual = np.linalg.inv(vec[iq, 0])
+            eps_qwij = self.get_eps_matrix(iq_q=[iq])
+            eig[iq], vec_wij = np.linalg.eig(eps_qwij[0])
+            vec_dual_wij = np.linalg.inv(vec_wij)
+            vec_dual = vec_dual_wij[0]
             for iw in range(1, Nw):
-                eig[iq, iw], vec_p = np.linalg.eig(eps_qwij[iq, iw])
-                vec_dual_p = np.linalg.inv(vec_p)
-                overlap = np.abs(np.dot(vec_dual, vec_p))
+                # eps_qwij = self.get_eps_matrix(iq_q=[iq], iw_w=[iw])
+                # eig[iq, iw], vec_p = np.linalg.eig(eps_qwij[0, 0])
+                vec = vec_wij[iw]
+                vec_dual = vec_dual_wij[iw - 1]
+                overlap = np.abs(np.dot(vec_dual, vec))
                 index = list(np.argsort(overlap)[:, -1])
                 if len(np.unique(index)) < self.dim:  # add missing indices
                     addlist = []
@@ -918,9 +949,10 @@ class Heterostructure:
                                     np.argwhere(np.array(index) == j)[l])
                     for j in range(len(addlist)):
                         index[removelist[j][0]] = addlist[j]
-                vec[iq, iw] = vec_p[:, index]
-                vec_dual = vec_dual_p[index, :]
-                eig[iq, iw, :] = eig[iq, iw, index]
+                # Sort vectors
+                vec_wij[iw, :] = np.copy(vec_wij[iw, :, index])
+                vec_dual_wij[iw, :] = np.copy(vec_dual_wij[iw, index, :])
+                eig[iq, iw, :] = np.copy(eig[iq, iw, index])
                 klist = [k for k in range(self.dim)
                          if (eig[iq, iw - 1, k] < 0 and eig[iq, iw, k] > 0)]
                 for k in klist:  # Eigenvalue crossing
@@ -928,9 +960,10 @@ class Heterostructure:
                                 (w_w[iw] - w_w[iw - 1]))
                     # linear interp for crossing point
                     w0 = np.real(-eig[iq, iw - 1, k]) / a + w_w[iw - 1]
-                    rho = np.dot(self.drho_array[:, iq, :].T, vec_dual[k, :])
+                    rho = np.dot(self.drho_array[:, iq, :].T,
+                                 vec_dual_wij[iw, k, :])
                     phi = np.dot(self.dphi_array[:, iq, :].T,
-                                 vec[iq, iw, :, k])
+                                 vec_wij[iw, :, k])
                     rho_z[iq] = np.append(rho_z[iq], rho[np.newaxis, :],
                                           axis=0)
                     phi_z[iq] = np.append(phi_z[iq], phi[np.newaxis, :],
@@ -1332,7 +1365,7 @@ def check_building_blocks(BBfiles=None):
 
 
 def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
-                                q_grid=None, w_grid=None):
+                                q_grid=None, w_grid=None, pad=True):
     """ Interpolate building blocks to same frequency-
     and q- grid
 
@@ -1352,17 +1385,24 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
     if BBmotherfile is not None:
         BBfiles.append(BBmotherfile)
 
+    if BBmotherfile is not None and '-chi.npz' not in BBmotherfile:
+        BBmotherfile = BBmotherfile + '-chi.npz'
+        
+    for il, filename in enumerate(BBfiles):
+        if '-chi.npz' not in filename:
+            BBfiles[il] = filename + '-chi.npz'
+
     q_max = 1000
     w_max = 1000
     for name in BBfiles:
-        data = np.load(open(name + '-chi.npz', 'rb'))
+        data = np.load(open(name, 'rb'))
         q_abs = data['q_abs']
         q_max = np.min([q_abs[-1], q_max])
         ow = data['omega_w']
         w_max = np.min([ow[-1], w_max])
 
     if BBmotherfile is not None:
-        data = np.load(BBmotherfile + "-chi.npz")
+        data = np.load(BBmotherfile)
         q_grid = data['q_abs']
         w_grid = data['omega_w']
     else:
@@ -1370,14 +1410,17 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
         w_grid = w_grid / Hartree
 
     q_grid = [q for q in q_grid if q < q_max]
-    q_grid.append(q_max)
+
+    if pad:
+        q_grid.append(q_max)
     w_grid = [w for w in w_grid if w < w_max]
-    w_grid.append(w_max)
+    if pad:
+        w_grid.append(w_max)
     q_grid = np.array(q_grid)
     w_grid = np.array(w_grid)
     for name in BBfiles:
-        assert data['isotropic_q']
-        data = np.load(name + '-chi.npz')
+        # assert data['isotropic_q']
+        data = np.load(name)
         q_abs = data['q_abs']
         w = data['omega_w']
         z = data['z']
@@ -1451,7 +1494,7 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
                 'drhoD_qz': drhoD_qz,
                 'isotropic_q': True}
 
-        np.savez_compressed(name + "_int-chi.npz",
+        np.savez_compressed(name[:-8] + "_int-chi.npz",
                             **data)
 
 
@@ -1605,6 +1648,8 @@ def main(args=None):
     import argparse
     from pathlib import Path
     from os.path import expanduser
+    import shutil
+    
     description = 'QEH Model command line interface'
     parser = argparse.ArgumentParser(description=description)
 
@@ -1633,31 +1678,38 @@ def main(args=None):
     help = ("Plot calculated quantities")
     parser.add_argument('--plot', action='store_true', help=help)
 
+    help = ("Disable phonon contributions")
+    parser.add_argument('--no-phonons', action='store_true', help=help)
+    
     help = ("Custom frequencies to respresent quantities on (in eV). "
             "The format is: min. frequency, max. frequency, "
             "number of frequencies. E. g.: 0.1 1.0 100")
-    parser.add_argument('--omega', default=None, nargs=3,
+    parser.add_argument('--omega', default=[0.001, 0.3, 1000],
+                        nargs=3,
                         help=help, type=float)
 
     help = ("Custom momentas to respresent quantities on (in AA^-1). "
             "The format is: min. q, max. q, number of q's. "
             "E. g.: 0.001 0.1 100")
-    parser.add_argument('--q', default=None, nargs=3,
+    parser.add_argument('--q', default=[0.0001, 0.1, 1000],
+                        nargs=3,
                         help=help, type=float)
 
     args = parser.parse_args(args)
     layers = args.layers
     thicknesses = args.thicknesses
     paths = args.buildingblockpath
-    print(args)
-    
+
     layers = expand_layers(layers)
-    
+    for il, layer in enumerate(layers):
+        layers[il] = layer + '-chi.npz'
+
     default_thicknesses = {'graphene': 3.22, 'BN': 3.22}
     if thicknesses is None:
         thicknesses = []
         for layer in layers:
-            thicknesses.append(default_thicknesses[layer])
+            name = layer.split('-')[0]
+            thicknesses.append(default_thicknesses[name])
 
     thicknesses = np.array(thicknesses)
     # Calculate distance between layers
@@ -1668,7 +1720,7 @@ def main(args=None):
     link = "https://cmr.fysik.dtu.dk/_downloads/chi-data.tar.gz"
     msg = """
     
-    Building block file cannot be found!
+    Building block file ({bb}) cannot be found!
     Please download and unpack the dielectric building blocks.
     This can be done with:
     wget {link}
@@ -1679,71 +1731,111 @@ def main(args=None):
     """
 
     # Locate files for layers
+    print('Looking for building blocks')
     layer_paths = []
     for il, layer in enumerate(layers):
-        if '+phonons' in layer:
-            layer = layer.replace('+phonons', '')
-        p = Path('{}-chi.npz'.format(layer))
+        p = Path(layer)
         for path in paths:
             bb = Path(expanduser(path)) / p
             if bb.is_file():
                 break
         else:
-            raise FileNotFoundError(msg.format(link=link))
-
+            raise FileNotFoundError(msg.format(bb=layer, link=link))
+        
         layer_paths.append(str(bb))
 
-    if args.q is None:
-        data = np.load(layer_paths[0])
-        q_q = data['q_abs'] / Bohr
-    else:
-        q_q = np.linspace(args.q[0], args.q[1], args.q[2])
+    # Copy files to current directory
+    for layerpath in set(layer_paths):
+        p = Path(layerpath)
+        layer = str(p.name).split('-chi')[0]
+        
+        src = str(p)
+        dest = str(p.name)
 
-    if args.omega is None:
-        data = np.load(layer_paths[0])
-        omega_w = data['omega_w'] * Hartree
-    else:
-        omega_w = np.linspace(args.omega[0], args.omega[1], args.omega[2])
+        if src != dest:
+            print(('Copying building block '
+                   'to current folder from {}').format(str(p)))
+            shutil.copy(src, dest)
+
+        # Also copy phonons if present
+        phonons = (Path(layerpath).parent /
+                   Path('{}-phonons.npz'.format(layer)))
+        print(phonons)
+        if not phonons.exists():
+            continue
+        src = str(phonons)
+        dest = str(phonons.name)
+        if src != dest:
+            shutil.copy(src, dest)
+
+    q_q = np.linspace(args.q[0], args.q[1], args.q[2])
+    omega_w = np.linspace(args.omega[0], args.omega[1], args.omega[2])
 
     # Interpolate the building blocks such that they are
     # represented on the same q and omega grid
-    layer_paths = interpolate_building_blocks(BBfiles=layer_paths,
-                                              q_grid=q_q, w_grid=omega_w,
-                                              path='.')
+    print('Interpolating building blocks to same grid')
+    interpolate_building_blocks(BBfiles=layers, q_grid=q_q, w_grid=omega_w,
+                                pad=False)
 
+    for il, layer in enumerate(layers):
+        layers[il] = layer[:-8] + '_int-chi.npz'
+    
     # Treat graphene specially, since in this case we are using
     # an analytical approximation of the building block
     from gpaw.response.analyticalbb import GrapheneBB
-    for il, layer in enumerate(layer_paths):
+    for layer in set(layers):
         if 'graphene' not in layer:
             continue
+
         if 'doped' not in layer:
             doping = 0
         else:
-            doping = layer.split('doped')
+            doping = float(layer.split('-doped-')[1].split('_int')[0])
 
-        newlayer = layer.replace('.npz', '') + '_analytical-chi.npz'
+        newlayer = str(layer[:-8] + '_analytical-chi.npz')
         bb = GrapheneBB(layer, doping=doping)
         np.savez_compressed(newlayer, **bb)
-        layer_paths[il] = newlayer
 
-    # If +phonons then add phonons
-    from gpaw.response.analyticalbb import phonon_polarizability
-    for layer, layerpath in zip(layers, layer_paths):
-        if '+phonons' not in layer:
-            continue
-        tmp = layerpath.split('-chi')
-        newlayerpath = '{}_int+phonons-chi.npz'.format(tmp[0])
-        bb = phonon_polarizability(layerpath)
-        np.savez_compressed(newlayerpath, **bb)
+        for il, oldlayer in enumerate(layers):
+            if oldlayer == layer:
+                layers[il] = newlayer
+        
+    if not args.no_phonons:
+        # If phonon files can be found in the same
+        # directory as the building block files
+        # then add phonon contribution
+        from gpaw.response.analyticalbb import phonon_polarizability
+        for layer in set(layers):
+            p = Path(layer)
+            phonons = Path(layer.split('_int')[0] + '-phonons.npz')
+            if not phonons.exists():
+                continue
+            print('Adding phonon contributions for {}'.format(layer))
+            dct = np.load(str(phonons))
+
+            Z_avv, freqs, modes, masses, cell = (dct['Z_avv'],
+                                                 dct['freqs'],
+                                                 dct['modes'],
+                                                 dct['masses'],
+                                                 dct['cell'])
+            bb = phonon_polarizability(layer, Z_avv, freqs, modes,
+                                       masses, cell)
+            newlayerpath = '{}+phonons-chi.npz'.format(layer[:-8])
+            np.savez_compressed(newlayerpath, **bb)
+
+            for il, oldlayer in enumerate(layers):
+                if oldlayer == layer:
+                    layers[il] = newlayerpath
 
     # Make QEH calculation
+    print('Initializing heterostructure')
     hs = make_heterostructure(layers, d, d0)
 
     if args.plot:
         import matplotlib.pyplot as plt
     
     if args.plasmons:
+        print('Calculating plasmon spectrum')
         eig, z, rho_z, phi_z, omega0 = hs.get_plasmon_eigenmodes()
         if args.plot:
             q_q = hs.q_abs / Bohr
