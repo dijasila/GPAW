@@ -512,7 +512,8 @@ class CouplingParameters:
                 C_ba = np.transpose(np.dot(inv_S, (det_S*I)))
 
                 nAa, nAb, nBa, nBb = self.check_bands(n_occup_A, n_occup_B, k)
-                nas, n_occup, n_occup_s = self.check_spin_and_occupations(nAa, nAb, nBa, nBb)
+                nas, n_occup, n_occup_s = self.check_spin_and_occupations(nAa,
+                                                                nAb, nBa, nBb)
 
                 # check that a and b cDFT states have similar spin state
                 if np.sign(nAa-nAb) != np.sign(nBa-nBb):
@@ -535,6 +536,8 @@ class CouplingParameters:
 
                 for i in range(n_occup_s[spin]):
                     for j in range(n_occup_s[spin]):
+                        I = spin*nas + i
+                        J = spin*nas + j
 
                         psi_kA = psi_A.get_wave_function(n=i, k=k, s=spin, ae=True)
                         psi_kB = psi_B.get_wave_function(n=j, k=k, s=spin, ae=True)
@@ -543,32 +546,19 @@ class CouplingParameters:
 
                         for b in range(len(self.Vb)):
                             integral = psi_B.gd.integrate(psi_kA.conj() * wb[b] * psi_kB,
-                                global_integral=True) * C_ab[spin *nas + i][spin*nas + j]
+                                global_integral=True) * C_ab[I][J]
 
-                            if b < self.n_charge_regionsB:
+                            if b >= self.n_charge_regionsB and spin == 1:
                                 # for charge constraint w > 0
-                                w_ij_AB.append(integral)
-
-                            else:
-                                if spin == 0:
-                                    # alpha spin constraint, w > 0
-                                    w_ij_AB.append(integral)
-
-                                else:
-                                    # beta spin constraint, w < 0
-                                    w_ij_AB.append(-integral)
+                                integral *= -1.
+                            w_ij_AB.append(-integral)
 
                         for a in range(len(self.Va)):
                             integral = psi_A.gd.integrate( psi_kB.conj() * wa[a] * psi_kA,
-                                        global_integral=True) * C_ab[spin *nas + j][spin *nas + i]
-                            if a < self.n_charge_regionsA:
-                                w_ji_BA.append(integral)
-
-                            else:
-                                if spin == 0:
-                                    w_ji_BA.append(integral)
-                                else:
-                                    w_ji_BA.append(-integral)
+                                        global_integral=True) * C_ab[J][I]
+                            if a >= self.n_charge_regionsA and spin == 1:
+                                integral *= -1.
+                            w_ji_BA.append(-integral)
 
                         w_ij_AB = np.asarray(w_ij_AB)*Bohr**3
                         w_ji_BA = np.asarray(w_ji_BA)*Bohr**3
@@ -577,8 +567,8 @@ class CouplingParameters:
                         if spin == 0 and i == 0 and j == 0:
                             w_k[k] = (w_kA + w_kB)/2.
 
-                        w_kij_AB[k][spin*nas + i][spin*nas + j] += np.dot(self.Vb, w_ij_AB).sum()
-                        w_kij_BA[k][spin*nas + j][spin*nas + i] += np.dot(self.Va, w_ji_BA).sum()
+                        w_kij_AB[k][I][J] += np.dot(self.Vb, w_ij_AB).sum()
+                        w_kij_BA[k][J][I += np.dot(self.Va, w_ji_BA).sum()
 
         self.w_k = w_k
         self.VW_AB = w_kij_AB
@@ -600,7 +590,6 @@ class CouplingParameters:
 
         ns = self.calc_A.wfs.nspins
         nk = len(self.calc_A.wfs.kd.weight_k)
-
 
         # check number of occupied and total number of bands
         n_occup_A = self.get_n_occupied_bands(self.calc_A) # total of filled a and b bands
@@ -638,7 +627,8 @@ class CouplingParameters:
             C_ba = np.transpose(np.dot(inv_S, (det_S*I)))
 
             nAa, nAb, nBa, nBb = self.check_bands(n_occup_A, n_occup_B, k)
-            nas, n_occup, n_occup_s = self.check_spin_and_occupations(nAa, nAb, nBa, nBb)
+            nas, n_occup, n_occup_s = self.check_spin_and_occupations(nAa,
+                                                            nAb, nBa, nBb)
 
             # check that a and b cDFT states have similar spin state
             if np.sign(nAa-nAb) != np.sign(nBa-nBb):
@@ -758,7 +748,8 @@ class CouplingParameters:
             for k in range(calc_A.wfs.kd.nibzkpts):
 
                 nAa, nAb, nBa, nBb = self.check_bands(n_occup_A, n_occup_B, k)
-                nas, n_occup, n_occup_s = self.check_spin_and_occupations(nAa, nAb, nBa, nBb)
+                nas, n_occup, n_occup_s = self.check_spin_and_occupations(nAa,
+                                                                nAb, nBa, nBb)
                 kd = calc_A.wfs.kd
                 w_kA = kd.weight_k[k]
                 kd = calc_B.wfs.kd
@@ -784,7 +775,10 @@ class CouplingParameters:
 
                         if spin == 0 and i == 0 and j == 0:
                             w_k[k] = (w_kA + w_kB)/2.
-                        n_AB[k][spin*nas+i][spin*nas+j] = n_ij * Bohr**3
+
+                        I = spin*nas + i
+                        J = spin*nas + j
+                        n_AB[k][I][J] = n_ij * Bohr**3
 
         n_AB = np.asarray(n_AB)
         self.w_k = w_k
@@ -853,7 +847,6 @@ class CouplingParameters:
             Pa_ani = kpt_a.P_ani
             psitb_nG = kpt_b.psit_nG
             Pb_ani = kpt_b.P_ani
-            print('nas', nas)
 
             self.get_matrix_element(kpt_b.psit_nG, kpt_b.P_ani,
                                kpt_a.psit_nG, kpt_a.P_ani,
@@ -956,10 +949,12 @@ class CouplingParameters:
 
         for i,j in enumerate(range(n_occup_1[s])):
             for x,y in enumerate(range(n_occup_2[s])):
+                I = s*nas + i
+                X = s*nas + x
                 if C12 is None:
-                    vw[k][s*nas+i][s*nas+x] += VW_ij[j][y]
+                    vw[k][I][X] += VW_ij[j][y]
                 else:
-                    vw[k][s*nas+i][s*nas+x] += VW_ij[j][y]*C12[s*nas+i][s*nas+x]
+                    vw[k][I][X] += VW_ij[j][y]*C12[I][X]
 
     def get_reorganization_energy(self):
         # get Ea (Rb) - Ea(Ra) -->
