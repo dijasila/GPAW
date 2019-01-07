@@ -137,8 +137,6 @@ class Folder:
             self.func = LorentzPole(width, imag=True)
         elif folding == 'Voigt':
             self.func = Voigt(width)
-        elif folding is None:
-            self.func = None
         else:
             raise RuntimeError('unknown folding "' + folding + '"')
         self.fwhm = self.func.fwhm
@@ -149,25 +147,19 @@ class Folder:
         Y = np.array(y)
         assert X.shape[0] == Y.shape[0]
 
-        if self.func is None:
-            xl = X
-            yl = Y
-        else:
-            if xmin is None:
-                xmin = np.min(X) - 4 * self.width
-            if xmax is None:
-                xmax = np.max(X) + 4 * self.width
-            if dx is None:
-                try:
-                    dx = self.func.width / 4.
-                except AttributeError:
-                    dx = self.width / 4.
+        if xmin is None:
+            xmin = np.min(X) - 4 * self.width
+        if xmax is None:
+            xmax = np.max(X) + 4 * self.width
+        if dx is None:
+            try:
+                dx = self.func.width / 4.
+            except AttributeError:
+                dx = self.width / 4.
 
-            xl = np.arange(xmin, xmax + 0.5 * dx, dx)
-            
-            xl, yl = self.fold_values(x, y, xl)
-            
-        return xl, yl
+        xl = np.arange(xmin, xmax + 0.5 * dx, dx)
+        
+        return self.fold_values(x, y, xl)
 
     def fold_values(self, x, y, xl=None):
         X = np.array(x)
@@ -175,23 +167,18 @@ class Folder:
         Y = np.array(y)
         assert X.shape[0] == Y.shape[0]
 
-        if self.func is None:
-            xl = X
-            yl = Y
+        if xl is None:
+            Xl = np.unique(X)
         else:
-            if xl is None:
-                Xl = np.unique(X)
-            else:
-                Xl = np.array(xl)
-                assert len(Xl.shape) == 1
+            Xl = np.array(xl)
+            assert len(Xl.shape) == 1
             
-            # weight matrix
-            weightm = np.empty((Xl.shape[0], X.shape[0]),
-                               dtype=self.func.dtype)
-            for i, x in enumerate(X):
-                weightm[:, i] = self.func.get(Xl, x)
+        # weight matrix
+        weightm = np.empty((Xl.shape[0], X.shape[0]),
+                           dtype=self.func.dtype)
+        for i, x in enumerate(X):
+            weightm[:, i] = self.func.get(Xl, x)
 
-#            yl = np.dot(weightm, Y)
-            yl = np.tensordot(weightm, Y, axes=(1, 0))
+        yl = np.tensordot(weightm, Y, axes=(1, 0))
 
         return Xl, yl
