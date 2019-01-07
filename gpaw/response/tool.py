@@ -53,18 +53,16 @@ def get_PWDescriptor(q_c, calc, ecut, gammacentered=False):
         return pd
 
 
-def get_bz_transitions(filename, q_c,
+def get_bz_transitions(filename, q_c, bzk_kv,
                        response='density', spins='all',
                        ecut=50, txt=sys.stdout):
     """
-    Get transitions in the Brillouin zone
+    Get transitions in the Brillouin zone from kpoints bzk_kv
     contributing to the linear response at wave vector q_c.
     """
     
     pair = PairDensity(filename, ecut=ecut, response=response, txt=txt)
     pd = get_PWDescriptor(q_c, pair.calc, pair.ecut)
-    
-    bzk_kv = np.dot(pair.calc.wfs.kd.bzk_kc, pd.gd.icell_cv) * 2 * np.pi
     
     if spins == 'all':
         spins = range(pair.calc.wfs.nspins)
