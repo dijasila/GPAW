@@ -23,6 +23,7 @@ equal(Lorentz(width).fwhm, width * 2, 1.e-15)
 
 for func in [Gauss, Lorentz, Voigt]:
     folder = Folder(width, func(width).__class__.__name__)
+    assert folder.fwhm == folder.func.fwhm
 
     x = [0, 2]
     y = [[2, 0, 1], [1, 1, 1]]

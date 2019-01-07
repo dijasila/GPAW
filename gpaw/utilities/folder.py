@@ -141,6 +141,7 @@ class Folder:
             self.func = None
         else:
             raise RuntimeError('unknown folding "' + folding + '"')
+        self.fwhm = self.func.fwhm
 
     def fold(self, x, y, dx=None, xmin=None, xmax=None):
         X = np.array(x)
