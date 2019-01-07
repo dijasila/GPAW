@@ -67,7 +67,7 @@ def get_bz_transitions(filename, q_c,
     bzk_kv = np.dot(pair.calc.wfs.kd.bzk_kc, pd.gd.icell_cv) * 2 * np.pi
     
     if spins == 'all':
-        range(pair.calc.wfs.nspins)
+        spins = range(pair.calc.wfs.nspins)
     else:
         for spin in spins:
             assert spin in range(pair.calc.wfs.nspins)
