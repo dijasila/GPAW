@@ -53,13 +53,37 @@ def get_PWDescriptor(q_c, calc, ecut, gammacentered=False):
         return pd
 
 
-def get_transitions(filename, q_c,
-                    ecut=50, response='density', txt=sys.stdout):
-    """ Get transitions contributing to linear response. """
+def get_bz_transitions(filename, q_c,
+                       response='density', spins='all',
+                       ecut=50, txt=sys.stdout):
+    """
+    Get transitions in the Brillouin zone
+    contributing to the linear response at wave vector q_c.
+    """
+    
     pair = PairDensity(filename, ecut=ecut, response=response, txt=txt)
     pd = get_PWDescriptor(q_c, pair.calc, pair.ecut)
 
-    return pair, pd
+    bzk_kv = np.dot(pair.calc.wfs.kd.bzk_kc, pd.gd.icell_cv) * 2 * np.pi
+    
+    if spins == 'all':
+        range(pair.calc.wfs.nspins)
+    else:
+        for spin in spins:
+            assert spin in range(pair.calc.wfs.nspins)
+
+    domain_dl = (bzk_kv, spins)
+    domainsize_d = [len(domain_l) for domain_l in domain_dl]
+    nterms = np.prod(domainsize_d)
+    domainarg_td = []
+    for t in range(nterms):
+        unravelled_d = np.unravel_index(t, domainsize_d)
+        arg = []
+        for domain_l, index in zip(domain_dl, unravelled_d):
+            arg.append(domain_l[index])
+        domainarg_td.append(tuple(arg))
+    
+    return pair, pd, domainarg_td
 
 
 def find_peaks(x, y, threshold=None):
