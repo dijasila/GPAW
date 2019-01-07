@@ -1,11 +1,18 @@
+import sys
+
 import numpy as np
 from scipy.optimize import leastsq
 import pylab as pl
 
+from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.response.pair import PairDensity
+
+
 def check_degenerate_bands(filename, etol):
 
     from gpaw import GPAW
-    calc = GPAW(filename,txt=None)
+    calc = GPAW(filename, txt=None)
     print('Number of Electrons   :', calc.get_number_of_electrons())
     nibzkpt = calc.get_ibz_k_points().shape[0]
     nbands = calc.get_number_of_bands()
@@ -14,9 +21,10 @@ def check_degenerate_bands(filename, etol):
     e_kn = np.array([calc.get_eigenvalues(k) for k in range(nibzkpt)])
     f_kn = np.array([calc.get_occupation_numbers(k) for k in range(nibzkpt)])
     for k in range(nibzkpt):
-        for n in range(1,nbands):
-            if (f_kn[k,n-1] - f_kn[k,n] > 1e-5) and (np.abs(e_kn[k,n] - e_kn[k,n-1]) < etol):
-                print(k, n, e_kn[k,n], e_kn[k, n-1])
+        for n in range(1, nbands):
+            if (f_kn[k, n - 1] - f_kn[k, n] > 1e-5)\
+               and (np.abs(e_kn[k, n] - e_kn[k, n - 1]) < etol):
+                print(k, n, e_kn[k, n], e_kn[k, n - 1])
     return
 
 
@@ -32,11 +40,29 @@ def get_orbitals(calc):
     nLCAO = calc.get_number_of_bands()
     orb_MG = calc.wfs.gd.zeros(nLCAO)
     C_M = np.identity(nLCAO)
-    bfs.lcao_to_grid(C_M, orb_MG,q=-1)
+    bfs.lcao_to_grid(C_M, orb_MG, q=-1)
 
     return orb_MG
 
-def find_peaks(x,y,threshold = None):
+
+def get_PWDescriptor(q_c, calc, ecut, gammacentered=False):
+        """Get the planewave descriptor of q_c."""
+        qd = KPointDescriptor([q_c])
+        pd = PWDescriptor(ecut, calc.wfs.gd,
+                          complex, qd, gammacentered=gammacentered)
+        return pd
+
+
+def get_transitions(filename, q_c,
+                    ecut=50, response='density', txt=sys.stdout):
+    """ Get transitions contributing to linear response. """
+    pair = PairDensity(filename, ecut=ecut, response=response, txt=txt)
+    pd = get_PWDescriptor(q_c, pair.calc, pair.ecut)
+
+    return pair, pd
+
+
+def find_peaks(x, y, threshold=None):
     """ Find peaks for a certain curve.
 
     Usage:
@@ -70,10 +96,10 @@ def find_peaks(x,y,threshold = None):
 
     peak = {}
     npeak = 0
-    for i in range(1, x.shape[0]-1):
+    for i in range(1, x.shape[0] - 1):
         if (y[i] >= ymin and y[i] <= ymax and
-            x[i] >= xmin and x[i] <= xmax ):
-            if y[i] > y[i-1] and y[i] > y[i+1]:
+            x[i] >= xmin and x[i] <= xmax):
+            if y[i] > y[i - 1] and y[i] > y[i + 1]:
                 peak[npeak] = np.array([x[i], y[i]])
                 npeak += 1
 
@@ -83,7 +109,8 @@ def find_peaks(x,y,threshold = None):
         
     return peakarray
 
-def lorz_fit(x,y, npeak=1, initpara = None):
+
+def lorz_fit(x, y, npeak=1, initpara=None):
     """ Fit curve using Lorentzian function
 
     Note: currently only valid for one and two lorentizian
@@ -107,7 +134,6 @@ def lorz_fit(x,y, npeak=1, initpara = None):
     
     """
 
-    
     def residual(p, x, y):
         
         err = y - lorz(x, p, npeak)
@@ -115,11 +141,11 @@ def lorz_fit(x,y, npeak=1, initpara = None):
 
     def lorz(x, p, npeak):
 
-        if npeak == 1:        
-            return p[0] * p[3] / ( (x-p[1])**2 + p[3]**2 ) + p[2]
+        if npeak == 1:
+            return p[0] * p[3] / ((x - p[1])**2 + p[3]**2) + p[2]
         if npeak == 2:
-            return ( p[0] * p[3] / ( (x-p[1])**2 + p[3]**2 ) + p[2]
-                   + p[4] * p[7] / ( (x-p[5])**2 + p[7]**2 ) + p[6] )
+            return (p[0] * p[3] / ((x - p[1])**2 + p[3]**2) + p[2]
+                    + p[4] * p[7] / ((x - p[5])**2 + p[7]**2) + p[6])
         else:
             raise ValueError('Larger than 2 peaks not supported yet!')
 
@@ -133,21 +159,22 @@ def lorz_fit(x,y, npeak=1, initpara = None):
     
     result = leastsq(residual, p0, args=(x, y), maxfev=2000)
 
-    yfit = lorz(x, result[0],npeak)
+    yfit = lorz(x, result[0], npeak)
 
     return yfit, result[0]
 
-def linear_fit(x,y, initpara = None):
+
+def linear_fit(x, y, initpara=None):
     
     def residual(p, x, y):
         err = y - linear(x, p)
         return err
 
     def linear(x, p):
-        return p[0]*x + p[1]
+        return p[0] * x + p[1]
 
     if initpara is None:
-        initpara = np.array([1.0,1.0])
+        initpara = np.array([1.0, 1.0])
 
     p0 = initpara
     result = leastsq(residual, p0, args=(x, y), maxfev=2000)
@@ -158,8 +185,7 @@ def linear_fit(x,y, initpara = None):
 
 def plot_setfont():
 
-    params = {
-              'axes.labelsize': 18,
+    params = {'axes.labelsize': 18,
               'text.fontsize': 18,
               'legend.fontsize': 18,
               'xtick.labelsize': 18,
@@ -176,7 +202,7 @@ def plot_setticks(x=True, y=True):
     if x:
         ax.xaxis.set_major_locator(pl.AutoLocator())
         x_major = ax.xaxis.get_majorticklocs()
-        dx_minor =  (x_major[-1]-x_major[0])/(len(x_major)-1) /5.
+        dx_minor = (x_major[-1] - x_major[0]) / (len(x_major) - 1) / 5.
         ax.xaxis.set_minor_locator(pl.MultipleLocator(dx_minor))
     else:
         pl.minorticks_off()
@@ -184,7 +210,7 @@ def plot_setticks(x=True, y=True):
     if y:
         ax.yaxis.set_major_locator(pl.AutoLocator())
         y_major = ax.yaxis.get_majorticklocs()
-        dy_minor =  (y_major[-1]-y_major[0])/(len(y_major)-1) /5.
-        ax.yaxis.set_minor_locator(pl.MultipleLocator(dy_minor)) 
+        dy_minor = (y_major[-1] - y_major[0]) / (len(y_major) - 1) / 5.
+        ax.yaxis.set_minor_locator(pl.MultipleLocator(dy_minor))
     else:
         pl.minorticks_off()
