@@ -63,7 +63,7 @@ def get_bz_transitions(filename, q_c,
     
     pair = PairDensity(filename, ecut=ecut, response=response, txt=txt)
     pd = get_PWDescriptor(q_c, pair.calc, pair.ecut)
-
+    
     bzk_kv = np.dot(pair.calc.wfs.kd.bzk_kc, pd.gd.icell_cv) * 2 * np.pi
     
     if spins == 'all':
@@ -84,6 +84,25 @@ def get_bz_transitions(filename, q_c,
         domainarg_td.append(tuple(arg))
     
     return pair, pd, domainarg_td
+
+
+def get_chi0_integrand(pair, pd, n_n, m_m, k_v, s):
+    """
+    Calculates the pair densities, occupational differences
+    and energy differences of transitions from certain kpoint
+    and spin.
+    """
+    
+    k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
+
+    kptpair = pair.get_kpoint_pair(pd, s, k_c, n_n[0], n_n[-1] + 1,
+                                   m_m[0], m_m[-1] + 1)
+
+    n_nmG = pair.get_pair_density(pd, kptpair, n_n, m_m)
+    df_nm = kptpair.get_occupation_differences(n_n, m_m)
+    deps_nm = kptpair.get_transition_energies(n_n, m_m)
+
+    return n_nmG, df_nm, deps_nm
 
 
 def find_peaks(x, y, threshold=None):
