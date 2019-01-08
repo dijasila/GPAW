@@ -53,7 +53,7 @@ def get_PWDescriptor(q_c, calc, ecut, gammacentered=False):
         return pd
 
 
-def get_bz_transitions(filename, q_c, bzk_kv,
+def get_bz_transitions(filename, q_c, bzk_kc,
                        response='density', spins='all',
                        ecut=50, txt=sys.stdout):
     """
@@ -63,7 +63,9 @@ def get_bz_transitions(filename, q_c, bzk_kv,
     
     pair = PairDensity(filename, ecut=ecut, response=response, txt=txt)
     pd = get_PWDescriptor(q_c, pair.calc, pair.ecut)
-    
+
+    bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
+
     if spins == 'all':
         spins = range(pair.calc.wfs.nspins)
     else:
@@ -98,9 +100,32 @@ def get_chi0_integrand(pair, pd, n_n, m_m, k_v, s):
 
     n_nmG = pair.get_pair_density(pd, kptpair, n_n, m_m)
     df_nm = kptpair.get_occupation_differences(n_n, m_m)
-    deps_nm = kptpair.get_transition_energies(n_n, m_m)
+    eps_n = kptpair.kpt1.eps_n
+    eps_m = kptpair.kpt2.eps_n
 
-    return n_nmG, df_nm, deps_nm
+    return n_nmG, df_nm, eps_n, eps_m
+
+
+def get_degeneracy_matrix(eps_n, tol=1.e-6):
+    """
+    Generate a matrix that can sum over degenerate values.
+    """
+    degmat = []
+    nn = len(eps_n)
+    nstart = 0
+    while nstart < nn:
+        deg = [0] * nstart + [1]
+        for n in range(nstart + 1, nn):
+            if abs(eps_n[nstart] - eps_n[n]) < tol:
+                deg += [1]
+                nstart += 1
+            else:
+                break
+        deg += [0] * (nn - len(deg))
+        degmat.append(deg)
+        nstart += 1
+
+    return np.array(degmat)
 
 
 def find_peaks(x, y, threshold=None):
