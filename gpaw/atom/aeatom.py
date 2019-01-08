@@ -391,7 +391,9 @@ class AllElectronAtom:
             self.configuration = None
 
         self.scalar_relativistic = False
-
+        
+        
+       
         if isinstance(xc, str):
             self.xc = XC(xc)
         else:
@@ -851,7 +853,7 @@ def main(args):
 
     for n, l, f, s in nlfs:
         aea.add(n, l, f, s)
-
+    kwargs["rcut"] = 500    
     aea.initialize(**kwargs)
     aea.run()
 
@@ -883,7 +885,7 @@ def main(args):
         exact_chi = aee.calculate_analytical_chi_channel(0,50)
         t2 = time.time()
         print("Calculating analytical chi took {} seconds".format(t2-t1))
-        chi_dr = np.dot(exact_chi, aea.rgd.dr_g)
+        chi_dr = exact_chi*aea.rgd.dr_g
         eigs, vecs = np.linalg.eigh(chi_dr)
         print("Max abs exact: ", np.max(np.abs(eigs)))
         vals = aee.sternheimer_calculation()

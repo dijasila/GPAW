@@ -29,29 +29,7 @@ class AllElectronResponse:
  #       print("Testing for angular number: {}".format(ang_num))
         chempot = (all_electron_atom.channels[ang_num].e_n[1] + all_electron_atom.channels[ang_num].e_n[0])/2
         self.chemical_potential = chempot
-#        self.calculate_exact_chi_channel(ang_num, 0, chempot)
 
-  #      self.get_valence_projector_r(all_electron_atom.channels[ang_num])
-
-        #import matplotlib.pyplot as plt
-        #plt.plot(all_electron_atom.channels[ang_num].basis.basis_bg[0])
-        #plt.show()
-        
-
-    ###TODO###
-
-    ##What is the mass?
-    ##How does kin energy look in aeatom.py?
-    ##Do the projectors need to change? No, just use standard form psi(r,theta,phi)psi(r', theta', phi') but remember spherical integral measure
-
-    #Solve Sternheimer equation via bicgstab
-
-    #Power method algo
-
-
-    #Get every wavefunction from AEA. What do we mean by every?
-
-    ###END TODO###
 
     def initialize(self):
         self.theta_grid = np.linspace(0, np.pi, 200)
@@ -59,33 +37,8 @@ class AllElectronResponse:
         self.radial_grid = self.all_electron_atom.rgd.r_g
         self.cg_calculator = ClebschGordanCalculator()
         self.bicgstab_tol = 1e-5
-        #self._set_up_spherical_harmonics()
-        #self._calc_valence_wavefunctions()
-
-    def _set_up_spherical_harmonics(self):
-        max_total_angular_momentum = len(self.all_electron_atom.channels)
-        self.spherical_harmonics = {
-            l : 
-            [
-                np.array([sph_harm(m, l, phi,theta) 
-                          for theta,phi in itertools.product(self.theta_grid, self.phi_grid)])
-                for m in range(-l, l)
-            ] 
-            for l in range(max_total_angular_momentum)
-        }
-                
-
-    #Extract valence wavefunctions as function of (r,theta,phi)
-    def _calc_valence_wavefunctions(self):
-        self.valence_wfs = {
-            l : 
-            [
-                (np.kron(n_Rfunc[1], spherical_harm), channel.e_n[n_Rfunc[0]])
-
-                for n_Rfunc, spherical_harm in itertools.product(enumerate(channel.phi_ng), self.spherical_harmonics[l])
-            ] 
-            for l, channel in enumerate(self.all_electron_atom.channels)
-        }   
+        
+   
 
 
     def calculate_analytical_chi_channel(self, angular_number, num_levels, omega = 0, temp = 0, chemical_potential = None, eta = 0.0001):
@@ -465,7 +418,7 @@ class AllElectronResponse:
             Pv += np.outer(wf, wf.conj())
 
 
-        assert Pv.shape == (22,22)
+        
         assert np.allclose(np.dot(Pv, Pv), Pv)
         return Pv
 
