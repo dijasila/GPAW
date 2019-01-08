@@ -56,14 +56,14 @@ Git master branch
 
 * New Jupyter notebooks added for teaching DFT and many-body methods.  Topics
   cover: :ref:`catalysis`, :ref:`magnetism`, :ref:`machinelearning`,
-  :ref:`photovoltaics` :ref:`batteries` and :ref:`intro`.
+  :ref:`photovoltaics`, :ref:`batteries` and :ref:`intro`.
 
 * New experimental local **k**-point refinement feature:
   :git:`gpaw/test/kpt_refine.py`.
 
 * A module and tutorial have been added for calculating electrostatic
   corrections to DFT total energies for charged systems involving localised
-  :ref:`defects`.
+  defects: :ref:`defects`.
 
 * Default for FFTW planning has been changed from ``ESTIMATE`` to ``MEASURE``.
   See :class:`gpaw.wavefunctions.pw.PW`.
