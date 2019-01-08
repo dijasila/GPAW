@@ -8,7 +8,7 @@ if world.size > 4:
     # Grid is so small that domain decomposition cannot exceed 4 domains
     assert world.size % 4 == 0
     group, other = divmod(world.rank, 4)
-    ranks = np.arange(4*group, 4*(group+1))
+    ranks = np.arange(4 * group, 4 * (group + 1))
     domain_comm = world.new_communicator(ranks)
 else:
     domain_comm = world
@@ -61,7 +61,7 @@ grady.apply(a, dady)
 #   dy
 
 dady = gd.collect(dady, broadcast=True)
-assert dady[0, 0, 0] == -3.5 and abs(np.sum(dady[0, :, 0])) < 1E-12
+assert abs(dady[0, 0, 0] - -3.5) < 1e-12 and abs(np.sum(dady[0, :, 0])) < 1e-12
 
 # Check continuity of weights:
 weights = []
