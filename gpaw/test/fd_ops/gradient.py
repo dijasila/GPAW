@@ -63,3 +63,23 @@ grady.apply(a, dady)
 dady = gd.collect(dady, broadcast=True)
 assert dady[0, 0, 0] == -3.5 and abs(np.sum(dady[0, :, 0])) < 1E-12
 
+# Check continuity of weights:
+weights = []
+for x in np.linspace(-0.6, 0.6, 130, True):
+    gd = GridDescriptor((3, 3, 3),
+                        ((3.0, 0.0, 0.0),
+                         (3 * x, 1.5 * 3**0.5, 0.0),
+                         (0.0, 0.0, 3)),
+                        comm=domain_comm)
+    g = Gradient(gd, v=0)
+    for c, o in zip(g.coef_p, g.offset_pc):
+        if (o == (-1, 1, 0)).all():
+            break
+    else:
+        c = 0.0
+    weights.append(c)
+
+if 0:
+    import matplotlib.pyplot as plt
+    plt.plot(weights)
+    plt.show()
