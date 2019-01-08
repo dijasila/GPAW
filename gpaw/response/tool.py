@@ -106,15 +106,17 @@ def get_chi0_integrand(pair, pd, n_n, m_m, k_v, s):
     return n_nmG, df_nm, eps_n, eps_m
 
 
-def get_degeneracy_matrix(eps_n, tol=1.e-6):
+def get_degeneracy_matrix(eps_n, tol=1.e-3):
     """
     Generate a matrix that can sum over degenerate values.
     """
     degmat = []
+    eps_N = []
     nn = len(eps_n)
     nstart = 0
     while nstart < nn:
         deg = [0] * nstart + [1]
+        eps_N.append(eps_n[nstart])
         for n in range(nstart + 1, nn):
             if abs(eps_n[nstart] - eps_n[n]) < tol:
                 deg += [1]
@@ -125,7 +127,11 @@ def get_degeneracy_matrix(eps_n, tol=1.e-6):
         degmat.append(deg)
         nstart += 1
 
-    return np.array(degmat)
+    return np.array(degmat), np.array(eps_N)
+
+
+def get_individual_transition_strengths(n_nmG, df_nm, G1, G2):
+    return (df_nm * n_nmG[:, :, G1] * n_nmG[:, :, G2].conj()).real
 
 
 def find_peaks(x, y, threshold=None):
