@@ -783,7 +783,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             self.dedepsilon = dedecut * 2 / 3 * self.ecut
 
     def get_pseudo_partial_waves(self):
-        return PWLFC([setup.get_actual_atomic_orbitals()
+        return PWLFC([setup.get_partial_waves_for_atomic_orbitals()
                       for setup in self.setups], self.pd)
 
     def __str__(self):
