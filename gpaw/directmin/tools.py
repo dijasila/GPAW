@@ -1,91 +1,38 @@
 import numpy as np
 from gpaw.utilities.lapack import diagonalize
-from gpaw.utilities.blas import mmm
 
 
-def expm_ed(A, evalevec=False):
+def expm_ed(a_mat, evalevec=False, use_numpy=True):
 
     """
-    calcualte matrix exponential
-    through eigendecomposition of matrix A
+    calculate matrix exponential
+    using eigendecomposition of matrix a_mat
 
-    :param A: to be exponented
-    :param evalevec: if True then return eigenvalues
+    :param a_mat: matrix to be exponented
+    :param evalevec: if True then returns eigenvalues
                      and eigenvectors of A
+    :param use_numpy: if True use numpy for eigendecomposition,
+                      otherwise use gpaw's diagonalize
+
     :return:
     """
 
-    evec = 1.0j * A
-    eval = np.empty(A.shape[0])
-    diagonalize(evec, eval)
-
-    if evalevec:
-        if A.dtype == float:
-            return np.dot(evec.T.conj() * np.exp(-1.0j*eval),
-                          evec).real, evec, eval
-        else:
-            return np.dot(evec.T.conj() * np.exp(-1.0j * eval),
-                          evec), evec, eval
-
+    if use_numpy:
+        eigval, evec = np.linalg.eigh(1.0j * a_mat)
+        evec = evec.T.conj()
     else:
-        if A.dtype == float:
-            return np.dot(evec.T.conj() * np.exp(-1.0j * eval),
-                          evec).real
-        else:
-            return np.dot(evec.T.conj() * np.exp(-1.0j * eval),
-                          evec)
+        evec = 1.0j * a_mat
+        eigval = np.empty(a_mat.shape[0])
+        diagonalize(evec, eigval)
 
+    product = np.dot(evec.T.conj() * np.exp(-1.0j * eigval), evec)
 
-def expm_ed_numpy(A, evalevec=False):
-    eval, evec = np.linalg.eigh(1.0j * A)
+    if a_mat.dtype == float:
+        product = product.real
     if evalevec:
-        if A.dtype == float:
-            return np.dot(evec * np.exp(-1.0j*eval),
-                          evec.T.conj()).real, evec.T.conj(), eval
-        else:
-            return np.dot(evec * np.exp(-1.0j * eval),
-                          evec.T.conj()), evec.T.conj(), eval
+        return product, evec, eigval
 
-    else:
-        if A.dtype == float:
-            return np.dot(evec * np.exp(-1.0j * eval),
-                          evec.T.conj()).real
-        else:
-            return np.dot(evec * np.exp(-1.0j * eval),
-                          evec.T.conj())
-
-
-def expm_ed2(A, evalevec=False):
-
-    """
-    calcualte matrix exponential
-    through eigendecomposition of matrix A
-
-    :param A: to be exponented
-    :param evalevec: if True then return eigenvalues
-                     and eigenvectors of A
-    :return:
-    """
-
-    evec = 1.0j * A
-    eval = np.empty(A.shape[0])
-    diagonalize(evec, eval)
-
-    x = np.ascontiguousarray(evec.T.conj() * np.exp(-1.0j * eval))
-    exp_mat = np.empty_like(evec)
-    mmm(1.0, x, 'N', evec, 'N', 0.0, exp_mat)
-
-    if evalevec:
-        if A.dtype == float:
-            return exp_mat.real, evec, eval
-        else:
-            return exp_mat, evec, eval
-
-    else:
-        if A.dtype == float:
-            return exp_mat.real
-        else:
-            return exp_mat
+    return product
 
 
 def D_matrix(omega):

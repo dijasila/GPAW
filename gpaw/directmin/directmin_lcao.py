@@ -1,7 +1,7 @@
 from ase.units import Hartree
 import numpy as np
 from gpaw.utilities.blas import mmm  # , dotc, dotu
-from gpaw.directmin.tools import D_matrix, expm_ed_numpy  # , expm_ed
+from gpaw.directmin.tools import D_matrix, expm_ed
 from gpaw.directmin.sd_lcao import SteepestDescent, FRcg, HZcg, \
     QuickMin, LBFGS, LBFGS_P
 from gpaw.directmin.ls_lcao import UnitStepLength, \
@@ -304,7 +304,7 @@ class DirectMinLCAO(DirectLCAO):
                     # this method is based on diagonalisation
                     wfs.timer.start('Eigendecomposition')
                     u_nn, self.evecs[k], self.evals[k] =\
-                        expm_ed_numpy(a_mat_u[k], evalevec=True)
+                        expm_ed(a_mat_u[k], evalevec=True)
                     wfs.timer.stop('Eigendecomposition')
 
                 kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
