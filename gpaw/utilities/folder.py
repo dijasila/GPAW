@@ -2,6 +2,7 @@ import numpy as np
 
 from gpaw.gauss import Gauss, Lorentz
 
+
 class Voigt:
     """Voigt profile.
 
@@ -45,17 +46,18 @@ class Voigt:
         "setting fwhm is not uniquely defined"
         raise NotImplementedError
 
+
 class ComplexLorentz:
     def __init__(self, width=0.08):
         self.dtype = complex
         self.set_width(width)
         
     def get(self, x, x0):
-        return 0.5 / x0 * (((x + x0) / ((x + x0)**2 + self.width2)
-                            - (x - x0) / ((x - x0)**2 + self.width2))
-                           - 1.0j * self.width *
-                           (1 / ((x + x0)**2 + self.width2)
-                            - 1 / ((x - x0)**2 + self.width2))
+        return 0.5 / x0 * (((x + x0) / ((x + x0)**2 + self.width2) -
+                            (x - x0) / ((x - x0)**2 + self.width2)) -
+                           1.0j * self.width *
+                           (1 / ((x + x0)**2 + self.width2) -
+                            1 / ((x - x0)**2 + self.width2))
                            )
         
     def set_width(self, width=0.08):
@@ -71,11 +73,11 @@ class ComplexGauss:
     def get(self, x, x0):
         from scipy.special import dawsn
         return 0.5 / x0 * (2 * self.wm1 *
-                           (dawsn((x + x0) * self.wm1)
-                            - dawsn((x - x0) * self.wm1))
-                           - 1.0j * self.norm *
-                           (np.exp(-((x + x0) * self.wm1)**2)
-                            - np.exp(-((x - x0) * self.wm1)**2))
+                           (dawsn((x + x0) * self.wm1) -
+                            dawsn((x - x0) * self.wm1)) -
+                           1.0j * self.norm *
+                           (np.exp(-((x + x0) * self.wm1)**2) -
+                            np.exp(-((x - x0) * self.wm1)**2))
                            )
     
     def set_width(self, width=0.08):
