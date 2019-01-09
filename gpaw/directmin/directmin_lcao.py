@@ -532,14 +532,13 @@ class DirectMinLCAO(DirectLCAO):
     def update_preconditioning_and_ref_orbitals(self, ham, wfs, occ,
                                                 use_prec):
         counter = self.update_ref_orbs_counter
-        if self.iters % counter == 0 or self.iters == 1:
-            if self.iters > 1:
-                # print('update')
-                # we need to update eps_n, f_n
-                super().iterate(ham, wfs)
-                occ.calculate(wfs)
-                # probably choose new reference orbitals?
-                self.initialize_2(wfs)
+        if self.iters % counter == 0 and self.iters > 1:
+            # print('update')
+            # we need to update eps_n, f_n
+            super().iterate(ham, wfs)
+            occ.calculate(wfs)
+            # probably choose new reference orbitals?
+            self.initialize_2(wfs)
         if use_prec:
             if self.sda != 'LBFGS_P':
                 if self.iters % counter == 0 or self.iters == 1:
