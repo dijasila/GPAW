@@ -526,8 +526,8 @@ class Hamiltonian:
                                                       wfs):
         """
         better agreement between gradients of energy and
-        the total energy during the direct minimisation
-        when the line search is used.
+        the total energy during the direct minimisation.
+        This is important when the line search is used.
         Also avoids using the eigenvalues which are
         not calculated during the direct minimisation.
 
