@@ -239,7 +239,8 @@ class Hamiltonian:
             assert wfs is not None
             with self.timer('New Kinetic Energy'):
                 energies[0] = \
-                    self.calculate_kinetic_energy_using_density_matrix(density, wfs)
+                    self.calculate_kinetic_energy_using_kin_en_matrix(
+                        density, wfs)
 
         (self.e_kinetic0, self.e_coulomb, self.e_zero,
          self.e_external, self.e_xc) = energies
@@ -522,9 +523,10 @@ class Hamiltonian:
             self.poisson.read(reader)
             self.poisson.set_grid_descriptor(self.finegd)
 
-    def calculate_kinetic_energy_using_density_matrix(self, density,
-                                                      wfs):
+    def calculate_kinetic_energy_using_kin_en_matrix(self, density,
+                                                     wfs):
         """
+        E_k = \sum_{M'M} \rho_MM' T_M'M
         better agreement between gradients of energy and
         the total energy during the direct minimisation.
         This is important when the line search is used.
@@ -532,7 +534,7 @@ class Hamiltonian:
         not calculated during the direct minimisation.
 
         'calculate_kinetic_energy' method gives a correct
-        value only at self-consistent solution.
+        value of kinetic energy only at self-consistent solution.
 
         :param density:
         :param wfs:
@@ -543,11 +545,29 @@ class Hamiltonian:
         e_kin_paw = 0.0
 
         for kpt in wfs.kpt_u:
-            rho_MM = \
-                wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM)
-            e_kinetic += np.einsum('ij,ji->', kpt.T_MM, rho_MM)
+            # calculation of the density matrix directly
+            # can be expansive for a large scale
+            # as there are lot of empty states
+            # when the exponential transformation is used
+            # (n_bands=n_basis_functions.)
+            #
+            # rho_MM = \
+            #     wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM)
+            # e_kinetic += np.einsum('ij,ji->', kpt.T_MM, rho_MM)
+            #
+            # the code below is faster
+            self.timer.start('Pseudo part')
+            n_occ = 0
+            nbands = len(kpt.f_n)
+            while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
+                n_occ += 1
+            x_nn = np.dot(kpt.C_nM[:n_occ],
+                          np.dot(kpt.T_MM,
+                                 kpt.C_nM[:n_occ].T.conj())).real
+            e_kinetic += np.einsum('i,ii->', kpt.f_n[:n_occ], x_nn)
+            self.timer.stop('Pseudo part')
+        # del rho_MM
 
-        del rho_MM
         e_kinetic = wfs.kd.comm.sum(e_kinetic)
         # paw corrections
         for a, D_sp in density.D_asp.items():
