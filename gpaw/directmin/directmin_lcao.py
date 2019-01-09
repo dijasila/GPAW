@@ -623,7 +623,6 @@ class DirectMinLCAO(DirectLCAO):
         return np.inf
 
     def get_canonical_representation(self, ham, wfs, dens, occ):
-        return
 
         # choose canonical orbitals which diagonalise
         # lagrange matrix. need to do subspace rotation with equally
@@ -637,6 +636,8 @@ class DirectMinLCAO(DirectLCAO):
         occ.calculate(wfs)
         self.initialize_2(wfs)
         self.update_ks_energy(ham, wfs, dens, occ)
+
+        return
 
     def reset(self):
         self._error = np.inf
