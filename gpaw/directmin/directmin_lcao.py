@@ -66,6 +66,11 @@ class DirectMinLCAO(DirectLCAO):
                        'Line search: {}\n'.format(lss[self.lsa])
         repr_string += '       ' \
                        'Preconditioning: {}\n'.format(self.use_prec)
+        repr_string += '       ' \
+                       'WARNING: do not use it for metals as ' \
+                       'occupation numbers are\n' \
+                       '                ' \
+                       'not found variationally\n'
 
         return repr_string
 
