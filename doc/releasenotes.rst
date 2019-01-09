@@ -29,7 +29,14 @@ Git master branch
     in the  stencils.  This allows for creating stencils that have all the
     crystal symmetries.
 
+* Wavefunctions are now updated when the atomic positions change by
+  default, improving the initial wavefunctions across geometry steps.
+  Corresponds to ``GPAW(experimental={'reuse_wfs_method': 'paw'})``.
+  To get the old behaviour, set the option to ``'keep'`` instead.
+  The option is disabled for TDDFT/Ehrenfest.
+
 * Add interface to Elpa eigensolver for LCAO mode.
+  Using Elpa is strongly recommended for large calculations.
   Use::
 
       GPAW(mode='lcao',

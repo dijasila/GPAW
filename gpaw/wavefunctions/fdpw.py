@@ -195,7 +195,7 @@ class FDPWWaveFunctions(WaveFunctions):
         self.scalapack_parameters = parallel
 
         self.initksl = initksl
-        if reuse_wfs_method is None:
+        if reuse_wfs_method is None or reuse_wfs_method == 'keep':
             wfs_mover = NullWfsMover()
         elif hasattr(reuse_wfs_method, 'cut_wfs'):
             wfs_mover = reuse_wfs_method
