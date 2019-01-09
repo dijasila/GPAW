@@ -405,7 +405,7 @@ class DirectMinLCAO(DirectLCAO):
         timer.start('Construct Gradient Matrix')
         h_mm = f_n * h_mm - f_n[:, np.newaxis] * h_mm
         if self.use_scipy:
-            timer.start('Derivative')
+            # timer.start('Frechet derivative')
             # frechet derivative, unfortunately it calculates unitary
             # matrix which we already calculated before. Could it be used?
             # it also requires a lot of memory so don't use it now
@@ -413,33 +413,13 @@ class DirectMinLCAO(DirectLCAO):
             #                        compute_expm=True,
             #                        check_finite=False)
             # grad = grad @ u.T.conj()
+            # timer.stop('Frechet derivative')
             if self.sparse:
                 grad = np.ascontiguousarray(h_mm[self.ind_up])
             else:
                 grad = np.ascontiguousarray(h_mm)
-            timer.stop('Derivative')
         else:
-            # this one uses eigendecomposition of a_mat
-            # expm_ed
-            # timer.start('Use Eigendecomposition')
-            # grad = evec @ h_mm.T.conj() @ evec.T.conj()
-            # grad = grad * D_matrix(evals)
-            # grad = evec.T.conj() @ grad @ evec
-            # timer.stop('Use Eigendecomposition')
-            # for i in range(grad.shape[0]):
-            #     grad[i][i] *= 0.5
 
-            # the same using mmm, doesn't seem to be faster though
-            # grad = np.empty_like(evec)
-            # h_mm = h_mm.astype(complex)
-            # mmm(1.0, h_mm, 'N', evec, 'N', 0.0, grad)
-            # mmm(1.0, grad, 'C', evec, 'N', 0.0, h_mm)
-            # # do we have this operation in blas?
-            # grad = h_mm * D_matrix(evals)
-            # mmm(1.0, evec, 'N', grad, 'N', 0.0, h_mm)
-            # mmm(1.0, h_mm, 'N', evec, 'C', 0.0, grad)
-
-            # expm_ed_numpy
             timer.start('Use Eigendecomposition')
             grad = evec.T.conj() @ h_mm @ evec
             grad = grad * D_matrix(evals)
