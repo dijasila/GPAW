@@ -238,8 +238,8 @@ class Hamiltonian:
         if not kin_en_using_band:
             assert wfs is not None
             with self.timer('New Kinetic Energy'):
-                energies[0] = self.calculate_kinetic_energy_2(density,
-                                                              wfs)
+                energies[0] = \
+                    self.calculate_kinetic_energy_using_density_matrix(density, wfs)
 
         (self.e_kinetic0, self.e_coulomb, self.e_zero,
          self.e_external, self.e_xc) = energies
@@ -522,7 +522,22 @@ class Hamiltonian:
             self.poisson.read(reader)
             self.poisson.set_grid_descriptor(self.finegd)
 
-    def calculate_kinetic_energy_2(self, density, wfs):
+    def calculate_kinetic_energy_using_density_matrix(self, density,
+                                                      wfs):
+        """
+        better agreement between gradients of energy and
+        the total energy during the direct minimisation
+        when the line search is used.
+        Also avoids using the eigenvalues which are
+        not calculated during the direct minimisation.
+
+        'calculate_kinetic_energy' method gives a correct
+        value only at self-consistent solution.
+
+        :param density:
+        :param wfs:
+        :return: total kinetic energy
+        """
         # pseudo-part
         e_kinetic = 0.0
         e_kin_paw = 0.0
