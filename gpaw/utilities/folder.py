@@ -31,7 +31,7 @@ class Voigt:
         """Full width at half maximum approximation after
         Olivero, J. J.; R. L. Longbothum
         "Empirical fits to the Voigt line width: A brief review"
-        J. Quantitative Spectroscopy and Radiative Transfer. 17 (1977) 233–236
+        J. Quantitative Spectroscopy and Radiative Transfer. 17 (1977) 233-236
         """
         fl = 2 * self.delta
         fg = np.sqrt(8 * np.log(2)) * self.sigma
