@@ -94,7 +94,9 @@ class ElectrostaticCorrections:
             Elp += 2.0 * np.pi / (epsilon * self.Omega) * rho * rho / G2
         El = (Elp - self.q * self.q
               / (2 * epsilon * self.sigma * np.sqrt(np.pi))) * Ha
-        self.El = {'El': El, 'epsilon': epsilon}
+        self.El = {'Elp': Elp,
+                   'Eli': Elp - El / Ha,
+                   'El': El, 'epsilon': epsilon}
         return El
 
     def calculate_z_avg_model_potential(self, epsilon):

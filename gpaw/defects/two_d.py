@@ -45,7 +45,7 @@ class ElectrostaticCorrections2D(ElectrostaticCorrections):
         self.Elp = None
         self.epsilon_GG = None
         
-    def set_epsilons(self, epsilons):
+    def set_epsilons(self, epsilons, epsilon_bulk=1):
         """Set the bulk dielectric constant of the system corresponding to the atomic
         configuration of the pristine system. This is used to calculate the
         screened coulomb potential of the gaussian model distribution that we
@@ -66,6 +66,9 @@ class ElectrostaticCorrections2D(ElectrostaticCorrections):
             to be the same. If two floats are given, the first represents the
             in-plane response, and the second represents the out-of-plane
             response.
+          epsilon_bulk: The value of the screening far away from the system,
+            given in the same format as epsilons. In most cases, this will be
+            1, corresponding to vacuum.
 
         Returns:
             epsilons_z: dictionary containnig the normalized dielectric
@@ -78,11 +81,18 @@ class ElectrostaticCorrections2D(ElectrostaticCorrections):
         self.Eli = None
         self.epsilon_GG = None
 
-        if isinstance(epsilons, numbers.Number):
-            epsilons = [epsilons, epsilons]
-        elif len(epsilons) == 1:
-            epsilons = [epsilons[0]] * 2
-        self.epsilons = np.array(epsilons)
+        def normalize(value):
+            if isinstance(value, numbers.Number):
+                value = [value, value]
+            elif len(value) == 1:
+                value = [value[0]] * 2
+            return np.array(value)
+        
+        epsilons = normalize(epsilons)
+        self.epsilons = epsilons
+        eb = normalize(epsilon_bulk)
+        self.eb = eb
+        eb = self.eb
 
         z = self.z_g
         density_1d = self.density_1d
@@ -92,18 +102,18 @@ class ElectrostaticCorrections2D(ElectrostaticCorrections):
         epsilons_z += density_1d
 
         # In-plane
-        epsilons_z[0] = epsilons_z[0] * (epsilons[0] - 1) / N * L + 1
+        epsilons_z[0] = epsilons_z[0] * (epsilons[0] - eb[0]) / N * L + eb[0]
 
         # Out-of-plane
         def objective_function(k):
             k = k[0]
-            integral = simps(1 / (k * density_1d + 1), z) / L
+            integral = simps(1 / (k * density_1d + eb[1]), z) / L
             return np.abs(integral - 1 / epsilons[1])
 
         test = minimize(objective_function, [1], method='Nelder-Mead')
         assert test.success, "Unable to normalize dielectric profile"
         k = test.x[0]
-        epsilons_z[1] = epsilons_z[1] * k + 1
+        epsilons_z[1] = epsilons_z[1] * k + eb[1]
         self.epsilons_z = {'in-plane': epsilons_z[0],
                            'out-of-plane': epsilons_z[1]}
 
@@ -160,12 +170,12 @@ class ElectrostaticCorrections2D(ElectrostaticCorrections):
             if np.allclose(vector * vector, 0):
                 A_GG[0, 0] = 1  # The d.c. potential is poorly defined
             V_G = np.linalg.solve(A_GG, rho_G)
-            if np.allclose(vector * vector, 0):
+            if np.allclose(vector, 0):
                 parprint('Skipping G^2=0 contribution to Elp')
                 V_G[0] = 0  # So we skip it!
-            Elp += (rho_G * V_G).sum()
+            Elp += (rho_G * V_G).sum() * 2.0 * np.pi
 
-        Elp *= 2 * np.pi / self.Omega
+        Elp *= 1. / self.Omega
         self.Elp = Elp
         return Elp
 
@@ -177,29 +187,30 @@ class ElectrostaticCorrections2D(ElectrostaticCorrections):
         G_z = self.G_z
 
         G, Gprime = np.meshgrid(G_z, G_z)
-        gaussian = (G ** 2 + Gprime ** 2) * self.sigma ** 2 / 2
+        Delta_GG = G - Gprime
+        phase = Delta_GG * self.z0
+        gaussian = (Gprime ** 2 + G ** 2) * self.sigma ** 2 / 2
 
-        prefactor = np.exp(- gaussian)
+        prefactor = np.exp(1j * phase - gaussian)
 
         if self.epsilon_GG is None:
             self.calculate_epsilon_GG()
 
-        dE_GG_par = (self.epsilon_GG['in-plane'] - 1)
-        dE_GG_perp = (self.epsilon_GG['out-of-plane'] - 1)
+        dE_GG_par = (self.epsilon_GG['in-plane']
+                     - self.eb[0] * np.eye(len(self.G_z)))
+        dE_GG_perp = (self.epsilon_GG['out-of-plane']
+                      - self.eb[1] * np.eye(len(self.G_z)))
 
         def integrand(k):
-            K_G = (L * (k ** 2 + G_z ** 2) /
+            K_G = ((L * (self.eb[0] * k ** 2 + self.eb[1] * G_z ** 2)) /
                    (1 - np.exp(-k * L / 2) * np.cos(L * G_z / 2)))
             K_GG = np.diag(K_G)
-            D_GG = K_GG + L * 0 * (self.GG * dE_GG_perp
-                                   + k ** 2 * dE_GG_par)
+            D_GG = K_GG + dE_GG_perp * self.GG + dE_GG_par * k ** 2
             return (k * np.exp(-k ** 2 * self.sigma ** 2) *
-                    (prefactor * 1 / (D_GG)).sum())
+                    (prefactor * np.linalg.inv(D_GG)).sum())
 
-        Eli = self.q * self.q * integrate.quad(integrand, 1e-10, np.inf,
-                                               limit=500)
-        self.debug_k = np.linspace(0, 10, 1000)
-        self.debug_U = np.array([integrand(x) for x in self.debug_k])
+        I = integrate.quad(integrand, 0, np.inf, limit=500)
+        Eli = self.q * self.q * I[0]
         self.Eli = Eli
         return Eli
     
