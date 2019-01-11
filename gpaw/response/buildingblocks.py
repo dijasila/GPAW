@@ -112,7 +112,7 @@ def GrapheneBB(path, doping):
     c = 137.0
     vf = c / 300
     kf = Ef / vf
-    tau = 1 / (1e-10 / Hartree)
+    tau = 1 / (1e-3 / Hartree)
 
     # Auxiliary functions
     def F(x):
@@ -124,9 +124,9 @@ def GrapheneBB(path, doping):
     prefactor = vf**(-2)
 
     # Real part of the Polarizability
-    def P(q, w):
-        q_qw = q[:, None]
-        w_qw = w[None, :]
+    def P(q_q, w_w):
+        q_qw = q_q[:, None]
+        w_qw = w_w[None, :]
         a = -2 * vf * kf / np.pi
         b = 1 / (4 * np.pi) * \
             (vf * q_qw)**2 / (w_qw**2 - (vf * q_qw)**2)**0.5
@@ -138,7 +138,7 @@ def GrapheneBB(path, doping):
         C1 = C((2 * vf * kf + w_qw) / (vf * q_qw))
         C2 = C((2 * vf * kf - w_qw) / (vf * q_qw))
 
-        Pol_qw = np.zeros((len(q), len(w)), complex)
+        Pol_qw = np.zeros((len(q_q), len(w_w)), complex)
         Pol_qw[:, :] = a
 
         # Region I
@@ -154,7 +154,7 @@ def GrapheneBB(path, doping):
 
         # Region III
         mask3 = np.real(w_qw) - vf * q_qw >= 2 * vf * kf
-        Pol_qw += mask3 * b * (F1 - F2 - 1j)
+        Pol_qw += mask3 * b * (F1 - F2 - 1j) * np.pi
 
         # Region IV
         mask4 = (vf * q_qw >= np.real(w_qw)) * \
@@ -202,8 +202,7 @@ def GrapheneBB(path, doping):
     chiM_qw = chi0M_qw / (1 - chi0M_qw * V_q[:, None])
 
     # Renormalize monopole density
-    drhoM_qz = (block['drhoM_qz']) # *
-                # block['chiM_qw'][:, 0, None] / chiM_qw[:, 0, None])
+    drhoM_qz = block['drhoM_qz']
 
     data = {'isotropic_q': True,
             'q_abs': q_q,
