@@ -4,21 +4,24 @@ import os
 
 import numpy as np
 
-if 'GPAW_FFTWSO' in os.environ:
-    fftwlibnames = [os.environ['GPAW_FFTWSO']]
-    if '' in fftwlibnames:
-        fftwlibnames.remove('')  # GPAW_FFTWSO='' for numpy fallback!
-else:
-    fftwlibnames = ['libmkl_rt.so', 'libmkl_intel_lp64.so', 'libfftw3.so']
+import _gpaw
 
-lib = None
-for libname in fftwlibnames:
-    try:
-        import ctypes
-        lib = ctypes.CDLL(libname)
-        break
-    except (ImportError, OSError):
-        pass
+if 0:
+    if 'GPAW_FFTWSO' in os.environ:
+        fftwlibnames = [os.environ['GPAW_FFTWSO']]
+        if '' in fftwlibnames:
+            fftwlibnames.remove('')  # GPAW_FFTWSO='' for numpy fallback!
+    else:
+        fftwlibnames = ['libmkl_rt.so', 'libmkl_intel_lp64.so', 'libfftw3.so']
+
+    lib = None
+    for libname in fftwlibnames:
+        try:
+            import ctypes
+            lib = ctypes.CDLL(libname)
+            break
+        except (ImportError, OSError):
+            pass
 
 ESTIMATE = 64
 MEASURE = 0
@@ -53,9 +56,17 @@ def get_efficient_fft_size(N, n=1):
 class FFTWPlan:
     """FFTW3 3d transform."""
     def __init__(self, in_R, out_R, sign, flags=MEASURE):
+        self._ptr = _gpaw.FFTWPlan(in_R, out_R, sign, flags)
+        self.in_R = in_R
+        self.out_R = out_R
+        self.sign = sign
+        self.flags = flags
+        return
+
         if in_R.dtype == float:
             assert sign == -1
             n0, n1, n2 = in_R.shape
+
             self.plan = lib.fftw_plan_dft_r2c_3d(n0, n1, n2,
                                                  in_R, out_R, flags)
         elif out_R.dtype == float:
@@ -69,12 +80,13 @@ class FFTWPlan:
                                              in_R, out_R, sign, flags)
 
     def execute(self):
-        lib.fftw_execute(self.plan)
+        _gpaw.FFTWExecute(self._ptr)
+        #lib.fftw_execute(self.plan)
 
-    def __del__(self, lib=lib):
-        # We keep a reference to lib so that it's not GC'ed before we have
-        # cleaned up.
-        lib.fftw_destroy_plan(self.plan)
+    def __del__(self):
+        if getattr(self, '_ptr', None):
+            _gpaw.FFTWDestroy(self._ptr)
+        self._ptr = None
 
 
 class NumpyFFTPlan:
@@ -108,39 +120,40 @@ def empty(shape, dtype=float):
     return a
 
 
-if lib is None:
+if 0:#lib is None:
     FFTPlan = NumpyFFTPlan
 else:
     FFTPlan = FFTWPlan
 
-    lib.fftw_execute.argtypes = [ctypes.c_void_p]
-    lib.fftw_destroy_plan.argtypes = [ctypes.c_void_p]
+    if 0:
+        lib.fftw_execute.argtypes = [ctypes.c_void_p]
+        lib.fftw_destroy_plan.argtypes = [ctypes.c_void_p]
 
-    lib.fftw_plan_dft_3d.argtypes = [
-        ctypes.c_int, ctypes.c_int, ctypes.c_int,
-        np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
-        np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
-        ctypes.c_int, ctypes.c_uint]
-    lib.fftw_plan_dft_3d.restype = ctypes.c_void_p
+        lib.fftw_plan_dft_3d.argtypes = [
+            ctypes.c_int, ctypes.c_int, ctypes.c_int,
+            np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
+            np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
+            ctypes.c_int, ctypes.c_uint]
+        lib.fftw_plan_dft_3d.restype = ctypes.c_void_p
 
-    lib.fftw_plan_dft_r2c_3d.argtypes = [
-        ctypes.c_int, ctypes.c_int, ctypes.c_int,
-        np.ctypeslib.ndpointer(dtype=float, ndim=3),
-        np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
-        ctypes.c_uint]
-    lib.fftw_plan_dft_r2c_3d.restype = ctypes.c_void_p
+        lib.fftw_plan_dft_r2c_3d.argtypes = [
+            ctypes.c_int, ctypes.c_int, ctypes.c_int,
+            np.ctypeslib.ndpointer(dtype=float, ndim=3),
+            np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
+            ctypes.c_uint]
+        lib.fftw_plan_dft_r2c_3d.restype = ctypes.c_void_p
 
-    lib.fftw_plan_dft_c2r_3d.argtypes = [
-        ctypes.c_int, ctypes.c_int, ctypes.c_int,
-        np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
-        np.ctypeslib.ndpointer(dtype=float, ndim=3),
-        ctypes.c_uint]
-    lib.fftw_plan_dft_c2r_3d.restype = ctypes.c_void_p
+        lib.fftw_plan_dft_c2r_3d.argtypes = [
+            ctypes.c_int, ctypes.c_int, ctypes.c_int,
+            np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
+            np.ctypeslib.ndpointer(dtype=float, ndim=3),
+            ctypes.c_uint]
+        lib.fftw_plan_dft_c2r_3d.restype = ctypes.c_void_p
 
-    try:
-        lib.fftw_plan_with_nthreads.argtypes = [ctypes.c_int]
-    except AttributeError:
-        pass  # We have a single-threaded FFTW
-    else:
-        if not lib.fftw_init_threads():
-            raise RuntimeError('fftw_init_threads failed')
+        try:
+            lib.fftw_plan_with_nthreads.argtypes = [ctypes.c_int]
+        except AttributeError:
+            pass  # We have a single-threaded FFTW
+        else:
+            if not lib.fftw_init_threads():
+                raise RuntimeError('fftw_init_threads failed')
