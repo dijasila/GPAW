@@ -232,7 +232,7 @@ def phonon_polarizability(bb, Z_avv, freqs, modes, m_a, cell_cv):
 
     alpha_wvv = np.zeros((len(omega_w), 3, 3), dtype=complex)
     m_x = np.repeat(m_a, 3)**0.5
-    gamma = 0e-3 / Hartree
+    gamma = 0.1e-3 / Hartree
     for f2, D_x in zip(f2_w, D_xw.T):
         if f2 < (1e-3 / Hartree)**2:
             continue
@@ -257,10 +257,8 @@ def phonon_polarizability(bb, Z_avv, freqs, modes, m_a, cell_cv):
     chi0Dnew_qw += chiD_qw / (1 + Vd_qw * chiD_qw)
     chiMnew_qw = chi0Mnew_qw / (1 - Vm_qw * chi0Mnew_qw)
     chiDnew_qw = chi0Dnew_qw / (1 - Vd_qw * chi0Dnew_qw)
-    rhoMnew_qz = bb['drhoM_qz']  # * bb['chiM_qw'][:, 0, None]
-    # rhoMnew_qz /= chiMnew_qw[:, 0, None]
-    rhoDnew_qz = bb['drhoD_qz']  # * bb['chiD_qw'][:, 0, None]
-    # rhoDnew_qz /= chiDnew_qw[:, 0, None]
+    rhoMnew_qz = bb['drhoM_qz']
+    rhoDnew_qz = bb['drhoD_qz']
     
     newbb['chiM_qw'] = chiMnew_qw
     newbb['chiD_qw'] = chiDnew_qw
