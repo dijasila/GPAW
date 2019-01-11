@@ -140,6 +140,9 @@ if libvdwxc:
 if elpa:
     define_macros.append(('GPAW_WITH_ELPA', '1'))
 
+if fftw:
+    define_macros.append(('GPAW_WITH_FFTW', '1'))
+
 # distutils clean does not remove the _gpaw.so library and gpaw-python
 # binary so do it here:
 plat = distutils.util.get_platform()
