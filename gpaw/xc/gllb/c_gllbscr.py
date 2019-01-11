@@ -12,12 +12,13 @@ K_G = 0.382106112167171
 
 class C_GLLBScr(Contribution):
     def __init__(self, nlfunc, weight, functional='GGA_X_B88', width=None,
-                 eps=0.05, damp=1e-10):
+                 eps=0.05, damp=1e-10, metallic=False):
         Contribution.__init__(self, nlfunc, weight)
         self.functional = functional
         self.old_coeffs = None
         self.iter = 0
         self.damp = damp
+        self.metallic = metallic
         if width is not None:
             width = width / 27.21
         self.eps = eps / 27.21
@@ -112,10 +113,14 @@ class C_GLLBScr(Contribution):
         #    if kpt_u[0].C_nM is None:
         #        return None
 
-        if homolumo is None:
+        eref_s = []
+        eref_lumo_s = []
+        if self.metallic:
+            for s in range(nspins):
+                eref_s.append(self.occupations.get_fermi_level())
+                eref_lumo_s.append(self.occupations.get_fermi_level())
+        elif homolumo is None:
             # Find homo and lumo levels for each spin
-            eref_s = []
-            eref_lumo_s = []
             for s in range(nspins):
                 homo, lumo = self.nlfunc.wfs.get_homo_lumo(s)
                 eref_s.append(homo)
