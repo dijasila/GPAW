@@ -10,7 +10,15 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.16.1b1
+* Corresponding ASE release: ASE-3.17.1b1
+
+
+Version 1.5.0
+=============
+
+11 Jan 2019: :git:`1.5.0 <../1.5.0>`
+
+* Corresponding ASE release: ASE-3.17.0.
 
 * Last release to support Python 2.7.
 
