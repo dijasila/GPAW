@@ -29,6 +29,11 @@ Git master branch
     in the  stencils.  This allows for creating stencils that have all the
     crystal symmetries.
 
+* PW-mode calculations can now be parallelized over plane-wave coefficients.
+
+* The PW-mode code is now much faster.  The "hot spots" have been moved
+  from Python to C-code.
+
 * Wavefunctions are now updated when the atomic positions change by
   default, improving the initial wavefunctions across geometry steps.
   Corresponds to ``GPAW(experimental={'reuse_wfs_method': 'paw'})``.
@@ -49,8 +54,6 @@ Git master branch
 
 * Default number of bands is now `1.2 \times N_{\text{occ}} + 4`, where
   `N_{\text{occ}}` is the number of occupied bands.
-
-* PW-mode calculations can now be parallelized over plane-wave coefficients.
 
 * Solvated jellium method has been implemented, see
   :ref:`the documentation <solvated_jellium_method>`.
