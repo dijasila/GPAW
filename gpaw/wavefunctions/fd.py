@@ -87,7 +87,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.timer.stop('Apply hamiltonian')
 
     def get_pseudo_partial_waves(self):
-        phit_aj = [setup.get_actual_atomic_orbitals()
+        phit_aj = [setup.get_partial_waves_for_atomic_orbitals()
                    for setup in self.setups]
         return LFC(self.gd, phit_aj, kd=self.kd, cut=True, dtype=self.dtype)
 

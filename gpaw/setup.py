@@ -125,16 +125,21 @@ class BaseSetup:
     def get_basis_description(self):
         return self.basis.get_description()
 
-    def get_actual_atomic_orbitals(self):
+    def get_partial_waves_for_atomic_orbitals(self):
         """Get those states phit that represent a real atomic state.
 
         This typically corresponds to the (truncated) partial waves (PAW) or
         a single-zeta basis."""
-        phit_j = []
+
+        # XXX ugly hack for pseudopotentials:
+        if not hasattr(self, 'pseudo_partial_waves_j'):
+            return []
+
         # The zip may cut off part of phit_j if there are more states than
         # projectors.  This should be the correct behaviour for all the
         # currently supported PAW/pseudopotentials.
-        for n, phit in zip(self.n_j, self.phit_j):
+        phit_j = []
+        for n, phit in zip(self.n_j, self.pseudo_partial_waves_j):
             if n > 0:
                 phit_j.append(phit)
         return phit_j
@@ -605,6 +610,12 @@ class LeanSetup(BaseSetup):
         self.rcutfilter = s.rcutfilter
         self.rcore = s.rcore
         self.basis = s.basis  # we don't need nao if we use this instead
+
+        # XXX figure out better way to store these.
+        # Refactoring: We should delete this and use psit_j.  However
+        # the code depends on psit_j being the *basis* functions sometimes.
+        if hasattr(s, 'pseudo_partial_waves_j'):
+            self.pseudo_partial_waves_j = s.pseudo_partial_waves_j
         # Can also get rid of the phit_j splines if need be
 
         self.N0_p = s.N0_p  # req. by estimate_magnetic_moments
@@ -849,9 +860,14 @@ class Setup(BaseSetup):
 
         self.pt_j = self.create_projectors(pt_jg, rcutfilter)
 
+        partial_waves = self.create_basis_functions(phit_jg, rcut2, gcut2)
+        self.pseudo_partial_waves_j = partial_waves.tosplines()
+
         if basis is None:
-            basis = self.create_basis_functions(phit_jg, rcut2, gcut2)
-        phit_j = basis.tosplines()
+            phit_j = self.pseudo_partial_waves_j
+            basis = partial_waves
+        else:
+            phit_j = basis.tosplines()
         self.phit_j = phit_j
         self.basis = basis
 

@@ -41,6 +41,8 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
 News
 ====
 
+* :ref:`GPAW version 1.5.0 <releasenotes>` released (11 Jan 2019).
+
 * :ref:`GPAW version 1.4.0 <releasenotes>` released (29 May 2018).
 
 * :ref:`GPAW version 1.3.0 <releasenotes>` released (2 October 2017).

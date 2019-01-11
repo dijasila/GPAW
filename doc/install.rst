@@ -58,9 +58,9 @@ Requirements
 ============
 
 * Python_ 2.7, 3.4-
-* NumPy_ 1.6.1 or later (base N-dimensional array package)
-* SciPy_ 0.11 or later (library for scientific computing)
-* ASE_ 3.16.0 or later (atomic simulation environment)
+* NumPy_ 1.9 or later (base N-dimensional array package)
+* SciPy_ 0.14 or later (library for scientific computing)
+* ASE_ 3.17.0 or later (atomic simulation environment)
 * a C-compiler
 * LibXC_ 2.0.1 or later
 * BLAS_ and LAPACK_ libraries
@@ -166,13 +166,13 @@ Sou can get the source from a tar-file or from Git:
 :Tar-file:
 
     You can get the source as a tar-file for the
-    latest stable release (gpaw-1.4.0.tar.gz_) or the latest
+    latest stable release (gpaw-1.5.0.tar.gz_) or the latest
     development snapshot (`<snapshot.tar.gz>`_).
 
     Unpack and make a soft link::
 
-        $ tar -xf gpaw-1.4.0.tar.gz
-        $ ln -s gpaw-1.4.0 gpaw
+        $ tar -xf gpaw-1.5.0.tar.gz
+        $ ln -s gpaw-1.5.0 gpaw
 
     Here is a `list of tarballs <https://pypi.org/simple/gpaw/>`__.
 
@@ -181,7 +181,7 @@ Sou can get the source from a tar-file or from Git:
     Alternatively, you can get the source for the latest stable release from
     https://gitlab.com/gpaw/gpaw like this::
 
-        $ git clone -b 1.4.0 https://gitlab.com/gpaw/gpaw.git
+        $ git clone -b 1.5.0 https://gitlab.com/gpaw/gpaw.git
 
     or if you want the development version::
 
@@ -197,8 +197,8 @@ folder is).
     See the :ref:`releasenotes` for which tags are available.  Also the
     dates of older releases can be found there.
 
-.. _gpaw-1.4.0.tar.gz:
-    https://pypi.org/packages/source/g/gpaw/gpaw-1.4.0.tar.gz
+.. _gpaw-1.5.0.tar.gz:
+    https://pypi.org/packages/source/g/gpaw/gpaw-1.5.0.tar.gz
 
 
 .. _customizing installation:
@@ -256,10 +256,21 @@ Instructions for running parallel calculations can be found in the
 :ref:`user manual <manual_parallel_calculations>`.
 
 
+FFTW
+====
+
+The FFTW library is linked at runtime using :mod:`ctypes`.  By default, the
+following shared library names are searched for: ``libmkl_rt.so``,
+``libmkl_intel_lp64.so`` and ``libfftw3.so``.  First one found will be
+loaded.  If no library is found, the :mod:`numpy.fft` library will be used
+instead.  The name of the FFTW shared library can also be set via the
+``$GPAW_FFTWSO`` environment variable.
+
+
 .. _libxc installation:
 
 Libxc Installation
-------------------
+==================
 
 If you OS does not have a LibXC_ package you can use then you can download
 and install LibXC_ as described `here

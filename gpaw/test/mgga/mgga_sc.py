@@ -14,5 +14,6 @@ n.calc = GPAW(xc='PBE', **getkwargs())
 n.get_potential_energy()
 n.calc.set(xc='TPSS')
 e2 = n.get_potential_energy()
-print('Energy difference', e1 - e2)
-assert abs(e1 - e2) < 1e-5
+err = abs(e2 - e1)
+print('Energy difference', err)
+assert err < 3e-5, err

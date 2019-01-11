@@ -14,7 +14,7 @@ from gpaw.sphere.lebedev import weight_n
 class MGGA(XCFunctional):
     orbital_dependent = True
 
-    def __init__(self, kernel, stencil=1):
+    def __init__(self, kernel, stencil=2):
         """Meta GGA functional."""
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
@@ -26,6 +26,12 @@ class MGGA(XCFunctional):
 
     def get_setup_name(self):
         return 'PBE'
+
+    # This method exists on GGA class as well.  Try to solve this
+    # kind of problem when refactoring MGGAs one day.
+    def get_description(self):
+        return ('{} with {} nearest neighbor stencil'
+                .format(self.name, self.stencil))
 
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.wfs = wfs
