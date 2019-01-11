@@ -97,6 +97,7 @@ else:
 mpilinker = mpicompiler
 
 compiler = None
+fftw = False
 scalapack = False
 libvdwxc = False
 elpa = False
