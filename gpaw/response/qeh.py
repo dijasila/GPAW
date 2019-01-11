@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+from pathlib import Path
 import pickle
 import numpy as np
 from math import pi
@@ -1637,9 +1638,88 @@ def read_chi_wGG(name):
     return omega_w, pd, chi_wGG, q0
 
 
-def make_heterostructure(layers, d, d0):
-    """Make a heterostructure baesd on some layers"""
+def make_heterostructure(layers,
+                         frequencies=[0.001, 0.5, 5000],
+                         momenta=[0.001, 0.04, 100],
+                         thicknesses=None,
+                         no_phonons=False):
+    """Easy function for making a heterostructure based on some layers"""
 
+    layers = layers.copy()
+
+    for il, layer in enumerate(layers):
+        if '-chi.npz' not in layer:
+            layers[il] = layer + '-chi.npz'
+
+    default_thicknesses = {'graphene': 3.22, 'BN': 3.22}
+    if thicknesses is None:
+        thicknesses = []
+        for layer in layers:
+            name = layer.split('-')[0]
+            thicknesses.append(default_thicknesses[name])
+            
+    q_q = np.linspace(*momenta)
+    omega_w = np.linspace(*frequencies)
+    # Interpolate the building blocks such that they are
+    # represented on the same q and omega grid
+    print('Interpolating building blocks to same grid')
+    interpolate_building_blocks(BBfiles=layers, q_grid=q_q, w_grid=omega_w,
+                                pad=False)
+
+    for il, layer in enumerate(layers):
+        layers[il] = layer[:-8] + '_int-chi.npz'
+    
+    # Treat graphene specially, since in this case we are using
+    # an analytical approximation of the building block
+    from gpaw.response.buildingblocks import GrapheneBB
+    for layer in set(layers):
+        if 'graphene' not in layer:
+            continue
+
+        if 'doped' not in layer:
+            doping = 0
+        else:
+            doping = float(layer.split('-doped-')[1].split('_int')[0])
+
+        newlayer = str(layer[:-8] + '_analytical-chi.npz')
+        bb = GrapheneBB(layer, doping=doping)
+        np.savez_compressed(newlayer, **bb)
+
+        for il, oldlayer in enumerate(layers):
+            if oldlayer == layer:
+                layers[il] = newlayer
+        
+    if not no_phonons:
+        # If phonon files can be found in the same
+        # directory as the building block files
+        # then add phonon contribution
+        from gpaw.response.buildingblocks import phonon_polarizability
+        for layer in set(layers):
+            phonons = Path(layer.split('_int')[0] + '-phonons.npz')
+            if not phonons.exists():
+                continue
+            print('Adding phonon contributions for {}'.format(layer))
+            dct = np.load(str(phonons))
+
+            Z_avv, freqs, modes, masses, cell = (dct['Z_avv'],
+                                                 dct['freqs'],
+                                                 dct['modes'],
+                                                 dct['masses'],
+                                                 dct['cell'])
+            bb = phonon_polarizability(layer, Z_avv, freqs, modes,
+                                       masses, cell)
+            newlayerpath = '{}+phonons-chi.npz'.format(layer[:-8])
+            np.savez_compressed(newlayerpath, **bb)
+
+            for il, oldlayer in enumerate(layers):
+                if oldlayer == layer:
+                    layers[il] = newlayerpath
+
+    thicknesses = np.array(thicknesses)
+    # Calculate distance between layers
+    d = (thicknesses[1:] + thicknesses[:-1]) / 2
+    d0 = thicknesses[0]
+    
     het = Heterostructure(structure=layers, d=d, d0=d0)
     return het
     
@@ -1697,24 +1777,11 @@ def main(args=None):
 
     args = parser.parse_args(args)
     layers = args.layers
-    thicknesses = args.thicknesses
     paths = args.buildingblockpath
 
     layers = expand_layers(layers)
     for il, layer in enumerate(layers):
         layers[il] = layer + '-chi.npz'
-
-    default_thicknesses = {'graphene': 3.22, 'BN': 3.22}
-    if thicknesses is None:
-        thicknesses = []
-        for layer in layers:
-            name = layer.split('-')[0]
-            thicknesses.append(default_thicknesses[name])
-
-    thicknesses = np.array(thicknesses)
-    # Calculate distance between layers
-    d = (thicknesses[1:] + thicknesses[:-1]) / 2
-    d0 = thicknesses[0]
 
     # Make sure that the building block files can be found
     link = "https://cmr.fysik.dtu.dk/_downloads/chi-data.tar.gz"
@@ -1771,65 +1838,13 @@ def main(args=None):
     q_q = np.linspace(args.q[0], args.q[1], args.q[2])
     omega_w = np.linspace(args.omega[0], args.omega[1], args.omega[2])
 
-    # Interpolate the building blocks such that they are
-    # represented on the same q and omega grid
-    print('Interpolating building blocks to same grid')
-    interpolate_building_blocks(BBfiles=layers, q_grid=q_q, w_grid=omega_w,
-                                pad=False)
-
-    for il, layer in enumerate(layers):
-        layers[il] = layer[:-8] + '_int-chi.npz'
-    
-    # Treat graphene specially, since in this case we are using
-    # an analytical approximation of the building block
-    from gpaw.response.buildingblocks import GrapheneBB
-    for layer in set(layers):
-        if 'graphene' not in layer:
-            continue
-
-        if 'doped' not in layer:
-            doping = 0
-        else:
-            doping = float(layer.split('-doped-')[1].split('_int')[0])
-
-        newlayer = str(layer[:-8] + '_analytical-chi.npz')
-        bb = GrapheneBB(layer, doping=doping)
-        np.savez_compressed(newlayer, **bb)
-
-        for il, oldlayer in enumerate(layers):
-            if oldlayer == layer:
-                layers[il] = newlayer
-        
-    if not args.no_phonons:
-        # If phonon files can be found in the same
-        # directory as the building block files
-        # then add phonon contribution
-        from gpaw.response.buildingblocks import phonon_polarizability
-        for layer in set(layers):
-            p = Path(layer)
-            phonons = Path(layer.split('_int')[0] + '-phonons.npz')
-            if not phonons.exists():
-                continue
-            print('Adding phonon contributions for {}'.format(layer))
-            dct = np.load(str(phonons))
-
-            Z_avv, freqs, modes, masses, cell = (dct['Z_avv'],
-                                                 dct['freqs'],
-                                                 dct['modes'],
-                                                 dct['masses'],
-                                                 dct['cell'])
-            bb = phonon_polarizability(layer, Z_avv, freqs, modes,
-                                       masses, cell)
-            newlayerpath = '{}+phonons-chi.npz'.format(layer[:-8])
-            np.savez_compressed(newlayerpath, **bb)
-
-            for il, oldlayer in enumerate(layers):
-                if oldlayer == layer:
-                    layers[il] = newlayerpath
-
     # Make QEH calculation
     print('Initializing heterostructure')
-    hs = make_heterostructure(layers, d, d0)
+    hs = make_heterostructure(layers,
+                              thicknesses=args.thicknesses,
+                              momenta=q_q,
+                              frequencies=omega_w,
+                              no_phonons=args.no_phonons)
 
     if args.plot:
         import matplotlib.pyplot as plt
@@ -1843,7 +1858,7 @@ def main(args=None):
             for iq in range(len(q_q)):
                 freqs = np.array(omega0[iq]) * Hartree
                 plt.plot([q_q[iq], ] * len(freqs), freqs, 'k.')
-        
+
     if args.eels:
         q_abs, frequencies, eels_qw = hs.get_eels(dipole_contribution=True)
 
