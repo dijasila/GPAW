@@ -1,11 +1,7 @@
-import json
-
 import numpy as np
 from numpy.lib.scimath import sqrt as csqrt
 import ase.units as units
-from ase.io import read, jsonio
 from ase.units import Bohr, Hartree
-from gpaw.mpi import world
 
 
 def dopedsemiconductor(path, effectivemass, doping, temperature):
