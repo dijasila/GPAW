@@ -24,6 +24,7 @@ def load(fd):
 class Heterostructure:
     """This class defines dielectric function of heterostructures
         and related physical quantities."""
+
     def __init__(self, structure, d,
                  include_dipole=True, d0=None,
                  wmax=10, qmax=None):
@@ -251,14 +252,15 @@ class Heterostructure:
                                              self.z0[k]))
                     dphi_array[self.dim // self.n_layers * k,
                                iq, i_1: i_2 + 1] = (fm(z_big[i_1: i_2 + 1]) +
-                                                1j * fm2(z_big[i_1: i_2 + 1]))
+                                                    1j * fm2(z_big[i_1: i_2 + 1]))
                     if self.chi_dipole is not None:
                         dphi_array[2 * k + 1, iq] = \
                             self.potential_model(self.myq_abs[iq], self.z_big,
                                                  self.z0[k], dipole=True,
                                                  delta=delta)
                         dphi_array[2 * k + 1, iq, i_1: i_2 + 1] = \
-                            fd(z_big[i_1: i_2 + 1]) + 1j * fd2(z_big[i_1: i_2 + 1])
+                            fd(z_big[i_1: i_2 + 1]) + 1j * \
+                            fd2(z_big[i_1: i_2 + 1])
 
         return dphi_array
 
@@ -268,7 +270,8 @@ class Heterostructure:
             z_lim = self.z_lim
 
         z_lim = int(z_lim / dz) * dz
-        z_grid = np.insert(z, 0, np.flip(np.arange(z[0] - dz, -z_lim - dz, -dz)))
+        z_grid = np.insert(z, 0, np.flip(
+            np.arange(z[0] - dz, -z_lim - dz, -dz)))
         z_grid = np.append(z_grid, np.arange(z[-1] + dz, z_lim + dz, dz))
         return z_grid
 
@@ -345,7 +348,6 @@ class Heterostructure:
         return kernel_qij
 
     def get_chi_matrix(self):
-
         """
         Dyson equation: chi_full = chi_intra + chi_intra V_inter chi_full
         """
@@ -367,7 +369,7 @@ class Heterostructure:
         for iq in range(nq):
             if (1 + iq) % (nq // 10) == 0:
                 print('{}%'.format(np.round((1 + iq) / nq, 1) * 100))
-                
+
             kernel_ij = self.kernel_qij[iq].copy()
             np.fill_diagonal(kernel_ij, 0)  # Diagonal is set to zero
             chi_intra_wij = np.zeros((len(self.frequencies), self.dim,
@@ -755,7 +757,6 @@ class Heterostructure:
             (Bohr * abs_qw).imag
 
     def get_sum_eels(self, V_beam=100, include_z=False):
-
         """
         Calculates the q- averaged Electron energy loss spectrum usually
         obtained in scanning transmission electron microscopy (TEM).
@@ -1227,7 +1228,7 @@ class BuildingBlock():
             return False
         if (np.all(data['omega_w'] == self.omega_w) and
             np.all(data['q_cs'] == self.q_cs) and
-            np.all(data['z'] == self.z)):
+                np.all(data['z'] == self.z)):
             self.nq = data['last_q']
             self.complete = data['complete']
             self.chiM_qw = data['chiM_qw']
@@ -1239,7 +1240,6 @@ class BuildingBlock():
             return False
 
     def interpolate_to_grid(self, q_grid, w_grid):
-
         """
         Parameters
         q_grid: in Ang. should start at q=0
@@ -1388,7 +1388,7 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
 
     if BBmotherfile is not None and '-chi.npz' not in BBmotherfile:
         BBmotherfile = BBmotherfile + '-chi.npz'
-        
+
     for il, filename in enumerate(BBfiles):
         if '-chi.npz' not in filename:
             BBfiles[il] = filename + '-chi.npz'
@@ -1657,7 +1657,7 @@ def make_heterostructure(layers,
         for layer in layers:
             name = layer.split('-')[0]
             thicknesses.append(default_thicknesses[name])
-            
+
     q_q = np.linspace(*momenta)
     omega_w = np.linspace(*frequencies)
     # Interpolate the building blocks such that they are
@@ -1668,7 +1668,7 @@ def make_heterostructure(layers,
 
     for il, layer in enumerate(layers):
         layers[il] = layer[:-8] + '_int-chi.npz'
-    
+
     # Treat graphene specially, since in this case we are using
     # an analytical approximation of the building block
     from gpaw.response.buildingblocks import GrapheneBB
@@ -1688,7 +1688,7 @@ def make_heterostructure(layers,
         for il, oldlayer in enumerate(layers):
             if oldlayer == layer:
                 layers[il] = newlayer
-        
+
     if not no_phonons:
         # If phonon files can be found in the same
         # directory as the building block files
@@ -1719,17 +1719,17 @@ def make_heterostructure(layers,
     # Calculate distance between layers
     d = (thicknesses[1:] + thicknesses[:-1]) / 2
     d0 = thicknesses[0]
-    
+
     het = Heterostructure(structure=layers, d=d, d0=d0)
     return het
-    
+
 
 def main(args=None):
     import argparse
     from pathlib import Path
     from os.path import expanduser
     import shutil
-    
+
     description = 'QEH Model command line interface'
     parser = argparse.ArgumentParser(description=description)
 
@@ -1760,7 +1760,7 @@ def main(args=None):
 
     help = ("Disable phonon contributions")
     parser.add_argument('--no-phonons', action='store_true', help=help)
-    
+
     help = ("Custom frequencies to respresent quantities on (in eV). "
             "The format is: min. frequency, max. frequency, "
             "number of frequencies. E. g.: 0.1 1.0 100")
@@ -1808,14 +1808,14 @@ def main(args=None):
                 break
         else:
             raise FileNotFoundError(msg.format(bb=layer, link=link))
-        
+
         layer_paths.append(str(bb))
 
     # Copy files to current directory
     for layerpath in set(layer_paths):
         p = Path(layerpath)
         layer = str(p.name).split('-chi')[0]
-        
+
         src = str(p)
         dest = str(p.name)
 
@@ -1827,7 +1827,6 @@ def main(args=None):
         # Also copy phonons if present
         phonons = (Path(layerpath).parent /
                    Path('{}-phonons.npz'.format(layer)))
-        print(phonons)
         if not phonons.exists():
             continue
         src = str(phonons)
@@ -1835,20 +1834,20 @@ def main(args=None):
         if src != dest:
             shutil.copy(src, dest)
 
-    q_q = np.linspace(args.q[0], args.q[1], args.q[2])
-    omega_w = np.linspace(args.omega[0], args.omega[1], args.omega[2])
+    # q_q = np.linspace(args.q[0], args.q[1], args.q[2])
+    # omega_w = np.linspace(args.omega[0], args.omega[1], args.omega[2])
 
     # Make QEH calculation
     print('Initializing heterostructure')
     hs = make_heterostructure(layers,
                               thicknesses=args.thicknesses,
-                              momenta=q_q,
-                              frequencies=omega_w,
+                              momenta=args.q,
+                              frequencies=args.omega,
                               no_phonons=args.no_phonons)
 
     if args.plot:
         import matplotlib.pyplot as plt
-    
+
     if args.plasmons:
         print('Calculating plasmon spectrum')
         eig, z, rho_z, phi_z, omega0 = hs.get_plasmon_eigenmodes()
