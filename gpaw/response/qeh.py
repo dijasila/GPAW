@@ -903,7 +903,7 @@ class Heterostructure:
         rhoind_qz = self.collect_qw(rhoind_qz)
         return self.z_big * Bohr, rhoind_qz, Vind_qz, self.z0 * Bohr
 
-    def get_plasmon_eigenmodes(self):
+    def get_plasmon_eigenmodes(self, filename=None):
         """
         Diagonalize the dieletric matrix to get the plasmon eigenresonances
         of the system.
@@ -915,30 +915,39 @@ class Heterostructure:
 
         assert self.world.size == 1
         # eps_qwij = self.get_eps_matrix()
-        print('Get eps_matrix')
+
         Nw = len(self.frequencies)
         Nq = self.mynq
         w_w = self.frequencies
         eig = np.zeros([Nq, Nw, self.dim], dtype=complex)
+        abseps = np.zeros([Nq, Nw], dtype=complex)
         # vec = np.zeros([Nq, Nw, self.dim, self.dim],
         #                dtype=complex)
 
+        # import scipy as sp
         omega0 = [[] for i in range(Nq)]
+        
         rho_z = [np.zeros([0, len(self.z_big)]) for i in range(Nq)]
         phi_z = [np.zeros([0, len(self.z_big)]) for i in range(Nq)]
         for iq in range(Nq):
-            m = 0
+            if (1 + iq) % (Nq // 10) == 0:
+                print('{}%'.format(np.round((1 + iq) / Nq, 1) * 100))
+
             eps_qwij = self.get_eps_matrix(iq_q=[iq])
+            if iq == 0:
+                print('Calculate plasmon modes')
+
             eig[iq], vec_wij = np.linalg.eig(eps_qwij[0])
+            abseps[iq, :] = np.linalg.det(eps_qwij[0])
+            
             vec_dual_wij = np.linalg.inv(vec_wij)
-            vec_dual = vec_dual_wij[0]
+            iwref = 0
             for iw in range(1, Nw):
-                # eps_qwij = self.get_eps_matrix(iq_q=[iq], iw_w=[iw])
-                # eig[iq, iw], vec_p = np.linalg.eig(eps_qwij[0, 0])
                 vec = vec_wij[iw]
-                vec_dual = vec_dual_wij[iw - 1]
-                overlap = np.abs(np.dot(vec_dual, vec))
-                index = list(np.argsort(overlap)[:, -1])
+                vec_dual = vec_dual_wij[iwref]
+                overlap = np.dot(vec_dual, vec)
+                index = list(np.argsort(np.abs(overlap))[:, -1])
+                iwref = iw
                 if len(np.unique(index)) < self.dim:  # add missing indices
                     addlist = []
                     removelist = []
@@ -951,10 +960,12 @@ class Heterostructure:
                                     np.argwhere(np.array(index) == j)[l])
                     for j in range(len(addlist)):
                         index[removelist[j][0]] = addlist[j]
+
                 # Sort vectors
-                vec_wij[iw, :] = np.copy(vec_wij[iw, :, index])
-                vec_dual_wij[iw, :] = np.copy(vec_dual_wij[iw, index, :])
-                eig[iq, iw, :] = np.copy(eig[iq, iw, index])
+                vec_wij[iw, :] = np.copy(vec_wij[iw][:, index])
+                vec_dual_wij[iw, :] = np.copy(vec_dual_wij[iw][index, :])
+
+                eig[iq, iw, :] = np.copy(eig[iq, iw][index])
                 klist = [k for k in range(self.dim)
                          if (eig[iq, iw - 1, k] < 0 and eig[iq, iw, k] > 0)]
                 for k in klist:  # Eigenvalue crossing
@@ -970,10 +981,29 @@ class Heterostructure:
                                           axis=0)
                     phi_z[iq] = np.append(phi_z[iq], phi[np.newaxis, :],
                                           axis=0)
-                    omega0[iq].append(w0)
-                    m += 1
+                    omega0[iq].append(w0 * Hartree)
 
-        return eig, self.z_big * Bohr, rho_z, phi_z, np.array(omega0)
+        # Make eigenfrequencies more easy to work with
+        nmodes = 0
+        for freqs in omega0:
+            nmodes = np.max([len(freqs), nmodes])
+
+        freqs_qm = np.zeros((Nq, nmodes), float) + np.nan
+
+        for freqs_m, omega0_m in zip(freqs_qm, omega0):
+            freqs_m[:len(omega0_m)] = np.sort(omega0_m)
+
+        z = self.z_big * Bohr
+        if filename is not None:
+            q_q = self.q_abs / Bohr
+            omega_w = self.frequencies * Hartree
+            data = {'eig': eig, 'z': z,
+                    'rho_z': rho_z, 'freqs_qm': freqs_qm,
+                    'q_q': q_q, 'omega_w': omega_w,
+                    'abseps': abseps}
+            np.savez_compressed(filename, **data)
+
+        return eig, z, rho_z, phi_z, np.array(omega0)
 
     def collect_q(self, a_q):
         """ Collect arrays of dim (q)"""
