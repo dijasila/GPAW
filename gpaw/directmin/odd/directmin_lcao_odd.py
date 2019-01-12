@@ -343,20 +343,16 @@ class DirectMinOddLCAO(DirectLCAO):
             h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
             # make matrix hermitian
             tri2full(h_mm)
-            if self.odd is None:
-                g_mat_u[k], error = self.get_gradients(h_mm, kpt.C_nM,
+            g_mat_u[k], error = self.odd.get_gradients(h_mm, kpt.C_nM,
                                                        kpt.f_n,
                                                        self.evecs[k],
                                                        self.evals[k],
-                                                       kpt, wfs.timer)
-            else:
-                g_mat_u[k], error = self.odd.get_gradients(h_mm,
-                                                           kpt.C_nM,
-                                                           kpt.f_n,
-                                                           kpt,
-                                                           wfs,
-                                                           wfs.timer)
-
+                                                       kpt, wfs,
+                                                       wfs.timer,
+                                                       self.matrix_exp,
+                                                       self.sparse,
+                                                       self.ind_up)
+            if hasattr(self.odd, 'e_sic'):
                 e_odd += self.odd.e_sic[k].sum()
 
             self._error += error
