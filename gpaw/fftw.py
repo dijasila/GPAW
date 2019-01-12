@@ -51,6 +51,16 @@ def get_efficient_fft_size(N, n=1):
 class FFTWPlan:
     """FFTW3 3d transform."""
     def __init__(self, in_R, out_R, sign, flags=MEASURE):
+        if not have_fftw():
+            raise ImportError('Not compiled with FFTW.')
+        for arr in in_R, out_R:
+            # Note: Arrays not necessarily contiguous due to 16-byte alignment
+            assert arr.ndim == 3  # We can perhaps relax this requirement
+            assert arr.dtype == float or arr.dtype == complex
+
+        # At least one of the arrays must be complex:
+        assert in_R.dtype == complex or out_R.dtype == complex
+
         self._ptr = _gpaw.FFTWPlan(in_R, out_R, sign, flags)
         self.in_R = in_R
         self.out_R = out_R
@@ -88,7 +98,7 @@ class NumpyFFTPlan:
 
 
 def empty(shape, dtype=float):
-    """numpy.empty() equivalent with 16 byte allignment."""
+    """numpy.empty() equivalent with 16 byte alignment."""
     assert dtype == complex
     N = np.prod(shape)
     a = np.empty(2 * N + 1)

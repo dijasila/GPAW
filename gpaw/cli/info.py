@@ -47,8 +47,7 @@ def info():
     results.append(('scalapack', have_sl))
     results.append(('Elpa', have_elpa))
 
-    import _gpaw
-    have_fftw = hasattr(_gpaw, 'FFTWPlan')
+    have_fftw = fftw.have_fftw()
     results.append(('FFTW', have_fftw))
     results.append(('libvdwxc', compiled_with_libvdwxc()))
     paths = ['{0}: {1}'.format(i + 1, path)
