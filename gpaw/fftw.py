@@ -48,26 +48,29 @@ def get_efficient_fft_size(N, n=1):
     return N
 
 
+def check_fftw_inputs(in_R, out_R):
+    for arr in in_R, out_R:
+        # Note: Arrays not necessarily contiguous due to 16-byte alignment
+        assert arr.ndim == 3  # We can perhaps relax this requirement
+        assert arr.dtype == float or arr.dtype == complex
+
+    if in_R.dtype == out_R.dtype == complex:
+        assert in_R.shape == out_R.shape
+    else:
+        # One real and one complex:
+        R, C = (in_R, out_R) if in_R.dtype == float else (out_R, in_R)
+        assert C.dtype == complex
+        assert R.shape[:2] == C.shape[:2]
+        assert C.shape[2] == 1 + R.shape[2] // 2
+
+
 class FFTWPlan:
     """FFTW3 3d transform."""
     def __init__(self, in_R, out_R, sign, flags=MEASURE):
         if not have_fftw():
             raise ImportError('Not compiled with FFTW.')
-        for arr in in_R, out_R:
-            # Note: Arrays not necessarily contiguous due to 16-byte alignment
-            assert arr.ndim == 3  # We can perhaps relax this requirement
-            assert arr.dtype == float or arr.dtype == complex
-            if in_R.dtype == out_R.dtype == complex:
-                assert in_R.shape == out_R.shape
-            else:
-                R, C = (in_R, out_R) if in_R.dtype == float else (out_R, in_R)
-                # print(in_R.shape, out_R.shape, in_R.dtype, out_R.dtype)
-                assert C.dtype == complex
-                assert R.shape[:2] == C.shape[:2]
-                assert C.shape[2] == 1 + R.shape[2] // 2
 
-        # At least one of the arrays must be complex:
-        assert in_R.dtype == complex or out_R.dtype == complex
+        check_fftw_inputs(in_R, out_R)
 
         self._ptr = _gpaw.FFTWPlan(in_R, out_R, sign, flags)
         self.in_R = in_R
@@ -77,7 +80,6 @@ class FFTWPlan:
 
     def execute(self):
         _gpaw.FFTWExecute(self._ptr)
-        #lib.fftw_execute(self.plan)
 
     def __del__(self):
         if getattr(self, '_ptr', None):
@@ -88,6 +90,7 @@ class FFTWPlan:
 class NumpyFFTPlan:
     """Numpy fallback."""
     def __init__(self, in_R, out_R, sign, flags=None):
+        check_fftw_inputs(in_R, out_R)
         self.in_R = in_R
         self.out_R = out_R
         self.sign = sign
