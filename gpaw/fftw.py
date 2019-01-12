@@ -57,6 +57,14 @@ class FFTWPlan:
             # Note: Arrays not necessarily contiguous due to 16-byte alignment
             assert arr.ndim == 3  # We can perhaps relax this requirement
             assert arr.dtype == float or arr.dtype == complex
+            if in_R.dtype == out_R.dtype == complex:
+                assert in_R.shape == out_R.shape
+            else:
+                R, C = (in_R, out_R) if in_R.dtype == float else (out_R, in_R)
+                # print(in_R.shape, out_R.shape, in_R.dtype, out_R.dtype)
+                assert C.dtype == complex
+                assert R.shape[:2] == C.shape[:2]
+                assert C.shape[2] == 1 + R.shape[2] // 2
 
         # At least one of the arrays must be complex:
         assert in_R.dtype == complex or out_R.dtype == complex
