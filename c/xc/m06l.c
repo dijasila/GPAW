@@ -280,18 +280,18 @@ c_m06l_para(m06l_params *p, const double *rho, const double *sigmatmp, const dou
   /* put in by cpo for const reasons */
   double sigma_[3],tau[2];
   sigma_[0] = sigmatmp[0];
-  sigma_[1] = sigmatmp[1];
-  sigma_[2] = sigmatmp[2];
   tau[0] = tautmp[0];
-  tau[1] = tautmp[1];
+  if(p->common.nspin== XC_POLARIZED) {
+    tau[1] = tautmp[1];
+    sigma_[1] = sigmatmp[1];
+    sigma_[2] = sigmatmp[2];
+  }
 
   /*calculate |nabla rho|^2 */
   sigma_[0] = max(MIN_GRAD*MIN_GRAD, sigma_[0]);
   tauw[0] = max(sigma_[0]/(8.0*rho[0]), 1.0e-12);
   tau[0] = max(tauw[0], tau[0]);
 
-
-  dens1 = rho[0]+rho[1];
 
   if(p->common.nspin== XC_UNPOLARIZED)
     {
@@ -303,11 +303,13 @@ c_m06l_para(m06l_params *p, const double *rho, const double *sigmatmp, const dou
       sigma[1] = sigma_[0]/4.;
       sigma[2] = sigma_[0]/4.;
       dens = rho[0];
+      dens1 = dens;
 
       tau2[0] = tau[0]/2.;
       tau2[1] = tau[0]/2.;
 
     }else{
+    dens1 = rho[0]+rho[1];
     sigma_[2] = max(MIN_GRAD*MIN_GRAD, sigma_[2]);
     tauw[1] = max(sigma_[2]/(8.0*rho[1]), 1.0e-12);
     tau[1] = max(tauw[1], tau[1]);
