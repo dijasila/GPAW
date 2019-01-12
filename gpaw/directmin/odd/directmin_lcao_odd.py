@@ -21,8 +21,8 @@ class DirectMinOddLCAO(DirectLCAO):
                  initial_orbitals='KS',
                  initial_rotation='zero',
                  memory_lbfgs=3, update_ref_orbs_counter=1000,
-                 use_prec=True, use_scipy=True, sparse=True,
-                 odd_parameters=None):
+                 use_prec=True, matrix_exp='pade_approx',
+                 sparse=True, odd_parameters=None):
 
         super(DirectMinOddLCAO, self).__init__(diagonalizer, error)
 
@@ -34,11 +34,8 @@ class DirectMinOddLCAO(DirectLCAO):
         self.update_ref_orbs_counter = update_ref_orbs_counter
         self.memory_lbfgs = memory_lbfgs
         self.use_prec = use_prec
-        self.use_scipy = use_scipy
-        if use_scipy:
-            self.sparse = sparse  # sparse is only with scipy yet
-        else:
-            self.sparse = False
+        self.matrix_exp = matrix_exp
+        self.sparse = sparse
         self.iters = 0
         self.name = 'direct_min'
 
@@ -295,43 +292,35 @@ class DirectMinOddLCAO(DirectLCAO):
                 continue
 
             if self.gd.comm.rank == 0:
-                if self.use_scipy:
-                    if self.sparse:
-                        # make skew-hermitian matrix
-                        a = np.zeros(shape=(n_dim[k], n_dim[k]),
-                                     dtype=self.dtype)
-                        a[self.ind_up] = a_mat_u[k]
-                        a += -a.T.conj()
-                        # def antihermitian(src, dst):
-                        #     np.conj(-src, dst)
-                        # tri2full(a, UL='U', map=antihermitian)
-
-                        wfs.timer.start('Pade Approximants')
-                        # this function takes a lot of memory
-                        # for large matrices... what can we do?
-                        u_nn = expm(a)
-                        del a
-                        wfs.timer.stop('Pade Approximants')
-                    else:
-                        # Pade
-                        wfs.timer.start('Pade Approximants')
-                        u_nn = expm(a_mat_u[k])
-                        wfs.timer.stop('Pade Approximants')
+                if self.sparse:
+                    a = np.zeros(shape=(n_dim[k], n_dim[k]),
+                                 dtype=self.dtype)
+                    a[self.ind_up] = a_mat_u[k]
+                    a += -a.T.conj()
                 else:
+                    a = a_mat_u[k]
+
+                if self.matrix_exp == 'pade_approx':
+                    # this function takes a lot of memory
+                    # for large matrices... what can we do?
+                    wfs.timer.start('Pade Approximants')
+                    u_nn = expm(a)
+                    del a
+                    wfs.timer.stop('Pade Approximants')
+                elif self.matrix_exp == 'eigendecomposition':
                     # this method is based on diagonalisation
                     wfs.timer.start('Eigendecomposition')
                     u_nn, self.evecs[k], self.evals[k] =\
-                        expm_ed(a_mat_u[k], evalevec=True)
+                        expm_ed(a, evalevec=True)
                     wfs.timer.stop('Eigendecomposition')
-
+                else:
+                    raise NotImplementedError('Check the keyword '
+                                              'for matrix_exp. \n'
+                                              'Must be '
+                                              '\'pade_approx\' or '
+                                              '\'eigendecomposition\'')
                 kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
                                              c_nm_ref[k][:n_dim[k]])
-
-                # mmm(1.0, np.ascontiguousarray(u_nn), 'T',
-                #     np.ascontiguousarray(c_nm_ref[k][:n_dim[k]]), 'N',
-                #     0.0,
-                #     kpt.C_nM[:n_dim[k]])
-
                 del u_nn
 
             self.gd.comm.broadcast(kpt.C_nM, 0)
@@ -391,9 +380,8 @@ class DirectMinOddLCAO(DirectLCAO):
         hc_mn = np.zeros(shape=(c_nm.shape[1], c_nm.shape[0]),
                          dtype=self.dtype)
         mmm(1.0, h_mm.conj(), 'N', c_nm, 'T', 0.0, hc_mn)
-        k = self.n_kps * kpt.s + kpt.q
-        if self.n_dim[k] != c_nm.shape[1]:
-            h_mm = np.zeros(shape=(self.n_dim[k], self.n_dim[k]),
+        if c_nm.shape[0] != c_nm.shape[1]:
+            h_mm = np.zeros(shape=(c_nm.shape[0], c_nm.shape[0]),
                             dtype=self.dtype)
         mmm(1.0, c_nm.conj(), 'N', hc_mn, 'N', 0.0, h_mm)
         timer.stop('Construct Gradient Matrix')
@@ -429,7 +417,7 @@ class DirectMinOddLCAO(DirectLCAO):
         # continue with gradients
         timer.start('Construct Gradient Matrix')
         h_mm = f_n * h_mm - f_n[:, np.newaxis] * h_mm
-        if self.use_scipy:
+        if self.matrix_exp == 'pade_approx':
             # timer.start('Frechet derivative')
             # frechet derivative, unfortunately it calculates unitary
             # matrix which we already calculated before. Could it be used?
@@ -439,12 +427,8 @@ class DirectMinOddLCAO(DirectLCAO):
             #                        check_finite=False)
             # grad = grad @ u.T.conj()
             # timer.stop('Frechet derivative')
-            if self.sparse:
-                grad = np.ascontiguousarray(h_mm[self.ind_up])
-            else:
-                grad = np.ascontiguousarray(h_mm)
-        else:
-
+            grad = np.ascontiguousarray(h_mm)
+        elif self.matrix_exp == 'eigendecomposition':
             timer.start('Use Eigendecomposition')
             grad = evec.T.conj() @ h_mm @ evec
             grad = grad * D_matrix(evals)
@@ -452,13 +436,19 @@ class DirectMinOddLCAO(DirectLCAO):
             timer.stop('Use Eigendecomposition')
             for i in range(grad.shape[0]):
                 grad[i][i] *= 0.5
-
+        else:
+            raise NotImplementedError('Check the keyword '
+                                      'for matrix_exp. \n'
+                                      'Must be '
+                                      '\'pade_approx\' or '
+                                      '\'eigendecomposition\'')
+        if self.dtype == float:
+            grad = grad.real
+        if self.sparse:
+            grad = grad[self.ind_up]
         timer.stop('Construct Gradient Matrix')
 
-        if self.dtype == float:
-            return 2.0 * grad.real, error
-        else:
-            return 2.0 * grad, error
+        return 2.0 * grad, error
 
     def get_search_direction(self, a_mat_u, g_mat_u, precond, wfs):
 
