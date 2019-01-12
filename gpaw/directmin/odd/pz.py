@@ -9,6 +9,7 @@ from gpaw.utilities.lapack import diagonalize
 from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
 from gpaw.poisson import PoissonSolver
+from gpaw.directmin.tools import D_matrix
 
 
 class PzCorrectionsLcao:
@@ -78,8 +79,9 @@ class PzCorrectionsLcao:
                     n_occ += 1
                 self.old_pot[k] = self.cgd.zeros(n_occ, dtype=float)
 
-    def get_gradients(self, h_mm, c_nm, f_n, kpt,  # evec, evals,
-                      wfs, timer, sparse, ind_up, occupied_only=False):
+    def get_gradients(self, h_mm, c_nm, f_n, evec, evals, kpt,
+                      wfs, timer, matrix_exp, sparse,
+                      ind_up, occupied_only=False):
         """
         :param C_nM: coefficients of orbitals
         :return: matrix G - gradients, and orbital SI energies
@@ -120,8 +122,39 @@ class PzCorrectionsLcao:
         l_odd = np.dot(c_nm[:nbs].conj(), b_mn)
 
         f = f_n[:nbs]
-        L = f[:, np.newaxis] * (h_mm[:nbs, :nbs] + l_odd.T.conj()) - \
-            f * (h_mm[:nbs, :nbs] + l_odd)
+        grad = f * (h_mm[:nbs, :nbs] + l_odd) - \
+            f[:, np.newaxis] * (h_mm[:nbs, :nbs] + l_odd.T.conj())
+
+        if matrix_exp == 'pade_approx':
+            # timer.start('Frechet derivative')
+            # frechet derivative, unfortunately it calculates unitary
+            # matrix which we already calculated before. Could it be used?
+            # it also requires a lot of memory so don't use it now
+            # u, grad = expm_frechet(a_mat, h_mm,
+            #                        compute_expm=True,
+            #                        check_finite=False)
+            # grad = grad @ u.T.conj()
+            # timer.stop('Frechet derivative')
+            grad = np.ascontiguousarray(grad)
+        elif matrix_exp == 'eigendecomposition':
+            timer.start('Use Eigendecomposition')
+            grad = evec.T.conj() @ grad @ evec
+            grad = grad * D_matrix(evals)
+            grad = evec @ grad @ evec.T.conj()
+            for i in range(grad.shape[0]):
+                grad[i][i] *= 0.5
+            timer.stop('Use Eigendecomposition')
+        else:
+            raise NotImplementedError('Check the keyword '
+                                      'for matrix_exp. \n'
+                                      'Must be '
+                                      '\'pade_approx\' or '
+                                      '\'eigendecomposition\'')
+        if self.dtype == float:
+            grad = grad.real
+        if sparse:
+            grad = grad[ind_up]
+
         timer.stop('Construct Gradient Matrix')
 
         u = kpt.s * self.n_kps + kpt.q
@@ -153,27 +186,7 @@ class PzCorrectionsLcao:
             kpt.eps_n[:nbs] = np.linalg.eigh(h_mm)[0]
         self.counter += 1
 
-        if sparse:
-            return L.T[ind_up], error
-        else:
-            return L.T, error
-        # if A is None:
-        #     return L.T, e_total_sic
-        # else:
-        #
-        #     self.timer.start('ODD matrix integrals')
-        #     G = evec.T.conj() @ L.T.conj() @ evec
-        #     G = G * D_matrix(eval)
-        #     G = evec @ G @ evec.T.conj()
-        #     self.timer.stop('ODD matrix integrals')
-        #
-        #     for i in range(G.shape[0]):
-        #         G[i][i] *= 0.5
-        #
-        #     if A.dtype == float:
-        #         return 2.0 * G.real, e_total_sic
-        #     else:
-        #         return 2.0 * G, e_total_sic
+        return 2.0 * grad, error
 
     def get_orbital_potential_matrix(self, f_n, C_nM, kpt,
                                      wfs, setup, m):

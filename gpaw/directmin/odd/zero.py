@@ -14,10 +14,13 @@ class ZeroCorrectionsLcao:
         self.nvalence = wfs.nvalence
 
     def get_gradients(self, h_mm, c_nm, f_n,
-                      evec, evals, kpt, timer, matrix_exp,
+                      evec, evals, kpt, wfs, timer, matrix_exp,
                       sparse, ind_up,
                       occupied_only=False):
         # FIXME: what to do with occupied only here?
+        #  also wfs is not used, but wfs is needed in other
+        #  odd corrections see PzCorrectionsLcao
+        #
 
         timer.start('Construct Gradient Matrix')
         hc_mn = np.zeros(shape=(c_nm.shape[1], c_nm.shape[0]),
@@ -76,9 +79,9 @@ class ZeroCorrectionsLcao:
             grad = evec.T.conj() @ h_mm @ evec
             grad = grad * D_matrix(evals)
             grad = evec @ grad @ evec.T.conj()
-            timer.stop('Use Eigendecomposition')
             for i in range(grad.shape[0]):
                 grad[i][i] *= 0.5
+            timer.stop('Use Eigendecomposition')
         else:
             raise NotImplementedError('Check the keyword '
                                       'for matrix_exp. \n'
