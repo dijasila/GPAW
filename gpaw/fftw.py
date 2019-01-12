@@ -16,7 +16,7 @@ EXHAUSTIVE = 8
 if os.environ.get('GPAW_FFTWSO'):
     import warnings
     warnings.warn('GPAW_FFTWSO is set to "{}"; ignoring.  '
-                  'Plase use customize.py to link FFTW instead.'
+                  'Please use customize.py to link FFTW instead.'
                   .format(os.environ['GPAW_FFTWSO']))
 
 
