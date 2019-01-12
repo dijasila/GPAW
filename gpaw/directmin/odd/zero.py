@@ -14,15 +14,15 @@ class ZeroCorrectionsLcao:
         self.nvalence = wfs.nvalence
 
     def get_gradients(self, h_mm, c_nm, f_n,
-                      evec, evals, kpt, timer, use_scipy,
+                      evec, evals, kpt, timer, matrix_exp,
                       sparse, ind_up,
                       occupied_only=False):
+        # FIXME: what to do with occupied only here?
 
         timer.start('Construct Gradient Matrix')
         hc_mn = np.zeros(shape=(c_nm.shape[1], c_nm.shape[0]),
                          dtype=self.dtype)
         mmm(1.0, h_mm.conj(), 'N', c_nm, 'T', 0.0, hc_mn)
-        k = self.n_kps * kpt.s + kpt.q
         if c_nm.shape[0] != c_nm.shape[1]:
             h_mm = np.zeros(shape=(c_nm.shape[0], c_nm.shape[0]),
                             dtype=self.dtype)
@@ -60,7 +60,7 @@ class ZeroCorrectionsLcao:
         # continue with gradients
         timer.start('Construct Gradient Matrix')
         h_mm = f_n * h_mm - f_n[:, np.newaxis] * h_mm
-        if use_scipy:
+        if matrix_exp == 'pade_approx':
             # timer.start('Frechet derivative')
             # frechet derivative, unfortunately it calculates unitary
             # matrix which we already calculated before. Could it be used?
@@ -70,12 +70,8 @@ class ZeroCorrectionsLcao:
             #                        check_finite=False)
             # grad = grad @ u.T.conj()
             # timer.stop('Frechet derivative')
-            if sparse:
-                grad = np.ascontiguousarray(h_mm[ind_up])
-            else:
-                grad = np.ascontiguousarray(h_mm)
-        else:
-
+            grad = np.ascontiguousarray(h_mm)
+        elif matrix_exp == 'eigendecomposition':
             timer.start('Use Eigendecomposition')
             grad = evec.T.conj() @ h_mm @ evec
             grad = grad * D_matrix(evals)
@@ -83,11 +79,16 @@ class ZeroCorrectionsLcao:
             timer.stop('Use Eigendecomposition')
             for i in range(grad.shape[0]):
                 grad[i][i] *= 0.5
-
+        else:
+            raise NotImplementedError('Check the keyword '
+                                      'for matrix_exp. \n'
+                                      'Must be '
+                                      '\'pade_approx\' or '
+                                      '\'eigendecomposition\'')
+        if self.dtype == float:
+            grad = grad.real
+        if sparse:
+            grad = grad[ind_up]
         timer.stop('Construct Gradient Matrix')
 
-        if self.dtype == float:
-            return 2.0 * grad.real, error
-        else:
-            return 2.0 * grad, error
-
+        return 2.0 * grad, error
