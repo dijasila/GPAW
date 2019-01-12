@@ -6,22 +6,12 @@ import numpy as np
 
 import _gpaw
 
-if 0:
-    if 'GPAW_FFTWSO' in os.environ:
-        fftwlibnames = [os.environ['GPAW_FFTWSO']]
-        if '' in fftwlibnames:
-            fftwlibnames.remove('')  # GPAW_FFTWSO='' for numpy fallback!
-    else:
-        fftwlibnames = ['libmkl_rt.so', 'libmkl_intel_lp64.so', 'libfftw3.so']
+if os.environ.get('GPAW_FFTWSO'):
+    import warnings
+    warnings.warn('GPAW_FFTWSO is set to "{}"; ignoring.  '
+                  'Plase use customize.py to link FFTW instead.'
+                  .format(os.environ['GPAW_FFTWSO']))
 
-    lib = None
-    for libname in fftwlibnames:
-        try:
-            import ctypes
-            lib = ctypes.CDLL(libname)
-            break
-        except (ImportError, OSError):
-            pass
 
 ESTIMATE = 64
 MEASURE = 0
@@ -61,23 +51,6 @@ class FFTWPlan:
         self.out_R = out_R
         self.sign = sign
         self.flags = flags
-        return
-
-        if in_R.dtype == float:
-            assert sign == -1
-            n0, n1, n2 = in_R.shape
-
-            self.plan = lib.fftw_plan_dft_r2c_3d(n0, n1, n2,
-                                                 in_R, out_R, flags)
-        elif out_R.dtype == float:
-            assert sign == 1
-            n0, n1, n2 = out_R.shape
-            self.plan = lib.fftw_plan_dft_c2r_3d(n0, n1, n2,
-                                                 in_R, out_R, flags)
-        else:
-            n0, n1, n2 = in_R.shape
-            self.plan = lib.fftw_plan_dft_3d(n0, n1, n2,
-                                             in_R, out_R, sign, flags)
 
     def execute(self):
         _gpaw.FFTWExecute(self._ptr)
@@ -120,40 +93,7 @@ def empty(shape, dtype=float):
     return a
 
 
-if 0:#lib is None:
+if 0:
     FFTPlan = NumpyFFTPlan
 else:
     FFTPlan = FFTWPlan
-
-    if 0:
-        lib.fftw_execute.argtypes = [ctypes.c_void_p]
-        lib.fftw_destroy_plan.argtypes = [ctypes.c_void_p]
-
-        lib.fftw_plan_dft_3d.argtypes = [
-            ctypes.c_int, ctypes.c_int, ctypes.c_int,
-            np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
-            np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
-            ctypes.c_int, ctypes.c_uint]
-        lib.fftw_plan_dft_3d.restype = ctypes.c_void_p
-
-        lib.fftw_plan_dft_r2c_3d.argtypes = [
-            ctypes.c_int, ctypes.c_int, ctypes.c_int,
-            np.ctypeslib.ndpointer(dtype=float, ndim=3),
-            np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
-            ctypes.c_uint]
-        lib.fftw_plan_dft_r2c_3d.restype = ctypes.c_void_p
-
-        lib.fftw_plan_dft_c2r_3d.argtypes = [
-            ctypes.c_int, ctypes.c_int, ctypes.c_int,
-            np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
-            np.ctypeslib.ndpointer(dtype=float, ndim=3),
-            ctypes.c_uint]
-        lib.fftw_plan_dft_c2r_3d.restype = ctypes.c_void_p
-
-        try:
-            lib.fftw_plan_with_nthreads.argtypes = [ctypes.c_int]
-        except AttributeError:
-            pass  # We have a single-threaded FFTW
-        else:
-            if not lib.fftw_init_threads():
-                raise RuntimeError('fftw_init_threads failed')
