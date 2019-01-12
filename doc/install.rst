@@ -256,6 +256,13 @@ Instructions for running parallel calculations can be found in the
 :ref:`user manual <manual_parallel_calculations>`.
 
 
+FFTW
+====
+
+Older versions of GPAW would link FFTW using ctypes, based on library
+paths and the GPAW_FFTWSO environment variable if set.  As of GPAW
+1.5.1, FFTW is linked from customize.py like all other libraries.
+
 .. _libxc installation:
 
 Libxc Installation
