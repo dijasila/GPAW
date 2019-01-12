@@ -22,7 +22,7 @@ class DirectMinOddLCAO(DirectLCAO):
                  initial_rotation='zero',
                  memory_lbfgs=3, update_ref_orbs_counter=1000,
                  use_prec=True, matrix_exp='pade_approx',
-                 sparse=True, odd_parameters=None):
+                 sparse=True, odd_parameters='Zero'):
 
         super(DirectMinOddLCAO, self).__init__(diagonalizer, error)
 
@@ -76,7 +76,7 @@ class DirectMinOddLCAO(DirectLCAO):
 
         return repr_string
 
-    def initialize_2(self, wfs):
+    def initialize_2(self, wfs, dens, ham):
 
         self.dtype = wfs.dtype
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
@@ -137,7 +137,8 @@ class DirectMinOddLCAO(DirectLCAO):
         self.precond = {}  # precondiner for other methods
 
         if isinstance(self.odd_parameters, (basestring, dict)):
-            self.odd = odd_corrections(self.odd_parameters, wfs)
+            self.odd = odd_corrections(self.odd_parameters, wfs,
+                                       dens, ham)
         elif self.odd is None:
             pass
         else:
@@ -196,7 +197,7 @@ class DirectMinOddLCAO(DirectLCAO):
             # first iteration is diagonilisation using super class
             super().iterate(ham, wfs)
             occ.calculate(wfs)
-            self.initialize_2(wfs)
+            self.initialize_2(wfs, dens, ham)
 
         wfs.timer.start('Preconditioning:')
         precond = \
@@ -629,7 +630,7 @@ class DirectMinOddLCAO(DirectLCAO):
         # the so-called charge-sloshing problem..
         super().iterate(ham, wfs)
         occ.calculate(wfs)
-        self.initialize_2(wfs)
+        self.initialize_2(wfs, dens, ham)
         self.update_ks_energy(ham, wfs, dens, occ)
 
         return
