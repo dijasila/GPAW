@@ -6,6 +6,13 @@ import numpy as np
 
 import _gpaw
 
+
+ESTIMATE = 64
+MEASURE = 0
+PATIENT = 32
+EXHAUSTIVE = 8
+
+
 if os.environ.get('GPAW_FFTWSO'):
     import warnings
     warnings.warn('GPAW_FFTWSO is set to "{}"; ignoring.  '
@@ -13,10 +20,8 @@ if os.environ.get('GPAW_FFTWSO'):
                   .format(os.environ['GPAW_FFTWSO']))
 
 
-ESTIMATE = 64
-MEASURE = 0
-PATIENT = 32
-EXHAUSTIVE = 8
+def have_fftw():
+    return hasattr(_gpaw, 'FFTWPlan')
 
 
 def check_fft_size(n):
@@ -93,7 +98,7 @@ def empty(shape, dtype=float):
     return a
 
 
-if 0:
-    FFTPlan = NumpyFFTPlan
-else:
+if have_fftw():
     FFTPlan = FFTWPlan
+else:
+    FFTPlan = NumpyFFTPlan
