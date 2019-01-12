@@ -34,10 +34,15 @@ To append use the form
 # mpicompiler = 'mpicc'  # use None if you don't want to build a gpaw-python
 # mpilinker = 'mpicc'
 # platform_id = ''
-scalapack = False
+
+# Use FFTW3:
+if 0:
+    fftw = True
+    libraries += ['fftw3']
 
 # Use ScaLAPACK (version 2.0.1+ required):
-if scalapack:
+if 0:
+    scalapack = True
     libraries += ['scalapack-openmpi',
                   'blacsCinit-openmpi',
                   'blacs-openmpi']
@@ -91,4 +96,3 @@ if 0:
     compiler = 'mpicc'
     define_macros += [('PARALLEL', '1')]
     mpicompiler = None
-
