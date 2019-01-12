@@ -628,10 +628,12 @@ class DirectMinOddLCAO(DirectLCAO):
         # for some systems, it can 'mess' the solution.
         # this usually happens in metals,
         # the so-called charge-sloshing problem..
+        wfs.timer.start('Get Canonical Representation')
         super().iterate(ham, wfs)
         occ.calculate(wfs)
         self.initialize_2(wfs, dens, ham)
         self.update_ks_energy(ham, wfs, dens, occ)
+        wfs.timer.stop('Get Canonical Representation')
 
         return
 
