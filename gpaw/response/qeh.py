@@ -926,7 +926,7 @@ class Heterostructure:
 
         # import scipy as sp
         omega0 = [[] for i in range(Nq)]
-        
+
         rho_z = [np.zeros([0, len(self.z_big)]) for i in range(Nq)]
         phi_z = [np.zeros([0, len(self.z_big)]) for i in range(Nq)]
         for iq in range(Nq):
@@ -939,7 +939,7 @@ class Heterostructure:
 
             eig[iq], vec_wij = np.linalg.eig(eps_qwij[0])
             abseps[iq, :] = np.linalg.det(eps_qwij[0])
-            
+
             vec_dual_wij = np.linalg.inv(vec_wij)
             iwref = 0
             for iw in range(1, Nw):
@@ -1885,7 +1885,7 @@ def main(args=None):
             q_q = hs.q_abs / Bohr
             plt.figure()
             for iq in range(len(q_q)):
-                freqs = np.array(omega0[iq]) * Hartree
+                freqs = np.array(omega0[iq])
                 plt.plot([q_q[iq], ] * len(freqs), freqs, 'k.')
 
     if args.eels:
