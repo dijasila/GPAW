@@ -4,6 +4,20 @@ import ase.units as units
 from ase.units import Bohr, Hartree
 
 
+def phononbuildingblock(atoms, Z_avv, freqs, modes):
+    # Simple function for calculating phonon building block
+    me = 1822.888
+    m_a = atoms.get_masses() * me
+
+    phbb = {'Z_avv': Z_avv,
+            'freqs': freqs,
+            'modes': modes,
+            'masses': m_a,
+            'cell': atoms.cell}
+
+    return phbb
+
+
 def dopedsemiconductor(path, effectivemass, doping, temperature):
     # Chi0 for zero temperature
     def chi0T0(q, w, me, mup):
