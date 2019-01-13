@@ -1681,12 +1681,17 @@ def make_heterostructure(layers,
         if '-chi.npz' not in layer:
             layers[il] = layer + '-chi.npz'
 
-    default_thicknesses = {'graphene': 3.22, 'BN': 3.22}
+    default_thicknesses = {'graphene': 3.22, 'BN': 3.22,
+                           'H-MoS2': 6.2926, 'H-WSe2': 6.718}
     if thicknesses is None:
         thicknesses = []
         for layer in layers:
-            name = layer.split('-')[0]
-            thicknesses.append(default_thicknesses[name])
+            for key in default_thicknesses:
+                if key in layer:
+                    thicknesses.append(default_thicknesses[key])
+                    break
+            else:
+                raise NotImplementedError
             
     q_q = np.linspace(*momenta)
     omega_w = np.linspace(*frequencies)
@@ -1865,15 +1870,12 @@ def main(args=None):
         if src != dest:
             shutil.copy(src, dest)
 
-    q_q = np.linspace(args.q[0], args.q[1], args.q[2])
-    omega_w = np.linspace(args.omega[0], args.omega[1], args.omega[2])
-
     # Make QEH calculation
     print('Initializing heterostructure')
     hs = make_heterostructure(layers,
                               thicknesses=args.thicknesses,
-                              momenta=q_q,
-                              frequencies=omega_w,
+                              momenta=args.q,
+                              frequencies=args.omega,
                               no_phonons=args.no_phonons)
 
     if args.plot:
