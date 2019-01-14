@@ -177,7 +177,7 @@ class SymmetryCalculator:
                     # Rotations may throw some of the density outside the box:
                     norm2 = np.multiply(np.conj(newwf), newwf).sum()
 
-                    integral = np.multiply(np.conj(wf), newwf)
+                    integral = np.multiply(np.conj(wf), newwf).sum()
                     norm = np.sqrt(norm1 * norm2)
                     self.overlaps[index][j] = integral/norm
 
