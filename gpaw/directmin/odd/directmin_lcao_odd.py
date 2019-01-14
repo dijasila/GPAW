@@ -662,7 +662,7 @@ class DirectMinOddLCAO(DirectLCAO):
                          dtype=kpt.C_nM.dtype)
         mmm(1.0, h_mm.conj(), 'N', kpt.C_nM, 'T', 0.0, hc_mn)
         mmm(1.0, kpt.C_nM.conj(), 'N', hc_mn, 'N', 0.0, h_mm)
-        orbital_energies = h_mm.diagonal().copy()
+        orbital_energies = h_mm.diagonal().real.copy()
         # label each orbital energy
         # add some noise to get rid off degeneracy
         orbital_energies += \
@@ -682,7 +682,7 @@ class DirectMinOddLCAO(DirectLCAO):
         if x > 0:
             # now sort wfs according to orbital energies
             kpt.C_nM[np.arange(len(ind)),:] = kpt.C_nM[ind,:]
-            kpt.eps_n[:] = np.sort(h_mm.diagonal().copy())
+            kpt.eps_n[:] = np.sort(h_mm.diagonal().real.copy())
         wfs.timer.stop('Sort WFS')
 
         return
