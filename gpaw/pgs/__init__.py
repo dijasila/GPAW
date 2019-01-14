@@ -18,8 +18,7 @@ to GPAW.
 PGS refers to Point Group Symmetry.
 
 The code was originally written for the paper
-S. Kaappa, S. Malola, H. Hakkinen;  arXiv:1808.01868 [physics.atm-clus]
-https://arxiv.org/abs/1808.01868
+S. Kaappa, S. Malola, H. Hakkinen; J. Phys. Chem. A; vol. 122, 43, pp. 8576-8584 (2018)
 """
 
 
