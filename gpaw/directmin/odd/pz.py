@@ -48,8 +48,7 @@ class PzCorrectionsLcao:
         self.xc = ham.xc
 
         self.poiss = PoissonSolver(relax=poisson_solver,
-                                   use_charge_center=True,
-                                   eps=1.0e-16) #,
+                                   eps=1.0e-16, sic_gg=True)
                                    # sic_gg=True)
         if self.sic_coarse_grid is True:
             self.poiss.set_grid_descriptor(self.cgd)
@@ -307,7 +306,7 @@ class PzCorrectionsLcao:
         else:
             self.finegd.comm.sum(F_MM)
 
-        return F_MM, e_sic_m
+        return F_MM, e_sic_m * f_n[m]
 
     def get_density(self, f_n, C_nM, kpt,
                     wfs, setup, m):

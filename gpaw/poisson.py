@@ -93,11 +93,14 @@ class _PoissonSolver(object):
 
 
 class BasePoissonSolver(_PoissonSolver):
-    def __init__(self, eps=None, remove_moment=None, use_charge_center=False):
+    def __init__(self, eps=None, remove_moment=None,
+                 use_charge_center=False, sic_gg=False):
         self.gd = None
         self.remove_moment = remove_moment
         self.use_charge_center = use_charge_center
         self.eps = eps
+        self.sic_gg = sic_gg
+        self.direct_min_zero_init_phi = False
 
     def todict(self):
         d = {'name': 'basepoisson'}
@@ -128,6 +131,10 @@ class BasePoissonSolver(_PoissonSolver):
         assert np.all(phi.shape == self.gd.n_c)
         assert np.all(rho.shape == self.gd.n_c)
 
+        if self.direct_min_zero_init_phi is True:
+            zero_initial_phi = True
+            phi[:] = 0.0
+
         if eps is None:
             eps = self.eps
         actual_charge = self.gd.integrate(rho)
@@ -157,6 +164,62 @@ class BasePoissonSolver(_PoissonSolver):
         if abs(charge) <= maxcharge:
             # System is charge neutral. Use standard solver
             return self.solve_neutral(phi, rho - background, eps=eps)
+
+        elif self.sic_gg:
+            # this is for odd calculations
+            if self.gd.pbc_c.all():
+                if self.charged_periodic_correction is None:
+                    self.charged_periodic_correction = madelung(
+                        self.gd.cell_cv)
+
+                iters = self.solve_neutral(phi, rho - background,
+                                           eps=eps)
+
+                phi += actual_charge * self.charged_periodic_correction
+
+                return iters
+            else:
+                # Gauss. neutralisation for non-periodic syst
+                gd = self.gd
+
+                # calculate positions of the excess charge
+                # (Wannier definition)
+                r_cg = gd.get_grid_point_coordinates()
+                B_vc = 2.0 * np.pi * gd.icell_cv.T
+                shape0 = r_cg.shape
+                r_cg.shape = (shape0[0], shape0[1]*shape0[2]*shape0[3])
+                expfac_vg = np.exp(1j*np.dot(B_vc, r_cg))
+                expfac_vg.shape = shape0
+                r_cg.shape = shape0
+                z_v = self.gd.integrate(rho*expfac_vg)
+                x_v = np.log(z_v).imag / (2.0*np.pi)
+                x_v = np.where(x_v<0.0, x_v+1.0, x_v)
+                r0_c = np.dot(gd.cell_cv, x_v)
+                #
+                gauss = Gaussian(gd=self.gd, a=19., center=r0_c)
+                # a_gauss = gauss.a
+                self.rho_gauss = gauss.get_gauss(0)
+                phi_gauss = gauss.get_gauss_pot(0)
+                #
+                q_gauss = self.gd.integrate(self.rho_gauss)
+                q = actual_charge / q_gauss # Monopole moment
+                rho_neutral = rho - q * self.rho_gauss
+                # neutralized density
+
+                # Set initial guess for potential
+                if zero_initial_phi:
+                    phi[:] = 0.0
+                else:
+                    axpy(-q, phi_gauss, phi)  # phi -= q * self.phi_gauss
+
+                # Determine potential from neutral density
+                # using standard solver
+                iters = self.solve_neutral(phi, rho_neutral, eps=eps)
+
+                # correct error introduced by removing monopole
+                axpy(q, phi_gauss, phi)  # phi += q * self.phi_gauss
+
+                return iters
 
         elif abs(charge) > maxcharge and self.gd.pbc_c.all():
             # System is charged and periodic. Subtract a homogeneous
@@ -232,14 +295,15 @@ class BasePoissonSolver(_PoissonSolver):
             self.rho_gauss = gauss.get_gauss(0)
             self.phi_gauss = gauss.get_gauss_pot(0)
 
-
 class FDPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, use_charge_center=False):
+                 remove_moment=None, use_charge_center=False,
+                 sic_gg=False):
         super(FDPoissonSolver, self).__init__(
             eps=eps,
             remove_moment=remove_moment,
-            use_charge_center=use_charge_center)
+            use_charge_center=use_charge_center,
+            sic_gg=sic_gg)
         self.relax = relax
         self.nn = nn
         self.charged_periodic_correction = None
