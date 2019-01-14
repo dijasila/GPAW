@@ -3,6 +3,24 @@ import numpy as np
 from scipy.ndimage.interpolation import rotate as rotate_array
 import inspect
 
+"""
+The point groups are written as classes that inherit the class
+Pointgroup and contain the information about
+- the character table in irreducible form
+- representations that correspond to translations in x, y and z
+- whether the point group contains complex representations
+
+About complex point groups:
+The classes of complex groups (such as Th) are tagged 
+as that they contain the attribute `complex`. For those groups,
+only the real character table is given which is used as such
+in the reduction formula. For the representations of these 
+character tables, the regular orthogonality rules between the
+rows and columns do not apply due to the lost information about
+the imaginary parts.
+
+"""
+
 if __name__ == '__main__':
     """
     Test for various errors.
@@ -1026,6 +1044,7 @@ class Th(Pointgroup):
         self.Tx_i = 5
         self.Ty_i = 5
         self.Tz_i = 5
+        self.complex = True
 
     def __str__(self):
         return 'Th'
