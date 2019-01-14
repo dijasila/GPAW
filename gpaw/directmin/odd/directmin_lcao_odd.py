@@ -199,6 +199,10 @@ class DirectMinOddLCAO(DirectLCAO):
             # first iteration is diagonilisation using super class
             super().iterate(ham, wfs)
             occ.calculate(wfs)
+            self.update_ks_energy(ham, wfs, dens, occ)
+            for kpt in wfs.kpt_u:
+                self.sort_wavefunctions(ham, wfs, kpt)
+            self.sorted = True
             self.initialize_2(wfs, dens, ham)
 
         wfs.timer.start('Preconditioning:')
@@ -644,3 +648,55 @@ class DirectMinOddLCAO(DirectLCAO):
     def reset(self):
         self._error = np.inf
         self.iters = 0
+
+    def sort_wavefunctions(self, ham, wfs, kpt):
+        """
+        this function sorts wavefunctions according
+        it's orbitals energies, not eigenvalues.
+        :return:
+        """
+        wfs.timer.start('Sort WFS')
+        h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
+        tri2full(h_mm)
+        hc_mn = np.zeros(shape=(kpt.C_nM.shape[1], kpt.C_nM.shape[0]),
+                         dtype=kpt.C_nM.dtype)
+        mmm(1.0, h_mm.conj(), 'N', kpt.C_nM, 'T', 0.0, hc_mn)
+        mmm(1.0, kpt.C_nM.conj(), 'N', hc_mn, 'N', 0.0, h_mm)
+        orbital_energies = h_mm.diagonal().copy()
+        # label each orbital energy
+        # add some noise to get rid off degeneracy
+        orbital_energies += \
+            np.random.rand(len(orbital_energies)) * 1.0e-8
+        oe_labeled = {}
+        for i, lamb in enumerate(orbital_energies):
+            oe_labeled[str(round(lamb, 12))] = i
+        # now sort orb energies
+        oe_sorted = np.sort(orbital_energies)
+        # run over sorted orbital energies and get their label
+        ind = []
+        for x in oe_sorted:
+            i = oe_labeled[str(round(x, 12))]
+            ind.append(i)
+        # check if it is necessary to sort
+        x = np.max(abs(np.array(ind) - np.arange(len(ind))))
+        if x > 0:
+            # now sort wfs according to orbital energies
+            kpt.C_nM[np.arange(len(ind)),:] = kpt.C_nM[ind,:]
+            kpt.eps_n[:] = np.sort(h_mm.diagonal().copy())
+        wfs.timer.stop('Sort WFS')
+
+        return
+
+
+def sorted(eps):
+
+    # get rid off degeneracy
+    r = np.random.rand(len(eps)) * 1.0e-8
+    x = np.max(np.absolute((eps + r) - np.sort(eps + r)))
+
+    if x > 3.67e-4:  # 1.0e-2 eV
+        print(False)
+        return False
+    else:
+        print(True)
+        return True
