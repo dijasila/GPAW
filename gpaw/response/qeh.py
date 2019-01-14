@@ -1869,22 +1869,15 @@ def main(args=None):
         if src != dest:
             shutil.copy(src, dest)
 
-
-<< << << < HEAD
- # q_q = np.linspace(args.q[0], args.q[1], args.q[2])
- # omega_w = np.linspace(args.omega[0], args.omega[1], args.omega[2])
-
-== == == =
->>>>>> > origin/qeh2.0
- # Make QEH calculation
- print('Initializing heterostructure')
-  hs = make_heterostructure(layers,
-                             thicknesses=args.thicknesses,
-                             momenta=args.q,
-                             frequencies=args.omega,
-                             no_phonons=args.no_phonons)
-
-   if args.plot:
+    # Make QEH calculation
+    print('Initializing heterostructure')
+    hs = make_heterostructure(layers,
+                              thicknesses=args.thicknesses,
+                              momenta=args.q,
+                              frequencies=args.omega,
+                              no_phonons=args.no_phonons)
+    
+    if args.plot:
         import matplotlib.pyplot as plt
 
     if args.plasmons:
