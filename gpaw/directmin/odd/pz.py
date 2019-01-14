@@ -211,18 +211,25 @@ class PzCorrectionsLcao:
         F_MM = np.zeros(shape=(n_set, n_set),
                         dtype=self.dtype)
         # get orbital-density
+        self.timer.start('Construct Density, Charge, adn DM')
         nt_G, Q_aL, D_ap = \
             self.get_density(f_n,
                              C_nM, kpt,
                              wfs, setup, m)
+        self.timer.stop('Construct Density, Charge, adn DM')
+
         # calculate sic energy,
         # sic pseudo-potential and Hartree
+        self.timer.start('Get Pseudo Potential')
         e_sic_m, vt_mG, vHt_g = \
             self.get_pseudo_pot(nt_G, Q_aL, m, kpoint)
+        self.timer.stop('Get Pseudo Potential')
 
         # calculate PAW corrections
+        self.timer.start('PAW')
         e_sic_paw_m, dH_ap = \
             self.get_paw_corrections(D_ap, vHt_g)
+        self.timer.stop('PAW')
 
         # total sic:
         e_sic_m += e_sic_paw_m
@@ -234,11 +241,13 @@ class PzCorrectionsLcao:
 
         # TODO: sum over cell? see calculate_hamiltonian_matrix in
         # eigensolver.py
+        self.timer.start('ODD Potential Matrices')
         Vt_MM = np.zeros_like(F_MM)
         self.bfs.calculate_potential_matrix(vt_mG, Vt_MM, kpt.q)
         # make matrix hermitian
         ind_l = np.tril_indices(Vt_MM.shape[0], -1)
         Vt_MM[(ind_l[1], ind_l[0])] = Vt_MM[ind_l].conj()
+        self.timer.stop('ODD Potential Matrices')
 
         # np.save('Vt_MM1', Vt_MM)
         #
@@ -265,6 +274,7 @@ class PzCorrectionsLcao:
         # np.save('Vt_MM2', Vt_MM)
 
         # PAW:
+        self.timer.start('Potential matrix - PAW')
         for a, dH_p in dH_ap.items():
             P_Mj = wfs.P_aqMi[a][kpt.q]
             dH_ij = unpack(dH_p)
@@ -305,6 +315,7 @@ class PzCorrectionsLcao:
             self.cgd.comm.sum(F_MM)
         else:
             self.finegd.comm.sum(F_MM)
+        self.timer.stop('Potential matrix - PAW')
 
         return F_MM, e_sic_m * f_n[m]
 
@@ -401,13 +412,13 @@ class PzCorrectionsLcao:
 
         self.timer.stop('ODD Poisson')
 
-        self.timer.start('ODD Hartree integrate ODD')
+        self.timer.start('ODD Hartree integrate')
         if self.sic_coarse_grid is False:
             ec = 0.5 * self.finegd.integrate(nt_sg[0] * vHt_g)
         else:
             ec = 0.5 * self.cgd.integrate(nt_sg[0] * vHt_g)
 
-        self.timer.stop('ODD Hartree integrate ODD')
+        self.timer.stop('ODD Hartree integrate')
         vt_sg[0] -= vHt_g * self.beta_c
         if self.sic_coarse_grid is False:
             vt_G = self.cgd.zeros()
@@ -422,6 +433,7 @@ class PzCorrectionsLcao:
     def get_paw_corrections(self, D_ap, vHt_g):
 
         # XC-PAW
+        self.timer.start('xc-PAW')
         dH_ap = {}
         exc = 0.0
         for a, D_p in D_ap.items():
@@ -430,17 +442,22 @@ class PzCorrectionsLcao:
             D_sp = np.array([D_p, np.zeros_like(D_p)])
             exc += self.xc.calculate_paw_correction(setup, D_sp,
                                                     dH_sp,
-                                                    addcoredensity=False)
+                                                    addcoredensity=False,
+                                                    a=a)
             dH_ap[a] = -dH_sp[0] * self.beta_x
+        self.timer.stop('xc-PAW')
 
         # Hartree-PAW
+        self.timer.start('Hartree-PAW')
         ec = 0.0
+        self.timer.start('ghat-PAW')
         if self.sic_coarse_grid is False:
             W_aL = self.ghat.dict()
             self.ghat.integrate(vHt_g, W_aL)
         else:
             W_aL = self.ghat_cg.dict()
             self.ghat_cg.integrate(vHt_g, W_aL)
+        self.timer.stop('ghat-PAW')
 
         for a, D_p in D_ap.items():
             setup = self.setups[a]
@@ -448,6 +465,7 @@ class PzCorrectionsLcao:
             ec += np.dot(D_p, M_p)
             dH_ap[a] += -(2.0 * M_p + np.dot(setup.Delta_pL,
                                              W_aL[a])) * self.beta_c
+        self.timer.stop('Hartree-PAW')
 
         if self.sic_coarse_grid is False:
             ec = self.finegd.comm.sum(ec)
