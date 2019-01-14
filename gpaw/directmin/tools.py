@@ -19,13 +19,13 @@ def expm_ed(a_mat, evalevec=False, use_numpy=True):
 
     if use_numpy:
         eigval, evec = np.linalg.eigh(1.0j * a_mat)
-        evec = evec.T.conj()
     else:
         evec = 1.0j * a_mat
         eigval = np.empty(a_mat.shape[0])
         diagonalize(evec, eigval)
+        evec = evec.T.conj()
 
-    product = np.dot(evec.T.conj() * np.exp(-1.0j * eigval), evec)
+    product = np.dot(evec * np.exp(-1.0j * eigval), evec.T.conj())
 
     if a_mat.dtype == float:
         product = product.real
