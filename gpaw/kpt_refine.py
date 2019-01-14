@@ -33,6 +33,7 @@ calc = GPAW(mode=PW(ecut=450),
 
 """
 
+
 def create_kpoint_descriptor_with_refinement(refine, bzkpts_kc, nspins, atoms,
                                              symmetry, comm, timer):
     """Main routine to build refined k-point grids."""
@@ -45,9 +46,9 @@ def create_kpoint_descriptor_with_refinement(refine, bzkpts_kc, nspins, atoms,
     size = np.array(refine.get('size'), ndmin=2)
     reduce_symmetry = refine.get('reduce_symmetry', True)
 
-    # Check that all sizes are odd. That's not so much an issue really. But even
-    # Monkhorst-Pack grids have points on the boundary, which just would require
-    # more special casing, which I want to avoid.
+    # Check that all sizes are odd. That's not so much an issue really.
+    # But even Monkhorst-Pack grids have points on the boundary,
+    # which just would require more special casing, which I want to avoid.
     if (np.array(size) % 2 == 0).any():
         raise RuntimeError('Grid size for refinement must be odd!  Is: {}'.
                            format(size))
@@ -61,8 +62,8 @@ def create_kpoint_descriptor_with_refinement(refine, bzkpts_kc, nspins, atoms,
 
     # Define fine grid points
     centers_i, bzk_fine_kc, weight_fine_k = get_fine_bzkpts(center_ic, size,
-                                                               bzk_coarse_kc,
-                                                               kwargs)
+                                                            bzk_coarse_kc,
+                                                            kwargs)
 
     if reduce_symmetry:
         # Define new symmetry object ignoring symmetries violated by the
@@ -77,10 +78,14 @@ def create_kpoint_descriptor_with_refinement(refine, bzkpts_kc, nspins, atoms,
     # Create new descriptor with both sets of points
 
     with timer('Create mixed descriptor'):
-        kd = create_mixed_kpoint_descriptor(bzk_coarse_kc, bzk_fine_kc, centers_i,
-                                        weight_fine_k, kwargs)
+        kd = create_mixed_kpoint_descriptor(bzk_coarse_kc,
+                                            bzk_fine_kc,
+                                            centers_i,
+                                            weight_fine_k,
+                                            kwargs)
 
-    # Add missing k-points to fulfill group properties with zero-weighted points
+    # Add missing k-points to fulfill group properties with
+    # zero-weighted points
     with timer('Add_missing_points'):
         kd = add_missing_points(kd, kwargs)
 
@@ -99,12 +104,14 @@ def create_kpoint_descriptor_with_refinement(refine, bzkpts_kc, nspins, atoms,
 
     return kd
 
+
 def create_kpoint_descriptor(bzkpts_kc, nspins, atoms, symmetry, comm):
     kd = KPointDescriptor(bzkpts_kc, nspins)
     # self.timer.start('Set symmetry')
     kd.set_symmetry(atoms, symmetry, comm=comm)
     # self.timer.stop('Set symmetry')
     return kd
+
 
 def create_mixed_kpoint_descriptor(bzk_coarse_kc, bzk_fine_kc, centers_i,
                                    weight_fine_k, kwargs):
@@ -135,6 +142,7 @@ def create_mixed_kpoint_descriptor(bzk_coarse_kc, bzk_fine_kc, centers_i,
 
     # return kd_new.copy()
     return kd_new
+
 
 def get_fine_bzkpts(center_ic, size, bzk_coarse_kc, kwargs):
     """Return list of reducible refined kpoints and the indexes for the points
@@ -203,6 +211,7 @@ def get_fine_bzkpts(center_ic, size, bzk_coarse_kc, kwargs):
 
     return centers_i, bzk_fine_kc, weight_k
 
+
 def find_equivalent_kpoints(point, kd):
     """Find coordinates and BZ index for all refinement centers."""
 
@@ -214,7 +223,8 @@ def find_equivalent_kpoints(point, kd):
     equiv_k = list(set(kd.bz2bz_ks[k]))
     # equiv_kc = kd.bzk_kc[equiv_k]
 
-    return np.array(equiv_k) #, equiv_kc
+    return np.array(equiv_k)  # , equiv_kc
+
 
 def get_reduced_monkhorst(size, N_c):
     """Find monkhorst_pack according to size of refined grid and shrink it into
@@ -222,6 +232,7 @@ def get_reduced_monkhorst(size, N_c):
 
     mh_kc = monkhorst_pack(size)
     return mh_kc / N_c
+
 
 def construct_neighbours_by_shells(nshells, N_c):
     """Construct a list of neighbours (translations from center for each
@@ -249,14 +260,15 @@ def construct_neighbours_by_shells(nshells, N_c):
         for cx in elements[0]:
             for cy in elements[1]:
                 for cz in elements[2]:
-                     candidate = [cx, cy, cz]
-                     if (np.abs(np.array(candidate)) == shell).any():
-                            this_list.append(candidate)
+                    candidate = [cx, cy, cz]
+                    if (np.abs(np.array(candidate)) == shell).any():
+                        this_list.append(candidate)
 
         this_list = np.array(this_list, dtype=float, ndmin=2) / N_c
         neighbours.append(this_list)
 
     return np.array(neighbours)
+
 
 def prune_symmetries_kpoints(kd, symmetry):
     """Remove the symmetries which are violated by a kpoint set."""
@@ -272,9 +284,11 @@ def prune_symmetries_kpoints(kd, symmetry):
     new_symmetry.a_sa = new_symmetry.a_sa[where]
 
     inv_cc = -np.eye(3, dtype=int)
-    new_symmetry.has_inversion = (new_symmetry.op_scc == inv_cc).all(2).all(1).any()
+    new_symmetry.has_inversion = (new_symmetry.op_scc ==
+                                  inv_cc).all(2).all(1).any()
 
     return new_symmetry
+
 
 def find_missing_points(kd):
     """Find points in k-point descriptor, which miss in the set to fill the
@@ -291,7 +305,7 @@ def find_missing_points(kd):
                 i = s
                 if kd.symmetry.time_reversal:
                     if s / kd.bz2bz_ks.shape[1] >= 0.5:
-                        i = s -  int(kd.bz2bz_ks.shape[1] / 2)
+                        i = s - int(kd.bz2bz_ks.shape[1] / 2)
                         sign = -1.
                 k_c = sign * np.dot(kd.symmetry.op_scc[i], kd.bzk_kc[k])
                 k_c -= np.rint(k_c)
@@ -304,6 +318,7 @@ def find_missing_points(kd):
 
     return buf
 
+
 def add_missing_points(kd, kwargs):
     """Add points to k-point descriptor, which miss to fill the group."""
     add_points_kc = find_missing_points(kd)
@@ -314,6 +329,7 @@ def add_missing_points(kd, kwargs):
     assert -1 not in kd_new.bz2bz_ks
 
     return kd_new
+
 
 def add_plusq_points(kd, q_c, kwargs):
     """Add +q points to k-point descriptor, if missing. Also, reduce the
@@ -330,7 +346,7 @@ def add_plusq_points(kd, q_c, kwargs):
         if _kd.refine_info.label_k[k] == 'mh':
             continue
         try:
-            i_x = _kd.find_k_plus_q(q_c, [k])
+            _kd.find_k_plus_q(q_c, [k])
         except KPointError:
             k_c = _kd.bzk_kc[k] + q_c
             add_points_kc.append(np.array(k_c, ndmin=2))
@@ -349,6 +365,7 @@ def add_plusq_points(kd, q_c, kwargs):
     kd_new = create_new_descriptor_with_zero_points(kd, add_points_kc, kwargs)
     return kd_new
 
+
 def create_new_descriptor_with_zero_points(kd, add_points_kc, kwargs):
     """Create a new k-point descriptor including some additional zero-weighted
     points."""
@@ -356,14 +373,16 @@ def create_new_descriptor_with_zero_points(kd, add_points_kc, kwargs):
     nbzkpts_add = add_points_kc.shape[0]
 
     # Make sure all points are unique
-    assert bzk_kc.shape[0] == np.vstack([tuple(row) for row in bzk_kc]).shape[0]
+    assert bzk_kc.shape[0] == np.vstack([tuple(row)
+                                         for row in bzk_kc]).shape[0]
 
     # Construct the new KPointDescriptor
     kd_new = create_kpoint_descriptor(bzk_kc, **kwargs)
 
     # Update refine_info
     kd_new.refine_info = kd.refine_info.copy()
-    label_k = np.append(kd.refine_info.label_k, np.array(nbzkpts_add*['zero']))
+    label_k = np.append(kd.refine_info.label_k,
+                        np.array(nbzkpts_add * ['zero']))
     kd_new.refine_info.set_label_k(label_k)
     # Avoid exact zero, as that would screw up the occupations calculation
     weight_k = np.append(kd.refine_info.weight_k, 1e-10 * np.ones(nbzkpts_add))
@@ -375,6 +394,7 @@ def create_new_descriptor_with_zero_points(kd, add_points_kc, kwargs):
     assert np.abs(np.sum(kd_new.weight_k) - 1) < 1e-6
 
     return kd_new
+
 
 def minimal_point_distance(point_c, bzk_kc):
     d_kc = point_c - bzk_kc
@@ -424,4 +444,3 @@ class KRefinement:
         refine_info.weight_k = self.weight_k
         refine_info.almostoptical = self.almostoptical
         return refine_info
-
