@@ -18,10 +18,10 @@ class PzCorrectionsLcao:
 
     """
     def __init__(self, wfs, dens, ham, scaling_factor=(1.0, 1.0),
-                 sic_coarse_grid=False, store_potentials=True,
+                 sic_coarse_grid=True, store_potentials=True,
                  poisson_solver='GS'):
 
-
+        self.name = 'PZ_SIC'
         # what we need from wfs
         self.setups = wfs.setups
         self.bfs = wfs.basis_functions
@@ -48,8 +48,9 @@ class PzCorrectionsLcao:
         self.xc = ham.xc
 
         self.poiss = PoissonSolver(relax=poisson_solver,
-                                   eps=1.0e-16,
-                                   sic_gg=True)
+                                   use_charge_center=True,
+                                   eps=1.0e-16) #,
+                                   # sic_gg=True)
         if self.sic_coarse_grid is True:
             self.poiss.set_grid_descriptor(self.cgd)
         else:
@@ -170,7 +171,7 @@ class PzCorrectionsLcao:
         rhs2 = np.zeros(shape=(c_nm.shape[1], n_occ),
                         dtype=self.dtype)
         mmm(1.0, kpt.S_MM.conj(), 'N', c_nm[:n_occ], 'T', 0.0, rhs)
-        mmm(1.0, rhs, 'N', h_mm[:n_occ, :n_occ] + l_odd, 'N', 0.0, rhs2)
+        mmm(1.0, rhs, 'N', h_mm[:n_occ, :n_occ], 'N', 0.0, rhs2)
         hc_mn = hc_mn[:, :n_occ] - rhs2[:, :n_occ]
         norm = []
         for i in range(n_occ):

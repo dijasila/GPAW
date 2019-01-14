@@ -97,6 +97,7 @@ class DirectMinOddLCAO(DirectLCAO):
 
         self.evecs = {}   # eigendecomposition for a
         self.evals = {}
+        self.ind_up = None
 
         if self.sparse:
             # we may want to use different shapes for different
@@ -143,6 +144,7 @@ class DirectMinOddLCAO(DirectLCAO):
             pass
         else:
             raise Exception('Check ODD Parameters')
+        self.e_sic = 0.0
 
     def initialize_sd_and_ls(self, wfs, method, ls_method,
                              obj_function):
@@ -335,7 +337,7 @@ class DirectMinOddLCAO(DirectLCAO):
         wfs.timer.start('Calculate gradients')
         g_mat_u = {}
         self._error = 0.0
-        e_odd = 0.0  # this is odd energy
+        self.e_sic = 0.0  # this is odd energy
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             if n_dim[k] == 0:
@@ -354,16 +356,16 @@ class DirectMinOddLCAO(DirectLCAO):
                                                        self.sparse,
                                                        self.ind_up)
             if hasattr(self.odd, 'e_sic'):
-                e_odd += self.odd.e_sic[k].sum()
+                self.e_sic += self.odd.e_sic[k].sum()
 
             self._error += error
         self._error = self.kd_comm.sum(self._error)
-        e_odd = self.kd_comm.sum(e_odd)
+        self.e_sic = self.kd_comm.sum(self.e_sic)
         wfs.timer.stop('Calculate gradients')
 
         self.get_en_and_grad_iters += 1
 
-        return e_total + e_odd, g_mat_u
+        return e_total + self.e_sic, g_mat_u
 
     def update_ks_energy(self, ham, wfs, dens, occ):
 
@@ -628,6 +630,8 @@ class DirectMinOddLCAO(DirectLCAO):
         # for some systems, it can 'mess' the solution.
         # this usually happens in metals,
         # the so-called charge-sloshing problem..
+        if self.odd.name != 'Zero':
+            return
         wfs.timer.start('Get Canonical Representation')
         super().iterate(ham, wfs)
         occ.calculate(wfs)

@@ -9,6 +9,7 @@ class ZeroCorrectionsLcao:
 
     """
     def __init__(self, wfs, dens, ham, **kwargs):
+        self.name = 'Zero'
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
         self.dtype = wfs.dtype
         self.nvalence = wfs.nvalence
