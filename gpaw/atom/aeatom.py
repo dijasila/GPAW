@@ -157,6 +157,12 @@ class Channel:
         for n in range(len(self.f_n)):
             e = self.e_n[n]
 
+            if e > 0.0:
+                # Skip orbitals with positive energies
+                self.e_n[n] = 42
+                self.phi_ng[n] = 0.0
+                continue
+
             # Find classical turning point:
             x = vr_g * r_g + 0.5 * l * (l + 1) - e * r_g**2
             g0 = rgd.round(4.0)
