@@ -64,7 +64,9 @@ class SCFLoop:
             if egs_name == 'direct_min':
                 wfs.eigensolver.iterate(ham, wfs, dens, occ)
                 occ.calculate(wfs)
-                energy = ham.get_energy(occ, kin_en_using_band=False)
+                e_sic = wfs.eigensolver.e_sic
+                energy = ham.get_energy(occ, kin_en_using_band=False,
+                                        e_sic=e_sic)
             else:
                 wfs.eigensolver.iterate(ham, wfs)
                 occ.calculate(wfs)
