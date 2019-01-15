@@ -45,7 +45,7 @@ for name in ['h2_osc', 'n2_osc', 'na2_md', 'na2_osc']:
     traj = Trajectory(name + '_td.traj', 'r')
     nframes = len(traj)
     natoms = len(traj[0])
-    symbol = traj[0].get_name()
+    symbol = traj[0].get_chemical_formula()
     t_i = m.timestep * m.ndiv * np.arange(nframes)
     Ekin_i, e_coulomb_i = np.empty(nframes), np.empty(nframes)
     R_iav = np.empty((nframes, natoms, 3))
@@ -63,7 +63,7 @@ for name in ['h2_osc', 'n2_osc', 'na2_md', 'na2_osc']:
 
     # Verify that energy was conserved
     dEstd = np.std(Ekin_i + e_coulomb_i)
-    dEmax = np.max(Ekin_i.ptp(), e_coulomb_i.ptp())
+    dEmax = np.maximum(Ekin_i.ptp(), e_coulomb_i.ptp())
     assert dEstd < 1e-2 * dEmax + 1e-6, (dEstd, dEmax)
 
     # Compare position, velocity and force time series using Velocity Verlet

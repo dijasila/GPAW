@@ -22,6 +22,7 @@ GPAW calculator:
    poisson
    transport/keldyshgf
    tddft/tddft
+   ehrenfest/ehrenfest
    electrodynamics/electrodynamics
    bse/bse
    gw_theory/gw_theory
