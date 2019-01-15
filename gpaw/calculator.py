@@ -6,6 +6,7 @@ from ase.units import Bohr, Ha
 from ase.calculators.calculator import Calculator, kpts2ndarray
 from ase.utils import basestring, plural
 from ase.utils.timing import Timer
+from ase.dft.bandgap import bandgap
 
 import gpaw
 import gpaw.mpi as mpi
@@ -347,10 +348,15 @@ class GPAW(PAW, Calculator):
                     self.results['stress'] = stress * (Ha / Bohr**3)
 
     def summary(self):
-        self.hamiltonian.summary(self.occupations.fermilevel, self.log)
+        efermi = self.occupations.fermilevel
+        self.hamiltonian.summary(efermi, self.log)
         self.density.summary(self.atoms, self.occupations.magmom, self.log)
         self.occupations.summary(self.log)
         self.wfs.summary(self.log)
+        try:
+            bandgap(self, output=self.log.fd, efermi=efermi * Ha)
+        except ValueError:
+            pass
         self.log.fd.flush()
 
     def set(self, **kwargs):
