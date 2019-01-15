@@ -65,9 +65,10 @@ class WaveFunctions:
 
     def summary(self, log):
         log(eigenvalue_string(self))
-        odd = getattr(self.eigensolver.odd, "name", None)
-        if odd == 'PZ_SIC':
-            self.summury_odd(log)
+        if hasattr(self.eigensolver, 'odd'):
+            odd = getattr(self.eigensolver.odd, "name", None)
+            if odd == 'PZ_SIC':
+                self.summury_odd(log)
 
     def set_setups(self, setups):
         self.setups = setups

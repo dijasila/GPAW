@@ -524,7 +524,7 @@ class PzCorrectionsLcao:
 
     def get_odd_corrections_to_forces(self, wfs, dens):
 
-        self.timer.start('LCAO forces')
+        self.timer.start('ODD corrections')
 
         natoms = len(wfs.setups)
         F_av = np.zeros((natoms, 3))
@@ -779,7 +779,7 @@ class PzCorrectionsLcao:
         wfs.world.broadcast(F_av, 0)
         self.timer.stop('Wait for sum')
 
-        self.timer.stop('LCAO forces')
+        self.timer.stop('ODD corrections')
 
         return F_av * (3.0 - wfs.nspins)
 
@@ -935,7 +935,7 @@ class PzCorrectionsLcao:
         k = self.n_kps * kpt.s + kpt.q
 
         if update_eigenvalues:
-            self.lagr_diag_s[k] = np.diagonal(h_mm + l_odd)
+            self.lagr_diag_s[k] = np.diagonal(h_mm + l_odd).real
             kpt.eps_n[:nbs] = \
                 np.linalg.eigh(h_mm + 0.5 * (l_odd + l_odd.T.conj()))[0]
 
