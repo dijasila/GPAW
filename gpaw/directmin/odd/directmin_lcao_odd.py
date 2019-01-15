@@ -334,9 +334,7 @@ class DirectMinOddLCAO(DirectLCAO):
             wfs.atomic_correction.calculate_projections(wfs, kpt)
         wfs.timer.stop('Unitary rotation')
 
-        wfs.timer.start('Update Kohn-Sham energy')
         e_total = self.update_ks_energy(ham, wfs, dens, occ)
-        wfs.timer.stop('Update Kohn-Sham energy')
 
         wfs.timer.start('Calculate gradients')
         g_mat_u = {}
@@ -372,9 +370,11 @@ class DirectMinOddLCAO(DirectLCAO):
         return e_total + self.e_sic, g_mat_u
 
     def update_ks_energy(self, ham, wfs, dens, occ):
-
+        wfs.timer.start('Update Kohn-Sham energy')
         dens.update(wfs)
         ham.update(dens, wfs, False)
+        wfs.timer.stop('Update Kohn-Sham energy')
+
         return ham.get_energy(occ, False)
 
     def get_gradients(self, h_mm, c_nm, f_n, evec, evals, kpt, timer):
