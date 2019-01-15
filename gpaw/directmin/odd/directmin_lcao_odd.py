@@ -359,8 +359,8 @@ class DirectMinOddLCAO(DirectLCAO):
                                                        self.matrix_exp,
                                                        self.sparse,
                                                        self.ind_up)
-            if hasattr(self.odd, 'e_sic'):
-                self.e_sic += self.odd.e_sic[k].sum()
+            if hasattr(self.odd, 'e_sic_by_orbitals'):
+                self.e_sic += self.odd.e_sic_by_orbitals[k].sum()
 
             self._error += error
         self._error = self.kd_comm.sum(self._error)

@@ -61,7 +61,7 @@ class PzCorrectionsLcao:
         self.dtype = wfs.dtype
         self.eigv_s = {}
         self.lagr_diag_s = {}
-        self.e_sic = {}
+        self.e_sic_by_orbitals = {}
         self.counter = 0  # number of calls of this class
         # Scaling factor:
         self.beta_c = scaling_factor[0]
@@ -158,7 +158,7 @@ class PzCorrectionsLcao:
         timer.stop('Construct Gradient Matrix')
 
         u = kpt.s * self.n_kps + kpt.q
-        self.e_sic[u] = \
+        self.e_sic_by_orbitals[u] = \
             e_total_sic.reshape(e_total_sic.shape[0] // 2, 2)
 
         timer.start('Residual')
