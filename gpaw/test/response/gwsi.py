@@ -52,4 +52,4 @@ equal(abs(np.array(results[0]) -
           [-9.25,
            5.44, 2.39, 0.40, 0,
            6.26, 3.57, 1.32, 0]).max(), 0, 0.025)
-equal(np.ptp(results, 0).max(), 0, 0.003)
+equal(np.ptp(results, 0).max(), 0, 0.004)
