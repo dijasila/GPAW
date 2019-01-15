@@ -67,7 +67,7 @@ def dopedsemiconductor(path, effectivemass, doping, temperature):
 
     # Polarizability in the relaxation time approximation
     def Pgamma(q_q, w_w, me=None, efermi=None, T=0.0,
-               mupmax=None, N=1000, gamma=10e-2):
+               mupmax=None, N=1000, gamma=1e-2):
         assert efermi is not None, print('You have to set a fermi energy!')
         assert me is not None, \
             print('You have to set an effective electron mass!')
