@@ -4,7 +4,7 @@ Manual installation on Ubuntu 18.04+
 
 Install these Ubuntu_ packages::
 
-    $ sudo apt install python3-dev libopenblas-dev liblapack-dev libxc-dev libscalapack-mpi-dev libblacs-mpi-dev
+    $ sudo apt install python3-dev libopenblas-dev liblapack-dev libxc-dev libscalapack-mpi-dev libblacs-mpi-dev libfftw3-dev
 
 Then install ASE_, Numpy and SciPy::
 
