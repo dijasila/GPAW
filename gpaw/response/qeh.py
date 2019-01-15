@@ -7,6 +7,9 @@ from math import pi
 import ase.units
 from ase.parallel import world
 from ase.utils import devnull
+from ase.utils.timing import timer, Timer
+import scipy
+
 import sys
 import os
 
@@ -27,7 +30,7 @@ class Heterostructure:
 
     def __init__(self, structure, d,
                  include_dipole=True, d0=None,
-                 wmax=10, qmax=None):
+                 wmax=10, qmax=None, timer=None):
         """Creates a Heterostructure object.
 
         structure: list of str
@@ -50,6 +53,8 @@ class Heterostructure:
             Cutoff for wave-vector grid (1/Ang)
         """
 
+        self.timer = timer or Timer()
+        
         chi_monopole = []
         drho_monopole = []
         if include_dipole:
@@ -146,7 +151,7 @@ class Heterostructure:
             self.dim *= 2
 
         # Grid stuff
-        self.poisson_lim = 100  # above this limit use potential model
+        self.poisson_lim = 500  # above this limit use potential model
         edgesize = 50
         system_size = np.sum(self.d) + edgesize
         self.z_lim = system_size
@@ -165,6 +170,7 @@ class Heterostructure:
         self.dphi_array = self.get_induced_potentials()
         self.kernel_qij = None
 
+    @timer('Arange basis')
     def arange_basis(self, drhom, drhod=None):
         from scipy.interpolate import interp1d
         Nz = len(self.z_big)
@@ -209,6 +215,7 @@ class Heterostructure:
 
         return drhom, drhod, basis_array, drho_array
 
+    @timer('Get induced potentials')
     def get_induced_potentials(self):
         from scipy.interpolate import interp1d
         Nz = len(self.z_big)
@@ -221,9 +228,7 @@ class Heterostructure:
                 drho_m = self.drho_monopole[i][iq].copy()
                 poisson_m = self.solve_poisson_1D(drho_m, q, z)
                 z_poisson = self.get_z_grid(z, z_lim=self.poisson_lim)
-                if not len(z_poisson) == len(np.real(poisson_m)):
-                    z_poisson = z_poisson[:len(poisson_m)]
-                    poisson_m = poisson_m[:len(z_poisson)]
+                assert len(z_poisson) == len(np.real(poisson_m))
                 fm = interp1d(z_poisson, np.real(poisson_m))
                 fm2 = interp1d(z_poisson, np.imag(poisson_m))
                 if self.chi_dipole is not None:
@@ -275,6 +280,7 @@ class Heterostructure:
         z_grid = np.append(z_grid, np.arange(z[-1] + dz, z_lim + dz, dz))
         return z_grid
 
+    @timer('Potential model')
     def potential_model(self, q, z, z0=0, dipole=False, delta=None):
         """
         2D Coulomb: 2 pi / q with exponential decay in z-direction
@@ -288,6 +294,7 @@ class Heterostructure:
 
         return V
 
+    @timer('Solve Poisson equation')
     def solve_poisson_1D(self, drho, q, z,
                          dipole=False, delta=None):
         """
@@ -310,25 +317,21 @@ class Heterostructure:
                                      delta=delta)
         bc_vN = self.potential_model(q, z_grid[-1], dipole=dipole,
                                      delta=delta)
-        M = np.zeros((Nint + 1, Nint + 1))
         f_z = np.zeros(Nint + 1, dtype=complex)
         f_z[:] = - 4 * np.pi * drho[:]
-        # Finite Difference Matrix
-        for i in range(1, Nint):
-            M[i, i] = -2. / (dz**2) - q**2
-            M[i, i + 1] = 1. / dz**2
-            M[i, i - 1] = 1. / dz**2
-            M[0, 0] = 1.
-            M[Nint, Nint] = 1.
-
         f_z[0] = bc_v0
         f_z[Nint] = bc_vN
-
-        # Getting the Potential
-        M_inv = np.linalg.inv(M)
-        dphi = np.dot(M_inv, f_z)
+        
+        ab = np.zeros((3, Nint + 1), complex)
+        ab[0, 2:] = 1. / dz**2
+        ab[1, 1:-1] = -2 / dz**2 - q**2
+        ab[1, 0] = 1
+        ab[1, -1] = 1
+        ab[2, :-2] = 1. / dz**2
+        dphi = scipy.linalg.solve_banded((1, 1), ab, f_z)
         return dphi
 
+    @timer('Get coulomb kernel')
     def get_Coulomb_Kernel(self, step_potential=False):
         kernel_qij = np.zeros([self.mynq, self.dim, self.dim],
                               dtype=complex)
@@ -347,6 +350,7 @@ class Heterostructure:
 
         return kernel_qij
 
+    @timer('Solve chi dyson equation')
     def get_chi_matrix(self):
         """
         Dyson equation: chi_full = chi_intra + chi_intra V_inter chi_full
@@ -390,6 +394,7 @@ class Heterostructure:
 
         return chi_qwij
 
+    @timer('Get eps matrix')
     def get_eps_matrix(self, step_potential=False, iq_q=None, iw_w=None):
         """
         Get dielectric matrix as: eps^{-1} = 1 + V chi_full
@@ -425,6 +430,7 @@ class Heterostructure:
 
         return eps_qwij
 
+    @timer('Get screened potential')
     def get_screened_potential(self, layer=0):
         """
         get the screened interaction averaged over layer "k":
@@ -467,6 +473,7 @@ class Heterostructure:
 
         return W_qw
 
+    @timer('Get excition screened potential')
     def get_exciton_screened_potential(self, e_distr, h_distr):
         v_screened_q = np.zeros(self.mynq)
         eps_qwij = self.get_eps_matrix()
@@ -903,6 +910,7 @@ class Heterostructure:
         rhoind_qz = self.collect_qw(rhoind_qz)
         return self.z_big * Bohr, rhoind_qz, Vind_qz, self.z0 * Bohr
 
+    @timer('Calculate plasmon eigenmodes')
     def get_plasmon_eigenmodes(self, filename=None):
         """
         Diagonalize the dieletric matrix to get the plasmon eigenresonances
@@ -1003,7 +1011,7 @@ class Heterostructure:
                     'abseps': abseps}
             np.savez_compressed(filename, **data)
 
-        return eig, z, rho_z, phi_z, np.array(omega0)
+        return eig, z, rho_z, phi_z, np.array(omega0), abseps
 
     def collect_q(self, a_q):
         """ Collect arrays of dim (q)"""
@@ -1806,7 +1814,7 @@ def main(args=None):
     help = ("Custom momentas to respresent quantities on (in AA^-1). "
             "The format is: min. q, max. q, number of q's. "
             "E. g.: 0.001 0.1 100")
-    parser.add_argument('--q', default=[0.0001, 0.1, 1000],
+    parser.add_argument('--q', default=[0.0001, 0.01, 100],
                         nargs=3,
                         help=help, type=float)
 
@@ -1882,19 +1890,33 @@ def main(args=None):
 
     if args.plasmons:
         print('Calculating plasmon spectrum')
-        eig, z, rho_z, phi_z, omega0 = hs.get_plasmon_eigenmodes()
+        eig, z, rho_z, phi_z, omega0, abseps = hs.get_plasmon_eigenmodes()
         if args.plot:
             q_q = hs.q_abs / Bohr
+            omega_w = hs.frequencies * Hartree
             plt.figure()
+            plt.title('Plasmon modes')
             for iq in range(len(q_q)):
                 freqs = np.array(omega0[iq])
                 plt.plot([q_q[iq], ] * len(freqs), freqs, 'k.')
-
+            plt.xlabel(r'$\hbar\omega$ ($^{-1}$)')
+            plt.xlabel(r'q (Bohr$^{-1}$)')
+                
+            plt.figure()
+            plt.title('1 / |Det(Dielectric Matrix)|')
+            plt.pcolor(q_q, omega_w, np.log10(1 / np.abs(abseps)).T)
+            plt.xlabel(r'$\hbar\omega$ ($^{-1}$)')
+            plt.xlabel(r'q (Bohr$^{-1}$)')
+            plt.colorbar()
+                
     if args.eels:
         q_abs, frequencies, eels_qw = hs.get_eels(dipole_contribution=True)
 
+    hs.timer.write()
+    
     if args.plot:
         plt.show()
+
 
 
 if __name__ == '__main__':
