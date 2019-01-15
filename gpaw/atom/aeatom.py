@@ -365,6 +365,7 @@ class DiracChannel(Channel):
 class AllElectronAtom:
     def __init__(self, symbol, xc='LDA', spinpol=False, dirac=False,
                  configuration=None,
+                 ee_interaction=True,
                  log=None):
         """All-electron calculation for spherically symmetric atom.
 
@@ -379,6 +380,9 @@ class AllElectronAtom:
         configuration: list
             Electronic configuration for symbol, format as in
             gpaw.atom.configurations
+        ee_interaction: bool
+            Use ee_interaction=False to turn off electron-electron interaction.
+            Default is True.
         log: stream
             Text output."""
 
@@ -390,6 +394,8 @@ class AllElectronAtom:
         self.nspins = 1 + int(bool(spinpol))
 
         self.dirac = bool(dirac)
+
+        self.ee_interaction = ee_interaction
 
         if configuration is not None:
             self.configuration = copy.deepcopy(configuration)
@@ -560,7 +566,10 @@ class AllElectronAtom:
     def calculate_electrostatic_potential(self):
         """Calculate electrostatic potential and energy."""
         n_g = self.n_sg.sum(0)
-        self.vHr_g = self.rgd.poisson(n_g)
+        if self.ee_interaction:
+            self.vHr_g = self.rgd.poisson(n_g)
+        else:
+            self.vHr_g = self.rgd.zeros()
         self.eH = 0.5 * self.rgd.integrate(n_g * self.vHr_g, -1)
         self.eZ = -self.Z * self.rgd.integrate(n_g, -1)
 
@@ -788,7 +797,8 @@ class CLICommand:
             'beta-spin).  The number of electrons defaults to ' +
             'one. Examples: "1s", "2p2b", "4f0.1b,3d-0.1a".')
         add('--spin-polarized', action='store_true')
-        add('-d', '--dirac', action='store_true')
+        add('-d', '--dirac', action='store_true',
+            help='Solve Dirac equation.')
         add('-p', '--plot', action='store_true')
         add('-e', '--exponents',
             help='Exponents a: exp(-a*r^2).  Use "-e 0.1:20.0:30" ' +
@@ -800,6 +810,8 @@ class CLICommand:
             'Energy range and/or radius can be left out.')
         add('-r', '--refine', action='store_true')
         add('-s', '--scalar-relativistic', action='store_true')
+        add('--no-ee-interaction', action='store_true',
+            help='Turn off electron-electron interaction.')
 
     @staticmethod
     def run(args):
@@ -843,7 +855,8 @@ def main(args):
     aea = AllElectronAtom(symbol,
                           xc=args.xc_functional,
                           spinpol=args.spin_polarized,
-                          dirac=args.dirac)
+                          dirac=args.dirac,
+                          ee_interaction=not args.no_ee_interaction)
 
     kwargs = {}
     if args.exponents:
