@@ -111,7 +111,7 @@ def dopedsemiconductor(path, effectivemass, doping, temperature):
             'chiM_qw': dopedchiM_qw,
             'chiD_qw': block['chiD_qw'],
             'z': block['z'],
-            'drhoM_qz': block['drhoM_qw'],
+            'drhoM_qz': block['drhoM_qz'],
             'drhoD_qz': block['drhoD_qz']}
 
     return data
