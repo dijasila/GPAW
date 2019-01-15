@@ -11,6 +11,7 @@ from scipy.linalg import expm  # , expm_frechet
 from gpaw.utilities.tools import tri2full
 from ase.utils import basestring
 from gpaw.directmin.odd import odd_corrections
+from gpaw.directmin.odd.loewdin import loewdin
 
 
 class DirectMinOddLCAO(DirectLCAO):
@@ -38,6 +39,10 @@ class DirectMinOddLCAO(DirectLCAO):
         self.sparse = sparse
         self.iters = 0
         self.name = 'direct_min'
+
+        self.a_mat_u = None  # skew-hermitian matrix to be exponented
+        self.g_mat_u = None  # gradient matrix
+        self.c_nm_ref = None  # reference orbitals to be rotated
 
         if self.sda == 'LBFGS_P' and not self.use_prec:
             raise Exception('Use LBFGS_P with use_prec=True')
@@ -197,7 +202,13 @@ class DirectMinOddLCAO(DirectLCAO):
         if self.iters == 0:
             # need to initialize c_nm, eps, f_n and so on.
             # first iteration is diagonilisation using super class
-            super().iterate(ham, wfs)
+            if self.c_nm_ref is None:
+                super().iterate(ham, wfs)
+            else:
+                for kpt in wfs.kpt_u:
+                    u = kpt.s * self.n_kps + kpt.q
+                    kpt.C_nM[:] = loewdin(self.c_nm_ref[u], kpt.S_MM)
+
             occ.calculate(wfs)
             self.update_ks_energy(ham, wfs, dens, occ)
             for kpt in wfs.kpt_u:
@@ -643,6 +654,10 @@ class DirectMinOddLCAO(DirectLCAO):
                 self.odd.get_lagrange_matrices(h_mm, kpt.C_nM,
                                                kpt.f_n, kpt, wfs,
                                                update_eigenvalues=True)
+                u = kpt.s * self.n_kps + kpt.q
+                self.c_nm_ref[u] = kpt.C_nM.copy()
+                self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
+
         elif self.odd.name == 'Zero':
             super().iterate(ham, wfs)
             occ.calculate(wfs)
