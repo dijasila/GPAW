@@ -1033,12 +1033,12 @@ class Th(Pointgroup):
         self.operation_names = [pair[0] for pair in self.operations]
         self.symmetries = ['Ag', 'Eg', 'Tg', 'Au', 'Eu', 'Tu']
         self.character_table =     [[1., 1., 1., 1., 1., 1.],
-                                    [1., 2. * np.cos(2 * np.pi / 3.), 1.,
-                                     1., 2. * np.cos(2 * np.pi / 3.), 1.],
+                                    [2., 2. * np.cos(2 * np.pi / 3.), 2.,
+                                     2., 2. * np.cos(2 * np.pi / 3.), 2.],
                                     [3., 0., -1., 3., 0., -1.],
                                     [1., 1., 1., -1., -1., -1.],
-                                    [1., 2. * np.cos(2 * np.pi / 3.), 1.,
-                                     -1., -2. * np.cos(2 * np.pi / 3.), -1.],
+                                    [2., 2. * np.cos(2 * np.pi / 3.), 2.,
+                                     -2., -2. * np.cos(2 * np.pi / 3.), -2.],
                                     [3., 0., -1., -3., 0., 1. ] ]
         self.nof_operations = [1,8,3,1,8,3]
         self.Tx_i = 5
