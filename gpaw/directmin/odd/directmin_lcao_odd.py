@@ -207,7 +207,7 @@ class DirectMinOddLCAO(DirectLCAO):
             else:
                 for kpt in wfs.kpt_u:
                     u = kpt.s * self.n_kps + kpt.q
-                    kpt.C_nM[:] = loewdin(self.c_nm_ref[u], kpt.S_MM)
+                    kpt.C_nM[:] = loewdin(self.c_nm_ref[u], kpt.S_MM.conj())
 
             occ.calculate(wfs)
             self.update_ks_energy(ham, wfs, dens, occ)
@@ -666,6 +666,7 @@ class DirectMinOddLCAO(DirectLCAO):
             wfs.timer.stop('Get Canonical Representation')
 
     def reset(self):
+        super().reset()
         self._error = np.inf
         self.iters = 0
 

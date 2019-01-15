@@ -45,6 +45,11 @@ def calculate_forces(wfs, dens, ham, log=None):
         F_av += wfs.eigensolver.odd.get_odd_corrections_to_forces(wfs,
                                                                   dens)
 
+        for kpt in wfs.kpt_u:
+            # need to re-set rho_MM otherwise it will be used
+            # it's probably better to in wfs.reset, but
+            # when position changes wfs.reset is not called
+            kpt.rho_MM = None
 
     F_av = wfs.kd.symmetry.symmetrize_forces(F_av)
     
