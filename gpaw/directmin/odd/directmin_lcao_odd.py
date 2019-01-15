@@ -634,16 +634,21 @@ class DirectMinOddLCAO(DirectLCAO):
         # for some systems, it can 'mess' the solution.
         # this usually happens in metals,
         # the so-called charge-sloshing problem..
-        if self.odd.name != 'Zero':
-            return
         wfs.timer.start('Get Canonical Representation')
-        super().iterate(ham, wfs)
-        occ.calculate(wfs)
-        self.initialize_2(wfs, dens, ham)
-        self.update_ks_energy(ham, wfs, dens, occ)
-        wfs.timer.stop('Get Canonical Representation')
 
-        return
+        if self.odd.name == 'PZ_SIC':
+            for kpt in wfs.kpt_u:
+                h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
+                tri2full(h_mm)
+                self.odd.get_lagrange_matrices(h_mm, kpt.C_nM,
+                                               kpt.f_n, kpt, wfs,
+                                               update_eigenvalues=True)
+        elif self.odd.name == 'Zero':
+            super().iterate(ham, wfs)
+            occ.calculate(wfs)
+            self.initialize_2(wfs, dens, ham)
+            self.update_ks_energy(ham, wfs, dens, occ)
+            wfs.timer.stop('Get Canonical Representation')
 
     def reset(self):
         self._error = np.inf

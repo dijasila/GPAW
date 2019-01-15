@@ -903,3 +903,40 @@ class PzCorrectionsLcao:
 
         else:
             raise NotImplementedError
+
+    def get_lagrange_matrices(self, h_mm, c_nm, f_n, kpt,
+                              wfs, occupied_only=False,
+                              update_eigenvalues=False):
+        n_occ = 0
+        nbands = len(f_n)
+        while n_occ < nbands and f_n[n_occ] > 1e-10:
+            n_occ += 1
+
+        if occupied_only is True:
+            nbs = n_occ
+        else:
+            nbs = c_nm.shape[0]
+        n_set = c_nm.shape[1]
+
+        hc_mn = np.dot(h_mm.conj(), c_nm[:nbs].T)
+        h_mm = np.dot(c_nm[:nbs].conj(), hc_mn)
+        # odd part
+        b_mn = np.zeros(shape=(n_set, nbs), dtype=self.dtype)
+        e_total_sic = np.array([])
+        for n in range(n_occ):
+            F_MM, sic_energy_n =\
+                self.get_orbital_potential_matrix(f_n, c_nm, kpt,
+                                                  wfs, wfs.setups, n)
+
+            b_mn[:,n] = np.dot(c_nm[n], F_MM.conj()).T
+            e_total_sic = np.append(e_total_sic, sic_energy_n, axis=0)
+        l_odd = np.dot(c_nm[:nbs].conj(), b_mn)
+
+        k = self.n_kps * kpt.s + kpt.q
+
+        if update_eigenvalues:
+            self.lagr_diag_s[k] = np.diagonal(h_mm + l_odd)
+            kpt.eps_n[:nbs] = \
+                np.linalg.eigh(h_mm + 0.5 * (l_odd + l_odd.T.conj()))[0]
+
+        return h_mm, l_odd
