@@ -137,7 +137,8 @@ class Hamiltonian:
                     ('External:     ', self.e_external),
                     ('XC:           ', self.e_xc),
                     ('Entropy (-ST):', self.e_entropy),
-                    ('Local:        ', self.e_zero)]
+                    ('Local:        ', self.e_zero),
+                    ('SIC:        ', self.e_sic)]
 
         for name, e in energies:
             log('%-14s %+11.6f' % (name, Ha * e))
