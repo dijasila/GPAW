@@ -1,8 +1,3 @@
-from __future__ import print_function
-
-from time import time
-starttime = time()
-
 from gpaw.pgs import GPAWULMSymmetryCalculator
 from gpaw.pgs import tools
 
@@ -12,8 +7,7 @@ from ase.build import molecule
 
 from gpaw.test import equal
 
-
-
+import numpy as np
 
 # Ground state:
 
@@ -37,12 +31,12 @@ calc.write('%s.gpw' % name, mode='all')
 
 # Symmetry analysis:
 
-symcalc = GPAWULMSymmetryCalculator(filename='H2O.gpw',
+symcalc = GPAWULMSymmetryCalculator(filename='%s.gpw' % name,
                                     statelist=range(4),
                                     pointgroup='C2v',
                                     mpi=gpaw.mpi,
-                                    overlapfile='overlaps_water.txt',
-                                    symmetryfile='symmetries_water.txt')
+                                    overlapfile='overlaps_%s.txt' % name,
+                                    symmetryfile='symmetries_%s.txt' % name)
 
 symcalc.initialize()
 
@@ -55,7 +49,7 @@ coreatoms = range(3)
 secaxisatoms = [0, 2]
 
 # Determine the main axis:
-mainaxis = (symcalc.atoms[0].position - (symcalc.atoms[1].position + 
+mainaxis = (symcalc.atoms[0].position - (symcalc.atoms[1].position +
                                          symcalc.atoms[2].position) / 2.)
 
 # Determine the secondary axis:
@@ -94,18 +88,18 @@ symcalc.set_shiftvector(tools.calculate_shiftvector(atoms=symcalc.atoms,
 # Calculate the symmetry representation weights of the wave functions:
 symcalc.calculate(analyze=True)
 
-f = open('symmetries_water.txt', 'r')
-results = []
-for line in f:
-    if line.startswith('#'):
-        continue
-    results.append(line.split())
-f.close()
+if gpaw.mpi.rank == 0:
+    f = open('symmetries_%s.txt' % name, 'r')
+    results = []
+    for line in f:
+        if line.startswith('#'):
+            continue
+        results.append(line.split()[:-1])
+    f.close()
 
-equal(float(results[0][3]), 1.133978, 1.e-3)
-equal(float(results[1][5]), 0.983607, 1.e-3)
-equal(float(results[2][3]), 0.991980, 1.e-3)
-equal(float(results[3][6]), 0.958919, 1.e-3)
+    results = np.array(results).astype(float)
+    for i in range(len(results)):
+        norm = results[i, 2]
+        bestweight = (results[i, 3:]).max()
+        equal(bestweight / norm, 1.0, 0.1)
 
-endtime = time()
-#print("Time elapsed:", endtime-starttime, " seconds")
