@@ -2,16 +2,14 @@ from ase.units import Hartree
 import numpy as np
 from gpaw.utilities.blas import mmm  # , dotc, dotu
 from gpaw.directmin.tools import D_matrix, expm_ed
-from gpaw.directmin.sd_lcao import SteepestDescent, FRcg, HZcg, \
-    QuickMin, LBFGS, LBFGS_P
-from gpaw.directmin.ls_lcao import UnitStepLength, \
-    StrongWolfeConditions, Parabola
 from gpaw.lcao.eigensolver import DirectLCAO
 from scipy.linalg import expm  # , expm_frechet
 from gpaw.utilities.tools import tri2full
 from ase.utils import basestring
 from gpaw.directmin.odd import odd_corrections
+from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.directmin.odd.loewdin import loewdin
+from gpaw.xc.__init__ import xc_string_to_dict
 
 
 class DirectMinOddLCAO(DirectLCAO):
@@ -21,7 +19,7 @@ class DirectMinOddLCAO(DirectLCAO):
                  line_search_algorithm='SwcAwc',
                  initial_orbitals='KS',
                  initial_rotation='zero',
-                 memory_lbfgs=3, update_ref_orbs_counter=1000,
+                 update_ref_orbs_counter=1000,
                  use_prec=True, matrix_exp='pade_approx',
                  sparse=True, odd_parameters='Zero'):
 
@@ -33,7 +31,6 @@ class DirectMinOddLCAO(DirectLCAO):
         self.initial_orbitals = initial_orbitals
         self.get_en_and_grad_iters = 0
         self.update_ref_orbs_counter = update_ref_orbs_counter
-        self.memory_lbfgs = memory_lbfgs
         self.use_prec = use_prec
         self.matrix_exp = matrix_exp
         self.sparse = sparse
@@ -44,10 +41,13 @@ class DirectMinOddLCAO(DirectLCAO):
         self.g_mat_u = None  # gradient matrix
         self.c_nm_ref = None  # reference orbitals to be rotated
 
-        if self.sda == 'LBFGS_P' and not self.use_prec:
-            raise Exception('Use LBFGS_P with use_prec=True')
-
         self.odd_parameters = odd_parameters
+
+        if isinstance(self.sda, basestring):
+            self.sda = xc_string_to_dict(self.sda)
+        if isinstance(self.lsa, basestring):
+            self.lsa = xc_string_to_dict(self.lsa)
+            self.lsa['method'] = self.sda['name']
 
     def __repr__(self):
 
@@ -68,9 +68,11 @@ class DirectMinOddLCAO(DirectLCAO):
         repr_string = 'Direct minimisation using exponential ' \
                       'transformation.\n'
         repr_string += '       ' \
-                       'Search direction: {}\n'.format(sds[self.sda])
+                       'Search ' \
+                       'direction: {}\n'.format(sds[self.sda['name']])
         repr_string += '       ' \
-                       'Line search: {}\n'.format(lss[self.lsa])
+                       'Line ' \
+                       'search: {}\n'.format(lss[self.lsa['name']])
         repr_string += '       ' \
                        'Preconditioning: {}\n'.format(self.use_prec)
         repr_string += '       ' \
@@ -91,10 +93,6 @@ class DirectMinOddLCAO(DirectLCAO):
         for kpt in wfs.kpt_u:
             u = kpt.s * self.n_kps + kpt.q
             self.n_dim[u] = wfs.bd.nbands
-
-        # choose search direction and line search algorithm
-        self.initialize_sd_and_ls(wfs, self.sda, self.lsa,
-                                  self.evaluate_phi_and_der_phi)
 
         self.a_mat_u = {}  # skew-hermitian matrix to be exponented
         self.g_mat_u = {}  # gradient matrix
@@ -142,6 +140,20 @@ class DirectMinOddLCAO(DirectLCAO):
         self.heiss = {}  # heissian for LBFGS-P
         self.precond = {}  # precondiner for other methods
 
+        # choose search direction and line search algorithm
+        if isinstance(self.odd_parameters, (basestring, dict)):
+            self.search_direction = search_direction(self.sda, wfs)
+        else:
+            raise Exception('Check Search Direction Parameters')
+
+        if isinstance(self.odd_parameters, (basestring, dict)):
+            self.line_search = \
+                line_search_algorithm(self.lsa,
+                                      self.evaluate_phi_and_der_phi)
+        else:
+            raise Exception('Check Search Direction Parameters')
+
+        # odd corrections
         if isinstance(self.odd_parameters, (basestring, dict)):
             self.odd = odd_corrections(self.odd_parameters, wfs,
                                        dens, ham)
@@ -150,41 +162,6 @@ class DirectMinOddLCAO(DirectLCAO):
         else:
             raise Exception('Check ODD Parameters')
         self.e_sic = 0.0
-
-    def initialize_sd_and_ls(self, wfs, method, ls_method,
-                             obj_function):
-
-        if method == 'SD':
-            self.search_direction = SteepestDescent(wfs)
-        elif method == 'FRcg':
-            self.search_direction = FRcg(wfs)
-        elif method == 'HZcg':
-            self.search_direction = HZcg(wfs)
-        elif method == 'QuickMin':
-            self.search_direction = QuickMin(wfs)
-        elif method == 'LBFGS':
-            self.search_direction = LBFGS(wfs, self.memory_lbfgs)
-        elif method == 'LBFGS_P':
-            self.search_direction = LBFGS_P(wfs, self.memory_lbfgs)
-        else:
-            raise NotImplementedError('Check keyword for'
-                                      'search direction!')
-
-        if ls_method == 'UnitStep':
-            self.line_search = \
-                UnitStepLength(obj_function)
-        elif ls_method == 'Parabola':
-            self.line_search = Parabola(obj_function)
-        elif ls_method == 'SwcAwc':
-            self.line_search = \
-                StrongWolfeConditions(obj_function,
-                                      method=method,
-                                      awc=True,
-                                      max_iter=5
-                                      )
-        else:
-            raise NotImplementedError('Check keyword for '
-                                      'line search!')
 
     def iterate(self, ham, wfs, dens, occ):
 
@@ -219,7 +196,7 @@ class DirectMinOddLCAO(DirectLCAO):
         wfs.timer.start('Preconditioning:')
         precond = \
             self.update_preconditioning_and_ref_orbitals(ham, wfs,
-                                                         occ,
+                                                         dens, occ,
                                                          self.use_prec
                                                          )
         wfs.timer.stop('Preconditioning:')
@@ -543,8 +520,8 @@ class DirectMinOddLCAO(DirectLCAO):
 
         return phi, der_phi, g_mat_u
 
-    def update_preconditioning_and_ref_orbitals(self, ham, wfs, occ,
-                                                use_prec):
+    def update_preconditioning_and_ref_orbitals(self, ham, wfs, dens,
+                                                occ, use_prec):
         counter = self.update_ref_orbs_counter
         if self.iters % counter == 0 and self.iters > 1:
             # print('update')
@@ -552,9 +529,9 @@ class DirectMinOddLCAO(DirectLCAO):
             super().iterate(ham, wfs)
             occ.calculate(wfs)
             # probably choose new reference orbitals?
-            self.initialize_2(wfs)
+            self.initialize_2(wfs, dens, ham)
         if use_prec:
-            if self.sda != 'LBFGS_P':
+            if self.sda['name'] != 'LBFGS_P':
                 if self.iters % counter == 0 or self.iters == 1:
                     for kpt in wfs.kpt_u:
                         k = self.n_kps * kpt.s + kpt.q
