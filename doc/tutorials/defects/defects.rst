@@ -1,4 +1,4 @@
-.. _defects:
+.. _defects_tutorial:
 
 =====================================================
 Calculating the formation energies of charged defects
@@ -70,7 +70,7 @@ convergence by employing the following correction:
 
 .. math::
 
-  E[X^q] - E_0  = (E[X^q] - E_0)_\mathrm{uncorrected} - E_l + q\Delta V
+  E[X^q] - E_0  = (E[X^q] - E_0)_\mathrm{uncorrected} - E_{\mathrm{l}} + q\Delta V
 
 The uncorrected term in brackets is the total energy difference one obtains
 from calculations employing periodic boundary conditions, which include the
@@ -208,9 +208,10 @@ E_0)_\mathrm{uncorrected}` of 21.78 eV.
 We now calculate the FNV corrections. Here we take a dielectric constant of 12.7
 which is the clamped-ion static limit (i.e. the low frequency dielectric
 constant excluding the effects of ionic relaxation). We use a Gaussian model
-charge centred at (0, 0, 0) with a FWHM of 2 Bohr.
+charge centred at (0, 0, 0) with a standard deviation of 0.72 Bohr
+(corresponding to a FWHM of 2 Bohr).
 
-The script `electrostatics.py` takes the gpw files of the defective and pristine
+The script ``electrostatics.py`` takes the gpw files of the defective and pristine
 calculation as input, as well as the gaussian parameters and dielectric
 constant, and calculates the different terms in the correction scheme. For this
 case, the calculated value of `E_l` is -1.28 eV.
@@ -260,7 +261,118 @@ atoms), the electrostatic correction is still large, 0.7 eV.
 .. image:: energies.png
            :scale: 50 %
 
-           
+Calculation electrostatic corrections in two dimensions
+=======================================================
+
+For two-dimensional systems, the approach described above is complicated by the
+extreme anisotropy of the system, and in particular by the very weak screening
+occurring between periodically repeated layers. This means that the
+electrostatic interaction between a localised charge state and its images in
+neighbouring cells is generally strong, and the corresponding correction is
+large. The strong interactions pose a number of problems for the correction
+scheme described above: The heart of the correction scheme is to write the
+formation energy of the infinitely dilute system as
+
+.. math::
+  E^f[X^q]_{\infty} = E^f[X^q]_{\mathrm{supercell}} + E_{\mathrm{correction}}.
+
+In the limit of an infinitely large supercell, the formation energy in the
+supercell should approach that of the infinite cell, and the correction should
+go to zero. To accomplish this in two dimensions, we must be careful about how
+we scale the cell - If we increase the lateral size of the supercell without
+changing the vacuum, or if we increase the vacuum without changing the size of
+the supercell, we get incorrect results. Because of these difficulties, finding
+a robust correction scheme in 2D is that much more necessary. The starting point
+is the same as before, and we write:
+
+.. math::
+  E[X^q] - E_0  = (E[X^q] - E_0)_{\mathrm{uncorrected}} - E_{\mathrm{l}} + q\Delta V.
+
+With regards to the final alignment term `\Delta V`, this is much simpler in 2D
+than in 3D, since we can directly evaluate the potential at the `z=0` and `z=L`
+edges of the cell, and use that as a reference between the two calculations. The
+problem arises in the `E_{\mathrm{l}}` term, and in particular, in finding an
+appropriate expression for the screened Coulomb interaction of the system.
+
+Recall that `E_{\mathrm{l}}` consists of two terms: The energy (per unit cell)
+associated with the interaction between the model charge distribution and all
+its periodic images, and the energy of the isolated charge distribution in the
+same dielectric environment. The first step in calculating either of these is to
+model the dielectric function.
+
+The approach used here is to assume that the dielectric function of the isolated
+layer is isotropic in plane, and varies only in the `z` direction. Additionally,
+the screening is assumed to follow the density distribution of the system so
+that we can write
+
+.. math::
+ \varepsilon_{i}(z) = k_i\cdot n(z) + 1,
+
+Where `i` varies over "in-plane" and "out-of-plane", and `n` is the in-plane
+averaged density of the system. The normalization constants, `k_i`, are chosen such that
+
+.. math::
+
+  \frac{1}{L} \int \mathrm{d} z\, \varepsilon_{\parallel}(z) &= \varepsilon_{\parallel}^{\mathrm{DFT}} \\
+  \frac{1}{L} \int \mathrm{d} z\, \varepsilon_{\perp}^{-1}(z) &= \left(\varepsilon_{\perp}^{\mathrm{DFT}}\right)^{-1}
+
+The quantities appearing on the right hand side are the in-plane and
+out-of-plane dielectric constants resulting from a DFT/RPA calculation on the
+smallest unit cell of the pristine system, but with the same amount of vacuum as
+the supercell calculation. For 15 Å of vacuum, we calculate
+`\varepsilon_{\parallel}^{\mathrm{DFT}} = 1.80` and
+`\varepsilon_{\perp}^{\mathrm{DFT}} = 1.14`. The resulting dielectric profiles are shown below
+
+.. figure:: dielectric_profile.png
+
+With the dielectric functions in hand, we can proceed to solve the poisson
+equation, and calculate the two interaction energies. For more detail on how
+exactly energies of the periodic and isolated charge distributions are
+calculated, we refer to :ref:`defect_theory`.
+
+The following script gives the example of a carbon boron substitution in
+hexagonal boron nitride:
+
+.. literalinclude:: BN.py
+
+This script sets up a carbon boron substitution in a 1x1, 2x2, 3x3 and 4x4
+supercell of the 4-atom rectangular cell, and calculates the energy of the +1
+charge state, the neutral defect and the pristine system, saving the
+intermediate gpw files.
+
+For the 2x2 system with a vacuum of 15 Å we calculate the uncorrected total
+energy difference `(E[X^q] - E_0)_\mathrm{uncorrected}` to be 4.1 eV.
+
+The electrostatic corrections have been implemented in the following script,
+which greatly resembles the equivalent script for the GaAs defect. The two
+differences are
+
+- The ``dimensionality=2d`` keyword argument to electrostatic correction
+  constructor, which ensures that the object uses the 2D model for the
+  dielectric functions.
+- The use of a list in the ``set_epsilons()`` member function, rather than a
+  single number. The first item corresponds to the in-plane dielectric constant,
+  while the second corresponds to the out of plane dielectric constant.
+
+.. literalinclude:: electrostatics_BN.py
+
+As before, we can calculate the formation energy of the charged defect as a
+function of the supercell size, both with and without the electrostatic
+corrections. Since all of these systems have the same amount of vacuum, it is
+not expected that the uncorrected values converge to the true result, but it is
+encouraging to see the behaviour of the corrected values. Since we are dealing
+with an unrelaxed system, we expect the formation energy of the defect to be too
+high.
+
+.. figure:: BN_convergence.png
+            :scale: 50 %
+
+As a test of the quality of the electrostatic corrections, we can look at the
+charge transition level between the neutral state and the +1 state. This is the
+energy with respect to the valence band at which the two formation energies are
+equal, and can be calculated just as `E_f[X^0] - E_f[X^{+1}]`. It comes to 2.1
+eV, in good agreement with [#KomsaErratum]_.
+
 Additional remarks on calculating formation energies
 ====================================================
 
@@ -313,3 +425,6 @@ References
 
 .. [#Komsa] H.-P. Komsa, T. T. Rantala and A. Pasquarello
               *Phys. Rev. B* **86**, 045112 (2012)
+
+.. [#KomsaErratum] H.-P. Komsa, N. Berseneva, A. V. Krasheninnikov and R. M. Nieminen
+              *Phys Rev X* **4**, 031044 (2014)
