@@ -111,6 +111,8 @@ class LCAOWaveFunctions(WaveFunctions):
                                               dtype=dtype,
                                               cut=True)
 
+        self.coefficients_read_from_file = False
+
     def set_orthonormalized(self, o):
         pass
 
@@ -950,6 +952,8 @@ class LCAOWaveFunctions(WaveFunctions):
                 if n >= len(C_nM):
                     break
                 C_M[:] = C_nM[n] * Bohr**1.5
+
+        self.coefficients_read_from_file = True
 
     def estimate_memory(self, mem):
         nq = len(self.kd.ibzk_qc)

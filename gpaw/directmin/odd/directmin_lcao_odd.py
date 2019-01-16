@@ -181,12 +181,19 @@ class DirectMinOddLCAO(DirectLCAO):
         if self.iters == 0:
             # need to initialize c_nm, eps, f_n and so on.
             # first iteration is diagonilisation using super class
-            if self.c_nm_ref is None:
+            # super().iterate(ham, wfs)
+            if not wfs.coefficients_read_from_file and \
+                    self.c_nm_ref is None:
                 super().iterate(ham, wfs)
             else:
                 for kpt in wfs.kpt_u:
-                    u = kpt.s * self.n_kps + kpt.q
-                    kpt.C_nM[:] = loewdin(self.c_nm_ref[u], kpt.S_MM.conj())
+                    u = kpt.s * wfs.kd.nks // wfs.kd.nspins + kpt.q
+                    if self.c_nm_ref is not None:
+                        C = self.c_nm_ref[u]
+                    else:
+                        C = kpt.C_nM
+                    kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
+                wfs.coefficients_read_from_file = False
 
             occ.calculate(wfs)
             self.update_ks_energy(ham, wfs, dens, occ)
@@ -541,7 +548,6 @@ class DirectMinOddLCAO(DirectLCAO):
             else:
                 raise Exception('Check Search Direction Parameters')
 
-
     def update_preconditioning(self, wfs, use_prec):
         counter = self.update_precond_counter
         if use_prec:
@@ -644,15 +650,17 @@ class DirectMinOddLCAO(DirectLCAO):
                 self.odd.get_lagrange_matrices(h_mm, kpt.C_nM,
                                                kpt.f_n, kpt, wfs,
                                                update_eigenvalues=True)
-                u = kpt.s * self.n_kps + kpt.q
-                self.c_nm_ref[u] = kpt.C_nM.copy()
-                self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
-
         elif self.odd.name == 'Zero':
             super().iterate(ham, wfs)
             occ.calculate(wfs)
             self.initialize_2(wfs, dens, ham)
             self.update_ks_energy(ham, wfs, dens, occ)
+
+        for kpt in wfs.kpt_u:
+            u = kpt.s * self.n_kps + kpt.q
+            self.c_nm_ref[u] = kpt.C_nM.copy()
+            self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
+
         wfs.timer.stop('Get Canonical Representation')
 
     def reset(self):
@@ -698,6 +706,18 @@ class DirectMinOddLCAO(DirectLCAO):
 
         return
 
+    def todict(self):
+        return {'name': 'direct_min_odd_lcao',
+                'search_direction_algorithm': self.sda,
+                'line_search_algorithm': self.lsa,
+                'initial_orbitals': 'KS',
+                'initial_rotation':'zero',
+                'update_ref_orbs_counter': self.update_ref_orbs_counter,
+                'update_precond_counter': self.update_precond_counter,
+                'use_prec': self.use_prec,
+                'matrix_exp': self.matrix_exp,
+                'sparse': self.sparse,
+                'odd_parameters': self.odd_parameters}
 
 def sorted(eps):
 
