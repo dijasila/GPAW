@@ -1723,17 +1723,36 @@ def make_heterostructure(layers,
                          no_phonons=False):
     """Easy function for making a heterostructure based on some layers"""
 
+    # Copy for internal handling
     layers = layers.copy()
+    layers = expand_layers(layers)
 
+    # Remove those annoying '-chi.npz'
     for il, layer in enumerate(layers):
-        if '-chi.npz' not in layer:
-            layers[il] = layer + '-chi.npz'
+        if '-chi.npz' in layer:
+            layers[il] = layer[:-8]
 
+    # Parse input for layer
+    originallayers = []  # Unmodified layer identifiers
+    layerargs = []  # Modifiers for layers like +phonons and +doped
+    
+    for layer in layers:
+        tmp = layer.split('+')
+        name, layerargs = tmp[0], tmp[1:]
+        originallayers.append(name)
+        layerargs.append(layerargs)
+            
     if thicknesses is None:
         thicknesses = []
         for layer in layers:
+            print(layer)
             for key in default_thicknesses:
-                if key in layer:
+                if '-icsd-' in key:
+                    key2 = key.split('-icsd-')[0]
+                else:
+                    key2 = key
+                
+                if key2 in layer:
                     thicknesses.append(default_thicknesses[key])
                     break
             else:
@@ -1744,59 +1763,85 @@ def make_heterostructure(layers,
     # Interpolate the building blocks such that they are
     # represented on the same q and omega grid
     print('Interpolating building blocks to same grid')
-    interpolate_building_blocks(BBfiles=layers, q_grid=q_q, w_grid=omega_w,
+    interpolate_building_blocks(BBfiles=originallayers, q_grid=q_q,
+                                w_grid=omega_w,
                                 pad=False)
 
+    # The layers now have appended an '_int'
     for il, layer in enumerate(layers):
-        layers[il] = layer[:-8] + '_int-chi.npz'
-
-    # Treat graphene specially, since in this case we are using
-    # an analytical approximation of the building block
-    from gpaw.response.buildingblocks import GrapheneBB
-    for layer in set(layers):
-        if 'graphene' not in layer:
+        ind = layer.find('+')
+        if ind < 0:
+            layers[il] = layer + '_int'
             continue
 
-        if 'doped' not in layer:
-            doping = 0
-        else:
-            doping = float(layer.split('-doped-')[1].split('_int')[0])
+        layers[il] = layer[:ind] + '_int' + layer[ind:]
 
-        newlayer = str(layer[:-8] + '_analytical-chi.npz')
-        bb = GrapheneBB(layer, doping=doping)
-        np.savez_compressed(newlayer, **bb)
+    # Parse args and modify building blocks accordingly
+    from gpaw.response.buildingblocks import (GrapheneBB,
+                                              dopedsemiconductor,
+                                              phonon_polarizability)
+    for layer in set(layers):
+        # Everything that comes after a '+' is a modifier
+        tmp = layer.split('+')
+        modifiers = tmp[1:]
 
-        for il, oldlayer in enumerate(layers):
-            if oldlayer == layer:
-                layers[il] = newlayer
+        if not len(modifiers):
+            continue
 
-    if not no_phonons:
-        # If phonon files can be found in the same
-        # directory as the building block files
-        # then add phonon contribution
-        from gpaw.response.buildingblocks import phonon_polarizability
-        for layer in set(layers):
-            phonons = Path(layer.split('_int')[0] + '-phonons.npz')
-            if not phonons.exists():
-                continue
-            print('Adding phonon contributions for {}'.format(layer))
-            dct = np.load(str(phonons))
+        origin = tmp[0]
+        originpath = origin + '-chi.npz'
 
-            Z_avv, freqs, modes, masses, cell = (dct['Z_avv'],
-                                                 dct['freqs'],
-                                                 dct['modes'],
-                                                 dct['masses'],
-                                                 dct['cell'])
-            bb = phonon_polarizability(layer, Z_avv, freqs, modes,
-                                       masses, cell)
-            newlayerpath = '{}+phonons-chi.npz'.format(layer[:-8])
+        bb = np.load(originpath)
+        
+        for modifier in modifiers:
+            if 'doping' in modifier:
+                                    
+                subargs = modifier.split(',')
+                kwargs = {'doping': 0,
+                          'temperature': 0,
+                          'effectivemass': 1,
+                          'eta': 1e-4}
+                
+                for subarg in subargs:
+                    key, value = subarg.split('=')
+                    if key == 'T':
+                        key = 'temperature'
+                    elif key == 'em':
+                        key = 'effectivemass'
+                    kwargs[key] = float(value)
+
+                if 'graphene' in layer:
+                    # Treat graphene specially, since in this case we are using
+                    # an analytical approximation of the building block
+                    assert np.allclose(kwargs['temperature'], 0.0), \
+                        print('Graphene cannot be at a finite temp.')
+                    bb = GrapheneBB(bb, doping=kwargs['doping'],
+                                    eta=kwargs['eta'])
+                else:
+                    bb = dopedsemiconductor(bb, **kwargs)
+
+            if 'phonons' in modifier:
+                phonons = Path(origin[:-4] + '-phonons.npz')
+
+                if not phonons.exists():
+                    continue
+                print('Adding phonon contributions for {}'.format(layer))
+                dct = np.load(str(phonons))
+
+                Z_avv, freqs, modes, masses, cell = (dct['Z_avv'],
+                                                     dct['freqs'],
+                                                     dct['modes'],
+                                                     dct['masses'],
+                                                     dct['cell'])
+                bb = phonon_polarizability(bb, Z_avv, freqs, modes,
+                                           masses, cell)
+
+            # Save modified building block
+            newlayerpath = '{}-chi.npz'.format(layer)
             np.savez_compressed(newlayerpath, **bb)
-
-            for il, oldlayer in enumerate(layers):
-                if oldlayer == layer:
-                    layers[il] = newlayerpath
-
+                
     thicknesses = np.array(thicknesses)
+
     # Calculate distance between layers
     d = (thicknesses[1:] + thicknesses[:-1]) / 2
     d0 = thicknesses[0]
@@ -1812,10 +1857,46 @@ def main(args=None):
     import shutil
 
     description = 'QEH Model command line interface'
-    parser = argparse.ArgumentParser(description=description)
 
-    help = ("For example: '3H-MoS2 graphene 10H-WS2' gives 3 layers of "
-            "H-MoS2, 1 layer of graphene and 10 layers of H-WS2.")
+    example_text = """examples:
+    (In the following "qeh = python -m gpaw.response.qeh". It can be nice
+    to set this as an alias in your bashrc.)
+
+    Calculate graphene plasmons with doping and plot them:
+        qeh graphene+doping=0.5 --plasmons --plot
+
+    Same but 5 layers of graphene and save to numpy npz file:
+        qeh 5graphene+doping=0.5 --plasmons --plasmonfile plasmons.npz
+
+    Graphene-Boron Nitride-Graphene heterostructure with doping and phonons:
+        qeh graphene+doping=0.5 3BN+phonons graphene+doping=0.5
+
+    Set up doped MoS2 at finite temperatures (T is in eV) with a
+    custom relaxation rate:
+        qeh H-MoS2+doping=0.1,T=25e-3,eta=1e-3,em=0.43
+
+    Set custom omega and q grid:
+       qeh 2graphene+doping=0.5 --q 1e-3 0.1 100 --omega 1e-3 2 1000
+
+    """
+    formatter = argparse.RawDescriptionHelpFormatter
+    parser = argparse.ArgumentParser(description=description,
+                                     epilog=example_text,
+                                     formatter_class=formatter)
+
+    help = """
+    '3H-MoS2 graphene 10H-WS2' gives 3 layers of H-MoS2,
+    1 layer of graphene and 10 layers of H-WS2. Each layer can be further
+    modified (e.g. adding doping and phonon contribution) by appending
+    +doping=0.1 or +phonons.
+
+    For example 3 layers of 0.1 eV doped MoS2 (with effective mass m*=0.43)
+    can be modelled by '3H-MoS2+doping=0.1,em=0.43'. Phonon contributions
+    are added as '3H-MoS2+phonons'. Additional arguments such as the
+    temperature, effective masses, relaxation rate can also be added.
+    Please see the provided examples in the bottom.
+    """
+
     parser.add_argument('layers', nargs='+', help=help, type=str)
     help = ("For above example: '6.2, 3.2, 6.2' gives thicknesses of "
             "6.2, 3.2, and 6.2 AA to MoS2, graphene and WS2 "
@@ -1832,15 +1913,18 @@ def main(args=None):
 
     help = ("Calculate plasmon spectrum")
     parser.add_argument('--plasmons', action='store_true', help=help)
+    
+    help = ("Also plot eigenvalues of dielectric matrix")
+    parser.add_argument('--eigenvalues', action='store_true', help=help)
+
+    help = ("Save plasmon modes to file")
+    parser.add_argument('--plasmonfile', type=str, default=None, help=help)
 
     help = ("Calculate electron energy loss spectrum")
     parser.add_argument('--eels', action='store_true', help=help)
 
     help = ("Plot calculated quantities")
     parser.add_argument('--plot', action='store_true', help=help)
-
-    help = ("Disable phonon contributions")
-    parser.add_argument('--no-phonons', action='store_true', help=help)
 
     help = ("Custom frequencies to respresent quantities on (in eV). "
             "The format is: min. frequency, max. frequency, "
@@ -1861,8 +1945,8 @@ def main(args=None):
     paths = args.buildingblockpath
 
     layers = expand_layers(layers)
-    for il, layer in enumerate(layers):
-        layers[il] = layer + '-chi.npz'
+    # for il, layer in enumerate(layers):
+    #     layers[il] = layer + '-chi.npz'
 
     # Make sure that the building block files can be found
     link = "https://cmr.fysik.dtu.dk/_downloads/chi-data.tar.gz"
@@ -1882,13 +1966,19 @@ def main(args=None):
     print('Looking for building blocks')
     layer_paths = []
     for il, layer in enumerate(layers):
-        p = Path(layer)
+        # Parse layer and its arguments
+        tmp = layer.split('+')
+        layer = tmp[0]
+        
+        layerpath = layer + '-chi.npz'
+        p = Path(layerpath)
         for path in paths:
             bb = Path(expanduser(path)) / p
             if bb.is_file():
                 break
         else:
-            raise FileNotFoundError(msg.format(bb=layer, link=link))
+            raise FileNotFoundError(msg.format(bb=layerpath,
+                                               link=link))
 
         layer_paths.append(str(bb))
 
@@ -1920,33 +2010,41 @@ def main(args=None):
     hs = make_heterostructure(layers,
                               thicknesses=args.thicknesses,
                               momenta=args.q,
-                              frequencies=args.omega,
-                              no_phonons=args.no_phonons)
+                              frequencies=args.omega)
     
     if args.plot:
         import matplotlib.pyplot as plt
 
     if args.plasmons:
         print('Calculating plasmon spectrum')
-        eig, z, rho_z, phi_z, omega0, abseps = hs.get_plasmon_eigenmodes()
+        tmp = hs.get_plasmon_eigenmodes(filename=args.plasmonfile)
+        eig, z, rho_z, phi_z, omega0, abseps = tmp
         if args.plot:
             q_q = hs.q_abs / Bohr
+            nq = len(q_q)
             omega_w = hs.frequencies * Hartree
+
             plt.figure()
             plt.title('Plasmon modes')
-            for iq in range(len(q_q)):
+            for iq in range(nq):
                 freqs = np.array(omega0[iq])
                 plt.plot([q_q[iq], ] * len(freqs), freqs, 'k.')
-            plt.xlabel(r'$\hbar\omega$ ($^{-1}$)')
+            plt.ylabel(r'$\hbar\omega$ (eV)')
             plt.xlabel(r'q (Bohr$^{-1}$)')
-                
+
             plt.figure()
             plt.title('1 / |Det(Dielectric Matrix)|')
             plt.pcolor(q_q, omega_w, np.log10(1 / np.abs(abseps)).T)
-            plt.xlabel(r'$\hbar\omega$ ($^{-1}$)')
+            plt.ylabel(r'$\hbar\omega$ (eV)')
             plt.xlabel(r'q (Bohr$^{-1}$)')
             plt.colorbar()
-                
+
+            if args.eigenvalues:
+                plt.figure()
+                for iq in range(0, nq, nq // 10):
+                    plt.plot(omega_w, eig[iq].real)
+                    plt.plot(omega_w, eig[iq].imag, '--')
+
     if args.eels:
         q_abs, frequencies, eels_qw = hs.get_eels(dipole_contribution=True)
 
@@ -1954,7 +2052,6 @@ def main(args=None):
     
     if args.plot:
         plt.show()
-
 
 
 if __name__ == '__main__':
