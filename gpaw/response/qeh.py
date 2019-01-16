@@ -1745,7 +1745,6 @@ def make_heterostructure(layers,
     if thicknesses is None:
         thicknesses = []
         for layer in layers:
-            print(layer)
             for key in default_thicknesses:
                 if '-icsd-' in key:
                     key2 = key.split('-icsd-')[0]
@@ -1898,8 +1897,8 @@ def main(args=None):
     """
 
     parser.add_argument('layers', nargs='+', help=help, type=str)
-    help = ("For above example: '6.2, 3.2, 6.2' gives thicknesses of "
-            "6.2, 3.2, and 6.2 AA to MoS2, graphene and WS2 "
+    help = ("For above example: '6.2 3.2 6.2' gives thicknesses of "
+            "6.2 3.2 and 6.2 AA to MoS2, graphene and WS2 "
             "respectively. If not set, the QEH module will use a "
             "default set of thicknesses")
     parser.add_argument('--thicknesses', nargs='*', help=help,
