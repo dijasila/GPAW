@@ -12,9 +12,9 @@ def odd_corrections(odd, wfs, dens, ham):
     if isinstance(odd, dict):
         kwargs = odd.copy()
         name = kwargs.pop('name')
-        if name is 'Zero':
+        if name == 'Zero':
             return ZeroCorrectionsLcao(wfs, dens, ham, **kwargs)
-        elif name is 'PZ_SIC':
+        elif name == 'PZ_SIC':
             return PzCorrectionsLcao(wfs, dens, ham, **kwargs)
         else:
             raise NotImplementedError('Check name of the '
