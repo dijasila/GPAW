@@ -17,6 +17,46 @@ Hartree = ase.units.Hartree
 Bohr = ase.units.Bohr
 
 
+default_thicknesses = {'H-MoS2-icsd-644245': 6.1511,
+                       'H-TaSe2-icsd-651948': 6.375,
+                       #  'H-TaSe2-icsd-651950': 6.36,
+                       'T-PdTe2-icsd-649016': 5.118,
+                       'T-CrSe2-icsd-626718': 5.915,
+                       'T-ZrTe2-icsd-653213': 6.66,
+                       'T-VS2-icsd-651361': 5.755,
+                       'T-TiSe2-icsd-173923': 6.01,
+                       'H-NbSe2-icsd-645369': 6.27,
+                       'T-CrTlTe2-icsd-152836': 7.9352,
+                       'T-SnSe2-icsd-651910': 6.132,
+                       'T-HfS2-icsd-638847': 5.837,
+                       'T-VSe2-icsd-652158': 6.048,
+                       'H-MoTe2-icsd-15431': 6.982,
+                       'T-CoTe2-icsd-625401': 5.405,
+                       'T-SnS2-icsd-650992': 5.9,
+                       'T-TiTe2-icsd-653071': 6.48,
+                       'T-ZrS2-icsd-651465': 5.813,
+                       'T-TaS2-icsd-651089': 5.9,
+                       'T-HfTe2-icsd-638959': 6.65,
+                       'T-PtS2-icsd-649534': 5.0389,
+                       'T-TiS2-icsd-651178': 5.7,
+                       'T-NbTe2-icsd-645529': 6.61,
+                       'T-HfSe2-icsd-638899': 6.159,
+                       'T-IrTe2-icsd-33934': 5.404,
+                       'T-RhTe2-icsd-650448': 5.442,
+                       'H-MoSe2-icsd-644334': 6.45,
+                       'T-SiTe2-icsd-652385': 6.71,
+                       'H-WSe2-icsd-40752': 6.48,
+                       'T-PtTe2-icsd-649747': 5.2209,
+                       'T-VTe2-icsd-603582': 6.582,
+                       'H-TaS2-icsd-651092': 6.05,
+                       'H-WS2-icsd-202366': 6.1615,
+                       'T-ZrSe2-icsd-652236': 6.128,
+                       'T-PtSe2-icsd-649589': 5.0813,
+                       'T-NiTe2-icsd-159382': 5.266,
+                       'graphene': 3.35,  # Wiki
+                       'BN': 3.33}  # ioffe.ru/SVA/NSM/Semicond/BN/basic.html}
+
+
 def load(fd):
     try:
         return pickle.load(fd, encoding='latin1')
@@ -1689,8 +1729,6 @@ def make_heterostructure(layers,
         if '-chi.npz' not in layer:
             layers[il] = layer + '-chi.npz'
 
-    default_thicknesses = {'graphene': 3.22, 'BN': 3.22,
-                           'H-MoS2': 6.2926, 'H-WSe2': 6.718}
     if thicknesses is None:
         thicknesses = []
         for layer in layers:
