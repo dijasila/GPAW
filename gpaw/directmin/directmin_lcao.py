@@ -21,7 +21,8 @@ class DirectMinLCAO(DirectLCAO):
                  line_search_algorithm='SwcAwc',
                  initial_orbitals='KS',
                  initial_rotation='zero',
-                 update_ref_orbs_counter=1000,
+                 update_ref_orbs_counter=15,
+                 update_precond_counter=1000,
                  use_prec=True, matrix_exp='pade_approx',
                  sparse=True):
 
@@ -33,6 +34,7 @@ class DirectMinLCAO(DirectLCAO):
         self.initial_orbitals = initial_orbitals
         self.get_en_and_grad_iters = 0
         self.update_ref_orbs_counter = update_ref_orbs_counter
+        self.update_precond_counter = update_precond_counter
         self.use_prec = use_prec
         self.matrix_exp = matrix_exp
         self.sparse = sparse
@@ -177,11 +179,8 @@ class DirectMinLCAO(DirectLCAO):
             self.initialize_2(wfs)
 
         wfs.timer.start('Preconditioning:')
-        precond = \
-            self.update_preconditioning_and_ref_orbitals(ham, wfs,
-                                                         occ,
-                                                         self.use_prec
-                                                         )
+        precond = self.update_preconditioning(wfs, self.use_prec)
+        self.update_ref_orbitals(wfs)  #, ham)
         wfs.timer.stop('Preconditioning:')
 
         a = self.a_mat_u
@@ -495,16 +494,30 @@ class DirectMinLCAO(DirectLCAO):
 
         return phi, der_phi, g_mat_u
 
-    def update_preconditioning_and_ref_orbitals(self, ham, wfs, occ,
-                                                use_prec):
+    def update_ref_orbitals(self, wfs):  # , ham):
         counter = self.update_ref_orbs_counter
         if self.iters % counter == 0 and self.iters > 1:
-            # print('update')
-            # we need to update eps_n, f_n
-            super().iterate(ham, wfs)
-            occ.calculate(wfs)
-            # probably choose new reference orbitals?
-            self.initialize_2(wfs)
+            for kpt in wfs.kpt_u:
+                u = kpt.s * self.n_kps + kpt.q
+                self.c_nm_ref[u] = kpt.C_nM.copy()
+                self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
+                # self.sort_wavefunctions(ham, wfs, kpt)
+
+            # choose search direction and line search algorithm
+            if isinstance(self.sda, (basestring, dict)):
+                self.search_direction = search_direction(self.sda, wfs)
+            else:
+                raise Exception('Check Search Direction Parameters')
+
+            if isinstance(self.lsa, (basestring, dict)):
+                self.line_search = \
+                    line_search_algorithm(self.lsa,
+                                          self.evaluate_phi_and_der_phi)
+            else:
+                raise Exception('Check Search Direction Parameters')
+
+    def update_preconditioning(self, wfs, use_prec):
+        counter = self.update_precond_counter
         if use_prec:
             if self.sda['name'] != 'LBFGS_P':
                 if self.iters % counter == 0 or self.iters == 1:
