@@ -323,12 +323,11 @@ class PzCorrectionsLcao:
                     wfs, setup, m):
 
         # construct orbital density matrix
-        if self.dtype is complex:
-            rho_MM = f_n[m] * np.outer(C_nM[m].conj(), C_nM[m]) / \
-                    (3 - wfs.nspins)
+        if f_n[m] > 1.0 + 1.0e-4:
+            occup_factor =  f_n[m] / (3.0 - wfs.nspins)
         else:
-            rho_MM = f_n[m] * np.outer(C_nM[m], C_nM[m]) / \
-                    (3 - wfs.nspins)
+            occup_factor = f_n[m]
+        rho_MM = occup_factor * np.outer(C_nM[m].conj(), C_nM[m])
 
         nt_G = self.cgd.zeros()
         self.bfs.construct_density(rho_MM, nt_G, kpt.q)
