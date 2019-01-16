@@ -305,9 +305,7 @@ class DirectMinLCAO(DirectLCAO):
             wfs.atomic_correction.calculate_projections(wfs, kpt)
         wfs.timer.stop('Unitary rotation')
 
-        wfs.timer.start('Update Kohn-Sham energy')
         e_total = self.update_ks_energy(ham, wfs, dens, occ)
-        wfs.timer.stop('Update Kohn-Sham energy')
 
         wfs.timer.start('Calculate gradients')
         g_mat_u = {}
@@ -335,8 +333,11 @@ class DirectMinLCAO(DirectLCAO):
 
     def update_ks_energy(self, ham, wfs, dens, occ):
 
+        wfs.timer.start('Update Kohn-Sham energy')
         dens.update(wfs)
         ham.update(dens, wfs, False)
+        wfs.timer.stop('Update Kohn-Sham energy')
+
         return ham.get_energy(occ, False)
 
     def get_gradients(self, h_mm, c_nm, f_n, evec, evals, kpt, timer):
@@ -596,10 +597,12 @@ class DirectMinLCAO(DirectLCAO):
         # for some systems, it can 'mess' the solution.
         # this usually happens in metals,
         # the so-called charge-sloshing problem..
+        wfs.timer.start('Get canonical representation')
         super().iterate(ham, wfs)
         occ.calculate(wfs)
         self.initialize_2(wfs)
         self.update_ks_energy(ham, wfs, dens, occ)
+        wfs.timer.stop('Get canonical representation')
 
         return
 
