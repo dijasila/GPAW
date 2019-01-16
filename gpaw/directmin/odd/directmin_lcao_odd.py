@@ -141,12 +141,12 @@ class DirectMinOddLCAO(DirectLCAO):
         self.precond = {}  # precondiner for other methods
 
         # choose search direction and line search algorithm
-        if isinstance(self.odd_parameters, (basestring, dict)):
+        if isinstance(self.sda, (basestring, dict)):
             self.search_direction = search_direction(self.sda, wfs)
         else:
             raise Exception('Check Search Direction Parameters')
 
-        if isinstance(self.odd_parameters, (basestring, dict)):
+        if isinstance(self.lsa, (basestring, dict)):
             self.line_search = \
                 line_search_algorithm(self.lsa,
                                       self.evaluate_phi_and_der_phi)
@@ -623,7 +623,6 @@ class DirectMinOddLCAO(DirectLCAO):
         # this usually happens in metals,
         # the so-called charge-sloshing problem..
         wfs.timer.start('Get Canonical Representation')
-
         if self.odd.name == 'PZ_SIC':
             for kpt in wfs.kpt_u:
                 h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
@@ -640,7 +639,7 @@ class DirectMinOddLCAO(DirectLCAO):
             occ.calculate(wfs)
             self.initialize_2(wfs, dens, ham)
             self.update_ks_energy(ham, wfs, dens, occ)
-            wfs.timer.stop('Get Canonical Representation')
+        wfs.timer.stop('Get Canonical Representation')
 
     def reset(self):
         super().reset()
