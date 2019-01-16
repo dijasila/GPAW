@@ -15,9 +15,9 @@ typedef struct m06l_params {
   XC(func_type) *c_aux;
   XC(func_type) *x_aux;
 } m06l_params;
-  
+
 /* derivatives of x and z with respect to rho, grho and tau*/
-static void 
+static void
 c_m06l_zx(double x, double z, double rho, double tau, double *dxdd, double *dxdgd, double *dzdd, double *dzdtau)
 {
   *dxdd = -8./3. * x * 1/rho;
@@ -34,7 +34,7 @@ c_m06_13(double *x, double *rho, double *g_ab, double *dg_abdd, double *dg_abdgd
   /*define the C_ab,i */
   static double c_ab0= 0.6042374, c_ab1= 177.6783, c_ab2= -251.3252, c_ab3=76.35173, c_ab4=-12.55699;
   double gammaCab = 0.0031 ;
-  double x_ab, a; 
+  double x_ab, a;
   double dg_abdx, dxdd_a, dxdgd_a, dzdd_a, dzdtau_a;
   double dxdd_b, dxdgd_b, dzdd_b, dzdtau_b;
 
@@ -47,15 +47,15 @@ c_m06_13(double *x, double *rho, double *g_ab, double *dg_abdd, double *dg_abdgd
 
   double dadx = gammaCab/pow(1+gammaCab*x_ab, 2.);
   dg_abdx = (0.0*c_ab0*pow(a,-1)+ 1.*c_ab1*pow(a,0)+ 2.*c_ab2*pow(a,1)+3.*c_ab3*pow(a,2)+4.*c_ab4*pow(a,3))*dadx;
-    
+
   c_m06l_zx(x[0], 0.0, rho[0], 0.0, &dxdd_a, &dxdgd_a, &dzdd_a, &dzdtau_a);
   c_m06l_zx(x[1], 0.0, rho[1], 0.0, &dxdd_b, &dxdgd_b, &dzdd_b, &dzdtau_b);
 
-  dg_abdd[0] = dg_abdx*dxdd_a; 
-  dg_abdd[1] = dg_abdx*dxdd_b; 
-  dg_abdgd[0] = dg_abdx*dxdgd_a; 
+  dg_abdd[0] = dg_abdx*dxdd_a;
+  dg_abdd[1] = dg_abdx*dxdd_b;
+  dg_abdgd[0] = dg_abdx*dxdgd_a;
   dg_abdgd[1] = 0.0;
-  dg_abdgd[2] = dg_abdx*dxdgd_b; 
+  dg_abdgd[2] = dg_abdx*dxdgd_b;
 }
 
 /* Get g for Eq. (15)*/
@@ -65,7 +65,7 @@ c_m06_15(double x, double rho, double *g_ss, double *dg_ssdd, double *dg_ssdgd)
   /*define the C_ss,i */
   static double c_ss0=0.5349466, c_ss1=0.5396620, c_ss2=-31.61217, c_ss3= 51.49592, c_ss4=-29.19613;
   double gammaCss = 0.06 ;
-  double a; 
+  double a;
   double dg_ssdx, dxdd, dxdgd, dzdd, dzdtau;
 
   /*x = x_a^2 */
@@ -79,19 +79,19 @@ c_m06_15(double x, double rho, double *g_ss, double *dg_ssdd, double *dg_ssdgd)
 
   c_m06l_zx(x, 0.0, rho, 0.0, &dxdd, &dxdgd, &dzdd, &dzdtau);
 
-  *dg_ssdd = dg_ssdx*dxdd; 
-  *dg_ssdgd = dg_ssdx*dxdgd; 
+  *dg_ssdd = dg_ssdx*dxdd;
+  *dg_ssdgd = dg_ssdx*dxdgd;
   /*printf("g_ss %19.12f\n", *g_ss);*/
-    
+
 }
 
 /* Get h_ab for Eq. (12)*/
-static 
+static
 void c_m06l_hab(double *x, double *z, double *rho, double *tau, double *h_ab, double *dh_abdd, double *dh_abdgd, double *dh_abdtau)
 {
   /* define the d_ab,i for Eq. (12)*/
   static double d_ab0= 0.3957626, d_ab1= -0.5614546, d_ab2= 0.01403963, d_ab3= 0.0009831442, d_ab4= -0.003577176;
-  double alpha_ab = 0.00304966; 
+  double alpha_ab = 0.00304966;
   double hab1, dhabdd1[2], dhabdgd1[3], dhabdtau1[2];
   double x_ab, z_ab, gamma, xgamma, zgamma;
   double dgammadx, dgammadz;
@@ -99,12 +99,12 @@ void c_m06l_hab(double *x, double *z, double *rho, double *tau, double *h_ab, do
   double dgammadd_b, dgammadgd_b, dgammadtau_b;
   double dxdd_a, dxdgd_a, dzdd_a, dzdtau_a;
   double dxdd_b, dxdgd_b, dzdd_b, dzdtau_b;
-  
+
   x_ab = x[0] + x[1];
   z_ab = z[0] + z[1];
   gamma = 1 + alpha_ab*(x_ab + z_ab);
-  { /* derivatives of gamma with respect to x and z*/ 
-    dgammadx = alpha_ab;        
+  { /* derivatives of gamma with respect to x and z*/
+    dgammadx = alpha_ab;
     dgammadz = alpha_ab;
   }
 
@@ -133,7 +133,7 @@ void c_m06l_hab(double *x, double *z, double *rho, double *tau, double *h_ab, do
   { /* first term */
     double g2=pow(gamma,2.);
 
-    hab1         +=  d_ab0/gamma; 
+    hab1         +=  d_ab0/gamma;
     dhabdd1[0]   += -d_ab0*dgammadd_a/g2;
     dhabdd1[1]   += -d_ab0*dgammadd_b/g2;
     dhabdgd1[0]  += -d_ab0*dgammadgd_a/g2;
@@ -155,7 +155,7 @@ void c_m06l_hab(double *x, double *z, double *rho, double *tau, double *h_ab, do
     dhabdtau1[0] += (d_ab2*dzdtau_a*gamma -2*(d_ab1*x_ab+d_ab2*z_ab)*dgammadtau_a)/g3;
     dhabdtau1[1] += (d_ab2*dzdtau_b*gamma -2*(d_ab1*x_ab+d_ab2*z_ab)*dgammadtau_b)/g3;
   }
-  
+
   { /* third term */
     double g4= pow(gamma,4);
 
@@ -181,28 +181,28 @@ void c_m06l_hab(double *x, double *z, double *rho, double *tau, double *h_ab, do
 }
 
 /* Get h_ss for Eq. (14)*/
-static 
+static
 void c_m06l_hss(double x, double z, double rho, double tau, double *h_ss, double *dh_ssdd, double *dh_ssdgd, double *dh_ssdtau)
 {
   /* define the d_ab,i for Eq. (12)*/
   static double d_ss0= 0.4650534, d_ss1= 0.1617589, d_ss2= 0.1833657, d_ss3= 0.0004692100, d_ss4= -0.004990573;
-  double alpha_ss = 0.00515088; 
+  double alpha_ss = 0.00515088;
   double hss1, dhssdd1, dhssdgd1, dhssdtau1;
   double gamma, xgamma, zgamma;
   double dgammadx, dgammadz;
   double dgammadd, dgammadgd, dgammadtau;
   double dxdd, dxdgd, dzdd, dzdtau;
-  
+
 
   gamma = 1 + alpha_ss*(x + z);
-  { /* derivatives of gamma with respect to x and z*/ 
-    dgammadx = alpha_ss;        
+  { /* derivatives of gamma with respect to x and z*/
+    dgammadx = alpha_ss;
     dgammadz = alpha_ss;
   }
 
   c_m06l_zx(x, z, rho, tau, &dxdd, &dxdgd, &dzdd, &dzdtau);
 
-  { /* derivatives of gamma with respect to density, gradient and kinetic energy */ 
+  { /* derivatives of gamma with respect to density, gradient and kinetic energy */
     dgammadd   = dgammadx * dxdd + dgammadz * dzdd;
     dgammadgd  = dgammadx * dxdgd;
     dgammadtau = dgammadz * dzdtau;
@@ -221,7 +221,7 @@ void c_m06l_hss(double x, double z, double rho, double tau, double *h_ss, double
   { /* first term */
     double g2=pow(gamma,2.);
 
-    hss1    +=  d_ss0/gamma; 
+    hss1    +=  d_ss0/gamma;
     dhssdd1   += -d_ss0*dgammadd/g2;
     dhssdgd1  += -d_ss0*dgammadgd/g2;
     dhssdtau1 += -d_ss0*dgammadtau/g2 ;
@@ -236,7 +236,7 @@ void c_m06l_hss(double x, double z, double rho, double tau, double *h_ss, double
     dhssdgd1  += (d_ss1*dxdgd*gamma -2*(d_ss1*x+d_ss2*z)*dgammadgd)/g3;
     dhssdtau1 += (d_ss2*dzdtau*gamma -2*(d_ss1*x+d_ss2*z)*dgammadtau)/g3;
   }
-  
+
   { /* third term */
     double g4= pow(gamma,4);
 
@@ -255,14 +255,14 @@ void c_m06l_hss(double x, double z, double rho, double tau, double *h_ss, double
 }
 
 
-static void 
+static void
 c_m06l_para(m06l_params *p, const double *rho, const double *sigmatmp, const double *tautmp,
-	    double *energy, double *dedd, double *vsigma, double *dedtau)
+            double *energy, double *dedd, double *vsigma, double *dedtau)
 {
   double rho2[2], rho2s[2], x[2], z[2], zc_ss[2];
   double tau2[2], tauw[2], dens, dens1, sigma[3];
-  double g_ss[2], h_ss[2], Ec_ss[2], D_ss[2]; 
-  double g_ab=0.0, h_ab=0.0, Ec_ab=0.0; 
+  double g_ss[2], h_ss[2], Ec_ss[2], D_ss[2];
+  double g_ab=0.0, h_ab=0.0, Ec_ab=0.0;
   double exunif_ss[2], vxunif_up[2], vxunif_dn[2], vxunif_ss[2];
   double exunif =0.0, exunif_ab=0.0, vxunif[2];
   //derivatives
@@ -275,17 +275,12 @@ c_m06l_para(m06l_params *p, const double *rho, const double *sigmatmp, const dou
   double dD_ssdd[2], dD_ssdgd[3], dD_ssdtau[2], dD_ssdx[2], dD_ssdz[2];
   double dxdd[2], dxdgd[2], dzdd[2], dzdtau[2];
 
-  const double Cfermi= (3./5.)*pow(6*M_PI*M_PI,2./3.); 
-  
+  const double Cfermi= (3./5.)*pow(6*M_PI*M_PI,2./3.);
+
   /* put in by cpo for const reasons */
   double sigma_[3],tau[2];
   sigma_[0] = sigmatmp[0];
   tau[0] = tautmp[0];
-  if(p->common.nspin== XC_POLARIZED) {
-    tau[1] = tautmp[1];
-    sigma_[1] = sigmatmp[1];
-    sigma_[2] = sigmatmp[2];
-  }
 
   /*calculate |nabla rho|^2 */
   sigma_[0] = max(MIN_GRAD*MIN_GRAD, sigma_[0]);
@@ -295,10 +290,10 @@ c_m06l_para(m06l_params *p, const double *rho, const double *sigmatmp, const dou
 
   if(p->common.nspin== XC_UNPOLARIZED)
     {
-      tau[1]  = 0.0; 
+      tau[1]  = 0.0;
 
       rho2[0] = rho[0]/2.;
-      rho2[1] = rho[0]/2.;	
+      rho2[1] = rho[0]/2.;
       sigma[0] = sigma_[0]/4.;
       sigma[1] = sigma_[0]/4.;
       sigma[2] = sigma_[0]/4.;
@@ -310,12 +305,15 @@ c_m06l_para(m06l_params *p, const double *rho, const double *sigmatmp, const dou
 
     }else{
     dens1 = rho[0]+rho[1];
+    tau[1] = tautmp[1];
+    sigma_[1] = sigmatmp[1];
+    sigma_[2] = sigmatmp[2];
     sigma_[2] = max(MIN_GRAD*MIN_GRAD, sigma_[2]);
     tauw[1] = max(sigma_[2]/(8.0*rho[1]), 1.0e-12);
     tau[1] = max(tauw[1], tau[1]);
 
     rho2[0]=rho[0];
-    rho2[1]=rho[1];	
+    rho2[1]=rho[1];
     sigma[0] = sigma_[0];
     sigma[1] = sigma_[1];
     sigma[2] = sigma_[2];
@@ -334,7 +332,7 @@ c_m06l_para(m06l_params *p, const double *rho, const double *sigmatmp, const dou
   /*============ spin up =============*/
 
   rho2s[0]=rho2[0];
-  rho2s[1]=0.;	
+  rho2s[1]=0.;
 
   //get the e_LDA(rho_up,0)
   XC(lda_exc_vxc)(p->c_aux, np, rho2s, &(exunif_ss[0]), vxunif_up);
@@ -342,7 +340,7 @@ c_m06l_para(m06l_params *p, const double *rho, const double *sigmatmp, const dou
   vxunif_ss[0] = vxunif_up[0];
 
   /*define variables for rho_up and zc in order to avoid x/0 -> D_ss = -inf */
-  x[0] = sigma[0]/(pow(rho2s[0], 8./3.)); 
+  x[0] = sigma[0]/(pow(rho2s[0], 8./3.));
   z[0] = 2*tau2[0]/pow(rho2s[0],5./3.) - Cfermi;
   zc_ss[0] = 2*tau2[0]/pow(rho2s[0],5./3.);
 
@@ -353,7 +351,7 @@ c_m06l_para(m06l_params *p, const double *rho, const double *sigmatmp, const dou
   dD_ssdz[0] =  4 * x[0]/pow(4.*zc_ss[0],2.);
 
   c_m06l_zx(x[0], z[0], rho2s[0], tau2[0], &(dxdd[0]), &(dxdgd[0]), &(dzdd[0]), &(dzdtau[0]));
-	  
+
   dD_ssdd[0]   = dD_ssdx[0] * dxdd[0] + dD_ssdz[0] * dzdd[0];
   dD_ssdgd[0]  = dD_ssdx[0] * dxdgd[0];
   dD_ssdtau[0] = dD_ssdz[0] * dzdtau[0];
@@ -368,15 +366,15 @@ c_m06l_para(m06l_params *p, const double *rho, const double *sigmatmp, const dou
   /*============== spin down =============*/
 
   rho2s[0]=rho2[1];
-  rho2s[1]=0.;	
-	  
+  rho2s[1]=0.;
+
   //get the e_LDA(0,rho_dn)
   XC(lda_exc_vxc)(p->c_aux, np, rho2s, &(exunif_ss[1]), vxunif_dn);
   exunif_ss[1] = exunif_ss[1] * rho2s[0];
   vxunif_ss[1] = vxunif_dn[0];
 
   /*define variables for rho_beta*/
-  x[1] = sigma[2]/(pow(rho2s[0], 8./3.)); 
+  x[1] = sigma[2]/(pow(rho2s[0], 8./3.));
   z[1] = 2*tau2[1]/pow(rho2s[0],5./3.) - Cfermi;
   zc_ss[1] = 2*tau2[1]/pow(rho2s[0],5./3.);
 
@@ -387,7 +385,7 @@ c_m06l_para(m06l_params *p, const double *rho, const double *sigmatmp, const dou
   dD_ssdz[1] = 4*x[1]/pow(4.*zc_ss[1],2.);
 
   c_m06l_zx(x[1], z[1], rho2s[0], tau2[1], &(dxdd[1]), &(dxdgd[1]), &(dzdd[1]), &(dzdtau[1]));
-	  
+
   dD_ssdd[1]   = dD_ssdx[1] * dxdd[1] + dD_ssdz[1] * dzdd[1];
   dD_ssdgd[2]  = dD_ssdx[1] * dxdgd[1];
   dD_ssdtau[1] = dD_ssdz[1] * dzdtau[1];
@@ -399,7 +397,7 @@ c_m06l_para(m06l_params *p, const double *rho, const double *sigmatmp, const dou
   //printf("exunif_ss %.9e, (g_ss[1]+h_ss[1])%.9e, D_ss %.9e\n", exunif_ss[1],(g_ss[1]+h_ss[1]),D_ss[1]);
   Ec_ss[1] = (exunif_ss[1] * (g_ss[1]+h_ss[1]) * D_ss[1]);
   //printf("Ec_dn %.9e\n", Ec_ss[1]);
-	  
+
   // Derivatives for Ec_up and Ec_dn with respect to density and kinetic energy
   int i;
   for(i=0; i<2; i++){
@@ -413,10 +411,10 @@ c_m06l_para(m06l_params *p, const double *rho, const double *sigmatmp, const dou
   // Derivatives for Ec_up and Ec_dn with respect to gradient
   dEc_ssdgd[0]  = exunif_ss[0] * dh_ssdgd[0] * D_ss[0] + exunif_ss[0] * h_ss[0] * dD_ssdgd[0] +
     exunif_ss[0] * dg_ssdgd[0] * D_ss[0] + exunif_ss[0] * g_ss[0] * dD_ssdgd[0];
-  dEc_ssdgd[2]  = exunif_ss[1] * dh_ssdgd[2] * D_ss[1] + exunif_ss[1] * h_ss[1] * dD_ssdgd[2] + 
+  dEc_ssdgd[2]  = exunif_ss[1] * dh_ssdgd[2] * D_ss[1] + exunif_ss[1] * h_ss[1] * dD_ssdgd[2] +
     exunif_ss[1] * dg_ssdgd[2] * D_ss[1] + exunif_ss[1] * g_ss[1] * dD_ssdgd[2];
 
-	  
+
   /*==============get the E_ab part========================*/
 
   exunif_ab = exunif - exunif_ss[0] - exunif_ss[1];
@@ -448,13 +446,13 @@ c_m06l_para(m06l_params *p, const double *rho, const double *sigmatmp, const dou
   *energy = (Ec_ss[0] + Ec_ss[1] + Ec_ab)/dens1;
   //printf("Ec_ss %.9e, Ec_ss %.9e, Ec_ab %.9e\n", Ec_ss[0], Ec_ss[1], Ec_ab);
 
-	  
+
   //derivative for the total correlation energy
   if(p->common.nspin== XC_UNPOLARIZED)
     {
       dedd[0]=dEc_ssdd[0] + dEc_abdd[0];
       dedd[1]=0.0;
-	  
+
       vsigma[0]= (dEc_ssdgd[0] + dEc_abdgd[0])/2.;
       vsigma[1]= 0.0;
       vsigma[2]= 0.0;
@@ -464,7 +462,7 @@ c_m06l_para(m06l_params *p, const double *rho, const double *sigmatmp, const dou
     }else{
     dedd[0]=dEc_ssdd[0] + dEc_abdd[0];
     dedd[1]=dEc_ssdd[1] + dEc_abdd[1];
-	  
+
     vsigma[0]= dEc_ssdgd[0] + dEc_abdgd[0];
     vsigma[1]= 0.0;
     vsigma[2]= dEc_ssdgd[2] + dEc_abdgd[2];
@@ -474,7 +472,7 @@ c_m06l_para(m06l_params *p, const double *rho, const double *sigmatmp, const dou
   }
 }
 
-static void 
+static void
 XC(mgga_c_m06l)(void *p, const double *rho, const double *sigma, const double *tau,
                 double *e, double *dedd, double *vsigma, double *dedtau)
 {
@@ -482,7 +480,7 @@ XC(mgga_c_m06l)(void *p, const double *rho, const double *sigma, const double *t
 }
 
 /* derivatives of x and z with respect to rho, grho and tau: Eq.(1) and Eq.(3)*/
-static void 
+static void
 x_m06l_zx(double x, double z, double rho, double tau, double *dxdd, double *dxdgd, double *dzdd, double *dzdtau)
 {
   *dxdd = -8./3. * x * 1/rho;
@@ -493,7 +491,7 @@ x_m06l_zx(double x, double z, double rho, double tau, double *dxdd, double *dxdg
 }
 
 /* Build gamma and its derivatives with respect to rho, grho and tau: Eq. (4)*/
-static void 
+static void
 x_m06l_gamma(double x, double z, double rho, double tau, double *gamma, double *dgammadd, double *dgammadgd, double *dgammadtau)
 {
   static double alpha = 0.00186726;   /*set alpha of Eq. (4)*/
@@ -503,8 +501,8 @@ x_m06l_gamma(double x, double z, double rho, double tau, double *gamma, double *
   *gamma = 1 + alpha*(x + z);
   /*printf("gamma %19.12f\n", *gamma);*/
 
-  { /* derivatives */ 
-    dgammadx = alpha;        
+  { /* derivatives */
+    dgammadx = alpha;
     dgammadz = alpha;
   }
 
@@ -526,7 +524,7 @@ x_m06l_gamma(double x, double z, double rho, double tau, double *gamma, double *
 ************************************************************************/
 
 /* calculate h and h derivatives with respect to rho, grho and tau: Equation (5) */
-static 
+static
 void x_m06l_h(double x, double z, double rho, double tau, double *h, double *dhdd, double *dhdgd, double *dhdtau)
 {
   /* parameters for h(x_sigma,z_sigma) of Eq. (5)*/
@@ -536,7 +534,7 @@ void x_m06l_h(double x, double z, double rho, double tau, double *h, double *dhd
   double gamma, dgammadd, dgammadgd, dgammadtau;
   double xgamma, zgamma;
   double dxdd, dxdgd, dzdd, dzdtau;
-  
+
   x_m06l_gamma(x, z, rho, tau, &gamma, &dgammadd, &dgammadgd, &dgammadtau);
 
   xgamma = x/gamma;
@@ -552,14 +550,14 @@ void x_m06l_h(double x, double z, double rho, double tau, double *h, double *dhd
   { /* first term */
     double g2=pow(gamma,2.);
 
-    h1      += d0/gamma; 
+    h1      += d0/gamma;
     dhdd1   += -d0*dgammadd/g2;
     dhdgd1  += -d0*dgammadgd/g2;
     dhdtau1 += -d0*dgammadtau/g2 ;
   }
 
   x_m06l_zx(x, z, rho, tau, &dxdd, &dxdgd, &dzdd, &dzdtau);
-  
+
   { /* second term */
     double g3=pow(gamma,3.);
 
@@ -568,7 +566,7 @@ void x_m06l_h(double x, double z, double rho, double tau, double *h, double *dhd
     dhdgd1  += (d1*dxdgd*gamma -2*(d1*x+d2*z)*dgammadgd)/g3;
     dhdtau1 += (d2*dzdtau*gamma -2*(d1*x+d2*z)*dgammadtau)/g3;
   }
-  
+
   { /* third term */
     double g4= pow(gamma,4);
 
@@ -586,7 +584,7 @@ void x_m06l_h(double x, double z, double rho, double tau, double *h, double *dhd
 }
 
 /* f(w) and its derivatives with respect to rho and tau*/
-static void 
+static void
 x_m06l_fw(double rho, double tau, double *fw, double *dfwdd, double *dfwdtau)
 {
   /*define the parameters for fw of Eq. (8) as in the reference paper*/
@@ -594,14 +592,14 @@ x_m06l_fw(double rho, double tau, double *fw, double *dfwdd, double *dfwdtau)
     a6= 30.97273,  a7=-23.18489,  a8=-56.73480,  a9=21.60364,  a10= 34.21814, a11= -9.049762;
 
   double tau_lsda, t, w;
-  double dtdd, dtdtau; 
+  double dtdd, dtdtau;
   double dfwdw, dwdt, dtau_lsdadd;
   double aux =  (3./10.) * pow((6*M_PI*M_PI),2./3.); /*3->6 for nspin=2 */
-	
 
-  tau_lsda = aux * pow(rho,5./3.); 
+
+  tau_lsda = aux * pow(rho,5./3.);
   t = tau_lsda/tau;
-  dtdtau = -t/tau; 
+  dtdtau = -t/tau;
   w = (t - 1)/(t + 1);
 
   *fw = a0*pow(w,0.)+a1*pow(w,1.)+a2*pow(w,2.)+a3*pow(w,3.)+a4*pow(w,4.)+
@@ -620,7 +618,7 @@ x_m06l_fw(double rho, double tau, double *fw, double *dfwdd, double *dfwdtau)
   *dfwdtau = dfwdw * dwdt * dtdtau;
 }
 
-static void 
+static void
 x_m06l_para(m06l_params *pt, double rho, double sigma, double tau, double *energy, double *dedd, double *vsigma, double *dedtau)
 {
   /*Build Eq. (6) collecting the terms Fx_PBE,  fw, e_lsda and h*/
@@ -645,7 +643,7 @@ x_m06l_para(m06l_params *pt, double rho, double sigma, double tau, double *energ
   sigmatot[1] = 0.0;
   sigmatot[2] = 0.0;
   tau2 =tau/2.;
-  
+
 
   /* get the uniform gas energy and potential a MINUS was missing in the paper*/
 
@@ -660,15 +658,15 @@ x_m06l_para(m06l_params *pt, double rho, double sigma, double tau, double *energ
 
   /* define x and z from Eq. (1) and Eq. (3) NOTE: we build directly x^2 */
   x = grad/(4*pow(rho2[0], 8./3.));
-  
+
   z = 2*tau2/pow(rho2[0],5./3.) - Cfermi;  /*THERE IS A 2 IN FRONT AS IN THEOR. CHEM. ACCOUNT 120 215 (2008)*/
-  
+
   /*get  h and fw*/
   x_m06l_h(x, z, rho2[0], tau2, &h, &dhdd, &dhdgd, &dhdtau);
   x_m06l_fw(rho2[0], tau2, &fw, &dfwdd, &dfwdtau);
 
 
-  
+
   { /* Eq. (6)  E_x = Int F_PBE*fw + exunif*h, the factor 2 accounts for spin. */
 
     *energy = 2*(F_PBE*rho2[0] *fw + epsx_lsda *h);
@@ -681,7 +679,7 @@ x_m06l_para(m06l_params *pt, double rho, double sigma, double tau, double *energ
 }
 
 
-void 
+void
 XC(mgga_x_m06l)(void *p, const double *rho, const double *sigma, const double *tau,
                 double *e, double *dedd, double *vsigma, double *dedtau)
 
@@ -693,14 +691,14 @@ XC(mgga_x_m06l)(void *p, const double *rho, const double *sigma, const double *t
     *e = en/(rho[0]+rho[1]);
 
   }else{
-  
-  
+
+
     *e = 0.0;
 
     double e2na, e2nb, rhoa[2], rhob[2];
 
-    double vsigmapart[3]; 
-	  
+    double vsigmapart[3];
+
 
     rhoa[0]=2*rho[0];
     rhoa[1]=0.0;
@@ -708,11 +706,11 @@ XC(mgga_x_m06l)(void *p, const double *rho, const double *sigma, const double *t
     rhob[1]=0.0;
 
 
-		  
+
     x_m06l_para(p, rhoa[0], 4*sigma[0], 2.0*tau[0], &e2na, &(dedd[0]), &(vsigmapart[0]), &(dedtau[0]));
 
     x_m06l_para(p, rhob[0], 4*sigma[2], 2.0*tau[1], &e2nb, &(dedd[1]), &(vsigmapart[2]), &(dedtau[1]));
-		 
+
     *e = (e2na + e2nb )/(2.*(rho[0]+rho[1]));
     vsigma[0] = 2*vsigmapart[0];
     vsigma[2] = 2*vsigmapart[2];
