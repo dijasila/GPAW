@@ -18,28 +18,26 @@ def phononbuildingblock(atoms, Z_avv, freqs, modes):
     return phbb
 
 
-def dopedsemiconductor(path, effectivemass, doping, temperature):
+def dopedsemiconductor(block, effectivemass, doping, temperature, eta):
     # Chi0 for zero temperature
-    def chi0T0(q, w, me, mup):
-        kf = np.sqrt(2 * me * mup)
+    def chi0T0(q_qwm, w_qwm, me, mup_qwm):
+        kf = np.sqrt(2 * me * mup_qwm)
         N = kf**2 / (2 * np.pi)
         vf = kf / me
-        z = q / (2 * kf)
-        u = w / (q * vf)
-        G = N / (me * z * (q**2) * (vf**2))
-        chi0T0_qwm = np.zeros((len(q), len(w[0]), len(mup[0, 0])), complex)
-        chi0T0_qwm[:, :, :] = 2 * z
-
+        z = q_qwm / (2 * kf)
+        u = w_qwm / (q_qwm * vf)
+        G = N / (me * z * (vf**2))
+        
         # Condition 1
         mask1 = (np.absolute(z - u.real) >= 1)
-        chi0T0_qwm -= (mask1 * ((z - u.real) / np.absolute(z - u.real))
-                       * csqrt((z - u)**2 - 1))
-
+        chi0T0_qwm = (mask1 * (-(z - u.real) / np.absolute(z - u.real)) *
+                      csqrt((z - u)**2 - 1))
+        
         # Condition 2
         mask2 = (np.absolute(z + u.real) >= 1)
-        chi0T0_qwm -= (mask2 * ((z + u.real) / np.absolute(z + u.real))
-                       * csqrt((z + u)**2 - 1))
-
+        chi0T0_qwm -= (mask2 * ((z + u.real) / np.absolute(z + u.real)) *
+                       csqrt((z + u)**2 - 1))
+        
         # Condition 3
         mask3 = (np.absolute(z - u.real) < 1)
         chi0T0_qwm += 1j * mask3 * csqrt(1 - (z - u)**2)
@@ -48,8 +46,9 @@ def dopedsemiconductor(path, effectivemass, doping, temperature):
         mask4 = (np.absolute(z + u.real) < 1)
         chi0T0_qwm -= 1j * mask4 * csqrt(1 - (z + u)**2)
 
+        chi0T0_qwm += 2 * z
         chi0T0_qwm *= G
-        return - q**2 * chi0T0_qwm
+        return -chi0T0_qwm
 
     # Sum Argument
     def arg(q, w, me, T, mu, mup):
@@ -67,7 +66,7 @@ def dopedsemiconductor(path, effectivemass, doping, temperature):
 
     # Polarizability in the relaxation time approximation
     def Pgamma(q_q, w_w, me=None, efermi=None, T=0.0,
-               mupmax=None, N=1000, gamma=1e-2):
+               mupmax=None, N=1000, gamma=1e-4):
         assert efermi is not None, print('You have to set a fermi energy!')
         assert me is not None, \
             print('You have to set an effective electron mass!')
@@ -75,33 +74,32 @@ def dopedsemiconductor(path, effectivemass, doping, temperature):
         gamma = gamma / Hartree
         efermi = efermi / Hartree
         T = T / Hartree
+        a = 1j * gamma / w_w
+        iw_w = w_w + 1j * gamma
 
         if T / efermi > 1e-7:
             # Temperature dependent chemical potential
             mu = T * np.log(np.exp(efermi / T) - 1)
+            if mupmax is None:
+                mupmax = 20 * T + mu * (mu > 0)
+            P0 = P(q_q, np.array([0j]), me, T, mu, mupmax, N)
+            P1 = P(q_q, iw_w, me, T, mu, mupmax, N)
         else:
             mu = efermi
             T = 0
-
-        if mupmax is None:
-            mupmax = 20 * T + mu * (mu > 0)
-
-        a = 1j * gamma / w_w
-        iw_w = w_w + 1j * gamma
-        P0 = P(q_q, np.array([0j]), me, T, mu, mupmax, N)
-        P1 = P(q_q, iw_w, me, T, mu, mupmax, N)
+            P0 = chi0T0(q_q[:, None], np.array([0j])[None, :], me, mu)
+            P1 = chi0T0(q_q[:, None], iw_w[None, :], me, mu)
 
         return ((1 + a) * P1 / (1 + a * P1 / P0))
 
     # Reading old file
-    block = np.load(path)
     chiM_qw = block['chiM_qw']
     q_q = block['q_abs']
     omega_w = block['omega_w']
 
     V_q = 2 * np.pi / q_q
     chi0Mnew_qw = Pgamma(q_q, omega_w, me=effectivemass,
-                         efermi=doping, T=temperature)
+                         efermi=doping, T=temperature, gamma=eta)
     chi0Mnew_qw += chiM_qw / (1 + V_q[:, None] * chiM_qw)
     dopedchiM_qw = chi0Mnew_qw / (1 - chi0Mnew_qw * V_q[:, None])
 
@@ -115,14 +113,14 @@ def dopedsemiconductor(path, effectivemass, doping, temperature):
             'drhoD_qz': block['drhoD_qz']}
 
     return data
-    
 
-def GrapheneBB(path, doping):
+
+def GrapheneBB(block, doping, eta):
     Ef = doping / Hartree
     c = 137.0
     vf = c / 300
     kf = Ef / vf
-    tau = 1 / (1e-3 / Hartree)
+    tau = 1 / (eta / Hartree)
 
     # Auxiliary functions
     def F(x):
@@ -195,7 +193,6 @@ def GrapheneBB(path, doping):
         P1 = P(q_q, iw_w)
         return ((1 - a) * P0 * P1 / (P1 - a * P0))
 
-    block = np.load(path)
     z = block['z']
     q_q = block['q_abs']
     omega_w = block['omega_w']
@@ -230,7 +227,7 @@ def phonon_polarizability(bb, Z_avv, freqs, modes, m_a, cell_cv):
     Hartree = units.Hartree
 
     # Make new bb
-    bb = dict(np.load(bb))
+    bb = dict(bb)
     chiM_qw = bb['chiM_qw']
     chiD_qw = bb['chiD_qw']
     q_abs = bb['q_abs']
