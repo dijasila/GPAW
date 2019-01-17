@@ -58,13 +58,14 @@ H2 dissociation example::
    from gpaw.tddft.ehrenfest import EhrenfestVelocityVerlet
    from gpaw.tddft.laser import CWField
    from ase.units import Hartree, Bohr, AUT
-   
+   from ase.parallel import parprint
+
    name = 'h2_diss'
    
    # Ehrenfest simulation parameters
-   timestep = 20.0 # Timestep given in attoseconds
-   ndiv = 10  # Write trajectory every 10 timesteps
-   niter = 500 # Run for 500 timesteps 
+   timestep = 10.0 # Timestep given in attoseconds
+   ndiv = 10 # Write trajectory every 10 timesteps
+   niter = 500 # Run for 100 timesteps 
    
    # TDDFT calculator with an external potential emulating an intense harmonic laser field
    # aligned (CWField uses by default the z axis) along the H2 molecular axis.
@@ -80,6 +81,10 @@ H2 dissociation example::
    # Propagates the dynamics for niter timesteps.
    for i in range(1, niter + 1):
    ehrenfest.propagate(timestep)
+
+   if atoms.get_distance(0,1) > 2.0: # Stop simulation if H-H distance is greater than 2 A.
+       parprint('Dissociated!')
+       break
        
     # Every ndiv timesteps, save an image in the trajectory file.
     if i % ndiv == 0:
@@ -92,10 +97,10 @@ H2 dissociation example::
    
       traj.write(atoms, energy=epot, forces=F_av)
    
-  traj.close()
+   traj.close()
 
-As can be verified from the trajectory, the distance between the H atoms at the end of
-the dynamics is more than 3 A and thus their bond was broken by the intense laser field.
+The distance between the H atoms at the end of the dynamics is more than 2 A and thus 
+their bond has been broken by the intense laser field.
 
 --------------------------------
 Electronic stopping in graphene
@@ -269,9 +274,9 @@ Electronic stopping example::
    
    traj.close()
 
---------------------------------
+----------------------
 TDDFT reference manual
---------------------------------
+----------------------
 
 The TDDFT class and keywords:
 
@@ -299,7 +304,7 @@ Keyword                Type        Default     Description
 
 
 References
-==========
+----------
 
 .. [#Ojanpera2012] A. Ojanpera, V. Havu, L. Lehtovaara, M. Puska,
                    "Nonadiabatic Ehrenfest molecular dynamics within the projector augmented-wave method",
