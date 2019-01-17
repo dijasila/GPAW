@@ -48,8 +48,10 @@ class PzCorrectionsLcao:
         self.xc = ham.xc
 
         self.poiss = PoissonSolver(relax=poisson_solver,
-                                   eps=1.0e-16, sic_gg=True)
-                                   # sic_gg=True)
+                                   eps=1.0e-16,
+                                   use_charge_center=True,
+                                   use_charged_periodic_corrections=True)
+
         if self.sic_coarse_grid is True:
             self.poiss.set_grid_descriptor(self.cgd)
         else:
