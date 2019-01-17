@@ -620,5 +620,19 @@ class DirectMinLCAO(DirectLCAO):
         return
 
     def reset(self):
+        super().reset()
         self._error = np.inf
         self.iters = 0
+
+    def todict(self):
+
+        return {'name': 'direct_min_lcao',
+                'search_direction_algorithm': self.sda,
+                'line_search_algorithm': self.lsa,
+                'initial_orbitals': 'KS',
+                'initial_rotation':'zero',
+                'update_ref_orbs_counter': self.update_ref_orbs_counter,
+                'update_precond_counter': self.update_precond_counter,
+                'use_prec': self.use_prec,
+                'matrix_exp': self.matrix_exp,
+                'sparse': self.sparse}
