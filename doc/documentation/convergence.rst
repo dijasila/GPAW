@@ -10,7 +10,7 @@ Here you find a list of suggestions that should be considered when
 encountering convergence problems:
 
 1) Make sure the geometry and spin-state is physically sound.
-    
+
    Remember that ASE uses Angstrom and not Bohr or nm!
    For spin polarized systems, make sure you have sensible initial magnetic
    moments. Don't do spin-paired calculations for molecules with an odd
@@ -22,7 +22,7 @@ encountering convergence problems:
    Try something like ``mixer=Mixer(0.02, 5, 100)`` or
    ``mixer=MixerSum(0.02, 5, 100)``, ``mixer=MixerDif(0.02, 5, 100)``
    for spin-polarized calculations and remember to import the mixer classes::
-       
+
        from gpaw import Mixer, MixerSum, MixerDif
 
    For some systems (for example transition metal atoms) it is helpful to
@@ -31,11 +31,11 @@ encountering convergence problems:
 3) Solve the eigenvalue problem more accurately at each scf-step.
 
    Import the Davidson eigensolver::
-       
+
        from gpaw import Davidson
-       
+
    and increase the number iterations per scf-step ``eigensolver=Davidson(3)``.
-        
+
    CG eigensolver tends converge fastest the unoccupied bands
    ``eigensolver='cg'``.
 
@@ -52,7 +52,7 @@ encountering convergence problems:
    If you are specifying the :ref:`number of bands <manual_nbands>`
    manually, try to increase the number of empty states. You might also
    let GPAW choose the default number, which is in general large enough.
-  
+
 6) Use enough k-points.
 
    Try something like ``kpts={'density': 3.5, 'even': True}``
@@ -60,18 +60,7 @@ encountering convergence problems:
 
 7) Don't let your structure optimization algorithm take too large steps.
 
-8) Solve the Poisson equation more accurately.
-
-   Sometimes for metallic systems of large dimensions (thick slabs or
-   large clusters), one can have the situation that the wave functions
-   converge nicely, but the density does not.  For such cases it can
-   help to solve the Poisson equation more accurately between each SCF
-   step.  Try something like ``poissonsolver=PoissonSolver(eps=1e-12)``.
-   Import the class with::
-
-       from gpaw.poisson import PoissonSolver
-
-9) Better initial guess for the wave functions.
+8) Better initial guess for the wave functions.
 
    The initial guess for the wave functions is always calculated
    using the LCAO scheme, with a default single-zeta basis, i.e. one
@@ -85,4 +74,3 @@ encountering convergence problems:
 
    Warning: this may in some cases worsen the convergence, and improves
    it usually only when the number of empty states is significantly increased.
- 

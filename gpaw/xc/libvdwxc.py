@@ -354,7 +354,7 @@ class VDWXC(XCFunctional):
             nx, ny = self.libvdwxc.pfft_grid
             mode = 'pfft with {} x {} {}'.format(nx, ny, cores)
         app('Mode: {}'.format(mode))
-        app('Semilocal: {}'.format(self.semilocal_xc.kernel.name))
+        app('Semilocal: {}'.format(self.semilocal_xc.get_description()))
         if self.libvdwxc.vdw_functional_name != self.name:
             app('Corresponding non-local functional: {}'
                 .format(self.libvdwxc.vdw_functional_name))

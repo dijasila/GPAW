@@ -58,9 +58,14 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
                     'C09-vdW', 'mBEEF-vdW', 'BEEF-vdW']:
             from gpaw.xc.vdw import VDWFunctional
             return VDWFunctional(name, **kwargs)
-        elif name in ['EXX', 'PBE0', 'B3LYP']:
+        elif name in ['EXX', 'PBE0', 'B3LYP',
+                      'CAMY-BLYP', 'CAMY-B3LYP', 'LCY-BLYP', 'LCY-PBE']:
             from gpaw.xc.hybrid import HybridXC
             return HybridXC(name, **kwargs)
+        elif name.startswith('LCY-') or name.startswith('CAMY-'):
+            parts = name.split('(')
+            from gpaw.xc.hybrid import HybridXC
+            return HybridXC(parts[0], omega=float(parts[1][:-1]))
         elif name in ['HSE03', 'HSE06']:
             from gpaw.xc.exx import EXX
             return EXX(name, **kwargs)
@@ -83,16 +88,9 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
         elif name == 'TB09':
             from gpaw.xc.tb09 import TB09
             return TB09(**kwargs)
-        elif name.startswith('ODD_'):
-            from ODD import ODDFunctional
-            return ODDFunctional(name[4:], **kwargs)
         elif name.endswith('PZ-SIC'):
-            try:
-                from ODD import PerdewZungerSIC as SIC
-                return SIC(xc=name[:-7], **kwargs)
-            except:
-                from gpaw.xc.sic import SIC
-                return SIC(xc=name[:-7], **kwargs)
+            from gpaw.xc.sic import SIC
+            return SIC(xc=name[:-7], **kwargs)
         elif name in ['TPSS', 'M06-L', 'M06L', 'revTPSS']:
             if name == 'M06L':
                 name = 'M06-L'
@@ -119,7 +117,8 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             kernel = XCNull()
         elif name == 'QNA':
             from gpaw.xc.qna import QNA
-            return QNA(atoms, kernel['parameters'], kernel['setup_name'], alpha=kernel['alpha'])
+            return QNA(atoms, kernel['parameters'], kernel['setup_name'],
+                       alpha=kernel['alpha'], stencil=kwargs.get('stencil', 2))
         else:
             kernel = LibXC(name)
 

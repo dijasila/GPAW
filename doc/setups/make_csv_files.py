@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # creates: atomization_energies.csv bondlengths.csv bondlengths.png
 
-from ase.atoms import string2symbols
+from ase.symbols import string2symbols
 from ase.data.g2_1 import data
 from ase.data.g2_1_ref import atomization_vasp, diatomic
 from ase.data.molecules import latex
@@ -96,7 +96,7 @@ def bondlengths(Ea, dE):
         E0.append(-eavasp)
         csv.write('`%s`, %.3f, %.3f, %+.3f\n' %
                   (name[1:-1], b0, bref, b0 - bref))
-        
+
     plt.plot(B, E0, 'g.', label='reference')
     plt.legend(loc='lower right')
     plt.xlabel('Bond length $\mathrm{\AA}$')

@@ -34,6 +34,8 @@ equal(np.linalg.norm(wan.get_radii() - 1.2393), 0, 2e-3)
 eig = np.sort(np.linalg.eigvals(wan.get_hamiltonian().real))
 equal(np.linalg.norm(eig - calc.get_eigenvalues()[:2]), 0, 1e-4)
 
+wan.write_cube(0, 'H2.cube')
+
 energy_tolerance = 0.00005
 niter_tolerance = 0
 equal(e, -6.65064, energy_tolerance)

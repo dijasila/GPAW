@@ -21,22 +21,23 @@ def calculate_stress(calc):
     calc.timer.start('Stress tensor')
 
     s_vv = wfs.get_kinetic_stress().real
-    nt_xg = dens.xc_redistributor.distribute(dens.nt_xg)
+    nt_xg = dens.nt_xg
+    if ham.xc_redistributor is not None:
+        nt_xg = ham.xc_redistributor.distribute(nt_xg)
     s_vv += ham.xc.stress_tensor_contribution(nt_xg)
-    del nt_xg
 
     pd = dens.pd3
     p_G = 4 * np.pi * dens.rhot_q
-    p_G[1:] /= pd.G2_qG[0][1:]**2
+    G0 = 0 if pd.gd.comm.rank > 0 else 1
+    p_G[G0:] /= pd.G2_qG[0][G0:]**2
     G_Gv = pd.get_reciprocal_vectors()
     for v1 in range(3):
-        s_vv[v1, v1] -= ham.epot
         for v2 in range(3):
             s_vv[v1, v2] += pd.integrate(p_G, dens.rhot_q *
                                          G_Gv[:, v1] * G_Gv[:, v2])
     s_vv += dens.ghat.stress_tensor_contribution(ham.vHt_q, dens.Q_aL)
 
-    s_vv -= np.eye(3) * ham.ebar
+    s_vv -= np.eye(3) * ham.estress
     s_vv += ham.vbar.stress_tensor_contribution(dens.nt_Q)
     s_vv += dens.nct.stress_tensor_contribution(ham.vt_Q)
 
@@ -54,9 +55,9 @@ def calculate_stress(calc):
             a_ani[a] = 2 * a_ni.conj()
         s0_vv += wfs.pt.stress_tensor_contribution(kpt.psit_nG, a_ani,
                                                    q=kpt.q)
-    s0_vv -= s0.real * np.eye(3)
-    wfs.bd.comm.sum(s0_vv)
-    wfs.kd.comm.sum(s0_vv)
+    s0_vv -= dens.gd.comm.sum(s0.real) * np.eye(3)
+    s0_vv /= dens.gd.comm.size
+    wfs.world.sum(s0_vv)
     s_vv += s0_vv
 
     s_vv += wfs.dedepsilon * np.eye(3)

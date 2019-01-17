@@ -19,6 +19,13 @@ class XCFunctional(object):
         return {'type': self.kernel.type,
                 'kernel': self.kernel.name}
 
+    def tostring(self):
+        """Get string representation of XC functional.
+
+        This will give the name for libxc functionals but other data for
+        hybrids."""
+        return self.name
+
     def get_setup_name(self):
         return self.name
 

@@ -11,4 +11,4 @@ calc = GPAW(convergence={'forces': 0.01,
 H2.set_calculator(calc)
 H2.get_potential_energy()
 n = calc.get_number_of_iterations()
-assert 7 <= n <= 9, n
+assert 7 <= n <= 11, n

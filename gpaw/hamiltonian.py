@@ -3,6 +3,7 @@
 # Please see the accompanying LICENSE file for further information.
 
 """This module defines a Hamiltonian."""
+from __future__ import division
 
 import functools
 
@@ -13,7 +14,7 @@ from gpaw.arraydict import ArrayDict
 from gpaw.external import create_external_potential
 from gpaw.hubbard import hubbard
 from gpaw.lfc import LFC
-from gpaw.poisson import create_poisson_solver
+from gpaw.poisson import PoissonSolver
 from gpaw.spinorbit import soc
 from gpaw.transformers import Transformer
 from gpaw.utilities import (unpack, pack2, unpack_atomic_matrices,
@@ -35,8 +36,10 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
             out.array[:, I1:I2] = np.dot(P.array[:, I1:I2], dH_ii)
         else:
             dH_xp = dH_asp[a]
-            dH_ii = unpack(dH_xp[0])
-            dH_vii = [unpack(dH_p) for dH_p in dH_xp[1:]]
+            # We need the transpose because
+            # we are dotting from the left
+            dH_ii = unpack(dH_xp[0]).T
+            dH_vii = [unpack(dH_p).T for dH_p in dH_xp[1:]]
             out.array[:, 0, I1:I2] = (np.dot(P.array[:, 0, I1:I2],
                                              dH_ii + dH_vii[2]) +
                                       np.dot(P.array[:, 1, I1:I2],
@@ -157,13 +160,17 @@ class Hamiltonian:
                 # zero boundary conditions
                 vacuum = 0.0
             else:
-                axes = (c, (c + 1) % 3, (c + 2) % 3)
-                v_g = self.pd3.ifft(self.vHt_q).transpose(axes)
-                vacuum = v_g[0].mean()
+                v_q = self.pd3.gather(self.vHt_q)
+                if self.pd3.comm.rank == 0:
+                    axes = (c, (c + 1) % 3, (c + 2) % 3)
+                    v_g = self.pd3.ifft(v_q, local=True).transpose(axes)
+                    vacuum = v_g[0].mean()
+                else:
+                    vacuum = np.nan
 
             wf1 = (vacuum - fermilevel + correction) * Ha
             wf2 = (vacuum - fermilevel - correction) * Ha
-            log('Dipole-layer corrected work functions: {0}, {1} eV'
+            log('Dipole-layer corrected work functions: {:.6f}, {:.6f} eV'
                 .format(wf1, wf2))
             log()
 
@@ -191,7 +198,7 @@ class Hamiltonian:
         self.atomdist = self.redistributor.get_atom_distributions(spos_ac)
 
     def set_positions(self, spos_ac, atom_partition):
-        self.vbar.set_positions(spos_ac)
+        self.vbar.set_positions(spos_ac, atom_partition)
         self.xc.set_positions(spos_ac)
         self.set_positions_without_ruining_everything(spos_ac, atom_partition)
         self.positions_set = True
@@ -213,7 +220,6 @@ class Hamiltonian:
         grid."""
 
         self.timer.start('Hamiltonian')
-
         if self.vt_sg is None:
             with self.timer('Initialize Hamiltonian'):
                 self.initialize()
@@ -227,13 +233,14 @@ class Hamiltonian:
         atomic_energies = self.update_corrections(density, W_aL)
 
         # Make energy contributions summable over world:
-        finegrid_energies *= self.finegd.comm.size / float(self.world.size)
-        coarsegrid_e_kinetic *= self.gd.comm.size / float(self.world.size)
+        finegrid_energies *= self.finegd.comm.size / self.world.size
+        coarsegrid_e_kinetic *= self.gd.comm.size / self.world.size
         # (careful with array orderings/contents)
         energies = atomic_energies  # kinetic, coulomb, zero, external, xc
         energies[1:] += finegrid_energies  # coulomb, zero, external, xc
         energies[0] += coarsegrid_e_kinetic  # kinetic
-        with self.timer('Communicate'):
+
+        with self.timer('Communicate'):  # time possible load imbalance
             self.world.sum(energies)
         if not kin_en_using_band:
             assert wfs is not None
@@ -286,7 +293,7 @@ class Hamiltonian:
                 dH_sp = np.zeros_like(D_sp)
 
             if setup.HubU is not None:
-                assert self.collinear
+                #assert self.collinear
                 eU, dHU_sp = hubbard(setup, D_sp)
                 e_xc += eU
                 dH_sp += dHU_sp
@@ -314,6 +321,7 @@ class Hamiltonian:
         # Make corrections due to non-local xc:
         # self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
         e_kinetic += self.xc.get_kinetic_energy_correction() / self.world.size
+
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
     def get_energy(self, occ, kin_en_using_band=True):
@@ -340,6 +348,7 @@ class Hamiltonian:
                   self.e_zero,
                   self.e_xc,
                   self.e_entropy)
+            1 / 0
 
         return self.e_total_free
 
@@ -593,7 +602,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         if psolver is None:
             psolver = {}
         if isinstance(psolver, dict):
-            psolver = create_poisson_solver(**psolver)
+            psolver = PoissonSolver(**psolver)
         self.poisson = psolver
         self.poisson.set_grid_descriptor(self.finegd)
 
@@ -660,7 +669,8 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
         self.npoisson = self.poisson.solve(self.vHt_g, dens.rhot_g,
-                                           charge=-dens.charge)
+                                           charge=-dens.charge,
+                                           timer=self.timer)
         self.timer.stop('Poisson')
 
         self.timer.start('Hartree integrate/restrict')
@@ -671,7 +681,8 @@ class RealSpaceHamiltonian(Hamiltonian):
             vt_g += self.vHt_g
 
         self.timer.stop('Hartree integrate/restrict')
-        return np.array([e_coulomb, e_zero, e_external, e_xc])
+        energies = np.array([e_coulomb, e_zero, e_external, e_xc])
+        return energies
 
     def calculate_kinetic_energy(self, density):
         # XXX new timer item for kinetic energy?

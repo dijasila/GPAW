@@ -45,7 +45,7 @@ class TimeDependentHamiltonian:
 
         # Increase the accuracy of Poisson solver
         poisson = self.hamiltonian.poisson
-        if hasattr(poisson, 'eps') and poisson.eps > 1e-12:
+        if getattr(poisson, 'eps', None) and poisson.eps > 1e-12:
             poisson.eps = 1e-12
 
         # external potential

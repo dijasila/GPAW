@@ -1,3 +1,5 @@
+.. _catalysis:
+
 =========
 Catalysis
 =========
@@ -59,7 +61,7 @@ the number of CPU cores matches the number of irreducible k-point in the
 calculation, as k-point parallelization is much more efficient than other
 forms of parallelization.
 
-See :ref:`submitting`.
+See :ref:`gbar submitting`.
 
 
 Part 3: Learning about Nudged Elastic Band
