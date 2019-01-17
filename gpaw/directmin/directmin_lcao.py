@@ -2,10 +2,6 @@ from ase.units import Hartree
 import numpy as np
 from gpaw.utilities.blas import mmm  # , dotc, dotu
 from gpaw.directmin.tools import D_matrix, expm_ed
-from gpaw.directmin.sd_lcao import SteepestDescent, FRcg, HZcg, \
-    QuickMin, LBFGS, LBFGS_P
-from gpaw.directmin.ls_lcao import UnitStepLength, \
-    StrongWolfeConditions, Parabola
 from gpaw.lcao.eigensolver import DirectLCAO
 from scipy.linalg import expm  # , expm_frechet
 from gpaw.utilities.tools import tri2full
@@ -395,9 +391,9 @@ class DirectMinLCAO(DirectLCAO):
             grad = np.ascontiguousarray(h_mm)
         elif self.matrix_exp == 'eigendecomposition':
             timer.start('Use Eigendecomposition')
-            grad = evec.T.conj() @ h_mm @ evec
+            grad = np.dot(evec.T.conj(), np.dot(h_mm, evec))
             grad = grad * D_matrix(evals)
-            grad = evec @ grad @ evec.T.conj()
+            grad = np.dot(evec, np.dot(grad, evec.T.conj()))
             timer.stop('Use Eigendecomposition')
             for i in range(grad.shape[0]):
                 grad[i][i] *= 0.5
