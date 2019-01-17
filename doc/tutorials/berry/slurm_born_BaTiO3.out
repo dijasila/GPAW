@@ -1,0 +1,69 @@
+slurmstepd: error: *** JOB 997521 ON d036 CANCELLED AT 2019-01-09T23:25:18 ***
+slurmstepd: error: *** JOB 997522 ON d041 CANCELLED AT 2019-01-09T23:25:20 ***
+slurmstepd: error: *** JOB 997523 ON d049 CANCELLED AT 2019-01-09T23:25:21 ***
+slurmstepd: error: *** JOB 997524 ON c008 CANCELLED AT 2019-01-09T23:25:22 ***
+slurmstepd: error: *** JOB 997525 ON c028 CANCELLED AT 2019-01-09T23:25:23 ***
+slurmstepd: error: *** JOB 997526 ON c045 CANCELLED AT 2019-01-09T23:25:24 ***
+slurmstepd: error: *** JOB 997527 ON c046 CANCELLED AT 2019-01-09T23:25:25 ***
+slurmstepd: error: *** JOB 997528 ON c049 CANCELLED AT 2019-01-09T23:25:26 ***
+Atomnum Atom Direction Displacement
+Ba 0 0 0
+Reading berryphases born-0.01-0x--berryphases.json
+Ba 0 0 1
+Reading berryphases born-0.01-0x+-berryphases.json
+Ba 0 1 0
+Reading berryphases born-0.01-0y--berryphases.json
+Ba 0 1 1
+Reading berryphases born-0.01-0y+-berryphases.json
+Ba 0 2 0
+Reading berryphases born-0.01-0z--berryphases.json
+Ba 0 2 1
+Reading berryphases born-0.01-0z+-berryphases.json
+Ti 1 0 0
+Reading berryphases born-0.01-1x--berryphases.json
+Ti 1 0 1
+Reading berryphases born-0.01-1x+-berryphases.json
+Ti 1 1 0
+Reading berryphases born-0.01-1y--berryphases.json
+Ti 1 1 1
+Reading berryphases born-0.01-1y+-berryphases.json
+Ti 1 2 0
+Reading berryphases born-0.01-1z--berryphases.json
+Ti 1 2 1
+Reading berryphases born-0.01-1z+-berryphases.json
+O 2 0 0
+Reading berryphases born-0.01-2x--berryphases.json
+O 2 0 1
+Reading berryphases born-0.01-2x+-berryphases.json
+O 2 1 0
+Reading berryphases born-0.01-2y--berryphases.json
+O 2 1 1
+Reading berryphases born-0.01-2y+-berryphases.json
+O 2 2 0
+Reading berryphases born-0.01-2z--berryphases.json
+O 2 2 1
+Reading berryphases born-0.01-2z+-berryphases.json
+O 3 0 0
+Reading berryphases born-0.01-3x--berryphases.json
+O 3 0 1
+Reading berryphases born-0.01-3x+-berryphases.json
+O 3 1 0
+Reading berryphases born-0.01-3y--berryphases.json
+O 3 1 1
+Reading berryphases born-0.01-3y+-berryphases.json
+O 3 2 0
+Reading berryphases born-0.01-3z--berryphases.json
+O 3 2 1
+Reading berryphases born-0.01-3z+-berryphases.json
+O 4 0 0
+Reading berryphases born-0.01-4x--berryphases.json
+O 4 0 1
+Reading berryphases born-0.01-4x+-berryphases.json
+O 4 1 0
+Reading berryphases born-0.01-4y--berryphases.json
+O 4 1 1
+Reading berryphases born-0.01-4y+-berryphases.json
+O 4 2 0
+Reading berryphases born-0.01-4z--berryphases.json
+O 4 2 1
+Reading berryphases born-0.01-4z+-berryphases.json
