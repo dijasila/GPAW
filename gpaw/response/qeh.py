@@ -1847,16 +1847,21 @@ def make_heterostructure(layers,
         originpath = origin + '-chi.npz'
 
         bb = np.load(originpath)
-        
-        for modifier in modifiers:
+
+        for im, modifier in enumerate(modifiers):
             if 'doping' in modifier:
-                                    
                 subargs = modifier.split(',')
                 kwargs = {'doping': 0,
                           'temperature': 0,
                           'effectivemass': 1,
                           'eta': 1e-4}
-                
+
+                # Try to find emass in default values
+                for key, val in default_ehmasses.items():
+                    if key in origin:
+                        kwargs['effectivemass'] = val['emass1']
+
+                # Overwrite
                 for subarg in subargs:
                     key, value = subarg.split('=')
                     if key == 'T':
@@ -1864,6 +1869,10 @@ def make_heterostructure(layers,
                     elif key == 'em':
                         key = 'effectivemass'
                     kwargs[key] = float(value)
+
+                mod = ['{}={}'.format(str(key), str(val))
+                       for key, val in kwargs.items()]
+                modifiers[im] = ','.join(mod)
 
                 if 'graphene' in layer:
                     # Treat graphene specially, since in this case we are using
@@ -1891,16 +1900,26 @@ def make_heterostructure(layers,
                 bb = phonon_polarizability(bb, Z_avv, freqs, modes,
                                            masses, cell)
 
-            # Save modified building block
-            newlayerpath = '{}-chi.npz'.format(layer)
-            np.savez_compressed(newlayerpath, **bb)
-                
+        # Save modified building block
+        newlayer = '{}+{}'.format(origin, '+'.join(modifiers))
+        newlayerpath = newlayer + '-chi.npz'
+        print(newlayerpath)
+        np.savez_compressed(newlayerpath, **bb)
+
+        for il, layer2 in enumerate(layers):
+            if layer2 == layer:
+                layers[il] = newlayer
+
     thicknesses = np.array(thicknesses)
 
     # Calculate distance between layers
     d = (thicknesses[1:] + thicknesses[:-1]) / 2
     d0 = thicknesses[0]
 
+    # Print summary of structure
+    print('Structure:')
+    for thickness, layer in zip(thicknesses, layers):
+        print('    {} d = {} Å'.format(layer, thickness))
     het = Heterostructure(structure=layers, d=d, d0=d0)
     return het
 
