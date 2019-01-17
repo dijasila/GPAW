@@ -62,7 +62,7 @@ Requirements
 * SciPy_ 0.14 or later (library for scientific computing)
 * ASE_ 3.17.0 or later (atomic simulation environment)
 * a C-compiler
-* LibXC_ 2.0.1 or later
+* LibXC_ 3.x or 4.x
 * BLAS_ and LAPACK_ libraries
 
 Optional, but highly recommended:
