@@ -150,7 +150,7 @@ class Heterostructure:
         """
 
         self.timer = timer or Timer()
-        
+
         chi_monopole = []
         drho_monopole = []
         if include_dipole:
@@ -417,7 +417,7 @@ class Heterostructure:
         f_z[:] = - 4 * np.pi * drho[:]
         f_z[0] = bc_v0
         f_z[Nint] = bc_vN
-        
+
         ab = np.zeros((3, Nint + 1), complex)
         ab[0, 2:] = 1. / dz**2
         ab[1, 1:-1] = -2 / dz**2 - q**2
@@ -1791,13 +1791,13 @@ def make_heterostructure(layers,
     # Parse input for layer
     originallayers = []  # Unmodified layer identifiers
     layerargs = []  # Modifiers for layers like +phonons and +doped
-    
+
     for layer in layers:
         tmp = layer.split('+')
         name, layerargs = tmp[0], tmp[1:]
         originallayers.append(name)
         layerargs.append(layerargs)
-            
+
     if thicknesses is None:
         thicknesses = []
         for layer in layers:
@@ -1806,7 +1806,7 @@ def make_heterostructure(layers,
                     key2 = key.split('-icsd-')[0]
                 else:
                     key2 = key
-                
+
                 if key2 in layer:
                     thicknesses.append(default_thicknesses[key])
                     break
@@ -1968,7 +1968,7 @@ def main(args=None):
 
     help = ("Calculate plasmon spectrum")
     parser.add_argument('--plasmons', action='store_true', help=help)
-    
+
     help = ("Also plot eigenvalues of dielectric matrix")
     parser.add_argument('--eigenvalues', action='store_true', help=help)
 
@@ -2024,7 +2024,7 @@ def main(args=None):
         # Parse layer and its arguments
         tmp = layer.split('+')
         layer = tmp[0]
-        
+
         layerpath = layer + '-chi.npz'
         p = Path(layerpath)
         for path in paths:
@@ -2066,7 +2066,7 @@ def main(args=None):
                               thicknesses=args.thicknesses,
                               momenta=args.q,
                               frequencies=args.omega)
-    
+
     if args.plot:
         import matplotlib.pyplot as plt
 
@@ -2104,7 +2104,7 @@ def main(args=None):
         q_abs, frequencies, eels_qw = hs.get_eels(dipole_contribution=True)
 
     hs.timer.write()
-    
+
     if args.plot:
         plt.show()
 
