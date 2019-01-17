@@ -8,7 +8,7 @@ from ase import Atom, Atoms
 from gpaw.utilities import h2gpts
 from ase.units import Bohr
 from gpaw.occupations import FermiDirac
-from gpaw.external import ConstantElectricField
+from gpaw.external import ConstantPotential
 from gpaw.mpi import world
 
 def gaussian(x, x0, A):
