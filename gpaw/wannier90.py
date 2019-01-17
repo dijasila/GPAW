@@ -1,6 +1,10 @@
 from __future__ import print_function
 import numpy as np
 from gpaw.utilities.blas import gemmdot
+from gpaw.berryphase import get_overlap
+from gpaw.spinorbit import get_spinorbit_projections
+from gpaw.spinorbit import get_spinorbit_wavefunctions
+
 from ase.units import Bohr
 
 
@@ -45,6 +49,9 @@ def write_input(calc,
                 mp=None,
                 plot=False,
                 num_iter=100,
+                write_xyz=False,
+                write_rmn=False,
+                translate_home_cell=False,
                 dis_num_iter=200,
                 dis_froz_max=0.1,
                 dis_mix_ratio=0.5,
@@ -81,6 +88,9 @@ def write_input(calc,
     f = open(seed + '.win', 'w')
 
     pos_ac = calc.spos_ac
+    #pos_av = calc.atoms.get_positions()
+    #cell_cv = calc.atoms.get_cell()
+    #pos_ac = np.dot(pos_av, np.linalg.inv(cell_cv))
 
     print('begin projections', file=f)
     for ia, orbitals_i in enumerate(orbitals_ai):
@@ -106,7 +116,14 @@ def write_input(calc,
         print('spinors = True', file=f)
     else:
         print('spinors = False', file=f)
-    print('hr_plot = True', file=f)
+    print('write_hr = True', file=f)
+    if write_xyz:
+        print('write_xyz = True', file=f)
+    if write_rmn: 
+        print('write_tb = True', file=f)
+        print('write_rmn = True', file=f)
+    if translate_home_cell:
+        print('translate_home_cell = True', file=f)
     print(file=f)
     print('num_bands       = %d' % len(bands), file=f)
 
@@ -282,7 +299,7 @@ def write_eigenvalues(calc, seed=None, spin=0, e_km=None):
     f.close()
 
     
-def write_overlaps(calc, seed=None, spin=0, v_knm=None):
+def write_overlaps(calc, seed=None, spin=0, v_knm=None, less_memory=False):
 
     if seed is None:
         seed = calc.atoms.get_chemical_formula()
@@ -329,16 +346,17 @@ def write_overlaps(calc, seed=None, spin=0, v_knm=None):
 
     wfs = calc.wfs
 
-    u_knG = []
-    for ik in range(Nk):
-        if spinors:
-            # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
-            u_nG = get_spinorbit_wavefunctions(calc, ik, v_knm[ik])
-            u_knG.append(u_nG[bands])
-        else:
-            # For non-spinors, G denotes grid: G = (gx, gy, gz)
-            u_knG.append(np.array([wfs.get_wave_function_array(n, ik, spin)
-                                   for n in bands]))
+    if not less_memory:
+        u_knG = []
+        for ik in range(Nk):
+            if spinors:
+                # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
+                u_nG = get_spinorbit_wavefunctions(calc, ik, v_knm[ik])
+                u_knG.append(u_nG[bands])
+            else:
+                # For non-spinors, G denotes grid: G = (gx, gy, gz)
+                u_knG.append(np.array([wfs.get_wave_function_array(n, ik, spin)
+                                       for n in bands]))
 
     P_kani = []
     for ik in range(Nk):
@@ -348,13 +366,29 @@ def write_overlaps(calc, seed=None, spin=0, v_knm=None):
             P_kani.append(calc.wfs.kpt_u[spin * Nk + ik].P_ani)
 
     for ik1 in range(Nk):
-        u1_nG = u_knG[ik1]
+        if less_memory:
+            if spinors:
+                u1_nG = get_spinorbit_wavefunctions(calc, ik1,
+                                                    v_knm[ik])[bands]
+            else:
+                u1_nG = np.array([wfs.get_wave_function_array(n, ik1, spin)
+                                  for n in bands])
+        else:
+            u1_nG = u_knG[ik1]
         for ib in range(Nb):
             # b denotes nearest neighbor k-points
             line = lines[i0 + ik1 * Nb + ib].split()
             ik2 = int(line[1]) - 1
-            u2_nG = u_knG[ik2]
-            
+            if less_memory:
+                if spinors:
+                    u2_nG = get_spinorbit_wavefunctions(calc, ik2,
+                                                        v_knm[ik])[bands]
+                else:
+                    u2_nG = np.array([wfs.get_wave_function_array(n, ik2, spin)
+                                      for n in bands])
+            else:
+                u2_nG = u_knG[ik2]
+           
             G_c = np.array([int(line[i]) for i in range(2, 5)])
             bG_c = kpts_kc[ik2] - kpts_kc[ik1] + G_c
             bG_v = np.dot(bG_c, icell_cv)
@@ -377,19 +411,6 @@ def write_overlaps(calc, seed=None, spin=0, v_knm=None):
     f.close()
 
     
-def get_overlap(calc, bands, u1_nG, u2_nG, P1_ani, P2_ani, dO_aii, bG_v):
-    M_nn = np.dot(u1_nG.conj(), u2_nG.T) * calc.wfs.gd.dv
-    r_av = calc.atoms.positions / Bohr
-    for ia in range(len(P1_ani.keys())):
-        P1_ni = P1_ani[ia][bands]
-        P2_ni = P2_ani[ia][bands]
-        phase = np.exp(-1.0j * np.dot(bG_v, r_av[ia]))
-        dO_ii = dO_aii[ia]
-        M_nn += P1_ni.conj().dot(dO_ii).dot(P2_ni.T) * phase
-
-    return M_nn
-
-    
 def get_bands(seed):
     win_file = open(seed + '.win')
     exclude_bands = None
@@ -409,58 +430,6 @@ def get_bands(seed):
     win_file.close()
 
     return bands
-
-    
-def get_spinorbit_projections(calc, ik, v_nm, nbands=None):
-    # For spinors the number of projectors and bands are doubled
-    Na = len(calc.atoms)
-    Nk = len(calc.get_ibz_k_points())
-    Ns = calc.wfs.nspins
-
-    if nbands is None:
-        nbands = calc.get_number_of_bands()
-
-    v0_mn = v_nm[::2][:nbands].T
-    v1_mn = v_nm[1::2][:nbands].T
-        
-    P_ani = {}
-    for ia in range(Na):
-        P0_ni = calc.wfs.kpt_u[ik].P_ani[ia][:nbands]
-        P1_ni = calc.wfs.kpt_u[(Ns - 1) * Nk + ik].P_ani[ia][:nbands]
-
-        P0_mi = np.dot(v0_mn, P0_ni)
-        P1_mi = np.dot(v1_mn, P1_ni)
-        P_mi = np.zeros((len(P0_mi), 2 * len(P0_mi[0])), complex)
-        P_mi[:, ::2] = P0_mi
-        P_mi[:, 1::2] = P1_mi
-        P_ani[ia] = P_mi
-
-    return P_ani
-
-    
-def get_spinorbit_wavefunctions(calc, ik, v_nm):
-    # For spinors the number of bands is doubled and a spin dimension is added
-    Ns = calc.wfs.nspins
-    Nn = calc.wfs.bd.nbands
-
-    v0_mn = v_nm[::2].T
-    v1_mn = v_nm[1::2].T
-    
-    u0_nG = np.array([calc.wfs.get_wave_function_array(n, ik, 0)
-                      for n in range(Nn)])
-    u1_nG = np.array([calc.wfs.get_wave_function_array(n, ik, (Ns - 1))
-                      for n in range(Nn)])
-    u0_mG = np.swapaxes(np.dot(v0_mn, np.swapaxes(u0_nG, 0, 2)), 1, 2)
-    u1_mG = np.swapaxes(np.dot(v1_mn, np.swapaxes(u1_nG, 0, 2)), 1, 2)
-    u_mG = np.zeros((len(u0_mG),
-                     2,
-                     len(u0_mG[0]),
-                     len(u0_mG[0, 0]),
-                     len(u0_mG[0, 0, 0])), complex)
-    u_mG[:, 0] = u0_mG
-    u_mG[:, 1] = u1_mG
-
-    return u_mG
 
     
 def write_wavefunctions(calc, v_knm=None, spin=0, seed=None):
