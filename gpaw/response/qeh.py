@@ -1772,6 +1772,45 @@ def read_chi_wGG(name):
     return omega_w, pd, chi_wGG, q0
 
 
+def plot_plasmons(hs, output,
+                  plot_eigenvalues=False,
+                  plot_eigenmodes=False):
+    eig, z, rho_z, phi_z, omega0, abseps = output
+
+    import matplotlib.pyplot as plt
+    q_q = hs.q_abs / Bohr
+    nq = len(q_q)
+    omega_w = hs.frequencies * Hartree
+
+    plt.figure()
+    plt.title('Plasmon modes')
+    for iq in range(nq):
+        freqs = np.array(omega0[iq])
+        plt.plot([q_q[iq], ] * len(freqs), freqs, 'k.')
+        plt.ylabel(r'$\hbar\omega$ (eV)')
+        plt.xlabel(r'q (Bohr$^{-1}$)')
+
+    plt.figure()
+    plt.title('1 / |Det(Dielectric Matrix)|')
+    plt.pcolor(q_q, omega_w, np.log10(1 / np.abs(abseps)).T)
+    plt.ylabel(r'$\hbar\omega$ (eV)')
+    plt.xlabel(r'q (Bohr$^{-1}$)')
+    plt.colorbar()
+
+    if plot_eigenvalues:
+        plt.figure()
+        for iq in range(0, nq, nq // 10):
+            plt.plot(omega_w, eig[iq].real)
+            plt.plot(omega_w, eig[iq].imag, '--')
+
+    if plot_eigenmodes:
+        raise NotImplementedError
+        plt.figure()
+        for iq in range(0, nq, nq // 10):
+            plt.plot(omega_w, eig[iq].real)
+            plt.plot(omega_w, eig[iq].imag, '--')
+
+
 def make_heterostructure(layers,
                          frequencies=[0.001, 0.5, 5000],
                          momenta=[0.001, 0.04, 100],
@@ -2092,33 +2131,8 @@ def main(args=None):
     if args.plasmons:
         print('Calculating plasmon spectrum')
         tmp = hs.get_plasmon_eigenmodes(filename=args.plasmonfile)
-        eig, z, rho_z, phi_z, omega0, abseps = tmp
         if args.plot:
-            q_q = hs.q_abs / Bohr
-            nq = len(q_q)
-            omega_w = hs.frequencies * Hartree
-
-            plt.figure()
-            plt.title('Plasmon modes')
-            for iq in range(nq):
-                freqs = np.array(omega0[iq])
-                plt.plot([q_q[iq], ] * len(freqs), freqs, 'k.')
-            plt.ylabel(r'$\hbar\omega$ (eV)')
-            plt.xlabel(r'q (Bohr$^{-1}$)')
-
-            plt.figure()
-            plt.title('1 / |Det(Dielectric Matrix)|')
-            plt.pcolor(q_q, omega_w, np.log10(1 / np.abs(abseps)).T)
-            plt.ylabel(r'$\hbar\omega$ (eV)')
-            plt.xlabel(r'q (Bohr$^{-1}$)')
-            plt.colorbar()
-
-            if args.eigenvalues:
-                plt.figure()
-                for iq in range(0, nq, nq // 10):
-                    plt.plot(omega_w, eig[iq].real)
-                    plt.plot(omega_w, eig[iq].imag, '--')
-
+            plot_plasmons(hs, tmp, plot_eigenvalues=args.eigenvalues)
     if args.eels:
         q_abs, frequencies, eels_qw = hs.get_eels(dipole_contribution=True)
 
