@@ -133,8 +133,17 @@ The QEH module then uses default values for layer thicknesses calculated from th
 
   from gpaw.response.qeh import make_heterostructure, plot_plasmons
 
-  layers = ['graphene+doping=0.5']
-  het = make_heterostructure(layers)
+  layers = ['graphene+doping=0.5', '3BN']
+  omegamin = 0.001  # Do not set to zero
+  omegamax = 1.5
+  nomega = 1000
+  qmin = 0.001  # Do not set to zero
+  qmax = 0.01
+  nq = 100
+  het = make_heterostructure(layers,
+                             frequencies=[omegamin, omegamax, nomega],
+                             momenta=[qmin, qmax, nq],
+                             thicknesses=[3.3, 3.3, 3.3, 3.3])
   output = het.get_plasmon_eigenmodes()
   plot_plasmons(output)
 
