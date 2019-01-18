@@ -15,7 +15,7 @@ or other properties. These cases can be handled using so-called Ehrenfest
 dynamics, ie. time-dependent density functional theory molecular dynamics
 (TDDFT/MD).
 
-This guide describes the basics of the Ehrenfest dynamics implementation 
+This guide describes the basics of the Ehrenfest dynamics implementation
 in GPAW from a theoretical and point of view. For examples, see :ref:`Ehrenfest dynamics <ehrenfest>`.
 
 The original implementation by Ari Ojanpera is described in Ref. \ [#Ojanpera2012]_.
@@ -23,47 +23,46 @@ The original implementation by Ari Ojanpera is described in Ref. \ [#Ojanpera201
 Time-dependent DFT in the PAW formalism
 =======================================
 
-In the past decades, time-dependent DFT has become a popular method for calculating 
+In the past decades, time-dependent DFT has become a popular method for calculating
 materials properties related excited electronic states as well as for simulating processes,
-in which nonadiabatic electron-ion dynamics plays a significant role. There are two main 
-realizations of TDDFT: the time-propagation scheme and the linear-response method. The 
-most general realization of TDDFT is the former scheme, in which the time-dependent Kohn-Sham 
+in which nonadiabatic electron-ion dynamics plays a significant role. There are two main
+realizations of TDDFT: the time-propagation scheme and the linear-response method. The
+most general realization of TDDFT is the former scheme, in which the time-dependent Kohn-Sham
 equations are integrated over the time domain.
 
-The starting point of time-propagation TDDFT is the all-electron time-dependent Kohn-Sham 
+The starting point of time-propagation TDDFT is the all-electron time-dependent Kohn-Sham
 (TDKS) equation,
 
 .. math::
-   :label: tdks_ae
 
    \begin{equation}
    i \frac{\partial \psi_n ({\bf r}, t)}{\partial t} = \hat {H} (t) \psi_n ({\bf r},t),
    \end{equation}
 
-where $\psi_n$ is the Kohn-Sham wavefunction of electronic state $n$, and $\hat{H}$ is the electronic 
+where $\psi_n$ is the Kohn-Sham wavefunction of electronic state $n$, and $\hat{H}$ is the electronic
 Hamiltonian. Using the PAW approximation `\psi_n ({\bf r}, t) = \hat{\cal T} \tilde{\psi}_n ({\bf r}, t)`
 and operating from the left with the adjoint of the PAW operator `\hat{\cal T}^{\dagger}`, we obtain the following equation:
 
-.. math:: 
+.. math::
    :label: pawt_tdks
-   
+
    \begin{equation}
-   i \hat{\cal T}^{\dagger} \hat{\cal T} \frac{\partial \tilde{\psi}_n ({\bf r}, t)}{\partial t} 
+   i \hat{\cal T}^{\dagger} \hat{\cal T} \frac{\partial \tilde{\psi}_n ({\bf r}, t)}{\partial t}
    = [\hat{\cal T}^{\dagger} \hat{H} \hat{\cal T}  -i \hat{\cal T}^{\dagger} \frac{\partial \hat{\cal T}}
    {\partial t}]\tilde{\psi}_n ({\bf r}, t).
    \end{equation}
 
-Next, we define the PAW Hamiltonian `\tilde{H}`, the PAW overlap operator and the `\tilde{P}` term, which 
-corrects for the movement of the atoms in the TDKS equation, in the following manner: 
+Next, we define the PAW Hamiltonian `\tilde{H}`, the PAW overlap operator and the `\tilde{P}` term, which
+corrects for the movement of the atoms in the TDKS equation, in the following manner:
 
-.. math:: 
+.. math::
 
-   \begin{align} 
-   \tilde{S} &= \hat{\cal T}^{\dagger} \hat{\cal T},\\ \tilde{H} &= \hat{\cal T}^{\dagger} \hat{H} 
+   \begin{align}
+   \tilde{S} &= \hat{\cal T}^{\dagger} \hat{\cal T},\\ \tilde{H} &= \hat{\cal T}^{\dagger} \hat{H}
    \hat{\cal T},  \\ \tilde{P} &= -i \hat{\cal T}^{\dagger} \frac{\partial \hat{\cal T}}{\partial t}.
    \end{align}
 
-Using these definitions, the PAW-transformed TDKS equation (Eq. :eq:`pawt_tdks`) is reduced to a more 
+Using these definitions, the PAW-transformed TDKS equation (Eq. :eq:`pawt_tdks`) is reduced to a more
 compact form,
 
 .. math::
@@ -71,19 +70,18 @@ compact form,
 
    \begin{equation}
    i \tilde{S} \frac{\partial \tilde{\psi}_n}{\partial t} = [\tilde{H} + \tilde{P}] \tilde{\psi}_n ({\bf r}, t)
-   \label{eqn:tdks_paw}
    \end{equation}
 
-In order to solve Eq. :eq:`tdks_paw` in practice, a method called semi-implicit Crank-Nicholson (SICN) is used in GPAW. 
-The Crank-Nicholson propagator is often used in time-propagation TDDFT calculations, since it is both unitary and time-reversible. 
+In order to solve Eq. :eq:`tdks_paw` in practice, a method called semi-implicit Crank-Nicholson (SICN) is used in GPAW.
+The Crank-Nicholson propagator is often used in time-propagation TDDFT calculations, since it is both unitary and time-reversible.
 Semi-implicit means that a predictor-corrector scheme is used for accounting for the non-linearity of the Hamiltonian. At each time step,
 one first assumes the Hamiltonian to be constant during the time step, and solves the predictor equation to obtain the predicted
 future wavefunctions,
 
-.. math:: 
+.. math::
 
    \begin{equation}
-   [\tilde{S} + i \frac{\Delta t}{2} (\tilde{H} (t) + \tilde{P})] \tilde{\psi}^{\text{pred}} (t + \Delta t) = [\tilde{S} 
+   [\tilde{S} + i \frac{\Delta t}{2} (\tilde{H} (t) + \tilde{P})] \tilde{\psi}^{\text{pred}} (t + \Delta t) = [\tilde{S}
    - i \frac{\Delta t}{2}(\tilde{H} (t) + \tilde{P}) \tilde{\psi}(t),
    \end{equation}
 
@@ -100,10 +98,10 @@ is obtained by taking the average
 
 Finally, the propagated wavefunctions are obtained from the corrector equation,
 
-.. math:: 
- 
+.. math::
+
    \begin{equation}
-   [\tilde{S} + i \frac{\Delta t}{2} (\tilde{H} (t + \Delta t/2) + \tilde{P})] \tilde{\psi} (t + \Delta t) = [\tilde{S} 
+   [\tilde{S} + i \frac{\Delta t}{2} (\tilde{H} (t + \Delta t/2) + \tilde{P})] \tilde{\psi} (t + \Delta t) = [\tilde{S}
    - i \frac{\Delta t}{2}(\tilde{H} (t + \Delta t/2) + \tilde{P}) \tilde{\psi}(t).
    \end{equation}
 
@@ -117,64 +115,62 @@ the following splitting of electronic and nuclear propagation is employed,
    :label: uen
 
    \begin{equation}
-   \hat{U}_{N,e} = \hat{U}_N (t, t + \Delta t/2) \hat{U}_e (t + \Delta t) \hat{U}_N (t + \Delta t/2, t + \Delta t), \label{eq:u_en}
+   \hat{U}_{N,e} = \hat{U}_N (t, t + \Delta t/2) \hat{U}_e (t + \Delta t) \hat{U}_N (t + \Delta t/2, t + \Delta t),
    \end{equation}
 
 where the propagator for the nuclei (`U_N`) is the Velocity Verlet algorithm. In practice, Eq. (:eq:`uen`) means that the nuclei
-are first propagated forward by `\Delta t/2`, while the electronic subsystem is kept unchanged. Then, the positions of the nuclei remain 
+are first propagated forward by `\Delta t/2`, while the electronic subsystem is kept unchanged. Then, the positions of the nuclei remain
 fixed, while the electronic subsystem is propagated by `\Delta t`. Finally, the nuclei are propagated by `\Delta t/2`. The following five-step
 scheme describes the propagation of electrons and nuclei in the GPAW implementation of Ehrenfest dynamics:
 
 .. math::
 
    \begin{align}
-   \ddot{\bf R}(t) &= 
+   \ddot{\bf R}(t) &=
    \frac{\mathbf{F}(\mathbf{R}(t), n (t))}{M} \\
-   \mathbf{R} (t + \Delta t/2) &= \mathbf{R}(t) + \dot{\bf R} (t) \frac{\Delta t}{2} + \frac{1}{2} 
+   \mathbf{R} (t + \Delta t/2) &= \mathbf{R}(t) + \dot{\bf R} (t) \frac{\Delta t}{2} + \frac{1}{2}
    \ddot{\bf R}(t) \left(\frac{\Delta t}{2}\right)^2 \\
-   \dot{\bf R}(t+ \Delta t/4) &= \dot{\bf R}(t) + 
+   \dot{\bf R}(t+ \Delta t/4) &= \dot{\bf R}(t) +
    \frac{1}{2} \ddot{\bf R}(t) \frac{\Delta t}{2}
    \end{align}
 
 |
 
-.. math:: 
+.. math::
 
    \begin{align}
    \ddot{\bf R} (t + \Delta t/2) &= \frac{\mathbf{F} (\mathbf{R}(t+ \Delta t /2), n(t))}{M} \\
-   \dot{\bf R} (t + \Delta t/2) &= \dot{\bf R} (t + \Delta t /4) + \frac{1}{2} \ddot{\bf R} (t + 
+   \dot{\bf R} (t + \Delta t/2) &= \dot{\bf R} (t + \Delta t /4) + \frac{1}{2} \ddot{\bf R} (t +
    \Delta t/2) \frac{\Delta t}{2}
    \end{align}
 
 |
 
 .. math::
-   
+
    \begin{align}
-   \tilde{\psi}_n(t + \Delta t; {\bf R} (t+ \Delta t/2)) = \hat{U}^{\text{SICN}} (t, t+\Delta t) 
+   \tilde{\psi}_n(t + \Delta t; {\bf R} (t+ \Delta t/2)) = \hat{U}^{\text{SICN}} (t, t+\Delta t)
    \tilde{\psi}_n (t; {\bf R} (t+ \Delta t/2))
    \end{align}
 
 |
-   
+
 .. math::
 
    \begin{align}
    \ddot{\bf R}(t + \Delta t/2) &= \frac{\mathbf{F}( \mathbf{R}(t+\Delta t/2), n(t+\Delta t))}{M} \\
-   \mathbf{R}(t + \Delta t) = \mathbf{R}(t+\Delta t/2) &+ \dot{\bf R}(t + \Delta t/2) \frac{\Delta t}{2} 
+   \mathbf{R}(t + \Delta t) = \mathbf{R}(t+\Delta t/2) &+ \dot{\bf R}(t + \Delta t/2) \frac{\Delta t}{2}
    + \frac{1}{2} \ddot{\bf R}(t+\Delta t/2) \left( \frac{\Delta t}{2}\right)^2\\
-   \dot{\bf R}(t+ 3\Delta t/4) &= \dot{\bf R}(t + \Delta t/2) + \frac{1}{2} \ddot{\bf R}(\Delta t/2) 
-   \frac{\Delta t}{2} 	
+   \dot{\bf R}(t+ 3\Delta t/4) &= \dot{\bf R}(t + \Delta t/2) + \frac{1}{2} \ddot{\bf R}(\Delta t/2)
+   \frac{\Delta t}{2}
    \end{align}
 
-|
-   
 .. math::
 
    \begin{align}
-   &\dot{\bf R} ( t+ \Delta t) = \dot{\bf R}(t+ 3\Delta t/4) + \frac{1}{2} \ddot{\bf R}(t+ \Delta t) 
+   &\dot{\bf R} ( t+ \Delta t) = \dot{\bf R}(t+ 3\Delta t/4) + \frac{1}{2} \ddot{\bf R}(t+ \Delta t)
    \frac{\Delta t}{2} \\
-   &\text{update } n (t + \Delta t, {\bf R} (t + \Delta t/2)) \rightarrow n (t 
+   &\text{update } n (t + \Delta t, {\bf R} (t + \Delta t/2)) \rightarrow n (t
    + \Delta t, {\bf R}(t + \Delta t)),
    \end{align}
 
@@ -183,7 +179,8 @@ electron density. Calculation of the atomic forces is tricky in PAW-based Ehrenf
 PAW transformation. In the GPAW program the force is derived on the grounds the the total energy of the quantum-classical
 system is conserved.
 
-The atomic forces in Ehrenfest dynamics are thoroughly analysed and explained in Ref. \ [#Ojanpera2012]_.
+The atomic forces in Ehrenfest dynamics are thoroughly analysed and explained
+in Ref. [#Ojanpera2012]_.
 
 References
 ==========
