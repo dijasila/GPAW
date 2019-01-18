@@ -3,11 +3,12 @@ from gpaw.tddft.ehrenfest import EhrenfestVelocityVerlet
 from gpaw.tddft.laser import CWField
 from ase.units import Hartree, Bohr, AUT
 from ase.io import Trajectory
+from ase.parallel import parprint
 
 name = 'h2_diss'
 
 # Ehrenfest simulation parameters
-timestep = 20.0 # Timestep given in attoseconds
+timestep = 10.0 # Timestep given in attoseconds
 ndiv = 10  # Write trajectory every 10 timesteps
 niter = 500 # Run for 500 timesteps
 
@@ -25,6 +26,10 @@ traj = Trajectory(name + '_td.traj', 'w', tdcalc.get_atoms())
 # Propagates the dynamics for niter timesteps.
 for i in range(1, niter + 1):
     ehrenfest.propagate(timestep)
+
+   if atoms.get_distance(0,1) > 2.0: # Stop simulation if H-H distance is greater than 2 A.
+       parprint('Dissociated!')
+       break
 
     # Every ndiv timesteps, save an image in the trajectory file.
     if i % ndiv == 0:
