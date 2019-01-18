@@ -247,9 +247,11 @@ class Heterostructure:
             self.dim *= 2
 
         # Grid stuff
-        self.poisson_lim = 500  # above this limit use potential model
         edgesize = 50
         system_size = np.sum(self.d) + edgesize
+        self.poisson_lim = 500  # above this limit use potential model
+        assert system_size < self.poisson_lim
+
         self.z_lim = system_size
         self.dz = 0.01
         # master grid
@@ -1870,9 +1872,9 @@ def make_heterostructure(layers,
         layers[il] = layer[:ind] + '_int' + layer[ind:]
 
     # Parse args and modify building blocks accordingly
-    from gpaw.response.buildingblocks import (GrapheneBB,
-                                              dopedsemiconductor,
-                                              phonon_polarizability)
+    from gpaw.qeh.buildingblocks import (GrapheneBB,
+                                         dopedsemiconductor,
+                                         phonon_polarizability)
     for layer in set(layers):
         # Everything that comes after a '+' is a modifier
         tmp = layer.split('+')
