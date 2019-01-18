@@ -12,6 +12,10 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.17.1b1
 
+* Berry phases can now be calculated.  See the :ref:`berry tutorial` tutorial
+  for how to use it to calculate spontaneous polarization, Born effective
+  charges and other physical properties.
+
 
 Version 1.5.0
 =============
