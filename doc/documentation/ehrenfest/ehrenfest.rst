@@ -10,6 +10,13 @@ The original implementation by Ari Ojanpera is described in
 Ref. [#Ojanpera2012]_.
 
 
+.. seealso::
+
+    * :ref:`timepropagation`
+    * :class:`gpaw.tddft.TDDFT`
+    * :meth:`gpaw.tddft.TDDFT.propagate`
+
+
 ------------
 Ground state
 ------------
@@ -78,41 +85,17 @@ Projectile + target example:
 
 .. literalinclude:: graphene_h_gs.py
 
-Finally, the following script can be used for performing an electronic stopping calculation for a hydrogen ion impacting
-graphene with the initial velocity being 40 keV. The external potential is automatically set to zero when the TDDFT object is
-initialized and hence does not affect the calculation. The calculation ends when the distance between the projectile and the bottom of
-the supercell is less than 3 `\unicode{x212B}`. (Note: this is a fairly demanding calculation even with 32 cores.)
+Finally, the following script can be used for performing an electronic
+stopping calculation for a hydrogen ion impacting graphene with the initial
+velocity being 40 keV. The external potential is automatically set to zero
+when the TDDFT object is initialized and hence does not affect the
+calculation. The calculation ends when the distance between the projectile
+and the bottom of the supercell is less than 3 Å. (Note: this is a fairly
+demanding calculation even with 32 cores.)
 
-Electronic stopping example::
+Electronic stopping example:
 
-
---------------------------------
-TDDFT reference manual
---------------------------------
-
-The TDDFT class and keywords:
-
-===================== =============== ============== =====================================
-Keyword               Type            Default        Description
-===================== =============== ============== =====================================
-``ground_state_file`` ``string``                     Name of the ground state file
-``td_potential``      ``TDPotential`` ``None``       Time-dependent external potential
-``propagator``        ``string``      ``'SICN'``     Time-propagator (``'ECN'``/``'SICN'``/``'SITE'``/``'SIKE'``)
-``solver``            ``string``      ``'CSCG'``     Linear equation solver (``'CSCG'``/``'BiCGStab'``)
-``tolerance``         ``float``       ``1e-8``       Tolerance for linear solver
-===================== =============== ============== =====================================
-
-Keywords for TDDFT.propagate:
-
-====================== =========== =========== ================================================
-Keyword                Type        Default     Description
-====================== =========== =========== ================================================
-``time_step``          ``float``               Time step in attoseconds (``1 autime = 24.188 as``)
-``iterations``         ``integer``             Iterations
-``dipole_moment_file`` ``string``  ``None``    Name of the dipole moment file
-``restart_file``       ``string``  ``None``    Name of the restart file
-``dump_interal``       ``integer`` ``500``     How often restart file is written
-====================== =========== =========== ================================================
+.. literalinclude:: graphene_h_prop.py
 
 
 ----------
@@ -120,11 +103,13 @@ References
 ----------
 
 .. [#Ojanpera2012] A. Ojanpera, V. Havu, L. Lehtovaara, M. Puska,
-                   "Nonadiabatic Ehrenfest molecular dynamics within the projector augmented-wave method",
+                   "Nonadiabatic Ehrenfest molecular dynamics within
+                   the projector augmented-wave method",
                    *J. Chem. Phys.* **136**, 144103 (2012).
 
 .. [#Ojanpera2014] A. Ojanpera, Arkady V. Krasheninnikov, M. Puska,
-                   "Electronic stopping power from first-principles calculations with account for core
+                   "Electronic stopping power from first-principles
+                   calculations with account for core
                    electron excitations and projectile ionization",
                    *Phys. Rev. B* **89**, 035120 (2014).
 
