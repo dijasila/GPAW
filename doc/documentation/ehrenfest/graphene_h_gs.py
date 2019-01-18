@@ -58,6 +58,7 @@ gd = calc.hamiltonian.finegd
 n_c = gd.n_c
 h_c = gd.get_grid_spacings()
 b_c = gd.beg_c
+vext.vext_g.flags.writeable = True
 vext.vext_g[:] = 0.0
 for i in range(n_c[0]):
     for j in range(n_c[1]):
