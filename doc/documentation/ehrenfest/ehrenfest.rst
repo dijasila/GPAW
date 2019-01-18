@@ -5,42 +5,38 @@ Ehrenfest dynamics (TDDFT/MD)
 =============================
 
 For a brief introduction to the Ehrenfest dynamics theory and the details of
-its implementation in GPAW, see :ref:`Ehrenfest theory <ehrenfest_theory>`. The original implementation
-by Ari Ojanpera is described in Ref. \ [#Ojanpera2012]_.
+its implementation in GPAW, see :ref:`Ehrenfest theory <ehrenfest_theory>`.
+The original implementation by Ari Ojanpera is described in
+Ref. [#Ojanpera2012]_.
+
+
+.. seealso::
+
+    * :ref:`timepropagation`
+    * :class:`gpaw.tddft.TDDFT`
+    * :meth:`gpaw.tddft.TDDFT.propagate`
+
 
 ------------
 Ground state
 ------------
 
 Similar to static TDDFT calculations, one has to start with a standard ground
-state simulation. In TDDFT, one can use larger grid spacing than for geometry 
-optimization, so for example, if you use h=0.25 for geometry optimization, 
-try h=0.3 for TDDFT to save a lot of time (the same spacing should be used for
-the ground state and TDDFT calculators).
+state simulation. In TDDFT, one can use larger grid spacing than for geometry
+optimization, so for example, if you use ``h=0.25`` for geometry optimization,
+try ``h=0.3`` for TDDFT to save a lot of time (the same spacing should be
+used for the ground state and TDDFT calculators).
 
-Ground state example::
+Ground state example:
 
-   from ase import Atoms
-   from gpaw import GPAW
-   
-   name = 'h2_diss'
-   
-   # Create H2 molecule in the center of a box aligned along the z axis.
-   d_bond = 0.754 # H2 equilibrium bond length
-   atoms = Atoms('H2', positions=[(0, 0, 0), (0, 0, d_bond)])
-   atoms.set_pbc(False)
-   atoms.center(vacuum=4.0)
-   
-   # Set groundstate calculator and get and save wavefunctions
-   calc = GPAW(h=0.3, nbands=1, basis='dzp', txt=name + '_gs.txt')
-   atoms.set_calculator(calc)
-   atoms.get_potential_energy()
-   calc.write(name + '_gs.gpw', mode='all')
+.. literalinclude:: h2_gs.py
 
 Ehrenfest TDDFT/MD is also available in :ref:`LCAO mode <lcaotddft>`.
 
---------------------------------
+
+--------------------------
 Simulating H2 dissociation
+<<<<<<< HEAD
 --------------------------------
 
 We then simulate Ehrenfest dynamics of the H2 molecule in a very intense laser field to 
@@ -103,18 +99,46 @@ The distance between the H atoms at the end of the dynamics is more than 2 A and
 their bond has been broken by the intense laser field.
 
 --------------------------------
+=======
+--------------------------
+
+We then simulate Ehrenfest dynamics of the H2 molecule in a very intense
+laser field to observe its dissociation.
+
+For Ehrenfest dynamics we must use the parameter ``propagator='EFSICN'`` for
+the TDDFT calculator ``tdcalc`` to take into account the necessary
+corrections in the propagation of the time-dependent Kohn-Sham equation. The
+parameter ``solver='BiCGStab'`` to use the stabilized biconjugate gradient
+method (``BiCGStab``) is generally recommended for Ehrenfest dynamics
+calculations for any system more complex than simple dimers or dimers.
+
+H2 dissociation example:
+
+.. literalinclude:: h2_diss.py
+
+As can be verified from the trajectory, the distance between the H atoms at
+the end of the dynamics is more than 3 Å and thus their bond was broken by
+the intense laser field.
+
+
+-------------------------------
+>>>>>>> b647503a12ad5c3467091ce82b2dba99aad00151
 Electronic stopping in graphene
---------------------------------
+-------------------------------
 
-A more complex use for Ehrenfest dynamics is to simulate the irradiation of materials with
-either chared ions or neutral atoms (see Refs. \ [#Ojanpera2014]_ and \ [#Brand2019]_).
+A more complex use for Ehrenfest dynamics is to simulate the irradiation of
+materials with either chared ions or neutral atoms (see Refs. \
+[#Ojanpera2014]_ and \ [#Brand2019]_).
 
-This example demonstrates how to carry out ion stopping calculations using the Ehrenfest dynamics code.
-The following scripts create a system consisting of a proton as a projectile and graphene as the target.
+This example demonstrates how to carry out ion stopping calculations using
+the Ehrenfest dynamics code. The following scripts create a system consisting
+of a proton as a projectile and graphene as the target.
+
 
 Creating the projectile + target system
 ---------------------------------------
 
+<<<<<<< HEAD
 The following script calculates the ground state of the projectile + target system. An external potential is used at the hydrogen
 ion the converge the calculation. One might also have to change the default convergence parameters depending on the projectile used. 
 Here, slightly less strict convergence criteria are used. The impact point in this case is the center of a carbon hexagon, but this
@@ -301,17 +325,45 @@ Keyword                Type        Default     Description
 ``restart_file``       ``string``  ``None``    Name of the restart file
 ``dump_interal``       ``integer`` ``500``     How often restart file is written
 ====================== =========== =========== ================================================
+=======
+The following script calculates the ground state of the projectile + target
+system. An external potential is used at the hydrogen ion the converge the
+calculation. One might also have to change the default convergence parameters
+depending on the projectile used. Here, slightly less strict convergence
+criteria are used. The impact point in this case is the center of a carbon
+hexagon, but this can be modified by changing the x-y position of the H atom
+(``projpos``).
+
+Projectile + target example:
+
+.. literalinclude:: graphene_h_gs.py
+
+Finally, the following script can be used for performing an electronic
+stopping calculation for a hydrogen ion impacting graphene with the initial
+velocity being 40 keV. The external potential is automatically set to zero
+when the TDDFT object is initialized and hence does not affect the
+calculation. The calculation ends when the distance between the projectile
+and the bottom of the supercell is less than 3 Å. (Note: this is a fairly
+demanding calculation even with 32 cores.)
+
+Electronic stopping example:
+
+.. literalinclude:: graphene_h_prop.py
+>>>>>>> b647503a12ad5c3467091ce82b2dba99aad00151
 
 
+----------
 References
 ----------
 
 .. [#Ojanpera2012] A. Ojanpera, V. Havu, L. Lehtovaara, M. Puska,
-                   "Nonadiabatic Ehrenfest molecular dynamics within the projector augmented-wave method",
+                   "Nonadiabatic Ehrenfest molecular dynamics within
+                   the projector augmented-wave method",
                    *J. Chem. Phys.* **136**, 144103 (2012).
 
 .. [#Ojanpera2014] A. Ojanpera, Arkady V. Krasheninnikov, M. Puska,
-                   "Electronic stopping power from first-principles calculations with account for core 
+                   "Electronic stopping power from first-principles
+                   calculations with account for core
                    electron excitations and projectile ionization",
                    *Phys. Rev. B* **89**, 035120 (2014).
 
