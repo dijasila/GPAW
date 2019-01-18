@@ -1774,7 +1774,8 @@ def read_chi_wGG(name):
 
 def plot_plasmons(hs, output,
                   plot_eigenvalues=False,
-                  plot_eigenmodes=False):
+                  plot_eigenmodes=False,
+                  show=True):
     eig, z, rho_z, phi_z, omega0, abseps = output
 
     import matplotlib.pyplot as plt
@@ -1788,13 +1789,13 @@ def plot_plasmons(hs, output,
         freqs = np.array(omega0[iq])
         plt.plot([q_q[iq], ] * len(freqs), freqs, 'k.')
         plt.ylabel(r'$\hbar\omega$ (eV)')
-        plt.xlabel(r'q (Bohr$^{-1}$)')
+        plt.xlabel(r'q (Å$^{-1}$)')
 
     plt.figure()
     plt.title('1 / |Det(Dielectric Matrix)|')
     plt.pcolor(q_q, omega_w, np.log10(1 / np.abs(abseps)).T)
     plt.ylabel(r'$\hbar\omega$ (eV)')
-    plt.xlabel(r'q (Bohr$^{-1}$)')
+    plt.xlabel(r'q (Å$^{-1}$)')
     plt.colorbar()
 
     if plot_eigenvalues:
@@ -1805,17 +1806,15 @@ def plot_plasmons(hs, output,
 
     if plot_eigenmodes:
         raise NotImplementedError
-        plt.figure()
-        for iq in range(0, nq, nq // 10):
-            plt.plot(omega_w, eig[iq].real)
-            plt.plot(omega_w, eig[iq].imag, '--')
 
+    if show:
+        plt.show()
 
+        
 def make_heterostructure(layers,
                          frequencies=[0.001, 0.5, 5000],
                          momenta=[0.001, 0.04, 100],
-                         thicknesses=None,
-                         no_phonons=False):
+                         thicknesses=None):
     """Easy function for making a heterostructure based on some layers"""
 
     # Copy for internal handling
@@ -1892,12 +1891,11 @@ def make_heterostructure(layers,
                 subargs = modifier.split(',')
                 kwargs = {'doping': 0,
                           'temperature': 0,
-                          'effectivemass': 1,
                           'eta': 1e-4}
 
                 # Try to find emass in default values
                 for key, val in default_ehmasses.items():
-                    if key in origin:
+                    if origin[:-4] in key:
                         kwargs['effectivemass'] = val['emass1']
 
                 # Overwrite
@@ -1917,7 +1915,7 @@ def make_heterostructure(layers,
                     # Treat graphene specially, since in this case we are using
                     # an analytical approximation of the building block
                     assert np.allclose(kwargs['temperature'], 0.0), \
-                        print('Graphene cannot be at a finite temp.')
+                        print('Graphene currently cannot be at a finite temp.')
                     bb = GrapheneBB(bb, doping=kwargs['doping'],
                                     eta=kwargs['eta'])
                 else:
@@ -1928,7 +1926,6 @@ def make_heterostructure(layers,
 
                 if not phonons.exists():
                     continue
-                print('Adding phonon contributions for {}'.format(layer))
                 dct = np.load(str(phonons))
 
                 Z_avv, freqs, modes, masses, cell = (dct['Z_avv'],
@@ -1942,7 +1939,6 @@ def make_heterostructure(layers,
         # Save modified building block
         newlayer = '{}+{}'.format(origin, '+'.join(modifiers))
         newlayerpath = newlayer + '-chi.npz'
-        print(newlayerpath)
         np.savez_compressed(newlayerpath, **bb)
 
         for il, layer2 in enumerate(layers):
@@ -2132,7 +2128,8 @@ def main(args=None):
         print('Calculating plasmon spectrum')
         tmp = hs.get_plasmon_eigenmodes(filename=args.plasmonfile)
         if args.plot:
-            plot_plasmons(hs, tmp, plot_eigenvalues=args.eigenvalues)
+            plot_plasmons(hs, tmp, plot_eigenvalues=args.eigenvalues,
+                          show=False)
     if args.eels:
         q_abs, frequencies, eels_qw = hs.get_eels(dipole_contribution=True)
 
