@@ -673,7 +673,7 @@ class AllElectronAtom:
         channel = self.get_channel(l, s, k)
         return channel.basis.expand(channel.C_nb[n])
 
-    def plot_wave_functions(self, rc=4.0):
+    def plot_wave_functions(self, rc=4.0, show=True):
         import matplotlib.pyplot as plt
         for ch in self.channels:
             for n in range(len(ch.f_n)):
@@ -699,7 +699,8 @@ class AllElectronAtom:
         plt.xlabel('r [Bohr]')
         plt.ylabel('$r\\phi(r)$')
         plt.axis(xmin=0, xmax=rc)
-        plt.show()
+        if show:
+            plt.show()
 
     def logarithmic_derivative(self, l, energies, rcut):
         ch = Channel(l)
