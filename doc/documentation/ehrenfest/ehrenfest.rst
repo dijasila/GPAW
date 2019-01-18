@@ -61,15 +61,17 @@ Electronic stopping in graphene
 -------------------------------
 
 A more complex use for Ehrenfest dynamics is to simulate the irradiation of 
-materials with either chared ions or neutral atoms (see Refs. [#Ojanpera2014]_ 
-and [#Brand2019]_).
+materials with either chared ions (Ref. [#Ojanpera2014]_) or neutral atoms 
+(Ref. [#Brand2019]_).
 
 The following script calculates the ground state of the projectile + target
-system. An external potential is used at the hydrogen ion the converge the
+system, with the parameter ``charge`` defining its charge state. For ionisation
+state +1, an external potential is used at the hydrogen ion the converge the
 calculation. One might also have to change the default convergence parameters
-depending on the projectile used. Here, slightly less strict convergence
-criteria are used. The impact point in this case is the center of a carbon
-hexagon, but this can be modified by changing the x-y position of the H atom
+depending on the projectile used, and to verify the convergence of the results 
+with respect to the timestep and *k*-points. Here, slightly less strict criteria 
+are used. The impact point in this case is the center of a carbon hexagon, but 
+this can be modified by changing the x-y position of the H atom
 (``projpos``).
 
 Projectile + target example:
@@ -77,12 +79,13 @@ Projectile + target example:
 .. literalinclude:: graphene_h_gs.py
 
 Finally, the following script can be used for performing an electronic
-stopping calculation for a hydrogen ion impacting graphene with the initial
-velocity being 40 keV. The external potential is automatically set to zero
-when the TDDFT object is initialized and hence does not affect the
-calculation. The calculation ends when the distance between the projectile
-and the bottom of the supercell is less than 3 Å. (Note: this is a fairly
-demanding calculation even with 32 cores.)
+stopping calculation for a hydrogen atom impacting graphene with the initial
+velocity being 40 keV. In the charged state, the external potential is 
+automatically set to zero when the TDDFT object is initialized and hence does 
+not affect the calculation. The calculation ends when the distance between the 
+projectile and the bottom of the supercell is less than 5 Å. (Note: this is a 
+fairly demanding calculation with 8 cores and requires close to 50 GB of 
+memory.)
 
 Electronic stopping example:
 
