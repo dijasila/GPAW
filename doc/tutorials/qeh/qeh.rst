@@ -91,8 +91,88 @@ readily calculated by appending the following lines in the script above:
 
 We find an interlayer exciton binding energy of `\sim 0.3` eV!
 
+Command line interface for the QEH code and getting the default dielectric BBs
+==============================================================================
+The QEH code includes a simple command line interface (CLI) that makes playing
+around with different heterostructures easy. In order to use the CLI easily it is
+recommended to bind an alias to the qeh module
+(e. g. ``alias qeh="python3 -m gpaw.response.qeh"``). For example, plasmons in a
+doped graphene boron-nitride heterostructure can be calculated and plottet by::
 
+  >> qeh graphene+doping=0.5 3BN graphene+doping=0.5 --plasmons --plot
+
+(Note that the first time you call this command you will most likely not have
+downloaded the pre-calculated dielectric building blocks. Simply follow the
+instructions shown in the terminal if this is the case, and run the command
+above again.)
+  
+To view the full documentation for the QEH CLI use::
+
+  >> qeh -h
+
+Default layer thicknesses
+=========================
+Working with the QEH heterostructure class gives the user maximum freedom to
+choose all input parameters (distances between layers etc.), which on the other
+hand is tedious. To more easily set up heterostructures without having to specify
+all standard parameters for layers use the ``make_heterostructure`` function
+from the QEH module. For example, to make a similar calculation of graphene hBN
+heterostructure plasmons to the example in the description of command line
+interface simply do::
+
+  from gpaw.response.qeh import make_heterostructure, plot_plasmons
+
+  layers = ['graphene+doping=0.5', '3BN', 'graphene+doping=0.5']
+  het = make_heterostructure(layers)
+  output = het.get_plasmon_eigenmodes()
+  plot_plasmons(output)
+
+The QEH module then uses default values for layer thicknesses calculated from the interlayer distances of each layer its corresponding bulk phases as found in the inorganic crystal structure database (ICSD).
+
+``make_heterostructure`` takes additional arguments for user specified layer thicknesses and momentum and frequency grids. To use these simply do::
+
+  from gpaw.response.qeh import make_heterostructure, plot_plasmons
+
+  layers = ['graphene+doping=0.5']
+  het = make_heterostructure(layers)
+  output = het.get_plasmon_eigenmodes()
+  plot_plasmons(output)
+
+Doped semiconductors
+====================
+With the QEH module it is possible to calculate the response of doped semi
+conductors. This is done by specifying a doping level and an effective mass::
+
+  from gpaw.response.qeh import make_heterostructure, plot_plasmons
+
+  layers = ['H-MoS2+doping=0.1,em=0.43', 'BN',
+            'H-MoS2+doping=0.1,em=0.43']
+  het = make_heterostructure(layers)
+  output = het.get_plasmon_eigenmodes()
+  plot_plasmons(output)
+
+The effect of doping is included as a free electron gas with the specified effective mass. If no effective mass is specified the QEH module falls back to default values for the effective mass. Currently the QEH module knows effective masses for all transition metal dichalcogenides calculated in the Computational 2D materials Database project (C2DB `<http://c2db.fysik.dtu.dk/>`_).
+
+Phononic contribution to the dielectric response
+================================================
+Polar crystals will have an additional contribution to their dielectric response
+originating from coupling of electric field to phonons (in addition to the
+electronic response). This effect can be included by adding ´´+phonons´´
+similar to how doping is included for semiconductors. For example to calculate
+coupling between graphene plasmons and phonons in boron nitride do::
+
+  from gpaw.response.qeh import make_heterostructure, plot_plasmons
+  layers = ['graphene+doping=0.1', 'BN+phonons']
+  het = make_heterostructure(layers)
+  output = het.get_plasmon_eigenmodes()
+  plot_plasmons(output)
+
+Which is equivalent to calling the CLI with::
+
+  >> qeh graphene+doping=0.1 BN+phonons --plasmons --plot
+
+  
 .. [#interlayer] S. Latini, K.T. Winther, T. Olsen and K.S. Thygesen
    Interlayer Excitons and Band Alignment in MoS2/hBN/WSe2
    van der Waals Heterostructures
-   *Nano Letters* Just accepted (2017)
+   *Nano Letters*, 2017, 17 (2), pp 938–945
