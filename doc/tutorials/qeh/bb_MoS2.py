@@ -1,7 +1,7 @@
 from pathlib import Path
 from gpaw.mpi import world
 from gpaw.response.df import DielectricFunction
-from gpaw.response.qeh import BuildingBlock
+from gpaw.qeh import BuildingBlock
 
 df = DielectricFunction(calc='MoS2_gs_fulldiag.gpw',
                         eta=0.001,

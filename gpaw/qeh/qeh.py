@@ -1968,7 +1968,7 @@ def main(args=None):
     description = 'QEH Model command line interface'
 
     example_text = """examples:
-    (In the following "qeh = python -m gpaw.response.qeh". It can be nice
+    (In the following "qeh = python -m gpaw.qeh". It can be nice
     to set this as an alias in your bashrc.)
 
     Calculate graphene plasmons with doping and plot them:
