@@ -53,6 +53,10 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             # vdW module, so that always refers to libvdwxc.
             from gpaw.xc.libvdwxc import get_libvdwxc_functional
             return get_libvdwxc_functional(name=name, **kwargs)
+        elif backend:
+            warntext = "\nA special backend for the XC functional was given,"\
+                "but not understood. Please check if there's typo."
+            warnings.warn(warntext, stacklevel=2)
 
         if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
                     'C09-vdW', 'mBEEF-vdW', 'BEEF-vdW']:
