@@ -12,6 +12,8 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.17.1b1
 
+* How to do :ref:`ehrenfest` has now been documented.
+
 
 Version 1.5.0
 =============
