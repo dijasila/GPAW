@@ -16,6 +16,8 @@ Git master branch
   for how to use it to calculate spontaneous polarization, Born effective
   charges and other physical properties.
 
+* How to do :ref:`ehrenfest` has now been documented.
+
 
 Version 1.5.0
 =============
