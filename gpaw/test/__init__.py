@@ -197,7 +197,7 @@ tests = [
     'solvation/vacuum.py',                  # ~3s
     'vdw/libvdwxc_mbeef.py',                # ~3s
     'response/graphene_refined_response.py',  # ~3s
-    'response/pdens_tool.py'                # ~4s
+    'response/pdens_tool.py',               # ~4s
     'pw/par_strategies.py',                  # ~4s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
     'generic/move_across_cell.py',          # ~4s
