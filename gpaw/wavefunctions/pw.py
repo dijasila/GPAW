@@ -783,7 +783,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             self.dedepsilon = dedecut * 2 / 3 * self.ecut
 
     def get_pseudo_partial_waves(self):
-        return PWLFC([setup.get_actual_atomic_orbitals()
+        return PWLFC([setup.get_partial_waves_for_atomic_orbitals()
                       for setup in self.setups], self.pd)
 
     def __str__(self):
@@ -1527,14 +1527,21 @@ class PWLFC(BaseLFC):
 
         return f_GI
 
-    def block(self, q=-1):
+    def block(self, q=-1, ensure_same_number_of_blocks=False):
         nG = self.Y_qGL[q].shape[0]
-        if self.blocksize:
+        B = self.blocksize
+        if B:
             G1 = 0
             while G1 < nG:
-                G2 = min(G1 + self.blocksize, nG)
+                G2 = min(G1 + B, nG)
                 yield G1, G2
                 G1 = G2
+            if ensure_same_number_of_blocks:
+                # Make sure we yield the same number of times:
+                nb = (self.pd.maxmyng + B - 1) // B
+                mynb = (nG + B - 1) // B
+                if mynb < nb:
+                    yield nG, nG  # empty block
         else:
             yield 0, nG
 
@@ -1682,7 +1689,7 @@ class PWLFC(BaseLFC):
         G0_Gv = self.pd.get_reciprocal_vectors(q=q)
 
         stress_vv = np.zeros((3, 3))
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block(q, ensure_same_number_of_blocks=True):
             G_Gv = G0_Gv[G1:G2]
             Z_LvG = np.array([nablarlYL(L, G_Gv.T)
                               for L in range((lmax + 1)**2)])
@@ -1711,8 +1718,9 @@ class PWLFC(BaseLFC):
 
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
-        b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
-        a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
+        x = np.prod(c_xI.shape[:-1], dtype=int)
+        b_xI = c_xI.reshape((x, self.nI))
+        a_xG = a_xG.reshape((x, a_xG.shape[-1]))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
         if self.pd.dtype == float:

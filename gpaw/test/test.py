@@ -142,6 +142,7 @@ def main(args):
     failed = TestRunner(tests, jobs=args.jobs,
                         show_output=args.show_output).run()
     os.chdir(cwd)
+    mpi.world.barrier()  # syncronize before removing tmpdir
     if mpi.rank == 0:
         if len(failed) > 0:
             open('failed-tests.txt', 'w').write('\n'.join(failed) + '\n')
