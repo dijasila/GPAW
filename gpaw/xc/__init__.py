@@ -53,6 +53,10 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             # vdW module, so that always refers to libvdwxc.
             from gpaw.xc.libvdwxc import get_libvdwxc_functional
             return get_libvdwxc_functional(name=name, **kwargs)
+        elif backend:
+            error_msg = "A special backend for the XC functional was given, "\
+                "but not understood. Please check if there's a typo."
+            raise ValueError(error_msg)
 
         if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
                     'C09-vdW', 'mBEEF-vdW', 'BEEF-vdW']:
@@ -88,16 +92,9 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
         elif name == 'TB09':
             from gpaw.xc.tb09 import TB09
             return TB09(**kwargs)
-        elif name.startswith('ODD_'):
-            from ODD import ODDFunctional
-            return ODDFunctional(name[4:], **kwargs)
         elif name.endswith('PZ-SIC'):
-            try:
-                from ODD import PerdewZungerSIC as SIC
-                return SIC(xc=name[:-7], **kwargs)
-            except:
-                from gpaw.xc.sic import SIC
-                return SIC(xc=name[:-7], **kwargs)
+            from gpaw.xc.sic import SIC
+            return SIC(xc=name[:-7], **kwargs)
         elif name in ['TPSS', 'M06-L', 'M06L', 'revTPSS']:
             if name == 'M06L':
                 name = 'M06-L'
