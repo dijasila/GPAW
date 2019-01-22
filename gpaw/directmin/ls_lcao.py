@@ -129,10 +129,15 @@ class StrongWolfeConditions:
         # 'Get_step_length:'
         while True:
 
-            phi_i, der_phi_i, g_i = \
-                self.evaluate_phi_and_der_phi(x, p, n_dim,
-                                              alpha[i],
-                                              *args)
+            if np.abs(alpha[-1] - alpha_max) < 1.0e-6 and phi_max is not None:
+                phi_i, der_phi_i, g_i = phi_max, der_phi_max, g_max
+                phi_max = None
+                der_phi_max = None
+            else:
+                phi_i, der_phi_i, g_i = \
+                    self.evaluate_phi_and_der_phi(x, p, n_dim,
+                                                  alpha[i],
+                                                  *args)
 
             if self.awc is True:
                 if appr_wc(der_phi_0, phi_0, der_phi_i, phi_i):
@@ -168,8 +173,16 @@ class StrongWolfeConditions:
                               phi_0, der_phi_0, c1, c2, *args)
                 break
 
-            if alpha_max < alpha[i]:
-                alpha_max = 2.0 * alpha[i]
+            if i == max_iter:
+                a_star = alpha[i]
+                phi_star = phi_i
+                der_phi_star = der_phi_i
+                g_star = g_i
+
+                break
+
+            if np.abs(alpha_max - alpha[i]) < 1.0e-6:
+                alpha_max = 1.5 * alpha[i]
 
             if phi_max is None or der_phi_max is None:
                 phi_max, der_phi_max, g_max = \
@@ -189,23 +202,16 @@ class StrongWolfeConditions:
                                         phi_i, phi_max,
                                         der_phi_i, der_phi_max)
 
-            if a_new > alpha_max or np.fabs(
-                    a_new - alpha_max) < 1.0e-1:
-                # Jump over boundary
-                # Or close to the upper boundary
-                # Increase interval
-
-                alpha_max = 1.5 * a_new
-                phi_max = None
-                der_phi_max = None
-
             alpha.append(a_new)
-
             phi_i_1 = phi_i
             der_phi_i_1 = der_phi_i
 
-            i += 1
-            if abs(alpha[-1] - alpha[-2]) < 1.0e-5 or i == max_iter + 1:
+            if np.abs(a_new - alpha_max) < 1.0e-6:
+                phi_i = phi_max
+                der_phi_i = der_phi_max
+                g_i = g_max
+
+            if abs(alpha[-1] - alpha[-2]) < 1.0e-5:
                 # self.log('Cannot satisfy strong Wolfe condition')
                 # if i == max_iter:
                 #     self.log('Too many iterations')
@@ -216,6 +222,8 @@ class StrongWolfeConditions:
                 g_star = g_i
 
                 break
+
+            i += 1
 
         return a_star, phi_star, der_phi_star, g_star
 
@@ -232,6 +240,12 @@ class StrongWolfeConditions:
             a_j = cubic_interpolation(a_lo, a_hi,
                                       f_lo, f_hi,
                                       df_lo, df_hi)
+            if a_j < 0.01:
+                a_j = 0.1
+                phi_j, der_phi_j, g_j = \
+                    self.evaluate_phi_and_der_phi(x, p, n_dim, a_j,
+                                                  *args)
+                return a_j, phi_j, der_phi_j, g_j
 
             phi_j, der_phi_j, g_j = \
                 self.evaluate_phi_and_der_phi(x, p, n_dim, a_j, *args)
